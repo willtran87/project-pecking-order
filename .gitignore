@@ -1,0 +1,18 @@
+# Godot generated files
+.godot/
+*.tmp
+
+# Builds and local captures
+builds/
+captures/
+
+# Blender recovery files
+*.blend1
+*.blend2
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
