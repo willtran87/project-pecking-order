@@ -13,6 +13,7 @@ func _init() -> void:
 	store.delete()
 	_test_round_trip_and_backup_recovery(store, failures)
 	_test_input_validation_is_atomic(store, failures)
+	_test_recovery_candidate_contract(store, failures)
 	_test_corrupt_save_fallback(store, failures)
 	_test_schema_migration(store, failures)
 	_test_future_schema_rejection(store, failures)
@@ -24,7 +25,7 @@ func _init() -> void:
 			push_error("CAMPAIGN_SAVE_STORE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPAIGN_SAVE_STORE_TEST_PASSED schema=%d json=validated backup=recovered senior_roost=retained migration=v1-to-v2" % CampaignSaveStore.CURRENT_SCHEMA_VERSION)
+	print("CAMPAIGN_SAVE_STORE_TEST_PASSED schema=%d json=validated backup=recovered candidates=ordered+isolated senior_roost=retained migration=v1-to-v2" % CampaignSaveStore.CURRENT_SCHEMA_VERSION)
 	quit(0)
 
 
@@ -126,6 +127,14 @@ func _senior_roost_fixture(failures: Array[String]) -> Dictionary:
 		failures
 	)
 	_check(
+		bool(senior_roost.select_annual_mandate(
+			SeniorRoostState.MANDATE_FALLBACK_ID,
+			senior_roost.current_year_number(),
+		).get("accepted", false)),
+		"Senior Roost persistence fixture should file the universal annual mandate fallback",
+		failures,
+	)
+	_check(
 		senior_roost.record_quarter_policy({
 			"accepted": true,
 			"policy_id": "flock_dividend",
@@ -203,6 +212,103 @@ func _test_input_validation_is_atomic(store: CampaignSaveStore, failures: Array[
 	_check(store.last_error.contains("cyclic Dictionary"), "cycle rejection should be actionable", failures)
 
 
+func _test_recovery_candidate_contract(store: CampaignSaveStore, failures: Array[String]) -> void:
+	_check(store.delete(), "candidate fixture should start from an empty save set", failures)
+	_write_candidate_envelope(TEST_PATH, "primary", 2, failures)
+	_write_candidate_envelope("%s.bak" % TEST_PATH, "backup", 4, failures)
+	_write_candidate_envelope("%s.tmp" % TEST_PATH, "temporary", 4, failures)
+	_write_candidate_envelope("%s.bak.tmp" % TEST_PATH, "backup_temporary", 3, failures)
+
+	var candidates: Array[Dictionary] = store.load_recovery_candidates()
+	_check(candidates.size() == 4, "candidate API should return every envelope-valid artifact", failures)
+	_check(
+		_candidate_sources(candidates) == ["primary", "backup", "temporary", "backup_temporary"],
+		"candidate order should keep primary first, then revision-descending recoveries with stable source ties",
+		failures
+	)
+	var expected_revisions: Array[int] = [2, 4, 4, 3]
+	for index in candidates.size():
+		var candidate := candidates[index]
+		var metadata := candidate.get("metadata", {}) as Dictionary
+		var is_recovery := index > 0
+		_check(
+			int(candidate.get("schema_version", -1)) == CampaignSaveStore.CURRENT_SCHEMA_VERSION,
+			"candidate should expose the migrated outer schema",
+			failures
+		)
+		_check(
+			int(candidate.get("save_revision", -1)) == expected_revisions[index]
+			and int(metadata.get("save_revision", -1)) == expected_revisions[index],
+			"candidate should disclose one canonical top-level and metadata revision",
+			failures
+		)
+		_check(
+			bool(candidate.get("is_recovery", not is_recovery)) == is_recovery
+			and bool(candidate.get("recovered_from_backup", not is_recovery)) == is_recovery,
+			"candidate should distinguish primary from every recovery artifact",
+			failures
+		)
+	_check(store.last_error.is_empty(), "valid candidate discovery should clear artifact errors", failures)
+
+	var legacy_load := store.load()
+	_check(
+		String((legacy_load.get("campaign", {}) as Dictionary).get("marker", "")) == "primary",
+		"legacy load should still prefer an envelope-valid primary over newer recovery revisions",
+		failures
+	)
+	_check(
+		not legacy_load.has("save_revision") and not legacy_load.has("is_recovery"),
+		"legacy load should preserve its existing public envelope shape",
+		failures
+	)
+
+	var mutated_campaign := candidates[0].get("campaign", {}) as Dictionary
+	mutated_campaign["marker"] = "caller-mutated"
+	(mutated_campaign.get("shared", {}) as Dictionary)["token"] = "caller-mutated"
+	(candidates[0].get("metadata", {}) as Dictionary)["save_revision"] = 999
+	candidates[0]["save_revision"] = 999
+	_check(
+		String(((candidates[1].get("campaign", {}) as Dictionary).get("shared", {}) as Dictionary).get("token", "")) == "original",
+		"mutating one returned candidate must not alias another candidate",
+		failures
+	)
+	var fresh_candidates: Array[Dictionary] = store.load_recovery_candidates()
+	_check(
+		String((fresh_candidates[0].get("campaign", {}) as Dictionary).get("marker", "")) == "primary"
+		and String(((fresh_candidates[0].get("campaign", {}) as Dictionary).get("shared", {}) as Dictionary).get("token", "")) == "original"
+		and int(fresh_candidates[0].get("save_revision", -1)) == 2
+		and int((fresh_candidates[0].get("metadata", {}) as Dictionary).get("save_revision", -1)) == 2,
+		"candidate results must be deep-isolated from later calls and persisted envelopes",
+		failures
+	)
+
+	_write_raw("%s.bak.tmp" % TEST_PATH, "{ malformed backup transaction", failures)
+	var filtered: Array[Dictionary] = store.load_recovery_candidates()
+	_check(
+		_candidate_sources(filtered) == ["primary", "backup", "temporary"],
+		"malformed artifacts should be excluded without hiding valid candidates",
+		failures
+	)
+	_check(store.last_error.is_empty(), "excluded malformed artifacts should not poison successful discovery", failures)
+
+	_write_raw(TEST_PATH, "{ malformed primary", failures)
+	var recovery_only: Array[Dictionary] = store.load_recovery_candidates()
+	_check(
+		_candidate_sources(recovery_only) == ["backup", "temporary"]
+		and bool(recovery_only[0].get("is_recovery", false)),
+		"without a valid primary, recovery candidates should retain deterministic revision/source order",
+		failures
+	)
+	var recovered_load := store.load()
+	_check(
+		String(recovered_load.get("recovery_source", "")) == "backup"
+		and bool(recovered_load.get("recovered_from_backup", false)),
+		"legacy load should select the first ordered recovery candidate",
+		failures
+	)
+	_check(store.delete(), "candidate fixture cleanup should remove every artifact", failures)
+
+
 func _test_corrupt_save_fallback(store: CampaignSaveStore, failures: Array[String]) -> void:
 	_write_raw(TEST_PATH, "not-json", failures)
 	_write_raw("%s.bak" % TEST_PATH, "also-not-json", failures)
@@ -258,6 +364,41 @@ func _write_raw(path: String, contents: String, failures: Array[String]) -> void
 		return
 	file.store_string(contents)
 	file.close()
+
+
+func _write_candidate_envelope(
+	path: String,
+	marker: String,
+	revision: int,
+	failures: Array[String]
+) -> void:
+	var envelope := {
+		"format": CampaignSaveStore.SAVE_FORMAT,
+		"schema_version": CampaignSaveStore.CURRENT_SCHEMA_VERSION,
+		"campaign": {
+			"marker": marker,
+			"counter": revision,
+			"shared": {"token": "original"},
+		},
+		"metadata": {
+			"fixture_source": marker,
+			"saved_at_unix": 1000 + revision,
+			"save_revision": revision,
+		},
+		"integer_paths": [
+			"/campaign/counter",
+			"/metadata/saved_at_unix",
+			"/metadata/save_revision",
+		],
+	}
+	_write_raw(path, JSON.stringify(envelope), failures)
+
+
+func _candidate_sources(candidates: Array[Dictionary]) -> Array[String]:
+	var sources: Array[String] = []
+	for candidate in candidates:
+		sources.append(String(candidate.get("recovery_source", "")))
+	return sources
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

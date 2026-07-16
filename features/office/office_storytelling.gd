@@ -2,6 +2,22 @@ class_name OfficeStorytelling
 extends Node3D
 
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
+const ShellQualityLabVisualScript := preload("res://features/office/shell_quality_lab_visual.gd")
+const PackingAnnexVisualScript := preload("res://features/office/packing_annex_visual.gd")
+const RecordsAnnexVisualScript := preload("res://features/office/records_annex_visual.gd")
+const FarmMutualServiceCoopVisualScript := preload("res://features/office/farm_mutual_service_coop_visual.gd")
+const FarmMutualNegotiationRoomVisualScript := preload("res://features/office/farm_mutual_negotiation_room_visual.gd")
+const FarmMutualContractBoardVisualScript := preload("res://features/office/farm_mutual_contract_board_visual.gd")
+const WellnessNestVisualScript := preload("res://features/office/wellness_nest_visual.gd")
+const TrainingRoostVisualScript := preload("res://features/office/training_roost_visual.gd")
+const FarmerRelationsGalleryVisualScript := preload("res://features/office/farmer_relations_gallery_visual.gd")
+const RoosterOperationsOfficeVisualScript := preload("res://features/office/rooster_operations_office_visual.gd")
+const ITCoopVisualScript := preload("res://features/office/it_coop_visual.gd")
+const FlockRelationsOfficeVisualScript := preload("res://features/office/flock_relations_office_visual.gd")
+const FeedProcurementCoopVisualScript := preload("res://features/office/feed_procurement_coop_visual.gd")
+const FarmgateDispatchDepotVisualScript := preload("res://features/office/farmgate_dispatch_depot_visual.gd")
+const CampusExpansionVisualScript := preload("res://features/office/campus_expansion_visual.gd")
+const CampusPortfolioVisualScript := preload("res://features/office/campus_portfolio_visual.gd")
 
 ## Dense, visual-only office staging for the Egg Yield Bureau. All geometry is
 ## intentionally non-colliding: substantial props live in perimeter alcoves,
@@ -59,6 +75,85 @@ const GRADING_RECEIPT_COLORS := {
 	&"golden": Color("d6a34e"),
 	&"cracked": Color("b85c51"),
 }
+const CARE_CAMPUS_SPINE_FOOTPRINT := Rect2(Vector2(10.75, 8.70), Vector2(1.00, 18.50))
+const OPERATIONS_CAMPUS_SPINE_FOOTPRINT := Rect2(Vector2(10.75, 27.20), Vector2(1.00, 12.00))
+const CARE_CAMPUS_FIRST_BAY_FOOTPRINT := Rect2(Vector2(10.75, 8.70), Vector2(1.00, 12.40))
+const CARE_CAMPUS_SECOND_BAY_FOOTPRINT := Rect2(Vector2(10.75, 21.10), Vector2(1.00, 6.10))
+const OPERATIONS_CAMPUS_FIRST_BAY_FOOTPRINT := Rect2(Vector2(10.75, 27.20), Vector2(1.00, 5.90))
+const OPERATIONS_CAMPUS_SECOND_BAY_FOOTPRINT := Rect2(Vector2(10.75, 33.10), Vector2(1.00, 6.10))
+
+# Presentation states are deliberately derived from the authoritative snapshot.
+# They are not save data and never alter construction, economy, or unlock state.
+const CAMPUS_PRESENTATION_HIDDEN: StringName = &"hidden"
+const CAMPUS_PRESENTATION_TEASED: StringName = &"teased"
+const CAMPUS_PRESENTATION_OFFERED: StringName = &"offered"
+const CAMPUS_PRESENTATION_PINNED: StringName = &"pinned"
+const CAMPUS_PRESENTATION_OWNED: StringName = &"owned"
+
+const CANDLING_REWORK_BAY_ID: StringName = &"candling_rework_bay"
+const PACKING_ANNEX_ID: StringName = &"farmer_brand_packing_annex"
+const RECORDS_ANNEX_ID: StringName = &"records_annex"
+const FARM_MUTUAL_SERVICE_COOP_ID: StringName = &"farm_mutual_service_coop"
+const FARM_MUTUAL_NEGOTIATION_ROOM_ID: StringName = &"farm_mutual_negotiation_room"
+const WELLNESS_NEST_ID: StringName = &"wellness_nest_room"
+const TRAINING_ROOST_ID: StringName = &"training_roost"
+const ROOSTER_OPERATIONS_OFFICE_ID: StringName = &"rooster_operations_office"
+const IT_COOP_ID: StringName = &"it_coop"
+const FLOCK_RELATIONS_OFFICE_ID: StringName = &"flock_relations_office"
+const FEED_PROCUREMENT_COOP_ID: StringName = &"feed_procurement_coop"
+const FARMER_RELATIONS_GALLERY_ID: StringName = &"farmer_relations_gallery"
+const FARMGATE_DISPATCH_DEPOT_ID: StringName = &"farmgate_dispatch_depot"
+const FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID: StringName = &"farm_mutual_contract_board"
+const NORTH_MEADOW_PRESENTATION_ID: StringName = &"north_meadow"
+const ORCHARD_ROW_PRESENTATION_ID: StringName = &"orchard_row"
+const CREEKSIDE_YARD_PRESENTATION_ID: StringName = &"creekside_yard"
+const CARE_CAMPUS_SPINE_PRESENTATION_ID: StringName = &"care_campus_spine"
+const OPERATIONS_CAMPUS_SPINE_PRESENTATION_ID: StringName = &"operations_campus_spine"
+const PORTFOLIO_SERVICE_TRUNK_PRESENTATION_ID: StringName = &"portfolio_service_trunk"
+
+const CAMPUS_PRESENTATION_FACILITY_ORDER: Array[StringName] = [
+	CANDLING_REWORK_BAY_ID,
+	PACKING_ANNEX_ID,
+	RECORDS_ANNEX_ID,
+	FARM_MUTUAL_SERVICE_COOP_ID,
+	FARM_MUTUAL_NEGOTIATION_ROOM_ID,
+	WELLNESS_NEST_ID,
+	TRAINING_ROOST_ID,
+	ROOSTER_OPERATIONS_OFFICE_ID,
+	IT_COOP_ID,
+	FLOCK_RELATIONS_OFFICE_ID,
+	FEED_PROCUREMENT_COOP_ID,
+	FARMER_RELATIONS_GALLERY_ID,
+	FARMGATE_DISPATCH_DEPOT_ID,
+]
+const CARE_CAMPUS_FACILITY_IDS: Array[StringName] = [
+	WELLNESS_NEST_ID,
+	TRAINING_ROOST_ID,
+	FARMER_RELATIONS_GALLERY_ID,
+]
+const OPERATIONS_CAMPUS_FACILITY_IDS: Array[StringName] = [
+	ROOSTER_OPERATIONS_OFFICE_ID,
+	IT_COOP_ID,
+	FLOCK_RELATIONS_OFFICE_ID,
+	FEED_PROCUREMENT_COOP_ID,
+]
+const CAMPUS_PRESENTATION_TEASER_ORDER: Array[StringName] = [
+	PACKING_ANNEX_ID,
+	RECORDS_ANNEX_ID,
+	FARM_MUTUAL_SERVICE_COOP_ID,
+	WELLNESS_NEST_ID,
+	TRAINING_ROOST_ID,
+	FARMER_RELATIONS_GALLERY_ID,
+	ROOSTER_OPERATIONS_OFFICE_ID,
+	FEED_PROCUREMENT_COOP_ID,
+	IT_COOP_ID,
+	FARM_MUTUAL_NEGOTIATION_ROOM_ID,
+	FARMGATE_DISPATCH_DEPOT_ID,
+	FLOCK_RELATIONS_OFFICE_ID,
+	NORTH_MEADOW_PRESENTATION_ID,
+	ORCHARD_ROW_PRESENTATION_ID,
+	CREEKSIDE_YARD_PRESENTATION_ID,
+]
 
 
 class EggHandoffTrail extends RefCounted:
@@ -75,6 +170,28 @@ var egg_collection_root: Node3D
 var zone_markers_root: Node3D
 var bureau_satire_root: Node3D
 var records_archive_root: Node3D
+var shell_quality_lab_visual: ShellQualityLabVisual
+var packing_annex_visual: Node3D
+var records_annex_visual: Node3D
+var farm_mutual_service_coop_visual: Node3D
+var farm_mutual_negotiation_room_visual: Node3D
+var farm_mutual_contract_board_visual: Node3D
+var care_campus_spine_root: Node3D
+var care_campus_first_bay_root: Node3D
+var care_campus_second_bay_root: Node3D
+var wellness_nest_visual: Node3D
+var training_roost_visual: Node3D
+var farmer_relations_gallery_visual: Node3D
+var operations_campus_spine_root: Node3D
+var operations_campus_first_bay_root: Node3D
+var operations_campus_second_bay_root: Node3D
+var rooster_operations_office_visual: Node3D
+var it_coop_visual: Node3D
+var flock_relations_office_visual: Node3D
+var feed_procurement_coop_visual: Node3D
+var farmgate_dispatch_depot_visual: Node3D
+var campus_expansion_visual: Node3D
+var campus_portfolio_visual: Node3D
 
 var _desk_positions: Array[Vector3] = DEFAULT_DESK_POSITIONS.duplicate()
 var _intake_position := DEFAULT_INTAKE_POSITION
@@ -116,6 +233,11 @@ var _configured := false
 var _built := false
 var _overtime_active := false
 var _phase := 0.0
+var _campus_presentation: Dictionary = {}
+var _visible_campus_footprints: Array[Rect2] = []
+var _visible_campus_bounds := Rect2()
+var _last_campus_presentation_source: Dictionary = {}
+var _last_campus_presentation_options: Dictionary = {}
 
 
 func _ready() -> void:
@@ -176,9 +298,45 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		var worker := worker_variant as Dictionary
 		bind_worker_to_desk(int(worker.get("id", -1)), int(worker.get("desk_index", -1)))
 	_reconcile_clutch_from_snapshot(snapshot)
+	if shell_quality_lab_visual != null:
+		shell_quality_lab_visual.apply_snapshot(snapshot)
+	if packing_annex_visual != null:
+		packing_annex_visual.call("apply_snapshot", snapshot)
+	if records_annex_visual != null:
+		records_annex_visual.call("apply_snapshot", snapshot)
+	if farm_mutual_service_coop_visual != null:
+		farm_mutual_service_coop_visual.call("apply_snapshot", snapshot)
+	if farm_mutual_negotiation_room_visual != null:
+		farm_mutual_negotiation_room_visual.call("apply_snapshot", snapshot)
+	if farm_mutual_contract_board_visual != null:
+		farm_mutual_contract_board_visual.call("apply_snapshot", snapshot)
+	if wellness_nest_visual != null:
+		wellness_nest_visual.call("apply_snapshot", snapshot)
+	if training_roost_visual != null:
+		training_roost_visual.call("apply_snapshot", snapshot)
+	if farmer_relations_gallery_visual != null:
+		farmer_relations_gallery_visual.call("apply_snapshot", snapshot)
+	if rooster_operations_office_visual != null:
+		rooster_operations_office_visual.call("apply_snapshot", snapshot)
+	if it_coop_visual != null:
+		it_coop_visual.call("apply_snapshot", snapshot)
+	if flock_relations_office_visual != null:
+		flock_relations_office_visual.call("apply_snapshot", snapshot)
+	if feed_procurement_coop_visual != null:
+		feed_procurement_coop_visual.call("apply_snapshot", snapshot)
+	if farmgate_dispatch_depot_visual != null:
+		farmgate_dispatch_depot_visual.call("apply_snapshot", snapshot)
+	if campus_expansion_visual != null:
+		campus_expansion_visual.call("apply_snapshot", snapshot)
+	if campus_portfolio_visual != null:
+		campus_portfolio_visual.call("apply_snapshot", snapshot)
+	# Child visuals retain their complete locked/survey/owned projections. The
+	# presentation layer gates only their parent roots after those projections
+	# update, so revealing a site later never requires rebuilding or save data.
+	_refresh_campus_presentation_source(snapshot)
 	if _metrics_label != null:
 		var lane_counts := snapshot.get("claim_queue_counts", {}) as Dictionary
-		_metrics_label.text = "TODAY  %03d / %03d\nQUEUE  N%02d  P%02d  A%02d\n%s  ·  LIVE" % [
+		_metrics_label.text = "YIELD  %03d / %03d\nN %02d   P %02d   A %02d\n%s  ·  LIVE" % [
 			int(snapshot.get("eggs_today", 0)),
 			int(snapshot.get("quota_target", 0)),
 			int(lane_counts.get(&"nest_damage", 0)),
@@ -194,6 +352,70 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		]
 		EnvironmentalSignageScript.refit_label(_intake_status_label)
 	set_overtime(bool(snapshot.get("overtime_enabled", false)))
+
+
+## Applies a presentation-only campus reveal derived from the authoritative
+## simulation snapshot. `presentation_state` may contain:
+## - `offered_ids`: opportunities the current UI has explicitly surfaced;
+## - `teaser_id`: one explicit hidden opportunity to preview; or
+## - `show_next_teaser` plus `teaser_window_days` (defaults to one day).
+##
+## The result is intentionally ephemeral. It is safe for old saves because
+## owned/offered/pinned state is reconstructed from their current snapshot.
+func apply_campus_presentation(
+		snapshot: Dictionary,
+		presentation_state: Dictionary = {},
+) -> Dictionary:
+	_last_campus_presentation_options = presentation_state.duplicate(true)
+	return _refresh_campus_presentation_source(snapshot)
+
+
+func _refresh_campus_presentation_source(snapshot: Dictionary) -> Dictionary:
+	_last_campus_presentation_source = _campus_presentation_source(snapshot)
+	_rebuild_campus_presentation()
+	return campus_presentation_snapshot()
+
+
+## Stable read model for UI, camera, and tests. `entries_by_id` includes hidden
+## entries so callers can distinguish an undiscovered site from missing data.
+func campus_presentation_snapshot() -> Dictionary:
+	return _campus_presentation.duplicate(true)
+
+
+func campus_presentation_state(presentation_id: StringName) -> StringName:
+	var entries := _campus_presentation.get("entries_by_id", {}) as Dictionary
+	var entry := entries.get(presentation_id, entries.get(String(presentation_id), {})) as Dictionary
+	return StringName(String(entry.get("state", CAMPUS_PRESENTATION_HIDDEN)))
+
+
+## World-local X/Z footprints for only the roots that are currently presented.
+## Office can merge these into its compact base bounds without knowing facility
+## implementation classes or accidentally framing undiscovered parcels.
+func visible_campus_footprints() -> Array[Rect2]:
+	var result: Array[Rect2] = []
+	for footprint: Rect2 in _visible_campus_footprints:
+		result.append(footprint)
+	return result
+
+
+func visible_campus_bounds() -> Rect2:
+	return _visible_campus_bounds
+
+
+func visible_campus_camera_aabb(
+		minimum_y: float = -0.20,
+		maximum_y: float = 4.50,
+) -> AABB:
+	if _visible_campus_bounds.size.x <= 0.0 or _visible_campus_bounds.size.y <= 0.0:
+		return AABB()
+	return AABB(
+		Vector3(_visible_campus_bounds.position.x, minimum_y, _visible_campus_bounds.position.y),
+		Vector3(
+			_visible_campus_bounds.size.x,
+			maxf(0.0, maximum_y - minimum_y),
+			_visible_campus_bounds.size.y,
+		),
+	)
 
 
 func set_overtime(active: bool) -> void:
@@ -1184,6 +1406,583 @@ func _desk_index_for_worker(worker_id: int) -> int:
 	return fallback if fallback >= 0 and fallback < _desk_positions.size() else -1
 
 
+func _campus_presentation_source(snapshot: Dictionary) -> Dictionary:
+	var source: Dictionary = {}
+	for key: String in [
+		"day",
+		"owned_facilities",
+		"facility_catalog",
+		"pinned_capital_plan_id",
+		"capital_plan",
+		"contract_board",
+		"campus_expansion",
+		"campus_portfolio",
+	]:
+		if not snapshot.has(key):
+			continue
+		var value: Variant = snapshot.get(key)
+		if value is Dictionary:
+			source[key] = (value as Dictionary).duplicate(true)
+		elif value is Array:
+			source[key] = (value as Array).duplicate(true)
+		else:
+			source[key] = value
+	return source
+
+
+func _rebuild_campus_presentation() -> void:
+	var source := _last_campus_presentation_source
+	var options := _last_campus_presentation_options
+	var entries: Dictionary = {}
+	var offered_ids := _presentation_id_set(options.get("offered_ids", []))
+	var facility_records := _presentation_records_by_id(source.get("facility_catalog", []), "id")
+	var owned_value: Variant = source.get("owned_facilities", {})
+	var owned_facilities := owned_value as Dictionary if owned_value is Dictionary else {}
+	var pinned_id := _presentation_pinned_facility_id(source)
+
+	for facility_id: StringName in CAMPUS_PRESENTATION_FACILITY_ORDER:
+		var facility := facility_records.get(facility_id, {}) as Dictionary
+		var owned_level := _presentation_level(owned_facilities.get(
+			facility_id,
+			owned_facilities.get(String(facility_id), 0),
+		))
+		var catalog_level := _presentation_level(facility.get(
+			"level",
+			facility.get("owned_level", 1 if bool(facility.get("installed", false)) else 0),
+		))
+		var owned := (
+			maxi(owned_level, catalog_level) > 0
+			or bool(facility.get("owned", facility.get("installed", false)))
+		)
+		var offered := (
+			bool(facility.get(
+				"unlocked",
+				facility.get("available", facility.get("can_purchase", false)),
+			))
+			or offered_ids.has(facility_id)
+		)
+		var state := CAMPUS_PRESENTATION_HIDDEN
+		if owned:
+			state = CAMPUS_PRESENTATION_OWNED
+		elif pinned_id == facility_id:
+			state = CAMPUS_PRESENTATION_PINNED
+		elif offered:
+			state = CAMPUS_PRESENTATION_OFFERED
+		entries[facility_id] = _campus_presentation_entry(
+			facility_id,
+			state,
+			_facility_root_name(facility_id),
+			_facility_footprint(facility_id),
+			&"facility",
+			int(facility.get("unlock_day", facility.get("next_unlock_day", 0))),
+		)
+
+	var contract_board_value: Variant = source.get("contract_board", {})
+	var contract_board := contract_board_value as Dictionary if contract_board_value is Dictionary else {}
+	var active_contract_value: Variant = contract_board.get(
+		"active_contract",
+		contract_board.get("active", {}),
+	)
+	var contract_active := active_contract_value is Dictionary and not (active_contract_value as Dictionary).is_empty()
+	var contract_offered := (
+		bool(contract_board.get("unlocked", false))
+		or contract_active
+		or int(contract_board.get("contracts_signed_total", 0)) > 0
+		or offered_ids.has(FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID)
+	)
+	entries[FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID] = _campus_presentation_entry(
+		FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID,
+		CAMPUS_PRESENTATION_OFFERED if contract_offered else CAMPUS_PRESENTATION_HIDDEN,
+		"FarmMutualContractBoardVisual",
+		FarmMutualContractBoardVisualScript.declared_footprint(),
+		&"governance",
+		int(contract_board.get("unlock_day", 0)),
+	)
+
+	var expansion_value: Variant = source.get("campus_expansion", {})
+	var expansion := expansion_value as Dictionary if expansion_value is Dictionary else {}
+	var north_parcel_value: Variant = expansion.get("parcel", {})
+	var north_parcel := north_parcel_value as Dictionary if north_parcel_value is Dictionary else {}
+	var north_owned := bool(expansion.get(
+		"parcel_owned",
+		north_parcel.get("owned", false),
+	))
+	var north_offered := (
+		bool(expansion.get("access_gate_met", false))
+		or bool(north_parcel.get("can_purchase", false))
+		or offered_ids.has(NORTH_MEADOW_PRESENTATION_ID)
+	)
+	var north_state := CAMPUS_PRESENTATION_HIDDEN
+	if north_owned:
+		north_state = CAMPUS_PRESENTATION_OWNED
+	elif north_offered:
+		north_state = CAMPUS_PRESENTATION_OFFERED
+	entries[NORTH_MEADOW_PRESENTATION_ID] = _campus_presentation_entry(
+		NORTH_MEADOW_PRESENTATION_ID,
+		north_state,
+		"CampusExpansionVisual",
+		CampusExpansionVisualScript.declared_footprint(),
+		&"parcel",
+		int(expansion.get("unlock_day", 0)),
+	)
+
+	var portfolio_value: Variant = source.get("campus_portfolio", {})
+	var portfolio := portfolio_value as Dictionary if portfolio_value is Dictionary else {}
+	var parcel_records := _presentation_records_by_id(portfolio.get("parcels", []), "id")
+	var current_day := int(source.get("day", portfolio.get("current_day", 1)))
+	var any_portfolio_owned := false
+	for parcel_id: StringName in [ORCHARD_ROW_PRESENTATION_ID, CREEKSIDE_YARD_PRESENTATION_ID]:
+		var parcel := parcel_records.get(parcel_id, {}) as Dictionary
+		var parcel_owned := _presentation_parcel_owned(parcel)
+		any_portfolio_owned = any_portfolio_owned or parcel_owned
+		var unlock_day := int(parcel.get("unlock_day", 0))
+		var parcel_offered := (
+			not parcel.is_empty()
+			and (
+				bool(parcel.get("can_purchase", false))
+				or (unlock_day > 0 and current_day >= unlock_day)
+			)
+		) or offered_ids.has(parcel_id)
+		var parcel_state := CAMPUS_PRESENTATION_HIDDEN
+		if parcel_owned:
+			parcel_state = CAMPUS_PRESENTATION_OWNED
+		elif parcel_offered:
+			parcel_state = CAMPUS_PRESENTATION_OFFERED
+		entries[parcel_id] = _campus_presentation_entry(
+			parcel_id,
+			parcel_state,
+			"%sParcel" % String(parcel_id).to_pascal_case(),
+			CampusPortfolioVisualScript.declared_footprint(parcel_id),
+			&"parcel",
+			unlock_day,
+		)
+
+	var teaser_id := _select_campus_teaser(entries, current_day, options)
+	if teaser_id != &"":
+		var teaser := (entries.get(teaser_id, {}) as Dictionary).duplicate(true)
+		teaser["state"] = CAMPUS_PRESENTATION_TEASED
+		teaser["visible"] = true
+		entries[teaser_id] = teaser
+
+	entries[CARE_CAMPUS_SPINE_PRESENTATION_ID] = _campus_presentation_entry(
+		CARE_CAMPUS_SPINE_PRESENTATION_ID,
+		_presentation_support_state(entries, CARE_CAMPUS_FACILITY_IDS),
+		"CareCampusSpine",
+		_care_spine_presentation_footprint(entries),
+		&"infrastructure",
+	)
+	entries[OPERATIONS_CAMPUS_SPINE_PRESENTATION_ID] = _campus_presentation_entry(
+		OPERATIONS_CAMPUS_SPINE_PRESENTATION_ID,
+		_presentation_support_state(entries, OPERATIONS_CAMPUS_FACILITY_IDS),
+		"OperationsCampusSpine",
+		_operations_spine_presentation_footprint(entries),
+		&"infrastructure",
+	)
+	var trunk_developed := any_portfolio_owned or _portfolio_has_development(portfolio)
+	entries[PORTFOLIO_SERVICE_TRUNK_PRESENTATION_ID] = _campus_presentation_entry(
+		PORTFOLIO_SERVICE_TRUNK_PRESENTATION_ID,
+		CAMPUS_PRESENTATION_OWNED if trunk_developed else CAMPUS_PRESENTATION_HIDDEN,
+		"PortfolioSharedInfrastructure",
+		CampusPortfolioVisualScript.protected_trunk_footprint(),
+		&"infrastructure",
+	)
+
+	_apply_campus_presentation_entries(entries)
+	var visible_ids: Array[StringName] = []
+	var visible_footprints: Array[Rect2] = []
+	var has_bounds := false
+	var bounds := Rect2()
+	for presentation_id: StringName in _campus_presentation_entry_order():
+		var entry := entries.get(presentation_id, {}) as Dictionary
+		if not bool(entry.get("visible", false)):
+			continue
+		visible_ids.append(presentation_id)
+		var footprint := entry.get("footprint", Rect2()) as Rect2
+		if footprint.size.x <= 0.0 or footprint.size.y <= 0.0:
+			continue
+		if footprint not in visible_footprints:
+			visible_footprints.append(footprint)
+		bounds = bounds.merge(footprint) if has_bounds else footprint
+		has_bounds = true
+	_visible_campus_footprints = visible_footprints
+	_visible_campus_bounds = bounds if has_bounds else Rect2()
+	_campus_presentation = {
+		"entries_by_id": entries.duplicate(true),
+		"visible_ids": visible_ids.duplicate(),
+		"teaser_id": teaser_id,
+		"visible_footprints": visible_footprints.duplicate(),
+		"visible_bounds": _visible_campus_bounds,
+	}
+
+
+func _campus_presentation_entry(
+		presentation_id: StringName,
+		state: StringName,
+		root_name: String,
+		footprint: Rect2,
+		category: StringName,
+		unlock_day: int = 0,
+) -> Dictionary:
+	return {
+		"id": presentation_id,
+		"state": state,
+		"visible": state != CAMPUS_PRESENTATION_HIDDEN,
+		"root_name": root_name,
+		"footprint": footprint,
+		"category": category,
+		"unlock_day": maxi(0, unlock_day),
+	}
+
+
+func _select_campus_teaser(
+		entries: Dictionary,
+		current_day: int,
+		options: Dictionary,
+) -> StringName:
+	var explicit_id := StringName(String(options.get("teaser_id", "")))
+	if explicit_id != &"" and entries.has(explicit_id):
+		var explicit_entry := entries.get(explicit_id, {}) as Dictionary
+		if StringName(String(explicit_entry.get("state", CAMPUS_PRESENTATION_HIDDEN))) == CAMPUS_PRESENTATION_HIDDEN:
+			return explicit_id
+	if not bool(options.get("show_next_teaser", false)):
+		return &""
+	var window_days := clampi(int(options.get("teaser_window_days", 1)), 0, 30)
+	var selected_id: StringName = &""
+	var selected_day := 2_147_483_647
+	for candidate_id: StringName in CAMPUS_PRESENTATION_TEASER_ORDER:
+		var entry := entries.get(candidate_id, {}) as Dictionary
+		if StringName(String(entry.get("state", CAMPUS_PRESENTATION_HIDDEN))) != CAMPUS_PRESENTATION_HIDDEN:
+			continue
+		var unlock_day := int(entry.get("unlock_day", 0))
+		if unlock_day <= current_day or unlock_day > current_day + window_days:
+			continue
+		if unlock_day < selected_day:
+			selected_day = unlock_day
+			selected_id = candidate_id
+	return selected_id
+
+
+func _presentation_support_state(entries: Dictionary, served_ids: Array[StringName]) -> StringName:
+	for candidate_state: StringName in [
+		CAMPUS_PRESENTATION_OWNED,
+		CAMPUS_PRESENTATION_PINNED,
+		CAMPUS_PRESENTATION_OFFERED,
+	]:
+		for presentation_id: StringName in served_ids:
+			var entry := entries.get(presentation_id, {}) as Dictionary
+			if StringName(String(entry.get("state", CAMPUS_PRESENTATION_HIDDEN))) == candidate_state:
+				return candidate_state
+	return CAMPUS_PRESENTATION_HIDDEN
+
+
+func _care_spine_presentation_footprint(entries: Dictionary) -> Rect2:
+	var first_state := _presentation_support_state(entries, CARE_CAMPUS_FACILITY_IDS)
+	if first_state == CAMPUS_PRESENTATION_HIDDEN:
+		return Rect2()
+	var second_state := _presentation_support_state(entries, [
+		TRAINING_ROOST_ID,
+		FARMER_RELATIONS_GALLERY_ID,
+	])
+	return (
+		CARE_CAMPUS_SPINE_FOOTPRINT
+		if second_state != CAMPUS_PRESENTATION_HIDDEN else
+		CARE_CAMPUS_FIRST_BAY_FOOTPRINT
+	)
+
+
+func _operations_spine_presentation_footprint(entries: Dictionary) -> Rect2:
+	var first_state := _presentation_support_state(entries, OPERATIONS_CAMPUS_FACILITY_IDS)
+	if first_state == CAMPUS_PRESENTATION_HIDDEN:
+		return Rect2()
+	var second_state := _presentation_support_state(entries, [
+		IT_COOP_ID,
+		FLOCK_RELATIONS_OFFICE_ID,
+	])
+	return (
+		OPERATIONS_CAMPUS_SPINE_FOOTPRINT
+		if second_state != CAMPUS_PRESENTATION_HIDDEN else
+		OPERATIONS_CAMPUS_FIRST_BAY_FOOTPRINT
+	)
+
+
+func _apply_campus_presentation_entries(entries: Dictionary) -> void:
+	for facility_id: StringName in CAMPUS_PRESENTATION_FACILITY_ORDER:
+		_apply_presentation_to_root(
+			_facility_root(facility_id),
+			facility_id,
+			_entry_presentation_state(entries, facility_id),
+		)
+	_apply_presentation_to_root(
+		farm_mutual_contract_board_visual,
+		FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID,
+		_entry_presentation_state(entries, FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID),
+	)
+	_apply_presentation_to_root(
+		care_campus_spine_root,
+		CARE_CAMPUS_SPINE_PRESENTATION_ID,
+		_entry_presentation_state(entries, CARE_CAMPUS_SPINE_PRESENTATION_ID),
+	)
+	var care_first_state := _presentation_support_state(entries, CARE_CAMPUS_FACILITY_IDS)
+	var care_second_state := _presentation_support_state(entries, [
+		TRAINING_ROOST_ID,
+		FARMER_RELATIONS_GALLERY_ID,
+	])
+	_apply_presentation_to_root(care_campus_first_bay_root, &"care_campus_first_bay", care_first_state)
+	_apply_presentation_to_root(care_campus_second_bay_root, &"care_campus_second_bay", care_second_state)
+	_apply_presentation_to_root(
+		operations_campus_spine_root,
+		OPERATIONS_CAMPUS_SPINE_PRESENTATION_ID,
+		_entry_presentation_state(entries, OPERATIONS_CAMPUS_SPINE_PRESENTATION_ID),
+	)
+	var operations_first_state := _presentation_support_state(entries, OPERATIONS_CAMPUS_FACILITY_IDS)
+	var operations_second_state := _presentation_support_state(entries, [
+		IT_COOP_ID,
+		FLOCK_RELATIONS_OFFICE_ID,
+	])
+	_apply_presentation_to_root(
+		operations_campus_first_bay_root,
+		&"operations_campus_first_bay",
+		operations_first_state,
+	)
+	_apply_presentation_to_root(
+		operations_campus_second_bay_root,
+		&"operations_campus_second_bay",
+		operations_second_state,
+	)
+	_apply_presentation_to_root(
+		campus_expansion_visual,
+		NORTH_MEADOW_PRESENTATION_ID,
+		_entry_presentation_state(entries, NORTH_MEADOW_PRESENTATION_ID),
+	)
+
+	var orchard_state := _entry_presentation_state(entries, ORCHARD_ROW_PRESENTATION_ID)
+	var creekside_state := _entry_presentation_state(entries, CREEKSIDE_YARD_PRESENTATION_ID)
+	var trunk_state := _entry_presentation_state(entries, PORTFOLIO_SERVICE_TRUNK_PRESENTATION_ID)
+	if campus_portfolio_visual != null and is_instance_valid(campus_portfolio_visual):
+		var orchard_root := campus_portfolio_visual.find_child("OrchardRowParcel", true, false) as Node3D
+		var creekside_root := campus_portfolio_visual.find_child("CreeksideYardParcel", true, false) as Node3D
+		var trunk_root := campus_portfolio_visual.find_child("PortfolioSharedInfrastructure", true, false) as Node3D
+		_apply_presentation_to_root(orchard_root, ORCHARD_ROW_PRESENTATION_ID, orchard_state)
+		_apply_presentation_to_root(creekside_root, CREEKSIDE_YARD_PRESENTATION_ID, creekside_state)
+		_apply_presentation_to_root(trunk_root, PORTFOLIO_SERVICE_TRUNK_PRESENTATION_ID, trunk_state)
+		var portfolio_state := _strongest_presentation_state([
+			orchard_state,
+			creekside_state,
+			trunk_state,
+		])
+		_apply_presentation_to_root(campus_portfolio_visual, &"campus_portfolio", portfolio_state)
+
+
+func _apply_presentation_to_root(
+		root_node: Node3D,
+		presentation_id: StringName,
+		state: StringName,
+) -> void:
+	if root_node == null or not is_instance_valid(root_node):
+		return
+	root_node.visible = state != CAMPUS_PRESENTATION_HIDDEN
+	root_node.set_meta(&"presentation_id", presentation_id)
+	root_node.set_meta(&"presentation_state", state)
+	root_node.set_meta(&"presentation_visible", root_node.visible)
+
+
+func _entry_presentation_state(entries: Dictionary, presentation_id: StringName) -> StringName:
+	var entry := entries.get(presentation_id, {}) as Dictionary
+	return StringName(String(entry.get("state", CAMPUS_PRESENTATION_HIDDEN)))
+
+
+func _strongest_presentation_state(states: Array[StringName]) -> StringName:
+	for candidate: StringName in [
+		CAMPUS_PRESENTATION_OWNED,
+		CAMPUS_PRESENTATION_PINNED,
+		CAMPUS_PRESENTATION_OFFERED,
+		CAMPUS_PRESENTATION_TEASED,
+	]:
+		if candidate in states:
+			return candidate
+	return CAMPUS_PRESENTATION_HIDDEN
+
+
+func _presentation_pinned_facility_id(source: Dictionary) -> StringName:
+	var pinned_id := StringName(String(source.get("pinned_capital_plan_id", "")))
+	if pinned_id != &"":
+		return pinned_id
+	var capital_value: Variant = source.get("capital_plan", {})
+	if capital_value is not Dictionary:
+		return &""
+	var capital_plan := capital_value as Dictionary
+	return StringName(String(capital_plan.get(
+		"pinned_capital_plan_id",
+		capital_plan.get("facility_id", capital_plan.get("pinned_facility_id", "")),
+	)))
+
+
+func _presentation_level(value: Variant) -> int:
+	if value is Dictionary:
+		var record := value as Dictionary
+		return maxi(0, int(record.get(
+			"level",
+			record.get("owned_level", 1 if bool(record.get("installed", false)) else 0),
+		)))
+	if value is bool:
+		return 1 if bool(value) else 0
+	if value is int or value is float:
+		return maxi(0, int(value))
+	return 0
+
+
+func _presentation_parcel_owned(parcel: Dictionary) -> bool:
+	if bool(parcel.get("owned", parcel.get("parcel_owned", false))):
+		return true
+	return StringName(String(parcel.get("status", parcel.get("stage", ""))).to_lower()) in [
+		&"owned",
+		&"surveyed",
+		&"building",
+		&"operational",
+		&"complete",
+	]
+
+
+func _portfolio_has_development(portfolio: Dictionary) -> bool:
+	var projects_value: Variant = portfolio.get("projects", [])
+	if projects_value is Array and not (projects_value as Array).is_empty():
+		return true
+	if projects_value is Dictionary and not (projects_value as Dictionary).is_empty():
+		return true
+	var modules_value: Variant = portfolio.get("modules", portfolio.get("module_catalog", []))
+	var modules := _presentation_records_by_id(modules_value, "id")
+	for module_value: Variant in modules.values():
+		if module_value is Dictionary:
+			var module := module_value as Dictionary
+			if bool(module.get("installed", module.get("built", false))):
+				return true
+	return false
+
+
+func _presentation_records_by_id(value: Variant, id_key: String) -> Dictionary:
+	var records: Dictionary = {}
+	if value is Array:
+		for record_value: Variant in value as Array:
+			if record_value is not Dictionary:
+				continue
+			var record := record_value as Dictionary
+			var record_id := StringName(String(record.get(id_key, "")))
+			if record_id != &"":
+				records[record_id] = record.duplicate(true)
+	elif value is Dictionary:
+		for key: Variant in (value as Dictionary).keys():
+			var record_value: Variant = (value as Dictionary).get(key)
+			if record_value is not Dictionary:
+				continue
+			var record := (record_value as Dictionary).duplicate(true)
+			if not record.has(id_key):
+				record[id_key] = String(key)
+			var record_id := StringName(String(record.get(id_key, "")))
+			if record_id != &"":
+				records[record_id] = record
+	return records
+
+
+func _presentation_id_set(value: Variant) -> Dictionary:
+	var result: Dictionary = {}
+	if value is Array:
+		for id_value: Variant in value as Array:
+			var presentation_id := StringName(String(id_value))
+			if presentation_id != &"":
+				result[presentation_id] = true
+	elif value is PackedStringArray:
+		for id_value: String in value as PackedStringArray:
+			var presentation_id := StringName(id_value)
+			if presentation_id != &"":
+				result[presentation_id] = true
+	elif value is Dictionary:
+		for key: Variant in (value as Dictionary).keys():
+			if bool((value as Dictionary).get(key, false)):
+				result[StringName(String(key))] = true
+	return result
+
+
+func _campus_presentation_entry_order() -> Array[StringName]:
+	var order: Array[StringName] = CAMPUS_PRESENTATION_FACILITY_ORDER.duplicate()
+	order.append_array([
+		FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID,
+		NORTH_MEADOW_PRESENTATION_ID,
+		ORCHARD_ROW_PRESENTATION_ID,
+		CREEKSIDE_YARD_PRESENTATION_ID,
+		CARE_CAMPUS_SPINE_PRESENTATION_ID,
+		OPERATIONS_CAMPUS_SPINE_PRESENTATION_ID,
+		PORTFOLIO_SERVICE_TRUNK_PRESENTATION_ID,
+	])
+	return order
+
+
+func _facility_root(facility_id: StringName) -> Node3D:
+	match facility_id:
+		CANDLING_REWORK_BAY_ID:
+			return shell_quality_lab_visual
+		PACKING_ANNEX_ID:
+			return packing_annex_visual
+		RECORDS_ANNEX_ID:
+			return records_annex_visual
+		FARM_MUTUAL_SERVICE_COOP_ID:
+			return farm_mutual_service_coop_visual
+		FARM_MUTUAL_NEGOTIATION_ROOM_ID:
+			return farm_mutual_negotiation_room_visual
+		WELLNESS_NEST_ID:
+			return wellness_nest_visual
+		TRAINING_ROOST_ID:
+			return training_roost_visual
+		ROOSTER_OPERATIONS_OFFICE_ID:
+			return rooster_operations_office_visual
+		IT_COOP_ID:
+			return it_coop_visual
+		FLOCK_RELATIONS_OFFICE_ID:
+			return flock_relations_office_visual
+		FEED_PROCUREMENT_COOP_ID:
+			return feed_procurement_coop_visual
+		FARMER_RELATIONS_GALLERY_ID:
+			return farmer_relations_gallery_visual
+		FARMGATE_DISPATCH_DEPOT_ID:
+			return farmgate_dispatch_depot_visual
+	return null
+
+
+func _facility_root_name(facility_id: StringName) -> String:
+	var root_node := _facility_root(facility_id)
+	return String(root_node.name) if root_node != null else String(facility_id)
+
+
+func _facility_footprint(facility_id: StringName) -> Rect2:
+	match facility_id:
+		CANDLING_REWORK_BAY_ID:
+			return ShellQualityLabVisualScript.declared_footprint()
+		PACKING_ANNEX_ID:
+			return PackingAnnexVisualScript.declared_footprint()
+		RECORDS_ANNEX_ID:
+			return RecordsAnnexVisualScript.declared_footprint()
+		FARM_MUTUAL_SERVICE_COOP_ID:
+			return FarmMutualServiceCoopVisualScript.declared_footprint()
+		FARM_MUTUAL_NEGOTIATION_ROOM_ID:
+			return FarmMutualNegotiationRoomVisualScript.declared_footprint()
+		WELLNESS_NEST_ID:
+			return WellnessNestVisualScript.declared_footprint()
+		TRAINING_ROOST_ID:
+			return TrainingRoostVisualScript.declared_footprint()
+		ROOSTER_OPERATIONS_OFFICE_ID:
+			return RoosterOperationsOfficeVisualScript.declared_footprint()
+		IT_COOP_ID:
+			return ITCoopVisualScript.declared_footprint()
+		FLOCK_RELATIONS_OFFICE_ID:
+			return FlockRelationsOfficeVisualScript.declared_footprint()
+		FEED_PROCUREMENT_COOP_ID:
+			return FeedProcurementCoopVisualScript.declared_footprint()
+		FARMER_RELATIONS_GALLERY_ID:
+			return FarmerRelationsGalleryVisualScript.declared_footprint()
+		FARMGATE_DISPATCH_DEPOT_ID:
+			return FarmgateDispatchDepotVisualScript.declared_footprint()
+	return Rect2()
+
+
 func _build_all() -> void:
 	_built = true
 	_build_management_perch()
@@ -1191,6 +1990,25 @@ func _build_all() -> void:
 	_build_zone_markers()
 	_build_bureau_satire()
 	_build_records_and_intake_story()
+	_build_shell_quality_lab_visual()
+	_build_packing_annex_visual()
+	_build_records_annex_visual()
+	_build_farm_mutual_service_coop_visual()
+	_build_farm_mutual_negotiation_room_visual()
+	_build_farm_mutual_contract_board_visual()
+	_build_care_campus_spine()
+	_build_wellness_nest_visual()
+	_build_training_roost_visual()
+	_build_farmer_relations_gallery_visual()
+	_build_operations_campus_spine()
+	_build_rooster_operations_office_visual()
+	_build_it_coop_visual()
+	_build_flock_relations_office_visual()
+	_build_feed_procurement_coop_visual()
+	_build_farmgate_dispatch_depot_visual()
+	_build_campus_expansion_visual()
+	_build_campus_portfolio_visual()
+	_rebuild_campus_presentation()
 
 
 func _clear_built_roots() -> void:
@@ -1203,7 +2021,39 @@ func _clear_built_roots() -> void:
 		var recoil := recoil_value as Tween
 		if recoil != null and recoil.is_valid():
 			recoil.kill()
-	for built_root in [management_perch_root, egg_collection_root, zone_markers_root, bureau_satire_root, records_archive_root]:
+	if shell_quality_lab_visual != null and is_instance_valid(shell_quality_lab_visual):
+		shell_quality_lab_visual.clear()
+	if packing_annex_visual != null and is_instance_valid(packing_annex_visual):
+		packing_annex_visual.call("clear")
+	if records_annex_visual != null and is_instance_valid(records_annex_visual):
+		records_annex_visual.call("clear")
+	if farm_mutual_service_coop_visual != null and is_instance_valid(farm_mutual_service_coop_visual):
+		farm_mutual_service_coop_visual.call("clear")
+	if farm_mutual_negotiation_room_visual != null and is_instance_valid(farm_mutual_negotiation_room_visual):
+		farm_mutual_negotiation_room_visual.call("clear")
+	if farm_mutual_contract_board_visual != null and is_instance_valid(farm_mutual_contract_board_visual):
+		farm_mutual_contract_board_visual.call("clear")
+	if wellness_nest_visual != null and is_instance_valid(wellness_nest_visual):
+		wellness_nest_visual.call("clear")
+	if training_roost_visual != null and is_instance_valid(training_roost_visual):
+		training_roost_visual.call("clear")
+	if farmer_relations_gallery_visual != null and is_instance_valid(farmer_relations_gallery_visual):
+		farmer_relations_gallery_visual.call("clear")
+	if rooster_operations_office_visual != null and is_instance_valid(rooster_operations_office_visual):
+		rooster_operations_office_visual.call("clear")
+	if it_coop_visual != null and is_instance_valid(it_coop_visual):
+		it_coop_visual.call("clear")
+	if flock_relations_office_visual != null and is_instance_valid(flock_relations_office_visual):
+		flock_relations_office_visual.call("clear")
+	if feed_procurement_coop_visual != null and is_instance_valid(feed_procurement_coop_visual):
+		feed_procurement_coop_visual.call("clear")
+	if farmgate_dispatch_depot_visual != null and is_instance_valid(farmgate_dispatch_depot_visual):
+		farmgate_dispatch_depot_visual.call("clear")
+	if campus_expansion_visual != null and is_instance_valid(campus_expansion_visual):
+		campus_expansion_visual.call("clear")
+	if campus_portfolio_visual != null and is_instance_valid(campus_portfolio_visual):
+		campus_portfolio_visual.call("clear")
+	for built_root in [management_perch_root, egg_collection_root, zone_markers_root, bureau_satire_root, records_archive_root, shell_quality_lab_visual, packing_annex_visual, records_annex_visual, farm_mutual_service_coop_visual, farm_mutual_negotiation_room_visual, farm_mutual_contract_board_visual, care_campus_spine_root, wellness_nest_visual, training_roost_visual, farmer_relations_gallery_visual, operations_campus_spine_root, rooster_operations_office_visual, it_coop_visual, flock_relations_office_visual, feed_procurement_coop_visual, farmgate_dispatch_depot_visual, campus_expansion_visual, campus_portfolio_visual]:
 		if built_root != null and is_instance_valid(built_root):
 			built_root.free()
 	management_perch_root = null
@@ -1211,6 +2061,28 @@ func _clear_built_roots() -> void:
 	zone_markers_root = null
 	bureau_satire_root = null
 	records_archive_root = null
+	shell_quality_lab_visual = null
+	packing_annex_visual = null
+	records_annex_visual = null
+	farm_mutual_service_coop_visual = null
+	farm_mutual_negotiation_room_visual = null
+	farm_mutual_contract_board_visual = null
+	care_campus_spine_root = null
+	care_campus_first_bay_root = null
+	care_campus_second_bay_root = null
+	wellness_nest_visual = null
+	training_roost_visual = null
+	farmer_relations_gallery_visual = null
+	operations_campus_spine_root = null
+	operations_campus_first_bay_root = null
+	operations_campus_second_bay_root = null
+	rooster_operations_office_visual = null
+	it_coop_visual = null
+	flock_relations_office_visual = null
+	feed_procurement_coop_visual = null
+	farmgate_dispatch_depot_visual = null
+	campus_expansion_visual = null
+	campus_portfolio_visual = null
 	_metrics_label = null
 	_intake_status_label = null
 	_perch_screen_material = null
@@ -1236,6 +2108,271 @@ func _clear_built_roots() -> void:
 	_pickup_points.clear()
 	_zone_glows.clear()
 	_built = false
+
+
+func _build_shell_quality_lab_visual() -> void:
+	shell_quality_lab_visual = ShellQualityLabVisualScript.new() as ShellQualityLabVisual
+	shell_quality_lab_visual.name = "ShellQualityLabVisual"
+	add_child(shell_quality_lab_visual)
+	shell_quality_lab_visual.build()
+
+
+func _build_packing_annex_visual() -> void:
+	packing_annex_visual = PackingAnnexVisualScript.new() as Node3D
+	packing_annex_visual.name = "PackingAnnexVisual"
+	add_child(packing_annex_visual)
+	packing_annex_visual.call("build")
+
+
+func _build_records_annex_visual() -> void:
+	records_annex_visual = RecordsAnnexVisualScript.new() as Node3D
+	records_annex_visual.name = "RecordsAnnexVisual"
+	add_child(records_annex_visual)
+	records_annex_visual.call("build")
+
+
+func _build_farm_mutual_service_coop_visual() -> void:
+	farm_mutual_service_coop_visual = FarmMutualServiceCoopVisualScript.new() as Node3D
+	farm_mutual_service_coop_visual.name = "FarmMutualServiceCoopVisual"
+	add_child(farm_mutual_service_coop_visual)
+	farm_mutual_service_coop_visual.call("build")
+
+
+func _build_farm_mutual_negotiation_room_visual() -> void:
+	farm_mutual_negotiation_room_visual = FarmMutualNegotiationRoomVisualScript.new() as Node3D
+	farm_mutual_negotiation_room_visual.name = "FarmMutualNegotiationRoomVisual"
+	add_child(farm_mutual_negotiation_room_visual)
+	farm_mutual_negotiation_room_visual.call("build")
+
+
+func _build_farm_mutual_contract_board_visual() -> void:
+	farm_mutual_contract_board_visual = FarmMutualContractBoardVisualScript.new() as Node3D
+	farm_mutual_contract_board_visual.name = "FarmMutualContractBoardVisual"
+	add_child(farm_mutual_contract_board_visual)
+	farm_mutual_contract_board_visual.call("build")
+
+
+func _build_campus_spine_bay(
+		parent: Node3D,
+		bay_name: String,
+		footprint: Rect2,
+		walk_name: String,
+		edge_name: String,
+		walk_color: Color,
+		edge_color: Color,
+		walk_roughness: float,
+) -> Node3D:
+	var bay_root := Node3D.new()
+	bay_root.name = bay_name
+	bay_root.set_meta(&"visual_only", true)
+	bay_root.set_meta(&"collision_free", true)
+	bay_root.set_meta(&"navigation_free", true)
+	bay_root.set_meta(&"declared_footprint", footprint)
+	parent.add_child(bay_root)
+	var center := Vector3(footprint.get_center().x, -0.055, footprint.get_center().y)
+	_add_box(
+		bay_root,
+		walk_name,
+		Vector3(footprint.size.x, 0.12, footprint.size.y),
+		center,
+		walk_color,
+		walk_roughness,
+	)
+	for edge_x: float in [footprint.position.x + 0.08, footprint.end.x - 0.08]:
+		_add_box(
+			bay_root,
+			edge_name,
+			Vector3(0.035, 0.018, maxf(0.0, footprint.size.y - 0.10)),
+			Vector3(edge_x, 0.014, center.z),
+			edge_color,
+			0.48,
+			0.42,
+		)
+	return bay_root
+
+
+func _build_care_campus_spine() -> void:
+	care_campus_spine_root = Node3D.new()
+	care_campus_spine_root.name = "CareCampusSpine"
+	care_campus_spine_root.set_meta(&"visual_only", true)
+	care_campus_spine_root.set_meta(&"collision_free", true)
+	care_campus_spine_root.set_meta(&"navigation_free", true)
+	care_campus_spine_root.set_meta(&"declared_footprint", CARE_CAMPUS_SPINE_FOOTPRINT)
+	care_campus_spine_root.set_meta(
+		&"serves_facilities",
+		[&"wellness_nest_room", &"training_roost", &"farmer_relations_gallery"],
+	)
+	add_child(care_campus_spine_root)
+	care_campus_first_bay_root = _build_campus_spine_bay(
+		care_campus_spine_root,
+		"CareCampusFirstBay",
+		CARE_CAMPUS_FIRST_BAY_FOOTPRINT,
+		"CareCampusConnectedWalk",
+		"CareCampusBrassEdge",
+		Color("58625e"),
+		Color("b6944c"),
+		0.94,
+	)
+	care_campus_second_bay_root = _build_campus_spine_bay(
+		care_campus_spine_root,
+		"CareCampusSecondBay",
+		CARE_CAMPUS_SECOND_BAY_FOOTPRINT,
+		"CareCampusConnectedWalk",
+		"CareCampusBrassEdge",
+		Color("58625e"),
+		Color("b6944c"),
+		0.94,
+	)
+	for bay_index in 6:
+		var bay_z := 10.95 + bay_index * 3.0
+		var bay_root := (
+			care_campus_first_bay_root
+			if CARE_CAMPUS_FIRST_BAY_FOOTPRINT.has_point(Vector2(10.80, bay_z)) else
+			care_campus_second_bay_root
+		)
+		_add_box(
+			bay_root,
+			"CareCampusWayfindingInlay_%02d" % (bay_index + 1),
+			Vector3(0.54, 0.018, 0.055),
+			Vector3(CARE_CAMPUS_SPINE_FOOTPRINT.get_center().x, 0.015, bay_z),
+			Color("d7ccb0"),
+			0.92,
+		)
+
+
+func _build_wellness_nest_visual() -> void:
+	wellness_nest_visual = WellnessNestVisualScript.new() as Node3D
+	wellness_nest_visual.name = "WellnessNestVisual"
+	add_child(wellness_nest_visual)
+	wellness_nest_visual.call("build")
+
+
+func _build_training_roost_visual() -> void:
+	training_roost_visual = TrainingRoostVisualScript.new() as Node3D
+	training_roost_visual.name = "TrainingRoostVisual"
+	add_child(training_roost_visual)
+	training_roost_visual.call("build")
+
+
+func _build_farmer_relations_gallery_visual() -> void:
+	farmer_relations_gallery_visual = FarmerRelationsGalleryVisualScript.new() as Node3D
+	farmer_relations_gallery_visual.name = "FarmerRelationsGalleryVisual"
+	add_child(farmer_relations_gallery_visual)
+	farmer_relations_gallery_visual.call("build")
+
+
+func _build_operations_campus_spine() -> void:
+	operations_campus_spine_root = Node3D.new()
+	operations_campus_spine_root.name = "OperationsCampusSpine"
+	operations_campus_spine_root.set_meta(&"visual_only", true)
+	operations_campus_spine_root.set_meta(&"collision_free", true)
+	operations_campus_spine_root.set_meta(&"navigation_free", true)
+	operations_campus_spine_root.set_meta(&"declared_footprint", OPERATIONS_CAMPUS_SPINE_FOOTPRINT)
+	operations_campus_spine_root.set_meta(&"connects_from", &"care_campus_spine")
+	operations_campus_spine_root.set_meta(
+		&"serves_facilities",
+		[&"rooster_operations_office", &"it_coop", &"flock_relations_office", &"feed_procurement_coop"],
+	)
+	add_child(operations_campus_spine_root)
+	operations_campus_first_bay_root = _build_campus_spine_bay(
+		operations_campus_spine_root,
+		"OperationsCampusFirstBay",
+		OPERATIONS_CAMPUS_FIRST_BAY_FOOTPRINT,
+		"OperationsCampusConnectedWalk",
+		"OperationsCampusBrassEdge",
+		Color("46565a"),
+		Color("ad904d"),
+		0.91,
+	)
+	operations_campus_second_bay_root = _build_campus_spine_bay(
+		operations_campus_spine_root,
+		"OperationsCampusSecondBay",
+		OPERATIONS_CAMPUS_SECOND_BAY_FOOTPRINT,
+		"OperationsCampusConnectedWalk",
+		"OperationsCampusBrassEdge",
+		Color("46565a"),
+		Color("ad904d"),
+		0.91,
+	)
+	# This transverse brass threshold makes the care-to-operations seam legible
+	# as one continuous campus walk instead of two disconnected floor slabs.
+	_add_box(
+		operations_campus_first_bay_root,
+		"CareOperationsThreshold",
+		Vector3(0.78, 0.022, 0.045),
+		Vector3(
+			OPERATIONS_CAMPUS_SPINE_FOOTPRINT.get_center().x,
+			0.017,
+			OPERATIONS_CAMPUS_SPINE_FOOTPRINT.position.y + 0.025,
+		),
+		Color("c5a45b"),
+		0.42,
+		0.48,
+	)
+	for inlay_index in 4:
+		var inlay_z := 29.95 + inlay_index * 3.0
+		var bay_root := (
+			operations_campus_first_bay_root
+			if OPERATIONS_CAMPUS_FIRST_BAY_FOOTPRINT.has_point(Vector2(10.80, inlay_z)) else
+			operations_campus_second_bay_root
+		)
+		_add_box(
+			bay_root,
+			"OperationsCampusWayfindingInlay_%02d" % (inlay_index + 1),
+			Vector3(0.54, 0.018, 0.055),
+			Vector3(OPERATIONS_CAMPUS_SPINE_FOOTPRINT.get_center().x, 0.015, inlay_z),
+			Color("d3c8aa"),
+			0.92,
+		)
+
+
+func _build_rooster_operations_office_visual() -> void:
+	rooster_operations_office_visual = RoosterOperationsOfficeVisualScript.new() as Node3D
+	rooster_operations_office_visual.name = "RoosterOperationsOfficeVisual"
+	add_child(rooster_operations_office_visual)
+	rooster_operations_office_visual.call("build")
+
+
+func _build_it_coop_visual() -> void:
+	it_coop_visual = ITCoopVisualScript.new() as Node3D
+	it_coop_visual.name = "ITCoopVisual"
+	add_child(it_coop_visual)
+	it_coop_visual.call("build")
+
+
+func _build_flock_relations_office_visual() -> void:
+	flock_relations_office_visual = FlockRelationsOfficeVisualScript.new() as Node3D
+	flock_relations_office_visual.name = "FlockRelationsOfficeVisual"
+	add_child(flock_relations_office_visual)
+	flock_relations_office_visual.call("build")
+
+
+func _build_feed_procurement_coop_visual() -> void:
+	feed_procurement_coop_visual = FeedProcurementCoopVisualScript.new() as Node3D
+	feed_procurement_coop_visual.name = "FeedProcurementCoopVisual"
+	add_child(feed_procurement_coop_visual)
+	feed_procurement_coop_visual.call("build")
+
+
+func _build_farmgate_dispatch_depot_visual() -> void:
+	farmgate_dispatch_depot_visual = FarmgateDispatchDepotVisualScript.new() as Node3D
+	farmgate_dispatch_depot_visual.name = "FarmgateDispatchDepotVisual"
+	add_child(farmgate_dispatch_depot_visual)
+	farmgate_dispatch_depot_visual.call("build")
+
+
+func _build_campus_expansion_visual() -> void:
+	campus_expansion_visual = CampusExpansionVisualScript.new() as Node3D
+	campus_expansion_visual.name = "CampusExpansionVisual"
+	add_child(campus_expansion_visual)
+	campus_expansion_visual.call("build")
+
+
+func _build_campus_portfolio_visual() -> void:
+	campus_portfolio_visual = CampusPortfolioVisualScript.new() as Node3D
+	campus_portfolio_visual.name = "CampusPortfolioVisual"
+	add_child(campus_portfolio_visual)
+	campus_portfolio_visual.call("build")
 
 
 func _build_management_perch() -> void:
@@ -1272,27 +2409,48 @@ func _build_management_perch() -> void:
 	golden_egg.material_override = _material(Color("e0b34f"), 0.24, 0.42)
 	_add_cylinder(management_perch_root, "GoldenEggPlinth", PERCH_CENTER + Vector3(1.56, 0.38, 0.08), 0.31, 0.30, Color("67503b"), 0.62)
 
+	# Clamp the dashboard to the perch structure. The former screen had a real
+	# frame but no visible support, so its otherwise physical copy still hovered.
+	for support_side in [-1.0, 1.0]:
+		_add_box(
+			management_perch_root,
+			"FlockwatchDisplayRail",
+			Vector3(0.075, 1.18, 0.075),
+			PERCH_CENTER + Vector3(support_side * 1.23, 2.61, 0.705),
+			Color("4c5b5b"),
+			0.46,
+			0.34,
+		)
+		_add_box(
+			management_perch_root,
+			"FlockwatchDisplayClamp",
+			Vector3(0.48, 0.075, 0.085),
+			PERCH_CENTER + Vector3(support_side * 1.43, 3.02, 0.705),
+			Color("4c5b5b"),
+			0.46,
+			0.34,
+		)
 	_metrics_label = _add_mounted_label(
 		management_perch_root,
 		"ManagementYieldBoard",
-		"TODAY  000 / 000\nQUEUE  N02  P02  A02\n9:00 AM  ·  LIVE",
+		"YIELD  000 / 000\nN 02   P 02   A 02\n9:00 AM  ·  LIVE",
 		PERCH_CENTER + Vector3(-0.08, 2.63, 0.76),
-		Vector2(2.72, 1.00), Color("274447"), Color("d9ead7"), Vector3.ZERO,
-		18, 0.0034, &"secondary", &"screen", true
+		Vector2(2.34, 0.82), Color("274447"), Color("c8ddc8"), Vector3.ZERO,
+		20, 0.0044, &"secondary", &"screen", true
 	)
-	_add_box(
+	var perch_header_beam := _add_box(
 		management_perch_root,
 		"PerchDepartmentHeaderBeam",
-		Vector3(2.96, 0.24, 0.105),
+		Vector3(2.56, 0.22, 0.105),
 		PERCH_CENTER + Vector3(0.0, 3.25, 0.70),
 		Color("3f5152"),
 		0.74
 	)
 	_add_mounted_label(
-		management_perch_root, "PerchTitle", "FLOCKWATCH",
-		PERCH_CENTER + Vector3(0.0, 3.25, 0.762), Vector2(2.62, 0.18),
-		Color("3f5152"), Color("d8bc6d"), Vector3.ZERO,
-		16, 0.0062, &"secondary", &"beam"
+		perch_header_beam, "PerchTitle", "FLOCKWATCH",
+		Vector3(0.0, 0.0, 0.062), Vector2(2.24, 0.16),
+		Color("3f5152"), Color("e5dcc3"), Vector3.ZERO,
+		16, 0.0062, &"primary", &"destination"
 	)
 
 	# Camera and ledger reinforce the surveillance/credit-taking silhouette.
@@ -1504,7 +2662,7 @@ func _build_living_clutch() -> void:
 		"SURPLUS  +00",
 		Vector3(0.0, 0.02, 0.528),
 		Vector2(0.70, 0.25),
-		Color("3e4b4d"),
+		Color("a07449"),
 		Color("e7c968"),
 		Vector3.ZERO,
 		11,
@@ -1585,19 +2743,19 @@ func _build_bureau_satire() -> void:
 	_add_box(bulletin, "BulletinBoardFrame", Vector3(3.52, 2.00, 0.090), Vector3.ZERO, Color("5b4937"), 0.72)
 	_add_box(bulletin, "BulletinBoardCork", Vector3(3.30, 1.78, 0.045), Vector3(0.0, 0.0, 0.060), Color("917153"), 0.92)
 	_add_mounted_label(
-		bulletin, "FreeRangePermitLabel", "FREE-RANGE PASS\nForm 17-B · approval",
+		bulletin, "FreeRangePermitLabel", "FREE-RANGE PASS\nFORM 17-B / APPROVAL",
 		Vector3(-0.88, 0.37, 0.085), Vector2(1.40, 0.68),
 		Color("ddd3b6"), Color("42606b"), Vector3(0.0, 0.0, -2.2),
 		15, 0.0053, &"secondary", &"paper"
 	)
 	_add_mounted_label(
-		bulletin, "NestClassificationLabel", "NEST STATUS\nTemporary · pending",
+		bulletin, "NestClassificationLabel", "NEST STATUS\nTEMPORARY / PENDING",
 		Vector3(0.86, 0.31, 0.085), Vector2(1.36, 0.72),
 		Color("ddd5c0"), Color("6b4b3e"), Vector3(0.0, 0.0, 1.6),
 		15, 0.0053, &"secondary", &"paper"
 	)
 	_add_mounted_label(
-		bulletin, "EveryEggMattersLabel", "EVERY EGG COUNTS*\n*Credit may vary",
+		bulletin, "EveryEggMattersLabel", "EVERY EGG COUNTS\nCREDIT MAY VARY",
 		Vector3(0.02, -0.58, 0.085), Vector2(2.18, 0.50),
 		Color("e2d3ae"), Color("965742"), Vector3(0.0, 0.0, -0.6),
 		15, 0.0053, &"secondary", &"paper"
@@ -1662,30 +2820,37 @@ func _build_records_and_intake_story() -> void:
 		_add_box(records_archive_root, "IntakeForm_%02d" % form_index, Vector3(0.72, 0.025, 0.50), _intake_position + Vector3(-0.40 + form_index * 0.018, 1.18 + form_index * 0.027, 0.18 - form_index * 0.01), Color("e3ddc9") if form_index % 2 == 0 else Color("cad5cf"), 0.96)
 	_add_box(records_archive_root, "RejectedShellStamp", Vector3(0.22, 0.31, 0.22), _intake_position + Vector3(0.45, 1.32, 0.22), Color("8f493e"), 0.66)
 	_add_box(records_archive_root, "FarmerCreditLedger", Vector3(0.72, 0.11, 0.52), _intake_position + Vector3(0.42, 1.21, -0.42), Color("4e6b71"), 0.72)
-	_add_mounted_label(
-		records_archive_root, "IntakeIdentityPlaque", "PECKWORK INTAKE",
-		_intake_position + Vector3(0.0, 0.72, 1.164), Vector2(1.72, 0.34),
-		Color("735f4d"), Color("efdaab"), Vector3.ZERO,
-		14, 0.0029, &"secondary", &"stencil"
-	)
 	_intake_status_label = _add_mounted_label(
 		records_archive_root, "IntakeStatusLedger", "RECEIVED  0000\nCREDITED  0000",
-		_intake_position + Vector3(0.0, 1.72, 0.72), Vector2(1.72, 0.68),
-		Color("28484a"), Color("d7ead5"), Vector3.ZERO,
-		14, 0.0032, &"utility", &"screen", true
+		_intake_position + Vector3(0.0, 1.56, 0.60), Vector2(1.42, 0.52),
+		Color("2b4542"), Color("c8d9b6"), Vector3.ZERO,
+		14, 0.0030, &"utility", &"screen", true
 	)
-	# The live ledger is a counter terminal, not a floating screen.
-	for support_x in [-0.68, 0.68]:
+	# A deep terminal hood and counter base make this a piece of intake hardware,
+	# not a second management billboard balanced on thin poles.
+	_add_box(
+		records_archive_root, "IntakeLedgerTerminalHood",
+		Vector3(1.58, 0.66, 0.18),
+		_intake_position + Vector3(0.0, 1.56, 0.47),
+		Color("3d4b49"), 0.66, 0.12
+	)
+	_add_box(
+		records_archive_root, "IntakeLedgerTerminalBase",
+		Vector3(1.26, 0.10, 0.46),
+		_intake_position + Vector3(0.0, 1.22, 0.43),
+		Color("59635d"), 0.62, 0.18
+	)
+	for support_x in [-0.52, 0.52]:
 		_add_box(
 			records_archive_root, "IntakeLedgerSupport",
-			Vector3(0.055, 0.44, 0.060),
-			_intake_position + Vector3(support_x, 1.40, 0.665),
+			Vector3(0.055, 0.32, 0.060),
+			_intake_position + Vector3(support_x, 1.38, 0.52),
 			Color("59676a"), 0.38, 0.42
 		)
 	_add_box(
 		records_archive_root, "IntakeLedgerCrossbar",
-		Vector3(1.50, 0.065, 0.065),
-		_intake_position + Vector3(0.0, 1.23, 0.665),
+		Vector3(1.16, 0.065, 0.065),
+		_intake_position + Vector3(0.0, 1.23, 0.52),
 		Color("59676a"), 0.38, 0.42
 	)
 

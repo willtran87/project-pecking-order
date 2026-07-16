@@ -279,6 +279,14 @@ func _perfect_quarter_senior(failures: Array[String]) -> SeniorRoostState:
 	var senior := SeniorRoostState.new()
 	_check(senior.begin(5), "Senior fixture should begin at the first quarterly policy gate", failures)
 	_check(
+		bool(senior.select_annual_mandate(
+			SeniorRoostState.MANDATE_FALLBACK_ID,
+			senior.current_year_number(),
+		).get("accepted", false)),
+		"Senior fixture should file the universal annual mandate fallback before Q1 policy",
+		failures,
+	)
+	_check(
 		senior.record_quarter_policy({
 			"accepted": true,
 			"policy_id": &"harvest_forecast",

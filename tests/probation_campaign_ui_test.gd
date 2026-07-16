@@ -64,7 +64,7 @@ func _run() -> void:
 	_check(title_panel != null and title_panel.is_visible_in_tree(), "first load should show the campaign title panel", failures)
 	_check(modal_host.is_visible_in_tree(), "title panel should be an intentional blocking modal", failures)
 	_check(
-		title_heading != null and title_heading.text == "FIVE SHIFTS. START WITH ONE HEN.",
+		title_heading != null and title_heading.text == "FIVE SHIFTS. START BY MEETING MABEL.",
 		"title should foreground one named hen before management abstractions",
 		failures,
 	)
@@ -124,6 +124,84 @@ func _run() -> void:
 			viewport_size,
 			failures,
 		)
+
+	# An existing file must be legible before it can be replaced, and replacement
+	# requires a second, explicit danger action with the safe choice focused first.
+	ui.apply_snapshot({
+		"view": &"title",
+		"day": 1,
+		"total_days": 5,
+		"continue_available": true,
+		"resume_summary": {
+			"day": 3,
+			"completed_shifts": 2,
+			"probation_score": 66,
+			"rank_label": "Trusted Layer",
+			"stage_label": "Farmer Review",
+		},
+	})
+	await process_frame
+	await process_frame
+	var resume_card := ui.find_child("CampaignResumeCard", true, false) as PanelContainer
+	var resume_details := ui.find_child("CampaignResumeDetails", true, false) as Label
+	_check(
+		resume_card != null and resume_card.is_visible_in_tree()
+		and resume_details != null
+		and _contains_all(resume_details.text, ["DAY 3 / 5", "2 SHIFTS FILED", "SCORE 66", "TRUSTED LAYER", "FARMER REVIEW"]),
+		"title should identify the exact resumable checkpoint before offering replacement",
+		failures,
+	)
+	new_button.pressed.emit()
+	await process_frame
+	await process_frame
+	var replacement_host := ui.find_child("CampaignReplacementConfirmation", true, false) as Control
+	var replacement_panel := ui.find_child("CampaignReplacementConfirmationPanel", true, false) as PanelContainer
+	var replacement_body := ui.find_child("CampaignReplacementConfirmationBody", true, false) as Label
+	var keep_button := ui.find_child("CancelCampaignReplacementButton", true, false) as Button
+	var replace_button := ui.find_child("ConfirmCampaignReplacementButton", true, false) as Button
+	_check(int(observed["new"]) == 1, "first replacement press must not emit a destructive new-campaign intent", failures)
+	_check(
+		replacement_host != null and replacement_host.is_visible_in_tree()
+		and replacement_body != null
+		and _contains_all(replacement_body.text, ["DAY 3 / 5", "SCORE 66", "untouched", "written and verified"]),
+		"replacement confirmation should name the affected file and transactional guarantee",
+		failures,
+	)
+	_check(
+		keep_button != null and ui.get_viewport().gui_get_focus_owner() == keep_button,
+		"replacement confirmation should default keyboard/gamepad focus to keeping the current file",
+		failures,
+	)
+	if replacement_panel != null:
+		var replacement_rect := replacement_panel.get_global_rect()
+		_check(
+			replacement_rect.position.x >= -0.5
+			and replacement_rect.end.x <= harness.size.x + 0.5
+			and replacement_rect.position.y >= -0.5
+			and replacement_rect.end.y <= harness.size.y + 0.5,
+			"replacement confirmation should remain fully contained in the 390x844 portrait viewport",
+			failures,
+		)
+	if keep_button != null:
+		keep_button.pressed.emit()
+	await process_frame
+	_check(
+		replacement_host != null and not replacement_host.is_visible_in_tree()
+		and ui.get_viewport().gui_get_focus_owner() == new_button
+		and int(observed["new"]) == 1,
+		"cancel should preserve the campaign and restore focus to the originating action",
+		failures,
+	)
+	new_button.pressed.emit()
+	await process_frame
+	if replace_button != null:
+		replace_button.pressed.emit()
+	_check(
+		int(observed["new"]) == 2
+		and replacement_host != null and not replacement_host.is_visible_in_tree(),
+		"only the explicit danger confirmation should emit replacement exactly once",
+		failures,
+	)
 	harness.size = Vector2(1280.0, 720.0)
 	await process_frame
 
@@ -207,6 +285,7 @@ func _run() -> void:
 			{"label": "Feed Fund", "value": 9235, "format": "currency_cents", "detail": "BANKED"},
 			{"label": "Shell Integrity", "value": 91, "format": "percent", "detail": "CAMPAIGN QUALITY"},
 		],
+		"probation_safeguard_forecast": _safeguard_forecast(false, false),
 		"next_objective": {
 			"title": "Clear Predator Backlog",
 			"description": "Close six Predator Loss files before noon.",
@@ -246,6 +325,11 @@ func _run() -> void:
 	var first_ledger := ui.find_child("ReportLedgerValue1", true, false) as Label
 	var second_ledger := ui.find_child("ReportLedgerValue2", true, false) as Label
 	var third_ledger := ui.find_child("ReportLedgerValue3", true, false) as Label
+	var safeguard_panel := ui.find_child("ReportProbationSafeguardReceipt", true, false) as PanelContainer
+	var safeguard_summary := ui.find_child("ReportProbationSafeguardSummary", true, false) as Label
+	var safeguard_score := ui.find_child("ReportProbationSafeguardRow_1", true, false) as Label
+	var safeguard_favor := ui.find_child("ReportProbationSafeguardRow_4", true, false) as Label
+	var safeguard_shells := ui.find_child("ReportProbationSafeguardRow_5", true, false) as Label
 	var objective := ui.find_child("NextShiftObjective", true, false) as Label
 	var milestone_section := ui.find_child("MilestoneChoiceSection", true, false) as VBoxContainer
 	var choice := ui.find_child("MilestoneChoice_fast_keys", true, false) as Button
@@ -299,6 +383,23 @@ func _run() -> void:
 		"report should expose exactly three formatted cumulative ledgers",
 		failures,
 	)
+	_check(
+		safeguard_panel != null and safeguard_panel.is_visible_in_tree()
+		and safeguard_summary != null
+		and _contains_all(safeguard_summary.text, [
+			"CURRENT FORECAST", "4 / 5 SAFEGUARDS", "2 / 5 SHIFTS FILED",
+			"ACTION REQUIRED", "LARGEST RECOVERABLE GAP", "FARMER FAVOR", "-1 POINT",
+		]),
+		"between-shift report should expose the exact pass count and largest recoverable gap",
+		failures,
+	)
+	_check(
+		safeguard_score != null and safeguard_score.text == "PASS  //  PROBATION SCORE  //  65 >= 60  //  +5 POINTS"
+		and safeguard_favor != null and safeguard_favor.text == "AT RISK  //  FARMER FAVOR  //  49 >= 50  //  -1 POINT"
+		and safeguard_shells != null and safeguard_shells.text == "PASS  //  CRACK RATE  //  25.00% <= 25.00%  //  0.00 PTS",
+		"forecast rows should state current values, comparisons, thresholds, and signed gaps without hidden rules",
+		failures,
+	)
 	_check(objective != null and "CLEAR PREDATOR BACKLOG" in objective.text, "report should teach the next-shift objective", failures)
 	_check(
 		story_row != null and story_row.is_visible_in_tree()
@@ -344,6 +445,12 @@ func _run() -> void:
 		report_continue.pressed.emit()
 	_check(int(observed["continue"]) == 2, "report continuation should reuse the campaign continuation signal", failures)
 	var abandon := ui.find_child("AbandonCampaignButton", true, false) as Button
+	_check(
+		abandon != null and "SHELVE & RETURN TO INTAKE" in abandon.text
+		and abandon.theme_type_variation != &"DangerButton",
+		"leaving a report should be presented as a safe shelve action rather than destructive abandonment",
+		failures,
+	)
 	if abandon != null:
 		abandon.pressed.emit()
 	_check(int(observed["abandon"]) == 1, "abandon action should emit its public signal", failures)
@@ -351,8 +458,8 @@ func _run() -> void:
 	var report_rect := report_panel.get_global_rect()
 	_check(
 		report_rect.position.x >= 0.0 and report_rect.end.x <= 1280.0
-		and report_rect.position.y >= 60.0 and report_rect.end.y <= 720.0,
-		"report card should fit the 1280x720 stage below the persistent badge",
+		and report_rect.position.y >= 60.0 and report_rect.size.y <= 900.0,
+		"the complete report should remain a bounded scroll document anchored below the badge (rect %s)" % report_rect,
 		failures,
 	)
 	for viewport_size: Vector2 in [
@@ -410,6 +517,7 @@ func _run() -> void:
 		"score": 5120,
 		"rank": "Golden Rooster",
 		"passed": true,
+		"probation_safeguard_forecast": _safeguard_forecast(true, true),
 		"ledgers": [
 			{"label": "Eggs Filed", "value": 133},
 			{"label": "Feed Fund", "value": 21480, "format": "currency_cents"},
@@ -421,9 +529,21 @@ func _run() -> void:
 	var verdict := ui.find_child("FinalProbationVerdict", true, false) as Label
 	var final_continue := ui.find_child("FinalContinueCampaignButton", true, false) as Button
 	var final_rank := ui.find_child("FinalRank", true, false) as Label
+	var final_safeguard_panel := ui.find_child("FinalProbationSafeguardReceipt", true, false) as PanelContainer
+	var final_safeguard_summary := ui.find_child("FinalProbationSafeguardSummary", true, false) as Label
+	var final_safeguard_favor := ui.find_child("FinalProbationSafeguardRow_4", true, false) as Label
 	_check(final_panel != null and final_panel.is_visible_in_tree(), "day five should show the final campaign review", failures)
 	_check(verdict != null and verdict.text == "PROBATION PASSED", "final review should clearly distinguish a pass", failures)
 	_check(final_continue != null and final_continue.is_visible_in_tree(), "passing should offer the senior-roost continuation", failures)
+	_check(
+		final_safeguard_panel != null and final_safeguard_panel.is_visible_in_tree()
+		and final_safeguard_summary != null
+		and final_safeguard_summary.text == "FINAL RESULT  //  5 / 5 SAFEGUARDS  //  ALL SAFEGUARDS PASS"
+		and final_safeguard_favor != null
+		and final_safeguard_favor.text == "PASS  //  FARMER FAVOR  //  52 >= 50  //  +2 POINTS",
+		"passing final review should file an exact five-row safeguard receipt",
+		failures,
+	)
 	_check(
 		final_rank != null
 		and final_rank.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
@@ -431,12 +551,30 @@ func _run() -> void:
 		"final rank should preserve the complete management title",
 		failures,
 	)
-	_check(final_panel.size.y < 500.0, "final review should size to its content instead of leaving a large empty footer", failures)
+	_check(
+		final_panel.size.y < 600.0,
+		"final review should fit the 720-stage while retaining all five receipt rows (height %.1f)" % final_panel.size.y,
+		failures,
+	)
 
-	ui.show_final_review({"day": 5, "score": 900, "rank": "Loose Feather", "passed": false})
+	ui.show_final_review({
+		"day": 5,
+		"score": 900,
+		"rank": "Loose Feather",
+		"passed": false,
+		"probation_safeguard_forecast": _safeguard_forecast(true, false),
+	})
 	await process_frame
 	_check(verdict.text == "PROBATION FAILED", "final review should clearly distinguish a failure", failures)
 	_check(not final_continue.is_visible_in_tree(), "failure should not offer post-probation continuation", failures)
+	_check(
+		final_safeguard_summary != null
+		and final_safeguard_summary.text == "FINAL RESULT  //  4 / 5 SAFEGUARDS  //  FILE HELD"
+		and final_safeguard_favor != null
+		and final_safeguard_favor.text == "HELD  //  FARMER FAVOR  //  49 >= 50  //  -1 POINT",
+		"failed final review should name the exact held condition rather than hiding it behind the verdict",
+		failures,
+	)
 	var retry := ui.find_child("FinalNewCampaignButton", true, false) as Button
 	_check(retry != null and "RETRY PROBATION" in retry.text, "failure should offer an immediate retry", failures)
 	for viewport_size: Vector2 in [
@@ -476,6 +614,71 @@ func _run() -> void:
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _contains_all(text: String, needles: Array[String]) -> bool:
+	for needle: String in needles:
+		if needle not in text:
+			return false
+	return true
+
+
+func _safeguard_forecast(is_final: bool, all_passing: bool) -> Dictionary:
+	var completed_shifts := 5 if is_final else 2
+	var farmer_favor := 52 if all_passing else 49
+	var criteria: Array[Dictionary] = [
+		_safeguard_row("score", "Probation Score", "probation_score", "minimum", 65, 60, not is_final),
+		_safeguard_row("welfare", "Welfare", "average_welfare", "minimum", 50, 45, not is_final),
+		_safeguard_row("compliance", "Compliance", "average_compliance", "minimum", 58, 55, not is_final),
+		_safeguard_row("farmer_favor", "Farmer Favor", "average_farmer_favor", "minimum", farmer_favor, 50, not is_final),
+		_safeguard_row("crack_rate", "Crack Rate", "crack_rate_basis_points", "maximum", 2500, 2500, not is_final),
+	]
+	var pass_count := 0
+	for criterion: Dictionary in criteria:
+		if bool(criterion["pass"]):
+			pass_count += 1
+	return {
+		"visible": true,
+		"is_final": is_final,
+		"completed_shifts": completed_shifts,
+		"required_shifts": 5,
+		"criteria": criteria,
+		"pass_count": pass_count,
+		"at_risk_count": criteria.size() - pass_count,
+		"criteria_count": criteria.size(),
+		"all_pass": pass_count == criteria.size(),
+		"largest_recoverable_blocker": (
+			criteria[3].duplicate(true)
+			if not is_final and not bool(criteria[3]["pass"]) else
+			{}
+		),
+	}
+
+
+func _safeguard_row(
+	id: String,
+	label: String,
+	metric: String,
+	comparison: String,
+	value: int,
+	target: int,
+	recoverable: bool,
+) -> Dictionary:
+	var signed_gap := value - target if comparison == "minimum" else target - value
+	return {
+		"id": id,
+		"label": label,
+		"metric": metric,
+		"comparison": comparison,
+		"target": target,
+		"current_value": value,
+		"projected_value": value,
+		"pass": signed_gap >= 0,
+		"at_risk": signed_gap < 0,
+		"signed_gap": signed_gap,
+		"distance_to_pass": maxi(0, -signed_gap),
+		"recoverable": signed_gap < 0 and recoverable,
+	}
 
 
 func _colors_close(left: Color, right: Color, tolerance: float = 0.002) -> bool:

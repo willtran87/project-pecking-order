@@ -63,6 +63,7 @@ var grievance: float = 6.0
 var career_xp: int = 0
 var last_personnel_action: StringName = &""
 var last_personnel_action_day: int = 0
+var last_personnel_action_serial: int = 0
 var employed: bool = true
 var available_for_hire_day: int = 0
 var hire_count: int = 0
@@ -271,6 +272,7 @@ func snapshot(current_operational_minute: int = 0) -> Dictionary:
 		"relationship_label": relationship_label(),
 		"last_personnel_action": last_personnel_action,
 		"last_personnel_action_day": last_personnel_action_day,
+		"last_personnel_action_serial": last_personnel_action_serial,
 		"employed": employed,
 		"employment_status": employment_status(),
 		"available_for_hire_day": available_for_hire_day,
@@ -308,6 +310,7 @@ func to_save_data() -> Dictionary:
 		"career_xp": career_xp,
 		"last_personnel_action": String(last_personnel_action),
 		"last_personnel_action_day": last_personnel_action_day,
+		"last_personnel_action_serial": last_personnel_action_serial,
 		"employed": employed,
 		"employment_status": String(employment_status()),
 		"available_for_hire_day": available_for_hire_day,
@@ -369,8 +372,14 @@ func apply_save_data(data: Dictionary) -> bool:
 		0,
 		9999
 	)
+	last_personnel_action_serial = clampi(
+		int(data.get("last_personnel_action_serial", 0)),
+		0,
+		2_000_000_000
+	)
 	if last_personnel_action == &"":
 		last_personnel_action_day = 0
+		last_personnel_action_serial = 0
 	var saved_employed: Variant = data.get("employed", true)
 	if typeof(saved_employed) != TYPE_BOOL:
 		return false

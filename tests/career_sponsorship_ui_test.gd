@@ -83,6 +83,30 @@ func _run() -> void:
 	_check(reason_label != null and not reason_label.visible, "available sponsorship should not show a held reason", failures)
 	_check(authorize != null and not authorize.disabled, "valid affordable sponsorship should be authorizable", failures)
 
+	# Training Roost terms are authoritative presentation data. A stronger tier
+	# must update cost, throughput, coaching, and wage copy without changing the
+	# component's intent-only behavior.
+	var tiered := _available_snapshot()
+	tiered["training_terms"] = {
+		"base_sponsorship_cost_cents": 1200,
+		"effective_sponsorship_cost_cents": 800,
+		"sponsorship_discount_cents": 400,
+		"effective_work_multiplier": 0.95,
+		"work_penalty_percent": 5,
+		"coaching_xp_bonus": 4,
+		"wage_bonus_cents": 100,
+	}
+	ui.apply_snapshot(tiered)
+	await process_frame
+	_check(balance != null and "3 MARKS + $8.00" in balance.text, "Training Roost should replace the legacy sponsorship charge with its effective cost", failures)
+	_check(terms != null and "Saves $4.00" in terms.text, "the sponsorship file should disclose the exact Training Roost saving", failures)
+	_check(terms != null and "-5% training throughput" in terms.text, "the terms should use authoritative tier throughput instead of the baseline 15 percent", failures)
+	_check(terms != null and "+4 career XP" in terms.text, "the terms should disclose authoritative Training Roost coaching value", failures)
+	_check(terms != null and "+$1.00/day wage" in terms.text, "the permanent accreditation wage should remain visible under tiered terms", failures)
+	_check(authorize != null and "$8.00 now" in authorize.tooltip_text and "5% below standard" in authorize.tooltip_text, "keyboard focus should expose the same effective tier economics", failures)
+	ui.apply_snapshot(_available_snapshot())
+	await process_frame
+
 	# Keyboard selectors expose Pip's only remaining alternate lane after primary and
 	# secondary specialties are filtered.
 	worker_selector.select(1)

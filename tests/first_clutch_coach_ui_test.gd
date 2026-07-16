@@ -20,8 +20,17 @@ func _run() -> void:
 	var return_to_hen := routing_ui.find_child("FirstClutchReturnToHen", true, false) as Button
 	var skip := routing_ui.find_child("FirstClutchSkip", true, false) as Button
 	var queue := routing_ui.find_child("PeckworkQueueStrip", true, false) as PanelContainer
+	var compact_queue := routing_ui.find_child("RoutingQueueCompactSummary", true, false) as Label
 	var assign_auto := routing_ui.find_child("Assign_auto", true, false) as Button
 	var assign_appeals := routing_ui.find_child("Assign_appeals", true, false) as Button
+	var assignments := routing_ui.find_child("RoutingAssignments", true, false) as GridContainer
+	var personnel_actions := routing_ui.find_child("PersonnelActions", true, false) as VBoxContainer
+	var personnel_status := routing_ui.find_child("RoutingPersonnelStatus", true, false) as HBoxContainer
+	var assist_row := routing_ui.find_child("RoutingAssistRow", true, false) as HBoxContainer
+	var details := routing_ui.find_child("RoutingDetailsToggle", true, false) as Button
+	var worker_career := routing_ui.find_child("RoutingWorkerCareer", true, false) as Label
+	var manager_trust := routing_ui.find_child("RoutingManagerTrust", true, false) as Label
+	var grievance := routing_ui.find_child("RoutingGrievance", true, false) as Label
 	var share_credit := routing_ui.find_child("PersonnelAction_share_credit", true, false) as Button
 	var career_coach := routing_ui.find_child("PersonnelAction_career_coaching", true, false) as Button
 	var priority_peck := routing_ui.find_child("PeckAssistButton", true, false) as Button
@@ -87,9 +96,20 @@ func _run() -> void:
 	_check(progress != null and progress.text == "FIRST CLUTCH  0 / 5", "coach should show exact zero-of-five progress", failures)
 	_check(title != null and title.text == "MATCH MABEL'S TRAY", "coach should show the current action title", failures)
 	_check(body != null and "Choose Appeals" in body.text, "coach should show the current action body", failures)
+	_check(body != null and not body.visible, "an open coached dossier should collapse duplicate coach body copy", failures)
+	_check(assignments != null and assignments.is_visible_in_tree(), "route stage should expose routing controls", failures)
+	_check(queue != null and queue.is_visible_in_tree(), "route stage should expose its supporting queue counts", failures)
+	_check(personnel_actions != null and not personnel_actions.visible, "route stage should hide untaught personnel actions", failures)
+	_check(priority_peck != null and not priority_peck.visible, "route stage should hide the later Priority Peck action", failures)
+	_check(details != null and details.is_visible_in_tree(), "the compact dossier should retain an accessible Details disclosure", failures)
+	_check(worker_career != null and not worker_career.visible, "advanced career copy should default collapsed", failures)
 	_check(assign_appeals != null and bool(assign_appeals.get_meta("first_clutch_cue", false)), "route stage should cue the exact requested lane", failures)
 	_check(assign_auto != null and not bool(assign_auto.get_meta("first_clutch_cue", false)), "route stage should not cue an unrelated lane", failures)
 	_check(root.gui_get_focus_owner() == focus_before, "applying a dossier cue must not steal keyboard focus", failures)
+	var route_presentation := routing_ui.first_clutch_presentation_state()
+	_check(StringName(route_presentation.get("stage", &"")) == &"specialty_route", "presentation metadata should expose the normalized route stage", failures)
+	_check(bool(route_presentation.get("routing_visible", false)) and not bool(route_presentation.get("check_in_visible", true)), "presentation metadata should mirror exact route disclosure", failures)
+	_check(String(route_presentation.get("primary_action_node", "")) == "Assign_appeals", "metadata should identify the one visually prominent coached action", failures)
 
 	var observed := {"skip": 0, "focus_worker": -1}
 	routing_ui.first_clutch_focus_requested.connect(
@@ -112,6 +132,19 @@ func _run() -> void:
 	await process_frame
 	_check(return_to_hen != null and not return_to_hen.visible, "recovery should retire once the bound hen is focused", failures)
 	_check(assign_appeals != null and bool(assign_appeals.get_meta("first_clutch_cue", false)), "returning to the bound hen should restore the exact dossier cue", failures)
+	if details != null:
+		details.pressed.emit()
+	await process_frame
+	_check(worker_career != null and worker_career.is_visible_in_tree(), "Details should reveal career progression without changing tutorial stage", failures)
+	_check(manager_trust != null and manager_trust.is_visible_in_tree(), "Details should reveal manager trust", failures)
+	_check(grievance != null and grievance.is_visible_in_tree(), "Details should reveal grievance state", failures)
+	if details != null:
+		details.pressed.emit()
+	await process_frame
+	if assign_auto != null:
+		assign_auto.grab_focus()
+	await process_frame
+	_check(root.gui_get_focus_owner() == assign_auto, "keyboard focus fixture should begin on a visible route action", failures)
 
 	routing_ui.apply_first_clutch({
 		"visible": true,
@@ -124,6 +157,13 @@ func _run() -> void:
 		"preferred_action": &"share_credit",
 	})
 	await process_frame
+	await process_frame
+	_check(assignments != null and not assignments.visible, "check-in stage should retire routing controls", failures)
+	_check(personnel_actions != null and personnel_actions.is_visible_in_tree(), "check-in stage should expose personnel actions", failures)
+	_check(personnel_status != null and personnel_status.is_visible_in_tree(), "check-in stage should expose the filing status", failures)
+	_check(assist_row != null and not assist_row.visible, "check-in stage should hide claim-timing controls", failures)
+	_check(queue != null and not queue.visible, "check-in stage should hide unrelated queue chrome", failures)
+	_check(root.gui_get_focus_owner() == share_credit, "stage disclosure should move focus from a hidden route action to the coached check-in", failures)
 	_check(share_credit != null and bool(share_credit.get_meta("first_clutch_cue", false)), "check-in stage should cue the exact profile-fit action", failures)
 	_check(career_coach != null and not bool(career_coach.get_meta("first_clutch_cue", false)), "check-in stage should clear unrelated personnel cues", failures)
 	_check(assign_appeals != null and not bool(assign_appeals.get_meta("first_clutch_cue", false)), "changing stages should restore the previous route control", failures)
@@ -138,6 +178,10 @@ func _run() -> void:
 		"target_worker_id": 0,
 	})
 	await process_frame
+	_check(assignments != null and not assignments.visible, "Priority Peck stage should keep routing controls retired", failures)
+	_check(personnel_actions != null and not personnel_actions.visible, "Priority Peck stage should retire personnel actions", failures)
+	_check(priority_peck != null and priority_peck.is_visible_in_tree(), "Priority Peck stage should expose the timing action", failures)
+	_check(queue != null and not queue.visible, "Priority Peck stage should keep the queue strip out of the timing task", failures)
 	_check(priority_peck != null and bool(priority_peck.get_meta("first_clutch_cue", false)), "Priority Peck stage should cue the exact stamp even while it is locked", failures)
 	_check(share_credit != null and not bool(share_credit.get_meta("first_clutch_cue", false)), "Priority Peck stage should restore personnel styling", failures)
 
@@ -199,6 +243,10 @@ func _run() -> void:
 				failures,
 			)
 
+	if skip != null:
+		skip.grab_focus()
+	await process_frame
+	_check(root.gui_get_focus_owner() == skip, "completion focus fixture should begin on visible Skip", failures)
 	routing_ui.apply_first_clutch({
 		"visible": true,
 		"progress": 5,
@@ -206,15 +254,74 @@ func _run() -> void:
 		"stage": &"complete",
 		"title": "First clutch filed",
 		"body": "Every control stays live.",
+		"target_worker_id": 0,
 		"can_skip": false,
 	})
 	await process_frame
+	await process_frame
 	_check(skip != null and not skip.visible, "completed coach payload should retire the optional Skip control", failures)
+	_check(
+		return_to_hen != null
+		and return_to_hen.is_visible_in_tree()
+		and root.gui_get_focus_owner() == return_to_hen,
+		"hiding focused Skip away from the coached hen should move focus to the visible recovery action",
+		failures,
+	)
 
-	routing_ui.apply_first_clutch({"visible": false})
+	routing_ui.set_first_clutch_stage(&"delivery", {
+		"progress": 4,
+		"total": 5,
+		"title": "Follow the assisted file",
+		"body": "Watch the same claim reach the farmer basket.",
+		"target_worker_id": 0,
+	})
+	routing_ui.set_focus(0)
+	await process_frame
+	_check(assignments != null and not assignments.visible, "delivery stage should not reintroduce routing actions", failures)
+	_check(personnel_actions != null and not personnel_actions.visible, "delivery stage should not reintroduce personnel actions", failures)
+	_check(priority_peck != null and not priority_peck.visible, "delivery stage should retire the completed Priority Peck action", failures)
+	_check(assist_row != null and assist_row.is_visible_in_tree(), "delivery stage should retain compact claim-following context", failures)
+	_check(skip != null and skip.is_visible_in_tree(), "delivery should preserve Skip until the authoritative payload retires it", failures)
+	if skip != null:
+		skip.grab_focus()
+	await process_frame
+	_check(root.gui_get_focus_owner() == skip, "reinvestment focus fixture should begin on visible Skip", failures)
+	routing_ui.apply_first_clutch({
+		"visible": true,
+		"progress": 5,
+		"total": 5,
+		"stage": &"reinvestment",
+		"title": "Reinvest the first egg",
+		"body": "Choose one desk requisition or bank the Feed Fund.",
+		"target_worker_id": 0,
+		"can_skip": false,
+	})
+	await process_frame
+	await process_frame
+	_check(skip != null and not skip.visible, "reinvestment should retire Skip", failures)
+	_check(
+		details != null
+		and details.is_visible_in_tree()
+		and root.gui_get_focus_owner() == details,
+		"hiding focused Skip on the coached hen should move focus to visible dossier Details",
+		failures,
+	)
+
+	routing_ui.set_first_clutch_stage(&"normal")
 	await process_frame
 	_check(coach != null and not coach.visible, "caller-visible false should hide the coach cleanly for modal states", failures)
 	_check(priority_peck != null and not bool(priority_peck.get_meta("first_clutch_cue", false)), "hiding the coach should clear its final dossier cue", failures)
+	_check(queue != null and queue.is_visible_in_tree(), "normal play should restore the queue strip", failures)
+	_check(assignments != null and assignments.is_visible_in_tree(), "normal play should restore every routing action", failures)
+	_check(personnel_actions != null and personnel_actions.is_visible_in_tree(), "normal play should restore every personnel action", failures)
+	_check(priority_peck != null and priority_peck.is_visible_in_tree(), "normal play should restore Priority Peck", failures)
+	_check(compact_queue != null and compact_queue.is_visible_in_tree(), "narrow normal play should collapse queue detail into one summary chip", failures)
+	if queue != null:
+		var normal_queue_rect := queue.get_global_rect()
+		_check(normal_queue_rect.position.x >= 0.0 and normal_queue_rect.end.x <= 390.0, "compact queue chip should remain inside a narrow viewport", failures)
+	var normal_presentation := routing_ui.first_clutch_presentation_state()
+	_check(not bool(normal_presentation.get("active", true)), "normal API state should retire progressive disclosure", failures)
+	_check(bool(normal_presentation.get("routing_visible", false)) and bool(normal_presentation.get("check_in_visible", false)), "normal metadata should prove all management categories are restored", failures)
 
 	routing_ui.free()
 	await process_frame
@@ -223,7 +330,7 @@ func _run() -> void:
 			push_error("FIRST_CLUTCH_COACH_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FIRST_CLUTCH_COACH_UI_TEST_PASSED card=compact progress=0/5 cues=exact recovery=intent pause=aware focus=preserved narrow=contained skip=intent")
+	print("FIRST_CLUTCH_COACH_UI_TEST_PASSED card=compact disclosure=stage_exact details=accessible normal=restored cues=exact recovery=intent focus=preserved")
 	quit(0)
 
 

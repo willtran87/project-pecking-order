@@ -4,21 +4,25 @@ extends Control
 ## Standalone presentation layer for the five-shift management probation.
 ##
 ## The component owns no campaign rules or persistence. Call [apply_snapshot]
-## with a plain Dictionary and connect the four intent signals below. Supported
-## views are `title`, `active`, `between_shift`, and `final`.
+## with a plain Dictionary and connect the intent signals below. Supported views
+## are `title`, `active`, `between_shift`, `contract_board`, and `final`.
 
 signal continue_campaign
 signal new_campaign
 signal abandon_campaign
 signal milestone_choice(choice_id: StringName)
 signal career_sponsorship_requested(worker_id: int, lane_id: StringName)
+signal market_contract_sign_requested(offer_id: StringName, clause_id: StringName)
+signal market_contract_decline_requested
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const CareerSponsorshipUIScript := preload("res://features/office/career_sponsorship_ui.gd")
+const FarmMutualContractBoardUIScript := preload("res://features/office/farm_mutual_contract_board_ui.gd")
 
 const VIEW_TITLE := &"title"
 const VIEW_ACTIVE := &"active"
 const VIEW_REPORT := &"between_shift"
+const VIEW_CONTRACT_BOARD := &"contract_board"
 const VIEW_FINAL := &"final"
 const DEFAULT_TOTAL_DAYS := 5
 const PROBATION_SCORE_LIMIT := 100
@@ -46,6 +50,8 @@ var _view: StringName = VIEW_ACTIVE
 var _selected_milestone := &""
 
 var _day_badge: PanelContainer
+var _active_badge_top := 120.0
+var _badge_suppressed := false
 var _status_label: Label
 var _day_label: Label
 var _modal_host: Control
@@ -56,6 +62,9 @@ var _report_panel: PanelContainer
 var _final_panel: PanelContainer
 var _title_day_track: HFlowContainer
 var _title_actions: HFlowContainer
+var _title_resume_card: PanelContainer
+var _title_resume_heading: Label
+var _title_resume_details: Label
 var _report_score_row: HFlowContainer
 var _report_heading_stack: VBoxContainer
 var _report_story_row: HFlowContainer
@@ -75,6 +84,10 @@ var _report_score_label: Label
 var _report_shift_delta_label: Label
 var _report_rank_label: Label
 var _report_ledger_labels: Array[Dictionary] = []
+var _report_safeguard_panel: PanelContainer
+var _report_safeguard_summary: Label
+var _report_safeguard_grid: GridContainer
+var _report_safeguard_rows: Array[Label] = []
 var _credit_memo_card: PanelContainer
 var _credit_memo_label: Label
 var _hen_highlight_card: PanelContainer
@@ -91,14 +104,27 @@ var _milestone_buttons_host: HFlowContainer
 var _milestone_hint_label: Label
 var _milestone_buttons: Dictionary[StringName, Button] = {}
 var _career_sponsorship_ui: CareerSponsorshipUI
+var _contract_board_ui: FarmMutualContractBoardUI
 
 var _final_verdict_label: Label
 var _final_score_label: Label
 var _final_rank_label: Label
 var _final_message_label: Label
 var _final_ledger_labels: Array[Dictionary] = []
+var _final_safeguard_panel: PanelContainer
+var _final_safeguard_summary: Label
+var _final_safeguard_grid: GridContainer
+var _final_safeguard_rows: Array[Label] = []
 var _final_continue_button: Button
 var _final_new_button: Button
+
+var _replacement_confirmation_host: Control
+var _replacement_confirmation_panel: PanelContainer
+var _replacement_confirmation_title: Label
+var _replacement_confirmation_body: Label
+var _replacement_confirmation_confirm: Button
+var _replacement_confirmation_cancel: Button
+var _replacement_confirmation_origin: Control
 
 
 func _ready() -> void:
@@ -115,6 +141,7 @@ func _ready() -> void:
 
 ## Replaces all presentation data. This method never mutates the caller's data.
 func apply_snapshot(snapshot: Dictionary) -> void:
+	_hide_campaign_replacement(false)
 	_snapshot = snapshot.duplicate(true)
 	_view = _read_view(_snapshot)
 	_selected_milestone = StringName(_snapshot.get(
@@ -127,6 +154,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 ## Shows the first-load campaign card. Continue remains visibly disabled when
 ## no resumable campaign exists.
 func show_title(continue_available: bool = false) -> void:
+	_hide_campaign_replacement(false)
 	_snapshot["view"] = VIEW_TITLE
 	_snapshot["continue_available"] = continue_available
 	_view = VIEW_TITLE
@@ -136,6 +164,7 @@ func show_title(continue_available: bool = false) -> void:
 
 ## Returns to the office while retaining the compact probation badge.
 func show_active_campaign(snapshot: Dictionary = {}) -> void:
+	_hide_campaign_replacement(false)
 	_merge_snapshot(snapshot)
 	_snapshot["view"] = VIEW_ACTIVE
 	_view = VIEW_ACTIVE
@@ -144,6 +173,7 @@ func show_active_campaign(snapshot: Dictionary = {}) -> void:
 
 ## Opens the intentional between-shift report modal.
 func show_between_shift_report(snapshot: Dictionary = {}) -> void:
+	_hide_campaign_replacement(false)
 	_merge_snapshot(snapshot)
 	_snapshot["view"] = VIEW_REPORT
 	_view = VIEW_REPORT
@@ -154,8 +184,21 @@ func show_between_shift_report(snapshot: Dictionary = {}) -> void:
 	_refresh()
 
 
+## Opens the sequential Farm Mutual planning file after the closing report and
+## before the morning directive. The child consumes the canonical board snapshot.
+func show_contract_board(snapshot: Dictionary = {}) -> void:
+	_hide_campaign_replacement(false)
+	_merge_snapshot(snapshot)
+	_snapshot["view"] = VIEW_CONTRACT_BOARD
+	_view = VIEW_CONTRACT_BOARD
+	if _contract_board_ui != null:
+		_contract_board_ui.apply_snapshot(_snapshot)
+	_refresh()
+
+
 ## Opens the final pass/fail campaign review.
 func show_final_review(snapshot: Dictionary = {}) -> void:
+	_hide_campaign_replacement(false)
 	_merge_snapshot(snapshot)
 	_snapshot["view"] = VIEW_FINAL
 	_view = VIEW_FINAL
@@ -180,6 +223,31 @@ func selected_milestone_id() -> StringName:
 
 func campaign_snapshot() -> Dictionary:
 	return _snapshot.duplicate(true)
+
+
+func contract_board_ui() -> FarmMutualContractBoardUI:
+	return _contract_board_ui
+
+
+## Keeps the compact active-file badge aligned with Office's adaptive HUD and
+## lets focused drawers/modals suppress it without changing campaign state.
+func set_badge_presentation(active_top: float, suppressed: bool) -> void:
+	var sanitized_top := maxf(0.0, active_top)
+	if is_equal_approx(_active_badge_top, sanitized_top) and _badge_suppressed == suppressed:
+		return
+	_active_badge_top = sanitized_top
+	_badge_suppressed = suppressed
+	if _day_badge != null:
+		_day_badge.visible = not suppressed
+		_position_badge(_view != VIEW_ACTIVE)
+
+
+func active_badge_top() -> float:
+	return _active_badge_top
+
+
+func is_badge_suppressed() -> bool:
+	return _badge_suppressed
 
 
 func _merge_snapshot(snapshot: Dictionary) -> void:
@@ -262,6 +330,14 @@ func _build_modal_host() -> void:
 	_build_title_panel(_modal_center)
 	_build_report_panel(_modal_center)
 	_build_final_panel(_modal_center)
+	_contract_board_ui = FarmMutualContractBoardUIScript.new() as FarmMutualContractBoardUI
+	_contract_board_ui.name = "FarmMutualContractBoardUI"
+	_contract_board_ui.visible = false
+	_contract_board_ui.contract_sign_requested.connect(_on_market_contract_sign_requested)
+	_contract_board_ui.decline_requested.connect(_on_market_contract_decline_requested)
+	_contract_board_ui.continue_requested.connect(_on_continue_campaign_pressed)
+	_modal_host.add_child(_contract_board_ui)
+	_build_replacement_confirmation()
 
 
 func _build_title_panel(parent: Control) -> void:
@@ -279,7 +355,7 @@ func _build_title_panel(parent: Control) -> void:
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	eyebrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(eyebrow)
-	var title := _make_label("FIVE SHIFTS. START WITH ONE HEN.", 28, CREAM)
+	var title := _make_label("FIVE SHIFTS. START BY MEETING MABEL.", 28, CREAM)
 	title.name = "CampaignTitle"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -337,6 +413,26 @@ func _build_title_panel(parent: Control) -> void:
 		stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stamp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		stamp.add_child(stamp_label)
+
+	_title_resume_card = PanelContainer.new()
+	_title_resume_card.name = "CampaignResumeCard"
+	_title_resume_card.visible = false
+	_title_resume_card.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("20343d"), Color("6d8e86"), 8, 1),
+	)
+	content.add_child(_title_resume_card)
+	var resume_content := _panel_content(_title_resume_card, 16, 9, 3)
+	_title_resume_heading = _make_label("SAVED COOP FILE READY", 12, TEAL)
+	_title_resume_heading.name = "CampaignResumeHeading"
+	_title_resume_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title_resume_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	resume_content.add_child(_title_resume_heading)
+	_title_resume_details = _make_label("", 11, INK)
+	_title_resume_details.name = "CampaignResumeDetails"
+	_title_resume_details.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title_resume_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	resume_content.add_child(_title_resume_details)
 
 	_title_actions = HFlowContainer.new()
 	_title_actions.name = "CampaignTitleActions"
@@ -461,6 +557,10 @@ func _build_report_panel(parent: Control) -> void:
 	_report_ledger_section_label.name = "ReportLedgerSectionTitle"
 	content.add_child(_report_ledger_section_label)
 	_build_ledger_row(content, "Report", _report_ledger_labels)
+	var report_safeguards := _build_safeguard_receipt(content, "Report", _report_safeguard_rows)
+	_report_safeguard_panel = report_safeguards["panel"] as PanelContainer
+	_report_safeguard_summary = report_safeguards["summary"] as Label
+	_report_safeguard_grid = report_safeguards["grid"] as GridContainer
 
 	var objective_card := PanelContainer.new()
 	objective_card.name = "NextShiftObjectiveCard"
@@ -516,7 +616,7 @@ func _build_report_panel(parent: Control) -> void:
 	_report_actions.add_theme_constant_override("h_separation", 12)
 	_report_actions.add_theme_constant_override("v_separation", 8)
 	content.add_child(_report_actions)
-	var abandon := _make_button("AbandonCampaignButton", "ABANDON FILE  [A]", &"DangerButton")
+	var abandon := _make_button("AbandonCampaignButton", "SHELVE & RETURN TO INTAKE  [A]", &"DecisionChoiceButton")
 	abandon.custom_minimum_size = Vector2(190.0, 44.0)
 	abandon.shortcut = _shortcut(KEY_A)
 	abandon.pressed.connect(_on_abandon_campaign_pressed)
@@ -569,6 +669,10 @@ func _build_final_panel(parent: Control) -> void:
 
 	content.add_child(_section_label("FIVE-SHIFT CLOSING LEDGERS"))
 	_build_ledger_row(content, "Final", _final_ledger_labels)
+	var final_safeguards := _build_safeguard_receipt(content, "Final", _final_safeguard_rows)
+	_final_safeguard_panel = final_safeguards["panel"] as PanelContainer
+	_final_safeguard_summary = final_safeguards["summary"] as Label
+	_final_safeguard_grid = final_safeguards["grid"] as GridContainer
 
 	_final_actions = HFlowContainer.new()
 	_final_actions.name = "FinalProbationActions"
@@ -576,7 +680,7 @@ func _build_final_panel(parent: Control) -> void:
 	_final_actions.add_theme_constant_override("h_separation", 11)
 	_final_actions.add_theme_constant_override("v_separation", 8)
 	content.add_child(_final_actions)
-	var leave := _make_button("FinalAbandonCampaignButton", "LEAVE BUREAU  [A]", &"DangerButton")
+	var leave := _make_button("FinalAbandonCampaignButton", "SHELVE & RETURN TO INTAKE  [A]", &"DecisionChoiceButton")
 	leave.custom_minimum_size = Vector2(190.0, 46.0)
 	leave.shortcut = _shortcut(KEY_A)
 	leave.pressed.connect(_on_abandon_campaign_pressed)
@@ -591,6 +695,120 @@ func _build_final_panel(parent: Control) -> void:
 	_final_continue_button.shortcut = _shortcut(KEY_C)
 	_final_continue_button.pressed.connect(_on_continue_campaign_pressed)
 	_final_actions.add_child(_final_continue_button)
+
+
+func _build_safeguard_receipt(
+	parent: VBoxContainer,
+	prefix: String,
+	rows: Array[Label],
+) -> Dictionary:
+	var panel := PanelContainer.new()
+	panel.name = "%sProbationSafeguardReceipt" % prefix
+	panel.visible = false
+	panel.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("1c3038"), Color("6f8e87"), 8, 1),
+	)
+	parent.add_child(panel)
+	var content := _panel_content(panel, 16, 10, 4)
+	var heading := _make_label("PROBATION PASS SAFEGUARDS  //  EXACT FILING TERMS", 11, TEAL)
+	heading.name = "%sProbationSafeguardHeading" % prefix
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(heading)
+	var summary := _make_label("IF FILED NOW  //  0 / 5 SAFEGUARDS", 14, CREAM)
+	summary.name = "%sProbationSafeguardSummary" % prefix
+	summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(summary)
+	var grid := GridContainer.new()
+	grid.name = "%sProbationSafeguardGrid" % prefix
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 3)
+	content.add_child(grid)
+	for index: int in range(5):
+		var row := _make_label("AWAITING FILE", 11, MUTED)
+		row.name = "%sProbationSafeguardRow_%d" % [prefix, index + 1]
+		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(row)
+		rows.append(row)
+	return {"panel": panel, "summary": summary, "grid": grid}
+
+
+func _build_replacement_confirmation() -> void:
+	_replacement_confirmation_host = Control.new()
+	_replacement_confirmation_host.name = "CampaignReplacementConfirmation"
+	_replacement_confirmation_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_replacement_confirmation_host.mouse_filter = Control.MOUSE_FILTER_STOP
+	_replacement_confirmation_host.z_index = 100
+	_replacement_confirmation_host.visible = false
+	_modal_host.add_child(_replacement_confirmation_host)
+
+	var scrim := ColorRect.new()
+	scrim.name = "CampaignReplacementConfirmationScrim"
+	scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scrim.color = Color(0.006, 0.012, 0.018, 0.92)
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_replacement_confirmation_host.add_child(scrim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.offset_left = 18.0
+	center.offset_top = 18.0
+	center.offset_right = -18.0
+	center.offset_bottom = -18.0
+	center.mouse_filter = Control.MOUSE_FILTER_STOP
+	_replacement_confirmation_host.add_child(center)
+
+	_replacement_confirmation_panel = PanelContainer.new()
+	_replacement_confirmation_panel.name = "CampaignReplacementConfirmationPanel"
+	_replacement_confirmation_panel.custom_minimum_size = Vector2(560.0, 0.0)
+	_replacement_confirmation_panel.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("1a2730"), RUST, 12, 2),
+	)
+	center.add_child(_replacement_confirmation_panel)
+	var content := _panel_content(_replacement_confirmation_panel, 26, 22, 12)
+	var eyebrow := _make_label("RECORDS CONTROL  //  DESTRUCTIVE FILING", 11, RUST)
+	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	eyebrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(eyebrow)
+	_replacement_confirmation_title = _make_label("REPLACE THE SAVED COOP FILE?", 24, CREAM)
+	_replacement_confirmation_title.name = "CampaignReplacementConfirmationTitle"
+	_replacement_confirmation_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_replacement_confirmation_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(_replacement_confirmation_title)
+	_replacement_confirmation_body = _make_label("", 13, INK)
+	_replacement_confirmation_body.name = "CampaignReplacementConfirmationBody"
+	_replacement_confirmation_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_replacement_confirmation_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(_replacement_confirmation_body)
+	var actions := HFlowContainer.new()
+	actions.name = "CampaignReplacementConfirmationActions"
+	actions.alignment = FlowContainer.ALIGNMENT_CENTER
+	actions.add_theme_constant_override("h_separation", 12)
+	actions.add_theme_constant_override("v_separation", 8)
+	content.add_child(actions)
+	_replacement_confirmation_cancel = _make_button(
+		"CancelCampaignReplacementButton",
+		"KEEP CURRENT FILE  [ESC]",
+		&"PrimaryButton",
+	)
+	_replacement_confirmation_cancel.custom_minimum_size = Vector2(220.0, 48.0)
+	_replacement_confirmation_cancel.shortcut = _shortcut(KEY_ESCAPE)
+	_replacement_confirmation_cancel.pressed.connect(_cancel_campaign_replacement)
+	actions.add_child(_replacement_confirmation_cancel)
+	_replacement_confirmation_confirm = _make_button(
+		"ConfirmCampaignReplacementButton",
+		"REPLACE & START FRESH  [Y]",
+		&"DangerButton",
+	)
+	_replacement_confirmation_confirm.custom_minimum_size = Vector2(240.0, 48.0)
+	_replacement_confirmation_confirm.shortcut = _shortcut(KEY_Y)
+	_replacement_confirmation_confirm.pressed.connect(_confirm_campaign_replacement)
+	actions.add_child(_replacement_confirmation_confirm)
 
 
 func _refresh() -> void:
@@ -616,9 +834,11 @@ func _refresh() -> void:
 
 	var modal_open := _view != VIEW_ACTIVE
 	_modal_host.visible = modal_open
+	_modal_scroll.visible = _view != VIEW_CONTRACT_BOARD
 	_title_panel.visible = _view == VIEW_TITLE
 	_report_panel.visible = _view == VIEW_REPORT
 	_final_panel.visible = _view == VIEW_FINAL
+	_contract_board_ui.visible = _view == VIEW_CONTRACT_BOARD
 	_apply_responsive_layout()
 	if not modal_open:
 		return
@@ -628,6 +848,8 @@ func _refresh() -> void:
 			_refresh_title()
 		VIEW_REPORT:
 			_refresh_report(day, total_days)
+		VIEW_CONTRACT_BOARD:
+			_contract_board_ui.apply_snapshot(_snapshot)
 		VIEW_FINAL:
 			_refresh_final()
 
@@ -637,13 +859,58 @@ func _refresh_title() -> void:
 		"continue_available",
 		_snapshot.get("has_continue", false),
 	))
+	var resume_value: Variant = _snapshot.get("resume_summary", {})
+	var resume_summary := resume_value as Dictionary if resume_value is Dictionary else {}
+	var resume_details := _format_resume_summary(resume_summary)
+	if _title_resume_card != null:
+		_title_resume_card.visible = can_continue
+	if _title_resume_heading != null:
+		_title_resume_heading.text = (
+			"RECOVERY COPY READY  //  SAVED COOP FILE"
+			if bool(resume_summary.get("recovered_from_backup", false)) else
+			"SAVED COOP FILE READY"
+		)
+	if _title_resume_details != null:
+		_title_resume_details.text = resume_details
 	_continue_title_button.disabled = not can_continue
 	_continue_title_button.tooltip_text = (
-		"Resume the saved probation file."
+		"Resume the saved coop file.\n%s" % resume_details
 		if can_continue else
 		"No saved probation file is available yet."
 	)
 	_queue_focus(_continue_title_button if can_continue else find_child("NewCampaignButton", true, false) as Button)
+
+
+func _format_resume_summary(summary: Dictionary) -> String:
+	if summary.is_empty():
+		return "A verified checkpoint is available. Continue resumes the exact filed state."
+	var lines: Array[String] = []
+	if bool(summary.get("senior_roost", false)):
+		lines.append("SENIOR YEAR %d  //  %d ROOST MARK%s  //  %d BOARD SEAL%s" % [
+			maxi(1, int(summary.get("senior_year", 1))),
+			maxi(0, int(summary.get("roost_marks", 0))),
+			"" if int(summary.get("roost_marks", 0)) == 1 else "S",
+			maxi(0, int(summary.get("mandate_seals", 0))),
+			"" if int(summary.get("mandate_seals", 0)) == 1 else "S",
+		])
+	else:
+		lines.append("DAY %d / %d  //  %d SHIFT%s FILED  //  SCORE %d" % [
+			clampi(int(summary.get("day", 1)), 1, DEFAULT_TOTAL_DAYS),
+			DEFAULT_TOTAL_DAYS,
+			maxi(0, int(summary.get("completed_shifts", 0))),
+			"" if int(summary.get("completed_shifts", 0)) == 1 else "S",
+			clampi(int(summary.get("probation_score", 50)), 0, PROBATION_SCORE_LIMIT),
+		])
+	var rank_label := String(summary.get("rank_label", "")).strip_edges().to_upper()
+	var stage_label := String(summary.get("stage_label", "")).strip_edges().to_upper()
+	var context: Array[String] = []
+	if not rank_label.is_empty():
+		context.append(rank_label)
+	if not stage_label.is_empty():
+		context.append(stage_label)
+	if not context.is_empty():
+		lines.append("  //  ".join(context))
+	return "\n".join(lines)
 
 
 func _refresh_report(day: int, total_days: int) -> void:
@@ -690,6 +957,12 @@ func _refresh_report(day: int, total_days: int) -> void:
 	_update_credit_memo(day)
 	_update_hen_highlight(day)
 	_update_ledger_labels(_report_ledger_labels)
+	_refresh_probation_safeguard_receipt(
+		_report_safeguard_panel,
+		_report_safeguard_summary,
+		_report_safeguard_rows,
+		false,
+	)
 	_update_objective()
 	_rebuild_milestone_choices()
 	if _career_sponsorship_ui != null:
@@ -856,6 +1129,111 @@ func _format_signed_delta(value: int) -> String:
 	return "+%d" % value if value > 0 else str(value)
 
 
+func _refresh_probation_safeguard_receipt(
+	panel: PanelContainer,
+	summary: Label,
+	rows: Array[Label],
+	final_receipt: bool,
+) -> void:
+	if panel == null or summary == null:
+		return
+	# Presentation snapshots intentionally merge across sequential career views.
+	# A Senior filing must never inherit the completed probation receipt left in
+	# that shared UI state, even if an older caller omitted the key entirely.
+	if _is_senior_snapshot():
+		panel.visible = false
+		return
+	var forecast_value: Variant = _snapshot.get("probation_safeguard_forecast", {})
+	var forecast := forecast_value as Dictionary if forecast_value is Dictionary else {}
+	var criteria_value: Variant = forecast.get("criteria", [])
+	var criteria := criteria_value as Array if criteria_value is Array else []
+	panel.visible = not criteria.is_empty()
+	if criteria.is_empty():
+		return
+	var pass_count := clampi(int(forecast.get("pass_count", 0)), 0, criteria.size())
+	var all_pass := bool(forecast.get("all_pass", false))
+	var summary_prefix := "FINAL RESULT" if final_receipt else "CURRENT FORECAST"
+	var summary_status := (
+		"ALL SAFEGUARDS PASS"
+		if all_pass else
+		("FILE HELD" if final_receipt else "ACTION REQUIRED")
+	)
+	var shift_progress := "" if final_receipt else "  //  %d / %d SHIFTS FILED" % [
+		maxi(0, int(forecast.get("completed_shifts", 0))),
+		maxi(1, int(forecast.get("required_shifts", DEFAULT_TOTAL_DAYS))),
+	]
+	summary.text = "%s  //  %d / %d SAFEGUARDS%s  //  %s" % [
+		summary_prefix,
+		pass_count,
+		criteria.size(),
+		shift_progress,
+		summary_status,
+	]
+	summary.add_theme_color_override("font_color", TEAL if all_pass else RUST)
+	var tooltip_lines: Array[String] = [summary.text]
+	for index: int in range(rows.size()):
+		var label := rows[index]
+		if label == null:
+			continue
+		label.visible = index < criteria.size()
+		if not label.visible:
+			continue
+		var criterion_value: Variant = criteria[index]
+		if not criterion_value is Dictionary:
+			label.text = "HELD  //  INVALID SAFEGUARD ROW"
+			label.add_theme_color_override("font_color", RUST)
+			continue
+		var criterion := criterion_value as Dictionary
+		label.text = _probation_safeguard_row_text(criterion, final_receipt)
+		label.add_theme_color_override(
+			"font_color",
+			Color("a7dbc9") if bool(criterion.get("pass", false)) else Color("f0aa95"),
+		)
+		tooltip_lines.append(label.text)
+	var blocker := forecast.get("largest_recoverable_blocker", {}) as Dictionary
+	if not blocker.is_empty() and not final_receipt:
+		var blocker_line := "LARGEST RECOVERABLE GAP  //  %s  //  %s" % [
+			String(blocker.get("label", "SAFEGUARD")).to_upper(),
+			_probation_safeguard_gap_text(blocker),
+		]
+		summary.text += "\n" + blocker_line
+		tooltip_lines.append(blocker_line)
+	panel.tooltip_text = "\n".join(tooltip_lines)
+
+
+func _probation_safeguard_row_text(criterion: Dictionary, final_receipt: bool) -> String:
+	var passed := bool(criterion.get("pass", false))
+	var status := "PASS" if passed else ("HELD" if final_receipt else "AT RISK")
+	var comparison := String(criterion.get("comparison", "minimum"))
+	var metric := String(criterion.get("metric", ""))
+	return "%s  //  %s  //  %s %s %s  //  %s" % [
+		status,
+		String(criterion.get("label", "SAFEGUARD")).to_upper(),
+		_probation_safeguard_value_text(metric, int(criterion.get("projected_value", 0))),
+		">=" if comparison == "minimum" else "<=",
+		_probation_safeguard_value_text(metric, int(criterion.get("target", 0))),
+		_probation_safeguard_gap_text(criterion),
+	]
+
+
+func _probation_safeguard_value_text(metric: String, value: int) -> String:
+	if metric == "crack_rate_basis_points":
+		return "%.2f%%" % (float(value) / 100.0)
+	return str(value)
+
+
+func _probation_safeguard_gap_text(criterion: Dictionary) -> String:
+	var metric := String(criterion.get("metric", ""))
+	var gap := int(criterion.get("signed_gap", 0))
+	if metric == "crack_rate_basis_points":
+		return "%s%.2f PTS" % ["+" if gap > 0 else "", float(gap) / 100.0]
+	return "%s%d POINT%s" % [
+		"+" if gap > 0 else "",
+		gap,
+		"" if absi(gap) == 1 else "S",
+	]
+
+
 func _highlight_tone_color(tone: StringName) -> Color:
 	match tone:
 		&"danger":
@@ -899,6 +1277,12 @@ func _refresh_final() -> void:
 	_final_score_label.text = _format_integer(int(_snapshot.get("score", 0)))
 	_final_rank_label.text = String(_snapshot.get("rank", "UNRANKED")).to_upper()
 	_update_ledger_labels(_final_ledger_labels)
+	_refresh_probation_safeguard_receipt(
+		_final_safeguard_panel,
+		_final_safeguard_summary,
+		_final_safeguard_rows,
+		true,
+	)
 	_final_continue_button.visible = passed
 	_final_new_button.text = "NEW CAMPAIGN  [N]" if passed else "RETRY PROBATION  [N]"
 	_queue_focus(_final_continue_button if passed else _final_new_button)
@@ -1152,6 +1536,8 @@ func _read_view(snapshot: Dictionary) -> StringName:
 			return VIEW_TITLE
 		"between_shift", "between_shifts", "report", "shift_report":
 			return VIEW_REPORT
+		"contract_board", "farm_mutual", "market_contract":
+			return VIEW_CONTRACT_BOARD
 		"final", "complete", "campaign_review":
 			return VIEW_FINAL
 	return VIEW_ACTIVE
@@ -1169,11 +1555,17 @@ func _apply_responsive_layout() -> void:
 	var modal_height := maxf(240.0, viewport_size.y - 84.0)
 	var narrow := viewport_size.x < 720.0
 	var compact := viewport_size.x < 1100.0
+	if _report_safeguard_grid != null:
+		_report_safeguard_grid.columns = 1 if narrow else 2
+	if _final_safeguard_grid != null:
+		_final_safeguard_grid.columns = 1 if narrow else 2
 
 	_modal_center.custom_minimum_size = Vector2(panel_width, modal_height)
 	_title_panel.custom_minimum_size = Vector2(minf(760.0, panel_width), 0.0)
 	_report_panel.custom_minimum_size = Vector2(minf(1040.0, panel_width), 0.0)
 	_final_panel.custom_minimum_size = Vector2(minf(860.0, panel_width), 0.0)
+	if _replacement_confirmation_panel != null:
+		_replacement_confirmation_panel.custom_minimum_size = Vector2(minf(560.0, panel_width), 0.0)
 	_report_heading_stack.custom_minimum_size.x = 0.0 if compact else 390.0
 
 	var report_score_panel := _metric_panel(_report_score_label)
@@ -1225,9 +1617,9 @@ func _position_badge(modal_open: bool) -> void:
 		# This slot sits between the routing strip and Flockwatch button in the
 		# 1280x720 office HUD, so the badge never covers hens or workstations.
 		_day_badge.offset_left = -490.0
-		_day_badge.offset_top = 120.0
+		_day_badge.offset_top = _active_badge_top
 		_day_badge.offset_right = -268.0
-		_day_badge.offset_bottom = 164.0
+		_day_badge.offset_bottom = _active_badge_top + 44.0
 
 
 func _on_milestone_pressed(choice_id: StringName) -> void:
@@ -1258,12 +1650,75 @@ func _on_continue_campaign_pressed() -> void:
 	continue_campaign.emit()
 
 
+func _on_market_contract_sign_requested(offer_id: StringName, clause_id: StringName) -> void:
+	market_contract_sign_requested.emit(offer_id, clause_id)
+
+
+func _on_market_contract_decline_requested() -> void:
+	market_contract_decline_requested.emit()
+
+
 func _on_new_campaign_pressed() -> void:
+	if _campaign_replacement_requires_confirmation():
+		_show_campaign_replacement_confirmation()
+		return
 	new_campaign.emit()
 
 
 func _on_abandon_campaign_pressed() -> void:
 	abandon_campaign.emit()
+
+
+func _campaign_replacement_requires_confirmation() -> bool:
+	if _view == VIEW_FINAL:
+		return true
+	return (
+		_view == VIEW_TITLE
+		and bool(_snapshot.get("continue_available", _snapshot.get("has_continue", false)))
+	)
+
+
+func _show_campaign_replacement_confirmation() -> void:
+	if _replacement_confirmation_host == null:
+		return
+	_replacement_confirmation_origin = (
+		_final_new_button
+		if _view == VIEW_FINAL else
+		find_child("NewCampaignButton", true, false) as Control
+	)
+	var resume_value: Variant = _snapshot.get("resume_summary", {})
+	var resume_summary := resume_value as Dictionary if resume_value is Dictionary else {}
+	var current_file := _format_resume_summary(resume_summary)
+	if _view == VIEW_FINAL and resume_summary.is_empty():
+		current_file = "DAY 5 / 5  //  SCORE %d  //  %s" % [
+			clampi(int(_snapshot.get("score", 0)), 0, PROBATION_SCORE_LIMIT),
+			String(_snapshot.get("rank", "FILE CLOSED")).to_upper(),
+		]
+	_replacement_confirmation_body.text = (
+		"Starting fresh replaces the resumable coop file shown below.\n\n%s\n\n"
+		+ "The current file remains untouched until the new checkpoint has been written and verified. "
+		+ "Choose Keep Current File to return without changing anything."
+	) % current_file
+	_replacement_confirmation_host.visible = true
+	_queue_focus(_replacement_confirmation_cancel)
+
+
+func _cancel_campaign_replacement() -> void:
+	_hide_campaign_replacement(true)
+
+
+func _confirm_campaign_replacement() -> void:
+	_hide_campaign_replacement(false)
+	new_campaign.emit()
+
+
+func _hide_campaign_replacement(restore_focus: bool) -> void:
+	if _replacement_confirmation_host == null or not _replacement_confirmation_host.visible:
+		return
+	_replacement_confirmation_host.visible = false
+	if restore_focus and _replacement_confirmation_origin != null and is_instance_valid(_replacement_confirmation_origin):
+		_queue_focus(_replacement_confirmation_origin)
+	_replacement_confirmation_origin = null
 
 
 func _queue_focus(control: Control) -> void:

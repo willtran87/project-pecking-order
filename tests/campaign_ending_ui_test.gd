@@ -99,7 +99,30 @@ func _run() -> void:
 	_check(ui.get_viewport().gui_get_focus_owner() == new_button, "failed ending should move keyboard focus to retry", failures)
 	if new_button != null:
 		new_button.pressed.emit()
-	_check(int(observed["new_campaign"]) == 1, "failed ending retry should preserve the public new-campaign action", failures)
+	await process_frame
+	await process_frame
+	var replacement_host := ui.find_child("CampaignReplacementConfirmation", true, false) as Control
+	var keep_button := ui.find_child("CancelCampaignReplacementButton", true, false) as Button
+	var replace_button := ui.find_child("ConfirmCampaignReplacementButton", true, false) as Button
+	_check(
+		int(observed["new_campaign"]) == 0
+		and replacement_host != null and replacement_host.is_visible_in_tree(),
+		"failed ending retry should require an explicit replacement confirmation",
+		failures,
+	)
+	_check(
+		keep_button != null and ui.get_viewport().gui_get_focus_owner() == keep_button,
+		"failed ending retry confirmation should focus the safe keep-file action",
+		failures,
+	)
+	if replace_button != null:
+		replace_button.pressed.emit()
+	_check(
+		int(observed["new_campaign"]) == 1
+		and replacement_host != null and not replacement_host.is_visible_in_tree(),
+		"confirmed failed-ending retry should preserve the public new-campaign action exactly once",
+		failures,
+	)
 
 	var memo_label := ui.find_child("FiledCreditMemoLabel", true, false) as Label
 	var memo_card := ui.find_child("FiledCreditMemoCard", true, false) as PanelContainer

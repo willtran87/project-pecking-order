@@ -17,7 +17,7 @@ func _run() -> void:
 			push_error("FLOCK_PETITION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FLOCK_PETITION_TEST_PASSED sponsor=deterministic tiers=atomic compact=once release=breach work_to_rule=causal persistence=v7")
+	print("FLOCK_PETITION_TEST_PASSED sponsor=deterministic tiers=atomic compact=once release=breach work_to_rule=causal persistence=v10")
 	quit(0)
 
 
@@ -139,6 +139,7 @@ func _test_compact_fulfillment_and_release_breach(failures: Array[String]) -> vo
 	_check(breached.resolve_decision(int(breach_petition.get("serial", -1)), &"sign_compact"), "release fixture should sign its specialty compact", failures)
 	_finish_shift(breached, failures)
 	_check(StringName(breached.active_flock_compact.get("status", &"")) == &"active", "release fixture should enter review with an active compact", failures)
+	_check(_resolve_free_incident(breached), "release fixture should file its closing credit before staffing changes", failures)
 	breached.revenue_cents = 100000
 	breached.solidarity = DepartmentSimulation.WORK_TO_RULE_SOLIDARITY_THRESHOLD
 	var release_result := breached.release_worker(breach_sponsor_id)
@@ -210,7 +211,7 @@ func _test_v6_round_trip_and_strict_invariants(failures: Array[String]) -> void:
 	_check(restored.last_flock_petition == original.last_flock_petition, "round trip should preserve the named petition record", failures)
 	_check(restored.flock_petition_history == original.flock_petition_history, "round trip should preserve bounded petition history", failures)
 	_check(restored.active_flock_compact == original.active_flock_compact, "round trip should preserve the binding scheduled compact", failures)
-	_check(int(restored.export_save_state().get("state_version", -1)) == 7, "restored petition state should export schema v7", failures)
+	_check(int(restored.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "restored petition state should export the current schema", failures)
 
 	var invalid_target := DepartmentSimulation.new(9232, 4)
 	var invalid_before := invalid_target.export_save_state().duplicate(true)

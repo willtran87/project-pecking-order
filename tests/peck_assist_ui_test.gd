@@ -14,16 +14,48 @@ func _run() -> void:
 
 	var simulation := office.get("_simulation") as DepartmentSimulation
 	var clock := office.get("_clock") as SimulationClock
+	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
 	var routing_ui := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
 	var dossier := office.find_child("PeckworkAssignmentDossier", true, false) as PanelContainer
 	var assist_button := office.find_child("PeckAssistButton", true, false) as Button
+
+	# Normalize any resumable developer-local file to the authored title surface so
+	# this integration test exercises the same blocking presentation every run.
+	if campaign_ui != null:
+		campaign_ui.show_title(false)
+	await process_frame
 
 	_check(simulation != null, "Office should expose its authoritative simulation", failures)
 	_check(clock != null, "Office should expose its simulation clock", failures)
 	_check(routing_ui != null, "Office should install the Peckwork routing interface", failures)
 	_check(dossier != null, "routing interface should build the selected-hen dossier", failures)
 	_check(assist_button != null, "selected-hen dossier should contain a Priority Peck button", failures)
-	_check(dossier != null and not dossier.is_visible_in_tree(), "dossier should remain hidden before a hen is selected", failures)
+	_check(
+		campaign_ui != null and campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE,
+		"the fixture should begin on the blocking campaign title",
+		failures,
+	)
+	_check(
+		routing_ui != null and not routing_ui.is_visible_in_tree(),
+		"Peckwork should stay hidden behind the campaign title",
+		failures,
+	)
+
+	# Even a programmatic focus change cannot leak dossier actions through the
+	# title. The controls remain instantiated and authoritatively disabled for the
+	# pre-policy state, but the blocking surface owns presentation.
+	if routing_ui != null:
+		routing_ui.set_focus(0)
+	await process_frame
+	_check(dossier != null and not dossier.is_visible_in_tree(), "a focused dossier should remain hidden behind the campaign title", failures)
+	_check(assist_button != null and not assist_button.is_visible_in_tree(), "Priority Peck should not leak through the campaign title", failures)
+	_check(assist_button != null and assist_button.disabled, "the hidden Priority Peck action should remain locked before policy", failures)
+
+	await _start_normal_running_campaign(office, failures)
+	if routing_ui != null:
+		routing_ui.clear_focus()
+	await process_frame
+	_check(dossier != null and not dossier.is_visible_in_tree(), "dossier should remain hidden before a hen is selected in normal play", failures)
 	_check(assist_button != null and not assist_button.is_visible_in_tree(), "Priority Peck should not float outside a closed dossier", failures)
 
 	if routing_ui != null:
@@ -31,7 +63,7 @@ func _run() -> void:
 	await process_frame
 	_check(dossier != null and dossier.is_visible_in_tree(), "selecting a hen should reveal the dossier", failures)
 	_check(assist_button != null and assist_button.is_visible_in_tree(), "selecting a hen should reveal Priority Peck inside the dossier", failures)
-	_check(assist_button != null and assist_button.disabled, "Priority Peck should remain locked before a policy is authorized", failures)
+	_check(assist_button != null and assist_button.disabled, "Priority Peck should remain locked without an active file", failures)
 	_check(assist_button != null and "NO ACTIVE FILE" in assist_button.text, "idle hens should explain that no claim can be assisted", failures)
 	if dossier != null and assist_button != null:
 		var dossier_rect := dossier.get_global_rect().grow(0.5)
@@ -42,17 +74,9 @@ func _run() -> void:
 			failures,
 		)
 
-	# Authorize the morning policy through the visible management controls so the
-	# Office owns the same transition and interaction locks used by a player.
-	var policy_button := office.find_child("DecisionOption_shell_assurance", true, false) as Button
-	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
-	_check(policy_button != null and confirm_button != null, "opening policy controls should exist", failures)
-	_press(policy_button)
-	_press(confirm_button)
-	await process_frame
 	_check(
 		simulation != null and simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING,
-		"authorizing a policy should start the authoritative shift",
+		"the normal campaign fixture should retain the authoritative running shift",
 		failures,
 	)
 
@@ -92,6 +116,13 @@ func _run() -> void:
 	await process_frame
 	_check(assist_button != null and not assist_button.disabled, "resuming the live clock should unlock an open timing window", failures)
 	_check(assist_button != null and "PECK" in assist_button.text, "open timing window should present a concise action label", failures)
+	_check(
+		assist_button != null
+		and "restores one charge" in assist_button.tooltip_text
+		and "crack consumes" in assist_button.tooltip_text,
+		"Priority Peck should explain its renewable clean-delivery loop before commitment",
+		failures,
+	)
 	var first_progress_before := _worker_progress(simulation, 0)
 	var first_claim_id := int(simulation.peck_assist_status(0).get("claim_id", -1)) if simulation != null else -1
 	var uses_before_mouse := simulation.peck_assists_used_today if simulation != null else -1
@@ -165,6 +196,74 @@ func _run() -> void:
 	quit(0)
 
 
+func _start_normal_running_campaign(office: Office, failures: Array[String]) -> void:
+	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
+	var routing_ui := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
+	var simulation := office.get("_simulation") as DepartmentSimulation
+	if campaign_ui != null:
+		campaign_ui.show_title(false)
+	await process_frame
+	_check(
+		_press(office.find_child("NewCampaignButton", true, false) as Button),
+		"the regression fixture should open a clean campaign through New Campaign",
+		failures,
+	)
+	await process_frame
+	await process_frame
+	_check(
+		campaign_ui != null and not campaign_ui.is_modal_open(),
+		"New Campaign should retire the title before the authored first-hen prelude",
+		failures,
+	)
+	_check(
+		_press(office.find_child("FirstClutchReturnToHen", true, false) as Button),
+		"the regression fixture should open Mabel's pre-policy file",
+		failures,
+	)
+	await process_frame
+	await process_frame
+
+	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
+	var assist_button := office.find_child("PeckAssistButton", true, false) as Button
+	_check(
+		decision_host != null and decision_host.is_visible_in_tree(),
+		"opening Mabel's file should reveal the blocking morning directive",
+		failures,
+	)
+	_check(
+		routing_ui != null and not routing_ui.is_visible_in_tree(),
+		"Peckwork should stay hidden behind the blocking morning directive",
+		failures,
+	)
+	_check(assist_button != null and assist_button.disabled, "the hidden Priority Peck action should stay locked before policy", failures)
+
+	_check(
+		_press(office.find_child("DecisionOption_shell_assurance", true, false) as Button),
+		"Shell Assurance should be selectable through the real directive controls",
+		failures,
+	)
+	_check(
+		_press(office.find_child("ConfirmDecisionButton", true, false) as Button),
+		"the selected opening directive should start the authoritative shift",
+		failures,
+	)
+	await process_frame
+	await process_frame
+	_check(
+		simulation != null and simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING,
+		"the campaign fixture should reach a real running shift",
+		failures,
+	)
+
+	var skip := office.find_child("FirstClutchSkip", true, false) as Button
+	_check(skip != null and skip.is_visible_in_tree(), "the optional coach should expose Skip once the policy is filed", failures)
+	_check(_press(skip), "the fixture should dismiss contextual disclosure through the coach's real Skip action", failures)
+	await process_frame
+	await process_frame
+	_check(bool(office.first_clutch_snapshot().get("dismissed", false)), "Skip should place the campaign in normal full-surface play", failures)
+	_check(routing_ui != null and routing_ui.is_visible_in_tree(), "normal running play should reveal Peckwork", failures)
+
+
 func _advance_until_assist_available(simulation: DepartmentSimulation, worker_id: int) -> bool:
 	if simulation == null:
 		return false
@@ -215,9 +314,11 @@ func _action_has_keyboard_or_gamepad_binding(action: StringName) -> bool:
 	return false
 
 
-func _press(button: Button) -> void:
-	if button != null and not button.disabled:
-		button.pressed.emit()
+func _press(button: Button) -> bool:
+	if button == null or button.disabled:
+		return false
+	button.pressed.emit()
+	return true
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

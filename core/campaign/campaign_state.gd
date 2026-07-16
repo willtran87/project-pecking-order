@@ -266,12 +266,111 @@ func cumulative_crack_rate_basis_points() -> int:
 	return _basis_points(total_cracked_eggs, total_eggs)
 
 
+## Read-only final-safeguard forecast for the probation ledger. Callers may
+## supply any subset of the five aggregate metric keys to preview a proposed
+## closing state without changing the campaign:
+## probation_score, average_welfare, average_compliance,
+## average_farmer_favor, and crack_rate_basis_points.
+##
+## signed_gap is deliberately comparable in meaning across minimum and maximum
+## criteria: positive is headroom, zero is the exact pass boundary, and
+## negative is a miss. distance_to_pass is the corresponding unsigned deficit.
+func probation_safeguard_forecast(projected_metrics: Dictionary = {}) -> Dictionary:
+	var current_values := {
+		"probation_score": probation_score,
+		"average_welfare": average_welfare(),
+		"average_compliance": average_compliance(),
+		"average_farmer_favor": average_farmer_favor(),
+		"crack_rate_basis_points": cumulative_crack_rate_basis_points(),
+	}
+	var criteria: Array[Dictionary] = []
+	var pass_count := 0
+	var at_risk_count := 0
+	var largest_recoverable_blocker: Dictionary = {}
+	var largest_distance_basis_points := -1
+	var can_recover := outcome == OUTCOME_IN_PROGRESS and completed_shifts < CAMPAIGN_LENGTH
+	for specification in _probation_safeguard_specifications():
+		var metric := String(specification["metric"])
+		var comparison := String(specification["comparison"])
+		var target := int(specification["target"])
+		var current_value := int(current_values[metric])
+		var has_projection := (
+			projected_metrics.has(metric)
+			and _is_integer_number(projected_metrics[metric])
+		)
+		var projected_value := current_value
+		if has_projection:
+			var maximum := 10_000 if metric == "crack_rate_basis_points" else 100
+			projected_value = clampi(int(projected_metrics[metric]), 0, maximum)
+		var current_signed_gap := (
+			current_value - target
+			if comparison == "minimum" else
+			target - current_value
+		)
+		var signed_gap := (
+			projected_value - target
+			if comparison == "minimum" else
+			target - projected_value
+		)
+		var passed := signed_gap >= 0
+		var distance_to_pass := maxi(0, -signed_gap)
+		var distance_basis_points := (
+			0 if passed else
+			clampi(
+				roundi(float(distance_to_pass) * 10_000.0 / float(maxi(1, target))),
+				0,
+				10_000,
+			)
+		)
+		var row := {
+			"id": String(specification["id"]),
+			"label": String(specification["label"]),
+			"metric": metric,
+			"comparison": comparison,
+			"target": target,
+			"unit": String(specification["unit"]),
+			"current_value": current_value,
+			"projected_value": projected_value,
+			"value_source": "projected" if has_projection else "current",
+			"current_pass": current_signed_gap >= 0,
+			"current_signed_gap": current_signed_gap,
+			"pass": passed,
+			"at_risk": not passed,
+			"status": "pass" if passed else "at_risk",
+			"signed_gap": signed_gap,
+			"distance_to_pass": distance_to_pass,
+			"distance_basis_points": distance_basis_points,
+			"recoverable": not passed and can_recover,
+		}
+		criteria.append(row)
+		if passed:
+			pass_count += 1
+		else:
+			at_risk_count += 1
+			if can_recover and distance_basis_points > largest_distance_basis_points:
+				largest_distance_basis_points = distance_basis_points
+				largest_recoverable_blocker = row.duplicate(true)
+	return {
+		"visible": true,
+		"is_final": outcome != OUTCOME_IN_PROGRESS,
+		"completed_shifts": completed_shifts,
+		"required_shifts": CAMPAIGN_LENGTH,
+		"criteria": criteria,
+		"pass_count": pass_count,
+		"at_risk_count": at_risk_count,
+		"criteria_count": criteria.size(),
+		"all_pass": pass_count == criteria.size(),
+		"largest_recoverable_blocker": largest_recoverable_blocker,
+	}
+
+
 func final_evaluation() -> Dictionary:
-	var score_pass := probation_score >= MIN_PASS_SCORE
-	var welfare_pass := average_welfare() >= MIN_PASS_WELFARE
-	var compliance_pass := average_compliance() >= MIN_PASS_COMPLIANCE
-	var favor_pass := average_farmer_favor() >= MIN_PASS_FARMER_FAVOR
-	var quality_pass := cumulative_crack_rate_basis_points() <= MAX_PASS_CRACK_RATE_BASIS_POINTS
+	var safeguards := probation_safeguard_forecast()
+	var safeguard_passes := {}
+	for row_value in safeguards.get("criteria", []) as Array:
+		if row_value is Dictionary:
+			var row := row_value as Dictionary
+			safeguard_passes[String(row.get("id", ""))] = bool(row.get("pass", false))
 	return {
 		"outcome": String(outcome),
 		"passed": outcome == OUTCOME_PASSED,
@@ -286,11 +385,11 @@ func final_evaluation() -> Dictionary:
 		"average_farmer_favor": average_farmer_favor(),
 		"crack_rate_basis_points": cumulative_crack_rate_basis_points(),
 		"criteria": {
-			"score": score_pass,
-			"welfare": welfare_pass,
-			"compliance": compliance_pass,
-			"farmer_favor": favor_pass,
-			"shell_quality": quality_pass,
+			"score": bool(safeguard_passes.get("score", false)),
+			"welfare": bool(safeguard_passes.get("welfare", false)),
+			"compliance": bool(safeguard_passes.get("compliance", false)),
+			"farmer_favor": bool(safeguard_passes.get("farmer_favor", false)),
+			"shell_quality": bool(safeguard_passes.get("crack_rate", false)),
 		},
 		"chosen_milestone_id": String(chosen_milestone_id),
 		"unlocked_feature_ids": _string_array(unlocked_feature_ids),
@@ -304,6 +403,7 @@ func snapshot() -> Dictionary:
 	data["available_milestones"] = available_milestone_choices()
 	data["active_unlock_effects"] = active_unlock_effects()
 	data["final_evaluation"] = final_evaluation()
+	data["probation_safeguard_forecast"] = probation_safeguard_forecast()
 	return data
 
 
@@ -662,13 +762,7 @@ func _refresh_outcome() -> void:
 		outcome = OUTCOME_IN_PROGRESS
 		final_reason = "Complete five shifts without sacrificing the flock."
 		return
-	var passed := (
-		probation_score >= MIN_PASS_SCORE
-		and average_welfare() >= MIN_PASS_WELFARE
-		and average_compliance() >= MIN_PASS_COMPLIANCE
-		and average_farmer_favor() >= MIN_PASS_FARMER_FAVOR
-		and cumulative_crack_rate_basis_points() <= MAX_PASS_CRACK_RATE_BASIS_POINTS
-	)
+	var passed := bool(probation_safeguard_forecast().get("all_pass", false))
 	if passed:
 		outcome = OUTCOME_PASSED
 		final_reason = "Probation passed: the flock endured and the farmer approved the ledger."
@@ -939,6 +1033,50 @@ func _validate_cross_field_invariants(data: Dictionary, errors: PackedStringArra
 		errors.append("outcome is inconsistent with campaign performance")
 	if final_reason != expected_reason:
 		errors.append("final_reason is inconsistent with outcome")
+
+static func _probation_safeguard_specifications() -> Array[Dictionary]:
+	return [
+		{
+			"id": "score",
+			"label": "PROBATION SCORE",
+			"metric": "probation_score",
+			"comparison": "minimum",
+			"target": MIN_PASS_SCORE,
+			"unit": "points",
+		},
+		{
+			"id": "welfare",
+			"label": "FLOCK WELFARE",
+			"metric": "average_welfare",
+			"comparison": "minimum",
+			"target": MIN_PASS_WELFARE,
+			"unit": "points",
+		},
+		{
+			"id": "compliance",
+			"label": "COOP COMPLIANCE",
+			"metric": "average_compliance",
+			"comparison": "minimum",
+			"target": MIN_PASS_COMPLIANCE,
+			"unit": "points",
+		},
+		{
+			"id": "farmer_favor",
+			"label": "FARMER FAVOR",
+			"metric": "average_farmer_favor",
+			"comparison": "minimum",
+			"target": MIN_PASS_FARMER_FAVOR,
+			"unit": "points",
+		},
+		{
+			"id": "crack_rate",
+			"label": "SHELL CRACK RATE",
+			"metric": "crack_rate_basis_points",
+			"comparison": "maximum",
+			"target": MAX_PASS_CRACK_RATE_BASIS_POINTS,
+			"unit": "basis_points",
+		},
+	]
 
 
 static func _basis_points(numerator: int, denominator: int) -> int:

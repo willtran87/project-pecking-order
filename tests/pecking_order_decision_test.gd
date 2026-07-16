@@ -18,7 +18,7 @@ func _run() -> void:
 			push_error("PECKING_ORDER_DECISION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PECKING_ORDER_DECISION_TEST_PASSED ranking=deterministic board=frozen schedule=1-2-3-4 atomic=true styles=exact json=v7-pending-resolved")
+	print("PECKING_ORDER_DECISION_TEST_PASSED ranking=deterministic board=frozen schedule=1-2-3-4 atomic=true styles=exact json=v10-pending-resolved")
 	quit(0)
 
 
@@ -266,7 +266,7 @@ func _test_v6_pending_and_resolved_json_round_trip(failures: Array[String]) -> v
 	subject.career_xp = 0
 	original.executive_confidence = 50.0
 	var pending_state := original.export_save_state()
-	_check(int(pending_state.get("state_version", -1)) == 7, "pending credit memo should export as simulation schema v7", failures)
+	_check(int(pending_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "pending credit memo should export as the current simulation schema", failures)
 	var pending_json := _json_round_trip(pending_state, "pending v6 checkpoint", failures)
 	var pending_restored := DepartmentSimulation.new(4602)
 	_check(pending_restored.restore_save_state(pending_json), "pending v6 JSON checkpoint should restore", failures)
@@ -276,7 +276,7 @@ func _test_v6_pending_and_resolved_json_round_trip(failures: Array[String]) -> v
 	_check(_worker_ids(restored_pending.get("ranking", []) as Array) == _worker_ids(original.pending_decision.get("ranking", []) as Array), "pending v6 round trip should preserve frozen ranking order", failures)
 	_check(bool(restored_pending.get("projected", false)), "pending v6 round trip should preserve projected Golden Dossier status", failures)
 	_check(pending_restored.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW, "pending v6 round trip should remain review-gated", failures)
-	_check(int(pending_restored.export_save_state().get("state_version", -1)) == 7, "restored pending checkpoint should remain schema v7", failures)
+	_check(int(pending_restored.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "restored pending checkpoint should remain on the current schema", failures)
 
 	var restored_subject_id := int(restored_pending.get("subject_worker_id", -1))
 	var restored_subject := pending_restored.workers[restored_subject_id]
@@ -299,7 +299,7 @@ func _test_v6_pending_and_resolved_json_round_trip(failures: Array[String]) -> v
 	_check(bool(allocation.get("special_event", false)) and bool(allocation.get("projected", false)), "resolved record should retain special/projected flags", failures)
 
 	var resolved_state := pending_restored.export_save_state()
-	_check(int(resolved_state.get("state_version", -1)) == 7, "resolved credit memo should export as simulation schema v7", failures)
+	_check(int(resolved_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "resolved credit memo should export as the current simulation schema", failures)
 	var resolved_json := _json_round_trip(resolved_state, "resolved v6 checkpoint", failures)
 	var resolved_restored := DepartmentSimulation.new(4603)
 	_check(resolved_restored.restore_save_state(resolved_json), "resolved v6 JSON checkpoint should restore", failures)
@@ -312,7 +312,7 @@ func _test_v6_pending_and_resolved_json_round_trip(failures: Array[String]) -> v
 	_check(_approximately(round_trip_subject.manager_trust, 62.0), "resolved v6 round trip should preserve author trust", failures)
 	_check(_approximately(round_trip_subject.grievance, 12.0), "resolved v6 round trip should preserve author grievance", failures)
 	_check(round_trip_subject.career_xp == 12, "resolved v6 round trip should preserve author XP", failures)
-	_check(int(resolved_restored.export_save_state().get("state_version", -1)) == 7, "restored resolved checkpoint should remain schema v7", failures)
+	_check(int(resolved_restored.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "restored resolved checkpoint should remain on the current schema", failures)
 
 
 func _memo_fixture(

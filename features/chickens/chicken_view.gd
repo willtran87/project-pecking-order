@@ -20,6 +20,9 @@ signal lay_release_reached(worker_id: int)
 
 const ChickenModel := preload("res://assets/models/chicken_employee.glb")
 const WALK_SPEED := 2.15
+const CAMPUS_COMMUTE_SPEED_MULTIPLIER := 1.75
+const PANIC_RUN_SPEED := 4.35
+const PANIC_DURATION := 5.6
 const ARRIVAL_DISTANCE := 0.055
 const ENTRY_STAGGER_SECONDS := 0.90
 const MODEL_SCALE := 0.84
@@ -28,6 +31,7 @@ const ANIMATION_WALK := &"Chicken_Walk"
 const ANIMATION_PECK := &"Chicken_Peck"
 const ANIMATION_SIT := &"Chicken_Sit"
 const ANIMATION_LAY := &"Chicken_Lay"
+const ANIMATION_PANIC := &"Chicken_Panic"
 const PRIORITY_PECK_CONTACT_TIMES: Array[float] = [0.12, 0.28, 0.44]
 const PRIORITY_PECK_FEEDBACK_DURATION := 0.58
 const PRIORITY_PECK_ANTICIPATION_SECONDS := 0.060
@@ -36,34 +40,62 @@ const PRIORITY_PECK_RECOVERY_SECONDS := 0.090
 # frame 1..36 action. Using its normalized position survives import resampling.
 const LAY_RELEASE_NORMALIZED_TIME := (22.0 - 1.0) / (36.0 - 1.0)
 const LAY_RELEASE_FALLBACK_SECONDS := 0.73
+const CHICKEN_PALETTES: Array[Dictionary] = [
+	{"feather": "ad7747", "cloth": "173e59"}, # oat + navy
+	{"feather": "ddd3b8", "cloth": "6e2935"}, # cream + oxblood
+	{"feather": "81523b", "cloth": "667154"}, # chestnut + sage
+	{"feather": "c49b5d", "cloth": "493c68"}, # buff + plum
+	{"feather": "77736f", "cloth": "173e59"}, # silver + navy
+	{"feather": "a96549", "cloth": "667154"}, # russet + sage
+]
 const ACCESSORY_NAMES: Array[StringName] = [
 	&"AccessoryHead_RoundGlasses",
 	&"AccessoryHead_SquareGlasses",
 	&"AccessoryHead_AccountantVisor",
 	&"AccessoryHead_Headset",
+	&"AccessoryHead_NewsboyCap",
+	&"AccessoryHead_ReadingGlassesChain",
+	&"AccessoryHead_Earmuffs",
+	&"AccessoryHead_SleepMask",
+	&"AccessoryComb_Pencil",
 	&"BowTie",
 	&"AccessoryNeck_LongTie",
 	&"AccessoryNeck_Lanyard",
+	&"AccessoryNeck_KnitScarf",
+	&"AccessoryNeck_CardiganCollar",
+	&"AccessoryNeck_Neckerchief",
+	&"AccessoryBody_SweaterVest",
+	&"AccessoryBody_PocketProtector",
+	&"AccessoryBody_Satchel",
+	&"AccessoryBody_TeaMugCharm",
+	&"AccessoryBody_QuiltedCapelet",
 	&"AccessoryBadge_Nameplate",
 	&"AccessoryBadge_GoldenEgg",
+	&"AccessoryLeg_Watch",
 ]
-# A shuffled deck of art-directed combinations gives every employee a stable,
-# random-feeling silhouette without allowing conflicting or cluttered pieces.
+# Curated compatibility slots provide stable, random-feeling silhouettes while
+# preventing headwear, neckwear, and outerwear from occupying the same space.
 const ACCESSORY_PROFILES: Array[Dictionary] = [
-	{"head": &"AccessoryHead_RoundGlasses", "lower": &"AccessoryNeck_LongTie"},
-	{"head": &"AccessoryHead_SquareGlasses", "lower": &"BowTie"},
-	{"head": &"AccessoryHead_AccountantVisor", "lower": &"AccessoryNeck_Lanyard"},
-	{"head": &"AccessoryHead_Headset", "lower": &"AccessoryBadge_Nameplate"},
-	{"head": &"", "lower": &"AccessoryBadge_GoldenEgg"},
-	{"head": &"AccessoryHead_RoundGlasses", "lower": &"AccessoryNeck_Lanyard"},
-	{"head": &"AccessoryHead_SquareGlasses", "lower": &"AccessoryNeck_LongTie"},
-	{"head": &"AccessoryHead_AccountantVisor", "lower": &"AccessoryBadge_Nameplate"},
-	{"head": &"AccessoryHead_Headset", "lower": &"BowTie"},
-	{"head": &"", "lower": &"AccessoryBadge_Nameplate"},
-	{"head": &"AccessoryHead_RoundGlasses", "lower": &"AccessoryBadge_GoldenEgg"},
-	{"head": &"AccessoryHead_SquareGlasses", "lower": &"AccessoryNeck_Lanyard"},
+	{"head": &"AccessoryHead_RoundGlasses", "neck": &"AccessoryNeck_LongTie", "body": &"AccessoryBody_PocketProtector"},
+	{"head": &"AccessoryHead_SquareGlasses", "neck": &"BowTie", "body": &"AccessoryBody_SweaterVest"},
+	{"head": &"AccessoryHead_AccountantVisor", "neck": &"AccessoryNeck_Lanyard", "leg": &"AccessoryLeg_Watch"},
+	{"head": &"AccessoryHead_Headset", "badge": &"AccessoryBadge_Nameplate"},
+	{"head": &"AccessoryHead_NewsboyCap", "neck": &"AccessoryNeck_KnitScarf", "body": &"AccessoryBody_PocketProtector", "leg": &"AccessoryLeg_Watch"},
+	{"head": &"AccessoryHead_ReadingGlassesChain", "neck": &"AccessoryNeck_CardiganCollar", "badge": &"AccessoryBadge_GoldenEgg"},
+	{"head": &"AccessoryHead_Earmuffs", "neck": &"AccessoryNeck_KnitScarf", "body": &"AccessoryBody_SweaterVest"},
+	{"neck": &"AccessoryNeck_Neckerchief", "body": &"AccessoryBody_Satchel", "badge": &"AccessoryBadge_Nameplate"},
+	{"head": &"AccessoryHead_SleepMask", "body": &"AccessoryBody_QuiltedCapelet", "leg": &"AccessoryLeg_Watch"},
+	{"head": &"AccessoryHead_AccountantVisor", "neck": &"AccessoryNeck_Lanyard", "charm": &"AccessoryBody_TeaMugCharm"},
+	{"head": &"AccessoryHead_NewsboyCap", "neck": &"AccessoryNeck_CardiganCollar", "body": &"AccessoryBody_Satchel"},
+	{"head": &"AccessoryHead_RoundGlasses", "neck": &"AccessoryNeck_Neckerchief", "body": &"AccessoryBody_SweaterVest", "badge": &"AccessoryBadge_GoldenEgg"},
+	{"head": &"AccessoryHead_SquareGlasses", "neck": &"AccessoryNeck_Lanyard", "body": &"AccessoryBody_PocketProtector", "comb": &"AccessoryComb_Pencil"},
+	{"head": &"AccessoryHead_Headset", "neck": &"AccessoryNeck_KnitScarf", "charm": &"AccessoryBody_TeaMugCharm"},
+	{"neck": &"AccessoryNeck_CardiganCollar", "body": &"AccessoryBody_QuiltedCapelet", "comb": &"AccessoryComb_Pencil", "leg": &"AccessoryLeg_Watch"},
+	{"head": &"AccessoryHead_ReadingGlassesChain", "neck": &"AccessoryNeck_Lanyard", "charm": &"AccessoryBody_TeaMugCharm"},
+	{"head": &"AccessoryHead_AccountantVisor", "neck": &"AccessoryNeck_Neckerchief", "body": &"AccessoryBody_PocketProtector", "leg": &"AccessoryLeg_Watch"},
+	{"head": &"AccessoryHead_SleepMask", "neck": &"AccessoryNeck_KnitScarf", "body": &"AccessoryBody_Satchel"},
 ]
-const ACCESSORY_PROFILE_DECK: Array[int] = [0, 3, 1, 2, 10, 7, 6, 8, 4, 11, 5, 9]
+const ACCESSORY_PROFILE_DECK: Array[int] = [4, 0, 9, 6, 2, 12, 5, 15, 1, 10, 7, 14, 3, 17, 11, 8, 16, 13]
 
 var worker_id: int = -1
 var desk_index: int = -1
@@ -75,6 +107,11 @@ var _body_pivot: Node3D
 var _head_pivot: Node3D
 var _wing_left: Node3D
 var _wing_right: Node3D
+var _skeleton: Skeleton3D
+var _wing_left_bone := -1
+var _wing_right_bone := -1
+var _wing_left_tip_bone := -1
+var _wing_right_tip_bone := -1
 var _leg_left: Node3D
 var _leg_right: Node3D
 var _egg_socket: Node3D
@@ -100,15 +137,27 @@ var _feed_party_outbound_route: Array[Vector3] = []
 var _feed_party_return_route: Array[Vector3] = []
 var _feed_party_attendance_position := Vector3.ZERO
 var _feed_party_trough_position := Vector3.ZERO
+var _campus_duty_active: bool = false
+var _campus_duty_return_requested: bool = false
+var _campus_duty_position := Vector3.ZERO
+var _campus_duty_face_point := Vector3.ZERO
+var _campus_duty_return_route: Array[Vector3] = []
+var _campus_reassignment_queued: bool = false
+var _campus_reassignment_outbound_route: Array[Vector3] = []
+var _campus_reassignment_position := Vector3.ZERO
+var _campus_reassignment_face_point := Vector3.ZERO
 var _is_at_workstation: bool = false
 var _visible_accessories: Array[StringName] = []
 var _accessory_signature: String = ""
 var _career_credential_badge: Node3D
 var _career_credential_profile_visible: bool = false
+var _career_credential_rest_position := Vector3.ZERO
 var _eyes: Array[Node3D] = []
 var _eye_rest_scales: Array[Vector3] = []
 var _comb: Node3D
 var _comb_rest_rotation := Vector3.ZERO
+var _tail_feather_pivot: Node3D
+var _tail_feather_rest_rotation := Vector3.ZERO
 var _accessory_rest_rotations: Dictionary[StringName, Vector3] = {}
 var _seat_blend: float = 0.0
 var _walk_blend: float = 0.0
@@ -124,6 +173,9 @@ var _lay_feedback_elapsed: float = 0.0
 var _lay_release_emitted: bool = false
 var _lay_release_delay: float = LAY_RELEASE_FALLBACK_SECONDS
 var _predator_captured := false
+var _panic_active := false
+var _panic_remaining := 0.0
+var _panic_threat_origin := Vector3.ZERO
 
 
 func configure(worker_snapshot: Dictionary) -> void:
@@ -147,6 +199,10 @@ func assign_office_route(
 	_break_position = break_position
 	_arrival_route = arrival_route
 	_break_route = break_route
+	_campus_duty_active = false
+	_campus_duty_return_requested = false
+	_campus_duty_return_route.clear()
+	_clear_campus_reassignment()
 	var stagger_order := worker_id if arrival_order < 0 else arrival_order
 	_entry_delay = maxi(0, stagger_order) * ENTRY_STAGGER_SECONDS
 	_destination_kind = &"home"
@@ -163,6 +219,10 @@ func depart_office(exit_route: Array[Vector3]) -> void:
 	_feed_party_queued = false
 	_feed_party_return_requested = false
 	_feed_party_active = false
+	_campus_duty_active = false
+	_campus_duty_return_requested = false
+	_campus_duty_return_route.clear()
+	_clear_campus_reassignment()
 	_set_workstation_presence(false)
 
 	var safe_route: Array[Vector3] = []
@@ -193,7 +253,13 @@ func apply_snapshot(worker_snapshot: Dictionary) -> void:
 		elif previous_state == ChickenState.WorkState.LAYING and _lay_release_emitted:
 			_lay_feedback_active = false
 	_stress = float(worker_snapshot["stress"])
-	if previous_state == _work_state or _home_position == Vector3.ZERO or _feed_party_active or _feed_party_queued:
+	if (
+		previous_state == _work_state
+		or _home_position == Vector3.ZERO
+		or _feed_party_active
+		or _feed_party_queued
+		or _campus_duty_active
+	):
 		return
 	if _work_state == ChickenState.WorkState.BREAK:
 		_destination_kind = &"break"
@@ -209,6 +275,8 @@ func attend_feed_party(
 	attendance_position: Vector3,
 	trough_position: Vector3
 ) -> void:
+	if _campus_duty_active:
+		return
 	_feed_party_outbound_route = outbound_route.duplicate()
 	_feed_party_return_route = return_route.duplicate()
 	_feed_party_attendance_position = attendance_position
@@ -223,6 +291,8 @@ func attend_feed_party(
 
 
 func return_from_feed_party() -> void:
+	if _campus_duty_active:
+		return
 	if not _feed_party_active:
 		_feed_party_queued = false
 		return
@@ -238,6 +308,82 @@ func is_attending_feed_party() -> bool:
 	return _feed_party_active and _destination_kind == &"feed_party"
 
 
+## Sends this employee from her current safe office route to an authored campus
+## duty station. Campus duty is deliberately presentation-only: staffing and
+## persistence remain owned by the simulation, while this view owns the commute.
+func assign_campus_duty(
+	outbound_route: Array[Vector3],
+	duty_position: Vector3,
+	face_point: Vector3
+) -> void:
+	if _campus_duty_active:
+		if _destination_kind == &"campus_return" or _campus_duty_return_requested:
+			_campus_reassignment_queued = true
+			_campus_reassignment_outbound_route = outbound_route.duplicate()
+			_campus_reassignment_position = duty_position
+			_campus_reassignment_face_point = face_point
+		return
+	if (
+		_predator_captured
+		or _panic_active
+		or _destination_kind in [&"departure", &"departed"]
+	):
+		return
+
+	var safe_route := _safe_route_home_for_campus_duty()
+	safe_route.append_array(outbound_route)
+	if safe_route.is_empty() or safe_route[safe_route.size() - 1].distance_to(duty_position) > ARRIVAL_DISTANCE:
+		safe_route.append(duty_position)
+
+	_entry_delay = 0.0
+	_feed_party_active = false
+	_feed_party_queued = false
+	_feed_party_return_requested = false
+	_campus_duty_active = true
+	_campus_duty_return_requested = false
+	_campus_duty_position = duty_position
+	_campus_duty_face_point = face_point
+	_campus_duty_return_route.clear()
+	_clear_campus_reassignment()
+	_destination_kind = &"campus_outbound"
+	_set_workstation_presence(false)
+	_set_route(safe_route)
+
+
+## Requests the authored trip back to the workstation. If the employee is still
+## outbound, she reaches the duty socket first instead of cutting diagonally
+## through the campus, then follows this return route on the next route beat.
+func return_from_campus_duty(return_route: Array[Vector3]) -> void:
+	if not _campus_duty_active:
+		return
+	_campus_duty_return_route = return_route.duplicate()
+	if (
+		_campus_duty_return_route.is_empty()
+		or _campus_duty_return_route[_campus_duty_return_route.size() - 1].distance_to(_home_position) > ARRIVAL_DISTANCE
+	):
+		_campus_duty_return_route.append(_home_position)
+	_set_workstation_presence(false)
+	if _destination_kind == &"campus_outbound":
+		_campus_duty_return_requested = true
+		return
+	if _destination_kind == &"campus_duty":
+		_begin_campus_return_route()
+
+
+func has_campus_duty_assignment() -> bool:
+	return _campus_duty_active
+
+
+func is_at_campus_duty_station() -> bool:
+	return _campus_duty_active and _destination_kind == &"campus_duty"
+
+
+func campus_duty_phase() -> StringName:
+	if not _campus_duty_active:
+		return &""
+	return _destination_kind
+
+
 func is_seated_at_workstation() -> bool:
 	return (
 		_is_at_workstation
@@ -246,6 +392,7 @@ func is_seated_at_workstation() -> bool:
 		and not _is_walking
 		and not _feed_party_active
 		and not _feed_party_queued
+		and not _campus_duty_active
 		and global_position.distance_to(_home_position) <= ARRIVAL_DISTANCE * 2.0
 	)
 
@@ -258,6 +405,7 @@ func stage_at_workstation_for_introduction() -> void:
 	if (
 		_home_position == Vector3.ZERO
 		or _predator_captured
+		or _campus_duty_active
 		or _destination_kind in [&"departure", &"departed"]
 	):
 		return
@@ -333,11 +481,18 @@ func _physics_process(delta: float) -> void:
 		return
 	_phase += delta
 	_state_elapsed += delta
+	if _panic_active:
+		_panic_remaining = maxf(0.0, _panic_remaining - delta)
+		if _panic_remaining <= 0.0:
+			_panic_active = false
+			_destination_kind = &"home"
+			_set_route([_home_position])
 	_advance_feedback_timelines(delta)
 	_advance_route(delta)
 	_update_pose_blends(delta)
 	_animate_pose()
 	_animate_secondary_motion()
+	_apply_wing_actuation()
 
 
 ## Freezes normal office behavior so a predator encounter can reparent this
@@ -351,9 +506,48 @@ func begin_predator_capture() -> void:
 	_feed_party_active = false
 	_feed_party_queued = false
 	_feed_party_return_requested = false
+	_campus_duty_active = false
+	_campus_duty_return_requested = false
+	_campus_duty_return_route.clear()
+	_clear_campus_reassignment()
 	_set_workstation_presence(false)
 	if _animation_player != null:
 		_animation_player.stop()
+
+
+## Sends a surviving employee through a short scatter route after a predator
+## takes a flockmate. The torso is not weighted to the wing bones.
+func begin_predator_panic(threat_origin: Vector3) -> void:
+	if _predator_captured or _destination_kind in [&"departure", &"departed"]:
+		return
+	_panic_active = true
+	_panic_remaining = PANIC_DURATION + float(posmod(worker_id, 3)) * 0.28
+	_panic_threat_origin = threat_origin
+	_entry_delay = 0.0
+	_feed_party_active = false
+	_feed_party_queued = false
+	_feed_party_return_requested = false
+	_campus_duty_active = false
+	_campus_duty_return_requested = false
+	_campus_duty_return_route.clear()
+	_clear_campus_reassignment()
+	_set_workstation_presence(false)
+	_destination_kind = &"panic"
+	_set_route(_build_panic_route())
+
+
+func _build_panic_route() -> Array[Vector3]:
+	var away := global_position - _panic_threat_origin
+	away.y = 0.0
+	if away.length_squared() < 0.001:
+		away = Vector3(0.0, 0.0, 1.0)
+	away = away.normalized()
+	var lateral := Vector3(-away.z, 0.0, away.x)
+	var side_sign := -1.0 if posmod(worker_id, 2) == 0 else 1.0
+	var first := global_position + away * 1.25 + lateral * side_sign * 0.72
+	var second := first + away * 1.42 - lateral * side_sign * 0.48
+	var third := second + away * 0.92 + lateral * side_sign * 0.36
+	return [first, second, third]
 
 
 ## Applies the ragdoll response to the existing chicken rig. The outer model is
@@ -368,6 +562,7 @@ func apply_predator_limp_pose(body_swing: Vector2, neck_actuation: float) -> voi
 	_head_pivot.rotation = Vector3.ZERO
 	_wing_left.rotation = Vector3(0.12, 0.0, -0.68 - body_swing.y * 1.05)
 	_wing_right.rotation = Vector3(0.12, 0.0, 0.68 - body_swing.y * 1.05)
+	_apply_wing_actuation()
 	_leg_left.rotation = Vector3(-1.04 + body_swing.x * 0.72, 0.20, 0.0)
 	_leg_right.rotation = Vector3(-1.04 - body_swing.x * 0.72, -0.20, 0.0)
 
@@ -459,9 +654,32 @@ func _advance_route(delta: float) -> void:
 			_destination_kind = &"home"
 			_feed_party_active = false
 			feed_party_attendance_completed.emit(worker_id)
+		elif _destination_kind == &"campus_outbound":
+			global_position = _campus_duty_position
+			_face_point(_campus_duty_face_point, delta)
+			_destination_kind = &"campus_duty"
+			if _campus_duty_return_requested:
+				_begin_campus_return_route()
+		elif _destination_kind == &"campus_duty":
+			_face_point(_campus_duty_face_point, delta)
+		elif _destination_kind == &"campus_return":
+			global_position = _home_position
+			rotation.y = lerp_angle(rotation.y, 0.0, minf(1.0, delta * 8.0))
+			_destination_kind = &"home"
+			_campus_duty_active = false
+			_campus_duty_return_requested = false
+			_campus_duty_return_route.clear()
+			if _campus_reassignment_queued:
+				var next_outbound_route := _campus_reassignment_outbound_route.duplicate()
+				var next_duty_position := _campus_reassignment_position
+				var next_face_point := _campus_reassignment_face_point
+				_clear_campus_reassignment()
+				assign_campus_duty(next_outbound_route, next_duty_position, next_face_point)
 		elif _destination_kind == &"departure":
 			_destination_kind = &"departed"
 			office_departure_completed.emit(worker_id)
+		elif _destination_kind == &"panic" and _panic_active:
+			_set_route(_build_panic_route())
 		return
 
 	var target := _route[_route_index]
@@ -481,7 +699,13 @@ func _advance_route(delta: float) -> void:
 		var stand_yaw := atan2(direction.x, direction.z)
 		rotation.y = lerp_angle(rotation.y, stand_yaw, minf(1.0, delta * 7.0))
 		return
-	global_position += direction * minf(WALK_SPEED * delta, offset.length())
+	var movement_speed := PANIC_RUN_SPEED if _panic_active else WALK_SPEED
+	if not _panic_active and _destination_kind in [&"campus_outbound", &"campus_return"]:
+		# Campus posts are deliberately far from the desk floor. A brisk authored
+		# commute keeps staffing responsive while retaining every collision-safe
+		# waypoint and the ordinary walk silhouette.
+		movement_speed *= CAMPUS_COMMUTE_SPEED_MULTIPLIER
+	global_position += direction * minf(movement_speed * delta, offset.length())
 	# Blender's -Y character forward imports as Godot +Z.
 	var target_yaw := atan2(direction.x, direction.z)
 	rotation.y = lerp_angle(rotation.y, target_yaw, minf(1.0, delta * 9.0))
@@ -489,7 +713,11 @@ func _advance_route(delta: float) -> void:
 
 func _animate_pose() -> void:
 	_reset_pose()
-	if _is_walking:
+	if _panic_active:
+		_play_model_animation(ANIMATION_PANIC)
+		_apply_walk_pose()
+		_apply_panic_pose()
+	elif _is_walking:
 		_play_model_animation(ANIMATION_WALK)
 		_apply_walk_pose()
 	elif _destination_kind == &"feed_party":
@@ -557,6 +785,16 @@ func _apply_walk_pose() -> void:
 	_leg_right.rotation.x = lerpf(-stride * 0.68, -1.16, stand_ease)
 	_wing_left.rotation.z = lerpf(-0.10 + stride * 0.075, -0.18, stand_ease)
 	_wing_right.rotation.z = lerpf(0.10 + stride * 0.075, 0.18, stand_ease)
+
+
+func _apply_panic_pose() -> void:
+	# ChickenView owns the live skeleton's wing pose, so mirror the authored
+	# panic action here as well. This keeps the separate feather meshes flapping
+	# in-game instead of allowing a procedural walk pose to override the clip.
+	var flap := (sin(_phase * 18.0 + worker_id * 0.67) + 1.0) * 0.5
+	_wing_left.rotation = Vector3(0.10, 0.0, lerpf(-0.12, 1.05, flap))
+	_wing_right.rotation = Vector3(0.10, 0.0, lerpf(0.12, -1.05, flap))
+	_head_pivot.rotation.y += sin(_phase * 11.0 + worker_id) * 0.18
 
 
 func _apply_seated_pose() -> void:
@@ -671,6 +909,8 @@ func _apply_feeding_pose() -> void:
 
 
 func _begin_feed_party_route() -> void:
+	if _campus_duty_active:
+		return
 	var route := _feed_party_outbound_route.duplicate()
 	if _destination_kind == &"break":
 		var route_home := _break_route.duplicate()
@@ -682,6 +922,44 @@ func _begin_feed_party_route() -> void:
 	_feed_party_active = true
 	_destination_kind = &"feed_outbound"
 	_set_route(route)
+
+
+func _safe_route_home_for_campus_duty() -> Array[Vector3]:
+	var route: Array[Vector3] = []
+	if _is_walking:
+		for route_index in range(_route_index, _route.size()):
+			route.append(_route[route_index])
+
+	match _destination_kind:
+		&"break":
+			var return_from_break := _break_route.duplicate()
+			return_from_break.reverse()
+			route.append_array(return_from_break)
+		&"feed_outbound", &"feed_party":
+			route.append_array(_feed_party_return_route)
+		&"home", &"entrance", &"feed_return":
+			pass
+		_:
+			if global_position.distance_to(_home_position) > ARRIVAL_DISTANCE:
+				route.append(_home_position)
+
+	if route.is_empty() or route[route.size() - 1].distance_to(_home_position) > ARRIVAL_DISTANCE:
+		route.append(_home_position)
+	return route
+
+
+func _begin_campus_return_route() -> void:
+	_campus_duty_return_requested = false
+	_destination_kind = &"campus_return"
+	_set_workstation_presence(false)
+	_set_route(_campus_duty_return_route)
+
+
+func _clear_campus_reassignment() -> void:
+	_campus_reassignment_queued = false
+	_campus_reassignment_outbound_route.clear()
+	_campus_reassignment_position = Vector3.ZERO
+	_campus_reassignment_face_point = Vector3.ZERO
 
 
 func _face_point(point: Vector3, delta: float) -> void:
@@ -718,6 +996,12 @@ func _build_character(worker_name: String, color_index: int) -> void:
 	_head_pivot = _find_joint(&"HeadPivot")
 	_wing_left = _find_joint(&"WingLeftPivot")
 	_wing_right = _find_joint(&"WingRightPivot")
+	_skeleton = _visual_root.find_child("Skeleton3D", true, false) as Skeleton3D
+	if _skeleton != null:
+		_wing_left_bone = _skeleton.find_bone("wing_L")
+		_wing_right_bone = _skeleton.find_bone("wing_R")
+		_wing_left_tip_bone = _skeleton.find_bone("wing_L_tip")
+		_wing_right_tip_bone = _skeleton.find_bone("wing_R_tip")
 	_leg_left = _find_joint(&"LegLeftPivot")
 	_leg_right = _find_joint(&"LegRightPivot")
 	_egg_socket = _find_joint(&"EggSocket")
@@ -728,6 +1012,7 @@ func _build_character(worker_name: String, color_index: int) -> void:
 	_career_credential_badge = _visual_root.find_child("AccessoryBadge_GoldenEgg", true, false) as Node3D
 	if _career_credential_badge != null:
 		_career_credential_profile_visible = _career_credential_badge.visible
+		_career_credential_rest_position = _career_credential_badge.position
 	_cache_secondary_motion_parts()
 
 
@@ -747,10 +1032,56 @@ func _apply_career_credential(worker_snapshot: Dictionary) -> void:
 	))
 	var sponsored := not secondary_lane.is_empty() or not training_lane.is_empty()
 	# Reuse the model's authored torso-mounted golden credential so sponsorship
-	# remains connected through peck, walk, sit, and lay animations. Employees who
-	# already drew this accessory keep it; sponsored hens always receive it.
+	# remains connected through peck, walk, sit, and lay animations. When it is an
+	# earned credential rather than the profile badge, mirror it to the opposite
+	# breast so it cannot overlap a nameplate or pocket protector.
+	_career_credential_badge.position = _career_credential_rest_position
+	if sponsored and not _career_credential_profile_visible:
+		_career_credential_badge.position.x = -_career_credential_rest_position.x
 	_career_credential_badge.visible = _career_credential_profile_visible or sponsored
 	_career_credential_badge.set_meta("career_sponsorship_badge", sponsored)
+
+
+func _apply_wing_actuation() -> void:
+	# The visual pivots remain the authoring interface used throughout the
+	# behavior poses, while the matching skeleton bones provide the real mesh
+	# deformation. This keeps wings responsive during walk, work, limp, and idle
+	# states instead of merely rotating an empty helper node.
+	if _skeleton == null:
+		return
+	if _wing_left_bone >= 0:
+		_skeleton.set_bone_pose_rotation(
+			_wing_left_bone,
+			Quaternion.from_euler(_wing_left.rotation),
+		)
+	if _wing_right_bone >= 0:
+		_skeleton.set_bone_pose_rotation(
+			_wing_right_bone,
+			Quaternion.from_euler(_wing_right.rotation),
+		)
+	# The outer feathers trail the shoulder movement at a smaller angle. This
+	# creates a readable fold/unfold without exposing a hard hinge in the body.
+	var left_tip_rotation := Vector3(
+		_wing_left.rotation.x * 0.42,
+		_wing_left.rotation.y * 0.30,
+		_wing_left.rotation.z * 0.58,
+	)
+	var right_tip_rotation := Vector3(
+		_wing_right.rotation.x * 0.42,
+		_wing_right.rotation.y * 0.30,
+		_wing_right.rotation.z * 0.58,
+	)
+	if _wing_left_tip_bone >= 0:
+		_skeleton.set_bone_pose_rotation(
+			_wing_left_tip_bone,
+			Quaternion.from_euler(left_tip_rotation),
+		)
+	if _wing_right_tip_bone >= 0:
+		_skeleton.set_bone_pose_rotation(
+			_wing_right_tip_bone,
+			Quaternion.from_euler(right_tip_rotation),
+		)
+
 
 func _cache_model_animations() -> void:
 	_animation_player = _visual_root.find_child("AnimationPlayer", true, false) as AnimationPlayer
@@ -758,7 +1089,7 @@ func _cache_model_animations() -> void:
 		return
 	_animation_player.playback_default_blend_time = 0.14
 	for available_name in _animation_player.get_animation_list():
-		for requested_name in [ANIMATION_IDLE, ANIMATION_WALK, ANIMATION_PECK, ANIMATION_SIT, ANIMATION_LAY]:
+		for requested_name in [ANIMATION_IDLE, ANIMATION_WALK, ANIMATION_PECK, ANIMATION_SIT, ANIMATION_LAY, ANIMATION_PANIC]:
 			if String(available_name).ends_with(String(requested_name)):
 				_animation_names[requested_name] = available_name
 	_play_model_animation(ANIMATION_IDLE)
@@ -788,6 +1119,8 @@ func _model_animation_speed(requested_name: StringName) -> float:
 		personality_speed *= 0.88
 	elif requested_name == ANIMATION_LAY:
 		personality_speed *= 0.92
+	elif requested_name == ANIMATION_PANIC:
+		personality_speed *= 1.32
 	return personality_speed
 
 
@@ -798,59 +1131,59 @@ func _find_joint(joint_name: StringName) -> Node3D:
 
 
 func _apply_feather_variant(color_index: int) -> void:
-	var feather_colors: Array[Color] = [
-		Color("ad7747"), Color("ddd3b8"), Color("81523b"),
-		Color("c49b5d"), Color("77736f"), Color("a96549"),
-	]
-	var base_color := feather_colors[color_index % feather_colors.size()]
+	var palette: Dictionary = CHICKEN_PALETTES[posmod(color_index, CHICKEN_PALETTES.size())]
+	var base_color := Color(String(palette["feather"]))
 	var base_material := _feather_material(base_color)
 	var light_material := _feather_material(base_color.lightened(0.16))
+	var covert_material := _feather_material(base_color.darkened(0.08))
 	var dark_material := _feather_material(base_color.darkened(0.20))
 	for child in _all_children(_visual_root):
-		if child is not MeshInstance3D or not child.name.begins_with("Feather_"):
+		if child is not MeshInstance3D:
 			continue
 		var mesh_instance := child as MeshInstance3D
-		# Preserve the rebuilt torso's connected multi-surface material zones.
-		# A single material_override would flatten the cream face/breast and folded
-		# wing shading back into one color even though the geometry stays connected.
+		# Feather material names are the palette contract. This includes the torso,
+		# separately skinned wings, shoulder hinges, and pivoted tail feathers while
+		# excluding accessories, eyes, beak, comb, and feet. Surface overrides stay
+		# per-instance so one employee's palette never changes another employee.
 		for surface_index in mesh_instance.mesh.get_surface_count():
 			var source_material := mesh_instance.mesh.surface_get_material(surface_index)
 			var zone_name := source_material.resource_name if source_material != null else ""
+			if not zone_name.begins_with("Feathers_"):
+				continue
 			var variant_material := base_material
 			if "Cream" in zone_name or "Belly" in zone_name or "Face" in zone_name:
 				variant_material = light_material
+			elif "Wing_Covert" in zone_name:
+				variant_material = covert_material
 			elif "Wing" in zone_name or "Tail" in zone_name:
 				variant_material = dark_material
 			mesh_instance.set_surface_override_material(surface_index, variant_material)
 
 
-func _apply_accessory_variant(worker_name: String, color_index: int) -> void:
+func _apply_accessory_variant(_worker_name: String, color_index: int) -> void:
 	_visible_accessories.clear()
 	for accessory_name in ACCESSORY_NAMES:
 		var accessory := _visual_root.find_child(String(accessory_name), true, false) as Node3D
 		assert(accessory != null, "Chicken model is missing accessory %s" % accessory_name)
 		accessory.visible = false
 
+	# Worker IDs traverse a shuffled art-directed deck, guaranteeing distinct
+	# opening-roster silhouettes while remaining stable across save/reload.
 	var deck_index := posmod(color_index, ACCESSORY_PROFILE_DECK.size())
 	var profile_index: int = ACCESSORY_PROFILE_DECK[deck_index]
 	var profile: Dictionary = ACCESSORY_PROFILES[profile_index]
-	for slot_name in ["head", "lower"]:
-		var accessory_name: StringName = profile[slot_name]
+	for slot_name in ["head", "neck", "body", "badge", "comb", "charm", "leg"]:
+		var accessory_name := StringName(profile.get(slot_name, &""))
 		if accessory_name.is_empty():
 			continue
 		var accessory := _visual_root.find_child(String(accessory_name), true, false) as Node3D
 		accessory.visible = true
 		_visible_accessories.append(accessory_name)
 
-	# Vary corporate cloth colors independently of the profile while keeping the
-	# result deterministic for save/reload and avoiding shared-material mutation.
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 1701 + color_index * 104729 + int(worker_name.hash())
-	var accent_colors: Array[Color] = [
-		Color("173e59"), Color("6e2935"), Color("667154"),
-		Color("9b642a"), Color("493c68"),
-	]
-	_apply_accessory_accent(accent_colors[rng.randi_range(0, accent_colors.size() - 1)])
+	# Clothing and feathers share one coordinated employee palette. Surface
+	# overrides remain per instance, so save/reload never changes another hen.
+	var palette: Dictionary = CHICKEN_PALETTES[posmod(color_index, CHICKEN_PALETTES.size())]
+	_apply_accessory_accent(Color(String(palette["cloth"])))
 	var signature_parts := PackedStringArray()
 	for accessory_name in _visible_accessories:
 		signature_parts.append(String(accessory_name))
@@ -863,7 +1196,9 @@ func _apply_accessory_accent(color: Color) -> void:
 	accent_material.roughness = 0.50
 	for accessory_name in _visible_accessories:
 		var accessory := _visual_root.find_child(String(accessory_name), true, false)
-		for child in _all_children(accessory):
+		var candidates: Array[Node] = [accessory]
+		candidates.append_array(_all_children(accessory))
+		for child in candidates:
 			if child is not MeshInstance3D:
 				continue
 			var mesh_instance := child as MeshInstance3D
@@ -885,6 +1220,9 @@ func _cache_secondary_motion_parts() -> void:
 	_comb = _visual_root.find_child("Comb", true, false) as Node3D
 	if _comb != null:
 		_comb_rest_rotation = _comb.rotation
+	_tail_feather_pivot = _visual_root.find_child("TailFeatherPivot", true, false) as Node3D
+	if _tail_feather_pivot != null:
+		_tail_feather_rest_rotation = _tail_feather_pivot.rotation
 	_accessory_rest_rotations.clear()
 	for accessory_name in _visible_accessories:
 		var accessory := _visual_root.find_child(String(accessory_name), true, false) as Node3D
@@ -909,8 +1247,16 @@ func _animate_secondary_motion() -> void:
 	_body_pivot.scale.z *= breath
 	if _comb != null:
 		_comb.rotation = _comb_rest_rotation
-		var comb_energy := 0.018 + clampf(_stress / 100.0, 0.0, 1.0) * 0.024
-		_comb.rotation.z += sin(_phase * (5.8 if _is_walking else 2.4) + worker_id) * comb_energy
+		var comb_motion := 2.8 if _panic_active else (1.65 if _is_walking else 1.0)
+		var comb_energy := 0.022 + clampf(_stress / 100.0, 0.0, 1.0) * 0.030
+		_comb.rotation.z += sin(_phase * 3.1 * comb_motion + worker_id) * comb_energy
+		_comb.rotation.x += sin(_phase * 2.3 * comb_motion + worker_id * 0.4) * comb_energy * 0.42
+	if _tail_feather_pivot != null:
+		_tail_feather_pivot.rotation = _tail_feather_rest_rotation
+		var tail_motion := 2.9 if _panic_active else (1.55 if _is_walking else 1.0)
+		var tail_energy := 0.045 + clampf(_stress / 100.0, 0.0, 1.0) * 0.040
+		_tail_feather_pivot.rotation.x += sin(_phase * 2.8 * tail_motion + worker_id * 0.52) * tail_energy
+		_tail_feather_pivot.rotation.z += sin(_phase * 3.5 * tail_motion + worker_id) * tail_energy * 0.55
 
 	for accessory_name in _visible_accessories:
 		if not _accessory_rest_rotations.has(accessory_name):

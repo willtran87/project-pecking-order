@@ -10,10 +10,24 @@ signal cue_played(cue: StringName)
 const VOICE_COUNT := 8
 const SAMPLE_RATE := 22050
 const PECK_CONTACT_PITCHES: Array[float] = [0.96, 1.02, 1.08]
+const BUS_SFX: StringName = &"SFX"
+const BUS_UI: StringName = &"UI"
+const BUS_MUSIC: StringName = &"Music"
+const BUS_AMBIENT: StringName = &"Ambient"
+const PRIORITY_ROUTINE := 20
+const PRIORITY_PHYSICAL := 40
+const PRIORITY_CONFIRMATION := 70
+const PRIORITY_IMPORTANT := 85
+const PRIORITY_RARE := 95
+const PRIORITY_ALERT := 100
 
 var _voices: Array[AudioStreamPlayer] = []
 var _voice_cursor := 0
+var _voice_priorities: Array[int] = []
+var _voice_started_msec: Array[int] = []
+var _voice_cues: Array[StringName] = []
 var _last_cue_msec: Dictionary[StringName, int] = {}
+var _focus_paused := false
 var _sound_egg: AudioStreamWAV
 var _cracked_egg: AudioStreamWAV
 var _golden_egg: AudioStreamWAV
@@ -31,18 +45,25 @@ var _lay_nest_thump: AudioStreamWAV
 var _sorter_receipt_clack: AudioStreamWAV
 var _basket_thunk: AudioStreamWAV
 var _payout_confirmation: AudioStreamWAV
+var _attention_restored: AudioStreamWAV
+var _denied: AudioStreamWAV
+var _shift_alert: AudioStreamWAV
 
 
 func _ready() -> void:
 	name = "OfficeAudioFeedback"
-	_ensure_sfx_bus()
+	ensure_audio_buses()
 	for voice_index in VOICE_COUNT:
 		var player := AudioStreamPlayer.new()
 		player.name = "SFXVoice_%02d" % voice_index
-		player.bus = &"SFX"
+		player.bus = BUS_SFX
 		player.volume_db = -9.0
 		add_child(player)
 		_voices.append(player)
+		_voice_priorities.append(0)
+		_voice_started_msec.append(0)
+		_voice_cues.append(&"")
+		player.finished.connect(_on_voice_finished.bind(voice_index))
 	_sound_egg = _synth_chirp(420.0, 610.0, 0.13, 0.55, 0.0)
 	_cracked_egg = _synth_chirp(260.0, 95.0, 0.22, 0.62, 0.24)
 	_golden_egg = _synth_sequence(PackedFloat32Array([660.0, 880.0, 1175.0]), 0.085, 0.46)
@@ -63,6 +84,9 @@ func _ready() -> void:
 	_sorter_receipt_clack = _synth_impact(920.0, 390.0, 0.110, 0.43, 0.32, 3103, 0.52)
 	_basket_thunk = _synth_impact(128.0, 58.0, 0.185, 0.62, 0.30, 3104)
 	_payout_confirmation = _synth_sequence(PackedFloat32Array([620.0, 930.0]), 0.050, 0.34)
+	_attention_restored = _synth_sequence(PackedFloat32Array([520.0, 690.0, 920.0]), 0.050, 0.36)
+	_denied = _synth_sequence(PackedFloat32Array([294.0, 247.0]), 0.075, 0.34)
+	_shift_alert = _synth_sequence(PackedFloat32Array([330.0, 440.0, 330.0]), 0.070, 0.38)
 
 
 func _exit_tree() -> void:
@@ -73,44 +97,59 @@ func _exit_tree() -> void:
 			voice.stop()
 			voice.stream = null
 	_voices.clear()
+	_voice_priorities.clear()
+	_voice_started_msec.clear()
+	_voice_cues.clear()
 
 
 func play_egg(quality: StringName, streak: int) -> void:
 	match quality:
 		&"golden":
-			_play(&"golden", _golden_egg, 1.0 + minf(0.10, streak * 0.008), -4.0, 40)
+			_play(
+				&"golden", _golden_egg, 1.0 + minf(0.10, streak * 0.008),
+				-4.0, 40, BUS_SFX, PRIORITY_RARE,
+			)
 		&"cracked":
-			_play(&"cracked", _cracked_egg, 0.96, -7.0, 55)
+			_play(&"cracked", _cracked_egg, 0.96, -7.0, 55, BUS_SFX, PRIORITY_RARE)
 		_:
-			_play(&"sound", _sound_egg, 0.96 + minf(0.16, streak * 0.012), -10.0, 45)
+			_play(
+				&"sound", _sound_egg, 0.96 + minf(0.16, streak * 0.012),
+				-10.0, 45, BUS_SFX, PRIORITY_PHYSICAL,
+			)
 
 
 func play_upgrade() -> void:
-	_play(&"upgrade", _upgrade_approved, 1.0, -5.5, 80)
+	_play(&"upgrade", _upgrade_approved, 1.0, -5.5, 80, BUS_UI, PRIORITY_IMPORTANT)
 
 
 func play_feed_party() -> void:
-	_play(&"feed", _feed_party, 1.0, -7.0, 120)
+	_play(&"feed", _feed_party, 1.0, -7.0, 120, BUS_SFX, PRIORITY_CONFIRMATION)
 
 
 func play_review() -> void:
-	_play(&"review", _review_stamp, 1.0, -6.0, 180)
+	_play(&"review", _review_stamp, 1.0, -6.0, 180, BUS_SFX, PRIORITY_CONFIRMATION)
 
 
 func play_ui_tick() -> void:
-	_play(&"ui", _ui_tick, 1.0, -14.0, 32)
+	_play(&"ui", _ui_tick, 1.0, -14.0, 32, BUS_UI, PRIORITY_ROUTINE)
 
 
 func play_decision_alert() -> void:
-	_play(&"decision_alert", _decision_alert, 1.0, -6.5, 180)
+	_play(
+		&"decision_alert", _decision_alert, 1.0, -6.5, 180,
+		BUS_UI, PRIORITY_ALERT,
+	)
 
 
 func play_policy_stamp() -> void:
-	_play(&"policy", _policy_stamp, 1.0, -5.5, 160)
+	_play(&"policy", _policy_stamp, 1.0, -5.5, 160, BUS_UI, PRIORITY_IMPORTANT)
 
 
 func play_decision_resolved() -> void:
-	_play(&"decision_resolved", _decision_resolved, 1.0, -8.0, 100)
+	_play(
+		&"decision_resolved", _decision_resolved, 1.0, -8.0, 100,
+		BUS_UI, PRIORITY_CONFIRMATION,
+	)
 
 
 func play_peck_assist(rating: StringName, streak: int) -> void:
@@ -121,6 +160,8 @@ func play_peck_assist(rating: StringName, streak: int) -> void:
 		1.0 + minf(0.16, maxi(0, streak) * 0.025),
 		-5.0 if perfect else -7.0,
 		80,
+		BUS_UI,
+		PRIORITY_IMPORTANT if perfect else PRIORITY_CONFIRMATION,
 	)
 
 
@@ -138,6 +179,8 @@ func play_peck_contact(contact_index: int, rating: StringName = &"steady") -> bo
 		pitch,
 		-6.5 if rating == &"perfect" else -8.0,
 		55,
+		BUS_SFX,
+		PRIORITY_PHYSICAL,
 	)
 
 
@@ -150,6 +193,9 @@ func play_lay_release(quality: StringName = &"sound") -> bool:
 		_quality_pitch(quality),
 		-6.5 if quality == &"golden" else -8.0,
 		90,
+		BUS_SFX,
+		_quality_priority(quality, PRIORITY_PHYSICAL),
+		_quality_limiter_key(&"lay_release", quality),
 	)
 
 
@@ -161,6 +207,9 @@ func play_sorter_clack(quality: StringName = &"sound") -> bool:
 		_quality_pitch(quality),
 		-8.0,
 		80,
+		BUS_SFX,
+		_quality_priority(quality, PRIORITY_PHYSICAL),
+		_quality_limiter_key(&"sorter_clack", quality),
 	)
 
 
@@ -172,6 +221,9 @@ func play_basket_thunk(quality: StringName = &"sound") -> bool:
 		_quality_pitch(quality) * 0.98,
 		-7.5 if quality == &"golden" else -8.5,
 		95,
+		BUS_SFX,
+		_quality_priority(quality, PRIORITY_PHYSICAL),
+		_quality_limiter_key(&"basket_thunk", quality),
 	)
 
 
@@ -188,7 +240,69 @@ func play_payout_confirmation(
 		_quality_pitch(quality) + value_lift,
 		-6.0 if quality == &"golden" else -8.0,
 		75,
+		BUS_UI,
+		_quality_priority(quality, PRIORITY_CONFIRMATION),
+		_quality_limiter_key(&"payout_confirmation", quality),
 	)
+
+
+## Short renewable-attention confirmation, synchronized with the transient
+## +1 Priority Peck chip after a clean assisted egg reaches the farmer.
+func play_attention_restored() -> bool:
+	return _play(
+		&"attention_restored",
+		_attention_restored,
+		1.0,
+		-6.5,
+		90,
+		BUS_UI,
+		PRIORITY_IMPORTANT,
+	)
+
+
+## A restrained descending hold tone for rejected or unavailable actions. The
+## optional reason is intentionally not folded into the limiter key: repeated
+## invalid input remains calm rather than becoming an alarm loop.
+func play_denied(_reason: StringName = &"generic") -> bool:
+	return _play(
+		&"denied", _denied, 1.0, -8.5, 120,
+		BUS_UI, PRIORITY_IMPORTANT,
+	)
+
+
+## A higher-priority shift-state warning. Severity changes intensity without
+## creating additional streams or allowing routine navigation to steal it.
+func play_shift_alert(severity: float = 1.0) -> bool:
+	var normalized := clampf(severity, 0.0, 1.0)
+	return _play(
+		&"shift_alert",
+		_shift_alert,
+		0.94 + normalized * 0.12,
+		lerpf(-10.5, -5.5, normalized),
+		180,
+		BUS_UI,
+		PRIORITY_ALERT if normalized >= 0.65 else PRIORITY_IMPORTANT,
+	)
+
+
+## Transient cues should not resume late after a tab or window regains focus.
+## Pausing therefore clears active one-shots while retaining the fixed players
+## and synthesized stream bank for immediate reuse.
+func set_focus_paused(paused: bool) -> void:
+	if _focus_paused == paused:
+		return
+	_focus_paused = paused
+	if not paused:
+		return
+	for voice_index in _voices.size():
+		var voice := _voices[voice_index]
+		voice.stop()
+		voice.stream = null
+		_reset_voice_state(voice_index)
+
+
+func is_focus_paused() -> bool:
+	return _focus_paused
 
 
 func _quality_pitch(quality: StringName) -> float:
@@ -201,21 +315,62 @@ func _quality_pitch(quality: StringName) -> float:
 			return 1.0
 
 
+func _quality_priority(quality: StringName, fallback: int) -> int:
+	match quality:
+		&"golden", &"cracked":
+			return PRIORITY_RARE
+		_:
+			return fallback
+
+
+func _quality_limiter_key(cue: StringName, quality: StringName) -> StringName:
+	match cue:
+		&"lay_release":
+			return &"lay_release_golden" if quality == &"golden" else (
+				&"lay_release_cracked" if quality == &"cracked" else &"lay_release_sound"
+			)
+		&"sorter_clack":
+			return &"sorter_clack_golden" if quality == &"golden" else (
+				&"sorter_clack_cracked" if quality == &"cracked" else &"sorter_clack_sound"
+			)
+		&"basket_thunk":
+			return &"basket_thunk_golden" if quality == &"golden" else (
+				&"basket_thunk_cracked" if quality == &"cracked" else &"basket_thunk_sound"
+			)
+		&"payout_confirmation":
+			return &"payout_golden" if quality == &"golden" else (
+				&"payout_cracked" if quality == &"cracked" else &"payout_sound"
+			)
+		_:
+			return cue
+
+
 func _play(
 	cue: StringName,
 	stream: AudioStream,
 	pitch: float,
 	volume_db: float,
-	limiter_msec: int
+	limiter_msec: int,
+	bus: StringName = BUS_SFX,
+	priority: int = PRIORITY_PHYSICAL,
+	semantic_key: StringName = &"",
 ) -> bool:
-	if stream == null or _voices.is_empty():
+	if stream == null or _voices.is_empty() or _focus_paused:
 		return false
 	var now := Time.get_ticks_msec()
-	if now - int(_last_cue_msec.get(cue, -limiter_msec)) < limiter_msec:
+	var limiter_key := semantic_key if semantic_key != &"" else cue
+	if now - int(_last_cue_msec.get(limiter_key, -limiter_msec)) < limiter_msec:
 		return false
-	_last_cue_msec[cue] = now
-	var player := _next_voice()
+	var player := _next_voice(priority)
+	if player == null:
+		return false
+	_last_cue_msec[limiter_key] = now
+	var voice_index := _voices.find(player)
+	_voice_priorities[voice_index] = priority
+	_voice_started_msec[voice_index] = now
+	_voice_cues[voice_index] = cue
 	player.stream = stream
+	player.bus = bus
 	player.pitch_scale = pitch
 	player.volume_db = volume_db
 	player.play()
@@ -223,25 +378,82 @@ func _play(
 	return true
 
 
-func _next_voice() -> AudioStreamPlayer:
+func _next_voice(requested_priority: int) -> AudioStreamPlayer:
 	for offset in VOICE_COUNT:
-		var candidate := _voices[(_voice_cursor + offset) % VOICE_COUNT]
+		var voice_index := (_voice_cursor + offset) % VOICE_COUNT
+		var candidate := _voices[voice_index]
 		if not candidate.playing:
-			_voice_cursor = (_voice_cursor + offset + 1) % VOICE_COUNT
+			_voice_cursor = (voice_index + 1) % VOICE_COUNT
 			return candidate
-	var stolen := _voices[_voice_cursor]
-	_voice_cursor = (_voice_cursor + 1) % VOICE_COUNT
+
+	# When saturated, steal the oldest voice in the lowest priority tier. A
+	# routine request is dropped rather than cutting off an important result.
+	var steal_index := -1
+	var lowest_priority := PRIORITY_ALERT + 1
+	var oldest_started := Time.get_ticks_msec()
+	for offset in VOICE_COUNT:
+		var voice_index := (_voice_cursor + offset) % VOICE_COUNT
+		var voice_priority := _voice_priorities[voice_index]
+		var voice_started := _voice_started_msec[voice_index]
+		if (
+			voice_priority < lowest_priority
+			or (voice_priority == lowest_priority and voice_started < oldest_started)
+		):
+			steal_index = voice_index
+			lowest_priority = voice_priority
+			oldest_started = voice_started
+	if steal_index < 0 or requested_priority < lowest_priority:
+		return null
+	var stolen := _voices[steal_index]
+	_voice_cursor = (steal_index + 1) % VOICE_COUNT
 	stolen.stop()
 	return stolen
 
 
-func _ensure_sfx_bus() -> void:
-	if AudioServer.get_bus_index(&"SFX") < 0:
+func _on_voice_finished(voice_index: int) -> void:
+	if voice_index < 0 or voice_index >= _voices.size():
+		return
+	_voices[voice_index].stream = null
+	_reset_voice_state(voice_index)
+
+
+func _reset_voice_state(voice_index: int) -> void:
+	_voice_priorities[voice_index] = 0
+	_voice_started_msec[voice_index] = 0
+	_voice_cues[voice_index] = &""
+
+
+## The conventional res://default_bus_layout.tres installs this graph before
+## scenes load. This idempotent fallback keeps isolated test scenes and imported
+## embeddings safe without overriding a player's saved volume choices.
+static func ensure_audio_buses() -> void:
+	_ensure_bus(BUS_SFX, -3.0)
+	_ensure_bus(BUS_UI, -4.0)
+	_ensure_bus(BUS_MUSIC, -8.0)
+	_ensure_bus(BUS_AMBIENT, -7.0)
+	var master_index := AudioServer.get_bus_index(&"Master")
+	if master_index < 0:
+		return
+	for effect_index in AudioServer.get_bus_effect_count(master_index):
+		if AudioServer.get_bus_effect(master_index, effect_index) is AudioEffectLimiter:
+			AudioServer.set_bus_effect_enabled(master_index, effect_index, true)
+			return
+	var limiter := AudioEffectLimiter.new()
+	limiter.resource_name = "Production Ceiling"
+	limiter.ceiling_db = -1.0
+	limiter.threshold_db = -6.0
+	limiter.soft_clip_db = 2.0
+	limiter.soft_clip_ratio = 10.0
+	AudioServer.add_bus_effect(master_index, limiter)
+
+
+static func _ensure_bus(bus_name: StringName, default_volume_db: float) -> void:
+	if AudioServer.get_bus_index(bus_name) < 0:
 		AudioServer.add_bus()
 		var bus_index := AudioServer.bus_count - 1
-		AudioServer.set_bus_name(bus_index, &"SFX")
+		AudioServer.set_bus_name(bus_index, bus_name)
 		AudioServer.set_bus_send(bus_index, &"Master")
-		AudioServer.set_bus_volume_db(bus_index, -3.0)
+		AudioServer.set_bus_volume_db(bus_index, default_volume_db)
 
 
 func _synth_chirp(start_hz: float, end_hz: float, duration: float, volume: float, noise_mix: float) -> AudioStreamWAV:

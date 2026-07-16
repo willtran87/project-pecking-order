@@ -63,7 +63,16 @@ func _run() -> void:
 		var printed_labels := _surface_printed_labels(fixture_3d)
 		_check(not printed_labels.is_empty(), "%s should expose its printed surface copy" % fixture.name, failures)
 		var printable_face := _printable_face(fixture_3d, style_family_name)
-		_check(printable_face != null and printable_face.mesh is BoxMesh, "%s should expose one measurable printable face" % fixture.name, failures)
+		var host_print := (
+			style_family_name in [&"surface_stencil", &"beam_letters"]
+			and bool(fixture.get_meta(&"host_attached", false))
+		)
+		_check(
+			(printable_face != null and printable_face.mesh is BoxMesh)
+			or (host_print and bool(fixture.get_meta(&"host_attached", false))),
+			"%s should expose a measurable printable face or inherit its real host" % fixture.name,
+			failures,
+		)
 		if printable_face != null and printable_face.mesh is BoxMesh:
 			var printable_box := printable_face.mesh as BoxMesh
 			var face_front_z := (
@@ -93,6 +102,8 @@ func _run() -> void:
 			_check(label.outline_size <= 1, "%s should not use a HUD-style heavy outline" % label.name, failures)
 			_check(label.font != null and label.has_meta(&"type_role"), "%s should use the bureau house type system" % label.name, failures)
 		_check(fixture.has_meta(&"sign_tier") and fixture.has_meta(&"mount_kind"), "%s should declare its signage hierarchy and mounting" % fixture.name, failures)
+		if bool(fixture.get_meta(&"host_attached", false)):
+			_check_host_face_containment(fixture_3d, failures)
 		var style_family := String(style_family_name)
 		style_families[style_family] = int(style_families.get(style_family, 0)) + 1
 		match style_family:
@@ -112,15 +123,16 @@ func _run() -> void:
 			"partition_insert":
 				_check(fixture.find_child("PartitionRailTop", false, false) != null, "%s should slide into a cubicle rail" % fixture.name, failures)
 				_check(fixture.find_child("Frame", false, false) == null, "%s should be office furniture, not a ceremonial plaque" % fixture.name, failures)
-				_check(bool(fixture.get_meta(&"fixture_detail_only", false)), "%s should disappear as a whole when too small to read" % fixture.name, failures)
+				_check(bool(fixture.get_meta(&"fixture_detail_only", false)), "%s should LOD its lettering independently from the physical insert" % fixture.name, failures)
 			"adhesive_label":
 				_check(fixture.find_child("AdhesiveShadow", false, false) != null, "%s should read as a glued shipping label" % fixture.name, failures)
-				_check(bool(fixture.get_meta(&"fixture_detail_only", false)), "%s should not leave an empty card at overview" % fixture.name, failures)
+				_check(bool(fixture.get_meta(&"fixture_detail_only", false)), "%s should LOD its shipping copy independently from the carton label" % fixture.name, failures)
 				if backplate != null and backplate.mesh is BoxMesh:
 					_check((backplate.mesh as BoxMesh).size.z <= 0.004, "%s should be paper-thin" % fixture.name, failures)
 			"surface_stencil":
-				_check(host_integrated, "%s should inherit the object it is painted on" % fixture.name, failures)
+				_check(host_integrated and bool(fixture.get_meta(&"host_attached", false)), "%s should inherit the object it is painted on" % fixture.name, failures)
 				_check(fixture.find_child("StencilRegistrationTick", false, false) != null, "%s should expose a restrained painted registration mark" % fixture.name, failures)
+				_check(fixture.find_child("Backplate", false, false) == null, "%s host print should not add a panel-sized color bed" % fixture.name, failures)
 				_check(fixture.find_child("Frame", false, false) == null, "%s should have no card silhouette" % fixture.name, failures)
 			"screen":
 				_check(fixture.find_child("ScreenStatusLamp", false, false) != null, "%s should have a physical monitor status lamp" % fixture.name, failures)
@@ -135,17 +147,24 @@ func _run() -> void:
 		"surface_stencil", "screen",
 	]:
 		_check(style_families.has(required_style), "signage system should include the %s mounting family" % required_style, failures)
-	_check(primary_fixtures.size() == 1, "office should have exactly one primary identity landmark (found %d)" % primary_fixtures.size(), failures)
-	if primary_fixtures.size() == 1:
-		var primary_identity := primary_fixtures[0]
-		_check(primary_identity.name == &"BureauIdentityFixture", "the sole primary landmark should be BureauIdentityFixture", failures)
-		_check(StringName(primary_identity.get_meta(&"style_family", &"")) == &"architectural_letters", "the primary bureau identity should be architectural lettering", failures)
-		_check(bool(primary_identity.get_meta(&"overview_anchor", false)), "the primary bureau identity should remain an overview landmark", failures)
+	_check(primary_fixtures.size() == 17, "office should expose one bureau identity plus sixteen primary destination landmarks, including all three campus deeds (found %d)" % primary_fixtures.size(), failures)
+	var primary_identity := office.find_child("BureauIdentityFixture", true, false) as Node3D
+	_check(primary_identity != null and StringName(primary_identity.get_meta(&"style_family", &"")) == &"architectural_letters", "the bureau landmark should remain architectural lettering", failures)
+	_check(primary_identity != null and StringName(primary_identity.get_meta(&"copy_band", &"")) == &"identity", "the bureau landmark should own the identity band", failures)
+	for destination_name in ["PerchTitleFixture", "FarmerBrandAnnexIdentityFixture", "RecordsAnnexIdentityFixture", "FarmMutualServiceCoopIdentityFixture", "FarmMutualNegotiationIdentityFixture", "WellnessNestIdentityFixture", "TrainingRoostIdentityFixture", "FarmerRelationsGalleryIdentityFixture", "RoosterOperationsIdentityFixture", "ITCoopIdentityFixture", "FlockRelationsIdentityFixture", "FeedProcurementIdentityFixture", "FarmgateDispatchDepotIdentityFixture", "NorthMeadowIdentityFixture", "OrchardRowIdentityFixture", "CreeksideYardIdentityFixture"]:
+		var destination := office.find_child(destination_name, true, false) as Node3D
+		_check(destination != null and StringName(destination.get_meta(&"sign_tier", &"")) == &"primary", "%s should be a primary destination landmark" % destination_name, failures)
+		_check(destination != null and StringName(destination.get_meta(&"copy_band", &"")) == &"destination", "%s should use the destination copy band" % destination_name, failures)
+		_check(destination != null and bool(destination.get_meta(&"overview_anchor", false)), "%s should remain visible in the overview" % destination_name, failures)
+	var routing_pod_identity := office.find_child("EggRoutingPodIdentityFixture", true, false) as Node3D
+	_check(routing_pod_identity != null and StringName(routing_pod_identity.get_meta(&"sign_tier", &"")) == &"secondary", "the Egg Routing Pod fascia should remain subordinate to North Meadow's destination landmark", failures)
+	_check(routing_pod_identity != null and StringName(routing_pod_identity.get_meta(&"mount_kind", &"")) == &"machine", "the Egg Routing Pod fascia should remain mounted to the machine", failures)
+	_check(routing_pod_identity != null and StringName(routing_pod_identity.get_meta(&"copy_band", &"")) == &"detail", "the Egg Routing Pod fascia should stay in the detail copy band below the parcel identity", failures)
 
 	var hosted_relationships: Dictionary[String, Dictionary] = {
-		"ClaimsPipelineLabelFixture": {"host": "ClaimsPipelineBoard", "style": &"chart_header", "face": "HostPrintField"},
-		"HenOfMonthLabelFixture": {"host": "HenOfMonthFrame", "style": &"portrait_masthead", "face": "PortraitTitleMat"},
-		"PerchTitleFixture": {"host": "PerchDepartmentHeaderBeam", "style": &"beam_letters", "face": "BeamLetterBed"},
+		"ClaimsPipelineLabelFixture": {"host": "ClaimsPipelineInset", "style": &"chart_header", "face": "HostPrintField"},
+		"HenOfMonthLabelFixture": {"host": "HenOfMonthCard", "style": &"portrait_masthead", "face": "PortraitTitleMat"},
+		"PerchTitleFixture": {"host": "PerchDepartmentHeaderBeam", "style": &"beam_letters", "face": ""},
 	}
 	for fixture_name in hosted_relationships:
 		var hosted_fixture := office.find_child(fixture_name, true, false) as Node3D
@@ -157,9 +176,20 @@ func _run() -> void:
 		if hosted_fixture != null and expected_host != null:
 			_check(StringName(hosted_fixture.get_meta(&"style_family", &"")) == StringName(relationship.get("style", &"")), "%s should use its host-specific treatment" % fixture_name, failures)
 			_check(bool(hosted_fixture.get_meta(&"physical_host", false)), "%s should declare its physical-host relationship" % fixture_name, failures)
-			_check(hosted_fixture.get_parent() == expected_host.get_parent(), "%s and %s should belong to the same authored prop cluster" % [fixture_name, expected_host_name], failures)
+			var directly_parented := bool(hosted_fixture.get_meta(&"host_attached", false))
+			_check(
+				hosted_fixture.get_parent() == expected_host
+				if directly_parented
+				else hosted_fixture.get_parent() == expected_host.get_parent(),
+				"%s should inherit or share the authored %s cluster" % [fixture_name, expected_host_name],
+				failures,
+			)
 			_check(hosted_fixture.global_position.distance_to(expected_host.global_position) <= 1.25, "%s should remain attached to the surface of %s" % [fixture_name, expected_host_name], failures)
-			_check(hosted_fixture.find_child(String(relationship.get("face", "")), false, false) != null, "%s should expose its own printable host face" % fixture_name, failures)
+			var face_name := String(relationship.get("face", ""))
+			if not face_name.is_empty():
+				_check(hosted_fixture.find_child(face_name, false, false) != null, "%s should expose its own printable host face" % fixture_name, failures)
+			else:
+				_check(bool(hosted_fixture.get_meta(&"host_attached", false)), "%s should print directly into its physical beam" % fixture_name, failures)
 
 	# Labels that describe a specific prop must inherit that prop's transform.
 	# This catches the perceptual failure the old style metadata could not: copy
@@ -167,6 +197,7 @@ func _run() -> void:
 	# or remain level while its shipping carton rotated beneath it.
 	var directly_attached_hosts: Dictionary[String, String] = {
 		"PresentationPlaqueTextFixture": "BasketFrontSlatCreditHost",
+		"IntakeIdentityPlaqueFixture": "IntakeFrontInset",
 		"ShellIntegrityLabelFixture": "ShellIntegrityGate",
 		"SuggestionBoxLabelFixture": "OpenBeakSuggestionBox",
 		"ArchiveRetentionLabelFixture": "ArchiveHeaderBeam",
@@ -196,43 +227,54 @@ func _run() -> void:
 	var zone_root := office.find_child("FarmBureauZoneMarkers", true, false)
 	_check(zone_root != null and zone_root.find_children("*", "Label3D", true, false).is_empty(), "floor zones should use physical markings rather than floating captions", failures)
 
-	var motto := office.find_child("BureauIdentity", true, false) as Label3D
+	var motto := office.find_child("BureauIdentity", true, false) as Node3D
 	var identity_fixture := office.find_child("BureauIdentityFixture", true, false) as Node3D
+	var bureau_modeled := identity_fixture.find_child("BureauIdentityModeledType", false, false) as MeshInstance3D if identity_fixture != null else null
+	var bureau_subtitle_modeled := identity_fixture.find_child("BureauIdentitySubtitleModeledType", false, false) as MeshInstance3D if identity_fixture != null else null
 	var side_board := office.find_child("ClaimsPipelineLabelFixture", true, false) as Node3D
 	var metrics := office.find_child("ManagementYieldBoard", true, false) as Label3D
 	var wellness_fixture := office.find_child("WellnessZoneLabelFixture", true, false) as Node3D
 	var identity_subtitle := office.find_child("BureauIdentitySubtitle", true, false) as Label3D
 	var desk_copy := office.find_child("EmployeeNameplateText", true, false) as Label3D
 	var desk_fixture := office.find_child("EmployeeNameplateTextFixture", true, false) as Node3D
-	var desk_role := office.find_child("EmployeeNameplateTextBody", true, false) as Label3D
 	var document_heading := office.find_child("FreeRangePermitLabel", true, false) as Label3D
 	var document_body := office.find_child("FreeRangePermitLabelBody", true, false) as Label3D
-	_check(motto != null and motto.billboard == BaseMaterial3D.BILLBOARD_DISABLED, "bureau identity should be fixed to the back wall", failures)
+	_check(motto != null and bool(motto.get_meta(&"smooth_wordmark", false)), "bureau identity should use the smooth authored house wordmark", failures)
+	_check(motto != null and bool(motto.get_meta(&"embossed_wordmark", false)), "bureau wordmark should retain shallow physical depth", failures)
+	_check(office.find_children("*Stroke_*", "MeshInstance3D", true, false).is_empty(), "environmental landmarks must not regress to voxel box-stroke lettering", failures)
+	_check(motto != null and motto.find_child("BureauIdentityLetterpressShadow", false, false) == null, "wordmark depth should stay inside its signage fixture rather than nesting under the label", failures)
+	_check(bureau_modeled != null and bureau_modeled.mesh is TextMesh, "bureau fascia should carry modeled shallow wordmark geometry", failures)
+	_check(bureau_modeled != null and bureau_modeled.rotation.is_equal_approx(Vector3.ZERO), "bureau wordmark should present its readable face to the office without a mirrored counter-rotation", failures)
+	_check(bureau_modeled != null and bool(bureau_modeled.get_meta(&"readable_face_outward", false)), "bureau wordmark should declare an outward-facing installation", failures)
+	_check(bureau_subtitle_modeled != null and bureau_subtitle_modeled.mesh is TextMesh, "bureau subtitle should share the title's modeled physical treatment", failures)
+	_check(identity_fixture != null and bool(identity_fixture.get_meta(&"uses_modeled_subtitle", false)), "bureau fascia should not mix modeled title geometry with flat subtitle copy", failures)
 	_check(identity_fixture != null and identity_fixture.position.z <= -8.60, "bureau identity should sit against the architectural wall rail", failures)
 	_check(identity_fixture != null and identity_fixture.find_child("IdentityInset", false, false) != null, "bureau identity should reserve a high-contrast architectural inset", failures)
 	_check(identity_fixture != null and (identity_fixture.get_meta(&"panel_size", Vector2.ZERO) as Vector2).x >= 6.0, "bureau identity should remain the room's readable landmark", failures)
-	_check(motto != null and identity_subtitle != null and motto.pixel_size > identity_subtitle.pixel_size * 1.7, "bureau title should dominate its subordinate department line", failures)
+	_check(motto != null and (motto.get_meta(&"maximum_text_size", Vector2.ZERO) as Vector2).y >= 0.44, "bureau title should dominate its subordinate department strip without becoming a tiny decal", failures)
 	_check(side_board != null and is_equal_approx(absf(side_board.rotation_degrees.y), 90.0), "left-wall pipeline heading should face into the room", failures)
 	_check(side_board != null and bool(side_board.get_meta(&"physical_host", false)), "pipeline heading should inherit the existing visibility board", failures)
 	_check(side_board != null and side_board.find_child("HostPrintField", false, false) != null, "pipeline title should print into the chart field instead of using a generic UI tab", failures)
 	_check(metrics != null and String(metrics.get_parent().get_meta(&"mount_kind", &"")) == "screen", "live yield metrics should live on a monitor", failures)
-	_check(metrics != null and metrics.position.x < -1.0, "left-aligned screen copy should begin at the glass inset instead of its center", failures)
-	_check(_font_source_path(motto).ends_with("BarlowCondensed-SemiBold.fontbytes"), "architectural identity should use the authored institutional face", failures)
+	_check(metrics != null and metrics.position.x < -0.70, "left-aligned screen copy should begin at the glass inset instead of its center", failures)
+	_check(_font_source_path(identity_subtitle).ends_with("BarlowCondensed-Regular.fontbytes"), "architectural department strip should use the authored institutional face", failures)
 	_check(_font_source_path(metrics).ends_with("IBMPlexMono-Regular.fontbytes"), "live screens should use the authored ledger mono face", failures)
 	_check(_font_source_path(document_heading).ends_with("CourierPrime-Bold.fontbytes"), "paper headings should use the authored typewriter bold face", failures)
 	_check(_font_source_path(document_body).ends_with("CourierPrime-Regular.fontbytes"), "paper body copy should use the authored typewriter face", failures)
 	_check(_font_source_path(desk_copy).ends_with("BarlowCondensed-SemiBold.fontbytes"), "desk names should use engraved institutional caps", failures)
-	_check(_font_source_path(desk_role).ends_with("BarlowCondensed-Regular.fontbytes"), "desk roles should use a quieter authored face", failures)
 	_check(wellness_fixture != null and wellness_fixture.position.x <= -11.75 and is_equal_approx(absf(wellness_fixture.rotation_degrees.y), 90.0), "wellness notice should sit flush on the left wall instead of floating inside the room", failures)
-	_check(wellness_fixture != null and not wellness_fixture.visible, "overview should not leave a blank room plaque after its copy recedes", failures)
+	_check(wellness_fixture != null and wellness_fixture.visible, "physical room plaque should remain mounted at overview", failures)
 	_check(office.find_child("BureauBulletinBoard", true, false) != null, "small policy jokes should cluster on a physical bulletin board", failures)
 	_check(office.find_child("IntakeLedgerSupport", true, false) != null, "the intake ledger should be physically supported by the counter", failures)
 	_check(office.find_children("SuspensionRod*", "MeshInstance3D", true, false).is_empty(), "department and event signs should not hang from rods connected to nothing", failures)
 	_check(office.find_child("CreditPlaque", true, false) == null and office.find_child("CoopSafetyFrame", true, false) == null, "sign fixtures should not duplicate prebuilt backing geometry", failures)
 	_check(desk_copy != null and not desk_copy.visible, "overview should suppress sub-pixel desk lettering", failures)
-	_check(desk_fixture != null and not desk_fixture.visible, "overview should suppress the whole removable desk insert instead of leaving a blank card", failures)
+	_check(desk_fixture != null and desk_fixture.visible, "overview should retain the physical desk insert while its glyphs recede", failures)
+	_check(desk_fixture != null and desk_fixture.find_child("PartitionIdentityTab", false, false) != null, "overview desk inserts should retain a material identity cue after microcopy recedes", failures)
+	_check(desk_fixture != null and desk_fixture.find_child("BureauEggSeal", false, false) != null, "overview desk inserts should retain a bureau egg seal instead of becoming blank rectangles", failures)
 	_check(document_body != null and not document_body.visible, "overview should suppress document microcopy while retaining notice headings", failures)
-	_check(motto != null and motto.visible, "overview should retain the bureau landmark", failures)
+	_check(motto != null and not motto.visible, "overview should keep the semantic wordmark proxy hidden", failures)
+	_check(bureau_modeled != null and bureau_modeled.visible, "overview should retain the modeled bureau landmark", failures)
 	# Preserve the original all-detail contract for callers that do not provide a
 	# spatial focus point. This remains useful for authored close-view captures.
 	EnvironmentalSignage.set_camera_detail(office, true, Vector3(INF, INF, INF), EnvironmentalSignage.FOCUSED_DETAIL_RADIUS, false)
@@ -330,7 +372,9 @@ func _surface_printed_labels(fixture: Node3D) -> Array[Label3D]:
 func _printable_face(fixture: Node3D, style_family: StringName) -> MeshInstance3D:
 	var face_name := &"Backplate"
 	if style_family == &"architectural_letters":
-		face_name = &"IdentityInset"
+		face_name = &"IdentityDepartmentStrip"
+	elif style_family == &"surface_stencil":
+		return null
 	elif style_family == &"hosted_header":
 		face_name = &"HostHeaderBand"
 	elif style_family == &"chart_header":
@@ -338,7 +382,7 @@ func _printable_face(fixture: Node3D, style_family: StringName) -> MeshInstance3
 	elif style_family == &"portrait_masthead":
 		face_name = &"PortraitTitleMat"
 	elif style_family == &"beam_letters":
-		face_name = &"BeamLetterBed"
+		return null if bool(fixture.get_meta(&"host_attached", false)) else fixture.find_child("BeamLetterCarrier", false, false) as MeshInstance3D
 	return fixture.find_child(face_name, false, false) as MeshInstance3D
 
 
@@ -373,6 +417,49 @@ func _farthest_label_from(
 			farthest_label = label
 			farthest_distance_squared = distance_squared
 	return farthest_label
+
+
+func _check_host_face_containment(fixture: Node3D, failures: Array[String]) -> void:
+	var host := fixture.get_parent() as MeshInstance3D
+	_check(host != null and host.mesh != null, "%s should inherit a measurable mesh host" % fixture.name, failures)
+	if host == null or host.mesh == null:
+		return
+	var host_size := host.mesh.get_aabb().size * host.scale.abs()
+	var panel_size := fixture.get_meta(&"panel_size", Vector2.ZERO) as Vector2
+	var available_face := Vector2(host_size.x, host_size.y)
+	var normal_offset := absf(fixture.position.z)
+	var host_half_depth := host_size.z * 0.5
+	if is_equal_approx(absf(fixture.rotation_degrees.x), 90.0):
+		available_face = Vector2(host_size.x, host_size.z)
+		normal_offset = absf(fixture.position.y)
+		host_half_depth = host_size.y * 0.5
+	elif is_equal_approx(absf(fixture.rotation_degrees.y), 90.0):
+		available_face = Vector2(host_size.z, host_size.y)
+		normal_offset = absf(fixture.position.x)
+		host_half_depth = host_size.x * 0.5
+	_check(
+		panel_size.x <= available_face.x + 0.020
+		and panel_size.y <= available_face.y + 0.020,
+		"%s %.2fx%.2f m copy must fit the %.2fx%.2f m face of %s" % [
+			fixture.name,
+			panel_size.x,
+			panel_size.y,
+			available_face.x,
+			available_face.y,
+			host.name,
+		],
+		failures,
+	)
+	var host_gap := normal_offset - host_half_depth
+	_check(
+		host_gap >= -0.002 and host_gap <= 0.012,
+		"%s should sit within 2 mm of or at most 12 mm above %s's face (found %.1f mm)" % [
+			fixture.name,
+			host.name,
+			host_gap * 1000.0,
+		],
+		failures,
+	)
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

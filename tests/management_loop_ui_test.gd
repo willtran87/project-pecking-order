@@ -22,7 +22,15 @@ func _run() -> void:
 	_check(decision_host != null and decision_host.is_visible_in_tree(), "opening directive should be presented as a blocking decision", failures)
 	var assurance_option := office.find_child("DecisionOption_shell_assurance", true, false) as Button
 	var confirm_decision := office.find_child("ConfirmDecisionButton", true, false) as Button
+	var decision_body := office.find_child("DecisionBody", true, false) as Label
 	_check(assurance_option != null and confirm_decision != null, "directive modal should expose selectable policy cards and authorization", failures)
+	_check(
+		decision_body != null
+		and "TODAY'S 3 ORDERS" in decision_body.text
+		and decision_body.text.count("+3 SCORE") == 3,
+		"morning policy should show the concrete scored orders before authorization",
+		failures,
+	)
 	if assurance_option != null and confirm_decision != null:
 		assurance_option.pressed.emit()
 		_check(not confirm_decision.disabled, "selecting a directive should enable authorization", failures)
@@ -34,7 +42,13 @@ func _run() -> void:
 	clock.set_speed(0)
 	_check(quota_progress != null and int(quota_progress.max_value) == 16 and int(quota_progress.value) == 0, "top HUD should scale the opening objective to four active hens", failures)
 	_check(office.find_children("Upgrade_*", "Button", true, false).size() == 3, "Flockwatch should expose three upgrade paths", failures)
-	_check(flockwatch_toggle != null and "4/4" in flockwatch_toggle.text, "collapsed ledger should advertise the active roost and capacity", failures)
+	_check(
+		flockwatch_toggle != null
+		and "FLOCKWATCH" in flockwatch_toggle.text
+		and "4 of 4" in flockwatch_toggle.tooltip_text,
+		"collapsed ledger should keep its stable identity and narrate active roost capacity",
+		failures,
+	)
 	_check(review_panel != null and not review_panel.is_visible_in_tree(), "daily review should remain hidden during a shift", failures)
 
 	var protected_fund := simulation.current_daily_operating_cost_cents() + simulation.wage_arrears_cents
@@ -61,7 +75,17 @@ func _run() -> void:
 	_check(review_panel.is_visible_in_tree(), "shift completion should open the farmer review", failures)
 	_check(clock.speed_index == 0, "farmer review should pause the next shift", failures)
 	var review_results := office.get("_review_results") as Label
-	_check(review_results != null and "TARGET HARVESTED" in review_results.text and "Quality bonus" in review_results.text, "review should explain outcomes and rewards", failures)
+	_check(
+		review_results != null
+		and "TARGET HARVESTED" in review_results.text
+		and "Quality bonus" in review_results.text
+		and "Payroll" in review_results.text
+		and "Facilities" in review_results.text
+		and "Net operating" in review_results.text
+		and "Closing Feed Fund" in review_results.text,
+		"review should reconcile rewards, obligations, net operations, and closing cash",
+		failures,
+	)
 	# Let the short upgrade/review cues naturally retire before tearing down the
 	# entire office; the dummy headless audio driver otherwise reports them as
 	# live playback resources during process shutdown.

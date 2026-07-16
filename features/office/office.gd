@@ -12,12 +12,25 @@ const OfficeStorytellingScript := preload("res://features/office/office_storytel
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 const OfficeAudioFeedbackScript := preload("res://features/office/office_audio_feedback.gd")
+const OfficeAudioDirectorScript := preload("res://features/office/office_audio_director.gd")
+const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
+const PlayerPreferencesStoreScript := preload("res://core/settings/player_preferences_store.gd")
+const SettingsUIScript := preload("res://features/office/settings_ui.gd")
 const PeckworkRoutingUIScript := preload("res://features/office/peckwork_routing_ui.gd")
 const RoostStaffingUIScript := preload("res://features/office/roost_staffing_ui.gd")
 const PeckingOrderUIScript := preload("res://features/office/pecking_order_ui.gd")
+const FlockwatchNavigationScript := preload("res://features/office/flockwatch_navigation.gd")
+const CapitalBlueprintUIScript := preload("res://features/office/capital_blueprint_ui.gd")
+const CampusExpansionUIScript := preload("res://features/office/campus_expansion_ui.gd")
+const CampusPortfolioUIScript := preload("res://features/office/campus_portfolio_ui.gd")
+const CampusExpansionVisualScript := preload("res://features/office/campus_expansion_visual.gd")
+const CampusPortfolioVisualScript := preload("res://features/office/campus_portfolio_visual.gd")
+const CommissioningRevealUIScript := preload("res://features/office/commissioning_reveal_ui.gd")
+const CampusPortfolioRevealUIScript := preload("res://features/office/campus_portfolio_reveal_ui.gd")
 const CampaignStateScript := preload("res://core/campaign/campaign_state.gd")
 const SeniorRoostStateScript := preload("res://core/campaign/senior_roost_state.gd")
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
+const CheckpointCoordinatorScript := preload("res://core/persistence/checkpoint_coordinator.gd")
 const ProbationCampaignUIScript := preload("res://features/office/probation_campaign_ui.gd")
 const FEED_PARTY_STATION_PATH := "res://assets/models/feed_party_station.glb"
 const CAMPAIGN_SAVE_FILENAME := "probation_campaign.json"
@@ -34,9 +47,55 @@ const FEED_PARTY_DURATION := 5.0
 const INITIAL_CAMPAIGN_STAFF := 4
 const MAXIMUM_OFFICE_CAPACITY := 6
 const PECK_ASSIST_ACTION: StringName = &"peck_assist"
-const FIRST_CLUTCH_VERSION := 1
+const PREDATOR_DEBUG_ARGUMENT := "--enable-predator-debug"
+const FIRST_CLUTCH_VERSION := 2
 const FIRST_CLUTCH_COMPLETION_HOLD_SECONDS := 5.5
+const STATUS_TOAST_HOLD_MSEC := 5500
+const STATUS_HISTORY_LIMIT := 18
+const CHECKPOINT_ERROR_LIMIT := 240
+const LIVE_HUD_HEIGHT := 112.0
+const FIRST_CLUTCH_HUD_HEIGHT := 64.0
+const LIVE_ROUTING_TOP := 120.0
+const FIRST_CLUTCH_ROUTING_TOP := 72.0
 const FIRST_HEN_WORKER_ID := 0
+const FIRST_CLUTCH_REINVESTMENT_KIND: StringName = &"first_clutch_reinvestment"
+const SHIFT_END_FALLBACK_MINUTE := 24 * 60
+const CORE_OVERVIEW_TARGET := Vector3(0.0, 0.65, 0.0)
+const CORE_OVERVIEW_POSITION := Vector3(17.30, 17.50, 21.50)
+const CORE_OVERVIEW_SIZE := 25.5
+# The base frame is deliberately only the occupied bureau. Expansion visuals
+# merge their own discovered/commissioned footprints into this rectangle later;
+# an unopened parcel must never make a fresh file look like a mature campus.
+const BASE_CAMPUS_BOUNDS := Rect2(Vector2(-12.0, -9.0), Vector2(24.0, 18.0))
+const CAMPUS_PRESENTATION_MARGIN_RATIO := 1.10
+const EXPANDED_OVERVIEW_TARGET := Vector3(7.72, 0.65, 15.10)
+const PACKING_ANNEX_FOCUS := Vector3(15.20, 0.90, -6.00)
+const RECORDS_ANNEX_FOCUS := Vector3(15.20, 0.90, 0.00)
+const FARM_MUTUAL_SERVICE_COOP_FOCUS := Vector3(15.20, 1.05, 6.00)
+const FARM_MUTUAL_NEGOTIATION_ROOM_FOCUS := Vector3(15.20, 1.10, 12.00)
+const FARM_MUTUAL_BOARD_FOCUS := Vector3(-11.46, 2.08, 0.00)
+const WELLNESS_NEST_FOCUS := Vector3(15.20, 1.05, 18.00)
+const TRAINING_ROOST_FOCUS := Vector3(15.20, 1.05, 24.00)
+const CARE_CAMPUS_FOCUS := Vector3(15.20, 1.05, 21.00)
+const FARMER_RELATIONS_GALLERY_FOCUS := Vector3(7.30, 1.50, 24.00)
+const ROOSTER_OPERATIONS_OFFICE_FOCUS := Vector3(15.20, 1.05, 30.00)
+const IT_COOP_FOCUS := Vector3(15.20, 1.05, 36.00)
+const OPERATIONS_CAMPUS_FOCUS := Vector3(15.20, 1.05, 33.00)
+const FLOCK_RELATIONS_OFFICE_FOCUS := Vector3(7.30, 1.05, 36.00)
+const FLOCK_PROVISIONS_COOP_FOCUS := Vector3(7.30, 1.50, 30.00)
+const GOVERNANCE_CAMPUS_FOCUS := Vector3(11.25, 1.05, 30.00)
+const FARMGATE_DISPATCH_DEPOT_FOCUS := Vector3(23.05, 1.25, -3.00)
+const NORTH_MEADOW_FOCUS := Vector3(25.05, 1.15, 9.00)
+const CAMPUS_PORTFOLIO_FOCUS := Vector3(25.05, 1.30, 27.00)
+const ORCHARD_ROW_FOCUS := Vector3(25.05, 1.20, 21.00)
+const CREEKSIDE_YARD_FOCUS := Vector3(25.05, 1.20, 33.00)
+const CAMPUS_ROUTING_POD_ID: StringName = &"egg_routing_pod"
+const CAMPUS_COMMUTE_SPINE_X := 11.25
+const CAMPUS_COMMUTE_SPINE_ENTRY_Z := 8.70
+const CAMPUS_COMMUTE_NORTH_BYPASS_Z := 39.65
+const CAMPUS_COMMUTE_EAST_BYPASS_X := 32.15
+const CAMPUS_COMMUTE_ORCHARD_ROUTE_Z := 16.40
+const CAMPUS_COMMUTE_CREEKSIDE_ROUTE_Z := 28.40
 
 var _simulation := DepartmentSimulation.new(1701, INITIAL_CAMPAIGN_STAFF)
 var _clock := SimulationClock.new()
@@ -58,6 +117,9 @@ var _feed_party_previous_speed: int = 1
 var _feed_party_release_scheduled: bool = false
 var _feed_party_arrivals: Dictionary[int, bool] = {}
 var _feed_party_returns: Dictionary[int, bool] = {}
+var _feed_party_expected_attendees: Dictionary[int, bool] = {}
+var _campus_worker_assignments: Dictionary[int, StringName] = {}
+var _campus_worker_pads: Dictionary[int, StringName] = {}
 var _material_cache: Dictionary[String, StandardMaterial3D] = {}
 var _environment: Environment
 var _office_sun: DirectionalLight3D
@@ -70,13 +132,38 @@ var _workstation_feedback: WorkstationFeedback
 var _office_atmosphere: OfficeAtmosphere
 var _office_storytelling: OfficeStorytelling
 var _audio_feedback: Node
+var _audio_director: Node
 var _routing_ui: PeckworkRoutingUI
 var _staffing_ui: RoostStaffingUI
 var _pecking_order_ui
+var _flockwatch_navigation: FlockwatchNavigation
+var _capital_blueprint_ui: Control
+var _campus_portfolio_ui: Control
+var _campus_expansion_ui: Control
+var _commissioning_reveal_ui: Control
+var _campus_portfolio_reveal_ui: Control
+var _capital_blueprint_restore_review := false
+var _capital_blueprint_restore_flockwatch := false
+var _campus_expansion_restore_portfolio := false
+var _capital_modal_previous_speed := 0
+var _capital_modal_holds_speed := false
+var _pending_campus_portfolio_reveals: Array[Dictionary] = []
 var _last_reviewed_day: int = 1
 var _campaign_state = CampaignStateScript.new()
 var _senior_roost_state = SeniorRoostStateScript.new()
 var _campaign_store = CampaignSaveStoreScript.new(CAMPAIGN_SAVE_FILENAME)
+var _checkpoint_coordinator = CheckpointCoordinatorScript.new()
+var _has_campaign_checkpoint_candidate := false
+var _has_verified_campaign_checkpoint := false
+var _checkpoint_last_error := ""
+var _checkpoint_last_saved_reason := ""
+var _checkpoint_last_saved_unix_msec: int = 0
+var _web_checkpoint_flush_callback
+var _last_lifecycle_checkpoint_frame: int = -1
+var _last_lifecycle_checkpoint_revision: int = -1
+var _campaign_session_checkpoint_enabled := false
+var _preferences_store = PlayerPreferencesStoreScript.new()
+var _player_preferences: Dictionary = {}
 var _campaign_ui: ProbationCampaignUI
 var _campaign_review_stage: StringName = &"active"
 var _last_workday_report: Dictionary = {}
@@ -95,11 +182,13 @@ var _first_clutch: Dictionary = {
 	"assisted_claim_id": -1,
 	"delivery_laid": false,
 	"delivery_seen": false,
+	"delivered_claim_id": -1,
 	"delivered_quality": "",
 	"delivered_value_cents": 0,
 	"delivered_priority_credit_cents": 0,
 	"potential_priority_credit_cents": 0,
 	"prior_presentations_pending": 0,
+	"reinvestment_grandfathered": false,
 }
 var _first_clutch_completion_hold_until_msec: int = 0
 var _first_clutch_completion_generation: int = 0
@@ -108,6 +197,8 @@ var _eggs_in_flight_by_worker: Dictionary[int, int] = {}
 # in FIFO order so the basket callback settles the exact assisted claim that
 # authored that egg instead of guessing from the worker's newer active file.
 var _collection_claim_ids_by_worker: Dictionary[int, Array] = {}
+var _collection_cash_by_claim_id: Dictionary[int, int] = {}
+var _collection_stocked_by_claim_id: Dictionary[int, bool] = {}
 var _first_clutch_global_cued_control: Button
 var _first_clutch_global_cue_tween: Tween
 
@@ -123,14 +214,29 @@ var _compliance_label: Label
 var _solidarity_label: Label
 var _campaign_objectives_label: Label
 var _campaign_orders_heading_label: Label
+var _campaign_safeguards_label: Label
 var _flock_labor_label: Label
 var _overtime_button: Button
 var _ticker_label: Label
+var _ticker_panel: PanelContainer
+var _ticker_last_text := ""
+var _ticker_hide_at_msec: int = 0
+var _status_history: Array[String] = []
+var _status_history_label: Label
 var _flockwatch_panel: PanelContainer
 var _flockwatch_toggle: Button
+var _settings_button: Button
+var _settings_ui: PeckingOrderSettingsUI
+var _settings_previous_speed: int = 0
+var _settings_holds_speed: bool = false
+var _settings_prior_focus_owner: Control
 var _flockwatch_open: bool = false
+var _flockwatch_prior_focus_owner: Control
 var _speed_buttons: Array[Button] = []
 var _ui_root: Control
+var _top_hud_panel: PanelContainer
+var _shift_objective_row: HBoxContainer
+var _compact_live_hud_applied := false
 var _quota_progress: ProgressBar
 var _quota_progress_label: Label
 var _quality_streak_label: Label
@@ -159,6 +265,7 @@ var _active_decision: Dictionary = {}
 var _selected_decision_option: StringName = &""
 var _decision_previous_speed := 1
 var _resume_after_decision := true
+var _decision_restore_farmer_review := false
 var _authoritative_revenue_cents := 0
 var _displayed_revenue_cents := -1
 var _pending_collection_cents := 0
@@ -168,11 +275,18 @@ var _fund_count_tween: Tween
 
 func _ready() -> void:
 	name = "CorporateClaimsDivision"
+	# Envelope validity is enough to offer Continue, but it is not proof that the
+	# nested campaign, simulation, and Senior ledgers can activate together.
+	_has_campaign_checkpoint_candidate = _campaign_store != null and _campaign_store.has_save()
+	_has_verified_campaign_checkpoint = false
+	_install_web_checkpoint_bridge()
 	_ensure_peck_assist_input_action()
+	_load_player_preferences()
 	_build_environment()
 	_build_office()
 	_predator_encounter = PredatorEncounterScript.new() as PredatorEncounter
 	_predator_encounter.victim_carried_away.connect(_on_predator_victim_carried_away)
+	_predator_encounter.victim_captured.connect(_on_predator_victim_captured)
 	add_child(_predator_encounter)
 	_office_storytelling = OfficeStorytellingScript.new() as OfficeStorytelling
 	_office_storytelling.configure(
@@ -190,7 +304,10 @@ func _ready() -> void:
 	)
 	_audio_feedback = OfficeAudioFeedbackScript.new()
 	add_child(_audio_feedback)
+	_audio_director = OfficeAudioDirectorScript.new()
+	add_child(_audio_director)
 	_build_ui()
+	_apply_player_preferences()
 
 	add_child(_clock)
 	_clock.initialize(_simulation)
@@ -203,6 +320,7 @@ func _ready() -> void:
 	_simulation.upgrade_purchased.connect(_on_upgrade_purchased)
 	_simulation.decision_requested.connect(_on_decision_requested)
 	_simulation.decision_resolved.connect(_on_decision_resolved)
+	_simulation.first_clutch_reinvestment_resolved.connect(_on_first_clutch_reinvestment_resolved)
 
 	_clock.set_speed(0)
 	_on_snapshot_changed(_simulation.snapshot())
@@ -212,7 +330,7 @@ func _ready() -> void:
 		_simulation.announce_pending_decision()
 	else:
 		_campaign_review_stage = &"title"
-		_show_campaign_title(_campaign_store.has_save())
+		_show_campaign_title(_has_campaign_checkpoint_candidate)
 		_set_campaign_modal_open(true)
 		_on_announcement_posted("PROBATION INTAKE OPEN. Begin a new five-shift file or continue a saved one.")
 	if "--capture-decision" in OS.get_cmdline_user_args() or "--capture-decision" in OS.get_cmdline_args():
@@ -235,6 +353,8 @@ func _ready() -> void:
 		_capture_routing_preview()
 	elif "--capture-first-clutch" in OS.get_cmdline_user_args() or "--capture-first-clutch" in OS.get_cmdline_args():
 		_capture_first_clutch_preview()
+	elif "--capture-first-clutch-reinvestment" in OS.get_cmdline_user_args() or "--capture-first-clutch-reinvestment" in OS.get_cmdline_args():
+		_capture_first_clutch_reinvestment_preview()
 	elif "--capture-first-hen" in OS.get_cmdline_user_args() or "--capture-first-hen" in OS.get_cmdline_args():
 		_capture_first_hen_preview()
 	elif "--capture-first-hen-policy" in OS.get_cmdline_user_args() or "--capture-first-hen-policy" in OS.get_cmdline_args():
@@ -247,6 +367,70 @@ func _ready() -> void:
 		_capture_grading_preview()
 	elif "--capture-staffing" in OS.get_cmdline_user_args() or "--capture-staffing" in OS.get_cmdline_args():
 		_capture_staffing_preview()
+	elif "--capture-facility" in OS.get_cmdline_user_args() or "--capture-facility" in OS.get_cmdline_args():
+		_capture_facility_preview()
+	elif "--capture-facility-ui" in OS.get_cmdline_user_args() or "--capture-facility-ui" in OS.get_cmdline_args():
+		_capture_facility_ui_preview()
+	elif "--capture-packing-annex" in OS.get_cmdline_user_args() or "--capture-packing-annex" in OS.get_cmdline_args():
+		_capture_packing_annex_preview()
+	elif "--capture-records-annex" in OS.get_cmdline_user_args() or "--capture-records-annex" in OS.get_cmdline_args():
+		_capture_records_annex_preview()
+	elif "--capture-service-coop" in OS.get_cmdline_user_args() or "--capture-service-coop" in OS.get_cmdline_args():
+		_capture_service_coop_preview()
+	elif "--capture-service-coop-ui" in OS.get_cmdline_user_args() or "--capture-service-coop-ui" in OS.get_cmdline_args():
+		_capture_service_coop_ui_preview()
+	elif "--capture-negotiation-room" in OS.get_cmdline_user_args() or "--capture-negotiation-room" in OS.get_cmdline_args():
+		_capture_negotiation_room_preview()
+	elif "--capture-contract-board-world" in OS.get_cmdline_user_args() or "--capture-contract-board-world" in OS.get_cmdline_args():
+		_capture_contract_board_world_preview()
+	elif "--capture-contract-board-ui" in OS.get_cmdline_user_args() or "--capture-contract-board-ui" in OS.get_cmdline_args():
+		_capture_contract_board_ui_preview()
+	elif "--capture-negotiation-board-ui" in OS.get_cmdline_user_args() or "--capture-negotiation-board-ui" in OS.get_cmdline_args():
+		_capture_negotiation_board_ui_preview()
+	elif "--capture-wellness-nest" in OS.get_cmdline_user_args() or "--capture-wellness-nest" in OS.get_cmdline_args():
+		_capture_wellness_nest_preview()
+	elif "--capture-training-roost" in OS.get_cmdline_user_args() or "--capture-training-roost" in OS.get_cmdline_args():
+		_capture_training_roost_preview()
+	elif "--capture-care-campus" in OS.get_cmdline_user_args() or "--capture-care-campus" in OS.get_cmdline_args():
+		_capture_care_campus_preview()
+	elif "--capture-farmer-relations-gallery" in OS.get_cmdline_user_args() or "--capture-farmer-relations-gallery" in OS.get_cmdline_args():
+		_capture_farmer_relations_gallery_preview()
+	elif "--capture-rooster-operations-office" in OS.get_cmdline_user_args() or "--capture-rooster-operations-office" in OS.get_cmdline_args():
+		_capture_rooster_operations_office_preview()
+	elif "--capture-it-coop" in OS.get_cmdline_user_args() or "--capture-it-coop" in OS.get_cmdline_args():
+		_capture_it_coop_preview()
+	elif "--capture-operations-campus" in OS.get_cmdline_user_args() or "--capture-operations-campus" in OS.get_cmdline_args():
+		_capture_operations_campus_preview()
+	elif "--capture-flock-relations" in OS.get_cmdline_user_args() or "--capture-flock-relations" in OS.get_cmdline_args():
+		_capture_flock_relations_preview()
+	elif "--capture-flock-provisions" in OS.get_cmdline_user_args() or "--capture-flock-provisions" in OS.get_cmdline_args():
+		_capture_flock_provisions_preview()
+	elif "--capture-governance-campus" in OS.get_cmdline_user_args() or "--capture-governance-campus" in OS.get_cmdline_args():
+		_capture_governance_campus_preview()
+	elif "--capture-farmgate-locked" in OS.get_cmdline_user_args() or "--capture-farmgate-locked" in OS.get_cmdline_args():
+		_capture_farmgate_dispatch_preview(-1)
+	elif "--capture-farmgate-survey" in OS.get_cmdline_user_args() or "--capture-farmgate-survey" in OS.get_cmdline_args():
+		_capture_farmgate_dispatch_preview(0)
+	elif "--capture-farmgate-l1" in OS.get_cmdline_user_args() or "--capture-farmgate-l1" in OS.get_cmdline_args():
+		_capture_farmgate_dispatch_preview(1)
+	elif "--capture-farmgate-l2" in OS.get_cmdline_user_args() or "--capture-farmgate-l2" in OS.get_cmdline_args():
+		_capture_farmgate_dispatch_preview(2)
+	elif "--capture-farmgate-l3" in OS.get_cmdline_user_args() or "--capture-farmgate-l3" in OS.get_cmdline_args() or "--capture-farmgate-dispatch" in OS.get_cmdline_user_args() or "--capture-farmgate-dispatch" in OS.get_cmdline_args():
+		_capture_farmgate_dispatch_preview(3)
+	elif "--capture-dispatch-campus" in OS.get_cmdline_user_args() or "--capture-dispatch-campus" in OS.get_cmdline_args():
+		_capture_dispatch_campus_preview()
+	elif "--capture-capital-blueprint" in OS.get_cmdline_user_args() or "--capture-capital-blueprint" in OS.get_cmdline_args():
+		_capture_capital_blueprint_preview()
+	elif "--capture-commissioning-reveal" in OS.get_cmdline_user_args() or "--capture-commissioning-reveal" in OS.get_cmdline_args():
+		_capture_commissioning_reveal_preview()
+	elif "--capture-campus-expansion" in OS.get_cmdline_user_args() or "--capture-campus-expansion" in OS.get_cmdline_args():
+		_capture_campus_expansion_preview()
+	elif "--capture-campus-portfolio" in OS.get_cmdline_user_args() or "--capture-campus-portfolio" in OS.get_cmdline_args():
+		_capture_campus_portfolio_preview()
+	elif "--capture-campus-portfolio-ui" in OS.get_cmdline_user_args() or "--capture-campus-portfolio-ui" in OS.get_cmdline_args():
+		_capture_campus_portfolio_ui_preview()
+	elif "--capture-expansion-overview" in OS.get_cmdline_user_args() or "--capture-expansion-overview" in OS.get_cmdline_args():
+		_capture_expansion_overview_preview()
 	elif "--capture-signage-back" in OS.get_cmdline_user_args() or "--capture-signage-back" in OS.get_cmdline_args():
 		_capture_signage_preview(Vector3(0.0, 2.15, -7.70), "signage_back.png")
 	elif "--capture-signage-left" in OS.get_cmdline_user_args() or "--capture-signage-left" in OS.get_cmdline_args():
@@ -272,26 +456,427 @@ func _ready() -> void:
 
 
 func _ensure_peck_assist_input_action() -> void:
-	if InputMap.has_action(PECK_ASSIST_ACTION):
+	OfficeActionCatalogScript.install_defaults()
+
+
+func _load_player_preferences() -> void:
+	_player_preferences = PlayerPreferencesStoreScript.sanitize(
+		_preferences_store.load_preferences()
+	)
+	var binding_result: Dictionary = OfficeActionCatalogScript.apply_bindings(
+		_player_preferences.get("input_bindings", {}) as Dictionary
+	)
+	if not bool(binding_result.get("accepted", false)):
+		push_warning(
+			"Saved control bindings were held: %s" % String(binding_result.get(
+				"reason",
+				"conflicting bindings",
+			))
+		)
+		OfficeActionCatalogScript.reset_all()
+		_player_preferences["input_bindings"] = {}
+	# These two exits are deliberately non-remappable in the in-game UI, and are
+	# reasserted even if a hand-edited preference file tries to remove the safe
+	# path back into settings or the office overview.
+	OfficeActionCatalogScript.reset_action(&"open_settings")
+	OfficeActionCatalogScript.reset_action(&"office_overview")
+	var safe_bindings := (_player_preferences.get("input_bindings", {}) as Dictionary).duplicate(true)
+	safe_bindings.erase("open_settings")
+	safe_bindings.erase("office_overview")
+	_player_preferences["input_bindings"] = safe_bindings
+	_simulation.set_peck_assist_timing_profile(
+		StringName(String(_player_preferences.get("timing_assist", "standard")))
+	)
+
+
+func _apply_player_preferences() -> void:
+	_player_preferences = PlayerPreferencesStoreScript.sanitize(_player_preferences)
+	PlayerPreferencesStoreScript.apply_audio(_player_preferences)
+	_apply_ambient_audio_preference()
+	_simulation.set_peck_assist_timing_profile(
+		StringName(String(_player_preferences.get("timing_assist", "standard")))
+	)
+	var reduced_motion := _prefers_reduced_motion()
+	if _camera_controller != null:
+		_camera_controller.set_reduced_motion(reduced_motion)
+		_camera_controller.set_high_contrast(bool(_player_preferences.get("high_contrast", false)))
+	if _office_atmosphere != null:
+		_office_atmosphere.set_reduced_motion(reduced_motion)
+	if _routing_ui != null and _routing_ui.has_method("set_reduced_motion"):
+		_routing_ui.call("set_reduced_motion", reduced_motion)
+	_apply_visual_quality(StringName(String(_player_preferences.get("visual_quality", "balanced"))))
+	_apply_management_ui_preferences()
+	_refresh_action_prompts()
+	if _settings_ui != null:
+		_settings_ui.refresh_preferences(_player_preferences)
+		_settings_ui.refresh_binding_labels(_current_binding_labels())
+
+
+func _apply_ambient_audio_preference() -> void:
+	var audio := _player_preferences.get("audio", {}) as Dictionary
+	var music := audio.get("music", {}) as Dictionary
+	var ambient_index := AudioServer.get_bus_index(&"Ambient")
+	if ambient_index < 0:
 		return
-	InputMap.add_action(PECK_ASSIST_ACTION, 0.5)
-	var key_event := InputEventKey.new()
-	key_event.physical_keycode = KEY_E
-	InputMap.action_add_event(PECK_ASSIST_ACTION, key_event)
-	var joy_event := InputEventJoypadButton.new()
-	joy_event.button_index = JOY_BUTTON_A
-	InputMap.action_add_event(PECK_ASSIST_ACTION, joy_event)
+	var volume := clampf(float(music.get("volume", 0.65)), 0.0, 1.0)
+	AudioServer.set_bus_volume_db(ambient_index, linear_to_db(maxf(volume, 0.0001)))
+	AudioServer.set_bus_mute(ambient_index, bool(music.get("muted", false)))
+
+
+func _apply_management_ui_preferences() -> void:
+	if _ui_root == null:
+		return
+	var scale := float(_player_preferences.get("ui_scale", 1.0))
+	var high_contrast := bool(_player_preferences.get("high_contrast", false))
+	_ui_root.theme = ManagementUIThemeScript.create_theme(high_contrast, scale)
+	_apply_explicit_font_scale(_ui_root, scale)
+	if _environment != null:
+		_environment.adjustment_contrast = 1.16 if high_contrast else 1.08
+		_environment.adjustment_saturation = 1.0 if high_contrast else 0.94
+
+
+func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		if not control.has_meta(&"preference_base_font_size"):
+			control.set_meta(
+				&"preference_base_font_size",
+				control.get_theme_font_size("font_size"),
+			)
+		var base_size := int(control.get_meta(&"preference_base_font_size", 14))
+		control.add_theme_font_size_override("font_size", maxi(10, roundi(base_size * scale)))
+
+
+func _apply_visual_quality(quality: StringName) -> void:
+	var viewport := get_viewport()
+	match quality:
+		&"low":
+			viewport.scaling_3d_scale = 0.82
+			viewport.msaa_3d = Viewport.MSAA_DISABLED
+			if _office_sun != null:
+				_office_sun.shadow_enabled = false
+			if _office_atmosphere != null:
+				_office_atmosphere.set_atmosphere_enabled(false)
+		&"high":
+			viewport.scaling_3d_scale = 1.0
+			viewport.msaa_3d = Viewport.MSAA_4X
+			if _office_sun != null:
+				_office_sun.shadow_enabled = true
+				_office_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+			if _office_atmosphere != null:
+				_office_atmosphere.set_atmosphere_enabled(true)
+		_:
+			viewport.scaling_3d_scale = 1.0
+			viewport.msaa_3d = Viewport.MSAA_DISABLED
+			if _office_sun != null:
+				_office_sun.shadow_enabled = true
+				_office_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+			if _office_atmosphere != null:
+				_office_atmosphere.set_atmosphere_enabled(true)
+
+
+func _current_binding_labels() -> Dictionary:
+	var result: Dictionary = {}
+	for action: StringName in OfficeActionCatalogScript.managed_actions():
+		result[action] = OfficeActionCatalogScript.binding_label(action)
+	return result
+
+
+func _action_hint(action: StringName) -> String:
+	return OfficeActionCatalogScript.binding_label(action)
+
+
+func _refresh_action_prompts() -> void:
+	if _settings_button != null:
+		_settings_button.text = "COMFORT  [%s]" % _action_hint(&"open_settings")
+	if _flockwatch_toggle != null:
+		_update_flockwatch_toggle()
+	if _feed_button != null and not _feed_party_active:
+		if _feed_button.text.begins_with("FUND FEED PARTY"):
+			_feed_button.text = "FUND FEED PARTY  ($20)  [%s]" % _action_hint(&"fund_feed_party")
+		_feed_button.tooltip_text = (
+			"Once per shift: +10 morale, -8 stress, +2 farmer favor. Production pauses for attendance. Binding: %s."
+			% _action_hint(&"fund_feed_party")
+		)
+	if _overtime_button != null:
+		if "AFTER-HOURS PECKING" in _overtime_button.text:
+			_overtime_button.text = "%s  [%s]" % [
+				"END AFTER-HOURS PECKING" if _overtime_button.button_pressed else "ENABLE AFTER-HOURS PECKING",
+				_action_hint(&"toggle_overtime"),
+			]
+		_overtime_button.tooltip_text = (
+			"+22%% output; sharply increases fatigue, stress, morale loss, and crack risk. Resets next shift. Binding: %s."
+			% _action_hint(&"toggle_overtime")
+		)
+	if _routing_ui != null and _routing_ui.has_method("set_peck_assist_binding_label"):
+		_routing_ui.call("set_peck_assist_binding_label", _action_hint(PECK_ASSIST_ACTION))
+
+
+func _on_settings_requested() -> void:
+	if _settings_ui == null:
+		return
+	if _settings_ui.is_open():
+		_on_settings_close_requested()
+		return
+	_settings_previous_speed = _clock.speed_index if _clock != null else 0
+	_settings_holds_speed = true
+	_settings_prior_focus_owner = get_viewport().gui_get_focus_owner()
+	if _clock != null:
+		_clock.set_speed(0)
+	if _camera_controller != null:
+		_camera_controller.set_process_unhandled_input(false)
+	if _routing_ui != null:
+		_routing_ui.set_interaction_enabled(false)
+	_settings_ui.show_settings(_player_preferences, _current_binding_labels())
+	if _audio_feedback != null and _audio_feedback.has_method("play_ui_tick"):
+		_audio_feedback.call("play_ui_tick")
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_settings_close_requested() -> void:
+	if _settings_ui == null or not _settings_ui.is_open():
+		return
+	_settings_ui.hide_settings()
+	var another_modal := _settings_other_modal_open()
+	var floor_input_blocked := another_modal or _flockwatch_open
+	if _camera_controller != null:
+		_camera_controller.set_process_unhandled_input(not floor_input_blocked)
+	if _routing_ui != null:
+		var running := _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+		_routing_ui.set_interaction_enabled(running and not floor_input_blocked)
+	if _settings_holds_speed and not another_modal and _clock != null:
+		_clock.set_speed(_settings_previous_speed)
+	_settings_holds_speed = false
+	if (
+		_settings_prior_focus_owner != null
+		and is_instance_valid(_settings_prior_focus_owner)
+		and _settings_prior_focus_owner.is_visible_in_tree()
+	):
+		_settings_prior_focus_owner.call_deferred("grab_focus")
+	elif not another_modal and _settings_button != null and _settings_button.is_visible_in_tree():
+		_settings_button.call_deferred("grab_focus")
+	_settings_prior_focus_owner = null
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _settings_other_modal_open() -> bool:
+	return (
+		(_campaign_ui != null and _campaign_ui.is_modal_open())
+		or (_decision_host != null and _decision_host.visible)
+		or (_day_review_scrim != null and _day_review_scrim.visible)
+		or _capital_modal_holds_speed
+	)
+
+
+func _on_preferences_changed(preferences: Dictionary) -> void:
+	_player_preferences = PlayerPreferencesStoreScript.sanitize(preferences)
+	_apply_player_preferences()
+	_save_player_preferences("Preference filed and applied.")
+
+
+func _on_preferences_reset_requested() -> void:
+	OfficeActionCatalogScript.reset_all()
+	_player_preferences = PlayerPreferencesStoreScript.defaults()
+	_apply_player_preferences()
+	_save_player_preferences("Comfort defaults restored and saved.")
+
+
+func _on_binding_capture_requested(action: StringName, event: InputEvent) -> void:
+	var previous_preferences := _player_preferences.duplicate(true)
+	var previous_events: Array[InputEvent] = []
+	for existing: InputEvent in InputMap.action_get_events(action):
+		previous_events.append(existing.duplicate(true) as InputEvent)
+	var next_events: Array[InputEvent] = []
+	for existing: InputEvent in previous_events:
+		if _same_binding_family(existing, event):
+			continue
+		next_events.append(existing)
+	next_events.append(event)
+	var result: Dictionary = OfficeActionCatalogScript.rebind_action(action, next_events)
+	if not bool(result.get("accepted", false)):
+		var rejection_message := "Binding held: %s Choose a different key or button." % String(result.get(
+			"reason",
+			"that input is already in use",
+		))
+		if _settings_ui != null:
+			_settings_ui.acknowledge_binding_capture(action, false, rejection_message)
+		if _simulation != null:
+			_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	_player_preferences["input_bindings"] = OfficeActionCatalogScript.export_bindings()
+	_player_preferences = PlayerPreferencesStoreScript.sanitize(_player_preferences)
+	_refresh_action_prompts()
+	if not _preferences_store.save_preferences(_player_preferences):
+		# A binding is not real until the independent preferences transaction is
+		# verified. Restore both runtime input and the prior preference snapshot so
+		# a failed browser/desktop write cannot masquerade as a successful change.
+		InputMap.action_erase_events(action)
+		for previous_event: InputEvent in previous_events:
+			InputMap.action_add_event(action, previous_event)
+		_player_preferences = previous_preferences
+		_refresh_action_prompts()
+		var failure_message := "Binding not filed: %s Choose another input or try again." % String(
+			_preferences_store.last_error
+		)
+		push_warning(failure_message)
+		if _settings_ui != null:
+			_settings_ui.acknowledge_binding_capture(action, false, failure_message)
+		if _simulation != null:
+			_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	if _settings_ui != null:
+		_settings_ui.acknowledge_binding_capture(
+			action,
+			true,
+			"Control binding filed and saved.",
+			_current_binding_labels(),
+		)
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _same_binding_family(first: InputEvent, second: InputEvent) -> bool:
+	return (
+		(first is InputEventKey and second is InputEventKey)
+		or (first is InputEventJoypadButton and second is InputEventJoypadButton)
+	)
+
+
+func _save_player_preferences(success_message: String) -> void:
+	if _preferences_store.save_preferences(_player_preferences):
+		if _settings_ui != null:
+			_settings_ui.set_status(success_message)
+	else:
+		var message := "Preference save held: %s" % _preferences_store.last_error
+		push_warning(message)
+		if _settings_ui != null:
+			_settings_ui.set_status(message)
+	# Settings intentionally pause the floor, so there may be no simulation tick
+	# to refresh the browser's accessible mirror. Publish every saved (or rejected)
+	# preference action immediately while the panel is still open.
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_set_audio_focus_paused(true)
+		_request_lifecycle_checkpoint("application_focus_out")
+	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_set_audio_focus_paused(false)
+	elif what == NOTIFICATION_APPLICATION_PAUSED:
+		_request_lifecycle_checkpoint("application_paused")
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_request_lifecycle_checkpoint("window_close_requested")
+
+
+func _exit_tree() -> void:
+	_request_lifecycle_checkpoint("scene_exit")
+
+
+func _install_web_checkpoint_bridge() -> void:
+	if not OS.has_feature("web"):
+		return
+	var window := JavaScriptBridge.get_interface("window")
+	if window == null:
+		return
+	_web_checkpoint_flush_callback = JavaScriptBridge.create_callback(
+		_on_web_checkpoint_flush_requested
+	)
+	window.set("__pecking_order_request_checkpoint", _web_checkpoint_flush_callback)
+
+
+func _on_web_checkpoint_flush_requested(arguments: Array) -> void:
+	var reason := "web_lifecycle"
+	if not arguments.is_empty():
+		var requested_reason := String(arguments[0]).strip_edges()
+		if not requested_reason.is_empty():
+			reason = requested_reason
+	_request_lifecycle_checkpoint(reason)
+
+
+func _request_lifecycle_checkpoint(reason: String) -> bool:
+	# The title surface owns only a staged/default in-memory campaign. Writing it
+	# before New/Continue would fabricate a resumable file or replace a valid one.
+	# Return to Intake has already shelved synchronously, so it is safe to skip too.
+	if (
+		not _campaign_session_checkpoint_enabled
+		or _campaign_ui == null
+		or _campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE
+	):
+		return false
+	var process_frame := Engine.get_process_frames()
+	var simulation_revision := _simulation.checkpoint_revision() if _simulation != null else -1
+	if (
+		process_frame == _last_lifecycle_checkpoint_frame
+		and simulation_revision == _last_lifecycle_checkpoint_revision
+		and not _checkpoint_coordinator.is_dirty()
+	):
+		return true
+	var saved := _save_campaign_checkpoint(reason)
+	if saved:
+		_last_lifecycle_checkpoint_frame = process_frame
+		_last_lifecycle_checkpoint_revision = simulation_revision
+	return saved
+
+
+func _set_audio_focus_paused(paused: bool) -> void:
+	if _audio_feedback != null and _audio_feedback.has_method("set_focus_paused"):
+		_audio_feedback.call("set_focus_paused", paused)
+	if _audio_director != null and _audio_director.has_method("set_focus_paused"):
+		_audio_director.call("set_focus_paused", paused)
+
+
+static func predator_debug_shortcut_enabled_for_environment(
+	debug_build: bool,
+	user_arguments: PackedStringArray,
+	engine_arguments: PackedStringArray,
+) -> bool:
+	if not debug_build:
+		return false
+	return (
+		PREDATOR_DEBUG_ARGUMENT in user_arguments
+		or PREDATOR_DEBUG_ARGUMENT in engine_arguments
+	)
+
+
+func _predator_debug_shortcut_enabled() -> bool:
+	return predator_debug_shortcut_enabled_for_environment(
+		OS.is_debug_build(),
+		OS.get_cmdline_user_args(),
+		OS.get_cmdline_args(),
+	)
 
 
 func _unhandled_input(event: InputEvent) -> void:
 	if (
-		event.is_action_pressed(PECK_ASSIST_ACTION)
-		and not (event is InputEventKey and event.echo)
+		_settings_ui != null
+		and _settings_ui.is_open()
+		and (event is InputEventKey or event is InputEventJoypadButton)
 	):
-		if not _peck_assist_input_blocked():
-			_request_peck_assist_from_input()
 		get_viewport().set_input_as_handled()
 		return
+	# Flockwatch is an input context, not just a visible overlay. Its existing
+	# semantic bindings become ledger navigation while the drawer owns focus;
+	# every other floor shortcut is swallowed before the camera can see it.
+	if _flockwatch_open:
+		if _is_action_press(event, &"toggle_flockwatch") or _is_action_press(event, &"office_overview"):
+			_set_flockwatch_open(false, true)
+			get_viewport().set_input_as_handled()
+			return
+		if _is_action_press(event, &"cycle_hen"):
+			var direction := -1 if event is InputEventKey and (event as InputEventKey).shift_pressed else 1
+			if _flockwatch_navigation != null:
+				_flockwatch_navigation.cycle_page(direction, true)
+			get_viewport().set_input_as_handled()
+			return
+		if _is_managed_action_press(event):
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if (
 			_first_hen_prelude_pending()
@@ -318,23 +903,58 @@ func _unhandled_input(event: InputEvent) -> void:
 		if _day_review_scrim != null and _day_review_scrim.visible:
 			get_viewport().set_input_as_handled()
 			return
-		match event.keycode:
-			KEY_SPACE:
-				_on_pause_requested()
-			KEY_1:
-				_on_speed_button_pressed(1)
-			KEY_2:
-				_on_speed_button_pressed(2)
-			KEY_3:
-				_on_speed_button_pressed(3)
-			KEY_P:
-				_on_feed_pressed()
-			KEY_O:
-				_on_overtime_pressed()
-			KEY_V:
-				_on_flockwatch_pressed()
-			KEY_F:
-				_trigger_predator_debug_encounter()
+	# Full-screen management surfaces own their input before Office reaches
+	# `_unhandled_input`. Swallow any remaining floor shortcut here so opening a
+	# Blueprint, Portfolio, expansion file, or reveal can never operate the live
+	# office behind it. Modal-owned Escape/F10 handlers still run first.
+	if _blocking_management_surface_open() and _is_managed_action_press(event):
+		get_viewport().set_input_as_handled()
+		return
+	if _is_action_press(event, &"open_settings"):
+		_on_settings_requested()
+		get_viewport().set_input_as_handled()
+		return
+	if _is_action_press(event, PECK_ASSIST_ACTION):
+		if not _peck_assist_input_blocked():
+			_request_peck_assist_from_input()
+		get_viewport().set_input_as_handled()
+		return
+	if _is_action_press(event, &"pause_simulation"):
+		_on_pause_requested()
+	elif _is_action_press(event, &"speed_normal"):
+		_on_speed_button_pressed(1)
+	elif _is_action_press(event, &"speed_fast"):
+		_on_speed_button_pressed(2)
+	elif _is_action_press(event, &"speed_ultra"):
+		_on_speed_button_pressed(3)
+	elif _is_action_press(event, &"fund_feed_party"):
+		_on_feed_pressed()
+	elif _is_action_press(event, &"toggle_overtime"):
+		_on_overtime_pressed()
+	elif _is_action_press(event, &"toggle_flockwatch"):
+		_on_flockwatch_pressed()
+	elif (
+		event is InputEventKey
+		and event.pressed
+		and not event.echo
+		and event.keycode == KEY_F
+		and _predator_debug_shortcut_enabled()
+	):
+		_trigger_predator_debug_encounter()
+	else:
+		return
+	get_viewport().set_input_as_handled()
+
+
+func _is_action_press(event: InputEvent, action: StringName) -> bool:
+	return event.is_action_pressed(action) and not (event is InputEventKey and event.echo)
+
+
+func _is_managed_action_press(event: InputEvent) -> bool:
+	for action: StringName in OfficeActionCatalogScript.managed_actions():
+		if _is_action_press(event, action):
+			return true
+	return false
 
 
 func _build_environment() -> void:
@@ -362,7 +982,7 @@ func _build_environment() -> void:
 	_office_sun.shadow_enabled = true
 	_office_sun.shadow_opacity = 0.48
 	_office_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
-	_office_sun.directional_shadow_max_distance = 48.0
+	_office_sun.directional_shadow_max_distance = 60.0
 	_office_sun.directional_shadow_blend_splits = true
 	_office_sun.shadow_bias = 0.07
 	_office_sun.shadow_normal_bias = 1.1
@@ -395,13 +1015,13 @@ func _build_environment() -> void:
 	_management_camera = Camera3D.new()
 	_management_camera.name = "ManagementCamera"
 	_management_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	_management_camera.size = 20.6
-	_management_camera.position = Vector3(16.5, 17.5, 21.5)
+	_management_camera.size = CORE_OVERVIEW_SIZE
+	_management_camera.position = CORE_OVERVIEW_POSITION
 	_management_camera.near = 0.2
 	_management_camera.far = 65.0
 	_management_camera.current = true
 	add_child(_management_camera)
-	_management_camera.look_at(Vector3(-0.8, 0.65, 0.0))
+	_management_camera.look_at(CORE_OVERVIEW_TARGET)
 
 
 func _build_office() -> void:
@@ -470,10 +1090,10 @@ func _build_office() -> void:
 	_add_box(basket, "PresentationPlinth", Vector3(2.7, 0.18, 2.1), Vector3(9.4, 0.10, -6.85), Color("c3ab82"))
 	var credit_slip_host := _build_presentation_detail(basket)
 	EnvironmentalSignageScript.add_panel(
-		credit_slip_host, "PresentationPlaqueText", "FARMER'S CREDIT",
-		Vector3(0.0, 0.06, 0.057), Vector2(1.08, 0.24),
+		credit_slip_host, "PresentationPlaqueText", "FARMER CREDIT",
+		Vector3(0.0, 0.0, 0.057), Vector2(0.96, 0.075),
 		Color("a87849"), Color("49372a"), Vector3.ZERO,
-		15, 0.0028, &"utility", &"stencil"
+		11, 0.0021, &"utility", &"stencil"
 	)
 
 	_egg_layer = Node3D.new()
@@ -499,7 +1119,7 @@ func _build_office() -> void:
 	_camera_controller = ManagementCameraControllerScript.new() as ManagementCameraController
 	_camera_controller.name = "ManagementCameraController"
 	add_child(_camera_controller)
-	_camera_controller.configure(_management_camera, _worker_views, Vector3(-0.8, 0.65, 0.0))
+	_camera_controller.configure(_management_camera, _worker_views, CORE_OVERVIEW_TARGET)
 	_camera_controller.focus_changed.connect(_on_camera_focus_changed)
 
 
@@ -585,6 +1205,71 @@ static func feed_party_return_route(index: int) -> Array[Vector3]:
 	return route
 
 
+## Campus workers use the same authored office lanes as every other hen, then
+## take the connected care/operations spine and the campus exterior perimeter.
+## Keeping this route deterministic makes staffed modules readable without
+## introducing a second navigation authority or shortcutting through art.
+static func campus_duty_position(pad_id: StringName) -> Vector3:
+	match pad_id:
+		&"orchard_west":
+			return Vector3(20.90, 0.0, CAMPUS_COMMUTE_ORCHARD_ROUTE_Z)
+		&"orchard_east":
+			return Vector3(25.05, 0.0, CAMPUS_COMMUTE_ORCHARD_ROUTE_Z)
+		&"creekside_west":
+			return Vector3(20.90, 0.0, CAMPUS_COMMUTE_CREEKSIDE_ROUTE_Z)
+		&"creekside_east":
+			return Vector3(25.05, 0.0, CAMPUS_COMMUTE_CREEKSIDE_ROUTE_Z)
+	return Vector3(INF, INF, INF)
+
+
+static func campus_duty_face_point(pad_id: StringName) -> Vector3:
+	var duty := campus_duty_position(pad_id)
+	if not duty.is_finite():
+		return duty
+	return duty + Vector3(0.0, 0.65, 2.85)
+
+
+static func campus_duty_commute_bounds() -> Rect2:
+	const VISUAL_CLEARANCE := 0.70
+	var start := Vector2(
+		CAMPUS_COMMUTE_SPINE_X - VISUAL_CLEARANCE,
+		MAIN_AISLE_Z - VISUAL_CLEARANCE,
+	)
+	var finish := Vector2(
+		CAMPUS_COMMUTE_EAST_BYPASS_X + VISUAL_CLEARANCE,
+		CAMPUS_COMMUTE_NORTH_BYPASS_Z + VISUAL_CLEARANCE,
+	)
+	return Rect2(start, finish - start)
+
+
+static func campus_duty_outbound_route(index: int, pad_id: StringName) -> Array[Vector3]:
+	var duty := campus_duty_position(pad_id)
+	if not duty.is_finite():
+		return []
+	var chair := chair_position(index)
+	var lane_x := access_lane_x(index)
+	var route: Array[Vector3] = [
+		Vector3(lane_x, 0.0, chair.z),
+		Vector3(lane_x, 0.0, MAIN_AISLE_Z),
+		Vector3(CAMPUS_COMMUTE_SPINE_X, 0.0, MAIN_AISLE_Z),
+		Vector3(CAMPUS_COMMUTE_SPINE_X, 0.0, CAMPUS_COMMUTE_SPINE_ENTRY_Z),
+		Vector3(CAMPUS_COMMUTE_SPINE_X, 0.0, CAMPUS_COMMUTE_NORTH_BYPASS_Z),
+		Vector3(CAMPUS_COMMUTE_EAST_BYPASS_X, 0.0, CAMPUS_COMMUTE_NORTH_BYPASS_Z),
+		Vector3(CAMPUS_COMMUTE_EAST_BYPASS_X, 0.0, duty.z),
+	]
+	route.append(duty)
+	return route
+
+
+static func campus_duty_return_route(index: int, pad_id: StringName) -> Array[Vector3]:
+	var route := campus_duty_outbound_route(index, pad_id)
+	if route.is_empty():
+		return route
+	route.reverse()
+	route.append(chair_position(index))
+	return route
+
+
 func _build_architecture_detail(parent: Node3D) -> void:
 	_add_box(parent, "CrownMoldingBack", Vector3(23.55, 0.13, 0.16), Vector3(0.0, 3.48, -8.72), Color("e4deca"))
 	_add_box(parent, "CrownMoldingLeft", Vector3(0.16, 0.13, 17.55), Vector3(-11.72, 3.48, 0.0), Color("ddd6c3"))
@@ -596,21 +1281,23 @@ func _build_architecture_detail(parent: Node3D) -> void:
 		var light_y := 3.44 if light_index == 1 else 3.20
 		var fixture_width := 1.75 if light_index == 1 else 3.25
 		var lens_width := 1.48 if light_index == 1 else 2.92
-		_add_box(parent, "WallLightFrame", Vector3(fixture_width, 0.20, 0.16), Vector3(light_x, light_y, -8.63), Color("425057"))
-		var lens := _add_box(parent, "WallLightLens_%d" % light_index, Vector3(lens_width, 0.08, 0.08), Vector3(light_x, light_y - 0.01, -8.53), Color("f4dfaa"))
+		var frame_z := -8.69 if light_index == 1 else -8.63
+		var lens_z := -8.665 if light_index == 1 else -8.53
+		_add_box(parent, "WallLightFrame", Vector3(fixture_width, 0.20, 0.16), Vector3(light_x, light_y, frame_z), Color("425057"))
+		var lens := _add_box(parent, "WallLightLens_%d" % light_index, Vector3(lens_width, 0.08, 0.08), Vector3(light_x, light_y - 0.01, lens_z), Color("f4dfaa"))
 		lens.material_override = _emissive_material(Color("f4dfaa"), 0.55)
 		if light_index == 1:
 			# The compact center fixture is a deliberate picture light clamped to
 			# the bureau fascia, not another floating strip crossing its copy.
 			for arm_x in [-0.58, 0.58]:
 				var arm_name := "IdentityLightArmLeft" if arm_x < 0.0 else "IdentityLightArmRight"
-				_add_box(parent, arm_name, Vector3(0.055, 0.20, 0.055), Vector3(arm_x, 3.36, -8.60), Color("6d6757"))
+				_add_box(parent, arm_name, Vector3(0.055, 0.20, 0.055), Vector3(arm_x, 3.36, -8.67), Color("6d6757"))
 
 	EnvironmentalSignageScript.add_architectural_identity(
 		parent,
 		"BureauIdentity",
 		"EGG YIELD BUREAU",
-		"LAYING & CREDIT HARVEST",
+		"CLUTCH INTAKE & CREDIT",
 		Vector3(0.0, 3.00, -8.63),
 		Vector2(6.40, 0.74)
 	)
@@ -626,7 +1313,27 @@ func _build_architecture_detail(parent: Node3D) -> void:
 
 
 func _build_intake_detail(parent: Node3D) -> void:
-	_add_box(parent, "IntakeFrontInset", Vector3(1.75, 0.58, 0.06), Vector3(9.55, 0.52, 6.48), Color("4b4037"))
+	var front_inset := _add_box(
+		parent,
+		"IntakeFrontInset",
+		Vector3(1.75, 0.58, 0.06),
+		Vector3(9.55, 0.52, 6.48),
+		Color("4b4037"),
+	)
+	EnvironmentalSignageScript.add_panel(
+		front_inset,
+		"IntakeIdentityPlaque",
+		"FARMER COLLECTION",
+		Vector3(0.0, -0.15, 0.033),
+		Vector2(1.36, 0.16),
+		Color("4b4037"),
+		Color("d7c99f"),
+		Vector3.ZERO,
+		16,
+		0.0038,
+		&"secondary",
+		&"stencil",
+	)
 	for slot_x in [-0.52, 0.0, 0.52]:
 		_add_box(parent, "IntakeMailSlot", Vector3(0.38, 0.09, 0.035), Vector3(9.55 + slot_x, 0.58, 6.53), Color("d4b46c"))
 
@@ -694,16 +1401,22 @@ func _build_office_decor(parent: Node3D) -> void:
 	for cup_index in 3:
 		_add_cylinder(parent, "PaperCup", Vector3(-10.62, 0.96 + cup_index * 0.10, -3.13), 0.075, 0.12, Color("e2ddce"))
 	EnvironmentalSignageScript.add_panel(
-		parent, "WellnessZoneLabel", "WELLNESS ROOST\nBreak room · 7 min.",
-		Vector3(-11.798, 1.78, -3.10), Vector2(1.52, 0.52),
-		Color("536c64"), Color("eee4c9"), Vector3(0.0, 90.0, 0.0),
-		15, 0.0042, &"utility", &"room"
+		parent, "WellnessZoneLabel", "WELLNESS ROOST\nBREAKS · 7 MIN",
+		Vector3(-11.798, 1.72, -3.10), Vector2(1.18, 0.40),
+		Color("3d6259"), Color("eadcb6"), Vector3(0.0, 90.0, 0.0),
+		15, 0.0044, &"utility", &"room"
 	)
 
 	# A wall-mounted visibility board gives the cutaway side of the room a
 	# detailed focal point while keeping the wellness/feed floor completely open.
 	_add_box(parent, "ClaimsPipelineBoard", Vector3(0.075, 1.65, 3.30), Vector3(-11.70, 2.05, 3.60), Color("2b3a3f"))
-	_add_box(parent, "ClaimsPipelineInset", Vector3(0.040, 1.38, 3.02), Vector3(-11.64, 2.03, 3.60), Color("d4ceb9"))
+	var pipeline_inset := _add_box(
+		parent,
+		"ClaimsPipelineInset",
+		Vector3(0.040, 1.38, 3.02),
+		Vector3(-11.64, 2.03, 3.60),
+		Color("d4ceb9"),
+	)
 	var pipeline_heights: Array[float] = [0.38, 0.70, 0.50, 0.92, 0.62, 1.08]
 	var pipeline_colors: Array[Color] = [Color("477681"), Color("6f8a72"), Color("c39a4c")]
 	for bar_index in 6:
@@ -717,8 +1430,8 @@ func _build_office_decor(parent: Node3D) -> void:
 			bar_color
 		)
 	EnvironmentalSignageScript.add_panel(
-		parent, "ClaimsPipelineLabel", "YIELD PIPELINE",
-		Vector3(-11.615, 2.63, 3.60), Vector2(2.20, 0.36),
+		pipeline_inset, "ClaimsPipelineLabel", "CLUTCH FLOW",
+		Vector3(0.024, 0.60, 0.0), Vector2(1.78, 0.32),
 		Color("d4ceb9"), Color("34494e"), Vector3(0.0, 90.0, 0.0),
 		20, 0.0074, &"secondary", &"chart"
 	)
@@ -809,14 +1522,20 @@ func _build_wall_story(parent: Node3D) -> void:
 	# Farm-bureau propaganda occupies the unused left-wall strips and stays clear of
 	# the wellness zone, pipeline board, and every circulation lane.
 	_add_box(parent, "HenOfMonthFrame", Vector3(0.055, 1.56, 1.75), Vector3(-11.68, 2.05, -5.55), Color("584b3c"))
-	_add_box(parent, "HenOfMonthCard", Vector3(0.035, 1.35, 1.54), Vector3(-11.63, 2.05, -5.55), Color("e4dcc4"))
+	var hen_of_month_card := _add_box(
+		parent,
+		"HenOfMonthCard",
+		Vector3(0.035, 1.35, 1.54),
+		Vector3(-11.63, 2.05, -5.55),
+		Color("e4dcc4"),
+	)
 	var portrait := _add_sphere(parent, "HenOfMonthPortrait", Vector3(-11.59, 2.08, -5.55), Vector3(0.04, 0.43, 0.43), Color("d79b63"))
 	portrait.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	EnvironmentalSignageScript.add_panel(
-		parent, "HenOfMonthLabel", "HEN OF THE MONTH",
-		Vector3(-11.615, 2.58, -5.55), Vector2(1.48, 0.34),
+		hen_of_month_card, "HenOfMonthLabel", "HEN OF THE MONTH",
+		Vector3(0.021, 0.53, 0.0), Vector2(1.28, 0.28),
 		Color("e4dcc4"), Color("514135"), Vector3(0.0, 90.0, 0.0),
-		18, 0.0068, &"secondary", &"portrait"
+		17, 0.0058, &"secondary", &"portrait"
 	)
 
 	var safety_label := EnvironmentalSignageScript.add_panel(
@@ -877,19 +1596,26 @@ func _decorate_workstation(workstation: Node3D, index: int) -> void:
 	# random visual noise or placing anything in chair/access-lane space.
 	var accent_colors: Array[Color] = [Color("8ba6a0"), Color("c88b62"), Color("c2a657"), Color("7289a0"), Color("9a7c9d"), Color("718d68")]
 	var accent := accent_colors[index % accent_colors.size()]
+	var cubicle_back := workstation.find_child("CubicleBack", true, false) as MeshInstance3D
+	var nameplate_parent: Node3D = cubicle_back if cubicle_back != null else workstation
+	var nameplate_position := (
+		Vector3(-0.72, 0.04, 0.052)
+		if cubicle_back != null
+		else Vector3(-0.82, 1.32, 0.79)
+	)
 	var nameplate := EnvironmentalSignageScript.add_panel(
-		workstation, "EmployeeNameplateText", "VACANT PERCH\nAUTHORIZED POSITION",
-		Vector3(-0.82, 1.32, 0.79), Vector2(0.56, 0.21),
-		Color("c9c5b5"), Color("334742"), Vector3.ZERO,
-		14, 0.0034, &"utility", &"partition"
+		nameplate_parent, "EmployeeNameplateText", "VACANT PERCH\nAUTHORIZED POSITION",
+		nameplate_position, Vector2(0.70, 0.24),
+		Color("557069"), Color("efe1bd"), Vector3.ZERO,
+		15, 0.0037, &"utility", &"partition"
 	)
 	_workstation_nameplates[index] = nameplate
 	var nameplate_fixture := nameplate.get_parent() as Node3D
 	_add_box(
 		nameplate_fixture,
 		"NameplateAccentStripe",
-		Vector3(0.022, 0.10, 0.002),
-		Vector3(0.238, 0.0, 0.013),
+		Vector3(0.018, 0.085, 0.002),
+		Vector3(0.315, 0.0, 0.010),
 		accent.lerp(Color("65716b"), 0.38)
 	)
 
@@ -986,7 +1712,9 @@ func _apply_office_capacity_visibility(capacity: int, animate_reveal: bool = tru
 					reveal.tween_property(workstation, "position:y", 0.0, 0.62)
 					reveal.tween_property(workstation, "scale", Vector3.ONE, 0.62)
 		if marker != null:
-			marker.visible = not active
+			# Tease one concrete next step. Showing every future bay at once reads as
+			# an abandoned build-out and competes with the hens who are working now.
+			marker.visible = not active and index == capacity
 	_displayed_office_capacity = capacity
 	if _office_storytelling != null and previous_capacity != capacity:
 		# Rebuilding from the active prefix visually extends the collection rail as
@@ -1125,6 +1853,8 @@ func _reconcile_worker_views(snapshot: Dictionary) -> void:
 
 func _begin_worker_departure(worker_id: int) -> void:
 	var view: ChickenView = _worker_views.get(worker_id)
+	_campus_worker_assignments.erase(worker_id)
+	_campus_worker_pads.erase(worker_id)
 	if view == null or not is_instance_valid(view):
 		_worker_views.erase(worker_id)
 		return
@@ -1150,7 +1880,11 @@ func _trigger_predator_debug_encounter() -> void:
 		return
 	for worker_id in _worker_views.keys():
 		var worker_view := _worker_views[worker_id] as ChickenView
-		if worker_view != null and is_instance_valid(worker_view):
+		if (
+			worker_view != null
+			and is_instance_valid(worker_view)
+			and not worker_view.has_campus_duty_assignment()
+		):
 			var desk_index := worker_view.desk_index
 			if _predator_encounter.play(
 				worker_view,
@@ -1164,9 +1898,117 @@ func _trigger_predator_debug_encounter() -> void:
 func _on_predator_victim_carried_away(worker_id: int) -> void:
 	_predator_removed_worker_ids[worker_id] = true
 	_worker_views.erase(worker_id)
+	_campus_worker_assignments.erase(worker_id)
+	_campus_worker_pads.erase(worker_id)
 	_simulation.set_worker_at_workstation(worker_id, false)
 	if _camera_controller != null:
 		_camera_controller.unregister_worker(worker_id)
+
+
+func _on_predator_victim_captured(worker_id: int, threat_origin: Vector3) -> void:
+	# The victim is already clamped to the fox; every remaining live employee
+	# gets its own deterministic scatter route away from that point.
+	for remaining_worker_id in _worker_views.keys():
+		if remaining_worker_id == worker_id:
+			continue
+		var worker_view := _worker_views[remaining_worker_id] as ChickenView
+		if worker_view != null and is_instance_valid(worker_view):
+			worker_view.begin_predator_panic(threat_origin)
+
+
+func _process(_delta: float) -> void:
+	_flush_due_campaign_checkpoint()
+	var blocking_surface_open := _blocking_management_surface_open()
+	var first_clutch_compact := (
+		not bool(_first_clutch.get("dismissed", true))
+		and not bool(_first_clutch.get("completed", false))
+	)
+	_apply_live_hud_presentation(first_clutch_compact)
+	if _campaign_ui != null:
+		var campaign_modal_open := _campaign_ui.is_modal_open()
+		_campaign_ui.set_badge_presentation(
+			FIRST_CLUTCH_ROUTING_TOP if first_clutch_compact else LIVE_ROUTING_TOP,
+			_flockwatch_open or (blocking_surface_open and not campaign_modal_open),
+		)
+	if _top_hud_panel != null:
+		_top_hud_panel.visible = not blocking_surface_open
+	if _flockwatch_toggle != null:
+		_flockwatch_toggle.visible = not blocking_surface_open
+	if _routing_ui != null:
+		_routing_ui.visible = not blocking_surface_open and not _flockwatch_open
+	# Existing systems publish through the stable ticker label. Detect those
+	# publications here so legacy callers retain their exact copy and receipts,
+	# while the presentation becomes a short-lived toast instead of a permanent
+	# fifty-four-pixel wall across the playable floor.
+	if _ticker_label == null or _ticker_panel == null:
+		return
+	var copy := _ticker_label.text.strip_edges()
+	var copy_changed := copy != _ticker_last_text
+	if copy_changed:
+		_record_status_copy(copy)
+	if blocking_surface_open or _flockwatch_open:
+		_ticker_panel.visible = false
+		return
+	if copy_changed:
+		if not copy.is_empty():
+			_ticker_panel.visible = true
+			_ticker_hide_at_msec = Time.get_ticks_msec() + STATUS_TOAST_HOLD_MSEC
+	elif _ticker_panel.visible and Time.get_ticks_msec() >= _ticker_hide_at_msec:
+		_ticker_panel.visible = false
+
+
+func _record_status_copy(copy: String) -> void:
+	_ticker_last_text = copy
+	if copy.is_empty():
+		return
+	if _status_history.is_empty() or _status_history[0] != copy:
+		_status_history.push_front(copy)
+		if _status_history.size() > STATUS_HISTORY_LIMIT:
+			_status_history.resize(STATUS_HISTORY_LIMIT)
+	if _status_history_label != null:
+		var recent := _status_history.slice(0, mini(5, _status_history.size()))
+		var lines: Array[String] = ["SHIFT RECORD"]
+		for entry: String in recent:
+			lines.append("- %s" % entry)
+		_status_history_label.text = "\n".join(lines)
+	if _flockwatch_navigation != null:
+		_flockwatch_navigation.set_last_feedback(copy)
+	if _flockwatch_open and _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _blocking_management_surface_open() -> bool:
+	return (
+		(_campaign_ui != null and _campaign_ui.is_modal_open())
+		or (_decision_host != null and _decision_host.visible)
+		or (_day_review_scrim != null and _day_review_scrim.visible)
+		or (_settings_ui != null and _settings_ui.visible)
+		or (_capital_blueprint_ui != null and _capital_blueprint_ui.visible)
+		or (_campus_portfolio_ui != null and _campus_portfolio_ui.visible)
+		or (_campus_expansion_ui != null and _campus_expansion_ui.visible)
+		or (_commissioning_reveal_ui != null and _commissioning_reveal_ui.visible)
+		or (_campus_portfolio_reveal_ui != null and _campus_portfolio_reveal_ui.visible)
+	)
+
+
+func _apply_live_hud_presentation(compact: bool) -> void:
+	if _compact_live_hud_applied == compact:
+		return
+	_compact_live_hud_applied = compact
+	if _top_hud_panel != null:
+		_top_hud_panel.offset_bottom = (
+			FIRST_CLUTCH_HUD_HEIGHT if compact else LIVE_HUD_HEIGHT
+		)
+	if _shift_objective_row != null:
+		_shift_objective_row.visible = not compact
+	var routing_top := FIRST_CLUTCH_ROUTING_TOP if compact else LIVE_ROUTING_TOP
+	if _routing_ui != null:
+		_routing_ui.set_top_inset(routing_top)
+	if _flockwatch_toggle != null:
+		_flockwatch_toggle.offset_top = routing_top
+		_flockwatch_toggle.offset_bottom = routing_top + 44.0
+	if _flockwatch_panel != null:
+		_flockwatch_panel.offset_top = routing_top + 52.0
 
 
 func _build_ui() -> void:
@@ -1179,17 +2021,18 @@ func _build_ui() -> void:
 	_ui_root.theme = ManagementUIThemeScript.create_theme()
 	ui.add_child(_ui_root)
 
-	var top_panel := PanelContainer.new()
-	top_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top_panel.offset_bottom = 112.0
-	top_panel.add_theme_stylebox_override("panel", _panel_style(Color("1c2633"), 0.94, 0, 0))
-	_ui_root.add_child(top_panel)
+	_top_hud_panel = PanelContainer.new()
+	_top_hud_panel.name = "LiveShiftHUD"
+	_top_hud_panel.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_top_hud_panel.offset_bottom = LIVE_HUD_HEIGHT
+	_top_hud_panel.add_theme_stylebox_override("panel", _panel_style(Color("1c2633"), 0.94, 0, 0))
+	_ui_root.add_child(_top_hud_panel)
 	var top_margin := MarginContainer.new()
 	top_margin.add_theme_constant_override("margin_left", 22)
 	top_margin.add_theme_constant_override("margin_right", 22)
 	top_margin.add_theme_constant_override("margin_top", 9)
 	top_margin.add_theme_constant_override("margin_bottom", 9)
-	top_panel.add_child(top_margin)
+	_top_hud_panel.add_child(top_margin)
 	var top_stack := VBoxContainer.new()
 	top_stack.add_theme_constant_override("separation", 7)
 	top_margin.add_child(top_stack)
@@ -1205,6 +2048,14 @@ func _build_ui() -> void:
 	top_bar.add_child(_day_label)
 	top_bar.add_child(_time_label)
 	top_bar.add_child(_revenue_label)
+	_settings_button = Button.new()
+	_settings_button.name = "OpenSettingsButton"
+	_settings_button.text = "COMFORT  [F10]"
+	_settings_button.custom_minimum_size = Vector2(116.0, 36.0)
+	_settings_button.tooltip_text = "Audio, display comfort, accessibility, and remappable controls."
+	_settings_button.focus_mode = Control.FOCUS_ALL
+	_settings_button.pressed.connect(_on_settings_requested)
+	top_bar.add_child(_settings_button)
 
 	for index in 4:
 		var button := Button.new()
@@ -1217,30 +2068,30 @@ func _build_ui() -> void:
 		top_bar.add_child(button)
 		_speed_buttons.append(button)
 
-	var objective_row := HBoxContainer.new()
-	objective_row.name = "ShiftObjectiveRow"
-	objective_row.add_theme_constant_override("separation", 12)
-	top_stack.add_child(objective_row)
-	objective_row.add_child(_make_label("SHIFT CLUTCH", 13, Color("d9c47d")))
+	_shift_objective_row = HBoxContainer.new()
+	_shift_objective_row.name = "ShiftObjectiveRow"
+	_shift_objective_row.add_theme_constant_override("separation", 12)
+	top_stack.add_child(_shift_objective_row)
+	_shift_objective_row.add_child(_make_label("SHIFT CLUTCH", 13, Color("d9c47d")))
 	_quota_progress = ProgressBar.new()
 	_quota_progress.name = "ShiftQuotaProgress"
 	_quota_progress.custom_minimum_size = Vector2(240.0, 24.0)
 	_quota_progress.show_percentage = false
-	objective_row.add_child(_quota_progress)
+	_shift_objective_row.add_child(_quota_progress)
 	_quota_progress_label = _make_label("0 / 24", 14, Color("f3ead1"))
 	_quota_progress_label.custom_minimum_size.x = 62.0
-	objective_row.add_child(_quota_progress_label)
+	_shift_objective_row.add_child(_quota_progress_label)
 	_quality_streak_label = _make_label("CLEAN CLUTCH  ×0", 14, Color("9ccfc2"))
-	_quality_streak_label.custom_minimum_size.x = 154.0
-	objective_row.add_child(_quality_streak_label)
+	_quality_streak_label.custom_minimum_size.x = 196.0
+	_shift_objective_row.add_child(_quality_streak_label)
 	_directive_badge = _make_label("POLICY  ·  UNSET", 13, Color("efb96d"))
 	_directive_badge.custom_minimum_size.x = 180.0
 	_directive_badge.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	objective_row.add_child(_directive_badge)
+	_shift_objective_row.add_child(_directive_badge)
 	_guidance_label = _make_label("START HERE: choose 1× when the flock is seated.", 13, Color("b8c3cc"))
 	_guidance_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_guidance_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	objective_row.add_child(_guidance_label)
+	_shift_objective_row.add_child(_guidance_label)
 
 	_flockwatch_toggle = Button.new()
 	_flockwatch_toggle.name = "FlockwatchToggle"
@@ -1257,10 +2108,10 @@ func _build_ui() -> void:
 	_flockwatch_panel = PanelContainer.new()
 	_flockwatch_panel.name = "FlockwatchLedger"
 	_flockwatch_panel.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	_flockwatch_panel.offset_left = -300.0
+	_flockwatch_panel.offset_left = -438.0
 	_flockwatch_panel.offset_top = 172.0
 	_flockwatch_panel.offset_right = -18.0
-	_flockwatch_panel.offset_bottom = -70.0
+	_flockwatch_panel.offset_bottom = -18.0
 	_flockwatch_panel.add_theme_stylebox_override("panel", _panel_style(Color("202936"), 0.96, 12, 1))
 	_ui_root.add_child(_flockwatch_panel)
 	var side_margin := MarginContainer.new()
@@ -1277,55 +2128,87 @@ func _build_ui() -> void:
 	side_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	side_margin.add_child(side_scroll)
 	var side := VBoxContainer.new()
+	side.name = "FlockwatchLegacyContent"
 	side.add_theme_constant_override("separation", 8)
 	side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side_scroll.add_child(side)
-	side.add_child(_make_label("FLOCKWATCH LEDGER", 18, Color("f4d27b")))
-	side.add_child(HSeparator.new())
+	var today_section := _make_flockwatch_section("FlockwatchTodaySection")
+	var flock_section := _make_flockwatch_section("FlockwatchFlockSection")
+	var operations_section := _make_flockwatch_section("FlockwatchOperationsSection")
+	var capital_section := _make_flockwatch_section("FlockwatchCapitalSection")
+	var records_section := _make_flockwatch_section("FlockwatchRecordsSection")
+	for section: VBoxContainer in [
+		today_section,
+		flock_section,
+		operations_section,
+		capital_section,
+		records_section,
+	]:
+		side.add_child(section)
 	_campaign_orders_heading_label = _make_label("TODAY'S PROBATION ORDERS", 17, Color("73b5a7"))
 	_campaign_orders_heading_label.name = "CampaignOrdersHeading"
-	side.add_child(_campaign_orders_heading_label)
+	today_section.add_child(_campaign_orders_heading_label)
 	_campaign_objectives_label = _make_label("Day 1 orders are being stamped.", 13, Color("d7e5df"))
 	_campaign_objectives_label.name = "CampaignObjectivesLabel"
 	_campaign_objectives_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	side.add_child(_campaign_objectives_label)
+	today_section.add_child(_campaign_objectives_label)
+	_campaign_safeguards_label = _make_label(
+		"PROBATION SAFEGUARDS  //  AWAITING FILE",
+		12,
+		Color("d9c58a"),
+	)
+	_campaign_safeguards_label.name = "CampaignSafeguardForecast"
+	_campaign_safeguards_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_campaign_safeguards_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	today_section.add_child(_campaign_safeguards_label)
 	_flock_labor_label = _make_label("FLOCK VOICE  ·  No binding compact is currently filed.", 13, Color("b9c8cc"))
 	_flock_labor_label.name = "FlockLaborStatus"
 	_flock_labor_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_flock_labor_label.tooltip_text = "Named petitions can become next-shift compacts or trigger work-to-rule."
-	side.add_child(_flock_labor_label)
-	side.add_child(HSeparator.new())
+	today_section.add_child(_flock_labor_label)
+	today_section.add_child(HSeparator.new())
 	_pecking_order_ui = PeckingOrderUIScript.new()
 	_pecking_order_ui.worker_selected.connect(_on_pecking_order_worker_selected)
-	side.add_child(_pecking_order_ui)
-	side.add_child(HSeparator.new())
+	flock_section.add_child(_pecking_order_ui)
+	flock_section.add_child(HSeparator.new())
 	_staffing_ui = RoostStaffingUIScript.new() as RoostStaffingUI
 	_staffing_ui.capacity_purchase_requested.connect(_on_staff_capacity_purchase_requested)
+	_staffing_ui.facility_purchase_requested.connect(_on_facility_purchase_requested)
+	_staffing_ui.flock_relations_action_requested.connect(_on_flock_relations_action_requested)
+	_staffing_ui.feed_order_requested.connect(_on_feed_order_requested)
+	_staffing_ui.farmgate_dispatch_mandate_requested.connect(
+		_on_farmgate_dispatch_mandate_requested
+	)
+	_staffing_ui.capital_blueprint_requested.connect(_on_capital_blueprint_requested)
+	_staffing_ui.farmer_relations_campaign_requested.connect(
+		_on_farmer_relations_campaign_requested
+	)
 	_staffing_ui.hire_requested.connect(_on_staff_hire_requested)
 	_staffing_ui.release_requested.connect(_on_staff_release_requested)
-	side.add_child(_staffing_ui)
-	side.add_child(HSeparator.new())
-	side.add_child(_make_label("COOP REQUISITIONS", 17, Color("f4d27b")))
+	flock_section.add_child(_staffing_ui)
+	capital_section.add_child(_make_label("COOP REQUISITIONS", 17, Color("f4d27b")))
 	for upgrade in _simulation.upgrade_catalog():
 		var upgrade_id := StringName(upgrade["id"])
 		var upgrade_button := Button.new()
 		upgrade_button.name = "Upgrade_%s" % String(upgrade_id)
 		upgrade_button.theme_type_variation = &"UpgradeButton"
 		upgrade_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		upgrade_button.clip_text = true
 		upgrade_button.custom_minimum_size.y = 52.0
 		upgrade_button.pressed.connect(_on_upgrade_pressed.bind(upgrade_id))
-		side.add_child(upgrade_button)
+		capital_section.add_child(upgrade_button)
 		_upgrade_buttons[upgrade_id] = upgrade_button
 	_continue_shift_button = Button.new()
 	_continue_shift_button.name = "ContinueDirectiveButton"
 	_continue_shift_button.text = "CONTINUE: CHOOSE MORNING POLICY"
 	_continue_shift_button.theme_type_variation = &"PrimaryButton"
+	_continue_shift_button.clip_text = true
 	_continue_shift_button.custom_minimum_size.y = 44.0
 	_continue_shift_button.visible = false
 	_continue_shift_button.pressed.connect(_on_continue_directive_pressed)
-	side.add_child(_continue_shift_button)
-	side.add_child(HSeparator.new())
-	_claims_label = _make_label("Peckwork queued: 0", 15)
+	today_section.add_child(_continue_shift_button)
+	today_section.add_child(HSeparator.new())
+	_claims_label = _make_label("Live files: 0 / 18", 15)
 	_egg_label = _make_label("Eggs gathered: 0", 15)
 	_quota_label = _make_label("Daily clutch: 0 / 0", 15)
 	_confidence_label = _make_label("Farmer favor: 0%", 15)
@@ -1333,40 +2216,105 @@ func _build_ui() -> void:
 	_compliance_label = _make_label("Coop obedience: 0%", 15)
 	_solidarity_label = _make_label("Flock unity risk: 0%", 15)
 	for label in [_claims_label, _egg_label, _quota_label, _confidence_label, _morale_label, _compliance_label, _solidarity_label]:
-		side.add_child(label)
-	side.add_child(HSeparator.new())
+		today_section.add_child(label)
+	_status_history_label = _make_label("SHIFT RECORD  /  No notices filed yet.", 12, Color("aeb8c4"))
+	_status_history_label.name = "FlockwatchStatusHistory"
+	_status_history_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	today_section.add_child(HSeparator.new())
+	today_section.add_child(_status_history_label)
 	var initiatives := _make_label("ROOSTER DIRECTIVES", 17, Color("efb96d"))
-	side.add_child(initiatives)
+	operations_section.add_child(initiatives)
 	_feed_button = Button.new()
 	_feed_button.name = "FeedPartyButton"
 	_feed_button.theme_type_variation = &"PrimaryButton"
 	_feed_button.text = "FUND FEED PARTY  ($20)  [P]"
 	_feed_button.tooltip_text = "Once per shift: +10 morale, -8 stress, +2 farmer favor. Production pauses for attendance."
+	_feed_button.clip_text = true
 	_feed_button.custom_minimum_size.y = 42.0
 	_feed_button.pressed.connect(_on_feed_pressed)
-	side.add_child(_feed_button)
+	operations_section.add_child(_feed_button)
 	_overtime_button = Button.new()
 	_overtime_button.text = "ENABLE AFTER-HOURS PECKING  [O]"
 	_overtime_button.tooltip_text = "+22% output; sharply increases fatigue, stress, morale loss, and crack risk. Resets next shift."
+	_overtime_button.clip_text = true
 	_overtime_button.custom_minimum_size.y = 42.0
 	_overtime_button.theme_type_variation = &"DangerButton"
 	_overtime_button.toggle_mode = true
 	_overtime_button.pressed.connect(_on_overtime_pressed)
-	side.add_child(_overtime_button)
+	operations_section.add_child(_overtime_button)
 	var note := _make_label("TIP: Click a hen to inspect. Tab cycles; Esc returns.\nOne flock check-in is available each shift.\nThe farmer counts the clutch at 5:00 PM.", 13, Color("aeb8c4"))
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	side.add_child(note)
+	operations_section.add_child(note)
+
+	_flockwatch_navigation = FlockwatchNavigationScript.new() as FlockwatchNavigation
+	side_margin.add_child(_flockwatch_navigation)
+	_flockwatch_navigation.page_changed.connect(_on_flockwatch_page_changed)
+	_flockwatch_navigation.adopt_context_action(_continue_shift_button)
+	# Move the staffing domains before their containing Flock section enters the
+	# navigator. This must also precede adopting the legacy Today scroll because
+	# adoption makes the navigator an ancestor of every still-nested domain.
+	var staffing_sections := _staffing_ui.navigation_sections()
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_FLOCK,
+		staffing_sections.get(&"flock") as Control,
+		&"staffing_flock",
+		20,
+	)
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_OPERATIONS,
+		staffing_sections.get(&"operations") as Control,
+		&"staffing_operations",
+		20,
+	)
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_CAPITAL,
+		staffing_sections.get(&"capital") as Control,
+		&"staffing_capital",
+		10,
+	)
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS,
+		staffing_sections.get(&"records") as Control,
+		&"staffing_records",
+		10,
+	)
+	_flockwatch_navigation.adopt_page_scroll(
+		FlockwatchNavigation.PAGE_TODAY,
+		side_scroll,
+		side,
+	)
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_TODAY, today_section, &"today", 10
+	)
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_FLOCK, flock_section, &"flock", 10
+	)
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_OPERATIONS, operations_section, &"operations", 10
+	)
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_CAPITAL, capital_section, &"capital", 20
+	)
+	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS, records_section, &"records", 20
+	)
 	_set_flockwatch_open(false)
 
-	var ticker_panel := PanelContainer.new()
-	ticker_panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	ticker_panel.offset_top = -54.0
-	ticker_panel.add_theme_stylebox_override("panel", _panel_style(Color("523c2e"), 0.98, 0, 0))
-	_ui_root.add_child(ticker_panel)
+	_ticker_panel = PanelContainer.new()
+	_ticker_panel.name = "StatusToast"
+	_ticker_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_ticker_panel.offset_left = -390.0
+	_ticker_panel.offset_top = -49.0
+	_ticker_panel.offset_right = 390.0
+	_ticker_panel.offset_bottom = -8.0
+	_ticker_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ticker_panel.add_theme_stylebox_override("panel", _panel_style(Color("523c2e"), 0.96, 9, 1))
+	_ticker_panel.visible = false
+	_ui_root.add_child(_ticker_panel)
 	_ticker_label = _make_label("", 17, Color("fff0ca"))
 	_ticker_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ticker_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ticker_panel.add_child(_ticker_label)
+	_ticker_panel.add_child(_ticker_label)
 	_routing_ui = PeckworkRoutingUIScript.new() as PeckworkRoutingUI
 	_routing_ui.assignment_requested.connect(_on_worker_assignment_requested)
 	_routing_ui.personnel_action_requested.connect(_on_personnel_action_requested)
@@ -1376,13 +2324,22 @@ func _build_ui() -> void:
 	_ui_root.add_child(_routing_ui)
 	_build_day_review_panel()
 	_build_decision_modal()
+	_build_capital_planning_surfaces()
 	_campaign_ui = ProbationCampaignUIScript.new() as ProbationCampaignUI
 	_campaign_ui.continue_campaign.connect(_on_campaign_continue_requested)
 	_campaign_ui.new_campaign.connect(_on_campaign_new_requested)
 	_campaign_ui.abandon_campaign.connect(_on_campaign_abandon_requested)
 	_campaign_ui.milestone_choice.connect(_on_campaign_milestone_requested)
 	_campaign_ui.career_sponsorship_requested.connect(_on_career_sponsorship_requested)
+	_campaign_ui.market_contract_sign_requested.connect(_on_market_contract_sign_requested)
+	_campaign_ui.market_contract_decline_requested.connect(_on_market_contract_decline_requested)
 	_ui_root.add_child(_campaign_ui)
+	_settings_ui = SettingsUIScript.new() as PeckingOrderSettingsUI
+	_settings_ui.preferences_changed.connect(_on_preferences_changed)
+	_settings_ui.binding_capture_requested.connect(_on_binding_capture_requested)
+	_settings_ui.reset_defaults_requested.connect(_on_preferences_reset_requested)
+	_settings_ui.close_requested.connect(_on_settings_close_requested)
+	_ui_root.add_child(_settings_ui)
 
 
 func _build_day_review_panel() -> void:
@@ -1427,26 +2384,107 @@ func _build_day_review_panel() -> void:
 	_review_story.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_review_story.custom_minimum_size.y = 82.0
 	content.add_child(_review_story)
-	var hint := _make_label("Invest the Feed Fund now, or bank it for a stronger requisition later.", 14, Color("d5bd78"))
+	var hint := _make_label("Review accounting, file closing credit, then publish one optional Gallery campaign.", 14, Color("d5bd78"))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(hint)
-	var buttons := HBoxContainer.new()
-	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	var buttons := HFlowContainer.new()
+	buttons.alignment = FlowContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 14)
 	content.add_child(buttons)
 	var requisitions := Button.new()
 	requisitions.name = "ReviewRequisitionsButton"
 	requisitions.text = "OPEN REQUISITIONS"
-	requisitions.custom_minimum_size = Vector2(210.0, 48.0)
+	requisitions.custom_minimum_size = Vector2(180.0, 48.0)
 	requisitions.pressed.connect(_on_review_requisitions_pressed)
 	buttons.add_child(requisitions)
+	var blueprint := Button.new()
+	blueprint.name = "ReviewCapitalBlueprintButton"
+	blueprint.text = "CAPITAL BLUEPRINT"
+	blueprint.theme_type_variation = &"PrimaryButton"
+	blueprint.custom_minimum_size = Vector2(190.0, 48.0)
+	blueprint.tooltip_text = "Compare every permanent office project on one spatial capital plan."
+	blueprint.pressed.connect(_on_review_capital_blueprint_pressed)
+	buttons.add_child(blueprint)
 	_begin_next_shift_button = Button.new()
 	_begin_next_shift_button.name = "BeginNextShiftButton"
 	_begin_next_shift_button.text = "PLAN NEXT SHIFT"
 	_begin_next_shift_button.theme_type_variation = &"PrimaryButton"
-	_begin_next_shift_button.custom_minimum_size = Vector2(210.0, 48.0)
+	_begin_next_shift_button.custom_minimum_size = Vector2(180.0, 48.0)
 	_begin_next_shift_button.pressed.connect(_on_begin_next_shift_pressed)
 	buttons.add_child(_begin_next_shift_button)
+
+
+func _build_capital_planning_surfaces() -> void:
+	_capital_blueprint_ui = CapitalBlueprintUIScript.new() as Control
+	_capital_blueprint_ui.name = "CapitalBlueprintUI"
+	_capital_blueprint_ui.z_index = 120
+	_capital_blueprint_ui.connect(&"close_requested", _on_capital_blueprint_close_requested)
+	_capital_blueprint_ui.connect(&"preview_requested", _on_capital_blueprint_preview_requested)
+	_capital_blueprint_ui.connect(&"pin_requested", _on_capital_blueprint_pin_requested)
+	_capital_blueprint_ui.connect(&"purchase_requested", _on_capital_blueprint_purchase_requested)
+	_capital_blueprint_ui.connect(&"campus_expansion_requested", _on_campus_expansion_requested)
+	_ui_root.add_child(_capital_blueprint_ui)
+
+	_campus_portfolio_ui = CampusPortfolioUIScript.new() as Control
+	_campus_portfolio_ui.name = "CampusPortfolioUI"
+	_campus_portfolio_ui.z_index = 124
+	_campus_portfolio_ui.connect(&"close_requested", _on_campus_portfolio_close_requested)
+	_campus_portfolio_ui.connect(&"deed_requested", _on_campus_portfolio_deed_requested)
+	_campus_portfolio_ui.connect(&"project_requested", _on_campus_portfolio_project_requested)
+	_campus_portfolio_ui.connect(
+		&"staff_assignment_requested",
+		_on_campus_portfolio_staff_assignment_requested,
+	)
+	_campus_portfolio_ui.connect(
+		&"staff_unassignment_requested",
+		_on_campus_portfolio_staff_unassignment_requested,
+	)
+	_campus_portfolio_ui.connect(
+		&"north_meadow_details_requested",
+		_on_campus_portfolio_north_details_requested,
+	)
+	_ui_root.add_child(_campus_portfolio_ui)
+	_campus_portfolio_ui.call("hide_portfolio", false)
+
+	_campus_expansion_ui = CampusExpansionUIScript.new() as Control
+	_campus_expansion_ui.name = "CampusExpansionUI"
+	_campus_expansion_ui.z_index = 125
+	_campus_expansion_ui.connect(&"close_requested", _on_campus_expansion_close_requested)
+	_campus_expansion_ui.connect(
+		&"purchase_parcel_requested",
+		_on_campus_parcel_purchase_requested,
+	)
+	_campus_expansion_ui.connect(
+		&"connect_service_requested",
+		_on_campus_service_connect_requested,
+	)
+	_campus_expansion_ui.connect(&"place_pod_requested", _on_campus_pod_place_requested)
+	_campus_expansion_ui.connect(&"relocate_pod_requested", _on_campus_pod_relocate_requested)
+	_ui_root.add_child(_campus_expansion_ui)
+	_campus_expansion_ui.call("hide_planner", false)
+
+	_commissioning_reveal_ui = CommissioningRevealUIScript.new() as Control
+	_commissioning_reveal_ui.name = "CommissioningRevealUI"
+	_commissioning_reveal_ui.z_index = 130
+	_commissioning_reveal_ui.connect(&"continue_requested", _on_commissioning_continue_requested)
+	_commissioning_reveal_ui.connect(
+		&"return_to_blueprint_requested",
+		_on_commissioning_return_to_blueprint_requested,
+	)
+	_ui_root.add_child(_commissioning_reveal_ui)
+
+	_campus_portfolio_reveal_ui = CampusPortfolioRevealUIScript.new() as Control
+	_campus_portfolio_reveal_ui.name = "CampusPortfolioRevealUI"
+	_campus_portfolio_reveal_ui.z_index = 131
+	_campus_portfolio_reveal_ui.connect(
+		&"continue_requested",
+		_on_campus_portfolio_reveal_continue_requested,
+	)
+	_campus_portfolio_reveal_ui.connect(
+		&"return_to_portfolio_requested",
+		_on_campus_portfolio_reveal_return_requested,
+	)
+	_ui_root.add_child(_campus_portfolio_reveal_ui)
 
 
 func _build_decision_modal() -> void:
@@ -1509,6 +2547,7 @@ func _build_decision_modal() -> void:
 	_decision_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_decision_title)
 	_decision_body = _make_label("", 16, Color("c4d0d4"))
+	_decision_body.name = "DecisionBody"
 	_decision_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_decision_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_decision_body)
@@ -1555,7 +2594,18 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	)
 	_selected_decision_option = &""
 	var kind := StringName(decision.get("kind", &"incident"))
-	if kind == &"incident":
+	_decision_restore_farmer_review = false
+	if kind == FIRST_CLUTCH_REINVESTMENT_KIND:
+		_decision_previous_speed = _clock.speed_index
+		_decision_restore_farmer_review = (
+			_campaign_review_stage == &"farmer"
+			or (_day_review_scrim != null and _day_review_scrim.visible)
+		)
+		if _audio_feedback != null:
+			_audio_feedback.play_decision_alert()
+		if _office_atmosphere != null:
+			_office_atmosphere.pulse_alert(0.42)
+	elif kind == &"incident":
 		_decision_previous_speed = _clock.speed_index if _clock.speed_index > 0 else 1
 		if _audio_feedback != null:
 			_audio_feedback.play_decision_alert()
@@ -1597,6 +2647,10 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			"%s's dossier is open behind this filing. One policy governs her desk and the whole flock today; "
 			+ "its exact production, welfare, and shell consequences remain visible before authorization."
 		) % first_hen_name.capitalize()
+	if kind == &"directive" and not _campaign_senior_roost:
+		var filed_orders := _probation_orders_brief()
+		if not filed_orders.is_empty():
+			_decision_body.text += "\n\nTODAY'S 3 ORDERS\n%s" % filed_orders
 	if decision_category == &"flock_petition":
 		var sponsor_worker_id := int(decision.get("sponsor_worker_id", -1))
 		if _camera_controller != null and sponsor_worker_id >= 0:
@@ -1635,10 +2689,13 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		var tagline := String(option.get("tagline", ""))
 		var preview := String(option.get("preview", "Consequence pending."))
 		var cost_cents := int(option.get("cost_cents", 0))
+		var option_available := bool(option.get("can_select", true))
 		var button := Button.new()
 		button.name = "DecisionOption_%s" % String(option_id)
 		button.theme_type_variation = &"DecisionChoiceButton"
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.clip_text = true
+		button.focus_mode = Control.FOCUS_ALL
 		button.custom_minimum_size.y = (
 			82.0 if decision_category == &"flock_petition" else
 			(62.0 if tagline.is_empty() else 72.0)
@@ -1650,23 +2707,32 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			preview,
 		]
 		button.set_meta("option_id", option_id)
-		button.set_meta("preview", preview)
+		button.set_meta("preview", "%s%s" % [
+			("%s\n" % tagline if not tagline.is_empty() else ""),
+			preview,
+		])
 		button.set_meta("cost_cents", cost_cents)
-		button.disabled = cost_cents > fund_cents
+		button.disabled = not option_available or cost_cents > fund_cents
 		if button.disabled:
-			button.tooltip_text = "Requires $%.2f Feed Fund; only $%.2f is available." % [cost_cents / 100.0, fund_cents / 100.0]
+			button.tooltip_text = String(option.get(
+				"unavailable_reason",
+				"Requires $%.2f Feed Fund; only $%.2f is available." % [cost_cents / 100.0, fund_cents / 100.0],
+			))
 		else:
 			button.tooltip_text = "Select to preview, then authorize below."
 		button.pressed.connect(_on_decision_option_pressed.bind(option_id))
 		_decision_options.add_child(button)
 		_decision_option_buttons.append(button)
 		option_index += 1
-
 	var is_directive := kind == &"directive"
 	var allow_stay_paused := bool(decision.get("allow_stay_paused", kind == &"incident"))
 	_decision_stay_paused_button.visible = allow_stay_paused
+	_decision_stay_paused_button.custom_minimum_size.y = 46.0
 	_decision_stay_paused_button.disabled = true
 	_decision_confirm_button.disabled = true
+	_decision_confirm_button.custom_minimum_size.y = (
+		66.0 if kind == FIRST_CLUTCH_REINVESTMENT_KIND else 46.0
+	)
 	_decision_confirm_button.text = String(decision.get(
 		"confirm_label",
 		(
@@ -1678,6 +2744,9 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	if is_directive and _should_hold_first_clutch_orientation():
 		_decision_confirm_button.text = "AUTHORIZE & REVIEW FLOOR"
 	_decision_host.visible = true
+	# Visibility itself is part of the coach's management-blocked predicate. Refresh
+	# after mounting the card so a restored reinvestment never renders underneath it.
+	_refresh_first_clutch_ui(_simulation.snapshot())
 	_decision_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	_decision_panel.scale = Vector2(0.96, 0.96)
 	await get_tree().process_frame
@@ -1687,7 +2756,24 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(_decision_panel, "modulate:a", 1.0, 0.18)
 	tween.tween_property(_decision_panel, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	for button in _decision_option_buttons:
+		if not button.disabled:
+			button.grab_focus()
+			break
 	_update_guidance(_simulation.snapshot())
+
+
+func _probation_orders_brief() -> String:
+	if _campaign_state == null:
+		return ""
+	var lines: Array[String] = []
+	for objective in _campaign_state.current_objectives():
+		lines.append("• %s  ·  %s  ·  +%d SCORE" % [
+			String(objective.get("title", "PROBATION ORDER")).to_upper(),
+			String(objective.get("description", "Filed against the closing ledger.")),
+			int(objective.get("score_award", 0)),
+		])
+	return "\n".join(lines)
 
 
 func _select_decision_option_by_index(index: int) -> void:
@@ -1709,8 +2795,12 @@ func _on_decision_option_pressed(option_id: StringName) -> void:
 			_decision_preview.text = "SELECTED  //  %s" % String(button.get_meta("preview", "Consequence pending."))
 	_decision_confirm_button.disabled = false
 	_decision_stay_paused_button.disabled = false
+	# Keyboard authorization is deliberately two-step: 1/2/3 selects a card,
+	# then focus moves to Confirm so Enter cannot re-trigger the option button.
+	_decision_confirm_button.grab_focus()
 	if _audio_feedback != null:
 		_audio_feedback.play_ui_tick()
+	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _on_decision_stay_paused_pressed() -> void:
@@ -1729,6 +2819,23 @@ func _commit_selected_decision() -> void:
 		return
 	_decision_confirm_button.disabled = true
 	_decision_stay_paused_button.disabled = true
+	if StringName(_active_decision.get("kind", &"")) == FIRST_CLUTCH_REINVESTMENT_KIND:
+		var result := _simulation.resolve_first_clutch_reinvestment(_selected_decision_option)
+		if bool(result.get("accepted", false)):
+			# The simulation emits first_clutch_reinvestment_resolved synchronously.
+			# Keep this fallback for focused harnesses that substitute a signal-free stub.
+			if not _active_decision.is_empty():
+				_on_first_clutch_reinvestment_resolved(result)
+			return
+		_decision_confirm_button.disabled = false
+		_decision_stay_paused_button.disabled = false
+		_decision_preview.text = "AUTHORIZATION HELD  //  %s" % String(result.get(
+			"reason",
+			"The requisition no longer matches the authoritative Feed Fund ledger.",
+		))
+		_decision_confirm_button.grab_focus()
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
 	var resolved := _simulation.resolve_decision(
 		int(_active_decision.get("serial", -1)),
 		_selected_decision_option
@@ -1753,17 +2860,63 @@ func _should_hold_first_clutch_orientation() -> bool:
 	)
 
 
+func _on_first_clutch_reinvestment_resolved(result: Dictionary) -> void:
+	var presentation := result.duplicate(true)
+	presentation["kind"] = FIRST_CLUTCH_REINVESTMENT_KIND
+	_on_decision_resolved(presentation)
+
+
 func _on_decision_resolved(result: Dictionary) -> void:
 	var kind := StringName(result.get("kind", &"incident"))
+	var restore_farmer_review := _decision_restore_farmer_review
 	_decision_host.visible = false
 	_active_decision.clear()
 	_selected_decision_option = &""
+	_decision_restore_farmer_review = false
 	if _camera_controller != null:
 		_camera_controller.set_process_unhandled_input(true)
 	if _routing_ui != null:
 		_routing_ui.set_interaction_enabled(true)
 	var outcome := String(result.get("outcome", "Management decision recorded."))
 	_ticker_label.text = outcome
+	if kind == FIRST_CLUTCH_REINVESTMENT_KIND:
+		var purchased := bool(result.get("purchased", false))
+		if purchased:
+			var worker_id := int(result.get("trigger_worker_id", FIRST_HEN_WORKER_ID))
+			var desk_index := -1
+			var active_snapshot := _snapshot_with_active_workers(_simulation.snapshot())
+			var worker := _first_clutch_worker_snapshot(active_snapshot, worker_id)
+			if not worker.is_empty():
+				desk_index = int(worker.get("desk_index", -1))
+			if _workstation_feedback != null:
+				_workstation_feedback.apply_snapshot(_workstation_visual_snapshot(active_snapshot))
+				var installed := _workstation_feedback.play_reinvestment_install(
+					worker_id,
+					desk_index,
+					StringName(result.get("choice_id", &"")),
+					int(result.get("selected_level", 0)),
+				)
+				if installed and _camera_controller != null:
+					_camera_controller.focus_point(
+						_workstation_feedback.install_focus_point_global(desk_index),
+						"FIRST CLUTCH REINVESTMENT",
+						0.42,
+					)
+		elif _audio_feedback != null:
+			_audio_feedback.play_policy_stamp()
+		if restore_farmer_review and not _last_workday_report.is_empty():
+			_clock.set_speed(0)
+			_show_farmer_review(_last_workday_report, false)
+		else:
+			_clock.set_speed(_decision_previous_speed)
+		_decision_restore_farmer_review = false
+		var reinvestment_snapshot := _simulation.snapshot()
+		_refresh_first_clutch_ui(reinvestment_snapshot)
+		_refresh_flockwatch_navigation(reinvestment_snapshot)
+		_update_guidance(reinvestment_snapshot)
+		_save_campaign_checkpoint("first_clutch_reinvestment_resolved")
+		_publish_web_diagnostic_state(reinvestment_snapshot)
+		return
 	if kind == &"directive":
 		if _audio_feedback != null:
 			_audio_feedback.play_policy_stamp()
@@ -1800,13 +2953,21 @@ func _on_decision_resolved(result: Dictionary) -> void:
 	_refresh_first_clutch_ui(_simulation.snapshot())
 	_update_guidance(_simulation.snapshot())
 	_save_campaign_checkpoint("decision_resolved")
+	_present_first_clutch_reinvestment()
 
 
 func _on_workday_completed(report: Dictionary) -> void:
 	_clock.set_speed(0)
 	_last_workday_report = report.duplicate(true)
+	_queue_campus_portfolio_progress_reveals(report)
 	_first_clutch_prepare_for_shift_boundary()
-	if _campaign_senior_roost and _senior_roost_state != null:
+	# Art captures close authored shifts through the real simulation so their
+	# Gallery evidence is canonical. They are not campaign playthroughs, however,
+	# and the staged late-game day is intentionally outside First Clutch's range.
+	# Keep the capture from trying to file that unrelated probation record.
+	if _is_capture_launch():
+		pass
+	elif _campaign_senior_roost and _senior_roost_state != null:
 		var senior_result: Dictionary = _senior_roost_state.record_shift(report)
 		if not bool(senior_result.get("accepted", false)):
 			push_error("Senior Roost shift could not be recorded: %s" % str(senior_result.get("errors", [])))
@@ -1831,26 +2992,130 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	var golden := int(report.get("golden", 0))
 	var quota_bonus := int(report.get("quota_bonus_cents", 0))
 	var quality_bonus := int(report.get("quality_bonus_cents", 0))
+	var market_contract := report.get("market_contract", {}) as Dictionary
+	var market_contract_premium := int(report.get(
+		"market_contract_premium_cents",
+		market_contract.get("premium_cents", 0),
+	))
+	var market_contract_service_bonus := int(report.get(
+		"market_contract_service_coop_bonus_cents",
+		market_contract.get(
+			"service_coop_bonus_cents",
+			market_contract.get("accreditation_bonus_cents", 0),
+		),
+	))
+	var market_contract_base_premium := int(report.get(
+		"market_contract_base_premium_cents",
+		market_contract.get(
+			"authored_base_premium_cents",
+			market_contract.get(
+				"base_premium_cents",
+				maxi(0, market_contract_premium - market_contract_service_bonus),
+			),
+		),
+	))
+	var market_contract_season_premium_delta := int(report.get(
+		"market_contract_season_premium_delta_cents",
+		market_contract.get("season_premium_delta_cents", 0),
+	))
+	var market_contract_clause_premium_delta := int(report.get(
+		"market_contract_clause_premium_delta_cents",
+		market_contract.get("clause_premium_delta_cents", 0),
+	))
+	# Schema-v14 settlements freeze the signed season and rider adjustments even
+	# when either adjustment is zero. Older settlement reports do not carry those
+	# fields, so keep their compact Base + Coop receipt instead of inventing terms
+	# that were never part of the signed binder.
+	var market_contract_has_signed_terms := (
+		report.has("market_contract_season_premium_delta_cents")
+		or report.has("market_contract_clause_premium_delta_cents")
+		or market_contract.has("season_premium_delta_cents")
+		or market_contract.has("clause_premium_delta_cents")
+		or market_contract.has("season_id")
+		or market_contract.has("clause_id")
+	)
+	var market_contract_breach := int(report.get(
+		"market_contract_breach_cents",
+		market_contract.get("breach_cents", 0),
+	))
+	var gross_credit := int(report.get("credited_cents", quota_bonus + quality_bonus))
+	# Successful Farm Mutual premiums already enter credited_cents at settlement;
+	# remove that closing premium before naming the flock's base production. A
+	# breach is not negative production and therefore remains a separate charge.
+	var production_credit := maxi(
+		0,
+		gross_credit - quota_bonus - quality_bonus - market_contract_premium,
+	)
 	var feed_cost := int(report.get("feed_cost_cents", 0))
+	var payroll_cost := int(report.get("payroll_cents", 0))
+	var hen_payroll_cost := int(report.get("hen_payroll_cents", payroll_cost))
+	var supervisor_payroll_cost := int(report.get(
+		"supervisor_payroll_cents",
+		maxi(0, payroll_cost - hen_payroll_cost),
+	))
+	var facility_cost := int(report.get("facility_cost_cents", 0))
+	var facility_capacity_cost := int(report.get("facility_expansion_cost_cents", facility_cost))
+	var facility_maintenance := int(report.get("facility_maintenance_cents", maxi(0, facility_cost - facility_capacity_cost)))
+	var packing_contract := report.get("packing_contract", {}) as Dictionary
+	var packing_level := int(packing_contract.get("level", 0))
+	var packing_cartons := int(report.get(
+		"packing_cartons_today",
+		packing_contract.get("cartons_today", 0),
+	))
+	var packing_value_bonus := int(report.get(
+		"packing_value_bonus_cents",
+		packing_contract.get("value_bonus_today_cents", 0),
+	))
+	var packing_carton_bonus := int(report.get(
+		"packing_carton_bonus_cents",
+		packing_contract.get("carton_bonus_today_cents", 0),
+	))
+	var operating_cost := int(report.get("operating_cost_cents", feed_cost + payroll_cost + facility_cost))
+	# Gross credit already contains a successful premium exactly once. Failed
+	# contracts debit Feed Fund outside operating obligations, so include that
+	# separate charge once when presenting the shift's reconciled net.
+	var operating_net := gross_credit - operating_cost - market_contract_breach
+	var closing_fund := int(report.get("closing_fund_cents", _simulation.revenue_cents))
+	var closing_arrears := int(report.get("wage_arrears_cents", 0))
+	var treasury_receipt := report.get("farm_treasury_receipt", {}) as Dictionary
+	var treasury_snapshot := report.get("farm_treasury", {}) as Dictionary
+	var operating_net_text := "%s$%.2f" % [
+		("+" if operating_net >= 0 else "-"),
+		absf(float(operating_net)) / 100.0,
+	]
 	var completed_directive := report.get("directive", {}) as Dictionary
 	var directive_name := String(completed_directive.get("short_name", "UNFILED"))
 	var incident_count := int(report.get("incidents_resolved", 0))
 	var lane_processed := report.get("lane_processed", {}) as Dictionary
 	var overdue_files := int(report.get("overdue_claims", 0))
 	var rework_files := int(report.get("rework_waiting", 0)) + int(report.get("rework_due_next_shift", 0))
+	var outstanding_files := int(report.get("claims_outstanding", 0))
+	var claim_capacity := int(report.get("claim_capacity", 18))
+	var intake_rejections := int(report.get("intake_rejections_today", report.get("intake_rejections", 0)))
+	var intake_missed_value := int(report.get("intake_missed_value_today_cents", report.get("intake_missed_value_cents", 0)))
 	var personnel_action := report.get("personnel_action", {}) as Dictionary
+	var personnel_actions := report.get("personnel_actions", []) as Array
 	var closing_order := report.get("pecking_order", []) as Array
 	var closing_leader: Dictionary = (
 		closing_order[0] as Dictionary if not closing_order.is_empty() else {}
 	)
 	var personnel_line := "NOT FILED"
-	if not personnel_action.is_empty():
+	if not personnel_actions.is_empty():
+		var filed_actions: Array[String] = []
+		for action_value in personnel_actions:
+			var filed_action := action_value as Dictionary
+			filed_actions.append("%s / %s" % [
+				String(filed_action.get("worker_name", "HEN")).to_upper(),
+				String(filed_action.get("action_name", "CHECK-IN")).to_upper(),
+			])
+		personnel_line = "; ".join(filed_actions)
+	elif not personnel_action.is_empty():
 		personnel_line = "%s / %s" % [
 			String(personnel_action.get("worker_name", "HEN")).to_upper(),
 			String(personnel_action.get("action_name", "CHECK-IN")).to_upper(),
 		]
 	_review_title.text = "CLOSING FILE 1 / 3  ·  DAY %d  ·  FARMER REVIEW" % int(report.get("day", 1))
-	_review_results.text = "%s\n%d / %d eggs  ·  %d cracked  ·  %d golden\nPolicy: %s  ·  %d incident%s resolved\nCheck-in: %s  ·  avg trust %d  ·  avg grievance %d\nFiles: N%d  ·  P%d  ·  A%d  ·  %d overdue  ·  %d rework\nQuota bonus $%.2f  ·  Quality bonus $%.2f  ·  Daily feed -$%.2f" % [
+	_review_results.text = "%s\n%d / %d eggs  ·  %d cracked  ·  %d golden\nPolicy: %s  ·  %d incident%s resolved\nCheck-in: %s  ·  avg trust %d  ·  avg grievance %d\nFiles: N%d  ·  P%d  ·  A%d  ·  %d overdue  ·  %d rework\nArchive: %d / %d live  ·  %d turned away  ·  est. $%.2f file value missed\nIncome: Production credit +$%.2f  ·  Quota bonus +$%.2f  ·  Quality bonus +$%.2f\nCosts: Feed -$%.2f  ·  Payroll -$%.2f  ·  Facilities -$%.2f\nNet operating %s  ·  Closing Feed Fund $%.2f  ·  Wage arrears $%.2f" % [
 		("TARGET HARVESTED" if met_quota else "TARGET MISSED"),
 		eggs, quota, cracked, golden,
 		directive_name, incident_count, ("" if incident_count == 1 else "s"),
@@ -1862,9 +3127,243 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 		int(lane_processed.get(&"appeals", 0)),
 		overdue_files,
 		rework_files,
-		quota_bonus / 100.0, quality_bonus / 100.0, feed_cost / 100.0,
+		outstanding_files,
+		claim_capacity,
+		intake_rejections,
+		float(intake_missed_value) / 100.0,
+		production_credit / 100.0, quota_bonus / 100.0, quality_bonus / 100.0,
+		feed_cost / 100.0, payroll_cost / 100.0, facility_cost / 100.0,
+		operating_net_text, closing_fund / 100.0, closing_arrears / 100.0,
 	]
-	_review_results.tooltip_text = ""
+	_review_results.text = _review_results.text.replace("Check-in:", "Check-ins:")
+	_review_results.text = _review_results.text.replace(
+		"Payroll -$%.2f" % (payroll_cost / 100.0),
+		"Payroll -$%.2f (hens $%.2f + roosters $%.2f)" % [
+			payroll_cost / 100.0,
+			hen_payroll_cost / 100.0,
+			supervisor_payroll_cost / 100.0,
+		],
+	)
+	if not treasury_receipt.is_empty():
+		var treasury_liabilities := int(treasury_snapshot.get(
+			"total_liabilities_cents",
+			int(treasury_receipt.get("closing_credit_principal_cents", 0))
+			+ int(treasury_receipt.get("closing_vendor_arrears_cents", 0))
+			+ int(treasury_receipt.get("closing_interest_arrears_cents", 0)),
+		))
+		var treasury_line := (
+			"\nFarm Treasury: opening $%.2f + inflow $%.2f  ·  vendors due $%.2f / paid $%.2f"
+			+ "  ·  interest $%.2f  ·  line draw $%.2f / principal repaid $%.2f"
+			+ "  ·  payroll paid $%.2f / promised $%.2f  ·  closing liabilities $%.2f%s"
+		) % [
+			float(int(treasury_receipt.get("opening_cash_cents", 0))) / 100.0,
+			float(int(treasury_receipt.get("inflow_cents", 0))) / 100.0,
+			float(int(treasury_receipt.get("total_vendor_due_cents", 0))) / 100.0,
+			float(int(treasury_receipt.get("vendor_paid_cents", 0))) / 100.0,
+			float(int(treasury_receipt.get("interest_charged_cents", 0))) / 100.0,
+			float(int(treasury_receipt.get("credit_draw_cents", 0))) / 100.0,
+			float(int(treasury_receipt.get("principal_repaid_cents", 0))) / 100.0,
+			float(int(treasury_receipt.get("labor_paid_cents", 0))) / 100.0,
+			float(int(treasury_receipt.get("labor_unpaid_cents", 0))) / 100.0,
+			float(treasury_liabilities) / 100.0,
+			"  ·  CAPITAL FROZEN" if bool(treasury_snapshot.get("capital_frozen", false)) else "",
+		]
+		_review_results.text = _review_results.text.replace("\nCosts:", treasury_line + "\nCosts:")
+	var completed_operations := report.get("operations", {}) as Dictionary
+	if not completed_operations.is_empty():
+		var completed_supervision := completed_operations.get("supervision", {}) as Dictionary
+		var completed_automation := completed_operations.get("automation", {}) as Dictionary
+		var rooster_level := int(completed_operations.get("rooster_office_level", 0))
+		var it_level := int(completed_operations.get("it_coop_level", 0))
+		if rooster_level > 0 or it_level > 0:
+			var operations_line := (
+				"\nOperations: Rooster L%d / %d of %d check-ins filed / surveillance +%.2f stress per hen; "
+				+ "IT L%d / AUTO %d%% / compliance exposure -%.2f"
+			) % [
+				rooster_level,
+				int(completed_supervision.get("actions_used", 0)),
+				int(completed_supervision.get("action_limit", 1)),
+				float(completed_supervision.get("surveillance_stress_millipoints", 0)) / 1000.0,
+				it_level,
+				roundi(float(completed_automation.get("work_basis_points", 10_000)) / 100.0),
+				float(completed_automation.get("compliance_exposure_millipoints", 0)) / 1000.0,
+			]
+			_review_results.text = _review_results.text.replace("\nCosts:", operations_line + "\nCosts:")
+	var completed_flock_relations := report.get("flock_relations", {}) as Dictionary
+	var flock_relations_filings := report.get("flock_relations_filings", []) as Array
+	var flock_relations_carry := report.get("flock_relations_carry_effects", []) as Array
+	var flock_relations_level := int(completed_flock_relations.get("level", 0))
+	if flock_relations_level > 0:
+		var relations_line := (
+			"\nFlock Relations L%d: %d / %d open cases  ·  %d / %d review authorizations used"
+		) % [
+			flock_relations_level,
+			int(completed_flock_relations.get("open_case_count", 0)),
+			int(completed_flock_relations.get("capacity", flock_relations_level)),
+			int(completed_flock_relations.get("resolutions_used_today", 0)),
+			int(completed_flock_relations.get("resolution_limit", flock_relations_level)),
+		]
+		if not flock_relations_filings.is_empty():
+			var filed_case := flock_relations_filings[0] as Dictionary
+			relations_line += "  ·  NEW %s / %s / severity %d" % [
+				String(filed_case.get("docket_id", "CASE FILE")).to_upper(),
+				String(filed_case.get("worker_name", "HEN")).to_upper(),
+				int(filed_case.get("severity", 1)),
+			]
+		if not flock_relations_carry.is_empty():
+			relations_line += "  ·  %d unresolved %s carried" % [
+				flock_relations_carry.size(),
+				"case" if flock_relations_carry.size() == 1 else "cases",
+			]
+		_review_results.text = _review_results.text.replace("\nCosts:", relations_line + "\nCosts:")
+	var completed_provisions := report.get("feed_procurement", {}) as Dictionary
+	var provisions_level := int(completed_provisions.get("level", 0))
+	var provisions_prepaid := int(report.get("feed_procurement_spend_cents", 0))
+	var provisions_spoiled := int(completed_provisions.get("spoiled_today_scoops", 0))
+	if provisions_level > 0 or provisions_prepaid > 0 or provisions_spoiled > 0:
+		var provisions_line := (
+			"\nFlock Provisions L%d: demand %d scoops  /  stored %d + spot %d  /  closing stock %d / %d  /  prepaid $%.2f  /  spoilage %d"
+		) % [
+			provisions_level,
+			int(completed_provisions.get("consumed_today_scoops", 0)),
+			int(completed_provisions.get("consumed_inventory_today_scoops", 0)),
+			int(completed_provisions.get("consumed_spot_today_scoops", 0)),
+			int(completed_provisions.get("stock_scoops", 0)),
+			int(completed_provisions.get("capacity_scoops", 0)),
+			float(provisions_prepaid) / 100.0,
+			provisions_spoiled,
+		]
+		_review_results.text = _review_results.text.replace(
+			"\nCosts:",
+			provisions_line + "\nCosts:",
+		)
+	if packing_level > 0:
+		var packing_line := (
+			"\nPacking Annex L%d: %d carton%s  ·  value lift +$%.2f  ·  carton contracts +$%.2f (included in production)"
+			% [
+				packing_level,
+				packing_cartons,
+				"" if packing_cartons == 1 else "s",
+				float(packing_value_bonus) / 100.0,
+				float(packing_carton_bonus) / 100.0,
+			]
+		)
+		_review_results.text = _review_results.text.replace("\nCosts:", packing_line + "\nCosts:")
+	if not market_contract.is_empty() or market_contract_premium > 0 or market_contract_breach > 0:
+		var contract_name := String(
+			market_contract.get("short_name", market_contract.get("name", "FARM MUTUAL BINDER"))
+		).to_upper()
+		var contract_status := String(market_contract.get(
+			"status",
+			"fulfilled" if market_contract_premium > 0 else "breached",
+		)).to_upper()
+		var timely_completed := int(market_contract.get("timely_sound_completed", 0))
+		var required_completed := int(market_contract.get("required_completed", 0))
+		var season_delta_label := "%s$%.2f" % [
+			"+" if market_contract_season_premium_delta >= 0 else "-",
+			absf(float(market_contract_season_premium_delta)) / 100.0,
+		]
+		var clause_delta_label := "%s$%.2f" % [
+			"+" if market_contract_clause_premium_delta >= 0 else "-",
+			absf(float(market_contract_clause_premium_delta)) / 100.0,
+		]
+		var settlement_label := "Breach -$%.2f" % (float(market_contract_breach) / 100.0)
+		if market_contract_premium > 0:
+			if market_contract_has_signed_terms:
+				settlement_label = "Authored +$%.2f  +  Season %s  +  Rider %s  +  Coop L%d +$%.2f  =  +$%.2f" % [
+					float(market_contract_base_premium) / 100.0,
+					season_delta_label,
+					clause_delta_label,
+					int(market_contract.get("service_coop_level_at_signing", 0)),
+					float(market_contract_service_bonus) / 100.0,
+					float(market_contract_premium) / 100.0,
+				]
+			else:
+				settlement_label = "Base +$%.2f  +  Coop L%d +$%.2f  =  +$%.2f" % [
+					float(market_contract_base_premium) / 100.0,
+					int(market_contract.get("service_coop_level_at_signing", 0)),
+					float(market_contract_service_bonus) / 100.0,
+					float(market_contract_premium) / 100.0,
+				]
+		var contract_line := "\nFarm Mutual: %s %s  ·  %s" % [
+			contract_name,
+			contract_status,
+			settlement_label,
+		]
+		if required_completed > 0:
+			contract_line += "  ·  %d/%d clean on time" % [
+				timely_completed,
+				required_completed,
+			]
+		var standing_value: Variant = report.get(
+			"market_accreditation",
+			report.get(
+				"farm_mutual_standing",
+				report.get("market_contract_standing", {}),
+			),
+		)
+		if standing_value is Dictionary and not (standing_value as Dictionary).is_empty():
+			var standing := standing_value as Dictionary
+			contract_line += "  ·  %s standing %d" % [
+				String(standing.get(
+					"rank_label",
+					standing.get("rank_name", standing.get("rank", "UNLISTED")),
+				)).to_upper(),
+				int(standing.get("points", standing.get("score", 0))),
+			]
+			var clean_streak := int(standing.get("clean_streak", 0))
+			if clean_streak > 0:
+				contract_line += "  ·  %d clean binder streak" % clean_streak
+		_review_results.text = _review_results.text.replace(
+			"\nCosts:",
+			contract_line + "\nCosts:",
+		)
+	var newly_unlocked_facilities := report.get("new_facility_unlocks", []) as Array
+	if not newly_unlocked_facilities.is_empty():
+		var unlock_names: Array[String] = []
+		for unlock_value in newly_unlocked_facilities:
+			var unlock := unlock_value as Dictionary
+			unlock_names.append(String(unlock.get("name", "NEW CAPITAL FACILITY")))
+		_review_results.text = _review_results.text.replace(
+			"\nCosts:",
+			"\nCAPITAL FILE UNLOCKED: %s  ·  Resolve closing credit, then open Capital Expansions.\nCosts:"
+			% ", ".join(unlock_names),
+		)
+	_review_results.tooltip_text = (
+		"FACILITY COST BREAKDOWN\n"
+		+ "Authorized perch overhead  $%.2f\n" % (facility_capacity_cost / 100.0)
+		+ "Installed module maintenance  $%.2f\n\n" % (facility_maintenance / 100.0)
+		+ "PAYROLL BREAKDOWN\n"
+		+ "Hen wages  $%.2f\n" % (hen_payroll_cost / 100.0)
+		+ "Rooster supervisor wages  $%.2f\n\n" % (supervisor_payroll_cost / 100.0)
+		+ "Net operating uses accrued feed, payroll, and facility obligations. Unpaid payroll remains visible as arrears."
+		+ (
+			"\n\nFARM TREASURY\nThe filed receipt conserves opening cash, intrashift inflows, vendor payments, interest, labor payments, debt service, and closing cash exactly. The revolving line may cover vendors and interest, but never wages."
+			if not treasury_receipt.is_empty() else
+			""
+		)
+		+ "\n\nINTAKE CAPACITY\nTurned-away file value is an opportunity estimate only. It never enters the Feed Fund. More archive space can retain more work, but it can also increase overdue exposure."
+		+ (
+			"\n\nPACKING CONTRACT\nThe percentage lift and six-good-egg carton settlement are already included in Production credit."
+			if packing_level > 0 else
+			""
+		)
+		+ (
+			"\n\nFARM MUTUAL SETTLEMENT\nBase premium and the Service Coop accreditation bonus are itemized above, then enter gross credit exactly once as the displayed total. A breach earns neither and is charged once against the Feed Fund. Closing Feed Fund remains the authoritative settled balance."
+			if not market_contract.is_empty() or market_contract_premium > 0 or market_contract_breach > 0 else
+			""
+		)
+		+ (
+			"\n\nFLOCK RELATIONS\nOpen Requisitions to inspect each named-hen case. Remedy, mediation, PIP, and arbitration terms come directly from the permanent case ledger. Every case left open carries obedience, unity, and grievance pressure into a later closing."
+			if flock_relations_level > 0 else
+			""
+		)
+		+ (
+			"\n\nFLOCK PROVISIONS\nPrepaid orders leave the Feed Fund when authorized and enter stored inventory. The closing Feed cost is only today's automatic spot shortage, so prepaid grain is never charged a second time. Consumed inventory value and spoilage remain visible as working-capital receipts."
+			if provisions_level > 0 or provisions_prepaid > 0 else
+			""
+		)
+	)
 	var flock_ledger_entries: Array[String] = []
 	var flock_ledger_details: Array[String] = []
 	var compact_receipt := report.get("flock_compact_receipt", {}) as Dictionary
@@ -1891,7 +3390,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 		flock_ledger_details.append("The flock will follow every written procedure: slower throughput, safer shells.")
 	if not flock_ledger_entries.is_empty():
 		_review_results.text += "\nFlock ledger: %s" % "  ·  ".join(flock_ledger_entries)
-		_review_results.tooltip_text = "\n".join(flock_ledger_details)
+		_review_results.tooltip_text += "\n\n" + "\n".join(flock_ledger_details)
 	_review_story.text = (
 		"The farmer credits decisive leadership and announces tomorrow's improved target: %d eggs."
 		if met_quota else
@@ -1899,6 +3398,17 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	) % int(report.get("next_quota", quota))
 	if not personnel_action.is_empty():
 		_review_story.text += "\nPersonnel ledger: %s" % String(personnel_action.get("outcome", "Check-in filed."))
+	if not flock_relations_filings.is_empty():
+		var story_case := flock_relations_filings[0] as Dictionary
+		_review_story.text += "\nFlock Relations: %s filed %s. Open Requisitions to choose whether the Feed Fund pays, management mediates, or the case becomes another performance file." % [
+			String(story_case.get("worker_name", "A hen")),
+			String(story_case.get("title", "a workplace grievance")).to_lower(),
+		]
+	if provisions_spoiled > 0:
+		_review_story.text += "\nFlock Provisions: %d scoop%s expired; management records the loss as a successful demand forecast rehearsal." % [
+			provisions_spoiled,
+			"" if provisions_spoiled == 1 else "s",
+		]
 	if not closing_leader.is_empty():
 		_review_story.text += "\nPecking Order #1: %s  ·  %d eggs  ·  $%.2f credited." % [
 			String(closing_leader.get("worker_name", "HEN")).to_upper(),
@@ -1940,9 +3450,691 @@ func _on_review_requisitions_pressed() -> void:
 		_camera_controller.set_process_unhandled_input(true)
 	if _routing_ui != null:
 		_routing_ui.set_interaction_enabled(false)
-	_set_flockwatch_open(true)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_CAPITAL)
 	_guidance_label.text = "REVIEW PAUSED: approve requisitions, then choose tomorrow's policy."
 	_ticker_label.text = "Feed Fund purchases are permanent. Costs rise with each approved level."
+
+
+func _on_review_capital_blueprint_pressed() -> void:
+	_open_capital_blueprint(true, false)
+
+
+func _on_capital_blueprint_requested() -> void:
+	_open_capital_blueprint(false, _flockwatch_open)
+
+
+func _open_capital_blueprint(
+	restore_review: bool = false,
+	restore_flockwatch: bool = false,
+) -> void:
+	if _capital_blueprint_ui == null:
+		return
+	var restore_focus := get_viewport().gui_get_focus_owner()
+	if restore_focus == null:
+		restore_focus = _flockwatch_toggle
+	_begin_capital_modal_hold()
+	_capital_blueprint_restore_review = restore_review
+	_capital_blueprint_restore_flockwatch = restore_flockwatch
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_flockwatch_open(false)
+	if _commissioning_reveal_ui != null:
+		_commissioning_reveal_ui.call("hide_reveal")
+	if _campus_portfolio_reveal_ui != null:
+		_campus_portfolio_reveal_ui.call("hide_reveal")
+	_clear_campus_portfolio_reveal_target()
+	_capital_blueprint_ui.call("set_restore_focus", restore_focus)
+	_capital_blueprint_ui.call("show_blueprint", _simulation.snapshot())
+	_set_capital_modal_interaction(true)
+	_ticker_label.text = "CAPITAL BLUEPRINT OPEN. Compare permanent rooms, obligations, and unlock gates."
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_capital_blueprint_close_requested() -> void:
+	# Restore the originating surface first so CapitalBlueprintUI can verify that
+	# its recorded focus target is visible before deferring grab_focus(). Both
+	# operations complete in this input turn, so the office is never exposed.
+	_restore_capital_origin()
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("hide_blueprint", true)
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_capital_blueprint_preview_requested(facility_id: StringName) -> void:
+	var focus := _facility_focus_file(facility_id)
+	if focus.is_empty() or _camera_controller == null:
+		return
+	_camera_controller.focus_point(
+		focus.get("point", EXPANDED_OVERVIEW_TARGET) as Vector3,
+		String(focus.get("label", "CAPITAL PARCEL")),
+		0.35,
+		float(focus.get("size", 11.5)),
+	)
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_capital_blueprint_pin_requested(facility_id: StringName) -> void:
+	var result := _simulation.pin_capital_plan(facility_id)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get("reason", "CAPITAL PLAN COULD NOT BE PINNED."))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"capital_plan")
+		return
+	var snapshot := _simulation.snapshot()
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("apply_snapshot", snapshot)
+	if _staffing_ui != null:
+		_staffing_ui.apply_snapshot(snapshot)
+	_ticker_label.text = "CAPITAL PLAN PINNED. Flockwatch will keep this parcel visible."
+	if _audio_feedback != null:
+		_audio_feedback.play_policy_stamp()
+	_save_campaign_checkpoint("capital_plan_pinned_%s" % String(facility_id))
+
+
+func _on_capital_blueprint_purchase_requested(facility_id: StringName) -> void:
+	_on_facility_purchase_requested(facility_id)
+
+
+func _on_campus_expansion_requested() -> void:
+	if _campus_portfolio_ui == null:
+		return
+	_begin_capital_modal_hold()
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("hide_blueprint", false)
+	if _commissioning_reveal_ui != null:
+		_commissioning_reveal_ui.call("hide_reveal")
+	if _campus_portfolio_reveal_ui != null:
+		_campus_portfolio_reveal_ui.call("hide_reveal")
+	_clear_campus_portfolio_reveal_target()
+	var restore_button: Control = null
+	if _capital_blueprint_ui != null:
+		restore_button = _capital_blueprint_ui.find_child(
+			"CapitalBlueprintCampusExpansionButton", true, false
+		) as Control
+	_campus_portfolio_ui.call("set_restore_focus", restore_button)
+	var presented_pending_reveal := _present_pending_campus_portfolio_reveal()
+	if not presented_pending_reveal:
+		_campus_portfolio_ui.call("show_portfolio", _simulation.snapshot())
+	_set_capital_modal_interaction(true)
+	if _camera_controller != null and not presented_pending_reveal:
+		_camera_controller.focus_point(CAMPUS_PORTFOLIO_FOCUS, "CAMPUS PORTFOLIO", 0.35, 19.5)
+	if not presented_pending_reveal:
+		_ticker_label.text = "CAMPUS PORTFOLIO OPEN. Compare three deeds, four modules, contractor capacity, utilities, and named campus duty."
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campus_portfolio_close_requested() -> void:
+	if _campus_portfolio_ui != null:
+		_campus_portfolio_ui.call("hide_portfolio", false)
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("show_blueprint", _simulation.snapshot())
+	_set_capital_modal_interaction(true)
+	if _camera_controller != null:
+		_camera_controller.show_overview()
+	_ticker_label.text = "CAPITAL BLUEPRINT OPEN. The campus portfolio remains filed with every permanent project."
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campus_portfolio_north_details_requested() -> void:
+	if _campus_portfolio_ui == null or _campus_expansion_ui == null:
+		return
+	_campus_expansion_restore_portfolio = true
+	var restore_button := _campus_portfolio_ui.find_child(
+		"CampusPortfolioNorthMeadowDetailsButton",
+		true,
+		false,
+	) as Control
+	_campus_portfolio_ui.call("hide_portfolio", false)
+	_campus_expansion_ui.call("set_restore_focus", restore_button)
+	_campus_expansion_ui.call("show_planner", _simulation.snapshot())
+	_set_capital_modal_interaction(true)
+	if _camera_controller != null:
+		_camera_controller.focus_point(NORTH_MEADOW_FOCUS, "NORTH MEADOW", 0.35, 13.5)
+	_ticker_label.text = "NORTH MEADOW DETAILS OPEN. File the shared routes, power trunk, cold loop, and routing pod."
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campus_expansion_close_requested() -> void:
+	if _campus_expansion_ui != null:
+		_campus_expansion_ui.call("hide_planner", false)
+	if _campus_expansion_restore_portfolio:
+		_campus_expansion_restore_portfolio = false
+		if _campus_portfolio_ui != null:
+			_campus_portfolio_ui.call("show_portfolio", _simulation.snapshot())
+		_set_capital_modal_interaction(true)
+		if _camera_controller != null:
+			_camera_controller.focus_point(CAMPUS_PORTFOLIO_FOCUS, "CAMPUS PORTFOLIO", 0.35, 19.5)
+		_ticker_label.text = "CAMPUS PORTFOLIO OPEN. North Meadow utilities now feed every filed parcel."
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("show_blueprint", _simulation.snapshot())
+	_set_capital_modal_interaction(true)
+	if _camera_controller != null:
+		_camera_controller.show_overview()
+	_ticker_label.text = "CAPITAL BLUEPRINT OPEN. North Meadow remains filed with the permanent campus plan."
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campus_portfolio_deed_requested(parcel_id: StringName) -> void:
+	_resolve_campus_portfolio_action(
+		_simulation.purchase_campus_portfolio_deed(parcel_id),
+		"campus_portfolio_deed_%s" % String(parcel_id),
+		parcel_id,
+	)
+
+
+func _on_campus_portfolio_project_requested(
+	module_id: StringName,
+	pad_id: StringName,
+) -> void:
+	var parcel_id := (
+		&"creekside_yard" if String(pad_id).begins_with("creekside") else &"orchard_row"
+	)
+	_resolve_campus_portfolio_action(
+		_simulation.authorize_campus_portfolio_project(module_id, pad_id),
+		"campus_portfolio_project_%s_%s" % [String(module_id), String(pad_id)],
+		parcel_id,
+	)
+
+
+func _on_campus_portfolio_staff_assignment_requested(
+	module_id: StringName,
+	worker_id: Variant,
+) -> void:
+	_resolve_campus_portfolio_action(
+		_simulation.assign_campus_portfolio_worker(module_id, int(worker_id)),
+		"campus_portfolio_staff_%s_%d" % [String(module_id), int(worker_id)],
+		_campus_portfolio_module_parcel(module_id),
+	)
+
+
+func _on_campus_portfolio_staff_unassignment_requested(module_id: StringName) -> void:
+	_resolve_campus_portfolio_action(
+		_simulation.unassign_campus_portfolio_worker(module_id),
+		"campus_portfolio_unstaff_%s" % String(module_id),
+		_campus_portfolio_module_parcel(module_id),
+	)
+
+
+func _campus_portfolio_module_parcel(module_id: StringName) -> StringName:
+	for module_value: Variant in _simulation.campus_portfolio_snapshot().get("modules", []) as Array:
+		if module_value is Dictionary and StringName(String((module_value as Dictionary).get("id", ""))) == module_id:
+			return StringName(String((module_value as Dictionary).get("parcel_id", "")))
+	return &""
+
+
+func _campus_portfolio_worker_posts(snapshot: Dictionary) -> Dictionary[int, Dictionary]:
+	var result: Dictionary[int, Dictionary] = {}
+	var projection_value: Variant = snapshot.get("campus_portfolio", {})
+	if not projection_value is Dictionary:
+		return result
+	for module_value: Variant in (projection_value as Dictionary).get("modules", []) as Array:
+		if not module_value is Dictionary:
+			continue
+		var module := module_value as Dictionary
+		var worker_id := int(module.get("worker_id", -1))
+		var module_id := StringName(String(module.get("id", "")))
+		var pad_id := StringName(String(module.get("pad_id", "")))
+		if (
+			worker_id < 0
+			or module_id == &""
+			or pad_id == &""
+			or not bool(module.get("installed", false))
+			or not campus_duty_position(pad_id).is_finite()
+		):
+			continue
+		result[worker_id] = {
+			"module_id": module_id,
+			"pad_id": pad_id,
+		}
+	return result
+
+
+func _sync_campus_worker_duties(snapshot: Dictionary) -> void:
+	var desired := _campus_portfolio_worker_posts(snapshot)
+	for worker_id_value: Variant in _campus_worker_assignments.keys().duplicate():
+		var worker_id := int(worker_id_value)
+		var desired_post: Dictionary = desired.get(worker_id, {})
+		var desired_module := StringName(String(desired_post.get("module_id", "")))
+		var desired_pad := StringName(String(desired_post.get("pad_id", "")))
+		if (
+			desired_module == _campus_worker_assignments.get(worker_id, &"")
+			and desired_pad == _campus_worker_pads.get(worker_id, &"")
+		):
+			continue
+		var old_pad: StringName = _campus_worker_pads.get(worker_id, &"")
+		var view := _worker_views.get(worker_id) as ChickenView
+		if view != null and is_instance_valid(view) and old_pad != &"":
+			view.return_from_campus_duty(campus_duty_return_route(view.desk_index, old_pad))
+		_campus_worker_assignments.erase(worker_id)
+		_campus_worker_pads.erase(worker_id)
+
+	for worker_id: int in desired:
+		var post: Dictionary = desired[worker_id]
+		var module_id := StringName(String(post.get("module_id", "")))
+		var pad_id := StringName(String(post.get("pad_id", "")))
+		var view := _worker_views.get(worker_id) as ChickenView
+		if view == null or not is_instance_valid(view):
+			continue
+		if (
+			_campus_worker_assignments.get(worker_id, &"") == module_id
+			and _campus_worker_pads.get(worker_id, &"") == pad_id
+			and view.has_campus_duty_assignment()
+		):
+			continue
+		var outbound := campus_duty_outbound_route(view.desk_index, pad_id)
+		if outbound.is_empty():
+			continue
+		_campus_worker_assignments[worker_id] = module_id
+		_campus_worker_pads[worker_id] = pad_id
+		view.assign_campus_duty(
+			outbound,
+			campus_duty_position(pad_id),
+			campus_duty_face_point(pad_id),
+		)
+
+
+func _resolve_campus_portfolio_action(
+	result: Dictionary,
+	checkpoint_reason: String,
+	parcel_id: StringName,
+) -> void:
+	var snapshot := _simulation.snapshot()
+	if _campus_portfolio_ui != null:
+		_campus_portfolio_ui.call("apply_snapshot", snapshot)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get("reason", "CAMPUS PORTFOLIO FILE HELD FOR REVIEW."))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"campus_portfolio")
+		_publish_web_diagnostic_state(snapshot)
+		return
+	_ticker_label.text = String(result.get("outcome", "CAMPUS PORTFOLIO FILE AUTHORIZED."))
+	if _audio_feedback != null:
+		_audio_feedback.play_policy_stamp()
+	var receipt_value: Variant = result.get("receipt", {})
+	var receipt := receipt_value as Dictionary if receipt_value is Dictionary else {}
+	for started_value: Variant in result.get("started", []) as Array:
+		if started_value is Dictionary:
+			_enqueue_campus_portfolio_progress_reveal(started_value as Dictionary)
+	if not receipt.is_empty():
+		if _campus_portfolio_ui != null:
+			_campus_portfolio_ui.call("hide_portfolio", false)
+		_show_campus_portfolio_reveal(receipt, result, snapshot)
+	elif _camera_controller != null:
+		var fallback_focus := ORCHARD_ROW_FOCUS if parcel_id == &"orchard_row" else CREEKSIDE_YARD_FOCUS
+		_camera_controller.focus_point(fallback_focus, "CAMPUS FILE ALREADY CURRENT", 0.30, 14.5)
+	_save_campaign_checkpoint(checkpoint_reason)
+	_publish_web_diagnostic_state(snapshot)
+
+
+func _queue_campus_portfolio_progress_reveals(report: Dictionary) -> void:
+	var progress_value: Variant = report.get("campus_portfolio_progress", {})
+	if not progress_value is Dictionary:
+		return
+	var progress := progress_value as Dictionary
+	# Completions are the strongest day-boundary result and should be the first
+	# thing the player sees on returning to campus planning. A newly mobilized
+	# queued project follows it without interrupting the Farmer Review.
+	for completed_value: Variant in progress.get("completed", []) as Array:
+		if completed_value is Dictionary:
+			_enqueue_campus_portfolio_progress_reveal(completed_value as Dictionary)
+	for started_value: Variant in progress.get("started", []) as Array:
+		if started_value is Dictionary:
+			_enqueue_campus_portfolio_progress_reveal(started_value as Dictionary)
+
+
+func _enqueue_campus_portfolio_progress_reveal(progress_record: Dictionary) -> void:
+	var receipt_value: Variant = progress_record.get("receipt", progress_record)
+	if not receipt_value is Dictionary:
+		return
+	var receipt := (receipt_value as Dictionary).duplicate(true)
+	if receipt.is_empty():
+		return
+	var receipt_id := int(receipt.get("receipt_id", 0))
+	var project_id := int(receipt.get("project_id", 0))
+	var action_id := StringName(String(receipt.get("action_id", "")))
+	for pending: Dictionary in _pending_campus_portfolio_reveals:
+		var pending_receipt := pending.get("receipt", {}) as Dictionary
+		if receipt_id > 0 and int(pending_receipt.get("receipt_id", 0)) == receipt_id:
+			return
+	if action_id == &"complete_project" and project_id > 0:
+		for pending_index in range(_pending_campus_portfolio_reveals.size() - 1, -1, -1):
+			var pending_receipt := (
+				_pending_campus_portfolio_reveals[pending_index].get("receipt", {}) as Dictionary
+			)
+			if (
+				int(pending_receipt.get("project_id", 0)) == project_id
+				and StringName(String(pending_receipt.get("action_id", ""))) == &"start_project"
+			):
+				_pending_campus_portfolio_reveals.remove_at(pending_index)
+	_pending_campus_portfolio_reveals.append({
+		"receipt": receipt,
+		"progress": progress_record.duplicate(true),
+	})
+
+
+func _present_pending_campus_portfolio_reveal() -> bool:
+	if _pending_campus_portfolio_reveals.is_empty():
+		return false
+	var envelope := _pending_campus_portfolio_reveals.pop_front() as Dictionary
+	var receipt_value: Variant = envelope.get("receipt", {})
+	if not receipt_value is Dictionary or (receipt_value as Dictionary).is_empty():
+		return _present_pending_campus_portfolio_reveal()
+	_show_campus_portfolio_reveal(
+		receipt_value as Dictionary,
+		envelope.get("progress", {}) as Dictionary,
+		_simulation.snapshot(),
+	)
+	return true
+
+
+func _show_campus_portfolio_reveal(
+		receipt: Dictionary,
+		result: Dictionary,
+		snapshot: Dictionary,
+) -> void:
+	if receipt.is_empty() or _campus_portfolio_reveal_ui == null:
+		return
+	_begin_capital_modal_hold()
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("hide_blueprint", false)
+	if _campus_portfolio_ui != null:
+		_campus_portfolio_ui.call("hide_portfolio", false)
+	if _commissioning_reveal_ui != null:
+		_commissioning_reveal_ui.call("hide_reveal")
+	var context := _campus_portfolio_reveal_context(receipt, result, snapshot)
+	_focus_campus_portfolio_reveal(receipt, context)
+	_campus_portfolio_reveal_ui.call(
+		"show_reveal",
+		receipt,
+		context,
+		_prefers_reduced_motion(),
+	)
+	_set_capital_modal_interaction(true)
+	_ticker_label.text = String(receipt.get(
+		"outcome",
+		"CAMPUS RECORD FILED. Inspect the marked world result, then continue or return to the portfolio.",
+	))
+
+
+func _campus_portfolio_reveal_context(
+		receipt: Dictionary,
+		result: Dictionary,
+		snapshot: Dictionary,
+) -> Dictionary:
+	var portfolio_value: Variant = snapshot.get("campus_portfolio", {})
+	var portfolio := portfolio_value as Dictionary if portfolio_value is Dictionary else {}
+	var parcel_id := StringName(String(receipt.get("parcel_id", "")))
+	var module_id := StringName(String(receipt.get("module_id", "")))
+	var pad_id := StringName(String(receipt.get("pad_id", "")))
+	var worker_id := int(receipt.get("worker_id", -1))
+	var parcel: Dictionary = {}
+	var pad: Dictionary = {}
+	for parcel_value: Variant in portfolio.get("parcels", []) as Array:
+		if not parcel_value is Dictionary:
+			continue
+		var candidate := parcel_value as Dictionary
+		if StringName(String(candidate.get("id", ""))) != parcel_id:
+			continue
+		parcel = candidate
+		for pad_value: Variant in candidate.get("pads", []) as Array:
+			if (
+				pad_value is Dictionary
+				and StringName(String((pad_value as Dictionary).get("id", ""))) == pad_id
+			):
+				pad = pad_value as Dictionary
+				break
+		break
+	var module: Dictionary = {}
+	for module_value: Variant in portfolio.get("modules", []) as Array:
+		if (
+			module_value is Dictionary
+			and StringName(String((module_value as Dictionary).get("id", ""))) == module_id
+		):
+			module = module_value as Dictionary
+			break
+	var worker_name := String(module.get("worker_name", "")).strip_edges()
+	if worker_id >= 0:
+		for worker_value: Variant in snapshot.get("workers", []) as Array:
+			if worker_value is Dictionary and int((worker_value as Dictionary).get("id", -1)) == worker_id:
+				worker_name = String((worker_value as Dictionary).get("name", worker_name))
+				break
+		if worker_name.is_empty():
+			for assignment_value: Variant in portfolio.get("workers", []) as Array:
+				if (
+					assignment_value is Dictionary
+					and int((assignment_value as Dictionary).get("worker_id", -1)) == worker_id
+				):
+					worker_name = String((assignment_value as Dictionary).get("worker_name", ""))
+					break
+	var effect_lines: Array = []
+	if not module.is_empty():
+		effect_lines = (module.get("benefits", []) as Array).duplicate(true)
+	elif not parcel.is_empty():
+		effect_lines = (parcel.get("benefit_lines", []) as Array).duplicate(true)
+	return {
+		"parcel_name": String(parcel.get("name", _campus_portfolio_title(parcel_id))),
+		"module_name": String(module.get("name", _campus_portfolio_title(module_id))),
+		"pad_name": String(pad.get("name", _campus_portfolio_title(pad_id))),
+		"worker_name": worker_name,
+		"effect_lines": effect_lines,
+		"outcome": String(receipt.get("outcome", result.get("outcome", "Campus receipt filed."))),
+		"has_fund_before": result.has("fund_before_cents") and result.has("fund_after_cents"),
+		"fund_before_cents": int(result.get("fund_before_cents", 0)),
+		"fund_after_cents": int(result.get("fund_after_cents", 0)),
+		"has_spendable_after": result.has("projected_spendable_fund_cents"),
+		"spendable_after_cents": int(result.get("projected_spendable_fund_cents", 0)),
+	}
+
+
+func _campus_portfolio_title(id: StringName) -> String:
+	return String(id).replace("_", " ").capitalize() if id != &"" else ""
+
+
+func _focus_campus_portfolio_reveal(receipt: Dictionary, context: Dictionary) -> void:
+	var parcel_id := StringName(String(receipt.get("parcel_id", "")))
+	var pad_id := StringName(String(receipt.get("pad_id", "")))
+	var action_id := StringName(String(receipt.get("action_id", "")))
+	var footprint := (
+		CampusPortfolioVisualScript.declared_pad_footprint(pad_id)
+		if pad_id != &"" else
+		CampusPortfolioVisualScript.declared_footprint(parcel_id)
+	)
+	var visual: Node3D = null
+	if _office_storytelling != null:
+		visual = _office_storytelling.campus_portfolio_visual
+	if visual == null:
+		visual = find_child("CampusPortfolioVisual", true, false) as Node3D
+	if visual != null and visual.has_method("show_reveal_target"):
+		visual.call("show_reveal_target", parcel_id, pad_id, action_id)
+	if _camera_controller == null or footprint.size.x <= 0.0 or footprint.size.y <= 0.0:
+		return
+	var center := footprint.get_center()
+	var label_parts: Array[String] = []
+	var module_name := String(context.get("module_name", "")).strip_edges()
+	var pad_name := String(context.get("pad_name", "")).strip_edges()
+	var parcel_name := String(context.get("parcel_name", "CAMPUS PARCEL")).strip_edges()
+	if not module_name.is_empty():
+		label_parts.append(module_name.to_upper())
+	if not pad_name.is_empty():
+		label_parts.append(pad_name.to_upper())
+	if label_parts.is_empty():
+		label_parts.append(parcel_name.to_upper())
+	_camera_controller.focus_point(
+		Vector3(center.x, 1.10, center.y),
+		" / ".join(label_parts),
+		0.32,
+		clampf(maxf(footprint.size.x, footprint.size.y) * 1.38, 10.5, 16.5),
+	)
+
+
+func _clear_campus_portfolio_reveal_target() -> void:
+	var visual: Node3D = null
+	if _office_storytelling != null:
+		visual = _office_storytelling.campus_portfolio_visual
+	if visual == null:
+		visual = find_child("CampusPortfolioVisual", true, false) as Node3D
+	if visual != null and visual.has_method("hide_reveal_target"):
+		visual.call("hide_reveal_target")
+
+
+func _on_campus_portfolio_reveal_continue_requested() -> void:
+	if _campus_portfolio_reveal_ui != null:
+		_campus_portfolio_reveal_ui.call("hide_reveal")
+	_clear_campus_portfolio_reveal_target()
+	if _present_pending_campus_portfolio_reveal():
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	_restore_capital_origin()
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campus_portfolio_reveal_return_requested() -> void:
+	if _campus_portfolio_reveal_ui != null:
+		_campus_portfolio_reveal_ui.call("hide_reveal")
+	_clear_campus_portfolio_reveal_target()
+	if _campus_portfolio_ui != null:
+		_campus_portfolio_ui.call("show_portfolio", _simulation.snapshot())
+	_set_capital_modal_interaction(true)
+	_ticker_label.text = "CAMPUS PORTFOLIO OPEN. The filed result remains permanent in the live campus and receipt archive."
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campus_parcel_purchase_requested(parcel_id: StringName) -> void:
+	_resolve_campus_authorization(
+		_simulation.purchase_campus_parcel(parcel_id),
+		"campus_parcel_%s" % String(parcel_id),
+	)
+
+
+func _on_campus_service_connect_requested(service_id: StringName) -> void:
+	_resolve_campus_authorization(
+		_simulation.commission_campus_service(service_id),
+		"campus_service_%s" % String(service_id),
+	)
+
+
+func _on_campus_pod_place_requested(socket_id: StringName) -> void:
+	_resolve_campus_authorization(
+		_simulation.place_campus_module(CAMPUS_ROUTING_POD_ID, socket_id),
+		"campus_pod_place_%s" % String(socket_id),
+	)
+
+
+func _on_campus_pod_relocate_requested(
+		from_socket_id: StringName,
+		to_socket_id: StringName,
+) -> void:
+	var campus := _simulation.campus_expansion_snapshot()
+	if StringName(String(campus.get("pod_socket_id", ""))) != from_socket_id:
+		_ticker_label.text = "PLACEMENT FILE CHANGED. Review the current Egg Routing Pod socket before moving it."
+		if _campus_expansion_ui != null:
+			_campus_expansion_ui.call("set_snapshot", _simulation.snapshot())
+		return
+	_resolve_campus_authorization(
+		_simulation.relocate_campus_module(CAMPUS_ROUTING_POD_ID, to_socket_id),
+		"campus_pod_relocate_%s_to_%s" % [String(from_socket_id), String(to_socket_id)],
+	)
+
+
+func _resolve_campus_authorization(result: Dictionary, checkpoint_reason: String) -> void:
+	var snapshot := _simulation.snapshot()
+	if _campus_expansion_ui != null:
+		_campus_expansion_ui.call("set_snapshot", snapshot)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get("reason", "NORTH MEADOW FILING HELD FOR REVIEW."))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"campus_authorization")
+		_publish_web_diagnostic_state(snapshot)
+		return
+	_ticker_label.text = String(result.get("outcome", "NORTH MEADOW FILING COMMISSIONED."))
+	if _audio_feedback != null:
+		_audio_feedback.play_policy_stamp()
+	if _camera_controller != null:
+		_camera_controller.focus_point(NORTH_MEADOW_FOCUS, "NORTH MEADOW FILED", 0.30, 13.5)
+	_save_campaign_checkpoint(checkpoint_reason)
+	_publish_web_diagnostic_state(snapshot)
+
+
+func _begin_capital_modal_hold() -> void:
+	if _capital_modal_holds_speed:
+		return
+	_capital_modal_previous_speed = _clock.speed_index if _clock != null else 0
+	_capital_modal_holds_speed = true
+	if _clock != null:
+		_clock.set_speed(0)
+
+
+func _set_capital_modal_interaction(is_open: bool) -> void:
+	if _camera_controller != null:
+		_camera_controller.set_process_unhandled_input(not is_open)
+	if _routing_ui != null:
+		_routing_ui.set_interaction_enabled(
+			not is_open and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+		)
+
+
+func _restore_capital_origin() -> void:
+	var restore_review := _capital_blueprint_restore_review
+	var restore_flockwatch := _capital_blueprint_restore_flockwatch
+	_capital_blueprint_restore_review = false
+	_capital_blueprint_restore_flockwatch = false
+	if _camera_controller != null:
+		_camera_controller.show_overview()
+	if restore_review and _day_review_scrim != null:
+		_day_review_scrim.visible = true
+		_set_capital_modal_interaction(true)
+	elif restore_flockwatch:
+		_set_capital_modal_interaction(false)
+		_set_flockwatch_open(true)
+	else:
+		_set_capital_modal_interaction(false)
+	if _capital_modal_holds_speed:
+		var can_restore_speed := (
+			not restore_review
+			and (_campaign_ui == null or not _campaign_ui.is_modal_open())
+			and (_decision_host == null or not _decision_host.visible)
+			and (_day_review_scrim == null or not _day_review_scrim.visible)
+		)
+		if can_restore_speed and _clock != null:
+			_clock.set_speed(_capital_modal_previous_speed)
+		_capital_modal_holds_speed = false
+
+
+func _on_commissioning_continue_requested() -> void:
+	if _commissioning_reveal_ui != null:
+		_commissioning_reveal_ui.call("hide_reveal")
+	_restore_capital_origin()
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_commissioning_return_to_blueprint_requested() -> void:
+	if _commissioning_reveal_ui != null:
+		_commissioning_reveal_ui.call("hide_reveal")
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("show_blueprint", _simulation.snapshot())
+	_set_capital_modal_interaction(true)
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _prefers_reduced_motion() -> bool:
+	var motion_mode := String(_player_preferences.get("motion_mode", "system"))
+	if motion_mode == "reduced":
+		return true
+	if motion_mode == "full":
+		return false
+	if not OS.has_feature("web"):
+		return false
+	var window := JavaScriptBridge.get_interface("window")
+	if window == null:
+		return false
+	# JavaScriptObject.has_method() inspects methods on the Godot wrapper, not
+	# properties on window, so it reports false for the browser's matchMedia API.
+	# All supported browsers expose matchMedia; call the interface directly so
+	# commissioning reveals actually honor the player's OS preference.
+	var query: Variant = window.matchMedia("(prefers-reduced-motion: reduce)")
+	return query != null and bool(query.matches)
 
 
 func _on_begin_next_shift_pressed() -> void:
@@ -1950,6 +4142,9 @@ func _on_begin_next_shift_pressed() -> void:
 
 
 func _on_continue_directive_pressed() -> void:
+	if _farmer_relations_gallery_offer_open():
+		if not _skip_farmer_relations_gallery_campaign():
+			return
 	_advance_from_farmer_review()
 
 
@@ -1969,6 +4164,8 @@ func _advance_from_farmer_review() -> void:
 
 
 func _advance_after_closing_credit() -> void:
+	if _present_farmer_relations_gallery_review():
+		return
 	if _campaign_senior_roost:
 		_show_senior_roost_report()
 		return
@@ -1981,9 +4178,82 @@ func _advance_after_closing_credit() -> void:
 	_save_campaign_checkpoint("probation_report")
 
 
+func _farmer_relations_gallery_projection(snapshot: Dictionary = {}) -> Dictionary:
+	var source := snapshot if not snapshot.is_empty() else _simulation.snapshot()
+	var nested_value: Variant = source.get("farmer_relations_gallery", {})
+	if nested_value is Dictionary and not (nested_value as Dictionary).is_empty():
+		return (nested_value as Dictionary).duplicate(true)
+	if _simulation.has_method("farmer_relations_gallery_snapshot"):
+		var projection_value: Variant = _simulation.call("farmer_relations_gallery_snapshot")
+		if projection_value is Dictionary:
+			return (projection_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _farmer_relations_gallery_offer_open(snapshot: Dictionary = {}) -> bool:
+	var gallery := _farmer_relations_gallery_projection(snapshot)
+	var status := StringName(String(gallery.get(
+		"campaign_status",
+		gallery.get("status", ""),
+	)))
+	return (
+		int(gallery.get("level", 0)) > 0
+		and bool(gallery.get("review_open", true))
+		and status in [&"offer_open", &"open", &"ready"]
+	)
+
+
+func _present_farmer_relations_gallery_review() -> bool:
+	var snapshot := _simulation.snapshot()
+	if not _farmer_relations_gallery_offer_open(snapshot):
+		return false
+	_campaign_review_stage = &"credit"
+	_clock.set_speed(0)
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	if _campaign_ui != null:
+		_set_campaign_modal_open(false)
+	if _camera_controller != null:
+		_camera_controller.set_process_unhandled_input(true)
+	if _routing_ui != null:
+		_routing_ui.set_interaction_enabled(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS)
+	_guidance_label.text = "CLOSING CREDIT FILED: publish one Gallery campaign or continue to skip."
+	_ticker_label.text = "FARMER RELATIONS GALLERY. One public campaign may be hung from this closed shift."
+	_publish_web_diagnostic_state(snapshot)
+	return true
+
+
+func _skip_farmer_relations_gallery_campaign() -> bool:
+	if not _simulation.has_method("skip_farmer_relations_campaign"):
+		_ticker_label.text = "GALLERY FILE HELD. Skip authorization is unavailable."
+		return false
+	var result_value: Variant = _simulation.call("skip_farmer_relations_campaign")
+	var result := result_value as Dictionary if result_value is Dictionary else {}
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get(
+			"reason",
+			"PUBLIC CAMPAIGN SKIP HELD FOR CLOSING REVIEW.",
+		))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"gallery_skip")
+		return false
+	var snapshot := _simulation.snapshot()
+	_on_snapshot_changed(snapshot)
+	_ticker_label.text = String(result.get(
+		"outcome",
+		"No public campaign was filed for this closed shift.",
+	))
+	_save_campaign_checkpoint("farmer_relations_campaign_skipped")
+	_publish_web_diagnostic_state(snapshot)
+	return true
+
+
 func _on_worker_assignment_requested(worker_id: int, lane: StringName) -> void:
 	if not _simulation.set_worker_assignment(worker_id, lane):
 		_ticker_label.text = "ROUTING HELD. Finish the current management action before changing trays."
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"routing")
 		return
 	var worker_name := "HEN %d" % (worker_id + 1)
 	for worker_value in _simulation.snapshot().get("workers", []):
@@ -2003,6 +4273,8 @@ func _on_personnel_action_requested(worker_id: int, action_id: StringName) -> vo
 	var result := _simulation.perform_personnel_action(worker_id, action_id)
 	if not bool(result.get("accepted", false)):
 		_ticker_label.text = String(result.get("reason", "PERSONNEL ACTION HELD."))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"personnel")
 		return
 	var preferred_note := "  /  PROFILE MATCH" if bool(result.get("preferred", false)) else ""
 	_ticker_label.text = "%s%s" % [String(result.get("outcome", "Personnel action filed.")), preferred_note]
@@ -2026,7 +4298,7 @@ func _request_peck_assist_from_input() -> void:
 	if _clock.speed_index == 0:
 		_ticker_label.text = "PRIORITY PECK HELD. Resume the live clock before stamping the rhythm."
 		if _audio_feedback != null:
-			_audio_feedback.play_ui_tick()
+			_audio_feedback.play_denied(&"clock_paused")
 		return
 	var worker_id := _routing_ui.focused_worker_id() if _routing_ui != null else -1
 	if worker_id < 0 or not bool(_simulation.peck_assist_status(worker_id).get("available", false)):
@@ -2034,7 +4306,7 @@ func _request_peck_assist_from_input() -> void:
 	if worker_id < 0:
 		_ticker_label.text = "PRIORITY PECK: wait for a seated hen's claim meter to enter the gold window."
 		if _audio_feedback != null:
-			_audio_feedback.play_ui_tick()
+			_audio_feedback.play_denied(&"peck_window")
 		return
 	if _camera_controller != null:
 		_camera_controller.focus_worker(worker_id)
@@ -2049,13 +4321,13 @@ func _on_peck_assist_requested(worker_id: int) -> void:
 	if not bool(result.get("accepted", false)):
 		_ticker_label.text = String(result.get("reason", "PRIORITY PECK HELD."))
 		if _audio_feedback != null:
-			_audio_feedback.play_ui_tick()
+			_audio_feedback.play_denied(&"peck_rejected")
 		return
 	var rating := StringName(result.get("rating", &"steady"))
 	var worker_name := String(result.get("worker_name", "HEN")).to_upper()
 	var progress_gain := int(roundf(float(result.get("progress_gain", 0.0))))
 	var quality_points := absf(float(result.get("quality_modifier", 0.0))) * 100.0
-	_ticker_label.text = "%s PECK  ·  %s +%d%% FILE  ·  shell risk %s%.1f%%  ·  chain x%d  ·  %d stamps left" % [
+	_ticker_label.text = "%s PECK  ·  %s +%d%% FILE  ·  shell risk %s%.1f%%  ·  chain x%d  ·  %d charges left; clean delivery restores 1" % [
 		String(rating).to_upper(), worker_name, progress_gain,
 		("-" if float(result.get("quality_modifier", 0.0)) <= 0.0 else "+"), quality_points,
 		int(result.get("streak", 0)), int(result.get("remaining", 0)),
@@ -2095,6 +4367,186 @@ func _on_staff_capacity_purchase_requested() -> void:
 	_handle_staffing_action_result(result, &"capacity_expanded")
 
 
+func _on_facility_purchase_requested(facility_id: StringName) -> void:
+	var result := _simulation.purchase_facility(facility_id)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get("reason", "FACILITY REQUISITION HELD FOR REVIEW."))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"facility")
+		return
+	# Reconcile the protected reserve and physical room from the same authoritative
+	# mutation before holding the exact commissioning receipt over that room.
+	_on_snapshot_changed(_simulation.snapshot())
+	_ticker_label.text = String(result.get("outcome", "Facility requisition installed."))
+	if _audio_feedback != null:
+		_audio_feedback.play_upgrade()
+	_begin_capital_modal_hold()
+	var blueprint_was_open := (
+		_capital_blueprint_ui != null and bool(_capital_blueprint_ui.call("is_open"))
+	)
+	if not blueprint_was_open:
+		_capital_blueprint_restore_flockwatch = _flockwatch_open
+	_set_flockwatch_open(false)
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("hide_blueprint", false)
+	var focus := _facility_focus_file(facility_id)
+	if _camera_controller != null and not focus.is_empty():
+		var focus_point_value: Vector3 = focus.get("point", EXPANDED_OVERVIEW_TARGET)
+		_camera_controller.focus_point(
+			focus_point_value,
+			String(focus.get("label", "FACILITY COMMISSIONED")),
+			0.45,
+			float(focus.get("size", 11.5)),
+		)
+	var receipt := result.get("commissioning_receipt", result) as Dictionary
+	if _commissioning_reveal_ui != null:
+		_commissioning_reveal_ui.call(
+			"show_reveal",
+			receipt,
+			_prefers_reduced_motion(),
+		)
+	_set_capital_modal_interaction(true)
+	_publish_web_diagnostic_state(_simulation.snapshot())
+	_save_campaign_checkpoint("facility_purchased_%s" % String(facility_id))
+
+
+func _facility_focus_file(facility_id: StringName) -> Dictionary:
+	match facility_id:
+		&"candling_rework_bay":
+			return {"point": Vector3(10.10, 0.85, 2.30), "label": "CANDLING & REWORK BAY", "size": 9.5}
+		&"farmer_brand_packing_annex":
+			return {"point": PACKING_ANNEX_FOCUS, "label": "FARMER BRAND PACKING ANNEX", "size": 11.5}
+		&"records_annex":
+			return {"point": RECORDS_ANNEX_FOCUS, "label": "LAYING RECORDS ANNEX", "size": 11.5}
+		&"farmgate_dispatch_depot":
+			return {"point": FARMGATE_DISPATCH_DEPOT_FOCUS, "label": "FARMGATE DISPATCH DEPOT", "size": 13.0}
+		&"farm_mutual_service_coop":
+			return {"point": FARM_MUTUAL_SERVICE_COOP_FOCUS, "label": "FARM MUTUAL SERVICE COOP", "size": 11.5}
+		&"farm_mutual_negotiation_room":
+			return {"point": FARM_MUTUAL_NEGOTIATION_ROOM_FOCUS, "label": "GOLD NEGOTIATION ROOM", "size": 11.5}
+		&"wellness_nest_room":
+			return {"point": WELLNESS_NEST_FOCUS, "label": "WELLNESS NEST", "size": 11.5}
+		&"training_roost":
+			return {"point": TRAINING_ROOST_FOCUS, "label": "TRAINING ROOST", "size": 11.5}
+		&"farmer_relations_gallery":
+			return {"point": FARMER_RELATIONS_GALLERY_FOCUS, "label": "HARVEST CREDIT GALLERY", "size": 12.5}
+		&"rooster_operations_office":
+			return {"point": ROOSTER_OPERATIONS_OFFICE_FOCUS, "label": "ROOSTER OPERATIONS OFFICE", "size": 11.5}
+		&"it_coop":
+			return {"point": IT_COOP_FOCUS, "label": "IT COOP", "size": 11.5}
+		&"flock_relations_office":
+			return {"point": FLOCK_RELATIONS_OFFICE_FOCUS, "label": "FLOCK RELATIONS OFFICE", "size": 11.5}
+		&"feed_procurement_coop":
+			return {"point": FLOCK_PROVISIONS_COOP_FOCUS, "label": "FLOCK PROVISIONS CO-OP", "size": 11.5}
+	return {}
+
+
+func _on_feed_order_requested(order_id: StringName) -> void:
+	var result := _simulation.authorize_feed_order(order_id)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get(
+			"reason",
+			"PROVISIONS ORDER HELD FOR REVIEW.",
+		))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"provisions")
+		return
+	# The inventory room, reserve projection, and Flockwatch receipt all reconcile
+	# from the same authoritative order before the camera visits the new delivery.
+	_on_snapshot_changed(_simulation.snapshot())
+	_ticker_label.text = String(result.get("outcome", "Provisions order authorized."))
+	if _audio_feedback != null:
+		_audio_feedback.play_policy_stamp()
+	if _camera_controller != null:
+		_camera_controller.show_event_focus(
+			FLOCK_PROVISIONS_COOP_FOCUS,
+			"PROVISIONS DELIVERY FILED",
+			1.35,
+		)
+	_save_campaign_checkpoint("feed_order_%s" % String(order_id))
+
+
+func _on_farmgate_dispatch_mandate_requested(mandate_id: StringName) -> void:
+	var result := _simulation.authorize_farmgate_dispatch(mandate_id)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get(
+			"reason",
+			"FARMGATE MANDATE HELD FOR REVIEW.",
+		))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"farmgate")
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_ticker_label.text = String(result.get("outcome", "Farmgate dispatch mandate filed."))
+	if _audio_feedback != null:
+		_audio_feedback.play_policy_stamp()
+	if _camera_controller != null:
+		_camera_controller.show_event_focus(
+			FARMGATE_DISPATCH_DEPOT_FOCUS,
+			"FARMGATE ROUTE FILED",
+			1.35,
+		)
+	_save_campaign_checkpoint("farmgate_dispatch_%s" % String(mandate_id))
+
+
+func _on_farmer_relations_campaign_requested(campaign_id: StringName) -> void:
+	if not _simulation.has_method("file_farmer_relations_campaign"):
+		_ticker_label.text = "GALLERY FILE HELD. Public-credit authorization is unavailable."
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"gallery_unavailable")
+		return
+	var result_value: Variant = _simulation.call("file_farmer_relations_campaign", campaign_id)
+	var result := result_value as Dictionary if result_value is Dictionary else {}
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get(
+			"reason",
+			"GALLERY CAMPAIGN HELD FOR CLOSING REVIEW.",
+		))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"gallery_campaign")
+		return
+	# Keep the player in Flockwatch. The three authored cards are persistent
+	# controls, so applying the compact projection preserves ledger scroll while
+	# replacing the open offer with its permanent receipt.
+	var snapshot := _simulation.snapshot()
+	_on_snapshot_changed(snapshot)
+	_ticker_label.text = String(result.get("outcome", "Public campaign filed in the Gallery."))
+	if _audio_feedback != null:
+		_audio_feedback.play_policy_stamp()
+	# Filing happens inside the ledger. Do not pull the camera away (which also
+	# closes Flockwatch) while the player is reading the permanent receipt.
+	if _camera_controller != null and not _flockwatch_open:
+		_camera_controller.show_event_focus(
+			FARMER_RELATIONS_GALLERY_FOCUS,
+			"PUBLIC CREDIT HUNG",
+			1.35,
+		)
+	_save_campaign_checkpoint("farmer_relations_campaign_%s" % String(campaign_id))
+	_publish_web_diagnostic_state(snapshot)
+	if _continue_shift_button != null and _continue_shift_button.is_visible_in_tree():
+		_continue_shift_button.call_deferred("grab_focus")
+
+
+func _on_flock_relations_action_requested(case_id: int, action_id: StringName) -> void:
+	var result := _simulation.resolve_flock_relations_case(case_id, action_id)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get(
+			"reason",
+			"FLOCK RELATIONS DISPOSITION HELD FOR REVIEW.",
+		))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"flock_relations")
+		return
+	# Keep the player in the existing Flockwatch review flow. The refreshed
+	# snapshot removes exactly the resolved case and files the permanent receipt;
+	# no additional modal obscures the remaining labor docket.
+	_on_snapshot_changed(_simulation.snapshot())
+	_ticker_label.text = String(result.get("outcome", "Flock Relations case filed."))
+	if _audio_feedback != null:
+		_audio_feedback.play_decision_resolved()
+	_save_campaign_checkpoint("flock_relations_%s_case_%d" % [String(action_id), case_id])
+
+
 func _on_staff_hire_requested(worker_id: int) -> void:
 	var result := _simulation.hire_worker(worker_id)
 	_handle_staffing_action_result(result, &"worker_hired")
@@ -2109,7 +4561,7 @@ func _handle_staffing_action_result(result: Dictionary, checkpoint_reason: Strin
 	if not bool(result.get("accepted", false)):
 		_ticker_label.text = String(result.get("reason", "STAFFING FILE HELD FOR REVIEW."))
 		if _audio_feedback != null:
-			_audio_feedback.play_ui_tick()
+			_audio_feedback.play_denied(&"staffing")
 		return
 	# Reconcile immediately even when a future simulation implementation elects
 	# not to emit a redundant snapshot for an already-paused planning action.
@@ -2131,7 +4583,10 @@ func _handle_staffing_action_result(result: Dictionary, checkpoint_reason: Strin
 
 
 func _on_campaign_new_requested() -> void:
-	_campaign_store.delete()
+	# A new file is committed through CampaignSaveStore's verified temporary-file
+	# transaction. Keeping the current primary in place until that commit succeeds
+	# also lets the store refresh its recovery copy with the previous campaign.
+	var had_prior_save := _campaign_store.has_save()
 	_campaign_state = CampaignStateScript.new()
 	_senior_roost_state = SeniorRoostStateScript.new()
 	_campaign_review_stage = &"active"
@@ -2142,12 +4597,32 @@ func _on_campaign_new_requested() -> void:
 		push_error("Could not reset the office simulation for a new probation file.")
 		return
 	_reset_first_clutch(true)
+	if _flockwatch_navigation != null:
+		_flockwatch_navigation.reset_discovered_pages()
 	_prime_first_hen_prelude()
 	_reset_campaign_session_visuals()
+	if not _save_campaign_checkpoint("new_campaign"):
+		var save_error: String = _campaign_store.last_error
+		# The fresh in-memory file is abandoned below. Do not let the coordinator
+		# later retry it after the prior verified campaign has been restored.
+		_checkpoint_coordinator.discard_pending()
+		if had_prior_save:
+			_load_campaign_checkpoint()
+		else:
+			_show_campaign_title(false)
+			_set_campaign_modal_open(true)
+		_ticker_label.text = (
+			"NEW FILE HELD. The replacement checkpoint could not be verified; "
+			+ ("the prior valid coop file was restored. " if had_prior_save else "no unverified campaign was opened. ")
+			+ save_error
+		)
+		return
+	_campaign_session_checkpoint_enabled = true
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("reset_presentation_filter")
 	_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
 	_set_campaign_modal_open(false)
 	_present_first_hen_prelude()
-	_save_campaign_checkpoint("new_campaign")
 
 
 func _on_campaign_continue_requested() -> void:
@@ -2161,7 +4636,9 @@ func _on_campaign_continue_requested() -> void:
 			if _campaign_state.is_milestone_choice_available():
 				_ticker_label.text = "MILESTONE REQUIRED. Choose one permanent probation edge before shift three."
 				return
-			_begin_next_shift_from_campaign()
+			_open_contract_board_or_begin_next_shift()
+		ProbationCampaignUI.VIEW_CONTRACT_BOARD:
+			_continue_from_contract_board()
 		ProbationCampaignUI.VIEW_FINAL:
 			if _campaign_state.outcome == CampaignStateScript.OUTCOME_PASSED:
 				_enter_senior_roost()
@@ -2169,22 +4646,75 @@ func _on_campaign_continue_requested() -> void:
 
 func _on_campaign_abandon_requested() -> void:
 	_clock.set_speed(0)
-	_campaign_store.delete()
-	_campaign_review_stage = &"title"
-	_campaign_senior_roost = false
-	_senior_roost_state = SeniorRoostStateScript.new()
-	_reset_first_clutch(false)
+	if not _save_campaign_checkpoint("returned_to_intake"):
+		_ticker_label.text = (
+			"RETURN TO INTAKE HELD. The current coop file could not be safely shelved: %s"
+			% _campaign_store.last_error
+		)
+		return
+	_campaign_session_checkpoint_enabled = false
 	_day_review_scrim.visible = false
 	_decision_host.visible = false
 	_set_flockwatch_open(false)
-	_show_campaign_title(false)
+	_show_campaign_title(true)
 	_set_campaign_modal_open(true)
-	_ticker_label.text = "PROBATION FILE CLOSED. A clean five-shift file may be opened at any time."
+	_ticker_label.text = "COOP FILE SAFELY SHELVED. Continue resumes the exact checkpoint; New Campaign requires confirmation."
+
+
+func _on_market_contract_sign_requested(
+	offer_id: StringName,
+	clause_id: StringName = &"standard_terms",
+) -> void:
+	var receipt := _simulation.sign_market_contract(offer_id, clause_id)
+	_campaign_ui.show_contract_board(_simulation.snapshot())
+	_set_campaign_modal_open(true)
+	_ticker_label.text = String(receipt.get(
+		"outcome",
+		receipt.get("reason", "FARM MUTUAL SIGNATURE HELD."),
+	))
+	if bool(receipt.get("accepted", false)):
+		_save_campaign_checkpoint("market_contract_signed")
+
+
+func _on_market_contract_decline_requested() -> void:
+	var receipt := _simulation.decline_market_contract()
+	_campaign_ui.show_contract_board(_simulation.snapshot())
+	_set_campaign_modal_open(true)
+	_ticker_label.text = String(receipt.get(
+		"outcome",
+		receipt.get("reason", "STANDARD BOOK FILING HELD."),
+	))
+	if bool(receipt.get("accepted", false)):
+		_save_campaign_checkpoint("market_contract_declined")
 
 
 func _on_campaign_milestone_requested(choice_id: StringName) -> void:
 	if _campaign_senior_roost:
-		if _senior_roost_state == null or not _senior_roost_state.requires_quarter_policy():
+		if _senior_roost_state == null:
+			_ticker_label.text = "SENIOR FILE HELD. The recurring career ledger is unavailable."
+			return
+		if _senior_roost_state.requires_annual_mandate():
+			var mandate_receipt: Dictionary = _senior_roost_state.select_annual_mandate(
+				choice_id,
+				_senior_roost_state.current_year_number(),
+			)
+			if not bool(mandate_receipt.get("accepted", false)):
+				_ticker_label.text = "BOARD MANDATE HELD. %s" % String(
+					mandate_receipt.get("reason", "Choose one of the three frozen annual books."),
+				)
+				_campaign_ui.show_between_shift_report(_senior_presentation_snapshot(&"between_shift"))
+				return
+			_campaign_review_stage = &"senior_quarter"
+			_campaign_ui.show_between_shift_report(_senior_presentation_snapshot(&"between_shift"))
+			_update_campaign_objectives_label()
+			_save_campaign_checkpoint("senior_annual_mandate_selected")
+			_ticker_label.text = "%s Choose this quarter's capital policy next." % String(
+				mandate_receipt.get("outcome", "ANNUAL BOARD MANDATE FILED."),
+			)
+			if _audio_feedback != null:
+				_audio_feedback.play_policy_stamp()
+			return
+		if not _senior_roost_state.requires_quarter_policy():
 			_ticker_label.text = "CAPITAL POLICY HELD. This Senior quarter already has a filed policy."
 			return
 		var senior_receipt := _simulation.apply_senior_quarter_policy(choice_id)
@@ -2296,7 +4826,7 @@ func _enter_senior_roost() -> void:
 			return
 	_campaign_senior_roost = _senior_roost_state.is_active()
 	_show_senior_roost_report("senior_roost_entered")
-	_ticker_label.text = "SENIOR ROOST OPEN. File a capital policy before beginning the first three-shift quarter."
+	_ticker_label.text = "SENIOR ROOST OPEN. Choose one annual Board Mandate, then file the first quarter's capital policy."
 
 
 func _continue_senior_roost_report() -> void:
@@ -2305,7 +4835,11 @@ func _continue_senior_roost_report() -> void:
 		return
 	match _senior_roost_state.status:
 		SeniorRoostStateScript.STATUS_QUARTER_CHOICE:
-			_ticker_label.text = "CAPITAL POLICY REQUIRED. Choose one available tradeoff before opening the quarter."
+			_ticker_label.text = (
+				"ANNUAL BOARD MANDATE REQUIRED. Choose one frozen year-long book before Q1 policy."
+				if _senior_roost_state.requires_annual_mandate() else
+				"CAPITAL POLICY REQUIRED. Choose one available tradeoff before opening the quarter."
+			)
 			return
 		SeniorRoostStateScript.STATUS_ANNUAL_REVIEW:
 			var passed := bool(_senior_roost_state.last_annual_review.get("passed", false))
@@ -2313,13 +4847,13 @@ func _continue_senior_roost_report() -> void:
 			if not bool(transition.get("accepted", false)):
 				_ticker_label.text = String(transition.get("reason", "ANNUAL TRANSITION HELD."))
 				return
-			if not _senior_roost_state.continue_after_annual():
+			if not _senior_roost_state.continue_after_annual(_simulation.snapshot()):
 				push_error("Senior annual review could not advance after an accepted transition.")
 				return
 			_show_senior_roost_report("senior_year_transition")
 			_ticker_label.text = String(transition.get("outcome", "NEXT SENIOR YEAR OPEN."))
 		SeniorRoostStateScript.STATUS_ACTIVE:
-			_begin_next_shift_from_campaign()
+			_open_contract_board_or_begin_next_shift()
 		_:
 			_ticker_label.text = "SENIOR ROOST HELD. The career ledger is not ready to continue."
 
@@ -2357,6 +4891,30 @@ func _begin_next_shift_from_campaign() -> void:
 		return
 	_update_campaign_objectives_label()
 	_save_campaign_checkpoint("next_shift_briefing")
+
+
+func _open_contract_board_or_begin_next_shift() -> void:
+	var board := _simulation.market_contract_board_status()
+	if not bool(board.get("unlocked", false)):
+		_begin_next_shift_from_campaign()
+		return
+	_campaign_review_stage = &"contract_board"
+	_day_review_scrim.visible = false
+	_set_flockwatch_open(false)
+	_campaign_ui.show_contract_board(_simulation.snapshot())
+	_set_campaign_modal_open(true)
+	_update_campaign_objectives_label()
+	_save_campaign_checkpoint("market_contract_board")
+
+
+func _continue_from_contract_board() -> void:
+	var board := _simulation.market_contract_board_status()
+	var active := board.get("active", {}) as Dictionary
+	var declined := board.get("decline_receipt", {}) as Dictionary
+	if active.is_empty() and declined.is_empty():
+		_ticker_label.text = "FARM MUTUAL FILE INCOMPLETE. Sign one disclosed binder or explicitly keep the standard book."
+		return
+	_begin_next_shift_from_campaign()
 
 
 func _show_campaign_final_review() -> void:
@@ -2414,6 +4972,7 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 			"effect": _milestone_effect_text(milestone.get("effects", {}) as Dictionary),
 		})
 	var final_evaluation := _campaign_state.final_evaluation()
+	var safeguard_forecast := _campaign_state.probation_safeguard_forecast()
 	var leadership_record := _simulation.leadership_record_snapshot()
 	var ending := _simulation.campaign_ending_snapshot(bool(final_evaluation.get("passed", false)))
 	var score_receipt := _campaign_state.latest_score_receipt()
@@ -2462,6 +5021,7 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		"selected_milestone": String(_campaign_state.chosen_milestone_id),
 		"credit_memo": _simulation.last_credit_allocation.duplicate(true),
 		"score_receipt": score_receipt,
+		"probation_safeguard_forecast": safeguard_forecast,
 		"hen_highlight": hen_highlight,
 		"leadership_record": leadership_record,
 		"ending": ending,
@@ -2476,6 +5036,12 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 	var annual_review: Dictionary = _senior_roost_state.last_annual_review
 	var quarter_review: Dictionary = _senior_roost_state.last_quarter_review
 	var active_policy := _senior_roost_state.active_policy()
+	var mandate_required := _senior_roost_state.requires_annual_mandate()
+	var active_mandate := _senior_roost_state.active_annual_mandate()
+	var mandate_progress := _senior_roost_state.current_annual_mandate_progress(
+		_campaign_live_metrics(_simulation.snapshot()) if view == &"active" else {}
+	)
+	var mandate_tier := _senior_roost_state.mandate_tier_eligibility()
 	var year_number := _senior_roost_state.current_year_number()
 	var quarter_number := _senior_roost_state.current_quarter_in_year()
 	var display_shift := _senior_roost_state.current_shift_in_quarter()
@@ -2494,7 +5060,11 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 
 	var policy_cards: Array[Dictionary] = []
 	if status_id == SeniorRoostStateScript.STATUS_QUARTER_CHOICE:
-		policy_cards = _senior_roost_state.policy_catalog(_simulation.spendable_fund_cents())
+		policy_cards = (
+			_senior_board_mandate_cards()
+			if mandate_required else
+			_senior_roost_state.policy_catalog(_simulation.spendable_fund_cents())
+		)
 
 	var report_heading := "SENIOR ROOST QUARTERLY FILING"
 	var report_note := "The permanent career ledger remains open."
@@ -2513,26 +5083,45 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 	var secondary_tooltip := "Three filed shifts close a Senior Roost quarter."
 
 	if status_id == SeniorRoostStateScript.STATUS_QUARTER_CHOICE:
-		report_heading = "YEAR %d · QUARTER %d CAPITAL FILING" % [year_number, quarter_number]
-		continue_label = "SELECT A POLICY TO OPEN QUARTER  [C]"
-		continue_tooltip = "File one available capital policy before the quarter can open."
-		secondary_display = (
-			"%d / 100" % int(quarter_review.get("score", 0))
-			if not quarter_review.is_empty() else
-			"OPEN"
-		)
-		secondary_caption = "LAST QUARTER"
-		if quarter_review.is_empty():
-			report_note = "Promotion unlocked. Senior quarters last three shifts; each begins with one irreversible capital policy."
+		if mandate_required:
+			report_heading = "YEAR %d · ANNUAL BOARD MANDATE" % year_number
+			continue_label = "SELECT A MANDATE BEFORE Q1 POLICY  [C]"
+			continue_tooltip = "Choose one frozen twelve-shift Board Mandate; the Standard Board Book never stakes Roost Marks."
+			secondary_display = "%d" % int(mandate_tier.get("mandate_seals", 0))
+			secondary_caption = "BOARD SEALS"
+			secondary_tooltip = _senior_mandate_tier_tooltip(mandate_tier)
+			report_note = "Choose the year-long terms before quarterly policy. Harder books stake available Roost Marks; success returns the stake and earns more permanent Board Seals."
+			objective = {
+				"title": "CHOOSE THE YEAR'S TERMS",
+				"description": "Compare all three target bundles, reward, failure cost, and stake. The first card is always a valid no-stake fallback.",
+				"reward": _senior_mandate_tier_tooltip(mandate_tier),
+			}
 		else:
-			report_note = "Quarter %d closed at %d / 100 and awarded +%d Roost Mark%s. File the next tradeoff; one optional Career Sponsorship may invest banked marks below." % [
-				int(quarter_review.get("quarter_number", 0)),
-				int(quarter_review.get("score", 0)),
-				int(quarter_review.get("marks_awarded", 0)),
-				"" if int(quarter_review.get("marks_awarded", 0)) == 1 else "s",
-			]
+			report_heading = "YEAR %d · QUARTER %d CAPITAL FILING" % [year_number, quarter_number]
+			continue_label = "SELECT A POLICY TO OPEN QUARTER  [C]"
+			continue_tooltip = "File one available capital policy before the quarter can open."
+			secondary_display = (
+				"%d / 100" % int(quarter_review.get("score", 0))
+				if not quarter_review.is_empty() else
+				"OPEN"
+			)
+			secondary_caption = "LAST QUARTER"
+			if quarter_review.is_empty():
+				report_note = "Annual terms filed. Choose the irreversible capital policy that governs this three-shift quarter."
+			else:
+				report_note = "Quarter %d closed at %d / 100 and awarded +%d Roost Mark%s. File the next tradeoff; one optional Career Sponsorship may invest banked marks below." % [
+					int(quarter_review.get("quarter_number", 0)),
+					int(quarter_review.get("score", 0)),
+					int(quarter_review.get("marks_awarded", 0)),
+					"" if int(quarter_review.get("marks_awarded", 0)) == 1 else "s",
+				]
 	elif status_id == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW:
 		var annual_passed := bool(annual_review.get("passed", false))
+		var mandate_settlement := annual_review.get(
+			"mandate_settlement",
+			_senior_roost_state.last_mandate_settlement,
+		) as Dictionary
+		var mandate_succeeded := bool(mandate_settlement.get("success", false))
 		report_heading = "YEAR %d ANNUAL ROOST REVIEW" % year_number
 		report_note = "%s  Annual score %d / 100 · welfare %d%% · obedience %d%% · farmer favor %d%% · shell cracks %.1f%%." % [
 			"SAFEGUARDS PASSED." if annual_passed else "PERFORMANCE IMPROVEMENT YEAR REQUIRED.",
@@ -2543,6 +5132,11 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			float(int(annual_review.get("crack_rate_basis_points", 0))) / 100.0,
 		]
 		report_note += " One optional Career Sponsorship remains available before Year %d planning." % (year_number + 1)
+		if not mandate_settlement.is_empty():
+			report_note += " %s" % String(mandate_settlement.get(
+				"outcome",
+				"The annual Board Mandate has been settled.",
+			))
 		continue_label = "BEGIN YEAR %d PLANNING  [C]" % (year_number + 1)
 		continue_tooltip = (
 			"Accept the annual review. Next year's baseline quota rises by one egg."
@@ -2550,13 +5144,36 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			"Accept the improvement year. Baseline quota rises by two and farmer favor falls by five."
 		)
 		objective = {
-			"title": "YEAR %d %s" % [year_number, "PASSED" if annual_passed else "HELD"],
+			"title": "%s · YEAR %d %s" % [
+				String(mandate_settlement.get("mandate_name", "BOARD MANDATE")),
+				year_number,
+				"SEALED" if mandate_succeeded else "HELD",
+			],
 			"description": (
 				"The career continues with a one-egg baseline increase."
 				if annual_passed else
 				"The career continues under a two-egg quota increase and reduced farmer favor."
+			) + (
+				" Board Mandate succeeded: +%d permanent seal%s; %d staked mark%s returned."
+				% [
+					int(mandate_settlement.get("seal_reward", 0)),
+					"" if int(mandate_settlement.get("seal_reward", 0)) == 1 else "s",
+					int(mandate_settlement.get("stake_returned", 0)),
+					"" if int(mandate_settlement.get("stake_returned", 0)) == 1 else "s",
+				]
+				if mandate_succeeded else
+				" Board Mandate failed: %d staked Roost Mark%s permanently spent."
+				% [
+					int(mandate_settlement.get("stake_forfeited", 0)),
+					"" if int(mandate_settlement.get("stake_forfeited", 0)) == 1 else "s",
+				]
 			),
-			"reward": "+3 annual Roost Marks" if annual_passed else "No annual bonus marks",
+			"reward": (
+				"+3 annual Roost Marks" if annual_passed else "No annual bonus marks"
+			) + " · %d total Board Seals" % int(mandate_settlement.get(
+				"mandate_seals_after",
+				_senior_roost_state.mandate_seals,
+			)),
 		}
 		secondary_display = "%d / 100" % int(annual_review.get("score", 0))
 		secondary_caption = "ANNUAL SCORE"
@@ -2597,6 +5214,21 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 				"description": "\n".join(objective_lines),
 				"reward": "Quarter score 60+ earns promotion progress.",
 			}
+		if not mandate_progress.is_empty():
+			var mandate_lines := _senior_mandate_progress_lines(mandate_progress)
+			objective["description"] = "%s\n\nANNUAL BOARD · %s\n%s" % [
+				String(objective.get("description", "Quarter safeguards pending.")),
+				String(mandate_progress.get("mandate_name", "BOARD MANDATE")),
+				"\n".join(mandate_lines),
+			]
+			objective["reward"] = "%d / %d annual shifts · %d / %d targets currently met · %d Roost Mark%s staked" % [
+				int(mandate_progress.get("shifts_recorded", 0)),
+				int(mandate_progress.get("shifts_target", 12)),
+				int(mandate_progress.get("objectives_met", 0)),
+				int(mandate_progress.get("objectives_total", 0)),
+				int(mandate_progress.get("stake_marks", 0)),
+				"" if int(mandate_progress.get("stake_marks", 0)) == 1 else "s",
+			]
 
 	var policy_receipt: Dictionary = {}
 	if status_id == SeniorRoostStateScript.STATUS_ACTIVE and not _senior_roost_state.active_policy_receipt.is_empty():
@@ -2618,11 +5250,27 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		_senior_roost_state.roost_marks,
 	))
 	var invested_roost_marks := int(state_snapshot.get("roost_marks_spent", 0))
+	var staked_roost_marks := int(state_snapshot.get("mandate_stake_reserved", 0))
+	var forfeited_roost_marks := int(state_snapshot.get("mandate_marks_forfeited", 0))
+	var mandate_seals := int(state_snapshot.get("mandate_seals", 0))
 	var ledgers: Array[Dictionary] = [
 		{
 			"label": "Roost Marks",
 			"value": _senior_roost_state.roost_marks,
-			"detail": "%d AVAILABLE  ·  %d INVESTED" % [available_roost_marks, invested_roost_marks],
+			"detail": "%d AVAILABLE  ·  %d INVESTED  ·  %d STAKED  ·  %d FORFEITED" % [
+				available_roost_marks,
+				invested_roost_marks,
+				staked_roost_marks,
+				forfeited_roost_marks,
+			],
+		},
+		{
+			"label": "Board Seals",
+			"value": mandate_seals,
+			"detail": "MANDATE TIER %d  ·  %s" % [
+				int(mandate_tier.get("eligible_tier", 0)),
+				_senior_mandate_tier_tooltip(mandate_tier).to_upper(),
+			],
 		},
 		{
 			"label": "Quarter score",
@@ -2637,12 +5285,12 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		},
 	]
 	if status_id == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW:
-		ledgers[1] = {
+		ledgers[2] = {
 			"label": "Annual score",
 			"value": int(annual_review.get("score", 0)),
 			"detail": "PASSED" if bool(annual_review.get("passed", false)) else "IMPROVEMENT YEAR",
 		}
-		ledgers[2] = {
+		ledgers[3] = {
 			"label": "Years passed",
 			"value": _senior_roost_state.successful_years,
 			"detail": "OF %d REVIEWED" % _senior_roost_state.completed_years,
@@ -2659,9 +5307,11 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		"day_badge_text": (
 			"YEAR %d · ANNUAL REVIEW" % year_number
 			if status_id == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW else
+			("Y%d · ANNUAL MANDATE" % year_number
+			if mandate_required else
 			("Y%d · Q%d · POLICY" % [year_number, quarter_number]
 			if status_id == SeniorRoostStateScript.STATUS_QUARTER_CHOICE else
-			"Y%d · Q%d · SHIFT %d / %d" % [year_number, quarter_number, display_shift, SeniorRoostStateScript.SHIFTS_PER_QUARTER])
+			"Y%d · Q%d · SHIFT %d / %d" % [year_number, quarter_number, display_shift, SeniorRoostStateScript.SHIFTS_PER_QUARTER]))
 		),
 		"score": _senior_roost_state.roost_marks,
 		"score_caption": "ROOST MARKS",
@@ -2675,21 +5325,154 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		"report_kicker": "SENIOR ROOST  //  YEAR %d  //  QUARTER %d" % [year_number, quarter_number],
 		"report_heading": report_heading,
 		"report_note": report_note,
-		"objective_section_title": "SENIOR OBJECTIVE",
+		"objective_section_title": "ANNUAL BOARD MANDATE" if not active_mandate.is_empty() or mandate_required else "SENIOR OBJECTIVE",
 		"next_objective": objective,
 		"milestone_choices": policy_cards,
-		"selected_milestone": String(_senior_roost_state.active_policy_id),
+		"selected_milestone": (
+			String(active_mandate.get("id", ""))
+			if mandate_required else
+			String(_senior_roost_state.active_policy_id)
+		),
 		"choice_required": status_id == SeniorRoostStateScript.STATUS_QUARTER_CHOICE,
-		"choice_section_title": "QUARTERLY CAPITAL POLICY  //  FILE ONE",
-		"choice_hint": "One irreversible policy governs the next three shifts.",
+		"choice_section_title": (
+			"ANNUAL BOARD MANDATE  //  FILE ONE"
+			if mandate_required else
+			"QUARTERLY CAPITAL POLICY  //  FILE ONE"
+		),
+		"choice_hint": (
+			"One twelve-shift mandate governs the year. Compare targets, seal reward, and any Roost Mark stake."
+			if mandate_required else
+			"One irreversible policy governs the next three shifts."
+		),
 		"continue_label": continue_label,
 		"continue_tooltip": continue_tooltip,
 		"credit_memo": policy_receipt,
 		"score_receipt": {},
 		"hen_highlight": hen_highlight,
 		"senior_roost": state_snapshot,
+		"annual_mandate": active_mandate,
+		"annual_mandate_progress": mandate_progress,
+		"mandate_tier": mandate_tier,
 		"career_sponsorship": _career_sponsorship_presentation_snapshot(),
 	}
+
+
+func _senior_board_mandate_cards() -> Array[Dictionary]:
+	var cards: Array[Dictionary] = []
+	for offer in _senior_roost_state.annual_mandate_catalog():
+		var targets: Array[String] = []
+		for objective_value in offer.get("objectives", []) as Array:
+			if not objective_value is Dictionary:
+				continue
+			var target := objective_value as Dictionary
+			targets.append("%s %s" % [
+				String(target.get("label", "TARGET")),
+				_senior_mandate_target_text(
+					String(target.get("metric", "")),
+					String(target.get("comparison", "minimum")),
+					int(target.get("target", 0)),
+				),
+			])
+		var stake := int(offer.get("stake_marks", 0))
+		var available := bool(offer.get("available", true))
+		var unavailable_reason := String(offer.get("unavailable_reason", ""))
+		var stake_text := "NO MARK STAKE" if stake <= 0 else "%d ROOST MARK%s STAKED" % [
+			stake,
+			"" if stake == 1 else "S",
+		]
+		cards.append({
+			"id": String(offer.get("id", "")),
+			"title": String(offer.get("name", "ANNUAL BOARD MANDATE")),
+			"description": String(offer.get("summary", "Twelve-shift annual performance book.")),
+			"effect": "TIER %d · %s · +%d SEAL%s\nTARGETS  %s" % [
+				int(offer.get("tier", 0)),
+				stake_text,
+				int(offer.get("seal_reward", 1)),
+				"" if int(offer.get("seal_reward", 1)) == 1 else "S",
+				"  ·  ".join(targets),
+			],
+			"available": available,
+			"unavailable_reason": unavailable_reason,
+			"tooltip": (
+				unavailable_reason
+				if not available else
+				"SUCCESS: %s\nFAILURE: %s" % [
+					String(offer.get("reward", "Earn permanent Board Seals.")),
+					String(offer.get("failure", "No seal is awarded.")),
+				]
+			),
+		})
+	return cards
+
+
+func _senior_mandate_target_text(metric: String, comparison: String, value: int) -> String:
+	var operator := "≥" if comparison == "minimum" else "≤"
+	if metric.ends_with("basis_points"):
+		return "%s %.1f%%" % [operator, float(value) / 100.0]
+	if metric.ends_with("_cents") or metric == "credited_cents":
+		return "%s $%.2f" % [operator, float(value) / 100.0]
+	return "%s %d" % [operator, value]
+
+
+func _senior_mandate_progress_lines(progress: Dictionary) -> Array[String]:
+	var lines: Array[String] = [
+		"%d / %d shifts · %d / %d targets met · %d quarterly checkpoint%s filed" % [
+			int(progress.get("shifts_recorded", 0)),
+			int(progress.get("shifts_target", 12)),
+			int(progress.get("objectives_met", 0)),
+			int(progress.get("objectives_total", 0)),
+			int(progress.get("quarter_checkpoints_filed", 0)),
+			"" if int(progress.get("quarter_checkpoints_filed", 0)) == 1 else "s",
+		],
+	]
+	for row_value in progress.get("objectives", []) as Array:
+		if not row_value is Dictionary:
+			continue
+		var row := row_value as Dictionary
+		lines.append("%s · %s  %s ACTUAL %s" % [
+			"MET" if bool(row.get("met", false)) else "NEEDS ACTION",
+			String(row.get("label", "BOARD TARGET")),
+			_senior_mandate_target_text(
+				String(row.get("metric", "")),
+				String(row.get("comparison", "minimum")),
+				int(row.get("target", 0)),
+			),
+			_senior_mandate_progress_value_text(
+				String(row.get("metric", "")),
+				int(row.get("actual", 0)),
+			),
+		])
+	var blocker := progress.get("largest_recoverable_blocker", {}) as Dictionary
+	if not blocker.is_empty():
+		lines.append("LARGEST RECOVERABLE BLOCKER · %s · gap %s" % [
+			String(blocker.get("label", "BOARD TARGET")),
+			_senior_mandate_progress_value_text(
+				String(blocker.get("metric", "")),
+				int(blocker.get("gap", 0)),
+			),
+		])
+	return lines
+
+
+func _senior_mandate_progress_value_text(metric: String, value: int) -> String:
+	if metric.ends_with("basis_points"):
+		return "%.1f%%" % (float(value) / 100.0)
+	if metric.ends_with("_cents") or metric == "credited_cents":
+		return "$%.2f" % (float(value) / 100.0)
+	return str(value)
+
+
+func _senior_mandate_tier_tooltip(tier: Dictionary) -> String:
+	var eligible := int(tier.get("eligible_tier", 0))
+	var seals_to_next := int(tier.get("seals_to_next_tier", 0))
+	if eligible >= int(tier.get("max_tier", 3)):
+		return "Maximum Board Mandate tier unlocked."
+	return "%d more Board Seal%s unlock%s mandate tier %d." % [
+		seals_to_next,
+		"" if seals_to_next == 1 else "s",
+		"s" if seals_to_next == 1 else "",
+		eligible + 1,
+	]
 
 
 func _career_sponsorship_presentation_snapshot() -> Dictionary:
@@ -2701,10 +5484,16 @@ func _career_sponsorship_presentation_snapshot() -> Dictionary:
 		SeniorRoostStateScript.STATUS_ANNUAL_REVIEW,
 	]
 	var has_closed_quarter: bool = _senior_roost_state.completed_quarters > 0
-	if not gate_open or not has_closed_quarter:
+	if (
+		not gate_open
+		or not has_closed_quarter
+		or _senior_roost_state.requires_annual_mandate()
+	):
 		return {"visible": false}
 
 	var simulation_snapshot := _simulation.snapshot()
+	var flock_care := simulation_snapshot.get("flock_care", {}) as Dictionary
+	var training_terms := flock_care.get("training_terms", {}) as Dictionary
 	var senior_snapshot: Dictionary = _senior_roost_state.snapshot()
 	var mark_cost := int(senior_snapshot.get(
 		"sponsorship_mark_cost",
@@ -2714,7 +5503,13 @@ func _career_sponsorship_presentation_snapshot() -> Dictionary:
 		"available_roost_marks",
 		_senior_roost_state.roost_marks,
 	))
-	var fund_cost := int(simulation_snapshot.get("career_sponsorship_cost_cents", 1200))
+	var fund_cost := int(training_terms.get(
+		"effective_sponsorship_cost_cents",
+		training_terms.get(
+			"effective_cost_cents",
+			simulation_snapshot.get("career_sponsorship_cost_cents", 1200),
+		),
+	))
 	var spendable_fund := int(simulation_snapshot.get(
 		"spendable_fund_cents",
 		_simulation.spendable_fund_cents(),
@@ -2786,6 +5581,7 @@ func _career_sponsorship_presentation_snapshot() -> Dictionary:
 		"invested_marks": int(senior_snapshot.get("roost_marks_spent", 0)),
 		"mark_cost": mark_cost,
 		"fund_cost_cents": fund_cost,
+		"training_terms": training_terms.duplicate(true),
 		"spendable_fund_cents": spendable_fund,
 		"eligible_workers": eligible_workers,
 		"lanes": lanes,
@@ -2973,11 +5769,13 @@ func _make_first_clutch_state(dismissed: bool = true) -> Dictionary:
 		"delivery_laid": false,
 		"delivery_seen": false,
 		"orders_handoff_acknowledged": false,
+		"delivered_claim_id": -1,
 		"delivered_quality": "",
 		"delivered_value_cents": 0,
 		"delivered_priority_credit_cents": 0,
 		"potential_priority_credit_cents": 0,
 		"prior_presentations_pending": 0,
+		"reinvestment_grandfathered": false,
 	}
 
 
@@ -2989,8 +5787,16 @@ func _reset_first_clutch(enabled: bool) -> void:
 
 
 func _normalize_first_clutch_state(value: Dictionary, legacy_missing: bool = false) -> Dictionary:
-	if legacy_missing or value.is_empty() or int(value.get("version", -1)) != FIRST_CLUTCH_VERSION:
-		return _make_first_clutch_state(true)
+	if legacy_missing or value.is_empty():
+		var missing_state := _make_first_clutch_state(true)
+		missing_state["reinvestment_grandfathered"] = true
+		return missing_state
+	var source_version := int(value.get("version", -1))
+	if source_version not in [1, FIRST_CLUTCH_VERSION]:
+		var incompatible_state := _make_first_clutch_state(true)
+		incompatible_state["reinvestment_grandfathered"] = true
+		return incompatible_state
+	var legacy_v1 := source_version == 1
 	var normalized := _make_first_clutch_state(bool(value.get("dismissed", false)))
 	normalized["completed"] = bool(value.get("completed", false))
 	normalized["target_worker_id"] = maxi(-1, int(value.get("target_worker_id", -1)))
@@ -2999,6 +5805,10 @@ func _normalize_first_clutch_state(value: Dictionary, legacy_missing: bool = fal
 	normalized["checkin_worker_id"] = maxi(-1, int(value.get("checkin_worker_id", -1)))
 	normalized["assisted_worker_id"] = maxi(-1, int(value.get("assisted_worker_id", -1)))
 	normalized["assisted_claim_id"] = maxi(-1, int(value.get("assisted_claim_id", -1)))
+	normalized["delivered_claim_id"] = maxi(-1, int(value.get(
+		"delivered_claim_id",
+		normalized["assisted_claim_id"] if legacy_v1 else -1,
+	)))
 	normalized["delivered_value_cents"] = maxi(0, int(value.get("delivered_value_cents", 0)))
 	normalized["delivered_priority_credit_cents"] = maxi(
 		0, int(value.get("delivered_priority_credit_cents", 0))
@@ -3011,6 +5821,11 @@ func _normalize_first_clutch_state(value: Dictionary, legacy_missing: bool = fal
 	)
 	var quality := StringName(String(value.get("delivered_quality", "")))
 	normalized["delivered_quality"] = String(quality) if quality in [&"sound", &"golden", &"cracked"] else ""
+	normalized["reinvestment_grandfathered"] = (
+		bool(value.get("completed", false))
+		if legacy_v1 else
+		bool(value.get("reinvestment_grandfathered", false))
+	)
 
 	if int(normalized["target_worker_id"]) < 0:
 		normalized["inspected"] = false
@@ -3019,6 +5834,7 @@ func _normalize_first_clutch_state(value: Dictionary, legacy_missing: bool = fal
 		normalized["checkin_worker_id"] = -1
 		normalized["assisted_worker_id"] = -1
 		normalized["assisted_claim_id"] = -1
+		normalized["delivered_claim_id"] = -1
 		normalized["delivery_laid"] = false
 		normalized["delivery_seen"] = false
 		normalized["completed"] = false
@@ -3026,12 +5842,17 @@ func _normalize_first_clutch_state(value: Dictionary, legacy_missing: bool = fal
 	elif int(normalized["assisted_worker_id"]) != int(normalized["target_worker_id"]):
 		normalized["assisted_worker_id"] = -1
 		normalized["assisted_claim_id"] = -1
+		normalized["delivered_claim_id"] = -1
 		normalized["delivery_laid"] = false
 		normalized["delivery_seen"] = false
 		normalized["completed"] = false
 		normalized["prior_presentations_pending"] = 0
 	if not bool(normalized["checkin_filed"]):
 		normalized["checkin_worker_id"] = -1
+	if not bool(normalized["delivery_laid"]):
+		normalized["delivered_claim_id"] = -1
+	elif int(normalized["delivered_claim_id"]) < 0:
+		normalized["delivered_claim_id"] = int(normalized["assisted_claim_id"])
 
 	# Collection tweens are presentation-only and are intentionally not in the
 	# campaign checkpoint. If a player reloads after the authoritative lay event,
@@ -3072,6 +5893,7 @@ func first_clutch_snapshot() -> Dictionary:
 	var result := _first_clutch.duplicate(true)
 	result["stage"] = String(_first_clutch_stage())
 	result["progress"] = _first_clutch_progress()
+	result["reinvestment"] = _simulation.first_clutch_reinvestment_status().duplicate(true)
 	result["orders_handoff_pending"] = _first_clutch_orders_handoff_pending()
 	return result
 
@@ -3090,8 +5912,22 @@ func _first_clutch_orders_handoff_pending() -> bool:
 	return (
 		not bool(_first_clutch.get("dismissed", true))
 		and bool(_first_clutch.get("completed", false))
+		and _first_clutch_reinvestment_resolved()
 		and not bool(_first_clutch.get("orders_handoff_acknowledged", false))
 	)
+
+
+func _first_clutch_reinvestment_resolved() -> bool:
+	if (
+		bool(_first_clutch.get("dismissed", true))
+		or bool(_first_clutch.get("reinvestment_grandfathered", false))
+	):
+		return true
+	var status := _simulation.first_clutch_reinvestment_status()
+	return bool(status.get("resolved", false)) or StringName(status.get("status", &"unavailable")) in [
+		&"purchased",
+		&"banked",
+	]
 
 
 func _first_clutch_worker_snapshot(snapshot: Dictionary, worker_id: int) -> Dictionary:
@@ -3192,6 +6028,9 @@ func _first_clutch_record_laid_egg(
 	):
 		return
 	_first_clutch["delivery_laid"] = true
+	_first_clutch["delivered_claim_id"] = (
+		claim_id if claim_id >= 0 else int(_first_clutch.get("assisted_claim_id", -1))
+	)
 	_first_clutch["delivered_quality"] = String(quality)
 	_first_clutch["delivered_value_cents"] = maxi(0, value_cents)
 	_first_clutch["delivered_priority_credit_cents"] = maxi(
@@ -3224,7 +6063,12 @@ func _first_clutch_record_laid_egg(
 	_update_guidance(snapshot)
 
 
-func _first_clutch_record_presentation(worker_id: int, quality: StringName, value_cents: int) -> void:
+func _first_clutch_record_presentation(
+	worker_id: int,
+	claim_id: int,
+	quality: StringName,
+	value_cents: int
+) -> void:
 	if (
 		bool(_first_clutch.get("dismissed", true))
 		or bool(_first_clutch.get("completed", false))
@@ -3237,6 +6081,11 @@ func _first_clutch_record_presentation(worker_id: int, quality: StringName, valu
 		_first_clutch["prior_presentations_pending"] = prior_presentations - 1
 		return
 	if (
+		claim_id < 0
+		or claim_id != int(_first_clutch.get("assisted_claim_id", -1))
+		or claim_id != int(_first_clutch.get("delivered_claim_id", -1))
+		or worker_id != int(_first_clutch.get("assisted_worker_id", -1))
+		or
 		StringName(String(_first_clutch.get("delivered_quality", ""))) != quality
 		or int(_first_clutch.get("delivered_value_cents", -1)) != maxi(0, value_cents)
 	):
@@ -3258,6 +6107,18 @@ func _first_clutch_try_complete() -> bool:
 		or not _first_clutch_state_has_all_steps(_first_clutch)
 	):
 		return false
+	var reinvestment_offer := _simulation.begin_first_clutch_reinvestment(
+		int(_first_clutch.get("target_worker_id", -1)),
+		int(_first_clutch.get("delivered_claim_id", -1)),
+		StringName(String(_first_clutch.get("delivered_quality", ""))),
+		int(_first_clutch.get("delivered_value_cents", 0)),
+	)
+	if not bool(reinvestment_offer.get("accepted", false)):
+		push_error(
+			"First Clutch completed physically, but its authoritative reinvestment offer was rejected: %s"
+			% String(reinvestment_offer.get("reason", "unknown ledger mismatch"))
+		)
+		return false
 	_first_clutch["completed"] = true
 	_first_clutch_completion_generation += 1
 	var completion_generation := _first_clutch_completion_generation
@@ -3274,9 +6135,129 @@ func _first_clutch_try_complete() -> bool:
 		_audio_feedback.play_decision_resolved()
 	var snapshot := _simulation.snapshot()
 	_refresh_first_clutch_ui(snapshot)
+	_refresh_flockwatch_navigation(snapshot)
 	_update_guidance(snapshot)
 	_save_campaign_checkpoint("first_clutch_completed")
+	_present_first_clutch_reinvestment(reinvestment_offer)
 	_retire_first_clutch_after_hold(completion_generation)
+	return true
+
+
+func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
+	var created_value := maxi(0, int(status.get("created_value_cents", 0)))
+	var fund_at_collection := maxi(0, int(status.get("fund_at_collection_cents", 0)))
+	var protected_reserve := maxi(0, int(status.get("protected_reserve_cents", 0)))
+	var spendable_at_collection := maxi(0, int(status.get("spendable_at_collection_cents", 0)))
+	var match_available := maxi(0, int(status.get("procurement_match_available_cents", 0)))
+	var options: Array[Dictionary] = []
+	var offered_options := status.get("offered_options", []) as Array
+	for option_index in mini(2, offered_options.size()):
+		var offered := offered_options[option_index] as Dictionary
+		var list_cost := maxi(0, int(offered.get("list_cost_cents", 0)))
+		var procurement_match := maxi(0, int(offered.get("procurement_match_cents", 0)))
+		var net_cost := maxi(0, int(offered.get("net_cost_cents", list_cost - procurement_match)))
+		var projected_spendable := maxi(0, int(offered.get("projected_spendable_fund_cents", 0)))
+		var can_purchase := bool(offered.get("can_purchase", offered.get("affordable", false)))
+		options.append({
+			"id": StringName(offered.get("id", &"")),
+			"label": "INSTALL %s" % String(offered.get("short_name", offered.get("name", "DESK UPGRADE"))).to_upper(),
+			"tagline": "INVOICE $%.2f  -  MATCH $%.2f  =  NET $%.2f" % [
+				float(list_cost) / 100.0,
+				float(procurement_match) / 100.0,
+				float(net_cost) / 100.0,
+			],
+			"preview": "Level %d -> %d  /  spendable $%.2f -> projected $%.2f. %s" % [
+				int(offered.get("level_before", 0)),
+				int(offered.get("next_level", 1)),
+				float(int(offered.get("spendable_fund_cents", spendable_at_collection))) / 100.0,
+				float(projected_spendable) / 100.0,
+				String(offered.get("description", "The module becomes visible at Mabel's workstation.")),
+			],
+			"cost_cents": net_cost,
+			"can_select": can_purchase,
+			"unavailable_reason": String(offered.get(
+				"reason",
+				"The protected reserve leaves too little spendable Feed Fund for this invoice.",
+			)),
+		})
+	options.append({
+		"id": &"bank_fund",
+		"label": "BANK THE FEED FUND",
+		"tagline": "NO PURCHASE  /  PROCUREMENT MATCH EXPIRES",
+		"preview": "Keep fund $%.2f and spendable $%.2f. The unused $%.2f first-egg match is forfeited." % [
+			float(int(status.get("current_fund_cents", fund_at_collection))) / 100.0,
+			float(int(status.get("current_spendable_fund_cents", spendable_at_collection))) / 100.0,
+			float(match_available) / 100.0,
+		],
+		"cost_cents": 0,
+		"can_select": bool(status.get("can_bank", true)),
+		"unavailable_reason": String(status.get("reason", "This Feed Fund decision has already been filed.")),
+	})
+	return {
+		"kind": FIRST_CLUTCH_REINVESTMENT_KIND,
+		"category": FIRST_CLUTCH_REINVESTMENT_KIND,
+		"eyebrow": "FIRST CLUTCH  5 / 5  //  REINVESTMENT",
+		"title": "WHAT SHOULD %s\u2019S FIRST EGG BUILD?" % String(status.get("trigger_worker_name", "Mabel")).to_upper(),
+		"body": (
+			"%s's first egg created $%.2f. At collection, the Feed Fund held $%.2f; "
+			+ "$%.2f is protected operating reserve, leaving $%.2f spendable.\n\n"
+			+ "Procurement offers up to $%.2f of purchase-only matching. The farmer keeps the presentation credit; "
+			+ "you choose whether the hen's output improves her desk or stays in the fund."
+		) % [
+			String(status.get("trigger_worker_name", "Mabel")),
+			float(created_value) / 100.0,
+			float(fund_at_collection) / 100.0,
+			float(protected_reserve) / 100.0,
+			float(spendable_at_collection) / 100.0,
+			float(match_available) / 100.0,
+		],
+		"selection_prompt": "Choose a requisition or Bank. Every invoice, match, net debit, and projected balance is shown before authorization.",
+		"confirm_label": "AUTHORIZE REINVESTMENT",
+		"allow_stay_paused": false,
+		"options": options,
+	}
+
+
+func _present_first_clutch_reinvestment(status: Dictionary = {}) -> bool:
+	if (
+		bool(_first_clutch.get("dismissed", true))
+		or bool(_first_clutch.get("reinvestment_grandfathered", false))
+	):
+		return false
+	if (
+		_campaign_review_stage not in [&"active", &"farmer"]
+		or (_campaign_ui != null and _campaign_ui.is_modal_open())
+	):
+		return false
+	var active_status := status if not status.is_empty() else _simulation.first_clutch_reinvestment_status()
+	if StringName(active_status.get("status", &"unavailable")) != &"offered":
+		return false
+	if _decision_host != null and _decision_host.visible:
+		return StringName(_active_decision.get("kind", &"")) == FIRST_CLUTCH_REINVESTMENT_KIND
+	_on_decision_requested(_first_clutch_reinvestment_decision(active_status))
+	return true
+
+
+func _reconcile_first_clutch_reinvestment_after_restore() -> bool:
+	if (
+		not bool(_first_clutch.get("completed", false))
+		or bool(_first_clutch.get("dismissed", true))
+		or bool(_first_clutch.get("reinvestment_grandfathered", false))
+	):
+		return false
+	var status := _simulation.first_clutch_reinvestment_status()
+	if bool(status.get("offered", false)) or bool(status.get("resolved", false)):
+		return false
+	var receipt := _simulation.begin_first_clutch_reinvestment(
+		int(_first_clutch.get("target_worker_id", -1)),
+		int(_first_clutch.get("delivered_claim_id", -1)),
+		StringName(String(_first_clutch.get("delivered_quality", ""))),
+		int(_first_clutch.get("delivered_value_cents", 0)),
+	)
+	if not bool(receipt.get("accepted", false)):
+		push_error("Restored First Clutch could not stage its reinvestment: %s" % String(receipt.get("reason", "unknown ledger mismatch")))
+		return false
+	_save_campaign_checkpoint("first_clutch_reinvestment_offered")
 	return true
 
 
@@ -3316,6 +6297,7 @@ func _on_first_clutch_skip_requested() -> void:
 	_ticker_label.text = "FIRST CLUTCH COACH FILED AWAY. Every management control remains available."
 	var snapshot := _simulation.snapshot()
 	_refresh_first_clutch_ui(snapshot)
+	_refresh_flockwatch_navigation(snapshot)
 	_update_guidance(snapshot)
 	_save_campaign_checkpoint("first_clutch_skipped")
 
@@ -3338,6 +6320,8 @@ func _on_first_clutch_focus_requested(worker_id: int) -> void:
 
 func _first_clutch_stage() -> StringName:
 	if bool(_first_clutch.get("completed", false)):
+		if not _first_clutch_reinvestment_resolved():
+			return &"reinvestment"
 		return &"complete"
 	if not bool(_first_clutch.get("inspected", false)):
 		return &"inspect"
@@ -3370,7 +6354,10 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 	var orders_handoff_pending := _first_clutch_orders_handoff_pending()
 	var completion_holding := (
 		bool(_first_clutch.get("completed", false))
-		and Time.get_ticks_msec() < _first_clutch_completion_hold_until_msec
+		and (
+			not _first_clutch_reinvestment_resolved()
+			or Time.get_ticks_msec() < _first_clutch_completion_hold_until_msec
+		)
 	)
 	var management_blocked := (
 		(_campaign_ui != null and _campaign_ui.is_modal_open())
@@ -3437,8 +6424,8 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 			title = "LAND %s'S PRIORITY PECK" % target_name
 			var peck_status := worker.get("peck_assist", {}) as Dictionary
 			if bool(peck_status.get("available", false)):
-				body = "GOLD WINDOW OPEN. Press E or use the glowing dossier stamp before this live claim moves on."
-				guidance = "%s is in the gold window—press E or the dossier stamp now." % target_name
+				body = "GOLD WINDOW OPEN. Press %s or use the glowing dossier stamp before this live claim moves on." % _action_hint(PECK_ASSIST_ACTION)
+				guidance = "%s is in the gold window—press %s or the dossier stamp now." % [target_name, _action_hint(PECK_ASSIST_ACTION)]
 				tone = &"ready"
 			elif _clock.speed_index == 0:
 				body = "Resume the clock, then watch %s's live file meter. The stamp glows gold in the clean-rhythm window." % target_name
@@ -3459,6 +6446,15 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 				title = "FOLLOW %s'S ASSISTED FILE" % target_name
 				body = "Priority Peck landed on claim #%04d. Keep the clock moving and watch %s finish the same real file." % [int(_first_clutch.get("assisted_claim_id", 0)), target_name]
 				guidance = "Watch %s finish the assisted claim and lay its egg." % target_name
+		&"reinvestment":
+			var reinvestment := _simulation.first_clutch_reinvestment_status()
+			title = "REINVEST %s'S FIRST EGG" % target_name
+			body = "%s created $%.2f. Choose one visible desk requisition or Bank the Feed Fund before today's three orders open." % [
+				target_name,
+				float(int(reinvestment.get("created_value_cents", _first_clutch.get("delivered_value_cents", 0)))) / 100.0,
+			]
+			guidance = "Authorize the First Clutch reinvestment; then today's three orders will open."
+			tone = &"ready"
 		&"complete":
 			var quality := String(_first_clutch.get("delivered_quality", "sound")).to_upper()
 			var value_cents := int(_first_clutch.get("delivered_value_cents", 0))
@@ -3493,11 +6489,11 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 		"expected_lane": String(worker.get("specialty", "")),
 		"preferred_action": String(worker.get("preferred_personnel_action", "")),
 		"resume_required": stage == &"priority_peck" and _clock.speed_index == 0,
-		"completion": stage == &"complete",
+		"completion": bool(_first_clutch.get("completed", false)),
 		"pre_policy": pre_policy,
 		"orders_handoff_pending": orders_handoff_pending,
 		"orders_handoff_cue_visible": orders_handoff_pending and management_available,
-		"can_skip": stage != &"complete" and not pre_policy,
+		"can_skip": stage not in [&"complete", &"reinvestment"] and not pre_policy,
 	}
 
 
@@ -3567,14 +6563,54 @@ func _clear_first_clutch_global_cue() -> void:
 		control.remove_meta("first_clutch_original_modulate")
 
 
-func _save_campaign_checkpoint(reason: String) -> bool:
-	# Headless regressions and art-capture launches bypass the player-facing title
-	# and must never overwrite a real native campaign. The focused persistence
-	# integration test explicitly opts into an isolated filename.
+func _queue_campaign_checkpoint(reason: String) -> bool:
+	# Ordinary production can mutate several times in one visual beat. Marking it
+	# routine preserves a short quiet window while the hard maximum in the
+	# coordinator still bounds potential loss during continuous production.
 	if _should_bypass_campaign_title() and not _allow_automated_campaign_saves:
 		return true
 	if _campaign_state == null or _campaign_store == null:
 		return false
+	var was_dirty: bool = _checkpoint_coordinator.is_dirty()
+	_checkpoint_coordinator.mark_routine(reason)
+	if not was_dirty:
+		_publish_checkpoint_diagnostic()
+	return true
+
+
+func _save_campaign_checkpoint(reason: String) -> bool:
+	# Decisions, review transitions, onboarding safety points, and lifecycle exits
+	# remain immediate. Headless regressions and art-capture launches still bypass
+	# the player's native campaign unless a focused test supplies an isolated file.
+	if _should_bypass_campaign_title() and not _allow_automated_campaign_saves:
+		return true
+	if _campaign_state == null or _campaign_store == null:
+		return false
+	_checkpoint_coordinator.mark_immediate(reason)
+	return _flush_due_campaign_checkpoint()
+
+
+func _flush_due_campaign_checkpoint() -> bool:
+	var request: Dictionary = _checkpoint_coordinator.claim_due_save()
+	if request.is_empty():
+		return false
+	_publish_checkpoint_diagnostic()
+	var reason := String(request.get("reason", "unspecified"))
+	var saved := _write_campaign_checkpoint(reason)
+	_checkpoint_coordinator.complete_save(saved)
+	if saved:
+		_has_campaign_checkpoint_candidate = true
+		_has_verified_campaign_checkpoint = true
+		_checkpoint_last_error = ""
+		_checkpoint_last_saved_reason = reason
+		_checkpoint_last_saved_unix_msec = int(Time.get_unix_time_from_system() * 1000.0)
+	else:
+		_checkpoint_last_error = String(_campaign_store.last_error).strip_edges()
+	_publish_checkpoint_diagnostic()
+	return saved
+
+
+func _write_campaign_checkpoint(reason: String) -> bool:
 	var payload := {
 		"campaign": _campaign_state.to_dictionary(),
 		"simulation": _simulation.export_save_state(),
@@ -3604,66 +6640,99 @@ func _save_campaign_checkpoint(reason: String) -> bool:
 	return saved
 
 
-func _load_campaign_checkpoint() -> void:
-	var envelope := _campaign_store.load()
-	if envelope.is_empty():
-		_show_campaign_title(false)
-		_ticker_label.text = "CONTINUE UNAVAILABLE. %s" % _campaign_store.last_error
-		return
-	var payload := envelope.get("campaign", {}) as Dictionary
-	var campaign_data := payload.get("campaign", {}) as Dictionary
-	var simulation_data := payload.get("simulation", {}) as Dictionary
-	var senior_data_value: Variant = payload.get("senior_roost", {})
-	var restored_campaign = CampaignStateScript.from_dictionary(campaign_data)
-	if restored_campaign == null or not _simulation.restore_save_state(simulation_data):
-		_show_campaign_title(_campaign_store.has_save())
-		_ticker_label.text = "SAVE HELD FOR REVIEW. The office could not safely restore this probation file."
-		return
-	_campaign_state = restored_campaign
-	var session := payload.get("session", {}) as Dictionary
-	var restored_senior = null
-	var migrated_legacy_senior := false
-	if senior_data_value is Dictionary and not (senior_data_value as Dictionary).is_empty():
-		restored_senior = SeniorRoostStateScript.from_dictionary(senior_data_value as Dictionary)
-		if restored_senior == null:
-			_show_campaign_title(_campaign_store.has_save())
-			_ticker_label.text = "SAVE HELD FOR REVIEW. The Senior Roost career ledger did not pass validation."
-			return
-	else:
-		restored_senior = SeniorRoostStateScript.new()
-		if bool(session.get("senior_roost", false)):
-			var legacy_last_report := session.get("last_workday_report", {}) as Dictionary
-			restored_senior.begin(
-				int(legacy_last_report.get("day", maxi(0, _simulation.day - 1))),
-				_simulation.snapshot(),
-			)
-			migrated_legacy_senior = true
-	_senior_roost_state = restored_senior
-	_campaign_review_stage = StringName(String(session.get("review_stage", "active")))
-	if migrated_legacy_senior:
-		_campaign_review_stage = &"senior_quarter"
-	if _campaign_review_stage not in [&"active", &"farmer", &"credit", &"probation", &"final", &"senior_quarter", &"senior_annual"]:
-		_campaign_review_stage = &"active"
-	_last_workday_report = (session.get("last_workday_report", {}) as Dictionary).duplicate(true)
-	_campaign_senior_roost = _senior_roost_state.is_active()
-	if not _campaign_senior_roost and _campaign_review_stage in [&"senior_quarter", &"senior_annual"]:
-		_campaign_review_stage = &"active"
-	# Older campaign files predate induction. Grandfather them instead of placing a
-	# tutorial over an already-understood or mid-shift office. Fresh files opt in
-	# explicitly through _on_campaign_new_requested().
-	var first_clutch_data: Dictionary = {}
-	var first_clutch_value: Variant = session.get("first_clutch", {})
-	if first_clutch_value is Dictionary:
-		first_clutch_data = first_clutch_value as Dictionary
-	_first_clutch = _normalize_first_clutch_state(
-		first_clutch_data,
-		not session.has("first_clutch"),
+func _checkpoint_diagnostic_state() -> Dictionary:
+	var checkpoint: Dictionary = _checkpoint_coordinator.diagnostic_snapshot()
+	checkpoint["has_candidate"] = _has_campaign_checkpoint_candidate
+	checkpoint["has_checkpoint"] = _has_verified_campaign_checkpoint
+	checkpoint["last_error"] = _checkpoint_last_error
+	checkpoint["last_saved_reason"] = _checkpoint_last_saved_reason
+	checkpoint["last_saved_unix_msec"] = _checkpoint_last_saved_unix_msec
+	checkpoint["userfs_persistent_hint"] = (
+		OS.is_userfs_persistent() if OS.has_feature("web") else true
 	)
+	if not _checkpoint_last_error.is_empty():
+		checkpoint["status"] = "error"
+	elif bool(checkpoint.get("saving", false)):
+		checkpoint["status"] = "saving"
+	elif bool(checkpoint.get("dirty", false)):
+		# Preserve the coordinator's precise pending/due/retry state.
+		pass
+	elif _has_verified_campaign_checkpoint:
+		checkpoint["status"] = "saved"
+	else:
+		checkpoint["status"] = "not_started"
+	return checkpoint
+
+
+func _bounded_checkpoint_error(message: String) -> String:
+	return message.strip_edges().replace("\n", " ").replace("\r", " ").substr(0, CHECKPOINT_ERROR_LIMIT)
+
+
+func _publish_checkpoint_diagnostic() -> void:
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _load_campaign_checkpoint() -> void:
+	var candidates: Array[Dictionary] = _campaign_store.load_recovery_candidates()
+	if candidates.is_empty():
+		_has_campaign_checkpoint_candidate = false
+		_has_verified_campaign_checkpoint = false
+		_checkpoint_last_error = _bounded_checkpoint_error(
+			"No readable campaign checkpoint is available. %s" % _campaign_store.last_error
+		)
+		_show_campaign_title(false)
+		_set_campaign_modal_open(true)
+		_ticker_label.text = "CONTINUE UNAVAILABLE. %s" % _campaign_store.last_error
+		_publish_checkpoint_diagnostic()
+		return
+	_has_campaign_checkpoint_candidate = true
+	var semantic_errors: Array[String] = []
+	var activated: Dictionary = {}
+	for envelope: Dictionary in candidates:
+		var staged := _stage_campaign_checkpoint(envelope)
+		if not bool(staged.get("ok", false)):
+			semantic_errors.append("%s: %s" % [
+				String(envelope.get("recovery_source", "candidate")),
+				String(staged.get("error", "composite validation failed")),
+			])
+			continue
+		if not _activate_staged_campaign_checkpoint(staged):
+			semantic_errors.append("%s: live simulation activation failed closed" % String(
+				envelope.get("recovery_source", "candidate")
+			))
+			continue
+		activated = staged
+		break
+	if activated.is_empty():
+		_has_campaign_checkpoint_candidate = false
+		_has_verified_campaign_checkpoint = false
+		_checkpoint_last_error = _bounded_checkpoint_error(
+			"No complete campaign, office, and Senior ledger passed validation%s."
+			% (" (%s)" % "; ".join(semantic_errors) if not semantic_errors.is_empty() else "")
+		)
+		_show_campaign_title(false)
+		_set_campaign_modal_open(true)
+		_ticker_label.text = (
+			"SAVE HELD FOR REVIEW. No complete campaign, office, and Senior ledger "
+			+ "passed validation%s."
+		) % (
+			" (%s)" % "; ".join(semantic_errors) if not semantic_errors.is_empty() else ""
+		)
+		_publish_checkpoint_diagnostic()
+		return
+	var envelope := activated.get("envelope", {}) as Dictionary
+	_checkpoint_coordinator.discard_pending()
+	_has_campaign_checkpoint_candidate = true
+	_has_verified_campaign_checkpoint = true
+	_checkpoint_last_error = ""
+	_campaign_session_checkpoint_enabled = true
 	for unlock_value in _campaign_state.unlocked_feature_ids:
 		_simulation.apply_campaign_unlock(StringName(unlock_value))
 	_last_reviewed_day = _simulation.day
 	_reset_campaign_session_visuals()
 	var recovered_attention := _reconcile_orphaned_peck_assist_deliveries()
+	_reconcile_first_clutch_reinvestment_after_restore()
 	_restore_campaign_view()
 	if recovered_attention > 0:
 		_save_campaign_checkpoint("priority_peck_delivery_recovered")
@@ -3675,6 +6744,115 @@ func _load_campaign_checkpoint() -> void:
 		_ticker_label.text = "%s RESTORED FROM RECOVERY COPY. The last valid coop ledger is active." % (
 			"SENIOR ROOST" if _campaign_senior_roost else "PROBATION"
 		)
+
+
+func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
+	# Every component is decoded into disposable staging objects first. A candidate
+	# can therefore fail Campaign, simulation, Senior, or session validation without
+	# touching the currently playable Office state.
+	var payload_value: Variant = envelope.get("campaign", {})
+	if not payload_value is Dictionary:
+		return {"ok": false, "error": "campaign payload is not a Dictionary"}
+	var payload := payload_value as Dictionary
+	var campaign_data_value: Variant = payload.get("campaign", {})
+	var simulation_data_value: Variant = payload.get("simulation", {})
+	if not campaign_data_value is Dictionary:
+		return {"ok": false, "error": "probation ledger is not a Dictionary"}
+	if not simulation_data_value is Dictionary:
+		return {"ok": false, "error": "office simulation is not a Dictionary"}
+	var restored_campaign = CampaignStateScript.from_dictionary(
+		campaign_data_value as Dictionary
+	)
+	if restored_campaign == null:
+		return {"ok": false, "error": "probation ledger failed semantic validation"}
+	var staged_simulation := DepartmentSimulation.new(1701, INITIAL_CAMPAIGN_STAFF)
+	if not staged_simulation.restore_save_state(simulation_data_value as Dictionary):
+		return {"ok": false, "error": "office simulation failed semantic validation"}
+
+	var session_value: Variant = payload.get("session", {})
+	if not session_value is Dictionary:
+		return {"ok": false, "error": "session ledger is not a Dictionary"}
+	var session := session_value as Dictionary
+	if session.has("senior_roost") and typeof(session.get("senior_roost")) != TYPE_BOOL:
+		return {"ok": false, "error": "session.senior_roost must be a bool"}
+	var last_report_value: Variant = session.get("last_workday_report", {})
+	if not last_report_value is Dictionary:
+		return {"ok": false, "error": "session.last_workday_report is not a Dictionary"}
+	var first_clutch_value: Variant = session.get("first_clutch", {})
+	if session.has("first_clutch") and not first_clutch_value is Dictionary:
+		return {"ok": false, "error": "session.first_clutch is not a Dictionary"}
+	var review_stage_value: Variant = session.get("review_stage", "active")
+	if typeof(review_stage_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+		return {"ok": false, "error": "session.review_stage must be a string"}
+	var review_stage := StringName(String(review_stage_value))
+	var allowed_review_stages: Array[StringName] = [
+		&"active", &"farmer", &"credit", &"probation", &"contract_board",
+		&"final", &"senior_quarter", &"senior_annual",
+	]
+	if review_stage not in allowed_review_stages:
+		return {"ok": false, "error": "session.review_stage is unsupported"}
+
+	var senior_data_value: Variant = payload.get("senior_roost", {})
+	if payload.has("senior_roost") and not senior_data_value is Dictionary:
+		return {"ok": false, "error": "Senior Roost ledger is not a Dictionary"}
+	var restored_senior = null
+	var migrated_legacy_senior := false
+	if senior_data_value is Dictionary and not (senior_data_value as Dictionary).is_empty():
+		restored_senior = SeniorRoostStateScript.from_dictionary(
+			senior_data_value as Dictionary
+		)
+		if restored_senior == null:
+			return {"ok": false, "error": "Senior Roost ledger failed semantic validation"}
+	else:
+		restored_senior = SeniorRoostStateScript.new()
+		if bool(session.get("senior_roost", false)):
+			var legacy_last_report := last_report_value as Dictionary
+			if not restored_senior.begin(
+				int(legacy_last_report.get("day", maxi(0, staged_simulation.day - 1))),
+				staged_simulation.snapshot(),
+			):
+				return {"ok": false, "error": "legacy Senior Roost migration failed"}
+			migrated_legacy_senior = true
+			review_stage = &"senior_quarter"
+	var senior_active: bool = bool(restored_senior.is_active())
+	if not senior_active and review_stage in [&"senior_quarter", &"senior_annual"]:
+		review_stage = &"active"
+	var first_clutch_data := (
+		(first_clutch_value as Dictionary).duplicate(true)
+		if first_clutch_value is Dictionary else
+		{}
+	)
+	return {
+		"ok": true,
+		"error": "",
+		"envelope": envelope.duplicate(true),
+		"campaign_state": restored_campaign,
+		"simulation_data": (simulation_data_value as Dictionary).duplicate(true),
+		"senior_state": restored_senior,
+		"review_stage": review_stage,
+		"last_workday_report": (last_report_value as Dictionary).duplicate(true),
+		"senior_active": senior_active,
+		"migrated_legacy_senior": migrated_legacy_senior,
+		"first_clutch": _normalize_first_clutch_state(
+			first_clutch_data,
+			not session.has("first_clutch"),
+		),
+	}
+
+
+func _activate_staged_campaign_checkpoint(staged: Dictionary) -> bool:
+	var simulation_data := staged.get("simulation_data", {}) as Dictionary
+	if not _simulation.restore_save_state(simulation_data):
+		return false
+	_campaign_state = staged.get("campaign_state")
+	_senior_roost_state = staged.get("senior_state")
+	_campaign_review_stage = StringName(staged.get("review_stage", &"active"))
+	_last_workday_report = (
+		staged.get("last_workday_report", {}) as Dictionary
+	).duplicate(true)
+	_campaign_senior_roost = bool(staged.get("senior_active", false))
+	_first_clutch = (staged.get("first_clutch", {}) as Dictionary).duplicate(true)
+	return true
 
 
 func _restore_campaign_view() -> void:
@@ -3693,6 +6871,14 @@ func _restore_campaign_view() -> void:
 				_show_farmer_review(_last_workday_report, false)
 		&"probation":
 			_campaign_ui.show_between_shift_report(_campaign_presentation_snapshot(&"between_shift"))
+			_set_campaign_modal_open(true)
+		&"contract_board":
+			var board := _simulation.market_contract_board_status()
+			if not bool(board.get("unlocked", false)):
+				_campaign_review_stage = &"probation"
+				_campaign_ui.show_between_shift_report(_campaign_presentation_snapshot(&"between_shift"))
+			else:
+				_campaign_ui.show_contract_board(_simulation.snapshot())
 			_set_campaign_modal_open(true)
 		&"senior_quarter", &"senior_annual":
 			_campaign_ui.show_between_shift_report(_senior_presentation_snapshot(&"between_shift"))
@@ -3722,6 +6908,7 @@ func _restore_campaign_view() -> void:
 					String(_simulation.snapshot().get("time_label", "the saved time")),
 				]
 	_update_campaign_objectives_label()
+	_present_first_clutch_reinvestment()
 
 
 func _reset_campaign_session_visuals() -> void:
@@ -3736,6 +6923,7 @@ func _reset_campaign_session_visuals() -> void:
 	_day_review_scrim.visible = false
 	_active_decision.clear()
 	_selected_decision_option = &""
+	_decision_restore_farmer_review = false
 	_pending_collection_cents = 0
 	_eggs_in_flight_by_worker.clear()
 	_collection_claim_ids_by_worker.clear()
@@ -3865,17 +7053,233 @@ func _campaign_objective_short_label(metric: StringName) -> String:
 		_: return String(metric).replace("_", " ").to_upper()
 
 
+func _senior_career_forecast(snapshot: Dictionary = {}) -> Dictionary:
+	## Keep the forecast scoped to the playable Senior floor. At farmer, credit,
+	## policy, and annual gates the recorded review owns the truth instead, which
+	## also prevents a closing shift from being projected a second time.
+	if (
+		not _campaign_senior_roost
+		or _senior_roost_state == null
+		or _senior_roost_state.status != SeniorRoostStateScript.STATUS_ACTIVE
+		or _campaign_review_stage != &"active"
+	):
+		return {"visible": false}
+	var active_snapshot := snapshot if not snapshot.is_empty() else _simulation.snapshot()
+	var forecast: Dictionary = _senior_roost_state.current_career_forecast(
+		_campaign_live_metrics(active_snapshot)
+	)
+	if forecast.is_empty():
+		return {"visible": false}
+	forecast["annual_mandate_progress"] = _senior_roost_state.current_annual_mandate_progress(
+		_campaign_live_metrics(active_snapshot)
+	)
+	forecast["visible"] = true
+	return forecast
+
+
+func _apply_senior_career_forecast_label(forecast: Dictionary) -> void:
+	var projected_score := int(forecast.get("projected_score", 0))
+	var score_max := maxi(1, int(forecast.get("score_max", 100)))
+	var projected_marks := maxi(0, int(forecast.get("projected_marks", 0)))
+	var next_threshold := int(forecast.get("next_mark_threshold", -1))
+	var next_copy := (
+		"  /  NEXT %d" % next_threshold
+		if next_threshold >= 0 else
+		"  /  TOP MARK TIER"
+	)
+	var lines: Array[String] = [
+		"IF FILED NOW  /  %d / %d  /  +%d MARK%s%s" % [
+			projected_score,
+			score_max,
+			projected_marks,
+			"" if projected_marks == 1 else "S",
+			next_copy,
+		],
+	]
+	var largest := forecast.get("largest_recoverable_component", {}) as Dictionary
+	if largest.is_empty():
+		lines.append("FULL CREDIT  /  NO RECOVERABLE SENIOR POINTS")
+	else:
+		lines.append("RECOVERABLE  /  %s  /  +%d" % [
+			String(largest.get("label", "SENIOR STANDING")),
+			int(largest.get("recoverable_points", 0)),
+		])
+		lines.append(String(largest.get("cause", "The closing ledger still has recoverable points.")))
+	var mandate_progress := forecast.get("annual_mandate_progress", {}) as Dictionary
+	if not mandate_progress.is_empty():
+		lines.append("YEAR BOOK  /  %d / %d SHIFTS  /  %d / %d TARGETS" % [
+			int(mandate_progress.get("shifts_recorded", 0)),
+			int(mandate_progress.get("shifts_target", 12)),
+			int(mandate_progress.get("objectives_met", 0)),
+			int(mandate_progress.get("objectives_total", 0)),
+		])
+		var mandate_blocker := mandate_progress.get("largest_recoverable_blocker", {}) as Dictionary
+		if not mandate_blocker.is_empty():
+			lines.append("BOARD BLOCKER  /  %s  /  %s ACTUAL %s" % [
+				String(mandate_blocker.get("label", "ANNUAL TARGET")),
+				_senior_mandate_target_text(
+					String(mandate_blocker.get("metric", "")),
+					String(mandate_blocker.get("comparison", "minimum")),
+					int(mandate_blocker.get("target", 0)),
+				),
+				_senior_mandate_progress_value_text(
+					String(mandate_blocker.get("metric", "")),
+					int(mandate_blocker.get("actual", 0)),
+				),
+			])
+	_campaign_objectives_label.text = "\n".join(lines)
+	_campaign_objectives_label.set_meta("career_forecast_visible", true)
+	_campaign_objectives_label.set_meta("career_forecast_score", projected_score)
+	_campaign_objectives_label.set_meta("career_forecast_marks", projected_marks)
+
+	var tooltip_lines: Array[String] = [
+		"SENIOR CAREER FORECAST  //  IF FILED NOW",
+		"Projected score %d / %d  //  +%d Roost Mark%s" % [
+			projected_score,
+			score_max,
+			projected_marks,
+			"" if projected_marks == 1 else "s",
+		],
+	]
+	if next_threshold >= 0:
+		tooltip_lines.append("Next mark tier: %d (%d points away)." % [
+			next_threshold,
+			int(forecast.get("points_to_next_mark", 0)),
+		])
+	else:
+		tooltip_lines.append("The projected quarter is already in the three-mark tier.")
+	for component_value in forecast.get("components", []):
+		var component := component_value as Dictionary
+		tooltip_lines.append("%s  //  %d / %d\n%s" % [
+			String(component.get("label", "SENIOR COMPONENT")),
+			int(component.get("score", 0)),
+			int(component.get("max_score", 0)),
+			String(component.get("cause", "Filed against the closing ledger.")),
+		])
+	if not mandate_progress.is_empty():
+		tooltip_lines.append(
+			"ANNUAL BOARD MANDATE\n" + "\n".join(
+				_senior_mandate_progress_lines(mandate_progress)
+			)
+		)
+	tooltip_lines.append("Live measures can still move until the quarter is filed.")
+	_campaign_objectives_label.tooltip_text = "\n\n".join(tooltip_lines)
+
+
+func _update_probation_safeguard_label() -> void:
+	if _campaign_safeguards_label == null or _campaign_state == null:
+		return
+	if _campaign_senior_roost:
+		_campaign_safeguards_label.visible = false
+		return
+	var forecast: Dictionary = _campaign_state.probation_safeguard_forecast()
+	var criteria := forecast.get("criteria", []) as Array
+	_campaign_safeguards_label.visible = not criteria.is_empty()
+	if criteria.is_empty():
+		return
+	var pass_count := int(forecast.get("pass_count", 0))
+	var completed := int(forecast.get("completed_shifts", 0))
+	var required := int(forecast.get("required_shifts", CampaignStateScript.CAMPAIGN_LENGTH))
+	var all_pass := bool(forecast.get("all_pass", false))
+	var blocker := forecast.get("largest_recoverable_blocker", {}) as Dictionary
+	if blocker.is_empty() and not all_pass:
+		for row_value: Variant in criteria:
+			if row_value is Dictionary and not bool((row_value as Dictionary).get("pass", false)):
+				blocker = (row_value as Dictionary).duplicate(true)
+				break
+	var lines: Array[String] = [
+		"FINAL SAFEGUARDS  //  %d / %d PASS  //  %d / %d SHIFTS" % [
+			pass_count,
+			criteria.size(),
+			completed,
+			required,
+		],
+	]
+	if all_pass:
+		lines.append("ON TRACK  //  ALL CURRENT THRESHOLDS CLEAR")
+	elif not blocker.is_empty():
+		lines.append("AT RISK  //  %s  //  %s" % [
+			String(blocker.get("label", "SAFEGUARD")).to_upper(),
+			_probation_safeguard_office_gap_text(blocker),
+		])
+	_campaign_safeguards_label.text = "\n".join(lines)
+	_campaign_safeguards_label.add_theme_color_override(
+		"font_color",
+		Color("a7dbc9") if all_pass else Color("f0aa95"),
+	)
+	var tooltip_lines: Array[String] = [
+		"PROBATION FINAL TERMS  //  EXACT THRESHOLDS",
+		"The file passes only after five shifts and only when all five rows pass.",
+	]
+	for row_value: Variant in criteria:
+		if not row_value is Dictionary:
+			continue
+		var row := row_value as Dictionary
+		var metric := String(row.get("metric", ""))
+		var comparison := String(row.get("comparison", "minimum"))
+		tooltip_lines.append("%s  //  %s  //  %s %s %s  //  %s" % [
+			"PASS" if bool(row.get("pass", false)) else "AT RISK",
+			String(row.get("label", "SAFEGUARD")).to_upper(),
+			_probation_safeguard_office_value_text(metric, int(row.get("projected_value", 0))),
+			">=" if comparison == "minimum" else "<=",
+			_probation_safeguard_office_value_text(metric, int(row.get("target", 0))),
+			_probation_safeguard_office_gap_text(row),
+		])
+	_campaign_safeguards_label.tooltip_text = "\n".join(tooltip_lines)
+	_campaign_safeguards_label.set_meta("safeguards_pass", pass_count)
+	_campaign_safeguards_label.set_meta("safeguards_total", criteria.size())
+	_campaign_safeguards_label.set_meta(
+		"largest_blocker_id",
+		String(blocker.get("id", "")),
+	)
+
+
+func _probation_safeguard_office_value_text(metric: String, value: int) -> String:
+	if metric == "crack_rate_basis_points":
+		return "%.2f%%" % (float(value) / 100.0)
+	return str(value)
+
+
+func _probation_safeguard_office_gap_text(row: Dictionary) -> String:
+	var gap := int(row.get("signed_gap", 0))
+	if String(row.get("metric", "")) == "crack_rate_basis_points":
+		return "%s%.2f PTS" % ["+" if gap > 0 else "", float(gap) / 100.0]
+	return "%s%d POINT%s" % [
+		"+" if gap > 0 else "",
+		gap,
+		"" if absi(gap) == 1 else "S",
+	]
+
+
 func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 	if _campaign_objectives_label == null or _campaign_state == null:
 		return
 	var active_snapshot := snapshot if not snapshot.is_empty() else _simulation.snapshot()
 	var live_metrics := _campaign_live_metrics(active_snapshot)
 	var senior_mode: bool = _campaign_senior_roost and _senior_roost_state != null and _senior_roost_state.is_active()
+	_update_probation_safeguard_label()
+	var career_forecast := _senior_career_forecast(active_snapshot)
+	_campaign_objectives_label.set_meta("career_forecast_visible", false)
+	_campaign_objectives_label.set_meta("career_forecast_score", 0)
+	_campaign_objectives_label.set_meta("career_forecast_marks", 0)
 	if _campaign_orders_heading_label != null:
 		_campaign_orders_heading_label.text = (
-			"THIS QUARTER'S SENIOR ORDERS" if senior_mode else "TODAY'S PROBATION ORDERS"
+			"SENIOR CAREER + BOARD FORECAST"
+			if bool(career_forecast.get("visible", false)) else
+			("THIS QUARTER'S SENIOR ORDERS" if senior_mode else "TODAY'S PROBATION ORDERS")
 		)
 	if senior_mode and _senior_roost_state.status == SeniorRoostStateScript.STATUS_QUARTER_CHOICE:
+		if _senior_roost_state.requires_annual_mandate():
+			var mandate_tier: Dictionary = _senior_roost_state.mandate_tier_eligibility()
+			_campaign_objectives_label.text = "ANNUAL MANDATE REQUIRED  ·  3 FROZEN BOOKS  ·  %d SEAL%s  ·  TIER %d" % [
+				int(mandate_tier.get("mandate_seals", 0)),
+				"" if int(mandate_tier.get("mandate_seals", 0)) == 1 else "S",
+				int(mandate_tier.get("eligible_tier", 0)),
+			]
+			_campaign_objectives_label.tooltip_text = "Choose the twelve-shift annual Board Mandate before Q1 policy. The Standard Board Book never stakes marks; harder tiers disclose their targets, reward, and failure cost."
+			_campaign_objectives_label.set_meta("orders_on_track", 0)
+			_campaign_objectives_label.set_meta("orders_total", 1)
+			return
 		var sponsorship_window: bool = (
 			_senior_roost_state.completed_quarters > 0
 			and bool(_senior_roost_state.snapshot().get("sponsorship_available_this_gate", true))
@@ -3895,11 +7299,17 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 		return
 	if senior_mode and _senior_roost_state.status == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW:
 		var annual_passed := bool(_senior_roost_state.last_annual_review.get("passed", false))
-		_campaign_objectives_label.text = "ANNUAL  ·  %s  ·  %d / 100" % [
+		var mandate_settlement: Dictionary = _senior_roost_state.last_mandate_settlement
+		_campaign_objectives_label.text = "ANNUAL  ·  %s  ·  %d / 100  ·  BOARD %s  ·  %d SEAL%s" % [
 			"PASSED" if annual_passed else "IMPROVEMENT YEAR",
 			int(_senior_roost_state.last_annual_review.get("score", 0)),
+			"SEALED" if bool(mandate_settlement.get("success", false)) else "HELD",
+			int(mandate_settlement.get("seal_reward", 0)),
+			"" if int(mandate_settlement.get("seal_reward", 0)) == 1 else "S",
 		]
-		_campaign_objectives_label.tooltip_text = "Acknowledge the annual review to continue the uncapped Senior career. This closed-quarter gate also permits one optional Career Sponsorship."
+		_campaign_objectives_label.tooltip_text = "%s\n\nAcknowledge the annual review to continue the uncapped Senior career. This closed-quarter gate also permits one optional Career Sponsorship." % String(
+			mandate_settlement.get("outcome", "The annual Board Mandate has settled."),
+		)
 		_campaign_objectives_label.set_meta("orders_on_track", 1 if annual_passed else 0)
 		_campaign_objectives_label.set_meta("orders_total", 1)
 		return
@@ -3947,6 +7357,9 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 		])
 	_campaign_objectives_label.set_meta("orders_on_track", on_track)
 	_campaign_objectives_label.set_meta("orders_total", objectives.size())
+	if bool(career_forecast.get("visible", false)):
+		_apply_senior_career_forecast_label(career_forecast)
+		return
 	tooltip_lines.append(
 		"Filed at quarter close; live measures can still move. A 60+ quarter earns promotion progress."
 		if senior_mode else
@@ -4025,18 +7438,73 @@ func _set_campaign_modal_open(is_open: bool) -> void:
 
 
 func _show_campaign_title(continue_available: bool) -> void:
+	_campaign_session_checkpoint_enabled = false
+	var resume_summary := _campaign_resume_summary() if continue_available else {}
 	_campaign_ui.apply_snapshot({
 		"view": &"title",
 		"day": 1,
 		"total_days": CampaignStateScript.CAMPAIGN_LENGTH,
 		"continue_available": continue_available,
+		"resume_summary": resume_summary,
 	})
 	_campaign_ui.show_title(continue_available)
+
+
+func _campaign_resume_summary() -> Dictionary:
+	if _campaign_store == null:
+		return {}
+	var envelope := _campaign_store.load()
+	if envelope.is_empty():
+		return {}
+	var metadata := envelope.get("metadata", {}) as Dictionary
+	var payload := envelope.get("campaign", {}) as Dictionary
+	var session := payload.get("session", {}) as Dictionary
+	var senior_data := payload.get("senior_roost", {}) as Dictionary
+	var senior_active := bool(session.get("senior_roost", false))
+	var rank_id := StringName(String(metadata.get("probation_rank", "probationary")))
+	var stage := StringName(String(metadata.get("review_stage", "active")))
+	var stage_label := "SHIFT IN PROGRESS"
+	match stage:
+		&"farmer":
+			stage_label = "FARMER REVIEW"
+		&"credit":
+			stage_label = "CREDIT MEMO"
+		&"probation":
+			stage_label = "PROBATION REPORT"
+		&"contract_board":
+			stage_label = "MORNING CONTRACT BOARD"
+		&"final":
+			stage_label = "FINAL REVIEW"
+		&"senior_quarter":
+			stage_label = "SENIOR QUARTER"
+		&"senior_annual":
+			stage_label = "SENIOR ANNUAL REVIEW"
+	return {
+		"day": maxi(1, int(metadata.get("day", 1))),
+		"completed_shifts": maxi(0, int(metadata.get("completed_shifts", 0))),
+		"probation_score": clampi(
+			int(metadata.get("probation_score", CampaignStateScript.STARTING_SCORE)),
+			0,
+			100,
+		),
+		"rank_label": CampaignStateScript.rank_display_name(rank_id),
+		"stage_label": stage_label,
+		"senior_roost": senior_active,
+		"senior_year": maxi(1, int(senior_data.get("completed_years", 0)) + 1),
+		"roost_marks": maxi(0, int(senior_data.get("roost_marks", 0))),
+		"mandate_seals": maxi(0, int(senior_data.get("mandate_seals", 0))),
+		"recovered_from_backup": bool(envelope.get("recovered_from_backup", false)),
+		"recovery_source": String(envelope.get("recovery_source", "primary")),
+	}
 
 
 func _should_bypass_campaign_title() -> bool:
 	if DisplayServer.get_name() == "headless":
 		return true
+	return _is_capture_launch()
+
+
+func _is_capture_launch() -> bool:
 	for argument in OS.get_cmdline_user_args() + OS.get_cmdline_args():
 		if String(argument).begins_with("--capture"):
 			return true
@@ -4063,32 +7531,213 @@ func _json_safe_variant(value: Variant) -> Variant:
 			return str(value)
 
 
+func _flockwatch_diagnostic_state() -> Dictionary:
+	var current_page := ""
+	var current_page_title := ""
+	var available_pages: Array[String] = []
+	var accessible_copy := ""
+	var last_feedback := _ticker_last_text
+	if _flockwatch_navigation != null:
+		current_page = String(_flockwatch_navigation.current_page_id())
+		current_page_title = _flockwatch_navigation.current_page_title()
+		for page_id: StringName in _flockwatch_navigation.available_page_ids():
+			available_pages.append(String(page_id))
+		accessible_copy = _flockwatch_navigation.accessible_text()
+		last_feedback = _flockwatch_navigation.last_feedback()
+	return {
+		"visible": _flockwatch_open,
+		"current_page": current_page,
+		"current_page_title": current_page_title,
+		"available_pages": available_pages,
+		"accessible_text": accessible_copy if _flockwatch_open else "",
+		"last_feedback": last_feedback,
+	}
+
+
 func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 	if not OS.has_feature("web"):
 		return
 	var first_clutch := _first_clutch_coach_snapshot(snapshot)
+	var reinvestment := _simulation.first_clutch_reinvestment_status()
+	var reinvestment_options: Array[Dictionary] = []
+	for option_value in reinvestment.get("offered_options", []):
+		var option := option_value as Dictionary
+		reinvestment_options.append({
+			"id": String(option.get("id", "")),
+			"list_cost_cents": int(option.get("list_cost_cents", 0)),
+			"procurement_match_cents": int(option.get("procurement_match_cents", 0)),
+			"net_cost_cents": int(option.get("net_cost_cents", 0)),
+			"projected_spendable_fund_cents": int(option.get("projected_spendable_fund_cents", 0)),
+			"can_purchase": bool(option.get("can_purchase", false)),
+		})
+	var decision_rect := Rect2()
+	if _decision_panel != null:
+		decision_rect = _decision_panel.get_global_rect()
 	var focused_worker_id := -1
 	if _routing_ui != null:
 		focused_worker_id = _routing_ui.focused_worker_id()
+	var focused_worker: Dictionary = {}
+	for worker_value in snapshot.get("workers", []):
+		var worker := worker_value as Dictionary
+		if int(worker.get("id", -1)) == focused_worker_id:
+			focused_worker = worker
+			break
+	var contract_planning: Dictionary = {}
+	if _campaign_ui != null:
+		var contract_board_ui := _campaign_ui.contract_board_ui()
+		if contract_board_ui != null and contract_board_ui.has_method("presentation_state"):
+			var planning_value: Variant = contract_board_ui.call("presentation_state")
+			if planning_value is Dictionary:
+				contract_planning = (planning_value as Dictionary).duplicate(true)
+				contract_planning["can_sign"] = bool(contract_planning.get("sign_enabled", false))
+				var effective_terms := contract_planning.get("effective_terms", {}) as Dictionary
+				contract_planning["hold_reason"] = (
+					"" if bool(contract_planning["can_sign"]) else String(effective_terms.get("reason", ""))
+				)
+	var career_forecast := _senior_career_forecast(snapshot)
+	var capital_blueprint_state := {
+		"visible": false,
+		"selected_facility_id": "",
+		"active_filter_id": "all",
+		"layout_mode": "desktop",
+		"visible_facility_ids": [],
+		"inspector_text": "",
+	}
+	if _capital_blueprint_ui != null:
+		capital_blueprint_state = {
+			"visible": bool(_capital_blueprint_ui.call("is_open")),
+			"selected_facility_id": String(_capital_blueprint_ui.call("selected_facility_id")),
+			"active_filter_id": String(_capital_blueprint_ui.call("active_filter_id")),
+			"layout_mode": String(_capital_blueprint_ui.call("layout_mode_name")),
+			"visible_facility_ids": _capital_blueprint_ui.call("visible_facility_ids"),
+			"inspector_text": String(_capital_blueprint_ui.call("inspector_accessible_text")),
+		}
+	var campus_planner_state := {
+		"visible": false,
+		"layout_mode": "desktop",
+		"selected_socket_id": "meadow_west",
+		"accessible_text": "",
+	}
+	if _campus_expansion_ui != null:
+		var planner_value: Variant = _campus_expansion_ui.call("presentation_state")
+		if planner_value is Dictionary:
+			campus_planner_state = (planner_value as Dictionary).duplicate(true)
+			campus_planner_state["accessible_text"] = String(
+				_campus_expansion_ui.call("accessible_text")
+			)
+	var campus_portfolio_planner_state := {
+		"visible": false,
+		"layout_mode": "desktop",
+		"selected_parcel_id": "",
+		"selected_pad_id": "",
+		"selected_module_id": "",
+		"accessible_text": "",
+	}
+	if _campus_portfolio_ui != null:
+		var portfolio_planner_value: Variant = _campus_portfolio_ui.call("presentation_state")
+		if portfolio_planner_value is Dictionary:
+			campus_portfolio_planner_state = (portfolio_planner_value as Dictionary).duplicate(true)
+		campus_portfolio_planner_state["visible"] = bool(
+			_campus_portfolio_ui.call("is_open")
+		)
+		campus_portfolio_planner_state["layout_mode"] = String(
+			_campus_portfolio_ui.call("layout_mode_name")
+		)
+		campus_portfolio_planner_state["accessible_text"] = String(
+			_campus_portfolio_ui.call("accessible_text")
+		)
+	var commissioning_state := {"visible": false, "receipt": {}, "accessible_text": ""}
+	if _commissioning_reveal_ui != null:
+		commissioning_state = {
+			"visible": bool(_commissioning_reveal_ui.call("is_reveal_visible")),
+			"receipt": _commissioning_reveal_ui.call("receipt_snapshot"),
+			"accessible_text": String(_commissioning_reveal_ui.call("accessible_text")),
+		}
+	var campus_portfolio_reveal_state := {
+		"visible": false,
+		"receipt": {},
+		"context": {},
+		"accessible_text": "",
+		"reduced_motion": false,
+	}
+	if _campus_portfolio_reveal_ui != null:
+		var reveal_state_value: Variant = _campus_portfolio_reveal_ui.call("presentation_state")
+		if reveal_state_value is Dictionary:
+			campus_portfolio_reveal_state = (reveal_state_value as Dictionary).duplicate(true)
+	var settings_state := {
+		"visible": _settings_ui != null and _settings_ui.is_open(),
+		"accessible_text": (
+			_settings_ui.accessible_text()
+			if _settings_ui != null and _settings_ui.is_open() else ""
+		),
+		"motion_mode": String(_player_preferences.get("motion_mode", "system")),
+		"reduced_motion_active": _prefers_reduced_motion(),
+		"ui_scale": float(_player_preferences.get("ui_scale", 1.0)),
+		"high_contrast": bool(_player_preferences.get("high_contrast", false)),
+		"visual_quality": String(_player_preferences.get("visual_quality", "balanced")),
+		"timing_assist": String(_player_preferences.get("timing_assist", "standard")),
+		"audio": (_player_preferences.get("audio", {}) as Dictionary).duplicate(true),
+		"bindings": _current_binding_labels(),
+	}
 	var state := {
+		"coordinate_system": "Canvas origin is top-left; +x right, +y down; authored stage 1280x720.",
+		"mode": "godot_canvas",
+		"controls": [
+			"click hen",
+			"route file",
+			"%s priority peck" % _action_hint(PECK_ASSIST_ACTION),
+			"1-3 binder or speed",
+			"N negotiate",
+			"R standard terms",
+			"Enter authorize",
+			"D standard book",
+			"C continue",
+			"%s select rider or pause" % _action_hint(&"pause_simulation"),
+			"%s Flockwatch" % _action_hint(&"toggle_flockwatch"),
+			"%s Feed Party" % _action_hint(&"fund_feed_party"),
+			"%s after-hours pecking" % _action_hint(&"toggle_overtime"),
+			"%s comfort and controls" % _action_hint(&"open_settings"),
+		],
 		"loaded": true,
+		"settings": settings_state,
+		"flockwatch": _flockwatch_diagnostic_state(),
+		"checkpoint": _checkpoint_diagnostic_state(),
 		"campaign_stage": String(_campaign_review_stage),
 		"campaign_day": int(_campaign_state.completed_shifts) + 1,
 		"campaign_score": int(_campaign_state.probation_score),
+		"probation_safeguards": _campaign_state.probation_safeguard_forecast(),
 		"senior_roost": (
 			_senior_roost_state.snapshot()
 			if _senior_roost_state != null and _senior_roost_state.is_active() else
 			{"status": "inactive"}
 		),
+		"career_forecast": career_forecast.duplicate(true),
 		"career_sponsorship": (
 			_career_sponsorship_presentation_snapshot()
 			if _campaign_senior_roost else
 			{"visible": false}
 		),
+		"flock_care": (snapshot.get("flock_care", {}) as Dictionary).duplicate(true),
+		"operations": (snapshot.get("operations", {}) as Dictionary).duplicate(true),
+		"flock_relations": (snapshot.get("flock_relations", {}) as Dictionary).duplicate(true),
+		"feed_procurement": (snapshot.get("feed_procurement", {}) as Dictionary).duplicate(true),
+		"farm_treasury": (snapshot.get("farm_treasury", {}) as Dictionary).duplicate(true),
+		"farmer_relations_gallery": _farmer_relations_gallery_projection(snapshot),
+		"farmgate_dispatch": (snapshot.get("farmgate_dispatch", {}) as Dictionary).duplicate(true),
+		"campus_expansion": (snapshot.get("campus_expansion", {}) as Dictionary).duplicate(true),
+			"campus_expansion_planner": campus_planner_state,
+			"campus_portfolio": (snapshot.get("campus_portfolio", {}) as Dictionary).duplicate(true),
+			"campus_portfolio_planner": campus_portfolio_planner_state,
+		"capital_plan": (snapshot.get("capital_plan", {}) as Dictionary).duplicate(true),
+		"capital_blueprint": capital_blueprint_state,
+		"commissioning_reveal": commissioning_state,
+		"campus_portfolio_reveal": campus_portfolio_reveal_state,
 		"shift_phase": int(snapshot.get("shift_phase", -1)),
 		"clock_speed_index": _clock.speed_index,
 		"clock_multiplier": SimulationClock.SPEED_MULTIPLIERS[_clock.speed_index],
 		"pending_decision_kind": String(_active_decision.get("kind", "")),
+		"contract_board": (snapshot.get("contract_board", {}) as Dictionary).duplicate(true),
+		"contract_planning": contract_planning,
 		"first_clutch": {
 			"visible": bool(first_clutch.get("visible", false)),
 			"stage": String(first_clutch.get("stage", "")),
@@ -4098,8 +7747,72 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"target_name": String(first_clutch.get("target_name", "")),
 			"orders_handoff_pending": bool(first_clutch.get("orders_handoff_pending", false)),
 			"orders_handoff_acknowledged": bool(_first_clutch.get("orders_handoff_acknowledged", false)),
+			"reinvestment": {
+				"status": String(reinvestment.get("status", &"unavailable")),
+				"modal_visible": (
+					_decision_host != null
+					and _decision_host.visible
+					and StringName(_active_decision.get("kind", &"")) == FIRST_CLUTCH_REINVESTMENT_KIND
+				),
+				"selected_choice": String(_selected_decision_option),
+				"confirm_enabled": _decision_confirm_button != null and not _decision_confirm_button.disabled,
+				"card_rect": {
+					"x": decision_rect.position.x,
+					"y": decision_rect.position.y,
+					"width": decision_rect.size.x,
+					"height": decision_rect.size.y,
+				},
+				"created_value_cents": int(reinvestment.get("created_value_cents", 0)),
+				"fund_at_collection_cents": int(reinvestment.get("fund_at_collection_cents", 0)),
+				"protected_reserve_cents": int(reinvestment.get("protected_reserve_cents", 0)),
+				"spendable_at_collection_cents": int(reinvestment.get("spendable_at_collection_cents", 0)),
+				"procurement_match_available_cents": int(reinvestment.get("procurement_match_available_cents", 0)),
+				"choice_id": String(reinvestment.get("choice_id", &"")),
+				"selected_list_cost_cents": int(reinvestment.get("selected_list_cost_cents", 0)),
+				"procurement_match_used_cents": int(reinvestment.get("procurement_match_used_cents", 0)),
+				"net_cost_cents": int(reinvestment.get("net_cost_cents", 0)),
+				"fund_after_cents": int(reinvestment.get("fund_after_cents", 0)),
+				"spendable_after_cents": int(reinvestment.get("spendable_after_cents", 0)),
+				"options": reinvestment_options,
+			},
 		},
 		"focused_worker_id": focused_worker_id,
+		"economy": {
+			"feed_fund_cents": int(snapshot.get("revenue_cents", 0)),
+			"spendable_fund_cents": int(snapshot.get("spendable_fund_cents", 0)),
+			"daily_operating_cost_cents": int(snapshot.get("daily_operating_cost_cents", 0)),
+			"daily_feed_cost_cents": int(snapshot.get("daily_feed_cost_cents", 0)),
+			"daily_payroll_cents": int(snapshot.get("daily_payroll_cents", 0)),
+			"daily_hen_payroll_cents": int(snapshot.get("daily_hen_payroll_cents", 0)),
+			"daily_supervisor_payroll_cents": int(
+				snapshot.get("daily_supervisor_payroll_cents", 0)
+			),
+			"daily_facility_cost_cents": int(snapshot.get("daily_facility_cost_cents", 0)),
+			"wage_arrears_cents": int(snapshot.get("wage_arrears_cents", 0)),
+		},
+		"production": {
+			"claims_waiting": int(snapshot.get("claims_waiting", 0)),
+			"claims_outstanding": int(snapshot.get("claims_outstanding", 0)),
+			"claim_capacity": int(snapshot.get("claim_capacity", 18)),
+			"intake_rejections_today": int(snapshot.get("intake_rejections_today", 0)),
+			"intake_rejections_total": int(snapshot.get("intake_rejections_total", 0)),
+			"intake_missed_value_today_cents": int(snapshot.get("intake_missed_value_today_cents", 0)),
+			"intake_missed_value_total_cents": int(snapshot.get("intake_missed_value_total_cents", 0)),
+			"focused_claim": (focused_worker.get("current_claim", {}) as Dictionary).duplicate(true),
+			"focused_peck_assist": (focused_worker.get("peck_assist", {}) as Dictionary).duplicate(true),
+			"peck_assists_remaining": int(snapshot.get("peck_assists_remaining", 0)),
+		},
+		"capital": {
+			"upgrade_levels": (snapshot.get("upgrade_levels", {}) as Dictionary).duplicate(true),
+			"owned_facilities": (snapshot.get("owned_facilities", {}) as Dictionary).duplicate(true),
+			"facility_catalog": (snapshot.get("facility_catalog", []) as Array).duplicate(true),
+			"facility_effects": (snapshot.get("facility_effects", {}) as Dictionary).duplicate(true),
+			"packing_contract": (snapshot.get("packing_contract", {}) as Dictionary).duplicate(true),
+			"capital_plan": (snapshot.get("capital_plan", {}) as Dictionary).duplicate(true),
+			"last_facility_purchase_receipt": (
+				snapshot.get("last_facility_purchase_receipt", {}) as Dictionary
+			).duplicate(true),
+		},
 		"orders": {
 			"on_track": int(_campaign_objectives_label.get_meta("orders_on_track", 0)),
 			"total": int(_campaign_objectives_label.get_meta("orders_total", 0)),
@@ -4150,7 +7863,7 @@ func _update_lighting(snapshot: Dictionary) -> void:
 
 func _on_flockwatch_pressed() -> void:
 	var opening := not _flockwatch_open
-	_set_flockwatch_open(opening)
+	_set_flockwatch_open(opening, not opening)
 	if opening:
 		_acknowledge_first_clutch_orders_handoff()
 
@@ -4166,13 +7879,29 @@ func _acknowledge_first_clutch_orders_handoff() -> void:
 	_save_campaign_checkpoint("first_clutch_orders_opened")
 
 
-func _set_flockwatch_open(is_open: bool) -> void:
+func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
+	var changed := _flockwatch_open != is_open
+	if changed and is_open:
+		var focus_owner := get_viewport().gui_get_focus_owner()
+		if (
+			focus_owner != null
+			and (_flockwatch_panel == null or not _flockwatch_panel.is_ancestor_of(focus_owner))
+		):
+			_flockwatch_prior_focus_owner = focus_owner
+		elif _flockwatch_toggle != null:
+			_flockwatch_prior_focus_owner = _flockwatch_toggle
 	if is_open and _camera_controller != null and _camera_controller.is_focused():
 		_camera_controller.show_overview()
 	_flockwatch_open = is_open
 	if _flockwatch_panel != null:
 		_flockwatch_panel.visible = is_open
 		_flockwatch_panel.mouse_filter = Control.MOUSE_FILTER_STOP if is_open else Control.MOUSE_FILTER_IGNORE
+	var another_surface_open := _blocking_management_surface_open()
+	if _camera_controller != null:
+		_camera_controller.set_process_unhandled_input(not is_open and not another_surface_open)
+	if _routing_ui != null:
+		var running := _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+		_routing_ui.set_interaction_enabled(running and not is_open and not another_surface_open)
 	if _flockwatch_toggle != null:
 		_flockwatch_toggle.tooltip_text = ("Close the ledger and restore the full coop view." if is_open else "Open the rooster's performance ledger.")
 	_update_flockwatch_toggle()
@@ -4180,6 +7909,47 @@ func _set_flockwatch_open(is_open: bool) -> void:
 		var snapshot := _simulation.snapshot()
 		_refresh_first_clutch_ui(snapshot)
 		_update_guidance(snapshot)
+		_publish_web_diagnostic_state(snapshot)
+	if changed and is_open and _flockwatch_navigation != null:
+		_flockwatch_navigation.focus_current_tab()
+	elif changed and not is_open:
+		var focus_target := _flockwatch_prior_focus_owner
+		_flockwatch_prior_focus_owner = null
+		if (
+			restore_focus
+			and not another_surface_open
+			and focus_target != null
+			and is_instance_valid(focus_target)
+			and focus_target.is_visible_in_tree()
+		):
+			focus_target.call_deferred("grab_focus")
+		elif (
+			restore_focus
+			and not another_surface_open
+			and _flockwatch_toggle != null
+			and _flockwatch_toggle.is_visible_in_tree()
+		):
+			_flockwatch_toggle.call_deferred("grab_focus")
+
+
+func _on_flockwatch_page_changed(_page_id: StringName) -> void:
+	if _flockwatch_open and _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _open_flockwatch_page(page_id: StringName) -> void:
+	if _flockwatch_navigation != null:
+		_refresh_flockwatch_navigation(_simulation.snapshot())
+		if not _flockwatch_navigation.is_page_available(page_id):
+			# Deep links from authored review flows make their own filing relevant;
+			# this discovers one page without exposing every future filing.
+			var presentation := _simulation.snapshot().duplicate(true)
+			presentation["first_clutch_active"] = false
+			presentation["relevant_flockwatch_pages"] = [page_id]
+			_flockwatch_navigation.apply_snapshot(presentation)
+	_set_flockwatch_open(true)
+	if _flockwatch_navigation != null:
+		_flockwatch_navigation.open_page(page_id, true)
 
 
 func _update_flockwatch_toggle() -> void:
@@ -4189,12 +7959,46 @@ func _update_flockwatch_toggle() -> void:
 	var headcount := int(snapshot.get("active_staff_count", _worker_views.size()))
 	var capacity := _office_capacity_from_snapshot(snapshot)
 	if _flockwatch_open:
-		_flockwatch_toggle.text = "CLOSE LEDGER  ·  %d/%d  [V]" % [headcount, capacity]
-		_flockwatch_toggle.tooltip_text = "Close the ledger and restore the full coop view."
+		# Keep the control's identity stable. The former rotating copy made one
+		# button look like four unrelated systems depending on office state.
+		_flockwatch_toggle.text = "FLOCKWATCH  ·  CLOSE  [V]"
+		_flockwatch_toggle.tooltip_text = (
+			"Close Flockwatch and restore the full coop view.\n"
+			+ "Active flock: %d of %d authorized desks." % [headcount, capacity]
+		)
+		_apply_flockwatch_binding_hint()
 		return
 	if _first_clutch_orders_handoff_pending():
-		_flockwatch_toggle.text = "OPEN TODAY'S 3 ORDERS  [V]"
-		_flockwatch_toggle.tooltip_text = "First Clutch complete: open the three live probation orders."
+		_flockwatch_toggle.text = "FLOCKWATCH  ·  3 ACTIONS  [V]"
+		_flockwatch_toggle.tooltip_text = (
+			"First Clutch complete: open Flockwatch to review the three live probation orders."
+		)
+		_apply_flockwatch_binding_hint()
+		return
+	# Capital facilities used to become actionable silently because this compact
+	# badge counted only the three desk-upgrade buttons. Give real rooms priority
+	# over the historical output summary while a review-time requisition is ready.
+	var ready_facilities := 0
+	var ready_facility_names: Array[String] = []
+	for facility_value in snapshot.get("facility_catalog", []):
+		if facility_value is not Dictionary:
+			continue
+		var facility := facility_value as Dictionary
+		if bool(facility.get("maxed", false)) or not bool(facility.get("can_purchase", false)):
+			continue
+		ready_facilities += 1
+		ready_facility_names.append(String(facility.get(
+			"short_name", facility.get("display_name", facility.get("name", "CAPITAL PROJECT"))
+		)))
+	if ready_facilities > 0:
+		_flockwatch_toggle.text = "FLOCKWATCH  ·  %d ACTION%s  [V]" % [
+			ready_facilities,
+			"" if ready_facilities == 1 else "S",
+		]
+		_flockwatch_toggle.tooltip_text = "%s\nOpen the capital file to compare exact benefits, liabilities, and reserve effects." % (
+			", ".join(ready_facility_names)
+		)
+		_apply_flockwatch_binding_hint()
 		return
 	if _pecking_order_ui != null:
 		var leader_summary: String = String(_pecking_order_ui.call("leader_summary"))
@@ -4205,10 +8009,9 @@ func _update_flockwatch_toggle() -> void:
 					has_ranked_output = true
 					break
 		if has_ranked_output and not leader_summary.contains("NO ACTIVE RANKING"):
-			var compact_summary: String = leader_summary.replace("LAST SHIFT // ", "LAST  ·  ")
-			compact_summary = compact_summary.replace(" // ", "  ·  ")
-			_flockwatch_toggle.text = "%s  [V]" % compact_summary
+			_flockwatch_toggle.text = "FLOCKWATCH  [V]"
 			_flockwatch_toggle.tooltip_text = "%s\nOpen the full credited-output ledger." % leader_summary
+			_apply_flockwatch_binding_hint()
 			return
 	var affordable := 0
 	var spendable := int(snapshot.get("spendable_fund_cents", _simulation.revenue_cents))
@@ -4216,9 +8019,26 @@ func _update_flockwatch_toggle() -> void:
 		if not bool(upgrade.get("maxed", false)) and spendable >= int(upgrade.get("cost_cents", 0)):
 			affordable += 1
 	_flockwatch_toggle.text = (
-		"FLOCK %d/%d  ·  %d READY  [V]" % [headcount, capacity, affordable]
+		"FLOCKWATCH  ·  %d ACTION%s  [V]" % [
+			affordable,
+			"" if affordable == 1 else "S",
+		]
 		if affordable > 0 else
-		"FLOCKWATCH  ·  %d/%d  [V]" % [headcount, capacity]
+		"FLOCKWATCH  [V]"
+	)
+	_flockwatch_toggle.tooltip_text = (
+		"Open the rooster's performance ledger.\n"
+		+ "Active flock: %d of %d authorized desks." % [headcount, capacity]
+	)
+	_apply_flockwatch_binding_hint()
+
+
+func _apply_flockwatch_binding_hint() -> void:
+	if _flockwatch_toggle == null:
+		return
+	_flockwatch_toggle.text = _flockwatch_toggle.text.replace(
+		"[V]",
+		"[%s]" % _action_hint(&"toggle_flockwatch"),
 	)
 
 
@@ -4250,6 +8070,9 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		return
 	if _day_review_scrim != null and _day_review_scrim.visible:
 		_guidance_label.text = "SHIFT COMPLETE: review results and choose how to invest."
+		return
+	if _farmer_relations_gallery_offer_open(snapshot):
+		_guidance_label.text = "CLOSING CREDIT FILED: publish one Gallery campaign or continue to skip."
 		return
 	var shift_phase := int(snapshot.get("shift_phase", DepartmentSimulation.ShiftPhase.RUNNING))
 	if shift_phase == DepartmentSimulation.ShiftPhase.REVIEW:
@@ -4293,6 +8116,10 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		return
 	var eggs := int(snapshot.get("eggs_today", 0))
 	var quota := maxi(1, int(snapshot.get("quota_target", 1)))
+	var contract_guidance := _active_market_contract_guidance(snapshot)
+	if not contract_guidance.is_empty():
+		_guidance_label.text = contract_guidance
+		return
 	if _clock.speed_index == 0:
 		_guidance_label.text = "PAUSED: inspect a hen or open Flockwatch before resuming."
 		return
@@ -4307,7 +8134,18 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			assist_worker_name = String(assist_worker.get("name", assist_worker_name)).to_upper()
 			assist_timing = String((assist_worker.get("peck_assist", {}) as Dictionary).get("timing_label", assist_timing))
 			break
-		_guidance_label.text = "PRIORITY PECK READY: %s  ·  %s  ·  press E or use the gold dossier stamp" % [assist_worker_name, assist_timing]
+		_guidance_label.text = "PRIORITY PECK READY: %s  ·  %s  ·  press %s or use the gold dossier stamp" % [assist_worker_name, assist_timing, _action_hint(PECK_ASSIST_ACTION)]
+		return
+	var attention_status := _simulation.peck_assist_delivery_status()
+	if (
+		int(attention_status.get("charges", 0)) <= 0
+		and int(attention_status.get("pending_delivery_count", 0)) > 0
+	):
+		var pending_attention := int(attention_status.get("pending_delivery_count", 0))
+		_guidance_label.text = "PRIORITY PECK RECHARGING: %d clean assisted %s en route to farmer credit." % [
+			pending_attention,
+			("egg" if pending_attention == 1 else "eggs"),
+		]
 		return
 	if bool(snapshot.get("personnel_action_available", false)):
 		_guidance_label.text = "FLOCK CHECK-IN READY: select a hen, then choose credit, coaching, or pressure."
@@ -4332,20 +8170,181 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		_guidance_label.text = "%d eggs needed  ·  %dh %02dm left  ·  Overtime trades welfare for speed" % [remaining, minutes_left / 60, minutes_left % 60]
 
 
+func _active_market_contract_guidance(snapshot: Dictionary) -> String:
+	var board_value: Variant = snapshot.get("contract_board", {})
+	if not board_value is Dictionary:
+		return ""
+	var board := board_value as Dictionary
+	var active_value: Variant = board.get("active", board.get("active_contract", {}))
+	if not active_value is Dictionary or (active_value as Dictionary).is_empty():
+		return ""
+	var active := active_value as Dictionary
+	if StringName(String(active.get("status", ""))) not in [&"signed", &"active"]:
+		return ""
+
+	var short_name := String(active.get("short_name", active.get("name", "MUTUAL BINDER"))).to_upper()
+	var completed := maxi(0, int(active.get("timely_sound_completed", 0)))
+	var required := maxi(1, int(active.get("required_completed", 1)))
+	var premium_cents := maxi(0, int(active.get("premium_cents", 0)))
+	var timing := _active_market_contract_next_timing(active, int(snapshot.get("minute_of_day", 0)))
+	var timing_copy := ""
+	if not timing.is_empty():
+		timing_copy = "  ·  %s %s" % [
+			String(timing.get("label", "NEXT")),
+			String(timing.get("time", "")),
+		]
+	return "FARM MUTUAL  ·  %s  ·  %d/%d CLEAN%s  ·  $%.2f ON FULFILLMENT" % [
+		short_name,
+		completed,
+		required,
+		timing_copy,
+		float(premium_cents) / 100.0,
+	]
+
+
+func _active_market_contract_next_timing(active: Dictionary, current_minute: int) -> Dictionary:
+	var completed_ids: Array = active.get("completed_claim_ids", []) as Array
+	var earliest_due := SHIFT_END_FALLBACK_MINUTE
+	var earliest_arrival := SHIFT_END_FALLBACK_MINUTE
+	var due_time := ""
+	var arrival_time := ""
+	for schedule_value in active.get("scheduled_claims", []) as Array:
+		if not schedule_value is Dictionary:
+			continue
+		var schedule := schedule_value as Dictionary
+		if bool(schedule.get("rejected", false)):
+			continue
+		var claim_id := int(schedule.get("claim_id", -1))
+		var released := bool(schedule.get("released", false))
+		var arrival_minute := int(schedule.get("arrival_minute_of_day", SHIFT_END_FALLBACK_MINUTE))
+		var deadline_minute := int(schedule.get("deadline_minute_of_day", SHIFT_END_FALLBACK_MINUTE))
+		if released and claim_id not in completed_ids and deadline_minute < earliest_due:
+			earliest_due = deadline_minute
+			due_time = String(schedule.get("deadline_time", _office_clock_label(deadline_minute)))
+		elif not released and arrival_minute >= current_minute and arrival_minute < earliest_arrival:
+			earliest_arrival = arrival_minute
+			arrival_time = String(schedule.get("arrival_time", _office_clock_label(arrival_minute)))
+	if not due_time.is_empty():
+		return {"label": "NEXT DUE", "time": due_time}
+	if not arrival_time.is_empty():
+		return {"label": "NEXT ARRIVAL", "time": arrival_time}
+	return {}
+
+
+func _office_clock_label(minute_of_day: int) -> String:
+	var normalized := posmod(minute_of_day, 24 * 60)
+	var hour_24 := normalized / 60
+	var minute := normalized % 60
+	var suffix := "AM" if hour_24 < 12 else "PM"
+	var hour_12 := hour_24 % 12
+	if hour_12 == 0:
+		hour_12 = 12
+	return "%d:%02d %s" % [hour_12, minute, suffix]
+
+
+func _update_campus_world_bounds(snapshot: Dictionary) -> void:
+	var campus := snapshot.get("campus_expansion", {}) as Dictionary
+	var parcel := campus.get("parcel", {}) as Dictionary
+	var parcel_owned := bool(parcel.get("owned", campus.get("parcel_owned", false)))
+	var portfolio := snapshot.get("campus_portfolio", {}) as Dictionary
+	var commissioned_bounds := BASE_CAMPUS_BOUNDS
+	var navigation_footprint := Rect2()
+	var navigation_footprints: Array[Rect2] = []
+	var maximum_height := 4.0
+	if _office_storytelling != null:
+		for footprint: Rect2 in _office_storytelling.visible_campus_footprints():
+			if footprint.size.x > 0.0 and footprint.size.y > 0.0:
+				commissioned_bounds = commissioned_bounds.merge(footprint)
+		var presentation_aabb := _office_storytelling.visible_campus_camera_aabb()
+		if presentation_aabb.size.y > 0.0:
+			maximum_height = maxf(maximum_height, presentation_aabb.end.y)
+	if parcel_owned:
+		commissioned_bounds = commissioned_bounds.merge(
+			CampusExpansionVisualScript.declared_footprint()
+		)
+		navigation_footprint = CampusExpansionVisualScript.navigation_footprint(snapshot)
+		navigation_footprints.append(navigation_footprint)
+		var visual_bounds := CampusExpansionVisualScript.camera_bounds(snapshot)
+		maximum_height = maxf(maximum_height, visual_bounds.end.y)
+	var portfolio_parcels: Dictionary = {}
+	var portfolio_parcel_value: Variant = portfolio.get("parcels", [])
+	if portfolio_parcel_value is Dictionary:
+		for raw_id: Variant in (portfolio_parcel_value as Dictionary):
+			var record_value: Variant = (portfolio_parcel_value as Dictionary)[raw_id]
+			if record_value is Dictionary:
+				portfolio_parcels[StringName(String(raw_id))] = record_value
+	elif portfolio_parcel_value is Array:
+		for record_value: Variant in portfolio_parcel_value as Array:
+			if record_value is Dictionary:
+				var record := record_value as Dictionary
+				portfolio_parcels[StringName(String(record.get("id", "")))] = record
+	var has_owned_portfolio_parcel := false
+	for portfolio_parcel in CampusPortfolioVisualScript.parcel_catalog():
+		var parcel_id := StringName(String((portfolio_parcel as Dictionary).get("id", "")))
+		var record := portfolio_parcels.get(parcel_id, {}) as Dictionary
+		if not bool(record.get("owned", record.get("purchased", false))):
+			continue
+		has_owned_portfolio_parcel = true
+		commissioned_bounds = commissioned_bounds.merge(
+			CampusPortfolioVisualScript.declared_footprint(parcel_id)
+		)
+	if has_owned_portfolio_parcel:
+		for route: Rect2 in CampusPortfolioVisualScript.navigation_footprints(snapshot):
+			navigation_footprints.append(route)
+		var portfolio_bounds := CampusPortfolioVisualScript.camera_bounds(snapshot)
+		maximum_height = maxf(maximum_height, portfolio_bounds.end.y)
+	if not _campus_worker_assignments.is_empty():
+		commissioned_bounds = commissioned_bounds.merge(campus_duty_commute_bounds())
+	set_meta(&"commissioned_campus_bounds", commissioned_bounds)
+	set_meta(&"campus_navigation_footprint", navigation_footprint)
+	set_meta(&"campus_navigation_footprints", navigation_footprints)
+	if _office_storytelling != null:
+		set_meta(
+			&"campus_presentation",
+			_office_storytelling.campus_presentation_snapshot(),
+		)
+	if _camera_controller != null:
+		_camera_controller.set_overview_bounds(
+			commissioned_bounds,
+			maximum_height,
+			CAMPUS_PRESENTATION_MARGIN_RATIO,
+		)
+
+
 func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	var active_snapshot := _snapshot_with_active_workers(snapshot)
 	_apply_office_capacity_visibility(_office_capacity_from_snapshot(snapshot))
 	_reconcile_worker_views(snapshot)
+	_sync_campus_worker_duties(snapshot)
 	_refresh_workstation_nameplates(snapshot)
 	_update_lighting(snapshot)
 	if _office_atmosphere != null:
 		_office_atmosphere.update_from_snapshot(active_snapshot)
+	if _audio_director != null:
+		_audio_director.call("update_from_snapshot", active_snapshot)
 	if _office_storytelling != null:
 		_office_storytelling.apply_snapshot(active_snapshot)
+		_office_storytelling.apply_campus_presentation(
+			active_snapshot,
+			{
+				# Day 1 already teases the next perch inside the bureau. Beginning
+				# on Day 2, show at most one physical capital hint one shift before
+				# its unchanged economic gate.
+				"show_next_teaser": int(snapshot.get("day", 1)) >= 2,
+				"teaser_window_days": 1,
+			},
+		)
+	_update_campus_world_bounds(snapshot)
 	if _workstation_feedback != null:
 		_workstation_feedback.apply_snapshot(_workstation_visual_snapshot(active_snapshot))
 	if _staffing_ui != null:
 		_staffing_ui.apply_snapshot(snapshot)
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("apply_snapshot", snapshot)
+	if _campus_expansion_ui != null:
+		_campus_expansion_ui.call("set_snapshot", snapshot)
+	if _campus_portfolio_ui != null:
+		_campus_portfolio_ui.call("apply_snapshot", snapshot)
 	if _pecking_order_ui != null:
 		_pecking_order_ui.call("apply_snapshot", snapshot)
 	if _routing_ui != null:
@@ -4357,6 +8356,7 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 			worker["estimated_crack_risk"] = _simulation.estimated_crack_risk(worker_id)
 		_routing_ui.apply_snapshot(routing_snapshot)
 	_refresh_first_clutch_ui(snapshot)
+	_refresh_flockwatch_navigation(snapshot)
 	var snapshot_day := int(snapshot["day"])
 	if snapshot_day > _last_reviewed_day and _management_presence != null:
 		_last_reviewed_day = snapshot_day
@@ -4385,10 +8385,27 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	_quota_progress.value = mini(eggs_today, quota_target)
 	_quota_progress_label.text = "%d / %d" % [eggs_today, quota_target]
 	var quality_streak := int(snapshot.get("quality_streak", 0))
-	_quality_streak_label.text = "CLEAN CLUTCH  ×%d" % quality_streak
+	var packing_status := snapshot.get("packing_contract", {}) as Dictionary
+	if bool(packing_status.get("enabled", false)):
+		_quality_streak_label.text = "CLEAN ×%d  ·  CARTON %d/6" % [
+			quality_streak,
+			int(packing_status.get("carton_progress", 0)),
+		]
+		_quality_streak_label.tooltip_text = (
+			"Sound and golden eggs fill the Packing Annex carton. The sixth pays $%.2f at annex level %d."
+			% [
+				float(packing_status.get("next_carton_bonus_cents", 0)) / 100.0,
+				int(packing_status.get("level", 0)),
+			]
+		)
+	else:
+		_quality_streak_label.text = "CLEAN CLUTCH  ×%d" % quality_streak
+		_quality_streak_label.tooltip_text = "Consecutive sound or golden eggs increase the clean-clutch credit."
 	_quality_streak_label.add_theme_color_override(
 		"font_color",
-		Color("f4cd66") if quality_streak >= 4 else Color("9ccfc2")
+		Color("f4cd66")
+		if quality_streak >= 4 or int(packing_status.get("carton_progress", 0)) >= 5 else
+		Color("9ccfc2")
 	)
 	var active_directive := snapshot.get("active_directive", {}) as Dictionary
 	var directive_text := (
@@ -4419,7 +8436,12 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	if not labor_tooltip.is_empty():
 		_directive_badge.tooltip_text += "\n%s" % labor_tooltip
 	var overdue_claims := int(snapshot.get("overdue_claims", (snapshot.get("routing", {}) as Dictionary).get("overdue_total", 0)))
-	_claims_label.text = "Peckwork queued:  %d  ·  overdue: %d" % [int(snapshot["claims_waiting"]), overdue_claims]
+	_claims_label.text = "Live files:  %d / %d  ·  overdue: %d  ·  turned away: %d" % [
+		int(snapshot.get("claims_outstanding", snapshot.get("claims_waiting", 0))),
+		int(snapshot.get("claim_capacity", 18)),
+		overdue_claims,
+		int(snapshot.get("intake_rejections_today", 0)),
+	]
 	_egg_label.text = "Eggs gathered:  %d" % int(snapshot["eggs_total"])
 	_quota_label.text = "Daily clutch:  %d / %d" % [int(snapshot["eggs_today"]), int(snapshot["quota_target"])]
 	_confidence_label.text = "Farmer favor:  %d%%" % int(snapshot["executive_confidence"])
@@ -4436,7 +8458,10 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	_morale_label.text = "Flock spirits:  %d%%" % int(morale_total / maxf(1.0, float(worker_data.size())))
 
 	var overtime_active := bool(snapshot["overtime_enabled"])
-	_overtime_button.text = ("END AFTER-HOURS PECKING  [O]" if overtime_active else "ENABLE AFTER-HOURS PECKING  [O]")
+	_overtime_button.text = "%s  [%s]" % [
+		"END AFTER-HOURS PECKING" if overtime_active else "ENABLE AFTER-HOURS PECKING",
+		_action_hint(&"toggle_overtime"),
+	]
 	_overtime_button.button_pressed = overtime_active
 	var shift_phase := int(snapshot.get("shift_phase", DepartmentSimulation.ShiftPhase.RUNNING))
 	var shift_running := shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
@@ -4453,16 +8478,29 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	_continue_shift_button.visible = shift_phase == DepartmentSimulation.ShiftPhase.REVIEW
 	if _continue_shift_button.visible:
 		var pending_memo_id := StringName(snapshot.get("credit_memo_id", &""))
-		_continue_shift_button.text = (
-			"CONTINUE: OPEN RESTRUCTURING FILE"
-			if pending_memo_id == &"flock_restructuring" else
-			("CONTINUE: OPEN GOLDEN DOSSIER"
-			if pending_memo_id == &"golden_egg_dossier" else
-			("CONTINUE: FILE CLOSING CREDIT"
-			if bool(snapshot.get("credit_memo_pending", false)) else
-			"CONTINUE: CHOOSE MORNING POLICY"
-			))
-		)
+		var gallery := _farmer_relations_gallery_projection(snapshot)
+		var gallery_status := StringName(String(gallery.get(
+			"campaign_status",
+			gallery.get("status", ""),
+		)))
+		if _farmer_relations_gallery_offer_open(snapshot):
+			_continue_shift_button.text = "CONTINUE: SKIP PUBLIC CAMPAIGN"
+		elif (
+			_campaign_review_stage == &"credit"
+			and gallery_status in [&"filed", &"skipped"]
+		):
+			_continue_shift_button.text = "CONTINUE: FILE SHIFT REPORT"
+		else:
+			_continue_shift_button.text = (
+				"CONTINUE: OPEN RESTRUCTURING FILE"
+				if pending_memo_id == &"flock_restructuring" else
+				("CONTINUE: OPEN GOLDEN DOSSIER"
+				if pending_memo_id == &"golden_egg_dossier" else
+				("CONTINUE: FILE CLOSING CREDIT"
+				if bool(snapshot.get("credit_memo_pending", false)) else
+				"CONTINUE: CHOOSE MORNING POLICY"
+				))
+			)
 
 	var fund_cents := int(snapshot["revenue_cents"])
 	var spendable_fund_cents := int(snapshot.get("spendable_fund_cents", fund_cents))
@@ -4482,7 +8520,7 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 		_feed_button.text = "FEED PARTY USED THIS SHIFT"
 		_feed_button.disabled = true
 	else:
-		_feed_button.text = "FUND FEED PARTY  ($20)  [P]"
+		_feed_button.text = "FUND FEED PARTY  ($20)  [%s]" % _action_hint(&"fund_feed_party")
 		_feed_button.disabled = spendable_fund_cents < 2000
 
 	for upgrade_value in snapshot.get("upgrade_catalog", []):
@@ -4511,6 +8549,34 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	_publish_web_diagnostic_state(snapshot)
 
 
+func _refresh_flockwatch_navigation(snapshot: Dictionary) -> void:
+	if _flockwatch_navigation == null:
+		return
+	var presentation := snapshot.duplicate(true)
+	var first_clutch_active := (
+		not bool(_first_clutch.get("dismissed", true))
+		and not bool(_first_clutch.get("completed", false))
+	)
+	var orientation_resolved := (
+		bool(_first_clutch.get("completed", false))
+		or (
+			bool(_first_clutch.get("dismissed", false))
+			and int(_first_clutch.get("target_worker_id", -1)) >= 0
+		)
+		or int(snapshot.get("day", 1)) > 1
+	)
+	var relevance := {
+		&"operations": orientation_resolved,
+		&"capital": orientation_resolved or int(snapshot.get(
+			"shift_phase", DepartmentSimulation.ShiftPhase.RUNNING
+		)) == DepartmentSimulation.ShiftPhase.REVIEW,
+		&"governance_records": _campaign_senior_roost,
+	}
+	presentation["first_clutch_active"] = first_clutch_active
+	presentation["flockwatch_relevance"] = relevance
+	_flockwatch_navigation.apply_snapshot(presentation)
+
+
 func _on_worker_workstation_presence_changed(worker_id: int, is_present: bool) -> void:
 	_simulation.set_worker_at_workstation(worker_id, is_present)
 
@@ -4536,7 +8602,16 @@ func _on_egg_laid(
 	_queue_collection_claim(worker_id, claim_id)
 	if _workstation_feedback != null:
 		_workstation_feedback.pulse_completion(worker_id, quality)
-	_pending_collection_cents += maxi(0, value_cents)
+	var presentation_cash_cents := _immediate_cash_for_completed_egg(
+		claim_id,
+		quality,
+		value_cents,
+	)
+	_collection_cash_by_claim_id[claim_id] = presentation_cash_cents
+	_collection_stocked_by_claim_id[claim_id] = presentation_cash_cents == 0 and quality in [
+		&"sound", &"golden",
+	]
+	_pending_collection_cents += presentation_cash_cents
 	var egg := MeshInstance3D.new()
 	egg.name = "Egg_%s_%d" % [quality, Time.get_ticks_msec()]
 	var mesh := SphereMesh.new()
@@ -4581,14 +8656,46 @@ func _on_egg_laid(
 	if quality == &"cracked":
 		_ticker_label.text = "CRACKED EGG ENTERED GRADING  ·  clean-clutch chain broken"
 	else:
-		_ticker_label.text = "%s EGG ENTERED GRADING  ·  CLEAN CLUTCH ×%d" % [String(quality).to_upper(), streak]
+		var attention_suffix := (
+			"  ·  PRIORITY CHARGE RETURNS AT FARMER"
+			if priority_credit_cents > 0 else
+			""
+		)
+		_ticker_label.text = "%s EGG ENTERED GRADING  ·  CLEAN CLUTCH ×%d%s" % [
+			String(quality).to_upper(), streak, attention_suffix,
+		]
 		if _quality_streak_label != null:
 			var streak_tween := create_tween()
 			_quality_streak_label.modulate = Color("ffe39a")
 			streak_tween.tween_property(_quality_streak_label, "modulate", Color.WHITE, 0.65)
 	if quality == &"golden" and _camera_controller != null:
 		_camera_controller.show_event_focus(worker_view.global_position + Vector3.UP * 0.82, "GOLDEN EGG", 1.55)
-	_save_campaign_checkpoint("egg_laid")
+	# The tutorial's first delivery remains a hard recovery point. Once the player
+	# is on the ordinary floor, burst production is coalesced instead of forcing a
+	# complete verified file transaction for every individual egg.
+	if _first_clutch_tracking_active():
+		_save_campaign_checkpoint("egg_laid")
+	else:
+		_queue_campaign_checkpoint("egg_laid")
+
+
+func _immediate_cash_for_completed_egg(
+	claim_id: int,
+	quality: StringName,
+	value_cents: int,
+) -> int:
+	if quality == &"cracked":
+		return maxi(0, value_cents)
+	var dispatch := _simulation.snapshot().get("farmgate_dispatch", {}) as Dictionary
+	if not bool(dispatch.get("enabled", false)):
+		return maxi(0, value_cents)
+	for lot_value: Variant in dispatch.get("lots", []):
+		if lot_value is Dictionary and int((lot_value as Dictionary).get("claim_id", -2)) == claim_id:
+			return 0
+	# A completed sound/golden egg that is absent from a commissioned cold store
+	# used the authoritative 90% overflow pickup. Mirror that exact half-up amount
+	# so the Feed Fund animation never invents the missing ten percent.
+	return (maxi(0, value_cents) * 9_000 + 5_000) / 10_000
 
 
 func _on_camera_focus_changed(label: String, worker_id: int) -> void:
@@ -4597,6 +8704,17 @@ func _on_camera_focus_changed(label: String, worker_id: int) -> void:
 	if focused and _camera_controller != null:
 		focus_position = _camera_controller.focus_world_position()
 	EnvironmentalSignageScript.set_camera_detail(self, focused, focus_position)
+	# The Gallery is a compact exhibit room with four related evidence surfaces.
+	# When its own landmark is focused, reveal that coherent group together instead
+	# of applying the office-wide microcopy radius and leaving the attribution wall blank.
+	if (
+		_office_storytelling != null
+		and _office_storytelling.farmer_relations_gallery_visual != null
+		and _office_storytelling.farmer_relations_gallery_visual.has_method("set_camera_detail")
+	):
+		_office_storytelling.farmer_relations_gallery_visual.call(
+			"set_camera_detail", focused, focus_position,
+		)
 	if worker_id >= 0:
 		if (
 			_first_hen_prelude_pending()
@@ -4646,10 +8764,17 @@ func _on_egg_graded(
 	var base_value := maxi(0, value_cents - streak_bonus_cents)
 	if _audio_feedback != null:
 		_audio_feedback.play_sorter_clack(quality)
-	_ticker_label.text = "%s GRADED  ·  $%.2f base%s  ·  awaiting farmer collection" % [
+	var dispatch := _simulation.snapshot().get("farmgate_dispatch", {}) as Dictionary
+	var destination := (
+		"awaiting Farmgate dispatch"
+		if bool(dispatch.get("enabled", false)) and quality in [&"sound", &"golden"] else
+		"awaiting farmer collection"
+	)
+	_ticker_label.text = "%s GRADED  ·  $%.2f base%s  ·  %s" % [
 		String(quality).to_upper(),
 		base_value / 100.0,
 		("  +  $%.2f clean-clutch" % (streak_bonus_cents / 100.0) if streak_bonus_cents > 0 else ""),
+		destination,
 	]
 
 
@@ -4660,28 +8785,46 @@ func _on_egg_reached_presentation(
 	_streak_bonus_cents: int
 ) -> void:
 	var delivered_claim_id := _take_collection_claim(worker_id)
+	var presentation_cash_cents := int(_collection_cash_by_claim_id.get(
+		delivered_claim_id,
+		maxi(0, value_cents),
+	))
+	var stocked_for_dispatch := bool(_collection_stocked_by_claim_id.get(
+		delivered_claim_id,
+		false,
+	))
+	_collection_cash_by_claim_id.erase(delivered_claim_id)
+	_collection_stocked_by_claim_id.erase(delivered_claim_id)
 	var remaining_in_flight := maxi(0, int(_eggs_in_flight_by_worker.get(worker_id, 0)) - 1)
 	if remaining_in_flight > 0:
 		_eggs_in_flight_by_worker[worker_id] = remaining_in_flight
 	else:
 		_eggs_in_flight_by_worker.erase(worker_id)
-	_pending_collection_cents = maxi(0, _pending_collection_cents - maxi(0, value_cents))
+	_pending_collection_cents = maxi(0, _pending_collection_cents - presentation_cash_cents)
 	if _audio_feedback != null:
 		_audio_feedback.play_basket_thunk(quality)
 	_tween_fund_to(maxi(0, _authoritative_revenue_cents - _pending_collection_cents))
-	_spawn_fund_credit_chip(value_cents, quality)
+	if presentation_cash_cents > 0:
+		_spawn_fund_credit_chip(presentation_cash_cents, quality)
+	elif stocked_for_dispatch:
+		_spawn_farmgate_stock_chip(value_cents, quality)
 	if _office_atmosphere != null and _office_storytelling != null:
 		_office_atmosphere.pulse_egg_laid(_office_storytelling.presentation_focus_point_global(), quality)
 	var attention_receipt := _simulation.settle_peck_assist_delivery(delivered_claim_id, quality)
 	if bool(attention_receipt.get("accepted", false)):
 		_spawn_attention_refund_chip(attention_receipt, quality)
-		_ticker_label.text = "%s DELIVERED  Â·  +1 PRIORITY PECK  Â·  %d/%d attention ready" % [
+		_ticker_label.text = "%s DELIVERED  ·  +1 PRIORITY PECK  ·  %d/%d attention ready" % [
 			String(quality).to_upper(),
 			int(attention_receipt.get("charges_after", 0)),
 			DepartmentSimulation.PECK_ASSIST_LIMIT,
 		]
 		_save_campaign_checkpoint("priority_peck_attention_refunded")
-	_first_clutch_record_presentation(worker_id, quality, value_cents)
+	elif stocked_for_dispatch:
+		_ticker_label.text = "%s STOCKED  ·  $%.2f lot value  ·  route at shift review" % [
+			String(quality).to_upper(),
+			float(value_cents) / 100.0,
+		]
+	_first_clutch_record_presentation(worker_id, delivered_claim_id, quality, value_cents)
 
 
 func _queue_collection_claim(worker_id: int, claim_id: int) -> void:
@@ -4768,6 +8911,90 @@ func _spawn_fund_credit_chip(value_cents: int, quality: StringName) -> void:
 	tween.chain().tween_callback(chip.queue_free)
 
 
+func _spawn_farmgate_stock_chip(value_cents: int, quality: StringName) -> void:
+	if _ui_root == null or _management_camera == null:
+		return
+	var chip := PanelContainer.new()
+	chip.name = "FarmgateStockChip"
+	chip.custom_minimum_size = Vector2(178.0, 38.0)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var accent := Color("f1c75f") if quality == &"golden" else Color("8fd2c1")
+	chip.add_theme_stylebox_override("panel", _panel_style(Color("162b2c"), 0.97, 7, 1))
+	var label := _make_label("+1 COLD-STORE LOT  ·  $%.2f" % (
+		maxi(0, value_cents) / 100.0
+	), 14, accent)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chip.add_child(label)
+	_ui_root.add_child(chip)
+	var presentation_point := (
+		_office_storytelling.presentation_focus_point_global()
+		if _office_storytelling != null else Vector3(9.4, 1.25, -6.85)
+	)
+	var start := _management_camera.unproject_position(presentation_point)
+	chip.position = start - Vector2(89.0, 19.0)
+	chip.pivot_offset = Vector2(89.0, 19.0)
+	chip.scale = Vector2(0.76, 0.76)
+	var target_control: Control = _flockwatch_toggle if _flockwatch_toggle != null else _egg_label
+	var target := (
+		target_control.get_global_rect().get_center()
+		- _ui_root.get_global_rect().position
+		- Vector2(89.0, 19.0)
+	)
+	var tween := create_tween().bind_node(chip).set_parallel(true)
+	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(chip, "scale", Vector2.ONE, 0.16)
+	tween.tween_property(chip, "position", start - Vector2(89.0, 56.0), 0.16)
+	tween.chain().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(chip, "position", target, 0.58)
+	tween.parallel().tween_property(chip, "modulate:a", 0.12, 0.30).set_delay(0.28)
+	tween.chain().tween_callback(chip.queue_free)
+
+
+func _spawn_attention_refund_chip(receipt: Dictionary, quality: StringName) -> void:
+	if _ui_root == null or _guidance_label == null or _management_camera == null:
+		if _audio_feedback != null:
+			_audio_feedback.play_attention_restored()
+		return
+	var chip := PanelContainer.new()
+	chip.name = "PriorityPeckRefundChip"
+	chip.custom_minimum_size = Vector2(188.0, 38.0)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var accent := Color("f4d471") if quality == &"golden" else Color("91d4b2")
+	chip.add_theme_stylebox_override("panel", _panel_style(Color("16242d"), 0.97, 7, 1))
+	var charges := int(receipt.get("charges_after", 0))
+	var label := _make_label("+1 PRIORITY PECK  ·  %d/%d" % [
+		charges, DepartmentSimulation.PECK_ASSIST_LIMIT,
+	], 14, accent)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	chip.add_child(label)
+	_ui_root.add_child(chip)
+	var presentation_point := (
+		_office_storytelling.presentation_focus_point_global()
+		if _office_storytelling != null else Vector3(9.4, 1.25, -6.85)
+	)
+	var start := _management_camera.unproject_position(presentation_point)
+	chip.position = start - Vector2(94.0, 19.0)
+	chip.pivot_offset = Vector2(94.0, 19.0)
+	chip.scale = Vector2(0.72, 0.72)
+	var target := (
+		_guidance_label.get_global_rect().get_center()
+		- _ui_root.get_global_rect().position
+		- Vector2(94.0, 19.0)
+	)
+	var tween := create_tween().bind_node(chip).set_parallel(true)
+	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_property(chip, "scale", Vector2.ONE, 0.18)
+	tween.tween_property(chip, "position", start - Vector2(94.0, 62.0), 0.18)
+	tween.chain().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tween.tween_property(chip, "position", target, 0.62)
+	tween.parallel().tween_property(chip, "modulate:a", 0.12, 0.32).set_delay(0.30)
+	tween.chain().tween_callback(func() -> void:
+		if _audio_feedback != null:
+			_audio_feedback.play_attention_restored()
+	)
+	tween.chain().tween_callback(chip.queue_free)
+
+
 func _on_fund_credit_chip_arrived(value_cents: int, quality: StringName) -> void:
 	if _audio_feedback != null:
 		_audio_feedback.play_payout_confirmation(value_cents, quality)
@@ -4805,8 +9032,18 @@ func _spawn_egg_vfx(origin: Vector3, quality: StringName, worker_id: int) -> voi
 
 func _on_announcement_posted(message: String) -> void:
 	_ticker_label.text = message
-	if _office_atmosphere != null and (message.to_lower().contains("missed") or message.to_lower().contains("denied")):
+	var lowered := message.to_lower()
+	var urgent := (
+		lowered.contains("missed")
+		or lowered.contains("denied")
+		or lowered.contains("breach")
+		or lowered.contains("overdue")
+		or lowered.contains("incident")
+	)
+	if _office_atmosphere != null and urgent:
 		_office_atmosphere.pulse_alert(0.8)
+	if _audio_feedback != null and urgent:
+		_audio_feedback.play_shift_alert(0.78)
 
 
 func _on_feed_party_funded() -> void:
@@ -4822,20 +9059,32 @@ func _on_feed_party_funded() -> void:
 	_feed_party_release_scheduled = false
 	_feed_party_arrivals.clear()
 	_feed_party_returns.clear()
+	_feed_party_expected_attendees.clear()
 
 	var attendance_targets: Dictionary[int, Vector3] = {}
 	for worker_id in _worker_views:
+		var worker_view := _worker_views[worker_id] as ChickenView
+		if (
+			worker_view == null
+			or not is_instance_valid(worker_view)
+			or worker_view.has_campus_duty_assignment()
+		):
+			continue
 		attendance_targets[worker_id] = _feed_party_attendance_target(worker_id)
+		_feed_party_expected_attendees[worker_id] = true
 
 	_feed_party_station.visible = true
 	_feed_party_station.position = FEED_PARTY_STATION_POSITION + Vector3(0.0, -0.42, 0.0)
 	if _feed_party_tween != null and _feed_party_tween.is_valid():
 		_feed_party_tween.kill()
-	_feed_party_tween = create_tween()
-	_feed_party_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_feed_party_tween.tween_property(_feed_party_station, "position:y", FEED_PARTY_STATION_POSITION.y, 0.7)
+	if _prefers_reduced_motion():
+		_feed_party_station.position.y = FEED_PARTY_STATION_POSITION.y
+	else:
+		_feed_party_tween = create_tween()
+		_feed_party_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_feed_party_tween.tween_property(_feed_party_station, "position:y", FEED_PARTY_STATION_POSITION.y, 0.7)
 
-	for worker_id in _worker_views:
+	for worker_id in _feed_party_expected_attendees:
 		var attendance: Vector3 = attendance_targets[worker_id]
 		var worker_view: ChickenView = _worker_views[worker_id]
 		var desk_index := worker_view.desk_index
@@ -4851,6 +9100,9 @@ func _on_feed_party_funded() -> void:
 			attendance,
 			FEED_PARTY_STATION_POSITION
 		)
+	if _feed_party_expected_attendees.is_empty():
+		_feed_party_release_scheduled = true
+		_release_feed_party_after_delay()
 	_save_campaign_checkpoint("feed_party_funded")
 
 
@@ -4866,10 +9118,10 @@ func _feed_party_attendance_target(worker_id: int) -> Vector3:
 
 
 func _on_feed_party_attendance_ready(worker_id: int) -> void:
-	if not _feed_party_active:
+	if not _feed_party_active or not _feed_party_expected_attendees.has(worker_id):
 		return
 	_feed_party_arrivals[worker_id] = true
-	if _feed_party_arrivals.size() == _worker_views.size() and not _feed_party_release_scheduled:
+	if _feed_party_arrivals.size() == _feed_party_expected_attendees.size() and not _feed_party_release_scheduled:
 		_feed_party_release_scheduled = true
 		_release_feed_party_after_delay()
 
@@ -4878,24 +9130,42 @@ func _release_feed_party_after_delay() -> void:
 	await get_tree().create_timer(FEED_PARTY_DURATION).timeout
 	if not _feed_party_active:
 		return
-	for view in _worker_views.values():
-		view.return_from_feed_party()
+	if _feed_party_expected_attendees.is_empty():
+		_complete_feed_party_visual()
+		return
+	for worker_id: int in _feed_party_expected_attendees:
+		var view := _worker_views.get(worker_id) as ChickenView
+		if view != null and is_instance_valid(view):
+			view.return_from_feed_party()
+		else:
+			_feed_party_returns[worker_id] = true
+	if _feed_party_returns.size() >= _feed_party_expected_attendees.size():
+		_complete_feed_party_visual()
 
 
 func _on_feed_party_attendance_completed(worker_id: int) -> void:
-	if not _feed_party_active:
+	if not _feed_party_active or not _feed_party_expected_attendees.has(worker_id):
 		return
 	_feed_party_returns[worker_id] = true
-	if _feed_party_returns.size() < _worker_views.size():
+	if _feed_party_returns.size() < _feed_party_expected_attendees.size():
 		return
+	_complete_feed_party_visual()
+
+
+func _complete_feed_party_visual() -> void:
 	_feed_party_active = false
 	_feed_party_release_scheduled = false
+	_feed_party_expected_attendees.clear()
 	if _feed_party_tween != null and _feed_party_tween.is_valid():
 		_feed_party_tween.kill()
-	_feed_party_tween = create_tween()
-	_feed_party_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	_feed_party_tween.tween_property(_feed_party_station, "position:y", -0.42, 0.55)
-	_feed_party_tween.tween_callback(_hide_feed_party_station)
+	if _prefers_reduced_motion():
+		_feed_party_station.position.y = -0.42
+		_hide_feed_party_station()
+	else:
+		_feed_party_tween = create_tween()
+		_feed_party_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		_feed_party_tween.tween_property(_feed_party_station, "position:y", -0.42, 0.55)
+		_feed_party_tween.tween_callback(_hide_feed_party_station)
 	var can_resume := (
 		_simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
 		and (_decision_host == null or not _decision_host.visible)
@@ -5078,7 +9348,7 @@ func _capture_flock_labor_preview() -> void:
 		"crack_modifier": -0.06,
 	}
 	_on_snapshot_changed(_simulation.snapshot())
-	_set_flockwatch_open(true)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
 	await get_tree().create_timer(0.55).timeout
 	_save_preview("flockwatch_labor.png")
 
@@ -5087,7 +9357,7 @@ func _capture_ledger_preview() -> void:
 	_prepare_capture_running()
 	await get_tree().create_timer(1.0).timeout
 	_simulation.purchase_upgrade(&"peckwork_tools")
-	_set_flockwatch_open(true)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_CAPITAL)
 	await get_tree().create_timer(0.45).timeout
 	_save_preview("requisitions.png")
 
@@ -5110,12 +9380,12 @@ func _capture_feed_party_preview() -> void:
 	_prepare_capture_running()
 	_simulation.fund_feed_party()
 	# Immediate funding queues late arrivals safely behind their morning walk. Wait
-	# for the authoritative ready callbacks so the image shows all six hens feeding.
+	# for the authoritative ready callbacks so the image shows every on-site hen feeding.
 	var deadline_msec := Time.get_ticks_msec() + 45000
-	while _feed_party_arrivals.size() < _worker_views.size() and Time.get_ticks_msec() < deadline_msec:
+	while _feed_party_arrivals.size() < _feed_party_expected_attendees.size() and Time.get_ticks_msec() < deadline_msec:
 		await get_tree().process_frame
-	if _feed_party_arrivals.size() < _worker_views.size():
-		push_warning("Feed-party capture timed out with %d/%d attendees." % [_feed_party_arrivals.size(), _worker_views.size()])
+	if _feed_party_arrivals.size() < _feed_party_expected_attendees.size():
+		push_warning("Feed-party capture timed out with %d/%d attendees." % [_feed_party_arrivals.size(), _feed_party_expected_attendees.size()])
 	await get_tree().create_timer(0.8).timeout
 	_save_preview("feed_party.png")
 
@@ -5188,6 +9458,47 @@ func _capture_first_clutch_preview() -> void:
 		await get_tree().process_frame
 	await get_tree().create_timer(0.55).timeout
 	_save_preview("first_clutch_induction.png")
+
+
+func _capture_first_clutch_reinvestment_preview() -> void:
+	_prepare_capture_running()
+	var reserve := _simulation.current_daily_operating_cost_cents() + _simulation.wage_arrears_cents
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, reserve + 2000)
+	_simulation.eggs_today = maxi(1, _simulation.eggs_today)
+	_simulation.eggs_total = maxi(1, _simulation.eggs_total)
+	_simulation.workers[FIRST_HEN_WORKER_ID].eggs_laid = maxi(
+		1,
+		_simulation.workers[FIRST_HEN_WORKER_ID].eggs_laid,
+	)
+	_first_clutch = _make_first_clutch_state(false)
+	_first_clutch.merge({
+		"completed": true,
+		"target_worker_id": FIRST_HEN_WORKER_ID,
+		"inspected": true,
+		"specialty_routed": true,
+		"checkin_filed": true,
+		"checkin_worker_id": FIRST_HEN_WORKER_ID,
+		"assisted_worker_id": FIRST_HEN_WORKER_ID,
+		"assisted_claim_id": 9001,
+		"delivery_laid": true,
+		"delivery_seen": true,
+		"delivered_claim_id": 9001,
+		"delivered_quality": "sound",
+		"delivered_value_cents": 425,
+	}, true)
+	var offer := _simulation.begin_first_clutch_reinvestment(
+		FIRST_HEN_WORKER_ID,
+		9001,
+		&"sound",
+		425,
+	)
+	if not bool(offer.get("accepted", false)):
+		push_error("First Clutch reinvestment capture could not stage its offer: %s" % String(offer.get("reason", "unknown error")))
+		get_tree().quit(1)
+		return
+	_present_first_clutch_reinvestment(offer)
+	await get_tree().create_timer(0.85).timeout
+	_save_preview("first_clutch_reinvestment.png")
 
 
 func _capture_first_hen_preview() -> void:
@@ -5271,9 +9582,1061 @@ func _capture_staffing_preview() -> void:
 	await get_tree().process_frame
 	if _day_review_scrim != null:
 		_day_review_scrim.visible = false
-	_set_flockwatch_open(true)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_FLOCK)
 	await get_tree().create_timer(0.55).timeout
 	_save_preview("roost_staffing.png")
+
+
+func _capture_facility_preview() -> void:
+	_prepare_capture_running()
+	_simulation.apply_campaign_unlock(&"shell_quality_checks")
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.revenue_cents = maxi(
+		_simulation.revenue_cents,
+		_simulation.current_daily_operating_cost_cents() + 4300,
+	)
+	var receipt := _simulation.purchase_facility(&"candling_rework_bay")
+	if not bool(receipt.get("accepted", false)) and not _simulation.has_facility(&"candling_rework_bay"):
+		push_error("Facility art capture could not commission its QA bay: %s" % String(receipt.get("reason", "unknown reason")))
+		get_tree().quit(1)
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _ui_root != null:
+		_ui_root.visible = false
+	if _workers_node != null:
+		_workers_node.visible = false
+	if _management_presence != null:
+		_management_presence.visible = false
+	_camera_controller.focus_point(Vector3(10.10, 0.82, 2.30), "FACILITY ART CHECK", 0.35, 3.45)
+	await get_tree().create_timer(0.9).timeout
+	_save_preview("candling_rework_bay.png")
+
+
+func _capture_facility_ui_preview() -> void:
+	_prepare_capture_running()
+	_simulation.apply_campaign_unlock(&"shell_quality_checks")
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.revenue_cents = _simulation.current_daily_operating_cost_cents() + 10_000
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_CAPITAL)
+	await get_tree().process_frame
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_CAPITAL)
+	var facility_card := find_child("FacilityCard_candling_rework_bay", true, false) as Control
+	if scroll != null and facility_card != null:
+		var component_offset := (
+			facility_card.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 24.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("facility_requisition.png")
+
+
+func _capture_packing_annex_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 3
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = 100_000
+	for _level in 3:
+		var receipt := _simulation.purchase_facility(&"farmer_brand_packing_annex")
+		if not bool(receipt.get("accepted", false)):
+			push_error(
+				"Packing Annex art capture could not commission a tier: %s" % String(
+					receipt.get("reason", "unknown reason")
+				)
+			)
+			get_tree().quit(1)
+			return
+	for _egg in 5:
+		_simulation.call("_apply_packing_contract_value", &"sound", 500)
+	_on_snapshot_changed(_simulation.snapshot())
+	if _ui_root != null:
+		_ui_root.visible = false
+	if _workers_node != null:
+		_workers_node.visible = false
+	if _management_presence != null:
+		_management_presence.visible = false
+	_camera_controller.focus_point(
+		PACKING_ANNEX_FOCUS,
+		"PACKING ANNEX ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("packing_annex_level3.png")
+
+
+func _capture_records_annex_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 3
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = 100_000
+	for _level in 3:
+		var receipt := _simulation.purchase_facility(&"records_annex")
+		if not bool(receipt.get("accepted", false)):
+			push_error(
+				"Records Annex art capture could not commission a tier: %s" % String(
+					receipt.get("reason", "unknown reason")
+				)
+			)
+			get_tree().quit(1)
+			return
+	var capture_lanes: Array[StringName] = [
+		&"nest_damage",
+		&"predator_loss",
+		&"appeals",
+	]
+	var intake_index := 0
+	while int(_simulation.snapshot().get("claims_outstanding", 0)) < _simulation.current_claim_capacity():
+		_simulation.call("_enqueue_new_claim", capture_lanes[intake_index % capture_lanes.size()])
+		intake_index += 1
+	_simulation.call("_offer_new_claim", &"appeals")
+	_on_snapshot_changed(_simulation.snapshot())
+	if _ui_root != null:
+		_ui_root.visible = false
+	if _workers_node != null:
+		_workers_node.visible = false
+	if _management_presence != null:
+		_management_presence.visible = false
+	_camera_controller.focus_point(
+		RECORDS_ANNEX_FOCUS,
+		"RECORDS ANNEX ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("records_annex_level3.png")
+
+
+func _capture_service_coop_preview() -> void:
+	_prepare_capture_running()
+	_prepare_service_coop_capture_economy()
+	for facility_id in [&"records_annex", &"farm_mutual_service_coop"]:
+		for _level in 3:
+			var receipt := _simulation.purchase_facility(facility_id)
+			if not bool(receipt.get("accepted", false)):
+				push_error(
+					"Service Coop art capture could not commission %s: %s" % [
+						String(facility_id),
+						String(receipt.get("reason", "unknown reason")),
+					]
+				)
+				get_tree().quit(1)
+				return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _ui_root != null:
+		_ui_root.visible = false
+	if _workers_node != null:
+		_workers_node.visible = false
+	if _management_presence != null:
+		_management_presence.visible = false
+	_camera_controller.focus_point(
+		FARM_MUTUAL_SERVICE_COOP_FOCUS,
+		"SERVICE COOP ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("farm_mutual_service_coop_level3.png")
+
+
+func _capture_service_coop_ui_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 4
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = 100_000
+	_simulation.market_contracts_succeeded_total = 1
+	_simulation.market_contracts_breached_total = 0
+	_simulation.market_clean_contract_streak = 1
+	_simulation.best_market_clean_contract_streak = 1
+	_simulation.owned_facilities[&"records_annex"] = 1
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_CAPITAL)
+	await get_tree().process_frame
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_CAPITAL)
+	var facility_card := find_child("FacilityCard_farm_mutual_service_coop", true, false) as Control
+	if scroll != null and facility_card != null:
+		var component_offset := (
+			facility_card.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 24.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("farm_mutual_service_coop_requisition.png")
+
+
+func _capture_negotiation_room_preview() -> void:
+	_prepare_capture_running()
+	_prepare_service_coop_capture_economy()
+	for facility_id in [&"records_annex", &"farm_mutual_service_coop"]:
+		var max_level := int(_simulation.facility_status(facility_id).get("max_level", 1))
+		for _level in max_level:
+			var tier_receipt := _simulation.purchase_facility(facility_id)
+			if not bool(tier_receipt.get("accepted", false)):
+				push_error("Negotiation Room capture prerequisite held: %s" % String(tier_receipt.get("reason", "unknown reason")))
+				get_tree().quit(1)
+				return
+	var room_receipt := _simulation.purchase_facility(&"farm_mutual_negotiation_room")
+	if not bool(room_receipt.get("accepted", false)):
+		push_error("Negotiation Room art capture could not commission the room: %s" % String(room_receipt.get("reason", "unknown reason")))
+		get_tree().quit(1)
+		return
+	var rider_receipt := _simulation.sign_market_contract(
+		&"predator_watch_pool",
+		&"specialist_roost_endorsement",
+	)
+	if not bool(rider_receipt.get("accepted", false)):
+		push_error("Negotiation Room art capture could not bind its rider: %s" % String(rider_receipt.get("reason", "unknown reason")))
+		get_tree().quit(1)
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _ui_root != null:
+		_ui_root.visible = false
+	if _workers_node != null:
+		_workers_node.visible = false
+	if _management_presence != null:
+		_management_presence.visible = false
+	_camera_controller.focus_point(
+		FARM_MUTUAL_NEGOTIATION_ROOM_FOCUS,
+		"GOLD NEGOTIATION ROOM ART CHECK",
+		0.35,
+		7.4,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("farm_mutual_negotiation_room.png")
+
+
+func _capture_contract_board_world_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 3
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 100_000)
+	_on_snapshot_changed(_simulation.snapshot())
+	if _ui_root != null:
+		_ui_root.visible = false
+	if _workers_node != null:
+		_workers_node.visible = false
+	if _management_presence != null:
+		_management_presence.visible = false
+	_camera_controller.focus_point(
+		FARM_MUTUAL_BOARD_FOCUS,
+		"FARM MUTUAL BOARD ART CHECK",
+		0.35,
+		4.8,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("farm_mutual_contract_board_world.png")
+
+
+func _capture_contract_board_ui_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 3
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 100_000)
+	_on_snapshot_changed(_simulation.snapshot())
+	_campaign_review_stage = &"contract_board"
+	_campaign_ui.show_contract_board(_simulation.snapshot())
+	_set_campaign_modal_open(true)
+	var board_ui := _campaign_ui.contract_board_ui()
+	if board_ui != null:
+		board_ui.call("_on_offer_pressed", &"homestead_stability_binder")
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("farm_mutual_contract_board_ui.png")
+
+
+func _capture_negotiation_board_ui_preview() -> void:
+	_prepare_capture_running()
+	_prepare_service_coop_capture_economy()
+	_simulation.day = 9
+	for facility_id in [&"records_annex", &"farm_mutual_service_coop", &"farm_mutual_negotiation_room"]:
+		var max_level := int(_simulation.facility_status(facility_id).get("max_level", 1))
+		for _level in max_level:
+			var receipt := _simulation.purchase_facility(facility_id)
+			if not bool(receipt.get("accepted", false)):
+				push_error("Negotiated Board capture prerequisite held: %s" % String(receipt.get("reason", "unknown reason")))
+				get_tree().quit(1)
+				return
+	_on_snapshot_changed(_simulation.snapshot())
+	_campaign_review_stage = &"contract_board"
+	_campaign_ui.show_contract_board(_simulation.snapshot())
+	_set_campaign_modal_open(true)
+	var board_ui := _campaign_ui.contract_board_ui()
+	if board_ui != null:
+		board_ui.call("_on_offer_pressed", &"predator_watch_pool")
+		board_ui.call("_on_negotiation_toggle_pressed")
+		board_ui.call("_on_clause_pressed", &"expedited_hatch_rider")
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("farm_mutual_negotiated_board_ui.png")
+
+
+func _capture_wellness_nest_preview() -> void:
+	_prepare_capture_running()
+	_prepare_care_campus_capture_economy()
+	for _level in 3:
+		var receipt := _simulation.purchase_facility(&"wellness_nest_room")
+		if not bool(receipt.get("accepted", false)):
+			push_error("Wellness Nest art capture could not commission a tier: %s" % String(receipt.get("reason", "unknown reason")))
+			get_tree().quit(1)
+			return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		WELLNESS_NEST_FOCUS,
+		"WELLNESS NEST ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("wellness_nest_level3.png")
+
+
+func _capture_training_roost_preview() -> void:
+	_prepare_capture_running()
+	_prepare_care_campus_capture_economy()
+	for facility_id in [&"wellness_nest_room", &"training_roost"]:
+		for _level in 3:
+			var receipt := _simulation.purchase_facility(facility_id)
+			if not bool(receipt.get("accepted", false)):
+				push_error(
+					"Training Roost art capture could not commission %s: %s" % [
+						String(facility_id),
+						String(receipt.get("reason", "unknown reason")),
+					]
+				)
+				get_tree().quit(1)
+				return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		TRAINING_ROOST_FOCUS,
+		"TRAINING ROOST ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("training_roost_level3.png")
+
+
+func _capture_care_campus_preview() -> void:
+	_prepare_capture_running()
+	_prepare_care_campus_capture_economy()
+	for facility_id in [&"wellness_nest_room", &"training_roost"]:
+		for _level in 3:
+			var receipt := _simulation.purchase_facility(facility_id)
+			if not bool(receipt.get("accepted", false)):
+				push_error("Care campus capture could not commission %s: %s" % [String(facility_id), String(receipt.get("reason", "unknown reason"))])
+				get_tree().quit(1)
+				return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		CARE_CAMPUS_FOCUS,
+		"FLOCK CARE CAMPUS",
+		0.35,
+		14.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("care_campus.png")
+
+
+func _capture_farmer_relations_gallery_preview() -> void:
+	_prepare_capture_running()
+	_prepare_farmer_relations_gallery_capture_economy()
+	for facility_id in [&"farmer_brand_packing_annex", &"farmer_relations_gallery"]:
+		if not _commission_capture_facility(facility_id):
+			return
+	if not _prepare_farmer_relations_gallery_capture_record():
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		FARMER_RELATIONS_GALLERY_FOCUS,
+		"HARVEST CREDIT GALLERY ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("harvest_credit_gallery_level3.png")
+
+
+func _capture_rooster_operations_office_preview() -> void:
+	_prepare_capture_running()
+	_prepare_operations_campus_capture_economy()
+	if not _commission_capture_facility(&"rooster_operations_office"):
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		ROOSTER_OPERATIONS_OFFICE_FOCUS,
+		"ROOSTER OPERATIONS ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("rooster_operations_office_level3.png")
+
+
+func _capture_it_coop_preview() -> void:
+	_prepare_capture_running()
+	_prepare_operations_campus_capture_economy()
+	for facility_id in [&"records_annex", &"rooster_operations_office", &"it_coop"]:
+		if not _commission_capture_facility(facility_id):
+			return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		IT_COOP_FOCUS,
+		"IT COOP ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("it_coop_level3.png")
+
+
+func _capture_operations_campus_preview() -> void:
+	_prepare_capture_running()
+	_prepare_operations_campus_capture_economy()
+	for facility_id in [&"records_annex", &"rooster_operations_office", &"it_coop"]:
+		if not _commission_capture_facility(facility_id):
+			return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		OPERATIONS_CAMPUS_FOCUS,
+		"OPERATIONS CAMPUS",
+		0.35,
+		11.0,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("operations_campus.png")
+
+
+func _capture_flock_relations_preview() -> void:
+	_prepare_capture_running()
+	_prepare_care_campus_capture_economy()
+	_prepare_operations_campus_capture_economy()
+	_prepare_flock_relations_capture_economy()
+	for facility_id in [&"wellness_nest_room", &"rooster_operations_office", &"flock_relations_office"]:
+		if not _commission_capture_facility(facility_id):
+			return
+	_prepare_flock_relations_capture_cases()
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		FLOCK_RELATIONS_OFFICE_FOCUS,
+		"FLOCK RELATIONS ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("flock_relations_office_level3.png")
+
+
+func _capture_flock_provisions_preview() -> void:
+	_prepare_capture_running()
+	_prepare_operations_campus_capture_economy()
+	if not _commission_capture_facility(&"feed_procurement_coop"):
+		return
+	var order := _simulation.authorize_feed_order(&"fixed_future_reserve")
+	if not bool(order.get("accepted", false)):
+		push_error("Provisions art capture could not file reserve order: %s" % String(
+			order.get("reason", "unknown reason"),
+		))
+		get_tree().quit(1)
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		FLOCK_PROVISIONS_COOP_FOCUS,
+		"FLOCK PROVISIONS ART CHECK",
+		0.35,
+		7.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("flock_provisions_coop_level3.png")
+
+
+func _capture_governance_campus_preview() -> void:
+	_prepare_capture_running()
+	_prepare_care_campus_capture_economy()
+	_prepare_operations_campus_capture_economy()
+	_prepare_flock_relations_capture_economy()
+	for facility_id in [
+		&"wellness_nest_room",
+		&"farmer_brand_packing_annex",
+		&"farmer_relations_gallery",
+		&"records_annex",
+		&"rooster_operations_office",
+		&"it_coop",
+		&"flock_relations_office",
+		&"feed_procurement_coop",
+	]:
+		if not _commission_capture_facility(facility_id):
+			return
+	if not _prepare_farmer_relations_gallery_capture_record():
+		return
+	var provisions_order := _simulation.authorize_feed_order(&"fixed_future_reserve")
+	if not bool(provisions_order.get("accepted", false)):
+		push_error("Governance capture could not file provisions order: %s" % String(
+			provisions_order.get("reason", "unknown reason"),
+		))
+		get_tree().quit(1)
+		return
+	_prepare_flock_relations_capture_cases()
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		GOVERNANCE_CAMPUS_FOCUS,
+		"GOVERNANCE CAMPUS",
+		0.35,
+		18.2,
+	)
+	await get_tree().create_timer(0.95).timeout
+	_save_preview("governance_campus.png")
+
+
+func _capture_farmgate_dispatch_preview(target_level: int) -> void:
+	_prepare_capture_running()
+	if not _prepare_farmgate_capture_economy(target_level):
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		FARMGATE_DISPATCH_DEPOT_FOCUS,
+		"FARMGATE DISPATCH ART CHECK",
+		0.35,
+		13.0,
+	)
+	await get_tree().create_timer(1.0).timeout
+	var suffix := "locked" if target_level < 0 else ("survey" if target_level == 0 else "level%d" % target_level)
+	_save_preview("farmgate_dispatch_%s.png" % suffix)
+
+
+func _capture_dispatch_campus_preview() -> void:
+	_prepare_capture_running()
+	if not _prepare_farmgate_capture_economy(3):
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.focus_point(
+		Vector3(19.15, 1.05, -2.60),
+		"PACKING AND DISPATCH CAMPUS",
+		0.35,
+		19.0,
+	)
+	await get_tree().create_timer(1.0).timeout
+	_save_preview("dispatch_campus.png")
+
+
+func _capture_capital_blueprint_preview() -> void:
+	_prepare_capture_running()
+	if not _prepare_farmgate_capture_economy(0):
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_open_capital_blueprint(false, false)
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("select_facility", &"farmgate_dispatch_depot", false)
+	await get_tree().create_timer(0.75).timeout
+	_save_preview("capital_blueprint.png")
+
+
+func _capture_commissioning_reveal_preview() -> void:
+	_prepare_capture_running()
+	if not _prepare_farmgate_capture_economy(0):
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_on_facility_purchase_requested(&"farmgate_dispatch_depot")
+	await get_tree().create_timer(1.0).timeout
+	_save_preview("farmgate_commissioning_reveal.png")
+
+
+func _capture_campus_expansion_preview() -> void:
+	_prepare_capture_running()
+	if not _prepare_campus_expansion_capture_economy():
+		return
+	var snapshot := _simulation.snapshot()
+	_on_snapshot_changed(snapshot)
+	_settle_campus_workers_for_capture()
+	_hide_world_capture_overlays()
+	var art_bounds := CampusExpansionVisualScript.camera_bounds(snapshot)
+	var art_focus := art_bounds.get_center()
+	art_focus.y = NORTH_MEADOW_FOCUS.y
+	var frame_size := maxf(art_bounds.size.x, art_bounds.size.z) + 1.0
+	_camera_controller.focus_point(
+		art_focus,
+		"NORTH MEADOW CAMPUS ART CHECK",
+		0.35,
+		frame_size,
+	)
+	await get_tree().create_timer(1.0).timeout
+	_save_preview("campus_expansion_operational.png")
+
+
+func _capture_campus_portfolio_preview() -> void:
+	_prepare_capture_running()
+	if not _prepare_campus_portfolio_capture_economy():
+		return
+	var snapshot := _simulation.snapshot()
+	_on_snapshot_changed(snapshot)
+	_hide_world_capture_overlays()
+	var art_bounds := CampusPortfolioVisualScript.camera_bounds(snapshot)
+	var art_focus := art_bounds.get_center()
+	art_focus.y = CAMPUS_PORTFOLIO_FOCUS.y
+	var frame_size := maxf(art_bounds.size.x, art_bounds.size.z) + 1.5
+	_camera_controller.focus_point(
+		art_focus,
+		"CAMPUS PORTFOLIO ART CHECK",
+		0.35,
+		frame_size,
+	)
+	await get_tree().create_timer(1.0).timeout
+	_save_preview("campus_portfolio_complete.png")
+
+
+func _settle_campus_workers_for_capture() -> void:
+	# Portfolio captures should prove the named staffing promise, not photograph
+	# four hens halfway through a long first commute. Large deltas are isolated to
+	# this deterministic capture path and still consume every authored waypoint.
+	for view_value: Variant in _worker_views.values():
+		var view := view_value as ChickenView
+		if view == null or not is_instance_valid(view) or not view.has_campus_duty_assignment():
+			continue
+		for _capture_step in 170:
+			if view.is_at_campus_duty_station():
+				break
+			view.call("_physics_process", 0.75)
+
+
+func _capture_campus_portfolio_ui_preview() -> void:
+	_prepare_capture_running()
+	if not _prepare_campus_portfolio_capture_economy():
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	_on_campus_expansion_requested()
+	if _campus_portfolio_ui != null:
+		_campus_portfolio_ui.call("select_parcel", &"creekside_yard")
+		_campus_portfolio_ui.call("select_pad", &"creekside_east")
+		_campus_portfolio_ui.call("select_module", &"creekside_chilling_exchange")
+	await get_tree().create_timer(0.75).timeout
+	_save_preview("campus_portfolio_ui.png")
+
+
+func _prepare_campus_portfolio_capture_economy() -> bool:
+	if not _prepare_campus_expansion_capture_economy():
+		return false
+	_simulation._campus_portfolio.begin_day(
+		_simulation.day,
+		_simulation._campus_portfolio_context(),
+	)
+	var deed := _simulation.purchase_campus_portfolio_deed(&"orchard_row")
+	if not _campus_capture_receipt_accepted(deed, "purchase Orchard Row"):
+		return false
+	deed = _simulation.purchase_campus_portfolio_deed(&"creekside_yard")
+	if not _campus_capture_receipt_accepted(deed, "purchase Creekside Yard"):
+		return false
+	for project_file: Dictionary in [
+		{"module": &"collection_rail_hub", "pad": &"orchard_west"},
+		{"module": &"grain_recovery_mill", "pad": &"orchard_east"},
+		{"module": &"contractor_roost", "pad": &"creekside_west"},
+	]:
+		var project := _simulation.authorize_campus_portfolio_project(
+			project_file["module"],
+			project_file["pad"],
+		)
+		if not _campus_capture_receipt_accepted(
+			project,
+			"authorize %s" % String(project_file["module"]).replace("_", " "),
+		):
+			return false
+	for target_day in [16, 19, 21]:
+		_simulation.day = target_day
+		_simulation._campus_portfolio.begin_day(
+			target_day,
+			_simulation._campus_portfolio_context(),
+		)
+	var staffing := _simulation.assign_campus_portfolio_worker(&"contractor_roost", 3)
+	if not _campus_capture_receipt_accepted(staffing, "staff Contractor Roost"):
+		return false
+	var chilling := _simulation.authorize_campus_portfolio_project(
+		&"creekside_chilling_exchange",
+		&"creekside_east",
+	)
+	if not _campus_capture_receipt_accepted(chilling, "authorize Creekside Chilling Exchange"):
+		return false
+	_simulation.day = 24
+	_simulation._campus_portfolio.begin_day(
+		24,
+		_simulation._campus_portfolio_context(),
+	)
+	for assignment: Dictionary in [
+		{"module": &"collection_rail_hub", "worker": 0},
+		{"module": &"grain_recovery_mill", "worker": 1},
+		{"module": &"creekside_chilling_exchange", "worker": 2},
+	]:
+		staffing = _simulation.assign_campus_portfolio_worker(
+			assignment["module"],
+			int(assignment["worker"]),
+		)
+		if not _campus_capture_receipt_accepted(
+			staffing,
+			"staff %s" % String(assignment["module"]).replace("_", " "),
+		):
+			return false
+	return true
+
+
+func _prepare_campus_expansion_capture_economy() -> bool:
+	# Establish only the deterministic access and funding fixture directly. Every
+	# capital mutation below must pass through the simulation's receipt-producing
+	# authorization API so the capture exercises the same rules as live play.
+	_simulation.day = 14
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = 1_000_000
+	_simulation.market_contracts_succeeded_total = 1
+	_simulation.market_contracts_breached_total = 0
+
+	var receipt := _simulation.purchase_campus_parcel(&"north_meadow")
+	if not _campus_capture_receipt_accepted(receipt, "purchase North Meadow"):
+		return false
+	for service_id: StringName in [&"circulation", &"power", &"cold_chain"]:
+		receipt = _simulation.commission_campus_service(service_id)
+		if not _campus_capture_receipt_accepted(
+			receipt,
+			"commission %s" % String(service_id).replace("_", " "),
+		):
+			return false
+	receipt = _simulation.place_campus_module(CAMPUS_ROUTING_POD_ID, &"meadow_west")
+	if not _campus_capture_receipt_accepted(receipt, "place the Egg Routing Pod"):
+		return false
+
+	var campus := _simulation.campus_expansion_snapshot()
+	var connected_services: Dictionary[StringName, bool] = {}
+	for service_value in campus.get("services", []) as Array:
+		if not service_value is Dictionary:
+			continue
+		var service := service_value as Dictionary
+		connected_services[StringName(String(service.get("id", "")))] = bool(
+			service.get("connected", false)
+		)
+	var fixture_is_operational := (
+		bool(campus.get("parcel_owned", false))
+		and bool(connected_services.get(&"circulation", false))
+		and bool(connected_services.get(&"power", false))
+		and bool(connected_services.get(&"cold_chain", false))
+		and bool(campus.get("pod_operational", false))
+		and bool(campus.get("cold_chain_active", false))
+		and StringName(String(campus.get("pod_socket_id", ""))) == &"meadow_west"
+	)
+	if not fixture_is_operational:
+		push_error(
+			"Campus expansion art capture fixture did not reach its operational state: %s"
+			% String(campus.get("summary", "missing campus summary"))
+		)
+		get_tree().quit(1)
+		return false
+	return true
+
+
+func _campus_capture_receipt_accepted(receipt: Dictionary, action_label: String) -> bool:
+	if bool(receipt.get("accepted", false)):
+		return true
+	push_error("Campus expansion art capture could not %s: %s" % [
+		action_label,
+		String(receipt.get("reason", "unknown reason")),
+	])
+	get_tree().quit(1)
+	return false
+
+
+func _prepare_farmgate_capture_economy(target_level: int) -> bool:
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 1_000_000)
+	if target_level < 0:
+		_simulation.day = 1
+		_simulation._farmgate_dispatch.begin_day(1)
+		return true
+	_simulation.day = 14
+	_simulation.office_capacity = 6
+	for worker_index in mini(6, _simulation.workers.size()):
+		var worker = _simulation.workers[worker_index]
+		worker.employed = true
+		worker.desk_index = worker_index
+	_simulation._harvest_credit.public_standing = 25
+	_simulation._farmgate_dispatch.begin_day(14)
+	var prerequisite_level := 3 if target_level == 0 else target_level
+	for facility_id in [&"farmer_brand_packing_annex", &"farmer_relations_gallery"]:
+		while _simulation.facility_level(facility_id) < prerequisite_level:
+			var prerequisite := _simulation.purchase_facility(facility_id)
+			if not bool(prerequisite.get("accepted", false)):
+				push_error("Farmgate capture prerequisite held: %s" % String(
+					prerequisite.get("reason", "unknown reason"),
+				))
+				get_tree().quit(1)
+				return false
+	while _simulation.facility_level(&"farmgate_dispatch_depot") < target_level:
+		var receipt := _simulation.purchase_facility(&"farmgate_dispatch_depot")
+		if not bool(receipt.get("accepted", false)):
+			push_error("Farmgate capture tier held: %s" % String(
+				receipt.get("reason", "unknown reason"),
+			))
+			get_tree().quit(1)
+			return false
+	if target_level > 0:
+		var lot_count: int = int([0, 5, 11, 18][target_level])
+		for lot_index in lot_count:
+			_simulation._farmgate_dispatch.store_lot(
+				9_000 + lot_index,
+				14,
+				lot_index % 6,
+				"CAPTURE HEN %d" % (lot_index % 6 + 1),
+				&"golden" if lot_index % 5 == 0 else &"sound",
+				450 + lot_index * 35,
+				target_level,
+				_simulation._farmgate_shelf_life_shifts(),
+				_simulation._farmgate_storage_capacity_eggs(),
+			)
+	return true
+
+
+func _capture_expansion_overview_preview() -> void:
+	_prepare_capture_running()
+	_prepare_service_coop_capture_economy()
+	_prepare_care_campus_capture_economy()
+	_prepare_operations_campus_capture_economy()
+	_prepare_flock_relations_capture_economy()
+	_simulation.day = maxi(_simulation.day, 14)
+	_simulation._harvest_credit.public_standing = maxi(
+		_simulation._harvest_credit.public_standing,
+		25,
+	)
+	_simulation.apply_campaign_unlock(&"shell_quality_checks")
+	for facility_id in [
+		&"candling_rework_bay",
+		&"farmer_brand_packing_annex",
+		&"records_annex",
+		&"farm_mutual_service_coop",
+		&"farm_mutual_negotiation_room",
+		&"wellness_nest_room",
+		&"training_roost",
+		&"farmer_relations_gallery",
+		&"rooster_operations_office",
+		&"it_coop",
+		&"flock_relations_office",
+		&"feed_procurement_coop",
+		&"farmgate_dispatch_depot",
+	]:
+		var max_level := int(_simulation.facility_status(facility_id).get("max_level", 1))
+		for _level in max_level:
+			var receipt := _simulation.purchase_facility(facility_id)
+			if not bool(receipt.get("accepted", false)):
+				push_error(
+					"Expansion overview could not commission %s: %s" % [
+						String(facility_id),
+						String(receipt.get("reason", "unknown reason")),
+					]
+				)
+				get_tree().quit(1)
+				return
+	_on_snapshot_changed(_simulation.snapshot())
+	_hide_world_capture_overlays()
+	_camera_controller.show_overview()
+	await get_tree().create_timer(1.0).timeout
+	_save_preview("expansion_overview.png")
+
+
+func _prepare_service_coop_capture_economy() -> void:
+	_simulation.day = 7
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = 1_000_000
+	_simulation.market_contracts_succeeded_total = 6
+	_simulation.market_contracts_breached_total = 0
+	_simulation.market_clean_contract_streak = 6
+	_simulation.best_market_clean_contract_streak = 6
+	_simulation.office_capacity = 6
+	for worker_index in mini(6, _simulation.workers.size()):
+		var worker = _simulation.workers[worker_index]
+		worker.employed = true
+		worker.desk_index = worker_index
+
+
+func _prepare_care_campus_capture_economy() -> void:
+	_simulation.day = maxi(_simulation.day, 10)
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 1_000_000)
+	_simulation.office_capacity = 6
+	var credential_lanes: Array[StringName] = [&"appeals", &"nest_damage", &"predator_loss"]
+	for worker_index in mini(6, _simulation.workers.size()):
+		var worker = _simulation.workers[worker_index]
+		worker.employed = true
+		worker.desk_index = worker_index
+		worker.career_xp = maxi(worker.career_xp, 80)
+		if worker_index < 3:
+			var credential_lane := credential_lanes[worker_index]
+			if credential_lane == worker.specialty:
+				credential_lane = credential_lanes[(worker_index + 1) % credential_lanes.size()]
+			worker.secondary_specialty = credential_lane
+		elif worker_index == 3:
+			var training_lane := &"appeals" if worker.specialty != &"appeals" else &"predator_loss"
+			worker.cross_training_target = training_lane
+
+
+func _prepare_operations_campus_capture_economy() -> void:
+	_simulation.day = maxi(_simulation.day, 12)
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 1_000_000)
+	_simulation.office_capacity = 6
+	for worker_index in mini(6, _simulation.workers.size()):
+		var worker = _simulation.workers[worker_index]
+		worker.employed = true
+		worker.desk_index = worker_index
+
+
+func _prepare_flock_relations_capture_economy() -> void:
+	_simulation.day = maxi(_simulation.day, 13)
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 1_000_000)
+	_simulation.office_capacity = 6
+	for worker_index in mini(6, _simulation.workers.size()):
+		var worker = _simulation.workers[worker_index]
+		worker.employed = true
+		worker.desk_index = worker_index
+		worker.manager_trust = 72.0
+		worker.grievance = 10.0
+		worker.stress = 22.0
+		worker.fatigue = 16.0
+
+
+func _prepare_farmer_relations_gallery_capture_economy() -> void:
+	_simulation.day = maxi(_simulation.day, 13)
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 1_000_000)
+	_simulation.office_capacity = 6
+	for worker_index in mini(6, _simulation.workers.size()):
+		var worker = _simulation.workers[worker_index]
+		worker.employed = true
+		worker.desk_index = worker_index
+
+
+func _prepare_farmer_relations_gallery_capture_record() -> bool:
+	# Close one authored basket through the real simulation, then file the shared
+	# results campaign. The capture therefore cannot invent a hen, payout, standing
+	# tier, or attribution receipt that gameplay did not produce.
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.RUNNING
+	_simulation.pending_decision.clear()
+	_simulation.eggs_today = 29
+	_simulation.cracked_today = 2
+	_simulation.golden_today = 1
+	_simulation.eggs_total = maxi(_simulation.eggs_total, 29)
+	_simulation.cracked_eggs = maxi(_simulation.cracked_eggs, 2)
+	_simulation.golden_eggs = maxi(_simulation.golden_eggs, 1)
+	_simulation.quota_target = 24
+	_simulation.credited_today_cents = 12_400
+	if not _simulation.workers.is_empty():
+		var top_row: Dictionary = _simulation._worker_shift_stats[0]
+		top_row.merge({
+			"eggs": 9,
+			"sound": 8,
+			"cracked": 1,
+			"golden": 1,
+			"credit_cents": 4_200,
+		}, true)
+		_simulation._worker_shift_stats[0] = top_row
+	_simulation._complete_workday()
+	var campaign := _simulation.file_farmer_relations_campaign(&"clutch_results_board")
+	if not bool(campaign.get("accepted", false)):
+		push_error("Gallery art capture could not file its results campaign: %s" % String(
+			campaign.get("reason", "unknown reason"),
+		))
+		get_tree().quit(1)
+		return false
+	return true
+
+
+func _prepare_flock_relations_capture_cases() -> void:
+	# Use the real deterministic filing and resolution APIs so the room never
+	# depicts a folder, settlement, or outcome lamp that the economy did not own.
+	if _simulation.workers.size() < 3:
+		return
+	var first_worker = _simulation.workers[0]
+	first_worker.manager_trust = 24.0
+	first_worker.grievance = 82.0
+	first_worker.stress = 76.0
+	first_worker.fatigue = 68.0
+	_simulation.call("_file_flock_relations_case_after_shift", _simulation.day)
+	var first_snapshot := _simulation.flock_relations_snapshot()
+	var first_cases := first_snapshot.get("open_cases", []) as Array
+	if not first_cases.is_empty():
+		var first_case := first_cases[0] as Dictionary
+		_simulation.resolve_flock_relations_case(
+			int(first_case.get("case_id", 0)),
+			&"fund_remedy",
+		)
+	first_worker.manager_trust = 72.0
+	first_worker.grievance = 10.0
+	first_worker.stress = 22.0
+	first_worker.fatigue = 16.0
+
+	var second_worker = _simulation.workers[1]
+	second_worker.manager_trust = 32.0
+	second_worker.grievance = 70.0
+	second_worker.stress = 68.0
+	second_worker.fatigue = 60.0
+	_simulation.call("_file_flock_relations_case_after_shift", _simulation.day)
+
+	var third_worker = _simulation.workers[2]
+	third_worker.manager_trust = 38.0
+	third_worker.grievance = 58.0
+	third_worker.stress = 70.0
+	third_worker.fatigue = 66.0
+	_simulation.call("_file_flock_relations_case_after_shift", _simulation.day)
+
+
+func _commission_capture_facility(facility_id: StringName) -> bool:
+	var max_level := int(_simulation.facility_status(facility_id).get("max_level", 1))
+	for _level in max_level:
+		var receipt := _simulation.purchase_facility(facility_id)
+		if not bool(receipt.get("accepted", false)):
+			push_error(
+				"Operations art capture could not commission %s: %s" % [
+					String(facility_id),
+					String(receipt.get("reason", "unknown reason")),
+				]
+			)
+			get_tree().quit(1)
+			return false
+	return true
+
+
+func _hide_world_capture_overlays() -> void:
+	if _ui_root != null:
+		_ui_root.visible = false
+	if _workers_node != null:
+		_workers_node.visible = false
+	if _management_presence != null:
+		_management_presence.visible = false
 
 
 func _capture_signage_preview(focus: Vector3, file_name: String) -> void:
@@ -5338,6 +10701,14 @@ func _capture_career_sponsorship_preview() -> void:
 	_senior_roost_state = SeniorRoostStateScript.new()
 	if not _senior_roost_state.begin(5):
 		push_error("Career Sponsorship capture could not open the Senior Roost ledger.")
+		get_tree().quit(1)
+		return
+	var mandate_receipt: Dictionary = _senior_roost_state.select_annual_mandate(
+		SeniorRoostStateScript.MANDATE_FALLBACK_ID,
+		_senior_roost_state.current_year_number(),
+	)
+	if not bool(mandate_receipt.get("accepted", false)):
+		push_error("Career Sponsorship capture could not file the annual Board fallback.")
 		get_tree().quit(1)
 		return
 	if not _senior_roost_state.record_quarter_policy({
@@ -5589,10 +10960,20 @@ func _emissive_material(color: Color, energy: float) -> StandardMaterial3D:
 	return material
 
 
+func _make_flockwatch_section(node_name: String) -> VBoxContainer:
+	var section := VBoxContainer.new()
+	section.name = node_name
+	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	section.add_theme_constant_override("separation", 8)
+	return section
+
+
 func _make_label(text: String, font_size: int, color: Color = Color("eef1f5")) -> Label:
 	var label := Label.new()
 	label.text = text
-	label.add_theme_font_size_override("font_size", font_size)
+	label.set_meta(&"preference_base_font_size", font_size)
+	var scale := float(_player_preferences.get("ui_scale", 1.0))
+	label.add_theme_font_size_override("font_size", maxi(10, roundi(font_size * scale)))
 	label.add_theme_color_override("font_color", color)
 	return label
 

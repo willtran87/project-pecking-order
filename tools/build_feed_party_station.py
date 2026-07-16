@@ -18,8 +18,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATH = PROJECT_ROOT / "assets" / "blender_source" / "feed_party_station.blend"
 MODEL_PATH = PROJECT_ROOT / "assets" / "models" / "feed_party_station.glb"
 PREVIEW_PATH = PROJECT_ROOT / "captures" / "feed_party_station_preview.png"
+OFFICE_FONT_PATH = PROJECT_ROOT / "assets" / "fonts" / "BarlowCondensed-SemiBold.fontbytes"
 
 random.seed(82471)
+_office_font: bpy.types.VectorFont | None = None
 
 
 def clear_scene() -> None:
@@ -68,6 +70,14 @@ def assign(obj: bpy.types.Object, mat: bpy.types.Material) -> bpy.types.Object:
 def parent(obj: bpy.types.Object, root: bpy.types.Object) -> bpy.types.Object:
     obj.parent = root
     return obj
+
+
+def office_font() -> bpy.types.VectorFont:
+    """Reuse the same condensed institutional face as the Godot office signs."""
+    global _office_font
+    if _office_font is None:
+        _office_font = bpy.data.fonts.load(str(OFFICE_FONT_PATH), check_existing=True)
+    return _office_font
 
 
 def rounded_cube(
@@ -159,12 +169,17 @@ def create_text(
 ) -> bpy.types.Object:
     curve = bpy.data.curves.new(f"{name}Curve", type="FONT")
     curve.body = text
+    curve.font = office_font()
     curve.align_x = align
     curve.align_y = "CENTER"
     curve.size = size
     curve.extrude = extrude
-    curve.bevel_depth = 0.002
-    curve.bevel_resolution = 2
+    # The lettering is read from the management camera, so a restrained curve
+    # tessellation and hairline bevel preserve the house face without adding
+    # megabytes of invisible sub-pixel geometry to the Web build.
+    curve.resolution_u = 3
+    curve.bevel_depth = 0.001
+    curve.bevel_resolution = 0
     obj = bpy.data.objects.new(name, curve)
     bpy.context.collection.objects.link(obj)
     obj.location = location
@@ -569,6 +584,8 @@ def verify(root: bpy.types.Object) -> None:
         "Trough_WallFront",
         "Trough_WallBack",
         "Trough_VisiblePellets",
+        "FeedParty_Title",
+        "FeedParty_Subtitle",
         "FeedSack_A_Sack",
         "FeedSack_B_Sack",
         "Waterer_Reservoir",

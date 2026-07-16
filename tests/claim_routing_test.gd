@@ -152,9 +152,11 @@ func _test_deterministic_arrivals_cap_and_deadlines(failures: Array[String]) -> 
 	for _tick in 40:
 		first.advance_tick()
 	var capped := first.snapshot()
-	_check(int(capped.get("claims_waiting", -1)) == DepartmentSimulation.MAX_CLAIM_QUEUE, "waiting queue should stop at its hard cap", failures)
-	_check(int(capped.get("claims_outstanding", -1)) == DepartmentSimulation.MAX_CLAIM_QUEUE, "total outstanding claims should respect the same cap", failures)
-	_check(_sum_queue_counts(capped) == DepartmentSimulation.MAX_CLAIM_QUEUE, "typed lane counts should sum to the authoritative cap", failures)
+	var expected_capacity := first.current_claim_capacity()
+	_check(int(capped.get("claim_capacity", -1)) == expected_capacity, "snapshot should expose the current investable claim capacity", failures)
+	_check(int(capped.get("claims_waiting", -1)) == expected_capacity, "waiting queue should stop at its current capacity", failures)
+	_check(int(capped.get("claims_outstanding", -1)) == expected_capacity, "total outstanding claims should respect the same capacity", failures)
+	_check(_sum_queue_counts(capped) == expected_capacity, "typed lane counts should sum to the authoritative capacity", failures)
 
 	var overdue_simulation := DepartmentSimulation.new(807)
 	_check(overdue_simulation.select_directive(&"shell_assurance"), "deadline fixture should start", failures)

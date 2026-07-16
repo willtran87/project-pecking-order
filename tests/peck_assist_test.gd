@@ -8,6 +8,11 @@ const ASSIST_SAVE_FIELDS: Array[String] = [
 	"last_peck_assist",
 	"priority_credit_today_cents",
 	"priority_credit_total_cents",
+	"peck_assist_interventions_today",
+	"peck_assist_refunds_today",
+	"last_peck_assist_delivery",
+	"pending_peck_assist_deliveries",
+	"settled_peck_assist_delivery_ids",
 	"assisted_claim_ids",
 	"missed_assist_claim_ids",
 	"assist_quality_modifiers",
@@ -26,13 +31,14 @@ func _run() -> void:
 	_test_one_stamp_per_claim_and_three_per_shift(failures)
 	_test_missed_window_resets_the_chain(failures)
 	_test_assist_never_lays_and_clean_completion_adds_priority_credit(failures)
+	_test_clean_delivery_refunds_exactly_once_and_cracks_do_not(failures)
 	_test_v6_round_trip_v4_migration_and_validation(failures)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("PECK_ASSIST_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PECK_ASSIST_TEST_PASSED guards=atomic timing=authoritative limits=claim-and-shift miss=resets credit=completion-only risk=exact persistence=v7-v4")
+	print("PECK_ASSIST_TEST_PASSED guards=atomic timing=authoritative attention=renewable-exact-once crack=no-refund risk=exact persistence=v10-v4")
 	quit(0)
 
 
@@ -313,6 +319,62 @@ func _test_assist_never_lays_and_clean_completion_adds_priority_credit(failures:
 	_check(simulation.credited_today_cents - credited_before == claim_value + 20 + 35, "farmer-facing credited value should receive the same completed-egg amount", failures)
 
 
+func _test_clean_delivery_refunds_exactly_once_and_cracks_do_not(failures: Array[String]) -> void:
+	var simulation := DepartmentSimulation.new(5551)
+	var worker := _start_working_claim(simulation, 0, failures)
+	worker.work_progress = DepartmentSimulation.PECK_ASSIST_IDEAL_PROGRESS
+	var first := simulation.perform_peck_assist(0)
+	var first_claim_id := int(first.get("claim_id", -1))
+	_check(bool(first.get("accepted", false)), "renewal fixture should accept its first clean assist", failures)
+	_check(int(first.get("remaining", -1)) == 2, "one intervention should consume one of three attention charges", failures)
+	_force_sound_completion(simulation, 0, "renewal claim", failures)
+	var pending := simulation.peck_assist_delivery_status()
+	_check(int(pending.get("charges", -1)) == 2, "egg completion alone must not restore attention before physical delivery", failures)
+	_check(int(pending.get("pending_delivery_count", -1)) == 1, "clean assisted completion should mint one exact claim-keyed delivery token", failures)
+	_check(int((pending.get("pending_delivery", {}) as Dictionary).get("claim_id", -1)) == first_claim_id, "pending refund token should identify the completed assisted claim", failures)
+
+	# The token must survive a checkpoint before its visual basket animation and
+	# settle once after restore without duplicating the reward.
+	var restored := DepartmentSimulation.new(5552)
+	_check(restored.restore_save_state(_json_round_trip(simulation.export_save_state(), "pending attention checkpoint", failures)), "pending clean delivery should survive JSON restore", failures)
+	var before_settlement := restored.export_save_state()
+	var receipt := restored.settle_peck_assist_delivery(first_claim_id, &"sound")
+	_check(bool(receipt.get("accepted", false)) and bool(receipt.get("refunded", false)), "clean farmer delivery should restore attention", failures)
+	_check(int(receipt.get("charges_before", -1)) == 2 and int(receipt.get("charges_after", -1)) == 3, "clean delivery should restore exactly one charge up to the cap", failures)
+	_check(int(receipt.get("gross_interventions", -1)) == 1 and int(receipt.get("refunds", -1)) == 1, "gross interventions and refunds should remain separate ledgers", failures)
+	var after_settlement := restored.export_save_state()
+	_check(JSON.stringify(after_settlement) != JSON.stringify(before_settlement), "accepted delivery settlement should mutate the persisted attention ledger", failures)
+	var duplicate := restored.settle_peck_assist_delivery(first_claim_id, &"sound")
+	_check(not bool(duplicate.get("accepted", false)) and "already restored" in String(duplicate.get("reason", "")), "duplicate basket callbacks should explain the exact-once guard", failures)
+	_check(JSON.stringify(restored.export_save_state()) == JSON.stringify(after_settlement), "duplicate delivery settlement must be atomic", failures)
+
+	# A refunded charge can immediately sustain another claim intervention, making
+	# the active loop renewable instead of ending after three early stamps.
+	restored.set_worker_at_workstation(0, true)
+	worker = restored.workers[0]
+	worker = _pick_up_next_claim(restored, 0, failures)
+	worker.work_progress = DepartmentSimulation.PECK_ASSIST_IDEAL_PROGRESS
+	var second := restored.perform_peck_assist(0)
+	_check(bool(second.get("accepted", false)) and int(second.get("gross_interventions", -1)) == 2, "restored attention should fund a later exact claim", failures)
+	_check(int(second.get("remaining", -1)) == 2, "renewed intervention should consume the restored charge normally", failures)
+
+	var cracked := DepartmentSimulation.new(5553)
+	var cracked_worker := _start_working_claim(cracked, 0, failures)
+	cracked_worker.accuracy = 0.55
+	cracked_worker.work_progress = DepartmentSimulation.PECK_ASSIST_IDEAL_PROGRESS
+	var cracked_assist := cracked.perform_peck_assist(0)
+	var cracked_claim_id := int(cracked_assist.get("claim_id", -1))
+	_check(bool(cracked_assist.get("accepted", false)), "crack fixture should begin with a real assisted claim", failures)
+	_force_cracked_completion(cracked, 0, "cracked renewal claim", failures)
+	var cracked_status := cracked.peck_assist_delivery_status()
+	_check(int(cracked_status.get("pending_delivery_count", -1)) == 0, "cracked assisted work must not mint a refund token", failures)
+	_check(int(cracked_status.get("charges", -1)) == 2 and cracked.peck_assist_streak == 0, "a crack should consume attention and break the live chain", failures)
+	var cracked_before := JSON.stringify(cracked.export_save_state())
+	var cracked_delivery := cracked.settle_peck_assist_delivery(cracked_claim_id, &"cracked")
+	_check(not bool(cracked_delivery.get("accepted", false)) and "cannot restore" in String(cracked_delivery.get("reason", "")), "cracked presentation should explicitly deny a refund", failures)
+	_check(JSON.stringify(cracked.export_save_state()) == cracked_before, "cracked delivery denial must remain atomic", failures)
+
+
 func _test_v6_round_trip_v4_migration_and_validation(failures: Array[String]) -> void:
 	var original := DepartmentSimulation.new(5601)
 	var worker := _start_working_claim(original, 0, failures)
@@ -320,7 +382,7 @@ func _test_v6_round_trip_v4_migration_and_validation(failures: Array[String]) ->
 	var assist := original.perform_peck_assist(0)
 	_check(bool(assist.get("accepted", false)), "persistence fixture should retain one active assisted claim", failures)
 	var state := original.export_save_state()
-	_check(int(state.get("state_version", -1)) == 7, "peck-assist checkpoints should export schema v7", failures)
+	_check(int(state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "peck-assist checkpoints should export the current schema", failures)
 	var parsed_state := _json_round_trip(state, "v6 checkpoint", failures)
 	var restored := DepartmentSimulation.new(5602)
 	_check(restored.restore_save_state(parsed_state), "valid v6 JSON checkpoint should restore", failures)
@@ -350,7 +412,7 @@ func _test_v6_round_trip_v4_migration_and_validation(failures: Array[String]) ->
 	var migrated := DepartmentSimulation.new(5604)
 	_check(migrated.restore_save_state(legacy_v4), "valid v4 checkpoint should migrate to the peck-assist schema", failures)
 	var migrated_state := migrated.export_save_state()
-	_check(int(migrated_state.get("state_version", -1)) == 7, "v4 migration should export schema v7", failures)
+	_check(int(migrated_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v4 migration should export the current schema", failures)
 	_check(int(migrated_state.get("peck_assists_used_today", -1)) == 0, "v4 migration should default shift assist usage to zero", failures)
 	_check(int(migrated_state.get("peck_assist_streak", -1)) == 0, "v4 migration should default the live chain to zero", failures)
 	_check(int(migrated_state.get("best_peck_assist_streak", -1)) == 0, "v4 migration should default the best chain to zero", failures)
@@ -419,6 +481,29 @@ func _force_sound_completion(
 	_check(worker.current_claim == null, "%s should clear its completed claim" % label, failures)
 
 
+func _force_cracked_completion(
+	simulation: DepartmentSimulation,
+	worker_id: int,
+	label: String,
+	failures: Array[String],
+) -> void:
+	var worker := simulation.workers[worker_id]
+	_check(worker.current_claim != null, "%s should have a claim to crack" % label, failures)
+	if worker.current_claim == null:
+		return
+	var eggs_before := simulation.eggs_today
+	var risk := simulation.estimated_crack_risk(worker_id)
+	var cracked_seed := _seed_for_cracked_egg(risk)
+	_check(cracked_seed > 0, "%s should find a deterministic cracked-egg seed" % label, failures)
+	(simulation.get("_rng") as RandomNumberGenerator).seed = cracked_seed
+	worker.work_state = ChickenState.WorkState.LAYING
+	worker.state_ticks_remaining = 1
+	simulation.advance_tick()
+	_check(simulation.eggs_today == eggs_before + 1, "%s should finish through the normal laying tick" % label, failures)
+	_check(worker.current_claim == null, "%s should clear its cracked claim" % label, failures)
+	_check(simulation.cracked_today > 0, "%s should record a cracked result" % label, failures)
+
+
 func _assert_rejected_atomic(
 	simulation: DepartmentSimulation,
 	worker_id: int,
@@ -458,6 +543,15 @@ func _seed_for_sound_egg(crack_risk: float, golden_chance: float) -> int:
 		var probe := RandomNumberGenerator.new()
 		probe.seed = candidate
 		if probe.randf() >= crack_risk and probe.randf() >= golden_chance:
+			return candidate
+	return -1
+
+
+func _seed_for_cracked_egg(crack_risk: float) -> int:
+	for candidate in range(1, 10_000):
+		var probe := RandomNumberGenerator.new()
+		probe.seed = candidate
+		if probe.randf() < crack_risk:
 			return candidate
 	return -1
 

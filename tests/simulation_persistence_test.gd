@@ -45,6 +45,9 @@ func _run() -> void:
 		"pecking_order", "last_pecking_order", "last_pecking_order_day",
 		"last_credit_allocation", "credit_choice_counts", "leadership_record",
 		"credit_memo_pending", "golden_dossier_resolved", "golden_dossier_day",
+		"first_clutch_reinvestment", "requisition_spend_today_cents",
+		"requisition_spend_total_cents", "orientation_procurement_match_today_cents",
+		"orientation_procurement_match_total_cents",
 	]:
 		var equivalent: bool = after.get(field) == before.get(field)
 		if field in ["last_staffing_action", "staffing_catalog", "capacity_upgrade"]:
@@ -138,6 +141,7 @@ func _run() -> void:
 	var staffing_original := DepartmentSimulation.new(6221, 4)
 	var staffing_report := _complete_shift(staffing_original, failures)
 	_check(not staffing_report.is_empty(), "staffing persistence fixture should enter review", failures)
+	staffing_original.pending_decision.clear()
 	staffing_original.revenue_cents = 10000
 	var capacity_result := staffing_original.purchase_staff_capacity()
 	var hire_result := staffing_original.hire_worker(4)
@@ -213,7 +217,7 @@ func _run() -> void:
 		_check(migrated_legacy_worker.desk_index == worker_id, "v2 worker %d should retain her desk" % worker_id, failures)
 		_check(migrated_legacy_worker.available_for_hire_day == 0, "v2 worker %d should not receive applicant availability" % worker_id, failures)
 		_check(migrated_legacy_worker.hire_count == 0, "v2 worker %d should receive zero historical hires" % worker_id, failures)
-	_check(int(legacy_v2_restored.export_save_state().get("state_version", -1)) == 7, "v2 migration should chain through the neutral cross-training schema v7", failures)
+	_check(int(legacy_v2_restored.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v2 migration should chain through the current neutral expansion schema", failures)
 
 	# An authentic v3 staffing checkpoint has no worker shift attribution or
 	# closing-credit history. Migration must initialize the new ledgers honestly
@@ -233,7 +237,7 @@ func _run() -> void:
 	_check((legacy_v3_snapshot.get("last_pecking_order", []) as Array).is_empty(), "v3 migration should not invent a historical ranking", failures)
 	_check((legacy_v3_snapshot.get("last_credit_allocation", {}) as Dictionary).is_empty(), "v3 migration should not invent a credit choice", failures)
 	_check(not bool(legacy_v3_snapshot.get("credit_memo_pending", true)), "v3 migration should not invent a pending memo", failures)
-	_check(int(legacy_v3_restored.export_save_state().get("state_version", -1)) == 7, "v3 migration should export schema v7", failures)
+	_check(int(legacy_v3_restored.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v3 migration should export the current schema", failures)
 	for worker_value in legacy_v3_snapshot.get("workers", []) as Array:
 		var migrated_v3_worker := worker_value as Dictionary
 		_check(int(migrated_v3_worker.get("shift_eggs", -1)) == 0, "v3 migration should start worker shift attribution at zero", failures)
@@ -252,7 +256,7 @@ func _run() -> void:
 	var legacy_v4_restored := DepartmentSimulation.new(8115, 4)
 	_check(legacy_v4_restored.restore_save_state(legacy_v4), "legacy v4 checkpoint should migrate to v5 Peck Assist ledgers", failures)
 	var migrated_v4_state := legacy_v4_restored.export_save_state()
-	_check(int(migrated_v4_state.get("state_version", -1)) == 7, "v4 migration should export schema v7", failures)
+	_check(int(migrated_v4_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v4 migration should export the current schema", failures)
 	_check(legacy_v4_restored.peck_assists_used_today == 0, "v4 migration should not invent used assists", failures)
 	_check(legacy_v4_restored.peck_assist_streak == 0, "v4 migration should start the assist streak at zero", failures)
 	_check(legacy_v4_restored.best_peck_assist_streak == 0, "v4 migration should start the best assist streak at zero", failures)
@@ -277,7 +281,7 @@ func _run() -> void:
 	var legacy_v5_restored := DepartmentSimulation.new(8116, 4)
 	_check(legacy_v5_restored.restore_save_state(legacy_v5), "legacy v5 checkpoint should migrate neutrally to v6", failures)
 	var migrated_v5_state := legacy_v5_restored.export_save_state()
-	_check(int(migrated_v5_state.get("state_version", -1)) == 7, "v5 migration should export schema v7", failures)
+	_check(int(migrated_v5_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v5 migration should export the current schema", failures)
 	for field in [
 		"last_flock_petition", "active_flock_compact", "last_flock_compact_receipt",
 		"last_work_to_rule_record", "queued_work_to_rule_record",
@@ -326,7 +330,7 @@ func _run() -> void:
 	_check(not bool(legacy_snapshot.get("personnel_action_used", true)), "legacy migration should not invent a personnel action", failures)
 	_check(legacy_restored.active_worker_count() == 6 and legacy_restored.office_capacity == 6, "v1 migration should inherit the v2 six-hen grandfather rule", failures)
 	_check(legacy_restored.wage_arrears_cents == 0, "v1 migration should not invent wage arrears", failures)
-	_check(int(legacy_restored.export_save_state().get("state_version", -1)) == 7, "migrated checkpoints should export as schema v7", failures)
+	_check(int(legacy_restored.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "migrated checkpoints should export as the current schema", failures)
 
 	# Employment/capacity invariants fail closed before mutating the fallback.
 	var invalid_fallback := DepartmentSimulation.new(7331, 4)
@@ -357,7 +361,7 @@ func _run() -> void:
 			push_error("SIMULATION_PERSISTENCE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SIMULATION_PERSISTENCE_TEST_PASSED json=round-trip rng=deterministic personnel=guarded staffing=exact migration=v1-v2-v3-v4-v5-v6-to-v7 validation=employment-capacity-credit-assist-flock-training")
+	print("SIMULATION_PERSISTENCE_TEST_PASSED json=round-trip rng=deterministic personnel=guarded staffing=exact migration=v1-through-v10 validation=employment-capacity-credit-assist-flock-training-facilities-packing-reinvestment")
 	quit(0)
 
 

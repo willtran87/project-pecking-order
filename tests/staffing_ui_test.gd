@@ -27,8 +27,14 @@ func _run() -> void:
 	var staffing_ui := office.find_child("RoostStaffingUI", true, false) as RoostStaffingUI
 	var workers_node := office.find_child("Workers", true, false) as Node3D
 	var flockwatch_scroll := office.find_child("FlockwatchScroll", true, false) as ScrollContainer
+	var flockwatch_navigation := office.find_child("FlockwatchNavigation", true, false) as FlockwatchNavigation
+	var flock_page_scroll := (
+		flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_FLOCK)
+		if flockwatch_navigation != null else null
+	) as ScrollContainer
 	var flockwatch_panel := office.find_child("FlockwatchLedger", true, false) as PanelContainer
 	var capacity_button := office.find_child("PurchaseStaffCapacity", true, false) as Button
+	var treasury_label := office.find_child("FarmTreasurySummary", true, false) as Label
 	var fifth_workstation := office.find_child("Workstation_04", true, false) as Node3D
 	var fifth_capacity_marker := office.find_child("CapacityAuthorization_04", true, false) as Node3D
 	var sixth_workstation := office.find_child("Workstation_05", true, false) as Node3D
@@ -37,8 +43,19 @@ func _run() -> void:
 	_check(simulation != null and clock != null, "Office should boot its staffing simulation and clock", failures)
 	_check(staffing_ui != null, "Office should build the Roost Staffing surface", failures)
 	_check(
-		flockwatch_scroll != null and staffing_ui != null and flockwatch_scroll.is_ancestor_of(staffing_ui),
-		"Roost Staffing should be embedded in the scrollable Flockwatch ledger",
+		treasury_label != null
+		and "TREASURY" in treasury_label.text
+		and "HEADROOM" in treasury_label.text,
+		"Flockwatch should explain the revolving line and current headroom without opening another overlay",
+		failures,
+	)
+	_check(
+		flockwatch_navigation != null
+		and flock_page_scroll != null
+		and staffing_ui != null
+		and flock_page_scroll.is_ancestor_of(staffing_ui)
+		and (flockwatch_scroll == null or not flockwatch_scroll.is_ancestor_of(staffing_ui)),
+		"Roost Staffing should be hosted on the Flock page rather than the legacy Today scroll",
 		failures,
 	)
 	var opening := simulation.snapshot() if simulation != null else {}
@@ -47,8 +64,9 @@ func _run() -> void:
 	_check(_employed_count(opening) == 4, "exactly four worker records should start employed", failures)
 	_check(_applicant_count(opening) == 2, "exactly two worker records should start as applicants", failures)
 	_check(
-		staffing_ui != null and staffing_ui.find_children("StaffingApplicant_*", "PanelContainer", true, false).size() == 2,
-		"Flockwatch should render both screened applicants",
+		flock_page_scroll != null
+		and flock_page_scroll.find_children("StaffingApplicant_*", "PanelContainer", true, false).size() == 2,
+		"the Flock page should own both screened applicant cards",
 		failures,
 	)
 	_check(
@@ -57,8 +75,8 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		sixth_workstation != null and not sixth_workstation.visible and sixth_capacity_marker != null and sixth_capacity_marker.visible,
-		"perch six should remain held for a later expansion",
+		sixth_workstation != null and not sixth_workstation.visible and sixth_capacity_marker != null and not sixth_capacity_marker.visible,
+		"perch six should remain held without signposting more than the next inactive workstation",
 		failures,
 	)
 	_check(workers_node != null and workers_node.get_child_count() == 4, "Office should spawn views only for the four employed hens", failures)
@@ -91,8 +109,20 @@ func _run() -> void:
 	_advance_to_review(simulation, failures)
 	await process_frame
 	await process_frame
-	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW, "completed workday should open staffing planning", failures)
-	_check(bool(simulation.snapshot().get("staffing_planning_open", false)), "review snapshot should explicitly expose open staffing planning", failures)
+	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW, "completed workday should enter review", failures)
+	_check(not bool(simulation.snapshot().get("staffing_planning_open", true)), "unresolved closing credit should keep staffing planning closed", failures)
+	capacity_button = office.find_child("PurchaseStaffCapacity", true, false) as Button
+	_check(
+		capacity_button != null
+		and capacity_button.disabled
+		and _contains_any(capacity_button.tooltip_text, ["resolve", "credit", "memo"]),
+		"capacity control should explain the unresolved closing-credit hold",
+		failures,
+	)
+	_resolve_closing_credit(simulation, failures)
+	await process_frame
+	await process_frame
+	_check(bool(simulation.snapshot().get("staffing_planning_open", false)), "filing closing credit should explicitly open staffing planning", failures)
 
 	var review_requisitions := office.find_child("ReviewRequisitionsButton", true, false) as Button
 	_check(review_requisitions != null, "farmer review should expose the requisitions action", failures)
@@ -100,7 +130,25 @@ func _run() -> void:
 		review_requisitions.pressed.emit()
 	await process_frame
 	_check(flockwatch_panel != null and flockwatch_panel.is_visible_in_tree(), "review requisitions should reveal Flockwatch", failures)
+	_check(
+		flockwatch_navigation != null
+		and flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_FLOCK),
+		"the persistent Flock page should remain reachable from the requisitions deep link",
+		failures,
+	)
+	await process_frame
+	_check(
+		flockwatch_navigation != null
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_FLOCK,
+		"staffing review should explicitly navigate to the Flock filing page",
+		failures,
+	)
 	_check(staffing_ui != null and staffing_ui.is_visible_in_tree(), "Roost Staffing should be visible inside the open ledger", failures)
+	_check(
+		_flock_applicant_cards_are_visible(flock_page_scroll, 2),
+		"both screened applicant cards should be visible on the open Flock page",
+		failures,
+	)
 
 	capacity_button = office.find_child("PurchaseStaffCapacity", true, false) as Button
 	var pre_capacity_hire := office.find_child("HireWorker_4", true, false) as Button
@@ -156,9 +204,25 @@ func _run() -> void:
 		"the fifth workstation nameplate should identify its actual occupant",
 		failures,
 	)
+	# Capacity authorization intentionally focuses the new physical perch and
+	# collapses the ledger. Reopen it through the player-facing control before
+	# validating the refreshed applicant filing in its actual visible context.
+	if flockwatch_panel != null and not flockwatch_panel.is_visible_in_tree():
+		var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
+		_check(flockwatch_toggle != null, "the closed staffing ledger should remain reopenable", failures)
+		if flockwatch_toggle != null:
+			flockwatch_toggle.pressed.emit()
+	await process_frame
 	_check(
-		staffing_ui != null and staffing_ui.find_children("StaffingApplicant_*", "PanelContainer", true, false).size() == 1,
-		"the hired hen should leave one screened applicant in Flockwatch",
+		flockwatch_navigation != null
+		and flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_FLOCK),
+		"the refreshed applicant filing should remain reachable on Flock",
+		failures,
+	)
+	await process_frame
+	_check(
+		_flock_applicant_cards_are_visible(flock_page_scroll, 1),
+		"the hired hen should leave one visible screened applicant on the Flock page",
 		failures,
 	)
 	_check(_checkpoint_matches(store, "worker_hired", 5, 5, true), "hire should create a resumable worker_hired checkpoint with the employed desk", failures)
@@ -220,6 +284,26 @@ func _resolve_free_incident(simulation: DepartmentSimulation, failures: Array[St
 	_check(false, "deterministic incident should expose a free branch", failures)
 
 
+func _resolve_closing_credit(simulation: DepartmentSimulation, failures: Array[String]) -> void:
+	var pending := simulation.pending_decision_snapshot()
+	var option_id: StringName
+	match StringName(pending.get("id", &"")):
+		&"closing_credit_memo":
+			option_id = &"reward_top_layer"
+		&"golden_egg_dossier":
+			option_id = &"name_the_layer"
+		&"flock_restructuring":
+			option_id = &"contest_ranking"
+		_:
+			_check(false, "staffing UI review should expose a recognized closing credit decision", failures)
+			return
+	_check(
+		simulation.resolve_decision(int(pending.get("serial", -1)), option_id),
+		"staffing UI fixture should file the free closing credit option",
+		failures,
+	)
+
+
 func _checkpoint_matches(
 	store,
 	reason: String,
@@ -278,6 +362,19 @@ func _contains_any(copy: String, fragments: Array[String]) -> bool:
 		if normalized.contains(fragment.to_lower()):
 			return true
 	return false
+
+
+func _flock_applicant_cards_are_visible(flock_page_scroll: ScrollContainer, expected_count: int) -> bool:
+	if flock_page_scroll == null or not flock_page_scroll.is_visible_in_tree():
+		return false
+	var cards := flock_page_scroll.find_children("StaffingApplicant_*", "PanelContainer", true, false)
+	if cards.size() != expected_count:
+		return false
+	for card_node: Node in cards:
+		var card := card_node as Control
+		if card == null or not card.is_visible_in_tree():
+			return false
+	return true
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

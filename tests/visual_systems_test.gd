@@ -31,6 +31,13 @@ func _run() -> void:
 		_check(controller.is_focused(), "presentation events should receive a brief cinematic frame", failures)
 		await create_timer(0.32).timeout
 		_check(not controller.is_focused(), "event framing should return to overview automatically", failures)
+		controller.focus_point(Vector3(15.2, 1.05, 21.0), "CARE CAMPUS", 0.0, 14.2)
+		_check(
+			is_equal_approx(float(controller.get("_desired_size")), 14.2),
+			"campus inspection should preserve the authored 14.2 framing instead of silently clamping to 11",
+			failures,
+		)
+		controller.show_overview()
 
 	var presence := office.find_child("ManagementPresence", true, false) as ManagementPresence
 	var manager := office.find_child("RoosterManager", true, false) as Node3D

@@ -153,6 +153,51 @@ func _run() -> void:
 	await create_timer(0.8).timeout
 	_check(office.find_children("GradingReceipt_*", "Node3D", true, false).is_empty(), "grading receipts should clear after their bounded display", failures)
 
+	# Close the full renewable-action loop through the production Office: exact
+	# claim assist -> sound egg -> physical basket callback -> one restored charge.
+	worker_view.stage_at_workstation_for_introduction()
+	simulation.set_worker_at_workstation(0, true)
+	var assisted_worker := simulation.workers[0]
+	if assisted_worker.current_claim == null:
+		simulation.advance_tick()
+	_check(assisted_worker.current_claim != null, "attention-refund fixture should pull a real claim", failures)
+	if assisted_worker.current_claim != null:
+		assisted_worker.work_state = ChickenState.WorkState.WORKING
+		assisted_worker.work_progress = DepartmentSimulation.PECK_ASSIST_IDEAL_PROGRESS
+		var assist := simulation.perform_peck_assist(0)
+		var assisted_claim_id := int(assist.get("claim_id", -1))
+		_check(bool(assist.get("accepted", false)) and int(assist.get("remaining", -1)) == 2, "a real Priority Peck should consume one attention charge", failures)
+		var risk := simulation.estimated_crack_risk(0)
+		var golden_chance := clampf(
+			0.025 + maxf(0.0, assisted_worker.morale - 70.0) * 0.0005,
+			0.025,
+			0.08,
+		)
+		var clean_seed := _seed_for_sound_egg(risk, golden_chance)
+		_check(clean_seed > 0, "Office refund fixture should find a deterministic sound egg", failures)
+		(simulation.get("_rng") as RandomNumberGenerator).seed = clean_seed
+		worker_view.stage_at_workstation_for_introduction()
+		simulation.set_worker_at_workstation(0, true)
+		assisted_worker.work_state = ChickenState.WorkState.LAYING
+		assisted_worker.state_ticks_remaining = 1
+		simulation.advance_tick()
+		_check(
+			int(simulation.peck_assist_delivery_status().get("pending_delivery_count", 0)) == 1,
+			"assisted lay should remain pending while its exact physical egg travels",
+			failures
+		)
+		await _wait_for_refund(simulation, 1, 360)
+		var delivery := simulation.peck_assist_delivery_status()
+		_check(int(delivery.get("charges", -1)) == 3 and int(delivery.get("refunds", -1)) == 1, "farmer arrival should restore exactly one renewable attention charge", failures)
+		_check(int(delivery.get("pending_delivery_count", -1)) == 0, "basket settlement should consume the exact pending token", failures)
+		_check(int((delivery.get("last_delivery", {}) as Dictionary).get("claim_id", -1)) == assisted_claim_id, "Office should settle the same claim carried by the routed egg", failures)
+		var refund_chip := office.find_child("PriorityPeckRefundChip", true, false) as PanelContainer
+		var refund_copy := refund_chip.get_child(0) as Label if refund_chip != null and refund_chip.get_child_count() > 0 else null
+		_check(refund_chip != null and refund_copy != null and "+1 PRIORITY PECK" in refund_copy.text and "3/3" in refund_copy.text, "physical delivery should launch a concise renewable-attention payoff chip", failures)
+		await create_timer(1.8).timeout
+		await process_frame
+		_check(office.find_children("GradingReceipt_*", "Node3D", true, false).is_empty(), "renewed assisted delivery should retire its bounded grading docket", failures)
+
 	# Exercise the one-slot queue directly so the compact Courier docket keeps the
 	# authoritative bonus breakdown and advances to the next grade on schedule.
 	storytelling.call("_enqueue_grading_receipt", &"golden", 789, 34)
@@ -230,6 +275,22 @@ func _wait_for_flag(state: Dictionary, key: String, frame_limit: int) -> void:
 		if bool(state.get(key, false)):
 			return
 		await process_frame
+
+
+func _wait_for_refund(simulation: DepartmentSimulation, expected: int, frame_limit: int) -> void:
+	for _frame in frame_limit:
+		if simulation.peck_assist_refunds_today >= expected:
+			return
+		await process_frame
+
+
+func _seed_for_sound_egg(crack_risk: float, golden_chance: float) -> int:
+	for candidate in range(1, 10_000):
+		var probe := RandomNumberGenerator.new()
+		probe.seed = candidate
+		if probe.randf() >= crack_risk and probe.randf() >= golden_chance:
+			return candidate
+	return -1
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

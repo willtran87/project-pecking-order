@@ -22,6 +22,7 @@ const viewports = [
   { name: "high-2560x1600", width: 2560, height: 1600 },
   { name: "desktop-1440x900", width: 1440, height: 900 },
   { name: "mobile-390x844", width: 390, height: 844 },
+  { name: "mobile-landscape-844x390", width: 844, height: 390 },
 ];
 
 fs.mkdirSync(outputDir, { recursive: true });

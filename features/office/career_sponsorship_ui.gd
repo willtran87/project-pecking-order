@@ -12,8 +12,8 @@ signal sponsorship_requested(worker_id: int, lane_id: StringName)
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const DEFAULT_MARK_COST := 3
 const DEFAULT_FUND_COST_CENTS := 1200
-const TRAINING_THROUGHPUT_PERCENT := 15
-const DAILY_WAGE_DELTA_CENTS := 100
+const DEFAULT_TRAINING_PENALTY_PERCENT := 15.0
+const DEFAULT_DAILY_WAGE_DELTA_CENTS := 100
 
 const COLOR_INK := Color("e9edf0")
 const COLOR_MUTED := Color("9eabb5")
@@ -31,6 +31,7 @@ var _selected_lane_id: StringName = &""
 var _available_marks := 0
 var _mark_cost := DEFAULT_MARK_COST
 var _fund_cost_cents := DEFAULT_FUND_COST_CENTS
+var _training_terms: Dictionary = {}
 var _refreshing := false
 
 var _balance_label: Label
@@ -53,9 +54,16 @@ func _ready() -> void:
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
+	_training_terms = _training_terms_snapshot()
 	_available_marks = maxi(0, int(_snapshot.get("available_marks", 0)))
 	_mark_cost = maxi(0, int(_snapshot.get("mark_cost", DEFAULT_MARK_COST)))
-	_fund_cost_cents = maxi(0, int(_snapshot.get("fund_cost_cents", DEFAULT_FUND_COST_CENTS)))
+	_fund_cost_cents = maxi(0, int(_training_terms.get(
+		"effective_sponsorship_cost_cents",
+		_training_terms.get(
+			"effective_cost_cents",
+			_snapshot.get("fund_cost_cents", DEFAULT_FUND_COST_CENTS),
+		),
+	)))
 	visible = bool(_snapshot.get("visible", false))
 	_refresh()
 
@@ -251,19 +259,35 @@ func _refresh_copy_and_authorization() -> void:
 		if _selected_lane_id != &"" else
 		"SELECT AN UNTRAINED ALTERNATE LANE"
 	)
-	_terms_label.text = (
-		"IMMEDIATE  %d Roost %s + $%.2f Feed Fund\n"
-		+ "NEXT SHIFT  -%d%% training throughput\n"
-		+ "PERMANENT  +$%.2f/day wage\n"
-		+ "POST-TRAINING  Specialist affinity: %s"
-	) % [
-		_mark_cost,
-		"Mark" if _mark_cost == 1 else "Marks",
-		float(_fund_cost_cents) / 100.0,
-		TRAINING_THROUGHPUT_PERCENT,
-		float(DAILY_WAGE_DELTA_CENTS) / 100.0,
-		selected_lane_label,
-	]
+	var training_penalty := _training_work_penalty_percent()
+	var wage_bonus_cents := maxi(0, int(_training_terms.get(
+		"wage_bonus_cents",
+		DEFAULT_DAILY_WAGE_DELTA_CENTS,
+	)))
+	var coaching_xp_bonus := maxi(0, int(_training_terms.get("coaching_xp_bonus", 0)))
+	var sponsorship_discount := maxi(0, int(_training_terms.get(
+		"sponsorship_discount_cents",
+		_training_terms.get("savings_cents", 0),
+	)))
+	var terms_lines := PackedStringArray([
+		"IMMEDIATE  %d Roost %s + $%.2f Feed Fund" % [
+			_mark_cost,
+			"Mark" if _mark_cost == 1 else "Marks",
+			float(_fund_cost_cents) / 100.0,
+		],
+		(
+			"NEXT SHIFT  Full training throughput"
+			if training_penalty <= 0.05 else
+			"NEXT SHIFT  -%s%% training throughput" % _compact_number(training_penalty)
+		),
+		"PERMANENT  +$%.2f/day wage" % (float(wage_bonus_cents) / 100.0),
+		"POST-TRAINING  Specialist affinity: %s" % selected_lane_label,
+	])
+	if sponsorship_discount > 0:
+		terms_lines.insert(1, "TRAINING ROOST  Saves $%.2f on this sponsorship" % (float(sponsorship_discount) / 100.0))
+	if coaching_xp_bonus > 0:
+		terms_lines.append("COACHING SUPPORT  +%d career XP per check-in" % coaching_xp_bonus)
+	_terms_label.text = "\n".join(terms_lines)
 
 	var reason := _authorization_reason()
 	_reason_label.visible = not reason.is_empty()
@@ -272,13 +296,15 @@ func _refresh_copy_and_authorization() -> void:
 	if reason.is_empty():
 		var worker_name := _worker_name(worker)
 		_authorize_button.tooltip_text = (
-			"Authorize %s for %s: spend %d Roost %s and $%.2f now."
+			"Authorize %s for %s: spend %d Roost %s and $%.2f now; training runs at %s before the permanent +$%.2f/day accreditation."
 			% [
 				worker_name,
 				_lane_label(_selected_lane_id),
 				_mark_cost,
 				"Mark" if _mark_cost == 1 else "Marks",
 				float(_fund_cost_cents) / 100.0,
+				"full throughput" if training_penalty <= 0.05 else "%s%% below standard throughput" % _compact_number(training_penalty),
+				float(wage_bonus_cents) / 100.0,
 			]
 		)
 	else:
@@ -305,6 +331,33 @@ func _authorization_reason() -> String:
 	if _selected_lane_id == &"":
 		return "Select an untrained alternate specialty before authorization."
 	return ""
+
+
+func _training_terms_snapshot() -> Dictionary:
+	var direct_value: Variant = _snapshot.get("training_terms", {})
+	if direct_value is Dictionary and not (direct_value as Dictionary).is_empty():
+		return (direct_value as Dictionary).duplicate(true)
+	var care_value: Variant = _snapshot.get("flock_care", {})
+	if care_value is Dictionary:
+		var nested_value: Variant = (care_value as Dictionary).get("training_terms", {})
+		if nested_value is Dictionary:
+			return (nested_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _training_work_penalty_percent() -> float:
+	if _training_terms.has("work_penalty_percent"):
+		return maxf(0.0, float(_training_terms.get("work_penalty_percent", 0.0)))
+	var multiplier := float(_training_terms.get(
+		"effective_work_multiplier",
+		_training_terms.get("pending_work_multiplier", 1.0 - DEFAULT_TRAINING_PENALTY_PERCENT / 100.0),
+	))
+	return maxf(0.0, snappedf((1.0 - multiplier) * 100.0, 0.1))
+
+
+func _compact_number(value: float) -> String:
+	var rounded := snappedf(value, 0.1)
+	return str(roundi(rounded)) if is_equal_approx(rounded, float(roundi(rounded))) else "%.1f" % rounded
 
 
 func _on_worker_selected(index: int) -> void:

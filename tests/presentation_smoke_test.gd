@@ -41,17 +41,26 @@ func _run() -> void:
 	for head_accessory_name in [
 		"AccessoryHead_RoundGlasses", "AccessoryHead_SquareGlasses",
 		"AccessoryHead_AccountantVisor", "AccessoryHead_Headset",
+		"AccessoryHead_NewsboyCap", "AccessoryHead_ReadingGlassesChain",
+		"AccessoryHead_Earmuffs", "AccessoryHead_SleepMask",
 	]:
 		var head_accessory := view.find_child(head_accessory_name, true, false)
 		_check(head_accessory != null, "model should include %s" % head_accessory_name, failures)
 		_check(_has_bone_attachment_ancestor(head_accessory), "%s should follow the animated head bone" % head_accessory_name, failures)
 	for lower_accessory_name in [
 		"AccessoryNeck_LongTie", "AccessoryNeck_Lanyard",
+		"AccessoryNeck_KnitScarf", "AccessoryNeck_CardiganCollar", "AccessoryNeck_Neckerchief",
+		"AccessoryBody_SweaterVest", "AccessoryBody_PocketProtector", "AccessoryBody_Satchel",
+		"AccessoryBody_TeaMugCharm", "AccessoryBody_QuiltedCapelet",
 		"AccessoryBadge_Nameplate", "AccessoryBadge_GoldenEgg",
 	]:
 		var lower_accessory := view.find_child(lower_accessory_name, true, false)
 		_check(lower_accessory != null, "model should include %s" % lower_accessory_name, failures)
 		_check(_has_bone_attachment_ancestor(lower_accessory), "%s should follow the animated chest bone" % lower_accessory_name, failures)
+	for articulated_accessory_name in ["AccessoryComb_Pencil", "AccessoryLeg_Watch"]:
+		var articulated_accessory := view.find_child(articulated_accessory_name, true, false)
+		_check(articulated_accessory != null, "model should include %s" % articulated_accessory_name, failures)
+		_check(_has_bone_attachment_ancestor(articulated_accessory), "%s should follow its animated attachment" % articulated_accessory_name, failures)
 	var career_badge := view.find_child("AccessoryBadge_GoldenEgg", true, false) as Node3D
 	var profile_badge_visible := career_badge.visible if career_badge != null else false
 	view.apply_snapshot({
@@ -83,7 +92,7 @@ func _run() -> void:
 		})
 		var visible_accessories := accessory_view.visible_accessory_names()
 		var signature := accessory_view.accessory_signature()
-		_check(visible_accessories.size() >= 1 and visible_accessories.size() <= 2, "worker %d should wear one or two accessories" % worker_index, failures)
+		_check(visible_accessories.size() >= 1 and visible_accessories.size() <= 4, "worker %d should wear one to four compatible accessories" % worker_index, failures)
 		_check(not accessory_signatures.has(signature), "worker accessory profiles should be visually unique", failures)
 		accessory_signatures[signature] = true
 		var repeated_view := ChickenView.new()
@@ -110,11 +119,21 @@ func _run() -> void:
 					break
 			_check(clip_found, "model should import %s" % required_clip, failures)
 	var torso := view.find_child("Feather_Torso", true, false) as MeshInstance3D
+	var articulated_wing := view.find_child("ArticulatedWing_L", true, false) as MeshInstance3D
+	var tail_feather := view.find_child("TailFeather_Center", true, false) as MeshInstance3D
 	var left_leg := view.find_child("LegLeftMesh", true, false) as Node3D
 	var right_leg := view.find_child("LegRightMesh", true, false) as Node3D
 	_check(torso != null and torso.get_aabb().size.x < 0.82, "folded wings should stay tucked into the torso silhouette", failures)
 	_check(left_leg != null and absf(left_leg.position.x) < 0.01, "left leg mesh should be centered under its animation pivot", failures)
 	_check(right_leg != null and absf(right_leg.position.x) < 0.01, "right leg mesh should be centered under its animation pivot", failures)
+	var torso_color := _surface_override_color(torso, "Feathers_Oat")
+	var covert_color := _surface_override_color(articulated_wing, "Feathers_Wing_Covert")
+	var flight_color := _surface_override_color(articulated_wing, "Feathers_Wing")
+	var tail_color := _surface_override_color(tail_feather, "Feathers_Wing")
+	_check(torso_color.is_equal_approx(Color("ad7747")), "worker zero should receive the oat base feather palette", failures)
+	_check(covert_color.is_equal_approx(torso_color.darkened(0.08)), "wing coverts should derive from the worker body palette", failures)
+	_check(flight_color.is_equal_approx(torso_color.darkened(0.20)), "flight feathers should derive from the worker body palette", failures)
+	_check(tail_color.is_equal_approx(flight_color), "tail and flight feathers should share the worker dark feather tone", failures)
 
 	var blinking_eye := view.find_child("Eye_-1", true, false) as Node3D
 	var eye_rest_height := blinking_eye.scale.y if blinking_eye != null else 0.0
@@ -178,3 +197,15 @@ func _has_bone_attachment_ancestor(node: Node) -> bool:
 			return true
 		ancestor = ancestor.get_parent()
 	return false
+
+
+func _surface_override_color(mesh_instance: MeshInstance3D, material_name: String) -> Color:
+	if mesh_instance == null or mesh_instance.mesh == null:
+		return Color(0.0, 0.0, 0.0, 0.0)
+	for surface_index in mesh_instance.mesh.get_surface_count():
+		var source_material := mesh_instance.mesh.surface_get_material(surface_index)
+		if source_material == null or source_material.resource_name != material_name:
+			continue
+		var override_material := mesh_instance.get_surface_override_material(surface_index) as StandardMaterial3D
+		return override_material.albedo_color if override_material != null else Color(0.0, 0.0, 0.0, 0.0)
+	return Color(0.0, 0.0, 0.0, 0.0)

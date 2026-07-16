@@ -17,7 +17,7 @@ func _run() -> void:
 			push_error("CAREER_SPONSORSHIP_PERSISTENCE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAREER_SPONSORSHIP_PERSISTENCE_TEST_PASSED schema=7 migration=6->7 pending=exact active=exact accredited=exact invalid=closed")
+	print("CAREER_SPONSORSHIP_PERSISTENCE_TEST_PASSED schema=10 migration=6-to-10 pending=exact active=exact accredited=exact invalid=closed")
 	quit(0)
 
 
@@ -26,9 +26,9 @@ func _test_pending_and_active_round_trip(failures: Array[String]) -> void:
 	var result := simulation.authorize_career_sponsorship(0, &"predator_loss")
 	_check(bool(result.get("accepted", false)), "pending fixture should authorize sponsorship", failures)
 	var pending_state := _json_round_trip(simulation.export_save_state())
-	_check(int(pending_state.get("state_version", -1)) == 7, "new sponsorship state should export schema v7", failures)
+	_check(int(pending_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "new sponsorship state should export the current schema", failures)
 	var restored := DepartmentSimulationScript.new(8101, 4)
-	_check(restored.restore_save_state(pending_state), "schema-v7 pending sponsorship should restore", failures)
+	_check(restored.restore_save_state(pending_state), "current-schema pending sponsorship should restore", failures)
 	_check(_same_state(pending_state, restored.export_save_state()), "pending sponsorship should round-trip exactly", failures)
 	_check(restored.workers[0].secondary_specialty == &"" and restored.workers[0].cross_training_target == &"predator_loss", "pending restore should retain target without early accreditation", failures)
 	_check(restored.workers[0].daily_wage_cents() == 500, "pending restore should retain the pre-accreditation wage", failures)
@@ -90,7 +90,7 @@ func _test_accredited_round_trip_and_v6_migration(failures: Array[String]) -> vo
 	var legacy_restored := DepartmentSimulationScript.new(8202, 4)
 	_check(legacy_restored.restore_save_state(_json_round_trip(legacy_source)), "schema-v6 state should migrate through neutral sponsorship defaults", failures)
 	var migrated := legacy_restored.export_save_state()
-	_check(int(migrated.get("state_version", -1)) == 7, "v6 migration should export schema v7", failures)
+	_check(int(migrated.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v6 migration should export the current schema", failures)
 	for worker in legacy_restored.workers:
 		_check(worker.secondary_specialty == &"" and worker.cross_training_target == &"", "v6 migration should not invent a secondary specialty", failures)
 

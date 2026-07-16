@@ -64,12 +64,15 @@ func _build_interface() -> void:
 	var heading := _make_label("PECKING ORDER", 17, COLOR_BRASS)
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	heading.clip_text = true
 	heading_row.add_child(heading)
 
 	_mode_label = _make_label("LIVE SHIFT", 10, COLOR_TEAL)
 	_mode_label.name = "PeckingOrderMode"
 	_mode_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_mode_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_mode_label.clip_text = true
+	_mode_label.custom_minimum_size.x = 0.0
 	heading_row.add_child(_mode_label)
 
 	_caption_label = _make_label(

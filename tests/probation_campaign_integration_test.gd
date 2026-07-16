@@ -28,6 +28,7 @@ func _run() -> void:
 	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
 	var day_badge := office.find_child("ProbationDayLabel", true, false) as Label
 	var objectives_label := office.find_child("CampaignObjectivesLabel", true, false) as Label
+	var safeguards_label := office.find_child("CampaignSafeguardForecast", true, false) as Label
 	var review_scrim := office.find_child("DayReviewScrim", true, false) as ColorRect
 	var next_shift_button := office.find_child("BeginNextShiftButton", true, false) as Button
 	var report_panel := office.find_child("ProbationReportPanel", true, false) as PanelContainer
@@ -49,6 +50,25 @@ func _run() -> void:
 	_check(campaign != null and campaign.outcome == CampaignState.OUTCOME_IN_PROGRESS and campaign.completed_shifts == 0, "headless Office should open a fresh five-shift probation state", failures)
 	_check(day_badge != null and day_badge.text == "DAY 1 / 5", "campaign presentation should expose Day 1 / 5", failures)
 	_check(_nonempty_lines(objectives_label.text if objectives_label != null else "").size() == 3, "active campaign presentation should show all three current objectives", failures)
+	_check(
+		safeguards_label != null and safeguards_label.visible
+		and "FINAL SAFEGUARDS  //  1 / 5 PASS  //  0 / 5 SHIFTS" in safeguards_label.text
+		and "AT RISK  //  FLOCK WELFARE  //  -45 POINTS" in safeguards_label.text,
+		"office Flockwatch should expose the live pass count and largest normalized probation blocker (text: %s)" % (
+			safeguards_label.text if safeguards_label != null else "<missing>"
+		),
+		failures,
+	)
+	_check(
+		safeguards_label != null
+		and _contains_all(safeguards_label.tooltip_text, [
+			"PROBATION FINAL TERMS", "PROBATION SCORE  //  50 >= 60",
+			"WELFARE  //  0 >= 45", "COMPLIANCE  //  0 >= 55",
+			"FARMER FAVOR  //  0 >= 50", "CRACK RATE  //  0.00% <= 25.00%",
+		]),
+		"Flockwatch tooltip should publish all five exact final thresholds",
+		failures,
+	)
 
 	# Exercise the same New Campaign action used by the title card. This resets the
 	# simulation and must immediately create a resumable checkpoint.
@@ -148,6 +168,12 @@ func _run() -> void:
 	_check((report_snapshot.get("score_receipt", {}) as Dictionary) == first_receipt, "between-shift snapshot should carry CampaignState's latest score receipt unchanged", failures)
 	_check((report_snapshot.get("hen_highlight", {}) as Dictionary) == first_highlight, "between-shift snapshot should carry DepartmentSimulation's emitted hen highlight unchanged", failures)
 	_check(
+		(report_snapshot.get("probation_safeguard_forecast", {}) as Dictionary)
+		== campaign.probation_safeguard_forecast(),
+		"between-shift snapshot should carry CampaignState's authoritative safeguard forecast unchanged",
+		failures,
+	)
+	_check(
 		report_shift_delta != null
 		and report_shift_delta.is_visible_in_tree()
 		and report_shift_delta.text == _signed_delta(int(first_receipt.get("score_delta", 0))),
@@ -246,6 +272,16 @@ func _run() -> void:
 	_check(bool((milestone_simulation.get("campaign_unlocks", {}) as Dictionary).get("shell_quality_checks", false)), "milestone checkpoint should include the simulation unlock", failures)
 
 	_press(continue_button)
+	await process_frame
+	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_CONTRACT_BOARD, "day three should open the sequential Farm Mutual planning file", failures)
+	_check(simulation.day == 3 and simulation.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW, "contract planning should not start or advance the shift clock", failures)
+	var decline_contract := office.find_child("DeclineContractButton", true, false) as Button
+	_check(decline_contract != null and decline_contract.is_visible_in_tree() and not decline_contract.disabled, "Farm Mutual planning should expose an explicit standard-book fallback", failures)
+	_press(decline_contract)
+	await process_frame
+	var open_contract_shift := office.find_child("OpenContractShiftButton", true, false) as Button
+	_check(open_contract_shift != null and not open_contract_shift.disabled, "authoritative decline receipt should unlock the morning briefing", failures)
+	_press(open_contract_shift)
 	await process_frame
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "chosen milestone should permit return to the office", failures)
 	_check(simulation.day == 3 and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "chosen milestone should permit the day-three briefing", failures)
@@ -389,6 +425,13 @@ func _json_safety_error(value: Variant, path: String) -> String:
 			return ""
 		_:
 			return "%s contains unsupported type %s" % [path, type_string(typeof(value))]
+
+
+func _contains_all(value: String, needles: Array[String]) -> bool:
+	for needle: String in needles:
+		if needle not in value:
+			return false
+	return true
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

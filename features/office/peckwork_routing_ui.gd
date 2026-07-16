@@ -58,6 +58,9 @@ const PERSONNEL_ACTION_TOOLTIPS := {
 }
 
 var _queue_labels: Dictionary[StringName, Label] = {}
+var _queue_title_label: Label
+var _queue_contract_badge: Label
+var _queue_compact_label: Label
 var _assignment_buttons: Dictionary[StringName, Button] = {}
 var _personnel_buttons: Dictionary[StringName, Button] = {}
 var _queue_panel: PanelContainer
@@ -71,7 +74,9 @@ var _focus_panel: PanelContainer
 var _worker_name_label: Label
 var _worker_career_label: Label
 var _worker_trait_label: Label
+var _details_button: Button
 var _current_claim_label: Label
+var _current_contract_badge: Label
 var _claim_detail_label: Label
 var _claim_progress_bar: ProgressBar
 var _routing_hint_label: Label
@@ -79,14 +84,24 @@ var _peck_assist_button: Button
 var _trust_label: Label
 var _grievance_label: Label
 var _check_in_status_label: Label
+var _claim_header: HBoxContainer
+var _assist_row: HBoxContainer
+var _personnel_status: HBoxContainer
+var _assignment_section: GridContainer
+var _personnel_actions_section: VBoxContainer
 var _focused_worker_id := -1
 var _snapshot: Dictionary = {}
 var _interaction_enabled := true
 var _peck_assist_clock_running := true
+var _peck_assist_binding_label := "E / A"
+var _reduced_motion := false
 var _assist_pulse_phase := 0.0
 var _first_clutch: Dictionary = {}
 var _first_clutch_cued_control: Control
 var _first_clutch_layout_width := -1.0
+var _first_clutch_compact := false
+var _details_expanded := false
+var _top_inset := 120.0
 
 
 func _ready() -> void:
@@ -114,6 +129,12 @@ func _process(delta: float) -> void:
 	)
 	if not peck_visible and not cue_visible:
 		return
+	if _reduced_motion:
+		if peck_visible:
+			_peck_assist_button.modulate = Color.WHITE
+		if cue_visible:
+			_first_clutch_cued_control.self_modulate = Color.WHITE
+		return
 	_assist_pulse_phase = fmod(_assist_pulse_phase + delta, TAU)
 	if peck_visible:
 		var assist_open := bool(_peck_assist_button.get_meta("assist_open", false))
@@ -127,6 +148,8 @@ func _process(delta: float) -> void:
 
 
 func set_focus(worker_id: int) -> void:
+	if worker_id != _focused_worker_id:
+		_details_expanded = not bool(_first_clutch.get("visible", false))
 	_focused_worker_id = worker_id
 	_refresh()
 
@@ -149,8 +172,30 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 ## intent, while `resume_required` suppresses the disabled Priority Peck cue.
 ## This component never advances coach state or changes camera focus directly.
 func apply_first_clutch(coach: Dictionary) -> void:
+	var previous_stage := _first_clutch_disclosure_stage()
+	var was_active := bool(_first_clutch.get("visible", false))
 	_first_clutch = coach.duplicate(true)
+	var is_active := bool(_first_clutch.get("visible", false))
+	if previous_stage != _first_clutch_disclosure_stage() or was_active != is_active:
+		_details_expanded = not is_active
 	_refresh_first_clutch()
+
+
+## Sets the presentation stage without transferring ownership of tutorial state.
+##
+## Office remains authoritative over progress and completion. This convenience
+## API accepts the same payload as `apply_first_clutch`, stamps both compatible
+## stage keys, and defaults known induction stages to visible. Passing `normal`,
+## `dismissed`, or an empty stage reveals the complete management surface.
+func set_first_clutch_stage(stage: StringName, state: Dictionary = {}) -> void:
+	var coach := state.duplicate(true)
+	coach["stage"] = stage
+	coach["step"] = stage
+	if stage in [&"", &"normal", &"dismissed", &"off"]:
+		coach["visible"] = false
+	elif not coach.has("visible"):
+		coach["visible"] = true
+	apply_first_clutch(coach)
 
 
 func set_interaction_enabled(enabled: bool) -> void:
@@ -163,8 +208,78 @@ func set_peck_assist_clock_running(running: bool) -> void:
 	_refresh()
 
 
+func set_peck_assist_binding_label(binding_label: String) -> void:
+	_peck_assist_binding_label = binding_label if not binding_label.is_empty() else "E / A"
+	_refresh()
+
+
+func set_reduced_motion(enabled: bool) -> void:
+	_reduced_motion = enabled
+
+
 func focused_worker_id() -> int:
 	return _focused_worker_id
+
+
+func first_clutch_stage() -> StringName:
+	return _first_clutch_disclosure_stage()
+
+
+## Read-only presentation metadata for integration and accessibility tests.
+## Section flags describe this component's intended disclosure even when Office
+## temporarily hides the whole routing layer behind a blocking surface.
+func first_clutch_presentation_state() -> Dictionary:
+	var primary_action := ""
+	if _first_clutch_cued_control != null and is_instance_valid(_first_clutch_cued_control):
+		primary_action = _first_clutch_cued_control.name
+	return {
+		"active": bool(_first_clutch.get("visible", false)),
+		"stage": String(first_clutch_stage()),
+		"target_worker_id": _first_clutch_target_worker_id(),
+		"focused_worker_id": _focused_worker_id,
+		"target_matches": _first_clutch_has_contextual_dossier(),
+		"compact_coach": _first_clutch_compact,
+		"details_expanded": _details_expanded,
+		"component_visible_in_tree": is_visible_in_tree(),
+		"queue_visible": is_dossier_section_visible(&"queue"),
+		"claim_visible": is_dossier_section_visible(&"claim"),
+		"routing_visible": is_dossier_section_visible(&"routing"),
+		"check_in_visible": is_dossier_section_visible(&"check_in"),
+		"priority_peck_visible": is_dossier_section_visible(&"priority_peck"),
+		"details_visible": _details_button != null and _details_button.visible,
+		"primary_action_node": primary_action,
+	}
+
+
+func is_dossier_section_visible(section: StringName) -> bool:
+	match section:
+		&"queue":
+			return _queue_panel != null and _queue_panel.visible
+		&"claim", &"active_claim":
+			return _claim_header != null and _claim_header.visible
+		&"routing", &"assignments":
+			return _assignment_section != null and _assignment_section.visible
+		&"check_in", &"personnel":
+			return _personnel_actions_section != null and _personnel_actions_section.visible
+		&"priority_peck", &"peck_assist":
+			return _peck_assist_button != null and _peck_assist_button.visible
+		&"details":
+			return _details_button != null and _details_button.visible
+	return false
+
+
+## Lets Office reclaim the duplicated objective row during guided onboarding
+## without changing any routing content or action. Normal play restores 120px.
+func set_top_inset(inset: float) -> void:
+	var sanitized := maxf(0.0, inset)
+	if is_equal_approx(_top_inset, sanitized):
+		return
+	_top_inset = sanitized
+	_apply_first_clutch_layout()
+
+
+func top_inset() -> float:
+	return _top_inset
 
 
 func _build_queue_strip() -> void:
@@ -173,33 +288,48 @@ func _build_queue_strip() -> void:
 	_queue_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_queue_panel.offset_left = 18.0
 	_queue_panel.offset_top = 120.0
-	_queue_panel.offset_right = 720.0
-	_queue_panel.offset_bottom = 164.0
+	_queue_panel.offset_right = 568.0
+	_queue_panel.offset_bottom = 158.0
 	_queue_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_queue_panel.add_theme_stylebox_override("panel", _panel_style(Color("16242d"), 0.96, Color("52646d"), 7, 1))
 	add_child(_queue_panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 12)
-	margin.add_theme_constant_override("margin_right", 12)
-	margin.add_theme_constant_override("margin_top", 7)
-	margin.add_theme_constant_override("margin_bottom", 7)
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 5)
+	margin.add_theme_constant_override("margin_bottom", 5)
 	_queue_panel.add_child(margin)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 15)
+	row.add_theme_constant_override("separation", 9)
 	margin.add_child(row)
-	var title := _make_label("PECKWORK ROUTING", 13, Color("e7c56e"))
-	title.custom_minimum_size.x = 142.0
-	row.add_child(title)
+	var queue_heading := VBoxContainer.new()
+	queue_heading.name = "RoutingQueueHeading"
+	queue_heading.custom_minimum_size.x = 124.0
+	queue_heading.add_theme_constant_override("separation", 0)
+	row.add_child(queue_heading)
+	_queue_title_label = _make_label("PECKWORK ROUTING", 12, Color("e7c56e"))
+	_queue_title_label.name = "RoutingQueueTitle"
+	queue_heading.add_child(_queue_title_label)
+	_queue_contract_badge = _make_contract_badge("RoutingQueueContractBadge", 124.0)
+	queue_heading.add_child(_queue_contract_badge)
+	_queue_compact_label = _make_label("FILES  0  /  OVERDUE  0", 12, Color("c7d3d7"))
+	_queue_compact_label.name = "RoutingQueueCompactSummary"
+	_queue_compact_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_queue_compact_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_queue_compact_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_queue_compact_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_queue_compact_label.visible = false
+	row.add_child(_queue_compact_label)
 	for lane in LANE_ORDER:
-		var label := _make_label("%s  0" % String(LANE_SHORT_NAMES[lane]), 13, LANE_COLORS[lane])
+		var label := _make_label("%s  0" % String(LANE_SHORT_NAMES[lane]), 12, LANE_COLORS[lane])
 		label.name = "Queue_%s" % String(lane)
-		label.custom_minimum_size.x = 116.0
+		label.custom_minimum_size.x = 96.0 if lane == &"predator_loss" else 86.0
 		row.add_child(label)
 		_queue_labels[lane] = label
-	var debt := _make_label("OVERDUE  0", 13, Color("e08a72"))
+	var debt := _make_label("OVERDUE  0", 12, Color("e08a72"))
 	debt.name = "QueueOverdue"
-	debt.custom_minimum_size.x = 102.0
+	debt.custom_minimum_size.x = 86.0
 	row.add_child(debt)
 	_queue_labels[&"overdue"] = debt
 
@@ -285,20 +415,38 @@ func _apply_first_clutch_layout() -> void:
 	_first_clutch_layout_width = viewport_width
 	var available_width := minf(size.x, viewport_width) if size.x > 0.0 else viewport_width
 	var narrow := available_width > 0.0 and available_width < 720.0
+	if _queue_panel != null:
+		_queue_panel.offset_left = 12.0 if narrow else 18.0
+		_queue_panel.offset_top = _top_inset
+		_queue_panel.offset_right = maxf(12.0, available_width - 12.0) if narrow else 568.0
+		_queue_panel.offset_bottom = _top_inset + 38.0
+		if _queue_compact_label != null:
+			_queue_compact_label.visible = narrow
+		for lane in LANE_ORDER:
+			var queue_label := _queue_labels.get(lane) as Label
+			if queue_label != null:
+				queue_label.visible = not narrow
+		var overdue_label := _queue_labels.get(&"overdue") as Label
+		if overdue_label != null:
+			overdue_label.visible = not narrow
 	if narrow:
 		_first_clutch_panel.set_anchor(SIDE_LEFT, 0.0)
 		_first_clutch_panel.set_anchor(SIDE_RIGHT, 0.0)
 		_first_clutch_panel.offset_left = 12.0
-		_first_clutch_panel.offset_top = 172.0
+		_first_clutch_panel.offset_top = _top_inset + 52.0
 		_first_clutch_panel.offset_right = maxf(12.0, available_width - 12.0)
-		_first_clutch_panel.offset_bottom = 276.0
+		_first_clutch_panel.offset_bottom = (
+			_top_inset + (110.0 if _first_clutch_compact else 156.0)
+		)
 	else:
 		_first_clutch_panel.set_anchor(SIDE_LEFT, 0.0)
 		_first_clutch_panel.set_anchor(SIDE_RIGHT, 0.0)
 		_first_clutch_panel.offset_left = 18.0
-		_first_clutch_panel.offset_top = 172.0
+		_first_clutch_panel.offset_top = _top_inset + 52.0
 		_first_clutch_panel.offset_right = 598.0
-		_first_clutch_panel.offset_bottom = 250.0
+		_first_clutch_panel.offset_bottom = (
+			_top_inset + (110.0 if _first_clutch_compact else 130.0)
+		)
 
 
 func _build_focus_dossier() -> void:
@@ -338,15 +486,31 @@ func _build_focus_dossier() -> void:
 	_worker_trait_label = _make_label("SPECIALTY  /  NEST DAMAGE", 11, Color("aebdc5"))
 	_worker_trait_label.name = "RoutingWorkerSpecialty"
 	identity.add_child(_worker_trait_label)
+	_details_button = Button.new()
+	_details_button.name = "RoutingDetailsToggle"
+	_details_button.text = "DETAILS"
+	_details_button.tooltip_text = "Show career, trust, grievance, and care details for this hen."
+	_details_button.custom_minimum_size = Vector2(98.0, 24.0)
+	_details_button.add_theme_font_size_override("font_size", 10)
+	_details_button.mouse_filter = Control.MOUSE_FILTER_STOP
+	_details_button.pressed.connect(_on_details_pressed)
+	identity.add_child(_details_button)
 
 	var active_file := VBoxContainer.new()
 	active_file.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	active_file.add_theme_constant_override("separation", 3)
 	row.add_child(active_file)
+	_claim_header = HBoxContainer.new()
+	_claim_header.name = "RoutingClaimHeader"
+	_claim_header.add_theme_constant_override("separation", 8)
+	active_file.add_child(_claim_header)
 	_current_claim_label = _make_label("WAITING FOR PECKWORK", 16, Color("eef2e9"))
 	_current_claim_label.name = "RoutingCurrentClaim"
+	_current_claim_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_current_claim_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	active_file.add_child(_current_claim_label)
+	_claim_header.add_child(_current_claim_label)
+	_current_contract_badge = _make_contract_badge("RoutingCurrentContractBadge", 154.0)
+	_claim_header.add_child(_current_contract_badge)
 	_claim_detail_label = _make_label("Auto-sort will favor specialty and deadline.", 12, Color("aebdc5"))
 	_claim_detail_label.name = "RoutingClaimDetail"
 	_claim_detail_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -360,14 +524,18 @@ func _build_focus_dossier() -> void:
 	_claim_progress_bar.add_theme_stylebox_override("background", _compact_button_style(Color("101a21"), Color("3e5059"), 1))
 	_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("5aa897"), Color("8dcfbd"), 0))
 	active_file.add_child(_claim_progress_bar)
-	var assist_row := HBoxContainer.new()
-	assist_row.name = "RoutingAssistRow"
-	assist_row.add_theme_constant_override("separation", 9)
-	active_file.add_child(assist_row)
+	_assist_row = HBoxContainer.new()
+	_assist_row.name = "RoutingAssistRow"
+	_assist_row.add_theme_constant_override("separation", 9)
+	active_file.add_child(_assist_row)
 	_routing_hint_label = _make_label("Choose which tray this hen pulls next.", 11, Color("d7c17d"))
+	_routing_hint_label.name = "RoutingAutomationHint"
 	_routing_hint_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_routing_hint_label.custom_minimum_size.y = 30.0
+	_routing_hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_routing_hint_label.max_lines_visible = 2
 	_routing_hint_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	assist_row.add_child(_routing_hint_label)
+	_assist_row.add_child(_routing_hint_label)
 	_peck_assist_button = Button.new()
 	_peck_assist_button.name = "PeckAssistButton"
 	_peck_assist_button.text = "NO ACTIVE FILE"
@@ -375,30 +543,30 @@ func _build_focus_dossier() -> void:
 	_peck_assist_button.add_theme_font_size_override("font_size", 11)
 	_apply_peck_assist_style(_peck_assist_button)
 	_peck_assist_button.pressed.connect(_on_peck_assist_pressed)
-	assist_row.add_child(_peck_assist_button)
-	var personnel_status := HBoxContainer.new()
-	personnel_status.name = "RoutingPersonnelStatus"
-	personnel_status.add_theme_constant_override("separation", 13)
-	active_file.add_child(personnel_status)
+	_assist_row.add_child(_peck_assist_button)
+	_personnel_status = HBoxContainer.new()
+	_personnel_status.name = "RoutingPersonnelStatus"
+	_personnel_status.add_theme_constant_override("separation", 13)
+	active_file.add_child(_personnel_status)
 	_trust_label = _make_label("TRUST  50", 11, Color("73b5a7"))
 	_trust_label.name = "RoutingManagerTrust"
-	personnel_status.add_child(_trust_label)
+	_personnel_status.add_child(_trust_label)
 	_grievance_label = _make_label("GRIEVANCE  0", 11, Color("d68a68"))
 	_grievance_label.name = "RoutingGrievance"
-	personnel_status.add_child(_grievance_label)
+	_personnel_status.add_child(_grievance_label)
 	_check_in_status_label = _make_label("CHECK-IN READY", 11, Color("e7c56e"))
 	_check_in_status_label.name = "RoutingCheckInStatus"
 	_check_in_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_check_in_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_check_in_status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	personnel_status.add_child(_check_in_status_label)
+	_personnel_status.add_child(_check_in_status_label)
 
-	var actions := GridContainer.new()
-	actions.name = "RoutingAssignments"
-	actions.columns = 2
-	actions.add_theme_constant_override("h_separation", 7)
-	actions.add_theme_constant_override("v_separation", 7)
-	row.add_child(actions)
+	_assignment_section = GridContainer.new()
+	_assignment_section.name = "RoutingAssignments"
+	_assignment_section.columns = 2
+	_assignment_section.add_theme_constant_override("h_separation", 7)
+	_assignment_section.add_theme_constant_override("v_separation", 7)
+	row.add_child(_assignment_section)
 	for assignment in ASSIGNMENT_ORDER:
 		var button := Button.new()
 		button.name = "Assign_%s" % String(assignment)
@@ -407,14 +575,14 @@ func _build_focus_dossier() -> void:
 		button.theme_type_variation = &"DecisionChoiceButton"
 		button.tooltip_text = _assignment_tooltip(assignment)
 		button.pressed.connect(_on_assignment_pressed.bind(assignment))
-		actions.add_child(button)
+		_assignment_section.add_child(button)
 		_assignment_buttons[assignment] = button
 
-	var personnel_actions := VBoxContainer.new()
-	personnel_actions.name = "PersonnelActions"
-	personnel_actions.custom_minimum_size.x = 142.0
-	personnel_actions.add_theme_constant_override("separation", 4)
-	row.add_child(personnel_actions)
+	_personnel_actions_section = VBoxContainer.new()
+	_personnel_actions_section.name = "PersonnelActions"
+	_personnel_actions_section.custom_minimum_size.x = 142.0
+	_personnel_actions_section.add_theme_constant_override("separation", 4)
+	row.add_child(_personnel_actions_section)
 	for action_id in PERSONNEL_ACTION_ORDER:
 		var button := Button.new()
 		button.name = "PersonnelAction_%s" % String(action_id)
@@ -424,7 +592,7 @@ func _build_focus_dossier() -> void:
 		_apply_compact_personnel_style(button, action_id)
 		button.tooltip_text = String(PERSONNEL_ACTION_TOOLTIPS[action_id])
 		button.pressed.connect(_on_personnel_action_pressed.bind(action_id))
-		personnel_actions.add_child(button)
+		_personnel_actions_section.add_child(button)
 		_personnel_buttons[action_id] = button
 
 
@@ -434,14 +602,31 @@ func _refresh() -> void:
 	var routing: Dictionary = _snapshot.get("routing", {}) as Dictionary
 	var queue_counts: Dictionary = routing.get("queue_counts", _snapshot.get("claim_queue_counts", {})) as Dictionary
 	var overdue_counts: Dictionary = routing.get("overdue_by_lane", _snapshot.get("claim_queue_overdue_counts", {})) as Dictionary
+	var queue_total := 0
 	for lane in LANE_ORDER:
 		var count := int(queue_counts.get(lane, queue_counts.get(String(lane), 0)))
+		queue_total += count
 		var lane_overdue := int(overdue_counts.get(lane, overdue_counts.get(String(lane), 0)))
 		var suffix := "  !%d" % lane_overdue if lane_overdue > 0 else ""
 		_queue_labels[lane].text = "%s  %d%s" % [String(LANE_SHORT_NAMES[lane]), count, suffix]
 	var overdue := int(routing.get("overdue_total", _snapshot.get("overdue_claims", 0)))
 	_queue_labels[&"overdue"].text = "OVERDUE  %d" % overdue
 	_queue_labels[&"overdue"].modulate = Color.WHITE if overdue > 0 else Color(1.0, 1.0, 1.0, 0.62)
+	_queue_compact_label.text = "FILES  %d  /  OVERDUE  %d" % [queue_total, overdue]
+	_queue_compact_label.add_theme_color_override(
+		"font_color",
+		Color("e08a72") if overdue > 0 else Color("c7d3d7"),
+	)
+	_queue_panel.tooltip_text = (
+		"PECKWORK ROUTING\nNest %d  /  Predator %d  /  Appeals %d  /  Overdue %d"
+		% [
+			int(queue_counts.get(&"nest_damage", queue_counts.get("nest_damage", 0))),
+			int(queue_counts.get(&"predator_loss", queue_counts.get("predator_loss", 0))),
+			int(queue_counts.get(&"appeals", queue_counts.get("appeals", 0))),
+			overdue,
+		]
+	)
+	_refresh_queue_contract_badge(routing)
 
 	var worker := _worker_snapshot(_focused_worker_id)
 	_focus_panel.visible = _focused_worker_id >= 0 and not worker.is_empty()
@@ -483,8 +668,42 @@ func _refresh() -> void:
 	if secondary_specialty != &"":
 		_worker_trait_label.tooltip_text += "\nSECONDARY ACCREDITATION: %s receives the same specialist speed and shell-risk treatment when routed manually." % _lane_name(secondary_specialty)
 	if training_specialty != &"":
+		var training_terms := _training_terms_snapshot()
+		var work_multiplier := float(worker.get(
+			"cross_training_work_multiplier",
+			training_terms.get("effective_work_multiplier", training_terms.get("pending_work_multiplier", 0.85)),
+		))
+		var work_penalty := maxf(0.0, snappedf((1.0 - work_multiplier) * 100.0, 0.1))
+		var coaching_xp_bonus := maxi(0, int(training_terms.get("coaching_xp_bonus", 0)))
+		var wage_bonus_cents := maxi(0, int(training_terms.get("wage_bonus_cents", 100)))
 		_worker_trait_label.text += "  /  TRAINING: %s" % _lane_name(training_specialty)
-		_worker_trait_label.tooltip_text += "\nIN TRAINING: this worked shift is 15%% slower. %s accreditation files after close." % _lane_name(training_specialty)
+		_worker_trait_label.tooltip_text += (
+			"\nIN TRAINING: this worked shift keeps full throughput. %s accreditation files after close with +$%.2f/day wage."
+			if work_penalty <= 0.05 else
+			"\nIN TRAINING: this worked shift is %s%% slower. %s accreditation files after close with +$%.2f/day wage."
+		) % (
+			[
+				_lane_name(training_specialty),
+				float(wage_bonus_cents) / 100.0,
+			]
+			if work_penalty <= 0.05 else
+			[
+				_compact_number(work_penalty),
+				_lane_name(training_specialty),
+				float(wage_bonus_cents) / 100.0,
+			]
+		)
+		if coaching_xp_bonus > 0:
+			_worker_trait_label.tooltip_text += " Training Roost coaching adds +%d career XP per check-in." % coaching_xp_bonus
+	var worker_state_label := String(worker.get("state_label", "")).to_upper()
+	if worker_state_label == "WELLNESS":
+		_worker_trait_label.text += "  /  WELLNESS NEST"
+	_worker_trait_label.tooltip_text += "\nFLOCK CARE: morale %d / stress %d / fatigue %d%s." % [
+		roundi(float(worker.get("morale", 0.0))),
+		roundi(float(worker.get("stress", 0.0))),
+		roundi(float(worker.get("fatigue", 0.0))),
+		" / resting at a recovery perch" if worker_state_label == "WELLNESS" else "",
+	]
 	_worker_trait_label.add_theme_color_override("font_color", LANE_COLORS.get(specialty, Color("aebdc5")))
 	if training_specialty != &"":
 		_worker_trait_label.add_theme_color_override("font_color", Color("efcf83"))
@@ -501,6 +720,7 @@ func _refresh() -> void:
 		_worker_trait_label.add_theme_color_override("font_color", Color("df9278"))
 
 	var claim: Dictionary = worker.get("current_claim", {}) as Dictionary
+	_refresh_contract_badge(_current_contract_badge, claim)
 	if claim.is_empty():
 		_current_claim_label.text = "WAITING FOR %s PECKWORK" % (_lane_name(assignment) if assignment != &"auto" else "AUTO-SORTED")
 		_claim_progress_bar.value = 0.0
@@ -530,6 +750,10 @@ func _refresh() -> void:
 	var assist_open := bool(assist.get("available", false)) and _interaction_enabled and _peck_assist_clock_running
 	var assist_state := StringName(assist.get("window_state", &"locked"))
 	var assist_remaining := maxi(0, int(assist.get("remaining", _snapshot.get("peck_assists_remaining", 0))))
+	var assist_pending := maxi(0, int(assist.get(
+		"pending_delivery_count",
+		_snapshot.get("peck_assist_pending_delivery_count", 0),
+	)))
 	_peck_assist_button.set_meta("assist_open", assist_open)
 	_peck_assist_button.disabled = not assist_open
 	_peck_assist_button.tooltip_text = "%s\n%s" % [
@@ -538,14 +762,17 @@ func _refresh() -> void:
 			if not _peck_assist_clock_running and bool(assist.get("available", false)) else
 			String(assist.get("reason", "Select a working hen to synchronize peckwork."))
 		),
-		"A strong stamp accelerates this file and lowers shell risk; every stamp adds strain. %d/%d attention stamps remain." % [
+		"A strong stamp accelerates this file and lowers shell risk; every stamp adds strain. A sound or golden assisted egg restores one charge when the farmer receives it; a crack consumes the charge and breaks the chain. %d/%d attention charges remain." % [
 			assist_remaining, int(assist.get("limit", _snapshot.get("peck_assist_limit", 3))),
 		],
 	]
 	match assist_state:
 		&"open":
 			var timing_label := String(assist.get("timing_label", "CLEAN RHYTHM"))
-			_peck_assist_button.text = "PECK  ·  %s  [E]" % ("GOLDEN" if "GOLDEN" in timing_label else "SYNC")
+			_peck_assist_button.text = "PECK  ·  %s  [%s]" % [
+				"GOLDEN" if "GOLDEN" in timing_label else "SYNC",
+				_peck_assist_binding_label,
+			]
 			_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("d5aa4f"), Color("f1d681"), 0))
 		&"not_ready":
 			_peck_assist_button.text = "READY AT %d%%" % int(assist.get("window_start", 28.0))
@@ -557,7 +784,11 @@ func _refresh() -> void:
 			_peck_assist_button.text = "WINDOW MISSED"
 			_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("89645c"), Color("b57d6d"), 0))
 		&"spent":
-			_peck_assist_button.text = "ATTENTION SPENT"
+			_peck_assist_button.text = (
+				"AWAIT CLEAN DELIVERY"
+				if assist_pending > 0 else
+				"ATTENTION SPENT"
+			)
 		_:
 			_peck_assist_button.text = "NO ACTIVE FILE" if claim.is_empty() else "PECK SUPPORT LOCKED"
 	var assignment_is_credentialed := (
@@ -565,11 +796,44 @@ func _refresh() -> void:
 		or assignment == specialty
 		or (secondary_specialty != &"" and assignment == secondary_specialty)
 	)
-	_routing_hint_label.text = (
-		"Matched specialty: faster peckwork and safer shells."
-		if assignment_is_credentialed else
-		"Out-of-specialty routing raises time and shell risk."
-	)
+	var employed := bool(worker.get("employed", true))
+	var operations := _operations_snapshot()
+	var automation := operations.get("automation", {}) as Dictionary
+	var it_level := maxi(0, int(operations.get("it_coop_level", 0)))
+	var automation_enabled := bool(automation.get("enabled", false)) and it_level > 0
+	var auto_work_basis_points := maxi(10_000, int(automation.get("work_basis_points", 10_000)))
+	var auto_work_percent := float(auto_work_basis_points - 10_000) / 100.0
+	var auto_grace := maxi(0, int(automation.get("specialty_grace_minutes", 180)))
+	var auto_secondary := bool(automation.get("recognizes_secondary_specialties", false))
+	if not employed:
+		_routing_hint_label.text = "APPLICANT FILE / NO LIVE AUTO SUPPORT"
+		_routing_hint_label.tooltip_text = "Only employed hens can receive live tray routing or IT Coop AUTO support."
+	elif assignment == &"auto":
+		_routing_hint_label.text = (
+			"IT AUTO L%d / +%s%% PACE / %dM GRACE"
+			% [it_level, _compact_number(auto_work_percent), auto_grace]
+			if automation_enabled else
+			"LOCAL AUTO / BASE PACE / %dM GRACE" % auto_grace
+		)
+		_routing_hint_label.tooltip_text = (
+			"AUTO is opt-in for this employed hen. IT Coop support improves only AUTO-routed work; it never completes a file or lays an egg. "
+			+ ("Secondary accreditation is recognized by dispatch." if auto_secondary else "Dispatch recognizes the primary specialty only.")
+		)
+	else:
+		_routing_hint_label.text = "MANUAL OVERRIDE / IT AUTO SUPPORT OFF"
+		_routing_hint_label.tooltip_text = (
+			"This manual %s tray is an explicit override, so IT Coop AUTO pace and grace do not apply. %s"
+			% [
+				_lane_name(assignment),
+				"The route matches a filed specialty." if assignment_is_credentialed else "The route is out of specialty and raises time and shell risk.",
+			]
+		)
+	if assist_pending > 0:
+		_routing_hint_label.text = "%d CLEAN %s EN ROUTE / %s" % [
+			assist_pending,
+			("EGG" if assist_pending == 1 else "EGGS"),
+			_routing_hint_label.text,
+		]
 	var manager_trust := clampf(float(worker.get("manager_trust", worker.get("trust", 50.0))), 0.0, 100.0)
 	var grievance := clampf(float(worker.get("grievance", 0.0)), 0.0, 100.0)
 	_trust_label.text = "TRUST  %d" % int(roundf(manager_trust))
@@ -583,26 +847,82 @@ func _refresh() -> void:
 		Color("df826f") if grievance >= 60.0 else (Color("d7c17d") if grievance >= 30.0 else Color("aebdc5")),
 	)
 	var phase := int(_snapshot.get("shift_phase", 1))
-	var can_assign := _interaction_enabled and phase == 1
+	var can_assign := _interaction_enabled and phase == 1 and employed
 	for lane in ASSIGNMENT_ORDER:
 		var button := _assignment_buttons[lane]
 		button.disabled = not can_assign
 		button.theme_type_variation = &"SelectedChoiceButton" if lane == assignment else &"DecisionChoiceButton"
-	var action_used := bool(_snapshot.get("personnel_action_used", false))
-	var action_available := bool(_snapshot.get("personnel_action_available", false))
+		button.tooltip_text = _assignment_tooltip(lane)
+		if lane == &"auto":
+			button.tooltip_text += (
+				" IT Coop support will apply to this employed hen."
+				if automation_enabled and employed else
+				" AUTO remains a local opt-in without IT Coop support."
+			)
+		else:
+			button.tooltip_text += " This is an explicit manual override of IT Coop AUTO support."
 	var action_status := _snapshot.get("personnel_action_status", {}) as Dictionary
+	var has_allowance_status := action_status.has("limit") or action_status.has("remaining")
+	var action_limit := maxi(1, int(action_status.get("limit", 1)))
+	var actions_used := clampi(
+		int(action_status.get(
+			"used",
+			1 if bool(_snapshot.get("personnel_action_used", false)) else 0,
+		)),
+		0,
+		action_limit,
+	)
+	var actions_remaining := clampi(
+		int(action_status.get("remaining", action_limit - actions_used)),
+		0,
+		action_limit,
+	)
+	if not has_allowance_status and bool(_snapshot.get("personnel_action_used", false)):
+		actions_remaining = 0
+	var action_available := bool(action_status.get(
+		"available",
+		_snapshot.get("personnel_action_available", false),
+	))
 	var last_action := action_status.get("last_action", {}) as Dictionary
-	var can_manage := can_assign and action_available and not action_used
-	_check_in_status_label.text = (
-		"FILED / %s" % String(last_action.get("worker_name", "FLOCK")).to_upper()
-		if action_used else
-		("CHECK-IN READY" if action_available and can_assign else "CHECK-IN LOCKED")
+	var worker_action := _worker_action_receipt(action_status, worker, _focused_worker_id)
+	var worker_action_filed := not worker_action.is_empty()
+	var legacy_global_lock := not has_allowance_status and bool(_snapshot.get("personnel_action_used", false))
+	var can_manage := (
+		can_assign
+		and action_available
+		and actions_remaining > 0
+		and not worker_action_filed
+		and not legacy_global_lock
 	)
-	_check_in_status_label.tooltip_text = (
-		String(last_action.get("outcome", "Today's flock check-in is already filed."))
-		if action_used else
-		String(action_status.get("reason", "Choose one personnel action for one hen this shift."))
-	)
+	if worker_action_filed:
+		_check_in_status_label.text = "HEN FILED / %d OF %d" % [actions_used, action_limit]
+		_check_in_status_label.tooltip_text = String(worker_action.get(
+			"outcome",
+			"%s already has a filed flock check-in today." % worker_name,
+		))
+	elif actions_remaining <= 0 or legacy_global_lock:
+		_check_in_status_label.text = "CHECK-INS FULL / %d OF %d" % [actions_used, action_limit]
+		_check_in_status_label.tooltip_text = String(action_status.get(
+			"reason",
+			"Today's flock check-in allowance is fully filed.",
+		))
+	elif can_assign and action_available:
+		_check_in_status_label.text = "CHECK-IN READY / %d OF %d / %d LEFT" % [
+			actions_used,
+			action_limit,
+			actions_remaining,
+		]
+		_check_in_status_label.tooltip_text = "Choose one personnel action for this hen; %d flock check-in%s remain%s." % [
+			actions_remaining,
+			"" if actions_remaining == 1 else "s",
+			"s" if actions_remaining == 1 else "",
+		]
+	else:
+		_check_in_status_label.text = "CHECK-IN LOCKED / %d OF %d" % [actions_used, action_limit]
+		_check_in_status_label.tooltip_text = String(action_status.get(
+			"reason",
+			"Resolve the current management decision first.",
+		))
 	_check_in_status_label.add_theme_color_override(
 		"font_color",
 		Color("e7c56e") if can_manage else Color("83939d"),
@@ -622,9 +942,11 @@ func _refresh() -> void:
 			preview,
 			" Profile match for this hen." if preferred_action == action_id else "",
 			(
-				" Check-in already filed this shift."
-				if action_used else
-				(" Feed Fund is short." if not affordable else " Uses the flock's one check-in this shift.")
+				" This hen already has a filed check-in today."
+				if worker_action_filed else
+				" The flock check-in allowance is full."
+				if actions_remaining <= 0 or legacy_global_lock else
+				(" Feed Fund is short." if not affordable else " Uses one of %d remaining flock check-ins." % actions_remaining)
 			),
 		]
 		personnel_button.disabled = not can_manage or not affordable
@@ -634,10 +956,16 @@ func _refresh() -> void:
 func _refresh_first_clutch() -> void:
 	if _first_clutch_panel == null:
 		return
-	var coach_visible := bool(_first_clutch.get("visible", false))
-	_first_clutch_panel.visible = coach_visible
-	_refresh_first_clutch_return_action(coach_visible)
-	if not coach_visible:
+	var coach_active := bool(_first_clutch.get("visible", false))
+	var compact := coach_active and _first_clutch_has_contextual_dossier()
+	if compact != _first_clutch_compact:
+		_first_clutch_compact = compact
+		_apply_first_clutch_layout()
+	_first_clutch_panel.visible = coach_active
+	_first_clutch_body_label.visible = not compact
+	_refresh_first_clutch_return_action(coach_active)
+	_apply_dossier_disclosure()
+	if not coach_active:
 		_clear_first_clutch_control_cue()
 		return
 	var total := clampi(int(_first_clutch.get("total", 5)), 1, 99)
@@ -666,10 +994,19 @@ func _refresh_first_clutch() -> void:
 		_first_clutch_body_label.text,
 	]
 	var can_skip := bool(_first_clutch.get("can_skip", true))
+	var skip_had_focus := _first_clutch_skip_button.has_focus()
 	_first_clutch_skip_button.visible = can_skip
 	_first_clutch_skip_button.mouse_filter = (
 		Control.MOUSE_FILTER_STOP if can_skip else Control.MOUSE_FILTER_IGNORE
 	)
+	if skip_had_focus and not can_skip:
+		# Delivery can settle asynchronously while Skip owns keyboard focus. Reuse
+		# the staged-disclosure focus handoff after the button is actually hidden
+		# so focus never remains trapped on an unavailable tutorial action.
+		_ensure_contextual_focus_remains_visible(
+			_first_clutch_disclosure_stage(),
+			_first_clutch_skip_button,
+		)
 	var tone := StringName(String(_first_clutch.get("tone", "active")))
 	var border := Color("c7a352")
 	if tone == &"warning":
@@ -681,6 +1018,153 @@ func _refresh_first_clutch() -> void:
 		_panel_style(Color("172832"), 0.985, border, 8, 1),
 	)
 	_apply_first_clutch_control_cue()
+
+
+func _first_clutch_disclosure_stage() -> StringName:
+	var stage := StringName(String(_first_clutch.get(
+		"stage",
+		_first_clutch.get("step", _first_clutch.get("cue", "")),
+	)).strip_edges().to_lower())
+	match stage:
+		&"route", &"routing", &"match_route":
+			return &"specialty_route"
+		&"checkin", &"personnel", &"personnel_action":
+			return &"check_in"
+		&"peck", &"peck_assist":
+			return &"priority_peck"
+		_:
+			return stage
+
+
+func _first_clutch_has_contextual_dossier() -> bool:
+	if _focus_panel == null or not _focus_panel.visible or _focused_worker_id < 0:
+		return false
+	var target_worker_id := _first_clutch_target_worker_id()
+	return target_worker_id < 0 or target_worker_id == _focused_worker_id
+
+
+## Keeps one management category visible at a time while First Clutch is active.
+## Nodes are retained (including names, signals, and disabled state); normal or
+## dismissed coach state restores every management action immediately.
+func _apply_dossier_disclosure() -> void:
+	if (
+		_queue_panel == null
+		or _focus_panel == null
+		or _assignment_section == null
+		or _personnel_actions_section == null
+	):
+		return
+	var previous_focus_owner: Control
+	var viewport := get_viewport()
+	if viewport != null:
+		previous_focus_owner = viewport.gui_get_focus_owner()
+	var coach_active := bool(_first_clutch.get("visible", false))
+	var normal_play := not coach_active
+	var target_matches := _first_clutch_has_contextual_dossier()
+	var stage := _first_clutch_disclosure_stage()
+	if stage == &"":
+		stage = &"inspect"
+
+	var show_claim := normal_play or stage in [
+		&"inspect",
+		&"specialty_route",
+		&"priority_peck",
+		&"delivery",
+		&"reinvestment",
+		&"complete",
+	]
+	var show_routing := normal_play or (target_matches and stage == &"specialty_route")
+	var show_check_in := normal_play or (target_matches and stage == &"check_in")
+	var show_priority := normal_play or (target_matches and stage == &"priority_peck")
+	var show_delivery := target_matches and stage == &"delivery"
+
+	# The queue is useful while teaching routes, but it is visual noise during
+	# inspection, personnel, timing, and delivery steps.
+	_queue_panel.visible = normal_play or (target_matches and stage == &"specialty_route")
+	_claim_header.visible = show_claim
+	_claim_detail_label.visible = show_claim
+	var worker := _worker_snapshot(_focused_worker_id)
+	var claim := worker.get("current_claim", {}) as Dictionary
+	_claim_progress_bar.visible = show_claim and not claim.is_empty()
+	_assignment_section.visible = show_routing
+	_personnel_actions_section.visible = show_check_in
+
+	_assist_row.visible = normal_play or show_routing or show_priority or show_delivery
+	_routing_hint_label.visible = _assist_row.visible
+	_peck_assist_button.visible = normal_play or show_priority
+
+	_worker_career_label.visible = _details_expanded
+	_trust_label.visible = _details_expanded
+	_grievance_label.visible = _details_expanded
+	_check_in_status_label.visible = show_check_in
+	_personnel_status.visible = _details_expanded or show_check_in
+	_details_button.text = "HIDE DETAILS" if _details_expanded else "DETAILS"
+	_details_button.tooltip_text = (
+		"Hide career, trust, grievance, and care details."
+		if _details_expanded else
+		"Show career, trust, grievance, and care details for this hen."
+	)
+	if not _details_expanded and not worker.is_empty():
+		var specialty := StringName(worker.get("specialty", &"nest_damage"))
+		var secondary := StringName(String(worker.get(
+			"secondary_specialty",
+			worker.get("secondary_lane", ""),
+		)))
+		var specialty_copy := _lane_name(specialty)
+		if secondary != &"":
+			specialty_copy += " + %s" % _lane_name(secondary)
+		_worker_trait_label.text = "SPECIALTY  /  %s" % specialty_copy
+		_worker_trait_label.tooltip_text = (
+			"Primary routing specialty: %s. Open Details for career, care, and accreditation notes."
+			% _lane_name(specialty)
+		)
+	_ensure_contextual_focus_remains_visible(stage, previous_focus_owner)
+
+
+func _ensure_contextual_focus_remains_visible(
+	stage: StringName,
+	focus_owner: Control = null,
+) -> void:
+	if focus_owner == null:
+		var viewport := get_viewport()
+		if viewport == null:
+			return
+		focus_owner = viewport.gui_get_focus_owner()
+	if (
+		focus_owner == null
+		or not is_ancestor_of(focus_owner)
+		or focus_owner.is_visible_in_tree()
+	):
+		return
+	var target: Button
+	match stage:
+		&"specialty_route":
+			var lane := StringName(String(_first_clutch.get(
+				"expected_lane",
+				_first_clutch.get("lane", "auto"),
+			)))
+			target = _assignment_buttons.get(lane) as Button
+		&"check_in":
+			var action_id := StringName(String(_first_clutch.get(
+				"preferred_action",
+				_worker_snapshot(_focused_worker_id).get("preferred_personnel_action", ""),
+			)))
+			target = _personnel_buttons.get(action_id) as Button
+		&"priority_peck":
+			target = _peck_assist_button
+	if target == null or not target.is_visible_in_tree():
+		# When the coached hen is no longer focused, the explicit return action is
+		# safer than moving focus into an unrelated hen's dossier. A target-matched
+		# dossier falls back to Details for delivery/reinvestment/complete stages.
+		if (
+			_first_clutch_return_button != null
+			and _first_clutch_return_button.is_visible_in_tree()
+		):
+			target = _first_clutch_return_button
+		else:
+			target = _details_button
+	if target != null and target.is_visible_in_tree() and target.focus_mode != Control.FOCUS_NONE:
+		target.call_deferred("grab_focus")
 
 
 func _apply_first_clutch_control_cue() -> void:
@@ -786,6 +1270,94 @@ func _apply_first_clutch_cue_style(button: Button) -> void:
 	)
 
 
+func _refresh_queue_contract_badge(routing: Dictionary) -> void:
+	var summary := _market_contract_queue_summary(routing)
+	_refresh_contract_badge(_queue_contract_badge, summary)
+	_queue_title_label.visible = summary.is_empty()
+
+
+func _market_contract_queue_summary(routing: Dictionary) -> Dictionary:
+	var queue_items_variant: Variant = routing.get(
+		"queue_items",
+		_snapshot.get("claim_queue_items", {}),
+	)
+	if not queue_items_variant is Dictionary:
+		return {}
+	var queue_items := queue_items_variant as Dictionary
+	var contract_claims: Array[Dictionary] = []
+	var has_rush := false
+	for lane in LANE_ORDER:
+		var lane_items_variant: Variant = queue_items.get(
+			lane,
+			queue_items.get(String(lane), []),
+		)
+		if not lane_items_variant is Array:
+			continue
+		for claim_value in lane_items_variant as Array:
+			if not claim_value is Dictionary:
+				continue
+			var claim := claim_value as Dictionary
+			if not bool(claim.get("market_contract", false)):
+				continue
+			contract_claims.append(claim)
+			has_rush = has_rush or bool(claim.get("market_contract_rush", false))
+	if contract_claims.is_empty():
+		return {}
+
+	# If any rush folders are waiting, disclose the nearest rush deadline. A
+	# normal binder otherwise reports the nearest contracted-folder deadline.
+	var deadline_claim: Dictionary = {}
+	var nearest_minutes := 2147483647
+	for claim in contract_claims:
+		if has_rush and not bool(claim.get("market_contract_rush", false)):
+			continue
+		var minutes_until_deadline := int(claim.get("minutes_until_deadline", 2147483647))
+		if deadline_claim.is_empty() or minutes_until_deadline < nearest_minutes:
+			deadline_claim = claim
+			nearest_minutes = minutes_until_deadline
+	return {
+		"market_contract": true,
+		"market_contract_name": String(deadline_claim.get(
+			"market_contract_name",
+			"MUTUAL BINDER",
+		)),
+		"market_contract_rush": has_rush,
+		"market_contract_deadline_time": String(deadline_claim.get(
+			"market_contract_deadline_time",
+			"END OF SHIFT",
+		)),
+		"market_contract_queue_count": contract_claims.size(),
+	}
+
+
+func _refresh_contract_badge(badge: Label, claim: Dictionary) -> void:
+	if badge == null:
+		return
+	var contracted := bool(claim.get("market_contract", false))
+	badge.visible = contracted
+	if not contracted:
+		badge.text = ""
+		badge.tooltip_text = ""
+		return
+	var rush := bool(claim.get("market_contract_rush", false))
+	var badge_title := "CONTRACT RUSH" if rush else "MUTUAL BINDER"
+	var deadline := String(claim.get(
+		"market_contract_deadline_time",
+		"END OF SHIFT",
+	)).strip_edges().to_upper()
+	if deadline.is_empty():
+		deadline = "END OF SHIFT"
+	badge.text = "%s  %s" % [badge_title, deadline]
+	var binder_name := String(claim.get("market_contract_name", "MUTUAL BINDER")).strip_edges().to_upper()
+	var queue_count := maxi(0, int(claim.get("market_contract_queue_count", 0)))
+	badge.tooltip_text = "FARM MUTUAL / %s\nDisclosed deadline: %s." % [binder_name, deadline]
+	if queue_count > 0:
+		badge.tooltip_text += "\n%d contracted %s currently waiting in the routing trays." % [
+			queue_count,
+			"folder" if queue_count == 1 else "folders",
+		]
+
+
 func _worker_snapshot(worker_id: int) -> Dictionary:
 	if worker_id < 0:
 		return {}
@@ -794,6 +1366,62 @@ func _worker_snapshot(worker_id: int) -> Dictionary:
 		if int(worker.get("id", -1)) == worker_id:
 			return worker
 	return {}
+
+
+func _operations_snapshot() -> Dictionary:
+	var operations_value: Variant = _snapshot.get("operations", {})
+	if operations_value is Dictionary:
+		return (operations_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _worker_action_receipt(
+	action_status: Dictionary,
+	worker: Dictionary,
+	worker_id: int,
+) -> Dictionary:
+	var active_day := int(action_status.get("day", _snapshot.get("day", 0)))
+	var actions_value: Variant = action_status.get("actions", [])
+	if actions_value is Array:
+		for action_value in (actions_value as Array):
+			if not action_value is Dictionary:
+				continue
+			var action := action_value as Dictionary
+			if (
+				int(action.get("worker_id", -1)) == worker_id
+				and int(action.get("day", active_day)) == active_day
+			):
+				return action.duplicate(true)
+	if (
+		int(worker.get("last_personnel_action_day", -1)) == active_day
+		and StringName(worker.get("last_personnel_action", &"")) != &""
+	):
+		var last_action := action_status.get("last_action", {}) as Dictionary
+		if int(last_action.get("worker_id", worker_id)) == worker_id:
+			return last_action.duplicate(true) if not last_action.is_empty() else {
+				"day": active_day,
+				"worker_id": worker_id,
+				"worker_name": String(worker.get("name", "HEN")),
+				"action_id": StringName(worker.get("last_personnel_action", &"")),
+			}
+	return {}
+
+
+func _training_terms_snapshot() -> Dictionary:
+	var care_value: Variant = _snapshot.get("flock_care", {})
+	if care_value is Dictionary:
+		var terms_value: Variant = (care_value as Dictionary).get("training_terms", {})
+		if terms_value is Dictionary and not (terms_value as Dictionary).is_empty():
+			return (terms_value as Dictionary).duplicate(true)
+	var direct_value: Variant = _snapshot.get("training_terms", {})
+	if direct_value is Dictionary:
+		return (direct_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _compact_number(value: float) -> String:
+	var rounded := snappedf(value, 0.1)
+	return str(roundi(rounded)) if is_equal_approx(rounded, float(roundi(rounded))) else "%.1f" % rounded
 
 
 func _first_clutch_target_worker_id() -> int:
@@ -843,9 +1471,41 @@ func _on_personnel_action_pressed(action_id: StringName) -> void:
 	if _focused_worker_id < 0 or not _interaction_enabled:
 		return
 	var phase := int(_snapshot.get("shift_phase", 1))
-	var action_used := bool(_snapshot.get("personnel_action_used", false))
-	var action_available := bool(_snapshot.get("personnel_action_available", false))
-	if phase != 1 or action_used or not action_available:
+	var action_status := _snapshot.get("personnel_action_status", {}) as Dictionary
+	var has_allowance_status := action_status.has("limit") or action_status.has("remaining")
+	var action_limit := maxi(1, int(action_status.get("limit", 1)))
+	var actions_used := clampi(
+		int(action_status.get(
+			"used",
+			1 if bool(_snapshot.get("personnel_action_used", false)) else 0,
+		)),
+		0,
+		action_limit,
+	)
+	var actions_remaining := clampi(
+		int(action_status.get("remaining", action_limit - actions_used)),
+		0,
+		action_limit,
+	)
+	var action_available := bool(action_status.get(
+		"available",
+		_snapshot.get("personnel_action_available", false),
+	))
+	var worker := _worker_snapshot(_focused_worker_id)
+	var worker_action_filed := not _worker_action_receipt(
+		action_status,
+		worker,
+		_focused_worker_id,
+	).is_empty()
+	var legacy_global_lock := not has_allowance_status and bool(_snapshot.get("personnel_action_used", false))
+	if (
+		phase != 1
+		or not bool(worker.get("employed", true))
+		or not action_available
+		or actions_remaining <= 0
+		or worker_action_filed
+		or legacy_global_lock
+	):
 		return
 	personnel_action_requested.emit(_focused_worker_id, action_id)
 
@@ -870,6 +1530,15 @@ func _on_first_clutch_return_pressed() -> void:
 	if target_worker_id < 0 or _first_clutch_return_button == null or not _first_clutch_return_button.visible:
 		return
 	first_clutch_focus_requested.emit(target_worker_id)
+
+
+func _on_details_pressed() -> void:
+	if _focused_worker_id < 0:
+		return
+	_details_expanded = not _details_expanded
+	# Refresh restores the full profile copy before presentation disclosure is
+	# re-applied; collapsing then returns to the compact specialty summary.
+	_refresh()
 
 
 func _personnel_definition(action_id: StringName) -> Dictionary:
@@ -908,6 +1577,22 @@ func _make_label(text: String, font_size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	return label
+
+
+func _make_contract_badge(control_name: String, minimum_width: float) -> Label:
+	var badge := _make_label("", 9, Color("f6df9d"))
+	badge.name = control_name
+	badge.custom_minimum_size = Vector2(minimum_width, 22.0)
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_theme_stylebox_override(
+		"normal",
+		_compact_button_style(Color("4a3523"), Color("d6ab5f"), 1),
+	)
+	badge.visible = false
+	return badge
 
 
 func _apply_compact_personnel_style(button: Button, action_id: StringName) -> void:

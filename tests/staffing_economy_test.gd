@@ -9,6 +9,7 @@ func _run() -> void:
 	var failures: Array[String] = []
 	_test_fresh_roster_and_applicant_isolation(failures)
 	_test_exact_costs_reserves_and_atomic_guards(failures)
+	_test_recurring_obligation_preflights(failures)
 	_test_release_cooldown_minimum_and_vacant_desk(failures)
 	_test_capacity_hire_increases_throughput(failures)
 	_test_wage_arrears_and_active_flock_consequences(failures)
@@ -116,6 +117,28 @@ func _test_exact_costs_reserves_and_atomic_guards(failures: Array[String]) -> vo
 	_check(not report.is_empty(), "cost fixture should enter REVIEW", failures)
 	_check(simulation.workers[4].to_save_data() == applicant_before, "an idle applicant should survive a full shift unchanged", failures)
 	_reset_career_xp(simulation)
+	_check(not simulation.staffing_planning_open(), "an unresolved closing credit memo should keep staffing planning closed", failures)
+	var held_capacity := simulation.capacity_upgrade_status()
+	_check(
+		not bool(held_capacity.get("planning_open", true))
+		and String(held_capacity.get("reason", "")).to_lower().contains("resolve"),
+		"capacity status should explain the closing-credit hold",
+		failures,
+	)
+	_expect_rejected_atomic(
+		simulation,
+		func() -> Dictionary: return simulation.purchase_staff_capacity(),
+		"capacity expansion should wait for the closing credit memo",
+		failures,
+	)
+	_expect_rejected_atomic(
+		simulation,
+		func() -> Dictionary: return simulation.hire_worker(4),
+		"hiring should wait for the closing credit memo",
+		failures,
+	)
+	_resolve_closing_credit(simulation, failures)
+	_check(simulation.staffing_planning_open(), "filing closing credit should open staffing planning", failures)
 
 	# Set a deterministic planning balance so every cent in the reserve calculation
 	# is independently observable.
@@ -125,6 +148,9 @@ func _test_exact_costs_reserves_and_atomic_guards(failures: Array[String]) -> vo
 	_check(bool(capacity_result.get("accepted", false)), "the first capacity tier should be purchasable during REVIEW", failures)
 	_check(StringName(capacity_result.get("action_id", &"")) == &"expand_capacity", "capacity result should identify its action", failures)
 	_check(int(capacity_result.get("cost_cents", -1)) == 2500, "capacity four-to-five should cost exactly $25", failures)
+	_check(int(capacity_result.get("added_daily_operating_cents", -1)) == 200, "capacity receipt should disclose the added $2 daily overhead", failures)
+	_check(int(capacity_result.get("required_spendable_cents", -1)) == 2700, "capacity receipt should require purchase price plus added reserve", failures)
+	_check(int(capacity_result.get("projected_spendable_fund_cents", -1)) == 4300, "capacity receipt should project post-purchase spendable fund", failures)
 	_check(simulation.office_capacity == 5, "first expansion should add exactly one desk", failures)
 	_check(simulation.revenue_cents == 7500, "first expansion should deduct exactly $25", failures)
 	_check(simulation.current_daily_facility_cost_cents() == 200, "one seat above four should reserve $2 facility cost", failures)
@@ -135,6 +161,9 @@ func _test_exact_costs_reserves_and_atomic_guards(failures: Array[String]) -> vo
 	_check(bool(hire_result.get("accepted", false)), "capacity expansion and one hire should be allowed in the same review", failures)
 	_check(StringName(hire_result.get("action_id", &"")) == &"hire_worker", "hire result should identify its action", failures)
 	_check(int(hire_result.get("cost_cents", -1)) == 1600, "junior worker four should cost exactly $16 to hire", failures)
+	_check(int(hire_result.get("added_daily_operating_cents", -1)) == 600, "hire receipt should disclose $2 feed plus the exact $4 wage", failures)
+	_check(int(hire_result.get("required_spendable_cents", -1)) == 2200, "hire receipt should require filing cost plus feed and wage reserves", failures)
+	_check(int(hire_result.get("projected_spendable_fund_cents", -1)) == 2100, "hire receipt should project post-hire spendable fund", failures)
 	_check(int(hire_result.get("desk_index", -1)) == 4, "first hire should occupy the only vacant desk", failures)
 	_check(simulation.revenue_cents == 5900, "hire should deduct its exact $16 filing cost", failures)
 	_check(simulation.active_worker_count() == 5, "accepted hire should create five active workers", failures)
@@ -167,6 +196,7 @@ func _test_exact_costs_reserves_and_atomic_guards(failures: Array[String]) -> vo
 	# proves the exact second-tier price without coupling it to hire cooldown state.
 	var expansion := DepartmentSimulation.new(4203, 4)
 	_complete_shift(expansion, failures)
+	_resolve_closing_credit(expansion, failures)
 	_reset_career_xp(expansion)
 	expansion.revenue_cents = 20000
 	var first := expansion.purchase_staff_capacity()
@@ -183,9 +213,63 @@ func _test_exact_costs_reserves_and_atomic_guards(failures: Array[String]) -> vo
 	)
 
 
+func _test_recurring_obligation_preflights(failures: Array[String]) -> void:
+	var capacity_guard := DepartmentSimulation.new(4251, 4)
+	_complete_shift(capacity_guard, failures)
+	_resolve_closing_credit(capacity_guard, failures)
+	_reset_career_xp(capacity_guard)
+	capacity_guard.revenue_cents = 5699
+	var capacity_status := capacity_guard.capacity_upgrade_status()
+	_check(int(capacity_status.get("cost_cents", -1)) == 2500, "capacity preflight should expose the exact $25 price", failures)
+	_check(int(capacity_status.get("added_daily_operating_cents", -1)) == 200, "capacity preflight should reserve the added $2 daily overhead", failures)
+	_check(int(capacity_status.get("required_spendable_cents", -1)) == 2700, "capacity preflight should require $27 spendable funding", failures)
+	_check(int(capacity_status.get("projected_spendable_fund_cents", 0)) == -1, "capacity preflight should expose an exact one-cent reserve deficit", failures)
+	_check(not bool(capacity_status.get("affordable", true)), "one cent below the capacity reserve should be unaffordable", failures)
+	_check(String(capacity_status.get("reason", "")).contains("$0.01"), "capacity rejection reason should disclose the exact one-cent shortage", failures)
+	_expect_rejected_atomic(
+		capacity_guard,
+		func() -> Dictionary: return capacity_guard.purchase_staff_capacity(),
+		"capacity purchase one cent below its future reserve must reject atomically",
+		failures,
+	)
+	capacity_guard.revenue_cents = 5700
+	var exact_capacity := capacity_guard.purchase_staff_capacity()
+	_check(bool(exact_capacity.get("accepted", false)), "capacity should accept when purchase and future reserve are funded exactly", failures)
+	_check(capacity_guard.spendable_fund_cents() == 0, "exact capacity funding should leave zero, never negative, spendable fund", failures)
+
+	var hire_guard := DepartmentSimulation.new(4252, 4)
+	_complete_shift(hire_guard, failures)
+	_resolve_closing_credit(hire_guard, failures)
+	_reset_career_xp(hire_guard)
+	hire_guard.revenue_cents = 10000
+	_check(bool(hire_guard.purchase_staff_capacity().get("accepted", false)), "hire reserve fixture should authorize its fifth workstation", failures)
+	hire_guard.revenue_cents = 5399
+	var applicant := _catalog_row(hire_guard.staffing_catalog(), 4)
+	_check(int(applicant.get("hire_cost_cents", -1)) == 1600, "applicant preflight should expose the exact $16 filing cost", failures)
+	_check(int(applicant.get("hire_added_daily_operating_cents", -1)) == 600, "applicant preflight should reserve $2 feed plus the exact $4 wage", failures)
+	_check(int(applicant.get("hire_required_spendable_cents", -1)) == 2200, "applicant preflight should require $22 spendable funding", failures)
+	_check(int(applicant.get("hire_projected_spendable_fund_cents", 0)) == -1, "applicant preflight should expose an exact one-cent reserve deficit", failures)
+	_check(not bool(applicant.get("hire_affordable", true)) and not bool(applicant.get("can_hire", true)), "one cent below the hire reserve should disable hiring", failures)
+	_check(String(applicant.get("reason", "")).contains("$0.01"), "hire rejection reason should disclose the exact one-cent shortage", failures)
+	var worker_snapshot := _worker_snapshot(hire_guard.snapshot(), 4)
+	_check(not bool(worker_snapshot.get("can_hire", true)), "worker snapshot should use the same reserve-safe hire preflight", failures)
+	_check(int(worker_snapshot.get("hire_projected_spendable_fund_cents", 0)) == -1, "worker snapshot should expose the exact projected hire deficit", failures)
+	_expect_rejected_atomic(
+		hire_guard,
+		func() -> Dictionary: return hire_guard.hire_worker(4),
+		"hire one cent below its future feed and wage reserve must reject atomically",
+		failures,
+	)
+	hire_guard.revenue_cents = 5400
+	var exact_hire := hire_guard.hire_worker(4)
+	_check(bool(exact_hire.get("accepted", false)), "hire should accept when filing cost, feed, and wage reserves are funded exactly", failures)
+	_check(hire_guard.spendable_fund_cents() == 0, "exact hire funding should leave zero, never negative, spendable fund", failures)
+
+
 func _test_release_cooldown_minimum_and_vacant_desk(failures: Array[String]) -> void:
 	var simulation := DepartmentSimulation.new(4303, 4)
 	_complete_shift(simulation, failures)
+	_resolve_closing_credit(simulation, failures)
 	_reset_career_xp(simulation)
 	simulation.workers[1].career_xp = 18
 	simulation.revenue_cents = 10000
@@ -202,10 +286,10 @@ func _test_release_cooldown_minimum_and_vacant_desk(failures: Array[String]) -> 
 		failures
 	)
 
-	_resolve_closing_credit(simulation, failures)
 	_check(simulation.begin_next_shift_briefing(), "release fixture should open its next briefing after credit is filed", failures)
 	var second_report := _complete_shift(simulation, failures)
 	_check(not second_report.is_empty(), "three-hen fixture should complete the cooldown shift", failures)
+	_resolve_closing_credit(simulation, failures)
 	_expect_rejected_atomic(
 		simulation,
 		func() -> Dictionary: return simulation.release_worker(2),
@@ -227,14 +311,14 @@ func _test_capacity_hire_increases_throughput(failures: Array[String]) -> void:
 	var baseline_day_one := _complete_shift(baseline, failures)
 	var staffed_day_one := _complete_shift(staffed, failures)
 	_check(int(baseline_day_one.get("eggs", -1)) == int(staffed_day_one.get("eggs", -2)), "same-seed day-one fixtures should start identically", failures)
+	_resolve_closing_credit(baseline, failures)
+	_resolve_closing_credit(staffed, failures)
 
 	staffed.revenue_cents = maxi(staffed.revenue_cents, 10000)
 	var expansion := staffed.purchase_staff_capacity()
 	var hire := staffed.hire_worker(4)
 	_check(bool(expansion.get("accepted", false)), "causal staffing fixture should expand capacity", failures)
 	_check(bool(hire.get("accepted", false)), "causal staffing fixture should hire its fifth hen", failures)
-	_resolve_closing_credit(baseline, failures)
-	_resolve_closing_credit(staffed, failures)
 	_check(baseline.begin_next_shift_briefing(), "baseline should open day-two briefing", failures)
 	_check(staffed.begin_next_shift_briefing(), "staffed office should open day-two briefing", failures)
 	var baseline_day_two := _complete_shift(baseline, failures)
@@ -290,6 +374,12 @@ func _test_wage_arrears_and_active_flock_consequences(failures: Array[String]) -
 	_check(int(report.get("wage_arrears_cents", -1)) == 1600, "unpaid payroll must persist as $16 arrears rather than disappear", failures)
 	_check(simulation.wage_arrears_cents == 1600, "authoritative simulation should retain the reported arrears", failures)
 	_check(int(report.get("operating_cost_cents", -1)) == 3000, "reported current operating obligations should total $30", failures)
+	_check(int(report.get("treasury_credit_draw_cents", -1)) == 1400, "the unpaid $14 feed invoice should become an exact Farm Treasury draw", failures)
+	var treasury := report.get("farm_treasury", {}) as Dictionary
+	_check(int(treasury.get("credit_principal_cents", -1)) == 1400, "vendor credit principal must persist instead of disappearing at zero cash", failures)
+	_check(int(treasury.get("vendor_arrears_cents", -1)) == 0, "available line headroom should cover the full feed invoice", failures)
+	var treasury_receipt := report.get("farm_treasury_receipt", {}) as Dictionary
+	_check(int(treasury_receipt.get("conservation_left_cents", -1)) == int(treasury_receipt.get("conservation_right_cents", -2)), "the zero-cash close must conserve every cent", failures)
 	_check(simulation.revenue_cents == 0, "arrears should never underflow the displayed Feed Fund", failures)
 	for worker in simulation.workers:
 		if worker.employed:
@@ -301,7 +391,7 @@ func _test_wage_arrears_and_active_flock_consequences(failures: Array[String]) -
 			_check(worker.to_save_data() == applicant_before.get(worker.id, {}), "arrears and review recovery must not mutate applicant %d" % worker.id, failures)
 
 	simulation.revenue_cents = 10000
-	_check(simulation.spendable_fund_cents() == 5400, "$100 should reserve $30 next operations plus $16 arrears", failures)
+	_check(simulation.spendable_fund_cents() == 4000, "$100 should reserve $30 next operations, $16 wages, and the filed $14 vendor draw", failures)
 
 
 func _complete_shift(simulation: DepartmentSimulation, failures: Array[String]) -> Dictionary:
@@ -374,6 +464,14 @@ func _catalog_row(catalog: Array[Dictionary], worker_id: int) -> Dictionary:
 	for row in catalog:
 		if int(row.get("id", -1)) == worker_id:
 			return row
+	return {}
+
+
+func _worker_snapshot(snapshot: Dictionary, worker_id: int) -> Dictionary:
+	for worker_value in snapshot.get("workers", []):
+		var worker := worker_value as Dictionary
+		if int(worker.get("id", -1)) == worker_id:
+			return worker
 	return {}
 
 

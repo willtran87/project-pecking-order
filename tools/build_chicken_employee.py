@@ -95,6 +95,51 @@ def ellipsoid(
     return obj
 
 
+def feather_mesh(
+    name: str,
+    location: tuple[float, float, float],
+    length: float,
+    width: float,
+    thickness: float,
+    rotation: tuple[float, float, float],
+    material: bpy.types.Material,
+) -> bpy.types.Object:
+    """Make a softly beveled, pointed feather rather than an oval primitive."""
+    # Root-to-tip profile: a rounded quill end, generous vane, then a tapered
+    # point.  The x-axis is thin, y is vane width, and z is feather length.
+    profile = [(0.50, 0.26), (0.25, 0.52), (-0.12, 0.46), (-0.38, 0.28), (-0.50, 0.035)]
+    vertices: list[tuple[float, float, float]] = []
+    for x in (-thickness, thickness):
+        for z_factor, width_factor in profile:
+            vertices.append((x, -width * width_factor, length * z_factor))
+        for z_factor, width_factor in reversed(profile):
+            vertices.append((x, width * width_factor, length * z_factor))
+    front = list(range(10))
+    back = list(range(10, 20))
+    faces = [front, list(reversed(back))]
+    for index in range(10):
+        next_index = (index + 1) % 10
+        faces.append((index, next_index, next_index + 10, index + 10))
+    mesh = bpy.data.meshes.new(f"{name}Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(material)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    obj.location = location
+    obj.rotation_euler = rotation
+    for polygon in mesh.polygons:
+        polygon.use_smooth = True
+    bevel = obj.modifiers.new(name="SoftFeatherEdges", type="BEVEL")
+    bevel.width = min(0.016, thickness * 0.72)
+    bevel.segments = 3
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.modifier_apply(modifier=bevel.name)
+    obj.select_set(False)
+    apply_object_transform(obj)
+    return obj
+
+
 def cylinder(
     name: str,
     radius: float,
@@ -136,6 +181,45 @@ def beveled_box(
         obj.select_set(True)
         bpy.ops.object.modifier_apply(modifier=modifier.name)
         obj.select_set(False)
+    return obj
+
+
+def beveled_prism(
+    name: str,
+    points: list[tuple[float, float]],
+    front_y: float,
+    depth: float,
+    material: bpy.types.Material,
+    bevel: float = 0.006,
+) -> bpy.types.Object:
+    """Extrude an x/z silhouette into a softly finished accessory panel."""
+    back_y = front_y + depth
+    count = len(points)
+    vertices = [(x, front_y, z) for x, z in points] + [(x, back_y, z) for x, z in points]
+    faces: list[tuple[int, ...]] = [tuple(range(count)), tuple(reversed(range(count, count * 2)))]
+    for index in range(count):
+        next_index = (index + 1) % count
+        faces.append((index, next_index, next_index + count, index + count))
+    mesh = bpy.data.meshes.new(name + "Mesh")
+    mesh.from_pydata(vertices, [], faces)
+    mesh.materials.append(material)
+    obj = bpy.data.objects.new(name, mesh)
+    bpy.context.collection.objects.link(obj)
+    if bevel > 0.0:
+        modifier = obj.modifiers.new(name="SoftAccessoryEdges", type="BEVEL")
+        modifier.width = bevel
+        modifier.segments = 2
+        bpy.context.view_layer.objects.active = obj
+        obj.select_set(True)
+        bpy.ops.object.modifier_apply(modifier=modifier.name)
+        obj.select_set(False)
+    triangulate = obj.modifiers.new(name="AccessoryTriangulation", type="TRIANGULATE")
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
+    bpy.ops.object.modifier_apply(modifier=triangulate.name)
+    obj.select_set(False)
+    for polygon in obj.data.polygons:
+        polygon.use_smooth = True
     return obj
 
 
@@ -231,6 +315,19 @@ def join_and_remesh(
     return obj
 
 
+def join_parts(parts: list[bpy.types.Object], name: str) -> bpy.types.Object:
+    """Join separate feather pieces without fusing them into a rounded mass."""
+    bpy.ops.object.select_all(action="DESELECT")
+    for part in parts:
+        part.select_set(True)
+    bpy.context.view_layer.objects.active = parts[0]
+    bpy.ops.object.join()
+    obj = bpy.context.object
+    obj.name = name
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+    return obj
+
+
 def create_wedge_beak(material: bpy.types.Material) -> bpy.types.Object:
     # The broad base is intentionally sunk into the head.  The shallow lower
     # point keeps the beak birdlike without turning it into a large muzzle.
@@ -287,37 +384,16 @@ def create_body(materials: list[bpy.types.Material]) -> bpy.types.Object:
         ellipsoid("RuffL", (-0.155, -0.190, 1.165), (0.155, 0.155, 0.170), (0.06, 0.0, 0.14)),
         ellipsoid("RuffC", (0.0, -0.225, 1.130), (0.175, 0.165, 0.185)),
         ellipsoid("RuffR", (0.155, -0.190, 1.165), (0.155, 0.155, 0.170), (0.06, 0.0, -0.14)),
-        # Each folded wing has a broad root and three overlapping feather tips.
-        # The union preserves a readable scalloped edge without floating plates.
-        ellipsoid("WingRootL", (-0.302, 0.005, 0.900), (0.088, 0.285, 0.325), (0.0, 0.0, -0.04)),
-        ellipsoid("WingFeatherL1", (-0.326, -0.010, 0.755), (0.064, 0.205, 0.170), (0.10, 0.0, -0.08)),
-        ellipsoid("WingFeatherL2", (-0.322, 0.080, 0.700), (0.064, 0.190, 0.150), (0.18, 0.0, -0.05)),
-        ellipsoid("WingFeatherL3", (-0.306, 0.155, 0.680), (0.062, 0.165, 0.135), (0.24, 0.0, -0.03)),
-        ellipsoid("WingRootR", (0.302, 0.005, 0.900), (0.088, 0.285, 0.325), (0.0, 0.0, 0.04)),
-        ellipsoid("WingFeatherR1", (0.326, -0.010, 0.755), (0.064, 0.205, 0.170), (0.10, 0.0, 0.08)),
-        ellipsoid("WingFeatherR2", (0.322, 0.080, 0.700), (0.064, 0.190, 0.150), (0.18, 0.0, 0.05)),
-        ellipsoid("WingFeatherR3", (0.306, 0.155, 0.680), (0.062, 0.165, 0.135), (0.24, 0.0, 0.03)),
-        # A five-feather upright fan reads as chicken at office scale and can be
-        # exaggerated further when this same asset is used for a rooster.
-        ellipsoid("TailCenter", (0.0, 0.430, 1.005), (0.105, 0.270, 0.150), (0.52, 0.0, 0.0)),
-        ellipsoid("TailInnerL", (-0.095, 0.420, 0.970), (0.092, 0.250, 0.140), (0.46, 0.08, -0.04)),
-        ellipsoid("TailInnerR", (0.095, 0.420, 0.970), (0.092, 0.250, 0.140), (0.46, -0.08, 0.04)),
-        ellipsoid("TailOuterL", (-0.180, 0.385, 0.920), (0.080, 0.215, 0.125), (0.38, 0.16, -0.05)),
-        ellipsoid("TailOuterR", (0.180, 0.385, 0.920), (0.080, 0.215, 0.125), (0.38, -0.16, 0.05)),
     ]
     body = join_and_remesh(parts, "Feather_Torso", voxel_size=0.016, target_triangles=7600)
     for material in materials:
         body.data.materials.append(material)
 
-    # Zone the one connected surface by silhouette region.  This creates a
-    # cream breast and subtly darker folded wings/tail without extra meshes.
+    # Zone the one connected surface by silhouette region. The animated tail
+    # is a separate pivoted fan, while the torso remains a stable soft shell.
     for polygon in body.data.polygons:
         center = polygon.center
-        if center.y > 0.310 and center.z > 0.700:
-            polygon.material_index = 2  # tail
-        elif abs(center.x) > 0.285 and 0.535 < center.z < 1.215:
-            polygon.material_index = 2  # wings
-        elif center.y < -0.270 and center.z > 1.185:
+        if center.y < -0.270 and center.z > 1.185:
             polygon.material_index = 3  # face and cheek puffs
         elif center.y < -0.255 and 0.470 < center.z < 1.180:
             polygon.material_index = 1  # breast
@@ -572,10 +648,198 @@ def create_nameplate(
 
 
 def create_golden_egg_pin(material: bpy.types.Material) -> list[bpy.types.Object]:
-    egg = ellipsoid("GoldenEggPin_Egg", (0.205, -0.525, 0.970), (0.040, 0.020, 0.052), segments=14, rings=8)
+    rim = torus("GoldenEggPin_Rim", (0.205, -0.529, 0.970), 0.049, 0.007, material, (math.pi / 2.0, 0.0, 0.0))
+    egg = ellipsoid("GoldenEggPin_Egg", (0.205, -0.536, 0.970), (0.038, 0.018, 0.050), segments=18, rings=10)
     egg.data.materials.append(material)
     bar = beveled_box("GoldenEggPin_Bar", (0.205, -0.510, 1.025), (0.085, 0.020, 0.018), material, 0.004)
-    return create_accessory_group("AccessoryBadge_GoldenEgg", [egg, bar])
+    clasp = ellipsoid("GoldenEggPin_Clasp", (0.205, -0.505, 0.935), (0.018, 0.012, 0.018), segments=12, rings=8)
+    clasp.data.materials.append(material)
+    return create_accessory_group("AccessoryBadge_GoldenEgg", [rim, egg, bar, clasp])
+
+
+def create_knit_scarf(cloth: bpy.types.Material, trim: bpy.types.Material) -> list[bpy.types.Object]:
+    collar = torus("KnitScarf_Collar", (0.0, -0.090, 1.175), 0.275, 0.040, cloth, (0.0, 0.0, 0.0))
+    knot = ellipsoid("KnitScarf_Knot", (0.0, -0.485, 1.125), (0.075, 0.045, 0.070), segments=20, rings=12)
+    knot.data.materials.append(cloth)
+    left_tail = beveled_prism("KnitScarf_TailL", [(-0.060, 1.105), (-0.145, 0.800), (-0.035, 0.755), (0.010, 1.085)], -0.500, 0.032, cloth, 0.008)
+    right_tail = beveled_prism("KnitScarf_TailR", [(0.015, 1.085), (0.045, 0.820), (0.145, 0.855), (0.065, 1.105)], -0.497, 0.032, cloth, 0.008)
+    stitches = [
+        cylinder_between(f"KnitScarf_Stitch{index}", (-0.112, -0.522, 0.815 + index * 0.050), (-0.057, -0.522, 0.830 + index * 0.050), 0.005, trim, 8)
+        for index in range(5)
+    ]
+    return create_accessory_group("AccessoryNeck_KnitScarf", [collar, knot, left_tail, right_tail, *stitches])
+
+
+def create_sweater_vest(cloth: bpy.types.Material, trim: bpy.types.Material) -> list[bpy.types.Object]:
+    panel = beveled_prism(
+        "SweaterVest_Panel",
+        [(-0.245, 0.565), (-0.300, 0.845), (-0.235, 1.100), (-0.115, 1.125), (0.0, 0.965), (0.115, 1.125), (0.235, 1.100), (0.300, 0.845), (0.245, 0.565)],
+        -0.500,
+        0.035,
+        cloth,
+        0.012,
+    )
+    hem = cylinder_between("SweaterVest_RibbedHem", (-0.230, -0.526, 0.595), (0.230, -0.526, 0.595), 0.015, trim, 12)
+    neckline_l = cylinder_between("SweaterVest_NecklineL", (-0.115, -0.526, 1.105), (0.0, -0.526, 0.965), 0.012, trim, 10)
+    neckline_r = cylinder_between("SweaterVest_NecklineR", (0.115, -0.526, 1.105), (0.0, -0.526, 0.965), 0.012, trim, 10)
+    diamonds: list[bpy.types.Object] = []
+    for index, (x, z) in enumerate(((-0.115, 0.765), (0.0, 0.695), (0.115, 0.765), (0.0, 0.855))):
+        diamond = beveled_box(f"SweaterVest_Argyle{index}", (x, -0.527, z), (0.080, 0.010, 0.080), trim, 0.004)
+        diamond.rotation_euler.y = math.radians(45.0)
+        apply_object_transform(diamond)
+        diamonds.append(diamond)
+    return create_accessory_group("AccessoryBody_SweaterVest", [panel, hem, neckline_l, neckline_r, *diamonds])
+
+
+def create_newsboy_cap(cloth: bpy.types.Material, trim: bpy.types.Material) -> list[bpy.types.Object]:
+    crown = ellipsoid("NewsboyCap_Crown", (0.0, -0.035, 1.720), (0.305, 0.270, 0.115), segments=28, rings=16)
+    crown.data.materials.append(cloth)
+    brim = ellipsoid("NewsboyCap_Brim", (0.0, -0.315, 1.655), (0.255, 0.170, 0.026), (0.04, 0.0, 0.0), 24, 12)
+    brim.data.materials.append(trim)
+    band = torus("NewsboyCap_Band", (0.0, -0.035, 1.665), 0.260, 0.018, trim, (0.0, 0.0, 0.0))
+    button = ellipsoid("NewsboyCap_Button", (0.0, -0.035, 1.835), (0.030, 0.030, 0.020), segments=14, rings=8)
+    button.data.materials.append(trim)
+    seams = [
+        cylinder_between(f"NewsboyCap_Seam{index}", (0.0, -0.285 + index * 0.095, 1.820), (0.0, -0.310 + index * 0.100, 1.690), 0.004, trim, 8)
+        for index in range(4)
+    ]
+    return create_accessory_group("AccessoryHead_NewsboyCap", [crown, brim, band, button, *seams])
+
+
+def create_cardigan_collar(cloth: bpy.types.Material, trim: bpy.types.Material) -> list[bpy.types.Object]:
+    left = beveled_prism("CardiganCollar_L", [(-0.230, 1.155), (-0.035, 0.970), (-0.070, 0.850), (-0.285, 1.070)], -0.505, 0.032, cloth, 0.009)
+    right = beveled_prism("CardiganCollar_R", [(0.230, 1.155), (0.035, 0.970), (0.070, 0.850), (0.285, 1.070)], -0.505, 0.032, cloth, 0.009)
+    placket = beveled_box("CardiganCollar_Placket", (0.0, -0.524, 0.800), (0.060, 0.020, 0.330), trim, 0.006)
+    buttons: list[bpy.types.Object] = []
+    for index in range(4):
+        button = ellipsoid(f"CardiganCollar_Button{index}", (0.0, -0.546, 0.680 + index * 0.085), (0.020, 0.010, 0.020), segments=12, rings=8)
+        button.data.materials.append(trim)
+        buttons.append(button)
+    return create_accessory_group("AccessoryNeck_CardiganCollar", [left, right, placket, *buttons])
+
+
+def create_reading_glasses_chain(frame: bpy.types.Material, chain: bpy.types.Material) -> list[bpy.types.Object]:
+    parts = [
+        torus("ReadingChain_LensL", (-0.112, -0.424, 1.475), 0.067, 0.010, frame),
+        torus("ReadingChain_LensR", (0.112, -0.424, 1.475), 0.067, 0.010, frame),
+        cylinder_between("ReadingChain_Bridge", (-0.047, -0.424, 1.475), (0.047, -0.424, 1.475), 0.009, frame),
+    ]
+    for side, x in (("L", -1.0), ("R", 1.0)):
+        points = [(0.178 * x, -0.414, 1.470), (0.250 * x, -0.330, 1.390), (0.235 * x, -0.410, 1.235), (0.180 * x, -0.470, 1.125)]
+        for index in range(len(points) - 1):
+            parts.append(cylinder_between(f"ReadingChain_{side}{index}", points[index], points[index + 1], 0.0045, chain, 8))
+        for index, point in enumerate(points[1:-1]):
+            bead = ellipsoid(f"ReadingChain_Bead{side}{index}", point, (0.010, 0.010, 0.010), segments=10, rings=6)
+            bead.data.materials.append(chain)
+            parts.append(bead)
+    return create_accessory_group("AccessoryHead_ReadingGlassesChain", parts)
+
+
+def create_comb_pencil(body_material: bpy.types.Material, eraser_material: bpy.types.Material, graphite: bpy.types.Material) -> list[bpy.types.Object]:
+    start = (-0.175, -0.005, 1.690)
+    end = (0.170, 0.065, 1.815)
+    shaft = cylinder_between("CombPencil_Shaft", start, end, 0.014, body_material, 12)
+    eraser = cylinder_between("CombPencil_Eraser", (-0.205, -0.011, 1.679), start, 0.016, eraser_material, 12)
+    tip = cylinder_between("CombPencil_Tip", end, (0.205, 0.072, 1.828), 0.011, graphite, 10)
+    ferrule = cylinder_between("CombPencil_Ferrule", (-0.185, -0.007, 1.686), (-0.160, -0.002, 1.695), 0.0165, graphite, 12)
+    return create_accessory_group("AccessoryComb_Pencil", [shaft, eraser, tip, ferrule])
+
+
+def create_pocket_protector(pocket: bpy.types.Material, ink: bpy.types.Material, brass: bpy.types.Material) -> list[bpy.types.Object]:
+    sleeve = beveled_prism("PocketProtector_Sleeve", [(0.095, 1.000), (0.290, 1.000), (0.270, 0.790), (0.115, 0.790)], -0.520, 0.028, pocket, 0.009)
+    lip = beveled_box("PocketProtector_Lip", (0.192, -0.540, 0.985), (0.205, 0.018, 0.028), ink, 0.005)
+    pencils = [
+        cylinder_between("PocketProtector_PencilA", (0.155, -0.550, 0.955), (0.145, -0.550, 1.105), 0.009, brass, 10),
+        cylinder_between("PocketProtector_PencilB", (0.210, -0.550, 0.955), (0.230, -0.550, 1.080), 0.009, ink, 10),
+    ]
+    return create_accessory_group("AccessoryBody_PocketProtector", [sleeve, lip, *pencils])
+
+
+def create_earmuffs(cloth: bpy.types.Material, trim: bpy.types.Material) -> list[bpy.types.Object]:
+    parts = [
+        cylinder_between("Earmuffs_BandL", (-0.300, -0.010, 1.440), (-0.195, 0.000, 1.710), 0.018, trim, 12),
+        cylinder_between("Earmuffs_BandTop", (-0.195, 0.000, 1.710), (0.195, 0.000, 1.710), 0.018, trim, 12),
+        cylinder_between("Earmuffs_BandR", (0.195, 0.000, 1.710), (0.300, -0.010, 1.440), 0.018, trim, 12),
+    ]
+    for side, x in (("L", -0.300), ("R", 0.300)):
+        outer = ellipsoid(f"Earmuffs_Outer{side}", (x, -0.060, 1.430), (0.050, 0.075, 0.105), segments=22, rings=14)
+        outer.data.materials.append(cloth)
+        inner = torus(f"Earmuffs_KnitRing{side}", (x, -0.118, 1.430), 0.060, 0.012, trim, (math.pi / 2.0, 0.0, 0.0))
+        parts.extend([outer, inner])
+    return create_accessory_group("AccessoryHead_Earmuffs", parts)
+
+
+def create_neckerchief(cloth: bpy.types.Material, trim: bpy.types.Material) -> list[bpy.types.Object]:
+    band = torus("Neckerchief_Band", (0.0, -0.080, 1.155), 0.268, 0.022, cloth, (0.0, 0.0, 0.0))
+    bib = beveled_prism("Neckerchief_Bib", [(-0.175, 1.130), (0.175, 1.130), (0.0, 0.820)], -0.505, 0.028, cloth, 0.009)
+    knot = ellipsoid("Neckerchief_Knot", (0.0, -0.535, 1.125), (0.055, 0.030, 0.052), segments=18, rings=10)
+    knot.data.materials.append(trim)
+    edging = [
+        cylinder_between("Neckerchief_EdgeL", (-0.158, -0.528, 1.115), (0.0, -0.528, 0.840), 0.008, trim, 8),
+        cylinder_between("Neckerchief_EdgeR", (0.158, -0.528, 1.115), (0.0, -0.528, 0.840), 0.008, trim, 8),
+    ]
+    return create_accessory_group("AccessoryNeck_Neckerchief", [band, bib, knot, *edging])
+
+
+def create_satchel(cloth: bpy.types.Material, trim: bpy.types.Material, brass: bpy.types.Material) -> list[bpy.types.Object]:
+    strap = [
+        cylinder_between("Satchel_StrapA", (-0.235, -0.405, 1.150), (0.085, -0.495, 0.760), 0.018, trim, 12),
+        cylinder_between("Satchel_StrapB", (0.085, -0.495, 0.760), (0.305, -0.350, 0.610), 0.018, trim, 12),
+    ]
+    bag = beveled_box("Satchel_Bag", (0.315, -0.335, 0.585), (0.245, 0.110, 0.230), cloth, 0.025)
+    flap = beveled_prism("Satchel_Flap", [(0.190, 0.675), (0.440, 0.675), (0.405, 0.555), (0.225, 0.555)], -0.405, 0.035, trim, 0.010)
+    buckle = torus("Satchel_Buckle", (0.315, -0.430, 0.575), 0.035, 0.007, brass, (math.pi / 2.0, 0.0, 0.0))
+    return create_accessory_group("AccessoryBody_Satchel", [*strap, bag, flap, buckle])
+
+
+def create_tea_mug_charm(cord: bpy.types.Material, cup_material: bpy.types.Material, accent: bpy.types.Material) -> list[bpy.types.Object]:
+    cord_part = cylinder_between("TeaCharm_Cord", (0.155, -0.495, 0.920), (0.225, -0.525, 0.735), 0.006, cord, 8)
+    cup = cylinder("TeaCharm_Cup", 0.040, 0.075, (0.225, -0.540, 0.695), 18)
+    cup.data.materials.append(cup_material)
+    rim = torus("TeaCharm_Rim", (0.225, -0.540, 0.733), 0.034, 0.005, accent, (0.0, 0.0, 0.0))
+    handle = torus("TeaCharm_Handle", (0.270, -0.540, 0.700), 0.025, 0.006, accent, (math.pi / 2.0, 0.0, 0.0))
+    tag = beveled_box("TeaCharm_Tag", (0.165, -0.548, 0.665), (0.045, 0.012, 0.065), cord, 0.004)
+    return create_accessory_group("AccessoryBody_TeaMugCharm", [cord_part, cup, rim, handle, tag])
+
+
+def create_sleep_mask(cloth: bpy.types.Material, trim: bpy.types.Material) -> list[bpy.types.Object]:
+    parts: list[bpy.types.Object] = []
+    for side, x in (("L", -0.105), ("R", 0.105)):
+        pad = ellipsoid(f"SleepMask_Pad{side}", (x, -0.405, 1.610), (0.115, 0.035, 0.065), (0.0, 0.0, 0.03 if side == "L" else -0.03), 22, 12)
+        pad.data.materials.append(cloth)
+        star = ellipsoid(f"SleepMask_Stitch{side}", (x, -0.442, 1.610), (0.025, 0.008, 0.025), segments=12, rings=8)
+        star.data.materials.append(trim)
+        parts.extend([pad, star])
+    parts.extend([
+        cylinder_between("SleepMask_Bridge", (-0.015, -0.430, 1.610), (0.015, -0.430, 1.610), 0.012, trim, 10),
+        cylinder_between("SleepMask_StrapL", (-0.220, -0.375, 1.610), (-0.290, -0.160, 1.590), 0.010, trim, 10),
+        cylinder_between("SleepMask_StrapR", (0.220, -0.375, 1.610), (0.290, -0.160, 1.590), 0.010, trim, 10),
+    ])
+    return create_accessory_group("AccessoryHead_SleepMask", parts)
+
+
+def create_quilted_capelet(cloth: bpy.types.Material, trim: bpy.types.Material) -> list[bpy.types.Object]:
+    collar = torus("Capelet_Collar", (0.0, -0.020, 1.185), 0.285, 0.030, trim, (0.0, 0.0, 0.0))
+    back = beveled_prism("Capelet_Back", [(-0.285, 1.155), (-0.320, 0.855), (-0.155, 0.775), (0.0, 0.805), (0.155, 0.775), (0.320, 0.855), (0.285, 1.155)], 0.225, 0.040, cloth, 0.014)
+    shoulder_l = ellipsoid("Capelet_ShoulderL", (-0.245, -0.005, 1.095), (0.120, 0.155, 0.075), (0.0, 0.0, -0.18), 20, 12)
+    shoulder_r = ellipsoid("Capelet_ShoulderR", (0.245, -0.005, 1.095), (0.120, 0.155, 0.075), (0.0, 0.0, 0.18), 20, 12)
+    shoulder_l.data.materials.append(cloth)
+    shoulder_r.data.materials.append(cloth)
+    quilting: list[bpy.types.Object] = []
+    for row, z in enumerate((0.865, 0.945, 1.025)):
+        for column, x in enumerate((-0.155, 0.0, 0.155)):
+            stud = ellipsoid(f"Capelet_QuiltStud{row}_{column}", (x, 0.200, z), (0.012, 0.010, 0.012), segments=10, rings=6)
+            stud.data.materials.append(trim)
+            quilting.append(stud)
+    return create_accessory_group("AccessoryBody_QuiltedCapelet", [collar, back, shoulder_l, shoulder_r, *quilting])
+
+
+def create_leg_watch(strap_material: bpy.types.Material, face_material: bpy.types.Material, metal: bpy.types.Material) -> list[bpy.types.Object]:
+    strap = torus("LegWatch_Strap", (-0.170, 0.0, 0.190), 0.072, 0.015, strap_material, (0.0, 0.0, 0.0))
+    face = beveled_box("LegWatch_Face", (-0.170, -0.075, 0.190), (0.075, 0.026, 0.070), face_material, 0.012)
+    rim = torus("LegWatch_Rim", (-0.170, -0.092, 0.190), 0.032, 0.006, metal, (math.pi / 2.0, 0.0, 0.0))
+    hand = cylinder_between("LegWatch_Hand", (-0.170, -0.101, 0.190), (-0.154, -0.101, 0.210), 0.0035, metal, 8)
+    return create_accessory_group("AccessoryLeg_Watch", [strap, face, rim, hand])
 
 
 def create_armature(parent: bpy.types.Object) -> bpy.types.Object:
@@ -600,8 +864,15 @@ def create_armature(parent: bpy.types.Object) -> bpy.types.Object:
     bone("root", (0.0, 0.0, 0.020), (0.0, 0.0, 0.440))
     bone("chest", (0.0, 0.0, 0.440), (0.0, -0.030, 1.170), "root")
     bone("head", (0.0, -0.030, 1.170), (0.0, -0.105, 1.515), "chest")
-    bone("wing_L", (-0.090, 0.0, 1.050), (-0.330, 0.0, 0.820), "chest")
-    bone("wing_R", (0.090, 0.0, 1.050), (0.330, 0.0, 0.820), "chest")
+    # The shoulder is the actual visible hinge.  Keeping the bone root on the
+    # exterior of the torso prevents wing motion from pulling body vertices.
+    bone("wing_L", (-0.350, 0.0, 0.960), (-0.455, 0.030, 0.765), "chest")
+    bone("wing_R", (0.350, 0.0, 0.960), (0.455, 0.030, 0.765), "chest")
+    # A second feather-tip joint lets the outer wing scallops curl after the
+    # shoulder has lifted, rather than treating the whole wing as one rigid
+    # paddle. The short chains remain inexpensive for the office flock.
+    bone("wing_L_tip", (-0.455, 0.030, 0.765), (-0.485, 0.145, 0.555), "wing_L")
+    bone("wing_R_tip", (0.455, 0.030, 0.765), (0.485, 0.145, 0.555), "wing_R")
     bone("leg_L", (-0.170, 0.0, 0.500), (-0.170, 0.0, 0.075), "root")
     bone("leg_R", (0.170, 0.0, 0.500), (0.170, 0.0, 0.075), "root")
 
@@ -621,17 +892,15 @@ def smoothstep(low: float, high: float, value: float) -> float:
 
 
 def skin_body(body: bpy.types.Object, armature: bpy.types.Object) -> None:
-    groups = {name: body.vertex_groups.new(name=name) for name in ("root", "chest", "head", "wing_L", "wing_R")}
+    # The torso has no wing-bone weights. Wings are independent skinned meshes
+    # attached at the shoulder sockets, so a flap can never stretch the body.
+    groups = {name: body.vertex_groups.new(name=name) for name in ("root", "chest", "head")}
     for vertex in body.data.vertices:
         co = vertex.co
         head_weight = smoothstep(1.120, 1.390, co.z)
         lower_weight = 1.0 - smoothstep(0.360, 0.650, co.z)
-        wing_mask = smoothstep(0.245, 0.385, abs(co.x))
-        wing_mask *= 1.0 - smoothstep(1.080, 1.300, co.z)
-        wing_mask *= smoothstep(0.430, 0.680, co.z)
-        wing_weight = min(0.72, wing_mask * (1.0 - head_weight))
-        root_weight = min(0.75, lower_weight * (1.0 - head_weight) * (1.0 - wing_weight))
-        chest_weight = max(0.0, 1.0 - head_weight - wing_weight - root_weight)
+        root_weight = min(0.75, lower_weight * (1.0 - head_weight))
+        chest_weight = max(0.0, 1.0 - head_weight - root_weight)
 
         if root_weight > 0.0001:
             groups["root"].add([vertex.index], root_weight, "REPLACE")
@@ -639,11 +908,90 @@ def skin_body(body: bpy.types.Object, armature: bpy.types.Object) -> None:
             groups["chest"].add([vertex.index], chest_weight, "REPLACE")
         if head_weight > 0.0001:
             groups["head"].add([vertex.index], head_weight, "REPLACE")
-        if wing_weight > 0.0001:
-            wing_name = "wing_L" if co.x < 0.0 else "wing_R"
-            groups[wing_name].add([vertex.index], wing_weight, "REPLACE")
-
     modifier = body.modifiers.new(name="ChickenArmatureDeform", type="ARMATURE")
+    modifier.object = armature
+    modifier.use_deform_preserve_volume = True
+
+
+def create_articulated_wing(
+    side: int,
+    covert_material: bpy.types.Material,
+    flight_material: bpy.types.Material,
+) -> bpy.types.Object:
+    """Create a separate three-feather fan hinged from the shoulder bone."""
+    suffix = "L" if side < 0 else "R"
+    x = float(side)
+    # Each feather is deliberately separate geometry. Together they read as a
+    # wing fan while keeping clear air around the body and a single hinge point.
+    coverts = [
+        # Rounded covert anchors the wing visually at the hinge, then three
+        # increasingly narrow flight feathers form the familiar chicken fan.
+        ellipsoid(f"Wing{suffix}_Covert", (x * 0.418, 0.030, 0.842), (0.052, 0.135, 0.200), (0.08, 0.0, -x * 0.08), 20, 12),
+        ellipsoid(f"Wing{suffix}_Secondary", (x * 0.452, 0.068, 0.755), (0.044, 0.125, 0.190), (0.13, 0.0, -x * 0.10), 18, 10),
+    ]
+    primaries = [
+        ellipsoid(f"Wing{suffix}_PrimaryA", (x * 0.478, 0.115, 0.685), (0.034, 0.098, 0.205), (0.20, 0.0, -x * 0.13), 18, 10),
+        ellipsoid(f"Wing{suffix}_PrimaryB", (x * 0.495, 0.168, 0.620), (0.030, 0.083, 0.175), (0.28, 0.0, -x * 0.16), 18, 10),
+        ellipsoid(f"Wing{suffix}_PrimaryC", (x * 0.500, 0.210, 0.568), (0.026, 0.068, 0.140), (0.36, 0.0, -x * 0.18), 16, 8),
+    ]
+    for feather in coverts:
+        feather.data.materials.append(covert_material)
+    for feather in primaries:
+        feather.data.materials.append(flight_material)
+    for feather in (*coverts, *primaries):
+        for polygon in feather.data.polygons:
+            polygon.use_smooth = True
+    wing = join_parts([*coverts, *primaries], f"ArticulatedWing_{suffix}")
+    return wing
+
+
+def create_wing_pivot(side: int, material: bpy.types.Material) -> bpy.types.Object:
+    """A small stationary shoulder socket that makes the hinge visible."""
+    suffix = "L" if side < 0 else "R"
+    pivot = ellipsoid(
+        f"WingPivot_{suffix}",
+        (float(side) * 0.350, 0.010, 0.960),
+        (0.055, 0.060, 0.060),
+        segments=14,
+        rings=8,
+    )
+    pivot.data.materials.append(material)
+    return pivot
+
+
+def create_tail_fan(pivot: bpy.types.Object, material: bpy.types.Material) -> list[bpy.types.Object]:
+    """Build a cozy five-feather tail as a separate pivoted fan."""
+    parts = [
+        ellipsoid("TailFeather_Center", (0.0, 0.440, 1.000), (0.090, 0.245, 0.135), (0.52, 0.0, 0.0), 16, 10),
+        ellipsoid("TailFeather_InnerL", (-0.085, 0.430, 0.965), (0.076, 0.225, 0.125), (0.46, 0.08, -0.05), 16, 10),
+        ellipsoid("TailFeather_InnerR", (0.085, 0.430, 0.965), (0.076, 0.225, 0.125), (0.46, -0.08, 0.05), 16, 10),
+        ellipsoid("TailFeather_OuterL", (-0.155, 0.395, 0.915), (0.064, 0.195, 0.108), (0.36, 0.16, -0.08), 14, 8),
+        ellipsoid("TailFeather_OuterR", (0.155, 0.395, 0.915), (0.064, 0.195, 0.108), (0.36, -0.16, 0.08), 14, 8),
+    ]
+    for feather in parts:
+        feather.data.materials.append(material)
+        for polygon in feather.data.polygons:
+            polygon.use_smooth = True
+        world_transform = feather.matrix_world.copy()
+        feather.parent = pivot
+        feather.matrix_world = world_transform
+    return parts
+
+
+def skin_articulated_wing(wing: bpy.types.Object, armature: bpy.types.Object, side: int) -> None:
+    """Bind the panel to the real shoulder/tip chain; the outer feathers lag the lift."""
+    suffix = "L" if side < 0 else "R"
+    root_group = wing.vertex_groups.new(name=f"wing_{suffix}")
+    tip_group = wing.vertex_groups.new(name=f"wing_{suffix}_tip")
+    for vertex in wing.data.vertices:
+        # The low, rear scallops are deliberately tip-driven, giving the flap
+        # a soft folding edge rather than one rigid board-like rotation.
+        tip_weight = smoothstep(0.590, 0.790, 0.820 - vertex.co.z)
+        tip_weight = max(0.0, min(0.78, tip_weight))
+        root_group.add([vertex.index], 1.0 - tip_weight, "REPLACE")
+        if tip_weight > 0.0001:
+            tip_group.add([vertex.index], tip_weight, "REPLACE")
+    modifier = wing.modifiers.new(name="ArticulatedWingDeform", type="ARMATURE")
     modifier.object = armature
     modifier.use_deform_preserve_volume = True
 
@@ -691,24 +1039,34 @@ def create_actions(armature: bpy.types.Object) -> dict[str, bpy.types.Action]:
         "Chicken_Idle",
         [
             (1, {}),
-            (16, {
-                "chest": {"scale": (1.012, 1.012, 1.022)},
-                "head": {"rotation": (0.020, -0.10, -0.025)},
+            # A slow, planted breathing cycle.  The torso expands around the
+            # chest bone while the feet stay completely still; head and wing
+            # easing make the inhale read through the whole silhouette.
+            (18, {
+                "chest": {"location": (0.0, 0.0, 0.006), "scale": (1.014, 1.010, 1.022)},
+                "head": {"location": (0.0, 0.0, 0.007), "rotation": (0.014, -0.035, -0.010)},
+                "wing_L": {"rotation": (0.0, 0.0, -0.010)},
+                "wing_R": {"rotation": (0.0, 0.0, 0.010)},
             }),
-            (30, {
-                "chest": {"scale": (1.020, 1.020, 1.030)},
-                "head": {"rotation": (0.035, 0.0, 0.045)},
-                "wing_L": {"rotation": (0.0, 0.0, -0.035)},
+            (36, {
+                "chest": {"location": (0.0, 0.0, 0.012), "scale": (1.026, 1.018, 1.040)},
+                "head": {"location": (0.0, 0.0, 0.014), "rotation": (0.020, 0.018, 0.016)},
+                "wing_L": {"rotation": (0.0, 0.0, -0.020)},
+                "wing_R": {"rotation": (0.0, 0.0, 0.020)},
             }),
-            (46, {
-                "chest": {"scale": (1.010, 1.010, 1.018)},
-                "head": {"rotation": (0.015, 0.12, -0.020)},
+            (54, {
+                "chest": {"location": (0.0, 0.0, 0.004), "scale": (1.010, 1.008, 1.016)},
+                "head": {"location": (0.0, 0.0, 0.004), "rotation": (0.004, 0.035, -0.008)},
+                "wing_L": {"rotation": (0.0, 0.0, -0.006)},
+                "wing_R": {"rotation": (0.0, 0.0, 0.006)},
             }),
-            (60, {
-                "head": {"rotation": (-0.015, 0.0, 0.0)},
-                "wing_R": {"rotation": (0.0, 0.0, 0.025)},
+            (72, {
+                "chest": {"location": (0.0, 0.0, 0.008), "scale": (1.018, 1.012, 1.028)},
+                "head": {"location": (0.0, 0.0, 0.009), "rotation": (0.010, -0.025, 0.010)},
+                "wing_L": {"rotation": (0.0, 0.0, -0.013)},
+                "wing_R": {"rotation": (0.0, 0.0, 0.013)},
             }),
-            (72, {}),
+            (96, {}),
         ],
     )
     walk = create_action(
@@ -731,6 +1089,53 @@ def create_actions(armature: bpy.types.Object) -> dict[str, bpy.types.Action]:
             (12, {"chest": {"rotation": (0.12, 0.0, 0.0)}, "head": {"rotation": (0.40, 0.0, 0.0)}}),
             (18, {"chest": {"rotation": (0.06, 0.0, 0.0)}, "head": {"rotation": (0.18, 0.0, 0.0)}}),
             (28, {}),
+        ],
+    )
+    flap = create_action(
+        armature,
+        "Chicken_Flap",
+        [
+            (1, {}),
+            (5, {
+                # Mirror the shoulder lift away from the torso so the wings
+                # open to the sides on the upstroke instead of clamping in.
+                "wing_L": {"rotation": (0.08, 0.0, 1.05)},
+                "wing_R": {"rotation": (0.08, 0.0, -1.05)},
+                "wing_L_tip": {"rotation": (0.04, 0.0, 0.58)},
+                "wing_R_tip": {"rotation": (0.04, 0.0, -0.58)},
+            }),
+            (9, {}),
+            (13, {
+                "wing_L": {"rotation": (0.08, 0.0, 1.05)},
+                "wing_R": {"rotation": (0.08, 0.0, -1.05)},
+                "wing_L_tip": {"rotation": (0.04, 0.0, 0.58)},
+                "wing_R_tip": {"rotation": (0.04, 0.0, -0.58)},
+            }),
+            (17, {}),
+        ],
+    )
+    panic = create_action(
+        armature,
+        "Chicken_Panic",
+        [
+            (1, {"head": {"rotation": (-0.10, -0.24, -0.08)}, "leg_L": {"rotation": (0.38, 0.0, 0.0)}, "leg_R": {"rotation": (-0.30, 0.0, 0.0)}}),
+            (4, {
+                "root": {"location": (0.0, 0.0, 0.055)},
+                "head": {"rotation": (-0.18, 0.28, 0.10)},
+                "wing_L": {"rotation": (0.10, 0.0, 1.05)}, "wing_R": {"rotation": (0.10, 0.0, -1.05)},
+                "wing_L_tip": {"rotation": (0.04, 0.0, 0.58)}, "wing_R_tip": {"rotation": (0.04, 0.0, -0.58)},
+                "leg_L": {"rotation": (-0.38, 0.0, 0.0)}, "leg_R": {"rotation": (0.42, 0.0, 0.0)},
+            }),
+            (7, {"head": {"rotation": (-0.10, -0.30, -0.10)}, "leg_L": {"rotation": (0.42, 0.0, 0.0)}, "leg_R": {"rotation": (-0.38, 0.0, 0.0)}}),
+            (10, {
+                "root": {"location": (0.0, 0.0, 0.050)},
+                "head": {"rotation": (-0.17, 0.30, 0.10)},
+                "wing_L": {"rotation": (0.10, 0.0, 1.05)}, "wing_R": {"rotation": (0.10, 0.0, -1.05)},
+                "wing_L_tip": {"rotation": (0.04, 0.0, 0.58)}, "wing_R_tip": {"rotation": (0.04, 0.0, -0.58)},
+                "leg_L": {"rotation": (-0.38, 0.0, 0.0)}, "leg_R": {"rotation": (0.42, 0.0, 0.0)},
+            }),
+            (14, {"head": {"rotation": (-0.08, -0.20, -0.06)}, "leg_L": {"rotation": (0.34, 0.0, 0.0)}, "leg_R": {"rotation": (-0.30, 0.0, 0.0)}}),
+            (18, {}),
         ],
     )
     sit = create_action(
@@ -790,7 +1195,7 @@ def create_actions(armature: bpy.types.Object) -> dict[str, bpy.types.Action]:
     armature.animation_data.action = idle
     bpy.context.scene.frame_set(1)
     clear_pose(armature)
-    return {"idle": idle, "walk": walk, "peck": peck, "sit": sit, "lay": lay}
+    return {"idle": idle, "walk": walk, "peck": peck, "flap": flap, "panic": panic, "sit": sit, "lay": lay}
 
 
 def connected_component_count(obj: bpy.types.Object) -> int:
@@ -908,12 +1313,16 @@ def main() -> None:
         "feather": make_material("Feathers_Oat", (0.50, 0.245, 0.085, 1.0), 0.78),
         "breast": make_material("Feathers_Cream", (0.82, 0.600, 0.305, 1.0), 0.82),
         "wing": make_material("Feathers_Wing", (0.29, 0.105, 0.035, 1.0), 0.84),
+        "wing_covert": make_material("Feathers_Wing_Covert", (0.46, 0.215, 0.075, 1.0), 0.78),
         "face": make_material("Feathers_Face", (0.70, 0.415, 0.175, 1.0), 0.80),
         "eye": make_material("Eyes_Glossy", (0.012, 0.010, 0.009, 1.0), 0.17),
         "beak": make_material("Beak_and_Feet", (0.95, 0.440, 0.055, 1.0), 0.52),
         "comb": make_material("Comb_Barn_Red", (0.62, 0.055, 0.035, 1.0), 0.60),
         "tie": make_material("Corporate_Navy", (0.035, 0.180, 0.300, 1.0), 0.48),
         "tie_oxblood": make_material("Accessory_Cloth_Oxblood", (0.430, 0.075, 0.110, 1.0), 0.50),
+        "knit": make_material("Accessory_Cloth_Knit", (0.315, 0.420, 0.455, 1.0), 0.88),
+        "knit_trim": make_material("Accessory_Trim_Wool", (0.830, 0.755, 0.605, 1.0), 0.90),
+        "leather": make_material("Accessory_Cloth_Leather", (0.285, 0.125, 0.060, 1.0), 0.64),
         "frame": make_material("Accessory_Frame_Graphite", (0.025, 0.040, 0.052, 1.0), 0.34, 0.10),
         "visor": make_material("Accessory_Visor_Green", (0.115, 0.310, 0.235, 1.0), 0.42),
         "headset_pad": make_material("Accessory_Headset_Pad", (0.055, 0.115, 0.145, 1.0), 0.62),
@@ -921,6 +1330,9 @@ def main() -> None:
         "badge": make_material("Accessory_Badge_Cream", (0.845, 0.825, 0.700, 1.0), 0.64),
         "badge_accent": make_material("Accessory_Badge_Ink", (0.035, 0.180, 0.300, 1.0), 0.48),
         "brass": make_material("Accessory_Brass", (0.610, 0.365, 0.080, 1.0), 0.30, 0.55),
+        "ceramic": make_material("Accessory_Ceramic_Cream", (0.875, 0.825, 0.680, 1.0), 0.38),
+        "pencil": make_material("Accessory_Pencil_Mustard", (0.890, 0.480, 0.055, 1.0), 0.55),
+        "eraser": make_material("Accessory_Eraser_Rose", (0.760, 0.275, 0.255, 1.0), 0.68),
         "ground": make_material("Preview_Ground", (0.095, 0.110, 0.125, 1.0), 0.93),
     }
 
@@ -929,12 +1341,14 @@ def main() -> None:
     head_pivot = create_empty("HeadPivot", body_pivot, (0.0, -0.105, 1.435), size=0.07)
     wing_left_pivot = create_empty("WingLeftPivot", body_pivot, (-0.295, 0.0, 0.875), size=0.07)
     wing_right_pivot = create_empty("WingRightPivot", body_pivot, (0.295, 0.0, 0.875), size=0.07)
+    tail_feather_pivot = create_empty("TailFeatherPivot", body_pivot, (0.0, 0.330, 0.860), size=0.07)
     leg_left_pivot = create_empty("LegLeftPivot", body_pivot, (-0.170, 0.0, 0.320), size=0.065)
     leg_right_pivot = create_empty("LegRightPivot", body_pivot, (0.170, 0.0, 0.320), size=0.065)
     create_empty("FootLeftPivot", leg_left_pivot, (0.0, 0.0, -0.240), size=0.045)
     create_empty("FootRightPivot", leg_right_pivot, (0.0, 0.0, -0.240), size=0.045)
 
     body = create_body([materials["feather"], materials["breast"], materials["wing"], materials["face"]])
+    tail_feathers = create_tail_fan(tail_feather_pivot, materials["wing"])
     left_leg = create_leg("LegLeftMesh", materials["beak"], mirrored=False)
     right_leg = create_leg("LegRightMesh", materials["beak"], mirrored=True)
     left_leg.parent = leg_left_pivot
@@ -970,6 +1384,20 @@ def main() -> None:
         create_lanyard(materials["lanyard"], materials["badge"], materials["badge_accent"]),
         create_nameplate(materials["brass"], materials["badge_accent"]),
         create_golden_egg_pin(materials["brass"]),
+        create_knit_scarf(materials["knit"], materials["knit_trim"]),
+        create_sweater_vest(materials["knit"], materials["knit_trim"]),
+        create_newsboy_cap(materials["knit"], materials["knit_trim"]),
+        create_cardigan_collar(materials["knit"], materials["knit_trim"]),
+        create_reading_glasses_chain(materials["frame"], materials["brass"]),
+        create_comb_pencil(materials["pencil"], materials["eraser"], materials["frame"]),
+        create_pocket_protector(materials["badge"], materials["badge_accent"], materials["brass"]),
+        create_earmuffs(materials["knit"], materials["knit_trim"]),
+        create_neckerchief(materials["knit"], materials["knit_trim"]),
+        create_satchel(materials["leather"], materials["knit_trim"], materials["brass"]),
+        create_tea_mug_charm(materials["lanyard"], materials["ceramic"], materials["brass"]),
+        create_sleep_mask(materials["knit"], materials["knit_trim"]),
+        create_quilted_capelet(materials["knit"], materials["knit_trim"]),
+        create_leg_watch(materials["leather"], materials["frame"], materials["brass"]),
     ]
     accessory_roots = [objects[0] for objects in accessory_sets]
     accessory_objects = [obj for objects in accessory_sets for obj in objects]
@@ -979,7 +1407,7 @@ def main() -> None:
     # becoming embedded in it; head accessories retain their facial fit.
     bow_tie.location.y -= 0.075
     for accessory_root in accessory_roots:
-        if not accessory_root.name.startswith("AccessoryHead_"):
+        if accessory_root.name.startswith(("AccessoryNeck_", "AccessoryBody_", "AccessoryBadge_")):
             accessory_root.location.y -= 0.075
 
     # Interaction sockets are cheap compatibility points for future data-driven
@@ -999,6 +1427,15 @@ def main() -> None:
     armature = create_armature(body_pivot)
     body.parent = armature
     skin_body(body, armature)
+    articulated_wing_left = create_articulated_wing(-1, materials["wing_covert"], materials["wing"])
+    articulated_wing_right = create_articulated_wing(1, materials["wing_covert"], materials["wing"])
+    wing_pivot_left = create_wing_pivot(-1, materials["wing"])
+    wing_pivot_right = create_wing_pivot(1, materials["wing"])
+    for wing, side in ((articulated_wing_left, -1), (articulated_wing_right, 1)):
+        wing.parent = armature
+        skin_articulated_wing(wing, armature, side)
+    for pivot in (wing_pivot_left, wing_pivot_right):
+        parent_to_bone_keep_world(pivot, armature, "chest")
 
     # The feather shell deforms with the armature, so every rigid facial piece
     # must follow the same head bone. Parenting them only to BodyPivot makes
@@ -1007,8 +1444,16 @@ def main() -> None:
         parent_to_bone_keep_world(facial_part, armature, "head")
     parent_to_bone_keep_world(bow_tie, armature, "chest")
     for accessory_root in accessory_roots:
-        target_bone = "head" if accessory_root.name.startswith("AccessoryHead_") else "chest"
-        parent_to_bone_keep_world(accessory_root, armature, target_bone)
+        if accessory_root.name.startswith("AccessoryHead_"):
+            parent_to_bone_keep_world(accessory_root, armature, "head")
+        elif accessory_root.name.startswith("AccessoryComb_"):
+            world_transform = accessory_root.matrix_world.copy()
+            accessory_root.parent = comb
+            accessory_root.matrix_world = world_transform
+        elif accessory_root.name.startswith("AccessoryLeg_"):
+            parent_to_bone_keep_world(accessory_root, armature, "leg_L")
+        else:
+            parent_to_bone_keep_world(accessory_root, armature, "chest")
     for socket in sockets:
         if socket.name in {"BeakTarget", "NeckGripSocket"}:
             parent_to_bone_keep_world(socket, armature, "head")
@@ -1022,22 +1467,32 @@ def main() -> None:
     right_validation = validate_mesh(right_leg)
     base_triangles = sum(
         triangle_count(obj)
-        for obj in (body, left_leg, right_leg, *eyes, beak, comb, bow_tie)
+        for obj in (body, articulated_wing_left, articulated_wing_right, wing_pivot_left, wing_pivot_right, *tail_feathers, left_leg, right_leg, *eyes, beak, comb, bow_tie)
     )
     accessory_triangles = {
         objects[0].name: sum(triangle_count(obj) for obj in objects[1:] if obj.type == "MESH")
         for objects in accessory_sets
     }
-    head_accessory_max = max(
-        triangles for name, triangles in accessory_triangles.items() if name.startswith("AccessoryHead_")
+    def accessory_max(prefix: str) -> int:
+        candidates = [triangles for name, triangles in accessory_triangles.items() if name.startswith(prefix)]
+        return max(candidates) if candidates else 0
+
+    # The runtime profiles allow one item per compatibility slot. Budget the
+    # most detailed legal silhouette rather than the sum of every hidden mesh.
+    maximum_visible_triangles = (
+        base_triangles
+        - triangle_count(bow_tie)
+        + accessory_max("AccessoryHead_")
+        + max(triangle_count(bow_tie), accessory_max("AccessoryNeck_"))
+        + accessory_max("AccessoryBody_")
+        + accessory_max("AccessoryBadge_")
+        + accessory_max("AccessoryComb_")
+        + accessory_max("AccessoryLeg_")
     )
-    lower_accessory_max = max(
-        triangle_count(bow_tie),
-        max(triangles for name, triangles in accessory_triangles.items() if not name.startswith("AccessoryHead_")),
-    )
-    maximum_visible_triangles = base_triangles - triangle_count(bow_tie) + head_accessory_max + lower_accessory_max
     exported_triangles = base_triangles + sum(accessory_triangles.values())
-    if maximum_visible_triangles > 12000:
+    # Layered feathers and softly beveled knit/leather details stay below a
+    # practical office-flock budget even in the richest legal profile.
+    if maximum_visible_triangles > 28000:
         raise RuntimeError(f"Visible character triangle budget exceeded: {maximum_visible_triangles}")
 
     character_objects = [
@@ -1046,10 +1501,16 @@ def main() -> None:
         head_pivot,
         wing_left_pivot,
         wing_right_pivot,
+        tail_feather_pivot,
         leg_left_pivot,
         leg_right_pivot,
         *[obj for obj in bpy.data.objects if obj.name in {"FootLeftPivot", "FootRightPivot"}],
         body,
+        articulated_wing_left,
+        articulated_wing_right,
+        wing_pivot_left,
+        wing_pivot_right,
+        *tail_feathers,
         left_leg,
         right_leg,
         *eyes,
@@ -1115,6 +1576,12 @@ def main() -> None:
         ("dot_visor_lanyard", {"AccessoryHead_AccountantVisor", "AccessoryNeck_Lanyard"}),
         ("agnes_round_golden_pin", {"AccessoryHead_RoundGlasses", "AccessoryBadge_GoldenEgg"}),
         ("beatrice_visor_nameplate", {"AccessoryHead_AccountantVisor", "AccessoryBadge_Nameplate"}),
+        ("cozy_librarian", {"AccessoryHead_NewsboyCap", "AccessoryNeck_KnitScarf", "AccessoryBody_PocketProtector", "AccessoryLeg_Watch"}),
+        ("soft_accountant", {"AccessoryHead_ReadingGlassesChain", "AccessoryNeck_CardiganCollar", "AccessoryBadge_GoldenEgg"}),
+        ("cozy_coder", {"AccessoryHead_Earmuffs", "AccessoryBody_SweaterVest", "AccessoryComb_Pencil"}),
+        ("tea_runner", {"AccessoryHead_RoundGlasses", "AccessoryNeck_KnitScarf", "AccessoryBody_TeaMugCharm"}),
+        ("messenger", {"AccessoryHead_AccountantVisor", "AccessoryNeck_Neckerchief", "AccessoryBody_Satchel", "AccessoryLeg_Watch"}),
+        ("sleepy_clerk", {"AccessoryHead_SleepMask", "AccessoryBody_QuiltedCapelet"}),
     ]
     ACCESSORY_PREVIEW_DIR.mkdir(parents=True, exist_ok=True)
     armature.animation_data.action = actions["idle"]

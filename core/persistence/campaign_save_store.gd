@@ -15,6 +15,11 @@ extends RefCounted
 ##     "recovery_source": String,
 ## }
 ##
+## Callers that must perform domain-level validation across the complete campaign
+## payload can use load_recovery_candidates(). It returns every envelope-valid
+## snapshot in deterministic attempt order without assuming that envelope validity
+## also proves the nested campaign, simulation, and career ledgers are coherent.
+##
 ## To add a schema, increment CURRENT_SCHEMA_VERSION and override or extend
 ## _migrate_one_version(). Each migration must advance exactly one version.
 
@@ -119,42 +124,69 @@ func save(campaign: Dictionary, metadata: Dictionary = {}) -> bool:
 ## Loads the current campaign envelope, or an empty Dictionary on failure.
 ## A corrupt/missing primary falls back to the newest valid recovery snapshot.
 func load() -> Dictionary:
+	var candidates := load_recovery_candidates()
+	if candidates.is_empty():
+		return {}
+	var selected := candidates[0]
+	return _public_envelope(
+		selected,
+		bool(selected.get("recovered_from_backup", false)),
+		String(selected.get("recovery_source", "primary"))
+	)
+
+
+## Returns every envelope-valid snapshot for caller-owned semantic validation.
+##
+## Ordering deliberately preserves load() selection behavior: a valid primary is
+## always first, followed by recovery artifacts in descending save revision. Equal
+## recovery revisions use the stable source order backup, temporary, then
+## backup_temporary. Invalid or unreadable artifacts are excluded.
+##
+## Each candidate is a deep-isolated public envelope with two additional fields:
+##     "save_revision": int  - canonical revision copied from metadata
+##     "is_recovery": bool   - false only for the primary artifact
+## Existing "recovery_source" and "recovered_from_backup" fields are retained so
+## a semantic loader can publish the same recovery disclosure as load().
+func load_recovery_candidates() -> Array[Dictionary]:
 	last_error = ""
 	if not _ensure_configured():
-		return {}
+		return []
 
 	var errors: Array[String] = []
-	if FileAccess.file_exists(_primary_path):
-		var primary_result := _read_envelope(_primary_path)
-		if bool(primary_result.get("ok", false)):
-			return _public_envelope(primary_result.get("envelope", {}) as Dictionary, false, "primary")
-		errors.append("primary: %s" % String(primary_result.get("error", "invalid")))
-
-	var best_recovery: Dictionary = {}
-	for path in [_backup_path, _temporary_path, _backup_temporary_path]:
+	var primary_candidate: Dictionary = {}
+	var recovery_candidates: Array[Dictionary] = []
+	for path in _all_paths():
 		if not FileAccess.file_exists(path):
 			continue
-		var recovery_result := _read_envelope(path)
-		if not bool(recovery_result.get("ok", false)):
-			errors.append("%s: %s" % [_source_name(path), String(recovery_result.get("error", "invalid"))])
+		var result := _read_envelope(path)
+		var source := _source_name(path)
+		if not bool(result.get("ok", false)):
+			errors.append("%s: %s" % [source, String(result.get("error", "invalid"))])
 			continue
-		if best_recovery.is_empty() or int(recovery_result.get("revision", -1)) > int(best_recovery.get("revision", -1)):
-			best_recovery = recovery_result.duplicate(true)
-			best_recovery["source"] = _source_name(path)
-
-	if not best_recovery.is_empty():
-		last_error = ""
-		return _public_envelope(
-			best_recovery.get("envelope", {}) as Dictionary,
-			true,
-			String(best_recovery.get("source", "recovery"))
+		var candidate := _recovery_candidate(
+			result.get("envelope", {}) as Dictionary,
+			source,
+			int(result.get("revision", 0))
 		)
+		if source == "primary":
+			primary_candidate = candidate
+		else:
+			recovery_candidates.append(candidate)
+
+	recovery_candidates.sort_custom(_recovery_candidate_precedes)
+	var ordered: Array[Dictionary] = []
+	if not primary_candidate.is_empty():
+		ordered.append(primary_candidate)
+	ordered.append_array(recovery_candidates)
+	if not ordered.is_empty():
+		last_error = ""
+		return ordered
 
 	if errors.is_empty():
 		last_error = "No campaign save found."
 	else:
 		last_error = "No valid campaign save found (%s)." % "; ".join(errors)
-	return {}
+	return []
 
 
 ## Removes the primary, backup, and any interrupted-write artifacts.
@@ -421,6 +453,36 @@ func _public_envelope(envelope: Dictionary, recovered: bool, source: String) -> 
 		"recovered_from_backup": recovered,
 		"recovery_source": source,
 	}
+
+
+func _recovery_candidate(envelope: Dictionary, source: String, revision: int) -> Dictionary:
+	var is_recovery := source != "primary"
+	var candidate := _public_envelope(envelope, is_recovery, source)
+	candidate["save_revision"] = revision
+	candidate["is_recovery"] = is_recovery
+	return candidate
+
+
+func _recovery_candidate_precedes(first: Dictionary, second: Dictionary) -> bool:
+	var first_revision := int(first.get("save_revision", 0))
+	var second_revision := int(second.get("save_revision", 0))
+	if first_revision != second_revision:
+		return first_revision > second_revision
+	return _recovery_source_priority(String(first.get("recovery_source", "unknown"))) < _recovery_source_priority(
+		String(second.get("recovery_source", "unknown"))
+	)
+
+
+func _recovery_source_priority(source: String) -> int:
+	match source:
+		"backup":
+			return 0
+		"temporary":
+			return 1
+		"backup_temporary":
+			return 2
+		_:
+			return 3
 
 
 func _collect_integer_paths(envelope: Dictionary) -> Array[String]:

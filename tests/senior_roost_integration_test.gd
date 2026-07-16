@@ -43,14 +43,33 @@ func _run() -> void:
 	var continue_button := office.find_child("ContinueProbationButton", true, false) as Button
 	var policy_cards := office.find_children("MilestoneChoice_*", "Button", true, false)
 	_check(bool(office.get("_campaign_senior_roost")), "successful continuation should enter the real Senior mode", failures)
-	_check(senior != null and senior.status == SeniorRoostState.STATUS_QUARTER_CHOICE, "Senior entry should require an immediate first-quarter policy", failures)
+	_check(senior != null and senior.status == SeniorRoostState.STATUS_QUARTER_CHOICE, "Senior entry should open the first annual planning gate", failures)
+	_check(senior != null and senior.requires_annual_mandate(), "Senior entry should require one frozen annual Board Mandate before Q1 policy", failures)
 	_check(senior.last_recorded_day == 5, "Senior ledger should begin immediately after the fifth probation shift", failures)
 	_check(campaign.completed_shifts == 5, "Senior entry must not mutate the immutable probation record", failures)
-	_check(report != null and report.is_visible_in_tree() and policy_cards.size() == 3, "Senior entry should open three visible capital-policy cards", failures)
-	_check(continue_button != null and continue_button.disabled, "first Senior shift must remain gated until a policy is filed", failures)
-	_check(report_heading != null and "CAPITAL FILING" in report_heading.text, "entry report should explain the new recurring decision", failures)
+	_check(report != null and report.is_visible_in_tree() and policy_cards.size() == 3, "Senior entry should open exactly three visible annual mandate cards", failures)
+	_check(continue_button != null and continue_button.disabled, "first Senior shift must remain gated until annual terms and a policy are filed", failures)
+	_check(report_heading != null and "ANNUAL BOARD MANDATE" in report_heading.text, "entry report should explain the year-long Board decision", failures)
 	var senior_visible_text := _visible_text(office)
 	_check(senior_visible_text.find("probation") == -1, "visible Senior filing should not leak probation language: %s" % _matching_lines(senior_visible_text, "probation"), failures)
+	_check("no mark stake" in senior_visible_text and "targets" in senior_visible_text and "seal" in senior_visible_text, "annual mandate cards should disclose fallback stake, targets, and permanent seal rewards", failures)
+
+	var standard_book := office.find_child("MilestoneChoice_standard_board_book", true, false) as Button
+	_check(standard_book != null and not standard_book.disabled, "Standard Board Book should guarantee an available no-stake annual fallback", failures)
+	_press(standard_book)
+	await process_frame
+	await process_frame
+	senior = office.get("_senior_roost_state") as SeniorRoostState
+	policy_cards = office.find_children("MilestoneChoice_*", "Button", true, false)
+	continue_button = office.find_child("ContinueProbationButton", true, false) as Button
+	_check(not senior.requires_annual_mandate() and senior.requires_quarter_policy(), "filing annual terms should advance to the separate Q1 policy gate", failures)
+	_check(StringName(senior.active_annual_mandate().get("id", "")) == SeniorRoostState.MANDATE_FALLBACK_ID, "annual mandate intent should reach the authoritative career ledger", failures)
+	_check(policy_cards.size() == 3 and continue_button.disabled, "annual acceptance should immediately show three quarterly capital choices while preserving the gate", failures)
+	_check(report_heading != null and "QUARTER 1 CAPITAL FILING" in report_heading.text, "accepted annual terms should visibly orient the Q1 policy decision", failures)
+	var mandate_envelope := store.load()
+	var mandate_payload := mandate_envelope.get("campaign", {}) as Dictionary
+	var mandate_state := SeniorRoostState.from_dictionary(mandate_payload.get("senior_roost", {}) as Dictionary)
+	_check(mandate_state != null and StringName(mandate_state.active_annual_mandate().get("id", "")) == SeniorRoostState.MANDATE_FALLBACK_ID, "annual mandate selection should checkpoint immediately", failures)
 
 	var fund_before := simulation.revenue_cents
 	var quota_before := simulation.quota_target
@@ -66,9 +85,18 @@ func _run() -> void:
 	var selected_envelope := store.load()
 	var selected_payload := selected_envelope.get("campaign", {}) as Dictionary
 	var selected_state := SeniorRoostState.from_dictionary(selected_payload.get("senior_roost", {}) as Dictionary)
-	_check(selected_state != null and selected_state.active_policy_id == &"harvest_forecast", "policy selection should checkpoint the separate Senior ledger immediately", failures)
+	_check(selected_state != null and selected_state.active_policy_id == &"harvest_forecast" and StringName(selected_state.active_annual_mandate().get("id", "")) == SeniorRoostState.MANDATE_FALLBACK_ID, "policy selection should checkpoint both the quarter policy and annual terms immediately", failures)
 
 	_press(continue_button)
+	await process_frame
+	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_CONTRACT_BOARD, "Senior continuation should route through the recurring Farm Mutual planning file", failures)
+	var decline_contract := office.find_child("DeclineContractButton", true, false) as Button
+	_check(decline_contract != null and decline_contract.is_visible_in_tree() and not decline_contract.disabled, "Senior planning should retain the explicit no-contract fallback", failures)
+	_press(decline_contract)
+	await process_frame
+	var open_contract_shift := office.find_child("OpenContractShiftButton", true, false) as Button
+	_check(open_contract_shift != null and not open_contract_shift.disabled, "standard-book receipt should authorize the Senior morning briefing", failures)
+	_press(open_contract_shift)
 	await process_frame
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "filed policy should return to the playable office", failures)
 	_check(simulation.day == 6 and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "Senior continuation should open the next real simulation briefing", failures)
@@ -78,6 +106,10 @@ func _run() -> void:
 	# the Senior ledger once, while the final signal closes the quarter.
 	for senior_day in [6, 7, 8]:
 		simulation.pending_decision.clear()
+		# This focused fixture emits Office's workday signal directly instead of
+		# running DepartmentSimulation._complete_workday(), so mirror the real
+		# boundary cleanup for the explicit no-contract planning receipt.
+		simulation.market_contract_decline_receipt.clear()
 		simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
 		simulation.day = senior_day + 1
 		simulation.workday_completed.emit(_senior_report(senior_day, senior_day - 5))
@@ -97,6 +129,10 @@ func _run() -> void:
 	continue_button = office.find_child("ContinueProbationButton", true, false) as Button
 	_check(senior.completed_quarters == 1 and senior.status == SeniorRoostState.STATUS_QUARTER_CHOICE, "third Senior shift should close one scored quarter and gate the next policy", failures)
 	_check(int(senior.last_quarter_review.get("score", -1)) == 100 and senior.roost_marks == 3, "three strong shifts should yield the exact perfect-quarter promotion reward", failures)
+	var mandate_progress := senior.current_annual_mandate_progress()
+	var mandate_checkpoint := senior.last_quarter_review.get("annual_mandate_checkpoint", {}) as Dictionary
+	_check(int(mandate_progress.get("shifts_recorded", -1)) == 3 and int(mandate_checkpoint.get("shifts_recorded", -1)) == 3, "quarter close should preserve a three-of-twelve annual mandate checkpoint", failures)
+	_check(not senior.requires_annual_mandate() and StringName(senior.active_annual_mandate().get("id", "")) == SeniorRoostState.MANDATE_FALLBACK_ID, "quarter two should retain the same year-long mandate instead of asking again", failures)
 	_check(policy_cards.size() == 3 and continue_button.disabled, "quarter close should restore the three-choice capital gate", failures)
 	_check("QUARTER 2 CAPITAL FILING" in report_heading.text, "quarter close should visibly orient the next recurring cycle", failures)
 	_check(StringName(office.get("_campaign_review_stage")) == &"senior_quarter", "quarter gate should have its own restorable review stage", failures)
@@ -134,7 +170,7 @@ func _run() -> void:
 			push_error("SENIOR_ROOST_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SENIOR_ROOST_INTEGRATION_TEST_PASSED handoff=final-to-policy effects=exact shifts=3x1 quarter=scored save=round-trip restore=visible-gate")
+	print("SENIOR_ROOST_INTEGRATION_TEST_PASSED handoff=final-to-mandate-to-policy mandate=3-of-12 effects=exact shifts=3x1 quarter=scored save=round-trip restore=visible-gate")
 	quit(0)
 
 

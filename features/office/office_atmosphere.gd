@@ -34,6 +34,8 @@ var _quota_pressure: float = 0.0
 var _average_stress: float = 0.0
 var _event_pulse: float = 0.0
 var _elapsed: float = 0.0
+var _atmosphere_enabled: bool = true
+var _reduced_motion: bool = false
 
 
 func _ready() -> void:
@@ -85,21 +87,23 @@ func pulse_egg_laid(world_position: Vector3, quality: StringName = &"sound") -> 
 	elif quality == &"cracked":
 		color = Color("b67d70")
 		count = 9
-	_spawn_event_burst("EggGatheringPulse", world_position, color, count, Vector3.UP, Vector2(0.25, 0.75), 0.72)
+	if not _reduced_motion:
+		_spawn_event_burst("EggGatheringPulse", world_position, color, count, Vector3.UP, Vector2(0.25, 0.75), 0.72)
 	_event_pulse = maxf(_event_pulse, 0.5 if quality != &"golden" else 0.9)
 
 
 ## Call when the feed party begins. Defaults to the current trough location.
 func pulse_feed_party(world_position: Vector3 = Vector3(-10.15, 0.72, 0.0)) -> void:
-	_spawn_event_burst(
-		"FeedPartyPulse",
-		world_position,
-		Color("e2b84f"),
-		18,
-		Vector3.UP,
-		Vector2(0.45, 1.05),
-		1.05
-	)
+	if not _reduced_motion:
+		_spawn_event_burst(
+			"FeedPartyPulse",
+			world_position,
+			Color("e2b84f"),
+			18,
+			Vector3.UP,
+			Vector2(0.45, 1.05),
+			1.05
+		)
 	_event_pulse = maxf(_event_pulse, 0.72)
 
 
@@ -111,6 +115,9 @@ func pulse_alert(severity: float = 1.0) -> void:
 func pulse_farmer_review() -> void:
 	if _farmer_spotlight == null:
 		return
+	if _reduced_motion:
+		_farmer_spotlight.light_energy = 0.0
+		return
 	_farmer_spotlight.light_energy = 0.92 * atmosphere_strength
 	var tween := create_tween().bind_node(self)
 	tween.tween_interval(2.6)
@@ -118,15 +125,25 @@ func pulse_farmer_review() -> void:
 
 
 func set_atmosphere_enabled(enabled: bool) -> void:
+	_atmosphere_enabled = enabled
+	_apply_effect_preferences()
+
+
+func set_reduced_motion(enabled: bool) -> void:
+	_reduced_motion = enabled
+	_apply_effect_preferences()
+
+
+func _apply_effect_preferences() -> void:
 	if _dust_motes != null:
-		_dust_motes.emitting = enabled
+		_dust_motes.emitting = _atmosphere_enabled and not _reduced_motion
 	if _drifting_feathers != null:
-		_drifting_feathers.emitting = enabled
+		_drifting_feathers.emitting = _atmosphere_enabled and not _reduced_motion
 	for light in _zone_lights:
-		light.visible = enabled
+		light.visible = _atmosphere_enabled
 	var alert_bars := get_node_or_null("OvertimeAlertBars") as Node3D
 	if alert_bars != null:
-		alert_bars.visible = enabled
+		alert_bars.visible = _atmosphere_enabled
 
 
 func _build_ambient_particles() -> void:

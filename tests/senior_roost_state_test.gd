@@ -11,6 +11,11 @@ func _init() -> void:
 	var constrained_catalog := senior.policy_catalog(1000)
 	_check(not bool(constrained_catalog[0].get("available", true)), "Merit Grants should respect spendable operating reserves", failures)
 	_check(bool(constrained_catalog[2].get("available", false)), "Harvest Forecast should remain a no-cost fallback", failures)
+	var mandate_catalog := senior.annual_mandate_catalog()
+	_check(senior.requires_annual_mandate() and mandate_catalog.size() == 3, "Senior entry should freeze exactly three annual mandates", failures)
+	_check(StringName(mandate_catalog[0].get("id", &"")) == SeniorRoostStateScript.MANDATE_FALLBACK_ID, "the first mandate should be the universal fallback", failures)
+	_check(not senior.record_quarter_policy(_policy_receipt(&"merit_grants")), "Q1 policy should wait for an annual mandate", failures)
+	_check(bool(senior.select_annual_mandate(SeniorRoostStateScript.MANDATE_FALLBACK_ID, 1).get("accepted", false)), "the fallback mandate should open Senior Year 1", failures)
 
 	_check(senior.record_quarter_policy(_policy_receipt(&"merit_grants")), "an authoritative policy receipt should start the quarter", failures)
 	_check(senior.status == SeniorRoostStateScript.STATUS_ACTIVE, "filed policy should activate Senior shifts", failures)
@@ -52,6 +57,7 @@ func _init() -> void:
 	_check(restored != null and restored.to_dictionary() == senior.to_dictionary(), "Senior state should survive primitive JSON round-trip", failures)
 
 	_check(senior.continue_after_annual(), "annual review should continue into an uncapped next year", failures)
+	_check(bool(senior.select_annual_mandate(SeniorRoostStateScript.MANDATE_FALLBACK_ID, 2).get("accepted", false)), "Year 2 should require and accept a fresh mandate", failures)
 	# A second, deliberately poor year proves the annual safeguards can fail while
 	# keeping the career available for a performance-improvement year.
 	for _quarter in SeniorRoostStateScript.QUARTERS_PER_YEAR:
@@ -64,9 +70,10 @@ func _init() -> void:
 	_check(senior.completed_years == 2 and senior.successful_years == 1, "failed Senior year must not erase the earlier success", failures)
 	_check(not bool(senior.last_annual_review.get("passed", true)), "unsafe annual ledgers should fail", failures)
 	_check(senior.continue_after_annual(), "failed annual review should still permit another year", failures)
+	_check(bool(senior.select_annual_mandate(SeniorRoostStateScript.MANDATE_FALLBACK_ID, 3).get("accepted", false)), "Year 3 should accept the fallback mandate", failures)
 
 	# Retain only the latest eight annual records during long-form continuation.
-	for _year in 8:
+	for long_year in 8:
 		for _quarter in SeniorRoostStateScript.QUARTERS_PER_YEAR:
 			_check(senior.record_quarter_policy(_policy_receipt(&"harvest_forecast")), "long-form quarter policy should file", failures)
 			for _shift in SeniorRoostStateScript.SHIFTS_PER_QUARTER:
@@ -74,6 +81,8 @@ func _init() -> void:
 				_check(bool(senior.record_shift(_good_report(next_day, rework_total, 14_000)).get("accepted", false)), "long-form Senior shift should file", failures)
 				next_day += 1
 		_check(senior.continue_after_annual(), "long-form annual review should continue", failures)
+		if long_year < 7:
+			_check(bool(senior.select_annual_mandate(SeniorRoostStateScript.MANDATE_FALLBACK_ID, long_year + 4).get("accepted", false)), "each long-form year should file one annual mandate", failures)
 	_check(senior.completed_years == 10 and senior.annual_history.size() == SeniorRoostStateScript.MAX_ANNUAL_HISTORY, "annual history should stay bounded without capping career progression", failures)
 
 	var corrupt_total := senior.to_dictionary()

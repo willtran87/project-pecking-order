@@ -1,8 +1,10 @@
 extends SceneTree
 
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
+const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
 const MAIN_SAVE_FILENAME := "first_clutch_induction_test.json"
 const INFLIGHT_SAVE_FILENAME := "first_clutch_induction_inflight_test.json"
+const TEST_TIME_SCALE := 6.0
 const PERSISTED_FIELDS: Array[String] = [
 	"version",
 	"dismissed",
@@ -17,19 +19,24 @@ const PERSISTED_FIELDS: Array[String] = [
 	"delivery_laid",
 	"delivery_seen",
 	"orders_handoff_acknowledged",
+	"delivered_claim_id",
 	"delivered_quality",
 	"delivered_value_cents",
 	"delivered_priority_credit_cents",
 	"potential_priority_credit_cents",
 	"prior_presentations_pending",
+	"reinvestment_grandfathered",
 ]
-
 
 func _init() -> void:
 	_run.call_deferred()
 
 
 func _run() -> void:
+	var original_time_scale := Engine.time_scale
+	# This isolated process still exercises production navigation, tweens, signals,
+	# and basket callbacks; it only runs their player-facing pacing faster for CI.
+	Engine.time_scale = TEST_TIME_SCALE
 	var failures: Array[String] = []
 	var store = CampaignSaveStoreScript.new(MAIN_SAVE_FILENAME)
 	var inflight_store = CampaignSaveStoreScript.new(INFLIGHT_SAVE_FILENAME)
@@ -362,56 +369,48 @@ func _run() -> void:
 	var completed := await _wait_until_first_clutch_completed(office, 8.0)
 	state = office.first_clutch_snapshot()
 	_check(completed and bool(state.get("delivery_seen", false)) and bool(state.get("completed", false)), "farmer-basket arrival should complete induction", failures)
-	_check(StringName(state.get("stage", "")) == &"complete" and int(state.get("progress", -1)) == 5, "completed induction should report five of five", failures)
-	_check(not bool(state.get("orders_handoff_acknowledged", true)) and bool(state.get("orders_handoff_pending", false)), "completion should retain an unacknowledged objectives handoff", failures)
+	_check(StringName(state.get("stage", "")) == &"reinvestment" and int(state.get("progress", -1)) == 5, "completed induction should report five of five while reinvestment is unresolved", failures)
+	_check(not bool(state.get("orders_handoff_acknowledged", true)) and not bool(state.get("orders_handoff_pending", true)), "today's orders must remain gated behind the reinvestment choice", failures)
 	_check(String(state.get("delivered_quality", "")) == String(laid_state.get("delivered_quality", "")) and int(state.get("delivered_value_cents", -1)) == int(laid_state.get("delivered_value_cents", -2)), "presentation should close the same quality/value delivery that was laid", failures)
+	_check(int(state.get("delivered_claim_id", -1)) == int(state.get("assisted_claim_id", -2)), "physical presentation should retain the exact assisted claim identity", failures)
 	_check(_checkpoint_reason(store) == "first_clutch_completed", "farmer presentation should write a permanent completion checkpoint", failures)
-	var completion_title := office.find_child("FirstClutchActionTitle", true, false) as Label
-	var completion_body := office.find_child("FirstClutchActionBody", true, false) as Label
-	var completion_coach := _coach_snapshot(office, simulation)
-	_check(coach != null and coach.visible and completion_title != null and "FIRST CLUTCH FILED" in completion_title.text, "completion should hold a brief visible receipt before retiring", failures)
+	var completion_reasons: Array[String] = []
+	for candidate: Dictionary in store.load_recovery_candidates():
+		completion_reasons.append(String((candidate.get("metadata", {}) as Dictionary).get("reason", "")))
 	_check(
-		completion_body != null
-		and "Press V" in completion_body.text
-		and "three probation orders" in completion_body.text.to_lower()
-		and "Press V" in String(completion_coach.get("body", ""))
-		and "probation orders" in String(completion_coach.get("body", "")).to_lower(),
-		"completion receipt should bridge directly into Flockwatch's probation orders",
+		completion_reasons.count("first_clutch_completed") == 1
+		and not completion_reasons.has("first_clutch_reinvestment_offered"),
+		"completion should commit one full transaction rather than rotating an identical offer checkpoint",
 		failures,
 	)
-	await create_timer(5.6).timeout
-	_check(coach != null and not coach.visible, "completion receipt should retire without disabling management controls", failures)
-	completion_coach = _coach_snapshot(office, simulation)
-	state = office.first_clutch_snapshot()
-	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
-	var guidance := office.get("_guidance_label") as Label
+	var reinvestment := state.get("reinvestment", {}) as Dictionary
+	decision_host = office.find_child("ManagementDecisionHost", true, false) as Control
+	decision_title = office.get("_decision_title") as Label
+	var decision_body := office.get("_decision_body") as Label
+	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
 	_check(
-		bool(state.get("orders_handoff_pending", false))
-		and bool(completion_coach.get("orders_handoff_pending", false))
-		and bool(completion_coach.get("orders_handoff_cue_visible", false)),
-		"retiring the full receipt must preserve its compact objectives handoff for arbitrary elapsed time",
-		failures,
-	)
-	_check(
-		flockwatch_toggle != null
-		and flockwatch_toggle.text == "OPEN TODAY'S 3 ORDERS  [V]"
-		and "first clutch complete" in flockwatch_toggle.tooltip_text.to_lower(),
-		"expired receipt should leave a compact, explicit Flockwatch orders cue (text=%s tooltip=%s)" % [
-			flockwatch_toggle.text if flockwatch_toggle != null else "<missing>",
-			flockwatch_toggle.tooltip_text if flockwatch_toggle != null else "<missing>",
-		],
+		StringName(reinvestment.get("status", &"")) == &"offered"
+		and decision_host != null
+		and decision_host.visible
+		and decision_title != null
+		and "WHAT SHOULD MABEL" in decision_title.text
+		and "FIRST EGG BUILD" in decision_title.text
+		and decision_body != null
+		and "$" in decision_body.text
+		and "protected operating reserve" in decision_body.text,
+		"physical collection should open the exact First Clutch reinvestment docket",
 		failures,
 	)
 	_check(
-		guidance != null
-		and "FIRST CLUTCH 5/5" in guidance.text
-		and "three probation orders" in guidance.text.to_lower(),
-		"expired receipt should keep durable objectives guidance",
+		confirm_button != null
+		and is_equal_approx(confirm_button.custom_minimum_size.y, 66.0)
+		and (office.get("_decision_option_buttons") as Array).size() == 3,
+		"reinvestment should expose at most two purchase cards plus Bank with a 66px confirm target",
 		failures,
 	)
 
-	# The unacknowledged handoff is campaign state, not a transient timer. Continue
-	# must restore the compact cue; only a real player-opened Flockwatch view clears it.
+	# The offered choice is durable. Continue must restore the same blocking modal;
+	# only a real purchase or Bank authorization may release today's orders.
 	office.free()
 	await process_frame
 	await process_frame
@@ -425,23 +424,57 @@ func _run() -> void:
 	await process_frame
 	state = office.first_clutch_snapshot()
 	coach = office.find_child("FirstClutchCoach", true, false) as PanelContainer
-	flockwatch_toggle = office.find_child("FlockwatchToggle", true, false) as Button
-	guidance = office.get("_guidance_label") as Label
+	decision_host = office.find_child("ManagementDecisionHost", true, false) as Control
+	reinvestment = state.get("reinvestment", {}) as Dictionary
 	_check(
 		bool(state.get("completed", false))
 		and not bool(state.get("orders_handoff_acknowledged", true))
-		and bool(state.get("orders_handoff_pending", false))
+		and not bool(state.get("orders_handoff_pending", true))
+		and StringName(reinvestment.get("status", &"")) == &"offered"
+		and decision_host != null
+		and decision_host.visible
 		and coach != null
 		and not coach.visible,
-		"Continue should restore the compact handoff without resurrecting the full completion receipt",
+		"Continue should restore the unresolved reinvestment modal without leaking today's orders",
 		failures,
 	)
+	var fund_before_bank := simulation.revenue_cents
+	var bank_button := office.find_child("DecisionOption_bank_fund", true, false) as Button
+	confirm_button = office.find_child("ConfirmDecisionButton", true, false) as Button
+	_check(_press(bank_button), "Bank should remain a deliberate third reinvestment choice", failures)
+	await process_frame
+	_check(
+		confirm_button != null
+		and not confirm_button.disabled
+		and office.get_viewport().gui_get_focus_owner() == confirm_button,
+		"selecting with a card should hand keyboard focus to the 66px Confirm target",
+		failures,
+	)
+	_check(_press(confirm_button), "Bank authorization should resolve through the production modal", failures)
+	await process_frame
+	await process_frame
+	state = office.first_clutch_snapshot()
+	reinvestment = state.get("reinvestment", {}) as Dictionary
+	_check(
+		StringName(reinvestment.get("status", &"")) == &"banked"
+		and simulation.revenue_cents == fund_before_bank
+		and StringName(state.get("stage", &"")) == &"complete"
+		and bool(state.get("orders_handoff_pending", false)),
+		"Bank should spend nothing, close the offer, and only then release the orders handoff",
+		failures,
+	)
+	_check(_checkpoint_reason(store) == "first_clutch_reinvestment_resolved", "resolved reinvestment should checkpoint immediately", failures)
+	var replay := simulation.resolve_first_clutch_reinvestment(&"bank_fund")
+	_check(not bool(replay.get("accepted", true)) and bool(replay.get("idempotent", false)) and simulation.revenue_cents == fund_before_bank, "reinvestment resolution should be exact-once under replay", failures)
+	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
+	var guidance := office.get("_guidance_label") as Label
+	var flockwatch_hint := OfficeActionCatalogScript.binding_label(&"toggle_flockwatch")
 	_check(
 		flockwatch_toggle != null
-		and flockwatch_toggle.text == "OPEN TODAY'S 3 ORDERS  [V]"
+		and flockwatch_toggle.text == "FLOCKWATCH  ·  3 ACTIONS  [%s]" % flockwatch_hint
 		and guidance != null
 		and "three probation orders" in guidance.text.to_lower(),
-		"Continue should restore both the Flockwatch cue and its objectives guidance",
+		"resolved reinvestment should reveal the stable Flockwatch action count, current binding, and objectives guidance",
 		failures,
 	)
 	_check(_press(flockwatch_toggle), "player should be able to acknowledge the handoff by opening Flockwatch", failures)
@@ -463,8 +496,8 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		flockwatch_toggle.text.begins_with("CLOSE LEDGER")
-		and flockwatch_toggle.tooltip_text == "Close the ledger and restore the full coop view."
+		flockwatch_toggle.text == "FLOCKWATCH  ·  CLOSE  [%s]" % flockwatch_hint
+		and flockwatch_toggle.tooltip_text.begins_with("Close Flockwatch")
 		and guidance != null
 		and "FIRST CLUTCH 5/5" not in guidance.text,
 		"acknowledgment should retire the tutorial cue while leaving the ledger open",
@@ -485,12 +518,19 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	state = office.first_clutch_snapshot()
+	simulation = office.get("_simulation") as DepartmentSimulation
 	coach = office.find_child("FirstClutchCoach", true, false) as PanelContainer
 	_check(bool(state.get("completed", false)) and bool(state.get("delivery_seen", false)), "in-flight restore should reconcile its missing presentation animation", failures)
-	_check(StringName(state.get("stage", "")) == &"complete" and int(state.get("progress", -1)) == 5, "reconciled restore should never deadlock at delivery", failures)
+	_check(StringName(state.get("stage", "")) == &"reinvestment" and int(state.get("progress", -1)) == 5, "reconciled restore should advance into reinvestment instead of deadlocking at delivery", failures)
 	_check(String(state.get("delivered_quality", "")) == String(laid_state.get("delivered_quality", "")) and int(state.get("delivered_value_cents", -1)) == int(laid_state.get("delivered_value_cents", -2)), "in-flight reconciliation should preserve the laid egg receipt", failures)
 	_check(coach != null and not coach.visible, "reconciled completion should not resurrect a stale completion hold", failures)
-	_check(bool(state.get("orders_handoff_pending", false)), "reconciled in-flight completion should still require the durable orders handoff", failures)
+	_check(not bool(state.get("orders_handoff_pending", true)) and StringName((state.get("reinvestment", {}) as Dictionary).get("status", &"")) == &"offered", "reconciled in-flight completion should restore the required reinvestment modal before handoff", failures)
+	bank_button = office.find_child("DecisionOption_bank_fund", true, false) as Button
+	confirm_button = office.find_child("ConfirmDecisionButton", true, false) as Button
+	_check(_press(bank_button), "reconciled offer should retain Bank", failures)
+	await process_frame
+	_check(_press(confirm_button), "reconciled offer should resolve before starting another campaign", failures)
+	await process_frame
 
 	# Skip is optional and uses the same persisted session field. Reuse this Office
 	# for a clean campaign so the focused test covers the production button route.
@@ -539,11 +579,13 @@ func _run() -> void:
 	_check(main_cleaned and inflight_cleaned and not store.has_save() and not inflight_store.has_save(), "isolated induction checkpoints should be cleaned up", failures)
 
 	if not failures.is_empty():
+		Engine.time_scale = original_time_scale
 		for failure in failures:
 			push_error("FIRST_CLUTCH_INDUCTION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FIRST_CLUTCH_INDUCTION_TEST_PASSED path=Mabel-prelude-policy-route-checkin-continue-assist-lay-present restore=prelude+open-file+priority coach=resume-required+durable-orders-handoff recovery=inflight+handoff-persistence edges=speed-gate+retarget+global-checkin+ordered-completion+review-presentation+rollover-claim skip=persisted json=round-trip")
+	Engine.time_scale = original_time_scale
+	print("FIRST_CLUTCH_INDUCTION_TEST_PASSED path=Mabel-prelude-policy-route-checkin-continue-assist-lay-present-reinvest restore=prelude+open-file+priority+offer coach=resume-required+gated-orders-handoff recovery=inflight+offer-persistence choices=bank+idempotent edges=speed-gate+retarget+global-checkin+ordered-completion+review-restore+rollover-claim skip=persisted json=round-trip")
 	quit(0)
 
 
@@ -668,7 +710,7 @@ func _test_out_of_order_delivery_gating(
 	state = office.first_clutch_snapshot()
 	_check(
 		bool(state.get("completed", false))
-		and StringName(state.get("stage", "")) == &"complete"
+		and StringName(state.get("stage", "")) == &"reinvestment"
 		and int(state.get("progress", -1)) == 5,
 		"remembered out-of-order actions should complete only when all five steps exist",
 		failures,
@@ -678,6 +720,12 @@ func _test_out_of_order_delivery_gating(
 		"late prerequisite completion should remain persisted despite the outer action checkpoint",
 		failures,
 	)
+	var bank_button := office.find_child("DecisionOption_bank_fund", true, false) as Button
+	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
+	_check(_press(bank_button), "out-of-order completion should still require its real reinvestment choice", failures)
+	await process_frame
+	_check(_press(confirm_button), "out-of-order reinvestment should be resolvable through Bank", failures)
+	await process_frame
 
 
 func _test_presentation_after_farmer_review(
@@ -736,16 +784,37 @@ func _test_presentation_after_farmer_review(
 		failures,
 	)
 	state = office.first_clutch_snapshot()
+	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
+	var day_review := office.find_child("DayReviewScrim", true, false) as Control
 	_check(
 		bool(state.get("delivery_seen", false))
 		and bool(state.get("completed", false))
-		and StringName(state.get("stage", "")) == &"complete",
-		"review-state presentation should retain the final receipt and completion",
+		and StringName(state.get("stage", "")) == &"reinvestment"
+		and decision_host != null
+		and decision_host.visible
+		and day_review != null
+		and not day_review.visible,
+		"review-state presentation should temporarily replace Farmer Review with required reinvestment",
 		failures,
 	)
 	_check(
 		_checkpoint_reason(store) == "first_clutch_completed",
 		"presentation arriving after workday checkpoint should supersede it with completion",
+		failures,
+	)
+	var bank_button := office.find_child("DecisionOption_bank_fund", true, false) as Button
+	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
+	_check(_press(bank_button), "review-state reinvestment should retain Bank", failures)
+	await process_frame
+	_check(_press(confirm_button), "review-state reinvestment should resolve through the production modal", failures)
+	await process_frame
+	state = office.first_clutch_snapshot()
+	_check(
+		StringName(state.get("stage", &"")) == &"complete"
+		and day_review.visible
+		and StringName(office.get("_campaign_review_stage")) == &"farmer"
+		and clock.speed_index == 0,
+		"resolving during review should restore Farmer Review instead of resuming production",
 		failures,
 	)
 

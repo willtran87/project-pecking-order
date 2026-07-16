@@ -6,6 +6,7 @@ extends Node3D
 ## damped spring drives the limp-neck/body response during the shake.
 
 signal victim_carried_away(worker_id: int)
+signal victim_captured(worker_id: int, threat_origin: Vector3)
 
 const FOX_MODEL := preload("res://assets/models/predator_fox.glb")
 const APPROACH_SPEED := 3.8
@@ -130,6 +131,7 @@ func _advance_approach(delta: float) -> void:
 
 func _begin_grab_sequence() -> void:
 	_victim.begin_predator_capture()
+	victim_captured.emit(_victim.worker_id, _fox_root.global_position)
 	# Preserve the live employee's current world transform first. We then ease
 	# from that local transform into the jaw-held offset instead of teleporting.
 	_victim.reparent(_limp_pivot, true)
