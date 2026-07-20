@@ -10,6 +10,7 @@ extends VBoxContainer
 signal mandate_requested(mandate_id: StringName)
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
+const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
 
 const MANDATE_ORDER: Array[StringName] = [
 	&"farmer_pickup",
@@ -41,6 +42,8 @@ var _mandate_terms: Label
 var _mandate_reason: Label
 var _authorize_button: Button
 var _receipt_label: Label
+var _mandate_toggle
+var _had_actionable_mandate := false
 
 
 func _ready() -> void:
@@ -128,7 +131,12 @@ func _build_interface() -> void:
 	_stock_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_stock_label)
 
+	_mandate_toggle = FlockwatchDisclosureToggleScript.new()
+	_mandate_toggle.name = "FarmgateDispatchMandateToggle"
+	column.add_child(_mandate_toggle)
+
 	var divider := HSeparator.new()
+	divider.name = "FarmgateDispatchMandateDivider"
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(divider)
 
@@ -172,6 +180,16 @@ func _build_interface() -> void:
 	_authorize_button.disabled = true
 	_authorize_button.pressed.connect(_on_authorize_pressed)
 	column.add_child(_authorize_button)
+	var mandate_targets: Array[Control] = [
+		divider,
+		mandate_heading,
+		_mandate_selector,
+		_mandate_description,
+		_mandate_terms,
+		_mandate_reason,
+		_authorize_button,
+	]
+	_mandate_toggle.configure("CLOSING MANDATE", "4 ROUTES", mandate_targets, false)
 
 	_receipt_label = _make_label("", 10, COLOR_MUTED)
 	_receipt_label.name = "FarmgateDispatchReceipt"
@@ -216,7 +234,35 @@ func _refresh() -> void:
 	if _selected_mandate_id not in _mandates_by_id():
 		_selected_mandate_id = active_id if active_id in MANDATE_ORDER else &"farmer_pickup"
 	select_mandate(_selected_mandate_id)
+	_refresh_mandate_disclosure()
 	_refresh_receipt()
+
+
+func set_mandate_expanded(expanded: bool) -> void:
+	if _mandate_toggle != null:
+		_mandate_toggle.set_expanded(expanded)
+
+
+func mandate_expanded() -> bool:
+	return _mandate_toggle != null and _mandate_toggle.is_expanded()
+
+
+func _refresh_mandate_disclosure() -> void:
+	if _mandate_toggle == null:
+		return
+	var ready_count := 0
+	for mandate_value: Variant in _mandates_by_id().values():
+		if mandate_value is Dictionary and bool((mandate_value as Dictionary).get("can_authorize", false)):
+			ready_count += 1
+	_mandate_toggle.set_summary(
+		"%d READY / %d ROUTES" % [ready_count, MANDATE_ORDER.size()]
+		if ready_count > 0 else
+		"%d ROUTES / NONE READY" % MANDATE_ORDER.size()
+	)
+	var actionable := ready_count > 0
+	if actionable and not _had_actionable_mandate:
+		_mandate_toggle.set_expanded(true, false)
+	_had_actionable_mandate = actionable
 
 
 func _refresh_selected_mandate() -> void:

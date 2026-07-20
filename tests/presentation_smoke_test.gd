@@ -120,10 +120,10 @@ func _run() -> void:
 			_check(clip_found, "model should import %s" % required_clip, failures)
 	var torso := view.find_child("Feather_Torso", true, false) as MeshInstance3D
 	var articulated_wing := view.find_child("ArticulatedWing_L", true, false) as MeshInstance3D
-	var tail_feather := view.find_child("TailFeather_Center", true, false) as MeshInstance3D
+	var tail_feather := view.find_child("TailFeatherFan", true, false) as MeshInstance3D
 	var left_leg := view.find_child("LegLeftMesh", true, false) as Node3D
 	var right_leg := view.find_child("LegRightMesh", true, false) as Node3D
-	_check(torso != null and torso.get_aabb().size.x < 0.82, "folded wings should stay tucked into the torso silhouette", failures)
+	_check(torso != null and torso.get_aabb().size.x < 0.82, "authored wings should stay integrated with the torso silhouette", failures)
 	_check(left_leg != null and absf(left_leg.position.x) < 0.01, "left leg mesh should be centered under its animation pivot", failures)
 	_check(right_leg != null and absf(right_leg.position.x) < 0.01, "right leg mesh should be centered under its animation pivot", failures)
 	var torso_color := _surface_override_color(torso, "Feathers_Oat")
@@ -147,6 +147,12 @@ func _run() -> void:
 	var body := view.find_child("BodyPivot", true, false) as Node3D
 	_check(body != null and body.position.y > 0.45, "worker torso should rest above the chair seat", failures)
 	_check(body != null and body.rotation.x < -0.10, "working worker should peck with its connected body", failures)
+	var seated_binding_diagnostics := view.model_binding_diagnostics()
+	_check(
+		bool(seated_binding_diagnostics.get("authored_wing_pose", false)),
+		"working at a desk should preserve the same authored body-side wing pose as the manager model",
+		failures,
+	)
 
 	var attendance := Vector3(-1.0, 0.0, 0.0)
 	var trough := Vector3(0.0, 0.0, 0.0)

@@ -142,7 +142,16 @@ func _run() -> void:
 	)
 	_check(_worker_progress(simulation, 0) > first_progress_before, "accepted mouse invocation should advance authoritative claim progress", failures)
 	_check(assist_button != null and assist_button.disabled, "a stamped claim should immediately lock against duplicate input", failures)
-	_check(assist_button != null and "PRIORITY FILED" in assist_button.text, "button should confirm the completed stamp", failures)
+	_check(
+		assist_button != null and String(first_result.get("rating", "")).to_upper() in assist_button.text,
+		"button should retain the exact completed timing rating",
+		failures,
+	)
+	_check(
+		assist_button != null and "+%d%%" % int(roundf(float(first_result.get("progress_gain", 0.0)))) in assist_button.text,
+		"button should retain the exact completed file gain",
+		failures,
+	)
 
 	# The semantic action must share the same authoritative route. Prepare a new
 	# worker's window, then inject the mapped action rather than calling Office
@@ -152,16 +161,29 @@ func _run() -> void:
 	if simulation != null:
 		simulation.set_worker_at_workstation(0, false)
 		simulation.set_worker_at_workstation(1, true)
-	if routing_ui != null:
-		routing_ui.set_focus(1)
+	office.call("_on_camera_focus_changed", "PIP", 1)
 	var second_window_open := _advance_until_assist_available(simulation, 1)
 	await process_frame
 	_check(second_window_open, "a second seated hen should receive an independent timing window", failures)
 	_check(InputMap.has_action(&"peck_assist"), "Office should register a semantic peck_assist action", failures)
 	_check(_action_has_keyboard_or_gamepad_binding(&"peck_assist"), "peck_assist should expose keyboard or gamepad input", failures)
 	if clock != null:
-		clock.set_speed(1)
+		clock.set_speed(3)
 	await process_frame
+	_check(clock != null and clock.speed_index == 3, "10× should remain the player's requested speed", failures)
+	_check(
+		clock != null and clock.precision_focus_limiting() and is_equal_approx(clock.effective_multiplier(), 1.0),
+		"an inspected open claim should hold 10× at a readable 1× effective pace",
+		failures,
+	)
+	var ultra_button := office.find_child("SpeedButton_3", true, false) as Button
+	var guidance := office.get("_guidance_label") as Label
+	_check(ultra_button != null and "10×/1×" in ultra_button.text, "speed controls should disclose the temporary precision hold", failures)
+	_check(
+		guidance != null and "PRIORITY FOCUS 1×" in guidance.text,
+		"live guidance should explain the precision window (actual: %s)" % (guidance.text if guidance != null else "<missing>"),
+		failures,
+	)
 	var second_claim_id := int(simulation.peck_assist_status(1).get("claim_id", -1)) if simulation != null else -1
 	var uses_before_semantic := simulation.peck_assists_used_today if simulation != null else -1
 	var semantic_event := InputEventAction.new()
@@ -181,6 +203,25 @@ func _run() -> void:
 		"semantic input should stamp the focused hen's exact active claim",
 		failures,
 	)
+	_check(
+		clock != null and clock.precision_focus_limiting() and is_equal_approx(clock.effective_multiplier(), 1.0),
+		"filing the exact claim should retain 1× through the short result beat",
+		failures,
+	)
+	_check(
+		assist_button != null
+		and String(second_result.get("rating", "")).to_upper() in assist_button.text
+		and "shell risk" in assist_button.tooltip_text,
+		"the dossier should retain rating, gain, and shell-risk outcome clarity",
+		failures,
+	)
+	await create_timer(3.2).timeout
+	_check(
+		clock != null and not clock.precision_focus_limiting() and is_equal_approx(clock.effective_multiplier(), 10.0),
+		"the requested 10× pace should restore automatically after the result beat",
+		failures,
+	)
+	_check(ultra_button != null and ultra_button.text == "10×", "restored speed should retire the precision marker", failures)
 
 	# Let short feedback cues retire before tearing down the whole office; the
 	# dummy headless audio driver otherwise reports live playback resources.
@@ -192,7 +233,7 @@ func _run() -> void:
 			push_error("PECK_ASSIST_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PECK_ASSIST_UI_TEST_PASSED dossier=contained mouse=authoritative paused=locked semantic_input=authoritative")
+	print("PECK_ASSIST_UI_TEST_PASSED dossier=contained mouse=authoritative paused=locked semantic_input=authoritative precision_focus=1x outcome=retained")
 	quit(0)
 
 

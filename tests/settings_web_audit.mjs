@@ -53,46 +53,59 @@ const focusGameAndOpenSettings = async () => {
     if (typeof window.render_game_to_text !== "function") return false;
     return Boolean(JSON.parse(window.render_game_to_text()).settings);
   }, null, { timeout: 25_000 });
-  // A real pointer focus is required by Godot Web before it forwards keyboard
-  // events. Use a quiet top-left canvas point outside the title-card actions.
-  await canvas.click({ position: { x: 8, y: 8 } });
-  await page.keyboard.press("F10");
+  // A real DOM focus plus pointer activation is required by Godot Web before it
+  // forwards keyboard events. Retry the same public F10 route after a short
+  // readiness window instead of assuming one key event survives shader startup.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await canvas.focus();
+    await canvas.click({ position: { x: 8, y: 8 } });
+    await canvas.focus();
+    await page.keyboard.press("F10");
+    try {
+      await page.waitForFunction(() => {
+        if (typeof window.render_game_to_text !== "function") return false;
+        return JSON.parse(window.render_game_to_text()).settings?.visible === true;
+      }, null, { timeout: 5_000 });
+      return;
+    } catch {
+      await page.waitForTimeout(500);
+    }
+  }
   await waitForSettings("open");
 };
 
 const toggleHighContrast = async (expectedState) => {
-  const canvas = page.locator("canvas");
-  const bounds = await canvas.boundingBox();
-  if (!bounds) throw new Error("Godot canvas bounds were unavailable.");
-  await page.mouse.move(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.72);
-  await page.mouse.wheel(0, 1_200);
-  await page.waitForTimeout(500);
+  // Settings gives its safe Return button initial focus. Walk the authored
+  // keyboard order through five mute/slider pairs and five selectors to the
+  // High Contrast check row, then activate it with Space. This follows the
+  // same reachable path a keyboard or switch-control player uses and avoids
+  // viewport-dependent coordinates inside the Godot canvas.
+  for (let index = 0; index < 16; index += 1) {
+    await page.keyboard.press("Tab");
+  }
+  await page.waitForTimeout(300);
   await page.screenshot({
-    path: path.join(outputDir, `settings-comfort-${expectedState ? "before-on" : "before-off"}.png`),
+    path: path.join(outputDir, `settings-appearance-${expectedState ? "before-on" : "before-off"}.png`),
     fullPage: true,
   });
-  // The responsive Godot panel keeps this full-width check row pinned directly
-  // above its safety copy when the internal scroll reaches the comfort section.
-  // Use its visible switch so this browser audit exercises the real persisted
-  // control rather than mutating the diagnostic or virtual filesystem directly.
-  let changed = false;
-  for (const yRatio of [0.11, 0.13, 0.15, 0.17]) {
-    await page.mouse.click(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * yRatio);
-    await page.waitForTimeout(300);
-    const diagnostic = await readDiagnostic();
-    if (diagnostic?.settings?.high_contrast === expectedState) {
-      changed = true;
-      break;
-    }
-  }
-  if (!changed) throw new Error("Visible high-contrast control did not accept pointer input.");
+  await page.keyboard.press("Space");
+  await waitForSettings(expectedState ? "contrast-on" : "contrast-off");
 };
 
 await page.goto(url, { waitUntil: "domcontentloaded" });
 await focusGameAndOpenSettings();
 const initial = await readDiagnostic();
-if (!initial?.settings?.accessible_text?.includes("Coop Comfort and Controls")) {
+if (!initial?.settings?.accessible_text?.includes("Coop Settings and Controls")) {
   throw new Error("Open settings did not publish its accessible summary.");
+}
+if (!initial.settings.accessible_text.toLowerCase().includes("office hum + flock room tone 65 percent")) {
+  throw new Error("Open settings did not narrate the independent ambience channel.");
+}
+if (initial.settings.pause_when_unfocused !== true || initial.settings.focus_pause_active !== false) {
+  throw new Error("Fresh browser settings did not publish the default-on idle focus safety.");
+}
+if (initial.settings.audio?.ambient?.volume !== 0.65 || initial.settings.audio?.music?.volume !== 0.65) {
+  throw new Error("Fresh browser settings did not publish distinct music and ambience channels.");
 }
 if (initial.settings.high_contrast !== false) {
   throw new Error("Fresh browser context did not begin from the documented contrast default.");
@@ -108,6 +121,9 @@ await focusGameAndOpenSettings();
 const restored = await readDiagnostic();
 if (restored?.settings?.high_contrast !== true) {
   throw new Error("High-contrast preference did not survive a browser reload.");
+}
+if (restored?.settings?.pause_when_unfocused !== true || restored?.settings?.audio?.ambient?.volume !== 0.65) {
+  throw new Error("Focus safety or independent ambience did not survive browser preference restoration.");
 }
 
 await page.setViewportSize({ width: 844, height: 390 });

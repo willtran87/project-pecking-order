@@ -39,13 +39,19 @@ func _run() -> void:
 	var navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
 	var camera := office.get("_camera_controller") as ManagementCameraController
 	var routing := office.get("_routing_ui") as PeckworkRoutingUI
+	var ui_root := office.get("_ui_root") as Control
 	var toggle := office.get("_flockwatch_toggle") as Button
 	var panel := office.get("_flockwatch_panel") as PanelContainer
 	_check(
-		[simulation, clock, campaign_ui, decision_host, navigation, camera, routing, toggle, panel].all(
+		[simulation, clock, campaign_ui, decision_host, navigation, camera, routing, ui_root, toggle, panel].all(
 			func(value: Variant) -> bool: return value != null
 		),
 		"Office should compose every Flockwatch input collaborator",
+		failures,
+	)
+	_check(
+		ui_root != null and ui_root.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+		"The full-screen UI host should leave uncovered office pixels available to camera input",
 		failures,
 	)
 
@@ -81,8 +87,12 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		camera != null and not camera.is_processing_unhandled_input() and not camera.is_focused(),
-		"Flockwatch should suspend camera shortcuts and return a focused hen to overview",
+		camera != null
+		and not camera.is_processing_input()
+		and not camera.is_processing_unhandled_input()
+		and camera.is_focused()
+		and int(camera.safe_framing_state().get("focused_worker_id", -1)) == 0,
+		"Flockwatch should suspend camera shortcuts while preserving the inspected hen",
 		failures,
 	)
 	_check(
@@ -101,7 +111,13 @@ func _run() -> void:
 		"The mapped right shoulder should cycle filing pages instead of hens",
 		failures,
 	)
-	_check(camera != null and not camera.is_focused(), "Page cycling must not select a hen behind the drawer", failures)
+	_check(
+		camera != null
+		and camera.is_focused()
+		and int(camera.safe_framing_state().get("focused_worker_id", -1)) == 0,
+		"Page cycling must not change the inspected hen behind the drawer",
+		failures,
+	)
 
 	# D-pad Left is also the Normal Speed floor binding. A focused filing tab must
 	# consume its ordinary ui_left meaning before that live-floor action can fire.
@@ -158,7 +174,9 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		camera != null and camera.is_processing_unhandled_input(),
+		camera != null
+		and camera.is_processing_input()
+		and camera.is_processing_unhandled_input(),
 		"Closing the final management surface should restore camera input",
 		failures,
 	)
@@ -173,6 +191,23 @@ func _run() -> void:
 		and String(diagnostic.get("accessible_text", "")).is_empty()
 		and String(diagnostic.get("last_feedback", "")).begins_with("FILING HELD"),
 		"A closed ledger should leave history intact without claiming to be the active screen-reader surface",
+		failures,
+	)
+
+	_stage = "focused HUD arrow pan"
+	if camera != null:
+		camera.show_overview()
+	var arrow_start := (
+		camera.navigation_state().get("view_target", Vector3.ZERO) as Vector3
+		if camera != null else
+		Vector3.ZERO
+	)
+	await _send_key(KEY_RIGHT)
+	_check(
+		camera != null
+		and camera.camera_mode() == "free_overview"
+		and not (camera.navigation_state().get("view_target", Vector3.ZERO) as Vector3).is_equal_approx(arrow_start),
+		"arrow panning should precede GUI focus navigation after the ledger restores focus to its HUD button",
 		failures,
 	)
 
@@ -191,7 +226,7 @@ func _run() -> void:
 			push_error("FLOCKWATCH_INPUT_CONTEXT_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FLOCKWATCH_INPUT_CONTEXT_TEST_PASSED keyboard=open controller=pages+close focus=owned camera=suspended feedback=visible+announced")
+	print("FLOCKWATCH_INPUT_CONTEXT_TEST_PASSED keyboard=open controller=pages+close focus=owned+preserved camera=suspended feedback=visible+announced")
 	quit(0)
 
 

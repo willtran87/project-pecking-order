@@ -47,10 +47,35 @@ func _run() -> void:
 	var local_ration := ui.find_child("FeedProcurementOfferRation_local_whole_grain", true, false) as Label
 	var local_reason := ui.find_child("FeedProcurementOfferReason_local_whole_grain", true, false) as Label
 	var local_button := ui.find_child("FeedProcurementOrder_local_whole_grain", true, false) as Button
+	var offers_toggle := ui.find_child("FeedProcurementOffersToggle", true, false) as Button
+	var offer_list := ui.find_child("FeedProcurementOfferList", true, false) as VBoxContainer
 	_check(local_terms != null and _contains_all(local_terms.text, ["quantity 6 scoops", "$1.50 each", "prepaid $9.00", "shelf life 3 shifts", "expires day 10"]), "each order should disclose quantity, exact unit/prepaid cost, shelf life, and expiry", failures)
 	_check(local_ration != null and _contains_all(local_ration.text, ["ration effect", "strain -10%", "morale +2", "grievance -1"]), "each order should disclose the exact ration tradeoff", failures)
 	_check(local_reason != null and _contains_all(local_reason.text, ["ready", "farmer review open", "0 of 1"]), "an available order should explain why it is ready", failures)
 	_check(local_button != null and not local_button.disabled and local_button.focus_mode == Control.FOCUS_ALL, "an authorized review order should be keyboard actionable", failures)
+	_check(
+		offers_toggle != null
+		and offer_list != null
+		and ui.offers_expanded()
+		and offer_list.visible,
+		"an actionable deep-linked supplier file should automatically reveal its existing actions",
+		failures,
+	)
+	var original_local_button := local_button
+	ui.set_offers_expanded(false)
+	await process_frame
+	ui.apply_snapshot(_root_snapshot(true))
+	await process_frame
+	_check(
+		not ui.offers_expanded()
+		and offer_list != null
+		and not offer_list.visible
+		and ui.find_child("FeedProcurementOrder_local_whole_grain", true, false) == original_local_button,
+		"a deliberate collapse should survive a same-state refresh without rebuilding its action",
+		failures,
+	)
+	ui.set_offers_expanded(true)
+	await process_frame
 	if local_button != null:
 		local_button.pressed.emit()
 	_check(requests == [&"local_whole_grain"], "an order action should emit its stable offer ID exactly once", failures)

@@ -15,11 +15,13 @@ const OfficeAudioFeedbackScript := preload("res://features/office/office_audio_f
 const OfficeAudioDirectorScript := preload("res://features/office/office_audio_director.gd")
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
 const PlayerPreferencesStoreScript := preload("res://core/settings/player_preferences_store.gd")
+const WebPreferencesMirrorScript := preload("res://core/settings/web_preferences_mirror.gd")
 const SettingsUIScript := preload("res://features/office/settings_ui.gd")
 const PeckworkRoutingUIScript := preload("res://features/office/peckwork_routing_ui.gd")
 const RoostStaffingUIScript := preload("res://features/office/roost_staffing_ui.gd")
 const PeckingOrderUIScript := preload("res://features/office/pecking_order_ui.gd")
 const FlockwatchNavigationScript := preload("res://features/office/flockwatch_navigation.gd")
+const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
 const CapitalBlueprintUIScript := preload("res://features/office/capital_blueprint_ui.gd")
 const CampusExpansionUIScript := preload("res://features/office/campus_expansion_ui.gd")
 const CampusPortfolioUIScript := preload("res://features/office/campus_portfolio_ui.gd")
@@ -29,6 +31,7 @@ const CommissioningRevealUIScript := preload("res://features/office/commissionin
 const CampusPortfolioRevealUIScript := preload("res://features/office/campus_portfolio_reveal_ui.gd")
 const CampaignStateScript := preload("res://core/campaign/campaign_state.gd")
 const SeniorRoostStateScript := preload("res://core/campaign/senior_roost_state.gd")
+const CareerCommendationsScript := preload("res://core/campaign/career_commendations.gd")
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
 const CheckpointCoordinatorScript := preload("res://core/persistence/checkpoint_coordinator.gd")
 const ProbationCampaignUIScript := preload("res://features/office/probation_campaign_ui.gd")
@@ -41,33 +44,63 @@ const ACCESS_LANE_OFFSET := -1.95
 const CHAIR_OFFSET_Z := -1.03
 const DESK_COLUMNS := [-6.0, 0.0, 6.0]
 const DESK_ROWS := [-2.8, 3.0]
-const FEED_PARTY_STATION_POSITION := Vector3(-10.15, 0.0, 0.0)
+# Simulation desk indices remain stable, but their physical sockets are ordered
+# as a complete center/east pod before the two west-wing expansion perches. This
+# lets the opening flock read as one team without migrating worker IDs or saves.
+const DESK_SOCKET_ORDER := [
+	Vector2i(1, 0),
+	Vector2i(2, 0),
+	Vector2i(1, 1),
+	Vector2i(2, 1),
+	Vector2i(0, 0),
+	Vector2i(0, 1),
+]
+const FEED_PARTY_STATION_POSITION := Vector3(-9.80, 0.0, 0.0)
 const FEED_PARTY_STATION_SCALE := 0.78
 const FEED_PARTY_DURATION := 5.0
+const FEED_PARTY_ROLL_OFFSET := Vector3(0.0, 0.0, -2.35)
+const FEED_PARTY_ROLL_DURATION := 0.82
+const FEED_PARTY_WHEEL_TURNS := 3.0
 const INITIAL_CAMPAIGN_STAFF := 4
 const MAXIMUM_OFFICE_CAPACITY := 6
+const CAREER_DOCKET_SEEDS := [1701, 4703, 7919, 12011]
 const PECK_ASSIST_ACTION: StringName = &"peck_assist"
+const PECK_FOCUS_LEAD_PROGRESS := 16.0
+const PECK_FOCUS_RESULT_HOLD_MSEC := 2500
 const PREDATOR_DEBUG_ARGUMENT := "--enable-predator-debug"
 const FIRST_CLUTCH_VERSION := 2
 const FIRST_CLUTCH_COMPLETION_HOLD_SECONDS := 5.5
 const STATUS_TOAST_HOLD_MSEC := 5500
 const STATUS_HISTORY_LIMIT := 18
 const CHECKPOINT_ERROR_LIMIT := 240
-const LIVE_HUD_HEIGHT := 112.0
+const WEB_DIAGNOSTIC_INTERVAL_MSEC := 250
+const LIVE_HUD_HEIGHT := 92.0
 const FIRST_CLUTCH_HUD_HEIGHT := 64.0
-const LIVE_ROUTING_TOP := 120.0
+const LIVE_ROUTING_TOP := 100.0
 const FIRST_CLUTCH_ROUTING_TOP := 72.0
 const FIRST_HEN_WORKER_ID := 0
+const CAPACITY_COMMISSIONING_HOLD_SECONDS := 0.72
+const CAPACITY_COMMISSIONING_REVEAL_SECONDS := 0.34
+const CAPACITY_COMMISSIONING_SETTLE_SECONDS := 0.28
 const FIRST_CLUTCH_REINVESTMENT_KIND: StringName = &"first_clutch_reinvestment"
 const SHIFT_END_FALLBACK_MINUTE := 24 * 60
-const CORE_OVERVIEW_TARGET := Vector3(0.0, 0.65, 0.0)
-const CORE_OVERVIEW_POSITION := Vector3(17.30, 17.50, 21.50)
-const CORE_OVERVIEW_SIZE := 25.5
+const CORE_OVERVIEW_TARGET := Vector3(4.75, 0.65, -0.65)
+const CORE_OVERVIEW_POSITION := Vector3(22.05, 17.50, 20.85)
+const CORE_OVERVIEW_SIZE := 16.0
+const FIRST_HEN_FOCUS_SIZE := 6.3
+const OFFICE_FILL_LIGHT_ENERGY := 0.24
+# Camera bounds are presentation-only. The shell and every mature desk socket
+# still exist, while capacity progressively reveals the west wing and its room.
+const OPENING_OFFICE_CAMERA_BOUNDS := Rect2(Vector2(-2.0, -8.0), Vector2(13.5, 14.7))
+const FIFTH_PERCH_CAMERA_BOUNDS := Rect2(Vector2(-8.4, -8.0), Vector2(19.9, 14.7))
+const FIFTH_PERCH_OVERVIEW_SIZE := 20.75
+const FULL_OFFICE_OVERVIEW_SIZE := 23.5
 # The base frame is deliberately only the occupied bureau. Expansion visuals
 # merge their own discovered/commissioned footprints into this rectangle later;
 # an unopened parcel must never make a fresh file look like a mature campus.
 const BASE_CAMPUS_BOUNDS := Rect2(Vector2(-12.0, -9.0), Vector2(24.0, 18.0))
 const CAMPUS_PRESENTATION_MARGIN_RATIO := 1.10
+const FLOCKWATCH_DRAWER_SAFE_RIGHT := 438.0
 const EXPANDED_OVERVIEW_TARGET := Vector3(7.72, 0.65, 15.10)
 const PACKING_ANNEX_FOCUS := Vector3(15.20, 0.90, -6.00)
 const RECORDS_ANNEX_FOCUS := Vector3(15.20, 0.90, 0.00)
@@ -96,6 +129,23 @@ const CAMPUS_COMMUTE_NORTH_BYPASS_Z := 39.65
 const CAMPUS_COMMUTE_EAST_BYPASS_X := 32.15
 const CAMPUS_COMMUTE_ORCHARD_ROUTE_Z := 16.40
 const CAMPUS_COMMUTE_CREEKSIDE_ROUTE_Z := 28.40
+const DIRECTIVE_ORDER_FIT_RULES := {
+	&"record_harvest": {
+		"supports": [&"eggs", &"quota_met", &"overdue_files"],
+		"risks": [&"crack_rate_basis_points", &"welfare"],
+		"long_term": "OUTPUT + QUEUE CONTROL",
+	},
+	&"shell_assurance": {
+		"supports": [&"crack_rate_basis_points", &"rework", &"compliance"],
+		"risks": [&"eggs", &"quota_met", &"overdue_files"],
+		"long_term": "SHELL QUALITY + COMPLIANCE",
+	},
+	&"sustainable_flock": {
+		"supports": [&"welfare"],
+		"risks": [&"eggs", &"quota_met", &"overdue_files"],
+		"long_term": "FLOCK WELFARE + RECOVERY",
+	},
+}
 
 var _simulation := DepartmentSimulation.new(1701, INITIAL_CAMPAIGN_STAFF)
 var _clock := SimulationClock.new()
@@ -109,9 +159,33 @@ var _workstations_by_index: Dictionary[int, Node3D] = {}
 var _capacity_markers_by_index: Dictionary[int, Node3D] = {}
 var _workstation_nameplates: Dictionary[int, Label3D] = {}
 var _displayed_office_capacity := -1
+var _capacity_commissioning_root: Node3D
+var _capacity_commissioning_tween: Tween
+var _capacity_stage_tween: Tween
+var _capacity_commissioning_state: Dictionary = {
+	"active": false,
+	"phase": &"idle",
+	"capacity": 0,
+	"perch_index": -1,
+	"cost_cents": 0,
+	"added_daily_operating_cents": 0,
+	"reduced_motion": false,
+}
+var _workstation_nameplate_fingerprint := -1
+var _campus_bounds_fingerprint := -1
+var _capacity_marker_context_revealed := false
+var _office_physical_presentation: Node3D
+var _core_office_presentation: Node3D
+var _west_lease_partition: Node3D
+var _dormant_west_presentation: Node3D
+var _west_perch_04_presentation: Node3D
+var _west_perch_05_presentation: Node3D
+var _archive_presentation: Node3D
+var _intake_presentation: Node3D
 var _egg_layer: Node3D
 var _feed_party_station: Node3D
 var _feed_party_tween: Tween
+var _feed_party_wheels: Array[Node3D] = []
 var _feed_party_active: bool = false
 var _feed_party_previous_speed: int = 1
 var _feed_party_release_scheduled: bool = false
@@ -159,10 +233,15 @@ var _checkpoint_last_error := ""
 var _checkpoint_last_saved_reason := ""
 var _checkpoint_last_saved_unix_msec: int = 0
 var _web_checkpoint_flush_callback
+var _web_career_backup_offer_callback
+var _web_mobile_action_callback
+var _web_focus_pause_callback
 var _last_lifecycle_checkpoint_frame: int = -1
 var _last_lifecycle_checkpoint_revision: int = -1
 var _campaign_session_checkpoint_enabled := false
 var _preferences_store = PlayerPreferencesStoreScript.new()
+var _web_preferences_mirror = WebPreferencesMirrorScript.new()
+var _web_preferences_mirror_status := "not_applicable"
 var _player_preferences: Dictionary = {}
 var _campaign_ui: ProbationCampaignUI
 var _campaign_review_stage: StringName = &"active"
@@ -205,17 +284,25 @@ var _first_clutch_global_cue_tween: Tween
 var _day_label: Label
 var _time_label: Label
 var _revenue_label: Label
-var _claims_label: Label
-var _egg_label: Label
-var _quota_label: Label
-var _confidence_label: Label
-var _morale_label: Label
-var _compliance_label: Label
-var _solidarity_label: Label
+var _today_workload_label: Label
+var _today_clutch_label: Label
+var _today_flock_label: Label
+var _today_ledger_label: Label
 var _campaign_objectives_label: Label
 var _campaign_orders_heading_label: Label
+var _campaign_doctrine_label: Label
 var _campaign_safeguards_label: Label
 var _flock_labor_label: Label
+var _records_archive_label: Label
+var _commendations_disclosure_toggle
+var _commendations_summary_label: Label
+var _commendation_rows: Dictionary[StringName, Dictionary] = {}
+var _commendation_earned_style: StyleBoxFlat
+var _commendation_locked_style: StyleBoxFlat
+var _commendations_snapshot: Dictionary = {}
+var _commendations_source_fingerprint := -1
+var _commendations_seeded := false
+var _known_commendation_ids: Dictionary[StringName, bool] = {}
 var _overtime_button: Button
 var _ticker_label: Label
 var _ticker_panel: PanelContainer
@@ -223,6 +310,8 @@ var _ticker_last_text := ""
 var _ticker_hide_at_msec: int = 0
 var _status_history: Array[String] = []
 var _status_history_label: Label
+var _status_history_toggle: Button
+var _status_history_expanded := false
 var _flockwatch_panel: PanelContainer
 var _flockwatch_toggle: Button
 var _settings_button: Button
@@ -230,9 +319,16 @@ var _settings_ui: PeckingOrderSettingsUI
 var _settings_previous_speed: int = 0
 var _settings_holds_speed: bool = false
 var _settings_prior_focus_owner: Control
+var _focus_pause_active: bool = false
+var _focus_pause_previous_speed: int = 0
 var _flockwatch_open: bool = false
 var _flockwatch_prior_focus_owner: Control
 var _speed_buttons: Array[Button] = []
+var _priority_peck_focus_worker_id := -1
+var _priority_peck_result_hold_until_msec := 0
+var _priority_peck_result_hold_worker_id := -1
+var _priority_peck_result_hold_claim_id := -1
+var _priority_peck_focus_disarmed_worker_id := -1
 var _ui_root: Control
 var _top_hud_panel: PanelContainer
 var _shift_objective_row: HBoxContainer
@@ -244,10 +340,16 @@ var _directive_badge: Label
 var _guidance_label: Label
 var _feed_button: Button
 var _upgrade_buttons: Dictionary[StringName, Button] = {}
+var _upgrade_disclosure_toggle
+var _had_actionable_upgrade := false
 var _day_review_panel: PanelContainer
 var _day_review_scrim: ColorRect
 var _review_title: Label
+var _review_summary: Label
 var _review_results: Label
+var _review_details_toggle: Button
+var _review_details_scroll: ScrollContainer
+var _review_details_expanded := false
 var _review_story: Label
 var _continue_shift_button: Button
 var _begin_next_shift_button: Button
@@ -256,7 +358,7 @@ var _decision_panel: PanelContainer
 var _decision_eyebrow: Label
 var _decision_title: Label
 var _decision_body: Label
-var _decision_options: VBoxContainer
+var _decision_options: GridContainer
 var _decision_preview: Label
 var _decision_confirm_button: Button
 var _decision_stay_paused_button: Button
@@ -266,14 +368,25 @@ var _selected_decision_option: StringName = &""
 var _decision_previous_speed := 1
 var _resume_after_decision := true
 var _decision_restore_farmer_review := false
+var _flockwatch_restore_farmer_review := false
 var _authoritative_revenue_cents := 0
 var _displayed_revenue_cents := -1
 var _pending_collection_cents := 0
 var _fund_visual_target_cents := -1
 var _fund_count_tween: Tween
+var _pending_web_diagnostic_snapshot: Dictionary = {}
+var _web_diagnostic_dirty := false
+var _web_diagnostic_next_allowed_msec := 0
+var _pending_simulation_presentation_snapshot: Dictionary = {}
+var _presentation_update_count := 0
+var _last_presented_tick_revision := 0
+var _boot_started_msec := 0
+var _boot_timing: Dictionary = {}
 
 
 func _ready() -> void:
+	_boot_started_msec = Time.get_ticks_msec()
+	_boot_mark(&"entry")
 	name = "CorporateClaimsDivision"
 	# Envelope validity is enough to offer Continue, but it is not proof that the
 	# nested campaign, simulation, and Senior ledgers can activate together.
@@ -282,13 +395,21 @@ func _ready() -> void:
 	_install_web_checkpoint_bridge()
 	_ensure_peck_assist_input_action()
 	_load_player_preferences()
+	_boot_mark(&"preferences")
 	_build_environment()
+	_boot_mark(&"environment")
 	_build_office()
+	_boot_mark(&"office")
 	_predator_encounter = PredatorEncounterScript.new() as PredatorEncounter
 	_predator_encounter.victim_carried_away.connect(_on_predator_victim_carried_away)
 	_predator_encounter.victim_captured.connect(_on_predator_victim_captured)
 	add_child(_predator_encounter)
 	_office_storytelling = OfficeStorytellingScript.new() as OfficeStorytelling
+	_office_storytelling.set_lazy_hidden_optional_visuals(OS.has_feature("web"))
+	_office_storytelling.set_office_physical_presentation(
+		_office_capacity_from_snapshot(_simulation.snapshot()),
+		_capacity_marker_context_revealed,
+	)
 	_office_storytelling.configure(
 		_active_desk_positions(_office_capacity_from_snapshot(_simulation.snapshot())),
 		Vector3(9.55, 0.0, 5.35),
@@ -296,7 +417,9 @@ func _ready() -> void:
 	)
 	_office_storytelling.egg_graded.connect(_on_egg_graded)
 	_office_storytelling.egg_reached_presentation_detailed.connect(_on_egg_reached_presentation)
+	_office_storytelling.optional_visuals_finished.connect(_on_optional_storytelling_finished)
 	add_child(_office_storytelling)
+	_boot_mark(&"storytelling")
 	_office_atmosphere = OfficeAtmosphereScript.new() as OfficeAtmosphere
 	add_child(_office_atmosphere)
 	EnvironmentalSignageScript.set_camera_detail(
@@ -306,12 +429,15 @@ func _ready() -> void:
 	add_child(_audio_feedback)
 	_audio_director = OfficeAudioDirectorScript.new()
 	add_child(_audio_director)
+	_boot_mark(&"audio")
 	_build_ui()
+	_boot_mark(&"ui")
 	_apply_player_preferences()
 
 	add_child(_clock)
 	_clock.initialize(_simulation)
 	_clock.speed_changed.connect(_on_speed_changed)
+	_clock.tick_batch_completed.connect(_on_clock_tick_batch_completed)
 	_simulation.snapshot_changed.connect(_on_snapshot_changed)
 	_simulation.egg_laid_detailed.connect(_on_egg_laid)
 	_simulation.announcement_posted.connect(_on_announcement_posted)
@@ -323,7 +449,10 @@ func _ready() -> void:
 	_simulation.first_clutch_reinvestment_resolved.connect(_on_first_clutch_reinvestment_resolved)
 
 	_clock.set_speed(0)
+	_initialize_management_surfaces(_simulation.snapshot())
+	_boot_mark(&"management_surfaces")
 	_on_snapshot_changed(_simulation.snapshot())
+	_boot_mark(&"first_snapshot")
 	if _should_bypass_campaign_title():
 		_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
 		_on_announcement_posted("MORNING BRIEFING: choose the policy that will govern today's clutch.")
@@ -333,6 +462,7 @@ func _ready() -> void:
 		_show_campaign_title(_has_campaign_checkpoint_candidate)
 		_set_campaign_modal_open(true)
 		_on_announcement_posted("PROBATION INTAKE OPEN. Begin a new five-shift file or continue a saved one.")
+	_boot_mark(&"first_interactive")
 	if "--capture-decision" in OS.get_cmdline_user_args() or "--capture-decision" in OS.get_cmdline_args():
 		_capture_decision_preview()
 	elif "--capture-incident" in OS.get_cmdline_user_args() or "--capture-incident" in OS.get_cmdline_args():
@@ -367,6 +497,8 @@ func _ready() -> void:
 		_capture_grading_preview()
 	elif "--capture-staffing" in OS.get_cmdline_user_args() or "--capture-staffing" in OS.get_cmdline_args():
 		_capture_staffing_preview()
+	elif "--capture-capacity-commissioning" in OS.get_cmdline_user_args() or "--capture-capacity-commissioning" in OS.get_cmdline_args():
+		_capture_capacity_commissioning_preview()
 	elif "--capture-facility" in OS.get_cmdline_user_args() or "--capture-facility" in OS.get_cmdline_args():
 		_capture_facility_preview()
 	elif "--capture-facility-ui" in OS.get_cmdline_user_args() or "--capture-facility-ui" in OS.get_cmdline_args():
@@ -453,6 +585,26 @@ func _ready() -> void:
 		_capture_predator_animation()
 	elif "--capture" in OS.get_cmdline_user_args() or "--capture" in OS.get_cmdline_args():
 		_capture_preview()
+	_boot_mark(&"ready")
+
+
+func _boot_mark(label: StringName) -> void:
+	if _boot_started_msec <= 0:
+		return
+	_boot_timing[String(label)] = maxi(0, Time.get_ticks_msec() - _boot_started_msec)
+
+
+func boot_timing_snapshot() -> Dictionary:
+	var snapshot := _boot_timing.duplicate(true)
+	if _office_storytelling != null:
+		snapshot["optional_visuals"] = _office_storytelling.optional_visual_build_snapshot()
+	return snapshot
+
+
+func _on_optional_storytelling_finished() -> void:
+	# Refresh the browser diagnostic once background campus construction is
+	# complete. This remains observability-only; gameplay does not depend on it.
+	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _ensure_peck_assist_input_action() -> void:
@@ -460,9 +612,11 @@ func _ensure_peck_assist_input_action() -> void:
 
 
 func _load_player_preferences() -> void:
-	_player_preferences = PlayerPreferencesStoreScript.sanitize(
-		_preferences_store.load_preferences()
-	)
+	var loaded_preferences: Dictionary = _preferences_store.load_preferences()
+	var mirrored_preferences := _load_web_player_preferences()
+	if not mirrored_preferences.is_empty():
+		loaded_preferences = mirrored_preferences
+	_player_preferences = PlayerPreferencesStoreScript.sanitize(loaded_preferences)
 	var binding_result: Dictionary = OfficeActionCatalogScript.apply_bindings(
 		_player_preferences.get("input_bindings", {}) as Dictionary
 	)
@@ -504,6 +658,15 @@ func _apply_player_preferences() -> void:
 		_office_atmosphere.set_reduced_motion(reduced_motion)
 	if _routing_ui != null and _routing_ui.has_method("set_reduced_motion"):
 		_routing_ui.call("set_reduced_motion", reduced_motion)
+	if _campaign_ui != null and _campaign_ui.has_method("set_reduced_motion"):
+		_campaign_ui.call("set_reduced_motion", reduced_motion)
+	var color_vision_mode := StringName(String(_player_preferences.get("color_vision_mode", "standard")))
+	if _routing_ui != null and _routing_ui.has_method("set_color_vision_mode"):
+		_routing_ui.call("set_color_vision_mode", color_vision_mode)
+	if _workstation_feedback != null and _workstation_feedback.has_method("set_color_vision_mode"):
+		_workstation_feedback.call("set_color_vision_mode", color_vision_mode)
+	if _office_storytelling != null and _office_storytelling.has_method("set_color_vision_mode"):
+		_office_storytelling.call("set_color_vision_mode", color_vision_mode)
 	_apply_visual_quality(StringName(String(_player_preferences.get("visual_quality", "balanced"))))
 	_apply_management_ui_preferences()
 	_refresh_action_prompts()
@@ -514,13 +677,13 @@ func _apply_player_preferences() -> void:
 
 func _apply_ambient_audio_preference() -> void:
 	var audio := _player_preferences.get("audio", {}) as Dictionary
-	var music := audio.get("music", {}) as Dictionary
+	var ambient := audio.get("ambient", {}) as Dictionary
 	var ambient_index := AudioServer.get_bus_index(&"Ambient")
 	if ambient_index < 0:
 		return
-	var volume := clampf(float(music.get("volume", 0.65)), 0.0, 1.0)
+	var volume := clampf(float(ambient.get("volume", 0.65)), 0.0, 1.0)
 	AudioServer.set_bus_volume_db(ambient_index, linear_to_db(maxf(volume, 0.0001)))
-	AudioServer.set_bus_mute(ambient_index, bool(music.get("muted", false)))
+	AudioServer.set_bus_mute(ambient_index, bool(ambient.get("muted", false)))
 
 
 func _apply_management_ui_preferences() -> void:
@@ -592,7 +755,7 @@ func _action_hint(action: StringName) -> String:
 
 func _refresh_action_prompts() -> void:
 	if _settings_button != null:
-		_settings_button.text = "COMFORT  [%s]" % _action_hint(&"open_settings")
+		_settings_button.text = "SETTINGS  [%s]" % _action_hint(&"open_settings")
 	if _flockwatch_toggle != null:
 		_update_flockwatch_toggle()
 	if _feed_button != null and not _feed_party_active:
@@ -627,11 +790,12 @@ func _on_settings_requested() -> void:
 	_settings_prior_focus_owner = get_viewport().gui_get_focus_owner()
 	if _clock != null:
 		_clock.set_speed(0)
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(false)
-	if _routing_ui != null:
-		_routing_ui.set_interaction_enabled(false)
-	_settings_ui.show_settings(_player_preferences, _current_binding_labels())
+	_settings_ui.show_settings(
+		_player_preferences,
+		_current_binding_labels(),
+		_campaign_store != null and _has_verified_campaign_checkpoint,
+	)
+	_refresh_floor_input_context()
 	if _audio_feedback != null and _audio_feedback.has_method("play_ui_tick"):
 		_audio_feedback.call("play_ui_tick")
 	_publish_web_diagnostic_state(_simulation.snapshot())
@@ -642,12 +806,7 @@ func _on_settings_close_requested() -> void:
 		return
 	_settings_ui.hide_settings()
 	var another_modal := _settings_other_modal_open()
-	var floor_input_blocked := another_modal or _flockwatch_open
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(not floor_input_blocked)
-	if _routing_ui != null:
-		var running := _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
-		_routing_ui.set_interaction_enabled(running and not floor_input_blocked)
+	_refresh_floor_input_context()
 	if _settings_holds_speed and not another_modal and _clock != null:
 		_clock.set_speed(_settings_previous_speed)
 	_settings_holds_speed = false
@@ -682,7 +841,99 @@ func _on_preferences_reset_requested() -> void:
 	OfficeActionCatalogScript.reset_all()
 	_player_preferences = PlayerPreferencesStoreScript.defaults()
 	_apply_player_preferences()
-	_save_player_preferences("Comfort defaults restored and saved.")
+	_save_player_preferences("Settings defaults restored and saved.")
+
+
+func _on_career_backup_export_requested() -> void:
+	if _settings_ui == null or _campaign_store == null:
+		return
+	# Export is a deliberate durability boundary. Active play must first commit
+	# the latest authoritative ledgers so the portable file cannot lag behind the
+	# state the player can currently see.
+	if _campaign_session_checkpoint_enabled and not _save_campaign_checkpoint(
+		"portable_backup_export"
+	):
+		_settings_ui.set_status(
+			"Career backup held: the latest campaign checkpoint could not be verified."
+		)
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	if not _has_verified_campaign_checkpoint:
+		_settings_ui.set_status(
+			"Career backup held: continue the local career so every ledger can be verified first."
+		)
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	var json_text: String = _campaign_store.export_portable_backup()
+	if json_text.is_empty():
+		_settings_ui.set_status(
+			"Career backup held: %s" % _bounded_checkpoint_error(_campaign_store.last_error)
+		)
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	_settings_ui.present_career_backup(json_text)
+	_settings_ui.set_career_backup_available(true)
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_career_backup_import_requested(json_text: String) -> void:
+	if _settings_ui == null or _campaign_store == null:
+		return
+	# Envelope validation rejects oversized, malformed, future-schema, cyclic, or
+	# non-primitive content. Composite staging then proves every domain ledger on
+	# disposable objects before the transactional store is allowed to rotate the
+	# current primary into its recovery copy.
+	var envelope: Dictionary = _campaign_store.inspect_portable_backup(json_text)
+	if envelope.is_empty():
+		_settings_ui.complete_career_backup_import(
+			false,
+			"Career restore held: %s" % _bounded_checkpoint_error(_campaign_store.last_error),
+		)
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	var staged: Dictionary = _stage_campaign_checkpoint(envelope)
+	if not bool(staged.get("ok", false)):
+		_settings_ui.complete_career_backup_import(
+			false,
+			"Career restore held: %s" % _bounded_checkpoint_error(String(staged.get(
+				"error",
+				"the campaign ledger failed validation",
+			))),
+		)
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	if not _campaign_store.import_portable_backup(json_text):
+		_settings_ui.complete_career_backup_import(
+			false,
+			"Career restore held: %s" % _bounded_checkpoint_error(_campaign_store.last_error),
+		)
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+
+	# Do not activate a replacement behind Settings. Return to the intake with a
+	# truthful Continue route, while disabling session autosaves so the displaced
+	# in-memory career cannot overwrite the newly imported checkpoint.
+	_checkpoint_coordinator.discard_pending()
+	_has_campaign_checkpoint_candidate = true
+	_has_verified_campaign_checkpoint = true
+	_checkpoint_last_error = ""
+	_checkpoint_last_saved_reason = "portable_backup_import"
+	_checkpoint_last_saved_unix_msec = int(Time.get_unix_time_from_system() * 1000.0)
+	_campaign_session_checkpoint_enabled = false
+	_settings_ui.complete_career_backup_import(
+		true,
+		"Portable career verified and filed. Continue opens the imported checkpoint.",
+	)
+	_settings_ui.hide_settings()
+	_settings_holds_speed = false
+	_settings_prior_focus_owner = null
+	_clock.set_speed(0)
+	_show_campaign_title(true)
+	_set_campaign_modal_open(true)
+	_ticker_label.text = (
+		"PORTABLE CAREER FILED. Continue opens the imported checkpoint; the prior local file remains the recovery copy."
+	)
+	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _on_binding_capture_requested(action: StringName, event: InputEvent) -> void:
@@ -728,11 +979,16 @@ func _on_binding_capture_requested(action: StringName, event: InputEvent) -> voi
 		if _simulation != null:
 			_publish_web_diagnostic_state(_simulation.snapshot())
 		return
+	var browser_mirror_saved := _save_web_player_preferences()
 	if _settings_ui != null:
 		_settings_ui.acknowledge_binding_capture(
 			action,
 			true,
-			"Control binding filed and saved.",
+			(
+				"Control binding filed and saved."
+				if browser_mirror_saved else
+				"Control binding applied; browser durability could not be verified."
+			),
 			_current_binding_labels(),
 		)
 	if _simulation != null:
@@ -748,8 +1004,13 @@ func _same_binding_family(first: InputEvent, second: InputEvent) -> bool:
 
 func _save_player_preferences(success_message: String) -> void:
 	if _preferences_store.save_preferences(_player_preferences):
+		var browser_mirror_saved := _save_web_player_preferences()
 		if _settings_ui != null:
-			_settings_ui.set_status(success_message)
+			_settings_ui.set_status(
+				success_message
+				if browser_mirror_saved else
+				"Preference applied; browser durability could not be verified."
+			)
 	else:
 		var message := "Preference save held: %s" % _preferences_store.last_error
 		push_warning(message)
@@ -762,12 +1023,57 @@ func _save_player_preferences(success_message: String) -> void:
 		_publish_web_diagnostic_state(_simulation.snapshot())
 
 
+func _load_web_player_preferences() -> Dictionary:
+	if not OS.has_feature("web"):
+		_web_preferences_mirror_status = "not_applicable"
+		return {}
+	var bridge := JavaScriptBridge.get_interface("__pecking_order_preferences_bridge")
+	if bridge == null:
+		_web_preferences_mirror_status = "bridge_unavailable"
+		return {}
+	var payload_value: Variant = bridge.call("load")
+	if typeof(payload_value) != TYPE_STRING:
+		_web_preferences_mirror_status = "bridge_invalid_result"
+		return {}
+	var payload := String(payload_value)
+	if payload.is_empty():
+		_web_preferences_mirror_status = "missing"
+		return {}
+	var preferences: Dictionary = _web_preferences_mirror.decode(payload)
+	if preferences.is_empty():
+		_web_preferences_mirror_status = "invalid"
+		push_warning(_web_preferences_mirror.last_error)
+		return {}
+	_web_preferences_mirror_status = "loaded"
+	return preferences
+
+
+func _save_web_player_preferences() -> bool:
+	if not OS.has_feature("web"):
+		_web_preferences_mirror_status = "not_applicable"
+		return true
+	var payload: String = _web_preferences_mirror.encode(_player_preferences)
+	if payload.is_empty():
+		_web_preferences_mirror_status = "failed"
+		push_warning(_web_preferences_mirror.last_error)
+		return false
+	var bridge := JavaScriptBridge.get_interface("__pecking_order_preferences_bridge")
+	if bridge == null:
+		_web_preferences_mirror_status = "bridge_unavailable"
+		return false
+	var saved := bool(bridge.call("save", payload))
+	_web_preferences_mirror_status = "saved" if saved else "failed"
+	return saved
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_set_audio_focus_paused(true)
+		_set_application_focus_paused(true)
 		_request_lifecycle_checkpoint("application_focus_out")
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
 		_set_audio_focus_paused(false)
+		_set_application_focus_paused(false)
 	elif what == NOTIFICATION_APPLICATION_PAUSED:
 		_request_lifecycle_checkpoint("application_paused")
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -788,6 +1094,18 @@ func _install_web_checkpoint_bridge() -> void:
 		_on_web_checkpoint_flush_requested
 	)
 	window.set("__pecking_order_request_checkpoint", _web_checkpoint_flush_callback)
+	_web_career_backup_offer_callback = JavaScriptBridge.create_callback(
+		_on_web_career_backup_offered
+	)
+	window.set("__pecking_order_offer_backup", _web_career_backup_offer_callback)
+	_web_mobile_action_callback = JavaScriptBridge.create_callback(
+		_on_web_mobile_action_requested
+	)
+	window.set("__pecking_order_mobile_action", _web_mobile_action_callback)
+	_web_focus_pause_callback = JavaScriptBridge.create_callback(
+		_on_web_focus_pause_requested
+	)
+	window.set("__pecking_order_set_focus_paused", _web_focus_pause_callback)
 
 
 func _on_web_checkpoint_flush_requested(arguments: Array) -> void:
@@ -797,6 +1115,84 @@ func _on_web_checkpoint_flush_requested(arguments: Array) -> void:
 		if not requested_reason.is_empty():
 			reason = requested_reason
 	_request_lifecycle_checkpoint(reason)
+
+
+func _on_web_career_backup_offered(arguments: Array) -> void:
+	if _settings_ui == null or not _settings_ui.is_open():
+		return
+	var json_text := String(arguments[0]) if arguments.size() > 0 else ""
+	var source_label := String(arguments[1]) if arguments.size() > 1 else "browser backup"
+	var bridge_error := String(arguments[2]).strip_edges() if arguments.size() > 2 else ""
+	if not bridge_error.is_empty():
+		_settings_ui.complete_career_backup_import(
+			false,
+			"Career restore held: %s" % bridge_error.substr(0, CHECKPOINT_ERROR_LIMIT),
+		)
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	_settings_ui.stage_career_backup_import(json_text, source_label)
+	# The Settings surface has paused the floor, so no simulation tick will
+	# refresh the wrapper's live/assistive mirror after the browser file arrives.
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_web_mobile_action_requested(arguments: Array) -> void:
+	if arguments.is_empty():
+		return
+	var action := StringName(String(arguments[0]).strip_edges().to_lower())
+	# This bridge is deliberately allow-listed. It exposes no arbitrary method,
+	# property, file, or expression access to the page.
+	match action:
+		&"settings":
+			_on_settings_requested()
+		&"overview":
+			if _settings_ui != null and _settings_ui.is_open():
+				_on_settings_close_requested()
+			elif _flockwatch_open:
+				_set_flockwatch_open(false, true)
+			elif _camera_controller != null and not _blocking_management_surface_open():
+				_camera_controller.show_overview()
+		&"flockwatch":
+			if (
+				(_settings_ui == null or not _settings_ui.is_open())
+				and not _blocking_management_surface_open()
+			):
+				_on_flockwatch_pressed()
+		&"zoom_in", &"zoom_out":
+			if (
+				_camera_controller != null
+				and _camera_controller.is_processing_unhandled_input()
+				and not _blocking_management_surface_open()
+			):
+				_camera_controller.request_zoom_step(action == &"zoom_in")
+		&"cycle_hen":
+			if _flockwatch_open and _flockwatch_navigation != null:
+				_flockwatch_navigation.cycle_page(1, true)
+			elif (
+				_camera_controller != null
+				and _camera_controller.is_processing_unhandled_input()
+				and not _blocking_management_surface_open()
+			):
+				_camera_controller.cycle_worker(1)
+		&"pause":
+			if not _blocking_management_surface_open() and not _flockwatch_open:
+				_on_pause_requested()
+		&"peck_assist":
+			if not _flockwatch_open and not _peck_assist_input_blocked():
+				_request_peck_assist_from_input()
+		_:
+			return
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_web_focus_pause_requested(arguments: Array) -> void:
+	if arguments.is_empty() or typeof(arguments[0]) != TYPE_BOOL:
+		return
+	var unfocused := bool(arguments[0])
+	_set_audio_focus_paused(unfocused)
+	_set_application_focus_paused(unfocused)
+	if unfocused:
+		_request_lifecycle_checkpoint("web_focus_out")
 
 
 func _request_lifecycle_checkpoint(reason: String) -> bool:
@@ -831,6 +1227,42 @@ func _set_audio_focus_paused(paused: bool) -> void:
 		_audio_director.call("set_focus_paused", paused)
 
 
+func _set_application_focus_paused(unfocused: bool) -> void:
+	if unfocused:
+		if (
+			_focus_pause_active
+			or not is_node_ready()
+			or not bool(_player_preferences.get("pause_when_unfocused", true))
+			or _clock == null
+			or _clock.speed_index <= 0
+			or _simulation == null
+			or _simulation.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING
+		):
+			return
+		_focus_pause_previous_speed = _clock.speed_index
+		_focus_pause_active = true
+		_clock.set_speed(0)
+		_publish_web_diagnostic_state(_simulation.snapshot())
+		return
+	if not _focus_pause_active:
+		return
+	var restore_speed := _focus_pause_previous_speed
+	_focus_pause_active = false
+	_focus_pause_previous_speed = 0
+	var can_restore := (
+		restore_speed > 0
+		and _clock != null
+		and _simulation != null
+		and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+		and not _feed_party_active
+		and not _blocking_management_surface_open()
+	)
+	if can_restore:
+		_clock.set_speed(restore_speed)
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
 static func predator_debug_shortcut_enabled_for_environment(
 	debug_build: bool,
 	user_arguments: PackedStringArray,
@@ -858,6 +1290,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		and _settings_ui.is_open()
 		and (event is InputEventKey or event is InputEventJoypadButton)
 	):
+		get_viewport().set_input_as_handled()
+		return
+	# Settings is the non-remappable safety surface. It must outrank campaign,
+	# decision, review, Flockwatch, and capital input contexts so F10/Guide can
+	# always reach audio, comfort, controls, and recovery tools.
+	if _is_action_press(event, &"open_settings"):
+		_on_settings_requested()
 		get_viewport().set_input_as_handled()
 		return
 	# Flockwatch is an input context, not just a visible overlay. Its existing
@@ -900,6 +1339,12 @@ func _unhandled_input(event: InputEvent) -> void:
 					_on_decision_confirm_pressed()
 			get_viewport().set_input_as_handled()
 			return
+		if (
+			event.keycode in [KEY_ENTER, KEY_KP_ENTER]
+			and _handle_first_clutch_primary_action()
+		):
+			get_viewport().set_input_as_handled()
+			return
 		if _day_review_scrim != null and _day_review_scrim.visible:
 			get_viewport().set_input_as_handled()
 			return
@@ -908,10 +1353,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	# Blueprint, Portfolio, expansion file, or reveal can never operate the live
 	# office behind it. Modal-owned Escape/F10 handlers still run first.
 	if _blocking_management_surface_open() and _is_managed_action_press(event):
-		get_viewport().set_input_as_handled()
-		return
-	if _is_action_press(event, &"open_settings"):
-		_on_settings_requested()
 		get_viewport().set_input_as_handled()
 		return
 	if _is_action_press(event, PECK_ASSIST_ACTION):
@@ -1004,7 +1445,7 @@ func _build_environment() -> void:
 		fill.name = "FluorescentFill_%d" % light_index
 		fill.position = Vector3([-6.0, 0.0, 6.0][light_index], 3.15, -0.5)
 		fill.light_color = Color("e8dfc2")
-		fill.light_energy = 0.24
+		fill.light_energy = OFFICE_FILL_LIGHT_ENERGY
 		fill.light_specular = 0.25
 		fill.omni_range = 5.6
 		fill.omni_attenuation = 1.45
@@ -1024,10 +1465,176 @@ func _build_environment() -> void:
 	_management_camera.look_at(CORE_OVERVIEW_TARGET)
 
 
+func _build_physical_presentation_roots() -> void:
+	_office_physical_presentation = Node3D.new()
+	_office_physical_presentation.name = "OfficePhysicalPresentation"
+	_office_physical_presentation.set_meta(&"visual_only", true)
+	_office_physical_presentation.set_meta(&"collision_free", true)
+	_office_physical_presentation.set_meta(&"navigation_free", true)
+	add_child(_office_physical_presentation)
+
+	_core_office_presentation = _physical_presentation_root("CoreOfficePresentation", true)
+	_dormant_west_presentation = _physical_presentation_root("DormantWestPresentation", false)
+	_west_perch_04_presentation = _physical_presentation_root("WestPerch04Presentation", false)
+	_west_perch_05_presentation = _physical_presentation_root("WestPerch05Presentation", false)
+	_archive_presentation = _physical_presentation_root("ArchivePresentation", false)
+	_intake_presentation = _physical_presentation_root("IntakePresentation", true)
+	_build_west_lease_partition()
+
+	# Thin, collision-free floor insets make the generous safe desk clearances read
+	# as deliberate commissioned neighborhoods instead of one vacant carpet sea.
+	_build_commissioned_floor_inset(
+		_core_office_presentation,
+		"OpeningPodFloorInset",
+		Vector3(3.25, 0.0, -0.05),
+		Vector2(13.10, 12.35),
+		Color("35474b"),
+	)
+	_build_commissioned_floor_inset(
+		_west_perch_04_presentation,
+		"WestPerch04FloorInset",
+		desk_position(4),
+		Vector2(5.15, 5.10),
+		Color("34464a"),
+	)
+	_build_commissioned_floor_inset(
+		_west_perch_05_presentation,
+		"WestPerch05FloorInset",
+		desk_position(5),
+		Vector2(5.15, 5.10),
+		Color("34464a"),
+	)
+	# Staffing context exposes a quiet brass threshold and the existing boxed
+	# authorization marker. It never constructs a fake desk or route obstacle.
+	for seam_index in 4:
+		var threshold := _add_box(
+			_dormant_west_presentation,
+			"WestAuthorizationThreshold_%02d" % seam_index,
+			Vector3(0.07, 0.010, 1.10),
+			Vector3(-3.42, 0.017, -4.65 + seam_index * 3.10),
+			Color("9b8150"),
+		)
+		threshold.material_override = _material(Color("9b8150"), 0.48, 0.28)
+		threshold.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+func _build_west_lease_partition() -> void:
+	# A low, visual-only acoustic partition gives the opening pod a believable
+	# occupied boundary. It leaves the main aisle open and is removed as soon as
+	# the first west perch is commissioned; no route or collision owns this art.
+	_west_lease_partition = Node3D.new()
+	_west_lease_partition.name = "WestLeasePartition"
+	_west_lease_partition.set_meta(&"visual_only", true)
+	_west_lease_partition.set_meta(&"collision_free", true)
+	_west_lease_partition.set_meta(&"navigation_free", true)
+	_core_office_presentation.add_child(_west_lease_partition)
+	var panel_color := Color("405154")
+	var frame_color := Color("26363a")
+	var cap_color := Color("9a8252")
+	var panel_centers := [-5.00, 4.00]
+	for panel_index in panel_centers.size():
+		var panel_z: float = panel_centers[panel_index]
+		var panel := _add_box(
+			_west_lease_partition,
+			"WestLeasePartitionPanel_%02d" % panel_index,
+			Vector3(0.105, 1.58, 2.65),
+			Vector3(-3.39, 0.80, panel_z),
+			panel_color.lightened(0.025 * float(panel_index % 2)),
+		)
+		panel.material_override = _material(
+			panel_color.lightened(0.025 * float(panel_index % 2)),
+			0.88,
+		)
+		_add_box(
+			_west_lease_partition,
+			"WestLeasePartitionCap_%02d" % panel_index,
+			Vector3(0.15, 0.055, 2.75),
+			Vector3(-3.39, 1.61, panel_z),
+			cap_color,
+		).material_override = _material(cap_color, 0.58, 0.20)
+		for post_index in 2:
+			var post_z := -1.0 if post_index == 0 else 1.0
+			_add_box(
+				_west_lease_partition,
+				"WestLeasePartitionPost_%02d_%d" % [panel_index, post_index],
+				Vector3(0.16, 1.68, 0.075),
+				Vector3(-3.39, 0.84, panel_z + post_z * 1.35),
+				frame_color,
+			).material_override = _material(frame_color, 0.68, 0.16)
+		for foot_index in 2:
+			var foot_z := -1.0 if foot_index == 0 else 1.0
+			_add_box(
+				_west_lease_partition,
+				"WestLeasePartitionFoot_%02d_%d" % [panel_index, foot_index],
+				Vector3(0.62, 0.055, 0.18),
+				Vector3(-3.25, 0.035, panel_z + foot_z * 1.16),
+				frame_color,
+			).material_override = _material(frame_color, 0.54, 0.24)
+
+
+func _physical_presentation_root(root_name: String, initially_visible: bool) -> Node3D:
+	var root := Node3D.new()
+	root.name = root_name
+	root.visible = initially_visible
+	root.set_meta(&"visual_only", true)
+	root.set_meta(&"collision_free", true)
+	root.set_meta(&"navigation_free", true)
+	_office_physical_presentation.add_child(root)
+	return root
+
+
+func _build_commissioned_floor_inset(
+	parent: Node3D,
+	part_name: String,
+	center: Vector3,
+	size: Vector2,
+	color: Color,
+) -> void:
+	var inset := _add_box(
+		parent,
+		part_name,
+		Vector3(size.x, 0.014, size.y),
+		Vector3(center.x, -0.011, center.z),
+		color,
+	)
+	inset.material_override = _material(color, 0.96)
+	inset.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var edge_color := Color("766b52")
+	for side_z in [-1.0, 1.0]:
+		var edge_z := _add_box(
+			parent,
+			"%sEdge" % part_name,
+			Vector3(size.x, 0.009, 0.045),
+			Vector3(center.x, 0.001, center.z + side_z * size.y * 0.5),
+			edge_color,
+		)
+		edge_z.material_override = _material(edge_color, 0.58, 0.18)
+		edge_z.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for side_x in [-1.0, 1.0]:
+		var edge_x := _add_box(
+			parent,
+			"%sEdge" % part_name,
+			Vector3(0.045, 0.009, size.y),
+			Vector3(center.x + side_x * size.x * 0.5, 0.001, center.z),
+			edge_color,
+		)
+		edge_x.material_override = _material(edge_color, 0.58, 0.18)
+		edge_x.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+func _window_presentation_parent(window_x: float, core_parent: Node3D) -> Node3D:
+	if is_equal_approx(window_x, -5.45):
+		return _west_perch_04_presentation
+	if is_equal_approx(window_x, -9.10):
+		return _west_perch_05_presentation
+	return core_parent
+
+
 func _build_office() -> void:
+	_build_physical_presentation_roots()
 	var shell := Node3D.new()
 	shell.name = "OfficeShell"
-	add_child(shell)
+	_core_office_presentation.add_child(shell)
 	_add_box(shell, "Carpet", Vector3(OFFICE_WIDTH, 0.18, OFFICE_DEPTH), Vector3(0.0, -0.11, 0.0), Color("303e44"))
 	_add_box(shell, "BackWall", Vector3(OFFICE_WIDTH, 3.65, 0.2), Vector3(0.0, 1.77, -8.9), Color("d0c9b5"))
 	_add_box(shell, "LeftWall", Vector3(0.2, 3.65, OFFICE_DEPTH), Vector3(-11.9, 1.77, 0.0), Color("c2bcaa"))
@@ -1036,28 +1643,47 @@ func _build_office() -> void:
 	_add_box(shell, "ExecutiveStrip", Vector3(23.5, 0.09, 0.16), Vector3(0.0, 2.7, -8.74), Color("765540"))
 	_add_box(shell, "MainAisleRunner", Vector3(22.6, 0.026, 1.65), Vector3(0.0, 0.005, MAIN_AISLE_Z), Color("465b62"))
 	for lane_x in [-7.95, -1.95, 4.05]:
-		_add_box(shell, "AccessLane", Vector3(1.3, 0.018, 11.2), Vector3(lane_x, 0.008, 0.55), Color("374b51"))
+		var lane_parent := _west_perch_04_presentation if is_equal_approx(lane_x, -7.95) else shell
+		_add_box(lane_parent, "AccessLane", Vector3(1.3, 0.018, 11.2), Vector3(lane_x, 0.008, 0.55), Color("374b51"))
 
+	var window_batches: Dictionary = {}
 	for window_x in [-9.1, -5.45, -1.8, 1.85, 5.5, 9.15]:
+		var window_parent := _window_presentation_parent(window_x, shell)
+		if not window_batches.has(window_parent):
+			window_batches[window_parent] = {
+				"frames": [] as Array[Transform3D],
+				"blinds": [] as Array[Transform3D],
+				"radiator_fins": [] as Array[Transform3D],
+			}
+		var batches := window_batches[window_parent] as Dictionary
+		var frame_transforms := batches["frames"] as Array[Transform3D]
+		var blind_transforms := batches["blinds"] as Array[Transform3D]
+		var fin_transforms := batches["radiator_fins"] as Array[Transform3D]
 		var window_key := int(round((window_x + 12.0) * 10.0))
-		_add_box(shell, "Window", Vector3(2.75, 1.38, 0.045), Vector3(window_x, 1.83, -8.76), Color("4d7180"))
-		_add_box(shell, "WindowTopFrame", Vector3(2.9, 0.075, 0.075), Vector3(window_x, 2.56, -8.70), Color("34464e"))
-		_add_box(shell, "WindowSill", Vector3(2.9, 0.075, 0.18), Vector3(window_x, 1.10, -8.67), Color("e0dac6"))
-		_add_box(shell, "WindowFrameL", Vector3(0.075, 1.46, 0.085), Vector3(window_x - 1.41, 1.83, -8.70), Color("34464e"))
-		_add_box(shell, "WindowFrameR", Vector3(0.075, 1.46, 0.085), Vector3(window_x + 1.41, 1.83, -8.70), Color("34464e"))
-		_add_box(shell, "WindowMullion_%d" % window_key, Vector3(0.065, 1.30, 0.075), Vector3(window_x, 1.83, -8.68), Color("34464e"))
-		_add_box(shell, "BlindValance", Vector3(2.62, 0.13, 0.12), Vector3(window_x, 2.43, -8.62), Color("c0bba9"))
+		_add_box(window_parent, "Window", Vector3(2.75, 1.38, 0.045), Vector3(window_x, 1.83, -8.76), Color("4d7180"))
+		frame_transforms.append(_box_batch_transform(Vector3(2.9, 0.075, 0.075), Vector3(window_x, 2.56, -8.70)))
+		_add_box(window_parent, "WindowSill", Vector3(2.9, 0.075, 0.18), Vector3(window_x, 1.10, -8.67), Color("e0dac6"))
+		frame_transforms.append(_box_batch_transform(Vector3(0.075, 1.46, 0.085), Vector3(window_x - 1.41, 1.83, -8.70)))
+		frame_transforms.append(_box_batch_transform(Vector3(0.075, 1.46, 0.085), Vector3(window_x + 1.41, 1.83, -8.70)))
+		_add_box(window_parent, "WindowMullion_%d" % window_key, Vector3(0.065, 1.30, 0.075), Vector3(window_x, 1.83, -8.68), Color("34464e"))
+		_add_box(window_parent, "BlindValance", Vector3(2.62, 0.13, 0.12), Vector3(window_x, 2.43, -8.62), Color("c0bba9"))
 		for blind_y in [2.18, 1.92]:
-			_add_box(shell, "BlindSlat", Vector3(2.55, 0.045, 0.075), Vector3(window_x, blind_y, -8.63), Color("b7b5aa"))
-		_add_box(shell, "Radiator_%d" % window_key, Vector3(2.25, 0.53, 0.24), Vector3(window_x, 0.59, -8.54), Color("707b7e"))
+			blind_transforms.append(_box_batch_transform(Vector3(2.55, 0.045, 0.075), Vector3(window_x, blind_y, -8.63)))
+		_add_box(window_parent, "Radiator_%d" % window_key, Vector3(2.25, 0.53, 0.24), Vector3(window_x, 0.59, -8.54), Color("707b7e"))
 		for fin_x in [-0.72, -0.36, 0.0, 0.36, 0.72]:
-			_add_box(shell, "RadiatorFin", Vector3(0.075, 0.40, 0.055), Vector3(window_x + fin_x, 0.59, -8.39), Color("aab2ae"))
+			fin_transforms.append(_box_batch_transform(Vector3(0.075, 0.40, 0.055), Vector3(window_x + fin_x, 0.59, -8.39)))
+	for parent_value in window_batches:
+		var batch_parent := parent_value as Node3D
+		var batches := window_batches[batch_parent] as Dictionary
+		_add_box_multimesh(batch_parent, "WindowFrameBatch", batches["frames"] as Array[Transform3D], Color("34464e"))
+		_add_box_multimesh(batch_parent, "WindowBlindSlatBatch", batches["blinds"] as Array[Transform3D], Color("b7b5aa"))
+		_add_box_multimesh(batch_parent, "WindowRadiatorFinBatch", batches["radiator_fins"] as Array[Transform3D], Color("aab2ae"))
 
 	_build_architecture_detail(shell)
 	_build_office_decor(shell)
 	_build_window_farm_view(shell)
 	_build_floor_story(shell)
-	_build_wall_story(shell)
+	_build_wall_story(_archive_presentation, shell)
 	_build_feed_party_station()
 
 	var desks := Node3D.new()
@@ -1079,13 +1705,13 @@ func _build_office() -> void:
 
 	var intake := Node3D.new()
 	intake.name = "ClaimIntake"
-	add_child(intake)
+	_intake_presentation.add_child(intake)
 	_add_box(intake, "IntakeCounter", Vector3(2.25, 1.0, 2.2), Vector3(9.55, 0.5, 5.35), Color("735f4d"))
 	_add_box(intake, "IntakeTop", Vector3(2.45, 0.14, 2.4), Vector3(9.55, 1.05, 5.35), Color("a58b69"))
 	_build_intake_detail(intake)
 	var basket := Node3D.new()
 	basket.name = "ExecutiveEggBasket"
-	add_child(basket)
+	_intake_presentation.add_child(basket)
 	_add_box(basket, "BasketInterior", Vector3(2.02, 0.42, 1.48), Vector3(9.4, 0.32, -6.85), Color("694833"))
 	_add_box(basket, "PresentationPlinth", Vector3(2.7, 0.18, 2.1), Vector3(9.4, 0.10, -6.85), Color("c3ab82"))
 	var credit_slip_host := _build_presentation_detail(basket)
@@ -1124,9 +1750,35 @@ func _build_office() -> void:
 
 
 static func desk_position(index: int) -> Vector3:
-	var row := int(index / 3)
-	var column := index % 3
-	return Vector3(float(DESK_COLUMNS[column]), 0.0, float(DESK_ROWS[row]))
+	var socket: Vector2i = DESK_SOCKET_ORDER[index]
+	return Vector3(
+		float(DESK_COLUMNS[socket.x]),
+		0.0,
+		float(DESK_ROWS[socket.y]),
+	)
+
+
+## Presentation footprint for the currently authorized internal office. The
+## authoritative campus footprint remains unchanged; this only determines what
+## the ordinary management camera needs to show at each capacity milestone.
+static func office_camera_bounds(capacity: int) -> Rect2:
+	match clampi(capacity, 0, MAXIMUM_OFFICE_CAPACITY):
+		MAXIMUM_OFFICE_CAPACITY:
+			return BASE_CAMPUS_BOUNDS
+		5:
+			return FIFTH_PERCH_CAMERA_BOUNDS
+		_:
+			return OPENING_OFFICE_CAMERA_BOUNDS
+
+
+static func office_overview_minimum_size(capacity: int) -> float:
+	match clampi(capacity, 0, MAXIMUM_OFFICE_CAPACITY):
+		MAXIMUM_OFFICE_CAPACITY:
+			return FULL_OFFICE_OVERVIEW_SIZE
+		5:
+			return FIFTH_PERCH_OVERVIEW_SIZE
+		_:
+			return CORE_OVERVIEW_SIZE
 
 
 static func chair_position(index: int) -> Vector3:
@@ -1178,8 +1830,11 @@ static func wellness_route(index: int) -> Array[Vector3]:
 
 static func feed_party_attendance_position(index: int) -> Vector3:
 	var column := index % 3
-	var side_z := -0.97 if index < 3 else 0.98
-	var local_socket := Vector3([-1.08, 0.0, 1.08][column], 0.0, side_z)
+	# Puffy employee silhouettes need more than agent-radius separation while
+	# leaning and pecking. These match the Blender sockets and keep accessories,
+	# wings, and faces from crossing neighboring bodies in the feeding pose.
+	var side_z := -1.34 if index < 3 else 1.34
+	var local_socket := Vector3([-1.55, 0.0, 1.55][column], 0.0, side_z)
 	return FEED_PARTY_STATION_POSITION + local_socket * FEED_PARTY_STATION_SCALE
 
 
@@ -1278,13 +1933,14 @@ func _build_architecture_detail(parent: Node3D) -> void:
 	# Wall-mounted light boxes add warm depth without floating over or obscuring workers.
 	for light_index in 3:
 		var light_x: float = [-7.6, 0.0, 7.6][light_index]
+		var light_parent := _west_perch_04_presentation if light_index == 0 else parent
 		var light_y := 3.44 if light_index == 1 else 3.20
 		var fixture_width := 1.75 if light_index == 1 else 3.25
 		var lens_width := 1.48 if light_index == 1 else 2.92
 		var frame_z := -8.69 if light_index == 1 else -8.63
 		var lens_z := -8.665 if light_index == 1 else -8.53
-		_add_box(parent, "WallLightFrame", Vector3(fixture_width, 0.20, 0.16), Vector3(light_x, light_y, frame_z), Color("425057"))
-		var lens := _add_box(parent, "WallLightLens_%d" % light_index, Vector3(lens_width, 0.08, 0.08), Vector3(light_x, light_y - 0.01, lens_z), Color("f4dfaa"))
+		_add_box(light_parent, "WallLightFrame", Vector3(fixture_width, 0.20, 0.16), Vector3(light_x, light_y, frame_z), Color("425057"))
+		var lens := _add_box(light_parent, "WallLightLens_%d" % light_index, Vector3(lens_width, 0.08, 0.08), Vector3(light_x, light_y - 0.01, lens_z), Color("f4dfaa"))
 		lens.material_override = _emissive_material(Color("f4dfaa"), 0.55)
 		if light_index == 1:
 			# The compact center fixture is a deliberate picture light clamped to
@@ -1409,9 +2065,10 @@ func _build_office_decor(parent: Node3D) -> void:
 
 	# A wall-mounted visibility board gives the cutaway side of the room a
 	# detailed focal point while keeping the wellness/feed floor completely open.
-	_add_box(parent, "ClaimsPipelineBoard", Vector3(0.075, 1.65, 3.30), Vector3(-11.70, 2.05, 3.60), Color("2b3a3f"))
+	var pipeline_parent := _west_perch_05_presentation
+	_add_box(pipeline_parent, "ClaimsPipelineBoard", Vector3(0.075, 1.65, 3.30), Vector3(-11.70, 2.05, 3.60), Color("2b3a3f"))
 	var pipeline_inset := _add_box(
-		parent,
+		pipeline_parent,
 		"ClaimsPipelineInset",
 		Vector3(0.040, 1.38, 3.02),
 		Vector3(-11.64, 2.03, 3.60),
@@ -1423,7 +2080,7 @@ func _build_office_decor(parent: Node3D) -> void:
 		var bar_height: float = pipeline_heights[bar_index]
 		var bar_color: Color = pipeline_colors[bar_index % pipeline_colors.size()]
 		_add_box(
-			parent,
+			pipeline_parent,
 			"ClaimsPipelineBar",
 			Vector3(0.035, bar_height, 0.25),
 			Vector3(-11.60, 1.45 + bar_height * 0.5, 2.72 + bar_index * 0.35),
@@ -1450,20 +2107,22 @@ func _build_office_decor(parent: Node3D) -> void:
 	_add_cylinder(parent, "ShredBin", Vector3(11.10, 0.39, 0.58), 0.30, 0.78, Color("3b474b"))
 	_add_box(parent, "ShredBinSlot", Vector3(0.38, 0.035, 0.10), Vector3(11.10, 0.80, 0.58), Color("151d20"))
 	for cabinet_x in [-9.9, 8.2]:
-		_add_box(parent, "FileCabinet", Vector3(0.95, 1.75, 0.78), Vector3(cabinet_x, 0.88, -8.25), Color("647078"))
+		var cabinet_parent := _archive_presentation if cabinet_x < 0.0 else parent
+		_add_box(cabinet_parent, "FileCabinet", Vector3(0.95, 1.75, 0.78), Vector3(cabinet_x, 0.88, -8.25), Color("647078"))
 		for drawer_y in [0.38, 0.78, 1.18]:
-			var handle := _add_box(parent, "DrawerHandle", Vector3(0.3, 0.045, 0.065), Vector3(cabinet_x, drawer_y, -7.84), Color("c1c8c4"))
+			var handle := _add_box(cabinet_parent, "DrawerHandle", Vector3(0.3, 0.045, 0.065), Vector3(cabinet_x, drawer_y, -7.84), Color("c1c8c4"))
 			handle.material_override = _material(Color("c1c8c4"), 0.30, 0.58)
-			_add_box(parent, "DrawerLabel", Vector3(0.34, 0.12, 0.035), Vector3(cabinet_x, drawer_y + 0.13, -7.82), Color("d8d2bd"))
-		_add_box(parent, "ArchiveBox", Vector3(0.78, 0.48, 0.66), Vector3(cabinet_x, 2.00, -8.23), Color("b99a6d"))
-		_add_box(parent, "ArchiveBoxLabel", Vector3(0.34, 0.14, 0.035), Vector3(cabinet_x, 2.00, -7.88), Color("e1dac5"))
+			_add_box(cabinet_parent, "DrawerLabel", Vector3(0.34, 0.12, 0.035), Vector3(cabinet_x, drawer_y + 0.13, -7.82), Color("d8d2bd"))
+		_add_box(cabinet_parent, "ArchiveBox", Vector3(0.78, 0.48, 0.66), Vector3(cabinet_x, 2.00, -8.23), Color("b99a6d"))
+		_add_box(cabinet_parent, "ArchiveBoxLabel", Vector3(0.34, 0.14, 0.035), Vector3(cabinet_x, 2.00, -7.88), Color("e1dac5"))
 	for plant_x in [-11.0, 10.7]:
-		_add_cylinder(parent, "PlantPot", Vector3(plant_x, 0.30, -7.05), 0.32, 0.6, Color("80513e"))
-		_add_cylinder(parent, "PlantStem", Vector3(plant_x, 0.88, -7.05), 0.065, 0.92, Color("355b45"))
+		var plant_parent := _archive_presentation if plant_x < 0.0 else parent
+		_add_cylinder(plant_parent, "PlantPot", Vector3(plant_x, 0.30, -7.05), 0.32, 0.6, Color("80513e"))
+		_add_cylinder(plant_parent, "PlantStem", Vector3(plant_x, 0.88, -7.05), 0.065, 0.92, Color("355b45"))
 		for leaf_index in 5:
 			var angle := TAU * leaf_index / 5.0
 			var leaf_color := Color("466b51") if leaf_index % 2 == 0 else Color("58785b")
-			var leaf := _add_sphere(parent, "PlantLeaf", Vector3(plant_x + cos(angle) * 0.24, 0.94 + (leaf_index % 2) * 0.18, -7.05 + sin(angle) * 0.24), Vector3(0.22, 0.5, 0.16), leaf_color)
+			var leaf := _add_sphere(plant_parent, "PlantLeaf", Vector3(plant_x + cos(angle) * 0.24, 0.94 + (leaf_index % 2) * 0.18, -7.05 + sin(angle) * 0.24), Vector3(0.22, 0.5, 0.16), leaf_color)
 			leaf.rotation_degrees.y = rad_to_deg(angle)
 
 	_add_box(parent, "ExtinguisherBracket", Vector3(0.52, 0.14, 0.09), Vector3(6.95, 1.08, -8.55), Color("454c4e"))
@@ -1475,21 +2134,35 @@ func _build_window_farm_view(parent: Node3D) -> void:
 	# A continuous low-poly pasture beyond the opaque office glazing. Everything is
 	# a paper-thin, non-colliding silhouette behind the mullions, so it adds depth
 	# without adding route obstacles or expensive scene geometry.
+	var fence_batches: Dictionary = {}
 	for window_index in 6:
 		var window_x: float = [-9.1, -5.45, -1.8, 1.85, 5.5, 9.15][window_index]
-		var pasture := _add_box(parent, "WindowPasture_%d" % window_index, Vector3(2.52, 0.43, 0.022), Vector3(window_x, 1.34, -8.665), Color("668268"))
+		var window_parent := _window_presentation_parent(window_x, parent)
+		if not fence_batches.has(window_parent):
+			fence_batches[window_parent] = [] as Array[Transform3D]
+		var fence_transforms := fence_batches[window_parent] as Array[Transform3D]
+		var pasture := _add_box(window_parent, "WindowPasture_%d" % window_index, Vector3(2.52, 0.43, 0.022), Vector3(window_x, 1.34, -8.665), Color("668268"))
 		pasture.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var hill := _add_sphere(parent, "WindowHill_%d" % window_index, Vector3(window_x - 0.48 + (window_index % 2) * 0.75, 1.63, -8.67), Vector3(1.60, 0.48, 0.04), Color("58745e"))
+		var hill := _add_sphere(window_parent, "WindowHill_%d" % window_index, Vector3(window_x - 0.48 + (window_index % 2) * 0.75, 1.63, -8.67), Vector3(1.60, 0.48, 0.04), Color("58745e"))
 		hill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		for fence_post in 3:
 			var post_x := window_x - 0.78 + fence_post * 0.78
-			_add_box(parent, "PastureFencePost_%d_%d" % [window_index, fence_post], Vector3(0.045, 0.42, 0.028), Vector3(post_x, 1.38, -8.635), Color("dccb9e")).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_add_box(parent, "PastureFenceRail_%d_Low" % window_index, Vector3(2.18, 0.045, 0.028), Vector3(window_x, 1.34, -8.63), Color("dccb9e")).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_add_box(parent, "PastureFenceRail_%d_High" % window_index, Vector3(2.18, 0.045, 0.028), Vector3(window_x, 1.52, -8.63), Color("dccb9e")).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			fence_transforms.append(_box_batch_transform(Vector3(0.045, 0.42, 0.028), Vector3(post_x, 1.38, -8.635)))
+		fence_transforms.append(_box_batch_transform(Vector3(2.18, 0.045, 0.028), Vector3(window_x, 1.34, -8.63)))
+		fence_transforms.append(_box_batch_transform(Vector3(2.18, 0.045, 0.028), Vector3(window_x, 1.52, -8.63)))
+	for parent_value in fence_batches:
+		var batch_parent := parent_value as Node3D
+		_add_box_multimesh(
+			batch_parent,
+			"PastureFenceBatch",
+			fence_batches[batch_parent] as Array[Transform3D],
+			Color("dccb9e"),
+			GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
+		)
 
 	# Repeated windows read as one farm campus through a few landmark silhouettes.
-	_add_box(parent, "DistantBarn", Vector3(1.05, 0.55, 0.035), Vector3(-5.45, 1.58, -8.61), Color("8e4f43")).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var barn_roof := _add_box(parent, "DistantBarnRoof", Vector3(1.16, 0.16, 0.04), Vector3(-5.45, 1.89, -8.60), Color("493e38"))
+	_add_box(_west_perch_04_presentation, "DistantBarn", Vector3(1.05, 0.55, 0.035), Vector3(-5.45, 1.58, -8.61), Color("8e4f43")).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var barn_roof := _add_box(_west_perch_04_presentation, "DistantBarnRoof", Vector3(1.16, 0.16, 0.04), Vector3(-5.45, 1.89, -8.60), Color("493e38"))
 	barn_roof.rotation_degrees.z = 8.0
 	barn_roof.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_add_cylinder(parent, "DistantSilo", Vector3(5.18, 1.62, -8.61), 0.23, 0.82, Color("9ca4a0")).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -1498,38 +2171,54 @@ func _build_window_farm_view(parent: Node3D) -> void:
 func _build_floor_story(parent: Node3D) -> void:
 	# Subtle wear, feed kernels, and directional chevrons make the floor feel used.
 	# At 2 cm or less, these remain visual decals and cannot affect navigation.
+	var scuff_batches: Dictionary = {}
 	for lane_index in 3:
 		var lane_x: float = [-7.95, -1.95, 4.05][lane_index]
+		var lane_parent := _west_perch_04_presentation if lane_index == 0 else parent
+		if not scuff_batches.has(lane_parent):
+			scuff_batches[lane_parent] = [] as Array[Transform3D]
+		var scuff_transforms := scuff_batches[lane_parent] as Array[Transform3D]
 		for mark_index in 3:
 			var mark_z := -3.6 + mark_index * 3.7
-			var scuff := _add_box(parent, "PeckLaneScuff_%d_%d" % [lane_index, mark_index], Vector3(0.72, 0.008, 0.24), Vector3(lane_x, 0.022, mark_z), Color(0.28, 0.37, 0.38, 0.75))
-			scuff.rotation_degrees.y = -12.0 + lane_index * 8.0
-			scuff.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			scuff_transforms.append(_box_batch_transform(
+				Vector3(0.72, 0.008, 0.24),
+				Vector3(lane_x, 0.022, mark_z),
+				Vector3(0.0, -12.0 + lane_index * 8.0, 0.0),
+			))
 		for chevron_side in [-1.0, 1.0]:
-			var chevron := _add_box(parent, "PeckFlowChevron_%d_%d" % [lane_index, int(chevron_side)], Vector3(0.32, 0.010, 0.075), Vector3(lane_x + chevron_side * 0.11, 0.026, 5.68), Color("c59a4d"))
+			var chevron := _add_box(lane_parent, "PeckFlowChevron_%d_%d" % [lane_index, int(chevron_side)], Vector3(0.32, 0.010, 0.075), Vector3(lane_x + chevron_side * 0.11, 0.026, 5.68), Color("c59a4d"))
 			chevron.rotation_degrees.y = chevron_side * 34.0
 			chevron.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for parent_value in scuff_batches:
+		var batch_parent := parent_value as Node3D
+		_add_box_multimesh(
+			batch_parent,
+			"PeckLaneScuffBatch",
+			scuff_batches[batch_parent] as Array[Transform3D],
+			Color(0.28, 0.37, 0.38, 0.75),
+			GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
+		)
 
 	for kernel_index in 12:
 		var kernel_x := -11.05 + (kernel_index % 4) * 0.22
 		var kernel_z := -1.02 + int(kernel_index / 4) * 0.24
-		var kernel := _add_sphere(parent, "StrayFeedKernel_%d" % kernel_index, Vector3(kernel_x, 0.045, kernel_z), Vector3(0.055, 0.025, 0.085), Color("d0a84f"))
+		var kernel := _add_sphere(_west_perch_05_presentation, "StrayFeedKernel_%d" % kernel_index, Vector3(kernel_x, 0.045, kernel_z), Vector3(0.055, 0.025, 0.085), Color("d0a84f"))
 		kernel.rotation_degrees.y = kernel_index * 31.0
 		kernel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
-func _build_wall_story(parent: Node3D) -> void:
+func _build_wall_story(archive_parent: Node3D, safety_parent: Node3D) -> void:
 	# Farm-bureau propaganda occupies the unused left-wall strips and stays clear of
 	# the wellness zone, pipeline board, and every circulation lane.
-	_add_box(parent, "HenOfMonthFrame", Vector3(0.055, 1.56, 1.75), Vector3(-11.68, 2.05, -5.55), Color("584b3c"))
+	_add_box(archive_parent, "HenOfMonthFrame", Vector3(0.055, 1.56, 1.75), Vector3(-11.68, 2.05, -5.55), Color("584b3c"))
 	var hen_of_month_card := _add_box(
-		parent,
+		archive_parent,
 		"HenOfMonthCard",
 		Vector3(0.035, 1.35, 1.54),
 		Vector3(-11.63, 2.05, -5.55),
 		Color("e4dcc4"),
 	)
-	var portrait := _add_sphere(parent, "HenOfMonthPortrait", Vector3(-11.59, 2.08, -5.55), Vector3(0.04, 0.43, 0.43), Color("d79b63"))
+	var portrait := _add_sphere(archive_parent, "HenOfMonthPortrait", Vector3(-11.59, 2.08, -5.55), Vector3(0.04, 0.43, 0.43), Color("d79b63"))
 	portrait.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	EnvironmentalSignageScript.add_panel(
 		hen_of_month_card, "HenOfMonthLabel", "HEN OF THE MONTH",
@@ -1539,7 +2228,7 @@ func _build_wall_story(parent: Node3D) -> void:
 	)
 
 	var safety_label := EnvironmentalSignageScript.add_panel(
-		parent, "CoopSafetyLabel", "AISLE SAFETY\nKeep wings tucked",
+		safety_parent, "CoopSafetyLabel", "AISLE SAFETY\nKeep wings tucked",
 		Vector3(-11.798, 2.25, 6.45), Vector2(0.96, 0.56),
 		Color("d8d5c4"), Color("31515b"), Vector3(0.0, 90.0, 0.0),
 		14, 0.0038, &"secondary", &"paper"
@@ -1572,6 +2261,17 @@ func _build_feed_party_station() -> void:
 			model.name = "FeedPartyStationModel"
 			model.scale = Vector3.ONE * FEED_PARTY_STATION_SCALE
 			_feed_party_station.add_child(model)
+			for wheel_name in [
+				"TroughCasterWheel_FrontL",
+				"TroughCasterWheel_FrontR",
+				"TroughCasterWheel_RearL",
+				"TroughCasterWheel_RearR",
+			]:
+				var wheel := model.find_child(wheel_name, true, false) as Node3D
+				if wheel == null:
+					continue
+				wheel.set_meta("feed_party_base_rotation_x", wheel.rotation.x)
+				_feed_party_wheels.append(wheel)
 	else:
 		# Keeps the event testable while the Blender source is being regenerated.
 		_add_box(_feed_party_station, "FallbackTrough", Vector3(2.67, 0.55, 0.72), Vector3(0.0, 0.34, 0.0), Color("6f7875"))
@@ -1694,6 +2394,8 @@ func _active_desk_positions(capacity: int) -> Array[Vector3]:
 func _apply_office_capacity_visibility(capacity: int, animate_reveal: bool = true) -> void:
 	capacity = clampi(capacity, 0, MAXIMUM_OFFICE_CAPACITY)
 	var previous_capacity := _displayed_office_capacity
+	if previous_capacity == capacity and animate_reveal:
+		return
 	for index in MAXIMUM_OFFICE_CAPACITY:
 		var workstation: Node3D = _workstations_by_index.get(index)
 		var marker: Node3D = _capacity_markers_by_index.get(index)
@@ -1712,10 +2414,16 @@ func _apply_office_capacity_visibility(capacity: int, animate_reveal: bool = tru
 					reveal.tween_property(workstation, "position:y", 0.0, 0.62)
 					reveal.tween_property(workstation, "scale", Vector3.ONE, 0.62)
 		if marker != null:
-			# Tease one concrete next step. Showing every future bay at once reads as
-			# an abandoned build-out and competes with the hens who are working now.
-			marker.visible = not active and index == capacity
+			# The next construction crate is useful only after staffing has become a
+			# live question. Orientation therefore begins with the working pod alone.
+			marker.visible = _capacity_marker_should_be_visible(capacity, index)
 	_displayed_office_capacity = capacity
+	_apply_office_physical_presentation(capacity)
+	if animate_reveal and previous_capacity >= 0 and capacity > previous_capacity:
+		# The authority changes immediately, while the presentation handoff is
+		# deferred until the current snapshot has also refreshed lighting and labels.
+		# This avoids a one-frame flash of the mature west wing before commissioning.
+		_animate_capacity_stage_handoff.call_deferred(previous_capacity, capacity)
 	if _office_storytelling != null and previous_capacity != capacity:
 		# Rebuilding from the active prefix visually extends the collection rail as
 		# each capacity requisition is approved; hidden desks never leave floating
@@ -1727,7 +2435,298 @@ func _apply_office_capacity_visibility(capacity: int, animate_reveal: bool = tru
 		)
 
 
+func _apply_office_physical_presentation(capacity: int) -> void:
+	capacity = clampi(capacity, 0, MAXIMUM_OFFICE_CAPACITY)
+	var dormant_visible := (
+		_capacity_marker_context_revealed
+		and capacity < MAXIMUM_OFFICE_CAPACITY
+		and not _first_clutch_tracking_active()
+	)
+	if _office_physical_presentation != null:
+		_office_physical_presentation.visible = true
+	if _core_office_presentation != null:
+		_core_office_presentation.visible = true
+	if _west_lease_partition != null:
+		_west_lease_partition.visible = capacity < 5
+	if _dormant_west_presentation != null:
+		_dormant_west_presentation.visible = dormant_visible
+	if _west_perch_04_presentation != null:
+		_west_perch_04_presentation.visible = capacity >= 5
+	if _west_perch_05_presentation != null:
+		_west_perch_05_presentation.visible = capacity >= MAXIMUM_OFFICE_CAPACITY
+	if _archive_presentation != null:
+		_archive_presentation.visible = capacity >= MAXIMUM_OFFICE_CAPACITY
+	if _intake_presentation != null:
+		_intake_presentation.visible = true
+	_apply_office_fill_light_stage(capacity)
+	if _office_storytelling != null:
+		_office_storytelling.set_office_physical_presentation(capacity, dormant_visible)
+	set_meta(&"office_physical_presentation", _office_physical_presentation_state(capacity))
+
+
+func _apply_office_fill_light_stage(capacity: int) -> void:
+	# FluorescentFill_0 sits over the west wing. Its geometry remains authored,
+	# but an uncommissioned wing should not cast a mature pool of light. Visibility
+	# owns the capacity gate; _update_lighting() remains the sole energy/color owner.
+	if _office_fill_lights.is_empty():
+		return
+	_office_fill_lights[0].visible = capacity >= 5
+
+
+func _office_physical_presentation_state(capacity: int) -> Dictionary:
+	capacity = clampi(capacity, 0, MAXIMUM_OFFICE_CAPACITY)
+	var stage: StringName = &"core"
+	if capacity >= MAXIMUM_OFFICE_CAPACITY:
+		stage = &"full_bureau"
+	elif capacity >= 5:
+		stage = &"west_front"
+	var dormant_visible := (
+		_dormant_west_presentation != null
+		and _dormant_west_presentation.visible
+	)
+	return {
+		"capacity": capacity,
+		"stage": stage,
+		"core_visible": _core_office_presentation != null and _core_office_presentation.visible,
+		"west_partition_visible": _west_lease_partition != null and _west_lease_partition.visible,
+		"dormant_west_visible": dormant_visible,
+		"west_perch_04_visible": _west_perch_04_presentation != null and _west_perch_04_presentation.visible,
+		"west_perch_05_visible": _west_perch_05_presentation != null and _west_perch_05_presentation.visible,
+		"archive_visible": _archive_presentation != null and _archive_presentation.visible,
+		"intake_visible": _intake_presentation != null and _intake_presentation.visible,
+		"next_perch_index": capacity if dormant_visible and capacity < MAXIMUM_OFFICE_CAPACITY else -1,
+	}
+
+
+func office_physical_presentation_snapshot() -> Dictionary:
+	return _office_physical_presentation_state(_displayed_office_capacity).duplicate(true)
+
+
+func capacity_commissioning_snapshot() -> Dictionary:
+	return _capacity_commissioning_state.duplicate(true)
+
+
+func _animate_capacity_stage_handoff(previous_capacity: int, capacity: int) -> void:
+	if previous_capacity < 0 or capacity <= previous_capacity or not is_inside_tree():
+		return
+	if _capacity_stage_tween != null:
+		_capacity_stage_tween.kill()
+	_capacity_stage_tween = null
+
+	var staged_roots: Array[Node3D] = []
+	if previous_capacity < 5 and capacity >= 5 and _west_perch_04_presentation != null:
+		staged_roots.append(_west_perch_04_presentation)
+	if previous_capacity < MAXIMUM_OFFICE_CAPACITY and capacity >= MAXIMUM_OFFICE_CAPACITY:
+		if _west_perch_05_presentation != null:
+			staged_roots.append(_west_perch_05_presentation)
+		if _archive_presentation != null:
+			staged_roots.append(_archive_presentation)
+	if staged_roots.is_empty():
+		return
+
+	# Reduced motion keeps the same final state and transient receipt, but avoids
+	# moving architecture or ramping the fluorescent fixture.
+	if _prefers_reduced_motion():
+		return
+	_capacity_stage_tween = create_tween().bind_node(self).set_parallel(true)
+	_capacity_stage_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	for stage_root: Node3D in staged_roots:
+		var final_position := stage_root.position
+		stage_root.position = final_position + Vector3(0.0, -0.22, 0.0)
+		stage_root.scale = Vector3(0.985, 0.92, 0.985)
+		_capacity_stage_tween.tween_property(
+			stage_root, "position", final_position, CAPACITY_COMMISSIONING_REVEAL_SECONDS,
+		).set_delay(0.12)
+		_capacity_stage_tween.tween_property(
+			stage_root, "scale", Vector3.ONE, CAPACITY_COMMISSIONING_REVEAL_SECONDS,
+		).set_delay(0.12)
+
+	if previous_capacity < 5 and capacity >= 5 and _west_lease_partition != null:
+		var partition_home := _west_lease_partition.position
+		_west_lease_partition.visible = true
+		_west_lease_partition.position = partition_home
+		_capacity_stage_tween.tween_property(
+			_west_lease_partition,
+			"position",
+			partition_home + Vector3(0.0, -0.62, 0.0),
+			CAPACITY_COMMISSIONING_REVEAL_SECONDS,
+		).set_delay(0.04)
+		_capacity_stage_tween.tween_callback(
+			func() -> void:
+				if _west_lease_partition != null:
+					_west_lease_partition.visible = false
+					_west_lease_partition.position = partition_home
+		).set_delay(CAPACITY_COMMISSIONING_REVEAL_SECONDS + 0.05)
+	if previous_capacity < 5 and capacity >= 5 and not _office_fill_lights.is_empty():
+		var west_fill := _office_fill_lights[0]
+		west_fill.light_energy = 0.0
+		_capacity_stage_tween.tween_property(
+			west_fill,
+			"light_energy",
+			OFFICE_FILL_LIGHT_ENERGY,
+			CAPACITY_COMMISSIONING_REVEAL_SECONDS + 0.20,
+		).set_delay(0.16)
+
+
+func _begin_capacity_commissioning_beat(result: Dictionary) -> void:
+	_stop_capacity_commissioning_beat()
+	var capacity := clampi(
+		int(result.get("office_capacity", _displayed_office_capacity)),
+		1,
+		MAXIMUM_OFFICE_CAPACITY,
+	)
+	var perch_index := capacity - 1
+	var cost_cents := maxi(0, int(result.get("cost_cents", 0)))
+	var daily_cents := maxi(0, int(result.get("added_daily_operating_cents", 0)))
+	var reduced_motion := _prefers_reduced_motion()
+	_capacity_commissioning_state = {
+		"active": true,
+		"phase": &"commissioning",
+		"capacity": capacity,
+		"perch_index": perch_index,
+		"cost_cents": cost_cents,
+		"added_daily_operating_cents": daily_cents,
+		"reduced_motion": reduced_motion,
+	}
+
+	var beat := Node3D.new()
+	beat.name = "CapacityCommissioningBeat"
+	beat.position = desk_position(perch_index)
+	beat.set_meta(&"visual_only", true)
+	beat.set_meta(&"collision_free", true)
+	beat.set_meta(&"navigation_free", true)
+	add_child(beat)
+	_capacity_commissioning_root = beat
+
+	var filed_color := Color("6ccfba")
+	var filed_material := StandardMaterial3D.new()
+	filed_material.albedo_color = filed_color.darkened(0.46)
+	filed_material.roughness = 0.42
+	filed_material.emission_enabled = true
+	filed_material.emission = filed_color
+	filed_material.emission_energy_multiplier = 1.7
+	for side_z in [-1.0, 1.0]:
+		var rail_z := _add_box(
+			beat,
+			"CommissioningRailZ",
+			Vector3(2.78, 0.035, 0.07),
+			Vector3(0.0, 0.052, side_z * 0.79),
+			filed_color,
+		)
+		rail_z.material_override = filed_material
+		rail_z.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for side_x in [-1.0, 1.0]:
+		var rail_x := _add_box(
+			beat,
+			"CommissioningRailX",
+			Vector3(0.07, 0.035, 1.58),
+			Vector3(side_x * 1.39, 0.052, 0.0),
+			filed_color,
+		)
+		rail_x.material_override = filed_material
+		rail_x.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+	var filed_label := Label3D.new()
+	filed_label.name = "CapacityCommissioningLabel"
+	filed_label.text = "PERCH %d  /  COMMISSIONED\n$%.2f FILED  •  +$%.2f / SHIFT" % [
+		capacity,
+		float(cost_cents) / 100.0,
+		float(daily_cents) / 100.0,
+	]
+	filed_label.position = Vector3(0.0, 2.52, 0.72)
+	filed_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	filed_label.fixed_size = false
+	filed_label.pixel_size = 0.012
+	filed_label.font_size = 24
+	filed_label.outline_size = 5
+	filed_label.modulate = Color("e9f5df")
+	filed_label.outline_modulate = Color("173138")
+	filed_label.no_depth_test = true
+	beat.add_child(filed_label)
+
+	beat.scale = Vector3.ONE if reduced_motion else Vector3(0.84, 0.84, 0.84)
+	_capacity_commissioning_tween = create_tween().bind_node(beat)
+	if not reduced_motion:
+		_capacity_commissioning_tween.tween_property(
+			beat,
+			"scale",
+			Vector3.ONE,
+			CAPACITY_COMMISSIONING_REVEAL_SECONDS,
+		).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_capacity_commissioning_tween.tween_interval(CAPACITY_COMMISSIONING_HOLD_SECONDS)
+	if not reduced_motion:
+		_capacity_commissioning_tween.tween_property(
+			beat,
+			"scale",
+			Vector3(1.035, 0.90, 1.035),
+			CAPACITY_COMMISSIONING_SETTLE_SECONDS,
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_capacity_commissioning_tween.tween_callback(_complete_capacity_commissioning_beat)
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _complete_capacity_commissioning_beat() -> void:
+	_capacity_commissioning_state["active"] = false
+	_capacity_commissioning_state["phase"] = &"complete"
+	if _capacity_commissioning_root != null and is_instance_valid(_capacity_commissioning_root):
+		_capacity_commissioning_root.queue_free()
+	_capacity_commissioning_root = null
+	_capacity_commissioning_tween = null
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _stop_capacity_commissioning_beat() -> void:
+	if _capacity_commissioning_tween != null:
+		_capacity_commissioning_tween.kill()
+	_capacity_commissioning_tween = null
+	if _capacity_commissioning_root != null and is_instance_valid(_capacity_commissioning_root):
+		_capacity_commissioning_root.free()
+	_capacity_commissioning_root = null
+	if bool(_capacity_commissioning_state.get("active", false)):
+		_capacity_commissioning_state["active"] = false
+		_capacity_commissioning_state["phase"] = &"interrupted"
+
+
+func _capacity_marker_should_be_visible(capacity: int, index: int) -> bool:
+	if capacity >= MAXIMUM_OFFICE_CAPACITY or index != capacity:
+		return false
+	if _first_clutch_tracking_active():
+		return false
+	return _capacity_marker_context_revealed
+
+
+func _set_capacity_marker_context_revealed(revealed: bool) -> void:
+	if revealed and _first_clutch_tracking_active():
+		revealed = false
+	if _capacity_marker_context_revealed == revealed or _simulation == null:
+		return
+	_capacity_marker_context_revealed = revealed
+	_apply_office_capacity_visibility(
+		_office_capacity_from_snapshot(_simulation.snapshot()),
+		false,
+	)
+
+
+func _reveal_capacity_marker_context() -> void:
+	_set_capacity_marker_context_revealed(true)
+
+
 func _refresh_workstation_nameplates(snapshot: Dictionary) -> void:
+	var fingerprint_parts: Array = [_office_capacity_from_snapshot(snapshot)]
+	for worker_value in snapshot.get("workers", []):
+		var fingerprint_worker := worker_value as Dictionary
+		if not _is_worker_employed(fingerprint_worker):
+			continue
+		fingerprint_parts.append([
+			int(fingerprint_worker.get("id", -1)),
+			int(fingerprint_worker.get("desk_index", -1)),
+			String(fingerprint_worker.get("name", fingerprint_worker.get("display_name", ""))),
+			String(fingerprint_worker.get("career_title", "")),
+		])
+	var fingerprint := hash(fingerprint_parts)
+	if fingerprint == _workstation_nameplate_fingerprint:
+		return
+	_workstation_nameplate_fingerprint = fingerprint
 	var occupants: Dictionary[int, Dictionary] = {}
 	for worker_value in snapshot.get("workers", []):
 		var worker := worker_value as Dictionary
@@ -1815,6 +2814,7 @@ func _spawn_worker_view(worker_data: Dictionary, arrival_order: int = -1) -> Chi
 	view.feed_party_attendance_completed.connect(_on_feed_party_attendance_completed)
 	view.workstation_presence_changed.connect(_on_worker_workstation_presence_changed)
 	view.office_departure_completed.connect(_on_worker_departure_completed.bind(view))
+	view.work_peck_contact.connect(_on_work_peck_contact)
 	view.priority_peck_contact.connect(_on_priority_peck_contact)
 	view.lay_release_reached.connect(_on_lay_release_reached)
 	view.assign_office_route(
@@ -1917,6 +2917,7 @@ func _on_predator_victim_captured(worker_id: int, threat_origin: Vector3) -> voi
 
 
 func _process(_delta: float) -> void:
+	_flush_pending_web_diagnostic()
 	_flush_due_campaign_checkpoint()
 	var blocking_surface_open := _blocking_management_surface_open()
 	var first_clutch_compact := (
@@ -1965,16 +2966,36 @@ func _record_status_copy(copy: String) -> void:
 		_status_history.push_front(copy)
 		if _status_history.size() > STATUS_HISTORY_LIMIT:
 			_status_history.resize(STATUS_HISTORY_LIMIT)
-	if _status_history_label != null:
-		var recent := _status_history.slice(0, mini(5, _status_history.size()))
-		var lines: Array[String] = ["SHIFT RECORD"]
-		for entry: String in recent:
-			lines.append("- %s" % entry)
-		_status_history_label.text = "\n".join(lines)
+	_refresh_status_history_presentation()
 	if _flockwatch_navigation != null:
 		_flockwatch_navigation.set_last_feedback(copy)
 	if _flockwatch_open and _simulation != null:
 		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_status_history_toggled(expanded: bool) -> void:
+	_status_history_expanded = expanded
+	_refresh_status_history_presentation()
+
+
+func _refresh_status_history_presentation() -> void:
+	if _status_history_label == null or _status_history_toggle == null:
+		return
+	var recent_count := mini(5, _status_history.size())
+	var can_expand := recent_count > 0
+	_status_history_toggle.disabled = not can_expand
+	_status_history_toggle.set_pressed_no_signal(_status_history_expanded and can_expand)
+	if not can_expand:
+		_status_history_toggle.text = "SHIFT RECORD · EMPTY"
+	elif _status_history_expanded:
+		_status_history_toggle.text = "HIDE SHIFT RECORD · %d" % recent_count
+	else:
+		_status_history_toggle.text = "SHOW SHIFT RECORD · %d" % recent_count
+	_status_history_label.visible = _status_history_expanded and can_expand
+	var lines: Array[String] = ["RECENT SHIFT RECORD"]
+	for entry: String in _status_history.slice(0, recent_count):
+		lines.append("- %s" % entry)
+	_status_history_label.text = "\n".join(lines)
 
 
 func _blocking_management_surface_open() -> bool:
@@ -1989,6 +3010,21 @@ func _blocking_management_surface_open() -> bool:
 		or (_commissioning_reveal_ui != null and _commissioning_reveal_ui.visible)
 		or (_campus_portfolio_reveal_ui != null and _campus_portfolio_reveal_ui.visible)
 	)
+
+
+func _refresh_floor_input_context() -> void:
+	var blocked := _flockwatch_open or _blocking_management_surface_open()
+	if _camera_controller != null:
+		_camera_controller.set_process_input(not blocked)
+		_camera_controller.set_process_unhandled_input(not blocked)
+		if blocked:
+			_camera_controller.call("_clear_navigation_inputs")
+	if _routing_ui != null:
+		_routing_ui.set_interaction_enabled(
+			not blocked
+			and _simulation != null
+			and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+		)
 
 
 func _apply_live_hud_presentation(compact: bool) -> void:
@@ -2018,6 +3054,10 @@ func _build_ui() -> void:
 	_ui_root = Control.new()
 	_ui_root.name = "ManagementUIRoot"
 	_ui_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# This full-viewport host is only a layout parent. Interactive descendants
+	# keep their own STOP/PASS filters, while uncovered office pixels must reach
+	# the management camera for selection, wheel zoom, and middle-drag panning.
+	_ui_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ui_root.theme = ManagementUIThemeScript.create_theme()
 	ui.add_child(_ui_root)
 
@@ -2028,18 +3068,19 @@ func _build_ui() -> void:
 	_top_hud_panel.add_theme_stylebox_override("panel", _panel_style(Color("1c2633"), 0.94, 0, 0))
 	_ui_root.add_child(_top_hud_panel)
 	var top_margin := MarginContainer.new()
-	top_margin.add_theme_constant_override("margin_left", 22)
-	top_margin.add_theme_constant_override("margin_right", 22)
-	top_margin.add_theme_constant_override("margin_top", 9)
-	top_margin.add_theme_constant_override("margin_bottom", 9)
+	top_margin.add_theme_constant_override("margin_left", 18)
+	top_margin.add_theme_constant_override("margin_right", 18)
+	top_margin.add_theme_constant_override("margin_top", 6)
+	top_margin.add_theme_constant_override("margin_bottom", 6)
 	_top_hud_panel.add_child(top_margin)
 	var top_stack := VBoxContainer.new()
-	top_stack.add_theme_constant_override("separation", 7)
+	top_stack.add_theme_constant_override("separation", 4)
 	top_margin.add_child(top_stack)
 	var top_bar := HBoxContainer.new()
 	top_bar.add_theme_constant_override("separation", 12)
 	top_stack.add_child(top_bar)
-	var title := _make_label("PECKING ORDER  //  EGG YIELD BUREAU", 20, Color("f4d27b"))
+	var title := _make_label("PECKING ORDER", 18, Color("f4d27b"))
+	title.tooltip_text = "Egg Yield Bureau management floor"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_bar.add_child(title)
 	_day_label = _make_label("DAY 1", 16)
@@ -2050,22 +3091,26 @@ func _build_ui() -> void:
 	top_bar.add_child(_revenue_label)
 	_settings_button = Button.new()
 	_settings_button.name = "OpenSettingsButton"
-	_settings_button.text = "COMFORT  [F10]"
-	_settings_button.custom_minimum_size = Vector2(116.0, 36.0)
+	_settings_button.text = "SETTINGS  [F10]"
+	_settings_button.custom_minimum_size = Vector2(112.0, 32.0)
 	_settings_button.tooltip_text = "Audio, display comfort, accessibility, and remappable controls."
 	_settings_button.focus_mode = Control.FOCUS_ALL
 	_settings_button.pressed.connect(_on_settings_requested)
 	top_bar.add_child(_settings_button)
 
+	var speed_group := HBoxContainer.new()
+	speed_group.name = "SimulationSpeedControl"
+	speed_group.add_theme_constant_override("separation", 2)
+	top_bar.add_child(speed_group)
 	for index in 4:
 		var button := Button.new()
 		button.text = ["PAUSE", "1×", "3×", "10×"][index]
 		button.name = "SpeedButton_%d" % index
 		button.theme_type_variation = &"SpeedButton"
-		button.custom_minimum_size = Vector2(60.0, 36.0)
+		button.custom_minimum_size = Vector2(50.0, 32.0)
 		button.tooltip_text = ["Pause simulation", "Normal speed", "Fast speed", "Ultra speed"][index]
 		button.pressed.connect(_on_speed_button_pressed.bind(index))
-		top_bar.add_child(button)
+		speed_group.add_child(button)
 		_speed_buttons.append(button)
 
 	_shift_objective_row = HBoxContainer.new()
@@ -2075,17 +3120,17 @@ func _build_ui() -> void:
 	_shift_objective_row.add_child(_make_label("SHIFT CLUTCH", 13, Color("d9c47d")))
 	_quota_progress = ProgressBar.new()
 	_quota_progress.name = "ShiftQuotaProgress"
-	_quota_progress.custom_minimum_size = Vector2(240.0, 24.0)
+	_quota_progress.custom_minimum_size = Vector2(190.0, 22.0)
 	_quota_progress.show_percentage = false
 	_shift_objective_row.add_child(_quota_progress)
 	_quota_progress_label = _make_label("0 / 24", 14, Color("f3ead1"))
 	_quota_progress_label.custom_minimum_size.x = 62.0
 	_shift_objective_row.add_child(_quota_progress_label)
 	_quality_streak_label = _make_label("CLEAN CLUTCH  ×0", 14, Color("9ccfc2"))
-	_quality_streak_label.custom_minimum_size.x = 196.0
+	_quality_streak_label.custom_minimum_size.x = 152.0
 	_shift_objective_row.add_child(_quality_streak_label)
 	_directive_badge = _make_label("POLICY  ·  UNSET", 13, Color("efb96d"))
-	_directive_badge.custom_minimum_size.x = 180.0
+	_directive_badge.custom_minimum_size.x = 160.0
 	_directive_badge.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_shift_objective_row.add_child(_directive_badge)
 	_guidance_label = _make_label("START HERE: choose 1× when the flock is seated.", 13, Color("b8c3cc"))
@@ -2152,6 +3197,12 @@ func _build_ui() -> void:
 	_campaign_objectives_label.name = "CampaignObjectivesLabel"
 	_campaign_objectives_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	today_section.add_child(_campaign_objectives_label)
+	_campaign_doctrine_label = _make_label("", 12, Color("9fd3c5"))
+	_campaign_doctrine_label.name = "CampaignActiveDoctrine"
+	_campaign_doctrine_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_campaign_doctrine_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_campaign_doctrine_label.visible = false
+	today_section.add_child(_campaign_doctrine_label)
 	_campaign_safeguards_label = _make_label(
 		"PROBATION SAFEGUARDS  //  AWAITING FILE",
 		12,
@@ -2174,6 +3225,9 @@ func _build_ui() -> void:
 	_staffing_ui = RoostStaffingUIScript.new() as RoostStaffingUI
 	_staffing_ui.capacity_purchase_requested.connect(_on_staff_capacity_purchase_requested)
 	_staffing_ui.facility_purchase_requested.connect(_on_facility_purchase_requested)
+	_staffing_ui.manager_assignment_requested.connect(_on_manager_assignment_requested)
+	_staffing_ui.manager_posture_requested.connect(_on_manager_posture_requested)
+	_staffing_ui.manager_recruit_requested.connect(_on_manager_recruit_requested)
 	_staffing_ui.flock_relations_action_requested.connect(_on_flock_relations_action_requested)
 	_staffing_ui.feed_order_requested.connect(_on_feed_order_requested)
 	_staffing_ui.farmgate_dispatch_mandate_requested.connect(
@@ -2186,7 +3240,13 @@ func _build_ui() -> void:
 	_staffing_ui.hire_requested.connect(_on_staff_hire_requested)
 	_staffing_ui.release_requested.connect(_on_staff_release_requested)
 	flock_section.add_child(_staffing_ui)
-	capital_section.add_child(_make_label("COOP REQUISITIONS", 17, Color("f4d27b")))
+	_upgrade_disclosure_toggle = FlockwatchDisclosureToggleScript.new()
+	_upgrade_disclosure_toggle.name = "DeskRequisitionsToggle"
+	capital_section.add_child(_upgrade_disclosure_toggle)
+	var requisitions_heading := _make_label("COOP REQUISITIONS", 17, Color("f4d27b"))
+	requisitions_heading.name = "DeskRequisitionsHeading"
+	capital_section.add_child(requisitions_heading)
+	var requisition_targets: Array[Control] = [requisitions_heading]
 	for upgrade in _simulation.upgrade_catalog():
 		var upgrade_id := StringName(upgrade["id"])
 		var upgrade_button := Button.new()
@@ -2197,7 +3257,14 @@ func _build_ui() -> void:
 		upgrade_button.custom_minimum_size.y = 52.0
 		upgrade_button.pressed.connect(_on_upgrade_pressed.bind(upgrade_id))
 		capital_section.add_child(upgrade_button)
+		requisition_targets.append(upgrade_button)
 		_upgrade_buttons[upgrade_id] = upgrade_button
+	_upgrade_disclosure_toggle.configure(
+		"DESK REQUISITIONS",
+		"3 FILES / NONE READY",
+		requisition_targets,
+		false,
+	)
 	_continue_shift_button = Button.new()
 	_continue_shift_button.name = "ContinueDirectiveButton"
 	_continue_shift_button.text = "CONTINUE: CHOOSE MORNING POLICY"
@@ -2207,21 +3274,59 @@ func _build_ui() -> void:
 	_continue_shift_button.visible = false
 	_continue_shift_button.pressed.connect(_on_continue_directive_pressed)
 	today_section.add_child(_continue_shift_button)
-	today_section.add_child(HSeparator.new())
-	_claims_label = _make_label("Live files: 0 / 18", 15)
-	_egg_label = _make_label("Eggs gathered: 0", 15)
-	_quota_label = _make_label("Daily clutch: 0 / 0", 15)
-	_confidence_label = _make_label("Farmer favor: 0%", 15)
-	_morale_label = _make_label("Flock spirits: 0%", 15)
-	_compliance_label = _make_label("Coop obedience: 0%", 15)
-	_solidarity_label = _make_label("Flock unity risk: 0%", 15)
-	for label in [_claims_label, _egg_label, _quota_label, _confidence_label, _morale_label, _compliance_label, _solidarity_label]:
-		today_section.add_child(label)
+	var today_snapshot_panel := PanelContainer.new()
+	today_snapshot_panel.name = "FlockwatchTodaySnapshot"
+	var today_snapshot_style := StyleBoxFlat.new()
+	today_snapshot_style.bg_color = Color("18232f")
+	today_snapshot_style.border_color = Color("485b68")
+	today_snapshot_style.set_border_width_all(1)
+	today_snapshot_style.set_corner_radius_all(7)
+	today_snapshot_style.content_margin_left = 10.0
+	today_snapshot_style.content_margin_right = 10.0
+	today_snapshot_style.content_margin_top = 8.0
+	today_snapshot_style.content_margin_bottom = 8.0
+	today_snapshot_panel.add_theme_stylebox_override("panel", today_snapshot_style)
+	today_section.add_child(today_snapshot_panel)
+	var today_snapshot_rows := VBoxContainer.new()
+	today_snapshot_rows.name = "FlockwatchTodaySnapshotRows"
+	today_snapshot_rows.add_theme_constant_override("separation", 3)
+	today_snapshot_panel.add_child(today_snapshot_rows)
+	var today_snapshot_heading := _make_label("SHIFT SNAPSHOT", 12, Color("d9c47d"))
+	today_snapshot_heading.name = "FlockwatchTodaySnapshotHeading"
+	today_snapshot_rows.add_child(today_snapshot_heading)
+	_today_workload_label = _make_label("WORKLOAD · 0 / 18 LIVE · 0 OVERDUE · 0 TURNED AWAY", 12)
+	_today_workload_label.name = "FlockwatchTodayWorkload"
+	_today_clutch_label = _make_label("CLUTCH · 0 / 0 TODAY · 0 CAREER EGGS", 12)
+	_today_clutch_label.name = "FlockwatchTodayClutch"
+	_today_flock_label = _make_label("FLOCK · 0% SPIRITS · 0% UNITY RISK", 12)
+	_today_flock_label.name = "FlockwatchTodayFlock"
+	_today_ledger_label = _make_label("LEDGERS · 0% FARMER FAVOR · 0% COOP OBEDIENCE", 12)
+	_today_ledger_label.name = "FlockwatchTodayLedgers"
+	for label in [
+		_today_workload_label,
+		_today_clutch_label,
+		_today_flock_label,
+		_today_ledger_label,
+	]:
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.mouse_filter = Control.MOUSE_FILTER_STOP
+		today_snapshot_rows.add_child(label)
 	_status_history_label = _make_label("SHIFT RECORD  /  No notices filed yet.", 12, Color("aeb8c4"))
 	_status_history_label.name = "FlockwatchStatusHistory"
 	_status_history_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	today_section.add_child(HSeparator.new())
+	_status_history_toggle = Button.new()
+	_status_history_toggle.name = "FlockwatchStatusHistoryToggle"
+	_status_history_toggle.text = "SHIFT RECORD · EMPTY"
+	_status_history_toggle.tooltip_text = "Show or hide the five most recent Flockwatch notices."
+	_status_history_toggle.toggle_mode = true
+	_status_history_toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_status_history_toggle.custom_minimum_size.y = 34.0
+	_status_history_toggle.focus_mode = Control.FOCUS_ALL
+	_status_history_toggle.toggled.connect(_on_status_history_toggled)
+	today_section.add_child(_status_history_toggle)
 	today_section.add_child(_status_history_label)
+	_refresh_status_history_presentation()
 	var initiatives := _make_label("ROOSTER DIRECTIVES", 17, Color("efb96d"))
 	operations_section.add_child(initiatives)
 	_feed_button = Button.new()
@@ -2234,6 +3339,7 @@ func _build_ui() -> void:
 	_feed_button.pressed.connect(_on_feed_pressed)
 	operations_section.add_child(_feed_button)
 	_overtime_button = Button.new()
+	_overtime_button.name = "OvertimeToggleButton"
 	_overtime_button.text = "ENABLE AFTER-HOURS PECKING  [O]"
 	_overtime_button.tooltip_text = "+22% output; sharply increases fatigue, stress, morale loss, and crack risk. Resets next shift."
 	_overtime_button.clip_text = true
@@ -2242,13 +3348,112 @@ func _build_ui() -> void:
 	_overtime_button.toggle_mode = true
 	_overtime_button.pressed.connect(_on_overtime_pressed)
 	operations_section.add_child(_overtime_button)
+	var shift_help_toggle = FlockwatchDisclosureToggleScript.new()
+	shift_help_toggle.name = "OperationsShiftHelpToggle"
+	operations_section.add_child(shift_help_toggle)
 	var note := _make_label("TIP: Click a hen to inspect. Tab cycles; Esc returns.\nOne flock check-in is available each shift.\nThe farmer counts the clutch at 5:00 PM.", 13, Color("aeb8c4"))
+	note.name = "OperationsShiftHelp"
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	operations_section.add_child(note)
+	var shift_help_targets: Array[Control] = [note]
+	shift_help_toggle.configure("SHIFT HELP", "CONTROLS / CLOSING", shift_help_targets, false)
+	_commendations_disclosure_toggle = FlockwatchDisclosureToggleScript.new()
+	_commendations_disclosure_toggle.name = "CareerCommendationsToggle"
+	records_section.add_child(_commendations_disclosure_toggle)
+	var commendation_total := CareerCommendationsScript.IDS.size()
+	_commendations_summary_label = _make_label(
+		"COOP COMMENDATIONS  /  0 OF %d FILED\nNEXT STAMP  /  FIRST EGG, FULL CREDIT  /  0 / 1 EGG" % commendation_total,
+		12,
+		Color("e2cb88"),
+	)
+	_commendations_summary_label.name = "CareerCommendationsSummary"
+	_commendations_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_commendations_summary_label.tooltip_text = (
+		"Commendations are permanent recognition derived from the saved career ledger. "
+		+ "They never hide an economy bonus or punish a missed session."
+	)
+	records_section.add_child(_commendations_summary_label)
+	_commendation_earned_style = _panel_style(Color("293629"), 0.98, 7, 1)
+	_commendation_earned_style.border_color = Color("b99a52")
+	_commendation_locked_style = _panel_style(Color("17212a"), 0.82, 7, 1)
+	_commendation_locked_style.border_color = Color("42515d")
+	var commendation_targets: Array[Control] = []
+	for definition: Dictionary in CareerCommendationsScript.definitions():
+		var commendation_id := StringName(definition.get("id", &""))
+		var commendation_panel := PanelContainer.new()
+		commendation_panel.name = "CareerCommendation_%s" % String(commendation_id)
+		commendation_panel.custom_minimum_size.y = 64.0
+		commendation_panel.add_theme_stylebox_override("panel", _commendation_locked_style)
+		records_section.add_child(commendation_panel)
+		commendation_targets.append(commendation_panel)
+		var commendation_margin := MarginContainer.new()
+		commendation_margin.add_theme_constant_override("margin_left", 9)
+		commendation_margin.add_theme_constant_override("margin_right", 9)
+		commendation_margin.add_theme_constant_override("margin_top", 7)
+		commendation_margin.add_theme_constant_override("margin_bottom", 7)
+		commendation_panel.add_child(commendation_margin)
+		var commendation_row := VBoxContainer.new()
+		commendation_row.add_theme_constant_override("separation", 2)
+		commendation_margin.add_child(commendation_row)
+		var commendation_heading_row := HBoxContainer.new()
+		commendation_heading_row.add_theme_constant_override("separation", 8)
+		commendation_row.add_child(commendation_heading_row)
+		var commendation_mark := _make_label("OPEN", 11, Color("82909a"))
+		commendation_mark.name = "CareerCommendationMark_%s" % String(commendation_id)
+		commendation_mark.custom_minimum_size.x = 42.0
+		commendation_heading_row.add_child(commendation_mark)
+		var commendation_title := _make_label(String(definition.get("title", "COMMENDATION")), 13, Color("c9d1d5"))
+		commendation_title.name = "CareerCommendationTitle_%s" % String(commendation_id)
+		commendation_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		commendation_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		commendation_heading_row.add_child(commendation_title)
+		var commendation_progress := _make_label("0 / 1", 11, Color("9aa8af"))
+		commendation_progress.name = "CareerCommendationProgress_%s" % String(commendation_id)
+		commendation_progress.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		commendation_heading_row.add_child(commendation_progress)
+		var commendation_detail := _make_label(
+			"%s  /  RECOGNITION: %s" % [
+				String(definition.get("description", "")),
+				String(definition.get("recognition", "Archive stamp")),
+			],
+			11,
+			Color("93a1a8"),
+		)
+		commendation_detail.name = "CareerCommendationDetail_%s" % String(commendation_id)
+		commendation_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		commendation_row.add_child(commendation_detail)
+		_commendation_rows[commendation_id] = {
+			"panel": commendation_panel,
+			"mark": commendation_mark,
+			"title": commendation_title,
+			"progress": commendation_progress,
+			"detail": commendation_detail,
+			"earned": false,
+		}
+	_commendations_disclosure_toggle.configure(
+		"COOP COMMENDATIONS",
+		"0 / %d FILED" % commendation_total,
+		commendation_targets,
+		false,
+	)
+	records_section.add_child(HSeparator.new())
+	var records_heading := _make_label("COOP RECORDS ARCHIVE", 17, Color("d8b88a"))
+	records_heading.name = "FlockwatchRecordsArchiveHeading"
+	records_section.add_child(records_heading)
+	_records_archive_label = _make_label(
+		"FARM MUTUAL / NO ACTIVE BINDER\nFLOCK LABOR / QUIET\nRECEIPTS / NONE FILED",
+		11,
+		Color("b9c8cc"),
+	)
+	_records_archive_label.name = "FlockwatchRecordsArchiveSummary"
+	_records_archive_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_records_archive_label.tooltip_text = "Compact archive status; detailed actionable files remain above on this Records page."
+	records_section.add_child(_records_archive_label)
 
 	_flockwatch_navigation = FlockwatchNavigationScript.new() as FlockwatchNavigation
 	side_margin.add_child(_flockwatch_navigation)
 	_flockwatch_navigation.page_changed.connect(_on_flockwatch_page_changed)
+	_flockwatch_navigation.show_all_filings_changed.connect(_on_flockwatch_show_all_filings_changed)
 	_flockwatch_navigation.adopt_context_action(_continue_shift_button)
 	# Move the staffing domains before their containing Flock section enters the
 	# navigator. This must also precede adopting the legacy Today scroll because
@@ -2321,6 +3526,7 @@ func _build_ui() -> void:
 	_routing_ui.peck_assist_requested.connect(_on_peck_assist_requested)
 	_routing_ui.first_clutch_skip_requested.connect(_on_first_clutch_skip_requested)
 	_routing_ui.first_clutch_focus_requested.connect(_on_first_clutch_focus_requested)
+	_routing_ui.first_clutch_skip_rect_settled.connect(_on_first_clutch_skip_rect_settled)
 	_ui_root.add_child(_routing_ui)
 	_build_day_review_panel()
 	_build_decision_modal()
@@ -2329,7 +3535,10 @@ func _build_ui() -> void:
 	_campaign_ui.continue_campaign.connect(_on_campaign_continue_requested)
 	_campaign_ui.new_campaign.connect(_on_campaign_new_requested)
 	_campaign_ui.abandon_campaign.connect(_on_campaign_abandon_requested)
+	_campaign_ui.challenge_contract_changed.connect(_on_campaign_challenge_contract_changed)
+	_campaign_ui.title_intake_phase_changed.connect(_on_campaign_title_intake_phase_changed)
 	_campaign_ui.milestone_choice.connect(_on_campaign_milestone_requested)
+	_campaign_ui.presentation_state_changed.connect(_on_campaign_presentation_state_changed)
 	_campaign_ui.career_sponsorship_requested.connect(_on_career_sponsorship_requested)
 	_campaign_ui.market_contract_sign_requested.connect(_on_market_contract_sign_requested)
 	_campaign_ui.market_contract_decline_requested.connect(_on_market_contract_decline_requested)
@@ -2338,6 +3547,8 @@ func _build_ui() -> void:
 	_settings_ui.preferences_changed.connect(_on_preferences_changed)
 	_settings_ui.binding_capture_requested.connect(_on_binding_capture_requested)
 	_settings_ui.reset_defaults_requested.connect(_on_preferences_reset_requested)
+	_settings_ui.career_backup_export_requested.connect(_on_career_backup_export_requested)
+	_settings_ui.career_backup_import_requested.connect(_on_career_backup_import_requested)
 	_settings_ui.close_requested.connect(_on_settings_close_requested)
 	_ui_root.add_child(_settings_ui)
 
@@ -2355,10 +3566,10 @@ func _build_day_review_panel() -> void:
 	_day_review_panel = PanelContainer.new()
 	_day_review_panel.name = "DayReviewPanel"
 	_day_review_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_day_review_panel.offset_left = -330.0
-	_day_review_panel.offset_top = -230.0
-	_day_review_panel.offset_right = 330.0
-	_day_review_panel.offset_bottom = 230.0
+	_day_review_panel.offset_left = -370.0
+	_day_review_panel.offset_top = -310.0
+	_day_review_panel.offset_right = 370.0
+	_day_review_panel.offset_bottom = 310.0
 	_day_review_panel.add_theme_stylebox_override("panel", _panel_style(Color("17232d"), 0.985, 14, 2))
 	_day_review_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_day_review_scrim.add_child(_day_review_panel)
@@ -2366,25 +3577,57 @@ func _build_day_review_panel() -> void:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 28)
 	margin.add_theme_constant_override("margin_right", 28)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_top", 18)
+	margin.add_theme_constant_override("margin_bottom", 18)
 	_day_review_panel.add_child(margin)
 	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", 14)
+	content.add_theme_constant_override("separation", 9)
 	margin.add_child(content)
 	_review_title = _make_label("FARMER REVIEW", 26, Color("f4d27b"))
 	_review_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(_review_title)
+	var closing_steps := _make_label(
+		"ACCOUNTING  1   /   CREDIT  2   /   DEVELOPMENT  3",
+		12,
+		Color("d8b667"),
+	)
+	closing_steps.name = "ClosingFileSteps"
+	closing_steps.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(closing_steps)
 	content.add_child(HSeparator.new())
-	_review_results = _make_label("", 18, Color("e7edf0"))
-	_review_results.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	content.add_child(_review_results)
-	_review_story = _make_label("", 16, Color("b8c6cb"))
+	_review_summary = _make_label("", 17, Color("e7edf0"))
+	_review_summary.name = "FarmerReviewSummary"
+	_review_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_review_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_review_summary.custom_minimum_size.y = 62.0
+	content.add_child(_review_summary)
+	_review_details_toggle = Button.new()
+	_review_details_toggle.name = "FarmerReviewDetailsToggle"
+	_review_details_toggle.text = "SHOW ACCOUNTING DETAILS"
+	_review_details_toggle.custom_minimum_size.y = 32.0
+	_review_details_toggle.pressed.connect(_on_review_details_toggled)
+	content.add_child(_review_details_toggle)
+	_review_details_scroll = ScrollContainer.new()
+	_review_details_scroll.name = "FarmerReviewAccountingScroll"
+	_review_details_scroll.custom_minimum_size.y = 184.0
+	_review_details_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_review_details_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	_review_details_scroll.visible = false
+	content.add_child(_review_details_scroll)
+	_review_results = _make_label("", 13, Color("d5dfe2"))
+	_review_results.name = "FarmerReviewAccountingDetails"
+	_review_results.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_review_results.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_review_results.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_review_details_scroll.add_child(_review_results)
+	_review_story = _make_label("", 14, Color("b8c6cb"))
 	_review_story.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_review_story.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_review_story.custom_minimum_size.y = 82.0
+	_review_story.custom_minimum_size.y = 58.0
+	_review_story.max_lines_visible = 3
+	_review_story.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	content.add_child(_review_story)
-	var hint := _make_label("Review accounting, file closing credit, then publish one optional Gallery campaign.", 14, Color("d5bd78"))
+	var hint := _make_label("Continue advances the same closing file; requisitions remain optional.", 13, Color("d5bd78"))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(hint)
 	var buttons := HFlowContainer.new()
@@ -2407,11 +3650,23 @@ func _build_day_review_panel() -> void:
 	buttons.add_child(blueprint)
 	_begin_next_shift_button = Button.new()
 	_begin_next_shift_button.name = "BeginNextShiftButton"
-	_begin_next_shift_button.text = "PLAN NEXT SHIFT"
+	_begin_next_shift_button.text = "CONTINUE CLOSING FILE"
 	_begin_next_shift_button.theme_type_variation = &"PrimaryButton"
 	_begin_next_shift_button.custom_minimum_size = Vector2(180.0, 48.0)
 	_begin_next_shift_button.pressed.connect(_on_begin_next_shift_pressed)
 	buttons.add_child(_begin_next_shift_button)
+
+
+func _on_review_details_toggled() -> void:
+	_review_details_expanded = not _review_details_expanded
+	if _review_details_scroll != null:
+		_review_details_scroll.visible = _review_details_expanded
+	if _review_details_toggle != null:
+		_review_details_toggle.text = (
+			"HIDE ACCOUNTING DETAILS"
+			if _review_details_expanded else
+			"SHOW ACCOUNTING DETAILS"
+		)
 
 
 func _build_capital_planning_surfaces() -> void:
@@ -2518,7 +3773,7 @@ func _build_decision_modal() -> void:
 	var center := CenterContainer.new()
 	center.name = "DecisionCenter"
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	center.mouse_filter = Control.MOUSE_FILTER_PASS
 	decision_scroll.add_child(center)
 
@@ -2529,15 +3784,15 @@ func _build_decision_modal() -> void:
 	center.add_child(_decision_panel)
 
 	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 30)
-	margin.add_theme_constant_override("margin_right", 30)
-	margin.add_theme_constant_override("margin_top", 24)
-	margin.add_theme_constant_override("margin_bottom", 24)
+	margin.add_theme_constant_override("margin_left", 24)
+	margin.add_theme_constant_override("margin_right", 24)
+	margin.add_theme_constant_override("margin_top", 18)
+	margin.add_theme_constant_override("margin_bottom", 18)
 	_decision_panel.add_child(margin)
 
 	var content := VBoxContainer.new()
 	content.name = "DecisionContent"
-	content.add_theme_constant_override("separation", 12)
+	content.add_theme_constant_override("separation", 8)
 	margin.add_child(content)
 	_decision_eyebrow = _make_label("MANAGEMENT DECISION", 13, Color("d8b667"))
 	_decision_eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -2552,15 +3807,17 @@ func _build_decision_modal() -> void:
 	_decision_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_decision_body)
 	content.add_child(HSeparator.new())
-	_decision_options = VBoxContainer.new()
+	_decision_options = GridContainer.new()
 	_decision_options.name = "DecisionOptions"
-	_decision_options.add_theme_constant_override("separation", 9)
+	_decision_options.columns = 1
+	_decision_options.add_theme_constant_override("h_separation", 9)
+	_decision_options.add_theme_constant_override("v_separation", 9)
 	content.add_child(_decision_options)
 	_decision_preview = _make_label("Select a policy card to review its consequences.", 14, Color("efcf83"))
 	_decision_preview.name = "DecisionPreview"
 	_decision_preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_decision_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_decision_preview.custom_minimum_size.y = 42.0
+	_decision_preview.custom_minimum_size.y = 34.0
 	content.add_child(_decision_preview)
 
 	var actions := HFlowContainer.new()
@@ -2594,6 +3851,11 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	)
 	_selected_decision_option = &""
 	var kind := StringName(decision.get("kind", &"incident"))
+	var option_count := (decision.get("options", []) as Array).size()
+	_decision_options.columns = (
+		3 if kind == &"directive" and option_count <= 3 else
+		(2 if option_count <= 4 else 1)
+	)
 	_decision_restore_farmer_review = false
 	if kind == FIRST_CLUTCH_REINVESTMENT_KIND:
 		_decision_previous_speed = _clock.speed_index
@@ -2623,10 +3885,6 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	_set_flockwatch_open(false)
 	if _day_review_scrim != null:
 		_day_review_scrim.visible = false
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(false)
-	if _routing_ui != null:
-		_routing_ui.set_interaction_enabled(false)
 	_refresh_first_clutch_ui(_simulation.snapshot())
 
 	_decision_eyebrow.text = String(decision.get("eyebrow", "MANAGEMENT DECISION"))
@@ -2641,7 +3899,11 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			int(_first_clutch.get("target_worker_id", FIRST_HEN_WORKER_ID)),
 		)
 		var first_hen_name := String(first_hen.get("name", "Mabel")).to_upper()
-		_decision_eyebrow.text = "%s'S FIRST FILE  //  FLOCK POLICY" % first_hen_name
+		var case_docket := _simulation.case_docket_snapshot()
+		_decision_eyebrow.text = "%s'S FIRST FILE  //  FLOCK POLICY  //  %s" % [
+			first_hen_name,
+			String(case_docket.get("id", "PO-1701")),
+		]
 		_decision_title.text = "CHOOSE THE RULE %s — AND EVERY HEN — WORKS UNDER" % first_hen_name
 		_decision_body.text = (
 			"%s's dossier is open behind this filing. One policy governs her desk and the whole flock today; "
@@ -2671,7 +3933,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	_decision_preview.text = String(decision.get(
 		"selection_prompt",
 		(
-			"Choose one policy card. The full consequence is shown before authorization."
+			"Each card compares its real effects with today's scored orders. Select one to inspect the exact fit and consequences."
 			if kind == &"directive" else
 			"Choose a response card. The shift remains safely paused until you authorize it."
 		),
@@ -2686,31 +3948,37 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		var option := option_value as Dictionary
 		var option_id := StringName(option.get("id", &""))
 		var label := String(option.get("label", "RESPONSE"))
+		var card_label := String(option.get("short_label", label)) if kind == &"directive" else label
 		var tagline := String(option.get("tagline", ""))
 		var preview := String(option.get("preview", "Consequence pending."))
 		var cost_cents := int(option.get("cost_cents", 0))
 		var option_available := bool(option.get("can_select", true))
+		var order_fit := _directive_order_fit(option_id) if kind == &"directive" else {}
+		var order_fit_detail := String(order_fit.get("detail", ""))
+		var full_preview := "%s%s%s" % [
+			("%s\n" % tagline if not tagline.is_empty() else ""),
+			preview,
+			("\n\n%s" % order_fit_detail if not order_fit_detail.is_empty() else ""),
+		]
 		var button := Button.new()
 		button.name = "DecisionOption_%s" % String(option_id)
 		button.theme_type_variation = &"DecisionChoiceButton"
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.clip_text = true
 		button.focus_mode = Control.FOCUS_ALL
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.custom_minimum_size.y = (
-			82.0 if decision_category == &"flock_petition" else
-			(62.0 if tagline.is_empty() else 72.0)
+			72.0 if kind == FIRST_CLUTCH_REINVESTMENT_KIND else
+			(68.0 if decision_category == &"flock_petition" else 58.0)
 		)
-		button.text = "%d  //  %s\n%s%s" % [
+		button.text = "%d  //  %s\n%s" % [
 			option_index + 1,
-			label,
-			("%s\n" % tagline if not tagline.is_empty() else ""),
-			preview,
+			card_label,
+			String(order_fit.get("compact", "")) if not order_fit.is_empty() else (tagline if not tagline.is_empty() else "Select to review terms below."),
 		]
 		button.set_meta("option_id", option_id)
-		button.set_meta("preview", "%s%s" % [
-			("%s\n" % tagline if not tagline.is_empty() else ""),
-			preview,
-		])
+		button.set_meta("preview", full_preview)
+		button.set_meta("order_fit", order_fit.duplicate(true))
 		button.set_meta("cost_cents", cost_cents)
 		button.disabled = not option_available or cost_cents > fund_cents
 		if button.disabled:
@@ -2719,7 +3987,10 @@ func _on_decision_requested(decision: Dictionary) -> void:
 				"Requires $%.2f Feed Fund; only $%.2f is available." % [cost_cents / 100.0, fund_cents / 100.0],
 			))
 		else:
-			button.tooltip_text = "Select to preview, then authorize below."
+			button.tooltip_text = "%s\n%s" % [
+				"Select to preview, then authorize below.",
+				full_preview,
+			]
 		button.pressed.connect(_on_decision_option_pressed.bind(option_id))
 		_decision_options.add_child(button)
 		_decision_option_buttons.append(button)
@@ -2744,9 +4015,14 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	if is_directive and _should_hold_first_clutch_orientation():
 		_decision_confirm_button.text = "AUTHORIZE & REVIEW FLOOR"
 	_decision_host.visible = true
+	_refresh_floor_input_context()
 	# Visibility itself is part of the coach's management-blocked predicate. Refresh
 	# after mounting the card so a restored reinvestment never renders underneath it.
 	_refresh_first_clutch_ui(_simulation.snapshot())
+	# The Web/assistive contract must match the card as soon as it is visible;
+	# waiting for the first option click leaves nonvisual players one interaction
+	# behind the rendered decision.
+	_publish_web_diagnostic_state(_simulation.snapshot())
 	_decision_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
 	_decision_panel.scale = Vector2(0.96, 0.96)
 	await get_tree().process_frame
@@ -2774,6 +4050,45 @@ func _probation_orders_brief() -> String:
 			int(objective.get("score_award", 0)),
 		])
 	return "\n".join(lines)
+
+
+func _directive_order_fit(directive_id: StringName) -> Dictionary:
+	var fit := {
+		"supports": [],
+		"risks": [],
+		"support_count": 0,
+		"risk_count": 0,
+		"compact": "ORDER FIT 0  /  WATCH 0",
+		"detail": "No active probation orders are available for comparison.",
+		"long_term": "",
+	}
+	if _campaign_state == null or _campaign_senior_roost or not DIRECTIVE_ORDER_FIT_RULES.has(directive_id):
+		return fit
+	var rules := DIRECTIVE_ORDER_FIT_RULES[directive_id] as Dictionary
+	var supported_metrics := rules.get("supports", []) as Array
+	var risk_metrics := rules.get("risks", []) as Array
+	var support_titles: Array[String] = []
+	var risk_titles: Array[String] = []
+	for objective in _campaign_state.current_objectives():
+		var metric := StringName(objective.get("metric", &""))
+		var title := String(objective.get("title", "Probation order")).to_upper()
+		if metric in supported_metrics:
+			support_titles.append(title)
+		elif metric in risk_metrics:
+			risk_titles.append(title)
+	var long_term := String(rules.get("long_term", ""))
+	fit["supports"] = support_titles
+	fit["risks"] = risk_titles
+	fit["support_count"] = support_titles.size()
+	fit["risk_count"] = risk_titles.size()
+	fit["compact"] = "ORDER FIT %d  /  WATCH %d" % [support_titles.size(), risk_titles.size()]
+	fit["long_term"] = long_term
+	fit["detail"] = "TODAY'S ORDER FIT  //  SUPPORTS: %s  //  WATCH: %s\nFILE EDGE  //  %s  //  directional; closing ledger decides" % [
+		", ".join(support_titles) if not support_titles.is_empty() else "NO DIRECT ORDER",
+		", ".join(risk_titles) if not risk_titles.is_empty() else "NO DIRECT CONFLICT",
+		long_term if not long_term.is_empty() else "GENERAL OPERATIONS",
+	]
+	return fit
 
 
 func _select_decision_option_by_index(index: int) -> void:
@@ -2873,10 +4188,7 @@ func _on_decision_resolved(result: Dictionary) -> void:
 	_active_decision.clear()
 	_selected_decision_option = &""
 	_decision_restore_farmer_review = false
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(true)
-	if _routing_ui != null:
-		_routing_ui.set_interaction_enabled(true)
+	_refresh_floor_input_context()
 	var outcome := String(result.get("outcome", "Management decision recorded."))
 	_ticker_label.text = outcome
 	if kind == FIRST_CLUTCH_REINVESTMENT_KIND:
@@ -2978,6 +4290,7 @@ func _on_workday_completed(report: Dictionary) -> void:
 	_campaign_review_stage = &"farmer"
 	_save_campaign_checkpoint("workday_completed")
 	_show_farmer_review(report)
+	_refresh_commendations_from_authority()
 
 
 func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
@@ -3115,6 +4428,25 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			String(personnel_action.get("action_name", "CHECK-IN")).to_upper(),
 		]
 	_review_title.text = "CLOSING FILE 1 / 3  ·  DAY %d  ·  FARMER REVIEW" % int(report.get("day", 1))
+	_review_details_expanded = false
+	if _review_details_scroll != null:
+		_review_details_scroll.visible = false
+	if _review_details_toggle != null:
+		_review_details_toggle.text = "SHOW ACCOUNTING DETAILS"
+	if _review_summary != null:
+		_review_summary.text = (
+			"%s   ·   %d / %d EGGS   ·   %d CRACKED   ·   %d GOLDEN\n"
+			+ "NET %s   ·   FEED FUND $%.2f   ·   NEXT TARGET %d"
+		) % [
+			"TARGET HARVESTED" if met_quota else "TARGET MISSED",
+			eggs,
+			quota,
+			cracked,
+			golden,
+			operating_net_text,
+			float(closing_fund) / 100.0,
+			int(report.get("next_quota", quota)),
+		]
 	_review_results.text = "%s\n%d / %d eggs  ·  %d cracked  ·  %d golden\nPolicy: %s  ·  %d incident%s resolved\nCheck-in: %s  ·  avg trust %d  ·  avg grievance %d\nFiles: N%d  ·  P%d  ·  A%d  ·  %d overdue  ·  %d rework\nArchive: %d / %d live  ·  %d turned away  ·  est. $%.2f file value missed\nIncome: Production credit +$%.2f  ·  Quota bonus +$%.2f  ·  Quality bonus +$%.2f\nCosts: Feed -$%.2f  ·  Payroll -$%.2f  ·  Facilities -$%.2f\nNet operating %s  ·  Closing Feed Fund $%.2f  ·  Wage arrears $%.2f" % [
 		("TARGET HARVESTED" if met_quota else "TARGET MISSED"),
 		eggs, quota, cracked, golden,
@@ -3418,19 +4750,18 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	if _begin_next_shift_button != null:
 		var memo_kind := StringName(report.get("credit_memo_kind", &""))
 		var memo_id := StringName(report.get("credit_memo_id", &""))
-		_begin_next_shift_button.text = (
-			"OPEN RESTRUCTURING FILE"
+		_begin_next_shift_button.text = "CONTINUE CLOSING FILE"
+		_begin_next_shift_button.tooltip_text = (
+			"Next: restructuring credit file."
 			if memo_id == &"flock_restructuring" else
-			("OPEN GOLDEN DOSSIER"
+			("Next: golden egg credit dossier."
 			if memo_id == &"golden_egg_dossier" else
-			("ALLOCATE SHIFT CREDIT" if bool(report.get("credit_memo_required", false)) else "PLAN NEXT SHIFT")
-			)
+			("Next: allocate closing credit."
+			if bool(report.get("credit_memo_required", false)) else
+			"Next: file the shift report and plan the following shift."))
 		)
 	_day_review_scrim.visible = true
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(false)
-	if _routing_ui != null:
-		_routing_ui.set_interaction_enabled(false)
+	_refresh_floor_input_context()
 	_ticker_label.text = "SHIFT COMPLETE. The farmer has harvested the credit; review the real accounting."
 	if animate:
 		_day_review_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
@@ -3445,12 +4776,10 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 
 
 func _on_review_requisitions_pressed() -> void:
+	_flockwatch_restore_farmer_review = true
 	_day_review_scrim.visible = false
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(true)
-	if _routing_ui != null:
-		_routing_ui.set_interaction_enabled(false)
 	_open_flockwatch_page(FlockwatchNavigation.PAGE_CAPITAL)
+	_refresh_floor_input_context()
 	_guidance_label.text = "REVIEW PAUSED: approve requisitions, then choose tomorrow's policy."
 	_ticker_label.text = "Feed Fund purchases are permanent. Costs rise with each approved level."
 
@@ -3495,7 +4824,10 @@ func _on_capital_blueprint_close_requested() -> void:
 	# its recorded focus target is visible before deferring grab_focus(). Both
 	# operations complete in this input turn, so the office is never exposed.
 	_restore_capital_origin()
-	if _capital_blueprint_ui != null:
+	if (
+		_capital_blueprint_ui != null
+		and bool(_capital_blueprint_ui.call("is_open"))
+	):
 		_capital_blueprint_ui.call("hide_blueprint", true)
 	_publish_web_diagnostic_state(_simulation.snapshot())
 
@@ -3595,7 +4927,10 @@ func _on_campus_portfolio_north_details_requested() -> void:
 
 
 func _on_campus_expansion_close_requested() -> void:
-	if _campus_expansion_ui != null:
+	if (
+		_campus_expansion_ui != null
+		and bool(_campus_expansion_ui.call("is_open"))
+	):
 		_campus_expansion_ui.call("hide_planner", false)
 	if _campus_expansion_restore_portfolio:
 		_campus_expansion_restore_portfolio = false
@@ -3741,7 +5076,10 @@ func _resolve_campus_portfolio_action(
 	parcel_id: StringName,
 ) -> void:
 	var snapshot := _simulation.snapshot()
-	if _campus_portfolio_ui != null:
+	if (
+		_campus_portfolio_ui != null
+		and bool(_campus_portfolio_ui.call("is_open"))
+	):
 		_campus_portfolio_ui.call("apply_snapshot", snapshot)
 	if not bool(result.get("accepted", false)):
 		_ticker_label.text = String(result.get("reason", "CAMPUS PORTFOLIO FILE HELD FOR REVIEW."))
@@ -4067,12 +5405,9 @@ func _begin_capital_modal_hold() -> void:
 
 
 func _set_capital_modal_interaction(is_open: bool) -> void:
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(not is_open)
-	if _routing_ui != null:
-		_routing_ui.set_interaction_enabled(
-			not is_open and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
-		)
+	# Modal visibility is authoritative; this parameter remains for API
+	# compatibility with the existing capital return paths.
+	_refresh_floor_input_context()
 
 
 func _restore_capital_origin() -> void:
@@ -4149,6 +5484,7 @@ func _on_continue_directive_pressed() -> void:
 
 
 func _advance_from_farmer_review() -> void:
+	_flockwatch_restore_farmer_review = false
 	_day_review_scrim.visible = false
 	_set_flockwatch_open(false)
 	var pending := _simulation.pending_decision_snapshot()
@@ -4213,11 +5549,8 @@ func _present_farmer_relations_gallery_review() -> bool:
 		_day_review_scrim.visible = false
 	if _campaign_ui != null:
 		_set_campaign_modal_open(false)
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(true)
-	if _routing_ui != null:
-		_routing_ui.set_interaction_enabled(false)
 	_open_flockwatch_page(FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS)
+	_refresh_floor_input_context()
 	_guidance_label.text = "CLOSING CREDIT FILED: publish one Gallery campaign or continue to skip."
 	_ticker_label.text = "FARMER RELATIONS GALLERY. One public campaign may be hung from this closed shift."
 	_publish_web_diagnostic_state(snapshot)
@@ -4269,6 +5602,35 @@ func _on_worker_assignment_requested(worker_id: int, lane: StringName) -> void:
 	_save_campaign_checkpoint("routing_assignment")
 
 
+func _handle_first_clutch_primary_action() -> bool:
+	# First Clutch is a guided lesson with one deliberately highlighted answer at
+	# these two stages. Enter activates that same production action so keyboard,
+	# controller-mapped, and browser-assisted players do not have to hunt a dense
+	# dossier for the glowing control. Normal play retains every routing choice.
+	if not _first_clutch_tracking_active():
+		return false
+	var stage := _first_clutch_stage()
+	if stage not in [&"specialty_route", &"check_in"]:
+		return false
+	var worker_id := int(_first_clutch.get("target_worker_id", -1))
+	var worker := _first_clutch_worker_snapshot(_simulation.snapshot(), worker_id)
+	if worker.is_empty():
+		return false
+	if _camera_controller != null:
+		_camera_controller.focus_worker(worker_id)
+	if stage == &"specialty_route":
+		var specialty := StringName(worker.get("specialty", &""))
+		if specialty == &"":
+			return false
+		_on_worker_assignment_requested(worker_id, specialty)
+		return true
+	var preferred_action := StringName(worker.get("preferred_personnel_action", &""))
+	if preferred_action == &"":
+		return false
+	_on_personnel_action_requested(worker_id, preferred_action)
+	return true
+
+
 func _on_personnel_action_requested(worker_id: int, action_id: StringName) -> void:
 	var result := _simulation.perform_personnel_action(worker_id, action_id)
 	if not bool(result.get("accepted", false)):
@@ -4282,6 +5644,87 @@ func _on_personnel_action_requested(worker_id: int, action_id: StringName) -> vo
 		_audio_feedback.play_decision_resolved()
 	_first_clutch_record_checkin(worker_id)
 	_save_campaign_checkpoint("personnel_action")
+
+
+func _priority_peck_precision_candidate(snapshot: Dictionary) -> Dictionary:
+	if (
+		_clock == null
+		or _routing_ui == null
+		or int(snapshot.get("shift_phase", -1)) != DepartmentSimulation.ShiftPhase.RUNNING
+	):
+		return {}
+	var focused_worker_id := _routing_ui.focused_worker_id()
+	if focused_worker_id < 0:
+		return {}
+	if focused_worker_id == _priority_peck_focus_disarmed_worker_id:
+		return {}
+	for worker_value in snapshot.get("workers", []):
+		var worker := worker_value as Dictionary
+		if int(worker.get("id", -1)) != focused_worker_id:
+			continue
+		var claim := worker.get("current_claim", {}) as Dictionary
+		var assist := worker.get("peck_assist", {}) as Dictionary
+		var state := StringName(assist.get("window_state", &"locked"))
+		if claim.is_empty() or state not in [&"not_ready", &"open"]:
+			return {}
+		var progress := float(worker.get("progress", 0.0))
+		var window_start := float(assist.get(
+			"window_start",
+			DepartmentSimulation.PECK_ASSIST_WINDOW_START,
+		))
+		if state == &"not_ready" and progress < maxf(0.0, window_start - PECK_FOCUS_LEAD_PROGRESS):
+			return {}
+		return {
+			"worker_id": focused_worker_id,
+			"worker_name": String(worker.get("name", "HEN %d" % (focused_worker_id + 1))),
+			"claim_id": int(claim.get("id", -1)),
+			"progress": progress,
+			"window_start": window_start,
+			"window_state": state,
+			"timing_label": String(assist.get("timing_label", "")),
+		}
+	return {}
+
+
+func _refresh_priority_peck_precision_focus(snapshot: Dictionary) -> void:
+	if _clock == null:
+		return
+	var candidate := _priority_peck_precision_candidate(snapshot)
+	var result_hold_active := (
+		Time.get_ticks_msec() < _priority_peck_result_hold_until_msec
+		and _priority_peck_result_hold_worker_id >= 0
+		and _priority_peck_result_hold_claim_id >= 0
+		and int(snapshot.get("shift_phase", -1)) == DepartmentSimulation.ShiftPhase.RUNNING
+	)
+	_priority_peck_focus_worker_id = (
+		_priority_peck_result_hold_worker_id
+		if result_hold_active else
+		int(candidate.get("worker_id", -1))
+	)
+	_clock.set_precision_focus_active(result_hold_active or not candidate.is_empty())
+	_refresh_speed_button_copy()
+	if not result_hold_active and Time.get_ticks_msec() >= _priority_peck_result_hold_until_msec:
+		_priority_peck_result_hold_until_msec = 0
+		_priority_peck_result_hold_worker_id = -1
+		_priority_peck_result_hold_claim_id = -1
+
+
+func _refresh_speed_button_copy() -> void:
+	if _speed_buttons.is_empty():
+		return
+	var labels := ["PAUSE", "1×", "3×", "10×"]
+	var tooltips := ["Pause simulation", "Normal speed", "Fast speed", "Ultra speed"]
+	var limiting := _clock != null and _clock.precision_focus_limiting()
+	for index in _speed_buttons.size():
+		var button := _speed_buttons[index]
+		button.text = labels[index]
+		button.tooltip_text = tooltips[index]
+		if limiting and index == _clock.speed_index:
+			button.text = "%s/1×" % labels[index]
+			button.tooltip_text = (
+				"%s remains selected. Inspecting this approaching Priority Peck "
+				+ "temporarily holds the effective clock at 1×; the selected speed resumes automatically."
+			) % labels[index]
 
 
 func _peck_assist_input_blocked() -> bool:
@@ -4317,13 +5760,23 @@ func _on_peck_assist_requested(worker_id: int) -> void:
 	if _clock.speed_index == 0:
 		_ticker_label.text = "PRIORITY PECK HELD. Resume the live clock before stamping the rhythm."
 		return
+	var preflight := _simulation.peck_assist_status(worker_id)
+	if bool(preflight.get("available", false)):
+		_priority_peck_result_hold_until_msec = Time.get_ticks_msec() + PECK_FOCUS_RESULT_HOLD_MSEC
+		_priority_peck_result_hold_worker_id = worker_id
+		_priority_peck_result_hold_claim_id = int(preflight.get("claim_id", -1))
 	var result := _simulation.perform_peck_assist(worker_id)
 	if not bool(result.get("accepted", false)):
+		_priority_peck_result_hold_until_msec = 0
+		_priority_peck_result_hold_worker_id = -1
+		_priority_peck_result_hold_claim_id = -1
+		_refresh_priority_peck_precision_focus(_simulation.snapshot())
 		_ticker_label.text = String(result.get("reason", "PRIORITY PECK HELD."))
 		if _audio_feedback != null:
 			_audio_feedback.play_denied(&"peck_rejected")
 		return
 	var rating := StringName(result.get("rating", &"steady"))
+	_priority_peck_focus_disarmed_worker_id = worker_id
 	var worker_name := String(result.get("worker_name", "HEN")).to_upper()
 	var progress_gain := int(roundf(float(result.get("progress_gain", 0.0))))
 	var quality_points := absf(float(result.get("quality_modifier", 0.0))) * 100.0
@@ -4335,8 +5788,17 @@ func _on_peck_assist_requested(worker_id: int) -> void:
 	var worker_view := _worker_views.get(worker_id) as ChickenView
 	if worker_view != null and is_instance_valid(worker_view):
 		worker_view.play_peck_assist_feedback(rating)
+	_refresh_priority_peck_precision_focus(_simulation.snapshot())
 	_first_clutch_record_assist(result)
-	_save_campaign_checkpoint("peck_assist")
+	# A full Web save serializes the complete career and flushes browser storage.
+	# Performing that work inside the semantic input callback made the E press
+	# appear to hang on larger offices. The coordinator still bounds this routine
+	# checkpoint to five seconds, while focus-out/close lifecycle saves remain
+	# immediate. Native builds retain the original synchronous durability point.
+	if OS.has_feature("web"):
+		_queue_campaign_checkpoint("peck_assist")
+	else:
+		_save_campaign_checkpoint("peck_assist")
 
 
 func _on_priority_peck_contact(
@@ -4357,12 +5819,20 @@ func _on_priority_peck_contact(
 			)
 
 
+func _on_work_peck_contact(worker_id: int, contact_serial: int) -> void:
+	# Ambient contacts stay visual and allocation-free; the authored three-hit
+	# Priority Peck remains the only work action that earns prominent audio/VFX.
+	if _workstation_feedback != null:
+		_workstation_feedback.pulse_work_contact(worker_id, contact_serial)
+
+
 func _on_lay_release_reached(_worker_id: int) -> void:
 	if _audio_feedback != null:
 		_audio_feedback.play_lay_release(&"sound")
 
 
 func _on_staff_capacity_purchase_requested() -> void:
+	_set_capacity_marker_context_revealed(true)
 	var result := _simulation.purchase_staff_capacity()
 	_handle_staffing_action_result(result, &"capacity_expanded")
 
@@ -4462,6 +5932,7 @@ func _on_feed_order_requested(order_id: StringName) -> void:
 			FLOCK_PROVISIONS_COOP_FOCUS,
 			"PROVISIONS DELIVERY FILED",
 			1.35,
+			true,
 		)
 	_save_campaign_checkpoint("feed_order_%s" % String(order_id))
 
@@ -4485,6 +5956,7 @@ func _on_farmgate_dispatch_mandate_requested(mandate_id: StringName) -> void:
 			FARMGATE_DISPATCH_DEPOT_FOCUS,
 			"FARMGATE ROUTE FILED",
 			1.35,
+			true,
 		)
 	_save_campaign_checkpoint("farmgate_dispatch_%s" % String(mandate_id))
 
@@ -4552,6 +6024,32 @@ func _on_staff_hire_requested(worker_id: int) -> void:
 	_handle_staffing_action_result(result, &"worker_hired")
 
 
+func _on_manager_assignment_requested(manager_id: StringName, assignment_id: StringName) -> void:
+	_handle_manager_action_result(_simulation.set_manager_assignment(manager_id, assignment_id))
+
+
+func _on_manager_posture_requested(manager_id: StringName, posture_id: StringName) -> void:
+	_handle_manager_action_result(_simulation.set_manager_posture(manager_id, posture_id))
+
+
+func _on_manager_recruit_requested(candidate_id: StringName) -> void:
+	_handle_manager_action_result(_simulation.recruit_manager(candidate_id))
+
+
+func _handle_manager_action_result(result: Dictionary) -> void:
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get("reason", "MANAGEMENT FILE HELD FOR REVIEW."))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"management")
+		return
+	var snapshot := _simulation.snapshot()
+	_on_snapshot_changed(snapshot)
+	_ticker_label.text = String(result.get("outcome", "Management instruction filed."))
+	if _audio_feedback != null:
+		_audio_feedback.play_policy_stamp()
+	_save_campaign_checkpoint("manager_instruction_%s" % String(result.get("manager_id", "rooster")))
+
+
 func _on_staff_release_requested(worker_id: int) -> void:
 	var result := _simulation.release_worker(worker_id)
 	_handle_staffing_action_result(result, &"worker_released")
@@ -4578,8 +6076,26 @@ func _handle_staffing_action_result(result: Dictionary, checkpoint_reason: Strin
 	if checkpoint_reason == &"capacity_expanded" and _camera_controller != null:
 		var capacity := _office_capacity_from_snapshot(_simulation.snapshot())
 		if capacity > 0:
-			_camera_controller.show_event_focus(desk_position(capacity - 1) + Vector3.UP * 1.0, "ROOST EXPANDED", 1.15)
+			_camera_controller.show_event_focus(
+				desk_position(capacity - 1) + Vector3.UP * 1.0,
+				"PERCH %d COMMISSIONED" % capacity,
+				1.40,
+				true,
+			)
+	if checkpoint_reason == &"capacity_expanded":
+		_begin_capacity_commissioning_beat(result)
 	_save_campaign_checkpoint(String(checkpoint_reason))
+
+
+func _fresh_campaign_seed() -> int:
+	# Native headless tests keep their canonical authored docket. Interactive
+	# careers choose from a small, exhaustively testable set instead of an opaque
+	# unbounded random seed, so replay variety remains fair and reproducible.
+	if DisplayServer.get_name() == "headless":
+		return int(CAREER_DOCKET_SEEDS[0])
+	var docket_rng := RandomNumberGenerator.new()
+	docket_rng.randomize()
+	return int(CAREER_DOCKET_SEEDS[docket_rng.randi_range(0, CAREER_DOCKET_SEEDS.size() - 1)])
 
 
 func _on_campaign_new_requested() -> void:
@@ -4587,12 +6103,23 @@ func _on_campaign_new_requested() -> void:
 	# transaction. Keeping the current primary in place until that commit succeeds
 	# also lets the store refresh its recovery copy with the previous campaign.
 	var had_prior_save := _campaign_store.has_save()
-	_campaign_state = CampaignStateScript.new()
+	var selected_challenge_id := CampaignStateScript.CHALLENGE_STANDARD_FILING
+	if _campaign_ui != null and _campaign_ui.has_method("selected_challenge_contract_id"):
+		selected_challenge_id = StringName(_campaign_ui.call("selected_challenge_contract_id"))
+	var fresh_campaign = CampaignStateScript.new()
+	if not fresh_campaign.select_challenge_contract(selected_challenge_id):
+		push_error("Could not file the selected probation challenge contract: %s" % String(selected_challenge_id))
+		return
+	_campaign_state = fresh_campaign
 	_senior_roost_state = SeniorRoostStateScript.new()
 	_campaign_review_stage = &"active"
 	_campaign_senior_roost = false
 	_last_workday_report.clear()
-	var fresh_simulation := DepartmentSimulation.new(1701, INITIAL_CAMPAIGN_STAFF)
+	var fresh_simulation := DepartmentSimulation.new(
+		1701,
+		INITIAL_CAMPAIGN_STAFF,
+		_fresh_campaign_seed(),
+	)
 	if not _simulation.restore_save_state(fresh_simulation.export_save_state()):
 		push_error("Could not reset the office simulation for a new probation file.")
 		return
@@ -4623,6 +6150,28 @@ func _on_campaign_new_requested() -> void:
 	_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
 	_set_campaign_modal_open(false)
 	_present_first_hen_prelude()
+
+
+func _on_campaign_challenge_contract_changed(_contract_id: StringName) -> void:
+	# Intake holds the simulation clock, so no snapshot tick will refresh the Web
+	# accessibility mirror after an OptionButton change. Publish the presentation
+	# choice immediately; CampaignState remains untouched until New is confirmed.
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campaign_title_intake_phase_changed(_phase: StringName) -> void:
+	# Resume/new-file staging changes which controls and terms actually exist on
+	# screen, so republish immediately while the paused intake has no simulation tick.
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campaign_presentation_state_changed() -> void:
+	# Annual planning is paused, so selecting a confirmation-first Board Book
+	# cannot rely on a later simulation tick to refresh the Web mirror.
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _on_campaign_continue_requested() -> void:
@@ -4733,6 +6282,12 @@ func _on_campaign_milestone_requested(choice_id: StringName) -> void:
 		return
 	if not _campaign_state.choose_milestone(choice_id):
 		_ticker_label.text = "MILESTONE HELD. This requisition is not available for the current file."
+		# The report may have optimistically highlighted a card before this
+		# authoritative guard ran. Re-publish CampaignState immediately so a
+		# stale, repeated, or scripted request can never masquerade as the filed
+		# permanent milestone in presentation state.
+		_campaign_ui.show_between_shift_report(_campaign_presentation_snapshot(&"between_shift"))
+		_update_campaign_objectives_label()
 		return
 	for unlock_value in _campaign_state.unlocked_feature_ids:
 		_simulation.apply_campaign_unlock(StringName(unlock_value))
@@ -4741,6 +6296,7 @@ func _on_campaign_milestone_requested(choice_id: StringName) -> void:
 	_update_campaign_objectives_label()
 	_save_campaign_checkpoint("milestone_selected")
 	_ticker_label.text = "MILESTONE APPROVED: %s is now permanent for this probation file." % String(choice_id).replace("_", " ").to_upper()
+	_refresh_commendations_from_authority()
 
 
 func _on_career_sponsorship_requested(worker_id: int, lane_id: StringName) -> void:
@@ -4827,6 +6383,7 @@ func _enter_senior_roost() -> void:
 	_campaign_senior_roost = _senior_roost_state.is_active()
 	_show_senior_roost_report("senior_roost_entered")
 	_ticker_label.text = "SENIOR ROOST OPEN. Choose one annual Board Mandate, then file the first quarter's capital policy."
+	_refresh_commendations_from_authority()
 
 
 func _continue_senior_roost_report() -> void:
@@ -4921,6 +6478,11 @@ func _show_campaign_final_review() -> void:
 	_campaign_review_stage = &"final"
 	_day_review_scrim.visible = false
 	_set_flockwatch_open(false)
+	if _audio_feedback != null and _audio_feedback.has_method("play_campaign_outcome"):
+		_audio_feedback.call(
+			"play_campaign_outcome",
+			_campaign_state.outcome == CampaignStateScript.OUTCOME_PASSED,
+		)
 	_campaign_ui.show_final_review(_campaign_presentation_snapshot(&"final"))
 	_set_campaign_modal_open(true)
 	_save_campaign_checkpoint("final_review")
@@ -4965,14 +6527,18 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		raw_milestones = _campaign_state.available_milestone_choices()
 	var milestone_cards: Array[Dictionary] = []
 	for milestone in raw_milestones:
+		var doctrine := milestone.get("doctrine", {}) as Dictionary
 		milestone_cards.append({
 			"id": String(milestone.get("id", "")),
 			"title": String(milestone.get("title", "Milestone")),
 			"description": String(milestone.get("description", "Permanent probation benefit.")),
 			"effect": _milestone_effect_text(milestone.get("effects", {}) as Dictionary),
+			"doctrine": doctrine.duplicate(true),
 		})
 	var final_evaluation := _campaign_state.final_evaluation()
 	var safeguard_forecast := _campaign_state.probation_safeguard_forecast()
+	var challenge_contract: Dictionary = _campaign_state.challenge_contract_snapshot()
+	var active_doctrine: Dictionary = _campaign_state.active_doctrine()
 	var leadership_record := _simulation.leadership_record_snapshot()
 	var ending := _simulation.campaign_ending_snapshot(bool(final_evaluation.get("passed", false)))
 	var score_receipt := _campaign_state.latest_score_receipt()
@@ -4996,6 +6562,7 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		"total_days": CampaignStateScript.CAMPAIGN_LENGTH,
 		"score": _campaign_state.probation_score,
 		"rank": CampaignStateScript.rank_display_name(_campaign_state.probation_rank),
+		"challenge_contract": challenge_contract,
 		"ledgers": [
 			{
 				"label": "Flock welfare",
@@ -5019,6 +6586,7 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		"next_objective": next_objective,
 		"milestone_choices": milestone_cards,
 		"selected_milestone": String(_campaign_state.chosen_milestone_id),
+		"active_doctrine": active_doctrine,
 		"credit_memo": _simulation.last_credit_allocation.duplicate(true),
 		"score_receipt": score_receipt,
 		"probation_safeguard_forecast": safeguard_forecast,
@@ -5042,6 +6610,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		_campaign_live_metrics(_simulation.snapshot()) if view == &"active" else {}
 	)
 	var mandate_tier := _senior_roost_state.mandate_tier_eligibility()
+	var mandate_mastery := state_snapshot.get("mandate_mastery", {}) as Dictionary
 	var year_number := _senior_roost_state.current_year_number()
 	var quarter_number := _senior_roost_state.current_quarter_in_year()
 	var display_shift := _senior_roost_state.current_shift_in_quarter()
@@ -5090,11 +6659,26 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			secondary_display = "%d" % int(mandate_tier.get("mandate_seals", 0))
 			secondary_caption = "BOARD SEALS"
 			secondary_tooltip = _senior_mandate_tier_tooltip(mandate_tier)
-			report_note = "Choose the year-long terms before quarterly policy. Harder books stake available Roost Marks; success returns the stake and earns more permanent Board Seals."
+			report_note = "Choose the year-long terms before quarterly policy. Harder books stake available Roost Marks; success returns the stake and earns more permanent Board Seals. PORTFOLIO %d / %d MASTERED; first clears advance Coop Commendations." % [
+				int(mandate_mastery.get("mastered_count", 0)),
+				int(mandate_mastery.get("total_count", SeniorRoostStateScript.MANDATE_IDS.size())),
+			]
+			if year_number > 1 and not annual_review.is_empty():
+				var previous_year_passed := bool(annual_review.get("passed", false))
+				var transition_note := (
+					"YEAR %d CLEARED  ·  BASELINE +1 FOR THIS YEAR." % (year_number - 1)
+					if previous_year_passed else
+					"RECOVERY YEAR  ·  BASELINE +2  ·  FARMER FAVOR -5."
+				)
+				report_note = "%s %s" % [transition_note, report_note]
 			objective = {
 				"title": "CHOOSE THE YEAR'S TERMS",
 				"description": "Compare all three target bundles, reward, failure cost, and stake. The first card is always a valid no-stake fallback.",
-				"reward": _senior_mandate_tier_tooltip(mandate_tier),
+				"reward": "%s  /  PORTFOLIO %d / %d" % [
+					_senior_mandate_tier_tooltip(mandate_tier),
+					int(mandate_mastery.get("mastered_count", 0)),
+					int(mandate_mastery.get("total_count", SeniorRoostStateScript.MANDATE_IDS.size())),
+				],
 			}
 		else:
 			report_heading = "YEAR %d · QUARTER %d CAPITAL FILING" % [year_number, quarter_number]
@@ -5109,12 +6693,102 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			if quarter_review.is_empty():
 				report_note = "Annual terms filed. Choose the irreversible capital policy that governs this three-shift quarter."
 			else:
-				report_note = "Quarter %d closed at %d / 100 and awarded +%d Roost Mark%s. File the next tradeoff; one optional Career Sponsorship may invest banked marks below." % [
+				var available_sponsorship_marks := int(state_snapshot.get(
+					"available_roost_marks",
+					_senior_roost_state.roost_marks,
+				))
+				var sponsorship_mark_cost := int(state_snapshot.get(
+					"sponsorship_mark_cost",
+					SeniorRoostStateScript.SPONSORSHIP_MARK_COST,
+				))
+				var sponsorship_note := (
+					"Optional Career Sponsorship is available below."
+					if available_sponsorship_marks >= sponsorship_mark_cost else
+					"Sponsorship unlock: %d banked marks (%d available)." % [
+						sponsorship_mark_cost,
+						available_sponsorship_marks,
+					]
+				)
+				report_note = "Q%d filed at %d / 100 for +%d Roost Mark%s. File one policy. %s" % [
 					int(quarter_review.get("quarter_number", 0)),
 					int(quarter_review.get("score", 0)),
 					int(quarter_review.get("marks_awarded", 0)),
 					"" if int(quarter_review.get("marks_awarded", 0)) == 1 else "s",
+					sponsorship_note,
 				]
+				var quarter_breakdown := state_snapshot.get(
+					"last_quarter_score_breakdown",
+					{},
+				) as Dictionary
+				var filed_score := int(quarter_review.get("score", 0))
+				var marks_awarded := int(quarter_review.get("marks_awarded", 0))
+				var credit_leaders: Array[String] = []
+				for component_value in quarter_breakdown.get("components", []):
+					var component := component_value as Dictionary
+					if int(component.get("score", 0)) <= 0:
+						continue
+					credit_leaders.append("%s %d/%d" % [
+						String(component.get("label", "SENIOR CREDIT")),
+						int(component.get("score", 0)),
+						int(component.get("max_score", 0)),
+					])
+					if credit_leaders.size() == 3:
+						break
+				var result_lines: Array[String] = [
+					"FILED SCORE  ·  %d / 100  ·  +%d ROOST MARK%s" % [
+						filed_score,
+						marks_awarded,
+						"" if marks_awarded == 1 else "S",
+					],
+				]
+				if not credit_leaders.is_empty():
+					result_lines.append("CREDIT LEADERS  ·  %s" % "  ·  ".join(credit_leaders))
+				var recoverable := quarter_breakdown.get(
+					"largest_recoverable_component",
+					{},
+				) as Dictionary
+				if recoverable.is_empty():
+					result_lines.append("TOP MARK TIER  ·  NO RECOVERABLE SENIOR POINTS")
+				else:
+					result_lines.append("NEXT EDGE  ·  %s  ·  +%d RECOVERABLE" % [
+						String(recoverable.get("label", "SENIOR STANDING")),
+						int(recoverable.get("recoverable_points", 0)),
+					])
+					result_lines.append(String(recoverable.get(
+						"cause",
+						"The closing ledger identifies the next recoverable edge.",
+					)))
+				objective = {
+					"title": "QUARTER %d FILED  ·  REWARD RECEIPT" % int(
+						quarter_review.get("quarter_number", 0)
+					),
+					"description": "\n".join(result_lines),
+					"reward": "%d lifetime Roost Mark%s" % [
+						_senior_roost_state.roost_marks,
+						"" if _senior_roost_state.roost_marks == 1 else "s",
+					],
+				}
+				if not mandate_progress.is_empty():
+					var board_status := "BOARD %d / %d TARGETS MET" % [
+						int(mandate_progress.get("objectives_met", 0)),
+						int(mandate_progress.get("objectives_total", 0)),
+					]
+					var mandate_blocker := mandate_progress.get(
+						"largest_recoverable_blocker",
+						{},
+					) as Dictionary
+					if mandate_blocker.is_empty():
+						board_status += "  ·  YEAR BOOK ON TRACK"
+					else:
+						board_status += "  ·  NEXT %s %d / %d" % [
+							String(mandate_blocker.get("label", "ANNUAL TARGET")),
+							int(mandate_blocker.get("actual", 0)),
+							int(mandate_blocker.get("target", 0)),
+						]
+					objective["reward"] = "%s  ·  %s" % [
+						String(objective.get("reward", "")),
+						board_status,
+					]
 	elif status_id == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW:
 		var annual_passed := bool(annual_review.get("passed", false))
 		var mandate_settlement := annual_review.get(
@@ -5122,6 +6796,22 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			_senior_roost_state.last_mandate_settlement,
 		) as Dictionary
 		var mandate_succeeded := bool(mandate_settlement.get("success", false))
+		var seals_after := int(mandate_settlement.get(
+			"mandate_seals_after",
+			_senior_roost_state.mandate_seals,
+		))
+		var seals_before := maxi(
+			0,
+			seals_after - int(mandate_settlement.get("seal_reward", 0)),
+		)
+		var mandate_tier_before := SeniorRoostStateScript.mandate_tier_for_seals(seals_before)
+		var mandate_tier_after := SeniorRoostStateScript.mandate_tier_for_seals(seals_after)
+		var mandate_unlock_note := ""
+		if mandate_tier_after > mandate_tier_before:
+			mandate_unlock_note = " Advanced mandate tier %d unlocked for Year %d." % [
+				mandate_tier_after,
+				year_number + 1,
+			]
 		report_heading = "YEAR %d ANNUAL ROOST REVIEW" % year_number
 		report_note = "%s  Annual score %d / 100 · welfare %d%% · obedience %d%% · farmer favor %d%% · shell cracks %.1f%%." % [
 			"SAFEGUARDS PASSED." if annual_passed else "PERFORMANCE IMPROVEMENT YEAR REQUIRED.",
@@ -5131,12 +6821,37 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			int(annual_review.get("farmer_favor", 0)),
 			float(int(annual_review.get("crack_rate_basis_points", 0))) / 100.0,
 		]
-		report_note += " One optional Career Sponsorship remains available before Year %d planning." % (year_number + 1)
+		var annual_available_marks := int(state_snapshot.get(
+			"available_roost_marks",
+			_senior_roost_state.available_roost_marks(),
+		))
+		var annual_sponsorship_cost := int(state_snapshot.get(
+			"sponsorship_mark_cost",
+			SeniorRoostStateScript.SPONSORSHIP_MARK_COST,
+		))
+		report_note += (
+			" Career Sponsorship may be filed before Year %d planning." % (year_number + 1)
+			if annual_available_marks >= annual_sponsorship_cost else
+			" Sponsorship needs %d available marks; %d currently banked." % [
+				annual_sponsorship_cost,
+				annual_available_marks,
+			]
+		)
 		if not mandate_settlement.is_empty():
 			report_note += " %s" % String(mandate_settlement.get(
 				"outcome",
 				"The annual Board Mandate has been settled.",
 			))
+			if mandate_succeeded:
+				var settled_mandate_id := StringName(String(mandate_settlement.get("mandate_id", "")))
+				var mastery_counts := state_snapshot.get("mandate_success_counts", {}) as Dictionary
+				var mastery_count := int(mastery_counts.get(settled_mandate_id, 0))
+				report_note += " %s / BOARD PORTFOLIO %d / %d." % [
+					"NEW BOOK MASTERED" if mastery_count == 1 else "BOOK REFILED x%d" % mastery_count,
+					int(mandate_mastery.get("mastered_count", 0)),
+					int(mandate_mastery.get("total_count", SeniorRoostStateScript.MANDATE_IDS.size())),
+				]
+		report_note += mandate_unlock_note
 		continue_label = "BEGIN YEAR %d PLANNING  [C]" % (year_number + 1)
 		continue_tooltip = (
 			"Accept the annual review. Next year's baseline quota rises by one egg."
@@ -5162,18 +6877,25 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 					"" if int(mandate_settlement.get("stake_returned", 0)) == 1 else "s",
 				]
 				if mandate_succeeded else
+				(" Board Mandate failed: no seal filed; no Roost Marks were at risk."
+				if int(mandate_settlement.get("stake_marks", 0)) == 0 else
 				" Board Mandate failed: %d staked Roost Mark%s permanently spent."
 				% [
 					int(mandate_settlement.get("stake_forfeited", 0)),
 					"" if int(mandate_settlement.get("stake_forfeited", 0)) == 1 else "s",
-				]
+				])
 			),
 			"reward": (
 				"+3 annual Roost Marks" if annual_passed else "No annual bonus marks"
-			) + " · %d total Board Seals" % int(mandate_settlement.get(
-				"mandate_seals_after",
-				_senior_roost_state.mandate_seals,
-			)),
+			) + " · %d total Board Seals  /  %d / %d BOOKS MASTERED" % [
+				seals_after,
+				int(mandate_mastery.get("mastered_count", 0)),
+				int(mandate_mastery.get("total_count", SeniorRoostStateScript.MANDATE_IDS.size())),
+			] + (
+				" · MANDATE TIER %d UNLOCKED" % mandate_tier_after
+				if mandate_tier_after > mandate_tier_before else
+				""
+			),
 		}
 		secondary_display = "%d / 100" % int(annual_review.get("score", 0))
 		secondary_caption = "ANNUAL SCORE"
@@ -5212,7 +6934,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			objective = {
 				"title": "YEAR %d · QUARTER %d · %s" % [year_number, quarter_number, policy_title],
 				"description": "\n".join(objective_lines),
-				"reward": "Quarter score 60+ earns promotion progress.",
+				"reward": "Score 40+ earns 1 Roost Mark Â· 60+ earns 2 Â· 80+ earns 3.",
 			}
 		if not mandate_progress.is_empty():
 			var mandate_lines := _senior_mandate_progress_lines(mandate_progress)
@@ -5238,7 +6960,14 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		policy_receipt["option_id"] = String(_senior_roost_state.active_policy_id)
 
 	var hen_highlight: Dictionary = {}
-	if _senior_roost_state.total_senior_shifts > 0:
+	# The named-hen story remains on each in-quarter shift receipt. At a quarter
+	# or annual boundary the policy/reward filing owns the hierarchy; repeating
+	# the previous shift highlight there pushed the actual policy controls below
+	# the fold without adding a new decision.
+	if (
+		_senior_roost_state.total_senior_shifts > 0
+		and status_id == SeniorRoostStateScript.STATUS_ACTIVE
+	):
 		var highlight_value: Variant = _last_workday_report.get("hen_highlight", {})
 		if highlight_value is Dictionary:
 			hen_highlight = (highlight_value as Dictionary).duplicate(true)
@@ -5267,6 +6996,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		{
 			"label": "Board Seals",
 			"value": mandate_seals,
+			"format": "number",
 			"detail": "MANDATE TIER %d  ·  %s" % [
 				int(mandate_tier.get("eligible_tier", 0)),
 				_senior_mandate_tier_tooltip(mandate_tier).to_upper(),
@@ -5275,6 +7005,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		{
 			"label": "Quarter score",
 			"value": last_quarter_score,
+			"format": "number",
 			"detail": "LAST CLOSED QUARTER" if not quarter_review.is_empty() else "FIRST QUARTER OPEN",
 		},
 		{
@@ -5288,6 +7019,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		ledgers[2] = {
 			"label": "Annual score",
 			"value": int(annual_review.get("score", 0)),
+			"format": "number",
 			"detail": "PASSED" if bool(annual_review.get("passed", false)) else "IMPROVEMENT YEAR",
 		}
 		ledgers[3] = {
@@ -5374,33 +7106,47 @@ func _senior_board_mandate_cards() -> Array[Dictionary]:
 				),
 			])
 		var stake := int(offer.get("stake_marks", 0))
+		var mastery_text := String(offer.get("mastery_text", "NEW PORTFOLIO CLEAR"))
 		var available := bool(offer.get("available", true))
 		var unavailable_reason := String(offer.get("unavailable_reason", ""))
 		var stake_text := "NO MARK STAKE" if stake <= 0 else "%d ROOST MARK%s STAKED" % [
 			stake,
 			"" if stake == 1 else "S",
 		]
+		var effect_text := "TIER %d  /  %s  /  %s  /  +%d SEAL%s\nTARGETS  %s" % [
+			int(offer.get("tier", 0)),
+			mastery_text,
+			stake_text,
+			int(offer.get("seal_reward", 1)),
+			"" if int(offer.get("seal_reward", 1)) == 1 else "S",
+			"  ·  ".join(targets),
+		]
+		if not available and not unavailable_reason.is_empty():
+			effect_text += "\nHELD  ·  %s" % unavailable_reason.to_upper()
+		var result_tooltip := (
+			unavailable_reason
+			if not available else
+			"SUCCESS: %s\nFAILURE: %s" % [
+				String(offer.get("reward", "Earn permanent Board Seals.")),
+				String(offer.get("failure", "No seal is awarded.")),
+			]
+		)
+		result_tooltip = "PORTFOLIO: %s\n%s" % [mastery_text, result_tooltip]
 		cards.append({
 			"id": String(offer.get("id", "")),
 			"title": String(offer.get("name", "ANNUAL BOARD MANDATE")),
 			"description": String(offer.get("summary", "Twelve-shift annual performance book.")),
-			"effect": "TIER %d · %s · +%d SEAL%s\nTARGETS  %s" % [
-				int(offer.get("tier", 0)),
-				stake_text,
-				int(offer.get("seal_reward", 1)),
-				"" if int(offer.get("seal_reward", 1)) == 1 else "S",
-				"  ·  ".join(targets),
-			],
+			"effect": effect_text,
+			"stake_marks": stake,
+			"confirmation_required": stake > 0,
+			"confirmation_label": "CONFIRM %d-MARK STAKE  [C]" % stake,
+			"confirmation_tooltip": (
+				"Confirm the %d-mark career stake. The marks remain reserved for this twelve-shift Book; success returns them, while failure permanently spends them."
+				% stake
+			),
 			"available": available,
 			"unavailable_reason": unavailable_reason,
-			"tooltip": (
-				unavailable_reason
-				if not available else
-				"SUCCESS: %s\nFAILURE: %s" % [
-					String(offer.get("reward", "Earn permanent Board Seals.")),
-					String(offer.get("failure", "No seal is awarded.")),
-				]
-			),
+			"tooltip": result_tooltip,
 		})
 	return cards
 
@@ -5574,6 +7320,18 @@ func _career_sponsorship_presentation_snapshot() -> Dictionary:
 	elif eligible_workers.is_empty():
 		unavailable_reason = "No employed Accredited Layer is currently eligible for a first secondary claim lane."
 
+	# A disabled multi-field form competes with the irreversible quarterly policy
+	# choice and pushes its filing action below a typical laptop viewport. The
+	# quarter heading already publishes the exact three-mark unlock, so keep this
+	# optional surface out of the planning hierarchy until it can be used.
+	if available_marks < mark_cost and not sponsorship_filed_this_gate:
+		return {
+			"visible": false,
+			"available_marks": available_marks,
+			"mark_cost": mark_cost,
+			"unavailable_reason": unavailable_reason,
+		}
+
 	return {
 		"visible": true,
 		"available_marks": available_marks,
@@ -5715,6 +7473,7 @@ func _present_first_hen_prelude() -> void:
 				worker_view.global_position + Vector3.UP * 0.82,
 				"%s // FIRST FILE" % target_name.to_upper(),
 				0.42,
+				FIRST_HEN_FOCUS_SIZE,
 			)
 	_refresh_first_clutch_ui(snapshot)
 	_update_guidance(snapshot)
@@ -5783,6 +7542,12 @@ func _reset_first_clutch(enabled: bool) -> void:
 	_first_clutch_completion_generation += 1
 	_first_clutch_completion_hold_until_msec = 0
 	_first_clutch = _make_first_clutch_state(not enabled)
+	if enabled:
+		_capacity_marker_context_revealed = false
+		_apply_office_capacity_visibility(
+			_office_capacity_from_snapshot(_simulation.snapshot()),
+			false,
+		)
 	_refresh_first_clutch_ui(_simulation.snapshot())
 
 
@@ -6288,6 +8053,20 @@ func _retire_first_clutch_after_hold(completion_generation: int) -> void:
 	_update_guidance(snapshot)
 
 
+func _on_first_clutch_skip_rect_settled(_rect: Rect2) -> void:
+	if (
+		not OS.has_feature("web")
+		or bool(_first_clutch.get("dismissed", true))
+		or bool(_first_clutch.get("completed", false))
+	):
+		return
+	# This one-shot layout fact can arrive while Office itself is paused and thus
+	# cannot flush the normal throttled queue. Publish it immediately so the Web
+	# accessibility model names the same live target visible on the canvas.
+	_web_diagnostic_next_allowed_msec = 0
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
 func _on_first_clutch_skip_requested() -> void:
 	if bool(_first_clutch.get("dismissed", true)) or bool(_first_clutch.get("completed", false)):
 		return
@@ -6297,6 +8076,9 @@ func _on_first_clutch_skip_requested() -> void:
 	_ticker_label.text = "FIRST CLUTCH COACH FILED AWAY. Every management control remains available."
 	var snapshot := _simulation.snapshot()
 	_refresh_first_clutch_ui(snapshot)
+	# The coach's Skip button may have owned GUI focus. Re-evaluate the live-floor
+	# context immediately so camera navigation resumes in the same interaction.
+	_refresh_floor_input_context()
 	_refresh_flockwatch_navigation(snapshot)
 	_update_guidance(snapshot)
 	_save_campaign_checkpoint("first_clutch_skipped")
@@ -6413,13 +8195,13 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 				body = "%s is currently stamped %s. Match her specialty tray in the dossier; wrong routes remain allowed." % [target_name, current_name]
 				tone = &"warning"
 			else:
-				body = "Use the dossier tray stamps below. Specialty matching improves speed and shell safety; AUTO stays available later."
-			guidance = "Route %s to %s in her dossier." % [target_name, specialty_short]
+				body = "Press Enter for the highlighted specialty tray, or choose a dossier stamp below. Specialty matching improves speed and shell safety; AUTO stays available later."
+			guidance = "Press Enter to route %s to %s, or choose another tray below." % [target_name, specialty_short]
 		&"check_in":
 			title = "FILE %s'S CHECK-IN" % target_name
 			var profile_name := String(worker.get("career_profile_name", "CAREER PROFILE")).to_upper()
-			body = "Choose one real personnel stamp. PROFILE FIT marks the choice that best matches %s's %s." % [target_name, profile_name]
-			guidance = "Choose one check-in stamp for %s; PROFILE FIT is her preferred option." % target_name
+			body = "Press Enter for the highlighted PROFILE FIT, or choose one real personnel stamp. The filing is permanent."
+			guidance = "Press Enter to file %s's PROFILE FIT check-in, or choose another stamp below." % target_name
 		&"priority_peck":
 			title = "LAND %s'S PRIORITY PECK" % target_name
 			var peck_status := worker.get("peck_assist", {}) as Dictionary
@@ -6628,6 +8410,7 @@ func _write_campaign_checkpoint(reason: String) -> bool:
 		"completed_shifts": _campaign_state.completed_shifts,
 		"probation_score": _campaign_state.probation_score,
 		"probation_rank": String(_campaign_state.probation_rank),
+		"challenge_contract_id": String(_campaign_state.challenge_contract_id),
 		"review_stage": String(_campaign_review_stage),
 		"senior_years": _senior_roost_state.completed_years,
 		"roost_marks": _senior_roost_state.roost_marks,
@@ -6913,6 +8696,12 @@ func _restore_campaign_view() -> void:
 
 func _reset_campaign_session_visuals() -> void:
 	_clock.set_speed(0)
+	# A genuinely new or restored career establishes its existing archive without
+	# replaying old commendation fanfare. Later permanent source changes are the
+	# only events that produce a new-stamp notice.
+	_commendations_seeded = false
+	_known_commendation_ids.clear()
+	_commendations_source_fingerprint = -1
 	_feed_party_active = false
 	_feed_party_release_scheduled = false
 	_feed_party_arrivals.clear()
@@ -7181,34 +8970,42 @@ func _update_probation_safeguard_label() -> void:
 	var completed := int(forecast.get("completed_shifts", 0))
 	var required := int(forecast.get("required_shifts", CampaignStateScript.CAMPAIGN_LENGTH))
 	var all_pass := bool(forecast.get("all_pass", false))
+	var challenge_contract: Dictionary = _campaign_state.challenge_contract_snapshot()
+	var challenge_label := String(challenge_contract.get(
+		"short_label",
+		challenge_contract.get("label", "STANDARD FILING"),
+	)).strip_edges().to_upper()
 	var blocker := forecast.get("largest_recoverable_blocker", {}) as Dictionary
 	if blocker.is_empty() and not all_pass:
 		for row_value: Variant in criteria:
 			if row_value is Dictionary and not bool((row_value as Dictionary).get("pass", false)):
 				blocker = (row_value as Dictionary).duplicate(true)
 				break
-	var lines: Array[String] = [
-		"FINAL SAFEGUARDS  //  %d / %d PASS  //  %d / %d SHIFTS" % [
+	var status_copy := "ON TRACK"
+	if not all_pass and not blocker.is_empty():
+		var compact_gap := _probation_safeguard_office_gap_text(blocker)
+		compact_gap = compact_gap.replace(" POINTS", "").replace(" POINT", "").replace(" PTS", "")
+		status_copy = "RISK %s %s" % [
+			String(blocker.get("label", "SAFEGUARD")).to_upper(),
+			compact_gap,
+		]
+	_campaign_safeguards_label.text = (
+		"%s · SAFE %d/%d · SHIFTS %d/%d · %s" % [
+			challenge_label,
 			pass_count,
 			criteria.size(),
 			completed,
 			required,
-		],
-	]
-	if all_pass:
-		lines.append("ON TRACK  //  ALL CURRENT THRESHOLDS CLEAR")
-	elif not blocker.is_empty():
-		lines.append("AT RISK  //  %s  //  %s" % [
-			String(blocker.get("label", "SAFEGUARD")).to_upper(),
-			_probation_safeguard_office_gap_text(blocker),
-		])
-	_campaign_safeguards_label.text = "\n".join(lines)
+			status_copy,
+		]
+	)
 	_campaign_safeguards_label.add_theme_color_override(
 		"font_color",
 		Color("a7dbc9") if all_pass else Color("f0aa95"),
 	)
 	var tooltip_lines: Array[String] = [
-		"PROBATION FINAL TERMS  //  EXACT THRESHOLDS",
+		"%s  //  PROBATION FINAL TERMS  //  EXACT THRESHOLDS" % challenge_label,
+		String(challenge_contract.get("description", "The selected filing standard remains permanent for this career.")),
 		"The file passes only after five shifts and only when all five rows pass.",
 	]
 	for row_value: Variant in criteria:
@@ -7228,6 +9025,10 @@ func _update_probation_safeguard_label() -> void:
 	_campaign_safeguards_label.tooltip_text = "\n".join(tooltip_lines)
 	_campaign_safeguards_label.set_meta("safeguards_pass", pass_count)
 	_campaign_safeguards_label.set_meta("safeguards_total", criteria.size())
+	_campaign_safeguards_label.set_meta(
+		"challenge_contract_id",
+		String(challenge_contract.get("id", CampaignStateScript.CHALLENGE_STANDARD_FILING)),
+	)
 	_campaign_safeguards_label.set_meta(
 		"largest_blocker_id",
 		String(blocker.get("id", "")),
@@ -7257,6 +9058,7 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 	var active_snapshot := snapshot if not snapshot.is_empty() else _simulation.snapshot()
 	var live_metrics := _campaign_live_metrics(active_snapshot)
 	var senior_mode: bool = _campaign_senior_roost and _senior_roost_state != null and _senior_roost_state.is_active()
+	_update_campaign_doctrine_label(senior_mode)
 	_update_probation_safeguard_label()
 	var career_forecast := _senior_career_forecast(active_snapshot)
 	_campaign_objectives_label.set_meta("career_forecast_visible", false)
@@ -7269,6 +9071,7 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 			("THIS QUARTER'S SENIOR ORDERS" if senior_mode else "TODAY'S PROBATION ORDERS")
 		)
 	if senior_mode and _senior_roost_state.status == SeniorRoostStateScript.STATUS_QUARTER_CHOICE:
+		_sync_live_order_badge(0, 0, senior_mode)
 		if _senior_roost_state.requires_annual_mandate():
 			var mandate_tier: Dictionary = _senior_roost_state.mandate_tier_eligibility()
 			_campaign_objectives_label.text = "ANNUAL MANDATE REQUIRED  ·  3 FROZEN BOOKS  ·  %d SEAL%s  ·  TIER %d" % [
@@ -7298,6 +9101,7 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 		_campaign_objectives_label.set_meta("orders_total", 1)
 		return
 	if senior_mode and _senior_roost_state.status == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW:
+		_sync_live_order_badge(0, 0, senior_mode)
 		var annual_passed := bool(_senior_roost_state.last_annual_review.get("passed", false))
 		var mandate_settlement: Dictionary = _senior_roost_state.last_mandate_settlement
 		_campaign_objectives_label.text = "ANNUAL  ·  %s  ·  %d / 100  ·  BOARD %s  ·  %d SEAL%s" % [
@@ -7319,6 +9123,7 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 		_campaign_state.current_objective_progress(live_metrics)
 	)
 	if objectives.is_empty():
+		_sync_live_order_badge(0, 0, senior_mode)
 		_campaign_objectives_label.text = (
 			"Senior quarter awaiting its first filed shift."
 			if senior_mode else
@@ -7357,6 +9162,7 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 		])
 	_campaign_objectives_label.set_meta("orders_on_track", on_track)
 	_campaign_objectives_label.set_meta("orders_total", objectives.size())
+	_sync_live_order_badge(on_track, objectives.size(), senior_mode)
 	if bool(career_forecast.get("visible", false)):
 		_apply_senior_career_forecast_label(career_forecast)
 		return
@@ -7369,12 +9175,98 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 	_campaign_objectives_label.text = "\n".join(lines)
 
 
+func _sync_live_order_badge(on_track: int, total: int, senior_mode: bool) -> void:
+	if _campaign_ui == null or not _campaign_ui.has_method("set_live_order_progress"):
+		return
+	var context := StringName("probation:%d" % (_campaign_state.completed_shifts + 1))
+	if senior_mode and _senior_roost_state != null:
+		context = StringName("senior:%d:%d" % [
+			_senior_roost_state.current_year_number(),
+			_senior_roost_state.current_quarter_in_year(),
+		])
+	var delta := int(_campaign_ui.call("set_live_order_progress", on_track, total, context))
+	if delta == 0 or _audio_feedback == null:
+		return
+	if delta > 0:
+		_audio_feedback.play_policy_stamp()
+	else:
+		_audio_feedback.play_shift_alert(0.28)
+
+
+func _update_campaign_doctrine_label(senior_mode: bool) -> void:
+	if _campaign_doctrine_label == null or _campaign_state == null:
+		return
+	var doctrine: Dictionary = _campaign_state.active_doctrine()
+	_campaign_doctrine_label.visible = not senior_mode and not doctrine.is_empty()
+	if not _campaign_doctrine_label.visible:
+		_campaign_doctrine_label.text = ""
+		_campaign_doctrine_label.tooltip_text = ""
+		_campaign_doctrine_label.set_meta("doctrine_id", "")
+		_campaign_doctrine_label.set_meta("milestone_id", "")
+		return
+	var strengths := _doctrine_terms(doctrine.get("strengths", []))
+	var watchouts := _doctrine_terms(doctrine.get("watchouts", []))
+	var primary_strength := _doctrine_primary_term(doctrine.get("strengths", []))
+	var primary_watchout := _doctrine_primary_term(doctrine.get("watchouts", []))
+	_campaign_doctrine_label.text = "DOCTRINE  //  %s%s%s" % [
+		String(doctrine.get("label", "PROBATION SPECIALTY")),
+		"  //  EDGE %s" % primary_strength if not primary_strength.is_empty() else "",
+		"  //  WATCH %s" % primary_watchout if not primary_watchout.is_empty() else "",
+	]
+	_campaign_doctrine_label.tooltip_text = "%s\n\nPLAYBOOK  //  %s" % [
+		String(doctrine.get("summary", "This specialization remains active for the probation file.")),
+		"%s\n\nFULL EDGE  //  %s\nWATCH  //  %s" % [
+			String(doctrine.get("playbook", "Use the safeguard ledger to cover this doctrine's obligations.")),
+			strengths,
+			watchouts,
+		],
+	]
+	_campaign_doctrine_label.set_meta("doctrine_id", String(doctrine.get("milestone_id", "")))
+	_campaign_doctrine_label.set_meta("milestone_id", String(doctrine.get("milestone_id", "")))
+
+
+func _probation_doctrine_snapshot() -> Dictionary:
+	if _campaign_senior_roost or _campaign_state == null:
+		return {}
+	return _campaign_state.active_doctrine()
+
+
+func _doctrine_terms(value: Variant) -> String:
+	if not value is Array:
+		return ""
+	var terms: Array[String] = []
+	for item: Variant in value as Array:
+		var term := String(item).strip_edges().to_upper()
+		if not term.is_empty():
+			terms.append(term)
+	return " // ".join(terms)
+
+
+func _doctrine_primary_term(value: Variant) -> String:
+	if not value is Array or (value as Array).is_empty():
+		return ""
+	return String((value as Array)[0]).strip_edges().to_upper()
+
+
 func _update_flock_labor_label(snapshot: Dictionary) -> void:
 	if _flock_labor_label == null:
 		return
 	var compact := snapshot.get("flock_compact", {}) as Dictionary
 	var work_to_rule := snapshot.get("work_to_rule", {}) as Dictionary
 	var last_petition := snapshot.get("flock_petition", {}) as Dictionary
+	var labor_relevant := (
+		not compact.is_empty()
+		or bool(work_to_rule.get("active", false))
+		or bool(work_to_rule.get("scheduled", false))
+		or not last_petition.is_empty()
+	)
+	_flock_labor_label.visible = labor_relevant
+	if not labor_relevant:
+		_flock_labor_label.text = ""
+		_flock_labor_label.tooltip_text = (
+			"Flock labor filings appear here when a petition, compact, or work-to-rule is active."
+		)
+		return
 	var lines: Array[String] = []
 	var accent := Color("b9c8cc")
 	if not compact.is_empty():
@@ -7415,24 +9307,226 @@ func _update_flock_labor_label(snapshot: Dictionary) -> void:
 	_flock_labor_label.add_theme_color_override("font_color", accent)
 
 
+func _update_records_archive_summary(snapshot: Dictionary) -> void:
+	if _records_archive_label == null:
+		return
+	var board_value: Variant = snapshot.get("contract_board", {})
+	var board := board_value as Dictionary if board_value is Dictionary else {}
+	var active_value: Variant = board.get("active_contract", board.get("active", {}))
+	var active_contract := active_value as Dictionary if active_value is Dictionary else {}
+	var contract_line := "FARM MUTUAL / NO ACTIVE BINDER"
+	if not active_contract.is_empty():
+		var contract_name := String(active_contract.get(
+			"short_name",
+			active_contract.get("name", active_contract.get("label", "ACTIVE BINDER")),
+		)).strip_edges().to_upper()
+		var contract_status := String(active_contract.get("status", "ACTIVE")).strip_edges().to_upper()
+		var target_day := maxi(0, int(active_contract.get("target_day", 0)))
+		contract_line = "FARM MUTUAL / %s / %s%s" % [
+			contract_name,
+			contract_status,
+			" DAY %d" % target_day if target_day > 0 else "",
+		]
+
+	var compact_value: Variant = snapshot.get("flock_compact", {})
+	var compact := compact_value as Dictionary if compact_value is Dictionary else {}
+	var petition_value: Variant = snapshot.get("flock_petition", {})
+	var petition := petition_value as Dictionary if petition_value is Dictionary else {}
+	var work_value: Variant = snapshot.get("work_to_rule", {})
+	var work_to_rule := work_value as Dictionary if work_value is Dictionary else {}
+	var labor_line := "FLOCK LABOR / QUIET"
+	var labor_urgent := false
+	if bool(work_to_rule.get("active", false)) or bool(work_to_rule.get("scheduled", false)):
+		labor_urgent = true
+		labor_line = "FLOCK LABOR / WORK-TO-RULE / %s" % (
+			"ACTIVE" if bool(work_to_rule.get("active", false)) else "SCHEDULED"
+		)
+	elif not compact.is_empty():
+		labor_line = "FLOCK LABOR / %s / %s" % [
+			String(compact.get("compact_name", "BINDING COMPACT")).strip_edges().to_upper(),
+			String(compact.get("status", "FILED")).strip_edges().to_upper(),
+		]
+	elif not petition.is_empty():
+		labor_line = "FLOCK LABOR / PETITION / %s" % String(
+			petition.get("sponsor_worker_name", "NAMED HEN")
+		).strip_edges().to_upper()
+
+	var receipt_parts: Array[String] = []
+	var contract_receipt_value: Variant = board.get("last_result", board.get("decline_receipt", {}))
+	var contract_receipt := (
+		contract_receipt_value as Dictionary
+		if contract_receipt_value is Dictionary else
+		{}
+	)
+	if not contract_receipt.is_empty():
+		receipt_parts.append("MUTUAL %s" % String(
+			contract_receipt.get("status", "FILED")
+		).strip_edges().to_upper())
+	var compact_receipt_value: Variant = snapshot.get("flock_compact_receipt", {})
+	var compact_receipt := (
+		compact_receipt_value as Dictionary
+		if compact_receipt_value is Dictionary else
+		{}
+	)
+	if not compact_receipt.is_empty():
+		receipt_parts.append("COMPACT %s" % String(
+			compact_receipt.get("status", "FILED")
+		).strip_edges().to_upper())
+	var receipt_line := (
+		"RECEIPTS / %s" % " / ".join(receipt_parts)
+		if not receipt_parts.is_empty() else
+		"RECEIPTS / NONE FILED"
+	)
+	_records_archive_label.text = "\n".join([contract_line, labor_line, receipt_line])
+	_records_archive_label.add_theme_color_override(
+		"font_color",
+		Color("d68a68") if labor_urgent else Color("b9c8cc"),
+	)
+
+
+func commendations_snapshot() -> Dictionary:
+	return _commendations_snapshot.duplicate(true)
+
+
+func _update_commendations(snapshot: Dictionary, force: bool = false) -> void:
+	var source_fingerprint := _commendations_fingerprint(snapshot)
+	if not force and source_fingerprint == _commendations_source_fingerprint:
+		return
+	_commendations_source_fingerprint = source_fingerprint
+	var campaign_snapshot: Dictionary = _campaign_state.snapshot() if _campaign_state != null else {}
+	var senior_snapshot: Dictionary = _senior_roost_state.snapshot() if _senior_roost_state != null else {}
+	var evaluated: Dictionary = CareerCommendationsScript.evaluate(
+		snapshot,
+		campaign_snapshot,
+		senior_snapshot,
+	)
+	_commendations_snapshot = evaluated.duplicate(true)
+	var earned_count := int(evaluated.get("earned_count", 0))
+	var total_count := int(evaluated.get("total_count", CareerCommendationsScript.IDS.size()))
+	var next_value: Variant = evaluated.get("next", {})
+	var next_stamp := next_value as Dictionary if next_value is Dictionary else {}
+	if _commendations_disclosure_toggle != null:
+		_commendations_disclosure_toggle.set_summary("%d / %d FILED" % [earned_count, total_count])
+	if _commendations_summary_label != null:
+		if bool(evaluated.get("complete", false)):
+			_commendations_summary_label.text = (
+				"COOP COMMENDATIONS  /  %d OF %d FILED\n"
+				+ "ARCHIVE COMPLETE  /  EVERY STAMP IS PERMANENT RECOGNITION"
+			) % [earned_count, total_count]
+		else:
+			_commendations_summary_label.text = (
+				"COOP COMMENDATIONS  /  %d OF %d FILED\nNEXT STAMP  /  %s  /  %s"
+			) % [
+				earned_count,
+				total_count,
+				String(next_stamp.get("title", "CAREER FILE")),
+				String(next_stamp.get("progress_label", "OPEN")),
+			]
+
+	var newly_earned: Array[Dictionary] = []
+	var current_earned_ids: Dictionary[StringName, bool] = {}
+	for row_value: Variant in evaluated.get("rows", []):
+		if not row_value is Dictionary:
+			continue
+		var row := row_value as Dictionary
+		var commendation_id := StringName(row.get("id", &""))
+		var earned := bool(row.get("earned", false))
+		if earned:
+			current_earned_ids[commendation_id] = true
+			if _commendations_seeded and not _known_commendation_ids.has(commendation_id):
+				newly_earned.append(row)
+		var bindings := _commendation_rows.get(commendation_id, {}) as Dictionary
+		if bindings.is_empty():
+			continue
+		var panel := bindings.get("panel") as PanelContainer
+		var mark := bindings.get("mark") as Label
+		var title := bindings.get("title") as Label
+		var progress := bindings.get("progress") as Label
+		var detail := bindings.get("detail") as Label
+		if panel != null:
+			panel.add_theme_stylebox_override(
+				"panel",
+				_commendation_earned_style if earned else _commendation_locked_style,
+			)
+		if mark != null:
+			mark.text = "FILED" if earned else "OPEN"
+			mark.add_theme_color_override("font_color", Color("f0ca72") if earned else Color("82909a"))
+		if title != null:
+			title.text = String(row.get("title", "COMMENDATION"))
+			title.add_theme_color_override("font_color", Color("f1d58c") if earned else Color("c9d1d5"))
+		if progress != null:
+			progress.text = String(row.get("progress_label", "OPEN"))
+			progress.add_theme_color_override("font_color", Color("d9bf78") if earned else Color("9aa8af"))
+		if detail != null:
+			detail.text = "%s  /  RECOGNITION: %s" % [
+				String(row.get("description", "")),
+				String(row.get("recognition", "Archive stamp")),
+			]
+		bindings["earned"] = earned
+
+	_known_commendation_ids = current_earned_ids
+	if not _commendations_seeded:
+		_commendations_seeded = true
+		return
+	if newly_earned.is_empty():
+		return
+	var primary := newly_earned[0]
+	_ticker_label.text = "COMMENDATION FILED  /  %s  /  %d OF %d%s" % [
+		String(primary.get("title", "CAREER STAMP")),
+		earned_count,
+		total_count,
+		"  /  +%d MORE" % (newly_earned.size() - 1) if newly_earned.size() > 1 else "",
+	]
+	if _audio_feedback != null and _audio_feedback.has_method("play_commendation"):
+		_audio_feedback.call("play_commendation")
+
+
+func _commendations_fingerprint(snapshot: Dictionary) -> int:
+	var facility_tiers := 0
+	var owned_value: Variant = snapshot.get("owned_facilities", {})
+	if owned_value is Dictionary:
+		for level_value: Variant in (owned_value as Dictionary).values():
+			facility_tiers += maxi(0, int(level_value))
+	var mandate_mastery_counts: Array[int] = []
+	if _senior_roost_state != null:
+		for mandate_id in SeniorRoostStateScript.MANDATE_IDS:
+			mandate_mastery_counts.append(maxi(
+				0,
+				int(_senior_roost_state.mandate_success_counts.get(mandate_id, 0)),
+			))
+	return hash([
+		int(snapshot.get("eggs_total", 0)),
+		int(snapshot.get("best_quality_streak", 0)),
+		int(snapshot.get("market_contracts_succeeded_total", 0)),
+		int(snapshot.get("office_capacity", 4)),
+		facility_tiers,
+		String(_campaign_state.chosen_milestone_id) if _campaign_state != null else "",
+		int(_campaign_state.completed_shifts) if _campaign_state != null else 0,
+		String(_campaign_state.outcome) if _campaign_state != null else "in_progress",
+		String(_senior_roost_state.status) if _senior_roost_state != null else "inactive",
+		int(_senior_roost_state.total_senior_shifts) if _senior_roost_state != null else 0,
+		int(_senior_roost_state.mandate_seals) if _senior_roost_state != null else 0,
+		mandate_mastery_counts,
+	])
+
+
+func _commendations_diagnostic_state() -> Dictionary:
+	return CareerCommendationsScript.compact_snapshot(_commendations_snapshot)
+
+
+func _refresh_commendations_from_authority() -> void:
+	if _simulation == null:
+		return
+	var snapshot := _simulation.snapshot()
+	_update_commendations(snapshot)
+	_publish_web_diagnostic_state(snapshot)
+
+
 func _set_campaign_modal_open(is_open: bool) -> void:
 	if is_open:
 		_clock.set_speed(0)
 		_set_flockwatch_open(false)
-	if _camera_controller != null:
-		var another_modal := (
-			(_decision_host != null and _decision_host.visible)
-			or (_day_review_scrim != null and _day_review_scrim.visible)
-		)
-		_camera_controller.set_process_unhandled_input(not is_open and not another_modal)
-	if _routing_ui != null:
-		var can_route := (
-			not is_open
-			and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
-			and (_decision_host == null or not _decision_host.visible)
-			and (_day_review_scrim == null or not _day_review_scrim.visible)
-		)
-		_routing_ui.set_interaction_enabled(can_route)
+	_refresh_floor_input_context()
 	_on_speed_changed(_clock.speed_index, SimulationClock.SPEED_MULTIPLIERS[_clock.speed_index])
 	_refresh_first_clutch_ui(_simulation.snapshot())
 
@@ -7440,12 +9534,19 @@ func _set_campaign_modal_open(is_open: bool) -> void:
 func _show_campaign_title(continue_available: bool) -> void:
 	_campaign_session_checkpoint_enabled = false
 	var resume_summary := _campaign_resume_summary() if continue_available else {}
+	var selected_challenge_id := CampaignStateScript.CHALLENGE_STANDARD_FILING
+	if _campaign_ui != null and _campaign_ui.has_method("selected_challenge_contract_id"):
+		var ui_selection := StringName(_campaign_ui.call("selected_challenge_contract_id"))
+		if not CampaignStateScript.challenge_contract(ui_selection).is_empty():
+			selected_challenge_id = ui_selection
 	_campaign_ui.apply_snapshot({
 		"view": &"title",
 		"day": 1,
 		"total_days": CampaignStateScript.CAMPAIGN_LENGTH,
 		"continue_available": continue_available,
 		"resume_summary": resume_summary,
+		"challenge_contract_catalog": CampaignStateScript.challenge_contract_catalog(),
+		"selected_new_challenge_contract_id": String(selected_challenge_id),
 	})
 	_campaign_ui.show_title(continue_available)
 
@@ -7453,17 +9554,49 @@ func _show_campaign_title(continue_available: bool) -> void:
 func _campaign_resume_summary() -> Dictionary:
 	if _campaign_store == null:
 		return {}
-	var envelope := _campaign_store.load()
+	var envelope_value: Variant = _campaign_store.load()
+	if not envelope_value is Dictionary:
+		return {}
+	var envelope := envelope_value as Dictionary
 	if envelope.is_empty():
 		return {}
-	var metadata := envelope.get("metadata", {}) as Dictionary
-	var payload := envelope.get("campaign", {}) as Dictionary
-	var session := payload.get("session", {}) as Dictionary
-	var senior_data := payload.get("senior_roost", {}) as Dictionary
-	var senior_active := bool(session.get("senior_roost", false))
+	# Continue is intentionally offered from an envelope candidate before the full
+	# campaign is activated. Treat every nested preview payload as untrusted so a
+	# malformed candidate cannot crash intake or invent authoritative save copy.
+	var metadata := _resume_dictionary(envelope.get("metadata"))
+	var payload := _resume_dictionary(envelope.get("campaign"))
+	var session := _resume_dictionary(payload.get("session"))
+	var campaign_ledger := _resume_dictionary(payload.get("campaign"))
+	var senior_data := _resume_dictionary(payload.get("senior_roost"))
+	var senior_active := _resume_boolean(session.get("senior_roost"), false)
 	var rank_id := StringName(String(metadata.get("probation_rank", "probationary")))
 	var stage := StringName(String(metadata.get("review_stage", "active")))
 	var stage_label := "SHIFT IN PROGRESS"
+	var campaign_schema := _resume_integer(campaign_ledger.get("schema_version"), -1)
+	var campaign_schema_id := String(campaign_ledger.get("schema_id", ""))
+	var saved_challenge: Dictionary = {}
+	var challenge_contract_verified := false
+	if campaign_schema_id == CampaignStateScript.SCHEMA_ID and campaign_schema == 1:
+		# Campaign schema v1 predates selection and migrates canonically to Standard.
+		saved_challenge = CampaignStateScript.challenge_contract(
+			CampaignStateScript.CHALLENGE_STANDARD_FILING
+		)
+		challenge_contract_verified = not saved_challenge.is_empty()
+	elif (
+		campaign_schema_id == CampaignStateScript.SCHEMA_ID
+		and campaign_schema == CampaignStateScript.SCHEMA_VERSION
+	):
+		var challenge_id_value: Variant = campaign_ledger.get("challenge_contract_id")
+		if challenge_id_value is String or challenge_id_value is StringName:
+			var persisted_challenge_id := String(challenge_id_value)
+			var saved_challenge_id := StringName(persisted_challenge_id)
+			saved_challenge = CampaignStateScript.challenge_contract(saved_challenge_id)
+			challenge_contract_verified = (
+				not saved_challenge.is_empty()
+				and persisted_challenge_id == String(saved_challenge.get("id", ""))
+			)
+			if not challenge_contract_verified:
+				saved_challenge.clear()
 	match stage:
 		&"farmer":
 			stage_label = "FARMER REVIEW"
@@ -7480,22 +9613,45 @@ func _campaign_resume_summary() -> Dictionary:
 		&"senior_annual":
 			stage_label = "SENIOR ANNUAL REVIEW"
 	return {
-		"day": maxi(1, int(metadata.get("day", 1))),
-		"completed_shifts": maxi(0, int(metadata.get("completed_shifts", 0))),
+		"day": maxi(1, _resume_integer(metadata.get("day"), 1)),
+		"completed_shifts": maxi(0, _resume_integer(metadata.get("completed_shifts"), 0)),
 		"probation_score": clampi(
-			int(metadata.get("probation_score", CampaignStateScript.STARTING_SCORE)),
+			_resume_integer(
+				metadata.get("probation_score"),
+				CampaignStateScript.STARTING_SCORE,
+			),
 			0,
 			100,
 		),
 		"rank_label": CampaignStateScript.rank_display_name(rank_id),
 		"stage_label": stage_label,
+		"challenge_contract": {} if senior_active else saved_challenge,
+		"challenge_contract_verified": challenge_contract_verified,
 		"senior_roost": senior_active,
-		"senior_year": maxi(1, int(senior_data.get("completed_years", 0)) + 1),
-		"roost_marks": maxi(0, int(senior_data.get("roost_marks", 0))),
-		"mandate_seals": maxi(0, int(senior_data.get("mandate_seals", 0))),
-		"recovered_from_backup": bool(envelope.get("recovered_from_backup", false)),
+		"senior_year": maxi(1, _resume_integer(senior_data.get("completed_years"), 0) + 1),
+		"roost_marks": maxi(0, _resume_integer(senior_data.get("roost_marks"), 0)),
+		"mandate_seals": maxi(0, _resume_integer(senior_data.get("mandate_seals"), 0)),
+		"recovered_from_backup": _resume_boolean(envelope.get("recovered_from_backup"), false),
 		"recovery_source": String(envelope.get("recovery_source", "primary")),
 	}
+
+
+func _resume_dictionary(value: Variant) -> Dictionary:
+	return (value as Dictionary).duplicate(true) if value is Dictionary else {}
+
+
+func _resume_integer(value: Variant, fallback: int) -> int:
+	if value is int:
+		return int(value)
+	if value is float:
+		var numeric := float(value)
+		if not is_nan(numeric) and not is_inf(numeric) and floor(numeric) == numeric:
+			return int(numeric)
+	return fallback
+
+
+func _resume_boolean(value: Variant, fallback: bool) -> bool:
+	return bool(value) if value is bool else fallback
 
 
 func _should_bypass_campaign_title() -> bool:
@@ -7531,6 +9687,69 @@ func _json_safe_variant(value: Variant) -> Variant:
 			return str(value)
 
 
+func _pending_decision_diagnostic_state() -> Dictionary:
+	if _decision_host == null or not _decision_host.visible or _active_decision.is_empty():
+		return {"visible": false}
+	var spendable_cents := _simulation.spendable_fund_cents() if _simulation != null else 0
+	var options: Array[Dictionary] = []
+	var option_index := 0
+	for option_value: Variant in _active_decision.get("options", []):
+		if option_index >= 3 or not option_value is Dictionary:
+			break
+		var option := option_value as Dictionary
+		var cost_cents := maxi(0, int(option.get("cost_cents", 0)))
+		var authored_available := bool(option.get("can_select", true))
+		var available := authored_available and cost_cents <= spendable_cents
+		var order_fit := (
+			_directive_order_fit(StringName(option.get("id", &"")))
+			if StringName(_active_decision.get("kind", &"")) == &"directive" else
+			{}
+		)
+		options.append({
+			"index": option_index + 1,
+			"id": String(option.get("id", "")),
+			"label": String(option.get("label", "RESPONSE")),
+			"short_label": String(option.get("short_label", option.get("label", "RESPONSE"))),
+			"tagline": String(option.get("tagline", "")),
+			"preview": String(option.get("preview", "Consequence pending.")),
+			"tone": String(option.get("tone", "")),
+			"cost_cents": cost_cents,
+			"available": available,
+			"order_fit": order_fit.duplicate(true),
+			"unavailable_reason": (
+				"" if available else String(option.get(
+					"unavailable_reason",
+					"Requires $%.2f Feed Fund; only $%.2f is available." % [
+						cost_cents / 100.0,
+						spendable_cents / 100.0,
+					],
+				))
+			),
+		})
+		option_index += 1
+	return {
+		"visible": true,
+		"serial": int(_active_decision.get("serial", -1)),
+		"kind": String(_active_decision.get("kind", "")),
+		"id": String(_active_decision.get("id", "")),
+		"category": String(_active_decision.get("category", "")),
+		"eyebrow": String(_active_decision.get("eyebrow", "")),
+		"title": String(_active_decision.get("title", "CHOOSE A RESPONSE")),
+		"body": String(_active_decision.get(
+			"body",
+			"A measurable variance requires management attention.",
+		)),
+		"prompt": String(_active_decision.get(
+			"prompt",
+			"Choose a response card, then authorize it.",
+		)),
+		"selected_option_id": String(_selected_decision_option),
+		"confirm_enabled": _decision_confirm_button != null and not _decision_confirm_button.disabled,
+		"spendable_fund_cents": spendable_cents,
+		"options": options,
+	}
+
+
 func _flockwatch_diagnostic_state() -> Dictionary:
 	var current_page := ""
 	var current_page_title := ""
@@ -7554,8 +9773,58 @@ func _flockwatch_diagnostic_state() -> Dictionary:
 	}
 
 
+func _diagnostic_subset(source: Dictionary, keys: Array) -> Dictionary:
+	var result: Dictionary = {}
+	for key_value: Variant in keys:
+		var key := String(key_value)
+		if source.has(key):
+			result[key] = source[key]
+	return result
+
+
+## Compact engine-health counters for release soak tests and support reports.
+## These are sampled only when the already-throttled Web diagnostic is rebuilt;
+## they do not add a second timer or perform any allocation-heavy enumeration.
+func _runtime_performance_diagnostic() -> Dictionary:
+	return {
+		"fps": int(round(Performance.get_monitor(Performance.TIME_FPS))),
+		"process_usec": int(round(
+			Performance.get_monitor(Performance.TIME_PROCESS) * 1000000.0
+		)),
+		"physics_process_usec": int(round(
+			Performance.get_monitor(Performance.TIME_PHYSICS_PROCESS) * 1000000.0
+		)),
+		"static_memory_bytes": int(Performance.get_monitor(Performance.MEMORY_STATIC)),
+		"static_memory_peak_bytes": int(
+			Performance.get_monitor(Performance.MEMORY_STATIC_MAX)
+		),
+		"object_count": int(Performance.get_monitor(Performance.OBJECT_COUNT)),
+		"node_count": int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		"orphan_node_count": int(
+			Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)
+		),
+		"draw_calls": int(
+			Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)
+		),
+		"rendered_objects": int(
+			Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)
+		),
+		"rendered_primitives": int(
+			Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME)
+		),
+	}
+
+
 func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 	if not OS.has_feature("web"):
+		return
+	var now_msec := Time.get_ticks_msec()
+	if now_msec < _web_diagnostic_next_allowed_msec:
+		# Web accessibility and automation only need the newest settled frame. At
+		# 10x, several authoritative ticks may arrive before the browser can paint;
+		# retaining the latest read model avoids serializing ~214 KB for each one.
+		_pending_web_diagnostic_snapshot = snapshot
+		_web_diagnostic_dirty = true
 		return
 	var first_clutch := _first_clutch_coach_snapshot(snapshot)
 	var reinvestment := _simulation.first_clutch_reinvestment_status()
@@ -7573,15 +9842,21 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 	var decision_rect := Rect2()
 	if _decision_panel != null:
 		decision_rect = _decision_panel.get_global_rect()
+	var first_clutch_skip_rect := Rect2()
+	if _routing_ui != null and _routing_ui.has_method("first_clutch_skip_button_rect"):
+		first_clutch_skip_rect = _routing_ui.call("first_clutch_skip_button_rect") as Rect2
 	var focused_worker_id := -1
 	if _routing_ui != null:
 		focused_worker_id = _routing_ui.focused_worker_id()
 	var focused_worker: Dictionary = {}
+	var recommended_peck_assist_worker_id := _simulation.recommended_peck_assist_worker_id()
+	var recommended_peck_assist_worker_name := ""
 	for worker_value in snapshot.get("workers", []):
 		var worker := worker_value as Dictionary
 		if int(worker.get("id", -1)) == focused_worker_id:
 			focused_worker = worker
-			break
+		if int(worker.get("id", -1)) == recommended_peck_assist_worker_id:
+			recommended_peck_assist_worker_name = String(worker.get("name", ""))
 	var contract_planning: Dictionary = {}
 	if _campaign_ui != null:
 		var contract_board_ui := _campaign_ui.contract_board_ui()
@@ -7619,9 +9894,15 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"accessible_text": "",
 	}
 	if _campus_expansion_ui != null:
-		var planner_value: Variant = _campus_expansion_ui.call("presentation_state")
-		if planner_value is Dictionary:
-			campus_planner_state = (planner_value as Dictionary).duplicate(true)
+		var campus_planner_visible := bool(_campus_expansion_ui.call("is_open"))
+		campus_planner_state["visible"] = campus_planner_visible
+		campus_planner_state["layout_mode"] = String(
+			_campus_expansion_ui.call("layout_mode_name")
+		)
+		campus_planner_state["selected_socket_id"] = String(
+			_campus_expansion_ui.call("selected_socket_id")
+		)
+		if campus_planner_visible:
 			campus_planner_state["accessible_text"] = String(
 				_campus_expansion_ui.call("accessible_text")
 			)
@@ -7634,18 +9915,24 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"accessible_text": "",
 	}
 	if _campus_portfolio_ui != null:
-		var portfolio_planner_value: Variant = _campus_portfolio_ui.call("presentation_state")
-		if portfolio_planner_value is Dictionary:
-			campus_portfolio_planner_state = (portfolio_planner_value as Dictionary).duplicate(true)
-		campus_portfolio_planner_state["visible"] = bool(
-			_campus_portfolio_ui.call("is_open")
-		)
+		var portfolio_planner_visible := bool(_campus_portfolio_ui.call("is_open"))
+		campus_portfolio_planner_state["visible"] = portfolio_planner_visible
 		campus_portfolio_planner_state["layout_mode"] = String(
 			_campus_portfolio_ui.call("layout_mode_name")
 		)
-		campus_portfolio_planner_state["accessible_text"] = String(
-			_campus_portfolio_ui.call("accessible_text")
+		campus_portfolio_planner_state["selected_parcel_id"] = String(
+			_campus_portfolio_ui.call("selected_parcel_id")
 		)
+		campus_portfolio_planner_state["selected_pad_id"] = String(
+			_campus_portfolio_ui.call("selected_pad_id")
+		)
+		campus_portfolio_planner_state["selected_module_id"] = String(
+			_campus_portfolio_ui.call("selected_module_id")
+		)
+		if portfolio_planner_visible:
+			campus_portfolio_planner_state["accessible_text"] = String(
+				_campus_portfolio_ui.call("accessible_text")
+			)
 	var commissioning_state := {"visible": false, "receipt": {}, "accessible_text": ""}
 	if _commissioning_reveal_ui != null:
 		commissioning_state = {
@@ -7674,16 +9961,194 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"reduced_motion_active": _prefers_reduced_motion(),
 		"ui_scale": float(_player_preferences.get("ui_scale", 1.0)),
 		"high_contrast": bool(_player_preferences.get("high_contrast", false)),
+		"color_vision_mode": String(_player_preferences.get("color_vision_mode", "standard")),
+		"browser_mirror_status": _web_preferences_mirror_status,
 		"visual_quality": String(_player_preferences.get("visual_quality", "balanced")),
 		"timing_assist": String(_player_preferences.get("timing_assist", "standard")),
+		"pause_when_unfocused": bool(_player_preferences.get("pause_when_unfocused", true)),
+		"focus_pause_active": _focus_pause_active,
+		"focus_pause_restore_speed": _focus_pause_previous_speed,
 		"audio": (_player_preferences.get("audio", {}) as Dictionary).duplicate(true),
 		"bindings": _current_binding_labels(),
 	}
+	var challenge_contract: Dictionary = _campaign_state.challenge_contract_snapshot()
+	var selected_new_challenge_contract: Dictionary = {}
+	var resume_challenge_contract: Dictionary = {}
+	var resume_available := false
+	var resume_senior_roost := false
+	var campaign_intake_phase := ""
+	var title_open := (
+		_campaign_ui != null
+		and _campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE
+		and _campaign_ui.has_method("selected_challenge_contract_id")
+	)
+	if title_open:
+		campaign_intake_phase = String(_campaign_ui.title_intake_phase())
+		var title_contract := CampaignStateScript.challenge_contract(
+			StringName(_campaign_ui.call("selected_challenge_contract_id"))
+		)
+		if not title_contract.is_empty():
+			challenge_contract = title_contract
+			selected_new_challenge_contract = title_contract.duplicate(true)
+		var title_snapshot := _campaign_ui.campaign_snapshot()
+		resume_available = _resume_boolean(
+			title_snapshot.get("continue_available", title_snapshot.get("has_continue")),
+			false,
+		)
+		var resume_summary := _resume_dictionary(title_snapshot.get("resume_summary"))
+		resume_senior_roost = _resume_boolean(resume_summary.get("senior_roost"), false)
+		if resume_available and not resume_senior_roost:
+			var resume_contract_value := _resume_dictionary(
+				resume_summary.get("challenge_contract")
+			)
+			var resume_contract_id_value: Variant = resume_contract_value.get("id")
+			if resume_contract_id_value is String or resume_contract_id_value is StringName:
+				resume_challenge_contract = CampaignStateScript.challenge_contract(
+					StringName(String(resume_contract_id_value))
+				)
+	var active_filing_id := (
+		_flockwatch_navigation.current_page_id()
+		if _flockwatch_open and _flockwatch_navigation != null else
+		&""
+	)
+	var capital_filing_open := active_filing_id == FlockwatchNavigation.PAGE_CAPITAL
+	var flock_filing_open := active_filing_id == FlockwatchNavigation.PAGE_FLOCK
+	var operations_filing_open := active_filing_id == FlockwatchNavigation.PAGE_OPERATIONS
+
+	var capital_source := snapshot.get("capital_plan", {}) as Dictionary
+	var capital_diagnostic := {
+		"upgrade_levels": snapshot.get("upgrade_levels", {}),
+		"owned_facilities": snapshot.get("owned_facilities", {}),
+		"facility_effects": snapshot.get("facility_effects", {}),
+		"packing_contract": snapshot.get("packing_contract", {}),
+		"capital_plan": capital_source,
+		"last_facility_purchase_receipt": snapshot.get("last_facility_purchase_receipt", {}),
+		"facility_catalog": (
+			snapshot.get("facility_catalog", [])
+			if capital_filing_open or bool(capital_blueprint_state.get("visible", false)) else
+			[]
+		),
+	}
+	var portfolio_source := snapshot.get("campus_portfolio", {}) as Dictionary
+	var portfolio_detailed := (
+		capital_filing_open
+		or bool(campus_portfolio_planner_state.get("visible", false))
+		or bool(campus_portfolio_reveal_state.get("visible", false))
+		or int(portfolio_source.get("capital_spend_total_cents", 0)) > 0
+		or not (portfolio_source.get("last_receipt", {}) as Dictionary).is_empty()
+	)
+	var portfolio_diagnostic := (
+		portfolio_source.duplicate(true)
+		if portfolio_detailed else
+		_diagnostic_subset(portfolio_source, [
+			"version", "summary", "planning_open", "current_day",
+			"capital_spend_total_cents", "daily_cost_cents", "last_receipt",
+		])
+	)
+	var expansion_source := snapshot.get("campus_expansion", {}) as Dictionary
+	var expansion_detailed := (
+		capital_filing_open
+		or bool(campus_planner_state.get("visible", false))
+		or bool(expansion_source.get("parcel_owned", false))
+		or bool(expansion_source.get("pod_owned", false))
+	)
+	var expansion_diagnostic := (
+		expansion_source.duplicate(true)
+		if expansion_detailed else
+		_diagnostic_subset(expansion_source, [
+			"id", "visible", "summary", "unlock_day", "access_gate_met",
+			"access_gate_reason", "parcel", "parcel_quote", "parcel_owned",
+			"pod_owned", "pod_operational",
+			"claim_capacity_bonus", "farmgate_capacity_bonus_eggs",
+			"current_daily_cost_cents", "last_receipt",
+		])
+	)
+	var contract_source := snapshot.get("contract_board", {}) as Dictionary
+	var contract_detailed := (
+		_campaign_review_stage == &"contract_board"
+		or bool(contract_source.get("unlocked", false))
+		or not (contract_source.get("active_contract", {}) as Dictionary).is_empty()
+	)
+	var contract_diagnostic := (
+		contract_source.duplicate(true)
+		if contract_detailed else
+		_diagnostic_subset(contract_source, [
+			"unlocked", "unlock_day", "unlock_requirement", "planning_open",
+			"active", "active_contract", "last_result", "decline_receipt",
+			"market_standing", "market_standing_rank", "season_id", "season_label",
+		])
+	)
+	var care_source := snapshot.get("flock_care", {}) as Dictionary
+	var care_detailed := (
+		flock_filing_open
+		or int(care_source.get("wellness_level", 0)) > 0
+		or int(care_source.get("training_roost_level", 0)) > 0
+	)
+	var care_diagnostic := (
+		care_source.duplicate(true)
+		if care_detailed else
+		_diagnostic_subset(care_source, [
+			"version", "active_staff_count", "welfare", "welfare_score",
+			"rested_flock_gate", "rested_flock_gate_met", "wellness_level",
+			"training_roost_level", "breaks_active", "training_active_count",
+			"next_care_action",
+		])
+	)
+	var operations_source := snapshot.get("operations", {}) as Dictionary
+	var operations_detailed := (
+		operations_filing_open
+		or int(operations_source.get("rooster_office_level", 0)) > 0
+		or int(operations_source.get("it_coop_level", 0)) > 0
+	)
+	var operations_diagnostic := (
+		operations_source.duplicate(true)
+		if operations_detailed else
+		_diagnostic_subset(operations_source, [
+			"version", "rooster_office_level", "it_coop_level",
+			"flock_relations_office_level", "daily_costs", "supervision", "automation",
+			"next_operations_action",
+		])
+	)
+	var runtime_performance := _runtime_performance_diagnostic()
+	runtime_performance.merge({
+		"authoritative_tick_revision": int(snapshot.get("authoritative_tick_revision", 0)),
+		"last_presented_tick_revision": _last_presented_tick_revision,
+		"presentation_update_count": _presentation_update_count,
+		"ticks_advanced_last_frame": _clock.ticks_advanced_last_frame(),
+		"pending_tick_count": _clock.pending_tick_count(),
+		"diagnostic_interval_msec": WEB_DIAGNOSTIC_INTERVAL_MSEC,
+	}, true)
+	var diagnostic_directive := snapshot.get("active_directive", {}) as Dictionary
+	var active_policy_order_fit := (
+		_directive_order_fit(StringName(diagnostic_directive.get("id", &"")))
+		if not diagnostic_directive.is_empty() and not _campaign_senior_roost else
+		{}
+	)
+	var senior_diagnostic := {"status": "inactive"}
+	if _senior_roost_state != null and _senior_roost_state.is_active():
+		senior_diagnostic = _senior_roost_state.snapshot()
+		if _senior_roost_state.requires_quarter_policy():
+			senior_diagnostic["quarterly_policy_offers"] = (
+				_senior_roost_state.policy_catalog(_simulation.spendable_fund_cents())
+			)
+		if _campaign_ui != null:
+			var campaign_presentation := _campaign_ui.campaign_snapshot()
+			var pending_mandate_confirmation := campaign_presentation.get(
+				"pending_milestone_confirmation",
+				{},
+			) as Dictionary
+			if not pending_mandate_confirmation.is_empty():
+				senior_diagnostic["pending_mandate_confirmation"] = (
+					pending_mandate_confirmation.duplicate(true)
+				)
 	var state := {
 		"coordinate_system": "Canvas origin is top-left; +x right, +y down; authored stage 1280x720.",
 		"mode": "godot_canvas",
 		"controls": [
 			"click hen",
+			"middle-drag, touch-drag, WASD, arrows, or left stick to pan",
+			"wheel, pinch, plus/minus, or right stick to zoom",
+			"Home, Escape, or right click for office overview",
 			"route file",
 			"%s priority peck" % _action_hint(PECK_ASSIST_ACTION),
 			"1-3 binder or speed",
@@ -7696,37 +10161,62 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"%s Flockwatch" % _action_hint(&"toggle_flockwatch"),
 			"%s Feed Party" % _action_hint(&"fund_feed_party"),
 			"%s after-hours pecking" % _action_hint(&"toggle_overtime"),
-			"%s comfort and controls" % _action_hint(&"open_settings"),
+			"%s settings and controls" % _action_hint(&"open_settings"),
 		],
 		"loaded": true,
+		"boot": boot_timing_snapshot(),
+		"camera": (
+			_camera_controller.navigation_state()
+			if _camera_controller != null and _camera_controller.has_method("navigation_state") else
+			{}
+		),
+		"office_presentation": office_physical_presentation_snapshot(),
+		"capacity_commissioning": capacity_commissioning_snapshot(),
+		"audio": {
+			"director": (
+				_audio_director.call("mix_snapshot")
+				if _audio_director != null and _audio_director.has_method("mix_snapshot") else
+				{}
+			),
+			"feedback": (
+				_audio_feedback.call("feedback_snapshot")
+				if _audio_feedback != null and _audio_feedback.has_method("feedback_snapshot") else
+				{}
+			),
+		},
 		"settings": settings_state,
 		"flockwatch": _flockwatch_diagnostic_state(),
+		"commendations": _commendations_diagnostic_state(),
 		"checkpoint": _checkpoint_diagnostic_state(),
-		"campaign_stage": String(_campaign_review_stage),
+		"campaign_stage": "title" if title_open else String(_campaign_review_stage),
+		"campaign_intake_phase": campaign_intake_phase,
 		"campaign_day": int(_campaign_state.completed_shifts) + 1,
 		"campaign_score": int(_campaign_state.probation_score),
+		"case_docket": (snapshot.get("case_docket", {}) as Dictionary).duplicate(true),
+		"challenge_contract": challenge_contract,
+		"selected_new_challenge_contract": selected_new_challenge_contract,
+		"resume_challenge_contract": resume_challenge_contract,
+		"resume_available": resume_available,
+		"resume_senior_roost": resume_senior_roost,
 		"probation_safeguards": _campaign_state.probation_safeguard_forecast(),
-		"senior_roost": (
-			_senior_roost_state.snapshot()
-			if _senior_roost_state != null and _senior_roost_state.is_active() else
-			{"status": "inactive"}
-		),
+		"probation_doctrine": _probation_doctrine_snapshot(),
+		"senior_roost": senior_diagnostic,
 		"career_forecast": career_forecast.duplicate(true),
 		"career_sponsorship": (
 			_career_sponsorship_presentation_snapshot()
 			if _campaign_senior_roost else
 			{"visible": false}
 		),
-		"flock_care": (snapshot.get("flock_care", {}) as Dictionary).duplicate(true),
-		"operations": (snapshot.get("operations", {}) as Dictionary).duplicate(true),
+		"flock_care": care_diagnostic,
+		"operations": operations_diagnostic,
 		"flock_relations": (snapshot.get("flock_relations", {}) as Dictionary).duplicate(true),
 		"feed_procurement": (snapshot.get("feed_procurement", {}) as Dictionary).duplicate(true),
 		"farm_treasury": (snapshot.get("farm_treasury", {}) as Dictionary).duplicate(true),
 		"farmer_relations_gallery": _farmer_relations_gallery_projection(snapshot),
 		"farmgate_dispatch": (snapshot.get("farmgate_dispatch", {}) as Dictionary).duplicate(true),
-		"campus_expansion": (snapshot.get("campus_expansion", {}) as Dictionary).duplicate(true),
+		"campus_expansion": expansion_diagnostic,
 			"campus_expansion_planner": campus_planner_state,
-			"campus_portfolio": (snapshot.get("campus_portfolio", {}) as Dictionary).duplicate(true),
+			"campus_portfolio": portfolio_diagnostic,
 			"campus_portfolio_planner": campus_portfolio_planner_state,
 		"capital_plan": (snapshot.get("capital_plan", {}) as Dictionary).duplicate(true),
 		"capital_blueprint": capital_blueprint_state,
@@ -7735,18 +10225,45 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"shift_phase": int(snapshot.get("shift_phase", -1)),
 		"clock_speed_index": _clock.speed_index,
 		"clock_multiplier": SimulationClock.SPEED_MULTIPLIERS[_clock.speed_index],
+		"clock_effective_multiplier": _clock.effective_multiplier(),
+		"priority_peck_focus": {
+			"active": _clock.precision_focus_active(),
+			"limiting": _clock.precision_focus_limiting(),
+			"worker_id": _priority_peck_focus_worker_id,
+			"requested_multiplier": SimulationClock.SPEED_MULTIPLIERS[_clock.speed_index],
+			"effective_multiplier": _clock.effective_multiplier(),
+			"result_hold_msec_remaining": maxi(0, _priority_peck_result_hold_until_msec - Time.get_ticks_msec()),
+			"rearm_required": _priority_peck_focus_disarmed_worker_id >= 0,
+		},
+		"performance": runtime_performance,
 		"pending_decision_kind": String(_active_decision.get("kind", "")),
-		"contract_board": (snapshot.get("contract_board", {}) as Dictionary).duplicate(true),
+		"pending_decision": _pending_decision_diagnostic_state(),
+		"contract_board": contract_diagnostic,
 		"contract_planning": contract_planning,
 		"first_clutch": {
 			"visible": bool(first_clutch.get("visible", false)),
+			"dismissed": bool(_first_clutch.get("dismissed", true)),
+			"can_skip": bool(first_clutch.get("can_skip", false)),
 			"stage": String(first_clutch.get("stage", "")),
 			"progress": int(first_clutch.get("progress", 0)),
+			"title": String(first_clutch.get("title", "")),
+			"guidance": String(first_clutch.get("guidance", "")),
+			"primary_action_shortcut": (
+				"Enter"
+				if StringName(first_clutch.get("stage", &"")) in [&"specialty_route", &"check_in"] else
+				""
+			),
 			"target_worker_id": int(first_clutch.get("target_worker_id", -1)),
 			"first_hen_prelude": bool(first_clutch.get("pre_policy", false)),
 			"target_name": String(first_clutch.get("target_name", "")),
 			"orders_handoff_pending": bool(first_clutch.get("orders_handoff_pending", false)),
 			"orders_handoff_acknowledged": bool(_first_clutch.get("orders_handoff_acknowledged", false)),
+			"skip_button_rect": {
+				"x": first_clutch_skip_rect.position.x,
+				"y": first_clutch_skip_rect.position.y,
+				"width": first_clutch_skip_rect.size.x,
+				"height": first_clutch_skip_rect.size.y,
+			},
 			"reinvestment": {
 				"status": String(reinvestment.get("status", &"unavailable")),
 				"modal_visible": (
@@ -7799,23 +10316,23 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"intake_missed_value_today_cents": int(snapshot.get("intake_missed_value_today_cents", 0)),
 			"intake_missed_value_total_cents": int(snapshot.get("intake_missed_value_total_cents", 0)),
 			"focused_claim": (focused_worker.get("current_claim", {}) as Dictionary).duplicate(true),
+			"focused_progress": float(focused_worker.get("progress", 0.0)),
 			"focused_peck_assist": (focused_worker.get("peck_assist", {}) as Dictionary).duplicate(true),
+			"recommended_peck_assist_worker_id": recommended_peck_assist_worker_id,
+			"recommended_peck_assist_worker_name": recommended_peck_assist_worker_name,
 			"peck_assists_remaining": int(snapshot.get("peck_assists_remaining", 0)),
+			"last_peck_assist": (snapshot.get("last_peck_assist", {}) as Dictionary).duplicate(true),
+			"feed_party_used_today": bool(snapshot.get("feed_party_used_today", false)),
+			"feed_party_active": _feed_party_active,
+			"feed_party_expected_attendees": _feed_party_expected_attendees.size(),
+			"feed_party_arrivals": _feed_party_arrivals.size(),
+			"feed_party_returns": _feed_party_returns.size(),
 		},
-		"capital": {
-			"upgrade_levels": (snapshot.get("upgrade_levels", {}) as Dictionary).duplicate(true),
-			"owned_facilities": (snapshot.get("owned_facilities", {}) as Dictionary).duplicate(true),
-			"facility_catalog": (snapshot.get("facility_catalog", []) as Array).duplicate(true),
-			"facility_effects": (snapshot.get("facility_effects", {}) as Dictionary).duplicate(true),
-			"packing_contract": (snapshot.get("packing_contract", {}) as Dictionary).duplicate(true),
-			"capital_plan": (snapshot.get("capital_plan", {}) as Dictionary).duplicate(true),
-			"last_facility_purchase_receipt": (
-				snapshot.get("last_facility_purchase_receipt", {}) as Dictionary
-			).duplicate(true),
-		},
+		"capital": capital_diagnostic,
 		"orders": {
 			"on_track": int(_campaign_objectives_label.get_meta("orders_on_track", 0)),
 			"total": int(_campaign_objectives_label.get_meta("orders_total", 0)),
+			"active_policy_fit": active_policy_order_fit.duplicate(true),
 		},
 		"flock_labor": {
 			"compact": (snapshot.get("flock_compact", {}) as Dictionary).duplicate(true),
@@ -7828,6 +10345,22 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 	var window := JavaScriptBridge.get_interface("window")
 	if window != null:
 		window.set("__pecking_order_state", JSON.stringify(_json_safe_variant(state)))
+	_web_diagnostic_next_allowed_msec = now_msec + WEB_DIAGNOSTIC_INTERVAL_MSEC
+	_web_diagnostic_dirty = false
+	_pending_web_diagnostic_snapshot = {}
+
+
+func _flush_pending_web_diagnostic() -> void:
+	if (
+		not _web_diagnostic_dirty
+		or Time.get_ticks_msec() < _web_diagnostic_next_allowed_msec
+	):
+		return
+	var pending := _pending_web_diagnostic_snapshot
+	_web_diagnostic_dirty = false
+	_pending_web_diagnostic_snapshot = {}
+	if not pending.is_empty():
+		_publish_web_diagnostic_state(pending)
 
 
 func _update_lighting(snapshot: Dictionary) -> void:
@@ -7859,6 +10392,7 @@ func _update_lighting(snapshot: Dictionary) -> void:
 		for fill in _office_fill_lights:
 			fill.light_energy = 0.44
 			fill.light_color = Color("bed7e0")
+	_apply_office_fill_light_stage(_displayed_office_capacity)
 
 
 func _on_flockwatch_pressed() -> void:
@@ -7881,6 +10415,12 @@ func _acknowledge_first_clutch_orders_handoff() -> void:
 
 func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 	var changed := _flockwatch_open != is_open
+	var restore_farmer_review := (
+		changed
+		and not is_open
+		and _flockwatch_restore_farmer_review
+		and not _last_workday_report.is_empty()
+	)
 	if changed and is_open:
 		var focus_owner := get_viewport().gui_get_focus_owner()
 		if (
@@ -7890,23 +10430,42 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 			_flockwatch_prior_focus_owner = focus_owner
 		elif _flockwatch_toggle != null:
 			_flockwatch_prior_focus_owner = _flockwatch_toggle
-	if is_open and _camera_controller != null and _camera_controller.is_focused():
-		_camera_controller.show_overview()
+	if _camera_controller != null:
+		# Keep the inspected hen and zoom authoritative while reserving screen room
+		# for the ledger. The controller shifts the unchanged subject into the safe
+		# left-hand region and eases it back when the drawer closes.
+		_camera_controller.set_safe_viewport_insets(
+			0.0,
+			FLOCKWATCH_DRAWER_SAFE_RIGHT if is_open else 0.0,
+			0.0,
+			0.0,
+		)
 	_flockwatch_open = is_open
+	var marker_context_page := (
+		_flockwatch_navigation.current_page_id()
+		if _flockwatch_navigation != null else
+		FlockwatchNavigation.PAGE_TODAY
+	)
+	_set_capacity_marker_context_revealed(
+		is_open
+		and marker_context_page in [
+			FlockwatchNavigation.PAGE_FLOCK,
+			FlockwatchNavigation.PAGE_CAPITAL,
+		]
+	)
 	if _flockwatch_panel != null:
 		_flockwatch_panel.visible = is_open
 		_flockwatch_panel.mouse_filter = Control.MOUSE_FILTER_STOP if is_open else Control.MOUSE_FILTER_IGNORE
 	var another_surface_open := _blocking_management_surface_open()
-	if _camera_controller != null:
-		_camera_controller.set_process_unhandled_input(not is_open and not another_surface_open)
-	if _routing_ui != null:
-		var running := _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
-		_routing_ui.set_interaction_enabled(running and not is_open and not another_surface_open)
+	_refresh_floor_input_context()
 	if _flockwatch_toggle != null:
 		_flockwatch_toggle.tooltip_text = ("Close the ledger and restore the full coop view." if is_open else "Open the rooster's performance ledger.")
 	_update_flockwatch_toggle()
 	if _simulation != null:
 		var snapshot := _simulation.snapshot()
+		_refresh_visible_management_surfaces(snapshot, true)
+		if _routing_ui != null and not is_open:
+			_routing_ui.apply_snapshot(_snapshot_with_active_workers(snapshot))
 		_refresh_first_clutch_ui(snapshot)
 		_update_guidance(snapshot)
 		_publish_web_diagnostic_state(snapshot)
@@ -7930,9 +10489,26 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 			and _flockwatch_toggle.is_visible_in_tree()
 		):
 			_flockwatch_toggle.call_deferred("grab_focus")
+	if restore_farmer_review:
+		_flockwatch_restore_farmer_review = false
+		_show_farmer_review(_last_workday_report, false)
 
 
-func _on_flockwatch_page_changed(_page_id: StringName) -> void:
+func _on_flockwatch_page_changed(page_id: StringName) -> void:
+	_set_capacity_marker_context_revealed(
+		_flockwatch_open
+		and page_id in [FlockwatchNavigation.PAGE_FLOCK, FlockwatchNavigation.PAGE_CAPITAL]
+	)
+	if _flockwatch_open and _simulation != null:
+		var snapshot := _simulation.snapshot()
+		_refresh_visible_management_surfaces(snapshot, true)
+		_publish_web_diagnostic_state(snapshot)
+
+
+func _on_flockwatch_show_all_filings_changed(_enabled: bool) -> void:
+	# The navigator has already settled page availability before this signal is
+	# emitted. Publish that presentation-only change immediately so browser
+	# diagnostics and assistive tooling never lag behind the visible tab strip.
 	if _flockwatch_open and _simulation != null:
 		_publish_web_diagnostic_state(_simulation.snapshot())
 
@@ -8123,6 +10699,37 @@ func _update_guidance(snapshot: Dictionary) -> void:
 	if _clock.speed_index == 0:
 		_guidance_label.text = "PAUSED: inspect a hen or open Flockwatch before resuming."
 		return
+	if _clock.precision_focus_limiting():
+		var last_assist := snapshot.get("last_peck_assist", {}) as Dictionary
+		if (
+			Time.get_ticks_msec() < _priority_peck_result_hold_until_msec
+			and int(last_assist.get("claim_id", -1)) == _priority_peck_result_hold_claim_id
+		):
+			_guidance_label.text = "PRIORITY PECK LANDED: %s  ·  +%d%% file  ·  chain x%d  ·  %d× resumes after the result beat" % [
+				String(last_assist.get("rating", "steady")).to_upper(),
+				int(roundf(float(last_assist.get("progress_gain", 0.0)))),
+				int(last_assist.get("streak", 0)),
+				int(SimulationClock.SPEED_MULTIPLIERS[_clock.speed_index]),
+			]
+			return
+		var focus := _priority_peck_precision_candidate(snapshot)
+		if not focus.is_empty():
+			var requested_multiplier := int(SimulationClock.SPEED_MULTIPLIERS[_clock.speed_index])
+			if StringName(focus.get("window_state", &"")) == &"open":
+				_guidance_label.text = "PRIORITY FOCUS 1×: %s  ·  %s  ·  press %s now; %d× resumes after this file window" % [
+					String(focus.get("worker_name", "HEN")).to_upper(),
+					String(focus.get("timing_label", "CLEAN RHYTHM")),
+					_action_hint(PECK_ASSIST_ACTION),
+					requested_multiplier,
+				]
+			else:
+				_guidance_label.text = "PRIORITY FOCUS 1×: %s at %d%%  ·  gold opens at %d%%  ·  %d× remains selected" % [
+					String(focus.get("worker_name", "HEN")).to_upper(),
+					int(focus.get("progress", 0)),
+					int(focus.get("window_start", DepartmentSimulation.PECK_ASSIST_WINDOW_START)),
+					requested_multiplier,
+				]
+			return
 	var assist_worker_id := _simulation.recommended_peck_assist_worker_id()
 	if assist_worker_id >= 0:
 		var assist_worker_name := "HEN %d" % (assist_worker_id + 1)
@@ -8247,7 +10854,23 @@ func _update_campus_world_bounds(snapshot: Dictionary) -> void:
 	var parcel := campus.get("parcel", {}) as Dictionary
 	var parcel_owned := bool(parcel.get("owned", campus.get("parcel_owned", false)))
 	var portfolio := snapshot.get("campus_portfolio", {}) as Dictionary
+	var office_capacity := _office_capacity_from_snapshot(snapshot)
+	var bounds_fingerprint_parts: Array = [
+		office_capacity,
+		parcel_owned,
+		portfolio.get("parcels", []),
+		_campus_worker_assignments,
+		_campus_worker_pads,
+	]
+	if _office_storytelling != null:
+		bounds_fingerprint_parts.append(_office_storytelling.visible_campus_footprints())
+		bounds_fingerprint_parts.append(_office_storytelling.visible_campus_camera_aabb())
+	var next_bounds_fingerprint := hash(bounds_fingerprint_parts)
+	if next_bounds_fingerprint == _campus_bounds_fingerprint:
+		return
+	_campus_bounds_fingerprint = next_bounds_fingerprint
 	var commissioned_bounds := BASE_CAMPUS_BOUNDS
+	var camera_bounds := office_camera_bounds(office_capacity)
 	var navigation_footprint := Rect2()
 	var navigation_footprints: Array[Rect2] = []
 	var maximum_height := 4.0
@@ -8255,6 +10878,7 @@ func _update_campus_world_bounds(snapshot: Dictionary) -> void:
 		for footprint: Rect2 in _office_storytelling.visible_campus_footprints():
 			if footprint.size.x > 0.0 and footprint.size.y > 0.0:
 				commissioned_bounds = commissioned_bounds.merge(footprint)
+				camera_bounds = camera_bounds.merge(footprint)
 		var presentation_aabb := _office_storytelling.visible_campus_camera_aabb()
 		if presentation_aabb.size.y > 0.0:
 			maximum_height = maxf(maximum_height, presentation_aabb.end.y)
@@ -8262,6 +10886,7 @@ func _update_campus_world_bounds(snapshot: Dictionary) -> void:
 		commissioned_bounds = commissioned_bounds.merge(
 			CampusExpansionVisualScript.declared_footprint()
 		)
+		camera_bounds = camera_bounds.merge(CampusExpansionVisualScript.declared_footprint())
 		navigation_footprint = CampusExpansionVisualScript.navigation_footprint(snapshot)
 		navigation_footprints.append(navigation_footprint)
 		var visual_bounds := CampusExpansionVisualScript.camera_bounds(snapshot)
@@ -8288,6 +10913,9 @@ func _update_campus_world_bounds(snapshot: Dictionary) -> void:
 		commissioned_bounds = commissioned_bounds.merge(
 			CampusPortfolioVisualScript.declared_footprint(parcel_id)
 		)
+		camera_bounds = camera_bounds.merge(
+			CampusPortfolioVisualScript.declared_footprint(parcel_id)
+		)
 	if has_owned_portfolio_parcel:
 		for route: Rect2 in CampusPortfolioVisualScript.navigation_footprints(snapshot):
 			navigation_footprints.append(route)
@@ -8295,7 +10923,9 @@ func _update_campus_world_bounds(snapshot: Dictionary) -> void:
 		maximum_height = maxf(maximum_height, portfolio_bounds.end.y)
 	if not _campus_worker_assignments.is_empty():
 		commissioned_bounds = commissioned_bounds.merge(campus_duty_commute_bounds())
+		camera_bounds = camera_bounds.merge(campus_duty_commute_bounds())
 	set_meta(&"commissioned_campus_bounds", commissioned_bounds)
+	set_meta(&"active_office_camera_bounds", camera_bounds)
 	set_meta(&"campus_navigation_footprint", navigation_footprint)
 	set_meta(&"campus_navigation_footprints", navigation_footprints)
 	if _office_storytelling != null:
@@ -8305,16 +10935,37 @@ func _update_campus_world_bounds(snapshot: Dictionary) -> void:
 		)
 	if _camera_controller != null:
 		_camera_controller.set_overview_bounds(
-			commissioned_bounds,
+			camera_bounds,
 			maximum_height,
 			CAMPUS_PRESENTATION_MARGIN_RATIO,
+			office_overview_minimum_size(office_capacity),
 		)
 
 
 func _on_snapshot_changed(snapshot: Dictionary) -> void:
+	if _clock != null and _clock.is_advancing_tick_batch():
+		_pending_simulation_presentation_snapshot = snapshot
+		return
+	_apply_snapshot_presentation(snapshot)
+
+
+func _on_clock_tick_batch_completed(_tick_count: int) -> void:
+	if _pending_simulation_presentation_snapshot.is_empty():
+		return
+	var latest := _pending_simulation_presentation_snapshot
+	_pending_simulation_presentation_snapshot = {}
+	_apply_snapshot_presentation(latest)
+
+
+func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
+	_presentation_update_count += 1
+	_last_presented_tick_revision = int(snapshot.get("authoritative_tick_revision", 0))
 	var active_snapshot := _snapshot_with_active_workers(snapshot)
 	_apply_office_capacity_visibility(_office_capacity_from_snapshot(snapshot))
 	_reconcile_worker_views(snapshot)
+	if _management_presence != null:
+		var operations := snapshot.get("operations", {}) as Dictionary
+		_management_presence.apply_manager_roster(operations.get("manager_roster", []) as Array)
 	_sync_campus_worker_duties(snapshot)
 	_refresh_workstation_nameplates(snapshot)
 	_update_lighting(snapshot)
@@ -8323,7 +10974,9 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	if _audio_director != null:
 		_audio_director.call("update_from_snapshot", active_snapshot)
 	if _office_storytelling != null:
-		_office_storytelling.apply_snapshot(active_snapshot)
+		# Campus presentation is applied immediately below with its authored teaser
+		# options; skip the default rebuild here so each snapshot performs it once.
+		_office_storytelling.apply_snapshot(active_snapshot, false)
 		_office_storytelling.apply_campus_presentation(
 			active_snapshot,
 			{
@@ -8337,16 +10990,7 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	_update_campus_world_bounds(snapshot)
 	if _workstation_feedback != null:
 		_workstation_feedback.apply_snapshot(_workstation_visual_snapshot(active_snapshot))
-	if _staffing_ui != null:
-		_staffing_ui.apply_snapshot(snapshot)
-	if _capital_blueprint_ui != null:
-		_capital_blueprint_ui.call("apply_snapshot", snapshot)
-	if _campus_expansion_ui != null:
-		_campus_expansion_ui.call("set_snapshot", snapshot)
-	if _campus_portfolio_ui != null:
-		_campus_portfolio_ui.call("apply_snapshot", snapshot)
-	if _pecking_order_ui != null:
-		_pecking_order_ui.call("apply_snapshot", snapshot)
+	_refresh_visible_management_surfaces(snapshot)
 	if _routing_ui != null:
 		var routing_snapshot := active_snapshot.duplicate(true)
 		var routing_workers: Array = routing_snapshot.get("workers", [])
@@ -8355,6 +10999,7 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 			var worker_id := int(worker.get("id", -1))
 			worker["estimated_crack_risk"] = _simulation.estimated_crack_risk(worker_id)
 		_routing_ui.apply_snapshot(routing_snapshot)
+	_refresh_priority_peck_precision_focus(snapshot)
 	_refresh_first_clutch_ui(snapshot)
 	_refresh_flockwatch_navigation(snapshot)
 	var snapshot_day := int(snapshot["day"])
@@ -8407,6 +11052,12 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 		if quality_streak >= 4 or int(packing_status.get("carton_progress", 0)) >= 5 else
 		Color("9ccfc2")
 	)
+	# The Today filing owns the complete quality ledger. Keep the live rail quiet
+	# until the streak or Packing Annex state is actionable.
+	_quality_streak_label.visible = (
+		quality_streak > 0
+		or int(packing_status.get("carton_progress", 0)) > 0
+	)
 	var active_directive := snapshot.get("active_directive", {}) as Dictionary
 	var directive_text := (
 		"POLICY  ·  %s" % String(active_directive.get("short_name", "UNSET"))
@@ -8433,20 +11084,31 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 		"preview",
 		"Choose a morning policy to begin the shift.",
 	))
+	if not active_directive.is_empty() and not _campaign_senior_roost:
+		var active_order_fit := _directive_order_fit(StringName(active_directive.get("id", &"")))
+		var active_fit_detail := String(active_order_fit.get("detail", ""))
+		if not active_fit_detail.is_empty():
+			_directive_badge.tooltip_text += "\n\n%s" % active_fit_detail
 	if not labor_tooltip.is_empty():
 		_directive_badge.tooltip_text += "\n%s" % labor_tooltip
 	var overdue_claims := int(snapshot.get("overdue_claims", (snapshot.get("routing", {}) as Dictionary).get("overdue_total", 0)))
-	_claims_label.text = "Live files:  %d / %d  ·  overdue: %d  ·  turned away: %d" % [
+	_today_workload_label.text = "WORKLOAD · %d / %d LIVE · %d OVERDUE · %d TURNED AWAY" % [
 		int(snapshot.get("claims_outstanding", snapshot.get("claims_waiting", 0))),
 		int(snapshot.get("claim_capacity", 18)),
 		overdue_claims,
 		int(snapshot.get("intake_rejections_today", 0)),
 	]
-	_egg_label.text = "Eggs gathered:  %d" % int(snapshot["eggs_total"])
-	_quota_label.text = "Daily clutch:  %d / %d" % [int(snapshot["eggs_today"]), int(snapshot["quota_target"])]
-	_confidence_label.text = "Farmer favor:  %d%%" % int(snapshot["executive_confidence"])
-	_compliance_label.text = "Coop obedience:  %d%%" % int(snapshot["compliance"])
-	_solidarity_label.text = "Flock unity risk:  %d%%" % int(snapshot["solidarity"])
+	_today_workload_label.tooltip_text = (
+		"Live claim files against current intake capacity, including overdue files and claims turned away today."
+	)
+	_today_clutch_label.text = "CLUTCH · %d / %d TODAY · %d CAREER EGGS" % [
+		int(snapshot["eggs_today"]),
+		int(snapshot["quota_target"]),
+		int(snapshot["eggs_total"]),
+	]
+	_today_clutch_label.tooltip_text = (
+		"Today's gathered eggs against the clutch target, followed by the career egg total."
+	)
 
 	var morale_total := 0.0
 	var worker_data: Array = active_snapshot.get("workers", [])
@@ -8455,7 +11117,20 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 		var worker_id := int(worker_snapshot["id"])
 		if _worker_views.has(worker_id):
 			_worker_views[worker_id].apply_snapshot(worker_snapshot)
-	_morale_label.text = "Flock spirits:  %d%%" % int(morale_total / maxf(1.0, float(worker_data.size())))
+	_today_flock_label.text = "FLOCK · %d%% SPIRITS · %d%% UNITY RISK" % [
+		int(morale_total / maxf(1.0, float(worker_data.size()))),
+		int(snapshot["solidarity"]),
+	]
+	_today_flock_label.tooltip_text = (
+		"Average flock morale and the current unity pressure behind labor petitions."
+	)
+	_today_ledger_label.text = "LEDGERS · %d%% FARMER FAVOR · %d%% COOP OBEDIENCE" % [
+		int(snapshot["executive_confidence"]),
+		int(snapshot["compliance"]),
+	]
+	_today_ledger_label.tooltip_text = (
+		"Farmer favor affects management confidence; coop obedience measures policy compliance."
+	)
 
 	var overtime_active := bool(snapshot["overtime_enabled"])
 	_overtime_button.text = "%s  [%s]" % [
@@ -8466,13 +11141,8 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	var shift_phase := int(snapshot.get("shift_phase", DepartmentSimulation.ShiftPhase.RUNNING))
 	var shift_running := shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
 	if _routing_ui != null:
-		var management_modal_open := (
-			(_decision_host != null and _decision_host.visible)
-			or (_day_review_scrim != null and _day_review_scrim.visible)
-			or (_campaign_ui != null and _campaign_ui.is_modal_open())
-		)
-		_routing_ui.set_interaction_enabled(shift_running and not management_modal_open)
 		_routing_ui.set_peck_assist_clock_running(_clock.speed_index > 0)
+	_refresh_floor_input_context()
 	var campaign_modal_open := _campaign_ui != null and _campaign_ui.is_modal_open()
 	_overtime_button.disabled = not shift_running or _feed_party_active or campaign_modal_open
 	_continue_shift_button.visible = shift_phase == DepartmentSimulation.ShiftPhase.REVIEW
@@ -8542,11 +11212,93 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 			String(upgrade.get("name", "")),
 			String(upgrade.get("description", "")),
 		]
+	_refresh_upgrade_disclosure(snapshot)
 	_update_flockwatch_toggle()
 	_update_campaign_objectives_label(snapshot)
 	_update_flock_labor_label(snapshot)
+	_update_records_archive_summary(snapshot)
 	_update_guidance(snapshot)
+	_update_commendations(snapshot)
 	_publish_web_diagnostic_state(snapshot)
+
+
+func _refresh_visible_management_surfaces(snapshot: Dictionary, force: bool = false) -> void:
+	# Full-screen planners receive a fresh snapshot when opened. While hidden,
+	# rebuilding their card trees on every accelerated tick creates allocations
+	# the player can neither see nor act on.
+	var active_filing := (
+		_flockwatch_navigation.current_page_id()
+		if _flockwatch_navigation != null else
+		FlockwatchNavigation.PAGE_TODAY
+	)
+	var staffing_filing_visible := (
+		_flockwatch_open
+		and active_filing in [
+			FlockwatchNavigation.PAGE_FLOCK,
+			FlockwatchNavigation.PAGE_OPERATIONS,
+			FlockwatchNavigation.PAGE_CAPITAL,
+			FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS,
+		]
+	)
+	if _staffing_ui != null and (force or staffing_filing_visible):
+		_staffing_ui.apply_snapshot(snapshot)
+	if (
+		_capital_blueprint_ui != null
+		and _capital_blueprint_ui.visible
+		and _capital_blueprint_ui.has_method("apply_snapshot")
+	):
+		_capital_blueprint_ui.call("apply_snapshot", snapshot)
+	if _campus_expansion_ui != null and _campus_expansion_ui.visible:
+		_campus_expansion_ui.call("set_snapshot", snapshot)
+	if _campus_portfolio_ui != null and _campus_portfolio_ui.visible:
+		_campus_portfolio_ui.call("apply_snapshot", snapshot)
+	if _pecking_order_ui != null and (force or _pecking_order_ui.is_visible_in_tree()):
+		_pecking_order_ui.call("apply_snapshot", snapshot)
+
+
+func _initialize_management_surfaces(snapshot: Dictionary) -> void:
+	# Build stable action nodes once behind the campaign title so filters and
+	# accessibility retain node identity. Subsequent ticks use visibility gates.
+	if _staffing_ui != null:
+		_staffing_ui.apply_snapshot(snapshot)
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("apply_snapshot", snapshot)
+	if _campus_expansion_ui != null:
+		_campus_expansion_ui.call("set_snapshot", snapshot)
+	if _campus_portfolio_ui != null:
+		_campus_portfolio_ui.call("apply_snapshot", snapshot)
+	if _pecking_order_ui != null:
+		_pecking_order_ui.call("apply_snapshot", snapshot)
+
+
+func _refresh_upgrade_disclosure(snapshot: Dictionary) -> void:
+	if _upgrade_disclosure_toggle == null:
+		return
+	var ready_count := 0
+	var complete_count := 0
+	var file_count := 0
+	for upgrade_value: Variant in snapshot.get("upgrade_catalog", []):
+		if not upgrade_value is Dictionary:
+			continue
+		var upgrade := upgrade_value as Dictionary
+		var upgrade_id := StringName(String(upgrade.get("id", "")))
+		var button: Button = _upgrade_buttons.get(upgrade_id)
+		if button == null:
+			continue
+		file_count += 1
+		if bool(upgrade.get("maxed", false)):
+			complete_count += 1
+		elif not button.disabled:
+			ready_count += 1
+	_upgrade_disclosure_toggle.set_summary(
+		"%d READY / %d COMPLETE" % [ready_count, complete_count]
+		if ready_count + complete_count > 0 else
+		"%d FILES / NONE READY" % file_count
+	)
+	var actionable := ready_count > 0
+	if actionable and not _had_actionable_upgrade:
+		_upgrade_disclosure_toggle.set_expanded(true, false)
+	_had_actionable_upgrade = actionable
 
 
 func _refresh_flockwatch_navigation(snapshot: Dictionary) -> void:
@@ -8699,6 +11451,16 @@ func _immediate_cash_for_completed_egg(
 
 
 func _on_camera_focus_changed(label: String, worker_id: int) -> void:
+	# Every explicit camera selection is a fresh management inspection and may
+	# arm one new precision intervention, including clicking the same hen again.
+	_priority_peck_focus_disarmed_worker_id = -1
+	# A deliberate focus change dismisses the prior claim's result beat. The new
+	# selected hen should own precision timing immediately, and overview/facility
+	# navigation should restore the player's requested speed without stale drag.
+	if _priority_peck_result_hold_worker_id >= 0 and worker_id != _priority_peck_result_hold_worker_id:
+		_priority_peck_result_hold_until_msec = 0
+		_priority_peck_result_hold_worker_id = -1
+		_priority_peck_result_hold_claim_id = -1
 	var focused := worker_id >= 0 or not label.is_empty()
 	var focus_position := Vector3(INF, INF, INF)
 	if focused and _camera_controller != null:
@@ -8723,11 +11485,13 @@ func _on_camera_focus_changed(label: String, worker_id: int) -> void:
 			_open_first_hen_file(worker_id, false)
 		_first_clutch_record_inspection(worker_id)
 	if _ticker_label == null:
+		_publish_camera_diagnostic()
 		return
 	if worker_id >= 0 or not label.is_empty():
 		_set_flockwatch_open(false)
 	if _routing_ui != null:
 		_routing_ui.set_focus(worker_id if worker_id >= 0 else -1)
+	_refresh_priority_peck_precision_focus(_simulation.snapshot())
 	if worker_id >= 0:
 		var state_label := "ON TASK"
 		var progress := 0
@@ -8747,11 +11511,21 @@ func _on_camera_focus_changed(label: String, worker_id: int) -> void:
 			label.to_upper(), state_label, progress, morale, fatigue, stress,
 			int(_simulation.estimated_crack_risk(worker_id) * 100.0),
 		]
+		_publish_camera_diagnostic()
 		return
+	_publish_camera_diagnostic()
 	if not label.is_empty():
 		_ticker_label.text = label
 	else:
 		_ticker_label.text = "Click a hen to inspect  ·  V opens Flockwatch  ·  Shift objective stays above."
+
+
+func _publish_camera_diagnostic() -> void:
+	# Camera motion remains available while onboarding or Settings owns the
+	# simulation clock. Publish through the existing 4 Hz coalescer so visual and
+	# assistive camera state cannot stay stale until the next authoritative tick.
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _on_egg_graded(
@@ -8934,7 +11708,9 @@ func _spawn_farmgate_stock_chip(value_cents: int, quality: StringName) -> void:
 	chip.position = start - Vector2(89.0, 19.0)
 	chip.pivot_offset = Vector2(89.0, 19.0)
 	chip.scale = Vector2(0.76, 0.76)
-	var target_control: Control = _flockwatch_toggle if _flockwatch_toggle != null else _egg_label
+	var target_control: Control = (
+		_flockwatch_toggle if _flockwatch_toggle != null else _today_clutch_label
+	)
 	var target := (
 		target_control.get_global_rect().get_center()
 		- _ui_root.get_global_rect().position
@@ -9050,12 +11826,23 @@ func _on_feed_party_funded() -> void:
 	if _feed_party_active:
 		return
 	_feed_party_active = true
-	_feed_party_previous_speed = _clock.speed_index if _clock.speed_index > 0 else 1
+	# The event temporarily owns the clock but never owns the player's pause
+	# intent. Preserve the exact authored speed index, including 0x, so funding a
+	# morale break cannot silently start production afterward.
+	_feed_party_previous_speed = _clock.speed_index
 	_clock.set_speed(0)
 	if _audio_feedback != null:
 		_audio_feedback.play_feed_party()
-	if _office_atmosphere != null:
-		_office_atmosphere.pulse_feed_party(FEED_PARTY_STATION_POSITION + Vector3.UP * 0.72)
+	if _camera_controller != null:
+		# Funding is an explicit transaction, so a brief reversible event shot may
+		# interrupt the current inspection. The camera controller restores the
+		# player's exact previous pan, zoom, and focus after the cart settles.
+		_camera_controller.show_event_focus(
+			FEED_PARTY_STATION_POSITION + Vector3.UP * 0.72,
+			"FEED PARTY ARRIVAL",
+			2.6,
+			true,
+		)
 	_feed_party_release_scheduled = false
 	_feed_party_arrivals.clear()
 	_feed_party_returns.clear()
@@ -9074,15 +11861,31 @@ func _on_feed_party_funded() -> void:
 		_feed_party_expected_attendees[worker_id] = true
 
 	_feed_party_station.visible = true
-	_feed_party_station.position = FEED_PARTY_STATION_POSITION + Vector3(0.0, -0.42, 0.0)
+	_feed_party_station.position = FEED_PARTY_STATION_POSITION + FEED_PARTY_ROLL_OFFSET
+	_reset_feed_party_wheels()
 	if _feed_party_tween != null and _feed_party_tween.is_valid():
 		_feed_party_tween.kill()
 	if _prefers_reduced_motion():
-		_feed_party_station.position.y = FEED_PARTY_STATION_POSITION.y
+		_feed_party_station.position = FEED_PARTY_STATION_POSITION
+		_on_feed_party_station_arrived()
 	else:
 		_feed_party_tween = create_tween()
-		_feed_party_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		_feed_party_tween.tween_property(_feed_party_station, "position:y", FEED_PARTY_STATION_POSITION.y, 0.7)
+		_feed_party_tween.set_parallel(true)
+		_feed_party_tween.tween_property(
+			_feed_party_station,
+			"position",
+			FEED_PARTY_STATION_POSITION,
+			FEED_PARTY_ROLL_DURATION,
+		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		for wheel in _feed_party_wheels:
+			var base_rotation := float(wheel.get_meta("feed_party_base_rotation_x", wheel.rotation.x))
+			_feed_party_tween.tween_property(
+				wheel,
+				"rotation:x",
+				base_rotation + TAU * FEED_PARTY_WHEEL_TURNS,
+				FEED_PARTY_ROLL_DURATION,
+			).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_feed_party_tween.chain().tween_callback(_on_feed_party_station_arrived)
 
 	for worker_id in _feed_party_expected_attendees:
 		var attendance: Vector3 = attendance_targets[worker_id]
@@ -9117,10 +11920,23 @@ func _feed_party_attendance_target(worker_id: int) -> Vector3:
 	return target
 
 
+func _on_feed_party_station_arrived() -> void:
+	if not _feed_party_active:
+		return
+	if _office_atmosphere != null:
+		# The existing bounded one-shot now fires where the grain actually stops,
+		# rather than at the cart's destination before it has rolled into view.
+		_office_atmosphere.pulse_feed_party(
+			FEED_PARTY_STATION_POSITION + Vector3.UP * 0.72
+		)
+
+
 func _on_feed_party_attendance_ready(worker_id: int) -> void:
 	if not _feed_party_active or not _feed_party_expected_attendees.has(worker_id):
 		return
 	_feed_party_arrivals[worker_id] = true
+	if _audio_feedback != null:
+		_audio_feedback.play_feed_nibble(worker_id)
 	if _feed_party_arrivals.size() == _feed_party_expected_attendees.size() and not _feed_party_release_scheduled:
 		_feed_party_release_scheduled = true
 		_release_feed_party_after_delay()
@@ -9159,29 +11975,61 @@ func _complete_feed_party_visual() -> void:
 	if _feed_party_tween != null and _feed_party_tween.is_valid():
 		_feed_party_tween.kill()
 	if _prefers_reduced_motion():
-		_feed_party_station.position.y = -0.42
 		_hide_feed_party_station()
 	else:
 		_feed_party_tween = create_tween()
-		_feed_party_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		_feed_party_tween.tween_property(_feed_party_station, "position:y", -0.42, 0.55)
-		_feed_party_tween.tween_callback(_hide_feed_party_station)
-	var can_resume := (
+		_feed_party_tween.set_parallel(true)
+		_feed_party_tween.tween_property(
+			_feed_party_station,
+			"position",
+			FEED_PARTY_STATION_POSITION + FEED_PARTY_ROLL_OFFSET,
+			FEED_PARTY_ROLL_DURATION * 0.82,
+		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		for wheel in _feed_party_wheels:
+			var base_rotation := float(wheel.get_meta("feed_party_base_rotation_x", wheel.rotation.x))
+			_feed_party_tween.tween_property(
+				wheel,
+				"rotation:x",
+				base_rotation,
+				FEED_PARTY_ROLL_DURATION * 0.82,
+			).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+		_feed_party_tween.chain().tween_callback(_hide_feed_party_station)
+	# Defer to the same modal authority that owns floor input. This keeps an
+	# arriving settings, campaign, decision, review, or capital file from being
+	# undermined by the event's remembered clock speed.
+	var can_restore_speed := (
 		_simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
-		and (_decision_host == null or not _decision_host.visible)
-		and (_day_review_scrim == null or not _day_review_scrim.visible)
+		and not _blocking_management_surface_open()
+		and not _capital_modal_holds_speed
 	)
-	_clock.set_speed(_feed_party_previous_speed if can_resume else 0)
-	_ticker_label.text = (
-		"FEED PARTY COMPLETE. Production resumes; attendance has been archived."
-		if can_resume else
-		"FEED PARTY COMPLETE. The flock remains paused for management review."
-	)
+	var restored_speed := _feed_party_previous_speed if can_restore_speed else 0
+	_clock.set_speed(restored_speed)
+	if not can_restore_speed:
+		_ticker_label.text = (
+			"FEED PARTY COMPLETE. Production remains paused while a management file is open."
+		)
+	elif restored_speed == 0:
+		_ticker_label.text = "FEED PARTY COMPLETE. Production remains paused; attendance has been archived."
+	else:
+		var restored_multiplier := int(SimulationClock.SPEED_MULTIPLIERS[restored_speed])
+		_ticker_label.text = (
+			"FEED PARTY COMPLETE. Production resumes at %dx; attendance has been archived."
+			% restored_multiplier
+		)
 
 
 func _hide_feed_party_station() -> void:
 	_feed_party_station.visible = false
 	_feed_party_station.position = FEED_PARTY_STATION_POSITION
+	_reset_feed_party_wheels()
+
+
+func _reset_feed_party_wheels() -> void:
+	for wheel in _feed_party_wheels:
+		if wheel != null and is_instance_valid(wheel):
+			wheel.rotation.x = float(
+				wheel.get_meta("feed_party_base_rotation_x", wheel.rotation.x)
+			)
 
 
 func _on_speed_button_pressed(index: int) -> void:
@@ -9229,6 +12077,7 @@ func _on_speed_changed(speed_index: int, multiplier: float) -> void:
 	for index in _speed_buttons.size():
 		_speed_buttons[index].disabled = not controls_available
 		_speed_buttons[index].theme_type_variation = &"ActiveSpeedButton" if index == speed_index else &"SpeedButton"
+	_refresh_speed_button_copy()
 	if _routing_ui != null:
 		_routing_ui.set_peck_assist_clock_running(speed_index > 0)
 	if _simulation != null:
@@ -9362,6 +12211,28 @@ func _capture_ledger_preview() -> void:
 	_save_preview("requisitions.png")
 
 
+func _capture_capacity_commissioning_preview() -> void:
+	_prepare_capture_running()
+	_set_flockwatch_open(false)
+	await get_tree().create_timer(0.55).timeout
+	var upgrade := _simulation.capacity_upgrade_status()
+	_apply_office_capacity_visibility(5, true)
+	_begin_capacity_commissioning_beat({
+		"office_capacity": 5,
+		"cost_cents": int(upgrade.get("cost_cents", 0)),
+		"added_daily_operating_cents": int(upgrade.get("added_daily_operating_cents", 0)),
+	})
+	if _camera_controller != null:
+		_camera_controller.focus_point(
+			desk_position(4) + Vector3.UP * 1.0,
+			"PERCH 5 COMMISSIONED",
+			0.32,
+			8.8,
+		)
+	await get_tree().create_timer(0.42).timeout
+	_save_preview("capacity_commissioning.png")
+
+
 func _capture_day_review_preview() -> void:
 	_prepare_capture_running()
 	await get_tree().create_timer(0.8).timeout
@@ -9386,6 +12257,13 @@ func _capture_feed_party_preview() -> void:
 		await get_tree().process_frame
 	if _feed_party_arrivals.size() < _feed_party_expected_attendees.size():
 		push_warning("Feed-party capture timed out with %d/%d attendees." % [_feed_party_arrivals.size(), _feed_party_expected_attendees.size()])
+	if _camera_controller != null:
+		_camera_controller.show_event_focus(
+			FEED_PARTY_STATION_POSITION + Vector3.UP * 0.72,
+			"FEED PARTY ART CHECK",
+			2.0,
+			true,
+		)
 	await get_tree().create_timer(0.8).timeout
 	_save_preview("feed_party.png")
 
@@ -10899,6 +13777,44 @@ func _add_box(parent: Node, part_name: String, size: Vector3, part_position: Vec
 	instance.mesh = mesh
 	instance.position = part_position
 	instance.material_override = _material(color)
+	parent.add_child(instance)
+	return instance
+
+
+func _box_batch_transform(
+	size: Vector3,
+	part_position: Vector3,
+	rotation_degrees: Vector3 = Vector3.ZERO,
+) -> Transform3D:
+	var rotation_radians := Vector3(
+		deg_to_rad(rotation_degrees.x),
+		deg_to_rad(rotation_degrees.y),
+		deg_to_rad(rotation_degrees.z),
+	)
+	var basis := Basis.from_euler(rotation_radians) * Basis.from_scale(size)
+	return Transform3D(basis, part_position)
+
+
+func _add_box_multimesh(
+	parent: Node,
+	part_name: String,
+	transforms: Array[Transform3D],
+	color: Color,
+	shadow_casting: GeometryInstance3D.ShadowCastingSetting = GeometryInstance3D.SHADOW_CASTING_SETTING_ON,
+) -> MultiMeshInstance3D:
+	var unit_box := BoxMesh.new()
+	unit_box.size = Vector3.ONE
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = unit_box
+	multimesh.instance_count = transforms.size()
+	for transform_index in transforms.size():
+		multimesh.set_instance_transform(transform_index, transforms[transform_index])
+	var instance := MultiMeshInstance3D.new()
+	instance.name = part_name
+	instance.multimesh = multimesh
+	instance.material_override = _material(color)
+	instance.cast_shadow = shadow_casting
 	parent.add_child(instance)
 	return instance
 

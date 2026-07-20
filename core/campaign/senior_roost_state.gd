@@ -6,13 +6,15 @@ extends RefCounted
 ## follow it and consumes only primitive workday report facts.
 
 const SCHEMA_ID := "pecking_order.senior_roost"
-const SCHEMA_VERSION := 3
-const PREVIOUS_SCHEMA_VERSION := 2
+const SCHEMA_VERSION := 5
+const PREVIOUS_SCHEMA_VERSION := 4
+const MANDATE_TERMS_SCHEMA_VERSION := 3
+const BOARD_MANDATE_SCHEMA_VERSION := 2
 const LEGACY_SCHEMA_VERSION := 1
 const SHIFTS_PER_QUARTER := 3
 const QUARTERS_PER_YEAR := 4
 const SCORE_MAX := 100
-const ROOST_MARK_THRESHOLDS: Array[int] = [45, 60, 80]
+const ROOST_MARK_THRESHOLDS: Array[int] = [40, 60, 80]
 const MAX_ANNUAL_HISTORY := 8
 const MAX_SPONSORSHIP_HISTORY := 64
 const MAX_MANDATE_HISTORY := 256
@@ -20,6 +22,10 @@ const MAX_COUNTER := 2_000_000_000
 const MAX_WORKER_NAME_LENGTH := 128
 
 const MANDATE_SHIFTS_PER_YEAR := SHIFTS_PER_QUARTER * QUARTERS_PER_YEAR
+const MANDATE_TERMS_VERSION := 2
+const LEGACY_MANDATE_TERMS_VERSION := 1
+const MANDATE_OFFER_ROTATION_VERSION := 2
+const LEGACY_MANDATE_OFFER_ROTATION_VERSION := 1
 const MANDATE_FALLBACK_ID: StringName = &"standard_board_book"
 const MANDATE_OFFER_COUNT := 3
 const MANDATE_TIER_ONE_SEALS := 1
@@ -170,11 +176,18 @@ func mandate_stake_reserved() -> int:
 
 
 func eligible_mandate_tier() -> int:
-	if mandate_seals >= MANDATE_TIER_THREE_SEALS:
+	return mandate_tier_for_seals(mandate_seals)
+
+
+static func mandate_tier_for_seals(seal_count: int) -> int:
+	## One public boundary function owns both the domain offer gate and annual
+	## settlement presentation. This keeps a newly earned seal from announcing
+	## a tier that the next frozen catalog does not actually expose.
+	if seal_count >= MANDATE_TIER_THREE_SEALS:
 		return 3
-	if mandate_seals >= MANDATE_TIER_TWO_SEALS:
+	if seal_count >= MANDATE_TIER_TWO_SEALS:
 		return 2
-	if mandate_seals >= MANDATE_TIER_ONE_SEALS:
+	if seal_count >= MANDATE_TIER_ONE_SEALS:
 		return 1
 	return 0
 
@@ -200,8 +213,17 @@ func annual_mandate_catalog() -> Array[Dictionary]:
 	var selected_id := StringName(String(_active_annual_mandate.get("id", "")))
 	for offer in annual_mandate_offers:
 		var row := offer.duplicate(true)
+		var mandate_id := StringName(String(row.get("id", "")))
+		var mastery_count := maxi(0, int(mandate_success_counts.get(mandate_id, 0)))
 		var stake := maxi(0, int(row.get("stake_marks", 0)))
-		row["selected"] = StringName(String(row.get("id", ""))) == selected_id
+		row["selected"] = mandate_id == selected_id
+		row["mastered"] = mastery_count > 0
+		row["mastery_count"] = mastery_count
+		row["mastery_text"] = (
+			"MASTERED x%d" % mastery_count
+			if mastery_count > 0 else
+			"NEW PORTFOLIO CLEAR"
+		)
 		row["available"] = (
 			row["selected"]
 			or (_active_annual_mandate.is_empty() and stake <= available_roost_marks())
@@ -227,6 +249,66 @@ func mandate_success_history() -> Array[Dictionary]:
 		if bool(settlement.get("success", false)):
 			successes.append(settlement.duplicate(true))
 	return successes
+
+
+func mandate_mastery_portfolio() -> Dictionary:
+	## A replay goal derived entirely from the validated per-Book success ledger.
+	## This creates no second save authority: every first clear and repeat clear is
+	## reconstructed from mandate_success_counts after load.
+	var rows: Array[Dictionary] = []
+	var mastered_ids: Array[String] = []
+	var total_successes := 0
+	var eligible_tier := eligible_mandate_tier()
+	var next_book: Dictionary = {}
+	var first_locked_book: Dictionary = {}
+	for definition in _annual_mandate_definitions({
+		"mandate_terms_version": MANDATE_TERMS_VERSION,
+	}):
+		var mandate_id := StringName(String(definition.get("id", "")))
+		if mandate_id not in MANDATE_IDS:
+			continue
+		var mastery_count := maxi(0, int(mandate_success_counts.get(mandate_id, 0)))
+		var tier := maxi(0, int(definition.get("tier", 0)))
+		var mastered := mastery_count > 0
+		var eligible := tier <= eligible_tier
+		total_successes += mastery_count
+		if mastered:
+			mastered_ids.append(String(mandate_id))
+		var row := {
+			"id": String(mandate_id),
+			"name": String(definition.get("name", "ANNUAL BOARD MANDATE")),
+			"tier": tier,
+			"mastery_count": mastery_count,
+			"mastered": mastered,
+			"eligible": eligible,
+		}
+		rows.append(row)
+		if mastered:
+			continue
+		if eligible and next_book.is_empty():
+			next_book = row.duplicate(true)
+		elif not eligible and first_locked_book.is_empty():
+			first_locked_book = row.duplicate(true)
+	if next_book.is_empty():
+		next_book = first_locked_book
+	var mastered_count := mastered_ids.size()
+	var portfolio_title := (
+		"COMPLETE BOARD LEDGER" if mastered_count == MANDATE_IDS.size() else
+		("MASTER CABINET" if mastered_count >= 5 else
+		("STRATEGY PORTFOLIO" if mastered_count >= 3 else
+		("FIRST FILINGS" if mastered_count > 0 else "OPEN BOARD PORTFOLIO")))
+	)
+	return {
+		"mastered_count": mastered_count,
+		"total_count": MANDATE_IDS.size(),
+		"total_successes": total_successes,
+		"repeat_clears": maxi(0, total_successes - mastered_count),
+		"mastered_ids": mastered_ids,
+		"rows": rows,
+		"next": next_book,
+		"complete": mastered_count == MANDATE_IDS.size(),
+		"portfolio_title": portfolio_title,
+	}
 
 
 func select_annual_mandate(
@@ -303,7 +385,7 @@ func current_annual_mandate_progress(live_metrics: Dictionary = {}) -> Dictionar
 
 static func marks_for_score(score: int) -> int:
 	## One canonical boundary function owns both live reward projection and the
-	## exact quarter-close award. Keeping the 45 / 60 / 80 gates here prevents
+	## exact quarter-close award. Keeping the 40 / 60 / 80 gates here prevents
 	## presentation copy from drifting away from the permanent career ledger.
 	var bounded_score := clampi(score, 0, SCORE_MAX)
 	if bounded_score >= ROOST_MARK_THRESHOLDS[2]:
@@ -587,8 +669,48 @@ func policy_catalog(spendable_cents: int = MAX_COUNTER) -> Array[Dictionary]:
 			if not available else
 			""
 		)
+		policy["strategy"] = _policy_strategy(policy, _active_annual_mandate)
 		policies.append(policy)
 	return policies
+
+
+static func _policy_strategy(policy: Dictionary, mandate: Dictionary) -> Dictionary:
+	## Connects an irreversible quarterly policy to the same score and annual
+	## metrics the player will later be judged on. This is descriptive only: the
+	## simulation receipt remains the sole authority for applied effects.
+	var supported_metrics := policy.get("supports_metrics", []) as Array
+	var watched_metrics := policy.get("watched_metrics", []) as Array
+	var supported_targets: Array[String] = []
+	var watched_targets: Array[String] = []
+	for objective_value in mandate.get("objectives", []) as Array:
+		if not objective_value is Dictionary:
+			continue
+		var objective := objective_value as Dictionary
+		var metric := String(objective.get("metric", ""))
+		var label := String(objective.get("label", "ANNUAL TARGET")).to_upper()
+		if metric in supported_metrics:
+			supported_targets.append(label)
+		elif metric in watched_metrics:
+			watched_targets.append(label)
+	var board_fit := "FILE THE ANNUAL BOARD MANDATE FIRST"
+	if not mandate.is_empty():
+		var clauses: Array[String] = []
+		clauses.append(
+			"EDGE %s" % " + ".join(supported_targets)
+			if not supported_targets.is_empty() else
+			"NO DIRECT TARGET EDGE"
+		)
+		if not watched_targets.is_empty():
+			clauses.append("WATCH %s" % " + ".join(watched_targets))
+		board_fit = "  //  ".join(clauses)
+	return {
+		"score_edge": String(policy.get("score_edge", "QUARTER TRADEOFF")),
+		"score_watch": String(policy.get("score_watch", "CLOSING LEDGER")),
+		"board_fit": board_fit,
+		"board_name": String(mandate.get("name", "ANNUAL BOARD MANDATE")),
+		"supported_targets": supported_targets,
+		"watched_targets": watched_targets,
+	}
 
 
 func record_quarter_policy(receipt: Dictionary) -> bool:
@@ -767,6 +889,21 @@ func current_career_forecast(live_metrics: Dictionary = {}) -> Dictionary:
 	}
 
 
+func last_quarter_score_breakdown() -> Dictionary:
+	## Closed-quarter feedback is derived from the same immutable filed records
+	## and canonical scorer used by the live forecast. It is intentionally not a
+	## second saved ledger, so restored careers cannot drift from their authority.
+	if last_quarter_review.is_empty():
+		return {}
+	var records: Array[Dictionary] = []
+	for record_value in last_quarter_review.get("records", []):
+		if record_value is Dictionary:
+			records.append((record_value as Dictionary).duplicate(true))
+	if records.is_empty():
+		return {}
+	return score_breakdown(records, false)
+
+
 func snapshot() -> Dictionary:
 	var mandate_progress := current_annual_mandate_progress()
 	return {
@@ -800,11 +937,13 @@ func snapshot() -> Dictionary:
 		"eligible_mandate_tier": eligible_mandate_tier(),
 		"mandate_tier_eligibility": mandate_tier_eligibility(),
 		"mandate_success_counts": mandate_success_counts.duplicate(true),
+		"mandate_mastery": mandate_mastery_portfolio(),
 		"mandate_history": mandate_history.duplicate(true),
 		"last_mandate_selection": last_mandate_selection.duplicate(true),
 		"last_mandate_settlement": last_mandate_settlement.duplicate(true),
 		"last_shift_result": last_shift_result.duplicate(true),
 		"last_quarter_review": last_quarter_review.duplicate(true),
+		"last_quarter_score_breakdown": last_quarter_score_breakdown(),
 		"last_annual_review": last_annual_review.duplicate(true),
 	}
 
@@ -1440,7 +1579,10 @@ func _prepare_annual_mandate_offers(simulation_snapshot: Dictionary) -> void:
 		available_roost_marks(),
 	)
 	annual_mandate_offers.assign(
-		_build_mandate_offers(annual_mandate_offer_context)
+		_build_mandate_offers(
+			annual_mandate_offer_context,
+			_mastered_mandate_ids(mandate_success_counts),
+		)
 	)
 	_active_annual_mandate.clear()
 	current_mandate_evidence.clear()
@@ -1464,6 +1606,8 @@ static func _mandate_offer_context(
 			"quota_target",
 			simulation_snapshot.get("quota", 1),
 		))),
+		"mandate_terms_version": MANDATE_TERMS_VERSION,
+		"offer_rotation_version": MANDATE_OFFER_ROTATION_VERSION,
 		"seal_count": maxi(0, seal_count),
 		"available_marks": maxi(0, available_marks),
 		"eligible_tier": _eligible_mandate_tier_for_seals(seal_count),
@@ -1471,19 +1615,22 @@ static func _mandate_offer_context(
 
 
 static func _eligible_mandate_tier_for_seals(seal_count: int) -> int:
-	if seal_count >= MANDATE_TIER_THREE_SEALS:
-		return 3
-	if seal_count >= MANDATE_TIER_TWO_SEALS:
-		return 2
-	if seal_count >= MANDATE_TIER_ONE_SEALS:
-		return 1
-	return 0
+	return mandate_tier_for_seals(seal_count)
 
 
-static func _build_mandate_offers(context: Dictionary) -> Array[Dictionary]:
+static func _build_mandate_offers(
+	context: Dictionary,
+	mastered_ids: Array[String] = [],
+) -> Array[Dictionary]:
 	var year := maxi(1, int(context.get("year", 1)))
 	var eligible_tier := clampi(int(context.get("eligible_tier", 0)), 0, 3)
-	var available_marks := maxi(0, int(context.get("available_marks", 0)))
+	var rotation_version := int(context.get(
+		"offer_rotation_version",
+		LEGACY_MANDATE_OFFER_ROTATION_VERSION,
+	))
+	var mastered_lookup: Dictionary = {}
+	for mastered_id in mastered_ids:
+		mastered_lookup[mastered_id] = true
 	var definitions := _annual_mandate_definitions(context)
 	var fallback: Dictionary = {}
 	var eligible: Array[Dictionary] = []
@@ -1492,13 +1639,14 @@ static func _build_mandate_offers(context: Dictionary) -> Array[Dictionary]:
 		if id == MANDATE_FALLBACK_ID:
 			fallback = definition.duplicate(true)
 			continue
-		if (
-			int(definition.get("tier", 0)) <= eligible_tier
-			and int(definition.get("stake_marks", 0)) <= available_marks
-		):
+		if int(definition.get("tier", 0)) <= eligible_tier:
 			eligible.append(definition.duplicate(true))
-	# The two tier-zero alternatives guarantee a complete catalog even before
-	# the player owns a single seal or available Roost Mark.
+	# Seal eligibility determines which books are shown. Mark affordability is
+	# deliberately resolved by annual_mandate_catalog(), so an earned advanced
+	# tier remains visible as a concrete goal even after Sponsorship spending or
+	# a prior forfeiture leaves the stake temporarily unaffordable.
+	# The two tier-zero alternatives guarantee a complete catalog before the
+	# player owns a single seal.
 	if fallback.is_empty() or eligible.size() < MANDATE_OFFER_COUNT - 1:
 		return []
 	var rotation_seed := (
@@ -1519,19 +1667,63 @@ static func _build_mandate_offers(context: Dictionary) -> Array[Dictionary]:
 		for candidate in eligible:
 			if int(candidate.get("tier", 0)) == highest_available_tier:
 				hardest.append(candidate)
-		selected.append(hardest[rotation_seed % hardest.size()])
+		var hardest_pool := hardest
+		if rotation_version >= MANDATE_OFFER_ROTATION_VERSION:
+			var unmastered_hardest := _unmastered_mandate_candidates(
+				hardest,
+				mastered_lookup,
+			)
+			if not unmastered_hardest.is_empty():
+				hardest_pool = unmastered_hardest
+		selected.append(hardest_pool[rotation_seed % hardest_pool.size()])
 	var remaining: Array[Dictionary] = []
 	var selected_id := String(selected[0].get("id", "")) if not selected.is_empty() else ""
 	for candidate in eligible:
 		if String(candidate.get("id", "")) != selected_id:
 			remaining.append(candidate)
-	var rotation := rotation_seed % remaining.size()
-	for offset in remaining.size():
+	var remaining_pool := remaining
+	if rotation_version >= MANDATE_OFFER_ROTATION_VERSION:
+		var unmastered_remaining := _unmastered_mandate_candidates(
+			remaining,
+			mastered_lookup,
+		)
+		if not unmastered_remaining.is_empty():
+			remaining_pool = unmastered_remaining
+	var rotation := rotation_seed % remaining_pool.size()
+	for offset in remaining_pool.size():
 		if selected.size() >= MANDATE_OFFER_COUNT - 1:
 			break
-		selected.append(remaining[(rotation + offset) % remaining.size()])
+		selected.append(remaining_pool[(rotation + offset) % remaining_pool.size()])
 	for candidate in selected:
 		result.append(_freeze_mandate_offer(candidate, context))
+	return result
+
+
+static func _unmastered_mandate_candidates(
+	candidates: Array[Dictionary],
+	mastered_lookup: Dictionary,
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for candidate in candidates:
+		if not mastered_lookup.has(String(candidate.get("id", ""))):
+			result.append(candidate)
+	return result
+
+
+static func _mastered_mandate_ids(
+	counts: Dictionary,
+	excluded_success_id: StringName = &"",
+) -> Array[String]:
+	## The settlement at annual review occurred after this year's frozen catalog.
+	## Excluding that one receipt reconstructs exactly what was mastered when the
+	## offers were authored, without storing a second portfolio ledger.
+	var result: Array[String] = []
+	for mandate_id in MANDATE_IDS:
+		var count := int(counts.get(String(mandate_id), counts.get(mandate_id, 0)))
+		if mandate_id == excluded_success_id:
+			count -= 1
+		if count > 0:
+			result.append(String(mandate_id))
 	return result
 
 
@@ -1554,7 +1746,13 @@ static func _freeze_mandate_offer(definition: Dictionary, context: Dictionary) -
 static func _annual_mandate_definitions(context: Dictionary) -> Array[Dictionary]:
 	var opening_quota := maxi(1, int(context.get("opening_quota", 1)))
 	var opening_fund := maxi(0, int(context.get("opening_fund_cents", 0)))
-	var harvest_target := maxi(60_000, opening_quota * MANDATE_SHIFTS_PER_YEAR * 350)
+	var terms_version := int(context.get(
+		"mandate_terms_version",
+		LEGACY_MANDATE_TERMS_VERSION,
+	))
+	var harvest_factor := 350 if terms_version == LEGACY_MANDATE_TERMS_VERSION else 280
+	var executive_favor_target := 55 if terms_version == LEGACY_MANDATE_TERMS_VERSION else 40
+	var harvest_target := maxi(60_000, opening_quota * MANDATE_SHIFTS_PER_YEAR * harvest_factor)
 	return [
 		{
 			"id": String(MANDATE_FALLBACK_ID),
@@ -1574,7 +1772,7 @@ static func _annual_mandate_definitions(context: Dictionary) -> Array[Dictionary
 		{
 			"id": "shell_stewardship",
 			"name": "SHELL STEWARDSHIP BOOK",
-			"summary": "Protect quality while proving that assurance can still meet the farmer's calendar.",
+			"summary": "Protect shells, meet the farmer's calendar, and reinvest in faster keycaps and brighter QA lamps.",
 			"tier": 0,
 			"stake_marks": 0,
 			"seal_reward": 1,
@@ -1626,7 +1824,7 @@ static func _annual_mandate_definitions(context: Dictionary) -> Array[Dictionary
 			"objectives": [
 				_mandate_objective("credited_cents", "CREDITED HARVEST", "minimum", harvest_target),
 				_mandate_objective("closing_fund_cents", "FEED FUND FLOOR", "minimum", opening_fund),
-				_mandate_objective("farmer_favor_average", "EXECUTIVE FAVOR", "minimum", 55),
+				_mandate_objective("farmer_favor_average", "EXECUTIVE FAVOR", "minimum", executive_favor_target),
 			],
 			"reward": "Return the 2-mark stake and earn 2 permanent Board Seals.",
 			"failure": "The 2-mark stake becomes permanently spent.",
@@ -1634,7 +1832,7 @@ static func _annual_mandate_definitions(context: Dictionary) -> Array[Dictionary
 		{
 			"id": "rested_flock_covenant",
 			"name": "RESTED FLOCK COVENANT",
-			"summary": "Stake four marks on a high-care year with disciplined shells and payroll.",
+			"summary": "Grow to six hens and finish the care-and-candling buildout before attempting Gold.",
 			"tier": 2,
 			"stake_marks": 4,
 			"seal_reward": 3,
@@ -1650,7 +1848,7 @@ static func _annual_mandate_definitions(context: Dictionary) -> Array[Dictionary
 		{
 			"id": "gold_standard_book",
 			"name": "GOLD STANDARD BOOK",
-			"summary": "Stake six marks on a perfect service year with executive safeguards.",
+			"summary": "Six hens plus mature speed, shell, care, and Candling investments are expected before perfect service.",
 			"tier": 3,
 			"stake_marks": 6,
 			"seal_reward": 4,
@@ -1864,7 +2062,9 @@ func _settle_annual_mandate(year: int) -> Dictionary:
 			if grandfathered else
 			("Annual Board Mandate fulfilled; the stake returned and the seal was filed."
 			if success else
-			"Annual Board Mandate failed; its staked Roost Marks are permanently spent.")
+			("Annual Board Mandate failed; no seal was filed and no Roost Marks were at risk."
+			if stake == 0 else
+			"Annual Board Mandate failed; its staked Roost Marks are permanently spent."))
 		),
 	}
 	next_mandate_settlement_id += 1
@@ -1894,12 +2094,38 @@ static func _migrate_to_current_schema(data: Dictionary) -> Dictionary:
 	if source_version == LEGACY_SCHEMA_VERSION:
 		migrated["roost_marks_spent"] = 0
 		migrated["sponsorship_history"] = []
+		migrated["schema_version"] = BOARD_MANDATE_SCHEMA_VERSION
+		source_version = BOARD_MANDATE_SCHEMA_VERSION
+	if source_version == BOARD_MANDATE_SCHEMA_VERSION:
+		_migrate_v2_board_mandates(migrated)
+		migrated["schema_version"] = MANDATE_TERMS_SCHEMA_VERSION
+		source_version = MANDATE_TERMS_SCHEMA_VERSION
+	if source_version == MANDATE_TERMS_SCHEMA_VERSION:
+		_migrate_v3_mandate_terms(migrated)
 		migrated["schema_version"] = PREVIOUS_SCHEMA_VERSION
 		source_version = PREVIOUS_SCHEMA_VERSION
 	if source_version == PREVIOUS_SCHEMA_VERSION:
-		_migrate_v2_board_mandates(migrated)
+		_migrate_v4_offer_rotation(migrated)
 		migrated["schema_version"] = SCHEMA_VERSION
 	return migrated
+
+
+static func _migrate_v3_mandate_terms(migrated: Dictionary) -> void:
+	var context := migrated.get("annual_mandate_offer_context", {}) as Dictionary
+	if context.is_empty():
+		return
+	context["mandate_terms_version"] = LEGACY_MANDATE_TERMS_VERSION
+	migrated["annual_mandate_offer_context"] = context
+
+
+static func _migrate_v4_offer_rotation(migrated: Dictionary) -> void:
+	var context := migrated.get("annual_mandate_offer_context", {}) as Dictionary
+	if context.is_empty():
+		return
+	# A v4 file already owns three immutable cards. Mark it legacy so validation
+	# reconstructs those exact cards instead of retroactively re-rolling a career.
+	context["offer_rotation_version"] = LEGACY_MANDATE_OFFER_ROTATION_VERSION
+	migrated["annual_mandate_offer_context"] = context
 
 
 static func _migrate_v2_board_mandates(migrated: Dictionary) -> void:
@@ -1919,6 +2145,11 @@ static func _migrate_v2_board_mandates(migrated: Dictionary) -> void:
 		0,
 		maxi(0, lifetime_marks - sponsorship_spent),
 	)
+	# Version-2 saves were born under the original 350/55 Board terms. Freeze
+	# those terms before creating their grandfathered offers, then the v3 -> v4
+	# migration above records that legacy version explicitly.
+	context["mandate_terms_version"] = LEGACY_MANDATE_TERMS_VERSION
+	context["offer_rotation_version"] = LEGACY_MANDATE_OFFER_ROTATION_VERSION
 	var offers := _build_mandate_offers(context)
 	var evidence: Array[Dictionary] = []
 	for record in saved_records:
@@ -2176,6 +2407,7 @@ static func _validate_saved_mandates(
 
 	var context_keys: Array[String] = [
 		"year", "opening_day", "opening_fund_cents", "opening_quota",
+		"mandate_terms_version", "offer_rotation_version",
 		"seal_count", "available_marks", "eligible_tier",
 	]
 	if not _has_exact_string_keys(context, context_keys):
@@ -2188,6 +2420,14 @@ static func _validate_saved_mandates(
 			errors.append("annual_mandate_offer_context year and opening_day must be positive")
 		if int(context.get("opening_quota", 0)) < 1:
 			errors.append("annual_mandate_offer_context.opening_quota must be positive")
+		if int(context.get("mandate_terms_version", 0)) not in [
+			LEGACY_MANDATE_TERMS_VERSION, MANDATE_TERMS_VERSION,
+		]:
+			errors.append("annual_mandate_offer_context.mandate_terms_version is not supported")
+		if int(context.get("offer_rotation_version", 0)) not in [
+			LEGACY_MANDATE_OFFER_ROTATION_VERSION, MANDATE_OFFER_ROTATION_VERSION,
+		]:
+			errors.append("annual_mandate_offer_context.offer_rotation_version is not supported")
 		if int(context.get("eligible_tier", -1)) != _eligible_mandate_tier_for_seals(int(context.get("seal_count", 0))):
 			errors.append("annual_mandate_offer_context.eligible_tier is inconsistent with its frozen seals")
 		var expected_context_year := (
@@ -2208,7 +2448,15 @@ static func _validate_saved_mandates(
 	if offers.size() != MANDATE_OFFER_COUNT:
 		errors.append("annual_mandate_offers must contain exactly three frozen offers")
 	elif not context.is_empty():
-		var expected_offers := _build_mandate_offers(context)
+		var excluded_success_id: StringName = &""
+		if status_id == STATUS_ANNUAL_REVIEW and not history.is_empty():
+			var latest_settlement := history.back() as Dictionary
+			if bool(latest_settlement.get("success", false)):
+				excluded_success_id = StringName(String(latest_settlement.get("mandate_id", "")))
+		var expected_offers := _build_mandate_offers(
+			context,
+			_mastered_mandate_ids(counts, excluded_success_id),
+		)
 		var normalized_offers := _restore_json_numbers(offers) as Array
 		if expected_offers.size() != MANDATE_OFFER_COUNT or normalized_offers != expected_offers:
 			errors.append("annual_mandate_offers are inconsistent with their frozen context")
@@ -2686,21 +2934,41 @@ static func _policy_definitions() -> Array[Dictionary]:
 			"effect": "-$12.00  /  top hen +18 XP, morale and trust  /  favor -2",
 			"cost_cents": 1200,
 			"style_id": &"individual_merit",
+			"score_edge": "COOP OBEDIENCE + TOP-HEN CAREER",
+			"score_watch": "FARMER FAVOR + FUND BUFFER",
+			"supports_metrics": ["compliance_average"],
+			"watched_metrics": [
+				"farmer_favor_average", "closing_fund_cents", "wage_arrears_shifts",
+			],
 		},
 		{
 			"id": POLICY_FLOCK_DIVIDEND,
 			"title": "FLOCK DIVIDEND",
 			"description": "Return part of the harvest to every employed hen.",
-			"effect": "-$24.00  /  flock strain down  /  solidarity +10  /  quota -1",
+			"effect": "-$24.00  /  flock +34 morale, -34 strain  /  favor -4  /  solidarity +10  /  quota -1",
 			"cost_cents": 2400,
 			"style_id": &"shared_scoop",
+			"score_edge": "FLOCK WELFARE + QUOTA RELIABILITY",
+			"score_watch": "FARMER FAVOR + FUND BUFFER",
+			"supports_metrics": ["welfare_average", "quota_met_shifts"],
+			"watched_metrics": [
+				"farmer_favor_average", "closing_fund_cents", "wage_arrears_shifts",
+			],
 		},
 		{
 			"id": POLICY_HARVEST_FORECAST,
 			"title": "EXECUTIVE HARVEST FORECAST",
 			"description": "Book future confidence as present Feed Fund.",
-			"effect": "+$24.00  /  favor +8  /  next quota +3  /  flock trust down",
+			"effect": "+$60.00  /  favor +24  /  next quota +2  /  flock trust -1, grievance +1",
 			"cost_cents": 0,
 			"style_id": &"management_innovation",
+			"score_edge": "FARMER FAVOR + FUND BUFFER",
+			"score_watch": "QUOTA RELIABILITY + FLOCK WELFARE + OBEDIENCE",
+			"supports_metrics": [
+				"farmer_favor_average", "closing_fund_cents", "wage_arrears_shifts",
+			],
+			"watched_metrics": [
+				"quota_met_shifts", "welfare_average", "compliance_average",
+			],
 		},
 	]

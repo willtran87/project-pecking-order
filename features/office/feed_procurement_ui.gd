@@ -9,6 +9,7 @@ extends VBoxContainer
 signal feed_order_requested(order_id: StringName)
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
+const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
 
 const OFFER_IDS := [
 	&"local_whole_grain",
@@ -35,7 +36,9 @@ var _inventory_label: Label
 var _active_ration_label: Label
 var _fallback_label: Label
 var _last_activity_label: Label
+var _offers_toggle
 var _offer_controls: Dictionary = {}
+var _had_actionable_offer := false
 
 
 func _ready() -> void:
@@ -109,7 +112,12 @@ func _build_interface() -> void:
 	_fallback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_fallback_label)
 
+	_offers_toggle = FlockwatchDisclosureToggleScript.new()
+	_offers_toggle.name = "FeedProcurementOffersToggle"
+	column.add_child(_offers_toggle)
+
 	var divider := HSeparator.new()
+	divider.name = "FeedProcurementOffersDivider"
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(divider)
 
@@ -124,6 +132,8 @@ func _build_interface() -> void:
 	column.add_child(offer_list)
 	for offer_id: StringName in OFFER_IDS:
 		_build_offer_card(offer_list, offer_id)
+	var offer_targets: Array[Control] = [divider, offer_heading, offer_list]
+	_offers_toggle.configure("FEED ORDERS", "3 SUPPLIER FILES", offer_targets, false)
 
 	_last_activity_label = _make_label("", 10, COLOR_MUTED)
 	_last_activity_label.name = "FeedProcurementLastActivity"
@@ -209,7 +219,38 @@ func _refresh() -> void:
 	var offers_by_id := _offers_by_id(procurement)
 	for offer_id: StringName in OFFER_IDS:
 		_refresh_offer(offer_id, offers_by_id.get(offer_id, {}) as Dictionary, procurement)
+	_refresh_offers_disclosure()
 	_last_activity_label.text = _last_activity_copy(procurement)
+
+
+func set_offers_expanded(expanded: bool) -> void:
+	if _offers_toggle != null:
+		_offers_toggle.set_expanded(expanded)
+
+
+func offers_expanded() -> bool:
+	return _offers_toggle != null and _offers_toggle.is_expanded()
+
+
+func _refresh_offers_disclosure() -> void:
+	if _offers_toggle == null:
+		return
+	var ready_count := 0
+	for controls_value: Variant in _offer_controls.values():
+		if not controls_value is Dictionary:
+			continue
+		var button := (controls_value as Dictionary).get("button") as Button
+		if button != null and not button.disabled:
+			ready_count += 1
+	_offers_toggle.set_summary(
+		"%d READY / %d FILES" % [ready_count, OFFER_IDS.size()]
+		if ready_count > 0 else
+		"%d FILES / REVIEW CLOSED" % OFFER_IDS.size()
+	)
+	var actionable := ready_count > 0
+	if actionable and not _had_actionable_offer:
+		_offers_toggle.set_expanded(true, false)
+	_had_actionable_offer = actionable
 
 
 func _refresh_quote_and_inventory(procurement: Dictionary) -> void:

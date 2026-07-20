@@ -82,7 +82,10 @@ func save(campaign: Dictionary, metadata: Dictionary = {}) -> bool:
 		"metadata": stored_metadata,
 	}
 	envelope["integer_paths"] = _collect_integer_paths(envelope)
-	var json_text := JSON.stringify(envelope, "\t")
+	# Production checkpoints are machine envelopes, not hand-authored documents.
+	# Compact JSON materially reduces serialization, UTF-8 allocation, Web
+	# filesystem copy, and verification cost while preserving identical data.
+	var json_text := JSON.stringify(envelope)
 	if json_text.to_utf8_buffer().size() > MAX_FILE_BYTES:
 		return _fail("Save exceeds the %d-byte limit." % MAX_FILE_BYTES)
 
@@ -132,6 +135,57 @@ func load() -> Dictionary:
 		selected,
 		bool(selected.get("recovered_from_backup", false)),
 		String(selected.get("recovery_source", "primary"))
+	)
+
+
+## Returns one self-contained, current-schema JSON envelope suitable for a
+## player-controlled backup file. Recovery-only presentation fields are omitted;
+## importing the result creates a new verified local revision through save().
+func export_portable_backup() -> String:
+	last_error = ""
+	var envelope: Dictionary = self.load()
+	if envelope.is_empty():
+		return ""
+	var portable := {
+		"format": SAVE_FORMAT,
+		"schema_version": CURRENT_SCHEMA_VERSION,
+		"campaign": (envelope.get("campaign", {}) as Dictionary).duplicate(true),
+		"metadata": (envelope.get("metadata", {}) as Dictionary).duplicate(true),
+	}
+	portable["integer_paths"] = _collect_integer_paths(portable)
+	var json_text := JSON.stringify(portable)
+	if json_text.to_utf8_buffer().size() > MAX_FILE_BYTES:
+		_fail("Portable backup exceeds the %d-byte limit." % MAX_FILE_BYTES)
+		return ""
+	return json_text
+
+
+## Parses, migrates, bounds-checks, and envelope-validates a player-supplied
+## backup without touching disk or replacing the current campaign. Office uses
+## the returned isolated envelope for full domain-level staging before commit.
+func inspect_portable_backup(json_text: String) -> Dictionary:
+	last_error = ""
+	var result := _parse_envelope_text(json_text)
+	if not bool(result.get("ok", false)):
+		last_error = String(result.get("error", "Portable backup is invalid."))
+		return {}
+	return _public_envelope(
+		result.get("envelope", {}) as Dictionary,
+		false,
+		"portable"
+	)
+
+
+## Commits an already inspectable portable backup through the ordinary verified
+## temporary-write and backup-rotation transaction. Invalid input cannot modify
+## the previous primary or recovery copy.
+func import_portable_backup(json_text: String) -> bool:
+	var envelope := inspect_portable_backup(json_text)
+	if envelope.is_empty():
+		return false
+	return save(
+		envelope.get("campaign", {}) as Dictionary,
+		envelope.get("metadata", {}) as Dictionary,
 	)
 
 
@@ -346,6 +400,15 @@ func _read_envelope(path: String) -> Dictionary:
 	file.close()
 	if read_error != OK:
 		return {"ok": false, "error": "read failed: %s" % error_string(read_error)}
+	return _parse_envelope_text(json_text)
+
+
+func _parse_envelope_text(json_text: String) -> Dictionary:
+	var byte_count := json_text.to_utf8_buffer().size()
+	if byte_count <= 0:
+		return {"ok": false, "error": "file is empty"}
+	if byte_count > MAX_FILE_BYTES:
+		return {"ok": false, "error": "file exceeds the size limit"}
 
 	var parser := JSON.new()
 	var parse_error := parser.parse(json_text)

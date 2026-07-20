@@ -26,6 +26,12 @@ const PAGE_ORDER: Array[StringName] = [
 	PAGE_GOVERNANCE_RECORDS,
 ]
 const BASE_PAGES: Array[StringName] = [PAGE_TODAY, PAGE_FLOCK]
+const SECONDARY_PAGES: Array[StringName] = [
+	PAGE_OPERATIONS,
+	PAGE_CAPITAL,
+	PAGE_GOVERNANCE_RECORDS,
+]
+const MORE_FILES_SHOW_ALL_ID := 100
 
 const PAGE_LABELS := {
 	PAGE_TODAY: "TODAY",
@@ -35,7 +41,7 @@ const PAGE_LABELS := {
 	PAGE_GOVERNANCE_RECORDS: "RECORDS",
 }
 const PAGE_TITLES := {
-	PAGE_TODAY: "Today's orders, alerts, queue, labor, and shift record",
+	PAGE_TODAY: "Today's orders, compact shift snapshot, exceptions, and optional notice history",
 	PAGE_FLOCK: "Pecking Order, roster, applicants, care, training, and careers",
 	PAGE_OPERATIONS: "Feed Party, after-hours pecking, Rooster Operations, Procurement, and Farmgate",
 	PAGE_CAPITAL: "Treasury, requisitions, capacity, facilities, Blueprint, and Portfolio",
@@ -94,6 +100,7 @@ var _original_parent_orders: Dictionary = {}
 
 var _page_button_group: ButtonGroup
 var _all_filings_toggle: Button
+var _more_files_button: MenuButton
 var _feedback_panel: PanelContainer
 var _feedback_label: Label
 var _context_actions: VBoxContainer
@@ -139,11 +146,9 @@ func is_first_clutch_active() -> bool:
 func set_show_all_filings(enabled: bool) -> void:
 	_ensure_interface()
 	if _show_all_filings == enabled:
-		if _all_filings_toggle != null:
-			_all_filings_toggle.set_pressed_no_signal(enabled)
+		_update_more_files_presentation()
 		return
 	_show_all_filings = enabled
-	_all_filings_toggle.set_pressed_no_signal(enabled)
 	_recompute_availability()
 	show_all_filings_changed.emit(enabled)
 
@@ -332,12 +337,14 @@ func available_page_ids() -> Array[StringName]:
 
 func page_button(page_id: StringName) -> Button:
 	_ensure_interface()
+	if page_id in SECONDARY_PAGES:
+		return _more_files_button
 	return _page_buttons.get(page_id) as Button
 
 
 func focus_current_tab() -> bool:
 	_ensure_interface()
-	var target := _page_buttons.get(_current_page_id) as Button
+	var target := _focus_control_for_page(_current_page_id)
 	if target == null or not target.is_visible_in_tree() or target.focus_mode == Control.FOCUS_NONE:
 		return false
 	target.grab_focus()
@@ -463,11 +470,20 @@ func all_filings_button() -> Button:
 	return _all_filings_toggle
 
 
+## The compact secondary-page switcher. `all_filings_button()` remains as a
+## compatibility alias because Office and older integration tests discover that
+## control by role rather than by its user-facing copy.
+func more_files_button() -> MenuButton:
+	_ensure_interface()
+	return _more_files_button
+
+
 func accessible_text() -> String:
-	var summary := "Flockwatch filing pages. %s is current. Available: %s. %d sections filed. All filings %s." % [
+	var summary := "Flockwatch filing pages. %s is current. Available: %s. %d sections filed. More files %s. All filings %s." % [
 		String(PAGE_LABELS.get(_current_page_id, String(_current_page_id))).capitalize(),
 		", ".join(available_page_labels()),
 		_sections.size(),
+		"shows every page" if _show_all_filings else "is filtered by relevance",
 		"shown" if _show_all_filings else "filtered by relevance",
 	]
 	if not _last_feedback.is_empty():
@@ -485,11 +501,10 @@ func _ensure_interface() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	add_theme_constant_override("separation", 7)
 
-	var heading := HFlowContainer.new()
+	var heading := HBoxContainer.new()
 	heading.name = "FlockwatchNavigationHeading"
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_theme_constant_override("h_separation", 8)
-	heading.add_theme_constant_override("v_separation", 4)
+	heading.add_theme_constant_override("separation", 8)
 	add_child(heading)
 	var title := Label.new()
 	title.name = "FlockwatchNavigationTitle"
@@ -499,37 +514,49 @@ func _ensure_interface() -> void:
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 17)
 	heading.add_child(title)
-	_all_filings_toggle = Button.new()
-	_all_filings_toggle.name = "FlockwatchAllFilingsToggle"
-	_all_filings_toggle.text = "ALL FILINGS"
-	_all_filings_toggle.toggle_mode = true
-	_all_filings_toggle.focus_mode = Control.FOCUS_ALL
-	_all_filings_toggle.custom_minimum_size = Vector2(104.0, 30.0)
-	_all_filings_toggle.tooltip_text = "Show every filing page without changing campaign progress or the economy."
-	_all_filings_toggle.toggled.connect(_on_all_filings_toggled)
-	heading.add_child(_all_filings_toggle)
-
 	_page_button_group = ButtonGroup.new()
 	_page_button_group.allow_unpress = false
-	var navigation := HFlowContainer.new()
+	var navigation := HBoxContainer.new()
 	navigation.name = "FlockwatchPageNavigation"
 	navigation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	navigation.add_theme_constant_override("h_separation", 5)
-	navigation.add_theme_constant_override("v_separation", 5)
+	navigation.add_theme_constant_override("separation", 4)
+	navigation.clip_contents = true
 	add_child(navigation)
-	for page_id: StringName in PAGE_ORDER:
+	for page_id: StringName in BASE_PAGES:
 		var button := Button.new()
 		button.name = "FlockwatchPage_%s" % _pascal_case(page_id)
 		button.text = String(PAGE_LABELS.get(page_id, String(page_id)))
 		button.toggle_mode = true
 		button.button_group = _page_button_group
 		button.focus_mode = Control.FOCUS_ALL
-		button.custom_minimum_size = Vector2(76.0 if page_id != PAGE_CAPITAL else 84.0, 34.0)
+		button.custom_minimum_size = Vector2(66.0, 34.0)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.tooltip_text = String(PAGE_TITLES.get(page_id, button.text))
 		button.pressed.connect(_on_page_pressed.bind(page_id))
 		button.gui_input.connect(_on_page_button_gui_input.bind(page_id))
 		navigation.add_child(button)
 		_page_buttons[page_id] = button
+
+	_more_files_button = MenuButton.new()
+	_more_files_button.name = "FlockwatchMoreFiles"
+	_more_files_button.text = "MORE FILES"
+	_more_files_button.custom_minimum_size = Vector2(94.0, 34.0)
+	_more_files_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_more_files_button.focus_mode = Control.FOCUS_ALL
+	_more_files_button.clip_text = true
+	_more_files_button.toggle_mode = true
+	_more_files_button.tooltip_text = "Open Operations, Capital, or Records without widening the filing rail."
+	_more_files_button.gui_input.connect(_on_more_files_gui_input)
+	navigation.add_child(_more_files_button)
+	_all_filings_toggle = _more_files_button
+	var more_popup := _more_files_button.get_popup()
+	for page_index: int in SECONDARY_PAGES.size():
+		var page_id := SECONDARY_PAGES[page_index]
+		more_popup.add_item(String(PAGE_LABELS.get(page_id, String(page_id))), page_index)
+		more_popup.set_item_metadata(more_popup.item_count - 1, page_id)
+	more_popup.add_separator()
+	more_popup.add_check_item("SHOW EVERY FILE", MORE_FILES_SHOW_ALL_ID)
+	more_popup.id_pressed.connect(_on_more_files_item_pressed)
 
 	_feedback_panel = PanelContainer.new()
 	_feedback_panel.name = "FlockwatchLatestFeedback"
@@ -641,6 +668,7 @@ func _set_page_presentations() -> void:
 			button.focus_mode = Control.FOCUS_ALL if available else Control.FOCUS_NONE
 		if scroll != null:
 			scroll.visible = available and page_id == _current_page_id
+	_update_more_files_presentation()
 
 
 func _activate_page(page_id: StringName, grab_tab_focus: bool) -> void:
@@ -653,15 +681,17 @@ func _activate_page(page_id: StringName, grab_tab_focus: bool) -> void:
 	if focus_was_in_old_page:
 		focus_owner.release_focus()
 	_current_page_id = page_id
-	for candidate_id: StringName in PAGE_ORDER:
+	for candidate_id: StringName in BASE_PAGES:
 		var button := _page_buttons.get(candidate_id) as Button
-		var scroll := _page_scrolls.get(candidate_id) as ScrollContainer
 		if button != null:
 			button.set_pressed_no_signal(candidate_id == page_id)
+	for candidate_id: StringName in PAGE_ORDER:
+		var scroll := _page_scrolls.get(candidate_id) as ScrollContainer
 		if scroll != null:
 			scroll.visible = is_page_available(candidate_id) and candidate_id == page_id
+	_update_more_files_presentation()
 	if grab_tab_focus or focus_was_in_old_page:
-		var target := _page_buttons.get(page_id) as Button
+		var target := _focus_control_for_page(page_id)
 		if target != null and target.is_visible_in_tree():
 			target.grab_focus()
 	if changed:
@@ -680,6 +710,65 @@ func _on_page_button_gui_input(event: InputEvent, _page_id: StringName) -> void:
 		return
 	if cycle_page(direction, true):
 		accept_event()
+
+
+func _on_more_files_gui_input(event: InputEvent) -> void:
+	_on_page_button_gui_input(event, _current_page_id)
+
+
+func _on_more_files_item_pressed(item_id: int) -> void:
+	if item_id == MORE_FILES_SHOW_ALL_ID:
+		set_show_all_filings(not _show_all_filings)
+		_more_files_button.grab_focus()
+		return
+	var popup := _more_files_button.get_popup()
+	var item_index := popup.get_item_index(item_id)
+	if item_index < 0:
+		return
+	var metadata: Variant = popup.get_item_metadata(item_index)
+	if metadata == null:
+		return
+	var page_id := StringName(String(metadata))
+	if open_page(page_id, true):
+		_more_files_button.grab_focus()
+
+
+func _update_more_files_presentation() -> void:
+	if _more_files_button == null:
+		return
+	var popup := _more_files_button.get_popup()
+	# PopupMenu has no per-item visibility API in the project's Godot runtime.
+	# Rebuilding this five-entry presentation-only menu keeps undiscovered files
+	# genuinely undisclosed without replacing any page or registered control.
+	popup.clear()
+	for page_index: int in SECONDARY_PAGES.size():
+		var page_id := SECONDARY_PAGES[page_index]
+		if not is_page_available(page_id):
+			continue
+		popup.add_item(String(PAGE_LABELS.get(page_id, String(page_id))), page_index)
+		popup.set_item_metadata(popup.item_count - 1, page_id)
+	if popup.item_count > 0:
+		popup.add_separator()
+	popup.add_check_item("SHOW EVERY FILE", MORE_FILES_SHOW_ALL_ID)
+	popup.set_item_checked(popup.item_count - 1, _show_all_filings)
+	_more_files_button.text = (
+		"%s  ▾" % String(PAGE_LABELS.get(_current_page_id, "MORE"))
+		if _current_page_id in SECONDARY_PAGES else
+		"MORE FILES  ▾"
+	)
+	_more_files_button.set_pressed_no_signal(_current_page_id in SECONDARY_PAGES)
+	_more_files_button.tooltip_text = (
+		"Current secondary file: %s. Open the menu to switch filing pages."
+		% String(PAGE_TITLES.get(_current_page_id, String(_current_page_id)))
+		if _current_page_id in SECONDARY_PAGES else
+		"Open Operations, Capital, or Records. Show Every File changes presentation only."
+	)
+
+
+func _focus_control_for_page(page_id: StringName) -> Button:
+	if page_id in SECONDARY_PAGES:
+		return _more_files_button
+	return _page_buttons.get(page_id) as Button
 
 
 func _display_feedback(copy: String) -> String:
@@ -897,7 +986,7 @@ func _ensure_focus_not_hidden() -> void:
 		return
 	if page_id != _current_page_id or not is_page_available(page_id):
 		focus_owner.release_focus()
-		var fallback := _page_buttons.get(_current_page_id) as Button
+		var fallback := _focus_control_for_page(_current_page_id)
 		if fallback != null and fallback.is_visible_in_tree():
 			fallback.grab_focus()
 
@@ -918,10 +1007,6 @@ func _page_for_descendant(control: Control) -> StringName:
 
 func _on_page_pressed(page_id: StringName) -> void:
 	_activate_page(page_id, false)
-
-
-func _on_all_filings_toggled(enabled: bool) -> void:
-	set_show_all_filings(enabled)
 
 
 func _owns_any(owned: Dictionary, facility_ids: Array[StringName]) -> bool:

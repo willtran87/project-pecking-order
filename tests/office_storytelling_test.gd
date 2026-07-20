@@ -15,6 +15,8 @@ const ITCoopVisualScript := preload("res://features/office/it_coop_visual.gd")
 const FlockRelationsOfficeVisualScript := preload("res://features/office/flock_relations_office_visual.gd")
 const FeedProcurementCoopVisualScript := preload("res://features/office/feed_procurement_coop_visual.gd")
 
+const RAIL_IDLE_MAX_ENERGY := 0.08
+
 
 func _init() -> void:
 	_run.call_deferred()
@@ -73,9 +75,111 @@ func _run() -> void:
 	_check(staging.find_children("EggLiftTube_*", "MeshInstance3D", true, false).size() == 6, "every desk should connect to the overhead collection rail", failures)
 	_check(staging.find_children("EggInTransit_*", "MeshInstance3D", true, false).is_empty(), "collection manifold should never contain decorative fake eggs", failures)
 	_check(staging.find_children("EmptyTransitCarrier_*", "MeshInstance3D", true, false).size() == 4, "collection manifold should expose four visibly empty carrier collars", failures)
+	var row_rail := staging.find_child("OverheadRowRail_00", true, false) as MeshInstance3D
+	var row_glow := staging.find_child("OverheadRowRail_00Glow", true, false) as MeshInstance3D
+	var desk_status_lamp := staging.find_child("CollectionStatusLamp_00", true, false) as MeshInstance3D
+	var carrier_lamp := staging.find_child("TransitCarrierLamp_00", true, false) as MeshInstance3D
+	var shared_rail_material := (
+		row_glow.material_override as StandardMaterial3D
+		if row_glow != null else
+		null
+	)
+	_check(
+		row_rail != null
+		and row_glow != null
+		and desk_status_lamp != null
+		and carrier_lamp != null
+		and shared_rail_material != null,
+		"collection rails should retain their physical body, indicator strip, desk lamp, and carrier lamp",
+		failures,
+	)
+	_check(
+		shared_rail_material != null
+		and desk_status_lamp.material_override == shared_rail_material
+		and carrier_lamp.material_override == shared_rail_material,
+		"rail strips, desk status lamps, and carrier lamps should reuse one bounded indicator material",
+		failures,
+	)
+	await process_frame
+	_check(
+		shared_rail_material != null
+		and shared_rail_material.emission_energy_multiplier <= RAIL_IDLE_MAX_ENERGY,
+		"an empty collection chain should keep its shared rail indicators low-contrast (energy %.3f)" % (
+			shared_rail_material.emission_energy_multiplier if shared_rail_material != null else -1.0
+		),
+		failures,
+	)
+	var row_start := (
+		row_rail.get_meta(&"segment_start", Vector3(INF, INF, INF)) as Vector3
+		if row_rail != null else
+		Vector3(INF, INF, INF)
+	)
+	var row_finish := (
+		row_rail.get_meta(&"segment_finish", Vector3(INF, INF, INF)) as Vector3
+		if row_rail != null else
+		Vector3(INF, INF, INF)
+	)
+	_check(
+		is_equal_approx(row_start.y, OfficeStorytelling.COLLECTION_RAIL_HEIGHT)
+		and is_equal_approx(row_finish.y, OfficeStorytelling.COLLECTION_RAIL_HEIGHT)
+		and is_equal_approx(row_finish.x, OfficeStorytelling.SIDE_MANIFOLD_X)
+		and row_rail != null
+		and row_rail.position.is_equal_approx(row_start.lerp(row_finish, 0.5)),
+		"the visual-only treatment must preserve authored rail height, manifold endpoint, and segment metadata",
+		failures,
+	)
 	_check(staging.find_children("AuthoritativeClutchSlot_*", "Node3D", true, false).size() == 36, "basket and cart should expose a bounded 36-slot living clutch", failures)
 	_check(staging.find_children("CartonEgg", "MeshInstance3D", true, false).is_empty(), "collection cart should start without decorative eggs", failures)
+	_check(_multimesh_instance_total(staging, "DeskTrayRailBatch") == 12, "collection batching should preserve both tray rails at all six desks", failures)
+	_check(_multimesh_instance_total(staging, "EggCartWheelBatch") == 4, "collection batching should preserve all four rotated cart wheels", failures)
+	_check(staging.find_children("DeskTrayRail", "MeshInstance3D", true, false).is_empty(), "collection rails should not regress to individual renderer nodes", failures)
+	_check(staging.find_children("EggCartWheel", "MeshInstance3D", true, false).is_empty(), "cart wheels should not regress to individual renderer nodes", failures)
+	var tray_rail_batch := _find_multimesh_batch(staging, "DeskTrayRailBatch")
+	var authored_rail_positions: Array = tray_rail_batch.get_meta("authored_positions", []) if tray_rail_batch != null else []
+	var tray_rail_index := 0
+	for desk_position: Vector3 in desk_positions:
+		var pickup_position := desk_position + Vector3(1.33, 1.12, 0.70)
+		for rail_x in [-0.33, 0.33]:
+			var rail_position: Vector3 = authored_rail_positions[tray_rail_index] if tray_rail_index < authored_rail_positions.size() else Vector3.ZERO
+			_check(
+				rail_position.is_equal_approx(pickup_position + Vector3(rail_x, 0.10, 0.0)),
+				"batched tray rail %d should retain its authored desk-relative position (actual=%s expected=%s)" % [tray_rail_index, rail_position, pickup_position + Vector3(rail_x, 0.10, 0.0)],
+				failures,
+			)
+			tray_rail_index += 1
+	var cart_wheel_batch := _find_multimesh_batch(staging, "EggCartWheelBatch")
+	var authored_wheel_transforms: Array = cart_wheel_batch.get_meta("authored_transforms", []) if cart_wheel_batch != null else []
+	var expected_wheel_basis := Basis.from_euler(Vector3(0.0, 0.0, deg_to_rad(90.0)))
+	var wheel_index := 0
+	for wheel_z in [-0.39, 0.39]:
+		for wheel_x in [-0.36, 0.36]:
+			var wheel_transform: Transform3D = authored_wheel_transforms[wheel_index] if wheel_index < authored_wheel_transforms.size() else Transform3D.IDENTITY
+			_check(
+				wheel_transform.origin.is_equal_approx(OfficeStorytelling.COLLECTION_CART_CENTER + Vector3(wheel_x, 0.26, wheel_z))
+				and wheel_transform.basis.is_equal_approx(expected_wheel_basis),
+				"batched cart wheel %d should retain its authored position and axle rotation (actual=%s expected=%s)" % [wheel_index, wheel_transform.origin, OfficeStorytelling.COLLECTION_CART_CENTER + Vector3(wheel_x, 0.26, wheel_z)],
+				failures,
+			)
+			wheel_index += 1
 	_check(staging.find_child("ManagementYieldBoard", true, false) != null, "management perch should expose live yield metrics", failures)
+	_check(_multimesh_instance_total(staging, "PerchGlassPostBatch") == 3, "management perch batching should preserve all three opaque glass posts", failures)
+	_check(_multimesh_instance_total(staging, "ExecutiveDeskLegBatch") == 2, "management perch batching should preserve both executive desk legs", failures)
+	_check(_multimesh_instance_total(staging, "FlockwatchMonitorFrameBatch") == 3, "management perch batching should preserve all three monitor frames", failures)
+	_check(_multimesh_instance_total(staging, "FlockwatchMonitorScreenBatch") == 3, "management perch batching should preserve all three monitor screens", failures)
+	_check(_multimesh_instance_total(staging, "FlockwatchDisplayRailBatch") == 2, "management perch batching should preserve both display rails", failures)
+	_check(_multimesh_instance_total(staging, "FlockwatchDisplayClampBatch") == 2, "management perch batching should preserve both display clamps", failures)
+	var monitor_screen_batch := staging.find_child("FlockwatchMonitorScreenBatch", true, false) as MultiMeshInstance3D
+	var monitor_screen_material := (
+		monitor_screen_batch.material_override as StandardMaterial3D
+		if monitor_screen_batch != null else null
+	)
+	_check(
+		monitor_screen_material != null
+		and monitor_screen_material.emission_enabled
+		and monitor_screen_material.emission_energy_multiplier >= 0.60,
+		"all three management monitors should share the live pulsing screen material",
+		failures,
+	)
 	_check(staging.find_child("OpenBeakSuggestionBox", true, false) != null, "bureau should include satirical farm-office props", failures)
 	_check(staging.find_child("ArchiveRetentionLabel", true, false) != null, "archive should communicate lifetime retention satire", failures)
 	_check(staging.find_child("IntakeStatusLedger", true, false) != null, "intake should expose shell/credit storytelling", failures)
@@ -502,6 +606,14 @@ func _run() -> void:
 	var route := staging.collection_route_global(41, real_socket_origin)
 	_check(route.size() == 6, "bound worker should receive a complete collection route", failures)
 	_check(route[0].is_equal_approx(real_socket_origin), "egg route must begin at the real hen socket", failures)
+	_check(
+		route.size() == 6
+		and is_equal_approx(route[2].y, OfficeStorytelling.COLLECTION_RAIL_HEIGHT)
+		and is_equal_approx(route[3].y, OfficeStorytelling.COLLECTION_RAIL_HEIGHT)
+		and is_equal_approx(route[4].y, OfficeStorytelling.COLLECTION_RAIL_HEIGHT),
+		"pickup lift, row manifold, and grading approach should retain the exact overhead rail height",
+		failures,
+	)
 	_check(route[route.size() - 1].is_equal_approx(Vector3(9.4, 1.25, -6.85)), "egg route should terminate in the farmer presentation basket", failures)
 
 	if not failures.is_empty():
@@ -593,6 +705,20 @@ func _visible_meshes_fit_annex_envelope(packing_annex: Node3D) -> bool:
 		if bounds.end.y > PackingAnnexVisualScript.MAX_OPAQUE_HEIGHT + 0.002:
 			return false
 	return true
+
+
+func _multimesh_instance_total(root_node: Node, batch_name: String) -> int:
+	var total := 0
+	for candidate in root_node.find_children(batch_name, "MultiMeshInstance3D", true, false):
+		var batch := candidate as MultiMeshInstance3D
+		if batch != null and batch.multimesh != null:
+			total += batch.multimesh.instance_count
+	return total
+
+
+func _find_multimesh_batch(root_node: Node, batch_name: String) -> MultiMeshInstance3D:
+	var matches := root_node.find_children(batch_name, "MultiMeshInstance3D", true, false)
+	return matches[0] as MultiMeshInstance3D if not matches.is_empty() else null
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

@@ -351,6 +351,7 @@ def build_asset() -> bpy.types.Object:
 
     galvanized = material("Galvanized Metal", (0.46, 0.54, 0.57, 1.0), metallic=0.72, roughness=0.29)
     galvanized_dark = material("Galvanized Shadow", (0.20, 0.27, 0.28, 1.0), metallic=0.68, roughness=0.34)
+    caster_rubber = material("Caster Rubber", (0.035, 0.045, 0.043, 1.0), metallic=0.0, roughness=0.91)
     rubber = material("Trough Mat", (0.045, 0.13, 0.13, 1.0), metallic=0.0, roughness=0.83)
     pellet = material("Morale Pellets", (0.56, 0.29, 0.09, 1.0), roughness=0.82)
     pellet_light = material("Morale Pellet Highlights", (0.79, 0.48, 0.16, 1.0), roughness=0.76)
@@ -427,6 +428,68 @@ def build_asset() -> bpy.types.Object:
             root=root,
         )
 
+    # A real mobile feed cart reads more clearly than a prop that rises through
+    # the floor. Four named caster wheels are exported separately so Godot can
+    # roll them in sync with the event's arrival and departure animation.
+    caster_specs = (
+        ("FrontL", -1.05, -0.46),
+        ("FrontR", 1.05, -0.46),
+        ("RearL", -1.05, 0.06),
+        ("RearR", 1.05, 0.06),
+    )
+    for suffix, x, y in caster_specs:
+        rounded_cube(
+            f"TroughCasterBracket_{suffix}",
+            (x, y, 0.16),
+            (0.16, 0.10, 0.22),
+            galvanized_dark,
+            bevel=0.025,
+            root=root,
+        )
+        cylinder(
+            f"TroughCasterWheel_{suffix}",
+            (x, y, 0.135),
+            0.13,
+            0.12,
+            caster_rubber,
+            vertices=24,
+            rotation=(0.0, math.radians(90.0), 0.0),
+            root=root,
+        )
+        cylinder(
+            f"TroughCasterHub_{suffix}",
+            (x, y, 0.135),
+            0.045,
+            0.14,
+            galvanized,
+            vertices=20,
+            rotation=(0.0, math.radians(90.0), 0.0),
+            root=root,
+        )
+
+    # A compact push handle completes the silhouette without occupying any of
+    # the six chicken attendance sockets around the trough.
+    for x in (-1.08, 1.08):
+        cylinder(
+            f"TroughPushHandlePost_{'L' if x < 0 else 'R'}",
+            (x, 0.27, 0.96),
+            0.035,
+            0.72,
+            galvanized_dark,
+            vertices=16,
+            root=root,
+        )
+    cylinder(
+        "TroughPushHandleGrip",
+        (0.0, 0.27, 1.31),
+        0.045,
+        2.23,
+        corporate_green,
+        vertices=20,
+        rotation=(0.0, math.radians(90.0), 0.0),
+        root=root,
+    )
+
     # A solid feed bed plus irregular pellets ensures it remains visible at game scale.
     rounded_cube("Trough_FeedBed", (0.0, -0.20, 0.57), (2.42, 0.36, 0.10), pellet, bevel=0.055, root=root)
     pellets: list[bpy.types.Object] = []
@@ -480,12 +543,12 @@ def build_asset() -> bpy.types.Object:
 
     # Six exported transforms are the explicit gathering locations used by gameplay.
     attendance_positions = (
-        (-1.08, -0.97, 0.10),
-        (0.00, -0.97, 0.10),
-        (1.08, -0.97, 0.10),
-        (-1.08, 0.98, 0.10),
-        (0.00, 0.98, 0.10),
-        (1.08, 0.98, 0.10),
+        (-1.55, -1.34, 0.10),
+        (0.00, -1.34, 0.10),
+        (1.55, -1.34, 0.10),
+        (-1.55, 1.34, 0.10),
+        (0.00, 1.34, 0.10),
+        (1.55, 1.34, 0.10),
     )
     for index, position in enumerate(attendance_positions):
         socket = bpy.data.objects.new(f"AttendanceSocket_{index}", None)
@@ -590,6 +653,11 @@ def verify(root: bpy.types.Object) -> None:
         "FeedSack_B_Sack",
         "Waterer_Reservoir",
         "FeedScoop_Bowl",
+        "TroughCasterWheel_FrontL",
+        "TroughCasterWheel_FrontR",
+        "TroughCasterWheel_RearL",
+        "TroughCasterWheel_RearR",
+        "TroughPushHandleGrip",
         *(f"AttendanceSocket_{index}" for index in range(6)),
     }
     descendants = {obj.name for obj in asset_descendants(root)}

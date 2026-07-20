@@ -93,7 +93,7 @@ func pulse_egg_laid(world_position: Vector3, quality: StringName = &"sound") -> 
 
 
 ## Call when the feed party begins. Defaults to the current trough location.
-func pulse_feed_party(world_position: Vector3 = Vector3(-10.15, 0.72, 0.0)) -> void:
+func pulse_feed_party(world_position: Vector3 = Vector3(-9.80, 0.72, 0.0)) -> void:
 	if not _reduced_motion:
 		_spawn_event_burst(
 			"FeedPartyPulse",

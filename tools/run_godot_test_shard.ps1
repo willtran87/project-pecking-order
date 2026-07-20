@@ -61,8 +61,17 @@ foreach ($entry in $selected) {
     $exited = $process.WaitForExit($TimeoutSeconds * 1000)
     if (-not $exited) {
         try {
-            $process.Kill()
+            # Godot's console launcher starts the engine as a child process on
+            # Windows. Killing only the launcher leaves that child holding the
+            # redirected output handles open, which deadlocks ReadToEndAsync and
+            # strands an invisible headless test indefinitely. Terminate the
+            # complete process tree so the timeout is genuinely bounded.
+            $process.Kill($true)
         } catch {
+            try {
+                $process.Kill()
+            } catch {
+            }
         }
         $process.WaitForExit()
     }

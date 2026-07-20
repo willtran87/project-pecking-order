@@ -88,12 +88,28 @@ func _run() -> void:
 	_check(audio.play_attention_restored(), "clean assisted delivery should play a renewable-attention confirmation", failures)
 	_check(audio.play_denied(&"held"), "rejected actions should have a distinct restrained cue", failures)
 	_check(audio.play_shift_alert(1.0), "shift danger should have a protected alert cue", failures)
+	_check(audio.play_feed_nibble(0), "first Feed Party attendee should have a physical eating cue", failures)
+	_check(audio.play_feed_nibble(1), "different attendees should retain restrained pitch variation", failures)
+	_check(not audio.play_feed_nibble(0), "duplicate eating contact from one attendee should be limited", failures)
 	for required_cue in [
 		&"peck_contact", &"lay_release", &"sorter_clack",
 		&"basket_thunk", &"payout_confirmation", &"attention_restored",
-		&"denied", &"shift_alert",
+		&"denied", &"shift_alert", &"feed_nibble",
 	]:
 		_check(required_cue in cue_events, "new feedback palette should emit %s" % required_cue, failures)
+
+	# Final campaign outcomes use unmistakably different cadences and expose a
+	# compact diagnostic receipt without adding playback nodes.
+	await create_timer(0.20).timeout
+	var serial_before_outcomes := int(audio.feedback_snapshot().get("cue_serial", -1))
+	_check(audio.play_campaign_outcome(true), "passed probation should play its rising verdict cadence", failures)
+	_check(audio.play_campaign_outcome(false), "failed probation should play its restrained descending verdict cadence", failures)
+	_check(audio.play_commendation(), "permanent career recognition should play its brass filing cadence", failures)
+	_check(&"campaign_pass" in cue_events and &"campaign_fail" in cue_events and &"commendation" in cue_events, "campaign verdicts and career recognition should emit distinct semantic cue IDs", failures)
+	var verdict_snapshot := audio.feedback_snapshot()
+	_check(String(verdict_snapshot.get("last_cue", "")) == "commendation", "feedback diagnostics should expose the latest semantic career cue", failures)
+	_check(int(verdict_snapshot.get("cue_serial", -1)) == serial_before_outcomes + 3, "feedback diagnostics should advance once per accepted verdict or commendation", failures)
+	_check(int(verdict_snapshot.get("voice_count", 0)) == 8, "verdict feedback should retain the fixed eight-voice pool", failures)
 
 	await create_timer(0.07).timeout
 	var first_contact_played := audio.play_peck_contact(1, &"steady")
@@ -140,7 +156,10 @@ func _run() -> void:
 
 	audio.set_focus_paused(true)
 	_check(audio.is_focus_paused(), "feedback pool should expose focus pause state", failures)
+	var serial_while_focused := int(audio.feedback_snapshot().get("cue_serial", -1))
 	_check(not audio.play_denied(&"background"), "focus pause should discard new one-shots", failures)
+	_check(not audio.play_campaign_outcome(true), "focus pause should discard verdict one-shots instead of resuming them late", failures)
+	_check(int(audio.feedback_snapshot().get("cue_serial", -1)) == serial_while_focused, "discarded focus-paused cues should not advance diagnostics", failures)
 	for voice in stressed_voices:
 		_check(not (voice as AudioStreamPlayer).playing, "focus pause should stop active transient voices", failures)
 	audio.set_focus_paused(false)
@@ -158,7 +177,7 @@ func _run() -> void:
 			push_error("AUDIO_FEEDBACK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("AUDIO_FEEDBACK_TEST_PASSED voices=8 cues=procedural limiter=semantic priority=protected growth=none buses=SFX+UI")
+	print("AUDIO_FEEDBACK_TEST_PASSED voices=8 cues=procedural verdicts=distinct diagnostics=stable limiter=semantic priority=protected growth=none buses=SFX+UI")
 	quit(0)
 
 

@@ -9,7 +9,7 @@ const TEST_PATHS: Array[String] = [
 	"%s.tmp" % TEST_PRIMARY_PATH,
 	"%s.bak.tmp" % TEST_PRIMARY_PATH,
 ]
-const TARGET_BUS_NAMES: Array[StringName] = [&"Master", &"SFX", &"UI", &"Music"]
+const TARGET_BUS_NAMES: Array[StringName] = [&"Master", &"SFX", &"UI", &"Music", &"Ambient"]
 
 
 func _init() -> void:
@@ -24,8 +24,9 @@ func _run() -> void:
 	var default_preferences: Dictionary = PlayerPreferencesStoreScript.defaults()
 	_check(PlayerPreferencesStoreScript.validate(default_preferences).is_empty(), "defaults should satisfy the strict persistence schema", failures)
 	_check(
-		default_preferences.keys().size() == 7
-		and (default_preferences.get("audio", {}) as Dictionary).keys().size() == 4,
+		default_preferences.keys().size() == 9
+		and (default_preferences.get("audio", {}) as Dictionary).keys().size() == 5
+		and bool(default_preferences.get("pause_when_unfocused", false)),
 		"preferences should remain a compact campaign-independent contract",
 		failures,
 	)
@@ -41,8 +42,10 @@ func _run() -> void:
 		"motion_mode": "reduced",
 		"ui_scale": 1.4,
 		"high_contrast": true,
+		"color_vision_mode": "sepia",
 		"visual_quality": "cinematic",
 		"timing_assist": "extended",
+		"pause_when_unfocused": false,
 		"input_bindings": {"unknown_action": []},
 	})
 	var sanitized_audio := sanitized.get("audio", {}) as Dictionary
@@ -68,8 +71,10 @@ func _run() -> void:
 		String(sanitized.get("motion_mode", "")) == "reduced"
 		and is_equal_approx(float(sanitized.get("ui_scale", 0.0)), 1.5)
 		and bool(sanitized.get("high_contrast", false))
+		and String(sanitized.get("color_vision_mode", "")) == "standard"
 		and String(sanitized.get("visual_quality", "")) == "balanced"
 		and String(sanitized.get("timing_assist", "")) == "extended"
+		and not bool(sanitized.get("pause_when_unfocused", true))
 		and (sanitized.get("input_bindings", {}) as Dictionary).is_empty(),
 		"sanitize should canonicalize comfort, quality, timing, and binding values",
 		failures,
@@ -85,8 +90,10 @@ func _run() -> void:
 	first_preferences["motion_mode"] = "reduced"
 	first_preferences["ui_scale"] = 1.25
 	first_preferences["high_contrast"] = true
+	first_preferences["color_vision_mode"] = "color_blind_safe"
 	first_preferences["visual_quality"] = "high"
 	first_preferences["timing_assist"] = "lenient"
+	first_preferences["pause_when_unfocused"] = false
 	first_preferences["input_bindings"] = {
 		"peck_assist": [{"type": "key", "physical_keycode": KEY_Q}],
 	}
@@ -127,6 +134,27 @@ func _run() -> void:
 	)
 
 	_check(store.delete_preferences(), "preference artifacts should be independently deletable", failures)
+	var legacy_preferences := default_preferences.duplicate(true)
+	legacy_preferences.erase("color_vision_mode")
+	legacy_preferences.erase("pause_when_unfocused")
+	(legacy_preferences.get("audio", {}) as Dictionary).erase("ambient")
+	var legacy_envelope := {
+		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
+		"schema_version": 1,
+		"preferences": legacy_preferences,
+		"metadata": {"saved_at_unix": 0, "save_revision": 3},
+	}
+	_check(_write_raw(TEST_PRIMARY_PATH, JSON.stringify(legacy_envelope)), "test should write a schema-one fixture", failures)
+	var migrated_preferences := store.load_preferences()
+	_check(
+		String(migrated_preferences.get("color_vision_mode", "")) == "standard"
+		and bool(migrated_preferences.get("pause_when_unfocused", false))
+		and (migrated_preferences.get("audio", {}) as Dictionary).has("ambient")
+		and PlayerPreferencesStoreScript.validate(migrated_preferences).is_empty(),
+		"schema-one preferences should migrate through palette, ambience, and focus safety defaults",
+		failures,
+	)
+	_check(store.delete_preferences(), "migrated preference fixture should be removable", failures)
 	var future_envelope := {
 		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
 		"schema_version": PlayerPreferencesStoreScript.CURRENT_SCHEMA_VERSION + 1,
@@ -148,7 +176,7 @@ func _run() -> void:
 			push_error("PLAYER_PREFERENCES_STORE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v1 validation=strict atomic=backup-recovery audio=4-bus preferences=campaign-independent")
+	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v3 migration=v1+v2 color-vision=safe+symbols focus-pause=default-on validation=strict atomic=backup-recovery audio=5-bus preferences=campaign-independent")
 	quit(0)
 
 
@@ -160,16 +188,17 @@ func _test_audio_application(failures: Array[String]) -> void:
 		"sfx": {"volume": 0.0, "muted": false},
 		"ui": {"volume": 0.5, "muted": true},
 		"music": {"volume": 0.75, "muted": false},
+		"ambient": {"volume": 0.35, "muted": true},
 	}
 	var apply_result: Dictionary = PlayerPreferencesStoreScript.apply_audio(preferences)
 	_check(
 		bool(apply_result.get("accepted", false))
-		and (apply_result.get("applied", []) as Array).size() == 4,
-		"apply_audio should report all four independent mix channels",
+		and (apply_result.get("applied", []) as Array).size() == 5,
+		"apply_audio should report all five independent mix channels",
 		failures,
 	)
-	var expected_volumes := {&"Master": 0.25, &"SFX": 0.0, &"UI": 0.5, &"Music": 0.75}
-	var expected_mutes := {&"Master": true, &"SFX": false, &"UI": true, &"Music": false}
+	var expected_volumes := {&"Master": 0.25, &"SFX": 0.0, &"UI": 0.5, &"Music": 0.75, &"Ambient": 0.35}
+	var expected_mutes := {&"Master": true, &"SFX": false, &"UI": true, &"Music": false, &"Ambient": true}
 	for bus_name: StringName in TARGET_BUS_NAMES:
 		var bus_index := AudioServer.get_bus_index(bus_name)
 		_check(bus_index >= 0, "%s audio bus should exist after apply_audio" % bus_name, failures)

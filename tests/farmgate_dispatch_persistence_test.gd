@@ -23,13 +23,13 @@ func _init() -> void:
 func _test_active_route_round_trip(failures: Array[String]) -> void:
 	var source := _active_route_fixture(20_201)
 	var exported := _json_round_trip(source.export_save_state())
-	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current dispatch state should export schema v23", failures)
+	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current dispatch state should export schema v24", failures)
 	var facilities := exported.get("owned_facilities", {}) as Dictionary
-	_check(facilities.size() == 13, "schema v23 should serialize exactly thirteen facility keys", failures)
-	_check(int(facilities.get(String(DEPOT), -1)) == 1, "schema v23 should preserve depot tier one", failures)
-	_check(exported.has("farmgate_dispatch_state"), "schema v23 should include the strict dispatch ledger", failures)
-	_check(exported.has("pinned_capital_plan_id") and exported.has("facility_commissioning_history"), "schema v23 should persist capital planning and receipts", failures)
-	_check(exported.has("campus_expansion"), "schema v23 should include the strict North Meadow ledger", failures)
+	_check(facilities.size() == 13, "schema v24 should serialize exactly thirteen facility keys", failures)
+	_check(int(facilities.get(String(DEPOT), -1)) == 1, "schema v24 should preserve depot tier one", failures)
+	_check(exported.has("farmgate_dispatch_state"), "schema v24 should include the strict dispatch ledger", failures)
+	_check(exported.has("pinned_capital_plan_id") and exported.has("facility_commissioning_history"), "schema v24 should persist capital planning and receipts", failures)
+	_check(exported.has("campus_expansion"), "schema v24 should include the strict North Meadow ledger", failures)
 
 	var restored := DepartmentSimulation.new(20_202, 6)
 	_check(restored.restore_save_state(exported), "canonical active-route JSON should restore", failures)
@@ -57,7 +57,7 @@ func _test_neutral_v19_migration(failures: Array[String]) -> void:
 	var restored := DepartmentSimulation.new(20_212, 4)
 	_check(restored.restore_save_state(_json_round_trip(legacy)), "strict valid v19 checkpoint should migrate", failures)
 	var migrated := restored.export_save_state()
-	_check(int(migrated.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v19 should re-export as schema v23", failures)
+	_check(int(migrated.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v19 should re-export as schema v24", failures)
 	_check((migrated.get("owned_facilities", {}) as Dictionary).size() == 13, "migration should append exactly one depot facility", failures)
 	_check(restored.facility_level(DEPOT) == 0, "migration should append the depot unowned", failures)
 	_check(restored.revenue_cents == opening_fund, "migration must not reclassify prior immediate egg cash", failures)

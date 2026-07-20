@@ -26,7 +26,7 @@ func _test_v22_neutral_migration_and_smuggling_guard(failures: Array[String]) ->
 	var target := DepartmentSimulation.new(23_102, 4)
 	_check(target.restore_save_state(_json_round_trip(legacy)), "canonical v22 checkpoint should migrate", failures)
 	var migrated: Dictionary = _json_round_trip(target.export_save_state()) as Dictionary
-	_check(int(migrated.get("state_version", -1)) == 23, "v22 checkpoint should re-export as v23", failures)
+	_check(int(migrated.get("state_version", -1)) == 25, "v22 checkpoint should chain through the current v25 schema", failures)
 	_check(
 		migrated.get("farm_treasury_state", {})
 		== _json_round_trip(Treasury.neutral_save_data(5000, 0)),

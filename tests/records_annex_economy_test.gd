@@ -120,7 +120,7 @@ func _test_rejected_intake_is_recorded_without_minting_cash(failures: Array[Stri
 
 
 func _test_persistence_and_v10_migration(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 23, "schema v23 should retain the Records Annex persistence contract", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 25, "schema v25 should retain the Records Annex persistence contract", failures)
 	var source := DepartmentSimulation.new(9421, 4)
 	source.day = 3
 	source.owned_facilities[FACILITY_ID] = 2
@@ -129,16 +129,16 @@ func _test_persistence_and_v10_migration(failures: Array[String]) -> void:
 	source.intake_missed_value_today_cents = 1565
 	source.intake_missed_value_total_cents = 4890
 	var state := source.export_save_state()
-	_check(int(state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "Records Annex checkpoint should export current schema v23", failures)
-	_check(int((state.get("owned_facilities", {}) as Dictionary).get(String(FACILITY_ID), -1)) == 2, "schema v23 should serialize Records Annex tier with a primitive key", failures)
-	_check(state.has("campus_expansion"), "schema v23 should serialize the strict North Meadow ledger", failures)
+	_check(int(state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "Records Annex checkpoint should export current schema v24", failures)
+	_check(int((state.get("owned_facilities", {}) as Dictionary).get(String(FACILITY_ID), -1)) == 2, "schema v24 should serialize Records Annex tier with a primitive key", failures)
+	_check(state.has("campus_expansion"), "schema v24 should serialize the strict North Meadow ledger", failures)
 	for field in [
 		"intake_rejections_today",
 		"intake_rejections_total",
 		"intake_missed_value_today_cents",
 		"intake_missed_value_total_cents",
 	]:
-		_check(state.has(field), "schema v23 should serialize %s" % field, failures)
+		_check(state.has(field), "schema v24 should serialize %s" % field, failures)
 
 	var parsed: Variant = JSON.parse_string(JSON.stringify(state))
 	_check(parsed is Dictionary, "Records Annex checkpoint should remain primitive JSON", failures)
@@ -207,7 +207,7 @@ func _test_persistence_and_v10_migration(failures: Array[String]) -> void:
 	_check(migrated.intake_rejections_today == 0 and migrated.intake_rejections_total == 0, "v10 migration must not invent rejected files", failures)
 	_check(migrated.intake_missed_value_today_cents == 0 and migrated.intake_missed_value_total_cents == 0, "v10 migration must not invent missed value", failures)
 	var migrated_state := migrated.export_save_state()
-	_check(int(migrated_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "migrated checkpoint should re-export schema v23", failures)
+	_check(int(migrated_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "migrated checkpoint should re-export schema v24", failures)
 	var migrated_facilities := migrated_state.get("owned_facilities", {}) as Dictionary
 	var all_facilities_neutral := migrated_facilities.size() == 13
 	for level_value in migrated_facilities.values():

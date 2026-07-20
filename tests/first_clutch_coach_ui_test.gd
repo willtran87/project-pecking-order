@@ -12,6 +12,11 @@ func _run() -> void:
 	root.add_child(routing_ui)
 	await process_frame
 	await process_frame
+	_check(routing_ui.process_mode == Node.PROCESS_MODE_ALWAYS, "First Clutch's visible controls should settle and animate while management pauses the simulation", failures)
+	var settled_skip_target := {"rect": Rect2()}
+	routing_ui.first_clutch_skip_rect_settled.connect(
+		func(rect: Rect2) -> void: settled_skip_target["rect"] = rect
+	)
 
 	var coach := routing_ui.find_child("FirstClutchCoach", true, false) as PanelContainer
 	var progress := routing_ui.find_child("FirstClutchProgress", true, false) as Label
@@ -28,6 +33,10 @@ func _run() -> void:
 	var personnel_status := routing_ui.find_child("RoutingPersonnelStatus", true, false) as HBoxContainer
 	var assist_row := routing_ui.find_child("RoutingAssistRow", true, false) as HBoxContainer
 	var details := routing_ui.find_child("RoutingDetailsToggle", true, false) as Button
+	var dossier_tabs := routing_ui.find_child("RoutingDossierTabs", true, false) as HBoxContainer
+	var route_tab := routing_ui.find_child("DossierTab_route", true, false) as Button
+	var support_tab := routing_ui.find_child("DossierTab_support", true, false) as Button
+	var profile_tab := routing_ui.find_child("DossierTab_profile", true, false) as Button
 	var worker_career := routing_ui.find_child("RoutingWorkerCareer", true, false) as Label
 	var manager_trust := routing_ui.find_child("RoutingManagerTrust", true, false) as Label
 	var grievance := routing_ui.find_child("RoutingGrievance", true, false) as Label
@@ -307,21 +316,80 @@ func _run() -> void:
 		failures,
 	)
 
+	routing_ui.apply_first_clutch({
+		"visible": true,
+		"progress": 1,
+		"total": 5,
+		"stage": &"inspect",
+		"title": "Inspect the first hen",
+		"body": "Open the live dossier.",
+		"target_worker_id": 0,
+		"can_skip": true,
+	})
+	await process_frame
+	var published_skip_rect := routing_ui.first_clutch_skip_button_rect()
+	_check(published_skip_rect.size.x > 0.0 and published_skip_rect.size.y > 0.0, "visible Skip should publish its exact canvas target", failures)
+	_check((settled_skip_target["rect"] as Rect2).is_equal_approx(published_skip_rect), "the always-processing UI should announce the same settled target shown on the canvas", failures)
+	if skip != null:
+		skip.grab_focus()
+	await process_frame
+	_check(root.gui_get_focus_owner() == skip, "dismissal focus fixture should begin on visible Skip", failures)
 	routing_ui.set_first_clutch_stage(&"normal")
 	await process_frame
+	_check(routing_ui.first_clutch_skip_button_rect() == Rect2(), "hidden coach should clear its published Skip target", failures)
 	_check(coach != null and not coach.visible, "caller-visible false should hide the coach cleanly for modal states", failures)
+	_check(root.gui_get_focus_owner() == null, "hiding a focused coach should release its invisible GUI focus back to floor controls", failures)
 	_check(priority_peck != null and not bool(priority_peck.get_meta("first_clutch_cue", false)), "hiding the coach should clear its final dossier cue", failures)
 	_check(queue != null and queue.is_visible_in_tree(), "normal play should restore the queue strip", failures)
-	_check(assignments != null and assignments.is_visible_in_tree(), "normal play should restore every routing action", failures)
-	_check(personnel_actions != null and personnel_actions.is_visible_in_tree(), "normal play should restore every personnel action", failures)
-	_check(priority_peck != null and priority_peck.is_visible_in_tree(), "normal play should restore Priority Peck", failures)
+	_check(dossier_tabs != null and dossier_tabs.is_visible_in_tree(), "normal play should restore the Route, Support, and Profile dossier tabs", failures)
+	_check(route_tab != null and route_tab.button_pressed, "normal play should reopen on the Route tab", failures)
+	_check(assignments != null and assignments.is_visible_in_tree(), "the normal Route tab should restore every routing action", failures)
+	_check(personnel_actions != null and not personnel_actions.visible, "the normal Route tab should keep Support actions out of the active category", failures)
+	_check(priority_peck != null and priority_peck.is_visible_in_tree(), "the normal Route tab should restore Priority Peck", failures)
 	_check(compact_queue != null and compact_queue.is_visible_in_tree(), "narrow normal play should collapse queue detail into one summary chip", failures)
 	if queue != null:
 		var normal_queue_rect := queue.get_global_rect()
 		_check(normal_queue_rect.position.x >= 0.0 and normal_queue_rect.end.x <= 390.0, "compact queue chip should remain inside a narrow viewport", failures)
 	var normal_presentation := routing_ui.first_clutch_presentation_state()
 	_check(not bool(normal_presentation.get("active", true)), "normal API state should retire progressive disclosure", failures)
-	_check(bool(normal_presentation.get("routing_visible", false)) and bool(normal_presentation.get("check_in_visible", false)), "normal metadata should prove all management categories are restored", failures)
+	_check(
+		String(normal_presentation.get("active_dossier_tab", "")) == "route"
+		and bool(normal_presentation.get("dossier_tabs_visible", false))
+		and bool(normal_presentation.get("routing_visible", false))
+		and not bool(normal_presentation.get("check_in_visible", true)),
+		"normal metadata should describe the active Route category without claiming hidden Support actions are visible",
+		failures,
+	)
+
+	if support_tab != null:
+		support_tab.pressed.emit()
+	await process_frame
+	await process_frame
+	_check(support_tab != null and support_tab.button_pressed, "Support should become the active dossier tab", failures)
+	_check(personnel_actions != null and personnel_actions.is_visible_in_tree(), "Support should expose every personnel action", failures)
+	_check(assignments != null and not assignments.visible, "Support should hide Route actions while preserving them", failures)
+	var support_presentation := routing_ui.first_clutch_presentation_state()
+	_check(
+		String(support_presentation.get("active_dossier_tab", "")) == "support"
+		and bool(support_presentation.get("check_in_visible", false))
+		and not bool(support_presentation.get("routing_visible", true)),
+		"normal metadata should follow the visible Support category",
+		failures,
+	)
+
+	if profile_tab != null:
+		profile_tab.pressed.emit()
+	await process_frame
+	await process_frame
+	_check(profile_tab != null and profile_tab.button_pressed, "Profile should become the active dossier tab", failures)
+	_check(
+		worker_career != null and worker_career.is_visible_in_tree()
+		and manager_trust != null and manager_trust.is_visible_in_tree()
+		and grievance != null and grievance.is_visible_in_tree(),
+		"Profile should expose the hen's career, trust, and grievance details",
+		failures,
+	)
+	_check(assignments != null and not assignments.visible and personnel_actions != null and not personnel_actions.visible, "Profile should avoid mixing Route or Support controls into its details", failures)
 
 	routing_ui.free()
 	await process_frame

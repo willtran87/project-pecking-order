@@ -35,10 +35,11 @@ func _test_catalog_and_shift_gate(failures: Array[String]) -> void:
 	var choices := campaign.milestone_catalog()
 	_check(choices.size() == 3, "probation should offer exactly three milestone choices", failures)
 	var expected_choices := {
-		"padded_perches": {"unlock": "welfare_breaks", "effect": "stress_gain_percent", "value": -12},
-		"shell_quality_lab": {"unlock": "shell_quality_checks", "effect": "crack_risk_basis_points", "value": -250},
-		"farmer_credit_line": {"unlock": "farmer_credit_bonus", "effect": "egg_value_bonus_cents", "value": 25},
+		"padded_perches": {"unlock": "welfare_breaks", "effect": "stress_gain_percent", "value": -12, "doctrine": "FLOCK STEWARDSHIP"},
+		"shell_quality_lab": {"unlock": "shell_quality_checks", "effect": "crack_risk_basis_points", "value": -250, "doctrine": "SHELL ASSURANCE"},
+		"farmer_credit_line": {"unlock": "farmer_credit_bonus", "effect": "egg_value_bonus_cents", "value": 25, "doctrine": "HARVEST PARTNERSHIP"},
 	}
+	var doctrine_ids := {}
 	for choice in choices:
 		var id := String(choice.get("id", ""))
 		_check(expected_choices.has(id), "milestone choice ID should be stable", failures)
@@ -47,6 +48,16 @@ func _test_catalog_and_shift_gate(failures: Array[String]) -> void:
 			_check(String(choice.get("unlock_id", "")) == String(expected["unlock"]), "%s should grant its documented unlock" % id, failures)
 			var effects := choice.get("effects", {}) as Dictionary
 			_check(int(effects.get(expected["effect"], 999_999)) == int(expected["value"]), "%s should expose an integer gameplay modifier" % id, failures)
+			var doctrine := choice.get("doctrine", {}) as Dictionary
+			var doctrine_label := String(doctrine.get("label", ""))
+			doctrine_ids[doctrine_label] = true
+			_check(doctrine_label == String(expected["doctrine"]), "%s should expose its distinct doctrine label" % id, failures)
+			_check(not String(doctrine.get("label", "")).is_empty(), "%s doctrine should have a player-facing label" % id, failures)
+			_check((doctrine.get("strengths", []) as Array).size() >= 2, "%s doctrine should disclose multiple strengths" % id, failures)
+			_check((doctrine.get("watchouts", []) as Array).size() >= 1, "%s doctrine should disclose a real obligation" % id, failures)
+			_check(not String(doctrine.get("playbook", "")).is_empty(), "%s doctrine should offer actionable guidance" % id, failures)
+	_check(doctrine_ids.size() == 3 and not doctrine_ids.has(""), "each milestone should define one distinct doctrine", failures)
+	_check(campaign.active_doctrine().is_empty(), "a new campaign should not invent an active doctrine", failures)
 	_check(not campaign.is_milestone_choice_available(), "milestone should remain locked before shift two", failures)
 	_check(not campaign.choose_milestone(&"shell_quality_lab"), "choice should not apply before its gate", failures)
 
@@ -116,6 +127,9 @@ func _test_five_shift_pass_and_cumulative_ledgers(failures: Array[String]) -> vo
 			_check(campaign.probation_score == mini(100, score_before_choice + 2), "milestone should apply its disclosed score bonus once", failures)
 			_check(campaign.has_unlock(&"shell_quality_checks"), "chosen milestone should persist its unlock", failures)
 			_check(int(campaign.active_unlock_effects().get("crack_risk_basis_points", 0)) == -250, "selected quality lab should expose its exact modifier", failures)
+			var active_doctrine := campaign.active_doctrine()
+			_check(String(active_doctrine.get("label", "")) == "SHELL ASSURANCE", "selected quality lab should derive the Shell Assurance doctrine", failures)
+			_check(String(active_doctrine.get("milestone_id", "")) == "shell_quality_lab", "active doctrine should retain its authoritative milestone source", failures)
 			_check(not campaign.choose_milestone(&"padded_perches"), "milestone selection should be mutually exclusive", failures)
 
 		var credited := 8000 + shift_number * 500
@@ -186,6 +200,8 @@ func _test_determinism_and_json_round_trip(failures: Array[String]) -> void:
 	_check(first.to_dictionary() == second.to_dictionary(), "same reports and choices should produce byte-for-byte deterministic state", failures)
 
 	var json_text := JSON.stringify(first.to_dictionary())
+	_check(not first.to_dictionary().has("active_doctrine"), "doctrine guidance should remain derived instead of duplicating save identity", failures)
+	_check(String(first.snapshot().get("active_doctrine", {}).get("milestone_id", "")) == "padded_perches", "runtime snapshot should derive doctrine from the chosen milestone", failures)
 	var parsed_value: Variant = JSON.parse_string(json_text)
 	_check(typeof(parsed_value) == TYPE_DICTIONARY, "campaign dictionary should be valid JSON", failures)
 	if typeof(parsed_value) != TYPE_DICTIONARY:
@@ -197,6 +213,8 @@ func _test_determinism_and_json_round_trip(failures: Array[String]) -> void:
 	if restored != null:
 		_check(restored.to_dictionary() == first.to_dictionary(), "restored campaign should reproduce the exact primitive state", failures)
 		_check(restored.has_unlock(&"welfare_breaks"), "restored milestone unlock should retain its typed identity", failures)
+		_check(restored.active_doctrine() == first.active_doctrine(), "restored milestone should derive the identical doctrine without new save data", failures)
+		_check(String(restored.active_doctrine().get("label", "")) == "FLOCK STEWARDSHIP", "padded-perches save should restore Flock Stewardship", failures)
 		_check(typeof(restored.total_credited_cents) == TYPE_INT, "restored currency should be an integer", failures)
 
 

@@ -16,6 +16,10 @@ func _run() -> void:
 	var clock := office.get("_clock") as SimulationClock
 	var quota_progress := office.find_child("ShiftQuotaProgress", true, false) as ProgressBar
 	var review_panel := office.find_child("DayReviewPanel", true, false) as PanelContainer
+	var review_summary := office.find_child("FarmerReviewSummary", true, false) as Label
+	var review_details_toggle := office.find_child("FarmerReviewDetailsToggle", true, false) as Button
+	var review_details_scroll := office.find_child("FarmerReviewAccountingScroll", true, false) as ScrollContainer
+	var review_results := office.find_child("FarmerReviewAccountingDetails", true, false) as Label
 	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
 	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
 	_check(clock != null and clock.speed_index == 0, "first shift should begin paused for its morning directive", failures)
@@ -40,8 +44,48 @@ func _run() -> void:
 	_check(StringName(simulation.active_directive_snapshot().get("id", &"")) == &"shell_assurance", "authorized directive should become authoritative", failures)
 	_check(clock.speed_index == 1, "authorizing the morning directive should start the shift", failures)
 	clock.set_speed(0)
+	var campaign_objectives := office.find_child("CampaignObjectivesLabel", true, false) as Label
+	var badge_order_progress := office.find_child("ProbationOrderProgressLabel", true, false) as Label
+	_check(
+		campaign_objectives != null
+		and badge_order_progress != null
+		and badge_order_progress.is_visible_in_tree()
+		and badge_order_progress.text == "ORDERS  %d / %d" % [
+			int(campaign_objectives.get_meta("orders_on_track", -1)),
+			int(campaign_objectives.get_meta("orders_total", -1)),
+		],
+		"the always-visible badge should mirror the same authoritative live orders as Flockwatch",
+		failures,
+	)
 	_check(quota_progress != null and int(quota_progress.max_value) == 16 and int(quota_progress.value) == 0, "top HUD should scale the opening objective to four active hens", failures)
 	_check(office.find_children("Upgrade_*", "Button", true, false).size() == 3, "Flockwatch should expose three upgrade paths", failures)
+	var requisitions_toggle := office.find_child("DeskRequisitionsToggle", true, false) as Button
+	var shift_help_toggle := office.find_child("OperationsShiftHelpToggle", true, false) as Button
+	var shift_help := office.find_child("OperationsShiftHelp", true, false) as Label
+	var records_summary := office.find_child("FlockwatchRecordsArchiveSummary", true, false) as Label
+	_check(
+		requisitions_toggle != null
+		and requisitions_toggle.focus_mode == Control.FOCUS_ALL
+		and "FILES" in requisitions_toggle.text,
+		"Capital should retain its requisitions behind a keyboard-focusable filing summary",
+		failures,
+	)
+	_check(
+		shift_help_toggle != null
+		and shift_help_toggle.focus_mode == Control.FOCUS_ALL
+		and shift_help != null
+		and not shift_help.visible,
+		"Operations help should begin as a concise optional row instead of permanent menu copy",
+		failures,
+	)
+	_check(
+		records_summary != null
+		and "FARM MUTUAL" in records_summary.text
+		and "FLOCK LABOR" in records_summary.text
+		and "RECEIPTS" in records_summary.text,
+		"Records should provide a useful compact archive instead of an empty page",
+		failures,
+	)
 	_check(
 		flockwatch_toggle != null
 		and "FLOCKWATCH" in flockwatch_toggle.text
@@ -74,9 +118,39 @@ func _run() -> void:
 	await process_frame
 	_check(review_panel.is_visible_in_tree(), "shift completion should open the farmer review", failures)
 	_check(clock.speed_index == 0, "farmer review should pause the next shift", failures)
-	var review_results := office.get("_review_results") as Label
+	_check(
+		review_summary != null
+		and review_summary.is_visible_in_tree()
+		and "TARGET HARVESTED" in review_summary.text
+		and "16 / 16 EGGS" in review_summary.text
+		and "NET" in review_summary.text
+		and "FEED FUND" in review_summary.text
+		and "NEXT TARGET" in review_summary.text,
+		"Farmer Review should lead with one compact outcome, cash, and next-target summary",
+		failures,
+	)
+	_check(
+		review_details_toggle != null
+		and review_details_toggle.is_visible_in_tree()
+		and review_details_toggle.text == "SHOW ACCOUNTING DETAILS"
+		and review_details_scroll != null
+		and not review_details_scroll.visible,
+		"the full accounting ledger should begin behind an explicit disclosure",
+		failures,
+	)
+	if review_details_toggle != null:
+		review_details_toggle.pressed.emit()
+	await process_frame
+	_check(
+		review_details_scroll != null
+		and review_details_scroll.is_visible_in_tree()
+		and review_details_toggle.text == "HIDE ACCOUNTING DETAILS",
+		"the accounting disclosure should reveal a bounded scrolling detail region",
+		failures,
+	)
 	_check(
 		review_results != null
+		and review_results.is_visible_in_tree()
 		and "TARGET HARVESTED" in review_results.text
 		and "Quality bonus" in review_results.text
 		and "Payroll" in review_results.text
@@ -86,6 +160,13 @@ func _run() -> void:
 		"review should reconcile rewards, obligations, net operations, and closing cash",
 		failures,
 	)
+	if review_panel != null:
+		var review_rect := review_panel.get_global_rect()
+		_check(
+			review_rect.position.y >= 0.0 and review_rect.end.y <= 720.0,
+			"the expanded Farmer Review should remain inside the authored 720p stage",
+			failures,
+		)
 	# Let the short upgrade/review cues naturally retire before tearing down the
 	# entire office; the dummy headless audio driver otherwise reports them as
 	# live playback resources during process shutdown.

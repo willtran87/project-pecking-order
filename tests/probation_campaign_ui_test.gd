@@ -14,6 +14,8 @@ func _run() -> void:
 		"new": 0,
 		"abandon": 0,
 		"milestone": &"",
+		"challenge_contract": &"",
+		"title_phase": &"",
 	}
 	var harness := Control.new()
 	harness.name = "ProbationCampaignUITestHarness"
@@ -25,6 +27,12 @@ func _run() -> void:
 	ui.new_campaign.connect(func() -> void: observed["new"] += 1)
 	ui.abandon_campaign.connect(func() -> void: observed["abandon"] += 1)
 	ui.milestone_choice.connect(func(choice_id: StringName) -> void: observed["milestone"] = choice_id)
+	ui.challenge_contract_changed.connect(
+		func(contract_id: StringName) -> void: observed["challenge_contract"] = contract_id
+	)
+	ui.title_intake_phase_changed.connect(
+		func(phase: StringName) -> void: observed["title_phase"] = phase
+	)
 	await process_frame
 
 	var badge := ui.find_child("ProbationDayBadge", true, false) as PanelContainer
@@ -36,21 +44,77 @@ func _run() -> void:
 	_check(day_label != null and day_label.text == "DAY 1 / 5", "badge should open on day one of five", failures)
 	_check(modal_host != null and not modal_host.is_visible_in_tree(), "active campaign should leave the office unobstructed", failures)
 
-	ui.show_active_campaign({"status": "Probation", "score": 50})
+	ui.show_active_campaign({
+		"status": "Probation",
+		"score": 50,
+		"challenge_contract": _challenge_contract("executive_audit"),
+	})
 	await process_frame
 	_check(status_label != null and status_label.text == "SCORE 50 / 100", "active probation badge should name the score scale explicitly", failures)
 	_check(
 		status_label != null
-		and "60 / 100" in status_label.tooltip_text
-		and "welfare" in status_label.tooltip_text
-		and "compliance" in status_label.tooltip_text
-		and "farmer favor" in status_label.tooltip_text
-		and "shell-quality safeguards" in status_label.tooltip_text,
-		"score badge tooltip should explain the threshold and every final safeguard",
+		and _contains_all(status_label.tooltip_text, [
+			"EXECUTIVE AUDIT", "SCORE >= 65 / 100", "WELFARE >= 48",
+			"COMPLIANCE >= 65", "FARMER FAVOR >= 53", "CRACK RATE <= 23.00%",
+		]),
+		"score badge tooltip should explain the active contract and every exact threshold",
+		failures,
+	)
+	var order_progress_row := ui.find_child("ProbationOrderProgressRow", true, false) as HBoxContainer
+	var order_progress_label := ui.find_child("ProbationOrderProgressLabel", true, false) as Label
+	var first_order_stamp := ui.find_child("ProbationOrderStamp1", true, false) as PanelContainer
+	var third_order_stamp := ui.find_child("ProbationOrderStamp3", true, false) as PanelContainer
+	var seeded_delta := ui.set_live_order_progress(2, 3, &"probation:1")
+	await process_frame
+	_check(
+		seeded_delta == 0
+		and order_progress_row != null
+		and order_progress_row.is_visible_in_tree()
+		and order_progress_label != null
+		and order_progress_label.text == "ORDERS  2 / 3",
+		"active badge should quietly seed the exact live order count without adding another panel",
+		failures,
+	)
+	_check(
+		first_order_stamp != null
+		and third_order_stamp != null
+		and first_order_stamp.is_visible_in_tree()
+		and third_order_stamp.is_visible_in_tree(),
+		"active badge should expose one stable visual stamp for each authored order",
+		failures,
+	)
+	var improved_delta := ui.set_live_order_progress(3, 3, &"probation:1")
+	_check(
+		improved_delta == 1
+		and order_progress_label.text == "ORDERS  3 / 3"
+		and int(ui.live_order_progress().get("on_track", 0)) == 3,
+		"same-day improvement should return one semantic transition and update the compact badge",
+		failures,
+	)
+	ui.set_reduced_motion(true)
+	var risk_delta := ui.set_live_order_progress(2, 3, &"probation:1")
+	_check(
+		risk_delta == -1
+		and badge.modulate.is_equal_approx(Color.WHITE)
+		and "Closing metrics can still move" in order_progress_label.tooltip_text,
+		"risk transitions should remain legible without a pulse when reduced motion is active",
+		failures,
+	)
+	var next_day_delta := ui.set_live_order_progress(1, 3, &"probation:2")
+	_check(
+		next_day_delta == 0 and order_progress_label.text == "ORDERS  1 / 3",
+		"a new shift should seed quietly instead of replaying a stale reward cue",
 		failures,
 	)
 
-	ui.show_title(false)
+	ui.apply_snapshot({
+		"view": &"title",
+		"day": 1,
+		"total_days": 5,
+		"continue_available": false,
+		"challenge_contract_catalog": _challenge_contract_catalog(),
+		"selected_new_challenge_contract_id": "standard_filing",
+	})
 	await process_frame
 	var title_panel := ui.find_child("CampaignTitlePanel", true, false) as PanelContainer
 	var title_heading := ui.find_child("CampaignTitle", true, false) as Label
@@ -59,8 +123,16 @@ func _run() -> void:
 	var mabel_identity := ui.find_child("CampaignMabelIdentity", true, false) as Label
 	var mabel_traits := ui.find_child("CampaignMabelTraits", true, false) as Label
 	var mabel_quote := ui.find_child("CampaignMabelQuote", true, false) as Label
+	var challenge_selector := ui.find_child("ChallengeContractSelector", true, false) as OptionButton
+	var challenge_card := ui.find_child("ChallengeContractCard", true, false) as PanelContainer
+	var challenge_summary := ui.find_child("ChallengeContractSummary", true, false) as Label
+	var challenge_terms_toggle := ui.find_child("ChallengeContractTermsToggle", true, false) as Button
+	var challenge_detail := ui.find_child("ChallengeContractDetail", true, false) as Label
+	var probation_summary := ui.find_child("ProbationFiveShiftSummary", true, false) as PanelContainer
+	var probation_summary_detail := ui.find_child("ProbationFiveShiftDetail", true, false) as Label
 	var new_button := ui.find_child("NewCampaignButton", true, false) as Button
 	var continue_button := ui.find_child("ContinueCampaignButton", true, false) as Button
+	var back_button := ui.find_child("BackToSavedCampaignButton", true, false) as Button
 	_check(title_panel != null and title_panel.is_visible_in_tree(), "first load should show the campaign title panel", failures)
 	_check(modal_host.is_visible_in_tree(), "title panel should be an intentional blocking modal", failures)
 	_check(
@@ -98,12 +170,114 @@ func _run() -> void:
 		"Mabel profile should give the opening hen a concise first-person perspective",
 		failures,
 	)
-	_check(continue_button != null and continue_button.disabled, "continue should be disabled without a saved campaign", failures)
+	_check(
+		continue_button != null and continue_button.disabled and not continue_button.is_visible_in_tree(),
+		"fresh intake should omit an unusable Continue action instead of adding a disabled peer",
+		failures,
+	)
 	_check(
 		new_button != null
 		and new_button.text == "MEET MABEL & OPEN FILE  [N]"
+		and new_button.theme_type_variation == &"PrimaryButton"
 		and new_button.focus_mode == Control.FOCUS_ALL,
-		"primary title action should invite the player to meet Mabel and support keyboard focus",
+		"fresh intake should expose one primary Mabel action with keyboard focus",
+		failures,
+	)
+	_check(
+		_count_visible_primary_buttons(title_panel) == 1
+		and back_button != null and not back_button.is_visible_in_tree(),
+		"fresh intake should have exactly one visually primary CTA and no irrelevant Back action",
+		failures,
+	)
+	_check(
+		probation_summary != null and probation_summary.is_visible_in_tree()
+		and probation_summary_detail != null
+		and _contains_all(probation_summary_detail.text, [
+			"One permanent coop file", "closing report after each shift", "final review after Shift 5",
+		])
+		and ui.find_child("ProbationDayStamp_1", true, false) == null
+		and ui.find_child("ProbationDayStamp_5", true, false) == null,
+		"one concise five-shift summary should replace five equal-weight day stamps",
+		failures,
+	)
+	_check(
+		challenge_selector != null
+		and challenge_selector.item_count == 3
+		and challenge_selector.focus_mode == Control.FOCUS_ALL
+		and challenge_selector.get_item_text(0) == "[LEARNING] SUPPORTED FLOCK"
+		and challenge_selector.get_item_text(1) == "[STANDARD] STANDARD FILING"
+		and challenge_selector.get_item_text(2) == "[EXPERT] EXECUTIVE AUDIT"
+		and challenge_selector.get_item_text(challenge_selector.selected) == "[STANDARD] STANDARD FILING"
+		and ui.selected_challenge_contract_id() == &"standard_filing",
+		"title should default its keyboard/controller selector to the Standard filing",
+		failures,
+	)
+	_check(
+		challenge_card != null and challenge_card.is_visible_in_tree()
+		and challenge_summary != null and challenge_summary.is_visible_in_tree()
+		and challenge_terms_toggle != null and challenge_terms_toggle.is_visible_in_tree()
+		and challenge_terms_toggle.focus_mode == Control.FOCUS_ALL
+		and challenge_terms_toggle.shortcut != null
+		and challenge_detail != null and not challenge_detail.is_visible_in_tree()
+		and "STANDARD DIFFICULTY" in challenge_summary.text
+		and "BALANCED ROUTES" in challenge_summary.text
+		and "LOCKS ON OPEN" in challenge_summary.text
+		and _contains_all(challenge_terms_toggle.tooltip_text, [
+			"recommended authored balance",
+			"SCORE >= 60 / 100", "WELFARE >= 45", "COMPLIANCE >= 55",
+			"FARMER FAVOR >= 50", "CRACK RATE <= 25.00%", "Every permanent doctrine",
+		]),
+		"Standard should keep every exact threshold keyboard-accessible behind a compact disclosure",
+		failures,
+	)
+	if challenge_terms_toggle != null:
+		challenge_terms_toggle.set_pressed_no_signal(true)
+		challenge_terms_toggle.pressed.emit()
+	_check(
+		challenge_detail != null and challenge_detail.is_visible_in_tree()
+		and challenge_detail.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
+		and _contains_all(challenge_detail.text, [
+			"SCORE >= 60 / 100", "WELFARE >= 45", "COMPLIANCE >= 55",
+			"FARMER FAVOR >= 50", "CRACK RATE <= 25.00%", "DIFFICULTY NOTE",
+		]),
+		"View Exact Terms should reveal every Standard filing threshold without changing authority",
+		failures,
+	)
+	if challenge_selector != null:
+		challenge_selector.select(0)
+		challenge_selector.item_selected.emit(0)
+	_check(
+		ui.selected_challenge_contract_id() == &"supported_flock"
+		and challenge_detail != null
+		and _contains_all(challenge_detail.text, [
+			"SCORE >= 45 / 100", "WELFARE >= 45", "COMPLIANCE >= 55",
+			"FARMER FAVOR >= 45", "CRACK RATE <= 30.00%", "Best for learning",
+		]),
+		"Supported Flock should retain its complete immutable threshold disclosure",
+		failures,
+	)
+	if challenge_selector != null:
+		challenge_selector.select(2)
+		challenge_selector.item_selected.emit(2)
+	_check(
+		ui.selected_challenge_contract_id() == &"executive_audit"
+		and StringName(observed["challenge_contract"]) == &"executive_audit"
+		and challenge_detail != null
+		and _contains_all(challenge_detail.text, [
+			"SCORE >= 65 / 100", "WELFARE >= 48", "COMPLIANCE >= 65",
+			"FARMER FAVOR >= 53", "CRACK RATE <= 23.00%",
+			"demanding replay contract",
+			"Harvest Partnership has a proven specialist route",
+		]),
+		"changing the selector should retain the exact Executive contract and disclose its specialist route",
+		failures,
+	)
+	if challenge_terms_toggle != null:
+		challenge_terms_toggle.set_pressed_no_signal(false)
+		challenge_terms_toggle.pressed.emit()
+	_check(
+		challenge_detail != null and not challenge_detail.is_visible_in_tree(),
+		"exact terms should collapse back to the compact new-file summary",
 		failures,
 	)
 	if new_button != null:
@@ -132,12 +306,15 @@ func _run() -> void:
 		"day": 1,
 		"total_days": 5,
 		"continue_available": true,
+		"challenge_contract_catalog": _challenge_contract_catalog(),
+		"selected_new_challenge_contract_id": "executive_audit",
 		"resume_summary": {
 			"day": 3,
 			"completed_shifts": 2,
 			"probation_score": 66,
 			"rank_label": "Trusted Layer",
 			"stage_label": "Farmer Review",
+			"challenge_contract": _challenge_contract("supported_flock"),
 		},
 	})
 	await process_frame
@@ -147,23 +324,107 @@ func _run() -> void:
 	_check(
 		resume_card != null and resume_card.is_visible_in_tree()
 		and resume_details != null
-		and _contains_all(resume_details.text, ["DAY 3 / 5", "2 SHIFTS FILED", "SCORE 66", "TRUSTED LAYER", "FARMER REVIEW"]),
+		and _contains_all(resume_details.text, [
+			"DAY 3 / 5", "2 SHIFTS FILED", "SCORE 66", "TRUSTED LAYER",
+			"FARMER REVIEW", "SAVED CHALLENGE CONTRACT  //  SUPPORTED FLOCK",
+		]),
 		"title should identify the exact resumable checkpoint before offering replacement",
+		failures,
+	)
+	_check(
+		continue_button != null and continue_button.is_visible_in_tree()
+		and not continue_button.disabled
+		and continue_button.text == "CONTINUE SAVED FILE  [C]"
+		and continue_button.theme_type_variation == &"PrimaryButton"
+		and new_button != null and new_button.is_visible_in_tree()
+		and new_button.text == "REVIEW A NEW FILE  [N]"
+		and new_button.theme_type_variation == &"DecisionChoiceButton"
+		and _count_visible_primary_buttons(title_panel) == 1,
+		"a resumable intake should be Continue-first with one primary CTA and a secondary new-file path",
+		failures,
+	)
+	_check(
+		mabel_card != null and not mabel_card.is_visible_in_tree()
+		and challenge_card != null and not challenge_card.is_visible_in_tree()
+		and probation_summary != null and not probation_summary.is_visible_in_tree()
+		and mabel_identity != null and mabel_identity.text == "MABEL  //  JUNIOR CLAIMS HEN",
+		"resume landing should suppress setup density while retaining Mabel's authored identity for the new-file stage",
+		failures,
+	)
+	_check(
+		ui.get_viewport().gui_get_focus_owner() == continue_button,
+		"resume-first intake should default keyboard/gamepad focus to Continue",
 		failures,
 	)
 	new_button.pressed.emit()
 	await process_frame
 	await process_frame
 	var replacement_host := ui.find_child("CampaignReplacementConfirmation", true, false) as Control
+	_check(
+		int(observed["new"]) == 1
+		and replacement_host != null and not replacement_host.is_visible_in_tree()
+		and resume_card != null and not resume_card.is_visible_in_tree()
+		and continue_button != null and not continue_button.is_visible_in_tree()
+		and mabel_card != null and mabel_card.is_visible_in_tree()
+		and challenge_card != null and challenge_card.is_visible_in_tree()
+		and probation_summary != null and probation_summary.is_visible_in_tree()
+		and new_button.text == "MEET MABEL & OPEN FILE  [N]"
+		and new_button.theme_type_variation == &"PrimaryButton"
+		and back_button != null and back_button.is_visible_in_tree()
+		and _count_visible_primary_buttons(title_panel) == 1,
+		"Review a New File should stage compact setup without emitting or replacing the saved campaign",
+		failures,
+	)
+	_check(
+		ui.title_intake_phase() == &"new_file"
+		and StringName(observed["title_phase"]) == &"new_file",
+		"staging a new file should publish its visible intake phase",
+		failures,
+	)
+	_check(
+		challenge_selector != null and ui.get_viewport().gui_get_focus_owner() == challenge_selector,
+		"staged new-file setup should put keyboard/gamepad focus on its immutable contract selector",
+		failures,
+	)
+	if back_button != null:
+		back_button.pressed.emit()
+	await process_frame
+	await process_frame
+	_check(
+		resume_card != null and resume_card.is_visible_in_tree()
+		and continue_button != null and continue_button.is_visible_in_tree()
+		and challenge_card != null and not challenge_card.is_visible_in_tree()
+		and ui.get_viewport().gui_get_focus_owner() == continue_button
+		and ui.selected_challenge_contract_id() == &"executive_audit"
+		and int(observed["new"]) == 1,
+		"Back should restore the saved-file landing without losing selection or emitting a campaign intent",
+		failures,
+	)
+	_check(
+		ui.title_intake_phase() == &"resume"
+		and StringName(observed["title_phase"]) == &"resume",
+		"Back should publish the restored resume-first phase",
+		failures,
+	)
+	new_button.pressed.emit()
+	await process_frame
+	await process_frame
+	new_button.pressed.emit()
+	await process_frame
+	await process_frame
 	var replacement_panel := ui.find_child("CampaignReplacementConfirmationPanel", true, false) as PanelContainer
 	var replacement_body := ui.find_child("CampaignReplacementConfirmationBody", true, false) as Label
 	var keep_button := ui.find_child("CancelCampaignReplacementButton", true, false) as Button
 	var replace_button := ui.find_child("ConfirmCampaignReplacementButton", true, false) as Button
-	_check(int(observed["new"]) == 1, "first replacement press must not emit a destructive new-campaign intent", failures)
+	_check(int(observed["new"]) == 1, "staging and replacement review must not emit a destructive new-campaign intent", failures)
 	_check(
 		replacement_host != null and replacement_host.is_visible_in_tree()
 		and replacement_body != null
-		and _contains_all(replacement_body.text, ["DAY 3 / 5", "SCORE 66", "untouched", "written and verified"]),
+		and _contains_all(replacement_body.text, [
+			"DAY 3 / 5", "SCORE 66", "SUPPORTED FLOCK",
+			"NEW CHALLENGE CONTRACT  //  EXECUTIVE AUDIT", "untouched", "written and verified",
+		])
+		and ui.selected_challenge_contract_id() == &"executive_audit",
 		"replacement confirmation should name the affected file and transactional guarantee",
 		failures,
 	)
@@ -188,8 +449,9 @@ func _run() -> void:
 	_check(
 		replacement_host != null and not replacement_host.is_visible_in_tree()
 		and ui.get_viewport().gui_get_focus_owner() == new_button
-		and int(observed["new"]) == 1,
-		"cancel should preserve the campaign and restore focus to the originating action",
+		and int(observed["new"]) == 1
+		and ui.selected_challenge_contract_id() == &"executive_audit",
+		"cancel should preserve the campaign, challenge selection, and originating focus",
 		failures,
 	)
 	new_button.pressed.emit()
@@ -198,12 +460,59 @@ func _run() -> void:
 		replace_button.pressed.emit()
 	_check(
 		int(observed["new"]) == 2
-		and replacement_host != null and not replacement_host.is_visible_in_tree(),
-		"only the explicit danger confirmation should emit replacement exactly once",
+		and replacement_host != null and not replacement_host.is_visible_in_tree()
+		and ui.selected_challenge_contract_id() == &"executive_audit",
+		"only explicit confirmation should emit once while retaining the selected challenge contract",
 		failures,
 	)
 	harness.size = Vector2(1280.0, 720.0)
 	await process_frame
+
+	ui.apply_snapshot({
+		"view": &"title",
+		"continue_available": true,
+		"challenge_contract_catalog": _challenge_contract_catalog(),
+		"selected_new_challenge_contract_id": "standard_filing",
+		"resume_summary": {
+			"day": 2,
+			"completed_shifts": 1,
+			"probation_score": 50,
+			"challenge_contract": {},
+			"challenge_contract_verified": false,
+		},
+	})
+	await process_frame
+	_check(
+		resume_details != null
+		and "UNVERIFIED SAVED TERMS" in resume_details.text
+		and "STANDARD FILING" not in resume_details.text,
+		"an unverified current-schema saved contract must never be previewed as Standard",
+		failures,
+	)
+
+	ui.apply_snapshot({
+		"view": &"title",
+		"continue_available": true,
+		"challenge_contract_catalog": _challenge_contract_catalog(),
+		"selected_new_challenge_contract_id": "standard_filing",
+		"resume_summary": {
+			"senior_roost": true,
+			"senior_year": 3,
+			"roost_marks": 7,
+			"mandate_seals": 2,
+			"challenge_contract": _challenge_contract("supported_flock"),
+			"challenge_contract_verified": true,
+		},
+	})
+	await process_frame
+	_check(
+		resume_details != null
+		and "SENIOR YEAR 3" in resume_details.text
+		and "CHALLENGE CONTRACT" not in resume_details.text
+		and "SUPPORTED FLOCK" not in resume_details.text,
+		"Senior resume copy should suppress the completed probation contract",
+		failures,
+	)
 
 	ui.apply_snapshot({
 		"view": "title",
@@ -285,6 +594,7 @@ func _run() -> void:
 			{"label": "Feed Fund", "value": 9235, "format": "currency_cents", "detail": "BANKED"},
 			{"label": "Shell Integrity", "value": 91, "format": "percent", "detail": "CAMPAIGN QUALITY"},
 		],
+		"challenge_contract": _challenge_contract("standard_filing"),
 		"probation_safeguard_forecast": _safeguard_forecast(false, false),
 		"next_objective": {
 			"title": "Clear Predator Backlog",
@@ -298,6 +608,13 @@ func _run() -> void:
 				"title": "Brass Keycaps",
 				"description": "Peckwork starts faster.",
 				"effect": "+10% processing speed",
+				"doctrine": {
+					"label": "SHELL ASSURANCE",
+					"summary": "Control brittle files before they become tomorrow's rework.",
+					"strengths": ["SHELL QUALITY", "COMPLIANCE"],
+					"watchouts": ["FLOCK WELFARE"],
+					"playbook": "Alternate quality pressure with recovery.",
+				},
 			},
 			{
 				"id": "soft_nests",
@@ -333,6 +650,7 @@ func _run() -> void:
 	var objective := ui.find_child("NextShiftObjective", true, false) as Label
 	var milestone_section := ui.find_child("MilestoneChoiceSection", true, false) as VBoxContainer
 	var choice := ui.find_child("MilestoneChoice_fast_keys", true, false) as Button
+	var milestone_hint := ui.find_child("MilestoneChoiceHint", true, false) as Label
 	var report_continue := ui.find_child("ContinueProbationButton", true, false) as Button
 	_check(report_panel != null and report_panel.is_visible_in_tree(), "between shifts should show the probation report", failures)
 	_check(
@@ -387,7 +705,7 @@ func _run() -> void:
 		safeguard_panel != null and safeguard_panel.is_visible_in_tree()
 		and safeguard_summary != null
 		and _contains_all(safeguard_summary.text, [
-			"CURRENT FORECAST", "4 / 5 SAFEGUARDS", "2 / 5 SHIFTS FILED",
+			"CURRENT FORECAST", "STANDARD FILING", "4 / 5 SAFEGUARDS", "2 / 5 SHIFTS FILED",
 			"ACTION REQUIRED", "LARGEST RECOVERABLE GAP", "FARMER FAVOR", "-1 POINT",
 		]),
 		"between-shift report should expose the exact pass count and largest recoverable gap",
@@ -433,13 +751,28 @@ func _run() -> void:
 		failures,
 	)
 	_check(milestone_section != null and milestone_section.is_visible_in_tree(), "offered milestones should appear as choice cards", failures)
-	_check(choice != null and choice.focus_mode == Control.FOCUS_ALL, "milestone cards should be keyboard focusable", failures)
+	_check(
+		choice != null and choice.focus_mode == Control.FOCUS_ALL
+		and choice.custom_minimum_size.y >= 108.0
+		and _contains_all(choice.text, [
+			"SHELL ASSURANCE", "BRASS KEYCAPS", "EDGE SHELL QUALITY",
+			"WATCH FLOCK WELFARE", "+10% processing speed",
+		])
+		and _contains_all(choice.tooltip_text, [
+			"Peckwork starts faster.", "SHELL QUALITY // COMPLIANCE",
+			"Alternate quality pressure with recovery.",
+		])
+		and String(choice.get_meta("doctrine_id", "")) == "fast_keys",
+		"doctrine milestone cards should stay focusable while disclosing identity, edge, obligation, effect, and playbook",
+		failures,
+	)
 	_check(report_continue != null and report_continue.disabled, "report should wait for a required milestone choice", failures)
 	if choice != null:
 		choice.pressed.emit()
 	_check(StringName(observed["milestone"]) == &"fast_keys", "milestone action should emit its stable identifier", failures)
 	_check(ui.selected_milestone_id() == &"fast_keys", "component should expose its selected milestone", failures)
 	_check(choice != null and choice.theme_type_variation == &"SelectedChoiceButton", "selected milestone should remain visually persistent", failures)
+	_check(milestone_hint != null and "SHELL ASSURANCE  //  BRASS KEYCAPS" in milestone_hint.text, "selected doctrine identity should remain visible before filing", failures)
 	_check(report_continue != null and not report_continue.disabled, "choosing a milestone should unlock continuation", failures)
 	if report_continue != null:
 		report_continue.pressed.emit()
@@ -517,6 +850,7 @@ func _run() -> void:
 		"score": 5120,
 		"rank": "Golden Rooster",
 		"passed": true,
+		"challenge_contract": _challenge_contract("standard_filing"),
 		"probation_safeguard_forecast": _safeguard_forecast(true, true),
 		"ledgers": [
 			{"label": "Eggs Filed", "value": 133},
@@ -538,7 +872,7 @@ func _run() -> void:
 	_check(
 		final_safeguard_panel != null and final_safeguard_panel.is_visible_in_tree()
 		and final_safeguard_summary != null
-		and final_safeguard_summary.text == "FINAL RESULT  //  5 / 5 SAFEGUARDS  //  ALL SAFEGUARDS PASS"
+		and final_safeguard_summary.text == "FINAL RESULT  //  STANDARD FILING  //  5 / 5 SAFEGUARDS  //  ALL SAFEGUARDS PASS"
 		and final_safeguard_favor != null
 		and final_safeguard_favor.text == "PASS  //  FARMER FAVOR  //  52 >= 50  //  +2 POINTS",
 		"passing final review should file an exact five-row safeguard receipt",
@@ -559,9 +893,25 @@ func _run() -> void:
 
 	ui.show_final_review({
 		"day": 5,
+		"score": 50,
+		"rank": "Probationary Manager",
+		"passed": true,
+		"challenge_contract": _challenge_contract("supported_flock"),
+		"probation_safeguard_forecast": {},
+	})
+	await process_frame
+	_check(
+		final_rank != null and final_rank.text == "QUALIFIED ROOSTER",
+		"a passed Supported Flock file should use an outcome-aware final title",
+		failures,
+	)
+
+	ui.show_final_review({
+		"day": 5,
 		"score": 900,
 		"rank": "Loose Feather",
 		"passed": false,
+		"challenge_contract": _challenge_contract("standard_filing"),
 		"probation_safeguard_forecast": _safeguard_forecast(true, false),
 	})
 	await process_frame
@@ -569,7 +919,7 @@ func _run() -> void:
 	_check(not final_continue.is_visible_in_tree(), "failure should not offer post-probation continuation", failures)
 	_check(
 		final_safeguard_summary != null
-		and final_safeguard_summary.text == "FINAL RESULT  //  4 / 5 SAFEGUARDS  //  FILE HELD"
+		and final_safeguard_summary.text == "FINAL RESULT  //  STANDARD FILING  //  4 / 5 SAFEGUARDS  //  FILE HELD"
 		and final_safeguard_favor != null
 		and final_safeguard_favor.text == "HELD  //  FARMER FAVOR  //  49 >= 50  //  -1 POINT",
 		"failed final review should name the exact held condition rather than hiding it behind the verdict",
@@ -595,8 +945,9 @@ func _run() -> void:
 	ui.show_active_campaign({"status": "Senior Roost", "score": 73})
 	await process_frame
 	_check(
-		status_label.text == "SENIOR ROOST  73",
-		"active badge should expose compact long-term status and score",
+		status_label.text == "ROOST  73"
+		and status_label.tooltip_text == "SENIOR ROOST  73",
+		"active badge should expose a fitted long-term status and preserve its full accessible label",
 		failures,
 	)
 
@@ -607,8 +958,23 @@ func _run() -> void:
 			push_error("PROBATION_CAMPAIGN_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PROBATION_CAMPAIGN_UI_TEST_PASSED badge=day/5+score/100+safeguards title=resume-gated report=closing-file-3/3+receipt+hen-file+ledgers+milestone final=pass/fail responsive=story-wrap+4 signals=4")
+	print("PROBATION_CAMPAIGN_UI_TEST_PASSED badge=day/5+score/100+safeguards title=resume-first+staged-new-file+one-primary+compact-five-shift+contract-disclosure report=closing-file-3/3+receipt+hen-file+ledgers+milestone final=pass/fail responsive=story-wrap+4 signals=5")
 	quit(0)
+
+
+func _count_visible_primary_buttons(panel: Control) -> int:
+	if panel == null:
+		return 0
+	var count := 0
+	for node: Node in panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if (
+			button != null
+			and button.is_visible_in_tree()
+			and button.theme_type_variation == &"PrimaryButton"
+		):
+			count += 1
+	return count
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
@@ -621,6 +987,74 @@ func _contains_all(text: String, needles: Array[String]) -> bool:
 		if needle not in text:
 			return false
 	return true
+
+
+func _challenge_contract_catalog() -> Array[Dictionary]:
+	return [
+		_challenge_contract("supported_flock"),
+		_challenge_contract("standard_filing"),
+		_challenge_contract("executive_audit"),
+	]
+
+
+func _challenge_contract(contract_id: String) -> Dictionary:
+	match contract_id:
+		"supported_flock":
+			return {
+				"id": "supported_flock",
+				"label": "SUPPORTED FLOCK",
+				"short_label": "SUPPORTED",
+				"difficulty": "learning",
+				"difficulty_label": "LEARNING",
+				"difficulty_guidance": "Best for learning the complete management loop with more recovery room.",
+				"description": "More room for score, farmer favor, and shell loss while preserving care floors.",
+				"route_brief": "OPEN ROUTES  //  CARE, QUALITY & HARVEST",
+				"route_guidance": "Use this contract to learn any doctrine while still managing welfare and compliance.",
+				"criteria": {
+					"minimum_score": 45,
+					"minimum_welfare": 45,
+					"minimum_compliance": 55,
+					"minimum_farmer_favor": 45,
+					"maximum_crack_rate_basis_points": 3000,
+				},
+			}
+		"executive_audit":
+			return {
+				"id": "executive_audit",
+				"label": "EXECUTIVE AUDIT",
+				"short_label": "EXECUTIVE",
+				"difficulty": "expert",
+				"difficulty_label": "EXPERT",
+				"difficulty_guidance": "A demanding replay contract for managers who already understand every safeguard.",
+				"description": "A tighter replay contract demanding stronger results in every filing.",
+				"route_brief": "EXPERT REPLAY  //  HARVEST ROUTE PROVEN",
+				"route_guidance": "Harvest Partnership has a proven specialist route. Care-led files need extra score; quality-led files must deliberately recover welfare and farmer favor.",
+				"criteria": {
+					"minimum_score": 65,
+					"minimum_welfare": 48,
+					"minimum_compliance": 65,
+					"minimum_farmer_favor": 53,
+					"maximum_crack_rate_basis_points": 2300,
+				},
+			}
+	return {
+		"id": "standard_filing",
+		"label": "STANDARD FILING",
+		"short_label": "STANDARD",
+		"difficulty": "standard",
+		"difficulty_label": "STANDARD",
+		"difficulty_guidance": "The recommended authored balance for a first complete probation file.",
+		"description": "The authored probation contract with the shipped balance.",
+		"route_brief": "BALANCED ROUTES  //  CARE, QUALITY & HARVEST",
+		"route_guidance": "Every permanent doctrine has a tested route through these terms.",
+		"criteria": {
+			"minimum_score": 60,
+			"minimum_welfare": 45,
+			"minimum_compliance": 55,
+			"minimum_farmer_favor": 50,
+			"maximum_crack_rate_basis_points": 2500,
+		},
+	}
 
 
 func _safeguard_forecast(is_final: bool, all_passing: bool) -> Dictionary:

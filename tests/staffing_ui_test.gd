@@ -33,6 +33,7 @@ func _run() -> void:
 		if flockwatch_navigation != null else null
 	) as ScrollContainer
 	var flockwatch_panel := office.find_child("FlockwatchLedger", true, false) as PanelContainer
+	var day_review_scrim := office.find_child("DayReviewScrim", true, false) as ColorRect
 	var capacity_button := office.find_child("PurchaseStaffCapacity", true, false) as Button
 	var treasury_label := office.find_child("FarmTreasurySummary", true, false) as Label
 	var fifth_workstation := office.find_child("Workstation_04", true, false) as Node3D
@@ -70,8 +71,8 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		fifth_workstation != null and not fifth_workstation.visible and fifth_capacity_marker != null and fifth_capacity_marker.visible,
-		"perch five should begin as a visible authorization marker instead of an active desk",
+		fifth_workstation != null and not fifth_workstation.visible and fifth_capacity_marker != null and not fifth_capacity_marker.visible,
+		"the opening office should withhold the fifth-perch construction marker until staffing is relevant",
 		failures,
 	)
 	_check(
@@ -130,6 +131,21 @@ func _run() -> void:
 		review_requisitions.pressed.emit()
 	await process_frame
 	_check(flockwatch_panel != null and flockwatch_panel.is_visible_in_tree(), "review requisitions should reveal Flockwatch", failures)
+	office.call("_on_flockwatch_pressed")
+	await process_frame
+	_check(
+		day_review_scrim != null and day_review_scrim.is_visible_in_tree(),
+		"closing review requisitions should restore the visible Farmer review instead of exposing a bare review-state office",
+		failures,
+	)
+	_check(
+		flockwatch_panel != null and not flockwatch_panel.is_visible_in_tree(),
+		"restoring the Farmer review should close the requisitions drawer",
+		failures,
+	)
+	if review_requisitions != null:
+		review_requisitions.pressed.emit()
+	await process_frame
 	_check(
 		flockwatch_navigation != null
 		and flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_FLOCK),
@@ -143,6 +159,14 @@ func _run() -> void:
 		"staffing review should explicitly navigate to the Flock filing page",
 		failures,
 	)
+	_check(
+		fifth_capacity_marker != null
+		and fifth_capacity_marker.visible
+		and sixth_capacity_marker != null
+		and not sixth_capacity_marker.visible,
+		"opening the staffing filing should reveal exactly the next authorized construction site",
+		failures,
+	)
 	_check(staffing_ui != null and staffing_ui.is_visible_in_tree(), "Roost Staffing should be visible inside the open ledger", failures)
 	_check(
 		_flock_applicant_cards_are_visible(flock_page_scroll, 2),
@@ -153,6 +177,13 @@ func _run() -> void:
 	capacity_button = office.find_child("PurchaseStaffCapacity", true, false) as Button
 	var pre_capacity_hire := office.find_child("HireWorker_4", true, false) as Button
 	_check(capacity_button != null and not capacity_button.disabled, "review should enable an affordable fifth-perch authorization", failures)
+	_check(
+		capacity_button != null
+		and _contains_all(capacity_button.text, ["perch 5", "west bay a", "/ shift"])
+		and _contains_all(capacity_button.tooltip_text, ["commission perch 5", "vacant workstation", "protected operating reserve"]),
+		"capacity authorization should preview its exact physical bay and recurring obligation before purchase",
+		failures,
+	)
 	_check(
 		pre_capacity_hire != null and pre_capacity_hire.disabled and _contains_any(pre_capacity_hire.tooltip_text, ["perch", "workstation", "vacant"]),
 		"hiring should remain held until capacity exists",
@@ -165,19 +196,105 @@ func _run() -> void:
 	var expanded := simulation.snapshot()
 	_check(int(expanded.get("office_capacity", -1)) == 5, "capacity authorization should open exactly one perch", failures)
 	_check(int(expanded.get("active_staff_count", -1)) == 4, "capacity alone should not invent a worker", failures)
+	var commissioning := office.call("capacity_commissioning_snapshot") as Dictionary
+	var commissioning_beat := office.find_child("CapacityCommissioningBeat", true, false) as Node3D
+	var commissioning_label := office.find_child("CapacityCommissioningLabel", true, false) as Label3D
+	var west_partition := office.find_child("WestLeasePartition", true, false) as Node3D
+	var west_stage := office.find_child("WestPerch04Presentation", true, false) as Node3D
+	var west_fill := office.find_child("FluorescentFill_0", true, false) as OmniLight3D
+	_check(
+		bool(commissioning.get("active", false))
+		and StringName(commissioning.get("phase", &"")) == &"commissioning"
+		and int(commissioning.get("capacity", -1)) == 5
+		and int(commissioning.get("perch_index", -1)) == 4
+		and int(commissioning.get("cost_cents", 0)) > 0
+		and int(commissioning.get("added_daily_operating_cents", 0)) > 0,
+		"accepted capacity should publish one exact active commissioning receipt",
+		failures,
+	)
+	_check(
+		commissioning_beat != null
+		and bool(commissioning_beat.get_meta(&"visual_only", false))
+		and bool(commissioning_beat.get_meta(&"collision_free", false))
+		and bool(commissioning_beat.get_meta(&"navigation_free", false))
+		and commissioning_label != null
+		and _contains_all(commissioning_label.text, ["perch 5", "commissioned", "filed", "/ shift"]),
+		"the commissioning beat should visibly file the exact perch without adding collision or navigation authority",
+		failures,
+	)
+	_check(
+		west_stage != null and west_stage.visible
+		and west_partition != null and west_partition.visible
+		and west_fill != null and west_fill.visible,
+		"the first animation frame should coordinate the west floor, retiring partition, and powered light",
+		failures,
+	)
 	_check(
 		fifth_workstation != null and fifth_workstation.visible and fifth_capacity_marker != null and not fifth_capacity_marker.visible,
 		"capacity five should reveal its workstation and retire its authorization marker",
 		failures,
 	)
 	_check(
-		sixth_workstation != null and not sixth_workstation.visible and sixth_capacity_marker != null and sixth_capacity_marker.visible,
-		"capacity five should leave the sixth perch visibly pending",
+		sixth_workstation != null and not sixth_workstation.visible and sixth_capacity_marker != null and not sixth_capacity_marker.visible,
+		"capacity five should keep the sixth-perch preview out of the focused world after its filing closes",
 		failures,
 	)
 	var fifth_nameplate := fifth_workstation.find_child("EmployeeNameplateText", true, false) as Label3D if fifth_workstation != null else null
 	_check(fifth_nameplate != null and fifth_nameplate.text == "VACANT PERCH", "newly authorized desk should advertise its vacancy", failures)
 	_check(_checkpoint_matches(store, "capacity_expanded", 5, 4, false), "capacity expansion should create a resumable capacity_expanded checkpoint", failures)
+
+	await create_timer(1.55).timeout
+	await process_frame
+	commissioning = office.call("capacity_commissioning_snapshot") as Dictionary
+	commissioning_beat = office.find_child("CapacityCommissioningBeat", true, false) as Node3D
+	_check(
+		not bool(commissioning.get("active", true))
+		and StringName(commissioning.get("phase", &"")) == &"complete"
+		and commissioning_beat == null,
+		"the commissioning receipt should settle once and clean up its transient world art",
+		failures,
+	)
+	_check(
+		west_stage != null and west_stage.position.is_zero_approx() and west_stage.scale.is_equal_approx(Vector3.ONE)
+		and west_partition != null and not west_partition.visible and west_partition.position.is_zero_approx()
+		and west_fill != null and west_fill.light_energy > 0.0,
+		"the commissioning handoff should settle architecture and lighting into their permanent capacity-five state",
+		failures,
+	)
+
+	var reduced_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	reduced_preferences["motion_mode"] = "reduced"
+	office.set("_player_preferences", reduced_preferences)
+	office.call(
+		"_begin_capacity_commissioning_beat",
+		{
+			"office_capacity": 5,
+			"cost_cents": int(commissioning.get("cost_cents", 0)),
+			"added_daily_operating_cents": int(commissioning.get("added_daily_operating_cents", 0)),
+		},
+	)
+	await process_frame
+	var reduced_commissioning := office.call("capacity_commissioning_snapshot") as Dictionary
+	var reduced_beat := office.find_child("CapacityCommissioningBeat", true, false) as Node3D
+	_check(
+		bool(reduced_commissioning.get("active", false))
+		and bool(reduced_commissioning.get("reduced_motion", false))
+		and reduced_beat != null
+		and reduced_beat.scale.is_equal_approx(Vector3.ONE),
+		"reduced motion should retain the complete filed receipt without spatial pop or settle motion",
+		failures,
+	)
+	await create_timer(0.86).timeout
+	await process_frame
+	reduced_commissioning = office.call("capacity_commissioning_snapshot") as Dictionary
+	_check(
+		not bool(reduced_commissioning.get("active", true))
+		and StringName(reduced_commissioning.get("phase", &"")) == &"complete",
+		"the reduced-motion receipt should remain bounded and clean itself up",
+		failures,
+	)
+	reduced_preferences["motion_mode"] = "full"
+	office.set("_player_preferences", reduced_preferences)
 
 	var hire_button := office.find_child("HireWorker_4", true, false) as Button
 	_check(hire_button != null and not hire_button.disabled, "first applicant should become hireable after perch five opens", failures)
@@ -220,6 +337,11 @@ func _run() -> void:
 		failures,
 	)
 	await process_frame
+	_check(
+		sixth_capacity_marker != null and sixth_capacity_marker.visible,
+		"reopening the staffing filing should restore the one-step sixth-perch preview",
+		failures,
+	)
 	_check(
 		_flock_applicant_cards_are_visible(flock_page_scroll, 1),
 		"the hired hen should leave one visible screened applicant on the Flock page",
@@ -362,6 +484,14 @@ func _contains_any(copy: String, fragments: Array[String]) -> bool:
 		if normalized.contains(fragment.to_lower()):
 			return true
 	return false
+
+
+func _contains_all(copy: String, fragments: Array[String]) -> bool:
+	var normalized := copy.to_lower()
+	for fragment in fragments:
+		if not normalized.contains(fragment.to_lower()):
+			return false
+	return true
 
 
 func _flock_applicant_cards_are_visible(flock_page_scroll: ScrollContainer, expected_count: int) -> bool:

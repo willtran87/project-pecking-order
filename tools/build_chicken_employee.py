@@ -328,6 +328,30 @@ def join_parts(parts: list[bpy.types.Object], name: str) -> bpy.types.Object:
     return obj
 
 
+def consolidate_accessory_group(objects: list[bpy.types.Object]) -> list[bpy.types.Object]:
+    """Keep one runtime visibility root and one mesh node per authored accessory.
+
+    Accessory detail used to export every stitch, stud, frame bar, and clasp as
+    an independent mesh.  Those pieces always move and hide as one unit, so the
+    separation spent dozens of draw submissions per flock without adding any
+    animation or customization value.  Joining below preserves material slots,
+    the stable root name consumed by Godot, and the exact world-space silhouette.
+    """
+    if len(objects) <= 2:
+        return objects
+    group, *parts = objects
+    joined = join_parts(parts, f"{group.name}_Mesh")
+    if joined.parent is not group:
+        world_transform = joined.matrix_world.copy()
+        joined.parent = group
+        joined.matrix_world = world_transform
+    bpy.context.view_layer.objects.active = joined
+    joined.select_set(True)
+    bpy.ops.object.material_slot_remove_unused()
+    joined.select_set(False)
+    return [group, joined]
+
+
 def create_wedge_beak(material: bpy.types.Material) -> bpy.types.Object:
     # The broad base is intentionally sunk into the head.  The shallow lower
     # point keeps the beak birdlike without turning it into a large muzzle.
@@ -1348,7 +1372,10 @@ def main() -> None:
     create_empty("FootRightPivot", leg_right_pivot, (0.0, 0.0, -0.240), size=0.045)
 
     body = create_body([materials["feather"], materials["breast"], materials["wing"], materials["face"]])
-    tail_feathers = create_tail_fan(tail_feather_pivot, materials["wing"])
+    tail_feathers = [join_parts(
+        create_tail_fan(tail_feather_pivot, materials["wing"]),
+        "TailFeatherFan",
+    )]
     left_leg = create_leg("LegLeftMesh", materials["beak"], mirrored=False)
     right_leg = create_leg("LegRightMesh", materials["beak"], mirrored=True)
     left_leg.parent = leg_left_pivot
@@ -1399,6 +1426,7 @@ def main() -> None:
         create_quilted_capelet(materials["knit"], materials["knit_trim"]),
         create_leg_watch(materials["leather"], materials["frame"], materials["brass"]),
     ]
+    accessory_sets = [consolidate_accessory_group(objects) for objects in accessory_sets]
     accessory_roots = [objects[0] for objects in accessory_sets]
     accessory_objects = [obj for objects in accessory_sets for obj in objects]
 

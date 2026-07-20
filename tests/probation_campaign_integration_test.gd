@@ -29,6 +29,7 @@ func _run() -> void:
 	var day_badge := office.find_child("ProbationDayLabel", true, false) as Label
 	var objectives_label := office.find_child("CampaignObjectivesLabel", true, false) as Label
 	var safeguards_label := office.find_child("CampaignSafeguardForecast", true, false) as Label
+	var doctrine_label := office.find_child("CampaignActiveDoctrine", true, false) as Label
 	var review_scrim := office.find_child("DayReviewScrim", true, false) as ColorRect
 	var next_shift_button := office.find_child("BeginNextShiftButton", true, false) as Button
 	var report_panel := office.find_child("ProbationReportPanel", true, false) as PanelContainer
@@ -45,6 +46,16 @@ func _run() -> void:
 	var ticker := office.get("_ticker_label") as Label
 
 	_check(simulation != null and campaign != null and campaign_ui != null, "headless Office should boot all authoritative campaign collaborators", failures)
+	_check(
+		_signal_routes_to(
+			campaign_ui,
+			&"challenge_contract_changed",
+			office,
+			&"_on_campaign_challenge_contract_changed",
+		),
+		"challenge selection changes should route immediately to Office's Web diagnostic publisher",
+		failures,
+	)
 	_check(DisplayServer.get_name() == "headless", "focused integration test must run through the headless Office branch", failures)
 	_check(campaign_ui != null and campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "headless Office should boot directly into an active campaign", failures)
 	_check(campaign != null and campaign.outcome == CampaignState.OUTCOME_IN_PROGRESS and campaign.completed_shifts == 0, "headless Office should open a fresh five-shift probation state", failures)
@@ -52,9 +63,10 @@ func _run() -> void:
 	_check(_nonempty_lines(objectives_label.text if objectives_label != null else "").size() == 3, "active campaign presentation should show all three current objectives", failures)
 	_check(
 		safeguards_label != null and safeguards_label.visible
-		and "FINAL SAFEGUARDS  //  1 / 5 PASS  //  0 / 5 SHIFTS" in safeguards_label.text
-		and "AT RISK  //  FLOCK WELFARE  //  -45 POINTS" in safeguards_label.text,
-		"office Flockwatch should expose the live pass count and largest normalized probation blocker (text: %s)" % (
+		and "SAFE 1/5" in safeguards_label.text
+		and "SHIFTS 0/5" in safeguards_label.text
+		and "RISK FLOCK WELFARE -45" in safeguards_label.text,
+		"office Flockwatch should expose a compact live pass count and largest normalized probation blocker (text: %s)" % (
 			safeguards_label.text if safeguards_label != null else "<missing>"
 		),
 		failures,
@@ -70,15 +82,43 @@ func _run() -> void:
 		failures,
 	)
 
-	# Exercise the same New Campaign action used by the title card. This resets the
-	# simulation and must immediately create a resumable checkpoint.
-	campaign_ui.show_title(false)
+	# Exercise the same title path and New Campaign action used in production. The
+	# challenge selection is presentation-owned until Office files it atomically
+	# into the new authoritative campaign and verified checkpoint.
+	office.call("_show_campaign_title", false)
 	await process_frame
+	var challenge_selector := office.find_child("ChallengeContractSelector", true, false) as OptionButton
+	var supported_index := -1
+	if challenge_selector != null:
+		for index: int in range(challenge_selector.item_count):
+			if StringName(String(challenge_selector.get_item_metadata(index))) == CampaignState.CHALLENGE_SUPPORTED_FLOCK:
+				supported_index = index
+				break
+	_check(
+		challenge_selector != null and challenge_selector.item_count == 3 and supported_index >= 0,
+		"production intake should expose all three authoritative filing standards",
+		failures,
+	)
+	if challenge_selector != null and supported_index >= 0:
+		challenge_selector.select(supported_index)
+		challenge_selector.item_selected.emit(supported_index)
+	_check(
+		campaign_ui.selected_challenge_contract_id() == CampaignState.CHALLENGE_SUPPORTED_FLOCK,
+		"the title should retain the chosen new-file standard until Office accepts it",
+		failures,
+	)
 	var new_campaign_button := office.find_child("NewCampaignButton", true, false) as Button
 	_press(new_campaign_button)
 	await process_frame
 	campaign = office.get("_campaign_state") as CampaignState
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "fresh start should return to the unobstructed office", failures)
+	_check(
+		campaign != null
+		and campaign.challenge_contract_id == CampaignState.CHALLENGE_SUPPORTED_FLOCK
+		and not campaign.select_challenge_contract(CampaignState.CHALLENGE_EXECUTIVE_AUDIT),
+		"Office should file the selected standard once and keep it immutable for the career",
+		failures,
+	)
 	_check(store.has_save(), "fresh start/reset should save a resumable checkpoint", failures)
 	var independent_store = CampaignSaveStoreScript.new(TEST_SAVE_FILENAME)
 	_check(independent_store.has_save(), "a new store instance should discover the fresh checkpoint", failures)
@@ -88,7 +128,13 @@ func _run() -> void:
 	var fresh_campaign := CampaignState.from_dictionary(fresh_campaign_data)
 	_check(not fresh_envelope.is_empty(), "fresh checkpoint should load through the production save envelope", failures)
 	_check(String((fresh_envelope.get("metadata", {}) as Dictionary).get("reason", "")) == "new_campaign", "fresh checkpoint should disclose its reset reason", failures)
-	_check(fresh_campaign != null and fresh_campaign.completed_shifts == 0, "fresh checkpoint should be resumable before shift one", failures)
+	_check(
+		fresh_campaign != null
+		and fresh_campaign.completed_shifts == 0
+		and fresh_campaign.challenge_contract_id == CampaignState.CHALLENGE_SUPPORTED_FLOCK,
+		"fresh checkpoint should preserve the filed standard before shift one",
+		failures,
+	)
 	var fresh_session := fresh_payload.get("session", {}) as Dictionary
 	var fresh_first_clutch := fresh_session.get("first_clutch", {}) as Dictionary
 	_check(
@@ -255,6 +301,7 @@ func _run() -> void:
 
 	var quality_choice := office.find_child("MilestoneChoice_shell_quality_lab", true, false) as Button
 	_check(quality_choice != null and not quality_choice.disabled, "shell-quality milestone should be selectable", failures)
+	var milestone_fund_before := simulation.revenue_cents
 	_press(quality_choice)
 	await process_frame
 	campaign = office.get("_campaign_state") as CampaignState
@@ -263,13 +310,75 @@ func _run() -> void:
 	_check(campaign.has_unlock(&"shell_quality_checks"), "selected milestone should grant its stable campaign unlock", failures)
 	_check(simulation.has_campaign_unlock(&"shell_quality_checks"), "selected unlock should reach DepartmentSimulation", failures)
 	_check(int(simulation.campaign_unlock_effects().get("crack_risk_basis_points", 0)) == -250, "DepartmentSimulation should expose the selected unlock's causal modifier", failures)
+	_check(simulation.revenue_cents == milestone_fund_before, "filing a probation doctrine must not debit or mint Feed Fund cash", failures)
 	_check(continue_button != null and not continue_button.disabled, "milestone selection should enable continuation", failures)
+	var doctrine_commendations := office.commendations_snapshot()
+	_check(
+		"doctrine_filed" in (doctrine_commendations.get("earned_ids", []) as Array),
+		"filing a doctrine should immediately stamp its permanent Records commendation",
+		failures,
+	)
 
 	var milestone_envelope := store.load()
 	var milestone_payload := milestone_envelope.get("campaign", {}) as Dictionary
+	var milestone_campaign := milestone_payload.get("campaign", {}) as Dictionary
 	var milestone_simulation := milestone_payload.get("simulation", {}) as Dictionary
+	var milestone_revision := int((milestone_envelope.get("metadata", {}) as Dictionary).get("save_revision", -1))
 	_check(String((milestone_envelope.get("metadata", {}) as Dictionary).get("reason", "")) == "milestone_selected", "milestone selection should immediately checkpoint", failures)
+	_check(String((milestone_campaign.get("milestone", {}) as Dictionary).get("selected_id", "")) == "shell_quality_lab", "milestone checkpoint should persist the sole authoritative doctrine identity", failures)
 	_check(bool((milestone_simulation.get("campaign_unlocks", {}) as Dictionary).get("shell_quality_checks", false)), "milestone checkpoint should include the simulation unlock", failures)
+
+	# Once CampaignState has filed a permanent choice, every alternative card is
+	# locked. Then inject a stale optimistic presentation and bypass the button via
+	# the public signal: Office must reject it, restore the authoritative card,
+	# conserve the fund and score, and avoid writing a new checkpoint revision.
+	var padded_choice := office.find_child("MilestoneChoice_padded_perches", true, false) as Button
+	_check(
+		padded_choice != null
+		and padded_choice.disabled
+		and padded_choice.theme_type_variation != &"SelectedChoiceButton",
+		"non-selected doctrine cards should lock without masquerading as the filed choice",
+		failures,
+	)
+	var filed_score := campaign.probation_score
+	var stale_report := campaign_ui.campaign_snapshot()
+	stale_report["selected_milestone"] = "padded_perches"
+	campaign_ui.show_between_shift_report(stale_report)
+	await process_frame
+	_check(campaign_ui.selected_milestone_id() == &"padded_perches", "authority regression fixture should stage a stale optimistic card", failures)
+	campaign_ui.milestone_choice.emit(&"padded_perches")
+	await process_frame
+	campaign = office.get("_campaign_state") as CampaignState
+	continue_button = office.find_child("ContinueProbationButton", true, false) as Button
+	var restored_quality_choice := office.find_child("MilestoneChoice_shell_quality_lab", true, false) as Button
+	var restored_padded_choice := office.find_child("MilestoneChoice_padded_perches", true, false) as Button
+	_check(campaign.chosen_milestone_id == &"shell_quality_lab", "rejected repeat selection must preserve CampaignState's filed doctrine", failures)
+	_check(campaign.probation_score == filed_score, "rejected repeat selection must not award a second milestone score bonus", failures)
+	_check(
+		simulation.has_campaign_unlock(&"shell_quality_checks")
+		and not simulation.has_campaign_unlock(&"welfare_breaks"),
+		"rejected repeat selection must preserve only the filed simulation unlock",
+		failures,
+	)
+	_check(simulation.revenue_cents == milestone_fund_before, "rejected repeat selection must conserve the Feed Fund", failures)
+	_check(campaign_ui.selected_milestone_id() == &"shell_quality_lab", "Office rejection should rehydrate the UI from authoritative CampaignState", failures)
+	_check(
+		restored_quality_choice != null
+		and restored_quality_choice.theme_type_variation == &"SelectedChoiceButton"
+		and restored_padded_choice != null
+		and restored_padded_choice.disabled
+		and restored_padded_choice.theme_type_variation != &"SelectedChoiceButton",
+		"authoritative rehydration should show only Shell Quality as selected and keep alternatives locked",
+		failures,
+	)
+	_check(ticker != null and "MILESTONE HELD" in ticker.text, "rejected repeat selection should explain the authoritative hold", failures)
+	var held_envelope := store.load()
+	_check(
+		int((held_envelope.get("metadata", {}) as Dictionary).get("save_revision", -2)) == milestone_revision
+		and String((held_envelope.get("metadata", {}) as Dictionary).get("reason", "")) == "milestone_selected",
+		"rejected repeat selection must not write or relabel a checkpoint",
+		failures,
+	)
 
 	_press(continue_button)
 	await process_frame
@@ -287,6 +396,21 @@ func _run() -> void:
 	_check(simulation.day == 3 and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "chosen milestone should permit the day-three briefing", failures)
 	_check(day_badge.text == "DAY 3 / 5", "post-milestone presentation should advance to Day 3 / 5", failures)
 	_check(_nonempty_lines(objectives_label.text).size() == 3, "post-milestone presentation should show all three day-three objectives", failures)
+	var probation_doctrine := office.call("_probation_doctrine_snapshot") as Dictionary
+	_check(
+		doctrine_label != null
+		and doctrine_label.visible
+		and "SHELL ASSURANCE" in doctrine_label.text
+		and String(doctrine_label.get_meta("milestone_id", "")) == "shell_quality_lab",
+		"day-three Office HUD should identify the filed Shell Assurance doctrine",
+		failures,
+	)
+	_check(
+		String(probation_doctrine.get("milestone_id", "")) == "shell_quality_lab"
+		and String(probation_doctrine.get("label", "")) == "SHELL ASSURANCE",
+		"web diagnostic source should expose the same authoritative probation_doctrine identity",
+		failures,
+	)
 
 	# Verify the actual stored checkpoint is primitive JSON, then restore both
 	# campaign and simulation from a raw JSON parse rather than shared references.
@@ -303,6 +427,14 @@ func _run() -> void:
 		var restored_simulation := DepartmentSimulation.new(9917)
 		var simulation_restored := restored_simulation.restore_save_state(parsed_checkpoint.get("simulation", {}) as Dictionary)
 		_check(restored_campaign != null and restored_campaign.to_dictionary() == campaign.to_dictionary(), "JSON campaign checkpoint should round-trip without state drift", failures)
+		_check(
+			restored_campaign != null
+			and restored_campaign.active_doctrine() == campaign.active_doctrine()
+			and String(restored_campaign.active_doctrine().get("milestone_id", "")) == "shell_quality_lab"
+			and String(restored_campaign.active_doctrine().get("label", "")) == "SHELL ASSURANCE",
+			"raw JSON round-trip should restore the same derived Shell Assurance doctrine identity",
+			failures,
+		)
 		_check(simulation_restored, "JSON simulation checkpoint should restore", failures)
 		_check(simulation_restored and restored_simulation.day == 3, "restored simulation should retain the day-three briefing", failures)
 		_check(simulation_restored and restored_simulation.has_campaign_unlock(&"shell_quality_checks"), "restored simulation should retain the selected milestone unlock", failures)
@@ -437,3 +569,23 @@ func _contains_all(value: String, needles: Array[String]) -> bool:
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _signal_routes_to(
+	emitter: Object,
+	signal_name: StringName,
+	target: Object,
+	method_name: StringName,
+) -> bool:
+	if emitter == null or target == null or not emitter.has_signal(signal_name):
+		return false
+	for connection_value: Variant in emitter.get_signal_connection_list(signal_name):
+		if not connection_value is Dictionary:
+			continue
+		var callback_value: Variant = (connection_value as Dictionary).get("callable")
+		if not callback_value is Callable:
+			continue
+		var callback := callback_value as Callable
+		if callback.get_object() == target and callback.get_method() == method_name:
+			return true
+	return false

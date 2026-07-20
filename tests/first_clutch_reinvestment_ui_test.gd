@@ -73,7 +73,13 @@ func _run() -> void:
 	_check(option_buttons.size() == 3, "offer should contain two requisitions plus Bank", failures)
 	for button_value in option_buttons:
 		var button := button_value as Button
-		_check(button != null and button.custom_minimum_size.y >= 72.0, "every reinvestment card should meet the 72px target", failures)
+		_check(
+			button != null
+			and button.custom_minimum_size.y >= 72.0
+			and button.size.y >= 72.0,
+			"every reinvestment card should retain a rendered 72px target",
+			failures,
+		)
 	_check(confirm != null and is_equal_approx(confirm.custom_minimum_size.y, 66.0), "reinvestment Confirm should use a 66px target", failures)
 
 	var card_rect := decision_card.get_global_rect() if decision_card != null else Rect2()

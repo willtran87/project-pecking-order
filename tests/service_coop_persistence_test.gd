@@ -24,7 +24,7 @@ func _init() -> void:
 
 
 func _test_current_tier_and_frozen_contract_round_trips(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 23, "Farm Treasury should own schema v23", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 25, "named management rosters should own schema v25", failures)
 	var tier_source := DepartmentSimulation.new(9851, 5)
 	tier_source.day = 3
 	tier_source.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
@@ -114,7 +114,7 @@ func _test_v12_migrates_neutral_coop_and_legacy_contract_terms(failures: Array[S
 	_check(result_restore.market_clean_contract_streak == 1 and result_restore.best_market_clean_contract_streak == 1, "known v12 fulfillment should seed only one proven clean streak", failures)
 	_check(result_restore.farm_mutual_standing() == 2, "v12 fulfillment should contribute its actual derived standing", failures)
 	_check(int(result_restore.last_market_contract_result.get("service_coop_bonus_cents", -1)) == 0, "v12 fulfilled receipt must not invent a Coop bonus", failures)
-	_check(int(result_restore.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "migrated v12 state should re-export schema v23", failures)
+	_check(int(result_restore.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "migrated v12 state should re-export schema v24", failures)
 	_check(result_restore.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID) == 0, "v12 migration must append a neutral Farmgate Depot", failures)
 	_check(int(result_restore.farmgate_dispatch_snapshot().get("stock_count", -1)) == 0, "v12 migration must not invent finished-egg stock", failures)
 	_assert_neutral_campus(result_restore, "v12 settled migration", failures)
@@ -232,7 +232,7 @@ func _set_completed_threshold(simulation: DepartmentSimulation) -> void:
 
 
 func _json_dictionary(source: Dictionary, context: String, failures: Array[String]) -> Dictionary:
-	_check(int(source.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "%s should export schema v23" % context, failures)
+	_check(int(source.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "%s should export schema v24" % context, failures)
 	var parsed: Variant = JSON.parse_string(JSON.stringify(source))
 	_check(parsed is Dictionary, "%s should remain primitive JSON" % context, failures)
 	return parsed as Dictionary if parsed is Dictionary else {}

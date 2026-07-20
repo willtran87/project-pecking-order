@@ -17,6 +17,7 @@ func _run() -> void:
 	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
 	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
 	var stay_paused_button := office.find_child("ResolveStayPausedButton", true, false) as Button
+	var decision_preview := office.find_child("DecisionPreview", true, false) as Label
 	var directive_badge := office.get("_directive_badge") as Label
 	var review_scrim := office.find_child("DayReviewScrim", true, false) as ColorRect
 	var next_shift_button := office.find_child("BeginNextShiftButton", true, false) as Button
@@ -29,18 +30,85 @@ func _run() -> void:
 	_check(decision_host != null and decision_host.visible, "morning directive card should open on first presentation", failures)
 	_check(simulation != null and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "opening shift should await a directive", failures)
 	_check(office.find_children("DecisionOption_*", "Button", true, false).size() == 3, "directive card should present three policy choices", failures)
+	var decision_diagnostic := office.call("_pending_decision_diagnostic_state") as Dictionary
+	var diagnostic_options := decision_diagnostic.get("options", []) as Array
+	_check(
+		bool(decision_diagnostic.get("visible", false))
+		and String(decision_diagnostic.get("id", "")) == "morning_directive"
+		and String(decision_diagnostic.get("title", "")) == "CHOOSE TODAY'S MANAGEMENT POLICY"
+		and diagnostic_options.size() == 3,
+		"player diagnostics should expose the visible decision identity and three bounded choices",
+		failures,
+	)
+	if diagnostic_options.size() >= 3:
+		var harvest_fit := (diagnostic_options[0] as Dictionary).get("order_fit", {}) as Dictionary
+		var assurance_fit := (diagnostic_options[1] as Dictionary).get("order_fit", {}) as Dictionary
+		var care_fit := (diagnostic_options[2] as Dictionary).get("order_fit", {}) as Dictionary
+		_check(
+			String((diagnostic_options[0] as Dictionary).get("id", "")) == "record_harvest"
+			and int((diagnostic_options[0] as Dictionary).get("index", 0)) == 1
+			and bool((diagnostic_options[0] as Dictionary).get("available", false))
+			and String((diagnostic_options[2] as Dictionary).get("id", "")) == "sustainable_flock",
+			"decision diagnostics should preserve visible ordering, stable IDs, and availability",
+			failures,
+		)
+		_check(
+			int(harvest_fit.get("support_count", -1)) == 1
+			and int(harvest_fit.get("risk_count", -1)) == 2
+			and (harvest_fit.get("supports", []) as Array) == ["OPENING CLUTCH"]
+			and (harvest_fit.get("risks", []) as Array) == ["SOUND START", "SETTLED FLOCK"]
+			and int(assurance_fit.get("support_count", -1)) == 1
+			and int(assurance_fit.get("risk_count", -1)) == 1
+			and int(care_fit.get("support_count", -1)) == 1
+			and int(care_fit.get("risk_count", -1)) == 1,
+			"Day 1 policy diagnostics should map real directive modifiers onto the exact three opening orders",
+			failures,
+		)
 
 	var harvest_button := office.find_child("DecisionOption_record_harvest", true, false) as Button
-	_check(harvest_button != null and not harvest_button.disabled, "record harvest directive should be selectable", failures)
+	_check(
+		harvest_button != null
+		and not harvest_button.disabled
+		and "1  //  HARVEST" in harvest_button.text
+		and "INITIATIVE" not in harvest_button.text
+		and "ORDER FIT 1  /  WATCH 2" in harvest_button.text,
+		"record harvest should expose a readable short label and compact Day 1 order fit before selection",
+		failures,
+	)
 	_press(harvest_button)
 	_check(confirm_button != null and not confirm_button.disabled, "selecting a directive should enable authorization", failures)
+	_check(
+		decision_preview != null
+		and "TODAY'S ORDER FIT" in decision_preview.text
+		and "SUPPORTS: OPENING CLUTCH" in decision_preview.text
+		and "WATCH: SOUND START, SETTLED FLOCK" in decision_preview.text
+		and "FILE EDGE  //  OUTPUT + QUEUE CONTROL" in decision_preview.text,
+		"selected policy should disclose exact supported orders, watched orders, and long-run edge",
+		failures,
+	)
+	decision_diagnostic = office.call("_pending_decision_diagnostic_state") as Dictionary
+	_check(
+		String(decision_diagnostic.get("selected_option_id", "")) == "record_harvest"
+		and bool(decision_diagnostic.get("confirm_enabled", false)),
+		"decision diagnostics should publish the selected response and enabled authorization",
+		failures,
+	)
 	_press(confirm_button)
 	await process_frame
 
 	_check(not decision_host.visible, "authorized directive should close the management card", failures)
+	decision_diagnostic = office.call("_pending_decision_diagnostic_state") as Dictionary
+	_check(not bool(decision_diagnostic.get("visible", true)), "closed decisions should not leak stale choice text", failures)
 	_check(clock.speed_index == 1, "authorized morning directive should begin the shift at 1x", failures)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING, "directive authorization should enter the running phase", failures)
 	_check(directive_badge != null and "HARVEST" in directive_badge.text, "top HUD should identify the active policy", failures)
+	_check(
+		directive_badge != null
+		and "SUPPORTS: OPENING CLUTCH" in directive_badge.tooltip_text
+		and "WATCH: SOUND START, SETTLED FLOCK" in directive_badge.tooltip_text,
+		"active policy tooltip should retain its Day 1 order fit after authorization",
+		failures,
+	)
 
 	# The first scheduled incident should stop the clock and replace normal controls
 	# with a response card. Resolve it without resuming to verify deliberate pause.
@@ -85,7 +153,13 @@ func _run() -> void:
 	_check(review_scrim != null and review_scrim.visible, "shift completion should show the full-screen farmer review", failures)
 	_check(clock.speed_index == 0, "farmer review should pause the next shift", failures)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW, "completed day should remain in review until planning continues", failures)
-	_check(next_shift_button != null and next_shift_button.text == "ALLOCATE SHIFT CREDIT", "review should clearly require the closing credit allocation", failures)
+	_check(
+		next_shift_button != null
+		and next_shift_button.text == "CONTINUE CLOSING FILE"
+		and "allocate closing credit" in next_shift_button.tooltip_text.to_lower(),
+		"review should keep one stable closing-file action while clearly naming credit allocation as the next step",
+		failures,
+	)
 
 	_press(next_shift_button)
 	await process_frame
@@ -110,6 +184,20 @@ func _run() -> void:
 	_check(decision_host.visible, "planning the next shift should open a fresh directive card", failures)
 	_check(clock.speed_index == 0, "next morning directive should remain paused for a choice", failures)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "next shift should await a new daily policy", failures)
+	decision_diagnostic = office.call("_pending_decision_diagnostic_state") as Dictionary
+	diagnostic_options = decision_diagnostic.get("options", []) as Array
+	if diagnostic_options.size() >= 3:
+		var day_two_harvest_fit := (diagnostic_options[0] as Dictionary).get("order_fit", {}) as Dictionary
+		var day_two_care_fit := (diagnostic_options[2] as Dictionary).get("order_fit", {}) as Dictionary
+		_check(
+			int(day_two_harvest_fit.get("support_count", -1)) == 2
+			and int(day_two_harvest_fit.get("risk_count", -1)) == 0
+			and (day_two_harvest_fit.get("supports", []) as Array) == ["MEET THE CLUTCH", "TRIM THE TRAYS"]
+			and int(day_two_care_fit.get("support_count", -1)) == 0
+			and int(day_two_care_fit.get("risk_count", -1)) == 2,
+			"policy fit should recompute from Day 2 orders instead of carrying stale opening guidance",
+			failures,
+		)
 
 	office.free()
 	await process_frame

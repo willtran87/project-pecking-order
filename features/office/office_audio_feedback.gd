@@ -28,11 +28,14 @@ var _voice_started_msec: Array[int] = []
 var _voice_cues: Array[StringName] = []
 var _last_cue_msec: Dictionary[StringName, int] = {}
 var _focus_paused := false
+var _last_played_cue: StringName = &""
+var _cue_serial := 0
 var _sound_egg: AudioStreamWAV
 var _cracked_egg: AudioStreamWAV
 var _golden_egg: AudioStreamWAV
 var _upgrade_approved: AudioStreamWAV
 var _feed_party: AudioStreamWAV
+var _feed_nibble: AudioStreamWAV
 var _review_stamp: AudioStreamWAV
 var _ui_tick: AudioStreamWAV
 var _decision_alert: AudioStreamWAV
@@ -48,6 +51,9 @@ var _payout_confirmation: AudioStreamWAV
 var _attention_restored: AudioStreamWAV
 var _denied: AudioStreamWAV
 var _shift_alert: AudioStreamWAV
+var _campaign_pass: AudioStreamWAV
+var _campaign_fail: AudioStreamWAV
+var _commendation_stamp: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -69,6 +75,9 @@ func _ready() -> void:
 	_golden_egg = _synth_sequence(PackedFloat32Array([660.0, 880.0, 1175.0]), 0.085, 0.46)
 	_upgrade_approved = _synth_sequence(PackedFloat32Array([392.0, 523.0, 784.0]), 0.075, 0.38)
 	_feed_party = _synth_sequence(PackedFloat32Array([330.0, 440.0, 494.0, 660.0]), 0.07, 0.34)
+	# A short seed-and-beak crunch gives each physical arrival feedback without
+	# becoming a second celebratory jingle or allocating a stream at runtime.
+	_feed_nibble = _synth_impact(610.0, 155.0, 0.095, 0.24, 0.72, 3201, 0.46)
 	_review_stamp = _synth_chirp(150.0, 92.0, 0.30, 0.58, 0.06)
 	_ui_tick = _synth_chirp(520.0, 565.0, 0.055, 0.24, 0.0)
 	_decision_alert = _synth_sequence(PackedFloat32Array([294.0, 294.0, 440.0]), 0.09, 0.42)
@@ -87,6 +96,21 @@ func _ready() -> void:
 	_attention_restored = _synth_sequence(PackedFloat32Array([520.0, 690.0, 920.0]), 0.050, 0.36)
 	_denied = _synth_sequence(PackedFloat32Array([294.0, 247.0]), 0.075, 0.34)
 	_shift_alert = _synth_sequence(PackedFloat32Array([330.0, 440.0, 330.0]), 0.070, 0.38)
+	_campaign_pass = _synth_sequence(
+		PackedFloat32Array([392.0, 523.25, 659.25, 784.0, 1046.5]),
+		0.105,
+		0.44,
+	)
+	_campaign_fail = _synth_sequence(
+		PackedFloat32Array([349.25, 293.625, 246.875, 196.0]),
+		0.135,
+		0.40,
+	)
+	_commendation_stamp = _synth_sequence(
+		PackedFloat32Array([523.25, 659.25, 784.0, 1046.5]),
+		0.075,
+		0.40,
+	)
 
 
 func _exit_tree() -> void:
@@ -124,6 +148,23 @@ func play_upgrade() -> void:
 
 func play_feed_party() -> void:
 	_play(&"feed", _feed_party, 1.0, -7.0, 120, BUS_SFX, PRIORITY_CONFIRMATION)
+
+
+## Restrained feeding contact used once as each attendee reaches the trough.
+## Worker-based pitch and limiter keys preserve a natural flock texture while
+## still bounding duplicate signals from the same chicken.
+func play_feed_nibble(worker_id: int) -> bool:
+	var pitch_steps: Array[float] = [0.94, 1.0, 1.07]
+	return _play(
+		&"feed_nibble",
+		_feed_nibble,
+		pitch_steps[posmod(worker_id, pitch_steps.size())],
+		-12.0,
+		140,
+		BUS_SFX,
+		PRIORITY_PHYSICAL,
+		StringName("feed_nibble_%d" % maxi(0, worker_id)),
+	)
 
 
 func play_review() -> void:
@@ -285,6 +326,50 @@ func play_shift_alert(severity: float = 1.0) -> bool:
 	)
 
 
+## A final verdict deserves a semantic cadence rather than another generic
+## review stamp. Pass rises into the established warm score; failure descends
+## and settles without using a punitive alarm or manipulative celebration.
+func play_campaign_outcome(passed: bool) -> bool:
+	return _play(
+		&"campaign_pass" if passed else &"campaign_fail",
+		_campaign_pass if passed else _campaign_fail,
+		1.0,
+		-4.5 if passed else -6.0,
+		750,
+		BUS_UI,
+		PRIORITY_ALERT,
+	)
+
+
+## Permanent recognition is a short brass-like filing cadence. It is distinct
+## from payouts and campaign verdicts, uses the existing fixed voice pool, and
+## has a generous limiter so several source facts settling together stay calm.
+func play_commendation() -> bool:
+	return _play(
+		&"commendation",
+		_commendation_stamp,
+		1.0,
+		-5.5,
+		650,
+		BUS_UI,
+		PRIORITY_RARE,
+	)
+
+
+func feedback_snapshot() -> Dictionary:
+	var active_voice_count := 0
+	for voice in _voices:
+		if voice.playing:
+			active_voice_count += 1
+	return {
+		"voice_count": _voices.size(),
+		"active_voice_count": active_voice_count,
+		"last_cue": String(_last_played_cue),
+		"cue_serial": _cue_serial,
+		"focus_paused": _focus_paused,
+	}
+
+
 ## Transient cues should not resume late after a tab or window regains focus.
 ## Pausing therefore clears active one-shots while retaining the fixed players
 ## and synthesized stream bank for immediate reuse.
@@ -374,6 +459,8 @@ func _play(
 	player.pitch_scale = pitch
 	player.volume_db = volume_db
 	player.play()
+	_last_played_cue = cue
+	_cue_serial += 1
 	cue_played.emit(cue)
 	return true
 

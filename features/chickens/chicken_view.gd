@@ -5,6 +5,10 @@ signal feed_party_attendance_ready(worker_id: int)
 signal feed_party_attendance_completed(worker_id: int)
 signal workstation_presence_changed(worker_id: int, is_present: bool)
 signal office_departure_completed(worker_id: int)
+## Ambient work pecks emit one visual contact per authored peck cycle, but only
+## while the hen is physically seated at an active file. This keeps screen
+## feedback causal without making the workstation controller poll every bird.
+signal work_peck_contact(worker_id: int, contact_serial: int)
 ## Deterministic contact markers for the three-hit Priority Peck flourish. Office
 ## feedback should key desk pulses and contact audio from this signal instead of
 ## starting independent timers when the player presses the action.
@@ -112,6 +116,7 @@ var _wing_left_bone := -1
 var _wing_right_bone := -1
 var _wing_left_tip_bone := -1
 var _wing_right_tip_bone := -1
+var _use_authored_wing_pose := true
 var _leg_left: Node3D
 var _leg_right: Node3D
 var _egg_socket: Node3D
@@ -148,6 +153,8 @@ var _campus_reassignment_position := Vector3.ZERO
 var _campus_reassignment_face_point := Vector3.ZERO
 var _is_at_workstation: bool = false
 var _visible_accessories: Array[StringName] = []
+var _accessory_nodes: Dictionary[StringName, Node3D] = {}
+var _visible_accessory_nodes: Array[Node3D] = []
 var _accessory_signature: String = ""
 var _career_credential_badge: Node3D
 var _career_credential_profile_visible: bool = false
@@ -158,7 +165,9 @@ var _comb: Node3D
 var _comb_rest_rotation := Vector3.ZERO
 var _tail_feather_pivot: Node3D
 var _tail_feather_rest_rotation := Vector3.ZERO
-var _accessory_rest_rotations: Dictionary[StringName, Vector3] = {}
+var _secondary_motion_accessories: Array[Node3D] = []
+var _secondary_motion_accessory_rest_rotations: Array[Vector3] = []
+var _secondary_motion_accessory_sways: Array[bool] = []
 var _seat_blend: float = 0.0
 var _walk_blend: float = 0.0
 var _work_blend: float = 0.0
@@ -168,6 +177,8 @@ var _peck_assist_rating: StringName = &"steady"
 var _priority_peck_timeline_active: bool = false
 var _priority_peck_elapsed: float = 0.0
 var _priority_peck_next_contact: int = 0
+var _work_peck_contact_armed: bool = true
+var _work_peck_contact_serial: int = 0
 var _lay_feedback_active: bool = false
 var _lay_feedback_elapsed: float = 0.0
 var _lay_release_emitted: bool = false
@@ -438,6 +449,30 @@ func visible_accessory_names() -> Array[StringName]:
 	return _visible_accessories.duplicate()
 
 
+## On-demand instrumentation for scene-binding regressions. This allocates only
+## when explicitly queried by a test or diagnostic; normal presentation frames
+## read the cached Node3D and bone references directly.
+func model_binding_diagnostics() -> Dictionary:
+	var cached_wing_bones := 0
+	for bone_index in [
+		_wing_left_bone,
+		_wing_right_bone,
+		_wing_left_tip_bone,
+		_wing_right_tip_bone,
+	]:
+		if bone_index >= 0:
+			cached_wing_bones += 1
+	return {
+		"accessory_nodes_cached": _accessory_nodes.size(),
+		"accessory_nodes_expected": ACCESSORY_NAMES.size(),
+		"visible_accessory_nodes_cached": _visible_accessory_nodes.size(),
+		"secondary_motion_accessories_cached": _secondary_motion_accessories.size(),
+		"skeleton_cached": _skeleton != null,
+		"wing_bones_cached": cached_wing_bones,
+		"authored_wing_pose": _use_authored_wing_pose,
+	}
+
+
 func play_peck_assist_feedback(rating: StringName) -> void:
 	_peck_assist_rating = rating
 	_priority_peck_timeline_active = true
@@ -490,7 +525,17 @@ func _physics_process(delta: float) -> void:
 	_advance_feedback_timelines(delta)
 	_advance_route(delta)
 	_update_pose_blends(delta)
+	# Hidden workers must continue routes and gameplay-facing contact timelines,
+	# but their model transforms do not need to be rewritten until visible again.
+	# The next visible physics frame derives the complete pose from current state.
+	if not is_visible_in_tree():
+		return
 	_animate_pose()
+	# Sample the imported body/head/leg clip before applying behavioral wing
+	# deformation. In automatic mode AnimationPlayer evaluated later in the
+	# frame and silently replaced the final behavioral wing pose.
+	if _animation_player != null:
+		_animation_player.advance(delta)
 	_animate_secondary_motion()
 	_apply_wing_actuation()
 
@@ -562,6 +607,7 @@ func apply_predator_limp_pose(body_swing: Vector2, neck_actuation: float) -> voi
 	_head_pivot.rotation = Vector3.ZERO
 	_wing_left.rotation = Vector3(0.12, 0.0, -0.68 - body_swing.y * 1.05)
 	_wing_right.rotation = Vector3(0.12, 0.0, 0.68 - body_swing.y * 1.05)
+	_use_authored_wing_pose = false
 	_apply_wing_actuation()
 	_leg_left.rotation = Vector3(-1.04 + body_swing.x * 0.72, 0.20, 0.0)
 	_leg_right.rotation = Vector3(-1.04 - body_swing.x * 0.72, -0.20, 0.0)
@@ -596,6 +642,8 @@ func _advance_feedback_timelines(delta: float) -> void:
 		if _priority_peck_elapsed >= PRIORITY_PECK_FEEDBACK_DURATION:
 			_priority_peck_timeline_active = false
 
+	_advance_ambient_work_contact()
+
 	if not _lay_feedback_active:
 		return
 	_lay_feedback_elapsed += delta
@@ -616,6 +664,28 @@ func _advance_feedback_timelines(delta: float) -> void:
 		and not just_released
 	):
 		_lay_feedback_active = false
+
+
+func _advance_ambient_work_contact() -> void:
+	var can_contact := (
+		_work_state == ChickenState.WorkState.WORKING
+		and _is_at_workstation
+		and not _is_walking
+		and not _priority_peck_timeline_active
+		and not _predator_captured
+		and _seat_blend >= 0.92
+		and _work_blend >= 0.72
+	)
+	if not can_contact:
+		_work_peck_contact_armed = true
+		return
+	var peck_wave := maxf(0.0, sin(_phase * 10.6 + worker_id * 0.31))
+	if peck_wave <= 0.24:
+		_work_peck_contact_armed = true
+	elif _work_peck_contact_armed and peck_wave >= 0.93:
+		_work_peck_contact_armed = false
+		_work_peck_contact_serial += 1
+		work_peck_contact.emit(worker_id, _work_peck_contact_serial)
 
 
 func _start_lay_feedback_timeline() -> void:
@@ -768,6 +838,7 @@ func _reset_pose() -> void:
 	_head_pivot.position = _head_rest_position
 	_wing_left.rotation = Vector3.ZERO
 	_wing_right.rotation = Vector3.ZERO
+	_use_authored_wing_pose = true
 	_leg_left.rotation = Vector3.ZERO
 	_leg_right.rotation = Vector3.ZERO
 
@@ -783,8 +854,6 @@ func _apply_walk_pose() -> void:
 	_head_pivot.rotation.x = -0.08 + absf(stride) * 0.08
 	_leg_left.rotation.x = lerpf(stride * 0.68, -1.16, stand_ease)
 	_leg_right.rotation.x = lerpf(-stride * 0.68, -1.16, stand_ease)
-	_wing_left.rotation.z = lerpf(-0.10 + stride * 0.075, -0.18, stand_ease)
-	_wing_right.rotation.z = lerpf(0.10 + stride * 0.075, 0.18, stand_ease)
 
 
 func _apply_panic_pose() -> void:
@@ -794,12 +863,16 @@ func _apply_panic_pose() -> void:
 	var flap := (sin(_phase * 18.0 + worker_id * 0.67) + 1.0) * 0.5
 	_wing_left.rotation = Vector3(0.10, 0.0, lerpf(-0.12, 1.05, flap))
 	_wing_right.rotation = Vector3(0.10, 0.0, lerpf(0.12, -1.05, flap))
+	_use_authored_wing_pose = false
 	_head_pivot.rotation.y += sin(_phase * 11.0 + worker_id) * 0.18
 
 
 func _apply_seated_pose() -> void:
 	# Ease onto the 0.54 m chair seat with a small anticipatory crouch. Folded
 	# feet stay visibly below the belly instead of vanishing into the cushion.
+	# The imported Blender clip owns the wing bones here, exactly as it does for
+	# the manager chicken. Procedural work feedback stays on the connected torso
+	# and head so it cannot disturb that known-good body-side silhouette.
 	var seat := _seat_blend * _seat_blend * (3.0 - 2.0 * _seat_blend)
 	var sit_crouch := sin(_seat_blend * PI) * 0.045
 	_body_pivot.position.y = 0.55 * seat - sit_crouch
@@ -807,8 +880,6 @@ func _apply_seated_pose() -> void:
 	_body_pivot.rotation.x = lerpf(0.0, -0.075, seat)
 	_leg_left.rotation.x = lerpf(0.0, -1.16, seat)
 	_leg_right.rotation.x = lerpf(0.0, -1.16, seat)
-	_wing_left.rotation.z = lerpf(-0.08, -0.18, seat)
-	_wing_right.rotation.z = lerpf(0.08, 0.18, seat)
 
 	if _lay_feedback_active:
 		_apply_laying_pose()
@@ -832,13 +903,15 @@ func _apply_seated_pose() -> void:
 			_body_pivot.rotation.x += -0.045 - peck * (0.19 + assist_emphasis)
 			_body_pivot.position.z += peck * (0.075 + assist_emphasis * 0.30)
 			_body_pivot.position.y -= peck * (0.018 + assist_emphasis * 0.10)
-			_wing_left.rotation.z -= peck * 0.035
-			_wing_right.rotation.z += peck * 0.035
+			# HeadPivot owns the complete connected face rig. A small extra reach
+			# therefore brings the beak toward the display without allowing eyes,
+			# wattles, or accessories to lag behind the body during contact.
+			_head_pivot.rotation.x -= peck * (0.10 + assist_emphasis * 0.30)
+			_head_pivot.position.z += peck * (0.030 + assist_emphasis * 0.12)
 		ChickenState.WorkState.LAYING:
 			_apply_laying_pose()
 		_:
 			_head_pivot.rotation.x = sin(_phase * 1.4 + worker_id) * 0.045
-
 
 func _priority_peck_contact_strength() -> float:
 	if not _priority_peck_timeline_active:
@@ -874,27 +947,21 @@ func _apply_laying_pose() -> void:
 	_body_pivot.scale.z *= 1.0 - brace * 0.040 * _lay_blend
 	_body_pivot.rotation.z += sin(effort_phase * TAU) * 0.040 * _lay_blend
 	_head_pivot.rotation.x = -0.22 * _lay_blend
-	_wing_left.rotation.z -= brace * 0.12 * _lay_blend
-	_wing_right.rotation.z += brace * 0.12 * _lay_blend
 
 
 func _apply_break_pose() -> void:
 	_body_pivot.position.y = absf(sin(_phase * 1.7 + worker_id)) * 0.018
 	_body_pivot.rotation.z = sin(_phase * 0.72 + worker_id) * 0.018
 	_head_pivot.rotation.y = sin(_phase * 0.85 + worker_id) * 0.24
-	_wing_left.rotation.z = -0.12
-	_wing_right.rotation.z = 0.12
 	match posmod(worker_id, 3):
 		0: # Curious head tilts and a poised wing.
 			_head_pivot.rotation.z = sin(_phase * 0.62) * 0.10
-			_wing_left.rotation.z -= maxf(0.0, sin(_phase * 0.55)) * 0.07
 		1: # A reserved, compact accountant stance.
 			_body_pivot.scale.x *= 0.992
 			_head_pivot.rotation.x = -0.035 + sin(_phase * 0.48) * 0.025
 		2: # Occasional preen gesture, unsynchronised across the flock.
 			var preen := pow(maxf(0.0, sin(_phase * 0.42 + worker_id)), 5.0)
 			_body_pivot.rotation.x -= preen * 0.07
-			_wing_right.rotation.z += preen * 0.16
 
 
 func _apply_feeding_pose() -> void:
@@ -904,8 +971,6 @@ func _apply_feeding_pose() -> void:
 	_body_pivot.position.y = 0.045 - peck * 0.025
 	_body_pivot.position.z = peck * 0.045
 	_body_pivot.rotation.x = -0.16 - peck * 0.24
-	_wing_left.rotation.z = -0.08
-	_wing_right.rotation.z = 0.08
 
 
 func _begin_feed_party_route() -> void:
@@ -992,6 +1057,7 @@ func _build_character(worker_name: String, color_index: int) -> void:
 	_visual_root.scale = Vector3.ONE * MODEL_SCALE
 	add_child(_visual_root)
 	_cache_model_animations()
+	_cache_accessory_nodes()
 	_body_pivot = _find_joint(&"BodyPivot")
 	_head_pivot = _find_joint(&"HeadPivot")
 	_wing_left = _find_joint(&"WingLeftPivot")
@@ -1009,7 +1075,7 @@ func _build_character(worker_name: String, color_index: int) -> void:
 	_head_rest_position = _head_pivot.position
 	_apply_feather_variant(color_index)
 	_apply_accessory_variant(worker_name, color_index)
-	_career_credential_badge = _visual_root.find_child("AccessoryBadge_GoldenEgg", true, false) as Node3D
+	_career_credential_badge = _accessory_nodes.get(&"AccessoryBadge_GoldenEgg") as Node3D
 	if _career_credential_badge != null:
 		_career_credential_profile_visible = _career_credential_badge.visible
 		_career_credential_rest_position = _career_credential_badge.position
@@ -1043,11 +1109,9 @@ func _apply_career_credential(worker_snapshot: Dictionary) -> void:
 
 
 func _apply_wing_actuation() -> void:
-	# The visual pivots remain the authoring interface used throughout the
-	# behavior poses, while the matching skeleton bones provide the real mesh
-	# deformation. This keeps wings responsive during walk, work, limp, and idle
-	# states instead of merely rotating an empty helper node.
-	if _skeleton == null:
+	# Normal workers keep the exact imported wing pose used by the manager model.
+	# Only explicit panic and predator-limp reactions opt into procedural bones.
+	if _skeleton == null or _use_authored_wing_pose:
 		return
 	if _wing_left_bone >= 0:
 		_skeleton.set_bone_pose_rotation(
@@ -1059,8 +1123,7 @@ func _apply_wing_actuation() -> void:
 			_wing_right_bone,
 			Quaternion.from_euler(_wing_right.rotation),
 		)
-	# The outer feathers trail the shoulder movement at a smaller angle. This
-	# creates a readable fold/unfold without exposing a hard hinge in the body.
+	# Panic and limp reactions add outer-feather follow-through.
 	var left_tip_rotation := Vector3(
 		_wing_left.rotation.x * 0.42,
 		_wing_left.rotation.y * 0.30,
@@ -1087,6 +1150,7 @@ func _cache_model_animations() -> void:
 	_animation_player = _visual_root.find_child("AnimationPlayer", true, false) as AnimationPlayer
 	if _animation_player == null:
 		return
+	_animation_player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	_animation_player.playback_default_blend_time = 0.14
 	for available_name in _animation_player.get_animation_list():
 		for requested_name in [ANIMATION_IDLE, ANIMATION_WALK, ANIMATION_PECK, ANIMATION_SIT, ANIMATION_LAY, ANIMATION_PANIC]:
@@ -1130,6 +1194,15 @@ func _find_joint(joint_name: StringName) -> Node3D:
 	return joint
 
 
+func _cache_accessory_nodes() -> void:
+	_accessory_nodes.clear()
+	for accessory_name in ACCESSORY_NAMES:
+		var accessory := _visual_root.find_child(String(accessory_name), true, false) as Node3D
+		assert(accessory != null, "Chicken model is missing accessory %s" % accessory_name)
+		if accessory != null:
+			_accessory_nodes[accessory_name] = accessory
+
+
 func _apply_feather_variant(color_index: int) -> void:
 	var palette: Dictionary = CHICKEN_PALETTES[posmod(color_index, CHICKEN_PALETTES.size())]
 	var base_color := Color(String(palette["feather"]))
@@ -1162,10 +1235,11 @@ func _apply_feather_variant(color_index: int) -> void:
 
 func _apply_accessory_variant(_worker_name: String, color_index: int) -> void:
 	_visible_accessories.clear()
+	_visible_accessory_nodes.clear()
 	for accessory_name in ACCESSORY_NAMES:
-		var accessory := _visual_root.find_child(String(accessory_name), true, false) as Node3D
-		assert(accessory != null, "Chicken model is missing accessory %s" % accessory_name)
-		accessory.visible = false
+		var accessory := _accessory_nodes.get(accessory_name) as Node3D
+		if accessory != null:
+			accessory.visible = false
 
 	# Worker IDs traverse a shuffled art-directed deck, guaranteeing distinct
 	# opening-roster silhouettes while remaining stable across save/reload.
@@ -1176,9 +1250,13 @@ func _apply_accessory_variant(_worker_name: String, color_index: int) -> void:
 		var accessory_name := StringName(profile.get(slot_name, &""))
 		if accessory_name.is_empty():
 			continue
-		var accessory := _visual_root.find_child(String(accessory_name), true, false) as Node3D
+		var accessory := _accessory_nodes.get(accessory_name) as Node3D
+		assert(accessory != null, "Chicken model is missing profile accessory %s" % accessory_name)
+		if accessory == null:
+			continue
 		accessory.visible = true
 		_visible_accessories.append(accessory_name)
+		_visible_accessory_nodes.append(accessory)
 
 	# Clothing and feathers share one coordinated employee palette. Surface
 	# overrides remain per instance, so save/reload never changes another hen.
@@ -1194,8 +1272,7 @@ func _apply_accessory_accent(color: Color) -> void:
 	var accent_material := StandardMaterial3D.new()
 	accent_material.albedo_color = color
 	accent_material.roughness = 0.50
-	for accessory_name in _visible_accessories:
-		var accessory := _visual_root.find_child(String(accessory_name), true, false)
+	for accessory in _visible_accessory_nodes:
 		var candidates: Array[Node] = [accessory]
 		candidates.append_array(_all_children(accessory))
 		for child in candidates:
@@ -1223,11 +1300,17 @@ func _cache_secondary_motion_parts() -> void:
 	_tail_feather_pivot = _visual_root.find_child("TailFeatherPivot", true, false) as Node3D
 	if _tail_feather_pivot != null:
 		_tail_feather_rest_rotation = _tail_feather_pivot.rotation
-	_accessory_rest_rotations.clear()
-	for accessory_name in _visible_accessories:
-		var accessory := _visual_root.find_child(String(accessory_name), true, false) as Node3D
-		if accessory != null:
-			_accessory_rest_rotations[accessory_name] = accessory.rotation
+	_secondary_motion_accessories.clear()
+	_secondary_motion_accessory_rest_rotations.clear()
+	_secondary_motion_accessory_sways.clear()
+	for accessory_index in _visible_accessories.size():
+		var accessory_name := _visible_accessories[accessory_index]
+		var accessory := _visible_accessory_nodes[accessory_index]
+		_secondary_motion_accessories.append(accessory)
+		_secondary_motion_accessory_rest_rotations.append(accessory.rotation)
+		_secondary_motion_accessory_sways.append(
+			String(accessory_name).contains("Neck") or accessory_name == &"BowTie"
+		)
 
 
 func _animate_secondary_motion() -> void:
@@ -1258,14 +1341,10 @@ func _animate_secondary_motion() -> void:
 		_tail_feather_pivot.rotation.x += sin(_phase * 2.8 * tail_motion + worker_id * 0.52) * tail_energy
 		_tail_feather_pivot.rotation.z += sin(_phase * 3.5 * tail_motion + worker_id) * tail_energy * 0.55
 
-	for accessory_name in _visible_accessories:
-		if not _accessory_rest_rotations.has(accessory_name):
-			continue
-		var accessory := _visual_root.find_child(String(accessory_name), true, false) as Node3D
-		if accessory == null:
-			continue
-		accessory.rotation = _accessory_rest_rotations[accessory_name]
-		if String(accessory_name).contains("Neck") or accessory_name == &"BowTie":
+	for accessory_index in _secondary_motion_accessories.size():
+		var accessory := _secondary_motion_accessories[accessory_index]
+		accessory.rotation = _secondary_motion_accessory_rest_rotations[accessory_index]
+		if _secondary_motion_accessory_sways[accessory_index]:
 			var sway_speed := 7.5 if _is_walking else 2.0
 			accessory.rotation.z += sin(_phase * sway_speed + worker_id) * (0.035 if _is_walking else 0.012)
 
