@@ -1139,11 +1139,19 @@ const DIRECTIVE_DEFINITIONS := {
 		"tone": &"care",
 	},
 }
+const LEGACY_INCIDENT_ORDER: Array[StringName] = [
+	&"ledger_molt",
+	&"wellness_request",
+	&"farmer_story",
+	&"feed_shortfall",
+]
 const INCIDENT_ORDER: Array[StringName] = [
 	&"ledger_molt",
 	&"wellness_request",
 	&"farmer_story",
 	&"feed_shortfall",
+	&"calendar_overflow",
+	&"credit_town_hall",
 ]
 const INCIDENT_DOCKET_SEED_OFFSET := 32_452_843
 const INCIDENT_DEFINITIONS := {
@@ -1154,6 +1162,7 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"patch",
 				"label": "AUTHORIZE EMERGENCY PATCH",
+				"tagline": "Spend Feed Fund to protect shells and obedience.",
 				"preview": "Cost $18  ·  +4 obedience  ·  -4% crack risk this shift",
 				"outcome": "The ledger was patched. Compliance has declared the smoke intentional.",
 				"cost_cents": 1800,
@@ -1162,6 +1171,7 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"spreadsheet",
 				"label": "USE THE UNOFFICIAL SPREADSHEET",
+				"tagline": "Keep the Fund; trade safety and obedience for speed.",
 				"preview": "No cost  ·  +5% speed  ·  +6% crack risk  ·  -6 obedience",
 				"outcome": "An unofficial spreadsheet is now mission-critical and completely unaudited.",
 				"cost_cents": 0,
@@ -1176,6 +1186,7 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"grant_breaks",
 				"label": "COVER A ROTATING BREAK",
+				"tagline": "Spend Feed Fund to restore the flock before more peckwork.",
 				"preview": "Cost $6  ·  -6 stress  ·  -5 fatigue  ·  +4 morale",
 				"outcome": "A rotating break was approved and immediately described as a productivity pilot.",
 				"cost_cents": 600,
@@ -1184,6 +1195,7 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"deny_breaks",
 				"label": "DENY THE ATTITUDE VARIANCE",
+				"tagline": "Protect favor now; push strain into morale and shells.",
 				"preview": "+3 farmer favor  ·  -6 morale  ·  +6 stress  ·  +2.5% crack risk",
 				"outcome": "The request was denied. The flock has been reminded that the wellness poster is the benefit.",
 				"cost_cents": 0,
@@ -1198,6 +1210,7 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"polish_story",
 				"label": "POLISH THE PRESENTATION BASKET",
+				"tagline": "Take cash and favor now; raise tomorrow's quota.",
 				"preview": "+$16 fund  ·  +8 farmer favor  ·  tomorrow's quota +1",
 				"outcome": "The presentation has been polished. Tomorrow's target already reflects today's optimism.",
 				"cost_cents": 0,
@@ -1206,6 +1219,7 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"show_ledger",
 				"label": "SHOW THE ACTUAL LEDGER",
+				"tagline": "Trade executive favor for obedience and a lower quota.",
 				"preview": "+5 obedience  ·  +6 flock unity  ·  tomorrow's quota -1",
 				"outcome": "The actual ledger was attached. The farmer has called this an avoidable transparency event.",
 				"cost_cents": 0,
@@ -1220,6 +1234,7 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"buy_grain",
 				"label": "BUY LOCAL GRAIN",
+				"tagline": "Spend Feed Fund to reduce flock strain and shell pressure.",
 				"preview": "Cost $16  ·  +6 morale  ·  -4 stress  ·  -15% strain",
 				"outcome": "Local grain arrived. Procurement has opened a review into its suspicious edibility.",
 				"cost_cents": 1600,
@@ -1228,8 +1243,57 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"optimize_portions",
 				"label": "OPTIMIZE THE PORTIONS",
+				"tagline": "Cut feed today; accept morale, speed, and shell risk.",
 				"preview": "Daily feed -$8  ·  -7 morale  ·  +5 stress  ·  +3% crack risk",
 				"outcome": "Portions were optimized. The missing feed has been reclassified as efficiency.",
+				"cost_cents": 0,
+				"tone": &"danger",
+			},
+		],
+	},
+	&"calendar_overflow": {
+		"title": "THE ROOSTERS HAVE SCHEDULED A MEETING ABOUT MEETINGS",
+		"body": "Every manager has added a status sync to explain why the flock has too many status syncs.",
+		"choices": [
+			{
+				"id": &"cancel_status_sync",
+				"label": "CANCEL THE STATUS SYNC",
+				"tagline": "Recover production time; spend executive favor.",
+				"preview": "+6% speed this shift  ·  -2% crack risk  ·  +2 obedience  ·  -2 farmer favor  ·  flock trust +2",
+				"outcome": "The meeting was canceled. Management has requested a meeting to process the cancellation.",
+				"cost_cents": 0,
+				"tone": &"quality",
+			},
+			{
+				"id": &"attend_status_sync",
+				"label": "ATTEND EVERY STATUS SYNC",
+				"tagline": "Gain executive favor; lose production time and flock patience.",
+				"preview": "-7% speed this shift  ·  +8 farmer favor  ·  +2 obedience  ·  flock stress +4",
+				"outcome": "Every status sync was attended. The roosters have reported record participation in reporting.",
+				"cost_cents": 0,
+				"tone": &"danger",
+			},
+		],
+	},
+	&"credit_town_hall": {
+		"title": "THE FARMER WANTS ONE NAME ON THE TOWN HALL SLIDE",
+		"body": "The flock produced the basket, the roosters produced a deck, and only one contribution fits the template.",
+		"choices": [
+			{
+				"id": &"credit_layers",
+				"label": "CREDIT THE LAYERS",
+				"tagline": "Spend Feed Fund and favor to strengthen the flock.",
+				"preview": "Cost $10  ·  -2 farmer favor  ·  +4 obedience  ·  morale +8  ·  stress -6  ·  tomorrow's quota -1  ·  -1% crack risk",
+				"outcome": "The layers were named. The farmer has asked whether collective nouns count as individual recognition.",
+				"cost_cents": 1000,
+				"tone": &"care",
+			},
+			{
+				"id": &"credit_roosters",
+				"label": "CREDIT THE ROOSTERS",
+				"tagline": "Take favor and speed now; deepen relationship debt.",
+				"preview": "No cost  ·  +10 farmer favor  ·  +5% speed  ·  flock morale -5  ·  grievance +6",
+				"outcome": "The roosters received the byline. The flock has been thanked for implementing management's eggs.",
 				"cost_cents": 0,
 				"tone": &"danger",
 			},
@@ -15334,8 +15398,8 @@ func _maybe_open_incident() -> bool:
 			# structural fallback. New ordinary docket slots use the shuffled bag.
 			var rotation_index := (
 				(day - 1) * INCIDENT_MINUTES.size() + _incident_slot
-			) % INCIDENT_ORDER.size()
-			incident_id = INCIDENT_ORDER[rotation_index]
+			) % LEGACY_INCIDENT_ORDER.size()
+			incident_id = LEGACY_INCIDENT_ORDER[rotation_index]
 			_last_standard_incident_id = incident_id
 		else:
 			incident_id = _next_standard_incident_id()
@@ -15968,6 +16032,35 @@ func _apply_incident_effects(incident_id: StringName, option_id: StringName) -> 
 				_adjust_worker_relationships(-3.0, 4.0)
 				_incident_work_multiplier *= 0.96
 				_incident_crack_modifier += 0.03
+		&"calendar_overflow":
+			if option_id == &"cancel_status_sync":
+				_incident_work_multiplier *= 1.06
+				_incident_crack_modifier -= 0.02
+				compliance = minf(100.0, compliance + 2.0)
+				executive_confidence = maxf(0.0, executive_confidence - 2.0)
+				_adjust_worker_relationships(2.0, -2.0)
+			else:
+				_incident_work_multiplier *= 0.93
+				executive_confidence = minf(100.0, executive_confidence + 8.0)
+				compliance = minf(100.0, compliance + 2.0)
+				_adjust_workers(0.0, 4.0, 0.0)
+				_adjust_worker_relationships(-2.0, 3.0)
+		&"credit_town_hall":
+			if option_id == &"credit_layers":
+				executive_confidence = maxf(0.0, executive_confidence - 2.0)
+				compliance = minf(100.0, compliance + 4.0)
+				_adjust_workers(8.0, -6.0, -4.0)
+				_adjust_worker_relationships(6.0, -5.0)
+				solidarity = minf(100.0, solidarity + 5.0)
+				_pending_quota_adjustment -= 1
+				_incident_crack_modifier -= 0.01
+				_incident_golden_modifier += 0.02
+			else:
+				executive_confidence = minf(100.0, executive_confidence + 10.0)
+				_incident_work_multiplier *= 1.05
+				_adjust_workers(-5.0, 4.0, 0.0)
+				_adjust_worker_relationships(-5.0, 6.0)
+				solidarity = maxf(0.0, solidarity - 4.0)
 
 
 func _adjust_workers(morale_delta: float, stress_delta: float, fatigue_delta: float) -> void:

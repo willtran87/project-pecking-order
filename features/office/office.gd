@@ -6791,6 +6791,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 					]
 	elif status_id == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW:
 		var annual_passed := bool(annual_review.get("passed", false))
+		var strategy_recap := SeniorRoostStateScript.annual_strategy_recap(annual_review)
 		var mandate_settlement := annual_review.get(
 			"mandate_settlement",
 			_senior_roost_state.last_mandate_settlement,
@@ -6897,6 +6898,12 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 				""
 			),
 		}
+		if not strategy_recap.is_empty():
+			var recap_lines := strategy_recap.get("lines", []) as Array
+			objective["description"] = "%s\n\nYEAR STRATEGY RECEIPT\n%s" % [
+				String(objective.get("description", "")),
+				"\n".join(recap_lines),
+			]
 		secondary_display = "%d / 100" % int(annual_review.get("score", 0))
 		secondary_caption = "ANNUAL SCORE"
 		secondary_tooltip = "Annual passage requires 60 plus every flock, shell, favor, and solvency safeguard."
@@ -7074,7 +7081,14 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		"choice_hint": (
 			"One twelve-shift mandate governs the year. Compare targets, seal reward, and any Roost Mark stake."
 			if mandate_required else
-			"One irreversible policy governs the next three shifts."
+			(
+				"One policy governs three shifts. LAST YEAR shows how each option affects the prior binding safeguard."
+				if (
+					_senior_roost_state.completed_years > 0
+					and _senior_roost_state.current_year_quarters.is_empty()
+				) else
+				"One irreversible policy governs the next three shifts."
+			)
 		),
 		"continue_label": continue_label,
 		"continue_tooltip": continue_tooltip,
@@ -7084,6 +7098,11 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		"senior_roost": state_snapshot,
 		"annual_mandate": active_mandate,
 		"annual_mandate_progress": mandate_progress,
+		"annual_strategy_recap": (
+			SeniorRoostStateScript.annual_strategy_recap(annual_review)
+			if status_id == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW else
+			{}
+		),
 		"mandate_tier": mandate_tier,
 		"career_sponsorship": _career_sponsorship_presentation_snapshot(),
 	}

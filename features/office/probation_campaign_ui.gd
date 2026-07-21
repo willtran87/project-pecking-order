@@ -2152,6 +2152,12 @@ func _rebuild_milestone_choices() -> void:
 				String(strategy.get("score_watch", "CLOSING LEDGER")),
 				String(strategy.get("board_fit", "FILE THE ANNUAL BOARD MANDATE FIRST")),
 			]
+			var prior_year_fit := strategy.get("prior_year_fit", {}) as Dictionary
+			if bool(prior_year_fit.get("visible", false)):
+				button_copy += "\nLAST YEAR  //  %s  /  %s" % [
+					String(prior_year_fit.get("fit_label", "NO DIRECT EDGE")),
+					String(prior_year_fit.get("focus_detail", "ANNUAL SAFEGUARD")),
+				]
 		var button := _make_button(
 			"MilestoneChoice_%s" % _safe_node_suffix(String(choice_id)),
 			button_copy,
@@ -2161,7 +2167,7 @@ func _rebuild_milestone_choices() -> void:
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.custom_minimum_size = Vector2(
 			0.0,
-			126.0 if not strategy.is_empty() else (108.0 if not doctrine.is_empty() else 88.0),
+			146.0 if not strategy.is_empty() else (108.0 if not doctrine.is_empty() else 88.0),
 		)
 		if not strategy.is_empty():
 			button.add_theme_font_size_override("font_size", 12)
@@ -2199,6 +2205,13 @@ func _rebuild_milestone_choices() -> void:
 				String(strategy.get("board_name", "ANNUAL BOARD MANDATE")).to_upper(),
 				String(strategy.get("board_fit", "FILE THE ANNUAL BOARD MANDATE FIRST")),
 			]
+			var prior_year_fit := strategy.get("prior_year_fit", {}) as Dictionary
+			if bool(prior_year_fit.get("visible", false)):
+				default_tooltip += "\n\nLAST YEAR  //  %s  //  %s\n%s" % [
+					String(prior_year_fit.get("fit_label", "NO DIRECT EDGE")),
+					String(prior_year_fit.get("focus_detail", "ANNUAL SAFEGUARD")),
+					String(prior_year_fit.get("fit_detail", "Use the annual receipt to cover this safeguard.")),
+				]
 		if locked_by_filed_choice:
 			default_tooltip = "LOCKED  //  %s is already the permanent filing for this review." % (
 				String(_selected_milestone).replace("_", " ").to_upper()
@@ -2382,6 +2395,7 @@ func _update_ledger_labels(targets: Array[Dictionary]) -> void:
 		title_label.text = String(ledger.get("label", "LEDGER %d" % (index + 1))).to_upper()
 		value_label.text = _ledger_display_value(ledger)
 		detail_label.text = String(ledger.get("detail", "CUMULATIVE"))
+		detail_label.tooltip_text = detail_label.text
 
 
 func _normalized_ledgers() -> Array[Dictionary]:
@@ -2746,6 +2760,9 @@ func _build_ledger_row(parent: VBoxContainer, prefix: String, targets: Array[Dic
 		stack.add_child(value_label)
 		var detail_label := _make_label("CUMULATIVE", 9, Color("82939d"))
 		detail_label.name = "%sLedgerDetail%d" % [prefix, index + 1]
+		detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		detail_label.max_lines_visible = 2
+		detail_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		stack.add_child(detail_label)
 		targets.append({
 			"title": title_label,

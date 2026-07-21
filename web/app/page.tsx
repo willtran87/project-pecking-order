@@ -871,6 +871,7 @@ function buildGameStateAccessibleStatus(
 	const pendingMandateConfirmation = recordValue(senior.pending_mandate_confirmation);
 	const annualMandateProgressSummary = seniorAnnualMandateProgressSummary(senior);
 	const annualMandateSettlementSummary = seniorAnnualMandateSettlementSummary(senior);
+	const annualStrategyRecapSummary = seniorAnnualStrategyRecapSummary(senior);
 	const quarterlyPolicySelectionSummary = seniorQuarterPolicySelectionSummary(senior);
 	const sponsorship = recordValue(state.career_sponsorship);
 	const sponsorshipVisible = sponsorship.visible === true;
@@ -1063,7 +1064,10 @@ function buildGameStateAccessibleStatus(
 		const settlementSummary = annualMandateSettlementSummary.length > 0
 			? ` ${annualMandateSettlementSummary}`
 			: "";
-		return `Senior Year ${seniorYear} annual review, score ${score}.${careSummary}${settlementSummary}${farmTreasuryStatus} Objective: acknowledge the annual score and Board Mandate settlement, then open next-year planning.${sponsorshipObjective}`;
+		const strategySummary = annualStrategyRecapSummary.length > 0
+			? ` ${annualStrategyRecapSummary}`
+			: "";
+		return `Senior Year ${seniorYear} annual review, score ${score}.${careSummary}${settlementSummary}${strategySummary}${farmTreasuryStatus} Objective: acknowledge the annual score, strategy receipt, and Board Mandate settlement, then open next-year planning.${sponsorshipObjective}`;
   }
   if (campaignStage === "senior_quarter" || seniorStatus === "quarter_choice") {
 		if (seniorStatus === "quarter_choice" && annualMandateRequired) {
@@ -1855,10 +1859,17 @@ function seniorQuarterPolicySelectionSummary(senior: GameDiagnostic): string {
 		const edge = diagnosticPlainText(stringValue(strategy.score_edge), 120) || "quarter tradeoff";
 		const watch = diagnosticPlainText(stringValue(strategy.score_watch), 120) || "closing ledger";
 		const boardFit = diagnosticPlainText(stringValue(strategy.board_fit), 180) || "review the active Board Mandate";
+		const priorYearFit = recordValue(strategy.prior_year_fit);
+		const priorFitLabel = diagnosticPlainText(stringValue(priorYearFit.fit_label), 60);
+		const priorFocus = diagnosticPlainText(stringValue(priorYearFit.focus_detail), 120);
+		const priorFitDetail = diagnosticPlainText(stringValue(priorYearFit.fit_detail), 180);
+		const priorYearSummary = priorYearFit.visible === true && priorFitLabel.length > 0
+			? `, prior-year fit ${priorFitLabel}${priorFocus.length > 0 ? ` for ${priorFocus}` : ""}${priorFitDetail.length > 0 ? `: ${priorFitDetail}` : ""}`
+			: "";
 		const availability = offer.available === false
 			? `held${stringValue(offer.unavailable_reason).length > 0 ? `: ${diagnosticPlainText(stringValue(offer.unavailable_reason), 140)}` : ""}`
 			: "available";
-		return `${index + 1}, ${title}, score edge ${edge}, score watch ${watch}, Board fit ${boardFit}, ${availability}`;
+		return `${index + 1}, ${title}, score edge ${edge}, score watch ${watch}, Board fit ${boardFit}${priorYearSummary}, ${availability}`;
 	});
 	return `Quarterly policy choices: ${details.join("; ")}.`;
 }
@@ -1934,6 +1945,51 @@ function seniorAnnualMandateSettlementSummary(senior: GameDiagnostic): string {
 		? `${stakeForfeited} staked Roost ${stakeForfeited === 1 ? "Mark was" : "Marks were"} permanently forfeited`
 		: "no Roost Marks were at risk";
 	return `Board Mandate settlement: ${name} failed; no Board Seal earned and ${failedStake}. ${totalSeals} total Board ${totalSeals === 1 ? "Seal" : "Seals"} and ${availableMarks} available Roost ${availableMarks === 1 ? "Mark" : "Marks"}.${portfolioSummary}`;
+}
+
+
+function seniorAnnualStrategyRecapSummary(senior: GameDiagnostic): string {
+	const recap = recordValue(senior.annual_strategy_recap);
+	if (Object.keys(recap).length === 0) return "";
+	const policyCounts = recordValue(recap.policy_counts);
+	const policyMix = Object.entries(policyCounts)
+		.map(([rawLabel, rawCount]) => ({
+			label: diagnosticPlainText(rawLabel, 80),
+			count: Math.max(0, Math.trunc(numberValue(rawCount, 0))),
+		}))
+		.filter((entry) => entry.label.length > 0 && entry.count > 0)
+		.sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
+		.slice(0, 4)
+		.map((entry) => `${entry.label} ${entry.count}`)
+		.join(", ");
+	const policyCost = Math.max(0, Math.trunc(numberValue(recap.policy_cost_cents, 0)));
+	const policyNet = Math.trunc(numberValue(recap.policy_fund_delta_cents, 0));
+	const bestQuarter = recordValue(recap.best_quarter);
+	const bestQuarterNumber = Math.max(0, Math.trunc(numberValue(
+		bestQuarter.quarter_in_year,
+		numberValue(bestQuarter.quarter_number, 0),
+	)));
+	const bestPolicy = diagnosticPlainText(
+		stringValue(bestQuarter.policy_title) || diagnosticTitle(stringValue(bestQuarter.policy_id)),
+		80,
+	);
+	const bestScore = Math.max(0, Math.min(100, Math.trunc(numberValue(bestQuarter.score, 0))));
+	const focusDetail = diagnosticPlainText(recap.focus_detail, 120);
+	const recommendation = diagnosticPlainText(recap.recommendation, 180);
+	const pieces: string[] = [];
+	if (policyMix.length > 0) pieces.push(`policy mix ${policyMix}`);
+	const policyNetLabel = policyNet === 0
+		? formatCurrencyFromCents(0)
+		: formatSignedCurrencyFromCents(policyNet);
+	pieces.push(`${formatCurrencyFromCents(policyCost)} authorized, net ${policyNetLabel}`);
+	if (bestQuarterNumber > 0 && bestPolicy.length > 0) {
+		pieces.push(`best quarter Q${bestQuarterNumber}, ${bestPolicy}, ${bestScore} of 100`);
+	}
+	if (focusDetail.length > 0) {
+		pieces.push(`${recap.passed === true ? "narrowest clear" : "held back"}: ${focusDetail}`);
+	}
+	if (recommendation.length > 0) pieces.push(`next move: ${withTerminalPunctuation(recommendation)}`);
+	return `Year strategy receipt: ${pieces.join("; ")}`;
 }
 
 function mandateTierForSealCount(sealCount: number): number {

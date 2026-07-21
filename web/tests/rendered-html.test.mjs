@@ -2058,7 +2058,7 @@ test("announces every Senior quarterly policy with score and active-mandate fit"
 		campaign_stage: "senior_quarter",
 		senior_roost: {
 			status: "quarter_choice",
-			year: 1,
+			year: 2,
 			quarter: 1,
 			requires_annual_mandate: false,
 			quarterly_policy_offers: [
@@ -2081,6 +2081,12 @@ test("announces every Senior quarterly policy with score and active-mandate fit"
 						score_edge: "FLOCK WELFARE + QUOTA RELIABILITY",
 						score_watch: "FARMER FAVOR + FUND BUFFER",
 						board_fit: "EDGE RELIABLE CLUTCH + FLOCK CONTINUITY // WATCH CURRENT PAYROLL",
+						prior_year_fit: {
+							visible: true,
+							fit_label: "RECOVERY EDGE",
+							focus_detail: "FLOCK WELFARE 17% / 45%",
+							fit_detail: "Flock-wide morale and strain relief directly repair the care margin.",
+						},
 					},
 				},
 				{
@@ -2097,10 +2103,12 @@ test("announces every Senior quarterly policy with score and active-mandate fit"
 		},
 	}), context);
 
-	assert.match(planning, /^Senior Year 1, Quarter 1 planning\./);
+	assert.match(planning, /^Senior Year 2, Quarter 1 planning\./);
 	assert.match(planning, /Quarterly policy choices: 1, MERIT GRANTS, score edge COOP OBEDIENCE \+ TOP-HEN CAREER/);
 	assert.match(planning, /2, FLOCK DIVIDEND, score edge FLOCK WELFARE \+ QUOTA RELIABILITY/);
-	assert.match(planning, /Board fit EDGE RELIABLE CLUTCH \+ FLOCK CONTINUITY \/\/ WATCH CURRENT PAYROLL, held: \$4\.00 more spendable Feed Fund is required/);
+	assert.match(planning, /Board fit EDGE RELIABLE CLUTCH \+ FLOCK CONTINUITY \/\/ WATCH CURRENT PAYROLL, prior-year fit RECOVERY EDGE/);
+	assert.match(planning, /care margin\., held: \$4\.00 more spendable Feed Fund is required/);
+	assert.match(planning, /prior-year fit RECOVERY EDGE for FLOCK WELFARE 17% \/ 45%: Flock-wide morale and strain relief directly repair the care margin/);
 	assert.match(planning, /3, EXECUTIVE HARVEST FORECAST, score edge FARMER FAVOR \+ FUND BUFFER, score watch QUOTA RELIABILITY \+ FLOCK WELFARE \+ OBEDIENCE/);
 	assert.match(planning, /Objective: press 1 through 3 to file one available capital policy after comparing score edge, score watch, and Board fit/);
 });
@@ -2172,6 +2180,15 @@ test("announces successful and failed Board Mandate settlement economics at annu
 			mandate_seals: 4,
 			mandate_mastery: { mastered_count: 2, total_count: 7 },
 			mandate_success_counts: { mutual_assurance: 1 },
+			annual_strategy_recap: {
+				passed: true,
+				policy_counts: { "FLOCK DIVIDEND": 2, "MERIT GRANTS": 1, "EXECUTIVE HARVEST FORECAST": 1 },
+				policy_cost_cents: 6000,
+				policy_fund_delta_cents: 0,
+				best_quarter: { quarter_in_year: 3, policy_title: "FLOCK DIVIDEND", score: 82 },
+				focus_detail: "FARMER FAVOR 58% / 50%",
+				recommendation: "Keep a balanced policy mix and protect the narrowest safeguard.",
+			},
 			last_annual_review: {
 				score: 73,
 				mandate_settlement: {
@@ -2193,7 +2210,12 @@ test("announces successful and failed Board Mandate settlement economics at annu
 	assert.match(successful, /4 total Board Seals and 7 available Roost Marks/);
 	assert.match(successful, /New Book mastered\. Board Book portfolio: 2 of 7 mastered/);
 	assert.match(successful, /Advanced mandate tier 2 unlocked for next-year planning/);
-	assert.match(successful, /Objective: acknowledge the annual score and Board Mandate settlement, then open next-year planning/);
+	assert.match(successful, /Year strategy receipt: policy mix FLOCK DIVIDEND 2, EXECUTIVE HARVEST FORECAST 1, MERIT GRANTS 1/);
+	assert.match(successful, /\$60\.00 authorized, net \$0\.00/);
+	assert.match(successful, /best quarter Q3, FLOCK DIVIDEND, 82 of 100/);
+	assert.match(successful, /narrowest clear: FARMER FAVOR 58% \/ 50%/);
+	assert.match(successful, /next move: Keep a balanced policy mix and protect the narrowest safeguard\./);
+	assert.match(successful, /Objective: acknowledge the annual score, strategy receipt, and Board Mandate settlement, then open next-year planning/);
 
 	const failed = buildStatus(JSON.stringify({
 		campaign_stage: "senior_annual",

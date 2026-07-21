@@ -657,6 +657,9 @@ func _rejected_sponsorship(reason_id: String, reason: String) -> Dictionary:
 
 func policy_catalog(spendable_cents: int = MAX_COUNTER) -> Array[Dictionary]:
 	var policies: Array[Dictionary] = []
+	var prior_year_recap: Dictionary = {}
+	if completed_years > 0 and current_year_quarters.is_empty():
+		prior_year_recap = annual_strategy_recap(last_annual_review)
 	for definition in _policy_definitions():
 		var policy := definition.duplicate(true)
 		var cost_cents := int(policy.get("cost_cents", 0))
@@ -669,12 +672,20 @@ func policy_catalog(spendable_cents: int = MAX_COUNTER) -> Array[Dictionary]:
 			if not available else
 			""
 		)
-		policy["strategy"] = _policy_strategy(policy, _active_annual_mandate)
+		policy["strategy"] = _policy_strategy(
+			policy,
+			_active_annual_mandate,
+			prior_year_recap,
+		)
 		policies.append(policy)
 	return policies
 
 
-static func _policy_strategy(policy: Dictionary, mandate: Dictionary) -> Dictionary:
+static func _policy_strategy(
+	policy: Dictionary,
+	mandate: Dictionary,
+	prior_year_recap: Dictionary = {},
+) -> Dictionary:
 	## Connects an irreversible quarterly policy to the same score and annual
 	## metrics the player will later be judged on. This is descriptive only: the
 	## simulation receipt remains the sole authority for applied effects.
@@ -703,13 +714,100 @@ static func _policy_strategy(policy: Dictionary, mandate: Dictionary) -> Diction
 		if not watched_targets.is_empty():
 			clauses.append("WATCH %s" % " + ".join(watched_targets))
 		board_fit = "  //  ".join(clauses)
-	return {
+	var strategy := {
 		"score_edge": String(policy.get("score_edge", "QUARTER TRADEOFF")),
 		"score_watch": String(policy.get("score_watch", "CLOSING LEDGER")),
 		"board_fit": board_fit,
 		"board_name": String(mandate.get("name", "ANNUAL BOARD MANDATE")),
 		"supported_targets": supported_targets,
 		"watched_targets": watched_targets,
+	}
+	if not prior_year_recap.is_empty():
+		strategy["prior_year_fit"] = _prior_year_policy_fit(
+			StringName(String(policy.get("id", ""))),
+			prior_year_recap,
+		)
+	return strategy
+
+
+static func _prior_year_policy_fit(policy_id: StringName, recap: Dictionary) -> Dictionary:
+	## This is authored decision guidance, not a score forecast. The annual receipt
+	## identifies the binding safeguard; this matrix explains the known direction
+	## of each irreversible policy without promising an outcome the simulation has
+	## not yet produced.
+	var focus_id := StringName(String(recap.get("focus_id", "score")))
+	var fit_id := &"indirect"
+	var detail := "No direct repair; use facilities, staffing, or shift actions for this safeguard."
+	match policy_id:
+		POLICY_MERIT_GRANTS:
+			match focus_id:
+				&"score":
+					fit_id = &"partial"
+					detail = "Top-hen development can lift obedience, but does not cover every score lane."
+				&"compliance":
+					fit_id = &"edge"
+					detail = "Top-hen development and trust provide this policy's clearest obedience edge."
+				&"farmer_favor":
+					fit_id = &"risk"
+					detail = "The grant costs 2 farmer favor before the quarter begins."
+				&"solvency":
+					fit_id = &"risk"
+					detail = "The $12.00 grant reduces the payroll buffer."
+		POLICY_FLOCK_DIVIDEND:
+			match focus_id:
+				&"score":
+					fit_id = &"edge"
+					detail = "A lower quota plus flock-wide recovery protects multiple score lanes."
+				&"welfare":
+					fit_id = &"edge"
+					detail = "Flock-wide morale and strain relief directly repair the care margin."
+				&"farmer_favor":
+					fit_id = &"risk"
+					detail = "The dividend costs 4 farmer favor before the quarter begins."
+				&"shell_quality":
+					fit_id = &"partial"
+					detail = "Lower strain and quota pressure help shells, but do not replace QA investment."
+				&"solvency":
+					fit_id = &"risk"
+					detail = "The $24.00 dividend is the largest paid policy commitment."
+		POLICY_HARVEST_FORECAST:
+			match focus_id:
+				&"farmer_favor":
+					fit_id = &"edge"
+					detail = "+24 farmer favor directly rebuilds this margin."
+				&"solvency":
+					fit_id = &"edge"
+					detail = "+$60.00 Feed Fund restores the payroll buffer immediately."
+				&"score":
+					fit_id = &"risk"
+					detail = "The +2 quota and flock trust cost put several score lanes under pressure."
+				&"welfare":
+					fit_id = &"risk"
+					detail = "The +2 quota and grievance increase add care pressure."
+				&"compliance":
+					fit_id = &"risk"
+					detail = "Forecast pressure works against the prior obedience margin."
+				&"shell_quality":
+					fit_id = &"risk"
+					detail = "The +2 quota increases shell pressure before QA support."
+	var passed := bool(recap.get("passed", false))
+	var fit_label := "NO DIRECT EDGE"
+	match fit_id:
+		&"edge":
+			fit_label = "PROTECTS MARGIN" if passed else "RECOVERY EDGE"
+		&"risk":
+			fit_label = "RISKS MARGIN" if passed else "RECOVERY RISK"
+		&"partial":
+			fit_label = "PARTIAL SUPPORT" if passed else "PARTIAL RECOVERY"
+	return {
+		"visible": true,
+		"year": maxi(1, int(recap.get("year", 1))),
+		"passed": passed,
+		"focus_id": String(focus_id),
+		"focus_detail": String(recap.get("focus_detail", "ANNUAL SAFEGUARD")),
+		"fit_id": String(fit_id),
+		"fit_label": fit_label,
+		"fit_detail": detail,
 	}
 
 
@@ -906,6 +1004,8 @@ func last_quarter_score_breakdown() -> Dictionary:
 
 func snapshot() -> Dictionary:
 	var mandate_progress := current_annual_mandate_progress()
+	var strategy_recap := annual_strategy_recap(last_annual_review) \
+		if status == STATUS_ANNUAL_REVIEW else {}
 	return {
 		"status": String(status),
 		"total_senior_shifts": total_senior_shifts,
@@ -945,6 +1045,7 @@ func snapshot() -> Dictionary:
 		"last_quarter_review": last_quarter_review.duplicate(true),
 		"last_quarter_score_breakdown": last_quarter_score_breakdown(),
 		"last_annual_review": last_annual_review.duplicate(true),
+		"annual_strategy_recap": strategy_recap,
 	}
 
 
@@ -1267,6 +1368,177 @@ func _summarize_annual(quarters: Array[Dictionary], year_number: int) -> Diction
 		"policy_style_counts": policy_styles,
 		"quarters": quarters.duplicate(true),
 	}
+
+
+static func annual_strategy_recap(review: Dictionary) -> Dictionary:
+	## Pure post-year diagnosis derived only from the frozen annual receipt. It
+	## teaches the connection between quarterly policy choices and the safeguards
+	## already used for passage without changing scores, rewards, or save data.
+	var quarter_values := review.get("quarters", []) as Array
+	if quarter_values.is_empty():
+		return {}
+
+	var policy_counts: Dictionary = {}
+	var policy_order: Array[String] = []
+	var policy_cost_cents := 0
+	var policy_fund_delta_cents := 0
+	var best_quarter: Dictionary = {}
+	for quarter_value in quarter_values:
+		if not quarter_value is Dictionary:
+			continue
+		var quarter := quarter_value as Dictionary
+		var policy_label := _annual_policy_label(quarter)
+		if not policy_counts.has(policy_label):
+			policy_counts[policy_label] = 0
+			policy_order.append(policy_label)
+		policy_counts[policy_label] = int(policy_counts[policy_label]) + 1
+		var receipt := quarter.get("policy_receipt", {}) as Dictionary
+		policy_cost_cents += maxi(0, int(receipt.get("cost_cents", 0)))
+		policy_fund_delta_cents += int(receipt.get(
+			"fund_delta_cents",
+			-int(receipt.get("cost_cents", 0)),
+		))
+		if best_quarter.is_empty() or int(quarter.get("score", 0)) > int(best_quarter.get("score", 0)):
+			best_quarter = quarter.duplicate(true)
+
+	if policy_order.is_empty():
+		return {}
+	policy_order.sort_custom(func(left: String, right: String) -> bool:
+		var left_count := int(policy_counts.get(left, 0))
+		var right_count := int(policy_counts.get(right, 0))
+		return left < right if left_count == right_count else left_count > right_count
+	)
+	var policy_parts: Array[String] = []
+	for policy_label in policy_order:
+		policy_parts.append("%s %d" % [policy_label, int(policy_counts.get(policy_label, 0))])
+
+	var safeguards := _annual_strategy_safeguards(review)
+	var failed_safeguards: Array[Dictionary] = []
+	for safeguard in safeguards:
+		if not bool(safeguard.get("passed", false)):
+			failed_safeguards.append(safeguard)
+	var focus_pool := failed_safeguards if not failed_safeguards.is_empty() else safeguards
+	var focus: Dictionary = {}
+	for safeguard in focus_pool:
+		if focus.is_empty() or float(safeguard.get("margin", 0.0)) < float(focus.get("margin", 0.0)):
+			focus = safeguard
+
+	var passed := bool(review.get("passed", failed_safeguards.is_empty()))
+	var focus_id := StringName(String(focus.get("id", "score")))
+	var focus_prefix := "NARROWEST CLEAR" if passed else "HELD BACK"
+	var best_quarter_number := int(best_quarter.get("quarter_in_year", best_quarter.get("quarter_number", 0)))
+	var best_policy_label := _annual_policy_label(best_quarter)
+	var lines: Array[String] = [
+		"POLICY MIX  /  %s" % "  /  ".join(policy_parts),
+		"POLICY CASH  /  $%.2f AUTHORIZED  /  NET %s" % [
+			float(policy_cost_cents) / 100.0,
+			_signed_currency(policy_fund_delta_cents),
+		],
+		"BEST QUARTER  /  Q%d  /  %s  /  %d / 100" % [
+			best_quarter_number,
+			best_policy_label,
+			int(best_quarter.get("score", 0)),
+		],
+		"%s  /  %s" % [focus_prefix, String(focus.get("detail", "ANNUAL SCORE NEEDS REVIEW"))],
+		"NEXT MOVE  /  %s" % _annual_strategy_recommendation(focus_id, passed),
+	]
+	return {
+		"year": maxi(1, int(review.get("year", 1))),
+		"passed": passed,
+		"policy_counts": policy_counts.duplicate(true),
+		"policy_cost_cents": policy_cost_cents,
+		"policy_fund_delta_cents": policy_fund_delta_cents,
+		"best_quarter": best_quarter.duplicate(true),
+		"focus_id": String(focus_id),
+		"focus_detail": String(focus.get("detail", "")),
+		"focus_passed": bool(focus.get("passed", false)),
+		"recommendation": _annual_strategy_recommendation(focus_id, passed),
+		"lines": lines,
+	}
+
+
+static func _annual_policy_label(quarter: Dictionary) -> String:
+	var title := String(quarter.get("policy_title", "")).strip_edges()
+	if not title.is_empty():
+		return title.to_upper()
+	match StringName(String(quarter.get("policy_id", ""))):
+		POLICY_MERIT_GRANTS:
+			return "MERIT GRANTS"
+		POLICY_FLOCK_DIVIDEND:
+			return "FLOCK DIVIDEND"
+		POLICY_HARVEST_FORECAST:
+			return "EXECUTIVE HARVEST FORECAST"
+	return "UNFILED POLICY"
+
+
+static func _annual_strategy_safeguards(review: Dictionary) -> Array[Dictionary]:
+	var score := int(review.get("score", 0))
+	var welfare := int(review.get("welfare", 0))
+	var compliance := int(review.get("compliance", 0))
+	var farmer_favor := int(review.get("farmer_favor", 0))
+	var crack_rate := int(review.get("crack_rate_basis_points", 10_000))
+	var arrears := maxi(0, int(review.get("closing_wage_arrears_cents", 0)))
+	return [
+		{
+			"id": &"score", "passed": score >= 60,
+			"margin": float(score - 60) / 60.0,
+			"detail": "ANNUAL SCORE %d / 60" % score,
+		},
+		{
+			"id": &"welfare", "passed": welfare >= 45,
+			"margin": float(welfare - 45) / 45.0,
+			"detail": "FLOCK WELFARE %d%% / 45%%" % welfare,
+		},
+		{
+			"id": &"compliance", "passed": compliance >= 55,
+			"margin": float(compliance - 55) / 55.0,
+			"detail": "COOP OBEDIENCE %d%% / 55%%" % compliance,
+		},
+		{
+			"id": &"farmer_favor", "passed": farmer_favor >= 50,
+			"margin": float(farmer_favor - 50) / 50.0,
+			"detail": "FARMER FAVOR %d%% / 50%%" % farmer_favor,
+		},
+		{
+			"id": &"shell_quality", "passed": crack_rate <= 2500,
+			"margin": float(2500 - crack_rate) / 2500.0,
+			"detail": "SHELL CRACKS %.1f%% / 25.0%% MAX" % (float(crack_rate) / 100.0),
+		},
+		{
+			"id": &"solvency", "passed": arrears == 0,
+			"margin": 1.0 if arrears == 0 else -1.0 - float(arrears) / 10_000.0,
+			"detail": "PAYROLL ARREARS $%.2f / $0 REQUIRED" % (float(arrears) / 100.0),
+		},
+	]
+
+
+static func _annual_strategy_recommendation(focus_id: StringName, passed: bool) -> String:
+	var action := "Reinforce the thinnest safeguard before staking a harder Board Book."
+	match focus_id:
+		&"score":
+			action = "Add production capacity or Peckwork Tools, then protect three reliable shifts."
+		&"welfare":
+			action = "Use Flock Dividend, commission the Wellness Nest, and reduce Quota Pressure."
+		&"compliance":
+			action = "Use Merit Grants or audit support, and limit forecast-heavy quarters."
+		&"farmer_favor":
+			action = "Pair one Harvest Forecast with trust repair and deliberate closing-credit choices."
+		&"shell_quality":
+			action = "Finish Nest Pads, QA Lamps, and the Candling Rework Bay before raising quota."
+		&"solvency":
+			action = "Hold a larger Feed Fund buffer and delay hires or paid policy until payroll clears."
+	return (
+		"%s Keep that margin above target before increasing the stake." % action
+		if passed else action
+	)
+
+
+static func _signed_currency(cents: int) -> String:
+	if cents > 0:
+		return "+$%.2f" % (float(cents) / 100.0)
+	if cents < 0:
+		return "-$%.2f" % (float(-cents) / 100.0)
+	return "$0.00"
 
 
 func _score_records(records: Array[Dictionary], normalize_quota: bool) -> int:

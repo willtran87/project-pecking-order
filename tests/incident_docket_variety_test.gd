@@ -12,20 +12,28 @@ func _run() -> void:
 	for seed in authored_seeds:
 		var first := DepartmentSimulation.new(1701, 4, seed)
 		var replay := DepartmentSimulation.new(1701, 4, seed)
-		var first_sequence := _draw_incidents(first, 12)
-		var replay_sequence := _draw_incidents(replay, 12)
+		var rotation_size := DepartmentSimulation.INCIDENT_ORDER.size()
+		var first_sequence := _draw_incidents(first, rotation_size * 3)
+		var replay_sequence := _draw_incidents(replay, rotation_size * 3)
 		_check(first_sequence == replay_sequence, "docket %d should replay deterministically" % seed, failures)
 		_check(
-			first_sequence.slice(0, 4) == DepartmentSimulation.INCIDENT_ORDER,
-			"docket %d should teach every standard incident once in the authored opening rotation" % seed,
+			first_sequence.slice(0, 4) == DepartmentSimulation.LEGACY_INCIDENT_ORDER,
+			"docket %d should preserve the four familiar cases at the start of its expanded rotation" % seed,
 			failures,
 		)
-		for rotation_start in [0, 4, 8]:
-			var rotation: Array = first_sequence.slice(rotation_start, rotation_start + 4)
-			_check(_contains_every_incident_once(rotation), "docket %d rotation %d should contain every standard incident exactly once" % [seed, rotation_start / 4 + 1], failures)
+		_check(
+			&"calendar_overflow" in first_sequence.slice(0, rotation_size)
+			and &"credit_town_hall" in first_sequence.slice(0, rotation_size),
+			"docket %d should include both new management-credit cases in every complete rotation" % seed,
+			failures,
+		)
+		for rotation_index in 3:
+			var rotation_start := rotation_index * rotation_size
+			var rotation: Array = first_sequence.slice(rotation_start, rotation_start + rotation_size)
+			_check(_contains_every_incident_once(rotation), "docket %d rotation %d should contain every standard incident exactly once" % [seed, rotation_index + 1], failures)
 		for index in range(1, first_sequence.size()):
 			_check(first_sequence[index] != first_sequence[index - 1], "docket %d should never repeat a standard incident back-to-back" % seed, failures)
-		rotation_signatures[JSON.stringify(first_sequence.slice(4, 12))] = true
+		rotation_signatures[JSON.stringify(first_sequence.slice(rotation_size, rotation_size * 3))] = true
 	_check(rotation_signatures.size() >= 2, "the three replay dockets should produce at least two distinct post-onboarding rotations", failures)
 
 	var legacy := DepartmentSimulation.new(1701, 4)
@@ -33,6 +41,9 @@ func _run() -> void:
 	_check(_open_incident(legacy, 1, 1) == &"wellness_request", "legacy docket should preserve day-one welfare onboarding", failures)
 	_check(_open_incident(legacy, 3, 0) == &"ledger_molt", "legacy docket should preserve the shipped day-three balance schedule", failures)
 	_check(_open_incident(legacy, 3, 1) == &"wellness_request", "legacy docket should preserve the shipped day-three second incident", failures)
+	_check(DepartmentSimulation.INCIDENT_ORDER.size() == 6, "new dockets should rotate through six standard incidents", failures)
+	_check(DepartmentSimulation.LEGACY_INCIDENT_ORDER.size() == 4, "the legacy docket should retain its exact four-case cadence", failures)
+	_check_incident_tradeoffs(failures)
 
 	var source := DepartmentSimulation.new(1701, 4, 4703)
 	_draw_incidents(source, 5)
@@ -64,7 +75,7 @@ func _run() -> void:
 	_check(not DepartmentSimulation.new(4703, 4).restore_save_state(smuggled_v23), "a claimed v23 checkpoint must not smuggle v24 docket authority", failures)
 
 	if failures.is_empty():
-		print("INCIDENT_DOCKET_VARIETY_TEST_PASSED dockets=4 rotations=12 persisted=true migration=v23_to_v24")
+		print("INCIDENT_DOCKET_VARIETY_TEST_PASSED dockets=4 rotation_cases=6 rotations=18 tradeoffs=management+credit persisted=true migration=v23_to_v24")
 		quit(0)
 		return
 	for failure in failures:
@@ -100,6 +111,73 @@ func _contains_every_incident_once(rotation: Array) -> bool:
 			return false
 		seen[incident_id] = true
 	return seen.size() == DepartmentSimulation.INCIDENT_ORDER.size()
+
+
+func _check_incident_tradeoffs(failures: Array[String]) -> void:
+	var calendar_fast := DepartmentSimulation.new(1701, 4, 4703)
+	var calendar_favor := DepartmentSimulation.new(1701, 4, 4703)
+	var base_favor := calendar_fast.executive_confidence
+	var base_trust := calendar_fast.workers[0].manager_trust
+	var base_compliance := calendar_favor.compliance
+	var calendar_fast_base_compliance := calendar_fast.compliance
+	calendar_fast._apply_incident_effects(&"calendar_overflow", &"cancel_status_sync")
+	calendar_favor._apply_incident_effects(&"calendar_overflow", &"attend_status_sync")
+	_check(
+		is_equal_approx(calendar_fast._incident_work_multiplier, 1.06)
+		and is_equal_approx(calendar_fast._incident_crack_modifier, -0.02)
+		and is_equal_approx(calendar_fast.compliance, minf(100.0, calendar_fast_base_compliance + 2.0))
+		and is_equal_approx(calendar_fast.executive_confidence, base_favor - 2.0)
+		and is_equal_approx(calendar_fast.workers[0].manager_trust, base_trust + 2.0),
+		"canceling status sync should exchange two favor for exact production and trust gains",
+		failures,
+	)
+	_check(
+		is_equal_approx(calendar_favor._incident_work_multiplier, 0.93)
+		and is_equal_approx(calendar_favor.executive_confidence, base_favor + 8.0)
+		and is_equal_approx(calendar_favor.compliance, minf(100.0, base_compliance + 2.0)),
+		"attending status sync should exchange production time for exact favor and obedience gains",
+		failures,
+	)
+
+	var layer_credit := DepartmentSimulation.new(1701, 4, 4703)
+	var rooster_credit := DepartmentSimulation.new(1701, 4, 4703)
+	var base_morale := layer_credit.workers[0].morale
+	var base_stress := layer_credit.workers[0].stress
+	var base_fatigue := layer_credit.workers[0].fatigue
+	var base_grievance := layer_credit.workers[0].grievance
+	var layer_credit_base_compliance := layer_credit.compliance
+	layer_credit._apply_incident_effects(&"credit_town_hall", &"credit_layers")
+	rooster_credit._apply_incident_effects(&"credit_town_hall", &"credit_roosters")
+	_check(
+		is_equal_approx(layer_credit.workers[0].morale, minf(100.0, base_morale + 8.0))
+		and is_equal_approx(layer_credit.workers[0].stress, maxf(0.0, base_stress - 6.0))
+		and is_equal_approx(layer_credit.workers[0].fatigue, maxf(0.0, base_fatigue - 4.0))
+		and is_equal_approx(layer_credit.workers[0].grievance, maxf(0.0, base_grievance - 5.0))
+		and is_equal_approx(layer_credit.executive_confidence, base_favor - 2.0)
+		and is_equal_approx(layer_credit.compliance, minf(100.0, layer_credit_base_compliance + 4.0))
+		and layer_credit._pending_quota_adjustment == -1
+		and is_equal_approx(layer_credit._incident_crack_modifier, -0.01)
+		and is_equal_approx(layer_credit._incident_golden_modifier, 0.02),
+		"crediting layers should exchange two favor for morale, grievance, and golden output exactly",
+		failures,
+	)
+	_check(
+		is_equal_approx(rooster_credit._incident_work_multiplier, 1.05)
+		and is_equal_approx(rooster_credit.executive_confidence, base_favor + 10.0)
+		and is_equal_approx(rooster_credit.workers[0].grievance, minf(100.0, base_grievance + 6.0)),
+		"crediting roosters should trade exact favor and speed for relationship debt",
+		failures,
+	)
+	var catalog_simulation := DepartmentSimulation.new(1701, 4, 4703)
+	for incident_id in DepartmentSimulation.INCIDENT_ORDER:
+		for choice in catalog_simulation._incident_choices(incident_id):
+			_check(
+				not String(choice.get("tagline", "")).is_empty(),
+				"%s choice %s should disclose its strategic tradeoff before selection" % [
+					String(incident_id), String(choice.get("id", "")),
+				],
+				failures,
+			)
 
 
 func _check_rejected(
