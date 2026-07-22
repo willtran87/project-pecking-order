@@ -311,6 +311,17 @@ test("installs a bounded synchronous browser mirror for independently validated 
 	assert.match(page, /Array\.isArray\(parsed\)/);
 });
 
+test("installs the same bounded preferences and diagnostic bridges in the direct Pages export", async () => {
+	const preset = await readFile(new URL("../../export_presets.cfg", import.meta.url), "utf8");
+	assert.match(preset, /html\/head_include=.*__pecking_order_preferences_bridge/);
+	assert.match(preset, /pecking-order\.player-preferences/);
+	assert.match(preset, /512\*1024/);
+	assert.match(preset, /new TextEncoder\(\)\.encode\(payload\)\.byteLength>max/);
+	assert.match(preset, /JSON\.parse\(payload\)/);
+	assert.match(preset, /Array\.isArray\(parsed\)/);
+	assert.match(preset, /window\.render_game_to_text=\(\)=>window\.__pecking_order_state/);
+});
+
 test("starts the runtime and manifest fetch in parallel with truthful staged loading copy", async () => {
 	const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 	assert.match(page, /Promise\.all\(\[\s*loadGodotScript\(\),\s*loadGodotConfig\(\),\s*\]\)/);

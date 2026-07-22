@@ -92,7 +92,7 @@ body {
 		</style>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
-
+<script>(()=>{const key='pecking-order.player-preferences';const max=512*1024;window.__pecking_order_preferences_bridge=Object.freeze({load:()=>{try{const value=localStorage.getItem(key)||'';return new TextEncoder().encode(value).byteLength<=max?value:'';}catch{return'';}},save:(payload)=>{try{if(typeof payload!=='string'||new TextEncoder().encode(payload).byteLength>max)return false;const parsed=JSON.parse(payload);if(!parsed||Array.isArray(parsed)||typeof parsed!=='object')return false;localStorage.setItem(key,payload);return localStorage.getItem(key)===payload;}catch{return false;}}});window.render_game_to_text=()=>window.__pecking_order_state||'{}';})();</script>
 	</head>
 	<body>
 		<canvas id="canvas">
