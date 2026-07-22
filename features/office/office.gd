@@ -288,6 +288,7 @@ var _today_workload_label: Label
 var _today_clutch_label: Label
 var _today_flock_label: Label
 var _today_ledger_label: Label
+var _today_precedent_label: Label
 var _campaign_objectives_label: Label
 var _campaign_orders_heading_label: Label
 var _campaign_doctrine_label: Label
@@ -3302,11 +3303,15 @@ func _build_ui() -> void:
 	_today_flock_label.name = "FlockwatchTodayFlock"
 	_today_ledger_label = _make_label("LEDGERS · 0% FARMER FAVOR · 0% COOP OBEDIENCE", 12)
 	_today_ledger_label.name = "FlockwatchTodayLedgers"
+	_today_precedent_label = _make_label("", 12, Color("e2cb88"))
+	_today_precedent_label.name = "FlockwatchTodayPrecedent"
+	_today_precedent_label.visible = false
 	for label in [
 		_today_workload_label,
 		_today_clutch_label,
 		_today_flock_label,
 		_today_ledger_label,
+		_today_precedent_label,
 	]:
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -3892,6 +3897,12 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		_decision_eyebrow.text = "CLOSING FILE 2 / 3  ·  %s" % _decision_eyebrow.text
 	_decision_title.text = String(decision.get("title", "CHOOSE A RESPONSE"))
 	_decision_body.text = String(decision.get("body", "A measurable variance requires management attention."))
+	var case_memory := decision.get("case_memory", {}) as Dictionary
+	if kind == &"incident" and not case_memory.is_empty():
+		_decision_body.text += "\n\n%s\n%s" % [
+			String(case_memory.get("label", "PRIOR CASE FILE")),
+			String(case_memory.get("summary", "A prior response changes this case.")),
+		]
 	var decision_category := StringName(decision.get("category", &""))
 	if kind == &"directive" and _first_hen_policy_context_active():
 		var first_hen := _first_clutch_worker_snapshot(
@@ -3951,14 +3962,22 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		var card_label := String(option.get("short_label", label)) if kind == &"directive" else label
 		var tagline := String(option.get("tagline", ""))
 		var preview := String(option.get("preview", "Consequence pending."))
+		var precedent := option.get("precedent", {}) as Dictionary
+		var precedent_preview := ""
+		if not precedent.is_empty():
+			precedent_preview = "\n\nPRECEDENT // %s\n%s" % [
+				String(precedent.get("target_label", "NEXT RELATED CASE")),
+				String(precedent.get("summary", "This response changes the next related case.")),
+			]
 		var cost_cents := int(option.get("cost_cents", 0))
 		var option_available := bool(option.get("can_select", true))
 		var order_fit := _directive_order_fit(option_id) if kind == &"directive" else {}
 		var order_fit_detail := String(order_fit.get("detail", ""))
-		var full_preview := "%s%s%s" % [
+		var full_preview := "%s%s%s%s" % [
 			("%s\n" % tagline if not tagline.is_empty() else ""),
 			preview,
 			("\n\n%s" % order_fit_detail if not order_fit_detail.is_empty() else ""),
+			precedent_preview,
 		]
 		var button := Button.new()
 		button.name = "DecisionOption_%s" % String(option_id)
@@ -4189,7 +4208,12 @@ func _on_decision_resolved(result: Dictionary) -> void:
 	_selected_decision_option = &""
 	_decision_restore_farmer_review = false
 	_refresh_floor_input_context()
-	var outcome := String(result.get("outcome", "Management decision recorded."))
+	var outcome := String(
+		result.get(
+			"resolution_summary",
+			result.get("outcome", "Management decision recorded."),
+		)
+	)
 	_ticker_label.text = outcome
 	if kind == FIRST_CLUTCH_REINVESTMENT_KIND:
 		var purchased := bool(result.get("purchased", false))
@@ -4255,7 +4279,10 @@ func _on_decision_resolved(result: Dictionary) -> void:
 				_ticker_label.text = "FIRST CLUTCH ORIENTATION. Inspect a hen, then choose 1x when ready."
 	elif kind == &"incident":
 		if _audio_feedback != null:
-			_audio_feedback.play_decision_resolved()
+			if not (result.get("filed_precedent", {}) as Dictionary).is_empty():
+				_audio_feedback.play_precedent_filed()
+			else:
+				_audio_feedback.play_decision_resolved()
 		_clock.set_speed(_decision_previous_speed if _resume_after_decision else 0)
 	else:
 		if _audio_feedback != null:
@@ -4266,6 +4293,12 @@ func _on_decision_resolved(result: Dictionary) -> void:
 	_update_guidance(_simulation.snapshot())
 	_save_campaign_checkpoint("decision_resolved")
 	_present_first_clutch_reinvestment()
+	# Guidance and onboarding refreshes may publish their own next-step copy in
+	# the same synchronous resolution chain. A filed precedent is the rarer,
+	# durable consequence, so let its exact receipt own the final toast; the
+	# ordinary ticker watcher records it in the existing Shift Record.
+	if not (result.get("filed_precedent", {}) as Dictionary).is_empty():
+		_ticker_label.text = outcome
 
 
 func _on_workday_completed(report: Dictionary) -> void:
@@ -4399,6 +4432,18 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	var completed_directive := report.get("directive", {}) as Dictionary
 	var directive_name := String(completed_directive.get("short_name", "UNFILED"))
 	var incident_count := int(report.get("incidents_resolved", 0))
+	var incident_summaries: Array[String] = []
+	for response_value in report.get("incident_responses", []):
+		if not response_value is Dictionary:
+			continue
+		var response_summary := String((response_value as Dictionary).get("summary", ""))
+		if not response_summary.is_empty():
+			incident_summaries.append(response_summary)
+	var incident_review := (
+		"; ".join(incident_summaries)
+		if not incident_summaries.is_empty() else
+		"%d resolved" % incident_count
+	)
 	var lane_processed := report.get("lane_processed", {}) as Dictionary
 	var overdue_files := int(report.get("overdue_claims", 0))
 	var rework_files := int(report.get("rework_waiting", 0)) + int(report.get("rework_due_next_shift", 0))
@@ -4447,10 +4492,11 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			float(closing_fund) / 100.0,
 			int(report.get("next_quota", quota)),
 		]
-	_review_results.text = "%s\n%d / %d eggs  ·  %d cracked  ·  %d golden\nPolicy: %s  ·  %d incident%s resolved\nCheck-in: %s  ·  avg trust %d  ·  avg grievance %d\nFiles: N%d  ·  P%d  ·  A%d  ·  %d overdue  ·  %d rework\nArchive: %d / %d live  ·  %d turned away  ·  est. $%.2f file value missed\nIncome: Production credit +$%.2f  ·  Quota bonus +$%.2f  ·  Quality bonus +$%.2f\nCosts: Feed -$%.2f  ·  Payroll -$%.2f  ·  Facilities -$%.2f\nNet operating %s  ·  Closing Feed Fund $%.2f  ·  Wage arrears $%.2f" % [
+	_review_results.text = "%s\n%d / %d eggs  ·  %d cracked  ·  %d golden\nPolicy: %s\nIncident files: %s\nCheck-in: %s  ·  avg trust %d  ·  avg grievance %d\nFiles: N%d  ·  P%d  ·  A%d  ·  %d overdue  ·  %d rework\nArchive: %d / %d live  ·  %d turned away  ·  est. $%.2f file value missed\nIncome: Production credit +$%.2f  ·  Quota bonus +$%.2f  ·  Quality bonus +$%.2f\nCosts: Feed -$%.2f  ·  Payroll -$%.2f  ·  Facilities -$%.2f\nNet operating %s  ·  Closing Feed Fund $%.2f  ·  Wage arrears $%.2f" % [
 		("TARGET HARVESTED" if met_quota else "TARGET MISSED"),
 		eggs, quota, cracked, golden,
-		directive_name, incident_count, ("" if incident_count == 1 else "s"),
+		directive_name,
+		incident_review,
 		personnel_line,
 		int(report.get("average_manager_trust", 0)),
 		int(report.get("average_grievance", 0)),
@@ -9733,6 +9779,7 @@ func _pending_decision_diagnostic_state() -> Dictionary:
 			"preview": String(option.get("preview", "Consequence pending.")),
 			"tone": String(option.get("tone", "")),
 			"cost_cents": cost_cents,
+			"precedent": (option.get("precedent", {}) as Dictionary).duplicate(true),
 			"available": available,
 			"order_fit": order_fit.duplicate(true),
 			"unavailable_reason": (
@@ -9758,6 +9805,7 @@ func _pending_decision_diagnostic_state() -> Dictionary:
 			"body",
 			"A measurable variance requires management attention.",
 		)),
+		"case_memory": (_active_decision.get("case_memory", {}) as Dictionary).duplicate(true),
 		"prompt": String(_active_decision.get(
 			"prompt",
 			"Choose a response card, then authorize it.",
@@ -11150,6 +11198,21 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	_today_ledger_label.tooltip_text = (
 		"Farmer favor affects management confidence; coop obedience measures policy compliance."
 	)
+	var case_docket := snapshot.get("case_docket", {}) as Dictionary
+	var active_precedent := case_docket.get("active_precedent", {}) as Dictionary
+	_today_precedent_label.visible = not active_precedent.is_empty()
+	if not active_precedent.is_empty():
+		_today_precedent_label.text = "OPEN PRECEDENT · %s · %s" % [
+			String(active_precedent.get("target_label", "NEXT RELATED CASE")),
+			String(active_precedent.get("summary", "A prior response changes the next related case.")),
+		]
+		_today_precedent_label.tooltip_text = "Filed on Day %d by %s. This consequence remains open until the next related case." % [
+			int(active_precedent.get("source_day", 0)),
+			String(active_precedent.get("source_summary", "incident response")),
+		]
+	else:
+		_today_precedent_label.text = ""
+		_today_precedent_label.tooltip_text = ""
 
 	var overtime_active := bool(snapshot["overtime_enabled"])
 	_overtime_button.text = "%s  [%s]" % [

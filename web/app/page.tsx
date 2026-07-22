@@ -742,7 +742,14 @@ function buildGameStateAccessibleStatus(
 		);
 	}
   const campaignDay = Math.max(1, Math.trunc(numberValue(state.campaign_day, 1)));
-  const caseDocketId = diagnosticPlainText(stringValue(recordValue(state.case_docket).id), 32);
+  const caseDocket = recordValue(state.case_docket);
+  const caseDocketId = diagnosticPlainText(stringValue(caseDocket.id), 32);
+  const activePrecedent = recordValue(caseDocket.active_precedent);
+  const activePrecedentTarget = diagnosticPlainText(stringValue(activePrecedent.target_label), 100);
+  const activePrecedentSummary = diagnosticPlainText(stringValue(activePrecedent.summary), 220);
+  const activePrecedentStatus = activePrecedentSummary.length > 0
+    ? ` Open precedent${activePrecedentTarget.length > 0 ? ` for ${activePrecedentTarget}` : ""}: ${activePrecedentSummary}`
+    : "";
   const shiftPhase = Math.trunc(numberValue(state.shift_phase, -1));
   const pendingDecision = stringValue(state.pending_decision_kind);
   const pendingDecisionDetail = recordValue(state.pending_decision);
@@ -1100,6 +1107,12 @@ function buildGameStateAccessibleStatus(
       140,
     );
     const decisionBody = diagnosticPlainText(stringValue(pendingDecisionDetail.body), 280);
+    const caseMemory = recordValue(pendingDecisionDetail.case_memory);
+    const caseMemoryLabel = diagnosticPlainText(stringValue(caseMemory.label), 100);
+    const caseMemorySummary = diagnosticPlainText(stringValue(caseMemory.summary), 220);
+    const caseMemoryStatus = caseMemorySummary.length > 0
+      ? ` Prior case file${caseMemoryLabel.length > 0 ? `, ${caseMemoryLabel}` : ""}: ${caseMemorySummary}`
+      : "";
     const selectedOption = stringValue(pendingDecisionDetail.selected_option_id);
     const decisionOptions = Array.isArray(pendingDecisionDetail.options)
       ? pendingDecisionDetail.options.slice(0, 3).map((value, index) => {
@@ -1107,6 +1120,12 @@ function buildGameStateAccessibleStatus(
           const optionIndex = Math.max(1, Math.trunc(numberValue(option.index, index + 1)));
           const label = diagnosticPlainText(stringValue(option.label) || `Choice ${optionIndex}`, 100);
           const tagline = diagnosticPlainText(stringValue(option.tagline), 140);
+          const precedent = recordValue(option.precedent);
+          const precedentTarget = diagnosticPlainText(stringValue(precedent.target_label), 100);
+          const precedentSummary = diagnosticPlainText(stringValue(precedent.summary), 200);
+          const precedentStatus = precedentSummary.length > 0
+            ? `; sets precedent${precedentTarget.length > 0 ? ` for ${precedentTarget}` : ""}: ${precedentSummary}`
+            : "";
           const costCents = Math.max(0, Math.trunc(numberValue(option.cost_cents, 0)));
           const unavailableReason = diagnosticPlainText(
             stringValue(option.unavailable_reason) || "requirements not met",
@@ -1118,13 +1137,13 @@ function buildGameStateAccessibleStatus(
           const selected = selectedOption.length > 0 && selectedOption === stringValue(option.id)
             ? ", selected"
             : "";
-          return `${optionIndex}, ${label}${tagline.length > 0 ? `: ${tagline}` : ""}${availability}${selected}`;
+          return `${optionIndex}, ${label}${tagline.length > 0 ? `: ${tagline}` : ""}${availability}${selected}${precedentStatus}`;
         })
       : [];
     const docketStatus = pendingDecision === "directive" && caseDocketId.length > 0
       ? ` Case docket ${caseDocketId}.`
       : "";
-    return `${shiftLabel}.${docketStatus} ${decisionTitle}.${decisionBody.length > 0 ? ` ${decisionBody}` : ""}${decisionOptions.length > 0 ? ` Choices: ${decisionOptions.join("; ")}.` : ""} Objective: press 1 through ${Math.max(1, decisionOptions.length)} to inspect a response, then Enter to authorize it.`;
+    return `${shiftLabel}.${docketStatus} ${decisionTitle}.${decisionBody.length > 0 ? ` ${decisionBody}` : ""}${caseMemoryStatus}${decisionOptions.length > 0 ? ` Choices: ${decisionOptions.join("; ")}.` : ""} Objective: press 1 through ${Math.max(1, decisionOptions.length)} to inspect a response, then Enter to authorize it.`;
   }
   if (firstClutch.visible === true) {
     const progress = Math.max(0, Math.min(5, Math.trunc(numberValue(firstClutch.progress, 0))));
@@ -1135,7 +1154,7 @@ function buildGameStateAccessibleStatus(
     return `${shiftLabel} running. First Clutch ${progress} of 5. Objective: ${objective}`;
   }
   if (shiftPhase === 0) {
-    return `${shiftLabel}. Morning policy pending.${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: choose and authorize one policy.`;
+    return `${shiftLabel}. Morning policy pending.${activePrecedentStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: choose and authorize one policy.`;
   }
   if (shiftPhase === 2 || pendingDecision.length > 0) {
     return `${shiftLabel}. Incident decision pending. Objective: choose and authorize a response.`;
@@ -1159,7 +1178,7 @@ function buildGameStateAccessibleStatus(
       const forecastStatus = seniorActive && careerForecastSummary.length > 0
         ? ` ${careerForecastSummary}`
         : "";
-			return `${shiftLabel} running. ${binderName}, ${stringValue(activeContract.season_label) || seasonLabel}, ${contractClauseSummary(activeContract)}: ${completed} of ${required} clean folders delivered on time; ${premiumSummary}, paid only on fulfillment.${restedStatus} ${standingSummary} ${serviceCoopSummary}${priorityPeckStatus}${operationsStatus}${forecastStatus}${annualMandateStatus}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: ${contractObjective}`;
+			return `${shiftLabel} running. ${binderName}, ${stringValue(activeContract.season_label) || seasonLabel}, ${contractClauseSummary(activeContract)}: ${completed} of ${required} clean folders delivered on time; ${premiumSummary}, paid only on fulfillment.${restedStatus} ${standingSummary} ${serviceCoopSummary}${priorityPeckStatus}${operationsStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: ${contractObjective}`;
     }
     const onTrack = Math.max(0, Math.trunc(numberValue(orders.on_track, 0)));
     const total = Math.max(0, Math.trunc(numberValue(orders.total, 0)));
@@ -1167,8 +1186,8 @@ function buildGameStateAccessibleStatus(
       ? ` ${careerForecastSummary}`
       : "";
     return total > 0
-			? `${shiftLabel} running. ${onTrack} of ${total} ${seniorActive ? "quarter objectives" : "probation orders"} on track.${priorityPeckStatus}${forecastStatus}${annualMandateStatus}${careActivitySummary.length > 0 ? ` ${careActivitySummary}` : ""}${operationsActivity.length > 0 ? ` ${operationsActivity}` : ""}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: route files and keep the objectives on track.`
-			: `${shiftLabel} running.${priorityPeckStatus}${forecastStatus}${annualMandateStatus}${careActivitySummary.length > 0 ? ` ${careActivitySummary}` : ""}${operationsActivity.length > 0 ? ` ${operationsActivity}` : ""}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: route files and monitor the flock.`;
+			? `${shiftLabel} running. ${onTrack} of ${total} ${seniorActive ? "quarter objectives" : "probation orders"} on track.${priorityPeckStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${careActivitySummary.length > 0 ? ` ${careActivitySummary}` : ""}${operationsActivity.length > 0 ? ` ${operationsActivity}` : ""}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: route files and keep the objectives on track.`
+			: `${shiftLabel} running.${priorityPeckStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${careActivitySummary.length > 0 ? ` ${careActivitySummary}` : ""}${operationsActivity.length > 0 ? ` ${operationsActivity}` : ""}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: route files and monitor the flock.`;
   }
   return "Game ready. Objective: follow the current in-game guidance.";
 }

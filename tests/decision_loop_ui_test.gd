@@ -24,6 +24,7 @@ func _run() -> void:
 	var probation_report := office.find_child("ProbationReportPanel", true, false) as PanelContainer
 	var probation_continue := office.find_child("ContinueProbationButton", true, false) as Button
 	var filed_credit_label := office.find_child("FiledCreditMemoLabel", true, false) as Label
+	var review_results := office.find_child("FarmerReviewAccountingDetails", true, false) as Label
 
 	_check(simulation != null, "office should expose its authoritative simulation", failures)
 	_check(clock != null and clock.speed_index == 0, "morning briefing should pause the simulation clock", failures)
@@ -144,6 +145,14 @@ func _run() -> void:
 	_check(not decision_host.visible, "resolve-and-resume should close the incident card", failures)
 	_check(clock.speed_index == 2, "resolve-and-resume should restore the pre-incident 3x speed", failures)
 	_check(simulation.incidents_resolved_today == 2, "both incident choices should be recorded for the farmer review", failures)
+	var incident_responses := simulation.incident_responses_for_day(1)
+	_check(
+		incident_responses.size() == 2
+		and String((incident_responses[0] as Dictionary).get("summary", "")) == "LEDGER MOLT / USE THE UNOFFICIAL SPREADSHEET"
+		and String((incident_responses[1] as Dictionary).get("summary", "")) == "WELLNESS REQUEST / DENY THE ATTITUDE VARIANCE",
+		"the live shift should retain the two actual incident responses, not only a count",
+		failures,
+	)
 
 	# Completing the day first reveals the detailed farmer accounting, then the
 	# cumulative probation report, before routing into a fresh daily directive.
@@ -153,6 +162,12 @@ func _run() -> void:
 	_check(review_scrim != null and review_scrim.visible, "shift completion should show the full-screen farmer review", failures)
 	_check(clock.speed_index == 0, "farmer review should pause the next shift", failures)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW, "completed day should remain in review until planning continues", failures)
+	_check(
+		review_results != null
+		and "Incident files: LEDGER MOLT / USE THE UNOFFICIAL SPREADSHEET; WELLNESS REQUEST / DENY THE ATTITUDE VARIANCE" in review_results.text,
+		"farmer accounting should name every actual standard incident response",
+		failures,
+	)
 	_check(
 		next_shift_button != null
 		and next_shift_button.text == "CONTINUE CLOSING FILE"

@@ -488,6 +488,14 @@ func accessible_text() -> String:
 	]
 	if not _last_feedback.is_empty():
 		summary += " Latest notice: %s" % _last_feedback
+	if _current_page_id == PAGE_TODAY:
+		var case_docket := _snapshot.get("case_docket", {}) as Dictionary
+		var precedent := case_docket.get("active_precedent", {}) as Dictionary
+		if not precedent.is_empty():
+			summary += " Open precedent for %s: %s" % [
+				String(precedent.get("target_label", "the next related case")),
+				String(precedent.get("summary", "A prior response changes its terms.")),
+			]
 	return summary
 
 

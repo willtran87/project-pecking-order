@@ -597,9 +597,24 @@ test("narrates the visible management decision and every bounded choice", async 
 			id: "morning_directive",
 			title: "<strong>Choose today's management policy</strong>",
 			body: "One policy governs the shift.<script>globalThis.compromised=true</script>",
+			case_memory: {
+				label: "PRIOR CREDIT FILE / <b>LAYERS NAMED</b>",
+				summary: "Canceling this sync is worth +2 more flock trust.<script>bad=true</script>",
+			},
 			selected_option_id: "shell_assurance",
 			options: [
-				{ index: 1, id: "record_harvest", label: "Record Harvest", tagline: "Maximum throughput", cost_cents: 0, available: true },
+				{
+					index: 1,
+					id: "record_harvest",
+					label: "Record Harvest",
+					tagline: "Maximum throughput",
+					cost_cents: 0,
+					available: true,
+					precedent: {
+						target_label: "NEXT CREDIT <b>TOWN HALL</b>",
+						summary: "Saved feed discounts layer credit from $10 to $6.<script>bad=true</script>",
+					},
+				},
 				{ index: 2, id: "shell_assurance", label: "Shell Assurance", tagline: "Protect quality", cost_cents: 300, available: true },
 				{ index: 3, id: "sustainable_flock", label: "Sustainable Flock", tagline: "Protect welfare", cost_cents: 9000, available: false, unavailable_reason: "Protected reserve would be breached." },
 			],
@@ -608,10 +623,33 @@ test("narrates the visible management decision and every bounded choice", async 
 
 	assert.match(status, /^Shift 2\. Case docket PO-7919\. Choose today's management policy\./i);
 	assert.match(status, /Choices: 1, Record Harvest: Maximum throughput/);
+	assert.match(status, /sets precedent for NEXT CREDIT TOWN HALL: Saved feed discounts layer credit from \$10 to \$6/);
 	assert.match(status, /2, Shell Assurance: Protect quality, costs \$3\.00, selected/);
+	assert.match(status, /Prior case file, PRIOR CREDIT FILE \/ LAYERS NAMED: Canceling this sync is worth \+2 more flock trust/);
 	assert.match(status, /3, Sustainable Flock: Protect welfare unavailable: Protected reserve would be breached/);
 	assert.match(status, /press 1 through 3 to inspect a response, then Enter to authorize it/);
 	assert.doesNotMatch(status, /<|>|script|globalThis|compromised/);
+});
+
+test("announces the open incident precedent during ordinary shift play", async () => {
+	const buildStatus = await accessibleStatusBuilder();
+	const status = buildStatus(JSON.stringify({
+		campaign_stage: "active",
+		campaign_day: 3,
+		shift_phase: 1,
+		case_docket: {
+			id: "PO-7919",
+			active_precedent: {
+				target_label: "NEXT MEETING <b>OVERFLOW</b>",
+				summary: "Canceling the sync rises from +2 to +4 flock trust.<script>bad=true</script>",
+			},
+		},
+		orders: { on_track: 2, total: 3 },
+	}), { loaded: true, loadError: "", loadProgress: 100 });
+
+	assert.match(status, /^Shift 3 running\. 2 of 3 probation orders on track\./);
+	assert.match(status, /Open precedent for NEXT MEETING OVERFLOW: Canceling the sync rises from \+2 to \+4 flock trust/);
+	assert.doesNotMatch(status, /<|>|script|bad=true/);
 });
 
 test("narrates the contextual Enter action during First Clutch dossier lessons", async () => {

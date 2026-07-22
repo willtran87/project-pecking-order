@@ -117,6 +117,16 @@ func _run() -> void:
 	_check(first_contact_played, "peck limiter should reopen after its short clarity window", failures)
 	_check(not duplicate_contact_played, "peck limiter should reject a same-window duplicate", failures)
 
+	# A precedent uses one semantic pooled cue, not a same-frame decision/stamp
+	# stack. Diagnostics make that distinction testable without inspecting audio.
+	await create_timer(0.20).timeout
+	var serial_before_precedent := int(audio.feedback_snapshot().get("cue_serial", -1))
+	audio.play_precedent_filed()
+	var precedent_snapshot := audio.feedback_snapshot()
+	_check(&"precedent_filed" in cue_events, "filed precedents should emit a distinct semantic cue", failures)
+	_check(String(precedent_snapshot.get("last_cue", "")) == "precedent_filed", "precedent diagnostics should identify the single confirmation cadence", failures)
+	_check(int(precedent_snapshot.get("cue_serial", -1)) == serial_before_precedent + 1, "one filed precedent should advance audio diagnostics exactly once", failures)
+
 	# A routine quality must never consume the limiter window for a rare result.
 	await create_timer(0.20).timeout
 	for voice in voices:

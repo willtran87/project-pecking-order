@@ -126,7 +126,7 @@ func _test_decline_receipt_json_round_trip_and_corruption(failures: Array[String
 
 
 func _test_v11_migrates_with_a_neutral_market_ledger(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 25, "named management rosters should advance the simulation schema to v25", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 26, "connected incident case memory should advance the simulation schema to v26", failures)
 	var current_state := DepartmentSimulation.new(9681, 4).export_save_state()
 	_check(int(current_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current market state should export schema v24", failures)
 	_check(current_state.has("campus_expansion"), "current market state should include the North Meadow ledger", failures)

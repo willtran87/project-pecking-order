@@ -52,7 +52,7 @@ const BASE_CLAIM_CAPACITY := 18
 const CLAIM_CAPACITY_PER_RECORDS_LEVEL := 6
 const BASE_WORK_PROGRESS := 3.2
 const MAX_UPGRADE_LEVEL := 5
-const SAVE_STATE_VERSION := 25
+const SAVE_STATE_VERSION := 26
 const MANAGER_ROSTER_VERSION := 1
 const FIRST_CLUTCH_REINVESTMENT_VERSION := 1
 const FIRST_CLUTCH_WORKER_ID := 0
@@ -1154,6 +1154,16 @@ const INCIDENT_ORDER: Array[StringName] = [
 	&"credit_town_hall",
 ]
 const INCIDENT_DOCKET_SEED_OFFSET := 32_452_843
+const INCIDENT_RESPONSE_VERSION := 1
+const INCIDENT_RESPONSE_HISTORY_LIMIT := 24
+const INCIDENT_SHORT_TITLES := {
+	&"ledger_molt": "LEDGER MOLT",
+	&"wellness_request": "WELLNESS REQUEST",
+	&"farmer_story": "FARMER STORY",
+	&"feed_shortfall": "FEED SHORTFALL",
+	&"calendar_overflow": "MEETING OVERFLOW",
+	&"credit_town_hall": "CREDIT TOWN HALL",
+}
 const INCIDENT_DEFINITIONS := {
 	&"ledger_molt": {
 		"title": "THE EGG LEDGER IS MOLTING",
@@ -1263,6 +1273,11 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "The meeting was canceled. Management has requested a meeting to process the cancellation.",
 				"cost_cents": 0,
 				"tone": &"quality",
+				"precedent": {
+					"target_incident_id": &"credit_town_hall",
+					"target_label": "NEXT CREDIT TOWN HALL",
+					"summary": "Saved meeting feed discounts CREDIT THE LAYERS from $10 to $6.",
+				},
 			},
 			{
 				"id": &"attend_status_sync",
@@ -1272,6 +1287,11 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "Every status sync was attended. The roosters have reported record participation in reporting.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"credit_town_hall",
+					"target_label": "NEXT CREDIT TOWN HALL",
+					"summary": "The attendance record raises CREDIT THE ROOSTERS from +10 to +12 farmer favor.",
+				},
 			},
 		],
 	},
@@ -1287,6 +1307,11 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "The layers were named. The farmer has asked whether collective nouns count as individual recognition.",
 				"cost_cents": 1000,
 				"tone": &"care",
+				"precedent": {
+					"target_incident_id": &"calendar_overflow",
+					"target_label": "NEXT MEETING OVERFLOW",
+					"summary": "The named-layer ledger raises CANCEL THE STATUS SYNC from +2 to +4 flock trust.",
+				},
 			},
 			{
 				"id": &"credit_roosters",
@@ -1296,6 +1321,11 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "The roosters received the byline. The flock has been thanked for implementing management's eggs.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"calendar_overflow",
+					"target_label": "NEXT MEETING OVERFLOW",
+					"summary": "The manager byline raises ATTEND EVERY STATUS SYNC from +8 to +10 farmer favor.",
+				},
 			},
 		],
 	},
@@ -1447,6 +1477,7 @@ var shift_phase: int = ShiftPhase.AWAITING_DIRECTIVE
 var active_directive_id: StringName = &""
 var pending_decision: Dictionary = {}
 var incidents_resolved_today: int = 0
+var incident_response_history: Array[Dictionary] = []
 var upgrade_levels: Dictionary = {
 	&"peckwork_tools": 0,
 	&"shell_lamp": 0,
@@ -7176,6 +7207,7 @@ func export_save_state() -> Dictionary:
 		"active_directive_id": String(active_directive_id),
 		"pending_decision": pending_decision.duplicate(true),
 		"incidents_resolved_today": incidents_resolved_today,
+		"incident_response_history": incident_response_history.duplicate(true),
 		"upgrade_levels": saved_upgrades,
 		"first_clutch_reinvestment": first_clutch_reinvestment.duplicate(true),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
@@ -7354,6 +7386,15 @@ func restore_save_state(data: Dictionary) -> bool:
 		or seen_incident_ids.has(restored_last_standard_incident_id)
 	):
 		return false
+	var response_history_validation := _validated_incident_response_history(
+		data.get("incident_response_history", null),
+		saved_day,
+	)
+	if not bool(response_history_validation.get("valid", false)):
+		return false
+	var restored_incident_response_history: Array[Dictionary] = []
+	for response_value in response_history_validation.get("history", []):
+		restored_incident_response_history.append((response_value as Dictionary).duplicate(true))
 	if not _is_integral_number(data.get("shift_phase", null)):
 		return false
 	var saved_shift_phase := int(data.get("shift_phase", -1))
@@ -8923,6 +8964,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	active_directive_id = restored_active_directive
 	pending_decision = _decision_from_save_data(data.get("pending_decision", {}) as Dictionary)
 	incidents_resolved_today = clampi(int(data.get("incidents_resolved_today", 0)), 0, INCIDENT_MINUTES.size())
+	incident_response_history = restored_incident_response_history
 
 	var saved_lane_totals := data.get("lane_processed_totals", {}) as Dictionary
 	var saved_lane_today := data.get("lane_processed_today", {}) as Dictionary
@@ -9714,6 +9756,17 @@ func _migrate_save_state(source: Dictionary) -> Dictionary:
 				migrated["management_reports_total"] = 0
 				migrated["management_visibility_today"] = 0
 				source_version = 25
+				migrated["state_version"] = source_version
+			25:
+				# v26 records only authored incident and response identifiers. A v25
+				# checkpoint has no trustworthy evidence of earlier choices, so migration
+				# starts with neutral case memory instead of inventing a history.
+				if migrated.has("incident_response_history"):
+					if original_source_version == 25:
+						return {}
+					migrated.erase("incident_response_history")
+				migrated["incident_response_history"] = []
+				source_version = 26
 				migrated["state_version"] = source_version
 			_:
 				return {}
@@ -15300,10 +15353,219 @@ func _resolve_directive(directive_id: StringName) -> bool:
 	return true
 
 
+func _incident_choice_definition(incident_id: StringName, option_id: StringName) -> Dictionary:
+	if not INCIDENT_DEFINITIONS.has(incident_id):
+		return {}
+	var definition := INCIDENT_DEFINITIONS[incident_id] as Dictionary
+	for choice_value in definition.get("choices", []):
+		if not choice_value is Dictionary:
+			continue
+		var choice := choice_value as Dictionary
+		if StringName(choice.get("id", &"")) == option_id:
+			return choice.duplicate(true)
+	return {}
+
+
+func _validated_incident_response_history(value: Variant, saved_day: int) -> Dictionary:
+	if not value is Array or (value as Array).size() > INCIDENT_RESPONSE_HISTORY_LIMIT:
+		return {"valid": false, "history": []}
+	var restored: Array[Dictionary] = []
+	var previous_day := 0
+	var previous_serial := 0
+	for record_value in value as Array:
+		if not record_value is Dictionary:
+			return {"valid": false, "history": []}
+		var record := record_value as Dictionary
+		for integral_field in ["version", "day", "serial"]:
+			if not _is_integral_number(record.get(integral_field, null)):
+				return {"valid": false, "history": []}
+		var record_version := int(record.get("version", 0))
+		var record_day := int(record.get("day", 0))
+		var record_serial := int(record.get("serial", 0))
+		var incident_value: Variant = record.get("incident_id", null)
+		var option_value: Variant = record.get("option_id", null)
+		if (
+			record_version != INCIDENT_RESPONSE_VERSION
+			or record_day < 1
+			or record_day > saved_day
+			or record_day < previous_day
+			or record_serial < 1
+			or record_serial <= previous_serial
+			or typeof(incident_value) not in [TYPE_STRING, TYPE_STRING_NAME]
+			or typeof(option_value) not in [TYPE_STRING, TYPE_STRING_NAME]
+		):
+			return {"valid": false, "history": []}
+		var incident_id := StringName(String(incident_value))
+		var option_id := StringName(String(option_value))
+		if _incident_choice_definition(incident_id, option_id).is_empty():
+			return {"valid": false, "history": []}
+		restored.append({
+			"version": INCIDENT_RESPONSE_VERSION,
+			"day": record_day,
+			"serial": record_serial,
+			"incident_id": incident_id,
+			"option_id": option_id,
+		})
+		previous_day = record_day
+		previous_serial = record_serial
+	return {"valid": true, "history": restored}
+
+
+func _incident_response_snapshot(record: Dictionary) -> Dictionary:
+	var incident_id := StringName(record.get("incident_id", &""))
+	var option_id := StringName(record.get("option_id", &""))
+	var choice := _incident_choice_definition(incident_id, option_id)
+	if choice.is_empty():
+		return {}
+	var short_title := String(INCIDENT_SHORT_TITLES.get(incident_id, "OFFICE INCIDENT"))
+	var option_label := String(choice.get("label", "RESPONSE"))
+	var response := {
+		"version": INCIDENT_RESPONSE_VERSION,
+		"day": int(record.get("day", 0)),
+		"serial": int(record.get("serial", 0)),
+		"incident_id": incident_id,
+		"incident_title": short_title,
+		"option_id": option_id,
+		"option_label": option_label,
+		"tone": StringName(choice.get("tone", &"")),
+		"outcome": String(choice.get("outcome", "Incident response recorded.")),
+		"summary": "%s / %s" % [short_title, option_label],
+	}
+	var precedent := choice.get("precedent", {}) as Dictionary
+	if not precedent.is_empty():
+		response["precedent"] = precedent.duplicate(true)
+	return response
+
+
+func _record_standard_incident_response(
+	incident_id: StringName,
+	option_id: StringName,
+	response_day: int = -1,
+	serial: int = -1,
+) -> Dictionary:
+	if _incident_choice_definition(incident_id, option_id).is_empty():
+		return {}
+	if response_day < 1:
+		response_day = day
+	if serial < 1:
+		serial = _decision_serial
+	var record := {
+		"version": INCIDENT_RESPONSE_VERSION,
+		"day": response_day,
+		"serial": serial,
+		"incident_id": incident_id,
+		"option_id": option_id,
+	}
+	incident_response_history.append(record)
+	while incident_response_history.size() > INCIDENT_RESPONSE_HISTORY_LIMIT:
+		incident_response_history.pop_front()
+	return _incident_response_snapshot(record)
+
+
+func incident_responses_for_day(target_day: int) -> Array[Dictionary]:
+	var responses: Array[Dictionary] = []
+	for record in incident_response_history:
+		if int(record.get("day", 0)) != target_day:
+			continue
+		var response := _incident_response_snapshot(record)
+		if not response.is_empty():
+			responses.append(response)
+	return responses
+
+
+func _latest_incident_response(
+	incident_id: StringName,
+	response_history: Array,
+) -> Dictionary:
+	for index in range(response_history.size() - 1, -1, -1):
+		var record_value: Variant = response_history[index]
+		if (
+			record_value is Dictionary
+			and StringName((record_value as Dictionary).get("incident_id", &"")) == incident_id
+		):
+			return (record_value as Dictionary).duplicate(true)
+	return {}
+
+
+func incident_follow_through_snapshot(
+	incident_id: StringName,
+	response_history_value: Variant = null,
+) -> Dictionary:
+	var response_history: Array = incident_response_history
+	if response_history_value is Array:
+		response_history = response_history_value as Array
+	var source: Dictionary = {}
+	if incident_id == &"calendar_overflow":
+		source = _latest_incident_response(&"credit_town_hall", response_history)
+	elif incident_id == &"credit_town_hall":
+		source = _latest_incident_response(&"calendar_overflow", response_history)
+	if source.is_empty():
+		return {}
+	var source_option := StringName(source.get("option_id", &""))
+	var follow_through := {
+		"version": INCIDENT_RESPONSE_VERSION,
+		"source_day": int(source.get("day", 0)),
+		"source_incident_id": StringName(source.get("incident_id", &"")),
+		"source_option_id": source_option,
+	}
+	if incident_id == &"calendar_overflow" and source_option == &"credit_layers":
+		follow_through.merge({
+			"id": &"layers_named_to_calendar",
+			"label": "PRIOR CREDIT FILE / LAYERS NAMED",
+			"summary": "The named-layer ledger makes canceling this sync worth +2 more flock trust.",
+			"affected_option_id": &"cancel_status_sync",
+		})
+	elif incident_id == &"calendar_overflow" and source_option == &"credit_roosters":
+		follow_through.merge({
+			"id": &"roosters_named_to_calendar",
+			"label": "PRIOR CREDIT FILE / ROOSTERS NAMED",
+			"summary": "The manager byline makes attending every sync worth +2 more farmer favor.",
+			"affected_option_id": &"attend_status_sync",
+		})
+	elif incident_id == &"credit_town_hall" and source_option == &"cancel_status_sync":
+		follow_through.merge({
+			"id": &"sync_canceled_to_credit",
+			"label": "PRIOR MEETING FILE / SYNC CANCELED",
+			"summary": "Saved meeting feed lowers the cost of crediting the layers from $10 to $6.",
+			"affected_option_id": &"credit_layers",
+		})
+	elif incident_id == &"credit_town_hall" and source_option == &"attend_status_sync":
+		follow_through.merge({
+			"id": &"sync_attended_to_credit",
+			"label": "PRIOR MEETING FILE / EVERY SYNC ATTENDED",
+			"summary": "The attendance record makes crediting the roosters worth +2 more farmer favor.",
+			"affected_option_id": &"credit_roosters",
+		})
+	else:
+		return {}
+	return follow_through
+
+
+func active_incident_precedent_snapshot() -> Dictionary:
+	for index in range(incident_response_history.size() - 1, -1, -1):
+		var record := incident_response_history[index]
+		var response := _incident_response_snapshot(record)
+		var precedent := response.get("precedent", {}) as Dictionary
+		if precedent.is_empty():
+			continue
+		return {
+			"version": INCIDENT_RESPONSE_VERSION,
+			"source_day": int(response.get("day", 0)),
+			"source_incident_id": StringName(response.get("incident_id", &"")),
+			"source_option_id": StringName(response.get("option_id", &"")),
+			"source_summary": String(response.get("summary", "INCIDENT RESPONSE")),
+			"target_incident_id": StringName(precedent.get("target_incident_id", &"")),
+			"target_label": String(precedent.get("target_label", "NEXT RELATED CASE")),
+			"summary": String(precedent.get("summary", "A prior response changes the next related case.")),
+		}
+	return {}
+
+
 func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []
 	if not INCIDENT_DEFINITIONS.has(incident_id):
 		return choices
+	var follow_through := incident_follow_through_snapshot(incident_id)
 	var definition := INCIDENT_DEFINITIONS[incident_id] as Dictionary
 	for choice_value in definition.get("choices", []):
 		var choice := (choice_value as Dictionary).duplicate(true)
@@ -15319,6 +15581,26 @@ func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 				float(ledger_molt_spreadsheet_crack_basis_points()) / 100.0,
 				float(ledger_molt_spreadsheet_compliance_loss_millipoints()) / 1000.0,
 			]
+		match StringName(follow_through.get("id", &"")):
+			&"layers_named_to_calendar":
+				if option_id == &"cancel_status_sync":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"flock trust +2", "flock trust +4"
+					)
+			&"roosters_named_to_calendar":
+				if option_id == &"attend_status_sync":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+8 farmer favor", "+10 farmer favor"
+					)
+			&"sync_canceled_to_credit":
+				if option_id == &"credit_layers":
+					choice["cost_cents"] = 600
+					choice["preview"] = String(choice.get("preview", "")).replace("Cost $10", "Cost $6")
+			&"sync_attended_to_credit":
+				if option_id == &"credit_roosters":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+10 farmer favor", "+12 farmer favor"
+					)
 		choices.append(choice)
 	return choices
 
@@ -15366,12 +15648,17 @@ func _next_standard_incident_id() -> StringName:
 
 
 func case_docket_snapshot() -> Dictionary:
+	var last_response: Dictionary = {}
+	if not incident_response_history.is_empty():
+		last_response = _incident_response_snapshot(incident_response_history.back())
 	return {
 		"id": "PO-%04d" % posmod(_career_seed, 10_000),
 		"career_seed": _career_seed,
 		"remaining_in_rotation": _incident_bag.size(),
 		"rotation_size": INCIDENT_ORDER.size(),
 		"last_incident_id": _last_standard_incident_id,
+		"last_response": last_response,
+		"active_precedent": active_incident_precedent_snapshot(),
 	}
 
 
@@ -15407,6 +15694,7 @@ func _maybe_open_incident() -> bool:
 		var options: Array[Dictionary] = []
 		for choice in _incident_choices(incident_id):
 			options.append(choice.duplicate(true))
+		var case_memory := incident_follow_through_snapshot(incident_id)
 		pending_decision = {
 			"serial": _decision_serial,
 			"kind": &"incident",
@@ -15417,6 +15705,8 @@ func _maybe_open_incident() -> bool:
 			"body": String(definition.get("body", "A measurable variance requires management attention.")),
 			"options": options,
 		}
+		if not case_memory.is_empty():
+			pending_decision["case_memory"] = case_memory.duplicate(true)
 	_incident_slot += 1
 	shift_phase = ShiftPhase.AWAITING_INCIDENT
 	shift_phase_changed.emit(shift_phase)
@@ -15446,6 +15736,7 @@ func _resolve_incident(option_id: StringName) -> bool:
 		if is_flock_petition else
 		_incident_option_cost_cents(incident_id, option_id)
 	)
+	var case_memory := pending_decision.get("case_memory", {}) as Dictionary
 	var spendable := spendable_fund_cents()
 	if spendable < cost_cents:
 		announcement_posted.emit(
@@ -15459,20 +15750,34 @@ func _resolve_incident(option_id: StringName) -> bool:
 	if is_flock_petition:
 		petition_record = _apply_flock_petition_response(option_id, chosen)
 	else:
-		_apply_incident_effects(incident_id, option_id)
+		_apply_incident_effects(incident_id, option_id, case_memory)
 	incidents_resolved_today += 1
 	var outcome := String(chosen.get("outcome", "Incident response recorded."))
 	var serial := int(pending_decision.get("serial", -1))
+	var incident_response: Dictionary = {}
+	if not is_flock_petition:
+		incident_response = _record_standard_incident_response(incident_id, option_id, day, serial)
+	var filed_precedent: Dictionary = {}
+	if not is_flock_petition:
+		filed_precedent = active_incident_precedent_snapshot()
+	var resolution_summary := outcome
+	if not filed_precedent.is_empty():
+		resolution_summary = "%s PRECEDENT FILED / %s / %s" % [
+			outcome,
+			String(filed_precedent.get("target_label", "NEXT RELATED CASE")),
+			String(filed_precedent.get("summary", "A prior response changes the next related case.")),
+		]
 	pending_decision.clear()
 	shift_phase = ShiftPhase.RUNNING
 	shift_phase_changed.emit(shift_phase)
-	announcement_posted.emit(outcome)
+	announcement_posted.emit(resolution_summary)
 	var result := {
 		"serial": serial,
 		"kind": &"incident",
 		"decision_id": incident_id,
 		"option_id": option_id,
 		"outcome": outcome,
+		"resolution_summary": resolution_summary,
 		"day": day,
 	}
 	if is_flock_petition:
@@ -15480,6 +15785,11 @@ func _resolve_incident(option_id: StringName) -> bool:
 		result["flock_petition"] = petition_record.duplicate(true)
 		result["flock_compact"] = active_flock_compact.duplicate(true)
 		result["work_to_rule"] = work_to_rule_snapshot()
+	else:
+		result["incident_response"] = incident_response.duplicate(true)
+		result["case_memory"] = case_memory.duplicate(true)
+		if not filed_precedent.is_empty():
+			result["filed_precedent"] = filed_precedent.duplicate(true)
 	decision_resolved.emit(result)
 	snapshot_changed.emit(snapshot())
 	return true
@@ -15974,7 +16284,11 @@ func _resolve_due_flock_compact(completed_day: int) -> Dictionary:
 	return last_flock_compact_receipt.duplicate(true)
 
 
-func _apply_incident_effects(incident_id: StringName, option_id: StringName) -> void:
+func _apply_incident_effects(
+	incident_id: StringName,
+	option_id: StringName,
+	follow_through: Dictionary = {},
+) -> void:
 	match incident_id:
 		&"ledger_molt":
 			if option_id == &"patch":
@@ -16061,6 +16375,16 @@ func _apply_incident_effects(incident_id: StringName, option_id: StringName) -> 
 				_adjust_workers(-5.0, 4.0, 0.0)
 				_adjust_worker_relationships(-5.0, 6.0)
 				solidarity = maxf(0.0, solidarity - 4.0)
+	match StringName(follow_through.get("id", &"")):
+		&"layers_named_to_calendar":
+			if incident_id == &"calendar_overflow" and option_id == &"cancel_status_sync":
+				_adjust_worker_relationships(2.0, 0.0)
+		&"roosters_named_to_calendar":
+			if incident_id == &"calendar_overflow" and option_id == &"attend_status_sync":
+				executive_confidence = minf(100.0, executive_confidence + 2.0)
+		&"sync_attended_to_credit":
+			if incident_id == &"credit_town_hall" and option_id == &"credit_roosters":
+				executive_confidence = minf(100.0, executive_confidence + 2.0)
 
 
 func _adjust_workers(morale_delta: float, stress_delta: float, fatigue_delta: float) -> void:
@@ -18090,6 +18414,7 @@ func snapshot() -> Dictionary:
 		"active_directive": active_directive_snapshot(),
 		"pending_decision": pending_decision_snapshot(),
 		"incidents_resolved_today": incidents_resolved_today,
+		"incident_responses_today": incident_responses_for_day(day),
 		"decision_modifiers": {
 			"work_multiplier": _directive_work_multiplier * _incident_work_multiplier * _work_to_rule_work_multiplier(),
 			"fatigue_multiplier": _directive_fatigue_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0,
@@ -18669,6 +18994,7 @@ func _complete_workday() -> void:
 	var completed_priority_credit_cents := priority_credit_today_cents
 	var completed_directive := active_directive_snapshot()
 	var completed_incidents := incidents_resolved_today
+	var completed_incident_responses := incident_responses_for_day(completed_day)
 	var completed_feed_cost := current_daily_feed_cost_cents()
 	var completed_feed_procurement := feed_procurement_snapshot()
 	var completed_feed_procurement_spend: int = int(
@@ -19142,6 +19468,7 @@ func _complete_workday() -> void:
 		"farmer_favor": completed_farmer_favor,
 		"directive": completed_directive,
 		"incidents_resolved": completed_incidents,
+		"incident_responses": completed_incident_responses,
 		"quota_adjustment": completed_quota_adjustment,
 		"returned_claims": returned_claims,
 		"new_intake_claims": new_intake_claims,

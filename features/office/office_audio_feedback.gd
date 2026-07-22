@@ -41,6 +41,7 @@ var _ui_tick: AudioStreamWAV
 var _decision_alert: AudioStreamWAV
 var _policy_stamp: AudioStreamWAV
 var _decision_resolved: AudioStreamWAV
+var _precedent_filed: AudioStreamWAV
 var _peck_assist: AudioStreamWAV
 var _peck_assist_perfect: AudioStreamWAV
 var _peck_contact: AudioStreamWAV
@@ -83,6 +84,14 @@ func _ready() -> void:
 	_decision_alert = _synth_sequence(PackedFloat32Array([294.0, 294.0, 440.0]), 0.09, 0.42)
 	_policy_stamp = _synth_sequence(PackedFloat32Array([349.0, 523.0, 698.0]), 0.085, 0.40)
 	_decision_resolved = _synth_chirp(480.0, 720.0, 0.17, 0.38, 0.0)
+	# One restrained stamp-and-rise cadence confirms that a decision changed a
+	# future case. It remains a single pooled UI voice rather than layering the
+	# ordinary resolution chirp with the policy stamp in the same frame.
+	_precedent_filed = _synth_sequence(
+		PackedFloat32Array([392.0, 294.0, 523.0, 698.0]),
+		0.070,
+		0.38,
+	)
 	_peck_assist = _synth_sequence(PackedFloat32Array([360.0, 470.0, 590.0]), 0.055, 0.34)
 	_peck_assist_perfect = _synth_sequence(PackedFloat32Array([520.0, 690.0, 920.0]), 0.055, 0.40)
 	# Physical production-line cues use short noise-rich transients rather than
@@ -190,6 +199,13 @@ func play_decision_resolved() -> void:
 	_play(
 		&"decision_resolved", _decision_resolved, 1.0, -8.0, 100,
 		BUS_UI, PRIORITY_CONFIRMATION,
+	)
+
+
+func play_precedent_filed() -> void:
+	_play(
+		&"precedent_filed", _precedent_filed, 1.0, -7.0, 180,
+		BUS_UI, PRIORITY_IMPORTANT,
 	)
 
 
