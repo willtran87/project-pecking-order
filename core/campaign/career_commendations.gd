@@ -10,6 +10,7 @@ const FIRST_EGG: StringName = &"first_egg"
 const DOCTRINE_FILED: StringName = &"doctrine_filed"
 const CLEAN_DOZEN: StringName = &"clean_dozen"
 const MUTUAL_KEEPER: StringName = &"mutual_keeper"
+const ADAPTIVE_CASEWORK: StringName = &"adaptive_casework"
 const PROBATION_SURVIVOR: StringName = &"probation_survivor"
 const BUREAU_BUILDER: StringName = &"bureau_builder"
 const FULL_ROOST: StringName = &"full_roost"
@@ -25,6 +26,7 @@ const IDS: Array[StringName] = [
 	DOCTRINE_FILED,
 	CLEAN_DOZEN,
 	MUTUAL_KEEPER,
+	ADAPTIVE_CASEWORK,
 	PROBATION_SURVIVOR,
 	BUREAU_BUILDER,
 	FULL_ROOST,
@@ -60,6 +62,12 @@ static func definitions() -> Array[Dictionary]:
 			"MUTUAL ASSURANCE",
 			"Fulfill three Farm Mutual binders without rewriting their terms.",
 			"Three-kernel contract stamp",
+		),
+		_definition(
+			ADAPTIVE_CASEWORK,
+			"WINGS BOTH WAYS",
+			"Use an active counterweight pivot in all three recurring case pairs.",
+			"Three-hinge adaptability stamp",
 		),
 		_definition(
 			PROBATION_SURVIVOR,
@@ -116,6 +124,17 @@ static func evaluate(
 	var fulfilled_contracts := maxi(0, int(simulation.get("market_contracts_succeeded_total", 0)))
 	var office_capacity := clampi(int(simulation.get("office_capacity", 4)), 0, 6)
 	var facility_tiers := _facility_tier_total(simulation.get("owned_facilities", {}))
+	var pivot_mastery_value: Variant = simulation.get("incident_pivot_mastery", {})
+	if not pivot_mastery_value is Dictionary:
+		var case_docket_value: Variant = simulation.get("case_docket", {})
+		if case_docket_value is Dictionary:
+			pivot_mastery_value = (case_docket_value as Dictionary).get("pivot_mastery", {})
+	var pivot_mastery := (
+		pivot_mastery_value as Dictionary
+		if pivot_mastery_value is Dictionary else
+		{}
+	)
+	var mastered_pivot_pairs := clampi(int(pivot_mastery.get("mastered_count", 0)), 0, 3)
 
 	var milestone_value: Variant = campaign.get("milestone", {})
 	var milestone := milestone_value as Dictionary if milestone_value is Dictionary else {}
@@ -138,6 +157,12 @@ static func evaluate(
 		DOCTRINE_FILED: _source(1 if not milestone_id.is_empty() else 0, 1, not milestone_id.is_empty(), "FILED" if not milestone_id.is_empty() else "0 / 1 SPECIALTY"),
 		CLEAN_DOZEN: _source(mini(best_quality_streak, 12), 12, best_quality_streak >= 12, "%d / 12 CLEAN CHAIN" % mini(best_quality_streak, 12)),
 		MUTUAL_KEEPER: _source(mini(fulfilled_contracts, 3), 3, fulfilled_contracts >= 3, "%d / 3 BINDERS" % mini(fulfilled_contracts, 3)),
+		ADAPTIVE_CASEWORK: _source(
+			mastered_pivot_pairs,
+			3,
+			mastered_pivot_pairs >= 3,
+			"%d / 3 CASE PAIRS" % mastered_pivot_pairs,
+		),
 		PROBATION_SURVIVOR: _source(
 			completed_shifts,
 			5,

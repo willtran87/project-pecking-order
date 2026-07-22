@@ -26,8 +26,8 @@ func _run() -> void:
 	var navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
 	var initial := office.commendations_snapshot()
 	_check(int(initial.get("earned_count", -1)) == 0, "fresh production Office should seed a zero-stamp archive", failures)
-	_check(summary != null and "0 OF 11 FILED" in summary.text, "Records should expose a concise opening commendation summary", failures)
-	_check(toggle != null and "0 / 11 FILED" in toggle.text, "collapsed disclosure should publish the exact archive count", failures)
+	_check(summary != null and "0 OF 12 FILED" in summary.text, "Records should expose a concise opening commendation summary", failures)
+	_check(toggle != null and "0 / 12 FILED" in toggle.text, "collapsed disclosure should publish the exact archive count", failures)
 
 	var cue_serial_before := int(audio.feedback_snapshot().get("cue_serial", -1))
 	simulation.eggs_total = 1
@@ -36,7 +36,7 @@ func _run() -> void:
 	var earned := office.commendations_snapshot()
 	var audio_after := audio.feedback_snapshot()
 	_check(int(earned.get("earned_count", -1)) == 1, "first cumulative egg should file one permanent commendation", failures)
-	_check(summary != null and "1 OF 11 FILED" in summary.text and "DOCTRINE STAMPED" in summary.text, "summary should advance to the next authored stamp", failures)
+	_check(summary != null and "1 OF 12 FILED" in summary.text and "DOCTRINE STAMPED" in summary.text, "summary should advance to the next authored stamp", failures)
 	_check(String(audio_after.get("last_cue", "")) == "commendation", "new permanent recognition should play its dedicated semantic cadence", failures)
 	_check(int(audio_after.get("cue_serial", -1)) == cue_serial_before + 1, "accepted achievement should advance audio feedback exactly once", failures)
 	_check("COMMENDATION FILED" in String((office.get("_ticker_label") as Label).text), "achievement should produce a visible non-modal notice", failures)
@@ -81,7 +81,7 @@ func _run() -> void:
 	var panels := office.find_children("CareerCommendation_*", "PanelContainer", true, false)
 	var first_mark := office.find_child("CareerCommendationMark_first_egg", true, false) as Label
 	var next_mark := office.find_child("CareerCommendationMark_doctrine_filed", true, false) as Label
-	_check(panels.size() == 11, "expanded Records disclosure should contain exactly eleven stable cards", failures)
+	_check(panels.size() == 12, "expanded Records disclosure should contain exactly twelve stable cards", failures)
 	_check(first_mark != null and first_mark.is_visible_in_tree() and first_mark.text == "FILED", "earned card should remain visibly stamped", failures)
 	_check(next_mark != null and next_mark.is_visible_in_tree() and next_mark.text == "OPEN", "next unearned card should remain visibly open", failures)
 
@@ -93,7 +93,7 @@ func _run() -> void:
 			push_error("CAREER_COMMENDATIONS_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAREER_COMMENDATIONS_OFFICE_INTEGRATION_TEST_PASSED records=collapsed+11 cards unlock=visual+audio portfolio=distinct duplicate=none")
+	print("CAREER_COMMENDATIONS_OFFICE_INTEGRATION_TEST_PASSED records=collapsed+12 cards unlock=visual+audio portfolio=distinct duplicate=none")
 	quit(0)
 
 

@@ -52,7 +52,7 @@ const BASE_CLAIM_CAPACITY := 18
 const CLAIM_CAPACITY_PER_RECORDS_LEVEL := 6
 const BASE_WORK_PROGRESS := 3.2
 const MAX_UPGRADE_LEVEL := 5
-const SAVE_STATE_VERSION := 26
+const SAVE_STATE_VERSION := 27
 const MANAGER_ROSTER_VERSION := 1
 const FIRST_CLUTCH_REINVESTMENT_VERSION := 1
 const FIRST_CLUTCH_WORKER_ID := 0
@@ -1156,6 +1156,12 @@ const INCIDENT_ORDER: Array[StringName] = [
 const INCIDENT_DOCKET_SEED_OFFSET := 32_452_843
 const INCIDENT_RESPONSE_VERSION := 1
 const INCIDENT_RESPONSE_HISTORY_LIMIT := 24
+const INCIDENT_PIVOT_MASTERY_VERSION := 1
+const INCIDENT_PAIR_ORDER: Array[StringName] = [
+	&"ledger_story",
+	&"wellness_feed",
+	&"calendar_credit",
+]
 const INCIDENT_SHORT_TITLES := {
 	&"ledger_molt": "LEDGER MOLT",
 	&"wellness_request": "WELLNESS REQUEST",
@@ -1163,6 +1169,53 @@ const INCIDENT_SHORT_TITLES := {
 	&"feed_shortfall": "FEED SHORTFALL",
 	&"calendar_overflow": "MEETING OVERFLOW",
 	&"credit_town_hall": "CREDIT TOWN HALL",
+}
+const INCIDENT_PAIR_SOURCE := {
+	&"ledger_molt": &"farmer_story",
+	&"farmer_story": &"ledger_molt",
+	&"wellness_request": &"feed_shortfall",
+	&"feed_shortfall": &"wellness_request",
+	&"calendar_overflow": &"credit_town_hall",
+	&"credit_town_hall": &"calendar_overflow",
+}
+const INCIDENT_PAIR_IDS := {
+	&"ledger_molt": &"ledger_story",
+	&"farmer_story": &"ledger_story",
+	&"wellness_request": &"wellness_feed",
+	&"feed_shortfall": &"wellness_feed",
+	&"calendar_overflow": &"calendar_credit",
+	&"credit_town_hall": &"calendar_credit",
+}
+const INCIDENT_PAIR_LABELS := {
+	&"ledger_story": "LEDGER / STORY",
+	&"wellness_feed": "WELLNESS / FEED",
+	&"calendar_credit": "MEETINGS / CREDIT",
+}
+const INCIDENT_FOLLOW_THROUGH_DEFINITIONS := {
+	&"ledger_molt": {
+		&"polish_story": {"id": &"story_surplus_to_patch", "label": "PRIOR STORY FILE / BASKET POLISHED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The presentation surplus takes $4 off the current emergency-patch quote.", "affected_option_id": &"patch"},
+		&"show_ledger": {"id": &"transparency_to_shadow_sheet", "label": "PRIOR STORY FILE / ACTUAL LEDGER SHOWN", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The disclosed fault makes the unofficial spreadsheet worth +2 more speed.", "affected_option_id": &"spreadsheet"},
+	},
+	&"farmer_story": {
+		&"patch": {"id": &"clean_audit_to_story", "label": "PRIOR LEDGER FILE / PATCH AUTHORIZED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The clean audit makes POLISH THE PRESENTATION BASKET worth +$4 more Feed Fund.", "affected_option_id": &"polish_story"},
+		&"spreadsheet": {"id": &"shadow_evidence_to_ledger", "label": "PRIOR LEDGER FILE / SHADOW SHEET ACTIVE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The shadow sheet reduces SHOW THE ACTUAL LEDGER's farmer-favor loss from -6 to -4.", "affected_option_id": &"show_ledger"},
+	},
+	&"wellness_request": {
+		&"buy_grain": {"id": &"fed_flock_to_denial", "label": "PRIOR FEED FILE / LOCAL GRAIN BOUGHT", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The visible meal gives management cover worth +2 more farmer favor when denying breaks.", "affected_option_id": &"deny_breaks"},
+		&"optimize_portions": {"id": &"savings_to_breaks", "label": "PRIOR FEED FILE / PORTIONS OPTIMIZED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The ration savings lower the rotating-break cost from $6 to $4.", "affected_option_id": &"grant_breaks"},
+	},
+	&"feed_shortfall": {
+		&"grant_breaks": {"id": &"rested_flock_to_portions", "label": "PRIOR WELLNESS FILE / BREAKS COVERED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The rested-flock study increases optimized-portion savings from $8 to $10 daily feed cost.", "affected_option_id": &"optimize_portions"},
+		&"deny_breaks": {"id": &"grievance_to_grain", "label": "PRIOR WELLNESS FILE / REQUEST DENIED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The grievance settlement lowers the local-grain cost from $16 to $12.", "affected_option_id": &"buy_grain"},
+	},
+	&"calendar_overflow": {
+		&"credit_layers": {"id": &"layer_results_to_syncs", "label": "PRIOR CREDIT FILE / LAYERS NAMED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The layer results make attending every sync worth +2 more farmer favor.", "affected_option_id": &"attend_status_sync"},
+		&"credit_roosters": {"id": &"manager_byline_to_cancel", "label": "PRIOR CREDIT FILE / ROOSTERS NAMED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The manager byline makes canceling this sync worth +2 more flock trust.", "affected_option_id": &"cancel_status_sync"},
+	},
+	&"credit_town_hall": {
+		&"cancel_status_sync": {"id": &"cancel_bargain_to_roosters", "label": "PRIOR MEETING FILE / SYNC CANCELED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The cancellation bargain makes crediting the roosters worth +2 more farmer favor.", "affected_option_id": &"credit_roosters"},
+		&"attend_status_sync": {"id": &"minutes_to_layers", "label": "PRIOR MEETING FILE / EVERY SYNC ATTENDED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The meeting minutes lower the cost of crediting the layers from $10 to $6.", "affected_option_id": &"credit_layers"},
+	},
 }
 const INCIDENT_DEFINITIONS := {
 	&"ledger_molt": {
@@ -1177,6 +1230,12 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "The ledger was patched. Compliance has declared the smoke intentional.",
 				"cost_cents": 1800,
 				"tone": &"quality",
+				"precedent": {
+					"target_incident_id": &"farmer_story",
+					"target_label": "NEXT FARMER STORY",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The clean audit raises POLISH THE PRESENTATION BASKET from +$16 to +$20 Feed Fund.",
+				},
 			},
 			{
 				"id": &"spreadsheet",
@@ -1186,6 +1245,12 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "An unofficial spreadsheet is now mission-critical and completely unaudited.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"farmer_story",
+					"target_label": "NEXT FARMER STORY",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The shadow sheet reduces SHOW THE ACTUAL LEDGER's farmer-favor loss from -6 to -4.",
+				},
 			},
 		],
 	},
@@ -1201,6 +1266,12 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "A rotating break was approved and immediately described as a productivity pilot.",
 				"cost_cents": 600,
 				"tone": &"care",
+				"precedent": {
+					"target_incident_id": &"feed_shortfall",
+					"target_label": "NEXT FEED SHORTFALL",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The rested-flock study raises OPTIMIZE THE PORTIONS from $8 to $10 lower daily feed cost.",
+				},
 			},
 			{
 				"id": &"deny_breaks",
@@ -1210,6 +1281,12 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "The request was denied. The flock has been reminded that the wellness poster is the benefit.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"feed_shortfall",
+					"target_label": "NEXT FEED SHORTFALL",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The grievance settlement lowers BUY LOCAL GRAIN from $16 to $12.",
+				},
 			},
 		],
 	},
@@ -1225,15 +1302,27 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "The presentation has been polished. Tomorrow's target already reflects today's optimism.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"ledger_molt",
+					"target_label": "NEXT LEDGER MOLT",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The presentation surplus takes $4 off the current AUTHORIZE EMERGENCY PATCH quote.",
+				},
 			},
 			{
 				"id": &"show_ledger",
 				"label": "SHOW THE ACTUAL LEDGER",
 				"tagline": "Trade executive favor for obedience and a lower quota.",
-				"preview": "+5 obedience  ·  +6 flock unity  ·  tomorrow's quota -1",
+				"preview": "-6 farmer favor  ·  +5 obedience  ·  +6 flock unity  ·  tomorrow's quota -1",
 				"outcome": "The actual ledger was attached. The farmer has called this an avoidable transparency event.",
 				"cost_cents": 0,
 				"tone": &"quality",
+				"precedent": {
+					"target_incident_id": &"ledger_molt",
+					"target_label": "NEXT LEDGER MOLT",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The disclosed fault raises USE THE UNOFFICIAL SPREADSHEET from +5% to +7% speed.",
+				},
 			},
 		],
 	},
@@ -1249,6 +1338,12 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "Local grain arrived. Procurement has opened a review into its suspicious edibility.",
 				"cost_cents": 1600,
 				"tone": &"care",
+				"precedent": {
+					"target_incident_id": &"wellness_request",
+					"target_label": "NEXT WELLNESS REQUEST",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The visible meal raises DENY THE ATTITUDE VARIANCE from +3 to +5 farmer favor.",
+				},
 			},
 			{
 				"id": &"optimize_portions",
@@ -1258,6 +1353,12 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "Portions were optimized. The missing feed has been reclassified as efficiency.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"wellness_request",
+					"target_label": "NEXT WELLNESS REQUEST",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The ration savings lower COVER A ROTATING BREAK from $6 to $4.",
+				},
 			},
 		],
 	},
@@ -1276,7 +1377,8 @@ const INCIDENT_DEFINITIONS := {
 				"precedent": {
 					"target_incident_id": &"credit_town_hall",
 					"target_label": "NEXT CREDIT TOWN HALL",
-					"summary": "Saved meeting feed discounts CREDIT THE LAYERS from $10 to $6.",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The cancellation bargain raises CREDIT THE ROOSTERS from +10 to +12 farmer favor.",
 				},
 			},
 			{
@@ -1290,7 +1392,8 @@ const INCIDENT_DEFINITIONS := {
 				"precedent": {
 					"target_incident_id": &"credit_town_hall",
 					"target_label": "NEXT CREDIT TOWN HALL",
-					"summary": "The attendance record raises CREDIT THE ROOSTERS from +10 to +12 farmer favor.",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The meeting minutes discount CREDIT THE LAYERS from $10 to $6.",
 				},
 			},
 		],
@@ -1310,7 +1413,8 @@ const INCIDENT_DEFINITIONS := {
 				"precedent": {
 					"target_incident_id": &"calendar_overflow",
 					"target_label": "NEXT MEETING OVERFLOW",
-					"summary": "The named-layer ledger raises CANCEL THE STATUS SYNC from +2 to +4 flock trust.",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The layer results raise ATTEND EVERY STATUS SYNC from +8 to +10 farmer favor.",
 				},
 			},
 			{
@@ -1324,7 +1428,8 @@ const INCIDENT_DEFINITIONS := {
 				"precedent": {
 					"target_incident_id": &"calendar_overflow",
 					"target_label": "NEXT MEETING OVERFLOW",
-					"summary": "The manager byline raises ATTEND EVERY STATUS SYNC from +8 to +10 farmer favor.",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The manager byline raises CANCEL THE STATUS SYNC from +2 to +4 flock trust.",
 				},
 			},
 		],
@@ -1478,6 +1583,7 @@ var active_directive_id: StringName = &""
 var pending_decision: Dictionary = {}
 var incidents_resolved_today: int = 0
 var incident_response_history: Array[Dictionary] = []
+var incident_pivot_mastery_receipts: Array[Dictionary] = []
 var upgrade_levels: Dictionary = {
 	&"peckwork_tools": 0,
 	&"shell_lamp": 0,
@@ -7208,6 +7314,7 @@ func export_save_state() -> Dictionary:
 		"pending_decision": pending_decision.duplicate(true),
 		"incidents_resolved_today": incidents_resolved_today,
 		"incident_response_history": incident_response_history.duplicate(true),
+		"incident_pivot_mastery_receipts": incident_pivot_mastery_receipts.duplicate(true),
 		"upgrade_levels": saved_upgrades,
 		"first_clutch_reinvestment": first_clutch_reinvestment.duplicate(true),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
@@ -7395,6 +7502,23 @@ func restore_save_state(data: Dictionary) -> bool:
 	var restored_incident_response_history: Array[Dictionary] = []
 	for response_value in response_history_validation.get("history", []):
 		restored_incident_response_history.append((response_value as Dictionary).duplicate(true))
+	var pivot_mastery_validation := _validated_incident_pivot_mastery_receipts(
+		data.get("incident_pivot_mastery_receipts", null),
+		saved_day,
+	)
+	if not bool(pivot_mastery_validation.get("valid", false)):
+		return false
+	var restored_pivot_mastery_receipts: Array[Dictionary] = []
+	var restored_pivot_pairs: Dictionary[StringName, bool] = {}
+	for receipt_value in pivot_mastery_validation.get("receipts", []):
+		var receipt := (receipt_value as Dictionary).duplicate(true)
+		restored_pivot_mastery_receipts.append(receipt)
+		restored_pivot_pairs[StringName(receipt.get("pair_id", &""))] = true
+	for derived_receipt: Dictionary in _incident_pivot_receipts_from_history(
+		restored_incident_response_history
+	):
+		if not restored_pivot_pairs.has(StringName(derived_receipt.get("pair_id", &""))):
+			return false
 	if not _is_integral_number(data.get("shift_phase", null)):
 		return false
 	var saved_shift_phase := int(data.get("shift_phase", -1))
@@ -8965,6 +9089,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	pending_decision = _decision_from_save_data(data.get("pending_decision", {}) as Dictionary)
 	incidents_resolved_today = clampi(int(data.get("incidents_resolved_today", 0)), 0, INCIDENT_MINUTES.size())
 	incident_response_history = restored_incident_response_history
+	incident_pivot_mastery_receipts = restored_pivot_mastery_receipts
 
 	var saved_lane_totals := data.get("lane_processed_totals", {}) as Dictionary
 	var saved_lane_today := data.get("lane_processed_today", {}) as Dictionary
@@ -9767,6 +9892,22 @@ func _migrate_save_state(source: Dictionary) -> Dictionary:
 					migrated.erase("incident_response_history")
 				migrated["incident_response_history"] = []
 				source_version = 26
+				migrated["state_version"] = source_version
+			26:
+				# v27 files the first verified counterweight pivot in each connected
+				# incident pair. Authentic v26 response history can reconstruct those
+				# receipts exactly; a claimed v26 file may not smuggle future authority.
+				if migrated.has("incident_pivot_mastery_receipts"):
+					if original_source_version == 26:
+						return {}
+					migrated.erase("incident_pivot_mastery_receipts")
+				var migrated_history_value: Variant = migrated.get("incident_response_history", null)
+				if not migrated_history_value is Array:
+					return {}
+				migrated["incident_pivot_mastery_receipts"] = _incident_pivot_receipts_from_history(
+					migrated_history_value as Array
+				)
+				source_version = 27
 				migrated["state_version"] = source_version
 			_:
 				return {}
@@ -15449,6 +15590,10 @@ func _record_standard_incident_response(
 		response_day = day
 	if serial < 1:
 		serial = _decision_serial
+	var case_memory := incident_follow_through_snapshot(incident_id)
+	var case_pivot := _record_incident_pivot_mastery(
+		incident_id, option_id, response_day, serial, case_memory
+	)
 	var record := {
 		"version": INCIDENT_RESPONSE_VERSION,
 		"day": response_day,
@@ -15459,7 +15604,10 @@ func _record_standard_incident_response(
 	incident_response_history.append(record)
 	while incident_response_history.size() > INCIDENT_RESPONSE_HISTORY_LIMIT:
 		incident_response_history.pop_front()
-	return _incident_response_snapshot(record)
+	var response := _incident_response_snapshot(record)
+	if not case_pivot.is_empty():
+		response["case_pivot"] = case_pivot.duplicate(true)
+	return response
 
 
 func incident_responses_for_day(target_day: int) -> Array[Dictionary]:
@@ -15494,71 +15642,242 @@ func incident_follow_through_snapshot(
 	var response_history: Array = incident_response_history
 	if response_history_value is Array:
 		response_history = response_history_value as Array
-	var source: Dictionary = {}
-	if incident_id == &"calendar_overflow":
-		source = _latest_incident_response(&"credit_town_hall", response_history)
-	elif incident_id == &"credit_town_hall":
-		source = _latest_incident_response(&"calendar_overflow", response_history)
+	var source_incident_id := StringName(INCIDENT_PAIR_SOURCE.get(incident_id, &""))
+	if source_incident_id == &"":
+		return {}
+	var source := _latest_incident_response(source_incident_id, response_history)
 	if source.is_empty():
 		return {}
 	var source_option := StringName(source.get("option_id", &""))
+	var target_definitions := INCIDENT_FOLLOW_THROUGH_DEFINITIONS.get(incident_id, {}) as Dictionary
+	var definition := target_definitions.get(source_option, {}) as Dictionary
+	if definition.is_empty():
+		return {}
 	var follow_through := {
 		"version": INCIDENT_RESPONSE_VERSION,
 		"source_day": int(source.get("day", 0)),
+		"source_serial": int(source.get("serial", 0)),
 		"source_incident_id": StringName(source.get("incident_id", &"")),
 		"source_option_id": source_option,
 	}
-	if incident_id == &"calendar_overflow" and source_option == &"credit_layers":
-		follow_through.merge({
-			"id": &"layers_named_to_calendar",
-			"label": "PRIOR CREDIT FILE / LAYERS NAMED",
-			"summary": "The named-layer ledger makes canceling this sync worth +2 more flock trust.",
-			"affected_option_id": &"cancel_status_sync",
-		})
-	elif incident_id == &"calendar_overflow" and source_option == &"credit_roosters":
-		follow_through.merge({
-			"id": &"roosters_named_to_calendar",
-			"label": "PRIOR CREDIT FILE / ROOSTERS NAMED",
-			"summary": "The manager byline makes attending every sync worth +2 more farmer favor.",
-			"affected_option_id": &"attend_status_sync",
-		})
-	elif incident_id == &"credit_town_hall" and source_option == &"cancel_status_sync":
-		follow_through.merge({
-			"id": &"sync_canceled_to_credit",
-			"label": "PRIOR MEETING FILE / SYNC CANCELED",
-			"summary": "Saved meeting feed lowers the cost of crediting the layers from $10 to $6.",
-			"affected_option_id": &"credit_layers",
-		})
-	elif incident_id == &"credit_town_hall" and source_option == &"attend_status_sync":
-		follow_through.merge({
-			"id": &"sync_attended_to_credit",
-			"label": "PRIOR MEETING FILE / EVERY SYNC ATTENDED",
-			"summary": "The attendance record makes crediting the roosters worth +2 more farmer favor.",
-			"affected_option_id": &"credit_roosters",
-		})
-	else:
-		return {}
+	follow_through.merge(definition.duplicate(true), true)
 	return follow_through
 
 
-func active_incident_precedent_snapshot() -> Dictionary:
+func _incident_pivot_receipt(
+	incident_id: StringName,
+	option_id: StringName,
+	pivot_day: int,
+	pivot_serial: int,
+	case_memory: Dictionary,
+) -> Dictionary:
+	var affected_option_id := StringName(case_memory.get("affected_option_id", &""))
+	if affected_option_id == &"" or option_id != affected_option_id:
+		return {}
+	var pair_id := StringName(INCIDENT_PAIR_IDS.get(incident_id, &""))
+	var source_incident_id := StringName(case_memory.get("source_incident_id", &""))
+	var source_option_id := StringName(case_memory.get("source_option_id", &""))
+	var source_day := int(case_memory.get("source_day", 0))
+	var source_serial := int(case_memory.get("source_serial", 0))
+	if (
+		pair_id == &""
+		or pair_id != StringName(INCIDENT_PAIR_IDS.get(source_incident_id, &""))
+		or StringName(INCIDENT_PAIR_SOURCE.get(incident_id, &"")) != source_incident_id
+		or _incident_choice_definition(source_incident_id, source_option_id).is_empty()
+		or _incident_choice_definition(incident_id, option_id).is_empty()
+		or source_day < 1
+		or source_day > pivot_day
+		or source_serial < 1
+		or source_serial >= pivot_serial
+	):
+		return {}
+	return {
+		"version": INCIDENT_PIVOT_MASTERY_VERSION,
+		"pair_id": pair_id,
+		"source_day": source_day,
+		"source_serial": source_serial,
+		"source_incident_id": source_incident_id,
+		"source_option_id": source_option_id,
+		"pivot_day": pivot_day,
+		"pivot_serial": pivot_serial,
+		"pivot_incident_id": incident_id,
+		"pivot_option_id": option_id,
+	}
+
+
+func _record_incident_pivot_mastery(
+	incident_id: StringName,
+	option_id: StringName,
+	pivot_day: int,
+	pivot_serial: int,
+	case_memory: Dictionary,
+) -> Dictionary:
+	var receipt := _incident_pivot_receipt(
+		incident_id, option_id, pivot_day, pivot_serial, case_memory
+	)
+	if receipt.is_empty():
+		return {}
+	var pair_id := StringName(receipt.get("pair_id", &""))
+	for existing: Dictionary in incident_pivot_mastery_receipts:
+		if StringName(existing.get("pair_id", &"")) == pair_id:
+			return {}
+	incident_pivot_mastery_receipts.append(receipt.duplicate(true))
+	return receipt
+
+
+func incident_pivot_mastery_snapshot() -> Dictionary:
+	var pair_ids: Array[String] = []
+	var rows: Array[Dictionary] = []
+	var mastered: Dictionary[StringName, bool] = {}
+	for receipt: Dictionary in incident_pivot_mastery_receipts:
+		var pair_id := StringName(receipt.get("pair_id", &""))
+		if pair_id in INCIDENT_PAIR_ORDER and not mastered.has(pair_id):
+			mastered[pair_id] = true
+			pair_ids.append(String(pair_id))
+	for pair_id: StringName in INCIDENT_PAIR_ORDER:
+		rows.append({
+			"pair_id": pair_id,
+			"label": String(INCIDENT_PAIR_LABELS.get(pair_id, "CONNECTED CASE")),
+			"mastered": mastered.has(pair_id),
+		})
+	var mastered_count := pair_ids.size()
+	return {
+		"version": INCIDENT_PIVOT_MASTERY_VERSION,
+		"mastered_count": mastered_count,
+		"total_count": INCIDENT_PAIR_ORDER.size(),
+		"mastered_pair_ids": pair_ids,
+		"rows": rows,
+		"last_receipt": (
+			incident_pivot_mastery_receipts.back().duplicate(true)
+			if not incident_pivot_mastery_receipts.is_empty() else
+			{}
+		),
+		"complete": mastered_count == INCIDENT_PAIR_ORDER.size(),
+	}
+
+
+func _incident_pivot_receipts_from_history(history: Array) -> Array[Dictionary]:
+	var receipts: Array[Dictionary] = []
+	var prior_history: Array[Dictionary] = []
+	var mastered_pairs: Dictionary[StringName, bool] = {}
+	for record_value: Variant in history:
+		if not record_value is Dictionary:
+			continue
+		var record := record_value as Dictionary
+		var incident_id := StringName(record.get("incident_id", &""))
+		var pair_id := StringName(INCIDENT_PAIR_IDS.get(incident_id, &""))
+		var memory := incident_follow_through_snapshot(incident_id, prior_history)
+		if pair_id != &"" and not mastered_pairs.has(pair_id):
+			var receipt := _incident_pivot_receipt(
+				incident_id,
+				StringName(record.get("option_id", &"")),
+				int(record.get("day", 0)),
+				int(record.get("serial", 0)),
+				memory,
+			)
+			if not receipt.is_empty():
+				receipts.append(receipt)
+				mastered_pairs[pair_id] = true
+		prior_history.append(record.duplicate(true))
+	return receipts
+
+
+func _validated_incident_pivot_mastery_receipts(value: Variant, saved_day: int) -> Dictionary:
+	if not value is Array or (value as Array).size() > INCIDENT_PAIR_ORDER.size():
+		return {"valid": false, "receipts": []}
+	var receipts: Array[Dictionary] = []
+	var seen_pairs: Dictionary[StringName, bool] = {}
+	var previous_pivot_serial := 0
+	for receipt_value: Variant in value as Array:
+		if not receipt_value is Dictionary:
+			return {"valid": false, "receipts": []}
+		var receipt := receipt_value as Dictionary
+		for integer_field in ["version", "source_day", "source_serial", "pivot_day", "pivot_serial"]:
+			if not _is_integral_number(receipt.get(integer_field, null)):
+				return {"valid": false, "receipts": []}
+		for id_field in ["pair_id", "source_incident_id", "source_option_id", "pivot_incident_id", "pivot_option_id"]:
+			if typeof(receipt.get(id_field, null)) not in [TYPE_STRING, TYPE_STRING_NAME]:
+				return {"valid": false, "receipts": []}
+		var pair_id := StringName(String(receipt.get("pair_id", "")))
+		var source_incident_id := StringName(String(receipt.get("source_incident_id", "")))
+		var source_option_id := StringName(String(receipt.get("source_option_id", "")))
+		var pivot_incident_id := StringName(String(receipt.get("pivot_incident_id", "")))
+		var pivot_option_id := StringName(String(receipt.get("pivot_option_id", "")))
+		var source_day := int(receipt.get("source_day", 0))
+		var source_serial := int(receipt.get("source_serial", 0))
+		var pivot_day := int(receipt.get("pivot_day", 0))
+		var pivot_serial := int(receipt.get("pivot_serial", 0))
+		var target_definitions := INCIDENT_FOLLOW_THROUGH_DEFINITIONS.get(
+			pivot_incident_id, {}
+		) as Dictionary
+		var follow_through := target_definitions.get(source_option_id, {}) as Dictionary
+		if (
+			int(receipt.get("version", 0)) != INCIDENT_PIVOT_MASTERY_VERSION
+			or pair_id not in INCIDENT_PAIR_ORDER
+			or seen_pairs.has(pair_id)
+			or StringName(INCIDENT_PAIR_IDS.get(source_incident_id, &"")) != pair_id
+			or StringName(INCIDENT_PAIR_IDS.get(pivot_incident_id, &"")) != pair_id
+			or StringName(INCIDENT_PAIR_SOURCE.get(pivot_incident_id, &"")) != source_incident_id
+			or _incident_choice_definition(source_incident_id, source_option_id).is_empty()
+			or _incident_choice_definition(pivot_incident_id, pivot_option_id).is_empty()
+			or StringName(follow_through.get("affected_option_id", &"")) != pivot_option_id
+			or source_day < 1
+			or source_day > pivot_day
+			or pivot_day > saved_day
+			or source_serial < 1
+			or source_serial >= pivot_serial
+			or pivot_serial <= previous_pivot_serial
+		):
+			return {"valid": false, "receipts": []}
+		seen_pairs[pair_id] = true
+		previous_pivot_serial = pivot_serial
+		receipts.append({
+			"version": INCIDENT_PIVOT_MASTERY_VERSION,
+			"pair_id": pair_id,
+			"source_day": source_day,
+			"source_serial": source_serial,
+			"source_incident_id": source_incident_id,
+			"source_option_id": source_option_id,
+			"pivot_day": pivot_day,
+			"pivot_serial": pivot_serial,
+			"pivot_incident_id": pivot_incident_id,
+			"pivot_option_id": pivot_option_id,
+		})
+	return {"valid": true, "receipts": receipts}
+
+
+func active_incident_precedent_snapshots() -> Array[Dictionary]:
+	var precedents: Array[Dictionary] = []
+	var represented_pairs: Dictionary[StringName, bool] = {}
 	for index in range(incident_response_history.size() - 1, -1, -1):
 		var record := incident_response_history[index]
 		var response := _incident_response_snapshot(record)
+		var source_incident_id := StringName(response.get("incident_id", &""))
+		var pair_id := StringName(INCIDENT_PAIR_IDS.get(source_incident_id, &""))
+		if pair_id == &"" or represented_pairs.has(pair_id):
+			continue
 		var precedent := response.get("precedent", {}) as Dictionary
 		if precedent.is_empty():
 			continue
-		return {
+		represented_pairs[pair_id] = true
+		precedents.append({
 			"version": INCIDENT_RESPONSE_VERSION,
+			"pair_id": pair_id,
 			"source_day": int(response.get("day", 0)),
-			"source_incident_id": StringName(response.get("incident_id", &"")),
+			"source_incident_id": source_incident_id,
 			"source_option_id": StringName(response.get("option_id", &"")),
 			"source_summary": String(response.get("summary", "INCIDENT RESPONSE")),
 			"target_incident_id": StringName(precedent.get("target_incident_id", &"")),
 			"target_label": String(precedent.get("target_label", "NEXT RELATED CASE")),
+			"strategy_label": String(precedent.get("strategy_label", "PIVOT OPPORTUNITY")),
 			"summary": String(precedent.get("summary", "A prior response changes the next related case.")),
-		}
-	return {}
+		})
+	return precedents
+
+
+func active_incident_precedent_snapshot() -> Dictionary:
+	var precedents := active_incident_precedent_snapshots()
+	return precedents[0].duplicate(true) if not precedents.is_empty() else {}
 
 
 func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
@@ -15582,25 +15901,71 @@ func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 				float(ledger_molt_spreadsheet_compliance_loss_millipoints()) / 1000.0,
 			]
 		match StringName(follow_through.get("id", &"")):
-			&"layers_named_to_calendar":
+			&"transparency_to_shadow_sheet":
+				if option_id == &"spreadsheet":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+5% speed", "+7% speed"
+					)
+			&"story_surplus_to_patch":
+				if option_id == &"patch":
+					var discounted_patch_cents := maxi(0, int(choice.get("cost_cents", 0)) - 400)
+					choice["cost_cents"] = discounted_patch_cents
+					choice["preview"] = "Cost $%.2f  ·  +4 obedience  ·  -4%% crack risk this shift" % (
+						float(discounted_patch_cents) / 100.0
+					)
+			&"shadow_evidence_to_ledger":
+				if option_id == &"show_ledger":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"-6 farmer favor", "-4 farmer favor"
+					)
+			&"clean_audit_to_story":
+				if option_id == &"polish_story":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+$16 fund", "+$20 fund"
+					)
+			&"savings_to_breaks":
+				if option_id == &"grant_breaks":
+					choice["cost_cents"] = 400
+					choice["preview"] = String(choice.get("preview", "")).replace("Cost $6", "Cost $4")
+			&"fed_flock_to_denial":
+				if option_id == &"deny_breaks":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+3 farmer favor", "+5 farmer favor"
+					)
+			&"grievance_to_grain":
+				if option_id == &"buy_grain":
+					choice["cost_cents"] = 1200
+					choice["preview"] = String(choice.get("preview", "")).replace("Cost $16", "Cost $12")
+			&"rested_flock_to_portions":
+				if option_id == &"optimize_portions":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"Daily feed -$8", "Daily feed -$10"
+					)
+			&"manager_byline_to_cancel":
 				if option_id == &"cancel_status_sync":
 					choice["preview"] = String(choice.get("preview", "")).replace(
 						"flock trust +2", "flock trust +4"
 					)
-			&"roosters_named_to_calendar":
+			&"layer_results_to_syncs":
 				if option_id == &"attend_status_sync":
 					choice["preview"] = String(choice.get("preview", "")).replace(
 						"+8 farmer favor", "+10 farmer favor"
 					)
-			&"sync_canceled_to_credit":
+			&"minutes_to_layers":
 				if option_id == &"credit_layers":
 					choice["cost_cents"] = 600
 					choice["preview"] = String(choice.get("preview", "")).replace("Cost $10", "Cost $6")
-			&"sync_attended_to_credit":
+			&"cancel_bargain_to_roosters":
 				if option_id == &"credit_roosters":
 					choice["preview"] = String(choice.get("preview", "")).replace(
 						"+10 farmer favor", "+12 farmer favor"
 					)
+		var affected_option_id := StringName(follow_through.get("affected_option_id", &""))
+		if affected_option_id != &"" and option_id == affected_option_id:
+			choice["case_memory_active"] = true
+			choice["case_memory_label"] = String(follow_through.get(
+				"strategy_label", "PIVOT OPPORTUNITY"
+			))
 		choices.append(choice)
 	return choices
 
@@ -15651,6 +16016,7 @@ func case_docket_snapshot() -> Dictionary:
 	var last_response: Dictionary = {}
 	if not incident_response_history.is_empty():
 		last_response = _incident_response_snapshot(incident_response_history.back())
+	var active_precedents := active_incident_precedent_snapshots()
 	return {
 		"id": "PO-%04d" % posmod(_career_seed, 10_000),
 		"career_seed": _career_seed,
@@ -15658,7 +16024,9 @@ func case_docket_snapshot() -> Dictionary:
 		"rotation_size": INCIDENT_ORDER.size(),
 		"last_incident_id": _last_standard_incident_id,
 		"last_response": last_response,
-		"active_precedent": active_incident_precedent_snapshot(),
+		"active_precedent": active_precedents[0].duplicate(true) if not active_precedents.is_empty() else {},
+		"active_precedents": active_precedents,
+		"pivot_mastery": incident_pivot_mastery_snapshot(),
 	}
 
 
@@ -15747,6 +16115,7 @@ func _resolve_incident(option_id: StringName) -> bool:
 		return false
 	revenue_cents -= cost_cents
 	var petition_record: Dictionary = {}
+	var case_pivot: Dictionary = {}
 	if is_flock_petition:
 		petition_record = _apply_flock_petition_response(option_id, chosen)
 	else:
@@ -15757,6 +16126,7 @@ func _resolve_incident(option_id: StringName) -> bool:
 	var incident_response: Dictionary = {}
 	if not is_flock_petition:
 		incident_response = _record_standard_incident_response(incident_id, option_id, day, serial)
+		case_pivot = incident_response.get("case_pivot", {}) as Dictionary
 	var filed_precedent: Dictionary = {}
 	if not is_flock_petition:
 		filed_precedent = active_incident_precedent_snapshot()
@@ -15766,6 +16136,13 @@ func _resolve_incident(option_id: StringName) -> bool:
 			outcome,
 			String(filed_precedent.get("target_label", "NEXT RELATED CASE")),
 			String(filed_precedent.get("summary", "A prior response changes the next related case.")),
+		]
+	if not case_pivot.is_empty():
+		var pivot_mastery := incident_pivot_mastery_snapshot()
+		resolution_summary += " ADAPTIVE CASEWORK / %d OF %d PAIRS%s" % [
+			int(pivot_mastery.get("mastered_count", 0)),
+			int(pivot_mastery.get("total_count", INCIDENT_PAIR_ORDER.size())),
+			" / COMMENDATION READY" if bool(pivot_mastery.get("complete", false)) else "",
 		]
 	pending_decision.clear()
 	shift_phase = ShiftPhase.RUNNING
@@ -15788,6 +16165,9 @@ func _resolve_incident(option_id: StringName) -> bool:
 	else:
 		result["incident_response"] = incident_response.duplicate(true)
 		result["case_memory"] = case_memory.duplicate(true)
+		if not case_pivot.is_empty():
+			result["case_pivot"] = case_pivot.duplicate(true)
+			result["case_pivot_mastery"] = incident_pivot_mastery_snapshot()
 		if not filed_precedent.is_empty():
 			result["filed_precedent"] = filed_precedent.duplicate(true)
 	decision_resolved.emit(result)
@@ -16289,6 +16669,7 @@ func _apply_incident_effects(
 	option_id: StringName,
 	follow_through: Dictionary = {},
 ) -> void:
+	var follow_through_id := StringName(follow_through.get("id", &""))
 	match incident_id:
 		&"ledger_molt":
 			if option_id == &"patch":
@@ -16296,7 +16677,9 @@ func _apply_incident_effects(
 				_incident_crack_modifier -= 0.04
 				_adjust_worker_relationships(1.0, -1.0)
 			else:
-				_incident_work_multiplier *= 1.05
+				_incident_work_multiplier *= (
+					1.07 if follow_through_id == &"transparency_to_shadow_sheet" else 1.05
+				)
 				_incident_crack_modifier += (
 					float(ledger_molt_spreadsheet_crack_basis_points()) / 10_000.0
 				)
@@ -16315,20 +16698,31 @@ func _apply_incident_effects(
 			else:
 				_adjust_workers(-6.0, 6.0, 0.0)
 				_adjust_worker_relationships(-5.0, 6.0)
-				executive_confidence = minf(100.0, executive_confidence + 3.0)
+				executive_confidence = minf(
+					100.0,
+					executive_confidence
+					+ (5.0 if follow_through_id == &"fed_flock_to_denial" else 3.0),
+				)
 				solidarity = minf(100.0, solidarity + 5.0)
 				_incident_crack_modifier += 0.025
 		&"farmer_story":
 			if option_id == &"polish_story":
 				_adjust_worker_relationships(-4.0, 5.0)
-				revenue_cents += 1600
-				credited_today_cents += 1600
+				var story_credit_cents := (
+					2000 if follow_through_id == &"clean_audit_to_story" else 1600
+				)
+				revenue_cents += story_credit_cents
+				credited_today_cents += story_credit_cents
 				executive_confidence = minf(100.0, executive_confidence + 8.0)
 				solidarity = maxf(0.0, solidarity - 5.0)
 				_pending_quota_adjustment += 1
 			else:
 				_adjust_worker_relationships(4.0, -3.0)
-				executive_confidence = maxf(0.0, executive_confidence - 6.0)
+				executive_confidence = maxf(
+					0.0,
+					executive_confidence
+					- (4.0 if follow_through_id == &"shadow_evidence_to_ledger" else 6.0),
+				)
 				compliance = minf(100.0, compliance + 5.0)
 				solidarity = minf(100.0, solidarity + 6.0)
 				_pending_quota_adjustment -= 1
@@ -16340,7 +16734,9 @@ func _apply_incident_effects(
 				solidarity = minf(100.0, solidarity + 3.0)
 				_incident_strain_multiplier *= 0.85
 			else:
-				_incident_feed_adjustment_cents -= 800
+				_incident_feed_adjustment_cents -= (
+					1000 if follow_through_id == &"rested_flock_to_portions" else 800
+				)
 				_consume_feed_for_shift()
 				_adjust_workers(-7.0, 5.0, 0.0)
 				_adjust_worker_relationships(-3.0, 4.0)
@@ -16375,14 +16771,14 @@ func _apply_incident_effects(
 				_adjust_workers(-5.0, 4.0, 0.0)
 				_adjust_worker_relationships(-5.0, 6.0)
 				solidarity = maxf(0.0, solidarity - 4.0)
-	match StringName(follow_through.get("id", &"")):
-		&"layers_named_to_calendar":
+	match follow_through_id:
+		&"manager_byline_to_cancel":
 			if incident_id == &"calendar_overflow" and option_id == &"cancel_status_sync":
 				_adjust_worker_relationships(2.0, 0.0)
-		&"roosters_named_to_calendar":
+		&"layer_results_to_syncs":
 			if incident_id == &"calendar_overflow" and option_id == &"attend_status_sync":
 				executive_confidence = minf(100.0, executive_confidence + 2.0)
-		&"sync_attended_to_credit":
+		&"cancel_bargain_to_roosters":
 			if incident_id == &"credit_town_hall" and option_id == &"credit_roosters":
 				executive_confidence = minf(100.0, executive_confidence + 2.0)
 
@@ -18280,6 +18676,7 @@ func snapshot() -> Dictionary:
 		# authoritative state between ticks.
 		"authoritative_tick_revision": _tick_count,
 		"case_docket": case_docket_snapshot(),
+		"incident_pivot_mastery": incident_pivot_mastery_snapshot(),
 		"day": day,
 		"minute_of_day": minute_of_day,
 		"time_label": _format_time(minute_of_day),

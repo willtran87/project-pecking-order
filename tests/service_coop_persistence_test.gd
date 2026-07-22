@@ -24,7 +24,7 @@ func _init() -> void:
 
 
 func _test_current_tier_and_frozen_contract_round_trips(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 26, "connected incident case memory should own schema v26", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 27, "adaptive casework receipts should own schema v27", failures)
 	var tier_source := DepartmentSimulation.new(9851, 5)
 	tier_source.day = 3
 	tier_source.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW

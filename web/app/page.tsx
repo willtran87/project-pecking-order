@@ -744,12 +744,22 @@ function buildGameStateAccessibleStatus(
   const campaignDay = Math.max(1, Math.trunc(numberValue(state.campaign_day, 1)));
   const caseDocket = recordValue(state.case_docket);
   const caseDocketId = diagnosticPlainText(stringValue(caseDocket.id), 32);
-  const activePrecedent = recordValue(caseDocket.active_precedent);
-  const activePrecedentTarget = diagnosticPlainText(stringValue(activePrecedent.target_label), 100);
-  const activePrecedentSummary = diagnosticPlainText(stringValue(activePrecedent.summary), 220);
-  const activePrecedentStatus = activePrecedentSummary.length > 0
-    ? ` Open precedent${activePrecedentTarget.length > 0 ? ` for ${activePrecedentTarget}` : ""}: ${activePrecedentSummary}`
-    : "";
+  const activePrecedents = Array.isArray(caseDocket.active_precedents)
+    ? caseDocket.active_precedents.slice(0, 3).map(recordValue)
+    : [];
+  if (activePrecedents.length === 0) {
+    const legacyActivePrecedent = recordValue(caseDocket.active_precedent);
+    if (Object.keys(legacyActivePrecedent).length > 0) activePrecedents.push(legacyActivePrecedent);
+  }
+  const activePrecedentStatus = activePrecedents.map((activePrecedent) => {
+    const target = diagnosticPlainText(stringValue(activePrecedent.target_label), 100);
+    const strategy = diagnosticPlainText(stringValue(activePrecedent.strategy_label), 80)
+      || "pivot opportunity";
+    const summary = diagnosticPlainText(stringValue(activePrecedent.summary), 220);
+    return summary.length > 0
+      ? ` Open ${strategy.toLowerCase()}${target.length > 0 ? ` for ${target}` : ""}: ${summary}`
+      : "";
+  }).join("");
   const shiftPhase = Math.trunc(numberValue(state.shift_phase, -1));
   const pendingDecision = stringValue(state.pending_decision_kind);
   const pendingDecisionDetail = recordValue(state.pending_decision);
@@ -1109,9 +1119,11 @@ function buildGameStateAccessibleStatus(
     const decisionBody = diagnosticPlainText(stringValue(pendingDecisionDetail.body), 280);
     const caseMemory = recordValue(pendingDecisionDetail.case_memory);
     const caseMemoryLabel = diagnosticPlainText(stringValue(caseMemory.label), 100);
+    const caseMemoryStrategy = diagnosticPlainText(stringValue(caseMemory.strategy_label), 80)
+      || "pivot opportunity";
     const caseMemorySummary = diagnosticPlainText(stringValue(caseMemory.summary), 220);
     const caseMemoryStatus = caseMemorySummary.length > 0
-      ? ` Prior case file${caseMemoryLabel.length > 0 ? `, ${caseMemoryLabel}` : ""}: ${caseMemorySummary}`
+      ? ` ${caseMemoryStrategy}${caseMemoryLabel.length > 0 ? `, ${caseMemoryLabel}` : ""}: ${caseMemorySummary}`
       : "";
     const selectedOption = stringValue(pendingDecisionDetail.selected_option_id);
     const decisionOptions = Array.isArray(pendingDecisionDetail.options)
@@ -1120,6 +1132,10 @@ function buildGameStateAccessibleStatus(
           const optionIndex = Math.max(1, Math.trunc(numberValue(option.index, index + 1)));
           const label = diagnosticPlainText(stringValue(option.label) || `Choice ${optionIndex}`, 100);
           const tagline = diagnosticPlainText(stringValue(option.tagline), 140);
+          const pivotActive = option.case_memory_active === true;
+          const pivotLabel = diagnosticPlainText(stringValue(option.case_memory_label), 80)
+            || "pivot opportunity";
+          const pivotStatus = pivotActive ? `; ${pivotLabel.toLowerCase()} active` : "";
           const precedent = recordValue(option.precedent);
           const precedentTarget = diagnosticPlainText(stringValue(precedent.target_label), 100);
           const precedentSummary = diagnosticPlainText(stringValue(precedent.summary), 200);
@@ -1137,7 +1153,7 @@ function buildGameStateAccessibleStatus(
           const selected = selectedOption.length > 0 && selectedOption === stringValue(option.id)
             ? ", selected"
             : "";
-          return `${optionIndex}, ${label}${tagline.length > 0 ? `: ${tagline}` : ""}${availability}${selected}${precedentStatus}`;
+          return `${optionIndex}, ${label}${tagline.length > 0 ? `: ${tagline}` : ""}${availability}${selected}${pivotStatus}${precedentStatus}`;
         })
       : [];
     const docketStatus = pendingDecision === "directive" && caseDocketId.length > 0

@@ -12,13 +12,15 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var simulation := office.get("_simulation") as DepartmentSimulation
-	simulation._decision_serial = 1
-	simulation._record_standard_incident_response(&"credit_town_hall", &"credit_layers", 1, 1)
+	simulation._decision_serial = 3
+	simulation._record_standard_incident_response(&"ledger_molt", &"patch", 1, 1)
+	simulation._record_standard_incident_response(&"wellness_request", &"grant_breaks", 1, 2)
+	simulation._record_standard_incident_response(&"credit_town_hall", &"credit_layers", 1, 3)
 	office.call("_on_snapshot_changed", simulation.snapshot())
 	await process_frame
 	var memory := simulation.incident_follow_through_snapshot(&"calendar_overflow")
 	var decision := {
-		"serial": 2,
+		"serial": 4,
 		"kind": &"incident",
 		"id": &"calendar_overflow",
 		"day": 1,
@@ -30,13 +32,13 @@ func _run() -> void:
 	}
 	# Keep the fixture authoritative so the selected response can exercise the
 	# real synchronous simulation -> Office resolution feedback chain.
-	simulation._decision_serial = 2
+	simulation._decision_serial = 4
 	simulation.pending_decision = decision.duplicate(true)
 	simulation.shift_phase = DepartmentSimulation.ShiftPhase.AWAITING_INCIDENT
 	office.call("_on_decision_requested", decision)
 	await process_frame
 	var body := office.find_child("DecisionBody", true, false) as Label
-	var cancel_button := office.find_child("DecisionOption_cancel_status_sync", true, false) as Button
+	var attend_button := office.find_child("DecisionOption_attend_status_sync", true, false) as Button
 	var decision_preview := office.find_child("DecisionPreview", true, false) as Label
 	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
 	var precedent_label := office.find_child("FlockwatchTodayPrecedent", true, false) as Label
@@ -45,51 +47,59 @@ func _run() -> void:
 	var diagnostic_memory := diagnostic.get("case_memory", {}) as Dictionary
 	_check(
 		body != null
+		and "PIVOT OPPORTUNITY" in body.text
 		and "PRIOR CREDIT FILE / LAYERS NAMED" in body.text
-		and "canceling this sync worth +2 more flock trust" in body.text,
+		and "attending every sync worth +2 more farmer favor" in body.text,
 		"the incident card should present the prior case and its exact causal bonus",
 		failures,
 	)
 	_check(
-		cancel_button != null and "flock trust +4" in cancel_button.tooltip_text,
-		"the affected response card should present its exact modified total",
+		attend_button != null
+		and "PIVOT OPPORTUNITY // ACTIVE" in attend_button.tooltip_text
+		and "+10 farmer favor" in attend_button.tooltip_text,
+		"the affected response card should identify the active pivot and its exact modified total",
 		failures,
 	)
-	if cancel_button != null:
-		cancel_button.emit_signal("pressed")
+	if attend_button != null:
+		attend_button.emit_signal("pressed")
 		await process_frame
 	_check(
 		decision_preview != null
-		and "PRECEDENT // NEXT CREDIT TOWN HALL" in decision_preview.text
-		and "discounts CREDIT THE LAYERS from $10 to $6" in decision_preview.text,
+		and "PIVOT OPPORTUNITY // NEXT CREDIT TOWN HALL" in decision_preview.text
+		and "meeting minutes discount CREDIT THE LAYERS from $10 to $6" in decision_preview.text,
 		"selecting a response should disclose the exact precedent it sets before authorization",
 		failures,
 	)
 	_check(
 		precedent_label != null
 		and precedent_label.visible
-		and "OPEN PRECEDENT · NEXT MEETING OVERFLOW" in precedent_label.text
-		and "from +2 to +4 flock trust" in precedent_label.text,
-		"Flockwatch Today should retain the currently open precedent without another menu",
+		and "OPEN PRECEDENTS" in precedent_label.text
+		and "NEXT MEETING OVERFLOW" in precedent_label.text
+		and "NEXT FEED SHORTFALL" in precedent_label.text
+		and "NEXT FARMER STORY" in precedent_label.text
+		and "PIVOT OPPORTUNITY" in precedent_label.text
+		and "from +8 to +10 farmer favor" in precedent_label.text,
+		"Flockwatch Today should retain all three bounded open precedents without another menu",
 		failures,
 	)
 	_check(
 		flockwatch_navigation != null
-		and "Open precedent for NEXT MEETING OVERFLOW" in flockwatch_navigation.accessible_text(),
-		"Flockwatch narration should announce the open precedent on its Today page",
+		and "Open pivot opportunity for NEXT MEETING OVERFLOW" in flockwatch_navigation.accessible_text(),
+		"Flockwatch narration should announce the newest open precedent on its Today page",
 		failures,
 	)
 	_check(
-		StringName(diagnostic_memory.get("id", &"")) == &"layers_named_to_calendar"
-		and StringName(diagnostic_memory.get("affected_option_id", &"")) == &"cancel_status_sync",
+		StringName(diagnostic_memory.get("id", &"")) == &"layer_results_to_syncs"
+		and StringName(diagnostic_memory.get("affected_option_id", &"")) == &"attend_status_sync",
 		"diagnostics should expose sanitized structured case memory for Web narration",
 		failures,
 	)
 	var diagnostic_options := diagnostic.get("options", []) as Array
 	_check(
-		not diagnostic_options.is_empty()
-		and String(((diagnostic_options[0] as Dictionary).get("precedent", {}) as Dictionary).get("target_label", "")) == "NEXT CREDIT TOWN HALL",
-		"decision diagnostics should expose the selected response's authored precedent for Web narration",
+		diagnostic_options.size() == 2
+		and bool((diagnostic_options[1] as Dictionary).get("case_memory_active", false))
+		and String(((diagnostic_options[1] as Dictionary).get("precedent", {}) as Dictionary).get("target_label", "")) == "NEXT CREDIT TOWN HALL",
+		"decision diagnostics should expose the active pivot and selected response precedent for Web narration",
 		failures,
 	)
 
@@ -134,18 +144,19 @@ func _run() -> void:
 		precedent_label != null
 		and "OPEN PRECEDENT" in precedent_label.text
 		and "NEXT CREDIT TOWN HALL" in precedent_label.text
+		and "NEXT FEED SHORTFALL" in precedent_label.text
+		and "NEXT FARMER STORY" in precedent_label.text
 		and "from $10 to $6" in precedent_label.text,
-		"Flockwatch Today should immediately replace the consumed precedent with the newly filed one",
+		"Flockwatch Today should replace only the consumed pair while retaining the other two precedents",
 		failures,
 	)
 	_check(
 		"Latest notice:" in accessible_resolution
 		and "PRECEDENT FILED / NEXT CREDIT TOWN HALL" in accessible_resolution
-		and "Open precedent for NEXT CREDIT TOWN HALL" in accessible_resolution,
+		and "Open pivot opportunity for NEXT CREDIT TOWN HALL" in accessible_resolution,
 		"assistive narration should confirm both the filed receipt and the newly open precedent",
 		failures,
 	)
-
 	office.queue_free()
 	await process_frame
 	if failures.is_empty():

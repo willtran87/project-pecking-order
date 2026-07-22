@@ -3899,7 +3899,8 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	_decision_body.text = String(decision.get("body", "A measurable variance requires management attention."))
 	var case_memory := decision.get("case_memory", {}) as Dictionary
 	if kind == &"incident" and not case_memory.is_empty():
-		_decision_body.text += "\n\n%s\n%s" % [
+		_decision_body.text += "\n\n%s // %s\n%s" % [
+			String(case_memory.get("strategy_label", "PIVOT OPPORTUNITY")),
 			String(case_memory.get("label", "PRIOR CASE FILE")),
 			String(case_memory.get("summary", "A prior response changes this case.")),
 		]
@@ -3962,10 +3963,16 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		var card_label := String(option.get("short_label", label)) if kind == &"directive" else label
 		var tagline := String(option.get("tagline", ""))
 		var preview := String(option.get("preview", "Consequence pending."))
+		if bool(option.get("case_memory_active", false)):
+			preview = "%s // ACTIVE\n%s" % [
+				String(option.get("case_memory_label", "PIVOT OPPORTUNITY")),
+				preview,
+			]
 		var precedent := option.get("precedent", {}) as Dictionary
 		var precedent_preview := ""
 		if not precedent.is_empty():
-			precedent_preview = "\n\nPRECEDENT // %s\n%s" % [
+			precedent_preview = "\n\n%s // %s\n%s" % [
+				String(precedent.get("strategy_label", "PIVOT OPPORTUNITY")),
 				String(precedent.get("target_label", "NEXT RELATED CASE")),
 				String(precedent.get("summary", "This response changes the next related case.")),
 			]
@@ -4278,8 +4285,14 @@ func _on_decision_resolved(result: Dictionary) -> void:
 			else:
 				_ticker_label.text = "FIRST CLUTCH ORIENTATION. Inspect a hen, then choose 1x when ready."
 	elif kind == &"incident":
+		var pivot_mastery := result.get("case_pivot_mastery", {}) as Dictionary
+		var completed_adaptive_casework := bool(pivot_mastery.get("complete", false))
 		if _audio_feedback != null:
-			if not (result.get("filed_precedent", {}) as Dictionary).is_empty():
+			if completed_adaptive_casework:
+				# The snapshot-driven commendation refresh owns the one semantic cue.
+				# Avoid layering the ordinary precedent stamp beneath it.
+				pass
+			elif not (result.get("filed_precedent", {}) as Dictionary).is_empty():
 				_audio_feedback.play_precedent_filed()
 			else:
 				_audio_feedback.play_decision_resolved()
@@ -4297,7 +4310,13 @@ func _on_decision_resolved(result: Dictionary) -> void:
 	# the same synchronous resolution chain. A filed precedent is the rarer,
 	# durable consequence, so let its exact receipt own the final toast; the
 	# ordinary ticker watcher records it in the existing Shift Record.
-	if not (result.get("filed_precedent", {}) as Dictionary).is_empty():
+	var completed_case_mastery := bool(
+		(result.get("case_pivot_mastery", {}) as Dictionary).get("complete", false)
+	)
+	if (
+		not (result.get("filed_precedent", {}) as Dictionary).is_empty()
+		and not completed_case_mastery
+	):
 		_ticker_label.text = outcome
 
 
@@ -9563,6 +9582,7 @@ func _commendations_fingerprint(snapshot: Dictionary) -> int:
 		int(snapshot.get("eggs_total", 0)),
 		int(snapshot.get("best_quality_streak", 0)),
 		int(snapshot.get("market_contracts_succeeded_total", 0)),
+		int((snapshot.get("incident_pivot_mastery", {}) as Dictionary).get("mastered_count", 0)),
 		int(snapshot.get("office_capacity", 4)),
 		facility_tiers,
 		String(_campaign_state.chosen_milestone_id) if _campaign_state != null else "",
@@ -9779,6 +9799,8 @@ func _pending_decision_diagnostic_state() -> Dictionary:
 			"preview": String(option.get("preview", "Consequence pending.")),
 			"tone": String(option.get("tone", "")),
 			"cost_cents": cost_cents,
+			"case_memory_active": bool(option.get("case_memory_active", false)),
+			"case_memory_label": String(option.get("case_memory_label", "")),
 			"precedent": (option.get("precedent", {}) as Dictionary).duplicate(true),
 			"available": available,
 			"order_fit": order_fit.duplicate(true),
@@ -11199,17 +11221,46 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		"Farmer favor affects management confidence; coop obedience measures policy compliance."
 	)
 	var case_docket := snapshot.get("case_docket", {}) as Dictionary
-	var active_precedent := case_docket.get("active_precedent", {}) as Dictionary
-	_today_precedent_label.visible = not active_precedent.is_empty()
-	if not active_precedent.is_empty():
-		_today_precedent_label.text = "OPEN PRECEDENT · %s · %s" % [
-			String(active_precedent.get("target_label", "NEXT RELATED CASE")),
-			String(active_precedent.get("summary", "A prior response changes the next related case.")),
-		]
-		_today_precedent_label.tooltip_text = "Filed on Day %d by %s. This consequence remains open until the next related case." % [
-			int(active_precedent.get("source_day", 0)),
-			String(active_precedent.get("source_summary", "incident response")),
-		]
+	var active_precedents: Array[Dictionary] = []
+	for precedent_value: Variant in case_docket.get("active_precedents", []):
+		if precedent_value is Dictionary:
+			active_precedents.append((precedent_value as Dictionary).duplicate(true))
+	if active_precedents.is_empty():
+		var legacy_active_precedent := case_docket.get("active_precedent", {}) as Dictionary
+		if not legacy_active_precedent.is_empty():
+			active_precedents.append(legacy_active_precedent.duplicate(true))
+	var pivot_mastery := case_docket.get("pivot_mastery", {}) as Dictionary
+	var pivot_mastered_count := int(pivot_mastery.get("mastered_count", 0))
+	var pivot_total_count := int(pivot_mastery.get("total_count", 3))
+	_today_precedent_label.visible = not active_precedents.is_empty() or pivot_mastered_count > 0
+	if _today_precedent_label.visible:
+		var precedent_lines: Array[String] = []
+		var precedent_tooltips: Array[String] = []
+		if pivot_mastered_count > 0:
+			precedent_lines.append("ADAPTIVE CASEWORK · %d / %d PAIRS%s" % [
+				pivot_mastered_count,
+				pivot_total_count,
+				" · COMMENDATION FILED" if bool(pivot_mastery.get("complete", false)) else "",
+			])
+		if active_precedents.size() > 1:
+			precedent_lines.append("OPEN PRECEDENTS · %d" % active_precedents.size())
+		for active_precedent: Dictionary in active_precedents:
+			precedent_lines.append("%s%s // %s · %s" % [
+				"OPEN PRECEDENT · " if active_precedents.size() == 1 else "- ",
+				String(active_precedent.get("strategy_label", "PIVOT OPPORTUNITY")),
+				String(active_precedent.get("target_label", "NEXT RELATED CASE")),
+				String(active_precedent.get("summary", "A prior response changes the next related case.")),
+			])
+			precedent_tooltips.append("Day %d / %s" % [
+				int(active_precedent.get("source_day", 0)),
+				String(active_precedent.get("source_summary", "incident response")),
+			])
+		_today_precedent_label.text = "\n".join(precedent_lines)
+		_today_precedent_label.tooltip_text = "Master each pair by filing its highlighted pivot."
+		if not precedent_tooltips.is_empty():
+			_today_precedent_label.tooltip_text += (
+				" Open until each next related case. " + "; ".join(precedent_tooltips)
+			)
 	else:
 		_today_precedent_label.text = ""
 		_today_precedent_label.tooltip_text = ""

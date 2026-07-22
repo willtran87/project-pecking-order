@@ -25,10 +25,10 @@ func _run() -> void:
 		{"status": "inactive", "total_senior_shifts": 0, "mandate_seals": 0},
 	)
 	_check(int(fresh.get("earned_count", -1)) == 0, "fresh career should begin with no invented commendations", failures)
-	_check(int(fresh.get("total_count", -1)) == 11, "career ledger should expose exactly eleven stable commendations", failures)
-	_check((fresh.get("rows", []) as Array).size() == 11, "every stable commendation should have one presentation row", failures)
+	_check(int(fresh.get("total_count", -1)) == 12, "career ledger should expose exactly twelve stable commendations", failures)
+	_check((fresh.get("rows", []) as Array).size() == 12, "every stable commendation should have one presentation row", failures)
 	_check(String((fresh.get("next", {}) as Dictionary).get("id", "")) == "first_egg", "first credited egg should be the opening stamp", failures)
-	_check(_unique_ids(fresh).size() == 11, "commendation IDs should be unique and stable", failures)
+	_check(_unique_ids(fresh).size() == 12, "commendation IDs should be unique and stable", failures)
 
 	var growing_simulation := {
 		"eggs_total": 17,
@@ -49,6 +49,10 @@ func _run() -> void:
 	_check(String(_row(growing, &"clean_dozen").get("progress_label", "")) == "11 / 12 CLEAN CHAIN", "near-complete clean chain should disclose exact progress", failures)
 	_check(String((growing.get("next", {}) as Dictionary).get("id", "")) == "doctrine_filed", "next stamp should follow the authored career cadence", failures)
 
+	var adapting := Commendations.evaluate({"incident_pivot_mastery": {"mastered_count": 2}}, {})
+	_check(not bool(_row(adapting, &"adaptive_casework").get("earned", true)), "two mastered case pairs should not file adaptive casework early", failures)
+	_check(String(_row(adapting, &"adaptive_casework").get("progress_label", "")) == "2 / 3 CASE PAIRS", "adaptive casework should disclose exact permanent progress", failures)
+
 	var failed_campaign := growing_campaign.duplicate(true)
 	failed_campaign["completed_shifts"] = 5
 	failed_campaign["outcome"] = "failed"
@@ -65,6 +69,7 @@ func _run() -> void:
 		"wellness_nest_room": 1,
 		"training_roost": 1,
 	}
+	complete_simulation["incident_pivot_mastery"] = {"mastered_count": 3}
 	var complete_campaign := {
 		"completed_shifts": 5,
 		"outcome": "passed",
@@ -77,11 +82,11 @@ func _run() -> void:
 		"mandate_mastery": {"mastered_count": 7},
 	}
 	var complete := Commendations.evaluate(complete_simulation, complete_campaign, complete_senior)
-	_check(int(complete.get("earned_count", -1)) == 11 and bool(complete.get("complete", false)), "all eleven permanent source facts should complete the archive", failures)
+	_check(int(complete.get("earned_count", -1)) == 12 and bool(complete.get("complete", false)), "all twelve permanent source facts should complete the archive", failures)
 	_check((complete.get("next", {}) as Dictionary).is_empty(), "complete archive should expose no phantom next stamp", failures)
 	var compact := Commendations.compact_snapshot(complete)
 	_check(not compact.has("rows"), "browser diagnostic should omit full commendation prose and row history", failures)
-	_check((compact.get("earned_ids", []) as Array).size() == 11, "compact diagnostic should retain every stable earned ID", failures)
+	_check((compact.get("earned_ids", []) as Array).size() == 12, "compact diagnostic should retain every stable earned ID", failures)
 
 	var portfolio := Commendations.evaluate({}, {}, {
 		"mandate_success_counts": {
@@ -103,7 +108,7 @@ func _run() -> void:
 			push_error("CAREER_COMMENDATIONS_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAREER_COMMENDATIONS_TEST_PASSED count=11 sources=permanent portfolio=distinct-books next=ordered final=safeguarded diagnostic=compact")
+	print("CAREER_COMMENDATIONS_TEST_PASSED count=12 sources=permanent adaptive=3-pairs portfolio=distinct-books next=ordered final=safeguarded diagnostic=compact")
 	quit(0)
 
 

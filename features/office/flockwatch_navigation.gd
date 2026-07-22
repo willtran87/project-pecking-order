@@ -490,11 +490,27 @@ func accessible_text() -> String:
 		summary += " Latest notice: %s" % _last_feedback
 	if _current_page_id == PAGE_TODAY:
 		var case_docket := _snapshot.get("case_docket", {}) as Dictionary
-		var precedent := case_docket.get("active_precedent", {}) as Dictionary
-		if not precedent.is_empty():
-			summary += " Open precedent for %s: %s" % [
+		var active_precedents: Array[Dictionary] = []
+		for precedent_value: Variant in case_docket.get("active_precedents", []):
+			if precedent_value is Dictionary:
+				active_precedents.append(precedent_value as Dictionary)
+		if active_precedents.is_empty():
+			var legacy_precedent := case_docket.get("active_precedent", {}) as Dictionary
+			if not legacy_precedent.is_empty():
+				active_precedents.append(legacy_precedent)
+		for precedent: Dictionary in active_precedents:
+			summary += " Open %s for %s: %s" % [
+				String(precedent.get("strategy_label", "pivot opportunity")).to_lower(),
 				String(precedent.get("target_label", "the next related case")),
 				String(precedent.get("summary", "A prior response changes its terms.")),
+			]
+		var pivot_mastery := case_docket.get("pivot_mastery", {}) as Dictionary
+		var mastered_pivots := int(pivot_mastery.get("mastered_count", 0))
+		if mastered_pivots > 0:
+			summary += " Adaptive casework: %d of %d case pairs mastered%s." % [
+				mastered_pivots,
+				int(pivot_mastery.get("total_count", 3)),
+				"; WINGS BOTH WAYS commendation filed" if bool(pivot_mastery.get("complete", false)) else "",
 			]
 	return summary
 

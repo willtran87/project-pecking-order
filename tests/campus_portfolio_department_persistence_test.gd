@@ -31,7 +31,7 @@ func _test_schema_v21_neutral_migration(failures: Array[String]) -> void:
 	var restored := DepartmentSimulation.new(22_302, 4)
 	_check(restored.restore_save_state(_json_round_trip(legacy)), "canonical schema-v21 checkpoint should migrate", failures)
 	var migrated := _json_round_trip(restored.export_save_state())
-	_check(int(migrated.get("state_version", -1)) == 26, "v21 checkpoint should re-export as schema v26", failures)
+	_check(int(migrated.get("state_version", -1)) == 27, "v21 checkpoint should re-export as schema v27", failures)
 	_check(restored.revenue_cents == opening_fund, "neutral portfolio migration must not change the Feed Fund", failures)
 	_check(
 		(migrated.get("campus_portfolio", {}) as Dictionary)
@@ -53,7 +53,7 @@ func _test_schema_v21_neutral_migration(failures: Array[String]) -> void:
 func _test_portfolio_round_trip_and_strict_tamper_rejection(failures: Array[String]) -> void:
 	var source := _staffed_portfolio_fixture(22_401, failures)
 	var valid := _json_round_trip(source.export_save_state())
-	_check(int(valid.get("state_version", -1)) == 26 and valid.has("campus_portfolio"), "staffed portfolio checkpoint should export the v26 root", failures)
+	_check(int(valid.get("state_version", -1)) == 27 and valid.has("campus_portfolio"), "staffed portfolio checkpoint should export the v27 root", failures)
 	var restored := DepartmentSimulation.new(22_402, 4)
 	_check(restored.restore_save_state(valid), "canonical staffed portfolio checkpoint should restore", failures)
 	var restored_save := _json_round_trip(restored.export_save_state())

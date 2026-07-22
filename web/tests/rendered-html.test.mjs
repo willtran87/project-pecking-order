@@ -598,8 +598,9 @@ test("narrates the visible management decision and every bounded choice", async 
 			title: "<strong>Choose today's management policy</strong>",
 			body: "One policy governs the shift.<script>globalThis.compromised=true</script>",
 			case_memory: {
+				strategy_label: "PIVOT <em>OPPORTUNITY</em>",
 				label: "PRIOR CREDIT FILE / <b>LAYERS NAMED</b>",
-				summary: "Canceling this sync is worth +2 more flock trust.<script>bad=true</script>",
+				summary: "Attending this sync is worth +2 more farmer favor.<script>bad=true</script>",
 			},
 			selected_option_id: "shell_assurance",
 			options: [
@@ -610,9 +611,12 @@ test("narrates the visible management decision and every bounded choice", async 
 					tagline: "Maximum throughput",
 					cost_cents: 0,
 					available: true,
+					case_memory_active: true,
+					case_memory_label: "PIVOT OPPORTUNITY",
 					precedent: {
+						strategy_label: "PIVOT OPPORTUNITY",
 						target_label: "NEXT CREDIT <b>TOWN HALL</b>",
-						summary: "Saved feed discounts layer credit from $10 to $6.<script>bad=true</script>",
+						summary: "Meeting minutes discount layer credit from $10 to $6.<script>bad=true</script>",
 					},
 				},
 				{ index: 2, id: "shell_assurance", label: "Shell Assurance", tagline: "Protect quality", cost_cents: 300, available: true },
@@ -623,9 +627,9 @@ test("narrates the visible management decision and every bounded choice", async 
 
 	assert.match(status, /^Shift 2\. Case docket PO-7919\. Choose today's management policy\./i);
 	assert.match(status, /Choices: 1, Record Harvest: Maximum throughput/);
-	assert.match(status, /sets precedent for NEXT CREDIT TOWN HALL: Saved feed discounts layer credit from \$10 to \$6/);
+	assert.match(status, /pivot opportunity active; sets precedent for NEXT CREDIT TOWN HALL: Meeting minutes discount layer credit from \$10 to \$6/);
 	assert.match(status, /2, Shell Assurance: Protect quality, costs \$3\.00, selected/);
-	assert.match(status, /Prior case file, PRIOR CREDIT FILE \/ LAYERS NAMED: Canceling this sync is worth \+2 more flock trust/);
+	assert.match(status, /PIVOT OPPORTUNITY, PRIOR CREDIT FILE \/ LAYERS NAMED: Attending this sync is worth \+2 more farmer favor/);
 	assert.match(status, /3, Sustainable Flock: Protect welfare unavailable: Protected reserve would be breached/);
 	assert.match(status, /press 1 through 3 to inspect a response, then Enter to authorize it/);
 	assert.doesNotMatch(status, /<|>|script|globalThis|compromised/);
@@ -639,16 +643,31 @@ test("announces the open incident precedent during ordinary shift play", async (
 		shift_phase: 1,
 		case_docket: {
 			id: "PO-7919",
-			active_precedent: {
-				target_label: "NEXT MEETING <b>OVERFLOW</b>",
-				summary: "Canceling the sync rises from +2 to +4 flock trust.<script>bad=true</script>",
-			},
+			active_precedents: [
+				{
+					strategy_label: "PIVOT <em>OPPORTUNITY</em>",
+					target_label: "NEXT MEETING <b>OVERFLOW</b>",
+					summary: "Attending the sync rises from +8 to +10 farmer favor.<script>bad=true</script>",
+				},
+				{
+					strategy_label: "PIVOT OPPORTUNITY",
+					target_label: "NEXT FEED SHORTFALL",
+					summary: "The rested-flock study raises portion savings from $8 to $10.",
+				},
+				{
+					strategy_label: "PIVOT OPPORTUNITY",
+					target_label: "NEXT FARMER STORY",
+					summary: "The clean audit raises the story credit from $16 to $20.",
+				},
+			],
 		},
 		orders: { on_track: 2, total: 3 },
 	}), { loaded: true, loadError: "", loadProgress: 100 });
 
 	assert.match(status, /^Shift 3 running\. 2 of 3 probation orders on track\./);
-	assert.match(status, /Open precedent for NEXT MEETING OVERFLOW: Canceling the sync rises from \+2 to \+4 flock trust/);
+	assert.match(status, /Open pivot opportunity for NEXT MEETING OVERFLOW: Attending the sync rises from \+8 to \+10 farmer favor/);
+	assert.match(status, /Open pivot opportunity for NEXT FEED SHORTFALL: The rested-flock study raises portion savings from \$8 to \$10/);
+	assert.match(status, /Open pivot opportunity for NEXT FARMER STORY: The clean audit raises the story credit from \$16 to \$20/);
 	assert.doesNotMatch(status, /<|>|script|bad=true/);
 });
 

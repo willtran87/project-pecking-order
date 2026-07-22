@@ -43,6 +43,36 @@ func _run() -> void:
 	_check(_open_incident(legacy, 3, 1) == &"wellness_request", "legacy docket should preserve the shipped day-three second incident", failures)
 	_check(DepartmentSimulation.INCIDENT_ORDER.size() == 6, "new dockets should rotate through six standard incidents", failures)
 	_check(DepartmentSimulation.LEGACY_INCIDENT_ORDER.size() == 4, "the legacy docket should retain its exact four-case cadence", failures)
+	for incident_id: StringName in DepartmentSimulation.INCIDENT_ORDER:
+		var expected_target := StringName(DepartmentSimulation.INCIDENT_PAIR_SOURCE.get(incident_id, &""))
+		for choice: Dictionary in legacy._incident_choices(incident_id):
+			var precedent := choice.get("precedent", {}) as Dictionary
+			_check(
+				not precedent.is_empty()
+				and StringName(precedent.get("target_incident_id", &"")) == expected_target
+				and not String(precedent.get("summary", "")).is_empty(),
+				"%s / %s should disclose one exact connected-case precedent" % [incident_id, choice.get("id", "option")],
+				failures,
+			)
+			var pivot_simulation := DepartmentSimulation.new(1701, 4, 4703)
+			pivot_simulation._record_standard_incident_response(
+				incident_id, StringName(choice.get("id", &"")), 1, 1
+			)
+			var pivot := pivot_simulation.incident_follow_through_snapshot(expected_target)
+			var affected := _choice_by_id(
+				pivot_simulation,
+				expected_target,
+				StringName(pivot.get("affected_option_id", &"")),
+			)
+			_check(
+				String(pivot.get("strategy_label", "")) == "PIVOT OPPORTUNITY"
+				and not affected.is_empty()
+				and StringName(affected.get("tone", &"")) != StringName(choice.get("tone", &"")),
+				"%s / %s should strengthen the paired counter-strategy instead of snowballing its own lane" % [
+					incident_id, choice.get("id", "option"),
+				],
+				failures,
+			)
 	_check_incident_tradeoffs(failures)
 
 	var source := DepartmentSimulation.new(1701, 4, 4703)
@@ -68,14 +98,14 @@ func _run() -> void:
 		legacy_v23.erase(field)
 	var migrated := DepartmentSimulation.new(4703, 4)
 	_check(migrated.restore_save_state(legacy_v23), "an authentic v23 checkpoint should migrate into the neutral legacy docket", failures)
-	_check(int(migrated.export_save_state().get("state_version", -1)) == 26, "v23 migration should re-export as schema v26", failures)
+	_check(int(migrated.export_save_state().get("state_version", -1)) == 27, "v23 migration should re-export as schema v27", failures)
 	_check(String(migrated.case_docket_snapshot().get("id", "")) == "PO-1701", "v23 migration should preserve the historical career identity", failures)
 	var smuggled_v23 := DepartmentSimulation.new(1701, 4).export_save_state()
 	smuggled_v23["state_version"] = 23
 	_check(not DepartmentSimulation.new(4703, 4).restore_save_state(smuggled_v23), "a claimed v23 checkpoint must not smuggle v24 docket authority", failures)
 
 	if failures.is_empty():
-		print("INCIDENT_DOCKET_VARIETY_TEST_PASSED dockets=4 rotation_cases=6 rotations=18 tradeoffs=management+credit persisted=true migration=v23_to_v24")
+		print("INCIDENT_DOCKET_VARIETY_TEST_PASSED dockets=4 rotation_cases=6 rotations=18 connected_pairs=3 choices=12 persisted=true migration=v23_to_v24")
 		quit(0)
 		return
 	for failure in failures:
@@ -111,6 +141,17 @@ func _contains_every_incident_once(rotation: Array) -> bool:
 			return false
 		seen[incident_id] = true
 	return seen.size() == DepartmentSimulation.INCIDENT_ORDER.size()
+
+
+func _choice_by_id(
+	simulation: DepartmentSimulation,
+	incident_id: StringName,
+	option_id: StringName,
+) -> Dictionary:
+	for choice: Dictionary in simulation._incident_choices(incident_id):
+		if StringName(choice.get("id", &"")) == option_id:
+			return choice
+	return {}
 
 
 func _check_incident_tradeoffs(failures: Array[String]) -> void:

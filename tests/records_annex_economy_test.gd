@@ -120,7 +120,7 @@ func _test_rejected_intake_is_recorded_without_minting_cash(failures: Array[Stri
 
 
 func _test_persistence_and_v10_migration(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 26, "schema v26 should retain the Records Annex persistence contract", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 27, "schema v27 should retain the Records Annex persistence contract", failures)
 	var source := DepartmentSimulation.new(9421, 4)
 	source.day = 3
 	source.owned_facilities[FACILITY_ID] = 2
