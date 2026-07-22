@@ -10,7 +10,10 @@ extends Control
 signal continue_campaign
 signal new_campaign
 signal abandon_campaign
+signal challenge_contract_changed(contract_id: StringName)
+signal title_intake_phase_changed(phase: StringName)
 signal milestone_choice(choice_id: StringName)
+signal presentation_state_changed
 signal career_sponsorship_requested(worker_id: int, lane_id: StringName)
 signal market_contract_sign_requested(offer_id: StringName, clause_id: StringName)
 signal market_contract_decline_requested
@@ -24,13 +27,29 @@ const VIEW_ACTIVE := &"active"
 const VIEW_REPORT := &"between_shift"
 const VIEW_CONTRACT_BOARD := &"contract_board"
 const VIEW_FINAL := &"final"
+const TITLE_PHASE_RESUME := &"resume"
+const TITLE_PHASE_NEW_FILE := &"new_file"
 const DEFAULT_TOTAL_DAYS := 5
 const PROBATION_SCORE_LIMIT := 100
 const PROBATION_PASS_THRESHOLD := 60
-const PROBATION_SCORE_TOOLTIP := (
-	"PASS THRESHOLD  %d / %d\n" % [PROBATION_PASS_THRESHOLD, PROBATION_SCORE_LIMIT]
-	+ "Approval also requires welfare, compliance, farmer favor, and shell-quality safeguards."
-)
+const MAX_BADGE_ORDER_SEGMENTS := 3
+const DEFAULT_CHALLENGE_CONTRACT_ID: StringName = &"standard_filing"
+const DEFAULT_CHALLENGE_CONTRACT := {
+	"id": "standard_filing",
+	"label": "STANDARD FILING",
+	"short_label": "STANDARD",
+	"difficulty": "standard",
+	"difficulty_label": "STANDARD",
+	"difficulty_guidance": "The recommended authored balance for a first complete probation file.",
+	"description": "The authored probation contract with the shipped balance of flock care, compliance, favor, and shell quality.",
+	"criteria": {
+		"minimum_score": PROBATION_PASS_THRESHOLD,
+		"minimum_welfare": 45,
+		"minimum_compliance": 55,
+		"minimum_farmer_favor": 50,
+		"maximum_crack_rate_basis_points": 2500,
+	},
+}
 
 const INK := Color("e9edf0")
 const MUTED := Color("9eabb5")
@@ -48,23 +67,47 @@ var _snapshot: Dictionary = {
 }
 var _view: StringName = VIEW_ACTIVE
 var _selected_milestone := &""
+var _pending_milestone_confirmation := &""
+var _selected_challenge_contract_id: StringName = DEFAULT_CHALLENGE_CONTRACT_ID
+var _challenge_selector_syncing := false
+var _title_new_file_setup := false
+var _title_contract_terms_expanded := false
 
 var _day_badge: PanelContainer
 var _active_badge_top := 120.0
 var _badge_suppressed := false
 var _status_label: Label
 var _day_label: Label
+var _order_progress_row: HBoxContainer
+var _order_progress_label: Label
+var _order_progress_segments: Array[PanelContainer] = []
+var _live_orders_on_track := -1
+var _live_orders_total := 0
+var _live_order_context: StringName = &""
+var _order_progress_seeded := false
+var _order_progress_tween: Tween
+var _reduced_motion := false
 var _modal_host: Control
 var _modal_scroll: ScrollContainer
 var _modal_center: CenterContainer
 var _title_panel: PanelContainer
 var _report_panel: PanelContainer
 var _final_panel: PanelContainer
-var _title_day_track: HFlowContainer
+var _title_heading: Label
+var _title_description: Label
+var _title_profile_card: PanelContainer
+var _title_probation_summary: PanelContainer
 var _title_actions: HFlowContainer
 var _title_resume_card: PanelContainer
 var _title_resume_heading: Label
 var _title_resume_details: Label
+var _title_challenge_card: PanelContainer
+var _title_challenge_selector: OptionButton
+var _title_challenge_summary: Label
+var _title_challenge_terms_toggle: Button
+var _title_challenge_detail: Label
+var _title_new_button: Button
+var _title_back_button: Button
 var _report_score_row: HFlowContainer
 var _report_heading_stack: VBoxContainer
 var _report_story_row: HFlowContainer
@@ -73,6 +116,9 @@ var _report_actions: HFlowContainer
 var _final_metrics: HFlowContainer
 var _final_ledger_row: HFlowContainer
 var _final_actions: HFlowContainer
+var _final_sticky_action_bar: PanelContainer
+var _final_sticky_primary_button: Button
+var _final_sticky_leave_button: Button
 
 var _continue_title_button: Button
 var _report_continue_button: Button
@@ -142,8 +188,23 @@ func _ready() -> void:
 ## Replaces all presentation data. This method never mutates the caller's data.
 func apply_snapshot(snapshot: Dictionary) -> void:
 	_hide_campaign_replacement(false)
+	_pending_milestone_confirmation = &""
 	_snapshot = snapshot.duplicate(true)
 	_view = _read_view(_snapshot)
+	if _view == VIEW_TITLE:
+		_title_new_file_setup = not _snapshot_continue_available()
+		_title_contract_terms_expanded = false
+	if _snapshot.has("selected_new_challenge_contract_id"):
+		_selected_challenge_contract_id = StringName(String(
+			_snapshot.get("selected_new_challenge_contract_id", DEFAULT_CHALLENGE_CONTRACT_ID)
+		))
+	elif _view != VIEW_TITLE:
+		var active_contract := _challenge_contract_from_value(_snapshot.get("challenge_contract", {}))
+		if not active_contract.is_empty():
+			_selected_challenge_contract_id = StringName(String(active_contract.get(
+				"id",
+				DEFAULT_CHALLENGE_CONTRACT_ID,
+			)))
 	_selected_milestone = StringName(_snapshot.get(
 		"selected_milestone",
 		_snapshot.get("milestone_selected", &""),
@@ -155,16 +216,20 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 ## no resumable campaign exists.
 func show_title(continue_available: bool = false) -> void:
 	_hide_campaign_replacement(false)
+	_pending_milestone_confirmation = &""
 	_snapshot["view"] = VIEW_TITLE
 	_snapshot["continue_available"] = continue_available
 	_view = VIEW_TITLE
 	_selected_milestone = &""
+	_title_new_file_setup = not continue_available
+	_title_contract_terms_expanded = false
 	_refresh()
 
 
 ## Returns to the office while retaining the compact probation badge.
 func show_active_campaign(snapshot: Dictionary = {}) -> void:
 	_hide_campaign_replacement(false)
+	_pending_milestone_confirmation = &""
 	_merge_snapshot(snapshot)
 	_snapshot["view"] = VIEW_ACTIVE
 	_view = VIEW_ACTIVE
@@ -174,6 +239,7 @@ func show_active_campaign(snapshot: Dictionary = {}) -> void:
 ## Opens the intentional between-shift report modal.
 func show_between_shift_report(snapshot: Dictionary = {}) -> void:
 	_hide_campaign_replacement(false)
+	_pending_milestone_confirmation = &""
 	_merge_snapshot(snapshot)
 	_snapshot["view"] = VIEW_REPORT
 	_view = VIEW_REPORT
@@ -188,6 +254,7 @@ func show_between_shift_report(snapshot: Dictionary = {}) -> void:
 ## before the morning directive. The child consumes the canonical board snapshot.
 func show_contract_board(snapshot: Dictionary = {}) -> void:
 	_hide_campaign_replacement(false)
+	_pending_milestone_confirmation = &""
 	_merge_snapshot(snapshot)
 	_snapshot["view"] = VIEW_CONTRACT_BOARD
 	_view = VIEW_CONTRACT_BOARD
@@ -199,6 +266,7 @@ func show_contract_board(snapshot: Dictionary = {}) -> void:
 ## Opens the final pass/fail campaign review.
 func show_final_review(snapshot: Dictionary = {}) -> void:
 	_hide_campaign_replacement(false)
+	_pending_milestone_confirmation = &""
 	_merge_snapshot(snapshot)
 	_snapshot["view"] = VIEW_FINAL
 	_view = VIEW_FINAL
@@ -221,8 +289,78 @@ func selected_milestone_id() -> StringName:
 	return _selected_milestone
 
 
+## Presentation-only new-file choice. The authoritative campaign owner reads
+## this stable ID when the unchanged zero-argument new_campaign signal fires.
+func selected_challenge_contract_id() -> StringName:
+	return _selected_challenge_contract_id
+
+
+func title_intake_phase() -> StringName:
+	if _view != VIEW_TITLE:
+		return &""
+	return TITLE_PHASE_NEW_FILE if _title_new_file_setup else TITLE_PHASE_RESUME
+
+
 func campaign_snapshot() -> Dictionary:
-	return _snapshot.duplicate(true)
+	var result := _snapshot.duplicate(true)
+	var confirmation := _pending_milestone_confirmation_snapshot()
+	if not confirmation.is_empty():
+		result["pending_milestone_confirmation"] = confirmation
+	return result
+
+
+## Updates only the presentation badge from an authoritative live projection.
+## A new day/quarter seeds quietly; later aggregate changes return their signed
+## delta so Office can play one semantic cue without duplicating campaign rules.
+func set_live_order_progress(on_track: int, total: int, context: StringName) -> int:
+	var sanitized_total := clampi(total, 0, MAX_BADGE_ORDER_SEGMENTS)
+	var sanitized_on_track := clampi(on_track, 0, sanitized_total)
+	if sanitized_total <= 0:
+		_live_orders_on_track = -1
+		_live_orders_total = 0
+		_live_order_context = context
+		_order_progress_seeded = false
+		_snapshot["live_orders_on_track"] = 0
+		_snapshot["live_orders_total"] = 0
+		_snapshot["live_order_context"] = String(context)
+		_refresh_live_order_badge()
+		return 0
+	var same_context := _order_progress_seeded and context == _live_order_context
+	var delta := sanitized_on_track - _live_orders_on_track if same_context else 0
+	var changed := (
+		not same_context
+		or sanitized_on_track != _live_orders_on_track
+		or sanitized_total != _live_orders_total
+	)
+	_live_orders_on_track = sanitized_on_track
+	_live_orders_total = sanitized_total
+	_live_order_context = context
+	_order_progress_seeded = true
+	_snapshot["live_orders_on_track"] = sanitized_on_track
+	_snapshot["live_orders_total"] = sanitized_total
+	_snapshot["live_order_context"] = String(context)
+	if changed:
+		_refresh_live_order_badge()
+		if delta != 0 and _view == VIEW_ACTIVE:
+			_pulse_live_order_badge(delta > 0)
+	return delta
+
+
+func live_order_progress() -> Dictionary:
+	return {
+		"on_track": maxi(0, _live_orders_on_track),
+		"total": _live_orders_total,
+		"context": String(_live_order_context),
+		"visible": _order_progress_row != null and _order_progress_row.visible,
+	}
+
+
+func set_reduced_motion(enabled: bool) -> void:
+	_reduced_motion = enabled
+	if _reduced_motion and _order_progress_tween != null and _order_progress_tween.is_valid():
+		_order_progress_tween.kill()
+	if _day_badge != null:
+		_day_badge.modulate = Color.WHITE
 
 
 func contract_board_ui() -> FarmMutualContractBoardUI:
@@ -278,10 +416,16 @@ func _build_day_badge() -> void:
 	margin.add_theme_constant_override("margin_top", 6)
 	margin.add_theme_constant_override("margin_bottom", 6)
 	_day_badge.add_child(margin)
+	margin.add_theme_constant_override("margin_top", 4)
+	margin.add_theme_constant_override("margin_bottom", 4)
+	var stack := VBoxContainer.new()
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_theme_constant_override("separation", 1)
+	margin.add_child(stack)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 10)
-	margin.add_child(row)
+	stack.add_child(row)
 	_status_label = _make_label("PROBATION", 11, BRASS)
 	_status_label.name = "ProbationStatusLabel"
 	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -291,6 +435,73 @@ func _build_day_badge() -> void:
 	_day_label.name = "ProbationDayLabel"
 	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(_day_label)
+	_order_progress_row = HBoxContainer.new()
+	_order_progress_row.name = "ProbationOrderProgressRow"
+	_order_progress_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_order_progress_row.add_theme_constant_override("separation", 4)
+	stack.add_child(_order_progress_row)
+	_order_progress_label = _make_label("ORDERS 0 / 3", 9, MUTED)
+	_order_progress_label.name = "ProbationOrderProgressLabel"
+	_order_progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_order_progress_row.add_child(_order_progress_label)
+	for index in range(MAX_BADGE_ORDER_SEGMENTS):
+		var segment := PanelContainer.new()
+		segment.name = "ProbationOrderStamp%d" % (index + 1)
+		segment.custom_minimum_size = Vector2(24.0, 5.0)
+		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_order_progress_row.add_child(segment)
+		_order_progress_segments.append(segment)
+	_refresh_live_order_badge()
+
+
+func _refresh_live_order_badge() -> void:
+	if _order_progress_row == null or _order_progress_label == null:
+		return
+	var visible_progress := _view == VIEW_ACTIVE and _live_orders_total > 0
+	_order_progress_row.visible = visible_progress
+	if not visible_progress:
+		return
+	var on_track := clampi(_live_orders_on_track, 0, _live_orders_total)
+	_order_progress_label.text = "ORDERS  %d / %d" % [on_track, _live_orders_total]
+	_order_progress_label.add_theme_color_override(
+		"font_color",
+		TEAL if on_track == _live_orders_total else (RUST if on_track == 0 else CREAM),
+	)
+	_order_progress_label.tooltip_text = (
+		"%d of %d live orders are currently on track. Closing metrics can still move; open Flockwatch for exact targets and rewards."
+		% [on_track, _live_orders_total]
+	)
+	for index in range(_order_progress_segments.size()):
+		var segment := _order_progress_segments[index]
+		var active := index < on_track
+		var relevant := index < _live_orders_total
+		segment.visible = relevant
+		if not relevant:
+			continue
+		segment.add_theme_stylebox_override(
+			"panel",
+			_panel_style(
+				Color("5aa897") if active else Color("263640"),
+				Color("b8e2d7") if active else Color("8a5f59"),
+				2,
+				1,
+			),
+		)
+
+
+func _pulse_live_order_badge(improved: bool) -> void:
+	if _day_badge == null:
+		return
+	if _order_progress_tween != null and _order_progress_tween.is_valid():
+		_order_progress_tween.kill()
+	_day_badge.modulate = Color.WHITE
+	if _reduced_motion:
+		return
+	_day_badge.modulate = Color("c8f0df") if improved else Color("f5c2b5")
+	_order_progress_tween = create_tween()
+	_order_progress_tween.set_trans(Tween.TRANS_QUAD)
+	_order_progress_tween.set_ease(Tween.EASE_OUT)
+	_order_progress_tween.tween_property(_day_badge, "modulate", Color.WHITE, 0.48)
 
 
 func _build_modal_host() -> void:
@@ -330,6 +541,7 @@ func _build_modal_host() -> void:
 	_build_title_panel(_modal_center)
 	_build_report_panel(_modal_center)
 	_build_final_panel(_modal_center)
+	_build_final_sticky_action_bar()
 	_contract_board_ui = FarmMutualContractBoardUIScript.new() as FarmMutualContractBoardUI
 	_contract_board_ui.name = "FarmMutualContractBoardUI"
 	_contract_board_ui.visible = false
@@ -343,41 +555,41 @@ func _build_modal_host() -> void:
 func _build_title_panel(parent: Control) -> void:
 	_title_panel = PanelContainer.new()
 	_title_panel.name = "CampaignTitlePanel"
-	_title_panel.custom_minimum_size = Vector2(760.0, 466.0)
+	_title_panel.custom_minimum_size = Vector2(760.0, 0.0)
 	_title_panel.add_theme_stylebox_override(
 		"panel",
 		_panel_style(NAVY, Color("ad8a4a"), 15, 2),
 	)
 	parent.add_child(_title_panel)
 
-	var content := _panel_content(_title_panel, 32, 24, 13)
+	var content := _panel_content(_title_panel, 28, 20, 10)
 	var eyebrow := _make_label("CORNFIELDS MUTUAL  //  MANAGEMENT INTAKE", 12, BRASS)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	eyebrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(eyebrow)
-	var title := _make_label("FIVE SHIFTS. START BY MEETING MABEL.", 28, CREAM)
-	title.name = "CampaignTitle"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(title)
-	var subtitle := _make_label(
+	_title_heading = _make_label("FIVE SHIFTS. START BY MEETING MABEL.", 28, CREAM)
+	_title_heading.name = "CampaignTitle"
+	_title_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(_title_heading)
+	_title_description = _make_label(
 		"Mabel is already at her desk. Every choice you make together shares one permanent coop file.",
 		15,
 		Color("c4d0d4"),
 	)
-	subtitle.name = "CampaignTitleDescription"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(subtitle)
+	_title_description.name = "CampaignTitleDescription"
+	_title_description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(_title_description)
 
-	var file := PanelContainer.new()
-	file.name = "MabelProfileCard"
-	file.add_theme_stylebox_override(
+	_title_profile_card = PanelContainer.new()
+	_title_profile_card.name = "MabelProfileCard"
+	_title_profile_card.add_theme_stylebox_override(
 		"panel",
 		_panel_style(Color("1d3039"), Color("48616a"), 9, 1),
 	)
-	content.add_child(file)
-	var profile := _panel_content(file, 18, 13, 5)
+	content.add_child(_title_profile_card)
+	var profile := _panel_content(_title_profile_card, 18, 11, 4)
 	var identity := _make_label("MABEL  //  JUNIOR CLAIMS HEN", 15, CREAM)
 	identity.name = "CampaignMabelIdentity"
 	identity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -394,25 +606,81 @@ func _build_title_panel(parent: Control) -> void:
 	quote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profile.add_child(quote)
 
-	_title_day_track = HFlowContainer.new()
-	_title_day_track.name = "ProbationFiveDayTrack"
-	_title_day_track.alignment = FlowContainer.ALIGNMENT_CENTER
-	_title_day_track.add_theme_constant_override("h_separation", 10)
-	_title_day_track.add_theme_constant_override("v_separation", 8)
-	content.add_child(_title_day_track)
-	for day: int in range(1, DEFAULT_TOTAL_DAYS + 1):
-		var stamp := PanelContainer.new()
-		stamp.name = "ProbationDayStamp_%d" % day
-		stamp.custom_minimum_size = Vector2(94.0, 42.0)
-		stamp.add_theme_stylebox_override(
-			"panel",
-			_panel_style(Color("1a2932"), Color("665b42"), 6, 1),
-		)
-		_title_day_track.add_child(stamp)
-		var stamp_label := _make_label("DAY %d" % day, 12, Color("d4c38f"))
-		stamp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		stamp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		stamp.add_child(stamp_label)
+	_title_challenge_card = PanelContainer.new()
+	_title_challenge_card.name = "ChallengeContractCard"
+	_title_challenge_card.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("1b2d36"), Color("6d8e86"), 9, 1),
+	)
+	content.add_child(_title_challenge_card)
+	var challenge_content := _panel_content(_title_challenge_card, 16, 10, 5)
+	var challenge_header := HFlowContainer.new()
+	challenge_header.name = "ChallengeContractHeader"
+	challenge_header.add_theme_constant_override("h_separation", 12)
+	challenge_header.add_theme_constant_override("v_separation", 6)
+	challenge_content.add_child(challenge_header)
+	var challenge_label := _make_label("DIFFICULTY  //  PERMANENT FIVE-SHIFT TERMS", 11, TEAL)
+	challenge_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	challenge_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	challenge_label.custom_minimum_size.x = 210.0
+	challenge_header.add_child(challenge_label)
+	_title_challenge_selector = OptionButton.new()
+	_title_challenge_selector.name = "ChallengeContractSelector"
+	_title_challenge_selector.fit_to_longest_item = false
+	_title_challenge_selector.custom_minimum_size = Vector2(250.0, 40.0)
+	_title_challenge_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title_challenge_selector.focus_mode = Control.FOCUS_ALL
+	_title_challenge_selector.theme_type_variation = &"DecisionChoiceButton"
+	_title_challenge_selector.item_selected.connect(_on_challenge_contract_selected)
+	challenge_header.add_child(_title_challenge_selector)
+	_title_challenge_summary = _make_label("", 11, MUTED)
+	_title_challenge_summary.name = "ChallengeContractSummary"
+	_title_challenge_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title_challenge_summary.max_lines_visible = 3
+	_title_challenge_summary.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_title_challenge_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title_challenge_summary.mouse_filter = Control.MOUSE_FILTER_STOP
+	challenge_content.add_child(_title_challenge_summary)
+	_title_challenge_terms_toggle = _make_button(
+		"ChallengeContractTermsToggle",
+		"VIEW EXACT TERMS  [T]",
+		&"DecisionChoiceButton",
+	)
+	_title_challenge_terms_toggle.custom_minimum_size = Vector2(220.0, 34.0)
+	_title_challenge_terms_toggle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_title_challenge_terms_toggle.toggle_mode = true
+	_title_challenge_terms_toggle.shortcut = _shortcut(KEY_T)
+	_title_challenge_terms_toggle.pressed.connect(_on_challenge_contract_terms_toggled)
+	challenge_content.add_child(_title_challenge_terms_toggle)
+	_title_challenge_detail = _make_label("", 11, INK)
+	_title_challenge_detail.name = "ChallengeContractDetail"
+	_title_challenge_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title_challenge_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title_challenge_detail.mouse_filter = Control.MOUSE_FILTER_STOP
+	_title_challenge_detail.visible = false
+	challenge_content.add_child(_title_challenge_detail)
+
+	_title_probation_summary = PanelContainer.new()
+	_title_probation_summary.name = "ProbationFiveShiftSummary"
+	_title_probation_summary.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("1a2932"), Color("665b42"), 7, 1),
+	)
+	content.add_child(_title_probation_summary)
+	var probation_content := _panel_content(_title_probation_summary, 15, 8, 1)
+	var probation_heading := _make_label("FIVE-SHIFT PROBATION", 11, BRASS)
+	probation_heading.name = "ProbationFiveShiftHeading"
+	probation_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	probation_content.add_child(probation_heading)
+	var probation_detail := _make_label(
+		"One permanent coop file  //  a closing report after each shift  //  final review after Shift 5",
+		11,
+		Color("d4c38f"),
+	)
+	probation_detail.name = "ProbationFiveShiftDetail"
+	probation_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	probation_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	probation_content.add_child(probation_detail)
 
 	_title_resume_card = PanelContainer.new()
 	_title_resume_card.name = "CampaignResumeCard"
@@ -423,7 +691,7 @@ func _build_title_panel(parent: Control) -> void:
 	)
 	content.add_child(_title_resume_card)
 	var resume_content := _panel_content(_title_resume_card, 16, 9, 3)
-	_title_resume_heading = _make_label("SAVED COOP FILE READY", 12, TEAL)
+	_title_resume_heading = _make_label("SAVED COOP FILE CANDIDATE", 12, TEAL)
 	_title_resume_heading.name = "CampaignResumeHeading"
 	_title_resume_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_resume_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -440,16 +708,25 @@ func _build_title_panel(parent: Control) -> void:
 	_title_actions.add_theme_constant_override("h_separation", 12)
 	_title_actions.add_theme_constant_override("v_separation", 10)
 	content.add_child(_title_actions)
-	var new_button := _make_button("NewCampaignButton", "MEET MABEL & OPEN FILE  [N]", &"PrimaryButton")
-	new_button.custom_minimum_size = Vector2(270.0, 48.0)
-	new_button.shortcut = _shortcut(KEY_N)
-	new_button.pressed.connect(_on_new_campaign_pressed)
-	_title_actions.add_child(new_button)
-	_continue_title_button = _make_button("ContinueCampaignButton", "CONTINUE  [C]", &"DecisionChoiceButton")
-	_continue_title_button.custom_minimum_size = Vector2(230.0, 48.0)
+	_continue_title_button = _make_button("ContinueCampaignButton", "CONTINUE SAVED FILE  [C]", &"PrimaryButton")
+	_continue_title_button.custom_minimum_size = Vector2(260.0, 48.0)
 	_continue_title_button.shortcut = _shortcut(KEY_C)
 	_continue_title_button.pressed.connect(_on_continue_campaign_pressed)
 	_title_actions.add_child(_continue_title_button)
+	_title_new_button = _make_button("NewCampaignButton", "MEET MABEL & OPEN FILE  [N]", &"PrimaryButton")
+	_title_new_button.custom_minimum_size = Vector2(270.0, 48.0)
+	_title_new_button.shortcut = _shortcut(KEY_N)
+	_title_new_button.pressed.connect(_on_new_campaign_pressed)
+	_title_actions.add_child(_title_new_button)
+	_title_back_button = _make_button(
+		"BackToSavedCampaignButton",
+		"BACK TO SAVED FILE  [B]",
+		&"DecisionChoiceButton",
+	)
+	_title_back_button.custom_minimum_size = Vector2(230.0, 48.0)
+	_title_back_button.shortcut = _shortcut(KEY_B)
+	_title_back_button.pressed.connect(_on_title_back_pressed)
+	_title_actions.add_child(_title_back_button)
 
 
 func _build_report_panel(parent: Control) -> void:
@@ -463,7 +740,10 @@ func _build_report_panel(parent: Control) -> void:
 	)
 	parent.add_child(_report_panel)
 
-	var content := _panel_content(_report_panel, 26, 19, 8)
+	# Reports routinely combine receipts, policy cards, and action controls. A
+	# restrained vertical rhythm keeps the complete decision gate visible at the
+	# reference 1440x900 Web viewport without removing any authored detail.
+	var content := _panel_content(_report_panel, 26, 14, 6)
 	_report_day_label = _make_label("CLOSING FILE 3 / 3 · SHIFT 1 OF 5 · PROBATION REPORT", 12, BRASS)
 	_report_day_label.name = "ProbationReportDay"
 	_report_day_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -697,6 +977,58 @@ func _build_final_panel(parent: Control) -> void:
 	_final_actions.add_child(_final_continue_button)
 
 
+func _build_final_sticky_action_bar() -> void:
+	_final_sticky_action_bar = PanelContainer.new()
+	_final_sticky_action_bar.name = "FinalStickyActionBar"
+	_final_sticky_action_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_final_sticky_action_bar.offset_left = 18.0
+	_final_sticky_action_bar.offset_top = -78.0
+	_final_sticky_action_bar.offset_right = -18.0
+	_final_sticky_action_bar.offset_bottom = -14.0
+	_final_sticky_action_bar.z_index = 14
+	_final_sticky_action_bar.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("1d3039"), Color("8b7444"), 10, 2),
+	)
+	_modal_host.add_child(_final_sticky_action_bar)
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 14)
+	margin.add_theme_constant_override("margin_right", 14)
+	margin.add_theme_constant_override("margin_top", 7)
+	margin.add_theme_constant_override("margin_bottom", 7)
+	_final_sticky_action_bar.add_child(margin)
+	var actions := HFlowContainer.new()
+	actions.name = "FinalStickyActions"
+	actions.alignment = FlowContainer.ALIGNMENT_END
+	actions.add_theme_constant_override("h_separation", 10)
+	actions.add_theme_constant_override("v_separation", 6)
+	margin.add_child(actions)
+	var next_step := _make_label("NEXT STEP  //  THE FILE IS CLOSED", 11, BRASS)
+	next_step.name = "FinalStickyActionLabel"
+	next_step.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	next_step.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	next_step.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	actions.add_child(next_step)
+	_final_sticky_leave_button = _make_button(
+		"FinalStickyLeaveButton",
+		"SHELVE FILE  [A]",
+		&"DecisionChoiceButton",
+	)
+	_final_sticky_leave_button.custom_minimum_size = Vector2(170.0, 46.0)
+	_final_sticky_leave_button.shortcut = _shortcut(KEY_A)
+	_final_sticky_leave_button.pressed.connect(_on_abandon_campaign_pressed)
+	actions.add_child(_final_sticky_leave_button)
+	_final_sticky_primary_button = _make_button(
+		"FinalStickyPrimaryButton",
+		"RETRY PROBATION  [N]",
+		&"PrimaryButton",
+	)
+	_final_sticky_primary_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_final_sticky_primary_button.pressed.connect(_on_final_sticky_primary_pressed)
+	actions.add_child(_final_sticky_primary_button)
+
+
 func _build_safeguard_receipt(
 	parent: VBoxContainer,
 	prefix: String,
@@ -823,14 +1155,15 @@ func _refresh() -> void:
 	if _view == VIEW_ACTIVE and _snapshot.has("score"):
 		var score_text := _format_integer(int(_snapshot.get("score", 0)))
 		if status_text == "SENIOR ROOST":
-			status_text += "  %s" % score_text
-			status_tooltip = status_text
+			status_tooltip = "SENIOR ROOST  %s" % score_text
+			status_text = "ROOST  %s" % score_text
 		else:
 			status_text = "SCORE %s / %d" % [score_text, PROBATION_SCORE_LIMIT]
-			status_tooltip = PROBATION_SCORE_TOOLTIP
+			status_tooltip = _challenge_contract_terms_text(_active_challenge_contract(), true)
 	_status_label.text = status_text
 	_status_label.tooltip_text = status_tooltip
 	_day_label.text = String(_snapshot.get("day_badge_text", "DAY %d / %d" % [day, total_days]))
+	_refresh_live_order_badge()
 
 	var modal_open := _view != VIEW_ACTIVE
 	_modal_host.visible = modal_open
@@ -838,6 +1171,7 @@ func _refresh() -> void:
 	_title_panel.visible = _view == VIEW_TITLE
 	_report_panel.visible = _view == VIEW_REPORT
 	_final_panel.visible = _view == VIEW_FINAL
+	_final_sticky_action_bar.visible = _view == VIEW_FINAL and size.x >= 720.0
 	_contract_board_ui.visible = _view == VIEW_CONTRACT_BOARD
 	_apply_responsive_layout()
 	if not modal_open:
@@ -855,37 +1189,99 @@ func _refresh() -> void:
 
 
 func _refresh_title() -> void:
-	var can_continue := bool(_snapshot.get(
-		"continue_available",
-		_snapshot.get("has_continue", false),
-	))
+	_rebuild_challenge_contract_selector()
+	var can_continue := _snapshot_continue_available()
 	var resume_value: Variant = _snapshot.get("resume_summary", {})
 	var resume_summary := resume_value as Dictionary if resume_value is Dictionary else {}
 	var resume_details := _format_resume_summary(resume_summary)
-	if _title_resume_card != null:
-		_title_resume_card.visible = can_continue
 	if _title_resume_heading != null:
 		_title_resume_heading.text = (
-			"RECOVERY COPY READY  //  SAVED COOP FILE"
+			"RECOVERY COPY FOUND  //  SAVED COOP FILE CANDIDATE"
 			if bool(resume_summary.get("recovered_from_backup", false)) else
-			"SAVED COOP FILE READY"
+			"SAVED COOP FILE CANDIDATE"
 		)
 	if _title_resume_details != null:
 		_title_resume_details.text = resume_details
 	_continue_title_button.disabled = not can_continue
 	_continue_title_button.tooltip_text = (
-		"Resume the saved coop file.\n%s" % resume_details
+		"Verify and resume the saved coop file candidate.\n%s" % resume_details
 		if can_continue else
 		"No saved probation file is available yet."
 	)
-	_queue_focus(_continue_title_button if can_continue else find_child("NewCampaignButton", true, false) as Button)
+	_apply_title_hierarchy(can_continue)
+
+
+func _snapshot_continue_available() -> bool:
+	return bool(_snapshot.get(
+		"continue_available",
+		_snapshot.get("has_continue", false),
+	))
+
+
+func _apply_title_hierarchy(can_continue: bool) -> void:
+	# A fresh intake has no landing decision to make, so it opens directly on the
+	# compact new-file terms. A valid checkpoint instead receives a resume-first
+	# landing with one primary action and an explicit secondary path to setup.
+	_title_new_file_setup = _title_new_file_setup or not can_continue
+	var setup_visible := _title_new_file_setup
+	if _title_heading != null:
+		_title_heading.text = (
+			"FIVE SHIFTS. START BY MEETING MABEL."
+			if setup_visible else
+			"YOUR COOP FILE IS READY."
+		)
+	if _title_description != null:
+		_title_description.text = (
+			"Mabel is already at her desk. Every choice you make together shares one permanent coop file."
+			if setup_visible else
+			"Continue the saved filing candidate; it will be verified before the coop opens, or deliberately review a new file."
+		)
+	if _title_profile_card != null:
+		_title_profile_card.visible = setup_visible
+	if _title_challenge_card != null:
+		_title_challenge_card.visible = setup_visible
+	if _title_probation_summary != null:
+		_title_probation_summary.visible = setup_visible
+	if _title_resume_card != null:
+		_title_resume_card.visible = can_continue and not setup_visible
+
+	_continue_title_button.visible = can_continue and not setup_visible
+	_continue_title_button.theme_type_variation = &"PrimaryButton"
+	_title_new_button.visible = true
+	_title_new_button.theme_type_variation = (
+		&"PrimaryButton" if setup_visible else &"DecisionChoiceButton"
+	)
+	_title_new_button.text = (
+		"MEET MABEL & OPEN FILE  [N]"
+		if setup_visible else
+		"REVIEW A NEW FILE  [N]"
+	)
+	_title_new_button.tooltip_text = (
+		"Open a five-shift probation file under %s.%s" % [
+			_challenge_contract_label(_selected_challenge_contract(), false),
+			" The saved file will remain untouched until replacement is confirmed and verified."
+			if can_continue else "",
+		]
+		if setup_visible else
+		"Review Mabel's new-file introduction and immutable challenge terms. The saved file is not changed."
+	)
+	_title_back_button.visible = can_continue and setup_visible
+	_apply_title_contract_disclosure()
+
+	if can_continue and not setup_visible:
+		_queue_focus(_continue_title_button)
+	elif _title_challenge_selector != null and _title_challenge_selector.visible:
+		_queue_focus(_title_challenge_selector)
+	else:
+		_queue_focus(_title_new_button)
 
 
 func _format_resume_summary(summary: Dictionary) -> String:
 	if summary.is_empty():
-		return "A verified checkpoint is available. Continue resumes the exact filed state."
+		return "A resumable checkpoint candidate is available. Continue verifies its complete filed state before opening."
 	var lines: Array[String] = []
-	if bool(summary.get("senior_roost", false)):
+	var senior_resume := bool(summary.get("senior_roost", false))
+	if senior_resume:
 		lines.append("SENIOR YEAR %d  //  %d ROOST MARK%s  //  %d BOARD SEAL%s" % [
 			maxi(1, int(summary.get("senior_year", 1))),
 			maxi(0, int(summary.get("roost_marks", 0))),
@@ -901,6 +1297,15 @@ func _format_resume_summary(summary: Dictionary) -> String:
 			"" if int(summary.get("completed_shifts", 0)) == 1 else "S",
 			clampi(int(summary.get("probation_score", 50)), 0, PROBATION_SCORE_LIMIT),
 		])
+	if not senior_resume:
+		var saved_contract := _challenge_contract_from_value(summary.get("challenge_contract", {}))
+		if not saved_contract.is_empty():
+			lines.append("SAVED CHALLENGE CONTRACT  //  %s" % _challenge_contract_label(saved_contract, false))
+		elif summary.has("challenge_contract_verified") and not bool(summary.get(
+			"challenge_contract_verified",
+			false,
+		)):
+			lines.append("SAVED CHALLENGE CONTRACT  //  UNVERIFIED SAVED TERMS")
 	var rank_label := String(summary.get("rank_label", "")).strip_edges().to_upper()
 	var stage_label := String(summary.get("stage_label", "")).strip_edges().to_upper()
 	var context: Array[String] = []
@@ -911,6 +1316,338 @@ func _format_resume_summary(summary: Dictionary) -> String:
 	if not context.is_empty():
 		lines.append("  //  ".join(context))
 	return "\n".join(lines)
+
+
+func _rebuild_challenge_contract_selector() -> void:
+	if _title_challenge_selector == null:
+		return
+	var catalog := _challenge_contract_catalog()
+	var desired_id := _selected_challenge_contract_id
+	if _challenge_contract_by_id(desired_id, catalog).is_empty():
+		desired_id = _default_challenge_contract_id(catalog)
+	_challenge_selector_syncing = true
+	_title_challenge_selector.clear()
+	var selected_index := 0
+	for index: int in range(catalog.size()):
+		var contract := catalog[index]
+		var contract_id := StringName(String(contract.get("id", "")))
+		_title_challenge_selector.add_item(_challenge_contract_selector_label(contract))
+		_title_challenge_selector.set_item_metadata(index, String(contract_id))
+		if contract_id == desired_id:
+			selected_index = index
+	_title_challenge_selector.select(selected_index)
+	_challenge_selector_syncing = false
+	if not catalog.is_empty():
+		var selected_contract := catalog[selected_index]
+		_selected_challenge_contract_id = StringName(String(selected_contract.get(
+			"id",
+			DEFAULT_CHALLENGE_CONTRACT_ID,
+		)))
+		_snapshot["selected_new_challenge_contract_id"] = String(_selected_challenge_contract_id)
+		_update_challenge_contract_detail(selected_contract)
+
+
+func _on_challenge_contract_selected(index: int) -> void:
+	if _challenge_selector_syncing or _title_challenge_selector == null:
+		return
+	if index < 0 or index >= _title_challenge_selector.item_count:
+		return
+	var contract_id := StringName(String(_title_challenge_selector.get_item_metadata(index)))
+	var contract := _challenge_contract_by_id(contract_id, _challenge_contract_catalog())
+	if contract.is_empty():
+		return
+	_selected_challenge_contract_id = contract_id
+	_snapshot["selected_new_challenge_contract_id"] = String(contract_id)
+	_update_challenge_contract_detail(contract)
+	challenge_contract_changed.emit(contract_id)
+
+
+func _update_challenge_contract_detail(contract: Dictionary) -> void:
+	var description := String(contract.get(
+		"description",
+		"The selected probation filing terms remain fixed for this career.",
+	)).strip_edges()
+	var terms := _challenge_contract_terms_text(contract, false)
+	var route_brief := String(contract.get("route_brief", "")).strip_edges().to_upper()
+	var route_guidance := String(contract.get("route_guidance", "")).strip_edges()
+	var difficulty_label := _challenge_contract_difficulty_label(contract)
+	var difficulty_guidance := String(contract.get("difficulty_guidance", "")).strip_edges()
+	if _title_challenge_summary != null:
+		_title_challenge_summary.text = "%s DIFFICULTY  //  %s%s" % [
+			difficulty_label,
+			description,
+			(
+				"\n%s  //  LOCKS ON OPEN" % route_brief
+				if not route_brief.is_empty() else
+				"\nLOCKS ON OPEN"
+			),
+		]
+		_title_challenge_summary.tooltip_text = "\n".join([
+			"%s DIFFICULTY" % difficulty_label,
+			difficulty_guidance,
+			description,
+			route_guidance,
+			terms,
+		].filter(func(line: String) -> bool: return not line.is_empty()))
+	if _title_challenge_detail != null:
+		_title_challenge_detail.text = "%s%s" % [
+			terms,
+			"\nDIFFICULTY NOTE  //  %s" % difficulty_guidance if not difficulty_guidance.is_empty() else "",
+		]
+		if not route_guidance.is_empty():
+			_title_challenge_detail.text += "\nROUTE NOTE  //  %s" % route_guidance
+		_title_challenge_detail.tooltip_text = "%s\n%s\n%s%s" % [
+			_challenge_contract_label(contract, false),
+			description,
+			terms,
+			"\n%s" % route_guidance if not route_guidance.is_empty() else "",
+		]
+	if _title_challenge_terms_toggle != null:
+		_title_challenge_terms_toggle.tooltip_text = (
+			"Show or hide the exact immutable approval thresholds.\n%s\n%s"
+			% [description, _title_challenge_detail.text if _title_challenge_detail != null else terms]
+		)
+	if _title_challenge_selector != null:
+		_title_challenge_selector.tooltip_text = (
+			"Choose Learning, Standard, or Expert difficulty for the new coop file. The terms lock when the file opens.\n%s"
+			% (_title_challenge_detail.tooltip_text if _title_challenge_detail != null else terms)
+		)
+	_apply_title_contract_disclosure()
+
+
+func _apply_title_contract_disclosure() -> void:
+	if _title_challenge_detail != null:
+		_title_challenge_detail.visible = (
+			_title_new_file_setup and _title_contract_terms_expanded
+		)
+	if _title_challenge_terms_toggle != null:
+		_title_challenge_terms_toggle.button_pressed = _title_contract_terms_expanded
+		_title_challenge_terms_toggle.text = (
+			"HIDE EXACT TERMS  [T]"
+			if _title_contract_terms_expanded else
+			"VIEW EXACT TERMS  [T]"
+		)
+
+
+func _on_challenge_contract_terms_toggled() -> void:
+	if _title_challenge_terms_toggle == null or not _title_new_file_setup:
+		return
+	_title_contract_terms_expanded = _title_challenge_terms_toggle.button_pressed
+	_apply_title_contract_disclosure()
+
+
+func _on_title_back_pressed() -> void:
+	if not _snapshot_continue_available() or not _title_new_file_setup:
+		return
+	_title_new_file_setup = false
+	_title_contract_terms_expanded = false
+	_refresh_title()
+	title_intake_phase_changed.emit(title_intake_phase())
+
+
+func _challenge_contract_catalog() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var catalog_value: Variant = _snapshot.get("challenge_contract_catalog", [])
+	if catalog_value is Array:
+		for contract_value: Variant in catalog_value as Array:
+			if not contract_value is Dictionary:
+				continue
+			var contract := _normalized_challenge_contract(contract_value as Dictionary)
+			if contract.is_empty() or not _challenge_contract_by_id(
+				StringName(String(contract.get("id", ""))),
+				result,
+			).is_empty():
+				continue
+			result.append(contract)
+	if result.is_empty():
+		result.append(_normalized_challenge_contract(DEFAULT_CHALLENGE_CONTRACT))
+	return result
+
+
+func _challenge_contract_from_value(value: Variant) -> Dictionary:
+	if value is Dictionary:
+		return _normalized_challenge_contract(value as Dictionary)
+	if value is String or value is StringName:
+		return _challenge_contract_by_id(StringName(String(value)), _challenge_contract_catalog())
+	return {}
+
+
+func _normalized_challenge_contract(source: Dictionary) -> Dictionary:
+	var contract_id := String(source.get("id", "")).strip_edges().to_lower()
+	if contract_id.is_empty():
+		return {}
+	var result := source.duplicate(true)
+	result["id"] = contract_id
+	var fallback_label := contract_id.replace("_", " ").to_upper()
+	var label := String(result.get("label", fallback_label)).strip_edges().to_upper()
+	if label.is_empty():
+		label = fallback_label
+	result["label"] = label
+	var short_label := String(result.get("short_label", label)).strip_edges().to_upper()
+	result["short_label"] = label if short_label.is_empty() else short_label
+	result["description"] = String(result.get(
+		"description",
+		"The selected probation filing terms remain fixed for this career.",
+	)).strip_edges()
+	var difficulty := String(result.get("difficulty", "")).strip_edges().to_lower()
+	if difficulty not in ["learning", "standard", "expert"]:
+		difficulty = _challenge_contract_fallback_difficulty(contract_id)
+	result["difficulty"] = difficulty
+	result["difficulty_label"] = String(result.get(
+		"difficulty_label",
+		difficulty.to_upper(),
+	)).strip_edges().to_upper()
+	result["difficulty_guidance"] = String(result.get(
+		"difficulty_guidance",
+		"These terms remain fixed for the five-shift probation file.",
+	)).strip_edges()
+	result["criteria"] = _challenge_contract_criteria(result)
+	return result
+
+
+func _challenge_contract_fallback_difficulty(contract_id: String) -> String:
+	match contract_id:
+		"supported_flock":
+			return "learning"
+		"executive_audit":
+			return "expert"
+		_:
+			return "standard"
+
+
+func _challenge_contract_by_id(
+	contract_id: StringName,
+	catalog: Array[Dictionary],
+) -> Dictionary:
+	var normalized_id := StringName(String(contract_id).strip_edges().to_lower())
+	for contract: Dictionary in catalog:
+		if StringName(String(contract.get("id", ""))) == normalized_id:
+			return contract.duplicate(true)
+	return {}
+
+
+func _default_challenge_contract_id(catalog: Array[Dictionary]) -> StringName:
+	if not _challenge_contract_by_id(DEFAULT_CHALLENGE_CONTRACT_ID, catalog).is_empty():
+		return DEFAULT_CHALLENGE_CONTRACT_ID
+	for contract: Dictionary in catalog:
+		if "STANDARD" in _challenge_contract_label(contract, false):
+			return StringName(String(contract.get("id", DEFAULT_CHALLENGE_CONTRACT_ID)))
+	return (
+		StringName(String(catalog[0].get("id", DEFAULT_CHALLENGE_CONTRACT_ID)))
+		if not catalog.is_empty() else
+		DEFAULT_CHALLENGE_CONTRACT_ID
+	)
+
+
+func _selected_challenge_contract() -> Dictionary:
+	var catalog := _challenge_contract_catalog()
+	var contract := _challenge_contract_by_id(_selected_challenge_contract_id, catalog)
+	if contract.is_empty():
+		contract = _challenge_contract_by_id(_default_challenge_contract_id(catalog), catalog)
+	return contract if not contract.is_empty() else _normalized_challenge_contract(DEFAULT_CHALLENGE_CONTRACT)
+
+
+func _active_challenge_contract() -> Dictionary:
+	var contract := _challenge_contract_from_value(_snapshot.get("challenge_contract", {}))
+	if contract.is_empty():
+		var forecast_value: Variant = _snapshot.get("probation_safeguard_forecast", {})
+		if forecast_value is Dictionary:
+			contract = _challenge_contract_from_value(
+				(forecast_value as Dictionary).get("challenge_contract", {})
+			)
+	if contract.is_empty():
+		contract = _normalized_challenge_contract(DEFAULT_CHALLENGE_CONTRACT)
+	return contract
+
+
+func _challenge_contract_criteria(contract: Dictionary) -> Dictionary:
+	var defaults := (DEFAULT_CHALLENGE_CONTRACT.get("criteria", {}) as Dictionary).duplicate(true)
+	var criteria_value: Variant = contract.get("criteria", {})
+	if not criteria_value is Dictionary:
+		return defaults
+	var criteria := criteria_value as Dictionary
+	defaults["minimum_score"] = clampi(_criterion_integer(
+		criteria,
+		["minimum_score", "score", "min_score", "probation_score"],
+		int(defaults["minimum_score"]),
+	), 0, PROBATION_SCORE_LIMIT)
+	defaults["minimum_welfare"] = clampi(_criterion_integer(
+		criteria,
+		["minimum_welfare", "welfare", "min_welfare"],
+		int(defaults["minimum_welfare"]),
+	), 0, 100)
+	defaults["minimum_compliance"] = clampi(_criterion_integer(
+		criteria,
+		["minimum_compliance", "compliance", "min_compliance"],
+		int(defaults["minimum_compliance"]),
+	), 0, 100)
+	defaults["minimum_farmer_favor"] = clampi(_criterion_integer(
+		criteria,
+		["minimum_farmer_favor", "farmer_favor", "min_farmer_favor"],
+		int(defaults["minimum_farmer_favor"]),
+	), 0, 100)
+	defaults["maximum_crack_rate_basis_points"] = clampi(_criterion_integer(
+		criteria,
+		[
+			"maximum_crack_rate_basis_points", "max_crack_rate_basis_points",
+			"crack_rate_basis_points", "maximum_crack_rate", "max_crack_rate",
+		],
+		int(defaults["maximum_crack_rate_basis_points"]),
+	), 0, 10000)
+	return defaults
+
+
+func _criterion_integer(source: Dictionary, keys: Array[String], fallback: int) -> int:
+	for key: String in keys:
+		if not source.has(key):
+			continue
+		var value: Variant = source[key]
+		if value is Dictionary:
+			value = (value as Dictionary).get("target", fallback)
+		if value is int or value is float:
+			return int(value)
+	return fallback
+
+
+func _challenge_contract_label(contract: Dictionary, compact: bool) -> String:
+	var label_key := "short_label" if compact else "label"
+	var label := String(contract.get(label_key, contract.get("label", "STANDARD FILING")))
+	return label.strip_edges().to_upper() if not label.strip_edges().is_empty() else "STANDARD FILING"
+
+
+func _challenge_contract_difficulty_label(contract: Dictionary) -> String:
+	var normalized := _normalized_challenge_contract(contract)
+	var label := String(normalized.get("difficulty_label", "STANDARD")).strip_edges().to_upper()
+	return label if not label.is_empty() else "STANDARD"
+
+
+func _challenge_contract_selector_label(contract: Dictionary) -> String:
+	return "[%s] %s" % [
+		_challenge_contract_difficulty_label(contract),
+		_challenge_contract_label(contract, false),
+	]
+
+
+func _challenge_contract_terms_text(contract: Dictionary, include_heading: bool) -> String:
+	var criteria := _challenge_contract_criteria(contract)
+	var terms := (
+		"PASS FILE  //  SCORE >= %d / %d  //  WELFARE >= %d  //  COMPLIANCE >= %d"
+		+ "  //  FARMER FAVOR >= %d  //  CRACK RATE <= %.2f%%"
+	) % [
+		int(criteria["minimum_score"]),
+		PROBATION_SCORE_LIMIT,
+		int(criteria["minimum_welfare"]),
+		int(criteria["minimum_compliance"]),
+		int(criteria["minimum_farmer_favor"]),
+		float(criteria["maximum_crack_rate_basis_points"]) / 100.0,
+	]
+	if include_heading:
+		return "CHALLENGE CONTRACT  //  %s DIFFICULTY  //  %s\n%s" % [
+			_challenge_contract_difficulty_label(contract),
+			_challenge_contract_label(contract, false),
+			terms,
+		]
+	return terms
 
 
 func _refresh_report(day: int, total_days: int) -> void:
@@ -1153,6 +1890,8 @@ func _refresh_probation_safeguard_receipt(
 	var pass_count := clampi(int(forecast.get("pass_count", 0)), 0, criteria.size())
 	var all_pass := bool(forecast.get("all_pass", false))
 	var summary_prefix := "FINAL RESULT" if final_receipt else "CURRENT FORECAST"
+	var active_contract := _active_challenge_contract()
+	var contract_label := _challenge_contract_label(active_contract, false)
 	var summary_status := (
 		"ALL SAFEGUARDS PASS"
 		if all_pass else
@@ -1162,15 +1901,19 @@ func _refresh_probation_safeguard_receipt(
 		maxi(0, int(forecast.get("completed_shifts", 0))),
 		maxi(1, int(forecast.get("required_shifts", DEFAULT_TOTAL_DAYS))),
 	]
-	summary.text = "%s  //  %d / %d SAFEGUARDS%s  //  %s" % [
+	summary.text = "%s  //  %s  //  %d / %d SAFEGUARDS%s  //  %s" % [
 		summary_prefix,
+		contract_label,
 		pass_count,
 		criteria.size(),
 		shift_progress,
 		summary_status,
 	]
 	summary.add_theme_color_override("font_color", TEAL if all_pass else RUST)
-	var tooltip_lines: Array[String] = [summary.text]
+	var tooltip_lines: Array[String] = [
+		summary.text,
+		_challenge_contract_terms_text(active_contract, false),
+	]
 	for index: int in range(rows.size()):
 		var label := rows[index]
 		if label == null:
@@ -1275,7 +2018,13 @@ func _refresh_final() -> void:
 		),
 	))
 	_final_score_label.text = _format_integer(int(_snapshot.get("score", 0)))
-	_final_rank_label.text = String(_snapshot.get("rank", "UNRANKED")).to_upper()
+	var final_rank := String(_snapshot.get("rank", "UNRANKED")).strip_edges().to_upper()
+	if passed and final_rank == "PROBATIONARY MANAGER":
+		# Supported Flock can legitimately pass below the score-only Trusted Layer
+		# band. The closing receipt must describe that successful outcome instead of
+		# contradicting the approved rooster badge with a probationary title.
+		final_rank = "QUALIFIED ROOSTER"
+	_final_rank_label.text = final_rank
 	_update_ledger_labels(_final_ledger_labels)
 	_refresh_probation_safeguard_receipt(
 		_final_safeguard_panel,
@@ -1285,7 +2034,20 @@ func _refresh_final() -> void:
 	)
 	_final_continue_button.visible = passed
 	_final_new_button.text = "NEW CAMPAIGN  [N]" if passed else "RETRY PROBATION  [N]"
-	_queue_focus(_final_continue_button if passed else _final_new_button)
+	_final_sticky_primary_button.text = (
+		"ENTER THE SENIOR ROOST  [C]" if passed else "RETRY PROBATION  [N]"
+	)
+	_final_sticky_primary_button.shortcut = _shortcut(KEY_C if passed else KEY_N)
+	_final_sticky_primary_button.tooltip_text = (
+		"Continue this approved file into the uncapped Senior Roost."
+		if passed else
+		"Open a replacement confirmation before starting a fresh five-shift probation file."
+	)
+	_queue_focus(
+		_final_sticky_primary_button
+		if _final_sticky_action_bar.is_visible_in_tree() else
+		(_final_continue_button if passed else _final_new_button)
+	)
 
 
 func _update_objective() -> void:
@@ -1334,6 +2096,7 @@ func _rebuild_milestone_choices() -> void:
 	))
 	_milestone_section.visible = not choices.is_empty()
 	if choices.is_empty():
+		_pending_milestone_confirmation = &""
 		_report_continue_button.disabled = false
 		_report_continue_button.tooltip_text = String(_snapshot.get(
 			"continue_tooltip",
@@ -1353,24 +2116,68 @@ func _rebuild_milestone_choices() -> void:
 		var title := String(choice.get("title", choice.get("label", "MILESTONE")))
 		var description := String(choice.get("description", choice.get("detail", "Permanent campaign benefit.")))
 		var effect := String(choice.get("effect", choice.get("preview", "")))
+		var doctrine := choice.get("doctrine", {}) as Dictionary
+		var doctrine_label := String(doctrine.get("label", "")).strip_edges().to_upper()
+		var strengths := _doctrine_terms(doctrine.get("strengths", []))
+		var watchouts := _doctrine_terms(doctrine.get("watchouts", []))
+		var primary_strength := _doctrine_primary_term(doctrine.get("strengths", []))
+		var primary_watchout := _doctrine_primary_term(doctrine.get("watchouts", []))
+		var strategy := choice.get("strategy", {}) as Dictionary
 		var available := bool(choice.get("available", true))
-		var button := _make_button(
-			"MilestoneChoice_%s" % _safe_node_suffix(String(choice_id)),
-			"%d  //  %s\n%s%s" % [
+		var locked_by_filed_choice := (
+			_selected_milestone != &""
+			and choice_id != _selected_milestone
+		)
+		var button_copy := "%d  //  %s\n%s%s" % [
+			index + 1,
+			title.to_upper(),
+			description,
+			("\n%s" % effect if not effect.is_empty() else ""),
+		]
+		if not doctrine.is_empty():
+			button_copy = "%d  //  %s\n%s%s\nEDGE %s  //  WATCH %s" % [
+				index + 1,
+				doctrine_label,
+				title.to_upper(),
+				("  //  %s" % effect if not effect.is_empty() else ""),
+				primary_strength,
+				primary_watchout,
+			]
+		elif not strategy.is_empty():
+			button_copy = "%d  //  %s\n%s\nSCORE  //  EDGE %s  /  WATCH %s\nBOARD  //  %s" % [
 				index + 1,
 				title.to_upper(),
-				description,
-				("\n%s" % effect if not effect.is_empty() else ""),
-			],
+				effect,
+				String(strategy.get("score_edge", "QUARTER TRADEOFF")),
+				String(strategy.get("score_watch", "CLOSING LEDGER")),
+				String(strategy.get("board_fit", "FILE THE ANNUAL BOARD MANDATE FIRST")),
+			]
+			var prior_year_fit := strategy.get("prior_year_fit", {}) as Dictionary
+			if bool(prior_year_fit.get("visible", false)):
+				button_copy += "\nLAST YEAR  //  %s  /  %s" % [
+					String(prior_year_fit.get("fit_label", "NO DIRECT EDGE")),
+					String(prior_year_fit.get("focus_detail", "ANNUAL SAFEGUARD")),
+				]
+		var button := _make_button(
+			"MilestoneChoice_%s" % _safe_node_suffix(String(choice_id)),
+			button_copy,
 			&"DecisionChoiceButton",
 		)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.custom_minimum_size = Vector2(0.0, 88.0)
+		button.custom_minimum_size = Vector2(
+			0.0,
+			146.0 if not strategy.is_empty() else (108.0 if not doctrine.is_empty() else 88.0),
+		)
+		if not strategy.is_empty():
+			button.add_theme_font_size_override("font_size", 12)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.shortcut = _shortcut([KEY_1, KEY_2, KEY_3][index])
-		button.disabled = not available
-		button.tooltip_text = String(choice.get(
+		# A selected milestone in the incoming snapshot is authoritative. Keep
+		# its card readable, but lock every alternative so a later click cannot
+		# visually replace the permanent filing while the domain rejects it.
+		button.disabled = not available or locked_by_filed_choice
+		var default_tooltip := String(choice.get(
 			"tooltip",
 			choice.get(
 				"unavailable_reason",
@@ -1379,8 +2186,55 @@ func _rebuild_milestone_choices() -> void:
 				"Choose %s as the permanent probation milestone." % title,
 			),
 		))
+		if not doctrine.is_empty():
+			default_tooltip = "%s\n\n%s\n%s\n\nFULL EDGE  //  %s\nWATCH  //  %s\n\nPLAYBOOK  //  %s" % [
+				default_tooltip,
+				description,
+				String(doctrine.get("summary", "This doctrine remains permanent for probation.")),
+				strengths,
+				watchouts,
+				String(doctrine.get("playbook", "Use the safeguard forecast to cover its obligations.")),
+			]
+		elif not strategy.is_empty():
+			default_tooltip = "%s\n\n%s\n%s\n\nSCORE EDGE  //  %s\nSCORE WATCH  //  %s\n%s  //  %s" % [
+				default_tooltip,
+				description,
+				effect,
+				String(strategy.get("score_edge", "QUARTER TRADEOFF")),
+				String(strategy.get("score_watch", "CLOSING LEDGER")),
+				String(strategy.get("board_name", "ANNUAL BOARD MANDATE")).to_upper(),
+				String(strategy.get("board_fit", "FILE THE ANNUAL BOARD MANDATE FIRST")),
+			]
+			var prior_year_fit := strategy.get("prior_year_fit", {}) as Dictionary
+			if bool(prior_year_fit.get("visible", false)):
+				default_tooltip += "\n\nLAST YEAR  //  %s  //  %s\n%s" % [
+					String(prior_year_fit.get("fit_label", "NO DIRECT EDGE")),
+					String(prior_year_fit.get("focus_detail", "ANNUAL SAFEGUARD")),
+					String(prior_year_fit.get("fit_detail", "Use the annual receipt to cover this safeguard.")),
+				]
+		if locked_by_filed_choice:
+			default_tooltip = "LOCKED  //  %s is already the permanent filing for this review." % (
+				String(_selected_milestone).replace("_", " ").to_upper()
+			)
+		button.tooltip_text = default_tooltip
 		button.set_meta("choice_id", choice_id)
-		button.set_meta("choice_title", title.to_upper())
+		button.set_meta(
+			"choice_title",
+			"%s  //  %s" % [doctrine_label, title.to_upper()]
+			if not doctrine_label.is_empty() else
+			title.to_upper(),
+		)
+		button.set_meta("doctrine_id", String(choice_id) if not doctrine.is_empty() else "")
+		button.set_meta("confirmation_required", bool(choice.get("confirmation_required", false)))
+		button.set_meta("confirmation_label", String(choice.get(
+			"confirmation_label",
+			"CONFIRM PERMANENT FILING  [C]",
+		)))
+		button.set_meta("confirmation_tooltip", String(choice.get(
+			"confirmation_tooltip",
+			"Confirm this irreversible filing.",
+		)))
+		button.set_meta("confirmation_stake_marks", maxi(0, int(choice.get("stake_marks", 0))))
 		button.pressed.connect(_on_milestone_pressed.bind(choice_id))
 		_milestone_buttons_host.add_child(button)
 		_milestone_buttons[choice_id] = button
@@ -1394,6 +2248,11 @@ func _rebuild_milestone_choices() -> void:
 	):
 		_selected_milestone = &""
 		_snapshot.erase("selected_milestone")
+	if (
+		_pending_milestone_confirmation != &""
+		and not _milestone_buttons.has(_pending_milestone_confirmation)
+	):
+		_pending_milestone_confirmation = &""
 	_update_milestone_selection()
 	var needs_choice := (
 		bool(_snapshot.get("choice_required", true))
@@ -1414,6 +2273,7 @@ func _rebuild_milestone_choices() -> void:
 		if needs_choice else
 		String(_snapshot.get("continue_tooltip", "File this report with the selected choice."))
 	)
+	_apply_pending_milestone_confirmation()
 	_apply_responsive_layout()
 	if needs_choice:
 		var first_available: Button = null
@@ -1427,6 +2287,23 @@ func _rebuild_milestone_choices() -> void:
 		_queue_focus(_report_continue_button)
 
 
+func _doctrine_terms(value: Variant) -> String:
+	if not value is Array:
+		return ""
+	var terms: Array[String] = []
+	for item: Variant in value as Array:
+		var term := String(item).strip_edges().to_upper()
+		if not term.is_empty():
+			terms.append(term)
+	return " // ".join(terms)
+
+
+func _doctrine_primary_term(value: Variant) -> String:
+	if not value is Array or (value as Array).is_empty():
+		return "UNLISTED"
+	return String((value as Array)[0]).strip_edges().to_upper()
+
+
 func _update_milestone_selection() -> void:
 	for choice_id: StringName in _milestone_buttons:
 		var button := _milestone_buttons[choice_id]
@@ -1436,6 +2313,8 @@ func _update_milestone_selection() -> void:
 			&"DecisionChoiceButton"
 		)
 	_milestone_hint_label.text = (
+		_pending_milestone_confirmation_hint()
+		if _pending_milestone_confirmation != &"" else
 		"SELECTED  //  %s" % String(
 			(_milestone_buttons[_selected_milestone] as Button).get_meta(
 				"choice_title",
@@ -1452,6 +2331,59 @@ func _update_milestone_selection() -> void:
 	)
 
 
+func _apply_pending_milestone_confirmation() -> void:
+	if (
+		_pending_milestone_confirmation == &""
+		or not _milestone_buttons.has(_pending_milestone_confirmation)
+	):
+		return
+	var button := _milestone_buttons[_pending_milestone_confirmation] as Button
+	if button == null or button.disabled:
+		return
+	_report_continue_button.text = String(button.get_meta(
+		"confirmation_label",
+		"CONFIRM PERMANENT FILING  [C]",
+	))
+	_report_continue_button.tooltip_text = String(button.get_meta(
+		"confirmation_tooltip",
+		"Confirm this irreversible filing.",
+	))
+	_report_continue_button.disabled = false
+	_queue_focus(_report_continue_button)
+
+
+func _pending_milestone_confirmation_hint() -> String:
+	if not _milestone_buttons.has(_pending_milestone_confirmation):
+		return ""
+	var button := _milestone_buttons[_pending_milestone_confirmation] as Button
+	if button == null:
+		return ""
+	var title := String(button.get_meta(
+		"choice_title",
+		String(_pending_milestone_confirmation).replace("_", " ").to_upper(),
+	))
+	var stake := maxi(0, int(button.get_meta("confirmation_stake_marks", 0)))
+	return "REVIEWED  //  %s  //  PRESS C TO CONFIRM %d-MARK STAKE" % [title, stake]
+
+
+func _pending_milestone_confirmation_snapshot() -> Dictionary:
+	if not _milestone_buttons.has(_pending_milestone_confirmation):
+		return {}
+	var button := _milestone_buttons[_pending_milestone_confirmation] as Button
+	if button == null or button.disabled:
+		return {}
+	return {
+		"id": String(_pending_milestone_confirmation),
+		"title": String(button.get_meta(
+			"choice_title",
+			String(_pending_milestone_confirmation).replace("_", " ").to_upper(),
+		)),
+		"stake_marks": maxi(0, int(button.get_meta("confirmation_stake_marks", 0))),
+		"confirmation_label": String(button.get_meta("confirmation_label", "")),
+		"confirmation_tooltip": String(button.get_meta("confirmation_tooltip", "")),
+	}
+
+
 func _update_ledger_labels(targets: Array[Dictionary]) -> void:
 	var ledgers := _normalized_ledgers()
 	for index: int in range(3):
@@ -1463,6 +2395,7 @@ func _update_ledger_labels(targets: Array[Dictionary]) -> void:
 		title_label.text = String(ledger.get("label", "LEDGER %d" % (index + 1))).to_upper()
 		value_label.text = _ledger_display_value(ledger)
 		detail_label.text = String(ledger.get("detail", "CUMULATIVE"))
+		detail_label.tooltip_text = detail_label.text
 
 
 func _normalized_ledgers() -> Array[Dictionary]:
@@ -1555,6 +2488,10 @@ func _apply_responsive_layout() -> void:
 	var modal_height := maxf(240.0, viewport_size.y - 84.0)
 	var narrow := viewport_size.x < 720.0
 	var compact := viewport_size.x < 1100.0
+	var sticky_final_actions := _view == VIEW_FINAL and not narrow
+	if _final_sticky_action_bar != null:
+		_final_sticky_action_bar.visible = sticky_final_actions
+	_modal_scroll.offset_bottom = -92.0 if sticky_final_actions else -18.0
 	if _report_safeguard_grid != null:
 		_report_safeguard_grid.columns = 1 if narrow else 2
 	if _final_safeguard_grid != null:
@@ -1566,6 +2503,8 @@ func _apply_responsive_layout() -> void:
 	_final_panel.custom_minimum_size = Vector2(minf(860.0, panel_width), 0.0)
 	if _replacement_confirmation_panel != null:
 		_replacement_confirmation_panel.custom_minimum_size = Vector2(minf(560.0, panel_width), 0.0)
+	if _title_challenge_selector != null:
+		_title_challenge_selector.custom_minimum_size.x = 220.0 if narrow else 250.0
 	_report_heading_stack.custom_minimum_size.x = 0.0 if compact else 390.0
 
 	var report_score_panel := _metric_panel(_report_score_label)
@@ -1609,7 +2548,9 @@ func _apply_responsive_layout() -> void:
 func _position_badge(modal_open: bool) -> void:
 	var available_width := size.x if size.x > 1.0 else get_viewport_rect().size.x
 	if modal_open or available_width < 720.0:
-		_day_badge.offset_left = -240.0
+		# Senior reports pair a full career-mode label with year/quarter context.
+		# Give both labels enough room instead of ellipsizing the mode at 1280x720.
+		_day_badge.offset_left = -318.0
 		_day_badge.offset_top = 14.0
 		_day_badge.offset_right = -18.0
 		_day_badge.offset_bottom = 58.0
@@ -1622,6 +2563,13 @@ func _position_badge(modal_open: bool) -> void:
 		_day_badge.offset_bottom = _active_badge_top + 44.0
 
 
+func _on_final_sticky_primary_pressed() -> void:
+	if _campaign_passed():
+		_on_continue_campaign_pressed()
+	else:
+		_on_new_campaign_pressed()
+
+
 func _on_milestone_pressed(choice_id: StringName) -> void:
 	if not _milestone_buttons.has(choice_id):
 		return
@@ -1630,6 +2578,20 @@ func _on_milestone_pressed(choice_id: StringName) -> void:
 		return
 	_selected_milestone = choice_id
 	_snapshot["selected_milestone"] = choice_id
+	if bool(pressed_button.get_meta("confirmation_required", false)):
+		# Permanent-risk Board Books are inspected first and filed only through
+		# the existing report action. A stray click or number-key press can never
+		# reserve career marks by itself.
+		_pending_milestone_confirmation = choice_id
+		_update_milestone_selection()
+		_apply_pending_milestone_confirmation()
+		# This review state exists only in the presentation layer while the
+		# simulation is paused. Let Office refresh its Web/accessibility mirror so
+		# automation and assistive surfaces see the same uncommitted stake as the
+		# player without mutating the authoritative Senior ledger.
+		presentation_state_changed.emit()
+		return
+	_pending_milestone_confirmation = &""
 	_update_milestone_selection()
 	_report_continue_button.disabled = false
 	_report_continue_button.tooltip_text = String(_snapshot.get(
@@ -1647,6 +2609,16 @@ func _is_senior_snapshot() -> bool:
 
 
 func _on_continue_campaign_pressed() -> void:
+	if (
+		_pending_milestone_confirmation != &""
+		and _milestone_buttons.has(_pending_milestone_confirmation)
+	):
+		var choice_id := _pending_milestone_confirmation
+		var button := _milestone_buttons[choice_id] as Button
+		if button != null and not button.disabled:
+			_pending_milestone_confirmation = &""
+			milestone_choice.emit(choice_id)
+			return
 	continue_campaign.emit()
 
 
@@ -1659,6 +2631,12 @@ func _on_market_contract_decline_requested() -> void:
 
 
 func _on_new_campaign_pressed() -> void:
+	if _view == VIEW_TITLE and _snapshot_continue_available() and not _title_new_file_setup:
+		_title_new_file_setup = true
+		_title_contract_terms_expanded = false
+		_refresh_title()
+		title_intake_phase_changed.emit(title_intake_phase())
+		return
 	if _campaign_replacement_requires_confirmation():
 		_show_campaign_replacement_confirmation()
 		return
@@ -1694,11 +2672,16 @@ func _show_campaign_replacement_confirmation() -> void:
 			clampi(int(_snapshot.get("score", 0)), 0, PROBATION_SCORE_LIMIT),
 			String(_snapshot.get("rank", "FILE CLOSED")).to_upper(),
 		]
+	var selected_contract := _selected_challenge_contract()
+	var selected_contract_line := "NEW CHALLENGE CONTRACT  //  %s" % _challenge_contract_label(
+		selected_contract,
+		false,
+	)
 	_replacement_confirmation_body.text = (
-		"Starting fresh replaces the resumable coop file shown below.\n\n%s\n\n"
+		"Starting fresh replaces the resumable coop file shown below.\n\n%s\n\n%s\n\n"
 		+ "The current file remains untouched until the new checkpoint has been written and verified. "
 		+ "Choose Keep Current File to return without changing anything."
-	) % current_file
+	) % [current_file, selected_contract_line]
 	_replacement_confirmation_host.visible = true
 	_queue_focus(_replacement_confirmation_cancel)
 
@@ -1777,6 +2760,9 @@ func _build_ledger_row(parent: VBoxContainer, prefix: String, targets: Array[Dic
 		stack.add_child(value_label)
 		var detail_label := _make_label("CUMULATIVE", 9, Color("82939d"))
 		detail_label.name = "%sLedgerDetail%d" % [prefix, index + 1]
+		detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		detail_label.max_lines_visible = 2
+		detail_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		stack.add_child(detail_label)
 		targets.append({
 			"title": title_label,

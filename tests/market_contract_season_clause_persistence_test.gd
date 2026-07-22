@@ -61,11 +61,11 @@ func _init() -> void:
 
 
 func _test_v14_active_and_result_round_trips(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 23, "Farm Treasury should own simulation schema v23", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 27, "adaptive casework receipts should own simulation schema v27", failures)
 	var active_sim := _room_simulation(9940, 12)
 	_check(bool(active_sim.sign_market_contract(HIGH, &"specialist_roost_endorsement").get("accepted", false)), "active round-trip fixture should sign Specialist Roost", failures)
 	var active_export := active_sim.export_save_state()
-	_check(int(active_export.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION and active_export.has("campus_expansion"), "active binder should export schema v23 with the North Meadow ledger", failures)
+	_check(int(active_export.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION and active_export.has("campus_expansion"), "active binder should export schema v24 with the North Meadow ledger", failures)
 	var saved_active := active_export.get("active_market_contract", {}) as Dictionary
 	var active_state := _json(active_export, failures)
 	var active_restore := DepartmentSimulation.new(9941, 6)
@@ -88,7 +88,7 @@ func _test_v14_active_and_result_round_trips(failures: Array[String]) -> void:
 	var receipt := result_sim.call("_settle_market_contract", result_sim.day) as Dictionary
 	_check(bool(receipt.get("success", false)), "result fixture should fulfill before persistence", failures)
 	var result_export := result_sim.export_save_state()
-	_check(int(result_export.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION and result_export.has("campus_expansion"), "settled binder should export schema v23 with the North Meadow ledger", failures)
+	_check(int(result_export.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION and result_export.has("campus_expansion"), "settled binder should export schema v24 with the North Meadow ledger", failures)
 	var saved_result := result_export.get("last_market_contract_result", {}) as Dictionary
 	var result_state := _json(result_export, failures)
 	var result_restore := DepartmentSimulation.new(9943, 6)
@@ -362,7 +362,7 @@ func _set_welfare(simulation: DepartmentSimulation, morale: float, stress: float
 
 
 func _json(source: Dictionary, failures: Array[String]) -> Dictionary:
-	_check(int(source.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "checkpoint should export schema v23", failures)
+	_check(int(source.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "checkpoint should export schema v24", failures)
 	var parsed: Variant = JSON.parse_string(JSON.stringify(source))
 	_check(parsed is Dictionary, "checkpoint should remain primitive JSON", failures)
 	return parsed as Dictionary if parsed is Dictionary else {}

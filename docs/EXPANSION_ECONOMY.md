@@ -11,7 +11,7 @@ The Feed Fund protects feed, payroll, facility upkeep, wage arrears, signed brea
 
 ## Farm Treasury: a conserving shift-close journal
 
-DepartmentSimulation schema v23 adds one strict `farm_treasury_state` beside the existing operating and campus ledgers. Schema-v22 migration is deliberately neutral: it preserves only the checkpoint's real Feed Fund and completed-day chronology, and invents no principal, invoice, interest, rating, or receipt history. Current restore replays the retained journal before committing, rejecting unknown fields, altered cents, broken chronology, or a receipt whose math cannot be reproduced.
+DepartmentSimulation schema v24 retains the strict v23 `farm_treasury_state` beside the operating and campus ledgers and adds an independently persisted case-docket incident stream. Schema-v22 Treasury migration remains deliberately neutral: it preserves only the checkpoint's real Feed Fund and completed-day chronology, and invents no principal, invoice, interest, rating, or receipt history. Authentic v23 saves enter the legacy `PO-1701` docket without changing their active decision or economy. Current restore replays the retained journal and validates the bounded incident bag before committing, rejecting unknown cases, duplicates, altered cents, broken chronology, or a receipt whose math cannot be reproduced.
 
 Every close categorizes real production and settlement inflows separately from feed, facilities, campus services, portfolio upkeep, Farmgate shortfalls, and other vendor obligations. The receipt must satisfy this equality to the cent:
 
@@ -188,6 +188,8 @@ The two rooms extend the east campus in stable `6.4m × 5.8m` parcels with 20-ce
 
 Operations turns management span and automation into explicit capital liabilities instead of invisible global bonuses. The Rooster Operations Office expands the number of consequential hen check-ins that can be filed in one day, while every installed tier also adds separate supervisor payroll and an exact once-per-shift surveillance burden to the employed flock.
 
+Those supervisor liabilities are now people rather than an abstract tier bonus. A new department begins with Cornelius Claimwell; each Rooster Office tier funds one additional named post, up to four managers. The default roster covers Credit, Quota, Compliance, and Culture doctrines. A review-time successor slate also exposes Reorg and Automation candidates. Appointing one pays a disclosed signing cost and replaces the newest post without silently increasing headcount or the post's base salary.
+
 | Rooster tier | Day / desks / active hens | Capital | Room upkeep | Supervisor payroll | Check-ins per day | Stress / grievance per hen / flock solidarity |
 |---|---:|---:|---:|---:|---:|---:|
 | Level 1: Shift Board Perch | 5 / 4 / 4 | $100.00 | $4.00 | $5.00 | 2 | 0.50 / 0.75 / 0.50 |
@@ -195,6 +197,10 @@ Operations turns management span and automation into explicit capital liabilitie
 | Level 3: Command Roost Gallery | 11 / 6 / 6 | $240.00 | $11.00 | $12.00 | 4 | 1.50 / 2.00 / 1.50 |
 
 Each hen remains limited to one check-in per day. The extra capacity can therefore distribute credit or coaching across more of the flock, or spread quota pressure more widely; it cannot repeatedly farm one worker for benefits. Surveillance applies exactly once with the morning directive and cannot be duplicated by saving and restoring mid-shift.
+
+Every rooster has a team assignment (whole flock, front roost, back roost, AUTO desk, or the current at-risk file) and a filed posture (coach, protect shells, chase quota, audit, visibility, or alignment meetings). A posture does nothing until the player files it during review; after that it settles with the morning directive and feeds the authoritative work, crack-risk, trust, grievance, stress, compliance, and farmer-favor calculations. Overlapping quota and quality or coaching and audit instructions create visible conflicts. More than one manager per two active hens creates management-density meeting drag whether or not the reports sound productive.
+
+Managers file reports, visibility points, interventions, and credit claims; they always produce zero eggs. Influence grows from the sound eggs they supervise and quota success. Thresholds promote them from Acting Lead through Assistant Roost Supervisor, Senior Clutch Manager, Executive Vice Rooster, and Chief Egg Officer. Every promotion adds $1.00 to daily supervisor payroll. When a quota is missed, quota-, audit-, or visibility-oriented managers may place the lowest-output assigned hen on a PIP, transferring failure downward as trust loss and grievance.
 
 The IT Coop work bonus assists only hens who are really employed, seated, working, and assigned to AUTO. Manual routing always overrides it. Level one also lets AUTO recognize an earned secondary credential, while higher tiers narrow the specialty-versus-deadline grace window and add a modest real peckwork multiplier. Each tier requires the matching Records Annex and Rooster Office tier plus four/five/six authorized desks and active hens.
 
@@ -206,16 +212,16 @@ The IT Coop work bonus assists only hens who are really employed, seated, workin
 
 Automation never creates a file, advances an empty chair, bypasses laying or grading, or credits a farmer delivery. Its recurring compliance exposure and escalating spreadsheet-failure penalties make the benefit a disclosed risk surface rather than free throughput. AUTO remains an opt-in assignment on each employed hen; there is no separate selectable automation protocol.
 
-Both rooms occupy cumulative 6.4 by 5.8 meter cutaway parcels north of Training, joined by a second circulation spine that exactly continues the care campus. Rooster stations and IT cabinets accumulate one/two/three by tier. Permanent identities use modeled architectural type; changing assignments, pressure, speed, and incident costs appear only on physical boards, screens, tags, or invoice clips. Locked parcel notices remain subordinate close-reading fixtures. DepartmentSimulation schema v16 originally appended both operations keys through a neutral strict v15 migration and preserved purchased tiers after later staff loss; current schema v23 retains those guarantees inside the thirteen-key facility ledger described below. The outer composite campaign-save envelope remains schema v2.
+Both rooms occupy cumulative 6.4 by 5.8 meter cutaway parcels north of Training, joined by a second circulation spine that exactly continues the care campus. Rooster stations and IT cabinets accumulate one/two/three by tier. Funded managers also appear as distinct imported chicken bodies with doctrine colors, professional accessories, report folders, and separate patrol tracks in the management aisle. Permanent identities use modeled architectural type; changing assignments, pressure, speed, and incident costs appear only on physical boards, screens, tags, or invoice clips. Locked parcel notices remain subordinate close-reading fixtures. DepartmentSimulation schema v16 originally appended both operations keys through a neutral strict v15 migration and preserved purchased tiers after later staff loss; current schema v25 adds the roster with a neutral v24 migration that creates one named record for every already-funded post. The outer composite campaign-save envelope remains schema v2.
 
-The authoritative `operations` projection is version 1 and has a frozen presentation contract:
+The authoritative `operations` projection is version 2 and has a frozen presentation contract:
 
-- top level: `version`, `rooster_office_level`, `it_coop_level`, `supervision`, `automation`, `daily_costs`, `rooster_operations_office`, `it_coop`, and `next_operations_action`;
+- top level: the original version-one fields plus `manager_roster`, `manager_candidates`, `manager_capacity`, `manager_assignments`, `manager_postures`, `management_density`, `management_reports`, and `last_manager_action`;
 - `supervision`: `action_limit`, `actions_used`, `actions_remaining`, every accepted action receipt, separate supervisor payroll, the three surveillance millipoint values, quota-pressure count, and whether shift pressure has settled;
 - `automation`: enabled state, work basis points/multiplier, specialty grace, secondary-specialty recognition, compliance exposure, Ledger Molt patch and spreadsheet penalties, AUTO-enrolled/active-file counts, and whether shift exposure has settled;
 - `daily_costs`: separate supervisor payroll, Rooster maintenance, and IT maintenance. The next-action record separates maintenance, supervisor-payroll, and total added daily operating cost; the main snapshot also separates daily hen and supervisor payroll.
 
-Flockwatch reads this projection directly: its inline **Rooster Operations** block shows allowance use, remaining actions, payroll, pressure, AUTO terms, exposure, and the next useful operations purchase. The Rooster and IT facility cards show current-to-next deltas without replacing the existing focus or scroll position. A selected employed AUTO hen's dossier shows real IT support; an applicant shows none, and any manual tray is labeled as an explicit override.
+Flockwatch reads this projection directly: its inline **Rooster Operations** block shows allowance use, remaining actions, payroll, pressure, density, meeting burden, conflicts, reports, and compact roster controls. The successor slate stays in this existing scroll surface rather than opening another permanent menu. The Rooster and IT facility cards show current-to-next deltas without replacing the existing focus or scroll position. A selected employed AUTO hen's dossier shows real IT support; an applicant shows none, and any manual tray is labeled as an explicit override.
 
 Focused verification:
 
@@ -223,6 +229,8 @@ Focused verification:
 $godot = "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe"
 & $godot --headless --path . --script tests/operations_economy_test.gd
 & $godot --headless --path . --script tests/operations_persistence_test.gd
+& $godot --headless --path . --script tests/manager_roster_economy_test.gd
+& $godot --headless --path . --script tests/manager_roster_presentation_test.gd
 & $godot --headless --path . --script tests/facilities_ui_test.gd
 & $godot --headless --path . --script tests/claim_routing_ui_test.gd
 & $godot --headless --path . --script tests/rooster_operations_office_visual_test.gd
@@ -380,7 +388,7 @@ Schema v21 appends a strict `campus_expansion` save ledger beside the thirteen-k
 
 ## Implemented multi-parcel Campus Portfolio
 
-Schema v22 extends the campus without changing the thirteen fixed facility keys or replacing North Meadow. Its independently validated `campus_portfolio` ledger owns two later deeds, four legal pads, four module identities, FIFO construction projects, frozen historical prices, named staffing, and a bounded receipt chain. Neutral schema-v21 migration creates no Orchard/Creekside ownership, construction, staffing, spending, or benefit; current Department schema v23 retains that contract alongside the Treasury journal.
+Schema v22 extends the campus without changing the thirteen fixed facility keys or replacing North Meadow. Its independently validated `campus_portfolio` ledger owns two later deeds, four legal pads, four module identities, FIFO construction projects, frozen historical prices, named staffing, and a bounded receipt chain. Neutral schema-v21 migration creates no Orchard/Creekside ownership, construction, staffing, spending, or benefit; current Department schema v24 retains that contract alongside the Treasury journal.
 
 | Deed or module | Unlock / location | Capital | Added daily cost | Build | Staffed operating result |
 |---|---|---:|---:|---:|---|
@@ -399,7 +407,7 @@ Every accepted campus action reconciles the live world before presenting its rec
 
 ## Senior Roost annual Board Mandates
 
-The nested Senior Roost state is schema v3 and remains independent of both Department schema v23 and the outer campaign envelope. At the start of each Senior year it freezes exactly three deterministic mandate offers from the opening day, quota, and Feed Fund. The first offer is always the free **Standard Board Book**, so a player can never be deadlocked by an unaffordable stake. The existing `1`-`3` card selection and `Enter` authorization flow files the mandate before the first-quarter capital policy.
+The nested Senior Roost state is schema v5 and remains independent of both Department schema v24 and the outer campaign envelope. At the start of each Senior year it freezes exactly three deterministic mandate offers from the opening day, quota, Feed Fund, unlocked tier, and permanent Book-success ledger. The first offer is always the free **Standard Board Book**, so a player can never be deadlocked by an unaffordable stake. The scheduler also preserves the hardest unlocked tier and prefers an eligible first-clear Book for the remaining variety slot whenever one exists. Existing schema-v1 through schema-v4 careers retain their exact already-frozen cards under the legacy rotation. The existing `1`-`3` card selection and `Enter` authorization flow files the mandate before the first-quarter capital policy.
 
 | Seal tier | Permanent seals required | Available books | Stake | Success |
 |---|---:|---|---:|---|

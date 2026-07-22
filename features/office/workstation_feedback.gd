@@ -1,6 +1,8 @@
 class_name WorkstationFeedback
 extends Node
 
+const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
+
 ## Lightweight visual feedback for the six imported office workstations.
 ## The controller owns every runtime material it modifies, so imported GLB
 ## materials remain shared and untouched.
@@ -49,6 +51,9 @@ class StationVisual extends RefCounted:
 	var claim_trays: Array[MeshInstance3D] = []
 	var activity_papers: Array[MeshInstance3D] = []
 	var stress_notice: MeshInstance3D
+	var peck_contact_root: Node3D
+	var peck_contact_disc: MeshInstance3D
+	var peck_contact_material: StandardMaterial3D
 	var upgrade_keycaps: Array[MeshInstance3D] = []
 	var upgrade_keycap_root: Node3D
 	var quality_lamp_root: Node3D
@@ -82,6 +87,12 @@ class StationVisual extends RefCounted:
 	var completion_color: Color = COLOR_SOUND
 	var completion_boost: float = 0.0
 	var completion_tween: Tween
+	var contact_boost: float = 0.0
+	var route_boost: float = 0.0
+	var contact_count: int = 0
+	var current_claim_id: int = -1
+	var worker_name: String = ""
+	var loop_stage: StringName = &"waiting_file"
 
 
 var _stations_by_index: Dictionary[int, StationVisual] = {}
@@ -89,6 +100,7 @@ var _stations_by_worker: Dictionary[int, StationVisual] = {}
 var _station_list: Array[StationVisual] = []
 var _phase: float = 0.0
 var _update_accumulator: float = 0.0
+var _color_vision_mode: StringName = &"standard"
 
 
 func _ready() -> void:
@@ -103,6 +115,8 @@ func _process(delta: float) -> void:
 	_update_accumulator = fmod(_update_accumulator, UPDATE_INTERVAL)
 
 	for station in _station_list:
+		station.contact_boost = move_toward(station.contact_boost, 0.0, UPDATE_INTERVAL * 7.5)
+		station.route_boost = move_toward(station.route_boost, 0.0, UPDATE_INTERVAL * 2.4)
 		_animate_station(station)
 
 
@@ -144,6 +158,13 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		if station == null:
 			continue
 		_stations_by_worker[worker_id] = station
+		var claim: Dictionary = worker_snapshot.get("current_claim", {}) as Dictionary
+		var claim_id := int(claim.get("id", -1))
+		if claim_id >= 0 and claim_id != station.current_claim_id:
+			station.route_boost = 1.0
+			station.root.set_meta("last_routed_claim_id", claim_id)
+		station.current_claim_id = claim_id
+		station.worker_name = String(worker_snapshot.get("name", "HEN %d" % (worker_id + 1)))
 		_apply_station_snapshot(
 			station,
 			int(worker_snapshot.get("state", STATE_IDLE)),
@@ -217,6 +238,27 @@ func upgrade_prop_root(desk_index: int, upgrade_id: StringName) -> Node3D:
 	return station.upgrade_prop_roots.get(upgrade_id) as Node3D
 
 
+func set_color_vision_mode(mode: StringName) -> void:
+	var normalized := SemanticColorPaletteScript.normalize_mode(mode)
+	if normalized == _color_vision_mode:
+		return
+	_color_vision_mode = normalized
+	for station in _station_list:
+		_apply_station_snapshot(
+			station,
+			station.state,
+			station.progress,
+			station.stress,
+			station.chair_occupied,
+			station.current_lane,
+			station.peck_assist_ready,
+		)
+
+
+func color_vision_mode() -> StringName:
+	return _color_vision_mode
+
+
 ## Play a short, interrupt-safe quality pulse on a worker's workstation.
 func pulse_completion(worker_id: int, quality: StringName) -> void:
 	var station: StationVisual = _stations_by_worker.get(worker_id)
@@ -224,14 +266,17 @@ func pulse_completion(worker_id: int, quality: StringName) -> void:
 		station = _stations_by_index.get(worker_id)
 	if station == null:
 		return
+	station.loop_stage = &"egg_released"
+	station.root.set_meta("core_loop_stage", station.loop_stage)
+	station.root.set_meta("last_completed_worker", station.worker_name)
 
 	match quality:
 		&"golden":
-			station.completion_color = COLOR_GOLDEN
+			station.completion_color = SemanticColorPaletteScript.quality_color(&"golden", _color_vision_mode)
 		&"cracked":
-			station.completion_color = COLOR_CRACKED
+			station.completion_color = SemanticColorPaletteScript.quality_color(&"cracked", _color_vision_mode)
 		_:
-			station.completion_color = COLOR_SOUND
+			station.completion_color = SemanticColorPaletteScript.quality_color(&"sound", _color_vision_mode)
 
 	if station.completion_tween != null and station.completion_tween.is_valid():
 		station.completion_tween.kill()
@@ -243,13 +288,46 @@ func pulse_completion(worker_id: int, quality: StringName) -> void:
 	station.completion_tween.tween_property(station, "completion_boost", 0.0, 0.72)
 
 
+## A normal work contact is intentionally allocation-free. Six busy desks can
+## generate several contacts per second, so the process loop decays this scalar
+## and animates one cached display marker instead of constructing a Tween each
+## time. Returns false when causality rejects an unattended or inactive desk.
+func pulse_work_contact(worker_id: int, contact_serial: int) -> bool:
+	var station: StationVisual = _stations_by_worker.get(worker_id)
+	if station == null:
+		return false
+	if station.state != STATE_WORKING or not station.chair_occupied:
+		return false
+	station.contact_boost = 1.0
+	station.contact_count += 1
+	station.loop_stage = &"pecking_screen"
+	station.root.set_meta("core_loop_stage", station.loop_stage)
+	station.root.set_meta("work_peck_contact_count", station.contact_count)
+	station.root.set_meta("last_work_peck_serial", contact_serial)
+	return true
+
+
+## Stable world-space evidence point used by camera framing and regression
+## tests. The point comes from the imported Screen transform, never a guessed
+## office coordinate.
+func screen_contact_point_global(worker_id: int) -> Vector3:
+	var station: StationVisual = _stations_by_worker.get(worker_id)
+	if station == null or station.peck_contact_root == null:
+		return Vector3.ZERO
+	return station.peck_contact_root.global_position
+
+
 func pulse_peck_assist(worker_id: int, rating: StringName) -> void:
 	var station: StationVisual = _stations_by_worker.get(worker_id)
 	if station == null:
 		station = _stations_by_index.get(worker_id)
 	if station == null:
 		return
-	station.completion_color = COLOR_GOLDEN if rating == &"perfect" else Color("8fd7bc")
+	station.completion_color = (
+		SemanticColorPaletteScript.quality_color(&"golden", _color_vision_mode)
+		if rating == &"perfect" else
+		SemanticColorPaletteScript.quality_color(&"sound", _color_vision_mode)
+	)
 	if station.completion_tween != null and station.completion_tween.is_valid():
 		station.completion_tween.kill()
 	station.completion_boost = 0.0
@@ -303,6 +381,7 @@ func _build_station(workstation: Node3D) -> StationVisual:
 	if station.chair_root != null:
 		station.chair_rest_rotation = station.chair_root.rotation
 	_build_activity_props(station)
+	_build_core_loop_props(station)
 	_build_upgrade_props(station)
 
 	station.screen_material = _make_emissive_material(COLOR_IDLE, 0.72, 0.38)
@@ -318,7 +397,32 @@ func _build_station(workstation: Node3D) -> StationVisual:
 	_assign_material(station.alerts, station.alert_material)
 	_assign_material(station.phones, station.phone_material)
 	_assign_material(station.claim_trays, station.tray_material)
+	station.root.set_meta("core_loop_stage", station.loop_stage)
 	return station
+
+
+func _build_core_loop_props(station: StationVisual) -> void:
+	if station.root == null or station.screens.is_empty():
+		return
+	var screen := station.screens[0]
+	station.peck_contact_root = _new_runtime_root("ScreenPeckContact", screen)
+	# The flattened emissive sphere reads as a soft point of impact from both
+	# sides of the monitor and inherits the exact authored Screen transform.
+	station.peck_contact_root.position = Vector3(0.0, 0.0, 0.022)
+	station.peck_contact_disc = MeshInstance3D.new()
+	station.peck_contact_disc.name = "ScreenPeckContactDisc"
+	var disc_mesh := SphereMesh.new()
+	disc_mesh.radius = 0.50
+	disc_mesh.height = 1.0
+	disc_mesh.radial_segments = 12
+	disc_mesh.rings = 6
+	station.peck_contact_disc.mesh = disc_mesh
+	station.peck_contact_disc.scale = Vector3(0.16, 0.16, 0.025)
+	station.peck_contact_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	station.peck_contact_material = _make_emissive_material(Color("f7d878"), 0.0, 0.26)
+	station.peck_contact_disc.material_override = station.peck_contact_material
+	station.peck_contact_root.add_child(station.peck_contact_disc)
+	station.peck_contact_root.visible = false
 
 
 func _build_upgrade_props(station: StationVisual) -> void:
@@ -487,6 +591,16 @@ func _apply_station_snapshot(
 	station.chair_occupied = at_workstation
 	station.current_lane = lane
 	station.peck_assist_ready = peck_assist_ready
+	if station.completion_boost <= 0.05:
+		if state == STATE_LAYING and at_workstation:
+			station.loop_stage = &"laying_egg"
+		elif state == STATE_WORKING and at_workstation:
+			station.loop_stage = &"pecking_screen"
+		elif station.current_claim_id >= 0:
+			station.loop_stage = &"file_paused"
+		else:
+			station.loop_stage = &"waiting_file"
+		station.root.set_meta("core_loop_stage", station.loop_stage)
 	var state_color := _state_color(state)
 	var lane_color := _lane_color(lane)
 	var lane_mix := 0.62 if state in [STATE_WORKING, STATE_LAYING] else 0.24
@@ -532,7 +646,10 @@ func _animate_station(station: StationVisual) -> void:
 	var display_color := station.base_color.lerp(station.completion_color, completion_mix)
 	if station.peck_assist_ready:
 		var ready_mix := 0.34 + maxf(0.0, sin(_phase * 5.6 + station.phase_offset)) * 0.24
-		display_color = display_color.lerp(COLOR_GOLDEN, ready_mix)
+		display_color = display_color.lerp(
+			SemanticColorPaletteScript.quality_color(&"golden", _color_vision_mode),
+			ready_mix,
+		)
 	var work_energy := 1.00 if station.state == STATE_WORKING else 0.72
 	if station.state == STATE_LAYING:
 		work_energy = 1.22
@@ -545,6 +662,16 @@ func _animate_station(station: StationVisual) -> void:
 	station.screen_material.emission_energy_multiplier = maxf(0.18, work_energy + slow_pulse + stress_flicker + completion_mix * 1.25)
 	station.header_material.emission_energy_multiplier = maxf(0.18, work_energy + slow_pulse * 0.55 + completion_mix * 1.55)
 	station.line_active_material.emission_energy_multiplier = 1.10 + slow_pulse * 0.45 + completion_mix * 1.20
+	if station.peck_contact_root != null and station.peck_contact_material != null:
+		var contact_mix := clampf(station.contact_boost, 0.0, 1.0)
+		station.peck_contact_root.visible = (
+			contact_mix > 0.015
+			and station.state == STATE_WORKING
+			and station.chair_occupied
+		)
+		station.peck_contact_root.scale = Vector3.ONE * lerpf(0.52, 1.18, contact_mix)
+		station.peck_contact_material.emission = display_color.lightened(0.34)
+		station.peck_contact_material.emission_energy_multiplier = 0.25 + contact_mix * 3.35
 
 	var alert_strength := 0.18
 	var alert_color := station.base_color.darkened(0.30)
@@ -564,7 +691,9 @@ func _animate_station(station: StationVisual) -> void:
 		if not paper.visible:
 			continue
 		var rest_y := float(paper.get_meta("rest_y", paper.position.y))
-		paper.position.y = rest_y + sin(_phase * 1.35 + station.phase_offset + paper_index * 0.7) * 0.006
+		var route_lift := station.route_boost * (0.14 if paper_index == 0 else 0.025)
+		paper.position.y = rest_y + route_lift + sin(_phase * 1.35 + station.phase_offset + paper_index * 0.7) * 0.006
+		paper.scale = Vector3.ONE * (1.0 + station.route_boost * (0.10 if paper_index == 0 else 0.02))
 	if station.stress_notice != null and station.stress_notice.visible:
 		station.stress_notice.rotation.z = sin(_phase * 3.8 + station.phase_offset) * 0.025
 	if station.chair_root != null:
@@ -723,15 +852,7 @@ func _worker_lane(worker_snapshot: Dictionary) -> StringName:
 
 
 func _lane_color(lane: StringName) -> Color:
-	match lane:
-		&"nest_damage":
-			return COLOR_NEST_DAMAGE
-		&"predator_loss":
-			return COLOR_PREDATOR_LOSS
-		&"appeals":
-			return COLOR_APPEALS
-		_:
-			return COLOR_IDLE
+	return SemanticColorPaletteScript.lane_color(lane, _color_vision_mode)
 
 
 func _make_emissive_material(color: Color, energy: float, roughness: float) -> StandardMaterial3D:

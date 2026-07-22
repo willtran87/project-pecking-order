@@ -41,20 +41,45 @@ func _init() -> void:
 		for second in range(first + 1, starts.size()):
 			_check(starts[first].distance_to(starts[second]) >= 0.90, "entry queue should keep chickens separated", failures)
 
+	var opening_columns: Array[float] = []
+	var opening_rows: Array[float] = []
+	for opening_index in 4:
+		var opening_desk := Office.desk_position(opening_index)
+		if opening_desk.x not in opening_columns:
+			opening_columns.append(opening_desk.x)
+		if opening_desk.z not in opening_rows:
+			opening_rows.append(opening_desk.z)
+	_check(
+		opening_columns.size() == 2 and opening_rows.size() == 2,
+		"the opening four desks should occupy one complete two-by-two pod",
+		failures,
+	)
+	_check(
+		Office.desk_position(4).x < opening_columns.min()
+		and Office.desk_position(5).x < opening_columns.min(),
+		"capacity five and six should reveal the dormant west wing",
+		failures,
+	)
+
 	for first in 6:
 		for second in range(first + 1, 6):
 			var delta := Office.desk_position(first) - Office.desk_position(second)
-			if first % 3 == second % 3:
+			_check(
+				absf(delta.x) >= 5.8 or absf(delta.z) >= 5.5,
+				"mature desk sockets must retain circulation separation",
+				failures,
+			)
+			if is_zero_approx(delta.x):
 				_check(absf(delta.z) >= 5.5, "desk rows need a full circulation gap", failures)
-			elif int(first / 3) == int(second / 3):
+			elif is_zero_approx(delta.z):
 				_check(absf(delta.x) >= 5.8, "desk columns need a full circulation gap", failures)
 
 	for first in 6:
 		var first_socket := Office.feed_party_attendance_position(first)
-		_check(first_socket.distance_to(Vector3(-10.15, 0.0, 0.0)) >= 0.74, "feed socket %d should keep the chicken body outside the trough" % first, failures)
+		_check(first_socket.distance_to(Vector3(-9.80, 0.0, 0.0)) >= 1.00, "feed socket %d should keep the full puffy chicken silhouette outside the trough" % first, failures)
 		for second in range(first + 1, 6):
 			var second_socket := Office.feed_party_attendance_position(second)
-			_check(first_socket.distance_to(second_socket) >= 0.82, "feed-party attendance sockets must not overlap", failures)
+			_check(first_socket.distance_to(second_socket) >= 1.15, "feed-party attendance sockets must separate puffy animated silhouettes", failures)
 	var annex_footprint := PackingAnnexVisualScript.declared_footprint()
 	_check(is_equal_approx(annex_footprint.position.x, 12.0), "Packing Annex should connect exactly at the office's open east edge", failures)
 	_check(annex_footprint.size == Vector2(6.4, 5.8), "Packing Annex should retain its authored 6.4m by 5.8m expansion parcel", failures)

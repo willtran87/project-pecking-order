@@ -51,6 +51,7 @@ func _run() -> void:
 	var flockwatch_panel := office.find_child("FlockwatchLedger", true, false) as PanelContainer
 	var status_toast := office.find_child("StatusToast", true, false) as PanelContainer
 	var status_history := office.find_child("FlockwatchStatusHistory", true, false) as Label
+	var status_history_toggle := office.find_child("FlockwatchStatusHistoryToggle", true, false) as Button
 	_check(
 		simulation != null
 		and camera_controller != null
@@ -76,12 +77,20 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		is_zero_approx(camera_target.x)
+		is_equal_approx(camera_target.x, 4.75)
 		and is_equal_approx(camera_target.y, 0.65)
-		and is_zero_approx(camera_target.z)
-		and camera_size >= 25.5
-		and camera_size <= 30.0,
-		"fresh overview should remain centered on the core bureau with a compact camera size (target %s, size %.2f)" % [str(camera_target), camera_size],
+		and is_equal_approx(camera_target.z, -0.65)
+		and camera_size >= 16.0
+		and camera_size <= 18.0,
+		"fresh overview should frame the working pod rather than the full shell (target %s, size %.2f)" % [str(camera_target), camera_size],
+		failures,
+	)
+	_check(
+		Office.desk_position(0) == Vector3(0.0, 0.0, -2.8)
+		and Office.desk_position(1) == Vector3(6.0, 0.0, -2.8)
+		and Office.desk_position(2) == Vector3(0.0, 0.0, 3.0)
+		and Office.desk_position(3) == Vector3(6.0, 0.0, 3.0),
+		"stable desk indices zero through three should render as a complete center/east pod",
 		failures,
 	)
 	_check(
@@ -107,14 +116,43 @@ func _run() -> void:
 	var fifth_marker := office.find_child("CapacityAuthorization_04", true, false) as Node3D
 	var sixth_marker := office.find_child("CapacityAuthorization_05", true, false) as Node3D
 	_check(
-		visible_markers.size() == 1
+		visible_markers.is_empty()
 		and fifth_marker != null
-		and fifth_marker.visible
+		and not fifth_marker.visible
 		and sixth_marker != null
 		and not sixth_marker.visible,
-		"fresh capacity should signpost only the next available perch, not every future desk",
+		"orientation should show the working pod without a premature capacity construction site",
 		failures,
 	)
+	var front_rail := storytelling.find_child("OverheadRowRail_00", true, false) as MeshInstance3D
+	var rear_rail := storytelling.find_child("OverheadRowRail_01", true, false) as MeshInstance3D
+	_check(
+		front_rail != null
+		and rear_rail != null
+		and is_equal_approx((front_rail.get_meta(&"segment_start", Vector3(INF, INF, INF)) as Vector3).x, 1.33)
+		and is_equal_approx((rear_rail.get_meta(&"segment_start", Vector3(INF, INF, INF)) as Vector3).x, 1.33),
+		"opening collection rails should begin at the authorized pod, not the dormant west wing",
+		failures,
+	)
+	office.call("_apply_office_capacity_visibility", 5, false)
+	front_rail = storytelling.find_child("OverheadRowRail_00", true, false) as MeshInstance3D
+	rear_rail = storytelling.find_child("OverheadRowRail_01", true, false) as MeshInstance3D
+	_check(
+		is_equal_approx((front_rail.get_meta(&"segment_start", Vector3(INF, INF, INF)) as Vector3).x, -4.67)
+		and is_equal_approx((rear_rail.get_meta(&"segment_start", Vector3(INF, INF, INF)) as Vector3).x, 1.33),
+		"capacity five should extend only its newly authorized row rail",
+		failures,
+	)
+	office.call("_apply_office_capacity_visibility", 6, false)
+	rear_rail = storytelling.find_child("OverheadRowRail_01", true, false) as MeshInstance3D
+	_check(
+		is_equal_approx((rear_rail.get_meta(&"segment_start", Vector3(INF, INF, INF)) as Vector3).x, -4.67)
+		and Office.office_overview_minimum_size(4) < Office.office_overview_minimum_size(5)
+		and Office.office_overview_minimum_size(5) < Office.office_overview_minimum_size(6),
+		"capacity six should complete the west rail while camera milestones grow monotonically",
+		failures,
+	)
+	office.call("_apply_office_capacity_visibility", 4, false)
 
 	_stage = "checking blocking title surface"
 	campaign_ui.show_title(false)
@@ -223,6 +261,8 @@ func _run() -> void:
 	)
 	campaign_ui.show_active_campaign()
 	office.call("_set_campaign_modal_open", false)
+	camera_controller.focus_worker(0)
+	var focus_before_drawer := camera_controller.safe_framing_state()
 	office.call("_set_flockwatch_open", true)
 	await process_frame
 	await process_frame
@@ -231,14 +271,53 @@ func _run() -> void:
 		"an open Flockwatch drawer should suppress the campaign badge instead of overlapping its header",
 		failures,
 	)
+	var focus_during_drawer := camera_controller.safe_framing_state()
+	_check(
+		bool(focus_during_drawer.get("focused", false))
+		and int(focus_during_drawer.get("focused_worker_id", -1)) == 0
+		and is_equal_approx(
+			float(focus_during_drawer.get("desired_size", 0.0)),
+			float(focus_before_drawer.get("desired_size", -1.0)),
+		)
+		and (focus_during_drawer.get("subject", Vector3.ZERO) as Vector3).is_equal_approx(
+			focus_before_drawer.get("subject", Vector3(INF, INF, INF)) as Vector3
+		)
+		and (focus_during_drawer.get("world_offset", Vector3.ZERO) as Vector3).length() > 0.1,
+		"Flockwatch should reserve drawer room without dropping the inspected hen or zoom",
+		failures,
+	)
+	_check(
+		navigation.open_page(FlockwatchNavigation.PAGE_FLOCK),
+		"post-orientation staffing should remain directly reachable",
+		failures,
+	)
+	await process_frame
+	_check(
+		fifth_marker.visible and not sixth_marker.visible,
+		"the next-perch construction marker should appear only when staffing becomes relevant",
+		failures,
+	)
 	office.call("_set_flockwatch_open", false)
 	await process_frame
+	_check(
+		not fifth_marker.visible and not sixth_marker.visible,
+		"closing staffing context should clear every unbuilt-perch preview",
+		failures,
+	)
 	_check(
 		not campaign_ui.is_badge_suppressed()
 		and campaign_badge != null
 		and campaign_badge.visible
 		and is_equal_approx(campaign_badge.offset_top, Office.LIVE_ROUTING_TOP),
 		"closing Flockwatch should restore the active badge to the normal HUD row",
+		failures,
+	)
+	var focus_after_drawer := camera_controller.safe_framing_state()
+	_check(
+		bool(focus_after_drawer.get("focused", false))
+		and int(focus_after_drawer.get("focused_worker_id", -1)) == 0
+		and (focus_after_drawer.get("world_offset", Vector3(INF, INF, INF)) as Vector3).is_zero_approx(),
+		"closing Flockwatch should remove only the safe inset and retain hen focus",
 		failures,
 	)
 
@@ -262,8 +341,17 @@ func _run() -> void:
 	)
 	_check(
 		status_history != null
+		and status_history_toggle != null
 		and navigation.page_scroll(FlockwatchNavigation.PAGE_TODAY).is_ancestor_of(status_history),
 		"persistent notice history should remain reachable inside Today's Flockwatch filing",
+		failures,
+	)
+	_check(
+		status_history != null
+		and not status_history.visible
+		and status_history_toggle != null
+		and "SHOW SHIFT RECORD" in status_history_toggle.text,
+		"notice history should preserve its records behind a collapsed disclosure by default",
 		failures,
 	)
 
@@ -275,7 +363,7 @@ func _run() -> void:
 			push_error("OPENING_EXPERIENCE_PROGRESSION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("OPENING_EXPERIENCE_PROGRESSION_TEST_PASSED campus=core camera=compact teaser<=1 perch=next chrome=blocked+adaptive pages=2+all+normal blueprint=13 notices=toast+history")
+	print("OPENING_EXPERIENCE_PROGRESSION_TEST_PASSED campus=core camera=pod-growth teaser<=1 perch=contextual drawer=focus-safe chrome=blocked+adaptive pages=2+all+normal blueprint=13 notices=toast+history")
 	quit(0)
 
 

@@ -156,9 +156,21 @@ func _run() -> void:
 	)
 	for hidden_page: StringName in [FlockwatchNavigation.PAGE_OPERATIONS, FlockwatchNavigation.PAGE_CAPITAL, FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS]:
 		var hidden_button := navigation.page_button(hidden_page)
-		_check(hidden_button != null and not hidden_button.visible and hidden_button.focus_mode == Control.FOCUS_NONE, "%s should be hidden and absent from keyboard focus" % String(hidden_page), failures)
+		_check(
+			hidden_button == navigation.more_files_button()
+			and hidden_button.is_visible_in_tree()
+			and hidden_button.focus_mode == Control.FOCUS_ALL,
+			"%s should remain reachable through the compact More Files switcher without exposing a separate tab" % String(hidden_page),
+			failures,
+		)
 		_check(not navigation.page_scroll(hidden_page).visible, "%s content should be hidden" % String(hidden_page), failures)
 	_check(not navigation.open_page(FlockwatchNavigation.PAGE_CAPITAL), "A hidden filing page should not open through the public API", failures)
+	var more_popup := navigation.more_files_button().get_popup()
+	_check(
+		more_popup.item_count == 1 and more_popup.get_item_text(0) == "SHOW EVERY FILE",
+		"undiscovered secondary pages should stay out of the More Files menu while its explicit reachability escape hatch remains",
+		failures,
+	)
 
 	# Context actions sit outside every page scroll. Page changes must therefore
 	# leave a required focused action visible and reachable instead of burying it
@@ -182,7 +194,14 @@ func _run() -> void:
 	navigation.set_show_all_filings(true)
 	await process_frame
 	_check(navigation.available_page_ids() == FlockwatchNavigation.PAGE_ORDER, "Show All Filings should expose all five pages", failures)
-	_check(navigation.open_page(FlockwatchNavigation.PAGE_CAPITAL), "Show All should make Capital reachable", failures)
+	more_popup = navigation.more_files_button().get_popup()
+	more_popup.id_pressed.emit(1)
+	_check(
+		navigation.current_page_id() == FlockwatchNavigation.PAGE_CAPITAL
+		and root.gui_get_focus_owner() == navigation.more_files_button(),
+		"the secondary switcher should open Capital and retain a visible keyboard/controller focus target",
+		failures,
+	)
 	await process_frame
 	if capital_action != null:
 		capital_action.grab_focus()
@@ -228,8 +247,8 @@ func _run() -> void:
 	_check(navigation.is_page_available(FlockwatchNavigation.PAGE_OPERATIONS), "Old-save ownership should discover Operations immediately", failures)
 	_check(navigation.is_page_available(FlockwatchNavigation.PAGE_CAPITAL), "Any commissioned facility should keep its Capital filing reachable", failures)
 
-	# Each page keeps an independent vertical scroll position, and the HFlow tab
-	# rail remains contained when all five pages wrap at ledger width.
+	# Each page keeps an independent vertical scroll position, and the primary
+	# rail remains one row even when every secondary filing is available.
 	navigation.apply_snapshot({"day": 2})
 	navigation.reset_discovered_pages()
 	navigation.set_show_all_filings(true)
@@ -256,17 +275,25 @@ func _run() -> void:
 	_check(flock_position > 0 and flock_scroll.scroll_vertical == flock_position, "Flock should retain its independent scroll position", failures)
 
 	var navigation_rect := navigation.get_global_rect()
+	var filing_rail := navigation.find_child("FlockwatchPageNavigation", true, false) as HBoxContainer
+	_check(filing_rail != null and filing_rail.get_child_count() == 3, "Today, Flock, and More Files should be the only one-row navigation controls", failures)
+	var rail_y := -1.0
+	if filing_rail != null:
+		for child: Control in filing_rail.get_children():
+			if rail_y < 0.0:
+				rail_y = child.get_global_rect().position.y
+			_check(is_equal_approx(child.get_global_rect().position.y, rail_y), "%s should stay on the single filing row" % child.name, failures)
 	for page_id: StringName in FlockwatchNavigation.PAGE_ORDER:
 		var button := navigation.page_button(page_id)
 		var rect := button.get_global_rect()
 		_check(
 			rect.position.x >= navigation_rect.position.x - 0.5 and rect.end.x <= navigation_rect.end.x + 0.5,
-			"%s tab should wrap inside a 272 px ledger" % String(page_id),
+			"%s navigation target should remain inside a 272 px ledger" % String(page_id),
 			failures,
 		)
 	_check(navigation.page_content(FlockwatchNavigation.PAGE_TODAY).size.x <= navigation.size.x + 0.5, "Compact page content should not require horizontal scrolling", failures)
-	_check(navigation.all_filings_button().focus_mode == Control.FOCUS_ALL, "All Filings should remain keyboard reachable", failures)
-	_check(_contains_all(navigation.accessible_text(), ["flockwatch", "available", "6 sections", "all filings shown"]), "Navigation should publish a concise accessibility summary", failures)
+	_check(navigation.all_filings_button() == navigation.more_files_button() and navigation.more_files_button().focus_mode == Control.FOCUS_ALL, "More Files should retain the legacy reachability role and keyboard focus", failures)
+	_check(_contains_all(navigation.accessible_text(), ["flockwatch", "available", "6 sections", "more files shows every page"]), "Navigation should publish a concise accessibility summary", failures)
 
 	# With Show All active, every registered feature root is reachable through at
 	# most one page selection and remains the exact same object.

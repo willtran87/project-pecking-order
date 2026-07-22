@@ -30,9 +30,13 @@ func _run() -> void:
 	var continue_button := ui.find_child("FinalContinueCampaignButton", true, false) as Button
 	var new_button := ui.find_child("FinalNewCampaignButton", true, false) as Button
 	var leave_button := ui.find_child("FinalAbandonCampaignButton", true, false) as Button
+	var sticky_bar := ui.find_child("FinalStickyActionBar", true, false) as PanelContainer
+	var sticky_primary := ui.find_child("FinalStickyPrimaryButton", true, false) as Button
+	var sticky_leave := ui.find_child("FinalStickyLeaveButton", true, false) as Button
 	_check(verdict != null and message != null, "final review should expose readable verdict and message labels", failures)
 	_check(final_panel != null and modal_host != null, "final review should retain its blocking modal structure", failures)
 	_check(continue_button != null and new_button != null and leave_button != null, "final review should retain all campaign actions", failures)
+	_check(sticky_bar != null and sticky_primary != null and sticky_leave != null, "desktop final review should expose its always-visible action strip", failures)
 
 	var successful_endings: Array[Dictionary] = [
 		{
@@ -64,10 +68,14 @@ func _run() -> void:
 		_check(continue_button != null and continue_button.is_visible_in_tree() and not continue_button.disabled, "%s should offer senior-roost continuation" % expected_title, failures)
 		_check(continue_button != null and continue_button.focus_mode == Control.FOCUS_ALL, "%s continuation should remain keyboard focusable" % expected_title, failures)
 		_check(continue_button != null and _shortcut_has_key(continue_button, KEY_C), "%s continuation should retain its C shortcut" % expected_title, failures)
-		_check(ui.get_viewport().gui_get_focus_owner() == continue_button, "%s should move keyboard focus to its primary continuation" % expected_title, failures)
+		_check(sticky_bar != null and sticky_bar.is_visible_in_tree(), "%s should keep the next action above the desktop fold" % expected_title, failures)
+		_check(sticky_primary != null and "ENTER THE SENIOR ROOST" in sticky_primary.text and _shortcut_has_key(sticky_primary, KEY_C), "%s sticky action should preserve Senior continuation and its shortcut" % expected_title, failures)
+		_check(ui.get_viewport().gui_get_focus_owner() == sticky_primary, "%s should focus the visible sticky continuation" % expected_title, failures)
 		if continue_button != null:
 			continue_button.pressed.emit()
-	_check(int(observed["continue"]) == successful_endings.size(), "each successful ending should preserve the public continuation action", failures)
+	if sticky_primary != null:
+		sticky_primary.pressed.emit()
+	_check(int(observed["continue"]) == successful_endings.size() + 1, "in-flow and sticky successful actions should preserve the public continuation signal", failures)
 
 	# The longest authored title must remain readable in the portrait web layout.
 	harness.size = Vector2(390.0, 844.0)
@@ -76,6 +84,8 @@ func _run() -> void:
 	await process_frame
 	_check(verdict != null and verdict.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART, "the long collective ending title should wrap for accessibility", failures)
 	_check(verdict != null and verdict.text_overrun_behavior == TextServer.OVERRUN_NO_TRIMMING, "authored ending titles should never be ellipsized", failures)
+	_check(sticky_bar != null and not sticky_bar.is_visible_in_tree(), "portrait final review should keep its actions in the scroll flow instead of covering content", failures)
+	_check(ui.get_viewport().gui_get_focus_owner() == continue_button, "portrait final review should focus its in-flow continuation", failures)
 	if final_panel != null:
 		var panel_rect := final_panel.get_global_rect()
 		_check(panel_rect.position.x >= -0.5 and panel_rect.end.x <= harness.size.x + 0.5, "the collective ending should stay inside the portrait viewport", failures)
@@ -96,9 +106,12 @@ func _run() -> void:
 	_check(new_button != null and new_button.is_visible_in_tree() and not new_button.disabled and "RETRY PROBATION" in new_button.text, "terminated probation should expose an immediate retry", failures)
 	_check(new_button != null and new_button.focus_mode == Control.FOCUS_ALL and _shortcut_has_key(new_button, KEY_N), "retry should remain keyboard focusable with its N shortcut", failures)
 	_check(leave_button != null and leave_button.focus_mode == Control.FOCUS_ALL and _shortcut_has_key(leave_button, KEY_A), "leave bureau should remain keyboard focusable with its A shortcut", failures)
-	_check(ui.get_viewport().gui_get_focus_owner() == new_button, "failed ending should move keyboard focus to retry", failures)
-	if new_button != null:
-		new_button.pressed.emit()
+	_check(sticky_bar != null and sticky_bar.is_visible_in_tree(), "failed desktop review should keep retry above the fold", failures)
+	_check(sticky_primary != null and "RETRY PROBATION" in sticky_primary.text and _shortcut_has_key(sticky_primary, KEY_N), "failed sticky action should preserve retry and its shortcut", failures)
+	_check(sticky_leave != null and _shortcut_has_key(sticky_leave, KEY_A), "sticky action strip should preserve the shelve-file shortcut", failures)
+	_check(ui.get_viewport().gui_get_focus_owner() == sticky_primary, "failed ending should focus its visible sticky retry", failures)
+	if sticky_primary != null:
+		sticky_primary.pressed.emit()
 	await process_frame
 	await process_frame
 	var replacement_host := ui.find_child("CampaignReplacementConfirmation", true, false) as Control
@@ -107,7 +120,7 @@ func _run() -> void:
 	_check(
 		int(observed["new_campaign"]) == 0
 		and replacement_host != null and replacement_host.is_visible_in_tree(),
-		"failed ending retry should require an explicit replacement confirmation",
+		"failed ending sticky retry should require an explicit replacement confirmation",
 		failures,
 	)
 	_check(
@@ -155,7 +168,7 @@ func _run() -> void:
 			push_error("CAMPAIGN_ENDING_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPAIGN_ENDING_UI_TEST_PASSED endings=4 authored-titles controls=keyboard+focus portrait=wrapped memos=restructuring+golden+standard")
+	print("CAMPAIGN_ENDING_UI_TEST_PASSED endings=4 authored-titles controls=keyboard+focus+sticky-next-step portrait=wrapped memos=restructuring+golden+standard")
 	quit(0)
 
 

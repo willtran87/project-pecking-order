@@ -1,0 +1,62 @@
+{
+  "name": "site-creator-vinext-starter",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "vinext dev",
+    "build": "vinext build",
+    "start": "vinext start",
+    "test": "npm run build && node --test tests/rendered-html.test.mjs",
+    "audit:soak": "node tests/runtime-soak-audit.mjs",
+		"audit:progression": "node tests/active-progression-audit.mjs",
+    "audit:senior-quarter": "node tests/active-progression-audit.mjs",
+    "report:senior-policy-matrix": "node tests/senior-policy-matrix-report.mjs",
+		"report:advanced-settlement-matrix": "node tests/advanced-settlement-matrix-report.mjs",
+		"audit:probation": "node tests/full-probation-audit.mjs",
+		"audit:touch": "node tests/touch-first-audit.mjs",
+		"audit:camera-controls": "node tests/camera-controls-audit.mjs",
+		"audit:color-vision": "node tests/color-vision-audit.mjs",
+		"audit:difficulty": "node tests/difficulty-intake-audit.mjs",
+		"audit:policy-fit": "node tests/directive-order-fit-audit.mjs",
+		"audit:focus-safety": "node ../tests/focus_loss_web_audit.mjs",
+		"audit:audio-momentum": "node tests/audio-momentum-audit.mjs",
+		"audit:priority-peck": "node tests/priority-peck-focus-audit.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "drizzle-orm": "0.45.2",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "overrides": {
+    "postcss": "8.5.14",
+    "@esbuild-kit/core-utils": {
+      "esbuild": "0.25.12"
+    }
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.45.1",
+    "@tailwindcss/postcss": "4.2.1",
+    "@types/node": "22.19.19",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "6.0.2",
+    "@vitejs/plugin-rsc": "0.5.26",
+    "drizzle-kit": "0.31.10",
+    "eslint": "9.39.4",
+    "eslint-config-next": "16.2.6",
+    "playwright": "^1.60.0",
+    "react-server-dom-webpack": "19.2.6",
+    "tailwindcss": "4.2.1",
+    "typescript": "5.9.3",
+    "vinext": "0.0.50",
+    "vite": "8.1.5",
+    "wrangler": "4.112.0"
+  },
+  "type": "module"
+}

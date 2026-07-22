@@ -33,11 +33,11 @@ func _init() -> void:
 func _test_current_schema_open_and_resolved_round_trips(failures: Array[String]) -> void:
 	var source := _open_case_fixture(17_801)
 	var exported := _json_round_trip(source.export_save_state())
-	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current case state should export schema v23", failures)
+	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current case state should export schema v24", failures)
 	var facilities := exported.get("owned_facilities", {}) as Dictionary
-	_check(facilities.size() == 13, "schema v23 should serialize exactly thirteen facility keys", failures)
-	_check(int(facilities.get(String(FLOCK_RELATIONS), -1)) == 3, "schema v23 should preserve Flock Relations tier three", failures)
-	_check(exported.has("campus_expansion"), "schema v23 should carry the strict North Meadow ledger", failures)
+	_check(facilities.size() == 13, "schema v24 should serialize exactly thirteen facility keys", failures)
+	_check(int(facilities.get(String(FLOCK_RELATIONS), -1)) == 3, "schema v24 should preserve Flock Relations tier three", failures)
+	_check(exported.has("campus_expansion"), "schema v24 should carry the strict North Meadow ledger", failures)
 
 	var restored := DepartmentSimulation.new(17_802, 6)
 	_check(restored.restore_save_state(exported), "valid open-case JSON should restore", failures)

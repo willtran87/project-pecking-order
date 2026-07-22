@@ -16,6 +16,15 @@ func _init() -> void:
 	_check(StringName(mandate_catalog[0].get("id", &"")) == SeniorRoostStateScript.MANDATE_FALLBACK_ID, "the first mandate should be the universal fallback", failures)
 	_check(not senior.record_quarter_policy(_policy_receipt(&"merit_grants")), "Q1 policy should wait for an annual mandate", failures)
 	_check(bool(senior.select_annual_mandate(SeniorRoostStateScript.MANDATE_FALLBACK_ID, 1).get("accepted", false)), "the fallback mandate should open Senior Year 1", failures)
+	var fitted_catalog := senior.policy_catalog(10_000)
+	var merit_strategy := fitted_catalog[0].get("strategy", {}) as Dictionary
+	var dividend_strategy := fitted_catalog[1].get("strategy", {}) as Dictionary
+	var forecast_strategy := fitted_catalog[2].get("strategy", {}) as Dictionary
+	_check(String(fitted_catalog[1].get("effect", "")) == "-$24.00  /  flock +34 morale, -34 strain  /  favor -4  /  solidarity +10  /  quota -1", "Flock Dividend card should disclose its exact reachable care economics", failures)
+	_check(String(merit_strategy.get("board_fit", "")) == "NO DIRECT TARGET EDGE  //  WATCH CURRENT PAYROLL", "Merit Grants should disclose its indirect Standard Book posture and payroll watch", failures)
+	_check(String(dividend_strategy.get("board_fit", "")) == "EDGE RELIABLE CLUTCH + FLOCK CONTINUITY  //  WATCH CURRENT PAYROLL", "Flock Dividend should name both Standard Book targets it directly supports", failures)
+	_check(String(forecast_strategy.get("board_fit", "")) == "EDGE CURRENT PAYROLL  //  WATCH RELIABLE CLUTCH + FLOCK CONTINUITY", "Harvest Forecast should disclose its payroll buffer and both Standard Book risks", failures)
+	_check(String(dividend_strategy.get("score_edge", "")) == "FLOCK WELFARE + QUOTA RELIABILITY", "policy guidance should connect Dividend to the exact quarter score lanes", failures)
 
 	_check(senior.record_quarter_policy(_policy_receipt(&"merit_grants")), "an authoritative policy receipt should start the quarter", failures)
 	_check(senior.status == SeniorRoostStateScript.STATUS_ACTIVE, "filed policy should activate Senior shifts", failures)
@@ -69,6 +78,8 @@ func _init() -> void:
 			_check(bool(poor.get("accepted", false)), "poor but valid Senior facts should still file", failures)
 	_check(senior.completed_years == 2 and senior.successful_years == 1, "failed Senior year must not erase the earlier success", failures)
 	_check(not bool(senior.last_annual_review.get("passed", true)), "unsafe annual ledgers should fail", failures)
+	var free_failure_settlement := senior.last_annual_review.get("mandate_settlement", {}) as Dictionary
+	_check(int(free_failure_settlement.get("stake_forfeited", -1)) == 0 and "no Roost Marks were at risk" in String(free_failure_settlement.get("outcome", "")), "a failed no-stake mandate should disclose zero career loss instead of claiming marks were spent", failures)
 	_check(senior.continue_after_annual(), "failed annual review should still permit another year", failures)
 	_check(bool(senior.select_annual_mandate(SeniorRoostStateScript.MANDATE_FALLBACK_ID, 3).get("accepted", false)), "Year 3 should accept the fallback mandate", failures)
 

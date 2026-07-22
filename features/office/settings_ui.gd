@@ -11,11 +11,14 @@ signal close_requested
 signal preferences_changed(preferences: Dictionary)
 signal reset_defaults_requested
 signal binding_capture_requested(action: StringName, event: InputEvent)
+signal career_backup_export_requested
+signal career_backup_import_requested(json_text: String)
 
-const AUDIO_BUSES := [&"master", &"music", &"sfx", &"ui"]
+const AUDIO_BUSES := [&"master", &"music", &"ambient", &"sfx", &"ui"]
 const AUDIO_LABELS := {
 	&"master": "MASTER",
-	&"music": "MUZAK + OFFICE HUM",
+	&"music": "CORPORATE MUZAK",
+	&"ambient": "OFFICE HUM + FLOCK ROOM TONE",
 	&"sfx": "FLOCK + WORKSTATIONS",
 	&"ui": "BUREAU INTERFACE",
 }
@@ -29,6 +32,12 @@ const REBINDABLE_ACTIONS := [
 	&"toggle_overtime",
 	&"toggle_flockwatch",
 	&"cycle_hen",
+	&"camera_pan_left",
+	&"camera_pan_right",
+	&"camera_pan_up",
+	&"camera_pan_down",
+	&"camera_zoom_in",
+	&"camera_zoom_out",
 ]
 const ACTION_LABELS := {
 	&"pause_simulation": "PAUSE / RESUME",
@@ -40,7 +49,15 @@ const ACTION_LABELS := {
 	&"toggle_overtime": "AFTER-HOURS PECKING",
 	&"toggle_flockwatch": "FLOCKWATCH LEDGER",
 	&"cycle_hen": "CYCLE HEN",
+	&"camera_pan_left": "PAN CAMERA LEFT",
+	&"camera_pan_right": "PAN CAMERA RIGHT",
+	&"camera_pan_up": "PAN CAMERA UP",
+	&"camera_pan_down": "PAN CAMERA DOWN",
+	&"camera_zoom_in": "ZOOM CAMERA IN",
+	&"camera_zoom_out": "ZOOM CAMERA OUT",
 }
+const MAX_PORTABLE_BACKUP_BYTES := 8 * 1024 * 1024
+const PORTABLE_BACKUP_FILENAME := "pecking-order-career-backup.json"
 
 var _preferences: Dictionary = {}
 var _suppress_updates: bool = false
@@ -53,13 +70,24 @@ var _motion_selector: OptionButton
 var _ui_scale_selector: OptionButton
 var _quality_selector: OptionButton
 var _timing_selector: OptionButton
+var _color_vision_selector: OptionButton
 var _contrast_toggle: CheckButton
+var _focus_pause_toggle: CheckButton
 var _binding_buttons: Dictionary = {}
 var _controls_grid: GridContainer
 var _comfort_grid: GridContainer
 var _capture_banner: Label
 var _status_label: Label
 var _close_button: Button
+var _backup_export_button: Button
+var _backup_import_button: Button
+var _backup_available: bool = false
+var _backup_import_dialog: FileDialog
+var _backup_export_dialog: FileDialog
+var _backup_import_confirmation: ConfirmationDialog
+var _pending_backup_text: String = ""
+var _pending_backup_source: String = ""
+var _pending_export_text: String = ""
 
 
 func _ready() -> void:
@@ -108,8 +136,13 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func show_settings(preferences: Dictionary, binding_labels: Dictionary = {}) -> void:
+func show_settings(
+	preferences: Dictionary,
+	binding_labels: Dictionary = {},
+	backup_available: bool = false,
+) -> void:
 	_preferences = preferences.duplicate(true)
+	set_career_backup_available(backup_available)
 	_suppress_updates = true
 	_sync_controls_from_preferences()
 	refresh_binding_labels(binding_labels)
@@ -126,6 +159,15 @@ func show_settings(preferences: Dictionary, binding_labels: Dictionary = {}) -> 
 func hide_settings() -> void:
 	_capture_action = &""
 	_capture_pending = false
+	_pending_backup_text = ""
+	_pending_backup_source = ""
+	_pending_export_text = ""
+	if _backup_import_confirmation != null:
+		_backup_import_confirmation.hide()
+	if _backup_import_dialog != null:
+		_backup_import_dialog.hide()
+	if _backup_export_dialog != null:
+		_backup_export_dialog.hide()
 	visible = false
 
 
@@ -137,6 +179,72 @@ func set_status(message: String) -> void:
 	if _status_label != null:
 		_status_label.text = message
 	tooltip_text = accessible_text()
+
+
+func set_career_backup_available(available: bool) -> void:
+	_backup_available = available
+	if _backup_export_button != null:
+		_backup_export_button.disabled = not available
+		_backup_export_button.tooltip_text = (
+			"Download a verified portable copy of the current career."
+			if available else
+			"Start or continue a campaign before exporting a career backup."
+		)
+
+
+func present_career_backup(json_text: String) -> bool:
+	if json_text.is_empty() or json_text.to_utf8_buffer().size() > MAX_PORTABLE_BACKUP_BYTES:
+		set_status("Career backup held: the verified export was empty or oversized.")
+		return false
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(
+			json_text.to_utf8_buffer(),
+			PORTABLE_BACKUP_FILENAME,
+			"application/json",
+		)
+		set_status("Portable career backup downloaded. Keep it outside browser storage.")
+		return true
+	_pending_export_text = json_text
+	_backup_export_dialog.current_file = PORTABLE_BACKUP_FILENAME
+	_backup_export_dialog.popup_centered_ratio(0.72)
+	set_status("Choose where to save the verified portable career backup.")
+	return true
+
+
+## Stages untrusted text behind an explicit replacement confirmation. Office
+## still owns envelope and domain validation, so this method cannot mutate a
+## career even when called with malformed input.
+func stage_career_backup_import(json_text: String, source_label: String = "selected file") -> bool:
+	var byte_count := json_text.to_utf8_buffer().size()
+	if byte_count <= 0:
+		set_status("Career restore held: the selected backup is empty.")
+		return false
+	if byte_count > MAX_PORTABLE_BACKUP_BYTES:
+		set_status("Career restore held: the selected backup exceeds the 8 MiB safety limit.")
+		return false
+	_pending_backup_text = json_text
+	_pending_backup_source = source_label.strip_edges()
+	for whitespace in ["\r", "\n", "\t"]:
+		_pending_backup_source = _pending_backup_source.replace(whitespace, " ")
+	_pending_backup_source = _pending_backup_source.substr(0, 120)
+	_backup_import_confirmation.dialog_text = (
+		"This will replace the active local career with %s. The current verified "
+		+ "career remains as the automatic recovery copy. The imported file must pass "
+		+ "envelope, campaign, office, and Senior Roost validation before anything changes."
+	) % (_pending_backup_source if not _pending_backup_source.is_empty() else "the selected file")
+	_backup_import_confirmation.popup_centered(Vector2i(680, 280))
+	set_status("Career backup staged. Confirm replacement or cancel without changing anything.")
+	return true
+
+
+func complete_career_backup_import(accepted: bool, message: String) -> void:
+	_pending_backup_text = ""
+	_pending_backup_source = ""
+	if _backup_import_confirmation != null:
+		_backup_import_confirmation.hide()
+	set_status(message)
+	if not accepted and _backup_import_button != null:
+		_backup_import_button.call_deferred("grab_focus")
 
 
 func refresh_preferences(preferences: Dictionary) -> void:
@@ -158,7 +266,7 @@ func refresh_binding_labels(binding_labels: Dictionary) -> void:
 
 func accessible_text() -> String:
 	if _preferences.is_empty():
-		return "Coop Comfort and Controls settings."
+		return "Coop Settings and Controls."
 	var audio := _preferences.get("audio", {}) as Dictionary
 	var audio_parts: Array[String] = []
 	for bus: StringName in AUDIO_BUSES:
@@ -171,21 +279,30 @@ func accessible_text() -> String:
 			]
 		)
 	var summary := (
-		"Coop Comfort and Controls. Audio: %s. Motion %s. Interface scale %d percent. "
-		+ "High contrast %s. Detail %s. Priority Peck timing %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
+		"Coop Settings and Controls. Audio: %s. Motion %s. Interface scale %d percent. "
+		+ "High contrast %s. Color vision %s. Detail %s. Priority Peck timing %s. Pause when unfocused %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
 	) % [
 		", ".join(audio_parts),
 		String(_preferences.get("motion_mode", "system")),
 		roundi(float(_preferences.get("ui_scale", 1.0)) * 100.0),
 		"on" if bool(_preferences.get("high_contrast", false)) else "off",
+		String(_preferences.get("color_vision_mode", "standard")).replace("_", " "),
 		String(_preferences.get("visual_quality", "balanced")),
 		String(_preferences.get("timing_assist", "standard")),
+		"on" if bool(_preferences.get("pause_when_unfocused", true)) else "off",
 	]
 	if _capture_action != &"":
 		summary += " Binding capture for %s is %s." % [
 			String(ACTION_LABELS.get(_capture_action, _capture_action)).capitalize(),
 			"awaiting validation" if _capture_pending else "waiting for another input",
 		]
+	summary += (
+		" Career backup export is available; restore requires explicit confirmation."
+		if _backup_available else
+		" Career backup restore is available; export requires a verified campaign checkpoint."
+	)
+	if not _pending_backup_text.is_empty():
+		summary += " A portable career backup is awaiting replacement confirmation."
 	if _status_label != null and not _status_label.text.is_empty():
 		summary += " Status: %s" % _status_label.text
 	return summary
@@ -265,7 +382,7 @@ func _build_interface() -> void:
 	eyebrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	eyebrow.custom_minimum_size.x = 220.0
 	title_stack.add_child(eyebrow)
-	var title := _label("COOP COMFORT & CONTROLS", 22, Color("f4d27b"))
+	var title := _label("COOP SETTINGS & CONTROLS", 22, Color("f4d27b"))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.custom_minimum_size.x = 220.0
 	title_stack.add_child(title)
@@ -300,6 +417,7 @@ func _build_interface() -> void:
 	_scroll.add_child(content)
 	_build_audio_section(content)
 	_build_accessibility_section(content)
+	_build_career_backup_section(content)
 	_build_controls_section(content)
 
 	var footer := HFlowContainer.new()
@@ -314,10 +432,12 @@ func _build_interface() -> void:
 	footer.add_child(_status_label)
 	var reset := Button.new()
 	reset.name = "SettingsResetButton"
-	reset.text = "RESTORE COMFORT DEFAULTS"
+	reset.text = "RESTORE SETTINGS DEFAULTS"
 	reset.focus_mode = Control.FOCUS_ALL
 	reset.pressed.connect(func() -> void: reset_defaults_requested.emit())
 	footer.add_child(reset)
+
+	_build_career_backup_dialogs()
 
 
 func _build_audio_section(parent: VBoxContainer) -> void:
@@ -361,7 +481,7 @@ func _build_audio_section(parent: VBoxContainer) -> void:
 
 
 func _build_accessibility_section(parent: VBoxContainer) -> void:
-	var section := _section(parent, "COMFORT & DISPLAY", "Apply changes immediately; no restart and no career reset required.")
+	var section := _section(parent, "DISPLAY & ACCESSIBILITY", "Apply changes immediately; no restart and no career reset required.")
 	_comfort_grid = GridContainer.new()
 	_comfort_grid.name = "ComfortGrid"
 	_comfort_grid.columns = 2
@@ -381,6 +501,10 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_timing_selector = _choice_row(_comfort_grid, "PRIORITY PECK WINDOW", ["STANDARD", "LENIENT", "EXTENDED"])
 	_timing_selector.name = "TimingAssistSelector"
 	_timing_selector.item_selected.connect(_on_timing_selected)
+	_color_vision_selector = _choice_row(_comfort_grid, "COLOR VISION", ["STANDARD PALETTE", "COLOR-BLIND SAFE + SYMBOLS"])
+	_color_vision_selector.name = "ColorVisionSelector"
+	_color_vision_selector.tooltip_text = "Use high-separation colors plus [N], [P], [A], [OK], [*], and [X] gameplay markers."
+	_color_vision_selector.item_selected.connect(_on_color_vision_selected)
 
 	_contrast_toggle = CheckButton.new()
 	_contrast_toggle.name = "HighContrastToggle"
@@ -389,13 +513,20 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_contrast_toggle.focus_mode = Control.FOCUS_ALL
 	_contrast_toggle.toggled.connect(_on_contrast_toggled)
 	section.add_child(_contrast_toggle)
+	_focus_pause_toggle = CheckButton.new()
+	_focus_pause_toggle.name = "PauseWhenUnfocusedToggle"
+	_focus_pause_toggle.text = "PAUSE WHEN UNFOCUSED"
+	_focus_pause_toggle.tooltip_text = "Prevent deadlines and production from advancing while another window or browser tab has focus; safely resume the exact prior clock speed on return."
+	_focus_pause_toggle.focus_mode = Control.FOCUS_ALL
+	_focus_pause_toggle.toggled.connect(_on_focus_pause_toggled)
+	section.add_child(_focus_pause_toggle)
 	var safety := _label("F10 and the controller Guide button always open this panel. Escape and controller B always provide a safe return.", 12, Color("b9c8cc"))
 	safety.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	section.add_child(safety)
 
 
 func _build_controls_section(parent: VBoxContainer) -> void:
-	var section := _section(parent, "CONTROL BINDINGS", "Select a filing, then press one keyboard or gamepad button. Device bindings coexist.")
+	var section := _section(parent, "CONTROL BINDINGS", "Select a filing, then press one keyboard or gamepad button. Camera, clock, and floor bindings save independently; pointer and touch gestures remain available.")
 	_controls_grid = GridContainer.new()
 	_controls_grid.name = "ControlBindingGrid"
 	_controls_grid.columns = 2
@@ -414,6 +545,150 @@ func _build_controls_section(parent: VBoxContainer) -> void:
 		button.pressed.connect(_begin_binding_capture.bind(action))
 		_controls_grid.add_child(button)
 		_binding_buttons[action] = button
+
+
+func _build_career_backup_section(parent: VBoxContainer) -> void:
+	var section := _section(
+		parent,
+		"CAREER BACKUP",
+		"Browser storage may be cleared. Keep a portable copy outside the browser, or restore one after explicit validation.",
+	)
+	var actions := HFlowContainer.new()
+	actions.name = "CareerBackupActions"
+	actions.add_theme_constant_override("h_separation", 10)
+	actions.add_theme_constant_override("v_separation", 10)
+	section.add_child(actions)
+	_backup_export_button = Button.new()
+	_backup_export_button.name = "CareerBackupExportButton"
+	_backup_export_button.text = "DOWNLOAD CAREER BACKUP"
+	_backup_export_button.focus_mode = Control.FOCUS_ALL
+	_backup_export_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_backup_export_button.pressed.connect(func() -> void: career_backup_export_requested.emit())
+	actions.add_child(_backup_export_button)
+	_backup_import_button = Button.new()
+	_backup_import_button.name = "CareerBackupImportButton"
+	_backup_import_button.text = "RESTORE BACKUP FILE..."
+	_backup_import_button.focus_mode = Control.FOCUS_ALL
+	_backup_import_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_backup_import_button.tooltip_text = "Choose a Pecking Order JSON backup. Nothing changes until confirmation and full validation."
+	_backup_import_button.pressed.connect(_open_career_backup_import)
+	actions.add_child(_backup_import_button)
+	var safety := _label(
+		"Restore never executes objects or scripts from a file. Invalid, oversized, newer-version, or incomplete ledgers are rejected before the current save changes.",
+		12,
+		Color("b9c8cc"),
+	)
+	safety.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	section.add_child(safety)
+	set_career_backup_available(_backup_available)
+
+
+func _build_career_backup_dialogs() -> void:
+	_backup_import_dialog = FileDialog.new()
+	_backup_import_dialog.name = "CareerBackupImportDialog"
+	_backup_import_dialog.title = "Restore Pecking Order Career Backup"
+	_backup_import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_backup_import_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_backup_import_dialog.filters = PackedStringArray(["*.json ; Pecking Order career backup"])
+	_backup_import_dialog.file_selected.connect(_on_career_backup_file_selected)
+	add_child(_backup_import_dialog)
+
+	_backup_export_dialog = FileDialog.new()
+	_backup_export_dialog.name = "CareerBackupExportDialog"
+	_backup_export_dialog.title = "Save Pecking Order Career Backup"
+	_backup_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_backup_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_backup_export_dialog.filters = PackedStringArray(["*.json ; Pecking Order career backup"])
+	_backup_export_dialog.file_selected.connect(_on_career_backup_export_path_selected)
+	add_child(_backup_export_dialog)
+
+	_backup_import_confirmation = ConfirmationDialog.new()
+	_backup_import_confirmation.name = "CareerBackupImportConfirmation"
+	_backup_import_confirmation.title = "REPLACE THE LOCAL CAREER?"
+	_backup_import_confirmation.ok_button_text = "VALIDATE & REPLACE"
+	_backup_import_confirmation.cancel_button_text = "KEEP CURRENT CAREER"
+	_backup_import_confirmation.min_size = Vector2i(680, 280)
+	var confirmation_copy := _backup_import_confirmation.get_label()
+	confirmation_copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	confirmation_copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	confirmation_copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	confirmation_copy.custom_minimum_size = Vector2(560.0, 104.0)
+	confirmation_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_backup_import_confirmation.confirmed.connect(_confirm_career_backup_import)
+	_backup_import_confirmation.canceled.connect(_cancel_career_backup_import)
+	add_child(_backup_import_confirmation)
+
+
+func _open_career_backup_import() -> void:
+	if OS.has_feature("web"):
+		var window := JavaScriptBridge.get_interface("window")
+		if window == null:
+			set_status("Career restore held: the browser file bridge is unavailable.")
+			return
+		var chooser: Variant = window.get("__pecking_order_choose_backup_file")
+		if chooser == null:
+			set_status("Career restore held: the browser file picker is not ready yet.")
+			return
+		window.__pecking_order_choose_backup_file()
+		set_status("Choose a portable Pecking Order JSON backup from this device.")
+		return
+	_backup_import_dialog.popup_centered_ratio(0.72)
+	set_status("Choose a portable Pecking Order career backup. Selection does not replace the current save.")
+
+
+func _on_career_backup_file_selected(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		set_status("Career restore held: the selected file could not be opened.")
+		return
+	var byte_count := file.get_length()
+	if byte_count <= 0 or byte_count > MAX_PORTABLE_BACKUP_BYTES:
+		file.close()
+		set_status(
+			"Career restore held: the selected file is empty or exceeds the 8 MiB safety limit."
+		)
+		return
+	var json_text := file.get_as_text()
+	var read_error := file.get_error()
+	file.close()
+	if read_error != OK:
+		set_status("Career restore held: the selected file could not be read completely.")
+		return
+	stage_career_backup_import(json_text, path.get_file())
+
+
+func _confirm_career_backup_import() -> void:
+	if _pending_backup_text.is_empty():
+		set_status("Career restore held: no backup is staged.")
+		return
+	career_backup_import_requested.emit(_pending_backup_text)
+
+
+func _cancel_career_backup_import() -> void:
+	_pending_backup_text = ""
+	_pending_backup_source = ""
+	set_status("Career restore cancelled. The current career was not changed.")
+	if _backup_import_button != null:
+		_backup_import_button.call_deferred("grab_focus")
+
+
+func _on_career_backup_export_path_selected(path: String) -> void:
+	if _pending_export_text.is_empty():
+		set_status("Career backup held: no verified export is ready.")
+		return
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		set_status("Career backup held: the selected destination could not be opened.")
+		return
+	file.store_string(_pending_export_text)
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	if write_error != OK:
+		set_status("Career backup held: the destination did not accept the complete file.")
+		return
+	_pending_export_text = ""
+	set_status("Portable career backup saved. Keep it outside the game data folder.")
 
 
 func _section(parent: VBoxContainer, title_text: String, subtitle_text: String) -> VBoxContainer:
@@ -464,7 +739,9 @@ func _sync_controls_from_preferences() -> void:
 	_ui_scale_selector.select([1.0, 1.25, 1.5].find(float(_preferences.get("ui_scale", 1.0))))
 	_quality_selector.select(["low", "balanced", "high"].find(String(_preferences.get("visual_quality", "balanced"))))
 	_timing_selector.select(["standard", "lenient", "extended"].find(String(_preferences.get("timing_assist", "standard"))))
+	_color_vision_selector.select(["standard", "color_blind_safe"].find(String(_preferences.get("color_vision_mode", "standard"))))
 	_contrast_toggle.button_pressed = bool(_preferences.get("high_contrast", false))
+	_focus_pause_toggle.button_pressed = bool(_preferences.get("pause_when_unfocused", true))
 
 
 func _on_audio_volume_changed(value: float, bus: StringName) -> void:
@@ -507,8 +784,16 @@ func _on_timing_selected(index: int) -> void:
 	_set_preference("timing_assist", ["standard", "lenient", "extended"][clampi(index, 0, 2)])
 
 
+func _on_color_vision_selected(index: int) -> void:
+	_set_preference("color_vision_mode", ["standard", "color_blind_safe"][clampi(index, 0, 1)])
+
+
 func _on_contrast_toggled(enabled: bool) -> void:
 	_set_preference("high_contrast", enabled)
+
+
+func _on_focus_pause_toggled(enabled: bool) -> void:
+	_set_preference("pause_when_unfocused", enabled)
 
 
 func _set_preference(key: String, value: Variant) -> void:

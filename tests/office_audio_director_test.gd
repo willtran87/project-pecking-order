@@ -14,8 +14,8 @@ func _run() -> void:
 	await process_frame
 
 	var players := director.find_children("DirectorPlayer_*", "AudioStreamPlayer", true, false)
-	_check(players.size() == 3, "director should own exactly three fixed loop players", failures)
-	_check(director.fixed_player_count() == 3, "director should report its fixed player count", failures)
+	_check(players.size() == 4, "director should own exactly four fixed loop players", failures)
+	_check(director.fixed_player_count() == 4, "director should report its fixed player count", failures)
 	var original_player_ids: Array[int] = []
 	var original_stream_ids: Array[int] = []
 	var music_players := 0
@@ -31,10 +31,15 @@ func _run() -> void:
 			raw_pcm_bytes += wav.data.size()
 			_check(wav.loop_mode == AudioStreamWAV.LOOP_FORWARD, "%s should loop without runtime reconstruction" % player.name, failures)
 			_check(wav.mix_rate == 16000 and not wav.stereo, "%s should use the bounded mono production format" % player.name, failures)
+			_check(wav.loop_begin == 0 and wav.loop_end == 128_000, "%s should expose one exact eight-second loop region" % player.name, failures)
+			_check(wav.data.size() == 256_000, "%s should retain one bounded eight-second mono buffer" % player.name, failures)
 		music_players += 1 if player.bus == &"Music" else 0
 		ambient_players += 1 if player.bus == &"Ambient" else 0
-	_check(music_players == 2 and ambient_players == 1, "score stems and room tone should use separate buses", failures)
-	_check(raw_pcm_bytes <= 400_000, "three procedural loops should stay below a 400 KB raw PCM budget", failures)
+	_check(music_players == 3 and ambient_players == 1, "score stems and room tone should use separate buses", failures)
+	_check(raw_pcm_bytes == 1_024_000, "four eight-second procedural loops should use exactly 1,024 KB of raw PCM", failures)
+	var initial_mix := director.mix_snapshot()
+	_check(float(initial_mix.get("loop_seconds", 0.0)) == 8.0, "diagnostics should disclose the full four-chord loop duration", failures)
+	_check(int(initial_mix.get("raw_pcm_bytes", 0)) == raw_pcm_bytes, "diagnostics should disclose the exact fixed PCM footprint", failures)
 
 	director.update_from_snapshot({
 		"shift_phase": 1,
@@ -47,7 +52,23 @@ func _run() -> void:
 	var calm := director.mix_snapshot()
 	_check(bool(calm["running"]), "running snapshot should activate the score", failures)
 	_check(float(calm["pressure_target"]) <= 0.01, "morning office should begin calm", failures)
+	_check(float(calm["momentum_target"]) <= 0.01, "an empty clutch should begin without a progress counterline", failures)
 	director.call("_process", 1.0)
+
+	director.update_from_snapshot({
+		"shift_phase": 1,
+		"minute_of_day": 720,
+		"quota_target": 12,
+		"eggs_today": 10,
+		"overtime_enabled": false,
+		"workers": [{"stress": 18}, {"stress": 24}],
+	})
+	var productive_target := director.mix_snapshot()
+	_check(float(productive_target["momentum_target"]) >= 0.70, "a nearly complete clutch should expose strong positive momentum", failures)
+	director.call("_process", 2.0)
+	var productive_mix := director.mix_snapshot()
+	_check(float(productive_mix["momentum_blend"]) >= 0.65, "the clutch counterline should approach its target smoothly", failures)
+	_check(float(productive_mix["momentum_db"]) > -22.0, "the clutch counterline should become audible near quota", failures)
 
 	director.update_from_snapshot({
 		"shift_phase": 1,
@@ -75,8 +96,10 @@ func _run() -> void:
 	var review := director.mix_snapshot()
 	_check(bool(review["review"]) and not bool(review["running"]), "review should replace the live shift mix", failures)
 	_check(float(review["pressure_target"]) == 0.0, "review should release quota-pressure targeting", failures)
+	_check(float(review["momentum_target"]) == 0.0, "review should release live clutch momentum targeting", failures)
 	director.call("_process", 2.0)
 	_check(float(director.mix_snapshot()["pressure_db"]) <= -50.0, "review should smoothly silence the mechanical stem", failures)
+	_check(float(director.mix_snapshot()["momentum_db"]) <= -50.0, "review should smoothly silence the clutch counterline", failures)
 
 	director.set_focus_paused(true)
 	_check(director.is_focus_paused(), "director should expose focus pause state", failures)
@@ -102,6 +125,7 @@ func _run() -> void:
 			update_index % 5 != 0,
 			update_index % 17 == 0,
 			update_index % 7 == 0,
+			float((update_index * 7) % 101) / 100.0,
 		)
 		director.call("_process", 1.0 / 60.0)
 	var stressed_players := director.find_children("DirectorPlayer_*", "AudioStreamPlayer", true, false)
@@ -131,7 +155,7 @@ func _run() -> void:
 			push_error("OFFICE_AUDIO_DIRECTOR_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("OFFICE_AUDIO_DIRECTOR_TEST_PASSED players=3 loops=procedural buses=Music+Ambient pressure=adaptive focus=pause growth=none")
+	print("OFFICE_AUDIO_DIRECTOR_TEST_PASSED players=4 loop=8s-progression pcm=1024000 buses=Music+Ambient pressure+momentum=adaptive focus=pause growth=none")
 	quit(0)
 
 

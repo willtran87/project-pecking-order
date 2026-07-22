@@ -126,9 +126,9 @@ func _test_decline_receipt_json_round_trip_and_corruption(failures: Array[String
 
 
 func _test_v11_migrates_with_a_neutral_market_ledger(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 23, "Farm Treasury should advance the simulation schema to v23", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 27, "adaptive casework receipts should advance the simulation schema to v27", failures)
 	var current_state := DepartmentSimulation.new(9681, 4).export_save_state()
-	_check(int(current_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current market state should export schema v23", failures)
+	_check(int(current_state.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current market state should export schema v24", failures)
 	_check(current_state.has("campus_expansion"), "current market state should include the North Meadow ledger", failures)
 	var legacy_v11 := current_state.duplicate(true)
 	legacy_v11["state_version"] = 11
@@ -158,7 +158,7 @@ func _test_v11_migrates_with_a_neutral_market_ledger(failures: Array[String]) ->
 	_check(restored.active_market_contract.is_empty() and restored.last_market_contract_result.is_empty(), "v11 migration must not invent a binder or receipt", failures)
 	_check(restored.market_contracts_signed_total == 0 and restored.market_contracts_succeeded_total == 0 and restored.market_contracts_breached_total == 0, "v11 migration must not invent contract outcomes", failures)
 	_check(restored.market_contract_premium_total_cents == 0 and restored.market_contract_breach_total_cents == 0, "v11 migration must not invent premium or breach cents", failures)
-	_check(int(restored.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "migrated state should re-export schema v23", failures)
+	_check(int(restored.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "migrated state should re-export schema v24", failures)
 	_assert_neutral_campus(restored, "v11 migration", failures)
 
 
@@ -234,7 +234,7 @@ func _advance_to(simulation: DepartmentSimulation, target_minute: int, failures:
 
 
 func _json_dictionary(source: Dictionary, context: String, failures: Array[String]) -> Dictionary:
-	_check(int(source.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "%s should export schema v23" % context, failures)
+	_check(int(source.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "%s should export schema v24" % context, failures)
 	var parsed: Variant = JSON.parse_string(JSON.stringify(source))
 	_check(parsed is Dictionary, "%s should remain primitive JSON" % context, failures)
 	return parsed as Dictionary if parsed is Dictionary else {}

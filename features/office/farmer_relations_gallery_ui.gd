@@ -10,6 +10,7 @@ extends VBoxContainer
 signal campaign_requested(campaign_id: StringName)
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
+const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
 
 const CAMPAIGN_IDS: Array[StringName] = [
 	&"layer_profile",
@@ -41,7 +42,9 @@ var _status_label: Label
 var _attribution_label: Label
 var _evidence_label: Label
 var _receipt_label: Label
+var _campaigns_toggle
 var _offer_controls: Dictionary = {}
+var _had_actionable_campaign := false
 
 
 func _ready() -> void:
@@ -114,7 +117,12 @@ func _build_interface() -> void:
 	_evidence_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_evidence_label)
 
+	_campaigns_toggle = FlockwatchDisclosureToggleScript.new()
+	_campaigns_toggle.name = "FarmerRelationsCampaignsToggle"
+	column.add_child(_campaigns_toggle)
+
 	var divider := HSeparator.new()
+	divider.name = "FarmerRelationsCampaignsDivider"
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(divider)
 
@@ -130,6 +138,8 @@ func _build_interface() -> void:
 	column.add_child(offer_list)
 	for campaign_id: StringName in CAMPAIGN_IDS:
 		_build_offer_card(offer_list, campaign_id)
+	var campaign_targets: Array[Control] = [divider, offer_heading, offer_list]
+	_campaigns_toggle.configure("PUBLIC CAMPAIGNS", "3 CAMPAIGN FILES", campaign_targets, false)
 
 	_receipt_label = _make_label("LAST HUNG / NONE FILED", 10, COLOR_MUTED)
 	_receipt_label.name = "FarmerRelationsGalleryLastReceipt"
@@ -223,7 +233,38 @@ func _refresh() -> void:
 	var offers_by_id := _offers_by_id(gallery)
 	for campaign_id: StringName in CAMPAIGN_IDS:
 		_refresh_offer(campaign_id, offers_by_id.get(campaign_id, {}) as Dictionary, gallery)
+	_refresh_campaigns_disclosure()
 	_refresh_receipt(receipt)
+
+
+func set_campaigns_expanded(expanded: bool) -> void:
+	if _campaigns_toggle != null:
+		_campaigns_toggle.set_expanded(expanded)
+
+
+func campaigns_expanded() -> bool:
+	return _campaigns_toggle != null and _campaigns_toggle.is_expanded()
+
+
+func _refresh_campaigns_disclosure() -> void:
+	if _campaigns_toggle == null:
+		return
+	var ready_count := 0
+	for controls_value: Variant in _offer_controls.values():
+		if not controls_value is Dictionary:
+			continue
+		var button := (controls_value as Dictionary).get("button") as Button
+		if button != null and not button.disabled:
+			ready_count += 1
+	_campaigns_toggle.set_summary(
+		"%d READY / %d FILES" % [ready_count, CAMPAIGN_IDS.size()]
+		if ready_count > 0 else
+		"%d FILES / NO OPEN AUTHORIZATION" % CAMPAIGN_IDS.size()
+	)
+	var actionable := ready_count > 0
+	if actionable and not _had_actionable_campaign:
+		_campaigns_toggle.set_expanded(true, false)
+	_had_actionable_campaign = actionable
 
 
 func _refresh_summary(gallery: Dictionary) -> void:

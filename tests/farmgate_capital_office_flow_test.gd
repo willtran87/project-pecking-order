@@ -103,8 +103,8 @@ func _run() -> void:
 
 	_check(blueprint.is_open(), "the Flockwatch action should open the player-held Blueprint", failures)
 
-	# A player-held capital surface must consume every live-office shortcut that
-	# reaches Office, while retaining its own semantic Return behavior.
+	# A player-held capital surface must consume live-office shortcuts while
+	# retaining the non-remappable F10 Settings safety route above it.
 	var settings := office.find_child("PlayerSettings", true, false) as PeckingOrderSettingsUI
 	var clock := office.get("_clock") as SimulationClock
 	var ticker := office.get("_ticker_label") as Label
@@ -121,7 +121,6 @@ func _run() -> void:
 		&"toggle_flockwatch",
 		&"speed_normal",
 		&"peck_assist",
-		&"open_settings",
 	]:
 		await _send_action(action)
 	_check(
@@ -130,11 +129,19 @@ func _run() -> void:
 		and not simulation.overtime_enabled
 		and not bool(office.get("_flockwatch_open"))
 		and (clock == null or clock.speed_index == 0)
-		and (settings == null or not settings.is_open())
 		and (ticker == null or ticker.text == "BLUEPRINT INPUT SENTINEL"),
-		"Blueprint should block Feed Party, overtime, Flockwatch, clock, Peck Assist, and settings shortcuts from dispatching behind it",
+		"Blueprint should block Feed Party, overtime, Flockwatch, clock, and Peck Assist shortcuts from dispatching behind it",
 		failures,
 	)
+	await _send_action(&"open_settings")
+	_check(
+		settings != null and settings.is_open() and blueprint.is_open(),
+		"F10 Settings should open above Blueprint without dismissing the held capital filing",
+		failures,
+	)
+	if settings != null:
+		settings.hide_settings()
+	await process_frame
 	blueprint.hide_blueprint(false)
 	for surface: Control in [portfolio, expansion, reveal, portfolio_reveal]:
 		if ticker != null:

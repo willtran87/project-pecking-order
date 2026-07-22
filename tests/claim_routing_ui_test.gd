@@ -1,5 +1,7 @@
 extends SceneTree
 
+const Palette := preload("res://core/settings/semantic_color_palette.gd")
+
 
 func _init() -> void:
 	_run.call_deferred()
@@ -31,6 +33,10 @@ func _run() -> void:
 	var manager_trust := office.find_child("RoutingManagerTrust", true, false) as Label
 	var grievance := office.find_child("RoutingGrievance", true, false) as Label
 	var check_in_status := office.find_child("RoutingCheckInStatus", true, false) as Label
+	var dossier_summary := office.find_child("RoutingDossierSummary", true, false) as Label
+	var route_tab := office.find_child("DossierTab_route", true, false) as Button
+	var support_tab := office.find_child("DossierTab_support", true, false) as Button
+	var profile_tab := office.find_child("DossierTab_profile", true, false) as Button
 	var share_credit := office.find_child("PersonnelAction_share_credit", true, false) as Button
 	var career_coaching := office.find_child("PersonnelAction_career_coaching", true, false) as Button
 	var quota_pressure := office.find_child("PersonnelAction_quota_pressure", true, false) as Button
@@ -75,24 +81,100 @@ func _run() -> void:
 	_check(appeals_queue != null and "2" in appeals_queue.text, "opening strip should show two Appeals files", failures)
 	_check(queue_contract_badge != null and not queue_contract_badge.visible, "contract badge should stay hidden when routing trays contain only internal files", failures)
 	_check(dossier != null and not dossier.is_visible_in_tree(), "worker dossier should stay hidden before a hen is selected", failures)
+	if routing_ui != null:
+		routing_ui.set_color_vision_mode(&"color_blind_safe")
+	await process_frame
+	_check(
+		nest_queue != null and "[N] NEST" in nest_queue.text
+		and predator_queue != null and "[P] PREDATOR" in predator_queue.text
+		and appeals_queue != null and "[A] APPEALS" in appeals_queue.text,
+		"safe color-vision mode should add redundant lane markers without removing names",
+		failures,
+	)
+	_check(
+		nest_queue != null and nest_queue.get_theme_color("font_color").is_equal_approx(Palette.lane_color(&"nest_damage", &"color_blind_safe")),
+		"safe routing text should use the centralized semantic palette",
+		failures,
+	)
+	var queue_rect := queue_strip.get_global_rect() if queue_strip != null else Rect2()
+	for label in [nest_queue, predator_queue, appeals_queue]:
+		_check(
+			label != null and label.get_global_rect().end.x <= queue_rect.end.x + 0.5,
+			"safe routing markers should remain contained by the queue strip",
+			failures,
+		)
+	_check(assign_predator != null and "[P] PREDATOR LOSS" in assign_predator.text, "safe assignment controls should repeat the lane marker", failures)
+	if routing_ui != null:
+		routing_ui.set_color_vision_mode(&"standard")
+	await process_frame
 
 	if routing_ui != null:
 		routing_ui.set_focus(0)
 	await process_frame
 	_check(dossier != null and dossier.is_visible_in_tree(), "selecting a hen should open her routing dossier", failures)
-	_check(assign_auto != null and not assign_auto.disabled, "normal running play should expose live routing", failures)
+	_check(
+		routing_ui != null
+		and routing_ui.active_dossier_tab() == &"route"
+		and route_tab != null
+		and route_tab.button_pressed,
+		"a newly selected hen should open on the Route dossier tab",
+		failures,
+	)
+	_check(assign_auto != null and assign_auto.is_visible_in_tree() and not assign_auto.disabled, "the Route tab should expose live routing", failures)
 	var opening_worker := _worker_snapshot(simulation.snapshot(), 0)
-	_check(worker_career != null and worker_career.is_visible_in_tree(), "selected-hen dossier should expose career rank and XP", failures)
+	_check(worker_career != null and not worker_career.is_visible_in_tree(), "the Route tab should not repeat Profile career details", failures)
+	_check(share_credit != null and not share_credit.is_visible_in_tree(), "the Route tab should not mix in Support actions", failures)
+	_check(_press(support_tab), "the selected-hen dossier should expose its Support tab", failures)
+	await process_frame
+	_check(
+		routing_ui != null
+		and routing_ui.active_dossier_tab() == &"support"
+		and support_tab != null
+		and support_tab.button_pressed,
+		"Support should become the single active dossier tab",
+		failures,
+	)
+	_check(check_in_status != null and check_in_status.is_visible_in_tree() and "READY" in check_in_status.text, "Support should own the personnel check-in status", failures)
+	_check(share_credit != null and share_credit.is_visible_in_tree() and not share_credit.disabled, "Support should own the live share-credit action", failures)
+	_check(
+		dossier_summary != null
+		and dossier_summary.is_visible_in_tree()
+		and "PROFILE FIT  /  SHARE CREDIT" in dossier_summary.text
+		and "-$7.00" in dossier_summary.text
+		and String(opening_worker.get("career_profile_description", "")) in dossier_summary.text,
+		"Support should use the open dossier space for the exact profile-fit consequence instead of hiding it in a tooltip",
+		failures,
+	)
+	_check(assign_auto != null and not assign_auto.is_visible_in_tree(), "Support should not mix in Route actions", failures)
+	_check(_press(profile_tab), "the selected-hen dossier should expose its Profile tab", failures)
+	await process_frame
+	_check(
+		routing_ui != null
+		and routing_ui.active_dossier_tab() == &"profile"
+		and profile_tab != null
+		and profile_tab.button_pressed,
+		"Profile should become the single active dossier tab",
+		failures,
+	)
+	_check(worker_career != null and worker_career.is_visible_in_tree(), "Profile should expose career rank and XP", failures)
 	_check(worker_career != null and String(opening_worker.get("career_title", "")) in worker_career.text, "career label should mirror the authoritative worker title", failures)
 	_check(worker_career != null and "XP" in worker_career.text, "career label should make progression legible", failures)
-	_check(worker_profile != null and worker_profile.is_visible_in_tree(), "selected-hen dossier should expose the career profile", failures)
+	_check(worker_profile != null and worker_profile.is_visible_in_tree(), "Profile should expose the career profile", failures)
 	_check(worker_profile != null and String(opening_worker.get("career_profile_name", "")) in worker_profile.text, "profile label should mirror the authoritative worker profile", failures)
-	_check(manager_trust != null and manager_trust.is_visible_in_tree() and "TRUST  %d" % int(roundf(float(opening_worker.get("manager_trust", -1.0)))) in manager_trust.text, "dossier should show authoritative manager trust", failures)
-	_check(grievance != null and grievance.is_visible_in_tree() and "GRIEVANCE  %d" % int(roundf(float(opening_worker.get("grievance", -1.0)))) in grievance.text, "dossier should show authoritative grievance", failures)
-	_check(check_in_status != null and "READY" in check_in_status.text, "personnel check-in should be ready in normal running play", failures)
-	_check(share_credit != null and not share_credit.disabled, "share-credit action should be available in normal running play", failures)
-	_check(career_coaching != null and not career_coaching.disabled, "career-coaching action should be available in normal running play", failures)
-	_check(quota_pressure != null and not quota_pressure.disabled, "quota-pressure action should be available in normal running play", failures)
+	_check(manager_trust != null and manager_trust.is_visible_in_tree() and "TRUST  %d" % int(roundf(float(opening_worker.get("manager_trust", -1.0)))) in manager_trust.text, "Profile should show authoritative manager trust", failures)
+	_check(grievance != null and grievance.is_visible_in_tree() and "GRIEVANCE  %d" % int(roundf(float(opening_worker.get("grievance", -1.0)))) in grievance.text, "Profile should show authoritative grievance", failures)
+	_check(
+		dossier_summary != null
+		and dossier_summary.is_visible_in_tree()
+		and String(opening_worker.get("career_profile_name", "")).to_upper() in dossier_summary.text
+		and String(opening_worker.get("career_profile_description", "")) in dossier_summary.text
+		and "CARE  morale" in dossier_summary.text
+		and "shell risk" in dossier_summary.text,
+		"Profile should fill the dossier with the authoritative work-profile and care summary",
+		failures,
+	)
+	_check(assign_auto != null and not assign_auto.is_visible_in_tree(), "Profile should not mix in Route actions", failures)
+	_check(share_credit != null and not share_credit.is_visible_in_tree(), "Profile should not mix in Support actions", failures)
 	_check(current_contract_badge != null and not current_contract_badge.visible, "current-file contract badge should stay hidden for ordinary peckwork", failures)
 
 	# Worker dossiers consume effective Training Roost terms and expose individual
@@ -124,6 +206,7 @@ func _run() -> void:
 	_check(worker_profile != null and _contains_all(worker_profile.tooltip_text, ["5% slower", "+$1.00/day", "+4 career xp", "flock care", "morale", "stress", "fatigue"]), "the dossier tooltip should disclose authoritative training and individual care terms", failures)
 	if routing_ui != null:
 		routing_ui.apply_snapshot(simulation.snapshot())
+	_check(_press(route_tab), "the dossier should return from Profile to Route", failures)
 	await process_frame
 
 	# Selected-hen AUTO support is explicit and never inferred for applicants or
@@ -192,10 +275,12 @@ func _run() -> void:
 
 	_check(decision_host != null and not decision_host.is_visible_in_tree(), "normal running play should keep the directive surface retired", failures)
 	_check(assign_auto != null and not assign_auto.disabled, "routing should unlock during the running shift", failures)
-	_check(check_in_status != null and "READY" in check_in_status.text, "personnel check-in should become ready during the running shift", failures)
-	_check(share_credit != null and not share_credit.disabled, "share-credit action should unlock during the running shift", failures)
-	_check(career_coaching != null and not career_coaching.disabled, "career-coaching action should unlock during the running shift", failures)
-	_check(quota_pressure != null and not quota_pressure.disabled, "quota-pressure action should unlock during the running shift", failures)
+	_check(_press(support_tab), "Support should remain reachable after routing snapshots refresh", failures)
+	await process_frame
+	_check(check_in_status != null and check_in_status.is_visible_in_tree() and "READY" in check_in_status.text, "personnel check-in should become ready on Support during the running shift", failures)
+	_check(share_credit != null and share_credit.is_visible_in_tree() and not share_credit.disabled, "share-credit action should unlock on Support during the running shift", failures)
+	_check(career_coaching != null and career_coaching.is_visible_in_tree() and not career_coaching.disabled, "career-coaching action should unlock on Support during the running shift", failures)
+	_check(quota_pressure != null and quota_pressure.is_visible_in_tree() and not quota_pressure.disabled, "quota-pressure action should unlock on Support during the running shift", failures)
 
 	# A Rooster Office allowance is flock-wide but not a first-action global lock:
 	# the filed hen stays locked while a second employed hen can use the remainder.
@@ -234,12 +319,14 @@ func _run() -> void:
 	_check(share_credit != null and share_credit.disabled, "a hen cannot receive a second personnel action in the same shift", failures)
 	if routing_ui != null:
 		routing_ui.set_focus(1)
+	_check(_press(support_tab), "changing hens should still leave Support one selection away", failures)
 	await process_frame
 	_check(check_in_status != null and _contains_all(check_in_status.text, ["check-in ready", "1 of 2", "1 left"]), "another hen should see the exact remaining Rooster Office allowance", failures)
 	_check(share_credit != null and not share_credit.disabled, "the first filed action must not globally lock a larger Rooster Office allowance", failures)
 	if routing_ui != null:
 		routing_ui.apply_snapshot(simulation.snapshot())
 		routing_ui.set_focus(0)
+	_check(_press(support_tab), "returning to Mabel should allow Support to reopen", failures)
 	await process_frame
 
 	var trust_before := float(opening_worker.get("manager_trust", 0.0))
@@ -263,6 +350,7 @@ func _run() -> void:
 	# The lock is flock-wide, not local to the hen who received the check-in.
 	if routing_ui != null:
 		routing_ui.set_focus(1)
+	_check(_press(support_tab), "the second hen should expose the same Support contract", failures)
 	await process_frame
 	var second_worker_before := _worker_snapshot(simulation.snapshot(), 1)
 	_check(share_credit != null and share_credit.disabled, "personnel controls should stay disabled when another hen is selected", failures)

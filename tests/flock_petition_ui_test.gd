@@ -306,13 +306,16 @@ func _check_petition_option(
 	cost_cents: int,
 	failures: Array[String],
 ) -> void:
+	var preview_text := String(button.get_meta("preview", "")) if button != null else ""
 	_check(
 		button != null
 		and label in button.text
-		and cost_text in button.text
-		and tier_text in button.text
+		and cost_text in preview_text
+		and tier_text in preview_text
+		and cost_text in button.tooltip_text
+		and tier_text in button.tooltip_text
 		and int(button.get_meta("cost_cents", -1)) == cost_cents,
-		"%s tier should expose its identity and exact cost" % label,
+		"%s tier should expose its identity plus exact terms through the shared-preview contract" % label,
 		failures,
 	)
 

@@ -15,7 +15,7 @@ func _init() -> void:
 			push_error("SENIOR_ROOST_SPONSORSHIP_STATE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SENIOR_ROOST_SPONSORSHIP_STATE_TEST_PASSED marks=lifetime-vs-spent gates=quarter+annual transaction=atomic migration=v1-to-v3 history=bounded")
+	print("SENIOR_ROOST_SPONSORSHIP_STATE_TEST_PASSED marks=lifetime-vs-spent gates=quarter+annual transaction=atomic migration=v1-to-v5 history=bounded")
 	quit(0)
 
 
@@ -129,10 +129,10 @@ func _test_schema_migration_and_validation(failures: Array[String]) -> void:
 	legacy.erase("roost_marks_spent")
 	legacy.erase("sponsorship_history")
 	var restored = SeniorRoostStateScript.from_dictionary(legacy)
-	_check(restored != null, "valid v1 Senior career should migrate through schema v2 to schema v3", failures)
+	_check(restored != null, "valid v1 Senior career should migrate through schema v2, v3, and v4 to schema v5", failures)
 	if restored != null:
 		var migrated := restored.to_dictionary()
-		_check(int(migrated.get("schema_version", -1)) == 3, "migration should emit schema v3", failures)
+		_check(int(migrated.get("schema_version", -1)) == 5, "migration should emit schema v5", failures)
 		_check(restored.roost_marks_spent == 0 and restored.available_roost_marks() == restored.roost_marks, "v1 migration should preserve every lifetime mark as available", failures)
 		_check(restored.sponsorship_history.is_empty(), "v1 migration should default to an empty sponsorship ledger", failures)
 	_check(int(legacy.get("schema_version", -1)) == 1 and not legacy.has("roost_marks_spent"), "migration must not mutate the caller's v1 Dictionary", failures)
@@ -141,7 +141,7 @@ func _test_schema_migration_and_validation(failures: Array[String]) -> void:
 	_check(bool(senior.commit_sponsorship(preflight, _authoritative_receipt(preflight, "Mabel")).get("accepted", false)), "validation fixture should contain one real sponsorship", failures)
 	var json_value: Variant = JSON.parse_string(JSON.stringify(senior.to_dictionary()))
 	var round_trip = SeniorRoostStateScript.from_dictionary(json_value as Dictionary)
-	_check(round_trip != null and round_trip.to_dictionary() == senior.to_dictionary(), "schema-v3 sponsorship state should survive primitive JSON round-trip", failures)
+	_check(round_trip != null and round_trip.to_dictionary() == senior.to_dictionary(), "schema-v5 sponsorship state should survive primitive JSON round-trip", failures)
 
 	var overspent := senior.to_dictionary()
 	overspent["roost_marks_spent"] = int(overspent["roost_marks"]) + 1

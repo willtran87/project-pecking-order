@@ -8,6 +8,7 @@ extends VBoxContainer
 
 signal action_requested(case_id: int, action_id: StringName)
 
+const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
 const COLOR_BRASS := Color("e7c56e")
 const COLOR_PAPER := Color("ddd2b8")
 const COLOR_MUTED := Color("aeb8c4")
@@ -20,6 +21,8 @@ var _status_label: Label
 var _terms_label: Label
 var _case_list: VBoxContainer
 var _last_resolution_label: Label
+var _cases_toggle
+var _had_open_cases := false
 
 
 func _ready() -> void:
@@ -54,11 +57,17 @@ func _build_interface() -> void:
 	_terms_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_terms_label)
 
+	_cases_toggle = FlockwatchDisclosureToggleScript.new()
+	_cases_toggle.name = "FlockRelationsCasesToggle"
+	add_child(_cases_toggle)
+
 	_case_list = VBoxContainer.new()
 	_case_list.name = "FlockRelationsCaseList"
 	_case_list.add_theme_constant_override("separation", 6)
 	_case_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(_case_list)
+	var case_targets: Array[Control] = [_case_list]
+	_cases_toggle.configure("HEN CASES", "INTAKE CLEAR", case_targets, false)
 
 	_last_resolution_label = _make_label("", 10, COLOR_TEAL)
 	_last_resolution_label.name = "FlockRelationsLastResolution"
@@ -90,6 +99,7 @@ func _refresh() -> void:
 		"LEVEL %d | REVIEW AUTHORIZATIONS %d / %d USED\n"
 		+ "Unresolved files carry compliance, solidarity, and grievance pressure into the next closing."
 	) % [level, used, resolution_limit]
+	_refresh_cases_disclosure(open_count, capacity)
 
 	for child in _case_list.get_children():
 		child.queue_free()
@@ -115,6 +125,29 @@ func _refresh() -> void:
 	_last_resolution_label.visible = not last_resolution.is_empty()
 	if _last_resolution_label.visible:
 		_last_resolution_label.text = _resolution_copy(last_resolution)
+
+
+func set_cases_expanded(expanded: bool) -> void:
+	if _cases_toggle != null:
+		_cases_toggle.set_expanded(expanded)
+
+
+func cases_expanded() -> bool:
+	return _cases_toggle != null and _cases_toggle.is_expanded()
+
+
+func _refresh_cases_disclosure(open_count: int, capacity: int) -> void:
+	if _cases_toggle == null:
+		return
+	_cases_toggle.set_summary(
+		"%d OPEN / %d CAPACITY" % [open_count, capacity]
+		if open_count > 0 else
+		"INTAKE CLEAR / %d CAPACITY" % capacity
+	)
+	var has_open_cases := open_count > 0
+	if has_open_cases and not _had_open_cases:
+		_cases_toggle.set_expanded(true, false)
+	_had_open_cases = has_open_cases
 
 
 func _build_case_card(case_record: Dictionary) -> Control:

@@ -18,6 +18,7 @@ const { chromium } = await import(playwrightModule);
 
 const url = process.argv[2] ?? "http://localhost:3000/?build=responsive-audit";
 const outputDir = path.resolve(process.argv[3] ?? "captures/responsive-guided");
+const startGame = process.argv.includes("--start-game");
 const viewports = [
   { name: "high-2560x1600", width: 2560, height: 1600 },
   { name: "desktop-1440x900", width: 1440, height: 900 },
@@ -42,9 +43,21 @@ page.on("pageerror", (error) => errors.push(`page: ${String(error)}`));
 await page.goto(url, { waitUntil: "domcontentloaded" });
 await page.waitForTimeout(10_000);
 
+if (startGame) {
+  const canvas = page.locator("canvas").first();
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error("Unable to locate the game canvas for the live opening audit.");
+  await page.mouse.click(
+    bounds.x + bounds.width * 0.5,
+    bounds.y + bounds.height * (594 / 720),
+  );
+  await page.waitForTimeout(1_500);
+}
+
 const results = [];
 for (const viewport of viewports) {
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
+	await page.evaluate(() => window.dispatchEvent(new Event("resize")));
   await page.waitForTimeout(750);
   await page.screenshot({
     path: path.join(outputDir, `${viewport.name}.png`),
@@ -84,10 +97,45 @@ for (const viewport of viewports) {
   }, viewport));
 }
 
+const auditFailures = [...errors];
+for (const result of results) {
+  if (result.body.horizontalOverflow) {
+    auditFailures.push(`${result.name}: horizontal page overflow`);
+  }
+  if (!startGame) continue;
+  if (result.diagnostic?.campaign_stage !== "active") {
+    auditFailures.push(`${result.name}: live audit did not leave the title screen`);
+  }
+  if (result.diagnostic?.first_clutch?.visible !== true) {
+    auditFailures.push(`${result.name}: opening First Clutch guidance is not visible`);
+  }
+  const presentation = result.diagnostic?.office_presentation;
+  if (
+    presentation?.capacity !== 4
+    || presentation?.core_visible !== true
+    || presentation?.west_partition_visible !== true
+    || presentation?.west_perch_04_visible !== false
+    || presentation?.west_perch_05_visible !== false
+    || presentation?.archive_visible !== false
+  ) {
+    auditFailures.push(`${result.name}: opening office presentation is not the bounded capacity-four state`);
+  }
+}
+
 fs.writeFileSync(
   path.join(outputDir, "audit.json"),
-  JSON.stringify({ url, errors, results }, null, 2),
+  JSON.stringify({
+    url,
+    mode: startGame ? "live" : "title",
+    errors,
+    auditFailures,
+    results,
+  }, null, 2),
 );
+
+if (auditFailures.length) {
+  throw new Error(`Responsive audit failed:\n${auditFailures.join("\n")}`);
+}
 
 await browser.close();
 

@@ -91,7 +91,7 @@ Replace generic office dressing with objects that reinforce the premise:
 - Barn-red compliance signs
 - Poultry waterers in place of ordinary water coolers
 
-The Feed Party is now a physical office event: the trough rises into the wellness zone, grain is visible, and chickens path to six exported feeding sockets while management records attendance. Future polish can add loose-grain particles, eating audio, and a wheeled arrival animation.
+The Feed Party is now a physical office event: a Blender-authored cart rolls into the wellness zone on four animated casters, settles with a restrained loose-grain burst, and gives each arriving chicken a varied physical feeding cue. Chickens path to six exported feeding sockets while management records attendance, and reduced-motion mode presents the same readable event without travel or particle motion.
 
 ### Lighting and Staging
 
