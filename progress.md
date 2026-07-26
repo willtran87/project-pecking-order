@@ -1804,3 +1804,44 @@ The next major systems milestone is persistent worker relationships and individu
 - All nine Web payloads are synchronized between `docs/` and
   `web/public/game/`. The final 6,264,216-byte PCK has SHA-256
   `1B2607EE912204F0CDAF3CBED8617A21B704C0ED0652B70C935A8D81B43B4364`.
+
+## 2026-07-26 — Physical-probe Flockwatch remediation
+
+- The first exact-candidate RTX 3090 probe reached two complete shifts with no
+  browser errors, but correctly failed release acceptance: Settings/Flockwatch
+  next-frame input measured 226.2 ms p95 against the 150 ms gate, and the
+  foreground browser was externally terminated before the continuous frame
+  sample could settle.
+- Bounded Flockwatch's retained snapshot to the exact discovery and narration
+  projection it reads. Worker, workstation, history, and unrelated economy
+  graphs no longer scale a drawer toggle.
+- Removed legacy forced rebuilds of hidden Flock, Capital, and Pecking Order
+  views. Those controls now refresh only when their actual filing is visible;
+  the updated efficiency test locks that invariant.
+- Added a two-frame Web-only layout/glyph prewarm behind the opaque campaign
+  intake and before `loaded=true`. This keeps first-player-action latency out of
+  boot-time Control layout without exposing a transient panel or accepting
+  input behind the title.
+- The exact 20-action headed RTX 3090 retest now records 106.6 ms median and
+  135.8 ms p95/maximum, including the first player-triggered Settings and
+  Flockwatch opens. The 1920x1080 capture at
+  `output/web-game/flockwatch-hotpath-v2/flockwatch-open.png` was inspected:
+  Today data is current, the office remains unobstructed, and no prewarm layer
+  leaks into the frame.
+- A first full-suite run exposed one newly visible stale staffing reason: faster
+  hidden-page handling let a review transition arrive before the old incidental
+  refresh. A bounded staffing semantic fingerprint now refreshes phase,
+  planning, capacity, and action changes immediately while leaving clock-only
+  ticks idle. The isolated regression and efficiency/input guards pass.
+- Final native verification discovers, completes, and passes all 191/191 Godot
+  tests with zero failures/timeouts at
+  `output/godot-full-suite-20260726-flockwatch-prewarm-final-v2/`.
+  The Node 24 beta gate passes eleven native scenarios, lint, production build,
+  42/42 rendered accessibility tests, production serving, and exact nine-file
+  parity at `output/release/flockwatch-prewarm-final-gate.json`.
+- The independent Web client produced a clean, contained intake capture with no
+  error artifact at
+  `output/web-game/official-client-flockwatch-prewarm-v1/`.
+- The final synchronized PCK is 6,267,672 bytes with SHA-256
+  `1E2998E82640CDF184EE65FCBAA9D5AD2299E7ACAD164B331498617212A14CD9`.
+  The detached ten-minute physical rerun remains next.

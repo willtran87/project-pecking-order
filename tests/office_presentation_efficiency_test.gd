@@ -151,12 +151,12 @@ func _run() -> void:
 
 	office.call("_refresh_visible_management_surfaces", current_snapshot, true)
 	_check(
-		staffing.apply_count == 1
-		and pecking_order.apply_count == 1
+		staffing.apply_count == 0
+		and pecking_order.apply_count == 0
 		and capital.apply_count == 0
 		and expansion.set_count == 0
 		and portfolio.apply_count == 0,
-		"a forced filing refresh should update lightweight filed views without rebuilding hidden planners",
+		"a legacy forced refresh should not rebuild filing views the player cannot see",
 		failures,
 	)
 
@@ -169,7 +169,7 @@ func _run() -> void:
 		capital.apply_count == 1
 		and expansion.set_count == 1
 		and portfolio.apply_count == 1
-		and pecking_order.apply_count == 2,
+		and pecking_order.apply_count == 1,
 		"each visible planner should receive exactly one current snapshot refresh",
 		failures,
 	)
@@ -182,7 +182,7 @@ func _run() -> void:
 		office.set("_flockwatch_open", true)
 		office.call("_refresh_visible_management_surfaces", current_snapshot, false)
 		_check(
-			staffing.apply_count == 2,
+			staffing.apply_count == 1,
 			"staffing should refresh when its Flockwatch filing becomes visible",
 			failures,
 		)

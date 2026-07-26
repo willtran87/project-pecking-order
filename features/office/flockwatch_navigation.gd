@@ -82,6 +82,51 @@ const GOVERNANCE_RECEIPT_KEYS: Array[StringName] = [
 	&"flock_compact_receipt",
 	&"pending_governance_receipts",
 ]
+const SNAPSHOT_PROJECTION_KEYS: Array[StringName] = [
+	&"first_clutch_active",
+	&"first_clutch",
+	&"case_docket",
+	&"economic_briefing",
+	&"relevant_flockwatch_pages",
+	&"flockwatch_relevance",
+	&"flockwatch_pending_receipts",
+	&"pending_receipts",
+	&"last_operations_receipt",
+	&"last_feed_order_receipt",
+	&"last_feed_procurement_receipt",
+	&"last_farmgate_dispatch_receipt",
+	&"pending_operations_receipts",
+	&"last_facility_purchase_receipt",
+	&"last_capacity_purchase_receipt",
+	&"last_campus_expansion_receipt",
+	&"last_campus_portfolio_receipt",
+	&"pending_capital_receipts",
+	&"last_flock_relations_receipt",
+	&"last_contract_receipt",
+	&"last_gallery_receipt",
+	&"flock_compact_receipt",
+	&"pending_governance_receipts",
+	&"owned_facilities",
+	&"feed_party_available",
+	&"feed_party_used_today",
+	&"overtime_enabled",
+	&"operations",
+	&"feed_procurement",
+	&"farmgate_dispatch",
+	&"facility_catalog",
+	&"capital_plan",
+	&"capacity_upgrade",
+	&"farm_treasury",
+	&"campus_expansion",
+	&"campus_portfolio",
+	&"flock_relations",
+	&"contract_board",
+	&"farmer_relations_gallery",
+	&"flock_petition",
+	&"flock_petition_history",
+	&"flock_compact",
+	&"work_to_rule",
+]
 
 var _snapshot: Dictionary = {}
 var _interface_built := false
@@ -116,7 +161,18 @@ func _ready() -> void:
 ## Reads immutable presentation evidence from an authoritative snapshot. It does
 ## not retain a reference to the caller's Dictionary and never calls simulation.
 func apply_snapshot(snapshot: Dictionary) -> void:
-	_snapshot = snapshot.duplicate(true)
+	# Page discovery and narration consume a bounded projection. Retaining and
+	# recursively copying every worker, workstation, market, history, and save
+	# field made a simple ledger toggle scale with the complete economy.
+	_snapshot = {}
+	for key: StringName in SNAPSHOT_PROJECTION_KEYS:
+		var value: Variant = snapshot.get(key, snapshot.get(String(key), null))
+		if value is Dictionary:
+			_snapshot[key] = (value as Dictionary).duplicate(true)
+		elif value is Array:
+			_snapshot[key] = (value as Array).duplicate(true)
+		elif value != null:
+			_snapshot[key] = value
 	if snapshot.has("first_clutch_active"):
 		_first_clutch_active = bool(snapshot.get("first_clutch_active", false))
 	elif snapshot.has("first_clutch"):

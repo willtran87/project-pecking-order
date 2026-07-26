@@ -386,6 +386,7 @@ var _pending_simulation_presentation_snapshot: Dictionary = {}
 var _presentation_update_count := 0
 var _last_presented_tick_revision := 0
 var _campus_presentation_fingerprint := 0
+var _staffing_presentation_fingerprint := 0
 var _next_campus_presentation_refresh_msec := 0
 var _boot_started_msec := 0
 var _boot_timing: Dictionary = {}
@@ -469,6 +470,8 @@ func _ready() -> void:
 		_show_campaign_title(_has_campaign_checkpoint_candidate)
 		_set_campaign_modal_open(true)
 		_on_announcement_posted("PROBATION INTAKE OPEN. Begin a new five-shift file or continue a saved one.")
+	if OS.has_feature("web"):
+		await _prewarm_web_management_surfaces()
 	_boot_mark(&"first_interactive")
 	if "--capture-decision" in OS.get_cmdline_user_args() or "--capture-decision" in OS.get_cmdline_args():
 		_capture_decision_preview()
@@ -794,6 +797,38 @@ func _refresh_action_prompts() -> void:
 		)
 	if _routing_ui != null and _routing_ui.has_method("set_peck_assist_binding_label"):
 		_routing_ui.call("set_peck_assist_binding_label", _action_hint(PECK_ASSIST_ACTION))
+
+
+func _prewarm_web_management_surfaces() -> void:
+	if _flockwatch_panel == null or _settings_ui == null:
+		return
+	# Chromium/Godot otherwise pays the complete Control layout and glyph setup
+	# on the player's first toggle. Warm both already-built surfaces behind the
+	# opaque campaign intake before the Web build reports itself interactive.
+	var flockwatch_visible := _flockwatch_panel.visible
+	var flockwatch_modulate := _flockwatch_panel.modulate
+	var flockwatch_mouse_filter := _flockwatch_panel.mouse_filter
+	var settings_visible := _settings_ui.visible
+	var settings_modulate := _settings_ui.modulate
+	var settings_mouse_filter := _settings_ui.mouse_filter
+	var settings_processes_input := _settings_ui.is_processing_input()
+	_flockwatch_panel.modulate.a = 0.001
+	_flockwatch_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flockwatch_panel.visible = true
+	_settings_ui.modulate.a = 0.001
+	_settings_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_settings_ui.set_process_input(false)
+	_settings_ui.visible = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_flockwatch_panel.visible = flockwatch_visible
+	_flockwatch_panel.modulate = flockwatch_modulate
+	_flockwatch_panel.mouse_filter = flockwatch_mouse_filter
+	_settings_ui.visible = settings_visible
+	_settings_ui.modulate = settings_modulate
+	_settings_ui.mouse_filter = settings_mouse_filter
+	_settings_ui.set_process_input(settings_processes_input)
+	_refresh_floor_input_context()
 
 
 func _on_settings_requested() -> void:
@@ -10810,7 +10845,7 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 		var snapshot := settled_snapshot
 		if is_open:
 			_refresh_flockwatch_navigation(snapshot)
-		_refresh_visible_management_surfaces(snapshot, true)
+		_refresh_visible_management_surfaces(snapshot)
 		if _routing_ui != null and not is_open:
 			_routing_ui.apply_snapshot(_snapshot_with_active_workers(snapshot))
 		_refresh_first_clutch_ui(snapshot)
@@ -10848,7 +10883,7 @@ func _on_flockwatch_page_changed(page_id: StringName) -> void:
 	)
 	if _flockwatch_open and _simulation != null:
 		var snapshot := _simulation.snapshot()
-		_refresh_visible_management_surfaces(snapshot, true)
+		_refresh_visible_management_surfaces(snapshot)
 		_publish_web_diagnostic_state(snapshot)
 
 
@@ -11683,7 +11718,10 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	_publish_web_diagnostic_state(snapshot)
 
 
-func _refresh_visible_management_surfaces(snapshot: Dictionary, force: bool = false) -> void:
+func _refresh_visible_management_surfaces(
+	snapshot: Dictionary,
+	_force_legacy_hidden_refresh: bool = false
+) -> void:
 	# Full-screen planners receive a fresh snapshot when opened. While hidden,
 	# rebuilding their card trees on every accelerated tick creates allocations
 	# the player can neither see nor act on.
@@ -11701,17 +11739,17 @@ func _refresh_visible_management_surfaces(snapshot: Dictionary, force: bool = fa
 			FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS,
 		]
 	)
-	if _staffing_ui != null and (force or staffing_filing_visible):
+	var staffing_fingerprint := _staffing_presentation_state_fingerprint(snapshot)
+	var staffing_semantics_changed := (
+		staffing_fingerprint != _staffing_presentation_fingerprint
+	)
+	if _staffing_ui != null and (staffing_filing_visible or staffing_semantics_changed):
 		_staffing_ui.apply_snapshot(snapshot)
+		_staffing_presentation_fingerprint = staffing_fingerprint
 	if (
 		_economic_briefing_ui != null
-		and (
-			force
-			or (
-				_flockwatch_open
-				and active_filing == FlockwatchNavigation.PAGE_CAPITAL
-			)
-		)
+		and _flockwatch_open
+		and active_filing == FlockwatchNavigation.PAGE_CAPITAL
 	):
 		_economic_briefing_ui.apply_snapshot(snapshot)
 	if (
@@ -11724,7 +11762,7 @@ func _refresh_visible_management_surfaces(snapshot: Dictionary, force: bool = fa
 		_campus_expansion_ui.call("set_snapshot", snapshot)
 	if _campus_portfolio_ui != null and _campus_portfolio_ui.visible:
 		_campus_portfolio_ui.call("apply_snapshot", snapshot)
-	if _pecking_order_ui != null and (force or _pecking_order_ui.is_visible_in_tree()):
+	if _pecking_order_ui != null and _pecking_order_ui.is_visible_in_tree():
 		_pecking_order_ui.call("apply_snapshot", snapshot)
 
 
@@ -11733,6 +11771,7 @@ func _initialize_management_surfaces(snapshot: Dictionary) -> void:
 	# accessibility retain node identity. Subsequent ticks use visibility gates.
 	if _staffing_ui != null:
 		_staffing_ui.apply_snapshot(snapshot)
+		_staffing_presentation_fingerprint = _staffing_presentation_state_fingerprint(snapshot)
 	if _economic_briefing_ui != null:
 		_economic_briefing_ui.apply_snapshot(snapshot)
 	if _capital_blueprint_ui != null:
@@ -11743,6 +11782,22 @@ func _initialize_management_surfaces(snapshot: Dictionary) -> void:
 		_campus_portfolio_ui.call("apply_snapshot", snapshot)
 	if _pecking_order_ui != null:
 		_pecking_order_ui.call("apply_snapshot", snapshot)
+
+
+func _staffing_presentation_state_fingerprint(snapshot: Dictionary) -> int:
+	var capacity := snapshot.get("capacity_upgrade", {}) as Dictionary
+	var pending := snapshot.get("pending_decision", {}) as Dictionary
+	return hash([
+		bool(snapshot.get("staffing_planning_open", false)),
+		int(snapshot.get("shift_phase", 0)),
+		String(snapshot.get("pending_decision_kind", pending.get("kind", ""))),
+		int(snapshot.get("active_staff_count", 0)),
+		int(snapshot.get("office_capacity", 0)),
+		int(capacity.get("next_capacity", 0)),
+		bool(capacity.get("can_purchase", capacity.get("available", false))),
+		String(capacity.get("reason", "")),
+		snapshot.get("last_staffing_action", {}),
+	])
 
 
 func _refresh_upgrade_disclosure(snapshot: Dictionary) -> void:

@@ -147,8 +147,18 @@ func _run() -> void:
 		"owned_facilities": {&"it_coop": 1},
 		"facility_catalog": [{"facility_id": &"records_annex", "can_purchase": true}],
 		"pending_receipts": {"records": {"receipt_id": "FR-1"}},
+		"case_docket": {"active_precedents": []},
+		"workers": [{"id": 99, "presentation_only_noise": true}],
 	})
 	await process_frame
+	var retained_snapshot := navigation.get("_snapshot") as Dictionary
+	_check(
+		retained_snapshot.has("case_docket")
+		and retained_snapshot.has("facility_catalog")
+		and not retained_snapshot.has("workers"),
+		"Flockwatch should retain only its bounded discovery and narration projection",
+		failures,
+	)
 	_check(
 		navigation.available_page_ids() == [FlockwatchNavigation.PAGE_TODAY, FlockwatchNavigation.PAGE_FLOCK],
 		"Fresh First Clutch should expose only Today and Flock",
