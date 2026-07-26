@@ -129,9 +129,13 @@ func _run() -> void:
 		failures
 	)
 	var handoff_echoes := office.find_children("PooledEggHandoffEcho_*", "MeshInstance3D", true, false)
+	var active_handoff_echoes := 0
+	for echo_value in handoff_echoes:
+		if bool((echo_value as MeshInstance3D).get_meta("handoff_in_use", false)):
+			active_handoff_echoes += 1
 	_check(
-		handoff_echoes.size() == 3 and handoff_echoes.size() <= 18,
-		"one routed egg should acquire three echoes from the bounded 18-node handoff pool",
+		handoff_echoes.size() == 18 and active_handoff_echoes == 3,
+		"the prewarmed bounded pool should retain 18 nodes while one routed egg acquires exactly three",
 		failures
 	)
 

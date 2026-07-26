@@ -314,6 +314,21 @@ async function health(label) {
 async function sampleFrames(label, durationMsec = 1_500) {
   return page.evaluate(({ sampleLabel, duration }) => new Promise((resolve) => {
     const intervals = [];
+    const diagnostic = () => {
+      try {
+        const snapshot = JSON.parse(window.render_game_to_text?.() ?? "{}");
+        return {
+          campaignDay: snapshot.campaign_day,
+          eggsToday: snapshot.eggs_today,
+          tickRevision: snapshot.performance?.authoritative_tick_revision,
+          checkpointWrites: snapshot.checkpoint?.write_attempt_count,
+          checkpointStatus: snapshot.checkpoint?.status,
+        };
+      } catch {
+        return {};
+      }
+    };
+    const before = diagnostic();
     let previous = performance.now();
     const started = previous;
     function frame(now) {
@@ -324,6 +339,7 @@ async function sampleFrames(label, durationMsec = 1_500) {
         return;
       }
       const sorted = [...intervals].sort((left, right) => left - right);
+      const largestIntervalsMsec = [...sorted].reverse().slice(0, 5);
       const percentile = (ratio) => sorted[
         Math.min(sorted.length - 1, Math.floor(sorted.length * ratio))
       ] ?? 0;
@@ -335,6 +351,9 @@ async function sampleFrames(label, durationMsec = 1_500) {
         medianFrameMsec: percentile(0.5),
         p95FrameMsec: percentile(0.95),
         worstFrameMsec: sorted.at(-1) ?? 0,
+        largestIntervalsMsec,
+        before,
+        after: diagnostic(),
       });
     }
     requestAnimationFrame(frame);
@@ -545,6 +564,11 @@ async function requestCheckpoint(reason) {
 }
 
 async function resolveVisibleDecision() {
+  await waitForState(`snapshot => (
+    snapshot.pending_decision_kind !== ""
+    && Array.isArray(snapshot.pending_decision?.options)
+    && snapshot.pending_decision.options.some((option) => option.available !== false)
+  )`);
   const before = await state();
   const activeStrategyId = Number(before.senior_roost?.year ?? 1) >= 2
     ? yearTwoStrategyId
@@ -729,10 +753,9 @@ try {
     await startContinuousFrameSample();
     physicalInput = await probePhysicalInputs();
   }
-  await page.keyboard.press("Digit3");
-  await waitForState("snapshot => snapshot.clock_speed_index === 3");
-
-  const baseline = await health("day-1-running-baseline");
+  // Capture pan responsiveness at the settled 1x opening speed. Forced
+  // Chromium collection belongs after the first production frame sample so it
+  // cannot contaminate the first rAF interval.
   const cameraProbe = physicalGpuProbe
     ? {
         responseMsec: physicalInput?.p95Msec ?? Number.POSITIVE_INFINITY,
@@ -742,7 +765,11 @@ try {
       }
     : await probeCamera();
   await page.keyboard.press("Digit3");
-  frameSamples.push(await sampleFrames("day-1-active-production"));
+  await waitForState("snapshot => snapshot.clock_speed_index === 3");
+  // Five seconds includes the first authoritative egg, its GPU particle pulse,
+  // and at least one ordinary checkpoint due window on the shipped 10x clock.
+  frameSamples.push(await sampleFrames("day-1-active-production", 5_000));
+  const baseline = await health("day-1-running-baseline");
 
   while (true) {
     assert.ok(Date.now() - startedAt < maxWallMsec, `active progression exceeded ${maxWallMsec}ms`);

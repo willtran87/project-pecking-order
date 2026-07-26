@@ -1777,3 +1777,30 @@ The next major systems milestone is persistent worker relationships and individu
 - The actual physical gate remains pending until human testers run and sign all
   seven real-device sessions. Repository automation cannot manufacture that
   evidence.
+
+## 2026-07-26 — Active-production runtime optimization
+
+- Added a two-second runtime projection cache while preserving exact snapshots
+  for direct queries and save boundaries. Office presentation now shares compact
+  worker, workstation, routing, and Flockwatch projections instead of rebuilding
+  the complete economy graph for every consumer.
+- Removed the dominant duplicate Flockwatch snapshot request, coalesced campus
+  and facility presentation updates, preallocated the handoff echo and particle
+  pools, and limited live Flockwatch refresh work to the open drawer.
+- Kept checkpoint semantics atomic while avoiding redundant parse cycles on
+  already validated JSON bytes. Backup recovery, semantic rejection, retry, and
+  lifecycle integration remain covered.
+- The final two-shift ANGLE D3D11 audit passes at
+  `output/web-game/particle-frustum-prewarm-v11/audit.json`. Day 1 includes the
+  first egg and checkpoint window with an 18.1 ms median, 54 ms p95, and 144.1 ms
+  worst frame; Day 2 records an 18 ms median, 36.1 ms p95/worst frame. It reports
+  zero listener growth, zero WASM growth, zero orphans, no browser errors, and no
+  audit failures.
+- The impacted Godot 4.7 set passes 15/15 scripts. Bundled Node 24 ESLint,
+  production build, and all 42/42 rendered behavior/accessibility tests pass.
+  The official independent client capture at
+  `output/web-game/official-client-runtime-v11/shot-0.png` is contained and
+  readable with no browser-error artifact.
+- All nine Web payloads are synchronized between `docs/` and
+  `web/public/game/`. The final 6,264,216-byte PCK has SHA-256
+  `1B2607EE912204F0CDAF3CBED8617A21B704C0ED0652B70C935A8D81B43B4364`.

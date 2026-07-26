@@ -75,6 +75,7 @@ const STATUS_TOAST_HOLD_MSEC := 5500
 const STATUS_HISTORY_LIMIT := 18
 const CHECKPOINT_ERROR_LIMIT := 240
 const WEB_DIAGNOSTIC_INTERVAL_MSEC := 250
+const CAMPUS_PRESENTATION_REFRESH_MSEC := 500
 const LIVE_HUD_HEIGHT := 92.0
 const FIRST_CLUTCH_HUD_HEIGHT := 64.0
 const LIVE_ROUTING_TOP := 100.0
@@ -384,6 +385,8 @@ var _web_diagnostic_next_allowed_msec := 0
 var _pending_simulation_presentation_snapshot: Dictionary = {}
 var _presentation_update_count := 0
 var _last_presented_tick_revision := 0
+var _campus_presentation_fingerprint := 0
+var _next_campus_presentation_refresh_msec := 0
 var _boot_started_msec := 0
 var _boot_timing: Dictionary = {}
 
@@ -2778,7 +2781,10 @@ func _is_worker_employed(worker: Dictionary) -> bool:
 
 
 func _snapshot_with_active_workers(snapshot: Dictionary) -> Dictionary:
-	var filtered := snapshot.duplicate(true)
+	# The authoritative read model is already a disposable value object. Only the
+	# worker rows are filtered or enriched here, so deep-copying every facility,
+	# campus quote, history row, and economic filing on every tick is wasted work.
+	var filtered := snapshot.duplicate()
 	var active_workers: Array[Dictionary] = []
 	for worker_value in snapshot.get("workers", []):
 		var worker := worker_value as Dictionary
@@ -2789,11 +2795,18 @@ func _snapshot_with_active_workers(snapshot: Dictionary) -> Dictionary:
 
 
 func _workstation_visual_snapshot(active_snapshot: Dictionary) -> Dictionary:
-	var visual_snapshot := active_snapshot.duplicate(true)
-	var visual_workers: Array = visual_snapshot.get("workers", [])
+	# WorkstationFeedback reads only these two fields. Returning the complete
+	# economy made its presentation call retain dozens of unrelated projections.
+	var visual_snapshot := {
+		"upgrade_levels": (
+			active_snapshot.get("upgrade_levels", {}) as Dictionary
+		).duplicate(true),
+	}
+	var visual_workers: Array = []
 	var occupied: Dictionary[int, bool] = {}
-	for worker_value in visual_workers:
-		var worker := worker_value as Dictionary
+	for worker_value in active_snapshot.get("workers", []):
+		var worker := (worker_value as Dictionary).duplicate(true)
+		visual_workers.append(worker)
 		occupied[int(worker.get("desk_index", -1))] = true
 	var capacity := _office_capacity_from_snapshot(active_snapshot)
 	for desk_index in capacity:
@@ -2810,6 +2823,48 @@ func _workstation_visual_snapshot(active_snapshot: Dictionary) -> Dictionary:
 		})
 	visual_snapshot["workers"] = visual_workers
 	return visual_snapshot
+
+
+func _routing_visual_snapshot(active_snapshot: Dictionary) -> Dictionary:
+	# PeckworkRoutingUI owns a defensive deep copy. Keep that contract while
+	# limiting the copy to the dossier, queue, and personnel fields it actually
+	# reads; campus, capital, contract, and economic briefing projections never
+	# belong in the per-tick routing payload.
+	var routing_snapshot: Dictionary = {}
+	for key: String in [
+		"day",
+		"shift_phase",
+		"routing",
+		"routing_catalog",
+		"claim_queue_counts",
+		"claim_queue_overdue_counts",
+		"claim_queue_items",
+		"overdue_claims",
+		"last_peck_assist",
+		"peck_assists_remaining",
+		"peck_assist_pending_delivery_count",
+		"peck_assist_limit",
+		"personnel_action_status",
+		"personnel_action_used",
+		"personnel_action_available",
+		"spendable_fund_cents",
+		"revenue_cents",
+		"operations",
+		"flock_care",
+		"training_terms",
+		"personnel_catalog",
+		"claim_resolution_catalog",
+	]:
+		if active_snapshot.has(key):
+			routing_snapshot[key] = active_snapshot[key]
+	var routing_workers: Array[Dictionary] = []
+	for worker_value in active_snapshot.get("workers", []):
+		var worker := (worker_value as Dictionary).duplicate(true)
+		var worker_id := int(worker.get("id", -1))
+		worker["estimated_crack_risk"] = _simulation.estimated_crack_risk(worker_id)
+		routing_workers.append(worker)
+	routing_snapshot["workers"] = routing_workers
+	return routing_snapshot
 
 
 func _spawn_worker_view(worker_data: Dictionary, arrival_order: int = -1) -> ChickenView:
@@ -8524,7 +8579,7 @@ func _refresh_first_clutch_ui(snapshot: Dictionary = {}) -> void:
 			_first_clutch = _make_first_clutch_state(false)
 	var coach := _first_clutch_coach_snapshot(active_snapshot)
 	_routing_ui.call("apply_first_clutch", coach)
-	_update_flockwatch_toggle()
+	_update_flockwatch_toggle(active_snapshot)
 	_apply_first_clutch_global_cue(coach)
 
 
@@ -8687,7 +8742,7 @@ func _bounded_checkpoint_error(message: String) -> String:
 
 func _publish_checkpoint_diagnostic() -> void:
 	if _simulation != null:
-		_publish_web_diagnostic_state(_simulation.snapshot())
+		_publish_web_diagnostic_state(_simulation.snapshot(true))
 
 
 func _load_campaign_checkpoint() -> void:
@@ -10392,6 +10447,11 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"presentation_update_count": _presentation_update_count,
 		"ticks_advanced_last_frame": _clock.ticks_advanced_last_frame(),
 		"pending_tick_count": _clock.pending_tick_count(),
+		"runtime_projection_cache": (
+			_simulation.runtime_projection_cache_diagnostics()
+			if _simulation != null else
+			{}
+		),
 		"diagnostic_interval_msec": WEB_DIAGNOSTIC_INTERVAL_MSEC,
 	}, true)
 	var diagnostic_directive := snapshot.get("active_directive", {}) as Dictionary
@@ -10738,11 +10798,18 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 		_flockwatch_panel.mouse_filter = Control.MOUSE_FILTER_STOP if is_open else Control.MOUSE_FILTER_IGNORE
 	var another_surface_open := _blocking_management_surface_open()
 	_refresh_floor_input_context()
+	var settled_snapshot: Dictionary = (
+		_simulation.snapshot()
+		if _simulation != null else
+		{}
+	)
 	if _flockwatch_toggle != null:
 		_flockwatch_toggle.tooltip_text = ("Close the ledger and restore the full coop view." if is_open else "Open the rooster's performance ledger.")
-	_update_flockwatch_toggle()
+	_update_flockwatch_toggle(settled_snapshot)
 	if _simulation != null:
-		var snapshot := _simulation.snapshot()
+		var snapshot := settled_snapshot
+		if is_open:
+			_refresh_flockwatch_navigation(snapshot)
 		_refresh_visible_management_surfaces(snapshot, true)
 		if _routing_ui != null and not is_open:
 			_routing_ui.apply_snapshot(_snapshot_with_active_workers(snapshot))
@@ -10808,12 +10875,16 @@ func _open_flockwatch_page(page_id: StringName) -> void:
 		_flockwatch_navigation.open_page(page_id, true)
 
 
-func _update_flockwatch_toggle() -> void:
+func _update_flockwatch_toggle(snapshot: Dictionary = {}) -> void:
 	if _flockwatch_toggle == null:
 		return
-	var snapshot := _simulation.snapshot()
-	var headcount := int(snapshot.get("active_staff_count", _worker_views.size()))
-	var capacity := _office_capacity_from_snapshot(snapshot)
+	var active_snapshot := (
+		snapshot
+		if not snapshot.is_empty() else
+		_simulation.snapshot()
+	)
+	var headcount := int(active_snapshot.get("active_staff_count", _worker_views.size()))
+	var capacity := _office_capacity_from_snapshot(active_snapshot)
 	if _flockwatch_open:
 		# Keep the control's identity stable. The former rotating copy made one
 		# button look like four unrelated systems depending on office state.
@@ -10836,7 +10907,7 @@ func _update_flockwatch_toggle() -> void:
 	# over the historical output summary while a review-time requisition is ready.
 	var ready_facilities := 0
 	var ready_facility_names: Array[String] = []
-	for facility_value in snapshot.get("facility_catalog", []):
+	for facility_value in active_snapshot.get("facility_catalog", []):
 		if facility_value is not Dictionary:
 			continue
 		var facility := facility_value as Dictionary
@@ -10858,9 +10929,9 @@ func _update_flockwatch_toggle() -> void:
 		return
 	if _pecking_order_ui != null:
 		var leader_summary: String = String(_pecking_order_ui.call("leader_summary"))
-		var has_ranked_output := int(snapshot.get("eggs_today", 0)) > 0
+		var has_ranked_output := int(active_snapshot.get("eggs_today", 0)) > 0
 		if not has_ranked_output:
-			for row_value in snapshot.get("last_pecking_order", []):
+			for row_value in active_snapshot.get("last_pecking_order", []):
 				if int((row_value as Dictionary).get("eggs", 0)) > 0:
 					has_ranked_output = true
 					break
@@ -10870,7 +10941,10 @@ func _update_flockwatch_toggle() -> void:
 			_apply_flockwatch_binding_hint()
 			return
 	var affordable := 0
-	var spendable := int(snapshot.get("spendable_fund_cents", _simulation.revenue_cents))
+	var spendable := int(active_snapshot.get(
+		"spendable_fund_cents",
+		_simulation.revenue_cents,
+	))
 	for upgrade in _simulation.upgrade_catalog():
 		if not bool(upgrade.get("maxed", false)) and spendable >= int(upgrade.get("cost_cents", 0)):
 			affordable += 1
@@ -11222,6 +11296,36 @@ func _update_campus_world_bounds(snapshot: Dictionary) -> void:
 		)
 
 
+func _campus_presentation_state_fingerprint(snapshot: Dictionary) -> int:
+	var facility_states: Array = []
+	for facility_value in snapshot.get("facility_catalog", []):
+		if facility_value is not Dictionary:
+			continue
+		var facility := facility_value as Dictionary
+		facility_states.append([
+			String(facility.get("id", "")),
+			int(facility.get("current_level", facility.get("level", 0))),
+			bool(facility.get("unlocked", facility.get("available", false))),
+			bool(facility.get("can_purchase", false)),
+			bool(facility.get("maxed", false)),
+		])
+	var expansion := snapshot.get("campus_expansion", {}) as Dictionary
+	var portfolio := snapshot.get("campus_portfolio", {}) as Dictionary
+	return hash([
+		int(snapshot.get("day", 0)),
+		int(snapshot.get("shift_phase", 0)),
+		snapshot.get("owned_facilities", {}),
+		snapshot.get("pinned_capital_plan_id", ""),
+		facility_states,
+		bool(expansion.get("parcel_owned", false)),
+		bool(expansion.get("pod_owned", false)),
+		bool(expansion.get("pod_operational", false)),
+		int(portfolio.get("capital_spend_total_cents", 0)),
+		portfolio.get("parcels", []),
+		portfolio.get("projects", []),
+	])
+
+
 func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	if _clock != null and _clock.is_advancing_tick_batch():
 		_pending_simulation_presentation_snapshot = snapshot
@@ -11255,33 +11359,45 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		_audio_director.call("update_from_snapshot", active_snapshot)
 	if _office_storytelling != null:
 		# Campus presentation is applied immediately below with its authored teaser
-		# options; skip the default rebuild here so each snapshot performs it once.
+		# options; skip the default rebuild here. The campus filing changes on
+		# purchases and planning beats, not every worker-progress tick, so coalesce
+		# unchanged presentation work while keeping live clutch signage immediate.
 		_office_storytelling.apply_snapshot(active_snapshot, false)
-		_office_storytelling.apply_campus_presentation(
-			active_snapshot,
-			{
-				# Day 1 already teases the next perch inside the bureau. Beginning
-				# on Day 2, show at most one physical capital hint one shift before
-				# its unchanged economic gate.
-				"show_next_teaser": int(snapshot.get("day", 1)) >= 2,
-				"teaser_window_days": 1,
-			},
-		)
+		var campus_fingerprint := _campus_presentation_state_fingerprint(snapshot)
+		var campus_now_msec := Time.get_ticks_msec()
+		if (
+			campus_fingerprint != _campus_presentation_fingerprint
+			or campus_now_msec >= _next_campus_presentation_refresh_msec
+		):
+			_campus_presentation_fingerprint = campus_fingerprint
+			_next_campus_presentation_refresh_msec = (
+				campus_now_msec + CAMPUS_PRESENTATION_REFRESH_MSEC
+			)
+			_office_storytelling.apply_campus_presentation(
+				active_snapshot,
+				{
+					# Day 1 already teases the next perch inside the bureau. Beginning
+					# on Day 2, show at most one physical capital hint one shift before
+					# its unchanged economic gate.
+					"show_next_teaser": int(snapshot.get("day", 1)) >= 2,
+					"teaser_window_days": 1,
+				},
+			)
 	_update_campus_world_bounds(snapshot)
 	if _workstation_feedback != null:
 		_workstation_feedback.apply_snapshot(_workstation_visual_snapshot(active_snapshot))
 	_refresh_visible_management_surfaces(snapshot)
 	if _routing_ui != null:
-		var routing_snapshot := active_snapshot.duplicate(true)
-		var routing_workers: Array = routing_snapshot.get("workers", [])
-		for worker_value in routing_workers:
-			var worker := worker_value as Dictionary
-			var worker_id := int(worker.get("id", -1))
-			worker["estimated_crack_risk"] = _simulation.estimated_crack_risk(worker_id)
-		_routing_ui.apply_snapshot(routing_snapshot)
+		_routing_ui.apply_snapshot(_routing_visual_snapshot(active_snapshot))
 	_refresh_priority_peck_precision_focus(snapshot)
 	_refresh_first_clutch_ui(snapshot)
-	_refresh_flockwatch_navigation(snapshot)
+	if _flockwatch_open:
+		_refresh_flockwatch_navigation(snapshot)
+	elif _flockwatch_navigation != null:
+		_flockwatch_navigation.set_first_clutch_active(
+			not bool(_first_clutch.get("dismissed", true))
+			and not bool(_first_clutch.get("completed", false))
+		)
 	var snapshot_day := int(snapshot["day"])
 	if snapshot_day > _last_reviewed_day and _management_presence != null:
 		_last_reviewed_day = snapshot_day
@@ -11557,7 +11673,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 			String(upgrade.get("description", "")),
 		]
 	_refresh_upgrade_disclosure(snapshot)
-	_update_flockwatch_toggle()
+	_update_flockwatch_toggle(snapshot)
 	_update_campaign_objectives_label(snapshot)
 	_update_flock_labor_label(snapshot)
 	_update_records_archive_summary(snapshot)
@@ -11661,7 +11777,10 @@ func _refresh_upgrade_disclosure(snapshot: Dictionary) -> void:
 func _refresh_flockwatch_navigation(snapshot: Dictionary) -> void:
 	if _flockwatch_navigation == null:
 		return
-	var presentation := snapshot.duplicate(true)
+	# Flockwatch owns the one defensive deep copy it retains. This wrapper only
+	# adds top-level presentation keys, so a shallow copy avoids duplicating the
+	# complete economy twice whenever the visible ledger refreshes.
+	var presentation := snapshot.duplicate()
 	var first_clutch_active := (
 		not bool(_first_clutch.get("dismissed", true))
 		and not bool(_first_clutch.get("completed", false))
@@ -11795,7 +11914,10 @@ func _immediate_cash_for_completed_egg(
 ) -> int:
 	if quality == &"cracked":
 		return maxi(0, value_cents)
-	var dispatch := _simulation.snapshot().get("farmgate_dispatch", {}) as Dictionary
+	# Egg completion is a high-frequency production event. Reading the focused
+	# dispatch projection avoids rebuilding the entire authoritative economy for
+	# a boolean and a handful of refrigerated lots.
+	var dispatch := _simulation.farmgate_dispatch_snapshot()
 	if not bool(dispatch.get("enabled", false)):
 		return maxi(0, value_cents)
 	for lot_value: Variant in dispatch.get("lots", []):
@@ -11887,7 +12009,7 @@ func _publish_camera_diagnostic() -> void:
 	# simulation clock. Publish through the existing 4 Hz coalescer so visual and
 	# assistive camera state cannot stay stale until the next authoritative tick.
 	if _simulation != null:
-		_publish_web_diagnostic_state(_simulation.snapshot())
+		_publish_web_diagnostic_state(_simulation.snapshot(true))
 
 
 func _on_egg_graded(
@@ -11900,7 +12022,7 @@ func _on_egg_graded(
 	var base_value := maxi(0, value_cents - streak_bonus_cents)
 	if _audio_feedback != null:
 		_audio_feedback.play_sorter_clack(quality)
-	var dispatch := _simulation.snapshot().get("farmgate_dispatch", {}) as Dictionary
+	var dispatch := _simulation.farmgate_dispatch_snapshot()
 	var destination := (
 		"awaiting Farmgate dispatch"
 		if bool(dispatch.get("enabled", false)) and quality in [&"sound", &"golden"] else
@@ -12443,7 +12565,7 @@ func _on_speed_changed(speed_index: int, multiplier: float) -> void:
 	if _routing_ui != null:
 		_routing_ui.set_peck_assist_clock_running(speed_index > 0)
 	if _simulation != null:
-		var snapshot := _simulation.snapshot()
+		var snapshot := _simulation.snapshot(true)
 		_refresh_first_clutch_ui(snapshot)
 		_update_guidance(snapshot)
 	var review_open := _day_review_scrim != null and _day_review_scrim.visible

@@ -74,6 +74,10 @@ const MAX_HANDOFF_ECHOES := 18
 const HANDOFF_ECHO_SAMPLE_SECONDS := 0.025
 const HANDOFF_ECHO_HISTORY_SAMPLES := 10
 const HANDOFF_ECHO_HISTORY_STRIDE := 2
+# Facility rooms communicate strategic state, not sub-second worker motion.
+# Refreshing their binders, signs, and constructed props four times per second
+# keeps them visually current without rebuilding the entire campus every 10x tick.
+const FACILITY_VISUAL_REFRESH_MSEC := 250
 const PRESENTATION_CLUTCH_SLOTS := 24
 const CART_CLUTCH_SLOTS := MAX_VISIBLE_CLUTCH_EGGS - PRESENTATION_CLUTCH_SLOTS
 const REVIEW_SHIFT_PHASE := 3
@@ -263,6 +267,8 @@ var _optional_visual_build_started_msec := 0
 var _optional_visual_build_completed_msec := 0
 var _optional_visual_build_timings: Dictionary = {}
 var _last_snapshot: Dictionary = {}
+var _next_facility_visual_refresh_msec := 0
+var _facility_visual_refresh_count := 0
 var _archive_story_content: Node3D
 var _intake_story_content: Node3D
 var _records_zone: Node3D
@@ -414,11 +420,13 @@ func bind_worker_to_desk(worker_id: int, desk_index: int) -> void:
 		_worker_to_desk[worker_id] = desk_index
 
 
-## Updates the management KPI board and overtime staging. This method is cheap
-## enough to call on every simulation snapshot.
+## Updates the live clutch/KPI staging on every simulation snapshot. Strategic
+## facility rooms are coalesced to four refreshes per second because they rebuild
+## signs and physical evidence from projections that change far less frequently.
 func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = true) -> void:
 	if snapshot.is_empty():
 		return
+	var previous_snapshot := _last_snapshot
 	_last_snapshot = snapshot
 	var workers: Array = snapshot.get("workers", []) as Array
 	for worker_variant in workers:
@@ -428,38 +436,49 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 		if worker_id >= 0:
 			_worker_names[worker_id] = String(worker.get("name", "HEN %d" % (worker_id + 1)))
 	_reconcile_clutch_from_snapshot(snapshot)
-	if shell_quality_lab_visual != null:
-		shell_quality_lab_visual.apply_snapshot(snapshot)
-	if packing_annex_visual != null:
-		packing_annex_visual.call("apply_snapshot", snapshot)
-	if records_annex_visual != null:
-		records_annex_visual.call("apply_snapshot", snapshot)
-	if farm_mutual_service_coop_visual != null:
-		farm_mutual_service_coop_visual.call("apply_snapshot", snapshot)
-	if farm_mutual_negotiation_room_visual != null:
-		farm_mutual_negotiation_room_visual.call("apply_snapshot", snapshot)
-	if farm_mutual_contract_board_visual != null:
-		farm_mutual_contract_board_visual.call("apply_snapshot", snapshot)
-	if wellness_nest_visual != null:
-		wellness_nest_visual.call("apply_snapshot", snapshot)
-	if training_roost_visual != null:
-		training_roost_visual.call("apply_snapshot", snapshot)
-	if farmer_relations_gallery_visual != null:
-		farmer_relations_gallery_visual.call("apply_snapshot", snapshot)
-	if rooster_operations_office_visual != null:
-		rooster_operations_office_visual.call("apply_snapshot", snapshot)
-	if it_coop_visual != null:
-		it_coop_visual.call("apply_snapshot", snapshot)
-	if flock_relations_office_visual != null:
-		flock_relations_office_visual.call("apply_snapshot", snapshot)
-	if feed_procurement_coop_visual != null:
-		feed_procurement_coop_visual.call("apply_snapshot", snapshot)
-	if farmgate_dispatch_depot_visual != null:
-		farmgate_dispatch_depot_visual.call("apply_snapshot", snapshot)
-	if campus_expansion_visual != null:
-		campus_expansion_visual.call("apply_snapshot", snapshot)
-	if campus_portfolio_visual != null:
-		campus_portfolio_visual.call("apply_snapshot", snapshot)
+	var now_msec := Time.get_ticks_msec()
+	var facility_visuals_due: bool = (
+		previous_snapshot.is_empty()
+		or now_msec >= _next_facility_visual_refresh_msec
+		or int(previous_snapshot.get("day", -1)) != int(snapshot.get("day", -1))
+		or int(previous_snapshot.get("shift_phase", -1)) != int(snapshot.get("shift_phase", -1))
+		or previous_snapshot.get("owned_facilities", {}) != snapshot.get("owned_facilities", {})
+	)
+	if facility_visuals_due:
+		_next_facility_visual_refresh_msec = now_msec + FACILITY_VISUAL_REFRESH_MSEC
+		_facility_visual_refresh_count += 1
+		if shell_quality_lab_visual != null:
+			shell_quality_lab_visual.apply_snapshot(snapshot)
+		if packing_annex_visual != null:
+			packing_annex_visual.call("apply_snapshot", snapshot)
+		if records_annex_visual != null:
+			records_annex_visual.call("apply_snapshot", snapshot)
+		if farm_mutual_service_coop_visual != null:
+			farm_mutual_service_coop_visual.call("apply_snapshot", snapshot)
+		if farm_mutual_negotiation_room_visual != null:
+			farm_mutual_negotiation_room_visual.call("apply_snapshot", snapshot)
+		if farm_mutual_contract_board_visual != null:
+			farm_mutual_contract_board_visual.call("apply_snapshot", snapshot)
+		if wellness_nest_visual != null:
+			wellness_nest_visual.call("apply_snapshot", snapshot)
+		if training_roost_visual != null:
+			training_roost_visual.call("apply_snapshot", snapshot)
+		if farmer_relations_gallery_visual != null:
+			farmer_relations_gallery_visual.call("apply_snapshot", snapshot)
+		if rooster_operations_office_visual != null:
+			rooster_operations_office_visual.call("apply_snapshot", snapshot)
+		if it_coop_visual != null:
+			it_coop_visual.call("apply_snapshot", snapshot)
+		if flock_relations_office_visual != null:
+			flock_relations_office_visual.call("apply_snapshot", snapshot)
+		if feed_procurement_coop_visual != null:
+			feed_procurement_coop_visual.call("apply_snapshot", snapshot)
+		if farmgate_dispatch_depot_visual != null:
+			farmgate_dispatch_depot_visual.call("apply_snapshot", snapshot)
+		if campus_expansion_visual != null:
+			campus_expansion_visual.call("apply_snapshot", snapshot)
+		if campus_portfolio_visual != null:
+			campus_portfolio_visual.call("apply_snapshot", snapshot)
 	# Child visuals retain their complete locked/survey/owned projections. The
 	# presentation layer gates only their parent roots after those projections
 	# update, so revealing a site later never requires rebuilding or save data.
@@ -835,7 +854,6 @@ func _clear_egg_handoff_feedback() -> void:
 		if is_instance_valid(echo):
 			echo.visible = false
 			echo.set_meta("handoff_in_use", false)
-	_egg_handoff_echo_pool.clear()
 
 
 func _apply_egg_quality_visual(
@@ -3100,6 +3118,89 @@ func _build_living_clutch() -> void:
 	if _surplus_marker_root != null:
 		_surplus_marker_root.set_meta(&"overview_anchor", true)
 	_surplus_marker_root.visible = false
+	_build_handoff_calibration_rack()
+	_prewarm_handoff_echo_pool()
+
+
+func _build_handoff_calibration_rack() -> void:
+	# WebGL compiles material variants on their first visible draw. A tiny sorter
+	# calibration rack makes the opaque, metallic/emissive, cracked-shell, alpha
+	# echo, and stamp-ring variants resident during the title screen instead of
+	# freezing the first live egg handoff several seconds into production.
+	var rack := Node3D.new()
+	rack.name = "SorterMaterialCalibrationRack"
+	egg_collection_root.add_child(rack)
+	_add_box(
+		rack,
+		"CalibrationBackplate",
+		Vector3(1.18, 0.42, 0.05),
+		Vector3(9.20, 1.12, -6.08),
+		Color("33464a"),
+		0.72,
+	)
+	var qualities: Array[StringName] = [&"sound", &"golden", &"cracked"]
+	for quality_index in qualities.size():
+		var quality := qualities[quality_index]
+		var x := 8.78 + quality_index * 0.42
+		var body_mesh := BoxMesh.new()
+		body_mesh.size = Vector3(0.20, 0.16, 0.035)
+		var body_swatch := MeshInstance3D.new()
+		body_swatch.name = "CalibrationBodySwatch_%s" % String(quality)
+		body_swatch.mesh = body_mesh
+		body_swatch.position = Vector3(x, 1.20, -6.045)
+		body_swatch.material_override = _egg_quality_material(quality)
+		body_swatch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		rack.add_child(body_swatch)
+
+		var ring_mesh := TorusMesh.new()
+		ring_mesh.inner_radius = 0.065
+		ring_mesh.outer_radius = 0.085
+		ring_mesh.rings = 12
+		ring_mesh.ring_segments = 6
+		var ring_swatch := MeshInstance3D.new()
+		ring_swatch.name = "CalibrationStampSwatch_%s" % String(quality)
+		ring_swatch.mesh = ring_mesh
+		ring_swatch.position = Vector3(x, 1.02, -6.035)
+		ring_swatch.rotation_degrees.x = 90.0
+		ring_swatch.material_override = _make_handoff_ring_material(quality)
+		ring_swatch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		rack.add_child(ring_swatch)
+
+		for echo_index in HANDOFF_ECHOES_PER_EGG:
+			var echo_mesh := BoxMesh.new()
+			echo_mesh.size = Vector3(0.055, 0.055, 0.025)
+			var echo_swatch := MeshInstance3D.new()
+			echo_swatch.name = "CalibrationEchoSwatch_%s_%d" % [
+				String(quality), echo_index,
+			]
+			echo_swatch.mesh = echo_mesh
+			echo_swatch.position = Vector3(
+				x - 0.07 + echo_index * 0.07,
+				0.91,
+				-6.035,
+			)
+			echo_swatch.material_override = _handoff_echo_material(quality, echo_index)
+			echo_swatch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			rack.add_child(echo_swatch)
+
+
+func _prewarm_handoff_echo_pool() -> void:
+	if egg_collection_root == null or _clutch_egg_mesh == null:
+		return
+	while _egg_handoff_echo_pool.size() < MAX_HANDOFF_ECHOES:
+		var echo_index := _egg_handoff_echo_pool.size()
+		var echo := MeshInstance3D.new()
+		echo.name = "PooledEggHandoffEcho_%02d" % echo_index
+		echo.mesh = _clutch_egg_mesh
+		echo.material_override = _handoff_echo_material(
+			&"sound",
+			echo_index % HANDOFF_ECHOES_PER_EGG,
+		)
+		echo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		echo.visible = false
+		echo.set_meta("handoff_in_use", false)
+		egg_collection_root.add_child(echo)
+		_egg_handoff_echo_pool.append(echo)
 
 
 func _add_clutch_cup_batch(parent: Node3D, batch_name: String, instance_count: int) -> MultiMeshInstance3D:

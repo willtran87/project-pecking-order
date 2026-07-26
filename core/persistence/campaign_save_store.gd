@@ -39,6 +39,9 @@ var _temporary_path: String = ""
 var _backup_path: String = ""
 var _backup_temporary_path: String = ""
 var _configuration_error: String = ""
+var _cached_highest_revision := -1
+var _verified_primary_size := -1
+var _verified_primary_modified_unix := -1
 
 
 func _init(filename: String = DEFAULT_FILENAME) -> void:
@@ -54,6 +57,8 @@ func has_save() -> bool:
 		if not FileAccess.file_exists(path):
 			continue
 		if bool(_read_envelope(path).get("ok", false)):
+			if path == _primary_path:
+				_remember_verified_primary()
 			return true
 	return false
 
@@ -74,7 +79,8 @@ func save(campaign: Dictionary, metadata: Dictionary = {}) -> bool:
 
 	var stored_metadata: Dictionary = metadata.duplicate(true)
 	stored_metadata["saved_at_unix"] = int(Time.get_unix_time_from_system())
-	stored_metadata["save_revision"] = _highest_known_revision() + 1
+	var next_revision := _highest_known_revision() + 1
+	stored_metadata["save_revision"] = next_revision
 	var envelope := {
 		"format": SAVE_FORMAT,
 		"schema_version": CURRENT_SCHEMA_VERSION,
@@ -91,15 +97,19 @@ func save(campaign: Dictionary, metadata: Dictionary = {}) -> bool:
 
 	if not _write_text(_temporary_path, json_text):
 		return false
-	var temporary_result := _read_envelope(_temporary_path)
-	if not bool(temporary_result.get("ok", false)):
-		return _fail("Temporary save verification failed: %s" % String(temporary_result.get("error", "unknown error")))
+	if not _file_matches_text(_temporary_path, json_text):
+		return _fail("Temporary save verification failed: bytes differ from the validated envelope.")
 
 	# Preserve only a known-good primary. A corrupt primary must never overwrite a
 	# usable backup from the previous successful transaction.
 	if FileAccess.file_exists(_primary_path):
-		var primary_result := _read_envelope(_primary_path)
-		if bool(primary_result.get("ok", false)) and not _refresh_backup():
+		var primary_verified := _verified_primary_signature_is_current()
+		if not primary_verified:
+			var primary_result := _read_envelope(_primary_path)
+			primary_verified = bool(primary_result.get("ok", false))
+			if primary_verified:
+				_remember_verified_primary()
+		if primary_verified and not _refresh_backup():
 			return false
 
 	if FileAccess.file_exists(_primary_path):
@@ -116,9 +126,10 @@ func save(campaign: Dictionary, metadata: Dictionary = {}) -> bool:
 			return _fail("Could not commit the temporary save: %s" % error_string(copy_error))
 		_remove_if_present(_temporary_path)
 
-	var committed_result := _read_envelope(_primary_path)
-	if not bool(committed_result.get("ok", false)):
-		return _fail("Committed save verification failed: %s" % String(committed_result.get("error", "unknown error")))
+	if not _file_matches_text(_primary_path, json_text):
+		return _fail("Committed save verification failed: bytes differ from the validated envelope.")
+	_cached_highest_revision = next_revision
+	_remember_verified_primary()
 	_remove_if_present(_backup_temporary_path)
 	last_error = ""
 	return true
@@ -205,6 +216,7 @@ func load_recovery_candidates() -> Array[Dictionary]:
 	last_error = ""
 	if not _ensure_configured():
 		return []
+	_forget_verified_primary()
 
 	var errors: Array[String] = []
 	var primary_candidate: Dictionary = {}
@@ -224,6 +236,7 @@ func load_recovery_candidates() -> Array[Dictionary]:
 		)
 		if source == "primary":
 			primary_candidate = candidate
+			_remember_verified_primary()
 		else:
 			recovery_candidates.append(candidate)
 
@@ -233,6 +246,13 @@ func load_recovery_candidates() -> Array[Dictionary]:
 		ordered.append(primary_candidate)
 	ordered.append_array(recovery_candidates)
 	if not ordered.is_empty():
+		var highest_revision := 0
+		for candidate in ordered:
+			highest_revision = maxi(
+				highest_revision,
+				int((candidate as Dictionary).get("save_revision", 0)),
+			)
+		_cached_highest_revision = highest_revision
 		last_error = ""
 		return ordered
 
@@ -257,6 +277,8 @@ func delete() -> bool:
 			failures.append("%s: %s" % [_source_name(path), error_string(remove_error)])
 	if not failures.is_empty():
 		return _fail("Could not delete every campaign save file (%s)." % "; ".join(failures))
+	_cached_highest_revision = -1
+	_forget_verified_primary()
 	return true
 
 
@@ -357,9 +379,8 @@ func _refresh_backup() -> bool:
 	var copy_error := DirAccess.copy_absolute(_primary_path, _backup_temporary_path)
 	if copy_error != OK:
 		return _fail("Could not stage the campaign backup: %s" % error_string(copy_error))
-	var staged_result := _read_envelope(_backup_temporary_path)
-	if not bool(staged_result.get("ok", false)):
-		return _fail("Staged backup verification failed: %s" % String(staged_result.get("error", "unknown error")))
+	if not _files_match(_primary_path, _backup_temporary_path):
+		return _fail("Staged backup verification failed: copied bytes differ from the verified primary.")
 	if FileAccess.file_exists(_backup_path):
 		var remove_error := DirAccess.remove_absolute(_backup_path)
 		if remove_error != OK:
@@ -369,11 +390,70 @@ func _refresh_backup() -> bool:
 		var fallback_copy_error := DirAccess.copy_absolute(_backup_temporary_path, _backup_path)
 		if fallback_copy_error != OK:
 			return _fail("Could not commit the campaign backup: %s" % error_string(fallback_copy_error))
-		var copied_result := _read_envelope(_backup_path)
-		if not bool(copied_result.get("ok", false)):
-			return _fail("Copied backup verification failed: %s" % String(copied_result.get("error", "unknown error")))
+		if not _files_match(_backup_temporary_path, _backup_path):
+			return _fail("Copied backup verification failed: committed bytes differ from the staged backup.")
 		_remove_if_present(_backup_temporary_path)
 	return true
+
+
+func _file_matches_text(path: String, expected: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return false
+	var actual := file.get_as_text()
+	var read_error := file.get_error()
+	file.close()
+	return read_error == OK and actual == expected
+
+
+func _files_match(first_path: String, second_path: String) -> bool:
+	if not FileAccess.file_exists(first_path) or not FileAccess.file_exists(second_path):
+		return false
+	var first := FileAccess.open(first_path, FileAccess.READ)
+	var second := FileAccess.open(second_path, FileAccess.READ)
+	if first == null or second == null:
+		if first != null:
+			first.close()
+		if second != null:
+			second.close()
+		return false
+	var first_length := first.get_length()
+	var second_length := second.get_length()
+	if first_length != second_length or first_length < 0:
+		first.close()
+		second.close()
+		return false
+	var first_bytes := first.get_buffer(first_length)
+	var second_bytes := second.get_buffer(second_length)
+	var first_error := first.get_error()
+	var second_error := second.get_error()
+	first.close()
+	second.close()
+	return first_error == OK and second_error == OK and first_bytes == second_bytes
+
+
+func _remember_verified_primary() -> void:
+	if not FileAccess.file_exists(_primary_path):
+		_forget_verified_primary()
+		return
+	_verified_primary_size = FileAccess.get_size(_primary_path)
+	_verified_primary_modified_unix = FileAccess.get_modified_time(_primary_path)
+
+
+func _forget_verified_primary() -> void:
+	_verified_primary_size = -1
+	_verified_primary_modified_unix = -1
+
+
+func _verified_primary_signature_is_current() -> bool:
+	return (
+		_verified_primary_size >= 0
+		and FileAccess.file_exists(_primary_path)
+		and FileAccess.get_size(_primary_path) == _verified_primary_size
+		and FileAccess.get_modified_time(_primary_path) == _verified_primary_modified_unix
+	)
 
 
 func _remove_if_present(path: String) -> bool:
@@ -498,6 +578,8 @@ func _validate_current_envelope(envelope: Dictionary) -> String:
 
 
 func _highest_known_revision() -> int:
+	if _cached_highest_revision >= 0:
+		return _cached_highest_revision
 	var highest := 0
 	for path in _all_paths():
 		if not FileAccess.file_exists(path):
@@ -505,6 +587,7 @@ func _highest_known_revision() -> int:
 		var result := _read_envelope(path)
 		if bool(result.get("ok", false)):
 			highest = maxi(highest, int(result.get("revision", 0)))
+	_cached_highest_revision = highest
 	return highest
 
 

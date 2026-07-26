@@ -15,6 +15,7 @@ const OVERTIME_BLUE := Color("5b89c9")
 
 const OFFICE_PARTICLE_BOUNDS := AABB(Vector3(-12.2, -0.5, -9.2), Vector3(24.4, 4.6, 18.4))
 const EVENT_PARTICLE_BOUNDS := AABB(Vector3(-2.2, -1.0, -2.2), Vector3(4.4, 4.5, 4.4))
+const EVENT_BURST_POOL_SIZE := 8
 
 @export_range(8, 64, 1) var dust_mote_count: int = 32
 @export_range(4, 24, 1) var feather_count: int = 10
@@ -25,6 +26,7 @@ var _drifting_feathers: GPUParticles3D
 var _zone_lights: Array[OmniLight3D] = []
 var _alert_materials: Array[StandardMaterial3D] = []
 var _event_bursts: Node3D
+var _event_burst_pool: Array[GPUParticles3D] = []
 var _farmer_spotlight: SpotLight3D
 
 var _overtime_target: float = 0.0
@@ -46,6 +48,7 @@ func _ready() -> void:
 	_event_bursts = Node3D.new()
 	_event_bursts.name = "EventBursts"
 	add_child(_event_bursts)
+	_build_event_burst_pool()
 
 
 func _process(delta: float) -> void:
@@ -348,32 +351,94 @@ func _spawn_event_burst(
 ) -> void:
 	if _event_bursts == null:
 		return
-	var burst := GPUParticles3D.new()
+	var burst: GPUParticles3D
+	for candidate in _event_burst_pool:
+		if is_instance_valid(candidate) and not bool(candidate.get_meta("event_in_use", false)):
+			burst = candidate
+			break
+	if burst == null:
+		# Eight concurrent one-shots exceed the authored office effect budget.
+		# Recycle the oldest bounded slot instead of allocating another GPU system.
+		for candidate in _event_burst_pool:
+			if (
+				burst == null
+				or int(candidate.get_meta("event_started_msec", 0))
+					< int(burst.get_meta("event_started_msec", 0))
+			):
+				burst = candidate
+	if burst == null:
+		return
+	burst.emitting = false
 	burst.name = "%s_%d" % [burst_name, Time.get_ticks_msec()]
 	burst.amount = count
 	burst.lifetime = lifetime
-	burst.one_shot = true
-	burst.explosiveness = 0.88
-	burst.randomness = 0.42
-	burst.local_coords = false
-	burst.visibility_aabb = EVENT_PARTICLE_BOUNDS
-	burst.draw_order = GPUParticles3D.DRAW_ORDER_LIFETIME
 
-	var process_material := ParticleProcessMaterial.new()
-	process_material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	process_material.emission_sphere_radius = 0.12
+	var process_material := burst.process_material as ParticleProcessMaterial
 	process_material.direction = direction.normalized()
-	process_material.spread = 64.0
 	process_material.initial_velocity_min = speed_range.x
 	process_material.initial_velocity_max = speed_range.y
-	process_material.gravity = Vector3(0.0, -0.72, 0.0)
-	process_material.scale_min = 0.55
-	process_material.scale_max = 1.25
-	process_material.color_ramp = _make_fade_gradient(Color(color, 0.0), Color(color, 0.86))
-	burst.process_material = process_material
-	burst.draw_pass_1 = _make_particle_quad(Vector2(0.055, 0.055), color, 0.92, true)
-
-	_event_bursts.add_child(burst)
+	var quad := burst.draw_pass_1 as QuadMesh
+	var draw_material := quad.material as StandardMaterial3D if quad != null else null
+	if draw_material != null:
+		draw_material.albedo_color = Color(color, 0.92 * atmosphere_strength)
 	burst.global_position = world_position
-	burst.finished.connect(burst.queue_free, CONNECT_ONE_SHOT)
+	burst.set_meta("event_in_use", true)
+	burst.set_meta("event_started_msec", Time.get_ticks_msec())
+	burst.restart()
 	burst.emitting = true
+
+
+func _build_event_burst_pool() -> void:
+	for pool_index in EVENT_BURST_POOL_SIZE:
+		var burst := GPUParticles3D.new()
+		burst.name = "EventBurstPool_%02d" % pool_index
+		burst.amount = 18
+		burst.lifetime = 0.72
+		burst.one_shot = true
+		burst.explosiveness = 0.88
+		burst.randomness = 0.42
+		burst.local_coords = false
+		burst.visibility_aabb = EVENT_PARTICLE_BOUNDS
+		burst.draw_order = GPUParticles3D.DRAW_ORDER_LIFETIME
+		var process_material := ParticleProcessMaterial.new()
+		process_material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		process_material.emission_sphere_radius = 0.12
+		process_material.direction = Vector3.UP
+		process_material.spread = 64.0
+		process_material.initial_velocity_min = 0.25
+		process_material.initial_velocity_max = 0.75
+		process_material.gravity = Vector3(0.0, -0.72, 0.0)
+		process_material.scale_min = 0.55
+		process_material.scale_max = 1.25
+		process_material.color_ramp = _make_fade_gradient(
+			Color(1.0, 1.0, 1.0, 0.0),
+			Color(1.0, 1.0, 1.0, 0.86),
+		)
+		burst.process_material = process_material
+		burst.draw_pass_1 = _make_particle_quad(
+			Vector2(0.055, 0.055),
+			Color("efe4c8"),
+			0.92,
+			true,
+		)
+		burst.set_meta("event_in_use", false)
+		burst.finished.connect(_on_event_burst_finished.bind(burst))
+		_event_bursts.add_child(burst)
+		_event_burst_pool.append(burst)
+		# Run the exact sphere-emission particle shader during the title screen.
+		# Keep it in the opening camera frustum so the renderer cannot cull the
+		# shader warm-up; a zero-alpha draw material keeps it invisible.
+		var warmup_quad := burst.draw_pass_1 as QuadMesh
+		var warmup_material := warmup_quad.material as StandardMaterial3D if warmup_quad != null else null
+		if warmup_material != null:
+			warmup_material.albedo_color = Color(1.0, 1.0, 1.0, 0.0)
+		burst.global_position = Vector3(4.75, 0.65, -0.65)
+		burst.restart()
+		burst.emitting = true
+
+
+func _on_event_burst_finished(burst: GPUParticles3D) -> void:
+	if burst == null or not is_instance_valid(burst):
+		return
+	burst.set_meta("event_in_use", false)
+	burst.name = "EventBurstPool_%02d" % _event_burst_pool.find(burst)

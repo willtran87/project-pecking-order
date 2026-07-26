@@ -68,6 +68,12 @@ const PECK_ASSIST_LIMIT := 3
 const PECK_ASSIST_WINDOW_START := 28.0
 const PECK_ASSIST_WINDOW_END := 88.0
 const PECK_ASSIST_IDEAL_PROGRESS := 62.0
+## Clock-driven snapshots publish several large planning projections that do not
+## need to be rebuilt at the authoritative tick rate. Keep their visible age
+## below two seconds while direct actions and explicit snapshot() reads remain
+## exact. This removes repeated facility/campus quote construction from the
+## accelerated simulation hot path without changing saved or economic state.
+const RUNTIME_PROJECTION_REFRESH_MSEC := 2_000
 const PECK_ASSIST_TIMING_PROFILES := {
 	&"standard": {"window_start": 28.0, "window_end": 88.0},
 	&"lenient": {"window_start": 22.0, "window_end": 92.0},
@@ -1777,6 +1783,14 @@ var management_reports_total: int = 0
 var management_visibility_today: int = 0
 
 var _tick_count: int = 0
+var _runtime_projection_cache: Dictionary = {}
+var _runtime_projection_cache_msec: int = -1
+var _runtime_projection_cache_day: int = -1
+var _runtime_projection_cache_phase: int = -1
+var _runtime_projection_cache_builds: int = 0
+var _runtime_projection_cache_hits: int = 0
+var _runtime_projection_cache_exact_builds: int = 0
+var _runtime_projection_cache_refresh_builds: int = 0
 var _rng := RandomNumberGenerator.new()
 var _claim_rng := RandomNumberGenerator.new()
 var _incident_rng := RandomNumberGenerator.new()
@@ -17945,7 +17959,7 @@ func advance_tick(publish_snapshot: bool = true) -> void:
 ## management transactions and direct advance_tick() calls retain their
 ## immediate snapshot contract; only clock-serviced accelerated ticks coalesce.
 func publish_current_snapshot() -> void:
-	snapshot_changed.emit(snapshot())
+	snapshot_changed.emit(snapshot(true))
 
 
 func fund_feed_party() -> bool:
@@ -19437,7 +19451,69 @@ func worker_temperament_effect(worker_id: int) -> Dictionary:
 	return _worker_temperament_effect(workers[worker_id]).duplicate(true)
 
 
-func snapshot() -> Dictionary:
+func _build_runtime_projection_bundle() -> Dictionary:
+	var campus_expansion_projection := campus_expansion_snapshot()
+	return {
+		"contract_board": market_contract_board_status(),
+		"farm_mutual_service_coop": farm_mutual_service_coop_status(),
+		"farm_mutual_negotiation_room": farm_mutual_negotiation_room_status(),
+		"economic_briefing": economic_briefing_snapshot(),
+		"feed_procurement": feed_procurement_snapshot(),
+		"campus_expansion": campus_expansion_projection,
+		"campus_portfolio": campus_portfolio_snapshot(campus_expansion_projection),
+		"staffing_catalog": staffing_catalog(),
+		"facility_catalog": facility_catalog(),
+		"flock_care": flock_care_snapshot(),
+		"operations": operations_snapshot(),
+	}
+
+
+func _snapshot_projection_bundle(use_runtime_cache: bool) -> Dictionary:
+	var now_msec := Time.get_ticks_msec()
+	var cache_current := (
+		not _runtime_projection_cache.is_empty()
+		and _runtime_projection_cache_day == day
+		and _runtime_projection_cache_phase == shift_phase
+		and _runtime_projection_cache_msec >= 0
+		and now_msec - _runtime_projection_cache_msec < RUNTIME_PROJECTION_REFRESH_MSEC
+	)
+	if not use_runtime_cache or not cache_current:
+		_runtime_projection_cache = _build_runtime_projection_bundle()
+		_runtime_projection_cache_msec = now_msec
+		_runtime_projection_cache_day = day
+		_runtime_projection_cache_phase = shift_phase
+		_runtime_projection_cache_builds += 1
+		if use_runtime_cache:
+			_runtime_projection_cache_refresh_builds += 1
+		else:
+			_runtime_projection_cache_exact_builds += 1
+	else:
+		_runtime_projection_cache_hits += 1
+	# Consumers have historically been allowed to enrich presentation snapshots.
+	# Preserve that defensive-copy contract so no UI mutation can poison the
+	# cached authoritative projection used by a later clock frame.
+	return _runtime_projection_cache.duplicate(true)
+
+
+func runtime_projection_cache_diagnostics() -> Dictionary:
+	return {
+		"refresh_msec": RUNTIME_PROJECTION_REFRESH_MSEC,
+		"builds": _runtime_projection_cache_builds,
+		"hits": _runtime_projection_cache_hits,
+		"exact_builds": _runtime_projection_cache_exact_builds,
+		"runtime_refresh_builds": _runtime_projection_cache_refresh_builds,
+		"cached": not _runtime_projection_cache.is_empty(),
+		"cached_day": _runtime_projection_cache_day,
+		"cached_phase": _runtime_projection_cache_phase,
+		"age_msec": (
+			maxi(0, Time.get_ticks_msec() - _runtime_projection_cache_msec)
+			if _runtime_projection_cache_msec >= 0 else
+			-1
+		),
+	}
+
+
+func snapshot(use_runtime_projection_cache: bool = false) -> Dictionary:
 	_sync_claims_waiting()
 	var now := _current_operational_minute()
 	var worker_snapshots: Array[Dictionary] = []
@@ -19572,8 +19648,15 @@ func snapshot() -> Dictionary:
 		pending_rework_items.append(claim.snapshot(now))
 
 	var personnel_status := personnel_action_status()
-	var campus_expansion_projection := campus_expansion_snapshot()
-	var campus_portfolio_projection := campus_portfolio_snapshot(campus_expansion_projection)
+	var runtime_projections := _snapshot_projection_bundle(
+		use_runtime_projection_cache,
+	)
+	var campus_expansion_projection := (
+		runtime_projections.get("campus_expansion", {}) as Dictionary
+	)
+	var campus_portfolio_projection := (
+		runtime_projections.get("campus_portfolio", {}) as Dictionary
+	)
 	return {
 		# Consumers can use this monotonic tick revision to recognize accelerated
 		# simulation updates without parsing the full presentation payload. It is
@@ -19593,7 +19676,9 @@ func snapshot() -> Dictionary:
 		"intake_rejections_total": intake_rejections_total,
 		"intake_missed_value_today_cents": intake_missed_value_today_cents,
 		"intake_missed_value_total_cents": intake_missed_value_total_cents,
-		"contract_board": market_contract_board_status(),
+		"contract_board": (
+			runtime_projections.get("contract_board", {}) as Dictionary
+		),
 		"market_contract_breach_reserve_cents": current_market_contract_reserve_cents(),
 		"market_contract_premium_today_cents": market_contract_premium_today_cents,
 		"market_contract_premium_total_cents": market_contract_premium_total_cents,
@@ -19607,8 +19692,12 @@ func snapshot() -> Dictionary:
 		"market_clean_contract_streak": market_clean_contract_streak,
 		"best_market_clean_contract_streak": best_market_clean_contract_streak,
 		"farm_mutual_standing": farm_mutual_standing_status(),
-		"farm_mutual_service_coop": farm_mutual_service_coop_status(),
-		"farm_mutual_negotiation_room": farm_mutual_negotiation_room_status(),
+		"farm_mutual_service_coop": (
+			runtime_projections.get("farm_mutual_service_coop", {}) as Dictionary
+		),
+		"farm_mutual_negotiation_room": (
+			runtime_projections.get("farm_mutual_negotiation_room", {}) as Dictionary
+		),
 		"claims_processed": claims_processed,
 		"eggs_today": eggs_today,
 		"eggs_total": eggs_total,
@@ -19619,9 +19708,13 @@ func snapshot() -> Dictionary:
 		"revenue_cents": revenue_cents,
 		"credited_today_cents": credited_today_cents,
 		"farm_treasury": farm_treasury_snapshot(),
-		"economic_briefing": economic_briefing_snapshot(),
+		"economic_briefing": (
+			runtime_projections.get("economic_briefing", {}) as Dictionary
+		),
 		"daily_feed_cost_cents": current_daily_feed_cost_cents(),
-		"feed_procurement": feed_procurement_snapshot(),
+		"feed_procurement": (
+			runtime_projections.get("feed_procurement", {}) as Dictionary
+		),
 		"farmer_relations_gallery": farmer_relations_gallery_snapshot(),
 		"farmgate_dispatch": farmgate_dispatch_snapshot(),
 		"campus_expansion": campus_expansion_projection,
@@ -19643,16 +19736,20 @@ func snapshot() -> Dictionary:
 		"career_sponsorship_planning_open": shift_phase == ShiftPhase.REVIEW,
 		"staffing_planning_open": staffing_planning_open(),
 		"capacity_upgrade": capacity_upgrade_status(),
-		"staffing_catalog": staffing_catalog(),
+		"staffing_catalog": runtime_projections.get("staffing_catalog", []),
 		"owned_facilities": owned_facilities.duplicate(),
-		"facility_catalog": facility_catalog(),
+		"facility_catalog": runtime_projections.get("facility_catalog", []),
 		"facility_effects": facility_effects(),
 		"pinned_capital_plan_id": pinned_capital_plan_id,
 		"capital_plan": capital_plan_snapshot(),
 		"last_facility_purchase_receipt": last_facility_purchase_receipt.duplicate(true),
 		"facility_commissioning_history": facility_commissioning_history.duplicate(true),
-		"flock_care": flock_care_snapshot(),
-		"operations": operations_snapshot(),
+		"flock_care": (
+			runtime_projections.get("flock_care", {}) as Dictionary
+		),
+		"operations": (
+			runtime_projections.get("operations", {}) as Dictionary
+		),
 		"flock_relations": flock_relations_snapshot(),
 		"packing_contract": packing_contract_status(),
 		"packing_carton_progress": packing_carton_progress,
