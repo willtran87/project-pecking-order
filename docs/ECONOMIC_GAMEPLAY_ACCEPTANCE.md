@@ -335,8 +335,11 @@ accept.
 3. **Scalable information — shipped.** Text/interface scale and responsive layouts.
 4. **Reduced sensory load — shipped.** Reduced motion, flashing/sensory effects,
    screen shake, and rapid-effect alternatives.
-5. **Notification control — shipped where applicable.** Bounded prioritized alert
-   history, acknowledgement/dismissal, audio mixing, and grouped disclosures.
+5. **Notification control — shipped.** Settings persist All Notices, Priority
+   Only, or Shift Record Only for transient floor toasts. Every message remains
+   in the bounded newest-first Shift Record with redundant ACTION, MILESTONE, or
+   ROUTINE labels; modal decisions still require explicit acknowledgement, and
+   five independent audio buses provide separate sound-layer muting.
 6. **Input coverage — shipped.** Keyboard, mouse, controller, and touch.
 7. **Reading control — shipped.** Pause and 1x/3x/10x.
 8. **No forced rapid reaction — shipped.** Pause is always available; Priority

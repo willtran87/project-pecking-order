@@ -57,7 +57,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		_contains_all(settings.accessible_text(), ["master 80 percent", "office hum + flock room tone 55 percent", "motion reduced", "125 percent", "high contrast on", "color vision standard", "timing lenient", "pause when unfocused on", "f10", "escape", "backup export is available"]),
+		_contains_all(settings.accessible_text(), ["master 80 percent", "office hum + flock room tone 55 percent", "motion reduced", "125 percent", "high contrast on", "color vision standard", "timing lenient", "transient notices priority", "pause when unfocused on", "f10", "escape", "backup export is available"]),
 		"settings should publish one complete concise accessibility summary",
 		failures,
 	)
@@ -157,6 +157,7 @@ func _run() -> void:
 	var quality := settings.find_child("VisualQualitySelector", true, false) as OptionButton
 	var timing := settings.find_child("TimingAssistSelector", true, false) as OptionButton
 	var color_vision := settings.find_child("ColorVisionSelector", true, false) as OptionButton
+	var notice_level := settings.find_child("NoticeLevelSelector", true, false) as OptionButton
 	var focus_pause := settings.find_child("PauseWhenUnfocusedToggle", true, false) as CheckButton
 	if motion != null:
 		motion.select(2)
@@ -170,6 +171,9 @@ func _run() -> void:
 	if color_vision != null:
 		color_vision.select(1)
 		color_vision.item_selected.emit(1)
+	if notice_level != null:
+		notice_level.select(2)
+		notice_level.item_selected.emit(2)
 	if focus_pause != null:
 		focus_pause.button_pressed = false
 	_check(
@@ -178,8 +182,9 @@ func _run() -> void:
 		and String(observed_preferences.back().get("visual_quality", "")) == "low"
 		and String(observed_preferences.back().get("timing_assist", "")) == "extended"
 		and String(observed_preferences.back().get("color_vision_mode", "")) == "color_blind_safe"
+		and String(observed_preferences.back().get("notice_level", "")) == "archive_only"
 		and not bool(observed_preferences.back().get("pause_when_unfocused", true)),
-		"comfort selectors should emit their exact canonical settings",
+		"comfort and notice selectors should emit their exact canonical settings",
 		failures,
 	)
 
@@ -351,7 +356,7 @@ func _run() -> void:
 			push_error("SETTINGS_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_UI_TEST_PASSED audio=5+independent-ambience comfort=motion+contrast+color-vision+symbols+scale+detail+timing+focus-pause controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
+	print("SETTINGS_UI_TEST_PASSED audio=5+independent-ambience comfort=motion+contrast+color-vision+symbols+scale+detail+timing+notices+focus-pause controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
 	quit(0)
 
 
@@ -370,6 +375,7 @@ func _preferences() -> Dictionary:
 		"color_vision_mode": "standard",
 		"visual_quality": "balanced",
 		"timing_assist": "lenient",
+		"notice_level": "priority",
 		"pause_when_unfocused": true,
 		"input_bindings": {},
 	}

@@ -76,11 +76,11 @@ const focusGameAndOpenSettings = async () => {
 
 const toggleHighContrast = async (expectedState) => {
   // Settings gives its safe Return button initial focus. Walk the authored
-  // keyboard order through five mute/slider pairs and five selectors to the
+  // keyboard order through five mute/slider pairs and six selectors to the
   // High Contrast check row, then activate it with Space. This follows the
   // same reachable path a keyboard or switch-control player uses and avoids
   // viewport-dependent coordinates inside the Godot canvas.
-  for (let index = 0; index < 16; index += 1) {
+  for (let index = 0; index < 17; index += 1) {
     await page.keyboard.press("Tab");
   }
   await page.waitForTimeout(300);

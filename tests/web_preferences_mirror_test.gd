@@ -20,6 +20,7 @@ func _init() -> void:
 	)
 	_expect(mirror.decode(payload) == preferences, "valid preferences round-trip exactly")
 	var legacy_v2 := preferences.duplicate(true)
+	legacy_v2.erase("notice_level")
 	legacy_v2.erase("pause_when_unfocused")
 	var legacy_audio := legacy_v2.get("audio", {}) as Dictionary
 	legacy_audio.erase("ambient")
@@ -29,6 +30,18 @@ func _init() -> void:
 		bool(migrated_v2.get("pause_when_unfocused", false))
 		and (migrated_v2.get("audio", {}) as Dictionary).get("ambient", {}) == legacy_audio.get("music", {}),
 		"unversioned schema-two mirrors preserve the combined music and ambience setting",
+	)
+	var legacy_v3 := preferences.duplicate(true)
+	legacy_v3.erase("notice_level")
+	var legacy_v3_payload := JSON.stringify({
+		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
+		"schema_version": 3,
+		"preferences": legacy_v3,
+	})
+	var migrated_v3 := mirror.decode(legacy_v3_payload)
+	_expect(
+		String(migrated_v3.get("notice_level", "")) == "all",
+		"schema-three mirrors should gain the non-interrupting-compatible all-notices default",
 	)
 	_expect(mirror.decode("[]").is_empty(), "array roots are rejected")
 	_expect(not mirror.last_error.is_empty(), "invalid roots disclose an error")
@@ -47,7 +60,7 @@ func _init() -> void:
 	})
 	_expect(mirror.decode(future_payload).is_empty(), "future mirror schemas are rejected")
 	if _failures == 0:
-		print("WEB_PREFERENCES_MIRROR_TEST_PASSED assertions=10 envelope=versioned legacy=v2-music-ambience-preserved")
+		print("WEB_PREFERENCES_MIRROR_TEST_PASSED assertions=11 envelope=versioned legacy=v2-music-ambience-preserved+v3-notices-defaulted")
 	quit(_failures)
 
 

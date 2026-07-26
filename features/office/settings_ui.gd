@@ -71,6 +71,7 @@ var _ui_scale_selector: OptionButton
 var _quality_selector: OptionButton
 var _timing_selector: OptionButton
 var _color_vision_selector: OptionButton
+var _notice_level_selector: OptionButton
 var _contrast_toggle: CheckButton
 var _focus_pause_toggle: CheckButton
 var _binding_buttons: Dictionary = {}
@@ -280,7 +281,7 @@ func accessible_text() -> String:
 		)
 	var summary := (
 		"Coop Settings and Controls. Audio: %s. Motion %s. Interface scale %d percent. "
-		+ "High contrast %s. Color vision %s. Detail %s. Priority Peck timing %s. Pause when unfocused %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
+		+ "High contrast %s. Color vision %s. Detail %s. Priority Peck timing %s. Transient notices %s. Pause when unfocused %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
 	) % [
 		", ".join(audio_parts),
 		String(_preferences.get("motion_mode", "system")),
@@ -289,6 +290,7 @@ func accessible_text() -> String:
 		String(_preferences.get("color_vision_mode", "standard")).replace("_", " "),
 		String(_preferences.get("visual_quality", "balanced")),
 		String(_preferences.get("timing_assist", "standard")),
+		String(_preferences.get("notice_level", "all")).replace("_", " "),
 		"on" if bool(_preferences.get("pause_when_unfocused", true)) else "off",
 	]
 	if _capture_action != &"":
@@ -505,6 +507,14 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_color_vision_selector.name = "ColorVisionSelector"
 	_color_vision_selector.tooltip_text = "Use high-separation colors plus [N], [P], [A], [OK], [*], and [X] gameplay markers."
 	_color_vision_selector.item_selected.connect(_on_color_vision_selected)
+	_notice_level_selector = _choice_row(
+		_comfort_grid,
+		"TRANSIENT NOTICES",
+		["ALL NOTICES", "PRIORITY ONLY", "SHIFT RECORD ONLY"],
+	)
+	_notice_level_selector.name = "NoticeLevelSelector"
+	_notice_level_selector.tooltip_text = "Choose which notices interrupt the floor as temporary toasts. Every notice remains labeled and available in Today's Shift Record."
+	_notice_level_selector.item_selected.connect(_on_notice_level_selected)
 
 	_contrast_toggle = CheckButton.new()
 	_contrast_toggle.name = "HighContrastToggle"
@@ -740,6 +750,7 @@ func _sync_controls_from_preferences() -> void:
 	_quality_selector.select(["low", "balanced", "high"].find(String(_preferences.get("visual_quality", "balanced"))))
 	_timing_selector.select(["standard", "lenient", "extended"].find(String(_preferences.get("timing_assist", "standard"))))
 	_color_vision_selector.select(["standard", "color_blind_safe"].find(String(_preferences.get("color_vision_mode", "standard"))))
+	_notice_level_selector.select(["all", "priority", "archive_only"].find(String(_preferences.get("notice_level", "all"))))
 	_contrast_toggle.button_pressed = bool(_preferences.get("high_contrast", false))
 	_focus_pause_toggle.button_pressed = bool(_preferences.get("pause_when_unfocused", true))
 
@@ -786,6 +797,10 @@ func _on_timing_selected(index: int) -> void:
 
 func _on_color_vision_selected(index: int) -> void:
 	_set_preference("color_vision_mode", ["standard", "color_blind_safe"][clampi(index, 0, 1)])
+
+
+func _on_notice_level_selected(index: int) -> void:
+	_set_preference("notice_level", ["all", "priority", "archive_only"][clampi(index, 0, 2)])
 
 
 func _on_contrast_toggled(enabled: bool) -> void:

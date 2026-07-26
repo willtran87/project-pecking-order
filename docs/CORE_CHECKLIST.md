@@ -189,7 +189,8 @@ Evidence: `office_storytelling.gd`, `environmental_signage.gd`,
 - [x] Dense planning lives in dossiers, disclosures, Flockwatch pages, and
       inspectors rather than permanent HUD panels.
 - [x] Alerts expose priority, reason, action, dismissal or acknowledgement, and a
-      bounded history.
+      bounded history. Transient floor notices persist an All, Priority Only, or
+      Shift Record Only preference without deleting the underlying record.
 - [x] Corporate copy remains playful while objectives, values, deadlines, blocked
       reasons, and exact effects remain unambiguous.
 - [x] Remapping, reduced motion/sensory effects, independent sound controls,

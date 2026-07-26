@@ -144,6 +144,7 @@ func _run() -> void:
 	comfort["color_vision_mode"] = "color_blind_safe"
 	comfort["visual_quality"] = "low"
 	comfort["timing_assist"] = "extended"
+	comfort["notice_level"] = "priority"
 	comfort["pause_when_unfocused"] = true
 	(comfort.get("audio", {}) as Dictionary)["ambient"] = {"volume": 0.37, "muted": true}
 	office.set("_player_preferences", comfort)
@@ -179,6 +180,73 @@ func _run() -> void:
 		"settings narration should reflect the applied timing assistance",
 		failures,
 	)
+	_check(
+		StringName(office.call("_status_priority", "CLOCK LOCKED. Review the open decision.")) == &"action"
+		and StringName(office.call("_status_priority", "MILESTONE APPROVED: Training Roost.")) == &"milestone"
+		and StringName(office.call("_status_priority", "Mabel routed to Appeals.")) == &"routine",
+		"notice classification should label actionable risks, milestones, and routine receipts without relying on color",
+		failures,
+	)
+	_check(
+		bool(office.call("_should_present_status_toast", "CLOCK LOCKED. Review the open decision."))
+		and not bool(office.call("_should_present_status_toast", "Mabel routed to Appeals.")),
+		"priority-only notices should interrupt for actionable filings but archive routine receipts",
+		failures,
+	)
+	office.call("_record_status_copy", "Mabel routed to Appeals.")
+	office.call("_record_status_copy", "CLOCK LOCKED. Review the open decision.")
+	var notification_diagnostic := office.call("_notification_diagnostic_state") as Dictionary
+	var recent_notices := notification_diagnostic.get("recent", []) as Array
+	_check(
+		recent_notices.size() >= 2
+		and String((recent_notices[0] as Dictionary).get("label", "")) == "ACTION"
+		and String((recent_notices[1] as Dictionary).get("label", "")) == "ROUTINE",
+		"the bounded diagnostic record should preserve newest-first copy with redundant semantic priority labels",
+		failures,
+	)
+	var notice_campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
+	if notice_campaign_ui != null:
+		notice_campaign_ui.hide_modal()
+	for notice_surface_name: String in [
+		"_decision_host", "_day_review_scrim", "_settings_ui",
+		"_capital_blueprint_ui", "_campus_portfolio_ui", "_campus_expansion_ui",
+		"_commissioning_reveal_ui", "_campus_portfolio_reveal_ui",
+	]:
+		var notice_surface := office.get(notice_surface_name) as Control
+		if notice_surface != null:
+			notice_surface.visible = false
+	office.call("_publish_status_copy", "CLOCK LOCKED. Feed Party attendance is still in progress.")
+	office.call("_publish_status_copy", "FEED PARTY ALREADY IN PROGRESS. No second morale debit was charged.")
+	notification_diagnostic = office.call("_notification_diagnostic_state") as Dictionary
+	_check(
+		bool(notification_diagnostic.get("toast_visible", false))
+		and String(notification_diagnostic.get("toast_priority", "")) == "action"
+		and String(notification_diagnostic.get("toast_copy", "")).contains("CLOCK LOCKED")
+		and String(notification_diagnostic.get("latest_priority", "")) == "routine"
+		and String(notification_diagnostic.get("latest_copy", "")).contains("ALREADY IN PROGRESS"),
+		"immediate publication should preserve an actionable toast while archiving a later routine receipt",
+		failures,
+	)
+	office.set("_ticker_hide_at_msec", Time.get_ticks_msec() - 1)
+	office.call("_process", 0.0)
+	notification_diagnostic = office.call("_notification_diagnostic_state") as Dictionary
+	_check(
+		not bool(notification_diagnostic.get("toast_visible", true))
+		and String(notification_diagnostic.get("latest_priority", "")) == "routine",
+		"a held actionable toast should expire at its bounded deadline without being renewed by its restored label",
+		failures,
+	)
+	comfort["notice_level"] = "archive_only"
+	office.set("_player_preferences", comfort)
+	office.call("_apply_player_preferences")
+	_check(
+		not bool(office.call("_should_present_status_toast", "CLOCK LOCKED. Review the open decision.")),
+		"Shift Record Only should mute even important transient toasts without changing their archive path",
+		failures,
+	)
+	comfort["notice_level"] = "priority"
+	office.set("_player_preferences", comfort)
+	office.call("_apply_player_preferences")
 
 	# Losing application focus during a live shift should pause only when the
 	# default-on safety preference is enabled, then restore the exact prior clock
@@ -250,7 +318,7 @@ func _run() -> void:
 			push_error("SETTINGS_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe input=17+camera+ack+rollback audio=feedback+adaptive+ambient-independent focus-pause=restore+opt-out motion=scene contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
+	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe input=17+camera+ack+rollback audio=feedback+adaptive+ambient-independent notices=priority+archive-only+semantic-labels focus-pause=restore+opt-out motion=scene contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
 	quit(0)
 
 

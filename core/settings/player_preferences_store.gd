@@ -12,7 +12,7 @@ extends RefCounted
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
 
-const CURRENT_SCHEMA_VERSION := 3
+const CURRENT_SCHEMA_VERSION := 4
 const PREFERENCES_FORMAT := "pecking_order_player_preferences"
 const DEFAULT_FILENAME := "player_preferences.json"
 const MAX_FILE_BYTES := 512 * 1024
@@ -22,6 +22,7 @@ const UI_SCALES: Array[float] = [1.0, 1.25, 1.5]
 const VISUAL_QUALITIES: Array[String] = ["low", "balanced", "high"]
 const TIMING_ASSISTS: Array[String] = ["standard", "lenient", "extended"]
 const COLOR_VISION_MODES: Array[String] = ["standard", "color_blind_safe"]
+const NOTICE_LEVELS: Array[String] = ["all", "priority", "archive_only"]
 const AUDIO_BUS_IDS: Array[String] = ["master", "sfx", "ui", "music", "ambient"]
 const AUDIO_BUS_NAMES := {
 	"master": &"Master",
@@ -61,6 +62,7 @@ static func defaults() -> Dictionary:
 		"color_vision_mode": "standard",
 		"visual_quality": "balanced",
 		"timing_assist": "standard",
+		"notice_level": "all",
 		"pause_when_unfocused": true,
 		# Empty means the catalog defaults. Only explicit overrides need to be
 		# persisted, which lets later versions add actions without a migration.
@@ -108,6 +110,9 @@ static func sanitize(source: Dictionary) -> Dictionary:
 	var timing_assist := String(source.get("timing_assist", ""))
 	if timing_assist in TIMING_ASSISTS:
 		result["timing_assist"] = timing_assist
+	var notice_level := String(source.get("notice_level", ""))
+	if notice_level in NOTICE_LEVELS:
+		result["notice_level"] = notice_level
 	if typeof(source.get("pause_when_unfocused", null)) == TYPE_BOOL:
 		result["pause_when_unfocused"] = bool(source["pause_when_unfocused"])
 	var bindings_value: Variant = source.get("input_bindings", {})
@@ -123,7 +128,7 @@ static func validate(preferences: Dictionary) -> String:
 	var expected_keys: Array[String] = [
 		"audio", "motion_mode", "ui_scale", "high_contrast",
 		"color_vision_mode", "visual_quality", "timing_assist",
-		"pause_when_unfocused", "input_bindings",
+		"notice_level", "pause_when_unfocused", "input_bindings",
 	]
 	var key_error := _exact_string_keys_error(preferences, expected_keys, "preferences")
 	if not key_error.is_empty():
@@ -159,6 +164,8 @@ static func validate(preferences: Dictionary) -> String:
 		return "preferences.visual_quality is invalid"
 	if typeof(preferences.get("timing_assist")) != TYPE_STRING or String(preferences.get("timing_assist")) not in TIMING_ASSISTS:
 		return "preferences.timing_assist is invalid"
+	if typeof(preferences.get("notice_level")) != TYPE_STRING or String(preferences.get("notice_level")) not in NOTICE_LEVELS:
+		return "preferences.notice_level is invalid"
 	if typeof(preferences.get("pause_when_unfocused")) != TYPE_BOOL:
 		return "preferences.pause_when_unfocused must be a Boolean"
 	if not preferences.get("input_bindings") is Dictionary:
@@ -519,6 +526,16 @@ func _migrate_one_version(envelope: Dictionary, from_version: int) -> Dictionary
 		preferences["pause_when_unfocused"] = true
 		migrated["preferences"] = preferences
 		migrated["schema_version"] = 3
+		return migrated
+	if from_version == 3:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["notice_level"] = "all"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 4
 		return migrated
 	return {}
 

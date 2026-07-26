@@ -1712,3 +1712,43 @@ The next major systems milestone is persistent worker relationships and individu
   serving, and exact nine-file artifact parity. Hardware touch feel, listening
   quality, and representative physical GPU throughput remain honest external
   release sign-offs.
+
+## 2026-07-26 — Notification control and hardware-path evidence
+
+- Added a persisted Transient Notices setting with All Notices, Priority Only,
+  and Shift Record Only modes. Every notice remains in the bounded newest-first
+  Shift Record and carries a redundant ACTION, MILESTONE, or ROUTINE label.
+- Made actionable and milestone announcements publish immediately instead of
+  racing routine camera/worker copy. Priority Only preserves a visible important
+  toast while filing later routine receipts, then expires it on a bounded
+  5.5-second game-clock deadline. Repeated restored copy can no longer renew its
+  own deadline, and camera/Flockwatch feedback emits one newest diagnostic rather
+  than a duplicate.
+- Migrated player preferences to schema v4 with exact v3/unversioned-Web
+  compatibility, persisted the new setting through the browser mirror, added
+  accessible Settings narration, and updated keyboard audit focus routes for the
+  sixth display selector.
+- Final live Web evidence passes at
+  `output/web-game/notification-final-release/audit.json`: priority actions,
+  muted routine archival, milestone/action/routine history, bounded expiry,
+  Priority Only reload, Shift Record Only reload, and zero browser errors. The
+  broader Settings and camera-controls audits pass, and the required independent
+  client produced a clean inspected intake capture with no error artifact.
+- The four-cycle SwiftShader soak passes with +6 objects, +1 node, zero orphans,
+  zero WASM growth, four verified portable backups, no browser errors, and a
+  2.014-second worst camera response under the 2.5-second gate.
+- A two-shift ANGLE D3D11 progression audit passes at
+  `output/web-game/hardware-progression-release/audit.json`: 44 eggs, both quotas
+  met, two farmer reviews, 957 ms camera response, bounded JS/WASM/object/node
+  growth, zero orphans, and zero browser errors. This is useful local
+  hardware-path evidence, not a claim about representative physical-device
+  throughput.
+- Native release verification is complete: the unchanged shards passed 127/127
+  and the affected shard rerun passed 63/63, for 190/190 tests with zero
+  timeouts. The final beta gate passes all eleven native scenarios, Node 24
+  lint/build/rendered tests, production serving, and exact nine-file artifact
+  parity at `output/release/economic-spec-notification-gate.json`.
+- The synchronized `docs/` and `web/public/game/` PCK is 6,244,436 bytes with
+  SHA-256 `7356278CFB44B013766D00D418BBB1A75263FD157A606E171519FC7F90BA2BE7`.
+  Physical touch feel, listening quality, and representative-device GPU
+  throughput remain external release sign-offs.

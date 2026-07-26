@@ -20,6 +20,7 @@
 		"audit:touch": "node tests/touch-first-audit.mjs",
 		"audit:camera-controls": "node tests/camera-controls-audit.mjs",
 		"audit:color-vision": "node tests/color-vision-audit.mjs",
+		"audit:notices": "node tests/notification-preferences-audit.mjs",
 		"audit:difficulty": "node tests/difficulty-intake-audit.mjs",
 		"audit:policy-fit": "node tests/directive-order-fit-audit.mjs",
 		"audit:focus-safety": "node ../tests/focus_loss_web_audit.mjs",

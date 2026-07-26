@@ -265,11 +265,11 @@ async function portableRoundTrip(cycle) {
   await openSettings();
 
   // Settings deliberately focuses its close button. Eighteen forward focus
-  // steps traverse ten controls across the five independent audio buses, five
+  // steps traverse ten controls across the five independent audio buses, six
   // selectors, two comfort toggles, then the first Career Backup action. Focus
   // traversal also scrolls the button into view, keeping this an end-user path
   // instead of a test-only bridge.
-  for (let index = 0; index < 18; index += 1) await page.keyboard.press("Tab");
+  for (let index = 0; index < 19; index += 1) await page.keyboard.press("Tab");
   const downloadPromise = page.waitForEvent("download", { timeout: 10_000 });
   await page.keyboard.press("Enter");
   const download = await downloadPromise;

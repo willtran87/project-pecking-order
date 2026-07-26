@@ -310,6 +310,7 @@ var _overtime_button: Button
 var _ticker_label: Label
 var _ticker_panel: PanelContainer
 var _ticker_last_text := ""
+var _ticker_visible_copy := ""
 var _ticker_hide_at_msec: int = 0
 var _status_history: Array[String] = []
 var _status_history_label: Label
@@ -673,6 +674,14 @@ func _apply_player_preferences() -> void:
 	if _office_storytelling != null and _office_storytelling.has_method("set_color_vision_mode"):
 		_office_storytelling.call("set_color_vision_mode", color_vision_mode)
 	_apply_visual_quality(StringName(String(_player_preferences.get("visual_quality", "balanced"))))
+	if (
+		_ticker_panel != null
+		and String(_player_preferences.get("notice_level", "all")) == "archive_only"
+	):
+		_ticker_panel.visible = false
+		_ticker_visible_copy = ""
+		if _ticker_label != null and not _ticker_last_text.is_empty():
+			_ticker_label.text = _ticker_last_text
 	_apply_management_ui_preferences()
 	_refresh_action_prompts()
 	if _settings_ui != null:
@@ -2949,21 +2958,54 @@ func _process(_delta: float) -> void:
 	if _ticker_label == null or _ticker_panel == null:
 		return
 	var copy := _ticker_label.text.strip_edges()
+	var now_msec := Time.get_ticks_msec()
+	var restored_priority_display := (
+		_ticker_panel.visible
+		and not _ticker_visible_copy.is_empty()
+		and copy == _ticker_visible_copy
+		and copy != _ticker_last_text
+	)
 	var copy_changed := copy != _ticker_last_text
-	if copy_changed:
+	if copy_changed and not restored_priority_display:
 		_record_status_copy(copy)
 	if blocking_surface_open or _flockwatch_open:
 		_ticker_panel.visible = false
+		_ticker_visible_copy = ""
+		if not _ticker_last_text.is_empty():
+			_ticker_label.text = _ticker_last_text
+		return
+	if restored_priority_display:
+		if now_msec >= _ticker_hide_at_msec:
+			_ticker_panel.visible = false
+			_ticker_visible_copy = ""
+			_ticker_label.text = _ticker_last_text
+			return
 		return
 	if copy_changed:
-		if not copy.is_empty():
+		if not copy.is_empty() and _should_present_status_toast(copy):
+			var starts_new_toast := (
+				not _ticker_panel.visible
+				or _ticker_visible_copy != copy
+			)
 			_ticker_panel.visible = true
-			_ticker_hide_at_msec = Time.get_ticks_msec() + STATUS_TOAST_HOLD_MSEC
-	elif _ticker_panel.visible and Time.get_ticks_msec() >= _ticker_hide_at_msec:
+			_ticker_visible_copy = copy
+			if starts_new_toast:
+				_ticker_hide_at_msec = now_msec + STATUS_TOAST_HOLD_MSEC
+		elif _should_preserve_priority_toast(now_msec):
+			# The label doubles as the legacy publication channel. Restore the
+			# held important copy after archiving this routine update; the guard
+			# above recognizes that restoration on the next frame and prevents
+			# it from being filed as a duplicate source event.
+			_ticker_label.text = _ticker_visible_copy
+		else:
+			_ticker_panel.visible = false
+			_ticker_visible_copy = ""
+	elif _ticker_panel.visible and now_msec >= _ticker_hide_at_msec:
 		_ticker_panel.visible = false
+		_ticker_visible_copy = ""
 
 
-func _record_status_copy(copy: String) -> void:
+func _record_status_copy(copy: String, publish_flockwatch_diagnostic := true) -> void:
 	_ticker_last_text = copy
 	if copy.is_empty():
 		return
@@ -2974,8 +3016,29 @@ func _record_status_copy(copy: String) -> void:
 	_refresh_status_history_presentation()
 	if _flockwatch_navigation != null:
 		_flockwatch_navigation.set_last_feedback(copy)
-	if _flockwatch_open and _simulation != null:
+	if publish_flockwatch_diagnostic and _flockwatch_open and _simulation != null:
 		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _publish_status_copy(copy: String, publish_flockwatch_diagnostic := true) -> void:
+	if _ticker_label == null or _ticker_panel == null:
+		return
+	_ticker_label.text = copy
+	_record_status_copy(copy, publish_flockwatch_diagnostic)
+	var now_msec := Time.get_ticks_msec()
+	if _blocking_management_surface_open() or _flockwatch_open:
+		_ticker_panel.visible = false
+		_ticker_visible_copy = ""
+		return
+	if not copy.is_empty() and _should_present_status_toast(copy):
+		_ticker_panel.visible = true
+		_ticker_visible_copy = copy
+		_ticker_hide_at_msec = now_msec + STATUS_TOAST_HOLD_MSEC
+	elif _should_preserve_priority_toast(now_msec):
+		_ticker_label.text = _ticker_visible_copy
+	else:
+		_ticker_panel.visible = false
+		_ticker_visible_copy = ""
 
 
 func _on_status_history_toggled(expanded: bool) -> void:
@@ -2999,8 +3062,59 @@ func _refresh_status_history_presentation() -> void:
 	_status_history_label.visible = _status_history_expanded and can_expand
 	var lines: Array[String] = ["RECENT SHIFT RECORD"]
 	for entry: String in _status_history.slice(0, recent_count):
-		lines.append("- %s" % entry)
+		lines.append("- [%s] %s" % [_status_priority_label(entry), entry])
 	_status_history_label.text = "\n".join(lines)
+
+
+func _status_priority(copy: String) -> StringName:
+	var normalized := copy.to_upper()
+	for marker: String in [
+		"HELD", "LOCKED", "UNAVAILABLE", "REQUIRED", "INCOMPLETE", "FAILED",
+		"ERROR", "OVERDUE", "DEFICIT", "ARREARS", "WARNING",
+		"CRACKED", "INCIDENT", "RECOVERY",
+	]:
+		if marker in normalized:
+			return &"action"
+	for marker: String in [
+		"SHIFT COMPLETE", "MILESTONE", "COMMENDATION", " APPROVED",
+		" AUTHORIZED", " COMMISSIONED", " FILED", " INSTALLED", " PURCHASED",
+		" FUNDED", " RECRUITED", " DELIVERED", " COLLECTED",
+		"INSPECTION COMPLETE", " RESTORED", "FIRST CLUTCH",
+	]:
+		if marker in normalized:
+			return &"milestone"
+	return &"routine"
+
+
+func _status_priority_label(copy: String) -> String:
+	match _status_priority(copy):
+		&"action":
+			return "ACTION"
+		&"milestone":
+			return "MILESTONE"
+		_:
+			return "ROUTINE"
+
+
+func _should_present_status_toast(copy: String) -> bool:
+	match String(_player_preferences.get("notice_level", "all")):
+		"priority":
+			return _status_priority(copy) != &"routine"
+		"archive_only":
+			return false
+		_:
+			return true
+
+
+func _should_preserve_priority_toast(now_msec: int) -> bool:
+	return (
+		String(_player_preferences.get("notice_level", "all")) == "priority"
+		and _ticker_panel != null
+		and _ticker_panel.visible
+		and not _ticker_visible_copy.is_empty()
+		and _status_priority(_ticker_visible_copy) != &"routine"
+		and now_msec < _ticker_hide_at_msec
+	)
 
 
 func _blocking_management_surface_open() -> bool:
@@ -9898,6 +10012,42 @@ func _flockwatch_diagnostic_state() -> Dictionary:
 	}
 
 
+func _notification_diagnostic_state() -> Dictionary:
+	var recent: Array[Dictionary] = []
+	for entry: String in _status_history.slice(0, mini(5, _status_history.size())):
+		recent.append({
+			"priority": String(_status_priority(entry)),
+			"label": _status_priority_label(entry),
+			"copy": entry,
+		})
+	var toast_copy := ""
+	if _ticker_panel != null and _ticker_panel.visible:
+		toast_copy = _ticker_visible_copy
+	var now_msec := Time.get_ticks_msec()
+	return {
+		"level": String(_player_preferences.get("notice_level", "all")),
+		"toast_visible": _ticker_panel != null and _ticker_panel.visible,
+		"toast_copy": toast_copy,
+		"toast_priority": (
+			String(_status_priority(toast_copy))
+			if not toast_copy.is_empty() else
+			""
+		),
+		"toast_now_msec": now_msec,
+		"toast_hide_at_msec": _ticker_hide_at_msec,
+		"toast_hold_remaining_msec": maxi(0, _ticker_hide_at_msec - now_msec),
+		"ticker_label_copy": _ticker_label.text if _ticker_label != null else "",
+		"latest_copy": _ticker_last_text,
+		"latest_priority": (
+			String(_status_priority(_ticker_last_text))
+			if not _ticker_last_text.is_empty() else
+			""
+		),
+		"history_expanded": _status_history_expanded,
+		"recent": recent,
+	}
+
+
 func _diagnostic_subset(source: Dictionary, keys: Array) -> Dictionary:
 	var result: Dictionary = {}
 	for key_value: Variant in keys:
@@ -10090,6 +10240,7 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"browser_mirror_status": _web_preferences_mirror_status,
 		"visual_quality": String(_player_preferences.get("visual_quality", "balanced")),
 		"timing_assist": String(_player_preferences.get("timing_assist", "standard")),
+		"notice_level": String(_player_preferences.get("notice_level", "all")),
 		"pause_when_unfocused": bool(_player_preferences.get("pause_when_unfocused", true)),
 		"focus_pause_active": _focus_pause_active,
 		"focus_pause_restore_speed": _focus_pause_previous_speed,
@@ -10310,6 +10461,7 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 			),
 		},
 		"settings": settings_state,
+		"notifications": _notification_diagnostic_state(),
 		"flockwatch": _flockwatch_diagnostic_state(),
 		"commendations": _commendations_diagnostic_state(),
 		"checkpoint": _checkpoint_diagnostic_state(),
@@ -11712,17 +11864,22 @@ func _on_camera_focus_changed(label: String, worker_id: int) -> void:
 				fatigue = int(worker.get("fatigue", 0))
 				stress = int(worker.get("stress", 0))
 				break
-		_ticker_label.text = "%s  ·  %s %d%%  ·  MORALE %d  ·  FATIGUE %d  ·  STRESS %d  ·  CRACK RISK %d%%" % [
-			label.to_upper(), state_label, progress, morale, fatigue, stress,
-			int(_simulation.estimated_crack_risk(worker_id) * 100.0),
-		]
+		_publish_status_copy(
+			"%s  ·  %s %d%%  ·  MORALE %d  ·  FATIGUE %d  ·  STRESS %d  ·  CRACK RISK %d%%" % [
+				label.to_upper(), state_label, progress, morale, fatigue, stress,
+				int(_simulation.estimated_crack_risk(worker_id) * 100.0),
+			]
+		)
 		_publish_camera_diagnostic()
 		return
-	_publish_camera_diagnostic()
 	if not label.is_empty():
-		_ticker_label.text = label
+		_publish_status_copy(label, false)
 	else:
-		_ticker_label.text = "Click a hen to inspect  ·  V opens Flockwatch  ·  Shift objective stays above."
+		_publish_status_copy(
+			"Click a hen to inspect  ·  V opens Flockwatch  ·  Shift objective stays above.",
+			false,
+		)
+	_publish_camera_diagnostic()
 
 
 func _publish_camera_diagnostic() -> void:
@@ -12012,7 +12169,7 @@ func _spawn_egg_vfx(origin: Vector3, quality: StringName, worker_id: int) -> voi
 
 
 func _on_announcement_posted(message: String) -> void:
-	_ticker_label.text = message
+	_publish_status_copy(message)
 	var lowered := message.to_lower()
 	var urgent := (
 		lowered.contains("missed")
@@ -12241,18 +12398,18 @@ func _on_speed_button_pressed(index: int) -> void:
 	if _campaign_ui != null and _campaign_ui.is_modal_open():
 		return
 	if _first_hen_prelude_pending():
-		_ticker_label.text = "CLOCK LOCKED. Open Mabel's file before choosing the flock policy."
+		_publish_status_copy("CLOCK LOCKED. Open Mabel's file before choosing the flock policy.")
 		return
 	if _decision_host != null and _decision_host.visible:
 		return
 	if _day_review_scrim != null and _day_review_scrim.visible:
 		return
 	if _simulation.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING:
-		_ticker_label.text = "CLOCK LOCKED. Complete the current policy or incident card first."
+		_publish_status_copy("CLOCK LOCKED. Complete the current policy or incident card first.")
 		_simulation.announce_pending_decision()
 		return
 	if _feed_party_active:
-		_ticker_label.text = "CLOCK LOCKED. Feed Party attendance is still in progress."
+		_publish_status_copy("CLOCK LOCKED. Feed Party attendance is still in progress.")
 		return
 	_clock.set_speed(index)
 	if _audio_feedback != null:
@@ -12302,7 +12459,9 @@ func _on_feed_pressed() -> void:
 	if _campaign_ui != null and _campaign_ui.is_modal_open():
 		return
 	if _feed_party_active:
-		_ticker_label.text = "FEED PARTY ALREADY IN PROGRESS. Additional morale has not been purchased."
+		_publish_status_copy(
+			"FEED PARTY ALREADY IN PROGRESS. No second morale debit was charged."
+		)
 		return
 	_simulation.fund_feed_party()
 
@@ -12311,7 +12470,9 @@ func _on_overtime_pressed() -> void:
 	if _campaign_ui != null and _campaign_ui.is_modal_open():
 		return
 	if _simulation.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING or _feed_party_active:
-		_ticker_label.text = "AFTER-HOURS REQUEST HELD. Settle the current management action first."
+		_publish_status_copy(
+			"AFTER-HOURS REQUEST HELD. Settle the current management action first."
+		)
 		return
 	_simulation.toggle_overtime()
 	_save_campaign_checkpoint("overtime_toggled")

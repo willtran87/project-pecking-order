@@ -101,10 +101,10 @@ try {
 		fullPage: true,
 	});
 
-	// Settings focuses its Close button. Twenty-six forward steps traverse the
-	// eight audio controls, six comfort controls, two backup controls, the nine
+	// Settings focuses its Close button. Thirty-one forward steps traverse the
+	// ten audio controls, eight comfort controls, two backup controls, the nine
 	// existing floor actions, Pan Left, and finally Pan Right.
-	for (let index = 0; index < 27; index += 1) await page.keyboard.press("Tab");
+	for (let index = 0; index < 31; index += 1) await page.keyboard.press("Tab");
 	await page.screenshot({
 		path: path.join(outputDirectory, "settings-camera-bindings.png"),
 		fullPage: true,

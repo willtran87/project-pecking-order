@@ -81,6 +81,8 @@ func decode(payload: String) -> Dictionary:
 		var current_error := PlayerPreferencesStoreScript.validate(root)
 		if current_error.is_empty():
 			preferences = root.duplicate(true)
+		elif _matches_legacy_schema(root, 3):
+			preferences = _migrate_legacy_preferences(root, 3)
 		elif _matches_legacy_schema(root, 2):
 			preferences = _migrate_legacy_preferences(root, 2)
 		elif _matches_legacy_schema(root, 1):
@@ -112,6 +114,9 @@ func _migrate_legacy_preferences(source: Dictionary, from_version: int) -> Dicti
 		migrated["audio"] = audio
 		migrated["pause_when_unfocused"] = true
 		version = 3
+	if version == 3:
+		migrated["notice_level"] = "all"
+		version = 4
 	if version != PlayerPreferencesStoreScript.CURRENT_SCHEMA_VERSION:
 		return {}
 	return migrated if PlayerPreferencesStoreScript.validate(migrated).is_empty() else {}
@@ -124,12 +129,17 @@ func _matches_legacy_schema(preferences: Dictionary, version: int) -> bool:
 	]
 	if version >= 2:
 		expected.append("color_vision_mode")
+	if version >= 3:
+		expected.append("pause_when_unfocused")
 	if not _has_exact_keys(preferences, expected):
 		return false
 	var audio_value: Variant = preferences.get("audio", null)
+	var audio_keys := ["master", "sfx", "ui", "music"]
+	if version >= 3:
+		audio_keys.append("ambient")
 	return (
 		audio_value is Dictionary
-		and _has_exact_keys(audio_value as Dictionary, ["master", "sfx", "ui", "music"])
+		and _has_exact_keys(audio_value as Dictionary, audio_keys)
 	)
 
 
