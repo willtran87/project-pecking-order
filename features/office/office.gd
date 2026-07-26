@@ -11394,6 +11394,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	if _flockwatch_open:
 		_refresh_flockwatch_navigation(snapshot)
 	elif _flockwatch_navigation != null:
+		_flockwatch_navigation.apply_accessibility_snapshot(snapshot)
 		_flockwatch_navigation.set_first_clutch_active(
 			not bool(_first_clutch.get("dismissed", true))
 			and not bool(_first_clutch.get("completed", false))

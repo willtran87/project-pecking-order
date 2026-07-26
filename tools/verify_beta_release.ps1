@@ -57,25 +57,34 @@ try {
     }
 
     if (-not $SkipWeb) {
+        $nodeExecutable = "node.exe"
         if (-not [string]::IsNullOrWhiteSpace($NodeDirectory)) {
-            if (-not (Test-Path -LiteralPath (Join-Path $NodeDirectory "node.exe"))) {
+            $nodeExecutable = Join-Path $NodeDirectory "node.exe"
+            if (-not (Test-Path -LiteralPath $nodeExecutable)) {
                 throw "Node executable not found in: $NodeDirectory"
             }
             $env:PATH = "$NodeDirectory;$env:PATH"
         }
-        $nodeVersion = (& node.exe --version).TrimStart("v")
+        $nodeVersion = (& $nodeExecutable --version).TrimStart("v")
         if ([version]$nodeVersion -lt [version]"22.13.0") {
             throw "Node 22.13+ is required for the Web gate; found $nodeVersion. Pass -NodeDirectory with a supported runtime."
+        }
+        $npmCommand = Get-Command "npm.cmd" -ErrorAction Stop
+        $npmCli = Join-Path (Split-Path -Parent $npmCommand.Source) "node_modules\npm\bin\npm-cli.js"
+        if (-not (Test-Path -LiteralPath $npmCli)) {
+            throw "npm CLI not found beside npm.cmd: $npmCli"
         }
         $checks["web/toolchain"] = [ordered]@{
             passed = $true
             node_version = $nodeVersion
+            node_executable = $nodeExecutable
+            npm_cli = $npmCli
         }
         Push-Location (Join-Path $root "web")
         try {
-            Invoke-CheckedCommand -Name "web/lint" -Command { & npm.cmd run lint }
-            Invoke-CheckedCommand -Name "web/rendered-tests" -Command { & npm.cmd test }
-            Invoke-CheckedCommand -Name "web/production-server" -Command { & npm.cmd run "test:production" }
+            Invoke-CheckedCommand -Name "web/lint" -Command { & $nodeExecutable $npmCli run lint }
+            Invoke-CheckedCommand -Name "web/rendered-tests" -Command { & $nodeExecutable $npmCli test }
+            Invoke-CheckedCommand -Name "web/production-server" -Command { & $nodeExecutable $npmCli run "test:production" }
         }
         finally {
             Pop-Location

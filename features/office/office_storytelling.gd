@@ -269,6 +269,7 @@ var _optional_visual_build_timings: Dictionary = {}
 var _last_snapshot: Dictionary = {}
 var _next_facility_visual_refresh_msec := 0
 var _facility_visual_refresh_count := 0
+var _facility_visual_state_fingerprint := 0
 var _archive_story_content: Node3D
 var _intake_story_content: Node3D
 var _records_zone: Node3D
@@ -437,9 +438,11 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 			_worker_names[worker_id] = String(worker.get("name", "HEN %d" % (worker_id + 1)))
 	_reconcile_clutch_from_snapshot(snapshot)
 	var now_msec := Time.get_ticks_msec()
+	var facility_visual_fingerprint := _facility_visual_state_fingerprint_for(snapshot)
 	var facility_visuals_due: bool = (
 		previous_snapshot.is_empty()
 		or now_msec >= _next_facility_visual_refresh_msec
+		or facility_visual_fingerprint != _facility_visual_state_fingerprint
 		or int(previous_snapshot.get("day", -1)) != int(snapshot.get("day", -1))
 		or int(previous_snapshot.get("shift_phase", -1)) != int(snapshot.get("shift_phase", -1))
 		or previous_snapshot.get("owned_facilities", {}) != snapshot.get("owned_facilities", {})
@@ -447,6 +450,7 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 	if facility_visuals_due:
 		_next_facility_visual_refresh_msec = now_msec + FACILITY_VISUAL_REFRESH_MSEC
 		_facility_visual_refresh_count += 1
+		_facility_visual_state_fingerprint = facility_visual_fingerprint
 		if shell_quality_lab_visual != null:
 			shell_quality_lab_visual.apply_snapshot(snapshot)
 		if packing_annex_visual != null:
@@ -514,6 +518,47 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 		]
 		EnvironmentalSignageScript.refit_label(_claim_closure_label)
 	set_overtime(bool(snapshot.get("overtime_enabled", false)))
+
+
+## Static rooms may skip repeated clock-only snapshots, but authoritative
+## transactions and exception counts must repaint immediately even when they
+## occur inside the 250 ms presentation window. Keep this projection limited to
+## fields consumed by facility visuals so worker progress does not defeat the
+## coalescing budget.
+func _facility_visual_state_fingerprint_for(snapshot: Dictionary) -> int:
+	var facility_states: Array = []
+	for facility_value: Variant in snapshot.get("facility_catalog", []):
+		if facility_value is not Dictionary:
+			continue
+		var facility := facility_value as Dictionary
+		facility_states.append([
+			String(facility.get("id", "")),
+			int(facility.get("current_level", facility.get("level", 0))),
+			bool(facility.get("unlocked", facility.get("available", false))),
+			bool(facility.get("can_purchase", false)),
+			bool(facility.get("maxed", false)),
+		])
+	return hash([
+		snapshot.get("owned_facilities", {}),
+		facility_states,
+		snapshot.get("facility_effects", {}),
+		snapshot.get("campaign_unlocks", {}),
+		int(snapshot.get("packing_carton_progress", 0)),
+		int(snapshot.get("packing_cartons_total", 0)),
+		snapshot.get("packing_annex", {}),
+		snapshot.get("packing_contract", {}),
+		int(snapshot.get("claims_outstanding", snapshot.get("claims_waiting", 0))),
+		snapshot.get("claim_queue_counts", {}),
+		int(snapshot.get("queued_overdue_claims", 0)),
+		int(snapshot.get("intake_rejections_today", 0)),
+		snapshot.get("contract_board", snapshot.get("farm_mutual_contract_board", {})),
+		snapshot.get("feed_procurement", {}),
+		snapshot.get("flock_relations", {}),
+		snapshot.get("farmer_relations_gallery", {}),
+		snapshot.get("farmgate_dispatch", {}),
+		snapshot.get("campus_expansion", {}),
+		snapshot.get("campus_portfolio", {}),
+	])
 
 
 ## Applies a presentation-only campus reveal derived from the authoritative

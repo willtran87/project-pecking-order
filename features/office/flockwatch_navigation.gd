@@ -128,6 +128,19 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	_recompute_availability()
 
 
+## Keeps critical spoken evidence current while the visual drawer is closed.
+## The two copied projections are the only snapshot fields read by
+## accessible_text(); page layout and discovery remain on the bounded visible
+## refresh path.
+func apply_accessibility_snapshot(snapshot: Dictionary) -> void:
+	for key: StringName in [&"case_docket", &"economic_briefing"]:
+		var value: Variant = snapshot.get(key, snapshot.get(String(key), null))
+		if value is Dictionary:
+			_snapshot[key] = (value as Dictionary).duplicate(true)
+		elif value == null:
+			_snapshot.erase(key)
+
+
 ## Hosts can use this when First Clutch presentation state is stored outside the
 ## simulation snapshot passed to apply_snapshot().
 func set_first_clutch_active(active: bool) -> void:

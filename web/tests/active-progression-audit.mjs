@@ -270,9 +270,18 @@ async function collectGarbage() {
 async function health(label) {
   await suspendPhysicalSample();
   try {
-    await collectGarbage();
+    // Chromium's aggregate JSEventListeners metric can include collectible
+    // listener wrappers for one GC turn. Three explicit post-GC readings let
+    // the audit compare the settled retained floor without relaxing the leak
+    // budget for listeners that remain reachable.
+    const chromiumSamples = [];
+    for (let sampleIndex = 0; sampleIndex < 3; sampleIndex += 1) {
+      await collectGarbage();
+      chromiumSamples.push(await chromiumMetrics());
+    }
     const snapshot = parseState(await page.evaluate(() => window.render_game_to_text?.() ?? "{}"));
-    const metrics = await chromiumMetrics();
+    const metrics = chromiumSamples.at(-1) ?? {};
+    const eventListenerSamples = chromiumSamples.map((sample) => sample.JSEventListeners ?? 0);
     const performance = snapshot.performance ?? {};
     const webAssembly = await page.evaluate(() => (
       window.__pecking_order_runtime_metrics?.() ?? { wasmMemoryBytes: 0 }
@@ -302,7 +311,8 @@ async function health(label) {
         jsHeapUsedBytes: metrics.JSHeapUsedSize ?? 0,
         nodes: metrics.Nodes ?? 0,
         documents: metrics.Documents ?? 0,
-        eventListeners: metrics.JSEventListeners ?? 0,
+        eventListeners: Math.min(...eventListenerSamples),
+        eventListenerSamples,
       },
       webAssembly,
     };
