@@ -13,6 +13,7 @@
     "test:production": "node --test tests/production-server.test.mjs",
     "audit:soak": "node tests/runtime-soak-audit.mjs",
 		"audit:progression": "node tests/active-progression-audit.mjs",
+		"audit:physical-gpu": "node tests/active-progression-audit.mjs",
     "audit:senior-quarter": "node tests/active-progression-audit.mjs",
     "report:senior-policy-matrix": "node tests/senior-policy-matrix-report.mjs",
 		"report:advanced-settlement-matrix": "node tests/advanced-settlement-matrix-report.mjs",

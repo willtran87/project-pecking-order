@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -31,6 +32,33 @@ assert.ok(supportedStrategyIds.has(strategyId), `unsupported progression strateg
 assert.ok(supportedStrategyIds.has(yearTwoStrategyId), `unsupported Year 2 strategy ${yearTwoStrategyId}`);
 const auditRenderer = process.env.ACTIVE_PROGRESSION_RENDERER ?? "swiftshader";
 assert.ok(["swiftshader", "hardware"].includes(auditRenderer), `unsupported audit renderer ${auditRenderer}`);
+const headed = process.env.ACTIVE_PROGRESSION_HEADED === "1";
+const physicalGpuProbe = process.env.ACTIVE_PROGRESSION_PHYSICAL_GPU_PROBE === "1";
+const physicalSampleMsec = Math.max(
+  0,
+  Number(process.env.ACTIVE_PROGRESSION_PHYSICAL_SAMPLE_MSEC ?? 0),
+);
+const physicalWarmupMsec = Math.max(
+  0,
+  Number(process.env.ACTIVE_PROGRESSION_PHYSICAL_WARMUP_MSEC ?? 60_000),
+);
+const viewportWidth = Math.max(
+  1280,
+  Number(process.env.ACTIVE_PROGRESSION_VIEWPORT_WIDTH ?? (physicalGpuProbe ? 1920 : 1440)),
+);
+const viewportHeight = Math.max(
+  720,
+  Number(process.env.ACTIVE_PROGRESSION_VIEWPORT_HEIGHT ?? (physicalGpuProbe ? 1080 : 900)),
+);
+const releaseCommit = process.env.ACTIVE_PROGRESSION_RELEASE_COMMIT ?? "";
+const expectedPckSha256 = (process.env.ACTIVE_PROGRESSION_PCK_SHA256 ?? "").toLowerCase();
+if (physicalGpuProbe) {
+  assert.equal(auditRenderer, "hardware", "the physical GPU probe requires the hardware renderer");
+  assert.equal(headed, true, "the physical GPU probe requires a visible headed browser");
+  assert.ok(physicalSampleMsec >= 600_000, "the physical GPU probe requires at least ten sampled minutes");
+  assert.match(releaseCommit, /^[0-9a-f]{40}$/i, "the physical GPU probe requires a full release commit");
+  assert.match(expectedPckSha256, /^[0-9a-f]{64}$/, "the physical GPU probe requires the release PCK SHA-256");
+}
 const enterSeniorRoost = process.env.ACTIVE_PROGRESSION_ENTER_SENIOR === "1";
 const seniorShifts = Math.max(0, Math.min(24, Number(process.env.ACTIVE_PROGRESSION_SENIOR_SHIFTS ?? 0)));
 const continueYearTwo = process.env.ACTIVE_PROGRESSION_CONTINUE_YEAR_TWO === "1";
@@ -118,15 +146,36 @@ const maxBrowserEventListenerGrowth = Number(process.env.ACTIVE_PROGRESSION_EVEN
 fs.mkdirSync(outputDirectory, { recursive: true });
 
 const browser = await chromium.launch({
-  headless: true,
+  headless: !headed,
+  channel: process.env.ACTIVE_PROGRESSION_BROWSER_CHANNEL || undefined,
   args: auditRenderer === "hardware"
-    ? ["--use-gl=angle", "--use-angle=d3d11", "--js-flags=--expose-gc"]
+    ? [
+        "--use-gl=angle",
+        "--use-angle=d3d11",
+        "--ignore-gpu-blocklist",
+        "--enable-gpu-rasterization",
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--disable-features=CalculateNativeWinOcclusion",
+        "--js-flags=--expose-gc",
+        `--window-size=${viewportWidth},${viewportHeight}`,
+      ]
     : ["--use-gl=angle", "--use-angle=swiftshader", "--js-flags=--expose-gc"],
 });
 const context = await browser.newContext({
-  viewport: { width: 1440, height: 900 },
+  viewport: { width: viewportWidth, height: viewportHeight },
 });
 const page = await context.newPage();
+const baseScreenshot = page.screenshot.bind(page);
+page.screenshot = async (options) => {
+  await suspendPhysicalSample();
+  try {
+    return await baseScreenshot(options);
+  } finally {
+    await resumePhysicalSample();
+  }
+};
 const browserErrors = [];
 page.on("console", (message) => {
   if (message.type() === "error") browserErrors.push(`console: ${message.text()}`);
@@ -160,19 +209,52 @@ function parseState(value) {
   return typeof value === "string" ? JSON.parse(value) : {};
 }
 
+async function suspendPhysicalSample() {
+  if (!physicalGpuProbe) return;
+  await page.evaluate(() => {
+    const sample = window.__peckingPhysicalGpuSample;
+    if (!sample || sample.suspended) return;
+    sample.suspended = true;
+    sample.suspensionStartedMsec = performance.now();
+  }).catch(() => {});
+}
+
+async function resumePhysicalSample() {
+  if (!physicalGpuProbe) return;
+  await page.evaluate(() => {
+    const sample = window.__peckingPhysicalGpuSample;
+    if (!sample || !sample.suspended) return;
+    const now = performance.now();
+    sample.excludedMsec += Math.max(0, now - sample.suspensionStartedMsec);
+    sample.suspensionStartedMsec = 0;
+    sample.previousMsec = now;
+    sample.suspended = false;
+  }).catch(() => {});
+}
+
 async function state() {
-  return parseState(await page.evaluate(() => window.render_game_to_text?.() ?? "{}"));
+  await suspendPhysicalSample();
+  try {
+    return parseState(await page.evaluate(() => window.render_game_to_text?.() ?? "{}"));
+  } finally {
+    await resumePhysicalSample();
+  }
 }
 
 async function waitForState(predicateSource, timeout = 30_000) {
-  await page.waitForFunction((source) => {
-    try {
-      const snapshot = JSON.parse(window.render_game_to_text?.() ?? "{}");
-      return Function("snapshot", `return (${source})(snapshot);`)(snapshot);
-    } catch {
-      return false;
-    }
-  }, predicateSource, { timeout });
+  await suspendPhysicalSample();
+  try {
+    await page.waitForFunction((source) => {
+      try {
+        const snapshot = JSON.parse(window.render_game_to_text?.() ?? "{}");
+        return Function("snapshot", `return (${source})(snapshot);`)(snapshot);
+      } catch {
+        return false;
+      }
+    }, predicateSource, { timeout });
+  } finally {
+    await resumePhysicalSample();
+  }
 }
 
 async function chromiumMetrics() {
@@ -186,42 +268,47 @@ async function collectGarbage() {
 }
 
 async function health(label) {
-  await collectGarbage();
-  const snapshot = await state();
-  const metrics = await chromiumMetrics();
-  const performance = snapshot.performance ?? {};
-  const webAssembly = await page.evaluate(() => (
-    window.__pecking_order_runtime_metrics?.() ?? { wasmMemoryBytes: 0 }
-  ));
-  return {
-    label,
-    campaignDay: snapshot.campaign_day,
-    campaignStage: snapshot.campaign_stage,
-    campaignScore: snapshot.campaign_score,
-    tickRevision: performance.authoritative_tick_revision,
-    checkpoint: snapshot.checkpoint,
-    economy: {
-      feedFundCents: snapshot.economy?.feed_fund_cents,
-      dailyHenPayrollCents: snapshot.economy?.daily_hen_payroll_cents,
-    },
-    native: {
-      fps: performance.fps,
-      processUsec: performance.process_usec,
-      physicsProcessUsec: performance.physics_process_usec,
-      staticMemoryBytes: performance.static_memory_bytes,
-      objectCount: performance.object_count,
-      nodeCount: performance.node_count,
-      orphanNodeCount: performance.orphan_node_count,
-      drawCalls: performance.draw_calls,
-    },
-    chromium: {
-      jsHeapUsedBytes: metrics.JSHeapUsedSize ?? 0,
-      nodes: metrics.Nodes ?? 0,
-      documents: metrics.Documents ?? 0,
-      eventListeners: metrics.JSEventListeners ?? 0,
-    },
-    webAssembly,
-  };
+  await suspendPhysicalSample();
+  try {
+    await collectGarbage();
+    const snapshot = parseState(await page.evaluate(() => window.render_game_to_text?.() ?? "{}"));
+    const metrics = await chromiumMetrics();
+    const performance = snapshot.performance ?? {};
+    const webAssembly = await page.evaluate(() => (
+      window.__pecking_order_runtime_metrics?.() ?? { wasmMemoryBytes: 0 }
+    ));
+    return {
+      label,
+      campaignDay: snapshot.campaign_day,
+      campaignStage: snapshot.campaign_stage,
+      campaignScore: snapshot.campaign_score,
+      tickRevision: performance.authoritative_tick_revision,
+      checkpoint: snapshot.checkpoint,
+      economy: {
+        feedFundCents: snapshot.economy?.feed_fund_cents,
+        dailyHenPayrollCents: snapshot.economy?.daily_hen_payroll_cents,
+      },
+      native: {
+        fps: performance.fps,
+        processUsec: performance.process_usec,
+        physicsProcessUsec: performance.physics_process_usec,
+        staticMemoryBytes: performance.static_memory_bytes,
+        objectCount: performance.object_count,
+        nodeCount: performance.node_count,
+        orphanNodeCount: performance.orphan_node_count,
+        drawCalls: performance.draw_calls,
+      },
+      chromium: {
+        jsHeapUsedBytes: metrics.JSHeapUsedSize ?? 0,
+        nodes: metrics.Nodes ?? 0,
+        documents: metrics.Documents ?? 0,
+        eventListeners: metrics.JSEventListeners ?? 0,
+      },
+      webAssembly,
+    };
+  } finally {
+    await resumePhysicalSample();
+  }
 }
 
 async function sampleFrames(label, durationMsec = 1_500) {
@@ -252,6 +339,187 @@ async function sampleFrames(label, durationMsec = 1_500) {
     }
     requestAnimationFrame(frame);
   }), { sampleLabel: label, duration: durationMsec });
+}
+
+async function deployedPckIdentity() {
+  const pckUrl = new URL("index.pck", url).href;
+  const response = await fetch(pckUrl);
+  assert.equal(response.ok, true, `the deployed PCK must be readable: ${response.status} ${pckUrl}`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  return {
+    url: pckUrl,
+    bytes: bytes.byteLength,
+    sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+  };
+}
+
+async function webglRendererInfo() {
+  return page.evaluate(() => {
+    const canvas = document.querySelector("#canvas");
+    const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+    if (!gl) return { available: false };
+    const extension = gl.getExtension("WEBGL_debug_renderer_info");
+    const renderer = extension
+      ? gl.getParameter(extension.UNMASKED_RENDERER_WEBGL)
+      : gl.getParameter(gl.RENDERER);
+    const vendor = extension
+      ? gl.getParameter(extension.UNMASKED_VENDOR_WEBGL)
+      : gl.getParameter(gl.VENDOR);
+    return {
+      available: true,
+      renderer: String(renderer ?? ""),
+      vendor: String(vendor ?? ""),
+      version: String(gl.getParameter(gl.VERSION) ?? ""),
+      shadingLanguageVersion: String(gl.getParameter(gl.SHADING_LANGUAGE_VERSION) ?? ""),
+      drawingBufferWidth: gl.drawingBufferWidth,
+      drawingBufferHeight: gl.drawingBufferHeight,
+    };
+  });
+}
+
+async function startContinuousFrameSample() {
+  await page.evaluate(() => {
+    const canvas = document.querySelector("#canvas");
+    const sample = {
+      active: true,
+      suspended: false,
+      startedMsec: performance.now(),
+      previousMsec: performance.now(),
+      suspensionStartedMsec: 0,
+      excludedMsec: 0,
+      sampledMsec: 0,
+      records: [],
+      contextLosses: 0,
+    };
+    window.__peckingPhysicalGpuSample = sample;
+    canvas?.addEventListener("webglcontextlost", () => {
+      sample.contextLosses += 1;
+    });
+    const frame = (now) => {
+      if (!sample.active) return;
+      if (sample.suspended || document.visibilityState !== "visible") {
+        sample.previousMsec = now;
+      } else {
+        const intervalMsec = now - sample.previousMsec;
+        sample.sampledMsec += intervalMsec;
+        sample.records.push({
+          elapsedMsec: sample.sampledMsec,
+          intervalMsec,
+        });
+        sample.previousMsec = now;
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+async function physicalSampleElapsedMsec() {
+  return page.evaluate(() => {
+    const sample = window.__peckingPhysicalGpuSample;
+    return sample?.sampledMsec ?? 0;
+  });
+}
+
+function percentile(values, ratio) {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((left, right) => left - right);
+  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * ratio))] ?? 0;
+}
+
+async function stopContinuousFrameSample() {
+  const sample = await page.evaluate(() => {
+    const current = window.__peckingPhysicalGpuSample;
+    if (!current) return null;
+    current.active = false;
+    return {
+      elapsedMsec: current.sampledMsec,
+      wallElapsedMsec: performance.now() - current.startedMsec,
+      excludedMsec: current.excludedMsec,
+      records: current.records,
+      contextLosses: current.contextLosses,
+    };
+  });
+  if (!sample) return null;
+  const intervals = sample.records
+    .map((record) => Number(record.intervalMsec))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const firstWindow = sample.records
+    .filter((record) => record.elapsedMsec <= 120_000)
+    .map((record) => Number(record.intervalMsec))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const finalWindowStart = Math.max(0, sample.elapsedMsec - 120_000);
+  const finalWindow = sample.records
+    .filter((record) => record.elapsedMsec >= finalWindowStart)
+    .map((record) => Number(record.intervalMsec))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const medianInterval = percentile(intervals, 0.5);
+  const onePercentLowInterval = percentile(intervals, 0.99);
+  const firstMedianInterval = percentile(firstWindow, 0.5);
+  const finalMedianInterval = percentile(finalWindow, 0.5);
+  const medianFps = medianInterval > 0 ? 1_000 / medianInterval : 0;
+  const firstMedianFps = firstMedianInterval > 0 ? 1_000 / firstMedianInterval : 0;
+  const finalMedianFps = finalMedianInterval > 0 ? 1_000 / finalMedianInterval : 0;
+  return {
+    sampleSeconds: sample.elapsedMsec / 1_000,
+    wallSeconds: sample.wallElapsedMsec / 1_000,
+    excludedHarnessSeconds: sample.excludedMsec / 1_000,
+    frameCount: intervals.length,
+    medianFps,
+    onePercentLowFps: onePercentLowInterval > 0 ? 1_000 / onePercentLowInterval : 0,
+    medianFrameMsec: medianInterval,
+    p99FrameMsec: onePercentLowInterval,
+    maximumStallMsec: Math.max(0, ...intervals),
+    firstWindowMedianFps: firstMedianFps,
+    finalWindowMedianFps: finalMedianFps,
+    endToStartFpsRatio: firstMedianFps > 0 ? finalMedianFps / firstMedianFps : 0,
+    contextLosses: sample.contextLosses,
+  };
+}
+
+async function probePhysicalInputs() {
+  const samples = [];
+  const actions = [
+    ...Array.from({ length: 10 }, () => ({ key: "F10", surface: "settings" })),
+    ...Array.from({ length: 10 }, () => ({ key: "KeyV", surface: "flockwatch" })),
+  ];
+  for (const action of actions) {
+    await page.bringToFront();
+    await page.locator("#canvas").focus();
+    const before = await state();
+    const beforeVisible = before[action.surface]?.visible === true;
+    const started = performance.now();
+    await page.keyboard.press(action.key);
+    await page.evaluate(() => new Promise((resolve) => {
+      requestAnimationFrame(() => resolve());
+    }));
+    const responseMsec = performance.now() - started;
+    await page.waitForFunction(({ surface, prior }) => {
+      try {
+        const snapshot = JSON.parse(window.render_game_to_text?.() ?? "{}");
+        return (snapshot[surface]?.visible === true) !== prior;
+      } catch {
+        return false;
+      }
+    }, { surface: action.surface, prior: beforeVisible }, { timeout: maxInputResponseMsec });
+    samples.push({
+      key: action.key,
+      surface: action.surface,
+      responseMsec,
+      beforeVisible,
+      afterVisible: (await state())[action.surface]?.visible === true,
+    });
+    await page.waitForTimeout(80);
+  }
+  const responseTimes = samples.map((sample) => sample.responseMsec);
+  return {
+    samples,
+    count: samples.length,
+    measurementMethod: "Playwright key dispatch to the next visible animation frame; the semantic state transition is verified separately because diagnostics publish on a 250ms cadence.",
+    medianMsec: percentile(responseTimes, 0.5),
+    p95Msec: percentile(responseTimes, 0.95),
+    maximumMsec: Math.max(0, ...responseTimes),
+  };
 }
 
 async function clickAuthored(x, y) {
@@ -371,6 +639,10 @@ const seniorShiftsCompleted = [];
 const decisions = [];
 const frameSamples = [];
 const stageTransitions = [];
+let physicalDeployment = null;
+let physicalRenderer = null;
+let physicalInput = null;
+let physicalFrameSample = null;
 let lastTransition = "";
 
 function recordTransition(snapshot) {
@@ -444,11 +716,31 @@ try {
     await waitForState("snapshot => snapshot.checkpoint?.last_saved_reason === 'first_clutch_skipped'", 15_000);
   }
   await page.keyboard.press("Escape");
+  if (physicalGpuProbe) {
+    physicalDeployment = await deployedPckIdentity();
+    assert.equal(
+      physicalDeployment.sha256,
+      expectedPckSha256,
+      "the deployed PCK must match the release candidate",
+    );
+    physicalRenderer = await webglRendererInfo();
+    assert.equal(physicalRenderer.available, true, "the live canvas must expose a WebGL renderer");
+    await page.waitForTimeout(physicalWarmupMsec);
+    await startContinuousFrameSample();
+    physicalInput = await probePhysicalInputs();
+  }
   await page.keyboard.press("Digit3");
   await waitForState("snapshot => snapshot.clock_speed_index === 3");
 
   const baseline = await health("day-1-running-baseline");
-  const cameraProbe = await probeCamera();
+  const cameraProbe = physicalGpuProbe
+    ? {
+        responseMsec: physicalInput?.p95Msec ?? Number.POSITIVE_INFINITY,
+        beforeTarget: null,
+        afterTarget: null,
+        measurementMethod: physicalInput?.measurementMethod ?? "",
+      }
+    : await probeCamera();
   await page.keyboard.press("Digit3");
   frameSamples.push(await sampleFrames("day-1-active-production"));
 
@@ -916,6 +1208,33 @@ try {
 		});
 	}
 
+  if (physicalGpuProbe) {
+    let lingerIndex = 0;
+    while (await physicalSampleElapsedMsec() < physicalSampleMsec) {
+      const snapshot = await state();
+      if (snapshot.camera?.input_enabled === true) {
+        const key = lingerIndex % 2 === 0 ? "ArrowRight" : "ArrowLeft";
+        await page.keyboard.down(key);
+        await page.waitForTimeout(80);
+        await page.keyboard.up(key);
+      } else {
+        const bounds = await page.locator("#canvas").boundingBox();
+        if (bounds) {
+          await page.mouse.move(
+            bounds.x + bounds.width * (0.35 + (lingerIndex % 3) * 0.15),
+            bounds.y + bounds.height * 0.5,
+          );
+        }
+      }
+      lingerIndex += 1;
+      const remainingMsec = physicalSampleMsec - await physicalSampleElapsedMsec();
+      if (remainingMsec > 0) {
+        await page.waitForTimeout(Math.min(2_000, remainingMsec));
+      }
+    }
+    physicalFrameSample = await stopContinuousFrameSample();
+  }
+
   await requestCheckpoint("active_progression_final");
   const final = await health(
 		seniorShifts > 12
@@ -1011,6 +1330,37 @@ try {
       auditFailures.push(`${sample.label} stopped producing responsive animation frames`);
     }
   }
+  if (physicalGpuProbe) {
+    const rendererText = `${physicalRenderer?.vendor ?? ""} ${physicalRenderer?.renderer ?? ""}`;
+    if (!physicalRenderer?.available) auditFailures.push("physical GPU probe did not expose WebGL");
+    if (/(SwiftShader|software|llvmpipe|Microsoft Basic|virtual monitor|virtual display)/i.test(rendererText)) {
+      auditFailures.push(`physical GPU probe used an ineligible renderer: ${rendererText}`);
+    }
+    if ((physicalFrameSample?.sampleSeconds ?? 0) < 600) {
+      auditFailures.push(`physical GPU probe sampled only ${physicalFrameSample?.sampleSeconds ?? 0} seconds`);
+    }
+    if ((physicalFrameSample?.medianFps ?? 0) < 55) {
+      auditFailures.push(`physical GPU median FPS was ${physicalFrameSample?.medianFps ?? 0}`);
+    }
+    if ((physicalFrameSample?.onePercentLowFps ?? 0) < 40) {
+      auditFailures.push(`physical GPU 1% low FPS was ${physicalFrameSample?.onePercentLowFps ?? 0}`);
+    }
+    if ((physicalInput?.count ?? 0) < 20) {
+      auditFailures.push(`physical GPU probe recorded only ${physicalInput?.count ?? 0} input samples`);
+    }
+    if ((physicalInput?.p95Msec ?? Number.POSITIVE_INFINITY) > 150) {
+      auditFailures.push(`physical GPU p95 input latency was ${physicalInput?.p95Msec ?? "missing"}ms`);
+    }
+    if ((physicalFrameSample?.maximumStallMsec ?? Number.POSITIVE_INFINITY) > 750) {
+      auditFailures.push(`physical GPU maximum post-warmup stall was ${physicalFrameSample?.maximumStallMsec ?? "missing"}ms`);
+    }
+    if ((physicalFrameSample?.endToStartFpsRatio ?? 0) < 0.8) {
+      auditFailures.push(`physical GPU end/start FPS ratio was ${physicalFrameSample?.endToStartFpsRatio ?? 0}`);
+    }
+    if ((physicalFrameSample?.contextLosses ?? Number.POSITIVE_INFINITY) !== 0) {
+      auditFailures.push(`physical GPU WebGL context losses were ${physicalFrameSample?.contextLosses ?? "missing"}`);
+    }
+  }
   auditFailures.push(...browserErrors);
 
   const longTasks = await page.evaluate(() => window.__peckingProgressionLongTasks ?? []);
@@ -1018,7 +1368,7 @@ try {
     passed: auditFailures.length === 0,
     url,
     renderer: auditRenderer === "hardware"
-			? "headless Chromium / ANGLE D3D11; authentic progression and functional responsiveness are gated; cross-device throughput is not claimed"
+			? `${headed ? "headed" : "headless"} Chromium / ANGLE D3D11; authentic progression and functional responsiveness are gated${physicalGpuProbe ? "; physical discrete-GPU throughput is probed" : "; cross-device throughput is not claimed"}`
 			: "headless Chromium / ANGLE SwiftShader; progression, responsiveness, and bounded growth are gated; physical GPU throughput is not claimed",
     elapsedMsec: Date.now() - startedAt,
     configuration: {
@@ -1027,6 +1377,14 @@ try {
       strategyId,
       yearTwoStrategyId,
 		auditRenderer,
+      headed,
+      physicalGpuProbe,
+      physicalSampleMsec,
+      physicalWarmupMsec,
+      viewportWidth,
+      viewportHeight,
+      releaseCommit,
+      expectedPckSha256,
       seniorPolicyId,
       seniorPolicySequence,
       enterSeniorRoost,
@@ -1078,6 +1436,34 @@ try {
 		seniorYearTwoGate,
     cameraProbe,
     frameSamples,
+    physicalGpu: physicalGpuProbe ? {
+      release: {
+        commitSha: releaseCommit,
+        deployment: physicalDeployment,
+      },
+      renderer: physicalRenderer,
+      input: physicalInput,
+      frames: physicalFrameSample,
+      thresholds: {
+        visualQuality: "balanced",
+        minimumSampleSeconds: 600,
+        minimumMedianFps: 55,
+        minimumOnePercentLowFps: 40,
+        maximumP95InputLatencyMsec: 150,
+        maximumStallMsec: 750,
+        minimumEndToStartFpsRatio: 0.8,
+        maximumContextLosses: 0,
+      },
+      contractScope: {
+        physicalHardware: true,
+        productionUrl: true,
+        continuousRecording: false,
+        matureOfficeFromVerifiedBackup: false,
+        humanSigned: false,
+        eligibleForSignedSession: false,
+        reason: "Automated headed probe establishes local physical-GPU throughput only; the signed protocol still requires recording, mature-office backup coverage, and a human tester.",
+      },
+    } : null,
     baseline,
     probationFinalHealth,
     final,
@@ -1096,6 +1482,9 @@ try {
   fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(report, null, 2));
   assert.deepEqual(auditFailures, []);
 } catch (error) {
+  if (physicalGpuProbe && !physicalFrameSample) {
+    physicalFrameSample = await stopContinuousFrameSample().catch(() => null);
+  }
   const failureState = await state().catch(() => ({}));
   fs.writeFileSync(path.join(outputDirectory, "failure-report.json"), JSON.stringify({
     error: String(error),
@@ -1113,6 +1502,12 @@ try {
 		yearTwoMandateMode,
 		yearTwoMandateId,
 		expectedAdvancedOutcome,
+    headed,
+    physicalGpuProbe,
+    physicalDeployment,
+    physicalRenderer,
+    physicalInput,
+    physicalFrameSample,
     shiftsCompleted,
     seniorShiftsCompleted,
     decisions,

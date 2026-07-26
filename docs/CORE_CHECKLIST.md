@@ -259,5 +259,7 @@ Automated tests cover responsive dimensions, synthetic touch paths, software
 WebGL, persistence, semantic narration, and deterministic performance contracts.
 Representative physical iOS/Android touch feel, screen-reader listening, and
 integrated/discrete GPU throughput remain human hardware sign-off items. They are
-tracked as external release evidence in `BETA_READINESS.md`, not silently claimed
-by the automated gate.
+tracked as external release evidence in `BETA_READINESS.md` and executed through
+`PHYSICAL_RELEASE_ACCEPTANCE.md`, not silently claimed by the automated gate.
+`verify_physical_release_evidence.ps1` rejects missing sessions, placeholder
+evidence, stale release hashes, missed thresholds, and unsigned decisions.

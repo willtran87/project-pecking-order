@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "release": {
+    "commit_sha": "REPLACE_WITH_40_CHARACTER_RELEASE_COMMIT",
+    "pck_sha256": "REPLACE_WITH_64_CHARACTER_INDEX_PCK_SHA256",
+    "tested_url": "https://REPLACE_WITH_DEPLOYED_RELEASE_URL",
+    "tested_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+    "coordinator": "REPLACE_WITH_RELEASE_COORDINATOR"
+  },
+  "sessions": [
+    {
+      "id": "touch-ios",
+      "status": "pending",
+      "tester": "REPLACE_WITH_TESTER",
+      "signed_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+      "environment": {
+        "physical_device": true,
+        "device_model": "REPLACE_WITH_IPHONE_MODEL",
+        "os_version": "REPLACE_WITH_IOS_VERSION",
+        "browser": "Safari",
+        "browser_version": "REPLACE_WITH_SAFARI_VERSION"
+      },
+      "check_results": {
+        "campaign-load": "pending",
+        "first-clutch-touch-route": "pending",
+        "all-eight-controls": "pending",
+        "touch-controls-single-fire": "pending",
+        "one-finger-pan": "pending",
+        "pinch-zoom": "pending",
+        "rotate-recover": "pending",
+        "modal-focus-recovery": "pending",
+        "backup-round-trip": "pending",
+        "one-shift-sustained-flow": "pending",
+        "safe-area-and-overflow": "pending",
+        "status-feedback": "pending"
+      },
+      "metrics": {
+        "single_fire_attempts": 0,
+        "single_fire_failures": 0,
+        "pan_attempts": 0,
+        "pan_failures": 0,
+        "pinch_attempts": 0,
+        "pinch_failures": 0,
+        "rotation_cycles": 0,
+        "rotation_failures": 0
+      },
+      "evidence": [],
+      "blocking_issues": [],
+      "notes": ""
+    },
+    {
+      "id": "touch-android",
+      "status": "pending",
+      "tester": "REPLACE_WITH_TESTER",
+      "signed_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+      "environment": {
+        "physical_device": true,
+        "device_model": "REPLACE_WITH_ANDROID_MODEL",
+        "os_version": "REPLACE_WITH_ANDROID_VERSION",
+        "browser": "Chrome",
+        "browser_version": "REPLACE_WITH_CHROME_VERSION"
+      },
+      "check_results": {
+        "campaign-load": "pending",
+        "first-clutch-touch-route": "pending",
+        "all-eight-controls": "pending",
+        "touch-controls-single-fire": "pending",
+        "one-finger-pan": "pending",
+        "pinch-zoom": "pending",
+        "rotate-recover": "pending",
+        "modal-focus-recovery": "pending",
+        "backup-round-trip": "pending",
+        "one-shift-sustained-flow": "pending",
+        "safe-area-and-overflow": "pending",
+        "status-feedback": "pending"
+      },
+      "metrics": {
+        "single_fire_attempts": 0,
+        "single_fire_failures": 0,
+        "pan_attempts": 0,
+        "pan_failures": 0,
+        "pinch_attempts": 0,
+        "pinch_failures": 0,
+        "rotation_cycles": 0,
+        "rotation_failures": 0
+      },
+      "evidence": [],
+      "blocking_issues": [],
+      "notes": ""
+    },
+    {
+      "id": "screen-reader-desktop",
+      "status": "pending",
+      "tester": "REPLACE_WITH_TESTER",
+      "signed_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+      "environment": {
+        "physical_device": true,
+        "device_model": "REPLACE_WITH_COMPUTER_MODEL",
+        "os_version": "REPLACE_WITH_OS_VERSION",
+        "browser": "REPLACE_WITH_BROWSER",
+        "browser_version": "REPLACE_WITH_BROWSER_VERSION",
+        "assistive_technology": "REPLACE_WITH_NVDA_OR_VOICEOVER",
+        "assistive_technology_version": "REPLACE_WITH_VERSION"
+      },
+      "check_results": {
+        "page-landmarks-and-names": "pending",
+        "game-focus-summary": "pending",
+        "live-status-sample": "pending",
+        "notification-levels": "pending",
+        "economic-decisions": "pending",
+        "flockwatch-economic-equivalence": "pending",
+        "backup-status": "pending",
+        "no-raw-or-runaway-diagnostics": "pending"
+      },
+      "metrics": {
+        "announcement_samples": 0,
+        "economic_decisions_completed": 0,
+        "raw_diagnostic_announcements": 0,
+        "runaway_repetitions": 0
+      },
+      "evidence": [],
+      "blocking_issues": [],
+      "notes": ""
+    },
+    {
+      "id": "screen-reader-mobile",
+      "status": "pending",
+      "tester": "REPLACE_WITH_TESTER",
+      "signed_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+      "environment": {
+        "physical_device": true,
+        "device_model": "REPLACE_WITH_PHONE_MODEL",
+        "os_version": "REPLACE_WITH_OS_VERSION",
+        "browser": "REPLACE_WITH_BROWSER",
+        "browser_version": "REPLACE_WITH_BROWSER_VERSION",
+        "assistive_technology": "REPLACE_WITH_VOICEOVER_OR_TALKBACK",
+        "assistive_technology_version": "REPLACE_WITH_VERSION"
+      },
+      "check_results": {
+        "page-landmarks-and-names": "pending",
+        "mobile-controls-and-names": "pending",
+        "game-focus-summary": "pending",
+        "live-status-sample": "pending",
+        "notification-levels": "pending",
+        "economic-decisions": "pending",
+        "flockwatch-economic-equivalence": "pending",
+        "backup-status": "pending",
+        "no-raw-or-runaway-diagnostics": "pending"
+      },
+      "metrics": {
+        "announcement_samples": 0,
+        "economic_decisions_completed": 0,
+        "raw_diagnostic_announcements": 0,
+        "runaway_repetitions": 0
+      },
+      "evidence": [],
+      "blocking_issues": [],
+      "notes": ""
+    },
+    {
+      "id": "audio-listening",
+      "status": "pending",
+      "tester": "REPLACE_WITH_TESTER",
+      "signed_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+      "environment": {
+        "physical_device": true,
+        "device_model": "REPLACE_WITH_COMPUTER_OR_PHONE_MODEL",
+        "os_version": "REPLACE_WITH_OS_VERSION",
+        "browser": "REPLACE_WITH_BROWSER",
+        "browser_version": "REPLACE_WITH_BROWSER_VERSION",
+        "output_device": "REPLACE_WITH_HEADPHONES_OR_SPEAKERS",
+        "listening_environment": "REPLACE_WITH_ENVIRONMENT"
+      },
+      "check_results": {
+        "independent-audio-buses": "pending",
+        "five-semantic-cues": "pending",
+        "redundant-non-audio-feedback": "pending",
+        "focus-pause-resume": "pending",
+        "sustained-mix-quality": "pending"
+      },
+      "metrics": {
+        "listening_minutes": 0,
+        "focus_cycles": 0,
+        "clipping_incidents": 0,
+        "stuck_loop_incidents": 0
+      },
+      "evidence": [],
+      "blocking_issues": [],
+      "notes": ""
+    },
+    {
+      "id": "gpu-integrated",
+      "status": "pending",
+      "tester": "REPLACE_WITH_TESTER",
+      "signed_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+      "environment": {
+        "physical_device": true,
+        "device_model": "REPLACE_WITH_COMPUTER_MODEL",
+        "os_version": "REPLACE_WITH_OS_VERSION",
+        "browser": "REPLACE_WITH_BROWSER",
+        "browser_version": "REPLACE_WITH_BROWSER_VERSION",
+        "gpu_model": "REPLACE_WITH_INTEGRATED_GPU_MODEL",
+        "driver_version": "REPLACE_WITH_DRIVER_VERSION",
+        "hardware_accelerated": true,
+        "renderer_string": "REPLACE_WITH_WEBGL_RENDERER_STRING"
+      },
+      "check_results": {
+        "hardware-renderer": "pending",
+        "balanced-warmup": "pending",
+        "active-two-shift-route": "pending",
+        "mature-office": "pending",
+        "input-latency-sample": "pending",
+        "no-context-loss": "pending",
+        "no-progressive-degradation": "pending"
+      },
+      "metrics": {
+        "resolution_width": 0,
+        "resolution_height": 0,
+        "visual_quality": "balanced",
+        "sample_seconds": 0,
+        "input_samples": 0,
+        "median_fps": 0,
+        "one_percent_low_fps": 0,
+        "p95_input_latency_ms": 0,
+        "maximum_stall_ms": 0,
+        "end_to_start_fps_ratio": 0,
+        "context_losses": 0
+      },
+      "evidence": [],
+      "blocking_issues": [],
+      "notes": ""
+    },
+    {
+      "id": "gpu-discrete",
+      "status": "pending",
+      "tester": "REPLACE_WITH_TESTER",
+      "signed_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+      "environment": {
+        "physical_device": true,
+        "device_model": "REPLACE_WITH_COMPUTER_MODEL",
+        "os_version": "REPLACE_WITH_OS_VERSION",
+        "browser": "REPLACE_WITH_BROWSER",
+        "browser_version": "REPLACE_WITH_BROWSER_VERSION",
+        "gpu_model": "REPLACE_WITH_DISCRETE_GPU_MODEL",
+        "driver_version": "REPLACE_WITH_DRIVER_VERSION",
+        "hardware_accelerated": true,
+        "renderer_string": "REPLACE_WITH_WEBGL_RENDERER_STRING"
+      },
+      "check_results": {
+        "hardware-renderer": "pending",
+        "balanced-warmup": "pending",
+        "active-two-shift-route": "pending",
+        "mature-office": "pending",
+        "input-latency-sample": "pending",
+        "no-context-loss": "pending",
+        "no-progressive-degradation": "pending"
+      },
+      "metrics": {
+        "resolution_width": 0,
+        "resolution_height": 0,
+        "visual_quality": "balanced",
+        "sample_seconds": 0,
+        "input_samples": 0,
+        "median_fps": 0,
+        "one_percent_low_fps": 0,
+        "p95_input_latency_ms": 0,
+        "maximum_stall_ms": 0,
+        "end_to_start_fps_ratio": 0,
+        "context_losses": 0
+      },
+      "evidence": [],
+      "blocking_issues": [],
+      "notes": ""
+    }
+  ],
+  "decision": {
+    "status": "pending",
+    "approved_by": "REPLACE_WITH_RELEASE_OWNER",
+    "approved_at_utc": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+    "open_p0_issues": 0,
+    "open_p1_issues": 0,
+    "accepted_p2_issues": []
+  }
+}

@@ -38,3 +38,16 @@ The gate requires Node 22.13 or newer. When more than one Node installation is p
 ## External-only evidence
 
 The repository can automate touch event paths, responsive layouts, software WebGL, persistence, audio state, and accessibility narration. Final sign-off still requires representative physical iOS/Android touch interaction, screen-reader/listening checks on real hardware, and integrated/discrete GPU throughput. Those checks cannot be honestly replaced by local simulation.
+
+`docs/PHYSICAL_RELEASE_ACCEPTANCE.md` defines the exact seven-session device
+matrix, routes, repetitions, thresholds, evidence bundle, and release decision.
+Copy `docs/physical-release-evidence.template.json` to
+`output/release/physical-release-evidence.json`, complete it against the exact
+release candidate, and validate it with:
+
+```powershell
+./tools/verify_physical_release_evidence.ps1
+```
+
+The physical gate remains failed until every required session and the final
+release decision are explicitly recorded as `pass`.

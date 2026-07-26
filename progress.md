@@ -1752,3 +1752,28 @@ The next major systems milestone is persistent worker relationships and individu
   SHA-256 `7356278CFB44B013766D00D418BBB1A75263FD157A606E171519FC7F90BA2BE7`.
   Physical touch feel, listening quality, and representative-device GPU
   throughput remain external release sign-offs.
+
+## 2026-07-26 — Objective physical release sign-off
+
+- Replaced the remaining generic hardware caveat with
+  `docs/PHYSICAL_RELEASE_ACCEPTANCE.md`, a seven-session physical matrix covering
+  iOS touch, Android touch, desktop and mobile screen readers, listening quality,
+  integrated GPU, and discrete GPU.
+- Defined exact touch repetitions, screen-reader routes, audio checks, Balanced
+  quality GPU thresholds, evidence hashing, issue handling, and release-owner
+  approval criteria.
+- Added `docs/physical-release-evidence.template.json` so the external evidence
+  is recorded against an exact commit, deployed URL, and `index.pck` hash rather
+  than informal notes.
+- Added `tools/verify_physical_release_evidence.ps1`. It rejects stale or
+  mismatched release identity, missing or duplicate sessions, placeholder
+  metadata, non-pass checks, inadequate samples, software renderers, threshold
+  misses, missing evidence hashes, blockers, and unsigned decisions.
+- Validator contract self-test passes at
+  `output/release/physical-release-validator-self-test.json`; the untouched
+  template intentionally fails at
+  `output/release/physical-release-template-validation.json`, proving pending
+  evidence cannot be mistaken for release acceptance.
+- The actual physical gate remains pending until human testers run and sign all
+  seven real-device sessions. Repository automation cannot manufacture that
+  evidence.

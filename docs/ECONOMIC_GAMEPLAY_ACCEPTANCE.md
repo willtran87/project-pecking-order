@@ -381,7 +381,9 @@ confirm.
     Native/web suites, production server, responsive captures, and automated
     accessibility contracts are repeatable. Final release still requires human
     screen-reader, browser/device, audio, and representative low-end hardware
-    acceptance; automation cannot honestly certify those experiences.
+    acceptance; automation cannot honestly certify those experiences. The exact
+    physical matrix, thresholds, and machine-validated evidence contract live in
+    `docs/PHYSICAL_RELEASE_ACCEPTANCE.md`.
 
 ## Evidence entry points
 
@@ -393,6 +395,11 @@ confirm.
 - `docs/CORE_CHECKLIST.md` — authored production acceptance record.
 - `docs/EXPANSION_ECONOMY.md` — exact economy/facility rules and costs.
 - `docs/BETA_READINESS.md` — release evidence and honest external checks.
+- `docs/PHYSICAL_RELEASE_ACCEPTANCE.md` and
+  `docs/physical-release-evidence.template.json` — physical-device protocol,
+  objective thresholds, and sign-off record.
+- `tools/verify_physical_release_evidence.ps1` — release identity, session,
+  threshold, evidence-hash, and approval validator.
 - `tests/economic_briefing_test.gd` — reconciliation, resources, strategies,
   bottlenecks, recovery, accessibility, and presentation/state separation.
 - `tests/campaign_balance_playthrough_test.gd`,
