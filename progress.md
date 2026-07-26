@@ -1,5 +1,24 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-07-25 - Core production checklist: release hardening
+
+- Added recurring physical claims-floor evidence without adding route blockers: claimant correspondence packets, redacted evidence strips, a claim-denial stamp, returned-appeal archive boxes, and a live claim-closure board.
+- Verified the new File dossier in a live career: claimant identity, incident, requested remedy, delay cost, exact $1.20/$0/$0.60 paths, beneficiary/burden disclosure, and an accepted Coverage Exception receipt all render inside the compact office view.
+- Verified responsive play at 390x844 portrait, 844x390 landscape, and 1280x720 desktop. The wrapper has no horizontal overflow, keeps a contained 16:9 canvas, and exposes 40px mobile action controls.
+- Fixed the Node production wrapper so `/game/index.pck` and the other Godot payload files are served from `dist/client/game` instead of returning 404. Added a production-server test that verifies the rendered shell and byte/hash parity of the served PCK.
+- Reframed Senior Roost as an optional post-campaign management file. The five-shift probation file and its restructuring outcome remain the authored ending; the visible wrapper no longer presents endless scaling as the core objective.
+- Added `docs/CORE_CHECKLIST.md`, mapping every production-checklist concept to implementation and repeatable evidence, while keeping real-device and GPU sign-off explicit as external release work.
+
+## 2026-07-25 - Core production checklist: claimant paths and lane identity
+
+- Added stable claimant profiles to every Nest Damage, Predator Loss, and Appeals file. The selected-hen File tab now states who claimed, what happened, what remedy they need, and what a slow result costs them.
+- Added one irreversible pre-55% claimant-path intervention per active file: Humane Settlement, Fast Denial, or Coverage Exception. Each path discloses exact Feed Fund cost, beneficiary, pace, shell-risk, and burden before selection.
+- Made the satire causal: a clean Fast Denial improves immediate bureau pace at no filing cost, applies worker/audit pressure, and returns the same named claimant to the next shift's Appeals tray.
+- Added distinct filed-path lane identities beyond color/value/deadline/risk: Nest repair relief restores handler morale, Predator Loss adds trauma stress, and Appeals changes audit order.
+- Persisted claimant identity, resolution choice, lock, normalized cost, source file, and delayed appeal state. Older claim saves derive neutral standard handling; tampered resolution costs are normalized from stable path terms.
+- Added `claimant_resolution_test.gd` plus claimant-path and lane-disclosure assertions in the live routing UI test. Focused claimant, routing, simulation persistence, campaign save, and contract persistence tests pass.
+- Raised the isolated Godot test ceiling from 90 to 150 seconds after the complete First Clutch induction path proved correct but required 117-132 seconds on this workstation. The affected shard now reports 63/63; combined with the other passing shards, the pre-feature suite was 188/188.
+
 ## Current work
 
 - Recompose the HUD so management metrics do not obscure the playable office.
@@ -1608,3 +1627,59 @@ The next major systems milestone is persistent worker relationships and individu
 - Re-exported the validated source and synchronized all nine GitHub Pages payloads byte-for-byte between `docs/` and `web/public/game/`. The final 6,185,788-byte `index.pck` has SHA-256 `E69361E3B2123DF908ECFC97CD6986EECC67C5FD6555ADACD10FB8AE44E34F66`.
 - The official browser client completed three release iterations at `output/web-game/official-client-adaptive-casework-pages/`. All three 1280x720 captures were inspected and remain contained/readable; diagnostics report `loaded=true`, 12 commendations, a six-case docket, optional visuals ready, 3,847 nodes, zero orphan nodes, and no browser-error artifact.
 - Hardened the direct GitHub Pages shell as well as the localhost wrapper. The export now installs the same bounded, JSON-validating player-preferences bridge before Godot starts and exposes the compact diagnostic state through `render_game_to_text`; this removes the optional-interface console error on a direct Pages cold load. The direct generated page passes with `loaded=true`, 0/12 commendations, 0/3 adaptive pairs, six-case rotation, 3,847 nodes, zero orphans, and no browser-error artifact at `output/web-game/direct-pages-bridge-release/`.
+
+## Beta hardening: character life and release gate
+
+- Audited the seventeen-item beta backlog against the shipped systems. Case pairs, onboarding, organic construction, manager density/archetypes, Senior strategy, adaptive audio, responsive/accessibility controls, soak coverage, save recovery, and Pages bridging were already implemented; the largest honest local gap was individual hen temperament and coworker-scale relationship visibility.
+- Added six stable employee temperaments with authored labels/descriptions and bounded motion/focus profiles. ChickenView now binds them once and uses them for distinct peck cadence, blink/breath rhythm, and six neutral break idles without changing connected face/wing ownership or seated production rules.
+- Added one named nearest-perchmate bond to every employed hen snapshot. It is derived from already-persistent morale, stress, fatigue, grievance, and flock solidarity, so care and labor choices move it causally without adding currency or save-schema authority. Applicants remain explicitly off the floor.
+- Integrated temperament and the named bond into the existing selected-hen Profile and tooltip rather than adding another menu. The Web guide now describes both discoverable fields.
+- Added `tools/verify_beta_release.ps1`, a machine-readable release gate covering representative native contracts, Web lint/rendered accessibility behavior, and exact nine-file Pages/localhost parity. Added a Windows CI quality gate and `docs/BETA_READINESS.md` with explicit acceptance criteria and honest hardware-only sign-off boundaries.
+- Focused `personnel_career_test.gd`, `claim_routing_ui_test.gd`, and `chicken_render_hot_path_test.gd` verification passes. The tests lock six deterministic identities, causal bond movement, applicant exclusion, contained dossier copy, stable imported-model bindings, neutral wings, and hidden-route behavior.
+- Verified the served localhost build at the default desktop viewport, 2560x1600, 390x844 portrait, and 844x390 landscape. The dossier remained contained, both mobile breakpoints had zero horizontal overflow and exposed the touch-control shell, and browser diagnostics contained no warnings or errors.
+- The final isolated native suite passed all 187/187 Godot tests with zero failures or timeouts at `output/regression/beta-hardening-full-final/full-suite-summary.json`. The refreshed ten-check release gate passed representative native contracts, 42/42 rendered Web behavior/accessibility tests, lint, and exact nine-file parity at `output/release/beta-release-gate.json`. The synchronized 6,191,580-byte `index.pck` has SHA-256 `EB1F56E5EC8C55665FED7D70D82102320B111AAB808A095DF78FABCDA74B4485`.
+
+## Core production checklist closure
+
+- Made temperament a disclosed work-style decision rather than flavor text. Manual routing now engages each hen's bounded pace, shell-risk, strain, or recovery profile; AUTO remains neutral, and the explicit route choice persists across checkpoints.
+- Added stable claimant dossiers for Nest Damage, Predator Loss, and Appeals with incident, need, delay harm, and three locked resolution paths. Settlement, fast denial, and coverage exception show their exact Feed Fund cost, beneficiary, operational tradeoff, and later consequences before filing.
+- Connected claim outcomes to the following shift. A clean fast denial returns the same claimant as an Appeals file; lane handling changes morale, stress, compliance, favor, grievance, queue pressure, and review evidence through authoritative simulation state.
+- Made the claims floor physically specific: claimant correspondence, denial stamps, redacted evidence, returned-appeal archives, and a live closure-rate board now inhabit the office without adding collisions or blocking worker routes.
+- Reframed the authored five-shift probation review as the complete campaign ending. Senior quarters remain an optional post-campaign management file and no longer read as a prerequisite or an endless-growth replacement.
+- Replaced the production wrapper's incomplete static serving with a bounded `/game/*` server that provides the PCK, WASM, scripts, icons, and worklets with correct types, path containment, and security headers.
+- Browser interaction verified the live claimant dossier, exact $0.60 exception deduction and receipt, checkpoint restore, clean console, and contained layouts at 390x844 portrait, 844x390 landscape, and 1280x720 desktop.
+- Final isolated native verification discovers, completes, and passes all 189/189 Godot 4.7 tests with zero failures and zero timeouts at `output/godot-full-suite-20260725-core-checklist-final/full-suite-summary.json`.
+- The final beta gate passes eleven representative Godot contracts, ESLint, 42/42 rendered behavior/accessibility tests, the production-server payload test, and exact nine-file export parity at `output/release/core-checklist-beta-release-gate.json`. The synchronized 6,213,148-byte `index.pck` has SHA-256 `7935B451EDD5CEFE5A4C97AFAEB25457518516A12F4ADE0D9D77EDF860395175`.
+## 2026-07-26 — Economic gameplay checklist remediation
+
+- Audited the supplied general economy checklist against the authored Farm
+  Mutual claims-bureau design instead of importing unrelated commodity-market,
+  prestige, idle-income, or monetization systems.
+- Added an authoritative `economic_briefing` projection to
+  `DepartmentSimulation`: exact cash/reserve/free fund, secured run rate,
+  reconciled cost categories, seasonal market/spot-feed forecast, capacity,
+  six distinct resource roles, ranked bottlenecks, five viable strategy routes,
+  four recovery paths, and five-close margin history/trend.
+- Added the presentation-only Economic Briefing at the top of Flockwatch
+  Capital, plus compact Today ledger values and Capital-specific assistive
+  narration. The component never owns or mutates economic state.
+- Added `tests/economic_briefing_test.gd`; focused economy/navigation/density
+  verification passes.
+- Added `docs/ECONOMIC_GAMEPLAY_ACCEPTANCE.md`, mapping every supplied checklist
+  item to shipped behavior, an explicit scoped non-goal, or honest external
+  hardware/accessibility sign-off.
+- Promoted the briefing to the first Capital filing section after the first
+  renderer-backed capture showed that existing requisition actions pushed it
+  below the fold. The final inspected `captures/economic_briefing.png` exposes
+  run rate, cost categories, current/next market, bottleneck cause, and action
+  without hiding the office.
+- Final verification: the first six-shard aggregate passed 190/190; the
+  post-layout aggregate passed 189 assertions with no failures and one
+  `first_clutch_induction_test.gd` timeout at the 150-second harness ceiling,
+  then that exact test passed in 125.042 seconds under a 210-second ceiling.
+  The final Web export passes ESLint, the production build, 42/42 rendered
+  behavior/accessibility tests, the production-server check, and nine-file
+  docs/wrapper parity. The final PCK is 6,238,676 bytes with SHA-256
+  `81716CA9C2EC1C05509BFA804099336D16C91EFFDC8ED5BF01F099EB5C3D839E`.
+  The required independent Web client loaded the synchronized build with no
+  console-error artifact.

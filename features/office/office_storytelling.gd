@@ -213,6 +213,7 @@ var _zone_glows: Array[MeshInstance3D] = []
 var _animated_eggs: Array[Node3D] = []
 var _metrics_label: Label3D
 var _intake_status_label: Label3D
+var _claim_closure_label: Label3D
 var _perch_screen_material: StandardMaterial3D
 var _rail_glow_material: StandardMaterial3D
 var _quality_lamps: Dictionary = {}
@@ -481,6 +482,18 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 			int(snapshot.get("claims_processed", 0)),
 		]
 		EnvironmentalSignageScript.refit_label(_intake_status_label)
+	if _claim_closure_label != null:
+		var queue_counts := snapshot.get("claim_queue_counts", {}) as Dictionary
+		var open_claims := (
+			int(queue_counts.get(&"nest_damage", queue_counts.get("nest_damage", 0)))
+			+ int(queue_counts.get(&"predator_loss", queue_counts.get("predator_loss", 0)))
+			+ int(queue_counts.get(&"appeals", queue_counts.get("appeals", 0)))
+		)
+		_claim_closure_label.text = "CLAIM CLOSURE\nCLOSED %03d  /  OPEN %02d" % [
+			int(snapshot.get("eggs_today", 0)),
+			open_claims,
+		]
+		EnvironmentalSignageScript.refit_label(_claim_closure_label)
 	set_overtime(bool(snapshot.get("overtime_enabled", false)))
 
 
@@ -2444,6 +2457,7 @@ func _clear_built_roots() -> void:
 	campus_portfolio_visual = null
 	_metrics_label = null
 	_intake_status_label = null
+	_claim_closure_label = null
 	_perch_screen_material = null
 	_rail_glow_material = null
 	_quality_lamps.clear()
@@ -3266,18 +3280,102 @@ func _build_records_and_intake_story() -> void:
 		Color("4e5c5f"), Color("ead9ae"), Vector3.ZERO,
 		14, 0.0030, &"secondary", &"stencil"
 	)
+	var appeal_archive_host := _add_box(
+		_archive_story_content,
+		"AppealArchiveHeaderBeam",
+		Vector3(2.16, 0.30, 0.10),
+		shelf_center + Vector3(0.0, 2.86, 0.0),
+		Color("55455f"),
+		0.66,
+		0.18
+	)
+	_add_mounted_label(
+		appeal_archive_host, "AppealArchiveLabel", "RETURNED APPEALS\nPrior denials enclosed",
+		Vector3(0.0, 0.0, 0.057), Vector2(1.98, 0.25),
+		Color("55455f"), Color("ead9ae"), Vector3.ZERO,
+		11, 0.0025, &"utility", &"stencil"
+	)
+	for appeal_index in 3:
+		var appeal_position := shelf_center + Vector3(
+			-0.73 + appeal_index * 0.73,
+			2.06,
+			0.045,
+		)
+		var appeal_box := _add_box(
+			_archive_story_content,
+			"ReturnedAppealArchiveBox_%02d" % appeal_index,
+			Vector3(0.58, 0.39, 0.46),
+			appeal_position,
+			Color("9a7c9f") if appeal_index % 2 == 0 else Color("836d8d"),
+			0.88
+		)
+		appeal_box.set_meta(&"claims_archive", true)
+		_add_box(
+			_archive_story_content,
+			"ReturnedAppealArchiveLabel_%02d" % appeal_index,
+			Vector3(0.32, 0.12, 0.024),
+			appeal_position + Vector3(0.0, 0.0, 0.242),
+			Color("e7ddc8"),
+			0.92
+		)
 
 	# Intake paperwork sits on the existing counter footprint, so it enriches that
 	# prop rather than adding another floor obstruction.
 	for form_index in 5:
 		_add_box(_intake_story_content, "IntakeForm_%02d" % form_index, Vector3(0.72, 0.025, 0.50), _intake_position + Vector3(-0.40 + form_index * 0.018, 1.18 + form_index * 0.027, 0.18 - form_index * 0.01), Color("e3ddc9") if form_index % 2 == 0 else Color("cad5cf"), 0.96)
-	_add_box(_intake_story_content, "RejectedShellStamp", Vector3(0.22, 0.31, 0.22), _intake_position + Vector3(0.45, 1.32, 0.22), Color("8f493e"), 0.66)
+	var denial_stamp := _add_box(_intake_story_content, "RejectedShellStamp", Vector3(0.22, 0.31, 0.22), _intake_position + Vector3(0.45, 1.32, 0.22), Color("8f493e"), 0.66)
+	denial_stamp.set_meta(&"claim_denial_stamp", true)
+	_add_box(
+		_intake_story_content,
+		"ClaimDenialStampFace",
+		Vector3(0.18, 0.025, 0.18),
+		_intake_position + Vector3(0.45, 1.165, 0.22),
+		Color("6f302b"),
+		0.78
+	)
+	# Concise claimant correspondence lives on the real intake counter. The dark
+	# evidence strips turn the paperwork into a repeated claims-floor motif
+	# without adding floating exposition or blocking a route.
+	for packet_index in 3:
+		var packet_position := _intake_position + Vector3(
+			-0.72 + packet_index * 0.29,
+			1.31 + packet_index * 0.018,
+			-0.30 - packet_index * 0.028,
+		)
+		var packet := _add_box(
+			_intake_story_content,
+			"ClaimantCorrespondencePacket_%02d" % packet_index,
+			Vector3(0.62, 0.020, 0.43),
+			packet_position,
+			Color("e3ddc9") if packet_index % 2 == 0 else Color("d0d7cc"),
+			0.96
+		)
+		packet.set_meta(&"claimant_correspondence", true)
+		for redaction_index in 2:
+			_add_box(
+				_intake_story_content,
+				"RedactedEvidenceStrip_%02d_%02d" % [packet_index, redaction_index],
+				Vector3(0.25 - redaction_index * 0.05, 0.008, 0.034),
+				packet_position + Vector3(
+					-0.10 + redaction_index * 0.18,
+					0.014,
+					-0.08 + redaction_index * 0.14,
+				),
+				Color("272b2d"),
+				0.80
+			)
 	_add_box(_intake_story_content, "FarmerCreditLedger", Vector3(0.72, 0.11, 0.52), _intake_position + Vector3(0.42, 1.21, -0.42), Color("4e6b71"), 0.72)
 	_intake_status_label = _add_mounted_label(
 		_intake_story_content, "IntakeStatusLedger", "RECEIVED  0000\nCREDITED  0000",
 		_intake_position + Vector3(0.0, 1.56, 0.60), Vector2(1.42, 0.52),
 		Color("2b4542"), Color("c8d9b6"), Vector3.ZERO,
 		14, 0.0030, &"utility", &"screen", true
+	)
+	_claim_closure_label = _add_mounted_label(
+		_intake_story_content, "ClaimsClosureBoard", "CLAIM CLOSURE\nCLOSED 000  /  OPEN 00",
+		_intake_position + Vector3(-0.98, 1.58, 0.44), Vector2(1.22, 0.46),
+		Color("3b3f4f"), Color("e7dec7"), Vector3.ZERO,
+		12, 0.0027, &"utility", &"screen", true
 	)
 	# A deep terminal hood and counter base make this a piece of intake hardware,
 	# not a second management billboard balanced on thin poles.

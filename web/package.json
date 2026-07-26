@@ -8,8 +8,9 @@
   "scripts": {
     "dev": "vinext dev",
     "build": "vinext build",
-    "start": "vinext start",
+    "start": "node scripts/start-production.mjs",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
+    "test:production": "node --test tests/production-server.test.mjs",
     "audit:soak": "node tests/runtime-soak-audit.mjs",
 		"audit:progression": "node tests/active-progression-audit.mjs",
     "audit:senior-quarter": "node tests/active-progression-audit.mjs",

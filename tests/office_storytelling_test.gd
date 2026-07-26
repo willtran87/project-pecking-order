@@ -182,7 +182,14 @@ func _run() -> void:
 	)
 	_check(staging.find_child("OpenBeakSuggestionBox", true, false) != null, "bureau should include satirical farm-office props", failures)
 	_check(staging.find_child("ArchiveRetentionLabel", true, false) != null, "archive should communicate lifetime retention satire", failures)
+	_check(staging.find_child("AppealArchiveLabel", true, false) != null, "archive should identify returned claimant appeals as prior denials", failures)
+	_check(staging.find_children("ReturnedAppealArchiveBox_*", "MeshInstance3D", true, false).size() == 3, "archive should retain three physical returned-appeal boxes", failures)
+	_check(staging.find_children("ClaimantCorrespondencePacket_*", "MeshInstance3D", true, false).size() == 3, "intake should retain three physical claimant correspondence packets", failures)
+	_check(staging.find_children("RedactedEvidenceStrip_*", "MeshInstance3D", true, false).size() == 6, "claimant packets should carry bounded redacted evidence strips", failures)
+	var denial_stamp := staging.find_child("RejectedShellStamp", true, false)
+	_check(denial_stamp != null and bool(denial_stamp.get_meta(&"claim_denial_stamp", false)), "intake stamp should read as a claim-denial tool instead of generic desk clutter", failures)
 	_check(staging.find_child("IntakeStatusLedger", true, false) != null, "intake should expose shell/credit storytelling", failures)
+	_check(staging.find_child("ClaimsClosureBoard", true, false) != null, "intake should expose a physical claim-closure board", failures)
 	_check(staging.find_children("*", "CollisionObject3D", true, false).is_empty(), "storytelling geometry must remain non-colliding", failures)
 
 	var shell_lab := staging.find_child("ShellQualityLabVisual", true, false) as ShellQualityLabVisual
@@ -599,6 +606,14 @@ func _run() -> void:
 		and "019 / 024" in metrics.text
 		and "6:15 PM" in metrics.text,
 		"yield board should reflect the current snapshot in its restrained live-display format",
+		failures
+	)
+	var closure_board := staging.find_child("ClaimsClosureBoard", true, false) as Label3D
+	_check(
+		closure_board != null
+		and "CLOSED 019" in closure_board.text
+		and "OPEN 06" in closure_board.text,
+		"claim closure board should report the authoritative completed clutch and three-lane open queue",
 		failures
 	)
 

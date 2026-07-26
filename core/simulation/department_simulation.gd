@@ -1011,6 +1011,11 @@ const CLAIM_LANE_DEFINITIONS := {
 		"deadline_minutes": 180,
 		"arrival_weight": 0.50,
 		"accent_hex": "65b7a5",
+		"work_stress_basis_points": 10_000,
+		"sound_morale_millipoints": 600,
+		"sound_compliance_millipoints": 0,
+		"cracked_compliance_millipoints": 0,
+		"operational_tradeoff": "CLAIMANT-PATH REPAIR RELIEF: a sound or golden filed path restores +0.6 handler morale.",
 	},
 	&"predator_loss": {
 		"display_name": "PREDATOR LOSS",
@@ -1022,6 +1027,11 @@ const CLAIM_LANE_DEFINITIONS := {
 		"deadline_minutes": 240,
 		"arrival_weight": 0.32,
 		"accent_hex": "d69a55",
+		"work_stress_basis_points": 12_500,
+		"sound_morale_millipoints": 0,
+		"sound_compliance_millipoints": 0,
+		"cracked_compliance_millipoints": 0,
+		"operational_tradeoff": "CLAIMANT-PATH TRAUMA LOAD: handler stress accumulates 25% faster after a path is filed.",
 	},
 	&"appeals": {
 		"display_name": "APPEALS & EXCEPTIONS",
@@ -1033,6 +1043,59 @@ const CLAIM_LANE_DEFINITIONS := {
 		"deadline_minutes": 360,
 		"arrival_weight": 0.18,
 		"accent_hex": "a987bf",
+		"work_stress_basis_points": 10_000,
+		"sound_morale_millipoints": 0,
+		"sound_compliance_millipoints": 700,
+		"cracked_compliance_millipoints": -1_000,
+		"operational_tradeoff": "CLAIMANT-PATH AUDIT TRAIL: clean closure adds +0.7 audit order; cracked closure loses an extra 1.0.",
+	},
+}
+const CLAIM_RESOLUTION_CUTOFF_PROGRESS := 55.0
+const CLAIM_RESOLUTION_CHOICE_IDS: Array[StringName] = [
+	&"settle",
+	&"deny",
+	&"exception",
+]
+const CLAIM_RESOLUTION_DEFINITIONS := {
+	&"standard": {
+		"label": "STANDARD HANDLING",
+		"short_label": "STANDARD",
+		"cost_cents": 0,
+		"work_basis_points": 10_000,
+		"crack_basis_points": 0,
+		"beneficiary": "BUREAU",
+		"benefit": "No special filing cost or handling modifier.",
+		"burden": "Claimant waits on ordinary Farm Mutual terms.",
+	},
+	&"settle": {
+		"label": "HUMANE SETTLEMENT",
+		"short_label": "SETTLE",
+		"cost_cents": 120,
+		"work_basis_points": 10_000,
+		"crack_basis_points": -300,
+		"beneficiary": "CLAIMANT",
+		"benefit": "Immediate approved support; shell risk -3%.",
+		"burden": "Feed Fund pays $1.20 now.",
+	},
+	&"deny": {
+		"label": "FAST DENIAL",
+		"short_label": "DENY",
+		"cost_cents": 0,
+		"work_basis_points": 11_200,
+		"crack_basis_points": 400,
+		"beneficiary": "BUREAU",
+		"benefit": "Peckwork +12% and no filing cost.",
+		"burden": "Shell risk +4%; a clean denial returns as an appeal tomorrow.",
+	},
+	&"exception": {
+		"label": "COVERAGE EXCEPTION",
+		"short_label": "EXCEPTION",
+		"cost_cents": 60,
+		"work_basis_points": 9_400,
+		"crack_basis_points": -500,
+		"beneficiary": "CLAIMANT",
+		"benefit": "Broader review and shell risk -5%.",
+		"burden": "Feed Fund pays $0.60 now; peckwork -6%.",
 	},
 }
 const INITIAL_CLAIM_LANES: Array[StringName] = [
@@ -6317,6 +6380,432 @@ func spendable_fund_cents() -> int:
 	)
 
 
+## One authoritative read model for the economic information that used to be
+## scattered across Today, staffing, procurement, contracts, and Capital. It is
+## derived entirely from owned simulation state: the UI may format these rows but
+## never recompute prices, reserves, margins, trends, or bottleneck severity.
+func economic_briefing_snapshot() -> Dictionary:
+	var treasury := farm_treasury_snapshot()
+	var procurement := feed_procurement_snapshot()
+	var contract_board := market_contract_board_status()
+	var operating_cost := current_daily_operating_cost_cents()
+	var secured_income := maxi(0, credited_today_cents)
+	var secured_margin := secured_income - operating_cost
+	var break_even_remaining := maxi(0, -secured_margin)
+	var current_season := market_season_for_day(day)
+	var next_market_day := maxi(
+		day + 1,
+		int(current_season.get("end_day", day)) + 1,
+	)
+	var next_season := market_season_for_day(next_market_day)
+	var current_demand := current_season.get("lane_demand_basis_points", {}) as Dictionary
+	var next_demand := next_season.get("lane_demand_basis_points", {}) as Dictionary
+	var opportunity_lane := _economic_highest_demand_lane(current_demand)
+	var next_opportunity_lane := _economic_highest_demand_lane(next_demand)
+	var history := _economic_history_rows(treasury.get("history", []) as Array)
+	var trend := _economic_trend_snapshot(history)
+	var bottlenecks := _economic_bottleneck_rows(
+		treasury,
+		procurement,
+		secured_margin,
+	)
+	var recovery_actions := _economic_recovery_rows(
+		treasury,
+		procurement,
+		contract_board,
+	)
+	var status_id: StringName = &"stable"
+	var status_label := "OPERATING ROOM"
+	if wage_arrears_cents > 0 or bool(treasury.get("capital_frozen", false)):
+		status_id = &"critical"
+		status_label = "RECOVERY REQUIRED"
+	elif spendable_fund_cents() <= 0 or secured_margin < 0:
+		status_id = &"tight"
+		status_label = "MARGIN TIGHT"
+
+	return {
+		"version": 1,
+		"day": day,
+		"status_id": status_id,
+		"status_label": status_label,
+		"cash": {
+			"feed_fund_cents": revenue_cents,
+			"protected_reserve_cents": protected_reserve_cents(),
+			"spendable_fund_cents": spendable_fund_cents(),
+			"secured_income_today_cents": secured_income,
+			"daily_operating_cost_cents": operating_cost,
+			"secured_operating_margin_cents": secured_margin,
+			"break_even_remaining_cents": break_even_remaining,
+			"contract_breach_reserve_cents": current_market_contract_reserve_cents(),
+			"wage_arrears_cents": wage_arrears_cents,
+		},
+		"costs": {
+			"feed_cents": current_daily_feed_cost_cents(),
+			"hen_payroll_cents": current_daily_hen_payroll_cents(),
+			"supervisor_payroll_cents": current_daily_supervisor_payroll_cents(),
+			"expanded_perches_cents": daily_facility_expansion_cost_cents(),
+			"facility_maintenance_cents": current_daily_facility_maintenance_cents(),
+			"campus_services_cents": current_daily_campus_cost_cents(),
+			"portfolio_operations_cents": current_daily_portfolio_cost_cents(),
+		},
+		"market": {
+			"current": current_season.duplicate(true),
+			"next": next_season.duplicate(true),
+			"next_market_day": next_market_day,
+			"opportunity_lane_id": opportunity_lane,
+			"opportunity_lane_label": _lane_display_name(opportunity_lane),
+			"opportunity_demand_basis_points": int(
+				current_demand.get(opportunity_lane, 10_000)
+			),
+			"next_opportunity_lane_id": next_opportunity_lane,
+			"next_opportunity_lane_label": _lane_display_name(next_opportunity_lane),
+			"next_opportunity_demand_basis_points": int(
+				next_demand.get(next_opportunity_lane, 10_000)
+			),
+			"feed_spot_unit_price_cents": _feed_spot_unit_price_cents(day),
+			"next_feed_spot_unit_price_cents": _feed_spot_unit_price_cents(
+				next_market_day
+			),
+		},
+		"capacity": {
+			"live_files": _outstanding_claim_count(),
+			"live_file_limit": current_claim_capacity(),
+			"files_waiting": claims_waiting,
+			"overdue_files": _overdue_claim_count(true),
+			"rework_files": _queued_rework_count() + _active_rework_count(),
+			"turned_away_today": intake_rejections_today,
+			"missed_value_today_cents": intake_missed_value_today_cents,
+			"active_staff": active_worker_count(),
+			"staff_capacity": office_capacity,
+		},
+		"resources": _economic_resource_rows(treasury, procurement),
+		"strategies": _economic_strategy_rows(),
+		"bottlenecks": bottlenecks,
+		"recovery_actions": recovery_actions,
+		"history": history,
+		"trend": trend,
+	}
+
+
+func _economic_highest_demand_lane(demand: Dictionary) -> StringName:
+	var selected: StringName = CLAIM_LANES[0]
+	var selected_basis_points := int(demand.get(selected, 10_000))
+	for lane: StringName in CLAIM_LANES:
+		var lane_basis_points := int(demand.get(lane, 10_000))
+		if lane_basis_points > selected_basis_points:
+			selected = lane
+			selected_basis_points = lane_basis_points
+	return selected
+
+
+func _economic_history_rows(source: Array) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var start_index := maxi(0, source.size() - 5)
+	for index: int in range(start_index, source.size()):
+		if not source[index] is Dictionary:
+			continue
+		var receipt := source[index] as Dictionary
+		var liabilities := (
+			int(receipt.get("closing_credit_principal_cents", 0))
+			+ int(receipt.get("closing_vendor_arrears_cents", 0))
+			+ int(receipt.get("closing_interest_arrears_cents", 0))
+		)
+		rows.append({
+			"day": int(receipt.get("day", 0)),
+			"inflow_cents": int(receipt.get("inflow_cents", 0)),
+			"vendor_due_cents": int(receipt.get("total_vendor_due_cents", 0)),
+			"labor_due_cents": int(receipt.get("labor_due_cents", 0)),
+			"interest_cents": int(receipt.get("interest_charged_cents", 0)),
+			"operating_margin_cents": int(receipt.get("operating_margin_cents", 0)),
+			"closing_cash_cents": int(receipt.get("closing_cash_cents", 0)),
+			"closing_liabilities_cents": liabilities,
+			"profitable": bool(receipt.get("profitable", false)),
+			"debt_free": bool(receipt.get("debt_free", false)),
+		})
+	return rows
+
+
+func _economic_trend_snapshot(history: Array[Dictionary]) -> Dictionary:
+	if history.is_empty():
+		return {
+			"status_id": &"awaiting_close",
+			"status_label": "AWAITING FIRST CLOSE",
+			"margin_change_cents": 0,
+			"average_margin_cents": 0,
+			"sample_count": 0,
+		}
+	var margin_total := 0
+	for row: Dictionary in history:
+		margin_total += int(row.get("operating_margin_cents", 0))
+	var margin_change := 0
+	if history.size() > 1:
+		margin_change = (
+			int(history[-1].get("operating_margin_cents", 0))
+			- int(history[-2].get("operating_margin_cents", 0))
+		)
+	var status_id: StringName = &"steady"
+	var status_label := "STEADY"
+	if margin_change >= 100:
+		status_id = &"improving"
+		status_label = "IMPROVING"
+	elif margin_change <= -100:
+		status_id = &"tightening"
+		status_label = "TIGHTENING"
+	return {
+		"status_id": status_id,
+		"status_label": status_label,
+		"margin_change_cents": margin_change,
+		"average_margin_cents": _signed_half_up_ratio(
+			margin_total,
+			history.size(),
+		),
+		"sample_count": history.size(),
+	}
+
+
+func _economic_resource_rows(
+	treasury: Dictionary,
+	procurement: Dictionary,
+) -> Array[Dictionary]:
+	return [
+		{
+			"id": &"feed_fund",
+			"label": "FEED FUND",
+			"value_cents": revenue_cents,
+			"source": "Sound and golden claim credit, fulfilled Mutual binders, and filed awards.",
+			"use": "Feed, payroll, facilities, resolutions, procurement, and capital.",
+			"limit": "Protected obligations are unavailable for discretionary spending.",
+			"strategic_value": "Liquidity for surviving this shift and choosing the next one.",
+		},
+		{
+			"id": &"protected_reserve",
+			"label": "PROTECTED RESERVE",
+			"value_cents": protected_reserve_cents(),
+			"source": "Derived from payroll, upkeep, feed, breach exposure, arrears, and debt.",
+			"use": "Prevents a purchase from silently consuming already-promised money.",
+			"limit": "Not spendable and released only as obligations settle.",
+			"strategic_value": "Turns solvency into a visible constraint instead of a surprise.",
+		},
+		{
+			"id": &"treasury_headroom",
+			"label": "TREASURY HEADROOM",
+			"value_cents": int(treasury.get("credit_headroom_cents", 0)),
+			"source": "Farm Mutual standing and a debt-free close record.",
+			"use": "Automatically bridges vendors and interest, never flock wages.",
+			"limit": "Interest accrues and an exhausted indebted line freezes capital.",
+			"strategic_value": "Recovery time after a weak close without making failure free.",
+		},
+		{
+			"id": &"feed_stock",
+			"label": "FEED STOCK",
+			"value": int(procurement.get("stock_scoops", 0)),
+			"capacity": int(procurement.get("capacity_scoops", 0)),
+			"unit": "scoops",
+			"source": "One disclosed provisions order during eligible closing review.",
+			"use": "Covers the flock's next ration before seasonal spot buying.",
+			"limit": "Finite bins and dated lots create capacity and spoilage risk.",
+			"strategic_value": "Hedge price pressure or buy fresher, kinder feed.",
+		},
+		{
+			"id": &"farm_mutual_standing",
+			"label": "FARM MUTUAL STANDING",
+			"value": farm_mutual_standing(),
+			"unit": "points",
+			"source": "Two points per fulfilled binder, minus one per breach.",
+			"use": "Gates Service Coop tiers, negotiation, and Treasury capacity.",
+			"limit": "Standard-book days are neutral; breaches also break clean streaks.",
+			"strategic_value": "Long-run client access earned by reliable claim handling.",
+		},
+		{
+			"id": &"live_file_capacity",
+			"label": "LIVE-FILE CAPACITY",
+			"value": _outstanding_claim_count(),
+			"capacity": current_claim_capacity(),
+			"unit": "files",
+			"source": "Records facilities and commissioned routing infrastructure.",
+			"use": "Holds accepted claims and creates room for disclosed binder arrivals.",
+			"limit": "Storage does not add workers; excess demand is turned away.",
+			"strategic_value": "Captures opportunity only when staffing and routing can clear it.",
+		},
+	]
+
+
+func _economic_bottleneck_rows(
+	treasury: Dictionary,
+	procurement: Dictionary,
+	secured_margin: int,
+) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var liabilities := int(treasury.get("total_liabilities_cents", 0))
+	if wage_arrears_cents > 0 or liabilities > 0:
+		rows.append({
+			"id": &"treasury",
+			"severity": 4 if wage_arrears_cents > 0 else 3,
+			"label": "TREASURY PRESSURE",
+			"reason": "$%.2f liabilities and $%.2f unpaid wages reduce future choices."
+				% [float(liabilities) / 100.0, float(wage_arrears_cents) / 100.0],
+			"action": "File a profitable low-risk close; cash repays interest, vendors, labor, then principal in that order.",
+		})
+	var spot_shortage := int(procurement.get("spot_shortage_scoops", 0))
+	if spot_shortage > 0:
+		rows.append({
+			"id": &"feed",
+			"severity": 2,
+			"label": "FEED COVERAGE",
+			"reason": "%d ration scoops are uncovered at the current seasonal spot quote."
+				% spot_shortage,
+			"action": "Use Provisions during review to hedge price, capacity, shelf life, and flock strain.",
+		})
+	var outstanding := _outstanding_claim_count()
+	var capacity := current_claim_capacity()
+	if intake_rejections_today > 0 or outstanding * 100 >= capacity * 85:
+		rows.append({
+			"id": &"archive",
+			"severity": 4 if intake_rejections_today > 0 else 2,
+			"label": "ARCHIVE CAPACITY",
+			"reason": "%d of %d live-file slots are occupied; %d files were turned away today."
+				% [outstanding, capacity, intake_rejections_today],
+			"action": "Clear the oldest lane, decline extra binder work, or commission Records capacity.",
+		})
+	var overdue := _overdue_claim_count(true)
+	var rework := _queued_rework_count() + _active_rework_count()
+	if overdue + rework > 0:
+		rows.append({
+			"id": &"workflow",
+			"severity": 3 if overdue > 0 else 2,
+			"label": "WORKFLOW DEBT",
+			"reason": "%d overdue and %d rework files are consuming future production."
+				% [overdue, rework],
+			"action": "Route matching specialties, use Priority Peck deliberately, and avoid adding preventable rush work.",
+		})
+	if secured_margin < 0:
+		rows.append({
+			"id": &"break_even",
+			"severity": 1,
+			"label": "BREAK-EVEN GAP",
+			"reason": "$%.2f more secured claim credit is needed to cover today's filed operating cost."
+				% (float(-secured_margin) / 100.0),
+			"action": "Finish sound work before buying optional interventions; binder upside is not counted until earned.",
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			var left_severity := int(left.get("severity", 0))
+			var right_severity := int(right.get("severity", 0))
+			if left_severity != right_severity:
+				return left_severity > right_severity
+			return String(left.get("id", "")) < String(right.get("id", ""))
+	)
+	if rows.size() > 4:
+		rows.resize(4)
+	if rows.is_empty():
+		rows.append({
+			"id": &"clear",
+			"severity": 0,
+			"label": "NO CRITICAL BOTTLENECK",
+			"reason": "Current obligations, capacity, feed, and workflow remain inside their filed limits.",
+			"action": "Compare the next contract or capital tradeoff before committing spare Feed Fund.",
+		})
+	return rows
+
+
+func _economic_strategy_rows() -> Array[Dictionary]:
+	## These are explanations of already-authoritative mechanics, not bonuses.
+	## Keeping the counterweight beside each route makes it clear that the game
+	## supports several viable operating styles without promising one dominant
+	## upgrade path.
+	return [
+		{
+			"id": &"throughput",
+			"label": "THROUGHPUT ROOST",
+			"lever": "Route specialties, Priority Peck, overtime, and packing capacity.",
+			"upside": "Clear more sound claims before deadlines and capture busy-book demand.",
+			"counterweight": "Strain, cracks, rework, payroll, and welfare scrutiny rise if pushed blindly.",
+		},
+		{
+			"id": &"quality",
+			"label": "SHELL ASSURANCE",
+			"lever": "Favor careful routing, shell checks, training, and deliberate rework.",
+			"upside": "Protect golden credit, clean streaks, standing, and binder settlement.",
+			"counterweight": "Slower handling can create overdue files and rejected demand.",
+		},
+		{
+			"id": &"welfare",
+			"label": "FLOCK STEWARDSHIP",
+			"lever": "Choose kinder feed, humane doctrine, recovery time, and care facilities.",
+			"upside": "Sustain morale, lower grievances, and preserve long-run productive capacity.",
+			"counterweight": "Immediate expense and gentler targets may slow capital accumulation.",
+		},
+		{
+			"id": &"contract",
+			"label": "MUTUAL SPECIALIST",
+			"lever": "Build standing, negotiate riders, and selectively bind seasonal claim books.",
+			"upside": "Earn premiums, outside files, and better Service Coop access.",
+			"counterweight": "Breach reserves, clauses, and demand spikes make overcommitment expensive.",
+		},
+		{
+			"id": &"capacity",
+			"label": "CAPACITY BUILDER",
+			"lever": "Commission Records, desks, managers, facilities, campus, and portfolio services.",
+			"upside": "Raise file, staffing, and processing ceilings for later books.",
+			"counterweight": "Every idle perch and service adds recurring cost before it earns anything.",
+		},
+	]
+
+
+func _economic_recovery_rows(
+	treasury: Dictionary,
+	procurement: Dictionary,
+	contract_board: Dictionary,
+) -> Array[Dictionary]:
+	var planning_open := shift_phase == ShiftPhase.REVIEW and pending_decision.is_empty()
+	var has_idle_release_candidate := false
+	if planning_open and active_worker_count() > MINIMUM_STAFF_COUNT:
+		for worker: ChickenState in workers:
+			if (
+				worker.employed
+				and worker.work_state == ChickenState.WorkState.IDLE
+				and worker.current_claim == null
+			):
+				has_idle_release_candidate = true
+				break
+	var rows: Array[Dictionary] = [
+		{
+			"id": &"standard_book",
+			"label": "FILE THE STANDARD BOOK",
+			"available": bool(contract_board.get("planning_open", false)),
+			"effect": "Decline optional binder exposure without losing standing.",
+			"tradeoff": "Forfeit that binder's premium and outside claim opportunity.",
+		},
+		{
+			"id": &"treasury_bridge",
+			"label": "USE TREASURY HEADROOM",
+			"available": int(treasury.get("credit_headroom_cents", 0)) > 0,
+			"effect": "Vendor and interest shortfalls draw automatically at close.",
+			"tradeoff": "Credit never pays wages and opening principal accrues next-shift interest.",
+		},
+		{
+			"id": &"downsize",
+			"label": "RELEASE AN IDLE PERCH",
+			"available": has_idle_release_candidate,
+			"effect": "Reduce the next shift's wage and feed obligation.",
+			"tradeoff": "Pay severance now and permanently surrender productive capacity.",
+		},
+		{
+			"id": &"feed_hedge",
+			"label": "AUTHORIZE PROVISIONS",
+			"available": (
+				planning_open
+				and int(procurement.get("level", 0)) > 0
+				and int(procurement.get("orders_used_today", 0))
+					< int(procurement.get("order_limit", 1))
+			),
+			"effect": "Replace future seasonal spot exposure with one disclosed lot.",
+			"tradeoff": "Cash is paid now; finite bins and expiry can turn excess stock into waste.",
+		},
+	]
+	return rows
+
+
 func _projected_spendable_after_obligation_change_cents(
 	one_time_cost_cents: int,
 	added_daily_operating_cents: int
@@ -6995,6 +7484,7 @@ func hire_worker(worker_id: int) -> Dictionary:
 	worker.hire_count += 1
 	worker.employment_start_day = day
 	worker.assigned_lane = AUTO_ASSIGNMENT
+	worker.manually_routed = false
 	worker.current_claim = null
 	worker.work_state = ChickenState.WorkState.IDLE
 	worker.work_progress = 0.0
@@ -7081,6 +7571,7 @@ func release_worker(worker_id: int) -> Dictionary:
 	worker.available_for_hire_day = mini(10000, day + 1)
 	worker.employment_start_day = 0
 	worker.assigned_lane = AUTO_ASSIGNMENT
+	worker.manually_routed = false
 	worker.current_claim = null
 	worker.work_state = ChickenState.WorkState.IDLE
 	worker.work_progress = 0.0
@@ -13108,8 +13599,141 @@ func routing_catalog() -> Array[Dictionary]:
 			"deadline_minutes": int(definition["deadline_minutes"]),
 			"arrival_weight": float(definition["arrival_weight"]),
 			"accent_hex": String(definition["accent_hex"]),
+			"work_stress_basis_points": int(definition.get(
+				"work_stress_basis_points",
+				10_000,
+			)),
+			"sound_morale_millipoints": int(definition.get(
+				"sound_morale_millipoints",
+				0,
+			)),
+			"sound_compliance_millipoints": int(definition.get(
+				"sound_compliance_millipoints",
+				0,
+			)),
+			"cracked_compliance_millipoints": int(definition.get(
+				"cracked_compliance_millipoints",
+				0,
+			)),
+			"operational_tradeoff": String(definition.get(
+				"operational_tradeoff",
+				"",
+			)),
 		})
 	return catalog
+
+
+func claim_resolution_catalog() -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	for path_id in [&"standard", &"settle", &"deny", &"exception"]:
+		var definition := CLAIM_RESOLUTION_DEFINITIONS[path_id] as Dictionary
+		var row := definition.duplicate(true)
+		row["id"] = path_id
+		row["work_multiplier"] = (
+			float(definition.get("work_basis_points", 10_000)) / 10_000.0
+		)
+		row["crack_modifier"] = (
+			float(definition.get("crack_basis_points", 0)) / 10_000.0
+		)
+		catalog.append(row)
+	return catalog
+
+
+func claim_resolution_status(worker_id: int) -> Dictionary:
+	if worker_id < 0 or worker_id >= workers.size():
+		return {
+			"available": false,
+			"reason": "No hen is selected.",
+			"catalog": claim_resolution_catalog(),
+		}
+	var worker := workers[worker_id]
+	var claim := worker.current_claim
+	if claim == null:
+		return {
+			"available": false,
+			"reason": "This hen has no active claimant file.",
+			"catalog": claim_resolution_catalog(),
+		}
+	var before_cutoff := worker.work_progress <= CLAIM_RESOLUTION_CUTOFF_PROGRESS
+	var available := (
+		shift_phase == ShiftPhase.RUNNING
+		and worker.work_state == ChickenState.WorkState.WORKING
+		and before_cutoff
+		and not claim.resolution_locked
+	)
+	var reason := ""
+	if claim.resolution_locked:
+		reason = "This claimant path is already filed and cannot be rewritten."
+	elif shift_phase != ShiftPhase.RUNNING:
+		reason = "Claimant paths can be filed only during a running shift."
+	elif worker.work_state != ChickenState.WorkState.WORKING:
+		reason = "The path must be filed while the hen is pecking the active file."
+	elif not before_cutoff:
+		reason = "The file is more than 55% complete; the outcome window has closed."
+	var selected := (
+		CLAIM_RESOLUTION_DEFINITIONS.get(claim.resolution_path, {}) as Dictionary
+	).duplicate(true)
+	selected["id"] = claim.resolution_path
+	return {
+		"available": available,
+		"reason": reason,
+		"worker_id": worker_id,
+		"claim_id": claim.id,
+		"progress": snappedf(worker.work_progress, 0.1),
+		"cutoff_progress": CLAIM_RESOLUTION_CUTOFF_PROGRESS,
+		"selected": selected,
+		"catalog": claim_resolution_catalog(),
+	}
+
+
+func set_claim_resolution(worker_id: int, path_id: StringName) -> Dictionary:
+	if path_id not in CLAIM_RESOLUTION_CHOICE_IDS:
+		return {
+			"accepted": false,
+			"reason": "Choose Settlement, Denial, or Coverage Exception.",
+		}
+	var status := claim_resolution_status(worker_id)
+	if not bool(status.get("available", false)):
+		return {
+			"accepted": false,
+			"reason": String(status.get("reason", "The claimant path is unavailable.")),
+		}
+	var definition := CLAIM_RESOLUTION_DEFINITIONS[path_id] as Dictionary
+	var cost_cents := int(definition.get("cost_cents", 0))
+	if spendable_fund_cents() < cost_cents:
+		return {
+			"accepted": false,
+			"reason": "%s requires $%.2f more spendable Feed Fund." % [
+				String(definition.get("label", "CLAIMANT PATH")),
+				float(cost_cents - spendable_fund_cents()) / 100.0,
+			],
+		}
+	var worker := workers[worker_id]
+	var claim := worker.current_claim
+	revenue_cents -= cost_cents
+	claim.resolution_path = path_id
+	claim.resolution_locked = true
+	claim.resolution_cost_cents = cost_cents
+	var claimant := claim.claimant_profile()
+	var outcome := "%s FILED FOR %s: %s  %s" % [
+		String(definition.get("label", "CLAIMANT PATH")),
+		String(claimant.get("name", "CLAIMANT")),
+		String(definition.get("benefit", "")),
+		String(definition.get("burden", "")),
+	]
+	announcement_posted.emit(outcome)
+	snapshot_changed.emit(snapshot())
+	return {
+		"accepted": true,
+		"worker_id": worker_id,
+		"claim_id": claim.id,
+		"path_id": path_id,
+		"cost_cents": cost_cents,
+		"beneficiary": String(definition.get("beneficiary", "")),
+		"benefit": String(definition.get("benefit", "")),
+		"burden": String(definition.get("burden", "")),
+		"outcome": outcome,
+	}
 
 
 func set_worker_assignment(worker_id: int, lane: StringName) -> bool:
@@ -13121,8 +13745,11 @@ func set_worker_assignment(worker_id: int, lane: StringName) -> bool:
 		return false
 	var worker := workers[worker_id]
 	if worker.assigned_lane == lane:
+		worker.manually_routed = lane != AUTO_ASSIGNMENT
+		snapshot_changed.emit(snapshot())
 		return true
 	worker.assigned_lane = lane
+	worker.manually_routed = lane != AUTO_ASSIGNMENT
 	_breach_specialty_compact_for_assignment(worker)
 	snapshot_changed.emit(snapshot())
 	return true
@@ -14245,6 +14872,7 @@ func _resolve_flock_restructuring(option_id: StringName) -> bool:
 			quota_target = mini(10_000, quota_target + 2)
 		&"fund_redeployment":
 			candidate.assigned_lane = candidate.specialty
+			candidate.manually_routed = false
 			candidate.morale = minf(100.0, candidate.morale + 8.0)
 			candidate.manager_trust = minf(100.0, candidate.manager_trust + 14.0)
 			candidate.grievance = maxf(0.0, candidate.grievance - 12.0)
@@ -14337,6 +14965,7 @@ func _release_restructuring_candidate(candidate: ChickenState) -> int:
 	candidate.available_for_hire_day = mini(10_000, day + 2)
 	candidate.employment_start_day = 0
 	candidate.assigned_lane = AUTO_ASSIGNMENT
+	candidate.manually_routed = false
 	candidate.current_claim = null
 	candidate.work_state = ChickenState.WorkState.IDLE
 	candidate.work_progress = 0.0
@@ -14366,6 +14995,7 @@ func _release_restructuring_candidate(candidate: ChickenState) -> int:
 	replacement.hire_count += 1
 	replacement.employment_start_day = day
 	replacement.assigned_lane = AUTO_ASSIGNMENT
+	replacement.manually_routed = false
 	replacement.current_claim = null
 	replacement.work_state = ChickenState.WorkState.IDLE
 	replacement.work_progress = 0.0
@@ -16502,6 +17132,7 @@ func _activate_next_shift_flock_state() -> void:
 			var sponsor_id := int(active_flock_compact.get("sponsor_worker_id", -1))
 			if sponsor_id >= 0 and sponsor_id < workers.size() and workers[sponsor_id].employed:
 				workers[sponsor_id].assigned_lane = workers[sponsor_id].specialty
+				workers[sponsor_id].manually_routed = false
 	if work_to_rule_day == day and not last_work_to_rule_record.is_empty():
 		last_work_to_rule_record["status"] = "active"
 	if work_to_rule_day == 0 and queued_work_to_rule_day == day:
@@ -17074,6 +17705,31 @@ func _claim_speed_factor(worker: ChickenState) -> float:
 	return affinity / maxf(0.1, worker.current_claim.difficulty)
 
 
+func _claim_resolution_work_multiplier(claim: ClaimState) -> float:
+	if claim == null:
+		return 1.0
+	var definition := (
+		CLAIM_RESOLUTION_DEFINITIONS.get(claim.resolution_path, {}) as Dictionary
+	)
+	return float(definition.get("work_basis_points", 10_000)) / 10_000.0
+
+
+func _claim_resolution_crack_modifier(claim: ClaimState) -> float:
+	if claim == null:
+		return 0.0
+	var definition := (
+		CLAIM_RESOLUTION_DEFINITIONS.get(claim.resolution_path, {}) as Dictionary
+	)
+	return float(definition.get("crack_basis_points", 0)) / 10_000.0
+
+
+func _claim_lane_stress_multiplier(claim: ClaimState) -> float:
+	if claim == null or not claim.resolution_locked:
+		return 1.0
+	var definition := CLAIM_LANE_DEFINITIONS.get(claim.lane, {}) as Dictionary
+	return float(definition.get("work_stress_basis_points", 10_000)) / 10_000.0
+
+
 func _claim_affinity_crack_modifier(worker: ChickenState) -> float:
 	if worker.current_claim == null:
 		return 0.0
@@ -17110,10 +17766,50 @@ func _schedule_rework(source_claim: ClaimState) -> void:
 		true,
 		source_claim.id,
 		available_on_day,
-		source_claim.rework_depth + 1
+		source_claim.rework_depth + 1,
+		source_claim.claimant_profile_id,
+		&"standard",
+		false,
+		0,
+		source_claim.is_claimant_follow_up,
 	)
 	_next_claim_id += 1
 	_pending_rework.append(rework)
+	_rework_total_created += 1
+
+
+func _schedule_claimant_appeal(source_claim: ClaimState) -> void:
+	if source_claim == null:
+		return
+	var definition := CLAIM_LANE_DEFINITIONS[&"appeals"] as Dictionary
+	var claimant := source_claim.claimant_profile()
+	var available_on_day := day + 1
+	var arrival_minute := _operational_minute_for_shift_start(available_on_day)
+	var service_window := int(definition.get("deadline_minutes", 360))
+	var appeal := ClaimState.new(
+		_next_claim_id,
+		&"appeals",
+		"CLAIMANT APPEAL  /  %s" % String(
+			claimant.get("name", "UNFILED CLAIMANT"),
+		),
+		float(definition.get("base_difficulty", 1.3)) * 1.08,
+		int(definition.get("base_value_cents", 820)),
+		float(definition.get("crack_modifier", 0.055)) + 0.015,
+		arrival_minute,
+		arrival_minute + service_window,
+		service_window,
+		false,
+		source_claim.id,
+		available_on_day,
+		source_claim.rework_depth + 1,
+		source_claim.claimant_profile_id,
+		&"standard",
+		false,
+		0,
+		true,
+	)
+	_next_claim_id += 1
+	_pending_rework.append(appeal)
 	_rework_total_created += 1
 
 
@@ -18541,6 +19237,206 @@ func operations_snapshot() -> Dictionary:
 	}
 
 
+func _worker_flock_bond_snapshot(worker: ChickenState) -> Dictionary:
+	## Character-scale relationship projection. The underlying morale, grievance,
+	## stress, and flock solidarity are already authoritative and persistent; this
+	## bounded view names the nearest active perchmate and explains their current
+	## social temperature without creating a second relationship economy.
+	if not worker.employed:
+		return {
+			"partner_id": -1,
+			"partner_name": "",
+			"score": 0,
+			"label": "OFF THE FLOOR",
+			"summary": "Applicant relationships resume after a perch is authorized.",
+		}
+	var partner: ChickenState
+	var nearest_distance := 1_000_000
+	for candidate in workers:
+		if not candidate.employed or candidate.id == worker.id:
+			continue
+		var desk_distance := absi(candidate.desk_index - worker.desk_index)
+		if (
+			partner == null
+			or desk_distance < nearest_distance
+			or (desk_distance == nearest_distance and candidate.id < partner.id)
+		):
+			partner = candidate
+			nearest_distance = desk_distance
+	if partner == null:
+		return {
+			"partner_id": -1,
+			"partner_name": "",
+			"score": 50,
+			"label": "SOLO PERCH",
+			"summary": "No active perchmate is close enough to file a flock bond.",
+		}
+	var shared_strain := (worker.stress + partner.stress + worker.fatigue + partner.fatigue) * 0.0625
+	var shared_grievance := (worker.grievance + partner.grievance) * 0.10
+	var shared_morale := (worker.morale + partner.morale - 100.0) * 0.16
+	var bond_score := clampi(roundi(
+		50.0
+		+ (solidarity - 50.0) * 0.34
+		+ shared_morale
+		+ shared_grievance
+		- shared_strain
+	), 0, 100)
+	var bond_label := "WITHDRAWN"
+	if bond_score >= 75:
+		bond_label = "CLUTCHMATES"
+	elif bond_score >= 60:
+		bond_label = "GOOD PERCH"
+	elif bond_score >= 45:
+		bond_label = "PROFESSIONAL"
+	elif bond_score >= 30:
+		bond_label = "GUARDED"
+	var summary := "%s with %s (%d/100)." % [bond_label, partner.display_name, bond_score]
+	if shared_strain >= 10.0:
+		summary += " Shared strain is crowding out perch-side trust."
+	elif solidarity >= 60.0:
+		summary += " Flock solidarity is strengthening the relationship."
+	elif shared_grievance >= 8.0:
+		summary += " Shared management memory is pulling the pair together."
+	else:
+		summary += " The relationship is steady but still mostly professional."
+	return {
+		"partner_id": partner.id,
+		"partner_name": partner.display_name,
+		"score": bond_score,
+		"label": bond_label,
+		"summary": summary,
+	}
+
+
+func _signed_temperament_percent(basis_points: int, metric: String) -> String:
+	if basis_points == 0:
+		return ""
+	var magnitude := absf(float(basis_points) / 100.0)
+	var amount := (
+		"%d" % roundi(magnitude)
+		if basis_points % 100 == 0 else
+		"%.1f" % magnitude
+	)
+	return "%s%s%% %s" % ["+" if basis_points > 0 else "-", amount, metric]
+
+
+func _worker_temperament_effect(
+	worker: ChickenState,
+	flock_bond: Dictionary = {},
+) -> Dictionary:
+	## A small, fully disclosed identity modifier. Static values live with the
+	## temperament definition; the two social work styles react only to already
+	## authoritative flock state, so this adds strategy without save authority.
+	var temperament_id := ChickenState.default_temperament(worker.id)
+	var definition := ChickenState.temperament_definition(worker.id)
+	var pace_basis_points := int(definition.get("pace_basis_points", 0))
+	var crack_basis_points := int(definition.get("crack_basis_points", 0))
+	var strain_basis_points := int(definition.get("strain_basis_points", 10_000))
+	var break_recovery_basis_points := int(
+		definition.get("break_recovery_basis_points", 10_000)
+	)
+	var condition := ""
+	match StringName(definition.get("dynamic_axis", &"")):
+		&"flock_bond":
+			var effective_bond := (
+				flock_bond
+				if not flock_bond.is_empty() else
+				_worker_flock_bond_snapshot(worker)
+			)
+			var bond_score := int(effective_bond.get("score", 0))
+			if bond_score >= 60:
+				pace_basis_points += 400
+				strain_basis_points -= 300
+				condition = "bond score 60+"
+			elif bond_score < 30:
+				pace_basis_points -= 400
+				condition = "bond score below 30"
+			else:
+				condition = "bond score 30-59"
+		&"solidarity":
+			if solidarity >= 60.0:
+				pace_basis_points += 400
+				strain_basis_points -= 500
+				condition = "flock solidarity 60+"
+			elif solidarity < 35.0:
+				pace_basis_points -= 400
+				condition = "flock solidarity below 35"
+			else:
+				condition = "flock solidarity 35-59"
+	pace_basis_points = clampi(pace_basis_points, -800, 800)
+	crack_basis_points = clampi(crack_basis_points, -400, 400)
+	strain_basis_points = clampi(strain_basis_points, 8_500, 11_500)
+	break_recovery_basis_points = clampi(
+		break_recovery_basis_points,
+		9_000,
+		12_500,
+	)
+	var terms: Array[String] = []
+	var pace_term := _signed_temperament_percent(pace_basis_points, "pace")
+	var crack_term := _signed_temperament_percent(crack_basis_points, "shell risk")
+	var strain_term := _signed_temperament_percent(
+		strain_basis_points - 10_000,
+		"strain",
+	)
+	var recovery_term := _signed_temperament_percent(
+		break_recovery_basis_points - 10_000,
+		"break recovery",
+	)
+	for term in [pace_term, crack_term, strain_term, recovery_term]:
+		if not term.is_empty():
+			terms.append(term)
+	if terms.is_empty():
+		terms.append("steady baseline")
+	if not condition.is_empty():
+		terms.append(condition)
+	var potential_summary := " / ".join(terms)
+	var engaged := (
+		worker.employed
+		and worker.manually_routed
+		and worker.assigned_lane != AUTO_ASSIGNMENT
+	)
+	var summary := (
+		"MANUAL / %s" % potential_summary
+		if engaged else
+		"%s / MANUAL PREVIEW: %s" % [
+			"AUTO BASELINE" if worker.employed else "APPLICANT PREVIEW",
+			potential_summary,
+		]
+	)
+	var effective_pace_basis_points := pace_basis_points if engaged else 0
+	var effective_crack_basis_points := crack_basis_points if engaged else 0
+	var effective_strain_basis_points := strain_basis_points if engaged else 10_000
+	var effective_break_recovery_basis_points := (
+		break_recovery_basis_points if engaged else 10_000
+	)
+	return {
+		"temperament_id": temperament_id,
+		"label": String(definition.get("work_style_label", "STEADY RHYTHM")),
+		"engaged": engaged,
+		"pace_basis_points": effective_pace_basis_points,
+		"work_multiplier": 1.0 + float(effective_pace_basis_points) / 10_000.0,
+		"crack_basis_points": effective_crack_basis_points,
+		"crack_modifier": float(effective_crack_basis_points) / 10_000.0,
+		"strain_basis_points": effective_strain_basis_points,
+		"strain_multiplier": float(effective_strain_basis_points) / 10_000.0,
+		"break_recovery_basis_points": effective_break_recovery_basis_points,
+		"break_recovery_multiplier": float(effective_break_recovery_basis_points) / 10_000.0,
+		"potential_pace_basis_points": pace_basis_points,
+		"potential_crack_basis_points": crack_basis_points,
+		"potential_strain_basis_points": strain_basis_points,
+		"potential_break_recovery_basis_points": break_recovery_basis_points,
+		"potential_summary": potential_summary,
+		"condition": condition,
+		"summary": summary,
+	}
+
+
+func worker_temperament_effect(worker_id: int) -> Dictionary:
+	if worker_id < 0 or worker_id >= workers.size():
+		return {}
+	return _worker_temperament_effect(workers[worker_id]).duplicate(true)
+
+
 func snapshot() -> Dictionary:
 	_sync_claims_waiting()
 	var now := _current_operational_minute()
@@ -18553,6 +19449,12 @@ func snapshot() -> Dictionary:
 	var assist_delivery_status := peck_assist_delivery_status()
 	for worker in workers:
 		var worker_snapshot := worker.snapshot(now)
+		var flock_bond := _worker_flock_bond_snapshot(worker)
+		worker_snapshot["flock_bond"] = flock_bond
+		worker_snapshot["temperament_effect"] = _worker_temperament_effect(
+			worker,
+			flock_bond,
+		)
 		var shift_stats := _worker_shift_stat(worker.id)
 		worker_snapshot["shift_eggs"] = int(shift_stats.get("eggs", 0))
 		worker_snapshot["shift_sound"] = int(shift_stats.get("sound", 0))
@@ -18660,6 +19562,9 @@ func snapshot() -> Dictionary:
 			current_claim_snapshot["facility_speed_multiplier"] = _facility_claim_speed_multiplier(worker)
 			current_claim_snapshot["automation_work_multiplier"] = automation_work_multiplier(worker)
 			current_claim_snapshot["automation_enrolled"] = worker.assigned_lane == AUTO_ASSIGNMENT
+		var resolution_status := claim_resolution_status(worker.id)
+		resolution_status.erase("catalog")
+		worker_snapshot["claim_resolution_status"] = resolution_status
 		worker_snapshots.append(worker_snapshot)
 	var queue_snapshot := _queue_snapshot()
 	var pending_rework_items: Array[Dictionary] = []
@@ -18683,6 +19588,7 @@ func snapshot() -> Dictionary:
 		"claims_waiting": claims_waiting,
 		"claims_outstanding": _outstanding_claim_count(),
 		"claim_capacity": current_claim_capacity(),
+		"claim_resolution_catalog": claim_resolution_catalog(),
 		"intake_rejections_today": intake_rejections_today,
 		"intake_rejections_total": intake_rejections_total,
 		"intake_missed_value_today_cents": intake_missed_value_today_cents,
@@ -18713,6 +19619,7 @@ func snapshot() -> Dictionary:
 		"revenue_cents": revenue_cents,
 		"credited_today_cents": credited_today_cents,
 		"farm_treasury": farm_treasury_snapshot(),
+		"economic_briefing": economic_briefing_snapshot(),
 		"daily_feed_cost_cents": current_daily_feed_cost_cents(),
 		"feed_procurement": feed_procurement_snapshot(),
 		"farmer_relations_gallery": farmer_relations_gallery_snapshot(),
@@ -18978,6 +19885,7 @@ func _update_worker(worker: ChickenState) -> void:
 		ChickenState.WorkState.WORKING:
 			if not is_worker_at_workstation(worker.id):
 				return
+			var temperament_effect := _worker_temperament_effect(worker)
 			var morale_factor := remap(clampf(worker.morale, 20.0, 100.0), 20.0, 100.0, 0.62, 1.1)
 			var overtime_factor := 1.22 if overtime_enabled else 1.0
 			var tool_factor := 1.0 + 0.08 * upgrade_level(&"peckwork_tools")
@@ -19004,9 +19912,11 @@ func _update_worker(worker: ChickenState) -> void:
 				* morale_factor
 				* total_work_factor
 				* _claim_speed_factor(worker)
+				* _claim_resolution_work_multiplier(worker.current_claim)
 				* _facility_claim_speed_multiplier(worker)
 				* automation_work_multiplier(worker)
 				* career_work_factor
+				* float(temperament_effect.get("work_multiplier", 1.0))
 				* float(_manager_effect_for_worker(worker).get("work_multiplier", 1.0))
 			)
 			if worker.cross_training_pending() and worker.work_progress > progress_before_tick:
@@ -19022,8 +19932,14 @@ func _update_worker(worker: ChickenState) -> void:
 				_missed_assist_claim_ids[missed_claim_id] = true
 				peck_assist_streak = 0
 				peck_assist_missed.emit(worker.id, missed_claim_id)
-			worker.fatigue = minf(100.0, worker.fatigue + (0.65 if overtime_enabled else 0.36) * comfort_factor * _directive_fatigue_multiplier * decision_strain_factor * campaign_fatigue_factor * wellness_strain_factor * feed_strain_factor)
-			worker.stress = minf(100.0, worker.stress + (0.40 if overtime_enabled else 0.2) * comfort_factor * _directive_stress_multiplier * decision_strain_factor * campaign_stress_factor * career_strain_factor * wellness_strain_factor * feed_strain_factor)
+			var temperament_strain_factor := float(
+				temperament_effect.get("strain_multiplier", 1.0)
+			)
+			var claim_lane_stress_factor := _claim_lane_stress_multiplier(
+				worker.current_claim,
+			)
+			worker.fatigue = minf(100.0, worker.fatigue + (0.65 if overtime_enabled else 0.36) * comfort_factor * _directive_fatigue_multiplier * decision_strain_factor * campaign_fatigue_factor * wellness_strain_factor * feed_strain_factor * temperament_strain_factor)
+			worker.stress = minf(100.0, worker.stress + (0.40 if overtime_enabled else 0.2) * comfort_factor * _directive_stress_multiplier * decision_strain_factor * campaign_stress_factor * career_strain_factor * wellness_strain_factor * feed_strain_factor * temperament_strain_factor * claim_lane_stress_factor)
 			worker.morale = maxf(0.0, worker.morale - (0.18 if overtime_enabled else 0.07) * _directive_morale_drain_multiplier)
 			if overtime_enabled:
 				worker.manager_trust = maxf(0.0, worker.manager_trust - 0.025)
@@ -19040,7 +19956,13 @@ func _update_worker(worker: ChickenState) -> void:
 				_complete_egg(worker)
 		ChickenState.WorkState.BREAK:
 			worker.state_ticks_remaining -= 1
-			var break_recovery_factor := wellness_break_recovery_multiplier()
+			var break_recovery_factor := (
+				wellness_break_recovery_multiplier()
+				* float(_worker_temperament_effect(worker).get(
+					"break_recovery_multiplier",
+					1.0,
+				))
+			)
 			worker.fatigue = maxf(0.0, worker.fatigue - 2.0 * break_recovery_factor)
 			worker.stress = maxf(0.0, worker.stress - 1.4 * break_recovery_factor)
 			worker.morale = minf(
@@ -19070,12 +19992,81 @@ func _error_risk_for(worker: ChickenState) -> float:
 	error_risk += _directive_crack_modifier + _incident_crack_modifier + _work_to_rule_crack_modifier()
 	error_risk += _career_relationship_crack_modifier(worker)
 	error_risk += _personnel_shift_crack_modifier(worker)
+	error_risk += float(_worker_temperament_effect(worker).get("crack_modifier", 0.0))
 	error_risk += float(_manager_effect_for_worker(worker).get("crack_modifier", 0.0))
 	if worker.current_claim != null:
 		error_risk += worker.current_claim.base_crack_risk
 		error_risk += _claim_affinity_crack_modifier(worker)
+		error_risk += _claim_resolution_crack_modifier(worker.current_claim)
 		error_risk += float(_assist_quality_modifiers.get(worker.current_claim.id, 0.0))
 	return clampf(error_risk, 0.02, 0.92)
+
+
+func _apply_claim_lane_outcome(
+	claim: ClaimState,
+	worker: ChickenState,
+	quality: StringName,
+) -> void:
+	if claim == null or not claim.resolution_locked:
+		return
+	var definition := CLAIM_LANE_DEFINITIONS.get(claim.lane, {}) as Dictionary
+	if quality == &"cracked":
+		compliance = clampf(
+			compliance + float(definition.get(
+				"cracked_compliance_millipoints",
+				0,
+			)) / 1000.0,
+			0.0,
+			100.0,
+		)
+		return
+	worker.morale = clampf(
+		worker.morale + float(definition.get(
+			"sound_morale_millipoints",
+			0,
+		)) / 1000.0,
+		0.0,
+		100.0,
+	)
+	compliance = clampf(
+		compliance + float(definition.get(
+			"sound_compliance_millipoints",
+			0,
+		)) / 1000.0,
+		0.0,
+		100.0,
+	)
+
+
+func _apply_claim_resolution_outcome(
+	claim: ClaimState,
+	worker: ChickenState,
+	quality: StringName,
+) -> void:
+	if claim == null or not claim.resolution_locked:
+		return
+	match claim.resolution_path:
+		&"settle":
+			if quality != &"cracked":
+				compliance = minf(100.0, compliance + 0.6)
+				worker.manager_trust = minf(100.0, worker.manager_trust + 0.6)
+				worker.morale = minf(100.0, worker.morale + 0.4)
+		&"exception":
+			if quality != &"cracked":
+				compliance = minf(100.0, compliance + 1.0)
+				worker.manager_trust = minf(100.0, worker.manager_trust + 0.4)
+		&"deny":
+			compliance = maxf(0.0, compliance - 1.0)
+			executive_confidence = minf(100.0, executive_confidence + 0.5)
+			worker.stress = minf(100.0, worker.stress + 0.7)
+			worker.grievance = minf(100.0, worker.grievance + 0.6)
+			if quality != &"cracked":
+				_schedule_claimant_appeal(claim)
+				announcement_posted.emit(
+					"DENIAL CONSEQUENCE: %s returns tomorrow as an appeal; the hen carries the pressure while the bureau counts today's closure." % String(
+						claim.claimant_profile().get("name", "THE CLAIMANT"),
+					)
+				)
 
 
 func _complete_egg(worker: ChickenState) -> void:
@@ -19106,6 +20097,8 @@ func _complete_egg(worker: ChickenState) -> void:
 			golden_today += 1
 			executive_confidence = minf(100.0, executive_confidence + 1.5)
 	if completed_claim != null:
+		_apply_claim_lane_outcome(completed_claim, worker, quality)
+		_apply_claim_resolution_outcome(completed_claim, worker, quality)
 		_record_market_contract_completion(completed_claim, quality)
 	var packing_receipt := _apply_packing_contract_value(quality, value_cents)
 	value_cents = int(packing_receipt.get("value_cents", value_cents))

@@ -2,7 +2,7 @@ param(
     [string]$OutputDirectory = "output\godot-full-suite-current",
     [ValidateRange(1, 32)]
     [int]$ShardCount = 3,
-    [int]$TimeoutSeconds = 90
+    [int]$TimeoutSeconds = 150
 )
 
 $ErrorActionPreference = "Stop"

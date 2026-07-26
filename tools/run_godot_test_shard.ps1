@@ -10,7 +10,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$OutputDirectory,
 
-    [int]$TimeoutSeconds = 90,
+    [int]$TimeoutSeconds = 150,
 
     [string[]]$TestNames = @(),
 

@@ -9,6 +9,7 @@ func _run() -> void:
 	var failures: Array[String] = []
 	_test_career_tiers(failures)
 	_test_deterministic_profiles(failures)
+	_test_temperaments_and_flock_bonds(failures)
 	_test_action_guards_are_atomic(failures)
 	_test_exact_preferred_action_effects(failures)
 	_test_nonpreferred_pressure_effect(failures)
@@ -69,6 +70,74 @@ func _test_deterministic_profiles(failures: Array[String]) -> void:
 				preferred_count += 1
 		_check(preferred_count == 1, "worker %d should have exactly one preferred personnel action" % worker_id, failures)
 	_check(ChickenState.default_career_profile(6) == &"credit_conscious", "career profiles should repeat deterministically for later roster IDs", failures)
+
+
+func _test_temperaments_and_flock_bonds(failures: Array[String]) -> void:
+	var simulation := DepartmentSimulation.new(111, 4)
+	var snapshot := simulation.snapshot()
+	var workers_snapshot := snapshot.get("workers", []) as Array
+	var seen_temperaments: Dictionary = {}
+	for worker_id in ChickenState.TEMPERAMENT_ORDER.size():
+		var worker := workers_snapshot[worker_id] as Dictionary
+		var temperament_id := StringName(worker.get("temperament_id", &""))
+		seen_temperaments[temperament_id] = true
+		_check(
+			temperament_id == ChickenState.default_temperament(worker_id),
+			"worker %d should keep the deterministic temperament assigned to her stable employee id" % worker_id,
+			failures,
+		)
+		_check(
+			not String(worker.get("temperament_label", "")).is_empty()
+			and not String(worker.get("temperament_description", "")).is_empty(),
+			"worker %d temperament should publish visible identity copy" % worker_id,
+			failures,
+		)
+	_check(
+		seen_temperaments.size() == ChickenState.TEMPERAMENT_ORDER.size(),
+		"the six-worker roster should expose six distinct temperaments before the catalog repeats",
+		failures,
+	)
+	var opening_bond := (workers_snapshot[0] as Dictionary).get("flock_bond", {}) as Dictionary
+	_check(
+		int(opening_bond.get("partner_id", -1)) == 1
+		and String(opening_bond.get("partner_name", "")) == simulation.workers[1].display_name,
+		"the opening hen should name her nearest active perchmate instead of an abstract relationship meter",
+		failures,
+	)
+	var applicant_bond := (workers_snapshot[4] as Dictionary).get("flock_bond", {}) as Dictionary
+	_check(
+		String(applicant_bond.get("label", "")) == "OFF THE FLOOR",
+		"applicants should not invent active-floor relationships",
+		failures,
+	)
+	var opening_score := int(opening_bond.get("score", 0))
+	simulation.solidarity = 90.0
+	for worker in simulation.workers:
+		if not worker.employed:
+			continue
+		worker.morale = 92.0
+		worker.stress = 4.0
+		worker.fatigue = 4.0
+	var supported_score := int((((simulation.snapshot().get("workers", []) as Array)[0] as Dictionary).get("flock_bond", {}) as Dictionary).get("score", 0))
+	_check(
+		supported_score > opening_score,
+		"persistent flock care and solidarity should visibly strengthen the named perchmate bond",
+		failures,
+	)
+	simulation.solidarity = 0.0
+	for worker in simulation.workers:
+		if not worker.employed:
+			continue
+		worker.morale = 0.0
+		worker.stress = 100.0
+		worker.fatigue = 100.0
+		worker.grievance = 0.0
+	var strained_score := int((((simulation.snapshot().get("workers", []) as Array)[0] as Dictionary).get("flock_bond", {}) as Dictionary).get("score", 0))
+	_check(
+		strained_score < opening_score,
+		"shared strain and collapsed morale should visibly weaken the named perchmate bond",
+		failures,
+	)
 
 
 func _test_action_guards_are_atomic(failures: Array[String]) -> void:

@@ -22,6 +22,7 @@ const RoostStaffingUIScript := preload("res://features/office/roost_staffing_ui.
 const PeckingOrderUIScript := preload("res://features/office/pecking_order_ui.gd")
 const FlockwatchNavigationScript := preload("res://features/office/flockwatch_navigation.gd")
 const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
+const EconomicBriefingUIScript := preload("res://features/office/economic_briefing_ui.gd")
 const CapitalBlueprintUIScript := preload("res://features/office/capital_blueprint_ui.gd")
 const CampusExpansionUIScript := preload("res://features/office/campus_expansion_ui.gd")
 const CampusPortfolioUIScript := preload("res://features/office/campus_portfolio_ui.gd")
@@ -211,6 +212,7 @@ var _routing_ui: PeckworkRoutingUI
 var _staffing_ui: RoostStaffingUI
 var _pecking_order_ui
 var _flockwatch_navigation: FlockwatchNavigation
+var _economic_briefing_ui
 var _capital_blueprint_ui: Control
 var _campus_portfolio_ui: Control
 var _campus_expansion_ui: Control
@@ -504,6 +506,8 @@ func _ready() -> void:
 		_capture_facility_preview()
 	elif "--capture-facility-ui" in OS.get_cmdline_user_args() or "--capture-facility-ui" in OS.get_cmdline_args():
 		_capture_facility_ui_preview()
+	elif "--capture-economic-briefing-ui" in OS.get_cmdline_user_args() or "--capture-economic-briefing-ui" in OS.get_cmdline_args():
+		_capture_economic_briefing_ui_preview()
 	elif "--capture-packing-annex" in OS.get_cmdline_user_args() or "--capture-packing-annex" in OS.get_cmdline_args():
 		_capture_packing_annex_preview()
 	elif "--capture-records-annex" in OS.get_cmdline_user_args() or "--capture-records-annex" in OS.get_cmdline_args():
@@ -3181,12 +3185,16 @@ func _build_ui() -> void:
 	var today_section := _make_flockwatch_section("FlockwatchTodaySection")
 	var flock_section := _make_flockwatch_section("FlockwatchFlockSection")
 	var operations_section := _make_flockwatch_section("FlockwatchOperationsSection")
+	var economic_briefing_section := _make_flockwatch_section(
+		"FlockwatchEconomicBriefingSection"
+	)
 	var capital_section := _make_flockwatch_section("FlockwatchCapitalSection")
 	var records_section := _make_flockwatch_section("FlockwatchRecordsSection")
 	for section: VBoxContainer in [
 		today_section,
 		flock_section,
 		operations_section,
+		economic_briefing_section,
 		capital_section,
 		records_section,
 	]:
@@ -3241,6 +3249,8 @@ func _build_ui() -> void:
 	_staffing_ui.hire_requested.connect(_on_staff_hire_requested)
 	_staffing_ui.release_requested.connect(_on_staff_release_requested)
 	flock_section.add_child(_staffing_ui)
+	_economic_briefing_ui = EconomicBriefingUIScript.new()
+	economic_briefing_section.add_child(_economic_briefing_ui)
 	_upgrade_disclosure_toggle = FlockwatchDisclosureToggleScript.new()
 	_upgrade_disclosure_toggle.name = "DeskRequisitionsToggle"
 	capital_section.add_child(_upgrade_disclosure_toggle)
@@ -3503,6 +3513,12 @@ func _build_ui() -> void:
 		FlockwatchNavigation.PAGE_OPERATIONS, operations_section, &"operations", 10
 	)
 	_flockwatch_navigation.register_section(
+		FlockwatchNavigation.PAGE_CAPITAL,
+		economic_briefing_section,
+		&"economic_briefing",
+		5,
+	)
+	_flockwatch_navigation.register_section(
 		FlockwatchNavigation.PAGE_CAPITAL, capital_section, &"capital", 20
 	)
 	_flockwatch_navigation.register_section(
@@ -3527,6 +3543,7 @@ func _build_ui() -> void:
 	_ticker_panel.add_child(_ticker_label)
 	_routing_ui = PeckworkRoutingUIScript.new() as PeckworkRoutingUI
 	_routing_ui.assignment_requested.connect(_on_worker_assignment_requested)
+	_routing_ui.claim_resolution_requested.connect(_on_claim_resolution_requested)
 	_routing_ui.personnel_action_requested.connect(_on_personnel_action_requested)
 	_routing_ui.peck_assist_requested.connect(_on_peck_assist_requested)
 	_routing_ui.first_clutch_skip_requested.connect(_on_first_clutch_skip_requested)
@@ -5665,6 +5682,25 @@ func _on_worker_assignment_requested(worker_id: int, lane: StringName) -> void:
 		_audio_feedback.play_ui_tick()
 	_first_clutch_record_routing(worker_id, lane)
 	_save_campaign_checkpoint("routing_assignment")
+
+
+func _on_claim_resolution_requested(worker_id: int, path_id: StringName) -> void:
+	var result := _simulation.set_claim_resolution(worker_id, path_id)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get(
+			"reason",
+			"CLAIMANT PATH HELD.",
+		))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"claim_resolution")
+		return
+	_ticker_label.text = String(result.get(
+		"outcome",
+		"Claimant path filed.",
+	))
+	if _audio_feedback != null:
+		_audio_feedback.play_decision_resolved()
+	_save_campaign_checkpoint("claim_resolution")
 
 
 func _handle_first_clutch_primary_action() -> bool:
@@ -9195,7 +9231,7 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 			int(mandate_settlement.get("seal_reward", 0)),
 			"" if int(mandate_settlement.get("seal_reward", 0)) == 1 else "S",
 		]
-		_campaign_objectives_label.tooltip_text = "%s\n\nAcknowledge the annual review to continue the uncapped Senior career. This closed-quarter gate also permits one optional Career Sponsorship." % String(
+		_campaign_objectives_label.tooltip_text = "%s\n\nAcknowledge the annual review to continue the optional post-campaign Senior file. The authored probation ending is already preserved; this closed-quarter gate also permits one optional Career Sponsorship." % String(
 			mandate_settlement.get("outcome", "The annual Board Mandate has settled."),
 		)
 		_campaign_objectives_label.set_meta("orders_on_track", 1 if annual_passed else 0)
@@ -10395,6 +10431,9 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 			),
 			"daily_facility_cost_cents": int(snapshot.get("daily_facility_cost_cents", 0)),
 			"wage_arrears_cents": int(snapshot.get("wage_arrears_cents", 0)),
+			"briefing": (
+				snapshot.get("economic_briefing", {}) as Dictionary
+			).duplicate(true),
 		},
 		"production": {
 			"claims_waiting": int(snapshot.get("claims_waiting", 0)),
@@ -11213,12 +11252,32 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	_today_flock_label.tooltip_text = (
 		"Average flock morale and the current unity pressure behind labor petitions."
 	)
-	_today_ledger_label.text = "LEDGERS · %d%% FARMER FAVOR · %d%% COOP OBEDIENCE" % [
+	var economic_briefing := snapshot.get("economic_briefing", {}) as Dictionary
+	var economic_cash := economic_briefing.get("cash", {}) as Dictionary
+	_today_ledger_label.text = (
+		"LEDGER · FUND $%.2f · RESERVED $%.2f · FREE $%.2f\n"
+		+ "STANDING %d · %d%% FARMER FAVOR · %d%% COOP OBEDIENCE"
+	) % [
+		float(int(economic_cash.get(
+			"feed_fund_cents",
+			snapshot.get("revenue_cents", 0),
+		))) / 100.0,
+		float(int(economic_cash.get(
+			"protected_reserve_cents",
+			snapshot.get("protected_reserve_cents", 0),
+		))) / 100.0,
+		float(int(economic_cash.get(
+			"spendable_fund_cents",
+			snapshot.get("spendable_fund_cents", 0),
+		))) / 100.0,
+		int(snapshot.get("market_contract_standing", 0)),
 		int(snapshot["executive_confidence"]),
 		int(snapshot["compliance"]),
 	]
 	_today_ledger_label.tooltip_text = (
-		"Farmer favor affects management confidence; coop obedience measures policy compliance."
+		"Feed Fund minus protected payroll, feed, upkeep, breach, arrears, and debt "
+		+ "equals discretionary money. Open Capital for the exact run rate, market, "
+		+ "bottleneck, five-close trend, resource map, and recovery file."
 	)
 	var case_docket := snapshot.get("case_docket", {}) as Dictionary
 	var active_precedents: Array[Dictionary] = []
@@ -11376,6 +11435,17 @@ func _refresh_visible_management_surfaces(snapshot: Dictionary, force: bool = fa
 	if _staffing_ui != null and (force or staffing_filing_visible):
 		_staffing_ui.apply_snapshot(snapshot)
 	if (
+		_economic_briefing_ui != null
+		and (
+			force
+			or (
+				_flockwatch_open
+				and active_filing == FlockwatchNavigation.PAGE_CAPITAL
+			)
+		)
+	):
+		_economic_briefing_ui.apply_snapshot(snapshot)
+	if (
 		_capital_blueprint_ui != null
 		and _capital_blueprint_ui.visible
 		and _capital_blueprint_ui.has_method("apply_snapshot")
@@ -11394,6 +11464,8 @@ func _initialize_management_surfaces(snapshot: Dictionary) -> void:
 	# accessibility retain node identity. Subsequent ticks use visibility gates.
 	if _staffing_ui != null:
 		_staffing_ui.apply_snapshot(snapshot)
+	if _economic_briefing_ui != null:
+		_economic_briefing_ui.apply_snapshot(snapshot)
 	if _capital_blueprint_ui != null:
 		_capital_blueprint_ui.call("apply_snapshot", snapshot)
 	if _campus_expansion_ui != null:
@@ -12646,6 +12718,27 @@ func _capture_facility_ui_preview() -> void:
 		scroll.scroll_vertical = maxi(0, int(component_offset))
 	await get_tree().create_timer(0.65).timeout
 	_save_preview("facility_requisition.png")
+
+
+func _capture_economic_briefing_ui_preview() -> void:
+	_prepare_capture_running()
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(
+		_simulation.revenue_cents,
+		_simulation.current_daily_operating_cost_cents() + 10_000,
+	)
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_CAPITAL)
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_CAPITAL)
+	if scroll != null:
+		scroll.scroll_vertical = 0
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("economic_briefing.png")
 
 
 func _capture_packing_annex_preview() -> void:

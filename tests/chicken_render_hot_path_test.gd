@@ -40,6 +40,12 @@ func _run() -> void:
 		failures,
 	)
 	_check(bool(chicken_bindings["skeleton_cached"]), "chicken skeleton should be cached", failures)
+	_check(
+		StringName(chicken_bindings.get("temperament_id", &"")) == &"bright_eyed"
+		and int(chicken_bindings.get("temperament_idle_style", -1)) == 0,
+		"ChickenView should bind the authoritative stable temperament to its visible idle cadence",
+		failures,
+	)
 	_check(int(chicken_bindings["wing_bones_cached"]) == 4, "all four articulated wing bones should be cached", failures)
 	var rig := chicken.find_child("ChickenRig", true, false)
 	var render_profile := _render_profile(rig)

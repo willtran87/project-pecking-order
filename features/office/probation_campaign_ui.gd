@@ -2039,7 +2039,7 @@ func _refresh_final() -> void:
 	)
 	_final_sticky_primary_button.shortcut = _shortcut(KEY_C if passed else KEY_N)
 	_final_sticky_primary_button.tooltip_text = (
-		"Continue this approved file into the uncapped Senior Roost."
+		"Continue this approved file into the optional post-campaign Senior Roost."
 		if passed else
 		"Open a replacement confirmation before starting a fresh five-shift probation file."
 	)

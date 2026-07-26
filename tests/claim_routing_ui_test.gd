@@ -24,7 +24,9 @@ func _run() -> void:
 	var appeals_queue := office.find_child("Queue_appeals", true, false) as Label
 	var queue_contract_badge := office.find_child("RoutingQueueContractBadge", true, false) as Label
 	var assign_auto := office.find_child("Assign_auto", true, false) as Button
+	var assign_nest := office.find_child("Assign_nest_damage", true, false) as Button
 	var assign_predator := office.find_child("Assign_predator_loss", true, false) as Button
+	var assign_appeals := office.find_child("Assign_appeals", true, false) as Button
 	var current_claim := office.find_child("RoutingCurrentClaim", true, false) as Label
 	var current_contract_badge := office.find_child("RoutingCurrentContractBadge", true, false) as Label
 	var automation_hint := office.find_child("RoutingAutomationHint", true, false) as Label
@@ -35,8 +37,12 @@ func _run() -> void:
 	var check_in_status := office.find_child("RoutingCheckInStatus", true, false) as Label
 	var dossier_summary := office.find_child("RoutingDossierSummary", true, false) as Label
 	var route_tab := office.find_child("DossierTab_route", true, false) as Button
+	var claim_tab := office.find_child("DossierTab_claim", true, false) as Button
 	var support_tab := office.find_child("DossierTab_support", true, false) as Button
 	var profile_tab := office.find_child("DossierTab_profile", true, false) as Button
+	var settle_claim := office.find_child("ClaimResolution_settle", true, false) as Button
+	var deny_claim := office.find_child("ClaimResolution_deny", true, false) as Button
+	var except_claim := office.find_child("ClaimResolution_exception", true, false) as Button
 	var share_credit := office.find_child("PersonnelAction_share_credit", true, false) as Button
 	var career_coaching := office.find_child("PersonnelAction_career_coaching", true, false) as Button
 	var quota_pressure := office.find_child("PersonnelAction_quota_pressure", true, false) as Button
@@ -107,6 +113,13 @@ func _run() -> void:
 	if routing_ui != null:
 		routing_ui.set_color_vision_mode(&"standard")
 	await process_frame
+	_check(
+		assign_nest != null and "+0.6 handler morale" in assign_nest.tooltip_text
+		and assign_predator != null and "stress accumulates 25% faster" in assign_predator.tooltip_text
+		and assign_appeals != null and "+0.7 audit order" in assign_appeals.tooltip_text,
+		"routing controls should disclose each lane's distinct claimant-path consequence",
+		failures,
+	)
 
 	if routing_ui != null:
 		routing_ui.set_focus(0)
@@ -122,8 +135,96 @@ func _run() -> void:
 	)
 	_check(assign_auto != null and assign_auto.is_visible_in_tree() and not assign_auto.disabled, "the Route tab should expose live routing", failures)
 	var opening_worker := _worker_snapshot(simulation.snapshot(), 0)
+	if (opening_worker.get("current_claim", {}) as Dictionary).is_empty():
+		var claimant_snapshot := simulation.snapshot().duplicate(true)
+		var claimant_workers := (
+			claimant_snapshot.get("workers", []) as Array
+		).duplicate(true)
+		var claimant_worker := (
+			claimant_workers[0] as Dictionary
+		).duplicate(true)
+		var claimant_claim := ClaimState.new(
+			9001,
+			&"appeals",
+			"APPEALS & EXCEPTIONS",
+			1.3,
+			820,
+			0.055,
+			0,
+			360,
+			360,
+		)
+		claimant_worker["current_claim"] = claimant_claim.snapshot(60)
+		claimant_worker["progress"] = 12.0
+		claimant_worker["estimated_crack_risk"] = 0.18
+		claimant_worker["claim_resolution_status"] = {
+			"available": true,
+			"reason": "",
+			"claim_id": claimant_claim.id,
+			"progress": 12.0,
+			"cutoff_progress": 55.0,
+		}
+		claimant_workers[0] = claimant_worker
+		claimant_snapshot["workers"] = claimant_workers
+		routing_ui.apply_snapshot(claimant_snapshot)
+		await process_frame
+		opening_worker = _worker_snapshot(claimant_snapshot, 0)
+	var opening_claim := opening_worker.get("current_claim", {}) as Dictionary
+	_check(
+		not opening_claim.is_empty(),
+		"the focused hen should hold a real file for claimant-path inspection",
+		failures,
+	)
 	_check(worker_career != null and not worker_career.is_visible_in_tree(), "the Route tab should not repeat Profile career details", failures)
 	_check(share_credit != null and not share_credit.is_visible_in_tree(), "the Route tab should not mix in Support actions", failures)
+	_check(_press(claim_tab), "the selected-hen dossier should expose its File tab", failures)
+	await process_frame
+	_check(
+		routing_ui != null
+		and routing_ui.active_dossier_tab() == &"claim"
+		and claim_tab != null
+		and claim_tab.button_pressed,
+		"File should become the single active dossier tab",
+		failures,
+	)
+	_check(
+		dossier_summary != null
+		and dossier_summary.is_visible_in_tree()
+		and String(opening_claim.get("claimant_name", "")) in dossier_summary.text
+		and String(opening_claim.get("claimant_incident", "")) in dossier_summary.text
+		and String(opening_claim.get("claimant_need", "")) in dossier_summary.text
+		and String(opening_claim.get("claimant_delay_cost", "")) in dossier_summary.text,
+		"File should disclose who claimed, what happened, what they need, and what delay costs",
+		failures,
+	)
+	_check(
+		settle_claim != null
+		and settle_claim.is_visible_in_tree()
+		and "$1.20" in settle_claim.text
+		and "CLAIMANT RECEIVES THE BENEFIT" in settle_claim.tooltip_text
+		and "-3%" in settle_claim.tooltip_text,
+		"Settlement should disclose its exact money, beneficiary, and shell benefit",
+		failures,
+	)
+	_check(
+		deny_claim != null
+		and deny_claim.is_visible_in_tree()
+		and "$0.00" in deny_claim.text
+		and "BUREAU RECEIVES THE BENEFIT" in deny_claim.tooltip_text
+		and "appeal tomorrow" in deny_claim.tooltip_text,
+		"Denial should disclose its tempting pace benefit and delayed claimant burden",
+		failures,
+	)
+	_check(
+		except_claim != null
+		and except_claim.is_visible_in_tree()
+		and "$0.60" in except_claim.text
+		and "-6%" in except_claim.tooltip_text,
+		"Coverage Exception should disclose its exact cost and slower careful handling",
+		failures,
+	)
+	if routing_ui != null:
+		routing_ui.apply_snapshot(simulation.snapshot())
 	_check(_press(support_tab), "the selected-hen dossier should expose its Support tab", failures)
 	await process_frame
 	_check(
@@ -167,10 +268,15 @@ func _run() -> void:
 		dossier_summary != null
 		and dossier_summary.is_visible_in_tree()
 		and String(opening_worker.get("career_profile_name", "")).to_upper() in dossier_summary.text
-		and String(opening_worker.get("career_profile_description", "")) in dossier_summary.text
+		and String(opening_worker.get("temperament_label", "")) in dossier_summary.text
+		and String(((opening_worker.get("temperament_effect", {}) as Dictionary).get("label", ""))) in dossier_summary.text
+		and String(((opening_worker.get("temperament_effect", {}) as Dictionary).get("summary", ""))) in dossier_summary.text
+		and String(((opening_worker.get("flock_bond", {}) as Dictionary).get("partner_name", ""))) in dossier_summary.text
+		and "TEMPERAMENT" in dossier_summary.text
+		and "FLOCK BOND" in dossier_summary.text
 		and "CARE  morale" in dossier_summary.text
 		and "shell risk" in dossier_summary.text,
-		"Profile should fill the dossier with the authoritative work-profile and care summary",
+		"Profile should fill the dossier with exact work-style terms, perchmate bond, and care state",
 		failures,
 	)
 	_check(assign_auto != null and not assign_auto.is_visible_in_tree(), "Profile should not mix in Route actions", failures)

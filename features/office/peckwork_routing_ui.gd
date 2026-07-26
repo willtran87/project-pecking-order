@@ -10,6 +10,7 @@ const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_
 ## staffing action without covering the character or the workstations.
 
 signal assignment_requested(worker_id: int, lane: StringName)
+signal claim_resolution_requested(worker_id: int, path_id: StringName)
 signal personnel_action_requested(worker_id: int, action_id: StringName)
 signal peck_assist_requested(worker_id: int)
 signal first_clutch_skip_requested
@@ -89,6 +90,8 @@ var _claim_header: HBoxContainer
 var _assist_row: HBoxContainer
 var _personnel_status: HBoxContainer
 var _assignment_section: GridContainer
+var _claim_resolution_section: VBoxContainer
+var _claim_resolution_buttons: Dictionary[StringName, Button] = {}
 var _personnel_actions_section: VBoxContainer
 var _focused_worker_id := -1
 var _snapshot: Dictionary = {}
@@ -288,6 +291,11 @@ func is_dossier_section_visible(section: StringName) -> bool:
 			return _claim_header != null and _claim_header.visible
 		&"routing", &"assignments":
 			return _assignment_section != null and _assignment_section.visible
+		&"resolution", &"claim_resolution":
+			return (
+				_claim_resolution_section != null
+				and _claim_resolution_section.visible
+			)
 		&"check_in", &"personnel":
 			return _personnel_actions_section != null and _personnel_actions_section.visible
 		&"priority_peck", &"peck_assist":
@@ -519,15 +527,16 @@ func _build_focus_dossier() -> void:
 	_dossier_tabs.name = "RoutingDossierTabs"
 	_dossier_tabs.add_theme_constant_override("separation", 3)
 	identity.add_child(_dossier_tabs)
-	for tab_id: StringName in [&"route", &"support", &"profile"]:
+	for tab_id: StringName in [&"route", &"claim", &"support", &"profile"]:
 		var tab := Button.new()
 		tab.name = "DossierTab_%s" % String(tab_id)
-		tab.text = String(tab_id).to_upper()
+		tab.text = "FILE" if tab_id == &"claim" else String(tab_id).to_upper()
 		tab.toggle_mode = true
-		tab.custom_minimum_size = Vector2(62.0, 24.0)
+		tab.custom_minimum_size = Vector2(47.0, 24.0)
 		tab.add_theme_font_size_override("font_size", 9)
 		tab.tooltip_text = {
 			&"route": "Current file, tray routing, and Priority Peck.",
+			&"claim": "Claimant context and the exact settlement, denial, or exception tradeoff.",
 			&"support": "Recognition, coaching, pressure, and check-in status.",
 			&"profile": "Career, specialties, trust, grievance, and care details.",
 		}[tab_id]
@@ -576,7 +585,7 @@ func _build_focus_dossier() -> void:
 	_dossier_summary_label.name = "RoutingDossierSummary"
 	_dossier_summary_label.custom_minimum_size.y = 54.0
 	_dossier_summary_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_dossier_summary_label.max_lines_visible = 3
+	_dossier_summary_label.max_lines_visible = 4
 	_dossier_summary_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	active_file.add_child(_dossier_summary_label)
 	_assist_row = HBoxContainer.new()
@@ -633,6 +642,22 @@ func _build_focus_dossier() -> void:
 		_assignment_section.add_child(button)
 		_assignment_buttons[assignment] = button
 
+	_claim_resolution_section = VBoxContainer.new()
+	_claim_resolution_section.name = "ClaimResolutionChoices"
+	_claim_resolution_section.custom_minimum_size.x = 142.0
+	_claim_resolution_section.add_theme_constant_override("separation", 4)
+	row.add_child(_claim_resolution_section)
+	for path_id: StringName in [&"settle", &"deny", &"exception"]:
+		var button := Button.new()
+		button.name = "ClaimResolution_%s" % String(path_id)
+		button.text = String(path_id).to_upper()
+		button.custom_minimum_size = Vector2(142.0, 26.0)
+		button.add_theme_font_size_override("font_size", 10)
+		button.theme_type_variation = &"DecisionChoiceButton"
+		button.pressed.connect(_on_claim_resolution_pressed.bind(path_id))
+		_claim_resolution_section.add_child(button)
+		_claim_resolution_buttons[path_id] = button
+
 	_personnel_actions_section = VBoxContainer.new()
 	_personnel_actions_section.name = "PersonnelActions"
 	_personnel_actions_section.custom_minimum_size.x = 142.0
@@ -652,7 +677,7 @@ func _build_focus_dossier() -> void:
 
 
 func _on_dossier_tab_pressed(tab_id: StringName) -> void:
-	if tab_id not in [&"route", &"support", &"profile"]:
+	if tab_id not in [&"route", &"claim", &"support", &"profile"]:
 		return
 	_active_dossier_tab = tab_id
 	_refresh()
@@ -660,6 +685,8 @@ func _on_dossier_tab_pressed(tab_id: StringName) -> void:
 	match tab_id:
 		&"route":
 			first_focus = _assignment_buttons.get(&"auto") as Control
+		&"claim":
+			first_focus = _claim_resolution_buttons.get(&"settle") as Control
 		&"support":
 			first_focus = _personnel_buttons.get(&"share_credit") as Control
 		&"profile":
@@ -731,6 +758,10 @@ func _refresh() -> void:
 	var next_xp := int(worker.get("career_xp_next", worker.get("career_xp_to_next", 0)))
 	var career_profile_name := String(worker.get("career_profile_name", "UNFILED PROFILE"))
 	var career_profile_description := String(worker.get("career_profile_description", ""))
+	var temperament_label := String(worker.get("temperament_label", "STEADY HEN"))
+	var temperament_description := String(worker.get("temperament_description", ""))
+	var flock_bond := worker.get("flock_bond", {}) as Dictionary
+	var temperament_effect := worker.get("temperament_effect", {}) as Dictionary
 	var preferred_action := StringName(worker.get("preferred_personnel_action", &""))
 	_worker_career_label.text = (
 		"%s  /  XP %d / %d" % [career_title.to_upper(), career_xp, next_xp]
@@ -742,6 +773,20 @@ func _refresh() -> void:
 		credential_text += " + %s" % _lane_name(secondary_specialty)
 	_worker_trait_label.text = "%s  /  %s" % [career_profile_name, credential_text]
 	_worker_trait_label.tooltip_text = "%s Primary specialty: %s." % [career_profile_description, _lane_name(specialty)]
+	_worker_trait_label.tooltip_text += "\nTEMPERAMENT / %s: %s" % [
+		temperament_label,
+		temperament_description if not temperament_description.is_empty() else "A stable individual work cadence is on file.",
+	]
+	if not temperament_effect.is_empty():
+		_worker_trait_label.tooltip_text += "\nWORK STYLE / %s: %s" % [
+			String(temperament_effect.get("label", "STEADY RHYTHM")),
+			String(temperament_effect.get("summary", "steady baseline")),
+		]
+	if not flock_bond.is_empty():
+		_worker_trait_label.tooltip_text += "\nFLOCK BOND / %s" % String(flock_bond.get(
+			"summary",
+			"No active perchmate relationship is filed.",
+		))
 	if secondary_specialty != &"":
 		_worker_trait_label.tooltip_text += "\nSECONDARY ACCREDITATION: %s receives the same specialist speed and shell-risk treatment when routed manually." % _lane_name(secondary_specialty)
 	if training_specialty != &"":
@@ -829,6 +874,7 @@ func _refresh() -> void:
 		_claim_detail_label.text = "%s  ·  $%.2f  ·  crack %d%%  ·  %s" % [
 			urgency, value_cents / 100.0, int(float(worker.get("estimated_crack_risk", 0.0)) * 100.0), next_stage,
 		]
+	_refresh_claim_resolution_controls(worker, claim)
 	var assist := worker.get("peck_assist", {}) as Dictionary
 	var assist_open := bool(assist.get("available", false)) and _interaction_enabled and _peck_assist_clock_running
 	var assist_state := StringName(assist.get("window_state", &"locked"))
@@ -1071,6 +1117,45 @@ func _refresh() -> void:
 	_refresh_first_clutch()
 
 
+func _refresh_claim_resolution_controls(
+	worker: Dictionary,
+	claim: Dictionary,
+) -> void:
+	if _claim_resolution_section == null:
+		return
+	var status := worker.get("claim_resolution_status", {}) as Dictionary
+	var available := bool(status.get("available", false)) and _interaction_enabled
+	var reason := String(status.get(
+		"reason",
+		"Choose a claimant path before the file is 55% complete.",
+	))
+	var selected_path := StringName(claim.get("resolution_path", &"standard"))
+	var locked := bool(claim.get("resolution_locked", false))
+	for path_id in _claim_resolution_buttons:
+		var button := _claim_resolution_buttons[path_id] as Button
+		var definition := _claim_resolution_definition(path_id)
+		var cost_cents := int(definition.get("cost_cents", 0))
+		button.text = "%s  /  $%.2f" % [
+			String(definition.get(
+				"short_label",
+				String(path_id).to_upper(),
+			)),
+			float(cost_cents) / 100.0,
+		]
+		button.disabled = claim.is_empty() or not available
+		button.theme_type_variation = (
+			&"SelectedChoiceButton"
+			if locked and selected_path == path_id else
+			&"DecisionChoiceButton"
+		)
+		button.tooltip_text = "%s RECEIVES THE BENEFIT\n%s\n%s%s" % [
+			String(definition.get("beneficiary", "BUREAU")),
+			String(definition.get("benefit", "")),
+			String(definition.get("burden", "")),
+			"\n%s" % reason if not available and not reason.is_empty() else "",
+		]
+
+
 func _refresh_dossier_summary(
 	worker: Dictionary,
 	career_profile_name: String,
@@ -1081,6 +1166,53 @@ func _refresh_dossier_summary(
 	if _dossier_summary_label == null:
 		return
 	match _active_dossier_tab:
+		&"claim":
+			var claim := worker.get("current_claim", {}) as Dictionary
+			if claim.is_empty():
+				_dossier_summary_label.text = (
+					"NO ACTIVE CLAIMANT FILE\n"
+					+ "Route work from the live trays, then return before 55% completion."
+				)
+				_dossier_summary_label.tooltip_text = _dossier_summary_label.text
+				_dossier_summary_label.add_theme_color_override(
+					"font_color",
+					Color("aebdc5"),
+				)
+				return
+			var selected_path := StringName(claim.get(
+				"resolution_path",
+				&"standard",
+			))
+			var definition := _claim_resolution_definition(selected_path)
+			var return_label := (
+				"RETURNED APPEAL  /  "
+				if bool(claim.get("is_claimant_follow_up", false)) else
+				"CLAIMANT  /  "
+			)
+			_dossier_summary_label.text = (
+				"%s%s\nLOSS  /  %s\nNEEDS  /  %s\nDELAY COST  /  %s" % [
+					return_label,
+					String(claim.get("claimant_name", "UNFILED CLAIMANT")),
+					String(claim.get("claimant_incident", "No incident context filed.")),
+					String(claim.get("claimant_need", "No requested remedy filed.")),
+					String(claim.get(
+						"claimant_delay_cost",
+						"No delay consequence filed.",
+					)),
+				]
+			)
+			_dossier_summary_label.tooltip_text = (
+				"%s\nCURRENT PATH / %s\n%s\n%s" % [
+					_dossier_summary_label.text,
+					String(definition.get("label", "STANDARD HANDLING")),
+					String(definition.get("benefit", "")),
+					String(definition.get("burden", "")),
+				]
+			)
+			_dossier_summary_label.add_theme_color_override(
+				"font_color",
+				Color("efcf83"),
+			)
 		&"support":
 			var definition := _personnel_definition(preferred_action)
 			var action_name := String(definition.get(
@@ -1121,11 +1253,20 @@ func _refresh_dossier_summary(
 			var stress := roundi(float(worker.get("stress", 0.0)))
 			var fatigue := roundi(float(worker.get("fatigue", 0.0)))
 			var crack_risk := roundi(float(worker.get("estimated_crack_risk", 0.0)) * 100.0)
-			_dossier_summary_label.text = "%s  /  %s SPECIALIST  /  %s\n%s\nCARE  morale %d  /  stress %d  /  fatigue %d  /  shell risk %d%%" % [
+			var temperament_label := String(worker.get("temperament_label", "STEADY HEN"))
+			var temperament_effect := worker.get("temperament_effect", {}) as Dictionary
+			var work_style_label := String(temperament_effect.get("label", "STEADY RHYTHM"))
+			var work_style_summary := String(temperament_effect.get("summary", "steady baseline"))
+			var flock_bond := worker.get("flock_bond", {}) as Dictionary
+			var bond_line := String(flock_bond.get("summary", "No active perchmate relationship is filed."))
+			_dossier_summary_label.text = "%s  /  %s SPECIALIST  /  %s\nTEMPERAMENT  /  %s  /  %s: %s\nFLOCK BOND  /  %s\nCARE  morale %d  /  stress %d  /  fatigue %d  /  shell risk %d%%" % [
 				career_profile_name.to_upper(),
 				_lane_name(specialty),
 				("AUTO SORT" if assignment == &"auto" else "%s TRAY" % _lane_name(assignment)),
-				career_profile_description if not career_profile_description.is_empty() else "No additional work-profile note is filed.",
+				temperament_label,
+				work_style_label,
+				work_style_summary,
+				bond_line,
 				morale,
 				stress,
 				fatigue,
@@ -1242,6 +1383,7 @@ func _apply_dossier_disclosure() -> void:
 		_queue_panel == null
 		or _focus_panel == null
 		or _assignment_section == null
+		or _claim_resolution_section == null
 		or _personnel_actions_section == null
 	):
 		return
@@ -1256,10 +1398,11 @@ func _apply_dossier_disclosure() -> void:
 	if stage == &"":
 		stage = &"inspect"
 	var route_tab := normal_play and _active_dossier_tab == &"route"
+	var claim_tab := normal_play and _active_dossier_tab == &"claim"
 	var support_tab := normal_play and _active_dossier_tab == &"support"
 	var profile_tab := normal_play and _active_dossier_tab == &"profile"
 
-	var show_claim := route_tab or (coach_active and stage in [
+	var show_claim := route_tab or claim_tab or (coach_active and stage in [
 		&"inspect",
 		&"specialty_route",
 		&"priority_peck",
@@ -1277,11 +1420,15 @@ func _apply_dossier_disclosure() -> void:
 	_queue_panel.visible = normal_play or (target_matches and stage == &"specialty_route")
 	_claim_header.visible = show_claim
 	_claim_detail_label.visible = show_claim
-	_dossier_summary_label.visible = normal_play and _active_dossier_tab in [&"support", &"profile"]
+	_dossier_summary_label.visible = (
+		normal_play
+		and _active_dossier_tab in [&"claim", &"support", &"profile"]
+	)
 	var worker := _worker_snapshot(_focused_worker_id)
 	var claim := worker.get("current_claim", {}) as Dictionary
 	_claim_progress_bar.visible = show_claim and not claim.is_empty()
 	_assignment_section.visible = show_routing
+	_claim_resolution_section.visible = claim_tab and not claim.is_empty()
 	_personnel_actions_section.visible = show_check_in
 
 	_assist_row.visible = route_tab or show_routing or show_priority or show_delivery
@@ -1679,6 +1826,16 @@ func _on_assignment_pressed(lane: StringName) -> void:
 	assignment_requested.emit(_focused_worker_id, lane)
 
 
+func _on_claim_resolution_pressed(path_id: StringName) -> void:
+	if (
+		_focused_worker_id < 0
+		or not _interaction_enabled
+		or path_id not in [&"settle", &"deny", &"exception"]
+	):
+		return
+	claim_resolution_requested.emit(_focused_worker_id, path_id)
+
+
 func _on_personnel_action_pressed(action_id: StringName) -> void:
 	if _focused_worker_id < 0 or not _interaction_enabled:
 		return
@@ -1766,6 +1923,19 @@ func _personnel_definition(action_id: StringName) -> Dictionary:
 	return {}
 
 
+func _claim_resolution_definition(path_id: StringName) -> Dictionary:
+	var catalog_value: Variant = _snapshot.get("claim_resolution_catalog", [])
+	if catalog_value is Dictionary:
+		var catalog := catalog_value as Dictionary
+		return catalog.get(path_id, catalog.get(String(path_id), {})) as Dictionary
+	if catalog_value is Array:
+		for entry_value in (catalog_value as Array):
+			var entry := entry_value as Dictionary
+			if StringName(entry.get("id", &"")) == path_id:
+				return entry
+	return {}
+
+
 func _lane_name(lane: StringName) -> String:
 	var display := String(LANE_NAMES.get(lane, String(lane).replace("_", " ").to_upper()))
 	return SemanticColorPaletteScript.marked_lane_name(display, lane, _color_vision_mode)
@@ -1781,16 +1951,24 @@ func _lane_color(lane: StringName) -> Color:
 
 
 func _assignment_tooltip(lane: StringName) -> String:
+	var base := "Assign this peckwork tray."
 	match lane:
 		&"auto":
-			return "Pull the most urgent file, favoring this hen's specialty when deadlines allow."
+			return "Pull the most urgent file, favoring this hen's specialty when deadlines allow. AUTO uses standard handling until management files a claimant path."
 		&"nest_damage":
-			return "Pull only routine nest and coop property files."
+			base = "Pull only routine nest and coop property files."
 		&"predator_loss":
-			return "Pull only time-sensitive predator and loss files."
+			base = "Pull only time-sensitive predator and loss files."
 		&"appeals":
-			return "Pull only complex appeals and exception files."
-	return "Assign this peckwork tray."
+			base = "Pull only complex appeals and exception files."
+	var catalog := _snapshot.get("routing_catalog", []) as Array
+	for entry_value in catalog:
+		var entry := entry_value as Dictionary
+		if StringName(entry.get("id", &"")) != lane:
+			continue
+		var tradeoff := String(entry.get("operational_tradeoff", ""))
+		return "%s\n%s" % [base, tradeoff] if not tradeoff.is_empty() else base
+	return base
 
 
 func _make_label(text: String, font_size: int, color: Color) -> Label:

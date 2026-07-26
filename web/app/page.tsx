@@ -431,7 +431,7 @@ export default function Home() {
 
       <section className="intro" aria-labelledby="page-title">
         <div>
-          <p className="eyebrow">Five-shift probation | Uncapped Senior career</p>
+          <p className="eyebrow">Five-shift authored campaign | Optional Senior file</p>
           <h1 id="page-title">Earn your roost.</h1>
         </div>
         <p className="intro-copy">
@@ -586,17 +586,17 @@ export default function Home() {
 		    <article>
 		      <span className="briefing-number">01</span>
 		      <h2>Clear the daily orders</h2>
-		      <p>Choose a morning policy, then clear three probation orders each shift. Quota, shell quality, flock welfare, deadlines, and farmer favor shape one score across all five shifts and recurring Senior quarters.</p>
+		      <p>Choose a morning policy, then clear three probation orders each shift. Quota, shell quality, flock welfare, deadlines, and farmer favor shape one score across the authored five-shift campaign. Senior quarters are an optional post-campaign management file, not a prerequisite for seeing the ending.</p>
 		    </article>
 		    <article>
 		      <span className="briefing-number">02</span>
 		      <h2>Route the peckwork</h2>
-		      <p>Click a hen to inspect her specialty and current file, plus her career, trust, and grievance. Choose AUTO, NEST, PREDATOR, or APPEALS routing. AUTO remains opt-in for each employed hen; choosing a manual tray is an explicit override. Matched specialties clear files faster; a looming deadline may justify an imperfect route. When the claim bar enters its gold window, press E for one of three priority pecks per shift. Use her profile to share credit, coach, or apply pressure within the day&apos;s Rooster Operations check-in allowance. Those choices become evidence when a named hen files a flock petition.</p>
+		      <p>Click a hen to inspect her specialty and current file, plus her career, temperament, exact work-style tradeoff, closest perchmate bond, trust, and grievance. Choose AUTO, NEST, PREDATOR, or APPEALS routing. AUTO remains opt-in for each employed hen and keeps temperament at a neutral baseline; choosing a manual tray is an explicit override that engages her disclosed work style. Matched specialties clear files faster; temperament can trade pace, shell safety, strain, or recovery, so a looming deadline may justify an imperfect route. Open FILE before 55% completion to see who claimed, what happened, what they need, and what delay costs them, then keep standard handling or file a disclosed Settlement, Fast Denial, or Coverage Exception. Nest paths can restore handler morale, Predator paths carry extra stress, and Appeals paths change audit order. A clean fast denial helps today&apos;s closure rate but returns the same claimant to tomorrow&apos;s Appeals tray. When the claim bar enters its gold window, press E for one of three priority pecks per shift. Use her profile to share credit, coach, or apply pressure within the day&apos;s Rooster Operations check-in allowance. Those choices become evidence when a named hen files a flock petition.</p>
 		    </article>
 		    <article>
 		      <span className="briefing-number">03</span>
 		      <h2>Grow the bureau</h2>
-		      <p>Between shifts, open Flockwatch to authorize vacant perches, compare applicant specialties, wages, and profiles, then open the Capital Blueprint and Campus Portfolio to commission visible office expansions.</p>
+		      <p>Between shifts, open Flockwatch Capital for the exact run rate, cost breakdown, next Farm Mutual market, primary bottleneck, resource map, strategy counterweights, and recovery routes. Use Flock to authorize vacant perches and compare applicant specialties, wages, and profiles. Capital also holds the Blueprint and Campus Portfolio for visible office expansion.</p>
 		      <ul className="briefing-list">
 		        <li>The Flock Provisions Co-op turns feed into a real supply chain with seasonal quotes, finite bins, spoilage, and visible sacks.</li>
 		        <li>Wellness Nest tiers add recovery perches and protect Rested Flock welfare; Training Roost tiers reduce sponsorship cost and production drag. Rooster Operations Office tiers add check-ins but also supervisor payroll and surveillance pressure. IT Coop tiers improve only AUTO-routed work while raising compliance exposure.</li>

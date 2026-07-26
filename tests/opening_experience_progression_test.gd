@@ -10,6 +10,7 @@ const EXPECTED_SECTION_IDS: Array[StringName] = [
 	&"staffing_flock",
 	&"operations",
 	&"staffing_operations",
+	&"economic_briefing",
 	&"staffing_capital",
 	&"capital",
 	&"staffing_records",

@@ -44,7 +44,7 @@ const PAGE_TITLES := {
 	PAGE_TODAY: "Today's orders, compact shift snapshot, exceptions, and optional notice history",
 	PAGE_FLOCK: "Pecking Order, roster, applicants, care, training, and careers",
 	PAGE_OPERATIONS: "Feed Party, after-hours pecking, Rooster Operations, Procurement, and Farmgate",
-	PAGE_CAPITAL: "Treasury, requisitions, capacity, facilities, Blueprint, and Portfolio",
+	PAGE_CAPITAL: "Economic briefing, Treasury, requisitions, capacity, facilities, Blueprint, and Portfolio",
 	PAGE_GOVERNANCE_RECORDS: "Flock Relations, Farm Mutual, contracts, Gallery credit, and bureau records",
 }
 
@@ -511,6 +511,30 @@ func accessible_text() -> String:
 				mastered_pivots,
 				int(pivot_mastery.get("total_count", 3)),
 				"; WINGS BOTH WAYS commendation filed" if bool(pivot_mastery.get("complete", false)) else "",
+			]
+	elif _current_page_id == PAGE_CAPITAL:
+		var briefing := _snapshot.get("economic_briefing", {}) as Dictionary
+		var cash := briefing.get("cash", {}) as Dictionary
+		var bottlenecks := briefing.get("bottlenecks", []) as Array
+		summary += (
+			" Economic briefing: %s. Feed Fund $%.2f, protected reserve $%.2f, "
+			+ "spendable $%.2f. Secured operating margin %s$%.2f; $%.2f remains "
+			+ "to break even."
+		) % [
+			String(briefing.get("status_label", "awaiting ledger")).to_lower(),
+			float(int(cash.get("feed_fund_cents", 0))) / 100.0,
+			float(int(cash.get("protected_reserve_cents", 0))) / 100.0,
+			float(int(cash.get("spendable_fund_cents", 0))) / 100.0,
+			"+" if int(cash.get("secured_operating_margin_cents", 0)) >= 0 else "-",
+			absf(float(int(cash.get("secured_operating_margin_cents", 0)))) / 100.0,
+			float(int(cash.get("break_even_remaining_cents", 0))) / 100.0,
+		]
+		if not bottlenecks.is_empty() and bottlenecks[0] is Dictionary:
+			var bottleneck := bottlenecks[0] as Dictionary
+			summary += " Primary bottleneck: %s. %s Action: %s" % [
+				String(bottleneck.get("label", "none")).to_lower(),
+				String(bottleneck.get("reason", "")),
+				String(bottleneck.get("action", "")),
 			]
 	return summary
 

@@ -107,6 +107,10 @@ var desk_index: int = -1
 var _work_state: int = ChickenState.WorkState.IDLE
 var _phase: float = 0.0
 var _stress: float = 0.0
+var _temperament_id: StringName = &"bright_eyed"
+var _temperament_idle_style: int = 0
+var _temperament_motion_scale: float = 1.0
+var _temperament_focus_scale: float = 1.0
 var _body_pivot: Node3D
 var _head_pivot: Node3D
 var _wing_left: Node3D
@@ -255,6 +259,22 @@ func depart_office(exit_route: Array[Vector3]) -> void:
 
 func apply_snapshot(worker_snapshot: Dictionary) -> void:
 	_apply_career_credential(worker_snapshot)
+	_temperament_id = StringName(String(worker_snapshot.get(
+		"temperament_id",
+		ChickenState.default_temperament(worker_id),
+	)))
+	_temperament_idle_style = clampi(int(worker_snapshot.get(
+		"temperament_idle_style",
+		posmod(worker_id, ChickenState.TEMPERAMENT_ORDER.size()),
+	)), 0, ChickenState.TEMPERAMENT_ORDER.size() - 1)
+	_temperament_motion_scale = clampf(float(worker_snapshot.get(
+		"temperament_motion_scale",
+		1.0,
+	)), 0.75, 1.25)
+	_temperament_focus_scale = clampf(float(worker_snapshot.get(
+		"temperament_focus_scale",
+		1.0,
+	)), 0.75, 1.25)
 	var previous_state := _work_state
 	_work_state = int(worker_snapshot["state"])
 	if previous_state != _work_state:
@@ -470,6 +490,10 @@ func model_binding_diagnostics() -> Dictionary:
 		"skeleton_cached": _skeleton != null,
 		"wing_bones_cached": cached_wing_bones,
 		"authored_wing_pose": _use_authored_wing_pose,
+		"temperament_id": _temperament_id,
+		"temperament_idle_style": _temperament_idle_style,
+		"temperament_motion_scale": _temperament_motion_scale,
+		"temperament_focus_scale": _temperament_focus_scale,
 	}
 
 
@@ -679,7 +703,7 @@ func _advance_ambient_work_contact() -> void:
 	if not can_contact:
 		_work_peck_contact_armed = true
 		return
-	var peck_wave := maxf(0.0, sin(_phase * 10.6 + worker_id * 0.31))
+	var peck_wave := _ambient_peck_wave()
 	if peck_wave <= 0.24:
 		_work_peck_contact_armed = true
 	elif _work_peck_contact_armed and peck_wave >= 0.93:
@@ -893,7 +917,7 @@ func _apply_seated_pose() -> void:
 			var peck_cycle := (
 				priority_contact
 				if _priority_peck_timeline_active
-				else maxf(0.0, sin(_phase * 10.6 + worker_id * 0.31))
+				else _ambient_peck_wave()
 			)
 			var peck := peck_cycle * peck_cycle * _work_blend
 			var assist_emphasis := (
@@ -911,7 +935,14 @@ func _apply_seated_pose() -> void:
 		ChickenState.WorkState.LAYING:
 			_apply_laying_pose()
 		_:
-			_head_pivot.rotation.x = sin(_phase * 1.4 + worker_id) * 0.045
+			_head_pivot.rotation.x = sin(_phase * 1.4 * _temperament_motion_scale + worker_id) * 0.045
+
+
+func _ambient_peck_wave() -> float:
+	return maxf(
+		0.0,
+		sin(_phase * 10.6 * _temperament_focus_scale + worker_id * 0.31),
+	)
 
 func _priority_peck_contact_strength() -> float:
 	if not _priority_peck_timeline_active:
@@ -950,18 +981,29 @@ func _apply_laying_pose() -> void:
 
 
 func _apply_break_pose() -> void:
-	_body_pivot.position.y = absf(sin(_phase * 1.7 + worker_id)) * 0.018
-	_body_pivot.rotation.z = sin(_phase * 0.72 + worker_id) * 0.018
-	_head_pivot.rotation.y = sin(_phase * 0.85 + worker_id) * 0.24
-	match posmod(worker_id, 3):
+	var motion_phase := _phase * _temperament_motion_scale
+	_body_pivot.position.y = absf(sin(motion_phase * 1.7 + worker_id)) * 0.018
+	_body_pivot.rotation.z = sin(motion_phase * 0.72 + worker_id) * 0.018
+	_head_pivot.rotation.y = sin(motion_phase * 0.85 + worker_id) * 0.24
+	match _temperament_idle_style:
 		0: # Curious head tilts and a poised wing.
-			_head_pivot.rotation.z = sin(_phase * 0.62) * 0.10
+			_head_pivot.rotation.z = sin(motion_phase * 0.62) * 0.10
 		1: # A reserved, compact accountant stance.
 			_body_pivot.scale.x *= 0.992
-			_head_pivot.rotation.x = -0.035 + sin(_phase * 0.48) * 0.025
+			_head_pivot.rotation.x = -0.035 + sin(motion_phase * 0.48) * 0.025
 		2: # Occasional preen gesture, unsynchronised across the flock.
-			var preen := pow(maxf(0.0, sin(_phase * 0.42 + worker_id)), 5.0)
+			var preen := pow(maxf(0.0, sin(motion_phase * 0.42 + worker_id)), 5.0)
 			_body_pivot.rotation.x -= preen * 0.07
+		3: # Social scan: quick glances toward the neighboring perch.
+			_head_pivot.rotation.y += sin(motion_phase * 1.35 + worker_id) * 0.16
+			_head_pivot.rotation.z = sin(motion_phase * 0.92) * 0.055
+		4: # Methodical file review: slow, repeated downward checks.
+			var review := pow(maxf(0.0, sin(motion_phase * 0.68 + worker_id)), 3.0)
+			_head_pivot.rotation.x = -0.04 - review * 0.10
+		5: # Gentle rebel: still body, alert eyes, occasional skeptical tilt.
+			_body_pivot.rotation.z *= 0.45
+			var skepticism := pow(maxf(0.0, sin(motion_phase * 0.44 + worker_id)), 5.0)
+			_head_pivot.rotation.z = skepticism * (-0.11 if posmod(worker_id, 2) == 0 else 0.11)
 
 
 func _apply_feeding_pose() -> void:
@@ -1316,7 +1358,7 @@ func _cache_secondary_motion_parts() -> void:
 func _animate_secondary_motion() -> void:
 	# A fast close-and-open blink gives the glossy eyes life without creating a
 	# separate eyelid mesh. Each worker's offset keeps the flock unsynchronized.
-	var blink_period := 4.2 + worker_id * 0.17
+	var blink_period := (4.2 + worker_id * 0.17) / _temperament_motion_scale
 	var blink_time := fmod(_phase + worker_id * 0.83, blink_period)
 	var eye_openness := 1.0
 	if blink_time < 0.16:
@@ -1325,7 +1367,7 @@ func _animate_secondary_motion() -> void:
 		var rest_scale := _eye_rest_scales[eye_index]
 		_eyes[eye_index].scale = Vector3(rest_scale.x, rest_scale.y * eye_openness, rest_scale.z)
 
-	var breath := 1.0 + sin(_phase * 2.15 + worker_id * 0.7) * 0.006
+	var breath := 1.0 + sin(_phase * 2.15 * _temperament_motion_scale + worker_id * 0.7) * 0.006
 	_body_pivot.scale.x *= breath
 	_body_pivot.scale.z *= breath
 	if _comb != null:
