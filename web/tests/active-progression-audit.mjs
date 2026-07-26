@@ -556,6 +556,11 @@ try {
   } else {
     assert.equal(terminal.campaign_stage, "active", "a partial progression gate must settle on the next active shift");
   }
+  // The final review retires shift-only cards, effects, and disclosure rows with
+  // queued frees. SwiftShader may render fewer than one frame during the generic
+  // 120 ms GC pause, so measure the authored final residency only after those
+  // presentation objects have had several frames to leave the tree.
+  if (fullProbation) await page.waitForTimeout(2_500);
   const probationFinalHealth = fullProbation ? await health("five-shift-probation-final") : null;
 
   let seniorHandoff = null;

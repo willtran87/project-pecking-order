@@ -1683,3 +1683,32 @@ The next major systems milestone is persistent worker relationships and individu
   `81716CA9C2EC1C05509BFA804099336D16C91EFFDC8ED5BF01F099EB5C3D839E`.
   The required independent Web client loaded the synchronized build with no
   console-error artifact.
+
+## 2026-07-26 — Economic specification completion audit
+
+- Re-audited the complete supplied economy specification against current source,
+  simulation projections, saves, rendered UI, live WebGL state, and production
+  artifacts rather than relying on the acceptance record alone.
+- Fixed the 844x390 focused-play layout so all eight touch controls remain
+  visible in one 40px-high landscape row. Portrait retains the larger two-row
+  dock. The end-to-end touch audit now passes pan, zoom, Flockwatch, Settings,
+  overview, panel camera lockout, responsive containment, and target sizing.
+- Repaired stale browser audit focus routes after the settings screen gained its
+  fifth independent audio bus. Color-vision selection now has a truthful
+  keyboard-path test, and the four-cycle soak reaches the actual portable backup
+  download control before validating export, import, replacement, and resume.
+- Added a settled final-review measurement to the complete probation audit so
+  queued shift-only presentation objects leave the tree before residency is
+  judged. The stable five-shift result is +211 nodes, +1,383 objects, zero
+  orphans, and bounded JS/WASM growth; the release ceiling remains a close 256
+  nodes rather than hiding the result behind the generic 512-node allowance.
+- The full four-cycle runtime soak passes with only +1 node and +5 Godot objects,
+  zero orphans, zero WASM growth, four verified ~39.7 KB portable backups, no
+  browser errors, and responsive SwiftShader input/frame production.
+- Final verification is clean: all 190/190 isolated Godot 4.7 scripts pass; the
+  full five-shift browser campaign, difficulty intake, touch, color-vision
+  persistence, and four-cycle runtime soak pass; the beta gate passes eleven
+  representative native checks, ESLint, 42/42 rendered Web tests, production
+  serving, and exact nine-file artifact parity. Hardware touch feel, listening
+  quality, and representative physical GPU throughput remain honest external
+  release sign-offs.

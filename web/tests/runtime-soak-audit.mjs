@@ -264,11 +264,12 @@ async function portableRoundTrip(cycle) {
   const beforeDigest = authoritativeDigest(before);
   await openSettings();
 
-  // Settings deliberately focuses its close button. Fourteen forward focus
-  // steps traverse the eight audio controls, five comfort controls, then the
-  // first Career Backup action. Focus traversal also scrolls the button into
-  // view, keeping this an end-user path instead of a test-only bridge.
-  for (let index = 0; index < 14; index += 1) await page.keyboard.press("Tab");
+  // Settings deliberately focuses its close button. Eighteen forward focus
+  // steps traverse ten controls across the five independent audio buses, five
+  // selectors, two comfort toggles, then the first Career Backup action. Focus
+  // traversal also scrolls the button into view, keeping this an end-user path
+  // instead of a test-only bridge.
+  for (let index = 0; index < 18; index += 1) await page.keyboard.press("Tab");
   const downloadPromise = page.waitForEvent("download", { timeout: 10_000 });
   await page.keyboard.press("Enter");
   const download = await downloadPromise;
@@ -291,6 +292,8 @@ async function portableRoundTrip(cycle) {
   await page.keyboard.press("Enter");
   await waitForState("snapshot => snapshot.campaign_stage === 'title' && snapshot.resume_available === true");
   await page.waitForTimeout(400);
+  const canvas = page.locator("#canvas");
+  await canvas.click({ position: { x: 8, y: 8 } });
   await pressHeld("KeyC");
   try {
     await waitForState("snapshot => snapshot.campaign_stage === 'active'");

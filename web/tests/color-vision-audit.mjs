@@ -96,9 +96,10 @@ try {
 	assert.equal(opened.settings.color_vision_mode, "standard");
 	console.log("color-vision audit: Settings opened with standard palette");
 
-	// Close receives initial focus. Eight audio controls precede Motion, Scale,
+	// Close receives initial focus. Five independently configurable audio buses
+	// contribute a slider and mute toggle each, followed by Motion, Scale,
 	// Detail, Timing, and then the Color Vision selector.
-	for (let index = 0; index < 13; index += 1) await page.keyboard.press("Tab");
+	for (let index = 0; index < 15; index += 1) await page.keyboard.press("Tab");
 	await page.screenshot({
 		path: path.join(outputDirectory, "color-vision-selector-standard.png"),
 		fullPage: true,
@@ -118,6 +119,7 @@ try {
 		accessibleText: safe.settings.accessible_text,
 	};
 	console.log("color-vision audit: safe palette saved to browser mirror");
+	await page.waitForTimeout(500);
 	await page.screenshot({
 		path: path.join(outputDirectory, "color-vision-selector-safe.png"),
 		fullPage: true,
