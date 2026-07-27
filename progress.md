@@ -1845,3 +1845,39 @@ The next major systems milestone is persistent worker relationships and individu
 - The final synchronized PCK is 6,267,672 bytes with SHA-256
   `1E2998E82640CDF184EE65FCBAA9D5AD2299E7ACAD164B331498617212A14CD9`.
   The detached ten-minute physical rerun remains next.
+
+## 2026-07-26 — Balanced shadow submission budget
+
+- The detached RTX 3090 run completed two real shifts with zero browser errors,
+  context losses, orphan growth, or progressive object/node growth. Its physical
+  frame claim is invalid because this desktop session presented the headed
+  browser at 30 Hz and later occluded it to the one-frame-per-second background
+  cadence; that result remains evidence of an unsuitable test environment, not
+  a signed discrete-GPU pass.
+- A fresh scene profile found 613 opening-office submissions before renderer
+  passes. The bounded orthographic office used two directional-shadow cascades
+  in default Balanced mode, causing the dense workstation, signage, flock, and
+  collection scene to be submitted to an unnecessary second shadow volume.
+- Balanced now uses one orthographic directional shadow map. Low still disables
+  the office sun shadow, while High retains four cascades and 4x MSAA. The
+  focused settings regression locks all three quality contracts.
+- The isolated D3D11 candidate completed two authentic shifts with both quotas,
+  incidents, collection, reviews, and zero browser errors. Compared with the
+  prior matched hardware route, both median frame samples improve from about
+  18 ms to 16.7 ms; Day 1 p95 improves from 54 ms to 50 ms and Day 2 from
+  36.1 ms to 33.4 ms. The direct-export audit's only failure is the intentionally
+  absent wrapper-only WebAssembly heap bridge.
+- The active office, both Farmer reviews, final Day 3 floor, and independent
+  client intake were inspected at 1920x1080 and 1280x720. Desks, chickens,
+  management perch, collection chain, architecture, and modal contrast retain
+  grounded shadows with no clipping or missing presentation.
+- The authoritative six-shard native suite completed all 191 discovered tests:
+  191 passed, zero failed, and zero timed out in
+  `output/godot-full-suite-20260726-shadow-budget-final/`.
+- The supported Node 24 beta release gate passed at
+  `output/release/shadow-budget-final-gate-v2.json`, including all 11 native
+  release checks, web lint/build, 42 rendered browser tests, and deploy/server
+  parity.
+- The synchronized `docs/` and wrapper exports now ship a 6,268,072-byte PCK
+  with SHA-256
+  `7BAF2C0C27A0DAE59308BCBF853215C0A6B490FEF64D666C4486287478531553`.

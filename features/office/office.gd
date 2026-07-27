@@ -757,7 +757,12 @@ func _apply_visual_quality(quality: StringName) -> void:
 			viewport.msaa_3d = Viewport.MSAA_DISABLED
 			if _office_sun != null:
 				_office_sun.shadow_enabled = true
-				_office_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+				# The management camera is orthographic and the playable office
+				# fits inside one bounded shadow volume. A second cascade renders
+				# the same dense desk/signage scene again without contributing
+				# perspective-distance detail. Balanced keeps one authored
+				# shadow map; High retains the four-split showcase treatment.
+				_office_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 			if _office_atmosphere != null:
 				_office_atmosphere.set_atmosphere_enabled(true)
 

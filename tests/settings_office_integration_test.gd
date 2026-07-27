@@ -156,6 +156,25 @@ func _run() -> void:
 	_check(not bool((atmosphere.get("_dust_motes") as GPUParticles3D).emitting), "reduced motion and low detail should stop ambient particles", failures)
 	_check(sun != null and not sun.shadow_enabled, "performance detail should disable the expensive office sun shadow", failures)
 	_check(is_equal_approx(root.scaling_3d_scale, 0.82), "performance detail should lower only the 3D render scale", failures)
+	office.call("_apply_visual_quality", &"balanced")
+	_check(
+		sun != null
+		and sun.shadow_enabled
+		and sun.directional_shadow_mode == DirectionalLight3D.SHADOW_ORTHOGONAL
+		and root.msaa_3d == Viewport.MSAA_DISABLED,
+		"balanced detail should use one orthographic office shadow map without MSAA",
+		failures,
+	)
+	office.call("_apply_visual_quality", &"high")
+	_check(
+		sun != null
+		and sun.shadow_enabled
+		and sun.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+		and root.msaa_3d == Viewport.MSAA_4X,
+		"high detail should retain the four-split showcase shadow treatment and 4x MSAA",
+		failures,
+	)
+	office.call("_apply_visual_quality", &"low")
 	_check(simulation.peck_assist_timing_profile == &"extended", "motor-timing assistance should reach the authoritative simulation", failures)
 	var ambient_bus_index := AudioServer.get_bus_index(&"Ambient")
 	_check(
