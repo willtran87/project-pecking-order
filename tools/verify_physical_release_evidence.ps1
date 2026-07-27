@@ -11,6 +11,7 @@ $started = Get-Date
 $sessionSpecs = [ordered]@{
     "touch-ios" = [ordered]@{
         kind = "touch"
+        browser_pattern = "(?i)\bSafari\b"
         checks = @(
             "campaign-load",
             "first-clutch-touch-route",
@@ -23,11 +24,13 @@ $sessionSpecs = [ordered]@{
             "backup-round-trip",
             "one-shift-sustained-flow",
             "safe-area-and-overflow",
+            "text-legibility",
             "status-feedback"
         )
     }
     "touch-android" = [ordered]@{
         kind = "touch"
+        browser_pattern = "(?i)\bChrome\b"
         checks = @(
             "campaign-load",
             "first-clutch-touch-route",
@@ -40,11 +43,13 @@ $sessionSpecs = [ordered]@{
             "backup-round-trip",
             "one-shift-sustained-flow",
             "safe-area-and-overflow",
+            "text-legibility",
             "status-feedback"
         )
     }
     "screen-reader-desktop" = [ordered]@{
         kind = "screen-reader"
+        assistive_technology_pattern = "(?i)\b(NVDA|VoiceOver)\b"
         checks = @(
             "page-landmarks-and-names",
             "game-focus-summary",
@@ -58,6 +63,7 @@ $sessionSpecs = [ordered]@{
     }
     "screen-reader-mobile" = [ordered]@{
         kind = "screen-reader"
+        assistive_technology_pattern = "(?i)\b(VoiceOver|TalkBack)\b"
         checks = @(
             "page-landmarks-and-names",
             "mobile-controls-and-names",
@@ -191,6 +197,14 @@ function Test-IsoTimestamp {
         return $false
     }
     return [string]$Value -match "(Z|[+-]\d\d:\d\d)$"
+}
+
+function Convert-IsoTimestamp {
+    param([object]$Value)
+    if (-not (Test-IsoTimestamp $Value)) {
+        return $null
+    }
+    return [DateTimeOffset]::Parse([string]$Value)
 }
 
 function Get-Number {
@@ -338,8 +352,11 @@ function Test-PhysicalEvidence {
         [object]$Identity
     )
     $issues = [System.Collections.Generic.List[string]]::new()
-    if ((Get-Number $Evidence "schema_version") -ne 1.0) {
-        Add-Issue $issues "schema_version" "must equal 1"
+    $latestAllowedTimestamp = [DateTimeOffset]::UtcNow.AddMinutes(5)
+    $testedAt = $null
+    $latestSessionSignedAt = [DateTimeOffset]::MinValue
+    if ((Get-Number $Evidence "schema_version") -ne 2.0) {
+        Add-Issue $issues "schema_version" "must equal 2"
     }
 
     $release = Get-Field $Evidence "release"
@@ -370,8 +387,12 @@ function Test-PhysicalEvidence {
         ) {
             Add-Issue $issues "release.tested_url" "must be a non-placeholder HTTPS URL"
         }
-        if (-not (Test-IsoTimestamp (Get-Field $release "tested_at_utc"))) {
+        $testedAt = Convert-IsoTimestamp (Get-Field $release "tested_at_utc")
+        if ($null -eq $testedAt) {
             Add-Issue $issues "release.tested_at_utc" "must be an ISO-8601 timestamp with an explicit UTC offset"
+        }
+        elseif ($testedAt -gt $latestAllowedTimestamp) {
+            Add-Issue $issues "release.tested_at_utc" "must not be in the future"
         }
         Require-MeaningfulText $issues $release "coordinator" "release"
     }
@@ -403,8 +424,20 @@ function Test-PhysicalEvidence {
             Add-Issue $issues "$sessionPath.status" "must equal pass"
         }
         Require-MeaningfulText $issues $session "tester" $sessionPath
-        if (-not (Test-IsoTimestamp (Get-Field $session "signed_at_utc"))) {
+        $sessionSignedAt = Convert-IsoTimestamp (Get-Field $session "signed_at_utc")
+        if ($null -eq $sessionSignedAt) {
             Add-Issue $issues "$sessionPath.signed_at_utc" "must be an ISO-8601 timestamp with an explicit UTC offset"
+        }
+        else {
+            if ($null -ne $testedAt -and $sessionSignedAt -lt $testedAt) {
+                Add-Issue $issues "$sessionPath.signed_at_utc" "must not precede release.tested_at_utc"
+            }
+            if ($sessionSignedAt -gt $latestAllowedTimestamp) {
+                Add-Issue $issues "$sessionPath.signed_at_utc" "must not be in the future"
+            }
+            if ($sessionSignedAt -gt $latestSessionSignedAt) {
+                $latestSessionSignedAt = $sessionSignedAt
+            }
         }
 
         $environment = Get-Field $session "environment"
@@ -418,9 +451,21 @@ function Test-PhysicalEvidence {
             foreach ($field in @("device_model", "os_version", "browser", "browser_version")) {
                 Require-MeaningfulText $issues $environment $field "$sessionPath.environment"
             }
+            if (
+                $spec.Contains("browser_pattern") -and
+                [string](Get-Field $environment "browser") -notmatch [string]$spec.browser_pattern
+            ) {
+                Add-Issue $issues "$sessionPath.environment.browser" "does not match the required physical browser"
+            }
             if ($spec.kind -eq "screen-reader") {
                 foreach ($field in @("assistive_technology", "assistive_technology_version")) {
                     Require-MeaningfulText $issues $environment $field "$sessionPath.environment"
+                }
+                if (
+                    [string](Get-Field $environment "assistive_technology") -notmatch
+                    [string]$spec.assistive_technology_pattern
+                ) {
+                    Add-Issue $issues "$sessionPath.environment.assistive_technology" "does not match the required reader"
                 }
             }
             elseif ($spec.kind -eq "audio") {
@@ -429,14 +474,26 @@ function Test-PhysicalEvidence {
                 }
             }
             elseif ($spec.kind -eq "gpu") {
-                foreach ($field in @("gpu_model", "driver_version", "renderer_string")) {
+                foreach ($field in @("gpu_class", "gpu_model", "driver_version", "renderer_string")) {
                     Require-MeaningfulText $issues $environment $field "$sessionPath.environment"
+                }
+                $requiredGpuClass = if ($sessionId -eq "gpu-integrated") {
+                    "integrated"
+                }
+                else {
+                    "discrete"
+                }
+                if ([string](Get-Field $environment "gpu_class") -ne $requiredGpuClass) {
+                    Add-Issue $issues "$sessionPath.environment.gpu_class" "must equal $requiredGpuClass"
                 }
                 if ((Get-Field $environment "hardware_accelerated") -ne $true) {
                     Add-Issue $issues "$sessionPath.environment.hardware_accelerated" "must be true"
                 }
                 $renderer = [string](Get-Field $environment "renderer_string")
-                if ($renderer -match "(?i)(SwiftShader|software|llvmpipe|Microsoft Basic|virtual monitor|virtual display)") {
+                if (
+                    $renderer -match
+                    "(?i)(SwiftShader|software|llvmpipe|Microsoft Basic|virtual|VMware|Parallels|Citrix|Remote Desktop|VirGL)"
+                ) {
                     Add-Issue $issues "$sessionPath.environment.renderer_string" "names a software or virtual renderer"
                 }
             }
@@ -487,6 +544,9 @@ function Test-PhysicalEvidence {
             Require-Zero $issues $metrics "pinch_failures" $sessionPath
             Require-Minimum $issues $metrics "rotation_cycles" 5 $sessionPath
             Require-Zero $issues $metrics "rotation_failures" $sessionPath
+            Require-Minimum $issues $metrics "minimum_control_width_css_px" 44 $sessionPath
+            Require-Minimum $issues $metrics "minimum_control_height_css_px" 44 $sessionPath
+            Require-Maximum $issues $metrics "maximum_orientation_recovery_seconds" 2 $sessionPath
         }
         elseif ($spec.kind -eq "screen-reader") {
             Require-Minimum $issues $metrics "announcement_samples" 10 $sessionPath
@@ -497,22 +557,44 @@ function Test-PhysicalEvidence {
         elseif ($spec.kind -eq "audio") {
             Require-Minimum $issues $metrics "listening_minutes" 15 $sessionPath
             Require-Minimum $issues $metrics "focus_cycles" 5 $sessionPath
+            Require-Minimum $issues $metrics "audio_buses_verified" 5 $sessionPath
+            Require-Minimum $issues $metrics "semantic_cues_identified" 5 $sessionPath
             Require-Zero $issues $metrics "clipping_incidents" $sessionPath
             Require-Zero $issues $metrics "stuck_loop_incidents" $sessionPath
         }
         elseif ($spec.kind -eq "gpu") {
             Require-Minimum $issues $metrics "resolution_width" 1920 $sessionPath
             Require-Minimum $issues $metrics "resolution_height" 1080 $sessionPath
+            Require-Minimum $issues $metrics "display_refresh_hz" 60 $sessionPath
             if ([string](Get-Field $metrics "visual_quality") -ne "balanced") {
                 Add-Issue $issues "$sessionPath.metrics.visual_quality" "must equal balanced"
             }
+            Require-Minimum $issues $metrics "warmup_seconds" 60 $sessionPath
             Require-Minimum $issues $metrics "sample_seconds" 600 $sessionPath
+            Require-Minimum $issues $metrics "initial_window_seconds" 120 $sessionPath
+            Require-Minimum $issues $metrics "final_window_seconds" 120 $sessionPath
             Require-Minimum $issues $metrics "input_samples" 20 $sessionPath
             Require-Minimum $issues $metrics "median_fps" ([double]$spec.median_fps) $sessionPath
             Require-Minimum $issues $metrics "one_percent_low_fps" ([double]$spec.one_percent_low_fps) $sessionPath
             Require-Maximum $issues $metrics "p95_input_latency_ms" ([double]$spec.p95_input_latency_ms) $sessionPath
             Require-Maximum $issues $metrics "maximum_stall_ms" ([double]$spec.maximum_stall_ms) $sessionPath
             Require-Minimum $issues $metrics "end_to_start_fps_ratio" 0.8 $sessionPath
+            Require-Minimum $issues $metrics "initial_window_median_fps" 0.001 $sessionPath
+            Require-Minimum $issues $metrics "final_window_median_fps" 0.001 $sessionPath
+            $initialMedianFps = Get-Number $metrics "initial_window_median_fps"
+            $finalMedianFps = Get-Number $metrics "final_window_median_fps"
+            $declaredRatio = Get-Number $metrics "end_to_start_fps_ratio"
+            if (
+                -not [double]::IsNaN($initialMedianFps) -and
+                -not [double]::IsNaN($finalMedianFps) -and
+                -not [double]::IsNaN($declaredRatio) -and
+                $initialMedianFps -gt 0
+            ) {
+                $calculatedRatio = $finalMedianFps / $initialMedianFps
+                if ([Math]::Abs($calculatedRatio - $declaredRatio) -gt 0.01) {
+                    Add-Issue $issues "$sessionPath.metrics.end_to_start_fps_ratio" "does not match the recorded window medians"
+                }
+            }
             Require-Zero $issues $metrics "context_losses" $sessionPath
         }
 
@@ -553,11 +635,25 @@ function Test-PhysicalEvidence {
             Add-Issue $issues "decision.status" "must equal pass"
         }
         Require-MeaningfulText $issues $decision "approved_by" "decision"
-        if (-not (Test-IsoTimestamp (Get-Field $decision "approved_at_utc"))) {
+        $approvedAt = Convert-IsoTimestamp (Get-Field $decision "approved_at_utc")
+        if ($null -eq $approvedAt) {
             Add-Issue $issues "decision.approved_at_utc" "must be an ISO-8601 timestamp with an explicit UTC offset"
+        }
+        else {
+            if ($approvedAt -lt $latestSessionSignedAt) {
+                Add-Issue $issues "decision.approved_at_utc" "must not precede any signed session"
+            }
+            if ($approvedAt -gt $latestAllowedTimestamp) {
+                Add-Issue $issues "decision.approved_at_utc" "must not be in the future"
+            }
         }
         Require-Zero $issues $decision "open_p0_issues" "decision"
         Require-Zero $issues $decision "open_p1_issues" "decision"
+        foreach ($issueId in (Get-Items (Get-Field $decision "accepted_p2_issues"))) {
+            if (-not (Test-MeaningfulText $issueId)) {
+                Add-Issue $issues "decision.accepted_p2_issues" "contains an empty or placeholder issue ID"
+            }
+        }
     }
 
     return $issues.ToArray()
@@ -584,11 +680,24 @@ function New-SelfTestEvidence {
             physical_device = $true
             device_model = "Contract self-test device"
             os_version = "Contract self-test OS"
-            browser = "Contract self-test browser"
+            browser = if ($sessionId -in @("touch-ios", "screen-reader-mobile")) {
+                "Safari"
+            }
+            elseif ($sessionId -eq "touch-android") {
+                "Chrome"
+            }
+            else {
+                "Contract self-test browser"
+            }
             browser_version = "1"
         }
         if ($spec.kind -eq "screen-reader") {
-            $environment.assistive_technology = "Contract self-test reader"
+            $environment.assistive_technology = if ($sessionId -eq "screen-reader-desktop") {
+                "NVDA"
+            }
+            else {
+                "VoiceOver"
+            }
             $environment.assistive_technology_version = "1"
         }
         elseif ($spec.kind -eq "audio") {
@@ -596,6 +705,12 @@ function New-SelfTestEvidence {
             $environment.listening_environment = "Contract self-test room"
         }
         elseif ($spec.kind -eq "gpu") {
+            $environment.gpu_class = if ($sessionId -eq "gpu-integrated") {
+                "integrated"
+            }
+            else {
+                "discrete"
+            }
             $environment.gpu_model = "Contract self-test physical GPU"
             $environment.driver_version = "1"
             $environment.hardware_accelerated = $true
@@ -612,6 +727,9 @@ function New-SelfTestEvidence {
                 pinch_failures = 0
                 rotation_cycles = 5
                 rotation_failures = 0
+                minimum_control_width_css_px = 44
+                minimum_control_height_css_px = 44
+                maximum_orientation_recovery_seconds = 2
             }
         }
         elseif ($spec.kind -eq "screen-reader") {
@@ -626,6 +744,8 @@ function New-SelfTestEvidence {
             $metrics = [ordered]@{
                 listening_minutes = 15
                 focus_cycles = 5
+                audio_buses_verified = 5
+                semantic_cues_identified = 5
                 clipping_incidents = 0
                 stuck_loop_incidents = 0
             }
@@ -634,14 +754,20 @@ function New-SelfTestEvidence {
             $metrics = [ordered]@{
                 resolution_width = 1920
                 resolution_height = 1080
+                display_refresh_hz = 60
                 visual_quality = "balanced"
+                warmup_seconds = 60
                 sample_seconds = 600
+                initial_window_seconds = 120
+                final_window_seconds = 120
                 input_samples = 20
                 median_fps = [double]$spec.median_fps
                 one_percent_low_fps = [double]$spec.one_percent_low_fps
                 p95_input_latency_ms = [double]$spec.p95_input_latency_ms
                 maximum_stall_ms = [double]$spec.maximum_stall_ms
                 end_to_start_fps_ratio = 0.8
+                initial_window_median_fps = [double]$spec.median_fps
+                final_window_median_fps = [double]$spec.median_fps * 0.8
                 context_losses = 0
             }
         }
@@ -666,7 +792,7 @@ function New-SelfTestEvidence {
         }
     }
     return [ordered]@{
-        schema_version = 1
+        schema_version = 2
         release = [ordered]@{
             commit_sha = $Identity.commit_sha
             pck_sha256 = $Identity.pck_sha256
@@ -755,6 +881,73 @@ if ($SelfTest) {
         name = "failed physical touch attempt"
         evidence = $failedTouchAttempt
         expected = "single_fire_failures"
+    }
+
+    $wrongTouchBrowser = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $iosSession = @(
+        $wrongTouchBrowser.sessions | Where-Object { $_.id -eq "touch-ios" }
+    )[0]
+    $iosSession.environment.browser = "Chrome"
+    $invalidFixtures += [ordered]@{
+        name = "wrong iOS browser"
+        evidence = $wrongTouchBrowser
+        expected = "does not match the required physical browser"
+    }
+
+    $wrongReader = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $desktopReaderSession = @(
+        $wrongReader.sessions | Where-Object { $_.id -eq "screen-reader-desktop" }
+    )[0]
+    $desktopReaderSession.environment.assistive_technology = "TalkBack"
+    $invalidFixtures += [ordered]@{
+        name = "wrong desktop assistive technology"
+        evidence = $wrongReader
+        expected = "does not match the required reader"
+    }
+
+    $wrongGpuClass = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $integratedGpuSession = @(
+        $wrongGpuClass.sessions | Where-Object { $_.id -eq "gpu-integrated" }
+    )[0]
+    $integratedGpuSession.environment.gpu_class = "discrete"
+    $invalidFixtures += [ordered]@{
+        name = "wrong GPU class"
+        evidence = $wrongGpuClass
+        expected = "environment.gpu_class"
+    }
+
+    $shortGpuWarmup = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $shortWarmupSession = @(
+        $shortGpuWarmup.sessions | Where-Object { $_.id -eq "gpu-discrete" }
+    )[0]
+    $shortWarmupSession.metrics.warmup_seconds = 59
+    $invalidFixtures += [ordered]@{
+        name = "incomplete GPU warmup"
+        evidence = $shortGpuWarmup
+        expected = "warmup_seconds"
+    }
+
+    $inconsistentFpsRatio = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $ratioSession = @(
+        $inconsistentFpsRatio.sessions | Where-Object { $_.id -eq "gpu-discrete" }
+    )[0]
+    $ratioSession.metrics.end_to_start_fps_ratio = 0.95
+    $invalidFixtures += [ordered]@{
+        name = "inconsistent GPU window ratio"
+        evidence = $inconsistentFpsRatio
+        expected = "does not match the recorded window medians"
+    }
+
+    $prematureApproval = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $approvalTime = [DateTimeOffset]::Parse(
+        [string]$prematureApproval.decision.approved_at_utc
+    )
+    $prematureApproval.decision.approved_at_utc =
+        $approvalTime.AddMinutes(-1).ToString("o")
+    $invalidFixtures += [ordered]@{
+        name = "approval before signed sessions"
+        evidence = $prematureApproval
+        expected = "must not precede any signed session"
     }
 
     $selfTestInvalidCaseCount = $invalidFixtures.Count

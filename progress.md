@@ -1910,3 +1910,33 @@ The next major systems milestone is persistent worker relationships and individu
   Physical iOS, Android, desktop/mobile screen-reader, listening, integrated-GPU,
   and discrete-GPU sessions still require human testers and signed evidence;
   this hardening makes those results verifiable but does not claim they occurred.
+
+## 2026-07-26 — Exact-candidate physical handoff
+
+- Upgraded the physical acceptance record to schema v2 after an end-to-end
+  protocol audit found that the prior schema could accept the wrong mobile
+  browser or reader, incomplete GPU measurement windows, a ratio inconsistent
+  with its source medians, or approval recorded before the sessions.
+- Touch rows now verify Safari/Chrome platform fit, 44 CSS-pixel targets,
+  two-second orientation recovery, and explicit default/1.5x text legibility.
+  Reader rows enforce NVDA/VoiceOver on desktop and VoiceOver/TalkBack on mobile.
+  Audio rows record all five buses and five semantic cues.
+- GPU rows now declare integrated/discrete class and at least 60 Hz, record the
+  60-second warmup, ten-minute sample, both two-minute windows, and their raw
+  median FPS values. The validator recomputes the final/initial ratio and rejects
+  expanded software, remote, and virtual-renderer signatures.
+- UTC chronology is authoritative: release initialization precedes every signed
+  session, final approval follows all sessions, and future-dated evidence is
+  rejected. Exact commit plus PCK identity remains mandatory; later commits are
+  not guessed safe.
+- Added `tools/new_physical_release_evidence.ps1`. It refuses dirty tracked
+  worktrees, non-HTTPS or placeholder URLs, mismatched shipped PCKs, old
+  templates, unsafe output paths, and accidental overwrite, then stamps the
+  current full commit/hash/URL/start time into the seven-session record.
+- The contract now accepts one valid schema-v2 fixture and rejects 12 independent
+  adversarial fixtures one-for-one. The placeholder template parses as seven
+  complete rows but intentionally fails 191 pending/placeholder/threshold checks.
+- `output/release/physical-schema-v2-full-gate-v1.json` passes all 17 release
+  checks, including 11 native tests, Web lint, 42 rendered browser tests,
+  production serving, physical-contract self-test, and nine-file deploy parity.
+  The seven real human-hardware sessions remain pending.

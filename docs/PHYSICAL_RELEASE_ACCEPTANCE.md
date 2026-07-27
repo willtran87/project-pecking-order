@@ -21,9 +21,19 @@ Run every session against the same deployed release candidate. Record:
 - one immutable evidence bundle per session, with its SHA-256; and
 - every observed issue, including non-blocking issues accepted for beta.
 
-Copy `docs/physical-release-evidence.template.json` to
-`output/release/physical-release-evidence.json`, replace every placeholder, and
-validate it with:
+After the candidate is committed and deployed, initialize its exact identity:
+
+```powershell
+./tools/new_physical_release_evidence.ps1 `
+  -TestedUrl "https://REPLACE_WITH_DEPLOYED_RELEASE_URL/" `
+  -Coordinator "Release owner"
+```
+
+The initializer requires a clean tracked worktree, matching shipped PCK files,
+an HTTPS URL, and the schema-v2 template. It writes
+`output/release/physical-release-evidence.json` with the current full commit,
+payload hash, URL, UTC start time, and coordinator. Complete every placeholder,
+then validate it with:
 
 ```powershell
 ./tools/verify_physical_release_evidence.ps1
@@ -188,6 +198,11 @@ Record the WebGL renderer string and browser GPU diagnostics. The renderer must
 name the physical GPU and must not contain `SwiftShader`, `software`, `llvmpipe`,
 `Microsoft Basic`, or a virtual-display renderer.
 
+Record the GPU class and display refresh rate, the warmup duration, the complete
+sample duration, both two-minute window durations and median FPS values, and the
+calculated final/initial ratio. The validator recomputes that ratio from the raw
+window medians.
+
 ### Route
 
 1. Allow 60 seconds after the office becomes interactive for shader and browser
@@ -239,6 +254,13 @@ than a page, folder, or mutable sharing link. The standard beta gate runs the
 validator's valid fixture plus six adversarial fixtures so a weakened evidence
 contract cannot silently ship.
 
+Schema v2 also verifies that iOS touch uses Safari, Android touch uses Chrome,
+desktop reading uses NVDA or VoiceOver, mobile reading uses VoiceOver or
+TalkBack, GPU rows declare the correct integrated/discrete class, touch targets
+and recovery meet their numeric limits, all measurement windows are complete,
+and approval occurs after every signed session. Timestamps more than five
+minutes in the future are rejected.
+
 ## Release decision
 
 Physical acceptance passes only when:
@@ -250,7 +272,7 @@ Physical acceptance passes only when:
 - any accepted P2 issue is listed in the final decision; and
 - the release owner records a `pass` decision with name and UTC timestamp.
 
-If a candidate changes code or any shipped Web payload after testing, invalidate
-the decision and run the affected sessions again. A documentation-only commit may
-reuse evidence only when the recorded `index.pck` hash is unchanged and the
-release owner explicitly records that exception.
+If the checked-out candidate changes after testing, invalidate the decision and
+run the affected sessions again. Keep the physical-evidence commit as the final
+candidate: the validator intentionally requires both the exact commit and exact
+PCK hash rather than inferring that a later change is harmless.

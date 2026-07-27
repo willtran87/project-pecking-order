@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "release": {
     "commit_sha": "REPLACE_WITH_40_CHARACTER_RELEASE_COMMIT",
     "pck_sha256": "REPLACE_WITH_64_CHARACTER_INDEX_PCK_SHA256",
@@ -32,6 +32,7 @@
         "backup-round-trip": "pending",
         "one-shift-sustained-flow": "pending",
         "safe-area-and-overflow": "pending",
+        "text-legibility": "pending",
         "status-feedback": "pending"
       },
       "metrics": {
@@ -42,7 +43,10 @@
         "pinch_attempts": 0,
         "pinch_failures": 0,
         "rotation_cycles": 0,
-        "rotation_failures": 0
+        "rotation_failures": 0,
+        "minimum_control_width_css_px": 0,
+        "minimum_control_height_css_px": 0,
+        "maximum_orientation_recovery_seconds": 0
       },
       "evidence": [
         {
@@ -78,6 +82,7 @@
         "backup-round-trip": "pending",
         "one-shift-sustained-flow": "pending",
         "safe-area-and-overflow": "pending",
+        "text-legibility": "pending",
         "status-feedback": "pending"
       },
       "metrics": {
@@ -88,7 +93,10 @@
         "pinch_attempts": 0,
         "pinch_failures": 0,
         "rotation_cycles": 0,
-        "rotation_failures": 0
+        "rotation_failures": 0,
+        "minimum_control_width_css_px": 0,
+        "minimum_control_height_css_px": 0,
+        "maximum_orientation_recovery_seconds": 0
       },
       "evidence": [
         {
@@ -205,6 +213,8 @@
       "metrics": {
         "listening_minutes": 0,
         "focus_cycles": 0,
+        "audio_buses_verified": 0,
+        "semantic_cues_identified": 0,
         "clipping_incidents": 0,
         "stuck_loop_incidents": 0
       },
@@ -229,6 +239,7 @@
         "os_version": "REPLACE_WITH_OS_VERSION",
         "browser": "REPLACE_WITH_BROWSER",
         "browser_version": "REPLACE_WITH_BROWSER_VERSION",
+        "gpu_class": "integrated",
         "gpu_model": "REPLACE_WITH_INTEGRATED_GPU_MODEL",
         "driver_version": "REPLACE_WITH_DRIVER_VERSION",
         "hardware_accelerated": true,
@@ -246,14 +257,20 @@
       "metrics": {
         "resolution_width": 0,
         "resolution_height": 0,
+        "display_refresh_hz": 0,
         "visual_quality": "balanced",
+        "warmup_seconds": 0,
         "sample_seconds": 0,
+        "initial_window_seconds": 0,
+        "final_window_seconds": 0,
         "input_samples": 0,
         "median_fps": 0,
         "one_percent_low_fps": 0,
         "p95_input_latency_ms": 0,
         "maximum_stall_ms": 0,
         "end_to_start_fps_ratio": 0,
+        "initial_window_median_fps": 0,
+        "final_window_median_fps": 0,
         "context_losses": 0
       },
       "evidence": [
@@ -277,6 +294,7 @@
         "os_version": "REPLACE_WITH_OS_VERSION",
         "browser": "REPLACE_WITH_BROWSER",
         "browser_version": "REPLACE_WITH_BROWSER_VERSION",
+        "gpu_class": "discrete",
         "gpu_model": "REPLACE_WITH_DISCRETE_GPU_MODEL",
         "driver_version": "REPLACE_WITH_DRIVER_VERSION",
         "hardware_accelerated": true,
@@ -294,14 +312,20 @@
       "metrics": {
         "resolution_width": 0,
         "resolution_height": 0,
+        "display_refresh_hz": 0,
         "visual_quality": "balanced",
+        "warmup_seconds": 0,
         "sample_seconds": 0,
+        "initial_window_seconds": 0,
+        "final_window_seconds": 0,
         "input_samples": 0,
         "median_fps": 0,
         "one_percent_low_fps": 0,
         "p95_input_latency_ms": 0,
         "maximum_stall_ms": 0,
         "end_to_start_fps_ratio": 0,
+        "initial_window_median_fps": 0,
+        "final_window_median_fps": 0,
         "context_losses": 0
       },
       "evidence": [

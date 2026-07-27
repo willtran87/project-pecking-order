@@ -41,11 +41,13 @@ The repository can automate touch event paths, responsive layouts, software WebG
 
 `docs/PHYSICAL_RELEASE_ACCEPTANCE.md` defines the exact seven-session device
 matrix, routes, repetitions, thresholds, evidence bundle, and release decision.
-Copy `docs/physical-release-evidence.template.json` to
-`output/release/physical-release-evidence.json`, complete it against the exact
-release candidate, and validate it with:
+Initialize `output/release/physical-release-evidence.json` against the committed,
+deployed candidate, complete all seven schema-v2 sessions, and validate it with:
 
 ```powershell
+./tools/new_physical_release_evidence.ps1 `
+  -TestedUrl "https://REPLACE_WITH_DEPLOYED_RELEASE_URL/" `
+  -Coordinator "Release owner"
 ./tools/verify_physical_release_evidence.ps1
 ```
 
