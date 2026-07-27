@@ -14,7 +14,7 @@ Run every session against the same deployed release candidate. Record:
 
 - the full 40-character Git commit;
 - the SHA-256 of the deployed `index.pck`;
-- the exact HTTPS URL;
+- the exact HTTPS game root and derived `index.pck` URL;
 - UTC test and approval timestamps;
 - device, OS, browser, assistive-technology, audio-device, GPU, and driver
   versions as applicable;
@@ -30,10 +30,12 @@ After the candidate is committed and deployed, initialize its exact identity:
 ```
 
 The initializer requires a clean tracked worktree, matching shipped PCK files,
-an HTTPS URL, and the schema-v2 template. It writes
+an HTTPS deployment root ending in `/`, and the schema-v2 template. It downloads
+that root's `index.pck` with cache bypass, requires its bytes to match both local
+release copies, and writes
 `output/release/physical-release-evidence.json` with the current full commit,
-payload hash, URL, UTC start time, and coordinator. Complete every placeholder,
-then validate it with:
+payload hash, game/PCK URLs, UTC start time, and coordinator. Complete every
+placeholder, then validate it with:
 
 ```powershell
 ./tools/verify_physical_release_evidence.ps1

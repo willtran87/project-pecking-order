@@ -28,6 +28,14 @@ if (
 ) {
     throw "TestedUrl must be a non-placeholder HTTPS URL."
 }
+if (
+    -not $parsedUrl.AbsolutePath.EndsWith("/") -or
+    -not [string]::IsNullOrEmpty($parsedUrl.Query) -or
+    -not [string]::IsNullOrEmpty($parsedUrl.Fragment)
+) {
+    throw "TestedUrl must be a query-free deployment root ending in /."
+}
+$pckUrl = [Uri]::new($parsedUrl, "index.pck")
 
 $trackedStatus = @(& git -C $root status --porcelain --untracked-files=no)
 if ($LASTEXITCODE -ne 0) {
@@ -56,6 +64,28 @@ if ($docsHash -ne $webHash) {
     throw "The docs and wrapper index.pck payloads do not match."
 }
 
+$downloadPath = [IO.Path]::GetTempFileName()
+try {
+    Invoke-WebRequest `
+        -Uri $pckUrl `
+        -OutFile $downloadPath `
+        -TimeoutSec 180 `
+        -Headers @{
+            "Cache-Control" = "no-cache"
+            "User-Agent" = "Pecking-Order-Physical-Release-Initializer"
+        }
+    $deployedHash = (Get-FileHash -LiteralPath $downloadPath -Algorithm SHA256).Hash
+    $deployedBytes = (Get-Item -LiteralPath $downloadPath).Length
+}
+finally {
+    if (Test-Path -LiteralPath $downloadPath -PathType Leaf) {
+        Remove-Item -LiteralPath $downloadPath -Force
+    }
+}
+if ($deployedHash -ne $docsHash) {
+    throw "The deployed index.pck at $pckUrl does not match the shipped payload."
+}
+
 $templatePath = Join-Path $root "docs\physical-release-evidence.template.json"
 $evidence = Get-Content -LiteralPath $templatePath -Raw | ConvertFrom-Json
 if ([int]$evidence.schema_version -ne 2) {
@@ -65,6 +95,7 @@ if ([int]$evidence.schema_version -ne 2) {
 $evidence.release.commit_sha = $commit.ToLowerInvariant()
 $evidence.release.pck_sha256 = $docsHash.ToLowerInvariant()
 $evidence.release.tested_url = $parsedUrl.AbsoluteUri
+$evidence.release.pck_url = $pckUrl.AbsoluteUri
 $evidence.release.tested_at_utc = [DateTimeOffset]::UtcNow.ToString("o")
 $evidence.release.coordinator = $Coordinator.Trim()
 
@@ -94,4 +125,6 @@ Write-Output "PHYSICAL_RELEASE_EVIDENCE_INITIALIZED path=$absoluteOutputPath"
 Write-Output "  commit_sha=$($commit.ToLowerInvariant())"
 Write-Output "  pck_sha256=$($docsHash.ToLowerInvariant())"
 Write-Output "  tested_url=$($parsedUrl.AbsoluteUri)"
+Write-Output "  pck_url=$($pckUrl.AbsoluteUri)"
+Write-Output "  deployed_bytes=$deployedBytes"
 Write-Output "Complete all seven sessions, then run tools\verify_physical_release_evidence.ps1."

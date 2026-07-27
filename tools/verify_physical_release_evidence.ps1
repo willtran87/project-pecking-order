@@ -387,6 +387,20 @@ function Test-PhysicalEvidence {
         ) {
             Add-Issue $issues "release.tested_url" "must be a non-placeholder HTTPS URL"
         }
+        elseif (
+            -not $parsedUrl.AbsolutePath.EndsWith("/") -or
+            -not [string]::IsNullOrEmpty($parsedUrl.Query) -or
+            -not [string]::IsNullOrEmpty($parsedUrl.Fragment)
+        ) {
+            Add-Issue $issues "release.tested_url" "must be a query-free deployment root ending in /"
+        }
+        else {
+            $expectedPckUrl = [Uri]::new($parsedUrl, "index.pck").AbsoluteUri
+            $pckUrl = [string](Get-Field $release "pck_url")
+            if (-not (Test-MeaningfulText $pckUrl) -or $pckUrl -ne $expectedPckUrl) {
+                Add-Issue $issues "release.pck_url" "must equal the deployed index.pck URL $expectedPckUrl"
+            }
+        }
         $testedAt = Convert-IsoTimestamp (Get-Field $release "tested_at_utc")
         if ($null -eq $testedAt) {
             Add-Issue $issues "release.tested_at_utc" "must be an ISO-8601 timestamp with an explicit UTC offset"
@@ -796,7 +810,8 @@ function New-SelfTestEvidence {
         release = [ordered]@{
             commit_sha = $Identity.commit_sha
             pck_sha256 = $Identity.pck_sha256
-            tested_url = "https://pecking-order.invalid/contract-self-test"
+            tested_url = "https://pecking-order.invalid/contract-self-test/"
+            pck_url = "https://pecking-order.invalid/contract-self-test/index.pck"
             tested_at_utc = $timestamp
             coordinator = "Contract self-test"
         }
@@ -833,6 +848,15 @@ if ($SelfTest) {
         name = "pending decision"
         evidence = $pendingDecision
         expected = "decision.status"
+    }
+
+    $wrongDeployedPckUrl = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $wrongDeployedPckUrl.release.pck_url =
+        "https://pecking-order.invalid/contract-self-test/stale.pck"
+    $invalidFixtures += [ordered]@{
+        name = "wrong deployed PCK URL"
+        evidence = $wrongDeployedPckUrl
+        expected = "release.pck_url"
     }
 
     $wrongEvidenceHash = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)

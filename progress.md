@@ -1940,3 +1940,23 @@ The next major systems milestone is persistent worker relationships and individu
   checks, including 11 native tests, Web lint, 42 rendered browser tests,
   production serving, physical-contract self-test, and nine-file deploy parity.
   The seven real human-hardware sessions remain pending.
+
+## 2026-07-26 — Public candidate identity
+
+- Rechecked external state after the physical goal resumed. No signed
+  `output/release/physical-release-evidence.json` exists, so none of the seven
+  human-hardware sessions has been claimed.
+- Verified the live candidate at
+  `https://willtran87.github.io/project-pecking-order/`. Its public
+  `index.pck` is 6,268,072 bytes with SHA-256
+  `7BAF2C0C27A0DAE59308BCBF853215C0A6B490FEF64D666C4486287478531553`,
+  exactly matching both repository release copies.
+- Closed the remaining deployment-handoff gap: physical evidence initialization
+  now requires a query-free HTTPS root ending in `/`, derives and records its
+  exact `index.pck` URL, downloads that payload with cache bypass, and refuses
+  initialization unless its bytes match the local release hash.
+- The schema-v2 validator requires the recorded PCK URL to match the tested root.
+  Its contract now accepts one valid fixture and rejects 13 independent
+  adversarial fixtures one-for-one, including a stale/wrong deployed PCK URL.
+  This verifies that sessions start against the intended public binary; it does
+  not substitute for the pending physical testers.
