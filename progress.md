@@ -1960,3 +1960,25 @@ The next major systems milestone is persistent worker relationships and individu
   adversarial fixtures one-for-one, including a stale/wrong deployed PCK URL.
   This verifies that sessions start against the intended public binary; it does
   not substitute for the pending physical testers.
+
+## 2026-07-26 — Physical session bundle integrity
+
+- Rechecked the handoff and found no real physical evidence record. Closed the
+  next locally resolvable gap: a correctly hashed but empty or incomplete ZIP
+  could previously satisfy the evidence-reference shape.
+- Added one shared bundle inspector used by final validation and registration.
+  Every local session ZIP now needs a non-empty audio/video recording and
+  text/Markdown/JSON/CSV log; GPU rows additionally need a non-empty renderer or
+  performance screenshot. Unreadable archives, empty evidence files, absolute
+  entries, drive-qualified entries, and `..` traversal are rejected.
+- Added `tools/register_physical_session_bundle.ps1`. It confines record and ZIP
+  paths to the repository, requires the exact current commit and matching PCK
+  identity, validates the session-specific archive, computes SHA-256, prevents
+  accidental replacement, and updates one evidence item through a parsed
+  temporary file plus atomic move.
+- A valid touch bundle registered with one exact URI/hash item. Independent
+  adversarial runs rejected a missing recording, a GPU bundle without its
+  screenshot, and an archive containing `../escape.txt`.
+- The physical validator's valid fixture now uses a real generated ZIP rather
+  than a Markdown stand-in. It passes while all 14 targeted adversarial fixtures
+  fail one-for-one. The seven signed human-hardware sessions remain pending.

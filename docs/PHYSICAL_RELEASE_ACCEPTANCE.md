@@ -245,6 +245,26 @@ Each session's evidence bundle must include:
 - the SHA-256 for every referenced evidence bundle; and
 - issue IDs for every failure or accepted beta defect.
 
+Store a local session bundle as a ZIP whose filename includes the exact session
+ID. It must contain at least one non-empty video/audio recording and one
+non-empty text, Markdown, JSON, or CSV log. GPU bundles must also contain a
+non-empty PNG, JPEG, or WebP renderer/performance screenshot. Archive paths may
+not be absolute or contain `..`.
+
+Register the finished bundle without editing its URI or digest by hand:
+
+```powershell
+./tools/register_physical_session_bundle.ps1 `
+  -SessionId "touch-ios" `
+  -BundlePath "output/release/evidence/touch-ios-session-bundle.zip"
+```
+
+Registration requires the evidence commit and PCK identity to match the current
+candidate, validates the ZIP contents and path safety, computes its SHA-256, and
+atomically replaces that session's template evidence item. It refuses to replace
+already registered evidence unless `-Force` is explicit. The final validator
+repeats the same ZIP inspection, so manual JSON editing cannot bypass it.
+
 The JSON may reference a repository-relative path or an immutable HTTPS URL.
 Do not use a mutable shared-folder URL without a content hash.
 

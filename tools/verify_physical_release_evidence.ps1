@@ -7,6 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $started = Get-Date
+. (Join-Path $PSScriptRoot "physical_release_bundle.ps1")
 
 $sessionSpecs = [ordered]@{
     "touch-ios" = [ordered]@{
@@ -269,7 +270,8 @@ function Test-EvidenceReference {
     param(
         [System.Collections.Generic.List[string]]$Issues,
         [object]$Item,
-        [string]$Path
+        [string]$Path,
+        [string]$SessionKind
     )
     Require-MeaningfulText $Issues $Item "type" $Path
     Require-MeaningfulText $Issues $Item "uri" $Path
@@ -281,6 +283,10 @@ function Test-EvidenceReference {
     }
 
     $uriText = [string](Get-Field $Item "uri")
+    $itemType = [string](Get-Field $Item "type")
+    if ($itemType -ne "session-bundle") {
+        Add-Issue $Issues "$Path.type" "must equal session-bundle"
+    }
     if (-not (Test-MeaningfulText $uriText)) {
         return
     }
@@ -314,6 +320,17 @@ function Test-EvidenceReference {
             $actualHash = (Get-FileHash -LiteralPath $evidencePath -Algorithm SHA256).Hash
             if ($actualHash -ne $evidenceHash) {
                 Add-Issue $Issues "$Path.sha256" "does not match the referenced evidence file"
+            }
+        }
+        if ($itemType -eq "session-bundle") {
+            foreach (
+                $bundleIssue in @(
+                    Get-PhysicalSessionBundleIssues `
+                        -BundlePath $evidencePath `
+                        -SessionKind $SessionKind
+                )
+            ) {
+                Add-Issue $Issues $Path $bundleIssue
             }
         }
     }
@@ -620,7 +637,7 @@ function Test-PhysicalEvidence {
             [StringComparer]::OrdinalIgnoreCase
         )
         foreach ($item in $evidenceItems) {
-            Test-EvidenceReference $issues $item "$sessionPath.evidence"
+            Test-EvidenceReference $issues $item "$sessionPath.evidence" $spec.kind
             $evidenceUri = [string](Get-Field $item "uri")
             if (
                 (Test-MeaningfulText $evidenceUri) -and
@@ -682,11 +699,61 @@ function New-PassingCheckResults {
     return $result
 }
 
+function New-SelfTestSessionBundle {
+    $bundleDirectory = Join-Path $root "output\release"
+    New-Item -ItemType Directory -Path $bundleDirectory -Force | Out-Null
+    $bundlePath = Join-Path $bundleDirectory "physical-release-validator-self-test-$PID.zip"
+    if (Test-Path -LiteralPath $bundlePath -PathType Leaf) {
+        Remove-Item -LiteralPath $bundlePath -Force
+    }
+
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::Open(
+        $bundlePath,
+        [IO.Compression.ZipArchiveMode]::Create
+    )
+    try {
+        foreach ($file in @(
+            [ordered]@{
+                name = "session-recording.webm"
+                content = "Synthetic contract recording"
+            },
+            [ordered]@{
+                name = "session-log.txt"
+                content = "Synthetic contract session log"
+            },
+            [ordered]@{
+                name = "renderer-summary.png"
+                content = "Synthetic contract screenshot"
+            }
+        )) {
+            $entry = $archive.CreateEntry([string]$file.name)
+            $writer = [IO.StreamWriter]::new($entry.Open())
+            try {
+                $writer.Write([string]$file.content)
+            }
+            finally {
+                $writer.Dispose()
+            }
+        }
+    }
+    finally {
+        $archive.Dispose()
+    }
+
+    return [ordered]@{
+        uri = "output/release/$([IO.Path]::GetFileName($bundlePath))"
+        sha256 = (
+            Get-FileHash -LiteralPath $bundlePath -Algorithm SHA256
+        ).Hash.ToLowerInvariant()
+    }
+}
+
 function New-SelfTestEvidence {
     param([object]$Identity)
     $timestamp = (Get-Date).ToUniversalTime().ToString("o")
-    $protocolPath = Join-Path $root "docs\PHYSICAL_RELEASE_ACCEPTANCE.md"
-    $protocolHash = (Get-FileHash -LiteralPath $protocolPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $bundle = New-SelfTestSessionBundle
     $sessions = @()
     foreach ($sessionId in $sessionSpecs.Keys) {
         $spec = $sessionSpecs[$sessionId]
@@ -796,9 +863,9 @@ function New-SelfTestEvidence {
             metrics = $metrics
             evidence = @(
                 [ordered]@{
-                    type = "contract"
-                    uri = "docs/PHYSICAL_RELEASE_ACCEPTANCE.md"
-                    sha256 = $protocolHash
+                    type = "session-bundle"
+                    uri = $bundle.uri
+                    sha256 = $bundle.sha256
                 }
             )
             blocking_issues = @()
@@ -857,6 +924,14 @@ if ($SelfTest) {
         name = "wrong deployed PCK URL"
         evidence = $wrongDeployedPckUrl
         expected = "release.pck_url"
+    }
+
+    $wrongEvidenceType = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $wrongEvidenceType.sessions[0].evidence[0].type = "contract"
+    $invalidFixtures += [ordered]@{
+        name = "wrong evidence bundle type"
+        evidence = $wrongEvidenceType
+        expected = "must equal session-bundle"
     }
 
     $wrongEvidenceHash = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)

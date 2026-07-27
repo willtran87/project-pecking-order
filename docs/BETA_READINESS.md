@@ -57,3 +57,5 @@ evidence bundles must exist and match their recorded SHA-256; the standard beta
 gate also runs the physical validator's valid and adversarial contract fixtures.
 Initialization downloads the deployed root's `index.pck` and refuses to create a
 session record unless its hash matches both shipped copies.
+`register_physical_session_bundle.ps1` then validates and hashes each local
+recording/log ZIP; GPU bundles additionally require a renderer screenshot.
