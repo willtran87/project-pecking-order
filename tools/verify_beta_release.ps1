@@ -91,6 +91,17 @@ try {
         }
     }
 
+    $powershellExecutable = (Get-Process -Id $PID).Path
+    Invoke-CheckedCommand -Name "release/physical-evidence-contract" -Command {
+        & $powershellExecutable `
+            -NoLogo `
+            -NoProfile `
+            -NonInteractive `
+            -File (Join-Path $root "tools\verify_physical_release_evidence.ps1") `
+            -SelfTest `
+            -ReportPath "output\release\physical-release-validator-self-test.json"
+    }
+
     $releaseFiles = @(
         "index.apple-touch-icon.png",
         "index.audio.position.worklet.js",

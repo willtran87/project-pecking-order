@@ -231,6 +231,14 @@ Each session's evidence bundle must include:
 The JSON may reference a repository-relative path or an immutable HTTPS URL.
 Do not use a mutable shared-folder URL without a content hash.
 
+For a repository-relative URI, the validator resolves the file inside this
+repository, rejects path traversal or missing files, and recomputes SHA-256
+from the referenced bytes. An HTTPS URI must remain an immutable, downloadable
+release artifact; record the digest produced from the downloaded bundle rather
+than a page, folder, or mutable sharing link. The standard beta gate runs the
+validator's valid fixture plus six adversarial fixtures so a weakened evidence
+contract cannot silently ship.
+
 ## Release decision
 
 Physical acceptance passes only when:

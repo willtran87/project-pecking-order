@@ -138,9 +138,12 @@ function Get-Field {
 function Get-Items {
     param([object]$Value)
     if ($null -eq $Value) {
-        return @()
+        return ,([object[]]@())
     }
-    return @($Value)
+    # Keep a one-item JSON array as an array. PowerShell otherwise unwraps it
+    # while returning from this helper, which makes `.Count` disappear from a
+    # lone PSCustomObject and falsely reports the evidence bundle as missing.
+    return ,([object[]]@($Value))
 }
 
 function Add-Issue {
@@ -161,7 +164,9 @@ function Test-MeaningfulText {
     if ([string]::IsNullOrWhiteSpace($text)) {
         return $false
     }
-    return $text -notmatch "(?i)\b(REPLACE|PENDING|TODO|TBD)\b"
+    # Template tokens use underscores (for example REPLACE_WITH_TESTER), which
+    # are word characters and therefore evade a conventional `\b` boundary.
+    return $text -notmatch "(?i)(^|[^A-Z0-9])(REPLACE|PENDING|TODO|TBD)(_|[^A-Z0-9]|$)"
 }
 
 function Require-MeaningfulText {
@@ -243,6 +248,63 @@ function Require-Zero {
     $value = Get-Number $Object $Name
     if ([double]::IsNaN($value) -or $value -ne 0.0) {
         Add-Issue $Issues "$Path.$Name" "must be zero"
+    }
+}
+
+function Test-EvidenceReference {
+    param(
+        [System.Collections.Generic.List[string]]$Issues,
+        [object]$Item,
+        [string]$Path
+    )
+    Require-MeaningfulText $Issues $Item "type" $Path
+    Require-MeaningfulText $Issues $Item "uri" $Path
+
+    $evidenceHash = [string](Get-Field $Item "sha256")
+    $hashIsValid = $evidenceHash -match "^[0-9a-fA-F]{64}$"
+    if (-not $hashIsValid) {
+        Add-Issue $Issues "$Path.sha256" "must be a 64-character SHA-256"
+    }
+
+    $uriText = [string](Get-Field $Item "uri")
+    if (-not (Test-MeaningfulText $uriText)) {
+        return
+    }
+
+    $absoluteUri = $null
+    if ([Uri]::TryCreate($uriText, [UriKind]::Absolute, [ref]$absoluteUri)) {
+        if ($absoluteUri.Scheme -ne "https") {
+            Add-Issue $Issues "$Path.uri" "must be a repository-relative file or immutable HTTPS URL"
+        }
+        return
+    }
+
+    if ([IO.Path]::IsPathRooted($uriText)) {
+        Add-Issue $Issues "$Path.uri" "must not be an absolute local path"
+        return
+    }
+
+    try {
+        $rootPath = [IO.Path]::GetFullPath($root)
+        $rootPrefix = $rootPath.TrimEnd([char[]]"\/") + [IO.Path]::DirectorySeparatorChar
+        $evidencePath = [IO.Path]::GetFullPath((Join-Path $rootPath $uriText))
+        if (-not $evidencePath.StartsWith($rootPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+            Add-Issue $Issues "$Path.uri" "escapes the repository root"
+            return
+        }
+        if (-not (Test-Path -LiteralPath $evidencePath -PathType Leaf)) {
+            Add-Issue $Issues "$Path.uri" "does not reference an existing evidence file"
+            return
+        }
+        if ($hashIsValid) {
+            $actualHash = (Get-FileHash -LiteralPath $evidencePath -Algorithm SHA256).Hash
+            if ($actualHash -ne $evidenceHash) {
+                Add-Issue $Issues "$Path.sha256" "does not match the referenced evidence file"
+            }
+        }
+    }
+    catch {
+        Add-Issue $Issues "$Path.uri" "could not be resolved safely: $($_.Exception.Message)"
     }
 }
 
@@ -392,14 +454,20 @@ function Test-PhysicalEvidence {
             }
             if ($checkResults -is [System.Collections.IDictionary]) {
                 foreach ($checkId in $checkResults.Keys) {
-                    if ([string]$checkResults[$checkId] -ne "pass") {
+                    if (
+                        $checkId -notin $spec.checks -and
+                        [string]$checkResults[$checkId] -ne "pass"
+                    ) {
                         Add-Issue $issues "$sessionPath.check_results.$checkId" "contains a non-pass result"
                     }
                 }
             }
             else {
                 foreach ($property in $checkResults.PSObject.Properties) {
-                    if ([string]$property.Value -ne "pass") {
+                    if (
+                        $property.Name -notin $spec.checks -and
+                        [string]$property.Value -ne "pass"
+                    ) {
                         Add-Issue $issues "$sessionPath.check_results.$($property.Name)" "contains a non-pass result"
                     }
                 }
@@ -452,12 +520,17 @@ function Test-PhysicalEvidence {
         if ($evidenceItems.Count -lt 1) {
             Add-Issue $issues "$sessionPath.evidence" "must contain at least one immutable evidence bundle"
         }
+        $evidenceUris = [System.Collections.Generic.HashSet[string]]::new(
+            [StringComparer]::OrdinalIgnoreCase
+        )
         foreach ($item in $evidenceItems) {
-            Require-MeaningfulText $issues $item "type" "$sessionPath.evidence"
-            Require-MeaningfulText $issues $item "uri" "$sessionPath.evidence"
-            $evidenceHash = [string](Get-Field $item "sha256")
-            if ($evidenceHash -notmatch "^[0-9a-fA-F]{64}$") {
-                Add-Issue $issues "$sessionPath.evidence.sha256" "must be a 64-character SHA-256"
+            Test-EvidenceReference $issues $item "$sessionPath.evidence"
+            $evidenceUri = [string](Get-Field $item "uri")
+            if (
+                (Test-MeaningfulText $evidenceUri) -and
+                -not $evidenceUris.Add($evidenceUri)
+            ) {
+                Add-Issue $issues "$sessionPath.evidence.uri" "is duplicated"
             }
         }
         if ((Get-Items (Get-Field $session "blocking_issues")).Count -ne 0) {
@@ -617,19 +690,88 @@ $identity = Get-CurrentReleaseIdentity
 $mode = if ($SelfTest) { "contract-self-test" } else { "physical-release-evidence" }
 $errors = @()
 $selfTestInvalidErrorCount = $null
+$selfTestInvalidCaseCount = $null
 
 if ($SelfTest) {
     $validFixture = New-SelfTestEvidence $identity
     $validErrors = @(Test-PhysicalEvidence $validFixture $identity)
-    $invalidFixture = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
-    $invalidFixture.decision.status = "pending"
-    $invalidErrors = @(Test-PhysicalEvidence $invalidFixture $identity)
-    $selfTestInvalidErrorCount = $invalidErrors.Count
     if ($validErrors.Count -ne 0) {
         $errors += @($validErrors | ForEach-Object { "valid fixture rejected: $_" })
     }
-    if ($invalidErrors.Count -eq 0) {
-        $errors += "invalid fixture was accepted"
+
+    $invalidFixtures = @()
+
+    $pendingDecision = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $pendingDecision.decision.status = "pending"
+    $invalidFixtures += [ordered]@{
+        name = "pending decision"
+        evidence = $pendingDecision
+        expected = "decision.status"
+    }
+
+    $wrongEvidenceHash = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $wrongEvidenceHash.sessions[0].evidence[0].sha256 = ("0" * 64)
+    $invalidFixtures += [ordered]@{
+        name = "mismatched local evidence hash"
+        evidence = $wrongEvidenceHash
+        expected = "does not match the referenced evidence file"
+    }
+
+    $missingEvidenceFile = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $missingEvidenceFile.sessions[0].evidence[0].uri =
+        "output/release/missing-physical-evidence-bundle.zip"
+    $invalidFixtures += [ordered]@{
+        name = "missing local evidence file"
+        evidence = $missingEvidenceFile
+        expected = "does not reference an existing evidence file"
+    }
+
+    $escapingEvidencePath = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $escapingEvidencePath.sessions[0].evidence[0].uri =
+        "../outside-physical-evidence-bundle.zip"
+    $invalidFixtures += [ordered]@{
+        name = "repository traversal"
+        evidence = $escapingEvidencePath
+        expected = "escapes the repository root"
+    }
+
+    $softwareRenderer = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $softwareGpuSession = @(
+        $softwareRenderer.sessions | Where-Object { $_.id -eq "gpu-discrete" }
+    )[0]
+    $softwareGpuSession.environment.renderer_string = "ANGLE SwiftShader"
+    $invalidFixtures += [ordered]@{
+        name = "software GPU renderer"
+        evidence = $softwareRenderer
+        expected = "names a software or virtual renderer"
+    }
+
+    $failedTouchAttempt = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
+    $touchSession = @(
+        $failedTouchAttempt.sessions | Where-Object { $_.id -eq "touch-ios" }
+    )[0]
+    $touchSession.metrics.single_fire_failures = 1
+    $invalidFixtures += [ordered]@{
+        name = "failed physical touch attempt"
+        evidence = $failedTouchAttempt
+        expected = "single_fire_failures"
+    }
+
+    $selfTestInvalidCaseCount = $invalidFixtures.Count
+    $selfTestInvalidErrorCount = 0
+    foreach ($invalidCase in $invalidFixtures) {
+        $invalidErrors = @(
+            Test-PhysicalEvidence $invalidCase.evidence $identity
+        )
+        $selfTestInvalidErrorCount += $invalidErrors.Count
+        if ($invalidErrors.Count -eq 0) {
+            $errors += "invalid fixture accepted: $($invalidCase.name)"
+            continue
+        }
+        if (-not ($invalidErrors -match [regex]::Escape([string]$invalidCase.expected))) {
+            $errors +=
+                "invalid fixture did not report '$($invalidCase.expected)': $($invalidCase.name)"
+        }
     }
 }
 else {
@@ -660,6 +802,7 @@ $result = [ordered]@{
     duration_seconds = [Math]::Round(((Get-Date) - $started).TotalSeconds, 3)
     current_release = $identity
     evidence_path = if ($SelfTest) { $null } else { $EvidencePath }
+    self_test_invalid_case_count = $selfTestInvalidCaseCount
     self_test_invalid_error_count = $selfTestInvalidErrorCount
     errors = @($errors)
 }

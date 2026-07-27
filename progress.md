@@ -1881,3 +1881,32 @@ The next major systems milestone is persistent worker relationships and individu
 - The synchronized `docs/` and wrapper exports now ship a 6,268,072-byte PCK
   with SHA-256
   `7BAF2C0C27A0DAE59308BCBF853215C0A6B490FEF64D666C4486287478531553`.
+
+## 2026-07-26 — Content-verified physical acceptance
+
+- Audited the remaining external release path against the original economic-game
+  checklist and found a concrete evidence-integrity gap: the physical validator
+  checked the shape of a recorded SHA-256 but did not recompute it for a
+  repository-relative evidence bundle.
+- Repository-relative evidence URIs are now confined to this repository, must
+  resolve to an existing file, and must match the recorded SHA-256. Absolute
+  local paths, path traversal, missing files, duplicate references, placeholder
+  text, malformed hashes, and non-HTTPS external URLs are rejected.
+- Fixed one-item JSON array handling so a legitimate single session bundle is
+  not unwrapped into a scalar and falsely reported missing. The tester template
+  now includes the exact evidence object shape for all seven required sessions.
+- Expanded the validator contract from one negative mutation to six independent
+  adversarial cases: unsigned decision, mismatched local hash, missing local
+  file, repository traversal, software GPU renderer, and failed touch attempt.
+  The valid fixture passes and all six invalid fixtures fail for their targeted
+  reason.
+- The standard beta release gate now runs this contract on every candidate.
+  `output/release/physical-contract-full-gate-v1.json` passes all 17 checks:
+  11 native release tests, the Node 24 Web toolchain, lint, 42 rendered browser
+  tests, production server checks, the physical evidence contract, and exact
+  nine-file deploy parity.
+- The shipped PCK is unchanged at
+  `7BAF2C0C27A0DAE59308BCBF853215C0A6B490FEF64D666C4486287478531553`.
+  Physical iOS, Android, desktop/mobile screen-reader, listening, integrated-GPU,
+  and discrete-GPU sessions still require human testers and signed evidence;
+  this hardening makes those results verifiable but does not claim they occurred.

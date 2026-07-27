@@ -50,4 +50,6 @@ release candidate, and validate it with:
 ```
 
 The physical gate remains failed until every required session and the final
-release decision are explicitly recorded as `pass`.
+release decision are explicitly recorded as `pass`. Repository-relative
+evidence bundles must exist and match their recorded SHA-256; the standard beta
+gate also runs the physical validator's valid and adversarial contract fixtures.

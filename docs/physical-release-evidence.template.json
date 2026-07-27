@@ -44,7 +44,13 @@
         "rotation_cycles": 0,
         "rotation_failures": 0
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "session-bundle",
+          "uri": "REPLACE_WITH_IOS_EVIDENCE_BUNDLE_PATH_OR_HTTPS_URL",
+          "sha256": "REPLACE_WITH_64_CHARACTER_EVIDENCE_SHA256"
+        }
+      ],
       "blocking_issues": [],
       "notes": ""
     },
@@ -84,7 +90,13 @@
         "rotation_cycles": 0,
         "rotation_failures": 0
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "session-bundle",
+          "uri": "REPLACE_WITH_ANDROID_EVIDENCE_BUNDLE_PATH_OR_HTTPS_URL",
+          "sha256": "REPLACE_WITH_64_CHARACTER_EVIDENCE_SHA256"
+        }
+      ],
       "blocking_issues": [],
       "notes": ""
     },
@@ -118,7 +130,13 @@
         "raw_diagnostic_announcements": 0,
         "runaway_repetitions": 0
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "session-bundle",
+          "uri": "REPLACE_WITH_DESKTOP_READER_EVIDENCE_BUNDLE_PATH_OR_HTTPS_URL",
+          "sha256": "REPLACE_WITH_64_CHARACTER_EVIDENCE_SHA256"
+        }
+      ],
       "blocking_issues": [],
       "notes": ""
     },
@@ -153,7 +171,13 @@
         "raw_diagnostic_announcements": 0,
         "runaway_repetitions": 0
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "session-bundle",
+          "uri": "REPLACE_WITH_MOBILE_READER_EVIDENCE_BUNDLE_PATH_OR_HTTPS_URL",
+          "sha256": "REPLACE_WITH_64_CHARACTER_EVIDENCE_SHA256"
+        }
+      ],
       "blocking_issues": [],
       "notes": ""
     },
@@ -184,7 +208,13 @@
         "clipping_incidents": 0,
         "stuck_loop_incidents": 0
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "session-bundle",
+          "uri": "REPLACE_WITH_AUDIO_EVIDENCE_BUNDLE_PATH_OR_HTTPS_URL",
+          "sha256": "REPLACE_WITH_64_CHARACTER_EVIDENCE_SHA256"
+        }
+      ],
       "blocking_issues": [],
       "notes": ""
     },
@@ -226,7 +256,13 @@
         "end_to_start_fps_ratio": 0,
         "context_losses": 0
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "session-bundle",
+          "uri": "REPLACE_WITH_INTEGRATED_GPU_EVIDENCE_BUNDLE_PATH_OR_HTTPS_URL",
+          "sha256": "REPLACE_WITH_64_CHARACTER_EVIDENCE_SHA256"
+        }
+      ],
       "blocking_issues": [],
       "notes": ""
     },
@@ -268,7 +304,13 @@
         "end_to_start_fps_ratio": 0,
         "context_losses": 0
       },
-      "evidence": [],
+      "evidence": [
+        {
+          "type": "session-bundle",
+          "uri": "REPLACE_WITH_DISCRETE_GPU_EVIDENCE_BUNDLE_PATH_OR_HTTPS_URL",
+          "sha256": "REPLACE_WITH_64_CHARACTER_EVIDENCE_SHA256"
+        }
+      ],
       "blocking_issues": [],
       "notes": ""
     }
