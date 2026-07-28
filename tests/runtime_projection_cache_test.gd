@@ -68,6 +68,48 @@ func _init() -> void:
 		failures,
 	)
 
+	# The clock is allowed to hold the seven expensive planning projections for
+	# the disclosed two-second window. Every other field must remain bit-for-bit
+	# equivalent to a fresh authoritative snapshot after several unpublished
+	# production ticks.
+	var tick_simulation := DepartmentSimulation.new(290720)
+	tick_simulation.select_directive(&"shell_assurance")
+	for worker in tick_simulation.workers:
+		if worker.employed:
+			tick_simulation.set_worker_at_workstation(worker.id, true)
+	var published_snapshots: Array[Dictionary] = []
+	tick_simulation.snapshot_changed.connect(func(state: Dictionary) -> void:
+		published_snapshots.append(state.duplicate(true))
+	)
+	tick_simulation.publish_current_snapshot()
+	published_snapshots.clear()
+	for _tick in 24:
+		tick_simulation.advance_tick(false)
+	tick_simulation.publish_current_snapshot()
+	_check(
+		published_snapshots.size() == 1,
+		"coalesced clock publication should emit exactly one settled read model",
+		failures,
+	)
+	if not published_snapshots.is_empty():
+		var clock_snapshot := _without_bounded_live_projections(
+			published_snapshots[-1],
+		)
+		var fresh_snapshot := _without_bounded_live_projections(
+			tick_simulation.snapshot(),
+		)
+		_check(
+			JSON.stringify(clock_snapshot) == JSON.stringify(fresh_snapshot),
+			"the lightweight tick snapshot must not leave authoritative economy or worker fields stale",
+			failures,
+		)
+	var tick_diagnostics := tick_simulation.runtime_projection_cache_diagnostics()
+	_check(
+		int(tick_diagnostics.get("tick_snapshot_hits", 0)) >= 1,
+		"the clock-equivalence exercise should traverse the lightweight snapshot path",
+		failures,
+	)
+
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("RUNTIME_PROJECTION_CACHE_TEST_FAILED: %s" % failure)
@@ -87,3 +129,18 @@ func _init() -> void:
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _without_bounded_live_projections(source: Dictionary) -> Dictionary:
+	var normalized := source.duplicate(true)
+	for key in [
+		"contract_board",
+		"farm_mutual_service_coop",
+		"farm_mutual_negotiation_room",
+		"economic_briefing",
+		"feed_procurement",
+		"flock_care",
+		"operations",
+	]:
+		normalized.erase(key)
+	return normalized

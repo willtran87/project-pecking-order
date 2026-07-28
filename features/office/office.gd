@@ -64,6 +64,46 @@ const FEED_PARTY_ROLL_DURATION := 0.82
 const FEED_PARTY_WHEEL_TURNS := 3.0
 const INITIAL_CAMPAIGN_STAFF := 4
 const MAXIMUM_OFFICE_CAPACITY := 6
+const WORKSTATION_STRUCTURAL_SHADOW_HOSTS := [
+	"CubicleBack",
+	"CubicleWing_L",
+	"DeskFrontTrim",
+	"DeskLeg_L",
+	"DeskSurface",
+	"DrawerPedestal",
+	"Monitor",
+	"PanelTopTrim",
+	"ChairSeat",
+]
+const INTAKE_STRUCTURAL_SHADOW_HOSTS := [
+	"IntakeCounter",
+	"IntakeTop",
+	"IntakeFrontInset",
+	"EggScaleBase",
+	"CandlingLampStem",
+	"BasketInterior",
+	"PresentationPlinth",
+	"BasketFrontSlat",
+	"BasketFrontSlatCreditHost",
+	"BasketBackSlat",
+	"BasketSideSlat",
+	"BasketHandle",
+	"BasketHandlePost",
+]
+const COLLECTION_STRUCTURAL_SHADOW_PREFIXES := [
+	"DeskEggTray_",
+	"EggLiftTube_",
+	"OverheadRowRail_",
+	"FarmerCreditRail",
+	"PresentationDropTube",
+	"EggQualityManifold",
+	"EmptyTransitCarrier_",
+	"ShellIntegrityGate",
+	"GradingReceiptPrinterBody",
+	"GradingReceiptPrinterMount",
+	"EggCollectionCartBasket",
+	"EggCollectionCartHandle",
+]
 const CAREER_DOCKET_SEEDS := [1701, 4703, 7919, 12011]
 const PECK_ASSIST_ACTION: StringName = &"peck_assist"
 const PECK_FOCUS_LEAD_PROGRESS := 16.0
@@ -74,7 +114,6 @@ const FIRST_CLUTCH_COMPLETION_HOLD_SECONDS := 5.5
 const STATUS_TOAST_HOLD_MSEC := 5500
 const STATUS_HISTORY_LIMIT := 18
 const CHECKPOINT_ERROR_LIMIT := 240
-const WEB_DIAGNOSTIC_INTERVAL_MSEC := 250
 const CAMPUS_PRESENTATION_REFRESH_MSEC := 500
 const LIVE_HUD_HEIGHT := 92.0
 const FIRST_CLUTCH_HUD_HEIGHT := 64.0
@@ -240,6 +279,8 @@ var _web_checkpoint_flush_callback
 var _web_career_backup_offer_callback
 var _web_mobile_action_callback
 var _web_focus_pause_callback
+var _web_diagnostic_request_callback
+var _web_accessibility_request_callback
 var _last_lifecycle_checkpoint_frame: int = -1
 var _last_lifecycle_checkpoint_revision: int = -1
 var _campaign_session_checkpoint_enabled := false
@@ -383,7 +424,6 @@ var _fund_count_tween: Tween
 var _animation_speed_multiplier := 1.0
 var _pending_web_diagnostic_snapshot: Dictionary = {}
 var _web_diagnostic_dirty := false
-var _web_diagnostic_next_allowed_msec := 0
 var _pending_simulation_presentation_snapshot: Dictionary = {}
 var _presentation_update_count := 0
 var _last_presented_tick_revision := 0
@@ -429,6 +469,7 @@ func _ready() -> void:
 	_office_storytelling.egg_reached_presentation_detailed.connect(_on_egg_reached_presentation)
 	_office_storytelling.optional_visuals_finished.connect(_on_optional_storytelling_finished)
 	add_child(_office_storytelling)
+	_apply_opening_story_shadow_budget()
 	_boot_mark(&"storytelling")
 	_office_atmosphere = OfficeAtmosphereScript.new() as OfficeAtmosphere
 	add_child(_office_atmosphere)
@@ -1191,6 +1232,17 @@ func _install_web_checkpoint_bridge() -> void:
 		_on_web_focus_pause_requested
 	)
 	window.set("__pecking_order_set_focus_paused", _web_focus_pause_callback)
+	_web_diagnostic_request_callback = JavaScriptBridge.create_callback(
+		_on_web_diagnostic_requested
+	)
+	window.set("__pecking_order_request_diagnostic", _web_diagnostic_request_callback)
+	_web_accessibility_request_callback = JavaScriptBridge.create_callback(
+		_on_web_accessibility_state_requested
+	)
+	window.set(
+		"__pecking_order_request_accessibility_state",
+		_web_accessibility_request_callback,
+	)
 
 
 func _on_web_checkpoint_flush_requested(arguments: Array) -> void:
@@ -1200,6 +1252,22 @@ func _on_web_checkpoint_flush_requested(arguments: Array) -> void:
 		if not requested_reason.is_empty():
 			reason = requested_reason
 	_request_lifecycle_checkpoint(reason)
+
+
+func _on_web_diagnostic_requested(_arguments: Array) -> void:
+	var snapshot := _pending_web_diagnostic_snapshot
+	if snapshot.is_empty() and _simulation != null:
+		snapshot = _simulation.snapshot(true)
+	if not snapshot.is_empty():
+		_serialize_web_diagnostic_state(snapshot)
+
+
+func _on_web_accessibility_state_requested(_arguments: Array) -> void:
+	var snapshot := _pending_web_diagnostic_snapshot
+	if snapshot.is_empty() and _simulation != null:
+		snapshot = _simulation.snapshot(true)
+	if not snapshot.is_empty():
+		_serialize_web_accessibility_state(snapshot)
 
 
 func _on_web_career_backup_offered(arguments: Array) -> void:
@@ -1806,6 +1874,7 @@ func _build_office() -> void:
 		Color("a87849"), Color("49372a"), Vector3.ZERO,
 		11, 0.0021, &"utility", &"stencil"
 	)
+	_apply_shadow_allowlist(_intake_presentation, INTAKE_STRUCTURAL_SHADOW_HOSTS)
 
 	_egg_layer = Node3D.new()
 	_egg_layer.name = "EggsInTransit"
@@ -2374,6 +2443,57 @@ func _build_workstation(parent: Node3D, index: int, origin: Vector3) -> void:
 	parent.add_child(workstation)
 	_workstations_by_index[index] = workstation
 	_decorate_workstation(workstation, index)
+	_apply_workstation_shadow_budget(workstation)
+
+
+func _apply_workstation_shadow_budget(workstation: Node3D) -> void:
+	# One authored workstation contains 24 imported meshes plus small personal
+	# props. Preserve grounding shadows on its actual furniture and partitions,
+	# while paper, screens, controls, stationery, and decorative accents receive
+	# those shadows instead of submitting a second invisible depth pass.
+	for candidate in workstation.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := candidate as GeometryInstance3D
+		if geometry == null:
+			continue
+		geometry.cast_shadow = (
+			GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			if String(geometry.name) in WORKSTATION_STRUCTURAL_SHADOW_HOSTS
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		)
+
+
+func _apply_opening_story_shadow_budget() -> void:
+	if _office_storytelling == null:
+		return
+	var archive_story := _office_storytelling.find_child("ArchiveAndIntakeStory", true, false)
+	if archive_story != null:
+		_apply_shadow_allowlist(archive_story, [])
+	var collection_chain := _office_storytelling.find_child("VisibleEggCollectionChain", true, false)
+	if collection_chain != null:
+		_apply_shadow_allowlist(collection_chain, [], COLLECTION_STRUCTURAL_SHADOW_PREFIXES)
+
+
+func _apply_shadow_allowlist(
+	root_node: Node,
+	exact_names: Array,
+	name_prefixes: Array = [],
+) -> void:
+	for candidate in root_node.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := candidate as GeometryInstance3D
+		if geometry == null:
+			continue
+		var geometry_name := String(geometry.name)
+		var casts_shadow := geometry_name in exact_names
+		if not casts_shadow:
+			for prefix_value in name_prefixes:
+				if geometry_name.begins_with(String(prefix_value)):
+					casts_shadow = not geometry_name.ends_with("Glow")
+					break
+		geometry.cast_shadow = (
+			GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			if casts_shadow
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		)
 
 
 func _decorate_workstation(workstation: Node3D, index: int) -> void:
@@ -2857,7 +2977,10 @@ func _snapshot_with_active_workers(snapshot: Dictionary) -> Dictionary:
 	for worker_value in snapshot.get("workers", []):
 		var worker := worker_value as Dictionary
 		if _is_worker_employed(worker):
-			active_workers.append(worker.duplicate(true))
+			# Presentation consumers treat authoritative worker rows as immutable.
+			# The filtered array is new, so retaining row references avoids cloning
+			# every nested claim, temperament, bond, and action receipt each tick.
+			active_workers.append(worker)
 	filtered["workers"] = active_workers
 	return filtered
 
@@ -2894,9 +3017,8 @@ func _workstation_visual_snapshot(active_snapshot: Dictionary) -> Dictionary:
 
 
 func _routing_visual_snapshot(active_snapshot: Dictionary) -> Dictionary:
-	# PeckworkRoutingUI owns a defensive deep copy. Keep that contract while
-	# limiting the copy to the dossier, queue, and personnel fields it actually
-	# reads; campus, capital, contract, and economic briefing projections never
+	# Build one UI-owned projection limited to dossier, queue, and personnel
+	# fields. Campus, capital, contract, and economic briefing projections never
 	# belong in the per-tick routing payload.
 	var routing_snapshot: Dictionary = {}
 	for key: String in [
@@ -2927,7 +3049,9 @@ func _routing_visual_snapshot(active_snapshot: Dictionary) -> Dictionary:
 			routing_snapshot[key] = active_snapshot[key]
 	var routing_workers: Array[Dictionary] = []
 	for worker_value in active_snapshot.get("workers", []):
-		var worker := (worker_value as Dictionary).duplicate(true)
+		# Only estimated_crack_risk is enriched here. A shallow row copy protects
+		# the authoritative row while reusing immutable nested claim/profile data.
+		var worker := (worker_value as Dictionary).duplicate()
 		var worker_id := int(worker.get("id", -1))
 		worker["estimated_crack_risk"] = _simulation.estimated_crack_risk(worker_id)
 		routing_workers.append(worker)
@@ -3057,7 +3181,6 @@ func _on_predator_victim_captured(worker_id: int, threat_origin: Vector3) -> voi
 
 
 func _process(_delta: float) -> void:
-	_flush_pending_web_diagnostic()
 	_flush_due_campaign_checkpoint()
 	var blocking_surface_open := _blocking_management_surface_open()
 	var first_clutch_compact := (
@@ -6640,7 +6763,6 @@ func _on_interaction_safety_presentation_changed() -> void:
 	# waiting for an unrelated economic tick.
 	if _simulation == null:
 		return
-	_web_diagnostic_next_allowed_msec = 0
 	_publish_web_diagnostic_state(_simulation.snapshot(true))
 
 
@@ -8549,10 +8671,8 @@ func _on_first_clutch_skip_rect_settled(_rect: Rect2) -> void:
 		or bool(_first_clutch.get("completed", false))
 	):
 		return
-	# This one-shot layout fact can arrive while Office itself is paused and thus
-	# cannot flush the normal throttled queue. Publish it immediately so the Web
-	# accessibility model names the same live target visible on the canvas.
-	_web_diagnostic_next_allowed_msec = 0
+	# This one-shot layout fact can arrive while Office itself is paused. Retain
+	# it immediately so the next browser request names the visible canvas target.
 	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
@@ -10351,13 +10471,166 @@ func _runtime_performance_diagnostic() -> Dictionary:
 func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 	if not OS.has_feature("web"):
 		return
-	var now_msec := Time.get_ticks_msec()
-	if now_msec < _web_diagnostic_next_allowed_msec:
-		# Web accessibility and automation only need the newest settled frame. At
-		# 10x, several authoritative ticks may arrive before the browser can paint;
-		# retaining the latest read model avoids serializing ~214 KB for each one.
-		_pending_web_diagnostic_snapshot = snapshot
-		_web_diagnostic_dirty = true
+	# Keep only the newest immutable read model. The browser asks for either a
+	# compact assistive mirror or the complete audit payload synchronously. This
+	# removes the former ~214 KB serialization from ordinary gameplay frames.
+	_pending_web_diagnostic_snapshot = snapshot
+	_web_diagnostic_dirty = true
+
+
+func _serialize_web_accessibility_state(snapshot: Dictionary) -> void:
+	if not OS.has_feature("web"):
+		return
+	var summary := _web_accessibility_summary(snapshot)
+	var title_open := (
+		_campaign_ui != null
+		and _campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE
+	)
+	var state := {
+		"loaded": true,
+		"mode": "godot_canvas_accessibility",
+		"campaign_stage": "title" if title_open else String(_campaign_review_stage),
+		"campaign_day": int(_campaign_state.completed_shifts) + 1,
+		"shift_phase": int(snapshot.get("shift_phase", -1)),
+		"authoritative_tick_revision": int(snapshot.get("authoritative_tick_revision", 0)),
+		"accessibility_summary": summary,
+		"checkpoint": _checkpoint_diagnostic_state(),
+	}
+	var window := JavaScriptBridge.get_interface("window")
+	if window != null:
+		window.set(
+			"__pecking_order_accessibility_state",
+			JSON.stringify(_json_safe_variant(state)),
+		)
+
+
+func _web_accessibility_summary(snapshot: Dictionary) -> String:
+	if _settings_ui != null and _settings_ui.is_open():
+		return _web_accessibility_text(
+			"%s Objective: adjust a preference or control binding, then choose Return to the Floor."
+			% _settings_ui.accessible_text(),
+			2200,
+		)
+	if _decision_host != null and _decision_host.visible and not _active_decision.is_empty():
+		var selection := ""
+		if not _selected_decision_option.is_empty():
+			selection = " Selected response: %s." % String(_selected_decision_option).replace("_", " ")
+		return _web_accessibility_text(
+			"%s. %s%s Objective: choose a response, review its disclosed consequence, then authorize or stay paused."
+			% [
+				String(_active_decision.get("title", "Decision required")),
+				String(_active_decision.get("body", "")),
+				selection,
+			],
+			1800,
+		)
+	if _flockwatch_open and _flockwatch_navigation != null:
+		return _web_accessibility_text(
+			"%s %s Objective: review the open filing, then close Flockwatch to return to the floor."
+			% [
+				_flockwatch_navigation.accessible_text(),
+				_flockwatch_navigation.last_feedback(),
+			],
+			2600,
+		)
+	if _capital_blueprint_ui != null and bool(_capital_blueprint_ui.call("is_open")):
+		return _web_accessibility_text(
+			"%s Objective: compare the selected facility, file an affordable plan, or return."
+			% String(_capital_blueprint_ui.call("inspector_accessible_text")),
+			1800,
+		)
+	if _campus_expansion_ui != null and bool(_campus_expansion_ui.call("is_open")):
+		return _web_accessibility_text(
+			"%s Objective: review the selected expansion socket, file it, or return."
+			% String(_campus_expansion_ui.call("accessible_text")),
+			1800,
+		)
+	if _campus_portfolio_ui != null and bool(_campus_portfolio_ui.call("is_open")):
+		return _web_accessibility_text(
+			"%s Objective: review the selected parcel and module, file it, or return."
+			% String(_campus_portfolio_ui.call("accessible_text")),
+			2200,
+		)
+	if (
+		_commissioning_reveal_ui != null
+		and bool(_commissioning_reveal_ui.call("is_reveal_visible"))
+	):
+		return _web_accessibility_text(
+			"%s Objective: acknowledge the commissioning receipt."
+			% String(_commissioning_reveal_ui.call("accessible_text")),
+			1800,
+		)
+	if _day_review_scrim != null and _day_review_scrim.visible:
+		return _web_accessibility_text(
+			"%s. %s %s Objective: review the close-of-shift result, then continue."
+			% [
+				_review_title.text if _review_title != null else "Farmer review",
+				_review_summary.text if _review_summary != null else "",
+				_review_results.text if _review_results != null else "",
+			],
+			2200,
+		)
+	var title_open := (
+		_campaign_ui != null
+		and _campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE
+	)
+	if title_open:
+		var intake_phase := String(_campaign_ui.title_intake_phase()).replace("_", " ")
+		return (
+			"Pecking Order career intake is open, %s. Objective: choose a pressure file and begin a new career, or resume the verified career on this device."
+			% intake_phase
+		)
+	var first_clutch := _first_clutch_coach_snapshot(snapshot)
+	if bool(first_clutch.get("visible", false)):
+		return _web_accessibility_text(
+			"First Clutch, step %d. %s. %s Objective: %s"
+			% [
+				int(first_clutch.get("progress", 0)),
+				String(first_clutch.get("title", "Orientation")),
+				String(first_clutch.get("guidance", "")),
+				String(first_clutch.get("title", "complete the highlighted action")).to_lower(),
+			],
+			1600,
+		)
+	var objective := (
+		_campaign_objectives_label.text
+		if _campaign_objectives_label != null else
+		"Observe the floor and choose the next useful intervention."
+	)
+	var guidance := _guidance_label.text if _guidance_label != null else ""
+	var toast := ""
+	if _ticker_panel != null and _ticker_panel.visible:
+		toast = _ticker_visible_copy
+	var speed: int = _clock.effective_multiplier() if _clock != null else 0
+	return _web_accessibility_text(
+		"Day %d, %s, speed %dx. Feed Fund $%.2f; %d of %d eggs; %d files waiting. Orders: %s Guidance: %s %s"
+		% [
+			int(_campaign_state.completed_shifts) + 1,
+			String(snapshot.get("time_label", "shift time unavailable")),
+			speed,
+			int(snapshot.get("revenue_cents", 0)) / 100.0,
+			int(snapshot.get("eggs_today", 0)),
+			int(snapshot.get("quota_target", 0)),
+			int(snapshot.get("claims_waiting", 0)),
+			objective,
+			guidance,
+			toast,
+		],
+		2200,
+	)
+
+
+func _web_accessibility_text(value: String, limit: int) -> String:
+	var compact := value.replace("\n", " ").replace("\t", " ").strip_edges()
+	while "  " in compact:
+		compact = compact.replace("  ", " ")
+	if compact.length() > limit:
+		return compact.substr(0, maxi(0, limit - 1)).strip_edges() + "…"
+	return compact
+
+
+func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
+	if not OS.has_feature("web"):
 		return
 	var first_clutch := _first_clutch_coach_snapshot(snapshot)
 	var reinvestment := _simulation.first_clutch_reinvestment_status()
@@ -10664,7 +10937,7 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 			if _simulation != null else
 			{}
 		),
-		"diagnostic_interval_msec": WEB_DIAGNOSTIC_INTERVAL_MSEC,
+		"diagnostic_publish_mode": "on_demand",
 	}, true)
 	var diagnostic_directive := snapshot.get("active_directive", {}) as Dictionary
 	var active_policy_order_fit := (
@@ -10907,22 +11180,7 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 	var window := JavaScriptBridge.get_interface("window")
 	if window != null:
 		window.set("__pecking_order_state", JSON.stringify(_json_safe_variant(state)))
-	_web_diagnostic_next_allowed_msec = now_msec + WEB_DIAGNOSTIC_INTERVAL_MSEC
 	_web_diagnostic_dirty = false
-	_pending_web_diagnostic_snapshot = {}
-
-
-func _flush_pending_web_diagnostic() -> void:
-	if (
-		not _web_diagnostic_dirty
-		or Time.get_ticks_msec() < _web_diagnostic_next_allowed_msec
-	):
-		return
-	var pending := _pending_web_diagnostic_snapshot
-	_web_diagnostic_dirty = false
-	_pending_web_diagnostic_snapshot = {}
-	if not pending.is_empty():
-		_publish_web_diagnostic_state(pending)
 
 
 func _update_lighting(snapshot: Dictionary) -> void:

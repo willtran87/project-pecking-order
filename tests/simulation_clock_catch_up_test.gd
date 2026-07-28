@@ -90,6 +90,38 @@ func _init() -> void:
 		failures,
 	)
 
+	# Ordinary 10x play produces one logical tick every 75ms on a healthy frame
+	# cadence. The first tick presents immediately, then adjacent single ticks
+	# may share a read model for at most 120ms while authority continues exactly.
+	var accelerated := _running_simulation(8118)
+	var accelerated_direct := _running_simulation(8118)
+	var accelerated_clock := SimulationClock.new()
+	accelerated_clock.initialize(accelerated)
+	accelerated_clock.set_speed(3)
+	var accelerated_revisions: Array[int] = []
+	accelerated.snapshot_changed.connect(func(state: Dictionary) -> void:
+		accelerated_revisions.append(int(state.get("authoritative_tick_revision", -1)))
+	)
+	for _frame in 3:
+		accelerated_clock._process(0.075)
+		accelerated_direct.advance_tick(false)
+	_check(
+		accelerated.checkpoint_revision() == 3,
+		"accelerated presentation coalescing must never drop authoritative ticks",
+		failures,
+	)
+	_check(
+		accelerated_revisions == [1, 3],
+		"healthy 10x cadence should present immediately, then coalesce adjacent ticks inside 120ms",
+		failures,
+	)
+	_check(
+		JSON.stringify(accelerated.export_save_state())
+			== JSON.stringify(accelerated_direct.export_save_state()),
+		"accelerated visual coalescing must leave deterministic economy state unchanged",
+		failures,
+	)
+
 	# Pausing has always discarded fractional elapsed time. It must also clear a
 	# retained catch-up backlog so resuming cannot replay time accrued pre-pause.
 	var paused := _running_simulation(99)
@@ -102,6 +134,7 @@ func _init() -> void:
 	_check(paused_clock.pending_tick_count() == 0, "pause must clear retained catch-up debt", failures)
 	_check(paused_clock.ticks_advanced_last_frame() == 0, "pause must reset frame instrumentation", failures)
 	clock.free()
+	accelerated_clock.free()
 	paused_clock.free()
 
 	if not failures.is_empty():

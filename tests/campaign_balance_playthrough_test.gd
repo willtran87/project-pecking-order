@@ -54,7 +54,10 @@ class BalanceSimulation:
 	# payload avoids rebuilding the complete late-game UI model thousands of
 	# times. All simulation mutations, decisions, RNG, reports, and ledgers still
 	# run through DepartmentSimulation unchanged.
-	func snapshot(_use_runtime_projection_cache: bool = false) -> Dictionary:
+	func snapshot(
+		_use_runtime_projection_cache: bool = false,
+		_trusted_runtime_projection_read_only: bool = false,
+	) -> Dictionary:
 		return {}
 
 	func full_closing_snapshot() -> Dictionary:

@@ -23,13 +23,20 @@ const PRECISION_FOCUS_MULTIPLIER := 1.0
 # an unbounded main-thread spike. Four ticks still lets 10x catch up at any
 # sustained frame rate above roughly 4.5 FPS.
 const MAX_TICKS_PER_FRAME := 4
+# At 10x, logical ticks arrive about thirteen times per real second. Presenting
+# every one rebuilds the management read model faster than players can perceive
+# while consuming scarce Web main-thread frames. Bound only accelerated visual
+# publication; 1x/3x, multi-tick catch-up, incidents, and reviews stay immediate.
+const MAX_ACCELERATED_PRESENTATION_INTERVAL_SECONDS := 0.12
 
 var speed_index: int = 1
 var _accumulator: float = 0.0
+var _presentation_elapsed_seconds := MAX_ACCELERATED_PRESENTATION_INTERVAL_SECONDS
 var _simulation: DepartmentSimulation
 var _ticks_advanced_last_frame: int = 0
 var _advancing_tick_batch := false
 var _precision_focus_active := false
+var _catch_up_publication_pending := false
 
 
 func initialize(simulation: DepartmentSimulation) -> void:
@@ -42,6 +49,7 @@ func _process(delta: float) -> void:
 		return
 
 	_accumulator += delta * effective_multiplier()
+	_presentation_elapsed_seconds += maxf(0.0, delta)
 	_advancing_tick_batch = true
 	while (
 		speed_index > 0
@@ -51,10 +59,25 @@ func _process(delta: float) -> void:
 		_accumulator -= BASE_TICK_SECONDS
 		_simulation.advance_tick(false)
 		_ticks_advanced_last_frame += 1
-	if _ticks_advanced_last_frame > 0:
+	if _ticks_advanced_last_frame > 1 or pending_tick_count() > 0:
+		_catch_up_publication_pending = true
+	var accelerated_publication_due := (
+		speed_index < SPEED_MULTIPLIERS.size() - 1
+		or effective_multiplier() < SPEED_MULTIPLIERS[-1]
+		or _ticks_advanced_last_frame > 1
+		or _catch_up_publication_pending
+		or _presentation_elapsed_seconds
+			>= MAX_ACCELERATED_PRESENTATION_INTERVAL_SECONDS
+		or _simulation.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING
+	)
+	if _ticks_advanced_last_frame > 0 and accelerated_publication_due:
 		# One newest read model per rendered frame keeps accelerated authority exact
-		# without constructing and fanning out a full snapshot for intermediate ticks.
+		# without constructing and fanning out a full snapshot for intermediate
+		# ticks. At 10x, adjacent single ticks may share one bounded presentation.
 		_simulation.publish_current_snapshot()
+		_presentation_elapsed_seconds = 0.0
+		if pending_tick_count() == 0:
+			_catch_up_publication_pending = false
 	_advancing_tick_batch = false
 	if _ticks_advanced_last_frame > 0:
 		tick_batch_completed.emit(_ticks_advanced_last_frame)
@@ -110,6 +133,8 @@ func set_speed(new_speed_index: int) -> void:
 	if speed_index == 0:
 		_accumulator = 0.0
 		_ticks_advanced_last_frame = 0
+		_catch_up_publication_pending = false
+	_presentation_elapsed_seconds = MAX_ACCELERATED_PRESENTATION_INTERVAL_SECONDS
 	speed_changed.emit(speed_index, SPEED_MULTIPLIERS[speed_index])
 
 

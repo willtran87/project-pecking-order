@@ -1784,6 +1784,8 @@ var management_visibility_today: int = 0
 
 var _tick_count: int = 0
 var _runtime_projection_cache: Dictionary = {}
+var _runtime_static_projection_cache: Dictionary = {}
+var _runtime_live_projection_cache: Dictionary = {}
 var _runtime_projection_cache_msec: int = -1
 var _runtime_projection_cache_day: int = -1
 var _runtime_projection_cache_phase: int = -1
@@ -1791,6 +1793,13 @@ var _runtime_projection_cache_builds: int = 0
 var _runtime_projection_cache_hits: int = 0
 var _runtime_projection_cache_exact_builds: int = 0
 var _runtime_projection_cache_refresh_builds: int = 0
+var _runtime_projection_cache_read_only_hits: int = 0
+var _runtime_static_projection_cache_builds: int = 0
+var _runtime_live_projection_cache_builds: int = 0
+var _runtime_tick_snapshot_cache: Dictionary = {}
+var _runtime_tick_snapshot_cache_day: int = -1
+var _runtime_tick_snapshot_cache_phase: int = -1
+var _runtime_tick_snapshot_cache_hits: int = 0
 var _rng := RandomNumberGenerator.new()
 var _claim_rng := RandomNumberGenerator.new()
 var _incident_rng := RandomNumberGenerator.new()
@@ -17959,7 +17968,11 @@ func advance_tick(publish_snapshot: bool = true) -> void:
 ## management transactions and direct advance_tick() calls retain their
 ## immediate snapshot contract; only clock-serviced accelerated ticks coalesce.
 func publish_current_snapshot() -> void:
-	snapshot_changed.emit(snapshot(true))
+	# The clock's sole consumer treats the emitted read model as immutable and
+	# immediately derives its own bounded presentation subsets. Reuse the frozen
+	# nested projection bundle here instead of deep-copying the entire campus,
+	# facility, staffing, and contract graph on every accelerated tick.
+	snapshot_changed.emit(snapshot(true, true))
 
 
 func fund_feed_party() -> bool:
@@ -19451,35 +19464,57 @@ func worker_temperament_effect(worker_id: int) -> Dictionary:
 	return _worker_temperament_effect(workers[worker_id]).duplicate(true)
 
 
-func _build_runtime_projection_bundle() -> Dictionary:
+func _build_runtime_static_projection_bundle() -> Dictionary:
 	var campus_expansion_projection := campus_expansion_snapshot()
+	return {
+		"campus_expansion": campus_expansion_projection,
+		"campus_portfolio": campus_portfolio_snapshot(campus_expansion_projection),
+		"staffing_catalog": staffing_catalog(),
+		"facility_catalog": facility_catalog(),
+	}
+
+
+func _build_runtime_live_projection_bundle() -> Dictionary:
 	return {
 		"contract_board": market_contract_board_status(),
 		"farm_mutual_service_coop": farm_mutual_service_coop_status(),
 		"farm_mutual_negotiation_room": farm_mutual_negotiation_room_status(),
 		"economic_briefing": economic_briefing_snapshot(),
 		"feed_procurement": feed_procurement_snapshot(),
-		"campus_expansion": campus_expansion_projection,
-		"campus_portfolio": campus_portfolio_snapshot(campus_expansion_projection),
-		"staffing_catalog": staffing_catalog(),
-		"facility_catalog": facility_catalog(),
 		"flock_care": flock_care_snapshot(),
 		"operations": operations_snapshot(),
 	}
 
 
-func _snapshot_projection_bundle(use_runtime_cache: bool) -> Dictionary:
+func _snapshot_projection_bundle(
+	use_runtime_cache: bool,
+	trusted_read_only: bool = false,
+) -> Dictionary:
 	var now_msec := Time.get_ticks_msec()
-	var cache_current := (
-		not _runtime_projection_cache.is_empty()
+	var static_cache_current := (
+		not _runtime_static_projection_cache.is_empty()
 		and _runtime_projection_cache_day == day
 		and _runtime_projection_cache_phase == shift_phase
+	)
+	var live_cache_current := (
+		not _runtime_live_projection_cache.is_empty()
+		and static_cache_current
 		and _runtime_projection_cache_msec >= 0
 		and now_msec - _runtime_projection_cache_msec < RUNTIME_PROJECTION_REFRESH_MSEC
 	)
-	if not use_runtime_cache or not cache_current:
-		_runtime_projection_cache = _build_runtime_projection_bundle()
+	var rebuilt := false
+	if not use_runtime_cache or not static_cache_current:
+		_runtime_static_projection_cache = _build_runtime_static_projection_bundle()
+		_runtime_static_projection_cache_builds += 1
+		rebuilt = true
+	if not use_runtime_cache or not live_cache_current:
+		_runtime_live_projection_cache = _build_runtime_live_projection_bundle()
+		_runtime_live_projection_cache_builds += 1
 		_runtime_projection_cache_msec = now_msec
+		rebuilt = true
+	if rebuilt:
+		_runtime_projection_cache = _runtime_static_projection_cache.duplicate()
+		_runtime_projection_cache.merge(_runtime_live_projection_cache, true)
 		_runtime_projection_cache_day = day
 		_runtime_projection_cache_phase = shift_phase
 		_runtime_projection_cache_builds += 1
@@ -19489,6 +19524,9 @@ func _snapshot_projection_bundle(use_runtime_cache: bool) -> Dictionary:
 			_runtime_projection_cache_exact_builds += 1
 	else:
 		_runtime_projection_cache_hits += 1
+	if trusted_read_only:
+		_runtime_projection_cache_read_only_hits += 1
+		return _runtime_projection_cache
 	# Consumers have historically been allowed to enrich presentation snapshots.
 	# Preserve that defensive-copy contract so no UI mutation can poison the
 	# cached authoritative projection used by a later clock frame.
@@ -19502,6 +19540,10 @@ func runtime_projection_cache_diagnostics() -> Dictionary:
 		"hits": _runtime_projection_cache_hits,
 		"exact_builds": _runtime_projection_cache_exact_builds,
 		"runtime_refresh_builds": _runtime_projection_cache_refresh_builds,
+		"read_only_hits": _runtime_projection_cache_read_only_hits,
+		"static_builds": _runtime_static_projection_cache_builds,
+		"live_builds": _runtime_live_projection_cache_builds,
+		"tick_snapshot_hits": _runtime_tick_snapshot_cache_hits,
 		"cached": not _runtime_projection_cache.is_empty(),
 		"cached_day": _runtime_projection_cache_day,
 		"cached_phase": _runtime_projection_cache_phase,
@@ -19513,7 +19555,10 @@ func runtime_projection_cache_diagnostics() -> Dictionary:
 	}
 
 
-func snapshot(use_runtime_projection_cache: bool = false) -> Dictionary:
+func snapshot(
+	use_runtime_projection_cache: bool = false,
+	trusted_runtime_projection_read_only: bool = false,
+) -> Dictionary:
 	_sync_claims_waiting()
 	var now := _current_operational_minute()
 	var worker_snapshots: Array[Dictionary] = []
@@ -19647,17 +19692,32 @@ func snapshot(use_runtime_projection_cache: bool = false) -> Dictionary:
 	for claim in _pending_rework:
 		pending_rework_items.append(claim.snapshot(now))
 
-	var personnel_status := personnel_action_status()
 	var runtime_projections := _snapshot_projection_bundle(
 		use_runtime_projection_cache,
+		trusted_runtime_projection_read_only,
 	)
+	if (
+		trusted_runtime_projection_read_only
+		and not _runtime_tick_snapshot_cache.is_empty()
+		and _runtime_tick_snapshot_cache_day == day
+		and _runtime_tick_snapshot_cache_phase == shift_phase
+	):
+		_runtime_tick_snapshot_cache_hits += 1
+		return _refresh_runtime_tick_snapshot(
+			_runtime_tick_snapshot_cache,
+			worker_snapshots,
+			queue_snapshot,
+			pending_rework_items,
+			runtime_projections,
+		)
+	var personnel_status := personnel_action_status()
 	var campus_expansion_projection := (
 		runtime_projections.get("campus_expansion", {}) as Dictionary
 	)
 	var campus_portfolio_projection := (
 		runtime_projections.get("campus_portfolio", {}) as Dictionary
 	)
-	return {
+	var result := {
 		# Consumers can use this monotonic tick revision to recognize accelerated
 		# simulation updates without parsing the full presentation payload. It is
 		# deliberately distinct from action/event revisions, which may change
@@ -19864,6 +19924,200 @@ func snapshot(use_runtime_projection_cache: bool = false) -> Dictionary:
 		"personnel_catalog": personnel_action_catalog(),
 		"workers": worker_snapshots,
 	}
+	if trusted_runtime_projection_read_only:
+		# The clock's Office consumer treats this read model as immutable, so it
+		# may become the next tick base without another whole-graph allocation.
+		_runtime_tick_snapshot_cache = result
+		_runtime_tick_snapshot_cache_day = day
+		_runtime_tick_snapshot_cache_phase = shift_phase
+	else:
+		# Public/direct snapshot callers retain the historical right to enrich
+		# their returned dictionaries. Never let their object graph alias the
+		# trusted clock cache; rebuild that cache once on the next clock publish.
+		_runtime_tick_snapshot_cache.clear()
+		_runtime_tick_snapshot_cache_day = -1
+		_runtime_tick_snapshot_cache_phase = -1
+	return result
+
+
+func _refresh_runtime_tick_snapshot(
+	base_snapshot: Dictionary,
+	worker_snapshots: Array[Dictionary],
+	queue_snapshot: Dictionary,
+	pending_rework_items: Array[Dictionary],
+	runtime_projections: Dictionary,
+) -> Dictionary:
+	# Ordinary clock ticks cannot buy facilities, hire staff, change policy, or
+	# rewrite historical ledgers. Start from the last complete read model and
+	# refresh every field that can change through production, arrivals, incidents,
+	# contracts, or the clock itself. The shallow copy keeps cached nested
+	# projections immutable while avoiding a second full economic graph build.
+	var result := base_snapshot.duplicate()
+	var active_staff := active_worker_count()
+	var spendable := spendable_fund_cents()
+	var assist_delivery_status := peck_assist_delivery_status()
+	result["authoritative_tick_revision"] = _tick_count
+	result["case_docket"] = case_docket_snapshot()
+	result["day"] = day
+	result["minute_of_day"] = minute_of_day
+	result["time_label"] = _format_time(minute_of_day)
+	result["claims_waiting"] = claims_waiting
+	result["claims_outstanding"] = _outstanding_claim_count()
+	result["claim_capacity"] = current_claim_capacity()
+	result["intake_rejections_today"] = intake_rejections_today
+	result["intake_rejections_total"] = intake_rejections_total
+	result["intake_missed_value_today_cents"] = intake_missed_value_today_cents
+	result["intake_missed_value_total_cents"] = intake_missed_value_total_cents
+	result["contract_board"] = runtime_projections.get("contract_board", {})
+	result["market_contract_breach_reserve_cents"] = current_market_contract_reserve_cents()
+	result["market_contract_premium_today_cents"] = market_contract_premium_today_cents
+	result["market_contract_premium_total_cents"] = market_contract_premium_total_cents
+	result["market_contract_breach_today_cents"] = market_contract_breach_today_cents
+	result["market_contract_breach_total_cents"] = market_contract_breach_total_cents
+	result["market_contracts_signed_total"] = market_contracts_signed_total
+	result["market_contracts_succeeded_total"] = market_contracts_succeeded_total
+	result["market_contracts_breached_total"] = market_contracts_breached_total
+	result["market_contract_standing"] = farm_mutual_standing()
+	result["market_contract_standing_rank"] = farm_mutual_standing_rank()
+	result["market_clean_contract_streak"] = market_clean_contract_streak
+	result["best_market_clean_contract_streak"] = best_market_clean_contract_streak
+	result["farm_mutual_standing"] = farm_mutual_standing_status()
+	result["farm_mutual_service_coop"] = runtime_projections.get("farm_mutual_service_coop", {})
+	result["farm_mutual_negotiation_room"] = runtime_projections.get("farm_mutual_negotiation_room", {})
+	result["claims_processed"] = claims_processed
+	result["eggs_today"] = eggs_today
+	result["eggs_total"] = eggs_total
+	result["cracked_eggs"] = cracked_eggs
+	result["cracked_today"] = cracked_today
+	result["golden_eggs"] = golden_eggs
+	result["golden_today"] = golden_today
+	result["revenue_cents"] = revenue_cents
+	result["credited_today_cents"] = credited_today_cents
+	result["farm_treasury"] = farm_treasury_snapshot()
+	result["economic_briefing"] = runtime_projections.get("economic_briefing", {})
+	result["daily_feed_cost_cents"] = current_daily_feed_cost_cents()
+	result["feed_procurement"] = runtime_projections.get("feed_procurement", {})
+	result["flock_care"] = runtime_projections.get("flock_care", {})
+	result["operations"] = runtime_projections.get("operations", {})
+	result["flock_relations"] = flock_relations_snapshot()
+	result["active_staff_count"] = active_staff
+	result["daily_hen_payroll_cents"] = current_daily_hen_payroll_cents()
+	result["daily_supervisor_payroll_cents"] = current_daily_supervisor_payroll_cents()
+	result["daily_payroll_cents"] = current_daily_payroll_cents()
+	result["daily_facility_expansion_cost_cents"] = daily_facility_expansion_cost_cents()
+	result["daily_facility_maintenance_cents"] = current_daily_facility_maintenance_cents()
+	result["daily_facility_cost_cents"] = current_daily_facility_cost_cents()
+	result["daily_operating_cost_cents"] = current_daily_operating_cost_cents()
+	result["wage_arrears_cents"] = wage_arrears_cents
+	result["protected_reserve_cents"] = protected_reserve_cents()
+	result["spendable_fund_cents"] = spendable
+	result["packing_contract"] = packing_contract_status()
+	result["packing_carton_progress"] = packing_carton_progress
+	result["packing_cartons_today"] = packing_cartons_today
+	result["packing_cartons_total"] = packing_cartons_total
+	result["packing_value_bonus_today_cents"] = packing_value_bonus_today_cents
+	result["packing_carton_bonus_today_cents"] = packing_carton_bonus_today_cents
+	result["pecking_order"] = current_pecking_order()
+	result["peck_assists_used_today"] = peck_assists_used_today
+	result["peck_assists_remaining"] = _peck_assist_charges_available()
+	result["peck_assist_charges"] = _peck_assist_charges_available()
+	result["peck_assist_interventions_today"] = peck_assist_interventions_today
+	result["peck_assist_gross_interventions"] = peck_assist_interventions_today
+	result["peck_assist_refunds_today"] = peck_assist_refunds_today
+	result["peck_assist_pending_delivery"] = (
+		assist_delivery_status.get("pending_delivery", {}) as Dictionary
+	).duplicate(true)
+	result["peck_assist_pending_delivery_count"] = int(
+		assist_delivery_status.get("pending_delivery_count", 0)
+	)
+	result["peck_assist_pending_deliveries"] = (
+		assist_delivery_status.get("pending_deliveries", []) as Array
+	).duplicate(true)
+	result["peck_assist_delivery_reason"] = String(assist_delivery_status.get("reason", ""))
+	result["peck_assist_streak"] = peck_assist_streak
+	result["best_peck_assist_streak"] = best_peck_assist_streak
+	result["last_peck_assist"] = last_peck_assist.duplicate(true)
+	result["last_peck_assist_delivery"] = last_peck_assist_delivery.duplicate(true)
+	result["priority_credit_today_cents"] = priority_credit_today_cents
+	result["priority_credit_total_cents"] = priority_credit_total_cents
+	result["quota_target"] = quota_target
+	result["executive_confidence"] = executive_confidence
+	result["compliance"] = compliance
+	result["solidarity"] = solidarity
+	result["overtime_enabled"] = overtime_enabled
+	result["feed_party_used_today"] = feed_party_used_today
+	result["quality_streak"] = quality_streak
+	result["best_quality_streak"] = best_quality_streak
+	result["last_streak_bonus_cents"] = last_streak_bonus_cents
+	result["shift_phase"] = shift_phase
+	result["shift_phase_label"] = phase_label()
+	result["pending_decision"] = pending_decision_snapshot()
+	result["credit_memo_pending"] = (
+		StringName(pending_decision.get("kind", &""))
+		in [&"credit_allocation", &"major_event"]
+	)
+	result["credit_memo_id"] = StringName(pending_decision.get("id", &""))
+	result["incidents_resolved_today"] = incidents_resolved_today
+	result["incident_responses_today"] = incident_responses_for_day(day)
+	result["decision_modifiers"] = {
+		"work_multiplier": (
+			_directive_work_multiplier
+			* _incident_work_multiplier
+			* _work_to_rule_work_multiplier()
+		),
+		"fatigue_multiplier": (
+			_directive_fatigue_multiplier
+			* _incident_strain_multiplier
+			* float(_feed_procurement.active_strain_basis_points)
+			/ 10_000.0
+		),
+		"stress_multiplier": (
+			_directive_stress_multiplier
+			* _incident_strain_multiplier
+			* float(_feed_procurement.active_strain_basis_points)
+			/ 10_000.0
+		),
+		"feed_strain_basis_points": _feed_procurement.active_strain_basis_points,
+		"morale_drain_multiplier": _directive_morale_drain_multiplier,
+		"crack_modifier": (
+			_directive_crack_modifier
+			+ _incident_crack_modifier
+			+ _work_to_rule_crack_modifier()
+			+ float(facility_effects().get("crack_modifier", 0.0))
+		),
+		"facility_crack_modifier": float(
+			facility_effects().get("crack_modifier", 0.0)
+		),
+		"facility_rework_speed_multiplier": float(
+			facility_effects().get("rework_speed_multiplier", 1.0)
+		),
+		"work_to_rule_work_multiplier": _work_to_rule_work_multiplier(),
+		"work_to_rule_crack_modifier": _work_to_rule_crack_modifier(),
+		"golden_modifier": _incident_golden_modifier,
+		"quota_adjustment": _pending_quota_adjustment,
+	}
+	result["first_clutch_reinvestment"] = first_clutch_reinvestment_status()
+	result["requisition_spend_today_cents"] = requisition_spend_today_cents
+	result["requisition_spend_total_cents"] = requisition_spend_total_cents
+	result["orientation_procurement_match_today_cents"] = orientation_procurement_match_today_cents
+	result["orientation_procurement_match_total_cents"] = orientation_procurement_match_total_cents
+	result["claim_queue_counts"] = (queue_snapshot["counts"] as Dictionary).duplicate()
+	result["claim_queue_items"] = (queue_snapshot["items"] as Dictionary).duplicate(true)
+	result["claim_queue_overdue_counts"] = (
+		queue_snapshot["overdue_counts"] as Dictionary
+	).duplicate()
+	result["queued_overdue_claims"] = _overdue_claim_count(false)
+	result["overdue_claims"] = _overdue_claim_count(true)
+	result["rework_waiting"] = _queued_rework_count()
+	result["rework_in_progress"] = _active_rework_count()
+	result["rework_due_next_shift"] = _pending_rework.size()
+	result["rework_pending_items"] = pending_rework_items
+	result["rework_total_created"] = _rework_total_created
+	result["lane_processed_today"] = lane_processed_today.duplicate()
+	result["lane_processed_totals"] = lane_processed_totals.duplicate()
+	result["workers"] = worker_snapshots
+	_runtime_tick_snapshot_cache = result
+	return result
 
 
 func _personnel_actions_for_day(target_day: int) -> Array[Dictionary]:

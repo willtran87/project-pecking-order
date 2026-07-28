@@ -2176,3 +2176,55 @@ The next major systems milestone is persistent worker relationships and individu
   cycles. A later external browser close can no longer erase all accumulated
   foreground, focus, visibility, frame, degradation, and context-loss evidence.
   Web lint/build and all 49 tests pass after both probe-integrity changes.
+
+## 2026-07-28 - Runtime and Web-frame hardening
+
+- Reduced visible structural shadow casters in the complete office from 416 to
+  313 while preserving workstation, intake, collection, and story silhouettes.
+  The full office remains visually complete at 613 visible color submissions;
+  small redundant prop shadows no longer multiply the Web render cost.
+- Partitioned simulation projections into static and two-second live groups,
+  added a complete trusted tick read-model cache, and proved it equivalent to an
+  exact snapshot after 24 unpublished ticks except for the seven explicitly
+  bounded live projections. Native profiling measures approximately 25.66 ms for
+  an exact snapshot, 5.55 ms for a defensive cached read, and 3.12 ms for the
+  trusted clock publication path.
+- Removed repeated deep copies from the Office routing presentation, throttled
+  world-space KPI repainting to four hertz with immediate semantic refreshes,
+  and allowed healthy adjacent 10x ticks to share a six-to-eight-hertz
+  presentation. Authoritative ticks, catch-up batches, decisions, reviews, and
+  Priority Peck precision focus remain exact and immediately published.
+- Replaced the Web runtime's former 250 ms full diagnostic publisher. Gameplay
+  now retains only the newest immutable snapshot; a full audit payload is
+  serialized synchronously only when `render_game_to_text` explicitly requests
+  it. The live browser shell requests a separate bounded accessibility summary,
+  preserving current title, modal, Flockwatch, Settings, review, First Clutch,
+  checkpoint, objective, economy, and production narration without constructing
+  or parsing the roughly 214 KB audit model during ordinary frames.
+- Hardened the browser audit with synchronous 20-sample input capture, finite
+  percentile checkpoints, long-frame and long-task summaries, exact nested or
+  adjacent PCK identity, wrapper-relative authored clicks, and settled Farmer
+  review capture. Diagnostic checkpoint mode keeps the ten-minute evidence
+  minimum and therefore cannot be mistaken for signed release evidence.
+- Earlier diagnostic-only RTX 3090 attempts remain failures, not release
+  approvals. The raw export sample reported 56.82 median FPS but 14.06 FPS 1%
+  low; the production wrapper sample reported 59.88 median FPS but 4.39 FPS 1%
+  low and exposed the periodic full diagnostic path as a dominant source of
+  long tasks. No physical GPU row has been signed from either artifact.
+- The isolated Godot 4.7 suite at
+  `output/godot-full-suite-on-demand-diagnostics/full-suite-summary.json`
+  discovers, completes, and passes all 192/192 scripts with zero failures or
+  timeouts. Bundled Node 24 lint, production build, and all 49/49 rendered and
+  physical-environment checks pass.
+- The independent 21-check release gate passes in 137.925 seconds at
+  `output/release/runtime-on-demand-beta-release-gate.json`, including native
+  gameplay/persistence contracts, production serving, both evidence validators
+  and handoffs, and exact nine-file artifact parity.
+- The synchronized release PCK is 6,312,976 bytes with SHA-256
+  `75E6C27DBCFBEE5A7B8B568A69B587383828D9E15079BE867C92ACD16B83993D`.
+  The in-app browser loaded the rebuilt wrapper, displayed the career intake and
+  office correctly, and announced current status through the compact bridge.
+- Physical iOS/Android touch, desktop/mobile screen-reader, listening,
+  integrated-GPU, and discrete-GPU sign-offs remain pending. The project owner's
+  usability attestation remains documented separately and is not represented as
+  recorded session evidence.

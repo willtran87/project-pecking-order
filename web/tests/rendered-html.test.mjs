@@ -319,7 +319,11 @@ test("installs the same bounded preferences and diagnostic bridges in the direct
 	assert.match(preset, /new TextEncoder\(\)\.encode\(payload\)\.byteLength>max/);
 	assert.match(preset, /JSON\.parse\(payload\)/);
 	assert.match(preset, /Array\.isArray\(parsed\)/);
-	assert.match(preset, /window\.render_game_to_text=\(\)=>window\.__pecking_order_state/);
+	assert.match(preset, /window\.render_game_to_text=\(\)=>\{try\{window\.__pecking_order_request_diagnostic/);
+	assert.match(preset, /return window\.__pecking_order_state\|\|'\{\}'/);
+	assert.match(preset, /window\.render_game_accessibility_to_text=/);
+	assert.match(preset, /__pecking_order_request_accessibility_state/);
+	assert.match(preset, /return window\.__pecking_order_accessibility_state\|\|'\{\}'/);
 });
 
 test("starts the runtime and manifest fetch in parallel with truthful staged loading copy", async () => {

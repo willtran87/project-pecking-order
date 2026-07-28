@@ -38,6 +38,53 @@ func _run() -> void:
 	var window_pastures := office.find_children("WindowPasture*", "MeshInstance3D", true, false)
 	_check(window_pastures.size() == 6, "every window should show the farm beyond the office (found %d)" % window_pastures.size(), failures)
 	_check(office.find_children("EmployeeNameplateTextFixture", "Node3D", true, false).size() == 6, "every workstation should have a physically mounted nameplate", failures)
+	var structural_shadow_names := [
+		"CubicleBack", "CubicleWing_L", "DeskFrontTrim", "DeskLeg_L",
+		"DeskSurface", "DrawerPedestal", "Monitor", "PanelTopTrim", "ChairSeat",
+	]
+	var cosmetic_shadow_names := [
+		"ClaimFile_0", "ClaimTray", "CoffeeMug", "DeskMat", "DeskPhone",
+		"DrawerHandle_0", "Keyboard", "Memo_A", "Memo_B", "PhoneReceiver",
+		"Screen", "ScreenAlert", "ScreenHeader", "ScreenLine_0", "UrgentTab",
+		"ChickPhotoFrame", "ChickPhoto", "ChickPortrait", "PencilCup", "Pencil",
+		"DeskPlantPot", "DeskPlantLeaf", "FeedSnackPacket",
+	]
+	for workstation_value in office.find_children("Workstation_*", "Node3D", true, false):
+		var workstation := workstation_value as Node3D
+		for shadow_name in structural_shadow_names:
+			var structural := workstation.find_child(shadow_name, true, false) as GeometryInstance3D
+			_check(
+				structural != null and structural.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON,
+				"%s/%s should retain one grounding shadow" % [workstation.name, shadow_name],
+				failures,
+			)
+		for shadow_name in cosmetic_shadow_names:
+			for cosmetic_value in workstation.find_children(shadow_name, "GeometryInstance3D", true, false):
+				var cosmetic := cosmetic_value as GeometryInstance3D
+				_check(
+					cosmetic.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF,
+					"%s/%s should receive light without a redundant shadow submission" % [workstation.name, cosmetic.name],
+					failures,
+				)
+	var intake_presentation := office.find_child("IntakePresentation", true, false)
+	var intake_shadow_casters := _visible_shadow_caster_count(intake_presentation)
+	_check(
+		intake_shadow_casters <= 20,
+		"intake detail should retain depth without submitting every small prop to the shadow map (found %d)" % intake_shadow_casters,
+		failures,
+	)
+	var archive_story := office.find_child("ArchiveAndIntakeStory", true, false)
+	_check(
+		_visible_shadow_caster_count(archive_story) == 0,
+		"wall-mounted archive/intake storytelling should receive structural shadows without duplicating them",
+		failures,
+	)
+	var collection_chain := office.find_child("VisibleEggCollectionChain", true, false)
+	_check(
+		_visible_shadow_caster_count(collection_chain) <= 30,
+		"collection hardware should reserve shadows for structural rails, tubes, trays, and carriers",
+		failures,
+	)
 	var floor_chevrons := office.find_children("PeckFlowChevron*", "MeshInstance3D", true, false)
 	_check(floor_chevrons.size() == 6, "access lanes should include floor storytelling (found %d)" % floor_chevrons.size(), failures)
 	_check(_multimesh_instance_total(office, "WindowFrameBatch") == 18, "window frame batching should preserve all 18 frame pieces", failures)
@@ -70,3 +117,14 @@ func _multimesh_instance_total(office: Node, batch_name: String) -> int:
 		if batch != null and batch.multimesh != null:
 			total += batch.multimesh.instance_count
 	return total
+
+
+func _visible_shadow_caster_count(root_node: Node) -> int:
+	if root_node == null:
+		return 0
+	var count := 0
+	for candidate in root_node.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := candidate as GeometryInstance3D
+		if geometry.is_visible_in_tree() and geometry.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			count += 1
+	return count

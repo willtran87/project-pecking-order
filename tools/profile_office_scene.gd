@@ -30,7 +30,7 @@ func _profile() -> void:
 	for root_name in [
 		"OfficePhysicalPresentation", "OfficeStorytelling", "ClaimsDesks", "Workers",
 		"CoreOfficePresentation", "VisibleEggCollectionChain", "RoosterManagementPerch",
-		"Workstation_00",
+		"ArchiveAndIntakeStory", "ClaimIntake", "ExecutiveEggBasket", "Workstation_00",
 	]:
 		var profile_root := office.find_child(root_name, true, false)
 		if profile_root == null:
@@ -58,6 +58,9 @@ func _measure_subtree(node: Node) -> Dictionary:
 	var visible_meshes := 0
 	var surfaces := 0
 	var visible_surfaces := 0
+	var shadow_casters := 0
+	var visible_shadow_casters := 0
+	var visible_shadow_surfaces := 0
 	var multimeshes := 0
 	var multimesh_instances := 0
 	var visible_multimeshes := 0
@@ -71,9 +74,14 @@ func _measure_subtree(node: Node) -> Dictionary:
 			var surface_count: int = mesh_instance.mesh.get_surface_count() if mesh_instance.mesh != null else 0
 			meshes += 1
 			surfaces += surface_count
+			if mesh_instance.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+				shadow_casters += 1
 			if mesh_instance.is_visible_in_tree():
 				visible_meshes += 1
 				visible_surfaces += surface_count
+				if mesh_instance.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+					visible_shadow_casters += 1
+					visible_shadow_surfaces += surface_count
 		elif current is MultiMeshInstance3D:
 			var multimesh_instance := current as MultiMeshInstance3D
 			var instance_count := (
@@ -83,9 +91,14 @@ func _measure_subtree(node: Node) -> Dictionary:
 			)
 			multimeshes += 1
 			multimesh_instances += instance_count
+			if multimesh_instance.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+				shadow_casters += 1
 			if multimesh_instance.is_visible_in_tree():
 				visible_multimeshes += 1
 				visible_multimesh_instances += instance_count
+				if multimesh_instance.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+					visible_shadow_casters += 1
+					visible_shadow_surfaces += 1
 		for child in current.get_children():
 			stack.append(child)
 	return {
@@ -96,6 +109,9 @@ func _measure_subtree(node: Node) -> Dictionary:
 		"visible_meshes": visible_meshes,
 		"surfaces": surfaces,
 		"visible_surfaces": visible_surfaces,
+		"shadow_casters": shadow_casters,
+		"visible_shadow_casters": visible_shadow_casters,
+		"visible_shadow_surfaces": visible_shadow_surfaces,
 		"multimeshes": multimeshes,
 		"multimesh_instances": multimesh_instances,
 		"visible_multimeshes": visible_multimeshes,

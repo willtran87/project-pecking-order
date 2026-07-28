@@ -78,6 +78,10 @@ const HANDOFF_ECHO_HISTORY_STRIDE := 2
 # Refreshing their binders, signs, and constructed props four times per second
 # keeps them visually current without rebuilding the entire campus every 10x tick.
 const FACILITY_VISUAL_REFRESH_MSEC := 250
+# World-space KPI boards are environmental context, while the HUD owns exact
+# sub-second counters. Refresh signs at four hertz, but repaint immediately when
+# an egg, closure, queue, day, or phase changes.
+const LIVE_SIGNAGE_REFRESH_MSEC := 250
 const PRESENTATION_CLUTCH_SLOTS := 24
 const CART_CLUTCH_SLOTS := MAX_VISIBLE_CLUTCH_EGGS - PRESENTATION_CLUTCH_SLOTS
 const REVIEW_SHIFT_PHASE := 3
@@ -268,6 +272,7 @@ var _optional_visual_build_completed_msec := 0
 var _optional_visual_build_timings: Dictionary = {}
 var _last_snapshot: Dictionary = {}
 var _next_facility_visual_refresh_msec := 0
+var _next_live_signage_refresh_msec := 0
 var _facility_visual_refresh_count := 0
 var _facility_visual_state_fingerprint := 0
 var _archive_story_content: Node3D
@@ -488,7 +493,28 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 	# update, so revealing a site later never requires rebuilding or save data.
 	if refresh_campus_presentation:
 		_refresh_campus_presentation_source(snapshot)
-	if _metrics_label != null:
+	var queue_changed: bool = (
+		previous_snapshot.is_empty()
+		or previous_snapshot.get("claim_queue_counts", {})
+			!= snapshot.get("claim_queue_counts", {})
+	)
+	var live_signage_due: bool = (
+		previous_snapshot.is_empty()
+		or now_msec >= _next_live_signage_refresh_msec
+		or queue_changed
+		or int(previous_snapshot.get("day", -1)) != int(snapshot.get("day", -1))
+		or int(previous_snapshot.get("shift_phase", -1))
+			!= int(snapshot.get("shift_phase", -1))
+		or int(previous_snapshot.get("eggs_today", -1))
+			!= int(snapshot.get("eggs_today", -1))
+		or int(previous_snapshot.get("eggs_total", -1))
+			!= int(snapshot.get("eggs_total", -1))
+		or int(previous_snapshot.get("claims_processed", -1))
+			!= int(snapshot.get("claims_processed", -1))
+	)
+	if live_signage_due:
+		_next_live_signage_refresh_msec = now_msec + LIVE_SIGNAGE_REFRESH_MSEC
+	if live_signage_due and _metrics_label != null:
 		var lane_counts := snapshot.get("claim_queue_counts", {}) as Dictionary
 		_metrics_label.text = "YIELD  %03d / %03d\nN %02d   P %02d   A %02d\n%s  ·  LIVE" % [
 			int(snapshot.get("eggs_today", 0)),
@@ -499,13 +525,13 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 			String(snapshot.get("time_label", "9:00 AM")),
 		]
 		EnvironmentalSignageScript.refit_label(_metrics_label)
-	if _intake_status_label != null:
+	if live_signage_due and _intake_status_label != null:
 		_intake_status_label.text = "RECEIVED  %04d\nCREDITED  %04d" % [
 			int(snapshot.get("eggs_total", 0)),
 			int(snapshot.get("claims_processed", 0)),
 		]
 		EnvironmentalSignageScript.refit_label(_intake_status_label)
-	if _claim_closure_label != null:
+	if live_signage_due and _claim_closure_label != null:
 		var queue_counts := snapshot.get("claim_queue_counts", {}) as Dictionary
 		var open_claims := (
 			int(queue_counts.get(&"nest_damage", queue_counts.get("nest_damage", 0)))

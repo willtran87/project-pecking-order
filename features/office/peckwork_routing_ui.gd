@@ -185,7 +185,10 @@ func clear_focus() -> void:
 
 
 func apply_snapshot(snapshot: Dictionary) -> void:
-	_snapshot = snapshot.duplicate(true)
+	# Office creates this bounded routing projection solely for this component.
+	# The UI never mutates it, so retaining the owned value avoids a third copy of
+	# every live claim and worker dossier on each accelerated clock publication.
+	_snapshot = snapshot
 	if not _pending_claim_resolution_is_valid():
 		_cancel_claim_resolution_confirmation(false)
 	_refresh()

@@ -40,6 +40,12 @@ const auditRenderer = process.env.ACTIVE_PROGRESSION_RENDERER ?? "swiftshader";
 assert.ok(["swiftshader", "hardware"].includes(auditRenderer), `unsupported audit renderer ${auditRenderer}`);
 const headed = process.env.ACTIVE_PROGRESSION_HEADED === "1";
 const physicalGpuProbe = process.env.ACTIVE_PROGRESSION_PHYSICAL_GPU_PROBE === "1";
+// Diagnostic-only A/B mode: stop after the first persisted frame checkpoint.
+// The normal ten-minute minimum and final audit thresholds remain unchanged, so
+// this can never be mistaken for signed physical release evidence.
+const physicalCheckpointOnly = (
+  process.env.ACTIVE_PROGRESSION_PHYSICAL_CHECKPOINT_ONLY === "1"
+);
 const physicalSampleMsec = Math.max(
   0,
   Number(process.env.ACTIVE_PROGRESSION_PHYSICAL_SAMPLE_MSEC ?? 0),
@@ -385,15 +391,29 @@ async function sampleFrames(label, durationMsec = 1_500) {
 }
 
 async function deployedPckIdentity() {
-  const pckUrl = new URL("index.pck", url).href;
-  const response = await fetch(pckUrl);
-  assert.equal(response.ok, true, `the deployed PCK must be readable: ${response.status} ${pckUrl}`);
-  const bytes = Buffer.from(await response.arrayBuffer());
-  return {
-    url: pckUrl,
-    bytes: bytes.byteLength,
-    sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
-  };
+  // GitHub Pages serves the export directly, while the local/production React
+  // shell mounts the same export beneath /game/. Probe both deterministic
+  // locations so physical diagnostics can exercise the actual player wrapper
+  // without weakening exact payload identity.
+  const candidates = [
+    new URL("index.pck", url).href,
+    new URL("game/index.pck", url).href,
+  ].filter((candidate, index, values) => values.indexOf(candidate) === index);
+  const failures = [];
+  for (const pckUrl of candidates) {
+    const response = await fetch(pckUrl);
+    if (!response.ok) {
+      failures.push(`${response.status} ${pckUrl}`);
+      continue;
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    return {
+      url: pckUrl,
+      bytes: bytes.byteLength,
+      sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+    };
+  }
+  assert.fail(`the deployed PCK must be readable: ${failures.join("; ")}`);
 }
 
 async function webglRendererInfo() {
@@ -498,6 +518,7 @@ async function readContinuousFrameSample(stop = false) {
     if (shouldStop) current.active = false;
     return {
       elapsedMsec: current.sampledMsec,
+      startedMsec: current.startedMsec,
       wallElapsedMsec: performance.now() - current.startedMsec,
       excludedMsec: current.excludedMsec,
       visibilityLostMsec: current.visibilityLostMsec,
@@ -506,12 +527,20 @@ async function readContinuousFrameSample(stop = false) {
       focusLostCallbacks: current.focusLostCallbacks,
       records: current.records,
       contextLosses: current.contextLosses,
+      longTasks: window.__peckingProgressionLongTasks ?? [],
     };
   }, stop);
   if (!sample) return null;
   const intervals = sample.records
     .map((record) => Number(record.intervalMsec))
     .filter((value) => Number.isFinite(value) && value > 0);
+  const longTasks = sample.longTasks
+    .filter((task) => Number(task.startMsec) >= sample.startedMsec)
+    .map((task) => ({
+      elapsedMsec: Number(task.startMsec) - sample.startedMsec,
+      durationMsec: Number(task.durationMsec),
+    }))
+    .filter((task) => Number.isFinite(task.elapsedMsec) && Number.isFinite(task.durationMsec));
   const firstWindow = sample.records
     .filter((record) => record.elapsedMsec <= 120_000)
     .map((record) => Number(record.intervalMsec))
@@ -522,12 +551,28 @@ async function readContinuousFrameSample(stop = false) {
     .map((record) => Number(record.intervalMsec))
     .filter((value) => Number.isFinite(value) && value > 0);
   const medianInterval = percentile(intervals, 0.5);
+  const p95Interval = percentile(intervals, 0.95);
   const onePercentLowInterval = percentile(intervals, 0.99);
+  const p999Interval = percentile(intervals, 0.999);
   const firstMedianInterval = percentile(firstWindow, 0.5);
   const finalMedianInterval = percentile(finalWindow, 0.5);
   const medianFps = medianInterval > 0 ? 1_000 / medianInterval : 0;
   const firstMedianFps = firstMedianInterval > 0 ? 1_000 / firstMedianInterval : 0;
   const finalMedianFps = finalMedianInterval > 0 ? 1_000 / finalMedianInterval : 0;
+  const largestFrameIntervals = [...sample.records]
+    .filter((record) => Number.isFinite(Number(record.intervalMsec)) && Number(record.intervalMsec) > 0)
+    .sort((left, right) => Number(right.intervalMsec) - Number(left.intervalMsec))
+    .slice(0, 20)
+    .map((record) => ({
+      elapsedMsec: Number(record.elapsedMsec),
+      intervalMsec: Number(record.intervalMsec),
+    }));
+  const longFrameCounts = Object.fromEntries(
+    [25, 50, 100, 250, 750].map((thresholdMsec) => [
+      `over${thresholdMsec}Msec`,
+      intervals.filter((intervalMsec) => intervalMsec > thresholdMsec).length,
+    ]),
+  );
   return {
     sampleSeconds: sample.elapsedMsec / 1_000,
     wallSeconds: sample.wallElapsedMsec / 1_000,
@@ -541,8 +586,20 @@ async function readContinuousFrameSample(stop = false) {
     medianFps,
     onePercentLowFps: onePercentLowInterval > 0 ? 1_000 / onePercentLowInterval : 0,
     medianFrameMsec: medianInterval,
+    p95FrameMsec: p95Interval,
     p99FrameMsec: onePercentLowInterval,
+    p999FrameMsec: p999Interval,
     maximumStallMsec: Math.max(0, ...intervals),
+    longFrameCounts,
+    largestFrameIntervals,
+    longTasks: {
+      count: longTasks.length,
+      totalMsec: longTasks.reduce((sum, task) => sum + task.durationMsec, 0),
+      maximumMsec: Math.max(0, ...longTasks.map((task) => task.durationMsec)),
+      largest: [...longTasks]
+        .sort((left, right) => right.durationMsec - left.durationMsec)
+        .slice(0, 20),
+    },
     firstWindowMedianFps: firstMedianFps,
     finalWindowMedianFps: finalMedianFps,
     endToStartFpsRatio: firstMedianFps > 0 ? finalMedianFps / firstMedianFps : 0,
@@ -581,24 +638,53 @@ async function probePhysicalInputs() {
     await page.locator("#canvas").focus();
     const before = await state();
     const beforeVisible = before[action.surface]?.visible === true;
-    const responsePromise = page.evaluate((expectedCode) => new Promise((resolve) => {
-      const timeout = window.setTimeout(() => {
-        window.removeEventListener("keydown", onKeyDown, true);
-        resolve(Number.POSITIVE_INFINITY);
-      }, 2_000);
+    await page.evaluate((expectedCode) => {
+      const prior = window.__peckingInputResponseProbe;
+      if (prior?.timeout) window.clearTimeout(prior.timeout);
+      if (prior?.onKeyDown) window.removeEventListener("keydown", prior.onKeyDown, true);
+      const probe = {
+        expectedCode,
+        responseMsec: null,
+        timedOut: false,
+        timeout: 0,
+        onKeyDown: null,
+      };
       const onKeyDown = (event) => {
         if (event.code !== expectedCode) return;
-        window.clearTimeout(timeout);
+        window.clearTimeout(probe.timeout);
         window.removeEventListener("keydown", onKeyDown, true);
         const started = performance.now();
-        requestAnimationFrame((presented) => {
-          resolve(Math.max(0, presented - started));
+        requestAnimationFrame(() => {
+          // rAF's timestamp describes the start of the rendering opportunity
+          // and can precede a key event dispatched later in that same frame.
+          // performance.now() here measures actual callback delivery.
+          probe.responseMsec = Math.max(0, performance.now() - started);
         });
       };
+      probe.onKeyDown = onKeyDown;
+      probe.timeout = window.setTimeout(() => {
+        window.removeEventListener("keydown", onKeyDown, true);
+        probe.timedOut = true;
+      }, 2_000);
+      window.__peckingInputResponseProbe = probe;
       window.addEventListener("keydown", onKeyDown, true);
-    }), action.key);
+    }, action.key);
     await page.keyboard.press(action.key);
-    const responseMsec = await responsePromise;
+    const responseMsec = await page.evaluate(() => new Promise((resolve) => {
+      const poll = () => {
+        const probe = window.__peckingInputResponseProbe;
+        if (!probe || probe.timedOut) {
+          resolve(null);
+          return;
+        }
+        if (Number.isFinite(probe.responseMsec)) {
+          resolve(probe.responseMsec);
+          return;
+        }
+        window.setTimeout(poll, 4);
+      };
+      poll();
+    }));
     await page.waitForFunction(({ surface, prior }) => {
       try {
         const snapshot = JSON.parse(window.render_game_to_text?.() ?? "{}");
@@ -616,24 +702,40 @@ async function probePhysicalInputs() {
     });
     await page.waitForTimeout(80);
   }
-  const responseTimes = samples.map((sample) => sample.responseMsec);
-  return {
+  const responseTimes = samples
+    .map((sample) => sample.responseMsec)
+    .filter((responseMsec) => Number.isFinite(responseMsec));
+  const result = {
     samples,
     count: samples.length,
-    measurementMethod: "Browser keydown timestamp to the next visible animation frame; Playwright/CDP transport is excluded, while the semantic state transition is verified separately because diagnostics publish on a 250ms cadence.",
+    measuredCount: responseTimes.length,
+    timeoutCount: samples.length - responseTimes.length,
+    measurementMethod: "Browser keydown timestamp to the next visible animation frame; Playwright/CDP transport and on-demand full-state serialization are excluded, while the semantic state transition is verified separately.",
     medianMsec: percentile(responseTimes, 0.5),
     p95Msec: percentile(responseTimes, 0.95),
     maximumMsec: Math.max(0, ...responseTimes),
   };
+  fs.writeFileSync(
+    path.join(outputDirectory, "physical-input-sample.json"),
+    JSON.stringify(result, null, 2),
+  );
+  return result;
 }
 
 async function clickAuthored(x, y) {
-  const bounds = await page.locator("#canvas").boundingBox();
+  const canvas = page.locator("#canvas");
+  const bounds = await canvas.boundingBox();
   assert.ok(bounds, "the live Godot canvas must remain mounted");
-  await page.mouse.click(
-    bounds.x + bounds.width * x / 1280,
-    bounds.y + bounds.height * y / 720,
-  );
+  // Locator-relative input preserves the authored coordinate transform inside
+  // both the direct export and the production wrapper, and lets Playwright
+  // verify that the canvas—not shell chrome—receives the pointer sequence.
+  await canvas.click({
+    position: {
+      x: bounds.width * x / 1280,
+      y: bounds.height * y / 720,
+    },
+    force: true,
+  });
 }
 
 async function requestCheckpoint(reason) {
@@ -887,22 +989,33 @@ try {
     }
 
     if (snapshot.campaign_stage === "farmer") {
-      const evidence = snapshot.farmer_relations_gallery?.source_digest ?? {};
-      const completedDay = Number(evidence.day ?? snapshot.campaign_day - 1);
+      // Campaign staging can expose the review shell one browser frame before
+      // Office publishes its settled phase/revision and ledger projection. Bind
+      // evidence only after all three authoritative surfaces agree.
+      const priorRevision = Number(shiftsCompleted.at(-1)?.tickRevision ?? -1);
+      await waitForState(`snapshot => (
+        snapshot.campaign_stage === 'farmer'
+        && snapshot.shift_phase === 3
+        && Number(snapshot.performance?.authoritative_tick_revision ?? 0) > ${priorRevision}
+        && Number(snapshot.farmer_relations_gallery?.source_digest?.eggs ?? 0) > 0
+      )`, 15_000);
+      const reviewSnapshot = await state();
+      const evidence = reviewSnapshot.farmer_relations_gallery?.source_digest ?? {};
+      const completedDay = Number(evidence.day ?? reviewSnapshot.campaign_day - 1);
       assert.ok(evidence.eggs > 0, `day ${completedDay} must close with seated-worker production`);
       assert.ok(evidence.quota > 0, `day ${completedDay} must retain a positive clutch target`);
       shiftsCompleted.push({
         completedDay,
-        nextCampaignDay: snapshot.campaign_day,
+        nextCampaignDay: reviewSnapshot.campaign_day,
         eggs: evidence.eggs,
         sound: evidence.sound,
         cracked: evidence.cracked,
         golden: evidence.golden,
         metQuota: evidence.met_quota,
         quota: evidence.quota,
-        score: snapshot.campaign_score,
-        tickRevision: snapshot.performance?.authoritative_tick_revision,
-        fundCents: snapshot.economy?.feed_fund_cents,
+        score: reviewSnapshot.campaign_score,
+        tickRevision: reviewSnapshot.performance?.authoritative_tick_revision,
+        fundCents: reviewSnapshot.economy?.feed_fund_cents,
       });
       // Let the authored review scale/fade settle before visual evidence. On
       // SwiftShader one rendered frame can exceed the 300 ms tween duration.
@@ -1351,6 +1464,7 @@ try {
       lingerIndex += 1;
       if (lingerIndex % 15 === 0) {
         physicalFrameSample = await checkpointContinuousFrameSample();
+        if (physicalCheckpointOnly) break;
       }
       const remainingMsec = physicalSampleMsec - await physicalSampleElapsedMsec();
       if (remainingMsec > 0) {
@@ -1489,6 +1603,9 @@ try {
     if ((physicalInput?.count ?? 0) < 20) {
       auditFailures.push(`physical GPU probe recorded only ${physicalInput?.count ?? 0} input samples`);
     }
+    if ((physicalInput?.measuredCount ?? 0) < 20) {
+      auditFailures.push(`physical GPU probe measured only ${physicalInput?.measuredCount ?? 0} input responses`);
+    }
     if ((physicalInput?.p95Msec ?? Number.POSITIVE_INFINITY) > 150) {
       auditFailures.push(`physical GPU p95 input latency was ${physicalInput?.p95Msec ?? "missing"}ms`);
     }
@@ -1514,6 +1631,7 @@ try {
 		auditRenderer,
       headed,
       physicalGpuProbe,
+      physicalCheckpointOnly,
       physicalSampleMsec,
       physicalWarmupMsec,
       physicalDisplayRefreshHz,

@@ -187,7 +187,11 @@ export default function Home() {
 
     const diagnosticRuntime = window as typeof window & {
       __pecking_order_state?: string;
+      __pecking_order_accessibility_state?: string;
+      __pecking_order_request_diagnostic?: () => unknown;
+      __pecking_order_request_accessibility_state?: () => unknown;
       render_game_to_text?: () => string;
+      render_game_accessibility_to_text?: () => string;
       advanceTime?: (milliseconds: number) => Promise<void>;
     };
     diagnosticRuntime.render_game_to_text = () => diagnosticRuntime.__pecking_order_state ?? JSON.stringify({
@@ -199,6 +203,11 @@ export default function Home() {
         : null,
       controls: ["click hen", "route file", "E priority peck", "file one check-in", "open Flockwatch roster", "1-3 binder or speed", "N negotiate", "R standard terms", "space pause"],
     });
+    diagnosticRuntime.render_game_accessibility_to_text = () => (
+      diagnosticRuntime.__pecking_order_accessibility_state
+      ?? diagnosticRuntime.render_game_to_text?.()
+      ?? "{}"
+    );
     diagnosticRuntime.advanceTime = (milliseconds) => new Promise((resolve) => {
       window.setTimeout(resolve, Math.max(0, milliseconds));
     });
@@ -219,8 +228,12 @@ export default function Home() {
             getMissingFeatures(options: { threads: boolean }): string[];
           };
           __pecking_order_state?: string;
+          __pecking_order_accessibility_state?: string;
+          __pecking_order_request_diagnostic?: () => unknown;
+          __pecking_order_request_accessibility_state?: () => unknown;
 			__pecking_order_runtime_metrics?: () => { wasmMemoryBytes: number };
           render_game_to_text?: () => string;
+          render_game_accessibility_to_text?: () => string;
           advanceTime?: (milliseconds: number) => Promise<void>;
         };
         const missing = runtime.Engine.getMissingFeatures({ threads: false });
@@ -244,13 +257,25 @@ export default function Home() {
 			});
 				const backupInput = careerBackupInput.current;
 				if (backupInput) installCareerBackupPickerBridge(backupInput);
-        runtime.render_game_to_text = () => runtime.__pecking_order_state ?? JSON.stringify({
-          coordinate_system: "Canvas origin is top-left; +x right, +y down; authored stage 1280x720.",
-          mode: "godot_canvas",
-          loaded: true,
-          canvas: canvas ? { width: canvas.width, height: canvas.height } : null,
-          controls: ["click hen", "route file", "E priority peck", "file one check-in", "open Flockwatch roster", "1-3 binder or speed", "N negotiate", "R standard terms", "space pause"],
-        });
+        runtime.render_game_to_text = () => {
+          runtime.__pecking_order_request_diagnostic?.();
+          return runtime.__pecking_order_state ?? JSON.stringify({
+            coordinate_system: "Canvas origin is top-left; +x right, +y down; authored stage 1280x720.",
+            mode: "godot_canvas",
+            loaded: true,
+            canvas: canvas ? { width: canvas.width, height: canvas.height } : null,
+            controls: ["click hen", "route file", "E priority peck", "file one check-in", "open Flockwatch roster", "1-3 binder or speed", "N negotiate", "R standard terms", "space pause"],
+          });
+        };
+        runtime.render_game_accessibility_to_text = () => {
+          runtime.__pecking_order_request_accessibility_state?.();
+          return runtime.__pecking_order_accessibility_state ?? JSON.stringify({
+            mode: "godot_canvas_accessibility",
+            loaded: true,
+            campaign_stage: "title",
+            accessibility_summary: "Pecking Order is ready. Objective: choose a career file.",
+          });
+        };
         setLoaded(true);
       } catch (error) {
         setLoadError(error instanceof Error ? error.message : "The department failed to initialize.");
@@ -269,12 +294,12 @@ export default function Home() {
 
   useEffect(() => {
     const runtime = window as typeof window & {
-      render_game_to_text?: () => string;
+      render_game_accessibility_to_text?: () => string;
     };
     const refreshAccessibleGameStatus = () => {
       let renderedState: string | undefined;
       try {
-        renderedState = runtime.render_game_to_text?.();
+        renderedState = runtime.render_game_accessibility_to_text?.();
       } catch {
         // A transient bridge read should fall back to the last concise shell
         // state instead of exposing runtime diagnostics to assistive tech.
@@ -698,6 +723,8 @@ function buildGameStateAccessibleStatus(
   }
 
   const state = parseGameDiagnostic(renderedState);
+	const compactSummary = diagnosticPlainText(state.accessibility_summary, 3000);
+	if (compactSummary.length > 0) return withTerminalPunctuation(compactSummary);
 	const settings = recordValue(state.settings);
 	if (settings.visible === true) {
 		const summary = stringValue(settings.accessible_text)

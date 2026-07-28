@@ -11,12 +11,19 @@ class EfficiencyOffice:
 	extends Office
 
 	var diagnostic_publish_count := 0
+	var diagnostic_serialize_count := 0
 	var last_diagnostic_snapshot: Dictionary = {}
 
 
 	func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		diagnostic_publish_count += 1
 		last_diagnostic_snapshot = snapshot.duplicate(true)
+
+
+	func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
+		diagnostic_serialize_count += 1
+		last_diagnostic_snapshot = snapshot.duplicate(true)
+		set("_web_diagnostic_dirty", false)
 
 
 class CountingStaffingUI:
@@ -196,29 +203,24 @@ func _run() -> void:
 		failures,
 	)
 
-	_stage = "throttling pending browser diagnostics"
-	office.diagnostic_publish_count = 0
+	_stage = "requesting pending browser diagnostics"
+	office.diagnostic_serialize_count = 0
 	office.last_diagnostic_snapshot = {}
 	office.set("_pending_web_diagnostic_snapshot", {"marker": "newest"})
 	office.set("_web_diagnostic_dirty", true)
-	office.set("_web_diagnostic_next_allowed_msec", Time.get_ticks_msec() + 60_000)
-	office.call("_flush_pending_web_diagnostic")
 	_check(
-		office.diagnostic_publish_count == 0
+		office.diagnostic_serialize_count == 0
 		and bool(office.get("_web_diagnostic_dirty"))
 		and String((office.get("_pending_web_diagnostic_snapshot") as Dictionary).get("marker", "")) == "newest",
-		"a diagnostic inside the throttle window should retain only the newest pending read model",
+		"retaining a new browser read model should perform no full serialization during gameplay",
 		failures,
 	)
-	office.set("_web_diagnostic_next_allowed_msec", 0)
-	office.call("_flush_pending_web_diagnostic")
-	office.call("_flush_pending_web_diagnostic")
+	office.call("_on_web_diagnostic_requested", [])
 	_check(
-		office.diagnostic_publish_count == 1
+		office.diagnostic_serialize_count == 1
 		and String(office.last_diagnostic_snapshot.get("marker", "")) == "newest"
-		and not bool(office.get("_web_diagnostic_dirty"))
-		and (office.get("_pending_web_diagnostic_snapshot") as Dictionary).is_empty(),
-		"an elapsed diagnostic window should publish the newest state once and clear its queue",
+		and not bool(office.get("_web_diagnostic_dirty")),
+		"an explicit browser request should serialize the newest retained state exactly once",
 		failures,
 	)
 
@@ -243,7 +245,7 @@ func _finish(
 			push_error("OFFICE_PRESENTATION_EFFICIENCY_TEST_FAILED: %s [stage=%s]" % [failure, _stage])
 		quit(1)
 		return
-	print("OFFICE_PRESENTATION_EFFICIENCY_TEST_PASSED ticks=coalesced hidden=idle diagnostics=latest-only health=memory+objects+frames+render")
+	print("OFFICE_PRESENTATION_EFFICIENCY_TEST_PASSED ticks=coalesced hidden=idle diagnostics=on-demand health=memory+objects+frames+render")
 	quit(0)
 
 
