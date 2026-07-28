@@ -10,12 +10,14 @@ const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_
 ## staffing action without covering the character or the workstations.
 
 signal assignment_requested(worker_id: int, lane: StringName)
+signal assignment_undo_requested(worker_id: int)
 signal claim_resolution_requested(worker_id: int, path_id: StringName)
 signal personnel_action_requested(worker_id: int, action_id: StringName)
 signal peck_assist_requested(worker_id: int)
 signal first_clutch_skip_requested
 signal first_clutch_focus_requested(worker_id: int)
 signal first_clutch_skip_rect_settled(rect: Rect2)
+signal interaction_safety_changed
 
 const LANE_ORDER: Array[StringName] = [
 	&"nest_damage",
@@ -90,8 +92,14 @@ var _claim_header: HBoxContainer
 var _assist_row: HBoxContainer
 var _personnel_status: HBoxContainer
 var _assignment_section: GridContainer
+var _assignment_undo_button: Button
 var _claim_resolution_section: VBoxContainer
 var _claim_resolution_buttons: Dictionary[StringName, Button] = {}
+var _claim_resolution_confirmation: ConfirmationDialog
+var _pending_claim_resolution_path: StringName = &""
+var _pending_claim_resolution_worker_id := -1
+var _pending_claim_resolution_claim_id := -1
+var _claim_resolution_origin: Control
 var _personnel_actions_section: VBoxContainer
 var _focused_worker_id := -1
 var _snapshot: Dictionary = {}
@@ -121,6 +129,7 @@ func _ready() -> void:
 	_build_queue_strip()
 	_build_first_clutch_coach()
 	_build_focus_dossier()
+	_build_claim_resolution_confirmation()
 	resized.connect(_apply_first_clutch_layout)
 	_apply_first_clutch_layout()
 	_refresh()
@@ -171,11 +180,14 @@ func set_focus(worker_id: int) -> void:
 
 
 func clear_focus() -> void:
+	_cancel_claim_resolution_confirmation(false)
 	set_focus(-1)
 
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
+	if not _pending_claim_resolution_is_valid():
+		_cancel_claim_resolution_confirmation(false)
 	_refresh()
 
 
@@ -216,6 +228,8 @@ func set_first_clutch_stage(stage: StringName, state: Dictionary = {}) -> void:
 
 func set_interaction_enabled(enabled: bool) -> void:
 	_interaction_enabled = enabled
+	if not enabled:
+		_cancel_claim_resolution_confirmation(false)
 	_refresh()
 
 
@@ -280,6 +294,28 @@ func first_clutch_presentation_state() -> Dictionary:
 		"priority_peck_visible": is_dossier_section_visible(&"priority_peck"),
 		"details_visible": _details_button != null and _details_button.visible,
 		"primary_action_node": primary_action,
+	}
+
+
+## One compact read model keeps browser narration and regression fixtures aligned
+## with the confirmation or reversible routing action currently visible.
+func interaction_safety_state() -> Dictionary:
+	var assignment_undo := _snapshot.get("assignment_undo", {}) as Dictionary
+	return {
+		"claim_confirmation_visible": (
+			_claim_resolution_confirmation != null
+			and _claim_resolution_confirmation.visible
+		),
+		"claim_confirmation_worker_id": _pending_claim_resolution_worker_id,
+		"claim_confirmation_claim_id": _pending_claim_resolution_claim_id,
+		"claim_confirmation_path_id": String(_pending_claim_resolution_path),
+		"route_undo_visible": (
+			_assignment_undo_button != null
+			and _assignment_undo_button.is_visible_in_tree()
+		),
+		"route_undo_worker_id": int(assignment_undo.get("worker_id", -1)),
+		"route_undo_previous_lane": String(assignment_undo.get("previous_lane", &"")),
+		"route_undo_current_lane": String(assignment_undo.get("current_lane", &"")),
 	}
 
 
@@ -600,6 +636,15 @@ func _build_focus_dossier() -> void:
 	_routing_hint_label.max_lines_visible = 2
 	_routing_hint_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_assist_row.add_child(_routing_hint_label)
+	_assignment_undo_button = Button.new()
+	_assignment_undo_button.name = "UndoRoutingAssignment"
+	_assignment_undo_button.text = "UNDO ROUTE"
+	_assignment_undo_button.custom_minimum_size = Vector2(126.0, 30.0)
+	_assignment_undo_button.add_theme_font_size_override("font_size", 10)
+	_assignment_undo_button.theme_type_variation = &"SecondaryButton"
+	_assignment_undo_button.visible = false
+	_assignment_undo_button.pressed.connect(_on_assignment_undo_pressed)
+	_assist_row.add_child(_assignment_undo_button)
 	_peck_assist_button = Button.new()
 	_peck_assist_button.name = "PeckAssistButton"
 	_peck_assist_button.text = "NO ACTIVE FILE"
@@ -674,6 +719,28 @@ func _build_focus_dossier() -> void:
 		button.pressed.connect(_on_personnel_action_pressed.bind(action_id))
 		_personnel_actions_section.add_child(button)
 		_personnel_buttons[action_id] = button
+
+
+func _build_claim_resolution_confirmation() -> void:
+	_claim_resolution_confirmation = ConfirmationDialog.new()
+	_claim_resolution_confirmation.name = "ClaimResolutionConfirmation"
+	_claim_resolution_confirmation.title = "FILE AN IRREVERSIBLE CLAIMANT PATH?"
+	_claim_resolution_confirmation.ok_button_text = "FILE PATH"
+	_claim_resolution_confirmation.cancel_button_text = "KEEP CURRENT PATH"
+	_claim_resolution_confirmation.min_size = Vector2i(340, 270)
+	var copy := _claim_resolution_confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 152.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_claim_resolution_confirmation.confirmed.connect(
+		_confirm_claim_resolution
+	)
+	_claim_resolution_confirmation.canceled.connect(
+		_cancel_claim_resolution_confirmation
+	)
+	add_child(_claim_resolution_confirmation)
 
 
 func _on_dossier_tab_pressed(tab_id: StringName) -> void:
@@ -1018,6 +1085,29 @@ func _refresh() -> void:
 			)
 		else:
 			button.tooltip_text += " This is an explicit manual override of IT Coop AUTO support."
+	var assignment_undo := _snapshot.get("assignment_undo", {}) as Dictionary
+	var undo_previous_lane := StringName(assignment_undo.get("previous_lane", &""))
+	var undo_current_lane := StringName(assignment_undo.get("current_lane", &""))
+	var undo_matches := (
+		int(assignment_undo.get("worker_id", -1)) == _focused_worker_id
+		and int(assignment_undo.get("day", -1)) == int(_snapshot.get("day", -2))
+		and undo_previous_lane in ASSIGNMENT_ORDER
+		and undo_current_lane in ASSIGNMENT_ORDER
+		and assignment == undo_current_lane
+	)
+	_assignment_undo_button.visible = undo_matches
+	_assignment_undo_button.disabled = not can_assign
+	if undo_matches:
+		_assignment_undo_button.text = "UNDO ROUTE  /  %s" % _lane_name(
+			undo_previous_lane
+		)
+		_assignment_undo_button.tooltip_text = (
+			"Restore %s's prior %s route. This changes the next tray only; "
+			+ "completed claim work is never rolled back."
+		) % [
+			worker_name,
+			_lane_name(undo_previous_lane),
+		]
 	var action_status := _snapshot.get("personnel_action_status", {}) as Dictionary
 	var has_allowance_status := action_status.has("limit") or action_status.has("remaining")
 	var action_limit := maxi(1, int(action_status.get("limit", 1)))
@@ -1826,6 +1916,18 @@ func _on_assignment_pressed(lane: StringName) -> void:
 	assignment_requested.emit(_focused_worker_id, lane)
 
 
+func _on_assignment_undo_pressed() -> void:
+	if (
+		_focused_worker_id < 0
+		or not _interaction_enabled
+		or _assignment_undo_button == null
+		or _assignment_undo_button.disabled
+		or not _assignment_undo_button.visible
+	):
+		return
+	assignment_undo_requested.emit(_focused_worker_id)
+
+
 func _on_claim_resolution_pressed(path_id: StringName) -> void:
 	if (
 		_focused_worker_id < 0
@@ -1833,7 +1935,113 @@ func _on_claim_resolution_pressed(path_id: StringName) -> void:
 		or path_id not in [&"settle", &"deny", &"exception"]
 	):
 		return
-	claim_resolution_requested.emit(_focused_worker_id, path_id)
+	var worker := _worker_snapshot(_focused_worker_id)
+	var claim := worker.get("current_claim", {}) as Dictionary
+	var status := worker.get("claim_resolution_status", {}) as Dictionary
+	var button := _claim_resolution_buttons.get(path_id) as Button
+	if (
+		claim.is_empty()
+		or bool(claim.get("resolution_locked", false))
+		or not bool(status.get("available", false))
+		or button == null
+		or button.disabled
+	):
+		return
+	var definition := _claim_resolution_definition(path_id)
+	if definition.is_empty():
+		return
+	_pending_claim_resolution_path = path_id
+	_pending_claim_resolution_worker_id = _focused_worker_id
+	_pending_claim_resolution_claim_id = int(claim.get("id", -1))
+	_claim_resolution_origin = button
+	var short_label := String(definition.get(
+		"short_label",
+		String(path_id).replace("_", " ").to_upper(),
+	)).to_upper()
+	var claimant_name := String(claim.get("claimant_name", "THIS CLAIMANT")).to_upper()
+	var cost_cents := int(definition.get("cost_cents", 0))
+	var beneficiary := String(definition.get("beneficiary", "DISCLOSED PARTY")).to_upper()
+	_claim_resolution_confirmation.title = "FILE %s?" % short_label
+	_claim_resolution_confirmation.ok_button_text = "FILE %s" % short_label
+	_claim_resolution_confirmation.dialog_text = (
+		"%s's file will permanently use %s.\n\n"
+		+ "FEED FUND  /  -$%.2f\n"
+		+ "FAVORS  /  %s\n"
+		+ "BENEFIT  /  %s\n"
+		+ "BURDEN  /  %s\n\n"
+		+ "No Feed Fund or claim state changes until you confirm. "
+		+ "After filing, this claimant path cannot be changed or undone."
+	) % [
+		claimant_name,
+		short_label,
+		float(cost_cents) / 100.0,
+		beneficiary,
+		String(definition.get("benefit", "See the disclosed path terms.")),
+		String(definition.get("burden", "See the disclosed path terms.")),
+	]
+	_claim_resolution_confirmation.popup_centered_clamped(
+		Vector2i(370, 330),
+		0.92,
+	)
+	interaction_safety_changed.emit()
+
+
+func _confirm_claim_resolution() -> void:
+	if not _pending_claim_resolution_is_valid():
+		_cancel_claim_resolution_confirmation(false)
+		return
+	var worker_id := _pending_claim_resolution_worker_id
+	var path_id := _pending_claim_resolution_path
+	_clear_pending_claim_resolution()
+	if _claim_resolution_confirmation != null:
+		_claim_resolution_confirmation.hide()
+	claim_resolution_requested.emit(worker_id, path_id)
+	interaction_safety_changed.emit()
+
+
+func _cancel_claim_resolution_confirmation(restore_focus: bool = true) -> void:
+	var origin := _claim_resolution_origin
+	var had_pending := _pending_claim_resolution_path != &""
+	_clear_pending_claim_resolution()
+	if _claim_resolution_confirmation != null:
+		_claim_resolution_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not origin.disabled
+	):
+		origin.call_deferred("grab_focus")
+	if had_pending:
+		interaction_safety_changed.emit()
+
+
+func _clear_pending_claim_resolution() -> void:
+	_pending_claim_resolution_path = &""
+	_pending_claim_resolution_worker_id = -1
+	_pending_claim_resolution_claim_id = -1
+	_claim_resolution_origin = null
+
+
+func _pending_claim_resolution_is_valid() -> bool:
+	if _pending_claim_resolution_path == &"":
+		return false
+	if (
+		not _interaction_enabled
+		or _pending_claim_resolution_worker_id != _focused_worker_id
+		or _pending_claim_resolution_path not in [&"settle", &"deny", &"exception"]
+	):
+		return false
+	var worker := _worker_snapshot(_pending_claim_resolution_worker_id)
+	var claim := worker.get("current_claim", {}) as Dictionary
+	var status := worker.get("claim_resolution_status", {}) as Dictionary
+	return (
+		not claim.is_empty()
+		and int(claim.get("id", -1)) == _pending_claim_resolution_claim_id
+		and not bool(claim.get("resolution_locked", false))
+		and bool(status.get("available", false))
+	)
 
 
 func _on_personnel_action_pressed(action_id: StringName) -> void:

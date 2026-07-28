@@ -210,6 +210,7 @@ var _office_storytelling: OfficeStorytelling
 var _audio_feedback: Node
 var _audio_director: Node
 var _routing_ui: PeckworkRoutingUI
+var _routing_assignment_undo: Dictionary = {}
 var _staffing_ui: RoostStaffingUI
 var _pecking_order_ui
 var _flockwatch_navigation: FlockwatchNavigation
@@ -2931,6 +2932,9 @@ func _routing_visual_snapshot(active_snapshot: Dictionary) -> Dictionary:
 		worker["estimated_crack_risk"] = _simulation.estimated_crack_risk(worker_id)
 		routing_workers.append(worker)
 	routing_snapshot["workers"] = routing_workers
+	var assignment_undo := _validated_routing_assignment_undo(active_snapshot)
+	if not assignment_undo.is_empty():
+		routing_snapshot["assignment_undo"] = assignment_undo
 	return routing_snapshot
 
 
@@ -3494,6 +3498,9 @@ func _build_ui() -> void:
 	)
 	_staffing_ui.hire_requested.connect(_on_staff_hire_requested)
 	_staffing_ui.release_requested.connect(_on_staff_release_requested)
+	_staffing_ui.interaction_safety_changed.connect(
+		_on_interaction_safety_presentation_changed
+	)
 	flock_section.add_child(_staffing_ui)
 	_economic_briefing_ui = EconomicBriefingUIScript.new()
 	economic_briefing_section.add_child(_economic_briefing_ui)
@@ -3789,12 +3796,18 @@ func _build_ui() -> void:
 	_ticker_panel.add_child(_ticker_label)
 	_routing_ui = PeckworkRoutingUIScript.new() as PeckworkRoutingUI
 	_routing_ui.assignment_requested.connect(_on_worker_assignment_requested)
+	_routing_ui.assignment_undo_requested.connect(
+		_on_worker_assignment_undo_requested
+	)
 	_routing_ui.claim_resolution_requested.connect(_on_claim_resolution_requested)
 	_routing_ui.personnel_action_requested.connect(_on_personnel_action_requested)
 	_routing_ui.peck_assist_requested.connect(_on_peck_assist_requested)
 	_routing_ui.first_clutch_skip_requested.connect(_on_first_clutch_skip_requested)
 	_routing_ui.first_clutch_focus_requested.connect(_on_first_clutch_focus_requested)
 	_routing_ui.first_clutch_skip_rect_settled.connect(_on_first_clutch_skip_rect_settled)
+	_routing_ui.interaction_safety_changed.connect(
+		_on_interaction_safety_presentation_changed
+	)
 	_ui_root.add_child(_routing_ui)
 	_build_day_review_panel()
 	_build_decision_modal()
@@ -5919,7 +5932,30 @@ func _skip_farmer_relations_gallery_campaign() -> bool:
 
 
 func _on_worker_assignment_requested(worker_id: int, lane: StringName) -> void:
+	var before_snapshot := _simulation.snapshot()
+	var worker_before := _worker_record(before_snapshot, worker_id)
+	var previous_lane := StringName(worker_before.get("assigned_lane", &""))
+	var prior_undo := _routing_assignment_undo.duplicate(true)
+	if (
+		not worker_before.is_empty()
+		and previous_lane != lane
+		and previous_lane in PeckworkRoutingUI.ASSIGNMENT_ORDER
+		and lane in PeckworkRoutingUI.ASSIGNMENT_ORDER
+	):
+		# Install the one-level command before simulation emits its synchronous
+		# snapshot, keeping the visible Undo control in the same settled frame.
+		_routing_assignment_undo = {
+			"day": int(before_snapshot.get("day", 0)),
+			"worker_id": worker_id,
+			"worker_name": String(worker_before.get(
+				"name",
+				"HEN %d" % (worker_id + 1),
+			)),
+			"previous_lane": previous_lane,
+			"current_lane": lane,
+		}
 	if not _simulation.set_worker_assignment(worker_id, lane):
+		_routing_assignment_undo = prior_undo
 		_ticker_label.text = "ROUTING HELD. Finish the current management action before changing trays."
 		if _audio_feedback != null:
 			_audio_feedback.play_denied(&"routing")
@@ -5936,6 +5972,74 @@ func _on_worker_assignment_requested(worker_id: int, lane: StringName) -> void:
 		_audio_feedback.play_ui_tick()
 	_first_clutch_record_routing(worker_id, lane)
 	_save_campaign_checkpoint("routing_assignment")
+
+
+func _on_worker_assignment_undo_requested(worker_id: int) -> void:
+	var snapshot := _simulation.snapshot()
+	var undo := _validated_routing_assignment_undo(snapshot)
+	if undo.is_empty() or int(undo.get("worker_id", -1)) != worker_id:
+		_ticker_label.text = "ROUTING UNDO HELD. The prior tray is no longer current."
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"routing")
+		return
+	var previous_lane := StringName(undo.get("previous_lane", &""))
+	var current_lane := StringName(undo.get("current_lane", &""))
+	var worker := _worker_record(snapshot, worker_id)
+	if StringName(worker.get("assigned_lane", &"")) != current_lane:
+		_ticker_label.text = "ROUTING UNDO HELD. This hen's route changed again."
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"routing")
+		return
+	# Clear before the authoritative mutation emits its synchronous snapshot so
+	# the one-level Undo action cannot turn itself into an accidental Redo.
+	_routing_assignment_undo.clear()
+	if not _simulation.set_worker_assignment(worker_id, previous_lane):
+		_routing_assignment_undo = undo
+		_ticker_label.text = "ROUTING UNDO HELD. Finish the current management action first."
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"routing")
+		return
+	var worker_name := String(undo.get("worker_name", "HEN %d" % (worker_id + 1)))
+	var lane_label := (
+		"AUTO SORT"
+		if previous_lane == &"auto" else
+		String(previous_lane).replace("_", " ").to_upper()
+	)
+	_ticker_label.text = (
+		"%s'S NEXT TRAY RESTORED TO %s. Completed claim work was not rolled back."
+		% [worker_name.to_upper(), lane_label]
+	)
+	if _audio_feedback != null:
+		_audio_feedback.play_ui_tick()
+	_save_campaign_checkpoint("routing_assignment_undo")
+
+
+func _worker_record(snapshot: Dictionary, worker_id: int) -> Dictionary:
+	for worker_value in snapshot.get("workers", []):
+		var worker := worker_value as Dictionary
+		if int(worker.get("id", -1)) == worker_id:
+			return worker
+	return {}
+
+
+func _validated_routing_assignment_undo(snapshot: Dictionary) -> Dictionary:
+	if _routing_assignment_undo.is_empty():
+		return {}
+	if int(_routing_assignment_undo.get("day", -1)) != int(snapshot.get("day", -2)):
+		return {}
+	var worker_id := int(_routing_assignment_undo.get("worker_id", -1))
+	var worker := _worker_record(snapshot, worker_id)
+	var previous_lane := StringName(_routing_assignment_undo.get("previous_lane", &""))
+	var current_lane := StringName(_routing_assignment_undo.get("current_lane", &""))
+	if (
+		worker.is_empty()
+		or not bool(worker.get("employed", int(worker.get("desk_index", -1)) >= 0))
+		or previous_lane not in PeckworkRoutingUI.ASSIGNMENT_ORDER
+		or current_lane not in PeckworkRoutingUI.ASSIGNMENT_ORDER
+		or StringName(worker.get("assigned_lane", &"")) != current_lane
+	):
+		return {}
+	return _routing_assignment_undo.duplicate(true)
 
 
 func _on_claim_resolution_requested(worker_id: int, path_id: StringName) -> void:
@@ -6457,6 +6561,7 @@ func _on_campaign_new_requested() -> void:
 	# A new file is committed through CampaignSaveStore's verified temporary-file
 	# transaction. Keeping the current primary in place until that commit succeeds
 	# also lets the store refresh its recovery copy with the previous campaign.
+	_routing_assignment_undo.clear()
 	var had_prior_save := _campaign_store.has_save()
 	var selected_challenge_id := CampaignStateScript.CHALLENGE_STANDARD_FILING
 	if _campaign_ui != null and _campaign_ui.has_method("selected_challenge_contract_id"):
@@ -6527,6 +6632,16 @@ func _on_campaign_presentation_state_changed() -> void:
 	# cannot rely on a later simulation tick to refresh the Web mirror.
 	if _simulation != null:
 		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_interaction_safety_presentation_changed() -> void:
+	# Confirmation dialogs and one-level Undo are presentation state. They may
+	# open while the simulation is paused, so publish immediately rather than
+	# waiting for an unrelated economic tick.
+	if _simulation == null:
+		return
+	_web_diagnostic_next_allowed_msec = 0
+	_publish_web_diagnostic_state(_simulation.snapshot(true))
 
 
 func _on_campaign_continue_requested() -> void:
@@ -8831,6 +8946,7 @@ func _publish_checkpoint_diagnostic() -> void:
 
 
 func _load_campaign_checkpoint() -> void:
+	_routing_assignment_undo.clear()
 	var candidates: Array[Dictionary] = _campaign_store.load_recovery_candidates()
 	if candidates.is_empty():
 		_has_campaign_checkpoint_candidate = false
@@ -10573,6 +10689,12 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 				senior_diagnostic["pending_mandate_confirmation"] = (
 					pending_mandate_confirmation.duplicate(true)
 				)
+	var routing_interaction_safety: Dictionary = {}
+	if _routing_ui != null and _routing_ui.has_method("interaction_safety_state"):
+		routing_interaction_safety = _routing_ui.interaction_safety_state()
+	var staffing_interaction_safety: Dictionary = {}
+	if _staffing_ui != null and _staffing_ui.has_method("interaction_safety_state"):
+		staffing_interaction_safety = _staffing_ui.interaction_safety_state()
 	var state := {
 		"coordinate_system": "Canvas origin is top-left; +x right, +y down; authored stage 1280x720.",
 		"mode": "godot_canvas",
@@ -10617,6 +10739,10 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 			),
 		},
 		"settings": settings_state,
+		"interaction_safety": {
+			"routing": routing_interaction_safety,
+			"staffing": staffing_interaction_safety,
+		},
 		"notifications": _notification_diagnostic_state(),
 		"flockwatch": _flockwatch_diagnostic_state(),
 		"commendations": _commendations_diagnostic_state(),

@@ -704,6 +704,37 @@ function buildGameStateAccessibleStatus(
 			|| "Coop Settings and Controls are open.";
 		return `${summary} Objective: adjust a preference or control binding, then choose Return to the Floor.`;
 	}
+	const interactionSafety = recordValue(state.interaction_safety);
+	const routingSafety = recordValue(interactionSafety.routing);
+	const staffingSafety = recordValue(interactionSafety.staffing);
+	if (routingSafety.claim_confirmation_visible === true) {
+		const path = diagnosticTitle(diagnosticPlainText(
+			routingSafety.claim_confirmation_path_id,
+			60,
+		) || "claimant path");
+		const claimId = Math.trunc(numberValue(
+			routingSafety.claim_confirmation_claim_id,
+			-1,
+		));
+		return `Irreversible claimant path awaiting confirmation. ${path}${claimId >= 0 ? ` for claim ${claimId}` : ""}. No Feed Fund or claim state has changed. Objective: confirm the disclosed filing or cancel to keep the current path.`;
+	}
+	if (staffingSafety.release_confirmation_visible === true) {
+		const workerName = diagnosticPlainText(
+			staffingSafety.release_worker_name,
+			80,
+		) || "selected hen";
+		const releaseCost = formatCurrencyFromCents(numberValue(
+			staffingSafety.release_cost_cents,
+			0,
+		));
+		return `Hen release awaiting confirmation. ${workerName}, separation cost ${releaseCost}. Employment and Feed Fund are unchanged. Objective: confirm the disclosed release or cancel to keep this hen employed.`;
+	}
+	const routeUndoStatus = routingSafety.route_undo_visible === true
+		? ` Route Undo is available to restore ${diagnosticTitle(
+			diagnosticPlainText(routingSafety.route_undo_previous_lane, 60)
+				|| "the prior tray",
+		)} for future files; completed claim work will not be rolled back.`
+		: "";
 	const capacityCommissioning = recordValue(state.capacity_commissioning);
 	if (capacityCommissioning.active === true) {
 		const capacity = Math.max(1, Math.trunc(numberValue(capacityCommissioning.capacity, 1)));
@@ -1194,7 +1225,7 @@ function buildGameStateAccessibleStatus(
       const forecastStatus = seniorActive && careerForecastSummary.length > 0
         ? ` ${careerForecastSummary}`
         : "";
-			return `${shiftLabel} running. ${binderName}, ${stringValue(activeContract.season_label) || seasonLabel}, ${contractClauseSummary(activeContract)}: ${completed} of ${required} clean folders delivered on time; ${premiumSummary}, paid only on fulfillment.${restedStatus} ${standingSummary} ${serviceCoopSummary}${priorityPeckStatus}${operationsStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: ${contractObjective}`;
+			return `${shiftLabel} running. ${binderName}, ${stringValue(activeContract.season_label) || seasonLabel}, ${contractClauseSummary(activeContract)}: ${completed} of ${required} clean folders delivered on time; ${premiumSummary}, paid only on fulfillment.${restedStatus} ${standingSummary} ${serviceCoopSummary}${priorityPeckStatus}${routeUndoStatus}${operationsStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: ${contractObjective}`;
     }
     const onTrack = Math.max(0, Math.trunc(numberValue(orders.on_track, 0)));
     const total = Math.max(0, Math.trunc(numberValue(orders.total, 0)));
@@ -1202,8 +1233,8 @@ function buildGameStateAccessibleStatus(
       ? ` ${careerForecastSummary}`
       : "";
     return total > 0
-			? `${shiftLabel} running. ${onTrack} of ${total} ${seniorActive ? "quarter objectives" : "probation orders"} on track.${priorityPeckStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${careActivitySummary.length > 0 ? ` ${careActivitySummary}` : ""}${operationsActivity.length > 0 ? ` ${operationsActivity}` : ""}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: route files and keep the objectives on track.`
-			: `${shiftLabel} running.${priorityPeckStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${careActivitySummary.length > 0 ? ` ${careActivitySummary}` : ""}${operationsActivity.length > 0 ? ` ${operationsActivity}` : ""}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: route files and monitor the flock.`;
+			? `${shiftLabel} running. ${onTrack} of ${total} ${seniorActive ? "quarter objectives" : "probation orders"} on track.${priorityPeckStatus}${routeUndoStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${careActivitySummary.length > 0 ? ` ${careActivitySummary}` : ""}${operationsActivity.length > 0 ? ` ${operationsActivity}` : ""}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: route files and keep the objectives on track.`
+			: `${shiftLabel} running.${priorityPeckStatus}${routeUndoStatus}${forecastStatus}${activePrecedentStatus}${annualMandateStatus}${careActivitySummary.length > 0 ? ` ${careActivitySummary}` : ""}${operationsActivity.length > 0 ? ` ${operationsActivity}` : ""}${provisionsSummary.length > 0 ? ` ${provisionsSummary}` : ""}${farmgateSummary.length > 0 ? ` ${farmgateSummary}` : ""}${farmTreasuryStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: route files and monitor the flock.`;
   }
   return "Game ready. Objective: follow the current in-game guidance.";
 }

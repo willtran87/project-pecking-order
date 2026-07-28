@@ -19,6 +19,7 @@ signal capital_blueprint_requested
 signal manager_assignment_requested(manager_id: StringName, assignment_id: StringName)
 signal manager_posture_requested(manager_id: StringName, posture_id: StringName)
 signal manager_recruit_requested(candidate_id: StringName)
+signal interaction_safety_changed
 
 const FlockRelationsCaseUIScript := preload("res://features/office/flock_relations_case_ui.gd")
 const FeedProcurementUIScript := preload("res://features/office/feed_procurement_ui.gd")
@@ -70,6 +71,9 @@ var _inline_facilities_open := false
 var _applicant_list: VBoxContainer
 var _release_selector: OptionButton
 var _release_button: Button
+var _release_confirmation: ConfirmationDialog
+var _pending_release_worker_id := -1
+var _release_confirmation_origin: Control
 var _last_action_label: Label
 var _selected_release_worker_id := -1
 var _facility_refresh_serial := 0
@@ -86,6 +90,8 @@ func _ready() -> void:
 func apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
 	_ensure_interface()
+	if not _pending_release_is_valid():
+		_cancel_release_confirmation(false)
 	_refresh()
 
 
@@ -251,11 +257,45 @@ func _build_interface() -> void:
 	_release_button.custom_minimum_size = Vector2(92.0, 38.0)
 	_release_button.pressed.connect(_on_release_pressed)
 	release_row.add_child(_release_button)
+	_build_release_confirmation()
 
 	_last_action_label = _make_label("", 12, Color("d7c17d"))
 	_last_action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_last_action_label.visible = false
 	_flock_domain.add_child(_last_action_label)
+
+
+func _build_release_confirmation() -> void:
+	_release_confirmation = ConfirmationDialog.new()
+	_release_confirmation.name = "StaffReleaseConfirmation"
+	_release_confirmation.title = "RELEASE A HEN?"
+	_release_confirmation.ok_button_text = "FILE RELEASE"
+	_release_confirmation.cancel_button_text = "KEEP HEN EMPLOYED"
+	_release_confirmation.min_size = Vector2i(340, 250)
+	var copy := _release_confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 132.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_release_confirmation.confirmed.connect(_confirm_release)
+	_release_confirmation.canceled.connect(_cancel_release_confirmation)
+	add_child(_release_confirmation)
+
+
+func interaction_safety_state() -> Dictionary:
+	var worker := _staffing_record(_pending_release_worker_id)
+	return {
+		"release_confirmation_visible": (
+			_release_confirmation != null and _release_confirmation.visible
+		),
+		"release_worker_id": _pending_release_worker_id,
+		"release_worker_name": String(worker.get(
+			"name",
+			worker.get("display_name", ""),
+		)),
+		"release_cost_cents": int(worker.get("release_cost_cents", 0)),
+	}
 
 
 func _new_domain_root(node_name: String) -> VBoxContainer:
@@ -2243,6 +2283,8 @@ func _refresh_last_action() -> void:
 
 
 func _on_release_selection_changed(index: int) -> void:
+	if _pending_release_worker_id >= 0:
+		_cancel_release_confirmation(false)
 	if index < 0 or index >= _release_selector.item_count:
 		return
 	var metadata: Variant = _release_selector.get_item_metadata(index)
@@ -2256,8 +2298,93 @@ func _on_release_selection_changed(index: int) -> void:
 
 
 func _on_release_pressed() -> void:
-	if _selected_release_worker_id >= 0:
-		release_requested.emit(_selected_release_worker_id)
+	if (
+		_selected_release_worker_id < 0
+		or _release_button == null
+		or _release_button.disabled
+	):
+		return
+	var worker := _staffing_record(_selected_release_worker_id)
+	if worker.is_empty() or not bool(worker.get("can_release", true)):
+		return
+	_pending_release_worker_id = _selected_release_worker_id
+	_release_confirmation_origin = _release_button
+	var display_name := String(worker.get(
+		"name",
+		worker.get(
+			"display_name",
+			"HEN %d" % (_selected_release_worker_id + 1),
+		),
+	)).strip_edges()
+	var release_cost := int(worker.get("release_cost_cents", 0))
+	var wage := int(worker.get("daily_wage_cents", 0))
+	_release_confirmation.title = "RELEASE %s?" % display_name.to_upper()
+	_release_confirmation.ok_button_text = "FILE %s'S RELEASE" % display_name.to_upper()
+	_release_confirmation.dialog_text = (
+		"This separation removes %s from the active roost and her assigned perch.\n\n"
+		+ "SEPARATION COST  /  $%.2f\n"
+		+ "DAILY PAYROLL REMOVED  /  $%.2f\n\n"
+		+ "No Feed Fund, staffing, or save state changes until you confirm. "
+		+ "Once filed, this release cannot be undone during the current review."
+	) % [
+		display_name.to_upper(),
+		float(release_cost) / 100.0,
+		float(wage) / 100.0,
+	]
+	_release_confirmation.popup_centered_clamped(Vector2i(370, 300), 0.92)
+	interaction_safety_changed.emit()
+
+
+func _confirm_release() -> void:
+	if not _pending_release_is_valid():
+		_cancel_release_confirmation(false)
+		return
+	var worker_id := _pending_release_worker_id
+	_clear_pending_release()
+	if _release_confirmation != null:
+		_release_confirmation.hide()
+	release_requested.emit(worker_id)
+	interaction_safety_changed.emit()
+
+
+func _cancel_release_confirmation(restore_focus: bool = true) -> void:
+	var origin := _release_confirmation_origin
+	var had_pending := _pending_release_worker_id >= 0
+	_clear_pending_release()
+	if _release_confirmation != null:
+		_release_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not origin.disabled
+	):
+		origin.call_deferred("grab_focus")
+	if had_pending:
+		interaction_safety_changed.emit()
+
+
+func _clear_pending_release() -> void:
+	_pending_release_worker_id = -1
+	_release_confirmation_origin = null
+
+
+func _pending_release_is_valid() -> bool:
+	if _pending_release_worker_id < 0:
+		return false
+	if not bool(_snapshot.get("staffing_planning_open", false)):
+		return false
+	var worker := _staffing_record(_pending_release_worker_id)
+	return (
+		not worker.is_empty()
+		and _is_employed(worker)
+		and bool(worker.get("can_release", true))
+		and int(_snapshot.get(
+			"spendable_fund_cents",
+			_snapshot.get("revenue_cents", 0),
+		)) >= int(worker.get("release_cost_cents", 0))
+	)
 
 
 func _applicant_entries() -> Array[Dictionary]:

@@ -595,6 +595,63 @@ test("prioritizes the open settings and controls surface for assistive technolog
 	assert.doesNotMatch(status, /Probation safeguards/);
 });
 
+test("prioritizes staged irreversible confirmations without claiming a mutation", async () => {
+	const buildStatus = await accessibleStatusBuilder();
+	const context = { loaded: true, loadError: "", loadProgress: 100 };
+	const claimant = buildStatus(JSON.stringify({
+		campaign_stage: "active",
+		shift_phase: 1,
+		interaction_safety: {
+			routing: {
+				claim_confirmation_visible: true,
+				claim_confirmation_path_id: "<b>settle</b>",
+				claim_confirmation_claim_id: 17,
+			},
+		},
+	}), context);
+	assert.match(claimant, /^Irreversible claimant path awaiting confirmation\./);
+	assert.match(claimant, /Settle for claim 17/);
+	assert.match(claimant, /No Feed Fund or claim state has changed/);
+	assert.match(claimant, /confirm the disclosed filing or cancel/);
+	assert.doesNotMatch(claimant, /<|>|script|globalThis/);
+
+	const release = buildStatus(JSON.stringify({
+		campaign_stage: "active",
+		shift_phase: 3,
+		interaction_safety: {
+			staffing: {
+				release_confirmation_visible: true,
+				release_worker_name: "<em>Mabel</em>",
+				release_cost_cents: 325,
+			},
+		},
+	}), context);
+	assert.match(release, /^Hen release awaiting confirmation\./);
+	assert.match(release, /Mabel, separation cost \$3\.25/);
+	assert.match(release, /Employment and Feed Fund are unchanged/);
+	assert.match(release, /cancel to keep this hen employed/);
+	assert.doesNotMatch(release, /<|>|script|globalThis/);
+});
+
+test("announces one-level route Undo without implying economic rollback", async () => {
+	const buildStatus = await accessibleStatusBuilder();
+	const status = buildStatus(JSON.stringify({
+		campaign_stage: "active",
+		campaign_day: 2,
+		shift_phase: 1,
+		orders: { on_track: 2, total: 3 },
+		interaction_safety: {
+			routing: {
+				route_undo_visible: true,
+				route_undo_previous_lane: "nest_damage",
+			},
+		},
+	}), { loaded: true, loadError: "", loadProgress: 100 });
+	assert.match(status, /Route Undo is available to restore Nest Damage/);
+	assert.match(status, /completed claim work will not be rolled back/);
+	assert.match(status, /Objective: route files and keep the objectives on track/);
+});
+
 test("narrates the visible management decision and every bounded choice", async () => {
 	const buildStatus = await accessibleStatusBuilder();
 	const status = buildStatus(JSON.stringify({
