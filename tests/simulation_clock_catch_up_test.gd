@@ -92,7 +92,8 @@ func _init() -> void:
 
 	# Ordinary 10x play produces one logical tick every 75ms on a healthy frame
 	# cadence. The first tick presents immediately, then adjacent single ticks
-	# may share a read model for at most 120ms while authority continues exactly.
+	# may share one bounded read model for at most 200ms while authority continues
+	# exactly. This keeps accelerated Web play smooth without hiding decisions.
 	var accelerated := _running_simulation(8118)
 	var accelerated_direct := _running_simulation(8118)
 	var accelerated_clock := SimulationClock.new()
@@ -102,17 +103,17 @@ func _init() -> void:
 	accelerated.snapshot_changed.connect(func(state: Dictionary) -> void:
 		accelerated_revisions.append(int(state.get("authoritative_tick_revision", -1)))
 	)
-	for _frame in 3:
+	for _frame in 4:
 		accelerated_clock._process(0.075)
 		accelerated_direct.advance_tick(false)
 	_check(
-		accelerated.checkpoint_revision() == 3,
+		accelerated.checkpoint_revision() == 4,
 		"accelerated presentation coalescing must never drop authoritative ticks",
 		failures,
 	)
 	_check(
-		accelerated_revisions == [1, 3],
-		"healthy 10x cadence should present immediately, then coalesce adjacent ticks inside 120ms",
+		accelerated_revisions == [1, 4],
+		"healthy 10x cadence should present immediately, then coalesce adjacent ticks inside 200ms",
 		failures,
 	)
 	_check(

@@ -2269,3 +2269,47 @@ The next major systems milestone is persistent worker relationships and individu
   `E195CB2F617E0533A751149C5840103C28DEC46CF09DAF8C502C6F8187F76DA1`.
   A new exact-candidate ten-minute hardware probe is required before the
   discrete-GPU evidence row can change from pending.
+
+## 2026-07-28 - Accelerated production and checkpoint hardening
+
+- The exact public shadow-budget candidate completed a foreground-valid
+  ten-minute RTX 3090 probe at 56.50 median FPS with no focus, visibility, or
+  context loss and 72.6 ms p95 input response. It still failed closed at 28.33
+  FPS 1% low and one 781.2 ms stall. Timing correlated the long tail with the
+  first two accelerated shifts rather than the settled office.
+- Profiled the complete durability path instead of weakening the physical
+  thresholds. The schema-v2 integer type map repeated 391 full JSON pointers,
+  consuming 21,524 bytes beside a 17,998-byte opening-career payload. The new
+  schema-v3 envelope stores the same exact int/float evidence as 391 sorted
+  primitive-leaf offsets in 1,501 bytes. Schema-v1 and schema-v2 pointer files
+  migrate and retain their numeric types; primary/backup verification, atomic
+  replacement, portable import/export, and recovery ordering remain intact.
+- Ordinary eggs and adjacent review filings now share a 2.5-second quiet
+  autosave window with a 12-second hard ceiling. First Clutch recovery,
+  completed workdays, explicit backup operations, campaign boundaries, and
+  lifecycle exits remain immediate. A hidden/pagehide request synchronously
+  subsumes every pending generation, so coalescing reduces frame stalls without
+  creating a silent loss path.
+- Healthy 10x authority remains exact at one logical tick per 75 ms, while its
+  immutable visual read model publishes at most every 200 ms. Incidents,
+  reviews, catch-up batches, 1x/3x play, and Priority Peck precision focus remain
+  immediate. The same two-shift browser diagnostic reduced verified checkpoint
+  writes from 48 to 15; the local development host is deliberately not used as
+  production frame-rate evidence.
+- Added `tools/profile_campaign_checkpoint.gd` so payload size, integer-map
+  overhead, capture cost, JSON-safety cost, and verified-store cost can be
+  reproduced independently.
+- The isolated Godot 4.7 suite at
+  `output/godot-full-suite-checkpoint-offset-final/full-suite-summary.json`
+  discovers, completes, and passes all 192/192 scripts with zero failures or
+  timeouts.
+- The independent 21-check release gate passes in 251.634 seconds at
+  `output/release/checkpoint-offset-beta-release-gate.json`, including
+  representative native contracts, Node 24 lint/build, all 49 Web tests,
+  production serving, both evidence validators and handoffs, and exact
+  nine-file artifact parity.
+- The synchronized candidate PCK is 6,319,984 bytes with SHA-256
+  `86C03AE0F2F21309FE5F163743941C22A6702EA85FDCFE0AB5D8B2DDFAFD3E20`.
+  The discrete-GPU row remains pending until the exact committed public
+  candidate completes its fresh ten-minute run and a human signs the physical
+  session protocol.

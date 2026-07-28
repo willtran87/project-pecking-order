@@ -10,8 +10,8 @@ extends RefCounted
 ## keeps the scheduler independently testable and allows a future Web host to
 ## perform an asynchronous filesystem sync without permitting overlapping saves.
 
-const DEFAULT_QUIET_INTERVAL_MSEC := 750
-const DEFAULT_MAXIMUM_INTERVAL_MSEC := 5000
+const DEFAULT_QUIET_INTERVAL_MSEC := 2500
+const DEFAULT_MAXIMUM_INTERVAL_MSEC := 12000
 const DEFAULT_RETRY_INTERVAL_MSEC := 1000
 const MAX_DIAGNOSTIC_REASON_LENGTH := 160
 const NO_TIMESTAMP := -1

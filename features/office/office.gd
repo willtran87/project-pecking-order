@@ -4738,7 +4738,15 @@ func _on_decision_resolved(result: Dictionary) -> void:
 		_advance_after_closing_credit()
 	_refresh_first_clutch_ui(_simulation.snapshot())
 	_update_guidance(_simulation.snapshot())
-	_save_campaign_checkpoint("decision_resolved")
+	# First Clutch decisions remain hard recovery points. Ordinary production,
+	# incident, directive, and closing-credit decisions are durable through the
+	# bounded coordinator window; a lifecycle exit flushes that newest generation
+	# synchronously. This lets adjacent review filings share one verified Web
+	# transaction instead of freezing a frame for every modal step.
+	if _first_clutch_tracking_active():
+		_save_campaign_checkpoint("decision_resolved")
+	else:
+		_queue_campaign_checkpoint("decision_resolved")
 	_present_first_clutch_reinvestment()
 	# Guidance and onboarding refreshes may publish their own next-step copy in
 	# the same synchronous resolution chain. A filed precedent is the rarer,
@@ -6001,7 +6009,7 @@ func _advance_from_farmer_review() -> void:
 		_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
 		_set_campaign_modal_open(false)
 		_simulation.announce_pending_decision()
-		_save_campaign_checkpoint("credit_memo_opened")
+		_queue_campaign_checkpoint("credit_memo_opened")
 		return
 	_advance_after_closing_credit()
 
@@ -6018,7 +6026,7 @@ func _advance_after_closing_credit() -> void:
 	_campaign_review_stage = &"probation"
 	_campaign_ui.show_between_shift_report(_campaign_presentation_snapshot(&"between_shift"))
 	_set_campaign_modal_open(true)
-	_save_campaign_checkpoint("probation_report")
+	_queue_campaign_checkpoint("probation_report")
 
 
 func _farmer_relations_gallery_projection(snapshot: Dictionary = {}) -> Dictionary:
@@ -6849,7 +6857,7 @@ func _on_market_contract_sign_requested(
 		receipt.get("reason", "FARM MUTUAL SIGNATURE HELD."),
 	))
 	if bool(receipt.get("accepted", false)):
-		_save_campaign_checkpoint("market_contract_signed")
+		_queue_campaign_checkpoint("market_contract_signed")
 
 
 func _on_market_contract_decline_requested() -> void:
@@ -6861,7 +6869,7 @@ func _on_market_contract_decline_requested() -> void:
 		receipt.get("reason", "STANDARD BOOK FILING HELD."),
 	))
 	if bool(receipt.get("accepted", false)):
-		_save_campaign_checkpoint("market_contract_declined")
+		_queue_campaign_checkpoint("market_contract_declined")
 
 
 func _on_campaign_milestone_requested(choice_id: StringName) -> void:
@@ -7063,7 +7071,7 @@ func _begin_next_shift_from_campaign() -> void:
 		_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
 		_set_campaign_modal_open(false)
 		_simulation.announce_pending_decision()
-		_save_campaign_checkpoint("credit_memo_required")
+		_queue_campaign_checkpoint("credit_memo_required")
 		return
 	_campaign_review_stage = &"active"
 	_day_review_scrim.visible = false
@@ -7074,7 +7082,7 @@ func _begin_next_shift_from_campaign() -> void:
 		_ticker_label.text = "NEXT SHIFT HELD. Finish the farmer review before filing another briefing."
 		return
 	_update_campaign_objectives_label()
-	_save_campaign_checkpoint("next_shift_briefing")
+	_queue_campaign_checkpoint("next_shift_briefing")
 
 
 func _open_contract_board_or_begin_next_shift() -> void:
@@ -7088,7 +7096,7 @@ func _open_contract_board_or_begin_next_shift() -> void:
 	_campaign_ui.show_contract_board(_simulation.snapshot())
 	_set_campaign_modal_open(true)
 	_update_campaign_objectives_label()
-	_save_campaign_checkpoint("market_contract_board")
+	_queue_campaign_checkpoint("market_contract_board")
 
 
 func _continue_from_contract_board() -> void:

@@ -28,7 +28,7 @@ func _init() -> void:
 			push_error("CAMPAIGN_SAVE_STORE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPAIGN_SAVE_STORE_TEST_PASSED schema=%d json=validated+compact backup=recovered+portable candidates=ordered+isolated senior_roost=retained migration=v1-to-v2" % CampaignSaveStore.CURRENT_SCHEMA_VERSION)
+	print("CAMPAIGN_SAVE_STORE_TEST_PASSED schema=%d json=validated+compact-offsets backup=recovered+portable candidates=ordered+isolated senior_roost=retained migration=v1-to-v3" % CampaignSaveStore.CURRENT_SCHEMA_VERSION)
 	quit(0)
 
 
@@ -87,8 +87,8 @@ func _test_round_trip_and_backup_recovery(store: CampaignSaveStore, failures: Ar
 
 	var first_loaded := store.load()
 	_check(not first_loaded.is_empty(), "saved campaign should load", failures)
-	_check(CampaignSaveStore.CURRENT_SCHEMA_VERSION == 2, "Senior Roost payload must not bump the outer persistence schema", failures)
-	_check(int(first_loaded.get("schema_version", -1)) == 2, "composite payload should remain wrapped in schema v2", failures)
+	_check(CampaignSaveStore.CURRENT_SCHEMA_VERSION == 3, "compact integer offsets should own outer persistence schema v3", failures)
+	_check(int(first_loaded.get("schema_version", -1)) == 3, "composite payload should be wrapped in schema v3", failures)
 	_check(first_loaded.get("campaign", {}) == first_expected, "save should deep-copy caller campaign data", failures)
 	var first_loaded_payload := first_loaded.get("campaign", {}) as Dictionary
 	var first_loaded_campaign := first_loaded_payload.get("campaign", {}) as Dictionary
@@ -117,7 +117,7 @@ func _test_round_trip_and_backup_recovery(store: CampaignSaveStore, failures: Ar
 	_check(store.save(second_campaign, {"slot_name": "Test Coop", "play_seconds": 88}), "overwrite should rotate a valid backup: %s" % store.last_error, failures)
 	var second_loaded := store.load()
 	_check(second_loaded.get("campaign", {}) == second_campaign, "latest composite primary should load after overwrite", failures)
-	_check(int(second_loaded.get("schema_version", -1)) == 2, "overwrite should retain outer schema v2", failures)
+	_check(int(second_loaded.get("schema_version", -1)) == 3, "overwrite should retain outer schema v3", failures)
 	_check(int((second_loaded.get("metadata", {}) as Dictionary).get("save_revision", -1)) == 2, "overwrite should advance revision", failures)
 
 	_write_raw(TEST_PATH, "{ definitely broken", failures)
@@ -126,7 +126,7 @@ func _test_round_trip_and_backup_recovery(store: CampaignSaveStore, failures: Ar
 	_check(bool(recovered.get("recovered_from_backup", false)), "fallback result should disclose recovery", failures)
 	_check(String(recovered.get("recovery_source", "")) == "backup", "fallback should identify the backup source", failures)
 	_check(recovered.get("campaign", {}) == first_expected, "rotated backup should retain the previous committed campaign", failures)
-	_check(int(recovered.get("schema_version", -1)) == 2, "recovered composite payload should retain outer schema v2", failures)
+	_check(int(recovered.get("schema_version", -1)) == 3, "recovered composite payload should retain outer schema v3", failures)
 	var recovered_payload := recovered.get("campaign", {}) as Dictionary
 	_check(
 		recovered_payload.get("senior_roost", {}) == first_expected.get("senior_roost", {}),
@@ -353,6 +353,28 @@ func _test_schema_migration(store: CampaignSaveStore, failures: Array[String]) -
 	_check(int((migrated.get("metadata", {}) as Dictionary).get("migrated_from_schema_version", -1)) == 1, "migration should record its source schema", failures)
 	_check(int((migrated.get("metadata", {}) as Dictionary).get("save_revision", -1)) == 5, "migration should preserve revision metadata", failures)
 	store.delete()
+	var version_two := {
+		"format": CampaignSaveStore.SAVE_FORMAT,
+		"schema_version": 2,
+		"campaign": {"day": 8, "morale": 70.0},
+		"metadata": {"saved_at_unix": 456, "save_revision": 6},
+		"integer_paths": [
+			"/campaign/day",
+			"/metadata/saved_at_unix",
+			"/metadata/save_revision",
+		],
+	}
+	_write_raw(TEST_PATH, JSON.stringify(version_two), failures)
+	var migrated_v2 := store.load()
+	_check(not migrated_v2.is_empty(), "schema-two pointer encoding should migrate", failures)
+	_check(
+		int(migrated_v2.get("schema_version", -1)) == CampaignSaveStore.CURRENT_SCHEMA_VERSION
+		and typeof((migrated_v2.get("campaign", {}) as Dictionary).get("day")) == TYPE_INT
+		and typeof((migrated_v2.get("campaign", {}) as Dictionary).get("morale")) == TYPE_FLOAT,
+		"schema-two migration should preserve its exact int and float types",
+		failures,
+	)
+	store.delete()
 
 
 func _test_future_schema_rejection(store: CampaignSaveStore, failures: Array[String]) -> void:
@@ -490,11 +512,10 @@ func _write_candidate_envelope(
 			"saved_at_unix": 1000 + revision,
 			"save_revision": revision,
 		},
-		"integer_paths": [
-			"/campaign/counter",
-			"/metadata/saved_at_unix",
-			"/metadata/save_revision",
-		],
+		# Deterministic sorted-key primitive traversal:
+		# campaign.counter=0, marker=1, shared.token=2,
+		# metadata.fixture_source=3, save_revision=4, saved_at_unix=5.
+		"integer_offsets": [0, 4, 5],
 	}
 	_write_raw(path, JSON.stringify(envelope), failures)
 
