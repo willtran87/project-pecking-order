@@ -145,6 +145,9 @@ func _run() -> void:
 	comfort["visual_quality"] = "low"
 	comfort["timing_assist"] = "extended"
 	comfort["notice_level"] = "priority"
+	comfort["notice_duration"] = "extended"
+	comfort["effect_level"] = "reduced"
+	comfort["haptics_enabled"] = false
 	comfort["pause_when_unfocused"] = true
 	(comfort.get("audio", {}) as Dictionary)["ambient"] = {"volume": 0.37, "muted": true}
 	office.set("_player_preferences", comfort)
@@ -154,6 +157,15 @@ func _run() -> void:
 	_check(bool(controller.get("_reduced_motion")), "reduced motion should reach the actual camera controller", failures)
 	_check(bool(controller.get("_high_contrast")), "high contrast should strengthen the world-space focus marker", failures)
 	_check(not bool((atmosphere.get("_dust_motes") as GPUParticles3D).emitting), "reduced motion and low detail should stop ambient particles", failures)
+	var effect_snapshot := atmosphere.effect_snapshot()
+	_check(
+		String(effect_snapshot.get("level", "")) == "reduced"
+		and not bool(effect_snapshot.get("ambient_particles", true))
+		and not bool(effect_snapshot.get("event_bursts", true))
+		and audio_feedback != null and not audio_feedback.haptics_enabled(),
+		"effect density and haptics preferences should reach their live feedback systems",
+		failures,
+	)
 	_check(sun != null and not sun.shadow_enabled, "performance detail should disable the expensive office sun shadow", failures)
 	_check(is_equal_approx(root.scaling_3d_scale, 0.82), "performance detail should lower only the 3D render scale", failures)
 	office.call("_apply_visual_quality", &"balanced")
@@ -221,6 +233,12 @@ func _run() -> void:
 		and String((recent_notices[0] as Dictionary).get("label", "")) == "ACTION"
 		and String((recent_notices[1] as Dictionary).get("label", "")) == "ROUTINE",
 		"the bounded diagnostic record should preserve newest-first copy with redundant semantic priority labels",
+		failures,
+	)
+	_check(
+		String(notification_diagnostic.get("duration", "")) == "extended"
+		and int(notification_diagnostic.get("configured_hold_msec", 0)) == 9000,
+		"extended notice duration should publish the exact bounded toast hold",
 		failures,
 	)
 	var notice_campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
@@ -337,7 +355,7 @@ func _run() -> void:
 			push_error("SETTINGS_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe input=17+camera+ack+rollback audio=feedback+adaptive+ambient-independent notices=priority+archive-only+semantic-labels focus-pause=restore+opt-out motion=scene contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
+	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe input=17+camera+ack+rollback audio=feedback+adaptive+ambient-independent notices=priority+archive-only+semantic-labels+duration effects=density+motion haptics=optional focus-pause=restore+opt-out contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
 	quit(0)
 
 

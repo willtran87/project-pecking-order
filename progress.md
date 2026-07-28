@@ -1982,3 +1982,45 @@ The next major systems milestone is persistent worker relationships and individu
 - The physical validator's valid fixture now uses a real generated ZIP rather
   than a Markdown stand-in. It passes while all 14 targeted adversarial fixtures
   fail one-for-one. The seven signed human-hardware sessions remain pending.
+
+## 2026-07-28 — Feedback preference controls
+
+- Expanded the independent player-preference contract to schema v5 with three
+  release-facing controls: Full/Reduced/Essential Only effect density,
+  Brief/Standard/Extended transient-notice duration, and optional haptics on
+  supported devices. Schema-v1 through schema-v4 saves and browser mirrors
+  migrate to explicit safe defaults.
+- Integrated those controls into the existing responsive Settings surface and
+  its accessible summary. The compact 390x844 and 844x390 layouts remain
+  contained; the first long haptics label found by the focused test was shortened
+  without removing its complete tooltip or narration.
+- Effect density is authoritative. Reduced removes ambient dust and feathers
+  while retaining smaller semantic event bursts; Essential Only removes
+  decorative particles and lighting pulses. Text, symbols, status labels,
+  receipts, warning history, and audio remain complete in every mode.
+- Haptics reuse the fixed semantic feedback path instead of creating a second
+  event system. Confirmations, denials, alerts, rare outcomes, and milestones
+  produce short bounded vibration receipts when enabled; routine production
+  noise does not. Disabling haptics leaves the existing visual and audio channels
+  intact.
+- Focused native verification passes 6/6 for preference persistence/migration,
+  the browser mirror, responsive Settings, live Office integration, pooled
+  audio/haptics, and effect density. The exact settings-copy correction passes
+  its 2/2 focused rerun.
+- Godot Web release export and all nine-file `docs/` /
+  `web/public/game/` parity pass. The final PCK is 6,275,544 bytes with SHA-256
+  `D2B36FC197157AB4FC8B50AA91C5244512981552A58300F955C3270C25526C8A`.
+- Bundled Node 24 lint, production build, 42/42 rendered accessibility tests,
+  and production payload serving pass. The browser Settings audit reports zero
+  errors, survives preference reload, and has no 844x390 horizontal overflow.
+  The independent Web client reaches live First Clutch play with the new settings
+  in `render_game_to_text`, zero browser-error artifact, and zero orphan nodes.
+
+## Next acceptance work
+
+- Continue the expanded economic-game checklist audit with the remaining
+  unproven UX contracts: explicit animation-speed/tooltip-delay preferences
+  where the interaction model benefits, automated irreversible-confirmation and
+  undo coverage, and structured usability/playtest evidence.
+- Physical iOS/Android touch, desktop/mobile screen-reader, listening, integrated
+  GPU, and discrete GPU sessions remain external human-hardware sign-offs.

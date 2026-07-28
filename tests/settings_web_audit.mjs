@@ -76,11 +76,11 @@ const focusGameAndOpenSettings = async () => {
 
 const toggleHighContrast = async (expectedState) => {
   // Settings gives its safe Return button initial focus. Walk the authored
-  // keyboard order through five mute/slider pairs and six selectors to the
+  // keyboard order through five mute/slider pairs and eight selectors to the
   // High Contrast check row, then activate it with Space. This follows the
   // same reachable path a keyboard or switch-control player uses and avoids
   // viewport-dependent coordinates inside the Godot canvas.
-  for (let index = 0; index < 17; index += 1) {
+  for (let index = 0; index < 19; index += 1) {
     await page.keyboard.press("Tab");
   }
   await page.waitForTimeout(300);
@@ -110,6 +110,20 @@ if (initial.settings.audio?.ambient?.volume !== 0.65 || initial.settings.audio?.
 if (initial.settings.high_contrast !== false) {
   throw new Error("Fresh browser context did not begin from the documented contrast default.");
 }
+if (
+  initial.settings.effect_level !== "full"
+  || initial.settings.notice_duration !== "standard"
+  || initial.settings.haptics_enabled !== true
+) {
+  throw new Error("Fresh browser settings did not publish the feedback preference defaults.");
+}
+if (
+  !initial.settings.accessible_text.toLowerCase().includes("effect density full")
+  || !initial.settings.accessible_text.toLowerCase().includes("standard duration")
+  || !initial.settings.accessible_text.toLowerCase().includes("haptics enabled")
+) {
+  throw new Error("Open settings did not narrate effect density, notice duration, and haptics.");
+}
 
 await page.screenshot({ path: path.join(outputDir, "settings-desktop.png"), fullPage: true });
 await toggleHighContrast(true);
@@ -124,6 +138,13 @@ if (restored?.settings?.high_contrast !== true) {
 }
 if (restored?.settings?.pause_when_unfocused !== true || restored?.settings?.audio?.ambient?.volume !== 0.65) {
   throw new Error("Focus safety or independent ambience did not survive browser preference restoration.");
+}
+if (
+  restored?.settings?.effect_level !== "full"
+  || restored?.settings?.notice_duration !== "standard"
+  || restored?.settings?.haptics_enabled !== true
+) {
+  throw new Error("Feedback preferences did not survive browser preference restoration.");
 }
 
 await page.setViewportSize({ width: 844, height: 390 });

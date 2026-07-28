@@ -213,10 +213,18 @@ were 40px high.
       ominous as incentives and consequences accumulate.
 - [x] High-value outcomes use bounded lights, particles, trails, receipts, and
       audio pooling rather than unbounded effects.
+- [x] Players can select Full, Reduced, or Essential Only effect density without
+      losing authoritative text, symbols, warning history, receipts, or audio.
+- [x] Players can select Brief, Standard, or Extended transient-notice duration;
+      the complete labeled Shift Record remains available in every mode.
+- [x] Supported devices can use restrained optional haptics for confirmations,
+      warnings, rare outcomes, and milestones. Routine production stays calm,
+      and disabling vibration preserves complete visual and audio feedback.
 
 Evidence: `office_audio_director.gd`, `office_audio_feedback.gd`,
 `office_atmosphere.gd`, `audio_feedback_test.gd`, and
-`office_audio_director_test.gd`.
+`office_audio_director_test.gd`, plus `player_preferences_store_test.gd`,
+`settings_ui_test.gd`, and `settings_office_integration_test.gd`.
 
 ## Reliability, saves, and verification
 

@@ -53,13 +53,43 @@ func _run() -> void:
 	_check(farmer_spotlight != null and farmer_spotlight.light_energy > 0.5, "farmer review should receive a focused golden light cue", failures)
 	_check(atmosphere.find_child("EggGatheringPulse*", true, false) != null, "egg events should create a bounded one-shot burst", failures)
 	_check(event_bursts != null and event_bursts.get_child_count() == 8, "egg events must reuse the resident particle pool", failures)
+	atmosphere.set_effect_level(&"reduced")
+	var reduced_snapshot := atmosphere.effect_snapshot()
+	atmosphere.pulse_egg_laid(Vector3(1.0, 0.0, 0.0), &"sound")
+	await process_frame
+	var reduced_burst_found := false
+	for burst_value in atmosphere.find_children("EggGatheringPulse*", "GPUParticles3D", true, false):
+		var burst := burst_value as GPUParticles3D
+		if burst != null and burst.amount == 4:
+			reduced_burst_found = true
+	_check(
+		String(reduced_snapshot.get("level", "")) == "reduced"
+		and not bool(reduced_snapshot.get("ambient_particles", true))
+		and bool(reduced_snapshot.get("event_bursts", false))
+		and not dust.emitting and not feathers.emitting
+		and reduced_burst_found,
+		"reduced effects should stop ambient particles while retaining a smaller semantic event burst",
+		failures,
+	)
+	atmosphere.set_effect_level(&"off")
+	var off_snapshot := atmosphere.effect_snapshot()
+	_check(
+		String(off_snapshot.get("level", "")) == "off"
+		and not bool(off_snapshot.get("ambient_particles", true))
+		and not bool(off_snapshot.get("event_bursts", true))
+		and accents.all(func(light: Node) -> bool: return not (light as OmniLight3D).visible)
+		and red_bar != null and not red_bar.get_parent().visible
+		and farmer_spotlight != null and is_zero_approx(farmer_spotlight.light_energy),
+		"essential-only effects should remove decorative motion and lighting while leaving the fixed pool reusable",
+		failures,
+	)
 
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("OFFICE_ATMOSPHERE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("OFFICE_ATMOSPHERE_TEST_PASSED particles=bounded+pooled+prewarmed lights=3-shadowless overtime=emissive events=burst")
+	print("OFFICE_ATMOSPHERE_TEST_PASSED particles=bounded+pooled+prewarmed lights=3-shadowless overtime=emissive events=full+reduced+off")
 	quit(0)
 
 

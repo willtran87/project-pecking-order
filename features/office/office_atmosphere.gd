@@ -38,6 +38,7 @@ var _event_pulse: float = 0.0
 var _elapsed: float = 0.0
 var _atmosphere_enabled: bool = true
 var _reduced_motion: bool = false
+var _effect_level: StringName = &"full"
 
 
 func _ready() -> void:
@@ -90,19 +91,27 @@ func pulse_egg_laid(world_position: Vector3, quality: StringName = &"sound") -> 
 	elif quality == &"cracked":
 		color = Color("b67d70")
 		count = 9
-	if not _reduced_motion:
-		_spawn_event_burst("EggGatheringPulse", world_position, color, count, Vector3.UP, Vector2(0.25, 0.75), 0.72)
+	if _allows_event_bursts():
+		_spawn_event_burst(
+			"EggGatheringPulse",
+			world_position,
+			color,
+			_effect_count(count),
+			Vector3.UP,
+			Vector2(0.25, 0.75),
+			0.72,
+		)
 	_event_pulse = maxf(_event_pulse, 0.5 if quality != &"golden" else 0.9)
 
 
 ## Call when the feed party begins. Defaults to the current trough location.
 func pulse_feed_party(world_position: Vector3 = Vector3(-9.80, 0.72, 0.0)) -> void:
-	if not _reduced_motion:
+	if _allows_event_bursts():
 		_spawn_event_burst(
 			"FeedPartyPulse",
 			world_position,
 			Color("e2b84f"),
-			18,
+			_effect_count(18),
 			Vector3.UP,
 			Vector2(0.45, 1.05),
 			1.05
@@ -118,7 +127,7 @@ func pulse_alert(severity: float = 1.0) -> void:
 func pulse_farmer_review() -> void:
 	if _farmer_spotlight == null:
 		return
-	if _reduced_motion:
+	if _reduced_motion or _effect_level != &"full" or not _atmosphere_enabled:
 		_farmer_spotlight.light_energy = 0.0
 		return
 	_farmer_spotlight.light_energy = 0.92 * atmosphere_strength
@@ -137,16 +146,51 @@ func set_reduced_motion(enabled: bool) -> void:
 	_apply_effect_preferences()
 
 
+func set_effect_level(level: StringName) -> void:
+	_effect_level = level if level in [&"full", &"reduced", &"off"] else &"full"
+	_apply_effect_preferences()
+
+
+func effect_snapshot() -> Dictionary:
+	return {
+		"level": String(_effect_level),
+		"atmosphere_enabled": _atmosphere_enabled,
+		"reduced_motion": _reduced_motion,
+		"ambient_particles": _allows_ambient_particles(),
+		"event_bursts": _allows_event_bursts(),
+	}
+
+
 func _apply_effect_preferences() -> void:
 	if _dust_motes != null:
-		_dust_motes.emitting = _atmosphere_enabled and not _reduced_motion
+		_dust_motes.emitting = _allows_ambient_particles()
 	if _drifting_feathers != null:
-		_drifting_feathers.emitting = _atmosphere_enabled and not _reduced_motion
+		_drifting_feathers.emitting = _allows_ambient_particles()
 	for light in _zone_lights:
-		light.visible = _atmosphere_enabled
+		light.visible = _atmosphere_enabled and _effect_level != &"off"
 	var alert_bars := get_node_or_null("OvertimeAlertBars") as Node3D
 	if alert_bars != null:
-		alert_bars.visible = _atmosphere_enabled
+		alert_bars.visible = _atmosphere_enabled and _effect_level != &"off"
+	if _farmer_spotlight != null and (
+		not _atmosphere_enabled
+		or _reduced_motion
+		or _effect_level != &"full"
+	):
+		_farmer_spotlight.light_energy = 0.0
+
+
+func _allows_ambient_particles() -> bool:
+	return _atmosphere_enabled and not _reduced_motion and _effect_level == &"full"
+
+
+func _allows_event_bursts() -> bool:
+	return _atmosphere_enabled and not _reduced_motion and _effect_level != &"off"
+
+
+func _effect_count(full_count: int) -> int:
+	if _effect_level == &"reduced":
+		return maxi(1, ceili(float(full_count) * 0.45))
+	return maxi(1, full_count)
 
 
 func _build_ambient_particles() -> void:

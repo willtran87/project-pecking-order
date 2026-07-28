@@ -2,6 +2,7 @@ class_name OfficeAudioFeedback
 extends Node
 
 signal cue_played(cue: StringName)
+signal haptic_emitted(cue: StringName, duration_msec: int)
 
 ## Small pooled procedural sound palette. The prototype has no external audio
 ## dependencies, so these short cues are synthesized once and reused by eight
@@ -30,6 +31,10 @@ var _last_cue_msec: Dictionary[StringName, int] = {}
 var _focus_paused := false
 var _last_played_cue: StringName = &""
 var _cue_serial := 0
+var _haptics_enabled := true
+var _last_haptic_cue: StringName = &""
+var _last_haptic_duration_msec := 0
+var _haptic_serial := 0
 var _sound_egg: AudioStreamWAV
 var _cracked_egg: AudioStreamWAV
 var _golden_egg: AudioStreamWAV
@@ -382,8 +387,20 @@ func feedback_snapshot() -> Dictionary:
 		"active_voice_count": active_voice_count,
 		"last_cue": String(_last_played_cue),
 		"cue_serial": _cue_serial,
+		"haptics_enabled": _haptics_enabled,
+		"last_haptic_cue": String(_last_haptic_cue),
+		"last_haptic_duration_msec": _last_haptic_duration_msec,
+		"haptic_serial": _haptic_serial,
 		"focus_paused": _focus_paused,
 	}
+
+
+func set_haptics_enabled(enabled: bool) -> void:
+	_haptics_enabled = enabled
+
+
+func haptics_enabled() -> bool:
+	return _haptics_enabled
 
 
 ## Transient cues should not resume late after a tab or window regains focus.
@@ -478,7 +495,39 @@ func _play(
 	_last_played_cue = cue
 	_cue_serial += 1
 	cue_played.emit(cue)
+	_emit_haptic(cue, priority)
 	return true
+
+
+func _emit_haptic(cue: StringName, priority: int) -> void:
+	if not _haptics_enabled or _focus_paused:
+		return
+	if cue not in [
+		&"golden", &"cracked", &"upgrade", &"feed", &"review",
+		&"decision_alert", &"policy", &"decision_resolved", &"precedent_filed",
+		&"peck_assist", &"payout_confirmation", &"attention_restored",
+		&"denied", &"shift_alert", &"campaign_pass", &"campaign_fail",
+		&"commendation",
+	]:
+		return
+	var duration_msec := 26
+	if priority >= PRIORITY_ALERT:
+		duration_msec = 78
+	elif priority >= PRIORITY_RARE:
+		duration_msec = 56
+	elif priority >= PRIORITY_IMPORTANT:
+		duration_msec = 42
+	_last_haptic_cue = cue
+	_last_haptic_duration_msec = duration_msec
+	_haptic_serial += 1
+	haptic_emitted.emit(cue, duration_msec)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(
+			"if (navigator.vibrate) navigator.vibrate(%d);" % duration_msec,
+			true,
+		)
+	elif OS.has_feature("mobile"):
+		Input.vibrate_handheld(duration_msec)
 
 
 func _next_voice(requested_priority: int) -> AudioStreamPlayer:

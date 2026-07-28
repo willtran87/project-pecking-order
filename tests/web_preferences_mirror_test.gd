@@ -21,6 +21,9 @@ func _init() -> void:
 	_expect(mirror.decode(payload) == preferences, "valid preferences round-trip exactly")
 	var legacy_v2 := preferences.duplicate(true)
 	legacy_v2.erase("notice_level")
+	legacy_v2.erase("notice_duration")
+	legacy_v2.erase("effect_level")
+	legacy_v2.erase("haptics_enabled")
 	legacy_v2.erase("pause_when_unfocused")
 	var legacy_audio := legacy_v2.get("audio", {}) as Dictionary
 	legacy_audio.erase("ambient")
@@ -33,6 +36,9 @@ func _init() -> void:
 	)
 	var legacy_v3 := preferences.duplicate(true)
 	legacy_v3.erase("notice_level")
+	legacy_v3.erase("notice_duration")
+	legacy_v3.erase("effect_level")
+	legacy_v3.erase("haptics_enabled")
 	var legacy_v3_payload := JSON.stringify({
 		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
 		"schema_version": 3,
@@ -42,6 +48,22 @@ func _init() -> void:
 	_expect(
 		String(migrated_v3.get("notice_level", "")) == "all",
 		"schema-three mirrors should gain the non-interrupting-compatible all-notices default",
+	)
+	var legacy_v4 := preferences.duplicate(true)
+	legacy_v4.erase("notice_duration")
+	legacy_v4.erase("effect_level")
+	legacy_v4.erase("haptics_enabled")
+	var legacy_v4_payload := JSON.stringify({
+		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
+		"schema_version": 4,
+		"preferences": legacy_v4,
+	})
+	var migrated_v4 := mirror.decode(legacy_v4_payload)
+	_expect(
+		String(migrated_v4.get("notice_duration", "")) == "standard"
+		and String(migrated_v4.get("effect_level", "")) == "full"
+		and bool(migrated_v4.get("haptics_enabled", false)),
+		"schema-four mirrors should gain safe feedback pacing and supported-device haptics defaults",
 	)
 	_expect(mirror.decode("[]").is_empty(), "array roots are rejected")
 	_expect(not mirror.last_error.is_empty(), "invalid roots disclose an error")
@@ -60,7 +82,7 @@ func _init() -> void:
 	})
 	_expect(mirror.decode(future_payload).is_empty(), "future mirror schemas are rejected")
 	if _failures == 0:
-		print("WEB_PREFERENCES_MIRROR_TEST_PASSED assertions=11 envelope=versioned legacy=v2-music-ambience-preserved+v3-notices-defaulted")
+		print("WEB_PREFERENCES_MIRROR_TEST_PASSED assertions=12 envelope=versioned legacy=v2-music-ambience-preserved+v3-notices-defaulted+v4-feedback-defaulted")
 	quit(_failures)
 
 

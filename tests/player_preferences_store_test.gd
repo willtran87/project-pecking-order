@@ -24,9 +24,12 @@ func _run() -> void:
 	var default_preferences: Dictionary = PlayerPreferencesStoreScript.defaults()
 	_check(PlayerPreferencesStoreScript.validate(default_preferences).is_empty(), "defaults should satisfy the strict persistence schema", failures)
 	_check(
-		default_preferences.keys().size() == 10
+		default_preferences.keys().size() == 13
 		and (default_preferences.get("audio", {}) as Dictionary).keys().size() == 5
 		and String(default_preferences.get("notice_level", "")) == "all"
+		and String(default_preferences.get("notice_duration", "")) == "standard"
+		and String(default_preferences.get("effect_level", "")) == "full"
+		and bool(default_preferences.get("haptics_enabled", false))
 		and bool(default_preferences.get("pause_when_unfocused", false)),
 		"preferences should remain a compact campaign-independent contract",
 		failures,
@@ -47,6 +50,9 @@ func _run() -> void:
 		"visual_quality": "cinematic",
 		"timing_assist": "extended",
 		"notice_level": "interrupt_everything",
+		"notice_duration": "forever",
+		"effect_level": "explosive",
+		"haptics_enabled": "sometimes",
 		"pause_when_unfocused": false,
 		"input_bindings": {"unknown_action": []},
 	})
@@ -77,6 +83,9 @@ func _run() -> void:
 		and String(sanitized.get("visual_quality", "")) == "balanced"
 		and String(sanitized.get("timing_assist", "")) == "extended"
 		and String(sanitized.get("notice_level", "")) == "all"
+		and String(sanitized.get("notice_duration", "")) == "standard"
+		and String(sanitized.get("effect_level", "")) == "full"
+		and bool(sanitized.get("haptics_enabled", false))
 		and not bool(sanitized.get("pause_when_unfocused", true))
 		and (sanitized.get("input_bindings", {}) as Dictionary).is_empty(),
 		"sanitize should canonicalize comfort, quality, timing, and binding values",
@@ -97,6 +106,9 @@ func _run() -> void:
 	first_preferences["visual_quality"] = "high"
 	first_preferences["timing_assist"] = "lenient"
 	first_preferences["notice_level"] = "priority"
+	first_preferences["notice_duration"] = "extended"
+	first_preferences["effect_level"] = "reduced"
+	first_preferences["haptics_enabled"] = false
 	first_preferences["pause_when_unfocused"] = false
 	first_preferences["input_bindings"] = {
 		"peck_assist": [{"type": "key", "physical_keycode": KEY_Q}],
@@ -114,6 +126,9 @@ func _run() -> void:
 	second_preferences["ui_scale"] = 1.5
 	second_preferences["visual_quality"] = "low"
 	second_preferences["notice_level"] = "archive_only"
+	second_preferences["notice_duration"] = "brief"
+	second_preferences["effect_level"] = "off"
+	second_preferences["haptics_enabled"] = true
 	(second_preferences.get("audio", {}) as Dictionary)["music"] = {"volume": 0.2, "muted": true}
 	_check(store.save_preferences(second_preferences), "a second valid save should rotate a known-good backup", failures)
 	_check(store.load_preferences() == second_preferences, "the newest valid primary should load exactly", failures)
@@ -142,6 +157,9 @@ func _run() -> void:
 	var legacy_preferences := default_preferences.duplicate(true)
 	legacy_preferences.erase("color_vision_mode")
 	legacy_preferences.erase("notice_level")
+	legacy_preferences.erase("notice_duration")
+	legacy_preferences.erase("effect_level")
+	legacy_preferences.erase("haptics_enabled")
 	legacy_preferences.erase("pause_when_unfocused")
 	(legacy_preferences.get("audio", {}) as Dictionary).erase("ambient")
 	var legacy_envelope := {
@@ -155,6 +173,9 @@ func _run() -> void:
 	_check(
 		String(migrated_preferences.get("color_vision_mode", "")) == "standard"
 		and String(migrated_preferences.get("notice_level", "")) == "all"
+		and String(migrated_preferences.get("notice_duration", "")) == "standard"
+		and String(migrated_preferences.get("effect_level", "")) == "full"
+		and bool(migrated_preferences.get("haptics_enabled", false))
 		and bool(migrated_preferences.get("pause_when_unfocused", false))
 		and (migrated_preferences.get("audio", {}) as Dictionary).has("ambient")
 		and PlayerPreferencesStoreScript.validate(migrated_preferences).is_empty(),
@@ -183,7 +204,7 @@ func _run() -> void:
 			push_error("PLAYER_PREFERENCES_STORE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v4 migration=v1+v2+v3 color-vision=safe+symbols notices=all+priority+archive-only focus-pause=default-on validation=strict atomic=backup-recovery audio=5-bus preferences=campaign-independent")
+	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v5 migration=v1+v2+v3+v4 color-vision=safe+symbols notices=level+duration effects=full+reduced+off haptics=optional focus-pause=default-on validation=strict atomic=backup-recovery audio=5-bus preferences=campaign-independent")
 	quit(0)
 
 

@@ -668,6 +668,14 @@ func _apply_player_preferences() -> void:
 		_camera_controller.set_high_contrast(bool(_player_preferences.get("high_contrast", false)))
 	if _office_atmosphere != null:
 		_office_atmosphere.set_reduced_motion(reduced_motion)
+		_office_atmosphere.set_effect_level(
+			StringName(String(_player_preferences.get("effect_level", "full")))
+		)
+	if _audio_feedback != null and _audio_feedback.has_method("set_haptics_enabled"):
+		_audio_feedback.call(
+			"set_haptics_enabled",
+			bool(_player_preferences.get("haptics_enabled", true)),
+		)
 	if _routing_ui != null and _routing_ui.has_method("set_reduced_motion"):
 		_routing_ui.call("set_reduced_motion", reduced_motion)
 	if _campaign_ui != null and _campaign_ui.has_method("set_reduced_motion"):
@@ -3085,7 +3093,7 @@ func _process(_delta: float) -> void:
 			_ticker_panel.visible = true
 			_ticker_visible_copy = copy
 			if starts_new_toast:
-				_ticker_hide_at_msec = now_msec + STATUS_TOAST_HOLD_MSEC
+				_ticker_hide_at_msec = now_msec + _status_toast_hold_msec()
 		elif _should_preserve_priority_toast(now_msec):
 			# The label doubles as the legacy publication channel. Restore the
 			# held important copy after archiving this routine update; the guard
@@ -3128,7 +3136,7 @@ func _publish_status_copy(copy: String, publish_flockwatch_diagnostic := true) -
 	if not copy.is_empty() and _should_present_status_toast(copy):
 		_ticker_panel.visible = true
 		_ticker_visible_copy = copy
-		_ticker_hide_at_msec = now_msec + STATUS_TOAST_HOLD_MSEC
+		_ticker_hide_at_msec = now_msec + _status_toast_hold_msec()
 	elif _should_preserve_priority_toast(now_msec):
 		_ticker_label.text = _ticker_visible_copy
 	else:
@@ -3199,6 +3207,16 @@ func _should_present_status_toast(copy: String) -> bool:
 			return false
 		_:
 			return true
+
+
+func _status_toast_hold_msec() -> int:
+	match String(_player_preferences.get("notice_duration", "standard")):
+		"brief":
+			return 2800
+		"extended":
+			return 9000
+		_:
+			return STATUS_TOAST_HOLD_MSEC
 
 
 func _should_preserve_priority_toast(now_msec: int) -> bool:
@@ -10131,6 +10149,8 @@ func _notification_diagnostic_state() -> Dictionary:
 		"toast_now_msec": now_msec,
 		"toast_hide_at_msec": _ticker_hide_at_msec,
 		"toast_hold_remaining_msec": maxi(0, _ticker_hide_at_msec - now_msec),
+		"duration": String(_player_preferences.get("notice_duration", "standard")),
+		"configured_hold_msec": _status_toast_hold_msec(),
 		"ticker_label_copy": _ticker_label.text if _ticker_label != null else "",
 		"latest_copy": _ticker_last_text,
 		"latest_priority": (
@@ -10336,6 +10356,9 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"visual_quality": String(_player_preferences.get("visual_quality", "balanced")),
 		"timing_assist": String(_player_preferences.get("timing_assist", "standard")),
 		"notice_level": String(_player_preferences.get("notice_level", "all")),
+		"notice_duration": String(_player_preferences.get("notice_duration", "standard")),
+		"effect_level": String(_player_preferences.get("effect_level", "full")),
+		"haptics_enabled": bool(_player_preferences.get("haptics_enabled", true)),
 		"pause_when_unfocused": bool(_player_preferences.get("pause_when_unfocused", true)),
 		"focus_pause_active": _focus_pause_active,
 		"focus_pause_restore_speed": _focus_pause_previous_speed,

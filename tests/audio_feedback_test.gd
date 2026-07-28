@@ -25,8 +25,12 @@ func _run() -> void:
 	for voice in voices:
 		original_voice_ids.append(voice.get_instance_id())
 	var cue_events: Array[StringName] = []
+	var haptic_events: Array[Dictionary] = []
 	audio.cue_played.connect(func(cue: StringName) -> void:
 		cue_events.append(cue)
+	)
+	audio.haptic_emitted.connect(func(cue: StringName, duration_msec: int) -> void:
+		haptic_events.append({"cue": cue, "duration_msec": duration_msec})
 	)
 	_check(voices.size() == 8, "audio feedback should use a fixed voice pool", failures)
 	var bus_layout := load("res://default_bus_layout.tres") as AudioBusLayout
@@ -73,6 +77,29 @@ func _run() -> void:
 		ui_routed += 1 if player.bus == &"UI" else 0
 		sfx_routed += 1 if player.bus == &"SFX" else 0
 	_check(ui_routed == 4 and sfx_routed == 4, "UI and physical cues should route to separate buses", failures)
+	var initial_feedback := audio.feedback_snapshot()
+	_check(
+		audio.haptics_enabled()
+		and int(initial_feedback.get("haptic_serial", 0)) >= 6
+		and not haptic_events.is_empty()
+		and int(haptic_events.back().get("duration_msec", 0)) > 0,
+		"important confirmations, warnings, and rare outcomes should emit bounded optional haptic receipts",
+		failures,
+	)
+	for voice in voices:
+		(voice as AudioStreamPlayer).stop()
+		(voice as AudioStreamPlayer).stream = null
+	audio.set_haptics_enabled(false)
+	await create_timer(0.20).timeout
+	var disabled_haptic_serial := int(audio.feedback_snapshot().get("haptic_serial", -1))
+	audio.play_policy_stamp()
+	_check(
+		not audio.haptics_enabled()
+		and int(audio.feedback_snapshot().get("haptic_serial", -1)) == disabled_haptic_serial,
+		"disabling haptics should preserve complete audio feedback without emitting vibration",
+		failures,
+	)
+	audio.set_haptics_enabled(true)
 	for voice in voices:
 		(voice as AudioStreamPlayer).stop()
 		(voice as AudioStreamPlayer).stream = null
@@ -187,7 +214,7 @@ func _run() -> void:
 			push_error("AUDIO_FEEDBACK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("AUDIO_FEEDBACK_TEST_PASSED voices=8 cues=procedural verdicts=distinct diagnostics=stable limiter=semantic priority=protected growth=none buses=SFX+UI")
+	print("AUDIO_FEEDBACK_TEST_PASSED voices=8 cues=procedural verdicts=distinct diagnostics=stable limiter=semantic priority=protected growth=none buses=SFX+UI haptics=optional+bounded")
 	quit(0)
 
 

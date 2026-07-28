@@ -72,7 +72,10 @@ var _quality_selector: OptionButton
 var _timing_selector: OptionButton
 var _color_vision_selector: OptionButton
 var _notice_level_selector: OptionButton
+var _notice_duration_selector: OptionButton
+var _effect_level_selector: OptionButton
 var _contrast_toggle: CheckButton
+var _haptics_toggle: CheckButton
 var _focus_pause_toggle: CheckButton
 var _binding_buttons: Dictionary = {}
 var _controls_grid: GridContainer
@@ -281,7 +284,7 @@ func accessible_text() -> String:
 		)
 	var summary := (
 		"Coop Settings and Controls. Audio: %s. Motion %s. Interface scale %d percent. "
-		+ "High contrast %s. Color vision %s. Detail %s. Priority Peck timing %s. Transient notices %s. Pause when unfocused %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
+		+ "High contrast %s. Color vision %s. Detail %s. Effect density %s. Priority Peck timing %s. Transient notices %s for %s duration. Haptics %s where supported. Pause when unfocused %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
 	) % [
 		", ".join(audio_parts),
 		String(_preferences.get("motion_mode", "system")),
@@ -289,8 +292,11 @@ func accessible_text() -> String:
 		"on" if bool(_preferences.get("high_contrast", false)) else "off",
 		String(_preferences.get("color_vision_mode", "standard")).replace("_", " "),
 		String(_preferences.get("visual_quality", "balanced")),
+		String(_preferences.get("effect_level", "full")),
 		String(_preferences.get("timing_assist", "standard")),
 		String(_preferences.get("notice_level", "all")).replace("_", " "),
+		String(_preferences.get("notice_duration", "standard")),
+		"enabled" if bool(_preferences.get("haptics_enabled", true)) else "disabled",
 		"on" if bool(_preferences.get("pause_when_unfocused", true)) else "off",
 	]
 	if _capture_action != &"":
@@ -515,6 +521,22 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_notice_level_selector.name = "NoticeLevelSelector"
 	_notice_level_selector.tooltip_text = "Choose which notices interrupt the floor as temporary toasts. Every notice remains labeled and available in Today's Shift Record."
 	_notice_level_selector.item_selected.connect(_on_notice_level_selected)
+	_notice_duration_selector = _choice_row(
+		_comfort_grid,
+		"NOTICE DURATION",
+		["BRIEF", "STANDARD", "EXTENDED"],
+	)
+	_notice_duration_selector.name = "NoticeDurationSelector"
+	_notice_duration_selector.tooltip_text = "Choose how long transient notices remain visible. The complete labeled Shift Record is unchanged."
+	_notice_duration_selector.item_selected.connect(_on_notice_duration_selected)
+	_effect_level_selector = _choice_row(
+		_comfort_grid,
+		"EFFECT DENSITY",
+		["FULL", "REDUCED", "ESSENTIAL ONLY"],
+	)
+	_effect_level_selector.name = "EffectLevelSelector"
+	_effect_level_selector.tooltip_text = "Reduce or disable decorative particles, lighting pulses, and celebration effects without hiding authoritative text, symbols, receipts, or warnings."
+	_effect_level_selector.item_selected.connect(_on_effect_level_selected)
 
 	_contrast_toggle = CheckButton.new()
 	_contrast_toggle.name = "HighContrastToggle"
@@ -523,6 +545,13 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_contrast_toggle.focus_mode = Control.FOCUS_ALL
 	_contrast_toggle.toggled.connect(_on_contrast_toggled)
 	section.add_child(_contrast_toggle)
+	_haptics_toggle = CheckButton.new()
+	_haptics_toggle.name = "HapticsToggle"
+	_haptics_toggle.text = "SUPPORTED-DEVICE HAPTICS"
+	_haptics_toggle.tooltip_text = "Use restrained vibration for confirmations, warnings, rare outcomes, and milestones when the browser or device supports it. Audio and visual feedback remain complete when disabled."
+	_haptics_toggle.focus_mode = Control.FOCUS_ALL
+	_haptics_toggle.toggled.connect(_on_haptics_toggled)
+	section.add_child(_haptics_toggle)
 	_focus_pause_toggle = CheckButton.new()
 	_focus_pause_toggle.name = "PauseWhenUnfocusedToggle"
 	_focus_pause_toggle.text = "PAUSE WHEN UNFOCUSED"
@@ -751,7 +780,10 @@ func _sync_controls_from_preferences() -> void:
 	_timing_selector.select(["standard", "lenient", "extended"].find(String(_preferences.get("timing_assist", "standard"))))
 	_color_vision_selector.select(["standard", "color_blind_safe"].find(String(_preferences.get("color_vision_mode", "standard"))))
 	_notice_level_selector.select(["all", "priority", "archive_only"].find(String(_preferences.get("notice_level", "all"))))
+	_notice_duration_selector.select(["brief", "standard", "extended"].find(String(_preferences.get("notice_duration", "standard"))))
+	_effect_level_selector.select(["full", "reduced", "off"].find(String(_preferences.get("effect_level", "full"))))
 	_contrast_toggle.button_pressed = bool(_preferences.get("high_contrast", false))
+	_haptics_toggle.button_pressed = bool(_preferences.get("haptics_enabled", true))
 	_focus_pause_toggle.button_pressed = bool(_preferences.get("pause_when_unfocused", true))
 
 
@@ -803,8 +835,20 @@ func _on_notice_level_selected(index: int) -> void:
 	_set_preference("notice_level", ["all", "priority", "archive_only"][clampi(index, 0, 2)])
 
 
+func _on_notice_duration_selected(index: int) -> void:
+	_set_preference("notice_duration", ["brief", "standard", "extended"][clampi(index, 0, 2)])
+
+
+func _on_effect_level_selected(index: int) -> void:
+	_set_preference("effect_level", ["full", "reduced", "off"][clampi(index, 0, 2)])
+
+
 func _on_contrast_toggled(enabled: bool) -> void:
 	_set_preference("high_contrast", enabled)
+
+
+func _on_haptics_toggled(enabled: bool) -> void:
+	_set_preference("haptics_enabled", enabled)
 
 
 func _on_focus_pause_toggled(enabled: bool) -> void:
