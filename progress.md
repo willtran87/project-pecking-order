@@ -2313,3 +2313,39 @@ The next major systems milestone is persistent worker relationships and individu
   The discrete-GPU row remains pending until the exact committed public
   candidate completes its fresh ten-minute run and a human signs the physical
   session protocol.
+
+## 2026-07-28 - First-review frame-pacing hardening
+
+- The exact public checkpoint-offset candidate completed a foreground-valid
+  ten-minute RTX 3090 probe at 56.82 median FPS, a stable 1.00 final/start
+  ratio, 73.9 ms p95 input response, and no focus, visibility, or context loss.
+  It still failed closed at 28.65 FPS 1% low and one 840.1 ms maximum stall.
+  The largest intervals clustered around the first two accelerated shift
+  closings; the settled final two-minute window remained stable.
+- Healthy 10x play now publishes its immutable visual read model at most every
+  300 ms instead of 200 ms. Authoritative ticks still advance exactly every
+  75 ms, while catch-up batches, decisions, reviews, 1x/3x play, and Priority
+  Peck precision focus remain immediate.
+- Extended the existing Web startup prewarm behind the opaque campaign intake
+  to include the farmer review, accounting drawer, probation report, final
+  review, sticky action bar, and Farm Mutual board. The controls retain their
+  original visibility, modulation, input behavior, and campaign state before
+  the build reports itself interactive.
+- A two-shift local hardware checkpoint diagnostic is intentionally not release
+  evidence because the development host inflated its frame and input tails.
+  It did complete both authentic review chains with 15 verified checkpoint
+  writes, no frame over 750 ms, and a reduced 566.3 ms maximum interval versus
+  the prior public candidate's 840.1 ms review spike.
+- The isolated Godot 4.7 suite at
+  `output/godot-full-suite-review-prewarm-final/full-suite-summary.json`
+  discovers, completes, and passes all 192/192 scripts with zero failures or
+  timeouts.
+- The independent 21-check release gate passes in 130.329 seconds at
+  `output/release/review-prewarm-beta-release-gate.json`, including
+  representative native contracts, Node 24 lint/build, all 49 Web tests,
+  production serving, both evidence validators and handoffs, and exact
+  nine-file artifact parity.
+- The synchronized candidate PCK is 6,320,752 bytes with SHA-256
+  `E1EC1707E4CC75D11D8F16AB60D25D39CC4AEE8E89772AEF5A00147C8C4EB80E`.
+  The exact committed Pages payload still requires a fresh ten-minute physical
+  GPU run; all seven human-signed physical release sessions remain pending.

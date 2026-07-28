@@ -236,6 +236,41 @@ func show_active_campaign(snapshot: Dictionary = {}) -> void:
 	_refresh()
 
 
+func prewarm_hidden_surfaces() -> void:
+	# These panels are built at startup but normally do not enter Chromium's
+	# render/layout path until the first shift closes. Present them almost
+	# transparently behind the opaque intake for two frames so that first use
+	# does not combine Control layout, glyph setup, and a campaign transaction in
+	# one visible frame.
+	var controls: Array[Control] = []
+	for candidate: Control in [
+		_report_panel,
+		_final_panel,
+		_final_sticky_action_bar,
+		_contract_board_ui,
+	]:
+		if candidate != null:
+			controls.append(candidate)
+	var states: Array[Dictionary] = []
+	for control: Control in controls:
+		states.append({
+			"visible": control.visible,
+			"modulate": control.modulate,
+			"mouse_filter": control.mouse_filter,
+		})
+		control.modulate.a = 0.001
+		control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		control.visible = true
+	await get_tree().process_frame
+	await get_tree().process_frame
+	for index: int in controls.size():
+		var control := controls[index]
+		var state := states[index]
+		control.visible = bool(state["visible"])
+		control.modulate = state["modulate"] as Color
+		control.mouse_filter = int(state["mouse_filter"])
+
+
 ## Opens the intentional between-shift report modal.
 func show_between_shift_report(snapshot: Dictionary = {}) -> void:
 	_hide_campaign_replacement(false)

@@ -27,7 +27,7 @@ const MAX_TICKS_PER_FRAME := 4
 # every one rebuilds the management read model faster than players can perceive
 # while consuming scarce Web main-thread frames. Bound only accelerated visual
 # publication; 1x/3x, multi-tick catch-up, incidents, and reviews stay immediate.
-const MAX_ACCELERATED_PRESENTATION_INTERVAL_SECONDS := 0.20
+const MAX_ACCELERATED_PRESENTATION_INTERVAL_SECONDS := 0.30
 
 var speed_index: int = 1
 var _accumulator: float = 0.0

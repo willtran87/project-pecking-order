@@ -890,8 +890,9 @@ func _prewarm_web_management_surfaces() -> void:
 	if _flockwatch_panel == null or _settings_ui == null:
 		return
 	# Chromium/Godot otherwise pays the complete Control layout and glyph setup
-	# on the player's first toggle. Warm both already-built surfaces behind the
-	# opaque campaign intake before the Web build reports itself interactive.
+	# on the player's first toggle or shift close. Warm the already-built
+	# management and review surfaces behind the opaque campaign intake before the
+	# Web build reports itself interactive.
 	var flockwatch_visible := _flockwatch_panel.visible
 	var flockwatch_modulate := _flockwatch_panel.modulate
 	var flockwatch_mouse_filter := _flockwatch_panel.mouse_filter
@@ -899,6 +900,18 @@ func _prewarm_web_management_surfaces() -> void:
 	var settings_modulate := _settings_ui.modulate
 	var settings_mouse_filter := _settings_ui.mouse_filter
 	var settings_processes_input := _settings_ui.is_processing_input()
+	var review_visible := _day_review_scrim.visible if _day_review_scrim != null else false
+	var review_modulate := _day_review_scrim.modulate if _day_review_scrim != null else Color.WHITE
+	var review_mouse_filter := (
+		_day_review_scrim.mouse_filter
+		if _day_review_scrim != null else
+		Control.MOUSE_FILTER_IGNORE
+	)
+	var review_details_visible := (
+		_review_details_scroll.visible
+		if _review_details_scroll != null else
+		false
+	)
 	_flockwatch_panel.modulate.a = 0.001
 	_flockwatch_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_flockwatch_panel.visible = true
@@ -906,8 +919,17 @@ func _prewarm_web_management_surfaces() -> void:
 	_settings_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_settings_ui.set_process_input(false)
 	_settings_ui.visible = true
-	await get_tree().process_frame
-	await get_tree().process_frame
+	if _day_review_scrim != null:
+		_day_review_scrim.modulate.a = 0.001
+		_day_review_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_day_review_scrim.visible = true
+	if _review_details_scroll != null:
+		_review_details_scroll.visible = true
+	if _campaign_ui != null:
+		await _campaign_ui.prewarm_hidden_surfaces()
+	else:
+		await get_tree().process_frame
+		await get_tree().process_frame
 	_flockwatch_panel.visible = flockwatch_visible
 	_flockwatch_panel.modulate = flockwatch_modulate
 	_flockwatch_panel.mouse_filter = flockwatch_mouse_filter
@@ -915,6 +937,12 @@ func _prewarm_web_management_surfaces() -> void:
 	_settings_ui.modulate = settings_modulate
 	_settings_ui.mouse_filter = settings_mouse_filter
 	_settings_ui.set_process_input(settings_processes_input)
+	if _review_details_scroll != null:
+		_review_details_scroll.visible = review_details_visible
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = review_visible
+		_day_review_scrim.modulate = review_modulate
+		_day_review_scrim.mouse_filter = review_mouse_filter
 	_refresh_floor_input_context()
 
 
