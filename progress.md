@@ -2128,3 +2128,31 @@ The next major systems milestone is persistent worker relationships and individu
   both handoff self-tests, and exact nine-file release parity. The physical
   handoff self-test passes all four cases after fixing a placeholder-detection
   predicate exposed by its first atomic-registration attempt.
+
+## 2026-07-28 — Foreground-valid physical GPU measurement
+
+- Committed and pushed the release-evidence tooling as
+  `fc9016065fe41b3cf37dee4c38d363de04afb743`. Draft PR #1 remains clean, and
+  GitHub Pages built and deployed that exact commit successfully.
+- Initialized `output/release/physical-release-evidence.json` against
+  `https://willtran87.github.io/project-pecking-order/`. The downloaded
+  6,291,032-byte PCK matches both local copies at SHA-256
+  `0CFACC924114A9A023A2BE7554AF5723877E014A70CB830E27D9DD909F161ED8`.
+  Generated all seven candidate-bound physical session kits.
+- Re-audited the prior RTX 3090 artifact before attempting to register it. Its
+  30 Hz presentation and later one-frame-per-second occluded cadence make it an
+  invalid environment, exactly as the earlier performance note recorded; its
+  low frame figures are not evidence of a game regression or a signed pass.
+- Hardened the headed GPU audit to require an explicitly recorded display
+  refresh of at least 60 Hz and to measure hidden-page and lost-focus time.
+  More than five seconds of either now marks the environment invalid before FPS,
+  stall, or degradation thresholds are interpreted.
+- Added four focused Node tests proving a continuously foregrounded 60 Hz
+  session is eligible while the prior 30 Hz setup, visibility loss, and
+  occlusion/focus loss are rejected.
+- The official Web-game client reached live First Clutch gameplay on the public
+  candidate with no browser-error artifact; the inspected 1280x720 frame is
+  contained, readable, and shows the active office and connected flock.
+- Web lint, production build, all 48 rendered/contract tests, and the explicit
+  30 Hz negative runner probe pass. The complete release gate passes all 21
+  checks in `output/release/foreground-valid-physical-gate-v1.json`.

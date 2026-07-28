@@ -5,6 +5,11 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import {
+  MAX_FOREGROUND_LOSS_MSEC,
+  physicalGpuEnvironmentIssues,
+} from "./physical-gpu-environment.mjs";
+
 const bundledPlaywright = path.join(
   os.homedir(),
   ".codex",
@@ -42,6 +47,9 @@ const physicalWarmupMsec = Math.max(
   0,
   Number(process.env.ACTIVE_PROGRESSION_PHYSICAL_WARMUP_MSEC ?? 60_000),
 );
+const physicalDisplayRefreshHz = Number(
+  process.env.ACTIVE_PROGRESSION_DISPLAY_REFRESH_HZ ?? 0,
+);
 const viewportWidth = Math.max(
   1280,
   Number(process.env.ACTIVE_PROGRESSION_VIEWPORT_WIDTH ?? (physicalGpuProbe ? 1920 : 1440)),
@@ -56,6 +64,10 @@ if (physicalGpuProbe) {
   assert.equal(auditRenderer, "hardware", "the physical GPU probe requires the hardware renderer");
   assert.equal(headed, true, "the physical GPU probe requires a visible headed browser");
   assert.ok(physicalSampleMsec >= 600_000, "the physical GPU probe requires at least ten sampled minutes");
+  assert.ok(
+    Number.isFinite(physicalDisplayRefreshHz) && physicalDisplayRefreshHz >= 60,
+    "the physical GPU probe requires an explicitly recorded display refresh of at least 60 Hz",
+  );
   assert.match(releaseCommit, /^[0-9a-f]{40}$/i, "the physical GPU probe requires a full release commit");
   assert.match(expectedPckSha256, /^[0-9a-f]{64}$/, "the physical GPU probe requires the release PCK SHA-256");
 }
@@ -417,6 +429,10 @@ async function startContinuousFrameSample() {
       suspensionStartedMsec: 0,
       excludedMsec: 0,
       sampledMsec: 0,
+      visibilityLostMsec: 0,
+      focusLostMsec: 0,
+      visibilityLostCallbacks: 0,
+      focusLostCallbacks: 0,
       records: [],
       contextLosses: 0,
     };
@@ -426,16 +442,22 @@ async function startContinuousFrameSample() {
     });
     const frame = (now) => {
       if (!sample.active) return;
-      if (sample.suspended || document.visibilityState !== "visible") {
-        sample.previousMsec = now;
+      const intervalMsec = Math.max(0, now - sample.previousMsec);
+      sample.previousMsec = now;
+      if (sample.suspended) {
+        // Harness-owned work is excluded by suspendPhysicalSample().
+      } else if (document.visibilityState !== "visible") {
+        sample.visibilityLostMsec += intervalMsec;
+        sample.visibilityLostCallbacks += 1;
+      } else if (!document.hasFocus()) {
+        sample.focusLostMsec += intervalMsec;
+        sample.focusLostCallbacks += 1;
       } else {
-        const intervalMsec = now - sample.previousMsec;
         sample.sampledMsec += intervalMsec;
         sample.records.push({
           elapsedMsec: sample.sampledMsec,
           intervalMsec,
         });
-        sample.previousMsec = now;
       }
       requestAnimationFrame(frame);
     };
@@ -447,6 +469,17 @@ async function physicalSampleElapsedMsec() {
   return page.evaluate(() => {
     const sample = window.__peckingPhysicalGpuSample;
     return sample?.sampledMsec ?? 0;
+  });
+}
+
+async function physicalSampleEnvironment() {
+  return page.evaluate(() => {
+    const sample = window.__peckingPhysicalGpuSample;
+    return {
+      sampledMsec: sample?.sampledMsec ?? 0,
+      visibilityLostMsec: sample?.visibilityLostMsec ?? 0,
+      focusLostMsec: sample?.focusLostMsec ?? 0,
+    };
   });
 }
 
@@ -465,6 +498,10 @@ async function stopContinuousFrameSample() {
       elapsedMsec: current.sampledMsec,
       wallElapsedMsec: performance.now() - current.startedMsec,
       excludedMsec: current.excludedMsec,
+      visibilityLostMsec: current.visibilityLostMsec,
+      focusLostMsec: current.focusLostMsec,
+      visibilityLostCallbacks: current.visibilityLostCallbacks,
+      focusLostCallbacks: current.focusLostCallbacks,
       records: current.records,
       contextLosses: current.contextLosses,
     };
@@ -493,6 +530,11 @@ async function stopContinuousFrameSample() {
     sampleSeconds: sample.elapsedMsec / 1_000,
     wallSeconds: sample.wallElapsedMsec / 1_000,
     excludedHarnessSeconds: sample.excludedMsec / 1_000,
+    displayRefreshHz: physicalDisplayRefreshHz,
+    visibilityLostSeconds: sample.visibilityLostMsec / 1_000,
+    focusLostSeconds: sample.focusLostMsec / 1_000,
+    visibilityLostCallbacks: sample.visibilityLostCallbacks,
+    focusLostCallbacks: sample.focusLostCallbacks,
     frameCount: intervals.length,
     medianFps,
     onePercentLowFps: onePercentLowInterval > 0 ? 1_000 / onePercentLowInterval : 0,
@@ -1248,6 +1290,15 @@ try {
   if (physicalGpuProbe) {
     let lingerIndex = 0;
     while (await physicalSampleElapsedMsec() < physicalSampleMsec) {
+      const environment = await physicalSampleEnvironment();
+      const environmentIssues = physicalGpuEnvironmentIssues({
+        displayRefreshHz: physicalDisplayRefreshHz,
+        visibilityLostMsec: environment.visibilityLostMsec,
+        focusLostMsec: environment.focusLostMsec,
+      });
+      if (environmentIssues.length > 0) {
+        break;
+      }
       const snapshot = await state();
       if (snapshot.camera?.input_enabled === true) {
         const key = lingerIndex % 2 === 0 ? "ArrowRight" : "ArrowLeft";
@@ -1369,30 +1420,40 @@ try {
   }
   if (physicalGpuProbe) {
     const rendererText = `${physicalRenderer?.vendor ?? ""} ${physicalRenderer?.renderer ?? ""}`;
+    const environmentIssues = physicalGpuEnvironmentIssues({
+      displayRefreshHz: physicalDisplayRefreshHz,
+      visibilityLostMsec: (physicalFrameSample?.visibilityLostSeconds ?? 0) * 1_000,
+      focusLostMsec: (physicalFrameSample?.focusLostSeconds ?? 0) * 1_000,
+    });
     if (!physicalRenderer?.available) auditFailures.push("physical GPU probe did not expose WebGL");
     if (/(SwiftShader|software|llvmpipe|Microsoft Basic|virtual monitor|virtual display)/i.test(rendererText)) {
       auditFailures.push(`physical GPU probe used an ineligible renderer: ${rendererText}`);
     }
-    if ((physicalFrameSample?.sampleSeconds ?? 0) < 600) {
-      auditFailures.push(`physical GPU probe sampled only ${physicalFrameSample?.sampleSeconds ?? 0} seconds`);
-    }
-    if ((physicalFrameSample?.medianFps ?? 0) < 55) {
-      auditFailures.push(`physical GPU median FPS was ${physicalFrameSample?.medianFps ?? 0}`);
-    }
-    if ((physicalFrameSample?.onePercentLowFps ?? 0) < 40) {
-      auditFailures.push(`physical GPU 1% low FPS was ${physicalFrameSample?.onePercentLowFps ?? 0}`);
+    auditFailures.push(
+      ...environmentIssues.map((issue) => `physical GPU environment invalid: ${issue}`),
+    );
+    if (environmentIssues.length === 0) {
+      if ((physicalFrameSample?.sampleSeconds ?? 0) < 600) {
+        auditFailures.push(`physical GPU probe sampled only ${physicalFrameSample?.sampleSeconds ?? 0} seconds`);
+      }
+      if ((physicalFrameSample?.medianFps ?? 0) < 55) {
+        auditFailures.push(`physical GPU median FPS was ${physicalFrameSample?.medianFps ?? 0}`);
+      }
+      if ((physicalFrameSample?.onePercentLowFps ?? 0) < 40) {
+        auditFailures.push(`physical GPU 1% low FPS was ${physicalFrameSample?.onePercentLowFps ?? 0}`);
+      }
+      if ((physicalFrameSample?.maximumStallMsec ?? Number.POSITIVE_INFINITY) > 750) {
+        auditFailures.push(`physical GPU maximum post-warmup stall was ${physicalFrameSample?.maximumStallMsec ?? "missing"}ms`);
+      }
+      if ((physicalFrameSample?.endToStartFpsRatio ?? 0) < 0.8) {
+        auditFailures.push(`physical GPU end/start FPS ratio was ${physicalFrameSample?.endToStartFpsRatio ?? 0}`);
+      }
     }
     if ((physicalInput?.count ?? 0) < 20) {
       auditFailures.push(`physical GPU probe recorded only ${physicalInput?.count ?? 0} input samples`);
     }
     if ((physicalInput?.p95Msec ?? Number.POSITIVE_INFINITY) > 150) {
       auditFailures.push(`physical GPU p95 input latency was ${physicalInput?.p95Msec ?? "missing"}ms`);
-    }
-    if ((physicalFrameSample?.maximumStallMsec ?? Number.POSITIVE_INFINITY) > 750) {
-      auditFailures.push(`physical GPU maximum post-warmup stall was ${physicalFrameSample?.maximumStallMsec ?? "missing"}ms`);
-    }
-    if ((physicalFrameSample?.endToStartFpsRatio ?? 0) < 0.8) {
-      auditFailures.push(`physical GPU end/start FPS ratio was ${physicalFrameSample?.endToStartFpsRatio ?? 0}`);
     }
     if ((physicalFrameSample?.contextLosses ?? Number.POSITIVE_INFINITY) !== 0) {
       auditFailures.push(`physical GPU WebGL context losses were ${physicalFrameSample?.contextLosses ?? "missing"}`);
@@ -1418,6 +1479,7 @@ try {
       physicalGpuProbe,
       physicalSampleMsec,
       physicalWarmupMsec,
+      physicalDisplayRefreshHz,
       viewportWidth,
       viewportHeight,
       releaseCommit,
@@ -1481,8 +1543,19 @@ try {
       renderer: physicalRenderer,
       input: physicalInput,
       frames: physicalFrameSample,
+      environmentEligibility: {
+        displayRefreshHz: physicalDisplayRefreshHz,
+        issues: physicalGpuEnvironmentIssues({
+          displayRefreshHz: physicalDisplayRefreshHz,
+          visibilityLostMsec: (physicalFrameSample?.visibilityLostSeconds ?? 0) * 1_000,
+          focusLostMsec: (physicalFrameSample?.focusLostSeconds ?? 0) * 1_000,
+        }),
+      },
       thresholds: {
         visualQuality: "balanced",
+        minimumDisplayRefreshHz: 60,
+        maximumVisibilityLossMsec: MAX_FOREGROUND_LOSS_MSEC,
+        maximumFocusLossMsec: MAX_FOREGROUND_LOSS_MSEC,
         minimumSampleSeconds: 600,
         minimumMedianFps: 55,
         minimumOnePercentLowFps: 40,
