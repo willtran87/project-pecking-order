@@ -182,6 +182,10 @@ Evidence: `office_storytelling.gd`, `environmental_signage.gd`,
 - [x] Flockwatch is collapsible and closes for focused inspection.
 - [x] Contracts, personnel actions, claimant paths, and purchases expose exact
       terms before commitment.
+- [x] Routine tray changes remain immediate and expose one truthful, one-level
+      route Undo. Claimant paths and hen separation stage exact costs, benefits,
+      burdens, and an explicit cancel-safe confirmation; duplicate confirm input
+      cannot repeat the transaction.
 - [x] Pause, 1x/3x/10x speed, keyboard, mouse, controller, one-finger pan,
       pinch/explicit zoom, portrait, landscape, and desktop layouts are supported.
 - [x] First Clutch teaches inspect, route, peckwork, risk, Priority Peck,
@@ -249,6 +253,9 @@ Evidence: `office_audio_director.gd`, `office_audio_feedback.gd`,
       text, and runtime-soak contracts have automated coverage.
 - [x] The release gate fails on broken progression, value mismatch, unreadable
       required information, inaccessible input, stale exports, or payload parity.
+- [x] Automated critical-flow coverage includes route Undo plus cancel/confirm
+      and duplicate-input protection for irreversible claimant and staffing
+      transactions.
 
 Release evidence is written to `output/release/core-checklist-beta-release-gate.json`;
 the exhaustive isolated Godot result is written under
@@ -277,3 +284,10 @@ tracked as external release evidence in `BETA_READINESS.md` and executed through
 `PHYSICAL_RELEASE_ACCEPTANCE.md`, not silently claimed by the automated gate.
 `verify_physical_release_evidence.ps1` rejects missing sessions, placeholder
 evidence, stale release hashes, missed thresholds, and unsigned decisions.
+Human comprehension, friction, pacing, fun, strategic-depth, feedback-clarity,
+and long-session-fatigue sessions are separately defined by
+`USABILITY_PLAYTEST_ACCEPTANCE.md`. On 2026-07-28 the project owner attested that
+usability should be considered performed for continued release work. No task
+metrics or recordings are inferred from that decision; the stricter validator
+remains available and will fail closed until all seven evidence-backed sessions
+are actually conducted.

@@ -21,7 +21,7 @@ This document turns the beta-hardening backlog into acceptance criteria. It dist
 12. **Performance:** optional office wings load lazily, static fixtures are batched, imported animation is sampled manually, hidden hens skip visual rewrites while completing routes, contacts allocate no per-hit nodes/tweens, and runtime diagnostics report node/orphan counts.
 13. **Device behavior:** mouse, keyboard, controller, one-finger pan, pinch zoom, explicit zoom buttons, remapping, focus loss, portrait, landscape, 390px phone, standard desktop, and 2560x1600 layouts have automated coverage.
 14. **Accessibility:** semantic actions, keyboard/controller focus restoration, reduced motion, color-vision-safe cues, remapping, bounded sanitized live narration, exact 16:9 canvas containment, and no-horizontal-overflow checks are release contracts.
-15. **Playtestability:** deterministic seeds, challenge contracts, full-probation routes, multi-year matrices, runtime soaks, rendered Office fixtures, and the official browser client make regressions reproducible. Qualitative human playtests remain a release activity, not a code claim.
+15. **Playtestability:** deterministic seeds, challenge contracts, full-probation routes, multi-year matrices, runtime soaks, rendered Office fixtures, and the official browser client make regressions reproducible. Qualitative human playtests remain a release activity, not a code claim. The seven-focus playtest protocol separately measures comprehension, friction, pacing, fun, strategic depth, feedback clarity, and long-session fatigue against the exact candidate.
 16. **Balance:** integer-cent accounting, exact effect previews/receipts, authored route matrices, failure controls, atomic rejection, bounded queues/capacity, and deterministic campaign playthroughs protect solvency and strategic viability.
 17. **Release safeguards:** verified campaign backup/restore, strict save migrations, direct Pages preference bridging, production serving of the complete Godot payload, synchronized `docs/` and `web/public/game/` payloads, the local beta release gate, and CI Web/parity checks prevent stale, inaccessible, or mismatched deployments.
 
@@ -57,5 +57,46 @@ evidence bundles must exist and match their recorded SHA-256; the standard beta
 gate also runs the physical validator's valid and adversarial contract fixtures.
 Initialization downloads the deployed root's `index.pck` and refuses to create a
 session record unless its hash matches both shipped copies.
-`register_physical_session_bundle.ps1` then validates and hashes each local
-recording/log ZIP; GPU bundles additionally require a renderer screenshot.
+`new_physical_release_session_kit.ps1` creates a candidate-bound result and
+tester brief for each row. `register_physical_release_session.ps1` then
+validates the completed result and local recording/log ZIP, hashes the bundle,
+rejects reuse or accidental replacement, and updates the record atomically; GPU
+bundles additionally require a renderer screenshot. The beta gate exercises
+valid kit creation and registration plus duplicate and incomplete-GPU-bundle
+rejection.
+
+Qualitative experience sign-off is independently tracked through
+`docs/USABILITY_PLAYTEST_ACCEPTANCE.md`. Initialize its exact candidate record
+and validate the completed seven-focus matrix with:
+
+```powershell
+./tools/new_usability_playtest_evidence.ps1 `
+  -TestedUrl "https://REPLACE_WITH_DEPLOYED_RELEASE_URL/" `
+  -Coordinator "Research coordinator"
+./tools/verify_usability_playtest_evidence.ps1
+```
+
+The validator recomputes task totals and completion rates from the task log,
+enforces minimum session duration and focus-specific thresholds, requires
+unaided critical tasks and four shared recovery/comprehension capabilities,
+content-inspects every local evidence ZIP, verifies bundle hashes and chronology,
+and rejects duplicate evidence, open blockers, placeholder signatures, or an
+approval recorded before the sessions. The automated beta gate runs both the
+valid fixture and nine targeted adversarial mutations; it does not fabricate
+the seven required human sessions.
+
+`new_usability_playtest_session_kit.ps1` generates the focus-specific task log
+and moderator brief with the exact commit/PCK identity. After a session,
+`register_usability_playtest_session.ps1` validates the result and recording/log
+ZIP, computes its SHA-256, rejects reuse or accidental replacement, and updates
+the record atomically. The beta gate exercises valid kit creation and
+registration plus duplicate and incomplete-bundle rejection.
+
+### Release-owner usability disposition
+
+On 2026-07-28, the project owner directed that usability be considered
+performed for continued release work. This is recorded as an owner attestation
+that closes the prioritization blocker; it is not represented as seven
+moderated sessions, invented task metrics, or fabricated recordings. The
+structured playtest protocol and validator remain intact for any later
+evidence-backed study or stricter distribution requirement.

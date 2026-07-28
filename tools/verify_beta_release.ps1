@@ -47,6 +47,7 @@ try {
             "temperament_work_style_test.gd",
             "claimant_resolution_test.gd",
             "claim_routing_ui_test.gd",
+            "interaction_safety_contract_test.gd",
             "simulation_persistence_test.gd"
         )
         foreach ($testName in $nativeTests) {
@@ -100,6 +101,31 @@ try {
             -File (Join-Path $root "tools\verify_physical_release_evidence.ps1") `
             -SelfTest `
             -ReportPath "output\release\physical-release-validator-self-test.json"
+    }
+    Invoke-CheckedCommand -Name "release/physical-evidence-handoff" -Command {
+        & $powershellExecutable `
+            -NoLogo `
+            -NoProfile `
+            -NonInteractive `
+            -File (Join-Path $root "tools\verify_physical_release_handoff.ps1") `
+            -ReportPath "output\release\physical-release-handoff-self-test.json"
+    }
+    Invoke-CheckedCommand -Name "release/usability-playtest-contract" -Command {
+        & $powershellExecutable `
+            -NoLogo `
+            -NoProfile `
+            -NonInteractive `
+            -File (Join-Path $root "tools\verify_usability_playtest_evidence.ps1") `
+            -SelfTest `
+            -ReportPath "output\release\usability-playtest-validator-self-test.json"
+    }
+    Invoke-CheckedCommand -Name "release/usability-playtest-handoff" -Command {
+        & $powershellExecutable `
+            -NoLogo `
+            -NoProfile `
+            -NonInteractive `
+            -File (Join-Path $root "tools\verify_usability_playtest_handoff.ps1") `
+            -ReportPath "output\release\usability-playtest-handoff-self-test.json"
     }
 
     $releaseFiles = @(

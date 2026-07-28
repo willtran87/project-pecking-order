@@ -2045,10 +2045,86 @@ The next major systems milestone is persistent worker relationships and individu
   191/191 scripts with zero failures and zero timeouts at
   `output/godot-full-suite-20260728-presentation-timing/full-suite-summary.json`.
 
+## 2026-07-28 â€” Interaction safety and human-experience evidence
+
+- Routine hen routing now changes immediately and exposes a truthful one-level
+  Undo for the prior tray. Undo affects future routing only, cannot become Redo,
+  and explicitly does not roll back completed claim work.
+- Irreversible claimant paths and hen separation now stage exact terms in
+  cancel-safe confirmation dialogs. Cancel preserves Feed Fund and authoritative
+  state; confirmation emits one transaction; repeated confirmation input cannot
+  double-charge or duplicate release.
+- Browser narration prioritizes pending confirmations, states that no mutation
+  has happened yet, sanitizes diagnostic content, and announces route Undo
+  without implying an economic rollback.
+- `interaction_safety_contract_test.gd` proves route/Undo/no-Redo,
+  claimant cancel/confirm-once, release cancel/confirm-once, exact costs, and
+  compact portrait/landscape popup containment. The complete isolated sweep
+  discovers, completes, and passes 192/192 Godot scripts with zero failures or
+  timeouts in
+  `output/godot-full-suite-20260728-interaction-safety/full-suite-summary.json`.
+- Bundled Node 24 production build, lint, 44/44 rendered accessibility tests,
+  and the production payload test pass. Official and live browser captures show
+  the route Undo and confirmation flow in the playable office with zero orphan
+  nodes and no browser-error artifact.
+- Synchronized release payloads are 6,291,032 bytes with SHA-256
+  `0CFACC924114A9A023A2BE7554AF5723877E014A70CB830E27D9DD909F161ED8`.
+- Added a seven-focus human usability/playtest protocol, schema-v1 evidence
+  template, exact-candidate initializer, and validator. It separately measures
+  comprehension, friction, pacing, fun, strategic depth, feedback clarity, and
+  long-session fatigue; recomputes task metrics; requires unaided critical tasks
+  and recovery; content-inspects session ZIPs; verifies SHA-256 and chronology;
+  and rejects placeholder or premature approval.
+- The playtest validator's valid synthetic fixture passes while nine independent
+  adversarial mutations are rejected for their targeted reasons. This proves
+  the evidence contract, not the human experience; all seven real sessions
+  remain pending.
+- The integrated beta gate passes all 20 checks in
+  `output/release/usability-playtest-handoff-full-gate-v1.json`: 12 native
+  release scripts, supported Node 24 Web lint/tests/production serving, physical
+  and usability evidence-contract self-tests, the complete playtest-handoff
+  self-test, and exact nine-file deploy parity.
+- A cache-fresh public audit downloaded the deployed GitHub Pages `index.pck`.
+  Its 6,291,032 bytes and SHA-256 exactly match both local release copies. No
+  final physical or usability evidence record exists, so no external session is
+  being inferred from payload availability.
+- Added exact-candidate session-kit generation and atomic session registration.
+  Each focus now gets authored task prompts, critical-task flags, a moderator
+  brief, participant-result schema, and recording instructions. Registration
+  shares the final validator's ZIP inspector, computes SHA-256, rejects
+  cross-session reuse and accidental replacement, and updates result plus bundle
+  reference in one parsed temporary-file move.
+- The handoff self-test proves four paths: a five-task comprehension kit embeds
+  the exact commit/PCK identity, a valid recording/log/notes ZIP registers with
+  the recomputed hash, duplicate registration is rejected, and a friction bundle
+  missing its recording is rejected without changing the evidence record.
+
 ## Next acceptance work
 
-- Continue the expanded economic-game checklist audit with the remaining
-  unproven UX contracts: automated irreversible-confirmation and undo coverage,
-  and structured usability/playtest evidence.
+- The project owner directed on 2026-07-28 that usability be considered
+  performed for continued release work. This is an owner attestation, not a
+  claim that seven recordings or task-metric bundles exist; the stricter
+  protocol and validator remain intact for a future evidence-backed study.
 - Physical iOS/Android touch, desktop/mobile screen-reader, listening, integrated
   GPU, and discrete GPU sessions remain external human-hardware sign-offs.
+
+## 2026-07-28 — Physical acceptance handoff
+
+- Added exact-candidate physical session kits for iOS touch, Android touch,
+  desktop/mobile screen readers, listening, and integrated/discrete GPU rows.
+  Each kit embeds the release commit, PCK hash, deployed URL, required check
+  keys, environment guidance, result schema, and evidence-bundle instructions.
+- Added atomic physical session registration. It validates the completed result,
+  exact candidate identity, bundle filename and contents, physical-device
+  declaration, UTC signature, template check keys, and bundle uniqueness before
+  writing the result and computed SHA-256 through one parsed temporary-file
+  move.
+- Added an integrated handoff self-test covering candidate-bound kit creation,
+  valid registration, duplicate rejection, and atomic rejection of a GPU bundle
+  missing its renderer/performance screenshot.
+- `output/release/physical-handoff-full-gate-v2.json` passes all 21 checks in
+  153.569 seconds: 12 native release contracts, supported Node Web
+  lint/rendered/production checks, physical and usability evidence validators,
+  both handoff self-tests, and exact nine-file release parity. The physical
+  handoff self-test passes all four cases after fixing a placeholder-detection
+  predicate exposed by its first atomic-registration attempt.

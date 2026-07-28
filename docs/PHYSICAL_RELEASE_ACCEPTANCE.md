@@ -251,19 +251,39 @@ non-empty text, Markdown, JSON, or CSV log. GPU bundles must also contain a
 non-empty PNG, JPEG, or WebP renderer/performance screenshot. Archive paths may
 not be absolute or contain `..`.
 
-Register the finished bundle without editing its URI or digest by hand:
+Generate a candidate-bound kit for each session before handing it to a tester:
 
 ```powershell
-./tools/register_physical_session_bundle.ps1 `
+./tools/new_physical_release_session_kit.ps1 `
+  -SessionId "touch-ios"
+```
+
+The kit contains the exact commit, PCK hash, deployed URL, focus-specific
+equipment and route reminders, a result object copied from the authoritative
+schema, and tester notes. After the route, place the recording, completed
+result, and notes in the session ZIP. GPU bundles also need a renderer or
+performance screenshot.
+
+Register the completed result and bundle together without editing the evidence
+URI or digest by hand:
+
+```powershell
+./tools/register_physical_release_session.ps1 `
   -SessionId "touch-ios" `
+  -ResultPath "output/release/physical-session-kits/touch-ios/session-result.json" `
   -BundlePath "output/release/evidence/touch-ios-session-bundle.zip"
 ```
 
 Registration requires the evidence commit and PCK identity to match the current
-candidate, validates the ZIP contents and path safety, computes its SHA-256, and
-atomically replaces that session's template evidence item. It refuses to replace
-already registered evidence unless `-Force` is explicit. The final validator
-repeats the same ZIP inspection, so manual JSON editing cannot bypass it.
+candidate, rejects placeholder results, validates the ZIP contents and path
+safety, computes its SHA-256, prevents cross-session reuse, and atomically
+replaces that session's result plus evidence item. It refuses to replace already
+registered evidence unless `-Force` is explicit. The final validator repeats the
+same ZIP inspection, so manual JSON editing cannot bypass it.
+
+`register_physical_session_bundle.ps1` remains available for an already
+completed evidence JSON, but the atomic result-and-bundle path above is the
+preferred handoff because it avoids partial manual updates.
 
 The JSON may reference a repository-relative path or an immutable HTTPS URL.
 Do not use a mutable shared-folder URL without a content hash.
@@ -273,8 +293,10 @@ repository, rejects path traversal or missing files, and recomputes SHA-256
 from the referenced bytes. An HTTPS URI must remain an immutable, downloadable
 release artifact; record the digest produced from the downloaded bundle rather
 than a page, folder, or mutable sharing link. The standard beta gate runs the
-validator's valid fixture plus six adversarial fixtures so a weakened evidence
-contract cannot silently ship.
+validator's valid and adversarial fixtures plus a handoff self-test. The handoff
+self-test proves candidate-bound kit creation, valid atomic registration,
+duplicate rejection, and rejection of a GPU bundle missing its required
+screenshot without changing the evidence record.
 
 Schema v2 also verifies that iOS touch uses Safari, Android touch uses Chrome,
 desktop reading uses NVDA or VoiceOver, mobile reading uses VoiceOver or

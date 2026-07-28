@@ -381,9 +381,14 @@ confirm.
     Native/web suites, production server, responsive captures, and automated
     accessibility contracts are repeatable. Final release still requires human
     screen-reader, browser/device, audio, and representative low-end hardware
-    acceptance; automation cannot honestly certify those experiences. The exact
-    physical matrix, thresholds, and machine-validated evidence contract live in
-    `docs/PHYSICAL_RELEASE_ACCEPTANCE.md`.
+    acceptance plus separately moderated comprehension, friction, pacing, fun,
+    strategic-depth, feedback-clarity, and long-session-fatigue playtests;
+    automation cannot honestly certify those experiences. The exact physical and
+    playtest matrices, thresholds, and machine-validated evidence contracts live
+    in `docs/PHYSICAL_RELEASE_ACCEPTANCE.md` and
+    `docs/USABILITY_PLAYTEST_ACCEPTANCE.md`. The project owner accepted
+    qualitative usability for continued release work on 2026-07-28 without
+    claiming participant metrics or weakening the optional structured validator.
 
 ## Evidence entry points
 
@@ -400,6 +405,11 @@ confirm.
   objective thresholds, and sign-off record.
 - `tools/verify_physical_release_evidence.ps1` — release identity, session,
   threshold, evidence-hash, and approval validator.
+- `docs/USABILITY_PLAYTEST_ACCEPTANCE.md`,
+  `docs/usability-playtest-evidence.template.json`, and
+  `tools/verify_usability_playtest_evidence.ps1` define separate
+  human-experience sessions, task metrics, content-verified bundles, and final
+  approval.
 - `tests/economic_briefing_test.gd` — reconciliation, resources, strategies,
   bottlenecks, recovery, accessibility, and presentation/state separation.
 - `tests/campaign_balance_playthrough_test.gd`,
