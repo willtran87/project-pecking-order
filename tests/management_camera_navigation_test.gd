@@ -30,12 +30,18 @@ func _run() -> void:
 	stage.add_child(controller)
 	var workers: Dictionary[int, ChickenView] = {}
 	controller.configure(camera, workers, home_target)
+	controller.set_animation_speed_multiplier(1.5)
 	var commissioned_bounds := Rect2(Vector2(-12.0, -8.0), Vector2(40.0, 36.0))
 	controller.set_overview_bounds(commissioned_bounds, 4.0)
 	await process_frame
 
 	_check(controller.camera_mode() == "home", "configure should establish the explicit Home mode", failures)
 	var home_state := controller.navigation_state()
+	_check(
+		is_equal_approx(float(home_state.get("animation_speed_multiplier", 0.0)), 1.5),
+		"camera diagnostics should expose the independent brisk presentation speed",
+		failures,
+	)
 
 	_stage = "overview precision wheel zoom"
 	await _send_wheel(MOUSE_BUTTON_WHEEL_UP, 1.0, Vector2(920.0, 360.0))
@@ -322,7 +328,7 @@ func _run() -> void:
 			push_error("MANAGEMENT_CAMERA_NAVIGATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("MANAGEMENT_CAMERA_NAVIGATION_TEST_PASSED modes=home+free+landmark+event input=mouse+semantic-keyboard+rebound-button+controller+touch bounds=commissioned event=restored")
+	print("MANAGEMENT_CAMERA_NAVIGATION_TEST_PASSED modes=home+free+landmark+event input=mouse+semantic-keyboard+rebound-button+controller+touch bounds=commissioned event=restored animation-speed=brisk")
 	quit(0)
 
 

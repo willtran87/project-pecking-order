@@ -12,6 +12,7 @@ func _run() -> void:
 	var atmosphere := OfficeAtmosphereScript.new()
 	root.add_child(atmosphere)
 	await process_frame
+	atmosphere.set_animation_speed_multiplier(1.5)
 
 	var dust := atmosphere.find_child("AmbientDustMotes", true, false) as GPUParticles3D
 	var feathers := atmosphere.find_child("DriftingFeathers", true, false) as GPUParticles3D
@@ -64,6 +65,7 @@ func _run() -> void:
 			reduced_burst_found = true
 	_check(
 		String(reduced_snapshot.get("level", "")) == "reduced"
+		and is_equal_approx(float(reduced_snapshot.get("animation_speed_multiplier", 0.0)), 1.5)
 		and not bool(reduced_snapshot.get("ambient_particles", true))
 		and bool(reduced_snapshot.get("event_bursts", false))
 		and not dust.emitting and not feathers.emitting
@@ -89,7 +91,7 @@ func _run() -> void:
 			push_error("OFFICE_ATMOSPHERE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("OFFICE_ATMOSPHERE_TEST_PASSED particles=bounded+pooled+prewarmed lights=3-shadowless overtime=emissive events=full+reduced+off")
+	print("OFFICE_ATMOSPHERE_TEST_PASSED particles=bounded+pooled+prewarmed lights=3-shadowless overtime=emissive events=full+reduced+off animation-speed=live")
 	quit(0)
 
 

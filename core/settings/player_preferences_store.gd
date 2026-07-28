@@ -12,7 +12,7 @@ extends RefCounted
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
 
-const CURRENT_SCHEMA_VERSION := 5
+const CURRENT_SCHEMA_VERSION := 6
 const PREFERENCES_FORMAT := "pecking_order_player_preferences"
 const DEFAULT_FILENAME := "player_preferences.json"
 const MAX_FILE_BYTES := 512 * 1024
@@ -25,6 +25,8 @@ const COLOR_VISION_MODES: Array[String] = ["standard", "color_blind_safe"]
 const NOTICE_LEVELS: Array[String] = ["all", "priority", "archive_only"]
 const NOTICE_DURATIONS: Array[String] = ["brief", "standard", "extended"]
 const EFFECT_LEVELS: Array[String] = ["full", "reduced", "off"]
+const ANIMATION_SPEEDS: Array[String] = ["relaxed", "standard", "brisk"]
+const TOOLTIP_DELAYS: Array[String] = ["short", "standard", "long"]
 const AUDIO_BUS_IDS: Array[String] = ["master", "sfx", "ui", "music", "ambient"]
 const AUDIO_BUS_NAMES := {
 	"master": &"Master",
@@ -67,6 +69,8 @@ static func defaults() -> Dictionary:
 		"notice_level": "all",
 		"notice_duration": "standard",
 		"effect_level": "full",
+		"animation_speed": "standard",
+		"tooltip_delay": "standard",
 		"haptics_enabled": true,
 		"pause_when_unfocused": true,
 		# Empty means the catalog defaults. Only explicit overrides need to be
@@ -124,6 +128,12 @@ static func sanitize(source: Dictionary) -> Dictionary:
 	var effect_level := String(source.get("effect_level", ""))
 	if effect_level in EFFECT_LEVELS:
 		result["effect_level"] = effect_level
+	var animation_speed := String(source.get("animation_speed", ""))
+	if animation_speed in ANIMATION_SPEEDS:
+		result["animation_speed"] = animation_speed
+	var tooltip_delay := String(source.get("tooltip_delay", ""))
+	if tooltip_delay in TOOLTIP_DELAYS:
+		result["tooltip_delay"] = tooltip_delay
 	if typeof(source.get("haptics_enabled", null)) == TYPE_BOOL:
 		result["haptics_enabled"] = bool(source["haptics_enabled"])
 	if typeof(source.get("pause_when_unfocused", null)) == TYPE_BOOL:
@@ -142,7 +152,8 @@ static func validate(preferences: Dictionary) -> String:
 		"audio", "motion_mode", "ui_scale", "high_contrast",
 		"color_vision_mode", "visual_quality", "timing_assist",
 		"notice_level", "notice_duration", "effect_level",
-		"haptics_enabled", "pause_when_unfocused", "input_bindings",
+		"animation_speed", "tooltip_delay", "haptics_enabled",
+		"pause_when_unfocused", "input_bindings",
 	]
 	var key_error := _exact_string_keys_error(preferences, expected_keys, "preferences")
 	if not key_error.is_empty():
@@ -184,6 +195,10 @@ static func validate(preferences: Dictionary) -> String:
 		return "preferences.notice_duration is invalid"
 	if typeof(preferences.get("effect_level")) != TYPE_STRING or String(preferences.get("effect_level")) not in EFFECT_LEVELS:
 		return "preferences.effect_level is invalid"
+	if typeof(preferences.get("animation_speed")) != TYPE_STRING or String(preferences.get("animation_speed")) not in ANIMATION_SPEEDS:
+		return "preferences.animation_speed is invalid"
+	if typeof(preferences.get("tooltip_delay")) != TYPE_STRING or String(preferences.get("tooltip_delay")) not in TOOLTIP_DELAYS:
+		return "preferences.tooltip_delay is invalid"
 	if typeof(preferences.get("haptics_enabled")) != TYPE_BOOL:
 		return "preferences.haptics_enabled must be a Boolean"
 	if typeof(preferences.get("pause_when_unfocused")) != TYPE_BOOL:
@@ -339,6 +354,30 @@ static func apply_audio(preferences: Dictionary) -> Dictionary:
 		AudioServer.set_bus_mute(bus_index, bool(bus.get("muted", false)))
 		applied.append(bus_id)
 	return {"accepted": true, "applied": applied, "audio": audio.duplicate(true)}
+
+
+## Presentation timing is intentionally independent from the simulation clock.
+## These bounded multipliers affect only nonessential transitions and feedback.
+static func animation_speed_multiplier(speed: String) -> float:
+	match speed:
+		"relaxed":
+			return 0.75
+		"brisk":
+			return 1.5
+		_:
+			return 1.0
+
+
+## Godot reads this project timer when a Control begins a new tooltip request.
+## Applying it at runtime changes future tooltips without touching saved careers.
+static func tooltip_delay_seconds(delay: String) -> float:
+	match delay:
+		"short":
+			return 0.15
+		"long":
+			return 1.0
+		_:
+			return 0.5
 
 
 func _configure(filename: String) -> void:
@@ -568,6 +607,17 @@ func _migrate_one_version(envelope: Dictionary, from_version: int) -> Dictionary
 		preferences["haptics_enabled"] = true
 		migrated["preferences"] = preferences
 		migrated["schema_version"] = 5
+		return migrated
+	if from_version == 5:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["animation_speed"] = "standard"
+		preferences["tooltip_delay"] = "standard"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 6
 		return migrated
 	return {}
 

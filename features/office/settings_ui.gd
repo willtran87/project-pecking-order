@@ -74,6 +74,8 @@ var _color_vision_selector: OptionButton
 var _notice_level_selector: OptionButton
 var _notice_duration_selector: OptionButton
 var _effect_level_selector: OptionButton
+var _animation_speed_selector: OptionButton
+var _tooltip_delay_selector: OptionButton
 var _contrast_toggle: CheckButton
 var _haptics_toggle: CheckButton
 var _focus_pause_toggle: CheckButton
@@ -284,7 +286,7 @@ func accessible_text() -> String:
 		)
 	var summary := (
 		"Coop Settings and Controls. Audio: %s. Motion %s. Interface scale %d percent. "
-		+ "High contrast %s. Color vision %s. Detail %s. Effect density %s. Priority Peck timing %s. Transient notices %s for %s duration. Haptics %s where supported. Pause when unfocused %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
+		+ "High contrast %s. Color vision %s. Detail %s. Effect density %s. Animation speed %s. Tooltip delay %s. Priority Peck timing %s. Transient notices %s for %s duration. Haptics %s where supported. Pause when unfocused %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
 	) % [
 		", ".join(audio_parts),
 		String(_preferences.get("motion_mode", "system")),
@@ -293,6 +295,8 @@ func accessible_text() -> String:
 		String(_preferences.get("color_vision_mode", "standard")).replace("_", " "),
 		String(_preferences.get("visual_quality", "balanced")),
 		String(_preferences.get("effect_level", "full")),
+		String(_preferences.get("animation_speed", "standard")),
+		String(_preferences.get("tooltip_delay", "standard")),
 		String(_preferences.get("timing_assist", "standard")),
 		String(_preferences.get("notice_level", "all")).replace("_", " "),
 		String(_preferences.get("notice_duration", "standard")),
@@ -537,6 +541,22 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_effect_level_selector.name = "EffectLevelSelector"
 	_effect_level_selector.tooltip_text = "Reduce or disable decorative particles, lighting pulses, and celebration effects without hiding authoritative text, symbols, receipts, or warnings."
 	_effect_level_selector.item_selected.connect(_on_effect_level_selected)
+	_animation_speed_selector = _choice_row(
+		_comfort_grid,
+		"ANIMATION SPEED",
+		["RELAXED", "STANDARD", "BRISK"],
+	)
+	_animation_speed_selector.name = "AnimationSpeedSelector"
+	_animation_speed_selector.tooltip_text = "Adjust nonessential camera easing, receipts, collection motion, office reveals, and feedback. The production clock and decision deadlines do not change."
+	_animation_speed_selector.item_selected.connect(_on_animation_speed_selected)
+	_tooltip_delay_selector = _choice_row(
+		_comfort_grid,
+		"TOOLTIP DELAY",
+		["SHORT", "STANDARD", "LONG"],
+	)
+	_tooltip_delay_selector.name = "TooltipDelaySelector"
+	_tooltip_delay_selector.tooltip_text = "Choose how long the pointer rests before a new explanatory tooltip opens. Focus-visible labels and accessible summaries remain immediate."
+	_tooltip_delay_selector.item_selected.connect(_on_tooltip_delay_selected)
 
 	_contrast_toggle = CheckButton.new()
 	_contrast_toggle.name = "HighContrastToggle"
@@ -782,6 +802,8 @@ func _sync_controls_from_preferences() -> void:
 	_notice_level_selector.select(["all", "priority", "archive_only"].find(String(_preferences.get("notice_level", "all"))))
 	_notice_duration_selector.select(["brief", "standard", "extended"].find(String(_preferences.get("notice_duration", "standard"))))
 	_effect_level_selector.select(["full", "reduced", "off"].find(String(_preferences.get("effect_level", "full"))))
+	_animation_speed_selector.select(["relaxed", "standard", "brisk"].find(String(_preferences.get("animation_speed", "standard"))))
+	_tooltip_delay_selector.select(["short", "standard", "long"].find(String(_preferences.get("tooltip_delay", "standard"))))
 	_contrast_toggle.button_pressed = bool(_preferences.get("high_contrast", false))
 	_haptics_toggle.button_pressed = bool(_preferences.get("haptics_enabled", true))
 	_focus_pause_toggle.button_pressed = bool(_preferences.get("pause_when_unfocused", true))
@@ -841,6 +863,14 @@ func _on_notice_duration_selected(index: int) -> void:
 
 func _on_effect_level_selected(index: int) -> void:
 	_set_preference("effect_level", ["full", "reduced", "off"][clampi(index, 0, 2)])
+
+
+func _on_animation_speed_selected(index: int) -> void:
+	_set_preference("animation_speed", ["relaxed", "standard", "brisk"][clampi(index, 0, 2)])
+
+
+func _on_tooltip_delay_selected(index: int) -> void:
+	_set_preference("tooltip_delay", ["short", "standard", "long"][clampi(index, 0, 2)])
 
 
 func _on_contrast_toggled(enabled: bool) -> void:

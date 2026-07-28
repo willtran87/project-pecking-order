@@ -81,6 +81,8 @@ func decode(payload: String) -> Dictionary:
 		var current_error := PlayerPreferencesStoreScript.validate(root)
 		if current_error.is_empty():
 			preferences = root.duplicate(true)
+		elif _matches_legacy_schema(root, 5):
+			preferences = _migrate_legacy_preferences(root, 5)
 		elif _matches_legacy_schema(root, 4):
 			preferences = _migrate_legacy_preferences(root, 4)
 		elif _matches_legacy_schema(root, 3):
@@ -124,6 +126,10 @@ func _migrate_legacy_preferences(source: Dictionary, from_version: int) -> Dicti
 		migrated["effect_level"] = "full"
 		migrated["haptics_enabled"] = true
 		version = 5
+	if version == 5:
+		migrated["animation_speed"] = "standard"
+		migrated["tooltip_delay"] = "standard"
+		version = 6
 	if version != PlayerPreferencesStoreScript.CURRENT_SCHEMA_VERSION:
 		return {}
 	return migrated if PlayerPreferencesStoreScript.validate(migrated).is_empty() else {}
@@ -142,6 +148,8 @@ func _matches_legacy_schema(preferences: Dictionary, version: int) -> bool:
 		expected.append("notice_level")
 	if version >= 5:
 		expected.append_array(["notice_duration", "effect_level", "haptics_enabled"])
+	if version >= 6:
+		expected.append_array(["animation_speed", "tooltip_delay"])
 	if not _has_exact_keys(preferences, expected):
 		return false
 	var audio_value: Variant = preferences.get("audio", null)

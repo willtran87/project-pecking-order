@@ -24,6 +24,7 @@ func _run() -> void:
 	await process_frame
 
 	var receipt := _receipt()
+	ui.set_animation_speed_multiplier(1.5)
 	ui.show_reveal(receipt, false)
 	await process_frame
 	await process_frame
@@ -54,6 +55,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(ui.entrance_animated() and not ui.used_reduced_motion(), "ordinary presentation may use the short receipt fade", failures)
+	_check(is_equal_approx(ui.animation_speed_multiplier(), 1.5), "receipt entrance should honor the independent brisk animation speed", failures)
 	_check(scroll != null and action_rail != null and not scroll.is_ancestor_of(action_rail), "held actions should remain outside the receipt scroll surface", failures)
 	_check(return_button != null and continue_button != null and return_button.focus_mode == Control.FOCUS_ALL and continue_button.focus_mode == Control.FOCUS_ALL, "both player-held actions should be keyboard focusable", failures)
 	_check(continue_button != null and root.gui_get_focus_owner() == continue_button, "the safe Continue action should receive initial focus", failures)
@@ -101,7 +103,7 @@ func _run() -> void:
 			push_error("COMMISSIONING_REVEAL_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("COMMISSIONING_REVEAL_UI_TEST_PASSED receipt=exact held=player compact=844x390 motion=reduced actions=2")
+	print("COMMISSIONING_REVEAL_UI_TEST_PASSED receipt=exact held=player compact=844x390 motion=reduced+speed actions=2")
 	quit(0)
 
 

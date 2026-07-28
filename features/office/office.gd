@@ -379,6 +379,7 @@ var _displayed_revenue_cents := -1
 var _pending_collection_cents := 0
 var _fund_visual_target_cents := -1
 var _fund_count_tween: Tween
+var _animation_speed_multiplier := 1.0
 var _pending_web_diagnostic_snapshot: Dictionary = {}
 var _web_diagnostic_dirty := false
 var _web_diagnostic_next_allowed_msec := 0
@@ -663,11 +664,22 @@ func _apply_player_preferences() -> void:
 		StringName(String(_player_preferences.get("timing_assist", "standard")))
 	)
 	var reduced_motion := _prefers_reduced_motion()
+	_animation_speed_multiplier = PlayerPreferencesStoreScript.animation_speed_multiplier(
+		String(_player_preferences.get("animation_speed", "standard"))
+	)
+	ProjectSettings.set_setting(
+		"gui/timers/tooltip_delay_sec",
+		PlayerPreferencesStoreScript.tooltip_delay_seconds(
+			String(_player_preferences.get("tooltip_delay", "standard"))
+		),
+	)
 	if _camera_controller != null:
 		_camera_controller.set_reduced_motion(reduced_motion)
 		_camera_controller.set_high_contrast(bool(_player_preferences.get("high_contrast", false)))
+		_camera_controller.set_animation_speed_multiplier(_animation_speed_multiplier)
 	if _office_atmosphere != null:
 		_office_atmosphere.set_reduced_motion(reduced_motion)
+		_office_atmosphere.set_animation_speed_multiplier(_animation_speed_multiplier)
 		_office_atmosphere.set_effect_level(
 			StringName(String(_player_preferences.get("effect_level", "full")))
 		)
@@ -685,6 +697,13 @@ func _apply_player_preferences() -> void:
 		_routing_ui.call("set_color_vision_mode", color_vision_mode)
 	if _workstation_feedback != null and _workstation_feedback.has_method("set_color_vision_mode"):
 		_workstation_feedback.call("set_color_vision_mode", color_vision_mode)
+	if _workstation_feedback != null:
+		_workstation_feedback.set_animation_speed_multiplier(_animation_speed_multiplier)
+	if _management_presence != null:
+		_management_presence.set_animation_speed_multiplier(_animation_speed_multiplier)
+	for reveal_ui: Control in [_commissioning_reveal_ui, _campus_portfolio_reveal_ui]:
+		if reveal_ui != null and reveal_ui.has_method("set_animation_speed_multiplier"):
+			reveal_ui.call("set_animation_speed_multiplier", _animation_speed_multiplier)
 	if _office_storytelling != null and _office_storytelling.has_method("set_color_vision_mode"):
 		_office_storytelling.call("set_color_vision_mode", color_vision_mode)
 	_apply_visual_quality(StringName(String(_player_preferences.get("visual_quality", "balanced"))))
@@ -2474,7 +2493,7 @@ func _apply_office_capacity_visibility(capacity: int, animate_reveal: bool = tru
 				if animate_reveal and newly_active and previous_capacity >= 0:
 					workstation.position.y = -0.30
 					workstation.scale = Vector3(0.96, 0.96, 0.96)
-					var reveal := create_tween().bind_node(workstation).set_parallel(true)
+					var reveal := _presentation_tween(workstation).set_parallel(true)
 					reveal.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 					reveal.tween_property(workstation, "position:y", 0.0, 0.62)
 					reveal.tween_property(workstation, "scale", Vector3.ONE, 0.62)
@@ -2593,7 +2612,7 @@ func _animate_capacity_stage_handoff(previous_capacity: int, capacity: int) -> v
 	# moving architecture or ramping the fluorescent fixture.
 	if _prefers_reduced_motion():
 		return
-	_capacity_stage_tween = create_tween().bind_node(self).set_parallel(true)
+	_capacity_stage_tween = _presentation_tween(self).set_parallel(true)
 	_capacity_stage_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	for stage_root: Node3D in staged_roots:
 		var final_position := stage_root.position
@@ -2710,7 +2729,7 @@ func _begin_capacity_commissioning_beat(result: Dictionary) -> void:
 	beat.add_child(filed_label)
 
 	beat.scale = Vector3.ONE if reduced_motion else Vector3(0.84, 0.84, 0.84)
-	_capacity_commissioning_tween = create_tween().bind_node(beat)
+	_capacity_commissioning_tween = _presentation_tween(beat)
 	if not reduced_motion:
 		_capacity_commissioning_tween.tween_property(
 			beat,
@@ -4299,7 +4318,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	if not is_instance_valid(_decision_panel) or not _decision_host.visible:
 		return
 	_decision_panel.pivot_offset = _decision_panel.size * 0.5
-	var tween := create_tween().set_parallel(true)
+	var tween := _presentation_tween().set_parallel(true)
 	tween.tween_property(_decision_panel, "modulate:a", 1.0, 0.18)
 	tween.tween_property(_decision_panel, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	for button in _decision_option_buttons:
@@ -5076,7 +5095,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 		_day_review_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
 		_day_review_panel.scale = Vector2(0.94, 0.94)
 		_day_review_panel.pivot_offset = _day_review_panel.size * 0.5
-		var tween := create_tween().set_parallel(true)
+		var tween := _presentation_tween().set_parallel(true)
 		tween.tween_property(_day_review_panel, "modulate:a", 1.0, 0.24)
 		tween.tween_property(_day_review_panel, "scale", Vector2.ONE, 0.30).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	else:
@@ -5760,6 +5779,14 @@ func _on_commissioning_return_to_blueprint_requested() -> void:
 		_capital_blueprint_ui.call("show_blueprint", _simulation.snapshot())
 	_set_capital_modal_interaction(true)
 	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _presentation_tween(bound_node: Node = null) -> Tween:
+	var tween := create_tween()
+	if bound_node != null:
+		tween.bind_node(bound_node)
+	tween.set_speed_scale(_animation_speed_multiplier)
+	return tween
 
 
 func _prefers_reduced_motion() -> bool:
@@ -8665,7 +8692,7 @@ func _apply_first_clutch_global_cue(coach: Dictionary) -> void:
 	desired.theme_type_variation = &"SelectedChoiceButton"
 	desired.tooltip_text = cue_tooltip
 	desired.modulate = Color(1.12, 1.04, 0.78, 1.0)
-	_first_clutch_global_cue_tween = create_tween().bind_node(desired).set_loops()
+	_first_clutch_global_cue_tween = _presentation_tween(desired).set_loops()
 	_first_clutch_global_cue_tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_first_clutch_global_cue_tween.tween_property(desired, "modulate", Color.WHITE, 0.55)
 	_first_clutch_global_cue_tween.tween_property(
@@ -10358,6 +10385,12 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"notice_level": String(_player_preferences.get("notice_level", "all")),
 		"notice_duration": String(_player_preferences.get("notice_duration", "standard")),
 		"effect_level": String(_player_preferences.get("effect_level", "full")),
+		"animation_speed": String(_player_preferences.get("animation_speed", "standard")),
+		"animation_speed_multiplier": _animation_speed_multiplier,
+		"tooltip_delay": String(_player_preferences.get("tooltip_delay", "standard")),
+		"tooltip_delay_seconds": PlayerPreferencesStoreScript.tooltip_delay_seconds(
+			String(_player_preferences.get("tooltip_delay", "standard"))
+		),
 		"haptics_enabled": bool(_player_preferences.get("haptics_enabled", true)),
 		"pause_when_unfocused": bool(_player_preferences.get("pause_when_unfocused", true)),
 		"focus_pause_active": _focus_pause_active,
@@ -11953,7 +11986,7 @@ func _on_egg_laid(
 			egg, worker_id, quality, true, value_cents, streak_bonus
 		)
 	if not collection_animated:
-		var tween := create_tween()
+		var tween := _presentation_tween()
 		tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 		tween.tween_property(egg, "position", Vector3(9.4, 1.25, -6.85), 1.45)
 		tween.parallel().tween_property(egg, "rotation_degrees:y", 540.0, 1.45)
@@ -11977,7 +12010,7 @@ func _on_egg_laid(
 			String(quality).to_upper(), streak, attention_suffix,
 		]
 		if _quality_streak_label != null:
-			var streak_tween := create_tween()
+			var streak_tween := _presentation_tween()
 			_quality_streak_label.modulate = Color("ffe39a")
 			streak_tween.tween_property(_quality_streak_label, "modulate", Color.WHITE, 0.65)
 	if quality == &"golden" and _camera_controller != null:
@@ -12198,7 +12231,7 @@ func _tween_fund_to(target_cents: int) -> void:
 		_update_fund_label()
 		return
 	var duration := clampf(0.22 + distance / 8000.0, 0.22, 0.62)
-	_fund_count_tween = create_tween().bind_node(self)
+	_fund_count_tween = _presentation_tween(self)
 	_fund_count_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	_fund_count_tween.tween_method(func(value: float) -> void:
 		_displayed_revenue_cents = roundi(value)
@@ -12242,7 +12275,7 @@ func _spawn_fund_credit_chip(value_cents: int, quality: StringName) -> void:
 		- _ui_root.get_global_rect().position
 		- Vector2(73.0, 18.0)
 	)
-	var tween := create_tween().bind_node(chip).set_parallel(true)
+	var tween := _presentation_tween(chip).set_parallel(true)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(chip, "scale", Vector2.ONE, 0.16)
 	tween.tween_property(chip, "position", start - Vector2(73.0, 54.0), 0.16)
@@ -12284,7 +12317,7 @@ func _spawn_farmgate_stock_chip(value_cents: int, quality: StringName) -> void:
 		- _ui_root.get_global_rect().position
 		- Vector2(89.0, 19.0)
 	)
-	var tween := create_tween().bind_node(chip).set_parallel(true)
+	var tween := _presentation_tween(chip).set_parallel(true)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(chip, "scale", Vector2.ONE, 0.16)
 	tween.tween_property(chip, "position", start - Vector2(89.0, 56.0), 0.16)
@@ -12325,7 +12358,7 @@ func _spawn_attention_refund_chip(receipt: Dictionary, quality: StringName) -> v
 		- _ui_root.get_global_rect().position
 		- Vector2(94.0, 19.0)
 	)
-	var tween := create_tween().bind_node(chip).set_parallel(true)
+	var tween := _presentation_tween(chip).set_parallel(true)
 	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_property(chip, "scale", Vector2.ONE, 0.18)
 	tween.tween_property(chip, "position", start - Vector2(94.0, 62.0), 0.18)
@@ -12368,7 +12401,7 @@ func _spawn_egg_vfx(origin: Vector3, quality: StringName, worker_id: int) -> voi
 		var angle := TAU * float(particle_index) / float(particle_count) + worker_id * 0.31
 		var distance := 0.38 + (particle_index % 2) * 0.14
 		var destination := origin + Vector3(cos(angle) * distance, 0.38 + (particle_index % 3) * 0.10, sin(angle) * distance)
-		var tween := create_tween().set_parallel(true)
+		var tween := _presentation_tween().set_parallel(true)
 		tween.tween_property(fleck, "position", destination, 0.52).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		tween.tween_property(fleck, "scale", Vector3.ZERO, 0.52).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 		tween.chain().tween_callback(fleck.queue_free)
@@ -12437,7 +12470,7 @@ func _on_feed_party_funded() -> void:
 		_feed_party_station.position = FEED_PARTY_STATION_POSITION
 		_on_feed_party_station_arrived()
 	else:
-		_feed_party_tween = create_tween()
+		_feed_party_tween = _presentation_tween()
 		_feed_party_tween.set_parallel(true)
 		_feed_party_tween.tween_property(
 			_feed_party_station,
@@ -12545,7 +12578,7 @@ func _complete_feed_party_visual() -> void:
 	if _prefers_reduced_motion():
 		_hide_feed_party_station()
 	else:
-		_feed_party_tween = create_tween()
+		_feed_party_tween = _presentation_tween()
 		_feed_party_tween.set_parallel(true)
 		_feed_party_tween.tween_property(
 			_feed_party_station,
@@ -12694,7 +12727,7 @@ func _on_upgrade_purchased(upgrade_id: StringName, level: int, _cost_cents: int)
 	var button: Button = _upgrade_buttons.get(upgrade_id)
 	if button != null:
 		button.modulate = Color("f7d77b")
-		var tween := create_tween()
+		var tween := _presentation_tween()
 		tween.tween_property(button, "modulate", Color.WHITE, 0.70).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	if _workstation_feedback != null:
 		var active_snapshot := _snapshot_with_active_workers(_simulation.snapshot())

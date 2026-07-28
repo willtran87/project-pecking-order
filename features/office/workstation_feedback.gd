@@ -101,6 +101,7 @@ var _station_list: Array[StationVisual] = []
 var _phase: float = 0.0
 var _update_accumulator: float = 0.0
 var _color_vision_mode: StringName = &"standard"
+var _animation_speed_multiplier := 1.0
 
 
 func _ready() -> void:
@@ -209,6 +210,7 @@ func play_reinvestment_install(
 	var generation := int(station.install_generations.get(upgrade_id, 0)) + 1
 	station.install_generations[upgrade_id] = generation
 	var install_tween := create_tween().bind_node(station.root)
+	install_tween.set_speed_scale(_animation_speed_multiplier)
 	station.install_tweens[upgrade_id] = install_tween
 	install_tween.tween_property(prop_root, "scale", Vector3(1.08, 1.08, 1.08), 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	if token_root != null:
@@ -259,6 +261,21 @@ func color_vision_mode() -> StringName:
 	return _color_vision_mode
 
 
+func set_animation_speed_multiplier(multiplier: float) -> void:
+	_animation_speed_multiplier = clampf(multiplier, 0.5, 2.0)
+	for station in _station_list:
+		if station.completion_tween != null and station.completion_tween.is_valid():
+			station.completion_tween.set_speed_scale(_animation_speed_multiplier)
+		for tween_value in station.install_tweens.values():
+			var install_tween := tween_value as Tween
+			if install_tween != null and install_tween.is_valid():
+				install_tween.set_speed_scale(_animation_speed_multiplier)
+
+
+func animation_speed_multiplier() -> float:
+	return _animation_speed_multiplier
+
+
 ## Play a short, interrupt-safe quality pulse on a worker's workstation.
 func pulse_completion(worker_id: int, quality: StringName) -> void:
 	var station: StationVisual = _stations_by_worker.get(worker_id)
@@ -282,6 +299,7 @@ func pulse_completion(worker_id: int, quality: StringName) -> void:
 		station.completion_tween.kill()
 	station.completion_boost = 0.0
 	station.completion_tween = create_tween().bind_node(self)
+	station.completion_tween.set_speed_scale(_animation_speed_multiplier)
 	station.completion_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	station.completion_tween.tween_property(station, "completion_boost", 1.0, 0.10)
 	station.completion_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
@@ -332,6 +350,7 @@ func pulse_peck_assist(worker_id: int, rating: StringName) -> void:
 		station.completion_tween.kill()
 	station.completion_boost = 0.0
 	station.completion_tween = create_tween().bind_node(self)
+	station.completion_tween.set_speed_scale(_animation_speed_multiplier)
 	station.completion_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	for _peck in 3:
 		station.completion_tween.tween_property(station, "completion_boost", 1.0, 0.07)

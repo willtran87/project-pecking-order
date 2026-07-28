@@ -57,7 +57,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		_contains_all(settings.accessible_text(), ["master 80 percent", "office hum + flock room tone 55 percent", "motion reduced", "125 percent", "high contrast on", "color vision standard", "effect density reduced", "timing lenient", "transient notices priority for extended duration", "haptics disabled", "pause when unfocused on", "f10", "escape", "backup export is available"]),
+		_contains_all(settings.accessible_text(), ["master 80 percent", "office hum + flock room tone 55 percent", "motion reduced", "125 percent", "high contrast on", "color vision standard", "effect density reduced", "animation speed relaxed", "tooltip delay long", "timing lenient", "transient notices priority for extended duration", "haptics disabled", "pause when unfocused on", "f10", "escape", "backup export is available"]),
 		"settings should publish one complete concise accessibility summary",
 		failures,
 	)
@@ -160,6 +160,8 @@ func _run() -> void:
 	var notice_level := settings.find_child("NoticeLevelSelector", true, false) as OptionButton
 	var notice_duration := settings.find_child("NoticeDurationSelector", true, false) as OptionButton
 	var effect_level := settings.find_child("EffectLevelSelector", true, false) as OptionButton
+	var animation_speed := settings.find_child("AnimationSpeedSelector", true, false) as OptionButton
+	var tooltip_delay := settings.find_child("TooltipDelaySelector", true, false) as OptionButton
 	var haptics := settings.find_child("HapticsToggle", true, false) as CheckButton
 	var focus_pause := settings.find_child("PauseWhenUnfocusedToggle", true, false) as CheckButton
 	if motion != null:
@@ -183,6 +185,12 @@ func _run() -> void:
 	if effect_level != null:
 		effect_level.select(2)
 		effect_level.item_selected.emit(2)
+	if animation_speed != null:
+		animation_speed.select(2)
+		animation_speed.item_selected.emit(2)
+	if tooltip_delay != null:
+		tooltip_delay.select(0)
+		tooltip_delay.item_selected.emit(0)
 	if haptics != null:
 		haptics.button_pressed = true
 	if focus_pause != null:
@@ -196,6 +204,8 @@ func _run() -> void:
 		and String(observed_preferences.back().get("notice_level", "")) == "archive_only"
 		and String(observed_preferences.back().get("notice_duration", "")) == "brief"
 		and String(observed_preferences.back().get("effect_level", "")) == "off"
+		and String(observed_preferences.back().get("animation_speed", "")) == "brisk"
+		and String(observed_preferences.back().get("tooltip_delay", "")) == "short"
 		and bool(observed_preferences.back().get("haptics_enabled", false))
 		and not bool(observed_preferences.back().get("pause_when_unfocused", true)),
 		"comfort and notice selectors should emit their exact canonical settings",
@@ -370,7 +380,7 @@ func _run() -> void:
 			push_error("SETTINGS_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_UI_TEST_PASSED audio=5+independent-ambience comfort=motion+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+haptics+focus-pause controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
+	print("SETTINGS_UI_TEST_PASSED audio=5+independent-ambience comfort=motion+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
 	quit(0)
 
 
@@ -392,6 +402,8 @@ func _preferences() -> Dictionary:
 		"notice_level": "priority",
 		"notice_duration": "extended",
 		"effect_level": "reduced",
+		"animation_speed": "relaxed",
+		"tooltip_delay": "long",
 		"haptics_enabled": false,
 		"pause_when_unfocused": true,
 		"input_bindings": {},

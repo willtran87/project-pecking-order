@@ -2016,11 +2016,39 @@ The next major systems milestone is persistent worker relationships and individu
   The independent Web client reaches live First Clutch play with the new settings
   in `render_game_to_text`, zero browser-error artifact, and zero orphan nodes.
 
+## 2026-07-28 — Presentation timing preferences
+
+- Expanded the preference contract to schema v6 with Relaxed/Standard/Brisk
+  presentation animation speed and Short/Standard/Long tooltip delay. Existing
+  schema-v1 through schema-v5 saves and browser mirrors migrate to safe Standard
+  defaults.
+- Animation speed applies live to camera easing, ambient presentation,
+  workstation feedback, management review, construction commissioning, and
+  campus reveals. It deliberately leaves the simulation clock, shift deadlines,
+  production rules, and economy unchanged. Tooltip delay applies through the
+  engine's global UI timing setting.
+- Added both controls to the responsive Comfort & Controls ledger, including
+  precise tooltips and accessible narration. Focused preference, mirror,
+  Settings, Office, atmosphere, camera, workstation, commissioning, and campus
+  regressions pass.
+- The production Web export remains byte-identical across all nine deployable
+  files in `docs/` and `web/public/game/`. The 6,281,704-byte PCK has SHA-256
+  `4211BC1A2C644C60BDAD4B5C1C9FD086E8B2231E34DB6674E6F3165949F265DE`.
+- Bundled Node 24 lint, production build, 42/42 rendered accessibility tests,
+  and the production payload test pass. The final responsive Settings audit at
+  `output/web-game/presentation-timing-settings-audit-v3/` reports zero errors
+  and no horizontal overflow; its inspected timing-controls capture is
+  contained and readable. The official client capture at
+  `output/web-game/presentation-timing-official-client-v5/` reaches live First
+  Clutch play with zero orphan nodes and no browser-error artifact.
+- The final isolated Godot 4.7 sweep discovers, completes, and passes all
+  191/191 scripts with zero failures and zero timeouts at
+  `output/godot-full-suite-20260728-presentation-timing/full-suite-summary.json`.
+
 ## Next acceptance work
 
 - Continue the expanded economic-game checklist audit with the remaining
-  unproven UX contracts: explicit animation-speed/tooltip-delay preferences
-  where the interaction model benefits, automated irreversible-confirmation and
-  undo coverage, and structured usability/playtest evidence.
+  unproven UX contracts: automated irreversible-confirmation and undo coverage,
+  and structured usability/playtest evidence.
 - Physical iOS/Android touch, desktop/mobile screen-reader, listening, integrated
   GPU, and discrete GPU sessions remain external human-hardware sign-offs.

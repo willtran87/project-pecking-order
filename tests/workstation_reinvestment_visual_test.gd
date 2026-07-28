@@ -29,6 +29,7 @@ func _run() -> void:
 	feedback.name = "WorkstationFeedback"
 	fixture.add_child(feedback)
 	feedback.configure(workstations)
+	feedback.set_animation_speed_multiplier(1.5)
 	# Configure twice to protect office rebuilds from duplicating generated props.
 	feedback.configure(workstations)
 
@@ -38,6 +39,7 @@ func _run() -> void:
 	_check(workstations.find_children("ErgonomicNestUpgrade", "Node3D", true, false).size() == 2, "configure should create one connected nest treatment per desk", failures)
 	_check(workstations.find_children("IssuedHardwareToken_*", "Node3D", true, false).size() == 6, "configure should create three overview hardware tokens per desk", failures)
 	_check(workstations.find_children("LivePeckworkPaper_*", "MeshInstance3D", true, false).size() == 10, "reconfigure should not duplicate activity papers", failures)
+	_check(is_equal_approx(feedback.animation_speed_multiplier(), 1.5), "workstation receipts should retain the independent brisk animation speed", failures)
 
 	var desk_zero := desks[0]
 	var keyboard := desk_zero.find_child("Keyboard", true, false) as Node3D
@@ -109,7 +111,7 @@ func _run() -> void:
 			push_error("WORKSTATION_REINVESTMENT_VISUAL_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("WORKSTATION_REINVESTMENT_VISUAL_TEST_PASSED props=attached tokens=physical install=targeted snapshot_race=safe")
+	print("WORKSTATION_REINVESTMENT_VISUAL_TEST_PASSED props=attached tokens=physical install=targeted snapshot_race=safe animation-speed=brisk")
 	quit(0)
 
 

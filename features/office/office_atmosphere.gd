@@ -39,6 +39,8 @@ var _elapsed: float = 0.0
 var _atmosphere_enabled: bool = true
 var _reduced_motion: bool = false
 var _effect_level: StringName = &"full"
+var _animation_speed_multiplier := 1.0
+var _spotlight_tween: Tween
 
 
 func _ready() -> void:
@@ -131,9 +133,12 @@ func pulse_farmer_review() -> void:
 		_farmer_spotlight.light_energy = 0.0
 		return
 	_farmer_spotlight.light_energy = 0.92 * atmosphere_strength
-	var tween := create_tween().bind_node(self)
-	tween.tween_interval(2.6)
-	tween.tween_property(_farmer_spotlight, "light_energy", 0.0, 1.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	if _spotlight_tween != null and _spotlight_tween.is_valid():
+		_spotlight_tween.kill()
+	_spotlight_tween = create_tween().bind_node(self)
+	_spotlight_tween.set_speed_scale(_animation_speed_multiplier)
+	_spotlight_tween.tween_interval(2.6)
+	_spotlight_tween.tween_property(_farmer_spotlight, "light_energy", 0.0, 1.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 
 
 func set_atmosphere_enabled(enabled: bool) -> void:
@@ -151,6 +156,12 @@ func set_effect_level(level: StringName) -> void:
 	_apply_effect_preferences()
 
 
+func set_animation_speed_multiplier(multiplier: float) -> void:
+	_animation_speed_multiplier = clampf(multiplier, 0.5, 2.0)
+	if _spotlight_tween != null and _spotlight_tween.is_valid():
+		_spotlight_tween.set_speed_scale(_animation_speed_multiplier)
+
+
 func effect_snapshot() -> Dictionary:
 	return {
 		"level": String(_effect_level),
@@ -158,6 +169,7 @@ func effect_snapshot() -> Dictionary:
 		"reduced_motion": _reduced_motion,
 		"ambient_particles": _allows_ambient_particles(),
 		"event_bursts": _allows_event_bursts(),
+		"animation_speed_multiplier": _animation_speed_multiplier,
 	}
 
 

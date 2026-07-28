@@ -76,11 +76,11 @@ const focusGameAndOpenSettings = async () => {
 
 const toggleHighContrast = async (expectedState) => {
   // Settings gives its safe Return button initial focus. Walk the authored
-  // keyboard order through five mute/slider pairs and eight selectors to the
+  // keyboard order through five mute/slider pairs and ten selectors to the
   // High Contrast check row, then activate it with Space. This follows the
   // same reachable path a keyboard or switch-control player uses and avoids
   // viewport-dependent coordinates inside the Godot canvas.
-  for (let index = 0; index < 19; index += 1) {
+  for (let index = 0; index < 21; index += 1) {
     await page.keyboard.press("Tab");
   }
   await page.waitForTimeout(300);
@@ -113,12 +113,18 @@ if (initial.settings.high_contrast !== false) {
 if (
   initial.settings.effect_level !== "full"
   || initial.settings.notice_duration !== "standard"
+  || initial.settings.animation_speed !== "standard"
+  || initial.settings.animation_speed_multiplier !== 1
+  || initial.settings.tooltip_delay !== "standard"
+  || initial.settings.tooltip_delay_seconds !== 0.5
   || initial.settings.haptics_enabled !== true
 ) {
   throw new Error("Fresh browser settings did not publish the feedback preference defaults.");
 }
 if (
   !initial.settings.accessible_text.toLowerCase().includes("effect density full")
+  || !initial.settings.accessible_text.toLowerCase().includes("animation speed standard")
+  || !initial.settings.accessible_text.toLowerCase().includes("tooltip delay standard")
   || !initial.settings.accessible_text.toLowerCase().includes("standard duration")
   || !initial.settings.accessible_text.toLowerCase().includes("haptics enabled")
 ) {
@@ -126,6 +132,15 @@ if (
 }
 
 await page.screenshot({ path: path.join(outputDir, "settings-desktop.png"), fullPage: true });
+const canvasBox = await page.locator("canvas").boundingBox();
+if (!canvasBox) throw new Error("Settings audit could not locate the live canvas bounds.");
+await page.mouse.move(canvasBox.x + (canvasBox.width * 0.50), canvasBox.y + (canvasBox.height * 0.72));
+await page.mouse.wheel(0, 420);
+await page.waitForTimeout(500);
+await page.screenshot({
+  path: path.join(outputDir, "settings-presentation-timing.png"),
+  fullPage: true,
+});
 await toggleHighContrast(true);
 await page.keyboard.press("F10");
 await page.waitForTimeout(1_000);
@@ -142,6 +157,10 @@ if (restored?.settings?.pause_when_unfocused !== true || restored?.settings?.aud
 if (
   restored?.settings?.effect_level !== "full"
   || restored?.settings?.notice_duration !== "standard"
+  || restored?.settings?.animation_speed !== "standard"
+  || restored?.settings?.animation_speed_multiplier !== 1
+  || restored?.settings?.tooltip_delay !== "standard"
+  || restored?.settings?.tooltip_delay_seconds !== 0.5
   || restored?.settings?.haptics_enabled !== true
 ) {
   throw new Error("Feedback preferences did not survive browser preference restoration.");

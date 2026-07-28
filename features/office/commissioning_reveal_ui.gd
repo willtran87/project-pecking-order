@@ -22,6 +22,7 @@ const COLOR_PANEL := Color("17232d")
 
 var _receipt: Dictionary = {}
 var _reduced_motion := false
+var _animation_speed_multiplier := 1.0
 var _entrance_animated := false
 var _entrance_tween: Tween
 
@@ -65,6 +66,7 @@ func show_reveal(receipt: Dictionary = {}, reduced_motion: bool = false) -> void
 	if _entrance_animated:
 		_receipt_panel.modulate.a = 0.0
 		_entrance_tween = create_tween()
+		_entrance_tween.set_speed_scale(_animation_speed_multiplier)
 		_entrance_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		_entrance_tween.tween_property(_receipt_panel, "modulate:a", 1.0, 0.22)
 	call_deferred("_focus_continue")
@@ -86,6 +88,16 @@ func receipt_snapshot() -> Dictionary:
 
 func used_reduced_motion() -> bool:
 	return _reduced_motion
+
+
+func set_animation_speed_multiplier(multiplier: float) -> void:
+	_animation_speed_multiplier = clampf(multiplier, 0.5, 2.0)
+	if _entrance_tween != null and _entrance_tween.is_valid():
+		_entrance_tween.set_speed_scale(_animation_speed_multiplier)
+
+
+func animation_speed_multiplier() -> float:
+	return _animation_speed_multiplier
 
 
 func entrance_animated() -> bool:

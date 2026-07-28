@@ -92,6 +92,7 @@ var _selection_ring: MeshInstance3D
 var _focus_generation: int = 0
 var _reduced_motion: bool = false
 var _high_contrast: bool = false
+var _animation_speed_multiplier := 1.0
 var _safe_viewport_insets := Vector4.ZERO # left, right, top, bottom in pixels
 var _current_safe_frame_world_offset := Vector3.ZERO
 
@@ -275,12 +276,15 @@ func _process(delta: float) -> void:
 		_active_transition_speed = transition_speed
 		return
 
-	var safe_damping := _exponential_damping(safe_frame_damping_speed, delta)
+	var safe_damping := _exponential_damping(
+		safe_frame_damping_speed * _animation_speed_multiplier,
+		delta,
+	)
 	_current_safe_frame_world_offset += (
 		desired_safe_offset - _current_safe_frame_world_offset
 	) * safe_damping
 	var desired_position := _view_target_point() + _camera_offset + _current_safe_frame_world_offset
-	var position_speed := _position_damping_speed()
+	var position_speed := _position_damping_speed() * _animation_speed_multiplier
 	var position_damping := _exponential_damping(position_speed, delta)
 	var camera_transform := _camera.global_transform
 	var position_delta := desired_position - camera_transform.origin
@@ -290,7 +294,11 @@ func _process(delta: float) -> void:
 		_camera.global_transform = camera_transform
 	var size_delta := _desired_size - _camera.size
 	if absf(size_delta) > CAMERA_SIZE_EPSILON:
-		var size_speed := _active_transition_speed if _transition_seconds_remaining > 0.0 else zoom_damping_speed
+		var size_speed := (
+			_active_transition_speed
+			if _transition_seconds_remaining > 0.0 else
+			zoom_damping_speed
+		) * _animation_speed_multiplier
 		_camera.size += size_delta * _exponential_damping(size_speed, delta)
 
 	if _transition_seconds_remaining > 0.0:
@@ -484,6 +492,7 @@ func navigation_state() -> Dictionary:
 		"home_target": _overview_target,
 		"home_size": _overview_size,
 		"bounds": _navigation_bounds_xz,
+		"animation_speed_multiplier": _animation_speed_multiplier,
 	}
 
 
@@ -533,6 +542,15 @@ func safe_framing_state() -> Dictionary:
 ## are removed.
 func set_reduced_motion(enabled: bool) -> void:
 	_reduced_motion = enabled
+
+
+func set_animation_speed_multiplier(multiplier: float) -> void:
+	var safe_multiplier := clampf(multiplier, 0.5, 2.0)
+	if is_equal_approx(safe_multiplier, _animation_speed_multiplier):
+		return
+	if _transition_seconds_remaining > 0.0:
+		_transition_seconds_remaining *= _animation_speed_multiplier / safe_multiplier
+	_animation_speed_multiplier = safe_multiplier
 
 
 func set_high_contrast(enabled: bool) -> void:
@@ -997,7 +1015,7 @@ func _reset_touch_pinch_baseline() -> void:
 
 
 func _begin_transition(duration: float) -> void:
-	_transition_seconds_remaining = maxf(0.0, duration)
+	_transition_seconds_remaining = maxf(0.0, duration / _animation_speed_multiplier)
 	if duration > 0.0:
 		_active_transition_speed = -log(EXPONENTIAL_SETTLE_PERCENT) / duration
 	else:

@@ -147,6 +147,8 @@ func _run() -> void:
 	comfort["notice_level"] = "priority"
 	comfort["notice_duration"] = "extended"
 	comfort["effect_level"] = "reduced"
+	comfort["animation_speed"] = "brisk"
+	comfort["tooltip_delay"] = "short"
 	comfort["haptics_enabled"] = false
 	comfort["pause_when_unfocused"] = true
 	(comfort.get("audio", {}) as Dictionary)["ambient"] = {"volume": 0.37, "muted": true}
@@ -158,12 +160,30 @@ func _run() -> void:
 	_check(bool(controller.get("_high_contrast")), "high contrast should strengthen the world-space focus marker", failures)
 	_check(not bool((atmosphere.get("_dust_motes") as GPUParticles3D).emitting), "reduced motion and low detail should stop ambient particles", failures)
 	var effect_snapshot := atmosphere.effect_snapshot()
+	var camera_navigation := controller.navigation_state()
 	_check(
 		String(effect_snapshot.get("level", "")) == "reduced"
 		and not bool(effect_snapshot.get("ambient_particles", true))
 		and not bool(effect_snapshot.get("event_bursts", true))
 		and audio_feedback != null and not audio_feedback.haptics_enabled(),
 		"effect density and haptics preferences should reach their live feedback systems",
+		failures,
+	)
+	_check(
+		is_equal_approx(float(camera_navigation.get("animation_speed_multiplier", 0.0)), 1.5)
+		and is_equal_approx(float(effect_snapshot.get("animation_speed_multiplier", 0.0)), 1.5)
+		and workstation_feedback != null
+		and is_equal_approx(workstation_feedback.animation_speed_multiplier(), 1.5)
+		and office.get("_management_presence") != null
+		and is_equal_approx(
+			(office.get("_management_presence") as ManagementPresence).animation_speed_multiplier(),
+			1.5,
+		)
+		and is_equal_approx(
+			float(ProjectSettings.get_setting("gui/timers/tooltip_delay_sec", -1.0)),
+			0.15,
+		),
+		"presentation timing should reach camera, world feedback, management, and the live tooltip timer without changing the simulation clock",
 		failures,
 	)
 	_check(sun != null and not sun.shadow_enabled, "performance detail should disable the expensive office sun shadow", failures)
@@ -207,8 +227,11 @@ func _run() -> void:
 	var nest_queue := office.find_child("Queue_nest_damage", true, false) as Label
 	_check(nest_queue != null and "[N]" in nest_queue.text, "safe palette should add a redundant Nest routing marker", failures)
 	_check(
-		(settings.accessible_text() if settings != null else "").to_lower().contains("priority peck timing extended"),
-		"settings narration should reflect the applied timing assistance",
+		_contains_all(
+			settings.accessible_text() if settings != null else "",
+			["priority peck timing extended", "animation speed brisk", "tooltip delay short"],
+		),
+		"settings narration should reflect timing assistance and independent presentation pacing",
 		failures,
 	)
 	_check(
@@ -355,10 +378,18 @@ func _run() -> void:
 			push_error("SETTINGS_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe input=17+camera+ack+rollback audio=feedback+adaptive+ambient-independent notices=priority+archive-only+semantic-labels+duration effects=density+motion haptics=optional focus-pause=restore+opt-out contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
+	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe input=17+camera+ack+rollback audio=feedback+adaptive+ambient-independent notices=priority+archive-only+semantic-labels+duration effects=density+motion presentation=animation-speed+tooltip-delay haptics=optional focus-pause=restore+opt-out contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
 	quit(0)
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _contains_all(text: String, needles: Array[String]) -> bool:
+	var lowered := text.to_lower()
+	for needle in needles:
+		if needle.to_lower() not in lowered:
+			return false
+	return true

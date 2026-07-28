@@ -70,6 +70,7 @@ var _farmer_right_leg: Node3D
 var _farmer_tween: Tween
 var _farmer_is_reviewing := false
 var _farmer_phase := 0.0
+var _animation_speed_multiplier := 1.0
 
 
 func _ready() -> void:
@@ -116,12 +117,23 @@ func play_review() -> void:
 	if _farmer_tween != null and _farmer_tween.is_valid():
 		_farmer_tween.kill()
 	_farmer_tween = create_tween()
+	_farmer_tween.set_speed_scale(_animation_speed_multiplier)
 	_farmer_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	_farmer_tween.tween_property(_farmer_root, "position", FARMER_REVIEW_POSITION, 1.35)
 	_farmer_tween.tween_interval(FARMER_REVIEW_DURATION)
 	_farmer_tween.tween_callback(_begin_farmer_exit)
 	_farmer_tween.tween_property(_farmer_root, "position", FARMER_OFFSTAGE_POSITION, 1.2)
 	_farmer_tween.tween_callback(_finish_review)
+
+
+func set_animation_speed_multiplier(multiplier: float) -> void:
+	_animation_speed_multiplier = clampf(multiplier, 0.5, 2.0)
+	if _farmer_tween != null and _farmer_tween.is_valid():
+		_farmer_tween.set_speed_scale(_animation_speed_multiplier)
+
+
+func animation_speed_multiplier() -> float:
+	return _animation_speed_multiplier
 
 
 ## World-space camera target for the visible farmer review position.

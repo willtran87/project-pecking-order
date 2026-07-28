@@ -217,6 +217,10 @@ were 40px high.
       losing authoritative text, symbols, warning history, receipts, or audio.
 - [x] Players can select Brief, Standard, or Extended transient-notice duration;
       the complete labeled Shift Record remains available in every mode.
+- [x] Players can select Relaxed, Standard, or Brisk presentation animation
+      speed without changing the simulation clock, shift deadlines, or economy.
+- [x] Players can select Short, Standard, or Long tooltip delay; the preference
+      applies live and remains independent from simulation timing.
 - [x] Supported devices can use restrained optional haptics for confirmations,
       warnings, rare outcomes, and milestones. Routine production stays calm,
       and disabling vibration preserves complete visual and audio feedback.
@@ -224,7 +228,9 @@ were 40px high.
 Evidence: `office_audio_director.gd`, `office_audio_feedback.gd`,
 `office_atmosphere.gd`, `audio_feedback_test.gd`, and
 `office_audio_director_test.gd`, plus `player_preferences_store_test.gd`,
-`settings_ui_test.gd`, and `settings_office_integration_test.gd`.
+`settings_ui_test.gd`, `settings_office_integration_test.gd`,
+`management_camera_navigation_test.gd`, and
+`workstation_reinvestment_visual_test.gd`.
 
 ## Reliability, saves, and verification
 

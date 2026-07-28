@@ -24,11 +24,13 @@ func _run() -> void:
 	var default_preferences: Dictionary = PlayerPreferencesStoreScript.defaults()
 	_check(PlayerPreferencesStoreScript.validate(default_preferences).is_empty(), "defaults should satisfy the strict persistence schema", failures)
 	_check(
-		default_preferences.keys().size() == 13
+		default_preferences.keys().size() == 15
 		and (default_preferences.get("audio", {}) as Dictionary).keys().size() == 5
 		and String(default_preferences.get("notice_level", "")) == "all"
 		and String(default_preferences.get("notice_duration", "")) == "standard"
 		and String(default_preferences.get("effect_level", "")) == "full"
+		and String(default_preferences.get("animation_speed", "")) == "standard"
+		and String(default_preferences.get("tooltip_delay", "")) == "standard"
 		and bool(default_preferences.get("haptics_enabled", false))
 		and bool(default_preferences.get("pause_when_unfocused", false)),
 		"preferences should remain a compact campaign-independent contract",
@@ -36,6 +38,16 @@ func _run() -> void:
 	)
 	_check(store.load_preferences() == default_preferences, "a first launch should return complete defaults", failures)
 	_check(store.last_error.is_empty() and not store.last_load_recovered, "missing preferences should be a normal first-launch state", failures)
+	_check(
+		is_equal_approx(PlayerPreferencesStoreScript.animation_speed_multiplier("relaxed"), 0.75)
+		and is_equal_approx(PlayerPreferencesStoreScript.animation_speed_multiplier("standard"), 1.0)
+		and is_equal_approx(PlayerPreferencesStoreScript.animation_speed_multiplier("brisk"), 1.5)
+		and is_equal_approx(PlayerPreferencesStoreScript.tooltip_delay_seconds("short"), 0.15)
+		and is_equal_approx(PlayerPreferencesStoreScript.tooltip_delay_seconds("standard"), 0.5)
+		and is_equal_approx(PlayerPreferencesStoreScript.tooltip_delay_seconds("long"), 1.0),
+		"presentation timing choices should map to bounded non-simulation values",
+		failures,
+	)
 
 	var sanitized: Dictionary = PlayerPreferencesStoreScript.sanitize({
 		"audio": {
@@ -52,6 +64,8 @@ func _run() -> void:
 		"notice_level": "interrupt_everything",
 		"notice_duration": "forever",
 		"effect_level": "explosive",
+		"animation_speed": "warp",
+		"tooltip_delay": "eventually",
 		"haptics_enabled": "sometimes",
 		"pause_when_unfocused": false,
 		"input_bindings": {"unknown_action": []},
@@ -85,6 +99,8 @@ func _run() -> void:
 		and String(sanitized.get("notice_level", "")) == "all"
 		and String(sanitized.get("notice_duration", "")) == "standard"
 		and String(sanitized.get("effect_level", "")) == "full"
+		and String(sanitized.get("animation_speed", "")) == "standard"
+		and String(sanitized.get("tooltip_delay", "")) == "standard"
 		and bool(sanitized.get("haptics_enabled", false))
 		and not bool(sanitized.get("pause_when_unfocused", true))
 		and (sanitized.get("input_bindings", {}) as Dictionary).is_empty(),
@@ -108,6 +124,8 @@ func _run() -> void:
 	first_preferences["notice_level"] = "priority"
 	first_preferences["notice_duration"] = "extended"
 	first_preferences["effect_level"] = "reduced"
+	first_preferences["animation_speed"] = "brisk"
+	first_preferences["tooltip_delay"] = "long"
 	first_preferences["haptics_enabled"] = false
 	first_preferences["pause_when_unfocused"] = false
 	first_preferences["input_bindings"] = {
@@ -128,6 +146,8 @@ func _run() -> void:
 	second_preferences["notice_level"] = "archive_only"
 	second_preferences["notice_duration"] = "brief"
 	second_preferences["effect_level"] = "off"
+	second_preferences["animation_speed"] = "relaxed"
+	second_preferences["tooltip_delay"] = "short"
 	second_preferences["haptics_enabled"] = true
 	(second_preferences.get("audio", {}) as Dictionary)["music"] = {"volume": 0.2, "muted": true}
 	_check(store.save_preferences(second_preferences), "a second valid save should rotate a known-good backup", failures)
@@ -159,6 +179,8 @@ func _run() -> void:
 	legacy_preferences.erase("notice_level")
 	legacy_preferences.erase("notice_duration")
 	legacy_preferences.erase("effect_level")
+	legacy_preferences.erase("animation_speed")
+	legacy_preferences.erase("tooltip_delay")
 	legacy_preferences.erase("haptics_enabled")
 	legacy_preferences.erase("pause_when_unfocused")
 	(legacy_preferences.get("audio", {}) as Dictionary).erase("ambient")
@@ -175,6 +197,8 @@ func _run() -> void:
 		and String(migrated_preferences.get("notice_level", "")) == "all"
 		and String(migrated_preferences.get("notice_duration", "")) == "standard"
 		and String(migrated_preferences.get("effect_level", "")) == "full"
+		and String(migrated_preferences.get("animation_speed", "")) == "standard"
+		and String(migrated_preferences.get("tooltip_delay", "")) == "standard"
 		and bool(migrated_preferences.get("haptics_enabled", false))
 		and bool(migrated_preferences.get("pause_when_unfocused", false))
 		and (migrated_preferences.get("audio", {}) as Dictionary).has("ambient")
@@ -183,6 +207,25 @@ func _run() -> void:
 		failures,
 	)
 	_check(store.delete_preferences(), "migrated preference fixture should be removable", failures)
+	var schema_five_preferences := default_preferences.duplicate(true)
+	schema_five_preferences.erase("animation_speed")
+	schema_five_preferences.erase("tooltip_delay")
+	var schema_five_envelope := {
+		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
+		"schema_version": 5,
+		"preferences": schema_five_preferences,
+		"metadata": {"saved_at_unix": 0, "save_revision": 4},
+	}
+	_check(_write_raw(TEST_PRIMARY_PATH, JSON.stringify(schema_five_envelope)), "test should write a schema-five fixture", failures)
+	var migrated_schema_five := store.load_preferences()
+	_check(
+		String(migrated_schema_five.get("animation_speed", "")) == "standard"
+		and String(migrated_schema_five.get("tooltip_delay", "")) == "standard"
+		and PlayerPreferencesStoreScript.validate(migrated_schema_five).is_empty(),
+		"schema-five preferences should gain independent standard presentation timing defaults",
+		failures,
+	)
+	_check(store.delete_preferences(), "schema-five migration fixture should be removable", failures)
 	var future_envelope := {
 		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
 		"schema_version": PlayerPreferencesStoreScript.CURRENT_SCHEMA_VERSION + 1,
@@ -204,7 +247,7 @@ func _run() -> void:
 			push_error("PLAYER_PREFERENCES_STORE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v5 migration=v1+v2+v3+v4 color-vision=safe+symbols notices=level+duration effects=full+reduced+off haptics=optional focus-pause=default-on validation=strict atomic=backup-recovery audio=5-bus preferences=campaign-independent")
+	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v6 migration=v1+v2+v3+v4+v5 color-vision=safe+symbols notices=level+duration effects=full+reduced+off presentation=animation-speed+tooltip-delay haptics=optional focus-pause=default-on validation=strict atomic=backup-recovery audio=5-bus preferences=campaign-independent")
 	quit(0)
 
 
