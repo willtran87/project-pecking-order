@@ -39,15 +39,16 @@ func _run() -> void:
 	_check(window_pastures.size() == 6, "every window should show the farm beyond the office (found %d)" % window_pastures.size(), failures)
 	_check(office.find_children("EmployeeNameplateTextFixture", "Node3D", true, false).size() == 6, "every workstation should have a physically mounted nameplate", failures)
 	var structural_shadow_names := [
-		"CubicleBack", "CubicleWing_L", "DeskFrontTrim", "DeskLeg_L",
-		"DeskSurface", "DrawerPedestal", "Monitor", "PanelTopTrim", "ChairSeat",
+		"CubicleBack", "CubicleWing_L", "DeskSurface", "DrawerPedestal",
+		"Monitor", "ChairSeat",
 	]
 	var cosmetic_shadow_names := [
 		"ClaimFile_0", "ClaimTray", "CoffeeMug", "DeskMat", "DeskPhone",
 		"DrawerHandle_0", "Keyboard", "Memo_A", "Memo_B", "PhoneReceiver",
 		"Screen", "ScreenAlert", "ScreenHeader", "ScreenLine_0", "UrgentTab",
 		"ChickPhotoFrame", "ChickPhoto", "ChickPortrait", "PencilCup", "Pencil",
-		"DeskPlantPot", "DeskPlantLeaf", "FeedSnackPacket",
+		"DeskPlantPot", "DeskPlantLeaf", "FeedSnackPacket", "DeskFrontTrim",
+		"DeskLeg_L", "PanelTopTrim",
 	]
 	for workstation_value in office.find_children("Workstation_*", "Node3D", true, false):
 		var workstation := workstation_value as Node3D
@@ -83,6 +84,18 @@ func _run() -> void:
 	_check(
 		_visible_shadow_caster_count(collection_chain) <= 30,
 		"collection hardware should reserve shadows for structural rails, tubes, trays, and carriers",
+		failures,
+	)
+	var office_shell := office.find_child("OfficeShell", true, false)
+	_check(
+		_visible_shadow_caster_count(office_shell) <= Office.CORE_OFFICE_STRUCTURAL_SHADOW_HOSTS.size(),
+		"office shell should reserve real-time shadows for a few grounding props",
+		failures,
+	)
+	var management_perch := office.find_child("RoosterManagementPerch", true, false)
+	_check(
+		_visible_shadow_caster_count(management_perch) <= 9,
+		"management perch should keep its silhouette without shadowing every dashboard detail",
 		failures,
 	)
 	var floor_chevrons := office.find_children("PeckFlowChevron*", "MeshInstance3D", true, false)

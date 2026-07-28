@@ -324,6 +324,9 @@ test("installs the same bounded preferences and diagnostic bridges in the direct
 	assert.match(preset, /window\.render_game_accessibility_to_text=/);
 	assert.match(preset, /__pecking_order_request_accessibility_state/);
 	assert.match(preset, /return window\.__pecking_order_accessibility_state\|\|'\{\}'/);
+	assert.match(preset, /__pecking_order_runtime_metrics/);
+	assert.match(preset, /return\{wasmMemoryBytes:engine\.rtenv\?\.HEAP8\?\.buffer\.byteLength\?\?0\}/);
+	assert.match(preset, /catch\{return\{wasmMemoryBytes:0\}/);
 });
 
 test("starts the runtime and manifest fetch in parallel with truthful staged loading copy", async () => {

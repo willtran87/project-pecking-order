@@ -67,13 +67,26 @@ const MAXIMUM_OFFICE_CAPACITY := 6
 const WORKSTATION_STRUCTURAL_SHADOW_HOSTS := [
 	"CubicleBack",
 	"CubicleWing_L",
-	"DeskFrontTrim",
-	"DeskLeg_L",
 	"DeskSurface",
 	"DrawerPedestal",
 	"Monitor",
-	"PanelTopTrim",
 	"ChairSeat",
+]
+const CORE_OFFICE_STRUCTURAL_SHADOW_HOSTS := [
+	"WaterCoolerBase",
+	"WaterJug",
+	"Copier",
+	"CopierLid",
+	"ShredBin",
+	"FileCabinet",
+	"ArchiveBox",
+	"PlantPot",
+	"PlantStem",
+	"SafetyExtinguisher",
+]
+const WEST_LEASE_STRUCTURAL_SHADOW_PREFIXES := [
+	"WestLeasePartitionPanel_",
+	"WestLeasePartitionPost_",
 ]
 const INTAKE_STRUCTURAL_SHADOW_HOSTS := [
 	"IntakeCounter",
@@ -1837,6 +1850,12 @@ func _build_office() -> void:
 	_build_window_farm_view(shell)
 	_build_floor_story(shell)
 	_build_wall_story(_archive_presentation, shell)
+	_apply_shadow_allowlist(shell, CORE_OFFICE_STRUCTURAL_SHADOW_HOSTS)
+	_apply_shadow_allowlist(
+		_west_lease_partition,
+		[],
+		WEST_LEASE_STRUCTURAL_SHADOW_PREFIXES,
+	)
 	_build_feed_party_station()
 
 	var desks := Node3D.new()
@@ -2471,6 +2490,22 @@ func _apply_opening_story_shadow_budget() -> void:
 	var collection_chain := _office_storytelling.find_child("VisibleEggCollectionChain", true, false)
 	if collection_chain != null:
 		_apply_shadow_allowlist(collection_chain, [], COLLECTION_STRUCTURAL_SHADOW_PREFIXES)
+	var management_perch := _office_storytelling.find_child("RoosterManagementPerch", true, false)
+	if management_perch != null:
+		_apply_shadow_allowlist(
+			management_perch,
+			[
+				"PerchRaisedFoundation",
+				"ExecutivePerchDesk",
+				"ExecutiveDeskLegBatch",
+				"ExecutiveRoostSeat",
+				"ExecutiveRoostBack",
+				"ExecutiveRoostColumn",
+				"ExecutiveGoldenEgg",
+				"GoldenEggPlinth",
+				"FlockSurveillanceCamera",
+			],
+		)
 
 
 func _apply_shadow_allowlist(

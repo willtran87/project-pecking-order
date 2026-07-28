@@ -49,6 +49,14 @@ const MANAGER_VISIBLE_ACCESSORIES: Array[StringName] = [
 	&"BowTie",
 	&"AccessoryBadge_Nameplate",
 ]
+const MANAGER_SHADOW_HOSTS: Array[StringName] = [
+	&"Feather_Torso",
+	&"ArticulatedWing_L",
+	&"ArticulatedWing_R",
+	&"TailFeatherFan",
+	&"LegLeftMesh",
+	&"LegRightMesh",
+]
 
 var _manager_root: Node3D
 var _manager_model: Node3D
@@ -157,6 +165,7 @@ func model_binding_diagnostics() -> Dictionary:
 		"comb_scale": _manager_comb.scale.x if _manager_comb != null else 0.0,
 		"comb_attachment_error": _manager_comb_attachment_error(),
 		"animation_player_cached": _manager_animation_player != null,
+		"visible_shadow_casters": _visible_shadow_caster_count(_manager_model),
 	}
 
 
@@ -173,6 +182,7 @@ func _build_manager() -> void:
 	_cache_manager_model_bindings()
 	_recolor_manager_feathers()
 	_configure_manager_accessories()
+	_apply_manager_shadow_budget(_manager_model)
 	_cache_manager_animations()
 	_build_manager_clipboard()
 	_build_manager_badge()
@@ -340,6 +350,7 @@ func _build_additional_manager(manager: Dictionary, index: int) -> Dictionary:
 		if descendant.name == &"Comb" and descendant is MeshInstance3D:
 			_scale_comb_from_crown(descendant as MeshInstance3D)
 	_recolor_manager_model(model, Color(String(manager.get("color", "343941"))))
+	_apply_manager_shadow_budget(model)
 	if player != null:
 		player.playback_default_blend_time = 0.16
 		for available_name in player.get_animation_list():
@@ -359,6 +370,33 @@ func _build_additional_manager(manager: Dictionary, index: int) -> Dictionary:
 		"target": right,
 		"pause": float(index) * 0.35,
 	}
+
+
+func _apply_manager_shadow_budget(model: Node3D) -> void:
+	for candidate in model.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := candidate as GeometryInstance3D
+		if geometry == null:
+			continue
+		geometry.cast_shadow = (
+			GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			if StringName(geometry.name) in MANAGER_SHADOW_HOSTS
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		)
+
+
+func _visible_shadow_caster_count(root_node: Node) -> int:
+	var count := 0
+	if root_node == null:
+		return count
+	for candidate in root_node.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := candidate as GeometryInstance3D
+		if (
+			geometry != null
+			and geometry.is_visible_in_tree()
+			and geometry.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		):
+			count += 1
+	return count
 
 
 func _recolor_manager_model(model: Node3D, base_color: Color) -> void:

@@ -100,6 +100,14 @@ const ACCESSORY_PROFILES: Array[Dictionary] = [
 	{"head": &"AccessoryHead_SleepMask", "neck": &"AccessoryNeck_KnitScarf", "body": &"AccessoryBody_Satchel"},
 ]
 const ACCESSORY_PROFILE_DECK: Array[int] = [4, 0, 9, 6, 2, 12, 5, 15, 1, 10, 7, 14, 3, 17, 11, 8, 16, 13]
+const CHARACTER_SHADOW_HOSTS: Array[StringName] = [
+	&"Feather_Torso",
+	&"ArticulatedWing_L",
+	&"ArticulatedWing_R",
+	&"TailFeatherFan",
+	&"LegLeftMesh",
+	&"LegRightMesh",
+]
 
 var worker_id: int = -1
 var desk_index: int = -1
@@ -494,6 +502,7 @@ func model_binding_diagnostics() -> Dictionary:
 		"temperament_idle_style": _temperament_idle_style,
 		"temperament_motion_scale": _temperament_motion_scale,
 		"temperament_focus_scale": _temperament_focus_scale,
+		"visible_shadow_casters": _visible_shadow_caster_count(),
 	}
 
 
@@ -1117,11 +1126,42 @@ func _build_character(worker_name: String, color_index: int) -> void:
 	_head_rest_position = _head_pivot.position
 	_apply_feather_variant(color_index)
 	_apply_accessory_variant(worker_name, color_index)
+	_apply_character_shadow_budget()
 	_career_credential_badge = _accessory_nodes.get(&"AccessoryBadge_GoldenEgg") as Node3D
 	if _career_credential_badge != null:
 		_career_credential_profile_visible = _career_credential_badge.visible
 		_career_credential_rest_position = _career_credential_badge.position
 	_cache_secondary_motion_parts()
+
+
+func _apply_character_shadow_budget() -> void:
+	# The connected torso, articulated wings, tail, and feet establish the full
+	# readable silhouette. Facial accents and professional accessories receive
+	# that shadow instead of each submitting another animated depth pass.
+	for candidate in _visual_root.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := candidate as GeometryInstance3D
+		if geometry == null:
+			continue
+		geometry.cast_shadow = (
+			GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			if StringName(geometry.name) in CHARACTER_SHADOW_HOSTS
+			else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		)
+
+
+func _visible_shadow_caster_count() -> int:
+	var count := 0
+	if _visual_root == null:
+		return count
+	for candidate in _visual_root.find_children("*", "GeometryInstance3D", true, false):
+		var geometry := candidate as GeometryInstance3D
+		if (
+			geometry != null
+			and geometry.is_visible_in_tree()
+			and geometry.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		):
+			count += 1
+	return count
 
 
 func _apply_career_credential(worker_snapshot: Dictionary) -> void:

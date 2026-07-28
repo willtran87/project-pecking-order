@@ -47,6 +47,11 @@ func _run() -> void:
 		failures,
 	)
 	_check(int(chicken_bindings["wing_bones_cached"]) == 4, "all four articulated wing bones should be cached", failures)
+	_check(
+		int(chicken_bindings["visible_shadow_casters"]) <= ChickenView.CHARACTER_SHADOW_HOSTS.size(),
+		"the connected chicken silhouette should use a bounded animated shadow budget",
+		failures,
+	)
 	var rig := chicken.find_child("ChickenRig", true, false)
 	var render_profile := _render_profile(rig)
 	_check(
@@ -127,6 +132,11 @@ func _run() -> void:
 		failures,
 	)
 	_check(bool(manager_bindings["animation_player_cached"]), "manager animation player should be cached", failures)
+	_check(
+		int(manager_bindings["visible_shadow_casters"]) <= ManagementPresence.MANAGER_SHADOW_HOSTS.size(),
+		"manager should use the same connected silhouette shadow budget as the flock",
+		failures,
+	)
 	await create_timer(0.65).timeout
 	manager_bindings = presence.model_binding_diagnostics()
 	_check(
@@ -153,11 +163,12 @@ func _run() -> void:
 		quit(1)
 		return
 	print(
-		"CHICKEN_RENDER_HOT_PATH_TEST_PASSED accessories=%d meshes=%d surfaces=%d wing_bones=4 manager_accessories=%d hidden_routes=active"
+		"CHICKEN_RENDER_HOT_PATH_TEST_PASSED accessories=%d meshes=%d surfaces=%d shadows=%d wing_bones=4 manager_accessories=%d hidden_routes=active"
 			% [
 				int(chicken_bindings["accessory_nodes_cached"]),
 				int(render_profile.meshes),
 				int(render_profile.surfaces),
+				int(chicken_bindings["visible_shadow_casters"]),
 				int(manager_bindings["accessory_nodes_cached"]),
 			]
 	)

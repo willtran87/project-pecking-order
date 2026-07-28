@@ -92,7 +92,7 @@ body {
 		</style>
 		<link id="-gd-engine-icon" rel="icon" type="image/png" href="index.icon.png" />
 <link rel="apple-touch-icon" href="index.apple-touch-icon.png"/>
-<script>(()=>{const key='pecking-order.player-preferences';const max=512*1024;window.__pecking_order_preferences_bridge=Object.freeze({load:()=>{try{const value=localStorage.getItem(key)||'';return new TextEncoder().encode(value).byteLength<=max?value:'';}catch{return'';}},save:(payload)=>{try{if(typeof payload!=='string'||new TextEncoder().encode(payload).byteLength>max)return false;const parsed=JSON.parse(payload);if(!parsed||Array.isArray(parsed)||typeof parsed!=='object')return false;localStorage.setItem(key,payload);return localStorage.getItem(key)===payload;}catch{return false;}}});window.render_game_to_text=()=>{try{window.__pecking_order_request_diagnostic?.();}catch{}return window.__pecking_order_state||'{}';};window.render_game_accessibility_to_text=()=>{try{window.__pecking_order_request_accessibility_state?.();}catch{}return window.__pecking_order_accessibility_state||'{}';};})();</script>
+<script>(()=>{const key='pecking-order.player-preferences';const max=512*1024;window.__pecking_order_preferences_bridge=Object.freeze({load:()=>{try{const value=localStorage.getItem(key)||'';return new TextEncoder().encode(value).byteLength<=max?value:'';}catch{return'';}},save:(payload)=>{try{if(typeof payload!=='string'||new TextEncoder().encode(payload).byteLength>max)return false;const parsed=JSON.parse(payload);if(!parsed||Array.isArray(parsed)||typeof parsed!=='object')return false;localStorage.setItem(key,payload);return localStorage.getItem(key)===payload;}catch{return false;}}});window.render_game_to_text=()=>{try{window.__pecking_order_request_diagnostic?.();}catch{}return window.__pecking_order_state||'{}';};window.render_game_accessibility_to_text=()=>{try{window.__pecking_order_request_accessibility_state?.();}catch{}return window.__pecking_order_accessibility_state||'{}';};window.__pecking_order_runtime_metrics=()=>{try{return{wasmMemoryBytes:engine.rtenv?.HEAP8?.buffer.byteLength??0};}catch{return{wasmMemoryBytes:0};}};})();</script>
 	</head>
 	<body>
 		<canvas id="canvas">
@@ -111,7 +111,7 @@ body {
 
 		<script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":6312976,"index.wasm":39509339},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":true,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":6315760,"index.wasm":39509339},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 

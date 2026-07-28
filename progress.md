@@ -2228,3 +2228,44 @@ The next major systems milestone is persistent worker relationships and individu
   integrated-GPU, and discrete-GPU sign-offs remain pending. The project owner's
   usability attestation remains documented separately and is not represented as
   recorded session evidence.
+
+## 2026-07-28 - Balanced-quality shadow submission hardening
+
+- Audited the first ten-minute foreground-valid RTX 3090 result from the
+  on-demand-diagnostic candidate. It held a 59.88 FPS median with no degradation,
+  lost focus, visibility loss, or context loss, and all 20 physical input
+  samples passed at 81.4 ms p95. It still failed closed at 29.76 FPS 1% low and
+  one 817.1 ms maximum stall, so it was not registered as release evidence.
+- Corrected two audit-contract defects exposed by that run. The direct Pages
+  export now exposes its Emscripten heap through the same bounded runtime metric
+  bridge as the wrapper, and the short rAF responsiveness guard permits one
+  display interval of timer quantization instead of labeling a 150.1 ms sample
+  on a 150 ms contract as a stopped render loop. The continuous 1%-low, p95,
+  p99, p999, and maximum-stall gates remain unchanged.
+- Reserved animated chicken and rooster shadows for their six connected
+  silhouette meshes: torso, two wings, tail, and two legs. Facial details and
+  professional accessories remain fully rendered and animated but receive the
+  connected silhouette shadow instead of each issuing another depth submission.
+- Added explicit core-office, workstation, west-partition, and management-perch
+  shadow budgets. Small screens, labels, trim, buttons, paper, rails, and wall
+  accents retain their materials and color detail while grounding furniture,
+  characters, collection hardware, and large props continue to cast.
+- The complete opening office remains visually identical at 613 visible color
+  submissions. Visible shadow casters fell from 313 to 124 and visible shadow
+  surfaces from 362 to 156. In-app inspection of the exact Balanced-quality Web
+  export confirms the flock, desks, manager perch, collection chain, and office
+  architecture retain clear depth and grounding.
+- Focused chicken rendering, office detail, storytelling, and Web bridge tests
+  pass. The isolated Godot 4.7 suite at
+  `output/godot-full-suite-shadow-budget-final/full-suite-summary.json`
+  discovers, completes, and passes all 192/192 scripts with zero failures or
+  timeouts.
+- The independent 21-check release gate passes in 132.095 seconds at
+  `output/release/shadow-budget-beta-release-gate.json`, including representative
+  native gameplay and persistence contracts, Node 24 lint, all 49 Web tests,
+  production serving, evidence validators and handoffs, and exact nine-file
+  parity.
+- The synchronized candidate PCK is 6,315,760 bytes with SHA-256
+  `E195CB2F617E0533A751149C5840103C28DEC46CF09DAF8C502C6F8187F76DA1`.
+  A new exact-candidate ten-minute hardware probe is required before the
+  discrete-GPU evidence row can change from pending.
