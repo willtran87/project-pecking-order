@@ -1,4 +1,5 @@
 export const MAX_FOREGROUND_LOSS_MSEC = 5_000;
+export const MINIMUM_DISPLAY_REFRESH_HZ = 59;
 
 export function physicalGpuEnvironmentIssues({
   displayRefreshHz,
@@ -7,9 +8,13 @@ export function physicalGpuEnvironmentIssues({
   maximumForegroundLossMsec = MAX_FOREGROUND_LOSS_MSEC,
 } = {}) {
   const issues = [];
-  if (!Number.isFinite(displayRefreshHz) || displayRefreshHz < 60) {
+  if (
+    !Number.isFinite(displayRefreshHz) ||
+    displayRefreshHz < MINIMUM_DISPLAY_REFRESH_HZ
+  ) {
     issues.push(
-      `display refresh must be at least 60 Hz; recorded ${displayRefreshHz || 0} Hz`,
+      "display refresh must be at least 59 Hz measured " +
+      `(nominal 60 Hz-class); recorded ${displayRefreshHz || 0} Hz`,
     );
   }
   if (visibilityLostMsec > maximumForegroundLossMsec) {

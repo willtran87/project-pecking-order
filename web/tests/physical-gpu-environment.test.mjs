@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   MAX_FOREGROUND_LOSS_MSEC,
+  MINIMUM_DISPLAY_REFRESH_HZ,
   physicalGpuEnvironmentIssues,
 } from "./physical-gpu-environment.mjs";
 
@@ -17,6 +18,18 @@ test("accepts a continuously foregrounded 60 Hz physical display", () => {
   );
 });
 
+test("accepts the standard 59.94 Hz mode reported by Windows as integer 59", () => {
+  assert.equal(MINIMUM_DISPLAY_REFRESH_HZ, 59);
+  assert.deepEqual(
+    physicalGpuEnvironmentIssues({
+      displayRefreshHz: 59,
+      visibilityLostMsec: 0,
+      focusLostMsec: 0,
+    }),
+    [],
+  );
+});
+
 test("rejects the prior 30 Hz physical-probe environment", () => {
   assert.deepEqual(
     physicalGpuEnvironmentIssues({
@@ -24,7 +37,10 @@ test("rejects the prior 30 Hz physical-probe environment", () => {
       visibilityLostMsec: 0,
       focusLostMsec: 0,
     }),
-    ["display refresh must be at least 60 Hz; recorded 30 Hz"],
+    [
+      "display refresh must be at least 59 Hz measured " +
+      "(nominal 60 Hz-class); recorded 30 Hz",
+    ],
   );
 });
 

@@ -596,7 +596,9 @@ function Test-PhysicalEvidence {
         elseif ($spec.kind -eq "gpu") {
             Require-Minimum $issues $metrics "resolution_width" 1920 $sessionPath
             Require-Minimum $issues $metrics "resolution_height" 1080 $sessionPath
-            Require-Minimum $issues $metrics "display_refresh_hz" 60 $sessionPath
+            # Windows commonly reports a nominal 59.94 Hz mode as integer 59.
+            # That is the intended 60 Hz-class environment for the 55 FPS gate.
+            Require-Minimum $issues $metrics "display_refresh_hz" 59 $sessionPath
             if ([string](Get-Field $metrics "visual_quality") -ne "balanced") {
                 Add-Issue $issues "$sessionPath.metrics.visual_quality" "must equal balanced"
             }

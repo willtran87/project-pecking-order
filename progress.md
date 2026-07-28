@@ -2147,12 +2147,21 @@ The next major systems milestone is persistent worker relationships and individu
   refresh of at least 60 Hz and to measure hidden-page and lost-focus time.
   More than five seconds of either now marks the environment invalid before FPS,
   stall, or degradation thresholds are interpreted.
-- Added four focused Node tests proving a continuously foregrounded 60 Hz
-  session is eligible while the prior 30 Hz setup, visibility loss, and
-  occlusion/focus loss are rejected.
+- Added five focused Node tests proving continuously foregrounded nominal
+  60 Hz modes (including Windows' integer 59 report) are eligible while the
+  prior 30 Hz setup, visibility loss, and occlusion/focus loss are rejected.
 - The official Web-game client reached live First Clutch gameplay on the public
   candidate with no browser-error artifact; the inspected 1280x720 frame is
   contained, readable, and shows the active office and connected flock.
 - Web lint, production build, all 48 rendered/contract tests, and the explicit
   30 Hz negative runner probe pass. The complete release gate passes all 21
   checks in `output/release/foreground-valid-physical-gate-v1.json`.
+- Hardware discovery identifies the local NVIDIA GeForce RTX 3090 at
+  2560x1440, driver `32.0.15.9595`, with Windows reporting its nominal
+  59.94/60 Hz mode as integer 59. Aligned the runner and evidence validator on
+  measured 59 Hz as the minimum 60 Hz-class mode; the 55 FPS discrete target is
+  unchanged, and the 30 Hz environment remains ineligible.
+- The physical evidence contract self-test, five focused environment tests,
+  Web lint/build, all 49 Web tests, and the complete 21-check release gate pass
+  after that alignment in
+  `output/release/nominal-60-physical-gate-v1.json`.

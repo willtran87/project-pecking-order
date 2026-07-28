@@ -206,13 +206,14 @@ calculated final/initial ratio. The validator recomputes that ratio from the raw
 window medians.
 
 The headed hardware audit requires the tester to provide the measured display
-refresh through `ACTIVE_PROGRESSION_DISPLAY_REFRESH_HZ`; values below 60 are
-rejected before Chromium launches. Keep the game tab visible and focused for
-the continuous sample. More than five seconds of hidden-page time or lost
-browser focus marks the environment ineligible and stops frame thresholds from
-being interpreted as game performance. This prevents a 30 Hz desktop or
-Chromium's one-frame-per-second background cadence from being mislabeled as a
-runtime regression or a physical-GPU pass.
+refresh through `ACTIVE_PROGRESSION_DISPLAY_REFRESH_HZ`. A measured integer 59
+is accepted as the normal Windows representation of a nominal 59.94/60 Hz
+mode; lower values are rejected before Chromium launches. Keep the game tab
+visible and focused for the continuous sample. More than five seconds of
+hidden-page time or lost browser focus marks the environment ineligible and
+stops frame thresholds from being interpreted as game performance. This
+prevents a 30 Hz desktop or Chromium's one-frame-per-second background cadence
+from being mislabeled as a runtime regression or a physical-GPU pass.
 
 ### Route
 

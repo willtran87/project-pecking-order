@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   MAX_FOREGROUND_LOSS_MSEC,
+  MINIMUM_DISPLAY_REFRESH_HZ,
   physicalGpuEnvironmentIssues,
 } from "./physical-gpu-environment.mjs";
 
@@ -65,8 +66,9 @@ if (physicalGpuProbe) {
   assert.equal(headed, true, "the physical GPU probe requires a visible headed browser");
   assert.ok(physicalSampleMsec >= 600_000, "the physical GPU probe requires at least ten sampled minutes");
   assert.ok(
-    Number.isFinite(physicalDisplayRefreshHz) && physicalDisplayRefreshHz >= 60,
-    "the physical GPU probe requires an explicitly recorded display refresh of at least 60 Hz",
+    Number.isFinite(physicalDisplayRefreshHz) &&
+      physicalDisplayRefreshHz >= MINIMUM_DISPLAY_REFRESH_HZ,
+    "the physical GPU probe requires an explicitly recorded nominal 60 Hz-class display",
   );
   assert.match(releaseCommit, /^[0-9a-f]{40}$/i, "the physical GPU probe requires a full release commit");
   assert.match(expectedPckSha256, /^[0-9a-f]{64}$/, "the physical GPU probe requires the release PCK SHA-256");
@@ -1553,7 +1555,7 @@ try {
       },
       thresholds: {
         visualQuality: "balanced",
-        minimumDisplayRefreshHz: 60,
+        minimumDisplayRefreshHz: MINIMUM_DISPLAY_REFRESH_HZ,
         maximumVisibilityLossMsec: MAX_FOREGROUND_LOSS_MSEC,
         maximumFocusLossMsec: MAX_FOREGROUND_LOSS_MSEC,
         minimumSampleSeconds: 600,
