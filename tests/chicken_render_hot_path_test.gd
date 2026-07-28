@@ -19,6 +19,20 @@ func _run() -> void:
 	})
 	root.add_child(chicken)
 	await physics_frame
+	chicken.set_presentation_update_rate_hz(30.0)
+	var presentation_samples_before := int(
+		chicken.model_binding_diagnostics().get("presentation_update_count", 0)
+	)
+	for _frame in 12:
+		await physics_frame
+	var presentation_samples_after := int(
+		chicken.model_binding_diagnostics().get("presentation_update_count", 0)
+	)
+	_check(
+		presentation_samples_after - presentation_samples_before in [5, 6, 7],
+		"30 Hz presentation should evaluate roughly every other 60 Hz physics frame",
+		failures,
+	)
 
 	var chicken_bindings := chicken.model_binding_diagnostics()
 	_check(

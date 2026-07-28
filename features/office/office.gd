@@ -139,6 +139,9 @@ const CAPACITY_COMMISSIONING_SETTLE_SECONDS := 0.28
 const LOW_DIRECTIONAL_SHADOW_ATLAS_SIZE := 1024
 const BALANCED_DIRECTIONAL_SHADOW_ATLAS_SIZE := 2048
 const HIGH_DIRECTIONAL_SHADOW_ATLAS_SIZE := 4096
+const LOW_WORKER_PRESENTATION_RATE_HZ := 20.0
+const BALANCED_WORKER_PRESENTATION_RATE_HZ := 30.0
+const HIGH_WORKER_PRESENTATION_RATE_HZ := 0.0
 const FIRST_CLUTCH_REINVESTMENT_KIND: StringName = &"first_clutch_reinvestment"
 const SHIFT_END_FALLBACK_MINUTE := 24 * 60
 const CORE_OVERVIEW_TARGET := Vector3(4.75, 0.65, -0.65)
@@ -257,6 +260,7 @@ var _office_sun: DirectionalLight3D
 var _bounce_light: DirectionalLight3D
 var _office_fill_lights: Array[OmniLight3D] = []
 var _directional_shadow_atlas_size := HIGH_DIRECTIONAL_SHADOW_ATLAS_SIZE
+var _worker_presentation_rate_hz := HIGH_WORKER_PRESENTATION_RATE_HZ
 var _management_camera: Camera3D
 var _camera_controller: ManagementCameraController
 var _management_presence: ManagementPresence
@@ -826,6 +830,7 @@ func _apply_visual_quality(quality: StringName) -> void:
 		&"low":
 			viewport.scaling_3d_scale = 0.82
 			viewport.msaa_3d = Viewport.MSAA_DISABLED
+			_set_worker_presentation_rate_hz(LOW_WORKER_PRESENTATION_RATE_HZ)
 			_set_directional_shadow_atlas_size(LOW_DIRECTIONAL_SHADOW_ATLAS_SIZE)
 			if _office_sun != null:
 				_office_sun.shadow_enabled = false
@@ -834,6 +839,7 @@ func _apply_visual_quality(quality: StringName) -> void:
 		&"high":
 			viewport.scaling_3d_scale = 1.0
 			viewport.msaa_3d = Viewport.MSAA_4X
+			_set_worker_presentation_rate_hz(HIGH_WORKER_PRESENTATION_RATE_HZ)
 			_set_directional_shadow_atlas_size(HIGH_DIRECTIONAL_SHADOW_ATLAS_SIZE)
 			if _office_sun != null:
 				_office_sun.shadow_enabled = true
@@ -843,6 +849,11 @@ func _apply_visual_quality(quality: StringName) -> void:
 		_:
 			viewport.scaling_3d_scale = 1.0
 			viewport.msaa_3d = Viewport.MSAA_DISABLED
+			# The authored chicken clips are sampled at a film-like 30 Hz while
+			# route movement, peck contacts, lay release, and the economy retain
+			# their full physics cadence. This removes duplicate Web skeleton and
+			# accessory writes without changing simulation responsiveness.
+			_set_worker_presentation_rate_hz(BALANCED_WORKER_PRESENTATION_RATE_HZ)
 			# The 4096 atlas is valuable for High's four showcase cascades. The
 			# bounded orthographic office needs one 2048 map at Balanced, matching
 			# Godot's own mobile atlas default while retaining every grounding
@@ -858,6 +869,18 @@ func _apply_visual_quality(quality: StringName) -> void:
 				_office_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 			if _office_atmosphere != null:
 				_office_atmosphere.set_atmosphere_enabled(true)
+
+
+func _set_worker_presentation_rate_hz(rate_hz: float) -> void:
+	_worker_presentation_rate_hz = maxf(0.0, rate_hz)
+	for view_value: Variant in _worker_views.values():
+		var worker_view := view_value as ChickenView
+		if worker_view != null:
+			worker_view.set_presentation_update_rate_hz(_worker_presentation_rate_hz)
+	for view_value: Variant in _departing_worker_views.values():
+		var departing_view := view_value as ChickenView
+		if departing_view != null:
+			departing_view.set_presentation_update_rate_hz(_worker_presentation_rate_hz)
 
 
 func _set_directional_shadow_atlas_size(size: int) -> void:
@@ -3156,6 +3179,7 @@ func _spawn_worker_view(worker_data: Dictionary, arrival_order: int = -1) -> Chi
 	var view := ChickenViewScript.new() as ChickenView
 	view.configure(worker_data)
 	_workers_node.add_child(view)
+	view.set_presentation_update_rate_hz(_worker_presentation_rate_hz)
 	view.feed_party_attendance_ready.connect(_on_feed_party_attendance_ready)
 	view.feed_party_attendance_completed.connect(_on_feed_party_attendance_completed)
 	view.workstation_presence_changed.connect(_on_worker_workstation_presence_changed)

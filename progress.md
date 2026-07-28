@@ -2392,6 +2392,55 @@ The next major systems milestone is persistent worker relationships and individu
 - The synchronized native-resolution candidate PCK is 6,320,944 bytes with
   SHA-256
   `F34B01E0C31D540753C7ABA68417346004ED49F403AB810E9C33051E1DD50B2A`.
-  It must be committed and deployed before its exact public ten-minute
-  physical-GPU probe. All seven human-signed physical release sessions remain
-  pending.
+  Commit `8f5050b177695a5c652f6ea00444041c23ce0c53` deployed successfully through
+  Pages run `30372936149`, and the public PCK matched that hash byte-for-byte.
+- The exact public ten-minute RTX 3090 result at
+  `output/web-game/physical-balanced-shadow-atlas-8f5050b-v1/audit.json` is
+  foreground-valid and stable: 600.066 sampled seconds, 56.82 median FPS,
+  79.2 ms p95 input response, 670.4 ms maximum stall, a 1.00 final/start ratio,
+  and zero focus, visibility, or context loss. It still fails closed at
+  28.41 FPS 1% low. The atlas change reduced frames over 25 ms from 594 to 521
+  versus the prior native-resolution public candidate, but did not cross the
+  40 FPS 1%-low threshold. It is not release evidence, and all seven
+  human-signed physical sessions remain pending.
+- Two local upper-bound diagnostics rejected further shadow degradation. Hard
+  shadow filtering produced 4.052 frames over 25 ms per sampled second and a
+  791.9 ms maximum stall; disabling Balanced's shadow entirely still produced
+  3.411 frames over 25 ms per second and an 18.90 FPS 1% low. Both experiments
+  were fully reverted, confirming that presentation-side character evaluation,
+  rather than the retained grounding shadow, was the useful next boundary.
+- Balanced now evaluates each visible hen's imported skeleton, procedural pose,
+  accessories, and secondary motion at the clips' source-like 30 Hz cadence.
+  Root travel, seating authority, work/priority peck contacts, lay release, and
+  every economy timeline remain at the full physics rate. Low samples visual
+  pose at 20 Hz; High restores per-frame samples. Stable worker-ID phase slots
+  distribute those evaluations across physics frames instead of waking the
+  entire flock together.
+- Focused chicken hot-path and settings integration tests pass. They verify the
+  bounded 30 Hz evaluation count, hidden-route continuity, complete pose
+  restoration, and live 20/30/per-frame quality switching.
+- The first exact-package local checkpoint at
+  `output/web-game/physical-balanced-worker-30hz-local-v1/audit.json` cut p95
+  frame time from 35.1 to 18.2 ms and frames over 25 ms from 346 to 170 versus
+  the atlas baseline over comparable roughly 100-second samples. The staggered
+  package at
+  `output/web-game/physical-balanced-worker-stagger-local-v1/audit.json`
+  retained that gain at 173 frames over 25 ms, lowered peak stall to 441.8 ms,
+  and had zero focus, visibility, or context loss. These checkpoint-only probes
+  intentionally fail the ten-minute evidence duration and are not release
+  evidence.
+- The synchronized staggered candidate PCK is 6,322,544 bytes with SHA-256
+  `7D9C92652B214C34FFC71A34F7FAF35A58BCBC88C7C1CD96DBDF787BC1F4DD50`.
+  Both hosting copies match that hash byte-for-byte.
+- The isolated suite at
+  `output/godot-full-suite-worker-presentation-final/full-suite-summary.json`
+  discovers, completes, and passes all 192/192 scripts with zero failures or
+  timeouts.
+- The independent release gate at
+  `output/release/worker-presentation-beta-release-gate.json` passes all 21/21
+  checks in 133.154 seconds, including representative Godot contracts, Node 24
+  lint/build, all Web tests, production serving, evidence validators/handoffs,
+  and exact nine-file hosting parity.
+- The candidate still requires an exact commit and deployment followed by a
+  full public ten-minute hardware probe. All seven human-signed physical
+  release sessions remain pending.

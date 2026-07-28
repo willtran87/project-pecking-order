@@ -38,6 +38,12 @@ func _run() -> void:
 	var storytelling := office.find_child("OfficeStorytelling", true, false) as OfficeStorytelling
 	var sun := office.find_child("OfficeSun", true, false) as DirectionalLight3D
 	var ui_root := office.find_child("ManagementUIRoot", true, false) as Control
+	var worker_views := office.get("_worker_views") as Dictionary
+	var sampled_worker := (
+		worker_views.values()[0] as ChickenView
+		if not worker_views.is_empty()
+		else null
+	)
 	_check(settings != null and not settings.is_open(), "settings should be integrated but hidden on boot", failures)
 	_check(open_button != null and open_button.focus_mode == Control.FOCUS_ALL and "F10" in open_button.text, "the persistent HUD should expose a keyboard-focusable settings route", failures)
 	_check(controller != null and atmosphere != null and routing != null, "comfort settings should have live camera, atmosphere, and routing targets", failures)
@@ -193,6 +199,12 @@ func _run() -> void:
 		"performance detail should reserve only a small dormant directional atlas",
 		failures,
 	)
+	_check(
+		sampled_worker != null
+		and is_equal_approx(sampled_worker.presentation_update_rate_hz(), 20.0),
+		"performance detail should sample worker presentation at 20 Hz without reducing simulation cadence",
+		failures,
+	)
 	office.call("_apply_visual_quality", &"balanced")
 	_check(
 		sun != null
@@ -202,6 +214,12 @@ func _run() -> void:
 		and is_equal_approx(root.scaling_3d_scale, 1.0)
 		and int(office.get("_directional_shadow_atlas_size")) == 2048,
 		"balanced detail should keep native resolution with one 2048 orthographic shadow map and no MSAA",
+		failures,
+	)
+	_check(
+		sampled_worker != null
+		and is_equal_approx(sampled_worker.presentation_update_rate_hz(), 30.0),
+		"balanced detail should sample authored worker presentation at 30 Hz",
 		failures,
 	)
 	office.call("_apply_visual_quality", &"high")
@@ -216,6 +234,12 @@ func _run() -> void:
 	_check(
 		int(office.get("_directional_shadow_atlas_size")) == 4096,
 		"high detail should retain the full directional shadow atlas",
+		failures,
+	)
+	_check(
+		sampled_worker != null
+		and is_equal_approx(sampled_worker.presentation_update_rate_hz(), 0.0),
+		"high detail should restore per-frame worker presentation sampling",
 		failures,
 	)
 	office.call("_apply_visual_quality", &"low")

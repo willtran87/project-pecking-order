@@ -138,6 +138,9 @@ var _visual_root: Node3D
 var _animation_player: AnimationPlayer
 var _animation_names: Dictionary[StringName, StringName] = {}
 var _active_model_animation: StringName = &""
+var _presentation_update_interval := 0.0
+var _presentation_update_accumulator := 0.0
+var _presentation_update_count := 0
 var _route: Array[Vector3] = []
 var _route_index: int = 0
 var _home_position := Vector3.ZERO
@@ -477,6 +480,36 @@ func visible_accessory_names() -> Array[StringName]:
 	return _visible_accessories.duplicate()
 
 
+## Sets the cadence for visual-only imported animation and secondary-motion
+## evaluation. Route movement and every gameplay-facing contact/release timeline
+## continue at the physics rate. A non-positive rate restores per-frame visual
+## sampling for the High preset.
+func set_presentation_update_rate_hz(rate_hz: float) -> void:
+	_presentation_update_interval = 1.0 / rate_hz if rate_hz > 0.0 else 0.0
+	if _presentation_update_interval <= 0.0:
+		_presentation_update_accumulator = 0.0
+		return
+	# Split workers across the available physics-frame slots. Without this
+	# stable per-worker phase, all six skeletons wake on the same alternate
+	# frame at 30 Hz, replacing redundant work with a visible CPU pulse.
+	var presentation_slots := maxi(
+		1,
+		ceili(float(Engine.physics_ticks_per_second) / rate_hz),
+	)
+	var presentation_slot := posmod(worker_id, presentation_slots)
+	_presentation_update_accumulator = (
+		_presentation_update_interval
+		* float(presentation_slot)
+		/ float(presentation_slots)
+	)
+
+
+func presentation_update_rate_hz() -> float:
+	if _presentation_update_interval <= 0.0:
+		return 0.0
+	return 1.0 / _presentation_update_interval
+
+
 ## On-demand instrumentation for scene-binding regressions. This allocates only
 ## when explicitly queried by a test or diagnostic; normal presentation frames
 ## read the cached Node3D and bone references directly.
@@ -503,6 +536,8 @@ func model_binding_diagnostics() -> Dictionary:
 		"temperament_motion_scale": _temperament_motion_scale,
 		"temperament_focus_scale": _temperament_focus_scale,
 		"visible_shadow_casters": _visible_shadow_caster_count(),
+		"presentation_update_rate_hz": presentation_update_rate_hz(),
+		"presentation_update_count": _presentation_update_count,
 	}
 
 
@@ -562,13 +597,27 @@ func _physics_process(delta: float) -> void:
 	# but their model transforms do not need to be rewritten until visible again.
 	# The next visible physics frame derives the complete pose from current state.
 	if not is_visible_in_tree():
+		_presentation_update_accumulator = _presentation_update_interval
 		return
+	_presentation_update_accumulator += delta
+	if (
+		_presentation_update_interval > 0.0
+		and _presentation_update_accumulator + 0.000001 < _presentation_update_interval
+	):
+		return
+	var presentation_delta := (
+		_presentation_update_accumulator
+		if _presentation_update_interval > 0.0
+		else delta
+	)
+	_presentation_update_accumulator = 0.0
+	_presentation_update_count += 1
 	_animate_pose()
 	# Sample the imported body/head/leg clip before applying behavioral wing
 	# deformation. In automatic mode AnimationPlayer evaluated later in the
 	# frame and silently replaced the final behavioral wing pose.
 	if _animation_player != null:
-		_animation_player.advance(delta)
+		_animation_player.advance(presentation_delta)
 	_animate_secondary_motion()
 	_apply_wing_actuation()
 
