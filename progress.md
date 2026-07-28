@@ -2358,25 +2358,40 @@ The next major systems milestone is persistent worker relationships and individu
   FPS, a stable 1.00 final/start ratio, 91.7 ms p95 input response, and no focus,
   visibility, or context loss. It still failed closed at 28.41 FPS 1% low.
 - The remaining distribution contained 594 frames over 25 ms but only 86
-  browser main-thread long tasks. Balanced quality now renders only the 3D
-  office at 90% internal resolution to preserve one-display-interval headroom
-  during camera motion. Full-resolution UI/text, every model and effect, and the
-  single authored orthographic shadow map remain enabled. High remains native
-  3D resolution with 4x MSAA; Low remains the explicit 82% no-shadow,
-  reduced-effects tier.
-- The settings integration contract now verifies the live 90% Balanced 3D
-  scale together with native UI, one shadow map, and disabled MSAA. Focused
-  settings and presentation smoke tests pass.
+  browser main-thread long tasks. A 90% internal-resolution experiment was
+  therefore implemented and published for exact hardware comparison. It was
+  rejected: the ten-minute public RTX 3090 run at
+  `output/web-game/physical-balanced-scale-07ee80c-v1/audit.json` fell to
+  28.57 median FPS and 18.80 FPS 1% low, with 13,762 frames over 25 ms. The
+  scaled WebGL composite cost more than the smaller 3D frame saved.
+- Balanced has been restored to native 3D resolution. The replacement
+  optimization retains every model, effect, and the authored orthographic
+  shadow while reducing only its directional shadow atlas from 4096 to 2048.
+  High retains the full 4096 atlas, native resolution, four shadow splits, and
+  4x MSAA; Low retains its explicit 82% no-shadow reduced-effects tier and a
+  dormant 1024 atlas.
+- The settings integration contract now verifies the distinct live atlas size,
+  render scale, shadow mode, and MSAA behavior of all three quality tiers.
+  Focused settings and presentation smoke tests pass.
+- The replacement candidate's local two-shift hardware diagnostic at
+  `output/web-game/physical-balanced-shadow-atlas-local-v2/audit.json` restored
+  the 56.82 FPS median, improved the noisy development-host 1% low from 18.69
+  to 18.98 FPS, and reduced frames over 25 ms from 676 to 346. Its 721 ms
+  maximum stall remained inside the 750 ms ceiling. The shortened local sample
+  and 194.7 ms p95 input result fail closed and are not release evidence; only
+  an exact committed public ten-minute run can evaluate the physical gate.
 - The isolated Godot 4.7 suite at
-  `output/godot-full-suite-balanced-scale-final/full-suite-summary.json`
+  `output/godot-full-suite-balanced-shadow-atlas-final2/full-suite-summary.json`
   discovers, completes, and passes all 192/192 scripts with zero failures or
   timeouts.
-- The independent 21-check release gate passes in 132.505 seconds at
-  `output/release/balanced-scale-beta-release-gate.json`, including
+- The independent 21-check release gate passes in 132.054 seconds at
+  `output/release/balanced-shadow-atlas-beta-release-gate.json`, including
   representative native contracts, Node 24 lint/build, all 49 Web tests,
   production serving, both evidence validators and handoffs, and exact
   nine-file artifact parity.
-- The synchronized candidate PCK is 6,320,672 bytes with SHA-256
-  `058D18D930AB0D207E6470458BA6364DA93581AAB0090FFF76C1FC09D8A1042D`.
-  This exact committed Pages payload requires a fresh ten-minute physical GPU
-  run; all seven human-signed physical release sessions remain pending.
+- The synchronized native-resolution candidate PCK is 6,320,944 bytes with
+  SHA-256
+  `F34B01E0C31D540753C7ABA68417346004ED49F403AB810E9C33051E1DD50B2A`.
+  It must be committed and deployed before its exact public ten-minute
+  physical-GPU probe. All seven human-signed physical release sessions remain
+  pending.

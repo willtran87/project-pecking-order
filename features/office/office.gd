@@ -136,6 +136,9 @@ const FIRST_HEN_WORKER_ID := 0
 const CAPACITY_COMMISSIONING_HOLD_SECONDS := 0.72
 const CAPACITY_COMMISSIONING_REVEAL_SECONDS := 0.34
 const CAPACITY_COMMISSIONING_SETTLE_SECONDS := 0.28
+const LOW_DIRECTIONAL_SHADOW_ATLAS_SIZE := 1024
+const BALANCED_DIRECTIONAL_SHADOW_ATLAS_SIZE := 2048
+const HIGH_DIRECTIONAL_SHADOW_ATLAS_SIZE := 4096
 const FIRST_CLUTCH_REINVESTMENT_KIND: StringName = &"first_clutch_reinvestment"
 const SHIFT_END_FALLBACK_MINUTE := 24 * 60
 const CORE_OVERVIEW_TARGET := Vector3(4.75, 0.65, -0.65)
@@ -253,6 +256,7 @@ var _environment: Environment
 var _office_sun: DirectionalLight3D
 var _bounce_light: DirectionalLight3D
 var _office_fill_lights: Array[OmniLight3D] = []
+var _directional_shadow_atlas_size := HIGH_DIRECTIONAL_SHADOW_ATLAS_SIZE
 var _management_camera: Camera3D
 var _camera_controller: ManagementCameraController
 var _management_presence: ManagementPresence
@@ -822,6 +826,7 @@ func _apply_visual_quality(quality: StringName) -> void:
 		&"low":
 			viewport.scaling_3d_scale = 0.82
 			viewport.msaa_3d = Viewport.MSAA_DISABLED
+			_set_directional_shadow_atlas_size(LOW_DIRECTIONAL_SHADOW_ATLAS_SIZE)
 			if _office_sun != null:
 				_office_sun.shadow_enabled = false
 			if _office_atmosphere != null:
@@ -829,19 +834,20 @@ func _apply_visual_quality(quality: StringName) -> void:
 		&"high":
 			viewport.scaling_3d_scale = 1.0
 			viewport.msaa_3d = Viewport.MSAA_4X
+			_set_directional_shadow_atlas_size(HIGH_DIRECTIONAL_SHADOW_ATLAS_SIZE)
 			if _office_sun != null:
 				_office_sun.shadow_enabled = true
 				_office_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 			if _office_atmosphere != null:
 				_office_atmosphere.set_atmosphere_enabled(true)
 		_:
-			# Keep interface text and controls at native resolution while giving
-			# the dense WebGL office enough GPU headroom to preserve one display
-			# interval during camera motion. High remains the full-resolution
-			# showcase tier; Balanced retains every model, effect, and the authored
-			# orthographic shadow map.
-			viewport.scaling_3d_scale = 0.90
+			viewport.scaling_3d_scale = 1.0
 			viewport.msaa_3d = Viewport.MSAA_DISABLED
+			# The 4096 atlas is valuable for High's four showcase cascades. The
+			# bounded orthographic office needs one 2048 map at Balanced, matching
+			# Godot's own mobile atlas default while retaining every grounding
+			# shadow and avoiding an extra scaled-composite pass on WebGL.
+			_set_directional_shadow_atlas_size(BALANCED_DIRECTIONAL_SHADOW_ATLAS_SIZE)
 			if _office_sun != null:
 				_office_sun.shadow_enabled = true
 				# The management camera is orthographic and the playable office
@@ -852,6 +858,14 @@ func _apply_visual_quality(quality: StringName) -> void:
 				_office_sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 			if _office_atmosphere != null:
 				_office_atmosphere.set_atmosphere_enabled(true)
+
+
+func _set_directional_shadow_atlas_size(size: int) -> void:
+	_directional_shadow_atlas_size = maxi(0, size)
+	RenderingServer.directional_shadow_atlas_set_size(
+		_directional_shadow_atlas_size,
+		true,
+	)
 
 
 func _current_binding_labels() -> Dictionary:

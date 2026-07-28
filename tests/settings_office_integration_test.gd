@@ -188,14 +188,20 @@ func _run() -> void:
 	)
 	_check(sun != null and not sun.shadow_enabled, "performance detail should disable the expensive office sun shadow", failures)
 	_check(is_equal_approx(root.scaling_3d_scale, 0.82), "performance detail should lower only the 3D render scale", failures)
+	_check(
+		int(office.get("_directional_shadow_atlas_size")) == 1024,
+		"performance detail should reserve only a small dormant directional atlas",
+		failures,
+	)
 	office.call("_apply_visual_quality", &"balanced")
 	_check(
 		sun != null
 		and sun.shadow_enabled
 		and sun.directional_shadow_mode == DirectionalLight3D.SHADOW_ORTHOGONAL
 		and root.msaa_3d == Viewport.MSAA_DISABLED
-		and is_equal_approx(root.scaling_3d_scale, 0.90),
-		"balanced detail should keep native UI over a 90 percent 3D frame with one orthographic shadow map and no MSAA",
+		and is_equal_approx(root.scaling_3d_scale, 1.0)
+		and int(office.get("_directional_shadow_atlas_size")) == 2048,
+		"balanced detail should keep native resolution with one 2048 orthographic shadow map and no MSAA",
 		failures,
 	)
 	office.call("_apply_visual_quality", &"high")
@@ -205,6 +211,11 @@ func _run() -> void:
 		and sun.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 		and root.msaa_3d == Viewport.MSAA_4X,
 		"high detail should retain the four-split showcase shadow treatment and 4x MSAA",
+		failures,
+	)
+	_check(
+		int(office.get("_directional_shadow_atlas_size")) == 4096,
+		"high detail should retain the full directional shadow atlas",
 		failures,
 	)
 	office.call("_apply_visual_quality", &"low")
