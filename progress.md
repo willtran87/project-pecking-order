@@ -2165,3 +2165,14 @@ The next major systems milestone is persistent worker relationships and individu
   Web lint/build, all 49 Web tests, and the complete 21-check release gate pass
   after that alignment in
   `output/release/nominal-60-physical-gate-v1.json`.
+- The first foreground-valid public RTX 3090 attempt completed the authentic
+  two-shift route, exposed the physical renderer, and captured 20 input samples,
+  but the browser was externally closed after 365.844 seconds. It is recorded
+  as an incomplete attempt, not a frame result or signed pass.
+- Corrected the input metric to start at the browser's actual `keydown` event
+  and end at its next presented animation frame, excluding Playwright/CDP
+  transport while retaining the separate semantic-state assertion.
+- The runner now checkpoints a summarized partial frame sample every 15 linger
+  cycles. A later external browser close can no longer erase all accumulated
+  foreground, focus, visibility, frame, degradation, and context-loss evidence.
+  Web lint/build and all 49 tests pass after both probe-integrity changes.

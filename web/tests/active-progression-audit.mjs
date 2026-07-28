@@ -491,11 +491,11 @@ function percentile(values, ratio) {
   return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * ratio))] ?? 0;
 }
 
-async function stopContinuousFrameSample() {
-  const sample = await page.evaluate(() => {
+async function readContinuousFrameSample(stop = false) {
+  const sample = await page.evaluate((shouldStop) => {
     const current = window.__peckingPhysicalGpuSample;
     if (!current) return null;
-    current.active = false;
+    if (shouldStop) current.active = false;
     return {
       elapsedMsec: current.sampledMsec,
       wallElapsedMsec: performance.now() - current.startedMsec,
@@ -507,7 +507,7 @@ async function stopContinuousFrameSample() {
       records: current.records,
       contextLosses: current.contextLosses,
     };
-  });
+  }, stop);
   if (!sample) return null;
   const intervals = sample.records
     .map((record) => Number(record.intervalMsec))
@@ -550,6 +550,26 @@ async function stopContinuousFrameSample() {
   };
 }
 
+async function stopContinuousFrameSample() {
+  return readContinuousFrameSample(true);
+}
+
+async function checkpointContinuousFrameSample() {
+  await suspendPhysicalSample();
+  try {
+    const checkpoint = await readContinuousFrameSample(false);
+    if (checkpoint) {
+      fs.writeFileSync(
+        path.join(outputDirectory, "partial-frame-sample.json"),
+        JSON.stringify(checkpoint, null, 2),
+      );
+    }
+    return checkpoint;
+  } finally {
+    await resumePhysicalSample();
+  }
+}
+
 async function probePhysicalInputs() {
   const samples = [];
   const actions = [
@@ -561,12 +581,24 @@ async function probePhysicalInputs() {
     await page.locator("#canvas").focus();
     const before = await state();
     const beforeVisible = before[action.surface]?.visible === true;
-    const started = performance.now();
+    const responsePromise = page.evaluate((expectedCode) => new Promise((resolve) => {
+      const timeout = window.setTimeout(() => {
+        window.removeEventListener("keydown", onKeyDown, true);
+        resolve(Number.POSITIVE_INFINITY);
+      }, 2_000);
+      const onKeyDown = (event) => {
+        if (event.code !== expectedCode) return;
+        window.clearTimeout(timeout);
+        window.removeEventListener("keydown", onKeyDown, true);
+        const started = performance.now();
+        requestAnimationFrame((presented) => {
+          resolve(Math.max(0, presented - started));
+        });
+      };
+      window.addEventListener("keydown", onKeyDown, true);
+    }), action.key);
     await page.keyboard.press(action.key);
-    await page.evaluate(() => new Promise((resolve) => {
-      requestAnimationFrame(() => resolve());
-    }));
-    const responseMsec = performance.now() - started;
+    const responseMsec = await responsePromise;
     await page.waitForFunction(({ surface, prior }) => {
       try {
         const snapshot = JSON.parse(window.render_game_to_text?.() ?? "{}");
@@ -588,7 +620,7 @@ async function probePhysicalInputs() {
   return {
     samples,
     count: samples.length,
-    measurementMethod: "Playwright key dispatch to the next visible animation frame; the semantic state transition is verified separately because diagnostics publish on a 250ms cadence.",
+    measurementMethod: "Browser keydown timestamp to the next visible animation frame; Playwright/CDP transport is excluded, while the semantic state transition is verified separately because diagnostics publish on a 250ms cadence.",
     medianMsec: percentile(responseTimes, 0.5),
     p95Msec: percentile(responseTimes, 0.95),
     maximumMsec: Math.max(0, ...responseTimes),
@@ -1317,6 +1349,9 @@ try {
         }
       }
       lingerIndex += 1;
+      if (lingerIndex % 15 === 0) {
+        physicalFrameSample = await checkpointContinuousFrameSample();
+      }
       const remainingMsec = physicalSampleMsec - await physicalSampleElapsedMsec();
       if (remainingMsec > 0) {
         await page.waitForTimeout(Math.min(2_000, remainingMsec));
