@@ -193,8 +193,9 @@ func _run() -> void:
 		sun != null
 		and sun.shadow_enabled
 		and sun.directional_shadow_mode == DirectionalLight3D.SHADOW_ORTHOGONAL
-		and root.msaa_3d == Viewport.MSAA_DISABLED,
-		"balanced detail should use one orthographic office shadow map without MSAA",
+		and root.msaa_3d == Viewport.MSAA_DISABLED
+		and is_equal_approx(root.scaling_3d_scale, 0.90),
+		"balanced detail should keep native UI over a 90 percent 3D frame with one orthographic shadow map and no MSAA",
 		failures,
 	)
 	office.call("_apply_visual_quality", &"high")

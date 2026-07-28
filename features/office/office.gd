@@ -835,7 +835,12 @@ func _apply_visual_quality(quality: StringName) -> void:
 			if _office_atmosphere != null:
 				_office_atmosphere.set_atmosphere_enabled(true)
 		_:
-			viewport.scaling_3d_scale = 1.0
+			# Keep interface text and controls at native resolution while giving
+			# the dense WebGL office enough GPU headroom to preserve one display
+			# interval during camera motion. High remains the full-resolution
+			# showcase tier; Balanced retains every model, effect, and the authored
+			# orthographic shadow map.
+			viewport.scaling_3d_scale = 0.90
 			viewport.msaa_3d = Viewport.MSAA_DISABLED
 			if _office_sun != null:
 				_office_sun.shadow_enabled = true

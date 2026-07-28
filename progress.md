@@ -2349,3 +2349,34 @@ The next major systems milestone is persistent worker relationships and individu
   `E1EC1707E4CC75D11D8F16AB60D25D39CC4AEE8E89772AEF5A00147C8C4EB80E`.
   The exact committed Pages payload still requires a fresh ten-minute physical
   GPU run; all seven human-signed physical release sessions remain pending.
+
+## 2026-07-28 - Balanced WebGL frame headroom
+
+- The exact public review-prewarm candidate completed a second foreground-valid
+  ten-minute RTX 3090 probe. Review prewarming removed the prior contract breach:
+  maximum stall fell from 840.1 ms to 604.2 ms. The run retained 56.82 median
+  FPS, a stable 1.00 final/start ratio, 91.7 ms p95 input response, and no focus,
+  visibility, or context loss. It still failed closed at 28.41 FPS 1% low.
+- The remaining distribution contained 594 frames over 25 ms but only 86
+  browser main-thread long tasks. Balanced quality now renders only the 3D
+  office at 90% internal resolution to preserve one-display-interval headroom
+  during camera motion. Full-resolution UI/text, every model and effect, and the
+  single authored orthographic shadow map remain enabled. High remains native
+  3D resolution with 4x MSAA; Low remains the explicit 82% no-shadow,
+  reduced-effects tier.
+- The settings integration contract now verifies the live 90% Balanced 3D
+  scale together with native UI, one shadow map, and disabled MSAA. Focused
+  settings and presentation smoke tests pass.
+- The isolated Godot 4.7 suite at
+  `output/godot-full-suite-balanced-scale-final/full-suite-summary.json`
+  discovers, completes, and passes all 192/192 scripts with zero failures or
+  timeouts.
+- The independent 21-check release gate passes in 132.505 seconds at
+  `output/release/balanced-scale-beta-release-gate.json`, including
+  representative native contracts, Node 24 lint/build, all 49 Web tests,
+  production serving, both evidence validators and handoffs, and exact
+  nine-file artifact parity.
+- The synchronized candidate PCK is 6,320,672 bytes with SHA-256
+  `058D18D930AB0D207E6470458BA6364DA93581AAB0090FFF76C1FC09D8A1042D`.
+  This exact committed Pages payload requires a fresh ten-minute physical GPU
+  run; all seven human-signed physical release sessions remain pending.
