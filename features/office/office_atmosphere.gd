@@ -351,12 +351,10 @@ func _add_alert_bar(parent: Node3D, bar_name: String, bar_position: Vector3, siz
 	material.emission = color
 	material.emission_energy_multiplier = 0.01
 
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = bar_name
 	instance.position = bar_position
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.material_override = material
 	parent.add_child(instance)
 	_alert_materials.append(material)

@@ -730,9 +730,7 @@ func _build_activity_props(station: StationVisual) -> void:
 	for paper_index in 5:
 		var paper := MeshInstance3D.new()
 		paper.name = "LivePeckworkPaper_%d" % paper_index
-		var mesh := BoxMesh.new()
-		mesh.size = Vector3(0.48, 0.018, 0.34)
-		paper.mesh = mesh
+		paper.mesh = ProceduralPrimitiveCache.box(Vector3(0.48, 0.018, 0.34))
 		paper.position = tray_position + Vector3((paper_index % 2) * 0.018, paper_index * 0.023, (paper_index % 3) * 0.010)
 		paper.rotation_degrees.y = -2.5 + paper_index * 1.1
 		paper.set_meta("rest_y", paper.position.y)
@@ -746,9 +744,7 @@ func _build_activity_props(station: StationVisual) -> void:
 
 	station.stress_notice = MeshInstance3D.new()
 	station.stress_notice.name = "StressNotice"
-	var notice_mesh := BoxMesh.new()
-	notice_mesh.size = Vector3(0.42, 0.28, 0.025)
-	station.stress_notice.mesh = notice_mesh
+	station.stress_notice.mesh = ProceduralPrimitiveCache.box(Vector3(0.42, 0.28, 0.025))
 	station.stress_notice.position = Vector3(0.62, 1.31, 0.79)
 	var notice_material := StandardMaterial3D.new()
 	notice_material.albedo_color = COLOR_ALERT
@@ -795,9 +791,7 @@ func _add_box_mesh(
 ) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = node_name
-	var box := BoxMesh.new()
-	box.size = size
-	mesh_instance.mesh = box
+	mesh_instance.mesh = ProceduralPrimitiveCache.box(size)
 	mesh_instance.position = position
 	mesh_instance.material_override = material
 	parent.add_child(mesh_instance)
@@ -816,12 +810,12 @@ func _add_cylinder_mesh(
 ) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = node_name
-	var cylinder := CylinderMesh.new()
-	cylinder.top_radius = top_radius
-	cylinder.bottom_radius = bottom_radius
-	cylinder.height = height
-	cylinder.radial_segments = 12
-	mesh_instance.mesh = cylinder
+	mesh_instance.mesh = ProceduralPrimitiveCache.cylinder(
+		top_radius,
+		bottom_radius,
+		height,
+		12,
+	)
 	mesh_instance.position = position
 	mesh_instance.rotation = rotation
 	mesh_instance.material_override = material
@@ -838,12 +832,7 @@ func _add_sphere_mesh(
 ) -> MeshInstance3D:
 	var mesh_instance := MeshInstance3D.new()
 	mesh_instance.name = node_name
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.5
-	sphere.height = 1.0
-	sphere.radial_segments = 16
-	sphere.rings = 8
-	mesh_instance.mesh = sphere
+	mesh_instance.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 16, 8)
 	mesh_instance.position = position
 	mesh_instance.scale = scale
 	mesh_instance.material_override = material

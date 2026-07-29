@@ -2444,3 +2444,297 @@ The next major systems milestone is persistent worker relationships and individu
 - The candidate still requires an exact commit and deployment followed by a
   full public ten-minute hardware probe. All seven human-signed physical
   release sessions remain pending.
+
+## 2026-07-28 procedural office mesh residency optimization
+
+- Profiled the exact current office rather than reducing visual quality. The
+  existing browser candidate already met its ten-minute frame-pacing contract,
+  but its opening path still showed clustered long tasks and high object
+  residency. A new read-only profiler measured 5,223 mesh instances, including
+  4,778 procedural primitives backed by 4,778 separate mesh resources. Exact
+  geometry signatures proved that 3,137 resources were redundant.
+- Added a process-wide immutable primitive cache and routed the core office,
+  workstations, management staging, environmental signage, atmosphere props,
+  storytelling, and all optional facility/campus visual builders through it.
+  Every MeshInstance3D retains its own transform and material, and every
+  authored size, radius, segment count, ring count, collision path, and
+  visibility rule is unchanged.
+- Repeated full-residency headless profiles reduced procedural mesh resources
+  from 4,778 to 1,693 (64.6% fewer) while preserving all 4,778 instances and
+  1,641 exact geometry signatures. Median office attachment improved from
+  7.893 seconds across the three baseline runs to 6.363 seconds across the
+  three optimized runs, a 19.4% reduction. Only 52 shareable resource
+  duplicates remain in specialized animated or direct-construction paths.
+- Added a focused cache contract covering identical-resource reuse, distinct
+  geometry isolation, exact dimensions, segment/ring identity, and independent
+  per-instance transforms. The 22-test focused visual suite passes 22/22 with
+  zero failures/timeouts at
+  `output/regression/procedural-mesh-cache-focused-v1/shard-summary.json`.
+- Exported and synchronized the optimized Web candidate. The new PCK is
+  6,319,828 bytes with SHA-256
+  `89E7052CA8B7BEDFAC2217536C241F7EB4363261752B2AA3D8E5B3C6AB61F78C`.
+  Node 24 lint/build and all 49 rendered behavior/accessibility/environment
+  tests pass. The independent browser client loaded the exact served payload
+  with lazy optional residency at 0/18 roots, 10,330 objects, 4,038 nodes,
+  zero orphan nodes, and no browser errors. The inspected 1280x720 intake
+  capture remains visually unchanged and fully contained.
+- Compared with the same 4,038-node pre-change opening captures from the
+  usability, interaction-safety, and foreground-contract passes, object
+  residency fell from 10,929 to 10,330 (599 fewer objects, 5.5%) while optional
+  residency remained 0/18. First-interactive timing improved from the recent
+  5,450-5,942 ms range to 5,164 ms in the first optimized capture; this is
+  useful local startup evidence, not a replacement for the already-passing
+  public hardware frame-pacing run.
+- The final release gate passes all 21/21 checks in 133.069 seconds at
+  `output/release/procedural-mesh-cache-beta-release-gate.json`. It includes
+  representative gameplay, chicken rendering, opening progression, routing,
+  persistence, and interaction-safety contracts; Node 24 lint/build, all 49
+  Web tests, production serving, evidence contract self-tests, and exact
+  nine-file hosting parity.
+
+## 2026-07-28 active egg-effect allocation optimization
+
+- Re-profiled active production after the office-residency pass. The remaining
+  first-shift hitch pattern was concentrated around egg-laying feedback:
+  every ordinary egg constructed four short-lived MeshInstance3D nodes and
+  eight Tweens; golden eggs constructed seven nodes and fourteen Tweens.
+  A repeatable 40-burst baseline created 172 scene nodes and 863 monitored
+  objects, with a median spawn cost of 176.1 microseconds.
+- Replaced that high-frequency allocation path with a 30-slot prewarmed fleck
+  pool. It keeps the authored ordinary/golden/cracked colors, exact burst
+  counts, directions, scale curve, duration, and sound while sharing one
+  immutable cached sphere and updating the bounded active set directly.
+  Extreme bursts recycle the oldest fleck instead of growing the scene tree.
+- The same three-run profile now creates zero scene nodes and one monitored
+  object across 40 bursts. Median spawn cost is 82.1 microseconds, 53.4% lower
+  than baseline. Every fleck is hidden and returned after its 0.52-second
+  lifetime.
+- Added an 80-burst pool regression covering the fixed 30-node ceiling,
+  shared mesh identity, disabled fleck shadows, full release, and instance
+  reuse. The focused gameplay set passes 8/8 across
+  `output/regression/egg-vfx-pool-focused-v1` and
+  `output/regression/egg-vfx-pool-focused-v2`, including egg grading,
+  presentation efficiency, interaction safety, core-loop readability,
+  storytelling, and chicken rendering.
+- Exported and synchronized the Web candidate. The PCK is 6,323,412 bytes with
+  SHA-256
+  `1A3BBA4F5CCB8CFB77983D2B157533967830C9FD4D12EFBE0D424B5FA942FCFF`;
+  both hosting copies match. Node 24 lint/build and all 49 rendered Web tests
+  pass.
+- The authentic two-shift browser audit at
+  `output/web-game/egg-vfx-pool-active-v1/audit.json` passes after producing
+  and presenting 45 eggs, meeting both quotas, and starting Day 3. It reports
+  zero browser errors or audit failures. The active samples averaged 53.77 FPS
+  on the shader-heavy first Day 1 window and 59.99 FPS on Day 2; Day 2 p95 was
+  16.8 ms. The official client capture was visually inspected with the title
+  intake fully contained and no browser errors.
+- The independent packaged release gate passes all 21/21 checks in 123.39
+  seconds at
+  `output/release/egg-vfx-pool-beta-release-gate.json`, including native
+  gameplay/rendering/persistence contracts, Node 24 lint/build, all Web tests,
+  production serving, evidence validators, and exact nine-file hosting parity.
+
+## 2026-07-28 Feed Fund presentation allocation optimization
+
+- Continued from the measured first-shift frame sample instead of changing
+  graphics quality. The next repeatable hotspot was the per-egg Feed Fund
+  arrival: every payout constructed a PanelContainer, Label, StyleBox, and
+  animation graph. A 40-arrival baseline created 80 UI nodes and 480 monitored
+  objects, with a median spawn cost of 280.225 microseconds.
+- Added an eight-slot prewarmed Feed Fund chip pool. The visible copy, quality
+  colors, rise/travel/fade motion, payout timing, and confirmation sound remain
+  unchanged. A burst beyond the authored concurrency ceiling reuses the oldest
+  slot while preserving its semantic payout confirmation.
+- The same three-run profile now creates zero nodes and two monitored objects
+  across 40 arrivals. Median spawn cost is 82.2 microseconds, 70.7% lower than
+  baseline. All eight panels return hidden after the 0.70-second presentation,
+  and the UI child count remains fixed.
+- The rolling Feed Fund number was a smaller but adjacent allocator: 40
+  retargets created 120 Tween/callback objects. It now uses the same cubic
+  ease-out curve in the existing frame loop, creates zero monitored objects,
+  and reduced median setup time from 5.3 to 1.0 microseconds.
+- Added a focused pool/counter regression covering fixed capacity, shared style
+  identity, exact value copy, motion, retargeting, completed value, hidden
+  release, and node reuse. The full seven-test feedback set passes 7/7 at
+  `output/regression/fund-presentation-allocation-focused-v2`, including real
+  grading-to-basket-to-confirmation cue order, Farmgate stock-versus-cash
+  semantics, interaction safety, and core-loop readability.
+- Exported and synchronized the exact Web candidate. The PCK is 6,325,252 bytes
+  with SHA-256
+  `DA4B4C08BFCB0F96C4DB8A10E20A32F6AF7F592602493303E1C4B67AF0C6E1A8`;
+  both hosting copies match.
+- The authentic two-shift browser audit at
+  `output/web-game/fund-presentation-pool-active-v1/audit.json` passes after 45
+  eggs, both quotas, and entry into Day 3, with zero browser errors or audit
+  failures. In the same local hardware-headless setup as the immediately prior
+  candidate, Day 1 average improved from 53.77 to 55.67 FPS and its worst
+  sampled interval fell from 116.7 to 100 ms; Day 2 averaged 60.18 FPS with a
+  16.8 ms p95. The official client intake and active Day 3 captures were both
+  visually inspected and remain correctly contained.
+- The independent packaged release gate passes all 21/21 checks in 135.433
+  seconds at
+  `output/release/fund-presentation-allocation-beta-release-gate.json`.
+- Remaining profiler note: isolated first-use Day 1 intervals are now more
+  consistent with shader/pipeline warm-up than scene or payout allocation.
+  A future pass should capture the exact material pipelines involved before
+  adding a targeted loading-screen prewarm; broad hidden instantiation would
+  increase boot cost and should not be introduced without that evidence.
+
+## 2026-07-28 grading receipt allocation and pipeline prewarm
+
+- Audited the first-use rendering path before adding a broad shader prewarm.
+  The next concrete hotspot was the sorter receipt created at every grading
+  gate: each egg constructed a Node3D, seven mesh parts and materials, one
+  high-resolution Label3D, and a Tween, then destroyed the complete structure.
+- A repeatable 40-receipt baseline created 360 scene nodes and 575 monitored
+  objects, with a median setup cost of 213.15 microseconds. This also deferred
+  the receipt's paper, stripe, label, and shaded-text pipelines until the
+  player's first completed egg.
+- Replaced that churn with one prebuilt physical receipt behind the opaque
+  intake screen. Each grading now updates only its quality stripe, exact
+  payout/byline copy, color treatment, and bounded reveal/hold/retire state.
+  The authored 0.18-second reveal, 1.22-second read hold, 0.28-second retire,
+  one-slot queue, physical printer placement, and labor-attribution copy are
+  unchanged.
+- The same three-run profile now creates zero scene nodes and one monitored
+  object across 40 receipts. Median setup cost is 46.425 microseconds, 78.2%
+  lower than baseline. The receipt tree remains nine fixed nodes and returns
+  hidden after every queue.
+- Added a focused receipt regression covering stable node identity, exact
+  cracked/base/streak copy, semantic quality color, reveal motion, queued
+  successor handoff, hidden release, and slot cleanup. The seven-test grading
+  and presentation set passes 7/7 at
+  `output/regression/grading-receipt-pool-focused-v1`, including the authentic
+  egg-to-sorter-to-basket audio order, office storytelling, payout pooling,
+  interaction safety, and presentation efficiency.
+- The exact Web build passed two independent authentic two-shift audits,
+  producing 46 and 45 eggs respectively, reaching Day 3, and reporting zero
+  browser errors or audit failures. Both the official intake capture and
+  active Day 3 capture were visually inspected. The machine simultaneously
+  had two unrelated long-lived foreground Chrome renderers consuming roughly
+  3.3 CPU-seconds over a two-second sample, so these runs are valid functional
+  evidence but their lower frame-rate samples are not accepted as a clean
+  before/after throughput comparison.
+- Exported and synchronized the exact candidate. The PCK is 6,326,612 bytes
+  with SHA-256
+  `9EAE3CF59249B4623BE0CA40B38C77B2FE0D1C89B192241B8B8F35160B01CAD7`;
+  both hosting copies match.
+- The independent packaged release gate passes all 21/21 checks in 136.278
+  seconds at
+  `output/release/grading-receipt-pool-beta-release-gate.json`.
+- Remaining profiler TODO: the routed egg itself and its multi-waypoint Tween
+  are still created per completion. Any next pass should measure that complete
+  retained-clutch lifecycle before pooling it, because routed eggs become
+  authoritative visible basket contents and cannot simply be recycled on
+  arrival.
+
+## 2026-07-28 routed egg animation allocation optimization
+
+- Profiled the exact remaining route setup rather than recycling the
+  authoritative eggs that become visible basket contents. The repeatable
+  40-egg baseline created 706 monitored objects and 92 necessary visual nodes,
+  with a median setup cost of 212.45 microseconds.
+- Replaced each egg's long chain of Tween/Tweener objects with one lightweight
+  routed state. It preserves the four semantic rail waypoints, sorter grading,
+  squash/hold response, manifold and drop-tube travel, basket callback, and
+  fallback route. A delayed frame consumes all crossed phases so presentation
+  credit does not become slower when rendering briefly stalls.
+- Removed the per-frame duplicate of the active-egg array and now prunes it by
+  reverse index. Settling also retains the egg's existing quality treatment
+  and hides its transit ring instead of destroying and reconstructing the same
+  golden/cracked/sound details.
+- The same three-run profile now has a 166.75-microsecond median setup cost,
+  21.5% lower than baseline, and creates 226 monitored objects, 68.0% fewer.
+  The 92 visual nodes are unchanged because those nodes are the authored egg
+  quality treatments and bounded handoff echoes, not disposable animation
+  graphs.
+- Added a focused route regression covering exact pre-sort timing, one grading
+  signal, one presentation signal, large-frame catch-up, treatment identity
+  through basket settlement, ring retirement, and the unknown-worker direct
+  fallback. The complete seven-test grading, basket, payout, and storytelling
+  set passes 7/7.
+- Exported and synchronized the exact candidate. The PCK is 6,330,756 bytes
+  with SHA-256
+  `4C3AC3C8D06F0686D0E9EA4C4832A045A80E7DC7E5C1BA5B4E47E4E7C5C05B7`;
+  all nine hosting files match byte-for-byte and localhost serves those exact
+  bytes.
+- The official browser client loaded the exact package, and both the intake
+  and active Day 1 captures were inspected at original resolution. The active
+  state reports 0/18 lazy optional roots, zero orphan nodes, and no browser
+  error artifact.
+- The authentic two-shift browser path passes at
+  `output/web-game/routed-egg-animation-active-v1/audit.json` after routing 46
+  eggs and reaching active Day 3. It reports only +66 objects and +9 nodes,
+  zero orphans, zero browser errors, and zero audit failures. Its final active
+  office capture is visually clean. This SwiftShader run occurred amid the
+  previously recorded browser contention, so its low frame samples are not
+  accepted as physical throughput evidence; the isolated allocation profile
+  is the repeatable before/after evidence for this pass.
+- The independent packaged release gate passes all 21/21 checks in 141.629
+  seconds at
+  `output/release/routed-egg-animation-beta-release-gate.json`, including
+  representative native gameplay/rendering/persistence contracts, Node 24
+  lint/build, all 49 Web tests, production serving, evidence validators, and
+  exact hosting parity.
+- Remaining profiler TODO: the sorter stamp, basket landing, and basket recoil
+  each retain short bounded Tweens. Profile their full active lifetime before
+  converting them; unlike the removed route graph, those effects overlap only
+  around arrival and have not yet been shown to be a dominant hitch source.
+
+## 2026-07-28 sorter and basket animation allocation optimization
+
+- Profiled the remaining egg-arrival effects independently. Forty sorter
+  stamps retained 160 animation objects at a 19.425-microsecond median setup
+  cost. Thirty-six basket landings plus basket recoil retained 432 animation
+  objects at a 111.056-microsecond median setup cost. Neither path created
+  visible scene nodes, confirming the waste was transient Tween/Tweener state.
+- Replaced the sorter stamp graph with one manual state per active ring and
+  restart-in-place behavior. The exact 0.28-second back-out scale and quad-in
+  alpha curves remain unchanged. Re-triggering the same ring resets its
+  existing state rather than stacking another graph.
+- Replaced each basket landing graph with one three-phase state preserving the
+  exact 0.11-second impact, 0.09-second bounce, and 0.10-second rest curves.
+  Basket recoil now keeps one reusable state per physical basket root and
+  preserves its 0.055-second kick plus 0.16-second return. Both paths consume
+  crossed phases after a delayed frame instead of remaining visually behind.
+- Removed two adjacent per-arrival allocators: invalid settled eggs are pruned
+  by reverse index without duplicating the array, and the next clutch slot is
+  read directly from its authoritative occupied marker instead of rebuilding
+  a temporary occupancy dictionary.
+- The repeated optimized profile reduced sorter stamp residency from 160 to 40
+  objects (75.0% fewer) and its median setup time from 19.425 to 15.325
+  microseconds (21.1% lower). Basket landing/recoil residency fell from 432 to
+  38 objects (91.2% fewer), while median setup time improved from 111.056 to
+  89.528 microseconds (19.4% lower). Both still create zero scene nodes.
+- Added a focused arrival-animation regression covering sorter midpoint
+  visibility and alpha, same-ring reuse, hidden completion, landing impact,
+  delayed-frame completion, exact final egg and basket transforms, sequential
+  slot occupancy, and one bounded recoil state per basket. The full ten-test
+  affected gameplay set passes 10/10, including grading/payout cue order,
+  retained clutch behavior, interaction safety, and persistence.
+- Exported and synchronized the exact Web candidate. The PCK is 6,333,956 bytes
+  with SHA-256
+  `E7EAD6CB75F342D145E035918DC3B02424310C13E1BC5CB2D86EC98DFA35C867`;
+  all nine hosting files and the localhost response match byte-for-byte.
+- The official browser client reaches active Day 1 with 0/18 lazy optional
+  roots, zero orphan nodes, and no error artifact. Its inspected live frame is
+  contained and visually unchanged.
+- The authentic two-shift audit at
+  `output/web-game/egg-arrival-animation-active-v1/audit.json` passes after 46
+  real eggs and reaches active Day 3 with +76 objects, +9 nodes, zero orphans,
+  zero browser errors, and zero audit failures. The inspected final capture
+  visibly contains simultaneous rail eggs and a populated basket with correct
+  office and HUD composition. SwiftShader throughput remains diagnostic-only
+  on the currently contended machine and is not claimed as physical FPS
+  evidence.
+- The independent packaged release gate passes all 21/21 checks in 129.877
+  seconds at
+  `output/release/egg-arrival-animation-beta-release-gate.json`, including
+  representative native gameplay/rendering/persistence contracts, Node 24
+  lint/build, all 49 Web tests, production serving, evidence validators, and
+  exact hosting parity.
+- Remaining profiler direction: egg feedback allocation is now bounded across
+  lay, route, grade, basket, and payout. The next meaningful performance proof
+  should be a clean foreground hardware trace of render pipelines and long
+  frames; the remaining quality-lamp Tweens are capped to three concurrent
+  semantic lamps and are not currently supported as a dominant hotspot.

@@ -142,6 +142,11 @@ const HIGH_DIRECTIONAL_SHADOW_ATLAS_SIZE := 4096
 const LOW_WORKER_PRESENTATION_RATE_HZ := 20.0
 const BALANCED_WORKER_PRESENTATION_RATE_HZ := 30.0
 const HIGH_WORKER_PRESENTATION_RATE_HZ := 0.0
+const EGG_FLECK_POOL_SIZE := 30
+const EGG_FLECK_DURATION_SECONDS := 0.52
+const FUND_CREDIT_CHIP_POOL_SIZE := 8
+const FUND_CREDIT_CHIP_RISE_SECONDS := 0.16
+const FUND_CREDIT_CHIP_TRAVEL_SECONDS := 0.54
 const FIRST_CLUTCH_REINVESTMENT_KIND: StringName = &"first_clutch_reinvestment"
 const SHIFT_END_FALLBACK_MINUTE := 24 * 60
 const CORE_OVERVIEW_TARGET := Vector3(4.75, 0.65, -0.65)
@@ -207,6 +212,29 @@ const DIRECTIVE_ORDER_FIT_RULES := {
 	},
 }
 
+
+class EggFleckVisual extends RefCounted:
+	var node: MeshInstance3D
+	var active := false
+	var origin := Vector3.ZERO
+	var destination := Vector3.ZERO
+	var start_scale := Vector3.ONE
+	var elapsed := 0.0
+
+
+class FundCreditChipVisual extends RefCounted:
+	var panel: PanelContainer
+	var label: Label
+	var pool_index := -1
+	var active := false
+	var start_position := Vector2.ZERO
+	var rise_position := Vector2.ZERO
+	var target_position := Vector2.ZERO
+	var value_cents := 0
+	var quality: StringName = &"sound"
+	var elapsed := 0.0
+
+
 var _simulation := DepartmentSimulation.new(1701, INITIAL_CAMPAIGN_STAFF)
 var _clock := SimulationClock.new()
 var _worker_views: Dictionary[int, ChickenView] = {}
@@ -243,6 +271,10 @@ var _west_perch_05_presentation: Node3D
 var _archive_presentation: Node3D
 var _intake_presentation: Node3D
 var _egg_layer: Node3D
+var _egg_fleck_pool: Array[EggFleckVisual] = []
+var _active_egg_flecks: Array[EggFleckVisual] = []
+var _fund_credit_chip_pool: Array[FundCreditChipVisual] = []
+var _active_fund_credit_chips: Array[FundCreditChipVisual] = []
 var _feed_party_station: Node3D
 var _feed_party_tween: Tween
 var _feed_party_wheels: Array[Node3D] = []
@@ -441,7 +473,10 @@ var _authoritative_revenue_cents := 0
 var _displayed_revenue_cents := -1
 var _pending_collection_cents := 0
 var _fund_visual_target_cents := -1
-var _fund_count_tween: Tween
+var _fund_counter_active := false
+var _fund_counter_start_cents := 0
+var _fund_counter_duration := 0.0
+var _fund_counter_elapsed := 0.0
 var _animation_speed_multiplier := 1.0
 var _pending_web_diagnostic_snapshot: Dictionary = {}
 var _web_diagnostic_dirty := false
@@ -503,6 +538,7 @@ func _ready() -> void:
 	add_child(_audio_director)
 	_boot_mark(&"audio")
 	_build_ui()
+	_build_fund_credit_chip_pool()
 	_boot_mark(&"ui")
 	_apply_player_preferences()
 
@@ -1968,6 +2004,7 @@ func _build_office() -> void:
 	_egg_layer = Node3D.new()
 	_egg_layer.name = "EggsInTransit"
 	add_child(_egg_layer)
+	_build_egg_fleck_pool()
 
 	_workers_node = Node3D.new()
 	_workers_node.name = "Workers"
@@ -3286,7 +3323,10 @@ func _on_predator_victim_captured(worker_id: int, threat_origin: Vector3) -> voi
 			worker_view.begin_predator_panic(threat_origin)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_process_fund_counter(delta)
+	_process_fund_credit_chip_pool(delta)
+	_process_egg_fleck_pool(delta)
 	_flush_due_campaign_checkpoint()
 	var blocking_surface_open := _blocking_management_surface_open()
 	var first_clutch_compact := (
@@ -9443,6 +9483,7 @@ func _reset_campaign_session_visuals() -> void:
 	_authoritative_revenue_cents = _simulation.revenue_cents
 	_displayed_revenue_cents = _simulation.revenue_cents
 	_fund_visual_target_cents = _simulation.revenue_cents
+	_fund_counter_active = false
 	_last_reviewed_day = _simulation.day
 	_sync_worker_presence()
 	_on_snapshot_changed(_simulation.snapshot())
@@ -12008,7 +12049,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	if _displayed_revenue_cents < 0:
 		_displayed_revenue_cents = available_to_display
 		_fund_visual_target_cents = available_to_display
-	if _fund_count_tween != null and _fund_count_tween.is_valid():
+	if _fund_counter_active:
 		if available_to_display != _fund_visual_target_cents:
 			_tween_fund_to(available_to_display)
 	else:
@@ -12457,12 +12498,7 @@ func _on_egg_laid(
 	_pending_collection_cents += presentation_cash_cents
 	var egg := MeshInstance3D.new()
 	egg.name = "Egg_%s_%d" % [quality, Time.get_ticks_msec()]
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = 18
-	mesh.rings = 10
-	egg.mesh = mesh
+	egg.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 18, 10)
 	egg.scale = Vector3(0.32, 0.43, 0.32)
 	egg.position = _egg_layer.to_local(worker_view.egg_lay_origin_global())
 	var egg_color := Color("e9e2c8")
@@ -12719,24 +12755,40 @@ func _take_collection_claim(worker_id: int) -> int:
 
 
 func _tween_fund_to(target_cents: int) -> void:
-	if _fund_count_tween != null and _fund_count_tween.is_valid():
-		_fund_count_tween.kill()
 	var start_cents := maxi(0, _displayed_revenue_cents)
 	_fund_visual_target_cents = target_cents
 	var distance := absi(target_cents - start_cents)
 	if distance == 0:
+		_fund_counter_active = false
 		_displayed_revenue_cents = target_cents
 		_update_fund_label()
 		return
-	var duration := clampf(0.22 + distance / 8000.0, 0.22, 0.62)
-	_fund_count_tween = _presentation_tween(self)
-	_fund_count_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	_fund_count_tween.tween_method(func(value: float) -> void:
-		_displayed_revenue_cents = roundi(value)
-		_update_fund_label(), float(start_cents), float(target_cents), duration)
-	_fund_count_tween.tween_callback(func() -> void:
-		_displayed_revenue_cents = target_cents
-		_update_fund_label())
+	_fund_counter_start_cents = start_cents
+	_fund_counter_duration = clampf(0.22 + distance / 8000.0, 0.22, 0.62)
+	_fund_counter_elapsed = 0.0
+	_fund_counter_active = true
+
+
+func _process_fund_counter(delta: float) -> void:
+	if not _fund_counter_active:
+		return
+	_fund_counter_elapsed += delta * _animation_speed_multiplier
+	var progress := clampf(
+		_fund_counter_elapsed / _fund_counter_duration,
+		0.0,
+		1.0,
+	)
+	var eased := 1.0 - pow(1.0 - progress, 3.0)
+	_displayed_revenue_cents = roundi(lerpf(
+		float(_fund_counter_start_cents),
+		float(_fund_visual_target_cents),
+		eased,
+	))
+	_update_fund_label()
+	if progress >= 1.0:
+		_fund_counter_active = false
+		_displayed_revenue_cents = _fund_visual_target_cents
+		_update_fund_label()
 
 
 func _update_fund_label() -> void:
@@ -12748,40 +12800,158 @@ func _spawn_fund_credit_chip(value_cents: int, quality: StringName) -> void:
 	if _ui_root == null or _revenue_label == null or _management_camera == null:
 		_on_fund_credit_chip_arrived(value_cents, quality)
 		return
-	var chip := PanelContainer.new()
-	chip.name = "FundCreditChip"
-	chip.custom_minimum_size = Vector2(146.0, 36.0)
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var visual := _acquire_fund_credit_chip()
+	if visual == null:
+		_on_fund_credit_chip_arrived(value_cents, quality)
+		return
+	var chip := visual.panel
 	var accent := Color("f1c75f") if quality == &"golden" else Color("8fd1a1")
 	if quality == &"cracked":
 		accent = Color("d98a72")
-	chip.add_theme_stylebox_override("panel", _panel_style(Color("16242d"), 0.96, 7, 1))
-	var label := _make_label("+$%.2f FEED FUND" % (maxi(0, value_cents) / 100.0), 15, accent)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	chip.add_child(label)
-	_ui_root.add_child(chip)
+	visual.label.text = "+$%.2f FEED FUND" % (maxi(0, value_cents) / 100.0)
+	visual.label.add_theme_color_override("font_color", accent)
 	var presentation_point := (
 		_office_storytelling.presentation_focus_point_global()
 		if _office_storytelling != null else Vector3(9.4, 1.25, -6.85)
 	)
 	var start := _management_camera.unproject_position(presentation_point)
-	chip.position = start - Vector2(73.0, 18.0)
-	chip.pivot_offset = Vector2(73.0, 18.0)
-	chip.scale = Vector2(0.78, 0.78)
-	var target := (
+	visual.start_position = start - Vector2(73.0, 18.0)
+	visual.rise_position = start - Vector2(73.0, 54.0)
+	visual.target_position = (
 		_revenue_label.get_global_rect().get_center()
 		- _ui_root.get_global_rect().position
 		- Vector2(73.0, 18.0)
 	)
-	var tween := _presentation_tween(chip).set_parallel(true)
-	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(chip, "scale", Vector2.ONE, 0.16)
-	tween.tween_property(chip, "position", start - Vector2(73.0, 54.0), 0.16)
-	tween.chain().set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-	tween.tween_property(chip, "position", target, 0.54)
-	tween.parallel().tween_property(chip, "modulate:a", 0.15, 0.28).set_delay(0.26)
-	tween.chain().tween_callback(_on_fund_credit_chip_arrived.bind(value_cents, quality))
-	tween.chain().tween_callback(chip.queue_free)
+	visual.value_cents = value_cents
+	visual.quality = quality
+	visual.elapsed = 0.0
+	chip.position = visual.start_position
+	chip.pivot_offset = Vector2(73.0, 18.0)
+	chip.scale = Vector2(0.78, 0.78)
+	chip.modulate = Color.WHITE
+	chip.visible = true
+
+
+func _build_fund_credit_chip_pool() -> void:
+	_fund_credit_chip_pool.clear()
+	_active_fund_credit_chips.clear()
+	var panel_style := _panel_style(Color("16242d"), 0.96, 7, 1)
+	for pool_index in FUND_CREDIT_CHIP_POOL_SIZE:
+		var panel := PanelContainer.new()
+		panel.name = "FundCreditChipPool_%02d" % pool_index
+		panel.custom_minimum_size = Vector2(146.0, 36.0)
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_theme_stylebox_override("panel", panel_style)
+		panel.visible = false
+		var label := _make_label("", 15, Color("8fd1a1"))
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		panel.add_child(label)
+		_ui_root.add_child(panel)
+		var visual := FundCreditChipVisual.new()
+		visual.panel = panel
+		visual.label = label
+		visual.pool_index = pool_index
+		_fund_credit_chip_pool.append(visual)
+
+
+func _acquire_fund_credit_chip() -> FundCreditChipVisual:
+	var selected: FundCreditChipVisual
+	for visual in _fund_credit_chip_pool:
+		if visual.active:
+			continue
+		selected = visual
+		break
+	if selected == null:
+		if _active_fund_credit_chips.is_empty():
+			return null
+		selected = _active_fund_credit_chips[0]
+		for visual in _active_fund_credit_chips:
+			if visual.elapsed > selected.elapsed:
+				selected = visual
+		# Preserve the semantic payout confirmation if an impossible burst
+		# exceeds the bounded presentation capacity.
+		_on_fund_credit_chip_arrived(selected.value_cents, selected.quality)
+	else:
+		selected.active = true
+		_active_fund_credit_chips.append(selected)
+	var exact_name_available := _ui_root.find_child(
+		"FundCreditChip",
+		false,
+		false,
+	) == null
+	selected.panel.name = (
+		"FundCreditChip"
+		if exact_name_available else
+		"FundCreditChipActive_%02d" % selected.pool_index
+	)
+	return selected
+
+
+func _process_fund_credit_chip_pool(delta: float) -> void:
+	if _active_fund_credit_chips.is_empty():
+		return
+	var scaled_delta := delta * _animation_speed_multiplier
+	var total_duration := FUND_CREDIT_CHIP_RISE_SECONDS + FUND_CREDIT_CHIP_TRAVEL_SECONDS
+	for active_index in range(_active_fund_credit_chips.size() - 1, -1, -1):
+		var visual := _active_fund_credit_chips[active_index]
+		if visual.panel == null or not is_instance_valid(visual.panel):
+			visual.active = false
+			_active_fund_credit_chips.remove_at(active_index)
+			continue
+		visual.elapsed += scaled_delta
+		if visual.elapsed < FUND_CREDIT_CHIP_RISE_SECONDS:
+			var rise_progress := clampf(
+				visual.elapsed / FUND_CREDIT_CHIP_RISE_SECONDS,
+				0.0,
+				1.0,
+			)
+			var rise_eased := _ease_back_out(rise_progress)
+			visual.panel.position = visual.start_position.lerp(
+				visual.rise_position,
+				rise_eased,
+			)
+			visual.panel.scale = Vector2(0.78, 0.78).lerp(Vector2.ONE, rise_eased)
+		else:
+			var travel_elapsed := visual.elapsed - FUND_CREDIT_CHIP_RISE_SECONDS
+			var travel_progress := clampf(
+				travel_elapsed / FUND_CREDIT_CHIP_TRAVEL_SECONDS,
+				0.0,
+				1.0,
+			)
+			visual.panel.position = visual.rise_position.lerp(
+				visual.target_position,
+				_ease_cubic_in_out(travel_progress),
+			)
+			visual.panel.scale = Vector2.ONE
+			var fade_progress := clampf(
+				(travel_elapsed - 0.26) / 0.28,
+				0.0,
+				1.0,
+			)
+			visual.panel.modulate.a = lerpf(
+				1.0,
+				0.15,
+				_ease_cubic_in_out(fade_progress),
+			)
+		if visual.elapsed < total_duration:
+			continue
+		_on_fund_credit_chip_arrived(visual.value_cents, visual.quality)
+		visual.active = false
+		visual.panel.visible = false
+		visual.panel.modulate = Color.WHITE
+		visual.panel.name = "FundCreditChipPool_%02d" % visual.pool_index
+		_active_fund_credit_chips.remove_at(active_index)
+
+
+func _ease_back_out(value: float) -> float:
+	var shifted := value - 1.0
+	return 1.0 + 2.70158 * shifted * shifted * shifted + 1.70158 * shifted * shifted
+
+
+func _ease_cubic_in_out(value: float) -> float:
+	if value < 0.5:
+		return 4.0 * value * value * value
+	return 1.0 - pow(-2.0 * value + 2.0, 3.0) * 0.5
 
 
 func _spawn_farmgate_stock_chip(value_cents: int, quality: StringName) -> void:
@@ -12887,22 +13057,90 @@ func _spawn_egg_vfx(origin: Vector3, quality: StringName, worker_id: int) -> voi
 	if quality == &"cracked":
 		particle_color = Color("c38f7b")
 	for particle_index in particle_count:
-		var fleck := _add_sphere(
-			_egg_layer,
-			"EggFleck",
-			origin + Vector3(0.0, 0.10, 0.0),
-			Vector3.ONE * (0.09 if quality == &"golden" else 0.07),
-			particle_color
-		)
-		if quality == &"golden":
-			fleck.material_override = _emissive_material(particle_color, 0.65)
+		var fleck := _acquire_egg_fleck()
+		if fleck == null:
+			return
 		var angle := TAU * float(particle_index) / float(particle_count) + worker_id * 0.31
 		var distance := 0.38 + (particle_index % 2) * 0.14
-		var destination := origin + Vector3(cos(angle) * distance, 0.38 + (particle_index % 3) * 0.10, sin(angle) * distance)
-		var tween := _presentation_tween().set_parallel(true)
-		tween.tween_property(fleck, "position", destination, 0.52).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		tween.tween_property(fleck, "scale", Vector3.ZERO, 0.52).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
-		tween.chain().tween_callback(fleck.queue_free)
+		fleck.origin = origin + Vector3(0.0, 0.10, 0.0)
+		fleck.destination = origin + Vector3(
+			cos(angle) * distance,
+			0.38 + (particle_index % 3) * 0.10,
+			sin(angle) * distance,
+		)
+		fleck.start_scale = Vector3.ONE * (0.09 if quality == &"golden" else 0.07)
+		fleck.elapsed = 0.0
+		fleck.node.position = fleck.origin
+		fleck.node.scale = fleck.start_scale
+		fleck.node.material_override = (
+			_emissive_material(particle_color, 0.65)
+			if quality == &"golden" else
+			_material(particle_color)
+		)
+		fleck.node.visible = true
+
+
+func _build_egg_fleck_pool() -> void:
+	_egg_fleck_pool.clear()
+	_active_egg_flecks.clear()
+	for pool_index in EGG_FLECK_POOL_SIZE:
+		var node := MeshInstance3D.new()
+		node.name = "EggFleckPool_%02d" % pool_index
+		node.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 12, 6)
+		node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		node.visible = false
+		node.scale = Vector3.ZERO
+		node.material_override = _material(Color("f3ead2"))
+		_egg_layer.add_child(node)
+		var fleck := EggFleckVisual.new()
+		fleck.node = node
+		_egg_fleck_pool.append(fleck)
+
+
+func _acquire_egg_fleck() -> EggFleckVisual:
+	for fleck in _egg_fleck_pool:
+		if fleck.active:
+			continue
+		fleck.active = true
+		_active_egg_flecks.append(fleck)
+		return fleck
+	# Extreme 10x bursts recycle the oldest bounded slot rather than allocating
+	# another node and Tween on the main thread.
+	if _active_egg_flecks.is_empty():
+		return null
+	var oldest := _active_egg_flecks[0]
+	for fleck in _active_egg_flecks:
+		if fleck.elapsed > oldest.elapsed:
+			oldest = fleck
+	return oldest
+
+
+func _process_egg_fleck_pool(delta: float) -> void:
+	if _active_egg_flecks.is_empty():
+		return
+	var scaled_delta := delta * _animation_speed_multiplier
+	for active_index in range(_active_egg_flecks.size() - 1, -1, -1):
+		var fleck := _active_egg_flecks[active_index]
+		if fleck.node == null or not is_instance_valid(fleck.node):
+			fleck.active = false
+			_active_egg_flecks.remove_at(active_index)
+			continue
+		fleck.elapsed += scaled_delta
+		var progress := clampf(
+			fleck.elapsed / EGG_FLECK_DURATION_SECONDS,
+			0.0,
+			1.0,
+		)
+		var position_progress := 1.0 - (1.0 - progress) * (1.0 - progress)
+		var back_progress := progress * progress * (2.70158 * progress - 1.70158)
+		fleck.node.position = fleck.origin.lerp(fleck.destination, position_progress)
+		fleck.node.scale = fleck.start_scale * maxf(0.0, 1.0 - back_progress)
+		if progress < 1.0:
+			continue
+		fleck.active = false
+		fleck.node.visible = false
+		fleck.node.scale = Vector3.ZERO
+		_active_egg_flecks.remove_at(active_index)
 
 
 func _on_announcement_posted(message: String) -> void:
@@ -14894,11 +15132,9 @@ func _save_preview(file_name: String) -> void:
 
 
 func _add_box(parent: Node, part_name: String, size: Vector3, part_position: Vector3, color: Color) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.position = part_position
 	instance.material_override = _material(color)
 	parent.add_child(instance)
@@ -14926,11 +15162,9 @@ func _add_box_multimesh(
 	color: Color,
 	shadow_casting: GeometryInstance3D.ShadowCastingSetting = GeometryInstance3D.SHADOW_CASTING_SETTING_ON,
 ) -> MultiMeshInstance3D:
-	var unit_box := BoxMesh.new()
-	unit_box.size = Vector3.ONE
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.mesh = unit_box
+	multimesh.mesh = ProceduralPrimitiveCache.box(Vector3.ONE)
 	multimesh.instance_count = transforms.size()
 	for transform_index in transforms.size():
 		multimesh.set_instance_transform(transform_index, transforms[transform_index])
@@ -14944,14 +15178,9 @@ func _add_box_multimesh(
 
 
 func _add_cylinder(parent: Node, part_name: String, part_position: Vector3, radius: float, height: float, color: Color) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius * 0.88
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 16
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.cylinder(radius * 0.88, radius, height, 16)
 	instance.position = part_position
 	instance.material_override = _material(color)
 	parent.add_child(instance)
@@ -14959,14 +15188,9 @@ func _add_cylinder(parent: Node, part_name: String, part_position: Vector3, radi
 
 
 func _add_sphere(parent: Node, part_name: String, part_position: Vector3, part_scale: Vector3, color: Color) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = 12
-	mesh.rings = 6
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 12, 6)
 	instance.position = part_position
 	instance.scale = part_scale
 	instance.material_override = _material(color)

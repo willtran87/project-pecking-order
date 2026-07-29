@@ -181,6 +181,83 @@ class EggHandoffTrail extends RefCounted:
 	var sample_elapsed: float = 0.0
 	var phase_offset: float = 0.0
 
+
+enum RoutedEggPhase {
+	TRAVEL,
+	SQUASH,
+	HOLD,
+	UNSQUASH,
+	MANIFOLD,
+	DROP,
+	BASKET,
+}
+
+
+class RoutedEggAnimation extends RefCounted:
+	var egg: Node3D
+	var egg_instance_id := 0
+	var worker_id := -1
+	var quality: StringName = &"sound"
+	var free_on_finish := true
+	var value_cents := 0
+	var streak_bonus_cents := 0
+	var route := PackedVector3Array()
+	var rest_scale := Vector3.ONE
+	var phase := RoutedEggPhase.TRAVEL
+	var route_index := 1
+	var travel_end := 0
+	var elapsed := 0.0
+	var duration := 0.0
+	var start_position := Vector3.ZERO
+	var target_position := Vector3.ZERO
+	var start_scale := Vector3.ONE
+	var target_scale := Vector3.ONE
+
+
+class SorterStampAnimation extends RefCounted:
+	var ring: MeshInstance3D
+	var material: StandardMaterial3D
+	var elapsed := 0.0
+
+
+enum SettledEggPhase {
+	IMPACT,
+	BOUNCE,
+	REST,
+}
+
+
+class SettledEggAnimation extends RefCounted:
+	var egg: Node3D
+	var phase := SettledEggPhase.IMPACT
+	var elapsed := 0.0
+	var duration := 0.11
+	var start_position := Vector3.ZERO
+	var target_position := Vector3.ZERO
+	var start_scale := Vector3.ONE
+	var target_scale := Vector3.ONE
+	var rest_position := Vector3.ZERO
+	var rest_scale := Vector3.ONE
+
+
+enum ClutchRecoilPhase {
+	OUT,
+	RETURN,
+}
+
+
+class ClutchRecoilAnimation extends RefCounted:
+	var target_root: Node3D
+	var active := false
+	var phase := ClutchRecoilPhase.OUT
+	var elapsed := 0.0
+	var duration := 0.055
+	var start_rotation := 0.0
+	var target_rotation := 0.0
+	var start_scale := Vector3.ONE
+	var target_scale := Vector3.ONE
+
+
 var management_perch_root: Node3D
 var egg_collection_root: Node3D
 var zone_markers_root: Node3D
@@ -219,6 +296,9 @@ var _material_cache: Dictionary[String, StandardMaterial3D] = {}
 var _color_vision_mode: StringName = &"standard"
 var _zone_glows: Array[MeshInstance3D] = []
 var _animated_eggs: Array[Node3D] = []
+var _routed_egg_animations: Array[RoutedEggAnimation] = []
+var _sorter_stamp_animations: Array[SorterStampAnimation] = []
+var _settled_egg_animations: Array[SettledEggAnimation] = []
 var _metrics_label: Label3D
 var _intake_status_label: Label3D
 var _claim_closure_label: Label3D
@@ -229,11 +309,17 @@ var _quality_lamp_materials: Dictionary = {}
 var _quality_lamp_tweens: Dictionary = {}
 var _grading_receipt_slots: Array = []
 var _grading_receipt_queue: Array[Dictionary] = []
+var _grading_receipt_pool: Node3D
+var _grading_receipt_label: Label3D
+var _grading_receipt_quality_stripe: MeshInstance3D
+var _grading_receipt_active := false
+var _grading_receipt_elapsed := 0.0
+var _grading_receipt_slot_index := -1
 var _clutch_slots: Array[Node3D] = []
 var _clutch_slot_markers: Array[Dictionary] = []
 var _clutch_cup_batches: Array[MultiMeshInstance3D] = []
 var _settled_clutch_eggs: Array[Node3D] = []
-var _clutch_recoil_tweens: Dictionary = {}
+var _clutch_recoil_animations: Array[ClutchRecoilAnimation] = []
 var _presentation_clutch_root: Node3D
 var _cart_clutch_root: Node3D
 var _collection_cart_basket: MeshInstance3D
@@ -357,10 +443,16 @@ func optional_visual_build_snapshot() -> Dictionary:
 
 func _process(delta: float) -> void:
 	_phase += delta
+	_process_grading_receipt(delta)
+	_process_sorter_stamp_animations(delta)
+	_process_settled_egg_animations(delta)
+	_process_clutch_recoil_animations(delta)
+	_process_routed_egg_animations(delta)
 	if _perch_screen_material != null:
 		var energy := (1.18 if _overtime_active else 0.78) + sin(_phase * 2.1) * 0.08
 		_perch_screen_material.emission_energy_multiplier = energy
-	for egg in _animated_eggs.duplicate():
+	for egg_index in range(_animated_eggs.size() - 1, -1, -1):
+		var egg := _animated_eggs[egg_index]
 		if is_instance_valid(egg):
 			var quality := _normalized_quality(StringName(egg.get_meta("clutch_quality", &"sound")))
 			egg.rotation.y += delta * (4.2 if quality == &"golden" else 2.6)
@@ -368,7 +460,7 @@ func _process(delta: float) -> void:
 				var wobble_origin := float(egg.get_meta("handoff_wobble_origin", 0.0))
 				egg.rotation.z = wobble_origin + sin(_phase * 11.5 + egg.get_instance_id() * 0.013) * 0.13
 		else:
-			_animated_eggs.erase(egg)
+			_animated_eggs.remove_at(egg_index)
 	if _rail_glow_material != null:
 		_rail_glow_material.emission_energy_multiplier = (
 			RAIL_IDLE_ENERGY
@@ -708,44 +800,189 @@ func animate_egg_collection(
 	egg.set_meta("clutch_day", _displayed_clutch_day)
 	_begin_egg_handoff_feedback(egg, quality)
 	_animated_eggs.append(egg)
-	var tween := create_tween().bind_node(egg)
-	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	var rest_scale := egg.scale
 	var has_sorter_waypoint := route.size() > SORTER_ROUTE_INDEX
-	var last_route_index := route.size() - 1
 	var travel_end := SORTER_ROUTE_INDEX + 1 if has_sorter_waypoint else route.size()
-	for point_index in range(1, travel_end):
-		var duration := 0.22 if point_index <= 2 else 0.34
-		tween.tween_property(egg, "global_position", route[point_index], duration)
-		if point_index == SORTER_ROUTE_INDEX:
-			tween.tween_callback(_on_egg_graded.bind(
-				egg, worker_id, quality, value_cents, streak_bonus_cents
-			))
-			tween.tween_property(egg, "scale", rest_scale * Vector3(1.12, 0.78, 1.12), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			tween.tween_interval(0.15)
-			tween.tween_property(egg, "scale", rest_scale, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-
-	if has_sorter_waypoint:
-		# The public route remains six stable semantic points for compatibility.
-		# These two internal waypoints make the post-grade travel follow the
-		# presentation manifold and drop tube before entering the basket.
-		var manifold_end := to_global(Vector3(
-			SIDE_MANIFOLD_X, COLLECTION_RAIL_HEIGHT, _presentation_position.z
-		))
-		var drop_point := to_global(Vector3(
-			SIDE_MANIFOLD_X, 1.26, _presentation_position.z
-		))
-		tween.tween_property(egg, "global_position", manifold_end, 0.28)
-		tween.tween_property(egg, "global_position", drop_point, 0.24)
-		tween.tween_property(egg, "global_position", route[last_route_index], 0.28)
-	# Invalid/unbound worker IDs retain the original direct fallback from the
-	# shared loop above and still emit an enriched presentation event without
-	# inventing a physical gate pass.
-
-	tween.tween_callback(_on_egg_arrived.bind(
-		egg, worker_id, quality, free_on_finish, value_cents, streak_bonus_cents
-	))
+	var routed := RoutedEggAnimation.new()
+	routed.egg = egg
+	routed.egg_instance_id = egg.get_instance_id()
+	routed.worker_id = worker_id
+	routed.quality = quality
+	routed.free_on_finish = free_on_finish
+	routed.value_cents = value_cents
+	routed.streak_bonus_cents = streak_bonus_cents
+	routed.route = route
+	routed.rest_scale = egg.scale
+	routed.travel_end = travel_end
+	routed.start_position = egg.global_position
+	routed.target_position = route[1]
+	routed.duration = 0.22
+	_routed_egg_animations.append(routed)
 	return true
+
+
+func _process_routed_egg_animations(delta: float) -> void:
+	for animation_index in range(_routed_egg_animations.size() - 1, -1, -1):
+		var animation := _routed_egg_animations[animation_index]
+		if animation == null or animation.egg == null or not is_instance_valid(animation.egg):
+			if animation != null:
+				_release_handoff_trail(animation.egg_instance_id)
+			_routed_egg_animations.remove_at(animation_index)
+			continue
+		if _advance_routed_egg_animation(animation, delta):
+			_routed_egg_animations.remove_at(animation_index)
+
+
+func _advance_routed_egg_animation(animation: RoutedEggAnimation, delta: float) -> bool:
+	var remaining := maxf(0.0, delta)
+	# A large frame may cross several short phases. Consume its remainder so the
+	# economy callback does not slow down when the renderer briefly stutters.
+	for _transition_index in 12:
+		var step := minf(remaining, maxf(0.0, animation.duration - animation.elapsed))
+		animation.elapsed += step
+		remaining -= step
+		var progress := clampf(animation.elapsed / maxf(animation.duration, 0.0001), 0.0, 1.0)
+		_apply_routed_egg_phase(animation, progress)
+		if animation.elapsed + 0.00001 < animation.duration:
+			return false
+		if _complete_routed_egg_phase(animation):
+			return true
+		if remaining <= 0.00001:
+			return false
+	return false
+
+
+func _apply_routed_egg_phase(animation: RoutedEggAnimation, progress: float) -> void:
+	var egg := animation.egg
+	match animation.phase:
+		RoutedEggPhase.TRAVEL, RoutedEggPhase.MANIFOLD, RoutedEggPhase.DROP, RoutedEggPhase.BASKET:
+			egg.global_position = animation.start_position.lerp(
+				animation.target_position, _ease_quad_in_out(progress)
+			)
+		RoutedEggPhase.SQUASH, RoutedEggPhase.UNSQUASH:
+			egg.scale = animation.start_scale.lerp(
+				animation.target_scale, _ease_back_out(progress)
+			)
+
+
+func _complete_routed_egg_phase(animation: RoutedEggAnimation) -> bool:
+	var egg := animation.egg
+	match animation.phase:
+		RoutedEggPhase.TRAVEL:
+			if animation.route_index == SORTER_ROUTE_INDEX:
+				_on_egg_graded(
+					egg,
+					animation.worker_id,
+					animation.quality,
+					animation.value_cents,
+					animation.streak_bonus_cents
+				)
+				_begin_routed_scale_phase(
+					animation,
+					RoutedEggPhase.SQUASH,
+					animation.rest_scale * Vector3(1.12, 0.78, 1.12),
+					0.08
+				)
+			elif animation.route_index + 1 < animation.travel_end:
+				animation.route_index += 1
+				_begin_routed_position_phase(
+					animation,
+					RoutedEggPhase.TRAVEL,
+					animation.route[animation.route_index],
+					0.22 if animation.route_index <= 2 else 0.34
+				)
+			else:
+				_finish_routed_egg_animation(animation)
+				return true
+		RoutedEggPhase.SQUASH:
+			animation.phase = RoutedEggPhase.HOLD
+			animation.elapsed = 0.0
+			animation.duration = 0.15
+		RoutedEggPhase.HOLD:
+			_begin_routed_scale_phase(
+				animation, RoutedEggPhase.UNSQUASH, animation.rest_scale, 0.10
+			)
+		RoutedEggPhase.UNSQUASH:
+			# The public route remains six stable semantic points for compatibility.
+			# These internal points follow the manifold and drop tube into the basket.
+			_begin_routed_position_phase(
+				animation,
+				RoutedEggPhase.MANIFOLD,
+				to_global(Vector3(
+					SIDE_MANIFOLD_X, COLLECTION_RAIL_HEIGHT, _presentation_position.z
+				)),
+				0.28
+			)
+		RoutedEggPhase.MANIFOLD:
+			_begin_routed_position_phase(
+				animation,
+				RoutedEggPhase.DROP,
+				to_global(Vector3(SIDE_MANIFOLD_X, 1.26, _presentation_position.z)),
+				0.24
+			)
+		RoutedEggPhase.DROP:
+			_begin_routed_position_phase(
+				animation,
+				RoutedEggPhase.BASKET,
+				animation.route[animation.route.size() - 1],
+				0.28
+			)
+		RoutedEggPhase.BASKET:
+			_finish_routed_egg_animation(animation)
+			return true
+	return false
+
+
+func _begin_routed_position_phase(
+	animation: RoutedEggAnimation,
+	phase: RoutedEggPhase,
+	target: Vector3,
+	duration: float
+) -> void:
+	animation.phase = phase
+	animation.elapsed = 0.0
+	animation.duration = duration
+	animation.start_position = animation.egg.global_position
+	animation.target_position = target
+
+
+func _begin_routed_scale_phase(
+	animation: RoutedEggAnimation,
+	phase: RoutedEggPhase,
+	target: Vector3,
+	duration: float
+) -> void:
+	animation.phase = phase
+	animation.elapsed = 0.0
+	animation.duration = duration
+	animation.start_scale = animation.egg.scale
+	animation.target_scale = target
+
+
+func _finish_routed_egg_animation(animation: RoutedEggAnimation) -> void:
+	_on_egg_arrived(
+		animation.egg,
+		animation.worker_id,
+		animation.quality,
+		animation.free_on_finish,
+		animation.value_cents,
+		animation.streak_bonus_cents
+	)
+
+
+func _ease_quad_in_out(value: float) -> float:
+	if value < 0.5:
+		return 2.0 * value * value
+	return 1.0 - pow(-2.0 * value + 2.0, 2.0) * 0.5
+
+
+func _ease_quad_out(value: float) -> float:
+	return 1.0 - (1.0 - value) * (1.0 - value)
+
+
+func _ease_back_out(value: float) -> float:
+	const OVERSHOOT := 1.70158
+	var shifted := value - 1.0
+	return 1.0 + (OVERSHOOT + 1.0) * pow(shifted, 3.0) + OVERSHOOT * pow(shifted, 2.0)
 
 
 func presentation_focus_point_global() -> Vector3:
@@ -942,20 +1179,29 @@ func _apply_egg_quality_visual(
 		mesh_instance.material_override = _egg_quality_material(quality)
 		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
+	var normalized := _normalized_quality(quality)
 	var existing := egg.get_node_or_null("EggQualityTreatment") as Node3D
+	if existing != null and StringName(existing.get_meta("quality", &"")) == normalized:
+		var existing_ring := existing.get_node_or_null("EggSorterStampRing") as MeshInstance3D
+		if include_transit_cue and existing_ring == null:
+			_add_sorter_stamp_ring(existing, normalized)
+		elif not include_transit_cue and existing_ring != null:
+			existing_ring.visible = false
+		return
 	if existing != null:
 		existing.free()
 	var treatment := Node3D.new()
 	treatment.name = "EggQualityTreatment"
+	treatment.set_meta("quality", normalized)
 	egg.add_child(treatment)
 
-	match quality:
+	match normalized:
 		&"golden":
 			_add_golden_egg_treatment(treatment)
 		&"cracked":
 			_add_cracked_egg_treatment(treatment)
 	if include_transit_cue:
-		_add_sorter_stamp_ring(treatment, quality)
+		_add_sorter_stamp_ring(treatment, normalized)
 
 
 func _add_golden_egg_treatment(parent: Node3D) -> void:
@@ -1041,15 +1287,37 @@ func _play_sorter_stamp_feedback(egg: Node3D, quality: StringName) -> void:
 	var ring_color := _egg_quality_color(quality)
 	ring_color.a = 0.70
 	material.albedo_color = ring_color
-	var stamp := create_tween().bind_node(ring).set_parallel(true)
-	stamp.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	stamp.tween_property(ring, "scale", Vector3.ONE * 1.30, 0.28)
-	stamp.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	stamp.tween_property(material, "albedo_color:a", 0.0, 0.28)
-	stamp.chain().tween_callback(func() -> void:
-		if is_instance_valid(ring):
-			ring.visible = false
-	)
+	for animation in _sorter_stamp_animations:
+		if animation.ring == ring:
+			animation.material = material
+			animation.elapsed = 0.0
+			return
+	var animation := SorterStampAnimation.new()
+	animation.ring = ring
+	animation.material = material
+	_sorter_stamp_animations.append(animation)
+
+
+func _process_sorter_stamp_animations(delta: float) -> void:
+	for animation_index in range(_sorter_stamp_animations.size() - 1, -1, -1):
+		var animation := _sorter_stamp_animations[animation_index]
+		if (
+			animation == null
+			or animation.ring == null
+			or not is_instance_valid(animation.ring)
+			or animation.material == null
+		):
+			_sorter_stamp_animations.remove_at(animation_index)
+			continue
+		animation.elapsed += maxf(0.0, delta)
+		var progress := clampf(animation.elapsed / 0.28, 0.0, 1.0)
+		animation.ring.scale = Vector3.ONE * lerpf(0.50, 1.30, _ease_back_out(progress))
+		var color := animation.material.albedo_color
+		color.a = lerpf(0.70, 0.0, progress * progress)
+		animation.material.albedo_color = color
+		if progress >= 1.0:
+			animation.ring.visible = false
+			_sorter_stamp_animations.remove_at(animation_index)
 
 
 func _handoff_echo_material(quality: StringName, echo_index: int) -> StandardMaterial3D:
@@ -1244,9 +1512,10 @@ func _authoritative_clutch_source(snapshot: Dictionary) -> Dictionary:
 
 func _animated_quality_counts() -> Dictionary:
 	var counts := {&"sound": 0, &"golden": 0, &"cracked": 0}
-	for egg in _animated_eggs.duplicate():
+	for egg_index in range(_animated_eggs.size() - 1, -1, -1):
+		var egg := _animated_eggs[egg_index]
 		if not is_instance_valid(egg):
-			_animated_eggs.erase(egg)
+			_animated_eggs.remove_at(egg_index)
 			continue
 		var quality := _normalized_quality(StringName(egg.get_meta("clutch_quality", &"sound")))
 		counts[quality] = int(counts.get(quality, 0)) + 1
@@ -1341,18 +1610,88 @@ func _settle_real_egg(egg: Node3D, quality: StringName) -> bool:
 	var target := slot.position
 	var rest_scale := Vector3(0.26, 0.36, 0.26)
 	egg.rotation = Vector3(0.0, float(slot_index) * 0.43, 0.0)
-	var landing := create_tween().bind_node(egg)
-	landing.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	landing.tween_property(egg, "position", target + Vector3.UP * 0.015, 0.11)
-	landing.parallel().tween_property(egg, "scale", rest_scale * Vector3(1.18, 0.64, 1.18), 0.11)
-	landing.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	landing.tween_property(egg, "position", target + Vector3.UP * 0.095, 0.09)
-	landing.parallel().tween_property(egg, "scale", rest_scale * 1.08, 0.09)
-	landing.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	landing.tween_property(egg, "position", target, 0.10)
-	landing.parallel().tween_property(egg, "scale", rest_scale, 0.10)
+	var landing := SettledEggAnimation.new()
+	landing.egg = egg
+	landing.start_position = egg.position
+	landing.target_position = target + Vector3.UP * 0.015
+	landing.start_scale = egg.scale
+	landing.target_scale = rest_scale * Vector3(1.18, 0.64, 1.18)
+	landing.rest_position = target
+	landing.rest_scale = rest_scale
+	_settled_egg_animations.append(landing)
 	_pulse_clutch_recoil(target_root, slot_index)
 	return true
+
+
+func _process_settled_egg_animations(delta: float) -> void:
+	for animation_index in range(_settled_egg_animations.size() - 1, -1, -1):
+		var animation := _settled_egg_animations[animation_index]
+		if animation == null or animation.egg == null or not is_instance_valid(animation.egg):
+			_settled_egg_animations.remove_at(animation_index)
+			continue
+		if _advance_settled_egg_animation(animation, delta):
+			_settled_egg_animations.remove_at(animation_index)
+
+
+func _advance_settled_egg_animation(animation: SettledEggAnimation, delta: float) -> bool:
+	var remaining := maxf(0.0, delta)
+	for _transition_index in 3:
+		var step := minf(remaining, maxf(0.0, animation.duration - animation.elapsed))
+		animation.elapsed += step
+		remaining -= step
+		var progress := clampf(animation.elapsed / maxf(animation.duration, 0.0001), 0.0, 1.0)
+		var eased := progress
+		match animation.phase:
+			SettledEggPhase.IMPACT:
+				eased = progress * progress
+			SettledEggPhase.BOUNCE:
+				eased = _ease_back_out(progress)
+			SettledEggPhase.REST:
+				eased = _ease_quad_in_out(progress)
+		animation.egg.position = animation.start_position.lerp(animation.target_position, eased)
+		animation.egg.scale = animation.start_scale.lerp(animation.target_scale, eased)
+		if animation.elapsed + 0.00001 < animation.duration:
+			return false
+		match animation.phase:
+			SettledEggPhase.IMPACT:
+				_begin_settled_egg_phase(
+					animation,
+					SettledEggPhase.BOUNCE,
+					animation.rest_position + Vector3.UP * 0.095,
+					animation.rest_scale * 1.08,
+					0.09
+				)
+			SettledEggPhase.BOUNCE:
+				_begin_settled_egg_phase(
+					animation,
+					SettledEggPhase.REST,
+					animation.rest_position,
+					animation.rest_scale,
+					0.10
+				)
+			SettledEggPhase.REST:
+				animation.egg.position = animation.rest_position
+				animation.egg.scale = animation.rest_scale
+				return true
+		if remaining <= 0.00001:
+			return false
+	return false
+
+
+func _begin_settled_egg_phase(
+	animation: SettledEggAnimation,
+	phase: SettledEggPhase,
+	target_position: Vector3,
+	target_scale: Vector3,
+	duration: float
+) -> void:
+	animation.phase = phase
+	animation.elapsed = 0.0
+	animation.duration = duration
+	animation.start_position = animation.egg.position
+	animation.target_position = target_position
+	animation.start_scale = animation.egg.scale
+	animation.target_scale = target_scale
 
 
 func _configure_settled_egg(egg: Node3D, quality: StringName, slot_index: int) -> void:
@@ -1365,11 +1704,8 @@ func _configure_settled_egg(egg: Node3D, quality: StringName, slot_index: int) -
 
 
 func _next_open_clutch_slot() -> int:
-	var occupied: Dictionary[int, bool] = {}
-	for egg in _settled_clutch_eggs:
-		occupied[int(egg.get_meta("clutch_slot", -1))] = true
 	for slot_index in _clutch_slots.size():
-		if not occupied.has(slot_index):
+		if not bool(_clutch_slot_markers[slot_index].get("occupied", false)):
 			return slot_index
 	return -1
 
@@ -1395,36 +1731,79 @@ func _set_slot_occupied(slot_index: int, occupied: bool) -> void:
 func _pulse_clutch_recoil(target_root: Node3D, slot_index: int) -> void:
 	if target_root == null:
 		return
-	var root_id := target_root.get_instance_id()
-	var previous := _clutch_recoil_tweens.get(root_id) as Tween
-	if previous != null and previous.is_valid():
-		previous.kill()
 	target_root.rotation.z = 0.0
 	target_root.scale = Vector3.ONE
 	var direction := -1.0 if slot_index % 2 == 0 else 1.0
-	var recoil := create_tween().bind_node(target_root).set_parallel(true)
-	recoil.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	recoil.tween_property(target_root, "rotation:z", deg_to_rad(1.85) * direction, 0.055)
-	recoil.tween_property(target_root, "scale", Vector3(1.028, 0.982, 1.028), 0.055)
-	recoil.chain()
-	recoil.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	recoil.tween_property(target_root, "rotation:z", 0.0, 0.16)
-	recoil.tween_property(target_root, "scale", Vector3.ONE, 0.16)
-	_clutch_recoil_tweens[root_id] = recoil
+	var recoil: ClutchRecoilAnimation = null
+	for candidate in _clutch_recoil_animations:
+		if candidate.target_root == target_root:
+			recoil = candidate
+			break
+	if recoil == null:
+		recoil = ClutchRecoilAnimation.new()
+		recoil.target_root = target_root
+		_clutch_recoil_animations.append(recoil)
+	recoil.active = true
+	recoil.phase = ClutchRecoilPhase.OUT
+	recoil.elapsed = 0.0
+	recoil.duration = 0.055
+	recoil.start_rotation = 0.0
+	recoil.target_rotation = deg_to_rad(1.85) * direction
+	recoil.start_scale = Vector3.ONE
+	recoil.target_scale = Vector3(1.028, 0.982, 1.028)
+
+
+func _process_clutch_recoil_animations(delta: float) -> void:
+	for recoil in _clutch_recoil_animations:
+		if not recoil.active:
+			continue
+		if recoil.target_root == null or not is_instance_valid(recoil.target_root):
+			recoil.active = false
+			continue
+		var remaining := maxf(0.0, delta)
+		for _transition_index in 2:
+			var step := minf(remaining, maxf(0.0, recoil.duration - recoil.elapsed))
+			recoil.elapsed += step
+			remaining -= step
+			var progress := clampf(recoil.elapsed / maxf(recoil.duration, 0.0001), 0.0, 1.0)
+			var eased := (
+				_ease_quad_out(progress)
+				if recoil.phase == ClutchRecoilPhase.OUT else
+				_ease_back_out(progress)
+			)
+			recoil.target_root.rotation.z = lerpf(
+				recoil.start_rotation, recoil.target_rotation, eased
+			)
+			recoil.target_root.scale = recoil.start_scale.lerp(recoil.target_scale, eased)
+			if recoil.elapsed + 0.00001 < recoil.duration:
+				break
+			if recoil.phase == ClutchRecoilPhase.OUT:
+				recoil.phase = ClutchRecoilPhase.RETURN
+				recoil.elapsed = 0.0
+				recoil.duration = 0.16
+				recoil.start_rotation = recoil.target_root.rotation.z
+				recoil.target_rotation = 0.0
+				recoil.start_scale = recoil.target_root.scale
+				recoil.target_scale = Vector3.ONE
+			else:
+				recoil.target_root.rotation.z = 0.0
+				recoil.target_root.scale = Vector3.ONE
+				recoil.active = false
+				break
+			if remaining <= 0.00001:
+				break
 
 
 func _cleanup_invalid_settled_eggs() -> void:
-	for egg in _settled_clutch_eggs.duplicate():
+	for egg_index in range(_settled_clutch_eggs.size() - 1, -1, -1):
+		var egg := _settled_clutch_eggs[egg_index]
 		if not is_instance_valid(egg):
-			_settled_clutch_eggs.erase(egg)
+			_settled_clutch_eggs.remove_at(egg_index)
 
 
 func _clear_settled_clutch() -> void:
-	for recoil_value in _clutch_recoil_tweens.values():
-		var recoil := recoil_value as Tween
-		if recoil != null and recoil.is_valid():
-			recoil.kill()
-	_clutch_recoil_tweens.clear()
+	_settled_egg_animations.clear()
+	_clutch_recoil_animations.clear()
 	for egg in _settled_clutch_eggs:
 		if is_instance_valid(egg):
 			egg.queue_free()
@@ -1482,6 +1861,96 @@ func _pulse_quality_lamp(quality: StringName) -> void:
 	_quality_lamp_tweens[quality] = tween
 
 
+func _build_grading_receipt_pool() -> void:
+	_grading_receipt_pool = Node3D.new()
+	_grading_receipt_pool.name = "GradingReceiptPool"
+	_grading_receipt_pool.visible = false
+	_grading_receipt_pool.scale = Vector3(1.0, 0.10, 1.0)
+	egg_collection_root.add_child(_grading_receipt_pool)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptShadow",
+		Vector3(0.48, 0.35, 0.016),
+		Vector3(0.012, -0.172, -0.010),
+		Color("20282b"),
+		0.94,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptBackplate",
+		Vector3(0.48, 0.050, 0.024),
+		Vector3(0.0, -0.020, 0.002),
+		Color("304047"),
+		0.58,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptPaper",
+		Vector3(0.46, 0.33, 0.012),
+		Vector3(0.0, -0.165, 0.016),
+		Color("ddd5ba"),
+		0.98,
+	)
+	_grading_receipt_quality_stripe = _add_box(
+		_grading_receipt_pool,
+		"ReceiptQualityStripe",
+		Vector3(0.025, 0.27, 0.008),
+		Vector3(-0.205, -0.165, 0.026),
+		SemanticColorPaletteScript.quality_color(&"sound", _color_vision_mode),
+		0.76,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptTearBar",
+		Vector3(0.40, 0.018, 0.014),
+		Vector3(0.0, -0.323, 0.027),
+		Color("8c8b7c"),
+		0.44,
+		0.30,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptMountArm",
+		Vector3(0.10, 0.035, 0.030),
+		Vector3(0.17, -0.020, -0.004),
+		Color("56666a"),
+		0.40,
+		0.35,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptMountHinge",
+		Vector3(0.055, 0.055, 0.040),
+		Vector3(0.215, -0.020, -0.004),
+		Color("b08a4d"),
+		0.32,
+		0.52,
+	)
+	_grading_receipt_label = Label3D.new()
+	_grading_receipt_label.name = "ReceiptText"
+	_grading_receipt_label.position = Vector3(0.025, -0.165, 0.032)
+	_grading_receipt_label.font_size = 14
+	_grading_receipt_label.pixel_size = 0.0021
+	_grading_receipt_label.width = 185
+	_grading_receipt_label.line_spacing = -2
+	_grading_receipt_label.outline_size = 0
+	_grading_receipt_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	_grading_receipt_label.no_depth_test = false
+	_grading_receipt_label.fixed_size = false
+	_grading_receipt_label.shaded = true
+	_grading_receipt_label.double_sided = false
+	_grading_receipt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_grading_receipt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_grading_receipt_label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
+	EnvironmentalSignageScript.apply_house_type(
+		_grading_receipt_label,
+		&"paper_notice",
+		true,
+	)
+	_grading_receipt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_grading_receipt_pool.add_child(_grading_receipt_label)
+
+
 func _enqueue_grading_receipt(
 	quality: StringName,
 	value_cents: int,
@@ -1516,13 +1985,15 @@ func _spawn_grading_receipt(slot_index: int, request: Dictionary) -> void:
 		return
 	if slot_index < 0 or slot_index >= _grading_receipt_slots.size():
 		return
+	if _grading_receipt_pool == null or not is_instance_valid(_grading_receipt_pool):
+		return
 	var quality := _normalized_quality(StringName(request.get("quality", &"sound")))
 	var value_cents := maxi(0, int(request.get("value_cents", 0)))
 	var streak_bonus_cents := maxi(0, int(request.get("streak_bonus_cents", 0)))
 	var worker_id := int(request.get("worker_id", -1))
 	var base_value_cents := maxi(0, value_cents - streak_bonus_cents)
 	var quality_color := SemanticColorPaletteScript.quality_color(quality, _color_vision_mode)
-	var receipt := Node3D.new()
+	var receipt := _grading_receipt_pool
 	receipt.name = "GradingReceipt_%d" % slot_index
 	var receipt_rest_position := _sorting_gate_center() + Vector3(
 		-0.62,
@@ -1532,69 +2003,13 @@ func _spawn_grading_receipt(slot_index: int, request: Dictionary) -> void:
 	# The receipt pivots at its top edge so it visibly feeds from the fixed slot.
 	receipt.position = receipt_rest_position
 	receipt.scale = Vector3(1.0, 0.10, 1.0)
-	egg_collection_root.add_child(receipt)
+	receipt.visible = true
 	_grading_receipt_slots[slot_index] = receipt
-
-	_add_box(
-		receipt,
-		"ReceiptShadow",
-		Vector3(0.48, 0.35, 0.016),
-		Vector3(0.012, -0.172, -0.010),
-		Color("20282b"),
-		0.94
-	)
-	_add_box(
-		receipt,
-		"ReceiptBackplate",
-		Vector3(0.48, 0.050, 0.024),
-		Vector3(0.0, -0.020, 0.002),
-		Color("304047"),
-		0.58
-	)
-	_add_box(
-		receipt,
-		"ReceiptPaper",
-		Vector3(0.46, 0.33, 0.012),
-		Vector3(0.0, -0.165, 0.016),
-		Color("ddd5ba"),
-		0.98
-	)
-	_add_box(
-		receipt,
-		"ReceiptQualityStripe",
-		Vector3(0.025, 0.27, 0.008),
-		Vector3(-0.205, -0.165, 0.026),
-		quality_color,
-		0.76
-	)
-	_add_box(
-		receipt,
-		"ReceiptTearBar",
-		Vector3(0.40, 0.018, 0.014),
-		Vector3(0.0, -0.323, 0.027),
-		Color("8c8b7c"),
-		0.44,
-		0.30
-	)
-	# Retain the established part names as small, connected feed guides.
-	_add_box(
-		receipt,
-		"ReceiptMountArm",
-		Vector3(0.10, 0.035, 0.030),
-		Vector3(0.17, -0.020, -0.004),
-		Color("56666a"),
-		0.40,
-		0.35
-	)
-	_add_box(
-		receipt,
-		"ReceiptMountHinge",
-		Vector3(0.055, 0.055, 0.040),
-		Vector3(0.215, -0.020, -0.004),
-		Color("b08a4d"),
-		0.32,
-		0.52
-	)
+	if _grading_receipt_quality_stripe != null:
+		_grading_receipt_quality_stripe.material_override = _material(
+			quality_color,
+			0.76,
+		)
 
 	var receipt_text := SemanticColorPaletteScript.marked_quality_name(
 		String(quality).to_upper(),
@@ -1608,35 +2023,43 @@ func _spawn_grading_receipt(slot_index: int, request: Dictionary) -> void:
 	if worker_id >= 0:
 		var worker_name := String(_worker_names.get(worker_id, "HEN %d" % (worker_id + 1))).to_upper()
 		receipt_text += "\nLAID BY %s  /  CREDIT TO FARMER" % worker_name
-	var label := Label3D.new()
-	label.name = "ReceiptText"
-	label.text = receipt_text
-	label.position = Vector3(0.025, -0.165, 0.032)
-	label.font_size = 14 if worker_id >= 0 else 16
-	label.pixel_size = 0.0021
-	label.width = 185
-	label.line_spacing = -2
-	label.outline_size = 0
-	label.modulate = quality_color.darkened(0.42)
-	label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	label.no_depth_test = false
-	label.fixed_size = false
-	label.shaded = true
-	label.double_sided = false
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	EnvironmentalSignageScript.apply_house_type(label, &"paper_notice", true)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	receipt.add_child(label)
+	_grading_receipt_label.text = receipt_text
+	_grading_receipt_label.modulate = quality_color.darkened(0.42)
+	_grading_receipt_pool.set_meta("receipt_quality", quality)
+	_grading_receipt_active = true
+	_grading_receipt_elapsed = 0.0
+	_grading_receipt_slot_index = slot_index
 
-	var tween := create_tween().bind_node(receipt)
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(receipt, "scale", Vector3.ONE, 0.18)
-	tween.tween_interval(1.22)
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	tween.tween_property(receipt, "scale:y", 0.10, 0.28)
-	tween.tween_callback(_finish_grading_receipt.bind(receipt, slot_index))
+
+func _process_grading_receipt(delta: float) -> void:
+	if not _grading_receipt_active:
+		return
+	if _grading_receipt_pool == null or not is_instance_valid(_grading_receipt_pool):
+		_grading_receipt_active = false
+		return
+	_grading_receipt_elapsed += delta
+	if _grading_receipt_elapsed < 0.18:
+		var reveal_progress := clampf(_grading_receipt_elapsed / 0.18, 0.0, 1.0)
+		var eased_reveal := 1.0 - pow(1.0 - reveal_progress, 3.0)
+		_grading_receipt_pool.scale.y = lerpf(0.10, 1.0, eased_reveal)
+	elif _grading_receipt_elapsed < 1.40:
+		_grading_receipt_pool.scale.y = 1.0
+	elif _grading_receipt_elapsed < 1.68:
+		var retire_progress := clampf(
+			(_grading_receipt_elapsed - 1.40) / 0.28,
+			0.0,
+			1.0,
+		)
+		_grading_receipt_pool.scale.y = lerpf(
+			1.0,
+			0.10,
+			retire_progress * retire_progress * retire_progress,
+		)
+	else:
+		_finish_grading_receipt(
+			_grading_receipt_pool,
+			_grading_receipt_slot_index,
+		)
 
 
 func _finish_grading_receipt(receipt: Node3D, slot_index: int) -> void:
@@ -1644,10 +2067,12 @@ func _finish_grading_receipt(receipt: Node3D, slot_index: int) -> void:
 		if _grading_receipt_slots[slot_index] == receipt:
 			_grading_receipt_slots[slot_index] = null
 	if receipt != null and is_instance_valid(receipt):
-		# Release the public slot name before a queued docket is added in the same
-		# frame; otherwise Godot gives the successor an opaque duplicate name.
-		receipt.name = "RetiringGradingReceipt_%d" % slot_index
-		receipt.queue_free()
+		receipt.name = "GradingReceiptPool"
+		receipt.visible = false
+		receipt.scale = Vector3(1.0, 0.10, 1.0)
+	_grading_receipt_active = false
+	_grading_receipt_elapsed = 0.0
+	_grading_receipt_slot_index = -1
 	if not _grading_receipt_queue.is_empty():
 		var next_request: Dictionary = _grading_receipt_queue.pop_front()
 		_spawn_grading_receipt(slot_index, next_request)
@@ -2474,14 +2899,15 @@ func _apply_latest_snapshot_to_optional_visual(build_index: int) -> void:
 func _clear_built_roots() -> void:
 	_optional_visual_build_generation += 1
 	_clear_egg_handoff_feedback()
+	_routed_egg_animations.clear()
+	_animated_eggs.clear()
 	for tween_value in _quality_lamp_tweens.values():
 		var lamp_tween := tween_value as Tween
 		if lamp_tween != null and lamp_tween.is_valid():
 			lamp_tween.kill()
-	for recoil_value in _clutch_recoil_tweens.values():
-		var recoil := recoil_value as Tween
-		if recoil != null and recoil.is_valid():
-			recoil.kill()
+	_sorter_stamp_animations.clear()
+	_settled_egg_animations.clear()
+	_clutch_recoil_animations.clear()
 	if shell_quality_lab_visual != null and is_instance_valid(shell_quality_lab_visual):
 		shell_quality_lab_visual.clear()
 	if packing_annex_visual != null and is_instance_valid(packing_annex_visual):
@@ -2554,11 +2980,17 @@ func _clear_built_roots() -> void:
 	_quality_lamp_tweens.clear()
 	_grading_receipt_slots.clear()
 	_grading_receipt_queue.clear()
+	_grading_receipt_pool = null
+	_grading_receipt_label = null
+	_grading_receipt_quality_stripe = null
+	_grading_receipt_active = false
+	_grading_receipt_elapsed = 0.0
+	_grading_receipt_slot_index = -1
 	_clutch_slots.clear()
 	_clutch_slot_markers.clear()
 	_clutch_cup_batches.clear()
 	_settled_clutch_eggs.clear()
-	_clutch_recoil_tweens.clear()
+	_clutch_recoil_animations.clear()
 	_presentation_clutch_root = null
 	_cart_clutch_root = null
 	_collection_cart_basket = null
@@ -2945,6 +3377,7 @@ func _build_egg_collection_chain() -> void:
 	_grading_receipt_slots.resize(GRADING_RECEIPT_SLOT_COUNT)
 	_grading_receipt_slots.fill(null)
 	_grading_receipt_queue.clear()
+	_build_grading_receipt_pool()
 	_rail_glow_material = _make_emissive_material(Color("d8b761"), RAIL_IDLE_ENERGY)
 	_rail_glow_material.albedo_color = Color("3f4746")
 	_rail_glow_material.roughness = 0.72
@@ -3097,7 +3530,7 @@ func _build_living_clutch() -> void:
 	_clutch_slot_markers.clear()
 	_clutch_cup_batches.clear()
 	_settled_clutch_eggs.clear()
-	_clutch_recoil_tweens.clear()
+	_clutch_recoil_animations.clear()
 	_displayed_clutch_day = -1
 	_desired_clutch_counts = {&"sound": 0, &"golden": 0, &"cracked": 0}
 
@@ -3602,11 +4035,9 @@ func _add_box(
 	roughness: float = 0.82,
 	metallic: float = 0.0
 ) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
 	parent.add_child(instance)
@@ -3622,11 +4053,9 @@ func _add_box_multimesh(
 	roughness: float = 0.82,
 	metallic: float = 0.0
 ) -> MultiMeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.mesh = mesh
+	multimesh.mesh = ProceduralPrimitiveCache.box(size)
 	multimesh.instance_count = positions.size()
 	for instance_index in positions.size():
 		multimesh.set_instance_transform(instance_index, Transform3D(Basis.IDENTITY, positions[instance_index]))
@@ -3654,14 +4083,9 @@ func _add_cylinder(
 	color: Color,
 	roughness: float = 0.82
 ) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius * 0.92
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 12
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.cylinder(radius * 0.92, radius, height, 12)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness)
 	parent.add_child(instance)
@@ -3677,14 +4101,9 @@ func _add_cylinder_multimesh(
 	color: Color,
 	roughness: float = 0.82
 ) -> MultiMeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius * 0.92
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 12
 	var multimesh := MultiMesh.new()
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.mesh = mesh
+	multimesh.mesh = ProceduralPrimitiveCache.cylinder(radius * 0.92, radius, height, 12)
 	multimesh.instance_count = transforms.size()
 	for instance_index in transforms.size():
 		multimesh.set_instance_transform(instance_index, transforms[instance_index])
@@ -3706,14 +4125,9 @@ func _add_sphere(
 	radial_segments: int = 12,
 	rings: int = 6
 ) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = radial_segments
-	mesh.rings = rings
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, radial_segments, rings)
 	instance.position = part_position
 	instance.scale = part_scale
 	instance.material_override = _material(color)

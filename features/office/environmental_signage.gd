@@ -1809,11 +1809,9 @@ static func _add_box(
 	emissive: bool = false,
 	emission_energy: float = 0.28
 ) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.position = position
 	instance.material_override = _material(color, roughness, metallic, emissive, emission_energy)
 	parent.add_child(instance)
@@ -1821,14 +1819,9 @@ static func _add_box(
 
 
 static func _add_fastener(parent: Node3D, position: Vector3, color: Color) -> void:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.012
-	mesh.bottom_radius = 0.014
-	mesh.height = 0.010
-	mesh.radial_segments = 10
 	var fastener := MeshInstance3D.new()
 	fastener.name = "MountFastener"
-	fastener.mesh = mesh
+	fastener.mesh = ProceduralPrimitiveCache.cylinder(0.012, 0.014, 0.010, 10)
 	fastener.position = position
 	fastener.rotation_degrees.x = 90.0
 	fastener.material_override = _material(color, 0.30, 1.0)
@@ -1836,14 +1829,9 @@ static func _add_fastener(parent: Node3D, position: Vector3, color: Color) -> vo
 
 
 static func _add_status_lamp(parent: Node3D, position: Vector3, color: Color) -> void:
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = 8
-	mesh.rings = 4
 	var lamp := MeshInstance3D.new()
 	lamp.name = "ScreenStatusLamp"
-	lamp.mesh = mesh
+	lamp.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 8, 4)
 	lamp.position = position
 	lamp.scale = Vector3.ONE * 0.024
 	lamp.material_override = _material(color, 0.30, 0.0, true, 0.45)
@@ -1851,14 +1839,9 @@ static func _add_status_lamp(parent: Node3D, position: Vector3, color: Color) ->
 
 
 static func _add_egg_seal(parent: Node3D, position: Vector3, radius: float, color: Color) -> void:
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = 10
-	mesh.rings = 6
 	var seal := MeshInstance3D.new()
 	seal.name = "BureauEggSeal"
-	seal.mesh = mesh
+	seal.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 10, 6)
 	seal.position = position
 	seal.scale = Vector3(radius * 0.74, radius, 0.020)
 	seal.material_override = _material(color.lightened(0.08), 0.52)
