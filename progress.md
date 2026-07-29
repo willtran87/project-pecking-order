@@ -2738,3 +2738,68 @@ The next major systems milestone is persistent worker relationships and individu
   should be a clean foreground hardware trace of render pipelines and long
   frames; the remaining quality-lamp Tweens are capped to three concurrent
   semantic lamps and are not currently supported as a dominant hotspot.
+
+## 2026-07-29 — Economic objective audit and market-decision correction
+
+- Reopened the complete supplied economic-gameplay objective instead of treating
+  the successful release gate as proof of every design and human-experience
+  requirement. The existing `docs/ECONOMIC_GAMEPLAY_ACCEPTANCE.md` compressed
+  the objective and omitted the dedicated Player Experience and Gameplay Depth
+  sections; it now records the missing Core clauses and both omitted sections,
+  explicitly separating automated implementation evidence from pending human
+  fun, pacing, comprehension, friction, memorability, and strategic-depth
+  acceptance.
+- Found a real decision-data bug in `EconomicBriefingUI`: seasonal lane demand is
+  authored as a signed basis-point modifier, but the presentation subtracted
+  10,000 as though it were an absolute demand index. Spring's genuine +20%
+  nest-damage opportunity therefore appeared as -80%. The briefing now presents
+  the authoritative signed modifier directly: baseline +0%, Spring +20%.
+- Advanced the presentation-only economic briefing projection to version 2 and
+  added authoritative market cause, remaining duration, guaranteed-calendar
+  status, and explicit residual seeded-intake uncertainty. Capital now separates
+  MARKET, FORECAST, CAUSE, NOW, NEXT DAY, and LEAD lines using authored short
+  labels so the narrow drawer remains scannable.
+- The focused `economic_briefing_test.gd` passes and now proves signed current
+  and next demand, cause, duration, certainty, uncertainty, and visible compact
+  wording without allowing the UI to mutate simulation state.
+- Exported and synchronized all nine local hosting files. After the receipt
+  fixture correction, the current PCK is 6,334,932 bytes with SHA-256
+  `1D012C5C4FAD204054F99782B9378DFC39FB3B60327D024934F6B85AD7002EAF`;
+  `docs/` and `web/public/game/` match byte-for-byte.
+- The required official Web client loaded briefing schema v2 with the exact
+  corrected market fields and zero orphan nodes. A live in-app browser pass then
+  continued the real saved Day 2 campaign, opened Flockwatch Capital, and
+  visually confirmed the compact market block at the shipped drawer width with
+  +0% current and +20% next demand. Browser warnings/errors were empty.
+- The Godot auditor's deterministic signal scan passes with no risky anonymous
+  signal lambdas. The browser runtime remains at zero orphans.
+- The complete 198-test Godot run finished 196/198 on its first candidate and
+  exposed two genuine copies of one defect: the newly pooled grading docket used
+  house typography but was not registered as a physical paper fixture, so the
+  environmental-fit and office-signage audits correctly rejected
+  `ReceiptText` as floating copy. The pooled docket now uses one fitted,
+  depth-tested EnvironmentalSignage paper face plus its stable physical paper
+  carrier; it retains exact quality/value/hen/farmer credit copy and creates no
+  burst-time nodes.
+- The full affected receipt/signage set passes 4/4:
+  `egg_grading_feedback_test`, `grading_receipt_pool_test`,
+  `environmental_text_fit_test`, and `office_signage_test`. The last audit
+  reports 215 mounted fixtures and zero floating labels.
+- All twelve native contracts in the packaged beta gate pass. The first combined
+  gate stopped only because the shell selected unsupported Node 20.20.2; rerun
+  with the bundled Node 24 runtime passes every remaining Web lint/build,
+  49-test rendered suite, production-server, evidence-validator, and nine-file
+  parity check in 40.9 seconds. Evidence is preserved at
+  `output/release/goal-economic-market-beta-release-gate.json` and
+  `output/release/goal-economic-market-beta-release-web-gate.json`.
+- The final official-client smoke loads the exact current candidate with
+  briefing schema v2, current demand 0 basis points, next demand +2,000 basis
+  points, five days remaining, guaranteed-calendar status, zero orphan nodes,
+  and no browser-error artifact. Its inspected intake capture remains contained
+  at `output/web-game/goal-economic-market-final-smoke/shot-0.png`.
+- Next objective-audit work: expand the acceptance record against the still
+  compressed clauses in Markets, Costs, Progression, Difficulty, Information,
+  UI/UX, Feedback, Onboarding, Replayability, Accessibility, and Technical
+  Quality; then implement the highest-impact clause that lacks direct code and
+  test evidence. Human usability and physical-device sign-offs remain external
+  release gates and must not be rewritten as automated passes.

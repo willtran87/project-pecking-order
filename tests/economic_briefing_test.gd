@@ -17,7 +17,7 @@ func _run() -> void:
 	var costs := briefing.get("costs", {}) as Dictionary
 	var market := briefing.get("market", {}) as Dictionary
 
-	_check(int(briefing.get("version", 0)) == 1, "briefing should expose a versioned read model", failures)
+	_check(int(briefing.get("version", 0)) == 2, "briefing should expose the current versioned read model", failures)
 	_check(
 		int(cash.get("feed_fund_cents", -1)) == simulation.revenue_cents
 		and int(cash.get("protected_reserve_cents", -1)) == simulation.protected_reserve_cents()
@@ -48,8 +48,14 @@ func _run() -> void:
 		and DepartmentSimulation.CLAIM_LANES.has(
 			StringName(String(market.get("opportunity_lane_id", "")))
 		)
-		and int(market.get("feed_spot_unit_price_cents", 0)) > 0,
-		"market outlook should disclose a valid lead lane, next window, and feed quote",
+		and int(market.get("feed_spot_unit_price_cents", 0)) > 0
+		and int(market.get("current_days_remaining", -1)) == 5
+		and int(market.get("opportunity_demand_basis_points", -1)) == 0
+		and int(market.get("next_opportunity_demand_basis_points", 0)) == 2_000
+		and not String(market.get("current_cause", "")).is_empty()
+		and String(market.get("forecast_certainty", "")) == "GUARANTEED CALENDAR"
+		and not String(market.get("forecast_uncertainty", "")).is_empty(),
+		"market outlook should disclose valid signed demand, cause, duration, certainty, next window, and feed quote",
 		failures,
 	)
 
@@ -121,7 +127,10 @@ func _run() -> void:
 	_check(
 		headline != null and "DAY 1" in headline.text
 		and cash_label != null and _contains_all(cash_label.text, ["CASH", "RUN RATE", "BREAK-EVEN"])
-		and market_label != null and _contains_all(market_label.text, ["MARKET", "NEXT DAY", "FEED"])
+		and market_label != null and _contains_all(market_label.text, [
+			"MARKET", "5 DAYS LEFT", "GUARANTEED CALENDAR", "CAUSE",
+			"NOW", "+0%", "NEXT DAY", "LEAD", "+20%", "FEED",
+		])
 		and bottleneck_label != null and _contains_all(bottleneck_label.text, ["BOTTLENECK", "WHY", "ACT"])
 		and strategy_label != null and _contains_all(strategy_label.text, ["THROUGHPUT ROOST", "SHELL ASSURANCE", "COUNTERWEIGHT"]),
 		"Capital presentation should retain the compact summary and disclosed strategy detail",

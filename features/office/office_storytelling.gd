@@ -1883,12 +1883,16 @@ func _build_grading_receipt_pool() -> void:
 		Color("304047"),
 		0.58,
 	)
+	# A thicker pooled paper carrier sits behind the fitted printed face. The
+	# EnvironmentalSignage fixture below supplies the millimetre-thin visible
+	# sheet while this stable part preserves the receipt's physical feed stock
+	# and the grading diagnostics' authored ReceiptPaper identity.
 	_add_box(
 		_grading_receipt_pool,
 		"ReceiptPaper",
-		Vector3(0.46, 0.33, 0.012),
-		Vector3(0.0, -0.165, 0.016),
-		Color("ddd5ba"),
+		Vector3(0.46, 0.33, 0.010),
+		Vector3(0.0, -0.165, 0.014),
+		Color("d4ccb2"),
 		0.98,
 	)
 	_grading_receipt_quality_stripe = _add_box(
@@ -1926,29 +1930,25 @@ func _build_grading_receipt_pool() -> void:
 		0.32,
 		0.52,
 	)
-	_grading_receipt_label = Label3D.new()
-	_grading_receipt_label.name = "ReceiptText"
-	_grading_receipt_label.position = Vector3(0.025, -0.165, 0.032)
-	_grading_receipt_label.font_size = 14
-	_grading_receipt_label.pixel_size = 0.0021
-	_grading_receipt_label.width = 185
-	_grading_receipt_label.line_spacing = -2
-	_grading_receipt_label.outline_size = 0
-	_grading_receipt_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	_grading_receipt_label.no_depth_test = false
-	_grading_receipt_label.fixed_size = false
-	_grading_receipt_label.shaded = true
-	_grading_receipt_label.double_sided = false
-	_grading_receipt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_grading_receipt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_grading_receipt_label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	EnvironmentalSignageScript.apply_house_type(
-		_grading_receipt_label,
-		&"paper_notice",
-		true,
+	# The transient docket is still a physical office document. Building its
+	# paper and type through the same fixture contract as permanent signage keeps
+	# the copy mounted, depth-tested, fitted, and readable instead of introducing
+	# a raw Label3D merely because the document is pooled.
+	_grading_receipt_label = EnvironmentalSignageScript.add_panel(
+		_grading_receipt_pool,
+		"ReceiptText",
+		"FILED RECEIPT",
+		Vector3(0.0, -0.165, 0.016),
+		Vector2(0.46, 0.33),
+		Color("ddd5ba"),
+		Color("304047"),
+		Vector3.ZERO,
+		14,
+		0.0021,
+		&"utility",
+		&"paper",
 	)
 	_grading_receipt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_grading_receipt_pool.add_child(_grading_receipt_label)
 
 
 func _enqueue_grading_receipt(
@@ -2024,6 +2024,7 @@ func _spawn_grading_receipt(slot_index: int, request: Dictionary) -> void:
 		var worker_name := String(_worker_names.get(worker_id, "HEN %d" % (worker_id + 1))).to_upper()
 		receipt_text += "\nLAID BY %s  /  CREDIT TO FARMER" % worker_name
 	_grading_receipt_label.text = receipt_text
+	EnvironmentalSignageScript.refit_label(_grading_receipt_label)
 	_grading_receipt_label.modulate = quality_color.darkened(0.42)
 	_grading_receipt_pool.set_meta("receipt_quality", quality)
 	_grading_receipt_active = true

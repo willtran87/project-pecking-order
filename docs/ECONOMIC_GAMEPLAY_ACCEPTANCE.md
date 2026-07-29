@@ -41,6 +41,122 @@ accept.
     routing; decisions, not click frequency, determine results.
 11. **No decisionless waits — shipped.** Pause/1x/3x/10x, events, routing,
     dossiers, interventions, and fast-forward keep the next decision available.
+12. **Responsive economic actions — implemented; human acceptance pending.**
+    Buying, commissioning, staffing, routing, undo, and rejected filings produce
+    immediate state, receipt, semantic feedback, and checkpoint changes.
+    Automation covers response contracts, but perceived satisfaction remains a
+    usability-playtest criterion.
+13. **Observe-plan-act-adapt rhythm — shipped.** Today and Capital expose the
+    condition and forecast; the player files a route or investment; work and
+    review expose its outcome; the next briefing retains the resulting history.
+14. **Visible consequences — shipped.** Staffing, facilities, policy, routing,
+    credit, and contracts alter both authoritative economics and the modeled
+    office rather than only changing an isolated score.
+15. **Rewards for judgment — shipped.** Clean-clutch chains, binder fulfillment,
+    strategy commendations, incident mastery, standing, and career marks reward
+    timing, fit, recovery, and unusual routes in addition to accumulated Fund.
+16. **Mastery — verified in simulation; human depth acceptance pending.**
+    Forecasting, specialty routing, reserves, policy fit, Priority Peck timing,
+    procurement, and Senior Books support improved results in deterministic
+    playthroughs. Representative-player mastery and discoverability remain
+    external playtest criteria.
+17. **Active/planning/automation complement — shipped.** Manual routes and
+    optional Priority Peck improve active control, pause/Capital support
+    planning, and AUTO removes tray chores without removing economic policy.
+18. **Solved chores removed — shipped.** AUTO, speed controls, bounded authored
+    procurement lots, batch presentation, and one-file decisions prevent routine
+    work from turning into quantity-click maintenance.
+19. **Emergent economic stories — implemented; human memorability pending.**
+    Seeded claims, flock temperament, incidents, market timing, labor state,
+    contracts, facilities, and persistent career consequences combine across
+    runs. Whether those stories are memorable is measured only by moderated
+    playtesting.
+
+## Player Experience, Fun, and Engagement
+
+1. **Player fantasy — shipped.** The player rescues and grows an underfunded Egg
+   Yield Bureau while deciding whether its chickens or its management receive
+   the rewards and credit.
+2. **Growing capability and influence — shipped.** Knowledge, staff, managers,
+   routes, facilities, standing, campus authority, and Board policy expand
+   together rather than as currency alone.
+3. **Session rhythm — implemented; human fun acceptance pending.** Shifts stage
+   anticipation, filing, live work, review, reinvestment, and recap. Subjective
+   satisfaction is retained in the usability matrix rather than self-certified.
+4. **Emotional pacing — implemented; human pacing acceptance pending.** Stable
+   work periods alternate with rushes, incidents, milestone reveals, Farmer
+   Review, recovery, and Senior quarters.
+5. **Small/medium/major victories — shipped.** Eggs, clean chains, orders,
+   commendations, facilities, probation, campus parcels, and annual Books form
+   distinct reward scales.
+6. **Celebrate smart play — shipped.** Fit, recovery, clean binders, incident
+   pivots, welfare, efficiency, and unusual strategy commendations receive
+   receipts and presentation, not only Fund gains.
+7. **Curiosity and progressive revelation — shipped.** First Clutch, probation
+   days, standing, facilities, governance, campus, and Senior Books disclose new
+   interactions in stages.
+8. **Prepared surprise — shipped.** Seeded intake and authored incidents vary
+   outcomes while deadlines, stakes, affected systems, and market calendars stay
+   inspectable.
+9. **Player expression — shipped at authored scale.** Doctrine, challenge
+   contract, routing style, manager posture, riders, capital plan, annual
+   strategy, and incident precedent create economic identity. Freeform branding
+   is outside this authored office game.
+10. **Affordable experimentation — shipped.** Pause, exact preflights, undoable
+    live routing, early safe claims, standard-book fallback, and recovery paths
+    expose results without deleting a career.
+11. **Setbacks become problems — shipped.** Arrears, breaches, poor welfare,
+    failed Books, and capacity pressure open debt, downsizing, repricing,
+    procurement, or restructuring decisions.
+12. **Immediate and self-directed goals — shipped.** Today shows the current
+    order while commendations, standing, facilities, strategy routes, campus,
+    and optional Senior Books remain discoverable ambitions.
+13. **Stopping and re-entry — shipped.** Shift reviews, annual reviews,
+    checkpoint summaries, Continue preview, pause-on-focus-loss, and portable
+    backup create natural exits and restore the unresolved context.
+14. **No obligation/FOMO — verified.** No real-time rotations, offline accrual,
+    streak penalties, paid boosts, or daily chores exist.
+
+## Gameplay Depth, Variety, and Pacing
+
+1. **Short/medium/long horizons — shipped.** Live routing and Priority Peck,
+   shift contracts and reserves, and career/campus/Board choices occupy distinct
+   horizons.
+2. **Operational/tactical/strategic variety — shipped.** Work assignment,
+   incident response, procurement, staffing, facilities, doctrine, and annual
+   policy all feed the same authoritative economy.
+3. **Context-dependent best choice — verified in authored profiles.** Market,
+   flock state, available Fund, build, contract, and recovery pressure alter
+   viable actions; no profile wins every fixture.
+4. **Multiple solutions — shipped.** Capacity, quality, welfare, contract,
+   Treasury, downsizing, feed hedge, and restructuring routes carry different
+   cost, time, and consequence.
+5. **System combinations — shipped.** Temperament, route, demand, feed, facility,
+   manager, labor, contract, and standing modifiers combine at production and
+   close rather than resolving as isolated minigames.
+6. **New mechanics remix old ones — shipped.** Later contracts, facilities,
+   campus services, incidents, and Senior Books continue to consume the original
+   hens, routing, feed, shell quality, Fund, and review loop.
+7. **Information pacing — shipped; human comprehension pending.** Progressive
+   pages and day gates stage responsibility, while the moderated comprehension
+   protocol remains the authority on overload.
+8. **Stability followed by pressure — shipped.** Pausable production windows
+   alternate with filed arrivals, deadlines, incidents, review, and seasonal
+   opportunities.
+9. **No friction-as-difficulty — implemented; human friction pending.** Economic
+   pressure comes from tradeoffs and constraints; automation, speed, undo, and
+   direct preflights remove avoidable input burden.
+10. **Useful downtime — shipped.** Pause retains dossiers, forecasts, Capital,
+    staffing, facilities, settings, records, and route planning.
+11. **Fair time sensitivity — shipped.** Deadlines and gold timing windows are
+    visible, pausable, and adjustable; Priority Peck is optional.
+12. **Distinct early/mid/late game — shipped.** First Clutch teaches individual
+    work, probation adds bureau economics and policy, and Senior play adds annual
+    governance and portfolio consequences.
+13. **Feature-value review — automation evidenced; human depth pending.** Focused
+    economy, UI, integration, balance, and browser tests prove each major system
+    adds state and decisions. Emotional payoff and strategic depth remain
+    separate moderated-playtest gates.
 
 ## Supply, Demand, and Markets
 

@@ -195,24 +195,48 @@ func _refresh() -> void:
 	var market := _briefing.get("market", {}) as Dictionary
 	var current_market := market.get("current", {}) as Dictionary
 	var next_market := market.get("next", {}) as Dictionary
-	var demand_delta := int(market.get("opportunity_demand_basis_points", 10_000)) - 10_000
+	# Market demand is authored as a signed basis-point modifier to the binder,
+	# not as an absolute index. Subtracting 10,000 here previously presented a
+	# real +20% Spring opportunity as -80%.
+	var demand_delta := int(market.get("opportunity_demand_basis_points", 0))
+	var next_demand_delta := int(
+		market.get("next_opportunity_demand_basis_points", 0)
+	)
 	_market.text = (
-		"MARKET / %s / %s %s / FEED %s PER SCOOP\n"
-		+ "NEXT DAY %d / %s / LEAD %s / FEED %s"
+		"MARKET / %s / %d DAY%s LEFT\n"
+		+ "FORECAST / %s\n"
+		+ "CAUSE / %s\n"
+		+ "NOW / %s %s / FEED %s PER SCOOP\n"
+		+ "NEXT DAY %d / %s\n"
+		+ "LEAD / %s %s / FEED %s"
 	) % [
-		String(current_market.get("label", "BASELINE BOOK")),
+		String(current_market.get("short_label", "BASELINE BOOK")),
+		int(market.get("current_days_remaining", 0)),
+		"" if int(market.get("current_days_remaining", 0)) == 1 else "S",
+		String(market.get("forecast_certainty", "FILED CALENDAR")),
+		String(market.get(
+			"current_cause",
+			current_market.get("summary", "Farm Mutual's filed calendar sets demand."),
+		)),
 		String(market.get("opportunity_lane_label", "CLAIMS")).to_upper(),
 		_signed_percent(demand_delta),
 		_money(int(market.get("feed_spot_unit_price_cents", 0))),
 		int(market.get("next_market_day", 1)),
-		String(next_market.get("label", "BASELINE BOOK")),
+		String(next_market.get("short_label", "BASELINE BOOK")),
 		String(market.get("next_opportunity_lane_label", "CLAIMS")).to_upper(),
+		_signed_percent(next_demand_delta),
 		_money(int(market.get("next_feed_spot_unit_price_cents", 0))),
 	]
-	_market.tooltip_text = String(current_market.get(
-		"summary",
-		"The filed market calendar determines lane demand and feed pressure.",
-	))
+	_market.tooltip_text = "%s %s" % [
+		String(market.get(
+			"current_cause",
+			"The filed market calendar determines lane demand and feed pressure.",
+		)),
+		String(market.get(
+			"forecast_uncertainty",
+			"The calendar is filed; individual claim intake can still vary.",
+		)),
+	]
 
 	var bottlenecks := _briefing.get("bottlenecks", []) as Array
 	var primary := (

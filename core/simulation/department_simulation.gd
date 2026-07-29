@@ -6447,7 +6447,7 @@ func economic_briefing_snapshot() -> Dictionary:
 		status_label = "MARGIN TIGHT"
 
 	return {
-		"version": 1,
+		"version": 2,
 		"day": day,
 		"status_id": status_id,
 		"status_label": status_label,
@@ -6474,16 +6474,28 @@ func economic_briefing_snapshot() -> Dictionary:
 		"market": {
 			"current": current_season.duplicate(true),
 			"next": next_season.duplicate(true),
+			"current_cause": String(current_season.get(
+				"summary",
+				"Farm Mutual's filed calendar sets the current book.",
+			)),
+			"current_days_remaining": maxi(
+				0,
+				int(current_season.get("days_remaining", 0)),
+			),
+			"forecast_certainty": "GUARANTEED CALENDAR",
+			"forecast_uncertainty": (
+				"The season and spot quote are filed; seeded claim mix can still vary."
+			),
 			"next_market_day": next_market_day,
 			"opportunity_lane_id": opportunity_lane,
 			"opportunity_lane_label": _lane_display_name(opportunity_lane),
 			"opportunity_demand_basis_points": int(
-				current_demand.get(opportunity_lane, 10_000)
+				current_demand.get(opportunity_lane, 0)
 			),
 			"next_opportunity_lane_id": next_opportunity_lane,
 			"next_opportunity_lane_label": _lane_display_name(next_opportunity_lane),
 			"next_opportunity_demand_basis_points": int(
-				next_demand.get(next_opportunity_lane, 10_000)
+				next_demand.get(next_opportunity_lane, 0)
 			),
 			"feed_spot_unit_price_cents": _feed_spot_unit_price_cents(day),
 			"next_feed_spot_unit_price_cents": _feed_spot_unit_price_cents(
