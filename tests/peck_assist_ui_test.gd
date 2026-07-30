@@ -18,6 +18,10 @@ func _run() -> void:
 	var routing_ui := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
 	var dossier := office.find_child("PeckworkAssignmentDossier", true, false) as PanelContainer
 	var assist_button := office.find_child("PeckAssistButton", true, false) as Button
+	var progress_track := office.find_child("RoutingClaimProgressTrack", true, false) as Control
+	var gold_band := office.find_child("PriorityPeckGoldBand", true, false) as ColorRect
+	var ideal_marker := office.find_child("PriorityPeckIdealMarker", true, false) as ColorRect
+	var timing_label := office.find_child("PriorityPeckTimingLabel", true, false) as Label
 
 	# Normalize any resumable developer-local file to the authored title surface so
 	# this integration test exercises the same blocking presentation every run.
@@ -30,6 +34,11 @@ func _run() -> void:
 	_check(routing_ui != null, "Office should install the Peckwork routing interface", failures)
 	_check(dossier != null, "routing interface should build the selected-hen dossier", failures)
 	_check(assist_button != null, "selected-hen dossier should contain a Priority Peck button", failures)
+	_check(
+		progress_track != null and gold_band != null and ideal_marker != null and timing_label != null,
+		"selected-hen dossier should build the visible Priority Peck timing guide",
+		failures,
+	)
 	_check(
 		campaign_ui != null and campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE,
 		"the fixture should begin on the blocking campaign title",
@@ -65,6 +74,7 @@ func _run() -> void:
 	_check(assist_button != null and assist_button.is_visible_in_tree(), "selecting a hen should reveal Priority Peck inside the dossier", failures)
 	_check(assist_button != null and assist_button.disabled, "Priority Peck should remain locked without an active file", failures)
 	_check(assist_button != null and "NO ACTIVE FILE" in assist_button.text, "idle hens should explain that no claim can be assisted", failures)
+	_check(timing_label != null and not timing_label.is_visible_in_tree(), "idle hens should not show a timing target", failures)
 	if dossier != null and assist_button != null:
 		var dossier_rect := dossier.get_global_rect().grow(0.5)
 		var button_rect := assist_button.get_global_rect()
@@ -95,6 +105,37 @@ func _run() -> void:
 		"authoritative status should report the live timing window",
 		failures,
 	)
+	var open_assist := simulation.peck_assist_status(0) if simulation != null else {}
+	_check(
+		timing_label != null
+		and timing_label.is_visible_in_tree()
+		and String(open_assist.get("timing_label", "")) in timing_label.text
+		and "GOLD 58-66%" in timing_label.text
+		and "AIM 62%" in timing_label.text,
+		"an active claim should name its live rhythm and disclose the gold target",
+		failures,
+	)
+	_check(
+		gold_band != null
+		and ideal_marker != null
+		and gold_band.is_visible_in_tree()
+		and ideal_marker.is_visible_in_tree()
+		and is_equal_approx(gold_band.anchor_left, 0.58)
+		and is_equal_approx(gold_band.anchor_right, 0.66)
+		and is_equal_approx(ideal_marker.anchor_left, 0.62),
+		"the claim meter should position its gold band and ideal marker from authoritative timing values",
+		failures,
+	)
+	if dossier != null and progress_track != null and gold_band != null and ideal_marker != null:
+		var track_rect := progress_track.get_global_rect().grow(0.5)
+		_check(
+			track_rect.has_point(gold_band.get_global_rect().position)
+			and track_rect.has_point(gold_band.get_global_rect().end)
+			and track_rect.has_point(ideal_marker.get_global_rect().position)
+			and track_rect.has_point(ideal_marker.get_global_rect().end),
+			"the Priority Peck targets should stay clipped inside the dossier progress track",
+			failures,
+		)
 	_check(assist_button != null and assist_button.disabled, "paused time should lock the Priority Peck button", failures)
 	_check(
 		assist_button != null and "Resume" in assist_button.tooltip_text,
@@ -152,6 +193,7 @@ func _run() -> void:
 		"button should retain the exact completed file gain",
 		failures,
 	)
+	_check(timing_label != null and not timing_label.is_visible_in_tree(), "a completed assist should retire the live timing guide", failures)
 
 	# The semantic action must share the same authoritative route. Prepare a new
 	# worker's window, then inject the mapped action rather than calling Office

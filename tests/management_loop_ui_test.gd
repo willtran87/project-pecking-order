@@ -50,7 +50,7 @@ func _run() -> void:
 		campaign_objectives != null
 		and badge_order_progress != null
 		and badge_order_progress.is_visible_in_tree()
-		and badge_order_progress.text == "ORDERS  %d / %d" % [
+		and badge_order_progress.text == "ON TRACK  %d / %d" % [
 			int(campaign_objectives.get_meta("orders_on_track", -1)),
 			int(campaign_objectives.get_meta("orders_total", -1)),
 		],

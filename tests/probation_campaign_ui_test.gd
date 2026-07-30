@@ -72,7 +72,7 @@ func _run() -> void:
 		and order_progress_row != null
 		and order_progress_row.is_visible_in_tree()
 		and order_progress_label != null
-		and order_progress_label.text == "ORDERS  2 / 3",
+		and order_progress_label.text == "ON TRACK  2 / 3",
 		"active badge should quietly seed the exact live order count without adding another panel",
 		failures,
 	)
@@ -87,7 +87,7 @@ func _run() -> void:
 	var improved_delta := ui.set_live_order_progress(3, 3, &"probation:1")
 	_check(
 		improved_delta == 1
-		and order_progress_label.text == "ORDERS  3 / 3"
+		and order_progress_label.text == "ON TRACK  3 / 3"
 		and int(ui.live_order_progress().get("on_track", 0)) == 3,
 		"same-day improvement should return one semantic transition and update the compact badge",
 		failures,
@@ -97,13 +97,14 @@ func _run() -> void:
 	_check(
 		risk_delta == -1
 		and badge.modulate.is_equal_approx(Color.WHITE)
+		and "Nothing is filed until review" in order_progress_label.tooltip_text
 		and "Closing metrics can still move" in order_progress_label.tooltip_text,
 		"risk transitions should remain legible without a pulse when reduced motion is active",
 		failures,
 	)
 	var next_day_delta := ui.set_live_order_progress(1, 3, &"probation:2")
 	_check(
-		next_day_delta == 0 and order_progress_label.text == "ORDERS  1 / 3",
+		next_day_delta == 0 and order_progress_label.text == "ON TRACK  1 / 3",
 		"a new shift should seed quietly instead of replaying a stale reward cue",
 		failures,
 	)

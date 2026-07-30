@@ -78,6 +78,8 @@ const PECK_ASSIST_LIMIT := 3
 const PECK_ASSIST_WINDOW_START := 28.0
 const PECK_ASSIST_WINDOW_END := 88.0
 const PECK_ASSIST_IDEAL_PROGRESS := 62.0
+const PECK_ASSIST_GOLD_START := 58.0
+const PECK_ASSIST_GOLD_END := 66.0
 ## Clock-driven snapshots publish several large planning projections that do not
 ## need to be rebuilt at the authoritative tick rate. Keep their visible age
 ## below two seconds while direct actions and explicit snapshot() reads remain
@@ -15017,6 +15019,8 @@ func peck_assist_status(worker_id: int) -> Dictionary:
 		"window_start": window_start,
 		"window_end": window_end,
 		"ideal_progress": PECK_ASSIST_IDEAL_PROGRESS,
+		"gold_start": PECK_ASSIST_GOLD_START,
+		"gold_end": PECK_ASSIST_GOLD_END,
 		"window_state": &"locked",
 		"timing_score": 0.0,
 		"timing_label": "LOCKED",

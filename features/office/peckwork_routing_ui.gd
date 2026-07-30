@@ -81,7 +81,11 @@ var _active_dossier_tab: StringName = &"route"
 var _current_claim_label: Label
 var _current_contract_badge: Label
 var _claim_detail_label: Label
+var _claim_progress_track: Control
 var _claim_progress_bar: ProgressBar
+var _peck_timing_band: ColorRect
+var _peck_timing_marker: ColorRect
+var _peck_timing_label: Label
 var _dossier_summary_label: Label
 var _routing_hint_label: Label
 var _peck_assist_button: Button
@@ -611,15 +615,36 @@ func _build_focus_dossier() -> void:
 	_claim_detail_label.name = "RoutingClaimDetail"
 	_claim_detail_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	active_file.add_child(_claim_detail_label)
+	_claim_progress_track = Control.new()
+	_claim_progress_track.name = "RoutingClaimProgressTrack"
+	_claim_progress_track.custom_minimum_size.y = 11.0
+	_claim_progress_track.clip_contents = true
+	_claim_progress_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	active_file.add_child(_claim_progress_track)
 	_claim_progress_bar = ProgressBar.new()
 	_claim_progress_bar.name = "RoutingClaimProgress"
-	_claim_progress_bar.custom_minimum_size.y = 9.0
+	_claim_progress_bar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_claim_progress_bar.min_value = 0.0
 	_claim_progress_bar.max_value = 100.0
 	_claim_progress_bar.show_percentage = false
+	_claim_progress_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_claim_progress_bar.add_theme_stylebox_override("background", _compact_button_style(Color("101a21"), Color("3e5059"), 1))
 	_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("5aa897"), Color("8dcfbd"), 0))
-	active_file.add_child(_claim_progress_bar)
+	_claim_progress_track.add_child(_claim_progress_bar)
+	_peck_timing_band = ColorRect.new()
+	_peck_timing_band.name = "PriorityPeckGoldBand"
+	_peck_timing_band.color = Color(0.95, 0.74, 0.25, 0.34)
+	_peck_timing_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_claim_progress_track.add_child(_peck_timing_band)
+	_peck_timing_marker = ColorRect.new()
+	_peck_timing_marker.name = "PriorityPeckIdealMarker"
+	_peck_timing_marker.color = Color("fff0a6")
+	_peck_timing_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_claim_progress_track.add_child(_peck_timing_marker)
+	_peck_timing_label = _make_label("", 9, Color("d7c17d"))
+	_peck_timing_label.name = "PriorityPeckTimingLabel"
+	_peck_timing_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	active_file.add_child(_peck_timing_label)
 	_dossier_summary_label = _make_label("", 11, Color("c7d3d7"))
 	_dossier_summary_label.name = "RoutingDossierSummary"
 	_dossier_summary_label.custom_minimum_size.y = 54.0
@@ -916,14 +941,14 @@ func _refresh() -> void:
 	if claim.is_empty():
 		_current_claim_label.text = "1  ROUTE  /  WAITING FOR %s FILE" % (_lane_name(assignment) if assignment != &"auto" else "AUTO-SORTED")
 		_claim_progress_bar.value = 0.0
-		_claim_progress_bar.visible = false
+		_claim_progress_track.visible = false
 		_claim_detail_label.text = "NEXT  /  hen sits, pecks the screen, then lays the completed egg"
 	else:
 		var lane := StringName(claim.get("lane", &"nest_damage"))
 		var claim_id := int(claim.get("id", 0))
 		var rework := bool(claim.get("rework", claim.get("is_rework", false)))
 		var progress := int(worker.get("progress", 0))
-		_claim_progress_bar.visible = true
+		_claim_progress_track.visible = true
 		_claim_progress_bar.value = progress
 		var loop_verb := "2  PECKING SCREEN"
 		if worker_state_label == "LAYING":
@@ -963,6 +988,7 @@ func _refresh() -> void:
 		"pending_delivery_count",
 		_snapshot.get("peck_assist_pending_delivery_count", 0),
 	)))
+	_refresh_peck_timing_presentation(assist, assist_state, claim.is_empty())
 	_peck_assist_button.set_meta("assist_open", assist_open)
 	_peck_assist_button.disabled = not assist_open
 	_peck_assist_button.tooltip_text = "%s\n%s" % [
@@ -1208,6 +1234,80 @@ func _refresh() -> void:
 		worker_action,
 	)
 	_refresh_first_clutch()
+
+
+func _refresh_peck_timing_presentation(
+	assist: Dictionary,
+	assist_state: StringName,
+	claim_empty: bool,
+) -> void:
+	if (
+		_peck_timing_band == null
+		or _peck_timing_marker == null
+		or _peck_timing_label == null
+		or _claim_progress_track == null
+	):
+		return
+	var gold_start := clampf(float(assist.get("gold_start", 58.0)), 0.0, 100.0)
+	var gold_end := clampf(float(assist.get("gold_end", 66.0)), gold_start, 100.0)
+	var ideal_progress := clampf(
+		float(assist.get("ideal_progress", 62.0)),
+		gold_start,
+		gold_end,
+	)
+	_peck_timing_band.set_anchor(SIDE_LEFT, gold_start / 100.0, false)
+	_peck_timing_band.set_anchor(SIDE_RIGHT, gold_end / 100.0, false)
+	_peck_timing_band.set_anchor(SIDE_TOP, 0.0, false)
+	_peck_timing_band.set_anchor(SIDE_BOTTOM, 1.0, false)
+	_peck_timing_band.offset_left = 0.0
+	_peck_timing_band.offset_right = 0.0
+	_peck_timing_band.offset_top = 0.0
+	_peck_timing_band.offset_bottom = 0.0
+	_peck_timing_marker.set_anchor(SIDE_LEFT, ideal_progress / 100.0, false)
+	_peck_timing_marker.set_anchor(SIDE_RIGHT, ideal_progress / 100.0, false)
+	_peck_timing_marker.set_anchor(SIDE_TOP, 0.0, false)
+	_peck_timing_marker.set_anchor(SIDE_BOTTOM, 1.0, false)
+	_peck_timing_marker.offset_left = -1.0
+	_peck_timing_marker.offset_right = 1.0
+	_peck_timing_marker.offset_top = 0.0
+	_peck_timing_marker.offset_bottom = 0.0
+	var target_text := "GOLD %d-%d%%  /  AIM %d%%" % [
+		roundi(gold_start),
+		roundi(gold_end),
+		roundi(ideal_progress),
+	]
+	var timing_tooltip := (
+		"The gold band marks the strongest Priority Peck rating. "
+		+ "The bright line is the ideal rhythm; press the Priority Peck action while the file meter crosses it."
+	)
+	_claim_progress_track.tooltip_text = timing_tooltip
+	_peck_timing_label.tooltip_text = timing_tooltip
+	if claim_empty:
+		_peck_timing_label.text = ""
+		return
+	match assist_state:
+		&"not_ready":
+			_peck_timing_label.text = "OPENS %d%%  /  %s" % [
+				roundi(float(assist.get("window_start", 28.0))),
+				target_text,
+			]
+			_peck_timing_label.add_theme_color_override("font_color", Color("77b7aa"))
+		&"open":
+			var timing_label := String(assist.get("timing_label", "WORKABLE RHYTHM"))
+			_peck_timing_label.text = "%s  /  %s" % [timing_label, target_text]
+			var timing_color := Color("e7d7a4")
+			if "GOLDEN" in timing_label:
+				timing_color = Color("f1d681")
+			elif "CLEAN" in timing_label:
+				timing_color = Color("8dcfbd")
+			elif "RISKY" in timing_label:
+				timing_color = Color("d98c75")
+			_peck_timing_label.add_theme_color_override("font_color", timing_color)
+		&"missed", &"passed":
+			_peck_timing_label.text = "WINDOW CLOSED  /  NEXT FILE RESETS"
+			_peck_timing_label.add_theme_color_override("font_color", Color("c97d6b"))
+		_:
+			_peck_timing_label.text = ""
 
 
 func _refresh_claim_resolution_controls(
@@ -1519,7 +1619,18 @@ func _apply_dossier_disclosure() -> void:
 	)
 	var worker := _worker_snapshot(_focused_worker_id)
 	var claim := worker.get("current_claim", {}) as Dictionary
-	_claim_progress_bar.visible = show_claim and not claim.is_empty()
+	_claim_progress_track.visible = show_claim and not claim.is_empty()
+	var show_timing := (
+		not claim.is_empty()
+		and (route_tab or show_priority)
+		and StringName((worker.get("peck_assist", {}) as Dictionary).get(
+			"window_state",
+			&"locked",
+		)) in [&"not_ready", &"open", &"missed", &"passed"]
+	)
+	_peck_timing_band.visible = show_timing
+	_peck_timing_marker.visible = show_timing
+	_peck_timing_label.visible = show_timing
 	_assignment_section.visible = show_routing
 	_claim_resolution_section.visible = claim_tab and not claim.is_empty()
 	_personnel_actions_section.visible = show_check_in

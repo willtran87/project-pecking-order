@@ -487,7 +487,7 @@ func _build_day_badge() -> void:
 	_order_progress_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_order_progress_row.add_theme_constant_override("separation", 4)
 	stack.add_child(_order_progress_row)
-	_order_progress_label = _make_label("ORDERS 0 / 3", 9, MUTED)
+	_order_progress_label = _make_label("ON TRACK 0 / 3", 9, MUTED)
 	_order_progress_label.name = "ProbationOrderProgressLabel"
 	_order_progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_order_progress_row.add_child(_order_progress_label)
@@ -509,13 +509,16 @@ func _refresh_live_order_badge() -> void:
 	if not visible_progress:
 		return
 	var on_track := clampi(_live_orders_on_track, 0, _live_orders_total)
-	_order_progress_label.text = "ORDERS  %d / %d" % [on_track, _live_orders_total]
+	# These are live projections, not completed orders. Calling them "ORDERS"
+	# beside filled segments made safe opening metrics look pre-awarded. Keep the
+	# closing report as the only place that presents an order as filed.
+	_order_progress_label.text = "ON TRACK  %d / %d" % [on_track, _live_orders_total]
 	_order_progress_label.add_theme_color_override(
 		"font_color",
 		TEAL if on_track == _live_orders_total else (RUST if on_track == 0 else CREAM),
 	)
 	_order_progress_label.tooltip_text = (
-		"%d of %d live orders are currently on track. Closing metrics can still move; open Flockwatch for exact targets and rewards."
+		"LIVE ESTIMATE  //  %d of %d orders are currently on track. Nothing is filed until review. Closing metrics can still move; open Flockwatch for exact targets and rewards."
 		% [on_track, _live_orders_total]
 	)
 	for index in range(_order_progress_segments.size()):
@@ -528,8 +531,8 @@ func _refresh_live_order_badge() -> void:
 		segment.add_theme_stylebox_override(
 			"panel",
 			_panel_style(
-				Color("5aa897") if active else Color("263640"),
-				Color("b8e2d7") if active else Color("8a5f59"),
+				Color("315f58") if active else Color("263640"),
+				Color("91c8bb") if active else Color("8a5f59"),
 				2,
 				1,
 			),

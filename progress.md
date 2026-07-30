@@ -3890,3 +3890,53 @@ The next major systems milestone is persistent worker relationships and individu
 - Publication closes the deployed-payload mismatch. It does not count any of
   the still-pending physical-device or separately moderated usability sessions
   as completed.
+
+## 2026-07-30 - Live-order reward clarity
+
+- Replayed the complete opening sequence through policy authorization, Mabel's
+  visual-novel aside, specialty routing, check-in, active work, and Priority
+  Peck timing. The first remaining reward-feedback contradiction was visible at
+  8:00 AM: `ORDERS 2 / 3` plus two bright filled stamps looked like two orders
+  had already been completed before the player acted.
+- Renamed the active badge to `ON TRACK n / 3`, reduced the fill intensity of
+  its live markers, and made the tooltip explicit that these are reversible
+  estimates and nothing is filed until review. Closing reports remain the only
+  place where completed orders are presented as awarded.
+- Focused management-loop and full probation-campaign UI contracts pass 2/2.
+  The latter retains desktop, compact, 150%-scale, expanded-copy, reduced-motion,
+  transition, report, and final-review coverage.
+- Exported and synchronized all nine Web payloads. The new 9,248,884-byte PCK
+  has SHA-256
+  `EBF762003BBA3A8C2B1981DC4D0947A67C3A6C40847642E7FB58AE5DA550F6D2`.
+  The required browser client reached active Day 1 and then Mabel's routing
+  aside with the corrected `ON TRACK 2 / 3` badge visible and no console or
+  page error artifact at `output/web-game/fun-live-orders-v2/` and
+  `output/web-game/fun-live-orders-v3/`; both inspected captures are contained.
+- Next evidence-backed fun slice: measure first-file time-to-policy,
+  time-to-first-egg, Priority Peck success, and early abandonment with human
+  sessions before shortening the five-step First Clutch. The current sequence
+  is coherent in an automated replay, but comprehension and delight are still
+  human claims.
+
+## 2026-07-30 - Priority Peck timing target
+
+- Replayed the First Clutch through a live claim and confirmed the active
+  intervention asked the player to aim for a gold rhythm without showing where
+  that rhythm lived on the claim meter.
+- Exposed the authoritative 58-66% gold band and 62% ideal rhythm in Priority
+  Peck status, then added a contained gold overlay, bright ideal marker, and
+  live rhythm label to the selected-hen dossier. Timing assistance still widens
+  only the valid input window; it does not move or weaken the strongest reward.
+- Focused simulation, routing, First Clutch, and Priority Peck UI regressions
+  pass 4/4 at
+  `output/regression/fun-priority-window-focused-v2/shard-summary.json`.
+- Exported and synchronized the Web payload. The 9,250,948-byte PCK has SHA-256
+  `E685C0018C15FFFAF7737302508CC228B2128D0BB96B302DFFA7E491CB77780C`
+  and is byte-identical between `docs/` and `web/public/game/`.
+- The required independent browser client booted and advanced through the
+  opening without console or page errors at
+  `output/web-game/fun-priority-window-official-v1/`. A separate live browser
+  replay paused Mabel at 63% with `GOLDEN RHYTHM / GOLD 58-66% / AIM 62%`
+  visible and fully contained, then filed the action for an authoritative
+  perfect result: +26% progress, -6% shell risk, chain x1. The inspected capture
+  is `output/web-game/fun-priority-window-live-v1.png`.
