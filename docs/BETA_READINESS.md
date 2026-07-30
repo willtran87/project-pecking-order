@@ -65,23 +65,21 @@ cohort, dialogue, and paid-fellow captures at
 
 ### Current public-deployment disposition
 
-The verified local candidate is not yet the public GitHub Pages payload.
-`output/release/deployed-release-identity-current-audit.json` records the
-2026-07-30 fail-closed comparison:
+The verified candidate is live on
+`https://willtran87.github.io/project-pecking-order/`. GitHub Pages completed
+the 2026-07-30 build from commit
+`3fa2d57604b1e727bacacf0ea5007778c3b92250`, and a cache-bypassed download of
+the public package matched local `docs/index.pck` exactly:
 
-- current local `docs/index.pck`: 9,249,172 bytes, SHA-256
+- local and public `index.pck`: 9,249,172 bytes;
+- local and public SHA-256:
   `49675052C2A69E14F576737DF1F8643ABF98FBB46B27B052180915910068E938`;
-- public Pages `index.pck`: 6,334,932 bytes, SHA-256
-  `1D012C5C4FAD204054F99782B9378DFC39FB3B60327D024934F6B85AD7002EAF`;
-- local and remote `codex/core-loop-polish` commit:
-  `ca84eb06336d5cc2650687c61d4af1fdf7863761`; and
-- exact deployed-payload match: **false**.
+- exact deployed-payload match: **true**.
 
-The public URL must not be presented as the approved character-dialogue
-candidate. Commit/push/publish is a separate release-owner action, and the
-physical/usability evidence initializers must remain ineligible until the
-deployed PCK matches the verified local bytes. The audit intentionally created
-no remote mutation and no human-session result.
+The public URL is therefore the approved automated-test candidate. Publication
+does not manufacture human evidence: the seven physical sessions and seven
+separately moderated usability focuses below remain pending until they are
+performed against this exact package.
 
 The current completion audit is
 `output/release/objective-completion-audit-intern-economy.json`. It binds the

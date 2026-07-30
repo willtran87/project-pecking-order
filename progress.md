@@ -3875,3 +3875,18 @@ The next major systems milestone is persistent worker relationships and individu
   seven physical sessions and seven separately moderated usability sessions.
   No commit, deployment, participant metric, device result, or approval was
   fabricated.
+
+## 2026-07-30 - Character economy candidate published
+
+- Committed the character-dialogue cast, Bright-Eyed Rotation, management and
+  economy polish, accessibility work, authored portraits, tests, and synchronized
+  Web payload as `3fa2d57604b1e727bacacf0ea5007778c3b92250`.
+- Pushed `codex/core-loop-polish`, the configured GitHub Pages `/docs` source,
+  and observed the Pages build complete successfully.
+- Downloaded the public `index.pck` with cache bypass. Its 9,249,172 bytes and
+  SHA-256
+  `49675052C2A69E14F576737DF1F8643ABF98FBB46B27B052180915910068E938`
+  match the fully tested local candidate exactly.
+- Publication closes the deployed-payload mismatch. It does not count any of
+  the still-pending physical-device or separately moderated usability sessions
+  as completed.
