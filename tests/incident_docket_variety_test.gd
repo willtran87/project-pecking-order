@@ -98,7 +98,11 @@ func _run() -> void:
 		legacy_v23.erase(field)
 	var migrated := DepartmentSimulation.new(4703, 4)
 	_check(migrated.restore_save_state(legacy_v23), "an authentic v23 checkpoint should migrate into the neutral legacy docket", failures)
-	_check(int(migrated.export_save_state().get("state_version", -1)) == 27, "v23 migration should re-export as schema v27", failures)
+	_check(
+		int(migrated.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION,
+		"v23 migration should re-export as the current schema",
+		failures
+	)
 	_check(String(migrated.case_docket_snapshot().get("id", "")) == "PO-1701", "v23 migration should preserve the historical career identity", failures)
 	var smuggled_v23 := DepartmentSimulation.new(1701, 4).export_save_state()
 	smuggled_v23["state_version"] = 23

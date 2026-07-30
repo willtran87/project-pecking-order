@@ -44,6 +44,14 @@ func _run() -> void:
 	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
 	var decision_confirm := office.find_child("ConfirmDecisionButton", true, false) as Button
 	var ticker := office.get("_ticker_label") as Label
+	var character_dialogue_ui = office.get("_character_dialogue_ui")
+	var flockwatch_navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
+	var capital_blueprint_ui = office.get("_capital_blueprint_ui")
+	var staffing_ui := office.get("_staffing_ui") as RoostStaffingUI
+	var economic_briefing_ui = office.get("_economic_briefing_ui")
+	var shift_help_toggle = office.get("_shift_help_disclosure_toggle")
+	var upgrade_toggle = office.get("_upgrade_disclosure_toggle")
+	var commendations_toggle = office.get("_commendations_disclosure_toggle")
 
 	_check(simulation != null and campaign != null and campaign_ui != null, "headless Office should boot all authoritative campaign collaborators", failures)
 	_check(
@@ -88,6 +96,7 @@ func _run() -> void:
 	office.call("_show_campaign_title", false)
 	await process_frame
 	var challenge_selector := office.find_child("ChallengeContractSelector", true, false) as OptionButton
+	var challenge_summary := office.find_child("ChallengeContractSummary", true, false) as Label
 	var supported_index := -1
 	if challenge_selector != null:
 		for index: int in range(challenge_selector.item_count):
@@ -107,10 +116,20 @@ func _run() -> void:
 		"the title should retain the chosen new-file standard until Office accepts it",
 		failures,
 	)
+	_check(
+		challenge_summary != null
+		and _contains_all(challenge_summary.text, [
+			"OPENING ECONOMY", "FUND $65.00", "QUOTA 14",
+			"LIVE FILES 6", "RECOVERY CUSHION",
+		]),
+		"production intake should disclose Supported Flock's exact opening economy before filing",
+		failures,
+	)
 	var new_campaign_button := office.find_child("NewCampaignButton", true, false) as Button
 	_press(new_campaign_button)
 	await process_frame
 	campaign = office.get("_campaign_state") as CampaignState
+	simulation = office.get("_simulation") as DepartmentSimulation
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "fresh start should return to the unobstructed office", failures)
 	_check(
 		campaign != null
@@ -119,12 +138,40 @@ func _run() -> void:
 		"Office should file the selected standard once and keep it immutable for the career",
 		failures,
 	)
+	_check(
+		simulation != null
+		and simulation.revenue_cents == 6500
+		and int(simulation.farm_treasury_snapshot().get("cash_cents", -1)) == 6500
+		and simulation.quota_target == 14
+		and simulation.claims_waiting == 6,
+		"Supported Flock should begin with its disclosed $65 fund, 14 quota, and six live files",
+		failures,
+	)
 	_check(store.has_save(), "fresh start/reset should save a resumable checkpoint", failures)
+	var fresh_return_summary := office.call("_campaign_resume_summary") as Dictionary
+	var fresh_return_recap := fresh_return_summary.get("return_recap", {}) as Dictionary
+	var fresh_offline_recap := fresh_return_summary.get("offline_recap", {}) as Dictionary
+	_check(
+		String(fresh_return_recap.get("last_filed_label", "")) == "NEW COOP FILE OPENED"
+		and String(fresh_return_recap.get("status_label", "")) == "FEED COVERAGE"
+		and "ration scoops are uncovered" in String(fresh_return_recap.get("status_reason", ""))
+		and "Provisions" in String(fresh_return_recap.get("next_action", "")),
+		"the production checkpoint should project a factual completed action, unresolved pressure, and recovery action",
+		failures,
+	)
+	_check(
+		String(fresh_offline_recap.get("status_label", "")) == "ECONOMY PAUSED"
+		and "SINCE LAST FILE" in String(fresh_offline_recap.get("elapsed_label", ""))
+		and "No files advanced" in String(fresh_offline_recap.get("detail", "")),
+		"the real checkpoint should disclose that closed time has no economic accrual",
+		failures,
+	)
 	var independent_store = CampaignSaveStoreScript.new(TEST_SAVE_FILENAME)
 	_check(independent_store.has_save(), "a new store instance should discover the fresh checkpoint", failures)
 	var fresh_envelope := independent_store.load()
 	var fresh_payload := fresh_envelope.get("campaign", {}) as Dictionary
 	var fresh_campaign_data := fresh_payload.get("campaign", {}) as Dictionary
+	var fresh_simulation_data := fresh_payload.get("simulation", {}) as Dictionary
 	var fresh_campaign := CampaignState.from_dictionary(fresh_campaign_data)
 	_check(not fresh_envelope.is_empty(), "fresh checkpoint should load through the production save envelope", failures)
 	_check(String((fresh_envelope.get("metadata", {}) as Dictionary).get("reason", "")) == "new_campaign", "fresh checkpoint should disclose its reset reason", failures)
@@ -135,8 +182,23 @@ func _run() -> void:
 		"fresh checkpoint should preserve the filed standard before shift one",
 		failures,
 	)
+	var restored_supported_simulation := DepartmentSimulation.new(9918, 4)
+	_check(
+		int(fresh_simulation_data.get("revenue_cents", -1)) == 6500
+		and int(fresh_simulation_data.get("quota_target", -1)) == 14
+		and restored_supported_simulation.restore_save_state(fresh_simulation_data)
+		and restored_supported_simulation.revenue_cents == 6500
+		and int(restored_supported_simulation.farm_treasury_snapshot().get("cash_cents", -1)) == 6500
+		and restored_supported_simulation.quota_target == 14
+		and restored_supported_simulation.claims_waiting == 6,
+		"the verified new-campaign checkpoint should preserve the complete Supported opening economy",
+		failures,
+	)
 	var fresh_session := fresh_payload.get("session", {}) as Dictionary
 	var fresh_first_clutch := fresh_session.get("first_clutch", {}) as Dictionary
+	var fresh_interface_context := (
+		fresh_session.get("interface_context", {}) as Dictionary
+	)
 	_check(
 		int(fresh_first_clutch.get("target_worker_id", -1)) == 0
 		and not bool(fresh_first_clutch.get("inspected", true))
@@ -144,6 +206,137 @@ func _run() -> void:
 		and decision_host != null
 		and not decision_host.visible,
 		"fresh checkpoint should hold Mabel's pre-policy file without mutating the morning directive",
+		failures,
+	)
+	_check(
+		int(fresh_interface_context.get("version", -1)) == 2
+		and String(fresh_interface_context.get("flockwatch_page_id", "")) == "today"
+		and not bool(fresh_interface_context.get("show_all_filings", true))
+		and String(fresh_interface_context.get("capital_filter_id", "")) == "ready"
+		and not bool(fresh_interface_context.get("economic_details_expanded", true))
+		and String(fresh_interface_context.get("farmgate_mandate_id", "")) == "farmer_pickup"
+		and String(fresh_interface_context.get("capital_facility_id", "")) in [
+			"",
+			"candling_rework_bay",
+		],
+		"a new career checkpoint should start from a clean, reachable interface context (context=%s)" % str(
+			fresh_interface_context
+		),
+		failures,
+	)
+	if flockwatch_navigation != null:
+		flockwatch_navigation.set_show_all_filings(true)
+		flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS)
+	if capital_blueprint_ui != null:
+		capital_blueprint_ui.call("apply_snapshot", simulation.snapshot())
+		capital_blueprint_ui.call("set_filter", &"all")
+		capital_blueprint_ui.call("select_facility", &"farm_mutual_service_coop", false)
+	office.call("_on_status_history_toggled", true)
+	if shift_help_toggle != null:
+		shift_help_toggle.call("set_expanded", true)
+	if upgrade_toggle != null:
+		upgrade_toggle.call("set_expanded", true)
+	if commendations_toggle != null:
+		commendations_toggle.call("set_expanded", true)
+	if economic_briefing_ui != null:
+		economic_briefing_ui.call("set_details_expanded", true)
+	if staffing_ui != null:
+		staffing_ui.restore_presentation_context({
+			"feed_offers_expanded": true,
+			"farmgate_mandate_expanded": true,
+			"farmgate_mandate_id": "regional_showcase",
+			"flock_relations_cases_expanded": true,
+			"farmer_campaigns_expanded": true,
+			"inline_facilities_expanded": true,
+		})
+	var checkpoint_coordinator = office.get("_checkpoint_coordinator")
+	if checkpoint_coordinator != null:
+		checkpoint_coordinator.call("discard_pending")
+	var feed_offers_toggle := office.find_child(
+		"FeedProcurementOffersToggle",
+		true,
+		false,
+	) as Button
+	if feed_offers_toggle != null:
+		# Exercise the same toggle signal emitted by pointer, touch, keyboard, and
+		# controller activation. Restore setters intentionally remain silent.
+		feed_offers_toggle.toggled.emit(false)
+	var interface_checkpoint := office.call("_checkpoint_diagnostic_state") as Dictionary
+	_check(
+		bool(interface_checkpoint.get("dirty", false))
+		and String(interface_checkpoint.get("reason", "")) == "interface_context_changed",
+		"a player disclosure change should queue the bounded interface checkpoint",
+		failures,
+	)
+	if feed_offers_toggle != null:
+		feed_offers_toggle.toggled.emit(true)
+	if character_dialogue_ui != null:
+		character_dialogue_ui.clear_session()
+	office.call("_on_campaign_abandon_requested")
+	await process_frame
+	_check(
+		campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE,
+		"shelving the fresh file should return to verified intake before resume",
+		failures,
+	)
+	office.call("_on_campaign_continue_requested")
+	await process_frame
+	await process_frame
+	_check(
+		flockwatch_navigation != null
+		and flockwatch_navigation.is_showing_all_filings()
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS
+		and capital_blueprint_ui != null
+		and StringName(capital_blueprint_ui.call("active_filter_id")) == &"all"
+		and StringName(capital_blueprint_ui.call("selected_facility_id")) == &"farm_mutual_service_coop",
+		"verified Continue should restore the career's page, filing scope, Blueprint filter, and selected parcel",
+		failures,
+	)
+	var restored_staffing_context := (
+		staffing_ui.presentation_context()
+		if staffing_ui != null else
+		{}
+	)
+	_check(
+		bool(office.get("_status_history_expanded"))
+		and shift_help_toggle != null and bool(shift_help_toggle.call("is_expanded"))
+		and upgrade_toggle != null and bool(upgrade_toggle.call("is_expanded"))
+		and commendations_toggle != null and bool(commendations_toggle.call("is_expanded"))
+		and economic_briefing_ui != null
+		and bool(economic_briefing_ui.call("details_expanded"))
+		and bool(restored_staffing_context.get("feed_offers_expanded", false))
+		and bool(restored_staffing_context.get("farmgate_mandate_expanded", false))
+		and String(restored_staffing_context.get("farmgate_mandate_id", "")) == "regional_showcase"
+		and bool(restored_staffing_context.get("flock_relations_cases_expanded", false))
+		and bool(restored_staffing_context.get("farmer_campaigns_expanded", false))
+		and bool(restored_staffing_context.get("inline_facilities_expanded", false)),
+		"verified Continue should restore disclosure choices and the inspected Farmgate mandate",
+		failures,
+	)
+	var return_dialogue: Dictionary = (
+		character_dialogue_ui.active_entry()
+		if character_dialogue_ui != null else
+		{}
+	)
+	_check(
+		StringName(return_dialogue.get("speaker_id", &"")) == &"henrietta"
+		and "ration gap" in String(return_dialogue.get("text", ""))
+		and String(return_dialogue.get("id", "")).begins_with("return_")
+		and "Henrietta" in String(character_dialogue_ui.accessibility_text())
+		and "ration gap" in String(character_dialogue_ui.accessibility_text()),
+		"verified Continue should translate the saved Feed Coverage problem into Henrietta's return beat",
+		failures,
+	)
+	var first_return_id := String(return_dialogue.get("id", ""))
+	office.call("_on_campaign_abandon_requested")
+	await process_frame
+	office.call("_on_campaign_continue_requested")
+	await process_frame
+	await process_frame
+	_check(
+		String(character_dialogue_ui.active_entry().get("id", "")) == first_return_id
+		and int(character_dialogue_ui.queued_count()) == 0,
+		"reopening the same filed condition should not queue duplicate return dialogue",
 		failures,
 	)
 	var prelude_button := office.find_child("FirstClutchReturnToHen", true, false) as Button
@@ -187,6 +380,16 @@ func _run() -> void:
 	var first_review_campaign := CampaignState.from_dictionary(first_review_payload.get("campaign", {}) as Dictionary)
 	_check(first_review_campaign != null and first_review_campaign.completed_shifts == 1, "workday checkpoint should already contain the recorded shift", failures)
 	_check(String((first_review_envelope.get("metadata", {}) as Dictionary).get("review_stage", "")) == "farmer", "workday checkpoint should resume at farmer review", failures)
+	var review_return_summary := office.call("_campaign_resume_summary") as Dictionary
+	var review_return_recap := review_return_summary.get("return_recap", {}) as Dictionary
+	_check(
+		String(review_return_recap.get("last_filed_label", "")) == "SHIFT 1 CLOSED"
+		and not String(review_return_recap.get("status_label", "")).is_empty()
+		and not String(review_return_recap.get("status_reason", "")).is_empty()
+		and not String(review_return_recap.get("next_action", "")).is_empty(),
+		"a closed shift should replace the resume action while retaining an authoritative economic recovery cue",
+		failures,
+	)
 
 	# The physical farmer accounting intentionally precedes the probation report.
 	_press(next_shift_button)

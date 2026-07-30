@@ -79,9 +79,25 @@ func _run() -> void:
 		await process_frame
 	var scroll_before := records_scroll.scroll_vertical if records_scroll != null else 0
 	var layer := office.find_child("FarmerRelationsCampaignButton_layer_profile", true, false) as Button
+	var confirmation := office.find_child(
+		"FarmerRelationsCampaignConfirmation",
+		true,
+		false,
+	) as ConfirmationDialog
 	_check(layer != null and not layer.disabled, "the real post-credit Layer Profile should be actionable", failures)
 	if layer != null:
 		layer.pressed.emit()
+	await process_frame
+	var unconfirmed: Dictionary = simulation.farmer_relations_gallery_snapshot()
+	_check(
+		confirmation != null
+		and confirmation.visible
+		and StringName(unconfirmed.get("campaign_status", &"")) == &"offer_open",
+		"opening publication review must not spend, publish, or consume the shift allowance",
+		failures,
+	)
+	if confirmation != null:
+		confirmation.confirmed.emit()
 	await process_frame
 	await process_frame
 

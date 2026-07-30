@@ -10,12 +10,17 @@ extends Control
 signal continue_campaign
 signal new_campaign
 signal abandon_campaign
+signal review_requisitions
 signal challenge_contract_changed(contract_id: StringName)
 signal title_intake_phase_changed(phase: StringName)
 signal milestone_choice(choice_id: StringName)
 signal presentation_state_changed
 signal career_sponsorship_requested(worker_id: int, lane_id: StringName)
-signal market_contract_sign_requested(offer_id: StringName, clause_id: StringName)
+signal market_contract_sign_requested(
+	offer_id: StringName,
+	clause_id: StringName,
+	pricing_profile_id: StringName,
+)
 signal market_contract_decline_requested
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
@@ -42,6 +47,12 @@ const DEFAULT_CHALLENGE_CONTRACT := {
 	"difficulty_label": "STANDARD",
 	"difficulty_guidance": "The recommended authored balance for a first complete probation file.",
 	"description": "The authored probation contract with the shipped balance of flock care, compliance, favor, and shell quality.",
+	"opening_terms": {
+		"feed_fund_cents": 5000,
+		"quota_target": 16,
+		"additional_claim_lanes": [],
+		"pressure_label": "AUTHORED BASELINE",
+	},
 	"criteria": {
 		"minimum_score": PROBATION_PASS_THRESHOLD,
 		"minimum_welfare": 45,
@@ -121,6 +132,7 @@ var _final_sticky_primary_button: Button
 var _final_sticky_leave_button: Button
 
 var _continue_title_button: Button
+var _report_requisitions_button: Button
 var _report_continue_button: Button
 var _report_day_label: Label
 var _report_heading_label: Label
@@ -662,6 +674,7 @@ func _build_title_panel(parent: Control) -> void:
 	_title_challenge_selector = OptionButton.new()
 	_title_challenge_selector.name = "ChallengeContractSelector"
 	_title_challenge_selector.fit_to_longest_item = false
+	_title_challenge_selector.clip_text = true
 	_title_challenge_selector.custom_minimum_size = Vector2(250.0, 40.0)
 	_title_challenge_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title_challenge_selector.focus_mode = Control.FOCUS_ALL
@@ -931,6 +944,17 @@ func _build_report_panel(parent: Control) -> void:
 	_report_actions.add_theme_constant_override("h_separation", 12)
 	_report_actions.add_theme_constant_override("v_separation", 8)
 	content.add_child(_report_actions)
+	_report_requisitions_button = _make_button(
+		"ReviewRoostRequisitionsButton",
+		"REVIEW ROOST REQUISITIONS  [R]",
+		&"DecisionChoiceButton",
+	)
+	_report_requisitions_button.custom_minimum_size = Vector2(235.0, 44.0)
+	_report_requisitions_button.shortcut = _shortcut(KEY_R)
+	_report_requisitions_button.pressed.connect(
+		func() -> void: review_requisitions.emit()
+	)
+	_report_actions.add_child(_report_requisitions_button)
 	var abandon := _make_button("AbandonCampaignButton", "SHELVE & RETURN TO INTAKE  [A]", &"DecisionChoiceButton")
 	abandon.custom_minimum_size = Vector2(190.0, 44.0)
 	abandon.shortcut = _shortcut(KEY_A)
@@ -1350,7 +1374,64 @@ func _format_resume_summary(summary: Dictionary) -> String:
 		context.append(stage_label)
 	if not context.is_empty():
 		lines.append("  //  ".join(context))
+	var offline_value: Variant = summary.get("offline_recap", {})
+	var offline_recap := offline_value as Dictionary if offline_value is Dictionary else {}
+	if not offline_recap.is_empty():
+		var offline_status := _bounded_resume_text(
+			offline_recap.get("status_label", "Economy paused"),
+			60,
+		).to_upper()
+		var elapsed_label := _bounded_resume_text(
+			offline_recap.get(
+				"elapsed_short_label",
+				offline_recap.get("elapsed_label", "Save time not filed"),
+			),
+			40,
+		).to_upper()
+		lines.append("OFFLINE  //  %s  //  %s" % [elapsed_label, offline_status])
+	var recap_value: Variant = summary.get("return_recap", {})
+	var recap := recap_value as Dictionary if recap_value is Dictionary else {}
+	if not recap.is_empty():
+		var last_filed := _bounded_resume_text(
+			recap.get("last_filed_label", ""),
+			80,
+		).to_upper()
+		if not last_filed.is_empty():
+			lines.append("LAST FILED  //  %s" % last_filed)
+		var status_label := _bounded_resume_text(
+			recap.get("status_label", ""),
+			80,
+		).to_upper()
+		var status_reason := _bounded_resume_text(
+			recap.get("status_reason", ""),
+			180,
+		)
+		if not status_label.is_empty():
+			lines.append("%s  //  %s%s" % [
+				"STATUS" if String(recap.get("status_id", "")) == "clear" else "UNRESOLVED",
+				status_label,
+				"  //  %s" % status_reason if not status_reason.is_empty() else "",
+			])
+		var next_action := _bounded_resume_text(
+			recap.get("next_action", ""),
+			180,
+		)
+		if not next_action.is_empty():
+			lines.append("NEXT  //  %s" % next_action)
 	return "\n".join(lines)
+
+
+func _bounded_resume_text(value: Variant, limit: int) -> String:
+	var normalized := String(value).replace("\n", " ").replace("\r", " ")
+	while "  " in normalized:
+		normalized = normalized.replace("  ", " ")
+	normalized = normalized.strip_edges()
+	if normalized.length() <= limit:
+		return normalized
+	var boundary := normalized.rfind(" ", limit - 1)
+	if boundary < maxi(1, limit / 2):
+		boundary = limit
+	return normalized.substr(0, boundary).strip_edges() + "…"
 
 
 func _rebuild_challenge_contract_selector() -> void:
@@ -1402,15 +1483,17 @@ func _update_challenge_contract_detail(contract: Dictionary) -> void:
 		"description",
 		"The selected probation filing terms remain fixed for this career.",
 	)).strip_edges()
+	var opening_terms := _challenge_contract_opening_text(contract)
 	var terms := _challenge_contract_terms_text(contract, false)
 	var route_brief := String(contract.get("route_brief", "")).strip_edges().to_upper()
 	var route_guidance := String(contract.get("route_guidance", "")).strip_edges()
 	var difficulty_label := _challenge_contract_difficulty_label(contract)
 	var difficulty_guidance := String(contract.get("difficulty_guidance", "")).strip_edges()
 	if _title_challenge_summary != null:
-		_title_challenge_summary.text = "%s DIFFICULTY  //  %s%s" % [
+		_title_challenge_summary.text = "%s DIFFICULTY  //  %s\n%s%s" % [
 			difficulty_label,
 			description,
+			opening_terms,
 			(
 				"\n%s  //  LOCKS ON OPEN" % route_brief
 				if not route_brief.is_empty() else
@@ -1422,18 +1505,21 @@ func _update_challenge_contract_detail(contract: Dictionary) -> void:
 			difficulty_guidance,
 			description,
 			route_guidance,
+			opening_terms,
 			terms,
 		].filter(func(line: String) -> bool: return not line.is_empty()))
 	if _title_challenge_detail != null:
-		_title_challenge_detail.text = "%s%s" % [
+		_title_challenge_detail.text = "%s\n%s%s" % [
+			opening_terms,
 			terms,
 			"\nDIFFICULTY NOTE  //  %s" % difficulty_guidance if not difficulty_guidance.is_empty() else "",
 		]
 		if not route_guidance.is_empty():
 			_title_challenge_detail.text += "\nROUTE NOTE  //  %s" % route_guidance
-		_title_challenge_detail.tooltip_text = "%s\n%s\n%s%s" % [
+		_title_challenge_detail.tooltip_text = "%s\n%s\n%s\n%s%s" % [
 			_challenge_contract_label(contract, false),
 			description,
+			opening_terms,
 			terms,
 			"\n%s" % route_guidance if not route_guidance.is_empty() else "",
 		]
@@ -1448,6 +1534,35 @@ func _update_challenge_contract_detail(contract: Dictionary) -> void:
 			% (_title_challenge_detail.tooltip_text if _title_challenge_detail != null else terms)
 		)
 	_apply_title_contract_disclosure()
+
+
+func _challenge_contract_opening_text(contract: Dictionary) -> String:
+	var defaults := DEFAULT_CHALLENGE_CONTRACT.get("opening_terms", {}) as Dictionary
+	var opening_value: Variant = contract.get("opening_terms", defaults)
+	var opening := opening_value as Dictionary if opening_value is Dictionary else defaults
+	var lanes_value: Variant = opening.get(
+		"additional_claim_lanes",
+		defaults.get("additional_claim_lanes", []),
+	)
+	var extra_files := (lanes_value as Array).size() if lanes_value is Array else 0
+	var fund_cents := maxi(0, int(opening.get(
+		"feed_fund_cents",
+		defaults.get("feed_fund_cents", 5000),
+	)))
+	var quota := maxi(1, int(opening.get(
+		"quota_target",
+		defaults.get("quota_target", 16),
+	)))
+	var pressure_label := String(opening.get(
+		"pressure_label",
+		defaults.get("pressure_label", "AUTHORED BASELINE"),
+	)).strip_edges().to_upper()
+	return "OPENING ECONOMY  //  FUND $%.2f  //  QUOTA %d  //  LIVE FILES %d  //  %s" % [
+		fund_cents / 100.0,
+		quota,
+		6 + clampi(extra_files, 0, 4),
+		pressure_label,
+	]
 
 
 func _apply_title_contract_disclosure() -> void:
@@ -1716,6 +1831,14 @@ func _refresh_report(day: int, total_days: int) -> void:
 		"continue_label",
 		"FILE POLICY & OPEN QUARTER  [C]" if senior else "FILE REPORT & PLAN NEXT SHIFT  [C]",
 	))
+	if _report_requisitions_button != null:
+		var staffing_open := bool(_snapshot.get("staffing_planning_open", false))
+		_report_requisitions_button.disabled = not staffing_open
+		_report_requisitions_button.tooltip_text = (
+			"Open Flockwatch to commission perches, compare applicants, or release a worker before filing the next shift."
+			if staffing_open else
+			"Roost requisitions open after every required closing-credit file has been resolved."
+		)
 	_report_score_label.text = _format_integer(int(_snapshot.get("score", 0)))
 	_report_rank_label.text = String(_snapshot.get("rank", "UNRANKED")).to_upper()
 	_update_score_receipt(day)
@@ -2657,8 +2780,12 @@ func _on_continue_campaign_pressed() -> void:
 	continue_campaign.emit()
 
 
-func _on_market_contract_sign_requested(offer_id: StringName, clause_id: StringName) -> void:
-	market_contract_sign_requested.emit(offer_id, clause_id)
+func _on_market_contract_sign_requested(
+	offer_id: StringName,
+	clause_id: StringName,
+	pricing_id: StringName,
+) -> void:
+	market_contract_sign_requested.emit(offer_id, clause_id, pricing_id)
 
 
 func _on_market_contract_decline_requested() -> void:
@@ -2868,6 +2995,7 @@ func _make_button(node_name: String, text: String, variation: StringName) -> But
 	var button := Button.new()
 	button.name = node_name
 	button.text = text
+	button.clip_text = true
 	button.theme_type_variation = variation
 	button.focus_mode = Control.FOCUS_ALL
 	return button

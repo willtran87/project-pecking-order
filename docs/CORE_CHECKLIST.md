@@ -108,6 +108,12 @@ commissioning/settlement receipts.
 - [x] Wellness Nest, Training Roost, Feed Party, hiring, separation, perch
       authorization, reassignment, promotion, and manager staffing have visible
       and mechanical consequences with exact costs.
+- [x] The Day 2 Bright-Eyed Rotation adds four named intern candidates, one or
+      two supervised seats, three disclosed temporary assignments, explicit
+      term reviews, and character-specific dialogue. Internship filings can use
+      only unreserved Feed Fund; a paid fellowship adds a permanent junior post,
+      $2/day payroll, capacity, and work pace to the authoritative operating
+      ledger rather than becoming free permanent labor.
 - [x] Hens cannot process files or lay eggs while walking, attending wellness or
       feed events, training, or otherwise away from the assigned chair.
 - [x] Manual routing engages each hen's disclosed work style; AUTO remains a
@@ -122,7 +128,8 @@ commissioning/settlement receipts.
 
 Evidence: `temperament_work_style_test.gd`, `personnel_career_test.gd`,
 `manager_roster_economy_test.gd`,
-`wellness_*_test.gd`, `training_*_test.gd`, and `flock_petition_test.gd`.
+`wellness_*_test.gd`, `training_*_test.gd`, `flock_petition_test.gd`, and
+`internship_program_*_test.gd`.
 
 ## Facilities and progression
 
@@ -133,6 +140,19 @@ Evidence: `temperament_work_style_test.gd`, `personnel_career_test.gd`,
       packing, publicity, dispatch, and campus claim routing.
 - [x] Capital Blueprint and Campus Portfolio show prerequisites, exact costs,
       upkeep/payroll, capacity, effects, placement, and blocked reasons.
+- [x] Capital Blueprint retains every filter, portfolio route, pin, return, and
+      authorization action in a 390x844, 150%, expanded-copy compact fixture.
+      Its action rail wraps, structural headings wrap, and compact labels shrink
+      without introducing horizontal scrolling.
+- [x] Campus Portfolio retains its compact vertical-only planner at 390x844
+      with 150% interface scale and moderately expanded English copy. Structural
+      headings wrap, the named-worker selector shrinks safely, and the fixed
+      economic action remains reachable.
+- [x] Campus Expansion retains its parcel, utility, construction, socket, and
+      placement/relocation decisions at 390x844 with 150% interface scale and
+      moderately expanded English copy. Responsive grids prevent provisional
+      text measurement from inflating the page, compact socket targets remain
+      contained, and the fixed authorization rail stays reachable.
 - [x] Each tier unlocks a handling choice, capacity, service, staffing,
       negotiation, care, procurement, dispatch, or governance responsibility.
 - [x] The authored five shifts widen from onboarding to a reliable flock,
@@ -167,6 +187,11 @@ Evidence: `EXPANSION_ECONOMY.md`, `opening_experience_progression_test.gd`,
       and management reporting expose its capture.
 - [x] Every joke that carries a mechanic has a plain-language preview, exact
       effect, receipt, or accessible status.
+- [x] Five approved high-resolution character cutouts turn authoritative
+      management consequences into short fears, complaints, rationalizations,
+      and coworker observations. At 390x844 and 150% interface scale, the
+      portrait, identity, complete thought, filing note, and File Away action
+      remain connected and reachable even with expanded copy.
 - [x] Incidents escalate from efficiency theater and credit disputes to
       surveillance, labor cases, claimant harm, restructuring, and systemic
       incentives without treating cruelty as the punchline.
@@ -192,6 +217,10 @@ Evidence: `office_storytelling.gd`, `environmental_signage.gd`,
       delivery, farmer collection, reinvestment, and handoff through play.
 - [x] Dense planning lives in dossiers, disclosures, Flockwatch pages, and
       inspectors rather than permanent HUD panels.
+- [x] Settings reveals one shallow Audio Mix, Comfort & Display, Controls, or
+      Career Backup category at a time. The selected category saves
+      independently, restores on reopen/reload, resets safely, supports
+      Left/Right keyboard navigation, and limits narration to the active group.
 - [x] Alerts expose priority, reason, action, dismissal or acknowledgement, and a
       bounded history. Transient floor notices persist an All, Priority Only, or
       Shift Record Only preference without deleting the underlying record.
@@ -200,16 +229,49 @@ Evidence: `office_storytelling.gd`, `environmental_signage.gd`,
 - [x] Remapping, reduced motion/sensory effects, independent sound controls,
       text scale, color-vision modes, semantic narration, and non-rapid control
       alternatives are available.
+- [x] Settings remains contained and operable at 150% interface scale with
+      moderately expanded English copy at 1280x720 desktop, 844x390 compact
+      landscape, and 390x844 portrait. Category navigation wraps, active pages
+      remain reachable through one bounded scroll region, and no horizontal
+      page scroll is required.
+- [x] Flockwatch Capital and its Economic Briefing remain readable at 150%
+      interface scale. Filing pages reserve the vertical-scrollbar gutter,
+      economic values use short semantic ledger rows, variable market prose
+      wraps at word boundaries, and all visible descendants remain inside the
+      effective reading viewport.
+- [x] Probation intake, between-shift reports, and final review remain
+      vertical-scroll-only and action-reachable at 390x844, 150% interface
+      scale, and moderately expanded English copy. Campaign buttons shrink
+      without losing their surrounding authored explanation, and the challenge
+      selector no longer sizes the intake to its longest option.
+- [x] Farm Mutual's Contract Board preserves binder selection, pricing posture,
+      accreditation, terms, negotiation, and fixed Sign/Decline actions at
+      390x844, 150% interface scale, and moderately expanded English copy.
+      Structural labels wrap, fixed actions trim safely, and the board remains
+      vertical-scroll-only with its selected binder and negotiation state intact.
+- [x] Facility commissioning receipts preserve identity, exact before/after
+      funds, reserve/upkeep obligations, operating effects, outcome, and both
+      held actions at 390x844, 150% interface scale, and moderately expanded
+      English copy. Receipt columns and actions flow responsively while the
+      economic document remains vertical-scroll-only.
+- [x] Campus authorization and construction receipts preserve parcel/module/pad
+      identity, capital and liability, build capacity, named staffing, visible
+      outcome, and both held actions under the same portrait stress. Expanded
+      headings wrap and fixed actions trim without widening the receipt.
 
 Browser evidence: 390x844 portrait, 844x390 landscape, and 1280x720 desktop
 showed contained 16:9 canvases and no horizontal overflow; visible mobile controls
-were 40px high.
+were 40px high. The max-scale Settings renderer audit separately exercised all
+four categories, reload persistence, and the compact landscape shell. The
+Capital audit separately exercised the real new-file, Flockwatch, all-filings,
+Capital, and 150% Settings route against the exported Web build.
 
 ## Audio and presentation
 
 - [x] Sound, golden, and cracked grading; purchase/denial; Feed Party; peckwork;
       collection; incidents; and farmer review use distinct semantic cues.
-- [x] Music, office ambience, mechanical pressure, farm sounds, SFX, and UI buses
+- [x] Master, music, office ambience, mechanical pressure/farm SFX, UI,
+  warning/decision, and nonverbal character-cutout cue buses
       preserve the diorama presentation with independent controls.
 - [x] Late quota pressure, stress, and overtime raise machinery/alert layers;
       review and calmer conditions create space in the mix.
@@ -219,6 +281,14 @@ were 40px high.
       audio pooling rather than unbounded effects.
 - [x] Players can select Full, Reduced, or Essential Only effect density without
       losing authoritative text, symbols, warning history, receipts, or audio.
+- [x] Particle density is independently Full, Reduced, or Off; changing it does
+      not disable authored lighting, while effect density does not override the
+      filed particle choice.
+- [x] Camera motion is independently Full, Reduced, or Off. Off prevents passive
+      event reframing and makes player-requested framing immediate; no office
+      screen-shake effect is authored.
+- [x] Low, Standard, and High camera sensitivity scale the same bounded mouse,
+      keyboard, controller, trackpad, and touch pan/zoom authority.
 - [x] Players can select Brief, Standard, or Extended transient-notice duration;
       the complete labeled Shift Record remains available in every mode.
 - [x] Players can select Relaxed, Standard, or Brisk presentation animation
@@ -256,10 +326,49 @@ Evidence: `office_audio_director.gd`, `office_audio_feedback.gd`,
 - [x] Automated critical-flow coverage includes route Undo plus cancel/confirm
       and duplicate-input protection for irreversible claimant and staffing
       transactions.
+- [x] Between-shift staffing is reachable from the foreground probation report
+      after closing credit unlocks planning. Opening Roost Requisitions suspends
+      that report, and closing Flockwatch restores the exact actionable report.
+- [x] The live Flock staffing filing remains vertical-scroll-only with both
+      applicant actions and release controls horizontally reachable at 150%
+      interface scale under expanded copy. The irreversible release
+      confirmation also remains contained and cancellable at 390x844.
+- [x] Senior Career Sponsorship remains horizontally contained and vertically
+      reachable at 390x844, 150% interface scale, and expanded copy. Filing
+      requires a distinct cancelable confirmation that repeats the hen, lane,
+      marks, Feed Fund, training penalty, permanent wage, and irreversible gate;
+      duplicate confirmation cannot charge twice.
+- [x] Rooster Operations remains vertical-scroll-only at 390x844 and 150%
+      interface scale under expanded copy. Each manager's assignment and posture
+      use full-width compact controls; successor cards disclose the signing fee,
+      displaced rooster, unchanged headcount, projected payroll, and zero egg
+      output. Appointments are cancelable, confirm-once, and mutation-free until
+      the explicit succession filing.
+- [x] Feed Procurement and Farmgate Dispatch remain horizontal-scroll-free in
+      the real 282-pixel Flockwatch filing at 150% interface scale under
+      expanded copy. Titles and live quotes use a readable stacked hierarchy;
+      disclosure toggles, route selectors, and actions cannot force the filing
+      wider. Routine reversible orders stay one-click while every exact term and
+      held reason remains adjacent to the action.
+- [x] Flock Relations remains vertical-scroll-only at the 282-pixel filing
+      width and 150% interface scale under expanded copy. Every permanent labor
+      disposition requires a bounded cancelable confirmation naming the hen,
+      case, action, Feed Fund cost, relationship/compliance effects, and
+      irreversible personnel record; stale disabled actions fail closed and
+      duplicate confirmation cannot file twice.
+- [x] Farmer Relations remains vertical-scroll-only at the same 282-pixel
+      filing width and 150% interface scale under expanded copy. Public
+      campaigns use a stacked title/standing hierarchy and clipped full-width
+      actions. Each permanent publication requires a bounded cancelable review
+      naming its subject, attribution, evidence, cost, payout, net Feed Fund
+      change, standing change, day record, and irreversibility; stale disabled
+      actions fail closed and duplicate confirmation cannot publish twice.
 
-Release evidence is written to `output/release/core-checklist-beta-release-gate.json`;
-the exhaustive isolated Godot result is written under
-`output/godot-full-suite-20260725-core-checklist-final/`.
+Representative release evidence is written under `output/release/`; the current
+exhaustive isolated Godot result is
+`output/godot-full-suite-20260730-intern-economy-v2/full-suite-summary.json`
+(212/212 passed,
+zero failures and timeouts).
 
 ## Deliberate non-goals
 

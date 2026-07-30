@@ -2,6 +2,7 @@ extends SceneTree
 
 const CapitalBlueprintUIScript := preload("res://features/office/capital_blueprint_ui.gd")
 const CapitalBlueprintModelScript := preload("res://features/office/capital_blueprint_model.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -43,7 +44,7 @@ func _run() -> void:
 	var compact_body := ui.find_child("CapitalBlueprintCompactBody", true, false) as VBoxContainer
 	var map_panel := ui.find_child("CapitalBlueprintMapPanel", true, false) as PanelContainer
 	var inspector := ui.find_child("CapitalBlueprintInspector", true, false) as PanelContainer
-	var action_rail := ui.find_child("CapitalBlueprintActionRail", true, false) as HBoxContainer
+	var action_rail := ui.find_child("CapitalBlueprintActionRail", true, false) as Container
 	var pin_button := ui.find_child("CapitalBlueprintPinButton", true, false) as Button
 	var purchase_button := ui.find_child("CapitalBlueprintPurchaseButton", true, false) as Button
 	var return_button := ui.find_child("CapitalBlueprintReturnButton", true, false) as Button
@@ -146,6 +147,33 @@ func _run() -> void:
 		var compact_rect := main_panel.get_global_rect()
 		_check(compact_rect.position.x >= -0.5 and compact_rect.end.x <= harness.size.x + 0.5 and compact_rect.end.y <= harness.size.y + 0.5, "compact blueprint should fit the 844x390 viewport", failures)
 
+	harness.size = Vector2(390.0, 844.0)
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	await process_frame
+	await process_frame
+	var portrait_bounds := Rect2(Vector2.ZERO, harness.size)
+	_check(
+		_visible_children_fit(ui, portrait_bounds),
+		"150-percent expanded-copy Blueprint should remain inside 390x844 (%s; largest=%s)"
+		% [
+			_first_horizontal_overflow(ui, portrait_bounds),
+			_largest_minimum_widths(ui),
+		],
+		failures,
+	)
+	_check(
+		body_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
+		"150-percent Blueprint should remain vertical-scroll-only",
+		failures,
+	)
+	_check(
+		action_rail.get_global_rect().end.y <= harness.size.y + 0.5,
+		"150-percent Blueprint action rail should remain physically reachable",
+		failures,
+	)
+
 	ui.set_restore_focus(office_focus)
 	ui.hide_blueprint()
 	await process_frame
@@ -159,7 +187,7 @@ func _run() -> void:
 			push_error("CAPITAL_BLUEPRINT_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAPITAL_BLUEPRINT_UI_TEST_PASSED parcels=13 inspector=5 desktop=70/30 compact=844x390 controls=semantic intents=only")
+	print("CAPITAL_BLUEPRINT_UI_TEST_PASSED parcels=13 inspector=5 desktop=70/30 compact=844x390 controls=semantic intents=only resilience=390x844+150-percent+expanded-copy")
 	quit(0)
 
 
@@ -226,6 +254,80 @@ func _contains_all(text_value: String, needles: Array[String]) -> bool:
 		if needle.to_lower() not in lowered:
 			return false
 	return true
+
+
+func _visible_children_fit(root_control: Control, bounds: Rect2) -> bool:
+	return _first_horizontal_overflow(root_control, bounds) == "none"
+
+
+func _first_horizontal_overflow(root_control: Control, bounds: Rect2) -> String:
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var rect := control.get_global_rect()
+		if rect.position.x < bounds.position.x - 1.0 or rect.end.x > bounds.end.x + 1.0:
+			return "%s=%s bounds=%s" % [control.name, rect, bounds]
+	return "none"
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	var rows: Array[Dictionary] = []
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		rows.append({
+			"name": String(control.name),
+			"minimum": control.get_combined_minimum_size().x,
+			"width": control.size.x,
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return float(left.get("minimum", 0.0)) > float(right.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(24, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override(
+			"font_size",
+			maxi(10, roundi(float(base_size) * scale)),
+		)
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

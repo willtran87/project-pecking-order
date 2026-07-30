@@ -29,10 +29,17 @@ func _run() -> void:
 
 	var settings := office.find_child("PlayerSettings", true, false) as PeckingOrderSettingsUI
 	var open_button := office.find_child("OpenSettingsButton", true, false) as Button
+	var career_category := office.find_child("SettingsCategory_Career", true, false) as Button
+	var controls_category := office.find_child("SettingsCategory_Controls", true, false) as Button
 	var controller := office.find_child("ManagementCameraController", true, false) as ManagementCameraController
 	var atmosphere := office.find_child("OfficeAtmosphere", true, false) as OfficeAtmosphere
 	var audio_feedback := office.find_child("OfficeAudioFeedback", true, false) as OfficeAudioFeedback
 	var audio_director := office.find_child("OfficeAudioDirector", true, false) as OfficeAudioDirector
+	var character_dialogue_ui := office.find_child(
+		"CharacterDialogueUI",
+		true,
+		false,
+	) as CharacterDialogueUI
 	var routing := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
 	var workstation_feedback := office.find_child("WorkstationFeedback", true, false) as WorkstationFeedback
 	var storytelling := office.find_child("OfficeStorytelling", true, false) as OfficeStorytelling
@@ -70,6 +77,16 @@ func _run() -> void:
 	await process_frame
 	_check(settings != null and settings.is_open(), "the HUD settings route should open above the campaign title", failures)
 	_check(controller != null and not controller.is_processing_unhandled_input(), "settings should suspend camera shortcuts while open", failures)
+	if career_category != null:
+		career_category.pressed.emit()
+	await process_frame
+	_check(
+		settings != null and settings.active_category() == &"career"
+		and String((office.get("_player_preferences") as Dictionary).get("settings_category", "")) == "career"
+		and String(preferences_store.load_preferences().get("settings_category", "")) == "career",
+		"category navigation should apply immediately and commit through the independent preference store",
+		failures,
+	)
 	if settings != null:
 		settings.close_requested.emit()
 	await process_frame
@@ -82,6 +99,13 @@ func _run() -> void:
 	if open_button != null:
 		open_button.pressed.emit()
 	await process_frame
+	_check(
+		settings != null and settings.active_category() == &"career",
+		"reopening Settings should restore the last verified category without exposing every group",
+		failures,
+	)
+	if controls_category != null:
+		controls_category.pressed.emit()
 	var peck_binding := office.find_child("Binding_peck_assist", true, false) as Button
 	var pause_binding := office.find_child("Binding_pause_simulation", true, false) as Button
 	var settings_status := office.find_child("SettingsStatus", true, false) as Label
@@ -145,7 +169,9 @@ func _run() -> void:
 	var original := (office.get("_player_preferences") as Dictionary).duplicate(true)
 	var comfort := PlayerPreferencesStoreScript.defaults()
 	comfort["motion_mode"] = "reduced"
-	comfort["ui_scale"] = 1.25
+	comfort["camera_motion"] = "reduced"
+	comfort["camera_sensitivity"] = "high"
+	comfort["ui_scale"] = 1.5
 	comfort["high_contrast"] = true
 	comfort["color_vision_mode"] = "color_blind_safe"
 	comfort["visual_quality"] = "low"
@@ -153,26 +179,155 @@ func _run() -> void:
 	comfort["notice_level"] = "priority"
 	comfort["notice_duration"] = "extended"
 	comfort["effect_level"] = "reduced"
+	comfort["particle_level"] = "off"
 	comfort["animation_speed"] = "brisk"
 	comfort["tooltip_delay"] = "short"
 	comfort["haptics_enabled"] = false
 	comfort["pause_when_unfocused"] = true
 	(comfort.get("audio", {}) as Dictionary)["ambient"] = {"volume": 0.37, "muted": true}
+	(comfort.get("audio", {}) as Dictionary)["alerts"] = {"volume": 0.21, "muted": true}
+	(comfort.get("audio", {}) as Dictionary)["voice"] = {"volume": 0.46, "muted": false}
 	office.set("_player_preferences", comfort)
 	office.call("_apply_player_preferences")
 	await process_frame
 	var simulation := office.get("_simulation") as DepartmentSimulation
-	_check(bool(controller.get("_reduced_motion")), "reduced motion should reach the actual camera controller", failures)
-	_check(bool(controller.get("_high_contrast")), "high contrast should strengthen the world-space focus marker", failures)
-	_check(not bool((atmosphere.get("_dust_motes") as GPUParticles3D).emitting), "reduced motion and low detail should stop ambient particles", failures)
+	var flockwatch_navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
+	if flockwatch_navigation != null:
+		office.call("_set_flockwatch_open", true)
+		flockwatch_navigation.set_show_all_filings(true)
+		flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_CAPITAL)
+		await process_frame
+		await process_frame
+		var capital_scroll := flockwatch_navigation.page_scroll(
+			FlockwatchNavigation.PAGE_CAPITAL
+		)
+		var capital_content := flockwatch_navigation.page_content(
+			FlockwatchNavigation.PAGE_CAPITAL
+		)
+		var capital_reading_bounds := _scroll_reading_bounds(capital_scroll)
+		_check(
+			capital_scroll != null
+			and capital_content != null
+			and capital_content.get_global_rect().end.x
+			<= capital_reading_bounds.end.x + 0.5,
+			(
+				"150-percent Capital filings should clear the vertical scrollbar "
+				+ "(content=%s reading_bounds=%s largest=%s)"
+			) % [
+				capital_content.get_global_rect()
+				if capital_content != null else Rect2(),
+				capital_reading_bounds,
+				_largest_minimum_widths(capital_content),
+			],
+			failures,
+		)
+		var clipped_briefing_labels: Array[String] = []
+		for label_name: String in [
+			"EconomicBriefingHeadline",
+			"EconomicBriefingCash",
+			"EconomicBriefingCosts",
+			"EconomicBriefingMarket",
+			"EconomicBriefingBottleneck",
+			"EconomicBriefingTrend",
+			"EconomicBriefingWatch",
+		]:
+			var briefing_label := office.find_child(
+				label_name,
+				true,
+				false,
+			) as Label
+			if (
+				briefing_label != null
+				and briefing_label.get_visible_line_count()
+				< briefing_label.get_line_count()
+			):
+				clipped_briefing_labels.append(
+					"%s:%d/%d size=%s min=%s" % [
+						label_name,
+						briefing_label.get_visible_line_count(),
+						briefing_label.get_line_count(),
+						briefing_label.size,
+						briefing_label.get_combined_minimum_size(),
+					]
+				)
+		var cash_briefing_label := office.find_child(
+			"EconomicBriefingCash",
+			true,
+			false,
+		) as Label
+		var market_briefing_label := office.find_child(
+			"EconomicBriefingMarket",
+			true,
+			false,
+		) as Label
+		_check(
+			cash_briefing_label != null
+			and cash_briefing_label.get_line_count() > 2
+			and market_briefing_label != null
+			and market_briefing_label.get_line_count() >= 7,
+			(
+				"150-percent Capital labels should preserve and wrap their "
+				+ "multi-line briefing copy (cash=%d market=%d)"
+			) % [
+				cash_briefing_label.get_line_count()
+				if cash_briefing_label != null else -1,
+				market_briefing_label.get_line_count()
+				if market_briefing_label != null else -1,
+			],
+			failures,
+		)
+		_check(
+			clipped_briefing_labels.is_empty(),
+			"150-percent Capital briefing should allocate every wrapped line (%s)"
+			% ", ".join(clipped_briefing_labels),
+			failures,
+		)
+		var overflowing_capital_controls := _horizontal_overflow_controls(
+			capital_content,
+			capital_reading_bounds,
+		)
+		_check(
+			overflowing_capital_controls.is_empty(),
+			"150-percent Capital descendants should remain inside the scroll viewport (%s)"
+			% ", ".join(overflowing_capital_controls),
+			failures,
+		)
+		flockwatch_navigation.set_show_all_filings(false)
+		office.call("_set_flockwatch_open", false)
 	var effect_snapshot := atmosphere.effect_snapshot()
 	var camera_navigation := controller.navigation_state()
+	_check(bool(controller.get("_reduced_motion")), "reduced motion should reach the actual camera controller", failures)
+	_check(
+		String(camera_navigation.get("camera_motion", "")) == "reduced"
+		and String(camera_navigation.get("input_sensitivity", "")) == "high"
+		and is_equal_approx(float(camera_navigation.get("input_sensitivity_multiplier", 0.0)), 1.35),
+		"independent camera motion and sensitivity should reach the live controller",
+		failures,
+	)
+	_check(bool(controller.get("_high_contrast")), "high contrast should strengthen the world-space focus marker", failures)
+	_check(not bool((atmosphere.get("_dust_motes") as GPUParticles3D).emitting), "reduced motion and low detail should stop ambient particles", failures)
 	_check(
 		String(effect_snapshot.get("level", "")) == "reduced"
+		and String(effect_snapshot.get("particle_level", "")) == "off"
 		and not bool(effect_snapshot.get("ambient_particles", true))
 		and not bool(effect_snapshot.get("event_bursts", true))
 		and audio_feedback != null and not audio_feedback.haptics_enabled(),
 		"effect density and haptics preferences should reach their live feedback systems",
+		failures,
+	)
+	var passive_mode_before := controller.camera_mode()
+	comfort["motion_mode"] = "full"
+	comfort["camera_motion"] = "off"
+	office.set("_player_preferences", comfort)
+	office.call("_apply_player_preferences")
+	controller.show_event_focus(Vector3(2.0, 1.0, 2.0), "ACCESSIBILITY PROBE", 0.25, true)
+	var motion_off_state := controller.navigation_state()
+	_check(
+		not bool(controller.get("_reduced_motion"))
+		and String(motion_off_state.get("camera_motion", "")) == "off"
+		and bool(motion_off_state.get("camera_motion_instant", false))
+		and controller.camera_mode() == passive_mode_before,
+		"camera-motion off should suppress passive reframing without depending on global reduced motion",
 		failures,
 	)
 	_check(
@@ -245,11 +400,40 @@ func _run() -> void:
 	office.call("_apply_visual_quality", &"low")
 	_check(simulation.peck_assist_timing_profile == &"extended", "motor-timing assistance should reach the authoritative simulation", failures)
 	var ambient_bus_index := AudioServer.get_bus_index(&"Ambient")
+	var alerts_bus_index := AudioServer.get_bus_index(&"Alerts")
+	var voice_bus_index := AudioServer.get_bus_index(&"Voice")
 	_check(
 		ambient_bus_index >= 0
 		and is_equal_approx(AudioServer.get_bus_volume_db(ambient_bus_index), linear_to_db(0.37))
 		and AudioServer.is_bus_mute(ambient_bus_index),
 		"office ambience should apply its own volume and mute independently from music",
+		failures,
+	)
+	_check(
+		alerts_bus_index >= 0
+		and is_equal_approx(AudioServer.get_bus_volume_db(alerts_bus_index), linear_to_db(0.21))
+		and AudioServer.is_bus_mute(alerts_bus_index)
+		and voice_bus_index >= 0
+		and is_equal_approx(AudioServer.get_bus_volume_db(voice_bus_index), linear_to_db(0.46))
+		and not AudioServer.is_bus_mute(voice_bus_index),
+		"warnings and character cutout cues should apply independent persisted mix layers",
+		failures,
+	)
+	if audio_feedback != null:
+		audio_feedback.set_focus_paused(true)
+		audio_feedback.set_focus_paused(false)
+	if character_dialogue_ui != null:
+		character_dialogue_ui.dialogue_presented.emit({"speaker_id": "dot"})
+	var cutout_audio := (
+		audio_feedback.feedback_snapshot()
+		if audio_feedback != null else
+		{}
+	)
+	_check(
+		character_dialogue_ui != null
+		and String(cutout_audio.get("last_cue", "")) == "dialogue_cutout"
+		and String(cutout_audio.get("last_bus", "")) == "Voice",
+		"presenting a chicken cutout should produce one nonverbal cue on the dedicated character layer",
 		failures,
 	)
 	_check(ui_root != null and ui_root.theme != null and ui_root.theme.get_font_size(&"font_size", &"Button") >= 17, "125 percent UI scale should enlarge default button text", failures)
@@ -414,7 +598,7 @@ func _run() -> void:
 			push_error("SETTINGS_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe input=17+camera+ack+rollback audio=feedback+adaptive+ambient-independent notices=priority+archive-only+semantic-labels+duration effects=density+motion presentation=animation-speed+tooltip-delay haptics=optional focus-pause=restore+opt-out contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
+	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe categories=host-persisted+restored input=17+camera+ack+rollback+sensitivity audio=feedback+adaptive+ambient+alerts+cutout-cues notices=priority+archive-only+semantic-labels+duration effects=density+particles+motion+camera-motion-off presentation=animation-speed+tooltip-delay haptics=optional focus-pause=restore+opt-out contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
 	quit(0)
 
 
@@ -429,3 +613,65 @@ func _contains_all(text: String, needles: Array[String]) -> bool:
 		if needle.to_lower() not in lowered:
 			return false
 	return true
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	if root_control == null:
+		return "missing"
+	var rows: Array[Dictionary] = []
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		rows.append({
+			"name": String(control.name),
+			"minimum": control.get_combined_minimum_size().x,
+			"width": control.size.x,
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return float(left.get("minimum", 0.0)) > float(right.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(8, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _horizontal_overflow_controls(
+	root_control: Control,
+	bounds: Rect2,
+) -> Array[String]:
+	var overflows: Array[String] = []
+	if root_control == null:
+		return overflows
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var rect := control.get_global_rect()
+		if (
+			rect.position.x < bounds.position.x - 0.5
+			or rect.end.x > bounds.end.x + 0.5
+		):
+			overflows.append("%s:%s" % [control.name, rect])
+	return overflows
+
+
+func _scroll_reading_bounds(scroll: ScrollContainer) -> Rect2:
+	if scroll == null:
+		return Rect2()
+	var bounds := scroll.get_global_rect()
+	var vertical_bar := scroll.get_v_scroll_bar()
+	if vertical_bar != null and vertical_bar.visible:
+		bounds.size.x = maxf(0.0, bounds.size.x - vertical_bar.size.x)
+	return bounds

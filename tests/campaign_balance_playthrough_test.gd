@@ -270,14 +270,16 @@ func _emit_challenge_doctrine_matrix(
 	for doctrine_id_value in VIABLE_DOCTRINES.keys():
 		var doctrine_key := String(doctrine_id_value)
 		var standard_result := standard.get(doctrine_key, {}) as Dictionary
-		for contract_results_value in [supported, executive]:
-			var comparison_result := (contract_results_value as Dictionary).get(doctrine_key, {}) as Dictionary
-			_check(
-				JSON.stringify(standard_result.get("daily_ledgers", []))
-				== JSON.stringify(comparison_result.get("daily_ledgers", [])),
-				"%s must keep one authoritative simulation ledger across challenge contracts" % doctrine_key,
-				failures,
-			)
+		var supported_result := supported.get(doctrine_key, {}) as Dictionary
+		var executive_result := executive.get(doctrine_key, {}) as Dictionary
+		_check(
+			JSON.stringify(standard_result.get("daily_ledgers", []))
+			!= JSON.stringify(supported_result.get("daily_ledgers", []))
+			and JSON.stringify(standard_result.get("daily_ledgers", []))
+			!= JSON.stringify(executive_result.get("daily_ledgers", [])),
+			"%s should produce distinct economic ledgers under Learning, Standard, and Expert openings" % doctrine_key,
+			failures,
+		)
 	_check(
 		not _matrix_has_dominant_doctrine(standard),
 		"Standard Filing must not contain one doctrine that weakly dominates every alternative",
@@ -437,7 +439,7 @@ func _check_challenge_contract_playthroughs(
 			"average_farmer_favor": 47,
 			"crack_rate_basis_points": 2209,
 			"total_eggs": 163,
-			"closing_fund_cents": 64650,
+			"closing_fund_cents": 66150,
 		},
 		failures,
 	)
@@ -462,18 +464,18 @@ func _check_challenge_contract_playthroughs(
 		CampaignState.CHALLENGE_EXECUTIVE_AUDIT,
 		{
 			"probation_score": 68,
-			"average_welfare": 50,
-			"average_compliance": 79,
-			"average_farmer_favor": 55,
-			"crack_rate_basis_points": 2244,
+			"average_welfare": 48,
+			"average_compliance": 77,
+			"average_farmer_favor": 52,
+			"crack_rate_basis_points": 2436,
 			"total_eggs": 156,
-			"closing_fund_cents": 64091,
+			"closing_fund_cents": 61007,
 		},
 		failures,
 	)
 
-	# The contract changes only the disclosed filing standard. It must not alter
-	# the shipped simulation ledger for the same doctrine and seed.
+	# Standard retains the authored baseline while Expert begins with a tighter
+	# fund, higher quota, and two-file intake surge.
 	var standard_harvest := standard_results.get("harvest_doctrine", {}) as Dictionary
 	_check_contract_result(
 		standard_harvest,
@@ -491,8 +493,8 @@ func _check_challenge_contract_playthroughs(
 	)
 	_check(
 		JSON.stringify(standard_harvest.get("daily_ledgers", []))
-		== JSON.stringify(executive.get("daily_ledgers", [])),
-		"Executive Audit must preserve the Standard Filing harvest ledger",
+		!= JSON.stringify(executive.get("daily_ledgers", [])),
+		"Executive Audit must produce a distinct harvest ledger from Standard Filing",
 		failures,
 	)
 
@@ -505,6 +507,18 @@ func _check_contract_result(
 ) -> void:
 	var final := result.get("final", {}) as Dictionary
 	var contract := final.get("challenge_contract", {}) as Dictionary
+	print("CAMPAIGN_CHALLENGE_PROOF %s" % JSON.stringify({
+		"contract": String(contract_id),
+		"profile": String(result.get("profile", "")),
+		"passed": bool(final.get("passed", false)),
+		"probation_score": int(final.get("probation_score", 0)),
+		"average_welfare": int(final.get("average_welfare", 0)),
+		"average_compliance": int(final.get("average_compliance", 0)),
+		"average_farmer_favor": int(final.get("average_farmer_favor", 0)),
+		"crack_rate_basis_points": int(final.get("crack_rate_basis_points", 0)),
+		"total_eggs": int(result.get("total_eggs", 0)),
+		"closing_fund_cents": int(result.get("closing_fund_cents", 0)),
+	}))
 	_check(
 		StringName(contract.get("id", &"")) == contract_id,
 		"%s result must identify its authoritative challenge contract" % contract_id,
@@ -544,6 +558,17 @@ func _run_profile(
 	_check(
 		campaign.select_challenge_contract(challenge_contract_id),
 		"%s must file challenge contract %s before the first shift" % [
+			profile_id,
+			challenge_contract_id,
+		],
+		failures,
+	)
+	var opening_receipt := simulation.configure_opening_challenge(
+		campaign.challenge_contract_snapshot(),
+	)
+	_check(
+		bool(opening_receipt.get("accepted", false)),
+		"%s must apply challenge contract %s to the opening economy" % [
 			profile_id,
 			challenge_contract_id,
 		],
@@ -777,6 +802,7 @@ func _run_profile(
 		"challenge_contract_id": String(challenge_contract_id),
 		"seed": campaign_seed,
 		"initial_active_hens": PRODUCTION_HEN_COUNT,
+		"opening_economy": opening_receipt.duplicate(true),
 		"daily_ledgers": daily_ledgers,
 		"final": final,
 		"total_eggs": simulation.eggs_total,

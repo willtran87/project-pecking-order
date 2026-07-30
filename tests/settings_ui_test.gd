@@ -44,6 +44,10 @@ func _run() -> void:
 	var scroll := settings.find_child("SettingsScroll", true, false) as ScrollContainer
 	var close := settings.find_child("SettingsCloseButton", true, false) as Button
 	var reset := settings.find_child("SettingsResetButton", true, false) as Button
+	var audio_category := settings.find_child("SettingsCategory_Audio", true, false) as Button
+	var comfort_category := settings.find_child("SettingsCategory_Comfort", true, false) as Button
+	var controls_category := settings.find_child("SettingsCategory_Controls", true, false) as Button
+	var career_category := settings.find_child("SettingsCategory_Career", true, false) as Button
 	_check(panel != null and scroll != null, "settings should use a bounded panel with vertical scrolling", failures)
 	_check(close != null and close.focus_mode == Control.FOCUS_ALL, "the safe return should remain keyboard focusable", failures)
 	_check(reset != null and reset.focus_mode == Control.FOCUS_ALL, "default restoration should remain keyboard focusable", failures)
@@ -57,8 +61,35 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		_contains_all(settings.accessible_text(), ["master 80 percent", "office hum + flock room tone 55 percent", "motion reduced", "125 percent", "high contrast on", "color vision standard", "effect density reduced", "animation speed relaxed", "tooltip delay long", "timing lenient", "transient notices priority for extended duration", "haptics disabled", "pause when unfocused on", "f10", "escape", "backup export is available"]),
-		"settings should publish one complete concise accessibility summary",
+		audio_category != null and comfort_category != null
+		and controls_category != null and career_category != null
+		and settings.active_category() == &"comfort"
+		and comfort_category.button_pressed
+		and settings.find_child("SettingsPage_Comfort", true, false).visible
+		and not settings.find_child("SettingsPage_Audio", true, false).visible
+		and not settings.find_child("SettingsPage_Controls", true, false).visible
+		and not settings.find_child("SettingsPage_Career", true, false).visible,
+		"settings should open on one calm category instead of exposing every option at once",
+		failures,
+	)
+	_check(
+		_contains_all(settings.accessible_text(), ["comfort & display category, 2 of 4", "motion reduced", "camera motion reduced", "camera input sensitivity low", "125 percent", "high contrast on", "color vision standard", "effect density reduced", "particle density off", "animation speed relaxed", "tooltip delay long", "timing lenient", "transient notices priority for extended duration", "haptics disabled", "pause when unfocused on"])
+		and "master 80 percent" not in settings.accessible_text().to_lower(),
+		"settings narration should summarize only the active category",
+		failures,
+	)
+	if comfort_category != null:
+		comfort_category.grab_focus()
+	var next_category := InputEventAction.new()
+	next_category.action = &"ui_right"
+	next_category.pressed = true
+	settings._input(next_category)
+	_check(
+		settings.active_category() == &"controls"
+		and controls_category != null and controls_category.has_focus()
+		and not observed_preferences.is_empty()
+		and String(observed_preferences.back().get("settings_category", "")) == "controls",
+		"Left and Right should change and persist categories while keeping keyboard focus visible",
 		failures,
 	)
 
@@ -76,6 +107,14 @@ func _run() -> void:
 		and backup_confirmation.get_label().autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
 		and backup_confirmation.get_label().custom_minimum_size.x >= 560.0,
 		"career safety should expose focusable export, restore, and confirmation controls",
+		failures,
+	)
+	if career_category != null:
+		career_category.pressed.emit()
+	_check(
+		settings.active_category() == &"career"
+		and _contains_all(settings.accessible_text(), ["career backup category, 4 of 4", "backup export is available", "explicit replacement confirmation"]),
+		"career backup should have its own concise category summary",
 		failures,
 	)
 	if backup_export != null:
@@ -127,7 +166,24 @@ func _run() -> void:
 	var music_mute := settings.find_child("AudioMute_music", true, false) as CheckButton
 	var ambient_slider := settings.find_child("AudioVolume_ambient", true, false) as HSlider
 	var ambient_mute := settings.find_child("AudioMute_ambient", true, false) as CheckButton
-	_check(sfx_slider != null and music_mute != null and ambient_slider != null and ambient_mute != null, "audio mix should expose independent music, ambience, feedback, and UI controls", failures)
+	var alerts_slider := settings.find_child("AudioVolume_alerts", true, false) as HSlider
+	var voice_mute := settings.find_child("AudioMute_voice", true, false) as CheckButton
+	if audio_category != null:
+		audio_category.pressed.emit()
+	_check(
+		settings.active_category() == &"audio"
+		and _contains_all(settings.accessible_text(), ["audio mix category, 1 of 4", "master 80 percent", "office hum + flock room tone 55 percent", "warnings + decision bells 65 percent", "character cutout cues 45 percent"])
+		and "motion reduced" not in settings.accessible_text().to_lower(),
+		"audio mix should have its own concise category summary",
+		failures,
+	)
+	_check(
+		sfx_slider != null and music_mute != null
+		and ambient_slider != null and ambient_mute != null
+		and alerts_slider != null and voice_mute != null,
+		"audio mix should independently expose music, ambience, work, UI, warnings, and character cues",
+		failures,
+	)
 	if sfx_slider != null:
 		sfx_slider.value = 0.42
 	if music_mute != null:
@@ -136,6 +192,10 @@ func _run() -> void:
 		ambient_slider.value = 0.31
 	if ambient_mute != null:
 		ambient_mute.button_pressed = true
+	if alerts_slider != null:
+		alerts_slider.value = 0.24
+	if voice_mute != null:
+		voice_mute.button_pressed = true
 	await process_frame
 	_check(observed_preferences.size() >= 2, "audio adjustments should apply immediately", failures)
 	if not observed_preferences.is_empty():
@@ -152,21 +212,38 @@ func _run() -> void:
 			"office ambience should change without changing the music channel",
 			failures,
 		)
+		_check(
+			is_equal_approx(float((audio.get("alerts", {}) as Dictionary).get("volume", -1.0)), 0.24)
+			and bool((audio.get("voice", {}) as Dictionary).get("muted", false)),
+			"warnings and character cutout cues should retain independent mix choices",
+			failures,
+		)
 
 	var motion := settings.find_child("MotionModeSelector", true, false) as OptionButton
+	var camera_motion := settings.find_child("CameraMotionSelector", true, false) as OptionButton
+	var camera_sensitivity := settings.find_child("CameraSensitivitySelector", true, false) as OptionButton
 	var quality := settings.find_child("VisualQualitySelector", true, false) as OptionButton
 	var timing := settings.find_child("TimingAssistSelector", true, false) as OptionButton
 	var color_vision := settings.find_child("ColorVisionSelector", true, false) as OptionButton
 	var notice_level := settings.find_child("NoticeLevelSelector", true, false) as OptionButton
 	var notice_duration := settings.find_child("NoticeDurationSelector", true, false) as OptionButton
 	var effect_level := settings.find_child("EffectLevelSelector", true, false) as OptionButton
+	var particle_level := settings.find_child("ParticleLevelSelector", true, false) as OptionButton
 	var animation_speed := settings.find_child("AnimationSpeedSelector", true, false) as OptionButton
 	var tooltip_delay := settings.find_child("TooltipDelaySelector", true, false) as OptionButton
 	var haptics := settings.find_child("HapticsToggle", true, false) as CheckButton
 	var focus_pause := settings.find_child("PauseWhenUnfocusedToggle", true, false) as CheckButton
+	if comfort_category != null:
+		comfort_category.pressed.emit()
 	if motion != null:
 		motion.select(2)
 		motion.item_selected.emit(2)
+	if camera_motion != null:
+		camera_motion.select(2)
+		camera_motion.item_selected.emit(2)
+	if camera_sensitivity != null:
+		camera_sensitivity.select(2)
+		camera_sensitivity.item_selected.emit(2)
 	if quality != null:
 		quality.select(0)
 		quality.item_selected.emit(0)
@@ -185,6 +262,9 @@ func _run() -> void:
 	if effect_level != null:
 		effect_level.select(2)
 		effect_level.item_selected.emit(2)
+	if particle_level != null:
+		particle_level.select(1)
+		particle_level.item_selected.emit(1)
 	if animation_speed != null:
 		animation_speed.select(2)
 		animation_speed.item_selected.emit(2)
@@ -198,12 +278,15 @@ func _run() -> void:
 	_check(
 		not observed_preferences.is_empty()
 		and String(observed_preferences.back().get("motion_mode", "")) == "full"
+		and String(observed_preferences.back().get("camera_motion", "")) == "off"
+		and String(observed_preferences.back().get("camera_sensitivity", "")) == "high"
 		and String(observed_preferences.back().get("visual_quality", "")) == "low"
 		and String(observed_preferences.back().get("timing_assist", "")) == "extended"
 		and String(observed_preferences.back().get("color_vision_mode", "")) == "color_blind_safe"
 		and String(observed_preferences.back().get("notice_level", "")) == "archive_only"
 		and String(observed_preferences.back().get("notice_duration", "")) == "brief"
 		and String(observed_preferences.back().get("effect_level", "")) == "off"
+		and String(observed_preferences.back().get("particle_level", "")) == "reduced"
 		and String(observed_preferences.back().get("animation_speed", "")) == "brisk"
 		and String(observed_preferences.back().get("tooltip_delay", "")) == "short"
 		and bool(observed_preferences.back().get("haptics_enabled", false))
@@ -213,6 +296,14 @@ func _run() -> void:
 	)
 
 	var peck_binding := settings.find_child("Binding_peck_assist", true, false) as Button
+	if controls_category != null:
+		controls_category.pressed.emit()
+	_check(
+		settings.active_category() == &"controls"
+		and _contains_all(settings.accessible_text(), ["controls category, 3 of 4", "select a floor or camera control", "f10", "escape"]),
+		"control rebinding should have its own concise category summary",
+		failures,
+	)
 	_check(peck_binding != null and "E / A" in peck_binding.text, "binding cards should show the current device-aware label", failures)
 	if peck_binding != null:
 		peck_binding.pressed.emit()
@@ -372,6 +463,23 @@ func _run() -> void:
 			failures,
 		)
 		_check(scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "compact settings should keep every option reachable by scroll", failures)
+		for category_button: Button in [
+			audio_category,
+			comfort_category,
+			controls_category,
+			career_category,
+		]:
+			if category_button != null:
+				category_button.pressed.emit()
+				await process_frame
+				_check(
+					scroll.scroll_vertical == 0,
+					"category changes should begin at the top at %dx%d" % [
+						int(viewport_size.x),
+						int(viewport_size.y),
+					],
+					failures,
+				)
 
 	settings.free()
 	await process_frame
@@ -380,7 +488,7 @@ func _run() -> void:
 			push_error("SETTINGS_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_UI_TEST_PASSED audio=5+independent-ambience comfort=motion+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
+	print("SETTINGS_UI_TEST_PASSED categories=4+persistent+arrow+contextual-narration audio=7+alerts+cutout-cues comfort=motion+camera-motion+sensitivity+particles+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
 	quit(0)
 
 
@@ -392,8 +500,12 @@ func _preferences() -> Dictionary:
 			"ambient": {"volume": 0.55, "muted": false},
 			"sfx": {"volume": 0.9, "muted": false},
 			"ui": {"volume": 0.7, "muted": false},
+			"alerts": {"volume": 0.65, "muted": false},
+			"voice": {"volume": 0.45, "muted": false},
 		},
 		"motion_mode": "reduced",
+		"camera_motion": "reduced",
+		"camera_sensitivity": "low",
 		"ui_scale": 1.25,
 		"high_contrast": true,
 		"color_vision_mode": "standard",
@@ -402,10 +514,12 @@ func _preferences() -> Dictionary:
 		"notice_level": "priority",
 		"notice_duration": "extended",
 		"effect_level": "reduced",
+		"particle_level": "off",
 		"animation_speed": "relaxed",
 		"tooltip_delay": "long",
 		"haptics_enabled": false,
 		"pause_when_unfocused": true,
+		"settings_category": "comfort",
 		"input_bindings": {},
 	}
 

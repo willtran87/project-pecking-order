@@ -281,9 +281,9 @@ func _check_migration_and_rejection(failures: Array[String]) -> void:
 	var migrated := DepartmentSimulation.new(1701, 4)
 	_check(migrated.restore_save_state(legacy_v25), "an authentic v25 checkpoint should migrate with neutral case memory", failures)
 	_check(
-		int(migrated.export_save_state().get("state_version", -1)) == 27
+		int(migrated.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION
 		and migrated.incident_response_history.is_empty(),
-		"v25 migration should re-export as v27 without inventing prior choices",
+		"v25 migration should re-export as the current schema without inventing prior choices",
 		failures,
 	)
 
@@ -357,7 +357,7 @@ func _check_adaptive_pivot_mastery(failures: Array[String]) -> void:
 	var migrated := DepartmentSimulation.new(1701, 4)
 	_check(
 		migrated.restore_save_state(legacy_v26)
-		and int(migrated.export_save_state().get("state_version", -1)) == 27
+		and int(migrated.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION
 		and int(migrated.incident_pivot_mastery_snapshot().get("mastered_count", -1)) == 3,
 		"authentic v26 response history should reconstruct adaptive mastery without inventing evidence",
 		failures,

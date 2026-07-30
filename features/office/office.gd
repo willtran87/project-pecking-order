@@ -23,6 +23,7 @@ const PeckingOrderUIScript := preload("res://features/office/pecking_order_ui.gd
 const FlockwatchNavigationScript := preload("res://features/office/flockwatch_navigation.gd")
 const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
 const EconomicBriefingUIScript := preload("res://features/office/economic_briefing_ui.gd")
+const CapitalBlueprintModelScript := preload("res://features/office/capital_blueprint_model.gd")
 const CapitalBlueprintUIScript := preload("res://features/office/capital_blueprint_ui.gd")
 const CampusExpansionUIScript := preload("res://features/office/campus_expansion_ui.gd")
 const CampusPortfolioUIScript := preload("res://features/office/campus_portfolio_ui.gd")
@@ -36,8 +37,11 @@ const CareerCommendationsScript := preload("res://core/campaign/career_commendat
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
 const CheckpointCoordinatorScript := preload("res://core/persistence/checkpoint_coordinator.gd")
 const ProbationCampaignUIScript := preload("res://features/office/probation_campaign_ui.gd")
+const CharacterDialogueUIScript := preload("res://features/office/character_dialogue_ui.gd")
+const CharacterDialogueCatalogScript := preload("res://features/office/character_dialogue_catalog.gd")
 const FEED_PARTY_STATION_PATH := "res://assets/models/feed_party_station.glb"
 const CAMPAIGN_SAVE_FILENAME := "probation_campaign.json"
+const CAMPAIGN_INTERFACE_CONTEXT_VERSION := 2
 const OFFICE_WIDTH := 24.0
 const OFFICE_DEPTH := 18.0
 const MAIN_AISLE_Z := 7.15
@@ -337,6 +341,7 @@ var _web_accessibility_request_callback
 var _last_lifecycle_checkpoint_frame: int = -1
 var _last_lifecycle_checkpoint_revision: int = -1
 var _campaign_session_checkpoint_enabled := false
+var _applying_campaign_interface_context := false
 var _preferences_store = PlayerPreferencesStoreScript.new()
 var _web_preferences_mirror = WebPreferencesMirrorScript.new()
 var _web_preferences_mirror_status := "not_applicable"
@@ -430,6 +435,8 @@ var _priority_peck_result_hold_worker_id := -1
 var _priority_peck_result_hold_claim_id := -1
 var _priority_peck_focus_disarmed_worker_id := -1
 var _ui_root: Control
+var _character_dialogue_ui
+var _character_dialogue_previous_snapshot: Dictionary = {}
 var _top_hud_panel: PanelContainer
 var _shift_objective_row: HBoxContainer
 var _compact_live_hud_applied := false
@@ -441,6 +448,7 @@ var _guidance_label: Label
 var _feed_button: Button
 var _upgrade_buttons: Dictionary[StringName, Button] = {}
 var _upgrade_disclosure_toggle
+var _shift_help_disclosure_toggle
 var _had_actionable_upgrade := false
 var _day_review_panel: PanelContainer
 var _day_review_scrim: ColorRect
@@ -469,6 +477,7 @@ var _decision_previous_speed := 1
 var _resume_after_decision := true
 var _decision_restore_farmer_review := false
 var _flockwatch_restore_farmer_review := false
+var _flockwatch_restore_campaign_report := false
 var _authoritative_revenue_cents := 0
 var _displayed_revenue_cents := -1
 var _pending_collection_cents := 0
@@ -551,6 +560,7 @@ func _ready() -> void:
 	_simulation.announcement_posted.connect(_on_announcement_posted)
 	_simulation.feed_party_funded.connect(_on_feed_party_funded)
 	_simulation.workday_completed.connect(_on_workday_completed)
+	_simulation.market_contract_settled.connect(_on_market_contract_settled_dialogue)
 	_simulation.upgrade_purchased.connect(_on_upgrade_purchased)
 	_simulation.decision_requested.connect(_on_decision_requested)
 	_simulation.decision_resolved.connect(_on_decision_resolved)
@@ -607,6 +617,12 @@ func _ready() -> void:
 		_capture_grading_preview()
 	elif "--capture-staffing" in OS.get_cmdline_user_args() or "--capture-staffing" in OS.get_cmdline_args():
 		_capture_staffing_preview()
+	elif "--capture-internship-ui" in OS.get_cmdline_user_args() or "--capture-internship-ui" in OS.get_cmdline_args():
+		_capture_internship_ui_preview()
+	elif "--capture-internship-fellow-ui" in OS.get_cmdline_user_args() or "--capture-internship-fellow-ui" in OS.get_cmdline_args():
+		_capture_internship_fellow_ui_preview()
+	elif "--capture-intern-dialogue" in OS.get_cmdline_user_args() or "--capture-intern-dialogue" in OS.get_cmdline_args():
+		_capture_intern_dialogue_preview()
 	elif "--capture-capacity-commissioning" in OS.get_cmdline_user_args() or "--capture-capacity-commissioning" in OS.get_cmdline_args():
 		_capture_capacity_commissioning_preview()
 	elif "--capture-facility" in OS.get_cmdline_user_args() or "--capture-facility" in OS.get_cmdline_args():
@@ -774,6 +790,12 @@ func _apply_player_preferences() -> void:
 	)
 	if _camera_controller != null:
 		_camera_controller.set_reduced_motion(reduced_motion)
+		_camera_controller.set_camera_motion_level(
+			StringName(String(_player_preferences.get("camera_motion", "full")))
+		)
+		_camera_controller.set_input_sensitivity(
+			StringName(String(_player_preferences.get("camera_sensitivity", "standard")))
+		)
 		_camera_controller.set_high_contrast(bool(_player_preferences.get("high_contrast", false)))
 		_camera_controller.set_animation_speed_multiplier(_animation_speed_multiplier)
 	if _office_atmosphere != null:
@@ -781,6 +803,9 @@ func _apply_player_preferences() -> void:
 		_office_atmosphere.set_animation_speed_multiplier(_animation_speed_multiplier)
 		_office_atmosphere.set_effect_level(
 			StringName(String(_player_preferences.get("effect_level", "full")))
+		)
+		_office_atmosphere.set_particle_level(
+			StringName(String(_player_preferences.get("particle_level", "full")))
 		)
 	if _audio_feedback != null and _audio_feedback.has_method("set_haptics_enabled"):
 		_audio_feedback.call(
@@ -791,6 +816,8 @@ func _apply_player_preferences() -> void:
 		_routing_ui.call("set_reduced_motion", reduced_motion)
 	if _campaign_ui != null and _campaign_ui.has_method("set_reduced_motion"):
 		_campaign_ui.call("set_reduced_motion", reduced_motion)
+	if _character_dialogue_ui != null:
+		_character_dialogue_ui.set_reduced_motion(reduced_motion)
 	var color_vision_mode := StringName(String(_player_preferences.get("color_vision_mode", "standard")))
 	if _routing_ui != null and _routing_ui.has_method("set_color_vision_mode"):
 		_routing_ui.call("set_color_vision_mode", color_vision_mode)
@@ -858,6 +885,10 @@ func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
 			)
 		var base_size := int(control.get_meta(&"preference_base_font_size", 14))
 		control.add_theme_font_size_override("font_size", maxi(10, roundi(base_size * scale)))
+		# Propagate live font-size changes through parent container layout before
+		# the next frame is drawn.
+		control.update_minimum_size()
+		control.queue_redraw()
 
 
 func _apply_visual_quality(quality: StringName) -> void:
@@ -1086,6 +1117,9 @@ func _on_preferences_reset_requested() -> void:
 	OfficeActionCatalogScript.reset_all()
 	_player_preferences = PlayerPreferencesStoreScript.defaults()
 	_apply_player_preferences()
+	if _settings_ui != null and _settings_ui.is_open():
+		_settings_ui.refresh_preferences(_player_preferences)
+		_settings_ui.refresh_binding_labels(_current_binding_labels())
 	_save_player_preferences("Settings defaults restored and saved.")
 
 
@@ -3346,6 +3380,8 @@ func _process(delta: float) -> void:
 		_flockwatch_toggle.visible = not blocking_surface_open
 	if _routing_ui != null:
 		_routing_ui.visible = not blocking_surface_open and not _flockwatch_open
+	if _character_dialogue_ui != null:
+		_character_dialogue_ui.set_suspended(blocking_surface_open or _flockwatch_open)
 	# Existing systems publish through the stable ticker label. Detect those
 	# publications here so legacy callers retain their exact copy and receipts,
 	# while the presentation becomes a short-lived toast instead of a permanent
@@ -3363,6 +3399,15 @@ func _process(delta: float) -> void:
 	var copy_changed := copy != _ticker_last_text
 	if copy_changed and not restored_priority_display:
 		_record_status_copy(copy)
+	if _character_dialogue_ui != null and _character_dialogue_ui.is_presenting():
+		# A character aside gets the player's reading attention. Preserve every
+		# exact system receipt in Shift Record/Flockwatch, but avoid stacking a
+		# second prose surface over the playable floor at the same time.
+		_ticker_panel.visible = false
+		_ticker_visible_copy = ""
+		if not _ticker_last_text.is_empty():
+			_ticker_label.text = _ticker_last_text
+		return
 	if blocking_surface_open or _flockwatch_open:
 		_ticker_panel.visible = false
 		_ticker_visible_copy = ""
@@ -3439,6 +3484,7 @@ func _publish_status_copy(copy: String, publish_flockwatch_diagnostic := true) -
 func _on_status_history_toggled(expanded: bool) -> void:
 	_status_history_expanded = expanded
 	_refresh_status_history_presentation()
+	_on_campaign_interface_context_changed()
 
 
 func _refresh_status_history_presentation() -> void:
@@ -3538,6 +3584,8 @@ func _blocking_management_surface_open() -> bool:
 
 func _refresh_floor_input_context() -> void:
 	var blocked := _flockwatch_open or _blocking_management_surface_open()
+	if _character_dialogue_ui != null:
+		_character_dialogue_ui.set_suspended(blocked)
 	if _camera_controller != null:
 		_camera_controller.set_process_input(not blocked)
 		_camera_controller.set_process_unhandled_input(not blocked)
@@ -3756,6 +3804,9 @@ func _build_ui() -> void:
 	_staffing_ui.manager_assignment_requested.connect(_on_manager_assignment_requested)
 	_staffing_ui.manager_posture_requested.connect(_on_manager_posture_requested)
 	_staffing_ui.manager_recruit_requested.connect(_on_manager_recruit_requested)
+	_staffing_ui.intern_onboard_requested.connect(_on_intern_onboard_requested)
+	_staffing_ui.intern_assignment_requested.connect(_on_intern_assignment_requested)
+	_staffing_ui.intern_review_requested.connect(_on_intern_review_requested)
 	_staffing_ui.flock_relations_action_requested.connect(_on_flock_relations_action_requested)
 	_staffing_ui.feed_order_requested.connect(_on_feed_order_requested)
 	_staffing_ui.farmgate_dispatch_mandate_requested.connect(
@@ -3770,11 +3821,26 @@ func _build_ui() -> void:
 	_staffing_ui.interaction_safety_changed.connect(
 		_on_interaction_safety_presentation_changed
 	)
+	_staffing_ui.presentation_context_changed.connect(
+		_on_campaign_interface_context_changed
+	)
 	flock_section.add_child(_staffing_ui)
 	_economic_briefing_ui = EconomicBriefingUIScript.new()
+	_economic_briefing_ui.economic_watch_requested.connect(
+		_on_economic_watch_requested
+	)
+	_economic_briefing_ui.economic_watch_open_requested.connect(
+		_on_economic_watch_open_requested
+	)
+	_economic_briefing_ui.presentation_context_changed.connect(
+		_on_campaign_interface_context_changed
+	)
 	economic_briefing_section.add_child(_economic_briefing_ui)
 	_upgrade_disclosure_toggle = FlockwatchDisclosureToggleScript.new()
 	_upgrade_disclosure_toggle.name = "DeskRequisitionsToggle"
+	_upgrade_disclosure_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: _on_campaign_interface_context_changed()
+	)
 	capital_section.add_child(_upgrade_disclosure_toggle)
 	var requisitions_heading := _make_label("COOP REQUISITIONS", 17, Color("f4d27b"))
 	requisitions_heading.name = "DeskRequisitionsHeading"
@@ -3885,17 +3951,28 @@ func _build_ui() -> void:
 	_overtime_button.toggle_mode = true
 	_overtime_button.pressed.connect(_on_overtime_pressed)
 	operations_section.add_child(_overtime_button)
-	var shift_help_toggle = FlockwatchDisclosureToggleScript.new()
-	shift_help_toggle.name = "OperationsShiftHelpToggle"
-	operations_section.add_child(shift_help_toggle)
+	_shift_help_disclosure_toggle = FlockwatchDisclosureToggleScript.new()
+	_shift_help_disclosure_toggle.name = "OperationsShiftHelpToggle"
+	_shift_help_disclosure_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: _on_campaign_interface_context_changed()
+	)
+	operations_section.add_child(_shift_help_disclosure_toggle)
 	var note := _make_label("TIP: Click a hen to inspect. Tab cycles; Esc returns.\nOne flock check-in is available each shift.\nThe farmer counts the clutch at 5:00 PM.", 13, Color("aeb8c4"))
 	note.name = "OperationsShiftHelp"
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	operations_section.add_child(note)
 	var shift_help_targets: Array[Control] = [note]
-	shift_help_toggle.configure("SHIFT HELP", "CONTROLS / CLOSING", shift_help_targets, false)
+	_shift_help_disclosure_toggle.configure(
+		"SHIFT HELP",
+		"CONTROLS / CLOSING",
+		shift_help_targets,
+		false,
+	)
 	_commendations_disclosure_toggle = FlockwatchDisclosureToggleScript.new()
 	_commendations_disclosure_toggle.name = "CareerCommendationsToggle"
+	_commendations_disclosure_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: _on_campaign_interface_context_changed()
+	)
 	records_section.add_child(_commendations_disclosure_toggle)
 	var commendation_total := CareerCommendationsScript.IDS.size()
 	_commendations_summary_label = _make_label(
@@ -4063,6 +4140,13 @@ func _build_ui() -> void:
 	_ticker_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ticker_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_ticker_panel.add_child(_ticker_label)
+	_character_dialogue_ui = CharacterDialogueUIScript.new()
+	_character_dialogue_ui.name = "CharacterDialogueLayer"
+	_character_dialogue_ui.z_index = 40
+	_character_dialogue_ui.dialogue_presented.connect(
+		_on_character_dialogue_presented
+	)
+	_ui_root.add_child(_character_dialogue_ui)
 	_routing_ui = PeckworkRoutingUIScript.new() as PeckworkRoutingUI
 	_routing_ui.assignment_requested.connect(_on_worker_assignment_requested)
 	_routing_ui.assignment_undo_requested.connect(
@@ -4085,6 +4169,7 @@ func _build_ui() -> void:
 	_campaign_ui.continue_campaign.connect(_on_campaign_continue_requested)
 	_campaign_ui.new_campaign.connect(_on_campaign_new_requested)
 	_campaign_ui.abandon_campaign.connect(_on_campaign_abandon_requested)
+	_campaign_ui.review_requisitions.connect(_on_campaign_review_requisitions_requested)
 	_campaign_ui.challenge_contract_changed.connect(_on_campaign_challenge_contract_changed)
 	_campaign_ui.title_intake_phase_changed.connect(_on_campaign_title_intake_phase_changed)
 	_campaign_ui.milestone_choice.connect(_on_campaign_milestone_requested)
@@ -4225,6 +4310,10 @@ func _build_capital_planning_surfaces() -> void:
 	_capital_blueprint_ui.z_index = 120
 	_capital_blueprint_ui.connect(&"close_requested", _on_capital_blueprint_close_requested)
 	_capital_blueprint_ui.connect(&"preview_requested", _on_capital_blueprint_preview_requested)
+	_capital_blueprint_ui.connect(
+		&"presentation_context_changed",
+		_on_campaign_interface_context_changed,
+	)
 	_capital_blueprint_ui.connect(&"pin_requested", _on_capital_blueprint_pin_requested)
 	_capital_blueprint_ui.connect(&"purchase_requested", _on_capital_blueprint_purchase_requested)
 	_capital_blueprint_ui.connect(&"campus_expansion_requested", _on_campus_expansion_requested)
@@ -4767,6 +4856,9 @@ func _on_decision_resolved(result: Dictionary) -> void:
 		)
 	)
 	_ticker_label.text = outcome
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_decision_result(result, _simulation.day)
+	)
 	if kind == FIRST_CLUTCH_REINVESTMENT_KIND:
 		var purchased := bool(result.get("purchased", false))
 		if purchased:
@@ -4876,6 +4968,10 @@ func _on_decision_resolved(result: Dictionary) -> void:
 func _on_workday_completed(report: Dictionary) -> void:
 	_clock.set_speed(0)
 	_last_workday_report = report.duplicate(true)
+	_queue_character_dialogue(CharacterDialogueCatalogScript.shift_review_beat(report))
+	_queue_character_dialogues(
+		CharacterDialogueCatalogScript.beats_for_internship_transitions(report)
+	)
 	_queue_campus_portfolio_progress_reveals(report)
 	_first_clutch_prepare_for_shift_boundary()
 	# Art captures close authored shifts through the real simulation so their
@@ -4967,9 +5063,10 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	var feed_cost := int(report.get("feed_cost_cents", 0))
 	var payroll_cost := int(report.get("payroll_cents", 0))
 	var hen_payroll_cost := int(report.get("hen_payroll_cents", payroll_cost))
+	var fellow_payroll_cost := int(report.get("fellow_payroll_cents", 0))
 	var supervisor_payroll_cost := int(report.get(
 		"supervisor_payroll_cents",
-		maxi(0, payroll_cost - hen_payroll_cost),
+		maxi(0, payroll_cost - hen_payroll_cost - fellow_payroll_cost),
 	))
 	var facility_cost := int(report.get("facility_cost_cents", 0))
 	var facility_capacity_cost := int(report.get("facility_expansion_cost_cents", facility_cost))
@@ -5088,10 +5185,11 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	_review_results.text = _review_results.text.replace("Check-in:", "Check-ins:")
 	_review_results.text = _review_results.text.replace(
 		"Payroll -$%.2f" % (payroll_cost / 100.0),
-		"Payroll -$%.2f (hens $%.2f + roosters $%.2f)" % [
+		"Payroll -$%.2f (hens $%.2f + roosters $%.2f + fellows $%.2f)" % [
 			payroll_cost / 100.0,
 			hen_payroll_cost / 100.0,
 			supervisor_payroll_cost / 100.0,
+			fellow_payroll_cost / 100.0,
 		],
 	)
 	if not treasury_receipt.is_empty():
@@ -5285,7 +5383,8 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 		+ "Installed module maintenance  $%.2f\n\n" % (facility_maintenance / 100.0)
 		+ "PAYROLL BREAKDOWN\n"
 		+ "Hen wages  $%.2f\n" % (hen_payroll_cost / 100.0)
-		+ "Rooster supervisor wages  $%.2f\n\n" % (supervisor_payroll_cost / 100.0)
+		+ "Rooster supervisor wages  $%.2f\n" % (supervisor_payroll_cost / 100.0)
+		+ "Paid fellow wages  $%.2f\n\n" % (fellow_payroll_cost / 100.0)
 		+ "Net operating uses accrued feed, payroll, and facility obligations. Unpaid payroll remains visible as arrears."
 		+ (
 			"\n\nFARM TREASURY\nThe filed receipt conserves opening cash, intrashift inflows, vendor payments, interest, labor payments, debt service, and closing cash exactly. The revolving line may cover vendors and interest, but never wages."
@@ -5479,6 +5578,34 @@ func _on_capital_blueprint_pin_requested(facility_id: StringName) -> void:
 	if _audio_feedback != null:
 		_audio_feedback.play_policy_stamp()
 	_save_campaign_checkpoint("capital_plan_pinned_%s" % String(facility_id))
+
+
+func _on_economic_watch_requested(watch_id: StringName) -> void:
+	var result := _simulation.pin_economic_watch(watch_id)
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(result.get(
+			"reason",
+			"MANAGEMENT WATCH COULD NOT BE PINNED.",
+		))
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"economic_watch")
+		return
+	var watch := (
+		_simulation.economic_briefing_snapshot().get("management_watch", {})
+		as Dictionary
+	).get("selected", {}) as Dictionary
+	_ticker_label.text = "MANAGEMENT WATCH PINNED / %s. %s" % [
+		String(watch.get("label", watch_id)).to_upper(),
+		String(watch.get("status_label", "FILED")).to_upper(),
+	]
+	if _audio_feedback != null:
+		_audio_feedback.play_ui_tick()
+	_save_campaign_checkpoint("economic_watch_pinned_%s" % String(watch_id))
+
+
+func _on_economic_watch_open_requested(page_id: StringName) -> void:
+	_open_flockwatch_page(page_id)
+	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _on_capital_blueprint_purchase_requested(facility_id: StringName) -> void:
@@ -6605,6 +6732,12 @@ func _on_facility_purchase_requested(facility_id: StringName) -> void:
 			float(focus.get("size", 11.5)),
 		)
 	var receipt := result.get("commissioning_receipt", result) as Dictionary
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_facility_purchase(
+			result,
+			_simulation.day,
+		)
+	)
 	if _commissioning_reveal_ui != null:
 		_commissioning_reveal_ui.call(
 			"show_reveal",
@@ -6661,6 +6794,9 @@ func _on_feed_order_requested(order_id: StringName) -> void:
 	# from the same authoritative order before the camera visits the new delivery.
 	_on_snapshot_changed(_simulation.snapshot())
 	_ticker_label.text = String(result.get("outcome", "Provisions order authorized."))
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_feed_order(result, _simulation.day)
+	)
 	if _audio_feedback != null:
 		_audio_feedback.play_policy_stamp()
 	if _camera_controller != null:
@@ -6694,6 +6830,9 @@ func _on_farmgate_dispatch_mandate_requested(mandate_id: StringName) -> void:
 			1.35,
 			true,
 		)
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_farmgate_dispatch(result, _simulation.day)
+	)
 	_save_campaign_checkpoint("farmgate_dispatch_%s" % String(mandate_id))
 
 
@@ -6729,6 +6868,12 @@ func _on_farmer_relations_campaign_requested(campaign_id: StringName) -> void:
 			"PUBLIC CREDIT HUNG",
 			1.35,
 		)
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_farmer_relations_campaign(
+			result,
+			_simulation.day,
+		)
+	)
 	_save_campaign_checkpoint("farmer_relations_campaign_%s" % String(campaign_id))
 	_publish_web_diagnostic_state(snapshot)
 	if _continue_shift_button != null and _continue_shift_button.is_visible_in_tree():
@@ -6752,6 +6897,12 @@ func _on_flock_relations_action_requested(case_id: int, action_id: StringName) -
 	_ticker_label.text = String(result.get("outcome", "Flock Relations case filed."))
 	if _audio_feedback != null:
 		_audio_feedback.play_decision_resolved()
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_flock_relations_result(
+			result,
+			_simulation.day,
+		)
+	)
 	_save_campaign_checkpoint("flock_relations_%s_case_%d" % [String(action_id), case_id])
 
 
@@ -6772,6 +6923,52 @@ func _on_manager_recruit_requested(candidate_id: StringName) -> void:
 	_handle_manager_action_result(_simulation.recruit_manager(candidate_id))
 
 
+func _on_intern_onboard_requested(candidate_id: StringName) -> void:
+	_handle_internship_action_result(_simulation.onboard_intern(candidate_id))
+
+
+func _on_intern_assignment_requested(
+	candidate_id: StringName,
+	assignment_id: StringName,
+) -> void:
+	_handle_internship_action_result(
+		_simulation.assign_intern(candidate_id, assignment_id)
+	)
+
+
+func _on_intern_review_requested(
+	candidate_id: StringName,
+	resolution_id: StringName,
+) -> void:
+	_handle_internship_action_result(
+		_simulation.resolve_intern_review(candidate_id, resolution_id)
+	)
+
+
+func _handle_internship_action_result(result: Dictionary) -> void:
+	if not bool(result.get("accepted", false)):
+		_ticker_label.text = String(
+			result.get("reason", "INTERNSHIP OPPORTUNITY HELD FOR REVIEW.")
+		)
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"internship")
+		return
+	var snapshot := _simulation.snapshot()
+	_on_snapshot_changed(snapshot)
+	_ticker_label.text = String(result.get("outcome", "Internship filing completed."))
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_internship_action(result)
+	)
+	if _audio_feedback != null:
+		_audio_feedback.play_policy_stamp()
+	_save_campaign_checkpoint(
+		"internship_%s_%s" % [
+			String(result.get("action_id", "filing")),
+			String(result.get("candidate_id", "intern")),
+		]
+	)
+
+
 func _handle_manager_action_result(result: Dictionary) -> void:
 	if not bool(result.get("accepted", false)):
 		_ticker_label.text = String(result.get("reason", "MANAGEMENT FILE HELD FOR REVIEW."))
@@ -6781,6 +6978,12 @@ func _handle_manager_action_result(result: Dictionary) -> void:
 	var snapshot := _simulation.snapshot()
 	_on_snapshot_changed(snapshot)
 	_ticker_label.text = String(result.get("outcome", "Management instruction filed."))
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_manager_instruction(
+			result,
+			_simulation.day,
+		)
+	)
 	if _audio_feedback != null:
 		_audio_feedback.play_policy_stamp()
 	_save_campaign_checkpoint("manager_instruction_%s" % String(result.get("manager_id", "rooster")))
@@ -6852,19 +7055,30 @@ func _on_campaign_new_requested() -> void:
 	_campaign_review_stage = &"active"
 	_campaign_senior_roost = false
 	_last_workday_report.clear()
+	_character_dialogue_previous_snapshot.clear()
+	if _character_dialogue_ui != null:
+		_character_dialogue_ui.clear_session()
 	var fresh_simulation := DepartmentSimulation.new(
 		1701,
 		INITIAL_CAMPAIGN_STAFF,
 		_fresh_campaign_seed(),
 	)
+	var opening_result := fresh_simulation.configure_opening_challenge(
+		fresh_campaign.challenge_contract_snapshot(),
+	)
+	if not bool(opening_result.get("accepted", false)):
+		push_error(
+			"Could not apply the selected opening economy: %s"
+			% String(opening_result.get("reason", "unknown validation error"))
+		)
+		return
 	if not _simulation.restore_save_state(fresh_simulation.export_save_state()):
 		push_error("Could not reset the office simulation for a new probation file.")
 		return
 	_reset_first_clutch(true)
-	if _flockwatch_navigation != null:
-		_flockwatch_navigation.reset_discovered_pages()
 	_prime_first_hen_prelude()
 	_reset_campaign_session_visuals()
+	_restore_campaign_interface_context(_default_campaign_interface_context())
 	if not _save_campaign_checkpoint("new_campaign"):
 		var save_error: String = _campaign_store.last_error
 		# The fresh in-memory file is abandoned below. Do not let the coordinator
@@ -6882,8 +7096,6 @@ func _on_campaign_new_requested() -> void:
 		)
 		return
 	_campaign_session_checkpoint_enabled = true
-	if _capital_blueprint_ui != null:
-		_capital_blueprint_ui.call("reset_presentation_filter")
 	_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
 	_set_campaign_modal_open(false)
 	_present_first_hen_prelude()
@@ -6939,6 +7151,30 @@ func _on_campaign_continue_requested() -> void:
 				_enter_senior_roost()
 
 
+func _on_campaign_review_requisitions_requested() -> void:
+	if (
+		_campaign_ui == null
+		or _campaign_ui.modal_state() != ProbationCampaignUI.VIEW_REPORT
+		or _simulation == null
+	):
+		return
+	var snapshot := _simulation.snapshot()
+	if not bool(snapshot.get("staffing_planning_open", false)):
+		_publish_status_copy(
+			"ROOST REQUISITIONS HELD. Resolve every closing-credit file before changing the flock."
+		)
+		return
+	_flockwatch_restore_campaign_report = true
+	_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
+	_set_campaign_modal_open(false)
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_FLOCK)
+	_refresh_floor_input_context()
+	_guidance_label.text = "REPORT PAUSED: review roost requisitions, then close Flockwatch to restore the filing."
+	_ticker_label.text = "ROOST REQUISITIONS OPEN. Perch, hire, and release decisions are permanent for this shift."
+
+
 func _on_campaign_abandon_requested() -> void:
 	_clock.set_speed(0)
 	if not _save_campaign_checkpoint("returned_to_intake"):
@@ -6959,8 +7195,9 @@ func _on_campaign_abandon_requested() -> void:
 func _on_market_contract_sign_requested(
 	offer_id: StringName,
 	clause_id: StringName = &"standard_terms",
+	pricing_id: StringName = &"mutual_rate",
 ) -> void:
-	var receipt := _simulation.sign_market_contract(offer_id, clause_id)
+	var receipt := _simulation.sign_market_contract(offer_id, clause_id, pricing_id)
 	_campaign_ui.show_contract_board(_simulation.snapshot())
 	_set_campaign_modal_open(true)
 	_ticker_label.text = String(receipt.get(
@@ -6968,6 +7205,12 @@ func _on_market_contract_sign_requested(
 		receipt.get("reason", "FARM MUTUAL SIGNATURE HELD."),
 	))
 	if bool(receipt.get("accepted", false)):
+		_queue_character_dialogue(
+			CharacterDialogueCatalogScript.beat_for_market_contract_signed(
+				receipt,
+				_simulation.day,
+			)
+		)
 		_queue_campaign_checkpoint("market_contract_signed")
 
 
@@ -6981,6 +7224,15 @@ func _on_market_contract_decline_requested() -> void:
 	))
 	if bool(receipt.get("accepted", false)):
 		_queue_campaign_checkpoint("market_contract_declined")
+
+
+func _on_market_contract_settled_dialogue(result: Dictionary) -> void:
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_market_contract_result(
+			result,
+			int(result.get("day", _simulation.day)),
+		)
+	)
 
 
 func _on_campaign_milestone_requested(choice_id: StringName) -> void:
@@ -7339,6 +7591,9 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		"hen_highlight": hen_highlight,
 		"leadership_record": leadership_record,
 		"ending": ending,
+		"staffing_planning_open": bool(
+			_simulation.snapshot().get("staffing_planning_open", false)
+		),
 		"passed": bool(final_evaluation.get("passed", false)),
 		"final_message": final_message,
 	}
@@ -7851,6 +8106,9 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		),
 		"mandate_tier": mandate_tier,
 		"career_sponsorship": _career_sponsorship_presentation_snapshot(),
+		"staffing_planning_open": bool(
+			_simulation.snapshot().get("staffing_planning_open", false)
+		),
 	}
 
 
@@ -8271,6 +8529,9 @@ func _open_first_hen_file(worker_id: int, focus_camera: bool = true) -> void:
 	_publish_web_diagnostic_state(snapshot)
 	if focus_camera and _camera_controller != null:
 		_camera_controller.focus_worker(target_worker_id)
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.opening_beat(_simulation.day)
+	)
 	_on_announcement_posted(
 		"%s'S FILE IS OPEN: choose the policy that will govern her desk and today's clutch."
 		% String(worker.get("name", "Mabel")).to_upper()
@@ -9165,6 +9426,7 @@ func _write_campaign_checkpoint(reason: String) -> bool:
 			"last_workday_report": _last_workday_report.duplicate(true),
 			"senior_roost": _senior_roost_state.is_active(),
 			"first_clutch": _first_clutch.duplicate(true),
+			"interface_context": _campaign_interface_context(),
 		},
 	}
 	var metadata := {
@@ -9184,6 +9446,193 @@ func _write_campaign_checkpoint(reason: String) -> bool:
 	if not saved:
 		push_warning("Campaign checkpoint failed (%s): %s" % [reason, _campaign_store.last_error])
 	return saved
+
+
+func _default_campaign_interface_context() -> Dictionary:
+	return {
+		"version": CAMPAIGN_INTERFACE_CONTEXT_VERSION,
+		"flockwatch_page_id": String(FlockwatchNavigation.PAGE_TODAY),
+		"show_all_filings": false,
+		"capital_filter_id": String(CapitalBlueprintModelScript.FILTER_READY),
+		"capital_facility_id": "",
+		"status_history_expanded": false,
+		"shift_help_expanded": false,
+		"desk_requisitions_expanded": false,
+		"commendations_expanded": false,
+		"economic_details_expanded": false,
+		"feed_offers_expanded": false,
+		"farmgate_mandate_expanded": false,
+		"farmgate_mandate_id": "farmer_pickup",
+		"flock_relations_cases_expanded": false,
+		"farmer_campaigns_expanded": false,
+		"inline_facilities_expanded": false,
+		"internship_program_expanded": false,
+	}
+
+
+func _campaign_interface_context() -> Dictionary:
+	var context := _default_campaign_interface_context()
+	if _flockwatch_navigation != null:
+		context["flockwatch_page_id"] = String(_flockwatch_navigation.current_page_id())
+		context["show_all_filings"] = _flockwatch_navigation.is_showing_all_filings()
+	if _capital_blueprint_ui != null:
+		context["capital_filter_id"] = String(
+			_capital_blueprint_ui.call("active_filter_id")
+		)
+		context["capital_facility_id"] = String(
+			_capital_blueprint_ui.call("selected_facility_id")
+		)
+	context["status_history_expanded"] = _status_history_expanded
+	if _shift_help_disclosure_toggle != null:
+		context["shift_help_expanded"] = _shift_help_disclosure_toggle.is_expanded()
+	if _upgrade_disclosure_toggle != null:
+		context["desk_requisitions_expanded"] = (
+			_upgrade_disclosure_toggle.is_expanded()
+		)
+	if _commendations_disclosure_toggle != null:
+		context["commendations_expanded"] = (
+			_commendations_disclosure_toggle.is_expanded()
+		)
+	if _economic_briefing_ui != null:
+		context["economic_details_expanded"] = bool(
+			_economic_briefing_ui.call("details_expanded")
+		)
+	if _staffing_ui != null:
+		var staffing_context := _staffing_ui.presentation_context()
+		for field: String in [
+			"feed_offers_expanded",
+			"farmgate_mandate_expanded",
+			"farmgate_mandate_id",
+			"flock_relations_cases_expanded",
+			"farmer_campaigns_expanded",
+			"inline_facilities_expanded",
+			"internship_program_expanded",
+		]:
+			context[field] = staffing_context.get(field, context.get(field))
+	return context
+
+
+func _validated_campaign_interface_context(value: Dictionary) -> Dictionary:
+	var context := _default_campaign_interface_context()
+	if value.has("version"):
+		if typeof(value.get("version")) != TYPE_INT:
+			return {"ok": false, "error": "session.interface_context.version must be an int"}
+		if int(value.get("version")) not in [1, CAMPAIGN_INTERFACE_CONTEXT_VERSION]:
+			return {"ok": false, "error": "session.interface_context.version is unsupported"}
+	for field: String in [
+		"show_all_filings",
+		"status_history_expanded",
+		"shift_help_expanded",
+		"desk_requisitions_expanded",
+		"commendations_expanded",
+		"economic_details_expanded",
+		"feed_offers_expanded",
+		"farmgate_mandate_expanded",
+		"flock_relations_cases_expanded",
+		"farmer_campaigns_expanded",
+		"inline_facilities_expanded",
+		"internship_program_expanded",
+	]:
+		if not value.has(field):
+			continue
+		if typeof(value.get(field)) != TYPE_BOOL:
+			return {
+				"ok": false,
+				"error": "session.interface_context.%s must be a bool" % field,
+			}
+		context[field] = bool(value.get(field))
+	for field: String in [
+		"flockwatch_page_id",
+		"capital_filter_id",
+		"capital_facility_id",
+		"farmgate_mandate_id",
+	]:
+		if not value.has(field):
+			continue
+		if typeof(value.get(field)) not in [TYPE_STRING, TYPE_STRING_NAME]:
+			return {
+				"ok": false,
+				"error": "session.interface_context.%s must be a string" % field,
+			}
+
+	var page_id := StringName(String(value.get(
+		"flockwatch_page_id",
+		FlockwatchNavigation.PAGE_TODAY,
+	)))
+	if page_id in FlockwatchNavigation.PAGE_ORDER:
+		context["flockwatch_page_id"] = String(page_id)
+	var filter_id := StringName(String(value.get(
+		"capital_filter_id",
+		CapitalBlueprintModelScript.FILTER_READY,
+	)))
+	if filter_id in CapitalBlueprintModelScript.FILTER_ORDER:
+		context["capital_filter_id"] = String(filter_id)
+	var facility_id := StringName(String(value.get("capital_facility_id", "")))
+	if facility_id == &"" or facility_id in CapitalBlueprintModelScript.FACILITY_ORDER:
+		context["capital_facility_id"] = String(facility_id)
+	var mandate_id := StringName(String(value.get(
+		"farmgate_mandate_id",
+		"farmer_pickup",
+	)))
+	if mandate_id in FarmgateDispatchUI.MANDATE_ORDER:
+		context["farmgate_mandate_id"] = String(mandate_id)
+	return {"ok": true, "error": "", "context": context}
+
+
+func _restore_campaign_interface_context(context: Dictionary) -> void:
+	var validated := _validated_campaign_interface_context(context)
+	var restored := (
+		validated.get("context", _default_campaign_interface_context()) as Dictionary
+	)
+	_applying_campaign_interface_context = true
+	if _flockwatch_navigation != null:
+		# Discovery belongs to the restored career, never to the disposable boot
+		# simulation or a previously shelved career in this process.
+		_flockwatch_navigation.reset_discovered_pages()
+		_flockwatch_navigation.set_show_all_filings(
+			bool(restored.get("show_all_filings", false))
+		)
+		var page_id := StringName(String(restored.get(
+			"flockwatch_page_id",
+			FlockwatchNavigation.PAGE_TODAY,
+		)))
+		if not _flockwatch_navigation.open_page(page_id):
+			_flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_TODAY)
+	if _capital_blueprint_ui != null:
+		_capital_blueprint_ui.call("apply_snapshot", _simulation.snapshot())
+		var filter_id := StringName(String(restored.get(
+			"capital_filter_id",
+			CapitalBlueprintModelScript.FILTER_READY,
+		)))
+		_capital_blueprint_ui.call("set_filter", filter_id)
+		var facility_id := StringName(String(restored.get("capital_facility_id", "")))
+		var visible_ids: Array = _capital_blueprint_ui.call("visible_facility_ids")
+		if facility_id != &"" and facility_id in visible_ids:
+			_capital_blueprint_ui.call("select_facility", facility_id, false)
+	_on_status_history_toggled(bool(restored.get(
+		"status_history_expanded",
+		false,
+	)))
+	if _shift_help_disclosure_toggle != null:
+		_shift_help_disclosure_toggle.set_expanded(
+			bool(restored.get("shift_help_expanded", false))
+		)
+	if _upgrade_disclosure_toggle != null:
+		_upgrade_disclosure_toggle.set_expanded(
+			bool(restored.get("desk_requisitions_expanded", false))
+		)
+	if _commendations_disclosure_toggle != null:
+		_commendations_disclosure_toggle.set_expanded(
+			bool(restored.get("commendations_expanded", false))
+		)
+	if _economic_briefing_ui != null:
+		_economic_briefing_ui.call(
+			"set_details_expanded",
+			bool(restored.get("economic_details_expanded", false)),
+		)
+	if _staffing_ui != null:
+		_staffing_ui.restore_presentation_context(restored)
+	_applying_campaign_interface_context = false
 
 
 func _checkpoint_diagnostic_state() -> Dictionary:
@@ -9249,6 +9698,15 @@ func _load_campaign_checkpoint() -> void:
 				envelope.get("recovery_source", "candidate")
 			))
 			continue
+		# Restored facts are a baseline, not new events. Activation emits a
+		# snapshot, so clear any transition beats inferred against the disposable
+		# boot simulation, then seed the dialogue observer from the verified live
+		# state before presenting the one authored return beat below.
+		if _character_dialogue_ui != null:
+			_character_dialogue_ui.clear_session()
+		_character_dialogue_previous_snapshot = _character_dialogue_projection(
+			_simulation.snapshot()
+		)
 		activated = staged
 		break
 	if activated.is_empty():
@@ -9278,9 +9736,30 @@ func _load_campaign_checkpoint() -> void:
 		_simulation.apply_campaign_unlock(StringName(unlock_value))
 	_last_reviewed_day = _simulation.day
 	_reset_campaign_session_visuals()
+	_restore_campaign_interface_context(
+		activated.get("interface_context", {}) as Dictionary
+	)
 	var recovered_attention := _reconcile_orphaned_peck_assist_deliveries()
 	_reconcile_first_clutch_reinvestment_after_restore()
 	_restore_campaign_view()
+	var resumed_payload := _resume_dictionary(envelope.get("campaign"))
+	var resumed_metadata := _resume_dictionary(envelope.get("metadata"))
+	var resumed_session := _resume_dictionary(resumed_payload.get("session"))
+	var resumed_return_recap := _campaign_return_recap(
+		resumed_payload,
+		resumed_metadata,
+		resumed_session,
+	)
+	var resumed_offline_recap := _campaign_offline_recap(
+		_resume_integer(resumed_metadata.get("saved_at_unix"), 0),
+	)
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.return_beat(
+			resumed_return_recap,
+			resumed_offline_recap,
+			_simulation.day,
+		)
+	)
 	if recovered_attention > 0:
 		_save_campaign_checkpoint("priority_peck_delivery_recovered")
 		_ticker_label.text = "RECOVERY LEDGER: %d clean assisted %s completed off-screen; attention restored." % [
@@ -9328,6 +9807,20 @@ func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
 	var first_clutch_value: Variant = session.get("first_clutch", {})
 	if session.has("first_clutch") and not first_clutch_value is Dictionary:
 		return {"ok": false, "error": "session.first_clutch is not a Dictionary"}
+	var interface_context_value: Variant = session.get("interface_context", {})
+	if session.has("interface_context") and not interface_context_value is Dictionary:
+		return {"ok": false, "error": "session.interface_context is not a Dictionary"}
+	var interface_context_validation := _validated_campaign_interface_context(
+		interface_context_value as Dictionary
+	)
+	if not bool(interface_context_validation.get("ok", false)):
+		return {
+			"ok": false,
+			"error": String(interface_context_validation.get(
+				"error",
+				"session.interface_context failed validation",
+			)),
+		}
 	var review_stage_value: Variant = session.get("review_stage", "active")
 	if typeof(review_stage_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
 		return {"ok": false, "error": "session.review_stage must be a string"}
@@ -9380,6 +9873,9 @@ func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
 		"last_workday_report": (last_report_value as Dictionary).duplicate(true),
 		"senior_active": senior_active,
 		"migrated_legacy_senior": migrated_legacy_senior,
+		"interface_context": (
+			interface_context_validation.get("context", {}) as Dictionary
+		).duplicate(true),
 		"first_clutch": _normalize_first_clutch_state(
 			first_clutch_data,
 			not session.has("first_clutch"),
@@ -10334,6 +10830,10 @@ func _campaign_resume_summary() -> Dictionary:
 	var session := _resume_dictionary(payload.get("session"))
 	var campaign_ledger := _resume_dictionary(payload.get("campaign"))
 	var senior_data := _resume_dictionary(payload.get("senior_roost"))
+	var return_recap := _campaign_return_recap(payload, metadata, session)
+	var offline_recap := _campaign_offline_recap(
+		_resume_integer(metadata.get("saved_at_unix"), 0),
+	)
 	var senior_active := _resume_boolean(session.get("senior_roost"), false)
 	var rank_id := StringName(String(metadata.get("probation_rank", "probationary")))
 	var stage := StringName(String(metadata.get("review_stage", "active")))
@@ -10397,9 +10897,261 @@ func _campaign_resume_summary() -> Dictionary:
 		"senior_year": maxi(1, _resume_integer(senior_data.get("completed_years"), 0) + 1),
 		"roost_marks": maxi(0, _resume_integer(senior_data.get("roost_marks"), 0)),
 		"mandate_seals": maxi(0, _resume_integer(senior_data.get("mandate_seals"), 0)),
+		"return_recap": return_recap,
+		"offline_recap": offline_recap,
 		"recovered_from_backup": _resume_boolean(envelope.get("recovered_from_backup"), false),
 		"recovery_source": String(envelope.get("recovery_source", "primary")),
 	}
+
+
+func _campaign_offline_recap(saved_at_unix: int, now_unix: int = -1) -> Dictionary:
+	## Pecking Order deliberately has no idle accrual. The saved timestamp is used
+	## only to disclose snapshot age; it never feeds production or finance. Clock
+	## anomalies therefore change this label, not the authoritative economy.
+	var observed_now := (
+		int(Time.get_unix_time_from_system())
+		if now_unix < 0 else
+		now_unix
+	)
+	var elapsed_seconds := observed_now - saved_at_unix
+	var elapsed_label := "SAVE TIME NOT FILED"
+	var elapsed_short_label := "TIME UNKNOWN"
+	var clock_anomaly := false
+	if saved_at_unix > 0:
+		if elapsed_seconds < 0:
+			elapsed_seconds = 0
+			elapsed_label = "CLOCK MOVED BACKWARD"
+			elapsed_short_label = "CLOCK CHANGE"
+			clock_anomaly = true
+		else:
+			elapsed_label = _offline_elapsed_label(elapsed_seconds)
+			elapsed_short_label = _offline_elapsed_short_label(elapsed_seconds)
+	return {
+		"version": 1,
+		"status_id": "paused",
+		"status_label": "ECONOMY PAUSED",
+		"elapsed_seconds": maxi(0, elapsed_seconds),
+		"elapsed_label": elapsed_label,
+		"elapsed_short_label": elapsed_short_label,
+		"clock_anomaly": clock_anomaly,
+		"detail": (
+			"No files advanced, eggs were laid, costs posted, or Feed Fund changed "
+			+ "while the terminal was closed."
+		),
+	}
+
+
+func _offline_elapsed_label(elapsed_seconds: int) -> String:
+	var bounded_seconds := maxi(0, elapsed_seconds)
+	if bounded_seconds < 60:
+		return "UNDER 1 MINUTE SINCE LAST FILE"
+	var total_minutes := bounded_seconds / 60
+	if total_minutes < 60:
+		return "%d MINUTE%s SINCE LAST FILE" % [
+			total_minutes,
+			"" if total_minutes == 1 else "S",
+		]
+	var total_hours := total_minutes / 60
+	var remaining_minutes := total_minutes % 60
+	if total_hours < 24:
+		var hour_label := "%d HOUR%s" % [
+			total_hours,
+			"" if total_hours == 1 else "S",
+		]
+		if remaining_minutes > 0:
+			hour_label += " %d MINUTE%s" % [
+				remaining_minutes,
+				"" if remaining_minutes == 1 else "S",
+			]
+		return "%s SINCE LAST FILE" % hour_label
+	var total_days := total_hours / 24
+	if total_days >= 30:
+		return "30+ DAYS SINCE LAST FILE"
+	var remaining_hours := total_hours % 24
+	var day_label := "%d DAY%s" % [
+		total_days,
+		"" if total_days == 1 else "S",
+	]
+	if remaining_hours > 0:
+		day_label += " %d HOUR%s" % [
+			remaining_hours,
+			"" if remaining_hours == 1 else "S",
+		]
+	return "%s SINCE LAST FILE" % day_label
+
+
+func _offline_elapsed_short_label(elapsed_seconds: int) -> String:
+	var bounded_seconds := maxi(0, elapsed_seconds)
+	if bounded_seconds < 60:
+		return "<1M"
+	var total_minutes := bounded_seconds / 60
+	if total_minutes < 60:
+		return "%dM" % total_minutes
+	var total_hours := total_minutes / 60
+	if total_hours < 24:
+		var remaining_minutes := total_minutes % 60
+		return (
+			"%dH" % total_hours
+			if remaining_minutes == 0 else
+			"%dH %dM" % [total_hours, remaining_minutes]
+		)
+	var total_days := total_hours / 24
+	if total_days >= 30:
+		return "30D+"
+	var remaining_hours := total_hours % 24
+	return (
+		"%dD" % total_days
+		if remaining_hours == 0 else
+		"%dD %dH" % [total_days, remaining_hours]
+	)
+
+
+func _campaign_return_recap(
+	payload: Dictionary,
+	metadata: Dictionary,
+	session: Dictionary,
+) -> Dictionary:
+	## The title must not activate an envelope candidate merely to describe it.
+	## Restore an isolated simulation instead, then reuse the same authoritative
+	## economic briefing that drives Capital. Invalid semantic state simply earns
+	## no economic preview and remains subject to the ordinary Continue verifier.
+	var simulation_data := _resume_dictionary(payload.get("simulation"))
+	if simulation_data.is_empty():
+		return {}
+	var preview_simulation := DepartmentSimulation.new(1701)
+	if not preview_simulation.restore_save_state(simulation_data):
+		return {}
+	var briefing := preview_simulation.economic_briefing_snapshot()
+	var bottleneck_values: Variant = briefing.get("bottlenecks", [])
+	if not bottleneck_values is Array or (bottleneck_values as Array).is_empty():
+		return {}
+	var bottleneck_value: Variant = (bottleneck_values as Array)[0]
+	if not bottleneck_value is Dictionary:
+		return {}
+	var bottleneck := bottleneck_value as Dictionary
+	var severity := clampi(int(bottleneck.get("severity", 0)), 0, 4)
+	var checkpoint_reason := String(metadata.get("reason", "")).strip_edges()
+	var last_report := _resume_dictionary(session.get("last_workday_report"))
+	var completed_shifts := maxi(0, _resume_integer(metadata.get("completed_shifts"), 0))
+	return {
+		"version": 1,
+		"last_filed_label": _resume_checkpoint_action_label(
+			checkpoint_reason,
+			completed_shifts,
+			last_report,
+		),
+		"status_id": "clear" if severity <= 0 else "attention",
+		"status_label": String(bottleneck.get(
+			"label",
+			"NO CRITICAL BOTTLENECK",
+		)).strip_edges().to_upper(),
+		"status_reason": String(bottleneck.get(
+			"reason",
+			"Current systems remain inside their filed limits.",
+		)).strip_edges(),
+		"next_action": String(bottleneck.get(
+			"action",
+			"Compare the next disclosed tradeoff.",
+		)).strip_edges(),
+		"feed_fund_cents": maxi(0, int(
+			(briefing.get("cash", {}) as Dictionary).get("feed_fund_cents", 0)
+		)),
+		"spendable_fund_cents": maxi(0, int(
+			(briefing.get("cash", {}) as Dictionary).get("spendable_fund_cents", 0)
+		)),
+	}
+
+
+func _resume_checkpoint_action_label(
+	reason: String,
+	completed_shifts: int,
+	last_report: Dictionary,
+) -> String:
+	var normalized := reason.strip_edges().to_lower()
+	if normalized.begins_with("facility_purchased_"):
+		return "FACILITY COMMISSIONED"
+	if normalized.begins_with("feed_order_"):
+		return "PROVISIONS ORDER FILED"
+	if normalized.begins_with("farmgate_dispatch_"):
+		return "FARMGATE ROUTE FILED"
+	if normalized.begins_with("farmer_relations_campaign_"):
+		return "PUBLIC-CREDIT CAMPAIGN FILED"
+	if normalized.begins_with("flock_relations_"):
+		return "FLOCK RELATIONS CASE FILED"
+	if normalized.begins_with("manager_instruction_"):
+		return "MANAGEMENT INSTRUCTION FILED"
+	if normalized.begins_with("capital_plan_pinned_"):
+		return "CAPITAL PLAN PINNED"
+	if normalized.begins_with("economic_watch_pinned_"):
+		return "MANAGEMENT WATCH PINNED"
+	if normalized.begins_with("campus_"):
+		return "CAMPUS CAPITAL FILED"
+	match normalized:
+		"new_campaign":
+			return "NEW COOP FILE OPENED"
+		"returned_to_intake":
+			return "COOP FILE SAFELY SHELVED"
+		"workday_completed":
+			return "SHIFT %d CLOSED" % maxi(1, completed_shifts)
+		"decision_resolved":
+			return "MANAGEMENT DECISION FILED"
+		"credit_memo_opened", "credit_memo_required":
+			return "CLOSING CREDIT MEMO OPENED"
+		"probation_report":
+			return "PROBATION REPORT FILED"
+		"market_contract_signed":
+			return "MUTUAL BINDER SIGNED"
+		"market_contract_declined":
+			return "STANDARD BOOK FILED"
+		"market_contract_board":
+			return "MORNING CONTRACT BOARD OPENED"
+		"milestone_selected":
+			return "PERMANENT MILESTONE FILED"
+		"routing_assignment":
+			return "ROUTING PLAN FILED"
+		"routing_assignment_undo":
+			return "ROUTING CHANGE UNDONE"
+		"claim_resolution":
+			return "CLAIMANT RESOLUTION FILED"
+		"personnel_action":
+			return "HEN SUPPORT ACTION FILED"
+		"peck_assist":
+			return "PRIORITY PECK FILED"
+		"feed_party_funded":
+			return "FEED PARTY FUNDED"
+		"overtime_toggled":
+			return "AFTER-HOURS POLICY FILED"
+		"upgrade_purchased":
+			return "WORKSTATION UPGRADE FILED"
+		"worker_hired":
+			return "NEW HEN HIRED"
+		"worker_released":
+			return "HEN RELEASE FILED"
+		"capacity_expanded":
+			return "NEW WORKSTATION COMMISSIONED"
+		"first_clutch_completed":
+			return "FIRST CLUTCH COMPLETED"
+		"first_clutch_skipped":
+			return "FIRST CLUTCH GUIDANCE SKIPPED"
+		"senior_annual_mandate_selected":
+			return "ANNUAL BOARD MANDATE FILED"
+		"senior_quarter_policy":
+			return "SENIOR CAPITAL POLICY FILED"
+		"career_sponsorship_authorized":
+			return "CAREER SPONSORSHIP FILED"
+		"senior_roost_entered":
+			return "SENIOR ROOST OPENED"
+		"senior_year_transition":
+			return "NEXT SENIOR YEAR OPENED"
+		"final_review":
+			return "FINAL REVIEW FILED"
+	if not last_report.is_empty():
+		var report_day := maxi(1, _resume_integer(
+			last_report.get("day"),
+			maxi(1, completed_shifts),
+		))
+		return "SHIFT %d RESULTS FILED" % report_day
+	return "CURRENT COOP FILE VERIFIED"
 
 
 func _resume_dictionary(value: Variant) -> Dictionary:
@@ -10731,9 +11483,24 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 	)
 	if title_open:
 		var intake_phase := String(_campaign_ui.title_intake_phase()).replace("_", " ")
-		return (
-			"Pecking Order career intake is open, %s. Objective: choose a pressure file and begin a new career, or resume the verified career on this device."
-			% intake_phase
+		var title_snapshot := _campaign_ui.campaign_snapshot()
+		var resume_summary := _resume_dictionary(title_snapshot.get("resume_summary"))
+		var return_recap := _web_return_recap_summary(resume_summary)
+		var offline_recap := _web_offline_recap_summary(resume_summary)
+		return _web_accessibility_text(
+			"Pecking Order career intake is open, %s.%s%s Objective: choose a pressure file and begin a new career, or resume the verified career on this device."
+			% [
+				intake_phase,
+				" %s" % return_recap if not return_recap.is_empty() else "",
+				" %s" % offline_recap if not offline_recap.is_empty() else "",
+			],
+			1600,
+		)
+	if _character_dialogue_ui != null and _character_dialogue_ui.is_presenting():
+		return _web_accessibility_text(
+			"%s Objective: read or file away this character aside; the exact event remains in Flockwatch."
+			% _character_dialogue_ui.accessibility_text(),
+			1600,
 		)
 	var first_clutch := _first_clutch_coach_snapshot(snapshot)
 	if bool(first_clutch.get("visible", false)):
@@ -10773,6 +11540,73 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 		],
 		2200,
 	)
+
+
+func _web_return_recap_summary(resume_summary: Dictionary) -> String:
+	var return_recap := _resume_dictionary(resume_summary.get("return_recap"))
+	if return_recap.is_empty():
+		return ""
+	var last_filed := _web_accessibility_text(
+		String(return_recap.get("last_filed_label", "current coop checkpoint")),
+		100,
+	)
+	var status_label := _web_accessibility_text(
+		String(return_recap.get("status_label", "current economic review")),
+		100,
+	)
+	var status_reason := _web_accessibility_text(
+		String(return_recap.get("status_reason", "")),
+		240,
+	)
+	var next_action := _web_accessibility_text(
+		String(return_recap.get("next_action", "")),
+		240,
+	)
+	var status_prefix := (
+		"Status"
+		if String(return_recap.get("status_id", "")) == "clear" else
+		"Unresolved"
+	)
+	var result := "Last filed: %s. %s: %s" % [
+		last_filed,
+		status_prefix,
+		status_label,
+	]
+	if not status_reason.is_empty():
+		result += ", %s" % status_reason
+	if not _web_text_has_terminal_punctuation(result):
+		result += "."
+	if not next_action.is_empty():
+		result += " Next: %s" % next_action
+		if not _web_text_has_terminal_punctuation(result):
+			result += "."
+	return _web_accessibility_text(result, 760)
+
+
+func _web_offline_recap_summary(resume_summary: Dictionary) -> String:
+	var offline_recap := _resume_dictionary(resume_summary.get("offline_recap"))
+	if offline_recap.is_empty():
+		return ""
+	var status_label := _web_accessibility_text(
+		String(offline_recap.get("status_label", "ECONOMY PAUSED")),
+		100,
+	)
+	var elapsed_label := _web_accessibility_text(
+		String(offline_recap.get("elapsed_label", "SAVE TIME NOT FILED")),
+		120,
+	)
+	var detail := _web_accessibility_text(
+		String(offline_recap.get("detail", "")),
+		260,
+	)
+	var result := "Offline: %s, %s." % [status_label, elapsed_label]
+	if not detail.is_empty():
+		result += " %s" % detail
+	return _web_accessibility_text(result, 520)
+
+
+func _web_text_has_terminal_punctuation(value: String) -> bool:
+	return value.ends_with(".") or value.ends_with("!") or value.ends_with("?")
 
 
 func _web_accessibility_text(value: String, limit: int) -> String:
@@ -10914,6 +11748,15 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			campus_portfolio_reveal_state = (reveal_state_value as Dictionary).duplicate(true)
 	var settings_state := {
 		"visible": _settings_ui != null and _settings_ui.is_open(),
+		"active_category": (
+			String(_settings_ui.active_category())
+			if _settings_ui != null else
+			String(_player_preferences.get("settings_category", "comfort"))
+		),
+		"settings_category": String(
+			_player_preferences.get("settings_category", "comfort")
+		),
+		"available_categories": ["audio", "comfort", "controls", "career"],
 		"accessible_text": (
 			_settings_ui.accessible_text()
 			if _settings_ui != null and _settings_ui.is_open() else ""
@@ -10929,6 +11772,11 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"notice_level": String(_player_preferences.get("notice_level", "all")),
 		"notice_duration": String(_player_preferences.get("notice_duration", "standard")),
 		"effect_level": String(_player_preferences.get("effect_level", "full")),
+		"particle_level": String(_player_preferences.get("particle_level", "full")),
+		"camera_motion": String(_player_preferences.get("camera_motion", "full")),
+		"camera_sensitivity": String(
+			_player_preferences.get("camera_sensitivity", "standard")
+		),
 		"animation_speed": String(_player_preferences.get("animation_speed", "standard")),
 		"animation_speed_multiplier": _animation_speed_multiplier,
 		"tooltip_delay": String(_player_preferences.get("tooltip_delay", "standard")),
@@ -10945,6 +11793,8 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 	var challenge_contract: Dictionary = _campaign_state.challenge_contract_snapshot()
 	var selected_new_challenge_contract: Dictionary = {}
 	var resume_challenge_contract: Dictionary = {}
+	var resume_return_recap: Dictionary = {}
+	var resume_offline_recap: Dictionary = {}
 	var resume_available := false
 	var resume_senior_roost := false
 	var campaign_intake_phase := ""
@@ -10967,6 +11817,8 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			false,
 		)
 		var resume_summary := _resume_dictionary(title_snapshot.get("resume_summary"))
+		resume_return_recap = _resume_dictionary(resume_summary.get("return_recap"))
+		resume_offline_recap = _resume_dictionary(resume_summary.get("offline_recap"))
 		resume_senior_roost = _resume_boolean(resume_summary.get("senior_roost"), false)
 		if resume_available and not resume_senior_roost:
 			var resume_contract_value := _resume_dictionary(
@@ -11172,6 +12024,16 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"staffing": staffing_interaction_safety,
 		},
 		"notifications": _notification_diagnostic_state(),
+		"character_dialogue": (
+			_character_dialogue_ui.diagnostic_state()
+			if _character_dialogue_ui != null else
+			{"visible": false, "queued_count": 0}
+		),
+		"internship_program": (
+			_staffing_ui.internship_program_diagnostic_state()
+			if _staffing_ui != null else
+			{"visible": false, "candidate_count": 0}
+		),
 		"flockwatch": _flockwatch_diagnostic_state(),
 		"commendations": _commendations_diagnostic_state(),
 		"checkpoint": _checkpoint_diagnostic_state(),
@@ -11183,6 +12045,8 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"challenge_contract": challenge_contract,
 		"selected_new_challenge_contract": selected_new_challenge_contract,
 		"resume_challenge_contract": resume_challenge_contract,
+		"resume_return_recap": resume_return_recap,
+		"resume_offline_recap": resume_offline_recap,
 		"resume_available": resume_available,
 		"resume_senior_roost": resume_senior_roost,
 		"probation_safeguards": _campaign_state.probation_safeguard_forecast(),
@@ -11291,6 +12155,9 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"daily_supervisor_payroll_cents": int(
 				snapshot.get("daily_supervisor_payroll_cents", 0)
 			),
+			"daily_fellow_payroll_cents": int(
+				snapshot.get("daily_fellow_payroll_cents", 0)
+			),
 			"daily_facility_cost_cents": int(snapshot.get("daily_facility_cost_cents", 0)),
 			"wage_arrears_cents": int(snapshot.get("wage_arrears_cents", 0)),
 			"briefing": (
@@ -11396,6 +12263,12 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 		and _flockwatch_restore_farmer_review
 		and not _last_workday_report.is_empty()
 	)
+	var restore_campaign_report := (
+		changed
+		and not is_open
+		and _flockwatch_restore_campaign_report
+		and _campaign_ui != null
+	)
 	if changed and is_open:
 		var focus_owner := get_viewport().gui_get_focus_owner()
 		if (
@@ -11474,6 +12347,12 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 	if restore_farmer_review:
 		_flockwatch_restore_farmer_review = false
 		_show_farmer_review(_last_workday_report, false)
+	elif restore_campaign_report:
+		_flockwatch_restore_campaign_report = false
+		_campaign_ui.show_between_shift_report(
+			_campaign_presentation_snapshot(&"between_shift")
+		)
+		_set_campaign_modal_open(true)
 
 
 func _on_flockwatch_page_changed(page_id: StringName) -> void:
@@ -11481,6 +12360,7 @@ func _on_flockwatch_page_changed(page_id: StringName) -> void:
 		_flockwatch_open
 		and page_id in [FlockwatchNavigation.PAGE_FLOCK, FlockwatchNavigation.PAGE_CAPITAL]
 	)
+	_on_campaign_interface_context_changed()
 	if _flockwatch_open and _simulation != null:
 		var snapshot := _simulation.snapshot()
 		_refresh_visible_management_surfaces(snapshot)
@@ -11491,8 +12371,15 @@ func _on_flockwatch_show_all_filings_changed(_enabled: bool) -> void:
 	# The navigator has already settled page availability before this signal is
 	# emitted. Publish that presentation-only change immediately so browser
 	# diagnostics and assistive tooling never lag behind the visible tab strip.
+	_on_campaign_interface_context_changed()
 	if _flockwatch_open and _simulation != null:
 		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_campaign_interface_context_changed() -> void:
+	if _applying_campaign_interface_context or not _campaign_session_checkpoint_enabled:
+		return
+	_queue_campaign_checkpoint("interface_context_changed")
 
 
 func _open_flockwatch_page(page_id: StringName) -> void:
@@ -11961,6 +12848,67 @@ func _campus_presentation_state_fingerprint(snapshot: Dictionary) -> int:
 	])
 
 
+func _queue_character_dialogue(entry: Dictionary) -> bool:
+	if _character_dialogue_ui == null or entry.is_empty():
+		return false
+	var accepted: bool = _character_dialogue_ui.enqueue_dialogue(entry)
+	if accepted and _ticker_panel != null:
+		_ticker_panel.visible = false
+		_ticker_visible_copy = ""
+	return accepted
+
+
+func _on_character_dialogue_presented(entry: Dictionary) -> void:
+	if _audio_feedback == null:
+		return
+	_audio_feedback.play_dialogue_cutout(StringName(String(
+		entry.get("speaker_id", "")
+	)))
+
+
+func _queue_character_dialogues(entries: Array[Dictionary]) -> int:
+	var accepted := 0
+	for entry in entries:
+		if _queue_character_dialogue(entry):
+			accepted += 1
+	return accepted
+
+
+func _character_dialogue_projection(snapshot: Dictionary) -> Dictionary:
+	# Keep the event comparison tiny. The simulation can publish many snapshots
+	# at accelerated speed; dialogue only needs threshold crossings, not a deep
+	# copy of the full economy and campus filings.
+	var workers: Array[Dictionary] = []
+	for worker_value in snapshot.get("workers", []):
+		if not worker_value is Dictionary:
+			continue
+		var worker := worker_value as Dictionary
+		workers.append({
+			"id": int(worker.get("id", -1)),
+			"name": String(worker.get("name", "")),
+			"employed": bool(worker.get("employed", true)),
+			"stress": float(worker.get("stress", 0.0)),
+			"morale": float(worker.get("morale", 0.0)),
+			"career_level": int(worker.get("career_level", 0)),
+			"career_title": String(worker.get("career_title", "")),
+		})
+	var operations := snapshot.get("operations", {}) as Dictionary
+	return {
+		"day": int(snapshot.get("day", 1)),
+		"eggs_today": int(snapshot.get("eggs_today", 0)),
+		"cracked_today": int(snapshot.get("cracked_today", 0)),
+		"wage_arrears_cents": int(snapshot.get("wage_arrears_cents", 0)),
+		"overtime_enabled": bool(snapshot.get("overtime_enabled", false)),
+		"feed_party_used_today": bool(snapshot.get("feed_party_used_today", false)),
+		"workers": workers,
+		"operations": {
+			"manager_roster": (
+				operations.get("manager_roster", []) as Array
+			).duplicate(true),
+		},
+	}
+
+
 func _on_snapshot_changed(snapshot: Dictionary) -> void:
 	if _clock != null and _clock.is_advancing_tick_batch():
 		_pending_simulation_presentation_snapshot = snapshot
@@ -11979,6 +12927,15 @@ func _on_clock_tick_batch_completed(_tick_count: int) -> void:
 func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	_presentation_update_count += 1
 	_last_presented_tick_revision = int(snapshot.get("authoritative_tick_revision", 0))
+	var dialogue_projection := _character_dialogue_projection(snapshot)
+	if not _character_dialogue_previous_snapshot.is_empty():
+		_queue_character_dialogues(
+			CharacterDialogueCatalogScript.beats_for_snapshot(
+				_character_dialogue_previous_snapshot,
+				dialogue_projection,
+			)
+		)
+	_character_dialogue_previous_snapshot = dialogue_projection
 	var active_snapshot := _snapshot_with_active_workers(snapshot)
 	_apply_office_capacity_visibility(_office_capacity_from_snapshot(snapshot))
 	_reconcile_worker_views(snapshot)
@@ -12397,6 +13354,7 @@ func _staffing_presentation_state_fingerprint(snapshot: Dictionary) -> int:
 		bool(capacity.get("can_purchase", capacity.get("available", false))),
 		String(capacity.get("reason", "")),
 		snapshot.get("last_staffing_action", {}),
+		snapshot.get("internship_program", {}),
 	])
 
 
@@ -13806,6 +14764,114 @@ func _capture_staffing_preview() -> void:
 	_save_preview("roost_staffing.png")
 
 
+func _capture_internship_ui_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 2
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 50_000)
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_FLOCK)
+	var internship_ui := find_child("InternshipProgramUI", true, false) as InternshipProgramUI
+	if internship_ui != null:
+		internship_ui.set_expanded(true)
+	await get_tree().process_frame
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_FLOCK)
+	if scroll != null and internship_ui != null:
+		var component_offset := (
+			internship_ui.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 24.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("bright_eyed_rotation.png")
+
+
+func _capture_internship_fellow_ui_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 2
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 50_000)
+	var onboard := _simulation.onboard_intern(&"lottie_ledger")
+	if not bool(onboard.get("accepted", false)):
+		push_error(
+			"Intern fellowship capture could not onboard Lottie: %s"
+			% String(onboard.get("reason", "unknown reason"))
+		)
+		get_tree().quit(1)
+		return
+	var internship_state := _simulation.get("_internship_program") as InternshipProgramState
+	for completed_day in [2, 3, 4]:
+		internship_state.complete_shift(completed_day)
+	_simulation.day = 5
+	var fellowship := _simulation.resolve_intern_review(
+		&"lottie_ledger",
+		&"paid_fellowship",
+	)
+	if not bool(fellowship.get("accepted", false)):
+		push_error(
+			"Intern fellowship capture could not file Lottie's paid post: %s"
+			% String(fellowship.get("reason", "unknown reason"))
+		)
+		get_tree().quit(1)
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_FLOCK)
+	var internship_ui := find_child("InternshipProgramUI", true, false) as InternshipProgramUI
+	if internship_ui != null:
+		internship_ui.set_expanded(true)
+	await get_tree().process_frame
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_FLOCK)
+	if scroll != null and internship_ui != null:
+		var component_offset := (
+			internship_ui.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 24.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("bright_eyed_paid_fellow.png")
+
+
+func _capture_intern_dialogue_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 2
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 50_000)
+	if _character_dialogue_ui != null:
+		_character_dialogue_ui.clear_session()
+	var result := _simulation.onboard_intern(&"lottie_ledger")
+	if not bool(result.get("accepted", false)):
+		push_error(
+			"Intern dialogue capture could not onboard Lottie: %s"
+			% String(result.get("reason", "unknown reason"))
+		)
+		get_tree().quit(1)
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_set_flockwatch_open(false)
+	_queue_character_dialogue(
+		CharacterDialogueCatalogScript.beat_for_internship_action(result)
+	)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("intern_lottie_dialogue.png")
+
+
 func _capture_facility_preview() -> void:
 	_prepare_capture_running()
 	_simulation.apply_campaign_unlock(&"shell_quality_checks")
@@ -15118,6 +16184,11 @@ func _prepare_capture_running() -> void:
 
 
 func _save_preview(file_name: String) -> void:
+	# Browser captures are collected by the Playwright harness. Leaving the Web
+	# runtime alive avoids tearing down its audio graph while the screenshot and
+	# diagnostic state are still being read.
+	if OS.has_feature("web"):
+		return
 	var capture_directory := ProjectSettings.globalize_path("res://captures")
 	DirAccess.make_dir_recursive_absolute(capture_directory)
 	var image := get_viewport().get_texture().get_image()

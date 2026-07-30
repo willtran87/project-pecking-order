@@ -1040,6 +1040,24 @@ function buildGameStateAccessibleStatus(
 			"New file selection",
 		);
 		const resumeAvailable = state.resume_available === true;
+		const returnRecap = recordValue(state.resume_return_recap);
+		const lastFiled = diagnosticTitle(diagnosticPlainText(returnRecap.last_filed_label, 80));
+		const recapStatus = diagnosticTitle(diagnosticPlainText(returnRecap.status_label, 80));
+		const recapReason = diagnosticPlainText(returnRecap.status_reason, 180);
+		const recapAction = diagnosticPlainText(returnRecap.next_action, 180);
+		const returnRecapText = Object.keys(returnRecap).length > 0
+			? ` Last filed: ${lastFiled || "current coop checkpoint"}. ${stringValue(returnRecap.status_id) === "clear" ? "Status" : "Unresolved"}: ${recapStatus || "current economic review"}${recapReason.length > 0 ? `, ${recapReason}` : ""}.${recapAction.length > 0 ? ` Next: ${recapAction}` : ""}`
+			: "";
+		const offlineRecap = recordValue(state.resume_offline_recap);
+		const offlineStatus = diagnosticTitle(diagnosticPlainText(
+			offlineRecap.status_label,
+			80,
+		));
+		const offlineElapsed = diagnosticPlainText(offlineRecap.elapsed_label, 120);
+		const offlineDetail = diagnosticPlainText(offlineRecap.detail, 260);
+		const offlineRecapText = Object.keys(offlineRecap).length > 0
+			? ` Offline: ${offlineStatus || "Economy Paused"}, ${offlineElapsed || "save time not filed"}.${offlineDetail.length > 0 ? ` ${offlineDetail}` : ""}`
+			: "";
 		let resumeTerms = "";
 		if (resumeAvailable && state.resume_senior_roost === true) {
 			resumeTerms = " A saved Senior career candidate is available; Continue will verify and open it.";
@@ -1052,7 +1070,7 @@ function buildGameStateAccessibleStatus(
 				: " A resumable file candidate is available, but its filing standard could not be verified.";
 		}
 		if (resumeAvailable && intakePhase !== "new_file") {
-			return `Campaign menu open.${resumeTerms} Objective: continue the saved-file candidate, or review a new file.`;
+			return `Campaign menu open.${resumeTerms}${returnRecapText}${offlineRecapText} Objective: continue the saved-file candidate, or review a new file.`;
 		}
 		const savedCandidateNote = resumeAvailable
 			? " The saved-file candidate remains unchanged until replacement is confirmed."

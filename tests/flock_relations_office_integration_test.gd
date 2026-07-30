@@ -178,10 +178,8 @@ func _run() -> void:
 		# the authoritative handler must still reject it atomically.
 		held_remedy.pressed.emit()
 	await process_frame
-	_check(forwarded == [{"case_id": case_id, "action_id": &"fund_remedy"}], "the embedded case control should forward stable ids through RoostStaffingUI", failures)
+	_check(forwarded.is_empty(), "the embedded case control should fail closed before forwarding a stale disabled disposition", failures)
 	_check(JSON.stringify(simulation.export_save_state()) == before_rejected_click, "a mid-shift Fund Remedy signal should preserve every authoritative field", failures)
-	var ticker := office.get("_ticker_label") as Label
-	_check(ticker != null and _contains_all(ticker.text, ["only", "shift review"]), "the rejected Office handler should leave a truthful review-gate explanation", failures)
 
 	# Reopen the same canonical file in Review, then exercise the player-facing
 	# button -> case UI -> staffing UI -> Office handler -> simulation path.
@@ -208,6 +206,20 @@ func _run() -> void:
 	if remedy != null:
 		remedy.pressed.emit()
 	await process_frame
+	var confirmation := office.find_child(
+		"FlockRelationsDispositionConfirmation",
+		true,
+		false,
+	) as ConfirmationDialog
+	_check(
+		confirmation != null
+		and confirmation.visible
+		and simulation.revenue_cents == fund_before_remedy,
+		"opening the permanent remedy disposition should not debit the Feed Fund",
+		failures,
+	)
+	if confirmation != null:
+		confirmation.confirmed.emit()
 	await process_frame
 
 	_check(forwarded == [{"case_id": case_id, "action_id": &"fund_remedy"}], "review authorization should traverse RoostStaffingUI exactly once", failures)

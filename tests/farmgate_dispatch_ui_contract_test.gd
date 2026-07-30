@@ -1,6 +1,7 @@
 extends SceneTree
 
 const FarmgateDispatchUIScript := preload("res://features/office/farmgate_dispatch_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -10,14 +11,20 @@ func _init() -> void:
 func _run() -> void:
 	var failures: Array[String] = []
 	var simulation := _dispatch_fixture()
+	var test_viewport := SubViewport.new()
+	test_viewport.name = "FarmgateDispatchTestViewport"
+	test_viewport.size = Vector2i(282, 760)
+	test_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(test_viewport)
 	var harness := Control.new()
 	harness.name = "FarmgateDispatchUIContractHarness"
 	harness.size = Vector2(282.0, 760.0)
-	root.add_child(harness)
+	test_viewport.add_child(harness)
 
 	var ui := FarmgateDispatchUIScript.new() as FarmgateDispatchUI
 	ui.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	harness.add_child(ui)
+	ui.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	await process_frame
 
 	var requested: Array[StringName] = []
@@ -95,11 +102,70 @@ func _run() -> void:
 		failures,
 	)
 
+	var prior_theme := ui.theme
+	var control_records := _capture_control_records(ui)
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	await process_frame
+	await process_frame
+	if "--capture-max-scale-farmgate" in OS.get_cmdline_user_args():
+		var capture_directory := ProjectSettings.globalize_path(
+			"res://output/web-game/farmgate-dispatch-scale-v1"
+		)
+		DirAccess.make_dir_recursive_absolute(capture_directory)
+		var capture_image := test_viewport.get_texture().get_image()
+		_check(
+			capture_image != null,
+			"Farmgate scale capture should expose the rendered compact filing",
+			failures,
+		)
+		if capture_image != null:
+			_check(
+				capture_image.save_png(
+					capture_directory.path_join(
+						"farmgate-dispatch-282x760-150.png"
+					)
+				) == OK,
+				"Farmgate scale capture should save",
+				failures,
+			)
+	_expand_interface_copy(ui)
+	await process_frame
+	await process_frame
+	var ui_rect := ui.get_global_rect()
+	_check(
+		ui.get_combined_minimum_size().x <= harness.size.x + 0.5,
+		"150-percent expanded Farmgate filing should remain inside 282px (minimum=%s viewport=%s largest=%s)"
+		% [
+			ui.get_combined_minimum_size(),
+			harness.size,
+			_largest_minimum_widths(ui),
+		],
+		failures,
+	)
+	_check(
+		_visible_children_fit_horizontally(ui, ui_rect),
+		"every max-scale Farmgate control should remain horizontally contained",
+		failures,
+	)
+	_check(
+		selector != null
+		and not selector.fit_to_longest_item
+		and authorize != null
+		and authorize.clip_text,
+		"compact Farmgate actions should shrink independently of expanded option and action copy",
+		failures,
+	)
+	_restore_control_records(control_records)
+	ui.theme = prior_theme
+	await process_frame
+	await process_frame
+
 	ui.apply_snapshot({})
 	await process_frame
 	_check(not ui.visible, "a snapshot without the authoritative projection should leave no empty dispatch furniture", failures)
 
-	harness.free()
+	test_viewport.free()
 	await process_frame
 	if not failures.is_empty():
 		for failure in failures:
@@ -132,6 +198,179 @@ func _contains_all(copy: String, fragments: Array[String]) -> bool:
 		if not normalized.contains(fragment.to_lower()):
 			return false
 	return true
+
+
+func _visible_children_fit_horizontally(
+	root_control: Control,
+	root_rect: Rect2,
+) -> bool:
+	for node_value: Node in root_control.find_children(
+		"*",
+		"Control",
+		true,
+		false,
+	):
+		var control := node_value as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var rect := control.get_global_rect()
+		if (
+			rect.position.x < root_rect.position.x - 0.5
+			or rect.end.x > root_rect.end.x + 0.5
+		):
+			return false
+	return true
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	var rows: Array[Dictionary] = []
+	for node_value: Node in root_control.find_children(
+		"*",
+		"Control",
+		true,
+		false,
+	):
+		var control := node_value as Control
+		if control != null and control.is_visible_in_tree():
+			rows.append({
+				"name": control.name,
+				"minimum": control.get_combined_minimum_size().x,
+				"width": control.size.x,
+			})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("minimum", 0.0)) > float(b.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(12, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _capture_control_records(root_node: Node) -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
+	for node_value: Node in root_node.find_children(
+		"*",
+		"Control",
+		true,
+		false,
+	):
+		var control := node_value as Control
+		var record := {
+			"control": control,
+			"had_font_override": control.has_theme_font_size_override(
+				"font_size"
+			),
+			"font_size": control.get_theme_font_size("font_size"),
+			"kind": &"",
+			"text": "",
+			"items": [] as Array[String],
+		}
+		if control is OptionButton:
+			var option := control as OptionButton
+			var items: Array[String] = []
+			for item_index: int in option.item_count:
+				items.append(option.get_item_text(item_index))
+			record["kind"] = &"option"
+			record["items"] = items
+		elif control is Button:
+			record["kind"] = &"button"
+			record["text"] = (control as Button).text
+		elif control is Label:
+			record["kind"] = &"label"
+			record["text"] = (control as Label).text
+		records.append(record)
+	return records
+
+
+func _restore_control_records(records: Array[Dictionary]) -> void:
+	for record: Dictionary in records:
+		var value: Variant = record.get("control")
+		if not is_instance_valid(value):
+			continue
+		var control := value as Control
+		if control == null:
+			continue
+		match StringName(record.get("kind", &"")):
+			&"option":
+				var option := control as OptionButton
+				var items := record.get("items", []) as Array
+				for item_index: int in mini(option.item_count, items.size()):
+					option.set_item_text(item_index, String(items[item_index]))
+			&"button":
+				(control as Button).text = String(record.get("text", ""))
+			&"label":
+				(control as Label).text = String(record.get("text", ""))
+		if bool(record.get("had_font_override", false)):
+			control.add_theme_font_size_override(
+				"font_size",
+				int(record.get("font_size", 16)),
+			)
+		else:
+			control.remove_theme_font_size_override("font_size")
+
+
+func _apply_explicit_font_scale(root_node: Node, scale: float) -> void:
+	for node_value: Node in root_node.find_children(
+		"*",
+		"Control",
+		true,
+		false,
+	):
+		var control := node_value as Control
+		if (
+			control != null
+			and control.has_theme_font_size_override("font_size")
+		):
+			var base_size := control.get_theme_font_size("font_size")
+			control.add_theme_font_size_override(
+				"font_size",
+				maxi(10, roundi(float(base_size) * scale)),
+			)
+
+
+func _expand_interface_copy(root_node: Node) -> void:
+	for node_value: Node in root_node.find_children(
+		"*",
+		"Control",
+		true,
+		false,
+	):
+		if node_value is OptionButton:
+			var option := node_value as OptionButton
+			for item_index: int in option.item_count:
+				option.set_item_text(
+					item_index,
+					_expanded(option.get_item_text(item_index)),
+				)
+		elif node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in [
+		"a",
+		"e",
+		"i",
+		"o",
+		"u",
+		"A",
+		"E",
+		"I",
+		"O",
+		"U",
+	]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

@@ -6,6 +6,7 @@ const HarvestCreditStateScript := preload("res://core/simulation/harvest_credit_
 const FarmgateDispatchStateScript := preload("res://core/simulation/farmgate_dispatch_state.gd")
 const CampusPortfolioStateScript := preload("res://core/simulation/campus_portfolio_state.gd")
 const FarmTreasuryStateScript := preload("res://core/simulation/farm_treasury_state.gd")
+const InternshipProgramStateScript := preload("res://core/simulation/internship_program_state.gd")
 
 signal snapshot_changed(snapshot: Dictionary)
 signal egg_laid(worker_id: int, quality: StringName, value_cents: int)
@@ -25,6 +26,7 @@ signal decision_requested(decision: Dictionary)
 signal decision_resolved(result: Dictionary)
 signal personnel_action_resolved(result: Dictionary)
 signal manager_action_resolved(result: Dictionary)
+signal internship_action_resolved(result: Dictionary)
 signal peck_assist_resolved(result: Dictionary)
 signal peck_assist_missed(worker_id: int, claim_id: int)
 signal staffing_action_resolved(result: Dictionary)
@@ -52,7 +54,15 @@ const BASE_CLAIM_CAPACITY := 18
 const CLAIM_CAPACITY_PER_RECORDS_LEVEL := 6
 const BASE_WORK_PROGRESS := 3.2
 const MAX_UPGRADE_LEVEL := 5
-const SAVE_STATE_VERSION := 27
+const SAVE_STATE_VERSION := 28
+const ECONOMIC_WATCH_ORDER: Array[StringName] = [
+	&"auto",
+	&"margin",
+	&"feed",
+	&"capacity",
+	&"welfare",
+	&"market",
+]
 const MANAGER_ROSTER_VERSION := 1
 const FIRST_CLUTCH_REINVESTMENT_VERSION := 1
 const FIRST_CLUTCH_WORKER_ID := 0
@@ -379,7 +389,7 @@ const PACKING_CARTON_SIZE := 6
 const PACKING_VALUE_BONUS_PER_LEVEL := 0.04
 const PACKING_CARTON_BONUS_PER_LEVEL_CENTS := 300
 const CONTRACT_BOARD_UNLOCK_DAY := 3
-const MARKET_CONTRACT_MAX_CLAIMS := 6
+const MARKET_CONTRACT_MAX_CLAIMS := 7
 const MARKET_STANDING_SUCCESS_POINTS := 2
 const MARKET_STANDING_BREACH_POINTS := 1
 const SERVICE_COOP_PREMIUM_BASIS_POINTS_PER_LEVEL := 5000
@@ -393,6 +403,59 @@ const MARKET_SEASON_FIRST_DAY := 6
 const MARKET_SEASON_LENGTH_DAYS := 3
 const MARKET_SEASONS_PER_YEAR := 4
 const RESTED_FLOCK_WELFARE_MINIMUM := 72
+const MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT := 3
+const MARKET_PRICING_ESTIMATED_HANDLING_COST_CENTS := 125
+const MARKET_PRICING_PROFILE_ORDER: Array[StringName] = [
+	&"mutual_rate",
+	&"community_access_rate",
+	&"executive_select_rate",
+]
+const MARKET_PRICING_OUTCOME_KEYS: Array[String] = [
+	"mutual_rate_success",
+	"mutual_rate_breach",
+	"community_access_rate_success",
+	"community_access_rate_breach",
+	"executive_select_rate_success",
+	"executive_select_rate_breach",
+]
+const MARKET_PRICING_PROFILE_DEFINITIONS := {
+	&"mutual_rate": {
+		"label": "MUTUAL RATE",
+		"summary": "Keep the quoted premium and standard folder volume.",
+		"premium_basis_points": 0,
+		"volume_delta": 0,
+		"required_delta": 0,
+		"satisfaction_success_delta": 1,
+		"satisfaction_breach_delta": -3,
+		"reach_success_delta": 1,
+		"reach_breach_delta": -1,
+		"required_reach": 0,
+	},
+	&"community_access_rate": {
+		"label": "COMMUNITY ACCESS RATE",
+		"summary": "Quote 20% less, accept one referred folder, and earn stronger claimant goodwill when fulfilled.",
+		"premium_basis_points": -2000,
+		"volume_delta": 1,
+		"required_delta": 1,
+		"satisfaction_success_delta": 4,
+		"satisfaction_breach_delta": -5,
+		"reach_success_delta": 3,
+		"reach_breach_delta": -2,
+		"required_reach": 0,
+	},
+	&"executive_select_rate": {
+		"label": "EXECUTIVE SELECT RATE",
+		"summary": "Quote 30% more, serve one fewer folder, and trade claimant goodwill for margin.",
+		"premium_basis_points": 3000,
+		"volume_delta": -1,
+		"required_delta": -1,
+		"satisfaction_success_delta": -2,
+		"satisfaction_breach_delta": -6,
+		"reach_success_delta": 0,
+		"reach_breach_delta": -3,
+		"required_reach": MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
+	},
+}
 const MARKET_CONTRACT_CLAUSE_ORDER: Array[StringName] = [
 	&"standard_terms",
 	&"expedited_hatch_rider",
@@ -1694,6 +1757,7 @@ var owned_facilities: Dictionary = {
 	FARMGATE_DISPATCH_DEPOT_ID: 0,
 }
 var pinned_capital_plan_id: StringName = &""
+var pinned_economic_watch_id: StringName = &"auto"
 var last_facility_purchase_receipt: Dictionary = {}
 var facility_commissioning_history: Array[Dictionary] = []
 var campus_expansion_state: Dictionary = {
@@ -1734,6 +1798,14 @@ var market_contract_premium_today_cents: int = 0
 var market_contract_premium_total_cents: int = 0
 var market_contract_breach_today_cents: int = 0
 var market_contract_breach_total_cents: int = 0
+var market_pricing_outcomes: Dictionary = {
+	"mutual_rate_success": 0,
+	"mutual_rate_breach": 0,
+	"community_access_rate_success": 0,
+	"community_access_rate_breach": 0,
+	"executive_select_rate_success": 0,
+	"executive_select_rate_breach": 0,
+}
 var office_capacity: int = MAXIMUM_STAFF_CAPACITY
 var wage_arrears_cents: int = 0
 var last_staffing_action: Dictionary = {}
@@ -1837,6 +1909,8 @@ var _harvest_credit = HarvestCreditStateScript.new()
 var _farmgate_dispatch = FarmgateDispatchStateScript.new()
 var _campus_portfolio = CampusPortfolioStateScript.new()
 var _farm_treasury = FarmTreasuryStateScript.new(5000, 0)
+var _internship_program = InternshipProgramStateScript.new()
+var _opening_challenge_configured := false
 
 
 func _init(
@@ -1883,6 +1957,93 @@ func _init(
 		_enqueue_new_claim(lane)
 	_sync_claims_waiting()
 	_prepare_morning_directive()
+
+
+## Applies the selected campaign's disclosed opening economy exactly once to a
+## pristine Day 1 simulation. Validation finishes before any authority changes,
+## so malformed contracts cannot partially alter a new file.
+func configure_opening_challenge(contract: Dictionary) -> Dictionary:
+	var rejected := {
+		"accepted": false,
+		"reason": "Opening challenge terms require a pristine Day 1 simulation.",
+	}
+	if _opening_challenge_configured or contract.is_empty():
+		return rejected
+	var opening_value: Variant = contract.get("opening_terms", null)
+	if not opening_value is Dictionary:
+		rejected["reason"] = "The selected challenge has no valid opening economy."
+		return rejected
+	var opening := opening_value as Dictionary
+	for required_key in [
+		"feed_fund_cents",
+		"quota_target",
+		"additional_claim_lanes",
+		"pressure_label",
+	]:
+		if not opening.has(required_key):
+			rejected["reason"] = "The selected challenge opening is incomplete."
+			return rejected
+	var fund_cents := int(opening.get("feed_fund_cents", -1))
+	var opening_quota := int(opening.get("quota_target", -1))
+	var lanes_value: Variant = opening.get("additional_claim_lanes", null)
+	var pressure_label := String(opening.get("pressure_label", "")).strip_edges().to_upper()
+	if (
+		fund_cents < 0
+		or fund_cents > 100_000
+		or opening_quota < 1
+		or opening_quota > 100
+		or not lanes_value is Array
+		or pressure_label.is_empty()
+	):
+		rejected["reason"] = "The selected challenge opening is outside supported limits."
+		return rejected
+	var additional_lanes: Array[StringName] = []
+	for lane_value: Variant in lanes_value as Array:
+		var lane := StringName(String(lane_value).strip_edges().to_lower())
+		if not CLAIM_LANE_DEFINITIONS.has(lane):
+			rejected["reason"] = "The selected challenge names an unknown opening claim lane."
+			return rejected
+		additional_lanes.append(lane)
+	if additional_lanes.size() > 4:
+		rejected["reason"] = "The selected challenge opens too many additional files."
+		return rejected
+	var baseline_quota := active_worker_count() * 4
+	var baseline_live_files := INITIAL_CLAIM_LANES.size()
+	if (
+		day != 1
+		or minute_of_day != SHIFT_START_MINUTE
+		or shift_phase != ShiftPhase.AWAITING_DIRECTIVE
+		or eggs_today != 0
+		or eggs_total != 0
+		or claims_processed != 0
+		or credited_today_cents != 0
+		or revenue_cents != 5000
+		or quota_target != baseline_quota
+		or _outstanding_claim_count() != baseline_live_files
+		or _outstanding_claim_count() + additional_lanes.size() > current_claim_capacity()
+	):
+		return rejected
+	var before_fund_cents := revenue_cents
+	var before_quota := quota_target
+	var before_live_files := _outstanding_claim_count()
+	revenue_cents = fund_cents
+	_farm_treasury = FarmTreasuryStateScript.new(fund_cents, 0)
+	quota_target = opening_quota
+	for lane in additional_lanes:
+		_enqueue_new_claim(lane)
+	_sync_claims_waiting()
+	_opening_challenge_configured = true
+	return {
+		"accepted": true,
+		"challenge_id": String(contract.get("id", "")),
+		"pressure_label": pressure_label,
+		"before_fund_cents": before_fund_cents,
+		"fund_cents": revenue_cents,
+		"before_quota": before_quota,
+		"quota_target": quota_target,
+		"before_live_files": before_live_files,
+		"live_files": _outstanding_claim_count(),
+	}
 
 
 func _initialize_manager_roster() -> void:
@@ -2160,6 +2321,7 @@ func current_claim_capacity() -> int:
 		_claim_capacity_for_facilities(owned_facilities)
 		+ _campus_claim_capacity_bonus_for_state(campus_expansion_state)
 		+ _campus_portfolio.claim_capacity_bonus(_campus_portfolio_context())
+		+ _internship_program.claim_capacity_bonus()
 	)
 
 
@@ -2324,6 +2486,90 @@ func market_contract_clause_catalog() -> Array[Dictionary]:
 			"breach_basis_points": int(definition.get("breach_basis_points", 0)),
 		})
 	return catalog
+
+
+func market_pricing_profile_catalog() -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	var reach := market_reach_points()
+	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
+		var definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
+		var required_reach := int(definition.get("required_reach", 0))
+		catalog.append({
+			"pricing_profile_id": pricing_id,
+			"label": String(definition.get("label", "MUTUAL RATE")),
+			"summary": String(definition.get("summary", "")),
+			"premium_basis_points": int(definition.get("premium_basis_points", 0)),
+			"volume_delta": int(definition.get("volume_delta", 0)),
+			"required_delta": int(definition.get("required_delta", 0)),
+			"required_reach": required_reach,
+			"pricing_available": reach >= required_reach,
+			"reason": (
+				""
+				if reach >= required_reach else
+				"Earn %d market-reach points through fulfilled binders; current reach is %d."
+				% [required_reach, reach]
+			),
+		})
+	return catalog
+
+
+func _market_pricing_outcome_count(pricing_id: StringName, success: bool) -> int:
+	return maxi(0, int(market_pricing_outcomes.get(
+		"%s_%s" % [String(pricing_id), "success" if success else "breach"],
+		0,
+	)))
+
+
+func market_reach_points() -> int:
+	return _market_reach_for_outcomes(market_pricing_outcomes)
+
+
+func _market_reach_for_outcomes(outcomes: Dictionary) -> int:
+	var points := 0
+	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
+		var definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
+		points += (
+			maxi(0, int(outcomes.get("%s_success" % String(pricing_id), 0)))
+			* int(definition.get("reach_success_delta", 0))
+		)
+		points += (
+			maxi(0, int(outcomes.get("%s_breach" % String(pricing_id), 0)))
+			* int(definition.get("reach_breach_delta", 0))
+		)
+	return maxi(0, points)
+
+
+func claimant_satisfaction_score() -> int:
+	return _claimant_satisfaction_for_outcomes(market_pricing_outcomes)
+
+
+func _claimant_satisfaction_for_outcomes(outcomes: Dictionary) -> int:
+	var score := 50
+	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
+		var definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
+		score += (
+			maxi(0, int(outcomes.get("%s_success" % String(pricing_id), 0)))
+			* int(definition.get("satisfaction_success_delta", 0))
+		)
+		score += (
+			maxi(0, int(outcomes.get("%s_breach" % String(pricing_id), 0)))
+			* int(definition.get("satisfaction_breach_delta", 0))
+		)
+	return clampi(score, 0, 100)
+
+
+func mutual_market_share_basis_points() -> int:
+	return clampi(3500 + market_reach_points() * 250, 2500, 8500)
+
+
+func market_pricing_status() -> Dictionary:
+	return {
+		"reach_points": market_reach_points(),
+		"claimant_satisfaction": claimant_satisfaction_score(),
+		"market_share_basis_points": mutual_market_share_basis_points(),
+		"executive_select_reach_requirement": MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
+		"profiles": market_pricing_profile_catalog(),
+	}
 
 
 func _facility_level_schedule_value(schedule: Array, level: int, fallback: int) -> int:
@@ -4714,6 +4960,25 @@ func capital_plan_snapshot() -> Dictionary:
 	}
 
 
+func pin_economic_watch(watch_id: StringName) -> Dictionary:
+	if watch_id not in ECONOMIC_WATCH_ORDER:
+		return {
+			"accepted": false,
+			"action_id": &"pin_economic_watch",
+			"watch_id": watch_id,
+			"reason": "That watch is not on the filed management schedule.",
+		}
+	pinned_economic_watch_id = watch_id
+	var receipt := {
+		"accepted": true,
+		"action_id": &"pin_economic_watch",
+		"watch_id": watch_id,
+		"reason": "",
+	}
+	snapshot_changed.emit(snapshot())
+	return receipt
+
+
 func pin_capital_plan(facility_id: StringName) -> Dictionary:
 	if not FACILITY_DEFINITIONS.has(facility_id):
 		return {
@@ -5117,25 +5382,31 @@ func market_contract_offer_catalog() -> Array[Dictionary]:
 
 func market_contract_offer_preflight(
 	offer_id: StringName,
-	clause_id: StringName = &"standard_terms"
+	clause_id: StringName = &"standard_terms",
+	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
-	return _market_contract_offer_preflight(offer_id, clause_id, true)
+	return _market_contract_offer_preflight(offer_id, clause_id, pricing_id, true, true)
 
 
 func _market_contract_offer_preflight(
 	offer_id: StringName,
 	clause_id: StringName,
-	attach_clause_options: bool
+	pricing_id: StringName,
+	attach_clause_options: bool,
+	attach_pricing_options: bool,
 ) -> Dictionary:
 	var clause_known := MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id)
+	var pricing_known := MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id)
 	var offer := {}
-	if clause_known:
+	if clause_known and pricing_known:
 		offer = _market_contract_quote_for_day(
 			offer_id,
 			day,
 			maxi(0, facility_level(FARM_MUTUAL_SERVICE_COOP_ID)),
 			maxi(0, facility_level(FARM_MUTUAL_NEGOTIATION_ROOM_ID)),
 			clause_id,
+			false,
+			pricing_id,
 		)
 	if offer.is_empty():
 		var unknown := {
@@ -5144,16 +5415,23 @@ func _market_contract_offer_preflight(
 			"known": MARKET_CONTRACT_DEFINITIONS.has(offer_id),
 			"clause_known": clause_known,
 			"clause_id": clause_id,
+			"pricing_known": pricing_known,
+			"pricing_profile_id": pricing_id,
 			"clause_available": false,
+			"pricing_available": false,
 			"can_sign": false,
 			"reason": (
 				"Farm Mutual does not recognize that binder."
 				if not MARKET_CONTRACT_DEFINITIONS.has(offer_id) else
 				"Farm Mutual does not recognize that negotiated clause."
+				if not clause_known else
+				"Farm Mutual does not recognize that pricing posture."
 			),
 		}
 		if attach_clause_options and MARKET_CONTRACT_DEFINITIONS.has(offer_id):
 			unknown["clause_options"] = _market_contract_clause_options(offer_id)
+		if attach_pricing_options and MARKET_CONTRACT_DEFINITIONS.has(offer_id):
+			unknown["pricing_options"] = _market_contract_pricing_options(offer_id, clause_id)
 		return unknown
 	var available_slots := maxi(
 		0,
@@ -5167,7 +5445,12 @@ func _market_contract_offer_preflight(
 	var active_staff := active_worker_count()
 	var on_cooldown := _market_contract_offer_on_cooldown(offer_id)
 	var reason := ""
-	if not bool(offer.get("clause_available", false)):
+	if not bool(offer.get("pricing_available", false)):
+		reason = String(offer.get(
+			"pricing_unavailable_reason",
+			"This pricing posture is not available for the current market reach.",
+		))
+	elif not bool(offer.get("clause_available", false)):
 		reason = "Commission the Farm Mutual Negotiation Room before signing this clause."
 	elif day < CONTRACT_BOARD_UNLOCK_DAY:
 		reason = "Complete two shifts before Farm Mutual opens its contract folders."
@@ -5211,6 +5494,7 @@ func _market_contract_offer_preflight(
 		)
 	offer["known"] = true
 	offer["clause_known"] = true
+	offer["pricing_known"] = true
 	offer["planning_open"] = market_contract_planning_open()
 	offer["available_claim_slots"] = available_slots
 	offer["spendable_fund_cents"] = spendable
@@ -5225,13 +5509,38 @@ func _market_contract_offer_preflight(
 	offer["reason"] = reason
 	if attach_clause_options:
 		offer["clause_options"] = _market_contract_clause_options(offer_id)
+	if attach_pricing_options:
+		offer["pricing_options"] = _market_contract_pricing_options(offer_id, clause_id)
 	return offer
 
 
 func _market_contract_clause_options(offer_id: StringName) -> Array[Dictionary]:
 	var options: Array[Dictionary] = []
 	for clause_id in MARKET_CONTRACT_CLAUSE_ORDER:
-		options.append(_market_contract_offer_preflight(offer_id, clause_id, false))
+		var option := _market_contract_offer_preflight(
+			offer_id,
+			clause_id,
+			&"mutual_rate",
+			false,
+			true,
+		)
+		options.append(option)
+	return options
+
+
+func _market_contract_pricing_options(
+	offer_id: StringName,
+	clause_id: StringName,
+) -> Array[Dictionary]:
+	var options: Array[Dictionary] = []
+	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
+		options.append(_market_contract_offer_preflight(
+			offer_id,
+			clause_id,
+			pricing_id,
+			false,
+			false,
+		))
 	return options
 
 
@@ -5262,6 +5571,7 @@ func market_contract_board_status() -> Dictionary:
 		"standing": standing,
 		"accreditation": accreditation,
 		"negotiation_room": negotiation_room,
+		"pricing": market_pricing_status(),
 		"offers": market_contract_offer_catalog(),
 		"active": active,
 		"active_contract": active.duplicate(true),
@@ -5298,12 +5608,13 @@ func market_contract_board_status() -> Dictionary:
 
 func sign_market_contract(
 	offer_id: StringName,
-	clause_id: StringName = &"standard_terms"
+	clause_id: StringName = &"standard_terms",
+	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
 	## Signing is a reserve transaction, not income or expense. The exact folders
 	## and claim IDs are authored now, then released at their disclosed times
 	## without opening a modal or stopping the production clock.
-	var preflight := market_contract_offer_preflight(offer_id, clause_id)
+	var preflight := market_contract_offer_preflight(offer_id, clause_id, pricing_id)
 	if not bool(preflight.get("can_sign", false)):
 		var rejection := preflight.duplicate(true)
 		rejection["accepted"] = false
@@ -5326,7 +5637,7 @@ func sign_market_contract(
 		"known", "clause_known", "planning_open", "available_claim_slots",
 		"spendable_fund_cents", "breach_reserve_cents", "spendable_after_reserve_cents",
 		"active_staff_count", "active_staff_shortfall", "staffing_ready", "on_cooldown",
-		"cooldown_until_day", "can_sign", "reason", "clause_options",
+		"cooldown_until_day", "can_sign", "reason", "clause_options", "pricing_options",
 	]:
 		active_market_contract.erase(transient_field)
 	active_market_contract.merge({
@@ -5364,6 +5675,7 @@ func sign_market_contract(
 		"action_id": &"sign_market_contract",
 		"offer_id": offer_id,
 		"clause_id": clause_id,
+		"pricing_profile_id": pricing_id,
 		"contract_id": contract_id,
 		"required_active_staff": int(preflight.get("required_active_staff", 0)),
 		"base_premium_cents": int(preflight.get("base_premium_cents", 0)),
@@ -5558,14 +5870,18 @@ func _market_contract_quote_for_day(
 	service_coop_level: int,
 	negotiation_room_level: int,
 	clause_id: StringName,
-	force_neutral_terms: bool = false
+	force_neutral_terms: bool = false,
+	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
 	if not MARKET_CONTRACT_DEFINITIONS.has(offer_id):
 		return {}
 	if not MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id):
 		return {}
+	if not MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id):
+		return {}
 	var definition := MARKET_CONTRACT_DEFINITIONS[offer_id] as Dictionary
 	var clause := MARKET_CONTRACT_CLAUSE_DEFINITIONS[clause_id] as Dictionary
+	var pricing := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
 	var authored_lane_mix: Dictionary = {}
 	var scheduled_claims: Array[Dictionary] = []
 	var authored_service_window := int(definition.get("service_window_minutes", 1))
@@ -5624,6 +5940,21 @@ func _market_contract_quote_for_day(
 			var expedited_schedule := scheduled_claims[latest_standard_index]
 			expedited_schedule["rush"] = true
 			scheduled_claims[latest_standard_index] = expedited_schedule
+	var pricing_volume_delta := int(pricing.get("volume_delta", 0))
+	if pricing_volume_delta > 0 and not scheduled_claims.is_empty():
+		var referral_schedule := (scheduled_claims[0] as Dictionary).duplicate(true)
+		referral_schedule["batch_index"] = int(referral_schedule.get("batch_index", 0))
+		referral_schedule["pricing_referral"] = true
+		scheduled_claims.append(referral_schedule)
+	elif pricing_volume_delta < 0 and scheduled_claims.size() > 1:
+		var removable_index := -1
+		for schedule_index in range(scheduled_claims.size() - 1, -1, -1):
+			if not bool((scheduled_claims[schedule_index] as Dictionary).get("rush", false)):
+				removable_index = schedule_index
+				break
+		if removable_index < 0:
+			removable_index = scheduled_claims.size() - 1
+		scheduled_claims.remove_at(removable_index)
 
 	var lane_mix: Dictionary = {}
 	var rush_lane_mix: Dictionary = {}
@@ -5663,7 +5994,12 @@ func _market_contract_quote_for_day(
 		})
 
 	var total_claims := scheduled_claims.size()
-	var required_completed := int(definition.get("required_deliveries", total_claims))
+	var required_completed := clampi(
+		int(definition.get("required_deliveries", total_claims))
+		+ int(pricing.get("required_delta", 0)),
+		1,
+		total_claims,
+	)
 	var authored_base_premium_cents := int(definition.get("premium_cents", 0))
 	var authored_breach_cents := int(definition.get("breach_cents", 0))
 	var season := (
@@ -5705,10 +6041,16 @@ func _market_contract_quote_for_day(
 		authored_breach_cents,
 		clause_breach_basis_points,
 	)
+	var pricing_premium_basis_points := int(pricing.get("premium_basis_points", 0))
+	var pricing_premium_delta_cents := _basis_point_delta_cents(
+		authored_base_premium_cents,
+		pricing_premium_basis_points,
+	)
 	var market_premium_cents := (
 		authored_base_premium_cents
 		+ season_premium_delta_cents
 		+ clause_premium_delta_cents
+		+ pricing_premium_delta_cents
 	)
 	service_coop_level = clampi(service_coop_level, 0, 3)
 	negotiation_room_level = clampi(negotiation_room_level, 0, 1)
@@ -5735,6 +6077,12 @@ func _market_contract_quote_for_day(
 			"  ·  RUSH" if bool(batch.get("contains_rush", false)) else "",
 		])
 	var requires_room := bool(clause.get("requires_negotiation_room", false))
+	var required_reach := int(pricing.get("required_reach", 0))
+	var pricing_available := market_reach_points() >= required_reach
+	var estimated_handling_cost_cents := (
+		total_claims * MARKET_PRICING_ESTIMATED_HANDLING_COST_CENTS
+	)
+	var estimated_margin_cents := premium_cents - estimated_handling_cost_cents
 	var success_required := "%d sound or golden folders delivered inside their disclosed service windows." % required_completed
 	if welfare_gate_minimum > 0:
 		success_required += " Closing flock welfare must also remain at %d or above." % welfare_gate_minimum
@@ -5774,6 +6122,35 @@ func _market_contract_quote_for_day(
 		"summary": String(clause.get("summary", "")),
 		"requires_negotiation_room": requires_room,
 		"clause_available": not requires_room or negotiation_room_level > 0,
+		"pricing_profile_id": pricing_id,
+		"pricing_label": String(pricing.get("label", "MUTUAL RATE")),
+		"pricing_summary": String(pricing.get("summary", "")),
+		"pricing_premium_basis_points": pricing_premium_basis_points,
+		"pricing_premium_delta_cents": pricing_premium_delta_cents,
+		"pricing_volume_delta": pricing_volume_delta,
+		"pricing_required_delta": int(pricing.get("required_delta", 0)),
+		"pricing_required_reach": required_reach,
+		"pricing_available": pricing_available,
+		"pricing_unavailable_reason": (
+			""
+			if pricing_available else
+			"Executive Select requires %d market-reach points; current reach is %d."
+			% [required_reach, market_reach_points()]
+		),
+		"claimant_satisfaction_success_delta": int(
+			pricing.get("satisfaction_success_delta", 0)
+		),
+		"claimant_satisfaction_breach_delta": int(
+			pricing.get("satisfaction_breach_delta", 0)
+		),
+		"market_reach_success_delta": int(pricing.get("reach_success_delta", 0)),
+		"market_reach_breach_delta": int(pricing.get("reach_breach_delta", 0)),
+		"estimated_handling_cost_cents": estimated_handling_cost_cents,
+		"estimated_margin_cents": estimated_margin_cents,
+		"estimated_margin_per_file_cents": _signed_half_up_ratio(
+			estimated_margin_cents,
+			maxi(1, total_claims),
+		),
 		"negotiation_room_level_at_signing": negotiation_room_level,
 		"authored_base_premium_cents": authored_base_premium_cents,
 		"base_premium_cents": authored_base_premium_cents,
@@ -6036,6 +6413,8 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 	var breach_cents := contracted_breach_cents if not success else 0
 	var fund_before := revenue_cents
 	var standing_before := farm_mutual_standing()
+	var reach_before := market_reach_points()
+	var satisfaction_before := claimant_satisfaction_score()
 	var clean_streak_before := market_clean_contract_streak
 	if success:
 		revenue_cents += premium_cents
@@ -6059,7 +6438,17 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		market_contract_breach_total_cents += breach_cents
 		market_contracts_breached_total += 1
 		market_clean_contract_streak = 0
+	var pricing_id := StringName(completed_contract.get("pricing_profile_id", &"mutual_rate"))
+	var pricing_outcome_key := "%s_%s" % [
+		String(pricing_id),
+		"success" if success else "breach",
+	]
+	market_pricing_outcomes[pricing_outcome_key] = (
+		int(market_pricing_outcomes.get(pricing_outcome_key, 0)) + 1
+	)
 	var standing_after := farm_mutual_standing()
+	var reach_after := market_reach_points()
+	var satisfaction_after := claimant_satisfaction_score()
 	var settlement_outcome := ""
 	if success:
 		settlement_outcome = "%s fulfilled: Farm Mutual credited a $%.2f premium after the flock delivered %d/%d clean folders on time." % [
@@ -6124,6 +6513,9 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		"clause_label": String(completed_contract.get("clause_label", "STANDARD TERMS")),
 		"clause_summary": String(completed_contract.get("clause_summary", "")),
 		"clause_category": completed_contract.get("clause_category", &"standard"),
+		"pricing_profile_id": pricing_id,
+		"pricing_label": String(completed_contract.get("pricing_label", "MUTUAL RATE")),
+		"pricing_summary": String(completed_contract.get("pricing_summary", "")),
 		"negotiation_room_level_at_signing": int(
 			completed_contract.get("negotiation_room_level_at_signing", 0)
 		),
@@ -6166,6 +6558,34 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		"clause_premium_delta_cents": int(
 			completed_contract.get("clause_premium_delta_cents", 0)
 		),
+		"pricing_premium_basis_points": int(
+			completed_contract.get("pricing_premium_basis_points", 0)
+		),
+		"pricing_premium_delta_cents": int(
+			completed_contract.get("pricing_premium_delta_cents", 0)
+		),
+		"pricing_volume_delta": int(completed_contract.get("pricing_volume_delta", 0)),
+		"pricing_required_delta": int(completed_contract.get("pricing_required_delta", 0)),
+		"pricing_required_reach": int(completed_contract.get("pricing_required_reach", 0)),
+		"claimant_satisfaction_success_delta": int(
+			completed_contract.get("claimant_satisfaction_success_delta", 0)
+		),
+		"claimant_satisfaction_breach_delta": int(
+			completed_contract.get("claimant_satisfaction_breach_delta", 0)
+		),
+		"market_reach_success_delta": int(
+			completed_contract.get("market_reach_success_delta", 0)
+		),
+		"market_reach_breach_delta": int(
+			completed_contract.get("market_reach_breach_delta", 0)
+		),
+		"estimated_handling_cost_cents": int(
+			completed_contract.get("estimated_handling_cost_cents", 0)
+		),
+		"estimated_margin_cents": int(completed_contract.get("estimated_margin_cents", 0)),
+		"estimated_margin_per_file_cents": int(
+			completed_contract.get("estimated_margin_per_file_cents", 0)
+		),
 		"market_premium_cents": int(
 			completed_contract.get("market_premium_cents", base_premium_cents)
 		),
@@ -6199,6 +6619,13 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		"market_standing_after": standing_after,
 		"market_standing_delta": standing_after - standing_before,
 		"market_standing_rank": farm_mutual_standing_rank(),
+		"market_reach_before": reach_before,
+		"market_reach_after": reach_after,
+		"market_reach_delta": reach_after - reach_before,
+		"market_share_basis_points": mutual_market_share_basis_points(),
+		"claimant_satisfaction_before": satisfaction_before,
+		"claimant_satisfaction_after": satisfaction_after,
+		"claimant_satisfaction_delta": satisfaction_after - satisfaction_before,
 		"clean_contract_streak_before": clean_streak_before,
 		"clean_contract_streak_after": market_clean_contract_streak,
 		"best_clean_contract_streak": best_market_clean_contract_streak,
@@ -6305,8 +6732,16 @@ func current_daily_supervisor_payroll_cents() -> int:
 	return supervisor_payroll_cents()
 
 
+func current_daily_fellow_payroll_cents() -> int:
+	return _internship_program.daily_fellow_payroll_cents()
+
+
 func current_daily_payroll_cents() -> int:
-	return current_daily_hen_payroll_cents() + current_daily_supervisor_payroll_cents()
+	return (
+		current_daily_hen_payroll_cents()
+		+ current_daily_supervisor_payroll_cents()
+		+ current_daily_fellow_payroll_cents()
+	)
 
 
 func daily_facility_expansion_cost_cents() -> int:
@@ -6445,9 +6880,22 @@ func economic_briefing_snapshot() -> Dictionary:
 	elif spendable_fund_cents() <= 0 or secured_margin < 0:
 		status_id = &"tight"
 		status_label = "MARGIN TIGHT"
+	var economic_watches := _economic_watch_rows(
+		treasury,
+		procurement,
+		secured_margin,
+		bottlenecks,
+	)
+	var selected_watch: Dictionary = {}
+	for watch: Dictionary in economic_watches:
+		if StringName(watch.get("id", &"")) == pinned_economic_watch_id:
+			selected_watch = watch.duplicate(true)
+			break
+	if selected_watch.is_empty() and not economic_watches.is_empty():
+		selected_watch = economic_watches[0].duplicate(true)
 
 	return {
-		"version": 2,
+		"version": 4,
 		"day": day,
 		"status_id": status_id,
 		"status_label": status_label,
@@ -6466,6 +6914,7 @@ func economic_briefing_snapshot() -> Dictionary:
 			"feed_cents": current_daily_feed_cost_cents(),
 			"hen_payroll_cents": current_daily_hen_payroll_cents(),
 			"supervisor_payroll_cents": current_daily_supervisor_payroll_cents(),
+			"fellow_payroll_cents": current_daily_fellow_payroll_cents(),
 			"expanded_perches_cents": daily_facility_expansion_cost_cents(),
 			"facility_maintenance_cents": current_daily_facility_maintenance_cents(),
 			"campus_services_cents": current_daily_campus_cost_cents(),
@@ -6519,6 +6968,11 @@ func economic_briefing_snapshot() -> Dictionary:
 		"recovery_actions": recovery_actions,
 		"history": history,
 		"trend": trend,
+		"management_watch": {
+			"selected_id": pinned_economic_watch_id,
+			"selected": selected_watch,
+			"catalog": economic_watches,
+		},
 	}
 
 
@@ -6596,6 +7050,168 @@ func _economic_trend_snapshot(history: Array[Dictionary]) -> Dictionary:
 		),
 		"sample_count": history.size(),
 	}
+
+
+func _economic_watch_rows(
+	treasury: Dictionary,
+	procurement: Dictionary,
+	secured_margin: int,
+	bottlenecks: Array[Dictionary],
+) -> Array[Dictionary]:
+	var primary_bottleneck := (
+		bottlenecks[0]
+		if not bottlenecks.is_empty() else
+		{
+			"label": "NO CRITICAL BOTTLENECK",
+			"reason": "Current systems remain inside their filed limits.",
+			"action": "Compare the next disclosed tradeoff.",
+		}
+	)
+	var feed_stock := maxi(0, int(procurement.get("stock_scoops", 0)))
+	var feed_demand := maxi(0, int(procurement.get("demand_scoops", 0)))
+	var feed_shortage := maxi(0, int(procurement.get("spot_shortage_scoops", 0)))
+	var live_files := _outstanding_claim_count()
+	var live_capacity := current_claim_capacity()
+	var capacity_percent := _signed_half_up_ratio(10_000 * live_files, maxi(1, live_capacity))
+	var welfare := _flock_welfare_score()
+	var reach := market_reach_points()
+	var share_basis_points := mutual_market_share_basis_points()
+	var treasury_liabilities := maxi(0, int(treasury.get("total_liabilities_cents", 0)))
+	return [
+		{
+			"id": &"auto",
+			"label": "AUTO / PRIMARY CONSTRAINT",
+			"status_id": &"clear" if int(primary_bottleneck.get("severity", 0)) <= 0 else &"attention",
+			"status_label": String(primary_bottleneck.get("label", "CURRENT PRIORITY")),
+			"current_label": "HIGHEST FILED PRIORITY",
+			"target_label": "RESOLVE OR REASSESS",
+			"why": String(primary_bottleneck.get("reason", "")),
+			"action": String(primary_bottleneck.get("action", "")),
+			"page_id": _economic_watch_page_for_bottleneck(
+				StringName(primary_bottleneck.get("id", &"clear"))
+			),
+		},
+		{
+			"id": &"margin",
+			"label": "SECURED MARGIN",
+			"status_id": &"on_track" if secured_margin >= 0 else &"attention",
+			"status_label": "BREAK-EVEN FILED" if secured_margin >= 0 else "BELOW BREAK-EVEN",
+			"current_label": "%s$%.2f" % [
+				"+" if secured_margin >= 0 else "-",
+				absf(float(secured_margin)) / 100.0,
+			],
+			"target_label": "$0.00 OR BETTER",
+			"why": (
+				"Secured claim credit is compared with every filed operating cost; "
+				+ "unearned eggs and binder premiums remain excluded."
+			),
+			"action": (
+				"Finish sound work before optional spending. Review Treasury if "
+				+ "$%.2f in liabilities constrains recovery." % (
+					float(treasury_liabilities) / 100.0
+				)
+			),
+			"page_id": &"capital",
+		},
+		{
+			"id": &"feed",
+			"label": "FEED COVERAGE",
+			"status_id": &"on_track" if feed_shortage <= 0 else &"attention",
+			"status_label": "RATION COVERED" if feed_shortage <= 0 else "SPOT EXPOSURE",
+			"current_label": "%d STOCK / %d NEEDED" % [feed_stock, feed_demand],
+			"target_label": "%d+ SCOOPS" % feed_demand,
+			"why": (
+				"%d scoops are exposed to the current spot quote after stored lots."
+				% feed_shortage
+			),
+			"action": (
+				"Open Ops during review to compare lot price, shelf life, capacity, "
+				+ "and flock strain before authorizing Provisions."
+			),
+			"page_id": &"operations",
+		},
+		{
+			"id": &"capacity",
+			"label": "LIVE-FILE CAPACITY",
+			"status_id": (
+				&"attention"
+				if intake_rejections_today > 0 or capacity_percent >= 8_500 else
+				&"on_track"
+			),
+			"status_label": (
+				"DEMAND TURNED AWAY"
+				if intake_rejections_today > 0 else
+				("NEAR LIMIT" if capacity_percent >= 8_500 else "ROOM AVAILABLE")
+			),
+			"current_label": "%d / %d FILES" % [live_files, live_capacity],
+			"target_label": "BELOW 85%% / %d FILES" % _signed_half_up_ratio(
+				85 * live_capacity,
+				100,
+			),
+			"why": (
+				"%d%% occupied; %d files worth $%.2f were turned away today."
+				% [
+					_signed_half_up_ratio(100 * live_files, maxi(1, live_capacity)),
+					intake_rejections_today,
+					float(intake_missed_value_today_cents) / 100.0,
+				]
+			),
+			"action": (
+				"Open Capital to compare Records capacity against its daily upkeep, "
+				+ "or clear existing workflow before accepting outside folders."
+			),
+			"page_id": &"capital",
+		},
+		{
+			"id": &"welfare",
+			"label": "FLOCK WELFARE",
+			"status_id": &"on_track" if welfare >= 70 else &"attention",
+			"status_label": "CARE BUFFER" if welfare >= 70 else "CARE PRESSURE",
+			"current_label": "%d / 100" % welfare,
+			"target_label": "70+",
+			"why": (
+				"Morale, stress, fatigue, and grievance combine across employed hens; "
+				+ "care pressure changes productivity and labor consequences."
+			),
+			"action": (
+				"Open Flock to compare recovery, assignments, and care before adding "
+				+ "overtime or another demanding binder."
+			),
+			"page_id": &"flock",
+		},
+		{
+			"id": &"market",
+			"label": "MUTUAL REACH",
+			"status_id": &"on_track" if reach >= 3 else &"building",
+			"status_label": "EXECUTIVE SELECT OPEN" if reach >= 3 else "REACH BUILDING",
+			"current_label": "%d REACH / %.2f%% SHARE" % [
+				reach,
+				float(share_basis_points) / 100.0,
+			],
+			"target_label": "3 REACH / EXECUTIVE SELECT",
+			"why": (
+				"Settled rate postures change claimant sentiment and projected share; "
+				+ "fulfilled Community Access binders build reach fastest."
+			),
+			"action": (
+				"Open Records during review to compare binder volume, premium, "
+				+ "handling margin, claimant effect, and reach before signing."
+			),
+			"page_id": &"governance_records",
+		},
+	]
+
+
+func _economic_watch_page_for_bottleneck(bottleneck_id: StringName) -> StringName:
+	match bottleneck_id:
+		&"feed":
+			return &"operations"
+		&"workflow":
+			return &"flock"
+		&"archive", &"break_even", &"treasury":
+			return &"capital"
+		_:
+			return &"today"
 
 
 func _economic_resource_rows(
@@ -7377,6 +7993,87 @@ func staffing_catalog() -> Array[Dictionary]:
 	return catalog
 
 
+func internship_program_seat_limit() -> int:
+	return clampi(
+		InternshipProgramStateScript.BASE_SEAT_LIMIT
+			+ mini(1, maxi(0, facility_level(TRAINING_ROOST_ID))),
+		InternshipProgramStateScript.BASE_SEAT_LIMIT,
+		InternshipProgramStateScript.MAX_SEAT_LIMIT,
+	)
+
+
+func internship_program_snapshot() -> Dictionary:
+	return _internship_program.snapshot(
+		day,
+		spendable_fund_cents(),
+		staffing_planning_open(),
+		internship_program_seat_limit(),
+	)
+
+
+func onboard_intern(candidate_id: StringName) -> Dictionary:
+	var result := _internship_program.onboard(
+		candidate_id,
+		day,
+		spendable_fund_cents(),
+		staffing_planning_open(),
+		internship_program_seat_limit(),
+	)
+	return _apply_internship_action(result)
+
+
+func assign_intern(candidate_id: StringName, assignment_id: StringName) -> Dictionary:
+	var result := _internship_program.assign(
+		candidate_id,
+		assignment_id,
+		day,
+		staffing_planning_open(),
+	)
+	return _apply_internship_action(result)
+
+
+func resolve_intern_review(
+	candidate_id: StringName,
+	resolution_id: StringName,
+) -> Dictionary:
+	var result := _internship_program.resolve_review(
+		candidate_id,
+		resolution_id,
+		day,
+		spendable_fund_cents(),
+		staffing_planning_open(),
+	)
+	if bool(result.get("accepted", false)):
+		match resolution_id:
+			&"recommendation_letter":
+				compliance = minf(100.0, compliance + 1.0)
+			&"paid_fellowship":
+				compliance = minf(100.0, compliance + 2.0)
+				solidarity = minf(100.0, solidarity + 2.0)
+				executive_confidence = maxf(0.0, executive_confidence - 1.0)
+	return _apply_internship_action(result)
+
+
+func _apply_internship_action(result: Dictionary) -> Dictionary:
+	if not bool(result.get("accepted", false)):
+		return result
+	var cost_cents := maxi(0, int(result.get("cost_cents", 0)))
+	if cost_cents > revenue_cents:
+		return {
+			"accepted": false,
+			"action_id": result.get("action_id", &"internship"),
+			"candidate_id": result.get("candidate_id", &""),
+			"reason": "The Feed Fund changed before the internship filing completed.",
+		}
+	revenue_cents -= cost_cents
+	result["fund_after_cents"] = revenue_cents
+	result["program"] = internship_program_snapshot()
+	internship_action_resolved.emit(result.duplicate(true))
+	announcement_posted.emit(String(result.get("outcome", "Internship filing completed.")))
+	snapshot_changed.emit(snapshot())
+	return result
+
+
 func capacity_upgrade_status() -> Dictionary:
 	var planning_open := staffing_planning_open()
 	var cost := _capacity_upgrade_cost_cents()
@@ -7857,11 +8554,13 @@ func export_save_state() -> Dictionary:
 		"management_reports_today": management_reports_today,
 		"management_reports_total": management_reports_total,
 		"management_visibility_today": management_visibility_today,
+		"internship_program_state": _internship_program.to_save_data(),
 		"feed_procurement_state": _feed_procurement.to_save_data(),
 		"harvest_credit_state": _harvest_credit.to_save_data(),
 		"farmgate_dispatch_state": _farmgate_dispatch.to_save_data(),
 		"farm_treasury_state": _farm_treasury.to_save_data(),
 		"pinned_capital_plan_id": String(pinned_capital_plan_id),
+		"pinned_economic_watch_id": String(pinned_economic_watch_id),
 		"last_facility_purchase_receipt": last_facility_purchase_receipt.duplicate(true),
 		"facility_commissioning_history": facility_commissioning_history.duplicate(true),
 		"campus_expansion": campus_expansion_state.duplicate(true),
@@ -7889,6 +8588,7 @@ func export_save_state() -> Dictionary:
 		"market_contract_premium_total_cents": market_contract_premium_total_cents,
 		"market_contract_breach_today_cents": market_contract_breach_today_cents,
 		"market_contract_breach_total_cents": market_contract_breach_total_cents,
+		"market_pricing_outcomes": market_pricing_outcomes.duplicate(true),
 		"office_capacity": office_capacity,
 		"wage_arrears_cents": wage_arrears_cents,
 		"last_staffing_action": last_staffing_action.duplicate(true),
@@ -7983,6 +8683,12 @@ func restore_save_state(data: Dictionary) -> bool:
 		return false
 	var saved_day := int(data.get("day", 1))
 	if saved_day < 1 or saved_day > 9999:
+		return false
+	var restored_internship_program = InternshipProgramStateScript.new()
+	if not restored_internship_program.restore_save_data(
+		data.get("internship_program_state", null),
+		saved_day,
+	):
 		return false
 	if not _is_integral_number(data.get("career_seed", null)):
 		return false
@@ -8488,6 +9194,15 @@ func restore_save_state(data: Dictionary) -> bool:
 	)
 	if not bool(restored_capital_records.get("valid", false)):
 		return false
+	var restored_economic_watch_value: Variant = data.get(
+		"pinned_economic_watch_id",
+		"auto",
+	)
+	if typeof(restored_economic_watch_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+		return false
+	var restored_economic_watch_id := StringName(String(restored_economic_watch_value))
+	if restored_economic_watch_id not in ECONOMIC_WATCH_ORDER:
+		return false
 	var intake_fields := [
 		"intake_rejections_today",
 		"intake_rejections_total",
@@ -8538,6 +9253,24 @@ func restore_save_state(data: Dictionary) -> bool:
 	var restored_contract_premium_total := int(data.get("market_contract_premium_total_cents", -1))
 	var restored_contract_breach_today := int(data.get("market_contract_breach_today_cents", -1))
 	var restored_contract_breach_total := int(data.get("market_contract_breach_total_cents", -1))
+	var restored_pricing_outcomes: Dictionary = {}
+	var pricing_outcomes_value: Variant = data.get("market_pricing_outcomes", {})
+	if not pricing_outcomes_value is Dictionary:
+		return false
+	var pricing_success_total := 0
+	var pricing_breach_total := 0
+	for outcome_key in MARKET_PRICING_OUTCOME_KEYS:
+		var outcome_value: Variant = (pricing_outcomes_value as Dictionary).get(outcome_key, 0)
+		if not _is_integral_number(outcome_value):
+			return false
+		var outcome_count := int(outcome_value)
+		if outcome_count < 0 or outcome_count > 2_000_000_000:
+			return false
+		restored_pricing_outcomes[outcome_key] = outcome_count
+		if outcome_key.ends_with("_success"):
+			pricing_success_total += outcome_count
+		else:
+			pricing_breach_total += outcome_count
 	if (
 		restored_contracts_signed < 0 or restored_contracts_signed > 2_000_000_000
 		or restored_contracts_succeeded < 0
@@ -8553,6 +9286,8 @@ func restore_save_state(data: Dictionary) -> bool:
 		or restored_contract_breach_today < 0
 		or restored_contract_breach_today > restored_contract_breach_total
 		or restored_contract_breach_total > 2_000_000_000
+		or pricing_success_total > restored_contracts_succeeded
+		or pricing_breach_total > restored_contracts_breached
 	):
 		return false
 	if not restored_campus_history.is_empty():
@@ -8674,6 +9409,40 @@ func restore_save_state(data: Dictionary) -> bool:
 			)
 		):
 			return false
+		if pricing_success_total + pricing_breach_total == settled_contract_total:
+			var last_pricing_id := StringName(restored_last_contract.get(
+				"pricing_profile_id",
+				&"mutual_rate",
+			))
+			var last_pricing_key := "%s_%s" % [
+				String(last_pricing_id),
+				"success" if last_success else "breach",
+			]
+			if int(restored_pricing_outcomes.get(last_pricing_key, 0)) <= 0:
+				return false
+			var pricing_before_outcomes := restored_pricing_outcomes.duplicate(true)
+			pricing_before_outcomes[last_pricing_key] = (
+				int(pricing_before_outcomes[last_pricing_key]) - 1
+			)
+			var expected_reach_before := _market_reach_for_outcomes(pricing_before_outcomes)
+			var expected_reach_after := _market_reach_for_outcomes(restored_pricing_outcomes)
+			var expected_satisfaction_before := _claimant_satisfaction_for_outcomes(
+				pricing_before_outcomes
+			)
+			var expected_satisfaction_after := _claimant_satisfaction_for_outcomes(
+				restored_pricing_outcomes
+			)
+			if (
+				int(restored_last_contract.get("market_reach_before", -1))
+				!= expected_reach_before
+				or int(restored_last_contract.get("market_reach_after", -1))
+				!= expected_reach_after
+				or int(restored_last_contract.get("claimant_satisfaction_before", -1))
+				!= expected_satisfaction_before
+				or int(restored_last_contract.get("claimant_satisfaction_after", -1))
+				!= expected_satisfaction_after
+			):
+				return false
 	if restored_contract_premium_today > 0 and (
 		restored_last_contract.is_empty()
 		or int(restored_last_contract.get("day", 0)) != saved_day
@@ -9509,6 +10278,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	management_reports_today = restored_reports_today
 	management_reports_total = restored_reports_total
 	management_visibility_today = restored_visibility_today
+	_internship_program = restored_internship_program
 	_feed_procurement = restored_feed_procurement
 	_harvest_credit = restored_harvest_credit
 	_farmgate_dispatch = restored_farmgate_dispatch
@@ -9516,6 +10286,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	campus_expansion_state = restored_campus_expansion
 	_campus_portfolio = restored_campus_portfolio
 	pinned_capital_plan_id = StringName(restored_capital_records.get("pinned_id", &""))
+	pinned_economic_watch_id = restored_economic_watch_id
 	last_facility_purchase_receipt = (
 		restored_capital_records.get("last", {}) as Dictionary
 	).duplicate(true)
@@ -9545,6 +10316,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	market_contract_premium_total_cents = restored_contract_premium_total
 	market_contract_breach_today_cents = restored_contract_breach_today
 	market_contract_breach_total_cents = restored_contract_breach_total
+	market_pricing_outcomes = restored_pricing_outcomes
 	office_capacity = saved_office_capacity
 	wage_arrears_cents = saved_wage_arrears
 	last_staffing_action = restored_staffing_action
@@ -10435,6 +11207,19 @@ func _migrate_save_state(source: Dictionary) -> Dictionary:
 				)
 				source_version = 27
 				migrated["state_version"] = source_version
+			27:
+				# v28 opens the Bright-Eyed Rotation with a neutral, empty cohort.
+				# Older careers gain no capacity, speed, fellow, or fabricated term
+				# history until the player explicitly files an internship.
+				if migrated.has("internship_program_state"):
+					if original_source_version == 27:
+						return {}
+					migrated.erase("internship_program_state")
+				migrated["internship_program_state"] = (
+					InternshipProgramStateScript.neutral_save_data()
+				)
+				source_version = 28
+				migrated["state_version"] = source_version
 			_:
 				return {}
 	return migrated
@@ -10766,6 +11551,7 @@ func _active_market_contract_quote_matches(
 	expected: Dictionary,
 	legacy_terms_grandfathered: bool
 ) -> bool:
+	var has_pricing_terms := source.has("pricing_profile_id")
 	for field in [
 		"authored_service_window_minutes",
 		"service_window_minutes",
@@ -10797,6 +11583,29 @@ func _active_market_contract_quote_matches(
 			or int(source.get(field, -999999)) != int(expected.get(field, -999998))
 		):
 			return false
+	if has_pricing_terms:
+		for field in [
+			"pricing_premium_basis_points",
+			"pricing_premium_delta_cents",
+			"pricing_volume_delta",
+			"pricing_required_delta",
+			"pricing_required_reach",
+			"claimant_satisfaction_success_delta",
+			"claimant_satisfaction_breach_delta",
+			"market_reach_success_delta",
+			"market_reach_breach_delta",
+			"estimated_handling_cost_cents",
+			"estimated_margin_cents",
+			"estimated_margin_per_file_cents",
+		]:
+			if (
+				not _is_integral_number(source.get(field, null))
+				or int(source.get(field, -999999)) != int(expected.get(field, -999998))
+			):
+				return false
+		for field in ["pricing_profile_id", "pricing_label", "pricing_summary"]:
+			if String(source.get(field, "")) != String(expected.get(field, "")):
+				return false
 	for field in [
 		"quote_id", "season_id", "season_label", "clause_id", "clause_label",
 		"clause_summary", "clause_category", "category", "label", "summary",
@@ -10842,6 +11651,7 @@ func _market_contract_result_quote_matches(
 	expected: Dictionary,
 	legacy_terms_grandfathered: bool
 ) -> bool:
+	var has_pricing_terms := source.has("pricing_profile_id")
 	for field in [
 		"authored_service_window_minutes",
 		"service_window_minutes",
@@ -10870,6 +11680,29 @@ func _market_contract_result_quote_matches(
 			or int(source.get(field, -999999)) != int(expected.get(field, -999998))
 		):
 			return false
+	if has_pricing_terms:
+		for field in [
+			"pricing_premium_basis_points",
+			"pricing_premium_delta_cents",
+			"pricing_volume_delta",
+			"pricing_required_delta",
+			"pricing_required_reach",
+			"claimant_satisfaction_success_delta",
+			"claimant_satisfaction_breach_delta",
+			"market_reach_success_delta",
+			"market_reach_breach_delta",
+			"estimated_handling_cost_cents",
+			"estimated_margin_cents",
+			"estimated_margin_per_file_cents",
+		]:
+			if (
+				not _is_integral_number(source.get(field, null))
+				or int(source.get(field, -999999)) != int(expected.get(field, -999998))
+			):
+				return false
+		for field in ["pricing_profile_id", "pricing_label", "pricing_summary"]:
+			if String(source.get(field, "")) != String(expected.get(field, "")):
+				return false
 	for field in [
 		"season_id", "season_label", "clause_id", "clause_label", "clause_summary",
 		"clause_category", "authored_dominant_lane",
@@ -11001,6 +11834,9 @@ func _validated_active_market_contract(
 	var clause_id := StringName(String(source.get("clause_id", "")))
 	if clause_id not in MARKET_CONTRACT_CLAUSE_ORDER:
 		return invalid
+	var pricing_id := StringName(String(source.get("pricing_profile_id", "mutual_rate")))
+	if pricing_id not in MARKET_PRICING_PROFILE_ORDER:
+		return invalid
 	for frozen_level_field in [
 		"service_coop_level_at_signing",
 		"negotiation_room_level_at_signing",
@@ -11035,6 +11871,7 @@ func _validated_active_market_contract(
 		negotiation_room_level_at_signing,
 		clause_id,
 		legacy_terms_grandfathered,
+		pricing_id,
 	)
 	if authored.is_empty() or not _active_market_contract_quote_matches(
 		source,
@@ -11371,6 +12208,9 @@ func _validated_market_contract_result(
 	var clause_id := StringName(String(source.get("clause_id", "")))
 	if clause_id not in MARKET_CONTRACT_CLAUSE_ORDER:
 		return invalid
+	var pricing_id := StringName(String(source.get("pricing_profile_id", "mutual_rate")))
+	if pricing_id not in MARKET_PRICING_PROFILE_ORDER:
+		return invalid
 	for frozen_level_field in [
 		"service_coop_level_at_signing",
 		"negotiation_room_level_at_signing",
@@ -11405,6 +12245,7 @@ func _validated_market_contract_result(
 		negotiation_room_level_at_signing,
 		clause_id,
 		legacy_terms_grandfathered,
+		pricing_id,
 	)
 	if authored.is_empty() or not _market_contract_result_quote_matches(
 		source,
@@ -11462,6 +12303,17 @@ func _validated_market_contract_result(
 		"clean_contract_streak_after",
 		"best_clean_contract_streak",
 	]
+	var has_pricing_outcome := source.has("pricing_profile_id")
+	if has_pricing_outcome:
+		integer_fields.append_array([
+			"market_reach_before",
+			"market_reach_after",
+			"market_reach_delta",
+			"market_share_basis_points",
+			"claimant_satisfaction_before",
+			"claimant_satisfaction_after",
+			"claimant_satisfaction_delta",
+		])
 	for field in integer_fields:
 		if not _is_integral_number(source.get(field, null)):
 			return invalid
@@ -11558,6 +12410,23 @@ func _validated_market_contract_result(
 	var net := int(source.get("net_contract_cents", 0))
 	var fund_before := int(source.get("fund_before_cents", -1))
 	var fund_after := int(source.get("fund_after_cents", -1))
+	var pricing_definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
+	var authored_reach_delta := int(pricing_definition.get(
+		"reach_success_delta" if success else "reach_breach_delta",
+		0,
+	))
+	var authored_satisfaction_delta := int(pricing_definition.get(
+		"satisfaction_success_delta" if success else "satisfaction_breach_delta",
+		0,
+	))
+	var pricing_reach_before := int(source.get("market_reach_before", 0))
+	var expected_reach_after := maxi(0, pricing_reach_before + authored_reach_delta)
+	var pricing_satisfaction_before := int(source.get("claimant_satisfaction_before", 50))
+	var expected_satisfaction_after := clampi(
+		pricing_satisfaction_before + authored_satisfaction_delta,
+		0,
+		100,
+	)
 	if (
 		int(source.get("base_premium_cents", -1)) != base_premium_cents
 		or int(source.get("service_coop_bonus_cents", -1)) != expected_service_bonus
@@ -11580,6 +12449,24 @@ func _validated_market_contract_result(
 			&"unlisted", &"bronze", &"silver", &"gold",
 		]
 		or String(source.get("outcome", "")).is_empty()
+		or (
+			has_pricing_outcome
+			and (
+				int(source.get("market_reach_delta", 0))
+				!= expected_reach_after - pricing_reach_before
+				or int(source.get("market_reach_after", 0))
+				!= expected_reach_after
+				or int(source.get("claimant_satisfaction_delta", 0))
+				!= (
+					int(source.get("claimant_satisfaction_after", 0))
+					- int(source.get("claimant_satisfaction_before", 0))
+				)
+				or int(source.get("claimant_satisfaction_after", 0))
+				!= expected_satisfaction_after
+				or int(source.get("market_share_basis_points", 0))
+				!= clampi(3500 + int(source.get("market_reach_after", 0)) * 250, 2500, 8500)
+			)
+		)
 	):
 		return invalid
 	var normalized := {
@@ -11633,6 +12520,13 @@ func _validated_market_contract_result(
 		"clean_contract_streak_before": int(source.get("clean_contract_streak_before", 0)),
 		"clean_contract_streak_after": int(source.get("clean_contract_streak_after", 0)),
 		"best_clean_contract_streak": int(source.get("best_clean_contract_streak", 0)),
+		"market_reach_before": int(source.get("market_reach_before", 0)),
+		"market_reach_after": int(source.get("market_reach_after", 0)),
+		"market_reach_delta": int(source.get("market_reach_delta", 0)),
+		"market_share_basis_points": int(source.get("market_share_basis_points", 3500)),
+		"claimant_satisfaction_before": int(source.get("claimant_satisfaction_before", 50)),
+		"claimant_satisfaction_after": int(source.get("claimant_satisfaction_after", 50)),
+		"claimant_satisfaction_delta": int(source.get("claimant_satisfaction_delta", 0)),
 		"outcome": String(source.get("outcome", "")),
 	}
 	var authoritative_normalized := authored.duplicate(true)
@@ -19129,7 +20023,30 @@ func _manager_candidate_snapshot() -> Array[Dictionary]:
 	var hired_ids: Dictionary[StringName, bool] = {}
 	for manager in manager_roster:
 		hired_ids[StringName(String(manager.get("candidate_id", "")))] = true
-	var replaced_name := _manager_display_name(manager_roster[manager_roster.size() - 1]) if manager_roster.size() > 1 else ""
+	var replacement_record := (
+		manager_roster[manager_roster.size() - 1]
+		if manager_roster.size() > 1 else
+		{}
+	) as Dictionary
+	var replaced_name := _manager_display_name(replacement_record) if not replacement_record.is_empty() else ""
+	var replaced_manager_id := StringName(String(replacement_record.get("candidate_id", "")))
+	var replacement_slot_index := manager_roster.size() - 1
+	var replaced_salary_cents := (
+		MANAGER_SLOT_SALARIES_CENTS[replacement_slot_index]
+		+ maxi(0, int(replacement_record.get("rank", 0))) * 100
+		if replacement_slot_index >= 0 and replacement_slot_index < MANAGER_SLOT_SALARIES_CENTS.size() else
+		0
+	)
+	var appointment_salary_cents := (
+		MANAGER_SLOT_SALARIES_CENTS[replacement_slot_index]
+		if replacement_slot_index >= 0 and replacement_slot_index < MANAGER_SLOT_SALARIES_CENTS.size() else
+		0
+	)
+	var payroll_before_cents := supervisor_payroll_cents()
+	var payroll_after_cents := maxi(
+		0,
+		payroll_before_cents - replaced_salary_cents + appointment_salary_cents,
+	)
 	for candidate_id in MANAGER_CANDIDATE_DEFINITIONS:
 		var definition := MANAGER_CANDIDATE_DEFINITIONS[candidate_id] as Dictionary
 		var hired := hired_ids.has(candidate_id)
@@ -19145,6 +20062,13 @@ func _manager_candidate_snapshot() -> Array[Dictionary]:
 			"hired": hired,
 			"can_recruit": can_recruit,
 			"replaces_name": replaced_name,
+			"replaces_manager_id": replaced_manager_id,
+			"replaces_salary_cents": replaced_salary_cents,
+			"appointment_salary_cents": appointment_salary_cents,
+			"manager_count": manager_roster.size(),
+			"supervisor_payroll_before_cents": payroll_before_cents,
+			"supervisor_payroll_after_cents": payroll_after_cents,
+			"supervisor_payroll_delta_cents": payroll_after_cents - payroll_before_cents,
 			"reason": (
 				"Already on payroll." if hired else
 				"Commission Rooster Operations level 1 first." if manager_roster.size() < 2 else
@@ -19796,6 +20720,7 @@ func snapshot(
 		"maximum_staff_capacity": MAXIMUM_STAFF_CAPACITY,
 		"daily_hen_payroll_cents": current_daily_hen_payroll_cents(),
 		"daily_supervisor_payroll_cents": current_daily_supervisor_payroll_cents(),
+		"daily_fellow_payroll_cents": current_daily_fellow_payroll_cents(),
 		"daily_payroll_cents": current_daily_payroll_cents(),
 		"daily_facility_expansion_cost_cents": daily_facility_expansion_cost_cents(),
 		"daily_facility_maintenance_cents": current_daily_facility_maintenance_cents(),
@@ -19809,6 +20734,7 @@ func snapshot(
 		"staffing_planning_open": staffing_planning_open(),
 		"capacity_upgrade": capacity_upgrade_status(),
 		"staffing_catalog": runtime_projections.get("staffing_catalog", []),
+		"internship_program": internship_program_snapshot(),
 		"owned_facilities": owned_facilities.duplicate(),
 		"facility_catalog": runtime_projections.get("facility_catalog", []),
 		"facility_effects": facility_effects(),
@@ -20015,6 +20941,7 @@ func _refresh_runtime_tick_snapshot(
 	result["active_staff_count"] = active_staff
 	result["daily_hen_payroll_cents"] = current_daily_hen_payroll_cents()
 	result["daily_supervisor_payroll_cents"] = current_daily_supervisor_payroll_cents()
+	result["daily_fellow_payroll_cents"] = current_daily_fellow_payroll_cents()
 	result["daily_payroll_cents"] = current_daily_payroll_cents()
 	result["daily_facility_expansion_cost_cents"] = daily_facility_expansion_cost_cents()
 	result["daily_facility_maintenance_cents"] = current_daily_facility_maintenance_cents()
@@ -20281,6 +21208,7 @@ func _update_worker(worker: ChickenState) -> void:
 				* career_work_factor
 				* float(temperament_effect.get("work_multiplier", 1.0))
 				* float(_manager_effect_for_worker(worker).get("work_multiplier", 1.0))
+				* _internship_program.work_multiplier()
 			)
 			if worker.cross_training_pending() and worker.work_progress > progress_before_tick:
 				worker.cross_training_worked_this_shift = true
@@ -20303,7 +21231,13 @@ func _update_worker(worker: ChickenState) -> void:
 			)
 			worker.fatigue = minf(100.0, worker.fatigue + (0.65 if overtime_enabled else 0.36) * comfort_factor * _directive_fatigue_multiplier * decision_strain_factor * campaign_fatigue_factor * wellness_strain_factor * feed_strain_factor * temperament_strain_factor)
 			worker.stress = minf(100.0, worker.stress + (0.40 if overtime_enabled else 0.2) * comfort_factor * _directive_stress_multiplier * decision_strain_factor * campaign_stress_factor * career_strain_factor * wellness_strain_factor * feed_strain_factor * temperament_strain_factor * claim_lane_stress_factor)
-			worker.morale = maxf(0.0, worker.morale - (0.18 if overtime_enabled else 0.07) * _directive_morale_drain_multiplier)
+			worker.morale = maxf(
+				0.0,
+				worker.morale
+					- (0.18 if overtime_enabled else 0.07)
+					* _directive_morale_drain_multiplier
+					* _internship_program.morale_drain_multiplier(),
+			)
 			if overtime_enabled:
 				worker.manager_trust = maxf(0.0, worker.manager_trust - 0.025)
 				worker.grievance = minf(100.0, worker.grievance + 0.04)
@@ -20357,6 +21291,7 @@ func _error_risk_for(worker: ChickenState) -> float:
 	error_risk += _personnel_shift_crack_modifier(worker)
 	error_risk += float(_worker_temperament_effect(worker).get("crack_modifier", 0.0))
 	error_risk += float(_manager_effect_for_worker(worker).get("crack_modifier", 0.0))
+	error_risk += _internship_program.crack_modifier()
 	if worker.current_claim != null:
 		error_risk += worker.current_claim.base_crack_risk
 		error_risk += _claim_affinity_crack_modifier(worker)
@@ -20795,7 +21730,12 @@ func _complete_workday() -> void:
 			})
 	var completed_hen_payroll := current_daily_hen_payroll_cents()
 	var completed_supervisor_payroll := current_daily_supervisor_payroll_cents()
-	var completed_payroll := completed_hen_payroll + completed_supervisor_payroll
+	var completed_fellow_payroll := current_daily_fellow_payroll_cents()
+	var completed_payroll := (
+		completed_hen_payroll
+		+ completed_supervisor_payroll
+		+ completed_fellow_payroll
+	)
 	var completed_operations := operations_snapshot()
 	var completed_career_sponsorships := _complete_career_sponsorships(completed_day)
 	var opening_wage_arrears := wage_arrears_cents
@@ -20843,6 +21783,8 @@ func _complete_workday() -> void:
 
 	var completed_market_contract := _settle_market_contract(completed_day)
 	var completed_manager_careers := _settle_manager_careers(completed_day, met_quota)
+	var completed_internship_transitions := _internship_program.complete_shift(completed_day)
+	var completed_internship_program := internship_program_snapshot()
 	var completed_farm_mutual_standing := farm_mutual_standing_status()
 	var completed_farmgate_settlement: Dictionary = {}
 	var completed_farmgate_shortfall_cents := 0
@@ -21078,6 +22020,8 @@ func _complete_workday() -> void:
 		"flock_care": completed_flock_care,
 		"operations": completed_operations,
 		"manager_careers": completed_manager_careers,
+		"internship_program": completed_internship_program,
+		"internship_transitions": completed_internship_transitions,
 		"flock_relations": completed_flock_relations,
 		"farmer_relations_gallery": farmer_relations_gallery_snapshot(),
 		"farmgate_dispatch": completed_farmgate_dispatch,
@@ -21202,6 +22146,7 @@ func _complete_workday() -> void:
 		"new_facility_unlocks": completed_new_facility_unlocks.duplicate(true),
 		"hen_payroll_cents": completed_hen_payroll,
 		"supervisor_payroll_cents": completed_supervisor_payroll,
+		"fellow_payroll_cents": completed_fellow_payroll,
 		"payroll_cents": completed_payroll,
 		"opening_wage_arrears_cents": opening_wage_arrears,
 		"payroll_due_cents": payroll_due_cents,

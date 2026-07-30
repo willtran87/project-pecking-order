@@ -39,6 +39,7 @@ var _elapsed: float = 0.0
 var _atmosphere_enabled: bool = true
 var _reduced_motion: bool = false
 var _effect_level: StringName = &"full"
+var _particle_level: StringName = &"full"
 var _animation_speed_multiplier := 1.0
 var _spotlight_tween: Tween
 
@@ -156,6 +157,11 @@ func set_effect_level(level: StringName) -> void:
 	_apply_effect_preferences()
 
 
+func set_particle_level(level: StringName) -> void:
+	_particle_level = level if level in [&"full", &"reduced", &"off"] else &"full"
+	_apply_effect_preferences()
+
+
 func set_animation_speed_multiplier(multiplier: float) -> void:
 	_animation_speed_multiplier = clampf(multiplier, 0.5, 2.0)
 	if _spotlight_tween != null and _spotlight_tween.is_valid():
@@ -165,6 +171,7 @@ func set_animation_speed_multiplier(multiplier: float) -> void:
 func effect_snapshot() -> Dictionary:
 	return {
 		"level": String(_effect_level),
+		"particle_level": String(_particle_level),
 		"atmosphere_enabled": _atmosphere_enabled,
 		"reduced_motion": _reduced_motion,
 		"ambient_particles": _allows_ambient_particles(),
@@ -192,15 +199,23 @@ func _apply_effect_preferences() -> void:
 
 
 func _allows_ambient_particles() -> bool:
-	return _atmosphere_enabled and not _reduced_motion and _effect_level == &"full"
+	return (
+		_atmosphere_enabled
+		and not _reduced_motion
+		and _particle_level == &"full"
+	)
 
 
 func _allows_event_bursts() -> bool:
-	return _atmosphere_enabled and not _reduced_motion and _effect_level != &"off"
+	return (
+		_atmosphere_enabled
+		and not _reduced_motion
+		and _particle_level != &"off"
+	)
 
 
 func _effect_count(full_count: int) -> int:
-	if _effect_level == &"reduced":
+	if _particle_level == &"reduced":
 		return maxi(1, ceili(float(full_count) * 0.45))
 	return maxi(1, full_count)
 

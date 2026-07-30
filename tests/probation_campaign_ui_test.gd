@@ -1,6 +1,7 @@
 extends SceneTree
 
 const ProbationCampaignUIScript := preload("res://features/office/probation_campaign_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -55,7 +56,7 @@ func _run() -> void:
 		status_label != null
 		and _contains_all(status_label.tooltip_text, [
 			"EXECUTIVE AUDIT", "SCORE >= 65 / 100", "WELFARE >= 48",
-			"COMPLIANCE >= 65", "FARMER FAVOR >= 53", "CRACK RATE <= 23.00%",
+			"COMPLIANCE >= 65", "FARMER FAVOR >= 52", "CRACK RATE <= 24.50%",
 		]),
 		"score badge tooltip should explain the active contract and every exact threshold",
 		failures,
@@ -220,6 +221,10 @@ func _run() -> void:
 		and challenge_terms_toggle.shortcut != null
 		and challenge_detail != null and not challenge_detail.is_visible_in_tree()
 		and "STANDARD DIFFICULTY" in challenge_summary.text
+		and _contains_all(challenge_summary.text, [
+			"OPENING ECONOMY", "FUND $50.00", "QUOTA 16",
+			"LIVE FILES 6", "AUTHORED BASELINE",
+		])
 		and "BALANCED ROUTES" in challenge_summary.text
 		and "LOCKS ON OPEN" in challenge_summary.text
 		and _contains_all(challenge_terms_toggle.tooltip_text, [
@@ -250,6 +255,7 @@ func _run() -> void:
 		ui.selected_challenge_contract_id() == &"supported_flock"
 		and challenge_detail != null
 		and _contains_all(challenge_detail.text, [
+			"FUND $65.00", "QUOTA 14", "LIVE FILES 6", "RECOVERY CUSHION",
 			"SCORE >= 45 / 100", "WELFARE >= 45", "COMPLIANCE >= 55",
 			"FARMER FAVOR >= 45", "CRACK RATE <= 30.00%", "Best for learning",
 		]),
@@ -264,8 +270,9 @@ func _run() -> void:
 		and StringName(observed["challenge_contract"]) == &"executive_audit"
 		and challenge_detail != null
 		and _contains_all(challenge_detail.text, [
+			"FUND $48.00", "QUOTA 18", "LIVE FILES 8", "AUDIT SURGE",
 			"SCORE >= 65 / 100", "WELFARE >= 48", "COMPLIANCE >= 65",
-			"FARMER FAVOR >= 53", "CRACK RATE <= 23.00%",
+			"FARMER FAVOR >= 52", "CRACK RATE <= 24.50%",
 			"demanding replay contract",
 			"Harvest Partnership has a proven specialist route",
 		]),
@@ -298,6 +305,13 @@ func _run() -> void:
 			viewport_size,
 			failures,
 		)
+	await _check_max_scale_expanded_copy(
+		ui,
+		harness,
+		"CampaignTitlePanel",
+		["NewCampaignButton", "ChallengeContractSelector"],
+		failures,
+	)
 
 	# An existing file must be legible before it can be replaced, and replacement
 	# requires a second, explicit danger action with the safe choice focused first.
@@ -315,6 +329,20 @@ func _run() -> void:
 			"rank_label": "Trusted Layer",
 			"stage_label": "Farmer Review",
 			"challenge_contract": _challenge_contract("supported_flock"),
+			"offline_recap": {
+				"status_id": "paused",
+				"status_label": "Economy paused",
+				"elapsed_label": "2 hours 14 minutes since last file",
+				"elapsed_short_label": "2h 14m",
+				"detail": "No files advanced while the terminal was closed.",
+			},
+			"return_recap": {
+				"last_filed_label": "Shift 2 closed",
+				"status_id": "attention",
+				"status_label": "Workflow Debt",
+				"status_reason": "Two overdue and one rework file are consuming future production.",
+				"next_action": "Route matching specialties before adding another binder.",
+			},
 		},
 	})
 	await process_frame
@@ -327,8 +355,20 @@ func _run() -> void:
 		and _contains_all(resume_details.text, [
 			"DAY 3 / 5", "2 SHIFTS FILED", "SCORE 66", "TRUSTED LAYER",
 			"FARMER REVIEW", "SAVED CHALLENGE CONTRACT  //  SUPPORTED FLOCK",
+			"OFFLINE  //  2H 14M  //  ECONOMY PAUSED",
+			"LAST FILED  //  SHIFT 2 CLOSED",
+			"UNRESOLVED  //  WORKFLOW DEBT",
+			"Two overdue and one rework file",
+			"NEXT  //  Route matching specialties",
 		]),
-		"title should identify the exact resumable checkpoint before offering replacement",
+		"title should recap the checkpoint, paused offline economy, unresolved condition, and next action",
+		failures,
+	)
+	await _check_responsive_layout(
+		ui,
+		harness,
+		"CampaignTitlePanel",
+		Vector2(390.0, 844.0),
 		failures,
 	)
 	_check(
@@ -804,6 +844,13 @@ func _run() -> void:
 		await _check_responsive_layout(ui, harness, "ProbationReportPanel", viewport_size, failures)
 	await _check_report_story_layout(ui, harness, Vector2(1280.0, 720.0), false, failures)
 	await _check_report_story_layout(ui, harness, Vector2(390.0, 844.0), true, failures)
+	await _check_max_scale_expanded_copy(
+		ui,
+		harness,
+		"ProbationReportPanel",
+		["ContinueProbationButton", "AbandonCampaignButton"],
+		failures,
+	)
 	var modal_scroll := ui.find_child("ProbationModalScroll", true, false) as ScrollContainer
 	if modal_scroll != null:
 		modal_scroll.scroll_vertical = 100000
@@ -934,6 +981,13 @@ func _run() -> void:
 		Vector2(390.0, 844.0),
 	]:
 		await _check_responsive_layout(ui, harness, "FinalProbationReviewPanel", viewport_size, failures)
+	await _check_max_scale_expanded_copy(
+		ui,
+		harness,
+		"FinalProbationReviewPanel",
+		["FinalNewCampaignButton", "FinalAbandonCampaignButton"],
+		failures,
+	)
 	harness.size = Vector2(1280.0, 720.0)
 	await process_frame
 
@@ -958,7 +1012,7 @@ func _run() -> void:
 			push_error("PROBATION_CAMPAIGN_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PROBATION_CAMPAIGN_UI_TEST_PASSED badge=day/5+score/100+safeguards title=resume-first+staged-new-file+one-primary+compact-five-shift+contract-disclosure report=closing-file-3/3+receipt+hen-file+ledgers+milestone final=pass/fail responsive=story-wrap+4 signals=5")
+	print("PROBATION_CAMPAIGN_UI_TEST_PASSED badge=day/5+score/100+safeguards title=resume-first+staged-new-file+one-primary+compact-five-shift+contract-disclosure report=closing-file-3/3+receipt+hen-file+ledgers+milestone final=pass/fail responsive=story-wrap+4 resilience=title+report+final@390x844+150-percent+expanded-copy signals=5")
 	quit(0)
 
 
@@ -1010,6 +1064,12 @@ func _challenge_contract(contract_id: String) -> Dictionary:
 				"description": "More room for score, farmer favor, and shell loss while preserving care floors.",
 				"route_brief": "OPEN ROUTES  //  CARE, QUALITY & HARVEST",
 				"route_guidance": "Use this contract to learn any doctrine while still managing welfare and compliance.",
+				"opening_terms": {
+					"feed_fund_cents": 6500,
+					"quota_target": 14,
+					"additional_claim_lanes": [],
+					"pressure_label": "RECOVERY CUSHION",
+				},
 				"criteria": {
 					"minimum_score": 45,
 					"minimum_welfare": 45,
@@ -1029,12 +1089,18 @@ func _challenge_contract(contract_id: String) -> Dictionary:
 				"description": "A tighter replay contract demanding stronger results in every filing.",
 				"route_brief": "EXPERT REPLAY  //  HARVEST ROUTE PROVEN",
 				"route_guidance": "Harvest Partnership has a proven specialist route. Care-led files need extra score; quality-led files must deliberately recover welfare and farmer favor.",
+				"opening_terms": {
+					"feed_fund_cents": 4800,
+					"quota_target": 18,
+					"additional_claim_lanes": [&"appeals", &"predator_loss"],
+					"pressure_label": "AUDIT SURGE",
+				},
 				"criteria": {
 					"minimum_score": 65,
 					"minimum_welfare": 48,
 					"minimum_compliance": 65,
-					"minimum_farmer_favor": 53,
-					"maximum_crack_rate_basis_points": 2300,
+					"minimum_farmer_favor": 52,
+					"maximum_crack_rate_basis_points": 2450,
 				},
 			}
 	return {
@@ -1047,6 +1113,12 @@ func _challenge_contract(contract_id: String) -> Dictionary:
 		"description": "The authored probation contract with the shipped balance.",
 		"route_brief": "BALANCED ROUTES  //  CARE, QUALITY & HARVEST",
 		"route_guidance": "Every permanent doctrine has a tested route through these terms.",
+		"opening_terms": {
+			"feed_fund_cents": 5000,
+			"quota_target": 16,
+			"additional_claim_lanes": [],
+			"pressure_label": "AUTHORED BASELINE",
+		},
 		"criteria": {
 			"minimum_score": 60,
 			"minimum_welfare": 45,
@@ -1207,6 +1279,185 @@ func _check_responsive_layout(
 			"probation badge should stay horizontally visible at %s" % viewport_size,
 			failures,
 		)
+
+
+func _check_max_scale_expanded_copy(
+	ui: Control,
+	harness: Control,
+	panel_name: String,
+	action_names: Array[String],
+	failures: Array[String],
+) -> void:
+	var prior_theme := ui.theme
+	var records: Array[Dictionary] = []
+	var nodes: Array[Node] = [ui]
+	nodes.append_array(ui.find_children("*", "Control", true, false))
+	for node_value: Node in nodes:
+		var control := node_value as Control
+		if control == null:
+			continue
+		var record := {
+			"control": control,
+			"had_font_override": control.has_theme_font_size_override("font_size"),
+			"font_size": control.get_theme_font_size("font_size"),
+			"kind": &"",
+			"text": "",
+			"items": [] as Array[String],
+		}
+		if control is OptionButton:
+			var option := control as OptionButton
+			var item_texts: Array[String] = []
+			for item_index: int in option.item_count:
+				item_texts.append(option.get_item_text(item_index))
+			record["kind"] = &"option"
+			record["items"] = item_texts
+		elif control is Button:
+			record["kind"] = &"button"
+			record["text"] = (control as Button).text
+		elif control is Label:
+			record["kind"] = &"label"
+			record["text"] = (control as Label).text
+		records.append(record)
+
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	harness.size = Vector2(390.0, 844.0)
+	await process_frame
+	await process_frame
+
+	var bounds := Rect2(Vector2.ZERO, harness.size)
+	var panel := ui.find_child(panel_name, true, false) as PanelContainer
+	var modal_scroll := ui.find_child("ProbationModalScroll", true, false) as ScrollContainer
+	_check(
+		panel != null and panel.is_visible_in_tree()
+		and _visible_children_fit(panel, bounds),
+		"%s should remain inside 390x844 at 150-percent with expanded copy (%s; largest=%s)"
+		% [
+			panel_name,
+			_first_horizontal_overflow(panel, bounds) if panel != null else "panel missing",
+			_largest_minimum_widths(panel) if panel != null else "panel missing",
+		],
+		failures,
+	)
+	_check(
+		modal_scroll != null
+		and modal_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED
+		and modal_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO,
+		"%s should remain vertical-scroll-only at maximum scale" % panel_name,
+		failures,
+	)
+	for action_name: String in action_names:
+		var action := ui.find_child(action_name, true, false) as Control
+		_check(
+			action != null and action.is_visible_in_tree()
+			and modal_scroll != null and modal_scroll.is_ancestor_of(action)
+			and action.get_global_rect().position.x >= -0.5
+			and action.get_global_rect().end.x <= harness.size.x + 0.5,
+			"%s action %s should remain physically reachable at maximum scale"
+			% [panel_name, action_name],
+			failures,
+		)
+
+	for record: Dictionary in records:
+		var control := record.get("control") as Control
+		if control == null or not is_instance_valid(control):
+			continue
+		match StringName(record.get("kind", &"")):
+			&"option":
+				var option := control as OptionButton
+				var item_texts := record.get("items", []) as Array
+				for item_index: int in mini(option.item_count, item_texts.size()):
+					option.set_item_text(item_index, String(item_texts[item_index]))
+			&"button":
+				(control as Button).text = String(record.get("text", ""))
+			&"label":
+				(control as Label).text = String(record.get("text", ""))
+		if bool(record.get("had_font_override", false)):
+			control.add_theme_font_size_override("font_size", int(record.get("font_size", 16)))
+		else:
+			control.remove_theme_font_size_override("font_size")
+	ui.theme = prior_theme
+	await process_frame
+	await process_frame
+
+
+func _visible_children_fit(root_control: Control, bounds: Rect2) -> bool:
+	return _first_horizontal_overflow(root_control, bounds) == "none"
+
+
+func _first_horizontal_overflow(root_control: Control, bounds: Rect2) -> String:
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var rect := control.get_global_rect()
+		if rect.position.x < bounds.position.x - 1.0 or rect.end.x > bounds.end.x + 1.0:
+			return "%s=%s bounds=%s" % [control.name, rect, bounds]
+	return "none"
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	var rows: Array[Dictionary] = []
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		rows.append({
+			"name": String(control.name),
+			"minimum": control.get_combined_minimum_size().x,
+			"width": control.size.x,
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return float(left.get("minimum", 0.0)) > float(right.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(20, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override(
+			"font_size",
+			maxi(10, roundi(float(base_size) * scale)),
+		)
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is OptionButton:
+			var option := node_value as OptionButton
+			for item_index: int in option.item_count:
+				option.set_item_text(item_index, _expanded(option.get_item_text(item_index)))
+		elif node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _check_title_character_layout(

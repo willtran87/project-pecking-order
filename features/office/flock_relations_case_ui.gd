@@ -7,6 +7,7 @@ extends VBoxContainer
 ## disabled reason comes from the authoritative simulation snapshot.
 
 signal action_requested(case_id: int, action_id: StringName)
+signal presentation_context_changed
 
 const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
 const COLOR_BRASS := Color("e7c56e")
@@ -23,6 +24,10 @@ var _case_list: VBoxContainer
 var _last_resolution_label: Label
 var _cases_toggle
 var _had_open_cases := false
+var _confirmation: ConfirmationDialog
+var _pending_case_id := -1
+var _pending_action_id: StringName = &""
+var _confirmation_origin: Control
 
 
 func _ready() -> void:
@@ -34,12 +39,14 @@ func _ready() -> void:
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
+	if not _pending_action_is_valid():
+		_cancel_confirmation(false)
 	_refresh()
 
 
 func _build_interface() -> void:
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 8)
+	var header := VBoxContainer.new()
+	header.add_theme_constant_override("separation", 2)
 	add_child(header)
 
 	var title := _make_label("FLOCK RELATIONS", 12, COLOR_BRASS)
@@ -49,7 +56,6 @@ func _build_interface() -> void:
 
 	_status_label = _make_label("CASE INTAKE", 10, COLOR_MULBERRY)
 	_status_label.name = "FlockRelationsStatus"
-	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	header.add_child(_status_label)
 
 	_terms_label = _make_label("", 10, COLOR_MUTED)
@@ -59,6 +65,9 @@ func _build_interface() -> void:
 
 	_cases_toggle = FlockwatchDisclosureToggleScript.new()
 	_cases_toggle.name = "FlockRelationsCasesToggle"
+	_cases_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
 	add_child(_cases_toggle)
 
 	_case_list = VBoxContainer.new()
@@ -74,6 +83,33 @@ func _build_interface() -> void:
 	_last_resolution_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_last_resolution_label.visible = false
 	add_child(_last_resolution_label)
+	_build_confirmation()
+
+
+func _build_confirmation() -> void:
+	_confirmation = ConfirmationDialog.new()
+	_confirmation.name = "FlockRelationsDispositionConfirmation"
+	_confirmation.title = "FILE A PERMANENT HEN DISPOSITION?"
+	_confirmation.ok_button_text = "FILE DISPOSITION"
+	_confirmation.cancel_button_text = "KEEP CASE OPEN"
+	_confirmation.min_size = Vector2i(340, 330)
+	var copy := _confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 190.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for action_button: Button in [
+		_confirmation.get_ok_button(),
+		_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size = Vector2(132.0, 44.0)
+		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action_button.clip_text = true
+		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_confirmation.confirmed.connect(_confirm_action)
+	_confirmation.canceled.connect(_cancel_confirmation)
+	add_child(_confirmation)
 
 
 func _refresh() -> void:
@@ -196,10 +232,9 @@ func _build_case_card(case_record: Dictionary) -> Control:
 	evidence_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(evidence_label)
 
-	var actions := HFlowContainer.new()
+	var actions := VBoxContainer.new()
 	actions.name = "CaseActions"
-	actions.add_theme_constant_override("h_separation", 6)
-	actions.add_theme_constant_override("v_separation", 6)
+	actions.add_theme_constant_override("separation", 6)
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_child(actions)
 
@@ -231,7 +266,10 @@ func _build_action_button(case_record: Dictionary, option: Dictionary) -> Button
 	var button := Button.new()
 	button.name = "FlockRelationsAction_%s" % _safe_suffix(String(action_id))
 	button.theme_type_variation = &"PrimaryButton" if action_id != &"file_pip" else &"DangerButton"
-	button.custom_minimum_size = Vector2(112.0, 38.0)
+	button.custom_minimum_size = Vector2(0.0, 42.0)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	button.text = "%s\n%s" % [label, "NO FUND COST" if cost_cents == 0 else "$%.2f" % (cost_cents / 100.0)]
 	button.disabled = not enabled
 	button.tooltip_text = (
@@ -241,8 +279,134 @@ func _build_action_button(case_record: Dictionary, option: Dictionary) -> Button
 	)
 	button.set_meta("case_id", case_id)
 	button.set_meta("action_id", action_id)
-	button.pressed.connect(func() -> void: action_requested.emit(case_id, action_id))
+	button.pressed.connect(
+		_on_action_pressed.bind(case_id, action_id, button)
+	)
 	return button
+
+
+func _on_action_pressed(
+	case_id: int,
+	action_id: StringName,
+	origin: Control,
+) -> void:
+	if origin == null or not is_instance_valid(origin):
+		return
+	var case_record := _case_record(case_id)
+	var option := _action_option(case_record, action_id)
+	if (
+		case_record.is_empty()
+		or option.is_empty()
+		or not bool(option.get("enabled", false))
+		or origin is BaseButton and (origin as BaseButton).disabled
+	):
+		return
+	_pending_case_id = case_id
+	_pending_action_id = action_id
+	_confirmation_origin = origin
+	var worker_name := String(case_record.get(
+		"worker_name",
+		"UNFILED HEN",
+	)).strip_edges()
+	var case_title := String(case_record.get(
+		"title",
+		"WORKPLACE CASE",
+	)).strip_edges()
+	var action_label := String(option.get(
+		"label",
+		action_id,
+	)).strip_edges()
+	var cost_cents := maxi(0, int(option.get("cost_cents", 0)))
+	var effect_preview := String(option.get(
+		"effect_preview",
+		"Permanent case effects will be recorded.",
+	)).strip_edges()
+	_confirmation.title = "FILE %s'S DISPOSITION?" % worker_name.to_upper()
+	_confirmation.dialog_text = (
+		"HEN  /  %s\n"
+		+ "CASE  /  %s\n"
+		+ "DISPOSITION  /  %s\n"
+		+ "FEED FUND  /  %s\n"
+		+ "EFFECT  /  %s\n"
+		+ "RECORD  /  PERMANENT LABOR FILE\n\n"
+		+ "No fund, relationship, case, or save state changes before confirmation. "
+		+ "This disposition cannot be undone during the current review."
+	) % [
+		worker_name.to_upper(),
+		case_title.to_upper(),
+		action_label.to_upper(),
+		"NO FUND COST" if cost_cents == 0 else "$%.2f NOW" % (
+			float(cost_cents) / 100.0
+		),
+		effect_preview.to_upper(),
+	]
+	_confirmation.popup_centered_clamped(Vector2i(380, 420), 0.96)
+
+
+func _confirm_action() -> void:
+	if not _pending_action_is_valid():
+		_cancel_confirmation(false)
+		return
+	var case_id := _pending_case_id
+	var action_id := _pending_action_id
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	action_requested.emit(case_id, action_id)
+
+
+func _cancel_confirmation(restore_focus: bool = true) -> void:
+	var origin := _confirmation_origin
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not (origin is BaseButton and (origin as BaseButton).disabled)
+	):
+		origin.call_deferred("grab_focus")
+
+
+func _clear_pending_confirmation() -> void:
+	_pending_case_id = -1
+	_pending_action_id = &""
+	_confirmation_origin = null
+
+
+func _pending_action_is_valid() -> bool:
+	if _pending_case_id <= 0 or _pending_action_id == &"":
+		return false
+	var option := _action_option(
+		_case_record(_pending_case_id),
+		_pending_action_id,
+	)
+	return not option.is_empty() and bool(option.get("enabled", false))
+
+
+func _case_record(case_id: int) -> Dictionary:
+	for record: Dictionary in _case_entries(_relations_snapshot()):
+		if int(record.get("case_id", -1)) == case_id:
+			return record
+	return {}
+
+
+func _action_option(
+	case_record: Dictionary,
+	action_id: StringName,
+) -> Dictionary:
+	for value: Variant in case_record.get("action_options", []) as Array:
+		if (
+			value is Dictionary
+			and StringName(String((value as Dictionary).get(
+				"action_id",
+				"",
+			))) == action_id
+		):
+			return value as Dictionary
+	return {}
 
 
 func _relations_snapshot() -> Dictionary:

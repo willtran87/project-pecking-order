@@ -37,6 +37,12 @@ const CHALLENGE_CONTRACTS := {
 		"description": "More room for score, farmer favor, and shell loss while preserving the Standard welfare and compliance floors.",
 		"route_brief": "OPEN ROUTES  //  CARE, QUALITY & HARVEST",
 		"route_guidance": "Use this contract to learn any doctrine. It forgives score, favor, and shell-loss variance, but welfare and compliance still require active management.",
+		"opening_terms": {
+			"feed_fund_cents": 6500,
+			"quota_target": 14,
+			"additional_claim_lanes": [],
+			"pressure_label": "RECOVERY CUSHION",
+		},
 		"criteria": {
 			"minimum_score": 35,
 			"minimum_welfare": 45,
@@ -55,6 +61,12 @@ const CHALLENGE_CONTRACTS := {
 		"description": "The authored probation contract with the shipped balance of flock care, compliance, favor, and shell quality.",
 		"route_brief": "BALANCED ROUTES  //  CARE, QUALITY & HARVEST",
 		"route_guidance": "Every permanent doctrine has a tested route through these terms. Follow its playbook and cover the safeguard named in its watchout.",
+		"opening_terms": {
+			"feed_fund_cents": DEFAULT_OPENING_FUND_CENTS,
+			"quota_target": 16,
+			"additional_claim_lanes": [],
+			"pressure_label": "AUTHORED BASELINE",
+		},
 		"criteria": {
 			"minimum_score": MIN_PASS_SCORE,
 			"minimum_welfare": MIN_PASS_WELFARE,
@@ -73,12 +85,18 @@ const CHALLENGE_CONTRACTS := {
 		"description": "A tighter replay contract demanding stronger score, welfare, compliance, favor, and shell-loss results.",
 		"route_brief": "EXPERT REPLAY  //  HARVEST ROUTE PROVEN",
 		"route_guidance": "Harvest Partnership has a proven specialist route. Care-led files need extra score; quality-led files must deliberately recover welfare and farmer favor.",
+		"opening_terms": {
+			"feed_fund_cents": 4800,
+			"quota_target": 18,
+			"additional_claim_lanes": [&"appeals", &"predator_loss"],
+			"pressure_label": "AUDIT SURGE",
+		},
 		"criteria": {
 			"minimum_score": 65,
 			"minimum_welfare": 48,
 			"minimum_compliance": 65,
-			"minimum_farmer_favor": 53,
-			"maximum_crack_rate_basis_points": 2300,
+			"minimum_farmer_favor": 52,
+			"maximum_crack_rate_basis_points": 2450,
 		},
 	},
 }

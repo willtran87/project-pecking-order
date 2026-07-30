@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 const TEST_SAVE_FILENAME := "staffing_ui_test.json"
 
 
@@ -120,11 +121,6 @@ func _run() -> void:
 		"capacity control should explain the unresolved closing-credit hold",
 		failures,
 	)
-	_resolve_closing_credit(simulation, failures)
-	await process_frame
-	await process_frame
-	_check(bool(simulation.snapshot().get("staffing_planning_open", false)), "filing closing credit should explicitly open staffing planning", failures)
-
 	var review_requisitions := office.find_child("ReviewRequisitionsButton", true, false) as Button
 	_check(review_requisitions != null, "farmer review should expose the requisitions action", failures)
 	if review_requisitions != null:
@@ -143,9 +139,43 @@ func _run() -> void:
 		"restoring the Farmer review should close the requisitions drawer",
 		failures,
 	)
-	if review_requisitions != null:
-		review_requisitions.pressed.emit()
+	_resolve_closing_credit(simulation, failures)
 	await process_frame
+	await process_frame
+	await create_timer(0.1).timeout
+	_check(bool(simulation.snapshot().get("staffing_planning_open", false)), "filing closing credit should explicitly open staffing planning", failures)
+	var report_requisitions := office.find_child(
+		"ReviewRoostRequisitionsButton",
+		true,
+		false,
+	) as Button
+	_check(
+		report_requisitions != null
+		and report_requisitions.is_visible_in_tree()
+		and not report_requisitions.disabled,
+		"the foreground probation report should expose the newly available roost requisitions (found=%s visible=%s disabled=%s modal=%s)"
+		% [
+			report_requisitions != null,
+			report_requisitions.is_visible_in_tree() if report_requisitions != null else false,
+			report_requisitions.disabled if report_requisitions != null else true,
+			String((office.get("_campaign_ui") as ProbationCampaignUI).modal_state()),
+		],
+		failures,
+	)
+	if report_requisitions != null:
+		report_requisitions.pressed.emit()
+	await process_frame
+	await process_frame
+	_check(
+		report_requisitions != null and not report_requisitions.is_visible_in_tree(),
+		"opening report requisitions should suspend the probation report instead of layering the ledger behind it",
+		failures,
+	)
+	_check(
+		flockwatch_panel != null and flockwatch_panel.is_visible_in_tree(),
+		"the report requisitions action should foreground Flockwatch",
+		failures,
+	)
 	_check(
 		flockwatch_navigation != null
 		and flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_FLOCK),
@@ -169,8 +199,94 @@ func _run() -> void:
 	)
 	_check(staffing_ui != null and staffing_ui.is_visible_in_tree(), "Roost Staffing should be visible inside the open ledger", failures)
 	_check(
+		day_review_scrim != null and not day_review_scrim.is_visible_in_tree(),
+		"opening requisitions should suspend the Farmer review while the staffing ledger is foregrounded",
+		failures,
+	)
+	_check(
 		_flock_applicant_cards_are_visible(flock_page_scroll, 2),
 		"both screened applicant cards should be visible on the open Flock page",
+		failures,
+	)
+	await _check_max_scale_staffing(
+		office,
+		staffing_ui,
+		flock_page_scroll,
+		failures,
+	)
+	_check(
+		day_review_scrim != null and not day_review_scrim.is_visible_in_tree(),
+		"staffing copy stress should not restore the suspended Farmer review",
+		failures,
+	)
+	if "--capture-max-scale-staffing" in OS.get_cmdline_user_args():
+		var prior_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+		var scaled_preferences := prior_preferences.duplicate(true)
+		scaled_preferences["ui_scale"] = 1.5
+		office.set("_player_preferences", scaled_preferences)
+		office.call("_apply_management_ui_preferences")
+		await process_frame
+		await process_frame
+		_check(
+			day_review_scrim != null and not day_review_scrim.is_visible_in_tree(),
+			"applying the 150-percent preference should keep the staffing ledger in the foreground",
+			failures,
+		)
+		root.size = Vector2i(1280, 720)
+		await process_frame
+		_check(
+			day_review_scrim != null and not day_review_scrim.is_visible_in_tree(),
+			"resizing the max-scale staffing capture should not restore the Farmer review",
+			failures,
+		)
+		if staffing_ui != null and flock_page_scroll != null:
+			var scroll_bar := flock_page_scroll.get_v_scroll_bar()
+			var max_scroll := maxi(
+				0,
+				roundi(scroll_bar.max_value - scroll_bar.page),
+			)
+			flock_page_scroll.scroll_vertical = mini(820, max_scroll)
+			await process_frame
+			await process_frame
+		var capture_directory := ProjectSettings.globalize_path(
+			"res://output/web-game/staffing-scale-v1"
+		)
+		DirAccess.make_dir_recursive_absolute(capture_directory)
+		var image := root.get_texture().get_image()
+		_check(image != null, "max-scale staffing capture should expose a rendered viewport", failures)
+		if image != null:
+			_check(
+				image.save_png(capture_directory.path_join("flock-staffing-1280x720.png")) == OK,
+				"max-scale staffing capture should save successfully",
+				failures,
+			)
+		office.set("_player_preferences", prior_preferences)
+		office.call("_apply_management_ui_preferences")
+		await process_frame
+		await process_frame
+
+	office.call("_on_flockwatch_pressed")
+	await process_frame
+	await process_frame
+	_check(
+		flockwatch_panel != null and not flockwatch_panel.is_visible_in_tree(),
+		"closing report requisitions should close the staffing ledger",
+		failures,
+	)
+	_check(
+		report_requisitions != null
+		and report_requisitions.is_visible_in_tree()
+		and not report_requisitions.disabled,
+		"closing report requisitions should restore the exact actionable probation report",
+		failures,
+	)
+	if report_requisitions != null:
+		report_requisitions.pressed.emit()
+	await process_frame
+	await process_frame
+	_check(
+		flockwatch_panel != null and flockwatch_panel.is_visible_in_tree(),
+		"the restored report should reopen roost requisitions without losing staffing state",
 		failures,
 	)
 
@@ -370,7 +486,7 @@ func _run() -> void:
 			push_error("STAFFING_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("STAFFING_UI_TEST_PASSED opening=4/4 applicants=2 lock=explained review=open capacity=5 desk=revealed hire=spawned checkpoint=durable cooldown=legible")
+	print("STAFFING_UI_TEST_PASSED opening=4/4 applicants=2 lock=explained review=open capacity=5 desk=revealed hire=spawned checkpoint=durable cooldown=legible resilience=flock-ledger+150-percent+expanded-copy")
 	quit(0)
 
 
@@ -505,6 +621,212 @@ func _flock_applicant_cards_are_visible(flock_page_scroll: ScrollContainer, expe
 		if card == null or not card.is_visible_in_tree():
 			return false
 	return true
+
+
+func _check_max_scale_staffing(
+		office: Office,
+		staffing_ui: RoostStaffingUI,
+		flock_page_scroll: ScrollContainer,
+		failures: Array[String],
+) -> void:
+	var ui_root := office.get("_ui_root") as Control
+	var flock_domain := (
+		staffing_ui.navigation_sections().get(&"flock") as Control
+		if staffing_ui != null else null
+	)
+	if ui_root == null or flock_domain == null or flock_page_scroll == null:
+		_check(false, "max-scale staffing fixture requires the live UI root, Flock domain, and page scroll", failures)
+		return
+	var prior_theme := ui_root.theme
+	var records := _capture_control_records(flock_domain)
+	ui_root.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(flock_domain, 1.5)
+	_expand_interface_copy(flock_domain)
+	await process_frame
+	await process_frame
+
+	var bounds := _effective_scroll_bounds(flock_page_scroll)
+	_check(
+		_visible_children_fit(flock_domain, bounds),
+		"150-percent expanded staffing should remain inside the Flock reading width (%s; largest=%s)"
+		% [_first_horizontal_overflow(flock_domain, bounds), _largest_minimum_widths(flock_domain)],
+		failures,
+	)
+	_check(
+		flock_page_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED
+		and flock_page_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO,
+		"max-scale staffing should remain vertical-scroll-only",
+		failures,
+	)
+	for action_name: String in [
+		"HireWorker_4",
+		"HireWorker_5",
+		"ReleaseWorkerSelector",
+		"ReleaseWorkerButton",
+	]:
+		var action := flock_domain.find_child(action_name, true, false) as Control
+		_check(
+			action != null
+			and action.is_visible_in_tree()
+			and action.get_global_rect().position.x >= bounds.position.x - 0.5
+			and action.get_global_rect().end.x <= bounds.end.x + 0.5,
+			"max-scale staffing action %s should remain horizontally reachable (rect=%s bounds=%s)"
+			% [action_name, action.get_global_rect() if action != null else Rect2(), bounds],
+			failures,
+		)
+
+	_restore_control_records(records)
+	ui_root.theme = prior_theme
+	await process_frame
+	await process_frame
+
+
+func _capture_control_records(root_control: Control) -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null:
+			continue
+		var record := {
+			"control": control,
+			"had_font_override": control.has_theme_font_size_override("font_size"),
+			"font_size": control.get_theme_font_size("font_size"),
+			"kind": &"",
+			"text": "",
+			"items": [] as Array[String],
+		}
+		if control is OptionButton:
+			var option := control as OptionButton
+			var item_texts: Array[String] = []
+			for item_index: int in option.item_count:
+				item_texts.append(option.get_item_text(item_index))
+			record["kind"] = &"option"
+			record["items"] = item_texts
+		elif control is Button:
+			record["kind"] = &"button"
+			record["text"] = (control as Button).text
+		elif control is Label:
+			record["kind"] = &"label"
+			record["text"] = (control as Label).text
+		records.append(record)
+	return records
+
+
+func _restore_control_records(records: Array[Dictionary]) -> void:
+	for record: Dictionary in records:
+		var control := record.get("control") as Control
+		if control == null or not is_instance_valid(control):
+			continue
+		match StringName(record.get("kind", &"")):
+			&"option":
+				var option := control as OptionButton
+				var item_texts := record.get("items", []) as Array
+				for item_index: int in mini(option.item_count, item_texts.size()):
+					option.set_item_text(item_index, String(item_texts[item_index]))
+			&"button":
+				(control as Button).text = String(record.get("text", ""))
+			&"label":
+				(control as Label).text = String(record.get("text", ""))
+		if bool(record.get("had_font_override", false)):
+			control.add_theme_font_size_override(
+				"font_size",
+				int(record.get("font_size", 16)),
+			)
+		else:
+			control.remove_theme_font_size_override("font_size")
+
+
+func _effective_scroll_bounds(scroll: ScrollContainer) -> Rect2:
+	var bounds := scroll.get_global_rect()
+	var vertical_bar := scroll.get_v_scroll_bar()
+	if vertical_bar != null and vertical_bar.visible:
+		bounds.size.x = maxf(0.0, bounds.size.x - vertical_bar.size.x)
+	return bounds
+
+
+func _visible_children_fit(root_control: Control, bounds: Rect2) -> bool:
+	return _first_horizontal_overflow(root_control, bounds) == "none"
+
+
+func _first_horizontal_overflow(root_control: Control, bounds: Rect2) -> String:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control != null and control.is_visible_in_tree():
+			var rect := control.get_global_rect()
+			if rect.position.x < bounds.position.x - 0.5 or rect.end.x > bounds.end.x + 0.5:
+				return "%s rect=%s min=%s" % [
+					control.name,
+					rect,
+					control.get_combined_minimum_size(),
+				]
+	return "none"
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	var rows: Array[Dictionary] = []
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control != null and control.is_visible_in_tree():
+			rows.append({
+				"name": control.name,
+				"minimum": control.get_combined_minimum_size().x,
+				"width": control.size.x,
+			})
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return float(a.get("minimum", 0.0)) > float(b.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(18, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override(
+			"font_size",
+			maxi(10, roundi(float(base_size) * scale)),
+		)
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is OptionButton:
+			var option := node_value as OptionButton
+			for item_index: int in option.item_count:
+				option.set_item_text(item_index, _expanded(option.get_item_text(item_index)))
+		elif node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

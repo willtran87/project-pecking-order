@@ -13,6 +13,8 @@ const SAMPLE_RATE := 22050
 const PECK_CONTACT_PITCHES: Array[float] = [0.96, 1.02, 1.08]
 const BUS_SFX: StringName = &"SFX"
 const BUS_UI: StringName = &"UI"
+const BUS_ALERTS: StringName = &"Alerts"
+const BUS_VOICE: StringName = &"Voice"
 const BUS_MUSIC: StringName = &"Music"
 const BUS_AMBIENT: StringName = &"Ambient"
 const PRIORITY_ROUTINE := 20
@@ -30,6 +32,7 @@ var _voice_cues: Array[StringName] = []
 var _last_cue_msec: Dictionary[StringName, int] = {}
 var _focus_paused := false
 var _last_played_cue: StringName = &""
+var _last_played_bus: StringName = &""
 var _cue_serial := 0
 var _haptics_enabled := true
 var _last_haptic_cue: StringName = &""
@@ -60,6 +63,7 @@ var _shift_alert: AudioStreamWAV
 var _campaign_pass: AudioStreamWAV
 var _campaign_fail: AudioStreamWAV
 var _commendation_stamp: AudioStreamWAV
+var _dialogue_cutout: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -124,6 +128,13 @@ func _ready() -> void:
 		PackedFloat32Array([523.25, 659.25, 784.0, 1046.5]),
 		0.075,
 		0.40,
+	)
+	# A soft two-syllable desk-intercom cue gives the portrait cutouts an audio
+	# identity without pretending to be spoken dialogue or adding another player.
+	_dialogue_cutout = _synth_sequence(
+		PackedFloat32Array([440.0, 554.37]),
+		0.065,
+		0.24,
 	)
 
 
@@ -192,7 +203,7 @@ func play_ui_tick() -> void:
 func play_decision_alert() -> void:
 	_play(
 		&"decision_alert", _decision_alert, 1.0, -6.5, 180,
-		BUS_UI, PRIORITY_ALERT,
+		BUS_ALERTS, PRIORITY_ALERT,
 	)
 
 
@@ -342,7 +353,7 @@ func play_shift_alert(severity: float = 1.0) -> bool:
 		0.94 + normalized * 0.12,
 		lerpf(-10.5, -5.5, normalized),
 		180,
-		BUS_UI,
+		BUS_ALERTS,
 		PRIORITY_ALERT if normalized >= 0.65 else PRIORITY_IMPORTANT,
 	)
 
@@ -377,6 +388,33 @@ func play_commendation() -> bool:
 	)
 
 
+## A restrained, nonverbal cue for an authored character cutout. Speaker pitch
+## is deterministic and semantic; the text remains the complete dialogue.
+func play_dialogue_cutout(speaker_id: StringName) -> bool:
+	var pitch := 1.0
+	match speaker_id:
+		&"mabel":
+			pitch = 1.02
+		&"pip":
+			pitch = 1.08
+		&"henrietta":
+			pitch = 1.13
+		&"dot":
+			pitch = 0.95
+		&"cornelius":
+			pitch = 0.86
+	return _play(
+		&"dialogue_cutout",
+		_dialogue_cutout,
+		pitch,
+		-10.0,
+		450,
+		BUS_VOICE,
+		PRIORITY_ROUTINE,
+		&"dialogue_cutout",
+	)
+
+
 func feedback_snapshot() -> Dictionary:
 	var active_voice_count := 0
 	for voice in _voices:
@@ -386,6 +424,7 @@ func feedback_snapshot() -> Dictionary:
 		"voice_count": _voices.size(),
 		"active_voice_count": active_voice_count,
 		"last_cue": String(_last_played_cue),
+		"last_bus": String(_last_played_bus),
 		"cue_serial": _cue_serial,
 		"haptics_enabled": _haptics_enabled,
 		"last_haptic_cue": String(_last_haptic_cue),
@@ -493,6 +532,7 @@ func _play(
 	player.volume_db = volume_db
 	player.play()
 	_last_played_cue = cue
+	_last_played_bus = bus
 	_cue_serial += 1
 	cue_played.emit(cue)
 	_emit_haptic(cue, priority)
@@ -581,6 +621,8 @@ func _reset_voice_state(voice_index: int) -> void:
 static func ensure_audio_buses() -> void:
 	_ensure_bus(BUS_SFX, -3.0)
 	_ensure_bus(BUS_UI, -4.0)
+	_ensure_bus(BUS_ALERTS, -4.0)
+	_ensure_bus(BUS_VOICE, -6.0)
 	_ensure_bus(BUS_MUSIC, -8.0)
 	_ensure_bus(BUS_AMBIENT, -7.0)
 	var master_index := AudioServer.get_bus_index(&"Master")

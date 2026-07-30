@@ -11,7 +11,9 @@ func _run() -> void:
 	var failures: Array[String] = []
 	# Godot conventionally installs res://default_bus_layout.tres before the first
 	# scene. Verify that path directly before OfficeAudioFeedback's safe fallback.
-	for startup_bus_name in [&"Master", &"SFX", &"UI", &"Music", &"Ambient"]:
+	for startup_bus_name in [
+		&"Master", &"SFX", &"UI", &"Alerts", &"Voice", &"Music", &"Ambient",
+	]:
 		_check(
 			AudioServer.get_bus_index(startup_bus_name) >= 0,
 			"%s bus should auto-load before feedback instantiation" % startup_bus_name,
@@ -35,7 +37,9 @@ func _run() -> void:
 	_check(voices.size() == 8, "audio feedback should use a fixed voice pool", failures)
 	var bus_layout := load("res://default_bus_layout.tres") as AudioBusLayout
 	_check(bus_layout != null, "the conventional production bus layout should load", failures)
-	for bus_name in [&"Master", &"SFX", &"UI", &"Music", &"Ambient"]:
+	for bus_name in [
+		&"Master", &"SFX", &"UI", &"Alerts", &"Voice", &"Music", &"Ambient",
+	]:
 		_check(AudioServer.get_bus_index(bus_name) >= 0, "%s audio bus should exist" % bus_name, failures)
 	var master_index := AudioServer.get_bus_index(&"Master")
 	var limiter_count := 0
@@ -72,11 +76,17 @@ func _run() -> void:
 	_check(assigned == 8, "core loop and management decisions should fill the reusable procedural voice pool", failures)
 	var ui_routed := 0
 	var sfx_routed := 0
+	var alerts_routed := 0
 	for voice in voices:
 		var player := voice as AudioStreamPlayer
 		ui_routed += 1 if player.bus == &"UI" else 0
 		sfx_routed += 1 if player.bus == &"SFX" else 0
-	_check(ui_routed == 4 and sfx_routed == 4, "UI and physical cues should route to separate buses", failures)
+		alerts_routed += 1 if player.bus == &"Alerts" else 0
+	_check(
+		ui_routed == 3 and sfx_routed == 4 and alerts_routed == 1,
+		"routine UI, physical work, and semantic warnings should route independently",
+		failures,
+	)
 	var initial_feedback := audio.feedback_snapshot()
 	_check(
 		audio.haptics_enabled()
@@ -100,6 +110,27 @@ func _run() -> void:
 		failures,
 	)
 	audio.set_haptics_enabled(true)
+	for voice in voices:
+		(voice as AudioStreamPlayer).stop()
+		(voice as AudioStreamPlayer).stream = null
+
+	await create_timer(0.20).timeout
+	var haptic_serial_before_dialogue := int(
+		audio.feedback_snapshot().get("haptic_serial", -1)
+	)
+	_check(
+		audio.play_dialogue_cutout(&"cornelius"),
+		"a character cutout should receive one restrained nonverbal cue",
+		failures,
+	)
+	var dialogue_feedback := audio.feedback_snapshot()
+	_check(
+		String(dialogue_feedback.get("last_cue", "")) == "dialogue_cutout"
+		and String(dialogue_feedback.get("last_bus", "")) == "Voice"
+		and int(dialogue_feedback.get("haptic_serial", -1)) == haptic_serial_before_dialogue,
+		"character cutouts should route to Voice without inventing spoken audio or vibration",
+		failures,
+	)
 	for voice in voices:
 		(voice as AudioStreamPlayer).stop()
 		(voice as AudioStreamPlayer).stream = null
@@ -214,7 +245,7 @@ func _run() -> void:
 			push_error("AUDIO_FEEDBACK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("AUDIO_FEEDBACK_TEST_PASSED voices=8 cues=procedural verdicts=distinct diagnostics=stable limiter=semantic priority=protected growth=none buses=SFX+UI haptics=optional+bounded")
+	print("AUDIO_FEEDBACK_TEST_PASSED voices=8 cues=procedural+cutout verdicts=distinct diagnostics=stable limiter=semantic priority=protected growth=none buses=SFX+UI+Alerts+Voice haptics=optional+bounded")
 	quit(0)
 
 

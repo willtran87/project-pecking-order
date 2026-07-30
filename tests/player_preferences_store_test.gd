@@ -9,7 +9,15 @@ const TEST_PATHS: Array[String] = [
 	"%s.tmp" % TEST_PRIMARY_PATH,
 	"%s.bak.tmp" % TEST_PRIMARY_PATH,
 ]
-const TARGET_BUS_NAMES: Array[StringName] = [&"Master", &"SFX", &"UI", &"Music", &"Ambient"]
+const TARGET_BUS_NAMES: Array[StringName] = [
+	&"Master",
+	&"SFX",
+	&"UI",
+	&"Alerts",
+	&"Voice",
+	&"Music",
+	&"Ambient",
+]
 
 
 func _init() -> void:
@@ -24,11 +32,15 @@ func _run() -> void:
 	var default_preferences: Dictionary = PlayerPreferencesStoreScript.defaults()
 	_check(PlayerPreferencesStoreScript.validate(default_preferences).is_empty(), "defaults should satisfy the strict persistence schema", failures)
 	_check(
-		default_preferences.keys().size() == 15
-		and (default_preferences.get("audio", {}) as Dictionary).keys().size() == 5
+		default_preferences.keys().size() == 19
+		and (default_preferences.get("audio", {}) as Dictionary).keys().size() == 7
+		and String(default_preferences.get("settings_category", "")) == "comfort"
 		and String(default_preferences.get("notice_level", "")) == "all"
 		and String(default_preferences.get("notice_duration", "")) == "standard"
 		and String(default_preferences.get("effect_level", "")) == "full"
+		and String(default_preferences.get("particle_level", "")) == "full"
+		and String(default_preferences.get("camera_motion", "")) == "full"
+		and String(default_preferences.get("camera_sensitivity", "")) == "standard"
 		and String(default_preferences.get("animation_speed", "")) == "standard"
 		and String(default_preferences.get("tooltip_delay", "")) == "standard"
 		and bool(default_preferences.get("haptics_enabled", false))
@@ -64,10 +76,14 @@ func _run() -> void:
 		"notice_level": "interrupt_everything",
 		"notice_duration": "forever",
 		"effect_level": "explosive",
+		"particle_level": "confetti_storm",
+		"camera_motion": "roller_coaster",
+		"camera_sensitivity": "telepathic",
 		"animation_speed": "warp",
 		"tooltip_delay": "eventually",
 		"haptics_enabled": "sometimes",
 		"pause_when_unfocused": false,
+		"settings_category": "hidden_lab",
 		"input_bindings": {"unknown_action": []},
 	})
 	var sanitized_audio := sanitized.get("audio", {}) as Dictionary
@@ -90,6 +106,12 @@ func _run() -> void:
 		failures,
 	)
 	_check(
+		is_equal_approx(float((sanitized_audio.get("alerts", {}) as Dictionary).get("volume", -1.0)), 0.82)
+		and is_equal_approx(float((sanitized_audio.get("voice", {}) as Dictionary).get("volume", -1.0)), 0.72),
+		"missing semantic audio layers should receive their calm independent defaults",
+		failures,
+	)
+	_check(
 		String(sanitized.get("motion_mode", "")) == "reduced"
 		and is_equal_approx(float(sanitized.get("ui_scale", 0.0)), 1.5)
 		and bool(sanitized.get("high_contrast", false))
@@ -99,10 +121,14 @@ func _run() -> void:
 		and String(sanitized.get("notice_level", "")) == "all"
 		and String(sanitized.get("notice_duration", "")) == "standard"
 		and String(sanitized.get("effect_level", "")) == "full"
+		and String(sanitized.get("particle_level", "")) == "full"
+		and String(sanitized.get("camera_motion", "")) == "full"
+		and String(sanitized.get("camera_sensitivity", "")) == "standard"
 		and String(sanitized.get("animation_speed", "")) == "standard"
 		and String(sanitized.get("tooltip_delay", "")) == "standard"
 		and bool(sanitized.get("haptics_enabled", false))
 		and not bool(sanitized.get("pause_when_unfocused", true))
+		and String(sanitized.get("settings_category", "")) == "comfort"
 		and (sanitized.get("input_bindings", {}) as Dictionary).is_empty(),
 		"sanitize should canonicalize comfort, quality, timing, and binding values",
 		failures,
@@ -124,10 +150,14 @@ func _run() -> void:
 	first_preferences["notice_level"] = "priority"
 	first_preferences["notice_duration"] = "extended"
 	first_preferences["effect_level"] = "reduced"
+	first_preferences["particle_level"] = "reduced"
+	first_preferences["camera_motion"] = "reduced"
+	first_preferences["camera_sensitivity"] = "high"
 	first_preferences["animation_speed"] = "brisk"
 	first_preferences["tooltip_delay"] = "long"
 	first_preferences["haptics_enabled"] = false
 	first_preferences["pause_when_unfocused"] = false
+	first_preferences["settings_category"] = "controls"
 	first_preferences["input_bindings"] = {
 		"peck_assist": [{"type": "key", "physical_keycode": KEY_Q}],
 	}
@@ -146,9 +176,13 @@ func _run() -> void:
 	second_preferences["notice_level"] = "archive_only"
 	second_preferences["notice_duration"] = "brief"
 	second_preferences["effect_level"] = "off"
+	second_preferences["particle_level"] = "off"
+	second_preferences["camera_motion"] = "off"
+	second_preferences["camera_sensitivity"] = "low"
 	second_preferences["animation_speed"] = "relaxed"
 	second_preferences["tooltip_delay"] = "short"
 	second_preferences["haptics_enabled"] = true
+	second_preferences["settings_category"] = "career"
 	(second_preferences.get("audio", {}) as Dictionary)["music"] = {"volume": 0.2, "muted": true}
 	_check(store.save_preferences(second_preferences), "a second valid save should rotate a known-good backup", failures)
 	_check(store.load_preferences() == second_preferences, "the newest valid primary should load exactly", failures)
@@ -179,10 +213,14 @@ func _run() -> void:
 	legacy_preferences.erase("notice_level")
 	legacy_preferences.erase("notice_duration")
 	legacy_preferences.erase("effect_level")
+	legacy_preferences.erase("particle_level")
+	legacy_preferences.erase("camera_motion")
+	legacy_preferences.erase("camera_sensitivity")
 	legacy_preferences.erase("animation_speed")
 	legacy_preferences.erase("tooltip_delay")
 	legacy_preferences.erase("haptics_enabled")
 	legacy_preferences.erase("pause_when_unfocused")
+	legacy_preferences.erase("settings_category")
 	(legacy_preferences.get("audio", {}) as Dictionary).erase("ambient")
 	var legacy_envelope := {
 		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
@@ -197,19 +235,31 @@ func _run() -> void:
 		and String(migrated_preferences.get("notice_level", "")) == "all"
 		and String(migrated_preferences.get("notice_duration", "")) == "standard"
 		and String(migrated_preferences.get("effect_level", "")) == "full"
+		and String(migrated_preferences.get("particle_level", "")) == "full"
+		and String(migrated_preferences.get("camera_motion", "")) == "full"
+		and String(migrated_preferences.get("camera_sensitivity", "")) == "standard"
 		and String(migrated_preferences.get("animation_speed", "")) == "standard"
 		and String(migrated_preferences.get("tooltip_delay", "")) == "standard"
 		and bool(migrated_preferences.get("haptics_enabled", false))
 		and bool(migrated_preferences.get("pause_when_unfocused", false))
+		and String(migrated_preferences.get("settings_category", "")) == "comfort"
 		and (migrated_preferences.get("audio", {}) as Dictionary).has("ambient")
+		and (migrated_preferences.get("audio", {}) as Dictionary).has("alerts")
+		and (migrated_preferences.get("audio", {}) as Dictionary).has("voice")
 		and PlayerPreferencesStoreScript.validate(migrated_preferences).is_empty(),
-		"schema-one preferences should migrate through palette, ambience, and focus safety defaults",
+		"schema-one preferences should migrate through palette, semantic audio, and focus safety defaults",
 		failures,
 	)
 	_check(store.delete_preferences(), "migrated preference fixture should be removable", failures)
 	var schema_five_preferences := default_preferences.duplicate(true)
+	schema_five_preferences.erase("settings_category")
+	schema_five_preferences.erase("particle_level")
+	schema_five_preferences.erase("camera_motion")
+	schema_five_preferences.erase("camera_sensitivity")
 	schema_five_preferences.erase("animation_speed")
 	schema_five_preferences.erase("tooltip_delay")
+	(schema_five_preferences.get("audio", {}) as Dictionary).erase("alerts")
+	(schema_five_preferences.get("audio", {}) as Dictionary).erase("voice")
 	var schema_five_envelope := {
 		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
 		"schema_version": 5,
@@ -226,6 +276,78 @@ func _run() -> void:
 		failures,
 	)
 	_check(store.delete_preferences(), "schema-five migration fixture should be removable", failures)
+	var schema_six_preferences := default_preferences.duplicate(true)
+	schema_six_preferences.erase("settings_category")
+	schema_six_preferences.erase("particle_level")
+	schema_six_preferences.erase("camera_motion")
+	schema_six_preferences.erase("camera_sensitivity")
+	var schema_six_audio := schema_six_preferences.get("audio", {}) as Dictionary
+	schema_six_audio.erase("alerts")
+	schema_six_audio.erase("voice")
+	schema_six_audio["ui"] = {"volume": 0.31, "muted": true}
+	var schema_six_envelope := {
+		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
+		"schema_version": 6,
+		"preferences": schema_six_preferences,
+		"metadata": {"saved_at_unix": 0, "save_revision": 5},
+	}
+	_check(_write_raw(TEST_PRIMARY_PATH, JSON.stringify(schema_six_envelope)), "test should write a schema-six fixture", failures)
+	var migrated_schema_six := store.load_preferences()
+	var migrated_schema_six_audio := migrated_schema_six.get("audio", {}) as Dictionary
+	_check(
+		(migrated_schema_six_audio.get("alerts", {}) as Dictionary) == {
+			"volume": 0.31,
+			"muted": true,
+		}
+		and (migrated_schema_six_audio.get("voice", {}) as Dictionary) == {
+			"volume": 0.31,
+			"muted": true,
+		}
+		and PlayerPreferencesStoreScript.validate(migrated_schema_six).is_empty(),
+		"schema-six migration should preserve the old effective UI mix for both separated semantic layers",
+		failures,
+	)
+	_check(store.delete_preferences(), "schema-six migration fixture should be removable", failures)
+	var schema_seven_preferences := default_preferences.duplicate(true)
+	schema_seven_preferences.erase("settings_category")
+	schema_seven_preferences.erase("particle_level")
+	schema_seven_preferences.erase("camera_motion")
+	schema_seven_preferences.erase("camera_sensitivity")
+	schema_seven_preferences["effect_level"] = "reduced"
+	var schema_seven_envelope := {
+		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
+		"schema_version": 7,
+		"preferences": schema_seven_preferences,
+		"metadata": {"saved_at_unix": 0, "save_revision": 6},
+	}
+	_check(_write_raw(TEST_PRIMARY_PATH, JSON.stringify(schema_seven_envelope)), "test should write a schema-seven fixture", failures)
+	var migrated_schema_seven := store.load_preferences()
+	_check(
+		String(migrated_schema_seven.get("particle_level", "")) == "reduced"
+		and String(migrated_schema_seven.get("camera_motion", "")) == "full"
+		and String(migrated_schema_seven.get("camera_sensitivity", "")) == "standard"
+		and PlayerPreferencesStoreScript.validate(migrated_schema_seven).is_empty(),
+		"schema-seven migration should preserve particle density while adding neutral camera controls",
+		failures,
+	)
+	_check(store.delete_preferences(), "schema-seven migration fixture should be removable", failures)
+	var schema_eight_preferences := default_preferences.duplicate(true)
+	schema_eight_preferences.erase("settings_category")
+	var schema_eight_envelope := {
+		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
+		"schema_version": 8,
+		"preferences": schema_eight_preferences,
+		"metadata": {"saved_at_unix": 0, "save_revision": 7},
+	}
+	_check(_write_raw(TEST_PRIMARY_PATH, JSON.stringify(schema_eight_envelope)), "test should write a schema-eight fixture", failures)
+	var migrated_schema_eight := store.load_preferences()
+	_check(
+		String(migrated_schema_eight.get("settings_category", "")) == "comfort"
+		and PlayerPreferencesStoreScript.validate(migrated_schema_eight).is_empty(),
+		"schema-eight preferences should gain the neutral Comfort and Display view",
+		failures,
+	)
+	_check(store.delete_preferences(), "schema-eight migration fixture should be removable", failures)
 	var future_envelope := {
 		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
 		"schema_version": PlayerPreferencesStoreScript.CURRENT_SCHEMA_VERSION + 1,
@@ -247,7 +369,7 @@ func _run() -> void:
 			push_error("PLAYER_PREFERENCES_STORE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v6 migration=v1+v2+v3+v4+v5 color-vision=safe+symbols notices=level+duration effects=full+reduced+off presentation=animation-speed+tooltip-delay haptics=optional focus-pause=default-on validation=strict atomic=backup-recovery audio=5-bus preferences=campaign-independent")
+	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v9 migration=v1+v2+v3+v4+v5+v6+v7+v8 categories=persistent+validated color-vision=safe+symbols notices=level+duration effects=independent+particles camera=motion+sensitivity presentation=animation-speed+tooltip-delay haptics=optional focus-pause=default-on validation=strict atomic=backup-recovery audio=7-bus preferences=campaign-independent")
 	quit(0)
 
 
@@ -258,18 +380,36 @@ func _test_audio_application(failures: Array[String]) -> void:
 		"master": {"volume": 0.25, "muted": true},
 		"sfx": {"volume": 0.0, "muted": false},
 		"ui": {"volume": 0.5, "muted": true},
+		"alerts": {"volume": 0.42, "muted": false},
+		"voice": {"volume": 0.6, "muted": true},
 		"music": {"volume": 0.75, "muted": false},
 		"ambient": {"volume": 0.35, "muted": true},
 	}
 	var apply_result: Dictionary = PlayerPreferencesStoreScript.apply_audio(preferences)
 	_check(
 		bool(apply_result.get("accepted", false))
-		and (apply_result.get("applied", []) as Array).size() == 5,
-		"apply_audio should report all five independent mix channels",
+		and (apply_result.get("applied", []) as Array).size() == 7,
+		"apply_audio should report all seven independent mix channels",
 		failures,
 	)
-	var expected_volumes := {&"Master": 0.25, &"SFX": 0.0, &"UI": 0.5, &"Music": 0.75, &"Ambient": 0.35}
-	var expected_mutes := {&"Master": true, &"SFX": false, &"UI": true, &"Music": false, &"Ambient": true}
+	var expected_volumes := {
+		&"Master": 0.25,
+		&"SFX": 0.0,
+		&"UI": 0.5,
+		&"Alerts": 0.42,
+		&"Voice": 0.6,
+		&"Music": 0.75,
+		&"Ambient": 0.35,
+	}
+	var expected_mutes := {
+		&"Master": true,
+		&"SFX": false,
+		&"UI": true,
+		&"Alerts": false,
+		&"Voice": true,
+		&"Music": false,
+		&"Ambient": true,
+	}
 	for bus_name: StringName in TARGET_BUS_NAMES:
 		var bus_index := AudioServer.get_bus_index(bus_name)
 		_check(bus_index >= 0, "%s audio bus should exist after apply_audio" % bus_name, failures)

@@ -19,12 +19,17 @@ signal capital_blueprint_requested
 signal manager_assignment_requested(manager_id: StringName, assignment_id: StringName)
 signal manager_posture_requested(manager_id: StringName, posture_id: StringName)
 signal manager_recruit_requested(candidate_id: StringName)
+signal intern_onboard_requested(candidate_id: StringName)
+signal intern_assignment_requested(candidate_id: StringName, assignment_id: StringName)
+signal intern_review_requested(candidate_id: StringName, resolution_id: StringName)
 signal interaction_safety_changed
+signal presentation_context_changed
 
 const FlockRelationsCaseUIScript := preload("res://features/office/flock_relations_case_ui.gd")
 const FeedProcurementUIScript := preload("res://features/office/feed_procurement_ui.gd")
 const FarmerRelationsGalleryUIScript := preload("res://features/office/farmer_relations_gallery_ui.gd")
 const FarmgateDispatchUIScript := preload("res://features/office/farmgate_dispatch_ui.gd")
+const InternshipProgramUIScript := preload("res://features/office/internship_program_ui.gd")
 
 const COLOR_BRASS := Color("e7c56e")
 const COLOR_TEAL := Color("73b5a7")
@@ -58,6 +63,9 @@ var _operations_next_action_label: Label
 var _manager_density_label: Label
 var _manager_roster_list: VBoxContainer
 var _manager_candidate_list: VBoxContainer
+var _manager_recruit_confirmation: ConfirmationDialog
+var _pending_manager_candidate_id: StringName = &""
+var _manager_recruit_confirmation_origin: Control
 var _flock_relations_ui: VBoxContainer
 var _care_section: PanelContainer
 var _care_gate_label: Label
@@ -69,6 +77,7 @@ var _facility_list: VBoxContainer
 var _inline_facilities_toggle: Button
 var _inline_facilities_open := false
 var _applicant_list: VBoxContainer
+var _internship_program_ui: InternshipProgramUI
 var _release_selector: OptionButton
 var _release_button: Button
 var _release_confirmation: ConfirmationDialog
@@ -92,6 +101,8 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	_ensure_interface()
 	if not _pending_release_is_valid():
 		_cancel_release_confirmation(false)
+	if not _pending_manager_recruit_is_valid():
+		_cancel_manager_recruit_confirmation(false)
 	_refresh()
 
 
@@ -105,6 +116,50 @@ func navigation_sections() -> Dictionary:
 		&"capital": _capital_domain,
 		&"records": _governance_domain,
 	}
+
+
+func presentation_context() -> Dictionary:
+	_ensure_interface()
+	return {
+		"feed_offers_expanded": _feed_procurement_ui.offers_expanded(),
+		"farmgate_mandate_expanded": _farmgate_dispatch_ui.mandate_expanded(),
+		"farmgate_mandate_id": String(_farmgate_dispatch_ui.selected_mandate_id()),
+		"flock_relations_cases_expanded": bool(
+			_flock_relations_ui.call("cases_expanded")
+		),
+		"farmer_campaigns_expanded": bool(
+			_farmer_relations_gallery_ui.call("campaigns_expanded")
+		),
+		"inline_facilities_expanded": _inline_facilities_open,
+		"internship_program_expanded": _internship_program_ui.is_expanded(),
+	}
+
+
+func restore_presentation_context(context: Dictionary) -> void:
+	_ensure_interface()
+	_feed_procurement_ui.set_offers_expanded(
+		bool(context.get("feed_offers_expanded", false))
+	)
+	_farmgate_dispatch_ui.set_mandate_expanded(
+		bool(context.get("farmgate_mandate_expanded", false))
+	)
+	_farmgate_dispatch_ui.select_mandate(StringName(String(
+		context.get("farmgate_mandate_id", "farmer_pickup")
+	)))
+	_flock_relations_ui.call(
+		"set_cases_expanded",
+		bool(context.get("flock_relations_cases_expanded", false)),
+	)
+	_farmer_relations_gallery_ui.call(
+		"set_campaigns_expanded",
+		bool(context.get("farmer_campaigns_expanded", false)),
+	)
+	_set_inline_facilities_expanded(
+		bool(context.get("inline_facilities_expanded", false))
+	)
+	_internship_program_ui.set_expanded(
+		bool(context.get("internship_program_expanded", false))
+	)
 
 
 func _ensure_interface() -> void:
@@ -175,6 +230,9 @@ func _build_interface() -> void:
 		func(campaign_id: StringName) -> void:
 			farmer_relations_campaign_requested.emit(campaign_id)
 	)
+	_farmer_relations_gallery_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
+	)
 	_governance_domain.add_child(_farmer_relations_gallery_ui)
 
 	_farmgate_dispatch_ui = FarmgateDispatchUIScript.new() as FarmgateDispatchUI
@@ -182,11 +240,17 @@ func _build_interface() -> void:
 		func(mandate_id: StringName) -> void:
 			farmgate_dispatch_mandate_requested.emit(mandate_id)
 	)
+	_farmgate_dispatch_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
+	)
 	_operations_domain.add_child(_farmgate_dispatch_ui)
 
 	_feed_procurement_ui = FeedProcurementUIScript.new() as FeedProcurementUI
 	_feed_procurement_ui.feed_order_requested.connect(
 		func(order_id: StringName) -> void: feed_order_requested.emit(order_id)
+	)
+	_feed_procurement_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
 	)
 	_operations_domain.add_child(_feed_procurement_ui)
 
@@ -198,10 +262,14 @@ func _build_interface() -> void:
 	_capital_domain.add_child(_capacity_button)
 
 	_build_operations_section()
+	_build_manager_recruit_confirmation()
 	_flock_relations_ui = FlockRelationsCaseUIScript.new() as VBoxContainer
 	_flock_relations_ui.action_requested.connect(
 		func(case_id: int, action_id: StringName) -> void:
 			flock_relations_action_requested.emit(case_id, action_id)
+	)
+	_flock_relations_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
 	)
 	_governance_domain.add_child(_flock_relations_ui)
 	_build_flock_care_section()
@@ -238,6 +306,24 @@ func _build_interface() -> void:
 	_applicant_list.name = "StaffingApplicants"
 	_applicant_list.add_theme_constant_override("separation", 6)
 	_flock_domain.add_child(_applicant_list)
+
+	_internship_program_ui = InternshipProgramUIScript.new() as InternshipProgramUI
+	_internship_program_ui.onboard_requested.connect(
+		func(candidate_id: StringName) -> void:
+			intern_onboard_requested.emit(candidate_id)
+	)
+	_internship_program_ui.assignment_requested.connect(
+		func(candidate_id: StringName, assignment_id: StringName) -> void:
+			intern_assignment_requested.emit(candidate_id, assignment_id)
+	)
+	_internship_program_ui.review_requested.connect(
+		func(candidate_id: StringName, resolution_id: StringName) -> void:
+			intern_review_requested.emit(candidate_id, resolution_id)
+	)
+	_internship_program_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
+	)
+	_flock_domain.add_child(_internship_program_ui)
 
 	var release_title := _make_label("ACTIVE ROOST", 12, COLOR_BRASS)
 	_flock_domain.add_child(release_title)
@@ -278,6 +364,14 @@ func _build_release_confirmation() -> void:
 	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	copy.custom_minimum_size = Vector2(300.0, 132.0)
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for action_button: Button in [
+		_release_confirmation.get_ok_button(),
+		_release_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size.x = 150.0
+		action_button.autowrap_mode = TextServer.AUTOWRAP_OFF
+		action_button.clip_text = true
+		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_release_confirmation.confirmed.connect(_confirm_release)
 	_release_confirmation.canceled.connect(_cancel_release_confirmation)
 	add_child(_release_confirmation)
@@ -285,6 +379,7 @@ func _build_release_confirmation() -> void:
 
 func interaction_safety_state() -> Dictionary:
 	var worker := _staffing_record(_pending_release_worker_id)
+	var manager_candidate := _manager_candidate_record(_pending_manager_candidate_id)
 	return {
 		"release_confirmation_visible": (
 			_release_confirmation != null and _release_confirmation.visible
@@ -295,7 +390,55 @@ func interaction_safety_state() -> Dictionary:
 			worker.get("display_name", ""),
 		)),
 		"release_cost_cents": int(worker.get("release_cost_cents", 0)),
+		"manager_recruit_confirmation_visible": (
+			_manager_recruit_confirmation != null
+			and _manager_recruit_confirmation.visible
+		),
+		"manager_candidate_id": String(_pending_manager_candidate_id),
+		"manager_candidate_name": String(manager_candidate.get("name", "")),
+		"manager_recruit_cost_cents": int(manager_candidate.get(
+			"signing_cost_cents",
+			0,
+		)),
+		"manager_replaces_name": String(manager_candidate.get(
+			"replaces_name",
+			"",
+		)),
 	}
+
+
+func internship_program_diagnostic_state() -> Dictionary:
+	_ensure_interface()
+	return _internship_program_ui.diagnostic_state()
+
+
+func _build_manager_recruit_confirmation() -> void:
+	_manager_recruit_confirmation = ConfirmationDialog.new()
+	_manager_recruit_confirmation.name = "ManagerRecruitConfirmation"
+	_manager_recruit_confirmation.title = "FILE A MANAGEMENT SUCCESSION?"
+	_manager_recruit_confirmation.ok_button_text = "FILE APPOINTMENT"
+	_manager_recruit_confirmation.cancel_button_text = "KEEP CURRENT ROOSTER"
+	_manager_recruit_confirmation.min_size = Vector2i(340, 330)
+	var copy := _manager_recruit_confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 168.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for action_button: Button in [
+		_manager_recruit_confirmation.get_ok_button(),
+		_manager_recruit_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size = Vector2(132.0, 44.0)
+		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action_button.autowrap_mode = TextServer.AUTOWRAP_OFF
+		action_button.clip_text = true
+		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_manager_recruit_confirmation.confirmed.connect(_confirm_manager_recruit)
+	_manager_recruit_confirmation.canceled.connect(
+		_cancel_manager_recruit_confirmation
+	)
+	add_child(_manager_recruit_confirmation)
 
 
 func _new_domain_root(node_name: String) -> VBoxContainer:
@@ -393,6 +536,9 @@ func _refresh() -> void:
 	_refresh_flock_care()
 	_refresh_facilities(spendable, operating, planning_open)
 	_refresh_applicants(spendable, planning_open)
+	_internship_program_ui.apply_snapshot(
+		_snapshot.get("internship_program", {}) as Dictionary
+	)
 	_refresh_release_controls(spendable, planning_open)
 	_refresh_last_action()
 
@@ -642,22 +788,82 @@ func _refresh_manager_candidates(operations: Dictionary) -> void:
 	if available.is_empty():
 		return
 	var heading := _make_label("SCREENED MANAGEMENT SUCCESSORS", 9, COLOR_MUTED)
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading.tooltip_text = "A lateral appointment replaces the newest management post; headcount and authorized payroll remain unchanged."
 	_manager_candidate_list.add_child(heading)
 	for candidate in available:
 		var candidate_id := StringName(String(candidate.get("id", "")))
+		var card := PanelContainer.new()
+		card.name = "ManagerCandidateCard_%s" % String(candidate_id)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.add_theme_stylebox_override(
+			"panel",
+			_facility_card_style(false, bool(candidate.get("can_recruit", false)), true),
+		)
+		_manager_candidate_list.add_child(card)
+		var margin := MarginContainer.new()
+		margin.add_theme_constant_override("margin_left", 8)
+		margin.add_theme_constant_override("margin_right", 8)
+		margin.add_theme_constant_override("margin_top", 6)
+		margin.add_theme_constant_override("margin_bottom", 7)
+		card.add_child(margin)
+		var column := VBoxContainer.new()
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		column.add_theme_constant_override("separation", 4)
+		margin.add_child(column)
+		var candidate_heading := _make_label(
+			"%s  /  %s" % [
+				String(candidate.get("name", "ROOSTER")).to_upper(),
+				String(candidate.get("archetype", "MANAGEMENT")),
+			],
+			10,
+			COLOR_BRASS,
+		)
+		candidate_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(candidate_heading)
+		var doctrine := _make_label(
+			"\"%s\"" % String(candidate.get("doctrine", "Alignment is progress.")),
+			9,
+			COLOR_MUTED,
+		)
+		doctrine.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(doctrine)
+		var terms := _make_label(
+			(
+				"SUCCESSION FEE  $%.2f  /  REPLACES  %s\n"
+				+ "ROOSTERS  %d  /  PAYROLL  $%.2f -> $%.2f/day  /  EGGS  0"
+			) % [
+				float(int(candidate.get("signing_cost_cents", 0))) / 100.0,
+				String(candidate.get("replaces_name", "NEWEST POST")).to_upper(),
+				int(candidate.get("manager_count", 0)),
+				float(int(candidate.get("supervisor_payroll_before_cents", 0))) / 100.0,
+				float(int(candidate.get("supervisor_payroll_after_cents", 0))) / 100.0,
+			],
+			9,
+			COLOR_TEAL,
+		)
+		terms.name = "ManagerCandidateTerms_%s" % String(candidate_id)
+		terms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(terms)
 		var button := Button.new()
 		button.name = "RecruitManager_%s" % String(candidate_id)
-		button.text = "APPOINT %s / %s / $%.2f" % [
-			String(candidate.get("name", "ROOSTER")).to_upper(),
-			String(candidate.get("archetype", "MANAGEMENT")),
-			float(int(candidate.get("signing_cost_cents", 0))) / 100.0,
-		]
-		button.custom_minimum_size.y = 36.0
+		button.text = "REVIEW APPOINTMENT"
+		button.custom_minimum_size.y = 40.0
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.clip_text = true
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		button.disabled = not bool(candidate.get("can_recruit", false))
-		button.tooltip_text = "%s\n%s" % [String(candidate.get("doctrine", "")), String(candidate.get("reason", ""))]
-		button.pressed.connect(func() -> void: manager_recruit_requested.emit(candidate_id))
-		_manager_candidate_list.add_child(button)
+		button.tooltip_text = (
+			"%s\n%s\nReview exact succession cost, payroll, replacement, and doctrine before filing."
+			% [
+				String(candidate.get("doctrine", "")),
+				String(candidate.get("reason", "")),
+			]
+		)
+		button.pressed.connect(func() -> void:
+			_on_manager_recruit_pressed(candidate_id, button)
+		)
+		column.add_child(button)
 
 
 func _build_manager_card(
@@ -678,6 +884,7 @@ func _build_manager_card(
 	card.add_child(margin)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 4)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(column)
 	var heading := _make_label(
 		"%s  /  %s" % [String(manager.get("name", "ROOSTER MANAGER")).to_upper(), String(manager.get("title", "ACTING LEAD"))],
@@ -698,8 +905,9 @@ func _build_manager_card(
 	)
 	doctrine.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(doctrine)
-	var controls := HBoxContainer.new()
+	var controls := VBoxContainer.new()
 	controls.add_theme_constant_override("separation", 5)
+	controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_child(controls)
 	var assignment_select := _manager_option_button(
 		"Assignment_%s" % String(manager_id), assignments,
@@ -731,7 +939,10 @@ func _manager_option_button(
 	var selector := OptionButton.new()
 	selector.name = node_name
 	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	selector.custom_minimum_size.y = 34.0
+	selector.custom_minimum_size = Vector2(0.0, 34.0)
+	selector.fit_to_longest_item = false
+	selector.clip_text = true
+	selector.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	selector.disabled = not enabled
 	for item_value in catalog:
 		if not item_value is Dictionary:
@@ -957,9 +1168,21 @@ func _refresh_facilities(spendable: int, operating: int, planning_open: bool) ->
 
 
 func _on_inline_facilities_toggle_pressed() -> void:
-	_inline_facilities_open = not _inline_facilities_open
-	_facility_list.visible = _inline_facilities_open
-	_inline_facilities_toggle.text = "CLOSE" if _inline_facilities_open else "OPEN"
+	_set_inline_facilities_expanded(not _inline_facilities_open)
+	presentation_context_changed.emit()
+
+
+func _set_inline_facilities_expanded(expanded: bool) -> void:
+	_inline_facilities_open = expanded
+	if _facility_list != null:
+		_facility_list.visible = expanded and _facilities_section.visible
+	if _inline_facilities_toggle != null:
+		_inline_facilities_toggle.text = "CLOSE" if expanded else "OPEN"
+		_inline_facilities_toggle.tooltip_text = (
+			"Close direct requisitions and return to the canonical Capital Blueprint summary."
+			if expanded else
+			"Open compact direct requisitions. Capital Blueprint remains the canonical comparison view."
+		)
 
 
 func _build_facility_card(
@@ -2385,6 +2608,155 @@ func _pending_release_is_valid() -> bool:
 			_snapshot.get("revenue_cents", 0),
 		)) >= int(worker.get("release_cost_cents", 0))
 	)
+
+
+func _on_manager_recruit_pressed(
+	candidate_id: StringName,
+	origin: Control,
+) -> void:
+	if origin == null or not is_instance_valid(origin):
+		return
+	var candidate := _manager_candidate_record(candidate_id)
+	if (
+		candidate.is_empty()
+		or not bool(candidate.get("can_recruit", false))
+		or origin is BaseButton and (origin as BaseButton).disabled
+	):
+		return
+	_pending_manager_candidate_id = candidate_id
+	_manager_recruit_confirmation_origin = origin
+	var candidate_name := String(candidate.get(
+		"name",
+		"ROOSTER CANDIDATE",
+	)).strip_edges()
+	var archetype := String(candidate.get("archetype", "MANAGEMENT")).strip_edges()
+	var replaced_name := String(candidate.get(
+		"replaces_name",
+		"THE NEWEST MANAGER",
+	)).strip_edges()
+	var signing_cost := maxi(0, int(candidate.get("signing_cost_cents", 0)))
+	var payroll_before := maxi(
+		0,
+		int(candidate.get("supervisor_payroll_before_cents", 0)),
+	)
+	var payroll_after := maxi(
+		0,
+		int(candidate.get("supervisor_payroll_after_cents", payroll_before)),
+	)
+	var manager_count := maxi(0, int(candidate.get("manager_count", 0)))
+	var default_posture := _manager_posture_label(
+		StringName(String(candidate.get("default_posture", "coach")))
+	)
+	_manager_recruit_confirmation.title = (
+		"APPOINT %s?" % candidate_name.to_upper()
+	)
+	_manager_recruit_confirmation.ok_button_text = "FILE APPOINTMENT"
+	_manager_recruit_confirmation.dialog_text = (
+		"IN  /  %s  /  %s\n"
+		+ "OUT  /  %s\n"
+		+ "FILING  /  $%.2f NOW\n"
+		+ "ROOSTERS  /  %d, UNCHANGED\n"
+		+ "PAYROLL  /  $%.2f -> $%.2f PER DAY\n"
+		+ "POSTURE  /  %s\n"
+		+ "OUTPUT  /  REPORTS + MEETINGS  /  EGGS 0\n\n"
+		+ "No ledger changes before confirmation. "
+		+ "This succession cannot be undone during this review."
+	) % [
+		candidate_name.to_upper(),
+		archetype.to_upper(),
+		replaced_name.to_upper(),
+		float(signing_cost) / 100.0,
+		manager_count,
+		float(payroll_before) / 100.0,
+		float(payroll_after) / 100.0,
+		default_posture.to_upper(),
+	]
+	_manager_recruit_confirmation.popup_centered_clamped(
+		Vector2i(380, 390),
+		0.96,
+	)
+	interaction_safety_changed.emit()
+
+
+func _confirm_manager_recruit() -> void:
+	if not _pending_manager_recruit_is_valid():
+		_cancel_manager_recruit_confirmation(false)
+		return
+	var candidate_id := _pending_manager_candidate_id
+	_clear_pending_manager_recruit()
+	if _manager_recruit_confirmation != null:
+		_manager_recruit_confirmation.hide()
+	manager_recruit_requested.emit(candidate_id)
+	interaction_safety_changed.emit()
+
+
+func _cancel_manager_recruit_confirmation(
+	restore_focus: bool = true,
+) -> void:
+	var origin := _manager_recruit_confirmation_origin
+	var had_pending := _pending_manager_candidate_id != &""
+	_clear_pending_manager_recruit()
+	if _manager_recruit_confirmation != null:
+		_manager_recruit_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not (origin is BaseButton and (origin as BaseButton).disabled)
+	):
+		origin.call_deferred("grab_focus")
+	if had_pending:
+		interaction_safety_changed.emit()
+
+
+func _clear_pending_manager_recruit() -> void:
+	_pending_manager_candidate_id = &""
+	_manager_recruit_confirmation_origin = null
+
+
+func _pending_manager_recruit_is_valid() -> bool:
+	if _pending_manager_candidate_id == &"":
+		return false
+	var candidate := _manager_candidate_record(_pending_manager_candidate_id)
+	return (
+		not candidate.is_empty()
+		and bool(candidate.get("can_recruit", false))
+	)
+
+
+func _manager_candidate_record(candidate_id: StringName) -> Dictionary:
+	if candidate_id == &"":
+		return {}
+	for candidate_value in _operations_snapshot().get(
+		"manager_candidates",
+		[],
+	) as Array:
+		if (
+			candidate_value is Dictionary
+			and StringName(String(
+				(candidate_value as Dictionary).get("id", ""),
+			)) == candidate_id
+		):
+			return (candidate_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _manager_posture_label(posture_id: StringName) -> String:
+	for posture_value in _operations_snapshot().get(
+		"manager_postures",
+		[],
+	) as Array:
+		if (
+			posture_value is Dictionary
+			and StringName(String(
+				(posture_value as Dictionary).get("id", ""),
+			)) == posture_id
+		):
+			return String(
+				(posture_value as Dictionary).get("label", posture_id),
+			)
+	return String(posture_id).replace("_", " ")
 
 
 func _applicant_entries() -> Array[Dictionary]:

@@ -170,6 +170,7 @@ func _build_interface() -> void:
 	_eyebrow_label = _make_label("CAMPUS RECORD FILED", 12, COLOR_BRASS)
 	_eyebrow_label.name = "CampusPortfolioRevealEyebrow"
 	_eyebrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_eyebrow_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(_eyebrow_label)
 
 	var content_scroll := ScrollContainer.new()
@@ -241,6 +242,7 @@ func _build_interface() -> void:
 	_return_button.text = "RETURN TO PORTFOLIO"
 	_return_button.focus_mode = Control.FOCUS_ALL
 	_return_button.custom_minimum_size = Vector2(185.0, 38.0)
+	_configure_fixed_action_button(_return_button)
 	_return_button.tooltip_text = "Return to the Campus Portfolio with this authoritative result preserved."
 	_return_button.pressed.connect(func() -> void: return_to_portfolio_requested.emit())
 	rail.add_child(_return_button)
@@ -250,6 +252,7 @@ func _build_interface() -> void:
 	_continue_button.theme_type_variation = &"PrimaryButton"
 	_continue_button.focus_mode = Control.FOCUS_ALL
 	_continue_button.custom_minimum_size = Vector2(145.0, 38.0)
+	_configure_fixed_action_button(_continue_button)
 	_continue_button.tooltip_text = "Acknowledge the campus receipt and return to the prior office surface."
 	_continue_button.pressed.connect(func() -> void: continue_requested.emit())
 	rail.add_child(_continue_button)
@@ -407,6 +410,10 @@ func _apply_responsive_layout() -> void:
 	]:
 		if column != null:
 			column.custom_minimum_size.x = 0.0 if portrait else (200.0 if compact else 220.0)
+	if _return_button != null:
+		_return_button.custom_minimum_size.x = 148.0 if portrait else 185.0
+	if _continue_button != null:
+		_continue_button.custom_minimum_size.x = 118.0 if portrait else 145.0
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -432,6 +439,12 @@ func _make_label(text_value: String, font_size: int, color: Color) -> Label:
 	label.add_theme_color_override("font_color", color)
 	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	return label
+
+
+func _configure_fixed_action_button(button: Button) -> void:
+	button.autowrap_mode = TextServer.AUTOWRAP_OFF
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 
 func _wrap_label(text_value: String, font_size: int, color: Color) -> Label:

@@ -27,12 +27,16 @@ var _entrance_animated := false
 var _entrance_tween: Tween
 
 var _receipt_panel: PanelContainer
+var _content: HFlowContainer
+var _identity_column: VBoxContainer
+var _economics_column: VBoxContainer
 var _facility_label: Label
 var _level_label: Label
 var _before_after_label: Label
 var _effects_label: Label
 var _obligations_label: Label
 var _outcome_label: Label
+var _action_rail: HFlowContainer
 var _return_button: Button
 var _continue_button: Button
 
@@ -156,6 +160,7 @@ func _build_interface() -> void:
 	var title := _make_label("FACILITY COMMISSIONED", 14, COLOR_BRASS)
 	title.name = "CommissioningRevealTitle"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(title)
 
 	var content_scroll := ScrollContainer.new()
@@ -166,77 +171,80 @@ func _build_interface() -> void:
 	content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	page.add_child(content_scroll)
 
-	var content := HBoxContainer.new()
-	content.name = "CommissioningReceiptContent"
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	content.add_theme_constant_override("separation", 18)
-	content_scroll.add_child(content)
+	_content = HFlowContainer.new()
+	_content.name = "CommissioningReceiptContent"
+	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content.add_theme_constant_override("h_separation", 18)
+	_content.add_theme_constant_override("v_separation", 10)
+	content_scroll.add_child(_content)
 
-	var identity := VBoxContainer.new()
-	identity.name = "CommissioningReceiptIdentity"
-	identity.custom_minimum_size.x = 210.0
-	identity.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	identity.add_theme_constant_override("separation", 4)
-	content.add_child(identity)
+	_identity_column = VBoxContainer.new()
+	_identity_column.name = "CommissioningReceiptIdentity"
+	_identity_column.custom_minimum_size.x = 210.0
+	_identity_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_identity_column.add_theme_constant_override("separation", 4)
+	_content.add_child(_identity_column)
 	_facility_label = _make_label("CAPITAL FACILITY", 21, COLOR_INK)
 	_facility_label.name = "CommissioningFacilityName"
 	_facility_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	identity.add_child(_facility_label)
+	_identity_column.add_child(_facility_label)
 	_level_label = _make_label("LEVEL COMMISSIONED", 12, COLOR_TEAL)
 	_level_label.name = "CommissioningLevelName"
 	_level_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	identity.add_child(_level_label)
+	_identity_column.add_child(_level_label)
 	_outcome_label = _make_label("Commissioning receipt filed.", 12, COLOR_MUTED)
 	_outcome_label.name = "CommissioningOutcome"
 	_outcome_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_outcome_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	identity.add_child(_outcome_label)
+	_identity_column.add_child(_outcome_label)
 
-	var economics := VBoxContainer.new()
-	economics.name = "CommissioningReceiptEconomics"
-	economics.custom_minimum_size.x = 235.0
-	economics.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	economics.add_theme_constant_override("separation", 5)
-	content.add_child(economics)
+	_economics_column = VBoxContainer.new()
+	_economics_column.name = "CommissioningReceiptEconomics"
+	_economics_column.custom_minimum_size.x = 235.0
+	_economics_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_economics_column.add_theme_constant_override("separation", 5)
+	_content.add_child(_economics_column)
 	_before_after_label = _make_label("FUNDS  -", 13, COLOR_INK)
 	_before_after_label.name = "CommissioningBeforeAfter"
 	_before_after_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	economics.add_child(_before_after_label)
+	_economics_column.add_child(_before_after_label)
 	_obligations_label = _make_label("OBLIGATIONS  -", 12, COLOR_MUTED)
 	_obligations_label.name = "CommissioningObligations"
 	_obligations_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	economics.add_child(_obligations_label)
+	_economics_column.add_child(_obligations_label)
 
 	_effects_label = _make_label("EFFECTS  -", 12, COLOR_INK)
 	_effects_label.name = "CommissioningEffects"
 	_effects_label.custom_minimum_size.x = 230.0
 	_effects_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_effects_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	content.add_child(_effects_label)
+	_content.add_child(_effects_label)
 
-	var rail := HBoxContainer.new()
-	rail.name = "CommissioningActionRail"
-	rail.alignment = BoxContainer.ALIGNMENT_END
-	rail.add_theme_constant_override("separation", 10)
-	page.add_child(rail)
+	_action_rail = HFlowContainer.new()
+	_action_rail.name = "CommissioningActionRail"
+	_action_rail.alignment = FlowContainer.ALIGNMENT_END
+	_action_rail.add_theme_constant_override("h_separation", 10)
+	_action_rail.add_theme_constant_override("v_separation", 6)
+	page.add_child(_action_rail)
 	_return_button = Button.new()
 	_return_button.name = "CommissioningReturnToBlueprint"
 	_return_button.text = "RETURN TO BLUEPRINT"
 	_return_button.focus_mode = Control.FOCUS_ALL
 	_return_button.custom_minimum_size = Vector2(190.0, 38.0)
+	_configure_fixed_action_button(_return_button)
 	_return_button.tooltip_text = "Return to the Capital Blueprint without dismissing the commissioning result."
 	_return_button.pressed.connect(func() -> void: return_to_blueprint_requested.emit())
-	rail.add_child(_return_button)
+	_action_rail.add_child(_return_button)
 	_continue_button = Button.new()
 	_continue_button.name = "CommissioningContinue"
 	_continue_button.text = "CONTINUE"
 	_continue_button.theme_type_variation = &"PrimaryButton"
 	_continue_button.focus_mode = Control.FOCUS_ALL
 	_continue_button.custom_minimum_size = Vector2(150.0, 38.0)
+	_configure_fixed_action_button(_continue_button)
 	_continue_button.tooltip_text = "Acknowledge this held receipt and continue in the office."
 	_continue_button.pressed.connect(func() -> void: continue_requested.emit())
-	rail.add_child(_continue_button)
+	_action_rail.add_child(_continue_button)
 
 
 func _refresh_receipt() -> void:
@@ -303,14 +311,23 @@ func _apply_responsive_layout() -> void:
 	if _receipt_panel == null:
 		return
 	var compact := size.x <= COMPACT_BREAKPOINT or size.y <= 430.0
+	var portrait := size.x <= 520.0
 	_receipt_panel.offset_left = 14.0 if compact else 70.0
 	_receipt_panel.offset_right = -14.0 if compact else -70.0
-	_receipt_panel.offset_top = -238.0 if compact else -230.0
+	_receipt_panel.offset_top = -(size.y - 28.0) if portrait else (-238.0 if compact else -230.0)
 	_receipt_panel.offset_bottom = -14.0 if compact else -20.0
 	if _facility_label != null:
 		_facility_label.add_theme_font_size_override("font_size", 17 if compact else 21)
+	if _identity_column != null:
+		_identity_column.custom_minimum_size.x = 260.0 if portrait else 210.0
+	if _economics_column != null:
+		_economics_column.custom_minimum_size.x = 260.0 if portrait else 235.0
 	if _effects_label != null:
-		_effects_label.custom_minimum_size.x = 220.0 if compact else 230.0
+		_effects_label.custom_minimum_size.x = 260.0 if portrait else (220.0 if compact else 230.0)
+	if _return_button != null:
+		_return_button.custom_minimum_size.x = 148.0 if portrait else 190.0
+	if _continue_button != null:
+		_continue_button.custom_minimum_size.x = 118.0 if portrait else 150.0
 
 
 func _focus_continue() -> void:
@@ -325,6 +342,12 @@ func _make_label(text_value: String, font_size: int, color: Color) -> Label:
 	label.add_theme_color_override("font_color", color)
 	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	return label
+
+
+func _configure_fixed_action_button(button: Button) -> void:
+	button.autowrap_mode = TextServer.AUTOWRAP_OFF
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 
 func _panel_style(fill: Color, border: Color, radius: int, border_width: int) -> StyleBoxFlat:

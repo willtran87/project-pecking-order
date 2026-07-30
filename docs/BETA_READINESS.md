@@ -14,16 +14,22 @@ This document turns the beta-hardening backlog into acceptance criteria. It dist
 8. **Relationships:** persistent trust, grievance, morale, fatigue, stress, solidarity, petitions, compacts, disputes, career check-ins, and the named perchmate bond connect policy to individual hens and the flock.
 9. **Strategy differentiation:** manual/AUTO routing, specialty and accreditation, temperament-specific work styles, claimant resolution paths, directives, check-ins, facilities, contracts, procurement, credit policy, manager postures, and case pivots expose distinct short- and long-term tradeoffs.
 10. **Authored ending plus optional mastery:** the five-shift probation file contains the authored campaign ending. A successful file may optionally continue into four-quarter Senior management records with annual Board Books, policy stakes, Roost Marks, cross-training, commendations, mastery-aware offers, and prior-year recovery guidance; none of that delays or replaces the ending.
+11. **Intern labor satire:** the Bright-Eyed Rotation introduces four named,
+    portrait-backed candidates on Day 2. Supervised assignments provide bounded
+    temporary operational effects, every term ends in an explicit player review,
+    and permanent conversion adds visible junior payroll to costs and reserves.
+    Onboarding and term filings cannot consume money protected for feed, wages,
+    facilities, debt, or signed-binder exposure.
 
 ## Production quality
 
-11. **Audio:** separate music, ambience, SFX, and UI buses support independent volume/mute controls, reduced sensory motion, semantic cue pooling, focus-safe pause/resume, and adaptive office momentum.
-12. **Performance:** optional office wings load lazily, static fixtures are batched, imported animation is sampled manually, hidden hens skip visual rewrites while completing routes, contacts allocate no per-hit nodes/tweens, and runtime diagnostics report node/orphan counts.
-13. **Device behavior:** mouse, keyboard, controller, one-finger pan, pinch zoom, explicit zoom buttons, remapping, focus loss, portrait, landscape, 390px phone, standard desktop, and 2560x1600 layouts have automated coverage.
-14. **Accessibility:** semantic actions, keyboard/controller focus restoration, reduced motion, color-vision-safe cues, remapping, bounded sanitized live narration, exact 16:9 canvas containment, and no-horizontal-overflow checks are release contracts.
-15. **Playtestability:** deterministic seeds, challenge contracts, full-probation routes, multi-year matrices, runtime soaks, rendered Office fixtures, and the official browser client make regressions reproducible. Qualitative human playtests remain a release activity, not a code claim. The seven-focus playtest protocol separately measures comprehension, friction, pacing, fun, strategic depth, feedback clarity, and long-session fatigue against the exact candidate.
-16. **Balance:** integer-cent accounting, exact effect previews/receipts, authored route matrices, failure controls, atomic rejection, bounded queues/capacity, and deterministic campaign playthroughs protect solvency and strategic viability.
-17. **Release safeguards:** verified campaign backup/restore, strict save migrations, direct Pages preference bridging, production serving of the complete Godot payload, synchronized `docs/` and `web/public/game/` payloads, the local beta release gate, and CI Web/parity checks prevent stale, inaccessible, or mismatched deployments.
+12. **Audio:** separate master, music, ambience, SFX, UI, warning/decision, and nonverbal character-cutout cue buses support independent volume/mute controls, reduced sensory motion, semantic cue pooling, focus-safe pause/resume, and adaptive office momentum.
+13. **Performance:** optional office wings load lazily, static fixtures are batched, imported animation is sampled manually, hidden hens skip visual rewrites while completing routes, contacts allocate no per-hit nodes/tweens, and runtime diagnostics report node/orphan counts.
+14. **Device behavior:** mouse, keyboard, controller, one-finger pan, pinch zoom, explicit zoom buttons, remapping, focus loss, portrait, landscape, 390px phone, standard desktop, and 2560x1600 layouts have automated coverage.
+15. **Accessibility:** semantic actions, keyboard/controller focus restoration, global reduced motion, independent camera-motion and particle-density levels, bounded camera sensitivity, color-vision-safe cues, remapping, sanitized live narration, exact 16:9 canvas containment, and no-horizontal-overflow checks are release contracts. Settings exposes one of four persisted categories at a time, supports Left/Right category navigation, narrates only the active group, and remains contained at 150% interface scale with moderately expanded English copy across desktop, compact landscape, and portrait fixtures. Flockwatch's Capital page also clears its vertical scrollbar at 150%, keeps every briefing descendant inside the effective reading viewport, and presents cash, cost, and market information as short ledger rows instead of clipped paragraphs. Capital Blueprint, Campus Portfolio, and Campus Expansion independently pass 390x844, 150%, expanded-copy stress with wrapped headings, shrinkable selectors and controls, vertical-only planning, and every fixed economic action still reachable. Probation intake, between-shift reports, and final review pass the same portrait stress with shrinkable actions, a bounded challenge selector, and vertical-only modal reachability. Farm Mutual's Contract Board passes the same stress while preserving binder selection, pricing, accreditation, terms, negotiation state, and reachable fixed Sign/Decline actions. Facility commissioning and campus authorization/construction receipts also preserve their exact economic ledgers and both held actions under that stress through wrapped columns/headings, vertical-only documents, and responsive fixed rails. Character cutouts preserve their approved portrait, speaker identity, complete thought, filing note, and File Away action under the same stress, with equivalent semantic narration and reduced-motion behavior. This resilience contract does not claim localization support.
+16. **Playtestability:** deterministic seeds, challenge contracts, full-probation routes, multi-year matrices, runtime soaks, rendered Office fixtures, and the official browser client make regressions reproducible. Qualitative human playtests remain a release activity, not a code claim. The seven-focus playtest protocol separately measures comprehension, friction, pacing, fun, strategic depth, feedback clarity, and long-session fatigue against the exact candidate.
+17. **Balance:** integer-cent accounting, exact effect previews/receipts, authored route matrices, failure controls, atomic rejection, bounded queues/capacity, and deterministic campaign playthroughs protect solvency and strategic viability.
+18. **Release safeguards:** verified campaign backup/restore, strict save migrations, direct Pages preference bridging, production serving of the complete Godot payload, synchronized `docs/` and `web/public/game/` payloads, the local beta release gate, and CI Web/parity checks prevent stale, inaccessible, or mismatched deployments.
 
 ## Gate commands
 
@@ -34,6 +40,59 @@ Run the complete local gate from the repository root:
 ```
 
 The gate requires Node 22.13 or newer. When more than one Node installation is present, pass its folder with `-NodeDirectory`. The gate writes a machine-readable report to `output/release/beta-release-gate.json`. The full isolated Godot suite remains available through `tools/run_godot_full_suite.ps1` for release candidates.
+
+The current exhaustive candidate proof is
+`output/godot-full-suite-20260730-intern-economy-v2/full-suite-summary.json`: all 212
+discovered tests were selected, completed, and passed with zero failures,
+timeouts, or engine-error signatures. The runner uses a 240-second per-test
+budget because the deterministic multi-career balance matrix legitimately takes
+about 143 seconds in isolation; process-tree termination still bounds a hung
+test. `campaign_intake_safety_test.gd` is also a permanent representative-gate
+contract so shelving must preserve authoritative career state, checkpoint the
+current interface context, remain resumable, and retain the prior primary as a
+verified recovery copy.
+
+The expanded representative report at
+`output/release/intern-economy-beta-release-gate.json` passes all 44 checks,
+including the intake contract, Web production serving, evidence-validator
+adversarial fixtures, and exact artifact parity. It exercises the same
+9,249,172-byte PCK (`SHA-256
+49675052C2A69E14F576737DF1F8643ABF98FBB46B27B052180915910068E938`)
+inspected by the clean official browser proof at
+`output/web-game/internship-system-official-client/` and the zero-error
+cohort, dialogue, and paid-fellow captures at
+`output/web-game/internship-system-visual/`.
+
+### Current public-deployment disposition
+
+The verified local candidate is not yet the public GitHub Pages payload.
+`output/release/deployed-release-identity-current-audit.json` records the
+2026-07-30 fail-closed comparison:
+
+- current local `docs/index.pck`: 9,249,172 bytes, SHA-256
+  `49675052C2A69E14F576737DF1F8643ABF98FBB46B27B052180915910068E938`;
+- public Pages `index.pck`: 6,334,932 bytes, SHA-256
+  `1D012C5C4FAD204054F99782B9378DFC39FB3B60327D024934F6B85AD7002EAF`;
+- local and remote `codex/core-loop-polish` commit:
+  `ca84eb06336d5cc2650687c61d4af1fdf7863761`; and
+- exact deployed-payload match: **false**.
+
+The public URL must not be presented as the approved character-dialogue
+candidate. Commit/push/publish is a separate release-owner action, and the
+physical/usability evidence initializers must remain ineligible until the
+deployed PCK matches the verified local bytes. The audit intentionally created
+no remote mutation and no human-session result.
+
+The current completion audit is
+`output/release/objective-completion-audit-intern-economy.json`. It binds the
+full 18-section objective to the 212-test native result, the 44-check release
+gate, the exact built-browser captures, and the current deployment comparison.
+It records 14 required candidate-bound sessions still pending: seven physical
+touch/screen-reader/listening/GPU sessions and seven separately moderated
+usability focuses. The physical validator report at
+`output/release/physical-release-evidence-intern-candidate-validation.json`
+also rejects the prior evidence record because both its commit and PCK identity
+predate this candidate; no stale result is counted as a pass.
 
 ## External-only evidence
 
@@ -100,3 +159,54 @@ that closes the prioritization blocker; it is not represented as seven
 moderated sessions, invented task metrics, or fabricated recordings. The
 structured playtest protocol and validator remain intact for any later
 evidence-backed study or stricter distribution requirement.
+
+### Staffing and irreversible-action resilience
+
+The between-shift probation report now exposes Roost Requisitions only after
+the authoritative closing-credit gate opens staffing planning. The report is
+suspended while Flockwatch is foregrounded and restored exactly when the ledger
+closes, preventing the staffing economy from being hidden behind an otherwise
+terminal report. Automated coverage also verifies the live Flock staffing page
+at 150% interface scale with expanded copy and the release confirmation at
+390x844, including reachable cancel/confirm actions and confirm-once semantics.
+
+Senior Career Sponsorship now follows the same standard: its complete form
+reflows at 390x844 and 150% scale, and its irreversible filing is separated from
+routine selection by a bounded confirmation. The confirmation names the hen and
+alternate specialty and repeats exact mark, Feed Fund, next-shift throughput,
+and permanent wage consequences before any authoritative mutation.
+
+Rooster Operations also passes the compact economic-action contract. Four
+manager cards, their assignment and posture controls, and the screened successor
+slate remain horizontal-scroll-free at 390x844, 150% scale, and expanded copy.
+Candidate terms come from the authoritative simulation projection and state the
+exact signing cost, replaced rooster, manager count, before/after payroll, and
+zero egg output. Opening the appointment confirmation changes no Feed Fund or
+roster state; cancel preserves the incumbent and one confirmation replaces the
+newest post exactly once.
+
+The recurring Operations filings now carry the same scale contract. Feed
+Procurement and Farmgate Dispatch are tested at their real 282-pixel Flockwatch
+width with 150% interface scale and expanded copy. Their title and live quote
+each receive a full readable row; shared disclosure controls, route choices, and
+fixed actions trim safely without hiding the exact quantity, price, capacity,
+quality, availability, or receipt terms shown beside them. The Farmgate GPU
+proof confirms the selected route and authorization remain readable end to end.
+
+Flock Relations now treats a labor disposition as an irreversible personnel
+filing rather than a routine button. Funded remedies, mediation, coercive PIPs,
+and arbitration use full-width compact actions and a confirmation that repeats
+the named hen, case, exact cost, trust/grievance/compliance or favor effects,
+permanent-record consequence, and irreversibility. Cancel mutates nothing,
+confirm traverses the real Office authority once, stale disabled actions fail
+closed, and the complete filing remains readable at 282px and 150% scale.
+
+Farmer Relations now applies the same deliberate review to public credit.
+Selecting Layer Profile, Clutch Results, or Farmer's Method opens a confirmation
+that repeats the named subject, attribution, frozen evidence, exact cost,
+payout, net Feed Fund effect, standing change, permanent day record, and
+irreversibility before Office receives an intent. Cancel and stale inputs mutate
+nothing; one confirmation publishes once. The stacked gallery header, wrapped
+records, and clipped full-width campaign actions remain horizontal-scroll-free
+at the real 282px filing width and 150% scale with expanded copy, while both
+confirmation choices remain reachable at 390x844.

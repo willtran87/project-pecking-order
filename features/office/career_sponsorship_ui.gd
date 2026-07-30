@@ -41,6 +41,10 @@ var _lane_selector: OptionButton
 var _terms_label: Label
 var _reason_label: Label
 var _authorize_button: Button
+var _confirmation: ConfirmationDialog
+var _pending_worker_id := -1
+var _pending_lane_id: StringName = &""
+var _confirmation_origin: Control
 
 
 func _ready() -> void:
@@ -53,6 +57,8 @@ func _ready() -> void:
 
 
 func apply_snapshot(snapshot: Dictionary) -> void:
+	if _confirmation != null and _confirmation.visible:
+		_cancel_confirmation(false)
 	_snapshot = snapshot.duplicate(true)
 	_training_terms = _training_terms_snapshot()
 	_available_marks = maxi(0, int(_snapshot.get("available_marks", 0)))
@@ -83,6 +89,7 @@ func authorization_reason() -> String:
 func _build_interface() -> void:
 	var heading := _make_label("CAREER SPONSORSHIP", 17, COLOR_BRASS)
 	heading.name = "CareerSponsorshipHeading"
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(heading)
 
 	var optional_note := _make_label(
@@ -120,6 +127,7 @@ func _build_interface() -> void:
 
 	var worker_caption := _make_label("HEN CANDIDATE", 11, COLOR_MUTED)
 	worker_caption.name = "CareerSponsorshipHenLabel"
+	worker_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(worker_caption)
 
 	_worker_selector = OptionButton.new()
@@ -135,6 +143,7 @@ func _build_interface() -> void:
 
 	var lane_caption := _make_label("ALTERNATE PECKWORK SPECIALTY", 11, COLOR_MUTED)
 	lane_caption.name = "CareerSponsorshipLaneLabel"
+	lane_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(lane_caption)
 
 	_lane_selector = OptionButton.new()
@@ -161,8 +170,41 @@ func _build_interface() -> void:
 	_authorize_button.focus_mode = Control.FOCUS_ALL
 	_authorize_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_authorize_button.custom_minimum_size = Vector2(0.0, 42.0)
+	_authorize_button.clip_text = true
+	_authorize_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_authorize_button.pressed.connect(_on_authorize_pressed)
 	form.add_child(_authorize_button)
+	_build_confirmation()
+
+
+func _build_confirmation() -> void:
+	_confirmation = ConfirmationDialog.new()
+	_confirmation.name = "CareerSponsorshipConfirmation"
+	_confirmation.title = "FILE CAREER SPONSORSHIP?"
+	_confirmation.ok_button_text = "FILE SPONSORSHIP"
+	_confirmation.cancel_button_text = "KEEP"
+	_confirmation.get_cancel_button().tooltip_text = (
+		"Cancel this filing and keep every Roost Mark and Feed Fund dollar."
+	)
+	_confirmation.min_size = Vector2i(340, 300)
+	var copy := _confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 178.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for action_button: Button in [
+		_confirmation.get_ok_button(),
+		_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size.x = 132.0
+		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action_button.autowrap_mode = TextServer.AUTOWRAP_OFF
+		action_button.clip_text = true
+		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_confirmation.confirmed.connect(_confirm_sponsorship)
+	_confirmation.canceled.connect(_cancel_confirmation)
+	add_child(_confirmation)
 
 
 func _configure_selector(selector: OptionButton) -> void:
@@ -387,7 +429,87 @@ func _on_lane_selected(index: int) -> void:
 func _on_authorize_pressed() -> void:
 	if not _authorization_reason().is_empty():
 		return
-	sponsorship_requested.emit(_selected_worker_id, _selected_lane_id)
+	var worker := _worker_by_id(_selected_worker_id)
+	if worker.is_empty() or _selected_lane_id == &"":
+		return
+	_pending_worker_id = _selected_worker_id
+	_pending_lane_id = _selected_lane_id
+	_confirmation_origin = _authorize_button
+	var worker_name := _worker_name(worker).to_upper()
+	var lane_name := _lane_label(_selected_lane_id)
+	var penalty_percent := maxi(0, roundi(_training_work_penalty_percent()))
+	var wage_delta_cents := maxi(0, int(_training_terms.get(
+		"wage_bonus_cents",
+		DEFAULT_DAILY_WAGE_DELTA_CENTS,
+	)))
+	_confirmation.title = "SPONSOR %s?" % worker_name
+	_confirmation.ok_button_text = "FILE SPONSORSHIP"
+	_confirmation.cancel_button_text = "KEEP MARKS"
+	for action_button: Button in [
+		_confirmation.get_ok_button(),
+		_confirmation.get_cancel_button(),
+	]:
+		# AcceptDialog refreshes its internal action row when the contextual OK
+		# label changes. Reassert the authored target size after that refresh so
+		# compact and high-scale confirmations cannot collapse to icon-width slits.
+		action_button.custom_minimum_size.x = 132.0
+		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action_button.update_minimum_size()
+	_confirmation.dialog_text = (
+		"This accreditation trains %s toward %s.\n\n"
+		+ "FILE NOW  /  %d ROOST MARKS + $%.2f FEED FUND\n"
+		+ "NEXT SHIFT  /  -%d%% TRAINING THROUGHPUT\n"
+		+ "PERMANENT  /  +$%.2f/DAY WAGE\n\n"
+		+ "No marks, Feed Fund, training, wage, or save state changes until you confirm. "
+		+ "Once filed, this quarter's sponsorship cannot be undone."
+	) % [
+		worker_name,
+		lane_name,
+		_mark_cost,
+		float(_fund_cost_cents) / 100.0,
+		penalty_percent,
+		float(wage_delta_cents) / 100.0,
+	]
+	_confirmation.popup_centered_clamped(Vector2i(390, 370), 0.98)
+
+
+func _confirm_sponsorship() -> void:
+	if (
+		_pending_worker_id < 0
+		or _pending_lane_id == &""
+		or _pending_worker_id != _selected_worker_id
+		or _pending_lane_id != _selected_lane_id
+		or not _authorization_reason().is_empty()
+	):
+		_cancel_confirmation(false)
+		return
+	var worker_id := _pending_worker_id
+	var lane_id := _pending_lane_id
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	sponsorship_requested.emit(worker_id, lane_id)
+
+
+func _cancel_confirmation(restore_focus: bool = true) -> void:
+	var origin := _confirmation_origin
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not origin.disabled
+	):
+		origin.call_deferred("grab_focus")
+
+
+func _clear_pending_confirmation() -> void:
+	_pending_worker_id = -1
+	_pending_lane_id = &""
+	_confirmation_origin = null
 
 
 func _normalized_workers(value: Variant) -> Array[Dictionary]:

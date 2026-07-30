@@ -51,12 +51,23 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var shelved := store.load()
+	var shelved_payload := shelved.get("campaign", {}) as Dictionary
+	var shelved_session := shelved_payload.get("session", {}) as Dictionary
+	var shelved_interface_context := (
+		shelved_session.get("interface_context", {}) as Dictionary
+	)
 	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
 	var continue_button := office.find_child("ContinueCampaignButton", true, false) as Button
 	_check(not shelved.is_empty() and store.has_save(), "return to intake must preserve a loadable campaign", failures)
 	_check(
-		(shelved.get("campaign", {}) as Dictionary) == baseline_payload,
-		"shelving should preserve the exact campaign, simulation, Senior, and tutorial payload",
+		_without_interface_context(shelved_payload)
+		== _without_interface_context(baseline_payload),
+		"shelving should preserve the exact authoritative campaign, simulation, Senior, and tutorial payload",
+		failures,
+	)
+	_check(
+		String(shelved_interface_context.get("capital_filter_id", "")) == "all",
+		"shelving should intentionally checkpoint the player's current Blueprint filter instead of reverting it to the baseline presentation",
 		failures,
 	)
 	_check(
@@ -121,3 +132,11 @@ func _run() -> void:
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _without_interface_context(payload: Dictionary) -> Dictionary:
+	var result := payload.duplicate(true)
+	var session := result.get("session", {}) as Dictionary
+	session.erase("interface_context")
+	result["session"] = session
+	return result

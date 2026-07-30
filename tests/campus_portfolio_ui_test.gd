@@ -1,6 +1,7 @@
 extends SceneTree
 
 const PortfolioUIScript := preload("res://features/office/campus_portfolio_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -142,6 +143,33 @@ func _run() -> void:
 	_check(_visible_children_fit(ui, viewport_bounds), "portrait planner should not require horizontal scrolling (%s)" % _first_horizontal_overflow(ui, viewport_bounds), failures)
 	_check(action_button.get_global_rect().end.x <= harness.size.x + 0.5, "portrait contextual CTA should remain inside the viewport (rect=%s)" % action_button.get_global_rect(), failures)
 
+	# Maximum supported interface scale and moderately expanded English copy
+	# must preserve the complete planning route, not merely the base typography.
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	await process_frame
+	await process_frame
+	_check(
+		_visible_children_fit(ui, viewport_bounds),
+		"150-percent expanded-copy portfolio should remain inside 390x844 (%s; largest=%s)"
+		% [
+			_first_horizontal_overflow(ui, viewport_bounds),
+			_largest_minimum_widths(ui),
+		],
+		failures,
+	)
+	_check(
+		body_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
+		"150-percent portfolio planning should remain vertical-scroll-only",
+		failures,
+	)
+	_check(
+		action_rail.get_global_rect().end.y <= harness.size.y + 0.5,
+		"150-percent portfolio action rail should remain physically reachable",
+		failures,
+	)
+
 	ui.free()
 	await process_frame
 	if not failures.is_empty():
@@ -149,7 +177,7 @@ func _run() -> void:
 			push_error("CAMPUS_PORTFOLIO_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPUS_PORTFOLIO_UI_TEST_PASSED layout=65/35+compact parcels=3 resources=6 queue=staged staffing=named CTA=deed+project intents=only responsive=1280+844+390")
+	print("CAMPUS_PORTFOLIO_UI_TEST_PASSED layout=65/35+compact parcels=3 resources=6 queue=staged staffing=named CTA=deed+project intents=only responsive=1280+844+390 resilience=150-percent+expanded-copy")
 	quit(0)
 
 
@@ -217,6 +245,72 @@ func _first_horizontal_overflow(root_control: Control, bounds: Rect2) -> String:
 		if rect.position.x < bounds.position.x - 1.0 or rect.end.x > bounds.end.x + 1.0:
 			return "%s=%s bounds=%s" % [control.name, rect, bounds]
 	return "none"
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	var rows: Array[Dictionary] = []
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		rows.append({
+			"name": String(control.name),
+			"minimum": control.get_combined_minimum_size().x,
+			"width": control.size.x,
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return float(left.get("minimum", 0.0)) > float(right.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(24, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override(
+			"font_size",
+			maxi(10, roundi(float(base_size) * scale)),
+		)
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is OptionButton:
+			var option := node_value as OptionButton
+			for item_index: int in range(option.item_count):
+				option.set_item_text(
+					item_index,
+					_expanded(option.get_item_text(item_index)),
+				)
+		elif node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _contains_all(text_value: String, needles: Array[String]) -> bool:

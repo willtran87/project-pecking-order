@@ -93,6 +93,9 @@ var _focus_generation: int = 0
 var _reduced_motion: bool = false
 var _high_contrast: bool = false
 var _animation_speed_multiplier := 1.0
+var _camera_motion_level: StringName = &"full"
+var _input_sensitivity: StringName = &"standard"
+var _input_sensitivity_multiplier := 1.0
 var _safe_viewport_insets := Vector4.ZERO # left, right, top, bottom in pixels
 var _current_safe_frame_world_offset := Vector3.ZERO
 
@@ -264,7 +267,7 @@ func _process(delta: float) -> void:
 			_update_selection_ring(worker, delta)
 
 	var desired_safe_offset := _safe_frame_world_offset(_desired_size)
-	if _reduced_motion:
+	if _camera_motion_is_instant():
 		_current_safe_frame_world_offset = desired_safe_offset
 		var immediate_position := _view_target_point() + _camera_offset + _current_safe_frame_world_offset
 		var immediate_transform := _camera.global_transform
@@ -277,14 +280,14 @@ func _process(delta: float) -> void:
 		return
 
 	var safe_damping := _exponential_damping(
-		safe_frame_damping_speed * _animation_speed_multiplier,
+		safe_frame_damping_speed * _camera_motion_speed_multiplier(),
 		delta,
 	)
 	_current_safe_frame_world_offset += (
 		desired_safe_offset - _current_safe_frame_world_offset
 	) * safe_damping
 	var desired_position := _view_target_point() + _camera_offset + _current_safe_frame_world_offset
-	var position_speed := _position_damping_speed() * _animation_speed_multiplier
+	var position_speed := _position_damping_speed() * _camera_motion_speed_multiplier()
 	var position_damping := _exponential_damping(position_speed, delta)
 	var camera_transform := _camera.global_transform
 	var position_delta := desired_position - camera_transform.origin
@@ -298,7 +301,7 @@ func _process(delta: float) -> void:
 			_active_transition_speed
 			if _transition_seconds_remaining > 0.0 else
 			zoom_damping_speed
-		) * _animation_speed_multiplier
+		) * _camera_motion_speed_multiplier()
 		_camera.size += size_delta * _exponential_damping(size_speed, delta)
 
 	if _transition_seconds_remaining > 0.0:
@@ -493,6 +496,10 @@ func navigation_state() -> Dictionary:
 		"home_size": _overview_size,
 		"bounds": _navigation_bounds_xz,
 		"animation_speed_multiplier": _animation_speed_multiplier,
+		"camera_motion": String(_camera_motion_level),
+		"camera_motion_instant": _camera_motion_is_instant(),
+		"input_sensitivity": String(_input_sensitivity),
+		"input_sensitivity_multiplier": _input_sensitivity_multiplier,
 	}
 
 
@@ -544,6 +551,25 @@ func set_reduced_motion(enabled: bool) -> void:
 	_reduced_motion = enabled
 
 
+func set_camera_motion_level(level: StringName) -> void:
+	_camera_motion_level = (
+		level if level in [&"full", &"reduced", &"off"] else &"full"
+	)
+
+
+func set_input_sensitivity(level: StringName) -> void:
+	_input_sensitivity = (
+		level if level in [&"low", &"standard", &"high"] else &"standard"
+	)
+	match _input_sensitivity:
+		&"low":
+			_input_sensitivity_multiplier = 0.70
+		&"high":
+			_input_sensitivity_multiplier = 1.35
+		_:
+			_input_sensitivity_multiplier = 1.0
+
+
 func set_animation_speed_multiplier(multiplier: float) -> void:
 	var safe_multiplier := clampf(multiplier, 0.5, 2.0)
 	if is_equal_approx(safe_multiplier, _animation_speed_multiplier):
@@ -588,6 +614,10 @@ func show_event_focus(
 	hold_seconds: float = 1.35,
 	override_existing_focus: bool = false
 ) -> void:
+	# Motion-off preserves the exact receipt, text, sound, and world change while
+	# preventing passive presentations from taking the player's camera.
+	if _camera_motion_level == &"off":
+		return
 	if _has_focus and not override_existing_focus:
 		return
 	var previous_state := _capture_camera_state()
@@ -730,6 +760,7 @@ func _zoom_limits_for_mode() -> Vector2:
 func _zoom_at_screen(size_multiplier: float, screen_position: Vector2) -> void:
 	if size_multiplier <= 0.0 or not is_finite(size_multiplier):
 		return
+	size_multiplier = pow(size_multiplier, _input_sensitivity_multiplier)
 	if _mode == CameraMode.EVENT_FOCUS:
 		_enter_free_overview_from_current_view()
 	var limits := _zoom_limits_for_mode()
@@ -755,6 +786,7 @@ func _zoom_at_screen(size_multiplier: float, screen_position: Vector2) -> void:
 func _pan_by_screen_delta(screen_delta: Vector2) -> void:
 	if screen_delta.is_zero_approx():
 		return
+	screen_delta *= _input_sensitivity_multiplier
 	_enter_free_overview_from_current_view()
 	var center := _viewport_center()
 	var target := _free_overview_target
@@ -802,6 +834,15 @@ func _position_damping_speed() -> float:
 	if _mode == CameraMode.FREE_OVERVIEW:
 		return manual_pan_damping_speed
 	return transition_speed
+
+
+func _camera_motion_is_instant() -> bool:
+	return _reduced_motion or _camera_motion_level == &"off"
+
+
+func _camera_motion_speed_multiplier() -> float:
+	var comfort_multiplier := 1.8 if _camera_motion_level == &"reduced" else 1.0
+	return _animation_speed_multiplier * comfort_multiplier
 
 
 func _exponential_damping(speed: float, delta: float) -> float:

@@ -19,6 +19,24 @@ func _init() -> void:
 	_check(not bool((operations.get("management_reports", {}) as Dictionary).get("produces_eggs", true)), "management must never produce eggs", failures)
 	_check(simulation.current_daily_supervisor_payroll_cents() == 1200, "funded posts should preserve the authored tier-three payroll", failures)
 	_check((operations.get("manager_candidates", []) as Array).size() == 6, "the screened slate should expose all six management archetypes", failures)
+	var byte_candidate := _candidate(
+		operations.get("manager_candidates", []) as Array,
+		&"byte_automation",
+	)
+	_check(
+		StringName(String(byte_candidate.get("replaces_manager_id", ""))) != &""
+		and not String(byte_candidate.get("replaces_name", "")).is_empty(),
+		"the successor ledger should identify the exact newest manager being replaced",
+		failures,
+	)
+	_check(
+		int(byte_candidate.get("manager_count", -1)) == 4
+		and int(byte_candidate.get("supervisor_payroll_before_cents", -1)) == 1200
+		and int(byte_candidate.get("supervisor_payroll_after_cents", -1)) == 1200
+		and int(byte_candidate.get("supervisor_payroll_delta_cents", -1)) == 0,
+		"the successor ledger should project unchanged headcount and exact unpromoted payroll",
+		failures,
+	)
 	simulation.revenue_cents = 100_000
 	var recruit := simulation.recruit_manager(&"byte_automation")
 	_check(bool(recruit.get("accepted", false)), "the player should be able to appoint an alternate manager", failures)
@@ -66,3 +84,18 @@ func _init() -> void:
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _candidate(
+	candidates: Array,
+	candidate_id: StringName,
+) -> Dictionary:
+	for candidate_value: Variant in candidates:
+		if (
+			candidate_value is Dictionary
+			and StringName(String(
+				(candidate_value as Dictionary).get("id", ""),
+			)) == candidate_id
+		):
+			return candidate_value as Dictionary
+	return {}

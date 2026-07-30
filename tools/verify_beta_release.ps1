@@ -7,6 +7,13 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Native tools legitimately use stderr for non-fatal diagnostics (for example,
+# Rolldown's plugin timing advisory). Invoke-CheckedCommand records merged output
+# and judges the command by its exit code, so stderr must not be promoted to a
+# terminating PowerShell error before that contract can run.
+if (Test-Path Variable:\PSNativeCommandUseErrorActionPreference) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 $root = Split-Path -Parent $PSScriptRoot
 $started = Get-Date
 $checks = [ordered]@{}
@@ -17,8 +24,20 @@ function Invoke-CheckedCommand {
         [Parameter(Mandatory = $true)][scriptblock]$Command
     )
     $commandStarted = Get-Date
-    $output = @(& $Command 2>&1 | ForEach-Object { $_.ToString() })
-    $exitCode = $LASTEXITCODE
+    # Windows PowerShell can still promote a native child's stderr record to a
+    # terminating error even when PSNativeCommandUseErrorActionPreference is
+    # disabled (for example Rolldown's non-fatal plugin timing advisory). Keep
+    # the surrounding release script strict, but judge this bounded native
+    # process by its exit code after capturing both streams.
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = @(& $Command 2>&1 | ForEach-Object { $_.ToString() })
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
     $checks[$Name] = [ordered]@{
         passed = $exitCode -eq 0
         exit_code = $exitCode
@@ -40,14 +59,37 @@ try {
             "personnel_career_test.gd",
             "chicken_render_hot_path_test.gd",
             "opening_experience_progression_test.gd",
+            "probation_campaign_ui_test.gd",
+            "career_sponsorship_ui_test.gd",
+            "career_sponsorship_integration_test.gd",
             "incident_docket_variety_test.gd",
             "manager_roster_economy_test.gd",
+            "manager_recruitment_ui_test.gd",
+            "feed_procurement_ui_test.gd",
+            "farmgate_dispatch_ui_contract_test.gd",
             "audio_feedback_test.gd",
             "office_storytelling_test.gd",
+            "character_dialogue_portrait_test.gd",
+            "character_dialogue_ui_test.gd",
             "temperament_work_style_test.gd",
             "claimant_resolution_test.gd",
             "claim_routing_ui_test.gd",
+            "flock_relations_case_ui_test.gd",
+            "flock_relations_office_integration_test.gd",
+            "farmer_relations_gallery_ui_test.gd",
+            "farmer_relations_gallery_office_integration_test.gd",
             "interaction_safety_contract_test.gd",
+            "staffing_ui_test.gd",
+            "economic_briefing_test.gd",
+            "farm_mutual_contract_board_ui_test.gd",
+            "commissioning_reveal_ui_test.gd",
+            "campus_portfolio_reveal_ui_test.gd",
+            "campus_portfolio_ui_test.gd",
+            "capital_blueprint_ui_test.gd",
+            "campus_expansion_ui_test.gd",
+            "settings_office_integration_test.gd",
+            "ui_text_expansion_resilience_test.gd",
+            "campaign_intake_safety_test.gd",
             "simulation_persistence_test.gd"
         )
         foreach ($testName in $nativeTests) {

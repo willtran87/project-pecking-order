@@ -1920,7 +1920,9 @@ The next major systems milestone is persistent worker relationships and individu
 - Touch rows now verify Safari/Chrome platform fit, 44 CSS-pixel targets,
   two-second orientation recovery, and explicit default/1.5x text legibility.
   Reader rows enforce NVDA/VoiceOver on desktop and VoiceOver/TalkBack on mobile.
-  Audio rows record all five buses and five semantic cues.
+  Audio rows record the five legacy buses and five semantic cues used by that
+  exact-candidate protocol; the current runtime has since expanded to seven
+  independently controlled buses.
 - GPU rows now declare integrated/discrete class and at least 60 Hz, record the
   60-second warmup, ten-minute sample, both two-minute windows, and their raw
   median FPS values. The validator recomputes the final/initial ratio and rejects
@@ -2803,3 +2805,1073 @@ The next major systems milestone is persistent worker relationships and individu
   Quality; then implement the highest-impact clause that lacks direct code and
   test evidence. Human usability and physical-device sign-offs remain external
   release gates and must not be rewritten as automated passes.
+
+## 2026-07-29 — Character-led satire vertical slice
+
+- The user approved Mabel's high-resolution pixel-art dialogue cutout as the
+  visual lock. Generated matching source-reference portraits for Pip, Henrietta,
+  Dot, and Cornelius Claimwell, then prepared transparent 1024×1024 nearest-
+  filtered runtime cutouts.
+- Added a compact, responsive character-aside layer with a four-entry bounded
+  queue, per-session deduplication, five-to-fifteen-second authored holds,
+  explicit `FILE AWAY`, reduced-motion support, and automatic suspension behind
+  decisions, Farmer Review, settings, planning, campaign, and Flockwatch.
+- Added state-driven satire for real first eggs/cracks, overtime, Feed Party,
+  wage arrears, worker stress, manager recruitment, directive/incident results,
+  credit attribution, and shift review. Dialogue is a projection only and never
+  mutates simulation or creates a parallel welfare/economy model.
+- The exact system receipt remains in Shift Record/Flockwatch; while an aside is
+  visible, the transient status toast yields its reading space so the new layer
+  reduces simultaneous prose instead of adding to the text mountain.
+- Added Web diagnostics and accessibility text for the current speaker, channel,
+  line, queue depth, and suspended/visible state.
+- Added asset provenance, prompt record, identity contracts, SHA-256 values, and
+  explicit `source-reference-pass` status. These are dialogue portraits, not
+  action-frame or production-animation packages.
+- Focused checks passing: `character_dialogue_portrait_test.gd`,
+  `character_dialogue_ui_test.gd`, and the expanded
+  `decision_loop_ui_test.gd`.
+- Live Web inspection completed at desktop and compact shell sizes. The real
+  First Clutch path opens Mabel's file, resolves the directive, then presents
+  her opening aside with one follow-up queued; the decision modal is closed,
+  browser errors are empty, and orphan nodes remain zero.
+- Preserved exact 1024×1024 source PNGs while capping Godot runtime imports at
+  512×512. The five portraits now add about 0.87 MB over the prior 6.33 MB PCK
+  instead of shipping the 19.6 MB source-sheet mistake caught during export.
+  `art_sources/.gdignore` keeps chroma and provenance sources out of releases.
+- Final Web payload is 7,207,516 bytes with SHA-256
+  `947A2E078A68B8660FF65D4CEA4B62758C0FF86080ECDA247F1C778661994EEE`;
+  all nine `docs/` and `web/public/game/` files match byte-for-byte.
+- Final focused/regression checks pass: portrait contract, dialogue UI,
+  directive-loop integration, First Clutch induction, Feed Party presentation,
+  and manager-roster presentation. The Web-only beta release gate passes, as
+  does the required official-client smoke with the dialogue diagnostic present
+  and zero orphan nodes.
+
+## 2026-07-29 — Binder pricing strategy
+
+- Replaced the last pricing abstraction gap with three authored Farm Mutual
+  postures: Mutual Rate, Community Access Rate, and Executive Select Rate.
+- Pricing now changes the actual scheduled-file volume, fulfillment threshold,
+  integer-cent premium, estimated handling margin, claimant-satisfaction
+  outcome, and market-reach outcome in one frozen signature quote.
+- Community Access adds one referred folder and sacrifices margin for goodwill
+  and reach. Executive Select removes one routine folder and raises margin while
+  reducing goodwill; it remains held until three market-reach points are earned.
+- Added exact settled-outcome counters. Claimant satisfaction, reach, and
+  projected Mutual share are derived from those counters, so they cannot drift
+  from fulfilled and breached binder receipts. Reach unlocks Executive Select.
+- Added responsive board controls that expose all three postures and their
+  volume, premium, estimated margin, claimant, and reach effects before signing.
+  The signature intent now carries folder, negotiated clause, and pricing ID.
+- Added `market_pricing_economy_test.gd` and `market_pricing_ui_test.gd`.
+  Focused pricing, settlement, save/tamper, board UI, legacy contract economy,
+  season/rider, and market persistence checks pass. Whole-project script import
+  and the signal audit also pass.
+- Re-exported and synchronized all nine deployable Web payloads byte-for-byte
+  between `docs/` and `web/public/game/`. The 7,221,212-byte `index.pck` has
+  SHA-256 `365E0A78BBFE7D6C45A0B69C6D15E6264E80FA75548955262A128019C18C21D6`.
+- The required official client loaded the refreshed title/intake with diagnostic
+  state and zero orphan nodes. A live saved career was then advanced through
+  Shift 2, Farmer Review, credit attribution, and next-shift planning to inspect
+  the real Day 3 board. Mutual, Community Access, and held Executive Select fit
+  in one responsive row; selecting Community Access immediately changed the
+  visible file count from 5 to 6, premium from $10 to $8, estimated margin from
+  $3.75 to $0.50, claimant effect from +1 to +4, and reach effect from +1 to +3.
+  The browser console contained no warnings or errors, and the live board was
+  left open for handoff.
+- The representative beta release gate passes at
+  `output/release/market-pricing-beta-release-gate.json`: 12/12 native economy,
+  presentation, safety, and persistence contracts; Web lint; all rendered Web
+  tests; production-server payload verification; physical/usability evidence
+  validator self-tests; and exact nine-file release parity.
+- Extended the pricing economy regression through a real two-day sequence:
+  fulfilling Community Access earns the three reach points, Executive Select
+  becomes signable on the following review, and its active binder survives an
+  exact save/restore round trip after daily accounting rolls over.
+
+## 2026-07-29 — Player-pinned management watch
+
+- Closed the information-support gap without adding another dashboard. Capital's
+  compact Economic Briefing now keeps one Management Watch visible with exact
+  `NOW`, `TARGET`, `WHY`, and `ACT` lines.
+- AUTO follows the highest authoritative bottleneck; players may instead pin
+  Secured Margin, Feed Coverage, Live-File Capacity, Flock Welfare, or Mutual
+  Reach. Each choice derives from simulation state and exposes a direct action
+  to the existing Today, Flock, Ops, Capital, or Records file that can change it.
+- The pin is durable economic state. Unknown IDs reject without mutation,
+  corrupted checkpoints reject atomically, and additive legacy checkpoints
+  default to AUTO without inventing a preference.
+- Added focused simulation/persistence/UI coverage and real Office integration.
+  The production Capital selector files Feed Coverage through the simulation,
+  confirms the filing in the ticker, refreshes its exact status, and `OPEN OPS`
+  navigates the live Flockwatch surface.
+- Final live-browser validation caught the first action row compressing its
+  destination to `OPEN`; the selector and action now use a stacked compact rail
+  that preserves `OPEN CAPITAL` / `OPEN OPS` at the shipped Flockwatch width.
+  Feed Coverage was pinned through the real control, its exact current, target,
+  cause, and action copy refreshed immediately, and the action deep-linked to
+  Ops. The official Web client loaded cleanly with zero orphan nodes, the beta
+  release gate passed, and all nine deployable files match exactly. Final PCK:
+  7,232,476 bytes,
+  `BFAEBCF350D0C26439C12F948180B7BB21DD0B4DC8CC02AFA9CD1CDB50543AB9`.
+
+## 2026-07-29 — Approved cast cutouts become economic consequences
+
+- Completed the approved high-resolution pixel-cutout cast for Mabel, Pip,
+  Henrietta, Dot, and Cornelius Claimwell. Each transparent source is
+  1024x1024, imports within the 512px Web texture budget, and has clean alpha
+  corners without chroma-key contamination.
+- The non-blocking cutout surface remains intentionally compact: one portrait,
+  speaker, role, channel, and short line; a bounded four-entry queue; automatic
+  filing; no duplicate event IDs; modal/Flockwatch suspension; reduced-motion
+  support; and an equivalent accessibility projection.
+- Extended the state-driven satire beyond passive floor conditions. Mutual,
+  Community Access, and Executive Select pricing now receive distinct cast
+  reactions; fulfillment and breach receive distinct follow-through; each feed
+  lot explains its short/long tradeoff through the flock; and capital rooms
+  prompt care, labor, production, attribution, or middle-management reactions.
+- Production integration is transaction-causal. A real Local Whole Grain order
+  files Henrietta's reaction after the exact $17.50 debit, a real Gold
+  Negotiation Room commission files Cornelius's reaction after the exact
+  $240.00 capital and $12.00 daily obligation, and the real binder-signing path
+  files the pricing reaction exactly once. Rejected filings create no invented
+  beat.
+- The refreshed Web build was exercised in the real player flow. Filing
+  After-Hours Pecking revealed Henrietta's connected cutout and floor-chat line
+  below the HUD without covering Flockwatch or the office controls; the browser
+  reported no warnings or errors. The full beta release gate passed, all nine
+  deployable files match exactly, and the final portrait-bearing PCK is
+  7,237,772 bytes,
+  `58587F564A025E53ABCF033C8C43BDF2D55913B3B38D2CB3311E0A719401252F`.
+
+## 2026-07-29 — Challenge contracts become distinct opening economies
+
+- Converted Learning, Standard, and Expert from threshold-only rubrics into
+  disclosed opening scenarios. Supported Flock starts at $65.00, quota 14, and
+  six live files; Standard Filing starts at $50.00, quota 16, and six; Executive
+  Audit starts at $48.00, quota 18, and an eight-file audit surge.
+- The title card now shows the exact fund, quota, live-file count, and pressure
+  label before the player opens a file. Those terms are filed through one atomic
+  simulation boundary; malformed, repeated, late, or capacity-invalid requests
+  reject without partial mutation.
+- New-campaign creation applies the selected opening economy before the
+  simulation is serialized into the verified checkpoint. Focused integration
+  proves that the real Supported Flock title selection restores $65.00 in both
+  Feed Fund and Treasury authority, quota 14, and six waiting files.
+- Added exact catalog, simulation, UI, Office, and save-round-trip coverage.
+  Executive intake adds one Appeals and one Predator Loss file; every resulting
+  claim queue, treasury balance, quota, and fund survives persistence.
+- Re-ran the complete deterministic campaign balance lab against the real
+  openings. Supported and Standard retain all three care, quality, and harvest
+  routes; Supported also retains its guided no-micro route across all four
+  authored dockets. Executive retains exactly one proven Harvest Partnership
+  route at score 68, welfare 48, compliance 77, favor 52, and 24.36% shell loss.
+  The full 8-profile / 3-contract / 7-Board-Book / 4-docket proof passes.
+- Exported and synchronized all nine Web payloads byte-for-byte. The final
+  `index.pck` is 7,241,452 bytes with SHA-256
+  `9B05DDDED5A78672FB5024B481302A5523C79CA3DEFA90E62FF53328F02BAC19`.
+  The complete native/Web beta release gate passes at
+  `output/release/challenge-opening-economy-beta-release-gate.json`.
+- Live packaged inspection confirmed that Learning, Standard, and Expert update
+  immediately with their exact opening terms, remain contained in the intake
+  card, preserve the approved Mabel-led presentation, and produce no browser
+  warning or error entries.
+
+## 2026-07-29 — Authoritative return recap
+
+- Replaced the saved-file title's bare day-and-score preview with one concise
+  operating recap: `LAST FILED`, the highest `UNRESOLVED` condition and factual
+  cause, plus one `NEXT` recovery action. The projection reuses the saved
+  simulation's authoritative Economic Briefing rather than duplicating economy
+  rules in the interface.
+- The preview restores the candidate into an isolated simulation and never
+  activates or rewrites it. Envelope-valid but semantically corrupt simulations
+  suppress the recap, leaving the primary and recovery copies untouched.
+- The visible card and assistive narration now carry the same filed action,
+  unresolved problem, cause, and recovery. Live packaged testing caught and
+  closed an initial narration-only drift, including clean sentence punctuation.
+- Added focused projection, title-layout, real checkpoint integration,
+  corruption, no-mutation, sanitization, and accessibility coverage. Persistence,
+  campaign intake/recovery, interaction safety, challenge openings, signal
+  auditing, Web lint/build, and all 49 rendered Web contracts pass.
+- The final beta release gate passes at
+  `output/release/return-recap-beta-release-gate.json`; all nine deployable Web
+  files match byte-for-byte. Final `index.pck`: 7,247,196 bytes, SHA-256
+  `30E426792FE8421D78668F5DD0D2DD357DA22354E93BF77E1049C2204D003485`.
+- Live validation at `http://localhost:3000/` confirmed the saved title shows
+  `SHIFT 2 RESULTS FILED`, the exact Archive Capacity constraint, and its
+  Records-capacity recovery action. The browser reported no warnings or errors.
+
+## 2026-07-29 — Truthful closed-time economy
+
+- Completed the missing offline portion of return intake without introducing
+  idle accrual or obligation. The saved-file card now shows a compact
+  `OFFLINE // 3H 12M // ECONOMY PAUSED` line, while assistive narration explains
+  that no files advanced, eggs were laid, costs posted, or Feed Fund changed.
+- Save time is disclosure-only and cannot feed production, finance, or the
+  simulation clock. Missing legacy timestamps, backward system clocks, and
+  extreme ages produce deterministic bounded labels; clock manipulation has no
+  economic reward or penalty.
+- Added deterministic elapsed-time, clock-anomaly, no-mutation, responsive-title,
+  real-checkpoint, sanitization, and accessible-narration coverage. Save recovery,
+  semantic corruption, interaction safety, Web lint/build, and all 49 rendered
+  Web contracts remain green.
+- Live packaged validation confirmed the compact line remains contained on the
+  desktop title and the 390×844 wrapper retains its landscape guidance. The
+  browser produced no warning or error entries.
+- The beta release gate passes at
+  `output/release/offline-recap-beta-release-gate.json`; all nine deployable Web
+  files match byte-for-byte. Final `index.pck`: 7,248,988 bytes, SHA-256
+  `23D8D9C58DC28B726A04BFA9A78EF698A27F8F721A6252D4236824CEF61D3E99`.
+
+## 2026-07-29 — The flock owns the return beat
+
+- Continue now follows the exact verified return recap with one approved cutout
+  reaction. Feed pressure routes to Henrietta, live-file/archive/workflow
+  pressure to Dot, welfare to Pip, margin to Cornelius, Mutual reach to Mabel,
+  and a backward wall clock to Cornelius's failed search for billable minutes.
+- The dialogue remains a non-blocking human translation of the authoritative
+  bottleneck. It creates no second economy, preserves the exact filing in
+  Flockwatch, exposes matching assistive text, and deduplicates within the
+  resumed session.
+- Live validation caught historical snapshot transitions being mistaken for new
+  events: the saved archive-pressure career initially replayed an old overtime
+  aside. Verified activation now clears disposable boot-history reactions and
+  seeds the dialogue observer from the restored state before filing the one
+  authored return beat.
+- The corrected live resume opens directly with Dot: “The files waited exactly
+  where we left them. Management has praised the backlog for its retention.”
+  Her approved cutout stays below the HUD and clear of the route and Flockwatch
+  controls; browser warning/error logs remain empty.
+- Focused portrait, catalog, queue, accessibility, verified-Continue,
+  same-condition deduplication, corruption, interaction-safety, signal, and
+  responsive contracts pass. The release gate also now treats non-fatal native
+  stderr advisories as recorded output and correctly judges commands by exit
+  code.
+- The full beta gate passes at
+  `output/release/return-dialogue-beta-release-gate.json`; all nine deployable
+  files match byte-for-byte. Final `index.pck`: 7,251,932 bytes, SHA-256
+  `E9AFF36941FFCA16F419D8683DC3FD7A73BDF6DAD129053686DB2996ECE44C68`.
+
+## 2026-07-29 — Career-scoped interface context
+
+- Added a bounded, versioned presentation ledger to campaign checkpoints for
+  the current Flockwatch page, Show All Filings choice, Capital Blueprint
+  filter, and selected facility. It contains no economic authority.
+- Restore validates field types before activation, normalizes unknown future
+  IDs to safe defaults, rebuilds page discovery from the restored career, and
+  never leaves a hidden Blueprint parcel selected.
+- New careers now reset this context before their first verified checkpoint, so
+  a prior career's filing page or filter cannot leak into a fresh file.
+- Page, filing-scope, filter, and parcel changes queue the normal bounded
+  checkpoint flow. Programmatic restore is suppressed from creating save churn.
+- Capital Blueprint UI and semantic campaign-recovery tests pass. The semantic
+  fixtures prove malformed context falls back atomically to the recovery copy
+  while unknown IDs retain the economy and choose reachable presentation state.
+- The production campaign integration now proves the complete interaction:
+  choose Records, enable every filing, select All Plans and the Farm Mutual
+  Service Coop, shelve, Continue, and recover all four choices alongside
+  Henrietta's authoritative Feed Coverage return beat. UI-only changes also
+  enter the bounded checkpoint coordinator and settle without save churn during
+  programmatic restore.
+- The required Web gameplay client captured the packaged 1280×720 intake and
+  concise diagnostic state with no browser-error artifact. Live Chromium then
+  reloaded and continued the existing Day 3 career, rendered Dot's approved
+  Archive Capacity cutout, opened Flockwatch, and exposed matching accessible
+  filing-page/checkpoint status without console or page errors.
+- Exported and synchronized all nine Web payloads byte-for-byte. Final
+  `index.pck`: 7,255,900 bytes, SHA-256
+  `4CEB51EDF52D3CB1E9917DC74BDE6F3E52618505D7F1B36B73DD1D2DD1BC9EC0`.
+  The complete native/Web beta gate passes at
+  `output/release/interface-context-beta-release-gate.json`.
+
+## 2026-07-29 — Durable desk state
+
+- Expanded the campaign-scoped presentation ledger from page navigation into
+  the player's working desk: Shift Record, Shift Help, Desk Requisitions,
+  Commendations, Economic Briefing details, Feed Orders, Farmgate route
+  disclosure and selected mandate, Flock Relations cases, Farmer Relations
+  campaigns, and compact direct requisitions now survive Shelve/Continue.
+- Bumped the bounded interface schema to version 2 while retaining explicit
+  version-1 migration. New fields are strictly type checked, unknown mandate IDs
+  fall back to Farmer Pickup, and no presentation field can authorize an action,
+  change the economy, or partially activate a malformed checkpoint.
+- Player-operated disclosure and selection signals queue the existing
+  checkpoint coordinator. Programmatic restore remains silent, so returning to
+  a career cannot create save churn; normal newly-actionable panels can still
+  auto-open during live play.
+- The production campaign integration now verifies an exact player-toggle,
+  Shelve, and Continue round trip across all ten stable disclosure choices plus
+  Regional Showcase selection. Semantic recovery proves version-1 migration and
+  atomic fallback for a malformed version-2 disclosure flag. Feed, Farmgate,
+  Flock Relations, Farmer Relations, Economic Briefing, and disclosure component
+  tests also remain green.
+- The required independent gameplay client captured the packaged 1280×720
+  intake and a 44 KB `render_game_to_text` state at
+  `output/web-game/desk-state-client-v1/`; the inspected frame is clean and no
+  browser-error artifact was produced.
+- Exported and synchronized all nine Web payloads byte-for-byte. Final
+  `index.pck`: 7,260,140 bytes, SHA-256
+  `27081162EF3FAE984F47739D52AC38AF4C90EB7E1EA2387D215359AF5C7AE537`.
+  The complete 149-second native/Web beta gate passes all 49 rendered Web tests
+  at `output/release/desk-state-beta-release-gate.json`.
+
+## 2026-07-29 — Semantic warning and character-cue mix
+
+- Expanded player preferences from five to seven independently persisted audio
+  buses: Master, Music, Ambient, SFX, UI, Alerts, and Voice. The player-facing
+  Voice row is explicitly labeled `CHARACTER CUTOUT CUES`; it controls short
+  nonverbal character stings and does not imply recorded or synthesized speech.
+- Added a strict schema-v6-to-v7 migration. Existing UI volume and mute values
+  seed both new semantic layers so returning players hear the same effective
+  mix until they choose to rebalance it; fresh files use authored warning and
+  cutout defaults.
+- Routed decision bells and shift warnings through Alerts. Approved character
+  cutouts now emit a deterministic speaker-tinted two-note cue through Voice
+  when their presentation signal fires. The existing fixed eight-player pool,
+  limiter, focus-pause behavior, cue priorities, and optional haptics remain
+  bounded.
+- Preference-store, feedback, settings-layout, full Office-settings integration,
+  character-dialogue UI, and portrait-source contracts all pass. The integration
+  proof changes Alerts and Voice independently and confirms a live Dot cutout
+  reaches the Voice bus without adding a haptic.
+- The live 1280x720 browser settings sheet was inspected after opening it with
+  F10. Its accessible status names all seven controls and values; the visual mix
+  remains contained in the existing scroll region at default scale. The supplied
+  Web gameplay client independently captured the packaged campaign intake and
+  45 KB diagnostic state in `output/web-game/semantic-audio-office-v1/`,
+  publishing all seven keys and the fixed eight-player feedback pool with no
+  browser-error artifact.
+- Exported and synchronized all nine Web payloads byte-for-byte. Final
+  `index.pck`: 7,262,108 bytes, SHA-256
+  `088C2BDD6D727C59B35CF537461891D1FFD70EC14C230BECC0F234D2A4D290C9`.
+  The complete 145-second native/Web beta gate passes all 49 rendered Web tests,
+  artifact parity, and both physical/usability evidence contract handoffs at
+  `output/release/semantic-audio-beta-release-gate.json`.
+
+## 2026-07-29 — Independent camera and particle comfort
+
+- Closed the checklist gap where one Effect Density selector controlled
+  particles, lighting, and celebrations while camera travel and input response
+  had no independent settings. Preferences schema v8 now persists Particle
+  Density, Camera Motion, and Camera Input alongside the global motion setting.
+- Camera Input Low, Standard, and High scale the same bounded authority used by
+  mouse drag/wheel, trackpad, touch pan/pinch, semantic keyboard controls,
+  controller axes, and the Web zoom dock. Camera Motion Reduced shortens travel;
+  Off makes requested views immediate and rejects passive event auto-framing
+  without removing text, sound, receipts, or manual navigation.
+- Particle Density Full, Reduced, and Off now controls ambient dust, feathers,
+  and pooled event bursts independently from lighting/celebration emphasis.
+  Migrating schema v7 copies the old Effect Density into Particle Density, so
+  returning players retain their exact presentation until they separate it.
+- Repaired a browser-mirror migration gap discovered during the audit: authentic
+  schema-v6 preferences now copy their old UI mix to Alerts and Character
+  Cutout Cues before advancing through v7 and v8. Authentic v6 and v7 mirror
+  fixtures now prevent regression.
+- Preference-store, browser-mirror, management-camera, atmosphere, settings UI,
+  and complete Office integration contracts pass. The browser F10 audit passes
+  keyboard focus and High Contrast persistence, publishes the new fields in
+  accessible state, and has zero errors or horizontal overflow at 844x390.
+  Inspected captures at
+  `output/web-game/comfort-controls-settings-audit-v2/` show Camera Motion and
+  Camera Input together, then Effect Density and Particle Density separately.
+- The supplied Web gameplay client independently captured the packaged intake
+  and a 45 KB diagnostic state at
+  `output/web-game/comfort-controls-client-v1/`; no browser-error artifact was
+  produced.
+- Exported and synchronized all nine Web payloads byte-for-byte. Final
+  `index.pck`: 7,267,484 bytes, SHA-256
+  `13D66EA4E24959CF9AF59C4C182DAA38DABA16B7725C3AF9D051C8417EEB0521`.
+  The complete 142-second native/Web beta gate passes all 49 rendered Web tests,
+  production serving, artifact parity, and release evidence contracts at
+  `output/release/comfort-controls-beta-release-gate.json`.
+
+## 2026-07-29 — Shallow, persistent Settings categories
+
+- Replaced the long mixed Settings scroll with four shallow categories: Audio
+  Mix, Comfort & Display, Controls, and Career Backup. Only one group is visible
+  at a time; changing groups resets the inner scroll, preserves the existing
+  controls, and saves independently from the career file.
+- Category buttons remain ordinary focusable controls. Left/Right switches
+  directly between them while retaining focus, F10/Escape preserve the safe
+  return, reopening or reloading restores the verified category, and restoring
+  preference defaults immediately refreshes both the visible category and
+  binding labels.
+- Preferences schema v9 adds a strictly validated `settings_category` with a
+  neutral Comfort & Display default. Native and browser mirrors migrate
+  authentic v1-v8 data without discarding any audio, comfort, binding, or
+  campaign-independent preference.
+- Settings narration now identifies the active category and summarizes only its
+  controls instead of reading the entire form. Career Backup retains explicit
+  replacement confirmation and validation language; Controls retains F10,
+  Escape, and rebinding guidance.
+- Store, browser-mirror, responsive UI, and full Office integration contracts
+  pass. The Office proof commits a category through the independent preference
+  store and restores it after close/reopen. The real keyboard browser audit
+  exercises all four categories, reload persistence, High Contrast, and the
+  844x390 layout with zero browser errors or horizontal overflow at
+  `output/web-game/settings-category-audit-v1/`; all eight category captures
+  were inspected at original resolution.
+- The required supplied Web gameplay client independently captured the packaged
+  intake and 45 KB diagnostic state at
+  `output/web-game/settings-category-client-v1/`; the frame is clean and no
+  browser-error artifact was produced.
+- Hardened the beta-gate native-command wrapper so non-fatal stderr diagnostics
+  such as Rolldown plugin-timing advisories are recorded while the child exit
+  code remains authoritative. The complete 166-second native/Web gate passes all
+  49 rendered Web tests, production serving, artifact parity, and both physical
+  and usability evidence handoffs at
+  `output/release/settings-category-beta-release-gate.json`.
+- Exported and synchronized all nine Web payloads byte-for-byte. Final
+  `index.pck`: 7,273,228 bytes, SHA-256
+  `F4FBCA8A75DF86AB3F36956602ADACF34D74A0C0443567430C1671B903B2E0A8`.
+
+## 2026-07-29 — Max-scale and expanded-copy Settings resilience
+
+- Added an explicit English text-expansion fixture for all four Settings
+  categories. It applies the production 150% interface theme, moderately
+  expands visible control copy, and verifies 1280x720 desktop, 844x390 compact
+  landscape, and 390x844 portrait without horizontal scrolling or unreachable
+  active-page controls. This is a resilience contract, not a localization claim.
+- Reworked the Settings container edges for the proven extremes: compact margins
+  tighten without manual child positioning; category, close, reset, and career
+  backup actions wrap; and the Reset action keeps a bounded minimum width so
+  wrapping cannot turn it into a one-character, full-height column.
+- The focused Settings UI, text-expansion, and complete Office-settings
+  integration tests pass. The real browser audit selects 150% through the public
+  OptionButton path, reloads it from browser preferences, exercises Audio,
+  Comfort, Controls, and Career at 844x390, reports zero horizontal overflow and
+  zero browser errors, and preserves a contained 16:9 canvas at
+  `output/web-game/settings-text-expansion-audit-v5/`. All max-scale category
+  captures were inspected at original resolution.
+- The supplied Web gameplay client independently captured the packaged intake
+  and authoritative text state at
+  `output/web-game/settings-text-expansion-client-v1/`; the frame is clean and
+  no browser-error artifact was produced.
+- Exported and synchronized all nine deployable Web payloads byte-for-byte.
+  Final `index.pck`: 7,273,468 bytes, SHA-256
+  `26E1B29F7319F44FD5A53F82EAF42D3D35C7CA1DAA5622B2B0C0D40C23044828`.
+  The complete 159.644-second beta gate passes 22/22 checks, including the new
+  text-expansion fixture, all 49/49 rendered Web tests, production serving,
+  payload parity, and the physical/usability evidence contract handoffs at
+  `output/release/settings-text-expansion-beta-release-gate.json`.
+
+## 2026-07-29 — Flockwatch Capital max-scale reading resilience
+
+- Reproduced an integrated 150% Interface Scale defect that page-level
+  no-overflow checks missed: Flockwatch's vertical scrollbar could cover the
+  last glyphs of Economic Briefing lines even though the outer Web page and
+  ScrollContainer rectangles were contained.
+- Generated Flockwatch pages now reserve an 18-pixel reading gutter before the
+  vertical scrollbar. The full Office integration fixture measures the
+  scrollbar-free viewport, verifies every visible Capital descendant remains
+  inside it, and proves every wrapped briefing line is fully allocated.
+- Recast the Economic Briefing's dense cash, cost, and market paragraphs as
+  short semantic ledger rows. Variable market-cause prose receives
+  deterministic word-boundary wrapping, preserving the exact authoritative
+  projection while making the narrow filing faster to scan.
+- Strengthened the standalone Economic Briefing fixture with a 282-pixel
+  Flockwatch host, the production 150% theme, moderately expanded English copy,
+  and horizontal/vertical containment checks. Added the standalone and full
+  Office integration fixtures to the representative beta gate.
+- The final exported-browser audit starts a real file, opens Flockwatch, reveals
+  every filing, selects Capital, changes Interface Scale through the public
+  Settings selector, and reports `ui_scale=1.5`, exact 16:9 containment, zero
+  horizontal overflow, and zero browser errors at
+  `output/web-game/economic-briefing-web-audit-final-v4/`. Its inspected
+  original-resolution capture shows no partial words or scrollbar occlusion.
+- The supplied independent Web client captured a clean packaged intake and
+  authoritative state with no browser-error artifact at
+  `output/web-game/economic-briefing-official-client-v1/`. After the Portfolio,
+  Blueprint, and Campus Expansion corrections, the exact final PCK was
+  independently recaptured at
+  `output/web-game/management-scale-resilience-official-client-final-v3/`;
+  diagnostics report `loaded=true`, zero orphan nodes, lazy optional roots, and
+  no browser-error artifact. The original-resolution frame was inspected clean.
+- Extended the same stress to the full Campus Portfolio planner. Its first
+  390x844, 150%, expanded-copy run exposed a real 518-pixel minimum-width
+  regression. Structural headings now wrap, the named-worker OptionButton no
+  longer sizes itself to its longest entry, and compact planning remains
+  vertical-only with the fixed economic action physically reachable.
+- Extended it again to Capital Blueprint. The initial fixture exposed an
+  875-pixel planner minimum and an 839-pixel fixed action rail inside a
+  390-pixel viewport. The compact rail now flows onto bounded rows; headings
+  wrap; filters, portfolio routing, return, pin, and authorization controls use
+  compact shrinkable labels; and the entire portrait route passes at 150% with
+  expanded copy.
+- Extended the contract to the nested Campus Expansion planner. The first
+  390x844, 150%, expanded-copy run exposed a 1,183-pixel planner minimum, a
+  1,097-pixel socket row, and an 839-pixel fixed action rail. Responsive grids,
+  wrapped structural copy, clipped compact controls, and deterministic 88-pixel
+  socket targets now preserve all parcel, utility, staged-construction,
+  placement, and relocation decisions without horizontal scrolling. The
+  existing 844x390 compact-landscape route remains contained and reachable.
+- The exact final candidate passes all 27/27 beta-gate checks in 182 seconds,
+  including 18 native representative scripts, 49/49 rendered Web tests,
+  production serving, evidence contracts, and nine-file artifact parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v3.json`.
+  `docs/` and `web/public/game/` are byte-identical; `index.pck` is 7,276,204
+  bytes with SHA-256
+  `3EBB5CF44C946FF86CE8D9BE6EBD7845447D841CAFF9F2DB333C60C95BC9466A`.
+
+## 2026-07-29 — Probation campaign max-scale modal resilience
+
+- Extended the portrait, 150%, expanded-copy contract to the three core campaign
+  modal states: new/resumable intake, the between-shift economic report, and the
+  final probation review. The fixture preserves all exact semantic assertions by
+  restoring authored control text and theme state after each stress pass.
+- The first run exposed genuine 390-pixel failures: intake expanded to 513
+  pixels, the shift report to 520 pixels, and final review to 532 pixels.
+  Campaign buttons were using their full localized text as an intrinsic minimum,
+  while the challenge selector expanded toward its longest difficulty option.
+- All campaign buttons now clip within their authored control bounds, with the
+  full meaning retained in adjacent labels, tooltips, accessible text, and
+  keyboard shortcuts. The selector remains independent of its longest option
+  and clips its displayed row. Intake, report, and final review now stay
+  horizontal-scroll-free; primary and secondary actions remain reachable through
+  the bounded vertical modal scroll.
+- Focused verification passes `probation_campaign_ui_test.gd`,
+  `campaign_ending_ui_test.gd`, and the full
+  `probation_campaign_integration_test.gd`. The separate dirty-worktree
+  `campaign_intake_safety_test.gd` continues to fail its pre-existing exact
+  checkpoint-payload equality assertion after shelving; the presentation-only
+  delta does not alter campaign state or signals.
+- The exact final candidate passes all 28/28 beta-gate checks in 186 seconds,
+  including 19 native representative scripts, 49/49 rendered Web tests,
+  production serving, evidence contracts, and nine-file artifact parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v4.json`.
+  `docs/` and `web/public/game/` are byte-identical; `index.pck` is 7,276,012
+  bytes with SHA-256
+  `8151DB9AB79F4A413494607899EB3D84B84C94FFDCE619A2090E3DF1E1CBA53B`.
+- The supplied independent Web client loaded the exact payload at
+  `output/web-game/management-scale-resilience-official-client-final-v4/`.
+  Diagnostics report `loaded=true`, the title state, zero orphan nodes, deferred
+  optional wings, and no browser-error artifact. Its original-resolution intake
+  frame was inspected clean.
+
+## 2026-07-29 — Farm Mutual Contract Board max-scale negotiation resilience
+
+- Extended the economic-interface stress contract to the densest Contract Board
+  state: the third binder selected, its negotiation drawer open, 150% interface
+  scale, moderately expanded visible copy, and a 390x844 portrait viewport.
+- The first renderer-backed run exposed a genuine 651-pixel board minimum and a
+  244-pixel fixed-action rail ending below the reachable document. Long kicker,
+  accreditation, seal, standing, and term captions now wrap at word boundaries;
+  the fixed Sign, Decline, and Continue controls retain compact single-line
+  labels with safe clipping and ellipsis instead of forcing the board wider.
+- The final fixture preserves binder selection, pricing posture, accreditation,
+  effective terms, the open negotiation drawer, and the reachable Sign action
+  inside a vertical-only board. Focused decision-loop, contract-board,
+  market-contract integration, and market-pricing regressions all pass.
+- The refreshed release gate passes 29/29 checks, including 20 representative
+  native Godot contracts, Web lint/build/rendered tests, production serving,
+  physical/usability evidence contracts, and exact release parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v5.json`.
+  The synchronized PCK is 7,276,428 bytes with SHA-256
+  `10E4057C051B635E372472047B2763758C864F98524B486BDFC32591916DB44E`.
+- The required independent browser client completed cleanly at
+  `output/web-game/management-scale-resilience-official-client-final-v5/`.
+  Its inspected 1280x720 campaign-intake capture is contained and readable;
+  diagnostics report `loaded=true`, `campaign_stage=title`, deferred optional
+  visuals ready, zero orphan nodes, and no browser-error artifact.
+
+## 2026-07-29 — Commissioning receipt max-scale economic resilience
+
+- Extended the max-scale contract to a complete Farmgate facility commissioning
+  receipt with exact capital, before/after spendable funds, protected reserve,
+  upkeep, capacity, shelf-life, benefits, tradeoffs, and authoritative outcome.
+  The held Return and Continue actions remain outside the economic scroll.
+- The first 390x844, 150%, expanded-copy run exposed a real 749-pixel receipt
+  minimum and unreachable fixed actions. The receipt now uses responsive flow
+  columns, a word-wrapped structural heading, compact safely trimmed fixed
+  actions, and a taller portrait document while preserving the live office
+  behind its player-held reveal.
+- Commissioning UI, real Farmgate capital flow, capital-plan accounting, and
+  full Settings/Office integration regressions pass. The permanent fixture also
+  retains the existing 844x390 live-world composition, exact defensive receipt,
+  keyboard focus, reduced-motion branch, and independent animation speed.
+- The refreshed release gate passes 30/30 checks, including 21 representative
+  native Godot contracts, Web lint/build/rendered tests, production serving,
+  physical/usability evidence contracts, and exact nine-file parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v6.json`.
+  The synchronized PCK is 7,277,068 bytes with SHA-256
+  `1464A949CC21D1FA6CB5D5F5CA2680363F5D4E11A3BA478933261E3C270C90C9`.
+- The supplied independent browser client completed cleanly at
+  `output/web-game/management-scale-resilience-official-client-final-v6/`.
+  Its original-resolution campaign-intake capture remains contained and
+  readable; diagnostics report `loaded=true`, `campaign_stage=title`, deferred
+  optional visuals ready, zero orphan nodes, and no browser-error artifact.
+
+## 2026-07-29 — Campus receipt max-scale construction resilience
+
+- Extended the same portrait contract to the player-held Campus Portfolio
+  authorization/construction receipt: parcel, module, pad, project status,
+  capital, daily obligation, spendable fund, duration, contractors, power/cold,
+  named hen, visible effects, and authoritative outcome all remain exact.
+- The first 390x844, 150%, expanded-copy run found the receipt 14 pixels wider
+  than its viewport. Its eyebrow now wraps, and Return/Continue use bounded,
+  safely trimmed widths in portrait without losing their complete tooltips,
+  focus routes, or accessible narration.
+- Campus receipt UI, real Office active/queued/day-boundary construction flow,
+  and the complete Campus Portfolio planner pass together. Existing 844x390
+  live-world visibility, 390x844 standard-scale containment, defensive receipt
+  copies, held actions, keyboard Escape, reduced motion, and animation-speed
+  contracts remain intact.
+- The consolidated release gate passes 31/31 checks, including 22
+  representative native Godot contracts, Web lint/build/rendered tests,
+  production serving, physical/usability evidence contracts, and exact
+  nine-file parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v7.json`.
+  The synchronized PCK is 7,277,388 bytes with SHA-256
+  `AD1271F614751BAFACCBB2E595B1953A05D0CF2DEE23715F399006749D1178FF`.
+- The required independent browser client completed cleanly at
+  `output/web-game/management-scale-resilience-official-client-final-v7/`.
+  Its inspected campaign-intake frame remains contained and readable;
+  diagnostics report `loaded=true`, `campaign_stage=title`, deferred optional
+  visuals ready, zero orphan nodes, and no browser-error artifact.
+
+## 2026-07-29 â€” Reachable staffing economy and max-scale resilience
+
+- Audited the real between-shift staffing state. The live Flock filing itself
+  already reflowed correctly at 150% interface scale with expanded copy, but
+  the visual capture exposed a more serious false fixture: after closing credit
+  opened staffing planning, the probation report remained foregrounded and the
+  requisitions ledger could only be manipulated through controls hidden behind
+  it.
+- Added `REVIEW ROOST REQUISITIONS [R]` to the foreground probation report. It
+  is enabled only by the authoritative `staffing_planning_open` projection,
+  suspends the report before opening Flockwatch on Flock, and restores the exact
+  actionable report when the ledger closes. The real Office integration test
+  now proves both the Farmer-review round trip and the probation-report round
+  trip instead of emitting a visually occluded hidden button.
+- Extended the staffing fixture to 150% interface scale and expanded labels,
+  including both applicant actions, the worker selector, and release action.
+  The first irreversible-release portrait run measured 623x463 in a 390x844
+  viewport; bounded, safely trimmed confirmation actions now keep cancel and
+  confirm reachable without changing disclosed severance or confirm-once
+  behavior.
+- Inspected the GPU-rendered staffing proof at
+  `output/web-game/staffing-scale-v1/flock-staffing-1280x720.png`. The probation
+  report is absent, Flockwatch is foregrounded, and the screened applicants and
+  Hire controls remain readable at 150% scale.
+- Focused regressions pass for staffing, interaction safety, the complete
+  probation report, probation/Office integration, and manager-roster economy.
+  `staffing_ui_test.gd` is now a permanent native release-gate contract.
+- The refreshed exact Web payload passes 34/34 release checks, including 25
+  native Godot contracts, Web lint/rendered/production-server tests, evidence
+  validators, and nine-file parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v9.json`.
+  The synchronized PCK is 7,280,860 bytes with SHA-256
+  `F12899868D8808F91ECCF76F5D4606209EF5A53C75B5691CBD42C8F81810B307`.
+- The required official Playwright client completed cleanly at
+  `output/web-game/management-scale-resilience-official-client-final-v9/`.
+  The inspected 1280x720 frame is contained and readable; diagnostics report
+  `loaded=true`, zero orphan nodes, and no browser-error artifact.
+
+## 2026-07-29 — Approved character cutout max-scale resilience
+
+- Audited the established cast cutout because it carries the satire that replaces
+  raw metric overload. The prior narrow test was a false positive: its host kept
+  a 1280-pixel custom minimum, so assigning 390 pixels never exercised the
+  compact composition. The corrected fixture now uses a genuinely shrinkable
+  390-pixel host.
+- The real first compact run exposed a 687-pixel cutout. Speaker/channel/role
+  copy now wraps, the portrait shrinks to a deliberate framed cutout without
+  detaching, the filing note and action use a responsive flow rail, and panel
+  height follows its actual readable minimum while staying inside the viewport.
+  File Away retains its complete label at actual 150% scale and trims safely only
+  under the deliberately harsher expanded-copy stress.
+- The GPU-rendered 390x844 proof at
+  `output/web-game/character-dialogue-scale-v1/cutout-390x844.png` was inspected
+  at original resolution. Mabel's approved transparent portrait, speaker
+  identity, complete satirical thought, filing note, and File Away action remain
+  connected, readable, and physically reachable with meaningful office space
+  preserved above the aside.
+- Approved portrait integrity, dialogue queue/state/satire, real decision-loop,
+  probation return dialogue, and full Settings/Office integration regressions
+  pass. The exact expanded-copy fixture also proves modal suspension,
+  deduplication, accessibility narration, and reduced-motion compatibility.
+- The refreshed release gate passes 33/33 checks, including 24 representative
+  native Godot contracts, Web lint/build/rendered tests, production serving,
+  physical/usability evidence contracts, and exact nine-file parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v8.json`.
+  The synchronized PCK is 7,278,828 bytes with SHA-256
+  `5484A53E6D5CE763B7F5582C39DF7787D262C4657E858F0D0ED843EE8BB5BB75`.
+- The required independent browser client completed cleanly at
+  `output/web-game/management-scale-resilience-official-client-final-v8/`.
+  Its inspected campaign-intake frame remains contained and readable;
+  diagnostics report `loaded=true`, `campaign_stage=title`, deferred optional
+  visuals ready, zero orphan nodes, and no browser-error artifact.
+
+## 2026-07-29 â€” Career Sponsorship scale and irreversible filing
+
+- Extended the Senior report's Career Sponsorship form from its prior
+  standard-width check to a real 390x844 SubViewport at 150% interface scale
+  under expanded copy. The first run exposed a 415-pixel component inside the
+  358-pixel safe width; wrapping the heading and field captions plus safely
+  trimming the fixed authorization label removes horizontal overflow while
+  keeping every exact term in the readable form and tooltip.
+- Added one explicit sponsorship confirmation because the filing consumes a
+  quarterly gate and Feed Fund, starts reduced-throughput training, and creates
+  a permanent wage liability. The dialog repeats hen, alternate lane, three
+  Roost Marks, exact Feed Fund cost, next-shift throughput, permanent wage, and
+  irreversibility before any mutation. `FILE` and `KEEP` remain visibly labeled
+  44-pixel-high actions at the compact extreme.
+- Cancel leaves every ledger unchanged; confirm emits one typed intent; repeated
+  confirmation cannot emit twice. The real Senior integration additionally
+  proves that opening the dialog changes no marks, fund, training, or save state,
+  while one confirmation writes the exact authoritative transaction and
+  resumable checkpoint.
+- Inspected both GPU proofs under
+  `output/web-game/career-sponsorship-scale-v1/`: the complete scrollable form
+  remains contained, and `career-sponsorship-confirmation-window.png` shows the
+  full consequence disclosure with readable FILE/KEEP actions.
+- Candidate v10 passes 36/36 release checks, including 27 native Godot
+  contracts, Web lint/rendered/production-server tests, evidence validators,
+  and exact nine-file parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v10.json`.
+  The synchronized PCK is 7,284,124 bytes with SHA-256
+  `E6916B765C354276D268CBA550042D246C2DC1C0900D0B069D50A3F2124F1FA3`.
+- The required official Playwright client completed cleanly at
+  `output/web-game/management-scale-resilience-official-client-final-v10/`.
+  The inspected 1280x720 frame is readable; diagnostics report `loaded=true`,
+  zero orphan nodes, and no browser-error artifact.
+
+## 2026-07-29 — Management succession scale and confirmation safety
+
+- Replaced direct manager appointment buttons with readable successor cards.
+  Each card now names the candidate and doctrine and discloses the exact
+  succession fee, displaced incumbent, unchanged manager count, projected
+  supervisor payroll, and the satirical fact that managers produce zero eggs.
+- Manager assignment and posture controls now stack at full width in narrow
+  filings instead of truncating two selectors into one crowded row.
+- Added a bounded appointment confirmation that repeats incoming and outgoing
+  managers, immediate Feed Fund cost, manager count, before/after payroll,
+  opening posture, report/meeting output, zero egg output, and irreversibility.
+  Opening and canceling mutate nothing; confirm emits once; repeated confirm
+  cannot duplicate the transaction.
+- Added an authoritative candidate payroll/replacement projection to the
+  simulation snapshot and verified it against the exact replacement transaction.
+- `tests/manager_recruitment_ui_test.gd` passes at 390x844, 150% interface
+  scale, and expanded copy and is now a native beta-gate contract. Focused
+  manager economy/presentation, staffing, interaction safety, and persistence
+  regressions all pass.
+- Inspected GPU proofs under
+  `output/web-game/manager-recruitment-scale-v1/`. The authored compact roster
+  uses readable full-width controls and the 150%-scale confirmation keeps FILE
+  and KEEP visible with every decision-critical term.
+- Candidate v11 passes all 37/37 release checks in 285 seconds, including 28
+  native Godot contracts, Web toolchain/lint/rendered/production-server checks,
+  evidence validators, and exact nine-file parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v11.json`.
+  The synchronized PCK is 7,291,292 bytes with SHA-256
+  `A89EE4A0C8072FE7179A41FD74C34623232416CCA33FE12048CC22E6629BE51A`.
+- The required official Web gameplay client loaded the exact candidate at
+  `output/web-game/management-scale-resilience-official-client-final-v11/`.
+  Its inspected 1280x720 intake frame is contained and readable; authoritative
+  state reports `loaded=true`, `campaign_stage=title`, all optional visuals
+  ready for lazy construction, and zero orphan nodes. No browser-error artifact
+  was produced.
+
+## 2026-07-29 — Recurring Operations filing scale resilience
+
+- Extended Feed Procurement and Farmgate Dispatch to the real 282-pixel
+  Flockwatch filing at 150% interface scale with expanded copy. Feed Procurement
+  already passed the strict stress without changing its routine, reversible
+  one-click order behavior.
+- The first Farmgate run exposed a genuine 676-pixel minimum: the selected
+  route and authorization copy sized controls to their longest strings, while
+  the shared disclosure summary acted as another intrinsic width constraint.
+  Route selection, authorization, and every shared disclosure toggle now clip
+  safely with ellipsis while complete economics remain in adjacent wrapped
+  labels and tooltips.
+- GPU inspection then found a semantic layout failure rectangle checks missed:
+  the season quote was technically contained in a one-character column beside
+  the title. Feed Procurement and Farmgate now use a deliberate stacked
+  title/quote hierarchy.
+- Inspected
+  `output/web-game/farmgate-dispatch-scale-v1/farmgate-dispatch-282x760-150.png`.
+  The authored title, season, reserve, selected County Auction route, exact
+  capacity/quote/fee, ready reason, authorization, and permanent receipt are all
+  readable in the compact filing.
+- Focused disclosure, procurement, Farmgate UI/economy/persistence, and complete
+  staffing regressions pass. Feed Procurement and Farmgate UI are now permanent
+  beta-gate contracts.
+- Candidate v12 passes all 39/39 release checks in 270 seconds, including 30
+  native Godot contracts, Web toolchain/lint/rendered/production-server checks,
+  evidence validators, and exact nine-file parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v12.json`.
+  The synchronized PCK is 7,291,452 bytes with SHA-256
+  `5816FAECB4BCC043379E410DE2564FDE923BE995F38471149CE933B57FC243E9`.
+- The required official Web gameplay client loaded the exact v12 payload at
+  `output/web-game/management-scale-resilience-official-client-final-v12/`.
+  Its inspected 1280x720 intake frame remains contained and readable;
+  authoritative state reports `loaded=true`, `campaign_stage=title`, optional
+  visuals ready for deferred construction, and zero orphan nodes. No
+  browser-error artifact was produced.
+
+## 2026-07-30 — Flock Relations permanent-disposition safety
+
+- Replaced one-click labor-case mutations with a review-first confirmation.
+  Every remedy, mediation, coercive PIP, or arbitration filing now repeats the
+  named hen, case, exact Feed Fund cost, authoritative trust/grievance/
+  compliance/favor effects, permanent labor record, and irreversibility.
+- Opening and canceling the confirmation mutate nothing. One confirmation
+  forwards stable case/action IDs through Roost Staffing and the real Office
+  authority; repeated confirmation cannot emit twice. Stale disabled actions
+  now fail closed before reaching Office.
+- Rebuilt the compact case header as a stacked hierarchy and case dispositions
+  as full-width rows. The complete surface passes at the real 282-pixel
+  Flockwatch width, 150% interface scale, and expanded copy; the confirmation
+  remains bounded at 390x844 with FILE and KEEP reachable.
+- Inspected
+  `output/web-game/flock-relations-scale-v1/flock-relations-282x760-150.png`
+  and `flock-relations-confirmation-150.png`. Named evidence, all four
+  alternatives, the danger-styled PIP, exact effects, and permanent-record
+  warning are readable.
+- Focused case UI, real Office transaction, economy, persistence, staffing, and
+  interaction-safety regressions pass. Both Flock Relations UI and Office
+  integration are permanent beta-gate contracts.
+
+## 2026-07-30 — Farmer Relations permanent-publication safety
+
+- Replaced one-click public-credit publication with a review-first
+  confirmation. Layer Profile, Clutch Results Board, and Farmer's Method now
+  repeat the named subject, attribution, frozen evidence, exact cost, payout,
+  net Feed Fund change, public-standing change, permanent day record, and
+  irreversibility before emitting an intent.
+- Canceling mutates no allowance, fund, standing, attribution, receipt, or save
+  state. One confirmation forwards the stable campaign ID through Roost
+  Staffing and the real Office authority; repeated confirmation cannot publish
+  twice. Stale disabled actions fail closed before Office.
+- Rebuilt the compact gallery header as a stacked hierarchy and made every
+  campaign action full-width, clipped, and focusable. The surface remains
+  vertical-scroll-only at the real 282-pixel Flockwatch width, 150% interface
+  scale, and expanded copy; the confirmation keeps both choices reachable at
+  390x844.
+- Inspected
+  `output/web-game/farmer-relations-scale-v1/farmer-relations-282x760-150.png`
+  and `farmer-relations-confirmation-150.png`. The compact filing preserves
+  standing, attribution, frozen evidence, exact economics, all three campaign
+  branches, and the permanent-publication warning.
+- Focused Gallery UI, real Office transaction, Harvest Credit state/economy/
+  persistence, staffing, and interaction-safety regressions pass. Both Farmer
+  Relations UI and Office integration are now permanent beta-gate contracts.
+- Candidate v14 passes all 43/43 release checks in 311 seconds, including 34
+  native Godot contracts, Web toolchain/lint/rendered/production-server checks,
+  evidence validators, and exact nine-file parity at
+  `output/release/management-scale-resilience-beta-release-gate-final-v14.json`.
+  The synchronized PCK is 7,299,452 bytes with SHA-256
+  `9AE341E1CA5978D03BF0643BDF45330592F73DAE97F09A9CC2075951BBBD10D9`.
+- The required official Web gameplay client loaded the exact v14 payload at
+  `output/web-game/management-scale-resilience-official-client-final-v14/`.
+  Its inspected 1280x720 campaign-intake frame is contained and readable;
+  authoritative state reports `loaded=true`, `campaign_stage=title`, optional
+  visuals ready for deferred construction, and zero orphan nodes. No
+  browser-error artifact was produced.
+
+## 2026-07-30 — Exhaustive production-suite closure
+
+- Escalated from the representative beta gate to all 208 isolated native tests.
+  The first run found one stale assertion in
+  `campaign_intake_safety_test.gd`: returning to intake now intentionally
+  checkpoints the player's current Blueprint filter, so the old whole-payload
+  equality incorrectly treated preserved presentation context as data drift.
+- Corrected the contract to prove the campaign, simulation, Senior, and First
+  Clutch payload remains exact while separately requiring the active Blueprint
+  filter to persist. The focused shelving/resume/replacement/backup test passes,
+  and this critical save-safety path is now part of every representative beta
+  gate.
+- An isolated deterministic balance matrix passes in 143 seconds. Raised the
+  exhaustive runner's default per-test budget from 150 to 240 seconds to avoid a
+  false timeout under concurrent release load while retaining process-tree
+  termination for genuinely hung tests.
+- The clean six-shard result at
+  `output/godot-full-suite-20260730-v16/full-suite-summary.json` discovers,
+  selects, completes, and passes all 208/208 native contracts with zero
+  failures, zero timeouts, and zero engine-error signatures.
+- Completion audit keeps external evidence honest: the current physical-release
+  record is bound to an older commit/PCK and all seven real-device sessions are
+  still pending. It is not reused as evidence for the current candidate.
+- The expanded representative gate passes all 44/44 checks in 347 seconds at
+  `output/release/management-scale-resilience-beta-release-gate-final-v15.json`,
+  including the new intake shelving/backup contract, Web lint/rendered/
+  production-server checks, release-evidence self-tests, and exact nine-file
+  artifact parity. No production source changed after the v14 export, so the
+  exact synchronized PCK remains 7,299,452 bytes with SHA-256
+  `9AE341E1CA5978D03BF0643BDF45330592F73DAE97F09A9CC2075951BBBD10D9`
+  and the clean official v14 browser proof remains candidate-identical.
+- `output/release/physical-release-evidence-current-goal-audit.json` records the
+  expected fail-closed external audit: the evidence identity is stale and 188
+  candidate-bound device, screen-reader, listening, GPU, bundle, and approval
+  requirements remain absent rather than inferred.
+
+## 2026-07-30 — Candidate deployment and hardware-handoff audit
+
+- Audited the approved cutout/dialogue candidate against the actual GitHub
+  Pages payload before creating any physical-session kits. Local and remote
+  `codex/core-loop-polish` both identify commit
+  `ca84eb06336d5cc2650687c61d4af1fdf7863761`, but the working tree contains
+  1,177 changed or untracked entries; the approved implementation is therefore
+  not represented by that commit alone.
+- Downloaded the public
+  `https://willtran87.github.io/project-pecking-order/index.pck` with HTTP 200.
+  Pages serves an older 6,334,932-byte payload with SHA-256
+  `1D012C5C4FAD204054F99782B9378DFC39FB3B60327D024934F6B85AD7002EAF`.
+  The verified local candidate remains 7,299,452 bytes with SHA-256
+  `9AE341E1CA5978D03BF0643BDF45330592F73DAE97F09A9CC2075951BBBD10D9`.
+  `output/release/deployed-release-identity-current-audit.json` records the
+  exact mismatch.
+- Kept candidate-bound session initialization fail-closed. The required GPU
+  route is a real 600-second focused hardware session with two active shifts,
+  renderer diagnostics, continuous frame/input measurements, a recording,
+  performance screenshot, tester identity, and signed result. Repository
+  automation validates those artifacts but does not create or substitute for
+  them.
+- No commit, push, Pages deployment, physical-session pass, or usability metric
+  was invented during this audit. Publishing the approved work is a separate
+  release-owner action; only after the deployed PCK matches may the seven
+  physical session kits be created against that exact candidate.
+
+## 2026-07-30 - Full-cast visual-novel dialogue expansion
+
+- Completed high-resolution transparent dialogue cutouts for all twelve
+  established cast members: Mabel, Pip, Henrietta, Dot, Agnes, Beatrice,
+  Cornelius, Bramwell, Prudence, Clover, Pivot, and Byte. The seven new
+  1024x1024 sources use the approved cozy isometric pixel-art direction and
+  import at a Web-safe 512px runtime limit.
+- Replaced the small dialogue notification with a centered, dimmed,
+  visual-novel presentation. It now occupies most of the authored stage,
+  gives the portrait roughly half of the desktop panel, supports Enter to
+  continue, exposes queued-line count, and remains contained at 390x844 with
+  150 percent text and expanded localization copy.
+- Added a reusable cast voice library with role, channel, portrait, and
+  character-specific pools for production, pressure, shift review, hiring,
+  appointment, and management commentary. Stable state-derived selection
+  varies the lines between days and events without introducing nondeterministic
+  economy behavior.
+- Expanded authoritative dialogue triggers to cover worker hires and releases,
+  promotions, egg milestones, strain, overtime, feed parties, first eggs and
+  cracks, wage arrears, manager appointments and instructions, Farmgate
+  dispatch choices, Harvest Credit publicity campaigns, Flock Relations
+  outcomes, facilities, contracts, feed orders, decisions, and shift reviews.
+- Passed the 12-portrait alpha/chroma/runtime-budget contract, the full-cast
+  visual-novel UI/responsiveness contract, and five surrounding Office
+  integrations for decisions, provisions, contracts, probation, and settings.
+- Exported the current Web payload to `docs/index.pck` and synchronized it to
+  `web/public/game/index.pck` for the local frontend. The official gameplay
+  client and direct canvas capture loaded the new package with no browser
+  errors; inspected desktop and compact captures show the larger Mabel
+  dialogue presentation contained and readable.
+
+## 2026-07-30 - Bright-Eyed Rotation intern cast and economy
+
+- Added four generated, transparent 1024x1024 intern cutouts in the approved
+  cozy corporate-chicken direction: Lottie Ledger, Chip Chirper, Marigold
+  Memo, and Tilly Tabs. Runtime imports are capped at 512px, and each
+  Flockwatch candidate card now introduces its chicken with a portrait.
+- Added persistent `InternshipProgramState` authority and exposed the
+  Bright-Eyed Rotation in the Flock page from Day 2. One supervised seat is
+  available by default and Training Roost opens a second.
+- Added three disclosed assignments: Guided Claim Shadow (+1 live file,
+  +1% work), High-Visibility Stretch Project (+2 files, +4% work, +1% shell
+  risk), and Culture & Belonging Sprint (10% slower morale drain).
+- Added three-shift terms and explicit player reviews. Growth Extension
+  defers paid work for two more shifts, Glowing Recommendation returns the
+  intern to the applicant market for +1 compliance, and Paid Fellowship costs
+  $8.00 and creates one continuing junior post with +1 capacity/+1% work.
+- Added at least two character-specific visual-novel lines for every intern
+  across onboarding, all three assignments, term completion, and all three
+  review outcomes. The voice stays sincerely positive while the economic and
+  labor implications remain visible in Flockwatch.
+- Added v28 simulation persistence plus fail-closed validation and neutral v27
+  migration. Added state, economy integration, UI, dialogue, portrait, and
+  surrounding staffing/campaign regression coverage.
+- Exported and synchronized the Web build. The official gameplay client
+  confirms the final package loads and publishes the four-candidate diagnostic
+  contract. WebGL capture scenes for the cohort and Lottie dialogue complete
+  without browser errors; inspected screenshots show contained Flockwatch
+  cards and the large visual-novel presentation.
+
+## Current TODOs / suggestions
+
+- The internship feature is complete for this request. A later content pass
+  could add alternate facial-emotion stills per intern, but the current system
+  already varies dialogue by state and does not need them to function.
+- Keep internships separate from regular egg-producing worker entities unless
+  a future design explicitly defines supervised desk occupancy; the current
+  disclosed capacity effects avoid silently treating interns as free hens.
+
+## 2026-07-30 - Economic completion audit: fellowship liability correction
+
+- Audited the persistent production-readiness objective against current code
+  instead of accepting checklist claims as proof. The first concrete
+  contradiction was that a permanent "paid fellowship" granted capacity and
+  pace without recurring payroll.
+- Added exact $2.00/day fellow payroll to authoritative operating cost,
+  protected reserve, Economic Briefing, runtime diagnostics, Farmer Review,
+  program summary, and the term-review receipt.
+- Internship onboarding and review filings now test free Feed Fund after all
+  current obligations. The $8 fellowship filing also reserves its first $2
+  daily payroll, so $9 free rejects while $10 free accepts; protected operating
+  money can no longer be spent on the program.
+- Focused state, integration, UI, Economic Briefing, operations, staffing, and
+  persistence contracts pass. The broader production-readiness goal remains
+  active: repository automation still needs a fresh exhaustive candidate run,
+  and the documented physical-device and moderated-usability sign-offs remain
+  external release requirements.
+
+## 2026-07-30 - Intern economy candidate verification
+
+- Replaced stale persistence assertions that hard-coded schema v27 with the
+  authoritative schema-v28 contract while preserving every genuine v21-v27
+  migration fixture.
+- Corrected the lightweight runtime snapshot contract so fellow payroll is
+  present and exact in both full and cached tick projections; the focused cache
+  and internship integration regressions pass.
+- Added a deterministic paid-fellow browser capture state that exposes one
+  fellow and the exact $2.00/day liability through both the internship program
+  and top-level economy diagnostics.
+- The clean five-shard Godot 4.7 aggregate at
+  `output/godot-full-suite-20260730-intern-economy-v2/full-suite-summary.json`
+  discovers, selects, completes, and passes all 212/212 native tests with zero
+  failures and zero timeouts.
+- Re-exported and synchronized all nine Web payloads. The exact
+  9,249,172-byte PCK has SHA-256
+  `49675052C2A69E14F576737DF1F8643ABF98FBB46B27B052180915910068E938`,
+  matches the bytes served by localhost, and is byte-identical between `docs/`
+  and `web/public/game/`.
+- The supported Node 24 production build and all 49/49 rendered wrapper tests
+  pass. The 44-check representative release gate passes at
+  `output/release/intern-economy-beta-release-gate.json`.
+- Chromium captured the screened cohort, Lottie visual-novel onboarding, and
+  paid-fellow program state with zero console or page errors at
+  `output/web-game/internship-system-visual/`. The paid-fellow diagnostic
+  records one fellow and exact 200-cent program and daily-payroll values. The
+  required independent client is clean at
+  `output/web-game/internship-system-official-client/`.
+
+## 2026-07-30 - Current-candidate completion and handoff audit
+
+- Re-read all 340 lines and 18 sections of the production-readiness objective
+  against current evidence. Local implementation automation is current, but
+  production completion is not: the working candidate is uncommitted, Pages
+  still serves the older 6,334,932-byte PCK, and human/device evidence cannot
+  be transferred across those identities.
+- Refreshed `output/release/deployed-release-identity-current-audit.json`
+  against the live Pages payload with cache bypass. Local and remote branch
+  heads still match at `ca84eb06336d5cc2650687c61d4af1fdf7863761`,
+  while the exact deployed-payload match remains false.
+- Ran the strict physical validator into
+  `output/release/physical-release-evidence-intern-candidate-validation.json`.
+  It correctly rejects the old `5e375b1` / `7d9c...` record against the current
+  `ca84eb0` / `496750...` identity and preserves every pending touch,
+  screen-reader, listening, and physical-GPU requirement.
+- Added
+  `output/release/objective-completion-audit-intern-economy.json`, which maps
+  every objective section to current automated or external evidence. It records
+  the remaining release boundary exactly: publish the candidate, then complete
+  seven physical sessions and seven separately moderated usability sessions.
+  No commit, deployment, participant metric, device result, or approval was
+  fabricated.

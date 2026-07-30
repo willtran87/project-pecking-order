@@ -105,6 +105,110 @@ func _run() -> void:
 		failures,
 	)
 
+	# Presentation context is campaign-scoped but never economically authoritative.
+	# A malformed field rejects the candidate atomically, while unknown stable IDs
+	# inside an otherwise well-typed ledger fall back to safe, actionable defaults.
+	store.delete()
+	_check(store.save(valid_payload, {"reason": "interface_backup"}), "interface fallback baseline should save", failures)
+	var malformed_interface_payload := _advanced_payload()
+	var malformed_session := malformed_interface_payload.get("session", {}) as Dictionary
+	malformed_session["interface_context"] = "not a context dictionary"
+	malformed_interface_payload["session"] = malformed_session
+	_check(store.save(malformed_interface_payload, {"reason": "semantic_bad_interface_primary"}), "interface corruption fixture should save structurally", failures)
+	office.call("_load_campaign_checkpoint")
+	await process_frame
+	_check(
+		(office.get("_campaign_state") as CampaignState).to_dictionary() == valid_payload["campaign"]
+		and "RESTORED FROM RECOVERY COPY" in (office.get("_ticker_label") as Label).text,
+		"a malformed interface ledger should fall back without leaking the primary economy",
+		failures,
+	)
+
+	store.delete()
+	var unknown_interface_payload := _advanced_payload()
+	var unknown_session := unknown_interface_payload.get("session", {}) as Dictionary
+	unknown_session["interface_context"] = {
+		"version": 1,
+		"flockwatch_page_id": "future_page",
+		"show_all_filings": false,
+		"capital_filter_id": "future_filter",
+		"capital_facility_id": "future_facility",
+	}
+	unknown_interface_payload["session"] = unknown_session
+	_check(store.save(unknown_interface_payload, {"reason": "unknown_interface_ids"}), "unknown interface-ID fixture should save", failures)
+	office.call("_load_campaign_checkpoint")
+	await process_frame
+	var navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
+	var blueprint = office.get("_capital_blueprint_ui")
+	var restored_facility_id := (
+		StringName(blueprint.call("selected_facility_id"))
+		if blueprint != null else
+		&""
+	)
+	var restored_visible_facility_ids: Array = (
+		blueprint.call("visible_facility_ids")
+		if blueprint != null else
+		[]
+	)
+	var migrated_interface_context := office.call(
+		"_campaign_interface_context"
+	) as Dictionary
+	_check(
+		navigation != null
+		and navigation.current_page_id() == FlockwatchNavigation.PAGE_TODAY
+		and not navigation.is_showing_all_filings()
+		and blueprint != null
+		and StringName(blueprint.call("active_filter_id")) == &"ready"
+		and int(migrated_interface_context.get("version", -1)) == 2
+		and not bool(migrated_interface_context.get("economic_details_expanded", true))
+		and String(migrated_interface_context.get(
+			"farmgate_mandate_id",
+			"",
+		)) == "farmer_pickup"
+		and (
+			restored_facility_id == &""
+			or restored_facility_id in restored_visible_facility_ids
+		),
+		"unknown presentation IDs should normalize to a reachable page and never retain a ghost Blueprint selection (page=%s all=%s filter=%s facility=%s)" % [
+			String(navigation.current_page_id()) if navigation != null else "<missing>",
+			str(navigation.is_showing_all_filings()) if navigation != null else "<missing>",
+			String(blueprint.call("active_filter_id")) if blueprint != null else "<missing>",
+			String(blueprint.call("selected_facility_id")) if blueprint != null else "<missing>",
+		],
+		failures,
+	)
+
+	# Current desk-state fields are type checked just like the original page and
+	# filter fields. A malformed disclosure flag must reject the complete
+	# candidate instead of partially restoring its economy.
+	store.delete()
+	_check(store.save(valid_payload, {"reason": "desk_state_backup"}), "desk-state fallback baseline should save", failures)
+	var malformed_desk_state_payload := _advanced_payload()
+	var malformed_desk_session := malformed_desk_state_payload.get("session", {}) as Dictionary
+	var malformed_desk_context := (
+		malformed_desk_session.get("interface_context", {}) as Dictionary
+	)
+	malformed_desk_context["version"] = 2
+	malformed_desk_context["feed_offers_expanded"] = "yes"
+	malformed_desk_session["interface_context"] = malformed_desk_context
+	malformed_desk_state_payload["session"] = malformed_desk_session
+	_check(
+		store.save(
+			malformed_desk_state_payload,
+			{"reason": "semantic_bad_desk_state_primary"},
+		),
+		"malformed desk-state fixture should save structurally",
+		failures,
+	)
+	office.call("_load_campaign_checkpoint")
+	await process_frame
+	_check(
+		(office.get("_campaign_state") as CampaignState).to_dictionary() == valid_payload["campaign"]
+		and "RESTORED FROM RECOVERY COPY" in (office.get("_ticker_label") as Label).text,
+		"a malformed disclosure preference should fall back without leaking the primary economy",
+		failures,
+	)
+
 	# With no semantically valid candidate, loading must leave every authoritative
 	# live component byte-for-byte unchanged and disable Continue.
 	var campaign_before := (office.get("_campaign_state") as CampaignState).to_dictionary()
@@ -173,6 +277,13 @@ func _fresh_payload() -> Dictionary:
 			"review_stage": "active",
 			"last_workday_report": {},
 			"senior_roost": false,
+			"interface_context": {
+				"version": 1,
+				"flockwatch_page_id": "today",
+				"show_all_filings": false,
+				"capital_filter_id": "ready",
+				"capital_facility_id": "candling_rework_bay",
+			},
 		},
 	}) as Dictionary
 

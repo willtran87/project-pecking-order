@@ -270,7 +270,7 @@ func _build_interface() -> void:
 	header.custom_minimum_size.y = 38.0
 	header.add_theme_constant_override("separation", 10)
 	page.add_child(header)
-	var title := _label("CAMPUS PORTFOLIO", 22, COLOR_BRASS)
+	var title := _wrap_label("CAMPUS PORTFOLIO", 22, COLOR_BRASS)
 	title.name = "CampusPortfolioTitle"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
@@ -378,7 +378,7 @@ func _build_map_panel() -> void:
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 6)
 	margin.add_child(column)
-	var heading := _label("SURVEYED CAMPUS / SELECT PARCEL & PAD", 11, COLOR_MUTED)
+	var heading := _wrap_label("SURVEYED CAMPUS / SELECT PARCEL & PAD", 11, COLOR_MUTED)
 	heading.name = "CampusPortfolioMapHeading"
 	column.add_child(heading)
 
@@ -403,7 +403,7 @@ func _build_map_panel() -> void:
 	var queue_column := VBoxContainer.new()
 	queue_column.add_theme_constant_override("separation", 4)
 	queue_margin.add_child(queue_column)
-	var queue_heading := _label("ACTIVE BUILD QUEUE / SHIFT-BASED", 10, COLOR_BRASS)
+	var queue_heading := _wrap_label("ACTIVE BUILD QUEUE / SHIFT-BASED", 10, COLOR_BRASS)
 	queue_column.add_child(queue_heading)
 	_project_host = VBoxContainer.new()
 	_project_host.name = "CampusPortfolioProjectHost"
@@ -467,6 +467,9 @@ func _build_inspector_panel() -> void:
 	column.add_child(_staff_status)
 	_worker_selector = OptionButton.new()
 	_worker_selector.name = "CampusPortfolioWorkerSelector"
+	_worker_selector.fit_to_longest_item = false
+	_worker_selector.clip_text = true
+	_worker_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_worker_selector.focus_mode = Control.FOCUS_ALL
 	_worker_selector.item_selected.connect(_on_worker_selected)
 	column.add_child(_worker_selector)

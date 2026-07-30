@@ -7,6 +7,7 @@ extends VBoxContainer
 ## disabled reasons are copied from the authoritative feed_procurement snapshot.
 
 signal feed_order_requested(order_id: StringName)
+signal presentation_context_changed
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
@@ -82,11 +83,10 @@ func _build_interface() -> void:
 	column.add_theme_constant_override("separation", 5)
 	margin.add_child(column)
 
-	var header := HFlowContainer.new()
+	var header := VBoxContainer.new()
 	header.name = "FeedProcurementHeader"
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_theme_constant_override("h_separation", 8)
-	header.add_theme_constant_override("v_separation", 2)
+	header.add_theme_constant_override("separation", 2)
 	column.add_child(header)
 	var title := _make_label("FLOCK PROVISIONS", 12, COLOR_BRASS)
 	title.name = "FeedProcurementTitle"
@@ -114,6 +114,9 @@ func _build_interface() -> void:
 
 	_offers_toggle = FlockwatchDisclosureToggleScript.new()
 	_offers_toggle.name = "FeedProcurementOffersToggle"
+	_offers_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
 	column.add_child(_offers_toggle)
 
 	var divider := HSeparator.new()

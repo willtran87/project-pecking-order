@@ -14,13 +14,23 @@ signal binding_capture_requested(action: StringName, event: InputEvent)
 signal career_backup_export_requested
 signal career_backup_import_requested(json_text: String)
 
-const AUDIO_BUSES := [&"master", &"music", &"ambient", &"sfx", &"ui"]
+const AUDIO_BUSES := [
+	&"master",
+	&"music",
+	&"ambient",
+	&"sfx",
+	&"ui",
+	&"alerts",
+	&"voice",
+]
 const AUDIO_LABELS := {
 	&"master": "MASTER",
 	&"music": "CORPORATE MUZAK",
 	&"ambient": "OFFICE HUM + FLOCK ROOM TONE",
 	&"sfx": "FLOCK + WORKSTATIONS",
 	&"ui": "BUREAU INTERFACE",
+	&"alerts": "WARNINGS + DECISION BELLS",
+	&"voice": "CHARACTER CUTOUT CUES",
 }
 const REBINDABLE_ACTIONS := [
 	&"pause_simulation",
@@ -58,15 +68,33 @@ const ACTION_LABELS := {
 }
 const MAX_PORTABLE_BACKUP_BYTES := 8 * 1024 * 1024
 const PORTABLE_BACKUP_FILENAME := "pecking-order-career-backup.json"
+const CATEGORY_ORDER: Array[StringName] = [
+	&"audio",
+	&"comfort",
+	&"controls",
+	&"career",
+]
+const CATEGORY_LABELS := {
+	&"audio": "AUDIO MIX",
+	&"comfort": "COMFORT & DISPLAY",
+	&"controls": "CONTROLS",
+	&"career": "CAREER BACKUP",
+}
 
 var _preferences: Dictionary = {}
 var _suppress_updates: bool = false
 var _capture_action: StringName = &""
 var _capture_pending: bool = false
 var _panel: PanelContainer
+var _margin: MarginContainer
 var _scroll: ScrollContainer
+var _category_buttons: Dictionary = {}
+var _category_pages: Dictionary = {}
+var _active_category: StringName = &"comfort"
 var _audio_controls: Dictionary = {}
 var _motion_selector: OptionButton
+var _camera_motion_selector: OptionButton
+var _camera_sensitivity_selector: OptionButton
 var _ui_scale_selector: OptionButton
 var _quality_selector: OptionButton
 var _timing_selector: OptionButton
@@ -74,6 +102,7 @@ var _color_vision_selector: OptionButton
 var _notice_level_selector: OptionButton
 var _notice_duration_selector: OptionButton
 var _effect_level_selector: OptionButton
+var _particle_level_selector: OptionButton
 var _animation_speed_selector: OptionButton
 var _tooltip_delay_selector: OptionButton
 var _contrast_toggle: CheckButton
@@ -140,6 +169,18 @@ func _input(event: InputEvent) -> void:
 	):
 		close_requested.emit()
 		get_viewport().set_input_as_handled()
+		return
+	if (
+		_is_defined_action_pressed(event, &"ui_left")
+		or _is_defined_action_pressed(event, &"ui_right")
+	):
+		var focused_category := _focused_category_id()
+		if focused_category != &"":
+			var direction := (
+				-1 if _is_defined_action_pressed(event, &"ui_left") else 1
+			)
+			_select_relative_category(focused_category, direction)
+			get_viewport().set_input_as_handled()
 
 
 func show_settings(
@@ -151,6 +192,10 @@ func show_settings(
 	set_career_backup_available(backup_available)
 	_suppress_updates = true
 	_sync_controls_from_preferences()
+	_set_active_category(
+		StringName(String(_preferences.get("settings_category", "comfort"))),
+		false,
+	)
 	refresh_binding_labels(binding_labels)
 	_suppress_updates = false
 	_capture_action = &""
@@ -179,6 +224,10 @@ func hide_settings() -> void:
 
 func is_open() -> bool:
 	return visible
+
+
+func active_category() -> StringName:
+	return _active_category
 
 
 func set_status(message: String) -> void:
@@ -257,7 +306,12 @@ func refresh_preferences(preferences: Dictionary) -> void:
 	_preferences = preferences.duplicate(true)
 	_suppress_updates = true
 	_sync_controls_from_preferences()
+	_set_active_category(
+		StringName(String(_preferences.get("settings_category", "comfort"))),
+		false,
+	)
 	_suppress_updates = false
+	tooltip_text = accessible_text()
 
 
 func refresh_binding_labels(binding_labels: Dictionary) -> void:
@@ -273,46 +327,76 @@ func refresh_binding_labels(binding_labels: Dictionary) -> void:
 func accessible_text() -> String:
 	if _preferences.is_empty():
 		return "Coop Settings and Controls."
-	var audio := _preferences.get("audio", {}) as Dictionary
-	var audio_parts: Array[String] = []
-	for bus: StringName in AUDIO_BUSES:
-		var row := audio.get(String(bus), audio.get(bus, {})) as Dictionary
-		audio_parts.append(
-			"%s %d percent%s" % [
-				String(AUDIO_LABELS[bus]).capitalize(),
-				roundi(float(row.get("volume", 1.0)) * 100.0),
-				", muted" if bool(row.get("muted", false)) else "",
-			]
-		)
+	var category_index := CATEGORY_ORDER.find(_active_category)
 	var summary := (
-		"Coop Settings and Controls. Audio: %s. Motion %s. Interface scale %d percent. "
-		+ "High contrast %s. Color vision %s. Detail %s. Effect density %s. Animation speed %s. Tooltip delay %s. Priority Peck timing %s. Transient notices %s for %s duration. Haptics %s where supported. Pause when unfocused %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
+		"Coop Settings and Controls. %s category, %d of %d. "
+		+ "Categories are Audio Mix, Comfort and Display, Controls, and Career Backup. "
+		+ "Use Left and Right while a category has focus to change categories. "
 	) % [
-		", ".join(audio_parts),
-		String(_preferences.get("motion_mode", "system")),
-		roundi(float(_preferences.get("ui_scale", 1.0)) * 100.0),
-		"on" if bool(_preferences.get("high_contrast", false)) else "off",
-		String(_preferences.get("color_vision_mode", "standard")).replace("_", " "),
-		String(_preferences.get("visual_quality", "balanced")),
-		String(_preferences.get("effect_level", "full")),
-		String(_preferences.get("animation_speed", "standard")),
-		String(_preferences.get("tooltip_delay", "standard")),
-		String(_preferences.get("timing_assist", "standard")),
-		String(_preferences.get("notice_level", "all")).replace("_", " "),
-		String(_preferences.get("notice_duration", "standard")),
-		"enabled" if bool(_preferences.get("haptics_enabled", true)) else "disabled",
-		"on" if bool(_preferences.get("pause_when_unfocused", true)) else "off",
+		String(CATEGORY_LABELS.get(_active_category, "COMFORT & DISPLAY")).capitalize(),
+		category_index + 1 if category_index >= 0 else 2,
+		CATEGORY_ORDER.size(),
 	]
+	match _active_category:
+		&"audio":
+			var audio := _preferences.get("audio", {}) as Dictionary
+			var audio_parts: Array[String] = []
+			for bus: StringName in AUDIO_BUSES:
+				var row := audio.get(String(bus), audio.get(bus, {})) as Dictionary
+				audio_parts.append(
+					"%s %d percent%s" % [
+						String(AUDIO_LABELS[bus]).capitalize(),
+						roundi(float(row.get("volume", 1.0)) * 100.0),
+						", muted" if bool(row.get("muted", false)) else "",
+					]
+				)
+			summary += "Audio: %s." % ", ".join(audio_parts)
+		&"controls":
+			summary += (
+				"Select a floor or camera control to rebind it. "
+				+ "F10 always opens settings; Escape always returns."
+			)
+		&"career":
+			summary += (
+				"Career backup restore is available. "
+				+ (
+					"Verified career backup export is available."
+					if _backup_available else
+					"Export requires a verified campaign checkpoint."
+				)
+				+ " Restore requires explicit replacement confirmation."
+			)
+		_:
+			summary += (
+				"Motion %s. Interface scale %d percent. Camera motion %s. "
+				+ "Camera input sensitivity %s. High contrast %s. Color vision %s. "
+				+ "Detail %s. Effect density %s. Particle density %s. "
+				+ "Animation speed %s. Tooltip delay %s. Priority Peck timing %s. "
+				+ "Transient notices %s for %s duration. Haptics %s where supported. "
+				+ "Pause when unfocused %s."
+			) % [
+				String(_preferences.get("motion_mode", "system")),
+				roundi(float(_preferences.get("ui_scale", 1.0)) * 100.0),
+				String(_preferences.get("camera_motion", "full")),
+				String(_preferences.get("camera_sensitivity", "standard")),
+				"on" if bool(_preferences.get("high_contrast", false)) else "off",
+				String(_preferences.get("color_vision_mode", "standard")).replace("_", " "),
+				String(_preferences.get("visual_quality", "balanced")),
+				String(_preferences.get("effect_level", "full")),
+				String(_preferences.get("particle_level", "full")),
+				String(_preferences.get("animation_speed", "standard")),
+				String(_preferences.get("tooltip_delay", "standard")),
+				String(_preferences.get("timing_assist", "standard")),
+				String(_preferences.get("notice_level", "all")).replace("_", " "),
+				String(_preferences.get("notice_duration", "standard")),
+				"enabled" if bool(_preferences.get("haptics_enabled", true)) else "disabled",
+				"on" if bool(_preferences.get("pause_when_unfocused", true)) else "off",
+			]
 	if _capture_action != &"":
 		summary += " Binding capture for %s is %s." % [
 			String(ACTION_LABELS.get(_capture_action, _capture_action)).capitalize(),
 			"awaiting validation" if _capture_pending else "waiting for another input",
 		]
-	summary += (
-		" Career backup export is available; restore requires explicit confirmation."
-		if _backup_available else
-		" Career backup restore is available; export requires a verified campaign checkpoint."
-	)
 	if not _pending_backup_text.is_empty():
 		summary += " A portable career backup is awaiting replacement confirmation."
 	if _status_label != null and not _status_label.text.is_empty():
@@ -370,17 +454,17 @@ func _build_interface() -> void:
 	_panel.add_theme_stylebox_override("panel", _panel_style())
 	add_child(_panel)
 
-	var margin := MarginContainer.new()
-	margin.name = "SettingsMargin"
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 18)
-	_panel.add_child(margin)
+	_margin = MarginContainer.new()
+	_margin.name = "SettingsMargin"
+	_margin.add_theme_constant_override("margin_left", 24)
+	_margin.add_theme_constant_override("margin_right", 24)
+	_margin.add_theme_constant_override("margin_top", 20)
+	_margin.add_theme_constant_override("margin_bottom", 18)
+	_panel.add_child(_margin)
 
 	var frame := VBoxContainer.new()
 	frame.add_theme_constant_override("separation", 12)
-	margin.add_child(frame)
+	_margin.add_child(frame)
 
 	var header := HFlowContainer.new()
 	header.name = "SettingsHeader"
@@ -402,6 +486,7 @@ func _build_interface() -> void:
 	_close_button.name = "SettingsCloseButton"
 	_close_button.text = "RETURN TO THE FLOOR  [F10 / ESC]"
 	_close_button.custom_minimum_size = Vector2(220.0, 42.0)
+	_close_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_close_button.focus_mode = Control.FOCUS_ALL
 	_close_button.pressed.connect(func() -> void: close_requested.emit())
 	header.add_child(_close_button)
@@ -415,6 +500,27 @@ func _build_interface() -> void:
 	_capture_banner.visible = false
 	frame.add_child(_capture_banner)
 
+	var category_nav := HFlowContainer.new()
+	category_nav.name = "SettingsCategoryNavigation"
+	category_nav.add_theme_constant_override("h_separation", 8)
+	category_nav.add_theme_constant_override("v_separation", 8)
+	frame.add_child(category_nav)
+	for category_id: StringName in CATEGORY_ORDER:
+		var category_button := Button.new()
+		category_button.name = "SettingsCategory_%s" % String(category_id).capitalize()
+		category_button.text = String(CATEGORY_LABELS[category_id])
+		category_button.toggle_mode = true
+		category_button.focus_mode = Control.FOCUS_ALL
+		category_button.custom_minimum_size = Vector2(142.0, 40.0)
+		category_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		category_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		category_button.tooltip_text = "Show %s without changing any gameplay setting." % String(
+			CATEGORY_LABELS[category_id]
+		).capitalize()
+		category_button.pressed.connect(_on_category_selected.bind(category_id))
+		category_nav.add_child(category_button)
+		_category_buttons[category_id] = category_button
+
 	_scroll = ScrollContainer.new()
 	_scroll.name = "SettingsScroll"
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -427,10 +533,15 @@ func _build_interface() -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 18)
 	_scroll.add_child(content)
-	_build_audio_section(content)
-	_build_accessibility_section(content)
-	_build_career_backup_section(content)
-	_build_controls_section(content)
+	var audio_page := _category_page(content, &"audio")
+	_build_audio_section(audio_page)
+	var comfort_page := _category_page(content, &"comfort")
+	_build_accessibility_section(comfort_page)
+	var controls_page := _category_page(content, &"controls")
+	_build_controls_section(controls_page)
+	var career_page := _category_page(content, &"career")
+	_build_career_backup_section(career_page)
+	_set_active_category(&"comfort", false)
 
 	var footer := HFlowContainer.new()
 	footer.name = "SettingsFooter"
@@ -445,6 +556,8 @@ func _build_interface() -> void:
 	var reset := Button.new()
 	reset.name = "SettingsResetButton"
 	reset.text = "RESTORE SETTINGS DEFAULTS"
+	reset.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	reset.custom_minimum_size = Vector2(220.0, 42.0)
 	reset.focus_mode = Control.FOCUS_ALL
 	reset.pressed.connect(func() -> void: reset_defaults_requested.emit())
 	footer.add_child(reset)
@@ -452,8 +565,72 @@ func _build_interface() -> void:
 	_build_career_backup_dialogs()
 
 
+func _category_page(parent: VBoxContainer, category_id: StringName) -> VBoxContainer:
+	var page := VBoxContainer.new()
+	page.name = "SettingsPage_%s" % String(category_id).capitalize()
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.add_theme_constant_override("separation", 18)
+	parent.add_child(page)
+	_category_pages[category_id] = page
+	return page
+
+
+func _on_category_selected(category_id: StringName) -> void:
+	_set_active_category(category_id, true)
+
+
+func _set_active_category(category_id: StringName, persist: bool) -> void:
+	var next_id := category_id if category_id in CATEGORY_ORDER else &"comfort"
+	var changed := next_id != _active_category
+	_active_category = next_id
+	for id: StringName in CATEGORY_ORDER:
+		var page := _category_pages.get(id) as Control
+		if page != null:
+			page.visible = id == next_id
+		var button := _category_buttons.get(id) as Button
+		if button != null:
+			button.set_pressed_no_signal(id == next_id)
+			button.tooltip_text = "%s category%s. Use Left and Right to change categories." % [
+				String(CATEGORY_LABELS[id]).capitalize(),
+				", selected" if id == next_id else "",
+			]
+	if _scroll != null:
+		_scroll.scroll_vertical = 0
+	tooltip_text = accessible_text()
+	if persist and changed and not _suppress_updates:
+		_preferences["settings_category"] = String(next_id)
+		preferences_changed.emit(_preferences.duplicate(true))
+		set_status("%s category open. View choice saved." % String(
+			CATEGORY_LABELS[next_id]
+		).capitalize())
+
+
+func _focused_category_id() -> StringName:
+	var focused := get_viewport().gui_get_focus_owner()
+	for category_id: StringName in CATEGORY_ORDER:
+		if focused == _category_buttons.get(category_id):
+			return category_id
+	return &""
+
+
+func _select_relative_category(current_id: StringName, direction: int) -> void:
+	var current_index := CATEGORY_ORDER.find(current_id)
+	if current_index < 0:
+		return
+	var next_index := posmod(current_index + direction, CATEGORY_ORDER.size())
+	var next_id := CATEGORY_ORDER[next_index]
+	_set_active_category(next_id, true)
+	var button := _category_buttons.get(next_id) as Button
+	if button != null:
+		button.grab_focus()
+
+
 func _build_audio_section(parent: VBoxContainer) -> void:
-	var section := _section(parent, "AUDIO MIX", "Keep tactile flock feedback while turning down repetitive office layers.")
+	var section := _section(
+		parent,
+		"AUDIO MIX",
+		"Keep tactile flock feedback while independently calming alarms, cutout cues, and repetitive office layers.",
+	)
 	for bus: StringName in AUDIO_BUSES:
 		var row := VBoxContainer.new()
 		row.name = "Audio_%s" % String(bus).capitalize()
@@ -504,6 +681,22 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_motion_selector = _choice_row(_comfort_grid, "MOTION", ["SYSTEM PREFERENCE", "REDUCED", "FULL"])
 	_motion_selector.name = "MotionModeSelector"
 	_motion_selector.item_selected.connect(_on_motion_selected)
+	_camera_motion_selector = _choice_row(
+		_comfort_grid,
+		"CAMERA MOTION",
+		["FULL", "REDUCED", "OFF / NO AUTO-FRAMING"],
+	)
+	_camera_motion_selector.name = "CameraMotionSelector"
+	_camera_motion_selector.tooltip_text = "Reduce camera travel time, or disable easing and passive event reframing while keeping manual pan, zoom, text, sound, and receipts."
+	_camera_motion_selector.item_selected.connect(_on_camera_motion_selected)
+	_camera_sensitivity_selector = _choice_row(
+		_comfort_grid,
+		"CAMERA INPUT",
+		["LOW", "STANDARD", "HIGH"],
+	)
+	_camera_sensitivity_selector.name = "CameraSensitivitySelector"
+	_camera_sensitivity_selector.tooltip_text = "Adjust the distance produced by keyboard, controller, mouse, trackpad, and touch camera input without changing simulation speed."
+	_camera_sensitivity_selector.item_selected.connect(_on_camera_sensitivity_selected)
 	_ui_scale_selector = _choice_row(_comfort_grid, "INTERFACE SCALE", ["100%", "125%", "150%"])
 	_ui_scale_selector.name = "UIScaleSelector"
 	_ui_scale_selector.item_selected.connect(_on_ui_scale_selected)
@@ -539,8 +732,16 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 		["FULL", "REDUCED", "ESSENTIAL ONLY"],
 	)
 	_effect_level_selector.name = "EffectLevelSelector"
-	_effect_level_selector.tooltip_text = "Reduce or disable decorative particles, lighting pulses, and celebration effects without hiding authoritative text, symbols, receipts, or warnings."
+	_effect_level_selector.tooltip_text = "Reduce or disable decorative lighting pulses and celebration emphasis without changing the separate particle setting or hiding authoritative text, symbols, receipts, or warnings."
 	_effect_level_selector.item_selected.connect(_on_effect_level_selected)
+	_particle_level_selector = _choice_row(
+		_comfort_grid,
+		"PARTICLE DENSITY",
+		["FULL", "REDUCED", "OFF"],
+	)
+	_particle_level_selector.name = "ParticleLevelSelector"
+	_particle_level_selector.tooltip_text = "Control ambient dust, drifting feathers, and bounded event bursts independently from lighting and other feedback. Text, icons, sound, and receipts remain complete."
+	_particle_level_selector.item_selected.connect(_on_particle_level_selected)
 	_animation_speed_selector = _choice_row(
 		_comfort_grid,
 		"ANIMATION SPEED",
@@ -622,6 +823,7 @@ func _build_career_backup_section(parent: VBoxContainer) -> void:
 	_backup_export_button.text = "DOWNLOAD CAREER BACKUP"
 	_backup_export_button.focus_mode = Control.FOCUS_ALL
 	_backup_export_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_backup_export_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_backup_export_button.pressed.connect(func() -> void: career_backup_export_requested.emit())
 	actions.add_child(_backup_export_button)
 	_backup_import_button = Button.new()
@@ -629,6 +831,7 @@ func _build_career_backup_section(parent: VBoxContainer) -> void:
 	_backup_import_button.text = "RESTORE BACKUP FILE..."
 	_backup_import_button.focus_mode = Control.FOCUS_ALL
 	_backup_import_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_backup_import_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_backup_import_button.tooltip_text = "Choose a Pecking Order JSON backup. Nothing changes until confirmation and full validation."
 	_backup_import_button.pressed.connect(_open_career_backup_import)
 	actions.add_child(_backup_import_button)
@@ -795,6 +998,8 @@ func _sync_controls_from_preferences() -> void:
 		(controls.get("mute") as CheckButton).button_pressed = bool(row.get("muted", false))
 		(controls.get("value") as Label).text = "%d%%" % roundi(volume * 100.0)
 	_motion_selector.select(["system", "reduced", "full"].find(String(_preferences.get("motion_mode", "system"))))
+	_camera_motion_selector.select(["full", "reduced", "off"].find(String(_preferences.get("camera_motion", "full"))))
+	_camera_sensitivity_selector.select(["low", "standard", "high"].find(String(_preferences.get("camera_sensitivity", "standard"))))
 	_ui_scale_selector.select([1.0, 1.25, 1.5].find(float(_preferences.get("ui_scale", 1.0))))
 	_quality_selector.select(["low", "balanced", "high"].find(String(_preferences.get("visual_quality", "balanced"))))
 	_timing_selector.select(["standard", "lenient", "extended"].find(String(_preferences.get("timing_assist", "standard"))))
@@ -802,6 +1007,7 @@ func _sync_controls_from_preferences() -> void:
 	_notice_level_selector.select(["all", "priority", "archive_only"].find(String(_preferences.get("notice_level", "all"))))
 	_notice_duration_selector.select(["brief", "standard", "extended"].find(String(_preferences.get("notice_duration", "standard"))))
 	_effect_level_selector.select(["full", "reduced", "off"].find(String(_preferences.get("effect_level", "full"))))
+	_particle_level_selector.select(["full", "reduced", "off"].find(String(_preferences.get("particle_level", "full"))))
 	_animation_speed_selector.select(["relaxed", "standard", "brisk"].find(String(_preferences.get("animation_speed", "standard"))))
 	_tooltip_delay_selector.select(["short", "standard", "long"].find(String(_preferences.get("tooltip_delay", "standard"))))
 	_contrast_toggle.button_pressed = bool(_preferences.get("high_contrast", false))
@@ -837,6 +1043,14 @@ func _on_motion_selected(index: int) -> void:
 	_set_preference("motion_mode", ["system", "reduced", "full"][clampi(index, 0, 2)])
 
 
+func _on_camera_motion_selected(index: int) -> void:
+	_set_preference("camera_motion", ["full", "reduced", "off"][clampi(index, 0, 2)])
+
+
+func _on_camera_sensitivity_selected(index: int) -> void:
+	_set_preference("camera_sensitivity", ["low", "standard", "high"][clampi(index, 0, 2)])
+
+
 func _on_ui_scale_selected(index: int) -> void:
 	_set_preference("ui_scale", [1.0, 1.25, 1.5][clampi(index, 0, 2)])
 
@@ -863,6 +1077,10 @@ func _on_notice_duration_selected(index: int) -> void:
 
 func _on_effect_level_selected(index: int) -> void:
 	_set_preference("effect_level", ["full", "reduced", "off"][clampi(index, 0, 2)])
+
+
+func _on_particle_level_selected(index: int) -> void:
+	_set_preference("particle_level", ["full", "reduced", "off"][clampi(index, 0, 2)])
 
 
 func _on_animation_speed_selected(index: int) -> void:
@@ -953,6 +1171,11 @@ func _apply_responsive_layout() -> void:
 		return
 	var viewport_size := size if size.x > 0.0 and size.y > 0.0 else get_viewport_rect().size
 	var compact := viewport_size.x < 700.0 or viewport_size.y < 560.0
+	if _margin != null:
+		_margin.add_theme_constant_override("margin_left", 16 if compact else 24)
+		_margin.add_theme_constant_override("margin_right", 16 if compact else 24)
+		_margin.add_theme_constant_override("margin_top", 10 if compact else 20)
+		_margin.add_theme_constant_override("margin_bottom", 10 if compact else 18)
 	if compact:
 		_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_panel.offset_left = 8.0

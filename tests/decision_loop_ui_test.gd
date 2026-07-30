@@ -25,10 +25,21 @@ func _run() -> void:
 	var probation_continue := office.find_child("ContinueProbationButton", true, false) as Button
 	var filed_credit_label := office.find_child("FiledCreditMemoLabel", true, false) as Label
 	var review_results := office.find_child("FarmerReviewAccountingDetails", true, false) as Label
+	var character_dialogue = office.get("_character_dialogue_ui")
+	var character_dialogue_panel := office.find_child(
+		"CharacterDialoguePanel", true, false
+	) as PanelContainer
 
 	_check(simulation != null, "office should expose its authoritative simulation", failures)
 	_check(clock != null and clock.speed_index == 0, "morning briefing should pause the simulation clock", failures)
 	_check(decision_host != null and decision_host.visible, "morning directive card should open on first presentation", failures)
+	_check(
+		character_dialogue != null
+		and character_dialogue_panel != null
+		and not character_dialogue_panel.visible,
+		"character cutouts should remain respectfully suspended behind management decisions",
+		failures,
+	)
 	_check(simulation != null and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "opening shift should await a directive", failures)
 	_check(office.find_children("DecisionOption_*", "Button", true, false).size() == 3, "directive card should present three policy choices", failures)
 	var decision_diagnostic := office.call("_pending_decision_diagnostic_state") as Dictionary
@@ -98,6 +109,18 @@ func _run() -> void:
 	await process_frame
 
 	_check(not decision_host.visible, "authorized directive should close the management card", failures)
+	var character_dialogue_state := (
+		character_dialogue.diagnostic_state() as Dictionary
+		if character_dialogue != null else
+		{}
+	)
+	_check(
+		bool(character_dialogue_state.get("visible", false))
+		and String(character_dialogue_state.get("speaker_name", "")) == "Mabel"
+		and "speed is a value" in String(character_dialogue_state.get("text", "")),
+		"a real directive result should surface one short Mabel aside after the modal closes",
+		failures,
+	)
 	decision_diagnostic = office.call("_pending_decision_diagnostic_state") as Dictionary
 	_check(not bool(decision_diagnostic.get("visible", true)), "closed decisions should not leak stale choice text", failures)
 	_check(clock.speed_index == 1, "authorized morning directive should begin the shift at 1x", failures)

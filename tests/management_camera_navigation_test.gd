@@ -42,6 +42,50 @@ func _run() -> void:
 		"camera diagnostics should expose the independent brisk presentation speed",
 		failures,
 	)
+	_stage = "independent comfort controls"
+	controller.set_input_sensitivity(&"low")
+	controller.show_overview()
+	controller.call("_pan_by_screen_delta", Vector2(-100.0, 0.0))
+	var low_sensitivity_target := (
+		controller.navigation_state().get("view_target", Vector3.ZERO) as Vector3
+	)
+	var sensitivity_origin := home_state.get("home_target", Vector3.ZERO) as Vector3
+	var low_sensitivity_distance := low_sensitivity_target.distance_to(sensitivity_origin)
+	controller.set_input_sensitivity(&"high")
+	controller.show_overview()
+	controller.call("_pan_by_screen_delta", Vector2(-100.0, 0.0))
+	var high_sensitivity_state := controller.navigation_state()
+	var high_sensitivity_distance := (
+		high_sensitivity_state.get("view_target", Vector3.ZERO) as Vector3
+	).distance_to(sensitivity_origin)
+	_check(
+		high_sensitivity_distance > low_sensitivity_distance
+		and String(high_sensitivity_state.get("input_sensitivity", "")) == "high"
+		and is_equal_approx(
+			float(high_sensitivity_state.get("input_sensitivity_multiplier", 0.0)),
+			1.35,
+		),
+		"camera sensitivity should scale the same bounded pan authority and publish its multiplier",
+		failures,
+	)
+	controller.set_camera_motion_level(&"off")
+	controller.show_overview()
+	controller.show_event_focus(Vector3(2.0, 1.2, 4.0), "PASSIVE EVENT", 0.25, true)
+	var motion_off_state := controller.navigation_state()
+	_check(
+		controller.camera_mode() == "home"
+		and bool(motion_off_state.get("camera_motion_instant", false)),
+		"camera motion off should keep passive events from taking the player's view",
+		failures,
+	)
+	controller.set_camera_motion_level(&"reduced")
+	_check(
+		String(controller.navigation_state().get("camera_motion", "")) == "reduced",
+		"reduced camera motion should remain independently observable",
+		failures,
+	)
+	controller.set_camera_motion_level(&"full")
+	controller.set_input_sensitivity(&"standard")
 
 	_stage = "overview precision wheel zoom"
 	await _send_wheel(MOUSE_BUTTON_WHEEL_UP, 1.0, Vector2(920.0, 360.0))
@@ -328,7 +372,7 @@ func _run() -> void:
 			push_error("MANAGEMENT_CAMERA_NAVIGATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("MANAGEMENT_CAMERA_NAVIGATION_TEST_PASSED modes=home+free+landmark+event input=mouse+semantic-keyboard+rebound-button+controller+touch bounds=commissioned event=restored animation-speed=brisk")
+	print("MANAGEMENT_CAMERA_NAVIGATION_TEST_PASSED modes=home+free+landmark+event input=mouse+semantic-keyboard+rebound-button+controller+touch+sensitivity bounds=commissioned event=restored+motion-off animation-speed=brisk")
 	quit(0)
 
 

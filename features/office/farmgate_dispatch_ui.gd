@@ -8,6 +8,7 @@ extends VBoxContainer
 ## mandate at a time and emits its stable ID for simulation validation.
 
 signal mandate_requested(mandate_id: StringName)
+signal presentation_context_changed
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
@@ -78,6 +79,10 @@ func presentation_state() -> Dictionary:
 	}
 
 
+func selected_mandate_id() -> StringName:
+	return _selected_mandate_id
+
+
 func select_mandate(mandate_id: StringName) -> bool:
 	if mandate_id not in MANDATE_ORDER:
 		return false
@@ -111,11 +116,10 @@ func _build_interface() -> void:
 	column.add_theme_constant_override("separation", 5)
 	margin.add_child(column)
 
-	var header := HFlowContainer.new()
+	var header := VBoxContainer.new()
 	header.name = "FarmgateDispatchHeader"
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_theme_constant_override("h_separation", 8)
-	header.add_theme_constant_override("v_separation", 2)
+	header.add_theme_constant_override("separation", 2)
 	column.add_child(header)
 
 	var title := _make_label("FARMGATE DISPATCH", 12, COLOR_BRASS)
@@ -133,6 +137,9 @@ func _build_interface() -> void:
 
 	_mandate_toggle = FlockwatchDisclosureToggleScript.new()
 	_mandate_toggle.name = "FarmgateDispatchMandateToggle"
+	_mandate_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
 	column.add_child(_mandate_toggle)
 
 	var divider := HSeparator.new()
@@ -149,6 +156,9 @@ func _build_interface() -> void:
 	_mandate_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mandate_selector.custom_minimum_size.y = 38.0
 	_mandate_selector.focus_mode = Control.FOCUS_ALL
+	_mandate_selector.fit_to_longest_item = false
+	_mandate_selector.clip_text = true
+	_mandate_selector.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	for mandate_id in MANDATE_ORDER:
 		_mandate_selector.add_item(String(MANDATE_LABELS[mandate_id]))
 		_mandate_selector.set_item_metadata(_mandate_selector.item_count - 1, String(mandate_id))
@@ -177,6 +187,8 @@ func _build_interface() -> void:
 	_authorize_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_authorize_button.custom_minimum_size.y = 42.0
 	_authorize_button.focus_mode = Control.FOCUS_ALL
+	_authorize_button.clip_text = true
+	_authorize_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_authorize_button.disabled = true
 	_authorize_button.pressed.connect(_on_authorize_pressed)
 	column.add_child(_authorize_button)
@@ -351,6 +363,7 @@ func _on_mandate_selected(index: int) -> void:
 		return
 	_selected_mandate_id = StringName(String(_mandate_selector.get_item_metadata(index)))
 	_refresh_selected_mandate()
+	presentation_context_changed.emit()
 
 
 func _on_authorize_pressed() -> void:

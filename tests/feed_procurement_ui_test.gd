@@ -2,6 +2,7 @@ extends SceneTree
 
 const FeedProcurementUIScript := preload("res://features/office/feed_procurement_ui.gd")
 const RoostStaffingUIScript := preload("res://features/office/roost_staffing_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -105,6 +106,46 @@ func _run() -> void:
 	_check(ui.get_combined_minimum_size().x <= scroll.size.x + 0.5, "the compact file should not demand horizontal scrolling at the real 282px Flockwatch width", failures)
 	_check(_visible_children_fit_horizontally(ui, ui_rect), "visible procurement controls should remain inside the compact ledger width", failures)
 	_check(scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "the host should require no horizontal feed-order scrolling", failures)
+
+	var prior_theme := ui.theme
+	var control_records := _capture_control_records(ui)
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	await process_frame
+	await process_frame
+	ui_rect = ui.get_global_rect()
+	_check(
+		ui.get_combined_minimum_size().x <= scroll.size.x + 0.5,
+		"150-percent expanded feed procurement should remain inside the 282px filing (minimum=%s viewport=%s)"
+		% [ui.get_combined_minimum_size(), scroll.size],
+		failures,
+	)
+	_check(
+		_visible_children_fit_horizontally(ui, ui_rect),
+		"every max-scale feed offer should remain inside the vertical-only filing",
+		failures,
+	)
+	local_button = ui.find_child(
+		"FeedProcurementOrder_local_whole_grain",
+		true,
+		false,
+	) as Button
+	if local_button != null:
+		scroll.ensure_control_visible(local_button)
+	await process_frame
+	await process_frame
+	_check(
+		local_button != null
+		and local_button.is_visible_in_tree()
+		and scroll.get_global_rect().intersects(local_button.get_global_rect()),
+		"the max-scale routine order should remain vertically reachable",
+		failures,
+	)
+	_restore_control_records(control_records)
+	ui.theme = prior_theme
+	await process_frame
+	await process_frame
 
 	var closed := _root_snapshot(false)
 	ui.apply_snapshot(closed)
@@ -412,6 +453,108 @@ func _contains_all(copy: String, fragments: Array[String]) -> bool:
 		if not normalized.contains(fragment.to_lower()):
 			return false
 	return true
+
+
+func _capture_control_records(root_node: Node) -> Array[Dictionary]:
+	var records: Array[Dictionary] = []
+	for node_value: Node in root_node.find_children(
+		"*",
+		"Control",
+		true,
+		false,
+	):
+		var control := node_value as Control
+		var record := {
+			"control": control,
+			"had_font_override": control.has_theme_font_size_override(
+				"font_size"
+			),
+			"font_size": control.get_theme_font_size("font_size"),
+			"kind": &"",
+			"text": "",
+		}
+		if control is Button:
+			record["kind"] = &"button"
+			record["text"] = (control as Button).text
+		elif control is Label:
+			record["kind"] = &"label"
+			record["text"] = (control as Label).text
+		records.append(record)
+	return records
+
+
+func _restore_control_records(records: Array[Dictionary]) -> void:
+	for record: Dictionary in records:
+		var value: Variant = record.get("control")
+		if not is_instance_valid(value):
+			continue
+		var control := value as Control
+		if control == null:
+			continue
+		match StringName(record.get("kind", &"")):
+			&"button":
+				(control as Button).text = String(record.get("text", ""))
+			&"label":
+				(control as Label).text = String(record.get("text", ""))
+		if bool(record.get("had_font_override", false)):
+			control.add_theme_font_size_override(
+				"font_size",
+				int(record.get("font_size", 16)),
+			)
+		else:
+			control.remove_theme_font_size_override("font_size")
+
+
+func _apply_explicit_font_scale(root_node: Node, scale: float) -> void:
+	for node_value: Node in root_node.find_children(
+		"*",
+		"Control",
+		true,
+		false,
+	):
+		var control := node_value as Control
+		if (
+			control != null
+			and control.has_theme_font_size_override("font_size")
+		):
+			var base_size := control.get_theme_font_size("font_size")
+			control.add_theme_font_size_override(
+				"font_size",
+				maxi(10, roundi(float(base_size) * scale)),
+			)
+
+
+func _expand_interface_copy(root_node: Node) -> void:
+	for node_value: Node in root_node.find_children(
+		"*",
+		"Control",
+		true,
+		false,
+	):
+		if node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in [
+		"a",
+		"e",
+		"i",
+		"o",
+		"u",
+		"A",
+		"E",
+		"I",
+		"O",
+		"U",
+	]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

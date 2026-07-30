@@ -8,6 +8,7 @@ extends VBoxContainer
 ## farmer_relations_gallery projection.
 
 signal campaign_requested(campaign_id: StringName)
+signal presentation_context_changed
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
@@ -45,6 +46,9 @@ var _receipt_label: Label
 var _campaigns_toggle
 var _offer_controls: Dictionary = {}
 var _had_actionable_campaign := false
+var _confirmation: ConfirmationDialog
+var _pending_campaign_id: StringName = &""
+var _confirmation_origin: Control
 
 
 func _ready() -> void:
@@ -64,6 +68,8 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	if gallery == _snapshot:
 		return
 	_snapshot = gallery.duplicate(true)
+	if not _pending_campaign_is_valid():
+		_cancel_confirmation(false)
 	_refresh()
 
 
@@ -87,11 +93,10 @@ func _build_interface() -> void:
 	column.add_theme_constant_override("separation", 5)
 	margin.add_child(column)
 
-	var header := HFlowContainer.new()
+	var header := VBoxContainer.new()
 	header.name = "FarmerRelationsGalleryHeader"
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_theme_constant_override("h_separation", 8)
-	header.add_theme_constant_override("v_separation", 2)
+	header.add_theme_constant_override("separation", 2)
 	column.add_child(header)
 	var title := _make_label("FARMER RELATIONS GALLERY", 12, COLOR_BRASS)
 	title.name = "FarmerRelationsGalleryTitle"
@@ -119,6 +124,9 @@ func _build_interface() -> void:
 
 	_campaigns_toggle = FlockwatchDisclosureToggleScript.new()
 	_campaigns_toggle.name = "FarmerRelationsCampaignsToggle"
+	_campaigns_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
 	column.add_child(_campaigns_toggle)
 
 	var divider := HSeparator.new()
@@ -145,6 +153,33 @@ func _build_interface() -> void:
 	_receipt_label.name = "FarmerRelationsGalleryLastReceipt"
 	_receipt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_receipt_label)
+	_build_confirmation()
+
+
+func _build_confirmation() -> void:
+	_confirmation = ConfirmationDialog.new()
+	_confirmation.name = "FarmerRelationsCampaignConfirmation"
+	_confirmation.title = "HANG A PERMANENT PUBLIC CAMPAIGN?"
+	_confirmation.ok_button_text = "HANG CAMPAIGN"
+	_confirmation.cancel_button_text = "KEEP FILE OPEN"
+	_confirmation.min_size = Vector2i(340, 350)
+	var copy := _confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 210.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for action_button: Button in [
+		_confirmation.get_ok_button(),
+		_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size = Vector2(132.0, 44.0)
+		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action_button.clip_text = true
+		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_confirmation.confirmed.connect(_confirm_campaign)
+	_confirmation.canceled.connect(_cancel_confirmation)
+	add_child(_confirmation)
 
 
 func _build_offer_card(parent: VBoxContainer, campaign_id: StringName) -> void:
@@ -203,9 +238,11 @@ func _build_offer_card(parent: VBoxContainer, campaign_id: StringName) -> void:
 	button.theme_type_variation = &"PrimaryButton"
 	button.focus_mode = Control.FOCUS_ALL
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	button.custom_minimum_size = Vector2(0.0, 38.0)
+	button.custom_minimum_size = Vector2(0.0, 42.0)
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	button.disabled = true
-	button.pressed.connect(_on_campaign_pressed.bind(campaign_id))
+	button.pressed.connect(_on_campaign_pressed.bind(campaign_id, button))
 	column.add_child(button)
 
 	_offer_controls[campaign_id] = {
@@ -522,11 +559,129 @@ func _refresh_receipt(receipt: Dictionary) -> void:
 	_receipt_label.tooltip_text = _receipt_label.text
 
 
-func _on_campaign_pressed(campaign_id: StringName) -> void:
+func _on_campaign_pressed(
+	campaign_id: StringName,
+	origin: Control,
+) -> void:
+	if origin == null or not is_instance_valid(origin):
+		return
 	var gallery := _gallery_snapshot()
 	var offer := _offers_by_id(gallery).get(campaign_id, {}) as Dictionary
-	if _authorization_reason(offer, gallery).is_empty():
-		campaign_requested.emit(campaign_id)
+	if (
+		offer.is_empty()
+		or not _authorization_reason(offer, gallery).is_empty()
+		or origin is BaseButton and (origin as BaseButton).disabled
+	):
+		return
+	_pending_campaign_id = campaign_id
+	_confirmation_origin = origin
+	var campaign_label := String(offer.get(
+		"label",
+		CAMPAIGN_LABELS.get(campaign_id, campaign_id),
+	)).strip_edges()
+	if campaign_id == &"farmer_method" and campaign_label.to_upper() == "FARMER METHOD":
+		campaign_label = "FARMER'S METHOD"
+	var attribution := _dictionary_value(gallery.get("attribution", {}))
+	var worker_name := String(attribution.get(
+		"worker_name",
+		_dictionary_value(gallery.get("shift_evidence", {})).get(
+			"top_worker_name",
+			"UNNAMED FLOCK",
+		),
+	)).strip_edges()
+	var attribution_style := String(attribution.get(
+		"style_label",
+		attribution.get("style_id", "UNFILED CREDIT"),
+	)).replace("_", " ").strip_edges()
+	var cost_cents := maxi(0, int(offer.get("cost_cents", 0)))
+	var payout_cents := maxi(0, int(offer.get("payout_cents", 0)))
+	var fund_delta_cents := int(offer.get(
+		"fund_delta_cents",
+		payout_cents - cost_cents,
+	))
+	var standing_delta := int(offer.get(
+		"standing_delta",
+		offer.get("public_standing_delta", 0),
+	))
+	var evidence := String(offer.get(
+		"evidence",
+		offer.get("evidence_label", _fallback_offer_evidence(
+			campaign_id,
+			offer,
+			gallery,
+		)),
+	)).strip_edges()
+	var completed_day := maxi(0, int(gallery.get(
+		"completed_day",
+		gallery.get("review_day", 0),
+	)))
+	_confirmation.title = "HANG %s?" % campaign_label.to_upper()
+	_confirmation.dialog_text = (
+		"CAMPAIGN  /  %s\n"
+		+ "PUBLIC CREDIT  /  %s / %s\n"
+		+ "EVIDENCE  /  %s\n"
+		+ "FEED FUND  /  COST $%.2f / PAYOUT $%.2f / NET %s\n"
+		+ "PUBLIC STANDING  /  %s\n"
+		+ "RECORD  /  PERMANENT DAY %d GALLERY FILE\n\n"
+		+ "No fund, standing, credit, allowance, or save changes before confirmation. "
+		+ "This cannot be undone during this review."
+	) % [
+		campaign_label.to_upper(),
+		attribution_style.to_upper(),
+		worker_name.to_upper(),
+		evidence.to_upper(),
+		float(cost_cents) / 100.0,
+		float(payout_cents) / 100.0,
+		_signed_currency(fund_delta_cents),
+		_signed_integer(standing_delta),
+		completed_day,
+	]
+	_confirmation.popup_centered_clamped(Vector2i(380, 450), 0.96)
+
+
+func _confirm_campaign() -> void:
+	if not _pending_campaign_is_valid():
+		_cancel_confirmation(false)
+		return
+	var campaign_id := _pending_campaign_id
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	campaign_requested.emit(campaign_id)
+
+
+func _cancel_confirmation(restore_focus: bool = true) -> void:
+	var origin := _confirmation_origin
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not (origin is BaseButton and (origin as BaseButton).disabled)
+	):
+		origin.call_deferred("grab_focus")
+
+
+func _clear_pending_confirmation() -> void:
+	_pending_campaign_id = &""
+	_confirmation_origin = null
+
+
+func _pending_campaign_is_valid() -> bool:
+	if _pending_campaign_id == &"":
+		return false
+	var gallery := _gallery_snapshot()
+	var offer := _offers_by_id(gallery).get(
+		_pending_campaign_id,
+		{},
+	) as Dictionary
+	return (
+		not offer.is_empty()
+		and _authorization_reason(offer, gallery).is_empty()
+	)
 
 
 func _gallery_snapshot() -> Dictionary:

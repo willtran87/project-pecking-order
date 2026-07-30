@@ -32,6 +32,10 @@ const SECONDARY_PAGES: Array[StringName] = [
 	PAGE_GOVERNANCE_RECORDS,
 ]
 const MORE_FILES_SHOW_ALL_ID := 100
+## ScrollContainer lays its vertical bar over the right edge of its child
+## viewport. Filing pages reserve this reading gutter so wrapped ledger copy
+## never renders beneath the bar at larger interface scales.
+const FILING_SCROLLBAR_GUTTER := 18
 
 const PAGE_LABELS := {
 	PAGE_TODAY: "TODAY",
@@ -726,12 +730,20 @@ func _ensure_interface() -> void:
 		scroll.mouse_filter = Control.MOUSE_FILTER_STOP
 		scroll.visible = false
 		_page_deck.add_child(scroll)
+		var viewport_margin := MarginContainer.new()
+		viewport_margin.name = "Flockwatch%sViewportMargin" % _pascal_case(page_id)
+		viewport_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		viewport_margin.add_theme_constant_override(
+			"margin_right",
+			FILING_SCROLLBAR_GUTTER,
+		)
+		scroll.add_child(viewport_margin)
 		var content := VBoxContainer.new()
 		content.name = "Flockwatch%sPage" % _pascal_case(page_id)
 		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		content.add_theme_constant_override("separation", 8)
 		content.mouse_filter = Control.MOUSE_FILTER_PASS
-		scroll.add_child(content)
+		viewport_margin.add_child(content)
 		_page_scrolls[page_id] = scroll
 		_page_contents[page_id] = content
 

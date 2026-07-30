@@ -7,6 +7,10 @@ extends VBoxContainer
 ## simulation's `economic_briefing` projection. This component formats that
 ## authority and never mutates or independently recalculates the economy.
 
+signal economic_watch_requested(watch_id: StringName)
+signal economic_watch_open_requested(page_id: StringName)
+signal presentation_context_changed
+
 const FlockwatchDisclosureToggleScript := preload(
 	"res://features/office/flockwatch_disclosure_toggle.gd"
 )
@@ -26,6 +30,10 @@ var _costs: Label
 var _market: Label
 var _bottleneck: Label
 var _trend: Label
+var _watch: Label
+var _watch_selector: OptionButton
+var _watch_open_button: Button
+var _selected_watch: Dictionary = {}
 var _history: Label
 var _resources: Label
 var _strategies: Label
@@ -52,6 +60,16 @@ func presentation_snapshot() -> Dictionary:
 	return _briefing.duplicate(true)
 
 
+func set_details_expanded(expanded: bool) -> void:
+	_ensure_interface()
+	_details_toggle.set_expanded(expanded)
+
+
+func details_expanded() -> bool:
+	_ensure_interface()
+	return _details_toggle.is_expanded()
+
+
 func accessible_text() -> String:
 	if _briefing.is_empty():
 		return "Economic briefing unavailable."
@@ -62,6 +80,7 @@ func accessible_text() -> String:
 		_market.text,
 		_bottleneck.text,
 		_trend.text,
+		_watch.text,
 		_history.text,
 		_resources.text,
 		_strategies.text,
@@ -112,9 +131,40 @@ func _ensure_interface() -> void:
 	_trend.name = "EconomicBriefingTrend"
 	for label: Label in [_headline, _cash, _costs, _market, _bottleneck, _trend]:
 		summary_rows.add_child(label)
+	_watch = _label("MANAGEMENT WATCH / awaiting filed priority", 12, COLOR_TEAL)
+	_watch.name = "EconomicBriefingWatch"
+	summary_rows.add_child(_watch)
+	var watch_actions := VBoxContainer.new()
+	watch_actions.name = "EconomicBriefingWatchActions"
+	watch_actions.add_theme_constant_override("separation", 7)
+	summary_rows.add_child(watch_actions)
+	_watch_selector = OptionButton.new()
+	_watch_selector.name = "EconomicBriefingWatchSelector"
+	_watch_selector.custom_minimum_size = Vector2(178.0, 42.0)
+	_watch_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_watch_selector.focus_mode = Control.FOCUS_ALL
+	_watch_selector.fit_to_longest_item = false
+	_watch_selector.tooltip_text = (
+		"Pin one management concern here. Its current value, target, cause, and "
+		+ "next action will remain in the compact Capital summary."
+	)
+	_watch_selector.item_selected.connect(_on_watch_selected)
+	watch_actions.add_child(_watch_selector)
+	_watch_open_button = Button.new()
+	_watch_open_button.name = "EconomicBriefingWatchOpenButton"
+	_watch_open_button.text = "OPEN FILE"
+	_watch_open_button.custom_minimum_size = Vector2(100.0, 42.0)
+	_watch_open_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_watch_open_button.focus_mode = Control.FOCUS_ALL
+	_watch_open_button.tooltip_text = "Open the Flockwatch page that can change this watched condition."
+	_watch_open_button.pressed.connect(_on_watch_open_pressed)
+	watch_actions.add_child(_watch_open_button)
 
 	_details_toggle = FlockwatchDisclosureToggleScript.new()
 	_details_toggle.name = "EconomicBriefingDetailsToggle"
+	_details_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
 	add_child(_details_toggle)
 	_history = _label("CLOSE HISTORY / no filed shifts", 11, COLOR_MUTED)
 	_history.name = "EconomicBriefingHistory"
@@ -142,6 +192,11 @@ func _refresh() -> void:
 		_market.text = "MARKET / awaiting calendar"
 		_bottleneck.text = "BOTTLENECK / awaiting workflow"
 		_trend.text = "TREND / awaiting first close"
+		_watch.text = "MANAGEMENT WATCH / awaiting filed priority"
+		_watch_selector.clear()
+		_watch_selector.disabled = true
+		_watch_open_button.disabled = true
+		_selected_watch.clear()
 		_history.text = "CLOSE HISTORY / no filed shifts"
 		_resources.text = "RESOURCE MAP / awaiting projection"
 		_strategies.text = "STRATEGY FILE / awaiting projection"
@@ -162,8 +217,12 @@ func _refresh() -> void:
 
 	var cash := _briefing.get("cash", {}) as Dictionary
 	_cash.text = (
-		"CASH / FUND %s / RESERVED %s / FREE %s\n"
-		+ "RUN RATE / SECURED %s - FILED COST %s = %s / BREAK-EVEN LEFT %s"
+		"CASH / FUND %s / RESERVED %s\n"
+		+ "FREE / %s\n"
+		+ "RUN RATE / SECURED %s\n"
+		+ "FILED COST / %s\n"
+		+ "MARGIN / %s\n"
+		+ "BREAK-EVEN LEFT / %s"
 	) % [
 		_money(int(cash.get("feed_fund_cents", 0))),
 		_money(int(cash.get("protected_reserve_cents", 0))),
@@ -180,12 +239,15 @@ func _refresh() -> void:
 
 	var costs := _briefing.get("costs", {}) as Dictionary
 	_costs.text = (
-		"COSTS / FEED %s / HENS %s / ROOSTERS %s / PERCHES %s\n"
-		+ "FACILITIES %s / CAMPUS %s / PORTFOLIO %s"
+		"COSTS / FEED %s / HENS %s\n"
+		+ "PAYROLL / ROOSTERS %s / FELLOWS %s\n"
+		+ "OVERHEAD / PERCHES %s / FACILITIES %s\n"
+		+ "CAMPUS / %s / PORTFOLIO %s"
 	) % [
 		_money(int(costs.get("feed_cents", 0))),
 		_money(int(costs.get("hen_payroll_cents", 0))),
 		_money(int(costs.get("supervisor_payroll_cents", 0))),
+		_money(int(costs.get("fellow_payroll_cents", 0))),
 		_money(int(costs.get("expanded_perches_cents", 0))),
 		_money(int(costs.get("facility_maintenance_cents", 0))),
 		_money(int(costs.get("campus_services_cents", 0))),
@@ -195,6 +257,13 @@ func _refresh() -> void:
 	var market := _briefing.get("market", {}) as Dictionary
 	var current_market := market.get("current", {}) as Dictionary
 	var next_market := market.get("next", {}) as Dictionary
+	var market_cause := _wrap_ledger_value(
+		String(market.get(
+			"current_cause",
+			current_market.get("summary", "Farm Mutual's filed calendar sets demand."),
+		)),
+		30,
+	)
 	# Market demand is authored as a signed basis-point modifier to the binder,
 	# not as an absolute index. Subtracting 10,000 here previously presented a
 	# real +20% Spring opportunity as -80%.
@@ -206,18 +275,17 @@ func _refresh() -> void:
 		"MARKET / %s / %d DAY%s LEFT\n"
 		+ "FORECAST / %s\n"
 		+ "CAUSE / %s\n"
-		+ "NOW / %s %s / FEED %s PER SCOOP\n"
+		+ "NOW / %s %s\n"
+		+ "FEED / %s PER SCOOP\n"
 		+ "NEXT DAY %d / %s\n"
-		+ "LEAD / %s %s / FEED %s"
+		+ "LEAD / %s %s\n"
+		+ "FEED / %s"
 	) % [
 		String(current_market.get("short_label", "BASELINE BOOK")),
 		int(market.get("current_days_remaining", 0)),
 		"" if int(market.get("current_days_remaining", 0)) == 1 else "S",
 		String(market.get("forecast_certainty", "FILED CALENDAR")),
-		String(market.get(
-			"current_cause",
-			current_market.get("summary", "Farm Mutual's filed calendar sets demand."),
-		)),
+		market_cause,
 		String(market.get("opportunity_lane_label", "CLAIMS")).to_upper(),
 		_signed_percent(demand_delta),
 		_money(int(market.get("feed_spot_unit_price_cents", 0))),
@@ -262,6 +330,7 @@ func _refresh() -> void:
 		_signed_money(int(trend.get("average_margin_cents", 0))),
 		_signed_money(int(trend.get("margin_change_cents", 0))),
 	]
+	_refresh_management_watch()
 	_refresh_history()
 	_refresh_resources()
 	_refresh_strategies()
@@ -270,6 +339,90 @@ func _refresh() -> void:
 		bottlenecks.size(),
 		(_briefing.get("recovery_actions", []) as Array).size(),
 	])
+
+
+func _refresh_management_watch() -> void:
+	var watch_projection := _briefing.get("management_watch", {}) as Dictionary
+	var catalog := watch_projection.get("catalog", []) as Array
+	var selected_id := StringName(watch_projection.get("selected_id", &"auto"))
+	var selected_value: Variant = watch_projection.get("selected", {})
+	_selected_watch = (
+		(selected_value as Dictionary).duplicate(true)
+		if selected_value is Dictionary else
+		{}
+	)
+	_watch_selector.clear()
+	var selected_index := 0
+	for row_value: Variant in catalog:
+		if not row_value is Dictionary:
+			continue
+		var row := row_value as Dictionary
+		var watch_id := StringName(row.get("id", &""))
+		_watch_selector.add_item(String(row.get("label", watch_id)).to_upper())
+		var item_index := _watch_selector.item_count - 1
+		_watch_selector.set_item_metadata(item_index, String(watch_id))
+		if watch_id == selected_id:
+			selected_index = item_index
+	if _selected_watch.is_empty() and not catalog.is_empty() and catalog[0] is Dictionary:
+		_selected_watch = (catalog[0] as Dictionary).duplicate(true)
+	_watch_selector.disabled = _watch_selector.item_count <= 0
+	if not _watch_selector.disabled:
+		_watch_selector.select(selected_index)
+	var status_id := StringName(_selected_watch.get("status_id", &"clear"))
+	_watch.text = (
+		"MANAGEMENT WATCH / %s / %s\n"
+		+ "NOW %s / TARGET %s\n"
+		+ "WHY / %s\n"
+		+ "ACT / %s"
+	) % [
+		String(_selected_watch.get("label", "PRIMARY CONSTRAINT")).to_upper(),
+		String(_selected_watch.get("status_label", "FILED")).to_upper(),
+		String(_selected_watch.get("current_label", "AWAITING VALUE")),
+		String(_selected_watch.get("target_label", "AWAITING TARGET")),
+		String(_selected_watch.get("why", "No causal filing is available.")),
+		String(_selected_watch.get("action", "Review the current operating file.")),
+	]
+	_watch.add_theme_color_override(
+		"font_color",
+		COLOR_WARNING if status_id in [&"attention", &"building"] else COLOR_TEAL,
+	)
+	var destination := StringName(_selected_watch.get("page_id", &""))
+	_watch_open_button.disabled = destination == &""
+	_watch_open_button.text = (
+		"OPEN %s" % _page_short_label(destination)
+		if destination != &"" else
+		"NO FILE"
+	)
+	_watch_open_button.set_meta(&"page_id", destination)
+
+
+func _on_watch_selected(index: int) -> void:
+	if index < 0 or index >= _watch_selector.item_count:
+		return
+	var watch_id := StringName(String(_watch_selector.get_item_metadata(index)))
+	if watch_id == &"":
+		return
+	economic_watch_requested.emit(watch_id)
+
+
+func _on_watch_open_pressed() -> void:
+	var page_id := StringName(_watch_open_button.get_meta(&"page_id", &""))
+	if page_id != &"":
+		economic_watch_open_requested.emit(page_id)
+
+
+func _page_short_label(page_id: StringName) -> String:
+	match page_id:
+		&"operations":
+			return "OPS"
+		&"governance_records":
+			return "RECORDS"
+		&"capital":
+			return "CAPITAL"
+		&"flock":
+			return "FLOCK"
+		_:
+			return "TODAY"
 
 
 func _refresh_history() -> void:
@@ -346,6 +499,22 @@ func _label(copy: String, size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
 	return label
+
+
+func _wrap_ledger_value(copy: String, maximum_characters: int) -> String:
+	var words := copy.strip_edges().split(" ", false)
+	var lines: Array[String] = []
+	var current := ""
+	for word_value: String in words:
+		var candidate := word_value if current.is_empty() else "%s %s" % [current, word_value]
+		if current.is_empty() or candidate.length() <= maximum_characters:
+			current = candidate
+			continue
+		lines.append(current)
+		current = word_value
+	if not current.is_empty():
+		lines.append(current)
+	return "\n        ".join(lines)
 
 
 func _panel_style(background: Color, border: Color) -> StyleBoxFlat:

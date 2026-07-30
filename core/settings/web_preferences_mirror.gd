@@ -81,6 +81,12 @@ func decode(payload: String) -> Dictionary:
 		var current_error := PlayerPreferencesStoreScript.validate(root)
 		if current_error.is_empty():
 			preferences = root.duplicate(true)
+		elif _matches_legacy_schema(root, 8):
+			preferences = _migrate_legacy_preferences(root, 8)
+		elif _matches_legacy_schema(root, 7):
+			preferences = _migrate_legacy_preferences(root, 7)
+		elif _matches_legacy_schema(root, 6):
+			preferences = _migrate_legacy_preferences(root, 6)
 		elif _matches_legacy_schema(root, 5):
 			preferences = _migrate_legacy_preferences(root, 5)
 		elif _matches_legacy_schema(root, 4):
@@ -130,6 +136,21 @@ func _migrate_legacy_preferences(source: Dictionary, from_version: int) -> Dicti
 		migrated["animation_speed"] = "standard"
 		migrated["tooltip_delay"] = "standard"
 		version = 6
+	if version == 6:
+		var audio := (migrated.get("audio", {}) as Dictionary).duplicate(true)
+		var ui := (audio.get("ui", {}) as Dictionary).duplicate(true)
+		audio["alerts"] = ui.duplicate(true)
+		audio["voice"] = ui.duplicate(true)
+		migrated["audio"] = audio
+		version = 7
+	if version == 7:
+		migrated["particle_level"] = String(migrated.get("effect_level", "full"))
+		migrated["camera_motion"] = "full"
+		migrated["camera_sensitivity"] = "standard"
+		version = 8
+	if version == 8:
+		migrated["settings_category"] = "comfort"
+		version = 9
 	if version != PlayerPreferencesStoreScript.CURRENT_SCHEMA_VERSION:
 		return {}
 	return migrated if PlayerPreferencesStoreScript.validate(migrated).is_empty() else {}
@@ -150,12 +171,18 @@ func _matches_legacy_schema(preferences: Dictionary, version: int) -> bool:
 		expected.append_array(["notice_duration", "effect_level", "haptics_enabled"])
 	if version >= 6:
 		expected.append_array(["animation_speed", "tooltip_delay"])
+	if version >= 8:
+		expected.append_array(["particle_level", "camera_motion", "camera_sensitivity"])
+	if version >= 9:
+		expected.append("settings_category")
 	if not _has_exact_keys(preferences, expected):
 		return false
 	var audio_value: Variant = preferences.get("audio", null)
 	var audio_keys := ["master", "sfx", "ui", "music"]
 	if version >= 3:
 		audio_keys.append("ambient")
+	if version >= 7:
+		audio_keys.append_array(["alerts", "voice"])
 	return (
 		audio_value is Dictionary
 		and _has_exact_keys(audio_value as Dictionary, audio_keys)

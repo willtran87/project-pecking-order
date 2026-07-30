@@ -974,8 +974,8 @@ test("distinguishes the selected new-file standard from the saved resume standar
 			minimum_score: 65,
 			minimum_welfare: 48,
 			minimum_compliance: 65,
-			minimum_farmer_favor: 53,
-			maximum_crack_rate_basis_points: 2_300,
+			minimum_farmer_favor: 52,
+			maximum_crack_rate_basis_points: 2_450,
 		},
 	});
 	const savedChallenge = probationChallengeContract();
@@ -989,8 +989,8 @@ test("distinguishes the selected new-file standard from the saved resume standar
 		resume_senior_roost: false,
 	}), context);
 	assert.match(title, /^Campaign menu open\. New file selection: Executive Audit\./);
-	assert.match(title, /score 65, welfare 48, compliance 65, farmer favor 53/);
-	assert.match(title, /shell cracks at or below 23\.00 percent/);
+	assert.match(title, /score 65, welfare 48, compliance 65, farmer favor 52/);
+	assert.match(title, /shell cracks at or below 24\.50 percent/);
 	assert.match(title, /Route guidance: Harvest Partnership has a proven specialist route\./);
 	assert.match(title, /Care-led files need extra score/);
 	assert.match(title, /saved-file candidate remains unchanged until replacement is confirmed\./);
@@ -1004,10 +1004,28 @@ test("distinguishes the selected new-file standard from the saved resume standar
 		resume_available: true,
 		resume_challenge_contract: savedChallenge,
 		resume_senior_roost: false,
+		resume_return_recap: {
+			last_filed_label: "<strong>SHIFT 2 CLOSED</strong>",
+			status_id: "attention",
+			status_label: "WORKFLOW DEBT",
+			status_reason: "Two overdue and one rework file are consuming future production.<script>globalThis.compromised = true</script>",
+			next_action: "Route matching specialties before adding another binder.<img src=x onerror='globalThis.compromised = true'>",
+		},
+		resume_offline_recap: {
+			status_label: "<strong>ECONOMY PAUSED</strong>",
+			elapsed_label: "2 HOURS 14 MINUTES SINCE LAST FILE<script>globalThis.compromised = true</script>",
+			detail: "No files advanced, eggs were laid, costs posted, or Feed Fund changed while closed.<img src=x onerror='globalThis.compromised = true'>",
+		},
 	}), context);
 	assert.doesNotMatch(resumeLanding, /New file selection|Executive Audit|choose a filing standard/);
 	assert.match(resumeLanding, /resumable file candidate is available under Standard Filing; Continue will verify and open it\./);
+	assert.match(resumeLanding, /Last filed: Shift 2 Closed\./);
+	assert.match(resumeLanding, /Unresolved: Workflow Debt, Two overdue and one rework file are consuming future production\./);
+	assert.match(resumeLanding, /Next: Route matching specialties before adding another binder\./);
+	assert.match(resumeLanding, /Offline: Economy Paused, 2 HOURS 14 MINUTES SINCE LAST FILE\./);
+	assert.match(resumeLanding, /No files advanced, eggs were laid, costs posted, or Feed Fund changed while closed\./);
 	assert.match(resumeLanding, /Objective: continue the saved-file candidate, or review a new file\./);
+	assert.doesNotMatch(resumeLanding, /<|>|script|onerror|globalThis|compromised/);
 
 	const unverifiedResume = buildStatus(JSON.stringify({
 		campaign_stage: "title",

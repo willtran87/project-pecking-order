@@ -1,6 +1,7 @@
 extends SceneTree
 
 const ContractBoardUIScript := preload("res://features/office/farm_mutual_contract_board_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -24,8 +25,16 @@ func _run() -> void:
 		"continue_requests": 0,
 	}
 	ui.contract_selected.connect(func(offer_id: StringName) -> void: selected.append(offer_id))
-	ui.contract_sign_requested.connect(func(offer_id: StringName, clause_id: StringName) -> void:
-		sign_requests.append({"offer_id": offer_id, "clause_id": clause_id})
+	ui.contract_sign_requested.connect(func(
+		offer_id: StringName,
+		clause_id: StringName,
+		pricing_id: StringName,
+	) -> void:
+		sign_requests.append({
+			"offer_id": offer_id,
+			"clause_id": clause_id,
+			"pricing_id": pricing_id,
+		})
 	)
 	ui.decline_requested.connect(func() -> void: observed["decline_requests"] += 1)
 	ui.continue_requested.connect(func() -> void: observed["continue_requests"] += 1)
@@ -159,7 +168,11 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	_check(
-		sign_requests == [{"offer_id": &"predator_watch_pool", "clause_id": &"standard_terms"}],
+		sign_requests == [{
+			"offer_id": &"predator_watch_pool",
+			"clause_id": &"standard_terms",
+			"pricing_id": &"mutual_rate",
+		}],
 		"Enter should emit exactly one authoritative offer-and-clause sign intent",
 		failures,
 	)
@@ -341,6 +354,54 @@ func _run() -> void:
 			_check(panel != null and panel.custom_minimum_size.x <= viewport_size.x - 52.0 + 0.5, "portrait panel should preserve the scrollbar gutter", failures)
 			_check(scroll != null and scroll.get_v_scroll_bar().max_value > scroll.size.y, "portrait board should expose vertical scrolling for complete terms", failures)
 
+	ui.apply_snapshot(_planning_snapshot())
+	await process_frame
+	_press_key(KEY_2)
+	await process_frame
+	_press_key(KEY_N)
+	await process_frame
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	harness.size = Vector2(390.0, 844.0)
+	await process_frame
+	await process_frame
+	var portrait_bounds := Rect2(Vector2.ZERO, harness.size)
+	_check(
+		_visible_children_fit(ui, portrait_bounds),
+		"150-percent expanded-copy Contract Board should remain inside 390x844 (%s; largest=%s)"
+		% [
+			_first_horizontal_overflow(ui, portrait_bounds),
+			_largest_minimum_widths(ui),
+		],
+		failures,
+	)
+	_check(
+		scroll != null
+		and scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED
+		and scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO,
+		"150-percent Contract Board should remain vertical-scroll-only",
+		failures,
+	)
+	_check(
+		action_rail != null and action_rail.get_global_rect().end.y <= harness.size.y + 0.5,
+		"150-percent Contract Board fixed action rail should remain physically reachable (rect=%s)"
+		% (action_rail.get_global_rect() if action_rail != null else Rect2()),
+		failures,
+	)
+	_check(
+		sign_button != null and sign_button.is_visible_in_tree()
+		and sign_button.get_global_rect().position.x >= -0.5
+		and sign_button.get_global_rect().end.x <= harness.size.x + 0.5,
+		"150-percent Contract Board Sign action should remain inside the viewport",
+		failures,
+	)
+	_check(
+		negotiation_drawer != null and negotiation_drawer.is_visible_in_tree(),
+		"maximum-scale fixture should retain the open negotiation drawer",
+		failures,
+	)
+
 	ui.free()
 	await process_frame
 	if not failures.is_empty():
@@ -348,7 +409,7 @@ func _run() -> void:
 			push_error("FARM_MUTUAL_CONTRACT_BOARD_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FARM_MUTUAL_CONTRACT_BOARD_UI_TEST_PASSED folders=3 season=compact clauses=N+Space+R terms=effective sign=offer+clause receipt=continue-gate legacy=standard responsive=2560+1440+390")
+	print("FARM_MUTUAL_CONTRACT_BOARD_UI_TEST_PASSED folders=3 season=compact clauses=N+Space+R terms=effective sign=offer+clause receipt=continue-gate legacy=standard responsive=2560+1440+390 resilience=390x844+150-percent+expanded-copy")
 	quit(0)
 
 
@@ -742,6 +803,80 @@ func _signed_predator_contract(bronze: bool = false) -> Dictionary:
 		"target_day": 3,
 	}, true)
 	return contract
+
+
+func _visible_children_fit(root_control: Control, bounds: Rect2) -> bool:
+	return _first_horizontal_overflow(root_control, bounds) == "none"
+
+
+func _first_horizontal_overflow(root_control: Control, bounds: Rect2) -> String:
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var rect := control.get_global_rect()
+		if rect.position.x < bounds.position.x - 1.0 or rect.end.x > bounds.end.x + 1.0:
+			return "%s=%s bounds=%s" % [control.name, rect, bounds]
+	return "none"
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	var rows: Array[Dictionary] = []
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		rows.append({
+			"name": String(control.name),
+			"minimum": control.get_combined_minimum_size().x,
+			"width": control.size.x,
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return float(left.get("minimum", 0.0)) > float(right.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(24, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override(
+			"font_size",
+			maxi(10, roundi(float(base_size) * scale)),
+		)
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _press_key(keycode: Key) -> void:

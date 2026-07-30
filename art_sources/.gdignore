@@ -1,0 +1,3 @@
+# High-resolution generation references and production provenance live here.
+# Runtime cutouts are copied into res://assets/npcs; source sheets must never be
+# imported into or shipped with the playable Godot package.

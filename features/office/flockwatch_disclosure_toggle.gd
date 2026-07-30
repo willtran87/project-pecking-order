@@ -21,6 +21,8 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	custom_minimum_size.y = maxf(custom_minimum_size.y, 34.0)
+	clip_text = true
+	text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	if not toggled.is_connected(_on_toggled):
 		toggled.connect(_on_toggled)
 	_apply_state(false)

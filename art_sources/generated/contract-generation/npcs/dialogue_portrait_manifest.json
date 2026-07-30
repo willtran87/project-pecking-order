@@ -1,0 +1,63 @@
+{
+  "packageStatus": "source-reference-pass",
+  "generator": "OpenAI built-in image generation",
+  "visualLock": "Mabel approved by the user on 2026-07-29",
+  "contract": {
+    "use": "large dialogue cutout only",
+    "style": "high-resolution hand-pixeled isometric management-game portrait",
+    "silhouette": "cozy, cute, puffy, anatomically connected chicken",
+    "view": "three-quarter office portrait",
+    "background": "transparent at runtime",
+    "filtering": "nearest-neighbor",
+    "runtimeSourceSize": [1024, 1024],
+    "runtimeImportMaxSize": [512, 512],
+    "animationFrames": false
+  },
+  "characters": [
+    {
+      "id": "mabel",
+      "expression": "anxious but hopeful",
+      "identity": "bright-eyed Appeals hen; cream feathers, red comb, narrow blue tie, employee badge",
+      "runtime": "res://assets/npcs/mabel/portraits/mabel_portrait_anxious.png",
+      "source": "res://art_sources/generated/contract-generation/npcs/mabel/source_sheets/mabel_portrait_reference-alpha-v1.png",
+      "sha256": "8fe1469822457f4edc684c9276ce34d7e53f02d944d24bab511d85b831052bd3"
+    },
+    {
+      "id": "pip",
+      "expression": "skeptical and composed",
+      "identity": "quiet Nest Damage professional; white-and-brown feathers, round spectacles, green tie, tidy claims folder",
+      "runtime": "res://assets/npcs/pip/portraits/pip_portrait_skeptical.png",
+      "source": "res://art_sources/generated/contract-generation/npcs/pip/source_sheets/pip_portrait_reference-alpha-v1.png",
+      "sha256": "42e410c301110594eb2c4ed49c9259c4e6e193d1cb660c4d567f208eb11d4673"
+    },
+    {
+      "id": "henrietta",
+      "expression": "warm, tired, quietly anxious",
+      "identity": "cozy Predator Loss nester; russet feathers, knitted teal cardigan, soft collar and badge",
+      "runtime": "res://assets/npcs/henrietta/portraits/henrietta_portrait_anxious.png",
+      "source": "res://art_sources/generated/contract-generation/npcs/henrietta/source_sheets/henrietta_portrait_reference-alpha-v1.png",
+      "sha256": "0fbe74c181e1fc552858b621361675dbcaa1984ae6fb1dec0176adb674e92ea9"
+    },
+    {
+      "id": "dot",
+      "expression": "knowing, sociable, guarded",
+      "identity": "perch-side Nest Damage networker; dark speckled feathers, red bow tie, gold glasses, office mug",
+      "runtime": "res://assets/npcs/dot/portraits/dot_portrait_knowing.png",
+      "source": "res://art_sources/generated/contract-generation/npcs/dot/source_sheets/dot_portrait_reference-alpha-v1.png",
+      "sha256": "38ee5c75126fdb3b12613522c476ec36560051240a2da9e345946369b3b33836"
+    },
+    {
+      "id": "cornelius-claimwell",
+      "expression": "weary managerial composure",
+      "identity": "Credit Manager rooster; attached red comb, charcoal vest and tie, clipboard, cold blue office light",
+      "runtime": "res://assets/npcs/cornelius-claimwell/portraits/cornelius-claimwell_portrait_weary.png",
+      "source": "res://art_sources/generated/contract-generation/npcs/cornelius-claimwell/source_sheets/cornelius-claimwell_portrait_reference-alpha-v1.png",
+      "sha256": "adc03554f94e5ab8b24677a67ef0e6ae2f40f633f22d2845aa445d4f8ee485f7"
+    }
+  ],
+  "knownGaps": [
+    "Portraits are source-reference-pass, not complete production character packages.",
+    "No walk, sit, peck, hit, or other gameplay animation frames are represented.",
+    "A future paint-cleanup pass should remove incidental generated lettering from source props before those props are ever used at full resolution."
+  ]
+}

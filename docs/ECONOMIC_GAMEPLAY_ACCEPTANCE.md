@@ -23,6 +23,9 @@ accept.
    by negotiated insurance binders.
 3. **Interconnected systems — shipped.** Staffing changes payroll, feed demand,
    capacity, throughput, welfare, Treasury exposure, and future contract access.
+   Temporary intern assignments exchange supervised capacity, pace, shell risk,
+   or morale relief; converting one to a paid fellowship immediately adds junior
+   payroll to operating cost and protected reserves.
 4. **Distinct resources — shipped.** Feed Fund, protected reserve, Treasury
    headroom, feed stock, Farm Mutual standing, live-file capacity, welfare,
    compliance, favor, and exposure have different sources and gates.
@@ -32,7 +35,9 @@ accept.
    bounded capacity prevent permanently useless resources or hard scarcity.
 7. **Short/long tradeoffs — shipped.** Overtime, denial, surveillance, bulk feed,
    care, training, hiring, credit, contracts, and construction exchange immediate
-   output for later liabilities or resilience.
+   output for later liabilities or resilience. The Bright-Eyed Rotation adds a
+   labor choice between a temporary extension, an unpaid exit with
+   recommendation, and a permanent paid junior post.
 8. **Different strategies — shipped.** Throughput, quality, welfare, contract,
    and capacity routes are documented in Capital with lever, upside, and risk.
 9. **No universal dominant strategy — verified.** Deterministic campaign balance
@@ -68,9 +73,10 @@ accept.
     work from turning into quantity-click maintenance.
 19. **Emergent economic stories — implemented; human memorability pending.**
     Seeded claims, flock temperament, incidents, market timing, labor state,
-    contracts, facilities, and persistent career consequences combine across
-    runs. Whether those stories are memorable is measured only by moderated
-    playtesting.
+    contracts, facilities, persistent career consequences, and state-driven
+    return dialogue combine across runs. The verified saved bottleneck selects a
+    matching cast voice instead of replaying old state transitions. Whether
+    those stories are memorable is measured only by moderated playtesting.
 
 ## Player Experience, Fun, and Engagement
 
@@ -113,7 +119,12 @@ accept.
     and optional Senior Books remain discoverable ambitions.
 13. **Stopping and re-entry — shipped.** Shift reviews, annual reviews,
     checkpoint summaries, Continue preview, pause-on-focus-loss, and portable
-    backup create natural exits and restore the unresolved context.
+    backup create natural exits and restore the unresolved context. Continue
+    follows the exact saved bottleneck with one non-blocking cast reaction, so
+    the player returns to both the operating problem and its human consequence.
+    The career also restores the saved Flockwatch page and filing scope plus the
+    Capital Blueprint filter and selected parcel; unavailable future IDs fall
+    back to reachable defaults without changing the economy.
 14. **No obligation/FOMO — verified.** No real-time rotations, offline accrual,
     streak penalties, paid boosts, or daily chores exist.
 
@@ -210,7 +221,8 @@ accept.
 ## Costs, Revenue, and Profitability
 
 1. **Financial categories — shipped.** Secured income, variable feed, hen and
-   supervisor payroll, fixed facility/campus/portfolio costs, investment,
+   supervisor payroll, paid-fellow payroll, fixed facility/campus/portfolio
+   costs, investment,
    protected reserves, principal, interest, arrears, and margin are distinct.
    Taxes are scoped out because they do not serve the five-shift satire.
 2. **Transparent profit — shipped.** Economic Briefing shows secured income minus
@@ -220,15 +232,21 @@ accept.
 4. **Comparison — shipped where relevant.** Contract terms, supplier lots,
    facilities, staffing, strategies, and departments expose current/next deltas.
    Region comparison is scoped out.
-5. **Pricing effects — adapted and shipped.** The bureau accepts/negotiates
-   binder and rider terms that alter volume, standing, reserve, welfare gates,
-   deadlines, and margin. Arbitrary retail price sliders are scoped out.
+5. **Pricing effects — shipped as authored rate postures.** Every binder now
+   supports Mutual Rate, Community Access, and Executive Select. The choice
+   changes exact premium, referred-file volume, delivery threshold, estimated
+   handling margin, claimant-satisfaction outcomes, and market-reach outcomes.
+   Reach earned through settled binders unlocks Executive Select, so share
+   creates a future opportunity rather than a decorative meter. Exact terms are
+   frozen at signature and outcome counters are checkpoint-validated.
 6. **Diminishing returns — shipped.** Facility tiers, standing gates, finite
    management actions, storage, workload, and recurring costs bound scaling.
 7. **Efficiency retains constraints — shipped.** Automation and upgrades never
    create files, bypass seated work, erase payroll/feed, or avoid grading.
 8. **Plannable investments — shipped.** Previews show capital, added daily cost,
-   capacity/effect, prerequisites, and protected-fund result.
+   capacity/effect, prerequisites, and protected-fund result. Internship and
+   fellowship filings use free Feed Fund after current obligations; fellowship
+   review discloses its $8 filing and $2/day payroll before commitment.
 9. **Financial risks — shipped.** Maintenance, spoilage, interest, seasonal
    pricing, wage arrears, breach reserves, and overexpansion.
 10. **Recovery without immunity — shipped.** Standard book, Treasury bridge,
@@ -279,9 +297,12 @@ accept.
    deterministic receipts reconcile every cent.
 8. **Fair scaling — shipped where relevant.** Market and operating complexity
    advance on authored days with disclosed requirements; competitors are N/A.
-9. **Adjustable difficulty — shipped.** Challenge contracts alter targets,
-   welfare/compliance/favor pressure, shell conditions, and recovery context;
-   starting-resource or competitor sliders are outside the authored campaign.
+9. **Adjustable difficulty — shipped.** Intake discloses and locks three real
+   opening economies before a file begins. Learning starts with $65.00, quota
+   14, and six live files; Standard starts with $50.00, quota 16, and six; Expert
+   starts with $48.00, quota 18, and an eight-file audit surge. Each also retains
+   distinct final score, welfare, compliance, favor, and shell-loss terms.
+   Generic competitor sliders remain outside the authored campaign.
 
 ## Information and Decision Support
 
@@ -307,6 +328,51 @@ accept.
 10. **Advanced detail optional — shipped.** Today/Flock are primary; Capital,
     Ops, Records, dossiers, and disclosures provide deeper statistics.
 
+11. **Actionable information first — shipped.** The compact Capital summary
+    prioritizes one exact bottleneck and one player-selected Management Watch;
+    resource definitions, history, strategy commentary, and recovery detail stay
+    behind the existing disclosure.
+12. **Progressive disclosure — shipped.** Current value, target, cause, and next
+    action remain in the summary while multi-row history and reference material
+    are optional.
+13. **Cause and effect — shipped.** The watched filing publishes `NOW`, `TARGET`,
+    `WHY`, and `ACT` from authoritative state. Transaction and settlement
+    receipts preserve the resulting change.
+14. **Observed/forecast/assumption distinction — shipped.** Secured margin excludes
+    unearned eggs and premiums; market cards distinguish the guaranteed authored
+    calendar from seeded claim-mix uncertainty.
+15. **Actionable drill-down — shipped.** Each Management Watch opens the existing
+    Today, Flock, Ops, Capital, or Records page capable of changing that
+    condition rather than creating another dashboard.
+16. **Pin/watch support — shipped.** AUTO follows the highest filed constraint,
+    while Margin, Feed, Capacity, Welfare, and Mutual Reach may be explicitly
+    pinned. The selection is checkpointed, defaults safely for legacy saves, and
+    is validated against smuggled IDs.
+17. **Notification grouping — shipped.** Transient notices are priority-filtered
+    and deduplicated while the bounded Shift Record preserves the full semantic
+    history.
+18. **Actionable alerts — shipped.** Management Watch and primary bottleneck
+    actions link to the relevant existing operating file and retain the reason
+    beside the action.
+19. **Return recap — shipped and verified.** The saved-file title restores the
+    candidate simulation on an isolated read-only model and shows the exact last
+    filed action, highest unresolved economic condition with its factual cause,
+    one recovery action, and a compact saved-file age with an explicit
+    `ECONOMY PAUSED` offline policy. The same recap, including the full
+    no-production/no-cost explanation, is narrated to assistive technology.
+    Verified Continue then translates that same highest bottleneck through
+    Mabel, Pip, Henrietta, Dot, or Cornelius without inventing another ledger.
+    Semantically corrupt candidates suppress the recap without activation,
+    mutation, or replacement; Continue still performs the full independent
+    verification before opening the career.
+20. **Chart consistency — adapted.** The five-close view is deliberately
+    text-first at the minimum supported width; it uses one fixed five-close
+    window and consistent money notation rather than an unreadable miniature
+    chart.
+21. **Distinct interaction states — verified.** Focus, selected, disabled,
+    warning, success, and error semantics use redundant copy and tested theme
+    states rather than color alone.
+
 ## Controls and Interface
 
 1. **Fast actions — shipped.** Contextual controls and persistent Flockwatch pages
@@ -324,14 +390,20 @@ accept.
    is paired with words, values, and icons rather than color alone.
 7. **Self-explaining buttons — shipped.** Cost, effect, held/ready state,
    prerequisite, and reason remain visible.
-8. **Preserved choices — shipped where applicable.** Page/disclosure/filter state
-   survives refreshes within the management session; durable preferences,
-   controls, audio, accessibility, difficulty, and campaign state are saved.
+8. **Preserved choices — shipped.** Flockwatch page and filing scope, Blueprint
+   filter and selected parcel, inspected Farmgate mandate, and ten stable
+   desk/disclosure choices survive a verified campaign save/Continue round trip.
+   Preferences, controls, audio, accessibility, difficulty, and authoritative
+   campaign state are also durable. New careers reset presentation context;
+   version-one saves migrate safely, unknown IDs choose reachable defaults, and
+   malformed context cannot partially activate a save.
 9. **Resolution/input coverage — verified.** Desktop, portrait, landscape,
    keyboard, mouse, controller, and touch contracts have automated coverage.
-10. **Configuration — shipped.** Remapping, independent audio, presentation
+10. **Configuration — shipped.** Four shallow, persisted Settings categories
+    separate Audio Mix, Comfort & Display, Controls, and Career Backup instead
+    of exposing one long mixed form. Remapping, independent audio, presentation
     modes, text scale, simulation speed, reduced motion, color vision, and
-    challenge contract.
+    challenge contract remain available.
 
 ## Feedback and Presentation
 
@@ -353,6 +425,25 @@ accept.
    Service Coop, campus, and portfolio parcels appear physically.
 9. **Style consistency — shipped.** Modeled props, farm-insurance vocabulary,
    palette, currencies, cards, signs, and interface theme share one system.
+10. **Causal cast reactions — shipped.** The approved Mabel, Pip, Henrietta,
+    Dot, and Cornelius cutouts translate authoritative choices and outcomes into
+    one short human consequence: pricing posture, binder fulfillment or breach,
+    feed procurement, capital construction, overtime, strain, wage arrears,
+    shell loss, production, and management density. The exact filing remains in
+    Flockwatch, so satire replaces neither the ledger nor the player's ability
+    to inspect the cause.
+11. **Bounded layered feedback — shipped.** Character beats are deduplicated by
+    stable event ID, limited to a four-entry queue, automatically file away, and
+    suspend behind management decisions or Flockwatch. Routine receipts remain
+    subtle while one cast reaction carries the emotional consequence without
+    obscuring the next economic action.
+12. **Accessible effect alternative — shipped.** Every visible cutout has a
+    matching speaker, channel, role, and quote in the accessibility projection;
+    transparent artwork and entrance motion may be absent without losing the
+    event's meaning. Reduced motion removes the reveal tween. The approved
+    portrait, identity, complete thought, filing note, and File Away action also
+    remain connected and reachable at 390x844, 150% interface scale, and
+    moderately expanded copy.
 
 ## Onboarding and Learning
 
@@ -379,8 +470,9 @@ accept.
 
 1. **Goal layers — shipped.** Shift orders, campaign objectives, optional
    challenges, achievements/commendations, standing, facilities, and ending.
-2. **Scenarios — shipped at authored scale.** Challenge contracts and deterministic
-   strategy/balance profiles vary constraints and success conditions. Multiple
+2. **Scenarios — shipped at authored scale.** Challenge contracts vary starting
+   funds, opening quota, live workload, recovery pressure, and success conditions;
+   deterministic strategy/balance profiles verify the resulting routes. Multiple
    industries/maps are scoped out.
 3. **Decision events — shipped.** Incidents, petitions, claimants, contracts,
    precedents, restructuring, and Board Book choices have tradeoffs and receipts.
@@ -390,9 +482,10 @@ accept.
    and recovery profiles.
 6. **Achievements — shipped.** Commendations, Gallery credit, career milestones,
    clean-binder streaks, contract tiers, and challenge outcomes reward varied play.
-7. **Meaningfully different runs — shipped at authored scale.** Seeds, claim
-   composition, challenge contract, policies, incidents, routing, staff careers,
-   market timing, and build order vary runs. Global maps/tech competitors are N/A.
+7. **Meaningfully different runs — shipped at authored scale.** Seeds, opening
+   economy, claim composition, challenge contract, policies, incidents, routing,
+   staff careers, market timing, and build order vary runs. Global maps/tech
+   competitors are N/A.
 8. **Modes — shipped where appropriate.** Authored campaign, challenge contracts,
    retriable recovery, and optional recurring Senior file; an unbounded sandbox
    would dilute the ending.
@@ -419,11 +512,14 @@ accept.
    validators reject invalid ranges.
 8. **Rounding/overflow/display — verified.** Half-up integer helpers, conservation
    receipts, strict saves, and display tests.
-9. **Offline progress — scoped out.** The economy advances only while played, so
-   system clocks cannot create idle income.
-10. **Caps/diminishing/offline explanation — shipped.** Capacity, order limits,
-    facility tiers, action limits, storage, and standing gates are disclosed;
-    offline earnings do not exist.
+9. **Offline progress — intentionally paused and disclosed.** The economy advances
+   only while played. Return intake shows the bounded age of the last filed
+   checkpoint and explicitly confirms that no files, eggs, costs, or Feed Fund
+   changed while closed.
+10. **Caps/diminishing/offline explanation — shipped and verified.** Capacity,
+    order limits, facility tiers, action limits, storage, and standing gates are
+    disclosed. Offline earnings do not exist; the visual recap uses a compact
+    duration while assistive narration preserves the full policy.
 
 ## Saving and Reliability
 
@@ -435,8 +531,10 @@ accept.
    schemas, validation, atomic restore, conservation receipts, and tamper tests.
 4. **Backup/recovery — shipped.** Browser portable export/import and retriable
    campaign recovery.
-5. **Offline timestamp protection — N/A.** No offline progress or clock-derived
-   economy exists.
+5. **Offline timestamp protection — verified.** The store timestamp is
+   disclosure-only and cannot enter production or finance. Backward clocks,
+   missing legacy timestamps, and ages beyond 30 days produce bounded labels
+   without changing authoritative economic state.
 6. **Transfer/cloud — shipped where supported.** Portable backup is safe and
    explained; managed cloud sync is not part of this static single-player build.
 7. **No silent loss — shipped.** Failed imports/restores reject atomically and
@@ -448,15 +546,42 @@ accept.
    and semantic narration accompany color.
 2. **Color-vision indicators — shipped.** Configurable color-vision modes plus
    textual gain/loss/risk/opportunity states.
-3. **Scalable information — shipped.** Text/interface scale and responsive layouts.
-4. **Reduced sensory load — shipped.** Reduced motion, flashing/sensory effects,
-   screen shake, and rapid-effect alternatives.
+3. **Scalable information — shipped.** Text/interface scale and responsive
+   layouts. The four Settings categories remain contained and reachable at 150%
+   scale with moderately expanded English copy in 1280x720, 844x390, and
+   390x844 fixtures; the game remains English-only rather than claiming
+   localization coverage. The integrated Flockwatch Capital page reserves its
+   scrollbar gutter at 150%, and Economic Briefing cash, costs, and market
+   projections use short semantic rows plus deterministic word-safe prose
+   wrapping. The native fixture checks the effective reading viewport; the
+   exported browser audit exercises the public Settings and filing routes.
+    Capital Blueprint, Campus Portfolio, and Campus Expansion separately preserve
+    filters, facility authorization, deeds, modules, staffing, resources,
+    utilities, socket placement/relocation, and fixed-action access in 390x844,
+    150%, expanded-copy compact fixtures. Probation intake, between-shift
+    economic reports, and final review preserve their complete vertical-scroll
+    documents and required actions under the same stress. Farm Mutual's Contract
+    Board likewise preserves the selected binder, effective terms, pricing
+    posture, accreditation, open negotiation drawer, and fixed Sign/Decline rail
+    without horizontal scrolling or lost actions. Facility commissioning
+    receipts preserve exact before/after funds, reserves, upkeep, operating
+    effects, outcomes, and both held actions under that stress as a vertical-only
+    economic document. Campus authorization and construction receipts likewise
+    preserve parcel/module/pad identity, capital/liability, build capacity,
+    staffing, effects, and held Return/Continue actions.
+4. **Reduced sensory load — shipped.** Global reduced motion is complemented
+   by independent camera-motion and particle-density controls. Camera Motion
+   Off removes passive auto-framing and applies requested views immediately;
+   the office camera has no authored screen-shake effect.
 5. **Notification control — shipped.** Settings persist All Notices, Priority
    Only, or Shift Record Only for transient floor toasts. Every message remains
    in the bounded newest-first Shift Record with redundant ACTION, MILESTONE, or
    ROUTINE labels; modal decisions still require explicit acknowledgement, and
-   five independent audio buses provide separate sound-layer muting.
-6. **Input coverage — shipped.** Keyboard, mouse, controller, and touch.
+   seven independent audio buses separately control master, music, ambience,
+   sound effects, interface, warning/decision, and nonverbal character-cutout
+   cues.
+6. **Input coverage — shipped.** Keyboard, mouse, controller, and touch share
+   bounded Low, Standard, or High camera sensitivity.
 7. **Reading control — shipped.** Pause and 1x/3x/10x.
 8. **No forced rapid reaction — shipped.** Pause is always available; Priority
    Peck is optional and has non-rapid alternatives.
@@ -490,6 +615,10 @@ confirm.
    capture hooks, full-suite sharding, production verifier, and runtime probes.
 9. **Calculation/system coverage — verified by the automated suite.** Economy,
    upgrades, unlocks, commendations, scenarios, saves, contracts, and edge cases.
+   The current isolated proof at
+   `output/godot-full-suite-20260730-intern-economy-v2/full-suite-summary.json`
+   discovers, selects, completes, and passes all 212 native contracts with zero failures,
+   timeouts, or engine-error signatures.
 10. **Stable/security/cheating — shipped where relevant.** Strict local schemas,
     transaction guards, atomic restore, and no server economy. Anti-cheat is N/A
     to an offline single-player satire.
@@ -531,3 +660,90 @@ confirm.
 - `tests/campaign_balance_playthrough_test.gd`,
   `tests/simulation_persistence_test.gd`, and Treasury/market/facility suites —
   balance, persistence, conservation, and economic edge cases.
+
+## Staffing planning access and scale
+
+- The closing-credit decision opens the authoritative staffing-planning window;
+  the foreground probation report then offers `REVIEW ROOST REQUISITIONS`
+  instead of leaving the economy accessible only through hidden controls.
+- Flockwatch opens directly to Flock, pauses the report without stacking two
+  management surfaces, and restores that exact report on close. Capacity,
+  applicant, hire, and release state survives the round trip.
+- The live staffing ledger is verified at 150% interface scale with expanded
+  labels and applicant choices. Release remains an irreversible, disclosed,
+  cancelable, confirm-once transaction in a bounded 390x844 confirmation.
+- `tests/staffing_ui_test.gd` and
+  `tests/interaction_safety_contract_test.gd` are both native release-gate
+  contracts.
+
+Career Sponsorship is also confirmation-first: opening the filing confirmation
+does not mutate marks, Feed Fund, training, wages, or saves; one confirmation
+applies the exact authoritative transaction and writes its checkpoint, while
+cancel and duplicate-confirm paths remain atomic. The 390x844, 150%-scale form
+and confirmation are covered by `tests/career_sponsorship_ui_test.gd` and the
+real transaction by `tests/career_sponsorship_integration_test.gd`.
+
+## Management succession access and scale
+
+- Rooster Operations presents named managers as readable cards with separate
+  full-width assignment and posture controls in narrow layouts.
+- Each screened successor visibly previews the immediate signing fee, exact
+  incumbent displaced from the newest post, unchanged manager count,
+  before/after supervisor payroll, doctrine, and the satirical `EGGS 0` output.
+- An appointment is review-first: opening or canceling its confirmation changes
+  no Feed Fund or roster state, while one confirmation emits one stable
+  candidate intent and duplicate confirmation cannot charge twice.
+- `tests/manager_recruitment_ui_test.gd` covers the real simulation transaction,
+  390x844 portrait containment, 150% interface scale, expanded copy, and both
+  confirmation branches; `tests/manager_roster_economy_test.gd` verifies the
+  authoritative replacement and payroll projection.
+
+## Recurring Operations filing scale
+
+- Feed Procurement preserves inventory, seasonal quote, exact supplier terms,
+  ration effect, order gate, and permanent delivery/consumption/spoilage receipts
+  inside the 282-pixel Flockwatch filing.
+- Farmgate Dispatch preserves reserve value, market quote, route selection,
+  capacity, commission, projected cash, authoritative held reason, and permanent
+  settlement receipt in the same narrow filing.
+- Both surfaces pass 150% interface scale with expanded copy and no horizontal
+  scrolling. Shared disclosure copy and fixed actions trim safely while the
+  adjacent wrapped ledger retains their complete economic meaning.
+- Routine feed orders and review-time route mandates remain direct actions
+  because they are reversible/recurring and already have exact adjacent terms;
+  invalid direct signals remain guarded.
+
+## Permanent labor disposition safety
+
+- Flock Relations presents each open named case, evidence, and four disposition
+  alternatives as full-width compact actions in the real 282-pixel filing.
+- A disposition is confirmation-first because it consumes a review
+  authorization, may spend Feed Fund, permanently changes worker relationships
+  or management standing, and closes the case.
+- The confirmation repeats hen, case, action, exact immediate cost, all
+  authoritative effects, permanent labor-record status, and irreversibility.
+  Cancel leaves the case and ledgers unchanged; confirm emits once; disabled
+  stale actions and duplicate confirm input fail closed.
+- `tests/flock_relations_case_ui_test.gd` covers 150% interface scale, expanded
+  copy, 390x844 confirmation containment, cancel/confirm-once, and the coercive
+  PIP branch. `tests/flock_relations_office_integration_test.gd` proves the
+  exact real Office transaction and permanent receipt.
+
+## Permanent public-credit publication safety
+
+- Farmer Relations presents the frozen shift, filed attribution, standing, and
+  three mutually exclusive public-credit campaigns inside the real 282-pixel
+  Flockwatch filing.
+- A campaign is confirmation-first because it consumes the shift's only public
+  campaign allowance, may spend or pay Feed Fund, changes public standing, and
+  creates a permanent attribution record.
+- The review repeats campaign, named subject, attribution, evidence, exact cost,
+  payout, net fund change, standing change, permanent day record, and
+  irreversibility. Cancel leaves the allowance and ledgers unchanged; confirm
+  emits once; stale disabled actions and duplicate confirmation fail closed.
+- `tests/farmer_relations_gallery_ui_test.gd` covers 150% interface scale,
+  expanded copy, 390x844 review containment, cancel/confirm-once, all exact
+  economics, and the satirical Farmer's Method branch.
+  `tests/farmer_relations_gallery_office_integration_test.gd` proves the exact
+  real Office transaction, permanent receipt, scroll/focus preservation, and
+  authoritative rejection of a second campaign.

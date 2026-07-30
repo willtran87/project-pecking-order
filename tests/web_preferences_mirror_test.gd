@@ -20,6 +20,7 @@ func _init() -> void:
 	)
 	_expect(mirror.decode(payload) == preferences, "valid preferences round-trip exactly")
 	var legacy_v2 := preferences.duplicate(true)
+	legacy_v2.erase("settings_category")
 	legacy_v2.erase("notice_level")
 	legacy_v2.erase("notice_duration")
 	legacy_v2.erase("effect_level")
@@ -27,8 +28,13 @@ func _init() -> void:
 	legacy_v2.erase("animation_speed")
 	legacy_v2.erase("tooltip_delay")
 	legacy_v2.erase("pause_when_unfocused")
+	legacy_v2.erase("particle_level")
+	legacy_v2.erase("camera_motion")
+	legacy_v2.erase("camera_sensitivity")
 	var legacy_audio := legacy_v2.get("audio", {}) as Dictionary
 	legacy_audio.erase("ambient")
+	legacy_audio.erase("alerts")
+	legacy_audio.erase("voice")
 	legacy_audio["music"] = {"volume": 0.21, "muted": true}
 	var migrated_v2 := mirror.decode(JSON.stringify(legacy_v2))
 	_expect(
@@ -37,12 +43,18 @@ func _init() -> void:
 		"unversioned schema-two mirrors preserve the combined music and ambience setting",
 	)
 	var legacy_v3 := preferences.duplicate(true)
+	legacy_v3.erase("settings_category")
 	legacy_v3.erase("notice_level")
 	legacy_v3.erase("notice_duration")
 	legacy_v3.erase("effect_level")
 	legacy_v3.erase("haptics_enabled")
 	legacy_v3.erase("animation_speed")
 	legacy_v3.erase("tooltip_delay")
+	legacy_v3.erase("particle_level")
+	legacy_v3.erase("camera_motion")
+	legacy_v3.erase("camera_sensitivity")
+	(legacy_v3.get("audio", {}) as Dictionary).erase("alerts")
+	(legacy_v3.get("audio", {}) as Dictionary).erase("voice")
 	var legacy_v3_payload := JSON.stringify({
 		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
 		"schema_version": 3,
@@ -54,11 +66,17 @@ func _init() -> void:
 		"schema-three mirrors should gain the non-interrupting-compatible all-notices default",
 	)
 	var legacy_v4 := preferences.duplicate(true)
+	legacy_v4.erase("settings_category")
 	legacy_v4.erase("notice_duration")
 	legacy_v4.erase("effect_level")
 	legacy_v4.erase("haptics_enabled")
 	legacy_v4.erase("animation_speed")
 	legacy_v4.erase("tooltip_delay")
+	legacy_v4.erase("particle_level")
+	legacy_v4.erase("camera_motion")
+	legacy_v4.erase("camera_sensitivity")
+	(legacy_v4.get("audio", {}) as Dictionary).erase("alerts")
+	(legacy_v4.get("audio", {}) as Dictionary).erase("voice")
 	var legacy_v4_payload := JSON.stringify({
 		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
 		"schema_version": 4,
@@ -72,8 +90,14 @@ func _init() -> void:
 		"schema-four mirrors should gain safe feedback pacing and supported-device haptics defaults",
 	)
 	var legacy_v5 := preferences.duplicate(true)
+	legacy_v5.erase("settings_category")
 	legacy_v5.erase("animation_speed")
 	legacy_v5.erase("tooltip_delay")
+	legacy_v5.erase("particle_level")
+	legacy_v5.erase("camera_motion")
+	legacy_v5.erase("camera_sensitivity")
+	(legacy_v5.get("audio", {}) as Dictionary).erase("alerts")
+	(legacy_v5.get("audio", {}) as Dictionary).erase("voice")
 	var legacy_v5_payload := JSON.stringify({
 		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
 		"schema_version": 5,
@@ -84,6 +108,53 @@ func _init() -> void:
 		String(migrated_v5.get("animation_speed", "")) == "standard"
 		and String(migrated_v5.get("tooltip_delay", "")) == "standard",
 		"schema-five mirrors should gain independent standard presentation timing defaults",
+	)
+	var legacy_v6 := preferences.duplicate(true)
+	legacy_v6.erase("settings_category")
+	legacy_v6.erase("particle_level")
+	legacy_v6.erase("camera_motion")
+	legacy_v6.erase("camera_sensitivity")
+	var legacy_v6_audio := legacy_v6.get("audio", {}) as Dictionary
+	legacy_v6_audio.erase("alerts")
+	legacy_v6_audio.erase("voice")
+	legacy_v6_audio["ui"] = {"volume": 0.37, "muted": true}
+	var migrated_v6 := mirror.decode(JSON.stringify({
+		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
+		"schema_version": 6,
+		"preferences": legacy_v6,
+	}))
+	_expect(
+		(migrated_v6.get("audio", {}) as Dictionary).get("alerts", {}) == legacy_v6_audio["ui"]
+		and (migrated_v6.get("audio", {}) as Dictionary).get("voice", {}) == legacy_v6_audio["ui"],
+		"schema-six browser mirrors preserve the old UI mix across both semantic channels",
+	)
+	var legacy_v7 := preferences.duplicate(true)
+	legacy_v7.erase("settings_category")
+	legacy_v7.erase("particle_level")
+	legacy_v7.erase("camera_motion")
+	legacy_v7.erase("camera_sensitivity")
+	legacy_v7["effect_level"] = "reduced"
+	var migrated_v7 := mirror.decode(JSON.stringify({
+		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
+		"schema_version": 7,
+		"preferences": legacy_v7,
+	}))
+	_expect(
+		String(migrated_v7.get("particle_level", "")) == "reduced"
+		and String(migrated_v7.get("camera_motion", "")) == "full"
+		and String(migrated_v7.get("camera_sensitivity", "")) == "standard",
+		"schema-seven browser mirrors gain independent comfort controls without changing presentation",
+	)
+	var legacy_v8 := preferences.duplicate(true)
+	legacy_v8.erase("settings_category")
+	var migrated_v8 := mirror.decode(JSON.stringify({
+		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
+		"schema_version": 8,
+		"preferences": legacy_v8,
+	}))
+	_expect(
+		String(migrated_v8.get("settings_category", "")) == "comfort",
+		"schema-eight browser mirrors should gain the neutral Comfort and Display view",
 	)
 	_expect(mirror.decode("[]").is_empty(), "array roots are rejected")
 	_expect(not mirror.last_error.is_empty(), "invalid roots disclose an error")
@@ -102,7 +173,7 @@ func _init() -> void:
 	})
 	_expect(mirror.decode(future_payload).is_empty(), "future mirror schemas are rejected")
 	if _failures == 0:
-		print("WEB_PREFERENCES_MIRROR_TEST_PASSED assertions=13 envelope=versioned legacy=v2-music-ambience-preserved+v3-notices-defaulted+v4-feedback-defaulted+v5-presentation-timing-defaulted")
+		print("WEB_PREFERENCES_MIRROR_TEST_PASSED assertions=16 envelope=versioned legacy=v2-music-ambience+v3-notices+v4-feedback+v5-timing+v6-semantic-audio+v7-camera-particles+v8-categories")
 	quit(_failures)
 
 

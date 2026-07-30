@@ -12,7 +12,7 @@ func _init() -> void:
 			push_error("CAMPAIGN_CHALLENGE_CONTRACT_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPAIGN_CHALLENGE_CONTRACT_TEST_PASSED contracts=3 immutable=pre-shift thresholds=exact outcomes=derived migration=v1-standard")
+	print("CAMPAIGN_CHALLENGE_CONTRACT_TEST_PASSED contracts=3 immutable=pre-shift openings=exact thresholds=exact outcomes=derived migration=v1-standard")
 	quit(0)
 
 
@@ -22,12 +22,17 @@ func _test_catalog_and_exact_thresholds(failures: Array[String]) -> void:
 	var expected := {
 		"supported_flock": [35, 45, 55, 45, 3000],
 		"standard_filing": [60, 45, 55, 50, 2500],
-		"executive_audit": [65, 48, 65, 53, 2300],
+		"executive_audit": [65, 48, 65, 52, 2450],
 	}
 	var expected_difficulties := {
 		"supported_flock": "learning",
 		"standard_filing": "standard",
 		"executive_audit": "expert",
+	}
+	var expected_openings := {
+		"supported_flock": [6500, 14, 0, "RECOVERY CUSHION"],
+		"standard_filing": [5000, 16, 0, "AUTHORED BASELINE"],
+		"executive_audit": [4800, 18, 2, "AUDIT SURGE"],
 	}
 	var observed_ids: Array[String] = []
 	for contract in catalog:
@@ -49,6 +54,18 @@ func _test_catalog_and_exact_thresholds(failures: Array[String]) -> void:
 		if expected.has(contract_id):
 			var criteria := contract.get("criteria", {}) as Dictionary
 			var values := expected[contract_id] as Array
+			var opening := contract.get("opening_terms", {}) as Dictionary
+			var opening_values := expected_openings[contract_id] as Array
+			var additional_lanes_value: Variant = opening.get("additional_claim_lanes", [])
+			_check(
+				int(opening.get("feed_fund_cents", -1)) == int(opening_values[0])
+				and int(opening.get("quota_target", -1)) == int(opening_values[1])
+				and additional_lanes_value is Array
+				and (additional_lanes_value as Array).size() == int(opening_values[2])
+				and String(opening.get("pressure_label", "")) == String(opening_values[3]),
+				"%s should expose its exact opening fund, quota, workload, and pressure label" % contract_id,
+				failures,
+			)
 			_check(
 				int(criteria.get("minimum_score", -1)) == int(values[0])
 				and int(criteria.get("minimum_welfare", -1)) == int(values[1])

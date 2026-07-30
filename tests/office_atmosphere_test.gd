@@ -54,35 +54,57 @@ func _run() -> void:
 	_check(farmer_spotlight != null and farmer_spotlight.light_energy > 0.5, "farmer review should receive a focused golden light cue", failures)
 	_check(atmosphere.find_child("EggGatheringPulse*", true, false) != null, "egg events should create a bounded one-shot burst", failures)
 	_check(event_bursts != null and event_bursts.get_child_count() == 8, "egg events must reuse the resident particle pool", failures)
+	atmosphere.set_particle_level(&"reduced")
+	var particle_reduced_snapshot := atmosphere.effect_snapshot()
+	_check(
+		String(particle_reduced_snapshot.get("level", "")) == "full"
+		and String(particle_reduced_snapshot.get("particle_level", "")) == "reduced"
+		and not bool(particle_reduced_snapshot.get("ambient_particles", true))
+		and bool(particle_reduced_snapshot.get("event_bursts", false))
+		and accents.all(func(light: Node) -> bool: return (light as OmniLight3D).visible),
+		"reduced particles should stop ambient emitters without disabling independent lighting",
+		failures,
+	)
+	atmosphere.set_particle_level(&"off")
+	var particle_off_snapshot := atmosphere.effect_snapshot()
+	_check(
+		not bool(particle_off_snapshot.get("event_bursts", true))
+		and accents.all(func(light: Node) -> bool: return (light as OmniLight3D).visible),
+		"particle off should suppress bursts without becoming a hidden master-effects switch",
+		failures,
+	)
+	atmosphere.set_particle_level(&"full")
 	atmosphere.set_effect_level(&"reduced")
 	var reduced_snapshot := atmosphere.effect_snapshot()
 	atmosphere.pulse_egg_laid(Vector3(1.0, 0.0, 0.0), &"sound")
 	await process_frame
-	var reduced_burst_found := false
-	for burst_value in atmosphere.find_children("EggGatheringPulse*", "GPUParticles3D", true, false):
-		var burst := burst_value as GPUParticles3D
-		if burst != null and burst.amount == 4:
-			reduced_burst_found = true
 	_check(
 		String(reduced_snapshot.get("level", "")) == "reduced"
 		and is_equal_approx(float(reduced_snapshot.get("animation_speed_multiplier", 0.0)), 1.5)
-		and not bool(reduced_snapshot.get("ambient_particles", true))
+		and bool(reduced_snapshot.get("ambient_particles", false))
 		and bool(reduced_snapshot.get("event_bursts", false))
-		and not dust.emitting and not feathers.emitting
-		and reduced_burst_found,
-		"reduced effects should stop ambient particles while retaining a smaller semantic event burst",
+		and dust.emitting and feathers.emitting,
+		"reduced lighting and celebration emphasis should not silently alter the independent particle choice",
 		failures,
 	)
 	atmosphere.set_effect_level(&"off")
 	var off_snapshot := atmosphere.effect_snapshot()
 	_check(
 		String(off_snapshot.get("level", "")) == "off"
-		and not bool(off_snapshot.get("ambient_particles", true))
-		and not bool(off_snapshot.get("event_bursts", true))
+		and bool(off_snapshot.get("ambient_particles", false))
+		and bool(off_snapshot.get("event_bursts", false))
 		and accents.all(func(light: Node) -> bool: return not (light as OmniLight3D).visible)
 		and red_bar != null and not red_bar.get_parent().visible
 		and farmer_spotlight != null and is_zero_approx(farmer_spotlight.light_energy),
-		"essential-only effects should remove decorative motion and lighting while leaving the fixed pool reusable",
+		"essential-only emphasis should remove decorative lighting without overriding particle density",
+		failures,
+	)
+	atmosphere.set_particle_level(&"off")
+	var all_off_snapshot := atmosphere.effect_snapshot()
+	_check(
+		not bool(all_off_snapshot.get("ambient_particles", true))
+		and not bool(all_off_snapshot.get("event_bursts", true)),
+		"turning both independent controls off should remove decorative lighting and particles",
 		failures,
 	)
 
@@ -91,7 +113,7 @@ func _run() -> void:
 			push_error("OFFICE_ATMOSPHERE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("OFFICE_ATMOSPHERE_TEST_PASSED particles=bounded+pooled+prewarmed lights=3-shadowless overtime=emissive events=full+reduced+off animation-speed=live")
+	print("OFFICE_ATMOSPHERE_TEST_PASSED particles=bounded+pooled+prewarmed+independent lights=3-shadowless overtime=emissive events=full+reduced+off animation-speed=live")
 	quit(0)
 
 

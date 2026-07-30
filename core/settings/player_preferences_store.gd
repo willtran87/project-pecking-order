@@ -12,7 +12,7 @@ extends RefCounted
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
 
-const CURRENT_SCHEMA_VERSION := 6
+const CURRENT_SCHEMA_VERSION := 9
 const PREFERENCES_FORMAT := "pecking_order_player_preferences"
 const DEFAULT_FILENAME := "player_preferences.json"
 const MAX_FILE_BYTES := 512 * 1024
@@ -25,13 +25,27 @@ const COLOR_VISION_MODES: Array[String] = ["standard", "color_blind_safe"]
 const NOTICE_LEVELS: Array[String] = ["all", "priority", "archive_only"]
 const NOTICE_DURATIONS: Array[String] = ["brief", "standard", "extended"]
 const EFFECT_LEVELS: Array[String] = ["full", "reduced", "off"]
+const PARTICLE_LEVELS: Array[String] = ["full", "reduced", "off"]
+const CAMERA_MOTION_LEVELS: Array[String] = ["full", "reduced", "off"]
+const CAMERA_SENSITIVITIES: Array[String] = ["low", "standard", "high"]
+const SETTINGS_CATEGORIES: Array[String] = ["audio", "comfort", "controls", "career"]
 const ANIMATION_SPEEDS: Array[String] = ["relaxed", "standard", "brisk"]
 const TOOLTIP_DELAYS: Array[String] = ["short", "standard", "long"]
-const AUDIO_BUS_IDS: Array[String] = ["master", "sfx", "ui", "music", "ambient"]
+const AUDIO_BUS_IDS: Array[String] = [
+	"master",
+	"sfx",
+	"ui",
+	"alerts",
+	"voice",
+	"music",
+	"ambient",
+]
 const AUDIO_BUS_NAMES := {
 	"master": &"Master",
 	"sfx": &"SFX",
 	"ui": &"UI",
+	"alerts": &"Alerts",
+	"voice": &"Voice",
 	"music": &"Music",
 	"ambient": &"Ambient",
 }
@@ -57,6 +71,8 @@ static func defaults() -> Dictionary:
 			"master": {"volume": 1.0, "muted": false},
 			"sfx": {"volume": 0.82, "muted": false},
 			"ui": {"volume": 0.82, "muted": false},
+			"alerts": {"volume": 0.82, "muted": false},
+			"voice": {"volume": 0.72, "muted": false},
 			"music": {"volume": 0.65, "muted": false},
 			"ambient": {"volume": 0.65, "muted": false},
 		},
@@ -69,6 +85,10 @@ static func defaults() -> Dictionary:
 		"notice_level": "all",
 		"notice_duration": "standard",
 		"effect_level": "full",
+		"particle_level": "full",
+		"camera_motion": "full",
+		"camera_sensitivity": "standard",
+		"settings_category": "comfort",
 		"animation_speed": "standard",
 		"tooltip_delay": "standard",
 		"haptics_enabled": true,
@@ -128,6 +148,18 @@ static func sanitize(source: Dictionary) -> Dictionary:
 	var effect_level := String(source.get("effect_level", ""))
 	if effect_level in EFFECT_LEVELS:
 		result["effect_level"] = effect_level
+	var particle_level := String(source.get("particle_level", ""))
+	if particle_level in PARTICLE_LEVELS:
+		result["particle_level"] = particle_level
+	var camera_motion := String(source.get("camera_motion", ""))
+	if camera_motion in CAMERA_MOTION_LEVELS:
+		result["camera_motion"] = camera_motion
+	var camera_sensitivity := String(source.get("camera_sensitivity", ""))
+	if camera_sensitivity in CAMERA_SENSITIVITIES:
+		result["camera_sensitivity"] = camera_sensitivity
+	var settings_category := String(source.get("settings_category", ""))
+	if settings_category in SETTINGS_CATEGORIES:
+		result["settings_category"] = settings_category
 	var animation_speed := String(source.get("animation_speed", ""))
 	if animation_speed in ANIMATION_SPEEDS:
 		result["animation_speed"] = animation_speed
@@ -152,6 +184,8 @@ static func validate(preferences: Dictionary) -> String:
 		"audio", "motion_mode", "ui_scale", "high_contrast",
 		"color_vision_mode", "visual_quality", "timing_assist",
 		"notice_level", "notice_duration", "effect_level",
+		"particle_level", "camera_motion", "camera_sensitivity",
+		"settings_category",
 		"animation_speed", "tooltip_delay", "haptics_enabled",
 		"pause_when_unfocused", "input_bindings",
 	]
@@ -195,6 +229,14 @@ static func validate(preferences: Dictionary) -> String:
 		return "preferences.notice_duration is invalid"
 	if typeof(preferences.get("effect_level")) != TYPE_STRING or String(preferences.get("effect_level")) not in EFFECT_LEVELS:
 		return "preferences.effect_level is invalid"
+	if typeof(preferences.get("particle_level")) != TYPE_STRING or String(preferences.get("particle_level")) not in PARTICLE_LEVELS:
+		return "preferences.particle_level is invalid"
+	if typeof(preferences.get("camera_motion")) != TYPE_STRING or String(preferences.get("camera_motion")) not in CAMERA_MOTION_LEVELS:
+		return "preferences.camera_motion is invalid"
+	if typeof(preferences.get("camera_sensitivity")) != TYPE_STRING or String(preferences.get("camera_sensitivity")) not in CAMERA_SENSITIVITIES:
+		return "preferences.camera_sensitivity is invalid"
+	if typeof(preferences.get("settings_category")) != TYPE_STRING or String(preferences.get("settings_category")) not in SETTINGS_CATEGORIES:
+		return "preferences.settings_category is invalid"
 	if typeof(preferences.get("animation_speed")) != TYPE_STRING or String(preferences.get("animation_speed")) not in ANIMATION_SPEEDS:
 		return "preferences.animation_speed is invalid"
 	if typeof(preferences.get("tooltip_delay")) != TYPE_STRING or String(preferences.get("tooltip_delay")) not in TOOLTIP_DELAYS:
@@ -332,7 +374,7 @@ func delete_preferences() -> bool:
 
 
 ## Applies only the audio branch and returns the canonical values actually used.
-## Missing SFX/UI/Music/Ambient buses are created once and routed through Master.
+## Missing mix buses are created once and routed through Master.
 static func apply_audio(preferences: Dictionary) -> Dictionary:
 	var safe := sanitize(preferences)
 	var audio := safe.get("audio", {}) as Dictionary
@@ -618,6 +660,56 @@ func _migrate_one_version(envelope: Dictionary, from_version: int) -> Dictionary
 		preferences["tooltip_delay"] = "standard"
 		migrated["preferences"] = preferences
 		migrated["schema_version"] = 6
+		return migrated
+	if from_version == 6:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		var audio_value: Variant = preferences.get("audio", {})
+		if not audio_value is Dictionary:
+			return {}
+		var audio := (audio_value as Dictionary).duplicate(true)
+		var ui_value: Variant = audio.get("ui", {})
+		var inherited_ui := (
+			(ui_value as Dictionary).duplicate(true)
+			if ui_value is Dictionary else
+			{"volume": 0.82, "muted": false}
+		)
+		# Existing players keep the effective mix they had before these semantic
+		# layers were separated. They can adjust either new channel afterward.
+		audio["alerts"] = inherited_ui.duplicate(true)
+		audio["voice"] = inherited_ui.duplicate(true)
+		preferences["audio"] = audio
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 7
+		return migrated
+	if from_version == 7:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		# Particle density inherits the old combined effect setting so the visual
+		# result is unchanged until the player separates the two controls.
+		preferences["particle_level"] = String(
+			preferences.get("effect_level", "full")
+		)
+		preferences["camera_motion"] = "full"
+		preferences["camera_sensitivity"] = "standard"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 8
+		return migrated
+	if from_version == 8:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["settings_category"] = "comfort"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 9
 		return migrated
 	return {}
 
