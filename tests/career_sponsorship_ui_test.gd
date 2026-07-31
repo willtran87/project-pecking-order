@@ -59,6 +59,10 @@ func _run() -> void:
 	var heading := ui.find_child("CareerSponsorshipHeading", true, false) as Label
 	var optional_note := ui.find_child("CareerSponsorshipOptionalNote", true, false) as Label
 	var balance := ui.find_child("CareerSponsorshipBalance", true, false) as Label
+	var marks_glance := ui.find_child("CareerSponsorshipMarksGlance", true, false) as Label
+	var fund_glance := ui.find_child("CareerSponsorshipFundGlance", true, false) as Label
+	var training_glance := ui.find_child("CareerSponsorshipTrainingGlance", true, false) as Label
+	var wage_glance := ui.find_child("CareerSponsorshipWageGlance", true, false) as Label
 	var worker_selector := ui.find_child("CareerSponsorshipHenSelector", true, false) as OptionButton
 	var worker_detail := ui.find_child("CareerSponsorshipWorkerDetail", true, false) as Label
 	var lane_selector := ui.find_child("CareerSponsorshipLaneSelector", true, false) as OptionButton
@@ -75,6 +79,11 @@ func _run() -> void:
 	_check(heading != null and heading.text == "CAREER SPONSORSHIP", "section should use its authored report heading", failures)
 	_check(optional_note != null and "OPTIONAL" in optional_note.text and "Bank every Roost Mark" in optional_note.text, "copy should make banking marks explicitly valid", failures)
 	_check(balance != null and "AVAILABLE  5 ROOST MARKS" in balance.text and "3 MARKS + $12.00" in balance.text, "balance should disclose both exact immediate costs", failures)
+	_check(balance != null and not balance.visible, "exact balance prose should remain semantic detail instead of default presentation", failures)
+	_check(marks_glance != null and marks_glance.text == "MARKS\n3 / 5", "sponsorship should compare required and available marks at a glance", failures)
+	_check(fund_glance != null and fund_glance.text == "FUND\n$12", "sponsorship should show its immediate Feed Fund cost without prose", failures)
+	_check(training_glance != null and training_glance.text == "TRAIN\n-15%", "sponsorship should show the next-shift training penalty without prose", failures)
+	_check(wage_glance != null and wage_glance.text == "WAGE\n+$1/D", "sponsorship should show the permanent daily wage without prose", failures)
 	_check(worker_selector != null and worker_selector.item_count == 2, "valid unique hens should populate the selector", failures)
 	_check(worker_selector != null and worker_selector.focus_mode == Control.FOCUS_ALL, "hen selector should accept keyboard focus", failures)
 	_check(lane_selector != null and lane_selector.focus_mode == Control.FOCUS_ALL, "lane selector should accept keyboard focus", failures)
@@ -92,6 +101,14 @@ func _run() -> void:
 	_check(terms != null and "-15% training throughput" in terms.text, "terms should disclose the exact next-shift training penalty", failures)
 	_check(terms != null and "+$1.00/day wage" in terms.text, "terms should disclose the permanent wage liability", failures)
 	_check(terms != null and "Specialist affinity: NEST DAMAGE" in terms.text, "terms should name the post-training specialist affinity", failures)
+	_check(terms != null and not terms.visible, "exact sponsorship term prose should remain hidden until contextual inspection", failures)
+	_check(
+		fund_glance != null
+		and "3 Roost Marks + $12.00" in fund_glance.tooltip_text
+		and "Specialist affinity: NEST DAMAGE" in String(fund_glance.get_meta("accessible_text", "")),
+		"glance tiles should retain the complete cost and post-training outcome for hover and assistive reading",
+		failures,
+	)
 	_check(reason_label != null and not reason_label.visible, "available sponsorship should not show a held reason", failures)
 	_check(authorize != null and not authorize.disabled, "valid affordable sponsorship should be authorizable", failures)
 
@@ -115,6 +132,9 @@ func _run() -> void:
 	_check(terms != null and "-5% training throughput" in terms.text, "the terms should use authoritative tier throughput instead of the baseline 15 percent", failures)
 	_check(terms != null and "+4 career XP" in terms.text, "the terms should disclose authoritative Training Roost coaching value", failures)
 	_check(terms != null and "+$1.00/day wage" in terms.text, "the permanent accreditation wage should remain visible under tiered terms", failures)
+	_check(fund_glance != null and fund_glance.text == "FUND\n$8 / SAVE $4", "tiered sponsorship should combine effective cost and saving in one tile", failures)
+	_check(training_glance != null and training_glance.text == "TRAIN\n-5% / +4XP", "tiered sponsorship should combine pace and coaching in one tile", failures)
+	_check(wage_glance != null and wage_glance.text == "WAGE\n+$1/D", "tiered sponsorship should keep the permanent wage liability glanceable", failures)
 	_check(authorize != null and "$8.00 now" in authorize.tooltip_text and "5% below standard" in authorize.tooltip_text, "keyboard focus should expose the same effective tier economics", failures)
 	ui.apply_snapshot(_available_snapshot())
 	await process_frame

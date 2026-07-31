@@ -16778,6 +16778,13 @@ func _capture_career_sponsorship_preview() -> void:
 	scroll.scroll_vertical = maxi(0, int(component_offset))
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# Compact policy cards change the report's minimum height after their queued
+	# sort. Re-anchor to the authentic component after that layout settles so the
+	# capture cannot preserve a stale pre-sort scroll offset and photograph an
+	# empty tail of the report.
+	scroll.ensure_control_visible(sponsorship)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	_save_preview("career_sponsorship.png")
 
 

@@ -4791,3 +4791,36 @@ The next major systems milestone is persistent worker relationships and individu
   `814291BA365E9C4F02BBA5B39B204DBB31D5CF8C51D5A23749906A66C73C4E84`.
 - Final production acceptance still requires the fourteen real human sessions;
   the corrected packets only make that external handoff reliable.
+
+## 2026-07-31 - Glance-first Senior career decisions
+
+- Audited the remaining late-game decision surfaces and identified Career
+  Sponsorship as the clearest first-read failure: three quarterly policies and
+  the sponsorship terms repeated dense score, career, and Board prose at once.
+- Replaced each quarterly policy wall with a three-line decision card: title,
+  immediate economic effect, then `HELPS / RISKS / BOARD`. Exact scoring edges,
+  watch conditions, Board fit, and prior-year context remain in tooltips and
+  accessibility metadata.
+- Replaced the sponsorship economics paragraphs with four immediate tiles:
+  `MARKS / FUND / TRAIN / WAGE`. Candidate and specialty selectors stay visible,
+  while the exact cost, saving, coaching, specialty, and wage terms remain in
+  hidden semantic labels, tooltips, and accessibility metadata.
+- Added the localhost-only `career-sponsorship` production preview and fixed its
+  capture helper to reveal the resized sponsorship panel after queued layout.
+  The final native capture is
+  `output/career-sponsorship-glance-v3/career_sponsorship.png`.
+- The prescribed Node 24 browser client completed three settled iterations at
+  `output/career-sponsorship-web-client-v2/`. All frames are visually stable,
+  all diagnostics report the real Godot canvas at Senior Roost year 1/quarter 2,
+  no browser-error artifact was produced, and server stderr is empty.
+- Candidate-wide native coverage passes 212/212 contracts with zero failures or
+  timeouts. The independent release gate passes all 44 native, Node 24 Web,
+  rendered accessibility, production-server, evidence-validator, and deploy
+  payload parity checks.
+- Synchronized both deploy payloads. The 9,330,404-byte PCK has SHA-256
+  `89FA5EBDAE8355177C2A286ACEB9A52163AAC105F2CA54D4CF1A20D71B1BC093`.
+- Every focused/exhaustive Godot process, browser client, Chromium child, and
+  scoped Web server exited. The test port is free and no repo-owned test process
+  remains.
+- Final production acceptance still requires seven physical sessions and seven
+  separately moderated usability sessions against the exact published artifact.

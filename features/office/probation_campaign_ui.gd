@@ -2260,6 +2260,49 @@ func _update_objective() -> void:
 		_objective_progress_label.text = String(objective.get("reward", ""))
 
 
+func _senior_policy_effect_glance(effect: String) -> String:
+	var normalized := effect.replace(".00", "").strip_edges().to_upper()
+	var parts := normalized.split("/", false)
+	if parts.size() >= 2:
+		normalized = "%s / %s" % [
+			String(parts[0]).strip_edges(),
+			String(parts[1]).strip_edges(),
+		]
+	return _bounded_resume_text(normalized, 34).to_upper()
+
+
+func _senior_policy_focus_glance(detail: String) -> String:
+	var normalized := detail.to_upper()
+	if "FLOCK WELFARE" in normalized or "FLOCK" in normalized:
+		return "FLOCK"
+	if "TOP-HEN" in normalized or "CAREER" in normalized or "OBEDIENCE" in normalized:
+		return "HEN"
+	if "FARMER FAVOR" in normalized or "FUND BUFFER" in normalized or "FUND" in normalized:
+		return "FUND"
+	if "QUOTA" in normalized:
+		return "QUOTA"
+	return "SCORE"
+
+
+func _senior_policy_board_glance(strategy: Dictionary) -> String:
+	if strategy.has("supported_targets"):
+		var targets_value: Variant = strategy.get("supported_targets", [])
+		if targets_value is Array:
+			var target_count := (targets_value as Array).size()
+			return "+%d" % target_count if target_count > 0 else "--"
+	var board_fit := String(strategy.get("board_fit", "")).to_upper()
+	if board_fit.is_empty() or "FILE THE ANNUAL BOARD MANDATE FIRST" in board_fit:
+		return "?"
+	if "NO DIRECT TARGET EDGE" in board_fit:
+		return "--"
+	var edge_clause := board_fit.split("//", false)[0].strip_edges()
+	if edge_clause.begins_with("EDGE "):
+		var target_copy := edge_clause.trim_prefix("EDGE ").strip_edges()
+		var target_count := target_copy.split(" + ", false).size()
+		return "+%d" % target_count if target_count > 0 else "--"
+	return "--"
+
+
 func _rebuild_milestone_choices() -> void:
 	for child: Node in _milestone_buttons_host.get_children():
 		_milestone_buttons_host.remove_child(child)
@@ -2326,20 +2369,18 @@ func _rebuild_milestone_choices() -> void:
 				primary_watchout,
 			]
 		elif not strategy.is_empty():
-			button_copy = "%d  //  %s\n%s\nSCORE  //  EDGE %s  /  WATCH %s\nBOARD  //  %s" % [
+			button_copy = "%d  //  %s\n%s\nHELPS %s  /  RISKS %s  /  BOARD %s" % [
 				index + 1,
 				title.to_upper(),
-				effect,
-				String(strategy.get("score_edge", "QUARTER TRADEOFF")),
-				String(strategy.get("score_watch", "CLOSING LEDGER")),
-				String(strategy.get("board_fit", "FILE THE ANNUAL BOARD MANDATE FIRST")),
+				String(choice.get("glance_effect", _senior_policy_effect_glance(effect))),
+				String(choice.get("glance_help", _senior_policy_focus_glance(
+					String(strategy.get("score_edge", "QUARTER TRADEOFF")),
+				))),
+				String(choice.get("glance_risk", _senior_policy_focus_glance(
+					String(strategy.get("score_watch", "CLOSING LEDGER")),
+				))),
+				_senior_policy_board_glance(strategy),
 			]
-			var prior_year_fit := strategy.get("prior_year_fit", {}) as Dictionary
-			if bool(prior_year_fit.get("visible", false)):
-				button_copy += "\nLAST YEAR  //  %s  /  %s" % [
-					String(prior_year_fit.get("fit_label", "NO DIRECT EDGE")),
-					String(prior_year_fit.get("focus_detail", "ANNUAL SAFEGUARD")),
-				]
 		var button := _make_button(
 			"MilestoneChoice_%s" % _safe_node_suffix(String(choice_id)),
 			button_copy,
@@ -2349,7 +2390,7 @@ func _rebuild_milestone_choices() -> void:
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.custom_minimum_size = Vector2(
 			0.0,
-			146.0 if not strategy.is_empty() else (108.0 if not doctrine.is_empty() else 88.0),
+			96.0 if not strategy.is_empty() else (108.0 if not doctrine.is_empty() else 88.0),
 		)
 		if not strategy.is_empty():
 			button.add_theme_font_size_override("font_size", 12)

@@ -45,9 +45,10 @@ func _run() -> void:
 	_check(merit != null and merit.disabled and "$2.00 more" in merit.tooltip_text, "unaffordable policies should be visibly disabled with an exact reserve explanation", failures)
 	_check(dividend != null and dividend.disabled, "every underfunded policy should remain non-interactive", failures)
 	_check(forecast != null and not forecast.disabled and forecast.focus_mode == Control.FOCUS_ALL, "the no-cost fallback should remain keyboard accessible", failures)
-	_check(dividend != null and "SCORE  //  EDGE FLOCK WELFARE + QUOTA RELIABILITY" in dividend.text, "Senior policy cards should connect their effects to exact quarter score lanes", failures)
-	_check(dividend != null and "BOARD  //  EDGE RELIABLE CLUTCH + FLOCK CONTINUITY" in dividend.text, "Senior policy cards should disclose direct annual mandate fit", failures)
-	_check(forecast != null and "WATCH QUOTA RELIABILITY + FLOCK WELFARE + OBEDIENCE" in forecast.text, "Senior policy cards should name their scored risks before filing", failures)
+	_check(dividend != null and "HELPS FLOCK  /  RISKS FUND  /  BOARD +2" in dividend.text, "Senior policy cards should summarize quarter and Board fit without a prose matrix", failures)
+	_check(dividend != null and "SCORE EDGE  //  FLOCK WELFARE + QUOTA RELIABILITY" in dividend.tooltip_text and "EDGE RELIABLE CLUTCH + FLOCK CONTINUITY" in dividend.tooltip_text, "Senior policy tooltips should retain exact quarter and annual fit", failures)
+	_check(forecast != null and "HELPS FUND  /  RISKS FLOCK  /  BOARD +1" in forecast.text, "Senior policy cards should summarize their scored risk and annual edge", failures)
+	_check(forecast != null and "SCORE WATCH  //  QUOTA RELIABILITY + FLOCK WELFARE + OBEDIENCE" in forecast.tooltip_text, "Senior policy tooltips should retain the complete scored risk", failures)
 	_check(continue_button != null and continue_button.disabled, "a quarter must remain gated until an available policy is filed", failures)
 	if merit != null:
 		merit.pressed.emit()

@@ -35,6 +35,10 @@ var _training_terms: Dictionary = {}
 var _refreshing := false
 
 var _balance_label: Label
+var _marks_glance: Label
+var _fund_glance: Label
+var _training_glance: Label
+var _wage_glance: Label
 var _worker_selector: OptionButton
 var _worker_detail_label: Label
 var _lane_selector: OptionButton
@@ -123,7 +127,24 @@ func _build_interface() -> void:
 	_balance_label = _make_label("AVAILABLE  0 ROOST MARKS", 12, COLOR_BRASS)
 	_balance_label.name = "CareerSponsorshipBalance"
 	_balance_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_balance_label.visible = false
 	form.add_child(_balance_label)
+
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "CareerSponsorshipGlanceGrid"
+	glance_grid.columns = 2
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	glance_grid.add_theme_constant_override("v_separation", 5)
+	form.add_child(glance_grid)
+	_marks_glance = _metric_chip(glance_grid, "MARKS\n-- / --")
+	_marks_glance.name = "CareerSponsorshipMarksGlance"
+	_fund_glance = _metric_chip(glance_grid, "FUND\n--")
+	_fund_glance.name = "CareerSponsorshipFundGlance"
+	_training_glance = _metric_chip(glance_grid, "TRAIN\n--")
+	_training_glance.name = "CareerSponsorshipTrainingGlance"
+	_wage_glance = _metric_chip(glance_grid, "WAGE\n--")
+	_wage_glance.name = "CareerSponsorshipWageGlance"
 
 	var worker_caption := _make_label("HEN CANDIDATE", 11, COLOR_MUTED)
 	worker_caption.name = "CareerSponsorshipHenLabel"
@@ -155,6 +176,7 @@ func _build_interface() -> void:
 	_terms_label = _make_label("", 11, COLOR_INK)
 	_terms_label.name = "CareerSponsorshipTerms"
 	_terms_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_terms_label.visible = false
 	form.add_child(_terms_label)
 
 	_reason_label = _make_label("", 11, COLOR_RUST)
@@ -284,6 +306,7 @@ func _refresh_copy_and_authorization() -> void:
 		"AVAILABLE  %d ROOST %s\nAUTHORIZATION  %d %s + $%.2f FEED FUND"
 		% [_available_marks, available_word, _mark_cost, mark_word, float(_fund_cost_cents) / 100.0]
 	)
+	_balance_label.set_meta("accessible_text", _balance_label.text)
 
 	var worker := _worker_by_id(_selected_worker_id)
 	if worker.is_empty():
@@ -330,6 +353,24 @@ func _refresh_copy_and_authorization() -> void:
 	if coaching_xp_bonus > 0:
 		terms_lines.append("COACHING SUPPORT  +%d career XP per check-in" % coaching_xp_bonus)
 	_terms_label.text = "\n".join(terms_lines)
+	_terms_label.tooltip_text = _terms_label.text
+	_terms_label.set_meta("accessible_text", _terms_label.text)
+	_marks_glance.text = "MARKS\n%d / %d" % [_mark_cost, _available_marks]
+	_fund_glance.text = "FUND\n$%s%s" % [
+		_compact_currency_value(_fund_cost_cents),
+		" / SAVE $%s" % _compact_currency_value(sponsorship_discount)
+		if sponsorship_discount > 0 else
+		"",
+	]
+	_training_glance.text = "TRAIN\n%s%s" % [
+		"FULL" if training_penalty <= 0.05 else "-%s%%" % _compact_number(training_penalty),
+		" / +%dXP" % coaching_xp_bonus if coaching_xp_bonus > 0 else "",
+	]
+	_wage_glance.text = "WAGE\n+$%s/D" % _compact_currency_value(wage_bonus_cents)
+	var glance_accessible := "%s\n%s" % [_balance_label.text, _terms_label.text]
+	for glance: Label in [_marks_glance, _fund_glance, _training_glance, _wage_glance]:
+		glance.tooltip_text = glance_accessible
+		glance.set_meta("accessible_text", glance_accessible)
 
 	var reason := _authorization_reason()
 	_reason_label.visible = not reason.is_empty()
@@ -400,6 +441,10 @@ func _training_work_penalty_percent() -> float:
 func _compact_number(value: float) -> String:
 	var rounded := snappedf(value, 0.1)
 	return str(roundi(rounded)) if is_equal_approx(rounded, float(roundi(rounded))) else "%.1f" % rounded
+
+
+func _compact_currency_value(cents: int) -> String:
+	return str(cents / 100) if cents % 100 == 0 else "%.2f" % (float(cents) / 100.0)
 
 
 func _on_worker_selected(index: int) -> void:
@@ -649,10 +694,33 @@ func _make_label(copy: String, font_size: int, color: Color) -> Label:
 	return label
 
 
+func _metric_chip(parent: GridContainer, copy: String) -> Label:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", _metric_style())
+	parent.add_child(panel)
+	var label := _make_label(copy, 11, COLOR_INK)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.custom_minimum_size = Vector2(0.0, 42.0)
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(label)
+	return label
+
+
 func _panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = COLOR_NAVY_RAISED
 	style.border_color = COLOR_NAVY.lightened(0.28)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(7)
+	return style
+
+
+func _metric_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = COLOR_NAVY
+	style.border_color = COLOR_NAVY.lightened(0.34)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
 	return style

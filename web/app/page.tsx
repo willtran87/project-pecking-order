@@ -242,6 +242,7 @@ export default function Home() {
 			"farmer-relations": "--capture-farmer-relations-ui",
 			"rooster-operations": "--capture-rooster-operations-ui",
 			"flock-care": "--capture-flock-care-ui",
+			"career-sponsorship": "--capture-career-sponsorship",
 			"contract-board": "--capture-contract-board-ui",
 			"contract-pricing": "--capture-contract-pricing-ui",
 			"contract-pricing-access": "--capture-contract-pricing-access-ui",

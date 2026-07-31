@@ -87,8 +87,8 @@ func _run() -> void:
 	_check(policy_cards.size() == 3 and continue_button.disabled, "annual acceptance should immediately show three quarterly capital choices while preserving the gate", failures)
 	_check(report_heading != null and "QUARTER 1 CAPITAL FILING" in report_heading.text, "accepted annual terms should visibly orient the Q1 policy decision", failures)
 	var dividend := office.find_child("MilestoneChoice_flock_dividend", true, false) as Button
-	_check(dividend != null and "SCORE  //  EDGE FLOCK WELFARE + QUOTA RELIABILITY" in dividend.text, "generated Senior policy cards should disclose quarter score fit", failures)
-	_check(dividend != null and "BOARD  //  EDGE RELIABLE CLUTCH + FLOCK CONTINUITY" in dividend.text and "WATCH CURRENT PAYROLL" in dividend.text, "generated Senior policy cards should disclose active Board Mandate fit and risk", failures)
+	_check(dividend != null and "HELPS FLOCK  /  RISKS FUND  /  BOARD +2" in dividend.text, "generated Senior policy cards should summarize quarter and Board fit without a prose matrix", failures)
+	_check(dividend != null and "SCORE EDGE  //  FLOCK WELFARE + QUOTA RELIABILITY" in dividend.tooltip_text and "EDGE RELIABLE CLUTCH + FLOCK CONTINUITY" in dividend.tooltip_text and "WATCH CURRENT PAYROLL" in dividend.tooltip_text, "generated Senior policy tooltips should retain exact quarter and annual fit", failures)
 	var mandate_envelope := store.load()
 	var mandate_payload := mandate_envelope.get("campaign", {}) as Dictionary
 	var mandate_state := SeniorRoostState.from_dictionary(mandate_payload.get("senior_roost", {}) as Dictionary)

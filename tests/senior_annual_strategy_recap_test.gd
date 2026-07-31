@@ -139,14 +139,16 @@ func _run() -> void:
 	var forecast_button := office.find_child("MilestoneChoice_harvest_forecast", true, false) as Button
 	_check(
 		dividend_button != null
-		and "LAST YEAR  //  RECOVERY EDGE  /  FLOCK WELFARE 17% / 45%" in dividend_button.text,
-		"the existing Dividend card should show its exact prior-year recovery fit",
+		and "HELPS FLOCK  /  RISKS FUND  /  BOARD +2" in dividend_button.text
+		and "LAST YEAR  //  RECOVERY EDGE  //  FLOCK WELFARE 17% / 45%" in dividend_button.tooltip_text,
+		"the Dividend card should stay glance-first while retaining exact prior-year recovery fit on inspection",
 		failures,
 	)
 	_check(
 		forecast_button != null
-		and "LAST YEAR  //  RECOVERY RISK  /  FLOCK WELFARE 17% / 45%" in forecast_button.text,
-		"the existing Forecast card should disclose that it risks the prior welfare miss",
+		and "HELPS FUND  /  RISKS FLOCK  /  BOARD +1" in forecast_button.text
+		and "LAST YEAR  //  RECOVERY RISK  //  FLOCK WELFARE 17% / 45%" in forecast_button.tooltip_text,
+		"the Forecast card should stay glance-first while retaining its prior welfare risk on inspection",
 		failures,
 	)
 	_check(
