@@ -81,6 +81,13 @@ var _care_gate_label: Label
 var _care_wellness_label: Label
 var _care_training_label: Label
 var _care_next_action_label: Label
+var _care_welfare_glance: Label
+var _care_rest_glance: Label
+var _care_strain_glance: Label
+var _care_recovery_glance: Label
+var _care_training_glance: Label
+var _care_terms_glance: Label
+var _care_next_action_glance: Label
 var _facilities_section: VBoxContainer
 var _facility_list: VBoxContainer
 var _inline_facilities_toggle: Button
@@ -1164,23 +1171,54 @@ func _build_flock_care_section() -> void:
 
 	var heading := _make_label("FLOCK CARE & TRAINING", 12, COLOR_BRASS)
 	heading.name = "FlockCareHeading"
+	heading.tooltip_text = "Flock care / welfare, physical recovery, training, and the next capital decision."
+	heading.set_meta("accessible_text", heading.tooltip_text)
 	column.add_child(heading)
 	_care_gate_label = _make_label("RESTED FLOCK", 11, COLOR_TEAL)
 	_care_gate_label.name = "FlockCareRestedGate"
 	_care_gate_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_care_gate_label.visible = false
 	column.add_child(_care_gate_label)
 	_care_wellness_label = _make_label("", 11, COLOR_MUTED)
 	_care_wellness_label.name = "FlockCareWellnessSummary"
 	_care_wellness_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_care_wellness_label.visible = false
 	column.add_child(_care_wellness_label)
 	_care_training_label = _make_label("", 11, COLOR_MUTED)
 	_care_training_label.name = "FlockCareTrainingSummary"
 	_care_training_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_care_training_label.visible = false
 	column.add_child(_care_training_label)
+
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "FlockCareGlanceGrid"
+	glance_grid.columns = 2
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	glance_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(glance_grid)
+	_care_welfare_glance = _metric_chip(glance_grid, "WELFARE\n-- / --")
+	_care_welfare_glance.name = "FlockCareWelfareGlance"
+	_care_rest_glance = _metric_chip(glance_grid, "REST\n0 / 0")
+	_care_rest_glance.name = "FlockCareRestGlance"
+	_care_strain_glance = _metric_chip(glance_grid, "STRAIN\nBASE")
+	_care_strain_glance.name = "FlockCareStrainGlance"
+	_care_recovery_glance = _metric_chip(glance_grid, "RECOVER\nBASE")
+	_care_recovery_glance.name = "FlockCareRecoveryGlance"
+	_care_training_glance = _metric_chip(glance_grid, "TRAIN\nNONE")
+	_care_training_glance.name = "FlockCareTrainingGlance"
+	_care_terms_glance = _metric_chip(glance_grid, "TERMS\n$12 / -15% / +0XP")
+	_care_terms_glance.name = "FlockCareTermsGlance"
+
 	_care_next_action_label = _make_label("", 10, Color("d7c17d"))
 	_care_next_action_label.name = "FlockCareNextAction"
 	_care_next_action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_care_next_action_label.visible = false
 	column.add_child(_care_next_action_label)
+	_care_next_action_glance = _make_label("", 10, Color("d7c17d"))
+	_care_next_action_glance.name = "FlockCareNextActionGlance"
+	_care_next_action_glance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(_care_next_action_glance)
 
 
 func _refresh_flock_care() -> void:
@@ -1208,6 +1246,11 @@ func _refresh_flock_care() -> void:
 			"" if absi(margin) == 1 else "s",
 		]
 	)
+	_care_gate_label.set_meta("accessible_text", _care_gate_label.text + "\n" + _care_gate_label.tooltip_text)
+	_care_welfare_glance.text = "WELFARE\n%d / %d  %s" % [welfare, gate, "OK" if gate_met else "SHORT"]
+	_care_welfare_glance.add_theme_color_override("font_color", COLOR_TEAL if gate_met else COLOR_RUST)
+	_care_welfare_glance.tooltip_text = _care_gate_label.text + "\n" + _care_gate_label.tooltip_text
+	_care_welfare_glance.set_meta("accessible_text", _care_welfare_glance.tooltip_text)
 
 	var recovery := care.get("recovery_effects", care.get("effects", {})) as Dictionary
 	var wellness_level := maxi(0, int(care.get(
@@ -1238,6 +1281,19 @@ func _refresh_flock_care() -> void:
 		]
 	)
 	_care_wellness_label.tooltip_text = _wellness_care_tooltip(recovery)
+	_care_wellness_label.set_meta("accessible_text", _care_wellness_label.text + "\n" + _care_wellness_label.tooltip_text)
+	_care_rest_glance.text = "REST  L%d\n%d / %d" % [wellness_level, breaks_active, recovery_perches]
+	_care_strain_glance.text = "STRAIN\n%s" % _multiplier_delta_copy(strain_multiplier)
+	_care_recovery_glance.text = "RECOVER\n%s" % _multiplier_delta_copy(break_multiplier)
+	for glance: Label in [_care_rest_glance, _care_strain_glance, _care_recovery_glance]:
+		glance.tooltip_text = _care_wellness_label.text + "\n" + _care_wellness_label.tooltip_text
+		glance.set_meta("accessible_text", glance.tooltip_text)
+	_care_strain_glance.add_theme_color_override(
+		"font_color", COLOR_TEAL if strain_multiplier < 1.0 else COLOR_MUTED
+	)
+	_care_recovery_glance.add_theme_color_override(
+		"font_color", COLOR_TEAL if break_multiplier > 1.0 else COLOR_MUTED
+	)
 
 	var training_terms := care.get("training_terms", {}) as Dictionary
 	var training_level := maxi(0, int(care.get(
@@ -1267,15 +1323,37 @@ func _refresh_flock_care() -> void:
 		]
 	)
 	_care_training_label.tooltip_text = _training_care_tooltip(training_terms)
+	_care_training_label.set_meta("accessible_text", _care_training_label.text + "\n" + _care_training_label.tooltip_text)
+	_care_training_glance.text = "TRAIN  L%d\n%s" % [
+		training_level,
+		"%d ACTIVE" % training_active if training_active > 0 else "NONE",
+	]
+	_care_terms_glance.text = "TERMS\n%s / %s / +%dXP" % [
+		_compact_currency(effective_cost),
+		"FULL" if work_penalty <= 0.05 else "-%s%%" % _compact_number(work_penalty),
+		coaching_bonus,
+	]
+	for glance: Label in [_care_training_glance, _care_terms_glance]:
+		glance.tooltip_text = _care_training_label.text + "\n" + _care_training_label.tooltip_text
+		glance.set_meta("accessible_text", glance.tooltip_text)
 
 	var next_action := care.get("next_care_action", {}) as Dictionary
-	_care_next_action_label.visible = not next_action.is_empty()
+	_care_next_action_label.visible = false
+	_care_next_action_glance.visible = not next_action.is_empty()
 	if not next_action.is_empty():
 		_care_next_action_label.text = _care_action_copy(next_action)
 		_care_next_action_label.tooltip_text = String(next_action.get(
 			"reason",
 			next_action.get("action_reason", "The next flock-care requisition is listed in Capital Expansions below."),
 		))
+		_care_next_action_label.set_meta(
+			"accessible_text", _care_next_action_label.text + "\n" + _care_next_action_label.tooltip_text
+		)
+		_care_next_action_glance.text = _care_action_glance_copy(next_action)
+		_care_next_action_glance.tooltip_text = (
+			_care_next_action_label.text + "\n" + _care_next_action_label.tooltip_text
+		)
+		_care_next_action_glance.set_meta("accessible_text", _care_next_action_glance.tooltip_text)
 
 
 func _refresh_capacity_button(capacity: int, maximum: int, spendable: int, planning_open: bool) -> void:
@@ -1920,6 +1998,35 @@ func _care_action_copy(action: Dictionary) -> String:
 		float(capital_cost) / 100.0,
 		"+" if upkeep_delta >= 0 else "-",
 		absf(float(upkeep_delta) / 100.0),
+	]
+
+
+func _care_action_glance_copy(action: Dictionary) -> String:
+	if bool(action.get("complete", false)):
+		return "NEXT  /  CARE CAMPUS COMPLETE"
+	var facility_id := String(action.get("facility_id", action.get("id", "care_expansion")))
+	var display_name := String(action.get(
+		"short_name",
+		action.get(
+			"display_name",
+			action.get("name", facility_id.replace("_room", "").replace("_", " ").capitalize()),
+		),
+	)).to_upper()
+	var next_level := maxi(1, int(action.get("next_level", action.get("level", 1))))
+	var capital_cost := maxi(0, int(action.get(
+		"capital_cost_cents",
+		action.get("next_level_cost_cents", action.get("cost_cents", 0)),
+	)))
+	var upkeep_delta := int(action.get(
+		"maintenance_delta_cents",
+		action.get("upkeep_delta_cents", 0),
+	))
+	return "NEXT  /  %s L%d\n%s CAPITAL  /  %s%s/DAY" % [
+		display_name,
+		next_level,
+		_compact_currency(capital_cost),
+		"+" if upkeep_delta >= 0 else "-",
+		_compact_currency(absi(upkeep_delta)),
 	]
 
 

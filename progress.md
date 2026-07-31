@@ -4733,3 +4733,41 @@ The next major systems milestone is persistent worker relationships and individu
 - Publication uses the branch-backed GitHub Pages release. Final production
   evidence still requires seven physical sessions and seven separately
   moderated usability sessions against the exact published artifact.
+
+## 2026-07-31 - Glance-first Flock Care & Training
+
+- Replaced the default care ledger paragraphs with six immediate tiles:
+  `WELFARE / REST / STRAIN / RECOVER / TRAIN / TERMS`. Welfare reads against
+  the Rested Flock threshold, rest shows occupied recovery capacity, and the
+  economic effects stay visible without requiring a prose scan.
+- Replaced the long next-care sentence with one compact two-line decision card.
+  The original exact gate, facility, sponsorship, work penalty, coaching XP,
+  capital, and daily-upkeep wording remains in hidden semantic labels, tile
+  tooltips, accessibility metadata, and the authoritative Web diagnostic.
+- Extended the 320px Facilities UI contract to verify every tile, hidden exact
+  label, and accessibility mapping. Facilities, Flockwatch navigation/input,
+  Office storytelling, and presentation smoke focused checks pass 5/5.
+- Added the localhost-only `flock-care` production preview, built through real
+  level-one Wellness Nest and Training Roost purchases. The native real-GPU
+  capture is `output/flock-care-ui-glance-v1/flock_care_ui.png`; the prescribed
+  Node 24 client completed three settled click/observe iterations at
+  `output/web-game/flock-care-web-client-v1/` with populated diagnostics and no
+  browser-error artifact.
+- Candidate-wide coverage passes 212/212 contracts. The three-shard aggregate
+  outer wrapper reached its ten-minute limit after two clean shard summaries
+  and 66 clean third-shard results; its exact remaining five tests were rerun
+  in the process-tree-aware harness and passed 5/5. No contract failed or hit
+  its individual watchdog, and the interrupted persistence process tree was
+  explicitly terminated before the rerun.
+- The independent release report at
+  `output/release/beta-release-gate-flock-care-glance-v2.json` passes all 44
+  native, Node 24 Web, rendered accessibility, production-server, validator,
+  and deploy-payload parity checks.
+- Synchronized both deploy payloads. The 9,326,596-byte PCK has SHA-256
+  `814291BA365E9C4F02BBA5B39B204DBB31D5CF8C51D5A23749906A66C73C4E84`.
+- Every focused/exhaustive Godot process, prescribed browser client, Chromium
+  child, and scoped production server exited. Port 41762 is free; unrelated
+  processes were not touched.
+- Publication uses the branch-backed GitHub Pages release. Final production
+  evidence still requires seven physical sessions and seven separately
+  moderated usability sessions against the exact published artifact.

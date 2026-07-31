@@ -262,6 +262,13 @@ func _run() -> void:
 	var wellness_summary := staffing_ui.find_child("FlockCareWellnessSummary", true, false) as Label
 	var training_summary := staffing_ui.find_child("FlockCareTrainingSummary", true, false) as Label
 	var next_care := staffing_ui.find_child("FlockCareNextAction", true, false) as Label
+	var care_welfare := staffing_ui.find_child("FlockCareWelfareGlance", true, false) as Label
+	var care_rest := staffing_ui.find_child("FlockCareRestGlance", true, false) as Label
+	var care_strain := staffing_ui.find_child("FlockCareStrainGlance", true, false) as Label
+	var care_recovery := staffing_ui.find_child("FlockCareRecoveryGlance", true, false) as Label
+	var care_training := staffing_ui.find_child("FlockCareTrainingGlance", true, false) as Label
+	var care_terms := staffing_ui.find_child("FlockCareTermsGlance", true, false) as Label
+	var next_care_glance := staffing_ui.find_child("FlockCareNextActionGlance", true, false) as Label
 	var matched_gate := staffing_ui.find_child("FacilityTrainingWellnessGate_training_roost", true, false) as Label
 	var training_delta := staffing_ui.find_child("FacilityCareDelta_training_roost", true, false) as Label
 	var training_purchase := staffing_ui.find_child("PurchaseFacility_training_roost", true, false) as Button
@@ -271,6 +278,17 @@ func _run() -> void:
 	_check(wellness_summary != null and _contains_all(wellness_summary.text, ["wellness nest", "l1", "resting 1 / 2", "strain -8%", "recovery +15%"]), "Wellness summary should connect occupied capacity to its exact strain and recovery effects", failures)
 	_check(training_summary != null and _contains_all(training_summary.text, ["training roost", "l1", "1 active", "$10.00", "-10%", "+2 xp"]), "Training summary should use authoritative effective sponsorship and coaching terms", failures)
 	_check(next_care != null and _contains_all(next_care.text, ["next care file", "wellness nest", "l2", "$90.00", "+$3.00/day"]), "the care block should identify the exact next capital commitment", failures)
+	_check(rested_gate != null and not rested_gate.visible and wellness_summary != null and not wellness_summary.visible and training_summary != null and not training_summary.visible and next_care != null and not next_care.visible, "dense care ledger prose should remain semantic detail instead of default presentation", failures)
+	_check(care_welfare != null and _contains_all(care_welfare.text, ["welfare", "74 / 72", "ok"]), "welfare should read as one threshold tile", failures)
+	_check(care_rest != null and _contains_all(care_rest.text, ["rest", "l1", "1 / 2"]), "recovery capacity should read as one occupancy tile", failures)
+	_check(care_strain != null and _contains_all(care_strain.text, ["strain", "-8%"]), "strain relief should read as one effect tile", failures)
+	_check(care_recovery != null and _contains_all(care_recovery.text, ["recover", "+15%"]), "break recovery should read as one effect tile", failures)
+	_check(care_training != null and _contains_all(care_training.text, ["train", "l1", "1 active"]), "active training should read as one activity tile", failures)
+	_check(care_terms != null and _contains_all(care_terms.text, ["terms", "$10", "-10%", "+2xp"]), "training economics should read as one terse terms tile", failures)
+	_check(next_care_glance != null and _contains_all(next_care_glance.text, ["next", "wellness nest", "l2", "$90 capital", "+$3/day"]), "the next care action should remain visible as a compact decision card", failures)
+	_check(care_welfare != null and _contains_all(String(care_welfare.get_meta("accessible_text", "")), ["rested flock", "74 / 72", "on track"]), "welfare tile accessibility should preserve the exact Rested Flock contract", failures)
+	_check(care_terms != null and _contains_all(String(care_terms.get_meta("accessible_text", "")), ["sponsorship $10.00", "training -10%", "coaching +2 xp"]), "terms tile accessibility should preserve exact sponsorship, pace, and coaching values", failures)
+	_check(next_care_glance != null and _contains_all(String(next_care_glance.get_meta("accessible_text", "")), ["next care file", "$90.00 capital", "+$3.00/day"]), "next-action accessibility should preserve the exact capital commitment", failures)
 	_check(matched_gate != null and _contains_all(matched_gate.text, ["matched care gate", "wellness nest 1 / 1", "cleared"]), "Training Roost should disclose its matching Wellness foundation", failures)
 	_check(training_delta != null and _contains_all(training_delta.text, ["next training effect", "$10.00 -> $8.00", "penalty -10% -> -5%", "coaching +2 -> +4 xp"]), "the Training Roost card should show exact current-to-next economics before authorization", failures)
 	_check(training_purchase != null and not training_purchase.disabled, "cleared matched-care gates should leave the Training Roost keyboard actionable", failures)

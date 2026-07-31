@@ -676,6 +676,8 @@ func _ready() -> void:
 		_capture_training_roost_preview()
 	elif "--capture-care-campus" in OS.get_cmdline_user_args() or "--capture-care-campus" in OS.get_cmdline_args():
 		_capture_care_campus_preview()
+	elif "--capture-flock-care-ui" in OS.get_cmdline_user_args() or "--capture-flock-care-ui" in OS.get_cmdline_args():
+		_capture_flock_care_ui_preview()
 	elif "--capture-farmer-relations-ui" in OS.get_cmdline_user_args() or "--capture-farmer-relations-ui" in OS.get_cmdline_args():
 		_capture_farmer_relations_ui_preview()
 	elif "--capture-farmer-relations-gallery" in OS.get_cmdline_user_args() or "--capture-farmer-relations-gallery" in OS.get_cmdline_args():
@@ -15778,6 +15780,39 @@ func _capture_care_campus_preview() -> void:
 	)
 	await get_tree().create_timer(0.95).timeout
 	_save_preview("care_campus.png")
+
+
+func _capture_flock_care_ui_preview() -> void:
+	_prepare_capture_running()
+	_prepare_care_campus_capture_economy()
+	for facility_id in [&"wellness_nest_room", &"training_roost"]:
+		var receipt := _simulation.purchase_facility(facility_id)
+		if not bool(receipt.get("accepted", false)):
+			push_error("Flock Care UI capture could not commission %s: %s" % [
+				String(facility_id),
+				String(receipt.get("reason", "unknown reason")),
+			])
+			get_tree().quit(1)
+			return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_FLOCK)
+	await get_tree().process_frame
+	var care_section := find_child("FlockCareSection", true, false) as Control
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_FLOCK)
+	if scroll != null and care_section != null:
+		var component_offset := (
+			care_section.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 10.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("flock_care_ui.png")
 
 
 func _capture_farmer_relations_gallery_preview() -> void:
