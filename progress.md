@@ -4897,3 +4897,38 @@ The next major systems milestone is persistent worker relationships and individu
   41768 are free and no repo-owned test process remains.
 - Final production acceptance still requires seven physical sessions and seven
   separately moderated usability sessions against the exact published artifact.
+
+## 2026-07-31 - Glance-first Flock Petition
+
+- Replaced the recurring petition prose ledger with five immediate filing tiles:
+  three evidence facts plus one binding promise and one measurable test. The
+  sponsor now files the request in a single sentence instead of a dense block.
+- Reduced the three responses to one comparable row at desktop width. Every card
+  now shows its real price and consequence at a glance: binding next shift,
+  immediate relief without a compact, or free denial with trust and work-rule
+  risk. Narrow layouts wrap the evidence and stack the actions.
+- Preserved the complete filed evidence, authored response labels, promise,
+  fulfillment condition, and consequence previews in tile tooltips, hidden
+  semantic labels, accessibility metadata, and the authoritative Web state.
+- The focused petition/labor contract proves the five tiles, exact progressive
+  disclosure, one-row desktop comparison, narrow column rules, three response
+  tiers, safe pause, later compact/work-rule status, and sponsor dossier marker.
+- The final native NVIDIA/OpenGL capture is
+  `output/petition-glance-native-v3/flock_petition.png`. The exact final Web
+  export is clean in the prescribed client at
+  `output/petition-glance-web-client-v2/`: the petition is visible, all three
+  consequence summaries are authoritative, no browser-error file exists, and
+  production-server stderr is empty.
+- Candidate-wide native coverage passes 212/212 contracts with zero failures or
+  timeouts at
+  `output/godot-full-suite-20260731-petition-glance-v1/full-suite-summary.json`.
+  The independent release gate passes all 44 native, Node 24 Web, rendered
+  accessibility, production-server, validator, and deploy-payload checks at
+  `output/release/petition-glance-beta-release-gate.json`.
+- Synchronized all nine deploy payloads. The 9,349,140-byte PCK has SHA-256
+  `F5E8F2630512ECB9DC043F9F64F4AAB5ACB4767722D8C6AA6A510BF0E76C1136`.
+- Every native capture, focused/exhaustive Godot process, prescribed browser
+  client, Chromium child, and production server exited. Ports 4327 and 4328 are
+  free and no repo-owned test process remains.
+- Final production acceptance still requires seven physical sessions and seven
+  separately moderated usability sessions against the exact published artifact.

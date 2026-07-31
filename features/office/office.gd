@@ -481,6 +481,11 @@ var _decision_panel: PanelContainer
 var _decision_eyebrow: Label
 var _decision_title: Label
 var _decision_body: Label
+var _decision_petition_glance: GridContainer
+var _decision_petition_tiles: Array[PanelContainer] = []
+var _decision_petition_values: Array[Label] = []
+var _decision_petition_captions: Array[Label] = []
+var _decision_petition_semantics: Label
 var _decision_order_glance: GridContainer
 var _decision_order_values: Array[Label] = []
 var _decision_order_captions: Array[Label] = []
@@ -4631,6 +4636,19 @@ func _build_decision_modal() -> void:
 	_decision_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_decision_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_decision_body)
+	_decision_petition_glance = GridContainer.new()
+	_decision_petition_glance.name = "DecisionPetitionGlance"
+	_decision_petition_glance.columns = 5
+	_decision_petition_glance.add_theme_constant_override("h_separation", 7)
+	_decision_petition_glance.add_theme_constant_override("v_separation", 7)
+	_decision_petition_glance.visible = false
+	content.add_child(_decision_petition_glance)
+	for petition_tile_index in 5:
+		_add_decision_petition_tile(petition_tile_index)
+	_decision_petition_semantics = _make_label("", 1, Color.TRANSPARENT)
+	_decision_petition_semantics.name = "DecisionPetitionSemantics"
+	_decision_petition_semantics.visible = false
+	content.add_child(_decision_petition_semantics)
 	_decision_order_glance = GridContainer.new()
 	_decision_order_glance.name = "DecisionOrderGlance"
 	_decision_order_glance.columns = 3
@@ -4678,14 +4696,22 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	if decision.is_empty() or _decision_host == null:
 		return
 	_active_decision = decision.duplicate(true)
-	_decision_panel.custom_minimum_size.x = minf(
+	var decision_panel_width := minf(
 		760.0,
 		maxf(300.0, get_viewport().get_visible_rect().size.x - 52.0),
 	)
+	_decision_panel.custom_minimum_size.x = decision_panel_width
+	if _decision_petition_glance != null:
+		_decision_petition_glance.columns = _decision_petition_glance_column_count(
+			decision_panel_width
+		)
 	_selected_decision_option = &""
 	var kind := StringName(decision.get("kind", &"incident"))
+	var decision_category := StringName(decision.get("category", &""))
 	var option_count := (decision.get("options", []) as Array).size()
 	_decision_options.columns = (
+		_decision_petition_option_column_count(decision_panel_width)
+		if decision_category == &"flock_petition" else
 		3 if kind == &"directive" and option_count <= 3 else
 		(2 if option_count <= 4 else 1)
 	)
@@ -4725,6 +4751,10 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		_decision_eyebrow.text = "CLOSING FILE 2 / 3  ·  %s" % _decision_eyebrow.text
 	_decision_title.text = String(decision.get("title", "CHOOSE A RESPONSE"))
 	_decision_body.text = String(decision.get("body", "A measurable variance requires management attention."))
+	_decision_body.set_meta("accessible_text", _decision_body.text)
+	_set_decision_petition_glance_visible(false)
+	if _decision_petition_semantics != null:
+		_decision_petition_semantics.text = ""
 	_set_decision_order_glance_visible(false)
 	var case_memory := decision.get("case_memory", {}) as Dictionary
 	if kind == &"incident" and not case_memory.is_empty():
@@ -4733,7 +4763,6 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			String(case_memory.get("label", "PRIOR CASE FILE")),
 			String(case_memory.get("summary", "A prior response changes this case.")),
 		]
-	var decision_category := StringName(decision.get("category", &""))
 	var opening_policy := (
 		kind == &"directive"
 		and not _campaign_senior_roost
@@ -4764,19 +4793,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		var sponsor_worker_id := int(decision.get("sponsor_worker_id", -1))
 		if _camera_controller != null and sponsor_worker_id >= 0:
 			_camera_controller.focus_worker(sponsor_worker_id)
-		var petition := decision.get("petition", {}) as Dictionary
-		var evidence_lines: Array[String] = []
-		for evidence_value in decision.get("evidence", []):
-			evidence_lines.append(String(evidence_value))
-		_decision_body.text += "\n\nFILED EVIDENCE  ·  %s" % (
-			"  /  ".join(evidence_lines)
-			if not evidence_lines.is_empty() else
-			"The active flock ledger supports the filing."
-		)
-		_decision_body.text += "\nPROPOSED COMPACT  ·  %s\nFULFILLMENT TEST  ·  %s" % [
-			String(petition.get("promise", "A next-shift promise will be binding.")),
-			String(petition.get("condition", "The closing ledger determines fulfillment.")),
-		]
+		_configure_decision_petition_glance(decision)
 	_decision_preview.text = String(decision.get(
 		"selection_prompt",
 		(
@@ -4832,7 +4849,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.custom_minimum_size.y = (
 			72.0 if kind == FIRST_CLUTCH_REINVESTMENT_KIND else
-			(68.0 if decision_category == &"flock_petition" else 58.0)
+			(82.0 if decision_category == &"flock_petition" else 58.0)
 		)
 		var option_glance := (
 			"HELPS %d  /  RISKS %d" % [
@@ -4849,6 +4866,10 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			var cost_glance := (
 				"FREE"
 				if cost_cents <= 0 else
+				"$%d" % (cost_cents / 100)
+				if decision_category == &"flock_petition" and cost_cents % 100 == 0 else
+				"$%.2f" % (float(cost_cents) / 100.0)
+				if decision_category == &"flock_petition" else
 				"$%d COST" % (cost_cents / 100)
 				if cost_cents % 100 == 0 else
 				"$%.2f COST" % (float(cost_cents) / 100.0)
@@ -4861,6 +4882,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		]
 		button.set_meta("option_id", option_id)
 		button.set_meta("preview", full_preview)
+		button.set_meta("accessible_text", "%s. %s" % [label, full_preview])
 		button.set_meta("order_fit", order_fit.duplicate(true))
 		button.set_meta("cost_cents", cost_cents)
 		button.disabled = not option_available or cost_cents > fund_cents
@@ -4870,7 +4892,8 @@ func _on_decision_requested(decision: Dictionary) -> void:
 				"Requires $%.2f Feed Fund; only $%.2f is available." % [cost_cents / 100.0, fund_cents / 100.0],
 			))
 		else:
-			button.tooltip_text = "%s\n%s" % [
+			button.tooltip_text = "%s\n%s\n%s" % [
+				label,
 				"Select to preview, then authorize below.",
 				full_preview,
 			]
@@ -4920,6 +4943,155 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			button.grab_focus()
 			break
 	_update_guidance(_simulation.snapshot())
+
+
+func _add_decision_petition_tile(tile_index: int) -> void:
+	var tile := PanelContainer.new()
+	tile.name = "DecisionPetitionTile_%d" % tile_index
+	tile.custom_minimum_size.y = 66.0
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tile.mouse_filter = Control.MOUSE_FILTER_PASS
+	tile.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("20313b"), 0.98, 8, 1),
+	)
+	_decision_petition_glance.add_child(tile)
+	_decision_petition_tiles.append(tile)
+	var stack := VBoxContainer.new()
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 1)
+	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(stack)
+	var value := _make_label("-", 16, Color("f1cf79"))
+	value.name = "DecisionPetitionValue_%d" % tile_index
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(value)
+	_decision_petition_values.append(value)
+	var caption := _make_label("FILE", 9, Color("9fb0b7"))
+	caption.name = "DecisionPetitionCaption_%d" % tile_index
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(caption)
+	_decision_petition_captions.append(caption)
+
+
+func _set_decision_petition_glance_visible(visible: bool) -> void:
+	if _decision_petition_glance != null:
+		_decision_petition_glance.visible = visible
+
+
+func _decision_petition_glance_column_count(panel_width: float) -> int:
+	return 5 if panel_width >= 700.0 else (3 if panel_width >= 500.0 else 2)
+
+
+func _decision_petition_option_column_count(panel_width: float) -> int:
+	return 3 if panel_width >= 700.0 else (2 if panel_width >= 500.0 else 1)
+
+
+func _configure_decision_petition_glance(decision: Dictionary) -> void:
+	if _decision_petition_glance == null:
+		return
+	var petition := decision.get("petition", {}) as Dictionary
+	var evidence_lines: Array[String] = []
+	var entries: Array[Dictionary] = []
+	for evidence_value in decision.get("evidence", []):
+		var evidence_line := String(evidence_value).strip_edges()
+		if evidence_line.is_empty():
+			continue
+		evidence_lines.append(evidence_line)
+		if entries.size() >= 3:
+			continue
+		var separator_index := evidence_line.find(":")
+		var evidence_caption := "EVIDENCE"
+		var evidence_glance := evidence_line
+		if separator_index >= 0:
+			evidence_caption = evidence_line.left(separator_index).strip_edges()
+			evidence_glance = evidence_line.substr(separator_index + 1).strip_edges()
+		entries.append({
+			"caption": _petition_evidence_caption(evidence_caption),
+			"value": evidence_glance.to_upper(),
+			"detail": "FILED EVIDENCE\n%s" % evidence_line,
+		})
+	var petition_type := StringName(decision.get(
+		"petition_type",
+		petition.get("petition_type", &""),
+	))
+	var contract_glance := _petition_contract_glance(petition_type)
+	var promise := String(petition.get("promise", "A next-shift promise will be binding."))
+	var condition := String(petition.get("condition", "The closing ledger determines fulfillment."))
+	entries.append({
+		"caption": "PROMISE",
+		"value": String(contract_glance.get("promise", "NEXT SHIFT")),
+		"detail": "PROPOSED COMPACT\n%s" % promise,
+	})
+	entries.append({
+		"caption": "TEST",
+		"value": String(contract_glance.get("test", "CLOSING LEDGER")),
+		"detail": "FULFILLMENT TEST\n%s" % condition,
+	})
+	for tile_index in _decision_petition_tiles.size():
+		var has_entry := tile_index < entries.size()
+		_decision_petition_tiles[tile_index].visible = has_entry
+		if not has_entry:
+			continue
+		var entry := entries[tile_index]
+		var detail := String(entry.get("detail", ""))
+		_decision_petition_values[tile_index].text = String(entry.get("value", "-"))
+		_decision_petition_captions[tile_index].text = String(entry.get("caption", "FILE"))
+		_decision_petition_tiles[tile_index].tooltip_text = detail
+		_decision_petition_tiles[tile_index].set_meta("accessible_text", detail)
+	var sponsor_name := String(decision.get("sponsor_worker_name", "THE SPONSOR")).to_upper()
+	_decision_body.text = "%s FILED A COLLECTIVE REQUEST FROM THE PERFORMANCE LEDGER." % sponsor_name
+	var evidence_detail := (
+		" / ".join(evidence_lines)
+		if not evidence_lines.is_empty() else
+		"The active flock ledger supports the filing."
+	)
+	var semantic_detail := "FILED EVIDENCE. %s PROPOSED COMPACT. %s FULFILLMENT TEST. %s" % [
+		evidence_detail,
+		promise,
+		condition,
+	]
+	_decision_body.set_meta("accessible_text", "%s %s" % [_decision_body.text, semantic_detail])
+	if _decision_petition_semantics != null:
+		_decision_petition_semantics.text = semantic_detail
+		_decision_petition_semantics.set_meta("accessible_text", semantic_detail)
+	_set_decision_petition_glance_visible(true)
+
+
+func _petition_evidence_caption(raw_caption: String) -> String:
+	match raw_caption.to_upper():
+		"ASSIGNED FILE":
+			return "ASSIGNED"
+		"TRAINED FILE":
+			return "TRAINED"
+		"GRIEVANCE LEDGER":
+			return "GRIEVANCE"
+		"STRESS READING":
+			return "STRESS"
+		"FATIGUE READING":
+			return "FATIGUE"
+		"OVERTIME ORDER":
+			return "OVERTIME"
+		"LAST CREDIT MEMO":
+			return "LAST CREDIT"
+		"CAREER PROFILE":
+			return "PROFILE"
+	return raw_caption.to_upper()
+
+
+func _petition_contract_glance(petition_type: StringName) -> Dictionary:
+	match petition_type:
+		&"specialty_respect":
+			return {"promise": "SPECIALTY ALL SHIFT", "test": "FULL SHIFT"}
+		&"safe_pace":
+			return {"promise": "NO OT / QUOTA", "test": "NO BREACH"}
+		&"credit_in_writing":
+			return {"promise": "SHARE CREDIT", "test": "BEFORE CLOSE"}
+	return {"promise": "NEXT SHIFT", "test": "CLOSING LEDGER"}
 
 
 func _add_decision_order_tile(order_index: int) -> void:
@@ -12009,9 +12181,8 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 				_decision_title.text if _decision_title != null else String(
 					_active_decision.get("title", "Decision required")
 				),
-				_decision_body.text if _decision_body != null else String(
-					_active_decision.get("body", "")
-				),
+				String(_decision_body.get_meta("accessible_text", _decision_body.text))
+				if _decision_body != null else String(_active_decision.get("body", "")),
 				choice_context,
 				selection,
 			],

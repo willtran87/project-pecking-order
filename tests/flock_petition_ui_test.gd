@@ -55,6 +55,8 @@ func _run() -> void:
 	await process_frame
 	var decision_title := office.get("_decision_title") as Label
 	var decision_body := office.get("_decision_body") as Label
+	var petition_glance := office.find_child("DecisionPetitionGlance", true, false) as GridContainer
+	var petition_semantics := office.find_child("DecisionPetitionSemantics", true, false) as Label
 	var decision_preview := office.find_child("DecisionPreview", true, false) as Label
 	var sign := office.find_child("DecisionOption_sign_compact", true, false) as Button
 	var concede := office.find_child("DecisionOption_offer_concession", true, false) as Button
@@ -65,20 +67,41 @@ func _run() -> void:
 	_check(decision_title != null and decision_title.text == "A HEN REQUESTS HER OWN KIND OF PECKWORK", "petition should retain its authored collective title", failures)
 	_check(
 		decision_body != null
-		and sponsor_name in decision_body.text
-		and "FILED EVIDENCE" in decision_body.text
-		and "Assigned file: APPEALS" in decision_body.text
-		and "Trained file: NEST DAMAGE" in decision_body.text,
-		"petition body should expose the named sponsor and filed evidence",
+		and sponsor_name.to_upper() in decision_body.text
+		and "PERFORMANCE LEDGER" in decision_body.text
+		and "FILED EVIDENCE" not in decision_body.text
+		and PETITION_PROMISE not in decision_body.text,
+		"petition body should reduce the filing to one sponsor-led sentence",
 		failures,
 	)
 	_check(
-		decision_body != null
-		and "PROPOSED COMPACT" in decision_body.text
-		and PETITION_PROMISE in decision_body.text
-		and "FULFILLMENT TEST" in decision_body.text
-		and PETITION_TEST in decision_body.text,
-		"petition body should expose the exact promise and measurable fulfillment test",
+		petition_glance != null
+		and petition_glance.is_visible_in_tree()
+		and petition_glance.columns == 5
+		and _contains_all(
+			_petition_glance_text(office),
+			["APPEALS", "NEST DAMAGE", "72", "SPECIALTY ALL SHIFT", "FULL SHIFT"],
+		),
+		"petition should communicate evidence, promise, and test through five glance tiles",
+		failures,
+	)
+	_check(
+		petition_semantics != null
+		and not petition_semantics.is_visible_in_tree()
+		and _contains_all(
+			petition_semantics.text,
+			["FILED EVIDENCE", "Assigned file: APPEALS", PETITION_PROMISE, "FULFILLMENT TEST", PETITION_TEST],
+		)
+		and _contains_all(
+			String(decision_body.get_meta("accessible_text", "")),
+			["Assigned file: APPEALS", PETITION_PROMISE, PETITION_TEST],
+		),
+		"petition should retain the exact filing in its hidden and assistive contracts",
+		failures,
+	)
+	_check(
+		_petition_tiles_retain_exact_terms(office),
+		"petition glance tiles should expose exact evidence and contract terms on inspection",
 		failures,
 	)
 	_check(
@@ -86,10 +109,22 @@ func _run() -> void:
 		"petition response prompt should explain that review remains paused",
 		failures,
 	)
-	_check(option_buttons.size() == 3, "petition modal should expose exactly three response tiers", failures)
-	_check_petition_option(sign, "SIGN THE COMPACT", "$7.00", "binding next shift", 700, failures)
-	_check_petition_option(concede, "OFFER A SCOOP OF FEED", "$4.00", "no binding compact", 400, failures)
-	_check_petition_option(deny, "DENY AND MONITOR", "FREE", "work-to-rule", 0, failures)
+	_check(
+		option_buttons.size() == 3
+		and (office.get("_decision_options") as GridContainer).columns == 3,
+		"petition modal should compare exactly three response tiers in one row",
+		failures,
+	)
+	_check_petition_option(sign, "SIGN COMPACT", "SIGN THE COMPACT", "$7", "$7.00", "binding next shift", 700, failures)
+	_check_petition_option(concede, "OFFER FEED", "OFFER A SCOOP OF FEED", "$4", "$4.00", "no binding compact", 400, failures)
+	_check_petition_option(deny, "DENY & MONITOR", "DENY AND MONITOR", "FREE", "FREE", "work-to-rule", 0, failures)
+
+	_check(
+		int(office.call("_decision_petition_glance_column_count", 428.0)) == 2
+		and int(office.call("_decision_petition_option_column_count", 428.0)) == 1,
+		"narrow petition layout should wrap glance tiles and stack response cards",
+		failures,
+	)
 
 	# The modal is presentation-only in this focused fixture. Reveal Flockwatch and
 	# feed the same snapshot shapes that Office receives from the simulation.
@@ -252,7 +287,9 @@ func _petition_decision(sponsor_id: int, sponsor_name: String) -> Dictionary:
 				"id": &"sign_compact",
 				"response_tier": &"binding",
 				"label": "SIGN THE COMPACT",
+				"short_label": "SIGN COMPACT",
 				"tagline": "Put tomorrow's promise in writing.",
+				"glance": "BINDS NEXT SHIFT",
 				"preview": "$7.00  /  binding next shift  /  breach has consequences",
 				"cost_cents": 700,
 			},
@@ -260,7 +297,9 @@ func _petition_decision(sponsor_id: int, sponsor_name: String) -> Dictionary:
 				"id": &"offer_concession",
 				"response_tier": &"concession",
 				"label": "OFFER A SCOOP OF FEED",
+				"short_label": "OFFER FEED",
 				"tagline": "Address today's strain without signing tomorrow away.",
+				"glance": "RELIEF\nNO COMPACT",
 				"preview": "$4.00  /  immediate relief  /  no binding compact",
 				"cost_cents": 400,
 			},
@@ -268,7 +307,9 @@ func _petition_decision(sponsor_id: int, sponsor_name: String) -> Dictionary:
 				"id": &"deny_and_monitor",
 				"response_tier": &"denial",
 				"label": "DENY AND MONITOR",
+				"short_label": "DENY & MONITOR",
 				"tagline": "Call the pattern anecdotal and measure the reaction.",
+				"glance": "TRUST DOWN\nWORK-RULE RISK",
 				"preview": "FREE  /  trust falls  /  solidarity may trigger work-to-rule",
 				"cost_cents": 0,
 			},
@@ -328,7 +369,9 @@ func _worker_snapshot(snapshot: Dictionary, worker_id: int) -> Dictionary:
 
 func _check_petition_option(
 	button: Button,
-	label: String,
+	short_label: String,
+	authored_label: String,
+	visible_cost: String,
 	cost_text: String,
 	tier_text: String,
 	cost_cents: int,
@@ -337,15 +380,45 @@ func _check_petition_option(
 	var preview_text := String(button.get_meta("preview", "")) if button != null else ""
 	_check(
 		button != null
-		and label in button.text
+		and short_label in button.text
+		and visible_cost in button.text
 		and cost_text in preview_text
 		and tier_text in preview_text
+		and authored_label in button.tooltip_text
 		and cost_text in button.tooltip_text
 		and tier_text in button.tooltip_text
+		and authored_label in String(button.get_meta("accessible_text", ""))
 		and int(button.get_meta("cost_cents", -1)) == cost_cents,
-		"%s tier should expose its identity plus exact terms through the shared-preview contract" % label,
+		"%s tier should show its short consequence while retaining exact authored terms" % authored_label,
 		failures,
 	)
+
+
+func _petition_glance_text(office: Office) -> String:
+	var fragments: Array[String] = []
+	for tile_index in 5:
+		var value := office.find_child("DecisionPetitionValue_%d" % tile_index, true, false) as Label
+		var caption := office.find_child("DecisionPetitionCaption_%d" % tile_index, true, false) as Label
+		if value != null:
+			fragments.append(value.text)
+		if caption != null:
+			fragments.append(caption.text)
+	return " / ".join(fragments)
+
+
+func _petition_tiles_retain_exact_terms(office: Office) -> bool:
+	var exact_terms := [
+		"Assigned file: APPEALS",
+		"Trained file: NEST DAMAGE",
+		"Grievance ledger: 72",
+		PETITION_PROMISE,
+		PETITION_TEST,
+	]
+	for tile_index in 5:
+		var tile := office.find_child("DecisionPetitionTile_%d" % tile_index, true, false) as PanelContainer
+		if tile == null or String(exact_terms[tile_index]) not in tile.tooltip_text:
+			return false
+	return true
 
 
 func _contains_all(text: String, fragments: Array[String]) -> bool:

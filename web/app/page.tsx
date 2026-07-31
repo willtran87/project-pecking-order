@@ -243,6 +243,7 @@ export default function Home() {
 			"rooster-operations": "--capture-rooster-operations-ui",
 			"flock-care": "--capture-flock-care-ui",
 			"flockwatch-today": "--capture-flock-labor",
+			"flock-petition": "--capture-petition",
 			"career-sponsorship": "--capture-career-sponsorship",
 			"campus-portfolio": "--capture-campus-portfolio-ui",
 			"contract-board": "--capture-contract-board-ui",
