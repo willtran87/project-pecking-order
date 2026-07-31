@@ -43,19 +43,30 @@ func _run() -> void:
 	var clutch := office.find_child("FlockwatchTodayClutch", true, false) as Label
 	var flock := office.find_child("FlockwatchTodayFlock", true, false) as Label
 	var ledgers := office.find_child("FlockwatchTodayLedgers", true, false) as Label
+	var workload_glance := office.find_child("FlockwatchTodayCasesGlance", true, false) as Label
+	var clutch_glance := office.find_child("FlockwatchTodayEggsGlance", true, false) as Label
+	var flock_glance := office.find_child("FlockwatchTodayFlockGlance", true, false) as Label
+	var cash_glance := office.find_child("FlockwatchTodayCashGlance", true, false) as Label
 	var orders_heading := office.find_child("CampaignOrdersHeading", true, false) as Label
 	var objectives := office.find_child("CampaignObjectivesLabel", true, false) as Label
+	var order_glances := office.find_children("CampaignOrderGlance*", "Label", true, false)
 	var doctrine := office.find_child("CampaignActiveDoctrine", true, false) as Label
 	var safeguards := office.find_child("CampaignSafeguardForecast", true, false) as Label
+	var safeguard_glance := office.find_child("CampaignSafeguardGlance", true, false) as Label
 	var labor := office.find_child("FlockLaborStatus", true, false) as Label
+	var labor_grid := office.find_child("FlockLaborGlanceGrid", true, false) as GridContainer
+	var compact_glance := office.find_child("FlockCompactGlance", true, false) as Label
+	var work_rule_glance := office.find_child("WorkToRuleGlance", true, false) as Label
 	var history := office.find_child("FlockwatchStatusHistory", true, false) as Label
 	var history_toggle := office.find_child("FlockwatchStatusHistoryToggle", true, false) as Button
 	var continue_button := office.find_child("ContinueDirectiveButton", true, false) as Button
 	_check(
 		[
 			simulation, navigation, snapshot_panel, workload, clutch, flock,
-			ledgers, orders_heading, objectives, doctrine, safeguards, labor,
-			history, history_toggle, continue_button,
+			ledgers, workload_glance, clutch_glance, flock_glance, cash_glance,
+			orders_heading, objectives, doctrine, safeguards, safeguard_glance,
+			labor, labor_grid, compact_glance, work_rule_glance, history,
+			history_toggle, continue_button,
 		].all(func(value: Variant) -> bool: return value != null),
 		"Office should compose the complete compact Today brief",
 		failures,
@@ -66,7 +77,9 @@ func _run() -> void:
 	var today_scroll := navigation.page_scroll(FlockwatchNavigation.PAGE_TODAY)
 	for today_control: Control in [
 		orders_heading, objectives, doctrine, safeguards, labor,
-		snapshot_panel, workload, clutch, flock, ledgers, history_toggle, history,
+		safeguard_glance, labor_grid, snapshot_panel, workload, clutch, flock,
+		ledgers, workload_glance, clutch_glance, flock_glance, cash_glance,
+		history_toggle, history,
 	]:
 		_check(
 			today_control != null and today_scroll.is_ancestor_of(today_control),
@@ -128,7 +141,59 @@ func _run() -> void:
 		[workload, clutch, flock, ledgers].all(
 			func(label: Label) -> bool: return not label.tooltip_text.is_empty()
 		),
-		"every compact snapshot row should retain explanatory hover detail",
+		"every exact snapshot row should retain explanatory detail",
+		failures,
+	)
+	_check(
+		[workload, clutch, flock, ledgers].all(
+			func(label: Label) -> bool: return not label.visible
+		),
+		"the exact ledger rows should remain semantic detail instead of default prose",
+		failures,
+	)
+	_check(
+		workload_glance != null
+		and _contains_all(workload_glance.text, ["CASES", "0 LATE"])
+		and "TURNED AWAY" in String(workload_glance.get_meta("accessible_text", "")),
+		"cases tile should show load and lateness while preserving rejected intake for assistive reading",
+		failures,
+	)
+	_check(
+		clutch_glance != null
+		and _contains_all(clutch_glance.text, ["EGGS", str(int(snapshot.get("quota_target", 0))), "TOTAL"])
+		and "CAREER EGGS" in clutch_glance.tooltip_text,
+		"egg tile should show current clutch progress while preserving the exact career total",
+		failures,
+	)
+	_check(
+		flock_glance != null
+		and _contains_all(flock_glance.text, ["FLOCK", "%d%%" % expected_morale, "RISK"])
+		and "UNITY RISK" in flock_glance.tooltip_text,
+		"flock tile should show spirits and risk with the exact labor meaning on inspection",
+		failures,
+	)
+	_check(
+		cash_glance != null
+		and _contains_all(cash_glance.text, ["CASH", "FREE"])
+		and _contains_all(String(cash_glance.get_meta("accessible_text", "")), [
+			"FARMER FAVOR", "COOP OBEDIENCE", "RESERVED",
+		]),
+		"cash tile should prioritize spendable money while retaining the complete ledger semantics",
+		failures,
+	)
+	_check(
+		order_glances.size() == 3
+		and _order_glances_are_compact(order_glances),
+		"three scored orders should be readable as two-line status tiles with exact hover detail",
+		failures,
+	)
+	_check(
+		objectives != null and not objectives.visible
+		and safeguard_glance != null and safeguard_glance.is_visible_in_tree()
+		and "SAFEGUARD" in safeguard_glance.text
+		and safeguards != null and not safeguards.visible
+		and "PROBATION FINAL TERMS" in safeguard_glance.tooltip_text,
+		"orders and safeguard prose should collapse into glance tiles without losing final terms",
 		failures,
 	)
 
@@ -137,15 +202,23 @@ func _run() -> void:
 	quiet_snapshot["flock_petition"] = {}
 	quiet_snapshot["work_to_rule"] = {"active": false, "scheduled": false, "threshold": 45.0}
 	office.call("_update_flock_labor_label", quiet_snapshot)
-	_check(labor != null and not labor.visible, "quiet shifts should not reserve space for an empty labor filing", failures)
+	_check(
+		labor != null and not labor.visible and labor_grid != null and not labor_grid.visible,
+		"quiet shifts should not reserve space for an empty labor filing",
+		failures,
+	)
 	quiet_snapshot["flock_petition"] = {
 		"sponsor_worker_name": "Mabel",
 		"outcome": "Management filed a feed concession.",
 	}
 	office.call("_update_flock_labor_label", quiet_snapshot)
 	_check(
-		labor != null and labor.visible and "LAST FLOCK PETITION" in labor.text and "MABEL" in labor.text,
-		"a filed petition should restore the labor ledger with its exact record",
+		labor != null and not labor.visible
+		and labor_grid != null and labor_grid.visible
+		and compact_glance != null and compact_glance.is_visible_in_tree()
+		and _contains_all(compact_glance.text, ["PETITION", "MABEL", "FILED"])
+		and _contains_all(compact_glance.tooltip_text, ["LAST FLOCK PETITION", "MABEL"]),
+		"a filed petition should restore a compact tile with its exact record on inspection",
 		failures,
 	)
 
@@ -201,6 +274,20 @@ func _contains_all(text: String, fragments: Array[String]) -> bool:
 	return true
 
 
+func _order_glances_are_compact(glances: Array[Node]) -> bool:
+	for node: Node in glances:
+		if not node is Label:
+			return false
+		var glance := node as Label
+		if (
+			glance.text.count("\n") != 1
+			or ("TRACK" not in glance.text and "NEEDS" not in glance.text)
+			or glance.tooltip_text.is_empty()
+		):
+			return false
+	return true
+
+
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
@@ -215,7 +302,7 @@ func _finish(office: Office, store: Variant, failures: Array[String]) -> void:
 			push_error("FLOCKWATCH_TODAY_DENSITY_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FLOCKWATCH_TODAY_DENSITY_TEST_PASSED metrics=4 labor=conditional history=collapsed pages=5")
+	print("FLOCKWATCH_TODAY_DENSITY_TEST_PASSED orders=3 safeguards=1 metrics=4 labor=conditional exact=semantic history=collapsed pages=5")
 	quit(0)
 
 

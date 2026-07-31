@@ -391,12 +391,23 @@ var _today_workload_label: Label
 var _today_clutch_label: Label
 var _today_flock_label: Label
 var _today_ledger_label: Label
+var _today_glance_grid: GridContainer
+var _today_workload_glance: Label
+var _today_clutch_glance: Label
+var _today_flock_glance: Label
+var _today_cash_glance: Label
 var _today_precedent_label: Label
 var _campaign_objectives_label: Label
 var _campaign_orders_heading_label: Label
+var _campaign_orders_glance_grid: GridContainer
+var _campaign_order_glances: Array[Label] = []
 var _campaign_doctrine_label: Label
 var _campaign_safeguards_label: Label
+var _campaign_safeguard_glance: Label
 var _flock_labor_label: Label
+var _flock_labor_glance_grid: GridContainer
+var _flock_compact_glance: Label
+var _work_to_rule_glance: Label
 var _records_archive_label: Label
 var _commendations_disclosure_toggle
 var _commendations_summary_label: Label
@@ -3804,9 +3815,21 @@ func _build_ui() -> void:
 	_campaign_orders_heading_label = _make_label("TODAY'S PROBATION ORDERS", 17, Color("73b5a7"))
 	_campaign_orders_heading_label.name = "CampaignOrdersHeading"
 	today_section.add_child(_campaign_orders_heading_label)
+	_campaign_orders_glance_grid = _make_flockwatch_glance_grid(
+		"CampaignOrdersGlanceGrid",
+		3,
+	)
+	today_section.add_child(_campaign_orders_glance_grid)
+	for glance_index in range(3):
+		_campaign_order_glances.append(_add_flockwatch_glance_tile(
+			_campaign_orders_glance_grid,
+			"CampaignOrderGlance%d" % (glance_index + 1),
+			"ORDER\nAWAITING FILE",
+		))
 	_campaign_objectives_label = _make_label("Day 1 orders are being stamped.", 13, Color("d7e5df"))
 	_campaign_objectives_label.name = "CampaignObjectivesLabel"
 	_campaign_objectives_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_campaign_objectives_label.visible = false
 	today_section.add_child(_campaign_objectives_label)
 	_campaign_doctrine_label = _make_label("", 12, Color("9fd3c5"))
 	_campaign_doctrine_label.name = "CampaignActiveDoctrine"
@@ -3822,12 +3845,40 @@ func _build_ui() -> void:
 	_campaign_safeguards_label.name = "CampaignSafeguardForecast"
 	_campaign_safeguards_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_campaign_safeguards_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_campaign_safeguards_label.visible = false
 	today_section.add_child(_campaign_safeguards_label)
+	var safeguard_glance_grid := _make_flockwatch_glance_grid(
+		"CampaignSafeguardGlanceGrid",
+		1,
+	)
+	today_section.add_child(safeguard_glance_grid)
+	_campaign_safeguard_glance = _add_flockwatch_glance_tile(
+		safeguard_glance_grid,
+		"CampaignSafeguardGlance",
+		"SAFEGUARD\nAWAITING FILE",
+	)
 	_flock_labor_label = _make_label("FLOCK VOICE  ·  No binding compact is currently filed.", 13, Color("b9c8cc"))
 	_flock_labor_label.name = "FlockLaborStatus"
 	_flock_labor_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_flock_labor_label.tooltip_text = "Named petitions can become next-shift compacts or trigger work-to-rule."
+	_flock_labor_label.visible = false
 	today_section.add_child(_flock_labor_label)
+	_flock_labor_glance_grid = _make_flockwatch_glance_grid(
+		"FlockLaborGlanceGrid",
+		2,
+	)
+	today_section.add_child(_flock_labor_glance_grid)
+	_flock_compact_glance = _add_flockwatch_glance_tile(
+		_flock_labor_glance_grid,
+		"FlockCompactGlance",
+		"COMPACT\nNONE FILED",
+	)
+	_work_to_rule_glance = _add_flockwatch_glance_tile(
+		_flock_labor_glance_grid,
+		"WorkToRuleGlance",
+		"WORK-RULE\nINACTIVE",
+	)
+	_flock_labor_glance_grid.visible = false
 	today_section.add_child(HSeparator.new())
 	_pecking_order_ui = PeckingOrderUIScript.new()
 	_pecking_order_ui.worker_selected.connect(_on_pecking_order_worker_selected)
@@ -3928,6 +3979,28 @@ func _build_ui() -> void:
 	var today_snapshot_heading := _make_label("SHIFT SNAPSHOT", 12, Color("d9c47d"))
 	today_snapshot_heading.name = "FlockwatchTodaySnapshotHeading"
 	today_snapshot_rows.add_child(today_snapshot_heading)
+	_today_glance_grid = _make_flockwatch_glance_grid("FlockwatchTodayGlanceGrid", 2)
+	today_snapshot_rows.add_child(_today_glance_grid)
+	_today_workload_glance = _add_flockwatch_glance_tile(
+		_today_glance_grid,
+		"FlockwatchTodayCasesGlance",
+		"CASES\n0 / 18  ·  0 LATE",
+	)
+	_today_clutch_glance = _add_flockwatch_glance_tile(
+		_today_glance_grid,
+		"FlockwatchTodayEggsGlance",
+		"EGGS\n0 / 0  ·  0 TOTAL",
+	)
+	_today_flock_glance = _add_flockwatch_glance_tile(
+		_today_glance_grid,
+		"FlockwatchTodayFlockGlance",
+		"FLOCK\n0%  ·  RISK 0",
+	)
+	_today_cash_glance = _add_flockwatch_glance_tile(
+		_today_glance_grid,
+		"FlockwatchTodayCashGlance",
+		"CASH\n$0 FREE",
+	)
 	_today_workload_label = _make_label("WORKLOAD · 0 / 18 LIVE · 0 OVERDUE · 0 TURNED AWAY", 12)
 	_today_workload_label.name = "FlockwatchTodayWorkload"
 	_today_clutch_label = _make_label("CLUTCH · 0 / 0 TODAY · 0 CAREER EGGS", 12)
@@ -3948,6 +4021,8 @@ func _build_ui() -> void:
 	]:
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		label.mouse_filter = Control.MOUSE_FILTER_STOP
+		if label != _today_precedent_label:
+			label.visible = false
 		today_snapshot_rows.add_child(label)
 	_status_history_label = _make_label("SHIFT RECORD  /  No notices filed yet.", 12, Color("aeb8c4"))
 	_status_history_label.name = "FlockwatchStatusHistory"
@@ -10416,7 +10491,8 @@ func _campaign_objective_short_label(metric: StringName) -> String:
 		&"quota_met": return "QUOTA"
 		&"quota_shifts": return "QUOTA"
 		&"quarter_score": return "STANDING"
-		&"welfare": return "WELFARE"
+		&"welfare", &"average_welfare": return "WELFARE"
+		&"probation_score": return "SCORE"
 		&"compliance": return "OBEDIENCE"
 		&"farmer_favor": return "FAVOR"
 		&"overdue_files": return "OVERDUE"
@@ -10542,10 +10618,14 @@ func _update_probation_safeguard_label() -> void:
 		return
 	if _campaign_senior_roost:
 		_campaign_safeguards_label.visible = false
+		if _campaign_safeguard_glance != null:
+			_campaign_safeguard_glance.get_parent().visible = false
 		return
 	var forecast: Dictionary = _campaign_state.probation_safeguard_forecast()
 	var criteria := forecast.get("criteria", []) as Array
-	_campaign_safeguards_label.visible = not criteria.is_empty()
+	_campaign_safeguards_label.visible = false
+	if _campaign_safeguard_glance != null:
+		_campaign_safeguard_glance.get_parent().visible = not criteria.is_empty()
 	if criteria.is_empty():
 		return
 	var pass_count := int(forecast.get("pass_count", 0))
@@ -10605,6 +10685,36 @@ func _update_probation_safeguard_label() -> void:
 			_probation_safeguard_office_gap_text(row),
 		])
 	_campaign_safeguards_label.tooltip_text = "\n".join(tooltip_lines)
+	_campaign_safeguards_label.set_meta(
+		"accessible_text",
+		"%s\n%s" % [
+			_campaign_safeguards_label.text,
+			_campaign_safeguards_label.tooltip_text,
+		],
+	)
+	if _campaign_safeguard_glance != null:
+		var glance_status := "ON TRACK"
+		if not all_pass and not blocker.is_empty():
+			var glance_gap := _probation_safeguard_office_gap_text(blocker)
+			glance_gap = glance_gap.replace(" POINTS", "").replace(" POINT", "").replace(" PTS", "")
+			glance_status = "%s %s" % [
+				_campaign_objective_short_label(StringName(blocker.get("metric", &""))),
+				glance_gap,
+			]
+		_campaign_safeguard_glance.text = "SAFEGUARD\n%d/%d SAFE  ·  %s" % [
+			pass_count,
+			criteria.size(),
+			glance_status,
+		]
+		_campaign_safeguard_glance.tooltip_text = _campaign_safeguards_label.tooltip_text
+		_campaign_safeguard_glance.set_meta(
+			"accessible_text",
+			_campaign_safeguards_label.get_meta("accessible_text", ""),
+		)
+		_campaign_safeguard_glance.add_theme_color_override(
+			"font_color",
+			Color("a7dbc9") if all_pass else Color("f0aa95"),
+		)
 	_campaign_safeguards_label.set_meta("safeguards_pass", pass_count)
 	_campaign_safeguards_label.set_meta("safeguards_total", criteria.size())
 	_campaign_safeguards_label.set_meta(
@@ -10637,6 +10747,7 @@ func _probation_safeguard_office_gap_text(row: Dictionary) -> String:
 func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 	if _campaign_objectives_label == null or _campaign_state == null:
 		return
+	_set_campaign_orders_glance_visible(false)
 	var active_snapshot := snapshot if not snapshot.is_empty() else _simulation.snapshot()
 	var live_metrics := _campaign_live_metrics(active_snapshot)
 	var senior_mode: bool = _campaign_senior_roost and _senior_roost_state != null and _senior_roost_state.is_active()
@@ -10755,6 +10866,87 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 	)
 	_campaign_objectives_label.tooltip_text = "\n\n".join(tooltip_lines)
 	_campaign_objectives_label.text = "\n".join(lines)
+	_campaign_objectives_label.set_meta(
+		"accessible_text",
+		"%s\n\n%s" % [
+			_campaign_objectives_label.text,
+			_campaign_objectives_label.tooltip_text,
+		],
+	)
+	if not senior_mode:
+		_apply_campaign_orders_glance(objectives, eggs_today)
+
+
+func _set_campaign_orders_glance_visible(visible: bool) -> void:
+	if _campaign_orders_glance_grid != null:
+		_campaign_orders_glance_grid.visible = visible
+	if _campaign_objectives_label != null:
+		_campaign_objectives_label.visible = not visible
+
+
+func _apply_campaign_orders_glance(
+	objectives: Array[Dictionary],
+	eggs_today: int,
+) -> void:
+	_set_campaign_orders_glance_visible(not objectives.is_empty())
+	for index in range(_campaign_order_glances.size()):
+		var glance := _campaign_order_glances[index]
+		var tile := glance.get_parent() as Control
+		var has_order := index < objectives.size()
+		if tile != null:
+			tile.visible = has_order
+		if not has_order:
+			continue
+		var objective := objectives[index]
+		var metric := StringName(objective.get("metric", &""))
+		var comparison := StringName(objective.get("comparison", &"minimum"))
+		var actual := int(objective.get("actual", 0))
+		var target := int(objective.get("target", 0))
+		var on_track := bool(objective.get("projected_met", false))
+		var measure := _campaign_objective_glance_measure(
+			metric,
+			comparison,
+			actual,
+			target,
+			eggs_today,
+		)
+		glance.text = "%s  +%d\n%s  ·  %s" % [
+			_campaign_objective_short_label(metric),
+			int(objective.get("score_award", 0)),
+			measure,
+			"TRACK" if on_track else "NEEDS",
+		]
+		glance.add_theme_color_override(
+			"font_color",
+			Color("a7dbc9") if on_track else Color("f0aa95"),
+		)
+		var detail := "%s  ·  %s\n%s" % [
+			"ON TRACK" if on_track else "NEEDS ACTION",
+			String(objective.get("title", "PROBATION ORDER")).to_upper(),
+			String(objective.get("description", "Filed against the closing ledger.")),
+		]
+		glance.tooltip_text = detail
+		glance.set_meta("accessible_text", "%s\n%s" % [glance.text, detail])
+
+
+func _campaign_objective_glance_measure(
+	metric: StringName,
+	comparison: StringName,
+	actual: int,
+	target: int,
+	eggs_today: int,
+) -> String:
+	var measure := _campaign_objective_measure_text(
+		metric,
+		comparison,
+		actual,
+		target,
+		eggs_today,
+	)
+	measure = measure.replace(" EGGS", "")
+	measure = measure.replace(" FLOOR", "").replace(" CAP", "")
+	measure = measure.replace(".0%", "%")
+	return measure.replace("/", " / ")
 
 
 func _sync_live_order_badge(on_track: int, total: int, senior_mode: bool) -> void:
@@ -10842,7 +11034,13 @@ func _update_flock_labor_label(snapshot: Dictionary) -> void:
 		or bool(work_to_rule.get("scheduled", false))
 		or not last_petition.is_empty()
 	)
-	_flock_labor_label.visible = labor_relevant
+	_flock_labor_label.visible = false
+	if _flock_labor_glance_grid != null:
+		_flock_labor_glance_grid.visible = labor_relevant
+	if _flock_compact_glance != null:
+		_flock_compact_glance.get_parent().visible = false
+	if _work_to_rule_glance != null:
+		_work_to_rule_glance.get_parent().visible = false
 	if not labor_relevant:
 		_flock_labor_label.text = ""
 		_flock_labor_label.tooltip_text = (
@@ -10860,6 +11058,12 @@ func _update_flock_labor_label(snapshot: Dictionary) -> void:
 			int(compact.get("effective_day", int(snapshot.get("day", 1)))),
 		])
 		lines.append("TEST  ·  %s" % String(compact.get("condition", "Closing ledger decides fulfillment.")))
+		if _flock_compact_glance != null:
+			_flock_compact_glance.get_parent().visible = true
+			_flock_compact_glance.text = "COMPACT\n%s  ·  %s" % [
+				String(compact.get("compact_name", "FLOCK COMPACT")).strip_edges().to_upper(),
+				compact_status,
+			]
 		accent = Color("efcf83") if compact_status == "SCHEDULED" else Color("8fd1a1")
 	var work_record := work_to_rule.get("record", {}) as Dictionary
 	if bool(work_to_rule.get("active", false)) or bool(work_to_rule.get("scheduled", false)):
@@ -10874,11 +11078,23 @@ func _update_flock_labor_label(snapshot: Dictionary) -> void:
 			roundi((1.0 - work_multiplier) * 100.0),
 			crack_modifier * 100.0,
 		])
+		if _work_to_rule_glance != null:
+			_work_to_rule_glance.get_parent().visible = true
+			_work_to_rule_glance.text = "WORK-RULE %s\n-%d%% PACE  ·  SHELL %.0f" % [
+				"ACTIVE" if bool(work_to_rule.get("active", false)) else "FILED",
+				roundi((1.0 - work_multiplier) * 100.0),
+				crack_modifier * 100.0,
+			]
 		accent = Color("df9278")
 	if lines.is_empty():
 		if not last_petition.is_empty():
 			lines.append("LAST FLOCK PETITION  ·  %s" % String(last_petition.get("sponsor_worker_name", "NAMED HEN")).to_upper())
 			lines.append(String(last_petition.get("outcome", "Management's response remains in the ledger.")))
+			if _flock_compact_glance != null:
+				_flock_compact_glance.get_parent().visible = true
+				_flock_compact_glance.text = "PETITION\n%s  ·  FILED" % String(
+					last_petition.get("sponsor_worker_name", "NAMED HEN")
+				).to_upper()
 		else:
 			lines.append("FLOCK VOICE  ·  No binding compact is currently filed.")
 		lines.append("Unity risk %d / %d before a denied petition can trigger work-to-rule." % [
@@ -10886,7 +11102,35 @@ func _update_flock_labor_label(snapshot: Dictionary) -> void:
 			roundi(float(work_to_rule.get("threshold", 45.0))),
 		])
 	_flock_labor_label.text = "\n".join(lines)
+	_flock_labor_label.tooltip_text = _flock_labor_label.text
+	_flock_labor_label.set_meta("accessible_text", _flock_labor_label.text)
 	_flock_labor_label.add_theme_color_override("font_color", accent)
+	for glance: Label in [_flock_compact_glance, _work_to_rule_glance]:
+		if glance == null or not glance.get_parent().visible:
+			continue
+		glance.tooltip_text = _flock_labor_label.text
+		glance.set_meta("accessible_text", _flock_labor_label.text)
+		glance.add_theme_color_override("font_color", accent)
+
+
+func _sync_flockwatch_glance(
+	glance: Label,
+	exact_label: Label,
+	copy: String,
+	accent: Color,
+) -> void:
+	if glance == null or exact_label == null:
+		return
+	var detail := "%s\n%s" % [exact_label.text, exact_label.tooltip_text]
+	exact_label.set_meta("accessible_text", detail)
+	glance.text = copy
+	glance.tooltip_text = detail
+	glance.set_meta("accessible_text", detail)
+	glance.add_theme_color_override("font_color", accent)
+
+
+func _compact_flockwatch_currency(cents: int) -> String:
+	return str(cents / 100) if cents % 100 == 0 else "%.2f" % (float(cents) / 100.0)
 
 
 func _update_records_archive_summary(snapshot: Dictionary) -> void:
@@ -13503,6 +13747,45 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		"Feed Fund minus protected payroll, feed, upkeep, breach, arrears, and debt "
 		+ "equals discretionary money. Open Capital for the exact run rate, market, "
 		+ "bottleneck, five-close trend, resource map, and recovery file."
+	)
+	_sync_flockwatch_glance(
+		_today_workload_glance,
+		_today_workload_label,
+		"CASES\n%d / %d  ·  %d LATE" % [
+			int(snapshot.get("claims_outstanding", snapshot.get("claims_waiting", 0))),
+			int(snapshot.get("claim_capacity", 18)),
+			overdue_claims,
+		],
+		Color("f0aa95") if overdue_claims > 0 else Color("dce7e8"),
+	)
+	_sync_flockwatch_glance(
+		_today_clutch_glance,
+		_today_clutch_label,
+		"EGGS\n%d / %d  ·  %d TOTAL" % [
+			int(snapshot.get("eggs_today", 0)),
+			int(snapshot.get("quota_target", 0)),
+			int(snapshot.get("eggs_total", 0)),
+		],
+		Color("dce7e8"),
+	)
+	var average_morale := int(morale_total / maxf(1.0, float(worker_data.size())))
+	_sync_flockwatch_glance(
+		_today_flock_glance,
+		_today_flock_label,
+		"FLOCK\n%d%%  ·  RISK %d" % [
+			average_morale,
+			int(snapshot.get("solidarity", 0)),
+		],
+		Color("f0aa95") if int(snapshot.get("solidarity", 0)) >= 45 else Color("dce7e8"),
+	)
+	_sync_flockwatch_glance(
+		_today_cash_glance,
+		_today_ledger_label,
+		"CASH\n$%s FREE" % _compact_flockwatch_currency(int(economic_cash.get(
+			"spendable_fund_cents",
+			snapshot.get("spendable_fund_cents", 0),
+		))),
+		Color("d9c47d"),
 	)
 	var case_docket := snapshot.get("case_docket", {}) as Dictionary
 	var active_precedents: Array[Dictionary] = []
@@ -17028,6 +17311,44 @@ func _make_flockwatch_section(node_name: String) -> VBoxContainer:
 	section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	section.add_theme_constant_override("separation", 8)
 	return section
+
+
+func _make_flockwatch_glance_grid(node_name: String, columns: int) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.name = node_name
+	grid.columns = maxi(1, columns)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 5)
+	grid.add_theme_constant_override("v_separation", 5)
+	return grid
+
+
+func _add_flockwatch_glance_tile(
+	parent: GridContainer,
+	node_name: String,
+	copy: String,
+) -> Label:
+	var tile := PanelContainer.new()
+	tile.name = "%sTile" % node_name
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := _panel_style(Color("182530"), 0.96, 6, 1)
+	style.content_margin_left = 6.0
+	style.content_margin_right = 6.0
+	style.content_margin_top = 4.0
+	style.content_margin_bottom = 4.0
+	tile.add_theme_stylebox_override("panel", style)
+	parent.add_child(tile)
+	var label := _make_label(copy, 10, Color("dce7e8"))
+	label.name = node_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.max_lines_visible = 2
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	label.custom_minimum_size = Vector2(0.0, 40.0)
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	tile.add_child(label)
+	return label
 
 
 func _make_label(text: String, font_size: int, color: Color = Color("eef1f5")) -> Label:

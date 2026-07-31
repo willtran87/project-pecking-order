@@ -4824,3 +4824,38 @@ The next major systems milestone is persistent worker relationships and individu
   remains.
 - Final production acceptance still requires seven physical sessions and seven
   separately moderated usability sessions against the exact published artifact.
+
+## 2026-07-31 - Glance-first Flockwatch Today
+
+- Replaced the high-frequency Today ledger wall with a visible scan hierarchy:
+  three scored order tiles, one safeguard tile, conditional compact/work-rule
+  tiles, and four shift tiles for `CASES / EGGS / FLOCK / CASH`.
+- Kept the complete authored objective, safeguard, labor, workload, clutch,
+  standing, reserve, farmer-favor, and coop-obedience strings exact in hidden
+  semantic labels, tile tooltips, accessibility metadata, and the authoritative
+  Web diagnostic. Quiet labor shifts still reserve no space.
+- Normalized internal safeguard names to short player-facing labels and removed
+  `CAP / FLOOR` suffixes only from the visible order measures. Exact comparison
+  direction, values, score awards, descriptions, and final terms remain on
+  inspection.
+- Extended the Today density, petition/labor, and real probation integration
+  contracts. Eight focused checks pass, including navigation, diagnostic
+  freshness, presentation smoke, and 150% vowel-expanded copy at 1280x720,
+  844x390, and 390x844 with no horizontal scroll.
+- The final real-GPU native capture is
+  `output/flockwatch-today-glance-v2/flockwatch_labor.png`. The prescribed Node
+  24 browser client held the authentic Today state for three settled frames at
+  `output/flockwatch-today-web-client-v2/`; every diagnostic reports an active
+  compact and work-to-rule, no browser-error file was produced, and server
+  stderr is empty.
+- Candidate-wide native coverage passes 212/212 contracts with zero failures or
+  timeouts. The independent release gate passes all 44 native, Node 24 Web,
+  rendered accessibility, production-server, evidence-validator, and deploy
+  payload parity checks.
+- Synchronized both deploy payloads. The 9,337,956-byte PCK has SHA-256
+  `91D185BA3E030AC6909A6B4E8A311CBE0AAE629F2DC71C7746C1857D96D8CC90`.
+- Every native capture, focused/exhaustive Godot process, browser client,
+  Chromium child, and scoped production server exited. Ports 41764 and 41765
+  are free and no repo-owned test process remains.
+- Final production acceptance still requires seven physical sessions and seven
+  separately moderated usability sessions against the exact published artifact.

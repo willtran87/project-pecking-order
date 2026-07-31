@@ -29,6 +29,7 @@ func _run() -> void:
 	var day_badge := office.find_child("ProbationDayLabel", true, false) as Label
 	var objectives_label := office.find_child("CampaignObjectivesLabel", true, false) as Label
 	var safeguards_label := office.find_child("CampaignSafeguardForecast", true, false) as Label
+	var safeguard_glance := office.find_child("CampaignSafeguardGlance", true, false) as Label
 	var doctrine_label := office.find_child("CampaignActiveDoctrine", true, false) as Label
 	var review_scrim := office.find_child("DayReviewScrim", true, false) as ColorRect
 	var next_shift_button := office.find_child("BeginNextShiftButton", true, false) as Button
@@ -70,18 +71,20 @@ func _run() -> void:
 	_check(day_badge != null and day_badge.text == "DAY 1 / 5", "campaign presentation should expose Day 1 / 5", failures)
 	_check(_nonempty_lines(objectives_label.text if objectives_label != null else "").size() == 3, "active campaign presentation should show all three current objectives", failures)
 	_check(
-		safeguards_label != null and safeguards_label.visible
+		safeguards_label != null and not safeguards_label.visible
+		and safeguard_glance != null and safeguard_glance.visible
 		and "SAFE 1/5" in safeguards_label.text
 		and "SHIFTS 0/5" in safeguards_label.text
-		and "RISK FLOCK WELFARE -45" in safeguards_label.text,
-		"office Flockwatch should expose a compact live pass count and largest normalized probation blocker (text: %s)" % (
-			safeguards_label.text if safeguards_label != null else "<missing>"
+		and "RISK FLOCK WELFARE -45" in safeguards_label.text
+		and _contains_all(safeguard_glance.text, ["SAFEGUARD", "1/5 SAFE", "WELFARE -45"]),
+		"office Flockwatch should expose a glance tile while retaining the exact pass count and normalized blocker (tile: %s)" % (
+			safeguard_glance.text if safeguard_glance != null else "<missing>"
 		),
 		failures,
 	)
 	_check(
-		safeguards_label != null
-		and _contains_all(safeguards_label.tooltip_text, [
+		safeguard_glance != null
+		and _contains_all(safeguard_glance.tooltip_text, [
 			"PROBATION FINAL TERMS", "PROBATION SCORE  //  50 >= 60",
 			"WELFARE  //  0 >= 45", "COMPLIANCE  //  0 >= 55",
 			"FARMER FAVOR  //  0 >= 50", "CRACK RATE  //  0.00% <= 25.00%",

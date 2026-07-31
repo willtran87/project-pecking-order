@@ -22,6 +22,9 @@ func _run() -> void:
 	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
 	var routing_ui := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
 	var labor_label := office.find_child("FlockLaborStatus", true, false) as Label
+	var labor_grid := office.find_child("FlockLaborGlanceGrid", true, false) as GridContainer
+	var compact_glance := office.find_child("FlockCompactGlance", true, false) as Label
+	var work_rule_glance := office.find_child("WorkToRuleGlance", true, false) as Label
 	var policy_badge := office.get("_directive_badge") as Label
 	_check(
 		simulation != null
@@ -29,6 +32,9 @@ func _run() -> void:
 		and decision_host != null
 		and routing_ui != null
 		and labor_label != null
+		and labor_grid != null
+		and compact_glance != null
+		and work_rule_glance != null
 		and policy_badge != null,
 		"real Office should expose every petition presentation collaborator",
 		failures,
@@ -101,7 +107,13 @@ func _run() -> void:
 	scheduled_compact_snapshot["work_to_rule"] = _inactive_work_to_rule()
 	office.call("_on_snapshot_changed", scheduled_compact_snapshot)
 	await process_frame
-	_check(labor_label.is_visible_in_tree(), "Flockwatch should expose its compact labor ledger when opened", failures)
+	_check(
+		not labor_label.is_visible_in_tree()
+		and labor_grid.is_visible_in_tree()
+		and compact_glance.is_visible_in_tree(),
+		"Flockwatch should expose a glance-first compact tile while retaining the exact ledger semantically",
+		failures,
+	)
 	_check(
 		"BINDING COMPACT" in labor_label.text
 		and "SPECIALTY NEST COMPACT" in labor_label.text
@@ -109,6 +121,12 @@ func _run() -> void:
 		and "SCHEDULED FOR DAY 2" in labor_label.text
 		and PETITION_TEST in labor_label.text,
 		"scheduled compact display should preserve sponsor, effective day, and exact test",
+		failures,
+	)
+	_check(
+		_contains_all(compact_glance.text, ["COMPACT", "SPECIALTY NEST COMPACT", "SCHEDULED"])
+		and _contains_all(compact_glance.tooltip_text, [sponsor_name.to_upper(), "SCHEDULED FOR DAY 2", PETITION_TEST]),
+		"scheduled compact tile should summarize status and retain sponsor, effective day, and exact test on inspection",
 		failures,
 	)
 	_check(
@@ -123,7 +141,9 @@ func _run() -> void:
 	active_compact_snapshot["flock_compact"] = active_compact
 	office.call("_update_flock_labor_label", active_compact_snapshot)
 	_check(
-		"ACTIVE FOR DAY 2" in labor_label.text and PETITION_TEST in labor_label.text,
+		"ACTIVE FOR DAY 2" in labor_label.text
+		and PETITION_TEST in labor_label.text
+		and "ACTIVE" in compact_glance.text,
 		"active compact display should remain distinct and keep its measurable test",
 		failures,
 	)
@@ -143,6 +163,13 @@ func _run() -> void:
 		failures,
 	)
 	_check(
+		work_rule_glance.is_visible_in_tree()
+		and _contains_all(work_rule_glance.text, ["WORK-RULE FILED", "-18% PACE", "SHELL -6"])
+		and _contains_all(work_rule_glance.tooltip_text, ["SCHEDULED DAY 3", "throughput -18%", "crack risk -6 pts"]),
+		"scheduled work-rule tile should summarize pace and shell effect while retaining exact terms",
+		failures,
+	)
+	_check(
 		"ACTION FILED" in policy_badge.text and "scheduled for Day 3" in policy_badge.tooltip_text,
 		"top policy badge should signal scheduled collective action",
 		failures,
@@ -155,7 +182,8 @@ func _run() -> void:
 	_check(
 		"ACTIVE DAY 3" in labor_label.text
 		and "throughput -18%" in labor_label.text
-		and "crack risk -6 pts" in labor_label.text,
+		and "crack risk -6 pts" in labor_label.text
+		and "WORK-RULE ACTIVE" in work_rule_glance.text,
 		"active work-to-rule display should keep both causal modifiers legible",
 		failures,
 	)
@@ -318,6 +346,13 @@ func _check_petition_option(
 		"%s tier should expose its identity plus exact terms through the shared-preview contract" % label,
 		failures,
 	)
+
+
+func _contains_all(text: String, fragments: Array[String]) -> bool:
+	for fragment: String in fragments:
+		if fragment not in text:
+			return false
+	return true
 
 
 func _finish(office: Office, failures: Array[String]) -> void:
