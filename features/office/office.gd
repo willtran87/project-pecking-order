@@ -684,6 +684,8 @@ func _ready() -> void:
 		_capture_it_coop_preview()
 	elif "--capture-operations-campus" in OS.get_cmdline_user_args() or "--capture-operations-campus" in OS.get_cmdline_args():
 		_capture_operations_campus_preview()
+	elif "--capture-flock-relations-ui" in OS.get_cmdline_user_args() or "--capture-flock-relations-ui" in OS.get_cmdline_args():
+		_capture_flock_relations_ui_preview()
 	elif "--capture-flock-relations" in OS.get_cmdline_user_args() or "--capture-flock-relations" in OS.get_cmdline_args():
 		_capture_flock_relations_preview()
 	elif "--capture-flock-provisions" in OS.get_cmdline_user_args() or "--capture-flock-provisions" in OS.get_cmdline_args():
@@ -15866,6 +15868,46 @@ func _capture_flock_relations_preview() -> void:
 	_save_preview("flock_relations_office_level3.png")
 
 
+func _capture_flock_relations_ui_preview() -> void:
+	_prepare_capture_running()
+	_prepare_care_campus_capture_economy()
+	_prepare_operations_campus_capture_economy()
+	_prepare_flock_relations_capture_economy()
+	for facility_id in [&"wellness_nest_room", &"rooster_operations_office"]:
+		if not _commission_capture_facility(facility_id):
+			return
+	for _level in 2:
+		var receipt := _simulation.purchase_facility(&"flock_relations_office")
+		if not bool(receipt.get("accepted", false)):
+			push_error("Flock Relations UI capture could not commission tier two: %s" % String(
+				receipt.get("reason", "unknown reason"),
+			))
+			get_tree().quit(1)
+			return
+	_prepare_flock_relations_ui_capture_case()
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS)
+	await get_tree().process_frame
+	var relations_ui := find_child("FlockRelationsCaseUI", true, false) as FlockRelationsCaseUI
+	if relations_ui != null:
+		relations_ui.set_cases_expanded(true)
+	var scroll := _flockwatch_navigation.page_scroll(
+		FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS,
+	)
+	await get_tree().process_frame
+	if scroll != null and relations_ui != null:
+		# The fixed Records heading already identifies this page. Start the Web
+		# evidence at the case itself so its complete 2x2 action grid is visible;
+		# the separate max-scale component capture proves the glance header above.
+		scroll.scroll_vertical = 118
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("flock_relations_ui.png")
+
+
 func _capture_flock_provisions_preview() -> void:
 	_prepare_capture_running()
 	_prepare_operations_campus_capture_economy()
@@ -16429,6 +16471,19 @@ func _prepare_flock_relations_capture_cases() -> void:
 	third_worker.grievance = 58.0
 	third_worker.stress = 70.0
 	third_worker.fatigue = 66.0
+	_simulation.call("_file_flock_relations_case_after_shift", _simulation.day)
+
+
+func _prepare_flock_relations_ui_capture_case() -> void:
+	# The UI fixture uses one real filed case so all four comparisons fit in the
+	# first viewport. No presentation-only case, cost, or availability is invented.
+	if _simulation.workers.is_empty():
+		return
+	var worker = _simulation.workers[0]
+	worker.manager_trust = 24.0
+	worker.grievance = 82.0
+	worker.stress = 76.0
+	worker.fatigue = 68.0
 	_simulation.call("_file_flock_relations_case_after_shift", _simulation.day)
 
 

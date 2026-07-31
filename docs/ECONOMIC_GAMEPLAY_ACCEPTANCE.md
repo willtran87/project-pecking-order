@@ -948,3 +948,33 @@ real transaction by `tests/career_sponsorship_integration_test.gd`.
   production-wrapper evidence is
   `output/feed-procurement-web-client-v2/shot-0.png`, with no browser-error
   artifact and empty server stderr.
+
+## Glance-first Flock Relations
+
+- The recurring labor docket now leads with `OPEN` and `REVIEW` tiles plus one
+  `UNRESOLVED / PRESSURE NEXT SHIFT` cue. Expanded cases identify the named hen
+  and a stable case token, then compare `RISK`, `GRIEV`, `STRESS`, and the
+  relevant `TRUST`, `COMPLY`, or `ARREARS` evidence in a 2x2 grid.
+- Dispositions use the 2x2 actions `REPAIR`, `MEDIATE`, `PENALIZE`, and
+  `RULING`. Available actions retain their exact cost on the button, unavailable
+  arbitration is visibly `HELD`, and the latest filed outcome collapses to one
+  `LAST` strip.
+- Full case titles, docket identity, evidence summary, formal disposition names,
+  exact costs and effects, held reasons, daily authority, and permanent-record
+  consequences remain in tooltips, accessibility metadata, the irreversible
+  `FILE / KEEP` confirmation, and the complete diagnostic snapshot.
+- `tests/flock_relations_case_ui_test.gd` and
+  `tests/flock_relations_office_integration_test.gd` cover exact hidden
+  equivalence, the four evidence and action cells, confirmation safety,
+  confirm-once authority, the receipt, and 282px/150%-scale reachability.
+  Navigation and management-loop coverage remain green.
+- Native component and confirmation evidence is under
+  `output/flock-relations-glance-v1/`; the full native Records page is at
+  `output/flock-relations-ui-v1/flock_relations_ui.png`. The exact production
+  wrapper is clean at `output/flock-relations-web-client-v3/shot-0.png`, with
+  one authoritative case, four actions, no browser-error artifact, and empty
+  server stderr.
+- Candidate-wide evidence is the 212/212 exhaustive report at
+  `output/godot-full-suite-20260731-flock-relations-glance-v1/full-suite-summary.json`
+  and the independent 44/44 release gate at
+  `output/release/flock-relations-glance-beta-release-gate.json`.

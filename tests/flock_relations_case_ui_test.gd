@@ -33,12 +33,26 @@ func _run() -> void:
 	_check(ui.visible, "an installed Flock Relations tier should reveal its embedded case file", failures)
 	var status := ui.find_child("FlockRelationsStatus", true, false) as Label
 	var terms := ui.find_child("FlockRelationsTerms", true, false) as Label
+	var open_glance := ui.find_child("FlockRelationsOpenGlance", true, false) as Label
+	var review_glance := ui.find_child("FlockRelationsReviewGlance", true, false) as Label
+	var carry_glance := ui.find_child("FlockRelationsCarryGlance", true, false) as Label
+	var cases_toggle := ui.find_child("FlockRelationsCasesToggle", true, false) as Button
 	var case_heading := ui.find_child("CaseHeading", true, false) as Label
 	var evidence := ui.find_child("CaseEvidence", true, false) as Label
-	_check(status != null and status.text == "OPEN 1 / 2", "case status should show the authoritative open count and capacity", failures)
-	_check(terms != null and _contains_all(terms.text, ["level 2", "1 / 2 used", "compliance", "solidarity", "grievance"]), "terms should disclose both the review allowance and carry consequences", failures)
-	_check(case_heading != null and _contains_all(case_heading.text, ["mabel", "automation appeal"]), "the case card should identify its real hen and authored case title", failures)
-	_check(evidence != null and _contains_all(evidence.text, ["compliance 54", "auto-routed"]), "the visible evidence should come from the canonical case record", failures)
+	var risk_glance := ui.find_child("CaseEvidenceRisk", true, false) as Label
+	var grievance_glance := ui.find_child("CaseEvidenceGriev", true, false) as Label
+	var stress_glance := ui.find_child("CaseEvidenceStress", true, false) as Label
+	var compliance_glance := ui.find_child("CaseEvidenceComply", true, false) as Label
+	_check(status != null and not status.visible and status.text == "OPEN 1 / 2", "the exact case count should remain in hidden component state", failures)
+	_check(terms != null and not terms.visible and _contains_all(terms.text, ["level 2", "1 / 2 used", "compliance", "solidarity", "grievance"]), "full authorization and carry terms should remain available without occupying the glance view", failures)
+	_check(open_glance != null and open_glance.text == "OPEN\n1 / 2", "the glance view should expose open cases against capacity", failures)
+	_check(review_glance != null and review_glance.text == "REVIEW\n1 LEFT", "the glance view should expose remaining review authority", failures)
+	_check(carry_glance != null and carry_glance.text == "UNRESOLVED  /  PRESSURE NEXT SHIFT" and _contains_all(carry_glance.tooltip_text, ["compliance", "solidarity", "grievance"]), "one carry cue should replace the full recurring consequence paragraph", failures)
+	_check(open_glance != null and String(open_glance.get_meta("accessible_text", "")) == open_glance.tooltip_text and review_glance != null and String(review_glance.get_meta("accessible_text", "")) == review_glance.tooltip_text, "glance metrics should retain their exact authorization narration", failures)
+	_check(cases_toggle != null and cases_toggle.text == "HIDE CASES  /  1 OPEN" and _contains_all(cases_toggle.tooltip_text, ["1 open of 2", "exact costs", "held reasons"]), "the case disclosure should use a fitted action while retaining its complete scope", failures)
+	_check(case_heading != null and case_heading.text == "MABEL  /  AUTOMATION" and _contains_all(case_heading.tooltip_text, ["mabel", "automation appeal"]), "the case card should use a stable type token while retaining its full authored title", failures)
+	_check(evidence != null and not evidence.visible and _contains_all(evidence.text, ["compliance 54", "auto-routed"]), "the exact evidence filing should remain in component state", failures)
+	_check(risk_glance != null and risk_glance.text == "RISK\n340" and grievance_glance != null and grievance_glance.text == "GRIEV\n70" and stress_glance != null and stress_glance.text == "STRESS\n60" and compliance_glance != null and compliance_glance.text == "COMPLY\n54", "four compact evidence tiles should expose the decision-driving case state", failures)
 
 	var requests: Array[Dictionary] = []
 	ui.action_requested.connect(
@@ -54,10 +68,11 @@ func _run() -> void:
 		true,
 		false,
 	) as ConfirmationDialog
-	_check(remedy != null and not remedy.disabled and _contains_all(remedy.text, ["fund remedy", "$16.00"]), "the remedy action should expose its authoritative exact cost", failures)
+	_check(remedy != null and not remedy.disabled and remedy.text == "REPAIR\n$16.00" and _contains_all(remedy.tooltip_text, ["fund remedy", "$16.00", "trust +12", "permanent case ledger"]), "the repair action should pair a concise verb with its exact cost and full tooltip", failures)
+	_check(remedy != null and String(remedy.get_meta("accessible_text", "")) == remedy.tooltip_text, "the concise repair action should retain the same exact assistive filing", failures)
 	_check(mediate != null and not mediate.disabled and _contains_all(mediate.text, ["mediate", "$8.00"]), "tier two should expose its lower-cost mediation option", failures)
-	_check(pip != null and not pip.disabled and _contains_all(pip.text, ["file pip", "no fund cost"]), "the coercive free option should be explicit rather than disguised", failures)
-	_check(arbitration != null and arbitration.disabled and _contains_all(arbitration.tooltip_text, ["level 3", "held"]), "tier-three arbitration should remain visible with its exact gate", failures)
+	_check(pip != null and not pip.disabled and pip.text == "PENALIZE\n$0" and _contains_all(pip.tooltip_text, ["file pip", "no fund cost", "trust -10", "grievance +14"]), "the coercive free option should remain explicit through its visible penalty label and exact tooltip", failures)
+	_check(arbitration != null and arbitration.disabled and arbitration.text == "RULING\nHELD" and _contains_all(arbitration.tooltip_text, ["binding arbitration", "$12.00", "level 3", "held"]), "tier-three arbitration should remain visibly held with its exact cost and gate on demand", failures)
 	_check(remedy != null and _contains_all(remedy.tooltip_text, ["trust", "grievance", "permanent case ledger"]), "action tooltips should disclose human consequences before authorization", failures)
 	if mediate != null:
 		mediate.pressed.emit()
@@ -105,7 +120,7 @@ func _run() -> void:
 	)
 
 	var last_resolution := ui.find_child("FlockRelationsLastResolution", true, false) as Label
-	_check(last_resolution != null and _contains_all(last_resolution.text, ["mabel", "fund remedy", "$16.00", "repair budget"]), "the permanent receipt should summarize the last authoritative resolution", failures)
+	_check(last_resolution != null and last_resolution.text == "LAST  /  MABEL  /  REPAIR  /  -$16.00" and _contains_all(last_resolution.tooltip_text, ["mabel", "fund remedy", "$16.00", "repair budget"]), "the compact last strip should preserve the full permanent receipt on demand", failures)
 
 	var prior_theme := ui.theme
 	var control_records := _capture_control_records(ui)
@@ -115,7 +130,7 @@ func _run() -> void:
 	await process_frame
 	if "--capture-max-scale-flock-relations" in OS.get_cmdline_user_args():
 		var capture_directory := ProjectSettings.globalize_path(
-			"res://output/web-game/flock-relations-scale-v1"
+			"res://output/flock-relations-glance-v1"
 		)
 		DirAccess.make_dir_recursive_absolute(capture_directory)
 		var image := test_viewport.get_texture().get_image()
@@ -177,7 +192,7 @@ func _run() -> void:
 		and confirmation != null
 	):
 		var capture_directory := ProjectSettings.globalize_path(
-			"res://output/web-game/flock-relations-scale-v1"
+			"res://output/flock-relations-glance-v1"
 		)
 		var confirmation_image := confirmation.get_texture().get_image()
 		if confirmation_image != null:
@@ -312,6 +327,15 @@ func _relations_snapshot() -> Dictionary:
 			"filed_day": 8,
 			"status": "open",
 			"evidence_summary": "Compliance 54 after repeated AUTO-routed folders.",
+			"evidence": {
+				"risk_score": 340,
+				"grievance": 70.0,
+				"stress": 60.0,
+				"fatigue": 50.0,
+				"manager_trust": 10.0,
+				"it_coop_installed": true,
+				"compliance": 54.0,
+			},
 			"action_options": [
 				{
 					"action_id": "fund_remedy",

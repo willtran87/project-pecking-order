@@ -4558,3 +4558,47 @@ The next major systems milestone is persistent worker relationships and individu
 - Publication uses the branch-backed GitHub Pages release. Final production
   evidence still requires seven physical sessions and seven separately
   moderated usability sessions run against the exact published artifact.
+
+## 2026-07-31 - Glance-first Flock Relations
+
+- Audited the recurring Flock Relations case screen at 150% interface scale.
+  The old view stacked an authorization paragraph, full case title and docket,
+  evidence prose, and four two-line legal actions before the player could compare
+  dispositions.
+- Rebuilt the first-read layer around `OPEN` and `REVIEW` tiles, one
+  `UNRESOLVED / PRESSURE NEXT SHIFT` cue, the named hen plus one stable case-type
+  token, `RISK / GRIEV / STRESS / TRUST|COMPLY|ARREARS` evidence tiles, and a
+  2x2 `REPAIR / MEDIATE / PENALIZE / RULING` action grid. Exact costs remain on
+  every available action; unavailable arbitration is visibly `HELD`.
+- Full case titles, docket identity, evidence summaries, formal disposition
+  names, exact unavailable costs/reasons, numeric human effects, daily authority,
+  and permanent-record terms remain in tooltips, accessibility metadata,
+  confirmation, and the authoritative diagnostic snapshot. The permanent receipt
+  is now one `LAST` strip with its full filed outcome on demand.
+- Shortened the irreversible confirmation to `FILE / KEEP` and one explicit
+  no-mutation/irreversibility sentence without weakening its named subject, case,
+  exact cost, effects, or permanent-record disclosure.
+- Focused case, Office-to-simulation integration, Flockwatch navigation, and
+  management-loop tests pass 4/4. The inspected real-GPU 150% component and
+  confirmation captures are under `output/flock-relations-glance-v1/`.
+- Added the local-only `flock-relations` Web preview route using a real tier-two
+  facility purchase and authoritative case filing. The prescribed Node 24 client
+  loaded the production wrapper at
+  `output/flock-relations-web-client-v3/shot-0.png`; diagnostics report
+  `loaded=true`, `mode=godot_canvas`, Records current, one canonical case with
+  four actions, no browser-error artifact, and empty server stderr.
+- The exact-source exhaustive report at
+  `output/godot-full-suite-20260731-flock-relations-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The independent
+  report at `output/release/flock-relations-glance-beta-release-gate.json` passes
+  all 44 native, Node 24 Web, production-server, validator, and nine-file parity
+  checks.
+- Exported and synchronized all nine Web payloads. The 9,290,900-byte PCK has
+  SHA-256
+  `200CA0E206D110D79AD9BBD82A10BB278AC3420E9CBAA000A58BDCC75DA75746`.
+- Every focused and exhaustive Godot process, all three prescribed browser
+  clients, and all three scoped production servers exited. Ports 41756 through
+  41758 are free; unrelated project processes were not touched.
+- Publication uses the branch-backed GitHub Pages release. Final production
+  evidence still requires seven physical sessions and seven separately
+  moderated usability sessions run against the exact published artifact.

@@ -71,9 +71,9 @@ the `codex/core-loop-polish` branch's `/docs` directory. The current release
 handoff uses a cache-bypassed public download and requires it to match local
 `docs/index.pck` exactly:
 
-- local and public `index.pck`: 9,284,708 bytes;
+- local and public `index.pck`: 9,290,900 bytes;
 - local and public SHA-256:
-  `2BB7F628C5691F1AE916CF5257D81B61DD9413C6A4DE7E69972871919EE02920`;
+  `200CA0E206D110D79AD9BBD82A10BB278AC3420E9CBAA000A58BDCC75DA75746`;
 - exact deployed-payload match: **true**.
 
 The public URL is therefore the approved automated-test candidate. Publication
@@ -82,11 +82,11 @@ separately moderated usability focuses below remain pending until they are
 performed against this exact package.
 
 The current automated evidence is the 212/212 exhaustive native report at
-`output/godot-full-suite-20260731-feed-glance-v1/full-suite-summary.json`, the
-44/44 independent release gate at
-`output/release/feed-glance-beta-release-gate.json`, and the exact production
-wrapper capture at `output/feed-procurement-web-client-v2/`. Fourteen required
-candidate-bound sessions remain pending: seven physical
+`output/godot-full-suite-20260731-flock-relations-glance-v1/full-suite-summary.json`,
+the 44/44 independent release gate at
+`output/release/flock-relations-glance-beta-release-gate.json`, and the exact
+production-wrapper capture at `output/flock-relations-web-client-v3/`.
+Fourteen required candidate-bound sessions remain pending: seven physical
 touch/screen-reader/listening/GPU sessions and seven separately moderated
 usability focuses. No stale result is counted as a pass.
 
@@ -252,9 +252,9 @@ attestation or automated fixture is represented as those fourteen results.
 ## 2026-07-31 glance-first candidate
 
 The working candidate reduces the highest-density intake, first policy,
-Capital, Farm Mutual, recurring incident, core routing, intern staffing, and
-end-of-shift result
-surfaces through progressive disclosure while preserving their exact economic
+Capital, Farm Mutual, recurring incident, core routing, intern staffing,
+Flock Relations, and end-of-shift result surfaces through progressive disclosure
+while preserving their exact economic
 rules and complete assistive narration. The first policy now leads with one
 action, three scored objective tiles, and three `HELPS / RISKS` cards; exact
 effects appear only after a card is selected. Every standard incident now uses
@@ -281,16 +281,21 @@ Supplier files use `LOCAL`, `BULK`, and `FUTURE`, compact quantity/cost/life
 terms, exact ration tokens, one `READY/HELD` state, and one `BUY` action; full
 supplier copy, unit price, expiry, authorization, and history remain in
 tooltips and assistive diagnostics. Baseline rations add no zero-value row.
-Its synchronized `index.pck` is 9,284,708 bytes with
+Flock Relations now leads with `OPEN` and `REVIEW` tiles, one unresolved-case
+cue, a named hen plus stable case token, and a 2x2 evidence grid. Its 2x2
+`REPAIR / MEDIATE / PENALIZE / RULING` actions preserve exact available costs
+while complete docket, evidence, effect, held-reason, authority, and
+permanent-record terms remain in tooltips, assistive state, confirmation, and
+the diagnostic snapshot. Its synchronized `index.pck` is 9,290,900 bytes with
 SHA-256
-`2BB7F628C5691F1AE916CF5257D81B61DD9413C6A4DE7E69972871919EE02920`.
+`200CA0E206D110D79AD9BBD82A10BB278AC3420E9CBAA000A58BDCC75DA75746`.
 
 Fresh candidate-wide automated evidence is green:
 
-- `output/godot-full-suite-20260731-feed-glance-v1/full-suite-summary.json`
+- `output/godot-full-suite-20260731-flock-relations-glance-v1/full-suite-summary.json`
   discovers, selects, completes, and passes all 212/212 Godot contracts with
   zero failures and zero timeouts using three bounded shards.
-- `output/release/feed-glance-beta-release-gate.json` passes all 44
+- `output/release/flock-relations-glance-beta-release-gate.json` passes all 44
   representative native, Node 24 Web, temporary production-server,
   evidence-validator, and nine-file artifact-parity checks.
 - The actual production wrapper boots and accepts input without a browser error
@@ -363,9 +368,15 @@ Fresh candidate-wide automated evidence is green:
   `output/feed-procurement-web-client-v2/shot-0.png`; the diagnostic retains
   all three authoritative offers and live inventory, no browser-error artifact
   exists, and server stderr is empty.
+- Flock Relations is clean at native 282x760 and 150% interface scale under
+  `output/flock-relations-glance-v1/`, including the irreversible confirmation.
+  The exact production wrapper reproduces the live Records filing at
+  `output/flock-relations-web-client-v3/shot-0.png`; its diagnostic is loaded on
+  Records with one authoritative case and four actions, no browser-error
+  artifact exists, and server stderr is empty.
 - Both verification runners exited normally. The post-run audit found zero
   Pecking Order Godot processes, zero project Node processes, and zero
-  project-owned listeners; ports 41750 through 41755 are free.
+  project-owned listeners; ports 41750 through 41758 are free.
 
 Existing candidate-bound session records do not certify this PCK. Final
 production readiness remains open until all seven physical sessions plus all
