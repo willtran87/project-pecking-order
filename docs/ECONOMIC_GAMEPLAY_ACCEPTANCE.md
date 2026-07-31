@@ -978,3 +978,38 @@ real transaction by `tests/career_sponsorship_integration_test.gd`.
   `output/godot-full-suite-20260731-flock-relations-glance-v1/full-suite-summary.json`
   and the independent 44/44 release gate at
   `output/release/flock-relations-glance-beta-release-gate.json`.
+
+## Glance-first Farmer Relations
+
+- The public-credit review now leads with four two-line tiles: `STAND`,
+  `POINTS`, `EGGS`, and `SHELL`. One line shows the remaining campaign
+  allowance and status; one line names the credited hen and attribution style.
+- The disclosure fits as `REVIEW/HIDE CREDIT / <count>`. Expanded cards use the
+  stable strategy identities `LAYER`, `RESULTS`, and `METHOD`, then compare
+  `COST`, `NET`, and `STAND` in aligned tiles. Their distinct routine actions
+  are `CREDIT LAYER`, `POST RESULTS`, and `CLAIM METHOD`.
+- Full campaign names and flavor, frozen evidence, exact cost, payout, Feed Fund
+  effect, standing effect, authorization reason, attribution, and permanent
+  labor/public record consequences remain in hidden component state, contextual
+  tooltips, accessibility metadata, the complete diagnostic, and the bounded
+  irreversible confirmation.
+- The confirmation uses localization-safe `YES / NO` controls while its title,
+  body, tooltips, and accessibility text name the permanent publication. Opening
+  and canceling mutate nothing, one confirmation emits once, and stale or held
+  actions fail closed. The visible receipt is one `LAST` strip with its complete
+  exact outcome on demand.
+- `tests/farmer_relations_gallery_ui_test.gd` and
+  `tests/farmer_relations_gallery_office_integration_test.gd` cover exact hidden
+  equivalence, all comparison tiles, accessibility metadata, confirmation
+  safety, authoritative filing, duplicate rejection, receipt replacement,
+  scroll/focus preservation, and 282px/150%-scale reachability.
+- Native component and confirmation evidence is under
+  `output/farmer-relations-glance-v1/`; the real Office/Records capture is
+  `output/farmer-relations-ui-glance-v1/farmer_relations_ui.png`. The exact
+  production wrapper is clean at
+  `output/farmer-relations-web-client-v1/shot-0.png`, with three authoritative
+  offers, no browser-error artifact, and empty server stderr.
+- Candidate-wide evidence is the 212/212 exhaustive report at
+  `output/godot-full-suite-20260731-farmer-relations-glance-v1/full-suite-summary.json`
+  and the independent 44/44 release gate at
+  `output/release/farmer-relations-glance-beta-release-gate.json`.

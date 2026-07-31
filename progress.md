@@ -4602,3 +4602,51 @@ The next major systems milestone is persistent worker relationships and individu
 - Publication uses the branch-backed GitHub Pages release. Final production
   evidence still requires seven physical sessions and seven separately
   moderated usability sessions run against the exact published artifact.
+
+## 2026-07-31 - Glance-first Farmer Relations
+
+- Revisited the recurring public-credit decision at the real 282-pixel Records
+  width and 150% interface scale. The prior capture exposed only the first of
+  three strategies while repeating title, tagline, evidence, full economics,
+  consequence, authorization prose, and a clipped publication action per card.
+- Rebuilt the first-read layer around `STAND / POINTS / EGGS / SHELL` tiles,
+  one remaining-campaign line, one named-credit line, and the fitted disclosure
+  `REVIEW/HIDE CREDIT / <count>`. The three strategy cards are now
+  `LAYER / RESULTS / METHOD`, each with `COST / NET / STAND` tiles and one
+  distinct `CREDIT LAYER / POST RESULTS / CLAIM METHOD` action.
+- Full campaign names, flavor, frozen evidence, exact cost, payout, Feed Fund
+  effect, standing effect, authorization reason, attribution, and permanent
+  record consequence remain in hidden component state, contextual tooltips,
+  accessibility metadata, the irreversible confirmation, and the complete Web
+  diagnostic. The receipt is one `LAST` strip with its exact outcome on demand.
+- The confirmation now uses a concise full-economics review and localization-safe
+  `YES / NO` actions. Opening it mutates nothing; cancel preserves the allowance;
+  one confirmation emits one stable campaign ID; stale actions fail closed.
+- Focused Gallery component, Office-to-simulation integration, Flockwatch
+  navigation, management-loop, and physical Gallery visual contracts pass. The
+  inspected real-GPU component and confirmation captures are under
+  `output/farmer-relations-glance-v1/`; the full native Records capture is
+  `output/farmer-relations-ui-glance-v1/farmer_relations_ui.png`.
+- Added a localhost-only `farmer-relations` production preview built from real
+  tier-three facility purchases and one real completed shift. The prescribed
+  Node 24 client is clean at `output/farmer-relations-web-client-v1/`: Records is
+  current, the Gallery is level three with three authoritative offers and an
+  unused one-campaign allowance, no browser-error artifact exists, and server
+  stderr is empty.
+- Node 24.14 lint, the production build, 49/49 rendered behavior/accessibility
+  tests, and the standalone production-server payload test pass. The exact-source
+  exhaustive report at
+  `output/godot-full-suite-20260731-farmer-relations-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The independent
+  report at `output/release/farmer-relations-glance-beta-release-gate.json`
+  passes all 44 native, Node 24 Web, production-server, validator, and nine-file
+  parity checks.
+- Exported and synchronized all nine Web payloads. The 9,298,612-byte PCK has
+  SHA-256
+  `E6A458BA17056A32C43CD6813BF37C681E594EDF86C83B8A8D1802A73D215C96`.
+- Every focused and exhaustive Pecking Order Godot process, the prescribed
+  browser client, and the scoped production server exited. Ports 41756 through
+  41759 are free; unrelated project processes were not touched.
+- Publication uses the branch-backed GitHub Pages release. Final production
+  evidence still requires seven physical sessions and seven separately
+  moderated usability sessions run against the exact published artifact.

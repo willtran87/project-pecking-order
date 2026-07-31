@@ -71,9 +71,9 @@ the `codex/core-loop-polish` branch's `/docs` directory. The current release
 handoff uses a cache-bypassed public download and requires it to match local
 `docs/index.pck` exactly:
 
-- local and public `index.pck`: 9,290,900 bytes;
+- local and public `index.pck`: 9,298,612 bytes;
 - local and public SHA-256:
-  `200CA0E206D110D79AD9BBD82A10BB278AC3420E9CBAA000A58BDCC75DA75746`;
+  `E6A458BA17056A32C43CD6813BF37C681E594EDF86C83B8A8D1802A73D215C96`;
 - exact deployed-payload match: **true**.
 
 The public URL is therefore the approved automated-test candidate. Publication
@@ -82,10 +82,10 @@ separately moderated usability focuses below remain pending until they are
 performed against this exact package.
 
 The current automated evidence is the 212/212 exhaustive native report at
-`output/godot-full-suite-20260731-flock-relations-glance-v1/full-suite-summary.json`,
+`output/godot-full-suite-20260731-farmer-relations-glance-v1/full-suite-summary.json`,
 the 44/44 independent release gate at
-`output/release/flock-relations-glance-beta-release-gate.json`, and the exact
-production-wrapper capture at `output/flock-relations-web-client-v3/`.
+`output/release/farmer-relations-glance-beta-release-gate.json`, and the exact
+production-wrapper capture at `output/farmer-relations-web-client-v1/`.
 Fourteen required candidate-bound sessions remain pending: seven physical
 touch/screen-reader/listening/GPU sessions and seven separately moderated
 usability focuses. No stale result is counted as a pass.
@@ -253,7 +253,7 @@ attestation or automated fixture is represented as those fourteen results.
 
 The working candidate reduces the highest-density intake, first policy,
 Capital, Farm Mutual, recurring incident, core routing, intern staffing,
-Flock Relations, and end-of-shift result surfaces through progressive disclosure
+Flock Relations, Farmer Relations, and end-of-shift result surfaces through progressive disclosure
 while preserving their exact economic
 rules and complete assistive narration. The first policy now leads with one
 action, three scored objective tiles, and three `HELPS / RISKS` cards; exact
@@ -286,16 +286,22 @@ cue, a named hen plus stable case token, and a 2x2 evidence grid. Its 2x2
 `REPAIR / MEDIATE / PENALIZE / RULING` actions preserve exact available costs
 while complete docket, evidence, effect, held-reason, authority, and
 permanent-record terms remain in tooltips, assistive state, confirmation, and
-the diagnostic snapshot. Its synchronized `index.pck` is 9,290,900 bytes with
+the diagnostic snapshot. Farmer Relations now leads with
+`STAND / POINTS / EGGS / SHELL`, one remaining-campaign line, one named-credit
+line, and `LAYER / RESULTS / METHOD` strategy cards. Each strategy compares
+`COST / NET / STAND` and exposes one short action; full frozen evidence, payout,
+authorization, attribution, and permanent-record terms remain in tooltips,
+assistive state, confirmation, and diagnostics. Its synchronized `index.pck`
+is 9,298,612 bytes with
 SHA-256
-`200CA0E206D110D79AD9BBD82A10BB278AC3420E9CBAA000A58BDCC75DA75746`.
+`E6A458BA17056A32C43CD6813BF37C681E594EDF86C83B8A8D1802A73D215C96`.
 
 Fresh candidate-wide automated evidence is green:
 
-- `output/godot-full-suite-20260731-flock-relations-glance-v1/full-suite-summary.json`
+- `output/godot-full-suite-20260731-farmer-relations-glance-v1/full-suite-summary.json`
   discovers, selects, completes, and passes all 212/212 Godot contracts with
   zero failures and zero timeouts using three bounded shards.
-- `output/release/flock-relations-glance-beta-release-gate.json` passes all 44
+- `output/release/farmer-relations-glance-beta-release-gate.json` passes all 44
   representative native, Node 24 Web, temporary production-server,
   evidence-validator, and nine-file artifact-parity checks.
 - The actual production wrapper boots and accepts input without a browser error
@@ -374,9 +380,17 @@ Fresh candidate-wide automated evidence is green:
   `output/flock-relations-web-client-v3/shot-0.png`; its diagnostic is loaded on
   Records with one authoritative case and four actions, no browser-error
   artifact exists, and server stderr is empty.
+- Farmer Relations is clean at native 282x760 and 150% interface scale under
+  `output/farmer-relations-glance-v1/`, including its localization-stressed
+  confirmation. The full native Records capture is at
+  `output/farmer-relations-ui-glance-v1/farmer_relations_ui.png`; the exact
+  production wrapper reproduces the real level-three Gallery offer at
+  `output/farmer-relations-web-client-v1/shot-0.png`. Its diagnostic is loaded
+  on Records with three authoritative offers and an unused one-campaign
+  allowance, no browser-error artifact exists, and server stderr is empty.
 - Both verification runners exited normally. The post-run audit found zero
   Pecking Order Godot processes, zero project Node processes, and zero
-  project-owned listeners; ports 41750 through 41758 are free.
+  project-owned listeners; ports 41750 through 41759 are free.
 
 Existing candidate-bound session records do not certify this PCK. Final
 production readiness remains open until all seven physical sessions plus all

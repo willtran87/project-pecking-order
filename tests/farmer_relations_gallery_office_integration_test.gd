@@ -84,7 +84,7 @@ func _run() -> void:
 		true,
 		false,
 	) as ConfirmationDialog
-	_check(layer != null and not layer.disabled, "the real post-credit Layer Profile should be actionable", failures)
+	_check(layer != null and not layer.disabled and layer.text == "CREDIT LAYER", "the real post-credit Layer Profile should be an actionable compact credit", failures)
 	if layer != null:
 		layer.pressed.emit()
 	await process_frame
@@ -106,7 +106,7 @@ func _run() -> void:
 	var receipt_label := office.find_child("FarmerRelationsGalleryLastReceipt", true, false) as Label
 	_check(StringName(filed.get("campaign_status", &"")) == &"filed", "button intent should file the authoritative campaign", failures)
 	_check(StringName(receipt.get("campaign_id", &"")) == &"layer_profile" and int(receipt.get("payout_cents", 0)) > 0, "receipt should retain the selected campaign and real payout", failures)
-	_check(receipt_label != null and _contains_all(receipt_label.text, ["day 2", "layer profile", "mabel", "payout"]), "Flockwatch should replace the offer with its permanent receipt", failures)
+	_check(receipt_label != null and _contains_all(receipt_label.text, ["d2", "layer", "stand"]) and _contains_all(receipt_label.tooltip_text, ["day 2", "layer profile", "mabel", "payout"]), "Flockwatch should replace the offer with a compact receipt carrying the permanent exact outcome", failures)
 	_check(flockwatch != null and flockwatch.visible, "filing should leave Flockwatch open", failures)
 	_check(navigation != null and navigation.current_page_id() == FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS, "filing should preserve Records as the current page", failures)
 	_check(records_scroll != null and records_scroll.scroll_vertical == scroll_before, "campaign receipt refresh should preserve the Records scroll", failures)

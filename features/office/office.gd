@@ -676,6 +676,8 @@ func _ready() -> void:
 		_capture_training_roost_preview()
 	elif "--capture-care-campus" in OS.get_cmdline_user_args() or "--capture-care-campus" in OS.get_cmdline_args():
 		_capture_care_campus_preview()
+	elif "--capture-farmer-relations-ui" in OS.get_cmdline_user_args() or "--capture-farmer-relations-ui" in OS.get_cmdline_args():
+		_capture_farmer_relations_ui_preview()
 	elif "--capture-farmer-relations-gallery" in OS.get_cmdline_user_args() or "--capture-farmer-relations-gallery" in OS.get_cmdline_args():
 		_capture_farmer_relations_gallery_preview()
 	elif "--capture-rooster-operations-office" in OS.get_cmdline_user_args() or "--capture-rooster-operations-office" in OS.get_cmdline_args():
@@ -15794,6 +15796,34 @@ func _capture_farmer_relations_gallery_preview() -> void:
 	_save_preview("harvest_credit_gallery_level3.png")
 
 
+func _capture_farmer_relations_ui_preview() -> void:
+	_prepare_capture_running()
+	_prepare_farmer_relations_gallery_capture_economy()
+	for facility_id in [&"farmer_brand_packing_annex", &"farmer_relations_gallery"]:
+		if not _commission_capture_facility(facility_id):
+			return
+	if not _prepare_farmer_relations_gallery_capture_offer():
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS)
+	await get_tree().process_frame
+	var gallery_ui := find_child("FarmerRelationsGalleryUI", true, false) as FarmerRelationsGalleryUI
+	if gallery_ui != null:
+		gallery_ui.set_campaigns_expanded(true)
+	var scroll := _flockwatch_navigation.page_scroll(
+		FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS,
+	)
+	await get_tree().process_frame
+	if scroll != null and gallery_ui != null:
+		scroll.ensure_control_visible(gallery_ui)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("farmer_relations_ui.png")
+
+
 func _capture_rooster_operations_office_preview() -> void:
 	_prepare_capture_running()
 	_prepare_operations_campus_capture_economy()
@@ -16404,6 +16434,21 @@ func _prepare_farmer_relations_gallery_capture_record() -> bool:
 	# Close one authored basket through the real simulation, then file the shared
 	# results campaign. The capture therefore cannot invent a hen, payout, standing
 	# tier, or attribution receipt that gameplay did not produce.
+	if not _prepare_farmer_relations_gallery_capture_offer():
+		return false
+	var campaign := _simulation.file_farmer_relations_campaign(&"clutch_results_board")
+	if not bool(campaign.get("accepted", false)):
+		push_error("Gallery art capture could not file its results campaign: %s" % String(
+			campaign.get("reason", "unknown reason"),
+		))
+		get_tree().quit(1)
+		return false
+	return true
+
+
+func _prepare_farmer_relations_gallery_capture_offer() -> bool:
+	# Stage the same real closed shift used by the permanent world-art receipt,
+	# but stop at the three-way public-credit choice for UI evidence.
 	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.RUNNING
 	_simulation.pending_decision.clear()
 	_simulation.eggs_today = 29
@@ -16425,10 +16470,10 @@ func _prepare_farmer_relations_gallery_capture_record() -> bool:
 		}, true)
 		_simulation._worker_shift_stats[0] = top_row
 	_simulation._complete_workday()
-	var campaign := _simulation.file_farmer_relations_campaign(&"clutch_results_board")
-	if not bool(campaign.get("accepted", false)):
-		push_error("Gallery art capture could not file its results campaign: %s" % String(
-			campaign.get("reason", "unknown reason"),
+	var gallery := _simulation.farmer_relations_gallery_snapshot()
+	if StringName(String(gallery.get("campaign_status", ""))) != &"offer_open":
+		push_error("Gallery UI capture could not stage its public-credit offer: %s" % String(
+			gallery.get("campaign_status", "missing status"),
 		))
 		get_tree().quit(1)
 		return false

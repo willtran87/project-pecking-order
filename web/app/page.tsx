@@ -238,6 +238,7 @@ export default function Home() {
 			"economic-briefing": "--capture-economic-briefing-ui",
 			"feed-procurement": "--capture-feed-procurement-ui",
 			"flock-relations": "--capture-flock-relations-ui",
+			"farmer-relations": "--capture-farmer-relations-ui",
 			"contract-board": "--capture-contract-board-ui",
 			"contract-pricing": "--capture-contract-pricing-ui",
 			"contract-pricing-access": "--capture-contract-pricing-access-ui",
