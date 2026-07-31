@@ -25,6 +25,12 @@ const MANDATE_LABELS := {
 	&"regional_showcase": "REGIONAL SHOWCASE",
 	&"hold_basket": "HOLD THE BASKET",
 }
+const MANDATE_ACTIONS := {
+	&"farmer_pickup": "PICKUP",
+	&"county_auction": "AUCTION",
+	&"regional_showcase": "SHOWCASE",
+	&"hold_basket": "HOLD",
+}
 
 const COLOR_INK := Color("e9edf0")
 const COLOR_MUTED := Color("aeb8c4")
@@ -37,9 +43,17 @@ var _projection: Dictionary = {}
 var _selected_mandate_id: StringName = &"farmer_pickup"
 var _season_label: Label
 var _stock_label: Label
+var _stock_glance: Label
+var _value_glance: Label
+var _oldest_glance: Label
+var _expiring_glance: Label
 var _mandate_selector: OptionButton
 var _mandate_description: Label
 var _mandate_terms: Label
+var _capacity_glance: Label
+var _quote_glance: Label
+var _fee_glance: Label
+var _cash_glance: Label
 var _mandate_reason: Label
 var _authorize_button: Button
 var _receipt_label: Label
@@ -120,20 +134,42 @@ func _build_interface() -> void:
 	header.name = "FarmgateDispatchHeader"
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_theme_constant_override("separation", 2)
+	header.custom_minimum_size.y = 42.0
 	column.add_child(header)
 
 	var title := _make_label("FARMGATE DISPATCH", 12, COLOR_BRASS)
 	title.name = "FarmgateDispatchTitle"
+	title.custom_minimum_size.y = 20.0
+	title.tooltip_text = "Farmgate Dispatch / finished-egg reserve and closing route."
+	title.set_meta("accessible_text", title.tooltip_text)
 	header.add_child(title)
 	_season_label = _make_label("MARKET BOOK PENDING", 10, COLOR_TEAL)
 	_season_label.name = "FarmgateDispatchSeason"
+	_season_label.custom_minimum_size.y = 18.0
 	_season_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header.add_child(_season_label)
 
 	_stock_label = _make_label("Finished baskets are being counted.", 11, COLOR_INK)
 	_stock_label.name = "FarmgateDispatchStock"
 	_stock_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_stock_label.visible = false
 	column.add_child(_stock_label)
+
+	var reserve_grid := GridContainer.new()
+	reserve_grid.name = "FarmgateDispatchReserveGrid"
+	reserve_grid.columns = 2
+	reserve_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	reserve_grid.add_theme_constant_override("h_separation", 5)
+	reserve_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(reserve_grid)
+	_stock_glance = _metric_chip(reserve_grid, "STOCK\n0 / 0")
+	_stock_glance.name = "FarmgateDispatchStockGlance"
+	_value_glance = _metric_chip(reserve_grid, "VALUE\n$0")
+	_value_glance.name = "FarmgateDispatchValueGlance"
+	_oldest_glance = _metric_chip(reserve_grid, "OLDEST\n0")
+	_oldest_glance.name = "FarmgateDispatchOldestGlance"
+	_expiring_glance = _metric_chip(reserve_grid, "DUE\n0")
+	_expiring_glance.name = "FarmgateDispatchExpiringGlance"
 
 	_mandate_toggle = FlockwatchDisclosureToggleScript.new()
 	_mandate_toggle.name = "FarmgateDispatchMandateToggle"
@@ -147,8 +183,10 @@ func _build_interface() -> void:
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(divider)
 
-	var mandate_heading := _make_label("NEXT CLOSING MANDATE", 10, COLOR_BRASS)
+	var mandate_heading := _make_label("CHOOSE ROUTE", 10, COLOR_BRASS)
 	mandate_heading.name = "FarmgateDispatchMandateHeading"
+	mandate_heading.tooltip_text = "Choose the next closing mandate. Farmer Pickup is always the safe default."
+	mandate_heading.set_meta("accessible_text", mandate_heading.tooltip_text)
 	column.add_child(mandate_heading)
 
 	_mandate_selector = OptionButton.new()
@@ -168,12 +206,30 @@ func _build_interface() -> void:
 	_mandate_description = _make_label("Select a route to inspect its exact settlement terms.", 10, COLOR_MUTED)
 	_mandate_description.name = "FarmgateDispatchMandateDescription"
 	_mandate_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mandate_description.visible = false
 	column.add_child(_mandate_description)
 
 	_mandate_terms = _make_label("CAPACITY AND QUOTE PENDING", 10, COLOR_INK)
 	_mandate_terms.name = "FarmgateDispatchMandateTerms"
 	_mandate_terms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mandate_terms.visible = false
 	column.add_child(_mandate_terms)
+
+	var route_grid := GridContainer.new()
+	route_grid.name = "FarmgateDispatchRouteGrid"
+	route_grid.columns = 2
+	route_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	route_grid.add_theme_constant_override("h_separation", 5)
+	route_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(route_grid)
+	_capacity_glance = _metric_chip(route_grid, "CAP\n--")
+	_capacity_glance.name = "FarmgateDispatchCapacityGlance"
+	_quote_glance = _metric_chip(route_grid, "QUOTE\n--")
+	_quote_glance.name = "FarmgateDispatchQuoteGlance"
+	_fee_glance = _metric_chip(route_grid, "FEE\n--")
+	_fee_glance.name = "FarmgateDispatchFeeGlance"
+	_cash_glance = _metric_chip(route_grid, "NET\n--")
+	_cash_glance.name = "FarmgateDispatchCashGlance"
 
 	_mandate_reason = _make_label("HELD / Dispatch terms are unavailable.", 10, COLOR_RUST)
 	_mandate_reason.name = "FarmgateDispatchMandateReason"
@@ -196,12 +252,11 @@ func _build_interface() -> void:
 		divider,
 		mandate_heading,
 		_mandate_selector,
-		_mandate_description,
-		_mandate_terms,
+		route_grid,
 		_mandate_reason,
 		_authorize_button,
 	]
-	_mandate_toggle.configure("CLOSING MANDATE", "4 ROUTES", mandate_targets, false)
+	_mandate_toggle.configure("ROUTES", "4", mandate_targets, false)
 
 	_receipt_label = _make_label("", 10, COLOR_MUTED)
 	_receipt_label.name = "FarmgateDispatchReceipt"
@@ -223,7 +278,9 @@ func _refresh() -> void:
 	var season := season_value as Dictionary if season_value is Dictionary else {}
 	var season_name := String(season.get("label", season.get("id", "BASELINE MARKET"))).replace("_", " ").to_upper()
 	var auction_basis := int(season.get("auction_basis_points", _projection.get("auction_basis_points", 10_000)))
-	_season_label.text = "%s / AUCTION %s" % [season_name, _percent_from_basis_points(auction_basis)]
+	_season_label.text = "%s / AUCTION %s" % [_compact_season(season_name), _percent_from_basis_points(auction_basis)]
+	_season_label.tooltip_text = "%s / COUNTY AUCTION QUOTE %s" % [season_name, _percent_from_basis_points(auction_basis)]
+	_season_label.set_meta("accessible_text", _season_label.tooltip_text)
 
 	var stock := maxi(0, int(_projection.get("stock_count", 0)))
 	var capacity := maxi(0, int(_projection.get("storage_capacity_eggs", _projection.get("storage_capacity", 0))))
@@ -241,6 +298,15 @@ func _refresh() -> void:
 		"" if age == 1 else "S",
 		expiring,
 	]
+	_stock_label.tooltip_text = _stock_label.text
+	_stock_label.set_meta("accessible_text", _stock_label.text)
+	_stock_glance.text = "STOCK\n%d / %d" % [stock, capacity]
+	_value_glance.text = "VALUE\n%s" % _compact_currency(value)
+	_oldest_glance.text = "OLDEST\n%d SHIFT%s" % [age, "" if age == 1 else "S"]
+	_expiring_glance.text = "DUE\n%d" % expiring
+	for glance: Label in [_stock_glance, _value_glance, _oldest_glance, _expiring_glance]:
+		glance.tooltip_text = _stock_label.text
+		glance.set_meta("accessible_text", _stock_label.text)
 
 	var active_id := StringName(String(_projection.get("active_mandate_id", "farmer_pickup")))
 	if _selected_mandate_id not in _mandates_by_id():
@@ -267,9 +333,8 @@ func _refresh_mandate_disclosure() -> void:
 		if mandate_value is Dictionary and bool((mandate_value as Dictionary).get("can_authorize", false)):
 			ready_count += 1
 	_mandate_toggle.set_summary(
-		"%d READY / %d ROUTES" % [ready_count, MANDATE_ORDER.size()]
-		if ready_count > 0 else
-		"%d ROUTES / NONE READY" % MANDATE_ORDER.size()
+		"%d / %d" % [ready_count, MANDATE_ORDER.size()],
+		"%d of %d closing routes are ready to file." % [ready_count, MANDATE_ORDER.size()],
 	)
 	var actionable := ready_count > 0
 	if actionable and not _had_actionable_mandate:
@@ -311,16 +376,36 @@ func _refresh_selected_mandate() -> void:
 		float(fee) / 100.0,
 		" / PROJECTED CASH $%.2f" % (float(payout) / 100.0) if payout > 0 else "",
 	]
+	var exact_terms := "%s. %s. %s" % [label, description, _mandate_terms.text]
+	_capacity_glance.text = "CAP\n%s" % _compact_capacity(dispatch_capacity, _selected_mandate_id)
+	_quote_glance.text = "QUOTE\n%s" % _percent_from_basis_points(basis_points)
+	_fee_glance.text = "FEE\n%s" % _compact_currency(fee)
+	_cash_glance.text = "NET\n%s" % (_compact_currency(payout) if payout > 0 else "--")
+	for glance: Label in [_capacity_glance, _quote_glance, _fee_glance, _cash_glance]:
+		glance.tooltip_text = exact_terms
+		glance.set_meta("accessible_text", exact_terms)
+	_mandate_description.tooltip_text = description
+	_mandate_description.set_meta("accessible_text", description)
+	_mandate_terms.tooltip_text = exact_terms
+	_mandate_terms.set_meta("accessible_text", exact_terms)
 	if can_authorize:
-		_mandate_reason.text = "READY / Exact quote freezes when this mandate is filed."
+		_mandate_reason.text = "READY / QUOTE LOCKS"
 		_mandate_reason.add_theme_color_override("font_color", COLOR_TEAL)
-		_authorize_button.text = "FILE %s" % label
+		_authorize_button.text = String(MANDATE_ACTIONS.get(_selected_mandate_id, "FILE"))
 	else:
-		_mandate_reason.text = "HELD / %s" % (reason if not reason.is_empty() else "This route is not currently authorized.")
+		_mandate_reason.text = "HELD / %s" % _compact_hold_reason(reason)
 		_mandate_reason.add_theme_color_override("font_color", COLOR_RUST)
-		_authorize_button.text = "%s ON HOLD" % label
+		_authorize_button.text = "LOCKED"
 	_authorize_button.disabled = not can_authorize
-	_authorize_button.tooltip_text = "%s / %s" % [label, _mandate_reason.text]
+	var exact_reason := (
+		"READY / Exact quote freezes when this mandate is filed."
+		if can_authorize else
+		"HELD / %s" % (reason if not reason.is_empty() else "This route is not currently authorized.")
+	)
+	_authorize_button.tooltip_text = "%s / %s / %s" % [exact_terms, exact_reason, "File this closing mandate."]
+	_authorize_button.set_meta("accessible_text", _authorize_button.tooltip_text)
+	_mandate_reason.tooltip_text = exact_reason
+	_mandate_reason.set_meta("accessible_text", exact_reason)
 
 
 func _refresh_receipt() -> void:
@@ -343,9 +428,8 @@ func _refresh_receipt() -> void:
 		"settlement_cash_delta_cents",
 		receipt.get("net_payout_cents", receipt.get("cash_delta_cents", 0)),
 	))
-	_receipt_label.text = (
-		"LAST ROUTE / %s / SOLD %d / HELD %d / OVERFLOW %d / EXPIRED %d\n"
-		+ "NET CASH %s$%.2f"
+	var exact_receipt := (
+		"LAST ROUTE / %s / SOLD %d / HELD %d / OVERFLOW %d / EXPIRED %d / NET CASH %s$%.2f"
 	) % [
 		mandate_label,
 		sold,
@@ -355,7 +439,14 @@ func _refresh_receipt() -> void:
 		"+" if payout >= 0 else "-",
 		absf(float(payout) / 100.0),
 	]
-	_receipt_label.tooltip_text = _receipt_label.text
+	_receipt_label.text = "LAST / %s / %d SOLD / %s%s" % [
+		_compact_route(mandate_label),
+		sold,
+		"+" if payout >= 0 else "-",
+		_compact_currency(absi(payout)),
+	]
+	_receipt_label.tooltip_text = exact_receipt
+	_receipt_label.set_meta("accessible_text", exact_receipt)
 
 
 func _on_mandate_selected(index: int) -> void:
@@ -396,11 +487,67 @@ func _percent_from_basis_points(value: int) -> String:
 	return "%d%%" % roundi(percent) if is_equal_approx(percent, roundf(percent)) else "%.1f%%" % percent
 
 
+func _compact_currency(value: int) -> String:
+	return "$%d" % (value / 100) if value % 100 == 0 else "$%.2f" % (float(value) / 100.0)
+
+
+func _compact_capacity(value: int, mandate_id: StringName) -> String:
+	if mandate_id == &"farmer_pickup":
+		return "ALL"
+	if mandate_id == &"hold_basket":
+		return "0"
+	return "%d EGGS" % value
+
+
+func _compact_season(value: String) -> String:
+	return value.trim_suffix(" HATCH SURGE").trim_suffix(" HARVEST").strip_edges()
+
+
+func _compact_hold_reason(reason: String) -> String:
+	var normalized := reason.to_lower()
+	if "regional route fleet" in normalized:
+		return "NEED ROUTE FLEET"
+	if "feed fund" in normalized or "fund" in normalized:
+		return "NEED FUNDS"
+	if "stock" in normalized or "egg" in normalized:
+		return "NEED STOCK"
+	if "level" in normalized or "depot" in normalized:
+		return "NEED DEPOT"
+	return "UNAVAILABLE"
+
+
+func _compact_route(value: String) -> String:
+	if "PICKUP" in value:
+		return "PICKUP"
+	if "AUCTION" in value:
+		return "AUCTION"
+	if "SHOWCASE" in value:
+		return "SHOWCASE"
+	if "HOLD" in value:
+		return "HOLD"
+	return value
+
+
 func _make_label(text_value: String, size_value: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text_value
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("font_size", size_value)
 	label.add_theme_color_override("font_color", color)
+	return label
+
+
+func _metric_chip(parent: GridContainer, copy: String) -> Label:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", _metric_style())
+	parent.add_child(panel)
+	var label := _make_label(copy, 10, COLOR_INK)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.custom_minimum_size = Vector2(0.0, 38.0)
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(label)
 	return label
 
 
@@ -410,4 +557,13 @@ func _section_style() -> StyleBoxFlat:
 	style.border_color = Color("8a7047")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(7)
+	return style
+
+
+func _metric_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("1e3039")
+	style.border_color = Color("495f68")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
 	return style

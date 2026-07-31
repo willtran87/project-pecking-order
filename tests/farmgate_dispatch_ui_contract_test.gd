@@ -36,20 +36,39 @@ func _run() -> void:
 	await process_frame
 
 	var season := ui.find_child("FarmgateDispatchSeason", true, false) as Label
+	var title := ui.find_child("FarmgateDispatchTitle", true, false) as Label
 	var stock := ui.find_child("FarmgateDispatchStock", true, false) as Label
+	var stock_glance := ui.find_child("FarmgateDispatchStockGlance", true, false) as Label
+	var value_glance := ui.find_child("FarmgateDispatchValueGlance", true, false) as Label
+	var oldest_glance := ui.find_child("FarmgateDispatchOldestGlance", true, false) as Label
+	var expiring_glance := ui.find_child("FarmgateDispatchExpiringGlance", true, false) as Label
 	var selector := ui.find_child("FarmgateDispatchMandateSelector", true, false) as OptionButton
 	var terms := ui.find_child("FarmgateDispatchMandateTerms", true, false) as Label
+	var capacity_glance := ui.find_child("FarmgateDispatchCapacityGlance", true, false) as Label
+	var quote_glance := ui.find_child("FarmgateDispatchQuoteGlance", true, false) as Label
+	var fee_glance := ui.find_child("FarmgateDispatchFeeGlance", true, false) as Label
+	var cash_glance := ui.find_child("FarmgateDispatchCashGlance", true, false) as Label
 	var reason := ui.find_child("FarmgateDispatchMandateReason", true, false) as Label
 	var authorize := ui.find_child("FarmgateDispatchAuthorize", true, false) as Button
 	_check(ui.visible, "a commissioned authoritative projection should reveal Farmgate Dispatch", failures)
 	_check(
-		season != null and _contains_all(season.text, ["spring hatch surge", "auction 105%"]),
-		"the market header should consume the live season and quote",
+		season != null and _contains_all(season.text, ["spring", "auction 105%"])
+		and "spring hatch surge" in season.tooltip_text.to_lower(),
+		"the compact market header should retain the live full season and quote on demand",
 		failures,
 	)
 	_check(
 		stock != null and _contains_all(stock.text, ["reserve 2 / 12 eggs", "$25.00", "default farmer pickup"]),
 		"the reserve line should consume exact authoritative stock, capacity, value, and safe default",
+		failures,
+	)
+	_check(
+		stock != null and not stock.visible
+		and stock_glance != null and _contains_all(stock_glance.text, ["stock", "2 / 12"])
+		and value_glance != null and _contains_all(value_glance.text, ["value", "$25"])
+		and oldest_glance != null and _contains_all(oldest_glance.text, ["oldest", "0 shifts"])
+		and expiring_glance != null and _contains_all(expiring_glance.text, ["due", "0"]),
+		"the first-read reserve should use four glance tiles while retaining the exact hidden audit copy",
 		failures,
 	)
 	_check(selector != null and selector.item_count == 4, "the compact selector should expose four canonical mandates", failures)
@@ -71,8 +90,18 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		reason != null and _contains_all(reason.text, ["held", "regional route fleet"]),
-		"the authoritative tier gate should remain visible beside the held route",
+		terms != null and not terms.visible
+		and capacity_glance != null and _contains_all(capacity_glance.text, ["cap", "6 eggs"])
+		and quote_glance != null and _contains_all(quote_glance.text, ["quote", "162.5%"])
+		and fee_glance != null and _contains_all(fee_glance.text, ["fee", "$3"])
+		and cash_glance != null and _contains_all(cash_glance.text, ["net", "$37.63"]),
+		"the route's first read should be compact tiles backed by the exact hidden terms",
+		failures,
+	)
+	_check(
+		reason != null and _contains_all(reason.text, ["held", "need route fleet"])
+		and "regional route fleet" in reason.tooltip_text.to_lower(),
+		"the compact held state should retain the authoritative tier gate on demand",
 		failures,
 	)
 	_check(authorize != null and authorize.disabled, "a held authoritative route must not emit intent", failures)
@@ -82,6 +111,12 @@ func _run() -> void:
 	_check(
 		terms != null and _contains_all(terms.text, ["capacity 8 eggs", "quote 105%", "fee $1.31", "projected cash $24.94"]),
 		"the county card should display its exact tier-one frozen terms",
+		failures,
+	)
+	_check(
+		cash_glance != null and _contains_all(cash_glance.text, ["net", "$24.94"])
+		and authorize != null and authorize.text == "AUCTION",
+		"the county route should expose net cash and a glance-first action verb",
 		failures,
 	)
 	_check(authorize != null and not authorize.disabled, "the funded review route should be actionable", failures)
@@ -97,7 +132,8 @@ func _run() -> void:
 	await process_frame
 	var receipt := ui.find_child("FarmgateDispatchReceipt", true, false) as Label
 	_check(
-		receipt != null and receipt.visible and _contains_all(receipt.text, ["sold 2", "held 0", "expired 0", "net cash +$25.00"]),
+		receipt != null and receipt.visible and _contains_all(receipt.text, ["last", "pickup", "2 sold", "+$25"])
+		and _contains_all(receipt.tooltip_text, ["held 0", "expired 0", "net cash +$25.00"]),
 		"the permanent audit line should consume the canonical settlement receipt field names",
 		failures,
 	)
@@ -108,6 +144,12 @@ func _run() -> void:
 	_apply_explicit_font_scale(ui, 1.5)
 	await process_frame
 	await process_frame
+	var route_toggle := ui.find_child("FarmgateDispatchMandateToggle", true, false) as Button
+	_check(
+		route_toggle != null and route_toggle.text == "HIDE ROUTES  /  3 / 4",
+		"the max-scale route disclosure should retain its complete compact count",
+		failures,
+	)
 	if "--capture-max-scale-farmgate" in OS.get_cmdline_user_args():
 		var capture_directory := ProjectSettings.globalize_path(
 			"res://output/web-game/farmgate-dispatch-scale-v1"
@@ -146,6 +188,12 @@ func _run() -> void:
 	_check(
 		_visible_children_fit_horizontally(ui, ui_rect),
 		"every max-scale Farmgate control should remain horizontally contained",
+		failures,
+	)
+	_check(
+		title != null and season != null
+		and title.get_global_rect().end.y <= season.get_global_rect().position.y + 0.5,
+		"the scaled Farmgate title and market line should remain vertically separated",
 		failures,
 	)
 	_check(

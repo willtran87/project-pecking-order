@@ -694,6 +694,8 @@ func _ready() -> void:
 		_capture_flock_provisions_preview()
 	elif "--capture-governance-campus" in OS.get_cmdline_user_args() or "--capture-governance-campus" in OS.get_cmdline_args():
 		_capture_governance_campus_preview()
+	elif "--capture-farmgate-ui" in OS.get_cmdline_user_args() or "--capture-farmgate-ui" in OS.get_cmdline_args():
+		_capture_farmgate_dispatch_ui_preview()
 	elif "--capture-farmgate-locked" in OS.get_cmdline_user_args() or "--capture-farmgate-locked" in OS.get_cmdline_args():
 		_capture_farmgate_dispatch_preview(-1)
 	elif "--capture-farmgate-survey" in OS.get_cmdline_user_args() or "--capture-farmgate-survey" in OS.get_cmdline_args():
@@ -16016,6 +16018,32 @@ func _capture_farmgate_dispatch_preview(target_level: int) -> void:
 	await get_tree().create_timer(1.0).timeout
 	var suffix := "locked" if target_level < 0 else ("survey" if target_level == 0 else "level%d" % target_level)
 	_save_preview("farmgate_dispatch_%s.png" % suffix)
+
+
+func _capture_farmgate_dispatch_ui_preview() -> void:
+	_prepare_capture_running()
+	if not _prepare_farmgate_capture_economy(1):
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_OPERATIONS)
+	await get_tree().process_frame
+	var dispatch_ui := find_child("FarmgateDispatchUI", true, false) as FarmgateDispatchUI
+	if dispatch_ui != null:
+		dispatch_ui.select_mandate(&"county_auction")
+		dispatch_ui.set_mandate_expanded(true)
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_OPERATIONS)
+	await get_tree().process_frame
+	if scroll != null and dispatch_ui != null:
+		scroll.ensure_control_visible(dispatch_ui)
+		# Keep the route economics and action together in the production evidence;
+		# the component capture separately proves the reserve header at 150% scale.
+		scroll.scroll_vertical += 88
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("farmgate_dispatch_ui.png")
 
 
 func _capture_dispatch_campus_preview() -> void:

@@ -42,7 +42,7 @@ Run the complete local gate from the repository root:
 The gate requires Node 22.13 or newer. When more than one Node installation is present, pass its folder with `-NodeDirectory`. The gate writes a machine-readable report to `output/release/beta-release-gate.json`. The full isolated Godot suite remains available through `tools/run_godot_full_suite.ps1` for release candidates.
 
 The current exhaustive candidate proof is
-`output/godot-full-suite-20260730-intern-economy-v2/full-suite-summary.json`: all 212
+`output/godot-full-suite-20260731-farmgate-glance-v1/full-suite-summary.json`: all 212
 discovered tests were selected, completed, and passed with zero failures,
 timeouts, or engine-error signatures. The runner uses a 240-second per-test
 budget because the deterministic multi-career balance matrix legitimately takes
@@ -53,15 +53,15 @@ current interface context, remain resumable, and retain the prior primary as a
 verified recovery copy.
 
 The expanded representative report at
-`output/release/intern-economy-beta-release-gate.json` passes all 44 checks,
+`output/release/farmgate-glance-beta-release-gate.json` passes all 44 checks,
 including the intake contract, Web production serving, evidence-validator
 adversarial fixtures, and exact artifact parity. It exercises the same
-9,249,172-byte PCK (`SHA-256
-49675052C2A69E14F576737DF1F8643ABF98FBB46B27B052180915910068E938`)
-inspected by the clean official browser proof at
-`output/web-game/internship-system-official-client/` and the zero-error
-cohort, dialogue, and paid-fellow captures at
-`output/web-game/internship-system-visual/`.
+9,302,932-byte PCK (`SHA-256
+258A6D2F81ADED91A316EF8CE2E160A409237EDA8CE36BAEE46CC9D02FD806F3`)
+inspected by the clean prescribed browser proof at
+`output/farmgate-dispatch-web-client-v2/` and the native narrow/Office captures
+under `output/web-game/farmgate-dispatch-scale-v1/` and
+`output/farmgate-dispatch-ui-glance-v1/`.
 
 ### Current public-deployment disposition
 
@@ -71,9 +71,9 @@ the `codex/core-loop-polish` branch's `/docs` directory. The current release
 handoff uses a cache-bypassed public download and requires it to match local
 `docs/index.pck` exactly:
 
-- local and public `index.pck`: 9,298,612 bytes;
+- local and public `index.pck`: 9,302,932 bytes;
 - local and public SHA-256:
-  `E6A458BA17056A32C43CD6813BF37C681E594EDF86C83B8A8D1802A73D215C96`;
+  `258A6D2F81ADED91A316EF8CE2E160A409237EDA8CE36BAEE46CC9D02FD806F3`;
 - exact deployed-payload match: **true**.
 
 The public URL is therefore the approved automated-test candidate. Publication
@@ -82,10 +82,10 @@ separately moderated usability focuses below remain pending until they are
 performed against this exact package.
 
 The current automated evidence is the 212/212 exhaustive native report at
-`output/godot-full-suite-20260731-farmer-relations-glance-v1/full-suite-summary.json`,
+`output/godot-full-suite-20260731-farmgate-glance-v1/full-suite-summary.json`,
 the 44/44 independent release gate at
-`output/release/farmer-relations-glance-beta-release-gate.json`, and the exact
-production-wrapper capture at `output/farmer-relations-web-client-v1/`.
+`output/release/farmgate-glance-beta-release-gate.json`, and the exact
+production-wrapper capture at `output/farmgate-dispatch-web-client-v2/`.
 Fourteen required candidate-bound sessions remain pending: seven physical
 touch/screen-reader/listening/GPU sessions and seven separately moderated
 usability focuses. No stale result is counted as a pass.
@@ -388,9 +388,17 @@ Fresh candidate-wide automated evidence is green:
   `output/farmer-relations-web-client-v1/shot-0.png`. Its diagnostic is loaded
   on Records with three authoritative offers and an unused one-campaign
   allowance, no browser-error artifact exists, and server stderr is empty.
+- Farmgate Dispatch is clean at native 282x760 and 150% interface scale at
+  `output/web-game/farmgate-dispatch-scale-v1/farmgate-dispatch-282x760-150.png`.
+  The full native Operations capture is at
+  `output/farmgate-dispatch-ui-glance-v1/farmgate_dispatch_ui.png`; the exact
+  production wrapper reproduces five stored lots, four canonical routes, and
+  the selected County Auction economics at
+  `output/farmgate-dispatch-web-client-v2/shot-0.png`. Its diagnostic is loaded
+  on Operations, no browser-error artifact exists, and server stderr is empty.
 - Both verification runners exited normally. The post-run audit found zero
   Pecking Order Godot processes, zero project Node processes, and zero
-  project-owned listeners; ports 41750 through 41759 are free.
+  project-owned listeners; ports 41750 through 41760 are free.
 
 Existing candidate-bound session records do not certify this PCK. Final
 production readiness remains open until all seven physical sessions plus all

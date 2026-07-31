@@ -4650,3 +4650,47 @@ The next major systems milestone is persistent worker relationships and individu
 - Publication uses the branch-backed GitHub Pages release. Final production
   evidence still requires seven physical sessions and seven separately
   moderated usability sessions run against the exact published artifact.
+
+## 2026-07-31 - Glance-first Farmgate Dispatch
+
+- Revisited the recurring close-route decision at the real 282-pixel
+  Operations width and 150% interface scale. The prior surface spent nearly
+  700 vertical pixels repeating reserve, default-route, description, full
+  terms, readiness, action, and a two-row receipt for one selected mandate.
+- Rebuilt the first-read layer around `STOCK / VALUE / OLDEST / DUE` reserve
+  tiles and `CAP / QUOTE / FEE / NET` route tiles. The complete disclosure is
+  now `REVIEW/HIDE ROUTES / <ready> / 4`; route actions are the stable verbs
+  `PICKUP / AUCTION / SHOWCASE / HOLD`, and the audit result is one `LAST`
+  strip.
+- Full season identity, auction basis, safe default, reserve valuation,
+  shelf-life pressure, route descriptions, exact economics, frozen-quote rule,
+  held reasons, and settlement fields remain in hidden authoritative labels,
+  tooltips, accessibility metadata, and the complete Web diagnostic.
+- Focused Farmgate component, Capital-to-Office, neighboring Feed Procurement,
+  and management-loop tests pass. The inspected real-GPU 150% component is at
+  `output/web-game/farmgate-dispatch-scale-v1/farmgate-dispatch-282x760-150.png`;
+  the full native Operations capture is
+  `output/farmgate-dispatch-ui-glance-v1/farmgate_dispatch_ui.png`.
+- Added the localhost-only `farmgate-dispatch` production preview with a real
+  tier-one depot and five immutable stored lots. The prescribed Node 24 client
+  is clean at `output/farmgate-dispatch-web-client-v2/`: Operations is current,
+  all four authoritative routes are present, County Auction shows its exact
+  8-egg capacity, 120% quote, $1.56 fee, and $29.64 projected net, no browser-
+  error artifact exists, and server stderr is empty.
+- Node 24.14 lint, production build, 49/49 rendered behavior/accessibility
+  tests, and the standalone production-server payload test pass. The exact-
+  source exhaustive report at
+  `output/godot-full-suite-20260731-farmgate-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The independent
+  report at `output/release/farmgate-glance-beta-release-gate.json` passes all
+  44 native, Node 24 Web, production-server, validator, and nine-file parity
+  checks.
+- Exported and synchronized all nine Web payloads. The 9,302,932-byte PCK has
+  SHA-256
+  `258A6D2F81ADED91A316EF8CE2E160A409237EDA8CE36BAEE46CC9D02FD806F3`.
+- Every focused and exhaustive Pecking Order Godot process, all three attempted
+  prescribed-client runs, and all scoped production servers exited. Port 41760
+  is free; unrelated project processes were not touched.
+- Publication uses the branch-backed GitHub Pages release. Final production
+  evidence still requires seven physical sessions and seven separately
+  moderated usability sessions run against the exact published artifact.

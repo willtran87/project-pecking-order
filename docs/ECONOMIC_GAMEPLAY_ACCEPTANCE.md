@@ -1013,3 +1013,36 @@ real transaction by `tests/career_sponsorship_integration_test.gd`.
   `output/godot-full-suite-20260731-farmer-relations-glance-v1/full-suite-summary.json`
   and the independent 44/44 release gate at
   `output/release/farmer-relations-glance-beta-release-gate.json`.
+
+## Glance-first Farmgate Dispatch
+
+- The recurring close-route file now leads with `STOCK`, `VALUE`, `OLDEST`,
+  and `DUE` tiles. The season line keeps the live auction quote, while the
+  disclosure fits as `REVIEW/HIDE ROUTES / <ready> / 4`.
+- Expanded route review uses one selector and four aligned tiles: `CAP`,
+  `QUOTE`, `FEE`, and `NET`. The filing action is the route verb—`PICKUP`,
+  `AUCTION`, `SHOWCASE`, or `HOLD`—and unavailable routes reduce to one
+  concrete `HELD` cue such as `NEED ROUTE FLEET`.
+- Full route descriptions, capacity wording, quote basis, exact fees and
+  projected payout, frozen-quote rule, held reason, safe Farmer Pickup default,
+  reserve valuation, shelf-life pressure, and complete settlement receipt remain
+  in hidden authoritative labels, tooltips, accessibility metadata, and the Web
+  diagnostic. The visible receipt is one compact `LAST` strip.
+- `tests/farmgate_dispatch_ui_contract_test.gd` covers the authoritative four
+  routes, exact hidden/visible equivalence, stable intent, canonical receipt,
+  keyboard focus, localization-stressed containment, non-overlapping header,
+  complete disclosure count, and 282px/150%-scale reachability. Capital-to-
+  Office, neighboring Feed Procurement, and management-loop integrations remain
+  green.
+- Native component evidence is
+  `output/web-game/farmgate-dispatch-scale-v1/farmgate-dispatch-282x760-150.png`;
+  the real Office/Operations capture is
+  `output/farmgate-dispatch-ui-glance-v1/farmgate_dispatch_ui.png`. The exact
+  production wrapper is clean at
+  `output/farmgate-dispatch-web-client-v2/shot-0.png`, with five authoritative
+  lots, four routes, no browser-error artifact, empty server stderr, and port
+  41760 released after the run.
+- Candidate-wide evidence is the 212/212 exhaustive report at
+  `output/godot-full-suite-20260731-farmgate-glance-v1/full-suite-summary.json`
+  and the independent 44/44 release gate at
+  `output/release/farmgate-glance-beta-release-gate.json`.
