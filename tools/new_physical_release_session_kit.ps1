@@ -161,8 +161,8 @@ Required check-result keys:
 $checklist
 
 Follow the complete route and thresholds in
-`docs/PHYSICAL_RELEASE_ACCEPTANCE.md`. Preserve the first attempt and record
-every failure or accepted defect. A `blocked` or `fail` session is useful
+``docs/PHYSICAL_RELEASE_ACCEPTANCE.md``. Preserve the first attempt and record
+every failure or accepted defect. A ``blocked`` or ``fail`` session is useful
 evidence, but it does not approve the release.
 "@
 $brief |
@@ -203,20 +203,20 @@ $relativeResultPath = (
 $readme = @"
 # $($definition.title) evidence kit
 
-1. Confirm the commit, PCK hash, and URL in `session-brief.md`.
+1. Confirm the commit, PCK hash, and URL in ``session-brief.md``.
 2. Record the complete first attempt on the required physical hardware.
-3. Fill every field in `session-result.json` and `tester-notes.md`.
+3. Fill every field in ``session-result.json`` and ``tester-notes.md``.
 4. Put the recording, completed JSON, and notes in one ZIP named
-   `$SessionId-session-bundle.zip`. GPU sessions also require a renderer or
+   ``$($SessionId)-session-bundle.zip``. GPU sessions also require a renderer or
    performance screenshot.
 5. Register the completed result and bundle atomically:
 
-```powershell
+~~~powershell
 ./tools/register_physical_release_session.ps1 ``
   -SessionId "$SessionId" ``
   -ResultPath "$relativeResultPath" ``
   -BundlePath "output/release/evidence/$SessionId-session-bundle.zip"
-```
+~~~
 
 Do not edit the evidence URI or SHA-256 by hand. Registration validates the
 archive, computes its digest, rejects reuse or accidental replacement, and

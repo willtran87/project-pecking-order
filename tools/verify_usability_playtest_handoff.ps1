@@ -54,6 +54,14 @@ function Invoke-ChildScript {
     }
 }
 
+function Test-CleanGeneratedText {
+    param([string]$Text)
+    return @(
+        $Text.ToCharArray() |
+            Where-Object { [int]$_ -lt 32 -and $_ -notin @("`r", "`n") }
+    ).Count -eq 0
+}
+
 function Complete-FixtureResult {
     param(
         [string]$ResultPath,
@@ -186,6 +194,11 @@ try {
         $kitBrief -match [regex]::Escape($head) -and
         $kitBrief -match [regex]::Escape($pckHash) -and
         $kitReadme -match "register_usability_playtest_session\.ps1" -and
+        $kitBrief -match [regex]::Escape('`external_instruction_count`') -and
+        $kitReadme -match [regex]::Escape('`moderator-notes.md`') -and
+        $kitReadme -match [regex]::Escape('~~~powershell') -and
+        (Test-CleanGeneratedText $kitBrief) -and
+        (Test-CleanGeneratedText $kitReadme) -and
         @($kitSessionResult.task_results).Count -eq 5 -and
         @(
             $kitSessionResult.task_results |
@@ -202,6 +215,13 @@ try {
         identity_embedded = (
             $kitBrief -match [regex]::Escape($head) -and
             $kitBrief -match [regex]::Escape($pckHash)
+        )
+        markdown_clean = (
+            $kitBrief -match [regex]::Escape('`external_instruction_count`') -and
+            $kitReadme -match [regex]::Escape('`moderator-notes.md`') -and
+            $kitReadme -match [regex]::Escape('~~~powershell') -and
+            (Test-CleanGeneratedText $kitBrief) -and
+            (Test-CleanGeneratedText $kitReadme)
         )
     }
     if (-not $kitComplete) {

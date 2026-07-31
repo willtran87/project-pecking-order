@@ -4771,3 +4771,23 @@ The next major systems milestone is persistent worker relationships and individu
 - Publication uses the branch-backed GitHub Pages release. Final production
   evidence still requires seven physical sessions and seven separately
   moderated usability sessions against the exact published artifact.
+
+## 2026-07-31 - Human-session packet integrity
+
+- Fixed the physical and usability session-kit generators so Markdown inline
+  code, filenames, and fenced PowerShell registration commands survive
+  expandable here-strings. The physical brief no longer turns the leading
+  letters of `blocked` and `fail` into backspace/form-feed control characters,
+  and `tester-notes.md` no longer begins with an accidental tab.
+- Extended both handoff self-tests to reject unexpected control characters and
+  malformed generated Markdown. The physical and usability handoff validators
+  pass with their new `markdown_clean` checks.
+- Regenerated all seven physical and seven independently moderated usability
+  packets. The 56 generated files contain 14 pending results, zero unexpected
+  control characters, correctly fenced commands, and the exact candidate
+  identity. No human pass, measurement, recording, or signature was fabricated.
+- The shipped game payload is unchanged and remains byte-identical between
+  `docs/index.pck` and `web/public/game/index.pck`: 9,326,596 bytes with SHA-256
+  `814291BA365E9C4F02BBA5B39B204DBB31D5CF8C51D5A23749906A66C73C4E84`.
+- Final production acceptance still requires the fourteen real human sessions;
+  the corrected packets only make that external handoff reliable.

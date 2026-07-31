@@ -244,9 +244,9 @@ Minimum task count: $($definition.tasks.Count)
 
 Primary question: $($definition.focus_prompt)
 
-Read only the task prompts from `session-result.json`. Do not name a control,
+Read only the task prompts from ``session-result.json``. Do not name a control,
 define the economy, recommend a choice, or rescue a wrong turn. Count every
-directional hint in `external_instruction_count`. Preserve the first attempt.
+directional hint in ``external_instruction_count``. Preserve the first attempt.
 
 The session must also sample finding the current priority, explaining an
 economic change, completing an economic action, and recovering from a mistake.
@@ -286,19 +286,19 @@ $notes | Set-Content -LiteralPath (Join-Path $sessionDirectory "moderator-notes.
 $readme = @"
 # $($definition.title) evidence kit
 
-1. Confirm the commit, PCK hash, and URL in `session-brief.md`.
+1. Confirm the commit, PCK hash, and URL in ``session-brief.md``.
 2. Record the complete first attempt.
-3. Fill every field in `session-result.json` and `moderator-notes.md`.
+3. Fill every field in ``session-result.json`` and ``moderator-notes.md``.
 4. Put the recording, completed JSON, and notes in one ZIP named
-   `$SessionId-session-bundle.zip`.
+   ``$($SessionId)-session-bundle.zip``.
 5. Register both the result and bundle atomically:
 
-```powershell
+~~~powershell
 ./tools/register_usability_playtest_session.ps1 ``
   -SessionId "$SessionId" ``
   -ResultPath "$($sessionDirectory.Replace($root, '').TrimStart('\').Replace('\', '/'))/session-result.json" ``
   -BundlePath "output/release/evidence/$SessionId-session-bundle.zip"
-```
+~~~
 
 Do not edit the evidence URI or SHA-256 by hand. The registration tool validates
 the archive, computes its digest, prevents cross-session reuse, and writes the

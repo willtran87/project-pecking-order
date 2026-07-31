@@ -54,6 +54,14 @@ function Invoke-ChildScript {
     }
 }
 
+function Test-CleanGeneratedText {
+    param([string]$Text)
+    return @(
+        $Text.ToCharArray() |
+            Where-Object { [int]$_ -lt 32 -and $_ -notin @("`r", "`n") }
+    ).Count -eq 0
+}
+
 function Complete-FixtureResult {
     param([string]$ResultPath)
     $result = Get-Content -LiteralPath $ResultPath -Raw | ConvertFrom-Json
@@ -174,7 +182,12 @@ try {
         }).Count -eq 0 -and
         $kitBrief -match [regex]::Escape($head) -and
         $kitBrief -match [regex]::Escape($pckHash) -and
-        $kitReadme -match "register_physical_release_session\.ps1"
+        $kitBrief -match [regex]::Escape('`blocked` or `fail`') -and
+        $kitReadme -match "register_physical_release_session\.ps1" -and
+        $kitReadme -match [regex]::Escape('`tester-notes.md`') -and
+        $kitReadme -match [regex]::Escape('~~~powershell') -and
+        (Test-CleanGeneratedText $kitBrief) -and
+        (Test-CleanGeneratedText $kitReadme)
     )
     $checks["session-kit"] = [ordered]@{
         passed = $kitComplete
@@ -185,6 +198,13 @@ try {
         identity_embedded = (
             $kitBrief -match [regex]::Escape($head) -and
             $kitBrief -match [regex]::Escape($pckHash)
+        )
+        markdown_clean = (
+            $kitBrief -match [regex]::Escape('`blocked` or `fail`') -and
+            $kitReadme -match [regex]::Escape('`tester-notes.md`') -and
+            $kitReadme -match [regex]::Escape('~~~powershell') -and
+            (Test-CleanGeneratedText $kitBrief) -and
+            (Test-CleanGeneratedText $kitReadme)
         )
     }
     if (-not $kitComplete) {
