@@ -913,16 +913,41 @@ func _run() -> void:
 	var final_safeguard_panel := ui.find_child("FinalProbationSafeguardReceipt", true, false) as PanelContainer
 	var final_safeguard_summary := ui.find_child("FinalProbationSafeguardSummary", true, false) as Label
 	var final_safeguard_favor := ui.find_child("FinalProbationSafeguardRow_4", true, false) as Label
+	var final_safeguard_grid := ui.find_child("FinalProbationSafeguardGrid", true, false) as GridContainer
+	var final_safeguard_card_1 := ui.find_child("FinalProbationSafeguardCard_1", true, false) as PanelContainer
+	var final_message := ui.find_child("FinalProbationMessage", true, false) as Label
+	var final_sticky_bar := ui.find_child("FinalStickyActionBar", true, false) as PanelContainer
 	_check(final_panel != null and final_panel.is_visible_in_tree(), "day five should show the final campaign review", failures)
 	_check(verdict != null and verdict.text == "PROBATION PASSED", "final review should clearly distinguish a pass", failures)
-	_check(final_continue != null and final_continue.is_visible_in_tree(), "passing should offer the senior-roost continuation", failures)
+	_check(
+		final_continue != null and not final_continue.is_visible_in_tree()
+		and final_sticky_bar != null and final_sticky_bar.is_visible_in_tree(),
+		"passing desktop review should expose one sticky senior-roost continuation without a duplicate row",
+		failures,
+	)
 	_check(
 		final_safeguard_panel != null and final_safeguard_panel.is_visible_in_tree()
 		and final_safeguard_summary != null
-		and final_safeguard_summary.text == "FINAL RESULT  //  STANDARD FILING  //  5 / 5 SAFEGUARDS  //  ALL SAFEGUARDS PASS"
+		and final_safeguard_summary.text == "STANDARD FILING  //  5 OF 5 PASS"
 		and final_safeguard_favor != null
-		and final_safeguard_favor.text == "PASS  //  FARMER FAVOR  //  52 >= 50  //  +2 POINTS",
-		"passing final review should file an exact five-row safeguard receipt",
+		and final_safeguard_favor.text == "FAVOR\n52 / PASS"
+		and final_safeguard_grid != null and final_safeguard_grid.columns == 5
+		and final_safeguard_card_1 != null and final_safeguard_card_1.is_visible_in_tree(),
+		"passing final review should show five compact safeguard tiles",
+		failures,
+	)
+	_check(
+		final_safeguard_panel != null
+		and "FINAL RESULT  //  STANDARD FILING  //  5 / 5 SAFEGUARDS  //  ALL SAFEGUARDS PASS" in final_safeguard_panel.tooltip_text
+		and final_safeguard_favor != null
+		and final_safeguard_favor.tooltip_text == "PASS  //  FARMER FAVOR  //  52 >= 50  //  +2 POINTS"
+		and String(final_safeguard_favor.get_meta("accessible_text", "")) == final_safeguard_favor.tooltip_text,
+		"compact final safeguards should preserve every exact filing term for pointer and assistive access",
+		failures,
+	)
+	_check(
+		final_message != null and not final_message.visible,
+		"final authored prose should remain semantic instead of occupying the glance-first layout",
 		failures,
 	)
 	_check(
@@ -966,10 +991,11 @@ func _run() -> void:
 	_check(not final_continue.is_visible_in_tree(), "failure should not offer post-probation continuation", failures)
 	_check(
 		final_safeguard_summary != null
-		and final_safeguard_summary.text == "FINAL RESULT  //  STANDARD FILING  //  4 / 5 SAFEGUARDS  //  FILE HELD"
+		and final_safeguard_summary.text == "STANDARD FILING  //  4 OF 5 PASS  //  HELD"
 		and final_safeguard_favor != null
-		and final_safeguard_favor.text == "HELD  //  FARMER FAVOR  //  49 >= 50  //  -1 POINT",
-		"failed final review should name the exact held condition rather than hiding it behind the verdict",
+		and final_safeguard_favor.text == "FAVOR\n49 / HELD"
+		and final_safeguard_favor.tooltip_text == "HELD  //  FARMER FAVOR  //  49 >= 50  //  -1 POINT",
+		"failed final review should show the held condition at a glance while retaining its exact comparison",
 		failures,
 	)
 	var retry := ui.find_child("FinalNewCampaignButton", true, false) as Button

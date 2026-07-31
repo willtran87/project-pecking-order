@@ -33,7 +33,18 @@ func _run() -> void:
 	var sticky_bar := ui.find_child("FinalStickyActionBar", true, false) as PanelContainer
 	var sticky_primary := ui.find_child("FinalStickyPrimaryButton", true, false) as Button
 	var sticky_leave := ui.find_child("FinalStickyLeaveButton", true, false) as Button
+	var ending_beat_1 := ui.find_child("FinalEndingBeat1", true, false) as PanelContainer
+	var ending_caption_1 := ui.find_child("FinalEndingBeatCaption1", true, false) as Label
+	var ending_value_1 := ui.find_child("FinalEndingBeatValue1", true, false) as Label
+	var ending_value_2 := ui.find_child("FinalEndingBeatValue2", true, false) as Label
+	var ending_value_3 := ui.find_child("FinalEndingBeatValue3", true, false) as Label
 	_check(verdict != null and message != null, "final review should expose readable verdict and message labels", failures)
+	_check(
+		ending_beat_1 != null and ending_caption_1 != null
+		and ending_value_1 != null and ending_value_2 != null and ending_value_3 != null,
+		"final review should expose three glance-first ending beats",
+		failures,
+	)
 	_check(final_panel != null and modal_host != null, "final review should retain its blocking modal structure", failures)
 	_check(continue_button != null and new_button != null and leave_button != null, "final review should retain all campaign actions", failures)
 	_check(sticky_bar != null and sticky_primary != null and sticky_leave != null, "desktop final review should expose its always-visible action strip", failures)
@@ -43,16 +54,19 @@ func _run() -> void:
 			"id": &"farmer_favorite",
 			"title": "FARMER'S FAVORITE",
 			"coda": "The deck is clean, the quota is higher, and one chair is easier to explain.",
+			"beats": ["WON", "RELEASED", "RAISED"],
 		},
 		{
 			"id": &"benevolent_rooster",
 			"title": "BENEVOLENT ROOSTER",
 			"coda": "Basic support survived because it was entered as an exception expense.",
+			"beats": ["SUPPORTED", "FILED", "NOTED"],
 		},
 		{
 			"id": &"collective_bargaining",
 			"title": "THE FLOCK HAS A VOICE",
 			"coda": "The workforce became a subject instead of a spreadsheet.",
+			"beats": ["UNITED", "FILED", "CONTESTED"],
 		},
 	]
 	for ending: Dictionary in successful_endings:
@@ -63,9 +77,29 @@ func _run() -> void:
 		_check(verdict != null and verdict.text == expected_title, "%s should replace the generic pass verdict" % expected_title, failures)
 		_check(verdict != null and verdict.text != "PROBATION PASSED", "%s should not collapse to generic pass copy" % expected_title, failures)
 		_check(message != null and String(ending["coda"]) in message.text, "%s should preserve its authored ending copy" % expected_title, failures)
+		_check(message != null and not message.visible, "%s should keep its authored paragraph out of the glance-first layout" % expected_title, failures)
+		var expected_beats := ending.get("beats", []) as Array
+		_check(
+			ending_value_1 != null and ending_value_1.text == String(expected_beats[0])
+			and ending_value_2 != null and ending_value_2.text == String(expected_beats[1])
+			and ending_value_3 != null and ending_value_3.text == String(expected_beats[2]),
+			"%s should communicate its outcome through three compact beats" % expected_title,
+			failures,
+		)
+		_check(
+			ending_beat_1 != null and String(ending["coda"]) in ending_beat_1.tooltip_text
+			and String(ending["coda"]) in String(ending_beat_1.get_meta("accessible_text", "")),
+			"%s compact beats should retain the authored coda for pointer and assistive access" % expected_title,
+			failures,
+		)
+		_check(
+			String(ending["coda"]) in ui.accessible_text(),
+			"%s browser accessibility mirror should retain the exact authored ending" % expected_title,
+			failures,
+		)
 		_check(final_panel != null and final_panel.is_visible_in_tree(), "%s should remain visible as the final review" % expected_title, failures)
 		_check(modal_host != null and modal_host.is_visible_in_tree() and modal_host.mouse_filter == Control.MOUSE_FILTER_STOP, "%s should remain an intentional blocking modal" % expected_title, failures)
-		_check(continue_button != null and continue_button.is_visible_in_tree() and not continue_button.disabled, "%s should offer senior-roost continuation" % expected_title, failures)
+		_check(continue_button != null and not continue_button.is_visible_in_tree() and not continue_button.disabled, "%s should avoid duplicating the sticky desktop continuation in the scroll flow" % expected_title, failures)
 		_check(continue_button != null and continue_button.focus_mode == Control.FOCUS_ALL, "%s continuation should remain keyboard focusable" % expected_title, failures)
 		_check(continue_button != null and _shortcut_has_key(continue_button, KEY_C), "%s continuation should retain its C shortcut" % expected_title, failures)
 		_check(sticky_bar != null and sticky_bar.is_visible_in_tree(), "%s should keep the next action above the desktop fold" % expected_title, failures)
@@ -102,8 +136,16 @@ func _run() -> void:
 	await process_frame
 	_check(verdict != null and verdict.text == "PROBATION TERMINATED", "failed restructuring should use its authored termination title", failures)
 	_check(verdict != null and verdict.text != "PROBATION FAILED", "failed restructuring should not collapse to generic failure copy", failures)
+	_check(
+		ending_caption_1 != null and ending_caption_1.text == "FILE"
+		and ending_value_1 != null and ending_value_1.text == "CLOSED"
+		and ending_value_2 != null and ending_value_2.text == "RECORDED"
+		and ending_value_3 != null and ending_value_3.text == "RECLAIMED",
+		"terminated probation should summarize the file, flock, and badge outcomes at a glance",
+		failures,
+	)
 	_check(continue_button != null and not continue_button.is_visible_in_tree(), "terminated probation should hide senior-roost continuation", failures)
-	_check(new_button != null and new_button.is_visible_in_tree() and not new_button.disabled and "RETRY PROBATION" in new_button.text, "terminated probation should expose an immediate retry", failures)
+	_check(new_button != null and not new_button.is_visible_in_tree() and not new_button.disabled and "RETRY PROBATION" in new_button.text, "terminated desktop probation should avoid duplicating the sticky retry in the scroll flow", failures)
 	_check(new_button != null and new_button.focus_mode == Control.FOCUS_ALL and _shortcut_has_key(new_button, KEY_N), "retry should remain keyboard focusable with its N shortcut", failures)
 	_check(leave_button != null and leave_button.focus_mode == Control.FOCUS_ALL and _shortcut_has_key(leave_button, KEY_A), "leave bureau should remain keyboard focusable with its A shortcut", failures)
 	_check(sticky_bar != null and sticky_bar.is_visible_in_tree(), "failed desktop review should keep retry above the fold", failures)

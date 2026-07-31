@@ -32,10 +32,16 @@ func _run() -> void:
 	await process_frame
 	var audio_feedback := office.get("_audio_feedback") as OfficeAudioFeedback
 	var verdict_audio := audio_feedback.feedback_snapshot() if audio_feedback != null else {}
-	var final_continue := office.find_child("FinalContinueCampaignButton", true, false) as Button
+	var final_continue := office.find_child("FinalStickyPrimaryButton", true, false) as Button
+	if final_continue == null or not final_continue.is_visible_in_tree():
+		final_continue = office.find_child("FinalContinueCampaignButton", true, false) as Button
 	_check(campaign.outcome == CampaignState.OUTCOME_PASSED, "fixture should reach an authentic passed probation record", failures)
 	_check(String(verdict_audio.get("last_cue", "")) == "campaign_pass", "production final review should synchronize the passed verdict cadence", failures)
-	_check(final_continue != null and final_continue.is_visible_in_tree(), "passed probation should expose Senior Roost continuation", failures)
+	_check(
+		final_continue != null and final_continue.is_visible_in_tree(),
+		"passed probation should expose one visible Senior Roost continuation",
+		failures,
+	)
 	_press(final_continue)
 	await process_frame
 	await process_frame

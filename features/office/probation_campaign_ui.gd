@@ -168,6 +168,8 @@ var _final_verdict_label: Label
 var _final_score_label: Label
 var _final_rank_label: Label
 var _final_message_label: Label
+var _final_ending_glance_grid: GridContainer
+var _final_ending_glance_tiles: Array[Dictionary] = []
 var _final_ledger_labels: Array[Dictionary] = []
 var _final_safeguard_panel: PanelContainer
 var _final_safeguard_summary: Label
@@ -354,6 +356,35 @@ func campaign_snapshot() -> Dictionary:
 	if not confirmation.is_empty():
 		result["pending_milestone_confirmation"] = confirmation
 	return result
+
+
+## A concise semantic mirror for the canvas-only campaign surfaces. Visible
+## final cards stay glance-first while this string retains the authored coda
+## and every exact filing comparison for assistive browser clients.
+func accessible_text() -> String:
+	if _view == VIEW_FINAL:
+		var parts: Array[String] = []
+		if _final_verdict_label != null:
+			parts.append(_final_verdict_label.text)
+		for tile: Dictionary in _final_ending_glance_tiles:
+			var caption := tile.get("caption") as Label
+			var value := tile.get("value") as Label
+			if caption != null and value != null:
+				parts.append("%s: %s" % [caption.text, value.text])
+		if _final_message_label != null and not _final_message_label.text.is_empty():
+			parts.append(_final_message_label.text)
+		if _final_score_label != null and _final_rank_label != null:
+			parts.append("Final score %s. Final rank %s." % [
+				_final_score_label.text,
+				_final_rank_label.text,
+			])
+		if _final_safeguard_panel != null and not _final_safeguard_panel.tooltip_text.is_empty():
+			parts.append(_final_safeguard_panel.tooltip_text)
+		parts.append(
+			"Objective: enter the Senior Roost if approved, retry probation if held, or shelve the file."
+		)
+		return "\n".join(parts)
+	return "Probation management file, %s." % String(_view).replace("_", " ")
 
 
 ## Updates only the presentation badge from an authoritative live projection.
@@ -996,7 +1027,41 @@ func _build_final_panel(parent: Control) -> void:
 	_final_message_label.name = "FinalProbationMessage"
 	_final_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_final_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_final_message_label.visible = false
 	content.add_child(_final_message_label)
+
+	_final_ending_glance_grid = GridContainer.new()
+	_final_ending_glance_grid.name = "FinalEndingGlance"
+	_final_ending_glance_grid.columns = 3
+	_final_ending_glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_final_ending_glance_grid.add_theme_constant_override("h_separation", 10)
+	_final_ending_glance_grid.add_theme_constant_override("v_separation", 8)
+	content.add_child(_final_ending_glance_grid)
+	for index: int in range(3):
+		var card := PanelContainer.new()
+		card.name = "FinalEndingBeat%d" % (index + 1)
+		card.custom_minimum_size = Vector2(190.0, 58.0)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.mouse_filter = Control.MOUSE_FILTER_PASS
+		card.add_theme_stylebox_override(
+			"panel",
+			_panel_style(Color("20343e"), Color("536b72"), 8, 1),
+		)
+		_final_ending_glance_grid.add_child(card)
+		var stack := _panel_content(card, 12, 7, 0)
+		var caption := _make_label("OUTCOME", 9, MUTED)
+		caption.name = "FinalEndingBeatCaption%d" % (index + 1)
+		stack.add_child(caption)
+		var value := _make_label("FILED", 17, CREAM)
+		value.name = "FinalEndingBeatValue%d" % (index + 1)
+		value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		value.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+		stack.add_child(value)
+		_final_ending_glance_tiles.append({
+			"card": card,
+			"caption": caption,
+			"value": value,
+		})
 
 	_final_metrics = HFlowContainer.new()
 	_final_metrics.name = "FinalProbationMetrics"
@@ -1105,7 +1170,12 @@ func _build_safeguard_receipt(
 	)
 	parent.add_child(panel)
 	var content := _panel_content(panel, 16, 10, 4)
-	var heading := _make_label("PROBATION PASS SAFEGUARDS  //  EXACT FILING TERMS", 11, TEAL)
+	var final_receipt := prefix == "Final"
+	var heading := _make_label(
+		"FIVE SAFEGUARDS" if final_receipt else "PROBATION PASS SAFEGUARDS  //  EXACT FILING TERMS",
+		11,
+		TEAL,
+	)
 	heading.name = "%sProbationSafeguardHeading" % prefix
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(heading)
@@ -1115,7 +1185,7 @@ func _build_safeguard_receipt(
 	content.add_child(summary)
 	var grid := GridContainer.new()
 	grid.name = "%sProbationSafeguardGrid" % prefix
-	grid.columns = 2
+	grid.columns = 5 if final_receipt else 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 18)
 	grid.add_theme_constant_override("v_separation", 3)
@@ -1126,7 +1196,22 @@ func _build_safeguard_receipt(
 		row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_child(row)
+		if final_receipt:
+			var card := PanelContainer.new()
+			card.name = "%sProbationSafeguardCard_%d" % [prefix, index + 1]
+			card.custom_minimum_size = Vector2(120.0, 58.0)
+			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			card.mouse_filter = Control.MOUSE_FILTER_PASS
+			card.add_theme_stylebox_override(
+				"panel",
+				_panel_style(Color("21353e"), Color("50666c"), 7, 1),
+			)
+			grid.add_child(card)
+			var stack := _panel_content(card, 8, 6, 0)
+			row.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			stack.add_child(row)
+		else:
+			grid.add_child(row)
 		rows.append(row)
 	return {"panel": panel, "summary": summary, "grid": grid}
 
@@ -2083,7 +2168,7 @@ func _refresh_probation_safeguard_receipt(
 		maxi(0, int(forecast.get("completed_shifts", 0))),
 		maxi(1, int(forecast.get("required_shifts", DEFAULT_TOTAL_DAYS))),
 	]
-	summary.text = "%s  //  %s  //  %d / %d SAFEGUARDS%s  //  %s" % [
+	var exact_summary := "%s  //  %s  //  %d / %d SAFEGUARDS%s  //  %s" % [
 		summary_prefix,
 		contract_label,
 		pass_count,
@@ -2091,9 +2176,18 @@ func _refresh_probation_safeguard_receipt(
 		shift_progress,
 		summary_status,
 	]
+	summary.text = (
+		"%s  //  %d OF %d PASS%s" % [
+			contract_label,
+			pass_count,
+			criteria.size(),
+			"" if all_pass else "  //  HELD",
+		]
+		if final_receipt else exact_summary
+	)
 	summary.add_theme_color_override("font_color", TEAL if all_pass else RUST)
 	var tooltip_lines: Array[String] = [
-		summary.text,
+		exact_summary,
 		_challenge_contract_terms_text(active_contract, false),
 	]
 	for index: int in range(rows.size()):
@@ -2109,12 +2203,31 @@ func _refresh_probation_safeguard_receipt(
 			label.add_theme_color_override("font_color", RUST)
 			continue
 		var criterion := criterion_value as Dictionary
-		label.text = _probation_safeguard_row_text(criterion, final_receipt)
+		var exact_row := _probation_safeguard_row_text(criterion, final_receipt)
+		label.text = (
+			_probation_safeguard_glance_text(criterion)
+			if final_receipt else exact_row
+		)
 		label.add_theme_color_override(
 			"font_color",
 			Color("a7dbc9") if bool(criterion.get("pass", false)) else Color("f0aa95"),
 		)
-		tooltip_lines.append(label.text)
+		label.tooltip_text = exact_row
+		label.set_meta("accessible_text", exact_row)
+		var row_card := label.get_parent().get_parent().get_parent() as PanelContainer
+		if final_receipt and row_card != null:
+			row_card.tooltip_text = exact_row
+			row_card.set_meta("accessible_text", exact_row)
+			row_card.add_theme_stylebox_override(
+				"panel",
+				_panel_style(
+					Color("213b3b") if bool(criterion.get("pass", false)) else Color("3d2c2b"),
+					Color("6f9d8f") if bool(criterion.get("pass", false)) else Color("b66d5c"),
+					7,
+					1,
+				),
+			)
+		tooltip_lines.append(exact_row)
 	var blocker := forecast.get("largest_recoverable_blocker", {}) as Dictionary
 	if not blocker.is_empty() and not final_receipt:
 		var blocker_line := "LARGEST RECOVERABLE GAP  //  %s  //  %s" % [
@@ -2124,6 +2237,32 @@ func _refresh_probation_safeguard_receipt(
 		summary.text += "\n" + blocker_line
 		tooltip_lines.append(blocker_line)
 	panel.tooltip_text = "\n".join(tooltip_lines)
+	panel.set_meta("accessible_text", panel.tooltip_text)
+	summary.tooltip_text = panel.tooltip_text
+	summary.set_meta("accessible_text", panel.tooltip_text)
+
+
+func _probation_safeguard_glance_text(criterion: Dictionary) -> String:
+	var id := StringName(String(criterion.get("id", "")))
+	var short_label := "SAFEGUARD"
+	match id:
+		&"score":
+			short_label = "SCORE"
+		&"welfare":
+			short_label = "FLOCK"
+		&"compliance":
+			short_label = "OBEDIENCE"
+		&"farmer_favor":
+			short_label = "FAVOR"
+		&"crack_rate":
+			short_label = "SHELL"
+	var metric := String(criterion.get("metric", ""))
+	var value := _probation_safeguard_value_text(metric, int(criterion.get("projected_value", 0)))
+	return "%s\n%s / %s" % [
+		short_label,
+		value,
+		"PASS" if bool(criterion.get("pass", false)) else "HELD",
+	]
 
 
 func _probation_safeguard_row_text(criterion: Dictionary, final_receipt: bool) -> String:
@@ -2199,6 +2338,8 @@ func _refresh_final() -> void:
 			"The farmer has reclaimed the badge. Your file may be reopened for another five-shift probation."
 		),
 	))
+	_final_message_label.set_meta("accessible_text", _final_message_label.text)
+	_refresh_final_ending_glance(ending, passed, _final_message_label.text)
 	_final_score_label.text = _format_integer(int(_snapshot.get("score", 0)))
 	var final_rank := String(_snapshot.get("rank", "UNRANKED")).strip_edges().to_upper()
 	if passed and final_rank == "PROBATIONARY MANAGER":
@@ -2230,6 +2371,57 @@ func _refresh_final() -> void:
 		if _final_sticky_action_bar.is_visible_in_tree() else
 		(_final_continue_button if passed else _final_new_button)
 	)
+
+
+func _refresh_final_ending_glance(
+	ending: Dictionary,
+	passed: bool,
+	exact_message: String,
+) -> void:
+	var ending_id := StringName(String(ending.get("id", "")))
+	var beats: Array[Dictionary]
+	match ending_id:
+		&"farmer_favorite":
+			beats = _ending_beats("FAVOR", "WON", "CAPACITY", "RELEASED", "QUOTA", "RAISED")
+		&"benevolent_rooster":
+			beats = _ending_beats("FLOCK", "SUPPORTED", "CARE", "FILED", "COST", "NOTED")
+		&"collective_bargaining":
+			beats = _ending_beats("FLOCK", "UNITED", "VOICE", "FILED", "RANK", "CONTESTED")
+		&"probation_terminated":
+			beats = _ending_beats("FILE", "CLOSED", "FLOCK", "RECORDED", "BADGE", "RECLAIMED")
+		&"probationary_rooster":
+			beats = _ending_beats("STATUS", "EXTENDED", "FILING", "INCOMPLETE", "NEXT", "RETRY")
+		_:
+			beats = (
+				_ending_beats("FILE", "APPROVED", "BADGE", "EARNED", "NEXT", "SENIOR ROOST")
+				if passed else
+				_ending_beats("FILE", "HELD", "BADGE", "RECLAIMED", "NEXT", "RETRY")
+			)
+	for index: int in range(mini(_final_ending_glance_tiles.size(), beats.size())):
+		var tile := _final_ending_glance_tiles[index]
+		var beat := beats[index]
+		var card := tile.get("card") as PanelContainer
+		var caption := tile.get("caption") as Label
+		var value := tile.get("value") as Label
+		caption.text = String(beat.get("caption", "OUTCOME"))
+		value.text = String(beat.get("value", "FILED"))
+		card.tooltip_text = exact_message
+		card.set_meta("accessible_text", "%s: %s. %s" % [caption.text, value.text, exact_message])
+
+
+func _ending_beats(
+	caption_1: String,
+	value_1: String,
+	caption_2: String,
+	value_2: String,
+	caption_3: String,
+	value_3: String,
+) -> Array[Dictionary]:
+	return [
+		{"caption": caption_1, "value": value_1},
+		{"caption": caption_2, "value": value_2},
+		{"caption": caption_3, "value": value_3},
+	]
 
 
 func _update_objective() -> void:
@@ -2714,11 +2906,15 @@ func _apply_responsive_layout() -> void:
 	var sticky_final_actions := _view == VIEW_FINAL and not narrow
 	if _final_sticky_action_bar != null:
 		_final_sticky_action_bar.visible = sticky_final_actions
+	if _final_actions != null:
+		_final_actions.visible = not sticky_final_actions
 	_modal_scroll.offset_bottom = -92.0 if sticky_final_actions else -18.0
 	if _report_safeguard_grid != null:
 		_report_safeguard_grid.columns = 1 if narrow else 2
 	if _final_safeguard_grid != null:
-		_final_safeguard_grid.columns = 1 if narrow else 2
+		_final_safeguard_grid.columns = 2 if narrow else 5
+	if _final_ending_glance_grid != null:
+		_final_ending_glance_grid.columns = 1 if narrow else 3
 
 	_modal_center.custom_minimum_size = Vector2(panel_width, modal_height)
 	_title_panel.custom_minimum_size = Vector2(minf(760.0, panel_width), 0.0)

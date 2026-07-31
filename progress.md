@@ -4932,3 +4932,33 @@ The next major systems milestone is persistent worker relationships and individu
   free and no repo-owned test process remains.
 - Final production acceptance still requires seven physical sessions and seven
   separately moderated usability sessions against the exact published artifact.
+
+## 2026-07-31 - Glance-first Probation Final
+
+- Replaced the final review's dense authored paragraphs with three immediate
+  outcome beats tailored to all five endings. The verdict, score, rank, closing
+  ledgers, and next action now form one clear payoff hierarchy.
+- Recast the exact five-row safeguard receipt as five compact `SCORE / FLOCK /
+  OBEDIENCE / FAVOR / SHELL` tiles. Each tile exposes its value and pass/held
+  state at a glance; exact comparisons, gaps, challenge terms, ending prose, and
+  leadership record remain in tooltips, semantic metadata, and the browser
+  accessibility mirror.
+- Removed the duplicate desktop action row behind the sticky next-step bar while
+  retaining the in-flow controls for portrait layouts. The real Senior Roost
+  handoff integration now follows whichever continuation is visibly actionable.
+- Added a localhost-only `probation-final` preview route for deterministic Web
+  inspection. The native final capture is
+  `output/probation-final-glance-native-v2/probation_final.png`; the prescribed
+  Node 24 browser client produced three loaded final frames at
+  `output/probation-final-glance-web-client-v1/` with zero browser-error files,
+  empty server/client stderr, released port 4329, and no leftover processes.
+- Candidate-wide native coverage passes 212/212 contracts with zero failures or
+  timeouts at
+  `output/godot-full-suite-20260731-probation-final-glance-v1/full-suite-summary.json`.
+  The independent release gate passes all 44 native, Node 24 Web, rendered
+  accessibility, production-server, validator, and deploy-payload checks at
+  `output/release/probation-final-glance-beta-release-gate.json`.
+- Synchronized all nine deploy payloads. The 9,367,028-byte PCK has SHA-256
+  `6F90C5E483134E6A18F72E9FBB6E0C73AB42B9531B9A9CD44200DBDEC98E332E`.
+- Final production acceptance still requires seven physical sessions and seven
+  separately moderated usability sessions against the exact published artifact.

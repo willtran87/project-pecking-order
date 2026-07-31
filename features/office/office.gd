@@ -12262,6 +12262,8 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 			],
 			1600,
 		)
+	if _campaign_ui != null and _campaign_ui.is_modal_open():
+		return _web_accessibility_text(_campaign_ui.accessible_text(), 2600)
 	if _character_dialogue_ui != null and _character_dialogue_ui.is_presenting():
 		return _web_accessibility_text(
 			"%s Objective: read or file away this character aside; the exact event remains in Flockwatch."
