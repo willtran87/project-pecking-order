@@ -617,13 +617,13 @@ func _build_title_panel(parent: Control) -> void:
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	eyebrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(eyebrow)
-	_title_heading = _make_label("FIVE SHIFTS. START BY MEETING MABEL.", 28, CREAM)
+	_title_heading = _make_label("MEET MABEL. RUN FIVE SHIFTS.", 28, CREAM)
 	_title_heading.name = "CampaignTitle"
 	_title_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_title_heading)
 	_title_description = _make_label(
-		"Mabel is already at her desk. Every choice you make together shares one permanent coop file.",
+		"Choose a filing, then manage one shared coop file together.",
 		15,
 		Color("c4d0d4"),
 	)
@@ -669,7 +669,7 @@ func _build_title_panel(parent: Control) -> void:
 	challenge_header.add_theme_constant_override("h_separation", 12)
 	challenge_header.add_theme_constant_override("v_separation", 6)
 	challenge_content.add_child(challenge_header)
-	var challenge_label := _make_label("DIFFICULTY  //  PERMANENT FIVE-SHIFT TERMS", 11, TEAL)
+	var challenge_label := _make_label("CHOOSE DIFFICULTY", 11, TEAL)
 	challenge_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	challenge_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	challenge_label.custom_minimum_size.x = 210.0
@@ -694,7 +694,7 @@ func _build_title_panel(parent: Control) -> void:
 	challenge_content.add_child(_title_challenge_summary)
 	_title_challenge_terms_toggle = _make_button(
 		"ChallengeContractTermsToggle",
-		"VIEW EXACT TERMS  [T]",
+		"EXACT RULES  [T]",
 		&"DecisionChoiceButton",
 	)
 	_title_challenge_terms_toggle.custom_minimum_size = Vector2(220.0, 34.0)
@@ -719,12 +719,12 @@ func _build_title_panel(parent: Control) -> void:
 	)
 	content.add_child(_title_probation_summary)
 	var probation_content := _panel_content(_title_probation_summary, 15, 8, 1)
-	var probation_heading := _make_label("FIVE-SHIFT PROBATION", 11, BRASS)
+	var probation_heading := _make_label("ONE SHARED FILE", 11, BRASS)
 	probation_heading.name = "ProbationFiveShiftHeading"
 	probation_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	probation_content.add_child(probation_heading)
 	var probation_detail := _make_label(
-		"One permanent coop file  //  a closing report after each shift  //  final review after Shift 5",
+		"5 SHIFTS  ->  REPORT EACH  ->  FINAL REVIEW",
 		11,
 		Color("d4c38f"),
 	)
@@ -764,7 +764,7 @@ func _build_title_panel(parent: Control) -> void:
 	_continue_title_button.shortcut = _shortcut(KEY_C)
 	_continue_title_button.pressed.connect(_on_continue_campaign_pressed)
 	_title_actions.add_child(_continue_title_button)
-	_title_new_button = _make_button("NewCampaignButton", "MEET MABEL & OPEN FILE  [N]", &"PrimaryButton")
+	_title_new_button = _make_button("NewCampaignButton", "START WITH MABEL  [N]", &"PrimaryButton")
 	_title_new_button.custom_minimum_size = Vector2(270.0, 48.0)
 	_title_new_button.shortcut = _shortcut(KEY_N)
 	_title_new_button.pressed.connect(_on_new_campaign_pressed)
@@ -1288,13 +1288,13 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 	var setup_visible := _title_new_file_setup
 	if _title_heading != null:
 		_title_heading.text = (
-			"FIVE SHIFTS. START BY MEETING MABEL."
+			"MEET MABEL. RUN FIVE SHIFTS."
 			if setup_visible else
 			"YOUR COOP FILE IS READY."
 		)
 	if _title_description != null:
 		_title_description.text = (
-			"Mabel is already at her desk. Every choice you make together shares one permanent coop file."
+			"Choose a filing, then manage one shared coop file together."
 			if setup_visible else
 			"Continue the saved filing candidate; it will be verified before the coop opens, or deliberately review a new file."
 		)
@@ -1314,7 +1314,7 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 		&"PrimaryButton" if setup_visible else &"DecisionChoiceButton"
 	)
 	_title_new_button.text = (
-		"MEET MABEL & OPEN FILE  [N]"
+		"START WITH MABEL  [N]"
 		if setup_visible else
 		"REVIEW A NEW FILE  [N]"
 	)
@@ -1493,10 +1493,9 @@ func _update_challenge_contract_detail(contract: Dictionary) -> void:
 	var difficulty_label := _challenge_contract_difficulty_label(contract)
 	var difficulty_guidance := String(contract.get("difficulty_guidance", "")).strip_edges()
 	if _title_challenge_summary != null:
-		_title_challenge_summary.text = "%s DIFFICULTY  //  %s\n%s%s" % [
+		_title_challenge_summary.text = "%s  //  %s%s" % [
 			difficulty_label,
-			description,
-			opening_terms,
+			_challenge_contract_opening_glance(contract),
 			(
 				"\n%s  //  LOCKS ON OPEN" % route_brief
 				if not route_brief.is_empty() else
@@ -1568,6 +1567,28 @@ func _challenge_contract_opening_text(contract: Dictionary) -> String:
 	]
 
 
+func _challenge_contract_opening_glance(contract: Dictionary) -> String:
+	var defaults := DEFAULT_CHALLENGE_CONTRACT.get("opening_terms", {}) as Dictionary
+	var opening_value: Variant = contract.get("opening_terms", defaults)
+	var opening := opening_value as Dictionary if opening_value is Dictionary else defaults
+	var lanes_value: Variant = opening.get(
+		"additional_claim_lanes",
+		defaults.get("additional_claim_lanes", []),
+	)
+	var extra_files := (lanes_value as Array).size() if lanes_value is Array else 0
+	return "FUND $%.2f  /  QUOTA %d  /  %d FILES" % [
+		float(maxi(0, int(opening.get(
+			"feed_fund_cents",
+			defaults.get("feed_fund_cents", 5000),
+		)))) / 100.0,
+		maxi(1, int(opening.get(
+			"quota_target",
+			defaults.get("quota_target", 16),
+		))),
+		6 + clampi(extra_files, 0, 4),
+	]
+
+
 func _apply_title_contract_disclosure() -> void:
 	if _title_challenge_detail != null:
 		_title_challenge_detail.visible = (
@@ -1576,9 +1597,9 @@ func _apply_title_contract_disclosure() -> void:
 	if _title_challenge_terms_toggle != null:
 		_title_challenge_terms_toggle.button_pressed = _title_contract_terms_expanded
 		_title_challenge_terms_toggle.text = (
-			"HIDE EXACT TERMS  [T]"
+			"HIDE EXACT RULES  [T]"
 			if _title_contract_terms_expanded else
-			"VIEW EXACT TERMS  [T]"
+			"EXACT RULES  [T]"
 		)
 
 

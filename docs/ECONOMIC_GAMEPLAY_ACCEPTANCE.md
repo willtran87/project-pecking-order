@@ -41,7 +41,10 @@ accept.
 8. **Different strategies — shipped.** Throughput, quality, welfare, contract,
    and capacity routes are documented in Capital with lever, upside, and risk.
 9. **No universal dominant strategy — verified.** Deterministic campaign balance
-   profiles test each route and recovery play.
+   profiles test each route and recovery play. Farm Mutual pricing also uses
+   renewable claimant trust: Executive Select raises margin and lowers workload
+   but spends sentiment, then closes below 50 until fulfilled Mutual Rate or
+   Community Access binders rebuild it.
 10. **Planning over clicking — shipped.** Simulation work is automatic after
     routing; decisions, not click frequency, determine results.
 11. **No decisionless waits — shipped.** Pause/1x/3x/10x, events, routing,
@@ -236,9 +239,11 @@ accept.
    supports Mutual Rate, Community Access, and Executive Select. The choice
    changes exact premium, referred-file volume, delivery threshold, estimated
    handling margin, claimant-satisfaction outcomes, and market-reach outcomes.
-   Reach earned through settled binders unlocks Executive Select, so share
-   creates a future opportunity rather than a decorative meter. Exact terms are
-   frozen at signature and outcome counters are checkpoint-validated.
+   Reach earned through settled binders and claimant sentiment of at least 50
+   unlock Executive Select, so share and goodwill constrain future opportunity
+   instead of acting as decorative meters. Premium fulfillment spends that
+   goodwill; fulfilled Mutual Rate or Community Access work renews it. Exact
+   terms are frozen at signature and outcome counters are checkpoint-validated.
 6. **Diminishing returns — shipped.** Facility tiers, standing gates, finite
    management actions, storage, workload, and recurring costs bound scaling.
 7. **Efficiency retains constraints — shipped.** Automation and upgrades never
@@ -404,6 +409,20 @@ accept.
     of exposing one long mixed form. Remapping, independent audio, presentation
     modes, text scale, simulation speed, reduced motion, color vision, and
     challenge contract remain available.
+11. **Glance-first decisions — implemented; human comprehension pending.**
+      Intake leads with one character, three opening numbers, one five-shift flow,
+      and one Start action. The first policy leads with one `PICK TODAY'S FLOCK
+      RULE` action, three scored objective tiles, and policy cards summarized as
+      `HELPS / RISKS`; exact effects and order fit appear after selection.
+      Capital leads with `FREE`, `MARGIN`, `TO GO`, one priority, and its linked
+      action. Farm Mutual folders lead with lane mix and `RUSH / PREMIUM / RISK`;
+      selected pricing leads with renewable `REACH` and `TRUST`. The shift result
+      leads with `EGGS / TARGET`, `NET`, `FEED FUND`, and `NEXT TARGET` tiles,
+      one shell-quality line, one human consequence, and the Continue action.
+      Exact rules, ledger composition, reserve math, capacity fit, full pricing
+      consequences, and closing accounting remain available through focused
+      disclosures, tooltips, and assistive narration rather than competing with
+      the next gameplay action.
 
 ## Feedback and Presentation
 
@@ -747,3 +766,158 @@ real transaction by `tests/career_sponsorship_integration_test.gd`.
   `tests/farmer_relations_gallery_office_integration_test.gd` proves the exact
   real Office transaction, permanent receipt, scroll/focus preservation, and
   authoritative rejection of a second campaign.
+
+## Glance-first recurring incidents
+
+- Every standard incident choice now leads with a short action, its live Feed
+  Fund cost or `FREE`, and two directional stakes such as
+  `SPEED + / SAFETY -`. The first decision can be compared without reading two
+  prose paragraphs or losing a consequence to clipping.
+- Selecting a card remains review-first and reveals the complete authored
+  tagline, exact current numeric effects, and the next related case it changes.
+  Dynamic facility discounts and prior-case modifiers still flow into both the
+  visible cost and exact detail rather than being replaced by static copy.
+- Nonvisual players receive the full action names and exact effects for every
+  bounded choice. Player diagnostics retain full labels, short labels, glance
+  stakes, costs, availability, precedent, and selected state.
+- `tests/decision_loop_ui_test.gd` covers the concise first incident, live cost,
+  directional stakes, full selected disclosure, and equivalent assistive
+  narration. Incident follow-through, persistence, and 150%-expanded-copy
+  contracts remain green.
+
+## Glance-first hen routing
+
+- The repeated routing controls now use four stable, one-word actions:
+  `AUTO`, `NEST`, `PREDATOR`, and `APPEALS`. This removes clipped multiword
+  labels from the core loop and lets route position, lane color, and action name
+  reinforce one another.
+- Hover and focus tooltips retain the full lane names and route-specific
+  consequences. The selected worker readout continues to show specialty and
+  current lane, so the concise controls do not hide the decision context.
+- During First Clutch induction, assistive narration enumerates every full route
+  name, availability state, and operational tradeoff before repeating the
+  current objective. Character dialogue still takes precedence while visible,
+  then the underlying routing choices become the focused summary.
+- `tests/claim_routing_ui_test.gd`,
+  `tests/first_clutch_induction_test.gd`, and
+  `tests/ui_text_expansion_resilience_test.gd` cover exact button labels, full
+  tooltips, equivalent narration, tutorial cueing, and high-scale containment.
+  Native evidence is under `output/routing-actions-glance-v1/`; prescribed Web
+  captures are under `output/routing-actions-web-client-v1/` and
+  `output/routing-actions-web-client-normal-v1/`.
+
+## Glance-first intern staffing
+
+- The Bright-Eyed Rotation overview replaces its dense sentence ledger with
+  stable tokens for supervised seats, fellows, live-file capacity, work,
+  shell risk, morale drain, and daily junior payroll. The same exact metrics
+  remain expanded in tooltip and assistive narration.
+- Candidate cards now lead with portrait, name, lane, one character trait,
+  `AVAILABLE / $3 / 3 SHIFTS`, and `ONBOARD / $3`. Full personality, hope,
+  satirical blind spot, exact term, default Guided effect, and disabled reason
+  remain available without competing with the action.
+- Active assignments compare `GUIDED / +1 FILE / SAFE`,
+  `STRETCH / +2 FILES / +1% RISK`, and
+  `CULTURE / -10% MORALE DRAIN`. Their formal names, promises, and exact
+  disclosures remain in the selector tooltips and accessible state.
+- Term review presents one three-way row: `EXTEND / $1`, `LETTER / FREE`, and
+  `HIRE / $8+$2/D`. These action verbs map to the existing exact extension,
+  recommendation, and paid-fellowship intents; full permanent and recurring
+  effects remain disclosed, and a disabled Hire action names the occupied
+  fellowship perch or affordability condition.
+- `tests/internship_program_ui_test.gd` covers concise actions, intent mapping,
+  full detail equivalence, held reasons, and one-row containment at 150% scale.
+  State, integration, dialogue, and presentation contracts remain green.
+  Native evidence is under `output/internship-glance-v1/` and
+  `output/internship-glance-v3/`; prescribed Web evidence is under
+  `output/internship-glance-web-client-v1/`,
+  `output/internship-review-web-client-v1/`, and
+  `output/internship-fellow-web-client-v1/`.
+
+## Glance-first Capital files
+
+- The repeated desk-upgrade disclosure no longer repeats the surrounding
+  requisition heading or appends a completed counter until the action clips.
+  It now presents `REVIEW FILES / <ready>` when collapsed and
+  `HIDE FILES / <ready>` when expanded.
+- The tooltip and accessibility copy preserve the exact total, ready, and
+  completed counts, along with the expand/collapse state and focus-safe action.
+  The existing Keycaps, QA Lamp, and Nest Pad cards retain their levels, live
+  prices, effects, disabled states, and purchase routes.
+- `tests/management_loop_ui_test.gd` verifies the concise label, keyboard
+  focusability, absence of redundant visible copy, and exact hidden count
+  equivalence. Facilities and Flockwatch navigation contracts remain green.
+- Native evidence is
+  `output/facility-density-v2/facility_requisition.png`; prescribed Web-client
+  evidence is `output/facility-density-web-client-v1/shot-0.png` with loaded
+  Capital state, no browser-error artifact, and empty server stderr.
+
+## Glance-first Farm Mutual pricing
+
+- The three rate cards now use the stable visible names `MUTUAL`, `ACCESS`, and
+  `EXECUTIVE`. Available cards show only exact premium and folder volume;
+  selected and locked state remain visible through text, shape, and styling.
+- The selected posture's immediate comparison is one scan line containing
+  estimated margin, fulfilled claimant-trust change, and fulfilled market-reach
+  change. Selecting Access immediately updates the binder's premium, file
+  volume, success threshold, arrival schedule, and selected border.
+- Full formal rate names, summaries, volume deltas, premiums, estimated margins,
+  fulfilled/breached trust and reach effects, and unavailable recovery reasons
+  remain in each card's tooltip and accessibility metadata. Exact binder
+  reserve, archive fit, flock fit, and context remain behind `REVIEW DETAILS`.
+- `tests/market_pricing_ui_test.gd` covers all three concise cards, Mutual and
+  Access selection, renewable Reach/Trust locks, full assistive terms, and the
+  unchanged authoritative signature intent. Contract-board, economy, and
+  150%-expanded-copy contracts remain green.
+- Native Mutual and Access evidence is under
+  `output/contract-pricing-glance-v2/`; prescribed Web evidence is under
+  `output/contract-pricing-web-client-v1/` and
+  `output/contract-pricing-access-web-client-v1/`.
+
+## Glance-first Economic Briefing
+
+- The collapsed Capital briefing no longer repeats the financial categories it
+  hides or tries to name every recovery section inside one clipped control. Its
+  two plain-language actions are `REVIEW NUMBERS` and
+  `REVIEW PLAN / <issues>`.
+- The Numbers tooltip and accessibility metadata retain the exact cash, costs,
+  market terms, primary bottleneck, five-close trend, and management-watch
+  scope. The Plan metadata retains the exact bottleneck and recovery-path
+  counts plus the close-history, resource-limit, strategy, and recovery-action
+  scope.
+- Expanding either action preserves the complete authored ledgers and focus-safe
+  collapse behavior. The three cash glance tiles and watched-condition action
+  remain unchanged, so the player can still act without opening either file.
+- `tests/economic_briefing_test.gd` covers concise labels, absence of redundant
+  visible categories, exact hidden equivalence, expansion, complete assistive
+  narration, and 282px/150%-scale containment. Management-watch, management-loop,
+  and text-expansion contracts remain green.
+- Native evidence is
+  `output/economic-briefing-glance-v1/economic_briefing.png`; prescribed Web
+  evidence is `output/economic-briefing-web-client-v1/shot-0.png`, with loaded
+  Capital state, no browser-error artifact, and empty server stderr.
+
+## Glance-first Farm Mutual binder selection
+
+- The contract board now opens with `PICK A CLIENT` and the one-line comparison
+  cue `Compare files, urgency, reward, and risk.` The planning rule is reduced
+  to `OPEN / LOSS HELD / REWARD EARNED`; its tooltip and accessibility metadata
+  retain the exact reserve-versus-earned-premium rule.
+- The three binder cards reuse the established routing vocabulary: `NESTING`,
+  `PREDATOR`, and `APPEALS`. Each card shows only total files, rush files,
+  successful premium, missed-binder charge, and a textual `PICKED` or `HELD`
+  state. A redundant selection-instruction line was removed.
+- Formal names, exact lane composition, arrival batches and deadlines, success
+  rule, premium breakdown, breach charge, post-signing spendable fund, archive
+  fit, staffing fit, cooldown, and unavailable reason remain in every card's
+  tooltip and accessibility metadata and in the selected Binder at a Glance.
+- `tests/farm_mutual_contract_board_ui_test.gd` covers the concise hierarchy,
+  all three cards, selected and held states, exact hidden equivalence, cooldown,
+  keyboard shortcuts, safe two-step signing, and 390x844/150%-scale resilience.
+  Pricing, economy, Office-flow, and global text-expansion contracts remain
+  green.
+- Native evidence is
+  `output/contract-board-glance-v1/farm_mutual_contract_board_ui.png`;
+  prescribed Web evidence is `output/contract-board-web-client-v1/shot-0.png`,
+  with loaded contract-board state, no browser-error artifact, and empty server
+  stderr.

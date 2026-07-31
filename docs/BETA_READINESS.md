@@ -12,7 +12,7 @@ This document turns the beta-hardening backlog into acceptance criteria. It dist
 6. **Feedback:** claim pull, screen contact, laying release, grading, collection, credit transfer, precedent filing, commendations, purchases, and denials use causal visual/audio receipts. The selected-hen dossier states the route -> screen -> egg loop in the existing footprint.
 7. **Manager satire:** one to four paid managers occupy separate office posts. Six recruitable archetypes, targeted assignments, postures, reports, promotions, payroll, conflicting instructions, density drag, surveillance, PIPs, and credit claims make excess management mechanically legible.
 8. **Relationships:** persistent trust, grievance, morale, fatigue, stress, solidarity, petitions, compacts, disputes, career check-ins, and the named perchmate bond connect policy to individual hens and the flock.
-9. **Strategy differentiation:** manual/AUTO routing, specialty and accreditation, temperament-specific work styles, claimant resolution paths, directives, check-ins, facilities, contracts, procurement, credit policy, manager postures, and case pivots expose distinct short- and long-term tradeoffs.
+9. **Strategy differentiation:** manual/AUTO routing, specialty and accreditation, temperament-specific work styles, claimant resolution paths, directives, check-ins, facilities, contracts, procurement, credit policy, manager postures, and case pivots expose distinct short- and long-term tradeoffs. Farm Mutual's premium posture spends claimant trust and closes below 50 sentiment until fulfilled Mutual or Community Access work rebuilds it, preventing the high-margin/low-volume option from becoming a permanent dominant choice.
 10. **Authored ending plus optional mastery:** the five-shift probation file contains the authored campaign ending. A successful file may optionally continue into four-quarter Senior management records with annual Board Books, policy stakes, Roost Marks, cross-training, commendations, mastery-aware offers, and prior-year recovery guidance; none of that delays or replaces the ending.
 11. **Intern labor satire:** the Bright-Eyed Rotation introduces four named,
     portrait-backed candidates on Day 2. Supervised assignments provide bounded
@@ -233,15 +233,131 @@ Candidate-wide automated evidence is current:
   client without console or page errors at
   `output/web-game/goal-first-clutch-benefit-official-v3/`.
 
-This is not yet the public release identity. A cache-bypassed download of the
-GitHub Pages PCK remains 9,250,948 bytes with SHA-256
-`E685C0018C15FFFAF7737302508CC228B2128D0BB96B302DFFA7E491CB77780C`.
-The tested local changes are also uncommitted. Candidate commit/publication must
-therefore precede any new candidate-bound physical or usability evidence.
+Commit `f04c50cd3affe7b64b651ce01e102510d9758cba` is now the public release
+identity. The GitHub Pages build completed successfully, and a cache-bypassed
+download returned the exact tested 9,251,636-byte PCK with SHA-256
+`D0C4FBDF95C5CF3F96582D6A519ECA21919C24E42E2AA8FE86B3DF64A20A819D`.
 
-`output/release/objective-completion-audit-first-clutch-benefit.json` records
-the exact objective, candidate, report, browser, deployment, and evidence
-identities. Automated implementation gates are green, but final production
-readiness remains open: all seven physical sessions and all seven independently
-moderated usability sessions are still pending. No owner attestation or
-automated fixture is represented as those fourteen results.
+`output/release/objective-completion-audit-f04c50c.json` records the exact
+objective, candidate, report, browser, deployment, and evidence identities.
+Exact-candidate handoff records and all fourteen session kits are available at
+`output/release/physical-release-evidence-f04c50c.json`,
+`output/release/usability-playtest-evidence-f04c50c.json`,
+`output/release/physical-session-kits-f04c50c/`, and
+`output/release/usability-session-kits-f04c50c/`.
+
+Automated implementation gates and release identity are current. Final
+production readiness remains open: all seven physical sessions and all seven
+independently moderated usability sessions are still pending. No owner
+attestation or automated fixture is represented as those fourteen results.
+
+## 2026-07-31 glance-first local candidate
+
+The local working candidate reduces the highest-density intake, first policy,
+Capital, Farm Mutual, recurring incident, core routing, intern staffing, and
+end-of-shift result
+surfaces through progressive disclosure while preserving their exact economic
+rules and complete assistive narration. The first policy now leads with one
+action, three scored objective tiles, and three `HELPS / RISKS` cards; exact
+effects appear only after a card is selected. Every standard incident now uses
+a short action, live cost, and two directional stakes on its choice cards;
+selection reveals the exact numeric effects and next-case precedent. Hen routing
+now uses the unclipped one-word actions `AUTO`, `NEST`, `PREDATOR`, and
+`APPEALS`; full lane names and operational tradeoffs remain in tooltips and
+assistive narration. The Bright-Eyed Rotation now exposes seats, production
+effects, candidate cost/term, and assignment stakes as compact tokens. Its term
+review keeps `EXTEND`, `LETTER`, and `HIRE` visible together with live costs,
+while full profiles, filing terms, recurring payroll, and unavailable reasons
+remain on demand. The shift result leads with four tiles
+(`EGGS / TARGET`, `NET`, `FEED FUND`, and `NEXT TARGET`), one shell-quality
+line, one human consequence, and one Continue action; the complete accounting
+remains behind `DETAILS`. The repeated Capital-file control now uses the fitted
+action `REVIEW/HIDE FILES / <ready>`; total, ready, and completed requisition
+counts remain in its tooltip and accessibility copy. Farm Mutual rate choices
+now compare `MUTUAL`, `ACCESS`, and `EXECUTIVE` through price, file volume, and
+one selected `MARGIN / TRUST / REACH` line; full pricing mechanics and held
+reasons remain in tooltips and assistive state. Its synchronized `index.pck` is
+9,278,900 bytes with
+SHA-256
+`464219FF1079DB0FB4855CEEAC9580A9CD35F510E62DD0F686BD992645A2D150`.
+
+Fresh candidate-wide automated evidence is green:
+
+- `output/godot-full-suite-20260731-contract-board-glance-v1/full-suite-summary.json`
+  discovers, selects, completes, and passes all 212/212 Godot contracts with
+  zero failures and zero timeouts using three bounded shards.
+- `output/release/contract-board-glance-beta-release-gate.json` passes all 44
+  representative native, Node 24 Web, temporary production-server,
+  evidence-validator, and nine-file artifact-parity checks.
+- The actual production wrapper boots and accepts input without a browser error
+  artifact at `output/text-density-web-client-verified/`; final native captures
+  for intake, Capital, offers, and pricing are under
+  `output/text-density-ux-final/`.
+- The exact shift-result route is clean in the final production-wrapper capture
+  at `output/shift-review-web-client-v2/`. Native 100% and 150% glance captures
+  are under `output/shift-review-glance-v2/`, with the expanded bounded ledger
+  at `output/shift-review-glance-v1/day_review_details.png`. Inspection of the
+  first Web capture exposed missing Unicode glyphs; those marks were replaced
+  with portable ASCII labels and the prescribed client rerun is clean.
+- The first policy's native default and selected states are clean at
+  `output/opening-density-glance-v2/`. The production wrapper reproduces both
+  states at `output/opening-policy-web-client-v1/` and
+  `output/opening-policy-web-client-v2/`, with clean diagnostic state and no
+  browser-error artifact.
+- The first incident's native default and selected states are clean at
+  `output/incident-glance-v2/`. The prescribed production-wrapper client
+  reproduces both states at `output/incident-glance-web-client-v1/` and
+  `output/incident-glance-web-client-selected-v1/`; diagnostics retain the full
+  labels, exact immediate effects, selected choice, and precedent, with no
+  browser-error artifact.
+- Native First Clutch and ordinary routing captures are clean at
+  `output/routing-actions-glance-v1/`. The prescribed production-wrapper client
+  reproduces both states at `output/routing-actions-web-client-v1/` and
+  `output/routing-actions-web-client-normal-v1/`; both states are loaded,
+  focused on the intended worker, show all four concise actions, and contain no
+  browser-error artifact.
+- Native intern cohort, term-review, and paid-fellow states are clean under
+  `output/internship-glance-v1/` and `output/internship-glance-v3/`. The
+  prescribed production-wrapper client reproduces all three at
+  `output/internship-glance-web-client-v1/`,
+  `output/internship-review-web-client-v1/`, and
+  `output/internship-fellow-web-client-v1/`; every state is loaded, expanded,
+  exposes four candidates, retains exact assistive economics, and contains no
+  browser-error artifact.
+- The corrected Capital-file control is clean in the native capture at
+  `output/facility-density-v2/facility_requisition.png` and in the exact
+  production-wrapper capture at
+  `output/facility-density-web-client-v1/shot-0.png`. The browser diagnostic is
+  loaded on Capital, no browser-error artifact exists, and the server stderr is
+  empty.
+- Farm Mutual Mutual-rate and Access-rate comparisons are clean in native
+  captures under `output/contract-pricing-glance-v2/` and in exact
+  production-wrapper captures at `output/contract-pricing-web-client-v1/` and
+  `output/contract-pricing-access-web-client-v1/`. Diagnostics preserve the
+  selected posture, exact premium, file count, and margin; both browser runs
+  have no error artifact.
+- The Capital Economic Briefing now exposes only `REVIEW NUMBERS` and
+  `REVIEW PLAN / <issues>` in its collapsed state. Native evidence is clean at
+  `output/economic-briefing-glance-v1/economic_briefing.png`; the prescribed
+  production-wrapper client reproduces it at
+  `output/economic-briefing-web-client-v1/shot-0.png` with loaded Capital state,
+  no browser-error artifact, and empty server stderr. Exact cash/cost/market
+  scope and exact bottleneck/recovery counts remain in tooltip and accessibility
+  metadata.
+- The Farm Mutual contract selector now leads with `PICK A CLIENT`. Its three
+  cards use the learned lane identities `NESTING`, `PREDATOR`, and `APPEALS`,
+  then show only file count, rush count, win, miss, and `PICKED/HELD` state.
+  Native evidence is clean under `output/contract-board-glance-v1/`; the exact
+  production-wrapper render is
+  `output/contract-board-web-client-v1/shot-0.png`, with no browser-error
+  artifact and empty server stderr. Formal binder names, exact lane mixes,
+  arrivals, success rules, premiums, breach reserves, staffing fit, and held
+  reasons remain in tooltips, assistive metadata, and the selected detail pane.
+- Both verification runners exited normally. The post-run audit found zero
+  Pecking Order Godot processes, zero project Node processes, and zero
+  project-owned listeners; ports 41741 through 41749 are free.
+
+Existing candidate-bound session records do not certify this PCK. Final
+production readiness remains open until all seven physical sessions plus all
+seven independently moderated usability sessions are completed against the
+exact published artifact.

@@ -138,13 +138,13 @@ func _run() -> void:
 	_check(title_panel != null and title_panel.is_visible_in_tree(), "first load should show the campaign title panel", failures)
 	_check(modal_host.is_visible_in_tree(), "title panel should be an intentional blocking modal", failures)
 	_check(
-		title_heading != null and title_heading.text == "FIVE SHIFTS. START BY MEETING MABEL.",
+		title_heading != null and title_heading.text == "MEET MABEL. RUN FIVE SHIFTS.",
 		"title should foreground one named hen before management abstractions",
 		failures,
 	)
 	_check(
 		title_description != null
-		and title_description.text == "Mabel is already at her desk. Every choice you make together shares one permanent coop file.",
+		and title_description.text == "Choose a filing, then manage one shared coop file together.",
 		"title subtitle should connect Mabel to the shared permanent file",
 		failures,
 	)
@@ -179,7 +179,7 @@ func _run() -> void:
 	)
 	_check(
 		new_button != null
-		and new_button.text == "MEET MABEL & OPEN FILE  [N]"
+		and new_button.text == "START WITH MABEL  [N]"
 		and new_button.theme_type_variation == &"PrimaryButton"
 		and new_button.focus_mode == Control.FOCUS_ALL,
 		"fresh intake should expose one primary Mabel action with keyboard focus",
@@ -195,7 +195,7 @@ func _run() -> void:
 		probation_summary != null and probation_summary.is_visible_in_tree()
 		and probation_summary_detail != null
 		and _contains_all(probation_summary_detail.text, [
-			"One permanent coop file", "closing report after each shift", "final review after Shift 5",
+			"5 SHIFTS", "REPORT EACH", "FINAL REVIEW",
 		])
 		and ui.find_child("ProbationDayStamp_1", true, false) == null
 		and ui.find_child("ProbationDayStamp_5", true, false) == null,
@@ -221,10 +221,9 @@ func _run() -> void:
 		and challenge_terms_toggle.focus_mode == Control.FOCUS_ALL
 		and challenge_terms_toggle.shortcut != null
 		and challenge_detail != null and not challenge_detail.is_visible_in_tree()
-		and "STANDARD DIFFICULTY" in challenge_summary.text
+		and "STANDARD" in challenge_summary.text
 		and _contains_all(challenge_summary.text, [
-			"OPENING ECONOMY", "FUND $50.00", "QUOTA 16",
-			"LIVE FILES 6", "AUTHORED BASELINE",
+			"FUND $50.00", "QUOTA 16", "6 FILES",
 		])
 		and "BALANCED ROUTES" in challenge_summary.text
 		and "LOCKS ON OPEN" in challenge_summary.text
@@ -409,7 +408,7 @@ func _run() -> void:
 		and mabel_card != null and mabel_card.is_visible_in_tree()
 		and challenge_card != null and challenge_card.is_visible_in_tree()
 		and probation_summary != null and probation_summary.is_visible_in_tree()
-		and new_button.text == "MEET MABEL & OPEN FILE  [N]"
+		and new_button.text == "START WITH MABEL  [N]"
 		and new_button.theme_type_variation == &"PrimaryButton"
 		and back_button != null and back_button.is_visible_in_tree()
 		and _count_visible_primary_buttons(title_panel) == 1,

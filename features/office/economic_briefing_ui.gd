@@ -25,6 +25,10 @@ const COLOR_DANGER := Color("d77b70")
 var _built := false
 var _briefing: Dictionary = {}
 var _headline: Label
+var _free_cash_glance: Label
+var _margin_glance: Label
+var _break_even_glance: Label
+var _watch_glance: Label
 var _cash: Label
 var _costs: Label
 var _market: Label
@@ -38,6 +42,8 @@ var _history: Label
 var _resources: Label
 var _strategies: Label
 var _recovery: Label
+var _ledger_toggle: FlockwatchDisclosureToggle
+var _ledger_details: VBoxContainer
 var _details_toggle: FlockwatchDisclosureToggle
 
 
@@ -68,6 +74,16 @@ func set_details_expanded(expanded: bool) -> void:
 func details_expanded() -> bool:
 	_ensure_interface()
 	return _details_toggle.is_expanded()
+
+
+func set_ledger_expanded(expanded: bool) -> void:
+	_ensure_interface()
+	_ledger_toggle.set_expanded(expanded)
+
+
+func ledger_expanded() -> bool:
+	_ensure_interface()
+	return _ledger_toggle.is_expanded()
 
 
 func accessible_text() -> String:
@@ -119,21 +135,39 @@ func _ensure_interface() -> void:
 
 	_headline = _label("AWAITING AUTHORITATIVE LEDGER", 13, COLOR_GOLD)
 	_headline.name = "EconomicBriefingHeadline"
-	_cash = _label("CASH / awaiting projection", 12, COLOR_INK)
-	_cash.name = "EconomicBriefingCash"
-	_costs = _label("COSTS / awaiting projection", 11, COLOR_MUTED)
-	_costs.name = "EconomicBriefingCosts"
-	_market = _label("MARKET / awaiting calendar", 12, COLOR_TEAL)
-	_market.name = "EconomicBriefingMarket"
-	_bottleneck = _label("BOTTLENECK / awaiting workflow", 12, COLOR_WARNING)
-	_bottleneck.name = "EconomicBriefingBottleneck"
-	_trend = _label("TREND / awaiting first close", 11, COLOR_MUTED)
-	_trend.name = "EconomicBriefingTrend"
-	for label: Label in [_headline, _cash, _costs, _market, _bottleneck, _trend]:
-		summary_rows.add_child(label)
-	_watch = _label("MANAGEMENT WATCH / awaiting filed priority", 12, COLOR_TEAL)
-	_watch.name = "EconomicBriefingWatch"
-	summary_rows.add_child(_watch)
+	summary_rows.add_child(_headline)
+
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "EconomicBriefingGlanceGrid"
+	glance_grid.columns = 3
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	summary_rows.add_child(glance_grid)
+	_free_cash_glance = _metric_chip(
+		glance_grid,
+		"EconomicBriefingFreeCashGlance",
+		"FREE\n--",
+		COLOR_TEAL,
+	)
+	_margin_glance = _metric_chip(
+		glance_grid,
+		"EconomicBriefingMarginGlance",
+		"MARGIN\n--",
+		COLOR_GOLD,
+	)
+	_break_even_glance = _metric_chip(
+		glance_grid,
+		"EconomicBriefingBreakEvenGlance",
+		"TO GO\n--",
+		COLOR_INK,
+	)
+	_watch_glance = _label("! AWAITING PRIORITY", 12, COLOR_WARNING)
+	_watch_glance.name = "EconomicBriefingWatchGlance"
+	_watch_glance.tooltip_text = (
+		"The watched condition and its filed target. Use the button below to act on it."
+	)
+	summary_rows.add_child(_watch_glance)
+
 	var watch_actions := VBoxContainer.new()
 	watch_actions.name = "EconomicBriefingWatchActions"
 	watch_actions.add_theme_constant_override("separation", 7)
@@ -160,6 +194,40 @@ func _ensure_interface() -> void:
 	_watch_open_button.pressed.connect(_on_watch_open_pressed)
 	watch_actions.add_child(_watch_open_button)
 
+	_ledger_toggle = FlockwatchDisclosureToggleScript.new()
+	_ledger_toggle.name = "EconomicBriefingLedgerToggle"
+	_ledger_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
+	summary_rows.add_child(_ledger_toggle)
+	_ledger_details = VBoxContainer.new()
+	_ledger_details.name = "EconomicBriefingLedgerDetails"
+	_ledger_details.add_theme_constant_override("separation", 4)
+	summary_rows.add_child(_ledger_details)
+
+	_cash = _label("CASH / awaiting projection", 12, COLOR_INK)
+	_cash.name = "EconomicBriefingCash"
+	_costs = _label("COSTS / awaiting projection", 11, COLOR_MUTED)
+	_costs.name = "EconomicBriefingCosts"
+	_market = _label("MARKET / awaiting calendar", 12, COLOR_TEAL)
+	_market.name = "EconomicBriefingMarket"
+	_bottleneck = _label("BOTTLENECK / awaiting workflow", 12, COLOR_WARNING)
+	_bottleneck.name = "EconomicBriefingBottleneck"
+	_trend = _label("TREND / awaiting first close", 11, COLOR_MUTED)
+	_trend.name = "EconomicBriefingTrend"
+	for label: Label in [_headline, _cash, _costs, _market, _bottleneck, _trend]:
+		if label != _headline:
+			_ledger_details.add_child(label)
+	_watch = _label("MANAGEMENT WATCH / awaiting filed priority", 12, COLOR_TEAL)
+	_watch.name = "EconomicBriefingWatch"
+	_ledger_details.add_child(_watch)
+	_ledger_toggle.configure(
+		"NUMBERS",
+		"",
+		[_ledger_details],
+		false,
+	)
+
 	_details_toggle = FlockwatchDisclosureToggleScript.new()
 	_details_toggle.name = "EconomicBriefingDetailsToggle"
 	_details_toggle.disclosure_changed.connect(
@@ -177,8 +245,8 @@ func _ensure_interface() -> void:
 	for label: Label in [_history, _resources, _strategies, _recovery]:
 		add_child(label)
 	_details_toggle.configure(
-		"WHY + RECOVERY",
-		"RESOURCES / HISTORY / OPTIONS",
+		"PLAN",
+		"",
 		[_history, _resources, _strategies, _recovery],
 		false,
 	)
@@ -187,6 +255,10 @@ func _ensure_interface() -> void:
 func _refresh() -> void:
 	if _briefing.is_empty():
 		_headline.text = "AWAITING AUTHORITATIVE LEDGER"
+		_free_cash_glance.text = "FREE\n--"
+		_margin_glance.text = "MARGIN\n--"
+		_break_even_glance.text = "TO GO\n--"
+		_watch_glance.text = "! AWAITING PRIORITY"
 		_cash.text = "CASH / awaiting projection"
 		_costs.text = "COSTS / awaiting projection"
 		_market.text = "MARKET / awaiting calendar"
@@ -204,10 +276,11 @@ func _refresh() -> void:
 		return
 
 	var status_id := StringName(String(_briefing.get("status_id", &"stable")))
-	_headline.text = "%s / DAY %d / VALUES FILED NOW" % [
+	_headline.text = "%s  /  DAY %d" % [
 		String(_briefing.get("status_label", "OPERATING ROOM")),
 		int(_briefing.get("day", 1)),
 	]
+	_headline.tooltip_text = "Status and values are filed from the current authoritative ledger."
 	_headline.add_theme_color_override(
 		"font_color",
 		COLOR_DANGER if status_id == &"critical" else (
@@ -216,6 +289,27 @@ func _refresh() -> void:
 	)
 
 	var cash := _briefing.get("cash", {}) as Dictionary
+	var spendable_fund_cents := int(cash.get("spendable_fund_cents", 0))
+	var secured_margin_cents := int(cash.get("secured_operating_margin_cents", 0))
+	var break_even_remaining_cents := int(cash.get("break_even_remaining_cents", 0))
+	_free_cash_glance.text = "FREE\n%s" % _money(spendable_fund_cents)
+	_margin_glance.text = "MARGIN\n%s" % _signed_money(secured_margin_cents)
+	_break_even_glance.text = "TO GO\n%s" % _money(break_even_remaining_cents)
+	_free_cash_glance.tooltip_text = (
+		"Spendable fund after protected reserves: %s." % _money(spendable_fund_cents)
+	)
+	_margin_glance.tooltip_text = (
+		"Secured income minus today's full filed operating cost: %s."
+		% _signed_money(secured_margin_cents)
+	)
+	_break_even_glance.tooltip_text = (
+		"Additional secured income needed to cover today's filed cost: %s."
+		% _money(break_even_remaining_cents)
+	)
+	_margin_glance.add_theme_color_override(
+		"font_color",
+		COLOR_DANGER if secured_margin_cents < 0 else COLOR_TEAL,
+	)
 	_cash.text = (
 		"CASH / FUND %s / RESERVED %s\n"
 		+ "FREE / %s\n"
@@ -335,10 +429,25 @@ func _refresh() -> void:
 	_refresh_resources()
 	_refresh_strategies()
 	_refresh_recovery()
-	_details_toggle.set_summary("%d BOTTLENECKS / %d RECOVERY PATHS" % [
-		bottlenecks.size(),
-		(_briefing.get("recovery_actions", []) as Array).size(),
-	])
+	var recovery_count := (_briefing.get("recovery_actions", []) as Array).size()
+	_details_toggle.set_summary(
+		"%d ISSUE%s" % [
+			bottlenecks.size(),
+			"" if bottlenecks.size() == 1 else "S",
+		],
+		"Economic plan includes %d bottleneck%s and %d recovery path%s. " % [
+			bottlenecks.size(),
+			"" if bottlenecks.size() == 1 else "s",
+			recovery_count,
+			"" if recovery_count == 1 else "s",
+		]
+		+ "Expand for close history, resource limits, strategies, and recovery actions.",
+	)
+	_ledger_toggle.set_summary(
+		"",
+		"Ledger includes exact cash, costs, market terms, primary bottleneck, "
+		+ "five-close trend, and management watch.",
+	)
 
 
 func _refresh_management_watch() -> void:
@@ -358,7 +467,11 @@ func _refresh_management_watch() -> void:
 			continue
 		var row := row_value as Dictionary
 		var watch_id := StringName(row.get("id", &""))
-		_watch_selector.add_item(String(row.get("label", watch_id)).to_upper())
+		_watch_selector.add_item(
+			"AUTO: TOP PRIORITY"
+			if watch_id == &"auto" else
+			String(row.get("label", watch_id)).to_upper()
+		)
 		var item_index := _watch_selector.item_count - 1
 		_watch_selector.set_item_metadata(item_index, String(watch_id))
 		if watch_id == selected_id:
@@ -369,6 +482,27 @@ func _refresh_management_watch() -> void:
 	if not _watch_selector.disabled:
 		_watch_selector.select(selected_index)
 	var status_id := StringName(_selected_watch.get("status_id", &"clear"))
+	var selected_watch_id := StringName(_selected_watch.get("id", &""))
+	_watch_glance.text = (
+		"! %s" % String(_selected_watch.get(
+			"status_label",
+			"CURRENT PRIORITY",
+		)).to_upper()
+		if selected_watch_id == &"auto" else
+		"! %s\n%s  ->  %s" % [
+			String(_selected_watch.get("label", "PRIMARY CONSTRAINT")).to_upper(),
+			String(_selected_watch.get("current_label", "AWAITING VALUE")).to_upper(),
+			String(_selected_watch.get("target_label", "AWAITING TARGET")).to_upper(),
+		]
+	)
+	_watch_glance.add_theme_color_override(
+		"font_color",
+		COLOR_WARNING if status_id in [&"attention", &"building"] else COLOR_TEAL,
+	)
+	_watch_glance.tooltip_text = "%s\nNEXT: %s" % [
+		String(_selected_watch.get("why", "No causal filing is available.")),
+		String(_selected_watch.get("action", "Review the current operating file.")),
+	]
 	_watch.text = (
 		"MANAGEMENT WATCH / %s / %s\n"
 		+ "NOW %s / TARGET %s\n"
@@ -498,6 +632,30 @@ func _label(copy: String, size: int, color: Color) -> Label:
 	label.mouse_filter = Control.MOUSE_FILTER_STOP
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", color)
+	return label
+
+
+func _metric_chip(
+	parent: GridContainer,
+	node_name: String,
+	copy: String,
+	color: Color,
+) -> Label:
+	var panel := PanelContainer.new()
+	panel.name = "%sPanel" % node_name
+	panel.custom_minimum_size.y = 48.0
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("13222a"), Color("3c555d")),
+	)
+	parent.add_child(panel)
+	var label := _label(copy, 11, color)
+	label.name = node_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(label)
 	return label
 
 

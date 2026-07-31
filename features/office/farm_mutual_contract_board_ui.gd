@@ -17,6 +17,9 @@ signal decline_requested
 signal continue_requested
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
+const FlockwatchDisclosureToggleScript := preload(
+	"res://features/office/flockwatch_disclosure_toggle.gd"
+)
 
 const INK := Color("e9edf0")
 const MUTED := Color("9eabb5")
@@ -92,6 +95,8 @@ var _terms_breach: Label
 var _terms_reserve: Label
 var _terms_capacity: Label
 var _terms_reason: Label
+var _terms_detail_toggle: FlockwatchDisclosureToggle
+var _terms_detail_group: VBoxContainer
 var _pricing_heading: Label
 var _pricing_buttons_host: HFlowContainer
 var _pricing_buttons: Dictionary[StringName, Button] = {}
@@ -244,13 +249,13 @@ func _build() -> void:
 	heading_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading_stack.add_theme_constant_override("separation", 2)
 	heading_row.add_child(heading_stack)
-	var title := _make_label("CHOOSE THE OUTSIDE PECKWORK", 27, CREAM)
+	var title := _make_label("PICK A CLIENT", 27, CREAM)
 	title.name = "ContractBoardTitle"
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	heading_stack.add_child(title)
 	var subtitle := _make_label(
-		"Three client folders disclose the work before management signs the flock's name.",
+		"Compare files, urgency, reward, and risk.",
 		13,
 		INK,
 	)
@@ -267,7 +272,7 @@ func _build() -> void:
 	)
 	heading_row.add_child(day_stamp)
 	var day_stack := _panel_content(day_stamp, 12, 7, 0)
-	var day_caption := _make_label("NEXT-SHIFT BINDER", 9, PAPER.darkened(0.14))
+	var day_caption := _make_label("FOR NEXT SHIFT", 9, PAPER.darkened(0.14))
 	day_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	day_stack.add_child(day_caption)
 	_day_stamp_label = _make_label("DAY --", 19, CREAM)
@@ -316,7 +321,7 @@ func _build() -> void:
 	_offer_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_offer_section.add_theme_constant_override("separation", 6)
 	_planning_columns.add_child(_offer_section)
-	var offer_section_title := _section_label("CLIENT FOLDERS  //  SELECT ONE WITH 1–3")
+	var offer_section_title := _section_label("PICK 1-3")
 	offer_section_title.name = "ContractFolderSectionTitle"
 	_offer_section.add_child(offer_section_title)
 	_offer_cards = HFlowContainer.new()
@@ -333,6 +338,7 @@ func _build() -> void:
 	_selection_hint.name = "ContractSelectionHint"
 	_selection_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_selection_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_selection_hint.visible = false
 	_offer_section.add_child(_selection_hint)
 
 	_detail_column = VBoxContainer.new()
@@ -390,6 +396,10 @@ func _build_accreditation_card(parent: Container) -> void:
 	heading.add_child(title)
 	_standing_rank_label = _make_label("UNLISTED", 13, MUTED)
 	_standing_rank_label.name = "ContractStandingRank"
+	# HFlowContainer may otherwise award all expandable width to the heading and
+	# collapse this wrapped status into a one-character column on the live
+	# 1280x720 Contract Board.
+	_standing_rank_label.custom_minimum_size.x = 176.0
 	_standing_rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_standing_rank_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading.add_child(_standing_rank_label)
@@ -453,7 +463,7 @@ func _build_terms_card(parent: Container) -> void:
 	)
 	parent.add_child(_terms_card)
 	var terms := _panel_content(_terms_card, 18, 13, 7)
-	var terms_kicker := _make_label("OPEN BINDER  //  EXACT TERMS", 10, BRASS)
+	var terms_kicker := _make_label("BINDER AT A GLANCE", 10, BRASS)
 	terms_kicker.name = "ContractTermsKicker"
 	terms_kicker.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	terms.add_child(terms_kicker)
@@ -469,7 +479,6 @@ func _build_terms_card(parent: Container) -> void:
 	_terms_tagline = _make_label("Select one of the three disclosed binders above.", 12, INK)
 	_terms_tagline.name = "ContractTermsTagline"
 	_terms_tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	terms.add_child(_terms_tagline)
 
 	var metrics := HFlowContainer.new()
 	metrics.name = "ContractTermMetrics"
@@ -490,14 +499,33 @@ func _build_terms_card(parent: Container) -> void:
 	_terms_success.name = "ContractSuccessCondition"
 	_terms_success.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	terms.add_child(_terms_success)
+
+	_terms_detail_toggle = FlockwatchDisclosureToggleScript.new()
+	_terms_detail_toggle.name = "ContractTermsDetailToggle"
+	terms.add_child(_terms_detail_toggle)
+	_terms_detail_group = VBoxContainer.new()
+	_terms_detail_group.name = "ContractTermsDetailGroup"
+	_terms_detail_group.add_theme_constant_override("separation", 7)
+	terms.add_child(_terms_detail_group)
+	_terms_detail_group.add_child(_terms_tagline)
 	_terms_reserve = _make_label("INDEMNITY RESERVE  //  AWAITING FILE", 11, BRASS)
 	_terms_reserve.name = "ContractBreachReserve"
 	_terms_reserve.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	terms.add_child(_terms_reserve)
+	_terms_detail_group.add_child(_terms_reserve)
 	_terms_capacity = _make_label("ARCHIVE FIT  //  AWAITING FILE", 11, MUTED)
 	_terms_capacity.name = "ContractCapacityFit"
 	_terms_capacity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	terms.add_child(_terms_capacity)
+	_terms_detail_group.add_child(_terms_capacity)
+	_terms_detail_toggle.configure(
+		"DETAILS",
+		"",
+		[_terms_detail_group],
+		false,
+	)
+	_terms_detail_toggle.set_summary(
+		"",
+		"Binder details include context, indemnity reserve, and archive and flock fit.",
+	)
 	_terms_reason = _make_label("No binder has been selected.", 11, MUTED)
 	_terms_reason.name = "ContractTermReason"
 	_terms_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -677,6 +705,7 @@ func _refresh() -> void:
 
 	var signed := _signed_contract_receipt()
 	var declined := _decline_receipt()
+	_availability_label.tooltip_text = ""
 	if not unlocked:
 		_availability_label.text = "SEALED  //  %s" % String(_contract_board.get(
 			"unlock_requirement",
@@ -693,11 +722,22 @@ func _refresh() -> void:
 		_availability_label.text = "STANDARD BOOK FILED  //  NO OUTSIDE MUTUAL TERM"
 		_availability_label.add_theme_color_override("font_color", BRASS)
 	elif planning_open:
-		_availability_label.text = "PLANNING OPEN  //  A SIGNATURE RESERVES THE DISCLOSED BREACH CHARGE, NOT THE PREMIUM"
+		_availability_label.text = "OPEN  /  LOSS HELD  /  REWARD EARNED"
+		_availability_label.tooltip_text = (
+			"Signing reserves the exact disclosed breach charge. The premium is "
+			+ "earned only when the binder succeeds."
+		)
 		_availability_label.add_theme_color_override("font_color", TEAL)
 	else:
 		_availability_label.text = "BOARD HELD  //  CLOSE THE SHIFT AND FILE CREDIT BEFORE SIGNING OUTSIDE PECKWORK"
 		_availability_label.add_theme_color_override("font_color", RUST)
+	_availability_label.set_meta(
+		"accessible_text",
+		"%s. %s" % [
+			_availability_label.text,
+			_availability_label.tooltip_text,
+		],
+	)
 
 	_refresh_season()
 	_refresh_accreditation()
@@ -933,7 +973,12 @@ func _rebuild_offer_cards(unlocked: bool) -> void:
 		button.shortcut = _shortcut([KEY_1, KEY_2, KEY_3][index])
 		button.tooltip_text = _offer_tooltip(offer)
 		button.set_meta("offer_id", offer_id)
+		button.set_meta("offer_index", index)
 		button.set_meta("can_sign", bool(offer.get("can_sign", false)))
+		button.set_meta(
+			"accessible_text",
+			_offer_accessible_text(button, offer),
+		)
 		button.pressed.connect(_on_offer_pressed.bind(offer_id))
 		_offer_cards.add_child(button)
 		_offer_buttons[offer_id] = button
@@ -946,23 +991,33 @@ func _rebuild_offer_cards(unlocked: bool) -> void:
 func _refresh_selection() -> void:
 	for offer_id in _offer_buttons:
 		var button := _offer_buttons[offer_id] as Button
+		var offer_record := _find_offer(offer_id)
+		button.text = _offer_card_text(
+			offer_record,
+			int(button.get_meta("offer_index", 0)),
+			offer_id == _selected_offer_id,
+		)
 		button.theme_type_variation = (
 			&"SelectedChoiceButton"
 			if offer_id == _selected_offer_id else
 			&"DecisionChoiceButton"
+		)
+		button.set_meta(
+			"accessible_text",
+			_offer_accessible_text(button, offer_record),
 		)
 
 	var offer := _selected_offer()
 	var effective := _selected_effective_offer()
 	_terms_card.visible = not effective.is_empty()
 	if effective.is_empty():
-		_selection_hint.text = "SELECT A FOLDER TO OPEN ITS COMPLETE PREMIUM, RUSH, AND BREACH TERMS."
+		_selection_hint.visible = false
 		_refresh_pricing_postures({})
 		_refresh_negotiation_drawer({}, {})
 		return
 
 	var short_name := String(effective.get("short_name", effective.get("name", "MUTUAL TERM"))).to_upper()
-	_selection_hint.text = "SELECTED  //  %s  //  ENTER SIGNS ONLY AFTER THE EXACT TERMS BELOW ARE OPEN" % short_name
+	_selection_hint.visible = false
 	_terms_heading.text = String(effective.get("name", short_name)).to_upper()
 	_terms_client.text = "CLIENT  //  %s" % String(effective.get("client", "FARM MUTUAL")).to_upper()
 	_terms_tagline.text = String(effective.get("tagline", "Outside peckwork with disclosed terms."))
@@ -1004,6 +1059,7 @@ func _refresh_selection() -> void:
 			"The authoritative preflight did not clear."
 		)
 	)
+	_terms_reason.visible = not can_sign
 	_terms_reason.add_theme_color_override("font_color", TEAL if can_sign else RUST)
 	_refresh_pricing_postures(effective)
 	_refresh_negotiation_drawer(offer, effective)
@@ -1038,18 +1094,41 @@ func _refresh_pricing_postures(effective: Dictionary) -> void:
 	_pricing_effect_label.visible = not options.is_empty()
 	if options.is_empty():
 		return
+	var pricing_status := _contract_board.get("pricing", {}) as Dictionary
+	_pricing_heading.text = (
+		"RATE  //  REACH %d  //  TRUST %d"
+		% [
+			int(pricing_status.get("reach_points", 0)),
+			int(pricing_status.get("claimant_satisfaction", 50)),
+		]
+	)
+	_pricing_heading.tooltip_text = (
+		"Reach unlocks new rate postures. Trust is claimant sentiment and can be "
+		+ "rebuilt by fulfilling Mutual or Community contracts."
+	)
 	var selected_id := _selected_pricing_id()
 	for option in options:
 		var pricing_id := StringName(option.get("pricing_profile_id", STANDARD_PRICING_ID))
 		var selected := pricing_id == selected_id
 		var available := bool(option.get("pricing_available", true))
+		var detail_line := (
+			"%s  /  %d FILES" % [
+				_money(_premium_total_cents(option)),
+				maxi(0, int(option.get("total_claims", 0))),
+			]
+			if available else
+			_pricing_requirement_label(option)
+		)
+		var glance_label := _pricing_glance_label(
+			pricing_id,
+			String(option.get("pricing_label", "MUTUAL RATE")),
+		)
 		var button := _make_button(
 			"ContractPricing_%s" % _safe_node_suffix(String(pricing_id)),
-			"%s%s\nFILES %d  //  PREMIUM %s" % [
-				"SELECTED  //  " if selected else "HELD  //  " if not available else "",
-				String(option.get("pricing_label", "MUTUAL RATE")).to_upper(),
-				maxi(0, int(option.get("total_claims", 0))),
-				_money(_premium_total_cents(option)),
+			"%s%s\n%s" % [
+				glance_label,
+				"  /  PICKED" if selected else "  /  LOCKED" if not available else "",
+				detail_line,
 			],
 			&"SelectedChoiceButton" if selected else &"DecisionChoiceButton",
 		)
@@ -1058,19 +1137,50 @@ func _refresh_pricing_postures(effective: Dictionary) -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.disabled = not available
 		button.tooltip_text = _pricing_tooltip(option)
+		button.set_meta("accessible_text", button.tooltip_text)
 		button.set_meta("pricing_profile_id", pricing_id)
 		button.pressed.connect(_on_pricing_pressed.bind(pricing_id))
 		_pricing_buttons_host.add_child(button)
 		_pricing_buttons[pricing_id] = button
-	_pricing_effect_label.text = (
-		"%s  //  %s\nEST. BINDER MARGIN %s  //  CLAIMANT SENTIMENT %s ON SUCCESS  //  MARKET REACH %s"
-		% [
-			String(effective.get("pricing_label", "MUTUAL RATE")).to_upper(),
-			String(effective.get("pricing_summary", "Standard rate posture.")),
-			_money(int(effective.get("estimated_margin_cents", 0))),
-			_signed_delta(int(effective.get("claimant_satisfaction_success_delta", 0))),
-			_signed_delta(int(effective.get("market_reach_success_delta", 0))),
-		]
+	_pricing_effect_label.text = "%s  /  MARGIN %s  /  TRUST %s  /  REACH %s" % [
+		_pricing_glance_label(
+			StringName(String(effective.get("pricing_profile_id", STANDARD_PRICING_ID))),
+			String(effective.get("pricing_label", "MUTUAL RATE")),
+		),
+		_money(int(effective.get("estimated_margin_cents", 0))),
+		_signed_delta(int(effective.get("claimant_satisfaction_success_delta", 0))),
+		_signed_delta(int(effective.get("market_reach_success_delta", 0))),
+	]
+	_pricing_effect_label.tooltip_text = String(effective.get(
+		"pricing_summary",
+		"Standard rate posture.",
+	))
+
+
+func _pricing_glance_label(pricing_id: StringName, fallback: String) -> String:
+	match pricing_id:
+		&"mutual_rate":
+			return "MUTUAL"
+		&"community_access_rate":
+			return "ACCESS"
+		&"executive_select_rate":
+			return "EXECUTIVE"
+	var normalized := fallback.strip_edges().to_upper()
+	return normalized.trim_suffix(" RATE") if normalized.ends_with(" RATE") else normalized
+
+
+func _pricing_requirement_label(option: Dictionary) -> String:
+	var requirements: Array[String] = []
+	var required_reach := int(option.get("pricing_required_reach", 0))
+	var required_satisfaction := int(option.get("pricing_required_satisfaction", 0))
+	if int(option.get("pricing_current_reach", 0)) < required_reach:
+		requirements.append("%d REACH" % required_reach)
+	if int(option.get("pricing_current_satisfaction", 50)) < required_satisfaction:
+		requirements.append("%d SENTIMENT" % required_satisfaction)
+	return (
+		"NEEDS %s" % " + ".join(requirements)
+		if not requirements.is_empty() else
+		"RATE POSTURE HELD"
 	)
 
 
@@ -1259,9 +1369,8 @@ func _refresh_actions(signed: Dictionary, declined: Dictionary) -> void:
 	_sign_button.text = (
 		"SIGNATURE SENT  //  AWAITING RECEIPT"
 		if _signature_pending else
-		"SIGN %s  //  %s  [ENTER]" % [
+		"SIGN %s  [ENTER]" % [
 			String(effective.get("short_name", effective.get("name", "SELECTED BINDER"))).to_upper(),
-			_selected_clause_label(effective).to_upper(),
 		]
 		if not effective.is_empty() else
 		"SELECT A BINDER TO SIGN  [ENTER]"
@@ -1632,26 +1741,58 @@ func _first_offer_button() -> Button:
 	return null
 
 
-func _offer_card_text(offer: Dictionary, index: int) -> String:
-	var name := String(offer.get("short_name", offer.get("name", "MUTUAL TERM"))).to_upper()
-	var client := String(offer.get("client", "FARM MUTUAL")).to_upper()
-	var mix := _lane_mix_label(offer.get("lane_mix", {}) as Dictionary)
+func _offer_card_text(
+	offer: Dictionary,
+	index: int,
+	selected: bool = false,
+) -> String:
+	var name := _offer_glance_name(offer)
+	var total_files := 0
+	for count: Variant in (offer.get("lane_mix", {}) as Dictionary).values():
+		total_files += maxi(0, int(count))
 	var rush_claims := maxi(0, int(offer.get("rush_claims", 0)))
-	var availability := ""
-	if bool(offer.get("on_cooldown", false)):
-		availability = "\nCLIENT COOLDOWN  //  THROUGH DAY %d" % int(offer.get(
+	var urgency := (
+		"COOLDOWN DAY %d" % int(offer.get(
 			"cooldown_until_day",
 			_contract_board.get("target_day", 1),
 		))
-	return "%d  //  %s\n%s\n%s\nRUSH %d  //  +%s TOTAL  //  -%s BREACH%s" % [
+		if bool(offer.get("on_cooldown", false)) else
+		"%d RUSH" % rush_claims
+	)
+	var state := (
+		"  /  PICKED"
+		if selected else
+		"  /  HELD"
+		if not bool(offer.get("can_sign", false)) else
+		""
+	)
+	return "%d  %s%s\n%d FILE%s  /  %s\nWIN +%s  /  MISS -%s" % [
 		index + 1,
 		name,
-		client,
-		mix,
-		rush_claims,
+		state,
+		total_files,
+		"" if total_files == 1 else "S",
+		urgency,
 		_money(_premium_total_cents(offer)),
 		_money(int(offer.get("breach_cents", 0))),
-		availability,
+	]
+
+
+func _offer_glance_name(offer: Dictionary) -> String:
+	match StringName(offer.get("id", offer.get("offer_id", &""))):
+		&"homestead_stability_binder":
+			return "NESTING"
+		&"predator_watch_pool":
+			return "PREDATOR"
+		&"exceptions_retention_covenant":
+			return "APPEALS"
+	return String(offer.get("short_name", offer.get("name", "MUTUAL TERM"))).to_upper()
+
+
+func _offer_accessible_text(button: Button, offer: Dictionary) -> String:
+	return "%s. %s" % [
+		button.text.replace("\n", ". "),
+		_offer_tooltip(offer).replace("\n", ". "),
 	]
 
 

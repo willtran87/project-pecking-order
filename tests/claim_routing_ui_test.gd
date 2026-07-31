@@ -109,15 +109,23 @@ func _run() -> void:
 			"safe routing markers should remain contained by the queue strip",
 			failures,
 		)
-	_check(assign_predator != null and "[P] PREDATOR LOSS" in assign_predator.text, "safe assignment controls should repeat the lane marker", failures)
+	_check(assign_predator != null and assign_predator.text == "[P] PREDATOR", "safe assignment controls should pair the lane marker with a concise route action", failures)
 	if routing_ui != null:
 		routing_ui.set_color_vision_mode(&"standard")
 	await process_frame
 	_check(
-		assign_nest != null and "+0.6 handler morale" in assign_nest.tooltip_text
-		and assign_predator != null and "stress accumulates 25% faster" in assign_predator.tooltip_text
-		and assign_appeals != null and "+0.7 audit order" in assign_appeals.tooltip_text,
-		"routing controls should disclose each lane's distinct claimant-path consequence",
+		assign_auto != null and assign_auto.text == "AUTO"
+		and assign_nest != null and assign_nest.text == "NEST"
+		and assign_predator != null and assign_predator.text == "PREDATOR"
+		and assign_appeals != null and assign_appeals.text == "APPEALS",
+		"routing controls should use one-word actions that remain readable in the first-use dossier",
+		failures,
+	)
+	_check(
+		assign_nest != null and "NEST DAMAGE." in assign_nest.tooltip_text and "+0.6 handler morale" in assign_nest.tooltip_text
+		and assign_predator != null and "PREDATOR LOSS." in assign_predator.tooltip_text and "stress accumulates 25% faster" in assign_predator.tooltip_text
+		and assign_appeals != null and "APPEALS." in assign_appeals.tooltip_text and "+0.7 audit order" in assign_appeals.tooltip_text,
+		"concise routing actions should retain each full lane and claimant-path consequence on inspection",
 		failures,
 	)
 

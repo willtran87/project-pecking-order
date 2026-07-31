@@ -17,6 +17,8 @@ func _run() -> void:
 	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
 	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
 	var stay_paused_button := office.find_child("ResolveStayPausedButton", true, false) as Button
+	var decision_title := office.find_child("DecisionTitle", true, false) as Label
+	var decision_order_glance := office.find_child("DecisionOrderGlance", true, false) as GridContainer
 	var decision_preview := office.find_child("DecisionPreview", true, false) as Label
 	var directive_badge := office.get("_directive_badge") as Label
 	var review_scrim := office.find_child("DayReviewScrim", true, false) as ColorRect
@@ -42,6 +44,26 @@ func _run() -> void:
 	)
 	_check(simulation != null and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "opening shift should await a directive", failures)
 	_check(office.find_children("DecisionOption_*", "Button", true, false).size() == 3, "directive card should present three policy choices", failures)
+	_check(
+		decision_title != null
+		and decision_title.text == "PICK TODAY'S FLOCK RULE"
+		and decision_order_glance != null
+		and decision_order_glance.is_visible_in_tree()
+		and decision_order_glance.columns == 3,
+		"the opening policy should lead with one short action and one row of three scored orders",
+		failures,
+	)
+	var opening_accessibility := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		"PICK TODAY'S FLOCK RULE" in opening_accessibility
+		and "Opening clutch, Gather at least 18 eggs., worth 3 score" in opening_accessibility
+		and "HARVEST helps 1 and risks 2 orders" in opening_accessibility,
+		"assistive narration should retain the full order terms and policy tradeoffs hidden from the glance view",
+		failures,
+	)
 	var decision_diagnostic := office.call("_pending_decision_diagnostic_state") as Dictionary
 	var diagnostic_options := decision_diagnostic.get("options", []) as Array
 	_check(
@@ -83,12 +105,17 @@ func _run() -> void:
 		and not harvest_button.disabled
 		and "1  //  HARVEST" in harvest_button.text
 		and "INITIATIVE" not in harvest_button.text
-		and "ORDER FIT 1  /  WATCH 2" in harvest_button.text,
-		"record harvest should expose a readable short label and compact Day 1 order fit before selection",
+		and "HELPS 1  /  RISKS 2" in harvest_button.text,
+		"record harvest should expose a readable short label and intuitive Day 1 tradeoff before selection",
 		failures,
 	)
 	_press(harvest_button)
 	_check(confirm_button != null and not confirm_button.disabled, "selecting a directive should enable authorization", failures)
+	_check(
+		confirm_button != null and confirm_button.text == "AUTHORIZE RULE  >",
+		"the opening confirmation should state the immediate action without another briefing phrase",
+		failures,
+	)
 	_check(
 		decision_preview != null
 		and "TODAY'S ORDER FIT" in decision_preview.text
@@ -145,8 +172,48 @@ func _run() -> void:
 	_check(stay_paused_button != null and stay_paused_button.visible, "incident card should offer a stay-paused resolution", failures)
 
 	var spreadsheet_button := office.find_child("DecisionOption_spreadsheet", true, false) as Button
-	_check(spreadsheet_button != null and not spreadsheet_button.disabled, "free ledger response should remain available", failures)
+	var patch_button := office.find_child("DecisionOption_patch", true, false) as Button
+	_check(
+		patch_button != null
+		and "EMERGENCY PATCH" in patch_button.text
+		and "$18 COST  /  SAFETY +  /  ORDER +" in patch_button.text
+		and "AUTHORIZE" not in patch_button.text,
+		"paid incident response should lead with a short action, live cost, and directional stakes",
+		failures,
+	)
+	_check(
+		spreadsheet_button != null
+		and not spreadsheet_button.disabled
+		and "SHADOW SHEET" in spreadsheet_button.text
+		and "FREE  /  SPEED +  /  SAFETY -" in spreadsheet_button.text
+		and "unofficial" not in spreadsheet_button.text.to_lower(),
+		"free incident response should communicate its speed-for-safety tradeoff without clipped prose",
+		failures,
+	)
+	var incident_accessibility := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		"AUTHORIZE EMERGENCY PATCH" in incident_accessibility
+		and "Cost $18" in incident_accessibility
+		and "USE THE UNOFFICIAL SPREADSHEET" in incident_accessibility
+		and "+6.0% crack risk" in incident_accessibility,
+		"assistive narration should retain both full incident actions and exact consequences",
+		failures,
+	)
 	_press(spreadsheet_button)
+	_check(
+		decision_preview != null
+		and "Keep the Fund; trade safety and obedience for speed." in decision_preview.text
+		and "No cost" in decision_preview.text
+		and "+5% speed" in decision_preview.text
+		and "+6.0% crack risk" in decision_preview.text
+		and "-6.0 obedience" in decision_preview.text
+		and "NEXT FARMER STORY" in decision_preview.text,
+		"selecting a concise incident card should disclose its exact immediate and precedent effects",
+		failures,
+	)
 	_check(not stay_paused_button.disabled, "selecting an incident response should enable stay-paused resolution", failures)
 	_press(stay_paused_button)
 	await process_frame
@@ -193,7 +260,7 @@ func _run() -> void:
 	)
 	_check(
 		next_shift_button != null
-		and next_shift_button.text == "CONTINUE CLOSING FILE"
+		and next_shift_button.text == "CONTINUE  >"
 		and "allocate closing credit" in next_shift_button.tooltip_text.to_lower(),
 		"review should keep one stable closing-file action while clearly naming credit allocation as the next step",
 		failures,

@@ -219,6 +219,34 @@ export default function Home() {
           loadGodotScript(),
           loadGodotConfig(),
         ]);
+		const previewName = new URLSearchParams(window.location.search).get("preview");
+		const localPreviewHost = ["localhost", "127.0.0.1", "::1"].includes(
+			window.location.hostname,
+		);
+		const localPreviewArgs: Record<string, string> = {
+			"shift-result": "--capture-day-review",
+			"first-policy": "--capture-first-hen-policy",
+			"first-policy-selected": "--capture-first-hen-policy-selected",
+			"incident": "--capture-incident",
+			"incident-selected": "--capture-incident-selected",
+			"first-clutch-routing": "--capture-first-clutch",
+			"routing": "--capture-routing",
+			"internship": "--capture-internship-ui",
+			"internship-review": "--capture-internship-review-ui",
+			"internship-fellow": "--capture-internship-fellow-ui",
+			"facility-requisitions": "--capture-facility-ui",
+			"economic-briefing": "--capture-economic-briefing-ui",
+			"contract-board": "--capture-contract-board-ui",
+			"contract-pricing": "--capture-contract-pricing-ui",
+			"contract-pricing-access": "--capture-contract-pricing-access-ui",
+		};
+		const localPreviewArg = previewName ? localPreviewArgs[previewName] : undefined;
+		if (localPreviewHost && localPreviewArg) {
+			const existingArgs = Array.isArray(exportedConfig.args)
+				? exportedConfig.args.filter((value): value is string => typeof value === "string")
+				: [];
+			exportedConfig.args = [...existingArgs, localPreviewArg];
+		}
         const runtime = window as typeof window & {
           Engine: {
             new (config: Record<string, unknown>): {

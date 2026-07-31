@@ -175,7 +175,18 @@ func _run() -> void:
 	)
 	_check(decision_host != null and decision_host.visible, "Mabel's file action should reveal the mandatory three-card policy", failures)
 	var decision_title := office.get("_decision_title") as Label
-	_check(decision_title != null and "MABEL" in decision_title.text, "opening policy should explain that its rule applies to Mabel and the flock", failures)
+	var decision_eyebrow := office.get("_decision_eyebrow") as Label
+	var decision_order_glance := office.find_child("DecisionOrderGlance", true, false) as GridContainer
+	_check(
+		decision_title != null
+		and decision_title.text == "PICK TODAY'S FLOCK RULE"
+		and decision_eyebrow != null
+		and "MABEL" in decision_eyebrow.text
+		and decision_order_glance != null
+		and decision_order_glance.is_visible_in_tree(),
+		"opening policy should connect Mabel to one glance-first flock rule and three scored orders",
+		failures,
+	)
 	_check(_checkpoint_reason(store) == "first_hen_file_opened", "Mabel's file should checkpoint before policy authorization", failures)
 
 	var expected_open_file := state.duplicate(true)
@@ -200,13 +211,19 @@ func _run() -> void:
 	state = office.first_clutch_snapshot()
 	decision_host = office.find_child("ManagementDecisionHost", true, false) as Control
 	decision_title = office.get("_decision_title") as Label
+	decision_eyebrow = office.get("_decision_eyebrow") as Label
+	decision_order_glance = office.find_child("DecisionOrderGlance", true, false) as GridContainer
 	_check(_same_persisted_state(state, expected_open_file), "Continue should restore Mabel at exactly one of five", failures)
 	_check(
 		simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE
 		and decision_host != null
 		and decision_host.visible
 		and decision_title != null
-		and "MABEL" in decision_title.text
+		and decision_title.text == "PICK TODAY'S FLOCK RULE"
+		and decision_eyebrow != null
+		and "MABEL" in decision_eyebrow.text
+		and decision_order_glance != null
+		and decision_order_glance.is_visible_in_tree()
 		and coach != null
 		and not coach.visible,
 		"post-file Continue should reopen policy without replaying Mabel's prelude",
@@ -232,6 +249,31 @@ func _run() -> void:
 		failures,
 	)
 	_check(coach != null and coach.is_visible_in_tree(), "Mabel route coach should appear once management is unblocked", failures)
+	var character_dialogue = office.get("_character_dialogue_ui")
+	for _dialogue_index in 6:
+		if (
+			character_dialogue == null
+			or not bool((character_dialogue.call("diagnostic_state") as Dictionary).get(
+				"visible",
+				false,
+			))
+		):
+			break
+		character_dialogue.call("dismiss_current")
+		await process_frame
+	var route_accessibility := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		"Route choices:" in route_accessibility
+		and "AUTO SORT" in route_accessibility
+		and "NEST DAMAGE" in route_accessibility
+		and "PREDATOR LOSS" in route_accessibility
+		and "APPEALS" in route_accessibility,
+		"First Clutch assistive narration should retain every full route behind the one-word actions",
+		failures,
+	)
 
 	# Later camera selection must never retarget the authored first file.
 	var target_worker_id := 0
@@ -252,7 +294,13 @@ func _run() -> void:
 	_check(bool(state.get("inspected", false)) and int(state.get("target_worker_id", -1)) == target_worker_id, "Mabel should remain the bound first hen", failures)
 	_check(StringName(state.get("stage", "")) == &"specialty_route" and int(state.get("progress", -1)) == 1, "camera refocus should not add tutorial progress", failures)
 	var specialty_button := office.find_child("Assign_%s" % String(specialty), true, false) as Button
-	_check(specialty_button != null and bool(specialty_button.get_meta("first_clutch_cue", false)), "coach should cue the target hen's exact specialty tray", failures)
+	_check(
+		specialty_button != null
+		and specialty_button.text == "APPEALS"
+		and bool(specialty_button.get_meta("first_clutch_cue", false)),
+		"coach should cue Mabel's concise, unclipped specialty action",
+		failures,
+	)
 
 	# A valid check-in filed early is remembered. Progress remains sequential until
 	# the missing route is corrected, preventing the one-check-in-per-day rule from

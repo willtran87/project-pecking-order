@@ -406,6 +406,7 @@ const MARKET_SEASON_LENGTH_DAYS := 3
 const MARKET_SEASONS_PER_YEAR := 4
 const RESTED_FLOCK_WELFARE_MINIMUM := 72
 const MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT := 3
+const MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM := 50
 const MARKET_PRICING_ESTIMATED_HANDLING_COST_CENTS := 125
 const MARKET_PRICING_PROFILE_ORDER: Array[StringName] = [
 	&"mutual_rate",
@@ -432,6 +433,7 @@ const MARKET_PRICING_PROFILE_DEFINITIONS := {
 		"reach_success_delta": 1,
 		"reach_breach_delta": -1,
 		"required_reach": 0,
+		"required_satisfaction": 0,
 	},
 	&"community_access_rate": {
 		"label": "COMMUNITY ACCESS RATE",
@@ -444,10 +446,11 @@ const MARKET_PRICING_PROFILE_DEFINITIONS := {
 		"reach_success_delta": 3,
 		"reach_breach_delta": -2,
 		"required_reach": 0,
+		"required_satisfaction": 0,
 	},
 	&"executive_select_rate": {
 		"label": "EXECUTIVE SELECT RATE",
-		"summary": "Quote 30% more, serve one fewer folder, and trade claimant goodwill for margin.",
+		"summary": "Quote 30% more and serve one fewer folder, but spend claimant goodwill that must be rebuilt.",
 		"premium_basis_points": 3000,
 		"volume_delta": -1,
 		"required_delta": -1,
@@ -456,6 +459,7 @@ const MARKET_PRICING_PROFILE_DEFINITIONS := {
 		"reach_success_delta": 0,
 		"reach_breach_delta": -3,
 		"required_reach": MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
+		"required_satisfaction": MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM,
 	},
 }
 const MARKET_CONTRACT_CLAUSE_ORDER: Array[StringName] = [
@@ -1359,6 +1363,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"patch",
 				"label": "AUTHORIZE EMERGENCY PATCH",
+				"short_label": "EMERGENCY PATCH",
+				"glance": "SAFETY +  /  ORDER +",
 				"tagline": "Spend Feed Fund to protect shells and obedience.",
 				"preview": "Cost $18  ·  +4 obedience  ·  -4% crack risk this shift",
 				"outcome": "The ledger was patched. Compliance has declared the smoke intentional.",
@@ -1374,6 +1380,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"spreadsheet",
 				"label": "USE THE UNOFFICIAL SPREADSHEET",
+				"short_label": "SHADOW SHEET",
+				"glance": "SPEED +  /  SAFETY -",
 				"tagline": "Keep the Fund; trade safety and obedience for speed.",
 				"preview": "No cost  ·  +5% speed  ·  +6% crack risk  ·  -6 obedience",
 				"outcome": "An unofficial spreadsheet is now mission-critical and completely unaudited.",
@@ -1395,6 +1403,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"grant_breaks",
 				"label": "COVER A ROTATING BREAK",
+				"short_label": "ROTATING BREAK",
+				"glance": "FLOCK +  /  STRAIN -",
 				"tagline": "Spend Feed Fund to restore the flock before more peckwork.",
 				"preview": "Cost $6  ·  -6 stress  ·  -5 fatigue  ·  +4 morale",
 				"outcome": "A rotating break was approved and immediately described as a productivity pilot.",
@@ -1410,6 +1420,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"deny_breaks",
 				"label": "DENY THE ATTITUDE VARIANCE",
+				"short_label": "DENY BREAK",
+				"glance": "FAVOR +  /  STRAIN +",
 				"tagline": "Protect favor now; push strain into morale and shells.",
 				"preview": "+3 farmer favor  ·  -6 morale  ·  +6 stress  ·  +2.5% crack risk",
 				"outcome": "The request was denied. The flock has been reminded that the wellness poster is the benefit.",
@@ -1431,6 +1443,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"polish_story",
 				"label": "POLISH THE PRESENTATION BASKET",
+				"short_label": "POLISH STORY",
+				"glance": "CASH +  /  NEXT QUOTA +",
 				"tagline": "Take cash and favor now; raise tomorrow's quota.",
 				"preview": "+$16 fund  ·  +8 farmer favor  ·  tomorrow's quota +1",
 				"outcome": "The presentation has been polished. Tomorrow's target already reflects today's optimism.",
@@ -1446,6 +1460,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"show_ledger",
 				"label": "SHOW THE ACTUAL LEDGER",
+				"short_label": "SHOW LEDGER",
+				"glance": "FLOCK +  /  FAVOR -",
 				"tagline": "Trade executive favor for obedience and a lower quota.",
 				"preview": "-6 farmer favor  ·  +5 obedience  ·  +6 flock unity  ·  tomorrow's quota -1",
 				"outcome": "The actual ledger was attached. The farmer has called this an avoidable transparency event.",
@@ -1467,6 +1483,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"buy_grain",
 				"label": "BUY LOCAL GRAIN",
+				"short_label": "BUY LOCAL GRAIN",
+				"glance": "FLOCK +  /  STRAIN -",
 				"tagline": "Spend Feed Fund to reduce flock strain and shell pressure.",
 				"preview": "Cost $16  ·  +6 morale  ·  -4 stress  ·  -15% strain",
 				"outcome": "Local grain arrived. Procurement has opened a review into its suspicious edibility.",
@@ -1482,6 +1500,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"optimize_portions",
 				"label": "OPTIMIZE THE PORTIONS",
+				"short_label": "CUT PORTIONS",
+				"glance": "FEED COST -  /  FLOCK -",
 				"tagline": "Cut feed today; accept morale, speed, and shell risk.",
 				"preview": "Daily feed -$8  ·  -7 morale  ·  +5 stress  ·  +3% crack risk",
 				"outcome": "Portions were optimized. The missing feed has been reclassified as efficiency.",
@@ -1503,6 +1523,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"cancel_status_sync",
 				"label": "CANCEL THE STATUS SYNC",
+				"short_label": "CANCEL SYNC",
+				"glance": "SPEED +  /  FAVOR -",
 				"tagline": "Recover production time; spend executive favor.",
 				"preview": "+6% speed this shift  ·  -2% crack risk  ·  +2 obedience  ·  -2 farmer favor  ·  flock trust +2",
 				"outcome": "The meeting was canceled. Management has requested a meeting to process the cancellation.",
@@ -1518,6 +1540,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"attend_status_sync",
 				"label": "ATTEND EVERY STATUS SYNC",
+				"short_label": "ATTEND SYNCS",
+				"glance": "FAVOR +  /  SPEED -",
 				"tagline": "Gain executive favor; lose production time and flock patience.",
 				"preview": "-7% speed this shift  ·  +8 farmer favor  ·  +2 obedience  ·  flock stress +4",
 				"outcome": "Every status sync was attended. The roosters have reported record participation in reporting.",
@@ -1539,6 +1563,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"credit_layers",
 				"label": "CREDIT THE LAYERS",
+				"short_label": "CREDIT LAYERS",
+				"glance": "FLOCK +  /  FAVOR -",
 				"tagline": "Spend Feed Fund and favor to strengthen the flock.",
 				"preview": "Cost $10  ·  -2 farmer favor  ·  +4 obedience  ·  morale +8  ·  stress -6  ·  tomorrow's quota -1  ·  -1% crack risk",
 				"outcome": "The layers were named. The farmer has asked whether collective nouns count as individual recognition.",
@@ -1554,6 +1580,8 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"credit_roosters",
 				"label": "CREDIT THE ROOSTERS",
+				"short_label": "CREDIT ROOSTERS",
+				"glance": "FAVOR +  /  FLOCK -",
 				"tagline": "Take favor and speed now; deepen relationship debt.",
 				"preview": "No cost  ·  +10 farmer favor  ·  +5% speed  ·  flock morale -5  ·  grievance +6",
 				"outcome": "The roosters received the byline. The flock has been thanked for implementing management's eggs.",
@@ -2493,9 +2521,17 @@ func market_contract_clause_catalog() -> Array[Dictionary]:
 func market_pricing_profile_catalog() -> Array[Dictionary]:
 	var catalog: Array[Dictionary] = []
 	var reach := market_reach_points()
+	var satisfaction := claimant_satisfaction_score()
 	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
 		var definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
 		var required_reach := int(definition.get("required_reach", 0))
+		var required_satisfaction := int(definition.get("required_satisfaction", 0))
+		var availability_reason := _market_pricing_availability_reason(
+			required_reach,
+			required_satisfaction,
+			reach,
+			satisfaction,
+		)
 		catalog.append({
 			"pricing_profile_id": pricing_id,
 			"label": String(definition.get("label", "MUTUAL RATE")),
@@ -2504,15 +2540,33 @@ func market_pricing_profile_catalog() -> Array[Dictionary]:
 			"volume_delta": int(definition.get("volume_delta", 0)),
 			"required_delta": int(definition.get("required_delta", 0)),
 			"required_reach": required_reach,
-			"pricing_available": reach >= required_reach,
-			"reason": (
-				""
-				if reach >= required_reach else
-				"Earn %d market-reach points through fulfilled binders; current reach is %d."
-				% [required_reach, reach]
-			),
+			"required_satisfaction": required_satisfaction,
+			"current_reach": reach,
+			"current_satisfaction": satisfaction,
+			"pricing_available": availability_reason.is_empty(),
+			"reason": availability_reason,
 		})
 	return catalog
+
+
+func _market_pricing_availability_reason(
+	required_reach: int,
+	required_satisfaction: int,
+	current_reach: int,
+	current_satisfaction: int,
+) -> String:
+	var reasons: Array[String] = []
+	if current_reach < required_reach:
+		reasons.append(
+			"Earn %d market-reach points through fulfilled binders; current reach is %d."
+			% [required_reach, current_reach]
+		)
+	if current_satisfaction < required_satisfaction:
+		reasons.append((
+			"Executive Select requires claimant sentiment of %d; current sentiment is %d. "
+			+ "Fulfill Mutual Rate or Community Access to rebuild claimant trust."
+		) % [required_satisfaction, current_satisfaction])
+	return " ".join(reasons)
 
 
 func _market_pricing_outcome_count(pricing_id: StringName, success: bool) -> int:
@@ -2570,6 +2624,9 @@ func market_pricing_status() -> Dictionary:
 		"claimant_satisfaction": claimant_satisfaction_score(),
 		"market_share_basis_points": mutual_market_share_basis_points(),
 		"executive_select_reach_requirement": MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
+		"executive_select_satisfaction_minimum": (
+			MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM
+		),
 		"profiles": market_pricing_profile_catalog(),
 	}
 
@@ -6080,7 +6137,16 @@ func _market_contract_quote_for_day(
 		])
 	var requires_room := bool(clause.get("requires_negotiation_room", false))
 	var required_reach := int(pricing.get("required_reach", 0))
-	var pricing_available := market_reach_points() >= required_reach
+	var required_satisfaction := int(pricing.get("required_satisfaction", 0))
+	var current_reach := market_reach_points()
+	var current_satisfaction := claimant_satisfaction_score()
+	var pricing_unavailable_reason := _market_pricing_availability_reason(
+		required_reach,
+		required_satisfaction,
+		current_reach,
+		current_satisfaction,
+	)
+	var pricing_available := pricing_unavailable_reason.is_empty()
 	var estimated_handling_cost_cents := (
 		total_claims * MARKET_PRICING_ESTIMATED_HANDLING_COST_CENTS
 	)
@@ -6132,13 +6198,11 @@ func _market_contract_quote_for_day(
 		"pricing_volume_delta": pricing_volume_delta,
 		"pricing_required_delta": int(pricing.get("required_delta", 0)),
 		"pricing_required_reach": required_reach,
+		"pricing_required_satisfaction": required_satisfaction,
+		"pricing_current_reach": current_reach,
+		"pricing_current_satisfaction": current_satisfaction,
 		"pricing_available": pricing_available,
-		"pricing_unavailable_reason": (
-			""
-			if pricing_available else
-			"Executive Select requires %d market-reach points; current reach is %d."
-			% [required_reach, market_reach_points()]
-		),
+		"pricing_unavailable_reason": pricing_unavailable_reason,
 		"claimant_satisfaction_success_delta": int(
 			pricing.get("satisfaction_success_delta", 0)
 		),
@@ -7077,7 +7141,12 @@ func _economic_watch_rows(
 	var capacity_percent := _signed_half_up_ratio(10_000 * live_files, maxi(1, live_capacity))
 	var welfare := _flock_welfare_score()
 	var reach := market_reach_points()
+	var satisfaction := claimant_satisfaction_score()
 	var share_basis_points := mutual_market_share_basis_points()
+	var executive_select_open := (
+		reach >= MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT
+		and satisfaction >= MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM
+	)
 	var treasury_liabilities := maxi(0, int(treasury.get("total_liabilities_cents", 0)))
 	return [
 		{
@@ -7184,16 +7253,27 @@ func _economic_watch_rows(
 		{
 			"id": &"market",
 			"label": "MUTUAL REACH",
-			"status_id": &"on_track" if reach >= 3 else &"building",
-			"status_label": "EXECUTIVE SELECT OPEN" if reach >= 3 else "REACH BUILDING",
-			"current_label": "%d REACH / %.2f%% SHARE" % [
+			"status_id": &"on_track" if executive_select_open else &"building",
+			"status_label": (
+				"EXECUTIVE SELECT OPEN"
+				if executive_select_open else
+				"REACH BUILDING"
+				if reach < MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT else
+				"CLAIMANT TRUST LOW"
+			),
+			"current_label": "%d REACH / %d SENTIMENT / %.2f%% SHARE" % [
 				reach,
+				satisfaction,
 				float(share_basis_points) / 100.0,
 			],
-			"target_label": "3 REACH / EXECUTIVE SELECT",
+			"target_label": "%d REACH / %d SENTIMENT" % [
+				MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
+				MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM,
+			],
 			"why": (
-				"Settled rate postures change claimant sentiment and projected share; "
-				+ "fulfilled Community Access binders build reach fastest."
+				"Executive Select requires both reach and claimant trust. Premium "
+				+ "filings spend sentiment; fulfilled Mutual and Community Access "
+				+ "binders rebuild it."
 			),
 			"action": (
 				"Open Records during review to compare binder volume, premium, "
@@ -11605,6 +11685,15 @@ func _active_market_contract_quote_matches(
 				or int(source.get(field, -999999)) != int(expected.get(field, -999998))
 			):
 				return false
+		if (
+			source.has("pricing_required_satisfaction")
+			and (
+				not _is_integral_number(source.get("pricing_required_satisfaction", null))
+				or int(source.get("pricing_required_satisfaction", -1))
+				!= int(expected.get("pricing_required_satisfaction", -2))
+			)
+		):
+			return false
 		for field in ["pricing_profile_id", "pricing_label", "pricing_summary"]:
 			if String(source.get(field, "")) != String(expected.get(field, "")):
 				return false
@@ -11702,6 +11791,15 @@ func _market_contract_result_quote_matches(
 				or int(source.get(field, -999999)) != int(expected.get(field, -999998))
 			):
 				return false
+		if (
+			source.has("pricing_required_satisfaction")
+			and (
+				not _is_integral_number(source.get("pricing_required_satisfaction", null))
+				or int(source.get("pricing_required_satisfaction", -1))
+				!= int(expected.get("pricing_required_satisfaction", -2))
+			)
+		):
+			return false
 		for field in ["pricing_profile_id", "pricing_label", "pricing_summary"]:
 			if String(source.get(field, "")) != String(expected.get(field, "")):
 				return false

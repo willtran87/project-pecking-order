@@ -119,10 +119,9 @@ func _run() -> void:
 	_check(
 		challenge_summary != null
 		and _contains_all(challenge_summary.text, [
-			"OPENING ECONOMY", "FUND $65.00", "QUOTA 14",
-			"LIVE FILES 6", "RECOVERY CUSHION",
+			"FUND $65.00", "QUOTA 14", "6 FILES",
 		]),
-		"production intake should disclose Supported Flock's exact opening economy before filing",
+		"production intake should disclose Supported Flock's key opening numbers before filing",
 		failures,
 	)
 	var new_campaign_button := office.find_child("NewCampaignButton", true, false) as Button

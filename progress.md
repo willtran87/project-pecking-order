@@ -4029,3 +4029,493 @@ The next major systems milestone is persistent worker relationships and individu
 - `git diff --check` passes. The two deployable PCK copies remain byte-identical
   at 9,251,636 bytes with SHA-256
   `D0C4FBDF95C5CF3F96582D6A519ECA21919C24E42E2AA8FE86B3DF64A20A819D`.
+
+## 2026-07-31 - Published candidate and exact-candidate acceptance handoff
+
+- Committed the thirteen-file First Clutch benefit candidate as
+  `f04c50cd3affe7b64b651ce01e102510d9758cba`, pushed
+  `codex/core-loop-polish`, and observed the configured GitHub Pages build and
+  deployment complete successfully.
+- A cache-bypassed public download returns the exact tested 9,251,636-byte PCK
+  with SHA-256
+  `D0C4FBDF95C5CF3F96582D6A519ECA21919C24E42E2AA8FE86B3DF64A20A819D`.
+  Local HEAD, remote branch, and public payload identity now agree.
+- Initialized new candidate-bound physical and usability records without
+  replacing prior evidence. Generated all seven physical session kits and all
+  seven separately moderated usability kits under the `f04c50c`-named release
+  directories.
+- Preserved the two unrelated tracked browser captures. Evidence initialization
+  ran from a detached clean worktree at the published commit; the worktree was
+  removed in guaranteed cleanup, its temporary download was removed by the
+  initializer, and a post-run audit found zero workspace-owned processes.
+- Automated implementation and release gates remain green. The new handoff
+  records remain honestly pending until their fourteen real sessions and
+  evidence bundles are completed; no automated fixture or owner attestation is
+  counted as a session result.
+
+## 2026-07-31 - Renewable claimant trust for binder pricing
+
+- Audited the three Farm Mutual rate postures against the no-dominant-strategy
+  requirement. Executive Select's 30% premium, lower volume, and lower delivery
+  threshold were permanently superior after its one-time reach unlock because
+  claimant sentiment had no future constraint.
+- Made claimant trust renewable and consequential. Executive Select now
+  requires both three reach and at least 50 claimant sentiment; premium
+  fulfillment spends sentiment, while fulfilled Mutual Rate and Community
+  Access binders rebuild it. Existing v28 saves remain compatible, while newly
+  authored requirement fields are tamper-checked.
+- The Contract Board now exposes current reach and claimant sentiment, labels
+  held pricing with the exact missing resource, and names the recovery route in
+  its tooltip. Management Watch distinguishes `CLAIMANT TRUST LOW` from reach
+  building and shows the 50-sentiment target.
+- Focused Godot verification passes pricing economy/UI, contract persistence,
+  Management Watch, and the complete Economic Briefing contract. The regression
+  fixture proves that three Executive successes reduce sentiment to 48, keep
+  Mutual and Community available, and that one further Community fulfillment
+  restores sentiment to 52 and reopens Executive Select.
+- Each Godot invocation exited normally; a post-run audit found zero Godot,
+  Node, or browser processes associated with the workspace.
+- Re-exported the candidate and synchronized all nine generated Web payloads
+  byte-for-byte between `docs/` and `web/public/game/`. The refreshed
+  9,255,124-byte PCK has SHA-256
+  `C6690D53F5BF5C799C2CD9DA87F8A82661995710358378BFD66244C0159E146A`;
+  the export process exited normally and the cleanup audit remained at zero
+  workspace-owned test processes.
+- The prescribed independent Web-game client loaded the Node 24 production
+  wrapper with `loaded=true`, `mode=godot_canvas`, the renewable market watch,
+  zero orphan nodes, and no browser-error artifact. The inspected 1280x720
+  capture is contained and readable at
+  `output/web-game/pricing-trust-official-client-v3/shot-0.png`.
+- Renderer-backed Contract Board inspection caught an accreditation rank that
+  could collapse to a one-character column at 1280x720. The rank now retains a
+  176-pixel reading width, a desktop geometry regression guards the card, and
+  Contract Board, pricing UI, and 150%-expanded-copy tests pass. The corrected
+  held-tier capture at
+  `output/web-game/pricing-trust-held-executive-v2.png` visibly shows
+  `REACH 3`, `CLAIMANT SENTIMENT 48`, and `NEEDS 50 SENTIMENT`.
+- Two deliberately overlong official-client action bursts hit their watchdogs;
+  each exact Node/Chromium tree and Playwright profile was removed immediately.
+  The successful browser closed normally. The tracked production server and
+  its child were then stopped, port 3107 was released, and both temporary server
+  logs were deleted without touching concurrently running TravQuest tests.
+- Final verification passes the wider 11-contract native market, settlement,
+  persistence, board, pricing, dashboard, briefing, and simulation set. Node 24
+  lint, the production build, all 49/49 rendered Web contracts, and the
+  production-server payload test pass.
+- Reran the prescribed independent client against the final re-export after the
+  layout correction. Its inspected 1280x720 capture at
+  `output/web-game/pricing-trust-official-client-v4/shot-0.png` is clean;
+  `render_game_to_text` reports the exact `0 REACH / 50 SENTIMENT` opening and
+  `3 REACH / 50 SENTIMENT` target, `loaded=true`, zero orphan nodes, and no
+  browser-error artifact. Its tracked server and child were stopped, port 3107
+  was released, and both temporary logs were removed.
+
+## 2026-07-31 - Glance-first gameplay communication
+
+- Reworked the three most text-heavy decision surfaces around progressive
+  disclosure. The new-file intake now leads with Mabel, `FUND / QUOTA / FILES`,
+  a one-line five-shift flow, and one Start action; immutable thresholds remain
+  available through `EXACT RULES`.
+- Flockwatch Capital now opens on three colored stat tiles (`FREE`, `MARGIN`,
+  and `TO GO`), one `!` priority, and the page action that can change it.
+  Cash composition, costs, market forecast, causes, trend, and the complete
+  management rationale remain in a focus-safe Ledger disclosure and in
+  assistive narration.
+- Farm Mutual offer folders now communicate name, lane mix, and
+  `RUSH / PREMIUM / RISK` in three lines. Selected binders keep the schedule,
+  success condition, premium, breach, rate choices, and Sign action visible;
+  reserve math, capacity fit, and context are folded under `FINE PRINT`.
+  A held binder still surfaces its exact blocking reason immediately.
+- Shortened rate posture presentation to renewable `REACH` and `TRUST`
+  resources, a two-line selected effect, and compact `PICKED / LOCKED` states.
+  Complete pricing consequences remain in tooltips and the authoritative
+  terms.
+- Inspected final native captures at
+  `output/text-density-ux-final/{intake,capital,contract-board,contract-pricing}.png`.
+  The actual Node 24 production wrapper also loaded the final exported game,
+  accepted a one-frame Enter action, wrote a clean screenshot and diagnostic
+  state under `output/text-density-web-client-verified/`, and produced no
+  browser error artifact.
+- Seventeen focused and surrounding Godot contracts pass across intake,
+  challenge selection, Capital navigation, management watch, contract signing,
+  pricing, negotiation, disclosure focus, visual footprint, persistence, and
+  390px/150%-scale resilience. Node 24 lint/build and all 49 rendered wrapper
+  contracts pass.
+- Synchronized all nine Web payloads byte-for-byte between `docs/` and
+  `web/public/game/`. The final PCK is 9,259,940 bytes with SHA-256
+  `905EB67EC5CE3A9C20DCAA374398571BEE5F161A04E0DCD631D4627BA236511D`.
+- Every owned Godot capture and test process exited. The final browser runner
+  closed its owned production server in a `finally` path; port 41739 is no
+  longer listening, no Pecking Order Node/Godot process remains, and the
+  temporary runner was deleted. A concurrently running TravQuest Playwright
+  session was identified by its distinct project path and left untouched.
+
+## 2026-07-31 - Glance-first candidate-wide verification
+
+- Ran the complete native contract inventory with the bounded three-shard
+  runner. `output/godot-full-suite-20260731-density-v1/full-suite-summary.json`
+  discovers, selects, completes, and passes 212/212 tests with zero failures and
+  zero timeouts.
+- Ran the exact beta gate against the density candidate using Node 24.
+  `output/release/density-beta-release-gate.json` passes all 44 checks: 35
+  representative Godot contracts, Web lint/build and 49 rendered tests, the
+  temporary production-server test, four evidence contract/handoff validators,
+  and nine-file release-payload parity.
+- The shard runner retired each Godot pair when its shard completed. The beta
+  gate retained only its current sequential worker and its production-server
+  test used bounded termination. Both parents then exited; the final audit found
+  zero Pecking Order Godot processes, zero project Node processes, and zero
+  project-owned listeners.
+- This PCK remains a local working candidate. It has not been committed or
+  published, and the prior `f04c50c` physical/usability records do not match its
+  hash. The remaining release requirements are still seven exact-candidate
+  physical sessions and seven separately moderated usability sessions; no
+  automated validator fixture is counted as a completed human session.
+
+## 2026-07-31 - Glance-first shift payoff
+
+- Replaced the default end-of-shift accounting wall with a compact visual
+  payoff: `EGGS / TARGET`, `NET`, `FEED FUND`, and `NEXT TARGET` tiles, one
+  shell-quality line, one human consequence, and a clear Continue action.
+  Exact payroll, spoilage, case, provision, and closing-fund accounting remains
+  available in the bounded `DETAILS` ledger and authoritative accessibility
+  narration.
+- Kept the four-tile row and action area contained at both 100% and 150% UI
+  scale. Native captures are under `output/shift-review-glance-v2/`; the
+  expanded ledger is captured at
+  `output/shift-review-glance-v1/day_review_details.png`.
+- Added a localhost-only `?preview=shift-result` production-wrapper route so
+  browser verification can reach the deterministic payoff directly without
+  changing production-host behavior. The prescribed client capture is
+  `output/shift-review-web-client-v2/shot-0.png`, with a clean diagnostic state
+  and no browser-error artifact.
+- Visual inspection of the first Web capture caught missing Unicode glyph
+  boxes that did not appear in the native renderer. Replaced the new marks with
+  portable ASCII labels and reran native, accessibility, and Web checks; the
+  corrected capture is clean.
+- Extended management-loop coverage for all four stats, signed net values,
+  disclosure state, bounded ledger, 150% containment, one-row tile layout, and
+  exact assistive narration. The complete exact-source suite at
+  `output/godot-full-suite-20260731-shift-review-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts.
+- The exact-candidate release gate at
+  `output/release/shift-review-beta-release-gate.json` passes 44/44 native,
+  Node 24 Web, production-server, validator, and nine-file parity checks. The
+  synchronized PCK is 9,263,316 bytes with SHA-256
+  `E3363D10258565B9DBAF8694C001E70D91223818C9D51D319375AA8C173B1726`.
+- Every Pecking Order test worker and temporary production server launched for
+  this verification exited, and port 41741 was released. The unrelated
+  TravQuest Playwright session was left untouched.
+- This candidate remains local and unpublished. Final release evidence still
+  requires seven physical sessions and seven separately moderated usability
+  sessions run against the exact committed candidate.
+
+## 2026-07-31 - Glance-first first policy
+
+- Audited the live opening route after intake. Current-render evidence showed
+  that routing and reinvestment were already action-shaped, but the first flock
+  policy still repeated a briefing paragraph, three full order sentences, and
+  three text-only cards before the player could act.
+- Rebuilt every Day 1 policy entry, including tutorial-skipped and restored
+  paths, around one `PICK TODAY'S FLOCK RULE` action, three scored tiles
+  (`18+ EGGS`, `CRACKS <=20%`, `WELFARE 48+`), and three policy cards summarized
+  as `HELPS / RISKS`. Selecting a card reveals the exact production, strain,
+  crack-risk, order-fit, and long-run consequences before authorization.
+- Preserved equivalent nonvisual detail. The accessibility summary names all
+  three orders with their full descriptions and score values, then states how
+  many orders each policy helps and risks.
+- Native default and selected captures are clean at
+  `output/opening-density-glance-v2/`. Added localhost-only
+  `?preview=first-policy` and `?preview=first-policy-selected` routes; the
+  prescribed browser client reproduced both states at
+  `output/opening-policy-web-client-v1/` and
+  `output/opening-policy-web-client-v2/` with no browser-error artifact.
+- Focused decision, management, probation, high-scale text, and complete First
+  Clutch replay contracts pass. The first exhaustive run exposed only a stale
+  assertion that required Mabel's name in the removed long headline; the
+  contract now verifies Mabel's filing eyebrow, the concise headline, and the
+  three live objective tiles. The entire affected 71-test shard was rerun, and
+  the combined exact-source report at
+  `output/godot-full-suite-20260731-opening-policy-v1/full-suite-summary.json`
+  passes 212/212 with zero failures and zero timeouts.
+- The exact candidate passes all 44 native, Node 24 Web, production-server,
+  validator, and nine-file parity checks at
+  `output/release/opening-policy-beta-release-gate.json`. The synchronized PCK
+  is 9,267,668 bytes with SHA-256
+  `4AE575931012988FBF1F5539261AD616A8EAA04587323BE4E7A77D3DF9BB9F2C`.
+- Every capture process, shard worker, prescribed browser, and temporary
+  production server launched for this pass exited. Ports 41741 and 41742 were
+  released, while unrelated TravQuest Playwright work remained untouched.
+- This candidate remains local and unpublished. The seven physical sessions
+  and seven separately moderated usability sessions remain the final
+  exact-candidate release evidence.
+
+## 2026-07-31 - Glance-first recurring incidents
+
+- Audited the first live incident and found that its interaction hierarchy was
+  sound but both choice cards used long prose, with the free response visibly
+  truncating its safety tradeoff.
+- Gave all twelve choices across the six standard incidents a short action and
+  two directional stakes. Incident cards now combine those stakes with the
+  authoritative live cost (`$18 COST` or `FREE` in the opening Ledger Molt)
+  while retaining the full label, authored rationale, exact numeric effects,
+  dynamic precedent changes, and next-case consequence after selection.
+- Expanded assistive incident narration to name every bounded full action and
+  exact consequence. Decision diagnostics now publish both the short glance
+  field and the full fields, so simplification does not remove nonvisual or
+  automated transparency.
+- Native default and selected captures are clean at
+  `output/incident-glance-v2/`. The prescribed Web-game client reproduced both
+  states through the Node 24 production wrapper at
+  `output/incident-glance-web-client-v1/` and
+  `output/incident-glance-web-client-selected-v1/`; both diagnostic states are
+  loaded, the selected state reports `spreadsheet`, and neither run produced a
+  browser-error artifact.
+- Focused decision, incident follow-through, and 150%-expanded-copy contracts
+  pass. The exact-source exhaustive report at
+  `output/godot-full-suite-20260731-incident-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts.
+- The exact candidate passes all 44 native, Node 24 Web, production-server,
+  validator, and nine-file parity checks at
+  `output/release/incident-glance-beta-release-gate.json`. The synchronized PCK
+  is 9,270,116 bytes with SHA-256
+  `0909988C3475674A59CC98389374E0C5FE30493746C34C55EB756A62FCAC2659`.
+- Every Godot capture/test worker, prescribed browser, and production server
+  launched for this pass exited. Ports 41741, 41742, and 41743 are free; the
+  unrelated TravQuest Playwright session was left untouched.
+- This candidate remains local and unpublished. Final release evidence still
+  requires seven physical sessions and seven separately moderated usability
+  sessions run against the exact committed and published candidate.
+
+## 2026-07-31 - Glance-first core routing actions
+
+- Audited the next repeated core-loop action after policies and incidents.
+  Native First Clutch evidence exposed `NEST DAMAGE` clipping to `T DAMAGE` at
+  1280x720 even though the route itself was otherwise understandable.
+- Replaced the four repeated route-button phrases with stable one-word actions:
+  `AUTO`, `NEST`, `PREDATOR`, and `APPEALS`. Worker readouts, claim labels, and
+  tooltips retain the full route names. Each tooltip still states the specific
+  operational tradeoff, including throughput, shell-risk, recovery, and manual
+  override consequences.
+- Added a focused routing accessibility summary that enumerates every full route
+  name, selected/available state, and exact tradeoff during First Clutch
+  induction. Visible character dialogue continues to take precedence, then the
+  underlying choice summary is exposed when dialogue closes.
+- Focused routing, First Clutch, and 150%-expanded-copy contracts pass. Native
+  corrected captures are under `output/routing-actions-glance-v1/`. The
+  prescribed Node 24 Web-game client reproduced First Clutch and ordinary
+  routing at `output/routing-actions-web-client-v1/` and
+  `output/routing-actions-web-client-normal-v1/`; both states report
+  `loaded=true`, retain the intended focused worker, display all four actions,
+  and produced no browser-error artifact.
+- The exact-source exhaustive report at
+  `output/godot-full-suite-20260731-routing-actions-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The exact
+  candidate passes all 44 native, Node 24 Web, production-server, validator,
+  and nine-file parity checks at
+  `output/release/routing-actions-beta-release-gate.json`.
+- Exported and synchronized all nine Web payloads. The 9,271,604-byte PCK has
+  SHA-256
+  `BEC93986305CCB3AD556A2030D0B4505332AA4FE19E002F06D915E9B7591F692`.
+- Every Godot capture/test worker, prescribed browser, and scoped production
+  server launched for this pass exited. Ports 41741 through 41744 are free; the
+  unrelated TravQuest Playwright session was left untouched.
+- This candidate remains local and unpublished. Final release evidence still
+  requires seven physical sessions and seven separately moderated usability
+  sessions run against the exact committed and published candidate.
+
+## 2026-07-31 - Glance-first intern staffing
+
+- Audited the fully wired Bright-Eyed Rotation in its live Flockwatch location.
+  The current render led with a five-metric sentence and repeated candidate
+  personality/hope prose, pushing the first $3 onboarding action below the
+  visible card. A completed term stacked three outcomes vertically so only the
+  extension was visible without scrolling.
+- Rebuilt the visible cohort layer around compact, stable tokens: seats,
+  fellows, files, work, shell risk, morale drain, and junior payroll. Candidate
+  cards now show portrait, name, lane, one trait, `$3 / 3 SHIFTS`, and the
+  `ONBOARD / $3` action. Full personality, hope, blind spot, exact term,
+  default production effect, and disabled reason remain in tooltips and
+  assistive narration.
+- Active work now compares `GUIDED / +1 FILE / SAFE`,
+  `STRETCH / +2 FILES / +1% RISK`, and
+  `CULTURE / -10% MORALE DRAIN`. Completed terms show all three outcomes in one
+  row as `EXTEND / $1`, `LETTER / FREE`, and `HIRE / $8+$2/D`; the short verbs
+  still emit the exact existing assignment and paid-fellowship intents.
+- Expanded accessibility now retains every candidate's full character profile,
+  formal assignment/review names, promises, economic disclosures, selected
+  state, and held reason. The UI contract verifies the occupied-fellowship
+  recovery condition and keeps the three-way review within 360px at 150% text
+  scale.
+- Focused UI, authoritative integration, character-dialogue, presentation, and
+  expanded-text tests pass 5/5 at
+  `output/regression/internship-density-focused-v3/`. Native cohort and fellow
+  captures are under `output/internship-glance-v1/`; the final review comparison
+  is `output/internship-glance-v3/bright_eyed_review.png`.
+- The prescribed Node 24 Web-game client reproduced cohort, review, and fellow
+  states at `output/internship-glance-web-client-v1/`,
+  `output/internship-review-web-client-v1/`, and
+  `output/internship-fellow-web-client-v1/`. All report `loaded=true`, the
+  program visible and expanded with four candidates, exact review narration,
+  or the settled $2/day fellow payroll as applicable; none produced a browser
+  error artifact.
+- The exact-source exhaustive report at
+  `output/godot-full-suite-20260731-intern-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The exact
+  candidate passes all 44 native, Node 24 Web, production-server, validator,
+  and nine-file parity checks at
+  `output/release/intern-glance-beta-release-gate.json`.
+- Exported and synchronized all nine Web payloads. The 9,275,444-byte PCK has
+  SHA-256
+  `0E7CFE87E87A9B2932B6E69C250D0FF52D6332ED930F16E2E09B34A3538CEE93`.
+- Every Godot capture/test worker, prescribed browser, and scoped production
+  server launched for this pass exited. Ports 41741 through 41745 are free; the
+  unrelated TravQuest Playwright session was left untouched.
+- This candidate remains local and unpublished. Final release evidence still
+  requires seven physical sessions and seven separately moderated usability
+  sessions run against the exact committed and published candidate.
+
+## 2026-07-31 - Glance-first Capital requisition control
+
+- Audited the next repeated management action after intern staffing. The live
+  Capital capture exposed `HIDE DESK REQUISITIONS / 3 READY / 0 COMPLETE`
+  truncating inside its button while duplicating the `DIRECT REQUISITIONS`
+  heading immediately above it.
+- Replaced that visible copy with the stable action-first form
+  `REVIEW/HIDE FILES / <ready>`. Exact total, ready, and completed counts remain
+  in the tooltip and accessibility metadata, and collapsing still recovers
+  keyboard focus from any hidden requisition card.
+- Extended `FlockwatchDisclosureToggle` with exact optional detail and a stable
+  accessibility string. `management_loop_ui_test.gd` verifies the concise
+  label, hidden-count equivalence, focusability, and removal of redundant
+  visible wording. Focused management, facilities, and Flockwatch navigation
+  tests pass 3/3.
+- Native evidence is clean at
+  `output/facility-density-v2/facility_requisition.png`. The prescribed Node 24
+  Web-game client reproduced the exact exported candidate at
+  `output/facility-density-web-client-v1/shot-0.png`; its diagnostic reports
+  `loaded=true`, `mode=godot_canvas`, and Capital current, with no browser-error
+  artifact and empty server stderr.
+- The exact-source exhaustive report at
+  `output/godot-full-suite-20260731-facility-density-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The independent
+  release report at
+  `output/release/facility-density-beta-release-gate.json` passes all 44 native,
+  Node 24 Web, production-server, validator, and nine-file parity checks.
+- Exported and synchronized all nine Web payloads. The 9,275,332-byte PCK has
+  SHA-256
+  `9850CC9F7FE7AD2B4125F79F52241C2C9473EBFB7A86954C9DD2274ECA85F4F7`.
+- Every Pecking Order Godot test/capture process, prescribed browser, and scoped
+  production server launched for this pass exited. Ports 41741 through 41746
+  are free; unrelated project processes were not touched.
+- This candidate remains local and unpublished. Final release evidence still
+  requires seven physical sessions and seven separately moderated usability
+  sessions run against the exact committed and published candidate.
+
+## 2026-07-31 - Glance-first Farm Mutual pricing
+
+- Audited the next high-density economic decision in the live Contract &
+  Indemnity Board. Each rate card repeated `RATE`, `FILES`, `PREMIUM`, and its
+  status, then the selected posture repeated its consequences across two more
+  lines below the cards.
+- Rebuilt the visible comparison around the stable labels `MUTUAL`, `ACCESS`,
+  and `EXECUTIVE`. Available cards now expose only exact premium and file
+  volume; selected/locked text and existing border/state styling remain
+  redundant non-color cues. The chosen result is one compact
+  `MARGIN / TRUST / REACH` line.
+- Full formal names, summaries, volume deltas, price, margin, fulfilled and
+  breached Trust/Reach effects, and exact held recovery remain in tooltips and
+  accessibility metadata. Binder context, indemnity reserve, archive fit, and
+  flock fit remain behind the shorter `REVIEW DETAILS` disclosure.
+- Added a deterministic Access-selected capture route. Native Mutual and Access
+  states are clean under `output/contract-pricing-glance-v2/`. The prescribed
+  Node 24 browser client reproduces them at
+  `output/contract-pricing-web-client-v1/` and
+  `output/contract-pricing-access-web-client-v1/`; diagnostics preserve the
+  exact selected pricing ID, premium, file volume, and margin, with no browser
+  error artifacts and empty server stderr.
+- Focused UI, contract-board, economy, and 150%-scale tests pass 4/4. The exact
+  candidate passes 212/212 Godot contracts with zero failures and zero timeouts
+  at `output/godot-full-suite-20260731-pricing-glance-v1/full-suite-summary.json`.
+  The independent release report at
+  `output/release/pricing-glance-beta-release-gate.json` passes all 44 checks.
+- Exported and synchronized all nine Web payloads. The 9,277,284-byte PCK has
+  SHA-256
+  `0E56604B6999DE8B52CECD26D81CABBC0543F27EB5F1CB4C4EAFE4E3E6F50D20`.
+- Every Pecking Order Godot test/capture process, prescribed browser, and scoped
+  production server launched for this pass exited. Ports 41741 through 41747
+  are free; unrelated project processes were not touched.
+- This candidate remains local and unpublished. Final release evidence still
+  requires seven physical sessions and seven separately moderated usability
+  sessions run against the exact committed and published candidate.
+
+## 2026-07-31 - Glance-first Economic Briefing disclosures
+
+- Audited the live Capital briefing after the Farm Mutual comparison. The
+  collapsed controls repeated their hidden contents as
+  `REVIEW LEDGER / CASH / COSTS / MARKET` and clipped
+  `REVIEW WHY + RECOVERY / 2 BOTTLENECKS / 4 RECOVERY PATHS`.
+- Replaced them with the stable, plain-language actions `REVIEW NUMBERS` and
+  `REVIEW PLAN / <issues>`. Exact cash/cost/market/bottleneck/trend/watch scope,
+  exact bottleneck and recovery counts, and the full history/resource/strategy/
+  recovery scope remain in tooltip and accessibility metadata. The expanded
+  ledgers and focus-safe behavior are unchanged.
+- Focused economic briefing, management watch, management loop, and 150%-scale
+  text-expansion checks pass 4/4. Native evidence is clean at
+  `output/economic-briefing-glance-v1/economic_briefing.png`.
+- Added the local-only `economic-briefing` Web preview route. The prescribed
+  Node 24 client reproduced the exact export at
+  `output/economic-briefing-web-client-v1/shot-0.png`; diagnostics report
+  `loaded=true`, `mode=godot_canvas`, and Capital current, with no browser-error
+  artifact and empty server stderr.
+- The exact-source exhaustive report at
+  `output/godot-full-suite-20260731-economic-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The independent
+  report at `output/release/economic-glance-beta-release-gate.json` passes all
+  44 native, Node 24 Web, production-server, validator, and parity checks.
+- Exported and synchronized all nine Web payloads. The 9,277,700-byte PCK has
+  SHA-256
+  `8C6478879C84139E840EA8B659CEE658BC8E49738C8522E9B7AF2699B2032F30`.
+- Every Pecking Order Godot test/capture process, prescribed browser, and scoped
+  production server launched for this pass exited. Ports 41741 through 41748
+  are free; unrelated project processes were not touched.
+- This candidate remains local and unpublished. Final release evidence still
+  requires seven physical sessions and seven separately moderated usability
+  sessions run against the exact committed and published candidate.
+
+## 2026-07-31 - Glance-first Farm Mutual binder selection
+
+- Audited the selected Contract & Indemnity Board. The page led with legalistic
+  `outside peckwork` prose, repeated the complete binder names, printed every
+  lane count beside `RUSH / PREMIUM / RISK`, and repeated the selected folder in
+  a separate instruction below the cards.
+- Rebuilt the glance layer around `PICK A CLIENT`, one short comparison cue, and
+  the established `NESTING / PREDATOR / APPEALS` route identities. Each card now
+  shows only total files, rush count, `WIN`, `MISS`, and `PICKED/HELD`. The
+  planning rule is the compact `OPEN / LOSS HELD / REWARD EARNED`, and the
+  redundant selected-folder instruction is hidden.
+- Full binder names, exact lane mixes, arrivals and deadlines, success rules,
+  premium breakdowns, breach reserves, spendable fund, archive/staffing fit,
+  cooldown, and unavailable reasons remain in tooltips and accessibility
+  metadata. Selection still opens the complete detail pane and keeps signing a
+  separate Enter action.
+- Focused board, pricing, economy, Office-flow, and 150%-scale checks pass 5/5.
+  Native evidence is clean at
+  `output/contract-board-glance-v1/farm_mutual_contract_board_ui.png`; the
+  prescribed Node 24 client reproduces it at
+  `output/contract-board-web-client-v1/shot-0.png` with loaded contract-board
+  state, no browser-error artifact, and empty server stderr.
+- The exact-source exhaustive report at
+  `output/godot-full-suite-20260731-contract-board-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The independent
+  report at `output/release/contract-board-glance-beta-release-gate.json` passes
+  all 44 native, Node 24 Web, production-server, validator, and parity checks.
+- Exported and synchronized all nine Web payloads. The 9,278,900-byte PCK has
+  SHA-256
+  `464219FF1079DB0FB4855CEEAC9580A9CD35F510E62DD0F686BD992645A2D150`.
+- Every Pecking Order Godot test/capture process, prescribed browser, and scoped
+  production server launched for this pass exited. Ports 41741 through 41749
+  are free; unrelated project processes were not touched.
+- Publication is handled by the branch-backed GitHub Pages release. Final
+  release evidence still requires seven physical sessions and seven separately
+  moderated usability sessions run against the exact published artifact.

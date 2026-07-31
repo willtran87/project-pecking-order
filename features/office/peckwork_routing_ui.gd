@@ -36,6 +36,12 @@ const LANE_NAMES := {
 	&"predator_loss": "PREDATOR LOSS",
 	&"appeals": "APPEALS",
 }
+const LANE_ACTION_NAMES := {
+	&"auto": "AUTO",
+	&"nest_damage": "NEST",
+	&"predator_loss": "PREDATOR",
+	&"appeals": "APPEALS",
+}
 const LANE_SHORT_NAMES := {
 	&"nest_damage": "NEST",
 	&"predator_loss": "PREDATOR",
@@ -259,7 +265,7 @@ func set_color_vision_mode(mode: StringName) -> void:
 	for lane in _assignment_buttons:
 		var button := _assignment_buttons[lane] as Button
 		if button != null:
-			button.text = _lane_name(StringName(lane))
+			button.text = _lane_action_name(StringName(lane))
 	if _queue_panel != null:
 		_refresh()
 
@@ -302,6 +308,28 @@ func first_clutch_presentation_state() -> Dictionary:
 		"details_visible": _details_button != null and _details_button.visible,
 		"primary_action_node": primary_action,
 	}
+
+
+func routing_choices_accessible_text() -> String:
+	if _focused_worker_id < 0 or _assignment_section == null or not _assignment_section.visible:
+		return ""
+	var choices: Array[String] = []
+	var worker := _worker_snapshot(_focused_worker_id)
+	var selected_lane := StringName(worker.get(
+		"assignment",
+		worker.get("assigned_lane", &"auto"),
+	))
+	for lane in ASSIGNMENT_ORDER:
+		var button := _assignment_buttons.get(lane) as Button
+		var state := "selected" if lane == selected_lane else (
+			"unavailable" if button == null or button.disabled else "available"
+		)
+		choices.append("%s, %s: %s" % [
+			String(LANE_NAMES.get(lane, String(lane).replace("_", " ").to_upper())),
+			state,
+			_assignment_tooltip(lane),
+		])
+	return "; ".join(choices)
 
 
 ## One compact read model keeps browser narration and regression fixtures aligned
@@ -707,7 +735,7 @@ func _build_focus_dossier() -> void:
 	for assignment in ASSIGNMENT_ORDER:
 		var button := Button.new()
 		button.name = "Assign_%s" % String(assignment)
-		button.text = _lane_name(assignment)
+		button.text = _lane_action_name(assignment)
 		button.custom_minimum_size = Vector2(142.0, 34.0)
 		button.theme_type_variation = &"DecisionChoiceButton"
 		button.tooltip_text = _assignment_tooltip(assignment)
@@ -1102,7 +1130,7 @@ func _refresh() -> void:
 	var can_assign := _interaction_enabled and phase == 1 and employed
 	for lane in ASSIGNMENT_ORDER:
 		var button := _assignment_buttons[lane]
-		button.text = _lane_name(lane)
+		button.text = _lane_action_name(lane)
 		button.disabled = not can_assign
 		button.theme_type_variation = &"SelectedChoiceButton" if lane == assignment else &"DecisionChoiceButton"
 		button.tooltip_text = _assignment_tooltip(lane)
@@ -2263,6 +2291,14 @@ func _lane_name(lane: StringName) -> String:
 	return SemanticColorPaletteScript.marked_lane_name(display, lane, _color_vision_mode)
 
 
+func _lane_action_name(lane: StringName) -> String:
+	var display := String(LANE_ACTION_NAMES.get(
+		lane,
+		LANE_NAMES.get(lane, String(lane).replace("_", " ").to_upper()),
+	))
+	return SemanticColorPaletteScript.marked_lane_name(display, lane, _color_vision_mode)
+
+
 func _lane_short_name(lane: StringName) -> String:
 	var display := String(LANE_SHORT_NAMES.get(lane, String(lane).replace("_", " ").to_upper()))
 	return SemanticColorPaletteScript.marked_lane_name(display, lane, _color_vision_mode)
@@ -2273,16 +2309,20 @@ func _lane_color(lane: StringName) -> Color:
 
 
 func _assignment_tooltip(lane: StringName) -> String:
-	var base := "Assign this peckwork tray."
+	var full_label := String(LANE_NAMES.get(
+		lane,
+		String(lane).replace("_", " ").to_upper(),
+	))
+	var base := "%s. Assign this peckwork tray." % full_label
 	match lane:
 		&"auto":
-			return "Pull the most urgent file, favoring this hen's specialty when deadlines allow. AUTO uses standard handling until management files a claimant path."
+			return "%s. Pull the most urgent file, favoring this hen's specialty when deadlines allow. AUTO uses standard handling until management files a claimant path." % full_label
 		&"nest_damage":
-			base = "Pull only routine nest and coop property files."
+			base = "%s. Pull only routine nest and coop property files." % full_label
 		&"predator_loss":
-			base = "Pull only time-sensitive predator and loss files."
+			base = "%s. Pull only time-sensitive predator and loss files." % full_label
 		&"appeals":
-			base = "Pull only complex appeals and exception files."
+			base = "%s. Pull only complex appeals and exception files." % full_label
 	var catalog := _snapshot.get("routing_catalog", []) as Array
 	for entry_value in catalog:
 		var entry := entry_value as Dictionary

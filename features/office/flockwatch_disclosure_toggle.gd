@@ -12,6 +12,7 @@ signal disclosure_changed(expanded: bool)
 
 var _label := "FILE"
 var _summary := ""
+var _detail := ""
 var _targets: Array[Control] = []
 var _expanded := false
 
@@ -38,13 +39,23 @@ func configure(
 	if _label.is_empty():
 		_label = "FILE"
 	_summary = summary.strip_edges().to_upper()
+	_detail = ""
 	_targets = targets.duplicate()
 	set_expanded(expanded, false)
 
 
-func set_summary(summary: String) -> void:
+func set_summary(summary: String, detail: String = "") -> void:
 	_summary = summary.strip_edges().to_upper()
+	_detail = detail.strip_edges()
 	_refresh_copy()
+
+
+func accessible_text() -> String:
+	var state := "expanded" if _expanded else "collapsed"
+	var copy := "%s. %s." % [text, state]
+	if not _detail.is_empty():
+		copy += " %s" % _detail
+	return copy
 
 
 func set_expanded(expanded: bool, recover_focus: bool = true) -> void:
@@ -84,11 +95,15 @@ func _refresh_copy() -> void:
 	text = "%s %s" % [verb, _label]
 	if not _summary.is_empty():
 		text += "  /  %s" % _summary
-	tooltip_text = (
+	var action_hint := (
 		"Collapse %s and return focus here." % _label.to_lower()
 		if _expanded else
 		"Expand %s without leaving this Flockwatch page." % _label.to_lower()
 	)
+	tooltip_text = action_hint
+	if not _detail.is_empty():
+		tooltip_text += "\n%s" % _detail
+	set_meta("accessible_text", accessible_text())
 
 
 func _recover_focus_from_targets() -> void:

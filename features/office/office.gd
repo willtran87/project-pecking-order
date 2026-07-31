@@ -454,6 +454,10 @@ var _day_review_panel: PanelContainer
 var _day_review_scrim: ColorRect
 var _review_title: Label
 var _review_summary: Label
+var _review_eggs_value: Label
+var _review_net_value: Label
+var _review_fund_value: Label
+var _review_next_value: Label
 var _review_results: Label
 var _review_details_toggle: Button
 var _review_details_scroll: ScrollContainer
@@ -466,6 +470,9 @@ var _decision_panel: PanelContainer
 var _decision_eyebrow: Label
 var _decision_title: Label
 var _decision_body: Label
+var _decision_order_glance: GridContainer
+var _decision_order_values: Array[Label] = []
+var _decision_order_captions: Array[Label] = []
 var _decision_options: GridContainer
 var _decision_preview: Label
 var _decision_confirm_button: Button
@@ -585,6 +592,8 @@ func _ready() -> void:
 	_boot_mark(&"first_interactive")
 	if "--capture-decision" in OS.get_cmdline_user_args() or "--capture-decision" in OS.get_cmdline_args():
 		_capture_decision_preview()
+	elif "--capture-incident-selected" in OS.get_cmdline_user_args() or "--capture-incident-selected" in OS.get_cmdline_args():
+		_capture_incident_preview(true)
 	elif "--capture-incident" in OS.get_cmdline_user_args() or "--capture-incident" in OS.get_cmdline_args():
 		_capture_incident_preview()
 	elif "--capture-petition" in OS.get_cmdline_user_args() or "--capture-petition" in OS.get_cmdline_args():
@@ -593,6 +602,10 @@ func _ready() -> void:
 		_capture_flock_labor_preview()
 	elif "--capture-day-review" in OS.get_cmdline_user_args() or "--capture-day-review" in OS.get_cmdline_args():
 		_capture_day_review_preview()
+	elif "--capture-day-review-details" in OS.get_cmdline_user_args() or "--capture-day-review-details" in OS.get_cmdline_args():
+		_capture_day_review_preview(true)
+	elif "--capture-day-review-max-scale" in OS.get_cmdline_user_args() or "--capture-day-review-max-scale" in OS.get_cmdline_args():
+		_capture_day_review_preview(false, true)
 	elif "--capture-ledger" in OS.get_cmdline_user_args() or "--capture-ledger" in OS.get_cmdline_args():
 		_capture_ledger_preview()
 	elif "--capture-review" in OS.get_cmdline_user_args() or "--capture-review" in OS.get_cmdline_args():
@@ -607,6 +620,8 @@ func _ready() -> void:
 		_capture_first_clutch_reinvestment_preview()
 	elif "--capture-first-hen" in OS.get_cmdline_user_args() or "--capture-first-hen" in OS.get_cmdline_args():
 		_capture_first_hen_preview()
+	elif "--capture-first-hen-policy-selected" in OS.get_cmdline_user_args() or "--capture-first-hen-policy-selected" in OS.get_cmdline_args():
+		_capture_first_hen_policy_preview(true)
 	elif "--capture-first-hen-policy" in OS.get_cmdline_user_args() or "--capture-first-hen-policy" in OS.get_cmdline_args():
 		_capture_first_hen_policy_preview()
 	elif "--capture-peck-assist" in OS.get_cmdline_user_args() or "--capture-peck-assist" in OS.get_cmdline_args():
@@ -619,6 +634,8 @@ func _ready() -> void:
 		_capture_staffing_preview()
 	elif "--capture-internship-ui" in OS.get_cmdline_user_args() or "--capture-internship-ui" in OS.get_cmdline_args():
 		_capture_internship_ui_preview()
+	elif "--capture-internship-review-ui" in OS.get_cmdline_user_args() or "--capture-internship-review-ui" in OS.get_cmdline_args():
+		_capture_internship_review_ui_preview()
 	elif "--capture-internship-fellow-ui" in OS.get_cmdline_user_args() or "--capture-internship-fellow-ui" in OS.get_cmdline_args():
 		_capture_internship_fellow_ui_preview()
 	elif "--capture-intern-dialogue" in OS.get_cmdline_user_args() or "--capture-intern-dialogue" in OS.get_cmdline_args():
@@ -645,6 +662,10 @@ func _ready() -> void:
 		_capture_contract_board_world_preview()
 	elif "--capture-contract-board-ui" in OS.get_cmdline_user_args() or "--capture-contract-board-ui" in OS.get_cmdline_args():
 		_capture_contract_board_ui_preview()
+	elif "--capture-contract-pricing-access-ui" in OS.get_cmdline_user_args() or "--capture-contract-pricing-access-ui" in OS.get_cmdline_args():
+		_capture_contract_pricing_ui_preview(true)
+	elif "--capture-contract-pricing-ui" in OS.get_cmdline_user_args() or "--capture-contract-pricing-ui" in OS.get_cmdline_args():
+		_capture_contract_pricing_ui_preview()
 	elif "--capture-negotiation-board-ui" in OS.get_cmdline_user_args() or "--capture-negotiation-board-ui" in OS.get_cmdline_args():
 		_capture_negotiation_board_ui_preview()
 	elif "--capture-wellness-nest" in OS.get_cmdline_user_args() or "--capture-wellness-nest" in OS.get_cmdline_args():
@@ -866,6 +887,8 @@ func _apply_management_ui_preferences() -> void:
 	var high_contrast := bool(_player_preferences.get("high_contrast", false))
 	_ui_root.theme = ManagementUIThemeScript.create_theme(high_contrast, scale)
 	_apply_explicit_font_scale(_ui_root, scale)
+	if _day_review_panel != null:
+		_set_review_details_expanded(_review_details_expanded)
 	if _environment != null:
 		_environment.adjustment_contrast = 1.16 if high_contrast else 1.08
 		_environment.adjustment_saturation = 1.0 if high_contrast else 0.94
@@ -3859,8 +3882,8 @@ func _build_ui() -> void:
 		requisition_targets.append(upgrade_button)
 		_upgrade_buttons[upgrade_id] = upgrade_button
 	_upgrade_disclosure_toggle.configure(
-		"DESK REQUISITIONS",
-		"3 FILES / NONE READY",
+		"FILES",
+		"3 FILES",
 		requisition_targets,
 		false,
 	)
@@ -4222,7 +4245,7 @@ func _build_day_review_panel() -> void:
 	_review_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(_review_title)
 	var closing_steps := _make_label(
-		"ACCOUNTING  1   /   CREDIT  2   /   DEVELOPMENT  3",
+		"1  RESULT   >   2  CREDIT   >   3  BUILD",
 		12,
 		Color("d8b667"),
 	)
@@ -4230,15 +4253,45 @@ func _build_day_review_panel() -> void:
 	closing_steps.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(closing_steps)
 	content.add_child(HSeparator.new())
-	_review_summary = _make_label("", 17, Color("e7edf0"))
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "FarmerReviewGlanceGrid"
+	glance_grid.columns = 4
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 8)
+	content.add_child(glance_grid)
+	_review_eggs_value = _add_review_stat_tile(
+		glance_grid,
+		"FarmerReviewEggs",
+		"EGGS / TARGET",
+		Color("8fd9b7"),
+	)
+	_review_net_value = _add_review_stat_tile(
+		glance_grid,
+		"FarmerReviewNet",
+		"NET",
+		Color("f4d27b"),
+	)
+	_review_fund_value = _add_review_stat_tile(
+		glance_grid,
+		"FarmerReviewFund",
+		"FEED FUND",
+		Color("9fc9d8"),
+	)
+	_review_next_value = _add_review_stat_tile(
+		glance_grid,
+		"FarmerReviewNext",
+		"NEXT TARGET",
+		Color("c7b5e8"),
+	)
+	_review_summary = _make_label("", 14, Color("e7edf0"))
 	_review_summary.name = "FarmerReviewSummary"
 	_review_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_review_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_review_summary.custom_minimum_size.y = 62.0
+	_review_summary.custom_minimum_size.y = 24.0
 	content.add_child(_review_summary)
 	_review_details_toggle = Button.new()
 	_review_details_toggle.name = "FarmerReviewDetailsToggle"
-	_review_details_toggle.text = "SHOW ACCOUNTING DETAILS"
+	_review_details_toggle.text = "DETAILS"
 	_review_details_toggle.custom_minimum_size.y = 32.0
 	_review_details_toggle.pressed.connect(_on_review_details_toggled)
 	content.add_child(_review_details_toggle)
@@ -4258,11 +4311,11 @@ func _build_day_review_panel() -> void:
 	_review_story = _make_label("", 14, Color("b8c6cb"))
 	_review_story.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_review_story.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_review_story.custom_minimum_size.y = 58.0
-	_review_story.max_lines_visible = 3
+	_review_story.custom_minimum_size.y = 30.0
+	_review_story.max_lines_visible = 2
 	_review_story.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	content.add_child(_review_story)
-	var hint := _make_label("Continue advances the same closing file; requisitions remain optional.", 13, Color("d5bd78"))
+	var hint := _make_label("OPTIONAL: STAFF OR BUILD", 12, Color("d5bd78"))
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(hint)
 	var buttons := HFlowContainer.new()
@@ -4271,13 +4324,14 @@ func _build_day_review_panel() -> void:
 	content.add_child(buttons)
 	var requisitions := Button.new()
 	requisitions.name = "ReviewRequisitionsButton"
-	requisitions.text = "OPEN REQUISITIONS"
+	requisitions.text = "STAFF / CASES"
 	requisitions.custom_minimum_size = Vector2(180.0, 48.0)
+	requisitions.tooltip_text = "Review staffing, training, and named-hen workplace cases."
 	requisitions.pressed.connect(_on_review_requisitions_pressed)
 	buttons.add_child(requisitions)
 	var blueprint := Button.new()
 	blueprint.name = "ReviewCapitalBlueprintButton"
-	blueprint.text = "CAPITAL BLUEPRINT"
+	blueprint.text = "BUILD"
 	blueprint.theme_type_variation = &"PrimaryButton"
 	blueprint.custom_minimum_size = Vector2(190.0, 48.0)
 	blueprint.tooltip_text = "Compare every permanent office project on one spatial capital plan."
@@ -4285,23 +4339,67 @@ func _build_day_review_panel() -> void:
 	buttons.add_child(blueprint)
 	_begin_next_shift_button = Button.new()
 	_begin_next_shift_button.name = "BeginNextShiftButton"
-	_begin_next_shift_button.text = "CONTINUE CLOSING FILE"
+	_begin_next_shift_button.text = "CONTINUE  >"
 	_begin_next_shift_button.theme_type_variation = &"PrimaryButton"
 	_begin_next_shift_button.custom_minimum_size = Vector2(180.0, 48.0)
 	_begin_next_shift_button.pressed.connect(_on_begin_next_shift_pressed)
 	buttons.add_child(_begin_next_shift_button)
 
 
+func _add_review_stat_tile(
+	parent: GridContainer,
+	node_name: String,
+	caption: String,
+	accent: Color,
+) -> Label:
+	var tile := PanelContainer.new()
+	tile.name = "%sTile" % node_name
+	tile.custom_minimum_size = Vector2(150.0, 78.0)
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tile.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("20313b"), 0.98, 8, 1),
+	)
+	parent.add_child(tile)
+	var stack := VBoxContainer.new()
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 1)
+	tile.add_child(stack)
+	var value_label := _make_label("—", 22, accent)
+	value_label.name = "%sValue" % node_name
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(value_label)
+	var caption_label := _make_label(caption, 11, Color("9fb0b7"))
+	caption_label.name = "%sCaption" % node_name
+	caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(caption_label)
+	return value_label
+
+
 func _on_review_details_toggled() -> void:
-	_review_details_expanded = not _review_details_expanded
+	_set_review_details_expanded(not _review_details_expanded)
+
+
+func _set_review_details_expanded(expanded: bool) -> void:
+	_review_details_expanded = expanded
 	if _review_details_scroll != null:
 		_review_details_scroll.visible = _review_details_expanded
 	if _review_details_toggle != null:
 		_review_details_toggle.text = (
-			"HIDE ACCOUNTING DETAILS"
+			"HIDE DETAILS"
 			if _review_details_expanded else
-			"SHOW ACCOUNTING DETAILS"
+			"DETAILS"
 		)
+	if _day_review_panel != null:
+		var interface_scale := float(_player_preferences.get("ui_scale", 1.0))
+		var scale_height_allowance := roundi(maxf(0.0, interface_scale - 1.0) * 50.0)
+		var half_height := (
+			310 + scale_height_allowance
+			if _review_details_expanded else
+			215 + scale_height_allowance
+		)
+		_day_review_panel.offset_top = -float(half_height)
+		_day_review_panel.offset_bottom = float(half_height)
 
 
 func _build_capital_planning_surfaces() -> void:
@@ -4437,6 +4535,7 @@ func _build_decision_modal() -> void:
 	_decision_eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(_decision_eyebrow)
 	_decision_title = _make_label("CHOOSE A RESPONSE", 25, Color("f4e3ae"))
+	_decision_title.name = "DecisionTitle"
 	_decision_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_decision_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_decision_title)
@@ -4445,6 +4544,14 @@ func _build_decision_modal() -> void:
 	_decision_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_decision_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_decision_body)
+	_decision_order_glance = GridContainer.new()
+	_decision_order_glance.name = "DecisionOrderGlance"
+	_decision_order_glance.columns = 3
+	_decision_order_glance.add_theme_constant_override("h_separation", 8)
+	_decision_order_glance.visible = false
+	content.add_child(_decision_order_glance)
+	for order_index in 3:
+		_add_decision_order_tile(order_index)
 	content.add_child(HSeparator.new())
 	_decision_options = GridContainer.new()
 	_decision_options.name = "DecisionOptions"
@@ -4531,6 +4638,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		_decision_eyebrow.text = "CLOSING FILE 2 / 3  ·  %s" % _decision_eyebrow.text
 	_decision_title.text = String(decision.get("title", "CHOOSE A RESPONSE"))
 	_decision_body.text = String(decision.get("body", "A measurable variance requires management attention."))
+	_set_decision_order_glance_visible(false)
 	var case_memory := decision.get("case_memory", {}) as Dictionary
 	if kind == &"incident" and not case_memory.is_empty():
 		_decision_body.text += "\n\n%s // %s\n%s" % [
@@ -4539,25 +4647,31 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			String(case_memory.get("summary", "A prior response changes this case.")),
 		]
 	var decision_category := StringName(decision.get("category", &""))
-	if kind == &"directive" and _first_hen_policy_context_active():
+	var opening_policy := (
+		kind == &"directive"
+		and not _campaign_senior_roost
+		and _campaign_state != null
+		and int(_campaign_state.completed_shifts) == 0
+	)
+	var first_hen_policy := opening_policy and _first_hen_policy_context_active()
+	if first_hen_policy:
 		var first_hen := _first_clutch_worker_snapshot(
 			_simulation.snapshot(),
 			int(_first_clutch.get("target_worker_id", FIRST_HEN_WORKER_ID)),
 		)
 		var first_hen_name := String(first_hen.get("name", "Mabel")).to_upper()
 		var case_docket := _simulation.case_docket_snapshot()
-		_decision_eyebrow.text = "%s'S FIRST FILE  //  FLOCK POLICY  //  %s" % [
+		_decision_eyebrow.text = "%s'S FIRST FILE  //  DAY 1  //  %s" % [
 			first_hen_name,
 			String(case_docket.get("id", "PO-1701")),
 		]
-		_decision_title.text = "CHOOSE THE RULE %s — AND EVERY HEN — WORKS UNDER" % first_hen_name
-		_decision_body.text = (
-			"%s's dossier is open behind this filing. One policy governs her desk and the whole flock today; "
-			+ "its exact production, welfare, and shell consequences remain visible before authorization."
-		) % first_hen_name.capitalize()
+	if opening_policy:
+		_decision_title.text = "PICK TODAY'S FLOCK RULE"
+		_decision_body.text = "One rule shapes every hen this shift. Pick a card to reveal its exact tradeoffs."
+		_configure_decision_order_glance()
 	if kind == &"directive" and not _campaign_senior_roost:
 		var filed_orders := _probation_orders_brief()
-		if not filed_orders.is_empty():
+		if not opening_policy and not filed_orders.is_empty():
 			_decision_body.text += "\n\nTODAY'S 3 ORDERS\n%s" % filed_orders
 	if decision_category == &"flock_petition":
 		var sponsor_worker_id := int(decision.get("sponsor_worker_id", -1))
@@ -4579,6 +4693,8 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	_decision_preview.text = String(decision.get(
 		"selection_prompt",
 		(
+			"Pick a rule. Exact effects and order fit appear here before authorization."
+			if opening_policy else
 			"Each card compares its real effects with today's scored orders. Select one to inspect the exact fit and consequences."
 			if kind == &"directive" else
 			"Choose a response card. The shift remains safely paused until you authorize it."
@@ -4594,7 +4710,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		var option := option_value as Dictionary
 		var option_id := StringName(option.get("id", &""))
 		var label := String(option.get("label", "RESPONSE"))
-		var card_label := String(option.get("short_label", label)) if kind == &"directive" else label
+		var card_label := String(option.get("short_label", label))
 		var tagline := String(option.get("tagline", ""))
 		var preview := String(option.get("preview", "Consequence pending."))
 		if bool(option.get("case_memory_active", false)):
@@ -4631,10 +4747,30 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			72.0 if kind == FIRST_CLUTCH_REINVESTMENT_KIND else
 			(68.0 if decision_category == &"flock_petition" else 58.0)
 		)
+		var option_glance := (
+			"HELPS %d  /  RISKS %d" % [
+				int(order_fit.get("support_count", 0)),
+				int(order_fit.get("risk_count", 0)),
+			]
+			if opening_policy and not order_fit.is_empty() else
+			String(order_fit.get("compact", ""))
+			if kind == &"directive" else
+			""
+		)
+		var authored_glance := String(option.get("glance", ""))
+		if kind == &"incident" and not authored_glance.is_empty():
+			var cost_glance := (
+				"FREE"
+				if cost_cents <= 0 else
+				"$%d COST" % (cost_cents / 100)
+				if cost_cents % 100 == 0 else
+				"$%.2f COST" % (float(cost_cents) / 100.0)
+			)
+			option_glance = "%s  /  %s" % [cost_glance, authored_glance]
 		button.text = "%d  //  %s\n%s" % [
 			option_index + 1,
 			card_label,
-			String(order_fit.get("compact", "")) if not order_fit.is_empty() else (tagline if not tagline.is_empty() else "Select to review terms below."),
+			option_glance if not option_glance.is_empty() else (tagline if not tagline.is_empty() else "Select to review terms below."),
 		]
 		button.set_meta("option_id", option_id)
 		button.set_meta("preview", full_preview)
@@ -4672,8 +4808,8 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			"RESOLVE & RESUME %d×" % int(SimulationClock.SPEED_MULTIPLIERS[_decision_previous_speed])
 		),
 	))
-	if is_directive and _should_hold_first_clutch_orientation():
-		_decision_confirm_button.text = "AUTHORIZE & REVIEW FLOOR"
+	if opening_policy:
+		_decision_confirm_button.text = "AUTHORIZE RULE  >"
 	_decision_host.visible = true
 	_refresh_floor_input_context()
 	# Visibility itself is part of the coach's management-blocked predicate. Refresh
@@ -4699,6 +4835,98 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	_update_guidance(_simulation.snapshot())
 
 
+func _add_decision_order_tile(order_index: int) -> void:
+	var tile := PanelContainer.new()
+	tile.name = "DecisionOrderTile_%d" % order_index
+	tile.custom_minimum_size.y = 70.0
+	tile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tile.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("20313b"), 0.98, 8, 1),
+	)
+	_decision_order_glance.add_child(tile)
+	var stack := VBoxContainer.new()
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 1)
+	tile.add_child(stack)
+	var value := _make_label("-", 19, Color("f1cf79"))
+	value.name = "DecisionOrderValue_%d" % order_index
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(value)
+	_decision_order_values.append(value)
+	var caption := _make_label("ORDER", 10, Color("9fb0b7"))
+	caption.name = "DecisionOrderCaption_%d" % order_index
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(caption)
+	_decision_order_captions.append(caption)
+
+
+func _set_decision_order_glance_visible(visible: bool) -> void:
+	if _decision_order_glance != null:
+		_decision_order_glance.visible = visible
+
+
+func _configure_decision_order_glance() -> void:
+	if _campaign_state == null or _decision_order_glance == null:
+		return
+	var objectives := _campaign_state.current_objectives()
+	for index in _decision_order_values.size():
+		var has_order := index < objectives.size()
+		var value := _decision_order_values[index]
+		var caption := _decision_order_captions[index]
+		var tile := value.get_parent().get_parent() as Control
+		if tile != null:
+			tile.visible = has_order
+		if not has_order:
+			continue
+		var objective := objectives[index] as Dictionary
+		value.text = _probation_order_glance_value(objective)
+		caption.text = "%s  /  +%d" % [
+			String(objective.get("title", "ORDER")).to_upper(),
+			int(objective.get("score_award", 0)),
+		]
+		value.tooltip_text = String(objective.get(
+			"description",
+			"Filed against the closing ledger.",
+		))
+		caption.tooltip_text = value.tooltip_text
+	_set_decision_order_glance_visible(not objectives.is_empty())
+
+
+func _probation_order_glance_value(objective: Dictionary) -> String:
+	var metric := StringName(objective.get("metric", &""))
+	var comparison := StringName(objective.get("comparison", &"minimum"))
+	var target := int(objective.get("target", 0))
+	var target_label := (
+		"%d+" % target
+		if comparison == &"minimum" else
+		"<=%d" % target
+		if comparison == &"maximum" else
+		"=%d" % target
+	)
+	match metric:
+		&"eggs":
+			return "%d+ EGGS" % target
+		&"crack_rate_basis_points":
+			return "CRACKS <=%d%%" % roundi(float(target) / 100.0)
+		&"welfare":
+			return "WELFARE %s" % target_label
+		&"compliance":
+			return "COMPLIANCE %s" % target_label
+		&"farmer_favor":
+			return "FAVOR %s" % target_label
+		&"overdue_files":
+			return "OVERDUE %s" % target_label
+		&"rework":
+			return "REWORK %s" % target_label
+		&"quota_met":
+			return "MEET QUOTA"
+		_:
+			return String(objective.get("title", "ORDER")).to_upper()
+
+
 func _probation_orders_brief() -> String:
 	if _campaign_state == null:
 		return ""
@@ -4710,6 +4938,44 @@ func _probation_orders_brief() -> String:
 			int(objective.get("score_award", 0)),
 		])
 	return "\n".join(lines)
+
+
+func _probation_orders_accessibility_brief() -> String:
+	if _campaign_state == null:
+		return "none filed."
+	var lines: Array[String] = []
+	for objective in _campaign_state.current_objectives():
+		lines.append("%s, %s, worth %d score" % [
+			String(objective.get("title", "Probation order")),
+			String(objective.get("description", "filed against the closing ledger.")),
+			int(objective.get("score_award", 0)),
+		])
+	return "; ".join(lines) + "."
+
+
+func _directive_choices_accessibility_brief() -> String:
+	var lines: Array[String] = []
+	for option_value in _active_decision.get("options", []):
+		var option := option_value as Dictionary
+		var fit := _directive_order_fit(StringName(option.get("id", &"")))
+		lines.append("%s helps %d and risks %d orders" % [
+			String(option.get("short_label", option.get("label", "Policy"))),
+			int(fit.get("support_count", 0)),
+			int(fit.get("risk_count", 0)),
+		])
+	return "; ".join(lines) + "."
+
+
+func _decision_choices_accessibility_brief() -> String:
+	var lines: Array[String] = []
+	for option_value in _active_decision.get("options", []):
+		var option := option_value as Dictionary
+		lines.append("%s. %s %s" % [
+			String(option.get("label", "Response")),
+			String(option.get("tagline", "")),
+			String(option.get("preview", "Consequence pending.")),
+		])
+	return "; ".join(lines)
 
 
 func _directive_order_fit(directive_id: StringName) -> Dictionary:
@@ -5141,26 +5407,34 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			String(personnel_action.get("worker_name", "HEN")).to_upper(),
 			String(personnel_action.get("action_name", "CHECK-IN")).to_upper(),
 		]
-	_review_title.text = "CLOSING FILE 1 / 3  ·  DAY %d  ·  FARMER REVIEW" % int(report.get("day", 1))
-	_review_details_expanded = false
-	if _review_details_scroll != null:
-		_review_details_scroll.visible = false
-	if _review_details_toggle != null:
-		_review_details_toggle.text = "SHOW ACCOUNTING DETAILS"
-	if _review_summary != null:
-		_review_summary.text = (
-			"%s   ·   %d / %d EGGS   ·   %d CRACKED   ·   %d GOLDEN\n"
-			+ "NET %s   ·   FEED FUND $%.2f   ·   NEXT TARGET %d"
-		) % [
-			"TARGET HARVESTED" if met_quota else "TARGET MISSED",
+	_review_title.text = "DAY %d  ·  SHIFT RESULT" % int(report.get("day", 1))
+	_set_review_details_expanded(false)
+	if _review_eggs_value != null:
+		_review_eggs_value.text = "%s  %d / %d" % [
+			"OK" if met_quota else "!",
 			eggs,
 			quota,
-			cracked,
-			golden,
-			operating_net_text,
-			float(closing_fund) / 100.0,
-			int(report.get("next_quota", quota)),
 		]
+		_review_eggs_value.add_theme_color_override(
+			"font_color",
+			Color("8fd9b7") if met_quota else Color("f3aa80"),
+		)
+	if _review_net_value != null:
+		_review_net_value.text = operating_net_text
+		_review_net_value.add_theme_color_override(
+			"font_color",
+			Color("8fd9b7") if operating_net >= 0 else Color("f3aa80"),
+		)
+	if _review_fund_value != null:
+		_review_fund_value.text = "$%.2f" % (float(closing_fund) / 100.0)
+	if _review_next_value != null:
+		_review_next_value.text = str(int(report.get("next_quota", quota)))
+	if _review_summary != null:
+		_review_summary.text = (
+			"OK  CLEAN SHELLS   /   * %d GOLDEN" % golden
+			if cracked == 0 else
+			"! %d CRACKED   /   * %d GOLDEN" % [cracked, golden]
+		)
 	_review_results.text = "%s\n%d / %d eggs  ·  %d cracked  ·  %d golden\nPolicy: %s\nIncident files: %s\nCheck-in: %s  ·  avg trust %d  ·  avg grievance %d\nFiles: N%d  ·  P%d  ·  A%d  ·  %d overdue  ·  %d rework\nArchive: %d / %d live  ·  %d turned away  ·  est. $%.2f file value missed\nIncome: Production credit +$%.2f  ·  Quota bonus +$%.2f  ·  Quality bonus +$%.2f\nCosts: Feed -$%.2f  ·  Payroll -$%.2f  ·  Facilities -$%.2f\nNet operating %s  ·  Closing Feed Fund $%.2f  ·  Wage arrears $%.2f" % [
 		("TARGET HARVESTED" if met_quota else "TARGET MISSED"),
 		eggs, quota, cracked, golden,
@@ -5440,34 +5714,49 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	if not flock_ledger_entries.is_empty():
 		_review_results.text += "\nFlock ledger: %s" % "  ·  ".join(flock_ledger_entries)
 		_review_results.tooltip_text += "\n\n" + "\n".join(flock_ledger_details)
-	_review_story.text = (
-		"The farmer credits decisive leadership and announces tomorrow's improved target: %d eggs."
-		if met_quota else
-		"The farmer identifies a temporary flock-attitude variance. Tomorrow's adjusted target is %d eggs."
-	) % int(report.get("next_quota", quota))
-	if not personnel_action.is_empty():
-		_review_story.text += "\nPersonnel ledger: %s" % String(personnel_action.get("outcome", "Check-in filed."))
+	var review_highlight := "OK  SHIFT FILED"
 	if not flock_relations_filings.is_empty():
 		var story_case := flock_relations_filings[0] as Dictionary
-		_review_story.text += "\nFlock Relations: %s filed %s. Open Requisitions to choose whether the Feed Fund pays, management mediates, or the case becomes another performance file." % [
-			String(story_case.get("worker_name", "A hen")),
-			String(story_case.get("title", "a workplace grievance")).to_lower(),
+		review_highlight = "! CASE  ·  %s  /  %s" % [
+			String(story_case.get("worker_name", "HEN")).to_upper(),
+			String(story_case.get("title", "WORKPLACE CASE")).to_upper(),
 		]
-	if provisions_spoiled > 0:
-		_review_story.text += "\nFlock Provisions: %d scoop%s expired; management records the loss as a successful demand forecast rehearsal." % [
+	elif provisions_spoiled > 0:
+		review_highlight = "! %d FEED SCOOP%s EXPIRED" % [
 			provisions_spoiled,
-			"" if provisions_spoiled == 1 else "s",
+			"" if provisions_spoiled == 1 else "S",
 		]
-	if not closing_leader.is_empty():
-		_review_story.text += "\nPecking Order #1: %s  ·  %d eggs  ·  $%.2f credited." % [
+	elif not personnel_action.is_empty():
+		review_highlight = "+  CHECK-IN  ·  %s" % personnel_line
+	elif not closing_leader.is_empty():
+		review_highlight = "*  %s LED  ·  %d EGGS  ·  +$%.2f" % [
 			String(closing_leader.get("worker_name", "HEN")).to_upper(),
 			int(closing_leader.get("eggs", 0)),
 			float(int(closing_leader.get("credit_cents", 0))) / 100.0,
 		]
+	_review_story.text = review_highlight
+	if not personnel_action.is_empty():
+		_review_results.text += "\nPersonnel outcome: %s" % String(
+			personnel_action.get("outcome", "Check-in filed.")
+		)
+	if not flock_relations_filings.is_empty():
+		var detailed_case := flock_relations_filings[0] as Dictionary
+		_review_results.text += (
+			"\nFlock Relations action: Open Staff / Cases to resolve %s's %s."
+			% [
+				String(detailed_case.get("worker_name", "hen")),
+				String(detailed_case.get("title", "workplace case")).to_lower(),
+			]
+		)
+	if provisions_spoiled > 0:
+		_review_results.text += (
+			"\nFlock Provisions outcome: %d scoop%s expired."
+			% [provisions_spoiled, "" if provisions_spoiled == 1 else "s"]
+		)
 	if _begin_next_shift_button != null:
 		var memo_kind := StringName(report.get("credit_memo_kind", &""))
 		var memo_id := StringName(report.get("credit_memo_id", &""))
-		_begin_next_shift_button.text = "CONTINUE CLOSING FILE"
+		_begin_next_shift_button.text = "CONTINUE  >"
 		_begin_next_shift_button.tooltip_text = (
 			"Next: restructuring credit file."
 			if memo_id == &"flock_restructuring" else
@@ -11248,6 +11537,7 @@ func _pending_decision_diagnostic_state() -> Dictionary:
 			"id": String(option.get("id", "")),
 			"label": String(option.get("label", "RESPONSE")),
 			"short_label": String(option.get("short_label", option.get("label", "RESPONSE"))),
+			"glance": String(option.get("glance", "")),
 			"tagline": String(option.get("tagline", "")),
 			"preview": String(option.get("preview", "Consequence pending.")),
 			"tone": String(option.get("tone", "")),
@@ -11442,11 +11732,31 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 		var selection := ""
 		if not _selected_decision_option.is_empty():
 			selection = " Selected response: %s." % String(_selected_decision_option).replace("_", " ")
-		return _web_accessibility_text(
-			"%s. %s%s Objective: choose a response, review its disclosed consequence, then authorize or stay paused."
+		var opening_policy_context := (
+			StringName(_active_decision.get("kind", &"")) == &"directive"
+			and not _campaign_senior_roost
+			and _campaign_state != null
+			and int(_campaign_state.completed_shifts) == 0
+		)
+		var choice_context := (
+			" Today's orders: %s Choices: %s"
 			% [
-				String(_active_decision.get("title", "Decision required")),
-				String(_active_decision.get("body", "")),
+				_probation_orders_accessibility_brief(),
+				_directive_choices_accessibility_brief(),
+			]
+			if opening_policy_context else
+			" Choices: %s." % _decision_choices_accessibility_brief()
+		)
+		return _web_accessibility_text(
+			"%s. %s%s%s Objective: choose a response, review its disclosed consequence, then authorize or stay paused."
+			% [
+				_decision_title.text if _decision_title != null else String(
+					_active_decision.get("title", "Decision required")
+				),
+				_decision_body.text if _decision_body != null else String(
+					_active_decision.get("body", "")
+				),
+				choice_context,
 				selection,
 			],
 			1800,
@@ -11489,13 +11799,22 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 		)
 	if _day_review_scrim != null and _day_review_scrim.visible:
 		return _web_accessibility_text(
-			"%s. %s %s Objective: review the close-of-shift result, then continue."
+			(
+				"%s. Eggs versus target: %s. Net: %s. Feed Fund: %s. "
+				+ "Next target: %s. %s. %s. Accounting details: %s "
+				+ "Objective: review the close-of-shift result, then continue."
+			)
 			% [
 				_review_title.text if _review_title != null else "Farmer review",
+				_review_eggs_value.text if _review_eggs_value != null else "",
+				_review_net_value.text if _review_net_value != null else "",
+				_review_fund_value.text if _review_fund_value != null else "",
+				_review_next_value.text if _review_next_value != null else "",
 				_review_summary.text if _review_summary != null else "",
+				_review_story.text if _review_story != null else "",
 				_review_results.text if _review_results != null else "",
 			],
-			2200,
+			2400,
 		)
 	var title_open := (
 		_campaign_ui != null
@@ -11524,12 +11843,24 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 		)
 	var first_clutch := _first_clutch_coach_snapshot(snapshot)
 	if bool(first_clutch.get("visible", false)):
+		var route_choices := ""
+		if (
+			StringName(first_clutch.get("stage", &"")) == &"specialty_route"
+			and _routing_ui != null
+			and _routing_ui.has_method("routing_choices_accessible_text")
+		):
+			var choices_text := String(_routing_ui.call(
+				"routing_choices_accessible_text",
+			))
+			if not choices_text.is_empty():
+				route_choices = " Route choices: %s." % choices_text
 		return _web_accessibility_text(
-			"First Clutch, step %d. %s. %s Objective: %s"
+			"First Clutch, step %d. %s. %s%s Objective: %s"
 			% [
 				int(first_clutch.get("progress", 0)),
 				String(first_clutch.get("title", "Orientation")),
 				String(first_clutch.get("guidance", "")),
+				route_choices,
 				String(first_clutch.get("title", "complete the highlighted action")).to_lower(),
 			],
 			1600,
@@ -13399,9 +13730,12 @@ func _refresh_upgrade_disclosure(snapshot: Dictionary) -> void:
 		elif not button.disabled:
 			ready_count += 1
 	_upgrade_disclosure_toggle.set_summary(
-		"%d READY / %d COMPLETE" % [ready_count, complete_count]
-		if ready_count + complete_count > 0 else
-		"%d FILES / NONE READY" % file_count
+		"%d READY" % ready_count if ready_count > 0 else "%d FILES" % file_count,
+		"Desk requisitions: %d total, %d ready, %d complete." % [
+			file_count,
+			ready_count,
+			complete_count,
+		],
 	)
 	var actionable := ready_count > 0
 	if actionable and not _had_actionable_upgrade:
@@ -14462,12 +14796,21 @@ func _capture_decision_preview() -> void:
 	_save_preview("morning_directive.png")
 
 
-func _capture_incident_preview() -> void:
+func _capture_incident_preview(selected := false) -> void:
 	_prepare_capture_running()
 	_simulation.minute_of_day = DepartmentSimulation.INCIDENT_MINUTES[0] - DepartmentSimulation.MINUTES_PER_TICK
 	_simulation.advance_tick()
+	if selected:
+		await get_tree().process_frame
+		var option := find_child("DecisionOption_spreadsheet", true, false) as Button
+		if option != null:
+			option.pressed.emit()
 	await get_tree().create_timer(0.8).timeout
-	_save_preview("incident_decision.png")
+	_save_preview(
+		"incident_decision_selected.png"
+		if selected else
+		"incident_decision.png"
+	)
 
 
 func _capture_petition_preview() -> void:
@@ -14553,7 +14896,7 @@ func _capture_capacity_commissioning_preview() -> void:
 	_save_preview("capacity_commissioning.png")
 
 
-func _capture_day_review_preview() -> void:
+func _capture_day_review_preview(expand_details := false, max_interface_scale := false) -> void:
 	_prepare_capture_running()
 	await get_tree().create_timer(0.8).timeout
 	_simulation.perform_personnel_action(0, &"share_credit")
@@ -14564,7 +14907,19 @@ func _capture_day_review_preview() -> void:
 	_simulation._incident_slot = DepartmentSimulation.INCIDENT_MINUTES.size()
 	_simulation.advance_tick()
 	await get_tree().create_timer(0.65).timeout
-	_save_preview("day_review.png")
+	if expand_details:
+		_set_review_details_expanded(true)
+		await get_tree().process_frame
+	if max_interface_scale:
+		_player_preferences["ui_scale"] = 1.5
+		_apply_management_ui_preferences()
+		await get_tree().process_frame
+		await get_tree().process_frame
+	_save_preview(
+		"day_review_details.png"
+		if expand_details else
+		("day_review_max_scale.png" if max_interface_scale else "day_review.png")
+	)
 
 
 func _capture_feed_party_preview() -> void:
@@ -14708,14 +15063,23 @@ func _capture_first_hen_preview() -> void:
 	_save_preview("first_hen_prelude.png")
 
 
-func _capture_first_hen_policy_preview() -> void:
+func _capture_first_hen_policy_preview(selected := false) -> void:
 	var player_store = _campaign_store
 	_campaign_store = CampaignSaveStoreScript.new("first_hen_policy_capture.json")
 	_on_campaign_new_requested()
 	_open_first_hen_file(FIRST_HEN_WORKER_ID)
 	_campaign_store = player_store
+	if selected:
+		await get_tree().process_frame
+		var option := find_child("DecisionOption_record_harvest", true, false) as Button
+		if option != null:
+			option.pressed.emit()
 	await get_tree().create_timer(0.85).timeout
-	_save_preview("first_hen_policy.png")
+	_save_preview(
+		"first_hen_policy_selected.png"
+		if selected else
+		"first_hen_policy.png"
+	)
 
 
 func _capture_peck_assist_preview() -> void:
@@ -14811,6 +15175,46 @@ func _capture_internship_ui_preview() -> void:
 		scroll.scroll_vertical = maxi(0, int(component_offset))
 	await get_tree().create_timer(0.65).timeout
 	_save_preview("bright_eyed_rotation.png")
+
+
+func _capture_internship_review_ui_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 2
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 50_000)
+	var onboard := _simulation.onboard_intern(&"lottie_ledger")
+	if not bool(onboard.get("accepted", false)):
+		push_error(
+			"Intern review capture could not onboard Lottie: %s"
+			% String(onboard.get("reason", "unknown reason"))
+		)
+		get_tree().quit(1)
+		return
+	var internship_state := _simulation.get("_internship_program") as InternshipProgramState
+	for completed_day in [2, 3, 4]:
+		internship_state.complete_shift(completed_day)
+	_simulation.day = 5
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_FLOCK)
+	var internship_ui := find_child("InternshipProgramUI", true, false) as InternshipProgramUI
+	if internship_ui != null:
+		internship_ui.set_expanded(true)
+	await get_tree().process_frame
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_FLOCK)
+	if scroll != null and internship_ui != null:
+		var component_offset := (
+			internship_ui.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 24.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("bright_eyed_review.png")
 
 
 func _capture_internship_fellow_ui_preview() -> void:
@@ -15184,6 +15588,50 @@ func _capture_contract_board_ui_preview() -> void:
 		board_ui.call("_on_offer_pressed", &"homestead_stability_binder")
 	await get_tree().create_timer(0.65).timeout
 	_save_preview("farm_mutual_contract_board_ui.png")
+
+
+func _capture_contract_pricing_ui_preview(access_rate := false) -> void:
+	_prepare_capture_running()
+	_simulation.day = 3
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = maxi(_simulation.revenue_cents, 100_000)
+	_simulation.market_contracts_signed_total = 4
+	_simulation.market_contracts_succeeded_total = 4
+	_simulation.market_pricing_outcomes["community_access_rate_success"] = 1
+	_simulation.market_pricing_outcomes["executive_select_rate_success"] = 3
+	_on_snapshot_changed(_simulation.snapshot())
+	_campaign_review_stage = &"contract_board"
+	_campaign_ui.show_contract_board(_simulation.snapshot())
+	_set_campaign_modal_open(true)
+	var board_ui := _campaign_ui.contract_board_ui()
+	var scroll: ScrollContainer
+	var pricing_heading: Control
+	if board_ui != null:
+		board_ui.call("_on_offer_pressed", &"homestead_stability_binder")
+		if access_rate:
+			board_ui.call("_on_pricing_pressed", &"community_access_rate")
+	await get_tree().process_frame
+	if board_ui != null:
+		scroll = board_ui.find_child("ContractBoardScroll", true, false) as ScrollContainer
+		pricing_heading = board_ui.find_child(
+			"ContractPricingHeading",
+			true,
+			false,
+		) as Control
+	if scroll != null and pricing_heading != null:
+		scroll.ensure_control_visible(pricing_heading)
+		scroll.scroll_vertical = mini(
+			scroll.scroll_vertical + 300,
+			roundi(scroll.get_v_scroll_bar().max_value),
+		)
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview(
+		"farm_mutual_contract_pricing_access_ui.png"
+		if access_rate else
+		"farm_mutual_contract_pricing_ui.png"
+	)
 
 
 func _capture_negotiation_board_ui_preview() -> void:
@@ -16211,6 +16659,21 @@ func _save_preview(file_name: String) -> void:
 	if OS.has_feature("web"):
 		return
 	var capture_directory := ProjectSettings.globalize_path("res://captures")
+	for argument in OS.get_cmdline_user_args() + OS.get_cmdline_args():
+		var argument_text := String(argument)
+		if not argument_text.begins_with("--capture-dir="):
+			continue
+		var requested_directory := argument_text.trim_prefix("--capture-dir=").strip_edges()
+		if requested_directory.is_empty():
+			continue
+		capture_directory = (
+			requested_directory
+			if requested_directory.is_absolute_path() else
+			ProjectSettings.globalize_path(
+				"res://%s" % requested_directory.trim_prefix("./")
+			)
+		)
+		break
 	DirAccess.make_dir_recursive_absolute(capture_directory)
 	var image := get_viewport().get_texture().get_image()
 	if image == null:

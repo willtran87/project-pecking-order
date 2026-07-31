@@ -8,6 +8,7 @@ func _init() -> void:
 	var failures: Array[String] = []
 	_test_rate_postures_change_volume_price_and_margin(failures)
 	_test_claimant_sentiment_and_reach_unlock_future_terms(failures)
+	_test_executive_select_spends_and_requires_claimant_trust(failures)
 	_test_settlement_updates_sentiment_reach_and_share(failures)
 	_test_pricing_signature_and_checkpoint_integrity(failures)
 	if not failures.is_empty():
@@ -15,7 +16,7 @@ func _init() -> void:
 			push_error("MARKET_PRICING_ECONOMY_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("MARKET_PRICING_ECONOMY_TEST_PASSED postures=3 volume=4-6 satisfaction=ledger reach=unlock margin=exact")
+	print("MARKET_PRICING_ECONOMY_TEST_PASSED postures=3 volume=4-6 satisfaction=renewable-gate reach=unlock margin=exact")
 	quit(0)
 
 
@@ -61,6 +62,58 @@ func _test_claimant_sentiment_and_reach_unlock_future_terms(failures: Array[Stri
 	)
 	_check(bool(select.get("pricing_available", false)), "earned reach should unlock Executive Select", failures)
 	_check(bool(select.get("can_sign", false)), "the reached premium tier should pass an otherwise-clear preflight", failures)
+
+
+func _test_executive_select_spends_and_requires_claimant_trust(
+	failures: Array[String],
+) -> void:
+	var simulation := _review_simulation(21109)
+	simulation.market_contracts_signed_total = 4
+	simulation.market_contracts_succeeded_total = 4
+	simulation.market_pricing_outcomes["community_access_rate_success"] = 1
+	simulation.market_pricing_outcomes["executive_select_rate_success"] = 3
+	var status := simulation.market_pricing_status()
+	_check(
+		int(status.get("reach_points", -1)) == 3
+		and int(status.get("claimant_satisfaction", -1)) == 48
+		and int(status.get("executive_select_satisfaction_minimum", -1)) == 50,
+		"three premium successes should retain reach but spend claimant sentiment below the renewable gate",
+		failures,
+	)
+	var held := simulation.market_contract_offer_preflight(
+		OFFER, &"standard_terms", &"executive_select_rate"
+	)
+	_check(
+		not bool(held.get("pricing_available", true))
+		and not bool(held.get("can_sign", true))
+		and int(held.get("pricing_required_satisfaction", -1)) == 50
+		and int(held.get("pricing_current_satisfaction", -1)) == 48
+		and "claimant sentiment of 50" in String(held.get("reason", "")).to_lower()
+		and "community access" in String(held.get("reason", "")).to_lower(),
+		"Executive Select should close after consuming trust and explain the exact recovery route",
+		failures,
+	)
+	_check(
+		bool(simulation.market_contract_offer_preflight(
+			OFFER, &"standard_terms", &"mutual_rate"
+		).get("can_sign", false))
+		and bool(simulation.market_contract_offer_preflight(
+			OFFER, &"standard_terms", &"community_access_rate"
+		).get("can_sign", false)),
+		"Mutual and Community Access should remain available to rebuild claimant trust",
+		failures,
+	)
+	simulation.market_pricing_outcomes["community_access_rate_success"] = 2
+	var reopened := simulation.market_contract_offer_preflight(
+		OFFER, &"standard_terms", &"executive_select_rate"
+	)
+	_check(
+		simulation.claimant_satisfaction_score() == 52
+		and bool(reopened.get("pricing_available", false))
+		and bool(reopened.get("can_sign", false)),
+		"a fulfilled Community Access binder should renew trust and reopen the premium tier",
+		failures,
+	)
 
 
 func _test_pricing_signature_and_checkpoint_integrity(failures: Array[String]) -> void:
@@ -165,6 +218,17 @@ func _test_settlement_updates_sentiment_reach_and_share(failures: Array[String])
 	_check(
 		executive_restored.restore_save_state(executive_checkpoint),
 		"a reached Executive Select binder should survive checkpoint validation",
+		failures,
+	)
+	var tampered_executive := executive_checkpoint.duplicate(true)
+	var tampered_contract := (
+		(tampered_executive.get("active_market_contract", {}) as Dictionary).duplicate(true)
+	)
+	tampered_contract["pricing_required_satisfaction"] = 49
+	tampered_executive["active_market_contract"] = tampered_contract
+	_check(
+		not DepartmentSimulation.new(21110, 4).restore_save_state(tampered_executive),
+		"a saved premium binder may not weaken its authored claimant-sentiment requirement",
 		failures,
 	)
 

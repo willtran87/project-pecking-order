@@ -58,6 +58,24 @@ func _run() -> void:
 		"pinning Mutual reach should immediately select an exact Records watch",
 		failures,
 	)
+	var trust_spent := DepartmentSimulation.new(27_704, 4)
+	trust_spent.market_contracts_signed_total = 4
+	trust_spent.market_contracts_succeeded_total = 4
+	trust_spent.market_pricing_outcomes["community_access_rate_success"] = 1
+	trust_spent.market_pricing_outcomes["executive_select_rate_success"] = 3
+	trust_spent.pin_economic_watch(&"market")
+	var trust_watch := (
+		trust_spent.economic_briefing_snapshot().get("management_watch", {})
+		as Dictionary
+	).get("selected", {}) as Dictionary
+	_check(
+		String(trust_watch.get("status_label", "")) == "CLAIMANT TRUST LOW"
+		and String(trust_watch.get("current_label", "")).contains("48 SENTIMENT")
+		and String(trust_watch.get("target_label", "")).contains("50 SENTIMENT")
+		and String(trust_watch.get("why", "")).contains("rebuild"),
+		"the Mutual Reach watch should diagnose spent claimant trust and name its recovery",
+		failures,
+	)
 
 	var checkpoint := simulation.export_save_state()
 	var restored := DepartmentSimulation.new(27_702, 4)
@@ -106,6 +124,16 @@ func _run() -> void:
 		true,
 		false,
 	) as VBoxContainer
+	var watch_glance := ui.find_child(
+		"EconomicBriefingWatchGlance",
+		true,
+		false,
+	) as Label
+	var watch_detail := ui.find_child(
+		"EconomicBriefingWatch",
+		true,
+		false,
+	) as Label
 	var requested_watch: Array[StringName] = []
 	var requested_page: Array[StringName] = []
 	ui.economic_watch_requested.connect(
@@ -126,6 +154,14 @@ func _run() -> void:
 		watch_actions != null
 		and watch_actions.get_combined_minimum_size().x <= 272.0,
 		"the selector and deep link should stack inside the minimum Flockwatch width",
+		failures,
+	)
+	_check(
+		watch_glance != null
+		and _contains_all(watch_glance.text, ["MUTUAL REACH", "->"])
+		and watch_detail != null
+		and not watch_detail.is_visible_in_tree(),
+		"the default watch should show only its concern and target while folding the rationale",
 		failures,
 	)
 	if selector != null and feed_index >= 0:
@@ -159,7 +195,8 @@ func _run() -> void:
 		return
 	print(
 		"ECONOMIC_MANAGEMENT_WATCH_TEST_PASSED choices=6 pin=exact "
-		+ "checkpoint=durable tamper=atomic legacy=auto ui=select+deep-link accessible=complete"
+		+ "trust=renewable checkpoint=durable tamper=atomic legacy=auto "
+		+ "ui=select+deep-link accessible=complete"
 	)
 	quit(0)
 

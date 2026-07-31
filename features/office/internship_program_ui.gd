@@ -12,6 +12,16 @@ const COLOR_MUTED := Color("aeb8c4")
 const COLOR_INK := Color("f2ead4")
 const COLOR_PANEL := Color("14212b")
 const COLOR_EDGE := Color("56766f")
+const ASSIGNMENT_GLANCE_LABELS := {
+	&"guided_shadow": "GUIDED  /  +1 FILE  /  SAFE",
+	&"stretch_project": "STRETCH  /  +2 FILES  /  +1% RISK",
+	&"culture_sprint": "CULTURE  /  -10% MORALE DRAIN",
+}
+const REVIEW_GLANCE_LABELS := {
+	&"growth_extension": "EXTEND\n$1",
+	&"recommendation_letter": "LETTER\nFREE",
+	&"paid_fellowship": "HIRE\n$8+$2/D",
+}
 const PORTRAITS := {
 	&"intern_lottie": preload("res://assets/npcs/intern-lottie-ledger/portraits/lottie-ledger_portrait_eager.png"),
 	&"intern_chip": preload("res://assets/npcs/intern-chip-chirper/portraits/chip-chirper_portrait_optimistic.png"),
@@ -108,11 +118,15 @@ func _refresh() -> void:
 	var unlocked := bool(_snapshot.get("unlocked", false))
 	if not unlocked:
 		var unlock_day := int(_snapshot.get("unlock_day", 2))
-		_summary_label.text = (
+		_summary_label.text = "OPENS DAY %d" % unlock_day
+		_summary_label.tooltip_text = (
 			"The university partnership begins on Day %d. Corporate has already reserved the word opportunity."
 			% unlock_day
 		)
-		_effects_label.text = "No intern labor, capacity, quality risk, or fellowship cost is active."
+		_effects_label.text = "FILES +0  /  WORK +0%  /  RISK +0%  /  PAY $0/DAY"
+		_effects_label.tooltip_text = (
+			"No intern labor, capacity, quality risk, or fellowship cost is active."
+		)
 		_toggle_button.text = "COHORT OPENS DAY %d" % unlock_day
 		_toggle_button.disabled = true
 		_candidate_list.visible = false
@@ -120,18 +134,20 @@ func _refresh() -> void:
 	var active_count := int(_snapshot.get("active_count", 0))
 	var seat_limit := int(_snapshot.get("seat_limit", 1))
 	var fellow_count := int(_snapshot.get("fellow_count", 0))
-	_summary_label.text = (
-		"%d / %d supervised rotations  /  %d paid fellow%s"
-		% [
-			active_count,
-			seat_limit,
-			fellow_count,
-			"" if fellow_count == 1 else "s",
-		]
-	)
+	_summary_label.text = "SEATS %d/%d  /  FELLOWS %d" % [
+		active_count,
+		seat_limit,
+		fellow_count,
+	]
+	_summary_label.tooltip_text = "%d of %d supervised rotations; %d paid fellow%s." % [
+		active_count,
+		seat_limit,
+		fellow_count,
+		"" if fellow_count == 1 else "s",
+	]
 	var effects := _snapshot.get("effects", {}) as Dictionary
 	_effects_label.text = (
-		"FILED EFFECT  +%d live files  /  +%.1f%% flock work  /  +%.1f%% shell risk  /  morale drain %d%%  /  junior payroll $%.2f/day"
+		"FILES +%d  /  WORK +%.1f%%  /  RISK +%.1f%%  /  MORALE %d%%  /  PAY $%.2f/DAY"
 		% [
 			int(effects.get("claim_capacity_bonus", 0)),
 			float(effects.get("work_basis_points", 0)) / 100.0,
@@ -140,8 +156,18 @@ func _refresh() -> void:
 			float(effects.get("fellow_payroll_cents", 0)) / 100.0,
 		]
 	)
+	_effects_label.tooltip_text = (
+		"Filed cohort effect: +%d live-file capacity, +%.1f%% flock work, "
+		+ "+%.1f%% shell risk, morale drain at %d%%, and $%.2f/day junior payroll."
+	) % [
+		int(effects.get("claim_capacity_bonus", 0)),
+		float(effects.get("work_basis_points", 0)) / 100.0,
+		float(effects.get("crack_basis_points", 0)) / 100.0,
+		roundi(float(effects.get("morale_drain_basis_points", 10_000)) / 100.0),
+		float(effects.get("fellow_payroll_cents", 0)) / 100.0,
+	]
 	_toggle_button.disabled = false
-	_toggle_button.text = "FILE COHORT AWAY" if _expanded else "REVIEW INTERN COHORT"
+	_toggle_button.text = "CLOSE ROSTER" if _expanded else "VIEW ROSTER"
 	_candidate_list.visible = _expanded
 	if not _expanded:
 		return
@@ -156,23 +182,24 @@ func _candidate_card(candidate: Dictionary) -> Control:
 	var card := PanelContainer.new()
 	card.name = "InternCard_%s" % String(candidate.get("candidate_id", "intern"))
 	card.add_theme_stylebox_override("panel", _panel_style())
+	card.tooltip_text = _candidate_profile_tooltip(candidate)
 	var margin := MarginContainer.new()
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_%s" % side, 10)
+		margin.add_theme_constant_override("margin_%s" % side, 8)
 	card.add_child(margin)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 5)
+	column.add_theme_constant_override("separation", 4)
 	margin.add_child(column)
 
 	var identity_row := HBoxContainer.new()
-	identity_row.add_theme_constant_override("separation", 9)
+	identity_row.add_theme_constant_override("separation", 7)
 	column.add_child(identity_row)
 	var portrait := TextureRect.new()
 	portrait.name = "InternPortrait_%s" % String(candidate.get("candidate_id", "intern"))
 	portrait.texture = PORTRAITS.get(
 		StringName(String(candidate.get("portrait_id", &"intern_lottie")))
 	) as Texture2D
-	portrait.custom_minimum_size = Vector2(70.0, 82.0)
+	portrait.custom_minimum_size = Vector2(54.0, 64.0)
 	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -191,30 +218,26 @@ func _candidate_card(candidate: Dictionary) -> Control:
 	role_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	identity_copy.add_child(role_label)
 	var personality := _make_label(
-		"%s  /  %s" % [
-			String(candidate.get("personality_title", "EAGER LEARNER")),
-			String(candidate.get("personality", "")),
-		],
+		String(candidate.get("personality_title", "EAGER LEARNER")),
 		10,
 		COLOR_MUTED,
 	)
 	personality.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	personality.tooltip_text = _candidate_profile_tooltip(candidate)
 	identity_copy.add_child(personality)
 
 	var status := StringName(String(candidate.get("status", &"candidate")))
-	var status_label := _make_label(_status_copy(candidate), 11, _status_color(status))
+	var status_label := _make_label(_status_glance_copy(candidate), 11, _status_color(status))
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_label.tooltip_text = _status_copy(candidate)
 	column.add_child(status_label)
 	match status:
 		&"candidate":
 			var button := Button.new()
-			button.text = "WELCOME TO THE OPPORTUNITY  /  $3.00"
+			button.text = "ONBOARD  /  $3"
 			button.custom_minimum_size.y = 40.0
 			button.disabled = not bool(candidate.get("can_onboard", false))
-			button.tooltip_text = String(candidate.get(
-				"onboard_reason",
-				"File a three-shift supervised rotation.",
-			))
+			button.tooltip_text = _onboard_tooltip(candidate)
 			var candidate_id := StringName(String(candidate.get("candidate_id", "")))
 			button.pressed.connect(func() -> void: onboard_requested.emit(candidate_id))
 			column.add_child(button)
@@ -237,7 +260,7 @@ func _add_assignment_controls(column: VBoxContainer, candidate: Dictionary) -> v
 			continue
 		var assignment := assignment_value as Dictionary
 		var assignment_id := StringName(String(assignment.get("id", "")))
-		selector.add_item(String(assignment.get("label", "LEARNING ROTATION")))
+		selector.add_item(_assignment_glance_label(assignment))
 		selector.set_item_metadata(index, assignment_id)
 		selector.set_item_tooltip(
 			index,
@@ -264,34 +287,41 @@ func _add_assignment_controls(column: VBoxContainer, candidate: Dictionary) -> v
 
 func _add_review_controls(column: VBoxContainer, candidate: Dictionary) -> void:
 	var note := _make_label(
-		"TERM COMPLETE  /  Corporate is ready to decide what the intern learned from being useful.",
+		"TERM COMPLETE  /  CHOOSE NEXT STEP",
 		10,
 		COLOR_BRASS,
 	)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(note)
 	var candidate_id := StringName(String(candidate.get("candidate_id", "")))
+	var choice_grid := GridContainer.new()
+	choice_grid.name = "InternReviewChoices_%s" % String(candidate_id)
+	choice_grid.columns = 3
+	choice_grid.add_theme_constant_override("h_separation", 5)
+	column.add_child(choice_grid)
 	for review_value in _snapshot.get("reviews", []):
 		if not review_value is Dictionary:
 			continue
 		var review := review_value as Dictionary
 		var review_id := StringName(String(review.get("id", "")))
 		var button := Button.new()
-		button.text = String(review.get("label", "FILE TERM REVIEW"))
-		button.custom_minimum_size.y = 38.0
+		button.text = _review_glance_label(review)
+		button.custom_minimum_size.y = 48.0
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.disabled = (
 			not bool(_snapshot.get("planning_open", false))
 			or not bool(review.get("available", true))
 			or not bool(review.get("affordable", true))
 		)
-		button.tooltip_text = "%s\n%s" % [
+		button.tooltip_text = "%s\n%s%s" % [
 			String(review.get("promise", "")),
 			String(review.get("disclosure", "")),
+			_review_held_suffix(review),
 		]
 		button.pressed.connect(
 			func() -> void: review_requested.emit(candidate_id, review_id)
 		)
-		column.add_child(button)
+		choice_grid.add_child(button)
 
 
 func _status_copy(candidate: Dictionary) -> String:
@@ -314,6 +344,69 @@ func _status_copy(candidate: Dictionary) -> String:
 	return "UNFILED"
 
 
+func _status_glance_copy(candidate: Dictionary) -> String:
+	var status := StringName(String(candidate.get("status", &"candidate")))
+	match status:
+		&"candidate":
+			return "AVAILABLE  /  $3  /  3 SHIFTS"
+		&"active":
+			return "ACTIVE  /  %d SHIFT%s LEFT" % [
+				int(candidate.get("term_remaining", 0)),
+				"" if int(candidate.get("term_remaining", 0)) == 1 else "S",
+			]
+		&"review":
+			return "REVIEW DUE"
+		&"completed":
+			return "ALUM  /  RECOMMENDED"
+		&"fellow":
+			return "PAID FELLOW  /  +1 FILE  /  +1% WORK  /  $2/DAY"
+	return "UNFILED"
+
+
+func _candidate_profile_tooltip(candidate: Dictionary) -> String:
+	return "%s. %s %s" % [
+		String(candidate.get("personality", "")),
+		String(candidate.get("hope", "")),
+		String(candidate.get("blind_spot", "")),
+	]
+
+
+func _onboard_tooltip(candidate: Dictionary) -> String:
+	var reason := String(candidate.get("onboard_reason", ""))
+	var exact := (
+		"Start a three-shift supervised rotation for $3.00. The default Guided "
+		+ "Claim Shadow adds +1 live-file capacity and +1% flock work with no "
+		+ "shell-risk change."
+	)
+	return exact if reason.is_empty() else "%s\nHELD: %s" % [exact, reason]
+
+
+func _assignment_glance_label(assignment: Dictionary) -> String:
+	var assignment_id := StringName(String(assignment.get("id", "")))
+	return String(ASSIGNMENT_GLANCE_LABELS.get(
+		assignment_id,
+		String(assignment.get("label", "LEARNING ROTATION")),
+	))
+
+
+func _review_glance_label(review: Dictionary) -> String:
+	var review_id := StringName(String(review.get("id", "")))
+	return String(REVIEW_GLANCE_LABELS.get(
+		review_id,
+		String(review.get("label", "FILE TERM REVIEW")),
+	))
+
+
+func _review_held_suffix(review: Dictionary) -> String:
+	if not bool(_snapshot.get("planning_open", false)):
+		return "\nHELD: Term reviews can only be filed during planning or review."
+	if not bool(review.get("available", true)):
+		return "\nHELD: The single paid fellowship perch is already occupied."
+	if not bool(review.get("affordable", true)):
+		return "\nHELD: The free Feed Fund cannot cover this filing and payroll reserve."
+	return ""
+
+
 func _status_color(status: StringName) -> Color:
 	return COLOR_TEAL if status in [&"active", &"fellow"] else COLOR_MUTED
 
@@ -323,13 +416,43 @@ func _accessible_text() -> String:
 		return ""
 	var lines := PackedStringArray([
 		"BRIGHT-EYED ROTATION",
-		_summary_label.text,
-		_effects_label.text,
+		_summary_label.tooltip_text if not _summary_label.tooltip_text.is_empty() else _summary_label.text,
+		_effects_label.tooltip_text if not _effects_label.tooltip_text.is_empty() else _effects_label.text,
 	])
 	if _expanded:
 		for candidate_value in _snapshot.get("candidates", []):
 			if candidate_value is Dictionary:
-				lines.append(_status_copy(candidate_value as Dictionary))
+				var candidate := candidate_value as Dictionary
+				var status := StringName(String(candidate.get("status", &"candidate")))
+				lines.append("%s. %s. %s. %s" % [
+					String(candidate.get("name", "Office Intern")),
+					String(candidate.get("role", "Bright-Eyed Rotation")),
+					_candidate_profile_tooltip(candidate),
+					_status_copy(candidate),
+				])
+				match status:
+					&"candidate":
+						lines.append(_onboard_tooltip(candidate))
+					&"active":
+						for assignment_value in _snapshot.get("assignments", []):
+							if assignment_value is Dictionary:
+								var assignment := assignment_value as Dictionary
+								lines.append("%s%s. %s %s" % [
+									String(assignment.get("label", "Learning Rotation")),
+									" selected" if StringName(String(assignment.get("id", ""))) == StringName(String(candidate.get("assignment_id", ""))) else "",
+									String(assignment.get("promise", "")),
+									String(assignment.get("disclosure", "")),
+								])
+					&"review":
+						for review_value in _snapshot.get("reviews", []):
+							if review_value is Dictionary:
+								var review := review_value as Dictionary
+								lines.append("%s. %s %s%s" % [
+									String(review.get("label", "Term Review")),
+									String(review.get("promise", "")),
+									String(review.get("disclosure", "")),
+									_review_held_suffix(review),
+								])
 	return "; ".join(lines)
 
 

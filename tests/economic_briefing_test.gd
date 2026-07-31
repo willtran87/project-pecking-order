@@ -152,6 +152,11 @@ func _run() -> void:
 	ui.apply_snapshot(simulation.snapshot())
 	await process_frame
 	var headline := ui.find_child("EconomicBriefingHeadline", true, false) as Label
+	var free_glance := ui.find_child("EconomicBriefingFreeCashGlance", true, false) as Label
+	var margin_glance := ui.find_child("EconomicBriefingMarginGlance", true, false) as Label
+	var break_even_glance := ui.find_child("EconomicBriefingBreakEvenGlance", true, false) as Label
+	var watch_glance := ui.find_child("EconomicBriefingWatchGlance", true, false) as Label
+	var ledger_details := ui.find_child("EconomicBriefingLedgerDetails", true, false) as VBoxContainer
 	var cash_label := ui.find_child("EconomicBriefingCash", true, false) as Label
 	var market_label := ui.find_child("EconomicBriefingMarket", true, false) as Label
 	var bottleneck_label := ui.find_child("EconomicBriefingBottleneck", true, false) as Label
@@ -159,8 +164,16 @@ func _run() -> void:
 	var watch_label := ui.find_child("EconomicBriefingWatch", true, false) as Label
 	var watch_selector := ui.find_child("EconomicBriefingWatchSelector", true, false) as OptionButton
 	var watch_open := ui.find_child("EconomicBriefingWatchOpenButton", true, false) as Button
+	var ledger_toggle := ui.find_child("EconomicBriefingLedgerToggle", true, false) as Button
+	var details_toggle := ui.find_child("EconomicBriefingDetailsToggle", true, false) as Button
 	_check(
 		headline != null and "DAY 1" in headline.text
+		and free_glance != null and _contains_all(free_glance.text, ["FREE", "$20.00"])
+		and margin_glance != null and _contains_all(margin_glance.text, ["MARGIN", "-$30.00"])
+		and break_even_glance != null and _contains_all(break_even_glance.text, ["TO GO", "$30.00"])
+		and watch_glance != null
+		and "!" in watch_glance.text
+		and not "AUTO" in watch_glance.text
 		and cash_label != null and _contains_all(cash_label.text, ["CASH", "RUN RATE", "BREAK-EVEN"])
 		and market_label != null and _contains_all(market_label.text, [
 			"MARKET", "5 DAYS LEFT", "GUARANTEED CALENDAR", "CAUSE",
@@ -171,14 +184,68 @@ func _run() -> void:
 		and watch_selector != null and watch_selector.item_count == 6
 		and watch_open != null and not watch_open.disabled
 		and strategy_label != null and _contains_all(strategy_label.text, ["THROUGHPUT ROOST", "SHELL ASSURANCE", "COUNTERWEIGHT"]),
-		"Capital presentation should retain the compact summary and disclosed strategy detail",
+		"Capital presentation should lead with three glance numbers and one actionable watched condition",
+		failures,
+	)
+	_check(
+		ledger_details != null
+		and not ledger_details.is_visible_in_tree()
+		and not cash_label.is_visible_in_tree()
+		and not market_label.is_visible_in_tree()
+		and not watch_label.is_visible_in_tree(),
+		"exact cash, market, cause, and watch prose should be folded by default",
+		failures,
+	)
+	var bottleneck_count := (briefing.get("bottlenecks", []) as Array).size()
+	var recovery_count := (briefing.get("recovery_actions", []) as Array).size()
+	_check(
+		ledger_toggle != null
+		and ledger_toggle.text == "REVIEW NUMBERS"
+		and not "CASH" in ledger_toggle.text
+		and not "COSTS" in ledger_toggle.text
+		and not "MARKET" in ledger_toggle.text
+		and _contains_all(ledger_toggle.tooltip_text, [
+			"cash", "costs", "market", "bottleneck", "trend", "management watch",
+		])
+		and _contains_all(String(ledger_toggle.get_meta("accessible_text", "")), [
+			"REVIEW NUMBERS", "cash", "costs", "market", "bottleneck",
+		]),
+		"the collapsed ledger should use one plain-language action while retaining its exact scope for hover, focus, and narration",
+		failures,
+	)
+	_check(
+		details_toggle != null
+		and details_toggle.text == "REVIEW PLAN  /  %d ISSUE%s" % [
+			bottleneck_count,
+			"" if bottleneck_count == 1 else "S",
+		]
+		and not "BOTTLENECK" in details_toggle.text
+		and not "RECOVERY" in details_toggle.text
+		and details_toggle.tooltip_text.contains(
+			"%d bottleneck%s and %d recovery path%s" % [
+				bottleneck_count,
+				"" if bottleneck_count == 1 else "s",
+				recovery_count,
+				"" if recovery_count == 1 else "s",
+			]
+		)
+		and String(details_toggle.get_meta("accessible_text", "")).contains(
+			"%d bottleneck%s and %d recovery path%s" % [
+				bottleneck_count,
+				"" if bottleneck_count == 1 else "s",
+				recovery_count,
+				"" if recovery_count == 1 else "s",
+			]
+		),
+		"the collapsed plan should show only the issue count while preserving exact bottleneck and recovery counts for hover, focus, and narration",
 		failures,
 	)
 	_check(
 		_contains_all(ui.accessible_text(), [
-			"RESOURCE MAP", "STRATEGY FILE", "RECOVERY FILE", "TREASURY HEADROOM",
+			"RUN RATE", "CAUSE", "WHY", "ACT", "RESOURCE MAP", "STRATEGY FILE",
+			"RECOVERY FILE", "TREASURY HEADROOM",
 		]),
-		"economic detail should remain available to assistive narration",
+		"folded economic detail should remain complete in assistive narration",
 		failures,
 	)
 	_check(
@@ -188,6 +255,12 @@ func _run() -> void:
 	)
 
 	ui.set_details_expanded(true)
+	ui.set_ledger_expanded(true)
+	_check(
+		ui.ledger_expanded() and ledger_details.is_visible_in_tree(),
+		"the exact ledger should remain available through one explicit disclosure",
+		failures,
+	)
 	_apply_explicit_font_scale(ui, 1.5)
 	_expand_interface_copy(ui)
 	await process_frame

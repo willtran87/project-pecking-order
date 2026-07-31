@@ -68,16 +68,48 @@ func _run() -> void:
 	var action_rail := ui.find_child("ContractBoardActionRail", true, false) as CenterContainer
 	var negotiation_toggle := ui.find_child("ContractNegotiationToggle", true, false) as Button
 	var negotiation_drawer := ui.find_child("ContractNegotiationDrawer", true, false) as PanelContainer
+	var title := ui.find_child("ContractBoardTitle", true, false) as Label
+	var subtitle := ui.find_child("ContractBoardSubtitle", true, false) as Label
+	var availability := ui.find_child("ContractBoardAvailability", true, false) as Label
+	var folder_heading := ui.find_child("ContractFolderSectionTitle", true, false) as Label
+	var selection_hint := ui.find_child("ContractSelectionHint", true, false) as Label
 
 	_check(panel != null and panel.is_visible_in_tree(), "planning snapshot should reveal the Farm Mutual panel", failures)
 	_check(scroll != null and scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "board should own an automatic vertical scroll path", failures)
 	_check(scroll != null and scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "responsive board should never depend on horizontal scrolling", failures)
 	_check(target_day != null and target_day.text == "DAY 3", "board should name the exact next shift", failures)
+	_check(
+		title != null and title.text == "PICK A CLIENT"
+		and subtitle != null and subtitle.text == "Compare files, urgency, reward, and risk."
+		and folder_heading != null and folder_heading.text == "PICK 1-3",
+		"the board should lead with one plain-language decision and one compact comparison cue",
+		failures,
+	)
+	_check(
+		availability != null
+		and availability.text == "OPEN  /  LOSS HELD  /  REWARD EARNED"
+		and _contains_all(availability.tooltip_text, [
+			"exact disclosed breach charge", "premium", "earned only",
+		])
+		and _contains_all(String(availability.get_meta("accessible_text", "")), [
+			"LOSS HELD", "REWARD EARNED", "breach charge", "premium",
+		]),
+		"the planning banner should state the rule at a glance while preserving the exact signature liability",
+		failures,
+	)
 	_check(season_strip != null and season_strip.is_visible_in_tree(), "seasonal planning should reveal one compact season strip", failures)
 	_check(season_label != null and _contains_all(season_label.text, ["season", "hawk migration"]), "season strip should name the canonical current season", failures)
 	_check(season_summary != null and _contains_all(season_summary.text, ["predator", "rush"]), "season strip should state its concise authored effect", failures)
 	_check(accreditation_card != null and accreditation_card.is_visible_in_tree(), "accreditation standing should remain visible before a folder is opened", failures)
 	_check(standing_rank != null and _contains_all(standing_rank.text, ["unlisted", "0 standing"]), "level 0 should print its exact unlisted rank and standing", failures)
+	_check(
+		standing_rank != null
+		and standing_rank.size.x >= 176.0
+		and accreditation_card != null
+		and accreditation_card.size.y < 180.0,
+		"desktop accreditation status should remain a readable line instead of a one-character column",
+		failures,
+	)
 	_check(standing_points != null and standing_points.text == "FARM MUTUAL STANDING  0", "standing should print its exact current points without a vague meter", failures)
 	_check(standing_next != null and _contains_all(standing_next.text, ["next seal at 2", "2 more standing"]), "unlisted standing should disclose the exact Bronze threshold and remaining points", failures)
 	_check(standing_streak != null and _contains_all(standing_streak.text, ["streak  0", "best 0"]), "accreditation should retain current and best clean binder streaks", failures)
@@ -101,8 +133,27 @@ func _run() -> void:
 		_check(button != null and button.custom_minimum_size.y >= 116.0, "folder %d should keep a generous selection target" % (index + 1), failures)
 		_check(button != null and _shortcut_has_key(button, [KEY_1, KEY_2, KEY_3][index]), "folder %d should retain its deterministic numeric shortcut" % (index + 1), failures)
 	_check(
-		_contains_all((offer_buttons[0] as Button).text, ["homestead binder", "nest 4", "rush 1", "+$10.00", "-$5.00"]),
-		"folder summary should expose lane mix, rush volume, premium, and breach without opening it",
+		_contains_all((offer_buttons[0] as Button).text, [
+			"nesting", "5 files", "1 rush", "win +$10.00", "miss -$5.00",
+		])
+		and (offer_buttons[0] as Button).text.split("\n").size() == 3,
+		"folder summary should compare workload, urgency, reward, and loss in three plain-language lines",
+		failures,
+	)
+	_check(
+		_contains_all(String((offer_buttons[0] as Button).get_meta("accessible_text", "")), [
+			"HOMESTEAD STABILITY BINDER", "NEST 4", "PREDATOR 1", "ARRIVALS",
+			"SUCCESS", "PREMIUM", "BREACH", "FLOCK FIT",
+		])
+		and _contains_all((offer_buttons[2] as Button).text, [
+			"appeals", "6 files", "3 rush", "held",
+		])
+		and _contains_all(String((offer_buttons[2] as Button).get_meta("accessible_text", "")), [
+			"APPEALS 4", "SIGNATURE HELD", "2 more empty file roosts",
+		])
+		and selection_hint != null
+		and not selection_hint.is_visible_in_tree(),
+		"compact cards should keep exact lane, schedule, success, liability, staffing, and held-reason detail off the glance layer",
 		failures,
 	)
 
@@ -120,11 +171,53 @@ func _run() -> void:
 	var reserve := ui.find_child("ContractBreachReserve", true, false) as Label
 	var capacity := ui.find_child("ContractCapacityFit", true, false) as Label
 	var reason := ui.find_child("ContractTermReason", true, false) as Label
+	var terms_detail_toggle := ui.find_child(
+		"ContractTermsDetailToggle",
+		true,
+		false,
+	) as Button
+	var terms_detail_group := ui.find_child(
+		"ContractTermsDetailGroup",
+		true,
+		false,
+	) as VBoxContainer
 	_check(selected == [&"predator_watch_pool"], "2 should select only the second stable offer ID", failures)
+	_check(
+		_contains_all((offer_buttons[1] as Button).text, ["predator", "picked"])
+		and selection_hint != null
+		and not selection_hint.is_visible_in_tree(),
+		"the selected card should carry its own non-color state without a redundant instruction line",
+		failures,
+	)
 	_check(sign_requests.is_empty(), "numeric folder selection must never authorize a liability", failures)
 	_check(terms_card != null and terms_card.visible, "selection should open one complete Terms card", failures)
 	_check(sign_button != null and not sign_button.disabled and _shortcut_has_key(sign_button, KEY_ENTER), "selected affordable folder should enable explicit Enter signing", failures)
 	_check(negotiation_toggle != null and negotiation_toggle.visible, "an opened binder with authored clauses should reveal its N negotiation control", failures)
+	_check(
+		terms_detail_toggle != null
+		and terms_detail_group != null
+		and not terms_detail_group.is_visible_in_tree()
+		and terms_detail_toggle.text == "REVIEW DETAILS"
+		and _contains_all(
+			terms_detail_toggle.tooltip_text,
+			["context", "indemnity reserve", "archive", "flock fit"],
+		)
+		and reason != null
+		and not reason.is_visible_in_tree(),
+		"a signable binder should fold redundant reserve, fit, context, and clear-preflight prose",
+		failures,
+	)
+	if terms_detail_toggle != null:
+		terms_detail_toggle.call("set_expanded", true)
+	await process_frame
+	_check(
+		terms_detail_group != null and terms_detail_group.is_visible_in_tree(),
+		"one explicit fine-print disclosure should restore every exact binder detail",
+		failures,
+	)
+	if terms_detail_toggle != null:
+		terms_detail_toggle.call("set_expanded", false)
+	await process_frame
 	_check(root.gui_get_focus_owner() == sign_button, "selection should hand focus to Sign for the safe second step", failures)
 	_check(terms_title != null and terms_title.text == "PREDATOR WATCH POOL", "Terms card should retain the full binder name", failures)
 	_check(lane_mix != null and _contains_all(lane_mix.text, ["nest 1", "predator 5"]), "Terms card should disclose the exact lane mix", failures)
@@ -248,7 +341,17 @@ func _run() -> void:
 	var cooldown_folder := ui.find_child("ContractFolder_predator_watch_pool", true, false) as Button
 	_check(sign_button != null and sign_button.disabled, "authoritative client cooldown should keep the signature action disabled", failures)
 	_check(reason != null and _contains_all(reason.text, ["client cooldown", "day 4", "red comb", "breached term"]), "selected cooldown should print its authoritative day and reason", failures)
-	_check(cooldown_folder != null and _contains_all(cooldown_folder.text, ["client cooldown", "through day 4"]), "closed client folder should advertise cooldown before selection", failures)
+	_check(
+		reason != null and reason.is_visible_in_tree(),
+		"a held binder should surface its blocking reason without opening fine print",
+		failures,
+	)
+	_check(
+		cooldown_folder != null
+		and _contains_all(cooldown_folder.text, ["cooldown", "day 4"]),
+		"closed client folder should advertise its compact cooldown status before selection",
+		failures,
+	)
 	_check(cooldown_folder != null and _contains_all(cooldown_folder.tooltip_text, ["client cooldown", "day 4", "red comb", "breached term"]), "keyboard focus should expose the same authoritative cooldown reason", failures)
 
 	# Unavailable folders remain inspectable: selection prints the hold reason but
