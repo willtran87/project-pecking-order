@@ -79,6 +79,36 @@ func _run() -> void:
 		"real overtime state should translate into Henrietta's authored concern",
 		failures,
 	)
+	var first_clutch_before := {
+		"day": 1,
+		"eggs_today": 0,
+		"first_clutch_tracking": true,
+		"workers": [],
+		"operations": {"manager_roster": []},
+	}
+	var first_clutch_after := first_clutch_before.duplicate(true)
+	first_clutch_after["eggs_today"] = 1
+	_check(
+		DialogueCatalog.beats_for_snapshot(first_clutch_before, first_clutch_after).is_empty(),
+		"First Clutch should wait for the reinvestment consequence instead of queuing a generic first-egg line",
+		failures,
+	)
+	var keycap_aftermath := DialogueCatalog.beat_for_decision_result({
+		"accepted": true,
+		"option_id": &"peckwork_tools",
+	}, 1)
+	var bank_aftermath := DialogueCatalog.beat_for_decision_result({
+		"accepted": true,
+		"option_id": &"bank_fund",
+	}, 1)
+	_check(
+		StringName(keycap_aftermath.get("speaker_id", &"")) == &"mabel"
+		and "nicer keys" in String(keycap_aftermath.get("text", ""))
+		and StringName(bank_aftermath.get("speaker_id", &"")) == &"mabel"
+		and "desk kept the old keys" in String(bank_aftermath.get("text", "")),
+		"both first-egg beneficiaries should produce a specific Mabel aftermath beat",
+		failures,
+	)
 	_check(ui.enqueue_many(overtime_beats) == 1 and ui.queued_count() == 1, "a live beat should queue behind the visible line", failures)
 	ui.set_suspended(true)
 	_check(not panel.visible and not ui.active_entry().is_empty(), "management modals should hide without discarding active dialogue", failures)

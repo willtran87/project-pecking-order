@@ -57,8 +57,8 @@ func _run() -> void:
 		decision_host != null
 		and decision_host.visible
 		and title != null
-		and "WHAT SHOULD MABEL" in title.text
-		and "FIRST EGG BUILD" in title.text,
+		and "MABEL MADE THE EGG" in title.text
+		and "WHO GETS THE BENEFIT" in title.text,
 		"reinvestment should reuse the blocking management card with the authored title",
 		failures,
 	)

@@ -54,7 +54,27 @@ test("production wrapper serves the rendered shell and complete Godot payload", 
 
     const rootResponse = await fetch(`http://127.0.0.1:${port}/`);
     assert.equal(rootResponse.status, 200);
-    assert.match(await rootResponse.text(), /PECKING ORDER/);
+    const rootHtml = await rootResponse.text();
+    assert.match(rootHtml, /PECKING ORDER/);
+
+    const bootstrapPath = rootHtml.match(/import\("([^"]+\.js)"\)/)?.[1];
+    assert.ok(bootstrapPath, "rendered shell should reference its hashed bootstrap module");
+    const bootstrapResponse = await fetch(`http://127.0.0.1:${port}${bootstrapPath}`);
+    assert.equal(bootstrapResponse.status, 200);
+    assert.match(bootstrapResponse.headers.get("content-type") ?? "", /javascript/);
+    assert.match(
+      bootstrapResponse.headers.get("cache-control") ?? "",
+      /immutable/,
+      "hashed client modules should be served with immutable caching",
+    );
+    assert.ok((await bootstrapResponse.arrayBuffer()).byteLength > 0);
+
+    const stylesheetPath = rootHtml.match(/href="([^"]+\.css)"/)?.[1];
+    assert.ok(stylesheetPath, "rendered shell should reference its hashed stylesheet");
+    const stylesheetResponse = await fetch(`http://127.0.0.1:${port}${stylesheetPath}`);
+    assert.equal(stylesheetResponse.status, 200);
+    assert.match(stylesheetResponse.headers.get("content-type") ?? "", /text\/css/);
+    assert.ok((await stylesheetResponse.arrayBuffer()).byteLength > 0);
 
     const expectedPayload = await readFile(resolve(webRoot, "public", "game", "index.pck"));
     const payloadResponse = await fetch(`http://127.0.0.1:${port}/game/index.pck`);

@@ -10,13 +10,18 @@ const port = Number.isFinite(requestedPort) ? requestedPort : 3000;
 const host = process.env.HOST ?? "0.0.0.0";
 const webRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const clientRoot = resolve(webRoot, "dist", "client");
-const gameRoot = resolve(clientRoot, "game");
 const contentTypes = new Map([
   [".html", "text/html; charset=utf-8"],
+  [".css", "text/css; charset=utf-8"],
   [".js", "text/javascript; charset=utf-8"],
+  [".json", "application/json; charset=utf-8"],
   [".wasm", "application/wasm"],
   [".pck", "application/octet-stream"],
   [".png", "image/png"],
+  [".svg", "image/svg+xml"],
+  [".webp", "image/webp"],
+  [".woff", "font/woff"],
+  [".woff2", "font/woff2"],
 ]);
 
 const upstream = await startProdServer({
@@ -25,44 +30,46 @@ const upstream = await startProdServer({
   outDir: resolve(webRoot, "dist"),
 });
 
-function safeGamePath(rawUrl) {
+function safeClientPath(rawUrl) {
   let pathname;
   try {
     pathname = decodeURIComponent(new URL(rawUrl ?? "/", "http://localhost").pathname);
   } catch {
     return null;
   }
-  if (!pathname.startsWith("/game/")) return null;
-  const relative = pathname.slice("/game/".length);
+  if (pathname === "/" || pathname.includes("\0")) return null;
+  const relative = pathname.replace(/^\/+/, "");
   if (relative.length === 0 || relative.includes("\0")) return null;
-  const candidate = resolve(gameRoot, relative);
-  if (candidate !== gameRoot && !candidate.startsWith(`${gameRoot}${sep}`)) return null;
-  return candidate;
+  const candidate = resolve(clientRoot, relative);
+  if (candidate !== clientRoot && !candidate.startsWith(`${clientRoot}${sep}`)) return null;
+  return { candidate, pathname };
 }
 
-async function serveGameFile(req, res) {
-  const filePath = safeGamePath(req.url);
-  if (filePath == null) return false;
+async function serveClientFile(req, res) {
+  const resolvedPath = safeClientPath(req.url);
+  if (resolvedPath == null) return false;
 
   let file;
   try {
-    file = await stat(filePath);
+    file = await stat(resolvedPath.candidate);
   } catch {
     return false;
   }
   if (!file.isFile()) return false;
 
   res.writeHead(200, {
-    "Content-Type": contentTypes.get(extname(filePath).toLowerCase()) ?? "application/octet-stream",
+    "Content-Type": contentTypes.get(extname(resolvedPath.candidate).toLowerCase()) ?? "application/octet-stream",
     "Content-Length": String(file.size),
-    "Cache-Control": "no-cache",
+    "Cache-Control": resolvedPath.pathname.startsWith("/assets/")
+      ? "public, max-age=31536000, immutable"
+      : "no-cache",
     "X-Content-Type-Options": "nosniff",
   });
   if (req.method === "HEAD") {
     res.end();
     return true;
   }
-  createReadStream(filePath).pipe(res);
+  createReadStream(resolvedPath.candidate).pipe(res);
   return true;
 }
 
@@ -95,7 +102,7 @@ function proxyToVinext(req, res) {
 }
 
 const server = createServer(async (req, res) => {
-  if (await serveGameFile(req, res)) return;
+  if (await serveClientFile(req, res)) return;
   proxyToVinext(req, res);
 });
 

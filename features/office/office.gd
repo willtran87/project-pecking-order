@@ -8944,25 +8944,43 @@ func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
 	var offered_options := status.get("offered_options", []) as Array
 	for option_index in mini(2, offered_options.size()):
 		var offered := offered_options[option_index] as Dictionary
+		var option_id := StringName(offered.get("id", &""))
 		var list_cost := maxi(0, int(offered.get("list_cost_cents", 0)))
 		var procurement_match := maxi(0, int(offered.get("procurement_match_cents", 0)))
 		var net_cost := maxi(0, int(offered.get("net_cost_cents", list_cost - procurement_match)))
 		var projected_spendable := maxi(0, int(offered.get("projected_spendable_fund_cents", 0)))
 		var can_purchase := bool(offered.get("can_purchase", offered.get("affordable", false)))
+		var effect_label := String(
+			offered.get("description", "Visible workstation improvement")
+		).replace(" / level", "").to_upper()
+		var benefit_label := "MABEL: IMPROVE DESK"
+		match option_id:
+			&"peckwork_tools":
+				benefit_label = "MABEL: BETTER KEYS"
+			&"shell_lamp":
+				benefit_label = "MABEL: SAFER SHELLS"
+			&"nest_cushion":
+				benefit_label = "MABEL: SOFTER NEST"
 		options.append({
-			"id": StringName(offered.get("id", &"")),
-			"label": "INSTALL %s" % String(offered.get("short_name", offered.get("name", "DESK UPGRADE"))).to_upper(),
-			"tagline": "INVOICE $%.2f  -  MATCH $%.2f  =  NET $%.2f" % [
+			"id": option_id,
+			"label": benefit_label,
+			"tagline": "%s  //  $%.2f NET" % [
+				effect_label,
+				float(net_cost) / 100.0,
+			],
+			"preview": (
+				"MABEL'S DESK  //  %s  //  LEVEL %d -> %d\n"
+				+ "EXACT RECEIPT  //  $%.2f LIST  -  $%.2f MATCH  =  $%.2f FEED FUND\n"
+				+ "SPENDABLE  //  $%.2f -> $%.2f"
+			) % [
+				effect_label,
+				int(offered.get("level_before", 0)),
+				int(offered.get("next_level", 1)),
 				float(list_cost) / 100.0,
 				float(procurement_match) / 100.0,
 				float(net_cost) / 100.0,
-			],
-			"preview": "Level %d -> %d  /  spendable $%.2f -> projected $%.2f. %s" % [
-				int(offered.get("level_before", 0)),
-				int(offered.get("next_level", 1)),
 				float(int(offered.get("spendable_fund_cents", spendable_at_collection))) / 100.0,
 				float(projected_spendable) / 100.0,
-				String(offered.get("description", "The module becomes visible at Mabel's workstation.")),
 			],
 			"cost_cents": net_cost,
 			"can_select": can_purchase,
@@ -8973,12 +8991,16 @@ func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
 		})
 	options.append({
 		"id": &"bank_fund",
-		"label": "BANK THE FEED FUND",
-		"tagline": "NO PURCHASE  /  PROCUREMENT MATCH EXPIRES",
-		"preview": "Keep fund $%.2f and spendable $%.2f. The unused $%.2f first-egg match is forfeited." % [
+		"label": "KEEP EGG IN FEED FUND",
+		"tagline": "MABEL'S DESK UNCHANGED  //  $0 SPENT",
+		"preview": (
+			"MABEL'S DESK  //  UNCHANGED\n"
+			+ "EXACT RECEIPT  //  $0.00 SPENT  //  $%.2f MATCH EXPIRES\n"
+			+ "FEED FUND  //  $%.2f  //  SPENDABLE $%.2f"
+		) % [
+			float(match_available) / 100.0,
 			float(int(status.get("current_fund_cents", fund_at_collection))) / 100.0,
 			float(int(status.get("current_spendable_fund_cents", spendable_at_collection))) / 100.0,
-			float(match_available) / 100.0,
 		],
 		"cost_cents": 0,
 		"can_select": bool(status.get("can_bank", true)),
@@ -8987,23 +9009,21 @@ func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
 	return {
 		"kind": FIRST_CLUTCH_REINVESTMENT_KIND,
 		"category": FIRST_CLUTCH_REINVESTMENT_KIND,
-		"eyebrow": "FIRST CLUTCH  5 / 5  //  REINVESTMENT",
-		"title": "WHAT SHOULD %s\u2019S FIRST EGG BUILD?" % String(status.get("trigger_worker_name", "Mabel")).to_upper(),
+		"eyebrow": "FIRST CLUTCH  5 / 5  //  WHO BENEFITS?",
+		"title": "%s MADE THE EGG. WHO GETS THE BENEFIT?" % String(status.get("trigger_worker_name", "Mabel")).to_upper(),
 		"body": (
-			"%s's first egg created $%.2f. At collection, the Feed Fund held $%.2f; "
-			+ "$%.2f is protected operating reserve, leaving $%.2f spendable.\n\n"
-			+ "Procurement offers up to $%.2f of purchase-only matching. The farmer keeps the presentation credit; "
-			+ "you choose whether the hen's output improves her desk or stays in the fund."
+			"%s's first egg created $%.2f. The farmer kept the presentation credit.\n\n"
+			+ "$%.2f is spendable after the $%.2f protected reserve. "
+			+ "Procurement matches up to $%.2f only if her desk improves."
 		) % [
 			String(status.get("trigger_worker_name", "Mabel")),
 			float(created_value) / 100.0,
-			float(fund_at_collection) / 100.0,
-			float(protected_reserve) / 100.0,
 			float(spendable_at_collection) / 100.0,
+			float(protected_reserve) / 100.0,
 			float(match_available) / 100.0,
 		],
-		"selection_prompt": "Choose a requisition or Bank. Every invoice, match, net debit, and projected balance is shown before authorization.",
-		"confirm_label": "AUTHORIZE REINVESTMENT",
+		"selection_prompt": "Pick who benefits. Select a card for the exact receipt, then authorize.",
+		"confirm_label": "FILE WHO BENEFITS",
 		"allow_stay_paused": false,
 		"options": options,
 	}
@@ -12896,6 +12916,7 @@ func _character_dialogue_projection(snapshot: Dictionary) -> Dictionary:
 	return {
 		"day": int(snapshot.get("day", 1)),
 		"eggs_today": int(snapshot.get("eggs_today", 0)),
+		"first_clutch_tracking": _first_clutch_tracking_active(),
 		"cracked_today": int(snapshot.get("cracked_today", 0)),
 		"wage_arrears_cents": int(snapshot.get("wage_arrears_cents", 0)),
 		"overtime_enabled": bool(snapshot.get("overtime_enabled", false)),

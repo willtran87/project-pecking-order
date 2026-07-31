@@ -208,3 +208,40 @@ nothing; one confirmation publishes once. The stacked gallery header, wrapped
 records, and clipped full-width campaign actions remain horizontal-scroll-free
 at the real 282px filing width and 150% scale with expanded copy, while both
 confirmation choices remain reachable at 390x844.
+
+## 2026-07-30 exact First Clutch benefit candidate
+
+The current local candidate contains the benefit-first First Clutch
+reinvestment copy, Mabel-specific consequence dialogue, and the Windows
+production-wrapper static asset fallback. Its synchronized `index.pck` is
+9,251,636 bytes with SHA-256
+`D0C4FBDF95C5CF3F96582D6A519ECA21919C24E42E2AA8FE86B3DF64A20A819D`.
+
+Candidate-wide automated evidence is current:
+
+- `output/godot-full-suite-20260730-first-clutch-benefit-safe-v1/full-suite-summary.json`
+  discovers, selects, completes, and passes all 212/212 Godot contracts with
+  zero failures and zero timeouts using three safe-contention shards.
+- An earlier six-shard attempt produced eleven banner-only process failures or
+  timeouts under host contention. Every affected contract passed sequentially
+  at `output/regression/full-suite-nonpassing-isolated-v1/shard-summary.json`;
+  the clean three-shard aggregate is the release evidence.
+- `output/release/first-clutch-benefit-beta-release-gate.json` passes all 44
+  representative native, Node 24 Web, production-server, validator, and
+  artifact-parity checks.
+- The corrected production wrapper boots through the independent browser
+  client without console or page errors at
+  `output/web-game/goal-first-clutch-benefit-official-v3/`.
+
+This is not yet the public release identity. A cache-bypassed download of the
+GitHub Pages PCK remains 9,250,948 bytes with SHA-256
+`E685C0018C15FFFAF7737302508CC228B2128D0BB96B302DFFA7E491CB77780C`.
+The tested local changes are also uncommitted. Candidate commit/publication must
+therefore precede any new candidate-bound physical or usability evidence.
+
+`output/release/objective-completion-audit-first-clutch-benefit.json` records
+the exact objective, candidate, report, browser, deployment, and evidence
+identities. Automated implementation gates are green, but final production
+readiness remains open: all seven physical sessions and all seven independently
+moderated usability sessions are still pending. No owner attestation or
+automated fixture is represented as those fourteen results.

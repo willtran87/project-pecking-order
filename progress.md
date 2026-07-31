@@ -3940,3 +3940,92 @@ The next major systems milestone is persistent worker relationships and individu
   visible and fully contained, then filed the action for an authoritative
   perfect result: +26% progress, -6% shell risk, chain x1. The inspected capture
   is `output/web-game/fun-priority-window-live-v1.png`.
+
+## 2026-07-30 - First-egg beneficiary choice and Windows production boot
+
+- Reframed the First Clutch reinvestment docket around the human consequence:
+  `MABEL MADE THE EGG. WHO GETS THE BENEFIT?` Purchase cards now lead with
+  better keys, safer shells, or a softer nest for Mabel; Bank states plainly
+  that her desk remains unchanged. Selecting a card still reveals the exact
+  list price, procurement match, net Feed Fund debit, protected reserve, and
+  projected spendable balance before authorization.
+- Suppressed the generic first-egg aside while First Clutch is active and added
+  a specific Mabel aftermath for every desk benefit and for banking the egg.
+  The economic result and the worker-facing consequence now read as one causal
+  sequence instead of competing dialogue beats.
+- Focused native verification passes 3/3 at
+  `output/regression/goal-first-clutch-benefit-focused-v1/shard-summary.json`:
+  character dialogue, the complete 119-second induction lifecycle, and the
+  responsive reinvestment UI all complete without engine errors or timeouts.
+- The independent Web client exposed a production-only Windows defect:
+  Vinext 0.0.50 indexed `dist/client` with backslash cache keys, so the rendered
+  shell returned HTTP 200 while its hashed JavaScript and stylesheet returned
+  404. The local production wrapper now serves bounded files from
+  `dist/client`, retains no-cache Godot payload behavior, gives hashed assets
+  immutable caching, and rejects paths outside the client root.
+- Expanded the production-server contract from shell/PCK checks to the complete
+  shell -> hashed bootstrap -> hashed stylesheet -> exact PCK chain. The
+  production contract, ESLint, supported Node 24 build, and all 49/49 rendered
+  behavior/accessibility/environment tests pass.
+- The required independent client now boots the corrected production wrapper
+  with no console or page-error artifact at
+  `output/web-game/goal-first-clutch-benefit-official-v3/`. Its inspected
+  1280x720 intake capture is contained and readable, and
+  `render_game_to_text` reports `loaded=true`, `mode=godot_canvas`, the full
+  economic diagnostic, and zero orphan nodes.
+- The synchronized 9,251,636-byte Web PCK remains byte-identical between
+  `docs/` and `web/public/game/`. Physical-device and separately moderated
+  usability sessions remain external release evidence; no human result is
+  inferred from these automated checks.
+
+## 2026-07-30 - Exact candidate-wide release audit
+
+- The first six-shard exhaustive attempt discovered and completed all 212
+  native contracts but produced ten banner-only process exits and one timeout
+  under host contention. None emitted an assertion, parse error, or engine
+  diagnostic.
+- Reran the exact eleven affected contracts sequentially. All 11/11 passed,
+  including Service Coop, Feed Procurement, First Clutch induction, staffing,
+  persistence, Flockwatch input context, and the Office integration/layout
+  contracts.
+- Reran the complete suite with three safe-contention shards. The authoritative
+  aggregate at
+  `output/godot-full-suite-20260730-first-clutch-benefit-safe-v1/full-suite-summary.json`
+  discovers, selects, completes, and passes 212/212 with zero failures and zero
+  timeouts.
+- The current 44-check beta gate passes in 298 seconds at
+  `output/release/first-clutch-benefit-beta-release-gate.json`. It includes the
+  release-critical native set, Node 24 lint/build, all 49 rendered Web tests,
+  the strengthened production-server bootstrap/CSS/PCK chain, physical and
+  usability validator/handoff self-tests, and exact nine-file payload parity.
+- Downloaded the public GitHub Pages PCK with cache bypass. It remains the prior
+  9,250,948-byte `E685C...` payload; the fully tested local candidate is the
+  uncommitted 9,251,636-byte `D0C4F...` payload. The deployed identity therefore
+  does not match.
+- Added
+  `output/release/objective-completion-audit-first-clutch-benefit.json`, mapping
+  all 18 objective sections to the exact current evidence. Automated
+  implementation and release gates are current, but completion remains open
+  until the candidate is committed/published and seven physical plus seven
+  independently moderated usability sessions are completed against that exact
+  identity.
+
+## 2026-07-30 - Publication scope preflight
+
+- Publication remains permission-gated; no staging, commit, push, PR, or Pages
+  mutation was performed during this preflight.
+- The exact goal-related commit scope is thirteen tracked files: current
+  release notes, both synchronized Web payload copies, First Clutch benefit
+  dialogue/Office logic, three focused regressions, the Windows production
+  server and regression, and this progress record.
+- Explicitly exclude `output/web-game/shot-0.png` and
+  `output/web-game/state-0.json`. They are stale generic tracked captures from
+  an earlier client run, are not the inspected candidate evidence, and should
+  not be swept into the release commit.
+- Keep the candidate audit, exhaustive suite, beta gate, and browser evidence
+  under `output/` local. The repository has no established tracked
+  `output/release` or full-suite report files; durable source documentation
+  references their exact local paths and hashes.
+- `git diff --check` passes. The two deployable PCK copies remain byte-identical
+  at 9,251,636 bytes with SHA-256
+  `D0C4FBDF95C5CF3F96582D6A519ECA21919C24E42E2AA8FE86B3DF64A20A819D`.

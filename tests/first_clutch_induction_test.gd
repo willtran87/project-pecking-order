@@ -393,12 +393,25 @@ func _run() -> void:
 		and decision_host != null
 		and decision_host.visible
 		and decision_title != null
-		and "WHAT SHOULD MABEL" in decision_title.text
-		and "FIRST EGG BUILD" in decision_title.text
+		and "MABEL MADE THE EGG" in decision_title.text
+		and "WHO GETS THE BENEFIT" in decision_title.text
 		and decision_body != null
 		and "$" in decision_body.text
-		and "protected operating reserve" in decision_body.text,
-		"physical collection should open the exact First Clutch reinvestment docket",
+		and "protected reserve" in decision_body.text
+		and "farmer kept the presentation credit" in decision_body.text.to_lower(),
+		"physical collection should open the concise, satirical First Clutch benefit choice",
+		failures,
+	)
+	var keycap_button := office.find_child("DecisionOption_peckwork_tools", true, false) as Button
+	_check(
+		keycap_button != null
+		and "MABEL: BETTER KEYS" in keycap_button.text
+		and "+8% WORK SPEED" in keycap_button.text
+		and "EXACT RECEIPT" in String(keycap_button.get_meta("preview", ""))
+		and "LIST" in String(keycap_button.get_meta("preview", ""))
+		and "MATCH" in String(keycap_button.get_meta("preview", ""))
+		and "SPENDABLE" in String(keycap_button.get_meta("preview", "")),
+		"benefit-first purchase cards should preserve the exact economic preflight in their selected preview",
 		failures,
 	)
 	_check(
@@ -441,6 +454,13 @@ func _run() -> void:
 	var fund_before_bank := simulation.revenue_cents
 	var bank_button := office.find_child("DecisionOption_bank_fund", true, false) as Button
 	confirm_button = office.find_child("ConfirmDecisionButton", true, false) as Button
+	_check(
+		bank_button != null
+		and "KEEP EGG IN FEED FUND" in bank_button.text
+		and "DESK UNCHANGED" in bank_button.text,
+		"Bank should state plainly that Mabel's desk receives no benefit",
+		failures,
+	)
 	_check(_press(bank_button), "Bank should remain a deliberate third reinvestment choice", failures)
 	await process_frame
 	_check(

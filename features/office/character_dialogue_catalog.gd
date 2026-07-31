@@ -233,7 +233,11 @@ static func beats_for_snapshot(previous: Dictionary, current: Dictionary) -> Arr
 
 	var previous_eggs := int(previous.get("eggs_today", 0))
 	var current_eggs := int(current.get("eggs_today", 0))
-	if previous_eggs == 0 and current_eggs > 0:
+	if (
+		previous_eggs == 0
+		and current_eggs > 0
+		and not bool(current.get("first_clutch_tracking", false))
+	):
 		beats.append(_entry(
 			"first_egg_%d" % day,
 			&"mabel",
@@ -291,6 +295,34 @@ static func beat_for_decision_result(result: Dictionary, day: int) -> Dictionary
 		result.get("choice_id", result.get("response_id", "")),
 	)))
 	match option_id:
+		&"peckwork_tools":
+			return _entry(
+				"first_clutch_keycaps_%d" % day,
+				&"mabel",
+				"They bought my beak nicer keys with the money my beak earned. Procurement has called this a shared win.",
+				&"PRIVATE ASIDE",
+			)
+		&"shell_lamp":
+			return _entry(
+				"first_clutch_lamp_%d" % day,
+				&"mabel",
+				"The new lamp checks whether my eggs can survive the pace. The pace did not receive an inspection.",
+				&"PRIVATE ASIDE",
+			)
+		&"nest_cushion":
+			return _entry(
+				"first_clutch_cushion_%d" % day,
+				&"mabel",
+				"My egg bought the nest a cushion. The quota remains admirably committed to standing.",
+				&"PRIVATE ASIDE",
+			)
+		&"bank_fund":
+			return _entry(
+				"first_clutch_banked_%d" % day,
+				&"mabel",
+				"My first egg went into the Feed Fund. The farmer kept the story; my desk kept the old keys.",
+				&"PRIVATE ASIDE",
+			)
 		&"record_harvest":
 			return _entry(
 				"directive_harvest_%d" % day,
