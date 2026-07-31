@@ -244,6 +244,7 @@ export default function Home() {
 			"flock-care": "--capture-flock-care-ui",
 			"flockwatch-today": "--capture-flock-labor",
 			"career-sponsorship": "--capture-career-sponsorship",
+			"campus-portfolio": "--capture-campus-portfolio-ui",
 			"contract-board": "--capture-contract-board-ui",
 			"contract-pricing": "--capture-contract-pricing-ui",
 			"contract-pricing-access": "--capture-contract-pricing-access-ui",

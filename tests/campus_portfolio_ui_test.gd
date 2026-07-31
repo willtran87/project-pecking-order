@@ -45,6 +45,18 @@ func _run() -> void:
 	var action_button := ui.find_child("CampusPortfolioActionButton", true, false) as Button
 	var return_button := ui.find_child("CampusPortfolioReturnButton", true, false) as Button
 	var north_button := ui.find_child("CampusPortfolioNorthMeadowDetailsButton", true, false) as Button
+	var glance_grid := ui.find_child("CampusPortfolioGlanceGrid", true, false) as GridContainer
+	var pad_glance := ui.find_child("CampusPortfolioPadGlance", true, false) as Label
+	var cost_glance := ui.find_child("CampusPortfolioCostGlance", true, false) as Label
+	var time_glance := ui.find_child("CampusPortfolioTimeGlance", true, false) as Label
+	var funds_glance := ui.find_child("CampusPortfolioFundsGlance", true, false) as Label
+	var capacity_glance := ui.find_child("CampusPortfolioCapacityGlance", true, false) as Label
+	var staff_glance := ui.find_child("CampusPortfolioStaffGlance", true, false) as Label
+	var primary_effect_glance := ui.find_child("CampusPortfolioEffectPrimaryGlance", true, false) as Label
+	var secondary_effect_glance := ui.find_child("CampusPortfolioEffectSecondaryGlance", true, false) as Label
+	var exact_economics := ui.find_child("CampusPortfolioInspectorEconomics", true, false) as Label
+	var exact_capacity := ui.find_child("CampusPortfolioInspectorCapacity", true, false) as Label
+	var exact_effect := ui.find_child("CampusPortfolioInspectorEffect", true, false) as Label
 
 	_check(ui.is_open(), "show_portfolio should reveal the planner", failures)
 	_check(ui.layout_mode_name() == &"desktop", "1280x720 should use the desktop planner", failures)
@@ -57,6 +69,19 @@ func _run() -> void:
 	_check(ui.find_children("CampusPortfolioModule_*", "Button", true, false).size() == 2, "the selected parcel should show only its two relevant module files", failures)
 	_check(ui.find_children("CampusPortfolioProject_*", "VBoxContainer", true, false).size() >= 1, "active project queue should expose authored project records", failures)
 	_check(ui.find_children("CampusPortfolioStage_job_grain_01_*", "Label", true, false).size() == 3, "every authored construction stage should be visible", failures)
+	_check(glance_grid != null and glance_grid.columns == 2 and glance_grid.get_child_count() == 8, "selected-project economics should resolve into eight two-line glance tiles", failures)
+	_check(pad_glance != null and _contains_all(pad_glance.text, ["pad", "west apron", "ready"]), "pad glance should lead with the selected location and state", failures)
+	_check(cost_glance != null and _contains_all(cost_glance.text, ["cost", "$140", "$6.50/day"]), "cost glance should combine capital and daily liability without redundant prose", failures)
+	_check(time_glance != null and _contains_all(time_glance.text, ["time", "2 shifts"]), "time glance should expose construction duration", failures)
+	_check(funds_glance != null and _contains_all(funds_glance.text, ["after", "not filed"]), "missing projections should say not filed instead of inventing zero-dollar balances", failures)
+	_check(capacity_glance != null and _contains_all(capacity_glance.text, ["build load", "1 crew", "pwr 2", "cold 0"]), "build-load glance should compress the three shared capacities", failures)
+	_check(staff_glance != null and _contains_all(staff_glance.text, ["staff", "1 hen"]), "staff glance should expose the dedicated-perch requirement", failures)
+	_check(primary_effect_glance != null and secondary_effect_glance != null and _contains_all(primary_effect_glance.tooltip_text, ["adds one collection rail branch", "relieves routing overflow"]), "benefit tiles should retain both exact authored effects on inspection", failures)
+	_check(cost_glance != null and _contains_all(String(cost_glance.get_meta("accessible_text", "")), ["capital", "$140.00", "daily liability", "$6.50", "west rail tie-in cleared"]), "cost glance accessibility should retain exact money and filing reason", failures)
+	_check(exact_economics != null and exact_capacity != null and exact_effect != null and not exact_economics.visible and not exact_capacity.visible and not exact_effect.visible, "exact semantic ledgers should remain populated but visually collapsed", failures)
+	_check(exact_economics != null and _contains_all(exact_economics.text, ["capital", "$140.00", "daily liability", "$6.50", "build time", "2 shifts"]), "collapsed economics should retain every authored term", failures)
+	_check(exact_capacity != null and _contains_all(exact_capacity.text, ["contractors", "power", "cold", "staff"]), "collapsed capacity should retain every authored resource term", failures)
+	_check(exact_effect != null and _contains_all(exact_effect.text, ["adds one collection rail branch", "relieves routing overflow"]), "collapsed effects should retain the exact authored benefit copy", failures)
 
 	_check(_label_contains(ui, "CampusPortfolioResource_feed_fund", ["feed fund", "$512.50"]), "resource rail should show exact Feed Fund", failures)
 	_check(_label_contains(ui, "CampusPortfolioResource_spendable", ["spendable", "$325.00"]), "resource rail should show exact spendable fund", failures)
@@ -103,6 +128,9 @@ func _run() -> void:
 	ui.select_parcel(&"creekside_yard")
 	ui.select_module(&"creekside_chilling_exchange")
 	await process_frame
+	_check(_contains_all(primary_effect_glance.text, ["storage", "+12 eggs"]), "storage effect should resolve into one compact benefit tile", failures)
+	_check(_contains_all(secondary_effect_glance.text, ["pickup", "90% to 95% value"]), "pickup effect should use a Web-font-safe direction phrase", failures)
+	_check(_contains_all(secondary_effect_glance.tooltip_text, ["raises staffed overflow pickup from 90% to 95% of recorded value"]), "pickup tile should retain the exact authored effect on inspection", failures)
 	var selector := ui.find_child("CampusPortfolioWorkerSelector", true, false) as OptionButton
 	var assign_button := ui.find_child("CampusPortfolioAssignButton", true, false) as Button
 	_check(selector != null and selector.item_count == 2, "staffing selector should retain both named workers and explicit eligibility", failures)
@@ -177,7 +205,7 @@ func _run() -> void:
 			push_error("CAMPUS_PORTFOLIO_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPUS_PORTFOLIO_UI_TEST_PASSED layout=65/35+compact parcels=3 resources=6 queue=staged staffing=named CTA=deed+project intents=only responsive=1280+844+390 resilience=150-percent+expanded-copy")
+	print("CAMPUS_PORTFOLIO_UI_TEST_PASSED layout=65/35+compact parcels=3 resources=6 glance=8x2line+exact-hidden queue=staged staffing=named CTA=deed+project intents=only responsive=1280+844+390 resilience=150-percent+expanded-copy")
 	quit(0)
 
 
@@ -207,7 +235,7 @@ func _snapshot() -> Dictionary:
 			"modules": [
 				{"id": &"collection_rail_hub", "name": "Collection Rail Hub", "parcel_id": &"north_meadow", "allowed_pad_ids": [&"meadow_west", &"meadow_east"], "capital_cost_cents": 14_000, "daily_cost_cents": 650, "duration_shifts": 2, "contractor_slots": 1, "power_units": 2, "cold_units": 0, "staff_required": 1, "benefits": ["Adds one collection rail branch.", "Relieves routing overflow."], "quote": {"can_authorize": true, "reason": "Contractor and power capacity are filed.", "cost_cents": 14_000, "added_daily_cost_cents": 650, "duration_shifts": 2}, "pad_quotes": {"meadow_west": {"can_authorize": true, "reason": "West rail tie-in cleared.", "cost_cents": 14_000, "added_daily_cost_cents": 650, "duration_shifts": 2}}},
 				{"id": &"grain_recovery_mill", "name": "Grain Recovery Mill", "parcel_id": &"north_meadow", "allowed_pad_ids": [&"meadow_west"], "capital_cost_cents": 11_500, "daily_cost_cents": 575, "duration_shifts": 2, "power_units": 2, "staff_required": 1, "can_authorize": false, "reason": "A mill project is already active."},
-				{"id": &"creekside_chilling_exchange", "name": "Creekside Chilling Exchange", "parcel_id": &"creekside_yard", "allowed_pad_ids": [&"creek_exchange"], "capital_cost_cents": 16_000, "daily_cost_cents": 800, "duration_shifts": 3, "contractor_slots": 1, "power_units": 2, "cold_units": 3, "staff_required": 1, "can_authorize": true, "reason": "Creekside service routes are clear."},
+				{"id": &"creekside_chilling_exchange", "name": "Creekside Chilling Exchange", "parcel_id": &"creekside_yard", "allowed_pad_ids": [&"creek_exchange"], "capital_cost_cents": 16_000, "daily_cost_cents": 800, "duration_shifts": 3, "contractor_slots": 1, "power_units": 2, "cold_units": 3, "staff_required": 1, "can_authorize": true, "reason": "Creekside service routes are clear.", "benefits": ["+12 finished-egg storage positions while staffed and powered", "Raises staffed overflow pickup from 90% to 95% of recorded value"]},
 				{"id": &"contractor_roost", "name": "Contractor Roost", "parcel_id": &"orchard_row", "allowed_pad_ids": [&"orchard_loading"], "capital_cost_cents": 12_500, "daily_cost_cents": 700, "duration_shifts": 2, "can_authorize": false, "reason": "Purchase Orchard Row first."},
 			],
 			"projects": [{"project_id": &"job_grain_01", "module_id": &"grain_recovery_mill", "module_name": "Grain Recovery Mill", "parcel_id": &"north_meadow", "pad_id": &"meadow_west", "status": &"building", "status_label": "FRAMING", "stage_id": &"frame", "progress_shifts": 1, "duration_shifts": 2, "remaining_shifts": 1, "stages": [

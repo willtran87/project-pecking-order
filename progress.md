@@ -4859,3 +4859,41 @@ The next major systems milestone is persistent worker relationships and individu
   are free and no repo-owned test process remains.
 - Final production acceptance still requires seven physical sessions and seven
   separately moderated usability sessions against the exact published artifact.
+
+## 2026-07-31 - Glance-first Campus Portfolio
+
+- Replaced the recurring selected-project ledger with eight immediate two-line
+  tiles: `PAD / COST / TIME / AFTER / BUILD LOAD / STAFF` plus two authored
+  benefit tiles. Capital and daily liability share one comparison, post-build
+  spendable and protected funds remain side by side, and contractor, power,
+  and cold demand now read as one build load.
+- Kept the complete selected-pad, capital, daily-liability, duration,
+  post-build fund, reserve, contractor, power, cold, staffing, benefit,
+  tradeoff, and filing-reason copy in collapsed semantic labels, contextual
+  tooltips, accessibility metadata, and the authoritative Web diagnostic.
+  Missing projected balances now say `NOT FILED` instead of appearing as
+  invented zero-dollar values.
+- Extended the Campus Portfolio contract to prove all eight tiles, exact hidden
+  semantics, contextual accessibility, Web-font-safe pickup direction, and
+  vertical-only resilience at 1280x720, 844x390, 390x844, and 150% expanded
+  copy. Six focused UI, model, Office-flow, text-expansion, and presentation
+  checks pass.
+- The final native NVIDIA/OpenGL capture is
+  `output/campus-portfolio-glance-v2/campus_portfolio_ui.png`. Browser
+  inspection caught a missing arrow glyph in the first Web attempt; the final
+  font-safe `90% TO 95% VALUE` build is stable across three prescribed-client
+  frames at `output/campus-portfolio-web-client-v3/`, with populated exact
+  diagnostics, zero browser-error files, and empty server stderr.
+- Candidate-wide native coverage passes 212/212 contracts with zero failures
+  or timeouts at
+  `output/godot-full-suite-20260731-campus-portfolio-glance-v1/full-suite-summary.json`.
+  The independent release gate passes all 44 native, Node 24 Web, rendered
+  accessibility, production-server, validator, and deploy-payload checks at
+  `output/release/campus-portfolio-glance-beta-release-gate.json`.
+- Synchronized all nine deploy payloads. The 9,344,884-byte PCK has SHA-256
+  `6A57BA842B262224A22770C53317EFF3E5973152BD5B010F6791A4B9A517F941`.
+- Every native capture, focused/exhaustive Godot process, prescribed browser
+  client, Chromium child, and production server exited. Ports 41766 through
+  41768 are free and no repo-owned test process remains.
+- Final production acceptance still requires seven physical sessions and seven
+  separately moderated usability sessions against the exact published artifact.
