@@ -22,6 +22,11 @@ const OFFER_LABELS := {
 	&"inspirational_bulk_mash": "INSPIRATIONAL BULK MASH",
 	&"fixed_future_reserve": "FIXED FUTURE RESERVE",
 }
+const OFFER_GLANCE_LABELS := {
+	&"local_whole_grain": "LOCAL",
+	&"inspirational_bulk_mash": "BULK",
+	&"fixed_future_reserve": "FUTURE",
+}
 
 const COLOR_INK := Color("e9edf0")
 const COLOR_MUTED := Color("aeb8c4")
@@ -34,6 +39,10 @@ const COLOR_NAVY := Color("172832")
 var _snapshot: Dictionary = {}
 var _season_quote_label: Label
 var _inventory_label: Label
+var _stock_glance: Label
+var _demand_glance: Label
+var _after_glance: Label
+var _spot_glance: Label
 var _active_ration_label: Label
 var _fallback_label: Label
 var _last_activity_label: Label
@@ -96,9 +105,29 @@ func _build_interface() -> void:
 	_season_quote_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header.add_child(_season_quote_label)
 
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "FeedProcurementGlanceGrid"
+	glance_grid.columns = 2
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	glance_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(glance_grid)
+	_stock_glance = _metric_chip(glance_grid, "STOCK\n--")
+	_stock_glance.name = "FeedProcurementStockGlance"
+	_demand_glance = _metric_chip(glance_grid, "NEED\n--")
+	_demand_glance.name = "FeedProcurementDemandGlance"
+	_after_glance = _metric_chip(glance_grid, "AFTER\n--")
+	_after_glance.name = "FeedProcurementAfterGlance"
+	_spot_glance = _metric_chip(glance_grid, "SPOT\n--")
+	_spot_glance.name = "FeedProcurementSpotGlance"
+
+	# Retain the exact inventory filing as component state for tests and native
+	# assistive/tooling consumers without asking sighted players to read it before
+	# choosing a feed plan. The four chips and their tooltips carry its content.
 	_inventory_label = _make_label("Feed inventory is being counted.", 11, COLOR_INK)
 	_inventory_label.name = "FeedProcurementInventory"
 	_inventory_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_inventory_label.visible = false
 	column.add_child(_inventory_label)
 
 	_active_ration_label = _make_label("", 10, COLOR_MUTED)
@@ -124,7 +153,7 @@ func _build_interface() -> void:
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(divider)
 
-	var offer_heading := _make_label("REVIEW-ONLY FEED ORDERS", 10, COLOR_BRASS)
+	var offer_heading := _make_label("PICK FEED", 10, COLOR_BRASS)
 	offer_heading.name = "FeedProcurementOfferHeading"
 	column.add_child(offer_heading)
 
@@ -136,7 +165,12 @@ func _build_interface() -> void:
 	for offer_id: StringName in OFFER_IDS:
 		_build_offer_card(offer_list, offer_id)
 	var offer_targets: Array[Control] = [divider, offer_heading, offer_list]
-	_offers_toggle.configure("FEED ORDERS", "3 SUPPLIER FILES", offer_targets, false)
+	_offers_toggle.configure(
+		"FEED",
+		"3 FILES",
+		offer_targets,
+		false,
+	)
 
 	_last_activity_label = _make_label("", 10, COLOR_MUTED)
 	_last_activity_label.name = "FeedProcurementLastActivity"
@@ -201,6 +235,7 @@ func _build_offer_card(parent: VBoxContainer, offer_id: StringName) -> void:
 	column.add_child(order_button)
 
 	_offer_controls[offer_id] = {
+		"card": card,
 		"title": title,
 		"description": description,
 		"terms": terms,
@@ -223,7 +258,8 @@ func _refresh() -> void:
 	for offer_id: StringName in OFFER_IDS:
 		_refresh_offer(offer_id, offers_by_id.get(offer_id, {}) as Dictionary, procurement)
 	_refresh_offers_disclosure()
-	_last_activity_label.text = _last_activity_copy(procurement)
+	_last_activity_label.text = _last_activity_glance_copy(procurement)
+	_last_activity_label.tooltip_text = _last_activity_copy(procurement)
 
 
 func set_offers_expanded(expanded: bool) -> void:
@@ -246,9 +282,9 @@ func _refresh_offers_disclosure() -> void:
 		if button != null and not button.disabled:
 			ready_count += 1
 	_offers_toggle.set_summary(
-		"%d READY / %d FILES" % [ready_count, OFFER_IDS.size()]
-		if ready_count > 0 else
-		"%d FILES / REVIEW CLOSED" % OFFER_IDS.size()
+		"%d READY" % ready_count if ready_count > 0 else "CLOSED",
+		"%d of %d supplier files are ready. Exact price, quantity, shelf life, ration effects, and held reasons remain in each file."
+		% [ready_count, OFFER_IDS.size()],
 	)
 	var actionable := ready_count > 0
 	if actionable and not _had_actionable_offer:
@@ -271,7 +307,11 @@ func _refresh_quote_and_inventory(procurement: Dictionary) -> void:
 	quote_copy += "  /  %d DAY%s LEFT" % [days_remaining, "" if days_remaining == 1 else "S"]
 	if base_unit != spot_unit:
 		quote_copy += "  /  BASE $%.2f" % (float(base_unit) / 100.0)
-	_season_quote_label.text = quote_copy
+	_season_quote_label.text = "%s  /  $%.2f  /  %dD" % [
+		season_label,
+		float(spot_unit) / 100.0,
+		days_remaining,
+	]
 	_season_quote_label.tooltip_text = quote_copy
 
 	var stock := maxi(0, int(procurement.get("stock_scoops", 0)))
@@ -280,7 +320,7 @@ func _refresh_quote_and_inventory(procurement: Dictionary) -> void:
 	var after_demand := maxi(0, int(procurement.get("stock_after_demand_scoops", stock - demand)))
 	var shortage := maxi(0, int(procurement.get("spot_shortage_scoops", demand - stock)))
 	var coverage := maxf(0.0, float(procurement.get("coverage_shifts", 0.0)))
-	_inventory_label.text = (
+	var inventory_copy := (
 		"STOCK %d / %d SCOOPS  /  NEXT-SHIFT DEMAND %d\n"
 		+ "AFTER RATIONS %d  /  COVERAGE %s SHIFT%s  /  SPOT SHORTAGE %d"
 	) % [
@@ -292,16 +332,31 @@ func _refresh_quote_and_inventory(procurement: Dictionary) -> void:
 		"" if is_equal_approx(coverage, 1.0) else "S",
 		shortage,
 	]
+	_inventory_label.text = inventory_copy
+	_stock_glance.text = "STOCK\n%d / %d" % [stock, capacity]
+	_demand_glance.text = "NEED\n%d" % demand
+	_after_glance.text = "AFTER\n%d" % after_demand
+	_spot_glance.text = "SPOT\n$%.2f" % (float(spot_unit) / 100.0)
+	_stock_glance.tooltip_text = "Stored feed: %d of %d scoops.\n%s" % [stock, capacity, inventory_copy]
+	_demand_glance.tooltip_text = "Next-shift demand: %d scoops.\n%s" % [demand, inventory_copy]
+	_after_glance.tooltip_text = "Feed after the next ration: %d scoops.\n%s" % [after_demand, inventory_copy]
+	_spot_glance.tooltip_text = "Automatic spot price: $%.2f per scoop.\n%s" % [
+		float(spot_unit) / 100.0,
+		inventory_copy,
+	]
 
 	var ration_value: Variant = procurement.get("active_ration", {})
 	var active_ration := ration_value as Dictionary if ration_value is Dictionary else {}
-	_active_ration_label.visible = not active_ration.is_empty()
-	if not active_ration.is_empty():
-		_active_ration_label.text = "ACTIVE %s" % _ration_copy(active_ration)
+	var ration_changes_outcome := _ration_changes_outcome(active_ration)
+	_active_ration_label.visible = ration_changes_outcome
+	if ration_changes_outcome:
+		var exact_active_ration := _ration_copy(active_ration)
+		_active_ration_label.text = "ACTIVE  /  %s" % _ration_glance_copy(active_ration)
+		_active_ration_label.tooltip_text = exact_active_ration
 
 	var spot_obligation := maxi(0, int(procurement.get("spot_obligation_cents", shortage * spot_unit)))
 	if shortage > 0:
-		_fallback_label.text = (
+		var fallback_copy := (
 			"AUTOMATIC SPOT FALLBACK  /  %d uncovered scoop%s will be bought at $%.2f each "
 			+ "($%.2f next shift). No order is required to continue."
 		) % [
@@ -310,12 +365,18 @@ func _refresh_quote_and_inventory(procurement: Dictionary) -> void:
 			float(spot_unit) / 100.0,
 			float(spot_obligation) / 100.0,
 		]
+		_fallback_label.text = "AUTO-BUY  /  %d  /  $%.2f" % [
+			shortage,
+			float(spot_obligation) / 100.0,
+		]
+		_fallback_label.tooltip_text = fallback_copy
 	else:
-		_fallback_label.text = (
+		var fallback_copy := (
 			"AUTOMATIC SPOT FALLBACK  /  If stored feed runs short, uncovered scoops are bought "
 			+ "at $%.2f each. No order is required to continue."
 		) % (float(spot_unit) / 100.0)
-	_fallback_label.tooltip_text = _fallback_label.text
+		_fallback_label.text = "AUTO-BUY  /  COVERED"
+		_fallback_label.tooltip_text = fallback_copy
 
 
 func _refresh_offer(offer_id: StringName, offer: Dictionary, procurement: Dictionary) -> void:
@@ -331,15 +392,16 @@ func _refresh_offer(offer_id: StringName, offer: Dictionary, procurement: Dictio
 
 	var has_offer := not offer.is_empty()
 	var offer_label := String(offer.get("label", OFFER_LABELS.get(offer_id, String(offer_id)))).strip_edges()
-	title.text = offer_label.to_upper()
+	title.text = _offer_glance_name(offer_id, offer_label)
 	description.text = String(offer.get("description", "Supplier terms are unavailable for this review.")).strip_edges()
+	description.visible = false
 
 	var quantity := maxi(0, int(offer.get("quantity_scoops", 0)))
 	var unit_cost := maxi(0, int(offer.get("unit_price_cents", offer.get("unit_cost_cents", 0))))
 	var total_cost := maxi(0, int(offer.get("total_cost_cents", quantity * unit_cost)))
 	var shelf_shifts := maxi(0, int(offer.get("shelf_shifts", 0)))
 	var expires_day := maxi(0, int(offer.get("expires_day", 0)))
-	terms.text = (
+	var exact_terms := (
 		"QUANTITY %d SCOOPS  /  $%.2f EACH  /  PREPAID $%.2f\nSHELF LIFE %d SHIFT%s%s"
 	) % [
 		quantity,
@@ -349,32 +411,45 @@ func _refresh_offer(offer_id: StringName, offer: Dictionary, procurement: Dictio
 		"" if shelf_shifts == 1 else "S",
 		"  /  EXPIRES DAY %d" % expires_day if expires_day > 0 else "",
 	]
-	ration.text = _ration_copy(offer)
-
-	var held_reason := _authorization_reason(offer_id, offer, procurement)
-	var authorized := has_offer and held_reason.is_empty()
-	if authorized:
-		var used := maxi(0, int(procurement.get("orders_used_today", 0)))
-		var limit := maxi(0, int(procurement.get("order_limit", 0)))
-		var ready_reason := String(offer.get("reason", "")).strip_edges()
-		if ready_reason.is_empty():
-			ready_reason = "Farmer Review open; %d of %d daily orders used." % [used, limit]
-		reason_label.text = "READY  /  %s" % ready_reason
-		reason_label.add_theme_color_override("font_color", COLOR_TEAL)
-		button.text = "ORDER %d SCOOPS  /  PREPAY $%.2f" % [quantity, float(total_cost) / 100.0]
-	else:
-		reason_label.text = "HELD  /  %s" % held_reason
-		reason_label.add_theme_color_override("font_color", COLOR_RUST)
-		button.text = _held_button_copy(has_offer, total_cost, procurement)
-	button.disabled = not authorized
-	button.tooltip_text = "%s  /  %d scoops  /  $%.2f prepaid  /  shelf life %d shift%s  /  %s" % [
-		offer_label,
+	terms.text = "%d SCOOPS  /  $%.2f\nLASTS %d%s" % [
 		quantity,
 		float(total_cost) / 100.0,
 		shelf_shifts,
-		"" if shelf_shifts == 1 else "s",
-		"Ready to order." if authorized else held_reason,
+		"  /  D%d" % expires_day if expires_day > 0 else "",
 	]
+	var exact_ration := _ration_copy(offer)
+	ration.text = _ration_glance_copy(offer)
+
+	var held_reason := _authorization_reason(offer_id, offer, procurement)
+	var authorized := has_offer and held_reason.is_empty()
+	var ready_reason := "Ready to order."
+	if authorized:
+		var used := maxi(0, int(procurement.get("orders_used_today", 0)))
+		var limit := maxi(0, int(procurement.get("order_limit", 0)))
+		ready_reason = String(offer.get("reason", "")).strip_edges()
+		if ready_reason.is_empty():
+			ready_reason = "Farmer Review open; %d of %d daily orders used." % [used, limit]
+		reason_label.text = "READY"
+		reason_label.add_theme_color_override("font_color", COLOR_TEAL)
+		button.text = "BUY %d  /  $%.2f" % [quantity, float(total_cost) / 100.0]
+	else:
+		reason_label.text = _held_status_glance(held_reason)
+		reason_label.add_theme_color_override("font_color", COLOR_RUST)
+		button.text = _held_button_copy(has_offer, total_cost, procurement)
+	button.disabled = not authorized
+	var exact_status := "READY  /  %s" % ready_reason if authorized else "HELD  /  %s" % held_reason
+	var disclosure := "%s\n%s\n%s\n%s\n%s" % [
+		offer_label,
+		description.text,
+		exact_terms,
+		exact_ration,
+		exact_status,
+	]
+	for control: Control in [title, description, terms, ration, reason_label, button]:
+		control.tooltip_text = disclosure
+	var card := controls.get("card") as PanelContainer
+	if card != null:
+		card.tooltip_text = disclosure
 
 
 func _authorization_reason(offer_id: StringName, offer: Dictionary, procurement: Dictionary) -> String:
@@ -396,14 +471,42 @@ func _authorization_reason(offer_id: StringName, offer: Dictionary, procurement:
 
 func _held_button_copy(has_offer: bool, total_cost: int, procurement: Dictionary) -> String:
 	if not has_offer:
-		return "OFFER FILE UNAVAILABLE"
+		return "UNAVAILABLE"
 	if not bool(procurement.get("planning_open", false)):
-		return "REVIEW TO ORDER  /  $%.2f" % (float(total_cost) / 100.0)
+		return "REVIEW  /  $%.2f" % (float(total_cost) / 100.0)
 	var limit := maxi(0, int(procurement.get("order_limit", 0)))
 	var used := maxi(0, int(procurement.get("orders_used_today", 0)))
 	if limit <= 0 or used >= limit:
-		return "ORDER LIMIT REACHED"
-	return "ORDER HELD  /  $%.2f PREPAID" % (float(total_cost) / 100.0)
+		return "USED  /  $%.2f" % (float(total_cost) / 100.0)
+	return "HELD  /  $%.2f" % (float(total_cost) / 100.0)
+
+
+func _offer_glance_name(offer_id: StringName, fallback: String) -> String:
+	return String(OFFER_GLANCE_LABELS.get(offer_id, fallback)).to_upper()
+
+
+func _held_status_glance(reason: String) -> String:
+	var normalized := reason.to_lower()
+	if "short by" in normalized:
+		var dollar_index := reason.find("$")
+		if dollar_index >= 0:
+			return "HELD  /  SHORT %s" % reason.substr(dollar_index).trim_suffix(".")
+	if "level" in normalized:
+		var words := reason.to_upper().replace(".", "").split(" ", false)
+		for index in range(words.size() - 1):
+			if words[index] == "LEVEL":
+				return "HELD  /  LEVEL %s" % words[index + 1]
+	if "review" in normalized:
+		return "HELD  /  REVIEW"
+	if "already" in normalized or "limit" in normalized:
+		return "HELD  /  USED"
+	if "capacity" in normalized:
+		return "HELD  /  CAPACITY"
+	if "fund" in normalized:
+		return "HELD  /  FUND"
+	if "missing" in normalized:
+		return "HELD  /  MISSING"
+	return "HELD  /  TERMS"
 
 
 func _ration_copy(record: Dictionary) -> String:
@@ -415,6 +518,28 @@ func _ration_copy(record: Dictionary) -> String:
 		_signed_copy(morale_delta),
 		_signed_copy(grievance_delta),
 	]
+
+
+func _ration_glance_copy(record: Dictionary) -> String:
+	var strain_basis_points := maxi(0, int(record.get("strain_basis_points", 10_000)))
+	var morale_delta := int(record.get("morale_delta", 0))
+	var grievance_delta := int(record.get("grievance_delta", 0))
+	return "STRAIN %s  /  MORALE %s  /  GRIEV %s" % [
+		_basis_point_delta_copy(strain_basis_points),
+		_signed_copy(morale_delta),
+		_signed_copy(grievance_delta),
+	]
+
+
+func _ration_changes_outcome(record: Dictionary) -> bool:
+	return (
+		not record.is_empty()
+		and (
+			int(record.get("strain_basis_points", 10_000)) != 10_000
+			or int(record.get("morale_delta", 0)) != 0
+			or int(record.get("grievance_delta", 0)) != 0
+		)
+	)
 
 
 func _last_activity_copy(procurement: Dictionary) -> String:
@@ -469,6 +594,26 @@ func _last_activity_copy(procurement: Dictionary) -> String:
 			float(spoiled_total_value) / 100.0,
 		]
 	return "\n".join([delivery_copy, consumption_copy, spoilage_copy])
+
+
+func _last_activity_glance_copy(procurement: Dictionary) -> String:
+	var parts: Array[String] = ["LAST"]
+	var delivery_value: Variant = procurement.get("last_order", {})
+	var delivery := delivery_value as Dictionary if delivery_value is Dictionary else {}
+	if not delivery.is_empty() and bool(delivery.get("accepted", true)):
+		parts.append("+%d FEED" % maxi(0, int(delivery.get("quantity_scoops", 0))))
+		parts.append("-$%.2f" % (float(maxi(0, int(delivery.get("total_cost_cents", 0)))) / 100.0))
+	else:
+		parts.append("NO DELIVERY")
+	var consumption_value: Variant = procurement.get("last_consumption", {})
+	var consumption := consumption_value as Dictionary if consumption_value is Dictionary else {}
+	if not consumption.is_empty() and int(consumption.get("spot_scoops", 0)) > 0:
+		parts.append("SPOT -$%.2f" % (float(maxi(0, int(consumption.get("spot_cost_cents", 0)))) / 100.0))
+	var spoilage_value: Variant = procurement.get("last_spoilage", {})
+	var spoilage := spoilage_value as Dictionary if spoilage_value is Dictionary else {}
+	if not spoilage.is_empty() and int(spoilage.get("scoops", 0)) > 0:
+		parts.append("SPOIL -%d" % maxi(0, int(spoilage.get("scoops", 0))))
+	return "  /  ".join(parts)
 
 
 func _on_order_pressed(offer_id: StringName) -> void:
@@ -540,6 +685,19 @@ func _make_label(copy: String, font_size: int, color: Color) -> Label:
 	return label
 
 
+func _metric_chip(parent: GridContainer, copy: String) -> Label:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", _metric_style())
+	parent.add_child(panel)
+	var label := _make_label(copy, 11, COLOR_INK)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.custom_minimum_size = Vector2(0.0, 42.0)
+	panel.add_child(label)
+	return label
+
+
 func _section_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("152b2c")
@@ -555,4 +713,13 @@ func _offer_style() -> StyleBoxFlat:
 	style.border_color = Color("50616d")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(7)
+	return style
+
+
+func _metric_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("1b3436")
+	style.border_color = Color("3f6f68")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
 	return style

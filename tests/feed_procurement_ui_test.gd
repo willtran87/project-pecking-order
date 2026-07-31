@@ -11,10 +11,15 @@ func _init() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+	var test_viewport := SubViewport.new()
+	test_viewport.name = "FeedProcurementTestViewport"
+	test_viewport.size = Vector2i(282, 760)
+	test_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(test_viewport)
 	var harness := Control.new()
 	harness.name = "FeedProcurementUITestHarness"
 	harness.size = Vector2(282.0, 760.0)
-	root.add_child(harness)
+	test_viewport.add_child(harness)
 
 	var scroll := ScrollContainer.new()
 	scroll.name = "FeedProcurementTestScroll"
@@ -36,23 +41,43 @@ func _run() -> void:
 
 	var quote := ui.find_child("FeedProcurementSeasonQuote", true, false) as Label
 	var inventory := ui.find_child("FeedProcurementInventory", true, false) as Label
+	var stock_glance := ui.find_child("FeedProcurementStockGlance", true, false) as Label
+	var demand_glance := ui.find_child("FeedProcurementDemandGlance", true, false) as Label
+	var after_glance := ui.find_child("FeedProcurementAfterGlance", true, false) as Label
+	var spot_glance := ui.find_child("FeedProcurementSpotGlance", true, false) as Label
 	var fallback := ui.find_child("FeedProcurementSpotFallback", true, false) as Label
+	var active_ration := ui.find_child("FeedProcurementActiveRation", true, false) as Label
 	var offers := ui.find_children("FeedProcurementOffer_*", "PanelContainer", true, false)
 	_check(ui.visible, "a canonical feed_procurement snapshot should reveal the inline section", failures)
-	_check(quote != null and _contains_all(quote.text, ["harvest shoulder", "$1.80", "days 7-9", "2 days left", "base $2.00"]), "season quote should disclose its exact window and current/base spot price", failures)
-	_check(inventory != null and _contains_all(inventory.text, ["stock", "8 / 20 scoops", "next-shift demand 5", "after rations 3", "coverage 1.6 shifts", "spot shortage 0"]), "inventory should join stock, capacity, next demand, residual stock, coverage, and shortage", failures)
-	_check(fallback != null and _contains_all(fallback.text, ["automatic spot fallback", "$1.80", "no order is required to continue"]), "the ledger should make its non-blocking automatic spot fallback explicit", failures)
+	_check(quote != null and _contains_all(quote.text, ["harvest shoulder", "$1.80", "2d"]), "the visible market quote should be glance-first", failures)
+	_check(quote != null and _contains_all(quote.tooltip_text, ["spot $1.80 per scoop", "days 7-9", "2 days left", "base $2.00"]), "the market quote tooltip should retain its exact window and base comparison", failures)
+	_check(inventory != null and not inventory.visible and _contains_all(inventory.text, ["stock", "8 / 20 scoops", "next-shift demand 5", "after rations 3", "coverage 1.6 shifts", "spot shortage 0"]), "the hidden inventory filing should retain every exact planning metric", failures)
+	_check(stock_glance != null and _contains_all(stock_glance.text, ["stock", "8 / 20"]), "the feed board should lead with stock and capacity", failures)
+	_check(demand_glance != null and _contains_all(demand_glance.text, ["need", "5"]), "the feed board should expose next-shift need without prose", failures)
+	_check(after_glance != null and _contains_all(after_glance.text, ["after", "3"]), "the feed board should expose the post-ration remainder", failures)
+	_check(spot_glance != null and _contains_all(spot_glance.text, ["spot", "$1.80"]), "the feed board should expose the automatic spot price", failures)
+	_check(stock_glance != null and _contains_all(stock_glance.tooltip_text, ["coverage 1.6 shifts", "spot shortage 0"]), "glance tiles should retain the complete inventory filing on demand", failures)
+	_check(fallback != null and _contains_all(fallback.text, ["auto-buy", "covered"]), "the visible fallback should communicate safety without a paragraph", failures)
+	_check(fallback != null and _contains_all(fallback.tooltip_text, ["automatic spot fallback", "$1.80", "no order is required to continue"]), "the fallback tooltip should retain the exact automatic-purchase rule", failures)
+	_check(active_ration != null and active_ration.visible and _contains_all(active_ration.text, ["active", "strain -10%", "morale +2", "griev -1"]), "a consequential active ration should remain visible in compact form", failures)
 	_check(offers.size() == 3, "the fixed supplier file should show exactly one card for each canonical offer", failures)
 
 	var local_terms := ui.find_child("FeedProcurementOfferTerms_local_whole_grain", true, false) as Label
+	var local_title := ui.find_child("FeedProcurementOfferTitle_local_whole_grain", true, false) as Label
+	var local_description := ui.find_child("FeedProcurementOfferDescription_local_whole_grain", true, false) as Label
 	var local_ration := ui.find_child("FeedProcurementOfferRation_local_whole_grain", true, false) as Label
 	var local_reason := ui.find_child("FeedProcurementOfferReason_local_whole_grain", true, false) as Label
 	var local_button := ui.find_child("FeedProcurementOrder_local_whole_grain", true, false) as Button
 	var offers_toggle := ui.find_child("FeedProcurementOffersToggle", true, false) as Button
 	var offer_list := ui.find_child("FeedProcurementOfferList", true, false) as VBoxContainer
-	_check(local_terms != null and _contains_all(local_terms.text, ["quantity 6 scoops", "$1.50 each", "prepaid $9.00", "shelf life 3 shifts", "expires day 10"]), "each order should disclose quantity, exact unit/prepaid cost, shelf life, and expiry", failures)
-	_check(local_ration != null and _contains_all(local_ration.text, ["ration effect", "strain -10%", "morale +2", "grievance -1"]), "each order should disclose the exact ration tradeoff", failures)
-	_check(local_reason != null and _contains_all(local_reason.text, ["ready", "farmer review open", "0 of 1"]), "an available order should explain why it is ready", failures)
+	_check(local_title != null and local_title.text == "LOCAL", "the routine supplier should use a stable one-word identity", failures)
+	_check(local_description != null and not local_description.visible and local_description.text.contains("nearby mill"), "supplier flavor should remain authored without competing with the purchase", failures)
+	_check(local_terms != null and _contains_all(local_terms.text, ["6 scoops", "$9.00", "lasts 3", "d10"]), "each visible card should compare quantity, prepaid cost, shelf life, and expiry compactly", failures)
+	_check(local_terms != null and _contains_all(local_terms.tooltip_text, ["$1.50 each", "prepaid $9.00", "shelf life 3 shifts", "expires day 10"]), "each card tooltip should retain the exact filed terms", failures)
+	_check(local_ration != null and _contains_all(local_ration.text, ["strain -10%", "morale +2", "griev -1"]), "each card should retain the exact ration tradeoff in token form", failures)
+	_check(local_reason != null and local_reason.text == "READY", "an available order should have one unmistakable state", failures)
+	_check(local_reason != null and _contains_all(local_reason.tooltip_text, ["farmer review open", "0 of 1 daily orders used"]), "the ready state should retain its exact authorization context on demand", failures)
+	_check(local_button != null and _contains_all(local_button.text, ["buy 6", "$9.00"]), "the action should say what is bought and spent without restating the full filing", failures)
 	_check(local_button != null and not local_button.disabled and local_button.focus_mode == Control.FOCUS_ALL, "an authorized review order should be keyboard actionable", failures)
 	_check(
 		offers_toggle != null
@@ -60,6 +85,13 @@ func _run() -> void:
 		and ui.offers_expanded()
 		and offer_list.visible,
 		"an actionable deep-linked supplier file should automatically reveal its existing actions",
+		failures,
+	)
+	_check(
+		offers_toggle != null
+		and offers_toggle.text == "HIDE FEED  /  1 READY"
+		and _contains_all(offers_toggle.tooltip_text, ["1 of 3 supplier files", "price", "quantity", "shelf life", "ration effects", "held reasons"]),
+		"the feed disclosure should fit while its assistive detail retains the full file count and scope",
 		failures,
 	)
 	var original_local_button := local_button
@@ -86,10 +118,12 @@ func _run() -> void:
 	var bulk_button := ui.find_child("FeedProcurementOrder_inspirational_bulk_mash", true, false) as Button
 	var future_reason := ui.find_child("FeedProcurementOfferReason_fixed_future_reserve", true, false) as Label
 	var future_button := ui.find_child("FeedProcurementOrder_fixed_future_reserve", true, false) as Button
-	_check(bulk_description != null and bulk_description.text.contains("motivational slogans"), "authored supplier descriptions should remain visible without a tooltip", failures)
-	_check(bulk_reason != null and _contains_all(bulk_reason.text, ["held", "level 2"]), "level-gated offers should keep the authoritative availability reason visible", failures)
+	_check(bulk_description != null and not bulk_description.visible and bulk_description.text.contains("motivational slogans"), "authored supplier flavor should remain available without adding a visible sentence", failures)
+	_check(bulk_reason != null and bulk_reason.text == "HELD  /  LEVEL 2", "level-gated offers should expose a concise actionable reason", failures)
+	_check(bulk_reason != null and bulk_reason.tooltip_text.contains("level 2 is required"), "the complete level gate should remain available on demand", failures)
 	_check(bulk_button != null and bulk_button.disabled, "an unavailable supplier must not emit an order", failures)
-	_check(future_reason != null and _contains_all(future_reason.text, ["held", "short by $4.00"]), "fund-held offers should state the exact shortfall", failures)
+	_check(future_reason != null and _contains_all(future_reason.text, ["held", "short $4.00"]), "fund-held offers should state the exact shortfall compactly", failures)
+	_check(future_reason != null and future_reason.tooltip_text.contains("short by $4.00"), "the full affordability reason should remain available on demand", failures)
 	_check(future_button != null and future_button.disabled, "an unaffordable prepaid order must remain disabled", failures)
 	if bulk_button != null:
 		bulk_button.pressed.emit()
@@ -98,9 +132,31 @@ func _run() -> void:
 	_check(requests == [&"local_whole_grain"], "direct disabled-button signals must not bypass the component guard", failures)
 
 	var activity := ui.find_child("FeedProcurementLastActivity", true, false) as Label
-	_check(activity != null and _contains_all(activity.text, ["last delivery", "day 7", "local whole grain", "6 scoops", "$9.00 prepaid", "stock 2 -> 8"]), "last delivery should retain its exact supplier, quantity, payment, and stock receipt", failures)
-	_check(activity != null and _contains_all(activity.text, ["last consumption", "day 6", "demand 5", "stored 3 + spot 2 scoops", "spot $3.60"]), "last consumption should distinguish inventory and automatic spot use", failures)
-	_check(activity != null and _contains_all(activity.text, ["last spoilage", "day 6", "1 scoops", "$1.20 lost", "lifetime 2 scoops ($2.70)"]), "spoilage should disclose both the last loss and cumulative waste value", failures)
+	_check(activity != null and _contains_all(activity.text, ["last", "+6 feed", "-$9.00", "spot -$3.60", "spoil -1"]), "the visible history should be one compact consequence line", failures)
+	_check(activity != null and _contains_all(activity.tooltip_text, ["last delivery", "day 7", "local whole grain", "6 scoops", "$9.00 prepaid", "stock 2 -> 8"]), "the history tooltip should retain the exact supplier receipt", failures)
+	_check(activity != null and _contains_all(activity.tooltip_text, ["last consumption", "day 6", "demand 5", "stored 3 + spot 2 scoops", "spot $3.60"]), "the history tooltip should retain exact automatic spot use", failures)
+	_check(activity != null and _contains_all(activity.tooltip_text, ["last spoilage", "day 6", "1 scoops", "$1.20 lost", "lifetime 2 scoops ($2.70)"]), "the history tooltip should retain exact spoilage and lifetime waste", failures)
+
+	var baseline_snapshot := _root_snapshot(true)
+	var baseline_procurement := baseline_snapshot.get("feed_procurement", {}) as Dictionary
+	baseline_procurement["active_ration"] = {
+		"strain_basis_points": 10_000,
+		"morale_delta": 0,
+		"grievance_delta": 0,
+	}
+	ui.apply_snapshot(baseline_snapshot)
+	await process_frame
+	_check(active_ration != null and not active_ration.visible, "a baseline ration should add no zero-value reading chore", failures)
+	ui.apply_snapshot(_root_snapshot(true))
+	await process_frame
+
+	if "--capture-feed-procurement" in OS.get_cmdline_user_args():
+		var capture_directory := ProjectSettings.globalize_path("res://output/feed-procurement-glance-v1")
+		DirAccess.make_dir_recursive_absolute(capture_directory)
+		var capture_image := test_viewport.get_texture().get_image()
+		_check(capture_image != null, "the feed-board capture should expose the rendered filing", failures)
+		if capture_image != null:
+			_check(capture_image.save_png(capture_directory.path_join("feed-procurement-282x760.png")) == OK, "the feed-board capture should save", failures)
 
 	var ui_rect := ui.get_global_rect()
 	_check(ui.get_combined_minimum_size().x <= scroll.size.x + 0.5, "the compact file should not demand horizontal scrolling at the real 282px Flockwatch width", failures)
@@ -152,8 +208,9 @@ func _run() -> void:
 	await process_frame
 	local_button = ui.find_child("FeedProcurementOrder_local_whole_grain", true, false) as Button
 	local_reason = ui.find_child("FeedProcurementOfferReason_local_whole_grain", true, false) as Label
-	_check(local_button != null and local_button.disabled and _contains_all(local_button.text, ["review to order", "$9.00"]), "active-shift orders should point to Farmer Review without opening another surface", failures)
-	_check(local_reason != null and _contains_all(local_reason.text, ["held", "only during farmer review"]), "review-only gating should be visible beside the disabled action", failures)
+	_check(local_button != null and local_button.disabled and _contains_all(local_button.text, ["review", "$9.00"]), "active-shift orders should point to Farmer Review without opening another surface", failures)
+	_check(local_reason != null and _contains_all(local_reason.text, ["held", "review"]), "review-only gating should remain immediately visible", failures)
+	_check(local_reason != null and local_reason.tooltip_text.contains("only during Farmer Review"), "the complete active-shift gate should remain available on demand", failures)
 	if local_button != null:
 		local_button.pressed.emit()
 	_check(requests == [&"local_whole_grain"], "closed-review orders must remain guarded even under direct signal emission", failures)
@@ -164,7 +221,7 @@ func _run() -> void:
 
 	await _test_staffing_integration(failures)
 
-	harness.queue_free()
+	test_viewport.queue_free()
 	await process_frame
 	if not failures.is_empty():
 		for failure in failures:

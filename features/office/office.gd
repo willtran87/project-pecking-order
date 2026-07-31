@@ -648,6 +648,8 @@ func _ready() -> void:
 		_capture_facility_ui_preview()
 	elif "--capture-economic-briefing-ui" in OS.get_cmdline_user_args() or "--capture-economic-briefing-ui" in OS.get_cmdline_args():
 		_capture_economic_briefing_ui_preview()
+	elif "--capture-feed-procurement-ui" in OS.get_cmdline_user_args() or "--capture-feed-procurement-ui" in OS.get_cmdline_args():
+		_capture_feed_procurement_ui_preview()
 	elif "--capture-packing-annex" in OS.get_cmdline_user_args() or "--capture-packing-annex" in OS.get_cmdline_args():
 		_capture_packing_annex_preview()
 	elif "--capture-records-annex" in OS.get_cmdline_user_args() or "--capture-records-annex" in OS.get_cmdline_args():
@@ -15366,6 +15368,47 @@ func _capture_economic_briefing_ui_preview() -> void:
 	await get_tree().process_frame
 	await get_tree().create_timer(0.65).timeout
 	_save_preview("economic_briefing.png")
+
+
+func _capture_feed_procurement_ui_preview() -> void:
+	_prepare_capture_running()
+	_simulation.day = 7
+	_simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	_simulation.pending_decision.clear()
+	_simulation.revenue_cents = 100_000
+	var receipt := _simulation.purchase_facility(&"feed_procurement_coop")
+	if not bool(receipt.get("accepted", false)):
+		push_error("Feed-board capture could not commission Flock Provisions: %s" % String(
+			receipt.get("reason", "unknown reason")
+		))
+		get_tree().quit(1)
+		return
+	# Keep one plan clearly actionable, one tier-held, and one fund-held. The
+	# screenshot therefore exercises the same comparison states a real first-tier
+	# filing produces instead of inventing presentation-only card data.
+	_simulation.revenue_cents = _simulation.current_daily_operating_cost_cents() + 1800
+	_simulation._feed_procurement.begin_day(_simulation.day)
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_OPERATIONS)
+	await get_tree().process_frame
+	var procurement_ui := find_child("FeedProcurementUI", true, false) as FeedProcurementUI
+	if procurement_ui != null:
+		procurement_ui.set_offers_expanded(true)
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_OPERATIONS)
+	if scroll != null and procurement_ui != null:
+		var component_offset := (
+			procurement_ui.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 10.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("feed_procurement_ui.png")
 
 
 func _capture_packing_annex_preview() -> void:

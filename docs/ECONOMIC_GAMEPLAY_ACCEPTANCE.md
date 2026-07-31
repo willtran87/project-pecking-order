@@ -921,3 +921,30 @@ real transaction by `tests/career_sponsorship_integration_test.gd`.
   prescribed Web evidence is `output/contract-board-web-client-v1/shot-0.png`,
   with loaded contract-board state, no browser-error artifact, and empty server
   stderr.
+
+## Glance-first Flock Provisions
+
+- The recurring feed decision now leads with four two-line tiles: `STOCK`,
+  `NEED`, `AFTER`, and `SPOT`. Seasonal context remains one short line, the
+  automatic shortage purchase is `AUTO-BUY / quantity / cost`, and a baseline
+  ration produces no zero-value row.
+- The supplier disclosure fits as `REVIEW/HIDE FEED / <ready>`. Expanded cards
+  use the stable identities `LOCAL`, `BULK`, and `FUTURE`, then compare scoops,
+  prepaid cost, shelf life, expiry day, strain, morale, grievance, and one
+  `READY/HELD` state. The only available action is the visually dominant
+  `BUY <scoops> / <cost>` button.
+- Full supplier names and flavor, unit price, exact prepaid filing, shelf-life
+  wording, expiry, daily authorization, level/fund/capacity gate, automatic
+  spot rule, and delivery/consumption/spoilage history remain in tooltips and
+  the complete Web diagnostic. A one-line `LAST` strip communicates the latest
+  consequences without printing the three-row audit ledger.
+- `tests/feed_procurement_ui_test.gd` covers concise visible state, exact hidden
+  equivalence, meaningful-versus-baseline ration visibility, all three held
+  paths, stable intent emission, 282px/150%-scale containment, and the embedded
+  Operations flow. The complete 212/212 native suite and independent 44/44
+  release gate remain green.
+- Native evidence is
+  `output/feed-procurement-glance-v1/feed-procurement-282x760.png`; prescribed
+  production-wrapper evidence is
+  `output/feed-procurement-web-client-v2/shot-0.png`, with no browser-error
+  artifact and empty server stderr.

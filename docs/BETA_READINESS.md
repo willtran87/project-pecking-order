@@ -66,14 +66,14 @@ cohort, dialogue, and paid-fellow captures at
 ### Current public-deployment disposition
 
 The verified candidate is live on
-`https://willtran87.github.io/project-pecking-order/`. GitHub Pages completed
-the 2026-07-30 build from commit
-`3fa2d57604b1e727bacacf0ea5007778c3b92250`, and a cache-bypassed download of
-the public package matched local `docs/index.pck` exactly:
+`https://willtran87.github.io/project-pecking-order/`. GitHub Pages is bound to
+the `codex/core-loop-polish` branch's `/docs` directory. The current release
+handoff uses a cache-bypassed public download and requires it to match local
+`docs/index.pck` exactly:
 
-- local and public `index.pck`: 9,249,172 bytes;
+- local and public `index.pck`: 9,284,708 bytes;
 - local and public SHA-256:
-  `49675052C2A69E14F576737DF1F8643ABF98FBB46B27B052180915910068E938`;
+  `2BB7F628C5691F1AE916CF5257D81B61DD9413C6A4DE7E69972871919EE02920`;
 - exact deployed-payload match: **true**.
 
 The public URL is therefore the approved automated-test candidate. Publication
@@ -81,16 +81,14 @@ does not manufacture human evidence: the seven physical sessions and seven
 separately moderated usability focuses below remain pending until they are
 performed against this exact package.
 
-The current completion audit is
-`output/release/objective-completion-audit-intern-economy.json`. It binds the
-full 18-section objective to the 212-test native result, the 44-check release
-gate, the exact built-browser captures, and the current deployment comparison.
-It records 14 required candidate-bound sessions still pending: seven physical
+The current automated evidence is the 212/212 exhaustive native report at
+`output/godot-full-suite-20260731-feed-glance-v1/full-suite-summary.json`, the
+44/44 independent release gate at
+`output/release/feed-glance-beta-release-gate.json`, and the exact production
+wrapper capture at `output/feed-procurement-web-client-v2/`. Fourteen required
+candidate-bound sessions remain pending: seven physical
 touch/screen-reader/listening/GPU sessions and seven separately moderated
-usability focuses. The physical validator report at
-`output/release/physical-release-evidence-intern-candidate-validation.json`
-also rejects the prior evidence record because both its commit and PCK identity
-predate this candidate; no stale result is counted as a pass.
+usability focuses. No stale result is counted as a pass.
 
 ## External-only evidence
 
@@ -251,9 +249,9 @@ production readiness remains open: all seven physical sessions and all seven
 independently moderated usability sessions are still pending. No owner
 attestation or automated fixture is represented as those fourteen results.
 
-## 2026-07-31 glance-first local candidate
+## 2026-07-31 glance-first candidate
 
-The local working candidate reduces the highest-density intake, first policy,
+The working candidate reduces the highest-density intake, first policy,
 Capital, Farm Mutual, recurring incident, core routing, intern staffing, and
 end-of-shift result
 surfaces through progressive disclosure while preserving their exact economic
@@ -276,17 +274,23 @@ action `REVIEW/HIDE FILES / <ready>`; total, ready, and completed requisition
 counts remain in its tooltip and accessibility copy. Farm Mutual rate choices
 now compare `MUTUAL`, `ACCESS`, and `EXECUTIVE` through price, file volume, and
 one selected `MARGIN / TRUST / REACH` line; full pricing mechanics and held
-reasons remain in tooltips and assistive state. Its synchronized `index.pck` is
-9,278,900 bytes with
+reasons remain in tooltips and assistive state. Flock Provisions now leads with
+`STOCK`, `NEED`, `AFTER`, and `SPOT` tiles,
+then one automatic-buy line and the action `REVIEW/HIDE FEED / <ready>`.
+Supplier files use `LOCAL`, `BULK`, and `FUTURE`, compact quantity/cost/life
+terms, exact ration tokens, one `READY/HELD` state, and one `BUY` action; full
+supplier copy, unit price, expiry, authorization, and history remain in
+tooltips and assistive diagnostics. Baseline rations add no zero-value row.
+Its synchronized `index.pck` is 9,284,708 bytes with
 SHA-256
-`464219FF1079DB0FB4855CEEAC9580A9CD35F510E62DD0F686BD992645A2D150`.
+`2BB7F628C5691F1AE916CF5257D81B61DD9413C6A4DE7E69972871919EE02920`.
 
 Fresh candidate-wide automated evidence is green:
 
-- `output/godot-full-suite-20260731-contract-board-glance-v1/full-suite-summary.json`
+- `output/godot-full-suite-20260731-feed-glance-v1/full-suite-summary.json`
   discovers, selects, completes, and passes all 212/212 Godot contracts with
   zero failures and zero timeouts using three bounded shards.
-- `output/release/contract-board-glance-beta-release-gate.json` passes all 44
+- `output/release/feed-glance-beta-release-gate.json` passes all 44
   representative native, Node 24 Web, temporary production-server,
   evidence-validator, and nine-file artifact-parity checks.
 - The actual production wrapper boots and accepts input without a browser error
@@ -353,9 +357,15 @@ Fresh candidate-wide automated evidence is green:
   artifact and empty server stderr. Formal binder names, exact lane mixes,
   arrivals, success rules, premiums, breach reserves, staffing fit, and held
   reasons remain in tooltips, assistive metadata, and the selected detail pane.
+- Flock Provisions is clean at native 282x760 in
+  `output/feed-procurement-glance-v1/feed-procurement-282x760.png`. The exact
+  production wrapper reproduces the simplified Operations filing at
+  `output/feed-procurement-web-client-v2/shot-0.png`; the diagnostic retains
+  all three authoritative offers and live inventory, no browser-error artifact
+  exists, and server stderr is empty.
 - Both verification runners exited normally. The post-run audit found zero
   Pecking Order Godot processes, zero project Node processes, and zero
-  project-owned listeners; ports 41741 through 41749 are free.
+  project-owned listeners; ports 41750 through 41755 are free.
 
 Existing candidate-bound session records do not certify this PCK. Final
 production readiness remains open until all seven physical sessions plus all

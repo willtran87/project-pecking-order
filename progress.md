@@ -4519,3 +4519,42 @@ The next major systems milestone is persistent worker relationships and individu
 - Publication is handled by the branch-backed GitHub Pages release. Final
   release evidence still requires seven physical sessions and seven separately
   moderated usability sessions run against the exact published artifact.
+
+## 2026-07-31 - Glance-first Flock Provisions
+
+- Audited the recurring feed-purchase filing after the contract-board pass. It
+  still required two inventory sentences, an automatic-purchase paragraph,
+  five visible lines per supplier, and a three-row transaction history before
+  the player could compare the available order.
+- Rebuilt the first-read layer around `STOCK / NEED / AFTER / SPOT` tiles, one
+  `AUTO-BUY` consequence, and the fitted action `REVIEW/HIDE FEED / <ready>`.
+  Supplier cards now use `LOCAL / BULK / FUTURE`, compact quantity, prepaid
+  cost, shelf life, expiry, ration stakes, one `READY/HELD` state, and one
+  `BUY <scoops> / <cost>` action. A baseline ration contributes no zero-value
+  row.
+- Full supplier identity and flavor, exact unit/prepaid price, shelf-life and
+  expiry terms, daily authorization, level/fund/capacity gate, spot-fallback
+  rule, and delivery/consumption/spoilage history remain in tooltips and the
+  complete assistive Web diagnostic. The visible history is one `LAST` strip.
+- Focused component and management integration tests pass. The inspected native
+  282x760 capture is
+  `output/feed-procurement-glance-v1/feed-procurement-282x760.png`; the final
+  prescribed Node 24 client capture is
+  `output/feed-procurement-web-client-v2/shot-0.png`, with no browser-error
+  artifact and empty production-server stderr.
+- The exact-source exhaustive report at
+  `output/godot-full-suite-20260731-feed-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The independent
+  report at `output/release/feed-glance-beta-release-gate.json` passes all 44
+  native, Node 24 Web, production-server, validator, and parity checks. Web
+  lint, the production build, 49/49 rendered behavior/accessibility tests, and
+  the standalone production-server test are clean.
+- Exported and synchronized all nine Web payloads. The 9,284,708-byte PCK has
+  SHA-256
+  `2BB7F628C5691F1AE916CF5257D81B61DD9413C6A4DE7E69972871919EE02920`.
+- Every Pecking Order Godot test/capture process, prescribed browser, and scoped
+  production server launched for this pass exited. Ports 41750 through 41755
+  are free; unrelated project processes were not touched.
+- Publication uses the branch-backed GitHub Pages release. Final production
+  evidence still requires seven physical sessions and seven separately
+  moderated usability sessions run against the exact published artifact.
