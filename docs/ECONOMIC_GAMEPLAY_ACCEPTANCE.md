@@ -1046,3 +1046,37 @@ real transaction by `tests/career_sponsorship_integration_test.gd`.
   `output/godot-full-suite-20260731-farmgate-glance-v1/full-suite-summary.json`
   and the independent 44/44 release gate at
   `output/release/farmgate-glance-beta-release-gate.json`.
+
+## Glance-first Rooster Operations
+
+- The recurring manager file now opens on six two-line tiles: `CHECK-IN`,
+  `PAY`, `PRESSURE`, `DENSITY`, `AUTO`, and `EXPOSURE`. Named manager controls
+  and screened succession terms are separate `REVIEW/HIDE` disclosures and
+  default collapsed.
+- Manager cards use first name/archetype plus one `PAY / INF` strip before the
+  assignment and posture controls. Successor cards compare `FEE`, `REPLACE`,
+  `PAY`, and `EGGS`; their stable filing action is `REVIEW`.
+- Full names, titles, doctrines, surveillance terms, automation terms,
+  management-density consequences, candidate economics, replacement identity,
+  held reason, and irreversible consequence remain in hidden authoritative
+  labels, tooltips, accessibility metadata, the compact confirmation, and the
+  complete Web diagnostic.
+- The confirmation is a decision card rather than a paragraph: candidate,
+  archetype, replacement, fee, unchanged manager count, payroll delta, posture,
+  reports, zero egg output, and irreversibility remain visible with `FILE / KEEP`
+  actions. Opening and canceling mutate nothing; confirmation files exactly once.
+- `tests/manager_recruitment_ui_test.gd` and
+  `tests/manager_roster_presentation_test.gd` cover collapsed defaults, all six
+  operations tiles, all four successor metrics, exact accessible equivalence,
+  assignment/posture containment, confirmation safety, confirm-once authority,
+  and 390x844/150%-scale reachability.
+- Native component and confirmation evidence is under
+  `output/web-game/manager-recruitment-scale-v1/`; the real Office/Operations
+  capture is `output/rooster-operations-ui-glance-v1/rooster_operations_ui.png`.
+  The prescribed Node 24 production-wrapper proof is clean at
+  `output/web-game/rooster-operations-web-client-v3/`, with no browser-error
+  artifact and port 41761 released after the run.
+- Candidate-wide evidence is the 212/212 exhaustive report at
+  `output/godot-full-suite-20260731-rooster-operations-glance-v1/full-suite-summary.json`
+  and the independent 44/44 release gate at
+  `output/release/rooster-operations-glance-beta-release-gate.json`.

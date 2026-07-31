@@ -4694,3 +4694,42 @@ The next major systems milestone is persistent worker relationships and individu
 - Publication uses the branch-backed GitHub Pages release. Final production
   evidence still requires seven physical sessions and seven separately
   moderated usability sessions run against the exact published artifact.
+
+## 2026-07-31 - Glance-first Rooster Operations
+
+- Rebuilt the tier-three management file around six immediate tiles:
+  `CHECK-IN / PAY / PRESSURE / DENSITY / AUTO / EXPOSURE`. The four manager
+  controls and two successors are now separate collapsed disclosures instead of
+  an always-open wall of biographies, doctrines, ledgers, and selectors.
+- Manager cards lead with first name/archetype and `PAY / INF`; exact full
+  identity and doctrine remain contextual. Successor cards compare `FEE`,
+  `REPLACE`, `PAY`, and `EGGS`, use one `REVIEW` action, and retain every exact
+  term in hidden labels, tooltips, accessibility metadata, and diagnostics.
+- Replaced the succession paragraph with a compact decision card showing who
+  enters/leaves, fee, unchanged headcount, payroll, posture, reports, zero egg
+  output, and irreversibility. `FILE / KEEP` remains cancel-safe and confirm-once.
+- Focused Facilities, Management Loop, manager roster, manager recruitment, and
+  Staffing contracts pass. The inspected 390x844/150% component/confirmation
+  captures are under `output/web-game/manager-recruitment-scale-v1/`; the full
+  real-GPU Office capture is
+  `output/rooster-operations-ui-glance-v1/rooster_operations_ui.png`.
+- Added the localhost-only `rooster-operations` production preview, built from
+  real tier-three facility purchases. The prescribed Node 24 client is clean at
+  `output/web-game/rooster-operations-web-client-v3/`: the authoritative
+  Operations ledger rendered in three settled captures, diagnostics were
+  populated, and no browser-error artifact exists.
+- Node 24.14 lint and production build pass. The exact-source exhaustive report
+  at
+  `output/godot-full-suite-20260731-rooster-operations-glance-v1/full-suite-summary.json`
+  passes 212/212 contracts with zero failures and zero timeouts. The independent
+  report at `output/release/rooster-operations-glance-beta-release-gate.json`
+  passes all 44 native, Node 24 Web, production-server, validator, and payload
+  parity checks.
+- Synchronized both deploy payloads. The 9,323,380-byte PCK has SHA-256
+  `868A630A395304E4FB0B711B4E35D7BD765ADE86A6322F484E64F427B9B267C6`.
+- Every focused/exhaustive Godot process, prescribed browser client, Chromium
+  child, and scoped production server exited. Port 41761 is free; unrelated
+  processes were not touched.
+- Publication uses the branch-backed GitHub Pages release. Final production
+  evidence still requires seven physical sessions and seven separately
+  moderated usability sessions against the exact published artifact.

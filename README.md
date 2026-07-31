@@ -320,6 +320,7 @@ The authored Service Coop, Negotiation Room, negotiated board, Wellness Nest, Tr
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --path . -- --capture-care-campus
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --path . -- --capture-farmer-relations-gallery
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --path . -- --capture-rooster-operations-office
+& "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --path . -- --capture-rooster-operations-ui
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --path . -- --capture-it-coop
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --path . -- --capture-operations-campus
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --path . -- --capture-flock-relations

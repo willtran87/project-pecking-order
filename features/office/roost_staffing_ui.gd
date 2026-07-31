@@ -30,6 +30,7 @@ const FeedProcurementUIScript := preload("res://features/office/feed_procurement
 const FarmerRelationsGalleryUIScript := preload("res://features/office/farmer_relations_gallery_ui.gd")
 const FarmgateDispatchUIScript := preload("res://features/office/farmgate_dispatch_ui.gd")
 const InternshipProgramUIScript := preload("res://features/office/internship_program_ui.gd")
+const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
 
 const COLOR_BRASS := Color("e7c56e")
 const COLOR_TEAL := Color("73b5a7")
@@ -61,7 +62,15 @@ var _operations_automation_label: Label
 var _operations_exposure_label: Label
 var _operations_next_action_label: Label
 var _manager_density_label: Label
+var _operations_checkins_glance: Label
+var _operations_payroll_glance: Label
+var _operations_pressure_glance: Label
+var _operations_density_glance: Label
+var _operations_automation_glance: Label
+var _operations_exposure_glance: Label
+var _manager_roster_toggle
 var _manager_roster_list: VBoxContainer
+var _manager_candidate_toggle
 var _manager_candidate_list: VBoxContainer
 var _manager_recruit_confirmation: ConfirmationDialog
 var _pending_manager_candidate_id: StringName = &""
@@ -132,6 +141,8 @@ func presentation_context() -> Dictionary:
 		),
 		"inline_facilities_expanded": _inline_facilities_open,
 		"internship_program_expanded": _internship_program_ui.is_expanded(),
+		"manager_roster_expanded": managers_expanded(),
+		"manager_successors_expanded": successors_expanded(),
 	}
 
 
@@ -160,6 +171,26 @@ func restore_presentation_context(context: Dictionary) -> void:
 	_internship_program_ui.set_expanded(
 		bool(context.get("internship_program_expanded", false))
 	)
+	set_managers_expanded(bool(context.get("manager_roster_expanded", false)))
+	set_successors_expanded(bool(context.get("manager_successors_expanded", false)))
+
+
+func set_managers_expanded(expanded: bool) -> void:
+	if _manager_roster_toggle != null:
+		_manager_roster_toggle.set_expanded(expanded)
+
+
+func managers_expanded() -> bool:
+	return _manager_roster_toggle != null and _manager_roster_toggle.is_expanded()
+
+
+func set_successors_expanded(expanded: bool) -> void:
+	if _manager_candidate_toggle != null:
+		_manager_candidate_toggle.set_expanded(expanded)
+
+
+func successors_expanded() -> bool:
+	return _manager_candidate_toggle != null and _manager_candidate_toggle.is_expanded()
 
 
 func _ensure_interface() -> void:
@@ -416,14 +447,14 @@ func _build_manager_recruit_confirmation() -> void:
 	_manager_recruit_confirmation = ConfirmationDialog.new()
 	_manager_recruit_confirmation.name = "ManagerRecruitConfirmation"
 	_manager_recruit_confirmation.title = "FILE A MANAGEMENT SUCCESSION?"
-	_manager_recruit_confirmation.ok_button_text = "FILE APPOINTMENT"
-	_manager_recruit_confirmation.cancel_button_text = "KEEP CURRENT ROOSTER"
-	_manager_recruit_confirmation.min_size = Vector2i(340, 330)
+	_manager_recruit_confirmation.ok_button_text = "FILE"
+	_manager_recruit_confirmation.cancel_button_text = "KEEP"
+	_manager_recruit_confirmation.min_size = Vector2i(340, 285)
 	var copy := _manager_recruit_confirmation.get_label()
 	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	copy.custom_minimum_size = Vector2(300.0, 168.0)
+	copy.custom_minimum_size = Vector2(300.0, 132.0)
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for action_button: Button in [
 		_manager_recruit_confirmation.get_ok_button(),
@@ -610,39 +641,85 @@ func _build_operations_section() -> void:
 
 	var heading := _make_label("ROOSTER OPERATIONS", 12, COLOR_BRASS)
 	heading.name = "RoosterOperationsHeading"
+	heading.tooltip_text = "Rooster Operations / supervision, management pressure, automation, and succession."
+	heading.set_meta("accessible_text", heading.tooltip_text)
 	column.add_child(heading)
 	_operations_supervision_label = _make_label("", 11, COLOR_TEAL)
 	_operations_supervision_label.name = "RoosterOperationsSupervision"
 	_operations_supervision_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_operations_supervision_label.visible = false
 	column.add_child(_operations_supervision_label)
 	_operations_pressure_label = _make_label("", 10, COLOR_MUTED)
 	_operations_pressure_label.name = "RoosterOperationsPressure"
 	_operations_pressure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_operations_pressure_label.visible = false
 	column.add_child(_operations_pressure_label)
 	_manager_density_label = _make_label("", 10, COLOR_MUTED)
 	_manager_density_label.name = "ManagementDensity"
 	_manager_density_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_manager_density_label.visible = false
 	column.add_child(_manager_density_label)
-	_manager_roster_list = VBoxContainer.new()
-	_manager_roster_list.name = "ManagerRoster"
-	_manager_roster_list.add_theme_constant_override("separation", 6)
-	column.add_child(_manager_roster_list)
-	_manager_candidate_list = VBoxContainer.new()
-	_manager_candidate_list.name = "ManagerCandidateSlate"
-	_manager_candidate_list.add_theme_constant_override("separation", 4)
-	column.add_child(_manager_candidate_list)
-	_operations_automation_label = _make_label("", 11, COLOR_TEAL)
-	_operations_automation_label.name = "RoosterOperationsAutomation"
-	_operations_automation_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_operations_automation_label)
-	_operations_exposure_label = _make_label("", 10, COLOR_MUTED)
-	_operations_exposure_label.name = "RoosterOperationsExposure"
-	_operations_exposure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_operations_exposure_label)
+
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "RoosterOperationsGlanceGrid"
+	glance_grid.columns = 2
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	glance_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(glance_grid)
+	_operations_checkins_glance = _metric_chip(glance_grid, "CHECK-IN\n1 LEFT")
+	_operations_checkins_glance.name = "RoosterOperationsCheckinsGlance"
+	_operations_payroll_glance = _metric_chip(glance_grid, "PAY\n$0 / DAY")
+	_operations_payroll_glance.name = "RoosterOperationsPayrollGlance"
+	_operations_pressure_glance = _metric_chip(glance_grid, "PRESSURE\nNONE")
+	_operations_pressure_glance.name = "RoosterOperationsPressureGlance"
+	_operations_density_glance = _metric_chip(glance_grid, "DENSITY\n1 : 0")
+	_operations_density_glance.name = "RoosterOperationsDensityGlance"
+	_operations_automation_glance = _metric_chip(glance_grid, "AUTO\nLOCAL")
+	_operations_automation_glance.name = "RoosterOperationsAutomationGlance"
+	_operations_exposure_glance = _metric_chip(glance_grid, "EXPOSURE\nNONE")
+	_operations_exposure_glance.name = "RoosterOperationsExposureGlance"
+
 	_operations_next_action_label = _make_label("", 10, Color("d7c17d"))
 	_operations_next_action_label.name = "RoosterOperationsNextAction"
 	_operations_next_action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_operations_next_action_label)
+
+	_manager_roster_toggle = FlockwatchDisclosureToggleScript.new()
+	_manager_roster_toggle.name = "ManagerRosterToggle"
+	_manager_roster_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
+	column.add_child(_manager_roster_toggle)
+	_manager_roster_list = VBoxContainer.new()
+	_manager_roster_list.name = "ManagerRoster"
+	_manager_roster_list.add_theme_constant_override("separation", 6)
+	column.add_child(_manager_roster_list)
+	var manager_roster_targets: Array[Control] = [_manager_roster_list]
+	_manager_roster_toggle.configure("MANAGERS", "0", manager_roster_targets, false)
+
+	_manager_candidate_toggle = FlockwatchDisclosureToggleScript.new()
+	_manager_candidate_toggle.name = "ManagerSuccessorToggle"
+	_manager_candidate_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
+	column.add_child(_manager_candidate_toggle)
+	_manager_candidate_list = VBoxContainer.new()
+	_manager_candidate_list.name = "ManagerCandidateSlate"
+	_manager_candidate_list.add_theme_constant_override("separation", 4)
+	column.add_child(_manager_candidate_list)
+	var manager_candidate_targets: Array[Control] = [_manager_candidate_list]
+	_manager_candidate_toggle.configure("SUCCESSORS", "0", manager_candidate_targets, false)
+	_operations_automation_label = _make_label("", 11, COLOR_TEAL)
+	_operations_automation_label.name = "RoosterOperationsAutomation"
+	_operations_automation_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_operations_automation_label.visible = false
+	column.add_child(_operations_automation_label)
+	_operations_exposure_label = _make_label("", 10, COLOR_MUTED)
+	_operations_exposure_label.name = "RoosterOperationsExposure"
+	_operations_exposure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_operations_exposure_label.visible = false
+	column.add_child(_operations_exposure_label)
 
 
 func _refresh_operations() -> void:
@@ -679,6 +756,12 @@ func _refresh_operations() -> void:
 		"The Rooster Operations Office raises the flock-wide check-in allowance. "
 		+ "A named hen may still receive at most one personnel action per shift."
 	)
+	_operations_supervision_label.set_meta("accessible_text", _operations_supervision_label.text)
+	_operations_checkins_glance.text = "CHECK-IN\n%d LEFT" % actions_remaining
+	_operations_payroll_glance.text = "PAY\n%s / DAY" % _compact_currency(supervisor_payroll)
+	for glance: Label in [_operations_checkins_glance, _operations_payroll_glance]:
+		glance.tooltip_text = _operations_supervision_label.text + "\n" + _operations_supervision_label.tooltip_text
+		glance.set_meta("accessible_text", glance.tooltip_text)
 
 	var grievance_mp := maxi(0, int(supervision.get("surveillance_grievance_millipoints", 0)))
 	var stress_mp := maxi(0, int(supervision.get("surveillance_stress_millipoints", 0)))
@@ -696,6 +779,15 @@ func _refresh_operations() -> void:
 		COLOR_RUST if grievance_mp + stress_mp + solidarity_mp > 0 else COLOR_MUTED,
 	)
 	_operations_pressure_label.tooltip_text = "These once-per-shift pressure values come directly from the authoritative operations ledger."
+	_operations_pressure_label.set_meta("accessible_text", _operations_pressure_label.text)
+	var pressure_total_mp := grievance_mp + stress_mp + solidarity_mp
+	_operations_pressure_glance.text = (
+		"PRESSURE\n+%s" % _millipoints_copy(pressure_total_mp)
+		if pressure_total_mp > 0 else
+		"PRESSURE\nNONE"
+	)
+	_operations_pressure_glance.tooltip_text = _operations_pressure_label.text + "\n" + _operations_pressure_label.tooltip_text
+	_operations_pressure_glance.set_meta("accessible_text", _operations_pressure_glance.tooltip_text)
 	_refresh_manager_roster(operations)
 
 	var automation := operations.get("automation", {}) as Dictionary
@@ -718,6 +810,14 @@ func _refresh_operations() -> void:
 		"IT support applies only while an employed hen is assigned AUTO. "
 		+ "A manual NEST, PREDATOR, or APPEALS route is an explicit override."
 	)
+	_operations_automation_label.set_meta("accessible_text", _operations_automation_label.text)
+	_operations_automation_glance.text = (
+		"AUTO\n+%s%%" % _compact_number(work_bonus_percent)
+		if automation_enabled else
+		"AUTO\nLOCAL"
+	)
+	_operations_automation_glance.tooltip_text = _operations_automation_label.text + "\n" + _operations_automation_label.tooltip_text
+	_operations_automation_glance.set_meta("accessible_text", _operations_automation_glance.tooltip_text)
 
 	var compliance_mp := maxi(0, int(automation.get("compliance_exposure_millipoints", 0)))
 	_operations_exposure_label.text = (
@@ -731,6 +831,14 @@ func _refresh_operations() -> void:
 		COLOR_RUST if compliance_mp > 0 else COLOR_MUTED,
 	)
 	_operations_exposure_label.tooltip_text = "The exposure settles once per shift; it is not inferred from the visible compliance meter."
+	_operations_exposure_label.set_meta("accessible_text", _operations_exposure_label.text)
+	_operations_exposure_glance.text = (
+		"EXPOSURE\n-%s" % _millipoints_copy(compliance_mp)
+		if compliance_mp > 0 else
+		"EXPOSURE\nNONE"
+	)
+	_operations_exposure_glance.tooltip_text = _operations_exposure_label.text + "\n" + _operations_exposure_label.tooltip_text
+	_operations_exposure_glance.set_meta("accessible_text", _operations_exposure_glance.tooltip_text)
 
 	var next_action := operations.get("next_operations_action", {}) as Dictionary
 	_operations_next_action_label.visible = not next_action.is_empty()
@@ -764,14 +872,26 @@ func _refresh_manager_roster(operations: Dictionary) -> void:
 		"font_color", COLOR_RUST if risk_label == "OVERMANAGED" else COLOR_MUTED
 	)
 	_manager_density_label.tooltip_text = "More roosters create reports and check-ins, never eggs. Above one manager per two hens, meetings and contradictory directives cut productive time."
+	_manager_density_label.set_meta("accessible_text", _manager_density_label.text)
+	_operations_density_glance.text = "DENSITY\n%s" % String(density.get("label", "1 : 0"))
+	_operations_density_glance.tooltip_text = _manager_density_label.text + "\n" + _manager_density_label.tooltip_text
+	_operations_density_glance.set_meta("accessible_text", _operations_density_glance.tooltip_text)
 	var assignments := operations.get("manager_assignments", []) as Array
 	var postures := operations.get("manager_postures", []) as Array
 	var planning_open := bool(_snapshot.get("staffing_planning_open", false))
-	for manager_value in operations.get("manager_roster", []) as Array:
+	var manager_roster := operations.get("manager_roster", []) as Array
+	for manager_value in manager_roster:
 		if not manager_value is Dictionary:
 			continue
 		var manager := manager_value as Dictionary
 		_manager_roster_list.add_child(_build_manager_card(manager, assignments, postures, planning_open))
+	if _manager_roster_toggle != null:
+		var expanded: bool = _manager_roster_toggle.is_expanded()
+		_manager_roster_toggle.set_summary(
+			str(manager_roster.size()),
+			"%d named managers. Assignments and postures apply to the authoritative next shift." % manager_roster.size(),
+		)
+		_manager_roster_toggle.set_expanded(expanded, false)
 	_refresh_manager_candidates(operations)
 
 
@@ -784,8 +904,11 @@ func _refresh_manager_candidates(operations: Dictionary) -> void:
 	for candidate_value in operations.get("manager_candidates", []) as Array:
 		if candidate_value is Dictionary and not bool((candidate_value as Dictionary).get("hired", false)):
 			available.append(candidate_value as Dictionary)
-	_manager_candidate_list.visible = not available.is_empty()
+	var expanded: bool = _manager_candidate_toggle != null and _manager_candidate_toggle.is_expanded()
+	if _manager_candidate_toggle != null:
+		_manager_candidate_toggle.visible = not available.is_empty()
 	if available.is_empty():
+		_manager_candidate_list.visible = false
 		return
 	var heading := _make_label("SCREENED MANAGEMENT SUCCESSORS", 9, COLOR_MUTED)
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -813,7 +936,7 @@ func _refresh_manager_candidates(operations: Dictionary) -> void:
 		margin.add_child(column)
 		var candidate_heading := _make_label(
 			"%s  /  %s" % [
-				String(candidate.get("name", "ROOSTER")).to_upper(),
+				_compact_manager_name(String(candidate.get("name", "ROOSTER"))),
 				String(candidate.get("archetype", "MANAGEMENT")),
 			],
 			10,
@@ -827,6 +950,7 @@ func _refresh_manager_candidates(operations: Dictionary) -> void:
 			COLOR_MUTED,
 		)
 		doctrine.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		doctrine.visible = false
 		column.add_child(doctrine)
 		var terms := _make_label(
 			(
@@ -844,10 +968,35 @@ func _refresh_manager_candidates(operations: Dictionary) -> void:
 		)
 		terms.name = "ManagerCandidateTerms_%s" % String(candidate_id)
 		terms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		terms.visible = false
 		column.add_child(terms)
+		var exact_terms := "%s. %s. %s" % [candidate_heading.text, doctrine.text, terms.text]
+		candidate_heading.tooltip_text = exact_terms
+		candidate_heading.set_meta("accessible_text", exact_terms)
+		var metrics := GridContainer.new()
+		metrics.name = "ManagerCandidateMetrics_%s" % String(candidate_id)
+		metrics.columns = 2
+		metrics.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		metrics.add_theme_constant_override("h_separation", 4)
+		metrics.add_theme_constant_override("v_separation", 4)
+		column.add_child(metrics)
+		var fee_glance := _metric_chip(metrics, "FEE\n%s" % _compact_currency(int(candidate.get("signing_cost_cents", 0))))
+		fee_glance.name = "ManagerCandidateFee_%s" % String(candidate_id)
+		var replace_glance := _metric_chip(metrics, "REPLACE\n%s" % _compact_manager_name(String(candidate.get("replaces_name", "NEWEST"))))
+		replace_glance.name = "ManagerCandidateReplace_%s" % String(candidate_id)
+		var payroll_glance := _metric_chip(metrics, "PAY\n%s / %s" % [
+			_compact_currency(int(candidate.get("supervisor_payroll_before_cents", 0))),
+			_compact_currency(int(candidate.get("supervisor_payroll_after_cents", 0))),
+		])
+		payroll_glance.name = "ManagerCandidatePayroll_%s" % String(candidate_id)
+		var eggs_glance := _metric_chip(metrics, "EGGS\n0")
+		eggs_glance.name = "ManagerCandidateEggs_%s" % String(candidate_id)
+		for glance: Label in [fee_glance, replace_glance, payroll_glance, eggs_glance]:
+			glance.tooltip_text = exact_terms
+			glance.set_meta("accessible_text", exact_terms)
 		var button := Button.new()
 		button.name = "RecruitManager_%s" % String(candidate_id)
-		button.text = "REVIEW APPOINTMENT"
+		button.text = "REVIEW"
 		button.custom_minimum_size.y = 40.0
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.clip_text = true
@@ -860,10 +1009,19 @@ func _refresh_manager_candidates(operations: Dictionary) -> void:
 				String(candidate.get("reason", "")),
 			]
 		)
+		button.set_meta("accessible_text", button.tooltip_text)
 		button.pressed.connect(func() -> void:
 			_on_manager_recruit_pressed(candidate_id, button)
 		)
 		column.add_child(button)
+		card.tooltip_text = exact_terms
+		card.set_meta("accessible_text", exact_terms)
+	if _manager_candidate_toggle != null:
+		_manager_candidate_toggle.set_summary(
+			str(available.size()),
+			"%d screened successors. Appointment replaces the newest management post and is irreversible." % available.size(),
+		)
+		_manager_candidate_toggle.set_expanded(expanded, false)
 
 
 func _build_manager_card(
@@ -887,7 +1045,10 @@ func _build_manager_card(
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(column)
 	var heading := _make_label(
-		"%s  /  %s" % [String(manager.get("name", "ROOSTER MANAGER")).to_upper(), String(manager.get("title", "ACTING LEAD"))],
+		"%s  /  %s" % [
+			_compact_manager_name(String(manager.get("name", "ROOSTER MANAGER"))),
+			String(manager.get("archetype", "MANAGEMENT")),
+		],
 		10,
 		COLOR_BRASS,
 	)
@@ -904,7 +1065,28 @@ func _build_manager_card(
 		COLOR_MUTED,
 	)
 	doctrine.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	doctrine.name = "ManagerDoctrine_%s" % String(manager_id)
+	doctrine.visible = false
 	column.add_child(doctrine)
+	var exact_manager := "%s / %s. %s" % [
+		String(manager.get("name", "ROOSTER MANAGER")).to_upper(),
+		String(manager.get("title", "ACTING LEAD")).to_upper(),
+		doctrine.text,
+	]
+	heading.tooltip_text = exact_manager
+	heading.set_meta("accessible_text", exact_manager)
+	var manager_glance := _make_label(
+		"PAY  %s / DAY   /   INF  %d" % [
+			_compact_currency(int(manager.get("salary_cents", 0))),
+			int(manager.get("influence", 0)),
+		],
+		9,
+		COLOR_MUTED,
+	)
+	manager_glance.name = "ManagerGlance_%s" % String(manager_id)
+	manager_glance.tooltip_text = exact_manager
+	manager_glance.set_meta("accessible_text", exact_manager)
+	column.add_child(manager_glance)
 	var controls := VBoxContainer.new()
 	controls.add_theme_constant_override("separation", 5)
 	controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -913,7 +1095,8 @@ func _build_manager_card(
 		"Assignment_%s" % String(manager_id), assignments,
 		StringName(String(manager.get("assignment_id", "whole_flock"))), planning_open,
 	)
-	assignment_select.tooltip_text = "Choose which hens this rooster manages. Available during planning and review."
+	assignment_select.tooltip_text = "%s\nASSIGNMENT / Choose which hens this rooster manages. Available during planning and review." % exact_manager
+	assignment_select.set_meta("accessible_text", assignment_select.tooltip_text)
 	assignment_select.item_selected.connect(func(index: int) -> void:
 		manager_assignment_requested.emit(manager_id, StringName(String(assignment_select.get_item_metadata(index))))
 	)
@@ -922,11 +1105,14 @@ func _build_manager_card(
 		"Posture_%s" % String(manager_id), postures,
 		StringName(String(manager.get("posture_id", "coach"))), planning_open,
 	)
-	posture_select.tooltip_text = "Choose this rooster's next-shift doctrine. Effects apply once the morning directive is filed."
+	posture_select.tooltip_text = "%s\nPOSTURE / Choose this rooster's next-shift doctrine. Effects apply once the morning directive is filed." % exact_manager
+	posture_select.set_meta("accessible_text", posture_select.tooltip_text)
 	posture_select.item_selected.connect(func(index: int) -> void:
 		manager_posture_requested.emit(manager_id, StringName(String(posture_select.get_item_metadata(index))))
 	)
 	controls.add_child(posture_select)
+	card.tooltip_text = exact_manager
+	card.set_meta("accessible_text", exact_manager)
 	return card
 
 
@@ -1607,6 +1793,17 @@ func _multiplier_delta_copy(multiplier: float) -> String:
 func _compact_number(value: float) -> String:
 	var rounded := snappedf(value, 0.1)
 	return str(roundi(rounded)) if is_equal_approx(rounded, float(roundi(rounded))) else "%.1f" % rounded
+
+
+func _compact_currency(value_cents: int) -> String:
+	if value_cents % 100 == 0:
+		return "$%d" % (value_cents / 100)
+	return "$%.2f" % (float(value_cents) / 100.0)
+
+
+func _compact_manager_name(value: String) -> String:
+	var parts := value.strip_edges().to_upper().split(" ", false)
+	return String(parts[0]) if not parts.is_empty() else "ROOSTER"
 
 
 func _millipoints_copy(value: int) -> String:
@@ -2650,27 +2847,45 @@ func _on_manager_recruit_pressed(
 	_manager_recruit_confirmation.title = (
 		"APPOINT %s?" % candidate_name.to_upper()
 	)
-	_manager_recruit_confirmation.ok_button_text = "FILE APPOINTMENT"
+	_manager_recruit_confirmation.ok_button_text = "FILE"
 	_manager_recruit_confirmation.dialog_text = (
-		"IN  /  %s  /  %s\n"
-		+ "OUT  /  %s\n"
-		+ "FILING  /  $%.2f NOW\n"
-		+ "ROOSTERS  /  %d, UNCHANGED\n"
-		+ "PAYROLL  /  $%.2f -> $%.2f PER DAY\n"
+		"%s  /  %s\n"
+		+ "REPLACES  /  %s\n\n"
+		+ "FEE  /  $%.2f\n"
+		+ "ROOSTERS  /  %d -> %d\n"
+		+ "PAY  /  $%.2f -> $%.2f / DAY\n"
 		+ "POSTURE  /  %s\n"
-		+ "OUTPUT  /  REPORTS + MEETINGS  /  EGGS 0\n\n"
-		+ "No ledger changes before confirmation. "
-		+ "This succession cannot be undone during this review."
+		+ "OUTPUT  /  REPORTS  /  EGGS 0\n\n"
+		+ "IRREVERSIBLE  /  THIS REVIEW"
 	) % [
 		candidate_name.to_upper(),
 		archetype.to_upper(),
 		replaced_name.to_upper(),
 		float(signing_cost) / 100.0,
 		manager_count,
+		manager_count,
 		float(payroll_before) / 100.0,
 		float(payroll_after) / 100.0,
 		default_posture.to_upper(),
 	]
+	var exact_confirmation := (
+		"Appoint %s as %s, replacing %s. Filing fee $%.2f. "
+		+ "Management headcount remains %d; daily supervisor payroll changes from $%.2f to $%.2f. "
+		+ "Default posture %s. Managers produce reports and meetings, never eggs. "
+		+ "No ledger changes occur before confirmation; succession is irreversible during this review."
+	) % [
+		candidate_name,
+		archetype,
+		replaced_name,
+		float(signing_cost) / 100.0,
+		manager_count,
+		float(payroll_before) / 100.0,
+		float(payroll_after) / 100.0,
+		default_posture,
+	]
+	var confirmation_copy := _manager_recruit_confirmation.get_label()
+	confirmation_copy.tooltip_text = exact_confirmation
+	confirmation_copy.set_meta("accessible_text", exact_confirmation)
 	_manager_recruit_confirmation.popup_centered_clamped(
 		Vector2i(380, 390),
 		0.96,
@@ -2833,6 +3048,34 @@ func _make_label(copy: String, font_size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	return label
+
+
+func _metric_chip(parent: GridContainer, copy: String) -> Label:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size.y = 42.0
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", _metric_chip_style())
+	parent.add_child(panel)
+	var label := _make_label(copy, 10, Color("edf1ec"))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(label)
+	return label
+
+
+func _metric_chip_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("1e3039")
+	style.border_color = Color("495f68")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
+	style.content_margin_left = 4.0
+	style.content_margin_right = 4.0
+	style.content_margin_top = 3.0
+	style.content_margin_bottom = 3.0
+	return style
 
 
 func _card_style() -> StyleBoxFlat:

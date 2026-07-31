@@ -240,6 +240,7 @@ export default function Home() {
 			"farmgate-dispatch": "--capture-farmgate-ui",
 			"flock-relations": "--capture-flock-relations-ui",
 			"farmer-relations": "--capture-farmer-relations-ui",
+			"rooster-operations": "--capture-rooster-operations-ui",
 			"contract-board": "--capture-contract-board-ui",
 			"contract-pricing": "--capture-contract-pricing-ui",
 			"contract-pricing-access": "--capture-contract-pricing-access-ui",

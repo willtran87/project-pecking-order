@@ -20,12 +20,36 @@ func _run() -> void:
 	await process_frame
 	var roster_list := ui.find_child("ManagerRoster", true, false)
 	_check(roster_list != null, "Operations should host the roster inside the existing Flockwatch surface", failures)
+	var manager_toggle := ui.find_child("ManagerRosterToggle", true, false) as Button
+	var successor_toggle := ui.find_child("ManagerSuccessorToggle", true, false) as Button
+	_check(
+		manager_toggle != null
+		and successor_toggle != null
+		and not ui.managers_expanded()
+		and not ui.successors_expanded()
+		and not roster_list.visible,
+		"named manager controls and successor terms should default to collapsed disclosures",
+		failures,
+	)
+	ui.set_managers_expanded(true)
+	await process_frame
 	if roster_list != null:
 		_check(roster_list.find_children("ManagerCard_*", "PanelContainer", true, false).size() == 4, "tier three should render four compact manager cards", failures)
 		_check(roster_list.find_children("Assignment_*", "OptionButton", true, false).size() == 4, "every manager should expose one assignment selector", failures)
 		_check(roster_list.find_children("Posture_*", "OptionButton", true, false).size() == 4, "every manager should expose one posture selector", failures)
 	var density_label := ui.find_child("ManagementDensity", true, false) as Label
-	_check(density_label != null and "EGGS 0" in density_label.text and "OVERMANAGED" in density_label.text, "the roster should disclose report output and overmanagement without implying egg production", failures)
+	var density_glance := ui.find_child("RoosterOperationsDensityGlance", true, false) as Label
+	_check(
+		density_label != null
+		and not density_label.visible
+		and "EGGS 0" in density_label.text
+		and "OVERMANAGED" in density_label.text
+		and density_glance != null
+		and "DENSITY" in density_glance.text
+		and String(density_glance.get_meta("accessible_text", "")).contains("EGGS 0"),
+		"the glance tile should defer but preserve exact report output and overmanagement terms",
+		failures,
+	)
 	_check(ui.find_children("RecruitManager_*", "Button", true, false).size() == 2, "the compact successor slate should offer the two non-default archetypes", failures)
 
 	var presence := ManagementPresence.new()

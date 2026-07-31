@@ -42,7 +42,7 @@ Run the complete local gate from the repository root:
 The gate requires Node 22.13 or newer. When more than one Node installation is present, pass its folder with `-NodeDirectory`. The gate writes a machine-readable report to `output/release/beta-release-gate.json`. The full isolated Godot suite remains available through `tools/run_godot_full_suite.ps1` for release candidates.
 
 The current exhaustive candidate proof is
-`output/godot-full-suite-20260731-farmgate-glance-v1/full-suite-summary.json`: all 212
+`output/godot-full-suite-20260731-rooster-operations-glance-v1/full-suite-summary.json`: all 212
 discovered tests were selected, completed, and passed with zero failures,
 timeouts, or engine-error signatures. The runner uses a 240-second per-test
 budget because the deterministic multi-career balance matrix legitimately takes
@@ -53,15 +53,15 @@ current interface context, remain resumable, and retain the prior primary as a
 verified recovery copy.
 
 The expanded representative report at
-`output/release/farmgate-glance-beta-release-gate.json` passes all 44 checks,
+`output/release/rooster-operations-glance-beta-release-gate.json` passes all 44 checks,
 including the intake contract, Web production serving, evidence-validator
 adversarial fixtures, and exact artifact parity. It exercises the same
-9,302,932-byte PCK (`SHA-256
-258A6D2F81ADED91A316EF8CE2E160A409237EDA8CE36BAEE46CC9D02FD806F3`)
+9,323,380-byte PCK (`SHA-256
+868A630A395304E4FB0B711B4E35D7BD765ADE86A6322F484E64F427B9B267C6`)
 inspected by the clean prescribed browser proof at
-`output/farmgate-dispatch-web-client-v2/` and the native narrow/Office captures
-under `output/web-game/farmgate-dispatch-scale-v1/` and
-`output/farmgate-dispatch-ui-glance-v1/`.
+`output/web-game/rooster-operations-web-client-v3/` and the native narrow/Office
+captures under `output/web-game/manager-recruitment-scale-v1/` and
+`output/rooster-operations-ui-glance-v1/`.
 
 ### Current public-deployment disposition
 
@@ -71,9 +71,9 @@ the `codex/core-loop-polish` branch's `/docs` directory. The current release
 handoff uses a cache-bypassed public download and requires it to match local
 `docs/index.pck` exactly:
 
-- local and public `index.pck`: 9,302,932 bytes;
+- local and public `index.pck`: 9,323,380 bytes;
 - local and public SHA-256:
-  `258A6D2F81ADED91A316EF8CE2E160A409237EDA8CE36BAEE46CC9D02FD806F3`;
+  `868A630A395304E4FB0B711B4E35D7BD765ADE86A6322F484E64F427B9B267C6`;
 - exact deployed-payload match: **true**.
 
 The public URL is therefore the approved automated-test candidate. Publication
@@ -82,10 +82,10 @@ separately moderated usability focuses below remain pending until they are
 performed against this exact package.
 
 The current automated evidence is the 212/212 exhaustive native report at
-`output/godot-full-suite-20260731-farmgate-glance-v1/full-suite-summary.json`,
+`output/godot-full-suite-20260731-rooster-operations-glance-v1/full-suite-summary.json`,
 the 44/44 independent release gate at
-`output/release/farmgate-glance-beta-release-gate.json`, and the exact
-production-wrapper capture at `output/farmgate-dispatch-web-client-v2/`.
+`output/release/rooster-operations-glance-beta-release-gate.json`, and the exact
+production-wrapper capture at `output/web-game/rooster-operations-web-client-v3/`.
 Fourteen required candidate-bound sessions remain pending: seven physical
 touch/screen-reader/listening/GPU sessions and seven separately moderated
 usability focuses. No stale result is counted as a pass.

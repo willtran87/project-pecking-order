@@ -99,11 +99,47 @@ func _run() -> void:
 		true,
 		false,
 	) as ConfirmationDialog
+	var manager_toggle := ui.find_child("ManagerRosterToggle", true, false) as Button
+	var successor_toggle := ui.find_child("ManagerSuccessorToggle", true, false) as Button
+	var checkins_glance := ui.find_child("RoosterOperationsCheckinsGlance", true, false) as Label
+	var payroll_glance := ui.find_child("RoosterOperationsPayrollGlance", true, false) as Label
+	var pressure_glance := ui.find_child("RoosterOperationsPressureGlance", true, false) as Label
+	var density_glance := ui.find_child("RoosterOperationsDensityGlance", true, false) as Label
+	var automation_glance := ui.find_child("RoosterOperationsAutomationGlance", true, false) as Label
+	var exposure_glance := ui.find_child("RoosterOperationsExposureGlance", true, false) as Label
 	_check(
 		operations != null and roster != null and candidates != null,
 		"Operations should contain the manager roster and screened successor slate",
 		failures,
 	)
+	_check(
+		manager_toggle != null
+		and successor_toggle != null
+		and not ui.managers_expanded()
+		and not ui.successors_expanded()
+		and not roster.visible
+		and not candidates.visible,
+		"manager detail and succession terms should default to collapsed review disclosures",
+		failures,
+	)
+	_check(
+		checkins_glance != null
+		and payroll_glance != null
+		and pressure_glance != null
+		and density_glance != null
+		and automation_glance != null
+		and exposure_glance != null
+		and _contains_all(checkins_glance.text, ["CHECK-IN", "LEFT"])
+		and _contains_all(payroll_glance.text, ["PAY", "/ DAY"])
+		and "PRESSURE" in pressure_glance.text
+		and "DENSITY" in density_glance.text
+		and "AUTO" in automation_glance.text
+		and "EXPOSURE" in exposure_glance.text,
+		"operations should expose six terse, ledger-backed first-read tiles",
+		failures,
+	)
+	ui.set_managers_expanded(true)
+	await process_frame
 	_check(
 		roster != null
 		and roster.find_children(
@@ -129,17 +165,35 @@ func _run() -> void:
 	_check(
 		recruit != null
 		and not recruit.disabled
-		and recruit.text == "REVIEW APPOINTMENT",
+		and recruit.text == "REVIEW",
 		"an affordable successor should expose a review-first appointment action",
 		failures,
 	)
 	_check(
 		terms != null
+		and not terms.visible
 		and _contains_all(
 			terms.text,
 			["$70.00", "REPLACES", "ROOSTERS  4", "PAYROLL", "EGGS  0"],
 		),
-		"the candidate card should disclose cost, replacement, headcount, payroll, and zero egg output",
+		"exact successor economics should remain authored but visually deferred",
+		failures,
+	)
+	var fee_glance := ui.find_child("ManagerCandidateFee_byte_automation", true, false) as Label
+	var replace_glance := ui.find_child("ManagerCandidateReplace_byte_automation", true, false) as Label
+	var candidate_payroll_glance := ui.find_child("ManagerCandidatePayroll_byte_automation", true, false) as Label
+	var eggs_glance := ui.find_child("ManagerCandidateEggs_byte_automation", true, false) as Label
+	_check(
+		fee_glance != null
+		and replace_glance != null
+		and candidate_payroll_glance != null
+		and eggs_glance != null
+		and _contains_all(fee_glance.text, ["FEE", "$70"])
+		and "REPLACE" in replace_glance.text
+		and "PAY" in candidate_payroll_glance.text
+		and _contains_all(eggs_glance.text, ["EGGS", "0"])
+		and String(fee_glance.get_meta("accessible_text", "")).contains("$70.00"),
+		"successor cards should communicate the action through four compact metrics while preserving exact accessible terms",
 		failures,
 	)
 	_check(
@@ -173,36 +227,59 @@ func _run() -> void:
 	_apply_explicit_font_scale(operations, 1.5)
 	await process_frame
 	await process_frame
-	recruit = ui.find_child(
-		"RecruitManager_byte_automation",
-		true,
-		false,
-	) as Button
-	if recruit != null:
-		scroll.ensure_control_visible(recruit)
-	await process_frame
-	await process_frame
 	if "--capture-max-scale-managers" in OS.get_cmdline_user_args():
 		var capture_directory := ProjectSettings.globalize_path(
 			"res://output/web-game/manager-recruitment-scale-v1"
 		)
 		DirAccess.make_dir_recursive_absolute(capture_directory)
-		var roster_image := test_viewport.get_texture().get_image()
+		ui.set_managers_expanded(false)
+		ui.set_successors_expanded(false)
+		scroll.scroll_vertical = 0
+		await process_frame
+		await process_frame
+		var glance_image := test_viewport.get_texture().get_image()
 		_check(
-			roster_image != null,
-			"manager roster should expose a rendered portrait texture",
+			glance_image != null,
+			"manager operations should expose a rendered glance texture",
 			failures,
 		)
-		if roster_image != null:
+		if glance_image != null:
 			_check(
-				roster_image.save_png(
+				glance_image.save_png(
 					capture_directory.path_join(
-						"manager-operations-390x844.png"
+						"manager-operations-glance-390x844.png"
 					)
 				) == OK,
+				"manager operations glance capture should save",
+				failures,
+			)
+		ui.set_managers_expanded(true)
+		await process_frame
+		await process_frame
+		var roster_image := test_viewport.get_texture().get_image()
+		if roster_image != null:
+			_check(
+				roster_image.save_png(capture_directory.path_join("manager-roster-390x844.png")) == OK,
 				"manager roster capture should save",
 				failures,
 			)
+		ui.set_managers_expanded(false)
+		ui.set_successors_expanded(true)
+		recruit = ui.find_child("RecruitManager_byte_automation", true, false) as Button
+		await process_frame
+		if recruit != null:
+			scroll.ensure_control_visible(recruit)
+		await process_frame
+		await process_frame
+		var successor_image := test_viewport.get_texture().get_image()
+		if successor_image != null:
+			_check(
+				successor_image.save_png(capture_directory.path_join("manager-operations-390x844.png")) == OK,
+				"manager successor capture should save",
+				failures,
+			)
+	ui.set_managers_expanded(true)
+	ui.set_successors_expanded(false)
 	_expand_interface_copy(operations)
 	await process_frame
 	await process_frame
@@ -251,11 +328,14 @@ func _run() -> void:
 			"every manager posture selector should shrink and remain reachable",
 			failures,
 		)
+	ui.set_managers_expanded(false)
+	ui.set_successors_expanded(true)
 	recruit = ui.find_child(
 		"RecruitManager_byte_automation",
 		true,
 		false,
 	) as Button
+	await process_frame
 	if recruit != null:
 		scroll.ensure_control_visible(recruit)
 	await process_frame
@@ -265,7 +345,12 @@ func _run() -> void:
 		and recruit.is_visible_in_tree()
 		and scroll.get_global_rect().intersects(recruit.get_global_rect())
 		and _rect_inside(recruit.get_global_rect(), bounds),
-		"the scaled successor review action should remain physically reachable",
+		"the scaled successor review action should remain physically reachable (visible=%s scroll=%s recruit=%s bounds=%s)" % [
+			recruit.is_visible_in_tree() if recruit != null else false,
+			scroll.get_global_rect(),
+			recruit.get_global_rect() if recruit != null else Rect2(),
+			bounds,
+		],
 		failures,
 	)
 	var fund_before := simulation.revenue_cents
@@ -282,14 +367,17 @@ func _run() -> void:
 			[
 				"BYTE BANTAM",
 				"AUTOMATION",
-				"$70.00 NOW",
-				"ROOSTERS  /  4, UNCHANGED",
-				"PAYROLL",
+				"REPLACES  /  CLOVER CROWSBY",
+				"FEE  /  $70.00",
+				"ROOSTERS  /  4 -> 4",
+				"PAY",
 				"EGGS 0",
-				"cannot be undone",
+				"IRREVERSIBLE",
 			],
 		),
-		"confirmation should disclose identity, doctrine, cost, replacement economics, zero production, and irreversibility",
+		"confirmation should disclose identity, doctrine, cost, replacement economics, zero production, and irreversibility (%s)" % [
+			confirmation.dialog_text if confirmation != null else "missing",
+		],
 		failures,
 	)
 	_check(

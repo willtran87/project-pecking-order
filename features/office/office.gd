@@ -682,6 +682,8 @@ func _ready() -> void:
 		_capture_farmer_relations_gallery_preview()
 	elif "--capture-rooster-operations-office" in OS.get_cmdline_user_args() or "--capture-rooster-operations-office" in OS.get_cmdline_args():
 		_capture_rooster_operations_office_preview()
+	elif "--capture-rooster-operations-ui" in OS.get_cmdline_user_args() or "--capture-rooster-operations-ui" in OS.get_cmdline_args():
+		_capture_rooster_operations_ui_preview()
 	elif "--capture-it-coop" in OS.get_cmdline_user_args() or "--capture-it-coop" in OS.get_cmdline_args():
 		_capture_it_coop_preview()
 	elif "--capture-operations-campus" in OS.get_cmdline_user_args() or "--capture-operations-campus" in OS.get_cmdline_args():
@@ -15841,6 +15843,34 @@ func _capture_rooster_operations_office_preview() -> void:
 	)
 	await get_tree().create_timer(0.95).timeout
 	_save_preview("rooster_operations_office_level3.png")
+
+
+func _capture_rooster_operations_ui_preview() -> void:
+	_prepare_capture_running()
+	_prepare_operations_campus_capture_economy()
+	if not _commission_capture_facility(&"rooster_operations_office"):
+		return
+	_on_snapshot_changed(_simulation.snapshot())
+	if _day_review_scrim != null:
+		_day_review_scrim.visible = false
+	_set_campaign_modal_open(false)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_OPERATIONS)
+	_staffing_ui.set_managers_expanded(false)
+	_staffing_ui.set_successors_expanded(false)
+	await get_tree().process_frame
+	var operations_section := find_child("RoosterOperationsSection", true, false) as Control
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_OPERATIONS)
+	if scroll != null and operations_section != null:
+		var component_offset := (
+			operations_section.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 10.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("rooster_operations_ui.png")
 
 
 func _capture_it_coop_preview() -> void:
