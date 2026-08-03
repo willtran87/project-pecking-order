@@ -38,11 +38,20 @@ func _run() -> void:
 	var merit := ui.find_child("MilestoneChoice_merit_grants", true, false) as Button
 	var dividend := ui.find_child("MilestoneChoice_flock_dividend", true, false) as Button
 	var forecast := ui.find_child("MilestoneChoice_harvest_forecast", true, false) as Button
+	var board_strip := ui.find_child("BoardTargetStrip", true, false) as HFlowContainer
+	var clutch_tile := ui.find_child("BoardTarget_quota_met_shifts", true, false) as PanelContainer
+	var payroll_tile := ui.find_child("BoardTarget_wage_arrears_shifts", true, false) as PanelContainer
+	var objective_progress := ui.find_child("NextShiftObjectiveProgress", true, false) as Label
+	var objective_card := ui.find_child("NextShiftObjectiveCard", true, false) as PanelContainer
 	_check(report != null and report.is_visible_in_tree(), "Senior policy filing should reuse the full report surface", failures)
 	_check(kicker != null and "YEAR 1" in kicker.text and "QUARTER 1" in kicker.text, "Senior report should orient the player within the career calendar", failures)
 	_check(heading != null and heading.text == "QUARTER 1 CAPITAL FILING", "Senior report heading should be authored by its snapshot", failures)
 	_check(ledger_title != null and ledger_title.text == "SENIOR CAREER LEDGERS", "Senior report should name career ledgers without probation copy", failures)
 	_check(choice_title != null and "CAPITAL POLICY" in choice_title.text, "quarter gate should explain the decision class", failures)
+	_check(board_strip != null and board_strip.is_visible_in_tree() and board_strip.get_child_count() == 3, "Senior reports should render the annual Board as three stable target tiles", failures)
+	_check(clutch_tile != null and String(clutch_tile.get_meta("status", "")) == "needs_action" and payroll_tile != null and String(payroll_tile.get_meta("status", "")) == "met", "Board target state should remain semantic when color is unavailable", failures)
+	_check(objective_progress != null and objective_progress.text == "BOARD 1 / 3 MET  //  2 NEED ACTION  //  YEAR 0 / 12", "Senior reports should reduce annual Board progress to one scan-first summary", failures)
+	_check(objective_card != null and objective_card.tooltip_text.contains("LARGEST RECOVERABLE BLOCKER"), "the compact Board strip should retain the exact annual ledger in progressive detail", failures)
 	_check(_visible_text(ui).find("probation") == -1, "visible Senior UI must not leak probation wording", failures)
 	_check(merit != null and merit.disabled and "$2.00 more" in merit.tooltip_text, "unaffordable policies should be visibly disabled with an exact reserve explanation", failures)
 	_check(dividend != null and dividend.disabled, "every underfunded policy should remain non-interactive", failures)
@@ -209,7 +218,10 @@ func _quarter_policy_snapshot() -> Dictionary:
 		"next_objective": {
 			"title": "FILE A CAPITAL POLICY",
 			"description": "The quarter cannot open until management accepts a tradeoff.",
+			"board_summary": "BOARD 1 / 3 MET  //  2 NEED ACTION  //  YEAR 0 / 12",
+			"board_detail": "ANNUAL BOARD  //  STANDARD BOARD BOOK\n0 / 12 shifts  //  1 / 3 targets met\nNEEDS ACTION  //  RELIABLE CLUTCH  //  0 / 6\nNEEDS ACTION  //  FLOCK CONTINUITY  //  0 / 45\nMET  //  CURRENT PAYROLL  //  0 / 0\nLARGEST RECOVERABLE BLOCKER  //  RELIABLE CLUTCH  //  GAP 6",
 		},
+		"annual_mandate_progress": _board_progress_snapshot(),
 		"milestone_choices": [
 			{
 				"id": "merit_grants",
@@ -257,6 +269,41 @@ func _quarter_policy_snapshot() -> Dictionary:
 					"board_fit": "EDGE CURRENT PAYROLL  //  WATCH RELIABLE CLUTCH + FLOCK CONTINUITY",
 					"board_name": "STANDARD BOARD BOOK",
 				},
+			},
+		],
+	}
+
+
+func _board_progress_snapshot() -> Dictionary:
+	return {
+		"objectives_met": 1,
+		"objectives_total": 3,
+		"shifts_recorded": 0,
+		"shifts_target": 12,
+		"objectives": [
+			{
+				"metric": "quota_met_shifts",
+				"label": "RELIABLE CLUTCH",
+				"comparison": "minimum",
+				"actual": 0,
+				"target": 6,
+				"met": false,
+			},
+			{
+				"metric": "welfare_average",
+				"label": "FLOCK CONTINUITY",
+				"comparison": "minimum",
+				"actual": 0,
+				"target": 45,
+				"met": false,
+			},
+			{
+				"metric": "wage_arrears_shifts",
+				"label": "CURRENT PAYROLL",
+				"comparison": "maximum",
+				"actual": 0,
+				"target": 0,
+				"met": true,
 			},
 		],
 	}

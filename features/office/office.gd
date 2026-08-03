@@ -11111,21 +11111,29 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 				"description": "\n".join(objective_lines),
 				"reward": "Score 40+ earns 1 Roost Mark Â· 60+ earns 2 Â· 80+ earns 3.",
 			}
-		if not mandate_progress.is_empty():
-			var mandate_lines := _senior_mandate_progress_lines(mandate_progress)
-			objective["description"] = "%s\n\nANNUAL BOARD · %s\n%s" % [
-				String(objective.get("description", "Quarter safeguards pending.")),
-				String(mandate_progress.get("mandate_name", "BOARD MANDATE")),
-				"\n".join(mandate_lines),
-			]
-			objective["reward"] = "%d / %d annual shifts · %d / %d targets currently met · %d Roost Mark%s staked" % [
-				int(mandate_progress.get("shifts_recorded", 0)),
-				int(mandate_progress.get("shifts_target", 12)),
-				int(mandate_progress.get("objectives_met", 0)),
-				int(mandate_progress.get("objectives_total", 0)),
-				int(mandate_progress.get("stake_marks", 0)),
-				"" if int(mandate_progress.get("stake_marks", 0)) == 1 else "s",
-			]
+
+	# The annual Board stays visible in every in-year report, but its dense exact
+	# ledger is progressive detail. One stable summary and three target tiles own
+	# the visible layer whether the player is between shifts or filing a policy.
+	if (
+		not mandate_progress.is_empty()
+		and status_id != SeniorRoostStateScript.STATUS_ANNUAL_REVIEW
+	):
+		var mandate_lines := _senior_mandate_progress_lines(mandate_progress)
+		objective["board_detail"] = "ANNUAL BOARD  //  %s\n%s" % [
+			String(mandate_progress.get("mandate_name", "BOARD MANDATE")),
+			"\n".join(mandate_lines),
+		]
+		var mandate_met := int(mandate_progress.get("objectives_met", 0))
+		var mandate_total := int(mandate_progress.get("objectives_total", 0))
+		objective["board_summary"] = "BOARD %d / %d MET  //  %d NEED ACTION  //  YEAR %d / %d" % [
+			mandate_met,
+			mandate_total,
+			maxi(0, mandate_total - mandate_met),
+			int(mandate_progress.get("shifts_recorded", 0)),
+			int(mandate_progress.get("shifts_target", 12)),
+		]
+		objective["reward"] = objective["board_summary"]
 
 	var policy_receipt: Dictionary = {}
 	if status_id == SeniorRoostStateScript.STATUS_ACTIVE and not _senior_roost_state.active_policy_receipt.is_empty():

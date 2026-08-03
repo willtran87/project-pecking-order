@@ -158,8 +158,10 @@ var _hen_highlight_eyebrow: Label
 var _hen_highlight_headline: Label
 var _hen_highlight_body: Label
 var _hen_highlight_metric: Label
+var _objective_card: PanelContainer
 var _objective_title_label: Label
 var _objective_body_label: Label
+var _objective_board_strip: HFlowContainer
 var _objective_progress_label: Label
 var _milestone_section: VBoxContainer
 var _milestone_section_label: Label
@@ -984,14 +986,14 @@ func _build_report_panel(parent: Control) -> void:
 	_report_safeguard_summary = report_safeguards["summary"] as Label
 	_report_safeguard_grid = report_safeguards["grid"] as GridContainer
 
-	var objective_card := PanelContainer.new()
-	objective_card.name = "NextShiftObjectiveCard"
-	objective_card.add_theme_stylebox_override(
+	_objective_card = PanelContainer.new()
+	_objective_card.name = "NextShiftObjectiveCard"
+	_objective_card.add_theme_stylebox_override(
 		"panel",
 		_panel_style(Color("20333a"), Color("4c786f"), 8, 1),
 	)
-	content.add_child(objective_card)
-	var objective_content := _panel_content(objective_card, 16, 10, 3)
+	content.add_child(_objective_card)
+	var objective_content := _panel_content(_objective_card, 16, 10, 3)
 	_objective_title_label = _make_label("NEXT SHIFT OBJECTIVE", 14, TEAL)
 	_objective_title_label.name = "NextShiftObjective"
 	_objective_title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1000,6 +1002,13 @@ func _build_report_panel(parent: Control) -> void:
 	_objective_body_label.name = "NextShiftObjectiveDescription"
 	_objective_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_content.add_child(_objective_body_label)
+	_objective_board_strip = HFlowContainer.new()
+	_objective_board_strip.name = "BoardTargetStrip"
+	_objective_board_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_objective_board_strip.add_theme_constant_override("h_separation", 8)
+	_objective_board_strip.add_theme_constant_override("v_separation", 7)
+	_objective_board_strip.visible = false
+	objective_content.add_child(_objective_board_strip)
 	_objective_progress_label = _make_label("", 11, Color("a9c8c0"))
 	_objective_progress_label.name = "NextShiftObjectiveProgress"
 	_objective_progress_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -2619,13 +2628,108 @@ func _update_objective() -> void:
 		title.to_upper(),
 	]
 	_objective_body_label.text = description
-	if objective.has("progress") or objective.has("target"):
+	var mandate_value: Variant = _snapshot.get("annual_mandate_progress", {})
+	var mandate_progress := (
+		mandate_value as Dictionary if mandate_value is Dictionary else {}
+	)
+	if not mandate_progress.is_empty():
+		var board_detail := String(objective.get("board_detail", "")).strip_edges()
+		_rebuild_objective_board_strip(mandate_progress, board_detail)
+		_objective_progress_label.text = String(objective.get(
+			"board_summary",
+			_board_progress_summary(mandate_progress),
+		))
+		_objective_card.tooltip_text = board_detail
+		_objective_card.set_meta("accessible_text", board_detail)
+	elif objective.has("progress") or objective.has("target"):
+		_rebuild_objective_board_strip({}, "")
 		_objective_progress_label.text = "PROGRESS CARRIED FORWARD  %s / %s" % [
 			str(objective.get("progress", 0)),
 			str(objective.get("target", "—")),
 		]
 	else:
+		_rebuild_objective_board_strip({}, "")
 		_objective_progress_label.text = String(objective.get("reward", ""))
+		_objective_card.tooltip_text = ""
+		_objective_card.set_meta("accessible_text", "")
+
+
+func _board_progress_summary(progress: Dictionary) -> String:
+	var met := maxi(0, int(progress.get("objectives_met", 0)))
+	var total := maxi(met, int(progress.get("objectives_total", 0)))
+	var needs_action := maxi(0, total - met)
+	return "BOARD %d / %d MET  //  %d NEED ACTION  //  YEAR %d / %d" % [
+		met,
+		total,
+		needs_action,
+		maxi(0, int(progress.get("shifts_recorded", 0))),
+		maxi(0, int(progress.get("shifts_target", 12))),
+	]
+
+
+func _board_target_value(row: Dictionary) -> String:
+	var metric := String(row.get("metric", ""))
+	var actual := int(row.get("actual", 0))
+	var target := int(row.get("target", 0))
+	if metric.ends_with("basis_points"):
+		return "%.1f%% / %.1f%%" % [float(actual) / 100.0, float(target) / 100.0]
+	if metric.ends_with("_cents") or metric == "credited_cents":
+		return "$%.2f / $%.2f" % [float(actual) / 100.0, float(target) / 100.0]
+	return "%d / %d" % [actual, target]
+
+
+func _rebuild_objective_board_strip(progress: Dictionary, detail: String) -> void:
+	for child: Node in _objective_board_strip.get_children():
+		_objective_board_strip.remove_child(child)
+		child.queue_free()
+	var objectives_value: Variant = progress.get("objectives", [])
+	var objectives := objectives_value as Array if objectives_value is Array else []
+	_objective_board_strip.visible = not objectives.is_empty()
+	_objective_board_strip.tooltip_text = detail
+	_objective_board_strip.set_meta("accessible_text", detail)
+	for row_value: Variant in objectives:
+		if not row_value is Dictionary:
+			continue
+		var row := row_value as Dictionary
+		var met := bool(row.get("met", false))
+		var metric := String(row.get("metric", "board_target"))
+		var panel := PanelContainer.new()
+		panel.name = "BoardTarget_%s" % metric
+		panel.custom_minimum_size = Vector2(220.0, 50.0)
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		panel.add_theme_stylebox_override(
+			"panel",
+			_panel_style(
+				Color("203a3b") if met else Color("3b302d"),
+				Color("73b5a7") if met else Color("c96f59"),
+				7,
+				1,
+			),
+		)
+		panel.tooltip_text = detail
+		panel.set_meta("status", "met" if met else "needs_action")
+		panel.set_meta("metric", metric)
+		panel.set_meta("accessible_text", "%s. %s. Actual %s." % [
+			"Met" if met else "Needs action",
+			String(row.get("label", "BOARD TARGET")),
+			_board_target_value(row),
+		])
+		var content := _panel_content(panel, 10, 7, 1)
+		var status := _make_label(
+			"%s  //  %s" % [
+				"+ MET" if met else "! NEEDS",
+				String(row.get("label", "BOARD TARGET")).to_upper(),
+			],
+			9,
+			TEAL if met else RUST,
+		)
+		status.name = "BoardTargetState"
+		status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		content.add_child(status)
+		var value := _make_label(_board_target_value(row), 13, CREAM)
+		value.name = "BoardTargetValue"
+		content.add_child(value)
+		_objective_board_strip.add_child(panel)
 
 
 func _senior_policy_effect_glance(effect: String) -> String:

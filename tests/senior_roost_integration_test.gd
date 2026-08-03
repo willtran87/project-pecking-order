@@ -52,6 +52,7 @@ func _run() -> void:
 	var report_objective_title := office.find_child("NextShiftObjective", true, false) as Label
 	var report_objective_body := office.find_child("NextShiftObjectiveDescription", true, false) as Label
 	var report_objective_progress := office.find_child("NextShiftObjectiveProgress", true, false) as Label
+	var report_objective_card := office.find_child("NextShiftObjectiveCard", true, false) as PanelContainer
 	var hen_highlight_card := office.find_child("ShiftHenHighlightCard", true, false) as PanelContainer
 	var board_seals_value := office.find_child("ReportLedgerValue2", true, false) as Label
 	var quarter_score_value := office.find_child("ReportLedgerValue3", true, false) as Label
@@ -114,6 +115,17 @@ func _run() -> void:
 	var policy_receipt_label := office.find_child("FiledCreditMemoLabel", true, false) as Label
 	_check(policy_receipt_label != null and "POLICY LEDGER  //  HARVEST FORECAST" in policy_receipt_label.text and "FUND $ +60" in policy_receipt_label.text and "FAVOR +24" in policy_receipt_label.text and "QUOTA +2" in policy_receipt_label.text and "COMPLIANCE -4" in policy_receipt_label.text, "accepted policy should replace prose with one exact signed ledger receipt", failures)
 	_check(policy_receipt_label != null and "Management filed next quarter" not in policy_receipt_label.text and "Management filed next quarter" in policy_receipt_label.tooltip_text and String(policy_receipt_label.get_meta("accessible_text", "")).contains("OUTCOME"), "policy receipt should reserve its narrative outcome for tooltip and assistive detail", failures)
+	var board_strip := office.find_child("BoardTargetStrip", true, false) as HFlowContainer
+	var clutch_tile := office.find_child("BoardTarget_quota_met_shifts", true, false) as PanelContainer
+	var flock_tile := office.find_child("BoardTarget_welfare_average", true, false) as PanelContainer
+	var payroll_tile := office.find_child("BoardTarget_wage_arrears_shifts", true, false) as PanelContainer
+	var clutch_state := clutch_tile.find_child("BoardTargetState", true, false) as Label if clutch_tile != null else null
+	var payroll_state := payroll_tile.find_child("BoardTargetState", true, false) as Label if payroll_tile != null else null
+	_check(board_strip != null and board_strip.is_visible_in_tree() and board_strip.get_child_count() == 3, "accepted annual terms should render one stable tile per Board target", failures)
+	_check(clutch_tile != null and flock_tile != null and payroll_tile != null and clutch_state != null and clutch_state.text == "! NEEDS  //  RELIABLE CLUTCH" and payroll_state != null and payroll_state.text == "+ MET  //  CURRENT PAYROLL", "Board target tiles should communicate state through symbols and words rather than color alone", failures)
+	_check(report_objective_progress != null and report_objective_progress.text == "BOARD 1 / 3 MET  //  2 NEED ACTION  //  YEAR 0 / 12", "the annual Board summary should collapse the year into one scan line", failures)
+	_check(report_objective_body != null and "ANNUAL BOARD" not in report_objective_body.text and "Choose how the next three shifts" in report_objective_body.text, "the visible quarter objective should no longer repeat the full annual ledger", failures)
+	_check(report_objective_card != null and "LARGEST RECOVERABLE BLOCKER" in report_objective_card.tooltip_text and String(report_objective_card.get_meta("accessible_text", "")).contains("RELIABLE CLUTCH"), "the exact annual ledger and next blocker should remain available on hover and to assistive technology", failures)
 	_check(continue_button != null and not continue_button.disabled and "BEGIN Q 1" in continue_button.text and "SHIFT 1" in continue_button.text, "accepted policy should expose the first Senior shift action", failures)
 	var selected_envelope := store.load()
 	var selected_payload := selected_envelope.get("campaign", {}) as Dictionary
@@ -167,7 +179,8 @@ func _run() -> void:
 	_check(int(closed_breakdown.get("score", -1)) == 100 and (closed_breakdown.get("components", []) as Array).size() == 7, "quarter report should derive the exact seven-part closing score receipt", failures)
 	_check(report_objective_title != null and "REWARD RECEIPT" in report_objective_title.text, "quarter gate should foreground the earned reward before the next policy", failures)
 	_check(report_objective_body != null and "FILED SCORE" in report_objective_body.text and "CREDIT LEADERS" in report_objective_body.text and "TOP MARK TIER" in report_objective_body.text, "perfect quarter receipt should connect score, strongest components, and remaining opportunity", failures)
-	_check(report_objective_progress != null and "BOARD 2 / 3 TARGETS MET" in report_objective_progress.text and "NEXT RELIABLE CLUTCH 3 / 6" in report_objective_progress.text, "later-quarter planning should expose the live annual target count and largest remaining blocker", failures)
+	_check(report_objective_progress != null and report_objective_progress.text == "BOARD 2 / 3 MET  //  1 NEED ACTION  //  YEAR 3 / 12", "later-quarter planning should keep annual progress readable in one stable scan line", failures)
+	_check(report_objective_card != null and "LARGEST RECOVERABLE BLOCKER" in report_objective_card.tooltip_text and "RELIABLE CLUTCH" in report_objective_card.tooltip_text, "later-quarter planning should retain the exact largest recoverable blocker in progressive detail", failures)
 	_check(hen_highlight_card != null and not hen_highlight_card.is_visible_in_tree(), "quarter planning should retire the previous shift highlight so policy controls retain the visual hierarchy", failures)
 	_check(quarter_score_value != null and quarter_score_value.text == "100", "closed quarter score should render as points rather than inheriting a percent format", failures)
 	var mandate_progress := senior.current_annual_mandate_progress()

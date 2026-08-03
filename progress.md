@@ -7855,3 +7855,48 @@ The next major systems milestone is persistent worker relationships and individu
 - Suggested next polish audit: compress the annual Board mandate block below
   the receipt into a scan-first three-target row or a compact `2 NEED ACTION /
   1 MET` summary with its full details in the tooltip.
+
+## 2026-08-03 - Scan-first annual Board target strip
+
+- Replaced the seven-line annual Board ledger repeated beneath each Senior
+  quarter objective with three position-stable target tiles. Every tile now
+  communicates state through both a symbol and a word (`! NEEDS` or `+ MET`),
+  its target name, and the exact `actual / target` value; color is supporting
+  feedback rather than the only carrier.
+- Added one compact year line (`BOARD 1 / 3 MET  //  2 NEED ACTION  //  YEAR
+  0 / 12`) that stays in the same place during active shifts and quarter filing
+  gates. The exact Board book, comparisons, checkpoints, stake, and largest
+  recoverable blocker remain in the card tooltip and accessibility metadata.
+- Applied the Board glance after every in-year snapshot branch rather than only
+  during active shifts. The first native integration run caught the old
+  quarter-boundary sentence contract; coverage now proves that the same tiles
+  and summary survive the authentic quarter-close transition.
+- Accepted browser evidence is
+  `output/web-game/board-target-strip-final-v1/shot-0.png`. All three tiles fit
+  in one clean desktop row, their labels and values remain distinct, the report
+  is materially shorter, and no clipping, overlap, mojibake, or browser error
+  artifact is present. Browser state confirms active Senior Year 1 / Quarter 1,
+  Harvest Forecast filed, Standard Board Book active, and the exact 1-of-3
+  target ledger.
+- `probation_campaign_ui_test.gd`, `senior_roost_ui_test.gd`, and
+  `senior_roost_integration_test.gd` pass together (3/3), including semantic
+  tile state, exact summaries, progressive detail, the 390px responsive report,
+  and the full mandate-to-policy-to-quarter boundary.
+- The bundled-Node release gate passes: ESLint, all 49/49 rendered and physical
+  Web tests, the production wrapper test, and all physical/usability release
+  contracts are green. The first gate attempt correctly stopped before tests
+  because system Node 20 is below the required version; rerunning with bundled
+  Node 24.14 completed successfully.
+- Godot Web export passes and all 36 payload copies match across `docs`,
+  `web/public/game`, root `dist`, and `web/dist/client/game`. HTML SHA-256 is
+  `986FF7D36E73993F7E92CCEA62F4466D0CB5096BCBD880206BB2FBC5187AAF39`;
+  the 9,674,660-byte PCK SHA-256 is
+  `4644A1B0251D3226A2F8E2D2F00463C96823D885AF07ADAE6AD7EE37CB18396C`.
+- The official browser helper retains SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+  Temporary Godot and browser verification processes are cleaned. The
+  intentional local production server remains on port 3000 as PID 14068 with
+  HTTP 200, empty stderr, and the exact new PCK.
+- Suggested next polish audit: briefly pulse only the Board tile changed by a
+  filed shift and show its signed delta, making the connection between the
+  player's quarter decisions and year-long mandate progress feel immediate.
