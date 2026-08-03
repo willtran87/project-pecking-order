@@ -43,8 +43,16 @@ func _run() -> void:
 		false,
 	) as ManagementCameraController
 	var ticker_panel := office.find_child("StatusToast", true, false) as PanelContainer
+	var confirmation_scrim := office.find_child(
+		"HeldConfirmationScrim",
+		true,
+		false,
+	) as ColorRect
 	_check(
-		simulation != null and routing_ui != null and staffing_ui != null,
+		simulation != null
+		and routing_ui != null
+		and staffing_ui != null
+		and confirmation_scrim != null,
 		"Office should build all three authoritative interaction-safety surfaces",
 		failures,
 	)
@@ -123,6 +131,12 @@ func _run() -> void:
 		false,
 	) as ConfirmationDialog
 	var claim_before := simulation.workers[0].current_claim
+	var flockwatch_navigation = office.get("_flockwatch_navigation")
+	var page_before_claim: StringName = (
+		flockwatch_navigation.current_page_id()
+		if flockwatch_navigation != null else
+		&""
+	)
 	var claim_id_before := claim_before.id if claim_before != null else -1
 	var fund_before_claim := simulation.revenue_cents
 	var consequence_before := simulation.snapshot()
@@ -199,7 +213,11 @@ func _run() -> void:
 			false,
 		).is_empty()
 		and camera_controller != null
-		and not camera_controller.is_processing_unhandled_input(),
+		and not camera_controller.is_processing_unhandled_input()
+		and confirmation_scrim != null
+		and confirmation_scrim.visible
+		and confirmation_scrim.mouse_filter == Control.MOUSE_FILTER_STOP
+		and is_equal_approx(confirmation_scrim.color.a, 0.58),
 		"opening claimant confirmation must not spend or mutate the authoritative file",
 		failures,
 	)
@@ -209,9 +227,19 @@ func _run() -> void:
 		and claim_confirm_button != null
 		and claim_confirm_button.text == "FILE SETTLEMENT"
 		and claim_confirm_button.theme_type_variation == &"DangerButton"
+		and claim_confirm_button.icon != null
+		and claim_confirm_button.get_meta("semantic_icon", "")
+		== "irreversible_warning"
 		and claim_cancel_button != null
 		and claim_cancel_button.text == "KEEP STANDARD"
 		and claim_cancel_button.theme_type_variation == &"PrimaryButton"
+		and claim_cancel_button.icon != null
+		and claim_cancel_button.get_meta("semantic_icon", "") == "safe_return_arrow"
+		and claim_confirmation.theme_type_variation == &"HeldConfirmationDialog"
+		and claim_confirmation.get_meta("held_confirmation_skin", "")
+		== "flockwatch_compact"
+		and claim_confirmation.has_theme_stylebox_override("embedded_border")
+		and claim_confirmation.has_theme_stylebox_override("panel")
 		and claim_cancel_button.has_focus()
 		and String(claim_confirmation_state.get(
 			"claim_confirmation_focus",
@@ -267,15 +295,22 @@ func _run() -> void:
 	if claim_confirmation != null:
 		claim_confirmation.canceled.emit()
 	await process_frame
+	await process_frame
 	_check(
 		not claim_confirmation.visible
+		and confirmation_scrim != null
+		and not confirmation_scrim.visible
 		and simulation.revenue_cents == fund_before_claim
 		and simulation.workers[0].current_claim != null
 		and simulation.workers[0].current_claim.id == claim_id_before
 		and not simulation.workers[0].current_claim.resolution_locked
 		and camera_controller != null
-		and camera_controller.is_processing_unhandled_input(),
-		"cancel should preserve the exact claimant file and Feed Fund",
+		and camera_controller.is_processing_unhandled_input()
+		and (
+			flockwatch_navigation == null
+			or flockwatch_navigation.current_page_id() == page_before_claim
+		),
+		"cancel should preserve the exact claimant file, page, and Feed Fund",
 		failures,
 	)
 	if settle_button != null:
@@ -329,6 +364,11 @@ func _run() -> void:
 	await process_frame
 	var release_cost := simulation.workers[1].release_cost_cents()
 	var fund_before_release := simulation.revenue_cents
+	var page_before_release: StringName = (
+		flockwatch_navigation.current_page_id()
+		if flockwatch_navigation != null else
+		&""
+	)
 	_check(
 		release_button != null
 		and not release_button.disabled
@@ -349,7 +389,9 @@ func _run() -> void:
 		and int(staffing_ui.interaction_safety_state().get(
 			"release_worker_id",
 			-1,
-		)) == 1,
+		)) == 1
+		and confirmation_scrim != null
+		and confirmation_scrim.visible,
 		"opening release confirmation must preserve employment and Feed Fund",
 		failures,
 	)
@@ -359,10 +401,21 @@ func _run() -> void:
 	var release_cancel_initial := release_confirmation.get_cancel_button()
 	_check(
 		release_confirmation.title == "FILE %s'S RELEASE?" % release_name
-		and release_confirm_initial.text == "FILE RELEASE"
-		and release_cancel_initial.text == "KEEP HEN"
+		and release_confirm_initial.text == "FILE"
+		and release_cancel_initial.text == "KEEP"
 		and release_confirm_initial.theme_type_variation == &"DangerButton"
 		and release_cancel_initial.theme_type_variation == &"PrimaryButton"
+		and release_confirm_initial.icon != null
+		and release_cancel_initial.icon != null
+		and release_confirm_initial.get_meta("semantic_icon", "")
+		== "irreversible_warning"
+		and release_cancel_initial.get_meta("semantic_icon", "")
+		== "safe_return_arrow"
+		and release_confirmation.theme_type_variation == &"HeldConfirmationDialog"
+		and release_confirmation.get_meta("held_confirmation_skin", "")
+		== "flockwatch_compact"
+		and release_confirmation.has_theme_stylebox_override("embedded_border")
+		and release_confirmation.has_theme_stylebox_override("panel")
 		and release_cancel_initial.has_focus()
 		and String(release_safety.get("release_confirmation_focus", ""))
 		== "safe_return",
@@ -388,8 +441,8 @@ func _run() -> void:
 				"",
 			)),
 			[
-				"FILE RELEASE",
-				"Safe return: KEEP HEN",
+				"Confirm: FILE",
+				"Safe return: KEEP",
 			],
 		),
 		"release confirmation should disclose exact economic and operational consequences in visual and accessible ledgers",
@@ -403,11 +456,18 @@ func _run() -> void:
 	if release_confirmation != null:
 		release_confirmation.canceled.emit()
 	await process_frame
+	await process_frame
 	_check(
 		not release_confirmation.visible
+		and confirmation_scrim != null
+		and not confirmation_scrim.visible
 		and simulation.workers[1].employed
-		and simulation.revenue_cents == fund_before_release,
-		"cancel should keep the selected hen employed with no separation charge",
+		and simulation.revenue_cents == fund_before_release
+		and (
+			flockwatch_navigation == null
+			or flockwatch_navigation.current_page_id() == page_before_release
+		),
+		"cancel should keep the selected hen, page, and Feed Fund unchanged",
 		failures,
 	)
 
@@ -592,7 +652,8 @@ func _finish(
 	print(
 		"INTERACTION_SAFETY_CONTRACT_TEST_PASSED "
 		+ "undo=one-level claimant=cancel+confirm-once "
-		+ "release=cancel+confirm-once+390x844+150-percent+expanded-copy",
+		+ "release=cancel+confirm-once+390x844+150-percent+expanded-copy "
+		+ "backdrop=shared+blocking skin=flockwatch-compact page-focus=restored",
 	)
 	quit(0)
 

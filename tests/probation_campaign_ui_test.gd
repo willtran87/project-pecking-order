@@ -705,6 +705,7 @@ func _run() -> void:
 	var milestone_section := ui.find_child("MilestoneChoiceSection", true, false) as VBoxContainer
 	var choice := ui.find_child("MilestoneChoice_fast_keys", true, false) as Button
 	var milestone_hint := ui.find_child("MilestoneChoiceHint", true, false) as Label
+	var requisitions := ui.find_child("ReviewRoostRequisitionsButton", true, false) as Button
 	var report_continue := ui.find_child("ContinueProbationButton", true, false) as Button
 	_check(report_panel != null and report_panel.is_visible_in_tree(), "between shifts should show the probation report", failures)
 	_check(
@@ -821,6 +822,31 @@ func _run() -> void:
 		failures,
 	)
 	_check(report_continue != null and report_continue.disabled, "report should wait for a required milestone choice", failures)
+	_check(
+		requisitions != null
+		and requisitions.text == "REQUISITIONS  [R]"
+		and requisitions.icon != null
+		and String(requisitions.get_meta("semantic_icon", "")) == "requisition_sheet"
+		and _contains_all(
+			String(requisitions.get_meta("accessible_text", "")),
+			["Review Roost requisitions", "closing-credit file"],
+		)
+		and report_continue != null
+		and report_continue.text == "FILE & PLAN  [C]"
+		and report_continue.icon != null
+		and String(report_continue.get_meta("semantic_icon", "")) == "advance_arrow"
+		and _contains_all(
+			String(report_continue.get_meta("accessible_text", "")),
+			["FILE REPORT & PLAN NEXT SHIFT", "Choose one milestone card"],
+		),
+		"report actions should use concise icon-plus-verb labels while retaining exact assistive copy (requisitions=%s; requisitions_accessible=%s; continue=%s; continue_accessible=%s)" % [
+			requisitions.text if requisitions != null else "missing",
+			String(requisitions.get_meta("accessible_text", "")) if requisitions != null else "missing",
+			report_continue.text if report_continue != null else "missing",
+			String(report_continue.get_meta("accessible_text", "")) if report_continue != null else "missing",
+		],
+		failures,
+	)
 	if choice != null:
 		choice.pressed.emit()
 	_check(StringName(observed["milestone"]) == &"fast_keys", "milestone action should emit its stable identifier", failures)
@@ -833,8 +859,14 @@ func _run() -> void:
 	_check(int(observed["continue"]) == 2, "report continuation should reuse the campaign continuation signal", failures)
 	var abandon := ui.find_child("AbandonCampaignButton", true, false) as Button
 	_check(
-		abandon != null and "SHELVE & RETURN TO INTAKE" in abandon.text
-		and abandon.theme_type_variation != &"DangerButton",
+		abandon != null and abandon.text == "SHELVE  [A]"
+		and abandon.theme_type_variation != &"DangerButton"
+		and abandon.icon != null
+		and String(abandon.get_meta("semantic_icon", "")) == "safe_shelve"
+		and _contains_all(
+			String(abandon.get_meta("accessible_text", "")),
+			["return to intake", "exact checkpoint"],
+		),
 		"leaving a report should be presented as a safe shelve action rather than destructive abandonment",
 		failures,
 	)

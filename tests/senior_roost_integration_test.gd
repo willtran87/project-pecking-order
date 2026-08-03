@@ -93,7 +93,8 @@ func _run() -> void:
 	_check(policy_cards.size() == 3 and continue_button.disabled, "annual acceptance should immediately show three quarterly capital choices while preserving the gate", failures)
 	_check(report_heading != null and "QUARTER 1 CAPITAL FILING" in report_heading.text, "accepted annual terms should visibly orient the Q1 policy decision", failures)
 	var dividend := office.find_child("MilestoneChoice_flock_dividend", true, false) as Button
-	_check(dividend != null and "HELPS FLOCK  /  RISKS FUND  /  BOARD +2" in dividend.text, "generated Senior policy cards should summarize quarter and Board fit without a prose matrix", failures)
+	var dividend_signal := dividend.get_node_or_null("PolicyCardSignalLabel") as Label if dividend != null else null
+	_check(dividend_signal != null and dividend_signal.text == "+ FLOCK  /  ! FUND  /  B +2", "generated Senior policy cards should summarize quarter and Board fit without a prose matrix", failures)
 	_check(dividend != null and "SCORE EDGE  //  FLOCK WELFARE + QUOTA RELIABILITY" in dividend.tooltip_text and "EDGE RELIABLE CLUTCH + FLOCK CONTINUITY" in dividend.tooltip_text and "WATCH CURRENT PAYROLL" in dividend.tooltip_text, "generated Senior policy tooltips should retain exact quarter and annual fit", failures)
 	var mandate_envelope := store.load()
 	var mandate_payload := mandate_envelope.get("campaign", {}) as Dictionary
@@ -110,7 +111,10 @@ func _run() -> void:
 	continue_button = office.find_child("ContinueProbationButton", true, false) as Button
 	_check(senior.status == SeniorRoostState.STATUS_ACTIVE and senior.active_policy_id == &"harvest_forecast", "policy intent should reach the authoritative career state", failures)
 	_check(simulation.revenue_cents == fund_before + 6000 and simulation.quota_target == quota_before + 2, "policy should apply its exact authoritative liquidity and quota effects once", failures)
-	_check(continue_button != null and not continue_button.disabled and "BEGIN QUARTER" in continue_button.text, "accepted policy should expose the first Senior shift action", failures)
+	var policy_receipt_label := office.find_child("FiledCreditMemoLabel", true, false) as Label
+	_check(policy_receipt_label != null and "POLICY LEDGER  //  HARVEST FORECAST" in policy_receipt_label.text and "FUND $ +60" in policy_receipt_label.text and "FAVOR +24" in policy_receipt_label.text and "QUOTA +2" in policy_receipt_label.text and "COMPLIANCE -4" in policy_receipt_label.text, "accepted policy should replace prose with one exact signed ledger receipt", failures)
+	_check(policy_receipt_label != null and "Management filed next quarter" not in policy_receipt_label.text and "Management filed next quarter" in policy_receipt_label.tooltip_text and String(policy_receipt_label.get_meta("accessible_text", "")).contains("OUTCOME"), "policy receipt should reserve its narrative outcome for tooltip and assistive detail", failures)
+	_check(continue_button != null and not continue_button.disabled and "BEGIN Q 1" in continue_button.text and "SHIFT 1" in continue_button.text, "accepted policy should expose the first Senior shift action", failures)
 	var selected_envelope := store.load()
 	var selected_payload := selected_envelope.get("campaign", {}) as Dictionary
 	var selected_state := SeniorRoostState.from_dictionary(selected_payload.get("senior_roost", {}) as Dictionary)

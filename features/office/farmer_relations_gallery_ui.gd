@@ -206,6 +206,7 @@ func _build_confirmation() -> void:
 	_confirmation.title = "HANG A PERMANENT PUBLIC CAMPAIGN?"
 	_confirmation.ok_button_text = "YES"
 	_confirmation.cancel_button_text = "NO"
+	ManagementTheme.style_held_confirmation(_confirmation)
 	_confirmation.min_size = Vector2i(340, 350)
 	var copy := _confirmation.get_label()
 	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

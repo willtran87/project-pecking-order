@@ -68,6 +68,23 @@ func _run() -> void:
 		true,
 		false,
 	) as ConfirmationDialog
+	_check(
+		confirmation != null
+		and confirmation.theme_type_variation == &"HeldConfirmationDialog"
+		and String(confirmation.get_meta("held_confirmation_skin", "")) == "flockwatch_compact"
+		and confirmation.has_theme_stylebox_override("embedded_border")
+		and confirmation.has_theme_stylebox_override("panel")
+		and confirmation.get_ok_button().theme_type_variation == &"DangerButton"
+		and confirmation.get_cancel_button().theme_type_variation == &"PrimaryButton"
+		and confirmation.get_ok_button().icon != null
+		and confirmation.get_cancel_button().icon != null
+		and String(confirmation.get_ok_button().get_meta("semantic_icon", ""))
+		== "irreversible_warning"
+		and String(confirmation.get_cancel_button().get_meta("semantic_icon", ""))
+		== "safe_return_arrow",
+		"labor dispositions should share the authored compact irreversible-decision skin",
+		failures,
+	)
 	_check(remedy != null and not remedy.disabled and remedy.text == "REPAIR\n$16.00" and _contains_all(remedy.tooltip_text, ["fund remedy", "$16.00", "trust +12", "permanent case ledger"]), "the repair action should pair a concise verb with its exact cost and full tooltip", failures)
 	_check(remedy != null and String(remedy.get_meta("accessible_text", "")) == remedy.tooltip_text, "the concise repair action should retain the same exact assistive filing", failures)
 	_check(mediate != null and not mediate.disabled and _contains_all(mediate.text, ["mediate", "$8.00"]), "tier two should expose its lower-cost mediation option", failures)
@@ -81,6 +98,7 @@ func _run() -> void:
 		confirmation != null
 		and confirmation.visible
 		and requests.is_empty()
+		and confirmation.get_cancel_button().has_focus()
 		and _contains_all(
 			confirmation.dialog_text,
 			[

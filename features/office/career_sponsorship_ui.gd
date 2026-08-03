@@ -203,8 +203,9 @@ func _build_confirmation() -> void:
 	_confirmation = ConfirmationDialog.new()
 	_confirmation.name = "CareerSponsorshipConfirmation"
 	_confirmation.title = "FILE CAREER SPONSORSHIP?"
-	_confirmation.ok_button_text = "FILE SPONSORSHIP"
+	_confirmation.ok_button_text = "FILE"
 	_confirmation.cancel_button_text = "KEEP"
+	ManagementTheme.style_held_confirmation(_confirmation)
 	_confirmation.get_cancel_button().tooltip_text = (
 		"Cancel this filing and keep every Roost Mark and Feed Fund dollar."
 	)
@@ -222,8 +223,7 @@ func _build_confirmation() -> void:
 		action_button.custom_minimum_size.x = 132.0
 		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		action_button.autowrap_mode = TextServer.AUTOWRAP_OFF
-		action_button.clip_text = true
-		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		action_button.clip_text = false
 	_confirmation.confirmed.connect(_confirm_sponsorship)
 	_confirmation.canceled.connect(_cancel_confirmation)
 	add_child(_confirmation)
@@ -488,8 +488,8 @@ func _on_authorize_pressed() -> void:
 		DEFAULT_DAILY_WAGE_DELTA_CENTS,
 	)))
 	_confirmation.title = "SPONSOR %s?" % worker_name
-	_confirmation.ok_button_text = "FILE SPONSORSHIP"
-	_confirmation.cancel_button_text = "KEEP MARKS"
+	_confirmation.ok_button_text = "FILE"
+	_confirmation.cancel_button_text = "KEEP"
 	for action_button: Button in [
 		_confirmation.get_ok_button(),
 		_confirmation.get_cancel_button(),

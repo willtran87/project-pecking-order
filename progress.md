@@ -7506,3 +7506,352 @@ The next major systems milestone is persistent worker relationships and individu
 - Suggested next polish audit: add a subdued modal backdrop for held
   confirmations so dense Flockwatch pages visually recede, then restore the
   exact originating page and focus on cancel.
+
+## 2026-08-02 - Held-confirmation focus backdrop
+
+- Added one shared full-viewport confirmation backdrop for claimant paths, hen
+  releases, and manager succession. Its restrained 58-percent navy veil keeps
+  the office recognizable while making the compact irreversible ledger the
+  sole visual priority, and its STOP mouse filter prevents background actions.
+- The backdrop follows the existing held-confirmation authority signal, so it
+  clears on cancel, successful filing, or invalidation without changing the
+  originating Flockwatch page. Existing deferred safe-return focus continues
+  to return to the exact action control in the live window.
+- Expanded browser diagnostics with backdrop visibility, surface identity,
+  alpha, pointer blocking, and retained Flockwatch page. The interaction-safety
+  contract now covers claimant and release backdrop lifecycle plus page
+  preservation; manager recruitment remains green for cancellation, exact-once
+  appointment authority, and responsive containment.
+- ESLint, the optimized Vinext production build, and all 49/49 rendered and
+  physical Web tests pass under bundled Node 24. The Godot Web release export
+  passes, and all 36 payload files match across `docs`, `web/public/game`, root
+  `dist`, and `web/dist/client/game`. HTML SHA-256 is
+  `B957C39D543B93934F27EF052835EC5365AEBF435435D57C4326A79D94B3633D`;
+  the 9,650,468-byte PCK SHA-256 is
+  `E9295FB705DDE416270E451FA27910E5B167B34E77A82DA81E853AF48A33CE46`.
+- Accepted browser evidence is
+  `output/web-game/staff-release-confirmation-backdrop-final/shot-0.png` and
+  `output/web-game/manager-succession-confirmation-backdrop-final/shot-0.png`.
+  Both report `loaded=true`, the correct Flockwatch page and held surface,
+  `safe_return` focus, camera input blocked, pointer blocking active, and zero
+  orphan nodes with no browser error artifact.
+- The browser inspection helper was restored byte-for-byte. The intentional
+  local production server was cleanly replaced and remains on port 3000 as PID
+  25364 with HTTP 200, empty stderr, and a served PCK matching the local hash.
+- Suggested next polish audit: give held confirmation windows a purpose-built
+  compact panel skin so their paper-gray surface feels more integrated with the
+  Flockwatch visual language while retaining the current strong contrast.
+
+## 2026-08-02 - Authored irreversible-decision skin
+
+- Replaced the generic paper-gray embedded window on claimant, hen-release,
+  and manager-succession confirmations with one shared Flockwatch compact skin.
+  The authored surface uses a deep navy ledger, warm file-tab title, rust risk
+  edge, restrained shadow, brighter body copy, and balanced 108/126-pixel
+  danger/safe action targets without adding any new prose.
+- Centralized the skin in `ManagementUITheme.style_held_confirmation`, keeping
+  all three decision builders and future responsive changes consistent. Each
+  dialog publishes `flockwatch_compact` through interaction-safety diagnostics.
+- Expanded native contracts to enforce the shared dialog variation, explicit
+  embedded frame and panel styles, safe focus, cancel neutrality, exact-once
+  authority, and the existing 390x844 / 150-percent expanded-copy bounds.
+  `interaction_safety_contract_test.gd` and `manager_recruitment_ui_test.gd`
+  pass after the final styling change.
+- Final shipped-browser evidence is
+  `output/web-game/staff-release-confirmation-skin-final-v4/shot-0.png` and
+  `output/web-game/manager-succession-confirmation-skin-final-v2/shot-0.png`.
+  Both inspected dialogs are contained and readable with the correct authored
+  skin, safe-return focus, active backdrop, blocked camera input, zero orphan
+  nodes, and no browser error artifact. The release preview needed a 12-second
+  settle window on the cold WebGL boot; shorter captures truthfully reached the
+  office before the asynchronous preview surface was painted.
+- ESLint, the optimized Vinext build, and all 49/49 rendered and physical Web
+  tests pass under bundled Node 24. All 36 release payload copies match across
+  `docs`, `web/public/game`, root `dist`, and `web/dist/client/game`. HTML
+  SHA-256 is `9813CF61A7BF30700E03D0FF004B4EF16AB9BC8E8BE68409EBECB86617E779B4`;
+  the 9,653,284-byte PCK SHA-256 is
+  `3A58C6FF087A6FC3ED58098C2168DFD2DFED29728AB00C255E5E748DB3AFAE64`.
+- The browser helper was restored byte-for-byte. The intentional local
+  production server was cleanly replaced and remains on port 3000 as PID 26796
+  with HTTP 200, empty stderr, and the exact local PCK hash.
+- Suggested next polish audit: extend this compact semantic modal grammar to
+  the remaining irreversible sponsorship, publication, and restore dialogs so
+  every destructive filing feels native to the same management system.
+
+## 2026-08-02 - Unified irreversible filing system
+
+- Extended the shared Flockwatch compact confirmation skin to career
+  sponsorship, permanent labor dispositions, permanent public campaigns, and
+  portable-career restoration. All seven irreversible dialog families now use
+  the same navy ledger, brass title, rust risk edge, and explicit safe return.
+- Promoted held-confirmation registration into the shared theme helper. Any
+  styled dialog now automatically claims the 58-percent pointer-blocking
+  backdrop, floor-input lock, and bounded diagnostic surface instead of
+  depending on feature-specific wiring. Surface diagnostics now distinguish
+  claimant paths, hen release, manager succession, sponsorship, labor cases,
+  public campaigns, and career restore.
+- Removed dialog-local body and button font overrides from the shared skin so
+  the existing scalable theme remains authoritative. This preserves the
+  390x844, 150-percent text-scale, and deliberately expanded-copy accessibility
+  guarantees. The sponsorship choice was also reduced to the complete,
+  unclipped `FILE` / `KEEP` pair; its title and consequence ledger retain the
+  full decision context without redundant action prose.
+- Added a deterministic `career-sponsorship-confirmation` shipped preview. The
+  accepted browser evidence is
+  `output/web-game/career-sponsorship-confirmation-skin-final-v4/shot-0.png`.
+  It shows the fully readable compact dialog with the surrounding Senior Roost
+  visibly receded. State reports surface `career_sponsorship`, backdrop alpha
+  0.58, pointer blocking active, camera input disabled, and no browser errors.
+- Focused Godot verification passes for career sponsorship, Flock Relations,
+  Farmer Relations, Settings, and the global interaction-safety contract.
+  ESLint, the optimized Vinext build, and all 49/49 rendered and physical Web
+  tests pass under bundled Node 24.
+- Godot Web export passes and all 36 release payload copies match across
+  `docs`, `web/public/game`, root `dist`, and `web/dist/client/game`. HTML
+  SHA-256 is `5B25E507B0939128DE264CFACA00E82A310863841CD4D9E8DAE807DC13454266`;
+  the 9,658,004-byte PCK SHA-256 is
+  `1CFA2DA9C542F2A0018AE6386002B64554D2EBF19CC7EC7B120A9A7EC20DDB93`.
+- The browser helper was restored byte-for-byte and the served verification
+  download was removed. The intentional local production server remains alone
+  on port 3000 as PID 33524 with HTTP 200, empty stderr, and a served PCK
+  matching the exact local hash.
+- Suggested next polish audit: add small consequence icons to the shared filing
+  ledger rows so cost, permanence, human impact, and safe return scan even more
+  quickly without removing the exact accessible text.
+
+## 2026-08-03 - Safe-first irreversible action hierarchy
+
+- Gave all seven irreversible dialog families one immediate visual rule: the
+  filing action is now a rust danger button while the non-destructive return is
+  a teal primary button. The distinction communicates consequence before the
+  player has to parse the ledger copy.
+- The shared confirmation helper now assigns keyboard and controller focus to
+  the safe return every time a dialog opens. This keeps mouse, keyboard, and
+  controller behavior aligned and makes accidental permanent actions less
+  likely without adding another warning step.
+- Expanded the career sponsorship, Flock Relations, Farmer Relations, and
+  portable-career restore contracts to enforce the shared action variations
+  and safe-first focus. Those suites pass together with the global
+  interaction-safety and manager-recruitment contracts.
+- Accepted shipped-browser evidence is
+  `output/web-game/confirmation-action-hierarchy-final-v1/shot-0.png`. The
+  sponsorship filing is fully contained and readable, with a visibly focused
+  teal `KEEP` action, a subordinate rust `FILE` action, and the Senior Roost
+  still legible behind the restrained confirmation veil.
+- Browser state reports the `career_sponsorship` surface, backdrop alpha 0.58,
+  pointer blocking active, and camera input disabled. No browser error artifact
+  was produced, and the browser inspection helper was restored byte-for-byte.
+- ESLint, the optimized Vinext build, and all 49/49 rendered and physical Web
+  tests pass under bundled Node 24. Godot Web export passes, and all 36 release
+  payload copies match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`. HTML SHA-256 is
+  `5800BD4C9107C963AE2F18D1104DE3A4D1FB60F3B0B11947B2FF9D9EFF4DF410`;
+  the 9,658,292-byte PCK SHA-256 is
+  `8625693BF4601A718BF41A1F5B7183C5F0971BF09E15327B987B96103A0765AB`.
+- All temporary Godot and browser test processes were cleaned up. The one
+  intentional local production server remains on port 3000 as PID 33524 with
+  HTTP 200, no stderr log, and a served PCK matching the exact local hash.
+- Suggested next polish audit: add compact semantic consequence glyphs to the
+  confirmation ledger only where they improve scanning without competing with
+  the action hierarchy or replacing assistive text.
+
+## 2026-08-03 - Icon-led irreversible choices
+
+- Added a shared color-independent symbol pair to all seven irreversible
+  dialog families: a brass warning stamp marks the permanent filing action,
+  while a broad return arrow marks the non-destructive way back. The existing
+  rust/teal hierarchy remains, but the choices no longer depend on color or
+  reading the full consequence ledger to distinguish their intent.
+- Kept the visible action grammar compact. Hen release now uses `FILE` / `KEEP`
+  and manager succession uses `APPOINT` / `KEEP`; the exact subject, permanent
+  effect, cost, tooltip, and assistive confirmation remain in the title and
+  ledger instead of being repeated inside narrow buttons.
+- The first shipped capture exposed clipped `FIL` / `KEE` sponsorship labels.
+  Removed text clipping from that compact action row, re-exported, and repeated
+  the browser pass. The accepted evidence is
+  `output/web-game/confirmation-semantic-icons-final-v2/shot-0.png`, where both
+  symbols and all button text are fully visible and `KEEP` retains the safe
+  keyboard/controller focus ring.
+- Career sponsorship, Flock Relations, Farmer Relations, portable-career
+  restore, global interaction safety, and manager recruitment contracts pass
+  together. The two longest dialogs also pass 390x844 at 150-percent text scale
+  after the compact verb-label correction.
+- Browser state reports the `career_sponsorship` held surface, backdrop alpha
+  0.58, pointer blocking active, and camera input disabled. No browser error
+  artifact was produced, and the official inspection helper retained its exact
+  original hash.
+- ESLint, the optimized Vinext production build, and all 49/49 rendered and
+  physical Web tests pass under bundled Node 24. Godot Web export passes, and
+  all 36 payload copies match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`. HTML SHA-256 is
+  `3F86030FB07F843B517F816AC2C5DD88C83A0FD519C39908D1437539AEFB0A0A`;
+  the 9,659,620-byte PCK SHA-256 is
+  `0C581CBBF77E6C3D1829C6398704E6E62D6236649056300A927CE2279C272983`.
+- The intentional local production server remains on port 3000 as PID 33524
+  with HTTP 200 and a served PCK matching the exact local hash. Temporary Godot
+  and browser verification processes are cleaned after the final audit.
+- Suggested next polish audit: extend this concise icon-plus-verb grammar to
+  the most frequently repeated reversible management actions, prioritizing
+  places where the same noun is currently repeated in both panel title and
+  button copy.
+
+## 2026-08-03 - Glance-first report action rail
+
+- Reworked the reusable probation/Senior report footer after the shipped
+  baseline visibly clipped both `REVIEW ROOST REQUISITIONS [R]` and
+  `SHELVE & RETURN TO INTAKE [A]`. The footer now presents three fully readable
+  icon-plus-verb actions: `REQUISITIONS [R]`, `SHELVE [A]`, and the contextual
+  filing/advance verb.
+- Added reusable requisition-sheet, safe-shelve, and advance-arrow symbols to
+  the shared management icon library. The contextual Continue action swaps its
+  advance arrow for the existing warning stamp only when a permanent Board
+  stake is staged, then restores the reversible symbol for annual progression.
+- Preserved every exact action phrase, keyboard shortcut, gate reason, and
+  checkpoint explanation through button metadata and tooltips. The visible
+  labels no longer repeat nouns already established by the report heading, but
+  assistive players still receive the full original meaning.
+- The Senior Roost contract proves policy-card activation unlocks the filing
+  action, permanent stake staging changes the semantic warning state, exact-once
+  confirmation remains authoritative, and annual continuation restores normal
+  advance semantics. Probation, Senior Roost, and adjacent career-sponsorship
+  contracts pass, including the existing 390x844 responsive coverage.
+- Baseline evidence is
+  `output/web-game/report-action-row-baseline-v1/shot-0.png`; accepted shipped
+  evidence is `output/web-game/report-action-row-final-v1/shot-0.png`. The final
+  footer has no clipped copy, preserves a clear secondary/primary hierarchy,
+  and remains contained beneath the career sponsorship panel.
+- Browser state reports the Senior quarter and visible career-sponsorship
+  report, with the confirmation backdrop absent and floor input correctly held
+  by the report. No browser error artifact was produced, and the official
+  inspection helper retained its exact original hash.
+- ESLint, the optimized Vinext production build, and all 49/49 rendered and
+  physical Web tests pass under bundled Node 24. Godot Web export passes, and
+  all 36 payload copies match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`. HTML SHA-256 is
+  `6E19404E70CF8ED03CAF561641A6B08832AB0ACF9CB743DD77B77829BD0B3166`;
+  the 9,662,740-byte PCK SHA-256 is
+  `3EECB240E2F567506EAE57CD1DF71FDF05395796DAE89643223FF97AA0761EFA`.
+- Temporary Godot and browser processes are cleaned. The intentional local
+  production server remains on port 3000 as PID 33524 with HTTP 200 and a
+  served PCK matching the exact local hash.
+- Suggested next polish audit: replace the repeated `HELPS`, `RISKS`, and
+  `BOARD` words on quarterly policy cards with a compact three-symbol benefit,
+  tradeoff, and mandate-fit strip while retaining the exact tooltip matrix.
+
+## 2026-08-03 - Symbolic quarterly policy comparison
+
+- Replaced the repeated `HELPS`, `RISKS`, and `BOARD` sentence on every Senior
+  quarterly policy card with one position-stable comparison strip:
+  `+ BENEFIT / ! TRADEOFF / B BOARD-FIT`. Players can now compare all three
+  irreversible policies vertically without rereading the same explanatory
+  words on each card.
+- The first browser capture exposed mojibake and a missing-glyph box in the
+  original Unicode separator/star treatment. Replaced those fragile glyphs
+  with an ASCII-safe grammar and repeated the export and browser inspection.
+  Accepted evidence is
+  `output/web-game/policy-symbol-strip-final-v2/shot-0.png`; all symbols render
+  cleanly, all card copy fits, and the three comparison positions align.
+- Preserved the full semantic explanation in each tooltip and in explicit
+  assistive metadata: `+` means helps, `!` means risks, and `B` means Board fit.
+  The exact score edge, score watch, annual mandate target fit, shortcuts, and
+  policy effects remain available without crowding the visible decision row.
+- `probation_campaign_ui_test.gd` and `senior_roost_ui_test.gd` pass together.
+  Coverage proves the compact copy, stable symbol language, exact benefit/risk
+  values, Board-fit scores, accessible text, and detailed tooltip matrix.
+- Browser state reports the Senior quarter, visible career-sponsorship report,
+  hidden confirmation backdrop, no active confirmation surface, and camera
+  input correctly disabled beneath the report. No browser error artifact was
+  produced, and the official inspection helper retained its exact original
+  hash.
+- ESLint, the optimized Vinext production build, and all 49/49 rendered and
+  physical Web tests pass under bundled Node 24. Godot Web export passes, and
+  all 36 payload copies match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`. HTML SHA-256 is
+  `77B4882984B246FD7AA74768B93C8E510C44865AC66721BA9C03E5AA6D7A4842`;
+  the 9,663,300-byte PCK SHA-256 is
+  `5168A1CAD230F9000788660236036CD1705A377C2C4A85E636F946B8988E8B91`.
+- Temporary Godot and browser verification processes are cleaned. The
+  intentional local production server remains on port 3000 as PID 33524 with
+  HTTP 200 and a served PCK matching the exact local hash.
+- Suggested next polish audit: convert the raw policy-effect row (for example,
+  `-$24 / FLOCK +34`) into two small semantic metric chips so cost and outcome
+  remain distinct even during a very fast card scan.
+
+## 2026-08-03 - Signed policy metric chips
+
+- Replaced the remaining combined policy-effect sentence with two distinct,
+  position-stable visual chips: signed Feed Fund movement on the left and the
+  primary operational result on the right. Debit, credit, and outcome chips use
+  separate material treatments while retaining `$ -` / `$ +` signs and exact
+  metric nouns, so the distinction never depends on color alone.
+- Added authored `glance_fund` and `glance_outcome` fields to all three Senior
+  policies, plus a bounded fallback parser for older/restored snapshots. Exact
+  values are also exposed in button metadata, accessibility copy, and a new
+  `QUARTER EFFECT` tooltip row before the detailed consequence ledger.
+- The first two browser captures revealed that Godot collapses blank lines in
+  Button text, causing child chips to cover the title and comparison strip.
+  Replaced that fragile composition with dedicated title, metric, and signal
+  child rows. Accepted evidence is
+  `output/web-game/policy-metric-chips-final-v3/shot-0.png`; every card now has
+  four clean scan levels with no clipping or overlap.
+- Senior state, policy UI, Senior integration, prior-year strategy recap, and
+  adjacent probation UI contracts pass together (5/5). Coverage proves signed
+  debit/credit placement, exact outcomes, the symbolic comparison row, detailed
+  annual fit, responsive containment, authoritative filing, and checkpoint
+  behavior.
+- Browser state reports the Senior quarter, visible career-sponsorship report,
+  hidden confirmation backdrop, no active confirmation surface, and camera
+  input correctly disabled beneath the report. No browser error artifact was
+  produced, and the official inspection helper retained its exact original
+  hash.
+- ESLint, the optimized Vinext production build, and all 49/49 rendered and
+  physical Web tests pass under bundled Node 24. Godot Web export passes, and
+  all 36 payload copies match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`. HTML SHA-256 is
+  `FC496A0FC62B74516926F8BDE43890C1935A30D1F6AC8A0EA8F5740B36B3023D`;
+  the 9,668,356-byte PCK SHA-256 is
+  `BE196A65102E6129B6F050029E9E21B2C01F8E3DFD1AE8BE274E28BD8B1DDB02`.
+- Temporary Godot and browser verification processes are cleaned. The
+  intentional local production server remains on port 3000 as PID 33524 with
+  HTTP 200 and a served PCK matching the exact local hash.
+- Suggested next polish audit: strengthen staged/selected policy feedback
+  inside each card with a concise filed-state stamp, while retaining the
+  existing border and keyboard focus treatment.
+
+## 2026-08-03 - Signed policy filing receipt
+
+- Audited the proposed filed-state stamp against the real authority flow and
+  found that policy cards intentionally disappear as soon as the filing is
+  accepted. Kept that decisive transition and placed the feedback where it
+  persists: the signed report receipt.
+- Senior policy filings now show one compact, centered ledger such as
+  `FUND $ +60 / FAVOR +24 / QUOTA +2 / COMPLIANCE -4`. This preserves every
+  exact gameplay consequence while removing the duplicate outcome paragraph
+  from the visible report. The fuller narrative remains available in the
+  tooltip and accessibility description.
+- Added a deterministic local preview for the accepted Harvest Forecast state
+  and used the authentic report flow for browser evidence. Accepted evidence is
+  `output/web-game/senior-policy-ledger-receipt-final-v5/shot-0.png`; the brass
+  receipt reads cleanly, remains centered, and has no clipping or overlap.
+- Browser state confirms an active Senior quarter with Harvest Forecast filed,
+  camera input disabled beneath the report, and no confirmation backdrop. No
+  browser error artifact was produced. An earlier capture exposed a stale
+  production asset manifest; restarting the known local server against the
+  fresh build resolved the 404 before the accepted inspection.
+- `probation_campaign_ui_test.gd`, `senior_roost_ui_test.gd`, and
+  `senior_roost_integration_test.gd` pass together (3/3), including exact signed
+  Fund, Favor, Quota, and Compliance values plus tooltip/accessibility coverage.
+  ESLint, the optimized Vinext production build, and all 49/49 rendered and
+  physical Web tests pass. Godot Web export also passes.
+- All 36 payload copies match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`. HTML SHA-256 is
+  `C0F78EE45FE1105BFDCD37F292C7383C77026164E89AFD929710CB1A7C507D51`;
+  the 9,672,276-byte PCK SHA-256 is
+  `98C75DE694D86CE013BBA28E411AA73415DF10BA58E20196E52BE8236469608E`.
+- Temporary Godot and browser verification processes are cleaned. The refreshed
+  local production server remains intentionally available on port 3000 as PID
+  14068, returns HTTP 200, has an empty stderr log, and serves the exact exported
+  PCK.
+- Suggested next polish audit: compress the annual Board mandate block below
+  the receipt into a scan-first three-target row or a compact `2 NEED ACTION /
+  1 MET` summary with its full details in the tooltip.

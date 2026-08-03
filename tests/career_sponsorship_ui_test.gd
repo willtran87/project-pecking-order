@@ -89,6 +89,29 @@ func _run() -> void:
 	_check(lane_selector != null and lane_selector.focus_mode == Control.FOCUS_ALL, "lane selector should accept keyboard focus", failures)
 	_check(authorize != null and authorize.focus_mode == Control.FOCUS_ALL, "authorize action should accept keyboard focus", failures)
 	_check(confirmation != null, "career sponsorship should build one explicit confirmation dialog", failures)
+	_check(
+		confirmation != null
+		and confirmation.theme_type_variation == &"HeldConfirmationDialog"
+		and String(confirmation.get_meta("held_confirmation_skin", "")) == "flockwatch_compact"
+		and String(confirmation.get_meta("held_confirmation_action_hierarchy", ""))
+		== "danger_then_safe_return"
+		and String(confirmation.get_meta("held_confirmation_icon_language", ""))
+		== "warning_then_return"
+		and confirmation.has_theme_stylebox_override("embedded_border")
+		and confirmation.has_theme_stylebox_override("panel")
+		and confirmation.get_ok_button().theme_type_variation == &"DangerButton"
+		and confirmation.get_cancel_button().theme_type_variation == &"PrimaryButton"
+		and confirmation.get_ok_button().icon != null
+		and confirmation.get_cancel_button().icon != null
+		and not confirmation.get_ok_button().clip_text
+		and not confirmation.get_cancel_button().clip_text
+		and String(confirmation.get_ok_button().get_meta("semantic_icon", ""))
+		== "irreversible_warning"
+		and String(confirmation.get_cancel_button().get_meta("semantic_icon", ""))
+		== "safe_return_arrow",
+		"career sponsorship should share the authored compact irreversible-decision skin",
+		failures,
+	)
 	_check(ui.theme != null, "standalone component should carry the authored management theme", failures)
 
 	# Mabel's primary Appeals lane and completed Predator training are both held,
@@ -158,7 +181,8 @@ func _run() -> void:
 		and "3 ROOST MARKS + $12.00 FEED FUND" in confirmation.dialog_text
 		and "-15% TRAINING THROUGHPUT" in confirmation.dialog_text
 		and "+$1.00/DAY WAGE" in confirmation.dialog_text
-		and "cannot be undone" in confirmation.dialog_text,
+		and "cannot be undone" in confirmation.dialog_text
+		and confirmation.get_cancel_button().has_focus(),
 		"confirmation should disclose identity, specialty, immediate cost, training penalty, wage liability, and irreversibility",
 		failures,
 	)
@@ -285,7 +309,7 @@ func _run() -> void:
 			failures,
 		)
 		_check(
-			"FILE SPONSORSHIP" in confirmation.get_ok_button().text
+			confirmation.get_ok_button().text == "FILE"
 			and "KEEP" in confirmation.get_cancel_button().text
 			and confirmation.get_ok_button().size.x >= 56.0
 			and confirmation.get_cancel_button().size.x >= 56.0,

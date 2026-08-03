@@ -646,6 +646,7 @@ var _shift_help_disclosure_toggle
 var _had_actionable_upgrade := false
 var _day_review_panel: PanelContainer
 var _day_review_scrim: ColorRect
+var _held_confirmation_scrim: ColorRect
 var _review_title: Label
 var _review_summary: Label
 var _review_eggs_value: Label
@@ -1019,6 +1020,10 @@ func _ready() -> void:
 		_capture_campaign_title_preview()
 	elif "--capture-campaign-report" in OS.get_cmdline_user_args() or "--capture-campaign-report" in OS.get_cmdline_args():
 		_capture_campaign_report_preview()
+	elif "--capture-senior-policy-receipt" in OS.get_cmdline_user_args() or "--capture-senior-policy-receipt" in OS.get_cmdline_args():
+		_capture_senior_policy_receipt_preview()
+	elif "--capture-career-sponsorship-confirmation" in OS.get_cmdline_user_args() or "--capture-career-sponsorship-confirmation" in OS.get_cmdline_args():
+		_capture_career_sponsorship_confirmation_preview()
 	elif "--capture-career-sponsorship" in OS.get_cmdline_user_args() or "--capture-career-sponsorship" in OS.get_cmdline_args():
 		_capture_career_sponsorship_preview()
 	elif "--capture-campaign-final" in OS.get_cmdline_user_args() or "--capture-campaign-final" in OS.get_cmdline_args():
@@ -4611,6 +4616,7 @@ func _on_predator_victim_captured(worker_id: int, threat_origin: Vector3) -> voi
 
 
 func _process(delta: float) -> void:
+	_sync_held_confirmation_presentation()
 	_process_breakroom_life(delta)
 	_process_fund_counter(delta)
 	_process_route_settlement_handoff(delta)
@@ -5028,18 +5034,48 @@ func _nonconfirmation_management_surface_open() -> bool:
 
 
 func _held_confirmation_open() -> bool:
-	return (
-		(
-			_routing_ui != null
-			and _routing_ui.has_method("has_held_confirmation")
-			and bool(_routing_ui.call("has_held_confirmation"))
-		)
-		or (
-			_staffing_ui != null
-			and _staffing_ui.has_method("has_held_confirmation")
-			and bool(_staffing_ui.call("has_held_confirmation"))
-		)
-	)
+	if get_tree() == null:
+		return false
+	for node: Node in get_tree().get_nodes_in_group(&"held_confirmation_dialogs"):
+		var dialog := node as ConfirmationDialog
+		if dialog != null and is_ancestor_of(dialog) and dialog.visible:
+			return true
+	return false
+
+
+func _active_held_confirmation_surface() -> String:
+	if get_tree() == null:
+		return ""
+	for node: Node in get_tree().get_nodes_in_group(&"held_confirmation_dialogs"):
+		var dialog := node as ConfirmationDialog
+		if dialog == null or not is_ancestor_of(dialog) or not dialog.visible:
+			continue
+		match dialog.name:
+			&"ClaimResolutionConfirmation":
+				return "claimant_path"
+			&"StaffReleaseConfirmation":
+				return "hen_release"
+			&"ManagerRecruitConfirmation":
+				return "manager_succession"
+			&"CareerSponsorshipConfirmation":
+				return "career_sponsorship"
+			&"FlockRelationsDispositionConfirmation":
+				return "flock_relations_disposition"
+			&"FarmerRelationsCampaignConfirmation":
+				return "public_campaign"
+			&"CareerBackupImportConfirmation":
+				return "career_restore"
+			_:
+				return String(dialog.name).to_snake_case()
+	return ""
+
+
+func _sync_held_confirmation_presentation() -> void:
+	if _held_confirmation_scrim == null:
+		return
+	if _held_confirmation_scrim.visible == _held_confirmation_open():
+		return
+	_on_interaction_safety_presentation_changed()
 
 
 func _routing_confirmation_open() -> bool:
@@ -5761,6 +5797,7 @@ func _build_ui() -> void:
 		_on_interaction_safety_presentation_changed
 	)
 	_ui_root.add_child(_routing_ui)
+	_build_held_confirmation_scrim()
 	_build_day_review_panel()
 	_build_decision_modal()
 	_build_capital_planning_surfaces()
@@ -5785,6 +5822,23 @@ func _build_ui() -> void:
 	_settings_ui.career_backup_import_requested.connect(_on_career_backup_import_requested)
 	_settings_ui.close_requested.connect(_on_settings_close_requested)
 	_ui_root.add_child(_settings_ui)
+
+
+func _build_held_confirmation_scrim() -> void:
+	_held_confirmation_scrim = ColorRect.new()
+	_held_confirmation_scrim.name = "HeldConfirmationScrim"
+	_held_confirmation_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# Keep the office legible as context while letting the small decision ledger
+	# own attention. ConfirmationDialog windows render above this canvas control.
+	_held_confirmation_scrim.color = Color(0.012, 0.024, 0.034, 0.58)
+	_held_confirmation_scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_held_confirmation_scrim.z_index = 72
+	_held_confirmation_scrim.visible = false
+	_held_confirmation_scrim.set_meta(
+		"accessible_text",
+		"Decision in progress. Background management controls are unavailable.",
+	)
+	_ui_root.add_child(_held_confirmation_scrim)
 
 
 func _build_day_review_panel() -> void:
@@ -10229,7 +10283,10 @@ func _on_interaction_safety_presentation_changed() -> void:
 	# Confirmation dialogs and one-level Undo are presentation state. They may
 	# open while the simulation is paused, so publish immediately rather than
 	# waiting for an unrelated economic tick.
-	if _held_confirmation_open():
+	var confirmation_open := _held_confirmation_open()
+	if _held_confirmation_scrim != null:
+		_held_confirmation_scrim.visible = confirmation_open
+	if confirmation_open:
 		_yield_transient_feedback_to(&"confirmation")
 	_refresh_floor_input_context()
 	if _simulation == null:
@@ -15797,6 +15854,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 	var staffing_interaction_safety: Dictionary = {}
 	if _staffing_ui != null and _staffing_ui.has_method("interaction_safety_state"):
 		staffing_interaction_safety = _staffing_ui.interaction_safety_state()
+	var held_confirmation_surface := _active_held_confirmation_surface()
 	var hen_intents: Array[Dictionary] = []
 	var flock_bonds: Array[Dictionary] = []
 	for worker_value in snapshot.get("workers", []):
@@ -15921,6 +15979,28 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"interaction_safety": {
 			"routing": routing_interaction_safety,
 			"staffing": staffing_interaction_safety,
+			"confirmation_backdrop": {
+				"visible": (
+					_held_confirmation_scrim != null
+					and _held_confirmation_scrim.visible
+				),
+				"surface": held_confirmation_surface,
+				"alpha": (
+					_held_confirmation_scrim.color.a
+					if _held_confirmation_scrim != null else
+					0.0
+				),
+				"blocks_pointer": (
+					_held_confirmation_scrim != null
+					and _held_confirmation_scrim.mouse_filter
+					== Control.MOUSE_FILTER_STOP
+				),
+				"flockwatch_page": (
+					String(_flockwatch_navigation.current_page_id())
+					if _flockwatch_navigation != null else
+					""
+				),
+			},
 		},
 		"notifications": _notification_diagnostic_state(),
 		"routing_return_cue": _routing_return_cue_diagnostic_state(),
@@ -24219,6 +24299,46 @@ func _capture_campaign_report_preview() -> void:
 	_save_preview("probation_report.png")
 
 
+func _capture_senior_policy_receipt_preview() -> void:
+	_decision_host.visible = false
+	_campaign_state = CampaignStateScript.new()
+	_senior_roost_state = SeniorRoostStateScript.new()
+	if not _senior_roost_state.begin(5):
+		push_error("Senior policy receipt capture could not open the career ledger.")
+		get_tree().quit(1)
+		return
+	var mandate_receipt: Dictionary = _senior_roost_state.select_annual_mandate(
+		SeniorRoostStateScript.MANDATE_FALLBACK_ID,
+		_senior_roost_state.current_year_number(),
+	)
+	if not bool(mandate_receipt.get("accepted", false)):
+		push_error("Senior policy receipt capture could not file the annual Board fallback.")
+		get_tree().quit(1)
+		return
+	if not _senior_roost_state.record_quarter_policy({
+		"accepted": true,
+		"policy_id": &"harvest_forecast",
+		"style_id": &"management_innovation",
+		"cost_cents": 0,
+		"fund_delta_cents": 6000,
+		"farmer_favor_delta": 24,
+		"quota_delta": 2,
+		"compliance_delta": -4,
+		"solidarity_delta": 0,
+		"outcome": "Management filed next quarter's harvest before the hens produced it.",
+	}):
+		push_error("Senior policy receipt capture could not file Harvest Forecast.")
+		get_tree().quit(1)
+		return
+	_campaign_senior_roost = true
+	_campaign_review_stage = &"senior_quarter"
+	_campaign_ui.show_between_shift_report(_senior_presentation_snapshot(&"between_shift"))
+	_set_campaign_modal_open(true)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_save_preview("senior_policy_receipt.png")
+
+
 func _capture_career_sponsorship_preview() -> void:
 	_decision_host.visible = false
 	_campaign_state = CampaignStateScript.new()
@@ -24299,6 +24419,19 @@ func _capture_career_sponsorship_preview() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_save_preview("career_sponsorship.png")
+
+
+func _capture_career_sponsorship_confirmation_preview() -> void:
+	await _capture_career_sponsorship_preview()
+	var authorize := find_child("CareerSponsorshipAuthorizeButton", true, false) as Button
+	if authorize == null or authorize.disabled:
+		push_error("Career Sponsorship confirmation capture requires an available filing.")
+		get_tree().quit(1)
+		return
+	authorize.pressed.emit()
+	await get_tree().process_frame
+	await get_tree().create_timer(0.65).timeout
+	_save_preview("career_sponsorship_confirmation.png")
 
 
 func _capture_campaign_final_preview() -> void:

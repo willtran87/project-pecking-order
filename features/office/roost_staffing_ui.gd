@@ -31,6 +31,7 @@ const FarmerRelationsGalleryUIScript := preload("res://features/office/farmer_re
 const FarmgateDispatchUIScript := preload("res://features/office/farmgate_dispatch_ui.gd")
 const InternshipProgramUIScript := preload("res://features/office/internship_program_ui.gd")
 const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 const COLOR_BRASS := Color("e7c56e")
 const COLOR_TEAL := Color("73b5a7")
@@ -393,9 +394,10 @@ func _build_release_confirmation() -> void:
 	_release_confirmation = ConfirmationDialog.new()
 	_release_confirmation.name = "StaffReleaseConfirmation"
 	_release_confirmation.title = "RELEASE A HEN?"
-	_release_confirmation.ok_button_text = "FILE RELEASE"
-	_release_confirmation.cancel_button_text = "KEEP HEN EMPLOYED"
+	_release_confirmation.ok_button_text = "FILE"
+	_release_confirmation.cancel_button_text = "KEEP"
 	_release_confirmation.min_size = Vector2i(340, 250)
+	ManagementUIThemeScript.style_held_confirmation(_release_confirmation)
 	var copy := _release_confirmation.get_label()
 	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -462,6 +464,10 @@ func interaction_safety_state() -> Dictionary:
 			String(_release_confirmation.get_meta("accessible_text", ""))
 			if _release_confirmation != null else ""
 		),
+		"release_confirmation_skin": (
+			String(_release_confirmation.get_meta("held_confirmation_skin", ""))
+			if _release_confirmation != null else ""
+		),
 		"manager_recruit_confirmation_visible": (
 			_manager_recruit_confirmation != null
 			and _manager_recruit_confirmation.visible
@@ -493,6 +499,13 @@ func interaction_safety_state() -> Dictionary:
 			String(_manager_recruit_confirmation.get_meta("accessible_text", ""))
 			if _manager_recruit_confirmation != null else ""
 		),
+		"manager_recruit_confirmation_skin": (
+			String(_manager_recruit_confirmation.get_meta(
+				"held_confirmation_skin",
+				"",
+			))
+			if _manager_recruit_confirmation != null else ""
+		),
 	}
 
 
@@ -518,6 +531,7 @@ func _build_manager_recruit_confirmation() -> void:
 	_manager_recruit_confirmation.ok_button_text = "FILE"
 	_manager_recruit_confirmation.cancel_button_text = "KEEP"
 	_manager_recruit_confirmation.min_size = Vector2i(340, 285)
+	ManagementUIThemeScript.style_held_confirmation(_manager_recruit_confirmation)
 	var copy := _manager_recruit_confirmation.get_label()
 	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -2909,8 +2923,8 @@ func _on_release_pressed() -> void:
 		"$0.00" if release_cost == 0 else "-$%.2f" % (float(release_cost) / 100.0)
 	)
 	_release_confirmation.title = "FILE %s'S RELEASE?" % display_name.to_upper()
-	_release_confirmation.ok_button_text = "FILE RELEASE"
-	_release_confirmation.cancel_button_text = "KEEP HEN"
+	_release_confirmation.ok_button_text = "FILE"
+	_release_confirmation.cancel_button_text = "KEEP"
 	_release_confirmation.dialog_text = (
 		"HEN  /  %s\n"
 		+ "STATUS  /  EMPLOYED -> RELEASED  ·  PERMANENT\n\n"
@@ -3040,7 +3054,7 @@ func _on_manager_recruit_pressed(
 		"APPOINT %s?" % candidate_name.to_upper()
 	)
 	_manager_recruit_confirmation.ok_button_text = "APPOINT"
-	_manager_recruit_confirmation.cancel_button_text = "KEEP CURRENT"
+	_manager_recruit_confirmation.cancel_button_text = "KEEP"
 	_manager_recruit_confirmation.dialog_text = (
 		"CANDIDATE  /  %s\n"
 		+ "ROLE  /  %s\n"

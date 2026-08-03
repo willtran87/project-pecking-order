@@ -109,6 +109,23 @@ func _run() -> void:
 		"career safety should expose focusable export, restore, and confirmation controls",
 		failures,
 	)
+	_check(
+		backup_confirmation != null
+		and backup_confirmation.theme_type_variation == &"HeldConfirmationDialog"
+		and String(backup_confirmation.get_meta("held_confirmation_skin", "")) == "flockwatch_compact"
+		and backup_confirmation.has_theme_stylebox_override("embedded_border")
+		and backup_confirmation.has_theme_stylebox_override("panel")
+		and backup_confirmation.get_ok_button().theme_type_variation == &"DangerButton"
+		and backup_confirmation.get_cancel_button().theme_type_variation == &"PrimaryButton"
+		and backup_confirmation.get_ok_button().icon != null
+		and backup_confirmation.get_cancel_button().icon != null
+		and String(backup_confirmation.get_ok_button().get_meta("semantic_icon", ""))
+		== "irreversible_warning"
+		and String(backup_confirmation.get_cancel_button().get_meta("semantic_icon", ""))
+		== "safe_return_arrow",
+		"career restore should share the authored compact irreversible-decision skin",
+		failures,
+	)
 	if career_category != null:
 		career_category.pressed.emit()
 	_check(
@@ -133,6 +150,7 @@ func _run() -> void:
 	await process_frame
 	_check(
 		backup_confirmation != null and backup_confirmation.visible
+		and backup_confirmation.get_cancel_button().has_focus()
 		and "portable- test.json" in backup_confirmation.dialog_text
 		and "\n" not in backup_confirmation.dialog_text
 		and "automatic recovery copy" in backup_confirmation.dialog_text,

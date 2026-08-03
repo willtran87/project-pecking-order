@@ -394,9 +394,20 @@ func _run() -> void:
 	_check(
 		confirmation.title == "APPOINT BYTE BANTAM?"
 		and manager_confirm_initial.text == "APPOINT"
-		and manager_cancel_initial.text == "KEEP CURRENT"
+		and manager_cancel_initial.text == "KEEP"
 		and manager_confirm_initial.theme_type_variation == &"DangerButton"
 		and manager_cancel_initial.theme_type_variation == &"PrimaryButton"
+		and manager_confirm_initial.icon != null
+		and manager_cancel_initial.icon != null
+		and manager_confirm_initial.get_meta("semantic_icon", "")
+		== "irreversible_warning"
+		and manager_cancel_initial.get_meta("semantic_icon", "")
+		== "safe_return_arrow"
+		and confirmation.theme_type_variation == &"HeldConfirmationDialog"
+		and confirmation.get_meta("held_confirmation_skin", "")
+		== "flockwatch_compact"
+		and confirmation.has_theme_stylebox_override("embedded_border")
+		and confirmation.has_theme_stylebox_override("panel")
 		and manager_cancel_initial.has_focus(),
 		"succession should distinguish the permanent appointment from its safe return and focus the safe choice",
 		failures,
@@ -444,7 +455,7 @@ func _run() -> void:
 				"APPOINT BYTE BANTAM?",
 				"COST  /  -$70.00 FEED FUND",
 				"Confirm: APPOINT",
-				"Safe return: KEEP CURRENT",
+				"Safe return: KEEP",
 			],
 		),
 		"interaction safety state should expose the held candidate, exact filing economics, safe focus, and authored summary",

@@ -2,6 +2,7 @@ class_name PeckworkRoutingUI
 extends Control
 
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 class PriorityPeckIntentLink:
@@ -1509,6 +1510,14 @@ func interaction_safety_state() -> Dictionary:
 			if _claim_resolution_confirmation != null else
 			""
 		),
+		"claim_confirmation_skin": (
+			String(_claim_resolution_confirmation.get_meta(
+				"held_confirmation_skin",
+				"",
+			))
+			if _claim_resolution_confirmation != null else
+			""
+		),
 		"route_undo_visible": (
 			_assignment_undo_button != null
 			and _assignment_undo_button.is_visible_in_tree()
@@ -2043,6 +2052,7 @@ func _build_claim_resolution_confirmation() -> void:
 	_claim_resolution_confirmation.ok_button_text = "FILE PATH"
 	_claim_resolution_confirmation.cancel_button_text = "KEEP CURRENT PATH"
 	_claim_resolution_confirmation.min_size = Vector2i(340, 270)
+	ManagementUIThemeScript.style_held_confirmation(_claim_resolution_confirmation)
 	var copy := _claim_resolution_confirmation.get_label()
 	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT

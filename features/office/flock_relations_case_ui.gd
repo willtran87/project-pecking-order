@@ -10,6 +10,7 @@ signal action_requested(case_id: int, action_id: StringName)
 signal presentation_context_changed
 
 const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
+const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const COLOR_BRASS := Color("e7c56e")
 const COLOR_PAPER := Color("ddd2b8")
 const COLOR_MUTED := Color("aeb8c4")
@@ -129,6 +130,7 @@ func _build_confirmation() -> void:
 	_confirmation.title = "FILE A PERMANENT HEN DISPOSITION?"
 	_confirmation.ok_button_text = "FILE"
 	_confirmation.cancel_button_text = "KEEP"
+	ManagementTheme.style_held_confirmation(_confirmation)
 	_confirmation.min_size = Vector2i(340, 330)
 	var copy := _confirmation.get_label()
 	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

@@ -289,6 +289,8 @@ export default function Home() {
 			"flockwatch-today": "--capture-flock-labor",
 			"flock-petition": "--capture-petition",
 			"career-sponsorship": "--capture-career-sponsorship",
+			"career-sponsorship-confirmation": "--capture-career-sponsorship-confirmation",
+			"senior-policy-receipt": "--capture-senior-policy-receipt",
 			"probation-final": "--capture-campaign-final",
 			"campus-portfolio": "--capture-campus-portfolio-ui",
 			"contract-board": "--capture-contract-board-ui",

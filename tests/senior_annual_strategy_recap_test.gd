@@ -137,16 +137,20 @@ func _run() -> void:
 	await process_frame
 	var dividend_button := office.find_child("MilestoneChoice_flock_dividend", true, false) as Button
 	var forecast_button := office.find_child("MilestoneChoice_harvest_forecast", true, false) as Button
+	var dividend_signal := dividend_button.get_node_or_null("PolicyCardSignalLabel") as Label if dividend_button != null else null
+	var forecast_signal := forecast_button.get_node_or_null("PolicyCardSignalLabel") as Label if forecast_button != null else null
 	_check(
 		dividend_button != null
-		and "HELPS FLOCK  /  RISKS FUND  /  BOARD +2" in dividend_button.text
+		and dividend_signal != null
+		and dividend_signal.text == "+ FLOCK  /  ! FUND  /  B +2"
 		and "LAST YEAR  //  RECOVERY EDGE  //  FLOCK WELFARE 17% / 45%" in dividend_button.tooltip_text,
 		"the Dividend card should stay glance-first while retaining exact prior-year recovery fit on inspection",
 		failures,
 	)
 	_check(
 		forecast_button != null
-		and "HELPS FUND  /  RISKS FLOCK  /  BOARD +1" in forecast_button.text
+		and forecast_signal != null
+		and forecast_signal.text == "+ FUND  /  ! FLOCK  /  B +1"
 		and "LAST YEAR  //  RECOVERY RISK  //  FLOCK WELFARE 17% / 45%" in forecast_button.tooltip_text,
 		"the Forecast card should stay glance-first while retaining its prior welfare risk on inspection",
 		failures,

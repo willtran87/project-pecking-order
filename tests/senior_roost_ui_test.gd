@@ -33,6 +33,8 @@ func _run() -> void:
 	var ledger_title := ui.find_child("ReportLedgerSectionTitle", true, false) as Label
 	var choice_title := ui.find_child("MilestoneChoiceSectionTitle", true, false) as Label
 	var continue_button := ui.find_child("ContinueProbationButton", true, false) as Button
+	var requisitions_button := ui.find_child("ReviewRoostRequisitionsButton", true, false) as Button
+	var shelve_button := ui.find_child("AbandonCampaignButton", true, false) as Button
 	var merit := ui.find_child("MilestoneChoice_merit_grants", true, false) as Button
 	var dividend := ui.find_child("MilestoneChoice_flock_dividend", true, false) as Button
 	var forecast := ui.find_child("MilestoneChoice_harvest_forecast", true, false) as Button
@@ -45,11 +47,53 @@ func _run() -> void:
 	_check(merit != null and merit.disabled and "$2.00 more" in merit.tooltip_text, "unaffordable policies should be visibly disabled with an exact reserve explanation", failures)
 	_check(dividend != null and dividend.disabled, "every underfunded policy should remain non-interactive", failures)
 	_check(forecast != null and not forecast.disabled and forecast.focus_mode == Control.FOCUS_ALL, "the no-cost fallback should remain keyboard accessible", failures)
-	_check(dividend != null and "HELPS FLOCK  /  RISKS FUND  /  BOARD +2" in dividend.text, "Senior policy cards should summarize quarter and Board fit without a prose matrix", failures)
-	_check(dividend != null and "SCORE EDGE  //  FLOCK WELFARE + QUOTA RELIABILITY" in dividend.tooltip_text and "EDGE RELIABLE CLUTCH + FLOCK CONTINUITY" in dividend.tooltip_text, "Senior policy tooltips should retain exact quarter and annual fit", failures)
-	_check(forecast != null and "HELPS FUND  /  RISKS FLOCK  /  BOARD +1" in forecast.text, "Senior policy cards should summarize their scored risk and annual edge", failures)
+	_check(
+		dividend != null
+		and "+ FLOCK  /  ! FUND  /  B +2" in String(dividend.get_meta("visible_card_text", ""))
+		and "HELPS" not in String(dividend.get_meta("visible_card_text", ""))
+		and String(dividend.get_meta("glance_symbol_language", ""))
+		== "plus_benefit_bang_tradeoff_b_board"
+		and String(dividend.get_meta("glance_help", "")) == "FLOCK"
+		and String(dividend.get_meta("glance_risk", "")) == "FUND"
+		and String(dividend.get_meta("glance_board", "")) == "+2"
+		and String(dividend.get_meta("glance_fund", "")) == "$ -24"
+		and String(dividend.get_meta("glance_outcome", "")) == "FLOCK STRAIN DOWN"
+		and "-$24" not in String(dividend.get_meta("visible_card_text", ""))
+		and String(dividend.get_meta("accessible_text", "")).contains("Helps FLOCK")
+		and String(dividend.get_meta("accessible_text", "")).contains("Risks FUND")
+		and String(dividend.get_meta("accessible_text", "")).contains("Board fit +2"),
+		"Senior policy cards should replace repeated prose with one stable benefit, tradeoff, and Board strip",
+		failures,
+	)
+	var dividend_fund_chip := dividend.get_node_or_null("PolicyMetricChips/PolicyFundChip/PolicyFundChipLabel") as Label if dividend != null else null
+	var dividend_outcome_chip := dividend.get_node_or_null("PolicyMetricChips/PolicyOutcomeChip/PolicyOutcomeChipLabel") as Label if dividend != null else null
+	var dividend_signal := dividend.get_node_or_null("PolicyCardSignalLabel") as Label if dividend != null else null
+	_check(dividend_fund_chip != null and dividend_fund_chip.text == "$ -24", "Senior policy cards should isolate Feed Fund movement in a stable metric chip", failures)
+	_check(dividend_outcome_chip != null and dividend_outcome_chip.text == "FLOCK STRAIN DOWN", "Senior policy cards should isolate the primary operational result in a second metric chip", failures)
+	_check(dividend_signal != null and dividend_signal.text == "+ FLOCK  /  ! FUND  /  B +2", "Senior policy cards should render the comparison strip in a dedicated non-overlapping row", failures)
+	_check(dividend != null and "QUARTER EFFECT  //  FUND $ -24  //  RESULT FLOCK STRAIN DOWN" in dividend.tooltip_text and "AT A GLANCE  //  + HELPS FLOCK  //  ! RISKS FUND  //  B BOARD +2" in dividend.tooltip_text and "SCORE EDGE  //  FLOCK WELFARE + QUOTA RELIABILITY" in dividend.tooltip_text and "EDGE RELIABLE CLUTCH + FLOCK CONTINUITY" in dividend.tooltip_text, "Senior policy tooltips should retain exact quarter effect and annual fit", failures)
+	_check(forecast != null and "+ FUND  /  ! FLOCK  /  B +1" in String(forecast.get_meta("visible_card_text", "")), "Senior policy cards should summarize their scored risk and annual edge", failures)
+	var forecast_fund_chip := forecast.get_node_or_null("PolicyMetricChips/PolicyFundChip/PolicyFundChipLabel") as Label if forecast != null else null
+	_check(forecast_fund_chip != null and forecast_fund_chip.text == "$ +60", "positive Feed Fund movement should use the same signed metric position", failures)
 	_check(forecast != null and "SCORE WATCH  //  QUOTA RELIABILITY + FLOCK WELFARE + OBEDIENCE" in forecast.tooltip_text, "Senior policy tooltips should retain the complete scored risk", failures)
 	_check(continue_button != null and continue_button.disabled, "a quarter must remain gated until an available policy is filed", failures)
+	_check(
+		continue_button != null
+		and continue_button.text == "FILE POLICY  [C]"
+		and continue_button.icon != null
+		and String(continue_button.get_meta("semantic_icon", "")) == "advance_arrow"
+		and String(continue_button.get_meta("accessible_text", "")).contains(
+			"FILE POLICY & OPEN QUARTER"
+		)
+		and requisitions_button != null
+		and requisitions_button.text == "REQUISITIONS  [R]"
+		and requisitions_button.icon != null
+		and shelve_button != null
+		and shelve_button.text == "SHELVE  [A]"
+		and shelve_button.icon != null,
+		"Senior report actions should use compact symbols and verbs without dropping exact semantics",
+		failures,
+	)
 	if merit != null:
 		merit.pressed.emit()
 	_check(StringName(observed["chosen"]) == &"", "disabled policy activation must be ignored even when signaled directly", failures)
@@ -79,6 +123,12 @@ func _run() -> void:
 	_check(int(observed["presentation_changes"]) == 1, "staging a paused advanced confirmation should request one diagnostic presentation refresh", failures)
 	_check(ui.selected_milestone_id() == &"mutual_assurance", "the inspected advanced Book should remain visibly selected", failures)
 	_check(continue_button != null and not continue_button.disabled and "CONFIRM 2-MARK STAKE" in continue_button.text, "the existing action should become an explicit exact-stake confirmation", failures)
+	_check(
+		continue_button != null
+		and String(continue_button.get_meta("semantic_icon", "")) == "irreversible_warning",
+		"a staged permanent Board stake should replace the advance arrow with the warning symbol",
+		failures,
+	)
 	_check(continue_button != null and "failure permanently spends them" in continue_button.tooltip_text, "the confirmation tooltip should disclose permanent failure cost", failures)
 	_check(mandate_hint != null and "PRESS C TO CONFIRM 2-MARK STAKE" in mandate_hint.text, "the selection hint should publish the keyboard confirmation step", failures)
 	var pending := (ui.campaign_snapshot().get("pending_milestone_confirmation", {}) as Dictionary)
@@ -113,6 +163,12 @@ func _run() -> void:
 	_check(heading.text == "YEAR 1 ANNUAL ROOST REVIEW", "annual review should use distinct authored copy", failures)
 	_check(not (ui.find_child("MilestoneChoiceSection", true, false) as VBoxContainer).is_visible_in_tree(), "annual review should not present a quarterly policy gate", failures)
 	_check(continue_button.text == "BEGIN YEAR 2  [C]" and not continue_button.disabled, "annual review should offer an explicit next-year action", failures)
+	_check(
+		continue_button.icon != null
+		and String(continue_button.get_meta("semantic_icon", "")) == "advance_arrow",
+		"annual continuation should restore the reversible advance symbol",
+		failures,
+	)
 	_check(_visible_text(ui).find("probation") == -1, "annual Senior UI must remain free of probation copy", failures)
 	continue_button.pressed.emit()
 	_check(int(observed["continued"]) == 1, "annual continuation should reuse the public campaign intent", failures)
@@ -160,6 +216,8 @@ func _quarter_policy_snapshot() -> Dictionary:
 				"title": "Merit Grants",
 				"description": "Concentrate development money on the top hen.",
 				"effect": "-$12.00 / top hen development",
+				"glance_fund": "$ -12",
+				"glance_outcome": "HEN DEVELOPMENT",
 				"available": false,
 				"unavailable_reason": "$2.00 more spendable Feed Fund is required.",
 				"strategy": {
@@ -174,6 +232,8 @@ func _quarter_policy_snapshot() -> Dictionary:
 				"title": "Flock Dividend",
 				"description": "Return part of the harvest to every employed hen.",
 				"effect": "-$24.00 / flock strain down",
+				"glance_fund": "$ -24",
+				"glance_outcome": "FLOCK STRAIN DOWN",
 				"available": false,
 				"unavailable_reason": "$14.00 more spendable Feed Fund is required.",
 				"strategy": {
@@ -188,6 +248,8 @@ func _quarter_policy_snapshot() -> Dictionary:
 				"title": "Executive Harvest Forecast",
 				"description": "Book future confidence as present Feed Fund.",
 				"effect": "+$60.00 / favor +24 / next quota +2 / flock trust -1, grievance +1",
+				"glance_fund": "$ +60",
+				"glance_outcome": "FAVOR +24",
 				"available": true,
 				"strategy": {
 					"score_edge": "FARMER FAVOR + FUND BUFFER",

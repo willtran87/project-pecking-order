@@ -14,6 +14,7 @@ signal binding_capture_requested(action: StringName, event: InputEvent)
 signal career_backup_export_requested
 signal career_backup_import_requested(json_text: String)
 
+const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const AUDIO_BUSES := [
 	&"master",
 	&"music",
@@ -869,6 +870,7 @@ func _build_career_backup_dialogs() -> void:
 	_backup_import_confirmation.title = "REPLACE THE LOCAL CAREER?"
 	_backup_import_confirmation.ok_button_text = "VALIDATE & REPLACE"
 	_backup_import_confirmation.cancel_button_text = "KEEP CURRENT CAREER"
+	ManagementTheme.style_held_confirmation(_backup_import_confirmation)
 	_backup_import_confirmation.min_size = Vector2i(680, 280)
 	var confirmation_copy := _backup_import_confirmation.get_label()
 	confirmation_copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

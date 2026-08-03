@@ -75,6 +75,23 @@ func _run() -> void:
 		true,
 		false,
 	) as ConfirmationDialog
+	_check(
+		confirmation != null
+		and confirmation.theme_type_variation == &"HeldConfirmationDialog"
+		and String(confirmation.get_meta("held_confirmation_skin", "")) == "flockwatch_compact"
+		and confirmation.has_theme_stylebox_override("embedded_border")
+		and confirmation.has_theme_stylebox_override("panel")
+		and confirmation.get_ok_button().theme_type_variation == &"DangerButton"
+		and confirmation.get_cancel_button().theme_type_variation == &"PrimaryButton"
+		and confirmation.get_ok_button().icon != null
+		and confirmation.get_cancel_button().icon != null
+		and String(confirmation.get_ok_button().get_meta("semantic_icon", ""))
+		== "irreversible_warning"
+		and String(confirmation.get_cancel_button().get_meta("semantic_icon", ""))
+		== "safe_return_arrow",
+		"public campaigns should share the authored compact irreversible-decision skin",
+		failures,
+	)
 	_check(layer != null and not layer.disabled and layer.focus_mode == Control.FOCUS_ALL and layer.text == "CREDIT LAYER", "Layer Profile should be a short keyboard action", failures)
 	_check(clutch != null and not clutch.disabled and clutch.text == "POST RESULTS", "Clutch Results should be a short action", failures)
 	_check(farmer != null and not farmer.disabled and farmer.text == "CLAIM METHOD", "Farmer's Method should be a short satirical action", failures)
@@ -106,6 +123,7 @@ func _run() -> void:
 		and _contains_all(confirmation.get_ok_button().tooltip_text, ["hang", "permanent"])
 		and _contains_all(confirmation.get_cancel_button().tooltip_text, ["keep", "open"])
 		and requests.is_empty()
+		and confirmation.get_cancel_button().has_focus()
 		and _contains_all(
 			confirmation.dialog_text,
 			[

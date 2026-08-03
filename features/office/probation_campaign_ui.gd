@@ -137,6 +137,7 @@ var _final_sticky_leave_button: Button
 
 var _continue_title_button: Button
 var _report_requisitions_button: Button
+var _report_shelve_button: Button
 var _report_continue_button: Button
 var _report_day_label: Label
 var _report_heading_label: Label
@@ -945,6 +946,7 @@ func _build_report_panel(parent: Control) -> void:
 	_credit_memo_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_credit_memo_label.max_lines_visible = 4
 	_credit_memo_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_credit_memo_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_credit_memo_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	credit_margin.add_child(_credit_memo_label)
 
@@ -1038,26 +1040,48 @@ func _build_report_panel(parent: Control) -> void:
 	content.add_child(_report_actions)
 	_report_requisitions_button = _make_button(
 		"ReviewRoostRequisitionsButton",
-		"REVIEW ROOST REQUISITIONS  [R]",
+		"REQUISITIONS  [R]",
 		&"DecisionChoiceButton",
 	)
-	_report_requisitions_button.custom_minimum_size = Vector2(235.0, 44.0)
+	_report_requisitions_button.custom_minimum_size = Vector2(180.0, 44.0)
+	_style_report_action(_report_requisitions_button, &"requisitions")
+	_report_requisitions_button.set_meta(
+		"exact_action_label",
+		"Review Roost requisitions [R].",
+	)
 	_report_requisitions_button.shortcut = _shortcut(KEY_R)
 	_report_requisitions_button.pressed.connect(
 		func() -> void: review_requisitions.emit()
 	)
 	_report_actions.add_child(_report_requisitions_button)
-	var abandon := _make_button("AbandonCampaignButton", "SHELVE & RETURN TO INTAKE  [A]", &"DecisionChoiceButton")
-	abandon.custom_minimum_size = Vector2(190.0, 44.0)
-	abandon.shortcut = _shortcut(KEY_A)
-	abandon.pressed.connect(_on_abandon_campaign_pressed)
-	_report_actions.add_child(abandon)
+	_report_shelve_button = _make_button(
+		"AbandonCampaignButton",
+		"SHELVE  [A]",
+		&"DecisionChoiceButton",
+	)
+	_report_shelve_button.custom_minimum_size = Vector2(135.0, 44.0)
+	_style_report_action(_report_shelve_button, &"shelve")
+	_report_shelve_button.set_meta(
+		"exact_action_label",
+		"Safely shelve this file and return to intake [A].",
+	)
+	_report_shelve_button.tooltip_text = (
+		"Safely shelve this career file and return to intake. Continue resumes the exact checkpoint."
+	)
+	_report_shelve_button.shortcut = _shortcut(KEY_A)
+	_report_shelve_button.pressed.connect(_on_abandon_campaign_pressed)
+	_report_actions.add_child(_report_shelve_button)
 	_report_continue_button = _make_button(
 		"ContinueProbationButton",
-		"FILE REPORT & PLAN NEXT SHIFT  [C]",
+		"FILE & PLAN  [C]",
 		&"PrimaryButton",
 	)
-	_report_continue_button.custom_minimum_size = Vector2(310.0, 44.0)
+	_report_continue_button.custom_minimum_size = Vector2(220.0, 44.0)
+	_style_report_action(_report_continue_button, &"advance")
+	_report_continue_button.set_meta(
+		"exact_action_label",
+		"File report and plan next shift [C].",
+	)
 	_report_continue_button.shortcut = _shortcut(KEY_C)
 	_report_continue_button.pressed.connect(_on_continue_campaign_pressed)
 	_report_actions.add_child(_report_continue_button)
@@ -2019,10 +2043,10 @@ func _refresh_report(day: int, total_days: int) -> void:
 		"choice_section_title",
 		"QUARTERLY CAPITAL POLICY  //  FILE ONE" if senior else "MILESTONE REQUISITION  //  CHOOSE ONE PERMANENT EDGE",
 	)).to_upper()
-	_report_continue_button.text = String(_snapshot.get(
+	_set_report_continue_presentation(String(_snapshot.get(
 		"continue_label",
 		"FILE POLICY & OPEN QUARTER  [C]" if senior else "FILE REPORT & PLAN NEXT SHIFT  [C]",
-	))
+	)))
 	if _report_requisitions_button != null:
 		var staffing_open := bool(_snapshot.get("staffing_planning_open", false))
 		_report_requisitions_button.disabled = not staffing_open
@@ -2052,6 +2076,7 @@ func _refresh_report(day: int, total_days: int) -> void:
 	)
 	_update_objective()
 	_rebuild_milestone_choices()
+	_sync_report_action_accessibility()
 	if _career_sponsorship_ui != null:
 		var sponsorship_value: Variant = _snapshot.get("career_sponsorship", {})
 		_career_sponsorship_ui.apply_snapshot(
@@ -2124,6 +2149,42 @@ func _update_score_receipt(report_day: int) -> void:
 	)
 
 
+func _signed_receipt_delta(value: float) -> String:
+	var rounded := roundi(value)
+	return "%s%d" % ["+" if rounded > 0 else "", rounded]
+
+
+func _signed_receipt_currency(cents: int) -> String:
+	var sign := "+" if cents > 0 else ("-" if cents < 0 else "")
+	var absolute_cents := absi(cents)
+	var amount := (
+		str(absolute_cents / 100)
+		if absolute_cents % 100 == 0 else
+		"%.2f" % (float(absolute_cents) / 100.0)
+	)
+	return "$ %s%s" % [sign, amount]
+
+
+func _senior_policy_receipt_metrics(memo: Dictionary) -> Array[String]:
+	var metrics: Array[String] = [
+		"FUND %s" % _signed_receipt_currency(int(memo.get("fund_delta_cents", 0))),
+	]
+	for metric in [
+		{"key": "farmer_favor_delta", "label": "FAVOR"},
+		{"key": "quota_delta", "label": "QUOTA"},
+		{"key": "compliance_delta", "label": "COMPLIANCE"},
+		{"key": "solidarity_delta", "label": "SOLIDARITY"},
+	]:
+		var value := float(memo.get(String(metric["key"]), 0.0))
+		if is_zero_approx(value):
+			continue
+		metrics.append("%s %s" % [
+			String(metric["label"]),
+			_signed_receipt_delta(value),
+		])
+	return metrics
+
+
 func _update_credit_memo(report_day: int) -> void:
 	var memo_value: Variant = _snapshot.get("credit_memo", {})
 	var memo := memo_value as Dictionary if memo_value is Dictionary else {}
@@ -2141,14 +2202,46 @@ func _update_credit_memo(report_day: int) -> void:
 	elif decision_id == &"golden_egg_dossier":
 		prefix = "GOLDEN DOSSIER FILED"
 	elif decision_id == &"senior_quarter_policy":
-		prefix = "SENIOR CAPITAL POLICY FILED"
+		prefix = "POLICY LEDGER"
+	var outcome := String(memo.get(
+		"outcome",
+		"The closing attribution is now part of the permanent coop record.",
+	))
+	if decision_id == &"senior_quarter_policy":
+		var receipt_metrics := _senior_policy_receipt_metrics(memo)
+		_credit_memo_label.text = "%s  //  %s\n%s" % [
+			prefix,
+			option_name,
+			"  /  ".join(receipt_metrics),
+		]
+		_credit_memo_label.tooltip_text = "%s\n\nOUTCOME  //  %s" % [
+			_credit_memo_label.text,
+			outcome,
+		]
+		_credit_memo_label.set_meta(
+			"accessible_text",
+			_credit_memo_label.tooltip_text.replace("\n", " "),
+		)
+		_credit_memo_label.set_meta("receipt_metrics", receipt_metrics)
+		_credit_memo_card.add_theme_stylebox_override(
+			"panel",
+			_panel_style(Color("1c3839"), BRASS, 8, 2),
+		)
+		_sync_report_story_visibility()
+		return
 	_credit_memo_label.text = "%s  //  %s%s\n%s" % [
 		prefix,
 		option_name,
 		("  //  %s" % subject_name if not subject_name.is_empty() else ""),
-		String(memo.get("outcome", "The closing attribution is now part of the permanent coop record.")),
+		outcome,
 	]
 	_credit_memo_label.tooltip_text = _credit_memo_label.text
+	_credit_memo_label.set_meta("accessible_text", _credit_memo_label.text.replace("\n", " "))
+	_credit_memo_label.set_meta("receipt_metrics", [])
+	_credit_memo_card.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("20333a"), Color("8b7444"), 8, 1),
+	)
 	_sync_report_story_visibility()
 
 
@@ -2546,6 +2639,120 @@ func _senior_policy_effect_glance(effect: String) -> String:
 	return _bounded_resume_text(normalized, 34).to_upper()
 
 
+func _senior_policy_metric_glance(choice: Dictionary, effect: String) -> Dictionary:
+	var combined := String(choice.get(
+		"glance_effect",
+		_senior_policy_effect_glance(effect),
+	)).strip_edges().to_upper()
+	var parts := combined.split("/", false, 1)
+	var fund := String(choice.get(
+		"glance_fund",
+		String(parts[0]).strip_edges() if not parts.is_empty() else "$ --",
+	)).strip_edges().to_upper()
+	if fund.begins_with("-$"):
+		fund = "$ -%s" % fund.trim_prefix("-$").strip_edges()
+	elif fund.begins_with("+$"):
+		fund = "$ +%s" % fund.trim_prefix("+$").strip_edges()
+	var outcome := String(choice.get(
+		"glance_outcome",
+		String(parts[1]).strip_edges() if parts.size() > 1 else "QUARTER EFFECT",
+	)).strip_edges().to_upper()
+	return {
+		"fund": _bounded_resume_text(fund, 12).to_upper(),
+		"outcome": _bounded_resume_text(outcome, 20).to_upper(),
+	}
+
+
+func _add_senior_policy_metric_chips(
+	button: Button,
+	title_copy: String,
+	fund_copy: String,
+	outcome_copy: String,
+	signal_copy: String,
+) -> void:
+	button.text = ""
+	var title_label := Label.new()
+	title_label.name = "PolicyCardTitleLabel"
+	title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	title_label.theme_type_variation = &"PolicyCardTitleLabel"
+	title_label.text = title_copy
+	title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	title_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	title_label.offset_left = 12.0
+	title_label.offset_top = 9.0
+	title_label.offset_right = -12.0
+	title_label.offset_bottom = 30.0
+	button.add_child(title_label)
+	var row := HBoxContainer.new()
+	row.name = "PolicyMetricChips"
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	row.offset_left = 12.0
+	row.offset_top = 35.0
+	row.offset_right = -12.0
+	row.offset_bottom = 58.0
+	row.add_theme_constant_override("separation", 6)
+	button.add_child(row)
+	var fund_positive := fund_copy.contains("+") and not fund_copy.contains("-")
+	_add_senior_policy_metric_chip(
+		row,
+		"PolicyFundChip",
+		fund_copy,
+		&"PolicyCreditChip" if fund_positive else &"PolicyDebitChip",
+		&"PolicyCreditChipLabel" if fund_positive else &"PolicyDebitChipLabel",
+		0.8,
+	)
+	_add_senior_policy_metric_chip(
+		row,
+		"PolicyOutcomeChip",
+		outcome_copy,
+		&"PolicyOutcomeChip",
+		&"PolicyOutcomeChipLabel",
+		1.2,
+	)
+	var signal_label := Label.new()
+	signal_label.name = "PolicyCardSignalLabel"
+	signal_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	signal_label.theme_type_variation = &"PolicyCardSignalLabel"
+	signal_label.text = signal_copy
+	signal_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	signal_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	signal_label.offset_left = 12.0
+	signal_label.offset_top = 66.0
+	signal_label.offset_right = -12.0
+	signal_label.offset_bottom = 87.0
+	button.add_child(signal_label)
+	row.modulate.a = 0.58 if button.disabled else 1.0
+	title_label.modulate.a = 0.58 if button.disabled else 1.0
+	signal_label.modulate.a = 0.58 if button.disabled else 1.0
+
+
+func _add_senior_policy_metric_chip(
+	host: HBoxContainer,
+	node_name: String,
+	copy: String,
+	panel_variation: StringName,
+	label_variation: StringName,
+	stretch_ratio: float,
+) -> void:
+	var panel := PanelContainer.new()
+	panel.name = node_name
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.theme_type_variation = panel_variation
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_stretch_ratio = stretch_ratio
+	host.add_child(panel)
+	var label := Label.new()
+	label.name = "%sLabel" % node_name
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.theme_type_variation = label_variation
+	label.text = copy
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	panel.add_child(label)
+
+
 func _senior_policy_focus_glance(detail: String) -> String:
 	var normalized := detail.to_upper()
 	if "FLOCK WELFARE" in normalized or "FLOCK" in normalized:
@@ -2628,6 +2835,11 @@ func _rebuild_milestone_choices() -> void:
 			_selected_milestone != &""
 			and choice_id != _selected_milestone
 		)
+		var policy_glance_help := ""
+		var policy_glance_risk := ""
+		var policy_glance_board := ""
+		var policy_glance_fund := ""
+		var policy_glance_outcome := ""
 		var button_copy := "%d  //  %s\n%s%s" % [
 			index + 1,
 			title.to_upper(),
@@ -2644,17 +2856,25 @@ func _rebuild_milestone_choices() -> void:
 				primary_watchout,
 			]
 		elif not strategy.is_empty():
-			button_copy = "%d  //  %s\n%s\nHELPS %s  /  RISKS %s  /  BOARD %s" % [
+			var policy_metrics := _senior_policy_metric_glance(choice, effect)
+			policy_glance_fund = String(policy_metrics.get("fund", "$ --"))
+			policy_glance_outcome = String(policy_metrics.get("outcome", "QUARTER EFFECT"))
+			policy_glance_help = String(choice.get("glance_help", _senior_policy_focus_glance(
+				String(strategy.get("score_edge", "QUARTER TRADEOFF")),
+			)))
+			policy_glance_risk = String(choice.get("glance_risk", _senior_policy_focus_glance(
+				String(strategy.get("score_watch", "CLOSING LEDGER")),
+			)))
+			policy_glance_board = _senior_policy_board_glance(strategy)
+			# Preserve two intentional visual rows for the child metric chips.
+			# TextServer collapses truly empty lines inside Button copy, while a
+			# single space retains the line height without adding visible prose.
+			button_copy = "%d  //  %s\n \n \n+ %s  /  ! %s  /  B %s" % [
 				index + 1,
 				title.to_upper(),
-				String(choice.get("glance_effect", _senior_policy_effect_glance(effect))),
-				String(choice.get("glance_help", _senior_policy_focus_glance(
-					String(strategy.get("score_edge", "QUARTER TRADEOFF")),
-				))),
-				String(choice.get("glance_risk", _senior_policy_focus_glance(
-					String(strategy.get("score_watch", "CLOSING LEDGER")),
-				))),
-				_senior_policy_board_glance(strategy),
+				policy_glance_help,
+				policy_glance_risk,
+				policy_glance_board,
 			]
 		var button := _make_button(
 			"MilestoneChoice_%s" % _safe_node_suffix(String(choice_id)),
@@ -2675,6 +2895,29 @@ func _rebuild_milestone_choices() -> void:
 		# its card readable, but lock every alternative so a later click cannot
 		# visually replace the permanent filing while the domain rejects it.
 		button.disabled = not available or locked_by_filed_choice
+		if not strategy.is_empty():
+			var policy_signal_copy := "+ %s  /  ! %s  /  B %s" % [
+				policy_glance_help,
+				policy_glance_risk,
+				policy_glance_board,
+			]
+			button.set_meta(
+				"visible_card_text",
+				"%d  //  %s\n%s  //  %s\n%s" % [
+					index + 1,
+					title.to_upper(),
+					policy_glance_fund,
+					policy_glance_outcome,
+					policy_signal_copy,
+				],
+			)
+			_add_senior_policy_metric_chips(
+				button,
+				"%d  //  %s" % [index + 1, title.to_upper()],
+				policy_glance_fund,
+				policy_glance_outcome,
+				policy_signal_copy,
+			)
 		var default_tooltip := String(choice.get(
 			"tooltip",
 			choice.get(
@@ -2694,7 +2937,12 @@ func _rebuild_milestone_choices() -> void:
 				String(doctrine.get("playbook", "Use the safeguard forecast to cover its obligations.")),
 			]
 		elif not strategy.is_empty():
-			default_tooltip = "%s\n\n%s\n%s\n\nSCORE EDGE  //  %s\nSCORE WATCH  //  %s\n%s  //  %s" % [
+			default_tooltip = "QUARTER EFFECT  //  FUND %s  //  RESULT %s\nAT A GLANCE  //  + HELPS %s  //  ! RISKS %s  //  B BOARD %s\n\n%s\n\n%s\n%s\n\nSCORE EDGE  //  %s\nSCORE WATCH  //  %s\n%s  //  %s" % [
+				policy_glance_fund,
+				policy_glance_outcome,
+				policy_glance_help,
+				policy_glance_risk,
+				policy_glance_board,
 				default_tooltip,
 				description,
 				effect,
@@ -2715,6 +2963,28 @@ func _rebuild_milestone_choices() -> void:
 				String(_selected_milestone).replace("_", " ").to_upper()
 			)
 		button.tooltip_text = default_tooltip
+		if not strategy.is_empty():
+			button.set_meta(
+				"glance_symbol_language",
+				"plus_benefit_bang_tradeoff_b_board",
+			)
+			button.set_meta("glance_help", policy_glance_help)
+			button.set_meta("glance_risk", policy_glance_risk)
+			button.set_meta("glance_board", policy_glance_board)
+			button.set_meta("glance_fund", policy_glance_fund)
+			button.set_meta("glance_outcome", policy_glance_outcome)
+			button.set_meta(
+				"accessible_text",
+				"%s. Fund impact %s. Primary result %s. Helps %s. Risks %s. Board fit %s. %s" % [
+					title,
+					policy_glance_fund,
+					policy_glance_outcome,
+					policy_glance_help,
+					policy_glance_risk,
+					policy_glance_board,
+					default_tooltip.replace("\n", " "),
+				],
+			)
 		button.set_meta("choice_id", choice_id)
 		button.set_meta(
 			"choice_title",
@@ -2842,11 +3112,17 @@ func _apply_pending_milestone_confirmation() -> void:
 		"confirmation_label",
 		"CONFIRM PERMANENT FILING  [C]",
 	))
+	_report_continue_button.set_meta(
+		"exact_action_label",
+		_report_continue_button.text,
+	)
+	_style_report_action(_report_continue_button, &"irreversible")
 	_report_continue_button.tooltip_text = String(button.get_meta(
 		"confirmation_tooltip",
 		"Confirm this irreversible filing.",
 	))
 	_report_continue_button.disabled = false
+	_sync_report_action_accessibility()
 	_queue_focus(_report_continue_button)
 
 
@@ -3040,7 +3316,9 @@ func _apply_responsive_layout() -> void:
 			milestone_button.custom_minimum_size.x = milestone_width
 
 	if _report_continue_button != null:
-		_report_continue_button.custom_minimum_size.x = 270.0 if narrow else 310.0
+		_report_continue_button.custom_minimum_size.x = (
+			270.0 if _pending_milestone_confirmation != &"" else 220.0
+		)
 	if _final_continue_button != null:
 		_final_continue_button.custom_minimum_size.x = 260.0
 
@@ -3333,6 +3611,71 @@ func _make_label(text: String, font_size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	return label
+
+
+func _set_report_continue_presentation(exact_label: String) -> void:
+	if _report_continue_button == null:
+		return
+	_report_continue_button.text = _compact_report_continue_label(exact_label)
+	_report_continue_button.set_meta("exact_action_label", exact_label)
+	_style_report_action(_report_continue_button, &"advance")
+
+
+func _compact_report_continue_label(exact_label: String) -> String:
+	var label := exact_label.strip_edges()
+	if label.begins_with("SELECT A POLICY") or label.begins_with("FILE POLICY"):
+		return "FILE POLICY  [C]"
+	if label.begins_with("SELECT A MANDATE"):
+		return "FILE MANDATE  [C]"
+	if label.begins_with("FILE REPORT & PLAN NEXT SHIFT"):
+		return "FILE & PLAN  [C]"
+	if label.begins_with("PLAN NEXT SENIOR SHIFT"):
+		return "NEXT SHIFT  [C]"
+	if label.begins_with("BEGIN YEAR") and " PLANNING" in label:
+		return label.replace("BEGIN YEAR", "YEAR").replace(" PLANNING", "")
+	if label.begins_with("BEGIN QUARTER"):
+		return label.replace("BEGIN QUARTER", "BEGIN Q")
+	if label.begins_with("PLAN QUARTER"):
+		return label.replace("PLAN QUARTER", "PLAN Q")
+	return label
+
+
+func _style_report_action(button: Button, icon_kind: StringName) -> void:
+	if button == null:
+		return
+	button.icon = ManagementTheme.action_icon(icon_kind)
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.add_theme_constant_override("icon_separation", 5)
+	button.autowrap_mode = TextServer.AUTOWRAP_OFF
+	button.clip_text = false
+	button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	var semantic_icon: String = String({
+		&"requisitions": "requisition_sheet",
+		&"shelve": "safe_shelve",
+		&"advance": "advance_arrow",
+		&"irreversible": "irreversible_warning",
+	}.get(icon_kind, String(icon_kind)))
+	button.set_meta("semantic_icon", semantic_icon)
+
+
+func _sync_report_action_accessibility() -> void:
+	for button: Button in [
+		_report_requisitions_button,
+		_report_shelve_button,
+		_report_continue_button,
+	]:
+		if button == null:
+			continue
+		var exact_label := String(button.get_meta(
+			"exact_action_label",
+			button.text,
+		)).strip_edges()
+		var exact_help := button.tooltip_text.strip_edges()
+		button.set_meta(
+			"accessible_text",
+			"%s %s" % [exact_label, exact_help]
+			if not exact_help.is_empty() else exact_label,
+		)
 
 
 func _make_button(node_name: String, text: String, variation: StringName) -> Button:
