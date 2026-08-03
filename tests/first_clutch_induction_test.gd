@@ -296,9 +296,9 @@ func _run() -> void:
 	var specialty_button := office.find_child("Assign_%s" % String(specialty), true, false) as Button
 	_check(
 		specialty_button != null
-		and specialty_button.text == "APPEALS"
+		and specialty_button.text == "APPEALS  [ENTER]"
 		and bool(specialty_button.get_meta("first_clutch_cue", false)),
-		"coach should cue Mabel's concise, unclipped specialty action",
+		"coach should cue Mabel's concise, unclipped specialty action and direct shortcut",
 		failures,
 	)
 
@@ -441,32 +441,40 @@ func _run() -> void:
 		and decision_host != null
 		and decision_host.visible
 		and decision_title != null
-		and "MABEL MADE THE EGG" in decision_title.text
-		and "WHO GETS THE BENEFIT" in decision_title.text
+		and "REWARD MABEL" in decision_title.text
+		and "BANK THE FUND" in decision_title.text
 		and decision_body != null
-		and "$" in decision_body.text
-		and "protected reserve" in decision_body.text
-		and "farmer kept the presentation credit" in decision_body.text.to_lower(),
+		and "SPENDABLE" in decision_body.text
+		and "DESK MATCH" in decision_body.text
+		and "RESERVED" in decision_body.text
+		and "protected reserve" in String(decision_body.get_meta("accessible_text", ""))
+		and "farmer kept the presentation credit" in String(
+			decision_body.get_meta("accessible_text", "")
+		).to_lower(),
 		"physical collection should open the concise, satirical First Clutch benefit choice",
 		failures,
 	)
 	var keycap_button := office.find_child("DecisionOption_peckwork_tools", true, false) as Button
+	var reinvestment_options := office.find_child("DecisionOptions", true, false) as GridContainer
 	_check(
 		keycap_button != null
-		and "MABEL: BETTER KEYS" in keycap_button.text
-		and "+8% WORK SPEED" in keycap_button.text
-		and "EXACT RECEIPT" in String(keycap_button.get_meta("preview", ""))
-		and "LIST" in String(keycap_button.get_meta("preview", ""))
-		and "MATCH" in String(keycap_button.get_meta("preview", ""))
-		and "SPENDABLE" in String(keycap_button.get_meta("preview", "")),
+		and "BETTER KEYS" in keycap_button.text
+		and "SPEED" in keycap_button.text
+		and "PAY $" in keycap_button.text
+		and "SPENDABLE" in String(keycap_button.get_meta("preview", ""))
+		and "EXACT RECEIPT" in String(keycap_button.get_meta("accessible_text", ""))
+		and "LIST" in String(keycap_button.get_meta("accessible_text", ""))
+		and "MATCH" in String(keycap_button.get_meta("accessible_text", "")),
 		"benefit-first purchase cards should preserve the exact economic preflight in their selected preview",
 		failures,
 	)
 	_check(
 		confirm_button != null
 		and is_equal_approx(confirm_button.custom_minimum_size.y, 66.0)
+		and reinvestment_options != null
+		and reinvestment_options.columns == 3
 		and (office.get("_decision_option_buttons") as Array).size() == 3,
-		"reinvestment should expose at most two purchase cards plus Bank with a 66px confirm target",
+		"desktop reinvestment should expose two purchases plus Bank as three equal choices with a 66px confirm target",
 		failures,
 	)
 
@@ -504,8 +512,9 @@ func _run() -> void:
 	confirm_button = office.find_child("ConfirmDecisionButton", true, false) as Button
 	_check(
 		bank_button != null
-		and "KEEP EGG IN FEED FUND" in bank_button.text
-		and "DESK UNCHANGED" in bank_button.text,
+		and "BANK THE FUND" in bank_button.text
+		and "KEEP $" in bank_button.text
+		and "NO UPGRADE" in bank_button.text,
 		"Bank should state plainly that Mabel's desk receives no benefit",
 		failures,
 	)
@@ -514,6 +523,7 @@ func _run() -> void:
 	_check(
 		confirm_button != null
 		and not confirm_button.disabled
+		and "BANK $" in confirm_button.text
 		and office.get_viewport().gui_get_focus_owner() == confirm_button,
 		"selecting with a card should hand keyboard focus to the 66px Confirm target",
 		failures,
@@ -541,7 +551,8 @@ func _run() -> void:
 		flockwatch_toggle != null
 		and flockwatch_toggle.text == "FLOCKWATCH  ·  3 ACTIONS  [%s]" % flockwatch_hint
 		and guidance != null
-		and "three probation orders" in guidance.text.to_lower(),
+		and guidance.text.begins_with("GOALS READY:")
+		and "three probation orders" in String(guidance.get_meta("accessible_text", "")).to_lower(),
 		"resolved reinvestment should reveal the stable Flockwatch action count, current binding, and objectives guidance",
 		failures,
 	)

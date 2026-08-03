@@ -26,6 +26,7 @@ signal market_contract_decline_requested
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const CareerSponsorshipUIScript := preload("res://features/office/career_sponsorship_ui.gd")
 const FarmMutualContractBoardUIScript := preload("res://features/office/farm_mutual_contract_board_ui.gd")
+const MabelPortrait: Texture2D = preload("res://assets/npcs/mabel/portraits/mabel_portrait_anxious.png")
 
 const VIEW_TITLE := &"title"
 const VIEW_ACTIVE := &"active"
@@ -115,6 +116,9 @@ var _title_resume_details: Label
 var _title_challenge_card: PanelContainer
 var _title_challenge_selector: OptionButton
 var _title_challenge_summary: Label
+var _title_opening_fund: Label
+var _title_opening_quota: Label
+var _title_opening_files: Label
 var _title_challenge_terms_toggle: Button
 var _title_challenge_detail: Label
 var _title_new_button: Button
@@ -643,18 +647,18 @@ func _build_title_panel(parent: Control) -> void:
 	)
 	parent.add_child(_title_panel)
 
-	var content := _panel_content(_title_panel, 28, 20, 10)
-	var eyebrow := _make_label("CORNFIELDS MUTUAL  //  MANAGEMENT INTAKE", 12, BRASS)
+	var content := _panel_content(_title_panel, 28, 14, 8)
+	var eyebrow := _make_label("YOUR FIRST COOP FILE", 12, BRASS)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	eyebrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(eyebrow)
-	_title_heading = _make_label("MEET MABEL. RUN FIVE SHIFTS.", 28, CREAM)
+	_title_heading = _make_label("MEET MABEL", 30, CREAM)
 	_title_heading.name = "CampaignTitle"
 	_title_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_title_heading)
 	_title_description = _make_label(
-		"Choose a filing, then manage one shared coop file together.",
+		"Pick a difficulty. Start shift one.",
 		15,
 		Color("c4d0d4"),
 	)
@@ -670,22 +674,55 @@ func _build_title_panel(parent: Control) -> void:
 		_panel_style(Color("1d3039"), Color("48616a"), 9, 1),
 	)
 	content.add_child(_title_profile_card)
-	var profile := _panel_content(_title_profile_card, 18, 11, 4)
+	var profile := HBoxContainer.new()
+	profile.add_theme_constant_override("separation", 16)
+	profile.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var profile_margin := MarginContainer.new()
+	profile_margin.add_theme_constant_override("margin_left", 14)
+	profile_margin.add_theme_constant_override("margin_right", 18)
+	profile_margin.add_theme_constant_override("margin_top", 6)
+	profile_margin.add_theme_constant_override("margin_bottom", 6)
+	profile_margin.add_child(profile)
+	_title_profile_card.add_child(profile_margin)
+	var portrait_frame := PanelContainer.new()
+	portrait_frame.name = "CampaignMabelPortraitFrame"
+	portrait_frame.custom_minimum_size = Vector2(82.0, 82.0)
+	portrait_frame.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("15262f"), BRASS, 46, 2),
+	)
+	profile.add_child(portrait_frame)
+	var portrait_margin := MarginContainer.new()
+	portrait_margin.add_theme_constant_override("margin_left", 5)
+	portrait_margin.add_theme_constant_override("margin_right", 5)
+	portrait_margin.add_theme_constant_override("margin_top", 5)
+	portrait_margin.add_theme_constant_override("margin_bottom", 5)
+	portrait_frame.add_child(portrait_margin)
+	var portrait := TextureRect.new()
+	portrait.name = "CampaignMabelPortrait"
+	portrait.texture = MabelPortrait
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	portrait.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	portrait_margin.add_child(portrait)
+	var profile_copy := VBoxContainer.new()
+	profile_copy.add_theme_constant_override("separation", 3)
+	profile_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	profile_copy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	profile.add_child(profile_copy)
 	var identity := _make_label("MABEL  //  JUNIOR CLAIMS HEN", 15, CREAM)
 	identity.name = "CampaignMabelIdentity"
-	identity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	identity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	profile.add_child(identity)
-	var traits := _make_label("APPEALS SPECIALIST  //  CREDIT CONSCIOUS", 12, TEAL)
+	profile_copy.add_child(identity)
+	var traits := _make_label("APPEALS SPECIALIST  ·  SAVES FEED", 12, TEAL)
 	traits.name = "CampaignMabelTraits"
-	traits.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	traits.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	profile.add_child(traits)
+	profile_copy.add_child(traits)
 	var quote := _make_label("\"The farmer remembers the basket, not the beak that filled it.\"", 14, INK)
 	quote.name = "CampaignMabelQuote"
-	quote.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	quote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	profile.add_child(quote)
+	profile_copy.add_child(quote)
 
 	_title_challenge_card = PanelContainer.new()
 	_title_challenge_card.name = "ChallengeContractCard"
@@ -694,13 +731,13 @@ func _build_title_panel(parent: Control) -> void:
 		_panel_style(Color("1b2d36"), Color("6d8e86"), 9, 1),
 	)
 	content.add_child(_title_challenge_card)
-	var challenge_content := _panel_content(_title_challenge_card, 16, 10, 5)
+	var challenge_content := _panel_content(_title_challenge_card, 16, 8, 4)
 	var challenge_header := HFlowContainer.new()
 	challenge_header.name = "ChallengeContractHeader"
 	challenge_header.add_theme_constant_override("h_separation", 12)
 	challenge_header.add_theme_constant_override("v_separation", 6)
 	challenge_content.add_child(challenge_header)
-	var challenge_label := _make_label("CHOOSE DIFFICULTY", 11, TEAL)
+	var challenge_label := _make_label("DIFFICULTY", 11, TEAL)
 	challenge_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	challenge_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	challenge_label.custom_minimum_size.x = 210.0
@@ -723,9 +760,21 @@ func _build_title_panel(parent: Control) -> void:
 	_title_challenge_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title_challenge_summary.mouse_filter = Control.MOUSE_FILTER_STOP
 	challenge_content.add_child(_title_challenge_summary)
+	var opening_glance := HFlowContainer.new()
+	opening_glance.name = "ChallengeOpeningGlance"
+	opening_glance.alignment = FlowContainer.ALIGNMENT_CENTER
+	opening_glance.add_theme_constant_override("h_separation", 8)
+	opening_glance.add_theme_constant_override("v_separation", 8)
+	challenge_content.add_child(opening_glance)
+	_title_opening_fund = _make_metric("ChallengeOpeningFund", "$50", "FEED FUND", 150.0, 19)
+	_title_opening_quota = _make_metric("ChallengeOpeningQuota", "16", "EGG QUOTA", 150.0, 19)
+	_title_opening_files = _make_metric("ChallengeOpeningFiles", "6", "OPEN FILES", 150.0, 19)
+	for metric in [_title_opening_fund, _title_opening_quota, _title_opening_files]:
+		_metric_panel(metric).custom_minimum_size.y = 52.0
+		opening_glance.add_child(_metric_panel(metric))
 	_title_challenge_terms_toggle = _make_button(
 		"ChallengeContractTermsToggle",
-		"EXACT RULES  [T]",
+		"RULES  [T]",
 		&"DecisionChoiceButton",
 	)
 	_title_challenge_terms_toggle.custom_minimum_size = Vector2(220.0, 34.0)
@@ -749,16 +798,25 @@ func _build_title_panel(parent: Control) -> void:
 		_panel_style(Color("1a2932"), Color("665b42"), 7, 1),
 	)
 	content.add_child(_title_probation_summary)
-	var probation_content := _panel_content(_title_probation_summary, 15, 8, 1)
-	var probation_heading := _make_label("ONE SHARED FILE", 11, BRASS)
+	var probation_content := _panel_content(_title_probation_summary, 15, 6, 3)
+	var probation_heading := _make_label("YOUR RUN", 11, BRASS)
 	probation_heading.name = "ProbationFiveShiftHeading"
 	probation_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	probation_content.add_child(probation_heading)
-	var probation_detail := _make_label(
-		"5 SHIFTS  ->  REPORT EACH  ->  FINAL REVIEW",
-		11,
-		Color("d4c38f"),
-	)
+	var journey := HFlowContainer.new()
+	journey.name = "ProbationJourney"
+	journey.alignment = FlowContainer.ALIGNMENT_CENTER
+	journey.add_theme_constant_override("h_separation", 8)
+	journey.add_theme_constant_override("v_separation", 8)
+	probation_content.add_child(journey)
+	for metric in [
+		_make_metric("ProbationJourneyFile", "1 FILE", "PAIR UP", 175.0, 18),
+		_make_metric("ProbationJourneyShifts", "5 SHIFTS", "PROVE IT", 175.0, 18),
+		_make_metric("ProbationJourneyReview", "REVIEW", "FINISH", 175.0, 18),
+	]:
+		_metric_panel(metric).custom_minimum_size.y = 52.0
+		journey.add_child(_metric_panel(metric))
+	var probation_detail := _make_label("REPORT AFTER EACH SHIFT", 10, Color("d4c38f"))
 	probation_detail.name = "ProbationFiveShiftDetail"
 	probation_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	probation_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -795,8 +853,8 @@ func _build_title_panel(parent: Control) -> void:
 	_continue_title_button.shortcut = _shortcut(KEY_C)
 	_continue_title_button.pressed.connect(_on_continue_campaign_pressed)
 	_title_actions.add_child(_continue_title_button)
-	_title_new_button = _make_button("NewCampaignButton", "START WITH MABEL  [N]", &"PrimaryButton")
-	_title_new_button.custom_minimum_size = Vector2(270.0, 48.0)
+	_title_new_button = _make_button("NewCampaignButton", "START SHIFT 1  [N]", &"PrimaryButton")
+	_title_new_button.custom_minimum_size = Vector2(270.0, 44.0)
 	_title_new_button.shortcut = _shortcut(KEY_N)
 	_title_new_button.pressed.connect(_on_new_campaign_pressed)
 	_title_actions.add_child(_title_new_button)
@@ -1373,13 +1431,13 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 	var setup_visible := _title_new_file_setup
 	if _title_heading != null:
 		_title_heading.text = (
-			"MEET MABEL. RUN FIVE SHIFTS."
+			"MEET MABEL"
 			if setup_visible else
 			"YOUR COOP FILE IS READY."
 		)
 	if _title_description != null:
 		_title_description.text = (
-			"Choose a filing, then manage one shared coop file together."
+			"Pick a difficulty. Start shift one."
 			if setup_visible else
 			"Continue the saved filing candidate; it will be verified before the coop opens, or deliberately review a new file."
 		)
@@ -1399,7 +1457,7 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 		&"PrimaryButton" if setup_visible else &"DecisionChoiceButton"
 	)
 	_title_new_button.text = (
-		"START WITH MABEL  [N]"
+		"START SHIFT 1  [N]"
 		if setup_visible else
 		"REVIEW A NEW FILE  [N]"
 	)
@@ -1486,6 +1544,16 @@ func _format_resume_summary(summary: Dictionary) -> String:
 		).to_upper()
 		if not last_filed.is_empty():
 			lines.append("LAST FILED  //  %s" % last_filed)
+		var routing_value: Variant = recap.get("routing_mastery", {})
+		var routing_mastery := (
+			routing_value as Dictionary if routing_value is Dictionary else {}
+		)
+		var routing_short := _bounded_resume_text(
+			routing_mastery.get("short_label", ""),
+			100,
+		).to_upper()
+		if not routing_short.is_empty():
+			lines.append("ROUTING  //  %s" % routing_short)
 		var status_label := _bounded_resume_text(
 			recap.get("status_label", ""),
 			80,
@@ -1578,14 +1646,9 @@ func _update_challenge_contract_detail(contract: Dictionary) -> void:
 	var difficulty_label := _challenge_contract_difficulty_label(contract)
 	var difficulty_guidance := String(contract.get("difficulty_guidance", "")).strip_edges()
 	if _title_challenge_summary != null:
-		_title_challenge_summary.text = "%s  //  %s%s" % [
-			difficulty_label,
-			_challenge_contract_opening_glance(contract),
-			(
-				"\n%s  //  LOCKS ON OPEN" % route_brief
-				if not route_brief.is_empty() else
-				"\nLOCKS ON OPEN"
-			),
+		_title_challenge_summary.text = "%s%s" % [
+			route_brief if not route_brief.is_empty() else "%s RUN" % difficulty_label,
+			"  ·  LOCKS ON START",
 		]
 		_title_challenge_summary.tooltip_text = "\n".join([
 			"%s DIFFICULTY" % difficulty_label,
@@ -1595,6 +1658,26 @@ func _update_challenge_contract_detail(contract: Dictionary) -> void:
 			opening_terms,
 			terms,
 		].filter(func(line: String) -> bool: return not line.is_empty()))
+	var defaults := DEFAULT_CHALLENGE_CONTRACT.get("opening_terms", {}) as Dictionary
+	var opening_value: Variant = contract.get("opening_terms", defaults)
+	var opening := opening_value as Dictionary if opening_value is Dictionary else defaults
+	var lanes_value: Variant = opening.get(
+		"additional_claim_lanes",
+		defaults.get("additional_claim_lanes", []),
+	)
+	var extra_files := (lanes_value as Array).size() if lanes_value is Array else 0
+	if _title_opening_fund != null:
+		_title_opening_fund.text = "$%.0f" % (float(maxi(0, int(opening.get(
+			"feed_fund_cents",
+			defaults.get("feed_fund_cents", 5000),
+		)))) / 100.0)
+	if _title_opening_quota != null:
+		_title_opening_quota.text = str(maxi(1, int(opening.get(
+			"quota_target",
+			defaults.get("quota_target", 16),
+		))))
+	if _title_opening_files != null:
+		_title_opening_files.text = str(6 + clampi(extra_files, 0, 4))
 	if _title_challenge_detail != null:
 		_title_challenge_detail.text = "%s\n%s%s" % [
 			opening_terms,
@@ -1682,9 +1765,9 @@ func _apply_title_contract_disclosure() -> void:
 	if _title_challenge_terms_toggle != null:
 		_title_challenge_terms_toggle.button_pressed = _title_contract_terms_expanded
 		_title_challenge_terms_toggle.text = (
-			"HIDE EXACT RULES  [T]"
+			"HIDE RULES  [T]"
 			if _title_contract_terms_expanded else
-			"EXACT RULES  [T]"
+			"RULES  [T]"
 		)
 
 

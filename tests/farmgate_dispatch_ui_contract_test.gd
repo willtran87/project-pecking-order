@@ -123,12 +123,31 @@ func _run() -> void:
 	if authorize != null:
 		authorize.pressed.emit()
 	_check(requested == [&"county_auction"], "the action should emit one stable mandate intent and never mutate locally", failures)
+	var authorization := simulation.authorize_farmgate_dispatch(&"county_auction")
+	_check(bool(authorization.get("accepted", false)), "the filing receipt fixture should authorize the selected county route", failures)
+	ui.apply_snapshot(simulation.snapshot())
+	await process_frame
+	var filed_receipt := ui.find_child("FarmgateDispatchAuthorizationReceipt", true, false) as Label
+	_check(
+		filed_receipt != null and filed_receipt.visible
+		and _contains_all(filed_receipt.text, ["filed", "auction", "day 6", "105%"])
+		and _contains_all(filed_receipt.tooltip_text, ["route filed", "county auction", "listing fee $0"]),
+		"an accepted filing should become a compact durable receipt without implying an immediate debit",
+		failures,
+	)
+	_check(
+		reason != null and reason.text == "FILED / QUOTE LOCKED"
+		and authorize != null and authorize.disabled and authorize.text == "FILED",
+		"the selected filed route should read as durable success rather than a held or unavailable error",
+		failures,
+	)
 
 	# The canonical state receipt uses sold_eggs/expired_eggs and cash_delta_cents.
 	# Keep the UI bound to those authoritative names so its audit line cannot drift.
-	var settlement := simulation._farmgate_dispatch.settle(6, 1, 8, 5)
+	var settlement_simulation := _dispatch_fixture()
+	var settlement := settlement_simulation._farmgate_dispatch.settle(6, 1, 8, 5)
 	_check(bool(settlement.get("accepted", false)), "the receipt fixture should settle the two stored lots", failures)
-	ui.apply_snapshot(simulation.snapshot())
+	ui.apply_snapshot(settlement_simulation.snapshot())
 	await process_frame
 	var receipt := ui.find_child("FarmgateDispatchReceipt", true, false) as Label
 	_check(
@@ -220,7 +239,7 @@ func _run() -> void:
 			push_error("FARMGATE_DISPATCH_UI_CONTRACT_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FARMGATE_DISPATCH_UI_CONTRACT_TEST_PASSED projection=authoritative mandates=4 intent=stable receipt=canonical compact=282px")
+	print("FARMGATE_DISPATCH_UI_CONTRACT_TEST_PASSED projection=authoritative mandates=4 intent=stable filing_receipt=durable settlement_receipt=canonical compact=282px")
 	quit(0)
 
 

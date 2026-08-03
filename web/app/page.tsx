@@ -224,20 +224,64 @@ export default function Home() {
 			window.location.hostname,
 		);
 		const localPreviewArgs: Record<string, string> = {
+			"opening-office": "--capture",
+			"decision-preview": "--capture-decision",
+			"action-feedback": "--capture-action-feedback",
 			"shift-result": "--capture-day-review",
 			"first-policy": "--capture-first-hen-policy",
 			"first-policy-selected": "--capture-first-hen-policy-selected",
 			"incident": "--capture-incident",
 			"incident-selected": "--capture-incident-selected",
 			"first-clutch-routing": "--capture-first-clutch",
+			"first-clutch-checkin": "--capture-first-clutch-checkin",
+			"first-clutch-reinvestment": "--capture-first-clutch-reinvestment",
+			"priority-peck": "--capture-peck-assist",
+			"priority-peck-missed": "--capture-peck-assist-missed",
+			"priority-peck-result": "--capture-peck-assist-result",
+			"priority-peck-delivery": "--capture-peck-delivery",
+			"egg-grading": "--capture-grading",
+			"egg-journey": "--capture-egg-journey",
+			"egg-delivery-ack": "--capture-egg-delivery-ack",
+			"payout-burst": "--capture-payout-burst",
+			"mixed-settlement": "--capture-mixed-settlement",
+			"mixed-settlement-focused": "--capture-mixed-settlement-focused",
+			"settlement-priority": "--capture-settlement-priority",
+			"settlement-release": "--capture-settlement-release",
+			"settlement-destination": "--capture-settlement-destination",
+			"fund-debit": "--capture-fund-debit",
+			"procurement-debit": "--capture-procurement-debit",
+			"intern-debit": "--capture-intern-debit",
 			"routing": "--capture-routing",
+			"routing-peck": "--capture-routing-peck-recharge",
+			"routing-golden": "--capture-routing-golden",
+			"routing-team": "--capture-routing-team-lift",
+			"routing-mastery": "--capture-routing-mastery",
+			"routing-review": "--capture-routing-review",
+			"routing-return": "--capture-routing-return",
+			"routing-return-cue": "--capture-routing-return-cue",
+			"routing-return-cue-cleared": "--capture-routing-return-cue-cleared",
+			"routing-landing": "--capture-routing-landing",
+			"routing-work-start": "--capture-routing-work-start",
+			"work-progress": "--capture-work-progress",
+			"routing-pace": "--capture-routing-pace",
+			"dispatch": "--capture-dispatch",
+			"dispatch-break": "--capture-dispatch-break",
+			"dispatch-recovery": "--capture-dispatch-recovery",
+			"hen-intents": "--capture-hen-intents",
+			"breakroom": "--capture-breakroom",
 			"internship": "--capture-internship-ui",
 			"internship-review": "--capture-internship-review-ui",
 			"internship-fellow": "--capture-internship-fellow-ui",
+			"intern-dialogue": "--capture-intern-dialogue",
 			"facility-requisitions": "--capture-facility-ui",
 			"economic-briefing": "--capture-economic-briefing-ui",
 			"feed-procurement": "--capture-feed-procurement-ui",
 			"farmgate-dispatch": "--capture-farmgate-ui",
+			"farmgate-filing": "--capture-farmgate-filing",
+			"settings-handoff": "--capture-settings-handoff",
+			"confirmation-handoff": "--capture-confirmation-handoff",
+			"staff-release-confirmation": "--capture-staff-release-confirmation",
+			"manager-succession-confirmation": "--capture-manager-succession-confirmation",
 			"flock-relations": "--capture-flock-relations-ui",
 			"farmer-relations": "--capture-farmer-relations-ui",
 			"rooster-operations": "--capture-rooster-operations-ui",
@@ -774,6 +818,13 @@ function buildGameStateAccessibleStatus(
 	const routingSafety = recordValue(interactionSafety.routing);
 	const staffingSafety = recordValue(interactionSafety.staffing);
 	if (routingSafety.claim_confirmation_visible === true) {
+		const authoredConfirmation = diagnosticPlainText(
+			routingSafety.claim_confirmation_accessible_text,
+			1200,
+		);
+		if (authoredConfirmation.length > 0) {
+			return withTerminalPunctuation(authoredConfirmation);
+		}
 		const path = diagnosticTitle(diagnosticPlainText(
 			routingSafety.claim_confirmation_path_id,
 			60,
@@ -785,6 +836,13 @@ function buildGameStateAccessibleStatus(
 		return `Irreversible claimant path awaiting confirmation. ${path}${claimId >= 0 ? ` for claim ${claimId}` : ""}. No Feed Fund or claim state has changed. Objective: confirm the disclosed filing or cancel to keep the current path.`;
 	}
 	if (staffingSafety.release_confirmation_visible === true) {
+		const authoredConfirmation = diagnosticPlainText(
+			staffingSafety.release_confirmation_accessible_text,
+			1200,
+		);
+		if (authoredConfirmation.length > 0) {
+			return withTerminalPunctuation(authoredConfirmation);
+		}
 		const workerName = diagnosticPlainText(
 			staffingSafety.release_worker_name,
 			80,
@@ -794,6 +852,28 @@ function buildGameStateAccessibleStatus(
 			0,
 		));
 		return `Hen release awaiting confirmation. ${workerName}, separation cost ${releaseCost}. Employment and Feed Fund are unchanged. Objective: confirm the disclosed release or cancel to keep this hen employed.`;
+	}
+	if (staffingSafety.manager_recruit_confirmation_visible === true) {
+		const authoredConfirmation = diagnosticPlainText(
+			staffingSafety.manager_recruit_confirmation_accessible_text,
+			1200,
+		);
+		if (authoredConfirmation.length > 0) {
+			return withTerminalPunctuation(authoredConfirmation);
+		}
+		const candidateName = diagnosticPlainText(
+			staffingSafety.manager_candidate_name,
+			80,
+		) || "selected successor";
+		const replacedName = diagnosticPlainText(
+			staffingSafety.manager_replaces_name,
+			80,
+		) || "current manager";
+		const filingCost = formatCurrencyFromCents(numberValue(
+			staffingSafety.manager_recruit_cost_cents,
+			0,
+		));
+		return `Management succession awaiting confirmation. Appoint ${candidateName} for ${filingCost}, replacing ${replacedName}. The roster and Feed Fund are unchanged. Objective: file the appointment or keep the current manager.`;
 	}
 	const routeUndoStatus = routingSafety.route_undo_visible === true
 		? ` Route Undo is available to restore ${diagnosticTitle(
@@ -1084,8 +1164,10 @@ function buildGameStateAccessibleStatus(
 		const recapStatus = diagnosticTitle(diagnosticPlainText(returnRecap.status_label, 80));
 		const recapReason = diagnosticPlainText(returnRecap.status_reason, 180);
 		const recapAction = diagnosticPlainText(returnRecap.next_action, 180);
+		const routingMastery = recordValue(returnRecap.routing_mastery);
+		const routingRecap = diagnosticPlainText(routingMastery.accessible_text, 240);
 		const returnRecapText = Object.keys(returnRecap).length > 0
-			? ` Last filed: ${lastFiled || "current coop checkpoint"}. ${stringValue(returnRecap.status_id) === "clear" ? "Status" : "Unresolved"}: ${recapStatus || "current economic review"}${recapReason.length > 0 ? `, ${recapReason}` : ""}.${recapAction.length > 0 ? ` Next: ${recapAction}` : ""}`
+			? ` Last filed: ${lastFiled || "current coop checkpoint"}. ${stringValue(returnRecap.status_id) === "clear" ? "Status" : "Unresolved"}: ${recapStatus || "current economic review"}${recapReason.length > 0 ? `, ${recapReason}` : ""}.${recapAction.length > 0 ? ` Next: ${recapAction}` : ""}${routingRecap.length > 0 ? ` Routing: ${routingRecap}` : ""}`
 			: "";
 		const offlineRecap = recordValue(state.resume_offline_recap);
 		const offlineStatus = diagnosticTitle(diagnosticPlainText(
@@ -1163,7 +1245,10 @@ function buildGameStateAccessibleStatus(
       : "Contract folders available. ";
     return `Farm Mutual planning for Day ${targetDay}, ${seasonSummary}. ${standingSummary} ${serviceCoopSummary} ${negotiationSummary} ${folderSummary}Objective: press 1 through 3 to select a binder and inspect its lane mix, timed arrivals, premium, and breach charge; press N to inspect any available rider, Enter to sign the displayed terms, or D to keep the standard book.`;
   }
-  if (campaignStage === "farmer") {
+	if (campaignStage === "farmer") {
+		const routingReview = recordValue(state.routing_review);
+		const routingSummary = diagnosticPlainText(routingReview.accessible_text, 240);
+		const routingNarration = routingSummary.length > 0 ? ` ${routingSummary}` : "";
 		const careSummary = careOperationsSummary.length > 0 ? ` ${careOperationsSummary}` : "";
 		const actionSummary = nextCareSummary.length > 0 ? ` ${nextCareSummary}` : "";
 		const operationsSummary = operationsReview.length > 0 ? ` ${operationsReview}` : "";
@@ -1172,7 +1257,7 @@ function buildGameStateAccessibleStatus(
 		const feedSummary = provisionsSummary.length > 0 ? ` ${provisionsSummary}` : "";
 		const gallerySummary = galleryReview.length > 0 ? ` ${galleryReview}` : "";
 		const dispatchSummary = farmgateSummary.length > 0 ? ` ${farmgateSummary}` : "";
-		return `${shiftLabel} review: farmer accounting.${careSummary}${actionSummary}${operationsSummary}${operationsAction}${relationsSummary}${feedSummary}${gallerySummary}${dispatchSummary}${farmTreasuryStatus}${annualMandateStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: review the farmer's presentation, then open Requisitions to manage capital, provisions, and any named-hen case files; Capital Blueprint compares permanent facilities, North Meadow utilities, and the three-deed Campus Portfolio.`;
+		return `${shiftLabel} review: farmer accounting.${routingNarration}${careSummary}${actionSummary}${operationsSummary}${operationsAction}${relationsSummary}${feedSummary}${gallerySummary}${dispatchSummary}${farmTreasuryStatus}${annualMandateStatus}${campusStatus}${campusPortfolioStatus}${probationChallengeNarration}${probationDoctrineNarration}${probationSafeguardNarration} Objective: review the farmer's presentation, then open Requisitions to manage capital, provisions, and any named-hen case files; Capital Blueprint compares permanent facilities, North Meadow utilities, and the three-deed Campus Portfolio.`;
   }
   if (campaignStage === "credit") {
 		if (["offer_open", "open", "ready"].includes(galleryStatus)) {

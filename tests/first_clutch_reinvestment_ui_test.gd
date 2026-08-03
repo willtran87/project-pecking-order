@@ -57,20 +57,28 @@ func _run() -> void:
 		decision_host != null
 		and decision_host.visible
 		and title != null
-		and "MABEL MADE THE EGG" in title.text
-		and "WHO GETS THE BENEFIT" in title.text,
+		and "REWARD MABEL" in title.text
+		and "BANK THE FUND" in title.text,
 		"reinvestment should reuse the blocking management card with the authored title",
 		failures,
 	)
 	_check(
 		body != null
-		and "$4.25" in body.text
-		and "$%.2f" % (float(reserve) / 100.0) in body.text
-		and "$20.00" in body.text,
+		and "$20.00 SPENDABLE" in body.text
+		and "DESK MATCH" in body.text
+		and "$%.2f RESERVED" % (float(reserve) / 100.0) in body.text
+		and "$4.25" in String(body.get_meta("accessible_text", "")),
 		"body should expose created value, protected reserve, and spendable balance exactly",
 		failures,
 	)
 	_check(option_buttons.size() == 3, "offer should contain two requisitions plus Bank", failures)
+	var initial_diagnostic := office.call("_pending_decision_diagnostic_state") as Dictionary
+	_check(
+		String(initial_diagnostic.get("prompt", "")) == "CHOOSE WHERE THE FIRST EGG GOES"
+		and String(initial_diagnostic.get("confirm_label", "")) == "PICK AN OPTION",
+		"diagnostic state should mirror the visible reinvestment prompt and default action",
+		failures,
+	)
 	for button_value in option_buttons:
 		var button := button_value as Button
 		_check(
@@ -114,6 +122,13 @@ func _run() -> void:
 		and not confirm.disabled
 		and root.gui_get_focus_owner() == confirm,
 		"1 should select the first card and hand Enter focus to Confirm",
+		failures,
+	)
+	var selected_diagnostic := office.call("_pending_decision_diagnostic_state") as Dictionary
+	_check(
+		String(selected_diagnostic.get("prompt", "")).begins_with("SELECTED")
+		and "INSTALL" in String(selected_diagnostic.get("confirm_label", "")),
+		"diagnostic state should mirror the selected card preview and exact authorization action",
 		failures,
 	)
 	var enter := InputEventKey.new()

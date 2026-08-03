@@ -9,6 +9,8 @@ extends Node
 ## exponential damping, including wheel zoom changes.
 
 signal focus_changed(label: String, worker_id: int)
+signal context_action_selected(worker_id: int, context_id: StringName)
+signal context_hover_changed(worker_id: int, context_id: StringName, hovered: bool)
 
 @export_range(30.0, 80.0, 1.0) var click_radius_pixels: float = 50.0
 @export_range(20.0, 64.0, 1.0) var minimum_touch_radius_window_pixels: float = 30.0
@@ -68,6 +70,11 @@ var current_focus_label: String = ""
 
 var _camera: Camera3D
 var _worker_views: Dictionary[int, ChickenView] = {}
+var _worker_context_points: Dictionary[int, Dictionary] = {}
+var _active_selection_context: StringName = &""
+var _hovered_context_worker_id := -1
+var _hovered_context_id: StringName = &""
+var _last_pointer_position := Vector2(INF, INF)
 var _overview_position := Vector3.ZERO
 var _overview_target := Vector3.ZERO
 var _overview_size: float = 20.0
@@ -121,6 +128,8 @@ func configure(
 ) -> void:
 	_camera = camera
 	_worker_views = worker_views
+	_worker_context_points.clear()
+	clear_context_hover()
 	_overview_target = overview_target
 	_overview_position = camera.global_position
 	_overview_size = camera.size
@@ -245,9 +254,83 @@ func register_worker(id: int, worker: ChickenView) -> void:
 ## Removes a released hen from click/Tab selection immediately. If management
 ## was inspecting that employee, return to the overview before departure.
 func unregister_worker(id: int) -> void:
+	if _hovered_context_worker_id == id:
+		clear_context_hover()
 	if _focused_worker_id == id:
 		show_overview()
 	_worker_views.erase(id)
+	_worker_context_points.erase(id)
+
+
+## Registers one physical, pooled management target for a worker. Hidden nodes
+## are ignored automatically, so an empty desk never becomes a ghost hit area.
+func register_worker_context_point(
+	worker_id: int,
+	point: Node3D,
+	context_id: StringName,
+) -> void:
+	if worker_id < 0 or point == null or not is_instance_valid(point) or context_id == &"":
+		return
+	_worker_context_points[worker_id] = {
+		"point": point,
+		"context_id": context_id,
+	}
+
+
+func clear_worker_context_points() -> void:
+	_worker_context_points.clear()
+
+
+## Re-evaluates the last uncovered floor pointer after pooled desk targets are
+## remapped by a simulation snapshot. This clears a cursor immediately when a
+## file completes or a desk becomes vacant, without polling hit tests per frame.
+func refresh_context_hover() -> void:
+	if (
+		not is_processing_unhandled_input()
+		or not is_finite(_last_pointer_position.x)
+		or not is_finite(_last_pointer_position.y)
+	):
+		clear_context_hover(false)
+		return
+	var gui_hover := get_viewport().gui_get_hovered_control()
+	if gui_hover != null:
+		clear_context_hover(false)
+		return
+	var target := _nearest_projected_target(_last_pointer_position, false)
+	var context_id := StringName(target.get("context_id", &""))
+	if context_id == &"":
+		_set_context_hover(-1, &"")
+	else:
+		_set_context_hover(int(target.get("worker_id", -1)), context_id)
+
+
+func clear_context_hover(reset_pointer_position: bool = true) -> void:
+	if reset_pointer_position:
+		_last_pointer_position = Vector2(INF, INF)
+	_set_context_hover(-1, &"")
+
+
+func _set_context_hover(worker_id: int, context_id: StringName) -> void:
+	if worker_id == _hovered_context_worker_id and context_id == _hovered_context_id:
+		return
+	if _hovered_context_worker_id >= 0 and _hovered_context_id != &"":
+		context_hover_changed.emit(
+			_hovered_context_worker_id,
+			_hovered_context_id,
+			false,
+		)
+	_hovered_context_worker_id = worker_id
+	_hovered_context_id = context_id
+	var active := worker_id >= 0 and context_id != &""
+	DisplayServer.cursor_set_shape(
+		DisplayServer.CURSOR_POINTING_HAND if active else DisplayServer.CURSOR_ARROW
+	)
+	if active:
+		context_hover_changed.emit(worker_id, context_id, true)
+
+
+func _exit_tree() -> void:
+	clear_context_hover()
 
 
 func _process(delta: float) -> void:
@@ -315,7 +398,13 @@ func _input(event: InputEvent) -> void:
 	# focusable for accessibility, but a previously focused button must not make
 	# the documented arrow/WASD camera controls appear intermittently broken.
 	# Office disables this entire phase while a modal or Flockwatch owns input.
-	if event is InputEventKey:
+	if event is InputEventMouseMotion:
+		# _unhandled_input owns floor hover, but GUI controls consume their motion
+		# first. Re-check after GUI dispatch so entering a HUD panel cannot strand
+		# the floor's hand cursor or physical bracket underneath it.
+		_last_pointer_position = (event as InputEventMouseMotion).position
+		refresh_context_hover.call_deferred()
+	elif event is InputEventKey:
 		if _handle_navigation_key(event as InputEventKey):
 			get_viewport().set_input_as_handled()
 	elif event is InputEventJoypadButton:
@@ -348,10 +437,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseMotion:
+		var motion := event as InputEventMouseMotion
 		if _mouse_pan_active:
-			var motion := event as InputEventMouseMotion
+			clear_context_hover()
 			_pan_by_screen_delta(motion.relative)
 			get_viewport().set_input_as_handled()
+			return
+		_last_pointer_position = motion.position
+		refresh_context_hover()
 		return
 
 	if event is InputEventJoypadMotion:
@@ -385,15 +478,17 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is not InputEventMouseButton:
 		return
 	var mouse_event := event as InputEventMouseButton
+	_last_pointer_position = mouse_event.position
+	refresh_context_hover()
 	match mouse_event.button_index:
 		MOUSE_BUTTON_MIDDLE:
+			clear_context_hover()
 			_mouse_pan_active = mouse_event.pressed
 			get_viewport().set_input_as_handled()
 		MOUSE_BUTTON_LEFT:
 			if mouse_event.pressed:
-				var selected_id := _nearest_projected_worker(mouse_event.position, false)
-				if selected_id >= 0:
-					focus_worker(selected_id)
+				var target := _nearest_projected_target(mouse_event.position, false)
+				if _select_projected_target(target):
 					get_viewport().set_input_as_handled()
 		MOUSE_BUTTON_RIGHT:
 			if mouse_event.pressed and _mode != CameraMode.HOME:
@@ -415,6 +510,7 @@ func focus_worker(id: int) -> void:
 	var worker := _get_valid_worker(id)
 	if worker == null:
 		return
+	clear_context_hover()
 
 	_focus_generation += 1
 	_mode = CameraMode.WORKER_FOCUS
@@ -430,6 +526,26 @@ func focus_worker(id: int) -> void:
 	focus_changed.emit(current_focus_label, id)
 
 
+## Identifies the physical context that caused the current focus signal. This is
+## intentionally non-empty only while focus_changed listeners run, so ordinary
+## hen selections can never inherit a stale desk-rail action.
+func active_selection_context() -> StringName:
+	return _active_selection_context
+
+
+func _select_projected_target(target: Dictionary) -> bool:
+	var selected_id := int(target.get("worker_id", -1))
+	if selected_id < 0:
+		return false
+	var context_id := StringName(target.get("context_id", &""))
+	_active_selection_context = context_id
+	focus_worker(selected_id)
+	if context_id != &"":
+		context_action_selected.emit(selected_id, context_id)
+	_active_selection_context = &""
+	return true
+
+
 ## Focuses an arbitrary office point while preserving the overview orientation.
 ## A positive duration selects an exponential rate that reaches roughly 99% of
 ## the requested framing within that many seconds.
@@ -439,6 +555,7 @@ func focus_point(
 	duration: float = 0.0,
 	requested_size: float = -1.0
 ) -> void:
+	clear_context_hover()
 	_focus_generation += 1
 	_mode = CameraMode.LANDMARK_FOCUS
 	_has_focus = true
@@ -459,6 +576,7 @@ func focus_point(
 
 ## Returns to the exact authored/commissioned Home framing.
 func show_overview() -> void:
+	clear_context_hover()
 	_focus_generation += 1
 	_mode = CameraMode.HOME
 	_has_focus = false
@@ -500,7 +618,39 @@ func navigation_state() -> Dictionary:
 		"camera_motion_instant": _camera_motion_is_instant(),
 		"input_sensitivity": String(_input_sensitivity),
 		"input_sensitivity_multiplier": _input_sensitivity_multiplier,
+		"context_hover": {
+			"worker_id": _hovered_context_worker_id,
+			"context_id": String(_hovered_context_id),
+			"cursor": "pointing_hand" if _hovered_context_worker_id >= 0 else "arrow",
+		},
+		"context_points": _context_point_diagnostics(),
 	}
+
+
+func _context_point_diagnostics() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if _camera == null or not is_instance_valid(_camera):
+		return result
+	for worker_id: int in _worker_context_points:
+		var record := _worker_context_points[worker_id] as Dictionary
+		var point := record.get("point") as Node3D
+		var visible := (
+			point != null
+			and is_instance_valid(point)
+			and point.is_inside_tree()
+			and point.is_visible_in_tree()
+		)
+		result.append({
+			"worker_id": worker_id,
+			"context_id": String(record.get("context_id", &"")),
+			"visible": visible,
+			"screen_position": (
+				_camera.unproject_position(point.global_position)
+				if visible and not _camera.is_position_behind(point.global_position) else
+				Vector2(-1.0, -1.0)
+			),
+		})
+	return result
 
 
 ## One discrete zoom step for non-keyboard hosts such as the Web touch dock.
@@ -995,9 +1145,8 @@ func _handle_screen_touch(event: InputEventScreenTouch) -> bool:
 		_touch_pinch_distance = -1.0
 		_touch_pinch_center = Vector2.ZERO
 	if is_tap:
-		var selected_id := _nearest_projected_worker(event.position, true)
-		if selected_id >= 0:
-			focus_worker(selected_id)
+		var target := _nearest_projected_target(event.position, true)
+		_select_projected_target(target)
 	if _active_touches.is_empty():
 		_touch_gesture_had_multitouch = false
 	return true
@@ -1122,9 +1271,36 @@ func selection_radius_pixels(for_touch: bool = false) -> float:
 
 
 func _nearest_projected_worker(mouse_position: Vector2, for_touch: bool = false) -> int:
+	return int(_nearest_projected_target(mouse_position, for_touch).get("worker_id", -1))
+
+
+func _nearest_projected_target(
+	mouse_position: Vector2,
+	for_touch: bool = false,
+) -> Dictionary:
 	var nearest_id: int = -1
+	var nearest_context: StringName = &""
 	var selection_radius := selection_radius_pixels(for_touch)
 	var nearest_distance_squared := selection_radius * selection_radius
+	for worker_id: int in _worker_context_points:
+		if _get_valid_worker(worker_id) == null:
+			continue
+		var record := _worker_context_points[worker_id] as Dictionary
+		var point := record.get("point") as Node3D
+		if (
+			point == null
+			or not is_instance_valid(point)
+			or not point.is_inside_tree()
+			or not point.is_visible_in_tree()
+			or _camera.is_position_behind(point.global_position)
+		):
+			continue
+		var projected_point := _camera.unproject_position(point.global_position)
+		var point_distance_squared := mouse_position.distance_squared_to(projected_point)
+		if point_distance_squared <= nearest_distance_squared:
+			nearest_distance_squared = point_distance_squared
+			nearest_id = worker_id
+			nearest_context = StringName(record.get("context_id", &""))
 	for worker_id: int in _sorted_worker_ids():
 		var worker := _get_valid_worker(worker_id)
 		if worker == null:
@@ -1134,10 +1310,22 @@ func _nearest_projected_worker(mouse_position: Vector2, for_touch: bool = false)
 			continue
 		var projected_position := _camera.unproject_position(world_position)
 		var distance_squared := mouse_position.distance_squared_to(projected_position)
-		if distance_squared <= nearest_distance_squared:
+		var intent_position := worker.hen_intent_world_position()
+		if intent_position != worker.global_position and not _camera.is_position_behind(intent_position):
+			var projected_intent := _camera.unproject_position(intent_position)
+			distance_squared = minf(
+				distance_squared,
+				mouse_position.distance_squared_to(projected_intent),
+			)
+		if distance_squared < nearest_distance_squared:
 			nearest_distance_squared = distance_squared
 			nearest_id = worker_id
-	return nearest_id
+			nearest_context = &""
+	return {
+		"worker_id": nearest_id,
+		"context_id": nearest_context,
+		"distance_pixels": sqrt(nearest_distance_squared) if nearest_id >= 0 else -1.0,
+	}
 
 
 func _cycle_worker(direction: int) -> void:

@@ -5,6 +5,7 @@ func _init() -> void:
 	var failures: Array[String] = []
 	_test_opening_catalog_and_specialties(failures)
 	_test_assignment_atomicity_and_seated_pickup(failures)
+	_test_dispatch_candidate_ranking(failures)
 	_test_auto_specialty_and_urgency(failures)
 	_test_specialty_causality(failures)
 	_test_deterministic_arrivals_cap_and_deadlines(failures)
@@ -17,6 +18,21 @@ func _init() -> void:
 		return
 	print("CLAIM_ROUTING_TEST_PASSED lanes=3 queue=bounded routing=causal rework=next-shift")
 	quit(0)
+
+
+func _test_dispatch_candidate_ranking(failures: Array[String]) -> void:
+	var simulation := DepartmentSimulation.new(800)
+	var candidates := simulation.dispatch_candidates(&"nest_damage")
+	_check(candidates.size() == 6, "dispatch should expose every employed hen", failures)
+	_check(not candidates.is_empty() and bool(candidates[0].get("recommended", false)), "dispatch should mark exactly the first ranked hen as recommended", failures)
+	if not candidates.is_empty():
+		_check(bool(candidates[0].get("specialty_match", false)), "best-fit dispatch should prefer a lane specialist", failures)
+		var recommended_count := 0
+		for candidate in candidates:
+			if bool(candidate.get("recommended", false)):
+				recommended_count += 1
+		_check(recommended_count == 1, "dispatch should expose one unambiguous best fit", failures)
+	_check(simulation.dispatch_candidates(&"executive_scratching").is_empty(), "unknown trays should not expose candidates", failures)
 
 
 func _test_opening_catalog_and_specialties(failures: Array[String]) -> void:

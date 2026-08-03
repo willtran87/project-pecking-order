@@ -159,7 +159,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		_contains_all(compact_glance.text, ["COMPACT", "SPECIALTY NEST COMPACT", "SCHEDULED"])
+		_contains_all(compact_glance.text, ["COMPACT", "SCHEDULED"])
 		and _contains_all(compact_glance.tooltip_text, [sponsor_name.to_upper(), "SCHEDULED FOR DAY 2", PETITION_TEST]),
 		"scheduled compact tile should summarize status and retain sponsor, effective day, and exact test on inspection",
 		failures,
@@ -199,7 +199,7 @@ func _run() -> void:
 	)
 	_check(
 		work_rule_glance.is_visible_in_tree()
-		and _contains_all(work_rule_glance.text, ["WORK-RULE FILED", "-18% PACE", "SHELL -6"])
+		and _contains_all(work_rule_glance.text, ["WORK-RULE", "PACE -18%", "SHELL -6"])
 		and _contains_all(work_rule_glance.tooltip_text, ["SCHEDULED DAY 3", "throughput -18%", "crack risk -6 pts"]),
 		"scheduled work-rule tile should summarize pace and shell effect while retaining exact terms",
 		failures,
@@ -218,7 +218,8 @@ func _run() -> void:
 		"ACTIVE DAY 3" in labor_label.text
 		and "throughput -18%" in labor_label.text
 		and "crack risk -6 pts" in labor_label.text
-		and "WORK-RULE ACTIVE" in work_rule_glance.text,
+		and "WORK-RULE" in work_rule_glance.text
+		and "PACE -18%" in work_rule_glance.text,
 		"active work-to-rule display should keep both causal modifiers legible",
 		failures,
 	)

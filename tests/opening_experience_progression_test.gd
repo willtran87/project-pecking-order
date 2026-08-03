@@ -78,12 +78,12 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		is_equal_approx(camera_target.x, 4.75)
+		is_equal_approx(camera_target.x, 2.0)
 		and is_equal_approx(camera_target.y, 0.65)
 		and is_equal_approx(camera_target.z, -0.65)
-		and camera_size >= 16.0
-		and camera_size <= 18.0,
-		"fresh overview should frame the working pod rather than the full shell (target %s, size %.2f)" % [str(camera_target), camera_size],
+		and camera_size >= 19.0
+		and camera_size < Office.office_overview_minimum_size(5),
+		"fresh overview should frame the working pod plus its dressed west office without adopting the mature-campus zoom (target %s, size %.2f)" % [str(camera_target), camera_size],
 		failures,
 	)
 	_check(
@@ -148,9 +148,11 @@ func _run() -> void:
 	rear_rail = storytelling.find_child("OverheadRowRail_01", true, false) as MeshInstance3D
 	_check(
 		is_equal_approx((rear_rail.get_meta(&"segment_start", Vector3(INF, INF, INF)) as Vector3).x, -4.67)
+		and Office.office_camera_bounds(4).position.x <= -7.4
+		and Office.office_camera_bounds(4).end.x >= 11.5
 		and Office.office_overview_minimum_size(4) < Office.office_overview_minimum_size(5)
 		and Office.office_overview_minimum_size(5) < Office.office_overview_minimum_size(6),
-		"capacity six should complete the west rail while camera milestones grow monotonically",
+		"capacity six should complete the west rail while opening framing includes the dressed west bay and camera milestones grow monotonically",
 		failures,
 	)
 	office.call("_apply_office_capacity_visibility", 4, false)

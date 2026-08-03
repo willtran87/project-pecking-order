@@ -15,6 +15,8 @@ const url = process.argv[2] ?? "http://localhost:3000/?build=priority-peck-focus
 const outputDirectory = path.resolve(
   process.argv[3] ?? "../output/web-game/priority-peck-focus-v1",
 );
+const auditMode = process.argv[4] ?? "land";
+assert.ok(["land", "miss"].includes(auditMode), "audit mode must be land or miss");
 fs.mkdirSync(outputDirectory, { recursive: true });
 
 const browser = await chromium.launch({
@@ -60,6 +62,7 @@ async function clickAuthored(x, y) {
 const report = {
   passed: false,
   url,
+  auditMode,
   renderer: "headless Chromium / ANGLE SwiftShader; interaction and state are gated, physical GPU throughput is not claimed",
   approach: {},
   ready: {},
@@ -85,6 +88,10 @@ try {
     await waitForState("snapshot => snapshot.first_clutch?.visible === false");
   }
   await page.keyboard.press("Escape");
+  if ((await state()).character_dialogue?.visible === true) {
+    await page.keyboard.press("Enter");
+  }
+  await waitForState("snapshot => snapshot.character_dialogue?.visible === false", 30_000);
   await page.keyboard.press("Tab");
   await waitForState("snapshot => snapshot.focused_worker_id >= 0");
 	// Desktop Tab is currently owned by dossier focus traversal. Cycle through
@@ -126,24 +133,99 @@ try {
   assert.equal(report.approach.effectiveMultiplier, 1);
   await page.screenshot({ path: path.join(outputDirectory, "priority-focus-approach.png"), fullPage: true });
 
-  await waitForState(
-    "snapshot => snapshot.production?.focused_peck_assist?.window_state === 'open' && snapshot.priority_peck_focus?.limiting === true",
-    30_000,
-  );
+	await waitForState(
+	  "snapshot => snapshot.production?.focused_peck_assist?.window_state === 'open' && snapshot.priority_peck_focus?.limiting === true && snapshot.character_dialogue?.visible === false",
+	  30_000,
+	);
   const ready = await state();
   const claimId = Number(ready.production?.focused_peck_assist?.claim_id ?? -1);
+  const readyIntent = ready.hen_intents?.find(
+    (intent) => intent.worker_id === ready.focused_worker_id,
+  );
   report.ready = {
     claimId,
     progress: ready.production?.focused_progress,
     timingLabel: ready.production?.focused_peck_assist?.timing_label,
     requestedMultiplier: ready.priority_peck_focus?.requested_multiplier,
     effectiveMultiplier: ready.clock_effective_multiplier,
+    audioCue: ready.audio?.feedback?.last_cue,
+    audioBus: ready.audio?.feedback?.last_bus,
+    worldPulseSerial: readyIntent?.priority_peck_ready_pulse_serial,
   };
   assert.ok(claimId > 0, "the focused gold window must belong to a real claim");
   assert.equal(report.ready.requestedMultiplier, 10);
   assert.equal(report.ready.effectiveMultiplier, 1);
+  assert.equal(report.ready.audioCue, "priority_peck_ready");
+  assert.equal(report.ready.audioBus, "Alerts");
+  assert.ok(report.ready.worldPulseSerial > 0, "the inspected hen's world pin must receive the same opportunity transition");
   await page.screenshot({ path: path.join(outputDirectory, "priority-focus-ready.png"), fullPage: true });
 
+  if (auditMode === "miss") {
+    const missStarted = Date.now();
+    let missedState = await state();
+    while (
+      missedState.production?.focused_peck_assist?.window_state !== "missed"
+      && Date.now() - missStarted < 120_000
+    ) {
+      if (
+        missedState.character_dialogue?.visible === true
+        && missedState.character_dialogue?.presentation_mode === "visual_novel"
+      ) {
+        await page.keyboard.press("Enter");
+      }
+      await page.waitForTimeout(250);
+      missedState = await state();
+    }
+    assert.equal(
+      missedState.production?.focused_peck_assist?.window_state,
+      "missed",
+      "the inspected real claim should cross its authoritative closing boundary",
+    );
+    const missedIntent = missedState.hen_intents?.find(
+      (intent) => intent.worker_id === missedState.focused_worker_id,
+    );
+    report.missed = {
+      responseMsec: Date.now() - missStarted,
+      claimId: missedState.production?.focused_peck_assist?.claim_id,
+      windowState: missedState.production?.focused_peck_assist?.window_state,
+      streak: missedState.production?.focused_peck_assist?.streak,
+      worldMissedSerial: missedIntent?.priority_peck_missed_pulse_serial,
+      dossierMissedSerial: missedState.priority_peck_focus?.missed_link_serial,
+      dossierMissedAnimated: missedState.priority_peck_focus?.missed_link_animated,
+      requestedMultiplier: missedState.priority_peck_focus?.requested_multiplier,
+      effectiveMultiplier: missedState.clock_effective_multiplier,
+      precisionLimiting: missedState.priority_peck_focus?.limiting,
+      resultHoldKind: missedState.priority_peck_focus?.result_hold_kind,
+      resultHoldMsecRemaining: missedState.priority_peck_focus?.result_hold_msec_remaining,
+      focusedWorkerId: missedState.focused_worker_id,
+      cameraMode: missedState.camera?.mode,
+      dialogueVisible: missedState.character_dialogue?.visible,
+      dialogueSuspended: missedState.character_dialogue?.suspended,
+    };
+    assert.equal(report.missed.claimId, claimId, "the miss must belong to the exact visible claim");
+    assert.equal(report.missed.streak, 0, "a real miss must leave the timing chain reset");
+    assert.ok(report.missed.worldMissedSerial > 0, "the selected world pin must receive one missed retreat");
+    assert.ok(report.missed.dossierMissedSerial > 0, "the dossier must receive the same missed retreat");
+    assert.equal(report.missed.dossierMissedAnimated, true);
+    assert.equal(report.missed.requestedMultiplier, 10, "10× must remain selected after a miss");
+    assert.equal(report.missed.effectiveMultiplier, 1, "the missed consequence must receive a readable 1× beat");
+    assert.equal(report.missed.precisionLimiting, true);
+    assert.equal(report.missed.resultHoldKind, "missed");
+    assert.ok(report.missed.resultHoldMsecRemaining > 0);
+    assert.equal(report.missed.focusedWorkerId, ready.focused_worker_id, "the missed beat must retain the inspected hen");
+    assert.equal(report.missed.cameraMode, "worker_focus", "the missed beat must retain the inspected camera");
+    assert.equal(report.missed.dialogueVisible, false, "ambient floor chat must wait behind the missed beat");
+    await page.screenshot({ path: path.join(outputDirectory, "priority-peck-missed.png"), fullPage: true });
+    await waitForState(
+      "snapshot => snapshot.priority_peck_focus?.limiting === false && snapshot.clock_effective_multiplier === 10",
+      5_000,
+    );
+    const restoredAfterMiss = await state();
+    report.missed.restoredMultiplier = restoredAfterMiss.clock_effective_multiplier;
+    report.missed.restoredPrecisionLimiting = restoredAfterMiss.priority_peck_focus?.limiting;
+    assert.equal(report.missed.restoredMultiplier, 10, "10× must restore automatically after the missed result beat");
+    assert.equal(report.missed.restoredPrecisionLimiting, false);
+  } else {
   const inputStarted = Date.now();
   await page.keyboard.press("KeyE");
   const inputDispatched = Date.now();
@@ -192,6 +274,7 @@ try {
   assert.equal(report.restored.effectiveMultiplier, 10);
   assert.equal(report.restored.precisionLimiting, false);
   await page.screenshot({ path: path.join(outputDirectory, "priority-peck-landed.png"), fullPage: true });
+  }
 
   report.auditFailures.push(...browserErrors);
   report.passed = report.auditFailures.length === 0;

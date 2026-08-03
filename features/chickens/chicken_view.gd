@@ -108,6 +108,59 @@ const CHARACTER_SHADOW_HOSTS: Array[StringName] = [
 	&"LegLeftMesh",
 	&"LegRightMesh",
 ]
+const HEN_INTENT_COLORS := {
+	&"sync": "d5aa4f",
+	&"urgent": "df6f55",
+	&"care": "58a99b",
+	&"choice": "668fbd",
+	&"match": "d6ad4d",
+	&"ready": "c8a24d",
+	&"steady": "729b70",
+}
+const HEN_INTENT_BASE_HEIGHT := 1.80
+const HEN_INTENT_HEIGHT_OFFSETS := [0.0, 0.11, 0.22, 0.11]
+const HEN_INTENT_COMPACT_PIXEL_SIZE := 0.0075
+const HEN_INTENT_STANDARD_PIXEL_SIZE := 0.009
+const HEN_INTENT_URGENT_PIXEL_SIZE := 0.0096
+const HEN_INTENT_HANDOFF_SCALE := Vector3(0.90, 0.90, 0.90)
+const HEN_INTENT_HANDOFF_SCALE_SECONDS := 0.20
+const HEN_INTENT_HANDOFF_COLOR_SECONDS := 0.30
+const DISPATCH_HANDOFF_START_SCALE := Vector3(0.78, 0.78, 0.78)
+const DISPATCH_HANDOFF_PEAK_SCALE := Vector3(1.18, 1.18, 1.18)
+const DISPATCH_HANDOFF_RISE_SECONDS := 0.14
+const DISPATCH_HANDOFF_SETTLE_SECONDS := 0.20
+const DISPATCH_HANDOFF_STATIC_SECONDS := 0.34
+const PRIORITY_PECK_READY_HALO_SCALE := Vector3(1.44, 1.44, 1.44)
+const PRIORITY_PECK_READY_HALO_SECONDS := 0.42
+const PRIORITY_PECK_MISSED_HALO_SCALE := Vector3(0.72, 0.72, 0.72)
+const PRIORITY_PECK_MISSED_HALO_SECONDS := 0.46
+const HEN_INTENT_SYMBOLS := {
+	&"sync": "M31 11 L20 31 H29 L25 53 L45 26 H35 L40 11 Z",
+	&"urgent": "M32 10 L56 52 H8 Z M29 24 H35 V38 H29 Z M29 42 H35 V48 H29 Z",
+	&"care": "M32 52 C8 38 10 18 22 17 C28 17 31 21 32 24 C33 21 36 17 42 17 C54 18 56 38 32 52 Z",
+	&"choice": "M29 15 H35 V27 H43 V20 L54 31 L43 42 V35 H35 V49 H29 V35 H21 V42 L10 31 L21 20 V27 H29 Z",
+	&"match": "M32 8 L39 23 L56 25 L44 37 L47 54 L32 46 L17 54 L20 37 L8 25 L25 23 Z",
+	# A signpost communicates routing without reusing the egg silhouette.
+	&"ready": "M29 8 H35 V56 H29 Z M29 14 H12 V25 H29 Z M12 19 L20 11 V27 Z M35 34 H52 V45 H35 Z M52 39 L44 31 V47 Z",
+	&"steady": "M15 31 L27 43 L50 19 L55 25 L27 53 L9 36 Z",
+}
+const FLOCK_BOND_COLORS := {
+	&"clutchmates": "e0a75a",
+	&"good_perch": "71b99c",
+	&"withdrawn": "d96e62",
+}
+const FLOCK_BOND_SYMBOLS := {
+	&"clutchmates": "M32 51 C9 38 12 17 23 17 C29 17 32 22 32 25 C32 22 35 17 41 17 C52 17 55 38 32 51 Z",
+	&"good_perch": "M25 20 C16 20 11 27 11 35 C11 43 17 49 25 49 H32 V42 H25 C21 42 18 39 18 35 C18 31 21 27 25 27 H34 V20 Z M39 15 H32 V22 H39 C43 22 46 25 46 29 C46 33 43 36 39 36 H30 V43 H39 C48 43 53 37 53 29 C53 21 47 15 39 15 Z",
+	&"withdrawn": "M30 12 H37 L33 25 H44 L25 53 L30 35 H19 Z",
+}
+
+static var _hen_intent_texture_cache: Dictionary[String, Texture2D] = {}
+static var _priority_peck_ready_halo_texture: Texture2D
+static var _priority_peck_missed_halo_texture: Texture2D
+static var _team_lift_marker_texture: Texture2D
+static var _flock_bond_texture_cache: Dictionary[StringName, Texture2D] = {}
+static var _dispatch_candidate_texture_cache: Dictionary[StringName, Texture2D] = {}
 
 var worker_id: int = -1
 var desk_index: int = -1
@@ -147,6 +200,19 @@ var _home_position := Vector3.ZERO
 var _break_position := Vector3.ZERO
 var _arrival_route: Array[Vector3] = []
 var _break_route: Array[Vector3] = []
+var _break_interaction_kind: StringName = &"rest"
+var _break_interaction_face_point := Vector3.ZERO
+var _break_cup: Node3D
+var _break_cup_body: MeshInstance3D
+var _break_cup_handle: MeshInstance3D
+var _break_cup_liquid: MeshInstance3D
+var _break_cup_steam: Array[MeshInstance3D] = []
+var _break_magazine: Node3D
+var _break_magazine_left_page: MeshInstance3D
+var _break_magazine_right_page: MeshInstance3D
+var _break_interaction_elapsed := 0.0
+var _break_interaction_was_active := false
+var _break_activity_phase: StringName = &"approach"
 var _destination_kind: StringName = &"entrance"
 var _is_walking: bool = false
 var _entry_delay: float = 0.0
@@ -202,6 +268,31 @@ var _predator_captured := false
 var _panic_active := false
 var _panic_remaining := 0.0
 var _panic_threat_origin := Vector3.ZERO
+var _hen_intent_marker: Sprite3D
+var _priority_peck_ready_halo: Sprite3D
+var _team_lift_marker: Sprite3D
+var _hen_intent: Dictionary = {}
+var _hen_intent_transition_tween: Tween
+var _priority_peck_ready_tween: Tween
+var _team_lift_tween: Tween
+var _last_hen_intent_key := ""
+var _hen_intent_transition_serial := 0
+var _priority_peck_ready_serial := 0
+var _priority_peck_missed_serial := 0
+var _team_lift_serial := 0
+var _team_lift_receipt: Dictionary = {}
+var _team_lift_marker_origin := Vector3.ZERO
+var _priority_peck_halo_origin := Vector3.ZERO
+var _reduced_motion := false
+var _flock_bond_marker: Sprite3D
+var _flock_bond: Dictionary = {}
+var _dispatch_candidate_marker: Sprite3D
+var _dispatch_candidate: Dictionary = {}
+var _dispatch_recommendation_tween: Tween
+var _dispatch_recommendation_serial := 0
+var _dispatch_recommendation_active := false
+var _dispatch_recommendation_animated := false
+var _dispatch_recommendation_lane: StringName = &""
 
 
 func configure(worker_snapshot: Dictionary) -> void:
@@ -233,6 +324,59 @@ func assign_office_route(
 	_entry_delay = maxi(0, stagger_order) * ENTRY_STAGGER_SECONDS
 	_destination_kind = &"home"
 	_set_route(_arrival_route)
+
+
+func configure_break_interaction(
+	interaction_kind: StringName,
+	face_point: Vector3,
+) -> void:
+	_break_interaction_kind = interaction_kind
+	_break_interaction_face_point = face_point
+	_break_interaction_elapsed = 0.0
+	_break_interaction_was_active = false
+	_break_activity_phase = &"approach"
+	if _break_cup_body == null or _break_cup_handle == null:
+		return
+	var cup_color := (
+		Color("d7eef0")
+		if interaction_kind == &"water" else
+		Color("c9895e")
+	)
+	var cup_material := StandardMaterial3D.new()
+	cup_material.albedo_color = cup_color
+	cup_material.roughness = 0.58
+	_break_cup_body.material_override = cup_material
+	_break_cup_handle.material_override = cup_material
+	if _break_cup_liquid != null:
+		var liquid_material := StandardMaterial3D.new()
+		liquid_material.albedo_color = (
+			Color("6fa9b1")
+			if interaction_kind == &"water" else
+			Color("633b28")
+		)
+		liquid_material.roughness = 0.30
+		liquid_material.metallic = 0.08
+		_break_cup_liquid.material_override = liquid_material
+
+
+func break_interaction_state() -> Dictionary:
+	return {
+		"kind": String(_break_interaction_kind),
+		"active": _is_break_interaction_active(),
+		"phase": String(_break_activity_phase),
+		"destination": str(_break_position),
+		"face_point": str(_break_interaction_face_point),
+		"held_cup_visible": _break_cup != null and _break_cup.visible,
+		"held_reading_visible": _break_magazine != null and _break_magazine.visible,
+	}
+
+
+func break_interaction_active() -> bool:
+	return _is_break_interaction_active()
+
+
+func break_interaction_kind_name() -> StringName:
+	return _break_interaction_kind
 
 
 ## Walks a released employee out through the authored office route. The current
@@ -270,6 +414,12 @@ func depart_office(exit_route: Array[Vector3]) -> void:
 
 func apply_snapshot(worker_snapshot: Dictionary) -> void:
 	_apply_career_credential(worker_snapshot)
+	var current_claim := worker_snapshot.get("current_claim", {}) as Dictionary
+	_apply_hen_intent(
+		worker_snapshot.get("hen_intent", {}) as Dictionary,
+		float(worker_snapshot.get("progress", 0.0)) if not current_claim.is_empty() else -1.0,
+	)
+	_apply_flock_bond(worker_snapshot.get("flock_bond", {}) as Dictionary)
 	_temperament_id = StringName(String(worker_snapshot.get(
 		"temperament_id",
 		ChickenState.default_temperament(worker_id),
@@ -504,6 +654,17 @@ func set_presentation_update_rate_hz(rate_hz: float) -> void:
 	)
 
 
+## Keeps semantic world-pin handoffs accessible without removing the state
+## change itself. The preference may arrive before the marker is constructed.
+func set_reduced_motion(enabled: bool) -> void:
+	_reduced_motion = enabled
+	if enabled:
+		_reset_hen_intent_transition()
+		_reset_priority_peck_ready_feedback()
+		_reset_team_lift_feedback()
+		_reset_dispatch_recommendation_handoff()
+
+
 func presentation_update_rate_hz() -> float:
 	if _presentation_update_interval <= 0.0:
 		return 0.0
@@ -542,6 +703,7 @@ func model_binding_diagnostics() -> Dictionary:
 
 
 func play_peck_assist_feedback(rating: StringName) -> void:
+	_reset_priority_peck_ready_feedback()
 	_peck_assist_rating = rating
 	_priority_peck_timeline_active = true
 	_priority_peck_elapsed = 0.0
@@ -592,6 +754,7 @@ func _physics_process(delta: float) -> void:
 			_set_route([_home_position])
 	_advance_feedback_timelines(delta)
 	_advance_route(delta)
+	_update_break_interaction_timeline(delta)
 	_update_pose_blends(delta)
 	# Hidden workers must continue routes and gameplay-facing contact timelines,
 	# but their model transforms do not need to be rewritten until visible again.
@@ -789,8 +952,11 @@ func _advance_route(delta: float) -> void:
 			rotation.y = lerp_angle(rotation.y, 0.0, minf(1.0, delta * 8.0))
 			if _feed_party_queued:
 				_begin_feed_party_route()
-		elif _destination_kind == &"break" and _feed_party_queued:
-			_begin_feed_party_route()
+		elif _destination_kind == &"break":
+			global_position = _break_position
+			_face_point(_break_interaction_face_point, delta)
+			if _feed_party_queued:
+				_begin_feed_party_route()
 		elif _destination_kind == &"feed_outbound":
 			global_position = _feed_party_attendance_position
 			_face_point(_feed_party_trough_position, delta)
@@ -865,6 +1031,7 @@ func _advance_route(delta: float) -> void:
 
 func _animate_pose() -> void:
 	_reset_pose()
+	_update_break_interaction_prop()
 	if _panic_active:
 		_play_model_animation(ANIMATION_PANIC)
 		_apply_walk_pose()
@@ -884,7 +1051,11 @@ func _animate_pose() -> void:
 			_play_model_animation(ANIMATION_SIT)
 		_apply_seated_pose()
 	else:
-		_play_model_animation(ANIMATION_IDLE)
+		_play_model_animation(
+			ANIMATION_SIT
+			if _break_interaction_kind == &"lounge" and _is_break_interaction_active() else
+			ANIMATION_IDLE
+		)
 		_apply_break_pose()
 
 
@@ -1043,6 +1214,106 @@ func _apply_break_pose() -> void:
 	_body_pivot.position.y = absf(sin(motion_phase * 1.7 + worker_id)) * 0.018
 	_body_pivot.rotation.z = sin(motion_phase * 0.72 + worker_id) * 0.018
 	_head_pivot.rotation.y = sin(motion_phase * 0.85 + worker_id) * 0.24
+	if _is_break_interaction_active():
+		match _break_interaction_kind:
+			&"water", &"coffee":
+				var drink_time := maxf(0.0, _break_interaction_elapsed - 0.72)
+				var drink_cycle := fmod(drink_time, 6.20)
+				var raise_cup := smoothstep(0.35, 1.18, drink_cycle)
+				raise_cup *= 1.0 - smoothstep(3.25, 4.08, drink_cycle)
+				var sip := smoothstep(1.28, 1.72, drink_cycle)
+				sip *= 1.0 - smoothstep(2.62, 3.08, drink_cycle)
+				var collect_reach := 1.0 - smoothstep(0.36, 0.82, _break_interaction_elapsed)
+				_body_pivot.rotation.x = -0.025 - sip * 0.055 - collect_reach * 0.035
+				_head_pivot.rotation.x = -0.035 - sip * 0.20
+				_head_pivot.position.z += sip * 0.042
+				_wing_left.rotation = Vector3(
+					0.16 + raise_cup * 0.12,
+					0.0,
+					-0.36 - raise_cup * 0.31 - collect_reach * 0.16,
+				)
+				_wing_right.rotation = Vector3(0.10, 0.0, 0.20)
+				_use_authored_wing_pose = false
+				if _break_cup != null:
+					_break_cup.position = Vector3(
+						-0.29,
+						lerpf(0.58, 0.91, raise_cup),
+						lerpf(0.39, 0.25, raise_cup),
+					)
+					_break_cup.rotation_degrees = Vector3(0.0, 0.0, -7.0 + sip * 13.0)
+				for steam_index in _break_cup_steam.size():
+					var steam := _break_cup_steam[steam_index]
+					var steam_lift := fmod(
+						_break_interaction_elapsed * 0.42 + steam_index * 0.37,
+						0.72,
+					)
+					steam.position = Vector3(
+						-0.025 + steam_index * 0.045,
+						0.12 + steam_lift * 0.21,
+						sin(motion_phase * 0.52 + steam_index) * 0.018,
+					)
+					var steam_scale := 0.55 + steam_lift * 0.42
+					steam.scale = Vector3(steam_scale, 0.65 + steam_lift, steam_scale)
+				return
+			&"lounge":
+				var settle_in := smoothstep(0.0, 0.85, _break_interaction_elapsed)
+				var lounge_cycle := fmod(maxf(0.0, _break_interaction_elapsed - 0.85), 8.4)
+				var stretch := smoothstep(5.75, 6.25, lounge_cycle)
+				stretch *= 1.0 - smoothstep(7.10, 7.72, lounge_cycle)
+				var breathe := (sin(motion_phase * 0.55 + worker_id) + 1.0) * 0.5
+				_body_pivot.position.y = lerpf(0.08, 0.28, settle_in) + breathe * 0.012 + stretch * 0.035
+				_body_pivot.position.z = 0.035
+				_body_pivot.rotation.x = -0.08 + stretch * 0.06
+				_leg_left.rotation.x = -1.16
+				_leg_right.rotation.x = -1.16
+				_head_pivot.rotation.x = -stretch * 0.09
+				_head_pivot.rotation.y = sin(motion_phase * 0.42) * 0.16 + stretch * 0.11
+				_head_pivot.rotation.z = sin(motion_phase * 0.31) * 0.045
+				_wing_left.rotation.z = -stretch * 0.22
+				_wing_right.rotation.z = stretch * 0.22
+				_use_authored_wing_pose = stretch < 0.02
+				return
+			&"browse":
+				var browse_cycle := fmod(maxf(0.0, _break_interaction_elapsed - 0.65), 7.2)
+				var page_turn := smoothstep(4.45, 4.88, browse_cycle)
+				page_turn *= 1.0 - smoothstep(5.38, 5.92, browse_cycle)
+				var page_scan := (sin(motion_phase * 0.44 + worker_id) + 1.0) * 0.5
+				_body_pivot.rotation.x = -0.10
+				_head_pivot.rotation.x = -0.24 - page_scan * 0.08
+				_head_pivot.rotation.y = lerpf(-0.18, 0.18, page_scan)
+				_wing_left.rotation = Vector3(0.12, 0.0, -0.38)
+				_wing_right.rotation = Vector3(0.12, 0.0, 0.36 + page_turn * 0.26)
+				_use_authored_wing_pose = false
+				if _break_magazine != null:
+					_break_magazine.position = Vector3(-0.02, 0.76 + page_turn * 0.035, 0.50)
+					_break_magazine.rotation_degrees = Vector3(-24.0, 0.0, 0.0)
+					_break_magazine.scale = Vector3.ONE * 1.08
+				if _break_magazine_right_page != null:
+					_break_magazine_right_page.rotation_degrees.z = -page_turn * 28.0
+					_break_magazine_right_page.position.y = page_turn * 0.045
+				return
+			&"bulletin":
+				var note_scan := sin(motion_phase * 0.46 + worker_id)
+				var bulletin_cycle := fmod(_break_interaction_elapsed, 6.8)
+				var point_note := smoothstep(2.65, 3.10, bulletin_cycle)
+				point_note *= 1.0 - smoothstep(4.02, 4.58, bulletin_cycle)
+				_head_pivot.rotation.x = -0.08 + absf(note_scan) * 0.06
+				_head_pivot.rotation.y = note_scan * 0.30
+				_head_pivot.rotation.z = sin(motion_phase * 0.24) * 0.045
+				_wing_left.rotation = Vector3(0.10, 0.0, -0.16 - point_note * 0.66)
+				_use_authored_wing_pose = false
+				return
+			&"chat":
+				var chat_cycle := fmod(_break_interaction_elapsed + worker_id * 0.31, 7.4)
+				var gesture := smoothstep(2.45, 2.92, chat_cycle)
+				gesture *= 1.0 - smoothstep(3.82, 4.42, chat_cycle)
+				var listen := 1.0 - smoothstep(1.82, 2.45, chat_cycle)
+				_head_pivot.rotation.y = sin(motion_phase * 0.58) * 0.12 + listen * 0.08
+				_head_pivot.rotation.z = sin(motion_phase * 0.41) * 0.055
+				_wing_left.rotation = Vector3(0.10, 0.0, -0.18 - gesture * 0.56)
+				_wing_right.rotation = Vector3(0.08, 0.0, 0.16 + gesture * 0.18)
+				_use_authored_wing_pose = false
+				return
 	match _temperament_idle_style:
 		0: # Curious head tilts and a poised wing.
 			_head_pivot.rotation.z = sin(motion_phase * 0.62) * 0.10
@@ -1181,6 +1452,930 @@ func _build_character(worker_name: String, color_index: int) -> void:
 		_career_credential_profile_visible = _career_credential_badge.visible
 		_career_credential_rest_position = _career_credential_badge.position
 	_cache_secondary_motion_parts()
+	_build_hen_intent_marker()
+	_build_break_interaction_prop()
+
+
+func _build_break_interaction_prop() -> void:
+	_break_cup = Node3D.new()
+	_break_cup.name = "BreakInteractionCup"
+	_break_cup.visible = false
+	add_child(_break_cup)
+
+	_break_cup_body = MeshInstance3D.new()
+	_break_cup_body.name = "BreakInteractionCupBody"
+	var cup_mesh := CylinderMesh.new()
+	cup_mesh.top_radius = 0.09
+	cup_mesh.bottom_radius = 0.075
+	cup_mesh.height = 0.17
+	cup_mesh.radial_segments = 12
+	_break_cup_body.mesh = cup_mesh
+	_break_cup_body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_break_cup.add_child(_break_cup_body)
+
+	_break_cup_handle = MeshInstance3D.new()
+	_break_cup_handle.name = "BreakInteractionCupHandle"
+	var handle_mesh := TorusMesh.new()
+	handle_mesh.inner_radius = 0.025
+	handle_mesh.outer_radius = 0.060
+	handle_mesh.rings = 8
+	handle_mesh.ring_segments = 5
+	_break_cup_handle.mesh = handle_mesh
+	_break_cup_handle.position = Vector3(-0.078, 0.0, 0.0)
+	_break_cup_handle.rotation_degrees.z = 90.0
+	_break_cup_handle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_break_cup.add_child(_break_cup_handle)
+
+	_break_cup_liquid = MeshInstance3D.new()
+	_break_cup_liquid.name = "BreakInteractionCupLiquid"
+	var liquid_mesh := CylinderMesh.new()
+	liquid_mesh.top_radius = 0.068
+	liquid_mesh.bottom_radius = 0.068
+	liquid_mesh.height = 0.008
+	liquid_mesh.radial_segments = 12
+	_break_cup_liquid.mesh = liquid_mesh
+	_break_cup_liquid.position.y = 0.086
+	_break_cup_liquid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_break_cup.add_child(_break_cup_liquid)
+	for steam_index in 2:
+		var steam := MeshInstance3D.new()
+		steam.name = "BreakInteractionCupSteam_%02d" % steam_index
+		var steam_mesh := SphereMesh.new()
+		steam_mesh.radius = 0.022
+		steam_mesh.height = 0.065
+		steam_mesh.radial_segments = 8
+		steam_mesh.rings = 4
+		steam.mesh = steam_mesh
+		var steam_material := StandardMaterial3D.new()
+		steam_material.albedo_color = Color("eee8d7")
+		steam_material.emission_enabled = true
+		steam_material.emission = Color("b8aa94")
+		steam_material.emission_energy_multiplier = 0.28
+		steam.material_override = steam_material
+		steam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_break_cup.add_child(steam)
+		_break_cup_steam.append(steam)
+
+	# Browsing now uses a physical open periodical between the wings instead of
+	# relying on a downward head tilt to imply what the hen is doing.
+	_break_magazine = Node3D.new()
+	_break_magazine.name = "BreakInteractionMagazine"
+	_break_magazine.visible = false
+	add_child(_break_magazine)
+	var page_material := StandardMaterial3D.new()
+	page_material.albedo_color = Color("eee6cf")
+	page_material.roughness = 0.88
+	var cover_material := StandardMaterial3D.new()
+	cover_material.albedo_color = Color("c7634d")
+	cover_material.roughness = 0.72
+	for page_index in 2:
+		var cover_half := MeshInstance3D.new()
+		cover_half.name = "BreakInteractionMagazineCover_%02d" % page_index
+		var cover_half_mesh := BoxMesh.new()
+		cover_half_mesh.size = Vector3(0.27, 0.012, 0.33)
+		cover_half.mesh = cover_half_mesh
+		cover_half.position = Vector3(-0.145 if page_index == 0 else 0.145, -0.017, 0.0)
+		cover_half.material_override = cover_material
+		cover_half.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_break_magazine.add_child(cover_half)
+		var page := MeshInstance3D.new()
+		page.name = "BreakInteractionMagazinePage_%02d" % page_index
+		var page_mesh := BoxMesh.new()
+		page_mesh.size = Vector3(0.25, 0.018, 0.31)
+		page.mesh = page_mesh
+		page.position.x = -0.135 if page_index == 0 else 0.135
+		page.material_override = page_material
+		page.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_break_magazine.add_child(page)
+		if page_index == 0:
+			_break_magazine_left_page = page
+		else:
+			_break_magazine_right_page = page
+		for line_index in 3:
+			var print_line := MeshInstance3D.new()
+			print_line.name = "BreakInteractionMagazinePrint_%02d_%02d" % [page_index, line_index]
+			var print_mesh := BoxMesh.new()
+			print_mesh.size = Vector3(0.13, 0.007, 0.014)
+			print_line.mesh = print_mesh
+			print_line.position = Vector3(
+				-0.135 if page_index == 0 else 0.135,
+				0.014,
+				-0.085 + line_index * 0.072,
+			)
+			print_line.material_override = cover_material
+			print_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_break_magazine.add_child(print_line)
+	var magazine_spine := MeshInstance3D.new()
+	magazine_spine.name = "BreakInteractionMagazineSpine"
+	var spine_mesh := BoxMesh.new()
+	spine_mesh.size = Vector3(0.025, 0.026, 0.33)
+	magazine_spine.mesh = spine_mesh
+	magazine_spine.material_override = cover_material
+	magazine_spine.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_break_magazine.add_child(magazine_spine)
+	var magazine_masthead := MeshInstance3D.new()
+	magazine_masthead.name = "BreakInteractionMagazineMasthead"
+	var masthead_mesh := BoxMesh.new()
+	masthead_mesh.size = Vector3(0.17, 0.008, 0.062)
+	magazine_masthead.mesh = masthead_mesh
+	magazine_masthead.position = Vector3(-0.135, 0.018, -0.092)
+	var masthead_material := StandardMaterial3D.new()
+	masthead_material.albedo_color = Color("3f746f")
+	masthead_material.roughness = 0.68
+	magazine_masthead.material_override = masthead_material
+	magazine_masthead.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_break_magazine.add_child(magazine_masthead)
+	configure_break_interaction(_break_interaction_kind, _break_interaction_face_point)
+
+
+func _is_break_interaction_active() -> bool:
+	return (
+		_destination_kind == &"break"
+		and not _is_walking
+		and _route_index >= _route.size()
+		and global_position.distance_to(_break_position) <= ARRIVAL_DISTANCE * 2.0
+	)
+
+
+func _update_break_interaction_timeline(delta: float) -> void:
+	var active := _is_break_interaction_active()
+	if active:
+		_break_interaction_elapsed = (
+			_break_interaction_elapsed + delta
+			if _break_interaction_was_active else
+			0.0
+		)
+	else:
+		_break_interaction_elapsed = 0.0
+	_break_interaction_was_active = active
+	_break_activity_phase = _resolve_break_activity_phase() if active else &"approach"
+
+
+func _resolve_break_activity_phase() -> StringName:
+	match _break_interaction_kind:
+		&"water", &"coffee":
+			if _break_interaction_elapsed < 0.72:
+				return &"collect"
+			var drink_cycle := fmod(_break_interaction_elapsed - 0.72, 6.20)
+			if drink_cycle < 1.28:
+				return &"raise"
+			if drink_cycle < 3.08:
+				return &"sip"
+			if drink_cycle < 4.25:
+				return &"lower"
+			return &"savor"
+		&"lounge":
+			if _break_interaction_elapsed < 0.85:
+				return &"settle"
+			var lounge_cycle := fmod(_break_interaction_elapsed - 0.85, 8.4)
+			return &"stretch" if lounge_cycle >= 5.75 and lounge_cycle < 7.72 else &"rest"
+		&"browse":
+			if _break_interaction_elapsed < 0.65:
+				return &"pick_up"
+			var browse_cycle := fmod(_break_interaction_elapsed - 0.65, 7.2)
+			return &"turn_page" if browse_cycle >= 4.45 and browse_cycle < 5.92 else &"read"
+		&"bulletin":
+			var bulletin_cycle := fmod(_break_interaction_elapsed, 6.8)
+			if bulletin_cycle >= 2.65 and bulletin_cycle < 4.58:
+				return &"point"
+			return &"consider" if bulletin_cycle >= 4.58 else &"scan"
+		&"chat":
+			var chat_cycle := fmod(_break_interaction_elapsed + worker_id * 0.31, 7.4)
+			if chat_cycle >= 2.45 and chat_cycle < 4.42:
+				return &"respond"
+			return &"listen" if chat_cycle < 2.45 else &"pause"
+	return &"rest"
+
+
+func _update_break_interaction_prop() -> void:
+	if _break_cup == null:
+		return
+	var drink_visible := (
+		_is_break_interaction_active()
+		and (
+			_break_interaction_kind == &"water"
+			or _break_interaction_kind == &"coffee"
+		)
+	)
+	_break_cup.visible = drink_visible
+	if _break_cup_liquid != null:
+		_break_cup_liquid.visible = drink_visible
+	for steam in _break_cup_steam:
+		steam.visible = drink_visible and _break_interaction_kind == &"coffee"
+	if _break_magazine != null:
+		_break_magazine.visible = (
+			_is_break_interaction_active()
+			and _break_interaction_kind == &"browse"
+		)
+
+
+func _build_hen_intent_marker() -> void:
+	_priority_peck_ready_halo = Sprite3D.new()
+	_priority_peck_ready_halo.name = "PriorityPeckReadyHalo"
+	var height_offset := float(
+		HEN_INTENT_HEIGHT_OFFSETS[posmod(worker_id, HEN_INTENT_HEIGHT_OFFSETS.size())]
+	)
+	_priority_peck_ready_halo.position = Vector3(
+		0.0,
+		HEN_INTENT_BASE_HEIGHT + height_offset,
+		0.0,
+	)
+	_priority_peck_halo_origin = _priority_peck_ready_halo.position
+	_priority_peck_ready_halo.pixel_size = HEN_INTENT_URGENT_PIXEL_SIZE
+	_priority_peck_ready_halo.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_priority_peck_ready_halo.no_depth_test = true
+	_priority_peck_ready_halo.render_priority = 19
+	_priority_peck_ready_halo.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_priority_peck_ready_halo.texture = _priority_peck_halo_texture()
+	_priority_peck_ready_halo.visible = false
+	add_child(_priority_peck_ready_halo)
+	_team_lift_marker = Sprite3D.new()
+	_team_lift_marker.name = "TeamLiftMarker"
+	_team_lift_marker.position = Vector3(
+		0.0,
+		HEN_INTENT_BASE_HEIGHT + height_offset + 0.38,
+		0.0,
+	)
+	_team_lift_marker_origin = _team_lift_marker.position
+	_team_lift_marker.pixel_size = 0.0094
+	_team_lift_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_team_lift_marker.no_depth_test = true
+	_team_lift_marker.render_priority = 23
+	_team_lift_marker.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_team_lift_marker.texture = _team_lift_texture()
+	_team_lift_marker.visible = false
+	add_child(_team_lift_marker)
+	_hen_intent_marker = Sprite3D.new()
+	_hen_intent_marker.name = "HenIntentMarker"
+	_hen_intent_marker.position = Vector3(
+		0.0,
+		HEN_INTENT_BASE_HEIGHT + height_offset,
+		0.0,
+	)
+	_hen_intent_marker.pixel_size = HEN_INTENT_STANDARD_PIXEL_SIZE
+	_hen_intent_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_hen_intent_marker.no_depth_test = true
+	_hen_intent_marker.render_priority = 20
+	_hen_intent_marker.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_hen_intent_marker.visible = false
+	_hen_intent_marker.set_meta("height_offset", height_offset)
+	add_child(_hen_intent_marker)
+	_flock_bond_marker = Sprite3D.new()
+	_flock_bond_marker.name = "FlockBondMarker"
+	_flock_bond_marker.position = Vector3(-0.42, 1.56, 0.0)
+	_flock_bond_marker.pixel_size = 0.0072
+	_flock_bond_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_flock_bond_marker.no_depth_test = true
+	_flock_bond_marker.render_priority = 19
+	_flock_bond_marker.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_flock_bond_marker.visible = false
+	add_child(_flock_bond_marker)
+	_dispatch_candidate_marker = Sprite3D.new()
+	_dispatch_candidate_marker.name = "DispatchCandidateMarker"
+	_dispatch_candidate_marker.position = Vector3(0.0, 2.22, 0.0)
+	_dispatch_candidate_marker.pixel_size = 0.0105
+	_dispatch_candidate_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_dispatch_candidate_marker.no_depth_test = true
+	_dispatch_candidate_marker.render_priority = 22
+	_dispatch_candidate_marker.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_dispatch_candidate_marker.visible = false
+	add_child(_dispatch_candidate_marker)
+
+
+## Highlights this hen while a physical intake tray is waiting for dispatch.
+## A gold star is the ranked recommendation; eligible alternatives use a teal
+## downward chevron so the action reads without another explanatory panel.
+func set_dispatch_candidate(
+	active: bool,
+	recommended: bool = false,
+	lane: StringName = &"",
+) -> void:
+	_reset_dispatch_recommendation_handoff()
+	_dispatch_candidate = {
+		"active": active,
+		"recommended": recommended,
+		"lane": lane,
+	}
+	if _dispatch_candidate_marker == null:
+		return
+	_dispatch_candidate_marker.visible = active
+	_dispatch_candidate_marker.set_meta("recommended", recommended)
+	_dispatch_candidate_marker.set_meta("lane", lane)
+	_dispatch_candidate_marker.set_meta("handoff_active", false)
+	_dispatch_candidate_marker.set_meta("handoff_animated", false)
+	if not active:
+		_dispatch_candidate_marker.texture = null
+		return
+	var kind: StringName = &"recommended" if recommended else &"eligible"
+	_dispatch_candidate_marker.texture = _dispatch_candidate_texture(kind)
+	_dispatch_candidate_marker.modulate = Color.WHITE
+
+
+func dispatch_candidate_snapshot() -> Dictionary:
+	var result := _dispatch_candidate.duplicate(true)
+	result["worker_id"] = worker_id
+	result["marker_visible"] = (
+		_dispatch_candidate_marker != null and _dispatch_candidate_marker.visible
+	)
+	result["handoff_serial"] = _dispatch_recommendation_serial
+	result["handoff_active"] = _dispatch_recommendation_active
+	result["handoff_animated"] = _dispatch_recommendation_animated
+	result["handoff_lane"] = String(_dispatch_recommendation_lane)
+	return result
+
+
+## Gives a newly selected intake tray one restrained cause-and-effect handoff
+## to its ranked hen. The gold marker remains after the pulse; this does not
+## select the hen, move the camera, or invalidate any teal alternative.
+func play_dispatch_recommendation_handoff(lane: StringName) -> bool:
+	_reset_dispatch_recommendation_handoff()
+	if (
+		_dispatch_candidate_marker == null
+		or not bool(_dispatch_candidate.get("active", false))
+		or not bool(_dispatch_candidate.get("recommended", false))
+		or StringName(_dispatch_candidate.get("lane", &"")) != lane
+	):
+		return false
+	_dispatch_recommendation_serial += 1
+	_dispatch_recommendation_active = true
+	_dispatch_recommendation_animated = not _reduced_motion and is_inside_tree()
+	_dispatch_recommendation_lane = lane
+	_dispatch_candidate_marker.visible = true
+	_dispatch_candidate_marker.set_meta("handoff_serial", _dispatch_recommendation_serial)
+	_dispatch_candidate_marker.set_meta("handoff_active", true)
+	_dispatch_candidate_marker.set_meta("handoff_animated", _dispatch_recommendation_animated)
+	_dispatch_candidate_marker.set_meta("handoff_lane", lane)
+	if not _dispatch_recommendation_animated:
+		# Preserve the same semantic receipt without scale motion.
+		_dispatch_candidate_marker.scale = Vector3.ONE
+		_dispatch_candidate_marker.modulate = Color(1.0, 0.92, 0.68, 1.0)
+		if is_inside_tree():
+			_dispatch_recommendation_tween = create_tween().bind_node(_dispatch_candidate_marker)
+			_dispatch_recommendation_tween.tween_interval(DISPATCH_HANDOFF_STATIC_SECONDS)
+			_dispatch_recommendation_tween.tween_callback(_finish_dispatch_recommendation_handoff)
+		else:
+			_finish_dispatch_recommendation_handoff()
+		return false
+	_dispatch_candidate_marker.scale = DISPATCH_HANDOFF_START_SCALE
+	_dispatch_candidate_marker.modulate = Color(1.0, 0.86, 0.46, 1.0)
+	_dispatch_recommendation_tween = create_tween().bind_node(_dispatch_candidate_marker)
+	_dispatch_recommendation_tween.tween_property(
+		_dispatch_candidate_marker,
+		"scale",
+		DISPATCH_HANDOFF_PEAK_SCALE,
+		DISPATCH_HANDOFF_RISE_SECONDS,
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_dispatch_recommendation_tween.parallel().tween_property(
+		_dispatch_candidate_marker,
+		"modulate",
+		Color.WHITE,
+		DISPATCH_HANDOFF_RISE_SECONDS,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_dispatch_recommendation_tween.tween_property(
+		_dispatch_candidate_marker,
+		"scale",
+		Vector3.ONE,
+		DISPATCH_HANDOFF_SETTLE_SECONDS,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_dispatch_recommendation_tween.tween_callback(_finish_dispatch_recommendation_handoff)
+	return true
+
+
+func _finish_dispatch_recommendation_handoff() -> void:
+	_dispatch_recommendation_tween = null
+	_dispatch_recommendation_active = false
+	if _dispatch_candidate_marker != null:
+		_dispatch_candidate_marker.scale = Vector3.ONE
+		_dispatch_candidate_marker.modulate = Color.WHITE
+		_dispatch_candidate_marker.set_meta("handoff_active", false)
+
+
+func _reset_dispatch_recommendation_handoff() -> void:
+	if _dispatch_recommendation_tween != null and _dispatch_recommendation_tween.is_valid():
+		_dispatch_recommendation_tween.kill()
+	_dispatch_recommendation_tween = null
+	_dispatch_recommendation_active = false
+	_dispatch_recommendation_animated = false
+	if _dispatch_candidate_marker != null:
+		_dispatch_candidate_marker.scale = Vector3.ONE
+		_dispatch_candidate_marker.modulate = Color.WHITE
+		_dispatch_candidate_marker.set_meta("handoff_active", false)
+		_dispatch_candidate_marker.set_meta("handoff_animated", false)
+
+
+func _dispatch_candidate_texture(kind: StringName) -> Texture2D:
+	if _dispatch_candidate_texture_cache.has(kind):
+		return _dispatch_candidate_texture_cache[kind]
+	var fill := "d6ad4d" if kind == &"recommended" else "58a99b"
+	var symbol := (
+		HEN_INTENT_SYMBOLS[&"match"]
+		if kind == &"recommended" else
+		"M14 18 H50 V30 H42 L32 46 L22 30 H14 Z"
+	)
+	var svg := (
+		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
+		+ "<circle cx='32' cy='32' r='29' fill='#101a21' fill-opacity='.94' stroke='#fff0b8' stroke-width='3'/>"
+		+ "<circle cx='32' cy='32' r='23' fill='#%s'/>" % fill
+		+ "<path d='%s' fill='#fff8dc' fill-rule='evenodd'/>" % symbol
+		+ "</svg>"
+	)
+	var image := Image.new()
+	if image.load_svg_from_string(svg, 1.0) != OK:
+		return null
+	var texture := ImageTexture.create_from_image(image)
+	_dispatch_candidate_texture_cache[kind] = texture
+	return texture
+
+
+func _apply_hen_intent(intent: Dictionary, progress: float = -1.0) -> void:
+	_hen_intent = intent.duplicate(true)
+	if _hen_intent_marker == null:
+		return
+	var icon := StringName(String(intent.get("icon", "")))
+	_hen_intent_marker.visible = icon in HEN_INTENT_SYMBOLS
+	if not _hen_intent_marker.visible:
+		_reset_hen_intent_transition()
+		_reset_priority_peck_ready_feedback()
+		_last_hen_intent_key = ""
+		_hen_intent_marker.texture = null
+		return
+	var action_id := StringName(String(intent.get("action_id", "route")))
+	var action_label := String(intent.get("action_label", "OPEN")).to_upper()
+	var intent_key := "%s|%s|%s" % [String(icon), String(action_id), action_label]
+	var previous_intent_key := _last_hen_intent_key
+	var progress_bucket := (
+		clampi(ceili(clampf(progress, 0.0, 100.0) / 20.0), 0, 5)
+		if progress >= 0.0 else
+		-1
+	)
+	var urgency := clampi(int(intent.get("urgency", 1)), 1, 3)
+	_hen_intent_marker.pixel_size = (
+		HEN_INTENT_URGENT_PIXEL_SIZE
+		if urgency >= 3 else
+		HEN_INTENT_STANDARD_PIXEL_SIZE
+		if urgency == 2 else
+		HEN_INTENT_COMPACT_PIXEL_SIZE
+	)
+	_hen_intent_marker.texture = hen_intent_icon_texture(icon, progress_bucket, urgency)
+	_hen_intent_marker.set_meta("progress_bucket", progress_bucket)
+	_hen_intent_marker.set_meta("urgency", urgency)
+	_hen_intent_marker.set_meta("compact", urgency == 1)
+	_hen_intent_marker.set_meta("intent_id", StringName(String(intent.get("id", ""))))
+	_hen_intent_marker.set_meta("action_label", action_label)
+	_last_hen_intent_key = intent_key
+	if previous_intent_key.is_empty():
+		_reset_hen_intent_transition()
+	elif previous_intent_key != intent_key:
+		_play_hen_intent_transition(previous_intent_key, intent_key, urgency)
+
+
+func _play_hen_intent_transition(from_key: String, to_key: String, urgency: int) -> void:
+	_reset_hen_intent_transition()
+	_hen_intent_transition_serial += 1
+	var should_animate := not _reduced_motion and is_inside_tree()
+	_hen_intent_marker.set_meta("intent_transition_serial", _hen_intent_transition_serial)
+	_hen_intent_marker.set_meta("intent_transition_from", from_key)
+	_hen_intent_marker.set_meta("intent_transition_to", to_key)
+	_hen_intent_marker.set_meta("intent_transition_animated", should_animate)
+	if not should_animate:
+		return
+	var transition_color := Color("8dcfbd")
+	if urgency >= 3:
+		transition_color = Color("f1d681")
+	elif urgency == 2:
+		transition_color = Color("e6a07e")
+	_hen_intent_marker.scale = HEN_INTENT_HANDOFF_SCALE
+	_hen_intent_marker.modulate = transition_color.lightened(0.24)
+	_hen_intent_transition_tween = create_tween().bind_node(_hen_intent_marker).set_parallel(true)
+	_hen_intent_transition_tween.tween_property(
+		_hen_intent_marker,
+		"scale",
+		Vector3.ONE,
+		HEN_INTENT_HANDOFF_SCALE_SECONDS,
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_hen_intent_transition_tween.tween_property(
+		_hen_intent_marker,
+		"modulate",
+		Color.WHITE,
+		HEN_INTENT_HANDOFF_COLOR_SECONDS,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func _reset_hen_intent_transition() -> void:
+	if _hen_intent_transition_tween != null and _hen_intent_transition_tween.is_valid():
+		_hen_intent_transition_tween.kill()
+	_hen_intent_transition_tween = null
+	if _hen_intent_marker != null:
+		_hen_intent_marker.scale = Vector3.ONE
+		_hen_intent_marker.modulate = Color.WHITE
+		_hen_intent_marker.set_meta("intent_transition_animated", false)
+
+
+## Mirrors the restrained opportunity motif with one no-text ring behind the
+## selected hen's existing intent pin. Office owns the single-fire transition;
+## this view owns only the bounded world-space presentation.
+func play_priority_peck_ready_feedback() -> bool:
+	_reset_priority_peck_ready_feedback()
+	_priority_peck_ready_serial += 1
+	var should_animate := (
+		not _reduced_motion
+		and is_inside_tree()
+		and _hen_intent_marker != null
+		and _hen_intent_marker.visible
+		and _priority_peck_ready_halo != null
+	)
+	if _hen_intent_marker != null:
+		_hen_intent_marker.set_meta("priority_peck_ready_serial", _priority_peck_ready_serial)
+		_hen_intent_marker.set_meta("priority_peck_ready_animated", should_animate)
+		_hen_intent_marker.set_meta("priority_peck_ready_active", should_animate)
+	if not should_animate:
+		return false
+	_priority_peck_ready_halo.visible = true
+	_priority_peck_ready_halo.scale = Vector3(0.88, 0.88, 0.88)
+	_priority_peck_ready_halo.modulate = Color(1.0, 0.84, 0.38, 0.86)
+	_priority_peck_ready_halo.set_meta("pulse_serial", _priority_peck_ready_serial)
+	_priority_peck_ready_tween = create_tween().bind_node(_priority_peck_ready_halo)
+	_priority_peck_ready_tween.set_parallel(true)
+	_priority_peck_ready_tween.tween_property(
+		_priority_peck_ready_halo,
+		"scale",
+		PRIORITY_PECK_READY_HALO_SCALE,
+		PRIORITY_PECK_READY_HALO_SECONDS,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_priority_peck_ready_tween.tween_property(
+		_priority_peck_ready_halo,
+		"modulate:a",
+		0.0,
+		PRIORITY_PECK_READY_HALO_SECONDS,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_priority_peck_ready_tween.chain().tween_callback(_finish_priority_peck_ready_feedback)
+	return true
+
+
+## Closes an inspected opportunity with a broken ring that contracts and drops
+## away from the same world pin. The opposing shape and direction communicate a
+## miss without relying on color or adding another label over the floor.
+func play_priority_peck_missed_feedback() -> bool:
+	_reset_priority_peck_ready_feedback()
+	_priority_peck_missed_serial += 1
+	var should_animate := (
+		not _reduced_motion
+		and is_inside_tree()
+		and _hen_intent_marker != null
+		and _hen_intent_marker.visible
+		and _priority_peck_ready_halo != null
+	)
+	if _hen_intent_marker != null:
+		_hen_intent_marker.set_meta("priority_peck_missed_serial", _priority_peck_missed_serial)
+		_hen_intent_marker.set_meta("priority_peck_missed_animated", should_animate)
+		_hen_intent_marker.set_meta("priority_peck_missed_active", should_animate)
+	if not should_animate:
+		return false
+	_priority_peck_ready_halo.texture = _priority_peck_missed_texture()
+	_priority_peck_ready_halo.visible = true
+	_priority_peck_ready_halo.position = _priority_peck_halo_origin
+	_priority_peck_ready_halo.scale = Vector3(1.34, 1.34, 1.34)
+	_priority_peck_ready_halo.modulate = Color(1.0, 1.0, 1.0, 0.9)
+	_priority_peck_ready_halo.set_meta("missed_serial", _priority_peck_missed_serial)
+	_priority_peck_ready_tween = create_tween().bind_node(_priority_peck_ready_halo)
+	_priority_peck_ready_tween.set_parallel(true)
+	_priority_peck_ready_tween.tween_property(
+		_priority_peck_ready_halo,
+		"scale",
+		PRIORITY_PECK_MISSED_HALO_SCALE,
+		PRIORITY_PECK_MISSED_HALO_SECONDS,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_priority_peck_ready_tween.tween_property(
+		_priority_peck_ready_halo,
+		"position",
+		_priority_peck_halo_origin + Vector3(0.0, -0.16, 0.0),
+		PRIORITY_PECK_MISSED_HALO_SECONDS,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_priority_peck_ready_tween.tween_property(
+		_priority_peck_ready_halo,
+		"modulate:a",
+		0.0,
+		PRIORITY_PECK_MISSED_HALO_SECONDS,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	_priority_peck_ready_tween.chain().tween_callback(_finish_priority_peck_ready_feedback)
+	return true
+
+
+## Holds the authored midpoint only for deterministic screenshot fixtures. Live
+## play always uses the bounded tween above and never leaves this halo resident.
+func stage_priority_peck_ready_capture() -> bool:
+	_reset_priority_peck_ready_feedback()
+	if (
+		_hen_intent_marker == null
+		or not _hen_intent_marker.visible
+		or _priority_peck_ready_halo == null
+	):
+		return false
+	_priority_peck_ready_halo.visible = true
+	_priority_peck_ready_halo.scale = Vector3(1.26, 1.26, 1.26)
+	_priority_peck_ready_halo.modulate = Color(1.0, 0.84, 0.38, 0.72)
+	_hen_intent_marker.set_meta("priority_peck_ready_active", true)
+	_hen_intent_marker.set_meta("priority_peck_ready_capture_staged", true)
+	return true
+
+
+## Capture-only midpoint for the real broken-ring retreat. Runtime misses always
+## use `play_priority_peck_missed_feedback` and settle within the bounded beat.
+func stage_priority_peck_missed_capture() -> bool:
+	_reset_priority_peck_ready_feedback()
+	if (
+		_hen_intent_marker == null
+		or not _hen_intent_marker.visible
+		or _priority_peck_ready_halo == null
+	):
+		return false
+	_priority_peck_ready_halo.texture = _priority_peck_missed_texture()
+	_priority_peck_ready_halo.visible = true
+	_priority_peck_ready_halo.position = _priority_peck_halo_origin + Vector3(0.0, -0.08, 0.0)
+	_priority_peck_ready_halo.scale = Vector3(1.16, 1.16, 1.16)
+	_priority_peck_ready_halo.modulate = Color(1.0, 1.0, 1.0, 0.84)
+	_hen_intent_marker.set_meta("priority_peck_missed_active", true)
+	_hen_intent_marker.set_meta("priority_peck_missed_capture_staged", true)
+	return true
+
+
+func _finish_priority_peck_ready_feedback() -> void:
+	_priority_peck_ready_tween = null
+	if _priority_peck_ready_halo != null:
+		_priority_peck_ready_halo.visible = false
+	if _hen_intent_marker != null:
+		_hen_intent_marker.set_meta("priority_peck_ready_active", false)
+		_hen_intent_marker.set_meta("priority_peck_ready_capture_staged", false)
+		_hen_intent_marker.set_meta("priority_peck_missed_active", false)
+		_hen_intent_marker.set_meta("priority_peck_missed_capture_staged", false)
+
+
+func _reset_priority_peck_ready_feedback() -> void:
+	if _priority_peck_ready_tween != null and _priority_peck_ready_tween.is_valid():
+		_priority_peck_ready_tween.kill()
+	_priority_peck_ready_tween = null
+	if _priority_peck_ready_halo != null:
+		_priority_peck_ready_halo.visible = false
+		_priority_peck_ready_halo.position = _priority_peck_halo_origin
+		_priority_peck_ready_halo.scale = Vector3.ONE
+		_priority_peck_ready_halo.modulate = Color.WHITE
+		_priority_peck_ready_halo.texture = _priority_peck_halo_texture()
+	if _hen_intent_marker != null:
+		_hen_intent_marker.set_meta("priority_peck_ready_active", false)
+		_hen_intent_marker.set_meta("priority_peck_ready_capture_staged", false)
+		_hen_intent_marker.set_meta("priority_peck_missed_active", false)
+		_hen_intent_marker.set_meta("priority_peck_missed_capture_staged", false)
+
+
+## Marks the exact hens changed by the authoritative x10 Team Lift receipt.
+## The shared icon is deliberately compact: the routing strip carries the
+## numbers while matching world markers answer "who received it?" at a glance.
+func play_team_lift_feedback(receipt: Dictionary) -> bool:
+	_reset_team_lift_feedback()
+	if _team_lift_marker == null:
+		return false
+	_team_lift_serial += 1
+	_team_lift_receipt = receipt.duplicate(true)
+	var authority_key := String(receipt.get("authority_key", ""))
+	_team_lift_marker.visible = true
+	_team_lift_marker.position = _team_lift_marker_origin
+	_team_lift_marker.scale = Vector3.ONE * (1.0 if _reduced_motion else 0.72)
+	_team_lift_marker.modulate = Color(1.0, 1.0, 1.0, 0.94)
+	_team_lift_marker.set_meta("active", true)
+	_team_lift_marker.set_meta("serial", _team_lift_serial)
+	_team_lift_marker.set_meta("authority_key", authority_key)
+	_team_lift_marker.set_meta("worker_id", worker_id)
+	_team_lift_marker.set_meta("morale_delta", float(receipt.get("morale_delta", 0.0)))
+	_team_lift_marker.set_meta("stress_delta", float(receipt.get("stress_delta", 0.0)))
+	_team_lift_marker.set_meta("fatigue_delta", float(receipt.get("fatigue_delta", 0.0)))
+	_team_lift_marker.set_meta("animated", not _reduced_motion)
+	_team_lift_marker.set_meta("capture_staged", false)
+	_team_lift_tween = create_tween().bind_node(_team_lift_marker)
+	if _reduced_motion:
+		# Hold a static receipt with no travel, scale, flash, or other motion.
+		_team_lift_tween.tween_interval(1.10)
+	else:
+		_team_lift_tween.set_parallel(true)
+		_team_lift_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_team_lift_tween.tween_property(
+			_team_lift_marker,
+			"scale",
+			Vector3.ONE * 1.10,
+			0.22,
+		)
+		_team_lift_tween.tween_property(
+			_team_lift_marker,
+			"position",
+			_team_lift_marker_origin + Vector3(0.0, 0.28, 0.0),
+			0.86,
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_team_lift_tween.tween_property(
+			_team_lift_marker,
+			"modulate:a",
+			0.0,
+			0.34,
+		).set_delay(0.60).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	_team_lift_tween.chain().tween_callback(_finish_team_lift_feedback)
+	return true
+
+
+func stage_team_lift_capture() -> bool:
+	if _team_lift_marker == null or not _team_lift_marker.visible:
+		return false
+	if _team_lift_tween != null and _team_lift_tween.is_valid():
+		_team_lift_tween.pause()
+	_team_lift_marker.position = _team_lift_marker_origin + Vector3(0.0, 0.16, 0.0)
+	_team_lift_marker.scale = Vector3.ONE
+	_team_lift_marker.modulate = Color.WHITE
+	_team_lift_marker.set_meta("capture_staged", true)
+	return true
+
+
+func team_lift_feedback_state() -> Dictionary:
+	return {
+		"active": _team_lift_marker != null and _team_lift_marker.visible,
+		"serial": _team_lift_serial,
+		"animated": bool(_team_lift_marker.get_meta("animated", false)) if _team_lift_marker != null else false,
+		"capture_staged": bool(_team_lift_marker.get_meta("capture_staged", false)) if _team_lift_marker != null else false,
+		"receipt": _team_lift_receipt.duplicate(true),
+	}
+
+
+func _finish_team_lift_feedback() -> void:
+	_team_lift_tween = null
+	if _team_lift_marker != null:
+		_team_lift_marker.visible = false
+		_team_lift_marker.set_meta("active", false)
+		_team_lift_marker.set_meta("capture_staged", false)
+
+
+func _reset_team_lift_feedback() -> void:
+	if _team_lift_tween != null and _team_lift_tween.is_valid():
+		_team_lift_tween.kill()
+	_team_lift_tween = null
+	if _team_lift_marker != null:
+		_team_lift_marker.visible = false
+		_team_lift_marker.position = _team_lift_marker_origin
+		_team_lift_marker.scale = Vector3.ONE
+		_team_lift_marker.modulate = Color.WHITE
+		_team_lift_marker.set_meta("active", false)
+		_team_lift_marker.set_meta("capture_staged", false)
+
+
+static func _team_lift_texture() -> Texture2D:
+	if _team_lift_marker_texture != null:
+		return _team_lift_marker_texture
+	# Heart + three upward chevrons reads as one flock-wide recovery token.
+	var svg := (
+		"<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'>"
+		+ "<circle cx='36' cy='36' r='32' fill='#101a21' fill-opacity='.95' stroke='#fff0b8' stroke-width='3'/>"
+		+ "<path d='M36 57 L16 38 C6 25 15 12 27 16 C32 18 35 23 36 27 C37 23 40 18 45 16 C57 12 66 25 56 38 Z' fill='#d9778b'/>"
+		+ "<path d='M22 38 L27 32 L32 38 M30 45 L36 38 L42 45 M40 38 L45 32 L50 38' fill='none' stroke='#fff9df' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/>"
+		+ "</svg>"
+	)
+	var image := Image.new()
+	if image.load_svg_from_string(svg, 1.0) != OK:
+		return null
+	_team_lift_marker_texture = ImageTexture.create_from_image(image)
+	return _team_lift_marker_texture
+
+
+static func _priority_peck_halo_texture() -> Texture2D:
+	if _priority_peck_ready_halo_texture != null:
+		return _priority_peck_ready_halo_texture
+	var svg := (
+		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
+		+ "<circle cx='32' cy='32' r='27' fill='none' stroke='#f1d681' stroke-opacity='.92' stroke-width='4'/>"
+		+ "<circle cx='32' cy='32' r='22' fill='none' stroke='#fff0b8' stroke-opacity='.52' stroke-width='2'/>"
+		+ "</svg>"
+	)
+	var image := Image.new()
+	if image.load_svg_from_string(svg, 1.0) != OK:
+		return null
+	_priority_peck_ready_halo_texture = ImageTexture.create_from_image(image)
+	return _priority_peck_ready_halo_texture
+
+
+static func _priority_peck_missed_texture() -> Texture2D:
+	if _priority_peck_missed_halo_texture != null:
+		return _priority_peck_missed_halo_texture
+	var svg := (
+		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
+		+ "<path d='M6 27 A27 27 0 0 1 24 7' fill='none' stroke='#d96e62' stroke-width='4.5' stroke-linecap='round'/>"
+		+ "<path d='M40 7 A27 27 0 0 1 58 27' fill='none' stroke='#d96e62' stroke-width='4.5' stroke-linecap='round'/>"
+		+ "<path d='M58 38 A27 27 0 0 1 42 56' fill='none' stroke='#f29a82' stroke-width='4.5' stroke-linecap='round'/>"
+		+ "<path d='M22 56 A27 27 0 0 1 6 38' fill='none' stroke='#f29a82' stroke-width='4.5' stroke-linecap='round'/>"
+		+ "<path d='M24 49 L32 58 L40 49' fill='none' stroke='#fff0d0' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/>"
+		+ "</svg>"
+	)
+	var image := Image.new()
+	if image.load_svg_from_string(svg, 1.0) != OK:
+		return null
+	_priority_peck_missed_halo_texture = ImageTexture.create_from_image(image)
+	return _priority_peck_missed_halo_texture
+
+
+func hen_intent_snapshot() -> Dictionary:
+	return _hen_intent.duplicate(true)
+
+
+func hen_intent_world_position() -> Vector3:
+	if _hen_intent_marker != null and _hen_intent_marker.visible:
+		return _hen_intent_marker.global_position
+	return global_position
+
+
+static func hen_intent_icon_texture(
+	icon: StringName,
+	progress_bucket: int = -1,
+	urgency: int = 1,
+) -> Texture2D:
+	var cache_key := "%s:%d:%d" % [String(icon), progress_bucket, urgency]
+	if _hen_intent_texture_cache.has(cache_key):
+		return _hen_intent_texture_cache[cache_key]
+	var fill := String(HEN_INTENT_COLORS.get(icon, "729b70"))
+	var symbol := String(HEN_INTENT_SYMBOLS.get(icon, HEN_INTENT_SYMBOLS[&"steady"]))
+	var ring := ""
+	if progress_bucket >= 0:
+		var ring_length := snappedf(175.93 * float(progress_bucket) / 5.0, 0.01)
+		ring = (
+			"<circle cx='32' cy='32' r='28' fill='none' stroke='#35444b' stroke-width='4'/>"
+			+ "<circle cx='32' cy='32' r='28' fill='none' stroke='#fff0b8' stroke-width='%d' stroke-linecap='round' stroke-dasharray='%.2f 175.93' transform='rotate(-90 32 32)'/>" % [5 if urgency >= 3 else 4, ring_length]
+		)
+	var svg := (
+		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
+		+ "<path d='M25 53 L39 53 L32 63 Z' fill='#101a21' fill-opacity='.92' stroke='#f6e5b5' stroke-width='2' stroke-linejoin='round'/>"
+		+ "<circle cx='32' cy='32' r='29' fill='#101a21' fill-opacity='.92' stroke='#f6e5b5' stroke-width='2'/>"
+		+ ring
+		+ "<circle cx='32' cy='32' r='22' fill='#%s'/>" % fill
+		+ "<path d='%s' fill='#fff8dc' fill-rule='evenodd'/>" % symbol
+		+ "</svg>"
+	)
+	var image := Image.new()
+	var load_error := image.load_svg_from_string(svg, 1.0)
+	if load_error != OK:
+		return null
+	var texture := ImageTexture.create_from_image(image)
+	_hen_intent_texture_cache[cache_key] = texture
+	return texture
+
+
+func _apply_flock_bond(bond: Dictionary) -> void:
+	_flock_bond = bond.duplicate(true)
+	if _flock_bond_marker == null:
+		return
+	var score := int(bond.get("score", 50))
+	var signal_kind: StringName = &""
+	if score >= 75:
+		signal_kind = &"clutchmates"
+	elif score >= 60:
+		signal_kind = &"good_perch"
+	elif score < 30:
+		signal_kind = &"withdrawn"
+	_flock_bond_marker.visible = signal_kind != &""
+	if not _flock_bond_marker.visible:
+		_flock_bond_marker.texture = null
+		_flock_bond_marker.set_meta("signal_kind", &"")
+		return
+	_flock_bond_marker.texture = _flock_bond_texture(signal_kind)
+	_flock_bond_marker.modulate = Color.WHITE
+	_flock_bond_marker.set_meta("signal_kind", signal_kind)
+	_flock_bond_marker.set_meta("score", score)
+	_flock_bond_marker.set_meta("partner_id", int(bond.get("partner_id", -1)))
+
+
+func flock_bond_snapshot() -> Dictionary:
+	return _flock_bond.duplicate(true)
+
+
+func flock_bond_world_position() -> Vector3:
+	if _flock_bond_marker != null and _flock_bond_marker.visible:
+		return _flock_bond_marker.global_position
+	return global_position
+
+
+func _flock_bond_texture(signal_kind: StringName) -> Texture2D:
+	if _flock_bond_texture_cache.has(signal_kind):
+		return _flock_bond_texture_cache[signal_kind]
+	var fill := String(FLOCK_BOND_COLORS.get(signal_kind, "71b99c"))
+	var symbol := String(FLOCK_BOND_SYMBOLS.get(
+		signal_kind,
+		FLOCK_BOND_SYMBOLS[&"good_perch"],
+	))
+	var svg := (
+		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
+		+ "<circle cx='32' cy='32' r='28' fill='#101a21' fill-opacity='.90' stroke='#f6e5b5' stroke-width='3'/>"
+		+ "<circle cx='32' cy='32' r='23' fill='#%s'/>" % fill
+		+ "<path d='%s' fill='#fff8dc' fill-rule='evenodd'/>" % symbol
+		+ "</svg>"
+	)
+	var image := Image.new()
+	var load_error := image.load_svg_from_string(svg, 1.0)
+	if load_error != OK:
+		return null
+	var texture := ImageTexture.create_from_image(image)
+	_flock_bond_texture_cache[signal_kind] = texture
+	return texture
 
 
 func _apply_character_shadow_budget() -> void:

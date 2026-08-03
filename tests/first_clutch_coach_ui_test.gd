@@ -31,6 +31,8 @@ func _run() -> void:
 	var assignments := routing_ui.find_child("RoutingAssignments", true, false) as GridContainer
 	var personnel_actions := routing_ui.find_child("PersonnelActions", true, false) as VBoxContainer
 	var personnel_status := routing_ui.find_child("RoutingPersonnelStatus", true, false) as HBoxContainer
+	var check_in_status := routing_ui.find_child("RoutingCheckInStatus", true, false) as Label
+	var dossier_summary := routing_ui.find_child("RoutingDossierSummary", true, false) as Label
 	var assist_row := routing_ui.find_child("RoutingAssistRow", true, false) as HBoxContainer
 	var details := routing_ui.find_child("RoutingDetailsToggle", true, false) as Button
 	var dossier_tabs := routing_ui.find_child("RoutingDossierTabs", true, false) as HBoxContainer
@@ -38,6 +40,8 @@ func _run() -> void:
 	var support_tab := routing_ui.find_child("DossierTab_support", true, false) as Button
 	var profile_tab := routing_ui.find_child("DossierTab_profile", true, false) as Button
 	var worker_career := routing_ui.find_child("RoutingWorkerCareer", true, false) as Label
+	var worker_specialty := routing_ui.find_child("RoutingWorkerSpecialty", true, false) as Label
+	var routing_hint := routing_ui.find_child("RoutingAutomationHint", true, false) as Label
 	var manager_trust := routing_ui.find_child("RoutingManagerTrust", true, false) as Label
 	var grievance := routing_ui.find_child("RoutingGrievance", true, false) as Label
 	var share_credit := routing_ui.find_child("PersonnelAction_share_credit", true, false) as Button
@@ -113,6 +117,9 @@ func _run() -> void:
 	_check(details != null and details.is_visible_in_tree(), "the compact dossier should retain an accessible Details disclosure", failures)
 	_check(worker_career != null and not worker_career.visible, "advanced career copy should default collapsed", failures)
 	_check(assign_appeals != null and bool(assign_appeals.get_meta("first_clutch_cue", false)), "route stage should cue the exact requested lane", failures)
+	_check(assign_appeals != null and "[ENTER]" in assign_appeals.text, "the coached tray should disclose its direct keyboard action", failures)
+	_check(worker_specialty != null and "APPEALS" in worker_specialty.text and "BEST FIT" in worker_specialty.text, "the compact hen identity should visually explain why the coached tray matches", failures)
+	_check(routing_hint != null and "BEST FIT" in routing_hint.text and "APPEALS" in routing_hint.text and "ENTER" in routing_hint.text, "the route hint should collapse automation detail into one glanceable match action", failures)
 	_check(assign_auto != null and not bool(assign_auto.get_meta("first_clutch_cue", false)), "route stage should not cue an unrelated lane", failures)
 	_check(root.gui_get_focus_owner() == focus_before, "applying a dossier cue must not steal keyboard focus", failures)
 	var route_presentation := routing_ui.first_clutch_presentation_state()
@@ -174,6 +181,10 @@ func _run() -> void:
 	_check(queue != null and not queue.visible, "check-in stage should hide unrelated queue chrome", failures)
 	_check(root.gui_get_focus_owner() == share_credit, "stage disclosure should move focus from a hidden route action to the coached check-in", failures)
 	_check(share_credit != null and bool(share_credit.get_meta("first_clutch_cue", false)), "check-in stage should cue the exact profile-fit action", failures)
+	_check(share_credit != null and "[ENTER]" in share_credit.text, "the profile-fit stamp should disclose its direct keyboard action", failures)
+	_check(worker_specialty != null and "PROFILE" in worker_specialty.text and "CREDIT CONSCIOUS" in worker_specialty.text, "the hen identity should replace unrelated route data with the active work profile", failures)
+	_check(dossier_summary != null and dossier_summary.is_visible_in_tree() and "CREDIT CONSCIOUS" in dossier_summary.text and "SHARE CREDIT" in dossier_summary.text and "TRUST +" in dossier_summary.text, "the empty dossier center should become a compact profile-fit and consequence preview", failures)
+	_check(check_in_status != null and "1 OF 1 LEFT" in check_in_status.text and "PERMANENT" in check_in_status.text, "the filing status should summarize scarcity and permanence", failures)
 	_check(career_coach != null and not bool(career_coach.get_meta("first_clutch_cue", false)), "check-in stage should clear unrelated personnel cues", failures)
 	_check(assign_appeals != null and not bool(assign_appeals.get_meta("first_clutch_cue", false)), "changing stages should restore the previous route control", failures)
 

@@ -18,6 +18,8 @@ func _run() -> void:
 	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
 	var stay_paused_button := office.find_child("ResolveStayPausedButton", true, false) as Button
 	var decision_title := office.find_child("DecisionTitle", true, false) as Label
+	var decision_body := office.find_child("DecisionBody", true, false) as Label
+	var decision_order_heading := office.find_child("DecisionOrderHeading", true, false) as Label
 	var decision_order_glance := office.find_child("DecisionOrderGlance", true, false) as GridContainer
 	var decision_preview := office.find_child("DecisionPreview", true, false) as Label
 	var directive_badge := office.get("_directive_badge") as Label
@@ -47,6 +49,9 @@ func _run() -> void:
 	_check(
 		decision_title != null
 		and decision_title.text == "PICK TODAY'S FLOCK RULE"
+		and decision_order_heading != null
+		and decision_order_heading.text == "TODAY'S GOALS"
+		and decision_order_heading.is_visible_in_tree()
 		and decision_order_glance != null
 		and decision_order_glance.is_visible_in_tree()
 		and decision_order_glance.columns == 3,
@@ -75,6 +80,9 @@ func _run() -> void:
 		failures,
 	)
 	if diagnostic_options.size() >= 3:
+		var harvest_effects := (diagnostic_options[0] as Dictionary).get("effect_chips", []) as Array
+		var assurance_effects := (diagnostic_options[1] as Dictionary).get("effect_chips", []) as Array
+		var care_effects := (diagnostic_options[2] as Dictionary).get("effect_chips", []) as Array
 		var harvest_fit := (diagnostic_options[0] as Dictionary).get("order_fit", {}) as Dictionary
 		var assurance_fit := (diagnostic_options[1] as Dictionary).get("order_fit", {}) as Dictionary
 		var care_fit := (diagnostic_options[2] as Dictionary).get("order_fit", {}) as Dictionary
@@ -84,6 +92,20 @@ func _run() -> void:
 			and bool((diagnostic_options[0] as Dictionary).get("available", false))
 			and String((diagnostic_options[2] as Dictionary).get("id", "")) == "sustainable_flock",
 			"decision diagnostics should preserve visible ordering, stable IDs, and availability",
+			failures,
+		)
+		_check(
+			harvest_effects.size() == 3
+			and String((harvest_effects[0] as Dictionary).get("copy", "")) == "PACE +10%"
+			and String((harvest_effects[1] as Dictionary).get("copy", "")) == "STRAIN +20%"
+			and String((harvest_effects[2] as Dictionary).get("copy", "")) == "RISK +4%"
+			and assurance_effects.size() == 3
+			and String((assurance_effects[0] as Dictionary).get("copy", "")) == "PACE -7%"
+			and String((assurance_effects[1] as Dictionary).get("copy", "")) == "RISK -5%"
+			and String((assurance_effects[2] as Dictionary).get("copy", "")) == "RULES +3"
+			and care_effects.size() == 3
+			and String((care_effects[2] as Dictionary).get("copy", "")) == "FEED +$6",
+			"directive authority should expose three compact, exact effect chips for every policy",
 			failures,
 		)
 		_check(
@@ -100,29 +122,48 @@ func _run() -> void:
 		)
 
 	var harvest_button := office.find_child("DecisionOption_record_harvest", true, false) as Button
+	var harvest_chip_row := office.find_child("DecisionEffectChips_record_harvest", true, false) as HBoxContainer
 	_check(
 		harvest_button != null
 		and not harvest_button.disabled
-		and "1  //  HARVEST" in harvest_button.text
+		and "1  HARVEST" in harvest_button.text
 		and "INITIATIVE" not in harvest_button.text
-		and "HELPS 1  /  RISKS 2" in harvest_button.text,
+		and "1 HELP  ·  2 WATCH" in harvest_button.text
+		and harvest_chip_row != null
+		and harvest_chip_row.get_child_count() == 3,
 		"record harvest should expose a readable short label and intuitive Day 1 tradeoff before selection",
 		failures,
 	)
 	_press(harvest_button)
 	_check(confirm_button != null and not confirm_button.disabled, "selecting a directive should enable authorization", failures)
 	_check(
-		confirm_button != null and confirm_button.text == "AUTHORIZE RULE  >",
+		decision_title != null
+		and not decision_title.is_visible_in_tree()
+		and decision_title.text == "PICK TODAY'S FLOCK RULE"
+		and decision_body != null
+		and decision_body.text == "Check the goal colors, then start.",
+		"selecting a rule should collapse the completed prompt and replace stale guidance",
+		failures,
+	)
+	_check(
+		confirm_button != null and confirm_button.text == "START SHIFT  ·  HARVEST",
 		"the opening confirmation should state the immediate action without another briefing phrase",
 		failures,
 	)
 	_check(
 		decision_preview != null
-		and "TODAY'S ORDER FIT" in decision_preview.text
-		and "SUPPORTS: OPENING CLUTCH" in decision_preview.text
-		and "WATCH: SOUND START, SETTLED FLOCK" in decision_preview.text
-		and "FILE EDGE  //  OUTPUT + QUEUE CONTROL" in decision_preview.text,
-		"selected policy should disclose exact supported orders, watched orders, and long-run edge",
+		and "HARVEST  ·  1 HELP  ·  2 WATCH" in decision_preview.text
+		and "EDGE  ·  OUTPUT + QUEUE CONTROL" in decision_preview.text
+		and "TODAY'S ORDER FIT" in String(decision_preview.get_meta("accessible_text", ""))
+		and "SUPPORTS: OPENING CLUTCH" in String(decision_preview.get_meta("accessible_text", ""))
+		and "WATCH: SOUND START, SETTLED FLOCK" in String(decision_preview.get_meta("accessible_text", "")),
+		"selected policy should show a compact result while retaining exact fit for assistive output",
+		failures,
+	)
+	_check(
+		decision_order_heading != null
+		and decision_order_heading.text == "TODAY'S GOALS  ·  TEAL HELPS  ·  AMBER WATCH",
+		"selected policy should turn the goal row into the visual help/watch explanation",
 		failures,
 	)
 	decision_diagnostic = office.call("_pending_decision_diagnostic_state") as Dictionary

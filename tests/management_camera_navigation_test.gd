@@ -343,6 +343,154 @@ func _run() -> void:
 		failures,
 	)
 
+	_stage = "physical context target"
+	controller.set_reduced_motion(true)
+	controller.show_overview()
+	var context_worker := ChickenView.new()
+	context_worker.name = "Chicken_Context_Hen"
+	context_worker.configure({
+		"id": 7,
+		"name": "Context Hen",
+		"desk_index": 0,
+		"state": ChickenState.WorkState.WORKING,
+		"progress": 42.0,
+		"stress": 18.0,
+		"current_claim": {"id": 81, "lane": &"nest_damage"},
+	})
+	context_worker.position = home_target
+	stage.add_child(context_worker)
+	controller.register_worker(7, context_worker)
+	var context_point := Node3D.new()
+	context_point.name = "WorkProgressRailTarget"
+	context_point.position = home_target + Vector3(2.4, 1.35, 0.0)
+	stage.add_child(context_point)
+	controller.register_worker_context_point(7, context_point, &"work_progress")
+	var context_events: Array[Dictionary] = []
+	var focus_contexts: Array[StringName] = []
+	var hover_events: Array[Dictionary] = []
+	controller.focus_changed.connect(
+		func(_label: String, worker_id: int) -> void:
+			if worker_id == 7:
+				focus_contexts.append(controller.active_selection_context())
+	)
+	controller.context_action_selected.connect(
+		func(worker_id: int, context_id: StringName) -> void:
+			context_events.append({"worker_id": worker_id, "context_id": context_id})
+	)
+	controller.context_hover_changed.connect(
+		func(worker_id: int, context_id: StringName, hovered: bool) -> void:
+			hover_events.append({
+				"worker_id": worker_id,
+				"context_id": context_id,
+				"hovered": hovered,
+			})
+	)
+	await process_frame
+	var context_screen := camera.unproject_position(context_point.global_position)
+	await _send_controller_mouse_motion(controller, Vector2.ZERO, context_screen)
+	var hover_state := controller.navigation_state().get("context_hover", {}) as Dictionary
+	_check(
+		hover_events.size() == 1
+		and int(hover_events[0].get("worker_id", -1)) == 7
+		and bool(hover_events[0].get("hovered", false))
+		and StringName(hover_events[0].get("context_id", &"")) == &"work_progress"
+		and int(hover_state.get("worker_id", -1)) == 7
+		and String(hover_state.get("cursor", "")) == "pointing_hand",
+		"hovering a projected rail should expose one semantic hover and pointing cursor",
+		failures,
+	)
+	var hover_blocker := Panel.new()
+	hover_blocker.name = "HoverBlockingHudFixture"
+	hover_blocker.position = context_screen - Vector2(28.0, 28.0)
+	hover_blocker.size = Vector2(56.0, 56.0)
+	hover_blocker.mouse_filter = Control.MOUSE_FILTER_STOP
+	root.add_child(hover_blocker)
+	await process_frame
+	await _send_mouse_motion(Vector2.ZERO, context_screen)
+	await process_frame
+	hover_state = controller.navigation_state().get("context_hover", {}) as Dictionary
+	_check(
+		int(hover_state.get("worker_id", -1)) == -1
+		and String(hover_state.get("cursor", "")) == "arrow"
+		and not bool(hover_events[hover_events.size() - 1].get("hovered", true)),
+		"entering a blocking HUD control should clear the world hover and hand cursor",
+		failures,
+	)
+	hover_blocker.free()
+	await process_frame
+	context_screen = camera.unproject_position(context_point.global_position)
+	await _send_controller_mouse_motion(controller, Vector2.ZERO, context_screen)
+	var hover_event_count_before_click := hover_events.size()
+	context_screen = camera.unproject_position(context_point.global_position)
+	await _send_controller_mouse_button(controller, MOUSE_BUTTON_LEFT, true, context_screen)
+	await _send_controller_mouse_button(controller, MOUSE_BUTTON_LEFT, false, context_screen)
+	_check(
+		context_events.size() == 1
+		and int(context_events[0].get("worker_id", -1)) == 7
+		and StringName(context_events[0].get("context_id", &"")) == &"work_progress"
+		and focus_contexts == [&"work_progress"]
+		and hover_events.size() == hover_event_count_before_click + 1
+		and not bool(hover_events[hover_events.size() - 1].get("hovered", true))
+		and controller.active_selection_context() == &""
+		and int(controller.navigation_state().get("focused_worker_id", -1)) == 7,
+		"clicking the projected physical rail should scope its context to one focus handoff [events=%s focus_contexts=%s active=%s focused=%d target=%s]" % [
+			str(context_events),
+			str(focus_contexts),
+			String(controller.active_selection_context()),
+			int(controller.navigation_state().get("focused_worker_id", -1)),
+			str(controller.navigation_state().get("context_points", [])),
+		],
+		failures,
+	)
+	controller.show_overview()
+	context_events.clear()
+	await process_frame
+	context_screen = camera.unproject_position(context_point.global_position)
+	await _send_controller_touch(controller, 0, context_screen, true)
+	await _send_controller_touch(controller, 0, context_screen, false)
+	_check(
+		context_events.size() == 1
+		and StringName(context_events[0].get("context_id", &"")) == &"work_progress",
+		"a one-finger tap should use the same physical rail context handoff",
+		failures,
+	)
+	context_point.visible = false
+	controller.show_overview()
+	context_events.clear()
+	hover_events.clear()
+	await process_frame
+	context_screen = camera.unproject_position(context_point.global_position)
+	await _send_controller_mouse_motion(controller, Vector2.ZERO, context_screen)
+	hover_state = controller.navigation_state().get("context_hover", {}) as Dictionary
+	await _send_controller_mouse_button(controller, MOUSE_BUTTON_LEFT, true, context_screen)
+	await _send_controller_mouse_button(controller, MOUSE_BUTTON_LEFT, false, context_screen)
+	_check(
+		context_events.is_empty() and hover_events.is_empty()
+		and int(hover_state.get("worker_id", -1)) == -1
+		and String(hover_state.get("cursor", "")) == "arrow",
+		"a hidden or vacant rail must not leave a ghost context target",
+		failures,
+	)
+	context_point.visible = true
+	context_screen = camera.unproject_position(context_point.global_position)
+	await _send_controller_mouse_motion(controller, Vector2.ZERO, context_screen)
+	_check(
+		int((controller.navigation_state().get("context_hover", {}) as Dictionary).get("worker_id", -1)) == 7,
+		"a restored live rail should reacquire its hover without rebuilding the controller",
+		failures,
+	)
+	controller.unregister_worker(7)
+	controller.clear_worker_context_points()
+	controller.refresh_context_hover()
+	_check(
+		int((controller.navigation_state().get("context_hover", {}) as Dictionary).get("worker_id", -1)) == -1,
+		"unregistering a hovered worker should immediately restore the neutral cursor",
+		failures,
+	)
+	context_worker.queue_free()
+	context_point.queue_free()
+	controller.set_reduced_motion(false)
+
 	_stage = "input context lock"
 	controller.set_process_input(false)
 	controller.set_process_unhandled_input(false)
@@ -392,6 +540,46 @@ func _send_mouse_button(button: MouseButton, pressed: bool, position: Vector2) -
 	event.position = position
 	event.pressed = pressed
 	Input.parse_input_event(event)
+	await process_frame
+
+
+func _send_controller_mouse_button(
+	controller: ManagementCameraController,
+	button: MouseButton,
+	pressed: bool,
+	position: Vector2,
+) -> void:
+	var event := InputEventMouseButton.new()
+	event.button_index = button
+	event.position = position
+	event.pressed = pressed
+	controller.call("_unhandled_input", event)
+	await process_frame
+
+
+func _send_controller_mouse_motion(
+	controller: ManagementCameraController,
+	relative: Vector2,
+	position: Vector2,
+) -> void:
+	var event := InputEventMouseMotion.new()
+	event.relative = relative
+	event.position = position
+	controller.call("_unhandled_input", event)
+	await process_frame
+
+
+func _send_controller_touch(
+	controller: ManagementCameraController,
+	index: int,
+	position: Vector2,
+	pressed: bool,
+) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index = index
+	event.position = position
+	event.pressed = pressed
+	controller.call("_unhandled_input", event)
 	await process_frame
 
 

@@ -28,9 +28,36 @@ func _run() -> void:
 	var review_continue := office.find_child("BeginNextShiftButton", true, false) as Button
 	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
 	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
+	var guidance := office.get("_guidance_label") as Label
+	var guidance_icon := office.find_child("GuidanceIcon", true, false) as Control
+	var guidance_action := office.find_child("GuidanceActionButton", true, false) as Button
 	_check(clock != null and clock.speed_index == 0, "first shift should begin paused for its morning directive", failures)
 	_check(decision_host != null and decision_host.is_visible_in_tree(), "opening directive should be presented as a blocking decision", failures)
+	_check(
+		guidance != null
+		and guidance_icon != null
+		and guidance_action != null
+		and not guidance_action.disabled
+		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"decision"
+		and guidance.text == "DECIDE: CHOOSE + AUTHORIZE ONE POLICY"
+		and guidance.text.length() <= 40
+		and "select a policy card" in String(guidance.get_meta("accessible_text", "")).to_lower()
+		and guidance.tooltip_text == String(guidance.get_meta("accessible_text", ""))
+		and guidance_icon.tooltip_text == guidance.tooltip_text,
+		"the HUD should expose one compact next action with the exact explanation available semantically",
+		failures,
+	)
+	if guidance_action != null:
+		guidance_action.pressed.emit()
+	await process_frame
+	var guided_focus := root.get_viewport().gui_get_focus_owner()
+	_check(
+		guided_focus != null and guided_focus.name.begins_with("DecisionOption_"),
+		"activating the next-move cue should focus the first safe policy action without authorizing it",
+		failures,
+	)
 	var assurance_option := office.find_child("DecisionOption_shell_assurance", true, false) as Button
+	var assurance_chip_row := office.find_child("DecisionEffectChips_shell_assurance", true, false) as HBoxContainer
 	var confirm_decision := office.find_child("ConfirmDecisionButton", true, false) as Button
 	var decision_body := office.find_child("DecisionBody", true, false) as Label
 	var decision_order_glance := office.find_child("DecisionOrderGlance", true, false) as GridContainer
@@ -39,8 +66,17 @@ func _run() -> void:
 	var welfare_order := office.find_child("DecisionOrderValue_2", true, false) as Label
 	_check(assurance_option != null and confirm_decision != null, "directive modal should expose selectable policy cards and authorization", failures)
 	_check(
+		assurance_chip_row != null
+		and assurance_chip_row.get_child_count() == 3
+		and office.find_child("DecisionEffectChip_shell_assurance_pace", true, false) != null
+		and office.find_child("DecisionEffectChip_shell_assurance_risk", true, false) != null
+		and office.find_child("DecisionEffectChip_shell_assurance_compliance", true, false) != null,
+		"the Assurance card should preview pace, shell risk, and rules with three icon-led chips",
+		failures,
+	)
+	_check(
 		decision_body != null
-		and decision_body.text == "One rule shapes every hen this shift. Pick a card to reveal its exact tradeoffs."
+		and decision_body.text == "Choose one rule for the whole flock."
 		and decision_order_glance != null
 		and decision_order_glance.is_visible_in_tree()
 		and opening_order != null
@@ -60,7 +96,120 @@ func _run() -> void:
 	_check(not decision_host.is_visible_in_tree(), "authorizing a directive should close the decision modal", failures)
 	_check(StringName(simulation.active_directive_snapshot().get("id", &"")) == &"shell_assurance", "authorized directive should become authoritative", failures)
 	_check(clock.speed_index == 1, "authorizing the morning directive should start the shift", failures)
+	var outcome_receipt := office.get("_latest_action_outcome_receipt") as Dictionary
+	var outcome_ids: Array[StringName] = []
+	var outcome_copy: Array[String] = []
+	for entry_value in outcome_receipt.get("entries", []):
+		outcome_ids.append(StringName((entry_value as Dictionary).get("id", &"")))
+		outcome_copy.append(String((entry_value as Dictionary).get("copy", "")))
+	_check(
+		bool(outcome_receipt.get("visible", false))
+		and &"pace" in outcome_ids
+		and &"risk" in outcome_ids
+		and &"compliance" in outcome_ids
+		and outcome_copy == ["PACE -7%", "RISK -5%", "RULES +3"]
+		and not office.find_children("ActionOutcomeReceipt_*", "PanelContainer", true, false).is_empty(),
+		"authorizing a policy should immediately show authoritative production, shell-risk, and compliance consequence receipts [receipt=%s nodes=%d]" % [
+			str(outcome_receipt),
+			office.find_children("ActionOutcomeReceipt_*", "PanelContainer", true, false).size(),
+		],
+		failures,
+	)
+	var save_before_receipt_handoff := simulation.export_save_state()
+	var audio_feedback = office.get("_audio_feedback")
+	var audio_serial_before_handoff := int(audio_feedback.feedback_snapshot().get(
+		"cue_serial",
+		-1,
+	))
+	office.call("_set_flockwatch_open", true)
+	await process_frame
+	await process_frame
+	var archived_outcome_receipt := office.get("_latest_action_outcome_receipt") as Dictionary
+	_check(
+		not bool(archived_outcome_receipt.get("visible", true))
+		and String(archived_outcome_receipt.get("dismissed_by", "")) == "flockwatch"
+		and int(archived_outcome_receipt.get("retired_panel_count", -1)) == 3
+		and (archived_outcome_receipt.get("entries", []) as Array).size() == 3
+		and office.find_children("ActionOutcomeReceipt_*", "PanelContainer", true, false).is_empty(),
+		"opening the ledger should archive the semantic result and retire every overlapping transient card",
+		failures,
+	)
+	_check(
+		simulation.export_save_state() == save_before_receipt_handoff
+		and int(audio_feedback.feedback_snapshot().get("cue_serial", -2)) == audio_serial_before_handoff,
+		"the receipt-to-ledger handoff should remain save-neutral and silent",
+		failures,
+	)
+	office.call("_set_flockwatch_open", false)
+	await process_frame
+	var money_before := simulation.snapshot()
+	var money_after := money_before.duplicate(true)
+	money_after["revenue_cents"] = int(money_before.get("revenue_cents", 0)) - 700
+	var money_entries := office.call(
+		"_decision_consequence_entries",
+		money_before,
+		money_after,
+	) as Array
+	_check(
+		not money_entries.is_empty()
+		and StringName((money_entries[0] as Dictionary).get("id", &"")) == &"fund"
+		and String((money_entries[0] as Dictionary).get("copy", "")) == "FUND -$7.00",
+		"a funded choice should map its exact Feed Fund delta to the money receipt family",
+		failures,
+	)
 	clock.set_speed(0)
+	await process_frame
+	var ticker_panel := office.get("_ticker_panel") as PanelContainer
+	var status_history := office.get("_status_history") as Array[String]
+	_check(
+		guidance != null
+		and guidance_action != null
+		and guidance.text == "NEXT: OPEN TODAY'S GOALS"
+		and guidance.text.length() <= 40
+		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"today"
+		and "open today's goals" in String(guidance.get_meta("accessible_text", "")).to_lower(),
+		"pausing should replace prose with a short state-aware next move",
+		failures,
+	)
+	_check(
+		ticker_panel != null
+		and not ticker_panel.visible
+		and not status_history.is_empty()
+		and "SHIFT PAUSED" in status_history[0],
+		"the always-visible pause controls should suppress the duplicate floor toast while preserving its Shift Record entry",
+		failures,
+	)
+	var paused_accessibility := String(
+		office.call("_web_accessibility_summary", simulation.snapshot())
+	)
+	_check(
+		"While paused, open today's goals to choose the most useful intervention." in paused_accessibility,
+		"assistive narration should retain the exact next-move explanation hidden from the compact HUD",
+		failures,
+	)
+	if guidance_action != null:
+		guidance_action.pressed.emit()
+	await process_frame
+	var flockwatch_panel := office.find_child("FlockwatchLedger", true, false) as PanelContainer
+	var flockwatch_navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
+	var latest_feedback := office.find_child("FlockwatchLatestFeedbackCopy", true, false) as Label
+	_check(
+		flockwatch_panel != null
+		and flockwatch_panel.is_visible_in_tree()
+		and flockwatch_navigation != null
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_TODAY,
+		"activating the paused next-move cue should open Today's Goals directly",
+		failures,
+	)
+	_check(
+		latest_feedback != null
+		and latest_feedback.text == "LATEST NOTICE  /  PAUSED  ·  TIME SAFE"
+		and "SHIFT PAUSED" in latest_feedback.tooltip_text,
+		"Today's visible archive glance should compact the routine pause echo while preserving the exact notice semantically",
+		failures,
+	)
+	office.call("_set_flockwatch_open", false)
+	await process_frame
 	var campaign_objectives := office.find_child("CampaignObjectivesLabel", true, false) as Label
 	var badge_order_progress := office.find_child("ProbationOrderProgressLabel", true, false) as Label
 	_check(

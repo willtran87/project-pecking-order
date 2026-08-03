@@ -61,7 +61,7 @@ func _init() -> void:
 
 
 func _test_v14_active_and_result_round_trips(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 28, "internship program state should own simulation schema v28", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 30, "bound Golden Files should own simulation schema v30", failures)
 	var active_sim := _room_simulation(9940, 12)
 	_check(bool(active_sim.sign_market_contract(HIGH, &"specialist_roost_endorsement").get("accepted", false)), "active round-trip fixture should sign Specialist Roost", failures)
 	var active_export := active_sim.export_save_state()

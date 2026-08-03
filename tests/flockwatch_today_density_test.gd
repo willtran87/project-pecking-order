@@ -47,6 +47,18 @@ func _run() -> void:
 	var clutch_glance := office.find_child("FlockwatchTodayEggsGlance", true, false) as Label
 	var flock_glance := office.find_child("FlockwatchTodayFlockGlance", true, false) as Label
 	var cash_glance := office.find_child("FlockwatchTodayCashGlance", true, false) as Label
+	var snapshot_heading := office.find_child("FlockwatchTodaySnapshotHeading", true, false) as Label
+	var glance_icons: Array[Node] = []
+	for icon_name: String in [
+		"FlockwatchTodayCasesGlanceIcon",
+		"FlockwatchTodayEggsGlanceIcon",
+		"FlockwatchTodayFlockGlanceIcon",
+		"FlockwatchTodayCashGlanceIcon",
+		"CampaignSafeguardGlanceIcon",
+		"FlockCompactGlanceIcon",
+		"WorkToRuleGlanceIcon",
+	]:
+		glance_icons.append(office.find_child(icon_name, true, false))
 	var orders_heading := office.find_child("CampaignOrdersHeading", true, false) as Label
 	var objectives := office.find_child("CampaignObjectivesLabel", true, false) as Label
 	var order_glances := office.find_children("CampaignOrderGlance*", "Label", true, false)
@@ -63,12 +75,17 @@ func _run() -> void:
 	_check(
 		[
 			simulation, navigation, snapshot_panel, workload, clutch, flock,
-			ledgers, workload_glance, clutch_glance, flock_glance, cash_glance,
+			ledgers, workload_glance, clutch_glance, flock_glance, cash_glance, snapshot_heading,
 			orders_heading, objectives, doctrine, safeguards, safeguard_glance,
 			labor, labor_grid, compact_glance, work_rule_glance, history,
 			history_toggle, continue_button,
 		].all(func(value: Variant) -> bool: return value != null),
 		"Office should compose the complete compact Today brief",
+		failures,
+	)
+	_check(
+		glance_icons.all(func(icon: Node) -> bool: return icon != null and bool(icon.get_meta("decorative", false))),
+		"Today should use font-independent visual symbols while exact meanings stay on labels",
 		failures,
 	)
 	if simulation == null or navigation == null:
@@ -153,44 +170,80 @@ func _run() -> void:
 	)
 	_check(
 		workload_glance != null
-		and _contains_all(workload_glance.text, ["CASES", "0 LATE"])
+		and _contains_all(workload_glance.text, ["0 LATE"])
+		and "CASES" not in workload_glance.text
 		and "TURNED AWAY" in String(workload_glance.get_meta("accessible_text", "")),
-		"cases tile should show load and lateness while preserving rejected intake for assistive reading",
+		"file icon tile should show load and lateness without repeating its noun",
 		failures,
 	)
 	_check(
 		clutch_glance != null
-		and _contains_all(clutch_glance.text, ["EGGS", str(int(snapshot.get("quota_target", 0))), "TOTAL"])
+		and _contains_all(clutch_glance.text, [str(int(snapshot.get("quota_target", 0))), "TOTAL"])
+		and "EGGS" not in clutch_glance.text
 		and "CAREER EGGS" in clutch_glance.tooltip_text,
-		"egg tile should show current clutch progress while preserving the exact career total",
+		"egg icon tile should show clutch progress while preserving the exact career total",
 		failures,
 	)
 	_check(
 		flock_glance != null
-		and _contains_all(flock_glance.text, ["FLOCK", "%d%%" % expected_morale, "RISK"])
+		and _contains_all(flock_glance.text, ["%d%%" % expected_morale, "RISK"])
+		and "FLOCK" not in flock_glance.text
 		and "UNITY RISK" in flock_glance.tooltip_text,
-		"flock tile should show spirits and risk with the exact labor meaning on inspection",
+		"flock icon tile should show spirits and risk with exact meaning on inspection",
 		failures,
 	)
 	_check(
 		cash_glance != null
-		and _contains_all(cash_glance.text, ["CASH", "FREE"])
+		and "READY" in cash_glance.text
+		and "CASH" not in cash_glance.text
 		and _contains_all(String(cash_glance.get_meta("accessible_text", "")), [
 			"FARMER FAVOR", "COOP OBEDIENCE", "RESERVED",
 		]),
-		"cash tile should prioritize spendable money while retaining the complete ledger semantics",
+		"coin icon tile should prioritize spendable money while retaining complete semantics",
+		failures,
+	)
+	_check(
+		orders_heading != null
+		and orders_heading.text.begins_with("TODAY'S 3 GOALS")
+		and "+9 SCORE" in orders_heading.text
+		and snapshot_heading != null and snapshot_heading.text == "NOW",
+		"Today should name the three-goal plan and its complete score reward",
+		failures,
+	)
+	_check(
+		_snapshot_glances_are_compact([
+			workload_glance, clutch_glance, flock_glance, cash_glance,
+		]),
+		"the four always-visible status tiles should stay within an 18-character glance budget",
 		failures,
 	)
 	_check(
 		order_glances.size() == 3
 		and _order_glances_are_compact(order_glances),
-		"three scored orders should be readable as two-line status tiles with exact hover detail",
+		"three scored orders should be readable as two-line action and status tiles with exact hover detail",
+		failures,
+	)
+	_check(
+		_contains_all((order_glances[0] as Label).text, ["LAY", "EGGS", "LEFT"])
+		and _contains_all((order_glances[1] as Label).text, ["CRACKS", "EGG 1", "PENDING"])
+		and _contains_all((order_glances[2] as Label).text, ["WELFARE", "NOW", "SAFE"]),
+		"goal tiles should state the player action, target, and live status without ledger shorthand",
+		failures,
+	)
+	_check(
+		_contains_all(navigation.accessible_text(), [
+			"Visible filing", "LAY 18 EGGS", "EGG 1 PENDING", "WELFARE NEEDS 45",
+		]),
+		"Flockwatch narration should include the same live plan shown on Today's cards: %s" % navigation.accessible_text(),
 		failures,
 	)
 	_check(
 		objectives != null and not objectives.visible
 		and safeguard_glance != null and safeguard_glance.is_visible_in_tree()
-		and "SAFEGUARD" in safeguard_glance.text
+		and "SAFEGUARD" not in safeguard_glance.text
+		and "NEEDS" in safeguard_glance.text
+		and "-" not in safeguard_glance.text
+		and "SAFEGUARD" in String(safeguard_glance.get_meta("accessible_text", ""))
 		and safeguards != null and not safeguards.visible
 		and "PROBATION FINAL TERMS" in safeguard_glance.tooltip_text,
 		"orders and safeguard prose should collapse into glance tiles without losing final terms",
@@ -281,9 +334,19 @@ func _order_glances_are_compact(glances: Array[Node]) -> bool:
 		var glance := node as Label
 		if (
 			glance.text.count("\n") != 1
-			or ("TRACK" not in glance.text and "NEEDS" not in glance.text)
+			or not ["DONE", "LEFT", "PENDING", "SAFE", "OVER", "NEED"].any(
+				func(status: String) -> bool: return status in glance.text
+			)
 			or glance.tooltip_text.is_empty()
 		):
+			return false
+	return true
+
+
+func _snapshot_glances_are_compact(glances: Array) -> bool:
+	for label_value: Variant in glances:
+		var label := label_value as Label
+		if label == null or label.text.count("\n") != 1 or label.text.length() > 18:
 			return false
 	return true
 

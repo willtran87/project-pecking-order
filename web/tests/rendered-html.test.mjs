@@ -613,13 +613,22 @@ test("prioritizes staged irreversible confirmations without claiming a mutation"
 				claim_confirmation_visible: true,
 				claim_confirmation_path_id: "<b>settle</b>",
 				claim_confirmation_claim_id: 17,
+				claim_confirmation_accessible_text: (
+					"FILE <b>HUMANE</b> SETTLEMENT? Claimant, Clover Field Cooperative. "
+					+ "Path, Humane Settlement, permanent. Cost, minus $1.20 Feed Fund. "
+					+ "Helps claimant. Upside, immediate approved support and shell risk minus 3 percent. "
+					+ "Tradeoff, Feed Fund pays $1.20 now. No change until you file. "
+					+ "Confirm: FILE SETTLEMENT. Safe return: KEEP STANDARD."
+				),
 			},
 		},
 	}), context);
-	assert.match(claimant, /^Irreversible claimant path awaiting confirmation\./);
-	assert.match(claimant, /Settle for claim 17/);
-	assert.match(claimant, /No Feed Fund or claim state has changed/);
-	assert.match(claimant, /confirm the disclosed filing or cancel/);
+	assert.match(claimant, /^FILE HUMANE SETTLEMENT\?/);
+	assert.match(claimant, /Clover Field Cooperative/);
+	assert.match(claimant, /Cost, minus \$1\.20 Feed Fund/);
+	assert.match(claimant, /No change until you file/);
+	assert.match(claimant, /Confirm: FILE SETTLEMENT/);
+	assert.match(claimant, /Safe return: KEEP STANDARD/);
 	assert.doesNotMatch(claimant, /<|>|script|globalThis/);
 
 	const release = buildStatus(JSON.stringify({
@@ -630,14 +639,47 @@ test("prioritizes staged irreversible confirmations without claiming a mutation"
 				release_confirmation_visible: true,
 				release_worker_name: "<em>Mabel</em>",
 				release_cost_cents: 325,
+				release_confirmation_accessible_text: (
+					"FILE <em>MABEL'S</em> RELEASE? Hen, Mabel. "
+					+ "Status, employed to released, permanent. Cost, minus $3.25 Feed Fund. "
+					+ "Payroll, minus $1.40 per day. Roost, minus 1 active hen. Perch vacated. "
+					+ "No change until you file. Confirm: FILE RELEASE. Safe return: KEEP HEN."
+				),
 			},
 		},
 	}), context);
-	assert.match(release, /^Hen release awaiting confirmation\./);
-	assert.match(release, /Mabel, separation cost \$3\.25/);
-	assert.match(release, /Employment and Feed Fund are unchanged/);
-	assert.match(release, /cancel to keep this hen employed/);
+	assert.match(release, /^FILE MABEL'S RELEASE\?/);
+	assert.match(release, /Cost, minus \$3\.25 Feed Fund/);
+	assert.match(release, /Roost, minus 1 active hen/);
+	assert.match(release, /Confirm: FILE RELEASE/);
+	assert.match(release, /Safe return: KEEP HEN/);
 	assert.doesNotMatch(release, /<|>|script|globalThis/);
+
+	const succession = buildStatus(JSON.stringify({
+		campaign_stage: "active",
+		shift_phase: 3,
+		interaction_safety: {
+			staffing: {
+				manager_recruit_confirmation_visible: true,
+				manager_candidate_name: "<b>Byte Bantam</b>",
+				manager_replaces_name: "Clover Crowsby",
+				manager_recruit_cost_cents: 7000,
+				manager_recruit_confirmation_accessible_text: (
+					"APPOINT <b>BYTE BANTAM</b>? Candidate, Byte Bantam. Role, automation. "
+					+ "Replaces Clover Crowsby. Cost, minus $70.00 Feed Fund. "
+					+ "Roosters, 4 to 4. Payroll, $8.00 to $8.00 per day. "
+					+ "Output, reports and meetings, eggs 0. Permanent this review. "
+					+ "No change until you file. Confirm: APPOINT. Safe return: KEEP CURRENT."
+				),
+			},
+		},
+	}), context);
+	assert.match(succession, /^APPOINT BYTE BANTAM\s*\?/);
+	assert.match(succession, /Cost, minus \$70\.00 Feed Fund/);
+	assert.match(succession, /reports and meetings, eggs 0/);
+	assert.match(succession, /Confirm: APPOINT/);
+	assert.match(succession, /Safe return: KEEP CURRENT/);
+	assert.doesNotMatch(succession, /<|>|script|globalThis/);
 });
 
 test("announces one-level route Undo without implying economic rollback", async () => {

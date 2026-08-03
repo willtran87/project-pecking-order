@@ -238,13 +238,15 @@ static func beats_for_snapshot(previous: Dictionary, current: Dictionary) -> Arr
 		and current_eggs > 0
 		and not bool(current.get("first_clutch_tracking", false))
 	):
-		beats.append(_entry(
+		var first_egg_beat := _entry(
 			"first_egg_%d" % day,
 			&"mabel",
-			"I finished the claim. The basket already has the farmer's name on it.",
-			&"PRIVATE ASIDE",
-			10.0,
-		))
+			"Clean shell. Farmer credit is on the way.",
+			&"FLOOR CHAT",
+			6.0,
+		)
+		first_egg_beat["presentation_mode"] = &"ambient"
+		beats.append(first_egg_beat)
 	else:
 		var production_beat := _production_milestone_beat(
 			previous_eggs,
@@ -941,13 +943,19 @@ static func _voice_entry(
 		]).hash(),
 		lines.size(),
 	)
-	return _entry(
+	var entry := _entry(
 		"%s_v%d" % [id_prefix, line_index],
 		speaker_id,
 		String(lines[line_index]),
 		_default_channel(speaker_id),
 		hold_seconds,
 	)
+	# Routine production color belongs beside the live floor, not in a full-screen
+	# cutaway that hides the egg route and its economic payoff.
+	if theme_id == &"production":
+		entry["presentation_mode"] = &"ambient"
+		entry["hold_seconds"] = minf(float(entry.get("hold_seconds", 7.0)), 7.0)
+	return entry
 
 
 static func _default_channel(speaker_id: StringName) -> StringName:

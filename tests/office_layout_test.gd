@@ -33,6 +33,18 @@ func _init() -> void:
 		var wellness: Array[Vector3] = [Office.chair_position(worker_index)]
 		wellness.append_array(Office.wellness_route(worker_index))
 		_check_route_clear(wellness, worker_index, failures)
+		_check(
+			wellness[wellness.size() - 1] == Office.break_position(worker_index),
+			"wellness route %d should finish at its authored activity station" % worker_index,
+			failures,
+		)
+		_check(
+			Office.break_position(worker_index).distance_to(
+				Office.break_interaction_face_point(worker_index),
+			) >= 0.55,
+			"break station %d should face a readable environmental prop" % worker_index,
+			failures,
+		)
 		var feed_party: Array[Vector3] = [Office.chair_position(worker_index)]
 		feed_party.append_array(Office.feed_party_route(worker_index))
 		_check_route_clear(feed_party, worker_index, failures)
@@ -40,6 +52,16 @@ func _init() -> void:
 	for first in starts.size():
 		for second in range(first + 1, starts.size()):
 			_check(starts[first].distance_to(starts[second]) >= 0.90, "entry queue should keep chickens separated", failures)
+	var break_interaction_kinds: Dictionary = {}
+	for first in 6:
+		break_interaction_kinds[Office.break_interaction_kind(first)] = true
+		for second in range(first + 1, 6):
+			_check(
+				Office.break_position(first).distance_to(Office.break_position(second)) >= 1.15,
+				"breakroom stations %d and %d should separate full hen silhouettes" % [first, second],
+				failures,
+			)
+	_check(break_interaction_kinds.size() == 6, "every breakroom station should own a distinct organic behavior", failures)
 
 	var opening_columns: Array[float] = []
 	var opening_rows: Array[float] = []

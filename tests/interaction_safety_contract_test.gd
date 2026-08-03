@@ -32,6 +32,17 @@ func _run() -> void:
 		true,
 		false,
 	) as RoostStaffingUI
+	var audio_feedback := office.find_child(
+		"OfficeAudioFeedback",
+		true,
+		false,
+	) as OfficeAudioFeedback
+	var camera_controller := office.find_child(
+		"ManagementCameraController",
+		true,
+		false,
+	) as ManagementCameraController
+	var ticker_panel := office.find_child("StatusToast", true, false) as PanelContainer
 	_check(
 		simulation != null and routing_ui != null and staffing_ui != null,
 		"Office should build all three authoritative interaction-safety surfaces",
@@ -114,11 +125,41 @@ func _run() -> void:
 	var claim_before := simulation.workers[0].current_claim
 	var claim_id_before := claim_before.id if claim_before != null else -1
 	var fund_before_claim := simulation.revenue_cents
+	var consequence_before := simulation.snapshot()
+	var consequence_after := consequence_before.duplicate(true)
+	consequence_after["revenue_cents"] = int(
+		consequence_before.get("revenue_cents", 0)
+	) - 500
+	consequence_after["quota_target"] = int(
+		consequence_before.get("quota_target", 0)
+	) + 1
+	if ticker_panel != null:
+		ticker_panel.visible = false
+	office.set("_ticker_visible_copy", "")
+	office.call(
+		"_spawn_decision_consequence_receipts",
+		consequence_before,
+		consequence_after,
+		{"option_id": &"claim_confirmation_handoff"},
+	)
+	office.call(
+		"_publish_status_copy",
+		"CLAIMANT TERMS READY. Review the permanent path before choosing.",
+		false,
+	)
+	await process_frame
+	var save_before_claim_confirmation := simulation.export_save_state()
+	var cue_serial_before_claim_confirmation := int(
+		audio_feedback.feedback_snapshot().get("cue_serial", -1)
+	)
 	_check(
 		claim_before != null
 		and settle_button != null
 		and not settle_button.disabled
-		and claim_confirmation != null,
+		and claim_confirmation != null
+		and ticker_panel != null
+		and ticker_panel.visible
+		and (office.get("_active_action_outcome_panels") as Array).size() == 2,
 		"an eligible active claim should expose a staged settlement confirmation",
 		failures,
 	)
@@ -127,6 +168,17 @@ func _run() -> void:
 	if settle_button != null:
 		settle_button.pressed.emit()
 	await process_frame
+	var claim_confirmation_state := routing_ui.interaction_safety_state()
+	var claim_confirm_button := (
+		claim_confirmation.get_ok_button()
+		if claim_confirmation != null else
+		null
+	) as Button
+	var claim_cancel_button := (
+		claim_confirmation.get_cancel_button()
+		if claim_confirmation != null else
+		null
+	) as Button
 	_check(
 		claim_confirmation != null
 		and claim_confirmation.visible
@@ -136,8 +188,75 @@ func _run() -> void:
 		and bool(routing_ui.interaction_safety_state().get(
 			"claim_confirmation_visible",
 			false,
-		)),
+		))
+		and routing_ui.has_held_confirmation()
+		and ticker_panel != null
+		and not ticker_panel.visible
+		and office.find_children(
+			"ActionOutcomeReceipt_*",
+			"PanelContainer",
+			true,
+			false,
+		).is_empty()
+		and camera_controller != null
+		and not camera_controller.is_processing_unhandled_input(),
 		"opening claimant confirmation must not spend or mutate the authoritative file",
+		failures,
+	)
+	_check(
+		claim_confirmation != null
+		and claim_confirmation.title == "FILE HUMANE SETTLEMENT?"
+		and claim_confirm_button != null
+		and claim_confirm_button.text == "FILE SETTLEMENT"
+		and claim_confirm_button.theme_type_variation == &"DangerButton"
+		and claim_cancel_button != null
+		and claim_cancel_button.text == "KEEP STANDARD"
+		and claim_cancel_button.theme_type_variation == &"PrimaryButton"
+		and claim_cancel_button.has_focus()
+		and String(claim_confirmation_state.get(
+			"claim_confirmation_focus",
+			"",
+		)) == "safe_return"
+		and _contains_all(
+			claim_confirmation.dialog_text,
+			[
+				"CLAIMANT  /  CLOVER FIELD COOPERATIVE",
+				"PATH  /  HUMANE SETTLEMENT  ·  PERMANENT",
+				"COST  /  -$1.20 FEED FUND",
+				"HELPS  /  CLAIMANT",
+				"UPSIDE  /",
+				"TRADEOFF  /",
+				"NO CHANGE UNTIL YOU FILE.",
+			],
+		),
+		"claimant confirmation should expose one concise ledger with a safe default focus",
+		failures,
+	)
+	var archived_action_receipt := office.get("_latest_action_outcome_receipt") as Dictionary
+	var notification_state := office.call("_notification_diagnostic_state") as Dictionary
+	var notification_handoff := notification_state.get("handoff", {}) as Dictionary
+	_check(
+		not bool(archived_action_receipt.get("visible", true))
+		and String(archived_action_receipt.get("dismissed_by", "")) == "confirmation"
+		and int(archived_action_receipt.get("retired_panel_count", -1)) == 2
+		and (archived_action_receipt.get("entries", []) as Array).size() == 2
+		and String(notification_handoff.get("surface", "")) == "confirmation"
+		and bool(notification_handoff.get("toast_retired", false))
+		and String(notification_handoff.get("toast_priority", "")) == "routine"
+		and String(notification_handoff.get("toast_copy", "")).begins_with(
+			"CLAIMANT TERMS READY."
+		)
+		and int(notification_handoff.get("retired_action_panel_count", -1)) == 2,
+		"held confirmation should archive routine prose and action semantics without overlap",
+		failures,
+	)
+	_check(
+		simulation.export_save_state() == save_before_claim_confirmation
+		and int(audio_feedback.feedback_snapshot().get(
+			"cue_serial",
+			-2,
+		)) == cue_serial_before_claim_confirmation,
+		"confirmation handoff should be save-neutral and silent",
 		failures,
 	)
 	_check(
@@ -153,7 +272,9 @@ func _run() -> void:
 		and simulation.revenue_cents == fund_before_claim
 		and simulation.workers[0].current_claim != null
 		and simulation.workers[0].current_claim.id == claim_id_before
-		and not simulation.workers[0].current_claim.resolution_locked,
+		and not simulation.workers[0].current_claim.resolution_locked
+		and camera_controller != null
+		and camera_controller.is_processing_unhandled_input(),
 		"cancel should preserve the exact claimant file and Feed Fund",
 		failures,
 	)
@@ -230,6 +351,48 @@ func _run() -> void:
 			-1,
 		)) == 1,
 		"opening release confirmation must preserve employment and Feed Fund",
+		failures,
+	)
+	var release_name := simulation.workers[1].display_name.to_upper()
+	var release_safety := staffing_ui.interaction_safety_state()
+	var release_confirm_initial := release_confirmation.get_ok_button()
+	var release_cancel_initial := release_confirmation.get_cancel_button()
+	_check(
+		release_confirmation.title == "FILE %s'S RELEASE?" % release_name
+		and release_confirm_initial.text == "FILE RELEASE"
+		and release_cancel_initial.text == "KEEP HEN"
+		and release_confirm_initial.theme_type_variation == &"DangerButton"
+		and release_cancel_initial.theme_type_variation == &"PrimaryButton"
+		and release_cancel_initial.has_focus()
+		and String(release_safety.get("release_confirmation_focus", ""))
+		== "safe_return",
+		"release confirmation should name the filing, distinguish danger from safe return, and focus the safe choice",
+		failures,
+	)
+	_check(
+		_contains_all(
+			release_confirmation.dialog_text,
+			[
+				"HEN  /  %s" % release_name,
+				"STATUS  /  EMPLOYED -> RELEASED",
+				"COST  /  -$",
+				"PAYROLL  /  -$",
+				"ROOST  /  -1 ACTIVE HEN",
+				"PERCH  /  VACATED",
+				"NO CHANGE UNTIL YOU FILE.",
+			],
+		)
+		and _contains_all(
+			String(release_safety.get(
+				"release_confirmation_accessible_text",
+				"",
+			)),
+			[
+				"FILE RELEASE",
+				"Safe return: KEEP HEN",
+			],
+		),
+		"release confirmation should disclose exact economic and operational consequences in visual and accessible ledgers",
 		failures,
 	)
 	_check(
@@ -437,3 +600,10 @@ func _finish(
 func _check(condition: bool, message: String, failures: Array[String]) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _contains_all(source: String, needles: Array[String]) -> bool:
+	for needle in needles:
+		if needle not in source:
+			return false
+	return true

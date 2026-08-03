@@ -16,6 +16,12 @@ func _run() -> void:
 		"IdentityFascia",
 		"OfficeClockFace",
 		"ClaimsPipelineBoard",
+		"BreakroomKitchenCounter",
+		"BreakroomCoffeeUrn",
+		"BreakroomMicrowave",
+		"BreakroomSofaSeat",
+		"BreakroomSideTable",
+		"BreakroomCorkboard",
 		"CopierOutputTray",
 		"ArchiveBox",
 		"SafetyExtinguisher",
@@ -26,9 +32,66 @@ func _run() -> void:
 		"BasketFrontSlat",
 		"BasketHandle",
 		"PresentationPlaqueTextFixture",
+		"OpeningWestOfficeFurnishings",
+		"WestFlexSupplyCabinet",
+		"WestFlexMailTable",
+		"WestFlexFileCart",
+		"WestFlexCoatStand",
+		"WestFlexProjectStation",
+		"WestFlexProjectTable",
+		"WestFlexPlanningBoard",
+		"WestVisitorOfficeNook",
+		"WestVisitorBench",
+		"WestVisitorFileCredenza",
+		"WestVisitorWallRecords",
 	]
 	for detail_name in required_details:
 		_check(office.find_child(detail_name, true, false) != null, "office should include %s" % detail_name, failures)
+	var breakroom := office.find_child("BaselineBreakroom", true, false)
+	_check(
+		breakroom != null
+		and bool(breakroom.get_meta(&"visual_only", false))
+		and bool(breakroom.get_meta(&"collision_free", false))
+		and bool(breakroom.get_meta(&"navigation_free", false))
+		and bool(breakroom.get_meta(&"wellness_routes_clear", false)),
+		"baseline breakroom should remain visual-only and preserve wellness routes",
+		failures,
+	)
+	_check(
+		office.find_children("BreakroomPinnedNote_*", "MeshInstance3D", true, false).size() >= 4,
+		"breakroom corkboard should carry communal visual storytelling",
+		failures,
+	)
+	_check(office.find_children("BreakroomRugWeave_*", "MeshInstance3D", true, false).size() == 5, "breakroom rug should include a woven inset pattern", failures)
+	_check(office.find_children("BreakroomCorkboardFrame*", "MeshInstance3D", true, false).size() >= 4, "communal board should have a dimensional wood frame", failures)
+	_check(office.find_children("BreakroomMug_*", "MeshInstance3D", true, false).size() == 3, "coffee shelf should include three distinct mugs", failures)
+	_check(office.find_children("BreakroomPlantLeaf_*", "MeshInstance3D", true, false).size() >= 5, "breakroom should include soft plant detail", failures)
+	_check(office.find_children("BreakroomSconceGlow_*", "MeshInstance3D", true, false).size() == 2, "breakroom should have a warm authored lighting silhouette", failures)
+	_check(office.find_children("BreakroomCoolerBubble_*", "MeshInstance3D", true, false).size() == 4, "water cooler should expose ambient liquid life", failures)
+	_check(office.find_children("BreakroomCoffeeSteam_*", "MeshInstance3D", true, false).size() == 3, "coffee station should expose responsive steam visuals", failures)
+	_check(office.find_child("BreakroomThrowBlanket", true, false) != null, "lounge should include layered upholstery detail", failures)
+	_check(office.find_child("BreakroomTableCup", true, false) != null, "cafe table should include a grounded personal prop", failures)
+	var opening_west_furnishings := office.find_child("OpeningWestOfficeFurnishings", true, false)
+	_check(
+		opening_west_furnishings != null
+		and bool(opening_west_furnishings.get_meta(&"visual_only", false))
+		and bool(opening_west_furnishings.get_meta(&"collision_free", false))
+		and bool(opening_west_furnishings.get_meta(&"navigation_free", false))
+		and int(opening_west_furnishings.get_meta(&"retired_at_capacity", -1)) == 5,
+		"opening west furnishings should remain visual-only temporary office staging",
+		failures,
+	)
+	_check(office.find_children("WestFlexBinder_*", "MeshInstance3D", true, false).size() == 7, "west supply cabinet should carry a readable binder run", failures)
+	_check(office.find_children("WestFlexMailSorterDivider_*", "MeshInstance3D", true, false).size() == 5, "west mail table should expose six pigeonholes", failures)
+	_check(office.find_children("WestFlexMailPacket_*", "MeshInstance3D", true, false).size() == 6, "west sorter contents should remain legible from the management camera", failures)
+	_check(office.find_children("WestFlexFileCartCaster_*", "MeshInstance3D", true, false).size() == 4, "west file cart should have a grounded mobile silhouette", failures)
+	_check(office.find_children("WestFlexProjectStoolSeat_*", "MeshInstance3D", true, false).size() == 2, "west project station should include two recognizable task stools", failures)
+	_check(office.find_children("WestFlexPlanningCard_*", "MeshInstance3D", true, false).size() == 7, "west planning board should communicate active work without extra prose", failures)
+	_check(office.find_children("WestFlexProjectPlanGrid_*", "MeshInstance3D", true, false).size() == 4, "west project table should expose readable plan detail", failures)
+	_check(office.find_children("WestVisitorBenchCushion_*", "MeshInstance3D", true, false).size() == 2, "west wall should include recognizable visitor seating", failures)
+	_check(office.find_children("WestVisitorFileDrawer_*", "MeshInstance3D", true, false).size() == 2, "west visitor nook should include lateral office files", failures)
+	_check(office.find_children("WestVisitorWallRecord_*", "MeshInstance3D", true, false).size() == 6, "west wall records should add visual activity without more instructional copy", failures)
+	_check(office.find_children("WestVisitorFormsPacket_*", "MeshInstance3D", true, false).size() == 3, "west wall should include a stocked forms rack", failures)
 
 	_check(office.find_children("WindowMullion*", "MeshInstance3D", true, false).size() == 6, "every window should have a center mullion", failures)
 	_check(office.find_children("Radiator_*", "MeshInstance3D", true, false).size() == 6, "every window bay should have modeled lower-wall depth", failures)

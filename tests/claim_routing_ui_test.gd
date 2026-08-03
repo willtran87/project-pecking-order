@@ -22,6 +22,9 @@ func _run() -> void:
 	var nest_queue := office.find_child("Queue_nest_damage", true, false) as Label
 	var predator_queue := office.find_child("Queue_predator_loss", true, false) as Label
 	var appeals_queue := office.find_child("Queue_appeals", true, false) as Label
+	var nest_dispatch_tray := office.find_child("DispatchTray_nest_damage", true, false) as Button
+	var dispatch_momentum := office.find_child("DispatchMomentum", true, false) as Label
+	var dispatch_break_glyph := office.find_child("DispatchMomentumBreakGlyph", true, false) as Control
 	var queue_contract_badge := office.find_child("RoutingQueueContractBadge", true, false) as Label
 	var assign_auto := office.find_child("Assign_auto", true, false) as Button
 	var assign_nest := office.find_child("Assign_nest_damage", true, false) as Button
@@ -47,6 +50,12 @@ func _run() -> void:
 	var career_coaching := office.find_child("PersonnelAction_career_coaching", true, false) as Button
 	var quota_pressure := office.find_child("PersonnelAction_quota_pressure", true, false) as Button
 	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
+	var audio_feedback := office.get("_audio_feedback") as OfficeAudioFeedback
+	var routing_audio_cues: Array[StringName] = []
+	if audio_feedback != null:
+		audio_feedback.cue_played.connect(func(cue: StringName) -> void:
+			routing_audio_cues.append(cue)
+		)
 
 	# Normalize any resumable developer-local file to the authored title surface;
 	# the production frame gate reads this presentation state directly.
@@ -87,6 +96,547 @@ func _run() -> void:
 	_check(appeals_queue != null and "2" in appeals_queue.text, "opening strip should show two Appeals files", failures)
 	_check(queue_contract_badge != null and not queue_contract_badge.visible, "contract badge should stay hidden when routing trays contain only internal files", failures)
 	_check(dossier != null and not dossier.is_visible_in_tree(), "worker dossier should stay hidden before a hen is selected", failures)
+	_check(
+		nest_dispatch_tray != null and not nest_dispatch_tray.disabled,
+		"a non-empty overview tray should be an enabled semantic dispatch action",
+		failures,
+	)
+	var dispatch_save_before := simulation.export_save_state()
+	var camera_controller := office.get("_camera_controller") as ManagementCameraController
+	var camera_before := camera_controller.navigation_state() if camera_controller != null else {}
+	if nest_dispatch_tray != null:
+		nest_dispatch_tray.pressed.emit()
+	var dispatch_save_after := simulation.export_save_state()
+	await process_frame
+	_check(
+		StringName(office.get("_dispatch_lane")) == &"nest_damage",
+		"clicking a waiting tray should arm one-hen dispatch mode",
+		failures,
+	)
+	_check(
+		dispatch_momentum != null and "PICK" in dispatch_momentum.text,
+		"armed dispatch should replace prose with a compact pick-star cue",
+		failures,
+	)
+	var recommended_id := int(office.get("_dispatch_recommended_worker_id"))
+	var recommended_view := (office.get("_worker_views") as Dictionary).get(recommended_id) as ChickenView
+	var recommendation_handoff := (
+		recommended_view.dispatch_candidate_snapshot()
+		if recommended_view != null else
+		{}
+	)
+	_check(
+		recommended_view != null
+		and bool(recommendation_handoff.get("recommended", false)),
+		"the ranked best-fit hen should receive the gold dispatch marker",
+		failures,
+	)
+	_check(
+		int(recommendation_handoff.get("handoff_serial", 0)) == 1
+		and bool(recommendation_handoff.get("handoff_active", false))
+		and bool(recommendation_handoff.get("handoff_animated", false))
+		and String(recommendation_handoff.get("handoff_lane", "")) == "nest_damage",
+		"tray selection should energize the ranked hen's existing gold marker exactly once",
+		failures,
+	)
+	var marked_candidate_count := 0
+	for candidate in office.get("_dispatch_candidates") as Array[Dictionary]:
+		var candidate_id := int(candidate.get("worker_id", -1))
+		var candidate_view := (office.get("_worker_views") as Dictionary).get(candidate_id) as ChickenView
+		if (
+			candidate_view != null
+			and bool(candidate_view.dispatch_candidate_snapshot().get("active", false))
+		):
+			marked_candidate_count += 1
+	_check(
+		marked_candidate_count == (office.get("_dispatch_candidates") as Array[Dictionary]).size()
+		and marked_candidate_count > 1,
+		"the recommendation handoff should leave every eligible alternative marked and valid",
+		failures,
+	)
+	var camera_after := camera_controller.navigation_state() if camera_controller != null else {}
+	_check(
+		routing_ui != null and routing_ui.focused_worker_id() == -1
+		and String(camera_after.get("mode", "")) == String(camera_before.get("mode", ""))
+		and int(camera_after.get("focused_worker_id", -2)) == int(camera_before.get("focused_worker_id", -1))
+		and camera_after.get("view_target", Vector3.ZERO) == camera_before.get("view_target", Vector3.ZERO),
+		"the visual recommendation should not move focus, select a hen, or reframe the camera",
+		failures,
+	)
+	_check(
+		dispatch_save_after == dispatch_save_before,
+		"selecting a tray and pulsing its recommendation should not mutate the authoritative save",
+		failures,
+	)
+	var dispatch_diagnostic := office.call("_dispatch_diagnostic_state") as Dictionary
+	var diagnostic_handoff := dispatch_diagnostic.get("recommendation_handoff", {}) as Dictionary
+	_check(
+		int(diagnostic_handoff.get("worker_id", -1)) == recommended_id
+		and bool(diagnostic_handoff.get("handoff_active", false)),
+		"browser diagnostics should expose the exact recommended hen handoff",
+		failures,
+	)
+	var dispatch_accessibility := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		"Gold star" in dispatch_accessibility
+		and "Other marked hens remain valid choices" in dispatch_accessibility,
+		"assistive copy should name both the recommendation marker and retained player agency",
+		failures,
+	)
+	if recommended_view != null:
+		recommended_view.set_reduced_motion(true)
+		recommended_view.play_dispatch_recommendation_handoff(&"nest_damage")
+		var reduced_handoff := recommended_view.dispatch_candidate_snapshot()
+		_check(
+			int(reduced_handoff.get("handoff_serial", 0)) == 2
+			and bool(reduced_handoff.get("handoff_active", false))
+			and not bool(reduced_handoff.get("handoff_animated", true))
+			and bool(reduced_handoff.get("marker_visible", false)),
+			"reduced motion should retain one static gold recommendation receipt",
+			failures,
+		)
+		await create_timer(0.38).timeout
+		var settled_reduced_handoff := recommended_view.dispatch_candidate_snapshot()
+		_check(
+			not bool(settled_reduced_handoff.get("handoff_active", true))
+			and bool(settled_reduced_handoff.get("marker_visible", false))
+			and bool(settled_reduced_handoff.get("recommended", false)),
+			"the static receipt should settle back to the persistent gold recommendation",
+			failures,
+		)
+		recommended_view.set_reduced_motion(false)
+	var workstation_feedback := office.get("_workstation_feedback") as WorkstationFeedback
+	var dispatch_committed := bool(office.call("_commit_dispatch", recommended_id))
+	await process_frame
+	_check(dispatch_committed, "choosing the highlighted hen should file the authoritative route", failures)
+	_check(StringName(office.get("_dispatch_lane")) == &"", "a filed route should leave dispatch mode cleanly", failures)
+	_check(
+		recommended_view != null
+		and not bool(recommended_view.dispatch_candidate_snapshot().get("active", true))
+		and not bool(recommended_view.dispatch_candidate_snapshot().get("handoff_active", true))
+		and not bool(recommended_view.dispatch_candidate_snapshot().get("marker_visible", true)),
+		"a committed route should clean up the recommendation handoff and every dispatch marker",
+		failures,
+	)
+	_check(
+		workstation_feedback != null and workstation_feedback.active_dispatch_delivery_count() == 1,
+		"a filed route should launch one physical folder toward the selected desk",
+		failures,
+	)
+	_check(
+		int((office.get("_dispatch_last_receipt") as Dictionary).get("momentum_chain", 0)) == 1,
+		"the first best-fit dispatch should begin the visible fit chain",
+		failures,
+	)
+	await create_timer(1.15).timeout
+	_check(
+		workstation_feedback != null and workstation_feedback.active_dispatch_delivery_count() == 0,
+		"the delivered folder should clean itself up after reaching the desk",
+		failures,
+	)
+	var first_landing := (
+		workstation_feedback.dispatch_landing_snapshot()
+		if workstation_feedback != null else
+		{}
+	)
+	_check(
+		bool(first_landing.get("active", false))
+		and int(first_landing.get("serial", 0)) == 1
+		and int(first_landing.get("worker_id", -1)) == recommended_id
+		and String(first_landing.get("lane", "")) == "nest_damage"
+		and bool(first_landing.get("recommended", false))
+		and int(first_landing.get("fit_chain", 0)) == 1
+		and String(first_landing.get("shape", "")) == "gold_star_stamp"
+		and bool(first_landing.get("animated", false))
+		and int(first_landing.get("active_count", 0)) == 1,
+		"the physical folder should resolve into one exact gold-star stamp at its destination desk",
+		failures,
+	)
+	_check(
+		&"best_fit_filed" in routing_audio_cues,
+		"the visible best-fit landing should own one synchronized paper-and-tray impact cue",
+		failures,
+	)
+	var landing_diagnostic := office.call("_dispatch_diagnostic_state") as Dictionary
+	_check(
+		int((landing_diagnostic.get("landing", {}) as Dictionary).get("serial", 0)) == 1
+		and bool((landing_diagnostic.get("landing", {}) as Dictionary).get("active", false)),
+		"browser diagnostics should expose the same active desk-local landing receipt",
+		failures,
+	)
+	var landing_accessibility := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		"Best-fit NEST file landed" in landing_accessibility
+		and "Fit chain x1" in landing_accessibility,
+		"assistive state should report the same landing, lane, and earned fit chain",
+		failures,
+	)
+	var work_start_state := simulation.export_save_state()
+	if recommended_view != null:
+		recommended_view.stage_at_workstation_for_introduction()
+		simulation.set_worker_at_workstation(recommended_id, true)
+		simulation.advance_tick()
+		office.call("_on_snapshot_changed", simulation.snapshot())
+		await process_frame
+	var recommended_work_row := (
+		(simulation.snapshot().get("workers", []) as Array)[recommended_id] as Dictionary
+	)
+	_check(
+		not (recommended_work_row.get("current_claim", {}) as Dictionary).is_empty()
+		and int(recommended_work_row.get("state", 0)) == ChickenState.WorkState.WORKING,
+		"the routed lane should pull a real claimant file before first-work feedback is eligible",
+		failures,
+	)
+	_check(
+		bool(office.call("_on_work_peck_contact", recommended_id, 901)),
+		"the seated recommended hen should accept the exact first work contact",
+		failures,
+	)
+	await create_timer(0.35).timeout
+	var work_started_landing := (
+		workstation_feedback.dispatch_landing_snapshot()
+		if workstation_feedback != null else
+		{}
+	)
+	_check(
+		bool(work_started_landing.get("active", false))
+		and bool(work_started_landing.get("work_started", false))
+		and bool(work_started_landing.get("work_handoff_active", false))
+		and bool(work_started_landing.get("work_handoff_animated", false))
+		and String(work_started_landing.get("phase", "")) == "work_started"
+		and int(work_started_landing.get("work_contact_serial", 0)) == 901
+		and String(work_started_landing.get("work_handoff_shape", "")) == "stamp_to_screen"
+		and int(work_started_landing.get("work_handoff_active_count", 0)) == 1,
+		"the first real peck should carry the same gold stamp from the claim tray into the monitor contact",
+		failures,
+	)
+	_check(
+		&"best_fit_work_started" in routing_audio_cues,
+		"the one-time route-to-work transition should own a restrained physical monitor cue",
+		failures,
+	)
+	var work_started_accessibility := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		"began peckwork on the best-fit NEST file" in work_started_accessibility
+		and "Fit chain x1" in work_started_accessibility,
+		"assistive state should advance from landed file to the same worker's first peck",
+		failures,
+	)
+	var action_worker := simulation.workers[recommended_id]
+	action_worker.work_progress = DepartmentSimulation.PECK_ASSIST_IDEAL_PROGRESS
+	action_worker.current_claim.deadline_operational_minute = (
+		simulation._current_operational_minute() + 35
+	)
+	office.call("_on_snapshot_changed", simulation.snapshot())
+	await process_frame
+	if routing_ui != null:
+		# This scenario covers a live Priority Peck opportunity. The surrounding
+		# integration fixture advances ticks manually and otherwise leaves its
+		# presentation clock paused.
+		routing_ui.set_peck_assist_clock_running(true)
+	var progress_action_save_before := simulation.export_save_state()
+	office.call("_on_work_progress_context_selected", recommended_id, &"work_progress")
+	await process_frame
+	var progress_action := office.get("_last_work_progress_action") as Dictionary
+	var progress_dossier := routing_ui.context_action_state() if routing_ui != null else {}
+	_check(
+		int(progress_action.get("worker_id", -1)) == recommended_id
+		and String(progress_action.get("rail_status", "")) == "deadline_risk"
+		and String(progress_action.get("intent_id", "")) == "sync"
+		and String(progress_action.get("action_id", "")) == "peck"
+		and String(progress_action.get("target", "")) == "PeckAssistButton"
+		and not bool(progress_action.get("economic_action_committed", true))
+		and String(progress_dossier.get("active_tab", "")) == "route"
+		and simulation.export_save_state() == progress_action_save_before,
+		"selecting the urgent rail should open the exact Priority Peck remedy without auto-spending it [action=%s dossier=%s save_unchanged=%s]" % [
+			str(progress_action),
+			str(progress_dossier),
+			str(simulation.export_save_state() == progress_action_save_before),
+		],
+		failures,
+	)
+	if workstation_feedback != null:
+		workstation_feedback.set_reduced_motion(true)
+		var reduced_landing := workstation_feedback.dispatch_landing_snapshot()
+		_check(
+			bool(reduced_landing.get("active", false))
+			and bool(reduced_landing.get("work_handoff_active", false))
+			and not bool(reduced_landing.get("work_handoff_animated", true))
+			and int(reduced_landing.get("serial", 0)) == 1,
+			"switching to reduced motion should preserve the same first-peck receipt at the monitor",
+			failures,
+		)
+		_check(
+			workstation_feedback.stage_dispatch_work_handoff_capture(recommended_id)
+			and int(workstation_feedback.dispatch_landing_snapshot().get("capture_staged_count", 0)) == 1,
+			"deterministic capture should hold the real static stamp-to-screen receipt without cloning it",
+			failures,
+		)
+		_check(
+			workstation_feedback.release_dispatch_work_handoff_capture(recommended_id)
+			and workstation_feedback.finish_dispatch_landing(recommended_id)
+			and workstation_feedback.active_dispatch_landing_count() == 0,
+			"release and cleanup should retire the pooled route-to-work marker exactly once",
+			failures,
+		)
+		workstation_feedback.set_reduced_motion(false)
+	_check(
+		simulation.restore_save_state(work_start_state),
+		"the isolated first-work fixture should restore the exact routed simulation state",
+		failures,
+	)
+	office.call("_on_snapshot_changed", simulation.snapshot())
+	await process_frame
+	if recommended_id >= 0:
+		simulation.set_worker_assignment(recommended_id, &"auto")
+		office.set("_routing_assignment_undo", {})
+	await process_frame
+	office.call("_on_dispatch_lane_requested", &"nest_damage")
+	await process_frame
+	var milestone_worker_id := int(office.get("_dispatch_recommended_worker_id"))
+	var milestone_committed := bool(office.call("_commit_dispatch", milestone_worker_id))
+	await process_frame
+	_check(milestone_committed, "a second best-fit dispatch should reach the first skill milestone", failures)
+	_check(
+		dispatch_momentum != null and "PACE +15%" in dispatch_momentum.text,
+		"the x2 milestone should surface its earned effect in the compact routing strip",
+		failures,
+	)
+	var active_pace_snapshot := workstation_feedback.routing_pace_snapshot() if workstation_feedback != null else {}
+	_check(
+		bool(active_pace_snapshot.get("authoritative_active", false))
+		and is_equal_approx(float(active_pace_snapshot.get("pace_multiplier", 0.0)), 1.15)
+		and String(active_pace_snapshot.get("shape", "")) == "double_chevron",
+		"the real x2 route should activate the desk-level pace feedback authority",
+		failures,
+	)
+	await create_timer(0.86).timeout
+	_check(
+		workstation_feedback != null and workstation_feedback.active_routing_reward_burst_count() == 1,
+		"the x2 folder landing should create one destination-local milestone icon",
+		failures,
+	)
+	await create_timer(1.7).timeout
+	_check(
+		workstation_feedback != null and workstation_feedback.active_routing_reward_burst_count() == 0,
+		"the routing milestone icon should clean itself up after its readable hold",
+		failures,
+	)
+	# Deliberately choose a genuine non-recommended candidate while FIT x2 is
+	# active. The authoritative break should explain both the loss and the exact
+	# best-fit recovery action without opening another prose surface.
+	office.call("_on_dispatch_lane_requested", &"appeals")
+	await process_frame
+	var poor_worker_id := -1
+	var current_recommended_id := int(office.get("_dispatch_recommended_worker_id"))
+	for candidate_value in office.get("_dispatch_candidates") as Array[Dictionary]:
+		var candidate_id := int(candidate_value.get("worker_id", -1))
+		if candidate_id >= 0 and candidate_id != current_recommended_id:
+			poor_worker_id = candidate_id
+			break
+	_check(poor_worker_id >= 0, "the fixture should expose a real poor-fit dispatch choice", failures)
+	if poor_worker_id >= 0:
+		if simulation.workers[poor_worker_id].assigned_lane == &"appeals":
+			simulation.set_worker_assignment(poor_worker_id, DepartmentSimulation.AUTO_ASSIGNMENT)
+		var poor_committed := bool(office.call("_commit_dispatch", poor_worker_id))
+		await process_frame
+		_check(poor_committed, "poor fit should remain a valid routing judgment", failures)
+		var poor_receipt := office.get("_dispatch_last_receipt") as Dictionary
+		var break_receipt := poor_receipt.get("break", {}) as Dictionary
+		_check(int(break_receipt.get("broken_chain", 0)) == 2, "UI should receive the exact lost FIT x2 chain", failures)
+		var broken_pace_snapshot := workstation_feedback.routing_pace_snapshot() if workstation_feedback != null else {}
+		_check(
+			not bool(broken_pace_snapshot.get("authoritative_active", true))
+			and int(broken_pace_snapshot.get("active_desk_count", -1)) == 0,
+			"the same authoritative break should remove every workstation pace accent",
+			failures,
+		)
+		_check(
+			int(routing_ui.get_meta("dispatch_break_serial", 0)) == 1
+			and bool(routing_ui.get_meta("dispatch_break_active", false)),
+			"one authoritative loss should start one compact break presentation",
+			failures,
+		)
+		_check(
+			dispatch_break_glyph != null and dispatch_break_glyph.visible
+			and "x2" in dispatch_momentum.text and ">  0" in dispatch_momentum.text,
+			"the queue strip should show a shape-distinct broken link and x2 > 0 receipt",
+			failures,
+		)
+		_check(
+			"gold-star hen" in dispatch_momentum.tooltip_text,
+			"progressive disclosure should name the exact recovery gesture",
+			failures,
+		)
+		await create_timer(1.0).timeout
+		var poor_landing := (
+			workstation_feedback.dispatch_landing_snapshot()
+			if workstation_feedback != null else
+			{}
+		)
+		_check(
+			bool(poor_landing.get("active", false))
+			and not bool(poor_landing.get("recommended", true))
+			and String(poor_landing.get("lane", "")) == "appeals"
+			and String(poor_landing.get("shape", "")) == "file_check_stamp"
+			and int(poor_landing.get("fit_chain", -1)) == 0,
+			"a valid poor-fit route should land with a shape-distinct filing check, not a gold star",
+			failures,
+		)
+		_check(
+			&"file_routed" in routing_audio_cues,
+			"ordinary route contact should remain audibly distinct from a best-fit filing",
+			failures,
+		)
+		var poor_work_start_state := simulation.export_save_state()
+		var poor_view := (office.get("_worker_views") as Dictionary).get(
+			poor_worker_id,
+		) as ChickenView
+		if poor_view != null:
+			poor_view.stage_at_workstation_for_introduction()
+			simulation.set_worker_at_workstation(poor_worker_id, true)
+			simulation.advance_tick()
+			office.call("_on_snapshot_changed", simulation.snapshot())
+			await process_frame
+		_check(
+			bool(office.call("_on_work_peck_contact", poor_worker_id, 902)),
+			"the seated ordinary-route hen should accept the exact first work contact",
+			failures,
+		)
+		await create_timer(0.45).timeout
+		var poor_work_started := workstation_feedback.dispatch_landing_snapshot()
+		_check(
+			bool(poor_work_started.get("work_started", false))
+			and bool(poor_work_started.get("work_handoff_active", false))
+			and not bool(poor_work_started.get("recommended", true))
+			and int(poor_work_started.get("work_contact_serial", 0)) == 902,
+			"an ordinary route should use the same first-peck handoff without inventing a fit reward",
+			failures,
+		)
+		_check(
+			&"file_work_started" in routing_audio_cues,
+			"ordinary first work should keep a distinct low-key physical cue",
+			failures,
+		)
+		if workstation_feedback != null:
+			workstation_feedback.finish_dispatch_landing(poor_worker_id)
+		_check(
+			simulation.restore_save_state(poor_work_start_state),
+			"the ordinary first-work fixture should restore the exact broken-chain state",
+			failures,
+		)
+		office.call("_on_snapshot_changed", simulation.snapshot())
+		await process_frame
+		_check(
+			"NEXT FIT" in dispatch_momentum.text
+			and dispatch_break_glyph != null and not dispatch_break_glyph.visible,
+			"the broken-link impact should settle into one terse next-action cue",
+			failures,
+		)
+		_check(
+			routing_ui.stage_dispatch_break_capture()
+			and bool(routing_ui.get_meta("dispatch_break_capture_staged", false)),
+			"deterministic capture should hold the real break glyph without changing runtime timing",
+			failures,
+		)
+		routing_ui.call("_finish_dispatch_break")
+		routing_ui.set_reduced_motion(true)
+		routing_ui.play_dispatch_break(break_receipt)
+		_check(
+			not bool(routing_ui.get_meta("dispatch_break_animated", true))
+			and dispatch_break_glyph != null and dispatch_break_glyph.visible,
+			"reduced motion should retain the semantic broken-link state without animation",
+			failures,
+		)
+		routing_ui.call("_finish_dispatch_break")
+		routing_ui.set_reduced_motion(false)
+
+		# Correct the mistake through the real Office dispatch path. The first
+		# best fit after this exact break should rejoin the same link at x1 once.
+		office.call("_on_dispatch_lane_requested", &"predator_loss")
+		await process_frame
+		var recovery_worker_id := int(office.get("_dispatch_recommended_worker_id"))
+		if (
+			recovery_worker_id >= 0
+			and simulation.workers[recovery_worker_id].assigned_lane == &"predator_loss"
+		):
+			simulation.set_worker_assignment(
+				recovery_worker_id,
+				DepartmentSimulation.AUTO_ASSIGNMENT,
+			)
+		var recovery_committed := bool(office.call("_commit_dispatch", recovery_worker_id))
+		await process_frame
+		var recovered_dispatch := office.get("_dispatch_last_receipt") as Dictionary
+		var recovery_receipt := recovered_dispatch.get("recovery", {}) as Dictionary
+		_check(recovery_committed, "a highlighted best fit should correct the broken route", failures)
+		_check(
+			int(recovery_receipt.get("break_serial", 0)) == int(break_receipt.get("serial", -1))
+			and int(recovery_receipt.get("recovered_chain", 0)) == 1,
+			"the UI path should retain the exact break it repaired and restart at x1",
+			failures,
+		)
+		_check(
+			bool(routing_ui.get_meta("dispatch_recovery_active", false))
+			and int(routing_ui.get_meta("dispatch_recovery_authority_serial", 0)) == 1,
+			"one authoritative correction should start one recovery presentation",
+			failures,
+		)
+		_check(
+			dispatch_break_glyph != null and dispatch_break_glyph.visible
+			and StringName(dispatch_break_glyph.get_meta("mode", &"")) == &"recovery"
+			and "FIT LINKED" in dispatch_momentum.text and "x1" in dispatch_momentum.text,
+			"the broken link should visibly rejoin beside one terse x1 receipt",
+			failures,
+		)
+		_check(
+			String(recovery_receipt.get("worker_name", "")) in dispatch_momentum.tooltip_text,
+			"progressive disclosure should identify the hen who corrected the route",
+			failures,
+		)
+		_check(
+			routing_ui.stage_dispatch_recovery_capture()
+			and bool(routing_ui.get_meta("dispatch_recovery_capture_staged", false)),
+			"deterministic capture should hold the real link-rejoin presentation",
+			failures,
+		)
+		routing_ui.call("_finish_dispatch_recovery")
+		routing_ui.set_reduced_motion(true)
+		var reduced_recovery := recovery_receipt.duplicate(true)
+		reduced_recovery["serial"] = int(recovery_receipt.get("serial", 0)) + 1
+		_check(routing_ui.play_dispatch_recovery(reduced_recovery), "reduced-motion recovery fixture should be accepted once", failures)
+		_check(
+			not bool(routing_ui.get_meta("dispatch_recovery_animated", true))
+			and dispatch_break_glyph != null and dispatch_break_glyph.visible
+			and StringName(dispatch_break_glyph.get_meta("mode", &"")) == &"recovery",
+			"reduced motion should retain the static semantic rejoined-link state",
+			failures,
+		)
+		_check(
+			not routing_ui.play_dispatch_recovery(reduced_recovery),
+			"the same authoritative recovery receipt must not replay",
+			failures,
+		)
+		routing_ui.set_dispatch_state(&"", 2)
+		_check(
+			not bool(routing_ui.get_meta("dispatch_recovery_active", true)),
+			"the next chain step should immediately retire the recovery closure",
+			failures,
+		)
+		routing_ui.set_dispatch_state(&"", 0)
+		routing_ui.set_reduced_motion(false)
+	if milestone_worker_id >= 0:
+		simulation.set_worker_assignment(milestone_worker_id, &"auto")
+		office.set("_routing_assignment_undo", {})
+	await process_frame
 	if routing_ui != null:
 		routing_ui.set_color_vision_mode(&"color_blind_safe")
 	await process_frame
@@ -598,6 +1148,11 @@ func _start_normal_running_campaign(office: Office, failures: Array[String]) -> 
 	_check(_press(skip), "the fixture should dismiss contextual disclosure through the coach's real Skip action", failures)
 	await process_frame
 	await process_frame
+	var dialogue_ui = office.get("_character_dialogue_ui")
+	if dialogue_ui != null and dialogue_ui.has_blocking_dialogue():
+		dialogue_ui.dismiss_current()
+		await process_frame
+		await process_frame
 	_check(bool(office.first_clutch_snapshot().get("dismissed", false)), "Skip should place the campaign in normal full-surface play", failures)
 	_check(routing_ui != null and routing_ui.is_visible_in_tree(), "normal running play should reveal the routing interface", failures)
 

@@ -56,6 +56,7 @@ var _fee_glance: Label
 var _cash_glance: Label
 var _mandate_reason: Label
 var _authorize_button: Button
+var _authorization_label: Label
 var _receipt_label: Label
 var _mandate_toggle
 var _had_actionable_mandate := false
@@ -89,6 +90,7 @@ func presentation_state() -> Dictionary:
 		"storage_capacity_eggs": int(_projection.get("storage_capacity_eggs", 0)),
 		"active_mandate_id": StringName(String(_projection.get("active_mandate_id", "farmer_pickup"))),
 		"selected_reason": String(mandate.get("reason", "")),
+		"authorization": (_projection.get("last_authorization_receipt", {}) as Dictionary).duplicate(true),
 		"receipt": (_projection.get("last_settlement_receipt", {}) as Dictionary).duplicate(true),
 	}
 
@@ -258,6 +260,12 @@ func _build_interface() -> void:
 	]
 	_mandate_toggle.configure("ROUTES", "4", mandate_targets, false)
 
+	_authorization_label = _make_label("", 10, COLOR_TEAL)
+	_authorization_label.name = "FarmgateDispatchAuthorizationReceipt"
+	_authorization_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_authorization_label.visible = false
+	column.add_child(_authorization_label)
+
 	_receipt_label = _make_label("", 10, COLOR_MUTED)
 	_receipt_label.name = "FarmgateDispatchReceipt"
 	_receipt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -313,6 +321,7 @@ func _refresh() -> void:
 		_selected_mandate_id = active_id if active_id in MANDATE_ORDER else &"farmer_pickup"
 	select_mandate(_selected_mandate_id)
 	_refresh_mandate_disclosure()
+	_refresh_authorization_receipt()
 	_refresh_receipt()
 
 
@@ -360,6 +369,8 @@ func _refresh_selected_mandate() -> void:
 	var payout := maxi(0, int(mandate.get("projected_payout_cents", 0)))
 	var reason := String(mandate.get("reason", mandate.get("unavailable_reason", ""))).strip_edges()
 	var can_authorize := bool(mandate.get("can_authorize", false))
+	var active_mandate_id := StringName(String(_projection.get("active_mandate_id", "")))
+	var is_filed_route := active_mandate_id != &"" and _selected_mandate_id == active_mandate_id
 	if mandate.is_empty():
 		reason = "This mandate is missing from the authoritative dispatch file."
 		can_authorize = false
@@ -388,7 +399,11 @@ func _refresh_selected_mandate() -> void:
 	_mandate_description.set_meta("accessible_text", description)
 	_mandate_terms.tooltip_text = exact_terms
 	_mandate_terms.set_meta("accessible_text", exact_terms)
-	if can_authorize:
+	if is_filed_route:
+		_mandate_reason.text = "FILED / QUOTE LOCKED"
+		_mandate_reason.add_theme_color_override("font_color", COLOR_TEAL)
+		_authorize_button.text = "FILED"
+	elif can_authorize:
 		_mandate_reason.text = "READY / QUOTE LOCKS"
 		_mandate_reason.add_theme_color_override("font_color", COLOR_TEAL)
 		_authorize_button.text = String(MANDATE_ACTIONS.get(_selected_mandate_id, "FILE"))
@@ -397,12 +412,14 @@ func _refresh_selected_mandate() -> void:
 		_mandate_reason.add_theme_color_override("font_color", COLOR_RUST)
 		_authorize_button.text = "LOCKED"
 	_authorize_button.disabled = not can_authorize
-	var exact_reason := (
-		"READY / Exact quote freezes when this mandate is filed."
-		if can_authorize else
-		"HELD / %s" % (reason if not reason.is_empty() else "This route is not currently authorized.")
-	)
-	_authorize_button.tooltip_text = "%s / %s / %s" % [exact_terms, exact_reason, "File this closing mandate."]
+	var exact_reason := ""
+	if is_filed_route:
+		exact_reason = "FILED / This route and quote are frozen for the current close."
+	elif can_authorize:
+		exact_reason = "READY / Exact quote freezes when this mandate is filed."
+	else:
+		exact_reason = "HELD / %s" % (reason if not reason.is_empty() else "This route is not currently authorized.")
+	_authorize_button.tooltip_text = "%s / %s" % [exact_terms, exact_reason]
 	_authorize_button.set_meta("accessible_text", _authorize_button.tooltip_text)
 	_mandate_reason.tooltip_text = exact_reason
 	_mandate_reason.set_meta("accessible_text", exact_reason)
@@ -447,6 +464,35 @@ func _refresh_receipt() -> void:
 	]
 	_receipt_label.tooltip_text = exact_receipt
 	_receipt_label.set_meta("accessible_text", exact_receipt)
+
+
+func _refresh_authorization_receipt() -> void:
+	var value: Variant = _projection.get("last_authorization_receipt", {})
+	var receipt := value as Dictionary if value is Dictionary else {}
+	_authorization_label.visible = not receipt.is_empty()
+	if receipt.is_empty():
+		_authorization_label.text = ""
+		return
+	var mandate_label := String(
+		receipt.get("mandate_label", receipt.get("mandate_id", "DISPATCH"))
+	).replace("_", " ").to_upper()
+	var target_day := maxi(1, int(receipt.get("target_day", 1)))
+	var quote := _percent_from_basis_points(int(receipt.get("price_basis_points", 10_000)))
+	var listing_fee := maxi(0, int(receipt.get("listing_fee_cents", 0)))
+	var exact_receipt := "ROUTE FILED / %s / DAY %d / QUOTE %s / LISTING FEE %s" % [
+		mandate_label,
+		target_day,
+		quote,
+		_compact_currency(listing_fee),
+	]
+	_authorization_label.text = "FILED / %s / DAY %d / %s%s" % [
+		_compact_route(mandate_label),
+		target_day,
+		quote,
+		" / %s LISTING" % _compact_currency(listing_fee) if listing_fee > 0 else "",
+	]
+	_authorization_label.tooltip_text = exact_receipt
+	_authorization_label.set_meta("accessible_text", exact_receipt)
 
 
 func _on_mandate_selected(index: int) -> void:

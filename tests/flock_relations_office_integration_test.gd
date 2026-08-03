@@ -241,6 +241,20 @@ func _run() -> void:
 	_check((workers_after[1] as Dictionary) == untouched_worker_before, "resolving one case should not mutate an unrelated hen", failures)
 
 	var receipt_label := office.find_child("FlockRelationsLastResolution", true, false) as Label
+	var debit_state := office.call("fund_debit_feedback_snapshot") as Dictionary
+	var debit_receipt := debit_state.get("last_receipt", {}) as Dictionary
+	_check(
+		String(debit_receipt.get("transaction_kind", "")) == "flock_relations"
+		and String(debit_receipt.get("target_id", ""))
+		== "flock_relations_%d_fund_remedy" % case_id
+		and String(debit_receipt.get("target_name", "")) in [
+			"FlockRelationsLastResolution",
+			"FlockwatchToggle",
+		]
+		and int(debit_receipt.get("cost_cents", 0)) == expected_cost,
+		"the accepted remedy should route its exact debit to the filed resolution or clipped Records fallback",
+		failures,
+	)
 	var empty_label := _descendant_label_containing(records_scroll, "NO OPEN HEN FILES")
 	_check(receipt_label != null and receipt_label.visible and _contains_all(receipt_label.text, [subject_name, "repair", "-$20.00"]) and _contains_all(receipt_label.tooltip_text, ["fund remedy", "$20.00"]), "the existing Flockwatch surface should refresh to a compact receipt with exact filed terms on demand", failures)
 	_check(receipt_label != null and records_scroll.is_ancestor_of(receipt_label), "the permanent receipt should remain inside the Records scroll", failures)

@@ -52,12 +52,16 @@ var _decision_resolved: AudioStreamWAV
 var _precedent_filed: AudioStreamWAV
 var _peck_assist: AudioStreamWAV
 var _peck_assist_perfect: AudioStreamWAV
+var _priority_peck_ready: AudioStreamWAV
 var _peck_contact: AudioStreamWAV
 var _lay_nest_thump: AudioStreamWAV
 var _sorter_receipt_clack: AudioStreamWAV
 var _basket_thunk: AudioStreamWAV
+var _dispatch_folder_thunk: AudioStreamWAV
+var _work_start_tap: AudioStreamWAV
 var _payout_confirmation: AudioStreamWAV
 var _attention_restored: AudioStreamWAV
+var _settlement_release: AudioStreamWAV
 var _denied: AudioStreamWAV
 var _shift_alert: AudioStreamWAV
 var _campaign_pass: AudioStreamWAV
@@ -102,7 +106,21 @@ func _ready() -> void:
 		0.38,
 	)
 	_peck_assist = _synth_sequence(PackedFloat32Array([360.0, 470.0, 590.0]), 0.055, 0.34)
-	_peck_assist_perfect = _synth_sequence(PackedFloat32Array([520.0, 690.0, 920.0]), 0.055, 0.40)
+	# Perfect adds a bright fourth note so it cannot be mistaken for the shorter
+	# renewable-attention motif used after a clean egg reaches the farmer.
+	_peck_assist_perfect = _synth_sequence(
+		PackedFloat32Array([520.0, 690.0, 920.0, 1175.0]),
+		0.055,
+		0.40,
+	)
+	# A restrained two-note fifth announces one inspected timing opportunity.
+	# It is shorter and quieter than either result cadence, preserving a clear
+	# opportunity -> physical action -> outcome hierarchy.
+	_priority_peck_ready = _synth_sequence(
+		PackedFloat32Array([440.0, 659.25]),
+		0.050,
+		0.28,
+	)
 	# Physical production-line cues use short noise-rich transients rather than
 	# melodic UI chirps. All streams are synthesized once and share the same
 	# eight fixed playback voices as the existing palette.
@@ -110,8 +128,22 @@ func _ready() -> void:
 	_lay_nest_thump = _synth_impact(175.0, 72.0, 0.160, 0.55, 0.40, 3102)
 	_sorter_receipt_clack = _synth_impact(920.0, 390.0, 0.110, 0.43, 0.32, 3103, 0.52)
 	_basket_thunk = _synth_impact(128.0, 58.0, 0.185, 0.62, 0.30, 3104)
+	# A dry paper-and-tray impact closes the visible intake-to-desk route. Best
+	# fit changes pitch and cue identity without becoming a reward jingle.
+	_dispatch_folder_thunk = _synth_impact(420.0, 118.0, 0.125, 0.44, 0.56, 3105, 0.48)
+	# One dry monitor/key contact closes the route-to-work handoff. It plays once
+	# per new file, not on the recurring ambient peck loop.
+	_work_start_tap = _synth_impact(860.0, 330.0, 0.060, 0.34, 0.42, 3106, 0.38)
 	_payout_confirmation = _synth_sequence(PackedFloat32Array([620.0, 930.0]), 0.050, 0.34)
 	_attention_restored = _synth_sequence(PackedFloat32Array([520.0, 690.0, 920.0]), 0.050, 0.36)
+	# One paper-to-ledger cadence owns a deferred multi-lane settlement release.
+	# It replaces the separate cash and attention sounds instead of layering over
+	# them, and is synthesized once for the existing fixed voice pool.
+	_settlement_release = _synth_sequence(
+		PackedFloat32Array([392.0, 523.25, 659.25]),
+		0.055,
+		0.34,
+	)
 	_denied = _synth_sequence(PackedFloat32Array([294.0, 247.0]), 0.075, 0.34)
 	_shift_alert = _synth_sequence(PackedFloat32Array([330.0, 440.0, 330.0]), 0.070, 0.38)
 	_campaign_pass = _synth_sequence(
@@ -227,14 +259,31 @@ func play_precedent_filed() -> void:
 
 func play_peck_assist(rating: StringName, streak: int) -> void:
 	var perfect := rating == &"perfect"
+	var cue: StringName = &"priority_peck_perfect" if perfect else &"priority_peck_steady"
 	_play(
-		&"peck_assist",
+		cue,
 		_peck_assist_perfect if perfect else _peck_assist,
 		1.0 + minf(0.16, maxi(0, streak) * 0.025),
 		-5.0 if perfect else -7.0,
 		80,
 		BUS_UI,
 		PRIORITY_IMPORTANT if perfect else PRIORITY_CONFIRMATION,
+		&"priority_peck_result",
+	)
+
+
+## Announces an actionable window only after Office proves the same inspected
+## claim moved from a non-open state to open. Alerts routing lets players tune
+## time-sensitive opportunities independently from routine UI confirmations.
+func play_priority_peck_ready() -> bool:
+	return _play(
+		&"priority_peck_ready",
+		_priority_peck_ready,
+		1.0,
+		-9.0,
+		450,
+		BUS_ALERTS,
+		PRIORITY_IMPORTANT,
 	)
 
 
@@ -300,6 +349,38 @@ func play_basket_thunk(quality: StringName = &"sound") -> bool:
 	)
 
 
+## Paper-and-inbox contact, synchronized to the physical folder landing rather
+## than the earlier assignment click. The gold-star best fit receives one tiny
+## optional haptic receipt; ordinary routes remain audio-only.
+func play_dispatch_landing(recommended: bool) -> bool:
+	return _play(
+		&"best_fit_filed" if recommended else &"file_routed",
+		_dispatch_folder_thunk,
+		1.06 if recommended else 0.94,
+		-8.0 if recommended else -9.5,
+		90,
+		BUS_SFX,
+		PRIORITY_CONFIRMATION if recommended else PRIORITY_PHYSICAL,
+		&"dispatch_landing",
+	)
+
+
+## First accepted ambient work contact after a physical folder arrival. The
+## best-fit pitch is subtly brighter, while both routes remain quiet physical
+## feedback with no haptic or reward cadence.
+func play_dispatch_work_started(recommended: bool) -> bool:
+	return _play(
+		&"best_fit_work_started" if recommended else &"file_work_started",
+		_work_start_tap,
+		1.05 if recommended else 0.96,
+		-11.0 if recommended else -12.0,
+		120,
+		BUS_SFX,
+		PRIORITY_PHYSICAL,
+		&"dispatch_work_started",
+	)
+
+
 ## Feed Fund confirmation, intended for the end of the payout-chip tween rather
 ## than the earlier lay event. Value only adds a bounded deterministic lift.
 func play_payout_confirmation(
@@ -330,6 +411,29 @@ func play_attention_restored() -> bool:
 		90,
 		BUS_UI,
 		PRIORITY_IMPORTANT,
+	)
+
+
+## A single confirmation for a group of routine receipts that was held behind
+## urgent player work. Counts only add a bounded pitch lift; they never allocate
+## another stream or layer the individual payout/refund confirmations.
+func play_settlement_release(
+	receipt_count: int = 1,
+	total_value_cents: int = 0,
+	pecks_restored: int = 0,
+) -> bool:
+	var scale_lift := minf(0.08, float(maxi(0, receipt_count - 1)) * 0.018)
+	var value_lift := minf(0.04, float(maxi(0, total_value_cents)) / 50000.0)
+	var attention_lift := 0.025 if pecks_restored > 0 else 0.0
+	return _play(
+		&"settlement_release",
+		_settlement_release,
+		0.96 + scale_lift + value_lift + attention_lift,
+		-7.0,
+		240,
+		BUS_UI,
+		PRIORITY_CONFIRMATION,
+		&"settlement_release",
 	)
 
 
@@ -545,7 +649,10 @@ func _emit_haptic(cue: StringName, priority: int) -> void:
 	if cue not in [
 		&"golden", &"cracked", &"upgrade", &"feed", &"review",
 		&"decision_alert", &"policy", &"decision_resolved", &"precedent_filed",
-		&"peck_assist", &"payout_confirmation", &"attention_restored",
+		&"priority_peck_ready", &"priority_peck_perfect", &"priority_peck_steady",
+		&"payout_confirmation", &"attention_restored",
+		&"settlement_release",
+		&"best_fit_filed",
 		&"denied", &"shift_alert", &"campaign_pass", &"campaign_fail",
 		&"commendation",
 	]:

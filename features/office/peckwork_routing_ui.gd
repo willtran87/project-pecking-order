@@ -3,6 +3,327 @@ extends Control
 
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
 
+
+class PriorityPeckIntentLink:
+	extends Control
+
+	var source_control: Control
+	var target_control: Control
+	var pulse_phase := 0.0
+	var motion_reduced := false
+
+
+	func configure(source: Control, target: Control) -> void:
+		source_control = source
+		target_control = target
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		visible = false
+
+
+	func set_link_state(
+		active: bool,
+		reduced_motion: bool,
+		phase: float,
+		confirmation: bool = false,
+		rating: StringName = &"",
+	) -> void:
+		visible = active
+		motion_reduced = reduced_motion
+		pulse_phase = phase
+		set_meta("active", active)
+		set_meta("reduced_motion", reduced_motion)
+		set_meta("confirmation", confirmation)
+		set_meta("rating", rating)
+		if active:
+			queue_redraw()
+
+
+	func _draw() -> void:
+		if (
+			source_control == null
+			or target_control == null
+			or not is_instance_valid(source_control)
+			or not is_instance_valid(target_control)
+		):
+			return
+		var source_rect := source_control.get_global_rect()
+		var target_rect := target_control.get_global_rect()
+		var inverse := get_global_transform().affine_inverse()
+		var start := inverse * Vector2(
+			source_rect.end.x + 2.0,
+			source_rect.position.y + source_rect.size.y * 0.54,
+		)
+		var finish := inverse * Vector2(
+			target_rect.position.x - 3.0,
+			target_rect.position.y + target_rect.size.y * 0.5,
+		)
+		var bend := Vector2(
+			lerpf(start.x, finish.x, 0.48),
+			minf(start.y, finish.y) - 5.0,
+		)
+		var points := PackedVector2Array()
+		for index in 11:
+			points.append(_quadratic_point(start, bend, finish, float(index) / 10.0))
+		var confirmation := bool(get_meta("confirmation", false))
+		var rating := StringName(get_meta("rating", &""))
+		var missed := confirmation and rating == &"missed"
+		var signal_color := _rating_color(rating) if confirmation else Color(0.98, 0.76, 0.24)
+		var fade := (
+			1.0 - smoothstep(0.72, 1.0, clampf(pulse_phase, 0.0, 1.0))
+			if confirmation else 1.0
+		)
+		if missed:
+			var first_half := PackedVector2Array()
+			var second_half := PackedVector2Array()
+			for index in 5:
+				first_half.append(points[index])
+			for index in range(6, points.size()):
+				second_half.append(points[index])
+			draw_polyline(first_half, Color(signal_color, 0.58 * fade), 2.0, true)
+			draw_polyline(second_half, Color(signal_color, 0.58 * fade), 2.0, true)
+			var cross_size := 3.0
+			draw_line(
+				finish + Vector2(-cross_size, -cross_size),
+				finish + Vector2(cross_size, cross_size),
+				Color(signal_color.lightened(0.22), 0.9 * fade),
+				2.0,
+				true,
+			)
+			draw_line(
+				finish + Vector2(-cross_size, cross_size),
+				finish + Vector2(cross_size, -cross_size),
+				Color(signal_color.lightened(0.22), 0.9 * fade),
+				2.0,
+				true,
+			)
+		else:
+			draw_polyline(points, Color(signal_color, 0.54 * fade), 2.0, true)
+			draw_circle(finish, 2.0, Color(signal_color.lightened(0.22), 0.88 * fade))
+		var travel := (
+			0.56
+			if motion_reduced else
+			1.0 - clampf(pulse_phase, 0.0, 1.0)
+			if confirmation else
+			fposmod(pulse_phase * 0.72, 1.0)
+		)
+		var pulse_point := _quadratic_point(start, bend, finish, travel)
+		draw_circle(pulse_point, 3.2, Color(signal_color, 0.96 * fade))
+		draw_circle(pulse_point, 1.25, Color(signal_color.lightened(0.65), fade))
+
+
+	func _quadratic_point(start: Vector2, bend: Vector2, finish: Vector2, weight: float) -> Vector2:
+		var inverse_weight := 1.0 - weight
+		return (
+			start * inverse_weight * inverse_weight
+			+ bend * 2.0 * inverse_weight * weight
+			+ finish * weight * weight
+		)
+
+
+	func _rating_color(rating: StringName) -> Color:
+		match rating:
+			&"perfect":
+				return Color("f4d667")
+			&"strong":
+				return Color("a8c894")
+			&"steady":
+				return Color("74d4c2")
+			&"missed":
+				return Color("d68a68")
+			_:
+				return Color("d68a68")
+
+
+class PriorityPeckChargeMeter:
+	extends Control
+
+	var charges := 0
+	var charge_limit := 3
+	var banked := false
+	var recharge_active := false
+	var recharge_phase := 0.0
+	var recharge_before := 0
+	var recharge_after := 0
+	var recharge_reduced_motion := false
+
+
+	func set_counts(next_charges: int, next_limit: int, next_banked: bool) -> void:
+		charges = maxi(0, next_charges)
+		charge_limit = clampi(next_limit, 1, 5)
+		banked = next_banked
+		var accessible := "%d of %d Priority Peck charges ready" % [charges, charge_limit]
+		if banked:
+			accessible += "; one routing recharge is banked"
+		tooltip_text = accessible + "."
+		set_meta("charges", charges)
+		set_meta("limit", charge_limit)
+		set_meta("banked", banked)
+		set_meta("accessible_text", accessible)
+		queue_redraw()
+
+
+	func set_recharge_state(
+		active: bool,
+		phase: float,
+		reduced_motion: bool,
+		before: int,
+		after: int,
+		serial: int,
+	) -> void:
+		recharge_active = active
+		recharge_phase = clampf(phase, 0.0, 1.0)
+		recharge_reduced_motion = reduced_motion
+		recharge_before = before
+		recharge_after = after
+		set_meta("recharge_active", active)
+		set_meta("recharge_phase", recharge_phase)
+		set_meta("recharge_animated", active and not reduced_motion)
+		set_meta("recharge_serial", serial)
+		queue_redraw()
+
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.055, 0.09, 0.11, 0.92), true)
+		draw_rect(Rect2(Vector2.ZERO, size), Color("50656d"), false, 1.0)
+		var visible_limit := clampi(charge_limit, 1, 5)
+		var pip_gap := 5.0
+		var pip_size := 10.0
+		var total_width := visible_limit * pip_size + (visible_limit - 1) * pip_gap
+		var start_x := (size.x - total_width) * 0.5
+		var center_y := size.y * 0.5
+		for index in visible_limit:
+			var center := Vector2(start_x + pip_size * 0.5 + index * (pip_size + pip_gap), center_y)
+			var is_ready := index < charges
+			var is_new_charge := recharge_active and index == recharge_after - 1
+			var pulse_scale := 1.0
+			if is_new_charge and not recharge_reduced_motion:
+				pulse_scale = 0.72 + ease(minf(1.0, recharge_phase * 2.2), -1.7) * 0.34
+			var radius := pip_size * 0.5 * pulse_scale
+			var points := PackedVector2Array([
+				center + Vector2(0.0, -radius),
+				center + Vector2(radius, 0.0),
+				center + Vector2(0.0, radius),
+				center + Vector2(-radius, 0.0),
+			])
+			var fill := (
+				Color("74d4c2")
+				if is_new_charge or (banked and index == charge_limit - 1) else
+				Color("e7c56e")
+			)
+			if is_ready:
+				draw_colored_polygon(points, fill)
+				draw_circle(center, 1.25, Color("fff9df"))
+			var outline := PackedVector2Array(points)
+			outline.append(points[0])
+			draw_polyline(
+				outline,
+				Color("d9fff7") if is_new_charge else Color("8ca0a8"),
+				1.4 if is_ready else 1.0,
+				true,
+			)
+			if banked and index == charge_limit - 1:
+				draw_arc(center, radius + 2.3, 0.0, TAU, 16, Color("74d4c2"), 1.2, true)
+			if is_new_charge:
+				var ring_alpha := 0.78 if recharge_reduced_motion else 1.0 - smoothstep(0.58, 1.0, recharge_phase)
+				draw_arc(
+					center,
+					radius + 3.0 + recharge_phase * 3.0,
+					0.0,
+					TAU,
+					18,
+					Color(Color("d9fff7"), ring_alpha),
+					1.5,
+					true,
+				)
+
+
+class RoutingMomentumBreakGlyph:
+	extends Control
+
+	var retreat_phase := 0.0
+	var motion_reduced := false
+	var link_mode: StringName = &"break"
+
+
+	func set_break_state(active: bool, phase: float, reduced_motion: bool) -> void:
+		visible = active
+		retreat_phase = clampf(phase, 0.0, 1.0)
+		motion_reduced = reduced_motion
+		link_mode = &"break"
+		set_meta("active", active)
+		set_meta("phase", retreat_phase)
+		set_meta("reduced_motion", reduced_motion)
+		set_meta("mode", link_mode if active else &"")
+		if active:
+			queue_redraw()
+
+	func set_recovery_state(active: bool, phase: float, reduced_motion: bool) -> void:
+		visible = active
+		retreat_phase = clampf(phase, 0.0, 1.0)
+		motion_reduced = reduced_motion
+		link_mode = &"recovery"
+		set_meta("active", active)
+		set_meta("phase", retreat_phase)
+		set_meta("reduced_motion", reduced_motion)
+		set_meta("mode", link_mode if active else &"")
+		if active:
+			queue_redraw()
+
+
+	func _draw() -> void:
+		if link_mode == &"recovery":
+			_draw_recovery()
+			return
+		var phase := 0.34 if motion_reduced else retreat_phase
+		var retreat := ease(clampf(phase, 0.0, 1.0), 1.8) * 2.5
+		var fade := 1.0 - smoothstep(0.76, 1.0, phase)
+		if motion_reduced:
+			fade = 1.0
+		var color := Color(Color("d68a68"), 0.96 * fade)
+		var highlight := Color(Color("ffd0ba"), fade)
+		# Two outward-facing link halves leave an unmistakable gap. The centered
+		# X keeps the loss shape-distinct in every color-vision mode.
+		draw_arc(
+			Vector2(5.5 - retreat, 9.0), 4.1,
+			-PI * 0.66, PI * 0.66, 12, color, 2.0, true,
+		)
+		draw_arc(
+			Vector2(12.5 + retreat, 9.0), 4.1,
+			PI * 0.34, PI * 1.66, 12, color, 2.0, true,
+		)
+		var cross := 2.2
+		draw_line(
+			Vector2(9.0 - cross, 9.0 - cross),
+			Vector2(9.0 + cross, 9.0 + cross),
+			highlight, 1.8, true,
+		)
+		draw_line(
+			Vector2(9.0 - cross, 9.0 + cross),
+			Vector2(9.0 + cross, 9.0 - cross),
+			highlight, 1.8, true,
+		)
+
+
+	func _draw_recovery() -> void:
+		var phase := 0.72 if motion_reduced else retreat_phase
+		var join_offset := (1.0 - ease(clampf(phase, 0.0, 1.0), 2.2)) * 2.8
+		var color := Color("74d4c2")
+		var highlight := Color("d9fff7")
+		# The same two link halves that retreated on loss now visibly converge.
+		# A check-shaped join mark makes the repaired state readable without color.
+		draw_arc(
+			Vector2(5.5 - join_offset, 9.0), 4.1,
+			-PI * 0.66, PI * 0.66, 12, color, 2.0, true,
+		)
+		draw_arc(
+			Vector2(12.5 + join_offset, 9.0), 4.1,
+			PI * 0.34, PI * 1.66, 12, color, 2.0, true,
+		)
+		var mark_alpha := smoothstep(0.42, 0.78, phase)
+		var mark_color := Color(highlight, mark_alpha)
+		draw_line(Vector2(7.1, 9.2), Vector2(8.6, 10.6), mark_color, 1.8, true)
+		draw_line(Vector2(8.6, 10.6), Vector2(11.2, 7.4), mark_color, 1.8, true)
+
 ## Compact management surface for typed peckwork queues.
 ##
 ## The queue strip stays readable in the office overview. Selecting a hen opens
@@ -11,6 +332,7 @@ const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_
 
 signal assignment_requested(worker_id: int, lane: StringName)
 signal assignment_undo_requested(worker_id: int)
+signal dispatch_lane_requested(lane: StringName)
 signal claim_resolution_requested(worker_id: int, path_id: StringName)
 signal personnel_action_requested(worker_id: int, action_id: StringName)
 signal peck_assist_requested(worker_id: int)
@@ -18,6 +340,17 @@ signal first_clutch_skip_requested
 signal first_clutch_focus_requested(worker_id: int)
 signal first_clutch_skip_rect_settled(rect: Rect2)
 signal interaction_safety_changed
+
+const PECK_RESULT_LINK_DURATION := 0.72
+const PECK_MISSED_LINK_DURATION := 0.58
+const PECK_RECHARGE_DISPLAY_SECONDS := 1.55
+const DISPATCH_BREAK_DISPLAY_SECONDS := 3.8
+const DISPATCH_BREAK_GLYPH_SECONDS := 0.92
+const DISPATCH_BREAK_RETREAT_SECONDS := 0.68
+const DISPATCH_BREAK_RECOVERY_SECONDS := 0.92
+const DISPATCH_RECOVERY_DISPLAY_SECONDS := 1.55
+const DISPATCH_RECOVERY_JOIN_SECONDS := 0.78
+const DISPATCH_RECOVERY_GLYPH_SECONDS := 1.12
 
 const LANE_ORDER: Array[StringName] = [
 	&"nest_damage",
@@ -64,9 +397,14 @@ const PERSONNEL_ACTION_TOOLTIPS := {
 }
 
 var _queue_labels: Dictionary[StringName, Label] = {}
+var _queue_buttons: Dictionary[StringName, Button] = {}
 var _queue_title_label: Label
 var _queue_contract_badge: Label
 var _queue_compact_label: Label
+var _dispatch_momentum_label: Label
+var _dispatch_momentum_break_glyph: RoutingMomentumBreakGlyph
+var _return_cue_focus_serial := 0
+var _last_return_cue_focus: Dictionary = {}
 var _assignment_buttons: Dictionary[StringName, Button] = {}
 var _personnel_buttons: Dictionary[StringName, Button] = {}
 var _queue_panel: PanelContainer
@@ -80,11 +418,13 @@ var _focus_panel: PanelContainer
 var _worker_name_label: Label
 var _worker_career_label: Label
 var _worker_trait_label: Label
+var _hen_intent_button: Button
 var _details_button: Button
 var _dossier_tabs: HBoxContainer
 var _dossier_tab_buttons: Dictionary[StringName, Button] = {}
 var _active_dossier_tab: StringName = &"route"
 var _current_claim_label: Label
+var _golden_file_badge: Label
 var _current_contract_badge: Label
 var _claim_detail_label: Label
 var _claim_progress_track: Control
@@ -92,9 +432,11 @@ var _claim_progress_bar: ProgressBar
 var _peck_timing_band: ColorRect
 var _peck_timing_marker: ColorRect
 var _peck_timing_label: Label
+var _priority_peck_intent_link: PriorityPeckIntentLink
 var _dossier_summary_label: Label
 var _routing_hint_label: Label
 var _peck_assist_button: Button
+var _peck_charge_meter: PriorityPeckChargeMeter
 var _trust_label: Label
 var _grievance_label: Label
 var _check_in_status_label: Label
@@ -114,11 +456,58 @@ var _personnel_actions_section: VBoxContainer
 var _focused_worker_id := -1
 var _snapshot: Dictionary = {}
 var _interaction_enabled := true
+var _active_dispatch_lane: StringName = &""
+var _dispatch_momentum_chain := 0
+var _dispatch_recommended_name := ""
+var _dispatch_reward_label := ""
+var _routing_best_chain := 0
+var _routing_next_milestone := 0
+var _routing_next_reward := ""
+var _routing_mastery_target_kind: StringName = &""
+var _dispatch_reward_tween: Tween
+var _dispatch_break_remaining := 0.0
+var _dispatch_break_chain := 0
+var _dispatch_break_reason := ""
+var _dispatch_break_source: StringName = &""
+var _dispatch_break_serial := 0
+var _dispatch_break_capture_staged := false
+var _dispatch_recovery_remaining := 0.0
+var _dispatch_recovery_worker_name := ""
+var _dispatch_recovery_lane: StringName = &""
+var _dispatch_recovery_break_serial := 0
+var _dispatch_recovery_serial := 0
+var _dispatch_recovery_authority_serial := 0
+var _dispatch_recovery_capture_staged := false
 var _peck_assist_clock_running := true
 var _peck_assist_binding_label := "E / A"
 var _reduced_motion := false
 var _color_vision_mode: StringName = &"standard"
 var _assist_pulse_phase := 0.0
+var _peck_result_link_remaining := 0.0
+var _peck_result_link_rating: StringName = &""
+var _peck_missed_link_serial := 0
+var _peck_missed_capture_staged := false
+var _peck_recharge_remaining := 0.0
+var _peck_recharge_before := 0
+var _peck_recharge_after := 0
+var _peck_recharge_serial := 0
+var _peck_recharge_authority_key := ""
+var _peck_recharge_capture_staged := false
+var _hen_intent_transition_tween: Tween
+var _last_hen_intent_key := ""
+var _hen_intent_transition_serial := 0
+var _context_action_serial := 0
+var _context_action_id: StringName = &""
+var _context_action_target_name := ""
+var _peck_result_focus_handoff: Dictionary = {
+	"status": "idle",
+	"worker_id": -1,
+	"claim_id": -1,
+	"target": "",
+	"action_id": "",
+	"serial": 0,
+	"reason": "",
+}
 var _first_clutch: Dictionary = {}
 var _first_clutch_cued_control: Control
 var _first_clutch_layout_width := -1.0
@@ -147,6 +536,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_process_dispatch_break(delta)
+	_process_dispatch_recovery(delta)
+	_process_priority_peck_recharge(delta)
 	var viewport_width := get_viewport_rect().size.x
 	if not is_equal_approx(viewport_width, _first_clutch_layout_width):
 		_apply_first_clutch_layout()
@@ -156,25 +548,83 @@ func _process(delta: float) -> void:
 		if skip_rect.has_area():
 			first_clutch_skip_rect_settled.emit(skip_rect)
 	var peck_visible := _peck_assist_button != null and _peck_assist_button.visible
+	var dispatch_break_active := (
+		_dispatch_break_remaining > 0.0 or _dispatch_recovery_remaining > 0.0
+	)
+	var peck_recharge_active := _peck_recharge_remaining > 0.0
+	var peck_link_active := (
+		_priority_peck_intent_link != null
+		and _hen_intent_button != null
+		and _hen_intent_button.is_visible_in_tree()
+		and not _hen_intent_button.disabled
+		and StringName(_hen_intent_button.get_meta("action_id", &"")) == &"peck"
+		and _peck_assist_button != null
+		and bool(_peck_assist_button.get_meta("assist_live", false))
+		and _claim_progress_track != null
+		and _claim_progress_track.is_visible_in_tree()
+	)
+	if _peck_result_link_remaining > 0.0 and not _peck_missed_capture_staged:
+		_peck_result_link_remaining = maxf(0.0, _peck_result_link_remaining - delta)
+	var result_link_active := (
+		_peck_result_link_remaining > 0.0
+		and _hen_intent_button != null
+		and _hen_intent_button.is_visible_in_tree()
+		and _claim_progress_track != null
+		and _claim_progress_track.is_visible_in_tree()
+	)
+	if result_link_active:
+		peck_link_active = false
 	var cue_visible := (
 		_first_clutch_cued_control != null
 		and is_instance_valid(_first_clutch_cued_control)
 		and _first_clutch_cued_control.is_visible_in_tree()
 	)
-	if not peck_visible and not cue_visible:
+	if (
+		not peck_visible
+		and not cue_visible
+		and not peck_link_active
+		and not result_link_active
+		and not dispatch_break_active
+		and not peck_recharge_active
+	):
+		if _priority_peck_intent_link != null:
+			_priority_peck_intent_link.set_link_state(false, _reduced_motion, _assist_pulse_phase)
 		return
 	if _reduced_motion:
 		if peck_visible:
 			_peck_assist_button.modulate = Color.WHITE
+		if _hen_intent_button != null:
+			_hen_intent_button.modulate = Color.WHITE
+		if _priority_peck_intent_link != null:
+			_priority_peck_intent_link.set_link_state(
+				peck_link_active or result_link_active,
+				true,
+				_result_link_progress() if result_link_active else _assist_pulse_phase,
+				result_link_active,
+				_peck_result_link_rating,
+			)
 		if cue_visible:
 			_first_clutch_cued_control.self_modulate = Color.WHITE
 		return
 	_assist_pulse_phase = fmod(_assist_pulse_phase + delta, TAU)
 	if peck_visible:
-		var assist_open := bool(_peck_assist_button.get_meta("assist_open", false))
+		var assist_open := bool(_peck_assist_button.get_meta("assist_live", false))
 		_peck_assist_button.modulate = (
 			Color(1.0, 1.0, 1.0, 0.92 + sin(_assist_pulse_phase * 4.2) * 0.08)
 			if assist_open else Color.WHITE
+		)
+	if _hen_intent_button != null:
+		_hen_intent_button.modulate = (
+			Color(1.0, 1.0, 1.0, 0.94 + sin(_assist_pulse_phase * 4.2) * 0.06)
+			if peck_link_active else Color.WHITE
+		)
+	if _priority_peck_intent_link != null:
+		_priority_peck_intent_link.set_link_state(
+			peck_link_active or result_link_active,
+			false,
+			_result_link_progress() if result_link_active else _assist_pulse_phase,
+			result_link_active,
+			_peck_result_link_rating,
 		)
 	if cue_visible:
 		var cue_lift := 0.94 + (sin(_assist_pulse_phase * 3.6) + 1.0) * 0.03
@@ -183,6 +633,11 @@ func _process(delta: float) -> void:
 
 func set_focus(worker_id: int) -> void:
 	if worker_id != _focused_worker_id:
+		_cancel_peck_result_focus_handoff("worker_focus_changed")
+		_peck_missed_capture_staged = false
+		set_meta("peck_missed_capture_staged", false)
+		_reset_hen_intent_transition()
+		_last_hen_intent_key = ""
 		_details_expanded = not bool(_first_clutch.get("visible", false))
 		_active_dossier_tab = &"route"
 	_focused_worker_id = worker_id
@@ -199,9 +654,51 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	# The UI never mutates it, so retaining the owned value avoids a third copy of
 	# every live claim and worker dossier on each accelerated clock publication.
 	_snapshot = snapshot
+	var momentum := snapshot.get("routing_momentum", {}) as Dictionary
+	_routing_best_chain = int(momentum.get("best_chain", 0))
+	_routing_next_milestone = int(momentum.get("next_milestone", 0))
+	_routing_next_reward = String(momentum.get("next_reward", ""))
+	_routing_mastery_target_kind = StringName(String(momentum.get("mastery_target_kind", "")))
+	if _peck_charge_meter != null:
+		_peck_charge_meter.set_counts(
+			int(snapshot.get("peck_assists_remaining", 0)),
+			int(snapshot.get("peck_assist_limit", 3)),
+			int(momentum.get("peck_recharge_bank", 0)) > 0,
+		)
 	if not _pending_claim_resolution_is_valid():
 		_cancel_claim_resolution_confirmation(false)
 	_refresh()
+	_repair_committed_peck_focus()
+
+
+func set_egg_journey_receipts(receipts: Array[Dictionary]) -> void:
+	_snapshot["egg_journey_receipts"] = receipts
+	_refresh()
+
+
+func egg_journey_receipt_state() -> Dictionary:
+	if _routing_hint_label == null:
+		return {"visible": false}
+	return {
+		"visible": bool(_routing_hint_label.get_meta("egg_journey_visible", false)),
+		"worker_id": int(_routing_hint_label.get_meta("egg_journey_worker_id", -1)),
+		"claim_id": int(_routing_hint_label.get_meta("egg_journey_claim_id", -1)),
+		"stage": String(_routing_hint_label.get_meta("egg_journey_stage", &"")),
+		"active_count": int(_routing_hint_label.get_meta("egg_journey_active_count", 0)),
+		"copy": _routing_hint_label.text,
+		"accessible_text": String(_routing_hint_label.get_meta("accessible_text", "")),
+	}
+
+
+func golden_file_state() -> Dictionary:
+	return {
+		"visible": _golden_file_badge != null and _golden_file_badge.visible,
+		"claim_id": int(_claim_header.get_meta("routing_golden_claim_id", -1)) if _claim_header != null else -1,
+		"shape": "star_wordmark",
+		"label": _golden_file_badge.text if _golden_file_badge != null else "",
+		"accessible_text": _golden_file_badge.tooltip_text if _golden_file_badge != null else "",
+		"reduced_motion": _reduced_motion,
+	}
 
 
 ## Applies presentation-only state for the optional first-shift coach.
@@ -242,8 +739,423 @@ func set_first_clutch_stage(stage: StringName, state: Dictionary = {}) -> void:
 func set_interaction_enabled(enabled: bool) -> void:
 	_interaction_enabled = enabled
 	if not enabled:
+		_cancel_peck_result_focus_handoff("interaction_blocked")
 		_cancel_claim_resolution_confirmation(false)
 	_refresh()
+
+
+## Mirrors Office's short-lived tray selection without owning the gameplay state.
+func set_dispatch_state(
+	lane: StringName,
+	momentum_chain: int = 0,
+	recommended_name: String = "",
+	reward_label: String = "",
+) -> void:
+	_active_dispatch_lane = lane if lane in LANE_ORDER else &""
+	_dispatch_momentum_chain = maxi(0, momentum_chain)
+	if _dispatch_momentum_chain > 0 and _dispatch_break_remaining > 0.0:
+		_finish_dispatch_break()
+	if _dispatch_momentum_chain > 1 and _dispatch_recovery_remaining > 0.0:
+		_finish_dispatch_recovery()
+	_dispatch_recommended_name = recommended_name
+	_dispatch_reward_label = reward_label
+	_refresh()
+
+
+func play_dispatch_reward(
+	reward_id: StringName,
+	chain: int,
+	reward_receipt: Dictionary = {},
+) -> void:
+	if _dispatch_momentum_label == null or reward_id == &"":
+		return
+	if _dispatch_reward_tween != null and _dispatch_reward_tween.is_valid():
+		_dispatch_reward_tween.kill()
+	var reward_color := Color("e7c56e")
+	match reward_id:
+		&"peck_recharge":
+			reward_color = Color("74d4c2")
+		&"golden_file":
+			reward_color = Color("ffd75e")
+		&"team_lift":
+			reward_color = Color("ef91a2")
+		&"mastery_record":
+			reward_color = Color("7dd4c4")
+	_dispatch_momentum_label.modulate = reward_color
+	var accessible_copy := String(reward_receipt.get("accessible_text", ""))
+	if accessible_copy.is_empty():
+		accessible_copy = "FIT x%d milestone earned: %s" % [chain, _dispatch_reward_label]
+	_dispatch_momentum_label.tooltip_text = accessible_copy
+	_dispatch_momentum_label.set_meta("accessible_text", accessible_copy)
+	_dispatch_momentum_label.set_meta("reward_id", reward_id)
+	_dispatch_momentum_label.set_meta("reward_chain", chain)
+	if _reduced_motion:
+		return
+	_dispatch_reward_tween = create_tween().bind_node(_dispatch_momentum_label)
+	_dispatch_reward_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_dispatch_reward_tween.tween_property(
+		_dispatch_momentum_label,
+		"modulate",
+		Color.WHITE,
+		0.16,
+	)
+	_dispatch_reward_tween.tween_property(
+		_dispatch_momentum_label,
+		"modulate",
+		reward_color,
+		0.12,
+	)
+	_dispatch_reward_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	_dispatch_reward_tween.tween_property(
+		_dispatch_momentum_label,
+		"modulate",
+		Color.WHITE,
+		0.42,
+	)
+
+
+func routing_mastery_state() -> Dictionary:
+	var accessible_text := ""
+	if _routing_next_milestone > 0 and _dispatch_momentum_chain >= 10:
+		accessible_text = (
+			"Best-fit record %d. Rebuild the prior best at %d."
+			% [_routing_best_chain, _routing_next_milestone]
+			if _routing_mastery_target_kind == &"rebuild" else
+			"Best-fit record %d. The next mastery record is %d."
+			% [_routing_best_chain, _routing_next_milestone]
+		)
+	return {
+		"active": _dispatch_momentum_chain >= 10,
+		"chain": _dispatch_momentum_chain,
+		"best_chain": _routing_best_chain,
+		"next_milestone": _routing_next_milestone,
+		"next_reward": _routing_next_reward,
+		"target_kind": _routing_mastery_target_kind,
+		"accessible_text": accessible_text,
+	}
+
+
+## Joins the authoritative x3 receipt to the existing Priority Peck control.
+## The world burst remains the source beat; this meter is the destination, so
+## the player sees exactly which reusable management resource was restored.
+func play_priority_peck_recharge(reward: Dictionary, chain: int) -> bool:
+	if (
+		StringName(String(reward.get("id", ""))) != &"peck_recharge"
+		or not bool(reward.get("refilled", false))
+		or _peck_charge_meter == null
+	):
+		return false
+	var charges_before := int(reward.get("charges_before", -1))
+	var charges_after := int(reward.get("charges_after", -1))
+	if charges_before < 0 or charges_after <= charges_before:
+		return false
+	var authority_key := String(reward.get("authority_key", ""))
+	if authority_key.is_empty():
+		authority_key = "%d:%d:%d" % [chain, charges_before, charges_after]
+	if authority_key == _peck_recharge_authority_key:
+		return false
+	_peck_recharge_authority_key = authority_key
+	_peck_recharge_before = charges_before
+	_peck_recharge_after = charges_after
+	_peck_recharge_serial += 1
+	_peck_recharge_remaining = PECK_RECHARGE_DISPLAY_SECONDS
+	_peck_recharge_capture_staged = false
+	_peck_charge_meter.set_counts(
+		charges_after,
+		int(reward.get("limit_after", maxi(charges_after, 3))),
+		bool(reward.get("banked", false)),
+	)
+	_peck_charge_meter.set_recharge_state(
+		true,
+		0.62 if _reduced_motion else 0.0,
+		_reduced_motion,
+		_peck_recharge_before,
+		_peck_recharge_after,
+		_peck_recharge_serial,
+	)
+	set_meta("peck_recharge_active", true)
+	set_meta("peck_recharge_serial", _peck_recharge_serial)
+	set_meta("peck_recharge_authority_key", _peck_recharge_authority_key)
+	set_meta("peck_recharge_animated", not _reduced_motion)
+	set_meta("peck_recharge_capture_staged", false)
+	return true
+
+
+func stage_priority_peck_recharge_capture() -> bool:
+	if _peck_recharge_remaining <= 0.0 or _peck_charge_meter == null:
+		return false
+	_peck_recharge_capture_staged = true
+	_peck_recharge_remaining = PECK_RECHARGE_DISPLAY_SECONDS * 0.46
+	set_meta("peck_recharge_capture_staged", true)
+	_peck_charge_meter.set_recharge_state(
+		true,
+		0.54,
+		_reduced_motion,
+		_peck_recharge_before,
+		_peck_recharge_after,
+		_peck_recharge_serial,
+	)
+	return true
+
+
+func priority_peck_charge_state() -> Dictionary:
+	return {
+		"charges": int(_peck_charge_meter.get_meta("charges", 0)) if _peck_charge_meter != null else 0,
+		"limit": int(_peck_charge_meter.get_meta("limit", 0)) if _peck_charge_meter != null else 0,
+		"banked": bool(_peck_charge_meter.get_meta("banked", false)) if _peck_charge_meter != null else false,
+		"recharge_active": _peck_recharge_remaining > 0.0,
+		"recharge_before": _peck_recharge_before,
+		"recharge_after": _peck_recharge_after,
+		"recharge_serial": _peck_recharge_serial,
+		"authority_key": _peck_recharge_authority_key,
+		"animated": _peck_recharge_remaining > 0.0 and not _reduced_motion,
+		"reduced_motion": _reduced_motion,
+		"capture_staged": _peck_recharge_capture_staged,
+		"shape": "filled_diamond_pips",
+	}
+
+
+func _process_priority_peck_recharge(delta: float) -> void:
+	if _peck_recharge_remaining <= 0.0 or _peck_charge_meter == null:
+		return
+	if not _peck_recharge_capture_staged:
+		_peck_recharge_remaining = maxf(0.0, _peck_recharge_remaining - delta)
+	if _peck_recharge_remaining <= 0.0:
+		_finish_priority_peck_recharge()
+		return
+	var phase := (
+		0.62
+		if _reduced_motion else
+		1.0 - (_peck_recharge_remaining / PECK_RECHARGE_DISPLAY_SECONDS)
+	)
+	_peck_charge_meter.set_recharge_state(
+		true,
+		phase,
+		_reduced_motion,
+		_peck_recharge_before,
+		_peck_recharge_after,
+		_peck_recharge_serial,
+	)
+
+
+func _finish_priority_peck_recharge() -> void:
+	_peck_recharge_remaining = 0.0
+	_peck_recharge_capture_staged = false
+	set_meta("peck_recharge_active", false)
+	set_meta("peck_recharge_capture_staged", false)
+	if _peck_charge_meter != null:
+		_peck_charge_meter.set_recharge_state(
+			false,
+			1.0,
+			_reduced_motion,
+			_peck_recharge_before,
+			_peck_recharge_after,
+			_peck_recharge_serial,
+		)
+
+
+## Presents one authoritative skill-chain loss without another prose panel.
+## The split-link glyph and xN > 0 receipt show what changed; NEXT FIT x1 and
+## the tray pulse point to the exact recovery action. The detailed cause stays
+## available through the queue tooltip and accessibility name.
+func play_dispatch_break(receipt: Dictionary) -> bool:
+	var broken_chain := int(receipt.get("broken_chain", 0))
+	if _dispatch_momentum_label == null or broken_chain <= 0:
+		return false
+	if _dispatch_reward_tween != null and _dispatch_reward_tween.is_valid():
+		_dispatch_reward_tween.kill()
+	_dispatch_break_serial += 1
+	_dispatch_break_chain = broken_chain
+	_dispatch_break_reason = String(receipt.get("reason", "Routing flow ended."))
+	_dispatch_break_source = StringName(String(receipt.get("source", "unknown")))
+	_dispatch_break_remaining = DISPATCH_BREAK_DISPLAY_SECONDS
+	_dispatch_break_capture_staged = false
+	set_meta("dispatch_break_serial", _dispatch_break_serial)
+	set_meta("dispatch_break_chain", _dispatch_break_chain)
+	set_meta("dispatch_break_reason", _dispatch_break_reason)
+	set_meta("dispatch_break_source", _dispatch_break_source)
+	set_meta("dispatch_break_animated", not _reduced_motion)
+	set_meta("dispatch_break_active", true)
+	set_meta("dispatch_break_capture_staged", false)
+	_apply_dispatch_break_presentation()
+	return true
+
+
+## Capture-only hold of the same live presentation. Runtime remains bounded.
+func stage_dispatch_break_capture() -> bool:
+	if _dispatch_break_remaining <= 0.0 or _dispatch_momentum_label == null:
+		return false
+	_dispatch_break_remaining = DISPATCH_BREAK_DISPLAY_SECONDS - 0.28
+	_dispatch_break_capture_staged = true
+	set_meta("dispatch_break_capture_staged", true)
+	_apply_dispatch_break_presentation()
+	return true
+
+
+func _process_dispatch_break(delta: float) -> void:
+	if _dispatch_break_remaining <= 0.0:
+		return
+	if not _dispatch_break_capture_staged:
+		_dispatch_break_remaining = maxf(0.0, _dispatch_break_remaining - delta)
+	if _dispatch_break_remaining <= 0.0:
+		_finish_dispatch_break()
+		_refresh()
+		return
+	_apply_dispatch_break_presentation()
+
+
+func _apply_dispatch_break_presentation() -> void:
+	if _dispatch_momentum_label == null or _dispatch_break_remaining <= 0.0:
+		return
+	var elapsed := DISPATCH_BREAK_DISPLAY_SECONDS - _dispatch_break_remaining
+	var glyph_active := elapsed < DISPATCH_BREAK_GLYPH_SECONDS
+	if _dispatch_momentum_break_glyph != null:
+		_dispatch_momentum_break_glyph.set_break_state(
+			glyph_active,
+			clampf(elapsed / DISPATCH_BREAK_RETREAT_SECONDS, 0.0, 1.0),
+			_reduced_motion,
+		)
+	_dispatch_momentum_label.text = (
+		"x%d  >  0" % _dispatch_break_chain
+		if elapsed < DISPATCH_BREAK_RECOVERY_SECONDS else
+		"NEXT FIT  x1"
+	)
+	_dispatch_momentum_label.modulate = (
+		Color("f2a07b") if elapsed < DISPATCH_BREAK_RECOVERY_SECONDS else Color("88cdbd")
+	)
+	var detail := "FIT x%d ended: %s Choose a tray, then the gold-star hen to restart at x1." % [
+		_dispatch_break_chain,
+		_dispatch_break_reason,
+	]
+	_dispatch_momentum_label.tooltip_text = detail
+	_dispatch_momentum_label.accessibility_name = detail
+	_set_dispatch_tray_break_modulate(elapsed)
+
+
+func _set_dispatch_tray_break_modulate(elapsed: float) -> void:
+	for lane: StringName in _queue_buttons:
+		var tray := _queue_buttons.get(lane) as Button
+		if tray == null or tray.disabled or _reduced_motion:
+			if tray != null:
+				tray.self_modulate = Color.WHITE
+			continue
+		if elapsed < 0.55:
+			tray.self_modulate = Color(1.0, 0.82, 0.74, 1.0)
+		elif elapsed < 1.85:
+			var lift := (sin(elapsed * 8.4) + 1.0) * 0.5
+			tray.self_modulate = Color(
+				lerpf(0.88, 0.98, lift), 1.0, lerpf(0.93, 1.0, lift), 1.0
+			)
+		else:
+			tray.self_modulate = Color.WHITE
+
+
+func _finish_dispatch_break() -> void:
+	_dispatch_break_remaining = 0.0
+	_dispatch_break_capture_staged = false
+	set_meta("dispatch_break_active", false)
+	set_meta("dispatch_break_capture_staged", false)
+	if _dispatch_momentum_break_glyph != null:
+		_dispatch_momentum_break_glyph.set_break_state(false, 1.0, _reduced_motion)
+	if _dispatch_momentum_label != null:
+		_dispatch_momentum_label.modulate = Color.WHITE
+		_dispatch_momentum_label.accessibility_name = ""
+	for tray_value in _queue_buttons.values():
+		var tray := tray_value as Button
+		if tray != null:
+			tray.self_modulate = Color.WHITE
+
+
+## Closes the correction loop after the first authoritative best-fit dispatch
+## following a break. It reuses the queue-strip link rather than adding a toast.
+func play_dispatch_recovery(receipt: Dictionary) -> bool:
+	var recovered_chain := int(receipt.get("recovered_chain", 0))
+	var authority_serial := int(receipt.get("serial", 0))
+	if _dispatch_momentum_label == null or recovered_chain != 1:
+		return false
+	if authority_serial > 0 and authority_serial <= _dispatch_recovery_authority_serial:
+		return false
+	if _dispatch_reward_tween != null and _dispatch_reward_tween.is_valid():
+		_dispatch_reward_tween.kill()
+	if _dispatch_break_remaining > 0.0:
+		_finish_dispatch_break()
+	_dispatch_recovery_serial += 1
+	_dispatch_recovery_authority_serial = maxi(
+		_dispatch_recovery_authority_serial,
+		authority_serial,
+	)
+	_dispatch_recovery_worker_name = String(receipt.get("worker_name", "BEST-FIT HEN"))
+	_dispatch_recovery_lane = StringName(String(receipt.get("lane", "")))
+	_dispatch_recovery_break_serial = int(receipt.get("break_serial", 0))
+	_dispatch_recovery_remaining = DISPATCH_RECOVERY_DISPLAY_SECONDS
+	_dispatch_recovery_capture_staged = false
+	set_meta("dispatch_recovery_serial", _dispatch_recovery_serial)
+	set_meta("dispatch_recovery_authority_serial", _dispatch_recovery_authority_serial)
+	set_meta("dispatch_recovery_break_serial", _dispatch_recovery_break_serial)
+	set_meta("dispatch_recovery_worker_name", _dispatch_recovery_worker_name)
+	set_meta("dispatch_recovery_lane", _dispatch_recovery_lane)
+	set_meta("dispatch_recovery_animated", not _reduced_motion)
+	set_meta("dispatch_recovery_active", true)
+	set_meta("dispatch_recovery_capture_staged", false)
+	_apply_dispatch_recovery_presentation()
+	return true
+
+
+## Capture-only hold of the live recovery join at its most legible phase.
+func stage_dispatch_recovery_capture() -> bool:
+	if _dispatch_recovery_remaining <= 0.0 or _dispatch_momentum_label == null:
+		return false
+	_dispatch_recovery_remaining = DISPATCH_RECOVERY_DISPLAY_SECONDS - 0.58
+	_dispatch_recovery_capture_staged = true
+	set_meta("dispatch_recovery_capture_staged", true)
+	_apply_dispatch_recovery_presentation()
+	return true
+
+
+func _process_dispatch_recovery(delta: float) -> void:
+	if _dispatch_recovery_remaining <= 0.0:
+		return
+	if not _dispatch_recovery_capture_staged:
+		_dispatch_recovery_remaining = maxf(0.0, _dispatch_recovery_remaining - delta)
+	if _dispatch_recovery_remaining <= 0.0:
+		_finish_dispatch_recovery()
+		_refresh()
+		return
+	_apply_dispatch_recovery_presentation()
+
+
+func _apply_dispatch_recovery_presentation() -> void:
+	if _dispatch_momentum_label == null or _dispatch_recovery_remaining <= 0.0:
+		return
+	var elapsed := DISPATCH_RECOVERY_DISPLAY_SECONDS - _dispatch_recovery_remaining
+	var glyph_active := elapsed < DISPATCH_RECOVERY_GLYPH_SECONDS
+	if _dispatch_momentum_break_glyph != null:
+		_dispatch_momentum_break_glyph.set_recovery_state(
+			glyph_active,
+			clampf(elapsed / DISPATCH_RECOVERY_JOIN_SECONDS, 0.0, 1.0),
+			_reduced_motion,
+		)
+	_dispatch_momentum_label.text = "FIT LINKED  x1"
+	_dispatch_momentum_label.modulate = Color("74d4c2")
+	var lane_label := String(_dispatch_recovery_lane).replace("_", " ").to_upper()
+	var detail := "%s rebuilt routing flow at x1 with the best fit for %s." % [
+		_dispatch_recovery_worker_name,
+		lane_label if not lane_label.is_empty() else "the selected tray",
+	]
+	_dispatch_momentum_label.tooltip_text = detail
+	_dispatch_momentum_label.accessibility_name = detail
+
+
+func _finish_dispatch_recovery() -> void:
+	_dispatch_recovery_remaining = 0.0
+	_dispatch_recovery_capture_staged = false
+	set_meta("dispatch_recovery_active", false)
+	set_meta("dispatch_recovery_capture_staged", false)
+	if _dispatch_momentum_break_glyph != null:
+		_dispatch_momentum_break_glyph.set_recovery_state(false, 1.0, _reduced_motion)
+	if _dispatch_momentum_label != null:
+		_dispatch_momentum_label.modulate = Color.WHITE
+		_dispatch_momentum_label.accessibility_name = ""
 
 
 func set_peck_assist_clock_running(running: bool) -> void:
@@ -256,8 +1168,83 @@ func set_peck_assist_binding_label(binding_label: String) -> void:
 	_refresh()
 
 
+func play_peck_assist_result(worker_id: int, rating: StringName) -> void:
+	if worker_id != _focused_worker_id or _hen_intent_button == null:
+		return
+	_peck_result_link_rating = rating
+	_peck_result_link_remaining = PECK_RESULT_LINK_DURATION
+	_peck_missed_capture_staged = false
+	set_meta("peck_missed_capture_staged", false)
+	set_meta("peck_result_link_worker_id", worker_id)
+	set_meta("peck_result_link_rating", rating)
+
+
+## Runs the success connector backward as a broken line when the inspected
+## window closes. The stable MISSED / NEXT FILE states remain available when
+## motion is reduced, so this flourish is supplemental rather than required.
+func play_peck_assist_missed(worker_id: int) -> bool:
+	if worker_id != _focused_worker_id or _hen_intent_button == null:
+		return false
+	_peck_missed_link_serial += 1
+	set_meta("peck_missed_link_worker_id", worker_id)
+	set_meta("peck_missed_link_serial", _peck_missed_link_serial)
+	set_meta("peck_missed_link_animated", not _reduced_motion)
+	_peck_missed_capture_staged = false
+	set_meta("peck_missed_capture_staged", false)
+	if _reduced_motion:
+		_peck_result_link_remaining = 0.0
+		return false
+	_peck_result_link_rating = &"missed"
+	_peck_result_link_remaining = PECK_MISSED_LINK_DURATION
+	return true
+
+
+## Deterministic browser captures can hold the same authored broken connector at
+## its midpoint. No live code path stages this state or changes the bounded beat.
+func stage_peck_assist_missed_capture(worker_id: int) -> bool:
+	if (
+		worker_id != _focused_worker_id
+		or _hen_intent_button == null
+		or _claim_progress_track == null
+	):
+		return false
+	_peck_result_link_rating = &"missed"
+	_peck_result_link_remaining = PECK_MISSED_LINK_DURATION * 0.5
+	_peck_missed_capture_staged = true
+	set_meta("peck_missed_capture_staged", true)
+	return true
+
+
+func _result_link_progress() -> float:
+	return clampf(
+		1.0 - (_peck_result_link_remaining / PECK_RESULT_LINK_DURATION),
+		0.0,
+		1.0,
+	)
+
+
 func set_reduced_motion(enabled: bool) -> void:
 	_reduced_motion = enabled
+	if enabled:
+		_peck_missed_capture_staged = false
+		set_meta("peck_missed_capture_staged", false)
+		_reset_hen_intent_transition()
+	if _dispatch_break_remaining > 0.0:
+		set_meta("dispatch_break_animated", not _reduced_motion)
+		_apply_dispatch_break_presentation()
+	if _dispatch_recovery_remaining > 0.0:
+		set_meta("dispatch_recovery_animated", not _reduced_motion)
+		_apply_dispatch_recovery_presentation()
+	if _peck_recharge_remaining > 0.0 and _peck_charge_meter != null:
+		set_meta("peck_recharge_animated", not _reduced_motion)
+		_peck_charge_meter.set_recharge_state(
+			true,
+			0.62 if _reduced_motion else 1.0 - (_peck_recharge_remaining / PECK_RECHARGE_DISPLAY_SECONDS),
+			_reduced_motion,
+			_peck_recharge_before,
+			_peck_recharge_after,
+			_peck_recharge_serial,
+		)
 
 
 func set_color_vision_mode(mode: StringName) -> void:
@@ -276,6 +1263,147 @@ func color_vision_mode() -> StringName:
 
 func focused_worker_id() -> int:
 	return _focused_worker_id
+
+
+## Returns the most urgent usable tray from live intake evidence. Deadline pressure
+## leads, then overdue/rush/volume break exact ties; LANE_ORDER keeps the result
+## stable when every gameplay signal is equal. This never mutates the snapshot.
+func dispatch_priority_state() -> Dictionary:
+	var routing: Dictionary = _snapshot.get("routing", {}) as Dictionary
+	var queue_counts: Dictionary = routing.get(
+		"queue_counts",
+		_snapshot.get("claim_queue_counts", {}),
+	) as Dictionary
+	var overdue_counts: Dictionary = routing.get(
+		"overdue_by_lane",
+		_snapshot.get("claim_queue_overdue_counts", {}),
+	) as Dictionary
+	var queue_items: Dictionary = _snapshot.get("claim_queue_items", {}) as Dictionary
+	var best: Dictionary = {}
+	for lane: StringName in LANE_ORDER:
+		var tray := _queue_buttons.get(lane) as Button
+		var queue_count := int(queue_counts.get(lane, queue_counts.get(String(lane), 0)))
+		if (
+			tray == null
+			or tray.disabled
+			or not tray.is_visible_in_tree()
+			or queue_count <= 0
+		):
+			continue
+		var lane_items_value: Variant = queue_items.get(
+			lane,
+			queue_items.get(String(lane), []),
+		)
+		var lane_items: Array = lane_items_value as Array if lane_items_value is Array else []
+		var earliest_deadline := 2_147_483_647
+		var rush_count := 0
+		for item_value in lane_items:
+			if not item_value is Dictionary:
+				continue
+			var item := item_value as Dictionary
+			earliest_deadline = mini(
+				earliest_deadline,
+				int(item.get("minutes_until_deadline", 2_147_483_647)),
+			)
+			if bool(item.get("market_contract_rush", false)):
+				rush_count += 1
+		var overdue_count := int(overdue_counts.get(
+			lane,
+			overdue_counts.get(String(lane), 0),
+		))
+		var candidate := {
+			"available": true,
+			"lane": String(lane),
+			"lane_label": _lane_name(lane),
+			"queue_count": queue_count,
+			"overdue_count": overdue_count,
+			"minutes_until_deadline": earliest_deadline,
+			"rush_count": rush_count,
+			"reason": (
+				"overdue" if overdue_count > 0 or earliest_deadline < 0 else
+				"nearest_deadline" if earliest_deadline < 2_147_483_647 else
+				"queue_volume"
+			),
+		}
+		if best.is_empty() or _dispatch_priority_precedes(candidate, best):
+			best = candidate
+	return best
+
+
+func _dispatch_priority_precedes(candidate: Dictionary, current: Dictionary) -> bool:
+	var candidate_deadline := int(candidate.get("minutes_until_deadline", 2_147_483_647))
+	var current_deadline := int(current.get("minutes_until_deadline", 2_147_483_647))
+	if candidate_deadline != current_deadline:
+		return candidate_deadline < current_deadline
+	var candidate_overdue := int(candidate.get("overdue_count", 0))
+	var current_overdue := int(current.get("overdue_count", 0))
+	if candidate_overdue != current_overdue:
+		return candidate_overdue > current_overdue
+	var candidate_rush := int(candidate.get("rush_count", 0))
+	var current_rush := int(current.get("rush_count", 0))
+	if candidate_rush != current_rush:
+		return candidate_rush > current_rush
+	return int(candidate.get("queue_count", 0)) > int(current.get("queue_count", 0))
+
+
+## Moves keyboard focus to the most urgent usable intake tray without filing a
+## route. Office pairs this with one restrained pulse for the one-shot re-entry
+## handoff; gameplay authority remains in the normal tray and hen-selection flow.
+func focus_priority_dispatch_tray() -> Control:
+	_return_cue_focus_serial += 1
+	var priority := dispatch_priority_state()
+	if not priority.is_empty():
+		var lane := StringName(String(priority.get("lane", "")))
+		var tray := _queue_buttons.get(lane) as Button
+		if tray != null:
+			clear_dispatch_tray_focus_fallback()
+			tray.grab_focus()
+			_last_return_cue_focus = priority.duplicate(true)
+			_last_return_cue_focus.merge({
+				"serial": _return_cue_focus_serial,
+				"fallback": false,
+				"target": String(tray.name),
+			}, true)
+			return tray
+	# A freshly restored clock can briefly have no filed intake. Keep the action
+	# truthful by focusing the queue strip itself instead of enabling an empty tray.
+	if _queue_panel != null and _queue_panel.is_visible_in_tree():
+		_queue_panel.focus_mode = Control.FOCUS_ALL
+		_queue_panel.accessibility_name = "Peckwork intake trays; no file is ready yet"
+		_queue_panel.grab_focus()
+		_last_return_cue_focus = {
+			"serial": _return_cue_focus_serial,
+			"available": false,
+			"lane": "",
+			"lane_label": "",
+			"queue_count": 0,
+			"overdue_count": 0,
+			"minutes_until_deadline": 2_147_483_647,
+			"rush_count": 0,
+			"reason": "waiting_for_intake",
+			"fallback": true,
+			"target": String(_queue_panel.name),
+		}
+		return _queue_panel
+	return null
+
+
+func return_cue_focus_state() -> Dictionary:
+	return _last_return_cue_focus.duplicate(true)
+
+
+func reset_return_cue_focus_state() -> void:
+	clear_dispatch_tray_focus_fallback()
+	_last_return_cue_focus.clear()
+
+
+func clear_dispatch_tray_focus_fallback() -> void:
+	if _queue_panel == null:
+		return
+	if _queue_panel.has_focus():
+		_queue_panel.release_focus()
+	_queue_panel.focus_mode = Control.FOCUS_NONE
+	_queue_panel.accessibility_name = ""
 
 
 func first_clutch_stage() -> StringName:
@@ -334,8 +1462,24 @@ func routing_choices_accessible_text() -> String:
 
 ## One compact read model keeps browser narration and regression fixtures aligned
 ## with the confirmation or reversible routing action currently visible.
+func has_held_confirmation() -> bool:
+	return (
+		_claim_resolution_confirmation != null
+		and _claim_resolution_confirmation.visible
+	)
+
+
 func interaction_safety_state() -> Dictionary:
 	var assignment_undo := _snapshot.get("assignment_undo", {}) as Dictionary
+	var confirmation_focus := (
+		"confirm"
+		if _claim_resolution_confirmation != null
+		and _claim_resolution_confirmation.get_ok_button().has_focus() else
+		"safe_return"
+		if _claim_resolution_confirmation != null
+		and _claim_resolution_confirmation.get_cancel_button().has_focus() else
+		""
+	)
 	return {
 		"claim_confirmation_visible": (
 			_claim_resolution_confirmation != null
@@ -344,6 +1488,27 @@ func interaction_safety_state() -> Dictionary:
 		"claim_confirmation_worker_id": _pending_claim_resolution_worker_id,
 		"claim_confirmation_claim_id": _pending_claim_resolution_claim_id,
 		"claim_confirmation_path_id": String(_pending_claim_resolution_path),
+		"claim_confirmation_title": (
+			_claim_resolution_confirmation.title
+			if _claim_resolution_confirmation != null else
+			""
+		),
+		"claim_confirmation_confirm_label": (
+			_claim_resolution_confirmation.get_ok_button().text
+			if _claim_resolution_confirmation != null else
+			""
+		),
+		"claim_confirmation_cancel_label": (
+			_claim_resolution_confirmation.get_cancel_button().text
+			if _claim_resolution_confirmation != null else
+			""
+		),
+		"claim_confirmation_focus": confirmation_focus,
+		"claim_confirmation_accessible_text": (
+			String(_claim_resolution_confirmation.get_meta("accessible_text", ""))
+			if _claim_resolution_confirmation != null else
+			""
+		),
 		"route_undo_visible": (
 			_assignment_undo_button != null
 			and _assignment_undo_button.is_visible_in_tree()
@@ -390,6 +1555,28 @@ func top_inset() -> float:
 	return _top_inset
 
 
+## Exposes only the two live routing surfaces transaction feedback must avoid.
+## Keeping the geometry query here avoids coupling Office to private panel nodes.
+func settlement_feedback_top_rect() -> Rect2:
+	if _queue_panel == null or not _queue_panel.visible:
+		return Rect2()
+	return _queue_panel.get_global_rect()
+
+
+func settlement_feedback_bottom_rect() -> Rect2:
+	if _focus_panel == null or not _focus_panel.visible:
+		return Rect2()
+	return _focus_panel.get_global_rect()
+
+
+## Gives transient settlement presentation the exact reusable-resource surface.
+## Office may outline this control, but never owns or mutates its charge state.
+func settlement_feedback_peck_target() -> Control:
+	if _peck_charge_meter == null or not _peck_charge_meter.is_visible_in_tree():
+		return null
+	return _peck_charge_meter
+
+
 func _build_queue_strip() -> void:
 	_queue_panel = PanelContainer.new()
 	_queue_panel.name = "PeckworkQueueStrip"
@@ -398,7 +1585,7 @@ func _build_queue_strip() -> void:
 	_queue_panel.offset_top = 120.0
 	_queue_panel.offset_right = 650.0
 	_queue_panel.offset_bottom = 158.0
-	_queue_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_queue_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	_queue_panel.add_theme_stylebox_override("panel", _panel_style(Color("16242d"), 0.96, Color("52646d"), 7, 1))
 	add_child(_queue_panel)
 
@@ -430,16 +1617,45 @@ func _build_queue_strip() -> void:
 	_queue_compact_label.visible = false
 	row.add_child(_queue_compact_label)
 	for lane in LANE_ORDER:
+		var tray_button := Button.new()
+		tray_button.name = "DispatchTray_%s" % String(lane)
+		tray_button.custom_minimum_size.x = 96.0 if lane == &"predator_loss" else 86.0
+		tray_button.focus_mode = Control.FOCUS_ALL
+		tray_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		tray_button.theme_type_variation = &"DecisionChoiceButton"
+		tray_button.tooltip_text = "Dispatch the next %s file. Then choose a hen; the gold star marks the best fit." % _lane_name(lane)
+		tray_button.pressed.connect(_on_dispatch_tray_pressed.bind(lane))
+		row.add_child(tray_button)
+		_queue_buttons[lane] = tray_button
 		var label := _make_label("%s  0" % _lane_short_name(lane), 12, _lane_color(lane))
 		label.name = "Queue_%s" % String(lane)
-		label.custom_minimum_size.x = 96.0 if lane == &"predator_loss" else 86.0
-		row.add_child(label)
+		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tray_button.add_child(label)
 		_queue_labels[lane] = label
 	var debt := _make_label("OVERDUE  0", 12, _lane_color(&"overdue"))
 	debt.name = "QueueOverdue"
 	debt.custom_minimum_size.x = 86.0
 	row.add_child(debt)
 	_queue_labels[&"overdue"] = debt
+	_dispatch_momentum_label = _make_label("", 11, Color("e7c56e"))
+	_dispatch_momentum_label.name = "DispatchMomentum"
+	_dispatch_momentum_label.custom_minimum_size.x = 132.0
+	_dispatch_momentum_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_dispatch_momentum_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_dispatch_momentum_label)
+	_dispatch_momentum_break_glyph = RoutingMomentumBreakGlyph.new()
+	_dispatch_momentum_break_glyph.name = "DispatchMomentumBreakGlyph"
+	_dispatch_momentum_break_glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dispatch_momentum_break_glyph.set_anchors_preset(Control.PRESET_CENTER_LEFT)
+	_dispatch_momentum_break_glyph.offset_left = 0.0
+	_dispatch_momentum_break_glyph.offset_right = 18.0
+	_dispatch_momentum_break_glyph.offset_top = -9.0
+	_dispatch_momentum_break_glyph.offset_bottom = 9.0
+	_dispatch_momentum_break_glyph.visible = false
+	_dispatch_momentum_label.add_child(_dispatch_momentum_break_glyph)
 
 
 func _build_first_clutch_coach() -> void:
@@ -531,12 +1747,14 @@ func _apply_first_clutch_layout() -> void:
 		if _queue_compact_label != null:
 			_queue_compact_label.visible = narrow
 		for lane in LANE_ORDER:
-			var queue_label := _queue_labels.get(lane) as Label
-			if queue_label != null:
-				queue_label.visible = not narrow
+			var tray_button := _queue_buttons.get(lane) as Button
+			if tray_button != null:
+				tray_button.visible = not narrow
 		var overdue_label := _queue_labels.get(&"overdue") as Label
 		if overdue_label != null:
 			overdue_label.visible = not narrow
+		if _dispatch_momentum_label != null:
+			_dispatch_momentum_label.visible = not narrow
 	if narrow:
 		_first_clutch_panel.set_anchor(SIDE_LEFT, 0.0)
 		_first_clutch_panel.set_anchor(SIDE_RIGHT, 0.0)
@@ -584,9 +1802,26 @@ func _build_focus_dossier() -> void:
 	identity.add_theme_constant_override("separation", 2)
 	row.add_child(identity)
 	identity.add_child(_make_label("SELECTED HEN", 11, Color("d8b967")))
+	var selected_row := HBoxContainer.new()
+	selected_row.name = "SelectedHenActionRow"
+	selected_row.add_theme_constant_override("separation", 6)
+	identity.add_child(selected_row)
 	_worker_name_label = _make_label("MABEL", 21, Color("f6e5b5"))
 	_worker_name_label.name = "RoutingWorkerName"
-	identity.add_child(_worker_name_label)
+	_worker_name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selected_row.add_child(_worker_name_label)
+	_hen_intent_button = Button.new()
+	_hen_intent_button.name = "HenIntentAction"
+	_hen_intent_button.text = "SET ROUTE  ›"
+	_hen_intent_button.custom_minimum_size = Vector2(118.0, 25.0)
+	_hen_intent_button.add_theme_font_size_override("font_size", 10)
+	_hen_intent_button.add_theme_constant_override("icon_separation", 4)
+	_hen_intent_button.theme_type_variation = &"DecisionChoiceButton"
+	_hen_intent_button.clip_text = true
+	_hen_intent_button.expand_icon = true
+	_hen_intent_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_hen_intent_button.pressed.connect(_on_hen_intent_pressed)
+	selected_row.add_child(_hen_intent_button)
 	_worker_career_label = _make_label("PECKWORK ASSOCIATE  /  XP 0", 11, Color("d7c17d"))
 	_worker_career_label.name = "RoutingWorkerCareer"
 	_worker_career_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -637,6 +1872,11 @@ func _build_focus_dossier() -> void:
 	_current_claim_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_current_claim_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_claim_header.add_child(_current_claim_label)
+	_golden_file_badge = _make_label("* GOLD", 12, Color("ffd75e"))
+	_golden_file_badge.name = "RoutingGoldenFileBadge"
+	_golden_file_badge.visible = false
+	_golden_file_badge.mouse_filter = Control.MOUSE_FILTER_STOP
+	_claim_header.add_child(_golden_file_badge)
 	_current_contract_badge = _make_contract_badge("RoutingCurrentContractBadge", 154.0)
 	_claim_header.add_child(_current_contract_badge)
 	_claim_detail_label = _make_label("Auto-sort will favor specialty and deadline.", 12, Color("aebdc5"))
@@ -645,7 +1885,7 @@ func _build_focus_dossier() -> void:
 	active_file.add_child(_claim_detail_label)
 	_claim_progress_track = Control.new()
 	_claim_progress_track.name = "RoutingClaimProgressTrack"
-	_claim_progress_track.custom_minimum_size.y = 11.0
+	_claim_progress_track.custom_minimum_size.y = 16.0
 	_claim_progress_track.clip_contents = true
 	_claim_progress_track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	active_file.add_child(_claim_progress_track)
@@ -661,7 +1901,7 @@ func _build_focus_dossier() -> void:
 	_claim_progress_track.add_child(_claim_progress_bar)
 	_peck_timing_band = ColorRect.new()
 	_peck_timing_band.name = "PriorityPeckGoldBand"
-	_peck_timing_band.color = Color(0.95, 0.74, 0.25, 0.34)
+	_peck_timing_band.color = Color(0.98, 0.76, 0.24, 0.52)
 	_peck_timing_band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_claim_progress_track.add_child(_peck_timing_band)
 	_peck_timing_marker = ColorRect.new()
@@ -669,7 +1909,7 @@ func _build_focus_dossier() -> void:
 	_peck_timing_marker.color = Color("fff0a6")
 	_peck_timing_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_claim_progress_track.add_child(_peck_timing_marker)
-	_peck_timing_label = _make_label("", 9, Color("d7c17d"))
+	_peck_timing_label = _make_label("", 10, Color("d7c17d"))
 	_peck_timing_label.name = "PriorityPeckTimingLabel"
 	_peck_timing_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	active_file.add_child(_peck_timing_label)
@@ -709,6 +1949,23 @@ func _build_focus_dossier() -> void:
 	_apply_peck_assist_style(_peck_assist_button)
 	_peck_assist_button.pressed.connect(_on_peck_assist_pressed)
 	_assist_row.add_child(_peck_assist_button)
+	_peck_charge_meter = PriorityPeckChargeMeter.new()
+	_peck_charge_meter.name = "PriorityPeckChargeMeter"
+	_peck_charge_meter.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	_peck_charge_meter.offset_left = -72.0
+	_peck_charge_meter.offset_right = -2.0
+	_peck_charge_meter.offset_top = 0.0
+	_peck_charge_meter.offset_bottom = 0.0
+	_peck_charge_meter.z_index = 5
+	_peck_charge_meter.mouse_filter = Control.MOUSE_FILTER_PASS
+	_peck_charge_meter.set_counts(3, 3, false)
+	_claim_progress_track.add_child(_peck_charge_meter)
+	_priority_peck_intent_link = PriorityPeckIntentLink.new()
+	_priority_peck_intent_link.name = "PriorityPeckIntentLink"
+	_priority_peck_intent_link.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_priority_peck_intent_link.z_index = 4
+	_priority_peck_intent_link.configure(_hen_intent_button, _claim_progress_track)
+	add_child(_priority_peck_intent_link)
 	_personnel_status = HBoxContainer.new()
 	_personnel_status.name = "RoutingPersonnelStatus"
 	_personnel_status.add_theme_constant_override("separation", 13)
@@ -735,6 +1992,7 @@ func _build_focus_dossier() -> void:
 	for assignment in ASSIGNMENT_ORDER:
 		var button := Button.new()
 		button.name = "Assign_%s" % String(assignment)
+		button.set_meta("assignment_lane", assignment)
 		button.text = _lane_action_name(assignment)
 		button.custom_minimum_size = Vector2(142.0, 34.0)
 		button.theme_type_variation = &"DecisionChoiceButton"
@@ -767,6 +2025,7 @@ func _build_focus_dossier() -> void:
 	for action_id in PERSONNEL_ACTION_ORDER:
 		var button := Button.new()
 		button.name = "PersonnelAction_%s" % String(action_id)
+		button.set_meta("personnel_action_id", action_id)
 		button.text = String(PERSONNEL_ACTION_NAMES[action_id])
 		button.custom_minimum_size = Vector2(142.0, 26.0)
 		button.add_theme_font_size_override("font_size", 11)
@@ -790,6 +2049,8 @@ func _build_claim_resolution_confirmation() -> void:
 	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	copy.custom_minimum_size = Vector2(300.0, 152.0)
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_claim_resolution_confirmation.get_ok_button().theme_type_variation = &"DangerButton"
+	_claim_resolution_confirmation.get_cancel_button().theme_type_variation = &"PrimaryButton"
 	_claim_resolution_confirmation.confirmed.connect(
 		_confirm_claim_resolution
 	)
@@ -822,6 +2083,68 @@ func active_dossier_tab() -> StringName:
 	return _active_dossier_tab
 
 
+## Opens the existing management category that fulfills a hen's authoritative
+## intent and places keyboard focus on its safest useful control. It never emits
+## an economic action: the player still confirms Priority Peck, a claimant path,
+## personnel support, or routing after inspecting the opened context.
+func focus_intent_action(action_id: StringName) -> Control:
+	if _focused_worker_id < 0 or action_id not in [&"peck", &"claim", &"support", &"profile", &"route"]:
+		return null
+	var tab_id := action_id
+	if action_id == &"peck":
+		tab_id = &"route"
+	_on_dossier_tab_pressed(tab_id)
+	var target: Control
+	match action_id:
+		&"peck":
+			if _peck_assist_button != null and not _peck_assist_button.disabled:
+				target = _peck_assist_button
+		&"claim":
+			for path_id: StringName in [&"settle", &"deny", &"exception"]:
+				var path_button := _claim_resolution_buttons.get(path_id) as Button
+				if path_button != null and path_button.visible and not path_button.disabled:
+					target = path_button
+					break
+		&"support":
+			var worker := _worker_snapshot(_focused_worker_id)
+			var preferred_action := StringName(worker.get("preferred_personnel_action", &""))
+			var preferred_button := _personnel_buttons.get(preferred_action) as Button
+			if preferred_button != null and preferred_button.visible and not preferred_button.disabled:
+				target = preferred_button
+		&"profile":
+			target = _dossier_tab_buttons.get(&"profile") as Control
+		&"route":
+			var route_worker := _worker_snapshot(_focused_worker_id)
+			var assigned_lane := StringName(route_worker.get(
+				"assigned_lane",
+				route_worker.get("assignment", &"auto"),
+			))
+			target = _assignment_buttons.get(assigned_lane) as Control
+	if target == null or not target.is_visible_in_tree() or (
+		target is BaseButton and (target as BaseButton).disabled
+	):
+		target = _dossier_tab_buttons.get(tab_id) as Control
+	_context_action_serial += 1
+	_context_action_id = action_id
+	_context_action_target_name = target.name if target != null else ""
+	set_meta("context_action_serial", _context_action_serial)
+	set_meta("context_action_id", action_id)
+	set_meta("context_action_target", _context_action_target_name)
+	if target != null and target.is_visible_in_tree() and target.focus_mode != Control.FOCUS_NONE:
+		target.call_deferred("grab_focus")
+	return target
+
+
+func context_action_state() -> Dictionary:
+	return {
+		"serial": _context_action_serial,
+		"action_id": String(_context_action_id),
+		"target": _context_action_target_name,
+		"active_tab": String(_active_dossier_tab),
+		"focused_worker_id": _focused_worker_id,
+	}
+
+
 func _refresh() -> void:
 	if _queue_panel == null or _focus_panel == null:
 		return
@@ -836,6 +2159,13 @@ func _refresh() -> void:
 		var suffix := "  !%d" % lane_overdue if lane_overdue > 0 else ""
 		_queue_labels[lane].text = "%s  %d%s" % [_lane_short_name(lane), count, suffix]
 		_queue_labels[lane].add_theme_color_override("font_color", _lane_color(lane))
+		var tray_button := _queue_buttons.get(lane) as Button
+		if tray_button != null:
+			tray_button.disabled = not _interaction_enabled or int(_snapshot.get("shift_phase", 1)) != 1 or count <= 0
+			tray_button.theme_type_variation = (
+				&"SelectedChoiceButton" if lane == _active_dispatch_lane else &"DecisionChoiceButton"
+			)
+			tray_button.accessibility_name = "%s tray, %d waiting" % [_lane_name(lane), count]
 	var overdue := int(routing.get("overdue_total", _snapshot.get("overdue_claims", 0)))
 	_queue_labels[&"overdue"].text = "OVERDUE  %d" % overdue
 	_queue_labels[&"overdue"].modulate = Color.WHITE if overdue > 0 else Color(1.0, 1.0, 1.0, 0.62)
@@ -844,6 +2174,65 @@ func _refresh() -> void:
 		"font_color",
 		_lane_color(&"overdue") if overdue > 0 else Color("c7d3d7"),
 	)
+	if _dispatch_momentum_label != null:
+		var mastery_state := routing_mastery_state()
+		var mastery_active := bool(mastery_state.get("active", false))
+		var mastery_target := int(mastery_state.get("next_milestone", 0))
+		var immediate_mastery_reward := (
+			_dispatch_reward_label.begins_with("RECORD")
+			or _dispatch_reward_label.begins_with("ALL")
+		)
+		if _dispatch_recovery_remaining > 0.0:
+			_apply_dispatch_recovery_presentation()
+		elif _dispatch_break_remaining > 0.0:
+			_apply_dispatch_break_presentation()
+		elif _active_dispatch_lane != &"":
+			_dispatch_momentum_label.text = (
+				"PICK ×%d NEXT %d" % [_dispatch_momentum_chain, mastery_target]
+				if mastery_active and mastery_target > _dispatch_momentum_chain else
+				"PICK · ×%d" % _dispatch_momentum_chain
+				if _dispatch_momentum_chain >= 2 else
+				"PICK"
+			)
+			_dispatch_momentum_label.tooltip_text = (
+				"Choose a hen. Best fit: %s.%s" % [
+					_dispatch_recommended_name,
+					(" %s is ready." % _dispatch_reward_label) if not _dispatch_reward_label.is_empty() else "",
+				]
+				if not _dispatch_recommended_name.is_empty() else
+				"Choose a hen. The gold star marks the best fit."
+			)
+		elif _dispatch_momentum_chain >= 2:
+			_dispatch_momentum_label.text = (
+				"FIT ×%d  %s" % [_dispatch_momentum_chain, _dispatch_reward_label]
+				if immediate_mastery_reward else
+				"FIT ×%d NEXT %d" % [_dispatch_momentum_chain, mastery_target]
+				if mastery_active and mastery_target > _dispatch_momentum_chain else
+				"FIT ×%d  %s" % [_dispatch_momentum_chain, _dispatch_reward_label]
+				if not _dispatch_reward_label.is_empty() else
+				"FIT ×%d" % _dispatch_momentum_chain
+			)
+			_dispatch_momentum_label.tooltip_text = (
+				String(mastery_state.get("accessible_text", ""))
+				if mastery_active else
+				"Best-fit flow has no timer. Poor routing or missed Peck precision breaks it."
+			)
+			_dispatch_momentum_label.set_meta(
+				"accessible_text",
+				_dispatch_momentum_label.tooltip_text,
+			)
+			_dispatch_momentum_label.set_meta("mastery_target", mastery_target)
+			_dispatch_momentum_label.set_meta(
+				"mastery_target_kind",
+				_routing_mastery_target_kind,
+			)
+		elif not _dispatch_reward_label.is_empty():
+			_dispatch_momentum_label.text = _dispatch_reward_label
+			_dispatch_momentum_label.tooltip_text = "Earned routing reward ready."
+		else:
+			_dispatch_momentum_label.text = ""
+			_dispatch_momentum_label.tooltip_text = ""
+			_dispatch_momentum_label.accessibility_name = ""
 	_queue_panel.tooltip_text = (
 		"PECKWORK ROUTING\nNest %d  /  Predator %d  /  Appeals %d  /  Overdue %d"
 		% [
@@ -853,6 +2242,16 @@ func _refresh() -> void:
 			overdue,
 		]
 	)
+	if _dispatch_break_remaining > 0.0:
+		_queue_panel.tooltip_text += "\nFIT x%d ended: %s\nRecovery: choose a tray, then the gold-star hen." % [
+			_dispatch_break_chain,
+			_dispatch_break_reason,
+		]
+	elif _dispatch_recovery_remaining > 0.0:
+		_queue_panel.tooltip_text += "\nFIT LINKED x1: %s corrected the route with the best fit for %s." % [
+			_dispatch_recovery_worker_name,
+			String(_dispatch_recovery_lane).replace("_", " ").to_upper(),
+		]
 	_refresh_queue_contract_badge(routing)
 
 	var worker := _worker_snapshot(_focused_worker_id)
@@ -963,8 +2362,20 @@ func _refresh() -> void:
 		_worker_trait_label.text += "  /  PETITION SPONSOR"
 		_worker_trait_label.tooltip_text += "\nThis hen signed the current flock petition."
 		_worker_trait_label.add_theme_color_override("font_color", Color("df9278"))
-
 	var claim: Dictionary = worker.get("current_claim", {}) as Dictionary
+	var golden_file_target := bool(claim.get("routing_golden_target", false))
+	_golden_file_badge.visible = golden_file_target
+	_claim_header.set_meta("routing_golden_target", golden_file_target)
+	_claim_header.set_meta(
+		"routing_golden_claim_id",
+		int(claim.get("id", -1)) if golden_file_target else -1,
+	)
+	if golden_file_target:
+		_golden_file_badge.tooltip_text = (
+			"Golden File seal: claim #%04d will grade golden if it arrives clean. "
+			+ "A crack preserves the reward and moves the seal to the next active file."
+		) % int(claim.get("id", 0))
+		_golden_file_badge.set_meta("accessibility_label", "Golden File sealed on claim %04d" % int(claim.get("id", 0)))
 	_refresh_contract_badge(_current_contract_badge, claim)
 	if claim.is_empty():
 		_current_claim_label.text = "1  ROUTE  /  WAITING FOR %s FILE" % (_lane_name(assignment) if assignment != &"auto" else "AUTO-SORTED")
@@ -978,9 +2389,9 @@ func _refresh() -> void:
 		var progress := int(worker.get("progress", 0))
 		_claim_progress_track.visible = true
 		_claim_progress_bar.value = progress
-		var loop_verb := "2  PECKING SCREEN"
+		var loop_verb := "2  PECK"
 		if worker_state_label == "LAYING":
-			loop_verb = "3  LAYING DELIVERY"
+			loop_verb = "3  LAY"
 		elif worker_state_label not in ["PECKING", "WORKING"]:
 			loop_verb = worker_state_label
 		_current_claim_label.text = "%s  /  %s #%04d%s  ·  %d%%" % [
@@ -993,13 +2404,23 @@ func _refresh() -> void:
 			if bool(claim.get("overdue", false)) else
 			"DUE IN %dm" % maxi(0, remaining_minutes)
 		)
-		var next_stage := "NEXT  /  grader stamps egg, farmer takes credit" if worker_state_label == "LAYING" else "NEXT  /  lay completed egg"
-		_claim_detail_label.text = "%s  ·  $%.2f  ·  crack %d%%  ·  %s" % [
-			urgency, value_cents / 100.0, int(float(worker.get("estimated_crack_risk", 0.0)) * 100.0), next_stage,
-		]
+		var crack_risk := int(float(worker.get("estimated_crack_risk", 0.0)) * 100.0)
+		if worker_state_label == "LAYING":
+			_claim_detail_label.text = "PAYOUT $%.2f  ·  RISK %d%%  ·  NEXT: GRADING > FARMER" % [
+				value_cents / 100.0,
+				crack_risk,
+			]
+		else:
+			_claim_detail_label.text = "%s  ·  $%.2f  ·  crack %d%%  ·  NEXT  /  lay completed egg" % [
+				urgency,
+				value_cents / 100.0,
+				crack_risk,
+			]
 	_refresh_claim_resolution_controls(worker, claim)
 	var assist := worker.get("peck_assist", {}) as Dictionary
-	var assist_open := bool(assist.get("available", false)) and _interaction_enabled and _peck_assist_clock_running
+	var assist_available := bool(assist.get("available", false)) and _interaction_enabled
+	var resume_required := assist_available and not _peck_assist_clock_running
+	var assist_live := assist_available and _peck_assist_clock_running
 	var assist_state := StringName(assist.get("window_state", &"locked"))
 	var last_assist := _snapshot.get("last_peck_assist", {}) as Dictionary
 	var last_assist_matches_claim := (
@@ -1016,29 +2437,45 @@ func _refresh() -> void:
 		"pending_delivery_count",
 		_snapshot.get("peck_assist_pending_delivery_count", 0),
 	)))
+	var assist_receipt_text := ""
+	var assist_receipt_tooltip := ""
 	_refresh_peck_timing_presentation(assist, assist_state, claim.is_empty())
-	_peck_assist_button.set_meta("assist_open", assist_open)
-	_peck_assist_button.disabled = not assist_open
+	# Pausing is an inspection tool, not a dead end. Keep an authoritative open
+	# window actionable and make its one deliberate consequence explicit: the
+	# confirmation resumes at 1x and stamps the focused file. Selection/focus still
+	# never emits the action by itself.
+	_peck_assist_button.set_meta("assist_open", assist_available)
+	_peck_assist_button.set_meta("assist_live", assist_live)
+	_peck_assist_button.set_meta("resume_required", resume_required)
+	_peck_assist_button.disabled = not assist_available
+	_peck_assist_button.add_theme_color_override("font_disabled_color", Color("73808a"))
 	_peck_assist_button.tooltip_text = "%s\n%s" % [
 		(
-			"Resume at 1×, 3×, or 10× before stamping the live rhythm."
-			if not _peck_assist_clock_running and bool(assist.get("available", false)) else
+			"Resume at 1x and stamp this exact file. Nothing happens until you confirm."
+			if resume_required else
 			String(assist.get("reason", "Select a working hen to synchronize peckwork."))
 		),
 		"A strong stamp accelerates this file and lowers shell risk; every stamp adds strain. A sound or golden assisted egg restores one charge when the farmer receives it; a crack consumes the charge and breaks the chain. %d/%d attention charges remain." % [
 			assist_remaining, int(assist.get("limit", _snapshot.get("peck_assist_limit", 3))),
 		],
 	]
+	# The contextual shortcut must mirror the authoritative Priority Peck lock.
+	# Refresh it only after the underlying button has resolved clock/window state.
+	_refresh_hen_intent(worker)
 	match assist_state:
 		&"open":
 			var timing_label := String(assist.get("timing_label", "CLEAN RHYTHM"))
-			_peck_assist_button.text = "PECK  ·  %s  [%s]" % [
-				"GOLDEN" if "GOLDEN" in timing_label else "SYNC",
+			_peck_assist_button.text = "%s  [%s]" % [
+				(
+					"RESUME + PECK"
+					if resume_required else
+					("GOLDEN PECK" if "GOLDEN" in timing_label else "PECK NOW")
+				),
 				_peck_assist_binding_label,
 			]
 			_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("d5aa4f"), Color("f1d681"), 0))
 		&"not_ready":
-			_peck_assist_button.text = "READY AT %d%%" % int(assist.get("window_start", 28.0))
+			_peck_assist_button.text = "BUILDING RHYTHM"
 			_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("4d8d83"), Color("75b6a9"), 0))
 		&"used":
 			if last_assist_matches_claim:
@@ -1046,22 +2483,29 @@ func _refresh() -> void:
 				var progress_gain := int(roundf(float(last_assist.get("progress_gain", 0.0))))
 				var risk_points := float(last_assist.get("quality_modifier", 0.0)) * 100.0
 				var risk_text := "%s%.1f%%" % [("+" if risk_points > 0.0 else ""), risk_points]
-				_peck_assist_button.text = "%s  ·  +%d%%  ·  x%d" % [
-					rating,
-					progress_gain,
-					int(last_assist.get("streak", 0)),
-				]
-				_peck_assist_button.tooltip_text = "%s Priority Peck landed on this exact file: +%d%% progress, shell risk %s, chain x%d. A sound or golden delivery restores its attention charge." % [
+				_peck_assist_button.text = (
+					"%s!  ·  FILE READY" % rating
+					if worker_state_label == "LAYING" else
+					"%s!  ·  CHAIN x%d" % [rating, int(last_assist.get("streak", 0))]
+				)
+				_peck_assist_button.add_theme_color_override("font_disabled_color", Color("c9e5b9"))
+				assist_receipt_text = (
+					"LAYING  >  GRADING  >  FARMER  ·  CLEAN EGG REFUNDS 1"
+					if worker_state_label == "LAYING" else
+					"FILE +%d%%  ·  RISK %s  ·  CLEAN EGG REFUNDS 1" % [progress_gain, risk_text]
+				)
+				assist_receipt_tooltip = "%s Priority Peck landed on this exact file: +%d%% progress, shell risk %s, chain x%d. A sound or golden delivery restores its attention charge." % [
 					rating.capitalize(),
 					progress_gain,
 					risk_text,
 					int(last_assist.get("streak", 0)),
 				]
+				_peck_assist_button.tooltip_text = assist_receipt_tooltip
 			else:
 				_peck_assist_button.text = "PRIORITY FILED  ·  x%d" % int(assist.get("streak", 0))
 			_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("769e75"), Color("a8c894"), 0))
 		&"missed", &"passed":
-			_peck_assist_button.text = "WINDOW MISSED"
+			_peck_assist_button.text = "MISSED"
 			_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("89645c"), Color("b57d6d"), 0))
 		&"spent":
 			_peck_assist_button.text = (
@@ -1071,11 +2515,21 @@ func _refresh() -> void:
 			)
 		_:
 			_peck_assist_button.text = "NO ACTIVE FILE" if claim.is_empty() else "PECK SUPPORT LOCKED"
+	_peck_assist_button.accessibility_name = (
+		"Resume at normal speed and Priority Peck this file"
+		if resume_required else
+		_peck_assist_button.text
+	)
+	if golden_file_target:
+		# The milestone seal owns the file's primary outcome color through LAYING;
+		# Priority Peck remains legible through its separate button and timing band.
+		_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("c49a32"), Color("ffe08a"), 0))
 	var assignment_is_credentialed := (
 		assignment == &"auto"
 		or assignment == specialty
 		or (secondary_specialty != &"" and assignment == secondary_specialty)
 	)
+	_routing_hint_label.add_theme_color_override("font_color", Color("d7c17d"))
 	var employed := bool(worker.get("employed", true))
 	var operations := _operations_snapshot()
 	var automation := operations.get("automation", {}) as Dictionary
@@ -1114,6 +2568,11 @@ func _refresh() -> void:
 			("EGG" if assist_pending == 1 else "EGGS"),
 			_routing_hint_label.text,
 		]
+	if not assist_receipt_text.is_empty():
+		_routing_hint_label.text = assist_receipt_text
+		_routing_hint_label.tooltip_text = assist_receipt_tooltip
+		_routing_hint_label.add_theme_color_override("font_color", Color("a8c894"))
+	_refresh_egg_journey_receipt(_focused_worker_id, not assist_receipt_text.is_empty())
 	var manager_trust := clampf(float(worker.get("manager_trust", worker.get("trust", 50.0))), 0.0, 100.0)
 	var grievance := clampf(float(worker.get("grievance", 0.0)), 0.0, 100.0)
 	_trust_label.text = "TRUST  %d" % int(roundf(manager_trust))
@@ -1130,6 +2589,7 @@ func _refresh() -> void:
 	var can_assign := _interaction_enabled and phase == 1 and employed
 	for lane in ASSIGNMENT_ORDER:
 		var button := _assignment_buttons[lane]
+		button.remove_theme_font_size_override("font_size")
 		button.text = _lane_action_name(lane)
 		button.disabled = not can_assign
 		button.theme_type_variation = &"SelectedChoiceButton" if lane == assignment else &"DecisionChoiceButton"
@@ -1233,6 +2693,7 @@ func _refresh() -> void:
 	)
 	for action_id in PERSONNEL_ACTION_ORDER:
 		var personnel_button := _personnel_buttons[action_id]
+		personnel_button.add_theme_font_size_override("font_size", 11)
 		var definition := _personnel_definition(action_id)
 		var action_label := String(definition.get(
 			"short_name",
@@ -1262,6 +2723,100 @@ func _refresh() -> void:
 		worker_action,
 	)
 	_refresh_first_clutch()
+
+
+func _refresh_egg_journey_receipt(worker_id: int, current_file_receipt_visible: bool) -> void:
+	_routing_hint_label.set_meta("egg_journey_visible", false)
+	_routing_hint_label.set_meta("egg_journey_worker_id", -1)
+	_routing_hint_label.set_meta("egg_journey_claim_id", -1)
+	_routing_hint_label.set_meta("egg_journey_stage", &"")
+	_routing_hint_label.set_meta("egg_journey_active_count", 0)
+	_routing_hint_label.set_meta("accessible_text", _routing_hint_label.tooltip_text)
+	_routing_hint_label.accessibility_name = _routing_hint_label.tooltip_text
+	if current_file_receipt_visible:
+		return
+	var selected: Dictionary = {}
+	var oldest_active_serial := 2_147_483_647
+	var latest_settled_serial := -1
+	var active_count := 0
+	for receipt_value in _snapshot.get("egg_journey_receipts", []):
+		var receipt := receipt_value as Dictionary
+		if int(receipt.get("worker_id", -1)) != worker_id:
+			continue
+		var stage := StringName(String(receipt.get("stage", "")))
+		var serial := int(receipt.get("serial", 0))
+		if stage in [&"grading", &"graded"]:
+			active_count += 1
+			if serial < oldest_active_serial:
+				oldest_active_serial = serial
+				selected = receipt
+		elif active_count == 0 and serial > latest_settled_serial:
+			latest_settled_serial = serial
+			selected = receipt
+	if selected.is_empty():
+		return
+	var stage := StringName(String(selected.get("stage", "")))
+	var claim_id := int(selected.get("claim_id", -1))
+	var quality := String(selected.get("quality", "sound")).to_upper()
+	var destination := (
+		"FARMGATE" if StringName(String(selected.get("destination", "farmer"))) == &"farmgate" else "FARMER"
+	)
+	var claim_copy := " #%04d" % claim_id if claim_id >= 0 else ""
+	var overlap_copy := "  +%d EGG" % (active_count - 1) if active_count > 1 else ""
+	match stage:
+		&"grading":
+			_routing_hint_label.text = "LAST EGG%s  /  GRADING > %s%s" % [
+				claim_copy, destination, overlap_copy,
+			]
+		&"graded":
+			_routing_hint_label.text = "LAST EGG%s  /  %s GRADED > %s%s" % [
+				claim_copy, quality, destination, overlap_copy,
+			]
+		&"stocked":
+			_routing_hint_label.text = "LAST EGG%s  /  FARMGATE STOCK  $%.2f" % [
+				claim_copy, float(selected.get("value_cents", 0)) / 100.0,
+			]
+		_:
+			_routing_hint_label.text = "LAST EGG%s  /  FARMER +$%.2f%s" % [
+				claim_copy,
+				float(selected.get("cash_cents", 0)) / 100.0,
+				"  /  PECK +1" if bool(selected.get("priority_refunded", false)) else "",
+			]
+	var worker_name := String(selected.get("worker_name", "This hen"))
+	var accessible_text := (
+		"Previous egg outcome, separate from %s's current controls. " % worker_name
+		+ "%s egg%s is %s%s." % [
+			quality.capitalize(),
+			" from claim %04d" % claim_id if claim_id >= 0 else "",
+			(
+				"moving through grading to %s" % destination.capitalize()
+				if stage == &"grading" else
+				"graded and moving to %s" % destination.capitalize()
+				if stage == &"graded" else
+				"stocked at Farmgate for later routing"
+				if stage == &"stocked" else
+				"delivered to the farmer for $%.2f%s" % [
+					float(selected.get("cash_cents", 0)) / 100.0,
+					" and restored one Priority Peck charge" if bool(selected.get("priority_refunded", false)) else "",
+				]
+			),
+			" One additional egg is moving." if active_count == 2 else (
+				" %d additional eggs are moving." % (active_count - 1) if active_count > 2 else ""
+			),
+		]
+	)
+	_routing_hint_label.tooltip_text = accessible_text
+	_routing_hint_label.accessibility_name = accessible_text
+	_routing_hint_label.add_theme_color_override(
+		"font_color",
+		Color("a8c894") if stage in [&"delivered", &"stocked"] else Color("efcf83"),
+	)
+	_routing_hint_label.set_meta("egg_journey_visible", true)
+	_routing_hint_label.set_meta("egg_journey_worker_id", worker_id)
+	_routing_hint_label.set_meta("egg_journey_claim_id", claim_id)
+	_routing_hint_label.set_meta("egg_journey_stage", stage)
+	_routing_hint_label.set_meta("egg_journey_active_count", active_count)
+	_routing_hint_label.set_meta("accessible_text", accessible_text)
 
 
 func _refresh_peck_timing_presentation(
@@ -1295,18 +2850,18 @@ func _refresh_peck_timing_presentation(
 	_peck_timing_marker.set_anchor(SIDE_RIGHT, ideal_progress / 100.0, false)
 	_peck_timing_marker.set_anchor(SIDE_TOP, 0.0, false)
 	_peck_timing_marker.set_anchor(SIDE_BOTTOM, 1.0, false)
-	_peck_timing_marker.offset_left = -1.0
-	_peck_timing_marker.offset_right = 1.0
+	_peck_timing_marker.offset_left = -2.0
+	_peck_timing_marker.offset_right = 2.0
 	_peck_timing_marker.offset_top = 0.0
 	_peck_timing_marker.offset_bottom = 0.0
-	var target_text := "GOLD %d-%d%%  /  AIM %d%%" % [
-		roundi(gold_start),
-		roundi(gold_end),
-		roundi(ideal_progress),
-	]
 	var timing_tooltip := (
-		"The gold band marks the strongest Priority Peck rating. "
-		+ "The bright line is the ideal rhythm; press the Priority Peck action while the file meter crosses it."
+		"Priority Peck opens at %d%%. The gold band runs from %d-%d%%, and the bright line marks the ideal %d%% rhythm. Press the action while the file meter crosses the band."
+		% [
+			roundi(float(assist.get("window_start", 28.0))),
+			roundi(gold_start),
+			roundi(gold_end),
+			roundi(ideal_progress),
+		]
 	)
 	_claim_progress_track.tooltip_text = timing_tooltip
 	_peck_timing_label.tooltip_text = timing_tooltip
@@ -1315,24 +2870,26 @@ func _refresh_peck_timing_presentation(
 		return
 	match assist_state:
 		&"not_ready":
-			_peck_timing_label.text = "OPENS %d%%  /  %s" % [
-				roundi(float(assist.get("window_start", 28.0))),
-				target_text,
-			]
+			_peck_timing_label.text = "WAIT  ·  PECK WHEN GOLD LIGHTS"
+			_peck_timing_band.color = Color(0.95, 0.72, 0.22, 0.42)
 			_peck_timing_label.add_theme_color_override("font_color", Color("77b7aa"))
 		&"open":
 			var timing_label := String(assist.get("timing_label", "WORKABLE RHYTHM"))
-			_peck_timing_label.text = "%s  /  %s" % [timing_label, target_text]
+			_peck_timing_label.text = "%s  ·  PECK NOW" % timing_label
 			var timing_color := Color("e7d7a4")
 			if "GOLDEN" in timing_label:
 				timing_color = Color("f1d681")
+				_peck_timing_band.color = Color(1.0, 0.78, 0.18, 0.82)
 			elif "CLEAN" in timing_label:
 				timing_color = Color("8dcfbd")
+				_peck_timing_band.color = Color(0.98, 0.76, 0.24, 0.64)
 			elif "RISKY" in timing_label:
 				timing_color = Color("d98c75")
+				_peck_timing_band.color = Color(0.89, 0.58, 0.28, 0.48)
 			_peck_timing_label.add_theme_color_override("font_color", timing_color)
 		&"missed", &"passed":
-			_peck_timing_label.text = "WINDOW CLOSED  /  NEXT FILE RESETS"
+			_peck_timing_label.text = "NEXT FILE RESETS"
+			_peck_timing_band.color = Color(0.62, 0.38, 0.31, 0.34)
 			_peck_timing_label.add_theme_color_override("font_color", Color("c97d6b"))
 		_:
 			_peck_timing_label.text = ""
@@ -1386,6 +2943,7 @@ func _refresh_dossier_summary(
 ) -> void:
 	if _dossier_summary_label == null:
 		return
+	_dossier_summary_label.remove_theme_stylebox_override("normal")
 	match _active_dossier_tab:
 		&"claim":
 			var claim := worker.get("current_claim", {}) as Dictionary
@@ -1504,6 +3062,12 @@ func _refresh_first_clutch() -> void:
 	if _first_clutch_panel == null:
 		return
 	var coach_active := bool(_first_clutch.get("visible", false))
+	if _hen_intent_button != null:
+		var worker := _worker_snapshot(_focused_worker_id)
+		_hen_intent_button.visible = (
+			not coach_active
+			and not (worker.get("hen_intent", {}) as Dictionary).is_empty()
+		)
 	var compact := coach_active and _first_clutch_has_contextual_dossier()
 	if compact != _first_clutch_compact:
 		_first_clutch_compact = compact
@@ -1571,6 +3135,122 @@ func _refresh_first_clutch() -> void:
 		_panel_style(Color("172832"), 0.985, border, 8, 1),
 	)
 	_apply_first_clutch_control_cue()
+	_apply_first_clutch_route_glance()
+	_apply_first_clutch_check_in_glance()
+
+
+## Turns the first routing lesson into one glanceable match: the hen's filed
+## specialty, the suggested tray, and its keyboard action all share one color.
+## Exact automation and credential tradeoffs remain available in tooltips and
+## the Details disclosure after the player has learned the physical action.
+func _apply_first_clutch_route_glance() -> void:
+	if (
+		_first_clutch_disclosure_stage() != &"specialty_route"
+		or not _first_clutch_has_contextual_dossier()
+	):
+		return
+	var lane := _first_clutch_route_lane()
+	if lane == &"" or not _assignment_buttons.has(lane):
+		return
+	var worker := _worker_snapshot(_focused_worker_id)
+	var specialty := StringName(String(worker.get("specialty", "")))
+	var secondary := StringName(String(worker.get(
+		"secondary_specialty",
+		worker.get("secondary_lane", ""),
+	)))
+	var matched := lane == specialty or (secondary != &"" and lane == secondary)
+	var lane_name := _lane_name(lane)
+	var route_color := _lane_color(lane)
+	var target_button := _assignment_buttons[lane] as Button
+	target_button.text = "%s  [ENTER]" % _lane_action_name(lane)
+	target_button.add_theme_font_size_override("font_size", 11)
+	_worker_trait_label.text = (
+		"SPECIALTY  /  %s  =  BEST FIT" % lane_name
+		if matched else
+		"TARGET TRAY  /  %s" % lane_name
+	)
+	_worker_trait_label.add_theme_color_override("font_color", route_color.lightened(0.18))
+	_routing_hint_label.text = "%s  >  %s  [ENTER]" % [
+		"BEST FIT" if matched else "ROUTE",
+		_lane_short_name(lane),
+	]
+	_routing_hint_label.tooltip_text = String(_first_clutch.get(
+		"guidance",
+		"Press Enter or choose the highlighted %s tray." % lane_name,
+	))
+	_routing_hint_label.add_theme_color_override("font_color", route_color.lightened(0.22))
+
+
+func _first_clutch_route_lane() -> StringName:
+	var lane_text := String(_first_clutch.get(
+		"lane",
+		_first_clutch.get(
+			"expected_lane",
+			_first_clutch.get("specialty", _first_clutch.get("specialty_name", "")),
+		),
+	)).strip_edges().to_lower().replace(" ", "_")
+	var lane := StringName(lane_text)
+	return lane if lane in ASSIGNMENT_ORDER else &""
+
+
+## Uses the otherwise empty center of the coached dossier to explain the one
+## permanent personnel stamp at a glance. Exact authored costs and numerical
+## effects stay in the established action tooltip.
+func _apply_first_clutch_check_in_glance() -> void:
+	if (
+		_first_clutch_disclosure_stage() != &"check_in"
+		or not _first_clutch_has_contextual_dossier()
+	):
+		return
+	var worker := _worker_snapshot(_focused_worker_id)
+	var action_id := StringName(String(_first_clutch.get(
+		"action_id",
+		_first_clutch.get(
+			"preferred_action",
+			worker.get("preferred_personnel_action", ""),
+		),
+	)))
+	if action_id == &"" or not _personnel_buttons.has(action_id):
+		return
+	var definition := _personnel_definition(action_id)
+	var action_name := String(definition.get(
+		"short_name",
+		PERSONNEL_ACTION_NAMES.get(action_id, String(action_id).replace("_", " ")),
+	)).to_upper()
+	var profile_name := String(worker.get("career_profile_name", "PROFILE FIT")).to_upper()
+	var target_button := _personnel_buttons[action_id] as Button
+	target_button.text = "%s  [ENTER]" % action_name
+	target_button.add_theme_font_size_override("font_size", 10)
+	_worker_trait_label.text = "PROFILE  /  %s" % profile_name
+	_worker_trait_label.add_theme_color_override("font_color", Color("8fc9b8"))
+	_dossier_summary_label.visible = true
+	_dossier_summary_label.text = "%s  >  %s\n%s" % [
+		profile_name,
+		action_name,
+		_personnel_effect_glance(action_id),
+	]
+	_dossier_summary_label.tooltip_text = "%s\n%s" % [
+		String(definition.get("description", PERSONNEL_ACTION_TOOLTIPS.get(action_id, ""))),
+		String(definition.get("preview", "")),
+	]
+	_dossier_summary_label.add_theme_color_override("font_color", Color("bce4d8"))
+	_dossier_summary_label.add_theme_stylebox_override(
+		"normal",
+		_compact_button_style(Color("1d3535"), Color("5b9b8d"), 1),
+	)
+	_check_in_status_label.text = "1 OF 1 LEFT  /  PERMANENT"
+	_check_in_status_label.add_theme_color_override("font_color", Color("8fc9b8"))
+
+
+func _personnel_effect_glance(action_id: StringName) -> String:
+	match action_id:
+		&"share_credit":
+			return "TRUST +  /  GRIEVANCE -"
+		&"career_coaching":
+			return "CAREER XP +  /  SHELL RISK -"
+		&"quota_pressure":
+			return "PACE +  /  TRUST -"
+	return "PROFILE EFFECT  /  SEE DETAILS"
 
 
 func _first_clutch_disclosure_stage() -> StringName:
@@ -1666,6 +3346,7 @@ func _apply_dossier_disclosure() -> void:
 	_assist_row.visible = route_tab or show_routing or show_priority or show_delivery
 	_routing_hint_label.visible = _assist_row.visible
 	_peck_assist_button.visible = route_tab or show_priority
+	_peck_charge_meter.visible = _peck_assist_button.visible and _claim_progress_track.visible
 
 	_worker_career_label.visible = profile_tab or (coach_active and _details_expanded)
 	_trust_label.visible = profile_tab or (coach_active and _details_expanded)
@@ -1827,6 +3508,53 @@ func _clear_first_clutch_control_cue() -> void:
 
 
 func _apply_first_clutch_cue_style(button: Button) -> void:
+	var lane := StringName(String(button.get_meta("assignment_lane", "")))
+	if lane in LANE_ORDER:
+		var lane_color := _lane_color(lane)
+		button.add_theme_stylebox_override(
+			"normal",
+			_compact_button_style(lane_color.darkened(0.58), lane_color.lightened(0.22), 3),
+		)
+		button.add_theme_stylebox_override(
+			"hover",
+			_compact_button_style(lane_color.darkened(0.42), lane_color.lightened(0.38), 3),
+		)
+		button.add_theme_stylebox_override(
+			"pressed",
+			_compact_button_style(lane_color.darkened(0.68), Color("fff0b8"), 3),
+		)
+		button.add_theme_stylebox_override(
+			"disabled",
+			_compact_button_style(lane_color.darkened(0.72), lane_color.darkened(0.24), 2),
+		)
+		button.add_theme_stylebox_override(
+			"focus",
+			_compact_button_style(Color(0.0, 0.0, 0.0, 0.0), Color("fff0aa"), 2),
+		)
+		return
+	var personnel_action := StringName(String(button.get_meta("personnel_action_id", "")))
+	if personnel_action == &"share_credit":
+		button.add_theme_stylebox_override(
+			"normal",
+			_compact_button_style(Color("294b43"), Color("8fc9b8"), 3),
+		)
+		button.add_theme_stylebox_override(
+			"hover",
+			_compact_button_style(Color("356052"), Color("c4eadf"), 3),
+		)
+		button.add_theme_stylebox_override(
+			"pressed",
+			_compact_button_style(Color("1d3535"), Color("fff0b8"), 3),
+		)
+		button.add_theme_stylebox_override(
+			"disabled",
+			_compact_button_style(Color("1b2928"), Color("456f68"), 2),
+		)
+		button.add_theme_stylebox_override(
+			"focus",
+			_compact_button_style(Color(0.0, 0.0, 0.0, 0.0), Color("fff0aa"), 2),
+		)
+		return
 	button.add_theme_stylebox_override(
 		"normal",
 		_compact_button_style(Color("4d4128"), Color("f0c968"), 2),
@@ -2052,6 +3780,12 @@ func _refresh_first_clutch_return_action(coach_visible: bool) -> void:
 	_first_clutch_return_button.tooltip_text = "Return to %s's work file without advancing the coach." % worker_name
 
 
+func _on_dispatch_tray_pressed(lane: StringName) -> void:
+	if not _interaction_enabled or lane not in LANE_ORDER:
+		return
+	dispatch_lane_requested.emit(lane)
+
+
 func _on_assignment_pressed(lane: StringName) -> void:
 	if _focused_worker_id < 0 or not _interaction_enabled:
 		return
@@ -2096,35 +3830,77 @@ func _on_claim_resolution_pressed(path_id: StringName) -> void:
 	_pending_claim_resolution_worker_id = _focused_worker_id
 	_pending_claim_resolution_claim_id = int(claim.get("id", -1))
 	_claim_resolution_origin = button
-	var short_label := String(definition.get(
-		"short_label",
+	var path_label := String(definition.get(
+		"label",
 		String(path_id).replace("_", " ").to_upper(),
 	)).to_upper()
+	var filing_label := String({
+		&"settle": "SETTLEMENT",
+		&"deny": "DENIAL",
+		&"exception": "EXCEPTION",
+	}.get(path_id, definition.get(
+		"short_label",
+		String(path_id).replace("_", " ").to_upper(),
+	))).to_upper()
 	var claimant_name := String(claim.get("claimant_name", "THIS CLAIMANT")).to_upper()
 	var cost_cents := int(definition.get("cost_cents", 0))
 	var beneficiary := String(definition.get("beneficiary", "DISCLOSED PARTY")).to_upper()
-	_claim_resolution_confirmation.title = "FILE %s?" % short_label
-	_claim_resolution_confirmation.ok_button_text = "FILE %s" % short_label
+	var current_path := StringName(claim.get("resolution_path", &"standard"))
+	var current_definition := _claim_resolution_definition(current_path)
+	var current_label := String(current_definition.get(
+		"short_label",
+		"STANDARD",
+	)).to_upper()
+	var cost_copy := (
+		"$0.00"
+		if cost_cents == 0 else
+		"-$%.2f" % (float(cost_cents) / 100.0)
+	)
+	_claim_resolution_confirmation.title = "FILE %s?" % path_label
+	_claim_resolution_confirmation.ok_button_text = "FILE %s" % filing_label
+	_claim_resolution_confirmation.cancel_button_text = "KEEP %s" % current_label
 	_claim_resolution_confirmation.dialog_text = (
-		"%s's file will permanently use %s.\n\n"
-		+ "FEED FUND  /  -$%.2f\n"
-		+ "FAVORS  /  %s\n"
-		+ "BENEFIT  /  %s\n"
-		+ "BURDEN  /  %s\n\n"
-		+ "No Feed Fund or claim state changes until you confirm. "
-		+ "After filing, this claimant path cannot be changed or undone."
+		"CLAIMANT  /  %s\n"
+		+ "PATH  /  %s  ·  PERMANENT\n\n"
+		+ "COST  /  %s FEED FUND\n"
+		+ "HELPS  /  %s\n"
+		+ "UPSIDE  /  %s\n"
+		+ "TRADEOFF  /  %s\n\n"
+		+ "NO CHANGE UNTIL YOU FILE."
 	) % [
 		claimant_name,
-		short_label,
-		float(cost_cents) / 100.0,
+		path_label,
+		cost_copy,
 		beneficiary,
 		String(definition.get("benefit", "See the disclosed path terms.")),
 		String(definition.get("burden", "See the disclosed path terms.")),
 	]
+	var confirm_button := _claim_resolution_confirmation.get_ok_button()
+	var cancel_button := _claim_resolution_confirmation.get_cancel_button()
+	confirm_button.tooltip_text = (
+		"Permanently file %s for %s. %s Feed Fund."
+		% [path_label, claimant_name, cost_copy]
+	)
+	cancel_button.tooltip_text = (
+		"Return to the claimant file with %s unchanged."
+		% String(current_definition.get("label", "STANDARD HANDLING")).to_upper()
+	)
+	var accessible_copy := "%s %s Confirm: %s. Safe return: %s." % [
+		_claim_resolution_confirmation.title,
+		_claim_resolution_confirmation.dialog_text.replace("\n", " "),
+		confirm_button.text,
+		cancel_button.text,
+	]
+	_claim_resolution_confirmation.set_meta("accessible_text", accessible_copy)
+	_claim_resolution_confirmation.get_label().set_meta(
+		"accessible_text",
+		accessible_copy,
+	)
 	_claim_resolution_confirmation.popup_centered_clamped(
 		Vector2i(370, 330),
 		0.92,
 	)
+	cancel_button.call_deferred("grab_focus")
 	interaction_safety_changed.emit()
 
 
@@ -2232,12 +4008,221 @@ func _on_personnel_action_pressed(action_id: StringName) -> void:
 func request_focused_peck_assist() -> bool:
 	if _focused_worker_id < 0 or _peck_assist_button == null or _peck_assist_button.disabled:
 		return false
+	arm_peck_result_focus_handoff(_focused_worker_id)
 	peck_assist_requested.emit(_focused_worker_id)
+	if String(_peck_result_focus_handoff.get("status", "")) == "armed":
+		_cancel_peck_result_focus_handoff("assist_not_committed")
 	return true
+
+
+## Arms a narrowly scoped accessibility repair. It is valid only while the
+## player's focus is on the live Priority Peck button; an accepted synchronous
+## snapshot may then move that stranded focus to the already-visible next intent.
+## It never changes dossier tabs or emits an action.
+func arm_peck_result_focus_handoff(worker_id: int) -> bool:
+	if (
+		worker_id != _focused_worker_id
+		or _peck_assist_button == null
+		or _peck_assist_button.disabled
+		or not _interaction_enabled
+	):
+		return false
+	var viewport := get_viewport()
+	if viewport == null or viewport.gui_get_focus_owner() != _peck_assist_button:
+		return false
+	var worker := _worker_snapshot(worker_id)
+	var claim := worker.get("current_claim", {}) as Dictionary
+	if claim.is_empty():
+		return false
+	_peck_result_focus_handoff = {
+		"status": "armed",
+		"worker_id": worker_id,
+		"claim_id": int(claim.get("id", -1)),
+		"target": "",
+		"action_id": "",
+		"serial": int(_peck_result_focus_handoff.get("serial", 0)),
+		"reason": "",
+	}
+	set_meta("peck_result_focus_handoff_status", "armed")
+	return true
+
+
+func cancel_peck_result_focus_handoff(reason: String = "cancelled") -> void:
+	_cancel_peck_result_focus_handoff(reason)
+
+
+func peck_result_focus_handoff_state() -> Dictionary:
+	return _peck_result_focus_handoff.duplicate(true)
+
+
+func _repair_committed_peck_focus() -> void:
+	if String(_peck_result_focus_handoff.get("status", "")) != "armed":
+		return
+	var worker_id := int(_peck_result_focus_handoff.get("worker_id", -1))
+	var claim_id := int(_peck_result_focus_handoff.get("claim_id", -1))
+	var last_assist := _snapshot.get("last_peck_assist", {}) as Dictionary
+	if (
+		worker_id != _focused_worker_id
+		or int(last_assist.get("worker_id", -1)) != worker_id
+		or int(last_assist.get("claim_id", -1)) != claim_id
+	):
+		return
+	var viewport := get_viewport()
+	var focus_owner := viewport.gui_get_focus_owner() if viewport != null else null
+	# During this synchronous result refresh Godot may retain the disabled button
+	# or release it to null. Any different control means the player deliberately
+	# chose another context and must never be redirected.
+	if focus_owner != null and focus_owner != _peck_assist_button:
+		_cancel_peck_result_focus_handoff("focus_changed")
+		return
+	var action_id := StringName(_hen_intent_button.get_meta("action_id", &"")) if _hen_intent_button != null else &""
+	if (
+		_hen_intent_button == null
+		or not _hen_intent_button.is_visible_in_tree()
+		or _hen_intent_button.disabled
+		or action_id in [&"", &"peck"]
+	):
+		_cancel_peck_result_focus_handoff("next_action_unavailable")
+		return
+	_hen_intent_button.grab_focus()
+	var next_serial := int(_peck_result_focus_handoff.get("serial", 0)) + 1
+	_peck_result_focus_handoff = {
+		"status": "completed",
+		"worker_id": worker_id,
+		"claim_id": claim_id,
+		"target": String(_hen_intent_button.name),
+		"action_id": String(action_id),
+		"serial": next_serial,
+		"reason": "disabled_origin_repaired",
+	}
+	set_meta("peck_result_focus_handoff_status", "completed")
+	set_meta("peck_result_focus_handoff_serial", next_serial)
+
+
+func _cancel_peck_result_focus_handoff(reason: String) -> void:
+	if String(_peck_result_focus_handoff.get("status", "")) != "armed":
+		return
+	_peck_result_focus_handoff["status"] = "cancelled"
+	_peck_result_focus_handoff["reason"] = reason
+	set_meta("peck_result_focus_handoff_status", "cancelled")
 
 
 func _on_peck_assist_pressed() -> void:
 	request_focused_peck_assist()
+
+
+func _refresh_hen_intent(worker: Dictionary) -> void:
+	if _hen_intent_button == null:
+		return
+	var intent := worker.get("hen_intent", {}) as Dictionary
+	var coach_active := bool(_first_clutch.get("visible", false))
+	_hen_intent_button.visible = not coach_active and not intent.is_empty()
+	if intent.is_empty():
+		_reset_hen_intent_transition()
+		_last_hen_intent_key = ""
+		_hen_intent_button.icon = null
+		_hen_intent_button.set_meta("action_id", &"")
+		_hen_intent_button.set_meta("intent_icon", &"")
+		_hen_intent_button.set_meta("accessible_text", "")
+		return
+	var icon := StringName(String(intent.get("icon", "steady")))
+	var urgency := clampi(int(intent.get("urgency", 1)), 1, 3)
+	var action_id := StringName(String(intent.get("action_id", "route")))
+	var action_label := String(intent.get("action_label", "OPEN")).to_upper()
+	var intent_key := "%s|%s|%s" % [String(icon), String(action_id), action_label]
+	var previous_intent_key := _last_hen_intent_key
+	var detail := String(intent.get("detail", "Open this hen's next useful action."))
+	var action_available := _interaction_enabled and bool(intent.get("actionable", true))
+	if action_id == &"peck":
+		var peck_available := _peck_assist_button != null and not _peck_assist_button.disabled
+		action_available = action_available and peck_available
+		if _peck_assist_button != null and (
+			not peck_available or bool(_peck_assist_button.get_meta("resume_required", false))
+		):
+			detail = "%s\n%s" % [detail, _peck_assist_button.tooltip_text]
+	_hen_intent_button.icon = ChickenView.hen_intent_icon_texture(icon, -1, urgency)
+	_hen_intent_button.text = "%s  ›" % action_label
+	_hen_intent_button.tooltip_text = detail
+	_hen_intent_button.set_meta("action_id", action_id)
+	_hen_intent_button.set_meta("intent_icon", icon)
+	_hen_intent_button.set_meta("accessible_text", "%s. %s" % [action_label, detail])
+	_hen_intent_button.disabled = not action_available
+	_hen_intent_button.theme_type_variation = (
+		&"PrimaryButton" if urgency >= 3 else &"DecisionChoiceButton"
+	)
+	# A committed Priority Peck can leave keyboard focus on this same compact
+	# action while the authoritative file advances from working to laying. Keep
+	# the diagnostic handoff receipt aligned with the action now under focus; this
+	# updates no tab, focus, or economic state.
+	var viewport := get_viewport()
+	if (
+		String(_peck_result_focus_handoff.get("status", "")) == "completed"
+		and String(_peck_result_focus_handoff.get("target", "")) == String(_hen_intent_button.name)
+		and viewport != null
+		and viewport.gui_get_focus_owner() == _hen_intent_button
+	):
+		_peck_result_focus_handoff["action_id"] = String(action_id)
+	_last_hen_intent_key = intent_key
+	if not previous_intent_key.is_empty() and previous_intent_key != intent_key:
+		_play_hen_intent_transition(previous_intent_key, intent_key, urgency)
+
+
+func _play_hen_intent_transition(from_key: String, to_key: String, urgency: int) -> void:
+	_reset_hen_intent_transition()
+	_hen_intent_transition_serial += 1
+	_hen_intent_button.set_meta("intent_transition_serial", _hen_intent_transition_serial)
+	_hen_intent_button.set_meta("intent_transition_from", from_key)
+	_hen_intent_button.set_meta("intent_transition_to", to_key)
+	_hen_intent_button.set_meta("intent_transition_animated", not _reduced_motion)
+	if _reduced_motion:
+		return
+	var transition_color := Color("8dcfbd")
+	if urgency >= 3:
+		transition_color = Color("f1d681")
+	elif urgency == 2:
+		transition_color = Color("e6a07e")
+	_hen_intent_button.pivot_offset = _hen_intent_button.size * 0.5
+	_hen_intent_button.scale = Vector2(0.95, 0.95)
+	_hen_intent_button.self_modulate = transition_color.lightened(0.24)
+	_hen_intent_transition_tween = create_tween().bind_node(_hen_intent_button).set_parallel(true)
+	_hen_intent_transition_tween.tween_property(
+		_hen_intent_button,
+		"scale",
+		Vector2.ONE,
+		0.2,
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_hen_intent_transition_tween.tween_property(
+		_hen_intent_button,
+		"self_modulate",
+		Color.WHITE,
+		0.3,
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+
+
+func _reset_hen_intent_transition() -> void:
+	if _hen_intent_transition_tween != null and _hen_intent_transition_tween.is_valid():
+		_hen_intent_transition_tween.kill()
+	_hen_intent_transition_tween = null
+	if _hen_intent_button != null:
+		_hen_intent_button.scale = Vector2.ONE
+		_hen_intent_button.self_modulate = Color.WHITE
+
+
+func _on_hen_intent_pressed() -> void:
+	if _hen_intent_button == null or _hen_intent_button.disabled:
+		return
+	var action_id := StringName(_hen_intent_button.get_meta("action_id", &"route"))
+	match action_id:
+		&"peck":
+			request_focused_peck_assist()
+		&"claim":
+			_on_dossier_tab_pressed(&"claim")
+		&"support":
+			_on_dossier_tab_pressed(&"support")
+		&"profile":
+			_on_dossier_tab_pressed(&"profile")
+		_:
+			_on_dossier_tab_pressed(&"route")
 
 
 func _on_first_clutch_skip_pressed() -> void:

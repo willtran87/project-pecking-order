@@ -39,6 +39,10 @@ func _run() -> void:
 	_check(workstations.find_children("ErgonomicNestUpgrade", "Node3D", true, false).size() == 2, "configure should create one connected nest treatment per desk", failures)
 	_check(workstations.find_children("IssuedHardwareToken_*", "Node3D", true, false).size() == 6, "configure should create three overview hardware tokens per desk", failures)
 	_check(workstations.find_children("LivePeckworkPaper_*", "MeshInstance3D", true, false).size() == 10, "reconfigure should not duplicate activity papers", failures)
+	_check(workstations.find_children("DispatchLandingReceipt", "Node3D", true, false).size() == 2, "reconfigure should retain exactly one pooled dispatch landing root per desk", failures)
+	_check(workstations.find_children("DispatchLandingStamp", "Sprite3D", true, false).size() == 2, "each desk should own one shape-readable landing stamp", failures)
+	_check(workstations.find_children("WorkProgressRail", "Node3D", true, false).size() == 2, "reconfigure should retain exactly one pooled progress rail per desk", failures)
+	_check(workstations.find_children("ProgressPip_*", "MeshInstance3D", true, false).size() == 10, "each pooled progress rail should own exactly five pips", failures)
 	_check(is_equal_approx(feedback.animation_speed_multiplier(), 1.5), "workstation receipts should retain the independent brisk animation speed", failures)
 
 	var desk_zero := desks[0]
@@ -58,6 +62,12 @@ func _run() -> void:
 	_check(not _branch_has_text_or_collision(key_root), "keycap upgrade must remain non-text and collision-free", failures)
 	_check(not _branch_has_text_or_collision(lamp_root), "wall candler must remain non-text and collision-free", failures)
 	_check(not _branch_has_text_or_collision(nest_root), "nest treatment must remain non-text and collision-free", failures)
+	var landing_root := desk_zero.find_child("DispatchLandingReceipt", true, false) as Node3D
+	_check(landing_root != null and not landing_root.visible, "the pooled desk stamp should remain hidden until a real folder arrives", failures)
+	_check(not _branch_has_text_or_collision(landing_root), "the desk landing receipt must remain non-text and collision-free", failures)
+	var progress_root := desk_zero.find_child("WorkProgressRail", true, false) as Node3D
+	_check(progress_root != null and not progress_root.visible, "the pooled progress rail should remain hidden without a live file", failures)
+	_check(not _branch_has_text_or_collision(progress_root), "the progress rail must remain non-text and collision-free", failures)
 
 	var upgraded_snapshot := {
 		"upgrade_levels": {

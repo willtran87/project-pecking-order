@@ -24,7 +24,7 @@ func _init() -> void:
 
 
 func _test_current_tier_and_frozen_contract_round_trips(failures: Array[String]) -> void:
-	_check(DepartmentSimulation.SAVE_STATE_VERSION == 28, "internship program state should own schema v28", failures)
+	_check(DepartmentSimulation.SAVE_STATE_VERSION == 30, "bound Golden Files should own schema v30", failures)
 	var tier_source := DepartmentSimulation.new(9851, 5)
 	tier_source.day = 3
 	tier_source.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW

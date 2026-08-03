@@ -239,6 +239,7 @@ func _candidate_card(candidate: Dictionary) -> Control:
 			button.disabled = not bool(candidate.get("can_onboard", false))
 			button.tooltip_text = _onboard_tooltip(candidate)
 			var candidate_id := StringName(String(candidate.get("candidate_id", "")))
+			button.name = "InternOnboard_%s" % String(candidate_id)
 			button.pressed.connect(func() -> void: onboard_requested.emit(candidate_id))
 			column.add_child(button)
 		&"active":
@@ -305,6 +306,10 @@ func _add_review_controls(column: VBoxContainer, candidate: Dictionary) -> void:
 		var review := review_value as Dictionary
 		var review_id := StringName(String(review.get("id", "")))
 		var button := Button.new()
+		button.name = "InternReview_%s_%s" % [
+			String(candidate_id),
+			String(review_id),
+		]
 		button.text = _review_glance_label(review)
 		button.custom_minimum_size.y = 48.0
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL

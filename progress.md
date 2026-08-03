@@ -4962,3 +4962,2547 @@ The next major systems milestone is persistent worker relationships and individu
   `6F90C5E483134E6A18F72E9FBB6E0C73AB42B9531B9A9CD44200DBDEC98E332E`.
 - Final production acceptance still requires seven physical sessions and seven
   separately moderated usability sessions against the exact published artifact.
+
+## 2026-08-01 - Expanded chicken voice pool
+
+- Added one new authored, character-specific line to every worker, manager, and
+  intern theme bucket. The shared data-driven pool grew by 70 lines, from 223
+  to 293 globally unique utterances across 16 chickens and 70 contextual
+  speaker/theme buckets; every bucket now contains at least three lines.
+- Added a library contract that rejects missing speaker pools, short or empty
+  buckets, duplicate text, and accidental count drift. The library, intern
+  routing, and dialogue presentation checks pass 3/3.
+- Added a localhost-only `intern-dialogue` preview route and inspected three
+  settled prescribed-browser frames. Lottie’s portrait dialogue is readable,
+  the diagnostic matches the visible line, and no browser-error artifact was
+  produced.
+- Exported and synchronized the Web payload. The 9,370,836-byte PCK has SHA-256
+  `34D93D80CD5E7415EEA882FEDD67AA624909090F63BA69B6E415520A947D8AF5`.
+  The replacement local production instance at `http://127.0.0.1:3000/`
+  serves those exact bytes from PID 19776.
+- The focused Godot processes and prescribed browser exited normally. The
+  temporary server was removed, port 4330 is free, and only the explicitly
+  requested local production instance remains running.
+
+## 2026-08-01 - Icon-first Flockwatch Today
+
+- Reworked the most frequently consulted management surface around recognition
+  instead of reading. Flockwatch Today now uses eight font-independent vector
+  symbols for goals, files, eggs, flock welfare, spendable cash, safeguards,
+  compacts, and work-to-rule status.
+- Removed repeated nouns and filing language from the default layer. `TODAY'S
+  PROBATION ORDERS` is now `TODAY'S GOALS`, `SHIFT SNAPSHOT` is `NOW`, status
+  tiles show only the decision-critical value or warning, and every always-on
+  snapshot tile stays within an 18-character/two-line visible-copy budget.
+- Preserved the exact claims, clutch, labor, cash, threshold, score, and tradeoff
+  language in whole-tile tooltips and accessibility metadata. The icons are
+  decorative to assistive technology, so no meaning depends on recognizing a
+  shape or color.
+- Focused Flockwatch density, navigation, flock-petition, and probation
+  integration contracts pass. The final NVIDIA/OpenGL capture is
+  `output/icon-first-flockwatch-native-v2/flockwatch_labor.png`.
+- The prescribed browser client produced three stable frames at
+  `output/icon-first-flockwatch-web-client-v1/`. The authentic Today diagnostic
+  is populated, no browser-error artifact was produced, and server stderr is
+  empty.
+- Exported and synchronized the Web payload. The 9,376,544-byte PCK has SHA-256
+  `9BF34CED22B69C93D3F6C0AC0EBBD9FCD318D3A1F29CAF6E3C7C954743AFCF9A`.
+  `http://127.0.0.1:3000/` serves those exact bytes from PID 40292.
+- Every owned Godot and prescribed-browser process exited; the intentionally
+  requested local production server is the only repo-owned process left.
+- Suggested next pass: apply the same icon-plus-progressive-disclosure language
+  to the remaining low-frequency Records and Operations filing lists without
+  removing their exact semantic detail.
+
+## 2026-08-01 - State-aware next-move cue
+
+- Replaced the persistent HUD's sentence-length guidance with one icon and one
+  verb-led action cue. Decisions, incidents, reviews, First Clutch steps,
+  Priority Peck windows, pauses, and normal production now answer “what should
+  I do next?” in a compact, consistent location.
+- Kept the exact rationale and tradeoffs in whole-cue tooltips and accessibility
+  metadata. The browser accessibility summary reads that full explanation rather
+  than merely repeating the shortened visible label.
+- Focused management-loop, First Clutch induction, Priority Peck, and Flockwatch
+  density contracts pass. The follow-up accessibility-specific management check
+  also passes, with no test-owned Godot process left running.
+- The native 1280x720 capture is
+  `output/next-move-cue-native-v1/flockwatch_labor.png`. The prescribed Node 24
+  browser client produced three stable production frames at
+  `output/next-move-cue-web-client-v2/` with zero browser-error artifacts and no
+  leftover Playwright process.
+- Exported and synchronized the Web payload. The 9,379,984-byte PCK has SHA-256
+  `6A218B7330C1428CEF3D0C382F81B0A34FFE6ACE2C21F6CE73FDCDB268D46CE7`.
+  `http://127.0.0.1:3000/` serves those exact bytes from PID 44484; server stderr
+  is empty.
+- All temporary test, capture, export, and browser processes exited. The only
+  repo-owned process intentionally left running is the requested local game
+  instance.
+
+## 2026-08-01 - Direct next actions and consequence receipts
+
+- Turned the persistent next-move cue into a full keyboard-focusable action
+  surface. Its state-specific action safely focuses the relevant decision,
+  opens Today's Goals or another filing page, selects a hen, reaches the active
+  First Clutch step, or fires an already-available Priority Peck; it never
+  auto-authorizes an irreversible management choice.
+- Added a visible chevron plus hover/focus/pressed treatment so the cue reads as
+  interactive without adding another instruction sentence. Tooltip,
+  accessibility, and browser diagnostics expose the exact action and rationale.
+- Added animated decision consequence receipts derived from authoritative
+  before/after simulation snapshots. Up to four icon-led changes show Feed Fund,
+  clutch target, production pace, shell risk, flock welfare/strain, compliance,
+  or farmer favor, then travel toward the HUD system they changed. Reduced-motion
+  mode keeps the complete receipt but removes the travel animation.
+- Management loop, decision loop, opening progression, Priority Peck, and the
+  complete First Clutch induction contracts pass. Coverage includes safe cue
+  focus, direct Today's Goals navigation, exact money-delta formatting, and the
+  visible pace/risk/compliance receipt family.
+- The final native capture is
+  `output/action-feedback-native-v2/action_feedback.png`. The prescribed Node 24
+  browser capture at `output/action-feedback-web-client-v1/` shows the same
+  three authoritative Assurance receipts and reports the matching semantic
+  entries with zero browser-error artifacts. A second real canvas click at
+  `output/action-feedback-web-click-v2/` activates the cue, focuses Mabel, opens
+  her routing dossier, and leaves the browser diagnostic in `worker_focus`.
+- Exported and synchronized the Web payload. The 9,391,536-byte PCK has SHA-256
+  `31D8E7626FAF43C639B7D41155236244469E28BEB509745C87CA1A90FFFFA7E4`.
+  `http://127.0.0.1:3000/` serves those exact bytes from PID 38256 with HTTP 200
+  and empty server stderr.
+- Every owned Godot, Playwright, and temporary build process exited. The only
+  repo-owned process intentionally left running is the requested local game
+  instance.
+
+## 2026-08-01 - Preview-to-payoff decision cards
+
+- Rebuilt the three morning policy cards around nine icon-led, simulation-owned
+  effect chips. Harvest now reads `PACE +10% / STRAIN +20% / RISK +4%`,
+  Assurance reads `PACE -7% / RISK -5% / RULES +3`, and Flock Care reads
+  `PACE -3% / STRAIN -30% / FEED +$6` before the player authorizes anything.
+- The chip model is generated from the authoritative directive multipliers and
+  deltas, exposed in browser diagnostics, and retained as exact tooltip and
+  accessibility detail. The wider directive-only briefing keeps all nine values
+  legible while shortening the visible instruction copy.
+- Extended the post-authorization receipt calculation to cover ongoing strain
+  and daily feed-cost modifiers. The selected policy therefore uses the same
+  icon, metric name, sign, and magnitude before and after authorization; the
+  Assurance path is contract-checked as the exact sequence `PACE -7%`,
+  `RISK -5%`, `RULES +3`.
+- Focused `decision_loop_ui_test.gd` and `management_loop_ui_test.gd` contracts
+  pass. The settled native preview is
+  `output/decision-preview-native-v3/morning_directive.png`.
+- The prescribed browser client verified the pre-choice view at
+  `output/decision-preview-web-client-v1/` and the matching post-choice payoff
+  at `output/decision-payoff-web-client-v1/`; both report zero browser errors
+  and empty client/server stderr.
+- Exported and synchronized the Web payload. The 9,394,752-byte PCK has SHA-256
+  `D5758ADC0667B745F627578BAEE7643635ABBD80D4CA247BC8AC34F3B93D588B`.
+  `http://127.0.0.1:3000/` serves that build from PID 29848 with HTTP 200.
+- Every owned Godot, build, Playwright, and Chromium test process exited. Eight
+  orphaned Chromium children from the final prescribed client were explicitly
+  removed; the intentionally requested local production server is the only
+  repo-owned process left running.
+
+## 2026-08-01 - Glanceable hen intents
+
+- Added one simulation-owned `hen_intent` to every employed hen. A stable
+  priority ladder chooses live Priority Peck, deadline danger, care strain,
+  claimant choice, idle routing, or steady work, so every presentation surface
+  communicates the same next useful response.
+- Added six no-text SVG world markers with redundant shape and color language.
+  Markers billboard above their hens, share cached textures, update with the live
+  snapshot, and extend the hen's projected mouse/touch selection target so the
+  visible need itself is clickable.
+- Added one compact selected-hen action beside the hen's name. `SYNC PECK`
+  performs an already-safe live assist; `OPEN FILE`, `CHECK IN`, `CHOOSE PATH`,
+  `SET ROUTE`, and `TRACK FILE` open the relevant existing dossier surface
+  without auto-filing an irreversible decision. Full reasoning stays available
+  through the tooltip and browser diagnostics, and the optional First Clutch
+  coach retains its authored disclosure sequence.
+- Added the deterministic `--capture-hen-intents` preview and bounded Web
+  diagnostics for up to six active hens. Automated Web preview routes now
+  suppress pre-gesture vibration only during capture so verification remains
+  console-clean without changing player haptic defaults.
+- `hen_intent_ui_test.gd`, `chicken_render_hot_path_test.gd`,
+  `management_camera_navigation_test.gd`, `claim_routing_ui_test.gd`, and
+  `peck_assist_ui_test.gd` pass. The layout regression caught by the first
+  routing run was corrected by folding the action into the existing name row;
+  the focused rerun passes 2/2.
+- The native overview is `output/hen-intent-native/hen_intents.png`. The
+  prescribed Node 24 browser client verified `sync`, `deadline`, `care`, and
+  `ready` at `output/web-game/hen-intent-final-clean/`, with the focused Sync
+  Peck action, zero browser-error artifacts, and zero orphan nodes.
+- Exported and synchronized the Web payload. The 9,402,880-byte PCK has SHA-256
+  `7F9B455FFC275FF14507FA69684D0F390BF6340A13737E7BEA02E3C1345C2525`
+  across `docs`, `web/public/game`, and the production bundle.
+  `http://127.0.0.1:3000/` serves the refreshed build from PID 23512 with HTTP
+  200 and empty server stderr.
+- Every owned Godot, test, capture, export, build, and Playwright process exited.
+  The requested local production server is the only repo-owned process left
+  running.
+
+## 2026-08-01 - Baseline breakroom environmental read
+
+- Rebuilt the formerly empty Wellness Roost square as a visual-only breakroom
+  vignette. A wall bench with warm cushions, low cafe table and magazine,
+  bordered round-center rug, communal pinboard, and compact kitchenette now
+  communicate social recovery at normal office zoom without explanatory UI.
+- Integrated the existing water cooler into the kitchenette with cabinets,
+  counter, shelf, coffee urn, mugs, snack tin, and microwave. Furnishings remain
+  on the perimeter; the six authored hen break positions and the x=-7.95 access
+  lane stay collision-free and navigation-free.
+- Added a deterministic `--capture-breakroom` review route and matching local
+  Web preview. The close art review is
+  `output/breakroom-native-v1/breakroom.png`; the ordinary gameplay view is
+  `output/breakroom-overview-v1/vertical_slice.png`; and the prescribed browser
+  client result is `output/web-game/breakroom-final/shot-0.png` with zero browser
+  errors and zero reported orphan nodes.
+- `office_detail_test.gd`, `office_layout_test.gd`,
+  `office_physical_staging_test.gd`, and `presentation_smoke_test.gd` pass.
+  The Web export is 9,408,112 bytes with SHA-256
+  `AD1595B4E14BFB0F08700249D81409C24B173C4865EA68504669C35E6EB7E3B4`
+  across `docs`, `web/public/game`, the production bundle, and the served file.
+  `http://127.0.0.1:3000/` serves the refreshed build from PID 29188.
+
+## 2026-08-01 - Organic breakroom production pass
+
+- Upgraded the Wellness Roost from a blockout to a layered environment with a
+  woven oval rug, dimensional kitchenette and coffee station, framed pinboard,
+  upholstered lounge furniture, detailed cafe table, recycling bin, and plant.
+- Added six authored interaction stations: water, coffee, lounge, magazine
+  browsing, bulletin reading, and conversation. Hens now walk to distinct
+  destinations, face the relevant prop, and perform a matching procedural pose.
+- Water and coffee visits use held cups with a complete visibility lifecycle;
+  lounge, browse, bulletin, and chat poses use readable body, head, wing, and
+  leg motion. Break routes remain clear and productive work stays desk-only.
+- `office_detail_test.gd`, `office_layout_test.gd`,
+  `office_physical_staging_test.gd`, `presentation_smoke_test.gd`,
+  `egg_seating_regression_test.gd`, and `chicken_render_hot_path_test.gd` pass.
+- The final native review is
+  `output/breakroom-organic-native-v4/breakroom.png`. The prescribed browser
+  client verified four simultaneously active interactions and two held cups at
+  `output/web-game/breakroom-organic-final/shot-0.png`, with zero browser errors
+  and zero orphan nodes.
+- Exported and synchronized the Web payload. The 9,412,352-byte PCK has SHA-256
+  `5D3C74072C82641BB0A5125F71DC8E2ACEC537263C0C0909E5CAC33877C49351`
+  across `docs`, `web/public/game`, the production bundle, and the served file.
+  `http://127.0.0.1:3000/` serves the refreshed build from PID 29464 with empty
+  server stderr.
+- Every owned Godot, test, capture, export, build, and browser-client process
+  exited. The intentionally requested local production server is the only
+  repo-owned process left running.
+
+## 2026-08-01 - Reactive breakroom polish pass
+
+- Converted the six break activities from continuous generic loops
+  into staged actions with collect/raise/sip/savor, settle/stretch, pick-up/read/
+  page-turn, scan/point/consider, and listen/respond phases.
+- Added physical liquid and coffee steam to held cups plus an open held magazine
+  with a page-turn pose. Break diagnostics now expose the active phase and both
+  held-prop lifecycles.
+- Added a room-defining baseboard, warm wall sconces, sugar jar, throw and
+  fringe, table cup/coaster, responsive urn steam, cooler bubbles, plant sway,
+  note flutter, and a pouf that compresses under its seated hen. Table reading
+  material is removed while held and returned when the visitor leaves.
+- The first native render exposed an oversized steam-scale regression; the
+  authored local scale is now preserved. The final inspected native frame is
+  `output/breakroom-reactive-native-v3/breakroom.png`.
+- `office_detail_test.gd`, `presentation_smoke_test.gd`,
+  `office_layout_test.gd`, `office_physical_staging_test.gd`, and
+  `chicken_render_hot_path_test.gd` pass, and the editor parse is clean.
+- The prescribed browser client verified four simultaneous active behaviors in
+  phases `lower`, `raise`, `rest`, and `read`, with two cups and one held reading
+  prop. `output/web-game/breakroom-reactive-final/` has zero browser-error
+  artifacts and zero orphan nodes; its screenshot was inspected at full size.
+- Client gotcha: this bundled client accepts `--screenshot-dir`, not
+  `--output-dir`. The unsupported flag briefly fell back to the two tracked
+  default artifacts; both were immediately restored byte-for-byte from HEAD,
+  and their final Git status is clean. Five lingering Chromium children from
+  the prescribed client were explicitly closed.
+- Exported and synchronized the 9,425,680-byte Web PCK with SHA-256
+  `B4406B5A17F9D976518B7DB923B6E0CC9B4E3F1E853FB1AA3E4898EDFA2C2C60`
+  across `docs`, `web/public/game`, the production bundle, and the served file.
+  `http://127.0.0.1:3000/` serves the refreshed build from PID 23908 with HTTP
+  200 and empty server stderr.
+## 2026-08-01 - Default west office furnishing pass
+
+- Completed: dressed the opening office's empty west bay as a shared records, mail, and supply nook tied to the temporary lease-partition lifecycle.
+- The new procedural furnishings are visual-only, collision-free, navigation-free, and automatically retire when capacity five commissions the first west workstation.
+- Added a stocked supply cabinet, mail-sorting worktable, mobile file cart, coat/umbrella stand, task lighting, folders, banker boxes, paper reams, trays, and parcels using shape and color instead of more instructional text.
+- First native composition review found the cabinet too close to the HUD crop and the pigeonhole face too dark; moved the cabinet into the readable room and layered six light mail packets into the sorter face.
+- Added a local-only `?preview=opening-office` route so the authored opening management view can be verified in the exported Web build without first-run overlays obscuring the composition.
+- `office_detail_test.gd`, `office_layout_test.gd`, `office_physical_staging_test.gd`, and `presentation_smoke_test.gd` pass. The Web export and production frontend build also pass with exact `docs` / `web/public/game` / `web/dist/client/game` asset parity.
+- Inspected the final native and exported-Web scenes at 1280x720. Browser diagnostics report `loaded=true`, core capacity four, the temporary west staging visible, zero orphan nodes, and no captured error files.
+- Temporary Godot capture processes exited, and the one lingering Playwright browser root was explicitly stopped after capture; only the requested local production server remains running.
+
+## 2026-08-01 - Default west office center-bay density pass
+
+- Completed: responded to the remaining empty middle-left floor by extending the temporary west-bay story into a compact project-review station.
+- Added a shared timber worktable, two task stools, a freestanding planning board, inset floor mat, working plans, ruler, file packet, material swatches, pencil cup, abstract planning cards, and supporting structural detail.
+- Kept every piece visual-only and within the safe rear band between the flock's feed lane and the supply cabinet; the entire cluster still retires automatically when capacity five converts the west bay to a staffed perch.
+- First density capture showed the project station hidden behind the persistent HUD. Re-spaced the bay into rear storage, visible middle project work, and foreground mail operations; narrowed the project mat to preserve the feed-lane clearance envelope.
+- Final native and exported-Web captures were inspected at 1280x720. The project station is now fully visible in the ordinary management composition and reads as an occupied office zone rather than perimeter clutter.
+- `office_detail_test.gd`, `office_layout_test.gd`, `office_physical_staging_test.gd`, and `presentation_smoke_test.gd` pass; the editor parse, Web export, and production frontend build also pass.
+- Browser state reports `loaded=true`, capacity four, temporary west staging visible, zero orphan nodes, and no captured browser error files.
+- Cleaned the lingering Playwright browser roots after capture; no Godot, browser-client, or Playwright processes remain. The refreshed local production server is the only task-owned process intentionally left running.
+
+## 2026-08-01 - Default west office framing pass
+
+- Completed: the repeated left-side emptiness feedback exposed a presentation-bounds problem rather than a missing-prop problem. Capacity-four framing began at world X -2 even though the temporary office furnishings occupy X -4 through -8.
+- Expanded the opening camera footprint westward to X -7.5 while preserving the eastern endpoint at X 11.5, recentered the authored overview target, and increased the opening minimum size from 16 to 19 so the dressed west bay is part of the default office composition.
+- Added a progression assertion that the opening camera includes the furnished west bay while the capacity-four/five/six overview sizes remain strictly increasing.
+- The first focused run reached the intended X 2.0 / size 19 frame but exposed an older hard-coded X 4.75 / size 16-18 expectation; updated that regression contract to require the west-inclusive opening frame while remaining tighter than capacity five.
+- Inspected the final native and exported-Web frames at 1280x720: the breakroom, planning station, mail bench, supply cabinet, flock corridor, active desks, and intake now read as one balanced default office composition.
+- `management_camera_navigation_test.gd`, `opening_experience_progression_test.gd`, `office_physical_staging_test.gd`, and `office_detail_test.gd` pass. Web diagnostics confirm target X 2.0, size 19, capacity four, west staging visible, zero orphan nodes, and no browser error artifact.
+- The production Web export was synchronized across `docs`, `web/public/game`, and `web/dist/client/game`; the refreshed local server remains intentional, and no Godot, browser-client, or Playwright capture process remains.
+
+## 2026-08-01 - West wall administrative furnishing pass
+
+- Completed: used the newly visible west cutaway wall for permanent-looking opening-office detail without narrowing any flock route.
+- Added a visitor bench with arms, cushions, tuft buttons, and grounded legs; a two-drawer lateral file credenza with inbox and plant; a framed wall-record fixture; stocked forms rack; warm task sconce; and square office clock.
+- Kept the cluster inside the temporary west lease presentation so it automatically retires before mature west-wing fixtures appear, and used box-only visual geometry so the existing route-clearance audit covers every added part.
+- Inspected the native and exported-Web overview at 1280x720: the new frontage is readable beside the breakroom, adds a clear administrative/visitor function to the wall bay, and preserves the open flock corridor.
+- `office_detail_test.gd`, `office_physical_staging_test.gd`, `office_layout_test.gd` (18 routes), and `opening_experience_progression_test.gd` pass; the editor parse, Web export, and production frontend build also pass.
+- Browser diagnostics report `loaded=true`, capacity four, west staging visible, target `(2.0, 0.65, -0.65)`, size 19, zero orphan nodes, and no captured error files. All nine Web assets match across `docs`, `web/public/game`, and `web/dist/client/game`.
+- No Godot, browser-client, or Playwright browser process remains after capture. The refreshed local production server is intentionally running as PID 24248.
+
+## 2026-08-01 - Living office readability pass
+
+- Completed: surfaced existing specialty, relationship, and file-progress mechanics directly on the office floor instead of adding another management panel.
+- Added five-step progress rings to the existing hen action icons, a gold star `GOOD MATCH` state for specialty work, thresholded no-text perchmate badges for strong/strained bonds, and a matching gold workstation-light accent.
+- Kept simulation authority unchanged: specialty bonuses, bond scores, routing, and incident decisions still come from their existing systems; the new layer only makes those causes and effects observable.
+- The selected-hen shortcut now recognizes the gold match icon and opens the live file, while urgent deadlines, Priority Peck, claimant choices, and care needs retain higher visual priority.
+- Added concise Web diagnostics for all active named bonds and their visible signal tier. Neutral professional relationships deliberately remain quiet to prevent icon clutter.
+- `hen_intent_ui_test.gd`, `core_loop_readability_test.gd`, `claim_routing_test.gd`, `claim_routing_ui_test.gd`, `personnel_career_test.gd`, `settings_office_integration_test.gd`, and `presentation_smoke_test.gd` pass. The editor parse, Web export, and production frontend build also pass.
+- Inspected the native and exported-Web 1280x720 scenes. The final Web frame shows four separated, readable states (`SYNC PECK`, overdue file, `GOOD MATCH`, and care) plus supportive perchmate badges; diagnostics report `loaded=true`, four intents, four named bonds, zero orphan nodes, and no captured error file.
+- No Godot, browser-client, or Playwright browser process remains after capture. The refreshed local production server is the only task-owned process intentionally left running.
+
+## 2026-08-01 - Peckwork dispatch and routing momentum pass
+
+- Turned each non-empty overview queue count into a semantic intake-tray button while preserving the existing compact labels, responsive layout, color-vision symbols, and tooltip detail.
+- Added a two-step, low-copy dispatch gesture: choose a tray, then click a hen. Every eligible hen receives a teal marker and the simulation-ranked best fit receives a gold star.
+- Added deterministic candidate ranking that prioritizes lane accreditation, immediate availability, and calmer/less-fatigued workers without mutating the simulation.
+- Dispatches still use the authoritative worker-assignment API, preserve the one-level routing undo, and explicitly communicate that current work finishes before the new tray applies.
+- Added a physical lane-colored 3D folder that arcs from intake to the selected workstation, stamps best-fit deliveries with gold, and reliably frees itself after arrival.
+- Added a visible best-fit momentum chain (`FIT ×N`) with a 25-second continuation window. The chain is presentation feedback only and does not invent hidden economy bonuses.
+- Added dispatch state to Web diagnostics and an accessible text description while tray selection is active.
+- Added `--capture-dispatch` / `?preview=dispatch` for the staged interaction preview.
+- Expanded routing regression coverage for ranking, tray selection, best-fit markers, authoritative commit, fit-chain receipt, folder launch, and folder cleanup.
+- `claim_routing_test.gd` and `claim_routing_ui_test.gd` pass; the editor parse, Godot Web export, and production frontend build also pass.
+- Inspected the exported 1280x720 dispatch frame at `output/web-game/peckwork-dispatch-v3/shot-0.png`: the selected Predator tray, three eligible markers, one gold best-fit marker, and oversized preview folder are simultaneously readable without opening a dossier.
+- Browser diagnostics report `loaded=true`, `dispatch.active=true`, four ranked candidates, Hen ID 2 recommended, fit chain 3, one live folder delivery, zero orphan nodes, and no captured error artifact.
+- No Godot, browser-client, or Playwright process remains after capture. The refreshed local production server is intentionally running on port 3000 as PID 32708.
+
+## 2026-08-01 - Authoritative routing skill-chain pass
+
+- Replaced the presentation-owned 25-second dispatch counter with persisted
+  simulation authority. The chain now advances only on genuine best-fit tray
+  changes and breaks on poor routing, missed Peck timing, weak Peck precision,
+  or an assisted crack; waiting no longer erases it.
+- Wired concise milestone rewards into existing systems: FIT x2 activates +15%
+  specialty-file pace while flow holds, FIT x3 restores or banks one Priority
+  Peck, FIT x5 banks a guaranteed golden upgrade for the next clean sound file,
+  and FIT x10 gives the flock a small morale/strain team lift.
+- Earned Peck and golden rewards survive a later chain break, while the live
+  pace multiplier correctly depends on maintaining the chain. Repeated clicks
+  on an unchanged assignment are rejected so milestones require real routing.
+- Added schema v29 persistence and strict active-claim validation for banked
+  free Pecks. The Office now consumes dispatch receipts, preserves one-level
+  undo/checkpoint behavior, and mirrors compact `PICK · xN`, `PACE +15%`,
+  `PECK +1`, and `GOLD READY` states instead of another explanatory panel.
+- `routing_momentum_test.gd`, `peck_assist_test.gd`,
+  `simulation_persistence_test.gd`, `claim_routing_test.gd`,
+  `claim_routing_ui_test.gd`, `peck_assist_ui_test.gd`,
+  `interaction_safety_contract_test.gd`, and the adjacent market/Records/Coop
+  persistence checks pass. Editor parsing, Web export, and the production
+  frontend build also pass.
+- The final exported preview is
+  `output/web-game/routing-momentum-authoritative-v2/shot-0.png`. Diagnostics
+  report an authoritative chain of 3, pace multiplier 1.15, one banked Peck,
+  `GOLDEN FILE` next, four candidates, one live folder, zero orphan nodes, and
+  no captured browser errors.
+- The refreshed local production server is intentionally running on port 3000
+  as PID 27460. All owned Godot/test/export/browser-client processes were
+  allowed to exit; lingering Playwright Chromium children were explicitly
+  closed after capture.
+
+## 2026-08-01 - Routing milestone game-feel polish
+
+- Completed: routing milestones now carry an authored reward identity through
+  the physical folder handoff instead of ending as HUD text alone.
+- Added a destination-local icon burst for pace, Peck recharge, golden file,
+  and team-lift rewards. The icon anticipates, settles, rises, fades, and frees
+  itself; staged previews can hold it longer without changing gameplay.
+- Added a one-shot compact HUD color pulse and reward-specific sound weight at
+  the same authoritative receipt boundary. Reduced-motion UI keeps the static
+  color cue and skips the pulse.
+- Expanded `claim_routing_ui_test.gd` through the real x2 flow: second best-fit
+  dispatch, visible `PACE +15%`, one icon on folder landing, and exact cleanup.
+  The editor parse and focused routing UI integration test pass.
+- `routing_momentum_test.gd`, `presentation_smoke_test.gd`, and
+  `core_loop_readability_test.gd` also pass. The Godot Web export and production
+  frontend build complete successfully.
+- Inspected the exported 1280x720 frame at
+  `output/web-game/routing-milestone-polish-v1/shot-0.png`. Diagnostics report
+  authoritative chain 3, `PECK +1`, one physical folder, one staged reward
+  burst, zero orphan nodes, and no captured browser errors.
+- The exported PCK hash matches across `docs`, `web/public/game`, and
+  `web/dist/client/game`. No Godot, browser-client, or Playwright browser
+  process remains after capture; the refreshed local production server is the
+  only task-owned process intentionally running, on port 3000 as PID 11620.
+
+## 2026-08-01 - First-file visual onboarding polish
+
+- Completed: replaced the text-first probation intake with a character-led,
+  glanceable opening while preserving every authored rule and accessibility
+  path.
+- Added Mabel's portrait to her profile, reduced the headline and instruction
+  copy, reframed her traits in direct gameplay language, and changed the
+  primary action to the concrete `START SHIFT 1`.
+- Replaced the dense opening-economy sentence with three live metric cards for
+  Feed Fund, egg quota, and open files. Replaced the arrow sentence with three
+  compact journey cards: one shared file, five shifts, final review.
+- Exact immutable thresholds, route guidance, and difficulty descriptions
+  remain available through the keyboard/controller Rules disclosure and its
+  tooltips.
+- The editor parse and `probation_campaign_ui_test.gd` pass, including all
+  difficulty changes, disclosure behavior, resume/new-file hierarchy, and the
+  390x844 responsive layout.
+- `opening_experience_progression_test.gd` and
+  `first_clutch_induction_test.gd` pass through the complete opening and first
+  shift handoff. The Godot Web export and production frontend build also pass.
+- The first exported capture exposed a 720p scrollbar, so the portrait, card
+  padding, metric height, journey rhythm, and primary action were tightened and
+  recaptured. The final `output/web-game/first-file-visual-onboarding-v2/shot-0.png`
+  keeps every primary element and the full panel border visible with no scroll.
+- Final browser diagnostics report `loaded=true`, campaign stage `title`, intake
+  phase `new_file`, zero orphan nodes, and no captured browser error file. The
+  PCK hash matches across `docs`, `web/public/game`, and `web/dist/client/game`.
+- All Godot, browser-client, and Playwright browser processes were cleaned up.
+  The refreshed local production server is intentionally running on port 3000
+  as PID 22596.
+
+## 2026-08-01 - Flock-rule decision readability polish
+
+- Completed: simplified the first post-intake management decision around one
+  visible question: which flock rule best fits today's three goals?
+- Added an explicit `TODAY'S GOALS` heading and reduced the opening instruction
+  to one sentence. Goal tiles now prioritize the target and score rather than
+  repeating their full authored title.
+- Replaced `HELPS / RISKS` prose on each rule with compact help/watch counts.
+  Selecting a rule now lights supported goals teal and watched goals amber,
+  changes the heading into its color legend, and reduces the visible preview to
+  help/watch counts plus the long-run edge.
+- Exact supported goals, watched goals, directional caveats, and consequence
+  copy remain on the selected preview's accessibility metadata and card
+  tooltips. The primary action becomes `START SHIFT · [RULE]` only after a
+  deliberate selection.
+- Editor parsing, `decision_loop_ui_test.gd`, and
+  `management_loop_ui_test.gd` pass through selection, authorization, running
+  state, action receipt, and the later incident/review flow.
+- The complete `first_clutch_induction_test.gd` also passes through prelude,
+  policy, routing, check-in, Priority Peck, laying, reinvestment, checkpoint
+  restoration, and next-shift continuation.
+- Browser inspection caught stale selected-state guidance. Selection now
+  deliberately collapses the completed `PICK TODAY'S FLOCK RULE` prompt and
+  replaces it with `Check the goal colors, then start.`
+- Final exported evidence is
+  `output/web-game/flock-rule-readability-v2/shot-0.png`: Harvest is visibly
+  selected, its supported egg goal is teal, its two watched goals are amber,
+  and the compact edge plus start action fit without scrolling.
+- Browser diagnostics report the decision visible, `record_harvest` selected,
+  confirmation enabled, zero orphan nodes, and no captured error file. The PCK
+  hash matches across `docs`, `web/public/game`, and `web/dist/client/game`.
+- No Godot, browser-client, or Playwright browser process remains. The refreshed
+  local production server is intentionally running on port 3000 as PID 23172.
+
+## 2026-08-01 - First routing action glance polish
+
+- Completed: tightened the first hands-on routing lesson into one visual match
+  between Mabel's specialty and the correct Appeals tray.
+- During the coached route only, the dossier now says `APPEALS = BEST FIT`, the
+  compact hint repeats `BEST FIT > APPEALS [ENTER]`, and the exact tray exposes
+  its direct Enter shortcut. The matched specialty and tray share the authored
+  Appeals semantic color with a stronger, animated border.
+- Normal routing remains unchanged after onboarding. Full automation behavior,
+  credential tradeoffs, and alternate tray guidance remain in the established
+  tooltips and Details disclosure.
+- Editor parsing, `first_clutch_coach_ui_test.gd`,
+  `claim_routing_ui_test.gd`, and the complete
+  `first_clutch_induction_test.gd` pass. The full induction still reaches route,
+  check-in, Priority Peck, laying, reinvestment, restore, and rollover states.
+- The Web export and production frontend build pass. Final exported evidence is
+  `output/web-game/first-clutch-routing-polish-final-v2/shot-0.png`; a second
+  settled capture was used after the first capture caught a transient WebGL
+  compositing frame.
+- Browser diagnostics report `specialty_route`, focused worker 0, zero orphan
+  nodes, no captured browser error file, and empty server stderr. The PCK hash
+  matches across `docs`, `web/public/game`, and `web/dist/client/game`.
+- All Godot and Playwright browser processes were cleaned up. The refreshed
+  local production server is intentionally running on port 3000 as PID 36836.
+
+## 2026-08-01 - First check-in consequence polish
+
+- Completed: replaced the empty center of the coached First Clutch check-in
+  dossier with one compact decision preview.
+- The preview now connects Mabel's `CREDIT CONSCIOUS` work profile directly to
+  `SHARE CREDIT`, shows the immediate `TRUST + / GRIEVANCE -` direction, and
+  keeps `1 OF 1 LEFT / PERMANENT` as a separate scarcity warning.
+- The recommended Share Credit stamp now exposes `[ENTER]` and uses a stronger
+  care-colored cue. Career Coach and Apply Pressure remain available, with
+  exact authored costs and numeric effects preserved in their tooltips.
+- Added the deterministic `first-clutch-checkin` web preview so this exact live
+  onboarding stage can be inspected without boot-time input races.
+- Editor parsing, `first_clutch_coach_ui_test.gd`,
+  `claim_routing_ui_test.gd`, and the complete
+  `first_clutch_induction_test.gd` pass. Normal post-tutorial dossier labels,
+  font sizes, detailed personnel summaries, and styles restore correctly.
+- The Web export and production frontend build pass. Final accepted evidence is
+  `output/web-game/first-clutch-checkin-polish-final-v4/shot-0.png`; earlier
+  captures with transient headless WebGL compositing were rejected.
+- Browser diagnostics report `loaded=true`, stage `check_in`, focused worker 0,
+  zero orphan nodes, no captured browser error file, and empty server stderr.
+  The PCK hash matches across `docs`, `web/public/game`, and
+  `web/dist/client/game`.
+- All Godot and Playwright browser processes were cleaned up. The refreshed
+  local production server is intentionally running on port 3000 as PID 27872.
+
+## 2026-08-01 - Priority Peck rhythm polish
+
+- Completed: turned the selected-hen Priority Peck meter into a clearer timing
+  action. The rhythm lane is taller, the gold window is brighter, and the ideal
+  strike marker is wider.
+- Replaced threshold-heavy visible copy with immediate phase language:
+  `WAIT · PECK WHEN GOLD LIGHTS`, `PECK NOW`, and `GOLDEN PECK`. Exact opening,
+  gold-band, and ideal percentages remain available in the meter tooltip.
+- Added the deterministic `priority-peck` browser preview and made its staging
+  independent of browser startup/pathing speed. The authored live mechanic is
+  unchanged; only the explicit capture fixture freezes its gold-window frame.
+- `peck_assist_ui_test.gd`, `core_loop_readability_test.gd`, and
+  `claim_routing_ui_test.gd` pass. Editor parsing, the Web export, and the
+  production frontend build also pass.
+- Final accepted evidence is
+  `output/web-game/priority-peck-polish-final-v2/shot-0.png`, showing Mabel's
+  live Appeals file at the authored 62% golden rhythm with its direct E/A action.
+- Browser diagnostics report `loaded=true`, focused worker 0, claim 3,
+  `window_state=open`, `GOLDEN RHYTHM`, and no captured error file. The PCK hash
+  matches across `docs`, `web/public/game`, and `web/dist/client/game`; server
+  stderr is empty.
+- No Godot or Playwright browser process remains. The refreshed local
+  production server is intentionally running on port 3000 as PID 14540.
+
+## 2026-08-01 - Priority Peck payoff polish
+
+- Completed: clarified the immediate result after a Priority Peck lands. The
+  dossier now replaces unrelated AUTO-routing copy with a compact authored
+  receipt such as `FILE +26% · RISK -6.0% · CLEAN EGG REFUNDS 1`.
+- The completed action now reads `PERFECT! · CHAIN x1` with a brighter success
+  color, while the top-line notice was shortened to rating, hen, file gain,
+  risk change, and chain. Exact strain, morale, charge, and recovery detail
+  remains in the established tooltip and simulation record.
+- Added a deterministic `priority-peck-result` browser preview. It stages the
+  real atomic live-clock action at the authored 62% ideal, then freezes only the
+  completed 88% result for inspection.
+- `peck_assist_ui_test.gd`, `core_loop_readability_test.gd`, and
+  `claim_routing_ui_test.gd` pass. Editor parsing, Web export, and the production
+  frontend build also pass.
+- Final accepted evidence is
+  `output/web-game/priority-peck-result-polish-final-v2/shot-0.png`. The first
+  final capture was rejected after transient headless WebGL compositing dropped
+  unrelated glyphs.
+- Browser diagnostics report `loaded=true`, focused worker 0, claim 3 at 88%,
+  `window_state=used`, `rating=perfect`, +26% file progress, -6% risk, chain x1,
+  and no captured error file. The PCK hash matches across `docs`,
+  `web/public/game`, and `web/dist/client/game`; server stderr is empty.
+- No Godot or Playwright browser process remains. The refreshed local
+  production server is intentionally running on port 3000 as PID 11944.
+
+## 2026-08-01 - Egg-delivery handoff polish
+
+- Completed: clarified the non-interactive finish line after a boosted claim
+  reaches 100%. The selected-hen dossier now names the phase `3 EGG DELIVERY`
+  instead of `LAYING DELIVERY`.
+- Retired the completed file's deadline prose during delivery. Its compact line
+  now prioritizes `PAYOUT`, final `RISK`, and `NEXT: GRADING > FARMER`.
+- The retained Priority Peck receipt now becomes a visible journey rail:
+  `LAYING > GRADING > FARMER · CLEAN EGG REFUNDS 1`, while the result button
+  changes from chain tracking to `PERFECT! · FILE READY`. Exact file gain, risk
+  change, and chain remain in the established result tooltip.
+- Added the deterministic `priority-peck-delivery` browser preview, which uses
+  the real ideal Priority Peck action and authoritative work tick before freezing
+  the 100% laying state.
+- `peck_assist_ui_test.gd`, `core_loop_readability_test.gd`,
+  `first_clutch_coach_ui_test.gd`, and `claim_routing_ui_test.gd` pass. Editor
+  parsing, Web export, and the production frontend build also pass.
+- Final accepted evidence is
+  `output/web-game/priority-peck-delivery-polish-final-v2/shot-0.png`; the first
+  final capture was rejected after transient headless WebGL compositing dropped
+  unrelated glyphs.
+- Browser diagnostics report `loaded=true`, focused worker 0, claim 3 at 100%,
+  the retained perfect assist, and no captured error file. The PCK hash matches
+  across `docs`, `web/public/game`, and `web/dist/client/game`; server stderr is
+  empty.
+- No Godot or Playwright browser process remains. The refreshed local
+  production server is intentionally running on port 3000 as PID 35008.
+
+## 2026-08-02 - Grading-to-farmer payoff polish
+
+- Completed: kept the first routine egg's physical grading and farmer-credit
+  journey visible instead of covering it with a full-screen character aside.
+- Routine first-egg and production-milestone dialogue now uses a compact,
+  portrait-free `ambient` floor card. It does not dim the office, capture the
+  pointer, or consume Enter; authored story and management beats retain their
+  full visual-novel presentation.
+- Tightened Mabel's first production acknowledgement to `Clean shell. Farmer
+  credit is on the way.` The 450x132 card leaves the sorter, rail, basket, and
+  office HUD visible while still preserving character voice and accessibility
+  text.
+- Grading and delivery receipts now close the economic loop directly:
+  `$4.55 → FARMER`, `+$4.55 FEED FUND`, and assisted deliveries combine money,
+  renewed Priority Peck attention, and the final ready count in one line.
+  Ordinary deliveries no longer leave the ticker stranded on an awaiting state.
+- Added the deterministic `egg-grading` web preview and made its hen staging
+  independent of browser-startup pathing speed.
+- Editor parsing, `character_dialogue_ui_test.gd`,
+  `egg_grading_feedback_test.gd`, and `grading_receipt_pool_test.gd` pass. The
+  egg feedback test exercises the complete lay → grade → farmer → Feed Fund
+  chain and the assisted delivery's exact attention refund.
+- The Web export and production frontend build pass. Accepted browser evidence
+  is `output/web-game/egg-grading-payoff-final-v1/shot-0.png`; later frames with
+  transient headless WebGL glyph loss were rejected.
+- Browser diagnostics report `loaded=true`, campaign `active`, dialogue mode
+  `ambient`, panel `[814,572 450x132]`, zero orphan nodes, and no browser error
+  file. The PCK hash matches across `docs`, `web/public/game`, and
+  `web/dist/client/game` (`203897DB7DF289AF151AF8EB4E213271F32D674AC49F614BEEF7950657891EB6`).
+- All Godot and Playwright browser processes were cleaned up. The refreshed
+  local production server is intentionally running on port 3000 as PID 34848.
+
+## 2026-08-02 - First Feed Fund reinvestment readability polish
+
+- Completed: turned the first-clutch reinvestment into a fast worker-versus-fund
+  choice. The header now exposes the full resource equation in one line:
+  spendable fund, desk match, and protected reserve.
+- Desktop now presents three equal cards at once: `BETTER KEYS` with its speed
+  gain and net payment, `SAFER SHELLS` with its crack reduction and net payment,
+  and `BANK THE FUND` with the exact retained balance and no-upgrade tradeoff.
+- Selection previews use two compact lines and the authorization button changes
+  to the exact selected action, such as `INSTALL BETTER KEYS` or `BANK $20.00`.
+  The original detailed accounting explanation remains available through each
+  control's accessible text and tooltip.
+- Browser diagnostics now mirror the prompt and authorization label actually
+  visible on the canvas, including the selected-card state. Regression coverage
+  protects that visual-to-diagnostic parity.
+- `first_clutch_induction_test.gd`, `first_clutch_reinvestment_ui_test.gd`, and
+  `first_clutch_reinvestment_economy_test.gd` pass. Together they cover keyboard
+  select/Enter authorization, exact-once spending, workstation installation and
+  camera focus, speed restoration, responsive containment, and save migration.
+- Web export and the production frontend build pass. Accepted browser evidence
+  is `output/web-game/first-clutch-reinvestment-polish-final-v2/shot-0.png`;
+  diagnostics report the compact title, resource equation, three available
+  choices, matching prompt/button label, and no browser error file.
+- The PCK hash matches across `docs`, `web/public/game`, and
+  `web/dist/client/game`
+  (`EA928BDF93F98337A9F0C67A0E884B1CF94F1ADDA700FE063AC12E21E457F06E`).
+  Server stderr is empty.
+- All Godot and Playwright browser processes launched by this task were cleaned
+  up. The refreshed local production server is intentionally running on port
+  3000 as PID 11780.
+
+## 2026-08-02 - Today's goals action-language polish
+
+- Completed: recast Flockwatch's first strategic plan from ledger abbreviations
+  into three immediate action cards: `LAY 18 EGGS`, `CRACKS ≤ 20%`, and
+  `WELFARE 48+`. Each card now pairs its target with a live result such as
+  `18 LEFT`, `EGG 1 PENDING`, or `SAFE`.
+- The section heading now exposes the complete reward up front as
+  `TODAY'S 3 GOALS · +9 SCORE`, so players can understand why the plan matters
+  without opening a tooltip.
+- Shell quality is amber and pending before the first egg instead of green and
+  incorrectly reassuring. The safeguard card now says `WELFARE NEEDS 45`
+  instead of presenting a cryptic negative gap.
+- Exact order descriptions, score awards, thresholds, and final probation terms
+  remain in tooltips and accessible metadata. Flockwatch narration now includes
+  the visible current-page cards before the detailed ledger definitions, keeping
+  `render_game_to_text` aligned with the canvas.
+- Editor parsing, `flockwatch_today_density_test.gd`,
+  `flockwatch_navigation_test.gd`, `management_loop_ui_test.gd`, and the full
+  `first_clutch_induction_test.gd` pass. The latter verifies the complete gated
+  lay, grade, reinvest, and open-Today handoff.
+- Web export and the Vinext production build pass. Accepted browser evidence is
+  `output/web-game/today-goals-polish-final-v3/shot-0.png`; diagnostics report
+  Today open, all three visible goal phrases and the safeguard in accessible
+  narration, zero orphan nodes, and no browser error file.
+- HTML and PCK artifacts match across `docs`, `web/public/game`, and
+  `web/dist/client/game`. The PCK SHA-256 is
+  `24B777367EDF4CA79CD1DFAC6C284FEA77F68D49F2F02A46F153DBD2A2B31DD0`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server is intentionally running on port 3000
+  as PID 23176 with empty stderr.
+
+## 2026-08-02 - Live-floor clock echo cleanup
+
+- Completed: the always-visible pause/speed controls and state-aware Next
+  action now own routine clock feedback without a second prose toast covering
+  the office floor.
+- Consequential actions, milestones, warnings, and receipts retain their toast
+  presentation. Routine clock changes remain filed in Shift Record and remain
+  represented by the live HUD/accessibility summary.
+- Flockwatch's latest-notice strip gives routine clock state a one-line archival
+  glance (`PAUSED · TIME SAFE` or `LIVE Nx · HENS ACTIVE`) while keeping the
+  exact authored notice in its tooltip and browser narration.
+- Editor parsing, `management_loop_ui_test.gd`,
+  `settings_office_integration_test.gd`, `flockwatch_input_context_test.gd`,
+  `flockwatch_navigation_test.gd`, and `core_loop_readability_test.gd` pass.
+  Coverage includes pause → direct Today navigation, archive retention,
+  notice-level preferences, controller focus ownership, and visual/text parity.
+- Web export and the Vinext production build pass. Accepted browser evidence is
+  `output/web-game/live-floor-clock-cleanup-final-v1/shot-0.png`; diagnostics
+  report Today open, the exact full pause notice in narration, an empty visible
+  toast, and no browser error file.
+- HTML and PCK artifacts match across `docs`, `web/public/game`, and
+  `web/dist/client/game`. The PCK SHA-256 is
+  `D12C6D46DFD08C5AA53F918A0435A0E16FF86DD6C2F0BCB414320826BF6B7815`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server is intentionally running on port 3000
+  as PID 34868 with empty stderr.
+- Suggested next visual audit: clarify overlapping low-urgency hen intent pins
+  when the full opening flock clusters in the west staging area.
+
+## 2026-08-02 - Clustered hen intent-pin polish
+
+- Completed: low-urgency floor signals now use compact, deterministically
+  staggered action pins. The idle signal is a route signpost instead of an
+  egg-like oval, and every pin carries its authoritative intent/action metadata.
+- Urgency two and three signals retain larger silhouettes, preserving visual
+  priority for check-ins, decisions, deadlines, and live Priority Peck windows.
+- `hen_intent_ui_test.gd`, `core_loop_readability_test.gd`,
+  `management_camera_navigation_test.gd`, and `presentation_smoke_test.gd`
+  pass. Coverage includes compact sizing, deterministic staggering, selection
+  anchors, semantic metadata, all seven intent priorities, and camera controls.
+- The official browser client verified both the four-hen west staging cluster
+  and the full click → selected Mabel dossier → live `SYNC PECK` escalation.
+  Accepted evidence is `output/web-game/hen-intent-pins-selected-v3/shot-0.png`;
+  the clustered overview is `output/web-game/hen-intent-pins-polish-v1/shot-0.png`.
+  Both report four authoritative intents and no browser error file.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; the PCK SHA-256
+  is `68BCD747AFBF9761F8F0346DE1B4B6639FD7DECB5EA0E11511F9C46FF634CEF5`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server remains intentionally available on port
+  3000 as PID 38388 with empty stderr.
+- Suggested next visual audit: replace the selected dossier's ASCII intent
+  prefixes (`>>`, `+`, `Y`) with the same authored icon vocabulary used on hens.
+
+## 2026-08-02 - Selected-hen intent icon parity
+
+- Completed: the selected dossier now reuses the exact authored floor-pin
+  texture for each next-action shortcut instead of showing an ASCII prefix.
+  Plain action verbs and the chevron remain, while full context is preserved in
+  tooltip and explicit accessible metadata.
+- Browser interaction review found and fixed a silent paused click: the shortcut
+  now mirrors the authoritative Priority Peck lock and includes the existing
+  resume instruction until the live clock is running.
+- `hen_intent_ui_test.gd`, `peck_assist_ui_test.gd`, and
+  `core_loop_readability_test.gd` pass. Coverage includes all seven unique
+  authored intent icons, icon/action metadata, paused-state locking, the resume
+  recovery path, and compact core-loop wording.
+- The official browser client verified both key interaction states with no
+  browser error file: the paused dossier communicates its lock at
+  `output/web-game/hen-intent-icon-parity-final-paused-v1/shot-0.png`, and the
+  resumed shortcut enters Mabel's authoritative Priority Peck focus at
+  `output/web-game/hen-intent-icon-parity-final-action-v3/shot-0.png`.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; the PCK SHA-256
+  is `C6F0A05DDEDE451F8D8556F103FF7CFA4B02960C3B5F3BE11AF66FE05F737F2D`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server remains intentionally available on port
+  3000 as PID 42008 with empty stderr.
+- Suggested next visual audit: give the active Priority Peck focus a small
+  connective pulse between the selected-hen icon shortcut and the timing bar.
+
+## 2026-08-02 - Priority Peck connective feedback
+
+- Completed: a compact gold connector now visually binds the selected hen's
+  live `SYNC PECK` icon to the claim timing lane. A small traveling pulse shows
+  direction without adding text; paused and irrelevant states hide the cue.
+- Reduced-motion presentation retains the static connection while removing the
+  traveling pulse and icon breathing effect.
+- `peck_assist_ui_test.gd`, `hen_intent_ui_test.gd`, and
+  `core_loop_readability_test.gd` pass. Coverage includes the complete
+  authoritative mouse action, paused cue suppression, live-window activation,
+  reduced-motion fallback, seven intent icons, and compact loop wording.
+- The official browser client verified the live gold-window presentation at
+  `output/web-game/priority-peck-connective-feedback-v1/shot-0.png`. Its text
+  state reports Mabel focused, an open actionable window, precision focus at
+  1x, and no browser error file.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; the PCK SHA-256
+  is `639742D289F10EE6940C161394DAE83764A14D4DA0E82D2A388C32600A16D6C9`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server remains intentionally available on port
+  3000 as PID 27964 with empty stderr.
+- Suggested next visual audit: give a completed Priority Peck a brief reverse
+  pulse from the timing lane toward the hen before settling into its receipt.
+
+## 2026-08-02 - Priority Peck result closure
+
+- Completed: accepted Priority Pecks now reverse the timing connector toward
+  the selected-hen action, tinting the brief confirmation from the exact landed
+  rating before fading into the existing receipt.
+- Reduced-motion mode presents the same result as a short static connection;
+  the cue expires automatically and never becomes persistent UI clutter.
+- `peck_assist_ui_test.gd`, `hen_intent_ui_test.gd`, and
+  `core_loop_readability_test.gd` pass. The focused integration covers the full
+  mouse stamp, exact rating propagation, reduced-motion confirmation, automatic
+  cleanup, retained receipt, and authoritative file progress.
+- The official browser client verified the dedicated result fixture at
+  `output/web-game/priority-peck-result-closure-v1/shot-0.png`. The accepted
+  frame shows Mabel's PERFECT result, FILE +26%, RISK -6.0%, CLEAN EGG REFUNDS 1,
+  the reverse connector, matching text state, and no browser error file.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; the PCK SHA-256
+  is `7FD74707D275113F2AC13366191A9606A6DC6AE15AE72A2F8E34CFB9177A19FC`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server remains intentionally available on port
+  3000 as PID 12664 with empty stderr.
+- Suggested next visual audit: soften the selected-hen icon swap from
+  `SYNC PECK` to its next intent so the state change reads as progression rather
+  than a hard replacement.
+
+## 2026-08-02 - Selected-hen intent handoff
+
+- Completed: same-hen intent changes now settle through a brief urgency-tinted
+  icon compression instead of snapping between unrelated button states.
+- Focus changes and repeated snapshots do not animate, and reduced-motion mode
+  performs the semantic swap immediately with neutral scale and color.
+- `hen_intent_ui_test.gd`, `peck_assist_ui_test.gd`, and
+  `core_loop_readability_test.gd` pass. Coverage includes single-fire semantic
+  transitions, old/new intent metadata, full settling, reduced motion, the
+  authoritative Priority Peck mouse result, and compact core-loop wording.
+- The official browser client verified the settled result handoff at
+  `output/web-game/selected-hen-intent-handoff-v1/shot-0.png`. `GOOD MATCH`
+  replaces `SYNC PECK` without layout movement while the PERFECT receipt and
+  reverse result connection remain legible; no browser error file was produced.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; the PCK SHA-256
+  is `6C1ED22498D88F9B5DC98B5FC33606CB43A1537986254CC75DD56A9DC66E327F`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server remains intentionally available on port
+  3000 as PID 26088 with empty stderr.
+- Suggested next visual audit: coordinate the same semantic handoff on the
+  selected hen's world intent pin so floor and dossier change as one system.
+
+## 2026-08-02 - World intent handoff parity
+
+- Completed: the selected hen's world pin and dossier action now share the same
+  semantic handoff. A real intent change briefly compresses and urgency-tints
+  both cues before they settle on the new icon and action.
+- Frequent claim progress and progress-ring snapshots do not replay the effect;
+  initial display, hidden pins, and repeated semantics stay visually quiet.
+- Reduced-motion preference changes now reach active, departing, and newly
+  spawned hens. The semantic icon swap remains immediate and fully readable
+  without scale or color motion.
+- Editor parsing, `hen_intent_ui_test.gd`, `peck_assist_ui_test.gd`, and
+  `core_loop_readability_test.gd` pass. Coverage includes single-fire world-pin
+  changes, progress-update suppression, full settling, reduced motion, and the
+  authoritative Priority Peck result.
+- The official browser client verified the coordinated settled state at
+  `output/web-game/world-intent-handoff-v2/shot-0.png`. Mabel's gold match pin
+  and `GOOD MATCH` dossier action agree while the PERFECT result receipt remains
+  readable; no browser error file was produced. An earlier final capture was
+  rejected after transient headless WebGL composition dropped unrelated glyphs.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; the PCK SHA-256
+  is `83DA0CFBE2451BC8088DDB0E490512C7B67983B082CE995B80DC948651C0C0E9`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server remains intentionally available on port
+  3000 as PID 44968 with empty stderr.
+- Suggested next visual audit: extend the same authored semantic vocabulary to
+  short Priority Peck audio motifs so a result can be recognized without
+  watching both the floor and dossier.
+
+## 2026-08-02 - Priority Peck result cadence
+
+- Completed: the existing dormant Priority Peck result melody now plays exactly
+  once on the third visible peck contact, after the dry three-hit physical
+  rhythm instead of immediately on input.
+- Perfect and steady outcomes publish distinct semantic cue IDs. Perfect adds a
+  bright fourth note so it cannot be mistaken for the shorter renewable-
+  attention sound used when a clean egg reaches the farmer.
+- Result cadences retain the independent UI mix, share one anti-spam limiter,
+  and emit the same optional bounded haptic semantic on supported devices.
+  Headless/departing-worker fallback still receives one immediate result cue
+  when no physical contact timeline can finish.
+- Editor parsing, `audio_feedback_test.gd`,
+  `feedback_orchestra_integration_test.gd`, and `peck_assist_ui_test.gd` pass.
+  Integration coverage proves silent input, three contact-aligned physical
+  cues, one final-contact result cadence, matching haptic semantics, and the
+  unchanged authoritative Priority Peck action.
+- The official browser client verified the PERFECT result at
+  `output/web-game/priority-peck-result-audio-v1/shot-0.png`. Browser diagnostics
+  report `audio.feedback.last_cue=priority_peck_perfect`, `last_bus=UI`, focused
+  progress 88%, and no browser error file.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; the PCK SHA-256
+  is `1A1CDC168FCA639FB9398622617883EC3334F9599AEA017CE1A874061854A5F3`.
+- All Godot and browser-client processes launched by this task were cleaned up.
+  The refreshed local production server remains intentionally available on port
+  3000 as PID 33112 with empty stderr.
+- Suggested next audio audit: add one restrained, single-fire opportunity cue
+  when an inspected hen's Priority Peck window first opens, without turning
+  routine progress or focus changes into repetitive alerts.
+
+## 2026-08-02 - Priority Peck opportunity cue
+
+- Completed: an inspected claim now announces its first transition into the
+  open Priority Peck window with a restrained two-note fifth on the independently
+  adjustable Alerts mix. Initial focus, refocus, already-open focus changes, and
+  repeated snapshots remain silent.
+- The authored preview stages an approaching 27% file before crossing into the
+  62% ideal window, so the same transition path is exercised by browser captures
+  instead of injecting a final cue state.
+- Live verification exposed and resolved an adjacent fairness issue: visual-
+  novel character asides now pause the running floor, swallow every mapped floor
+  action, preserve the player's selected speed, and defer the opportunity cue
+  until control returns. Ambient dialogue cards remain compact and non-blocking.
+- Physical Enter and keypad Enter now file a visual-novel aside even when the
+  project does not expose Godot's built-in `ui_accept` action.
+- Editor parsing, `audio_feedback_test.gd`,
+  `feedback_orchestra_integration_test.gd`, `character_dialogue_ui_test.gd`, and
+  `peck_assist_ui_test.gd` pass. Coverage includes cue limiter/bus/haptics,
+  single-fire window transitions, time-safe dialogue ownership, hidden input
+  rejection, exact speed restoration, and authoritative Priority Peck results.
+- The official static client verified the representative open window on the
+  final build at `output/web-game/priority-peck-dialogue-safe-final-v1/shot-0.png`.
+  The live
+  campaign audit passed at
+  `output/web-game/priority-peck-dialogue-safe-live-v5/`: no browser errors,
+  unobstructed open-window capture, `priority_peck_ready` on `Alerts`, exact
+  claim landing in 1115 ms, and automatic restoration to 10x. Later routine
+  dialogue remains a non-blocking ambient card.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; the PCK SHA-256
+  is `47BB9D71701666F275ED48385FDC3DAFA0B4DE25B19FE873F650000011379684`.
+- All Godot and official browser-client processes launched by this task were
+  cleaned up. The refreshed local production server remains intentionally
+  available on port 3000.
+- Suggested next polish audit: pair the ready motif with one restrained visual
+  pulse on the selected hen's world intent pin so the floor can carry the same
+  opportunity signal without adding copy.
+
+## 2026-08-02 - Selected-hen opportunity halo
+
+- Completed: the selected hen's world intent pin now answers the exact
+  single-fire Priority Peck opportunity transition with a restrained gold outer
+  halo. The 0.42-second pulse expands and clears without obscuring the urgent
+  lightning icon or introducing more text.
+- Repeated claim snapshots and refocuses do not replay the halo. A resolved
+  Priority Peck, hidden intent, or reduced-motion change retires it immediately;
+  reduced motion preserves the urgent semantic icon without animation.
+- Browser diagnostics expose the pulse serial and active state, while the
+  authored preview can freeze the real halo mid-pulse for deterministic visual
+  review without changing live timing.
+- Editor parsing, `hen_intent_ui_test.gd`, `peck_assist_ui_test.gd`, and
+  `feedback_orchestra_integration_test.gd` pass. Coverage proves expansion,
+  retirement, single-fire behavior, non-replay on snapshots/refocus, capture
+  staging, reduced motion, and the unchanged authoritative action.
+- The official browser client verified the clean mid-pulse frame at
+  `output/web-game/priority-peck-world-ready-halo-final-v1/shot-0.png`: cue
+  `priority_peck_ready` is on `Alerts`, pulse serial is 1, dialogue is clear,
+  and browser errors are zero.
+- The live campaign audit passed at
+  `output/web-game/priority-peck-world-halo-live-v1/`: the real window announced
+  exactly one world pulse, the claim landed cleanly, response measured 1874 ms,
+  and the selected 10x speed restored automatically with no browser failures.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  byte-for-byte across `docs`, `web/public/game`, and `web/dist/client/game`;
+  their SHA-256 values are
+  `512E1939773350A61FE1FF02251DEAA84788684884F6AE930389A612AD4B8F00`
+  and `3EEDE260FDDC9891A93B7623F6F4766D143BE768E087DF17835151E103AD9EDD`.
+- All Godot and official browser-client processes launched by this pass were
+  cleaned up. The one intentional local production server remains available on
+  port 3000 as PID 37292 with empty stderr.
+- Suggested next polish audit: give the expired or missed opportunity state an
+  equally concise visual retreat so success and too-late outcomes remain clear
+  without adding prose.
+
+## 2026-08-02 - Priority Peck missed-window retreat
+
+- Completed: an inspected Priority Peck that crosses its authoritative closing
+  boundary now fires one concise failure response on the exact visible claim.
+  Off-screen misses, newly focused already-missed files, repeated snapshots, and
+  duplicate callbacks remain silent.
+- The hen's opportunity ring breaks into four coral retreat arcs with a downward
+  chevron while the dossier sends a broken connector back from the meter and
+  stamps an X. Persistent recovery copy is reduced to `MISSED` and
+  `NEXT FILE RESETS`; full explanation remains available to accessibility and
+  tooltip surfaces.
+- A missed window retains the inspected hen and effective 1x clock for a bounded
+  2.5-second result beat while preserving the player's selected speed. Ambient
+  floor chat queues behind that consequence, then the selected 3x/10x speed and
+  ordinary dialogue cadence resume automatically. Reduced motion keeps the
+  semantic missed state without animating either retreat.
+- Editor parsing, `hen_intent_ui_test.gd`,
+  `feedback_orchestra_integration_test.gd`, and
+  `character_dialogue_ui_test.gd` pass. Coverage proves authoritative
+  single-fire delivery, no duplicate replay, world/dossier cleanup, reduced
+  motion, bounded focus hold, and exact automatic release.
+- The official browser client verified the deterministic retreat at
+  `output/web-game/priority-peck-missed-hold-final2-v1/shot-0.png`: focused
+  worker 0, authoritative `missed` state, world and dossier serial 1, dialogue
+  clear, and zero browser errors.
+- The real campaign audit passed at
+  `output/web-game/priority-peck-missed-hold-live-final3-v1/`: claim 3 crossed
+  the real miss boundary; camera mode stayed `worker_focus`; both retreats fired
+  once; the chain reset to 0; no dialogue covered the result; 10x remained
+  selected, held at effective 1x, and restored automatically with no browser
+  failures.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; their SHA-256
+  values are `7DCE04F90D5E8C22D50646892A33B9B02A44D12048FA4F4127AA4FDED53B4BD0`
+  and `C842BAB1B7E3C67C05FCE35AC95FB5B65B20AF12C6E296413C1757D090EA767D`.
+- All Godot and browser-test processes launched by this pass were cleaned up.
+  The one intentional local production server remains available on port 3000
+  as PID 39412 with empty stderr.
+- Suggested next polish audit: make a broken dispatch-momentum chain explain
+  its recovery with the same icon-first, single-fire grammar so the larger
+  routing loop inherits this moment-to-moment clarity.
+
+## 2026-08-02 - Dispatch momentum break and recovery clarity
+
+- Completed: every real routing-flow loss now produces one authoritative break
+  receipt containing its exact source, responsible hen and file, lost chain,
+  cause, and recovery target. Breaking an already-empty chain remains silent;
+  the earned Peck charges and golden rewards still survive while only the live
+  pace bonus ends.
+- The queue strip now answers the setback icon-first: a coral split-link/X and
+  `xN > 0` receipt retreat together, then hand off at 0.92 seconds to the terse
+  `NEXT FIT x1` recovery cue. Enabled trays briefly move from the loss color to
+  a restrained recovery pulse; the exact cause and gesture remain available in
+  the tooltip and accessibility name instead of another prose panel.
+- Reduced motion preserves the static semantic break symbol and recovery copy,
+  color-vision modes retain a shape-distinct X, capture staging does not change
+  runtime timing, and the next successful best-fit dispatch immediately retires
+  the recovery cue.
+- Editor parsing, `routing_momentum_test.gd`, `claim_routing_ui_test.gd`,
+  `claim_routing_test.gd`, `peck_assist_test.gd`,
+  `feedback_orchestra_integration_test.gd`, and
+  `simulation_persistence_test.gd` pass. Coverage proves exact single-fire
+  authority, no empty-chain replay, the genuine poor-fit Office route, settled
+  next-action timing, reward survival, persistence, reduced motion, and cleanup.
+- The official browser client verified the deterministic production build at
+  `output/web-game/routing-break-final-v5/shot-0.png`: authoritative chain 0,
+  break serial 1, lost FIT x3, source `poor_fit`, animated/capture-staged UI,
+  zero orphan nodes, and no browser-error artifact. The contained overview keeps
+  the loss legible without adding a panel or obscuring the office.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; their SHA-256
+  values are `F91CAEDDCAC2F99B8A861F35E054529F68C04CD951C5B3085F7EA869EFD93DAD`
+  and `D5A5312F3A98EC7B8BA523E3753DCFCA802A80B750BBA5CD99CCDFB4E9483F37`.
+- All Godot and official browser-test processes launched by this pass were
+  cleaned up. The one intentional local production server remains available on
+  port 3000 as PID 44944 with HTTP 200 and empty stderr.
+- Suggested next polish audit: celebrate the first recovered best-fit after a
+  break with an equally compact link-rejoin beat, so the player receives closure
+  for correcting the mistake without creating another notification.
+
+## 2026-08-02 - Dispatch momentum recovery closure
+
+- Completed: the first genuine best-fit dispatch after a routing break now emits
+  one authoritative recovery receipt. It identifies the exact break serial and
+  lost chain being repaired, the correcting hen and tray, the restored x1 chain,
+  and a stable recovery serial; ordinary first dispatches and later chain steps
+  cannot replay it.
+- The queue strip reuses the broken-link location for a teal converging-link and
+  check-shaped join, paired with only `FIT LINKED x1`. The correcting hen and
+  tray remain available through tooltip/accessibility disclosure. Recovery adds
+  no second toast, panel, or sound over the existing physical folder delivery.
+- The recovery presentation lasts 1.55 seconds, supports a deterministic capture
+  hold, remains as a static semantic join under reduced motion, rejects duplicate
+  authoritative receipts, and retires immediately if the player reaches x2
+  before its bounded hold completes.
+- Editor parsing, `routing_momentum_test.gd`, `claim_routing_ui_test.gd`,
+  `claim_routing_test.gd`, `feedback_orchestra_integration_test.gd`, and
+  `simulation_persistence_test.gd` pass. Coverage drives the real Office route
+  from FIT x2 through a poor-fit break and back through the highlighted best-fit
+  hen, proving exact break/recovery matching, single fire, progressive
+  disclosure, reduced motion, duplicate suppression, and cleanup.
+- The accepted official browser-client evidence is
+  `output/web-game/routing-recovery-final-v2/shot-0.png`: authoritative chain x1,
+  break serial 1 closed by recovery serial 1, no pending recovery, Henrietta on
+  Predator Loss, animated/capture-staged UI, zero orphan nodes, and no browser
+  error artifact. Visual inspection confirms the joined link and receipt are
+  readable and contained without obscuring the office.
+- The first browser attempt exposed a stale hashed-asset manifest in the
+  long-running production process after its files were rebuilt. Refreshing that
+  single scoped server corrected the 404; the accepted rerun loaded the new
+  bundle cleanly.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; their SHA-256
+  values are `03C3178591C1EBFCB718594E71FDE2EB68B27200C61BCBA9E3D4D2B9A81BFF6B`
+  and `528E2178E256F8542020003187ADC77690BEDF2C16CC08BFA032E5D7538F0A51`.
+- All Godot and official browser-test processes launched by this pass were
+  cleaned up. The refreshed intentional local production server remains on port
+  3000 as PID 44492 with HTTP 200 and empty stderr.
+- Suggested next polish audit: make the active x2 pace bonus visible at the
+  workstation/progress-flow level with a restrained icon or motion accent, so
+  players can observe the economic payoff after earning it without more text.
+
+## 2026-08-02 - Active routing pace workstation feedback
+
+- Completed: the authoritative routing-momentum projection now reaches the
+  physical workstation layer. Only occupied hens who are visibly working inherit
+  the x2 1.15 pace state; unattended, non-working, or post-break desks clear it.
+- Each affected desk uses one cached, text-free cyan double-chevron signal. The
+  employee-facing mark lives on the monitor while a matching management-facing
+  lamp sits on the authored cubicle back beside its paper memos, so the economic
+  payoff is readable from the normal isometric camera without a floating badge.
+  Full motion adds only restrained travel and emission; reduced motion preserves
+  the same static shape.
+- The deterministic preview crosses the real best-fit x2 boundary with real
+  dispatch calls, seats four working hens, and removes only capture-layer intent
+  pins so they cannot obscure the workstation evidence. Production behavior is
+  unchanged by that evidence fixture.
+- Editor parsing plus `core_loop_readability_test.gd`,
+  `claim_routing_ui_test.gd`, `settings_office_integration_test.gd`,
+  `workstation_reinvestment_visual_test.gd`,
+  `feedback_orchestra_integration_test.gd`, and
+  `presentation_smoke_test.gd` pass. The final focused rerun also proves the
+  two-view physical signal and forward management-facing orientation.
+- The accepted official browser-client evidence is
+  `output/web-game/routing-pace-final-v6/shot-0.png`: loaded production export,
+  authoritative FIT x2, pace 1.15, desks 0-3 active, two-view double-chevron,
+  landmark-focus camera at size 8.8, zero orphan nodes, and no browser-error
+  artifact. Visual inspection confirms the cyan flow lamps are visible on the
+  occupied cubicle backs and agree with the compact `FIT x2  PACE +15%` strip.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; their SHA-256
+  values are `2655A2EAF67EA6A10585BEC6ECCC23DE5B70AB64F1B3CB18DC6DA9BBDBF3241C`
+  and `ED89CC8530ADE188A9BA5188C787949AF66A1F8FB0A4EED022DA73D8C3B09E49`.
+- All Godot and official browser-test processes launched by this pass were
+  cleaned up. The one intentional local production server remains on port 3000
+  as PID 46020 with HTTP 200 and empty stderr.
+- Suggested next polish audit: make the x3 Peck recharge visibly refill the
+  existing Priority Peck affordance and its world signal, giving the next routing
+  milestone the same immediate cause-and-effect clarity without adding copy.
+
+## 2026-08-02 - Routing x3 Priority Peck recharge handoff
+
+- Completed: the x3 routing milestone now files an exact authoritative recharge
+  receipt with charge and limit values before/after, bank status, earning hen,
+  lane, and a stable break-epoch authority key. A genuinely full reserve now
+  reports `PECK READY` instead of falsely claiming another `+1` charge.
+- The selected-hen timing bar now carries a compact, shape-distinct Priority Peck
+  meter: filled diamonds are ready charges, outlines are spent charges, and the
+  optional banked pip has a second teal ring. The x3 receipt fills the exact new
+  pip with no added panel or prose; tooltip/accessibility copy exposes the same
+  numeric charge state.
+- The physical folder landing is the synchronization boundary. Its existing
+  desk-local Peck emblem now triggers the pip refill and one renewable-attention
+  sound together. Duplicate world callbacks are rejected by the authoritative
+  receipt key, full-reserve receipts do not fake a refill, live effects clean up
+  after 1.55 seconds, and reduced motion preserves a static semantic ring.
+- Editor parsing, `routing_momentum_test.gd`, the new
+  `routing_peck_recharge_ui_test.gd`, `claim_routing_ui_test.gd`,
+  `peck_assist_ui_test.gd`, `feedback_orchestra_integration_test.gd`,
+  `simulation_persistence_test.gd`, and `settings_office_integration_test.gd`
+  pass. Coverage proves 2-to-3 authority, full-reserve truthfulness, world/meter/
+  audio synchronization, duplicate suppression, bounded cleanup, reduced motion,
+  dossier containment, and save round-trip.
+- The accepted official browser-client evidence is
+  `output/web-game/routing-peck-recharge-v2/shot-0.png`: authoritative FIT x3,
+  exact 2-to-3 refill, filled-diamond meter at 3/3, one capture-held desk emblem,
+  one `attention_restored` cue, worker focus, zero orphan nodes, and no browser
+  error artifact. Visual inspection confirms the source emblem, `FIT x3 PECK +1`
+  strip, and newly filled timing-bar pip read together without covering the hen
+  or expanding the dossier.
+- Web export and the Vinext production build pass. HTML and PCK artifacts match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; their SHA-256
+  values are `A01A0695DE1832DDF3CF2DC77E9BA22F478DAADFF22213197E3F64654D4761E1`
+  and `B6CF39A2D2AD8B4DDDD76D17DD6AC1610EE45037090BDAEC607A55CDEA295955`.
+- All Godot and official browser-test processes launched by this pass were
+  cleaned up. The one intentional local production server remains on port 3000
+  as PID 35792 with HTTP 200 and empty stderr.
+- Suggested next polish audit: make the x5 Golden File opportunity visibly bind
+  to the next eligible active file and follow it through grading, so the player
+  can forecast and witness that larger milestone rather than reading an opaque
+  banked promise.
+
+## 2026-08-02 - Routing x5 Golden File claim seal
+
+- Replaced the opaque global x5 promise with one authoritative claim seal. When
+  FIT reaches x5, the simulation binds the charge to the most advanced active
+  file (stable claim-id tie-break), or to the next file pulled if no claim is
+  active. Only that clean file becomes golden; a crack preserves the earned
+  charge and rebinds the seal once to the next active file.
+- Advanced the simulation checkpoint to schema v30. The exact target claim and
+  worker round-trip with strict active-claim validation; v29 careers migrate with
+  their earned charge intact and wait safely for the next live file.
+- The selected dossier now carries a compact `* GOLD` mark, a persistent gold
+  progress treatment, the exact claim number in its tooltip/accessibility state,
+  and shorter `2 PECK` / `3 LAY` action verbs so the file identity stays visible.
+  The same claim carries a physical raised diamond-and-egg seal on its desk.
+  Reduced motion retains both marks as static evidence.
+- Added `routing_golden_file_ui_test.gd` and expanded
+  `routing_momentum_test.gd`. Coverage proves binding, dossier projection,
+  physical workstation projection, reduced-motion parity, save/restore, crack
+  rebinding, exact clean fulfillment, and single consumption. Editor parsing,
+  routing UI, x3 recharge, simulation persistence, market/season persistence,
+  Records Annex, and Service Coop regressions also pass.
+- Added the local `preview=routing-golden` capture route. Accepted official
+  browser evidence is `output/web-game/routing-golden-v4b/shot-0.png`: FIT x5,
+  claim #0001 bound to Pip, `* GOLD` in both momentum strip and dossier, one
+  `diamond_egg_seal` workstation target, commendation audio, worker focus, zero
+  orphan nodes, and no browser error artifact. Pixel inspection confirms the
+  full `NEST DAMAGE #0001` identity remains readable beside the compact mark.
+- Web export and Vinext production build pass. HTML and PCK match across
+  `docs`, `web/public/game`, and `web/dist/client/game`. All transient Godot and
+  Playwright processes were cleaned after use; one intentional production server
+  remains on port 3000 with HTTP 200 and empty stderr.
+- Suggested next polish audit: turn the x10 Team Lift from a one-line reward into
+  one brief, synchronized flock-wide reaction that visibly connects the exact
+  morale/strain improvement to the hens who received it without adding a panel.
+
+## 2026-08-02 - Routing x10 synchronized Team Lift
+
+- Replaced the opaque x10 one-line celebration with an authoritative flock
+  receipt. Every employed hen is named with exact before/after morale, stress,
+  and fatigue values and the actual clamped deltas; solidarity carries the same
+  before/after proof. The compact live label is now `ALL +3 / -2 / -1`, with a
+  full semantic sentence available to assistive technology.
+- Moved the celebration to the physical folder landing. That single causal beat
+  now starts one restrained commendation cue, updates the existing routing strip,
+  preserves the desk-local source emblem, and raises a matching heart/lift marker
+  over every affected hen—even if she is away from a workstation. No panel or
+  modal was added.
+- Added stable receipt-key deduplication, per-hen diagnostics, capture staging,
+  and bounded cleanup. Reduced motion presents the same markers as a held static
+  state with no travel, scale, or flash, then removes them on the same bounded
+  lifecycle.
+- Expanded `routing_momentum_test.gd` and added
+  `routing_team_lift_ui_test.gd`. Both pass cleanly and prove x10 authority,
+  exact +3/-2/-1 receipts, 4/4 recipient presentation, duplicate suppression,
+  reduced-motion parity, and cleanup without leaked tester objects.
+- Added the local `preview=routing-team` capture route. Accepted official browser
+  evidence is `output/web-game/routing-team-lift-v3/shot-0.png`: FIT x10, the
+  compact exact receipt in the existing strip, four synchronized recipient
+  markers, one capture-held desk source emblem, one `commendation` cue, zero
+  orphan nodes, and no browser error artifact. Visual inspection confirms the
+  reaction reads across the whole office without obscuring hens or furnishings.
+- Web export and the Vinext production build pass. HTML and PCK match across
+  `docs`, `web/public/game`, and `web/dist/client/game`; SHA-256 values are
+  `35ABB298039C35F51B0AEE14703EA9B71FB0C10E9C92DAA34C925C6F7D157D8D` and
+  `3A929457CDC7477EDC02BBAC6BFE4D7509AF7E945A09929E26E39FDC26DEDAF1`.
+- All Godot and official browser-test processes launched by this pass were
+  cleaned up. One intentional production server remains on port 3000 as PID
+  28368 with HTTP 200 and empty stderr.
+- Suggested next polish audit: give routing mastery a readable post-x10 horizon
+  so best-fit play remains rewarding after the first Team Lift instead of ending
+  on a milestone strip with no next target.
+
+## 2026-08-02 - Post-x10 routing mastery record
+
+- Extended routing beyond Team Lift with a persistent, balanced mastery horizon.
+  After x10, the existing strip names the next five-route record (`NEXT 15`,
+  `NEXT 20`, and so on). A broken chain first names the exact prior best to
+  rebuild; matching an old record never replays its award.
+- New records are presentation-only mastery milestones rather than another
+  currency or stacking economy modifier. Every five new best-fit routes files one
+  exact before/after record receipt, preserving the value of routing judgment
+  without creating an infinite resource faucet or repetitive reward spam.
+- The physical folder landing synchronizes one shape-distinct teal medal at the
+  earning desk, the compact routing strip, and one restrained commendation cue.
+  Stable authority keys suppress duplicate callbacks, while reduced motion keeps
+  the same semantic record as a static strip state.
+- Expanded `routing_momentum_test.gd` and added
+  `routing_mastery_ui_test.gd`. Coverage proves x10-to-x15 and x15-to-x20
+  horizons, five-route cadence, save/restore, exact rebuild behavior, no replay
+  at an old best, one-shot presentation, the desk medal, accessible copy, and
+  reduced-motion parity. Team Lift and broad simulation persistence regressions
+  also pass cleanly.
+- Added the local `preview=routing-mastery` route. Accepted official browser
+  evidence is `output/web-game/routing-mastery-v3/shot-0.png`: the strip reads
+  `FIT x15 NEXT 20`, one capture-held mastery medal identifies the earning desk,
+  the authoritative receipt is 14-to-15, the next target is x20, the audio cue is
+  `commendation`, orphan nodes are zero, and no browser error artifact exists.
+  Visual inspection rejected a missing arrow glyph in an earlier capture and the
+  final all-supported copy is clean at 1280x720.
+- Web export and the Vinext production build pass. HTML and PCK match across
+  `docs`, `web/public/game`, and `web/dist/client/game`; SHA-256 values are
+  `C149D1B5ADEA6351741A7A397E66CC3A471BB62DE06C62BEACA0826D367BD7A3` and
+  `B9F5B099C982F86E7FFA6A5493DA0C5FB7C983C43D372B0D3BFD3C313D9BBC05`.
+- All Godot and official browser-test processes launched by this pass were
+  cleaned up. One intentional production server remains on port 3000 as PID
+  24028 with HTTP 200 and empty stderr.
+- Suggested next polish audit: carry the best-fit record into the shift review
+  and return recap so routing mastery contributes to a satisfying session ending
+  and gives the next session one clear record to chase.
+
+## 2026-08-02 - Routing record shift ending and return recap
+
+- Filed the authoritative routing-momentum snapshot in every completed workday
+  report, then derived one versioned review receipt against the previous filed
+  shift. It records the exact prior best, current best, whether the shift really
+  set a record, and the next balanced five-route mastery target. Legacy reports
+  preserve their current best without fabricating a new-record celebration.
+- Added no dashboard or modal. The existing shift-result summary gains one short
+  line (`NEW FIT RECORD x15 / CHASE x20`), and the existing saved-file card
+  carries the same receipt as one `ROUTING` line. Full semantic copy explains
+  that the record represents consecutive recommended tray assignments and names
+  the x20 mastery target for assistive clients.
+- The same receipt now projects through the native review tooltip, canvas web
+  accessibility summary, structured diagnostic state, saved-candidate recap,
+  and React accessibility narration. Resume recap version 2 remains compatible
+  with older reports and uses the verified simulation only as a safe fallback.
+- Added `routing_session_recap_test.gd` and expanded
+  `probation_campaign_ui_test.gd`. Coverage proves the closing report files the
+  exact snapshot once, x10-to-x15 comparison, x20 chase, no replay for an
+  unchanged record, quiet legacy migration, compact review reuse, title-card
+  reuse, and semantic parity. Management-loop, routing-momentum, probation UI,
+  and broad simulation-persistence regressions also pass.
+- Added local `preview=routing-review` and `preview=routing-return` routes.
+  Accepted official browser evidence is
+  `output/web-game/routing-session-review-v1/shot-0.png` and
+  `output/web-game/routing-session-return-v1/shot-0.png`. Visual inspection at
+  1280x720 confirms both lines are readable and stay inside their existing
+  surfaces. Both states expose the exact 10-to-15 receipt and x20 target, zero
+  orphan nodes, and no browser error artifact.
+- Web export and Vinext production build pass. All nine generated assets match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; HTML SHA-256 is
+  `1A6A409C930EA2B6F7896703AE194965C7F5F551652611E806B1A579C42147CF`
+  and PCK SHA-256 is
+  `2387DB8D6D3125AE95614D05151E8541F08AE04FD40D33C586B65D25DAF2D1D0`.
+- All Godot and official Playwright processes launched by this pass were
+  cleaned. One intentional production server remains on port 3000 as PID 19856
+  with HTTP 200 and empty stderr.
+- Suggested next polish audit: turn the filed x20 chase into one restrained
+  morning re-entry cue that disappears after the first route, so returning
+  players immediately remember the goal without adding persistent HUD density.
+
+## 2026-08-02 - Single-use routing mastery re-entry cue
+
+- Continue now turns a verified post-x10 routing record into one restrained
+  morning handoff in the existing objective row: `ROUTING RECORD x15 / CHASE
+  x20`. The full accessible sentence explains best-fit routing and the next
+  mastery record without adding a panel, modal, or permanent HUD section.
+- The cue is presentation-only and derives exclusively from the verified return
+  recap. It waits behind blocking decisions, reviews, and First Clutch guidance;
+  failed routes and focus actions cannot consume it. The first accepted route
+  clears it before checkpoint publication and records one bounded diagnostic
+  dismissal receipt. A new or restored session clears stale transient state.
+- Activating the compact cue focuses the first usable intake tray. If the clock
+  has not produced a file yet, it focuses the queue strip without falsely
+  enabling an empty tray. Reduced motion retains the same static focus and
+  semantic behavior through the existing action-target path.
+- Expanded `routing_session_recap_test.gd`. It proves verified arming, exact
+  x15-to-x20 copy, save-state immutability, failed-route retention, keyboard
+  focus without mutation, accepted-route dismissal, normal-guidance restoration,
+  pre-mastery suppression, and session-reset cleanup. Routing-momentum,
+  return-recap, simulation-persistence, and probation UI regressions also pass.
+- Added local `preview=routing-return-cue` and
+  `preview=routing-return-cue-cleared` routes. Accepted official browser evidence
+  is `output/web-game/routing-return-cue-v2/shot-0.png` and
+  `output/web-game/routing-return-cue-cleared-v2/shot-0.png`. Visual inspection
+  confirms the cue remains a calm single line in the existing top bar, then the
+  real Nest Damage assignment restores ordinary goals. Structured state proves
+  `first_accepted_route`, an accepted dispatch, zero orphan nodes, and no browser
+  error artifact.
+- Web export and Vinext production build pass. All nine generated assets match
+  across `docs`, `web/public/game`, and `web/dist/client/game`; HTML SHA-256 is
+  `2B3EF1419715C4DD885CBAEF84F914AD4F3B9C52932295274F9BC47C57119B45`
+  and PCK SHA-256 is
+  `8089996C99257310834870349D2A89D6ED90F21729FE2A1FE2A7672FA28F34B7`.
+- Every Godot and official Playwright process launched by this pass is cleaned.
+  One intentional production server remains on port 3000 as PID 19308 with HTTP
+  200 and empty stderr.
+- Suggested next polish audit: let the re-entry action choose the most urgent
+  available intake lane, then use one short tray pulse to connect the saved goal
+  to the best immediate routing decision without adding explanatory text.
+
+## 2026-08-02 - Urgency-aware routing re-entry handoff
+
+- The saved routing chase now resolves the most urgent usable intake tray from
+  live queue evidence instead of fixed lane order. Earliest deadline leads;
+  overdue count, market-rush count, and queue volume break exact ties while the
+  existing lane order keeps fully equal states deterministic. The calculation is
+  presentation-only and never writes to the simulation or save.
+- Activating the compact chase focuses that tray and reuses the existing short
+  action-target pulse. There is still no automatic tray activation, worker
+  selection, or dispatch: the player makes both gameplay decisions. A freshly
+  restored empty queue still focuses the intake strip rather than falsely
+  enabling work.
+- Added a bounded focus receipt to Web diagnostics and the accepted-route
+  dismissal receipt. Accessibility now says the action focuses the most urgent
+  tray and explicitly preserves the player's best-fit hen choice. The dispatch
+  status connector also uses portable `FROM` copy instead of an ambiguous arrow
+  glyph in the exported font. A later genuine return explicitly starts a fresh
+  focus receipt, while the completed dismissal keeps its audit trail.
+- Expanded `routing_session_recap_test.gd` to prove overdue Appeals outranks a
+  larger rush queue and fixed order, empty-queue fallback, focus without save
+  mutation, one-shot cue retention, and an accepted Appeals route with an exact
+  focus/dismissal audit trail. Routing momentum, campaign return recap,
+  simulation persistence, and probation campaign UI regressions also pass.
+- Accepted official browser evidence is
+  `output/web-game/routing-return-priority-focus-v4/shot-0.png` and
+  `output/web-game/routing-return-priority-cleared-v4/shot-0.png`. Visual
+  inspection at 1280x720 confirms one restrained gold Appeals outline, then
+  ordinary goals and the clean `MABEL FROM APPEALS` receipt. Structured state
+  proves the -15-minute overdue target, no automatic dispatch, accepted Appeals
+  dismissal, zero orphan nodes, and no browser error artifacts.
+- Web export and the Vinext production build pass. All nine generated payloads
+  match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `88993B085DFFBDA3D2F0ECF9BA9B259A0B6E85D6A97A8F91D53A1AF103BEB9AE`
+  and PCK SHA-256 is
+  `F9B78F69801119415388ED68BD11E02F86AE41804BBBC02425BABB9A1ACB983C`.
+- Every Godot, official Playwright-client, and Playwright-browser process from
+  this pass is cleaned. One intentional production server remains on port 3000
+  as PID 15604 with HTTP 200 and empty stderr.
+- Suggested next polish audit: preserve this urgency context when the player
+  opens the tray by giving the already-recommended hen one matching, restrained
+  focus handoff, so the full tray-to-hen decision reads as one continuous action
+  without another label or modal.
+
+## 2026-08-02 - Continuous tray-to-hen recommendation handoff
+
+- Selecting any non-empty intake tray now briefly energizes the ranked hen's
+  existing gold-star world marker, then settles back to the persistent marker.
+  No panel, camera move, automatic hen selection, or new gameplay gate was
+  added; every eligible alternative remains marked with its teal chevron.
+- Reduced motion preserves the same short semantic gold receipt as a static
+  color hold with no scale animation. Repeated selections restart cleanly, and
+  tray cancellation or an accepted route removes every transient marker state.
+- Web diagnostics expose the exact worker, lane, serial, active state, and
+  animation state. Assistive copy now names the gold-star recommendation and
+  explicitly states that every other marked hen remains a valid choice.
+- Expanded `claim_routing_ui_test.gd` to prove single-fire handoff, unchanged
+  save authority, unchanged camera and worker focus, alternative-hen agency,
+  diagnostic and accessibility parity, reduced-motion settling, and commit
+  cleanup. Claim-routing UI, routing return recap, routing momentum, probation
+  campaign UI, and broad simulation-persistence regressions all pass.
+- Accepted official browser evidence is
+  `output/web-game/routing-return-tray-to-hen-v2/shot-0.png`. Visual inspection
+  at 1280x720 confirms the selected overdue Appeals tray, one energized gold
+  star over Mabel, and three teal alternative markers. Structured state records
+  one animated Appeals handoff, four legal candidates, no automatic dispatch,
+  unchanged worker focus, zero orphan nodes, and no browser error artifact.
+- Web export and the Vinext production build pass. All nine generated payloads
+  match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `F343BCF0D7A1EE51AA6885BC600DDB246ED4832C06C06D3D4D79205692A86CED`
+  and PCK SHA-256 is
+  `59BE56E45F0AE259E183D1C9B77070342A7941D9E7986F2B4AC5C9574AF3F2CA`.
+- Every Godot and official Playwright process launched by this pass is cleaned.
+  One intentional production server remains on port 3000 as PID 15604 with
+  HTTP 200 and empty stderr; unrelated `project-travquest` test processes were
+  left untouched.
+- Suggested next polish audit: make a completed best-fit route carry one equally
+  restrained desk-local landing response so the tray, hen, and destination read
+  as one continuous physical filing action without adding HUD copy.
+
+## 2026-08-02 - Destination-local routing landing receipt
+
+- Every completed file route now finishes at the authored destination desk with
+  one pooled filing receipt: a gold-star stamp for the recommended specialty fit
+  or a lane-colored file/check stamp for an ordinary route. The marker lives by
+  the existing claim tray, restarts safely when deliveries overlap, and adds no
+  panel, label, collision, or scene-tree growth.
+- Best-fit arrivals pair the paper impact with a dedicated confirmation sound
+  and optional short haptic. Ordinary arrivals use a quieter physical filing
+  sound without haptics. Reduced motion preserves the same static semantic stamp
+  while removing the drop, settle, and fade animation.
+- Web diagnostics and assistive presentation carry the exact worker, lane,
+  recommendation result, fit chain, stamp shape, desk index, active count, and
+  pooled-marker count. Lifecycle hooks also allow deterministic capture without
+  changing route authority or cloning the desk marker.
+- Expanded `claim_routing_ui_test.gd`, `audio_feedback_test.gd`, and
+  `workstation_reinvestment_visual_test.gd`. Claim routing, routing momentum,
+  routing session recap, feedback orchestration, simulation persistence, and
+  settings/office integration regressions also pass. The settings persistence
+  suite retains its expected simulated verified-write warning.
+- Accepted official browser evidence is
+  `output/web-game/routing-landing-v2/shot-0.png`. Visual inspection at 1280x720
+  confirms the restrained gold desk receipt within the furnished office. State
+  proves the accepted overdue Appeals route reached Mabel as best fit, advanced
+  the chain from 15 to 16, fired `best_fit_filed`, used one of six pooled desk
+  markers, dismissed the return cue, and left zero orphan nodes with no browser
+  error artifact. Live pointer evidence in
+  `output/web-game/routing-return-tray-to-desk-v1/shot-0.png` separately proves
+  the ordinary purple file/check arrival and non-advancing poor-fit path.
+- Godot Web export and the Vinext production build pass. All nine generated
+  payloads match across `docs`, `web/public/game`, and `web/dist/client/game`;
+  HTML SHA-256 is `41F2AA514364A2BE8F7F96F9D0CF6E1E91E835F79933DA15DE22C1CCBFB2C376` and PCK SHA-256 is
+  `47F82858DC9EB2CD53AFE73B23AFF82C1CDF73009336CF69EC5FF918CD84C23E`.
+- Every Godot, official Playwright-client, and Playwright-browser process from
+  this pass is cleaned. The intentional production server was refreshed after
+  the build and remains on port 3000 as PID 40452 with HTTP 200 and empty stderr; unrelated
+  processes outside this project were left untouched.
+- Suggested next polish audit: connect the filing stamp to the worker's first
+  visible production peck so a successful route flows naturally from intake to
+  desk arrival to work progress without another HUD explanation.
+
+## 2026-08-02 - Truthful file-to-first-peck handoff
+
+- A routed lane receipt now remains at its destination desk until that hen
+  actually pulls a matching claimant file and produces an accepted workstation
+  peck. It no longer implies that production began merely because management
+  filed the lane assignment.
+- The exact first accepted peck transfers the existing gold-star or lane-check
+  stamp from the authored claim tray into the workstation's already-pooled
+  monitor contact. The transition is allocation-free, fires once, and leaves
+  recurring ambient pecks quiet. Reduced motion places and holds the same stamp
+  at the monitor without travel.
+- Added one restrained pooled physical cue family for `best_fit_work_started`
+  and `file_work_started`; neither adds another haptic. Web diagnostics and
+  accessibility advance from `filed_waiting` to `work_started` with the exact
+  worker, lane, first contact serial, fit chain, desk, and `stamp_to_screen`
+  shape.
+- Expanded `core_loop_readability_test.gd`, `claim_routing_ui_test.gd`, and
+  `audio_feedback_test.gd` to prove the lane-filed -> waiting desk -> real claim
+  pull -> attended first peck -> monitor handoff sequence, ordinary-route
+  contrast, causal rejection, reduced-motion parity, capture safety, cleanup,
+  distinct audio, and isolated simulation restoration. Workstation visual,
+  routing momentum, routing session recap, feedback orchestration, simulation
+  persistence, settings/office integration, and presentation smoke regressions
+  also pass. The settings suite retains its expected simulated verified-write
+  warning.
+- Accepted official browser evidence is
+  `output/web-game/routing-work-start-v3/shot-0.png`. Full-resolution inspection
+  at 1280x720 confirms Mabel working at the real monitor with the compact gold
+  receipt and existing monitor/pace accents, without a new panel or text block.
+  Structured state proves a real overdue Appeals route, phase `work_started`,
+  contact serial 1, one active desk, six pooled markers, `stamp_to_screen`, cue
+  `best_fit_work_started`, FIT 15 -> 16, zero orphan nodes, and no browser error
+  artifact.
+- Godot Web export and the Vinext production build pass. All nine generated
+  payloads match across `docs`, `web/public/game`, and `web/dist/client/game`;
+  HTML SHA-256 is `050DC1A9C8DAD5A0D5224E68D42320D1B584CF3296A20AB0C30B819966DB5ADB`
+  and PCK SHA-256 is
+  `9F526ECCE206607290F56FDC1D955B94478E2C6DC690397E219234372C080614`.
+- Every Godot, official Playwright-client, and Playwright-browser process from
+  this pass is cleaned. One intentional production server remains on port 3000
+  as PID 13672 with HTTP 200 and empty stderr; unrelated processes outside this
+  project were left untouched.
+- Suggested next polish audit: make the first measurable progress change after
+  this handoff readable at office scale, so players can distinguish a filed
+  route, active work, and a genuine bottleneck without opening a dossier.
+
+## 2026-08-02 - Office-scale live work rails
+
+- Every workstation now owns one compact, management-facing five-pip progress
+  rail mounted directly on the authored cubicle front. It stays hidden without
+  a live file and fills from the simulation's real `work_progress`, preserving
+  the low-text office language instead of adding another panel or label.
+- Active work uses the segmented rail; a real file whose hen is away from the
+  desk retains its pips and gains physical pause bars; a file at or below 60
+  minutes remaining (or already overdue) gains a warning diamond with an inset
+  exclamation silhouette. These statuses use exact claim deadlines and worker
+  presence, remain shape-distinct under every color-vision mode, and retain
+  static semantics under reduced motion.
+- The implementation is allocation-free during play: six rails and thirty pips
+  are constructed once, pooled with their desks, and updated in place. No text,
+  collision objects, dossier, or per-tick scene-tree growth was introduced.
+  Web diagnostics mirror exact worker, desk, claim, lane, progress, filled pips,
+  deadline, overdue/rework facts, status, shape, animation, and pool counts.
+- Expanded `core_loop_readability_test.gd` and
+  `workstation_reinvestment_visual_test.gd`; both pass, along with claim routing
+  integration and the presentation smoke test. Coverage proves authoritative
+  progress, pause and urgency classification, pooled lifecycle, no text or
+  collision, reduced-motion parity, and color-vision shape persistence.
+- Accepted official browser evidence is
+  `output/web-game/work-progress-v2/shot-0.png`. Full-resolution inspection at
+  1280x720 confirms the brighter pip hierarchy remains restrained and readable
+  on three furnished cubicles without extra UI. Structured state proves Mabel
+  working Appeals at 22% (2/5), Pip's Nest Damage file at deadline risk with 35
+  minutes remaining and 58% (3/5), and Henrietta's paused Predator Loss file at
+  78% (4/5), with six pooled rails, exactly three visible, and no browser error
+  artifact.
+- Godot Web export and the Vinext production build pass. All 27 generated
+  payload copies match across `docs`, `web/public/game`, and
+  `web/dist/client/game`; HTML SHA-256 is
+  `D5C494D56AB4ACE9A9F87B304856355958ED1B77F6C1644C49D049C5028C3F63`
+  and PCK SHA-256 is
+  `AE57E4BFAF760979D542CBB6FCDF94E90D2281C757558ABC53183B528B803C45`.
+- Every Godot, official Playwright-client, and Playwright-browser process from
+  this pass is cleaned. The refreshed intentional production server remains on
+  port 3000 as PID 43216 with HTTP 200 and empty stderr; unrelated processes
+  outside this project were left untouched.
+- Suggested next polish audit: connect these physical work states to the
+  management decision layer, so selecting a warning diamond opens the one
+  highest-leverage remedy instead of a general dossier.
+
+## 2026-08-02 - Physical bottleneck-to-action handoff
+
+- Live workstation progress rails are now pooled pointer targets. Clicking or
+  tapping a visible rail focuses its authoritative hen, opens the dossier tab
+  selected by the existing hen-intent priority system, and gives keyboard focus
+  to the best available control: Priority Peck, claimant choice, support,
+  profile, or route. The handoff never presses that control or spends resources.
+- Deadline and steady-file intents now correctly open claimant-file actions;
+  sync, care, choice, match, and routing priorities retain their existing
+  authority. Context exists only during the originating focus signal, so normal
+  hen clicks cannot inherit stale rail behavior and armed dispatch clicks still
+  commit exactly once without also opening a remedy.
+- Vacated or hidden desk rails are removed from the live interaction map. Mouse
+  and touch use the same projected target resolver, exact rail hits win ties
+  against the larger hen target, and disabled or unavailable actions fall back
+  safely to the relevant dossier tab. Reduced motion preserves the same state
+  and no new text panel, collision object, or economic mutation was added.
+- Seven focused regressions pass: management camera navigation, core-loop
+  readability, hen intent UI, claim-routing integration, workstation
+  reinvestment visuals, presentation smoke, and feedback orchestration. Coverage
+  proves mouse/touch parity, keyboard focus, hidden-target cleanup, authoritative
+  intent selection, and byte-identical save state after the handoff.
+- Accepted production-browser evidence is
+  `output/web-game/work-progress-action-v4/shot-1.png`. The inspected 1280x720
+  frame shows Pip selected from the deadline rail with `SYNC PECK`, the Route
+  dossier, and `PECK NOW [E / A]` exposed. Structured state records worker 1,
+  claim 1, `deadline_risk`, target `PeckAssistButton`,
+  `economic_action_committed=false`, zero orphan nodes, and no browser errors.
+- Godot Web export and the Vinext production build pass. All 27 generated
+  payload copies match across `docs`, `web/public/game`, and
+  `web/dist/client/game`; HTML SHA-256 is
+  `26A405BDE67CA2D7F2C66B2CE04F9E16B505C85BE51AC56A1178817688456EC2`
+  and PCK SHA-256 is
+  `E5987D448C9C28E6E30DE5BFBA43D7C664114C836D59EB5DEB196A083B6C1D25`.
+- The overlong browser warm-up probe was terminated with its complete Playwright
+  process tree. All later Godot and browser clients exited cleanly. One
+  intentional refreshed production server remains on port 3000 as PID 21708.
+- Suggested next polish audit: add a brief world-space hover/focus affordance to
+  the rail itself so first-time players discover that these physical status
+  objects are interactive without adding permanent office copy.
+
+## 2026-08-02 - Discoverable physical work rails
+
+- Live work rails now advertise interactivity without adding copy. Moving the
+  floor pointer over an exact projected rail switches to the pointing-hand
+  cursor and reveals a cyan six-piece corner bracket pooled with that desk.
+  Clicking or tapping hands the same bracket into a stable selected state while
+  the camera and dossier focus the hen, visually connecting cause and remedy.
+- Hover remains a camera-owned semantic state rather than a collision system.
+  It clears on camera motion, worker removal, file completion, vacant/hidden
+  rails, modal input locks, and entry into blocking HUD controls. Rebuilding the
+  worker-to-desk map re-evaluates the last uncovered pointer, so no stale cursor
+  or ghost bracket survives a simulation snapshot.
+- Each of six desks constructs one fixed affordance root and six shadow-free
+  meshes. Resting desks show none; hover uses a restrained bracket pulse;
+  selection is static; reduced motion retains the same shape without animation.
+  Diagnostics expose interactive, hovered, selected, shape, animation, and pool
+  counts without adding text, collision objects, or per-frame hit-test polling.
+- Seven focused regressions pass: management camera navigation, core-loop
+  readability, hen intent UI, claim-routing integration, workstation
+  reinvestment visuals, presentation smoke, and feedback orchestration. New
+  coverage proves hover/cursor entry and exit, HUD-boundary reset, moving-camera
+  projection, hidden and restored targets, unregister cleanup, touch parity,
+  selected continuity, reduced-motion parity, and pooled lifecycle.
+- Accepted production-browser evidence is
+  `output/web-game/work-progress-affordance-v1/shot-1.png`. Full-resolution
+  inspection confirms the cyan bracket hugs Pip's cubicle rail without obscuring
+  its four filled pips or deadline diamond, while the existing selected-hen
+  dossier exposes `SYNC PECK` and `PECK NOW [E / A]`. Structured state proves
+  one selected bracket, six pooled affordances, `deadline_risk`, target
+  `PeckAssistButton`, no automatic economic action, zero orphan nodes, and no
+  browser error artifact.
+- Godot Web export and the Vinext production build pass. All 27 generated
+  payload copies match across `docs`, `web/public/game`, and
+  `web/dist/client/game`; HTML SHA-256 is
+  `5B61EAE86F7936CA49E25FEC1BEA2F2D4976DB0D5A273D8FB5EA5BF3375885CF`
+  and PCK SHA-256 is
+  `AF7B1E70AAED1A136D9BC70FFBB4088AFC66BB00E2F1F58AB73C7E517FEA502C`.
+- Every bounded Godot and official Playwright process exited cleanly. The
+  refreshed intentional production server remains on port 3000 as PID 25440
+  with HTTP 200 and empty stderr.
+- Suggested next polish audit: teach pause-state recovery directly at the
+  physical rail, since a selected Priority Peck target currently becomes
+  disabled when the player pauses to inspect it and the top-level resume control
+  remains visually distant from that consequence.
+
+## 2026-08-02 - Explicit paused Priority Peck recovery
+
+- A live Priority Peck window no longer turns into a disabled dead end when the
+  player pauses to inspect its workstation rail. The selected dossier now shows
+  one compact gold `RESUME + PECK [E / A]` confirmation, and the matching icon-led
+  hen intent remains keyboard/gamepad accessible with an explicit consequence in
+  its tooltip and accessibility name.
+- Rail selection and keyboard focus remain inspection-only. Confirmation first
+  preflights the exact worker and claim, then resumes through the normal guarded
+  1x clock route and performs one atomic assist. Invalid, stale, modal-blocked,
+  or unavailable requests cannot resume time or spend attention; an impossible
+  post-resume rejection restores the prior pause.
+- Paused recovery stays visually quiet: the selected world bracket remains
+  static, and the live timing connector/pulse does not imply that time is already
+  running. Mouse, semantic E/A input, and the dossier intent all converge on the
+  same authority. The diagnostic rail record remains non-economic until the
+  accepted confirmation, then records the exact action, rating, and progress.
+- Eight focused regressions pass: claim-routing UI, core-loop readability,
+  feedback orchestration, hen-intent UI, management-camera navigation, Priority
+  Peck UI, presentation smoke, and workstation reinvestment visuals. Coverage
+  proves safe focus, invalid-request non-resume, mouse and semantic input parity,
+  exact one-charge spending, normal 1x recovery, reduced-motion quietness, and
+  the physical rail handoff.
+- Accepted intermediate browser evidence is
+  `output/web-game/paused-peck-recovery-intermediate-v1/shot-1.png`: Pip's selected
+  deadline rail remains bracketed while paused and the gold `RESUME + PECK`
+  control is visible with three charges and no committed action. Accepted final
+  production evidence is
+  `output/web-game/paused-peck-recovery-final-v1/shot-1.png`: the same claim reaches
+  its concise LAY outcome with a STEADY receipt and clean-delivery loop. Structured
+  state records worker 1, claim 1, `economic_action_committed=true`, `peck`, +15%
+  progress, attention 3 -> 2, zero orphan nodes, and no browser error artifact.
+- Godot Web export and the Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `CC111DFA46C3B91602A88C82F9AE8B5A6B254AC77E9C04F68FD836D0E89D0CD5`
+  and PCK SHA-256 is
+  `6DF62A1DE180A5AC8CE033125F2EA21B5780842907FC6FA97D15659446AD5B39`.
+- Every bounded Godot and official Playwright process exited cleanly. One
+  intentional refreshed production server remains on port 3000 as PID 9816 with
+  HTTP 200 and empty stderr.
+- Suggested next polish audit: make the transition from a completed Priority Peck
+  into the next claimant action equally direct, so the result receipt can hand
+  keyboard focus to `OPEN FILE` after its brief confirmation beat without adding
+  another persistent panel.
+
+## 2026-08-02 - Priority Peck next-action focus continuity
+
+- An accepted Priority Peck no longer leaves keyboard/controller focus stranded
+  on the now-disabled peck control. When, and only when, that exact control owned
+  focus at confirmation, the synchronous result refresh repairs focus to the
+  already-visible `HenIntentAction` for the same worker and claim. The receipt,
+  selected dossier, active tab, and camera remain unchanged.
+- The repair is deliberately non-economic: it does not press `OPEN FILE`, change
+  tabs, choose a claimant path, or emit another command. One subsequent Enter
+  opens the existing File tab; the player still chooses among Settle, Deny, and
+  Exception. Pointer input that never focused Priority Peck is unaffected.
+- Focus repair is cancelled if the selected worker changes, interaction becomes
+  modal-blocked, the result does not match the armed worker/claim, the player
+  focuses another control, or the next intent is unavailable. Godot's immediate
+  disabled-control focus release is handled safely, and reduced motion retains
+  identical navigation without introducing a tween or pulse dependency.
+- Eight focused regressions pass: claim-routing UI, core-loop readability,
+  feedback orchestration, hen-intent UI, management-camera navigation, Priority
+  Peck UI, presentation smoke, and workstation reinvestment visuals. New checks
+  cover mouse and keyboard focus, exact worker/claim binding, no automatic claim
+  filing, modal and worker-change cancellation, and reduced-motion parity.
+- Accepted production evidence is
+  `output/web-game/priority-peck-next-focus-v1/shot-1.png`: Pip's result receipt
+  remains visible while `OPEN FILE` owns the next focus. Structured state records
+  a completed handoff to `HenIntentAction`, action `claim`, exact worker 1 and
+  claim 1, one accepted peck, attention 3 -> 2, and zero orphan nodes. The complete
+  Enter continuation is
+  `output/web-game/priority-peck-next-focus-enter-v2/shot-1.png`; it opens the File
+  tab and claimant context with no confirmation or path filed and no browser error
+  artifact.
+- Godot Web export and the Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `F70D20082EFCBCA7BF94FFA345E7EAAA378A78665549545AEEE43D9349BF3DCB`
+  and PCK SHA-256 is
+  `539AE6BB61F5DBC083E94FFD260ED26B35105E457B81DDC2A98889C8306FBC5B`.
+- Every bounded Godot and official Playwright process exited cleanly. One
+  intentional refreshed production server remains on port 3000 as PID 20956 with
+  HTTP 200 and empty stderr.
+- Suggested next polish audit: align late-file hen intent with the live claim
+  phase, so a file that reaches LAYING before the follow-up is activated points to
+  its delivery receipt instead of presenting claimant choices that have just
+  become read-only.
+
+## 2026-08-02 - Phase-aware hen intent and egg receipt handoff
+
+- Hen intent is now phase-aware. Once an authoritative file enters `LAYING`, its
+  compact action changes from claimant/deadline language to icon-led `TRACK EGG`.
+  It routes to the existing live receipt instead of exposing Settle, Deny, or
+  Exception after those decisions have retired.
+- The tooltip preserves the optional depth behind that short action: grading,
+  farmer delivery, and the clean-assisted-egg refund of one Priority Peck charge.
+  The world pin and selected-hen dossier consume the same simulation snapshot, so
+  their meaning cannot drift.
+- Keyboard/controller focus remains on the same compact action as work crosses
+  into laying; only its semantic action matures from `claim` to `route`. The
+  diagnostic focus receipt updates in place without moving focus, changing tabs,
+  or committing an economic action.
+- Deterministic integration coverage proves an overdue claim with an available
+  claimant path still becomes `delivery / route / TRACK EGG` during laying, and
+  activating it from the File tab returns to Route without filing a claimant path.
+  The real mouse Priority Peck flow proves the exact focused handoff and accessible
+  action remain intact.
+- Accepted production evidence is
+  `output/web-game/phase-aware-hen-intent-v1/shot-1.png`: Pip is visibly at
+  `3 LAY / 100%`, `TRACK EGG` owns focus, payout/risk/destination and the concise
+  delivery/refund receipt remain visible, and the stale claimant actions are not
+  presented. Structured state records `delivery -> route`, an updated completed
+  handoff for worker 1 / claim 1, zero orphan nodes, and empty server stderr.
+- Eight focused regressions pass: claim-routing UI, core-loop readability,
+  feedback orchestration, hen-intent UI, management-camera navigation, Priority
+  Peck UI, presentation smoke, and workstation reinvestment visuals.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `52D3F7149A34C6C8C8F24F988E51C0A02F8C99C0374A6577699B0C3F6BA236DF`
+  and PCK SHA-256 is
+  `79FBE4C5380D217CD5CDB5C545B905EE2A30C4A23898628C0E4A52385E6274AC`.
+- All bounded Godot and official Playwright helpers exited cleanly. One intentional
+  production server remains on port 3000 as PID 44160 with HTTP 200 and empty
+  stderr.
+- Suggested next polish audit: follow the completed egg beyond the selected hen
+  with an equally compact grading-to-farmer receipt, while allowing the now-free
+  hen to advertise her next route without conflating the two timelines.
+
+## 2026-08-02 - Independent egg journey receipt
+
+- A completed file now hands off to a compact `LAST EGG` receipt that follows the
+  exact worker and claim through `GRADING`, quality grading, farmer delivery, or
+  Farmgate stock. Farmer settlement reports the exact Feed Fund value and clean
+  assisted deliveries add `PECK +1` on the same outcome line.
+- The selected hen's current file and intent remain independent. As soon as she
+  pulls new work, the dossier header advertises that live claim while the routing
+  hint keeps the prior egg outcome glanceable; a current Priority Peck result
+  still receives first priority. Multiple physical eggs remain FIFO and collapse
+  to a concise `+N EGG` count rather than spawning more UI.
+- Receipt storage is bounded to all in-flight eggs plus the latest settled result
+  per hen, is cleared with presentation session state, and is excluded from save
+  data. Accessible copy explicitly identifies it as a previous outcome separate
+  from current controls.
+- Visual validation exposed and fixed an existing restore-path defect: closing
+  Flockwatch reapplied a broad simulation snapshot and discarded presentation-
+  only dossier context. It now restores through the same routing projection as
+  live ticks, preserving the receipt across ledger and camera navigation.
+- Deterministic lifecycle coverage proves grading, graded, delivery, new-file
+  separation, save neutrality, camera refresh, and Flockwatch restore. The real
+  sorter/basket integration additionally proves physical grading, exact payout,
+  and Priority Peck refund settlement. Six adjacent regressions pass: Priority
+  Peck UI, claim-routing UI, core-loop readability, feedback orchestration,
+  hen-intent UI, and presentation smoke.
+- Accepted production evidence is
+  `output/web-game/egg-journey-v2/shot-1.png`: Mabel's live Appeals `#0003` file
+  remains in the main header while `LAST EGG #9001 / FARMER +$4.55` sits on its
+  own green receipt line. Structured state records worker 0, claim 9001, stage
+  `delivered`, exact cash 455, and explicit accessible timeline separation.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `AB4D6F1B0A73121A8049F115050E11513E41A23BEBBBAEE471A673EDB306B5C8`
+  and PCK SHA-256 is
+  `67084E6C911015C4FA20CE60DDF2C550AE82A21575312183655150655230A09A`.
+- Every bounded Godot and official Playwright helper exited cleanly. One
+  intentional refreshed production server remains on port 3000 as PID 42836 with
+  HTTP 200 and empty stderr.
+- Suggested next polish audit: give unselected hens a similarly tiny world-space
+  delivery acknowledgment so managers can notice a payout without opening every
+  dossier, while keeping the selected-hen receipt as the only detailed history.
+
+## 2026-08-02 - Pooled world-space payout acknowledgment
+
+- Farmer arrival now closes the physical loop at the delivering hen's exact
+  workstation. A brief upward-arrow/dollar-coin marker identifies cash entering
+  Feed Fund; Farmgate inventory uses a shape-distinct crate-and-egg marker. No
+  world copy, new panel, collision target, or required interaction was added.
+- Every workstation constructs exactly one reusable marker. Same-desk bursts
+  replace their prior transient state, different hens may acknowledge in
+  parallel, and all presentation timings respect the bounded 0.5x-2x animation
+  multiplier. Reduced motion converts active markers to static timed holds.
+- Receipt identity freezes worker, name, desk, claim, quality, cash, stock/cash
+  kind, and Priority Peck refund at presentation time, so a staffing desk remap
+  cannot rewrite the delivering hen during the 1.5-second hold. The markers are
+  presentation-only and byte-neutral to authoritative save data.
+- Essential meaning remains available through the existing Feed Fund counter,
+  basket-to-fund chip, payout audio, global ticker, and selected-hen `LAST EGG`
+  receipt. Assistive diagnostics add exact accessible copy and explicitly direct
+  detailed history to hen selection; cash and stock remain distinguishable by
+  shape under every color-vision mode.
+- New `egg_delivery_ack_test.gd` proves six-node pooling, no `Label3D` or
+  `Area3D`, exact cash and Farmgate shapes, simultaneous hens, same-desk burst
+  replacement, 2x lifecycle retirement, reduced-motion parity, color-safe shape,
+  desk-remap identity stability, capture staging, and save neutrality. The real
+  sorter/basket integration proves the production farmer-arrival callback lights
+  the exact worker's marker. Egg journey and grading regressions also pass.
+- Six adjacent regressions pass: core-loop readability, workstation reinvestment
+  visuals, feedback orchestration, management-camera navigation, presentation
+  smoke, and the new delivery acknowledgment lifecycle.
+- Native visual iteration rejected ambiguous upload-tray and paw/health-like
+  drafts before converging on the accepted dollar-coin/up-arrow silhouette.
+  Accepted production evidence is
+  `output/web-game/egg-delivery-ack-v2/shot-1.png`: Pip is unselected while his
+  exact cubicle shows the payout marker. Structured state records worker 1,
+  claim 9002, cash 455, restored Priority Peck, shape `coin_up_arrow`, one active
+  marker from a six-marker pool, `focused_worker=-1`, and accessible attribution.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `573543D70859FF3D16A7C8519466EE7E482F8F5B22F7AFC62C1D464B859ECB58`
+  and PCK SHA-256 is
+  `C04BF6DEC665348ED82BB0E2122BBB89F9C793E23C0183709CBBC130EDF2048A`.
+- Every bounded Godot, official Playwright-client, and Playwright-browser process
+  exited cleanly. One intentional refreshed production server remains on port
+  3000 as PID 28404 with HTTP 200 and empty stderr.
+- Suggested next polish audit: stress the full delivery feedback orchestra with
+  all six hens settling together at 10x, then reduce any overlapping routine UI
+  chips while preserving each desk's bounded source acknowledgment.
+
+## 2026-08-02 - Six-hen payout burst consolidation
+
+- Stress-audited the routine payout presentation with all six desks settling in
+  the same frame. The authoritative economy was already correct, but the global
+  basket-to-Fund layer allocated six identical chips at one origin and would
+  repeat six payout cues, obscuring the relationship at accelerated speed.
+- Routine Feed Fund credits that begin within a 0.12-second presentation window
+  now merge into one pooled batch. The chip keeps an exact egg count, total value,
+  quality composition, compact `xN EGGS | +$N.NN > FUND` copy, and one semantic
+  arrival cue. Credits outside that window retain separate journeys.
+- The global consolidation does not collapse causality: each hen still owns an
+  independent world-space cash/stock acknowledgment at her exact desk, and each
+  selected dossier retains its frozen claim-level receipt. No production,
+  revenue, egg, staffing, save, or routing state is mutated by the batch visual.
+- Added assistive batch diagnostics with exact count, cents, mixed-quality
+  composition, accessible prose, pool capacity, merge window, and capture state.
+  The chip pool remains fixed at eight nodes and synthetic overflow still reuses
+  the oldest presentation without growing the scene tree.
+- Added the local-only `payout-burst` preview. Accepted native evidence is
+  `output/payout-burst-native-v1/payout_burst.png`; accepted shipped-browser
+  evidence is `output/web-game/payout-burst-v1/shot-1.png`. The latter records
+  six active/staged desk acknowledgments, one active/staged Fund batch, six eggs,
+  3,045 cents, zero orphan nodes, no browser error artifact, and no selected hen.
+- Seven focused regressions pass: fund-credit pooling/consolidation, desk payout
+  acknowledgment, egg journey receipt, physical grading/basket arrival,
+  feedback orchestration, core-loop readability, and presentation smoke. The
+  bounded harness reports 7/7 pass, zero failures, and zero timeouts at
+  `output/payout-burst-focused-tests-v1/shard-summary.json`.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `9A4C7CBCF14341D37188300F0BD196D7F15C6C68CC2A08500ED6B48C44CC6393`
+  and PCK SHA-256 is
+  `868ED1A5384D2986FEC61D2E5522E173E3769C37E0817DA44916A3799EB0BA22`.
+- All bounded Godot and official Playwright-client helpers exited cleanly. One
+  intentional refreshed production server remains on port 3000 as PID 44564
+  with HTTP 200 and empty stderr.
+- Suggested next polish audit: observe repeated mixed cash/Farmgate settlements
+  over a full accelerated shift and verify the remaining non-routine stock and
+  refund chips keep their hierarchy without masking an actionable alert.
+
+## 2026-08-02 - Bounded mixed-settlement hierarchy
+
+- Stress-audited simultaneous cash, Farmgate stock, and Priority Peck refunds at
+  the maximum authored office size. The cash layer was already consolidated,
+  but stock and attention feedback still allocated transient controls per event,
+  followed nearly identical basket paths, and could overlap each other and cash.
+- Replaced both dynamic routes with one six-node auxiliary settlement pool.
+  Same-kind events within 0.12 seconds consolidate into exact stock or refund
+  batches; later events remain separate. Synthetic overflow reuses the oldest
+  visual without growing the UI tree, while refund completion still produces one
+  semantic attention-restored cue per batch.
+- Cash, stock, and refunds now occupy separated presentation lanes from their
+  shared physical source. Compact cards disclose `xN EGGS | +$N.NN > FUND`,
+  `xN LOTS | $N.NN > STORE`, and `+N PECKS | N/3 READY`. The three paths differ
+  by destination and copy rather than color alone, and exact desk-level cash or
+  crate markers still preserve each hen's source and claim attribution.
+- Added static reduced-motion parity to both Fund and auxiliary transaction
+  chips. Assistive diagnostics expose pool capacity, active batches, exact cents,
+  item counts, charge state, quality composition, accessible prose, animation
+  state, and capture state. These visuals remain neutral to revenue, egg, save,
+  staffing, routing, and inventory authority.
+- Added `auxiliary_settlement_chip_pool_test.gd`, covering per-kind merging,
+  cross-kind separation, compact copy, accessible meaning, fixed vertical lanes,
+  staged capture, one merged refund cue, separate later journeys, reduced motion,
+  six-node overflow reuse, and economic neutrality. Updated real Farmgate and
+  physical Priority Peck assertions for the compact destination-first copy.
+- Ten focused integrations pass: auxiliary and Fund pools, Farmgate capital
+  flow, physical grading, desk acknowledgment, egg journey, feedback orchestra,
+  settings/accessibility, audio feedback, and presentation smoke. The bounded
+  harness reports 10/10 pass, zero failures, and zero timeouts at
+  `output/mixed-settlement-focused-tests-v1/shard-summary.json`.
+- Accepted native evidence is
+  `output/mixed-settlement-native-v1/mixed_settlement.png`; accepted shipped Web
+  evidence is `output/web-game/mixed-settlement-v1/shot-1.png`. Browser state
+  proves six exact staged desk markers, one three-egg/$13.65 Fund batch, one
+  three-lot/$17.85 stock batch, one two-Peck refund batch, two auxiliary batches
+  from a six-node pool, zero orphan nodes, and no browser error artifact.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `C95D1A6DE6F86FC8A099B7C9238CC53068A397E450D2553511603858EE0AC901`
+  and PCK SHA-256 is
+  `739BA32FE888F24E5457C73DB34EA129658FC4798B3FC39000A4D410E95ECF25`.
+- All bounded Godot and official Playwright-client helpers exited cleanly. One
+  intentional refreshed production server remains on port 3000 as PID 34832
+  with HTTP 200 and empty stderr.
+- Suggested next polish audit: run a real accelerated-shift soak with the camera
+  moving between overview and focused hens, measuring whether routine settlement
+  cards ever cover a deadline warning or destination control on smaller viewports.
+
+## 2026-08-02 - Camera-safe transaction feedback
+
+- Reproduced the mixed-settlement burst while focused on Mabel. The physical
+  basket projected beyond the right edge, so all three active transaction cards
+  remained alive in state but disappeared completely offscreen. Baseline native
+  evidence is `output/mixed-settlement-focused-baseline-v1/mixed_settlement_focused.png`.
+- Settlement cards now derive one collision-aware source center from live UI
+  geometry. The placement keeps the full three-card stack inside the authored
+  canvas and clear of the top HUD, Peckwork routing queue, Flockwatch control,
+  and selected-hen dossier. Overview placement is unchanged when the physical
+  basket is already safe.
+- Added exact placement diagnostics for desired and safe centers, panel bounds,
+  clamped counts, protected surfaces, onscreen status, pairwise separation, and
+  failure reasons. The routing UI exposes only its relevant public rectangles,
+  keeping the office controller independent of private panel implementation.
+- Hardened maximum UI scale with clipped ellipsis behavior and compact semantic
+  destination copy at 1.25x and above: Fund, Store, and restored-Peck meaning
+  remains visible without widening cards beyond the 224-pixel safe lane. Full
+  accessible prose remains available through the diagnostic metadata.
+- Added `settlement_feedback_placement_test.gd`, covering focused-camera clamps,
+  all protected surfaces, pairwise non-overlap, offscreen recovery, exact compact
+  copy, and 1.5x scale. Twelve focused regressions pass with zero failures and
+  zero timeouts at `output/settlement-placement-regression-v1/shard-summary.json`.
+- Accepted focused native evidence is
+  `output/mixed-settlement-focused-safe-v2/mixed_settlement_focused.png`; accepted
+  overview native evidence is
+  `output/mixed-settlement-safe-overview-v1/mixed_settlement.png`.
+- Accepted shipped-browser evidence is
+  `output/web-game/mixed-settlement-focused-safe-v1/shot-1.png` and
+  `output/web-game/mixed-settlement-safe-overview-v2/shot-1.png`. Focused state
+  proves three safe cards, three clamps, zero placement reasons, six exact desk
+  acknowledgments, the expected $13.65 Fund/$17.85 Store/two-Peck batches, zero
+  orphan nodes, and no browser error artifact. Overview proves the same receipts
+  with zero clamps.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `2787D69EDC4EA00AD213A6FC5085E1FEB09ADD4D679FAC1E4F542AB2C46978DB`
+  and PCK SHA-256 is
+  `B761FBFCE21E322B8DF682C6F1E9B109354CFF8C2A210A5317D53C5A7A14B06D`.
+- Every bounded Godot, official Playwright-client, and Playwright-browser helper
+  exited cleanly. One intentional refreshed production server remains on port
+  3000 as PID 29064 with HTTP 200 and empty stderr.
+- Suggested next polish audit: exercise routine cards alongside a true urgent
+  deadline toast and routing return cue, then make priority arbitration suppress
+  or defer routine cards whenever a higher-priority alert needs the same lane.
+
+## 2026-08-02 - Priority-arbitrated settlement feedback
+
+- Reproduced a focused-camera settlement burst while an overdue Appeals alert
+  and verified routing-record return chase were active. Baseline evidence at
+  `output/settlement-priority-baseline-v1/settlement_priority.png` showed all
+  three routine cards competing with the routing cue while the overdue toast was
+  replaced by a later routine publication.
+- Status toasts now use explicit action > milestone > routine ranking on every
+  notice setting. A lower-priority publication is still filed newest-first in
+  Shift Record, but cannot steal an unexpired higher-priority reading surface.
+- Fund, Farmgate stock, and Priority Peck batches now share one attention-state
+  contract. Character moments, visible management surfaces, Flockwatch review,
+  non-routine toasts, Priority Peck outcomes, and routing-return chases defer
+  routine cards without losing their consolidated counts, cents, quality, or
+  accessible prose.
+- Clearing the attention owner reprojects and releases all deferred aggregates
+  together. A blocker held longer than nine real-time seconds retires routine
+  cards silently; the Feed Fund counter, desk acknowledgment, selected-hen last
+  egg, Shift Record, and a bounded diagnostic recovery trail retain the result.
+  Deferral and suppression remain presentation-only and save-neutral.
+- Added exact arbitration diagnostics for blockers, active/visible/deferred/
+  released batches, cumulative deferrals, bounded suppressions, recovery
+  surfaces, card visibility, and accessible meaning. Deferred bursts continue
+  merging into three semantic lanes instead of allocating hidden UI at 10x.
+- Added `settlement_feedback_arbitration_test.gd`, proving default-notice toast
+  hierarchy, simultaneous alert/cue deferral, high-speed consolidation, safe
+  release, bounded suppression, accessible recovery, and save neutrality. The
+  final sensitive harness reports 6/6 pass, zero failures, and zero timeouts at
+  `output/settlement-arbitration-focused-tests-v2/shard-summary.json`; grading,
+  feedback-orchestra, camera, and presentation integrations also pass.
+- Accepted native priority evidence is
+  `output/settlement-priority-safe-v1/settlement_priority.png`. Normal overview
+  and focused receipts remain unchanged at
+  `output/mixed-settlement-arbitration-overview-v1/mixed_settlement.png` and
+  `output/mixed-settlement-arbitration-focused-v1/mixed_settlement_focused.png`.
+- Accepted shipped-browser evidence is
+  `output/web-game/settlement-priority-v3/shot-6.png`. Matching state proves the
+  overdue action toast and routing chase are visible, all three exact settlement
+  batches are deferred, zero routine cards are visible, six desk receipts remain
+  staged, placement is safe, orphan nodes are zero, and no error artifact exists.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `A7B58928B3DE4678C0F77AFB7970760AC831876611E1E702A42B8A63DF7AA2DF`
+  and PCK SHA-256 is
+  `35F415E55CE4ED4F64AD6832B5A3D5EBAAE631F23EFA6110ACCC87DE26D48645`.
+- Every bounded Godot, official Playwright-client, and Playwright-browser helper
+  exited cleanly. One intentional refreshed production server remains on port
+  3000 as PID 45604 with HTTP 200 and empty stderr.
+- Suggested next polish audit: visually stage the accepted route that clears a
+  routing-return cue, then tune the deferred receipt release so its single audio
+  and motion handoff feels rewarding without immediately creating a new reading
+  interruption after the urgent action.
+
+## 2026-08-02 - Accepted-route settlement handoff
+
+- The first accepted route now retires only the overdue routing action toast it
+  actually resolves. It reconciles the legacy ticker label with the already-
+  archived route receipt, preventing the stale warning from reappearing on the
+  following frame while leaving unrelated action alerts untouched.
+- Deferred Fund, Farmgate stock, and restored-Peck receipts now release as one
+  synchronized calm fan. Their prior cash and attention arrival sounds are
+  suppressed for that grouped handoff; one cached, pooled `settlement_release`
+  confirmation owns the beat instead, with one optional bounded haptic.
+- Added release diagnostics for serial, exact batch/item/value/Peck totals,
+  motion treatment, and cue count. The deterministic arbitration test now
+  crosses an accepted Appeals receipt, waits a real process frame, proves the
+  warning stays retired, and proves card arrivals add no duplicate audio.
+- Added the `settlement-release` preview. Its fixture stages a genuinely overdue
+  Appeals queue, follows the real guidance -> tray -> ranked hen -> accepted
+  dispatch path, and asserts the cue dismissal, toast retirement, safe three-
+  card release, and single audio handoff before saving evidence.
+- Accepted native evidence is
+  `output/settlement-release-native-v4/settlement_release.png`. Accepted shipped-
+  browser evidence is
+  `output/web-game/settlement-release-v2/settlement-release.png`; matching state
+  proves one release, one cue, three visible and zero deferred cards, safe
+  placement, a retired routing cue/toast, exact six-item/$31.50/two-Peck totals,
+  and zero browser console errors.
+- The final adjacent Godot harness reports 6/6 pass, zero failures, and zero
+  timeouts at `output/settlement-release-final-tests-v1/shard-summary.json`.
+  The rendered shell and production wrapper report 45/45 pass. The dedicated
+  browser contract also passes with no error events.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, `web/public/game`, and `web/dist/client/game`; HTML
+  SHA-256 is `0AE068A5EB7B1AEB971A0AD0036D5C189A9E21806E825D426DEFFFFC7B31381D`
+  and PCK SHA-256 is
+  `02CE4AE3E16E837AC648B20A08EC833CDEA149620A93C41D0703A2B2EBD3ECF0`.
+- Every temporary Godot, test-server, and Chrome helper exited cleanly. One
+  intentional refreshed production server remains on port 3000 as PID 30700
+  with HTTP 200 and empty stderr.
+- Suggested next polish audit: let the accepted-route folder landing hand the
+  calm receipt fan its screen-space origin, so the physical tray movement and
+  financial confirmation read as one continuous path without adding UI copy.
+
+## 2026-08-02 - Physical folder-to-settlement handoff
+
+- Accepted-route settlement cards now remain deferred while the folder crosses
+  the office. The real `dispatch_landing_presented` callback releases the Fund,
+  Farmgate stock, and restored-Peck fan from the folder's authoritative settled
+  desk position, making the physical delivery and financial confirmation read
+  as one causal motion instead of two unrelated UI events.
+- The linked handoff has one audio owner: a successful grouped receipt release
+  replaces the normal folder-landing thunk, while a blocked or timed-out fan
+  preserves the physical cue. A delta-driven 2.4-second recovery bound falls
+  back to the normal presentation counter if a landing signal is ever lost,
+  without depending on wall-clock speed in WebGL or background tabs.
+- Arbitration diagnostics now expose the route-handoff serial, worker, lane,
+  world and screen origins, exact causal path
+  `accepted_route>folder_landing>receipt_fan`, cue ownership, active status, and
+  bounded fallback. The entire linkage remains presentation-only and save-
+  neutral.
+- Added `settlement_route_handoff_test.gd`. The final adjacent Godot harness
+  reports 7/7 pass, zero failures, and zero timeouts at
+  `output/settlement-route-handoff-final-tests-v1/shard-summary.json`; the
+  rendered shell and production wrapper report 45/45 pass under Node 24.
+- The official browser client records the held-before-landing state in
+  `output/web-game/settlement-route-handoff-client-v1/shot-4.png` and the exact
+  landing-origin release in `shot-5.png`. Its final state proves one release,
+  one cue, three visible and zero deferred cards, the physical landing source,
+  the exact causal path, safe placement, a retired routing toast/cue, and zero
+  console errors.
+- Web-export packaging now excludes generated `docs` and `dist` publication
+  trees and marks both roots with `.gdignore`, preventing recursive publication
+  artifacts from entering the PCK. The refreshed PCK is 9,619,364 bytes, down
+  from 9,659,712 bytes.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, root `dist`, and `web/dist/client/game`; HTML
+  SHA-256 is `18EC18196E399D2025CE5A124F6047F66D25550A07FF75500013ACE866CAAB10`
+  and PCK SHA-256 is
+  `897877B588D5B1A766A4F8E4575AF7CA91D8B9CE6AEFA384FD0002375876A85A`.
+- Every temporary Godot, test-server, and Playwright Chrome helper exited
+  cleanly. One intentional refreshed production server remains on port 3000 as
+  PID 22376 with HTTP 200 and empty stderr.
+- Suggested next polish audit: carry the same wordless causality through the
+  card destination by giving the affected counter or ledger a brief restrained
+  acknowledgment as each receipt settles, then stress repeated accepted routes
+  under camera changes and high simulation speed.
+
+## 2026-08-02 - Wordless settlement destinations
+
+- Fund, cold-storage, and restored-Peck receipt cards now terminate in the exact
+  economy surface they affect. The Feed Fund counter, Flockwatch inventory
+  ledger, and visible Priority Peck diamond meter each receive one brief outline
+  pulse with a compact `$`, storage-grid, or diamond symbol. If the Peck meter is
+  not currently exposed, its receipt safely targets the visible Flockwatch
+  resource ledger instead of pointing at hidden UI.
+- The destination response adds no sentence and no sound. It extends the causal
+  path to
+  `accepted_route>folder_landing>receipt_fan>destination_surfaces`, while the
+  accepted route still owns the single grouped settlement cue. Foreground audio
+  requires exactly one cue; focus-paused evidence correctly remains silent.
+- Destination effects are a fixed three-object pool, one object per semantic
+  lane. Repeated arrivals kill and refresh that lane's bound tween rather than
+  stacking nodes, labels, particles, or sounds. Full motion uses a restrained
+  ease-out impact and fade; reduced motion keeps the target stationary and uses
+  only a short opacity acknowledgment.
+- The deterministic route test now covers a focused accepted delivery, an
+  immediate second accepted delivery at 10x after an overview camera transition,
+  audio rate limiting, a missing-landing fallback, reduced motion, exact target
+  identities, three-object pooling, zero duplicate arrival cues, and save
+  neutrality. The adjacent Godot harness reports 8/8 pass with zero failures or
+  timeouts at `output/settlement-destination-final-tests-v1/shard-summary.json`.
+- Accepted native evidence is
+  `output/settlement-destination-native-v3/settlement_destination.png`. The
+  official shipped-browser client records the action toast and held receipts at
+  `output/web-game/settlement-destination-client-v2/shot-4.png`, then the clean
+  three-surface acknowledgment at `shot-5.png`. Final browser state proves the
+  physical landing source, one release/one cue, all three exact destination IDs,
+  bounded pooling, the completed causal path, zero remaining cards, a retired
+  toast/routing cue, zero orphan nodes, and no console-error artifact.
+- Added the local wrapper preview mapping for `settlement-destination`. The
+  Vinext production build, ESLint, and rendered/production wrapper suite pass;
+  the latter reports 45/45 tests.
+- Godot Web export passes. All 27 generated payload copies match across `docs`,
+  root `dist`, and `web/dist/client/game`; HTML SHA-256 is
+  `8EEE4DE5DC62C89515C7C1915D77F52C4EA59F0DA711265282BDD5A1F6E4E648`
+  and the 9,628,260-byte PCK SHA-256 is
+  `C841D917A0DFB4278884AB6938568FDF6F15CBFE2242480AA0D79A6A74CCD483`.
+  The live server returns those exact PCK bytes.
+- Every temporary Godot, test-server, and Playwright Chrome helper exited
+  cleanly; the required browser client was restored byte-for-byte. One
+  intentional refreshed production server remains on port 3000 as PID 25628
+  with HTTP 200 and empty stderr.
+- Suggested next polish audit: teach outgoing Feed Fund transactions with the
+  inverse visual grammar—a restrained counter-to-purchase or counter-to-ledger
+  motion with a clearly different shape/timing for spending—so costs become as
+  physically legible as earnings without adding routine notification copy.
+
+## 2026-08-02 - Physical Feed Fund debits
+
+- Accepted player-authored upgrades and Feed Parties now produce one compact
+  clipped coral debit docket at the Feed Fund counter. It carries only the exact
+  negative amount and a direction mark, then travels to the visible purchased
+  control; earnings and spending now differ by direction, silhouette, color,
+  timing, and sign without another explanatory notification.
+- The effect is a fixed three-object pool. Repeated costs for the same action
+  kill and refresh its bound tween and consolidate the amount; a full pool
+  deterministically reuses the oldest member. It never creates transaction
+  sounds, changes simulation state, or enters save data.
+- Destination selection now means visibly on-screen, including every enclosing
+  ScrollContainer clip. Off-screen requisitions fall back to the visible
+  Flockwatch entry surface, and the debit layer yields to character dialogue,
+  decisions, reviews, and commissioning reveals. Reduced motion uses a
+  stationary destination pulse with the same sign, shape, amount, and accessible
+  meaning.
+- Added exact diagnostics for source, destination, transaction kind, cents,
+  motion treatment, pooling, merges, recycling, capture state, audio ownership,
+  and accessible text. Added the `fund-debit` Web preview mapping and
+  `fund_debit_feedback_test.gd` coverage for bounded reuse, repeated costs,
+  reduced motion, audio silence, and save neutrality.
+- The adjacent Godot harness reports 8/8 pass at
+  `output/fund-debit-adjacent-tests-v1/shard-summary.json`; the final focused
+  visibility pass reports 1/1 at
+  `output/fund-debit-test-v2/shard-summary.json`. ESLint is clean and the
+  rendered shell suite reports 49/49 pass.
+- Accepted shipped-browser evidence is
+  `output/web-game/fund-debit-client-final-v2.png`. It shows the authoritative
+  $25 Keycaps purchase moving from the $100 Feed Fund toward the visible
+  requisition after the settled counter reaches $75. Matching diagnostics prove
+  exact source and target IDs, one active object from a three-object pool, zero
+  browser errors, zero orphan nodes, and an on-screen destination.
+- Godot Web export and Vinext production build pass. All 27 generated payload
+  copies match across `docs`, root `dist`, and `web/dist/client/game`; HTML
+  SHA-256 is `162DE974F9D1435DE53C39721E6D936BD45B25F4FBD49E7224979068625739FA`
+  and the 9,638,340-byte PCK SHA-256 is
+  `654A6E6CC42EF32300BA7BC6FB0161AE31192AA750A7D25AB2ADE26B0140092C`.
+- Every temporary Godot and Playwright Chrome process exited cleanly. One
+  intentional production server remains on port 3000 as PID 22784 with HTTP
+  200 and empty stderr.
+- Suggested next polish audit: extend this exact debit grammar to accepted
+  staffing, facility, and procurement purchases, resolving each result receipt
+  to its visible action control or the appropriate Flockwatch ledger without
+  duplicating their existing confirmation sounds.
+
+## 2026-08-02 - Staffing and provisions debit continuity
+
+- Accepted Flock Provisions orders and staffing actions now reuse the compact
+  Feed Fund debit grammar from their authoritative result receipts. The observer
+  accepts exact `net_cost_cents`, `total_cost_cents`, `cost_cents`, or
+  `capital_cost_cents` fields only after an accepted mutation; rejected and
+  zero-cost results cannot start, merge, or recycle a debit visual.
+- Feed orders resolve to the exact offer button when it remains visible. Staffing
+  expansion, hire, and release files resolve to their action control or the
+  persistent Flockwatch toggle after an accepted mutation rebuilds/clips that
+  docket. Facility purchases intentionally keep their stronger commissioning
+  reveal with exact before/after spendable Fund and capital filed, avoiding a
+  duplicate receipt over the same transaction.
+- Filing a provisions order from inside Flockwatch no longer pulls the player out
+  of the ledger for a camera visit. The accepted card remains visible, the cost
+  docket terminates on the button the player used, and existing policy/dialogue
+  sounds retain sole audio ownership.
+- Added the `procurement-debit` shipped-wrapper preview and deterministic
+  `spending_feedback_integration_test.gd` coverage for the real procurement and
+  capacity handlers, exact Fund deltas, distinct destinations, denied repeats,
+  rejected/zero-cost gates, save neutrality, and observer audio silence. The
+  focused Godot harness reports 2/2 pass at
+  `output/spending-feedback-tests-v9/shard-summary.json`; ESLint is clean and the
+  rendered/physical wrapper suite reports 49/49 pass.
+- Accepted official-browser evidence is
+  `output/web-game/procurement-debit-official-final/shot-0.png`. It shows the
+  $15.75 debit docket on the filed Local Whole Grain card while Flockwatch stays
+  open. Matching state proves the exact semantic target and button name, one
+  active staged object, zero orphan nodes, and no console-error artifact.
+- Godot Web export and Vinext production build pass. All 27 published payload
+  copies match across `docs`, root `dist`, and `web/dist/client/game`; HTML
+  SHA-256 is `42B734F274DB0E557FD6BC56CC2B7DAA861DE1D015E3FCA7F06D24054D82F52B`
+  and the 9,640,084-byte PCK SHA-256 is
+  `D11427D0B59BD59479D0DC359296AECBE8618BF07841434A389AE1B49D15479F`.
+- Every temporary Godot and Playwright Chrome process exited cleanly, and the
+  required browser client was restored byte-for-byte. One intentional refreshed
+  production server remains on port 3000 as PID 24708 with HTTP 200 and empty
+  stderr.
+- Suggested next polish audit: give other accepted economic actions that debit
+  the Feed Fund (internships, management appointments, and authored governance
+  filings) the same receipt-driven destination contract where they do not
+  already own a stronger confirmation surface.
+
+## 2026-08-02 - Institutional spending continuity
+
+- Paid Bright-Eyed Rotation filings, rooster succession appointments, and Flock
+  Relations remedies now reuse the same compact Feed Fund debit grammar as
+  upgrades and provisions. Internship debits terminate on the named intern card,
+  management fees terminate on the durable roster disclosure, and case remedies
+  terminate on the filed resolution row or the stable Flockwatch fallback when
+  that row is clipped.
+- Added stable semantic names for every internship onboarding and term-review
+  control. Accepted zero-cost internship assignments and manager instructions
+  continue to file normally without impersonating a financial transaction;
+  rejected repeats cannot start or merge a debit.
+- The existing fixed three-object debit pool, kill-before-replace tween contract,
+  reduced-motion treatment, save neutrality, and single-owner audio model remain
+  unchanged. Campus construction and facility commissioning still use their
+  stronger held before/after receipts instead of receiving duplicate effects.
+- Added the `intern-debit` shipped-wrapper preview and deterministic
+  `institutional_spending_feedback_test.gd` coverage for real onboarding and
+  manager handlers, exact Fund deltas, stable destinations, denied repeats, and
+  accepted zero-cost instructions. Extended the real Flock Relations Office flow
+  with exact remedy-debit assertions. The focused Godot harness reports 3/3 pass
+  at `output/institutional-spending-tests-v1/shard-summary.json`; ESLint is clean
+  and the rendered/physical wrapper suite reports 49/49 pass.
+- Accepted official-browser evidence is
+  `output/web-game/intern-debit-official-v1/shot-0.png`. It shows the $3 docket
+  settling on Lottie Ledger's now-active card while the Flock roster stays open.
+  Matching state proves the exact semantic target and card name, one active
+  staged object, the settled $497 Fund, zero orphan nodes, and no console-error
+  artifact.
+- Godot Web export and Vinext production build pass. All 27 published payload
+  copies match across `docs`, root `dist`, and `web/dist/client/game`; HTML
+  SHA-256 is `5DAEDAEA93BC50E339D957EC34B0896C8B2B0AD38C6CA98F6E9709891E7E541E`
+  and the 9,641,684-byte PCK SHA-256 is
+  `5667CDF9825E2296AA89CAACCE99D4029FB16473848F183EC8A876AED2299EF1`.
+- Every temporary Godot and Playwright Chrome process exited cleanly, and the
+  required browser client was restored byte-for-byte. One intentional refreshed
+  production server remains on port 3000 as PID 30536 with HTTP 200 and empty
+  stderr.
+- Suggested next polish audit: unify the remaining ordinary governance and
+  market debits (public-credit campaigns, contract signing, and Farmgate filing
+  costs) with their permanent result rows, while preserving major held reveals
+  and irreversible confirmations.
+
+## 2026-08-02 - Farmgate filing clarity
+
+- Audited the remaining market and governance actions against the authoritative
+  economy before adding feedback. Farm Mutual signing freezes a reserve without
+  moving the Feed Fund, public-credit campaigns are payouts, and Farmgate's
+  Regional Showcase listing fee settles from sale proceeds. None of these now
+  impersonates an immediate debit.
+- Accepted Farmgate authorizations now leave one compact permanent route receipt
+  with the route, target day, frozen quote, and exact listing fee available to
+  assistive text. The selected active route reads `FILED / QUOTE LOCKED`, and
+  its disabled action reads `FILED` instead of looking like a held error.
+- Filing from Flockwatch preserves the Operations page, ledger scroll, and camera
+  context. Floor-authored filing still retains the physical Depot camera visit.
+- Added a deterministic `farmgate-filing` shipped-wrapper preview. The focused
+  authoritative economy, persistence, component, and full Office flows pass;
+  the final context/success-state harness reports 2/2 at
+  `output/farmgate-success-state-tests/shard-summary.json`. ESLint is clean and
+  the rendered/physical wrapper suite reports 49/49 pass under Node 24.
+- Accepted shipped-browser evidence is
+  `output/web-game/farmgate-filing-official-final/shot-0.png`. It shows the
+  County Auction as `FILED / QUOTE LOCKED`, the disabled `FILED` control, and
+  the durable `FILED / AUCTION / DAY 14 / 120%` receipt while Ops stays open.
+  Matching diagnostics prove the accepted Day 14 authorization, zero immediate
+  listing debit, active County Auction, Operations context, and zero orphan
+  nodes.
+- Godot Web export and Vinext production build pass. All 36 payload copies match
+  across `docs`, `web/public/game`, root `dist`, and `web/dist/client/game`;
+  HTML SHA-256 is
+  `C4B450C48EAF4339BD7037032A2EACB7F73B063831A7FF1DF7EC4C400DA37396`
+  and the 9,644,372-byte PCK SHA-256 is
+  `25B2FD8E492A0CD0781273061C40EC6459F95729C4923F95395C4434FF301270`.
+- The browser client was restored byte-for-byte and this pass left no owned
+  Godot or browser helper running. One intentional refreshed production server
+  remains on port 3000 as PID 18048 with HTTP 200 and empty stderr.
+
+## 2026-08-02 - Action feedback reading-surface handoff
+
+- Transient decision consequence cards now yield immediately when the player
+  opens Flockwatch. Their structured result remains archived with its title,
+  exact entries, accessible details, dismissal reason, and retired-card count,
+  while the global panels stop crossing the ledger's reading surface.
+- The handoff is bounded to the tracked action-card set. Replacement decisions
+  retire their prior cards before spawning a new row, natural completion records
+  a settled dismissal, and Flockwatch records an explicit `flockwatch` handoff.
+  No sound, simulation mutation, or save field was added.
+- Extended the real morning-policy and Flockwatch integration flow to prove all
+  three Assurance cards retire, the semantic three-entry receipt survives,
+  opening and closing remain functional, and the exact simulation save plus
+  audio cue serial remain unchanged. The focused harness reports 3/3 pass at
+  `output/action-receipt-handoff-tests-v1/shard-summary.json`; ESLint is clean
+  and the rendered/physical wrapper suite reports 49/49 pass under Node 24.
+- Accepted shipped-browser evidence is
+  `output/web-game/action-handoff-official-v1/shot-0.png`. The Operations ledger
+  is visually unobstructed. Matching diagnostics report Flockwatch open on Ops,
+  `action_feedback.visible=false`, `dismissed_by=flockwatch`, exactly three
+  archived entries and three retired panels, and zero orphan nodes.
+- Godot Web export and Vinext production build pass. All 36 payload copies match
+  across `docs`, `web/public/game`, root `dist`, and `web/dist/client/game`;
+  HTML SHA-256 is
+  `12C0F8C9EB3241087E49EB3DEFC1EA42E5FF5C06F2F88F5A50AC906AD07A91FF`
+  and the 9,645,252-byte PCK SHA-256 is
+  `DBB82748FDFB420B8177E48C81404208C082D3793473CBC4218EEE7652761013`.
+- The required browser client was restored byte-for-byte and no browser client
+  owned by this pass remains. One intentional refreshed production server stays
+  on port 3000 as PID 6512 with HTTP 200 and empty stderr.
+- Suggested next polish audit: apply the same explicit reading-surface ownership
+  rule to Settings and irreversible confirmation/reveal surfaces, retiring only
+  lower-priority global effects while preserving their durable receipts.
+
+## 2026-08-02 - Settings action-feedback handoff
+
+- The non-remappable Settings surface now explicitly owns the screen when it
+  opens. Any tracked decision-effect cards retire before the sheet appears, so
+  accessibility and control choices are no longer obscured by lower-priority
+  PACE, RISK, or RULES chips.
+- This is a presentation-only handoff: the full semantic action receipt remains
+  archived with its title, exact entries, accessible detail, `settings`
+  dismissal reason, and retired-card count. Held confirmations and reveal state
+  are preserved, the authoritative simulation save is unchanged, and Settings
+  keeps its single existing UI-open cue.
+- Added a deterministic shipped preview plus integration coverage through the
+  real F10 shortcut. The final focused harness reports 3/3 pass at
+  `output/settings-action-handoff-tests-final/shard-summary.json`; ESLint is
+  clean and the rendered/physical wrapper suite reports 49/49 pass under the
+  bundled Node 24 runtime.
+- Accepted browser evidence is
+  `output/web-game/settings-handoff-official-v1/shot-0.png`. It shows the clean
+  Settings sheet with no overlapping action cards. Matching diagnostics report
+  `settings.visible=true`, `action_feedback.visible=false`,
+  `dismissed_by=settings`, three retained entries, three retired panels, and
+  zero orphan nodes.
+- Godot Web export and the optimized Vinext build pass. All 36 payload copies
+  match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`; HTML SHA-256 is
+  `59B8870B7A960C45D96FB0DCB7E0D524BD5B44F10B701E2FE4A75D6A22E88FF2`
+  and the 9,647,508-byte PCK SHA-256 is
+  `E0F33C23B983662789E84A1725C1CD60E6A70F39C35319E1CC3ECD87637F8670`.
+- The browser inspection client was restored byte-for-byte and this pass left
+  no owned Godot or browser helper running. One intentional refreshed
+  production server remains on port 3000 as PID 26252 with HTTP 200 and empty
+  stderr.
+- Suggested next polish audit: ensure compact routine notifications also yield
+  cleanly while Settings or a held irreversible confirmation owns the screen.
+
+## 2026-08-02 - Irreversible confirmation reading-surface ownership
+
+- Live-floor claimant and staffing confirmations now own the complete reading
+  surface. Opening one immediately retires the bottom toast and any tracked
+  decision-effect chips while preserving both the notice in Shift Record and
+  the exact structured action receipt for accessibility and diagnostics.
+- Added allocation-free held-confirmation queries to routing and staffing. The
+  shared Office input boundary blocks camera/floor input but keeps the pending
+  routing authorization internally valid, so cancel restores the exact prior
+  context and confirm still files once. Settings now uses the same bounded
+  transient-feedback handoff without rewriting already-settled receipt history.
+- Extended the real claimant safety flow to prove routine notice archival,
+  two-card semantic retention, focus/input restoration, save neutrality, audio
+  silence, cancel safety, and exactly-once $1.20 settlement. The final focused
+  harness reports 4/4 pass at
+  `output/confirmation-feedback-handoff-tests-final/shard-summary.json`; ESLint
+  is clean and the rendered/physical wrapper suite reports 49/49 pass under the
+  bundled Node 24 runtime.
+- The first browser capture was correctly rejected because its default 250 ms
+  pause caught the handoff mid-transition. Accepted evidence is the settled
+  `output/web-game/confirmation-handoff-official-v2/shot-0.png`, captured with
+  the client's real `--pause-ms` option. It shows one claimant confirmation with
+  exact cost, beneficiary, benefit, burden, safe cancel, and irreversible CTA;
+  no toast or effect chips compete with it.
+- Matching diagnostics report the claimant confirmation open on `settle`,
+  camera input blocked, `notifications.toast_visible=false`, a retired routine
+  handoff retained in history, `action_feedback.visible=false`, three retained
+  Assurance entries, three retired panels, and zero orphan nodes.
+- Godot Web export and the optimized Vinext build pass. All 36 payload copies
+  match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`; HTML SHA-256 is
+  `22B2D1502C7B97907081B1B96B26B5371AA2BD13068FD2A9116268B1FC6CBE29`
+  and the 9,648,676-byte PCK SHA-256 is
+  `1986DBB0EAD3BAA99058D832C2774BB7E454E82F7D30C91945937EFCC0D4E0D2`.
+- The browser inspection client was restored byte-for-byte and this pass left
+  no owned Godot or browser helper running. One intentional refreshed
+  production server remains on port 3000 as PID 20952 with HTTP 200 and empty
+  stderr.
+- Suggested next polish audit: ensure successful or canceled confirmation
+  closure gives one concise contextual return cue without resurfacing stale
+  transient prose or stealing focus from the originating action.
+
+## 2026-08-02 - Claimant filing clarity and safe focus
+
+- Reworked claimant path confirmation into a compact economic ledger with a
+  full authored filing title, explicit claimant/path/cost/beneficiary/upside/
+  tradeoff rows, and a clear `NO CHANGE UNTIL YOU FILE` boundary. The permanent
+  action is now the rust `FILE SETTLEMENT` danger choice; the teal
+  `KEEP STANDARD` safe return receives initial keyboard focus.
+- Removed generic path labels, shortened the settlement benefit so it no longer
+  leaves an orphan percentage line, and made the authored confirmation summary
+  available to the web accessibility shell without repeated claimant copy or
+  doubled punctuation.
+- Extended the interaction-safety contract for exact title/button text,
+  danger/primary styling, real safe-return focus, ledger disclosure, cancel
+  neutrality, and exactly-once filing. The final focused Godot harness reports
+  4/4 pass at `output/claim-confirmation-copy-tests-final`; the post-polish
+  claimant and safety tests also pass. ESLint is clean and the rendered/
+  physical wrapper suite reports 49/49 pass under bundled Node 24.
+- Accepted shipped-browser evidence is
+  `output/web-game/claim-confirmation-polish-final/shot-0.png`. Matching state
+  reports the settlement dialog open, `safe_return` focus, camera input blocked,
+  toast and action cards retired, three structured receipt entries preserved,
+  three panels retired, and zero orphan nodes.
+- Godot Web export and the optimized Vinext build pass. All 36 payload copies
+  match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`; HTML SHA-256 is
+  `AF168967F10B0B4D269CF6D4F6AB66CB84F4E27972622794809EE3FA5FEA4DB8`
+  and the 9,650,116-byte PCK SHA-256 is
+  `4693204D345B05E73961FADD253FFDDEAAC58B1029ECB03A3124190EAFF65D6A`.
+- The browser inspection client was restored byte-for-byte and this pass left
+  no owned Godot or browser helper running. One intentional refreshed
+  production server remains on port 3000 as PID 30156 with HTTP 200 and empty
+  stderr.
+- Suggested next polish audit: give hen release and manager succession dialogs
+  this same compact ledger, explicit safe-return focus, and irreversible-action
+  hierarchy.
+
+## 2026-08-02 - Staffing confirmation clarity and responsive footer repair
+
+- Reworked hen release and manager succession into the same compact decision
+  grammar as claimant filings. Each dialog now exposes identity, permanent state
+  change, exact Feed Fund cost, payroll/roster consequences, operating output,
+  and a `NO CHANGE UNTIL YOU FILE` boundary without a prose wall.
+- Added explicit danger/safe action hierarchy and deferred safe-return focus.
+  Release uses `FILE RELEASE` versus `KEEP HEN`; succession uses `APPOINT`
+  versus `KEEP CURRENT`. Both authored summaries now flow through diagnostics
+  and the web accessibility shell before generic fallbacks.
+- Added deterministic shipped preview routes for both real production dialogs.
+  The first browser pass was rejected because legacy button clipping collapsed
+  release actions to colored slivers and truncated succession labels. Replacing
+  clipping with compact button typography restored full labels while preserving
+  the 390x844, 150-percent, and expanded-copy contracts.
+- The final interaction-safety and manager-recruitment suites pass, covering
+  safe focus, cancel neutrality, exact-once authority, full economic terms, and
+  responsive reachability. ESLint is clean and the rendered/physical web suite
+  reports 49/49 pass under bundled Node 24.
+- Accepted shipped-browser evidence is
+  `output/web-game/staff-release-confirmation-polish-accepted/shot-0.png` and
+  `output/web-game/manager-succession-confirmation-polish-accepted/shot-0.png`.
+  Matching state reports each dialog visible with `safe_return` focus, camera
+  input blocked, exact authored narration, and zero orphan nodes.
+- Godot Web export and the optimized Vinext build pass. All 36 payload copies
+  match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`; HTML SHA-256 is
+  `3D078DDE4587E0EB30B9D70A94A5C94B2ECEA81E2562E80FF574BAE195502846`
+  and the 9,651,204-byte PCK SHA-256 is
+  `E927891D135ACF29D351FDA34CD1A687F268437FAA4C05D7F579EC4ECC6D8200`.
+- The browser inspection client was restored byte-for-byte and this pass left
+  no owned Godot or browser helper running. One intentional refreshed
+  production server remains on port 3000 as PID 12120 with HTTP 200 and empty
+  stderr.
+- Suggested next polish audit: add a subdued modal backdrop for held
+  confirmations so dense Flockwatch pages visually recede, then restore the
+  exact originating page and focus on cancel.

@@ -402,14 +402,14 @@ func _build_release_confirmation() -> void:
 	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	copy.custom_minimum_size = Vector2(300.0, 132.0)
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_release_confirmation.get_ok_button().theme_type_variation = &"DangerButton"
+	_release_confirmation.get_cancel_button().theme_type_variation = &"PrimaryButton"
 	for action_button: Button in [
 		_release_confirmation.get_ok_button(),
 		_release_confirmation.get_cancel_button(),
 	]:
-		action_button.custom_minimum_size.x = 150.0
-		action_button.autowrap_mode = TextServer.AUTOWRAP_OFF
-		action_button.clip_text = true
-		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		action_button.custom_minimum_size.y = 40.0
+		action_button.add_theme_font_size_override("font_size", 11)
 	_release_confirmation.confirmed.connect(_confirm_release)
 	_release_confirmation.canceled.connect(_cancel_release_confirmation)
 	add_child(_release_confirmation)
@@ -418,6 +418,24 @@ func _build_release_confirmation() -> void:
 func interaction_safety_state() -> Dictionary:
 	var worker := _staffing_record(_pending_release_worker_id)
 	var manager_candidate := _manager_candidate_record(_pending_manager_candidate_id)
+	var release_focus := (
+		"confirm"
+		if _release_confirmation != null
+		and _release_confirmation.get_ok_button().has_focus() else
+		"safe_return"
+		if _release_confirmation != null
+		and _release_confirmation.get_cancel_button().has_focus() else
+		""
+	)
+	var manager_focus := (
+		"confirm"
+		if _manager_recruit_confirmation != null
+		and _manager_recruit_confirmation.get_ok_button().has_focus() else
+		"safe_return"
+		if _manager_recruit_confirmation != null
+		and _manager_recruit_confirmation.get_cancel_button().has_focus() else
+		""
+	)
 	return {
 		"release_confirmation_visible": (
 			_release_confirmation != null and _release_confirmation.visible
@@ -428,6 +446,22 @@ func interaction_safety_state() -> Dictionary:
 			worker.get("display_name", ""),
 		)),
 		"release_cost_cents": int(worker.get("release_cost_cents", 0)),
+		"release_confirmation_title": (
+			_release_confirmation.title if _release_confirmation != null else ""
+		),
+		"release_confirmation_confirm_label": (
+			_release_confirmation.get_ok_button().text
+			if _release_confirmation != null else ""
+		),
+		"release_confirmation_cancel_label": (
+			_release_confirmation.get_cancel_button().text
+			if _release_confirmation != null else ""
+		),
+		"release_confirmation_focus": release_focus,
+		"release_confirmation_accessible_text": (
+			String(_release_confirmation.get_meta("accessible_text", ""))
+			if _release_confirmation != null else ""
+		),
 		"manager_recruit_confirmation_visible": (
 			_manager_recruit_confirmation != null
 			and _manager_recruit_confirmation.visible
@@ -442,7 +476,34 @@ func interaction_safety_state() -> Dictionary:
 			"replaces_name",
 			"",
 		)),
+		"manager_recruit_confirmation_title": (
+			_manager_recruit_confirmation.title
+			if _manager_recruit_confirmation != null else ""
+		),
+		"manager_recruit_confirmation_confirm_label": (
+			_manager_recruit_confirmation.get_ok_button().text
+			if _manager_recruit_confirmation != null else ""
+		),
+		"manager_recruit_confirmation_cancel_label": (
+			_manager_recruit_confirmation.get_cancel_button().text
+			if _manager_recruit_confirmation != null else ""
+		),
+		"manager_recruit_confirmation_focus": manager_focus,
+		"manager_recruit_confirmation_accessible_text": (
+			String(_manager_recruit_confirmation.get_meta("accessible_text", ""))
+			if _manager_recruit_confirmation != null else ""
+		),
 	}
+
+
+func has_held_confirmation() -> bool:
+	return (
+		(_release_confirmation != null and _release_confirmation.visible)
+		or (
+			_manager_recruit_confirmation != null
+			and _manager_recruit_confirmation.visible
+		)
+	)
 
 
 func internship_program_diagnostic_state() -> Dictionary:
@@ -463,15 +524,14 @@ func _build_manager_recruit_confirmation() -> void:
 	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	copy.custom_minimum_size = Vector2(300.0, 132.0)
 	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_manager_recruit_confirmation.get_ok_button().theme_type_variation = &"DangerButton"
+	_manager_recruit_confirmation.get_cancel_button().theme_type_variation = &"PrimaryButton"
 	for action_button: Button in [
 		_manager_recruit_confirmation.get_ok_button(),
 		_manager_recruit_confirmation.get_cancel_button(),
 	]:
-		action_button.custom_minimum_size = Vector2(132.0, 44.0)
-		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		action_button.autowrap_mode = TextServer.AUTOWRAP_OFF
-		action_button.clip_text = true
-		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		action_button.custom_minimum_size.y = 40.0
+		action_button.add_theme_font_size_override("font_size", 11)
 	_manager_recruit_confirmation.confirmed.connect(_confirm_manager_recruit)
 	_manager_recruit_confirmation.canceled.connect(
 		_cancel_manager_recruit_confirmation
@@ -2845,20 +2905,42 @@ func _on_release_pressed() -> void:
 	)).strip_edges()
 	var release_cost := int(worker.get("release_cost_cents", 0))
 	var wage := int(worker.get("daily_wage_cents", 0))
-	_release_confirmation.title = "RELEASE %s?" % display_name.to_upper()
-	_release_confirmation.ok_button_text = "FILE %s'S RELEASE" % display_name.to_upper()
+	var release_cost_copy := (
+		"$0.00" if release_cost == 0 else "-$%.2f" % (float(release_cost) / 100.0)
+	)
+	_release_confirmation.title = "FILE %s'S RELEASE?" % display_name.to_upper()
+	_release_confirmation.ok_button_text = "FILE RELEASE"
+	_release_confirmation.cancel_button_text = "KEEP HEN"
 	_release_confirmation.dialog_text = (
-		"This separation removes %s from the active roost and her assigned perch.\n\n"
-		+ "SEPARATION COST  /  $%.2f\n"
-		+ "DAILY PAYROLL REMOVED  /  $%.2f\n\n"
-		+ "No Feed Fund, staffing, or save state changes until you confirm. "
-		+ "Once filed, this release cannot be undone during the current review."
+		"HEN  /  %s\n"
+		+ "STATUS  /  EMPLOYED -> RELEASED  ·  PERMANENT\n\n"
+		+ "COST  /  %s FEED FUND\n"
+		+ "PAYROLL  /  -$%.2f / DAY\n"
+		+ "ROOST  /  -1 ACTIVE HEN\n"
+		+ "PERCH  /  VACATED\n\n"
+		+ "NO CHANGE UNTIL YOU FILE."
 	) % [
 		display_name.to_upper(),
-		float(release_cost) / 100.0,
+		release_cost_copy,
 		float(wage) / 100.0,
 	]
-	_release_confirmation.popup_centered_clamped(Vector2i(370, 300), 0.92)
+	var confirm_button := _release_confirmation.get_ok_button()
+	var cancel_button := _release_confirmation.get_cancel_button()
+	confirm_button.tooltip_text = (
+		"Permanently release %s for %s Feed Fund."
+		% [display_name, release_cost_copy]
+	)
+	cancel_button.tooltip_text = "Return with %s still employed." % display_name
+	var accessible_copy := "%s %s Confirm: %s. Safe return: %s." % [
+		_release_confirmation.title,
+		_release_confirmation.dialog_text.replace("\n", " "),
+		confirm_button.text,
+		cancel_button.text,
+	]
+	_release_confirmation.set_meta("accessible_text", accessible_copy)
+	_release_confirmation.get_label().set_meta("accessible_text", accessible_copy)
+	_release_confirmation.popup_centered_clamped(Vector2i(380, 300), 0.92)
+	cancel_button.call_deferred("grab_focus")
 	interaction_safety_changed.emit()
 
 
@@ -2951,52 +3033,58 @@ func _on_manager_recruit_pressed(
 	var default_posture := _manager_posture_label(
 		StringName(String(candidate.get("default_posture", "coach")))
 	)
+	var signing_cost_copy := (
+		"$0.00" if signing_cost == 0 else "-$%.2f" % (float(signing_cost) / 100.0)
+	)
 	_manager_recruit_confirmation.title = (
 		"APPOINT %s?" % candidate_name.to_upper()
 	)
-	_manager_recruit_confirmation.ok_button_text = "FILE"
+	_manager_recruit_confirmation.ok_button_text = "APPOINT"
+	_manager_recruit_confirmation.cancel_button_text = "KEEP CURRENT"
 	_manager_recruit_confirmation.dialog_text = (
-		"%s  /  %s\n"
+		"CANDIDATE  /  %s\n"
+		+ "ROLE  /  %s\n"
 		+ "REPLACES  /  %s\n\n"
-		+ "FEE  /  $%.2f\n"
+		+ "COST  /  %s FEED FUND\n"
 		+ "ROOSTERS  /  %d -> %d\n"
-		+ "PAY  /  $%.2f -> $%.2f / DAY\n"
+		+ "PAYROLL  /  $%.2f -> $%.2f / DAY\n"
 		+ "POSTURE  /  %s\n"
-		+ "OUTPUT  /  REPORTS  /  EGGS 0\n\n"
-		+ "IRREVERSIBLE  /  THIS REVIEW"
+		+ "OUTPUT  /  REPORTS + MEETINGS  ·  EGGS 0\n"
+		+ "TERM  /  PERMANENT THIS REVIEW\n\n"
+		+ "NO CHANGE UNTIL YOU FILE."
 	) % [
 		candidate_name.to_upper(),
 		archetype.to_upper(),
 		replaced_name.to_upper(),
-		float(signing_cost) / 100.0,
+		signing_cost_copy,
 		manager_count,
 		manager_count,
 		float(payroll_before) / 100.0,
 		float(payroll_after) / 100.0,
 		default_posture.to_upper(),
 	]
-	var exact_confirmation := (
-		"Appoint %s as %s, replacing %s. Filing fee $%.2f. "
-		+ "Management headcount remains %d; daily supervisor payroll changes from $%.2f to $%.2f. "
-		+ "Default posture %s. Managers produce reports and meetings, never eggs. "
-		+ "No ledger changes occur before confirmation; succession is irreversible during this review."
-	) % [
-		candidate_name,
-		archetype,
-		replaced_name,
-		float(signing_cost) / 100.0,
-		manager_count,
-		float(payroll_before) / 100.0,
-		float(payroll_after) / 100.0,
-		default_posture,
+	var confirm_button := _manager_recruit_confirmation.get_ok_button()
+	var cancel_button := _manager_recruit_confirmation.get_cancel_button()
+	confirm_button.tooltip_text = (
+		"Permanently appoint %s for %s Feed Fund, replacing %s."
+		% [candidate_name, signing_cost_copy, replaced_name]
+	)
+	cancel_button.tooltip_text = "Return with %s still appointed." % replaced_name
+	var exact_confirmation := "%s %s Confirm: %s. Safe return: %s." % [
+		_manager_recruit_confirmation.title,
+		_manager_recruit_confirmation.dialog_text.replace("\n", " "),
+		confirm_button.text,
+		cancel_button.text,
 	]
 	var confirmation_copy := _manager_recruit_confirmation.get_label()
 	confirmation_copy.tooltip_text = exact_confirmation
 	confirmation_copy.set_meta("accessible_text", exact_confirmation)
+	_manager_recruit_confirmation.set_meta("accessible_text", exact_confirmation)
 	_manager_recruit_confirmation.popup_centered_clamped(
 		Vector2i(380, 390),
 		0.96,
 	)
+	cancel_button.call_deferred("grab_focus")
 	interaction_safety_changed.emit()
 
 

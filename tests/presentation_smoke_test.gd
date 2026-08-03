@@ -154,6 +154,39 @@ func _run() -> void:
 		failures,
 	)
 
+	view.configure_break_interaction(&"water", wellness + Vector3(-0.6, 0.9, 0.0))
+	view.apply_snapshot({
+		"state": ChickenState.WorkState.BREAK,
+		"stress": 22.0,
+	})
+	for _frame in 160:
+		await physics_frame
+	var break_interaction := view.break_interaction_state()
+	var held_cup := view.find_child("BreakInteractionCup", true, false) as Node3D
+	var cup_liquid := view.find_child("BreakInteractionCupLiquid", true, false) as MeshInstance3D
+	var held_magazine := view.find_child("BreakInteractionMagazine", true, false) as Node3D
+	_check(view.global_position.distance_to(wellness) < 0.08, "resting worker should reach the authored environment station", failures)
+	_check(bool(break_interaction.get("active", false)), "resting worker should activate her environment behavior after arrival", failures)
+	_check(String(break_interaction.get("kind", "")) == "water", "resting worker should retain her authored activity kind", failures)
+	_check(String(break_interaction.get("phase", "")) not in ["", "approach"], "active break behavior should expose a deliberate action phase", failures)
+	_check(held_cup != null and held_cup.visible, "water-cooler interaction should include a visible held cup", failures)
+	_check(cup_liquid != null and cup_liquid.visible, "held drink should include a visible liquid surface", failures)
+	view.configure_break_interaction(&"browse", wellness + Vector3(-0.6, 0.9, 0.0))
+	for _frame in 3:
+		await physics_frame
+	var browse_interaction := view.break_interaction_state()
+	_check(held_cup != null and not held_cup.visible, "switching activities should clear the previous held prop", failures)
+	_check(held_magazine != null and held_magazine.visible, "browsing should place an open physical periodical between the wings", failures)
+	_check(bool(browse_interaction.get("held_reading_visible", false)), "browsing diagnostics should report the held reading prop", failures)
+	view.apply_snapshot({
+		"state": ChickenState.WorkState.IDLE,
+		"stress": 22.0,
+	})
+	for _frame in 160:
+		await physics_frame
+	_check(view.global_position.distance_to(chair) < 0.08, "resting worker should follow the safe route back to her desk", failures)
+	_check(held_cup != null and not held_cup.visible, "held breakroom prop should clear after the interaction", failures)
+
 	var attendance := Vector3(-1.0, 0.0, 0.0)
 	var trough := Vector3(0.0, 0.0, 0.0)
 	var attendance_observation := {"ready": 0, "completed": 0}

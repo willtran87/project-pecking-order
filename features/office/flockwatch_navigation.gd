@@ -561,6 +561,9 @@ func accessible_text() -> String:
 	]
 	if not _last_feedback.is_empty():
 		summary += " Latest notice: %s" % _last_feedback
+	var visible_page_copy := _current_page_visible_accessible_copy()
+	if not visible_page_copy.is_empty():
+		summary += " Visible filing: %s" % visible_page_copy
 	if _current_page_id == PAGE_TODAY:
 		var case_docket := _snapshot.get("case_docket", {}) as Dictionary
 		var active_precedents: Array[Dictionary] = []
@@ -610,6 +613,29 @@ func accessible_text() -> String:
 				String(bottleneck.get("action", "")),
 			]
 	return summary
+
+
+func _current_page_visible_accessible_copy() -> String:
+	var content := _page_contents.get(_current_page_id) as VBoxContainer
+	if content == null or not is_instance_valid(content):
+		return ""
+	var entries: Array[String] = []
+	var character_count := 0
+	for node: Node in content.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label == null or not label.is_visible_in_tree():
+			continue
+		var copy := String(label.get_meta("accessible_text", "")).strip_edges()
+		if copy.is_empty() or copy in entries:
+			continue
+		copy = copy.replace("\n", "; ")
+		if character_count + copy.length() > 2400:
+			break
+		entries.append(copy)
+		character_count += copy.length()
+		if entries.size() >= 12:
+			break
+	return " | ".join(entries)
 
 
 func _ensure_interface() -> void:
@@ -902,6 +928,12 @@ func _focus_control_for_page(page_id: StringName) -> Button:
 
 func _display_feedback(copy: String) -> String:
 	const MAX_VISIBLE_CHARACTERS := 180
+	var normalized := copy.strip_edges().to_upper()
+	if normalized.begins_with("SHIFT PAUSED."):
+		return "PAUSED  ·  TIME SAFE"
+	if normalized.begins_with("SHIFT RUNNING AT "):
+		var speed_label := copy.substr("SHIFT RUNNING AT ".length()).get_slice(".", 0).strip_edges()
+		return "LIVE %s  ·  HENS ACTIVE" % speed_label.replace("x", "×")
 	if copy.length() <= MAX_VISIBLE_CHARACTERS:
 		return copy
 	return copy.left(MAX_VISIBLE_CHARACTERS - 1).rstrip(" ,.;:") + "…"

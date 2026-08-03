@@ -29,6 +29,8 @@ signal manager_action_resolved(result: Dictionary)
 signal internship_action_resolved(result: Dictionary)
 signal peck_assist_resolved(result: Dictionary)
 signal peck_assist_missed(worker_id: int, claim_id: int)
+signal routing_momentum_broken(receipt: Dictionary)
+signal routing_momentum_recovered(receipt: Dictionary)
 signal staffing_action_resolved(result: Dictionary)
 signal career_sponsorship_resolved(result: Dictionary)
 signal office_capacity_changed(capacity: int, cost_cents: int)
@@ -54,7 +56,7 @@ const BASE_CLAIM_CAPACITY := 18
 const CLAIM_CAPACITY_PER_RECORDS_LEVEL := 6
 const BASE_WORK_PROGRESS := 3.2
 const MAX_UPGRADE_LEVEL := 5
-const SAVE_STATE_VERSION := 28
+const SAVE_STATE_VERSION := 30
 const ECONOMIC_WATCH_ORDER: Array[StringName] = [
 	&"auto",
 	&"margin",
@@ -80,6 +82,12 @@ const PECK_ASSIST_WINDOW_END := 88.0
 const PECK_ASSIST_IDEAL_PROGRESS := 62.0
 const PECK_ASSIST_GOLD_START := 58.0
 const PECK_ASSIST_GOLD_END := 66.0
+const ROUTING_MOMENTUM_PACE_MILESTONE := 2
+const ROUTING_MOMENTUM_PECK_MILESTONE := 3
+const ROUTING_MOMENTUM_GOLDEN_MILESTONE := 5
+const ROUTING_MOMENTUM_CELEBRATION_MILESTONE := 10
+const ROUTING_MOMENTUM_MASTERY_INTERVAL := 5
+const ROUTING_MOMENTUM_PACE_MULTIPLIER := 1.15
 ## Clock-driven snapshots publish several large planning projections that do not
 ## need to be rebuilt at the authoritative tick rate. Keep their visible age
 ## below two seconds while direct actions and explicit snapshot() reads remain
@@ -1149,7 +1157,7 @@ const CLAIM_RESOLUTION_DEFINITIONS := {
 		"work_basis_points": 10_000,
 		"crack_basis_points": -300,
 		"beneficiary": "CLAIMANT",
-		"benefit": "Immediate approved support; shell risk -3%.",
+		"benefit": "Fast approved support; shell risk -3%.",
 		"burden": "Feed Fund pays $1.20 now.",
 	},
 	&"deny": {
@@ -1878,6 +1886,18 @@ var last_peck_assist: Dictionary = {}
 var last_peck_assist_delivery: Dictionary = {}
 var priority_credit_today_cents: int = 0
 var priority_credit_total_cents: int = 0
+var routing_momentum_chain: int = 0
+var best_routing_momentum_chain: int = 0
+var routing_momentum_peck_recharge_bank: int = 0
+var routing_momentum_peck_recharges_used_today: int = 0
+var routing_momentum_golden_charges: int = 0
+var routing_momentum_golden_target_claim_id: int = -1
+var routing_momentum_golden_target_worker_id: int = -1
+var last_routing_dispatch: Dictionary = {}
+var routing_momentum_break_serial: int = 0
+var last_routing_momentum_break: Dictionary = {}
+var routing_momentum_recovery_serial: int = 0
+var last_routing_momentum_recovery: Dictionary = {}
 var manager_roster: Array[Dictionary] = []
 var last_manager_action: Dictionary = {}
 var management_reports_today: int = 0
@@ -1934,6 +1954,7 @@ var _assist_quality_modifiers: Dictionary[int, float] = {}
 var _assist_chain_by_claim_id: Dictionary[int, int] = {}
 var _pending_peck_assist_deliveries: Dictionary[int, Dictionary] = {}
 var _settled_peck_assist_delivery_ids: Dictionary[int, bool] = {}
+var _routing_momentum_free_assist_claim_ids: Dictionary[int, bool] = {}
 var _feed_procurement = FeedProcurementStateScript.new()
 var _harvest_credit = HarvestCreditStateScript.new()
 var _farmgate_dispatch = FarmgateDispatchStateScript.new()
@@ -8497,7 +8518,14 @@ func _capacity_upgrade_cost_cents() -> int:
 
 
 func _peck_assist_charges_available() -> int:
-	return clampi(PECK_ASSIST_LIMIT - peck_assists_used_today, 0, PECK_ASSIST_LIMIT)
+	return (
+		clampi(PECK_ASSIST_LIMIT - peck_assists_used_today, 0, PECK_ASSIST_LIMIT)
+		+ routing_momentum_peck_recharge_bank
+	)
+
+
+func _peck_assist_charge_limit() -> int:
+	return PECK_ASSIST_LIMIT + routing_momentum_peck_recharge_bank
 
 
 func _pending_peck_assist_delivery_snapshot() -> Array[Dictionary]:
@@ -8588,6 +8616,10 @@ func export_save_state() -> Dictionary:
 	var saved_assist_chains: Dictionary = {}
 	for claim_id in _assist_chain_by_claim_id:
 		saved_assist_chains[str(claim_id)] = int(_assist_chain_by_claim_id[claim_id])
+	var saved_routing_free_assist_ids: Array[int] = []
+	for claim_id in _routing_momentum_free_assist_claim_ids:
+		saved_routing_free_assist_ids.append(int(claim_id))
+	saved_routing_free_assist_ids.sort()
 	var saved_incident_bag: Array[String] = []
 	for incident_id in _incident_bag:
 		saved_incident_bag.append(String(incident_id))
@@ -8709,6 +8741,15 @@ func export_save_state() -> Dictionary:
 		"last_peck_assist_delivery": last_peck_assist_delivery.duplicate(true),
 		"priority_credit_today_cents": priority_credit_today_cents,
 		"priority_credit_total_cents": priority_credit_total_cents,
+		"routing_momentum_chain": routing_momentum_chain,
+		"best_routing_momentum_chain": best_routing_momentum_chain,
+		"routing_momentum_peck_recharge_bank": routing_momentum_peck_recharge_bank,
+		"routing_momentum_peck_recharges_used_today": routing_momentum_peck_recharges_used_today,
+		"routing_momentum_golden_charges": routing_momentum_golden_charges,
+		"routing_momentum_golden_target_claim_id": routing_momentum_golden_target_claim_id,
+		"routing_momentum_golden_target_worker_id": routing_momentum_golden_target_worker_id,
+		"last_routing_dispatch": last_routing_dispatch.duplicate(true),
+		"routing_momentum_free_assist_claim_ids": saved_routing_free_assist_ids,
 		"assisted_claim_ids": saved_assisted_claim_ids,
 		"missed_assist_claim_ids": saved_missed_claim_ids,
 		"assist_quality_modifiers": saved_assist_quality,
@@ -9777,6 +9818,12 @@ func restore_save_state(data: Dictionary) -> bool:
 	for assist_integer_field in [
 		"peck_assists_used_today", "peck_assist_streak", "best_peck_assist_streak",
 		"priority_credit_today_cents", "priority_credit_total_cents",
+		"routing_momentum_chain", "best_routing_momentum_chain",
+		"routing_momentum_peck_recharge_bank",
+		"routing_momentum_peck_recharges_used_today",
+		"routing_momentum_golden_charges",
+		"routing_momentum_golden_target_claim_id",
+		"routing_momentum_golden_target_worker_id",
 	]:
 		if not _is_integral_number(data.get(assist_integer_field, null)):
 			return false
@@ -9785,6 +9832,13 @@ func restore_save_state(data: Dictionary) -> bool:
 	var restored_best_assist_streak := int(data.get("best_peck_assist_streak", -1))
 	var restored_priority_today := int(data.get("priority_credit_today_cents", -1))
 	var restored_priority_total := int(data.get("priority_credit_total_cents", -1))
+	var restored_routing_chain := int(data.get("routing_momentum_chain", -1))
+	var restored_best_routing_chain := int(data.get("best_routing_momentum_chain", -1))
+	var restored_routing_peck_bank := int(data.get("routing_momentum_peck_recharge_bank", -1))
+	var restored_routing_peck_uses := int(data.get("routing_momentum_peck_recharges_used_today", -1))
+	var restored_routing_golden_charges := int(data.get("routing_momentum_golden_charges", -1))
+	var restored_routing_golden_target_claim_id := int(data.get("routing_momentum_golden_target_claim_id", -2))
+	var restored_routing_golden_target_worker_id := int(data.get("routing_momentum_golden_target_worker_id", -2))
 	var restored_interventions_value: Variant = data.get(
 		"peck_assist_interventions_today",
 		restored_assist_uses,
@@ -9801,13 +9855,21 @@ func restore_save_state(data: Dictionary) -> bool:
 		restored_assist_uses < 0 or restored_assist_uses > PECK_ASSIST_LIMIT
 		or restored_interventions < 0 or restored_interventions > 9999
 		or restored_refunds < 0 or restored_refunds > restored_interventions
-		or restored_interventions - restored_refunds != restored_assist_uses
+		or restored_interventions - restored_refunds - restored_routing_peck_uses != restored_assist_uses
 		or restored_assist_streak < 0 or restored_assist_streak > 9999
 		or restored_best_assist_streak < restored_assist_streak
 		or restored_best_assist_streak > 9999
 		or restored_priority_today < 0
 		or restored_priority_total < restored_priority_today
 		or restored_priority_total > 2_000_000_000
+		or restored_routing_chain < 0 or restored_routing_chain > 9999
+		or restored_best_routing_chain < restored_routing_chain
+		or restored_best_routing_chain > 9999
+		or restored_routing_peck_bank not in [0, 1]
+		or restored_routing_peck_uses < 0 or restored_routing_peck_uses > restored_interventions
+		or restored_routing_golden_charges not in [0, 1]
+		or restored_routing_golden_target_claim_id < -1
+		or restored_routing_golden_target_worker_id < -1
 	):
 		return false
 	var restored_last_assist_value: Variant = data.get("last_peck_assist", {})
@@ -9824,6 +9886,11 @@ func restore_save_state(data: Dictionary) -> bool:
 		[],
 	)
 	var restored_last_delivery_value: Variant = data.get("last_peck_assist_delivery", {})
+	var restored_last_routing_dispatch_value: Variant = data.get("last_routing_dispatch", {})
+	var restored_routing_free_assist_ids_value: Variant = data.get(
+		"routing_momentum_free_assist_claim_ids",
+		[],
+	)
 	if (
 		not restored_last_assist_value is Dictionary
 		or not restored_assisted_ids_value is Array
@@ -9833,6 +9900,8 @@ func restore_save_state(data: Dictionary) -> bool:
 		or not restored_pending_deliveries_value is Array
 		or not restored_settled_delivery_ids_value is Array
 		or not restored_last_delivery_value is Dictionary
+		or not restored_last_routing_dispatch_value is Dictionary
+		or not restored_routing_free_assist_ids_value is Array
 	):
 		return false
 	var restored_last_assist := (restored_last_assist_value as Dictionary).duplicate(true)
@@ -9843,6 +9912,9 @@ func restore_save_state(data: Dictionary) -> bool:
 	if not _is_valid_peck_assist_delivery_receipt(restored_last_delivery, saved_day):
 		return false
 	restored_last_delivery = _normalized_peck_assist_delivery_receipt(restored_last_delivery)
+	var restored_last_routing_dispatch := (
+		(restored_last_routing_dispatch_value as Dictionary).duplicate(true)
+	)
 
 	var seen_claim_ids: Dictionary[int, bool] = {}
 	var personnel_actions_by_day: Dictionary[int, int] = {}
@@ -10004,6 +10076,27 @@ func restore_save_state(data: Dictionary) -> bool:
 	if (
 		restored_active_count < MINIMUM_STAFF_COUNT
 		or restored_active_count > saved_office_capacity
+	):
+		return false
+	var restored_golden_target_valid := (
+		restored_routing_golden_charges == 1
+		and restored_routing_golden_target_worker_id >= 0
+		and restored_routing_golden_target_worker_id < restored_workers.size()
+		and restored_workers[restored_routing_golden_target_worker_id].current_claim != null
+		and restored_workers[restored_routing_golden_target_worker_id].current_claim.id
+		== restored_routing_golden_target_claim_id
+	)
+	if (
+		(restored_routing_golden_target_claim_id == -1)
+		!= (restored_routing_golden_target_worker_id == -1)
+		or (
+			restored_routing_golden_target_claim_id >= 0
+			and not restored_golden_target_valid
+		)
+		or (
+			restored_routing_golden_charges == 0
+			and restored_routing_golden_target_claim_id != -1
+		)
 	):
 		return false
 	for module_id: StringName in CampusPortfolioStateScript.MODULE_ORDER:
@@ -10266,6 +10359,18 @@ func restore_save_state(data: Dictionary) -> bool:
 		):
 			return false
 		restored_missed_ids[missed_claim_id] = true
+	var restored_routing_free_assist_ids: Dictionary[int, bool] = {}
+	for claim_id_value in (restored_routing_free_assist_ids_value as Array):
+		if not _is_integral_number(claim_id_value):
+			return false
+		var free_claim_id := int(claim_id_value)
+		if (
+			free_claim_id < 1
+			or not restored_assisted_ids.has(free_claim_id)
+			or restored_routing_free_assist_ids.has(free_claim_id)
+		):
+			return false
+		restored_routing_free_assist_ids[free_claim_id] = true
 	var restored_assist_quality: Dictionary[int, float] = {}
 	for key_value in (restored_assist_quality_value as Dictionary):
 		var quality_key_text := String(key_value)
@@ -10331,7 +10436,8 @@ func restore_save_state(data: Dictionary) -> bool:
 	if (
 		restored_assist_quality.size() != restored_assisted_ids.size()
 		or restored_assist_chains.size() != restored_assisted_ids.size()
-		or restored_assisted_ids.size() > restored_assist_uses
+		or restored_assisted_ids.size() > restored_assist_uses + restored_routing_peck_uses
+		or restored_routing_free_assist_ids.size() > restored_routing_peck_uses
 		or restored_pending_deliveries.size() > restored_assist_uses
 		or restored_settled_delivery_ids.size() != restored_refunds
 		or (restored_refunds == 0 and not restored_last_delivery.is_empty())
@@ -10437,12 +10543,21 @@ func restore_save_state(data: Dictionary) -> bool:
 	last_peck_assist_delivery = restored_last_delivery
 	priority_credit_today_cents = restored_priority_today
 	priority_credit_total_cents = restored_priority_total
+	routing_momentum_chain = restored_routing_chain
+	best_routing_momentum_chain = restored_best_routing_chain
+	routing_momentum_peck_recharge_bank = restored_routing_peck_bank
+	routing_momentum_peck_recharges_used_today = restored_routing_peck_uses
+	routing_momentum_golden_charges = restored_routing_golden_charges
+	routing_momentum_golden_target_claim_id = restored_routing_golden_target_claim_id
+	routing_momentum_golden_target_worker_id = restored_routing_golden_target_worker_id
+	last_routing_dispatch = restored_last_routing_dispatch
 	_assisted_claim_ids = restored_assisted_ids
 	_missed_assist_claim_ids = restored_missed_ids
 	_assist_quality_modifiers = restored_assist_quality
 	_assist_chain_by_claim_id = restored_assist_chains
 	_pending_peck_assist_deliveries = restored_pending_deliveries
 	_settled_peck_assist_delivery_ids = restored_settled_delivery_ids
+	_routing_momentum_free_assist_claim_ids = restored_routing_free_assist_ids
 	day = clampi(int(data.get("day", 1)), 1, 9999)
 	minute_of_day = clampi(int(data.get("minute_of_day", SHIFT_START_MINUTE)), SHIFT_START_MINUTE, SHIFT_END_MINUTE)
 	claims_processed = maxi(0, int(data.get("claims_processed", 0)))
@@ -11301,6 +11416,39 @@ func _migrate_save_state(source: Dictionary) -> Dictionary:
 					InternshipProgramStateScript.neutral_save_data()
 				)
 				source_version = 28
+				migrated["state_version"] = source_version
+			28:
+				# v29 makes the tray-dispatch skill chain authoritative. Earlier
+				# careers begin neutral; no routing judgment can be inferred safely.
+				for field in [
+					"routing_momentum_chain",
+					"best_routing_momentum_chain",
+					"routing_momentum_peck_recharge_bank",
+					"routing_momentum_peck_recharges_used_today",
+					"routing_momentum_golden_charges",
+				]:
+					if migrated.has(field):
+						if original_source_version == 28:
+							return {}
+						migrated.erase(field)
+					migrated[field] = 0
+				migrated["last_routing_dispatch"] = {}
+				migrated["routing_momentum_free_assist_claim_ids"] = []
+				source_version = 29
+				migrated["state_version"] = source_version
+			29:
+				# v30 binds the banked x5 reward to one active authoritative file.
+				# Existing careers keep the charge but wait for the next live claim.
+				for field in [
+					"routing_momentum_golden_target_claim_id",
+					"routing_momentum_golden_target_worker_id",
+				]:
+					if migrated.has(field):
+						if original_source_version == 29:
+							return {}
+						migrated.erase(field)
+					migrated[field] = -1
+				source_version = 30
 				migrated["state_version"] = source_version
 			_:
 				return {}
@@ -14784,6 +14932,435 @@ func set_worker_assignment(worker_id: int, lane: StringName) -> bool:
 	return true
 
 
+func routing_momentum_snapshot() -> Dictionary:
+	var pace_active := routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+	var next_milestone := 0
+	var next_reward := ""
+	var mastery_target_kind: StringName = &""
+	if routing_momentum_chain < ROUTING_MOMENTUM_CELEBRATION_MILESTONE:
+		for milestone in [
+			ROUTING_MOMENTUM_PACE_MILESTONE,
+			ROUTING_MOMENTUM_PECK_MILESTONE,
+			ROUTING_MOMENTUM_GOLDEN_MILESTONE,
+			ROUTING_MOMENTUM_CELEBRATION_MILESTONE,
+		]:
+			if routing_momentum_chain < milestone:
+				next_milestone = milestone
+				break
+		match next_milestone:
+			ROUTING_MOMENTUM_PACE_MILESTONE:
+				next_reward = "PACE +15%"
+			ROUTING_MOMENTUM_PECK_MILESTONE:
+				next_reward = "PECK RECHARGE"
+			ROUTING_MOMENTUM_GOLDEN_MILESTONE:
+				next_reward = "GOLDEN FILE"
+			ROUTING_MOMENTUM_CELEBRATION_MILESTONE:
+				next_reward = "TEAM LIFT"
+	else:
+		# Once the authored reward ladder is mastered, the existing persistent
+		# best chain becomes the progression. Rebuild the exact prior record after
+		# a break, then aim at the next five-route crest; no new currency or farmable
+		# economic modifier is introduced.
+		if best_routing_momentum_chain > routing_momentum_chain:
+			next_milestone = best_routing_momentum_chain
+			next_reward = "REBUILD BEST"
+			mastery_target_kind = &"rebuild"
+		else:
+			next_milestone = maxi(
+				15,
+				(floori(float(routing_momentum_chain) / ROUTING_MOMENTUM_MASTERY_INTERVAL) + 1)
+				* ROUTING_MOMENTUM_MASTERY_INTERVAL,
+			)
+			next_reward = "MASTER RECORD"
+			mastery_target_kind = &"record"
+	return {
+		"chain": routing_momentum_chain,
+		"best_chain": best_routing_momentum_chain,
+		"pace_active": pace_active,
+		"pace_multiplier": ROUTING_MOMENTUM_PACE_MULTIPLIER if pace_active else 1.0,
+		"peck_recharge_bank": routing_momentum_peck_recharge_bank,
+		"golden_charges": routing_momentum_golden_charges,
+		"golden_target_claim_id": routing_momentum_golden_target_claim_id,
+		"golden_target_worker_id": routing_momentum_golden_target_worker_id,
+		"golden_target_bound": routing_momentum_golden_target_claim_id >= 0,
+		"next_milestone": next_milestone,
+		"next_reward": next_reward,
+		"mastery_active": routing_momentum_chain >= ROUTING_MOMENTUM_CELEBRATION_MILESTONE,
+		"mastery_target_kind": mastery_target_kind,
+		"mastery_interval": ROUTING_MOMENTUM_MASTERY_INTERVAL,
+		"last_dispatch": last_routing_dispatch.duplicate(true),
+		"break_serial": routing_momentum_break_serial,
+		"last_break": last_routing_momentum_break.duplicate(true),
+		"recovery_pending": (
+			routing_momentum_break_serial > 0
+			and int(last_routing_momentum_recovery.get("break_serial", 0))
+			< routing_momentum_break_serial
+		),
+		"recovery_serial": routing_momentum_recovery_serial,
+		"last_recovery": last_routing_momentum_recovery.duplicate(true),
+	}
+
+
+func _bind_routing_golden_target() -> Dictionary:
+	if (
+		routing_momentum_golden_charges <= 0
+		or routing_momentum_golden_target_claim_id >= 0
+	):
+		return {}
+	var selected_worker: ChickenState
+	for worker in workers:
+		if not worker.employed or worker.current_claim == null:
+			continue
+		if (
+			selected_worker == null
+			or worker.work_progress > selected_worker.work_progress
+			or (
+				is_equal_approx(worker.work_progress, selected_worker.work_progress)
+				and worker.current_claim.id < selected_worker.current_claim.id
+			)
+		):
+			selected_worker = worker
+	if selected_worker == null:
+		return {}
+	routing_momentum_golden_target_claim_id = selected_worker.current_claim.id
+	routing_momentum_golden_target_worker_id = selected_worker.id
+	return {
+		"claim_id": routing_momentum_golden_target_claim_id,
+		"worker_id": routing_momentum_golden_target_worker_id,
+		"worker_name": selected_worker.display_name,
+		"lane": selected_worker.current_claim.lane,
+	}
+
+
+func _release_routing_golden_target() -> void:
+	routing_momentum_golden_target_claim_id = -1
+	routing_momentum_golden_target_worker_id = -1
+
+
+func dispatch_worker_to_lane(worker_id: int, lane: StringName) -> Dictionary:
+	## Authoritative boundary for the physical tray gesture. Only a genuine
+	## assignment change can build momentum, preventing repeated clicks from
+	## farming milestones without routing another file stream.
+	if lane == AUTO_ASSIGNMENT or not CLAIM_LANE_DEFINITIONS.has(lane):
+		return {"accepted": false, "reason": "Choose a staffed intake tray."}
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return {"accepted": false, "reason": "Choose an employed hen."}
+	var worker := workers[worker_id]
+	if worker.assigned_lane == lane and worker.manually_routed:
+		return {
+			"accepted": false,
+			"reason": "%s is already routed to %s." % [
+				worker.display_name,
+				String(lane).replace("_", " ").capitalize(),
+			],
+		}
+	var candidates := dispatch_candidates(lane)
+	if candidates.is_empty():
+		return {"accepted": false, "reason": "No employed hen can take this tray."}
+	var selected: Dictionary = {}
+	for candidate in candidates:
+		if int(candidate.get("worker_id", -1)) == worker_id:
+			selected = candidate
+			break
+	if selected.is_empty():
+		return {"accepted": false, "reason": "That hen cannot take this tray."}
+
+	var previous_lane := worker.assigned_lane
+	worker.assigned_lane = lane
+	worker.manually_routed = true
+	_breach_specialty_compact_for_assignment(worker)
+	var recommended := bool(selected.get("recommended", false))
+	var chain_before := routing_momentum_chain
+	var reward: Dictionary = {}
+	var break_receipt: Dictionary = {}
+	var recovery_receipt: Dictionary = {}
+	if recommended:
+		var previous_best_chain := best_routing_momentum_chain
+		routing_momentum_chain += 1
+		best_routing_momentum_chain = maxi(
+			best_routing_momentum_chain,
+			routing_momentum_chain,
+		)
+		if (
+			chain_before == 0
+			and routing_momentum_break_serial > 0
+			and int(last_routing_momentum_recovery.get("break_serial", 0))
+			< routing_momentum_break_serial
+		):
+			routing_momentum_recovery_serial += 1
+			recovery_receipt = {
+				"serial": routing_momentum_recovery_serial,
+				"day": day,
+				"minute": minute_of_day,
+				"break_serial": routing_momentum_break_serial,
+				"broken_chain": int(last_routing_momentum_break.get("broken_chain", 0)),
+				"worker_id": worker.id,
+				"worker_name": worker.display_name,
+				"lane": lane,
+				"recovered_chain": routing_momentum_chain,
+				"label": "FIT LINKED  x1",
+				"detail": "The best-fit route rebuilt routing flow at x1.",
+			}
+			last_routing_momentum_recovery = recovery_receipt.duplicate(true)
+		reward = _apply_routing_momentum_milestone(
+			routing_momentum_chain,
+			previous_best_chain,
+		)
+		if not reward.is_empty():
+			# A chain milestone occurs once within a break epoch. This stable receipt
+			# key lets presentation reject duplicate delivery callbacks without
+			# persisting a second authority counter.
+			reward["authority_key"] = "%d:%d:%d:%d" % [
+				day,
+				routing_momentum_break_serial,
+				routing_momentum_chain,
+				worker.id,
+			]
+			reward["worker_id"] = worker.id
+			reward["lane"] = lane
+	else:
+		break_receipt = _break_routing_momentum(
+			"A poor-fit tray ended the live pace bonus.",
+			&"poor_fit",
+			worker.id,
+		)
+	var momentum_state := routing_momentum_snapshot()
+	momentum_state.erase("last_dispatch")
+	var receipt := {
+		"accepted": true,
+		"day": day,
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"lane": lane,
+		"previous_lane": previous_lane,
+		"recommended": recommended,
+		"specialty_match": bool(selected.get("specialty_match", false)),
+		"momentum_before": chain_before,
+		"momentum_chain": routing_momentum_chain,
+		"reward": reward.duplicate(true),
+		"break": break_receipt.duplicate(true),
+		"recovery": recovery_receipt.duplicate(true),
+		"momentum": momentum_state,
+	}
+	last_routing_dispatch = receipt.duplicate(true)
+	if not recovery_receipt.is_empty():
+		routing_momentum_recovered.emit(recovery_receipt.duplicate(true))
+	if recommended:
+		announcement_posted.emit("BEST-FIT FLOW x%d: %s took the %s tray.%s" % [
+			routing_momentum_chain,
+			worker.display_name,
+			String(lane).replace("_", " ").to_upper(),
+			("  %s" % String(reward.get("label", ""))) if not reward.is_empty() else "",
+		])
+	snapshot_changed.emit(snapshot())
+	return receipt
+
+
+func _apply_routing_momentum_milestone(
+	chain: int,
+	previous_best_chain: int = -1,
+) -> Dictionary:
+	match chain:
+		ROUTING_MOMENTUM_PACE_MILESTONE:
+			return {
+				"id": &"pace",
+				"label": "PACE +15%",
+				"description": "Best-fit routed work now moves 15% faster while the flow holds.",
+			}
+		ROUTING_MOMENTUM_PECK_MILESTONE:
+			var charges_before := _peck_assist_charges_available()
+			var limit_before := _peck_assist_charge_limit()
+			if peck_assists_used_today > 0:
+				peck_assists_used_today -= 1
+				routing_momentum_peck_recharges_used_today += 1
+			elif routing_momentum_peck_recharge_bank <= 0:
+				routing_momentum_peck_recharge_bank = 1
+			var charges_after := _peck_assist_charges_available()
+			var limit_after := _peck_assist_charge_limit()
+			var refilled := charges_after > charges_before
+			return {
+				"id": &"peck_recharge",
+				"label": "PECK +1" if refilled else "PECK READY",
+				"description": (
+					"One Priority Peck was restored or banked."
+					if refilled else
+					"The Priority Peck reserve was already full."
+				),
+				"charges_before": charges_before,
+				"charges_after": charges_after,
+				"limit_before": limit_before,
+				"limit_after": limit_after,
+				"refilled": refilled,
+				"banked": routing_momentum_peck_recharge_bank > 0,
+			}
+		ROUTING_MOMENTUM_GOLDEN_MILESTONE:
+			routing_momentum_golden_charges = 1
+			var target := _bind_routing_golden_target()
+			return {
+				"id": &"golden_file",
+				"label": "GOLD SEALED" if not target.is_empty() else "GOLD READY",
+				"description": (
+					"Claim #%04d is sealed golden through grading." % int(target.get("claim_id", 0))
+					if not target.is_empty() else
+					"The next active file receives the golden seal."
+				),
+				"target": target.duplicate(true),
+			}
+		ROUTING_MOMENTUM_CELEBRATION_MILESTONE:
+			var affected_workers: Array[Dictionary] = []
+			for affected_worker in workers:
+				if not affected_worker.employed:
+					continue
+				affected_workers.append({
+					"worker_id": affected_worker.id,
+					"worker_name": affected_worker.display_name,
+					"morale_before": affected_worker.morale,
+					"stress_before": affected_worker.stress,
+					"fatigue_before": affected_worker.fatigue,
+				})
+			_adjust_workers(3.0, -2.0, -1.0)
+			for affected_index in affected_workers.size():
+				var affected := affected_workers[affected_index]
+				var affected_worker_id := int(affected.get("worker_id", -1))
+				if affected_worker_id < 0 or affected_worker_id >= workers.size():
+					continue
+				var affected_worker := workers[affected_worker_id]
+				affected["morale_after"] = affected_worker.morale
+				affected["stress_after"] = affected_worker.stress
+				affected["fatigue_after"] = affected_worker.fatigue
+				affected["morale_delta"] = affected_worker.morale - float(affected.get("morale_before", 0.0))
+				affected["stress_delta"] = affected_worker.stress - float(affected.get("stress_before", 0.0))
+				affected["fatigue_delta"] = affected_worker.fatigue - float(affected.get("fatigue_before", 0.0))
+				affected_workers[affected_index] = affected
+			var solidarity_before := solidarity
+			solidarity = minf(100.0, solidarity + 1.0)
+			var standard_deltas := true
+			var affected_summaries: Array[String] = []
+			for affected in affected_workers:
+				var morale_delta := float(affected.get("morale_delta", 0.0))
+				var stress_delta := float(affected.get("stress_delta", 0.0))
+				var fatigue_delta := float(affected.get("fatigue_delta", 0.0))
+				standard_deltas = (
+					standard_deltas
+					and is_equal_approx(morale_delta, 3.0)
+					and is_equal_approx(stress_delta, -2.0)
+					and is_equal_approx(fatigue_delta, -1.0)
+				)
+				affected_summaries.append("%s: morale %s%d, stress %s%d, fatigue %s%d" % [
+					String(affected.get("worker_name", "Hen")),
+					"+" if morale_delta >= 0.0 else "",
+					roundi(morale_delta),
+					"+" if stress_delta >= 0.0 else "",
+					roundi(stress_delta),
+					"+" if fatigue_delta >= 0.0 else "",
+					roundi(fatigue_delta),
+				])
+			var solidarity_delta := solidarity - solidarity_before
+			return {
+				"id": &"team_lift",
+				"label": "ALL +3 / -2 / -1" if standard_deltas else "ALL LIFTED",
+				"description": (
+					"Every employed hen: morale +3, stress -2, fatigue -1."
+					if standard_deltas else
+					"Every employed hen improved; exact capped deltas are retained per hen."
+				),
+				"accessible_text": "Team Lift. %s; solidarity %s%d." % [
+					"; ".join(affected_summaries),
+					"+" if solidarity_delta >= 0.0 else "",
+					roundi(solidarity_delta),
+				],
+				"affected_workers": affected_workers,
+				"affected_count": affected_workers.size(),
+				"solidarity_before": solidarity_before,
+				"solidarity_after": solidarity,
+				"solidarity_delta": solidarity_delta,
+			}
+	if (
+		chain > ROUTING_MOMENTUM_CELEBRATION_MILESTONE
+		and chain % ROUTING_MOMENTUM_MASTERY_INTERVAL == 0
+		and (previous_best_chain < 0 or chain > previous_best_chain)
+	):
+		return {
+			"id": &"mastery_record",
+			"label": "RECORD x%d" % chain,
+			"description": "A new best-fit mastery record was filed.",
+			"accessible_text": "New best-fit routing record: %d consecutive recommended tray assignments." % chain,
+			"record_before": maxi(0, previous_best_chain),
+			"record_after": chain,
+			"interval": ROUTING_MOMENTUM_MASTERY_INTERVAL,
+		}
+	return {}
+
+
+func _break_routing_momentum(
+	reason: String,
+	source: StringName = &"unknown",
+	worker_id: int = -1,
+	claim_id: int = -1,
+) -> Dictionary:
+	var broken_chain := routing_momentum_chain
+	routing_momentum_chain = 0
+	if broken_chain <= 0:
+		return {}
+	routing_momentum_break_serial += 1
+	var receipt := {
+		"serial": routing_momentum_break_serial,
+		"day": day,
+		"minute": minute_of_day,
+		"source": source,
+		"worker_id": worker_id,
+		"claim_id": claim_id,
+		"broken_chain": broken_chain,
+		"reason": reason,
+		"recovery_label": "BEST FIT  >  x1",
+	}
+	last_routing_momentum_break = receipt.duplicate(true)
+	routing_momentum_broken.emit(receipt.duplicate(true))
+	return receipt
+
+
+## Ranked, read-only candidates for the physical intake-tray dispatch gesture.
+## The score intentionally favors specialty fit first, then hens who are already
+## free for a new file, and finally a calm/energized tie-break. Routing remains
+## authoritative in dispatch_worker_to_lane(); this is only a player-facing hint.
+func dispatch_candidates(lane: StringName) -> Array[Dictionary]:
+	var candidates: Array[Dictionary] = []
+	if not CLAIM_LANE_DEFINITIONS.has(lane):
+		return candidates
+	for worker in workers:
+		if worker == null or not worker.employed:
+			continue
+		var specialty_match: bool = worker.has_specialty(lane)
+		var ready: bool = worker.current_claim == null
+		var score: float = (
+			(1000.0 if specialty_match else 0.0)
+			+ (120.0 if ready else 0.0)
+			+ worker.morale * 0.25
+			- worker.stress
+			- worker.fatigue * 0.50
+		)
+		candidates.append({
+			"worker_id": worker.id,
+			"worker_name": worker.display_name,
+			"lane": lane,
+			"specialty_match": specialty_match,
+			"ready": ready,
+			"score": score,
+			"stress": roundi(worker.stress),
+			"fatigue": roundi(worker.fatigue),
+		})
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var score_a := float(a.get("score", 0.0))
+		var score_b := float(b.get("score", 0.0))
+		if not is_equal_approx(score_a, score_b):
+			return score_a > score_b
+		return int(a.get("worker_id", -1)) < int(b.get("worker_id", -1))
+	)
+	for index in candidates.size():
+		candidates[index]["recommended"] = index == 0
+	return candidates
+
+
 func _career_level_for_xp(career_xp_value: int) -> int:
 	var level := 0
 	for index in ChickenState.CAREER_THRESHOLDS.size():
@@ -15063,13 +15640,13 @@ func peck_assist_delivery_status() -> Dictionary:
 	var charges := _peck_assist_charges_available()
 	var reason := "%d/%d attention charges ready; each clean assisted delivery restores one." % [
 		charges,
-		PECK_ASSIST_LIMIT,
+		_peck_assist_charge_limit(),
 	]
 	if not pending_deliveries.is_empty():
 		var charge_prefix := (
 			"Management attention is fully allocated; "
 			if charges <= 0 else
-			"%d/%d attention charges are ready; " % [charges, PECK_ASSIST_LIMIT]
+			"%d/%d attention charges are ready; " % [charges, _peck_assist_charge_limit()]
 		)
 		reason = "%s%d clean assisted %s awaiting farmer delivery, and each presentation restores one charge." % [
 			charge_prefix,
@@ -15078,11 +15655,12 @@ func peck_assist_delivery_status() -> Dictionary:
 		]
 	elif charges <= 0:
 		reason = "Management attention is fully allocated this shift; only a pending clean assisted delivery can restore a charge."
-	elif charges == PECK_ASSIST_LIMIT:
-		reason = "All %d management-attention charges are ready." % PECK_ASSIST_LIMIT
+	elif charges == _peck_assist_charge_limit():
+		reason = "All %d management-attention charges are ready." % _peck_assist_charge_limit()
 	return {
 		"charges": charges,
-		"limit": PECK_ASSIST_LIMIT,
+		"limit": _peck_assist_charge_limit(),
+		"routing_recharge_banked": routing_momentum_peck_recharge_bank > 0,
 		"gross_interventions": peck_assist_interventions_today,
 		"refunds": peck_assist_refunds_today,
 		"pending_delivery": pending_delivery,
@@ -15105,7 +15683,8 @@ func peck_assist_status(worker_id: int) -> Dictionary:
 		"available": false,
 		"remaining": remaining,
 		"charges": remaining,
-		"limit": PECK_ASSIST_LIMIT,
+		"limit": _peck_assist_charge_limit(),
+		"routing_recharge_banked": routing_momentum_peck_recharge_bank > 0,
 		"gross_interventions": peck_assist_interventions_today,
 		"refunds": peck_assist_refunds_today,
 		"pending_delivery": (delivery_status.get("pending_delivery", {}) as Dictionary).duplicate(true),
@@ -15252,6 +15831,12 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 		peck_assist_streak += 1
 	else:
 		peck_assist_streak = 0
+		_break_routing_momentum(
+			"Priority Peck precision fell below STRONG.",
+			&"peck_precision",
+			worker.id,
+			worker.current_claim.id if worker.current_claim != null else -1,
+		)
 	best_peck_assist_streak = maxi(best_peck_assist_streak, peck_assist_streak)
 	var chain_bonus_progress := mini(peck_assist_streak, 5) * 2.0
 	progress_gain += chain_bonus_progress
@@ -15259,7 +15844,13 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 	# The normal seated worker tick must still cross the finish line.
 	worker.work_progress = minf(99.0, worker.work_progress + progress_gain)
 
-	peck_assists_used_today += 1
+	var used_routing_recharge := routing_momentum_peck_recharge_bank > 0
+	if used_routing_recharge:
+		routing_momentum_peck_recharge_bank = 0
+		routing_momentum_peck_recharges_used_today += 1
+		_routing_momentum_free_assist_claim_ids[claim_id] = true
+	else:
+		peck_assists_used_today += 1
 	peck_assist_interventions_today += 1
 	_assisted_claim_ids[claim_id] = true
 	_assist_quality_modifiers[claim_id] = quality_modifier
@@ -15286,6 +15877,7 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 		"charges": _peck_assist_charges_available(),
 		"gross_interventions": peck_assist_interventions_today,
 		"refunds": peck_assist_refunds_today,
+		"routing_recharge_used": used_routing_recharge,
 		"potential_priority_credit_cents": 20 * mini(peck_assist_streak, 5),
 	}
 	result = _normalized_peck_assist_record(result)
@@ -15467,9 +16059,63 @@ func directive_catalog() -> Array[Dictionary]:
 			"short_name": String(definition["short_name"]),
 			"tagline": String(definition["tagline"]),
 			"preview": String(definition["preview"]),
+			"effect_chips": _directive_effect_chips(directive_id),
 			"tone": StringName(definition.get("tone", &"quality")),
 		})
 	return catalog
+
+
+func _directive_effect_chips(directive_id: StringName) -> Array[Dictionary]:
+	var chips: Array[Dictionary] = []
+	if not DIRECTIVE_DEFINITIONS.has(directive_id):
+		return chips
+	var definition := DIRECTIVE_DEFINITIONS[directive_id] as Dictionary
+	var pace_delta := roundi((float(definition.get("work_multiplier", 1.0)) - 1.0) * 100.0)
+	if pace_delta != 0:
+		chips.append({
+			"id": &"pace",
+			"icon": &"egg",
+			"copy": "PACE %s%d%%" % ["+" if pace_delta > 0 else "", pace_delta],
+			"detail": "Production pace changes by %s%d percent for this shift." % ["+" if pace_delta > 0 else "", pace_delta],
+			"beneficial": pace_delta > 0,
+		})
+	var strain_delta := roundi((float(definition.get("stress_multiplier", 1.0)) - 1.0) * 100.0)
+	if strain_delta != 0:
+		chips.append({
+			"id": &"strain",
+			"icon": &"flock",
+			"copy": "STRAIN %s%d%%" % ["+" if strain_delta > 0 else "", strain_delta],
+			"detail": "Flock stress and fatigue growth change by %s%d percent for this shift." % ["+" if strain_delta > 0 else "", strain_delta],
+			"beneficial": strain_delta < 0,
+		})
+	var risk_delta := roundi(float(definition.get("crack_modifier", 0.0)) * 100.0)
+	if risk_delta != 0:
+		chips.append({
+			"id": &"risk",
+			"icon": &"shield",
+			"copy": "RISK %s%d%%" % ["+" if risk_delta > 0 else "", risk_delta],
+			"detail": "Shell-crack risk changes by %s%d percentage points for this shift." % ["+" if risk_delta > 0 else "", risk_delta],
+			"beneficial": risk_delta < 0,
+		})
+	var compliance_delta := roundi(float(definition.get("compliance_delta", 0.0)))
+	if compliance_delta != 0:
+		chips.append({
+			"id": &"compliance",
+			"icon": &"files",
+			"copy": "RULES %s%d" % ["+" if compliance_delta > 0 else "", compliance_delta],
+			"detail": "Coop compliance changes immediately by %s%d." % ["+" if compliance_delta > 0 else "", compliance_delta],
+			"beneficial": compliance_delta > 0,
+		})
+	var feed_delta_cents := int(definition.get("feed_delta_cents", 0))
+	if feed_delta_cents != 0:
+		chips.append({
+			"id": &"feed",
+			"icon": &"cash",
+			"copy": "FEED %s$%.0f" % ["+" if feed_delta_cents > 0 else "-", absf(float(feed_delta_cents)) / 100.0],
+			"detail": "Daily feed cost changes by %s$%.2f for this shift." % ["+" if feed_delta_cents > 0 else "-", absf(float(feed_delta_cents)) / 100.0],
+			"beneficial": feed_delta_cents < 0,
+		})
+	return chips
 
 
 func active_directive_snapshot() -> Dictionary:
@@ -16989,6 +17635,7 @@ func _prepare_morning_directive() -> void:
 			"short_label": directive["short_name"],
 			"tagline": directive["tagline"],
 			"preview": directive["preview"],
+			"effect_chips": (directive.get("effect_chips", []) as Array).duplicate(true),
 			"cost_cents": 0,
 			"tone": directive["tone"],
 		})
@@ -18475,6 +19122,7 @@ func _reset_daily_decision_state() -> void:
 	peck_assists_used_today = 0
 	peck_assist_interventions_today = 0
 	peck_assist_refunds_today = 0
+	routing_momentum_peck_recharges_used_today = 0
 	peck_assist_streak = 0
 	last_peck_assist.clear()
 	last_peck_assist_delivery.clear()
@@ -18486,6 +19134,7 @@ func _reset_daily_decision_state() -> void:
 	_assist_chain_by_claim_id.clear()
 	_pending_peck_assist_deliveries.clear()
 	_settled_peck_assist_delivery_ids.clear()
+	_routing_momentum_free_assist_claim_ids.clear()
 	_incident_slot = 0
 	_directive_work_multiplier = 1.0
 	_directive_fatigue_multiplier = 1.0
@@ -20599,6 +21248,126 @@ func runtime_projection_cache_diagnostics() -> Dictionary:
 	}
 
 
+## Projects the single most useful next read for a hen. This remains a
+## presentation-only summary: actions still flow through their existing
+## authoritative APIs, while every surface shares one stable priority order.
+func _worker_hen_intent_snapshot(worker_snapshot: Dictionary) -> Dictionary:
+	if not bool(worker_snapshot.get("employed", true)):
+		return {}
+	var worker_name := String(worker_snapshot.get("name", "This hen"))
+	var state_label := String(worker_snapshot.get("state_label", "")).to_upper()
+	var stress := roundi(float(worker_snapshot.get("stress", 0.0)))
+	var fatigue := roundi(float(worker_snapshot.get("fatigue", 0.0)))
+	var morale := roundi(float(worker_snapshot.get("morale", 100.0)))
+	if state_label == "WELLNESS":
+		return {
+			"id": &"recovering",
+			"icon": &"care",
+			"action_id": &"support",
+			"action_label": "CHECK IN",
+			"detail": "%s is recovering at the Wellness Nest. Open Support to review care options." % worker_name,
+			"urgency": 2,
+			"actionable": true,
+		}
+	var assist := worker_snapshot.get("peck_assist", {}) as Dictionary
+	if bool(assist.get("available", false)):
+		return {
+			"id": &"sync",
+			"icon": &"sync",
+			"action_id": &"peck",
+			"action_label": "SYNC PECK",
+			"detail": "%s's Priority Peck window is open. Activate it to stamp the live rhythm." % worker_name,
+			"urgency": 3,
+			"actionable": true,
+		}
+	var claim := worker_snapshot.get("current_claim", {}) as Dictionary
+	# Claimant paths and deadline intervention retire once work has crossed into
+	# laying. The claim remains attached to the hen until the egg is released, so
+	# this phase guard must precede every generic live-claim intent below.
+	if state_label == "LAYING" and not claim.is_empty():
+		return {
+			"id": &"delivery",
+			"icon": &"ready",
+			"action_id": &"route",
+			"action_label": "TRACK EGG",
+			"detail": "%s's file is locked and the egg is laying. Track it through grading to farmer delivery; a clean assisted egg returns 1 Priority Peck charge." % worker_name,
+			"urgency": 1,
+			"actionable": true,
+		}
+	if not claim.is_empty():
+		var minutes_left := int(claim.get("minutes_until_deadline", 9999))
+		var overdue := bool(claim.get("overdue", false)) or minutes_left < 0
+		if overdue or minutes_left <= 60:
+			return {
+				"id": &"deadline",
+				"icon": &"urgent",
+				"action_id": &"claim",
+				"action_label": "OPEN FILE",
+				"detail": (
+					"%s's current file is overdue by %dm. Open the live file." % [worker_name, absi(minutes_left)]
+					if overdue else
+					"%s's current file is due in %dm. Open the live file." % [worker_name, maxi(0, minutes_left)]
+				),
+				"urgency": 3,
+				"actionable": true,
+			}
+	if stress >= 60 or fatigue >= 65 or morale <= 40:
+		return {
+			"id": &"care",
+			"icon": &"care",
+			"action_id": &"support",
+			"action_label": "CHECK IN",
+			"detail": "%s needs attention: stress %d, fatigue %d, morale %d. Open Support to choose a check-in." % [worker_name, stress, fatigue, morale],
+			"urgency": 2,
+			"actionable": true,
+		}
+	if not claim.is_empty():
+		var resolution := worker_snapshot.get("claim_resolution_status", {}) as Dictionary
+		var progress := roundi(float(worker_snapshot.get("progress", 0.0)))
+		if (
+			bool(resolution.get("available", false))
+			and not bool(claim.get("resolution_locked", false))
+			and progress < 55
+		):
+			return {
+				"id": &"choice",
+				"icon": &"choice",
+				"action_id": &"claim",
+				"action_label": "CHOOSE PATH",
+				"detail": "%s's claimant path is open before 55%% progress. Compare the three outcomes." % worker_name,
+				"urgency": 2,
+				"actionable": true,
+			}
+		if bool(claim.get("specialty_match", false)):
+			return {
+				"id": &"match",
+				"icon": &"match",
+				"action_id": &"claim",
+				"action_label": "GOOD MATCH",
+				"detail": "%s is on specialty work: 18%% faster with 4%% less shell risk. Open the live file." % worker_name,
+				"urgency": 1,
+				"actionable": true,
+			}
+		return {
+			"id": &"steady",
+			"icon": &"steady",
+			"action_id": &"claim",
+			"action_label": "TRACK FILE",
+			"detail": "%s is working steadily at %d%%. Track the live file or prepare Priority Peck." % [worker_name, progress],
+			"urgency": 1,
+			"actionable": true,
+		}
+	return {
+		"id": &"ready",
+		"icon": &"ready",
+		"action_id": &"route",
+		"action_label": "SET ROUTE",
+		"detail": "%s is waiting for the next file. Review or change her tray route." % worker_name,
+		"urgency": 1,
+		"actionable": true,
+	}
+
+
 func snapshot(
 	use_runtime_projection_cache: bool = false,
 	trusted_runtime_projection_read_only: bool = false,
@@ -20721,6 +21490,10 @@ func snapshot(
 		var current_claim_snapshot := worker_snapshot.get("current_claim", {}) as Dictionary
 		if not current_claim_snapshot.is_empty():
 			_apply_market_contract_claim_snapshot(current_claim_snapshot)
+			current_claim_snapshot["routing_golden_target"] = (
+				worker.current_claim.id == routing_momentum_golden_target_claim_id
+				and worker.id == routing_momentum_golden_target_worker_id
+			)
 			current_claim_snapshot["specialty_match"] = worker.has_specialty(worker.current_claim.lane)
 			current_claim_snapshot["affinity_speed_multiplier"] = _claim_speed_factor(worker)
 			current_claim_snapshot["affinity_crack_modifier"] = _claim_affinity_crack_modifier(worker)
@@ -20730,6 +21503,7 @@ func snapshot(
 		var resolution_status := claim_resolution_status(worker.id)
 		resolution_status.erase("catalog")
 		worker_snapshot["claim_resolution_status"] = resolution_status
+		worker_snapshot["hen_intent"] = _worker_hen_intent_snapshot(worker_snapshot)
 		worker_snapshots.append(worker_snapshot)
 	var queue_snapshot := _queue_snapshot()
 	var pending_rework_items: Array[Dictionary] = []
@@ -20889,7 +21663,7 @@ func snapshot(
 		"peck_assists_used_today": peck_assists_used_today,
 		"peck_assists_remaining": _peck_assist_charges_available(),
 		"peck_assist_charges": _peck_assist_charges_available(),
-		"peck_assist_limit": PECK_ASSIST_LIMIT,
+		"peck_assist_limit": _peck_assist_charge_limit(),
 		"peck_assist_interventions_today": peck_assist_interventions_today,
 		"peck_assist_gross_interventions": peck_assist_interventions_today,
 		"peck_assist_refunds_today": peck_assist_refunds_today,
@@ -20907,6 +21681,7 @@ func snapshot(
 		"last_peck_assist_delivery": last_peck_assist_delivery.duplicate(true),
 		"priority_credit_today_cents": priority_credit_today_cents,
 		"priority_credit_total_cents": priority_credit_total_cents,
+		"routing_momentum": routing_momentum_snapshot(),
 		"quota_target": quota_target,
 		"executive_confidence": executive_confidence,
 		"compliance": compliance,
@@ -20939,6 +21714,7 @@ func snapshot(
 			"work_to_rule_work_multiplier": _work_to_rule_work_multiplier(),
 			"work_to_rule_crack_modifier": _work_to_rule_crack_modifier(),
 			"golden_modifier": _incident_golden_modifier,
+			"daily_feed_adjustment_cents": _daily_feed_adjustment_cents,
 			"quota_adjustment": _pending_quota_adjustment,
 		},
 		"upgrade_levels": upgrade_levels.duplicate(),
@@ -21087,6 +21863,7 @@ func _refresh_runtime_tick_snapshot(
 	result["last_peck_assist_delivery"] = last_peck_assist_delivery.duplicate(true)
 	result["priority_credit_today_cents"] = priority_credit_today_cents
 	result["priority_credit_total_cents"] = priority_credit_total_cents
+	result["routing_momentum"] = routing_momentum_snapshot()
 	result["quota_target"] = quota_target
 	result["executive_confidence"] = executive_confidence
 	result["compliance"] = compliance
@@ -21141,6 +21918,7 @@ func _refresh_runtime_tick_snapshot(
 		"work_to_rule_work_multiplier": _work_to_rule_work_multiplier(),
 		"work_to_rule_crack_modifier": _work_to_rule_crack_modifier(),
 		"golden_modifier": _incident_golden_modifier,
+		"daily_feed_adjustment_cents": _daily_feed_adjustment_cents,
 		"quota_adjustment": _pending_quota_adjustment,
 	}
 	result["first_clutch_reinvestment"] = first_clutch_reinvestment_status()
@@ -21280,6 +22058,7 @@ func _update_worker(worker: ChickenState) -> void:
 				if next_claim != null:
 					worker.current_claim = next_claim
 					worker.work_state = ChickenState.WorkState.WORKING
+					_bind_routing_golden_target()
 		ChickenState.WorkState.WORKING:
 			if not is_worker_at_workstation(worker.id):
 				return
@@ -21298,6 +22077,14 @@ func _update_worker(worker: ChickenState) -> void:
 			var campaign_fatigue_factor := 0.90 if has_campaign_unlock(&"welfare_breaks") else 1.0
 			var campaign_stress_factor := 0.88 if has_campaign_unlock(&"welfare_breaks") else 1.0
 			var career_work_factor := _career_relationship_work_multiplier(worker)
+			var routing_pace_factor := (
+				ROUTING_MOMENTUM_PACE_MULTIPLIER
+				if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+				and worker.manually_routed
+				and worker.current_claim != null
+				and worker.has_specialty(worker.current_claim.lane) else
+				1.0
+			)
 			var career_strain_factor := _career_strain_multiplier(worker)
 			var wellness_strain_factor := wellness_strain_gain_multiplier()
 			var feed_strain_factor := (
@@ -21314,6 +22101,7 @@ func _update_worker(worker: ChickenState) -> void:
 				* _facility_claim_speed_multiplier(worker)
 				* automation_work_multiplier(worker)
 				* career_work_factor
+				* routing_pace_factor
 				* float(temperament_effect.get("work_multiplier", 1.0))
 				* float(_manager_effect_for_worker(worker).get("work_multiplier", 1.0))
 				* _internship_program.work_multiplier()
@@ -21330,6 +22118,12 @@ func _update_worker(worker: ChickenState) -> void:
 				var missed_claim_id := worker.current_claim.id
 				_missed_assist_claim_ids[missed_claim_id] = true
 				peck_assist_streak = 0
+				_break_routing_momentum(
+					"The Priority Peck window was missed.",
+					&"peck_missed",
+					worker.id,
+					missed_claim_id,
+				)
 				peck_assist_missed.emit(worker.id, missed_claim_id)
 			var temperament_strain_factor := float(
 				temperament_effect.get("strain_multiplier", 1.0)
@@ -21481,9 +22275,15 @@ func _complete_egg(worker: ChickenState) -> void:
 	var assisted_claim_id := completed_claim.id if completed_claim != null else -1
 	var was_assisted := assisted_claim_id > 0 and _assisted_claim_ids.has(assisted_claim_id)
 	var assist_chain := int(_assist_chain_by_claim_id.get(assisted_claim_id, 0))
+	var routing_golden_targeted := (
+		assisted_claim_id >= 0
+		and assisted_claim_id == routing_momentum_golden_target_claim_id
+		and worker.id == routing_momentum_golden_target_worker_id
+	)
 
 	var roll := _rng.randf()
 	var quality: StringName = &"sound"
+	var routing_golden_applied := false
 	var base_value_cents := completed_claim.value_cents if completed_claim != null else 420
 	var value_cents := base_value_cents
 	if roll < error_risk:
@@ -21494,14 +22294,34 @@ func _complete_egg(worker: ChickenState) -> void:
 		compliance = maxf(0.0, compliance - 0.8)
 		if completed_claim != null:
 			_schedule_rework(completed_claim)
+		if routing_golden_targeted:
+			# A crack is not an eligible clean delivery. Keep the earned charge and
+			# release the seal so another live file can receive it authoritatively.
+			_release_routing_golden_target()
 	else:
-		var golden_chance := clampf(0.025 + maxf(0.0, worker.morale - 70.0) * 0.0005 + _incident_golden_modifier, 0.025, 0.08)
-		if _rng.randf() < golden_chance:
+		if routing_golden_targeted and routing_momentum_golden_charges > 0:
+			routing_momentum_golden_charges -= 1
+			routing_golden_applied = true
 			quality = &"golden"
 			value_cents = base_value_cents * 4
 			golden_eggs += 1
 			golden_today += 1
 			executive_confidence = minf(100.0, executive_confidence + 1.5)
+			announcement_posted.emit(
+				"GOLDEN FILE: sealed claim #%04d reached grading clean for %s." % [
+					assisted_claim_id,
+					worker.display_name,
+				]
+			)
+			_release_routing_golden_target()
+		else:
+			var golden_chance := clampf(0.025 + maxf(0.0, worker.morale - 70.0) * 0.0005 + _incident_golden_modifier, 0.025, 0.08)
+			if _rng.randf() < golden_chance:
+				quality = &"golden"
+				value_cents = base_value_cents * 4
+				golden_eggs += 1
+				golden_today += 1
+				executive_confidence = minf(100.0, executive_confidence + 1.5)
 	if completed_claim != null:
 		_apply_claim_lane_outcome(completed_claim, worker, quality)
 		_apply_claim_resolution_outcome(completed_claim, worker, quality)
@@ -21529,10 +22349,19 @@ func _complete_egg(worker: ChickenState) -> void:
 			# a delivery token, and it breaks the live chain even when other claims
 			# are still moving through the office.
 			peck_assist_streak = 0
+			_break_routing_momentum(
+				"An assisted file cracked at grading.",
+				&"assisted_crack",
+				worker.id,
+				assisted_claim_id,
+			)
 			announcement_posted.emit(
 				"PRIORITY PECK CHAIN BROKEN: claim #%04d cracked and cannot restore attention." % assisted_claim_id
 			)
-		elif quality in [&"sound", &"golden"]:
+		elif (
+			quality in [&"sound", &"golden"]
+			and not _routing_momentum_free_assist_claim_ids.has(assisted_claim_id)
+		):
 			# Claim ids are monotonic, so this token is both the presentation handoff
 			# and the durable exact-once idempotency key.
 			_pending_peck_assist_deliveries[assisted_claim_id] = {
@@ -21564,9 +22393,11 @@ func _complete_egg(worker: ChickenState) -> void:
 		_missed_assist_claim_ids.erase(completed_claim.id)
 		_assist_quality_modifiers.erase(completed_claim.id)
 		_assist_chain_by_claim_id.erase(completed_claim.id)
+		_routing_momentum_free_assist_claim_ids.erase(completed_claim.id)
 	worker.current_claim = null
 	worker.work_progress = 0.0
 	worker.work_state = ChickenState.WorkState.IDLE
+	_bind_routing_golden_target()
 	claims_processed += 1
 	eggs_today += 1
 	eggs_total += 1
@@ -21606,6 +22437,8 @@ func _complete_egg(worker: ChickenState) -> void:
 		priority_credit_cents,
 	)
 	egg_laid.emit(worker.id, quality, value_cents)
+	if routing_golden_applied:
+		last_routing_dispatch["golden_claim_id"] = assisted_claim_id
 
 
 func _store_farmgate_lot_with_campus_capacity(
@@ -22003,6 +22836,8 @@ func _complete_workday() -> void:
 			_append_claim_to_queue(worker.current_claim)
 			worker.current_claim = null
 			returned_claims += 1
+	if routing_momentum_golden_target_claim_id >= 0:
+		_release_routing_golden_target()
 	day += 1
 	_feed_procurement.begin_day(day)
 	_farmgate_dispatch.begin_day(day)
@@ -22272,6 +23107,11 @@ func _complete_workday() -> void:
 		"welfare": completed_welfare,
 		"compliance": completed_compliance,
 		"farmer_favor": completed_farmer_favor,
+		# The live chain and persistent best are closing evidence, just like shell
+		# quality and welfare. Filing the same bounded snapshot in the workday report
+		# lets review and resume surfaces describe routing mastery without rebuilding
+		# it from presentation state.
+		"routing_momentum": routing_momentum_snapshot(),
 		"directive": completed_directive,
 		"incidents_resolved": completed_incidents,
 		"incident_responses": completed_incident_responses,

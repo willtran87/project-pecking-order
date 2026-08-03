@@ -125,34 +125,43 @@ func _run() -> void:
 	var mabel_identity := ui.find_child("CampaignMabelIdentity", true, false) as Label
 	var mabel_traits := ui.find_child("CampaignMabelTraits", true, false) as Label
 	var mabel_quote := ui.find_child("CampaignMabelQuote", true, false) as Label
+	var mabel_portrait := ui.find_child("CampaignMabelPortrait", true, false) as TextureRect
 	var challenge_selector := ui.find_child("ChallengeContractSelector", true, false) as OptionButton
 	var challenge_card := ui.find_child("ChallengeContractCard", true, false) as PanelContainer
 	var challenge_summary := ui.find_child("ChallengeContractSummary", true, false) as Label
+	var challenge_fund := ui.find_child("ChallengeOpeningFund", true, false) as Label
+	var challenge_quota := ui.find_child("ChallengeOpeningQuota", true, false) as Label
+	var challenge_files := ui.find_child("ChallengeOpeningFiles", true, false) as Label
 	var challenge_terms_toggle := ui.find_child("ChallengeContractTermsToggle", true, false) as Button
 	var challenge_detail := ui.find_child("ChallengeContractDetail", true, false) as Label
 	var probation_summary := ui.find_child("ProbationFiveShiftSummary", true, false) as PanelContainer
 	var probation_summary_detail := ui.find_child("ProbationFiveShiftDetail", true, false) as Label
+	var journey_file := ui.find_child("ProbationJourneyFile", true, false) as Label
+	var journey_shifts := ui.find_child("ProbationJourneyShifts", true, false) as Label
+	var journey_review := ui.find_child("ProbationJourneyReview", true, false) as Label
 	var new_button := ui.find_child("NewCampaignButton", true, false) as Button
 	var continue_button := ui.find_child("ContinueCampaignButton", true, false) as Button
 	var back_button := ui.find_child("BackToSavedCampaignButton", true, false) as Button
 	_check(title_panel != null and title_panel.is_visible_in_tree(), "first load should show the campaign title panel", failures)
 	_check(modal_host.is_visible_in_tree(), "title panel should be an intentional blocking modal", failures)
 	_check(
-		title_heading != null and title_heading.text == "MEET MABEL. RUN FIVE SHIFTS.",
+		title_heading != null and title_heading.text == "MEET MABEL",
 		"title should foreground one named hen before management abstractions",
 		failures,
 	)
 	_check(
-		title_description != null
-		and title_description.text == "Choose a filing, then manage one shared coop file together.",
+		 title_description != null
+		and title_description.text == "Pick a difficulty. Start shift one.",
 		"title subtitle should connect Mabel to the shared permanent file",
 		failures,
 	)
 	_check(
 		mabel_card != null
 		and mabel_card.is_visible_in_tree()
+		and mabel_portrait != null
+		and mabel_portrait.texture != null
 		and ui.find_child("ProbationTermsCard", true, false) == null,
-		"Mabel's compact profile should replace the abstract probation-rules card",
+		"Mabel's portrait-led profile should replace the abstract probation-rules card",
 		failures,
 	)
 	_check(
@@ -162,7 +171,7 @@ func _run() -> void:
 	)
 	_check(
 		mabel_traits != null
-		and mabel_traits.text == "APPEALS SPECIALIST  //  CREDIT CONSCIOUS",
+		and mabel_traits.text == "APPEALS SPECIALIST  ·  SAVES FEED",
 		"Mabel profile should expose her specialty and motivation",
 		failures,
 	)
@@ -179,7 +188,7 @@ func _run() -> void:
 	)
 	_check(
 		new_button != null
-		and new_button.text == "START WITH MABEL  [N]"
+		and new_button.text == "START SHIFT 1  [N]"
 		and new_button.theme_type_variation == &"PrimaryButton"
 		and new_button.focus_mode == Control.FOCUS_ALL,
 		"fresh intake should expose one primary Mabel action with keyboard focus",
@@ -194,9 +203,10 @@ func _run() -> void:
 	_check(
 		probation_summary != null and probation_summary.is_visible_in_tree()
 		and probation_summary_detail != null
-		and _contains_all(probation_summary_detail.text, [
-			"5 SHIFTS", "REPORT EACH", "FINAL REVIEW",
-		])
+		and probation_summary_detail.text == "REPORT AFTER EACH SHIFT"
+		and journey_file != null and journey_file.text == "1 FILE"
+		and journey_shifts != null and journey_shifts.text == "5 SHIFTS"
+		and journey_review != null and journey_review.text == "REVIEW"
 		and ui.find_child("ProbationDayStamp_1", true, false) == null
 		and ui.find_child("ProbationDayStamp_5", true, false) == null,
 		"one concise five-shift summary should replace five equal-weight day stamps",
@@ -217,16 +227,15 @@ func _run() -> void:
 	_check(
 		challenge_card != null and challenge_card.is_visible_in_tree()
 		and challenge_summary != null and challenge_summary.is_visible_in_tree()
+		and challenge_fund != null and challenge_fund.text == "$50"
+		and challenge_quota != null and challenge_quota.text == "16"
+		and challenge_files != null and challenge_files.text == "6"
 		and challenge_terms_toggle != null and challenge_terms_toggle.is_visible_in_tree()
 		and challenge_terms_toggle.focus_mode == Control.FOCUS_ALL
 		and challenge_terms_toggle.shortcut != null
 		and challenge_detail != null and not challenge_detail.is_visible_in_tree()
-		and "STANDARD" in challenge_summary.text
-		and _contains_all(challenge_summary.text, [
-			"FUND $50.00", "QUOTA 16", "6 FILES",
-		])
 		and "BALANCED ROUTES" in challenge_summary.text
-		and "LOCKS ON OPEN" in challenge_summary.text
+		and "LOCKS ON START" in challenge_summary.text
 		and _contains_all(challenge_terms_toggle.tooltip_text, [
 			"recommended authored balance",
 			"SCORE >= 60 / 100", "WELFARE >= 45", "COMPLIANCE >= 55",
@@ -338,6 +347,10 @@ func _run() -> void:
 			},
 			"return_recap": {
 				"last_filed_label": "Shift 2 closed",
+				"routing_mastery": {
+					"short_label": "NEW FIT RECORD  x15   /   CHASE  x20",
+					"accessible_text": "New best-fit routing record: 15 consecutive recommended tray assignments. Next mastery record: 20.",
+				},
 				"status_id": "attention",
 				"status_label": "Workflow Debt",
 				"status_reason": "Two overdue and one rework file are consuming future production.",
@@ -357,6 +370,7 @@ func _run() -> void:
 			"FARMER REVIEW", "SAVED CHALLENGE CONTRACT  //  SUPPORTED FLOCK",
 			"OFFLINE  //  2H 14M  //  ECONOMY PAUSED",
 			"LAST FILED  //  SHIFT 2 CLOSED",
+			"ROUTING  //  NEW FIT RECORD X15 / CHASE X20",
 			"UNRESOLVED  //  WORKFLOW DEBT",
 			"Two overdue and one rework file",
 			"NEXT  //  Route matching specialties",
@@ -408,7 +422,7 @@ func _run() -> void:
 		and mabel_card != null and mabel_card.is_visible_in_tree()
 		and challenge_card != null and challenge_card.is_visible_in_tree()
 		and probation_summary != null and probation_summary.is_visible_in_tree()
-		and new_button.text == "START WITH MABEL  [N]"
+		and new_button.text == "START SHIFT 1  [N]"
 		and new_button.theme_type_variation == &"PrimaryButton"
 		and back_button != null and back_button.is_visible_in_tree()
 		and _count_visible_primary_buttons(title_panel) == 1,

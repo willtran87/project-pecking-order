@@ -20,9 +20,21 @@ func _run() -> void:
 	var simulation := office.get("_simulation") as DepartmentSimulation
 	var storytelling := office.get("_office_storytelling") as OfficeStorytelling
 	var revenue_label := office.get("_revenue_label") as Label
+	var routing_ui := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
+	var journey_label := office.find_child("RoutingAutomationHint", true, false) as Label
+	var workstation_feedback := office.get("_workstation_feedback") as WorkstationFeedback
 	var worker_views: Dictionary = office.get("_worker_views") as Dictionary
 	var worker_view := worker_views.get(0) as ChickenView
-	_check(storytelling != null and revenue_label != null and worker_view != null, "office feedback fixtures should exist", failures)
+	_check(
+		storytelling != null
+		and revenue_label != null
+		and routing_ui != null
+		and journey_label != null
+		and workstation_feedback != null
+		and worker_view != null,
+		"office feedback fixtures should exist",
+		failures,
+	)
 	var safe_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
 	safe_preferences["color_vision_mode"] = "color_blind_safe"
 	office.set("_player_preferences", safe_preferences)
@@ -36,6 +48,9 @@ func _run() -> void:
 	if assurance_option != null and confirm_decision != null:
 		assurance_option.pressed.emit()
 		confirm_decision.pressed.emit()
+	await process_frame
+	if routing_ui != null:
+		routing_ui.set_focus(0)
 	await process_frame
 	worker_view.set("_is_at_workstation", true)
 	worker_view.set("_seat_blend", 1.0)
@@ -96,6 +111,17 @@ func _run() -> void:
 	office.call("_on_egg_laid", 0, &"sound", egg_value)
 	office.call("_on_snapshot_changed", simulation.snapshot())
 	await process_frame
+	var laid_journey := routing_ui.egg_journey_receipt_state() if routing_ui != null else {}
+	_check(
+		journey_label != null
+		and bool(laid_journey.get("visible", false))
+		and StringName(laid_journey.get("stage", &"")) == &"grading"
+		and "LAST EGG" in journey_label.text
+		and "GRADING > FARMER" in journey_label.text
+		and "separate from" in String(laid_journey.get("accessible_text", "")),
+		"laying should hand the selected dossier to a compact, explicitly separate egg journey",
+		failures,
+	)
 	_check(
 		rail_material != null
 		and rail_material.emission_energy_multiplier >= RAIL_ACTIVE_MIN_ENERGY,
@@ -142,6 +168,14 @@ func _run() -> void:
 	await _wait_for_flag(graded, "seen", 240)
 	_check(bool(graded["seen"]), "sorter waypoint should emit an explicit grading event", failures)
 	_check(int(graded["value"]) == egg_value and StringName(graded["quality"]) == &"sound", "grading receipt should carry exact authoritative quality and value", failures)
+	var graded_journey := routing_ui.egg_journey_receipt_state() if routing_ui != null else {}
+	_check(
+		StringName(graded_journey.get("stage", &"")) == &"graded"
+		and journey_label != null
+		and "SOUND GRADED > FARMER" in journey_label.text,
+		"the compact receipt should advance at the physical grading gate",
+		failures,
+	)
 	_check(
 		rail_material != null
 		and rail_material.emission_energy_multiplier >= RAIL_ACTIVE_MIN_ENERGY,
@@ -223,7 +257,38 @@ func _run() -> void:
 	)
 	await create_timer(0.8).timeout
 	_check("$%.2f" % ((opening_fund + egg_value) / 100.0) in revenue_label.text, "Feed Fund should count up after the farmer collects the egg", failures)
+	_check(
+		"SOUND DELIVERED" in (office.get("_ticker_label") as Label).text
+		and "+$4.55 FEED FUND" in (office.get("_ticker_label") as Label).text,
+		"ordinary farmer arrival should close with one exact Feed Fund receipt",
+		failures,
+	)
 	_check(int(office.get("_pending_collection_cents")) == 0, "collected egg value should leave no pending visual credit", failures)
+	var delivered_journey := routing_ui.egg_journey_receipt_state() if routing_ui != null else {}
+	_check(
+		StringName(delivered_journey.get("stage", &"")) == &"delivered"
+		and journey_label != null
+		and "LAST EGG" in journey_label.text
+		and "FARMER +$4.55" in journey_label.text,
+		"farmer arrival should settle the same compact receipt with exact value",
+		failures,
+	)
+	var world_ack_state := (
+		workstation_feedback.egg_delivery_ack_snapshot()
+		if workstation_feedback != null else
+		{}
+	)
+	var world_acknowledgments := world_ack_state.get("acknowledgments", []) as Array
+	var world_ack := world_acknowledgments[0] as Dictionary if world_acknowledgments.size() == 1 else {}
+	_check(
+		int(world_ack_state.get("pooled_marker_count", 0)) == 6
+		and int(world_ack_state.get("active_count", 0)) == 1
+		and int(world_ack.get("worker_id", -1)) == 0
+		and int(world_ack.get("cash_cents", -1)) == egg_value
+		and String(world_ack.get("shape", "")) == "coin_up_arrow",
+		"real basket arrival should light one pooled payout icon at the exact hen's desk",
+		failures,
+	)
 	for echo_node in office.find_children("PooledEggHandoffEcho_*", "MeshInstance3D", true, false):
 		var echo := echo_node as MeshInstance3D
 		_check(
@@ -272,9 +337,26 @@ func _run() -> void:
 		_check(int(delivery.get("charges", -1)) == 3 and int(delivery.get("refunds", -1)) == 1, "farmer arrival should restore exactly one renewable attention charge", failures)
 		_check(int(delivery.get("pending_delivery_count", -1)) == 0, "basket settlement should consume the exact pending token", failures)
 		_check(int((delivery.get("last_delivery", {}) as Dictionary).get("claim_id", -1)) == assisted_claim_id, "Office should settle the same claim carried by the routed egg", failures)
+		var refunded_journey := routing_ui.egg_journey_receipt_state() if routing_ui != null else {}
+		_check(
+			StringName(refunded_journey.get("stage", &"")) == &"delivered"
+			and int(refunded_journey.get("claim_id", -1)) == assisted_claim_id
+			and journey_label != null
+			and "PECK +1" in journey_label.text,
+			"a clean assisted farmer delivery should close the exact receipt with its renewed charge",
+			failures,
+		)
 		var refund_chip := office.find_child("PriorityPeckRefundChip", true, false) as PanelContainer
 		var refund_copy := refund_chip.get_child(0) as Label if refund_chip != null and refund_chip.get_child_count() > 0 else null
-		_check(refund_chip != null and refund_copy != null and "+1 PRIORITY PECK" in refund_copy.text and "3/3" in refund_copy.text, "physical delivery should launch a concise renewable-attention payoff chip", failures)
+		_check(refund_chip != null and refund_copy != null and "+1 PECK" in refund_copy.text and "3/3 READY" in refund_copy.text, "physical delivery should launch a concise renewable-attention payoff chip", failures)
+		_check(
+			"DELIVERED" in (office.get("_ticker_label") as Label).text
+			and "FUND" in (office.get("_ticker_label") as Label).text
+			and "+1 PECK" in (office.get("_ticker_label") as Label).text
+			and "3/3 READY" in (office.get("_ticker_label") as Label).text,
+			"assisted farmer arrival should combine money and renewed attention in one receipt",
+			failures,
+		)
 		await create_timer(1.8).timeout
 		await process_frame
 		_check(office.find_children("GradingReceipt_*", "Node3D", true, false).is_empty(), "renewed assisted delivery should retire its bounded grading docket", failures)
@@ -347,7 +429,7 @@ func _run() -> void:
 			push_error("EGG_GRADING_FEEDBACK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("EGG_GRADING_FEEDBACK_TEST_PASSED lay=quota grade=receipt collect=fund")
+	print("EGG_GRADING_FEEDBACK_TEST_PASSED lay=quota grade=receipt collect=fund journey=separate+save-neutral")
 	quit(0)
 
 

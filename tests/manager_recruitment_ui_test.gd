@@ -365,14 +365,16 @@ func _run() -> void:
 		and _contains_all(
 			confirmation.dialog_text,
 			[
-				"BYTE BANTAM",
-				"AUTOMATION",
+				"CANDIDATE  /  BYTE BANTAM",
+				"ROLE  /  AUTOMATION",
 				"REPLACES  /  CLOVER CROWSBY",
-				"FEE  /  $70.00",
+				"COST  /  -$70.00 FEED FUND",
 				"ROOSTERS  /  4 -> 4",
-				"PAY",
+				"PAYROLL",
+				"REPORTS + MEETINGS",
 				"EGGS 0",
-				"IRREVERSIBLE",
+				"TERM  /  PERMANENT THIS REVIEW",
+				"NO CHANGE UNTIL YOU FILE.",
 			],
 		),
 		"confirmation should disclose identity, doctrine, cost, replacement economics, zero production, and irreversibility (%s)" % [
@@ -385,6 +387,18 @@ func _run() -> void:
 		and simulation.revenue_cents == fund_before
 		and simulation.manager_roster == roster_before,
 		"opening succession review must not mutate Feed Fund or the authoritative roster",
+		failures,
+	)
+	var manager_confirm_initial := confirmation.get_ok_button()
+	var manager_cancel_initial := confirmation.get_cancel_button()
+	_check(
+		confirmation.title == "APPOINT BYTE BANTAM?"
+		and manager_confirm_initial.text == "APPOINT"
+		and manager_cancel_initial.text == "KEEP CURRENT"
+		and manager_confirm_initial.theme_type_variation == &"DangerButton"
+		and manager_cancel_initial.theme_type_variation == &"PrimaryButton"
+		and manager_cancel_initial.has_focus(),
+		"succession should distinguish the permanent appointment from its safe return and focus the safe choice",
 		failures,
 	)
 	if (
@@ -418,8 +432,22 @@ func _run() -> void:
 		bool(safety.get("manager_recruit_confirmation_visible", false))
 		and StringName(String(safety.get("manager_candidate_id", "")))
 		== &"byte_automation"
-		and int(safety.get("manager_recruit_cost_cents", 0)) == 7000,
-		"interaction safety state should expose the held candidate and exact filing cost",
+		and int(safety.get("manager_recruit_cost_cents", 0)) == 7000
+		and String(safety.get("manager_recruit_confirmation_focus", ""))
+		== "safe_return"
+		and _contains_all(
+			String(safety.get(
+				"manager_recruit_confirmation_accessible_text",
+				"",
+			)),
+			[
+				"APPOINT BYTE BANTAM?",
+				"COST  /  -$70.00 FEED FUND",
+				"Confirm: APPOINT",
+				"Safe return: KEEP CURRENT",
+			],
+		),
+		"interaction safety state should expose the held candidate, exact filing economics, safe focus, and authored summary",
 		failures,
 	)
 	if confirmation != null:

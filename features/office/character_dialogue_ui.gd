@@ -1,9 +1,9 @@
 class_name CharacterDialogueUI
 extends Control
 
-## Non-blocking character cutout used to turn exact management state into one
-## readable human beat. The complete numbers stay in Flockwatch and Farmer
-## Review; this surface intentionally carries no economic table.
+## Character cutout used to turn exact management state into one readable human
+## beat. Ambient cards leave the floor live; visual-novel asides deliberately
+## hand input and clock ownership to Office until they are filed away.
 
 signal dialogue_presented(entry: Dictionary)
 signal dialogue_dismissed(entry_id: StringName)
@@ -32,6 +32,8 @@ const MAX_QUEUE := 6
 const DESKTOP_WIDTH := 1160.0
 const DESKTOP_HEIGHT := 490.0
 const COMPACT_BREAKPOINT := 760.0
+const AMBIENT_WIDTH := 450.0
+const AMBIENT_HEIGHT := 132.0
 const COLOR_PANEL := Color("111b24")
 const COLOR_PANEL_EDGE := Color("d2ae61")
 const COLOR_INK := Color("f2ead4")
@@ -122,7 +124,7 @@ func set_suspended(suspended: bool) -> void:
 		_scrim.visible = false
 	elif not _active.is_empty():
 		_panel.visible = true
-		_scrim.visible = true
+		_scrim.visible = not _is_ambient_active()
 	else:
 		_present_next_if_available()
 
@@ -158,6 +160,14 @@ func is_presenting() -> bool:
 	return _panel != null and _panel.visible and not _active.is_empty()
 
 
+func is_blocking() -> bool:
+	return is_presenting() and not _is_ambient_active()
+
+
+func has_blocking_dialogue() -> bool:
+	return not _active.is_empty() and not _is_ambient_active()
+
+
 func accessibility_text() -> String:
 	if _active.is_empty():
 		return ""
@@ -180,7 +190,7 @@ func diagnostic_state() -> Dictionary:
 		"queued_count": _queue.size(),
 		"remaining_seconds": maxf(0.0, _remaining_seconds),
 		"accessible_text": accessibility_text(),
-		"presentation_mode": &"visual_novel",
+		"presentation_mode": _presentation_mode(),
 		"panel_rect": _panel.get_global_rect() if _panel != null else Rect2(),
 	}
 
@@ -319,8 +329,10 @@ func _present(entry: Dictionary) -> void:
 		if not _queue.is_empty() else
 		"FILE AWAY"
 	)
+	_apply_presentation_mode()
+	_apply_responsive_layout()
 	if not _suspended:
-		_scrim.visible = true
+		_scrim.visible = not _is_ambient_active()
 		_panel.visible = true
 		if not _reduced_motion:
 			_panel.modulate = Color(1.0, 1.0, 1.0, 0.0)
@@ -343,6 +355,27 @@ func _apply_responsive_layout() -> void:
 	if _panel == null:
 		return
 	var viewport_size := size
+	if _is_ambient_active():
+		var ambient_margin := 10.0 if viewport_size.x <= 520.0 else 16.0
+		var ambient_width := minf(AMBIENT_WIDTH, viewport_size.x - ambient_margin * 2.0)
+		var ambient_height := minf(
+			maxf(AMBIENT_HEIGHT, _panel.get_combined_minimum_size().y),
+			viewport_size.y - ambient_margin * 2.0,
+		)
+		_panel.anchor_left = 1.0
+		_panel.anchor_top = 1.0
+		_panel.anchor_right = 1.0
+		_panel.anchor_bottom = 1.0
+		_panel.offset_left = -ambient_margin - ambient_width
+		_panel.offset_right = -ambient_margin
+		_panel.offset_top = -ambient_margin - ambient_height
+		_panel.offset_bottom = -ambient_margin
+		_row.columns = 1
+		_content_margin.add_theme_constant_override("margin_left", 14)
+		_content_margin.add_theme_constant_override("margin_right", 14)
+		_content_margin.add_theme_constant_override("margin_top", 11)
+		_content_margin.add_theme_constant_override("margin_bottom", 11)
+		return
 	var compact := viewport_size.x < COMPACT_BREAKPOINT
 	var narrow := viewport_size.x <= 520.0
 	var margin := 10.0 if narrow else (16.0 if compact else 24.0)
@@ -388,7 +421,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if (
 		not _suspended
 		and is_presenting()
-		and event.is_action_pressed("ui_accept")
+		and not _is_ambient_active()
+		and (
+			event.is_action_pressed("ui_accept")
+			or event.keycode in [KEY_ENTER, KEY_KP_ENTER]
+		)
 	):
 		dismiss_current()
 		get_viewport().set_input_as_handled()
@@ -404,6 +441,35 @@ func _queue_responsive_layout() -> void:
 func _refresh_responsive_layout() -> void:
 	_layout_refresh_pending = false
 	_apply_responsive_layout()
+
+
+func _presentation_mode() -> StringName:
+	return StringName(String(_active.get("presentation_mode", &"visual_novel")))
+
+
+func _is_ambient_active() -> bool:
+	return not _active.is_empty() and _presentation_mode() == &"ambient"
+
+
+func _apply_presentation_mode() -> void:
+	var ambient := _is_ambient_active()
+	_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE if ambient else Control.MOUSE_FILTER_STOP
+	_panel.add_theme_stylebox_override(
+		"panel",
+		_panel_style(
+			Color("13232a") if ambient else COLOR_PANEL,
+			COLOR_TEAL if ambient else COLOR_PANEL_EDGE,
+			8 if ambient else 10,
+			1 if ambient else 2,
+		),
+	)
+	_portrait_frame.visible = not ambient
+	_role_label.visible = not ambient
+	_exact_note.visible = not ambient
+	_file_button.visible = not ambient
+	_channel_label.add_theme_font_size_override("font_size", 10 if ambient else 12)
+	_name_label.add_theme_font_size_override("font_size", 18 if ambient else 29)
+	_quote_label.add_theme_font_size_override("font_size", 16 if ambient else 24)
 
 
 func _valid_entry(entry: Dictionary) -> bool:

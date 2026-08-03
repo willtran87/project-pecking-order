@@ -76,7 +76,8 @@ func _run() -> void:
 		and "SAFE 1/5" in safeguards_label.text
 		and "SHIFTS 0/5" in safeguards_label.text
 		and "RISK FLOCK WELFARE -45" in safeguards_label.text
-		and _contains_all(safeguard_glance.text, ["SAFEGUARD", "1/5 SAFE", "WELFARE -45"]),
+		and _contains_all(safeguard_glance.text, ["1/5 SAFE", "WELFARE -45"])
+		and "SAFEGUARD" in String(safeguard_glance.get_meta("accessible_text", "")),
 		"office Flockwatch should expose a glance tile while retaining the exact pass count and normalized blocker (tile: %s)" % (
 			safeguard_glance.text if safeguard_glance != null else "<missing>"
 		),

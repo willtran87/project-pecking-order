@@ -35,6 +35,7 @@ func _run() -> void:
 	var atmosphere := office.find_child("OfficeAtmosphere", true, false) as OfficeAtmosphere
 	var audio_feedback := office.find_child("OfficeAudioFeedback", true, false) as OfficeAudioFeedback
 	var audio_director := office.find_child("OfficeAudioDirector", true, false) as OfficeAudioDirector
+	var simulation := office.get("_simulation") as DepartmentSimulation
 	var character_dialogue_ui := office.find_child(
 		"CharacterDialogueUI",
 		true,
@@ -61,11 +62,45 @@ func _run() -> void:
 	settings_shortcut.keycode = KEY_F10
 	settings_shortcut.physical_keycode = KEY_F10
 	settings_shortcut.pressed = true
+	var consequence_before := simulation.snapshot()
+	var consequence_after := consequence_before.duplicate(true)
+	consequence_after["revenue_cents"] = int(consequence_before.get("revenue_cents", 0)) - 500
+	consequence_after["quota_target"] = int(consequence_before.get("quota_target", 0)) + 1
+	office.call(
+		"_spawn_decision_consequence_receipts",
+		consequence_before,
+		consequence_after,
+		{"option_id": &"settings_handoff"},
+	)
+	var save_before_settings_handoff := simulation.export_save_state()
+	var cue_serial_before_settings_handoff := int(audio_feedback.feedback_snapshot().get(
+		"cue_serial",
+		-1,
+	))
 	office._unhandled_input(settings_shortcut)
+	await process_frame
 	await process_frame
 	_check(
 		settings != null and settings.is_open(),
 		"the non-remappable F10 safety route should open Settings above campaign intake",
+		failures,
+	)
+	var archived_settings_receipt := office.get("_latest_action_outcome_receipt") as Dictionary
+	_check(
+		not bool(archived_settings_receipt.get("visible", true))
+		and String(archived_settings_receipt.get("dismissed_by", "")) == "settings"
+		and int(archived_settings_receipt.get("retired_panel_count", -1)) == 2
+		and (archived_settings_receipt.get("entries", []) as Array).size() == 2
+		and office.find_children("ActionOutcomeReceipt_*", "PanelContainer", true, false).is_empty(),
+		"Settings should archive lower-priority action semantics and remove every overlapping card",
+		failures,
+	)
+	var audio_after_settings_handoff := audio_feedback.feedback_snapshot()
+	_check(
+		simulation.export_save_state() == save_before_settings_handoff
+		and int(audio_after_settings_handoff.get("cue_serial", -2)) == cue_serial_before_settings_handoff + 1
+		and String(audio_after_settings_handoff.get("last_cue", "")) == "ui",
+		"Settings handoff should remain save-neutral and add only the existing sheet-open cue",
 		failures,
 	)
 	if settings != null:
@@ -190,7 +225,6 @@ func _run() -> void:
 	office.set("_player_preferences", comfort)
 	office.call("_apply_player_preferences")
 	await process_frame
-	var simulation := office.get("_simulation") as DepartmentSimulation
 	var flockwatch_navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
 	if flockwatch_navigation != null:
 		office.call("_set_flockwatch_open", true)
@@ -296,7 +330,12 @@ func _run() -> void:
 		office.call("_set_flockwatch_open", false)
 	var effect_snapshot := atmosphere.effect_snapshot()
 	var camera_navigation := controller.navigation_state()
-	_check(bool(controller.get("_reduced_motion")), "reduced motion should reach the actual camera controller", failures)
+	_check(
+		bool(controller.get("_reduced_motion"))
+		and workstation_feedback != null and workstation_feedback.reduced_motion(),
+		"reduced motion should reach the actual camera and workstation feedback controllers",
+		failures,
+	)
 	_check(
 		String(camera_navigation.get("camera_motion", "")) == "reduced"
 		and String(camera_navigation.get("input_sensitivity", "")) == "high"
@@ -324,6 +363,7 @@ func _run() -> void:
 	var motion_off_state := controller.navigation_state()
 	_check(
 		not bool(controller.get("_reduced_motion"))
+		and workstation_feedback != null and not workstation_feedback.reduced_motion()
 		and String(motion_off_state.get("camera_motion", "")) == "off"
 		and bool(motion_off_state.get("camera_motion_instant", false))
 		and controller.camera_mode() == passive_mode_before,

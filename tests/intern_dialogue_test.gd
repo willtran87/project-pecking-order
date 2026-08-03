@@ -23,7 +23,7 @@ func _init() -> void:
 		for theme_id in THEMES:
 			var lines := Library.voice_lines(speaker_id, theme_id)
 			_check(
-				lines.size() >= 2,
+				lines.size() >= 3,
 				"%s should have repeat-resistant %s dialogue" % [speaker_id, theme_id],
 				failures,
 			)
@@ -62,7 +62,7 @@ func _init() -> void:
 			push_error("INTERN_DIALOGUE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("INTERN_DIALOGUE_TEST_PASSED cast=4 themes=8 lines>=64 events=state-driven")
+	print("INTERN_DIALOGUE_TEST_PASSED cast=4 themes=8 lines>=96 events=state-driven")
 	quit(0)
 
 

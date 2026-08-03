@@ -31,6 +31,11 @@ func _run() -> void:
 	var scrim := ui.find_child("CharacterDialogueScrim", true, false) as ColorRect
 	_check(panel != null and panel.visible, "accepted dialogue should reveal one visual-novel dialogue panel", failures)
 	_check(scrim != null and scrim.visible, "visual-novel dialogue should dim the office behind the cast", failures)
+	_check(
+		ui.is_blocking() and ui.has_blocking_dialogue(),
+		"a visible visual-novel aside should truthfully report that it owns floor input",
+		failures,
+	)
 	_check(portrait != null and portrait.texture != null, "dialogue should resolve the approved transparent portrait", failures)
 	_check(speaker != null and speaker.text == "MABEL", "opening beat should name its established speaker", failures)
 	_check(
@@ -93,6 +98,58 @@ func _run() -> void:
 		"First Clutch should wait for the reinvestment consequence instead of queuing a generic first-egg line",
 		failures,
 	)
+	var normal_first_egg_before := first_clutch_before.duplicate(true)
+	normal_first_egg_before["first_clutch_tracking"] = false
+	var normal_first_egg_after := normal_first_egg_before.duplicate(true)
+	normal_first_egg_after["eggs_today"] = 1
+	var normal_first_egg_beats := DialogueCatalog.beats_for_snapshot(
+		normal_first_egg_before,
+		normal_first_egg_after,
+	)
+	_check(
+		normal_first_egg_beats.size() == 1
+		and StringName((normal_first_egg_beats[0] as Dictionary).get(
+			"presentation_mode", &"",
+		)) == &"ambient",
+		"routine first-egg color should use the non-modal ambient presentation",
+		failures,
+	)
+	var ambient_ui := DialogueUI.new()
+	viewport_host.add_child(ambient_ui)
+	await process_frame
+	_check(
+		ambient_ui.enqueue_many(normal_first_egg_beats) == 1,
+		"ambient first-egg color should enter the character queue",
+		failures,
+	)
+	await process_frame
+	var ambient_panel := ambient_ui.find_child(
+		"CharacterDialoguePanel", true, false,
+	) as PanelContainer
+	var ambient_scrim := ambient_ui.find_child(
+		"CharacterDialogueScrim", true, false,
+	) as ColorRect
+	var ambient_portrait := ambient_ui.find_child(
+		"CharacterDialoguePortraitFrame", true, false,
+	) as PanelContainer
+	_check(
+		ambient_panel != null
+		and ambient_panel.visible
+		and ambient_panel.size.x <= 460.0
+		and ambient_panel.size.y <= 150.0
+		and ambient_scrim != null
+		and not ambient_scrim.visible
+		and ambient_portrait != null
+		and not ambient_portrait.visible,
+		"ambient production color should stay compact, portrait-free, and leave the live floor undimmed",
+		failures,
+	)
+	_check(
+		not ambient_ui.is_blocking() and not ambient_ui.has_blocking_dialogue(),
+		"ambient production color should remain explicitly non-blocking",
+		failures,
+	)
+	ambient_ui.queue_free()
 	var keycap_aftermath := DialogueCatalog.beat_for_decision_result({
 		"accepted": true,
 		"option_id": &"peckwork_tools",
@@ -114,8 +171,10 @@ func _run() -> void:
 	_check(not panel.visible and not ui.active_entry().is_empty(), "management modals should hide without discarding active dialogue", failures)
 	ui.set_suspended(false)
 	_check(panel.visible, "dialogue should return after the blocking surface closes", failures)
-	if dismiss != null:
-		dismiss.pressed.emit()
+	var enter_event := InputEventKey.new()
+	enter_event.pressed = true
+	enter_event.keycode = KEY_ENTER
+	ui.call("_unhandled_key_input", enter_event)
 	await process_frame
 	_check(
 		StringName(ui.active_entry().get("speaker_id", &"")) == &"henrietta"
