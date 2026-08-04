@@ -344,6 +344,9 @@ signal interaction_safety_changed
 
 const PECK_RESULT_LINK_DURATION := 0.72
 const PECK_MISSED_LINK_DURATION := 0.58
+const CLAIM_FILE_ARRIVAL_DURATION := 1.8
+const HEN_DOSSIER_ARRIVAL_DURATION := 1.8
+const DISPATCH_TRAY_ARRIVAL_DURATION := 1.8
 const PECK_RECHARGE_DISPLAY_SECONDS := 1.55
 const DISPATCH_BREAK_DISPLAY_SECONDS := 3.8
 const DISPATCH_BREAK_GLYPH_SECONDS := 0.92
@@ -352,6 +355,8 @@ const DISPATCH_BREAK_RECOVERY_SECONDS := 0.92
 const DISPATCH_RECOVERY_DISPLAY_SECONDS := 1.55
 const DISPATCH_RECOVERY_JOIN_SECONDS := 0.78
 const DISPATCH_RECOVERY_GLYPH_SECONDS := 1.12
+const QUEUE_IDLE_RIGHT := 552.0
+const QUEUE_MOMENTUM_RIGHT := 694.0
 
 const LANE_ORDER: Array[StringName] = [
 	&"nest_damage",
@@ -424,6 +429,18 @@ var _details_button: Button
 var _dossier_tabs: HBoxContainer
 var _dossier_tab_buttons: Dictionary[StringName, Button] = {}
 var _active_dossier_tab: StringName = &"route"
+var _claim_file_arrival_remaining := 0.0
+var _claim_file_arrival_claim_id := -1
+var _claim_file_arrival_serial := 0
+var _hen_dossier_arrival_remaining := 0.0
+var _hen_dossier_arrival_worker_id := -1
+var _hen_dossier_arrival_serial := 0
+var _dispatch_tray_arrival_remaining := 0.0
+var _dispatch_tray_arrival_lane: StringName = &""
+var _dispatch_tray_arrival_target: Control
+var _dispatch_tray_arrival_serial := 0
+var _dispatch_tray_arrival_fallback := false
+var _dispatch_tray_arrival_queue_title_text := ""
 var _current_claim_label: Label
 var _golden_file_badge: Label
 var _current_contract_badge: Label
@@ -537,6 +554,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_process_claim_file_arrival(delta)
+	_process_hen_dossier_arrival(delta)
+	_process_dispatch_tray_arrival(delta)
 	_process_dispatch_break(delta)
 	_process_dispatch_recovery(delta)
 	_process_priority_peck_recharge(delta)
@@ -634,6 +654,8 @@ func _process(delta: float) -> void:
 
 func set_focus(worker_id: int) -> void:
 	if worker_id != _focused_worker_id:
+		_finish_claim_file_arrival()
+		_finish_hen_dossier_arrival()
 		_cancel_peck_result_focus_handoff("worker_focus_changed")
 		_peck_missed_capture_staged = false
 		set_meta("peck_missed_capture_staged", false)
@@ -655,6 +677,15 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	# The UI never mutates it, so retaining the owned value avoids a third copy of
 	# every live claim and worker dossier on each accelerated clock publication.
 	_snapshot = snapshot
+	if _claim_file_arrival_remaining > 0.0:
+		var arrival_worker := _worker_snapshot(_focused_worker_id)
+		var arrival_claim := arrival_worker.get("current_claim", {}) as Dictionary
+		if int(arrival_claim.get("id", -1)) != _claim_file_arrival_claim_id:
+			_finish_claim_file_arrival()
+	if _hen_dossier_arrival_remaining > 0.0:
+		var dossier_worker := _worker_snapshot(_hen_dossier_arrival_worker_id)
+		if dossier_worker.is_empty() or _hen_dossier_arrival_worker_id != _focused_worker_id:
+			_finish_hen_dossier_arrival()
 	var momentum := snapshot.get("routing_momentum", {}) as Dictionary
 	_routing_best_chain = int(momentum.get("best_chain", 0))
 	_routing_next_milestone = int(momentum.get("next_milestone", 0))
@@ -1226,6 +1257,15 @@ func _result_link_progress() -> float:
 
 func set_reduced_motion(enabled: bool) -> void:
 	_reduced_motion = enabled
+	if _claim_file_arrival_remaining > 0.0:
+		set_meta("claim_file_arrival_animated", not _reduced_motion)
+		_apply_claim_file_arrival_presentation()
+	if _hen_dossier_arrival_remaining > 0.0:
+		set_meta("hen_dossier_arrival_animated", not _reduced_motion)
+		_apply_hen_dossier_arrival_presentation()
+	if _dispatch_tray_arrival_remaining > 0.0:
+		set_meta("dispatch_tray_arrival_animated", not _reduced_motion)
+		_apply_dispatch_tray_arrival_presentation()
 	if enabled:
 		_peck_missed_capture_staged = false
 		set_meta("peck_missed_capture_staged", false)
@@ -1351,6 +1391,7 @@ func _dispatch_priority_precedes(candidate: Dictionary, current: Dictionary) -> 
 ## route. Office pairs this with one restrained pulse for the one-shot re-entry
 ## handoff; gameplay authority remains in the normal tray and hen-selection flow.
 func focus_priority_dispatch_tray() -> Control:
+	_finish_dispatch_tray_arrival()
 	_return_cue_focus_serial += 1
 	var priority := dispatch_priority_state()
 	if not priority.is_empty():
@@ -1359,6 +1400,7 @@ func focus_priority_dispatch_tray() -> Control:
 		if tray != null:
 			clear_dispatch_tray_focus_fallback()
 			tray.grab_focus()
+			_begin_dispatch_tray_arrival(lane, tray)
 			_last_return_cue_focus = priority.duplicate(true)
 			_last_return_cue_focus.merge({
 				"serial": _return_cue_focus_serial,
@@ -1372,6 +1414,7 @@ func focus_priority_dispatch_tray() -> Control:
 		_queue_panel.focus_mode = Control.FOCUS_ALL
 		_queue_panel.accessibility_name = "Peckwork intake trays; no file is ready yet"
 		_queue_panel.grab_focus()
+		_begin_dispatch_tray_arrival(&"", _queue_panel, true)
 		_last_return_cue_focus = {
 			"serial": _return_cue_focus_serial,
 			"available": false,
@@ -1387,6 +1430,128 @@ func focus_priority_dispatch_tray() -> Control:
 		}
 		return _queue_panel
 	return null
+
+
+## Acknowledges the exact urgent intake lane selected by an external handoff.
+## The tray remains an ordinary semantic button: no dispatch mode or route is
+## armed until the player deliberately activates it.
+func _begin_dispatch_tray_arrival(
+	lane: StringName,
+	target: Control,
+	fallback: bool = false,
+) -> void:
+	_finish_claim_file_arrival()
+	_finish_hen_dossier_arrival()
+	_dispatch_tray_arrival_lane = lane
+	_dispatch_tray_arrival_target = target
+	_dispatch_tray_arrival_remaining = DISPATCH_TRAY_ARRIVAL_DURATION
+	_dispatch_tray_arrival_serial += 1
+	_dispatch_tray_arrival_fallback = fallback
+	_dispatch_tray_arrival_queue_title_text = (
+		_queue_title_label.text if _queue_title_label != null else ""
+	)
+	set_meta("dispatch_tray_arrival_active", true)
+	set_meta("dispatch_tray_arrival_animated", not _reduced_motion)
+	set_meta("dispatch_tray_arrival_lane", String(lane))
+	set_meta("dispatch_tray_arrival_fallback", fallback)
+	set_meta("dispatch_tray_arrival_serial", _dispatch_tray_arrival_serial)
+	_apply_dispatch_tray_arrival_presentation()
+
+
+func _process_dispatch_tray_arrival(delta: float) -> void:
+	if _dispatch_tray_arrival_remaining <= 0.0:
+		return
+	if (
+		_dispatch_tray_arrival_target == null
+		or not is_instance_valid(_dispatch_tray_arrival_target)
+		or not _dispatch_tray_arrival_target.is_visible_in_tree()
+	):
+		_finish_dispatch_tray_arrival()
+		return
+	_dispatch_tray_arrival_remaining = maxf(
+		0.0,
+		_dispatch_tray_arrival_remaining - delta,
+	)
+	if _dispatch_tray_arrival_remaining <= 0.0:
+		_finish_dispatch_tray_arrival()
+		return
+	_apply_dispatch_tray_arrival_presentation()
+
+
+func _apply_dispatch_tray_arrival_presentation() -> void:
+	if _dispatch_tray_arrival_target == null:
+		return
+	var progress := clampf(
+		1.0 - (_dispatch_tray_arrival_remaining / DISPATCH_TRAY_ARRIVAL_DURATION),
+		0.0,
+		1.0,
+	)
+	var pulse := 0.55 if _reduced_motion else (sin(progress * TAU * 2.0) + 1.0) * 0.5
+	var strength := (0.28 + pulse * 0.46) * (1.0 - progress * 0.4)
+	var arrival_color := Color("9edfd3") if _dispatch_tray_arrival_fallback else Color("ffd66b")
+	_dispatch_tray_arrival_target.modulate = Color.WHITE.lerp(arrival_color, strength)
+	_dispatch_tray_arrival_target.pivot_offset = _dispatch_tray_arrival_target.size * 0.5
+	_dispatch_tray_arrival_target.scale = (
+		Vector2.ONE
+		if _reduced_motion or _dispatch_tray_arrival_fallback else
+		Vector2.ONE * (1.0 + pulse * 0.035 * (1.0 - progress))
+	)
+	if _queue_title_label != null:
+		if _dispatch_tray_arrival_fallback:
+			_queue_title_label.text = "INTAKE CLEAR  ·  WAITING"
+		_queue_title_label.self_modulate = Color.WHITE.lerp(
+			Color("c7f3ea") if _dispatch_tray_arrival_fallback else Color("fff0b5"),
+			strength * 0.68,
+		)
+
+
+func _finish_dispatch_tray_arrival() -> void:
+	var had_arrival := (
+		_dispatch_tray_arrival_remaining > 0.0
+		or _dispatch_tray_arrival_target != null
+	)
+	if _dispatch_tray_arrival_target != null and is_instance_valid(_dispatch_tray_arrival_target):
+		_dispatch_tray_arrival_target.modulate = Color.WHITE
+		_dispatch_tray_arrival_target.scale = Vector2.ONE
+	_dispatch_tray_arrival_remaining = 0.0
+	_dispatch_tray_arrival_lane = &""
+	_dispatch_tray_arrival_target = null
+	_dispatch_tray_arrival_fallback = false
+	set_meta("dispatch_tray_arrival_active", false)
+	set_meta("dispatch_tray_arrival_animated", false)
+	set_meta("dispatch_tray_arrival_lane", "")
+	set_meta("dispatch_tray_arrival_fallback", false)
+	if _queue_title_label != null:
+		if had_arrival:
+			_queue_title_label.text = _dispatch_tray_arrival_queue_title_text
+		_queue_title_label.self_modulate = Color.WHITE
+	_dispatch_tray_arrival_queue_title_text = ""
+
+
+func dispatch_tray_arrival_state() -> Dictionary:
+	return {
+		"active": _dispatch_tray_arrival_remaining > 0.0,
+		"animated": _dispatch_tray_arrival_remaining > 0.0 and not _reduced_motion,
+		"reduced_motion": _reduced_motion,
+		"lane": String(_dispatch_tray_arrival_lane),
+		"fallback": _dispatch_tray_arrival_fallback,
+		"reason": (
+			"waiting_for_intake"
+			if _dispatch_tray_arrival_fallback else
+			"urgent_file" if _dispatch_tray_arrival_remaining > 0.0 else ""
+		),
+		"serial": _dispatch_tray_arrival_serial,
+		"target": (
+			String(_dispatch_tray_arrival_target.name)
+			if _dispatch_tray_arrival_target != null else
+			""
+		),
+	}
+
+
+func clear_dispatch_tray_arrival() -> void:
+	_finish_dispatch_tray_arrival()
+	clear_dispatch_tray_focus_fallback()
 
 
 func return_cue_focus_state() -> Dictionary:
@@ -1762,8 +1927,7 @@ func _apply_first_clutch_layout() -> void:
 		var overdue_label := _queue_labels.get(&"overdue") as Label
 		if overdue_label != null:
 			overdue_label.visible = not narrow
-		if _dispatch_momentum_label != null:
-			_dispatch_momentum_label.visible = not narrow
+		_refresh_queue_momentum_layout()
 	if narrow:
 		_first_clutch_panel.set_anchor(SIDE_LEFT, 0.0)
 		_first_clutch_panel.set_anchor(SIDE_RIGHT, 0.0)
@@ -1782,6 +1946,25 @@ func _apply_first_clutch_layout() -> void:
 		_first_clutch_panel.offset_bottom = (
 			_top_inset + (110.0 if _first_clutch_compact else 130.0)
 		)
+
+
+func _refresh_queue_momentum_layout() -> void:
+	if _queue_panel == null or _dispatch_momentum_label == null:
+		return
+	var viewport_width := get_viewport_rect().size.x
+	var available_width := minf(size.x, viewport_width) if size.x > 0.0 else viewport_width
+	var narrow := available_width > 0.0 and available_width < 720.0
+	var momentum_active := not _dispatch_momentum_label.text.is_empty()
+	_dispatch_momentum_label.visible = not narrow and momentum_active
+	_queue_panel.offset_right = (
+		maxf(12.0, available_width - 12.0)
+		if narrow else
+		QUEUE_MOMENTUM_RIGHT
+		if momentum_active else
+		QUEUE_IDLE_RIGHT
+	)
+	_queue_panel.set_meta("momentum_slot_active", momentum_active)
+	_queue_panel.set_meta("compact_idle_extent", not narrow and not momentum_active)
 
 
 func _build_focus_dossier() -> void:
@@ -2073,6 +2256,10 @@ func _build_claim_resolution_confirmation() -> void:
 func _on_dossier_tab_pressed(tab_id: StringName) -> void:
 	if tab_id not in [&"route", &"claim", &"support", &"profile"]:
 		return
+	if tab_id != &"claim":
+		_finish_claim_file_arrival()
+	if tab_id != &"route":
+		_finish_hen_dossier_arrival()
 	_active_dossier_tab = tab_id
 	_refresh()
 	var first_focus: Control
@@ -2091,6 +2278,190 @@ func _on_dossier_tab_pressed(tab_id: StringName) -> void:
 
 func active_dossier_tab() -> StringName:
 	return _active_dossier_tab
+
+
+## Opens the File tab only when the requested receipt still names the exact
+## claim held by the focused hen. A stale or completed receipt returns null and
+## leaves the dossier at hen level; it never substitutes a newer file.
+func focus_claim_file(claim_id: int) -> Control:
+	if _focused_worker_id < 0 or claim_id < 0:
+		_finish_claim_file_arrival()
+		return null
+	var worker := _worker_snapshot(_focused_worker_id)
+	var current_claim := worker.get("current_claim", {}) as Dictionary
+	if current_claim.is_empty() or int(current_claim.get("id", -1)) != claim_id:
+		_finish_claim_file_arrival()
+		return null
+	var target := focus_intent_action(&"claim")
+	if target == null:
+		_finish_claim_file_arrival()
+		return null
+	_begin_claim_file_arrival(claim_id)
+	return target
+
+
+## Briefly acknowledges that an external receipt landed on this exact live File.
+## The effect is presentation-only: it neither presses a claimant-path button nor
+## changes the authoritative simulation snapshot.
+func _begin_claim_file_arrival(claim_id: int) -> void:
+	_finish_dispatch_tray_arrival()
+	_finish_hen_dossier_arrival()
+	_claim_file_arrival_claim_id = claim_id
+	_claim_file_arrival_remaining = CLAIM_FILE_ARRIVAL_DURATION
+	_claim_file_arrival_serial += 1
+	set_meta("claim_file_arrival_active", true)
+	set_meta("claim_file_arrival_animated", not _reduced_motion)
+	set_meta("claim_file_arrival_claim_id", claim_id)
+	set_meta("claim_file_arrival_serial", _claim_file_arrival_serial)
+	_apply_claim_file_arrival_presentation()
+
+
+func _process_claim_file_arrival(delta: float) -> void:
+	if _claim_file_arrival_remaining <= 0.0:
+		return
+	_claim_file_arrival_remaining = maxf(0.0, _claim_file_arrival_remaining - delta)
+	if _claim_file_arrival_remaining <= 0.0:
+		_finish_claim_file_arrival()
+		return
+	_apply_claim_file_arrival_presentation()
+
+
+func _apply_claim_file_arrival_presentation() -> void:
+	var file_tab := _dossier_tab_buttons.get(&"claim") as Button
+	if file_tab == null:
+		return
+	var progress := clampf(
+		1.0 - (_claim_file_arrival_remaining / CLAIM_FILE_ARRIVAL_DURATION),
+		0.0,
+		1.0,
+	)
+	var pulse := 0.52 if _reduced_motion else (sin(progress * TAU * 2.0) + 1.0) * 0.5
+	var strength := (0.26 + pulse * 0.42) * (1.0 - progress * 0.45)
+	var file_tint := Color.WHITE.lerp(Color("ffd66b"), strength)
+	file_tab.self_modulate = file_tint
+	file_tab.pivot_offset = file_tab.size * 0.5
+	file_tab.scale = (
+		Vector2.ONE
+		if _reduced_motion else
+		Vector2.ONE * (1.0 + pulse * 0.035 * (1.0 - progress))
+	)
+	if _claim_header != null:
+		_claim_header.self_modulate = Color.WHITE.lerp(Color("fff0b5"), strength * 0.72)
+
+
+func _finish_claim_file_arrival() -> void:
+	_claim_file_arrival_remaining = 0.0
+	_claim_file_arrival_claim_id = -1
+	set_meta("claim_file_arrival_active", false)
+	set_meta("claim_file_arrival_animated", false)
+	set_meta("claim_file_arrival_claim_id", -1)
+	var file_tab := _dossier_tab_buttons.get(&"claim") as Button
+	if file_tab != null:
+		file_tab.self_modulate = Color.WHITE
+		file_tab.scale = Vector2.ONE
+	if _claim_header != null:
+		_claim_header.self_modulate = Color.WHITE
+
+
+func claim_file_arrival_state() -> Dictionary:
+	return {
+		"active": _claim_file_arrival_remaining > 0.0,
+		"animated": _claim_file_arrival_remaining > 0.0 and not _reduced_motion,
+		"reduced_motion": _reduced_motion,
+		"claim_id": _claim_file_arrival_claim_id,
+		"serial": _claim_file_arrival_serial,
+		"active_tab": String(_active_dossier_tab),
+		"target": "DossierTab_claim",
+	}
+
+
+## Restores a receipt to the focused hen's general dossier rather than leaving a
+## previously opened File visible. This is presentation-only and never routes a
+## file or presses a management action.
+func focus_hen_dossier(worker_id: int) -> Control:
+	if worker_id < 0:
+		_finish_hen_dossier_arrival()
+		return null
+	if worker_id != _focused_worker_id:
+		set_focus(worker_id)
+	if _worker_snapshot(worker_id).is_empty():
+		_finish_hen_dossier_arrival()
+		return null
+	_on_dossier_tab_pressed(&"route")
+	_begin_hen_dossier_arrival(worker_id)
+	return _dossier_tab_buttons.get(&"route") as Control
+
+
+func _begin_hen_dossier_arrival(worker_id: int) -> void:
+	_finish_dispatch_tray_arrival()
+	_finish_claim_file_arrival()
+	_hen_dossier_arrival_worker_id = worker_id
+	_hen_dossier_arrival_remaining = HEN_DOSSIER_ARRIVAL_DURATION
+	_hen_dossier_arrival_serial += 1
+	set_meta("hen_dossier_arrival_active", true)
+	set_meta("hen_dossier_arrival_animated", not _reduced_motion)
+	set_meta("hen_dossier_arrival_worker_id", worker_id)
+	set_meta("hen_dossier_arrival_serial", _hen_dossier_arrival_serial)
+	_apply_hen_dossier_arrival_presentation()
+
+
+func _process_hen_dossier_arrival(delta: float) -> void:
+	if _hen_dossier_arrival_remaining <= 0.0:
+		return
+	_hen_dossier_arrival_remaining = maxf(0.0, _hen_dossier_arrival_remaining - delta)
+	if _hen_dossier_arrival_remaining <= 0.0:
+		_finish_hen_dossier_arrival()
+		return
+	_apply_hen_dossier_arrival_presentation()
+
+
+func _apply_hen_dossier_arrival_presentation() -> void:
+	if _worker_name_label == null:
+		return
+	var progress := clampf(
+		1.0 - (_hen_dossier_arrival_remaining / HEN_DOSSIER_ARRIVAL_DURATION),
+		0.0,
+		1.0,
+	)
+	var pulse := 0.52 if _reduced_motion else (sin(progress * TAU * 2.0) + 1.0) * 0.5
+	var strength := (0.24 + pulse * 0.40) * (1.0 - progress * 0.45)
+	_worker_name_label.self_modulate = Color.WHITE.lerp(Color("ffd66b"), strength)
+	_worker_name_label.pivot_offset = _worker_name_label.size * 0.5
+	_worker_name_label.scale = (
+		Vector2.ONE
+		if _reduced_motion else
+		Vector2.ONE * (1.0 + pulse * 0.03 * (1.0 - progress))
+	)
+	if _worker_trait_label != null:
+		_worker_trait_label.self_modulate = Color.WHITE.lerp(
+			Color("fff0b5"),
+			strength * 0.68,
+		)
+
+
+func _finish_hen_dossier_arrival() -> void:
+	_hen_dossier_arrival_remaining = 0.0
+	_hen_dossier_arrival_worker_id = -1
+	set_meta("hen_dossier_arrival_active", false)
+	set_meta("hen_dossier_arrival_animated", false)
+	set_meta("hen_dossier_arrival_worker_id", -1)
+	if _worker_name_label != null:
+		_worker_name_label.self_modulate = Color.WHITE
+		_worker_name_label.scale = Vector2.ONE
+	if _worker_trait_label != null:
+		_worker_trait_label.self_modulate = Color.WHITE
+
+
+func hen_dossier_arrival_state() -> Dictionary:
+	return {
+		"active": _hen_dossier_arrival_remaining > 0.0,
+		"animated": _hen_dossier_arrival_remaining > 0.0 and not _reduced_motion,
+		"reduced_motion": _reduced_motion,
+		"worker_id": _hen_dossier_arrival_worker_id,
+		"serial": _hen_dossier_arrival_serial,
+		"active_tab": String(_active_dossier_tab),
+		"target": "RoutingWorkerName",
+	}
 
 
 ## Opens the existing management category that fulfills a hen's authoritative
@@ -2243,6 +2614,7 @@ func _refresh() -> void:
 			_dispatch_momentum_label.text = ""
 			_dispatch_momentum_label.tooltip_text = ""
 			_dispatch_momentum_label.accessibility_name = ""
+	_refresh_queue_momentum_layout()
 	_queue_panel.tooltip_text = (
 		"PECKWORK ROUTING\nNest %d  /  Predator %d  /  Appeals %d  /  Overdue %d"
 		% [
@@ -3793,6 +4165,7 @@ func _refresh_first_clutch_return_action(coach_visible: bool) -> void:
 func _on_dispatch_tray_pressed(lane: StringName) -> void:
 	if not _interaction_enabled or lane not in LANE_ORDER:
 		return
+	_finish_dispatch_tray_arrival()
 	dispatch_lane_requested.emit(lane)
 
 

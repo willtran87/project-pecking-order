@@ -16,6 +16,7 @@ signal title_intake_phase_changed(phase: StringName)
 signal milestone_choice(choice_id: StringName)
 signal presentation_state_changed
 signal report_filing_settled(reveal_key: String, instant: bool)
+signal live_order_mark_requested(objective_id: StringName, order_index: int)
 signal career_sponsorship_requested(worker_id: int, lane_id: StringName)
 signal market_contract_sign_requested(
 	offer_id: StringName,
@@ -27,6 +28,7 @@ signal market_contract_decline_requested
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const CareerSponsorshipUIScript := preload("res://features/office/career_sponsorship_ui.gd")
 const FarmMutualContractBoardUIScript := preload("res://features/office/farm_mutual_contract_board_ui.gd")
+const FlockwatchIconBadgeScript := preload("res://features/office/flockwatch_icon_badge.gd")
 const MabelPortrait: Texture2D = preload("res://assets/npcs/mabel/portraits/mabel_portrait_anxious.png")
 
 const VIEW_TITLE := &"title"
@@ -110,13 +112,23 @@ var _day_label: Label
 var _day_progress_row: HBoxContainer
 var _day_progress_segments: Array[PanelContainer] = []
 var _order_progress_row: HBoxContainer
+var _order_promotion_icon: TextureRect
 var _order_progress_label: Label
 var _order_progress_segments: Array[PanelContainer] = []
+var _order_progress_icons: Array[Control] = []
+var _order_progress_actions: Array[Button] = []
 var _live_orders_on_track := -1
 var _live_orders_total := 0
 var _live_order_context: StringName = &""
+var _live_order_states: Array[Dictionary] = []
 var _order_progress_seeded := false
 var _order_progress_tween: Tween
+var _order_stamp_change_serial := 0
+var _order_mark_request_serial := 0
+var _last_requested_order_id: StringName = &""
+var _last_requested_order_index := -1
+var _order_promotion_tween: Tween
+var _order_promotion_ready_pulse_serial := 0
 var _report_reveal_tween: Tween
 var _last_report_reveal_key := ""
 var _reduced_motion := false
@@ -429,48 +441,169 @@ func accessible_text() -> String:
 
 
 ## Updates only the presentation badge from an authoritative live projection.
-## A new day/quarter seeds quietly; later aggregate changes return their signed
+## A new day/quarter seeds quietly; later changes return their signed aggregate
 ## delta so Office can play one semantic cue without duplicating campaign rules.
-func set_live_order_progress(on_track: int, total: int, context: StringName) -> int:
+## Optional stable order states let the compact badge identify exactly which
+## authored order changed even when the aggregate count stays the same.
+func set_live_order_progress(
+	on_track: int,
+	total: int,
+	context: StringName,
+	order_states: Array[Dictionary] = [],
+) -> int:
 	var sanitized_total := clampi(total, 0, MAX_BADGE_ORDER_SEGMENTS)
 	var sanitized_on_track := clampi(on_track, 0, sanitized_total)
+	var sanitized_states := _sanitize_live_order_states(order_states, sanitized_total)
 	if sanitized_total <= 0:
+		_settle_live_order_stamp_pulses("hidden", true)
 		_live_orders_on_track = -1
 		_live_orders_total = 0
 		_live_order_context = context
+		_live_order_states.clear()
+		_last_requested_order_id = &""
+		_last_requested_order_index = -1
 		_order_progress_seeded = false
 		_snapshot["live_orders_on_track"] = 0
 		_snapshot["live_orders_total"] = 0
 		_snapshot["live_order_context"] = String(context)
 		_refresh_live_order_badge()
 		return 0
+	var previous_on_track := _live_orders_on_track
 	var same_context := _order_progress_seeded and context == _live_order_context
 	var delta := sanitized_on_track - _live_orders_on_track if same_context else 0
+	var semantic_changes: Array[Dictionary] = []
+	var stable_semantics := (
+		same_context
+		and not sanitized_states.is_empty()
+		and sanitized_states.size() == _live_order_states.size()
+	)
+	if stable_semantics:
+		for index in range(sanitized_states.size()):
+			var previous_state := _live_order_states[index]
+			var current_state := sanitized_states[index]
+			if String(previous_state.get("id", "")) != String(current_state.get("id", "")):
+				stable_semantics = false
+				semantic_changes.clear()
+				break
+			var was_on_track := bool(previous_state.get("on_track", false))
+			var is_on_track := bool(current_state.get("on_track", false))
+			if was_on_track != is_on_track:
+				semantic_changes.append({
+					"index": index,
+					"direction": "fill" if is_on_track else "empty",
+				})
+	var was_promotion_ready := (
+		bool(_order_progress_row.get_meta("promotion_ready", false))
+		if _order_progress_row != null else
+		false
+	)
 	var changed := (
 		not same_context
 		or sanitized_on_track != _live_orders_on_track
 		or sanitized_total != _live_orders_total
+		or not semantic_changes.is_empty()
+		or sanitized_states != _live_order_states
 	)
 	_live_orders_on_track = sanitized_on_track
 	_live_orders_total = sanitized_total
 	_live_order_context = context
+	_live_order_states = sanitized_states
 	_order_progress_seeded = true
 	_snapshot["live_orders_on_track"] = sanitized_on_track
 	_snapshot["live_orders_total"] = sanitized_total
 	_snapshot["live_order_context"] = String(context)
 	if changed:
+		if not same_context:
+			_last_requested_order_id = &""
+			_last_requested_order_index = -1
+			_settle_live_order_stamp_pulses("seeded", true)
 		_refresh_live_order_badge()
-		if delta != 0 and _view == VIEW_ACTIVE:
-			_pulse_live_order_badge(delta > 0)
+		if _view == VIEW_ACTIVE:
+			if stable_semantics and not semantic_changes.is_empty():
+				_pulse_live_order_state_changes(semantic_changes)
+			elif sanitized_states.is_empty() and delta != 0:
+				_pulse_live_order_stamps(previous_on_track, sanitized_on_track)
+		var promotion_ready := (
+			bool(_order_progress_row.get_meta("promotion_ready", false))
+			if _order_progress_row != null else
+			false
+		)
+		if delta > 0 and not was_promotion_ready and promotion_ready and _view == VIEW_ACTIVE:
+			_pulse_live_order_promotion_ready()
+		elif was_promotion_ready and not promotion_ready:
+			_settle_live_order_promotion_pulse("cleared")
 	return delta
 
 
+func _sanitize_live_order_states(
+	order_states: Array[Dictionary],
+	total: int,
+) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for index in range(mini(total, order_states.size())):
+		var source := order_states[index]
+		var objective_id := String(source.get("id", "order_%d" % (index + 1)))
+		if objective_id.is_empty():
+			objective_id = "order_%d" % (index + 1)
+		result.append({
+			"id": objective_id,
+			"label": String(source.get("label", "ORDER %d" % (index + 1))).to_upper(),
+			"metric": String(source.get("metric", "")),
+			"icon": String(source.get("icon", "goal")),
+			"on_track": bool(source.get("on_track", false)),
+			"detail": String(source.get("detail", "")),
+		})
+	return result
+
+
 func live_order_progress() -> Dictionary:
+	var stamp_pulses: Array[Dictionary] = []
+	for index in range(_order_progress_segments.size()):
+		var segment := _order_progress_segments[index]
+		stamp_pulses.append({
+			"index": index + 1,
+			"objective_id": String(segment.get_meta("objective_id", "")),
+			"metric": String(segment.get_meta("metric", "")),
+			"semantic_icon": String(segment.get_meta("semantic_icon", "goal")),
+			"on_track": bool(segment.get_meta("on_track", false)),
+			"accessible_text": String(segment.get_meta("accessible_text", "")),
+			"active": bool(segment.get_meta("change_pulse_active", false)),
+			"direction": String(segment.get_meta("change_direction", "")),
+			"serial": int(segment.get_meta("change_serial", 0)),
+			"settled": String(segment.get_meta("change_settled", "idle")),
+			"request_serial": int(segment.get_meta("request_serial", 0)),
+		})
 	return {
 		"on_track": maxi(0, _live_orders_on_track),
 		"total": _live_orders_total,
 		"context": String(_live_order_context),
 		"visible": _order_progress_row != null and _order_progress_row.visible,
+		"promotion_opportunity": (
+			bool(_order_progress_row.get_meta("promotion_opportunity", false))
+			if _order_progress_row != null else
+			false
+		),
+		"promotion_ready": (
+			bool(_order_progress_row.get_meta("promotion_ready", false))
+			if _order_progress_row != null else
+			false
+		),
+		"promotion_ready_pulse_serial": _order_promotion_ready_pulse_serial,
+		"promotion_ready_pulse_active": (
+			bool(_order_promotion_icon.get_meta("promotion_ready_pulse_active", false))
+			if _order_promotion_icon != null else
+			false
+		),
+		"promotion_ready_pulse_settled": (
+			String(_order_promotion_icon.get_meta("promotion_ready_pulse_settled", "idle"))
+			if _order_promotion_icon != null else
+			"idle"
+		),
+		"stamp_change_serial": _order_stamp_change_serial,
+		"mark_request_serial": _order_mark_request_serial,
+		"last_requested_objective_id": String(_last_requested_order_id),
+		"last_requested_order_index": _last_requested_order_index + 1,
+		"stamp_pulses": stamp_pulses,
 	}
 
 
@@ -478,6 +611,10 @@ func set_reduced_motion(enabled: bool) -> void:
 	_reduced_motion = enabled
 	if _reduced_motion and _order_progress_tween != null and _order_progress_tween.is_valid():
 		_order_progress_tween.kill()
+		_settle_live_order_stamp_pulses("instant")
+	if _reduced_motion and _order_promotion_tween != null and _order_promotion_tween.is_valid():
+		_order_promotion_tween.kill()
+		_settle_live_order_promotion_pulse("instant")
 	if _reduced_motion and _report_reveal_tween != null and _report_reveal_tween.is_valid():
 		_report_reveal_tween.kill()
 		_set_report_reveal_controls_settled("instant")
@@ -587,6 +724,19 @@ func _build_day_badge() -> void:
 	_order_progress_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_order_progress_row.add_theme_constant_override("separation", 4)
 	stack.add_child(_order_progress_row)
+	_order_promotion_icon = TextureRect.new()
+	_order_promotion_icon.name = "ProbationOrderPromotionIcon"
+	_order_promotion_icon.custom_minimum_size = Vector2(16.0, 16.0)
+	_order_promotion_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_order_promotion_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_order_promotion_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	_order_promotion_icon.texture = ManagementTheme.action_icon(&"rank_crest")
+	_order_promotion_icon.set_meta("semantic_icon", "rank_crest")
+	_order_promotion_icon.set_meta("promotion_ready_pulse_active", false)
+	_order_promotion_icon.set_meta("promotion_ready_pulse_serial", 0)
+	_order_promotion_icon.set_meta("promotion_ready_pulse_settled", "idle")
+	_order_promotion_icon.visible = false
+	_order_progress_row.add_child(_order_promotion_icon)
 	_order_progress_label = _make_label("ON TRACK 0 / 3", 9, MUTED)
 	_order_progress_label.name = "ProbationOrderProgressLabel"
 	_order_progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -594,10 +744,31 @@ func _build_day_badge() -> void:
 	for index in range(MAX_BADGE_ORDER_SEGMENTS):
 		var segment := PanelContainer.new()
 		segment.name = "ProbationOrderStamp%d" % (index + 1)
-		segment.custom_minimum_size = Vector2(24.0, 5.0)
+		segment.custom_minimum_size = Vector2(28.0, 24.0)
 		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		segment.set_meta("change_pulse_active", false)
+		segment.set_meta("change_direction", "")
+		segment.set_meta("change_serial", 0)
+		segment.set_meta("change_settled", "idle")
 		_order_progress_row.add_child(segment)
 		_order_progress_segments.append(segment)
+		var icon := FlockwatchIconBadgeScript.new()
+		icon.name = "ProbationOrderStampIcon%d" % (index + 1)
+		icon.set_badge_size(14.0)
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		segment.add_child(icon)
+		_order_progress_icons.append(icon)
+		var action := Button.new()
+		action.name = "ProbationOrderStampAction%d" % (index + 1)
+		action.flat = true
+		action.text = ""
+		action.custom_minimum_size = Vector2(28.0, 24.0)
+		action.focus_mode = Control.FOCUS_NONE
+		action.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		action.pressed.connect(_on_live_order_mark_pressed.bind(index))
+		segment.add_child(action)
+		_order_progress_actions.append(action)
 	_refresh_live_order_badge()
 	_refresh_day_progress_rail(1, DEFAULT_TOTAL_DAYS, "DAY 1 / 5")
 
@@ -653,8 +824,21 @@ func _refresh_live_order_badge() -> void:
 	var visible_progress := _view == VIEW_ACTIVE and _live_orders_total > 0
 	_order_progress_row.visible = visible_progress
 	if not visible_progress:
+		_order_progress_row.set_meta("promotion_opportunity", false)
+		_order_progress_row.set_meta("promotion_ready", false)
+		_order_progress_row.set_meta("next_rank_label", "")
+		if _order_promotion_icon != null:
+			_settle_live_order_promotion_pulse("hidden")
+			_order_promotion_icon.visible = false
+			_order_promotion_icon.tooltip_text = ""
+			_order_promotion_icon.set_meta("accessible_text", "")
+			_order_promotion_icon.set_meta("promotion_state", "hidden")
+			_order_promotion_icon.set_meta("target_score", 0)
 		return
 	var on_track := clampi(_live_orders_on_track, 0, _live_orders_total)
+	var opportunity := _live_order_promotion_opportunity()
+	var promotion_available := bool(opportunity.get("available", false))
+	var promotion_ready := promotion_available and on_track == _live_orders_total
 	# These are live projections, not completed orders. Calling them "ORDERS"
 	# beside filled segments made safe opening metrics look pre-awarded. Keep the
 	# closing report as the only place that presents an order as filed.
@@ -663,17 +847,106 @@ func _refresh_live_order_badge() -> void:
 		"font_color",
 		TEAL if on_track == _live_orders_total else (RUST if on_track == 0 else CREAM),
 	)
-	_order_progress_label.tooltip_text = (
+	var live_detail := (
 		"LIVE ESTIMATE  //  %d of %d orders are currently on track. Nothing is filed until review. Closing metrics can still move; open Flockwatch for exact targets and rewards."
 		% [on_track, _live_orders_total]
 	)
+	var promotion_detail := ""
+	if promotion_available:
+		promotion_detail = "%s  //  %d / %d ORDERS ON TRACK  //  +%d SCORE  //  %d -> %d  //  %s" % [
+			"PROMOTION READY" if promotion_ready else "PROMOTION IN REACH",
+			on_track,
+			_live_orders_total,
+			maxi(0, int(opportunity.get("reward_score", 0))),
+			int(opportunity.get("current_score", 0)),
+			int(opportunity.get("next_threshold", 0)),
+			String(opportunity.get("next_rank_label", "NEXT RANK")).to_upper(),
+		]
+	var exact_detail := (
+		"%s\n%s" % [promotion_detail, live_detail]
+		if promotion_available else
+		live_detail
+	)
+	_order_progress_label.tooltip_text = exact_detail
+	_order_progress_label.set_meta("accessible_text", exact_detail)
+	_order_progress_row.tooltip_text = exact_detail
+	_order_progress_row.set_meta("accessible_text", exact_detail)
+	_order_progress_row.set_meta("promotion_opportunity", promotion_available)
+	_order_progress_row.set_meta("promotion_ready", promotion_ready)
+	_order_progress_row.set_meta("next_rank_label", String(opportunity.get("next_rank_label", "")))
+	if _order_promotion_icon != null:
+		if not promotion_available:
+			_settle_live_order_promotion_pulse("cleared")
+		_order_promotion_icon.visible = promotion_available
+		_order_promotion_icon.modulate = CREAM if promotion_ready else Color(0.92, 0.75, 0.38, 0.78)
+		_order_promotion_icon.tooltip_text = promotion_detail
+		_order_promotion_icon.set_meta("accessible_text", promotion_detail)
+		_order_promotion_icon.set_meta("promotion_state", "ready" if promotion_ready else ("recover" if promotion_available else "hidden"))
+		_order_promotion_icon.set_meta("target_score", int(opportunity.get("next_threshold", 0)))
 	for index in range(_order_progress_segments.size()):
 		var segment := _order_progress_segments[index]
-		var active := index < on_track
+		var semantic_state := (
+			_live_order_states[index]
+			if index < _live_order_states.size() else
+			{}
+		)
+		var semantic := not semantic_state.is_empty()
+		var active := (
+			bool(semantic_state.get("on_track", false))
+			if semantic else
+			index < on_track
+		)
 		var relevant := index < _live_orders_total
 		segment.visible = relevant
 		if not relevant:
+			segment.tooltip_text = ""
+			segment.set_meta("objective_id", "")
+			segment.set_meta("metric", "")
+			segment.set_meta("semantic_icon", "goal")
+			segment.set_meta("on_track", false)
+			segment.set_meta("accessible_text", "")
+			if index < _order_progress_actions.size():
+				var hidden_action := _order_progress_actions[index]
+				hidden_action.disabled = true
+				hidden_action.focus_mode = Control.FOCUS_NONE
+				hidden_action.tooltip_text = ""
+				hidden_action.set_meta("accessible_text", "")
 			continue
+		var objective_id := String(semantic_state.get("id", ""))
+		var metric := String(semantic_state.get("metric", ""))
+		var icon_kind := StringName(semantic_state.get("icon", "goal"))
+		var label := String(semantic_state.get("label", "ORDER %d" % (index + 1)))
+		var state_detail := String(semantic_state.get("detail", ""))
+		var status := "ON TRACK" if active else "NEEDS ACTION"
+		var accessible_detail := (
+			state_detail
+			if not state_detail.is_empty() else
+			"%s  //  %s" % [status, label]
+		)
+		segment.tooltip_text = accessible_detail
+		segment.set_meta("objective_id", objective_id)
+		segment.set_meta("metric", metric)
+		segment.set_meta("semantic_icon", String(icon_kind))
+		segment.set_meta("on_track", active)
+		segment.set_meta("accessible_text", accessible_detail)
+		if index < _order_progress_actions.size():
+			var action := _order_progress_actions[index]
+			action.disabled = not semantic or objective_id.is_empty()
+			action.focus_mode = (
+				Control.FOCUS_NONE if action.disabled else Control.FOCUS_ALL
+			)
+			action.tooltip_text = "%s\nOPEN THIS GOAL IN FLOCKWATCH" % accessible_detail
+			action.set_meta("objective_id", objective_id)
+			action.set_meta("order_index", index)
+			action.set_meta("accessible_text", "%s. Open this goal in Flockwatch." % accessible_detail)
+			action.set_meta("semantic_action", "open_flockwatch_order")
+		if index < _order_progress_icons.size():
+			var icon := _order_progress_icons[index]
+			icon.call(
+				"configure",
+				icon_kind,
+				Color("a7dbc9") if active else Color("f0aa95"),
+			)
 		segment.add_theme_stylebox_override(
 			"panel",
 			_panel_style(
@@ -685,19 +958,193 @@ func _refresh_live_order_badge() -> void:
 		)
 
 
-func _pulse_live_order_badge(improved: bool) -> void:
-	if _day_badge == null:
+func _on_live_order_mark_pressed(index: int) -> void:
+	if index < 0 or index >= _live_order_states.size():
 		return
-	if _order_progress_tween != null and _order_progress_tween.is_valid():
-		_order_progress_tween.kill()
-	_day_badge.modulate = Color.WHITE
-	if _reduced_motion:
+	var state := _live_order_states[index]
+	var objective_id := StringName(state.get("id", &""))
+	if objective_id == &"":
 		return
-	_day_badge.modulate = Color("c8f0df") if improved else Color("f5c2b5")
+	_order_mark_request_serial += 1
+	_last_requested_order_id = objective_id
+	_last_requested_order_index = index
+	if index < _order_progress_segments.size():
+		_order_progress_segments[index].set_meta("request_serial", _order_mark_request_serial)
+	live_order_mark_requested.emit(objective_id, index)
+
+
+func _live_order_promotion_opportunity() -> Dictionary:
+	if _is_senior_snapshot():
+		return {}
+	var objective_value: Variant = _snapshot.get("next_objective", {})
+	if not objective_value is Dictionary:
+		return {}
+	var opportunity_value: Variant = (objective_value as Dictionary).get(
+		"promotion_opportunity",
+		{},
+	)
+	return opportunity_value as Dictionary if opportunity_value is Dictionary else {}
+
+
+func _pulse_live_order_stamps(before: int, after: int) -> void:
+	if before == after or _order_progress_segments.is_empty():
+		return
+	var direction := "fill" if after > before else "empty"
+	var first_index := clampi(mini(before, after), 0, _order_progress_segments.size())
+	var last_index := clampi(maxi(before, after), 0, _order_progress_segments.size())
+	var changes: Array[Dictionary] = []
+	for index in range(first_index, last_index):
+		changes.append({"index": index, "direction": direction})
+	_pulse_live_order_state_changes(changes)
+
+
+func _pulse_live_order_state_changes(changes: Array[Dictionary]) -> void:
+	if changes.is_empty() or _order_progress_segments.is_empty():
+		return
+	_settle_live_order_stamp_pulses("interrupted")
+	_order_stamp_change_serial += 1
+	var changed_segments: Array[PanelContainer] = []
+	var directions: Array[String] = []
+	for change in changes:
+		var index := int(change.get("index", -1))
+		if index < 0 or index >= _order_progress_segments.size():
+			continue
+		var direction := String(change.get("direction", "fill"))
+		var segment := _order_progress_segments[index]
+		segment.pivot_offset = segment.size * 0.5
+		segment.scale = Vector2.ONE
+		segment.modulate = Color.WHITE
+		segment.set_meta("change_pulse_active", not _reduced_motion)
+		segment.set_meta("change_direction", direction)
+		segment.set_meta("change_serial", _order_stamp_change_serial)
+		segment.set_meta("change_settled", "instant" if _reduced_motion else "animating")
+		changed_segments.append(segment)
+		directions.append(direction)
+	if _reduced_motion or changed_segments.is_empty():
+		return
+	for index in range(changed_segments.size()):
+		var segment := changed_segments[index]
+		var direction := directions[index]
+		segment.scale = (
+			Vector2(1.10, 1.55) if direction == "fill" else Vector2(0.90, 0.72)
+		)
+		segment.modulate = Color("d7ffe9") if direction == "fill" else Color("ffc4b4")
 	_order_progress_tween = create_tween()
 	_order_progress_tween.set_trans(Tween.TRANS_QUAD)
 	_order_progress_tween.set_ease(Tween.EASE_OUT)
-	_order_progress_tween.tween_property(_day_badge, "modulate", Color.WHITE, 0.48)
+	var first_property := true
+	for segment in changed_segments:
+		if first_property:
+			_order_progress_tween.tween_property(segment, "scale", Vector2.ONE, 0.38)
+		else:
+			_order_progress_tween.parallel().tween_property(
+				segment,
+				"scale",
+				Vector2.ONE,
+				0.38,
+			)
+		first_property = false
+		_order_progress_tween.parallel().tween_property(
+			segment,
+			"modulate",
+			Color.WHITE,
+			0.38,
+		)
+	_order_progress_tween.finished.connect(
+		_on_live_order_stamp_pulse_finished.bind(_order_stamp_change_serial),
+		CONNECT_ONE_SHOT,
+	)
+
+
+func _on_live_order_stamp_pulse_finished(serial: int) -> void:
+	if serial != _order_stamp_change_serial:
+		return
+	_settle_live_order_stamp_pulses("settled")
+
+
+func _settle_live_order_stamp_pulses(state: String, reset_all: bool = false) -> void:
+	if _order_progress_tween != null and _order_progress_tween.is_valid():
+		_order_progress_tween.kill()
+	_order_progress_tween = null
+	for segment in _order_progress_segments:
+		var was_active := bool(segment.get_meta("change_pulse_active", false))
+		segment.scale = Vector2.ONE
+		segment.modulate = Color.WHITE
+		if not reset_all and not was_active:
+			continue
+		segment.set_meta("change_pulse_active", false)
+		segment.set_meta("change_settled", state)
+		if reset_all:
+			segment.set_meta("change_direction", "")
+
+
+func _pulse_live_order_promotion_ready() -> void:
+	if _order_promotion_icon == null or not _order_promotion_icon.visible:
+		return
+	if _order_promotion_tween != null and _order_promotion_tween.is_valid():
+		_order_promotion_tween.kill()
+	_order_promotion_ready_pulse_serial += 1
+	_order_promotion_icon.pivot_offset = _order_promotion_icon.size * 0.5
+	_order_promotion_icon.scale = Vector2.ONE
+	_order_promotion_icon.modulate = CREAM
+	_order_promotion_icon.set_meta("promotion_ready_pulse_serial", _order_promotion_ready_pulse_serial)
+	_order_promotion_icon.set_meta("promotion_ready_pulse_active", not _reduced_motion)
+	_order_promotion_icon.set_meta(
+		"promotion_ready_pulse_settled",
+		"instant" if _reduced_motion else "animating",
+	)
+	if _reduced_motion:
+		return
+	_order_promotion_tween = create_tween()
+	_order_promotion_tween.set_trans(Tween.TRANS_QUAD)
+	_order_promotion_tween.set_ease(Tween.EASE_OUT)
+	_order_promotion_tween.tween_property(
+		_order_promotion_icon,
+		"scale",
+		Vector2(1.16, 1.16),
+		0.12,
+	)
+	_order_promotion_tween.parallel().tween_property(
+		_order_promotion_icon,
+		"modulate",
+		Color.WHITE,
+		0.12,
+	)
+	_order_promotion_tween.tween_property(
+		_order_promotion_icon,
+		"scale",
+		Vector2.ONE,
+		0.28,
+	)
+	_order_promotion_tween.parallel().tween_property(
+		_order_promotion_icon,
+		"modulate",
+		CREAM,
+		0.28,
+	)
+	_order_promotion_tween.finished.connect(
+		_on_live_order_promotion_pulse_finished.bind(_order_promotion_ready_pulse_serial),
+		CONNECT_ONE_SHOT,
+	)
+
+
+func _on_live_order_promotion_pulse_finished(serial: int) -> void:
+	if serial != _order_promotion_ready_pulse_serial:
+		return
+	_settle_live_order_promotion_pulse("settled")
+
+
+func _settle_live_order_promotion_pulse(state: String) -> void:
+	if _order_promotion_icon == null:
+		return
+	if _order_promotion_tween != null and _order_promotion_tween.is_valid():
+		_order_promotion_tween.kill()
+	_order_promotion_tween = null
+	_order_promotion_icon.scale = Vector2.ONE
+	_order_promotion_icon.set_meta("promotion_ready_pulse_active", false)
+	_order_promotion_icon.set_meta("promotion_ready_pulse_settled", state)
+	if bool(_order_progress_row.get_meta("promotion_ready", false)):
+		_order_promotion_icon.modulate = CREAM
 
 
 func _build_modal_host() -> void:

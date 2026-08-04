@@ -194,12 +194,12 @@ func _run() -> void:
 	)
 	_check(
 		cash_glance != null
-		and "READY" in cash_glance.text
+		and "FAVOR %d" % int(snapshot.get("executive_confidence", 0)) in cash_glance.text
 		and "CASH" not in cash_glance.text
 		and _contains_all(String(cash_glance.get_meta("accessible_text", "")), [
 			"FARMER FAVOR", "COOP OBEDIENCE", "RESERVED",
 		]),
-		"coin icon tile should prioritize spendable money while retaining complete semantics",
+		"coin icon tile should pair spendable money with visible farmer favor and retain complete semantics",
 		failures,
 	)
 	_check(

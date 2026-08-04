@@ -203,7 +203,7 @@ func _run() -> void:
 	)
 	_check(
 		latest_feedback != null
-		and latest_feedback.text == "LATEST NOTICE  /  PAUSED  ·  TIME SAFE"
+		and latest_feedback.text == "LATEST  ·  PAUSED  ·  TIME SAFE"
 		and "SHIFT PAUSED" in latest_feedback.tooltip_text,
 		"Today's visible archive glance should compact the routine pause echo while preserving the exact notice semantically",
 		failures,
@@ -212,6 +212,16 @@ func _run() -> void:
 	await process_frame
 	var campaign_objectives := office.find_child("CampaignObjectivesLabel", true, false) as Label
 	var badge_order_progress := office.find_child("ProbationOrderProgressLabel", true, false) as Label
+	var badge_promotion_icon := office.find_child("ProbationOrderPromotionIcon", true, false) as TextureRect
+	var badge_order_stamps: Array[PanelContainer] = []
+	for index in range(3):
+		var stamp := office.find_child(
+			"ProbationOrderStamp%d" % (index + 1),
+			true,
+			false,
+		) as PanelContainer
+		if stamp != null:
+			badge_order_stamps.append(stamp)
 	_check(
 		campaign_objectives != null
 		and badge_order_progress != null
@@ -221,6 +231,745 @@ func _run() -> void:
 			int(campaign_objectives.get_meta("orders_total", -1)),
 		],
 		"the always-visible badge should mirror the same authoritative live orders as Flockwatch",
+		failures,
+	)
+	var semantic_on_track := 0
+	var semantic_marks_valid := badge_order_stamps.size() == 3
+	for index in range(badge_order_stamps.size()):
+		var stamp := badge_order_stamps[index]
+		if index >= int(campaign_objectives.get_meta("orders_total", 0)):
+			continue
+		semantic_marks_valid = (
+			semantic_marks_valid
+			and not String(stamp.get_meta("objective_id", "")).is_empty()
+			and not String(stamp.get_meta("metric", "")).is_empty()
+			and String(stamp.get_meta("semantic_icon", "goal")) in [
+				"egg", "flock", "cash", "shield", "files",
+			]
+			and "//" in String(stamp.get_meta("accessible_text", ""))
+		)
+		if bool(stamp.get_meta("on_track", false)):
+			semantic_on_track += 1
+	_check(
+		semantic_marks_valid
+		and semantic_on_track == int(campaign_objectives.get_meta("orders_on_track", -1)),
+		"the compact marks should retain each authored objective identity, icon, status, and exact detail",
+		failures,
+	)
+	var first_order_action := office.find_child(
+		"ProbationOrderStampAction1",
+		true,
+		false,
+	) as Button
+	var first_order_glance := office.find_child(
+		"CampaignOrderGlance1",
+		true,
+		false,
+	) as Label
+	var second_order_glance := office.find_child(
+		"CampaignOrderGlance2",
+		true,
+		false,
+	) as Label
+	var cause_save_before := simulation.export_save_state()
+	var cause_audio_before := int(audio_feedback.feedback_snapshot().get("cue_serial", -1))
+	var cause_before := simulation.snapshot()
+	var cause_after := cause_before.duplicate(true)
+	cause_after["eggs_today"] = int(cause_before.get("eggs_today", 0)) + 1
+	var cause_count := int(office.call(
+		"_record_campaign_order_cause_receipts",
+		cause_before,
+		cause_after,
+		"MABEL/NEST",
+		&"route_test",
+		"SOUND",
+		{
+			"source_kind": "worker_file",
+			"source_label": "MABEL",
+			"worker_id": 0,
+			"claim_id": 1,
+		},
+	))
+	var cause_state := (
+		office.call("_flockwatch_diagnostic_state") as Dictionary
+	).get("campaign_order_causes", {}) as Dictionary
+	var first_cause := (
+		first_order_glance.get_meta("cause_receipt", {}) as Dictionary
+		if first_order_glance != null else
+		{}
+	)
+	var second_cause := (
+		second_order_glance.get_meta("cause_receipt", {}) as Dictionary
+		if second_order_glance != null else
+		{}
+	)
+	_check(
+		cause_count == 2
+		and int(cause_state.get("serial", 0)) == 2
+		and int(cause_state.get("count", 0)) == 2
+		and first_order_glance != null
+		and first_order_glance.max_lines_visible == 3
+		and first_order_glance.custom_minimum_size.y == 52.0
+		and "+1 · MABEL" in first_order_glance.text
+		and "↗" in first_order_glance.text
+		and "LATEST CAUSE" in first_order_glance.tooltip_text
+		and "ACTIVATE AGAIN" in first_order_glance.tooltip_text
+		and bool(first_order_glance.get_meta("cause_source_available", false))
+		and String(first_cause.get("cause_kind", "")) == "route_test"
+		and second_order_glance != null
+		and "✓ MABEL/NEST" in second_order_glance.text
+		and String(second_cause.get("metric", "")) == "crack_rate_basis_points",
+		"a real goal delta should stamp only its exact tiles with one compact cause line and full semantic receipt",
+		failures,
+	)
+	_check(
+		simulation.export_save_state() == cause_save_before
+		and int(audio_feedback.feedback_snapshot().get("cue_serial", -2)) == cause_audio_before,
+		"goal cause receipts should remain presentation-only and silent",
+		failures,
+	)
+	var requested_objective_id := StringName(
+		first_order_action.get_meta("objective_id", &"") if first_order_action != null else &""
+	)
+	if first_order_action != null:
+		first_order_action.pressed.emit()
+	await process_frame
+	await process_frame
+	var focused_control := office.get_viewport().gui_get_focus_owner()
+	var focused_order_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var order_driver_button := office.find_child(
+		"CampaignOrderDriverAction",
+		true,
+		false,
+	) as Button
+	var order_driver_state := focused_order_state.get("campaign_order_driver", {}) as Dictionary
+	var focused_order_tile := office.call(
+		"_flockwatch_glance_tile",
+		first_order_glance,
+	) as Control
+	_check(
+		first_order_action != null
+		and requested_objective_id != &""
+		and bool(office.get("_flockwatch_open"))
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_TODAY
+		and first_order_glance != null
+		and StringName(first_order_glance.get_meta("objective_id", &"")) == requested_objective_id
+		and focused_control == first_order_glance
+		and focused_order_tile != null
+		and bool(focused_order_tile.get_meta("direct_focus", false))
+		and StringName(focused_order_state.get("focused_campaign_order_id", &"")) == requested_objective_id
+		and int(focused_order_state.get("campaign_order_focus_serial", 0)) > 0,
+		"activating a live mark should open Today and focus its exact Flockwatch goal tile",
+		failures,
+	)
+	_check(
+		order_driver_button != null
+		and order_driver_button.is_visible_in_tree()
+		and order_driver_button.focus_mode == Control.FOCUS_ALL
+		and StringName(order_driver_button.get_meta("objective_id", &"")) == requested_objective_id
+		and String(order_driver_button.get_meta("driver_action_id", "")) == "hen_routes"
+		and String(order_driver_state.get("objective_id", "")) == String(requested_objective_id)
+		and String(order_driver_state.get("action_id", "")) == "hen_routes"
+		and "SHOW HEN ROUTES" in String(order_driver_state.get("label", ""))
+		and "No choice is filed automatically" in order_driver_button.tooltip_text,
+		"the focused goal should disclose one compact, non-authoritative driver handoff",
+		failures,
+	)
+	var routing_ui := office.get("_routing_ui") as PeckworkRoutingUI
+	var driver_save_before := simulation.export_save_state()
+	if routing_ui != null:
+		routing_ui.set_focus(0)
+		routing_ui.call("_on_dossier_tab_pressed", &"claim")
+	if order_driver_button != null:
+		order_driver_button.pressed.emit()
+	await process_frame
+	await process_frame
+	var traced_order_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var traced_driver := traced_order_state.get("campaign_order_driver", {}) as Dictionary
+	var traced_result := traced_driver.get("last_result", {}) as Dictionary
+	var driver_hen_arrival := traced_driver.get("hen_dossier_arrival", {}) as Dictionary
+	var return_cue := traced_order_state.get("campaign_order_return", {}) as Dictionary
+	var camera_controller := office.get("_camera_controller") as ManagementCameraController
+	_check(
+		not bool(office.get("_flockwatch_open"))
+		and int(traced_driver.get("activation_serial", 0)) == 1
+		and String(traced_result.get("objective_id", "")) == String(requested_objective_id)
+		and String(traced_result.get("action_id", "")) == "hen_routes"
+		and String(traced_result.get("target", "")) == "DossierTab_route"
+		and bool(traced_result.get("target_available", false))
+		and not bool(traced_result.get("filed_choice", true))
+		and routing_ui != null
+		and routing_ui.active_dossier_tab() == &"route"
+		and bool(driver_hen_arrival.get("active", false))
+		and int(driver_hen_arrival.get("worker_id", -1)) == 0
+		and int(driver_hen_arrival.get("serial", 0)) == 1
+		and camera_controller != null
+		and camera_controller.is_focused()
+		and simulation.export_save_state() == driver_save_before,
+		"tracing a quota driver should reveal the hen's Route dossier without preserving stale sub-context or filing gameplay",
+		failures,
+	)
+	_check(
+		bool(return_cue.get("visible", false))
+		and int(return_cue.get("serial", 0)) == 1
+		and String(return_cue.get("objective_id", "")) == String(requested_objective_id)
+		and String(return_cue.get("copy", "")).begins_with("RETURN: ")
+		and guidance != null
+		and guidance.text == String(return_cue.get("copy", ""))
+		and guidance_action != null
+		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"campaign_order_return"
+		and "no gameplay choice is filed" in guidance.tooltip_text.to_lower(),
+		"a driver handoff should reuse the compact guidance strip as an exact return cue",
+		failures,
+	)
+	if guidance_action != null:
+		guidance_action.pressed.emit()
+	await process_frame
+	await process_frame
+	await process_frame
+	var returned_order_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var returned_cue := returned_order_state.get("campaign_order_return", {}) as Dictionary
+	var returned_result := returned_cue.get("last_result", {}) as Dictionary
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_TODAY
+		and office.get_viewport().gui_get_focus_owner() == first_order_glance
+		and not bool(returned_cue.get("visible", true))
+		and int(returned_cue.get("activation_serial", 0)) == 1
+		and String(returned_result.get("objective_id", "")) == String(requested_objective_id)
+		and bool(returned_result.get("target_available", false))
+		and not bool(returned_result.get("filed_choice", true)),
+		"activating the return cue should restore the exact goal and consume the cue without filing a choice",
+		failures,
+	)
+	var original_driver_metric := StringName(first_order_glance.get_meta("metric", &""))
+	first_order_glance.set_meta("metric", &"average_welfare")
+	office.call("_configure_campaign_order_driver_action", first_order_glance)
+	flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_FLOCK)
+	await process_frame
+	var flock_page_scroll := flockwatch_navigation.page_scroll(
+		FlockwatchNavigation.PAGE_FLOCK,
+	)
+	if flock_page_scroll != null:
+		flock_page_scroll.scroll_vertical = 100000
+	await process_frame
+	flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_TODAY)
+	var care_driver_save_before := simulation.export_save_state()
+	if order_driver_button != null:
+		order_driver_button.pressed.emit()
+	await process_frame
+	await process_frame
+	var care_driver_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var care_driver := care_driver_state.get("campaign_order_driver", {}) as Dictionary
+	var care_result := care_driver.get("last_result", {}) as Dictionary
+	var care_page_arrival := care_driver.get("page_arrival", {}) as Dictionary
+	var care_section := office.find_child("FlockCareSection", true, false) as Control
+	var care_target_offset := (
+		care_section.global_position.y - flock_page_scroll.global_position.y
+		if care_section != null and flock_page_scroll != null else
+		9999.0
+	)
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_FLOCK
+		and String(care_result.get("action_id", "")) == "flock_care"
+		and String(care_result.get("target", "")) == "FlockCareSection"
+		and bool(care_result.get("target_available", false))
+		and care_section != null
+		and care_section.is_visible_in_tree()
+		and care_target_offset >= 0.0
+		and care_target_offset <= 20.0
+		and bool(care_page_arrival.get("active", false))
+		and bool(care_page_arrival.get("animated", false))
+		and not bool(care_page_arrival.get("reduced_motion", true))
+		and int(care_page_arrival.get("serial", 0)) == 1
+		and String(care_page_arrival.get("page", "")) == "flock"
+		and String(care_page_arrival.get("target", "")) == "FlockCareSection"
+		and care_section.modulate != Color.WHITE
+		and not bool(care_result.get("filed_choice", true))
+		and simulation.export_save_state() == care_driver_save_before,
+		"a Flock Care goal driver should clear stale page scroll and land at the exact care filing",
+		failures,
+	)
+	office.call("_activate_campaign_order_return_cue")
+	await process_frame
+	await process_frame
+	var cleared_page_arrival := (
+		(office.call("_flockwatch_diagnostic_state") as Dictionary).get(
+			"campaign_order_driver",
+			{},
+		) as Dictionary
+	).get("page_arrival", {}) as Dictionary
+	_check(
+		not bool(cleared_page_arrival.get("active", true))
+		and care_section.modulate == Color.WHITE,
+		"returning from an exact page handoff should clear its transient arrival tint",
+		failures,
+	)
+	var reduced_preferences := (
+		office.get("_player_preferences") as Dictionary
+	).duplicate(true)
+	var original_motion_mode := String(reduced_preferences.get("motion_mode", "system"))
+	reduced_preferences["motion_mode"] = "reduced"
+	office.set("_player_preferences", reduced_preferences)
+	var reduced_arrival_save_before := simulation.export_save_state()
+	var reduced_target := office.call(
+		"_open_campaign_order_driver_page",
+		FlockwatchNavigation.PAGE_FLOCK,
+		PackedStringArray(["FlockCareSection"]),
+	) as Control
+	await process_frame
+	var reduced_page_arrival := (
+		(office.call("_flockwatch_diagnostic_state") as Dictionary).get(
+			"campaign_order_driver",
+			{},
+		) as Dictionary
+	).get("page_arrival", {}) as Dictionary
+	_check(
+		reduced_target == care_section
+		and bool(reduced_page_arrival.get("active", false))
+		and not bool(reduced_page_arrival.get("animated", true))
+		and bool(reduced_page_arrival.get("reduced_motion", false))
+		and int(reduced_page_arrival.get("serial", 0)) == 2
+		and care_section.modulate == Color("fff0bd")
+		and simulation.export_save_state() == reduced_arrival_save_before,
+		"reduced motion should retain a static exact-section acknowledgment without filing gameplay",
+		failures,
+	)
+	await create_timer(0.7).timeout
+	var settled_reduced_arrival := (
+		(office.call("_flockwatch_diagnostic_state") as Dictionary).get(
+			"campaign_order_driver",
+			{},
+		) as Dictionary
+	).get("page_arrival", {}) as Dictionary
+	_check(
+		not bool(settled_reduced_arrival.get("active", true))
+		and care_section.modulate == Color.WHITE,
+		"the reduced-motion acknowledgment should settle cleanly without animation",
+		failures,
+	)
+	reduced_preferences["motion_mode"] = original_motion_mode
+	office.set("_player_preferences", reduced_preferences)
+	flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_TODAY)
+	office.call("_reset_first_clutch", false)
+	office.call("_refresh_first_clutch_ui", simulation.snapshot())
+	await process_frame
+	if routing_ui != null and routing_ui.dispatch_priority_state().is_empty():
+		var live_files_queue := simulation._claim_queues.get(&"nest_damage", []) as Array
+		live_files_queue.append(ClaimState.new(
+			99001,
+			&"nest_damage",
+			"NEST DAMAGE",
+			1.15,
+			760,
+			0.045,
+			1080,
+			1440,
+			360,
+		))
+		simulation._claim_queues[&"nest_damage"] = live_files_queue
+		simulation.call("_sync_claims_waiting")
+		office.call("_on_snapshot_changed", simulation.snapshot())
+		await process_frame
+	first_order_glance.set_meta("metric", &"rework")
+	office.call("_configure_campaign_order_driver_action", first_order_glance)
+	var live_files_state_before := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var live_files_driver_before := (
+		live_files_state_before.get("campaign_order_driver", {}) as Dictionary
+	)
+	var live_files_arrival_before := (
+		live_files_driver_before.get("dispatch_tray_arrival", {}) as Dictionary
+	)
+	var live_files_save_before := simulation.export_save_state()
+	if order_driver_button != null:
+		order_driver_button.pressed.emit()
+	await process_frame
+	await process_frame
+	var live_files_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var live_files_driver := live_files_state.get("campaign_order_driver", {}) as Dictionary
+	var live_files_result := live_files_driver.get("last_result", {}) as Dictionary
+	var live_files_arrival := (
+		live_files_driver.get("dispatch_tray_arrival", {}) as Dictionary
+	)
+	var live_files_target_name := String(live_files_result.get("target", ""))
+	var live_files_target := (
+		office.find_child(live_files_target_name, true, false) as Control
+		if not live_files_target_name.is_empty() else
+		null
+	)
+	_check(
+		not bool(office.get("_flockwatch_open"))
+		and String(live_files_result.get("action_id", "")) == "file_trays"
+		and bool(live_files_result.get("target_available", false))
+		and bool(live_files_result.get("live_file_available", false))
+		and not bool(live_files_result.get("filed_choice", true))
+		and bool(live_files_arrival.get("active", false))
+		and bool(live_files_arrival.get("animated", false))
+		and not bool(live_files_arrival.get("reduced_motion", true))
+		and String(live_files_arrival.get("lane", "")) != ""
+		and String(live_files_arrival.get("target", "")) == String(live_files_result.get("target", ""))
+		and int(live_files_arrival.get("serial", 0)) == int(live_files_arrival_before.get("serial", 0)) + 1
+		and int(live_files_driver.get("activation_serial", 0)) == int(live_files_driver_before.get("activation_serial", 0)) + 1
+		and live_files_target != null
+		and live_files_target.modulate != Color.WHITE
+		and simulation.export_save_state() == live_files_save_before,
+		"a Live Files goal driver should acknowledge the exact urgent tray without arming or filing gameplay",
+		failures,
+	)
+	office.call("_activate_campaign_order_return_cue")
+	await process_frame
+	await process_frame
+	var returned_live_files_arrival := (
+		(
+			office.call("_flockwatch_diagnostic_state") as Dictionary
+		).get("campaign_order_driver", {}) as Dictionary
+	).get("dispatch_tray_arrival", {}) as Dictionary
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and not bool(returned_live_files_arrival.get("active", true))
+		and live_files_target != null
+		and live_files_target.modulate == Color.WHITE
+		and simulation.export_save_state() == live_files_save_before,
+		"returning from Live Files should clear its tray acknowledgment and restore the source goal",
+		failures,
+	)
+	var today_scroll := flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_TODAY)
+	if today_scroll != null:
+		today_scroll.scroll_vertical = 100000
+	await process_frame
+	first_order_glance.set_meta("metric", &"average_farmer_favor")
+	office.call("_configure_campaign_order_driver_action", first_order_glance)
+	var farmer_driver_before := (
+		(office.call("_flockwatch_diagnostic_state") as Dictionary).get(
+			"campaign_order_driver",
+			{},
+		) as Dictionary
+	)
+	var farmer_arrival_before := farmer_driver_before.get("page_arrival", {}) as Dictionary
+	var farmer_save_before := simulation.export_save_state()
+	var standing_tile := office.find_child(
+		"FlockwatchTodayCashGlanceTile",
+		true,
+		false,
+	) as Control
+	var standing_style_before := (
+		standing_tile.get_theme_stylebox("panel")
+		if standing_tile is PanelContainer else
+		null
+	)
+	if order_driver_button != null:
+		order_driver_button.pressed.emit()
+	await process_frame
+	await process_frame
+	var farmer_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var farmer_driver := farmer_state.get("campaign_order_driver", {}) as Dictionary
+	var farmer_result := farmer_driver.get("last_result", {}) as Dictionary
+	var farmer_arrival := farmer_driver.get("page_arrival", {}) as Dictionary
+	var standing_offset := (
+		standing_tile.global_position.y - today_scroll.global_position.y
+		if standing_tile != null and today_scroll != null else
+		9999.0
+	)
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_TODAY
+		and String(farmer_driver.get("label", "")) == "SHOW FARMER STANDING"
+		and String(farmer_result.get("action_id", "")) == "farmer_standing"
+		and String(farmer_result.get("target", "")) == "FlockwatchTodayCashGlanceTile"
+		and bool(farmer_result.get("target_available", false))
+		and not bool(farmer_result.get("filed_choice", true))
+		and standing_tile != null
+		and today_scroll != null
+		and standing_tile.is_visible_in_tree()
+		and standing_offset >= 0.0
+		and standing_offset + standing_tile.size.y <= today_scroll.size.y
+		and bool(farmer_arrival.get("active", false))
+		and bool(farmer_arrival.get("animated", false))
+		and String(farmer_arrival.get("page", "")) == "today"
+		and String(farmer_arrival.get("target", "")) == "FlockwatchTodayCashGlanceTile"
+		and int(farmer_arrival.get("serial", 0)) == int(
+			farmer_arrival_before.get("serial", 0)
+		) + 1
+		and standing_tile.modulate != Color.WHITE
+		and simulation.export_save_state() == farmer_save_before,
+		"a Farmer Favor driver should land on the visible standing tile instead of an unavailable archive action",
+		failures,
+	)
+	await create_timer(0.7).timeout
+	var settled_farmer_driver := (
+		(office.call("_flockwatch_diagnostic_state") as Dictionary).get(
+			"campaign_order_driver",
+			{},
+		) as Dictionary
+	)
+	var settled_farmer_arrival := (
+		settled_farmer_driver.get("page_arrival", {}) as Dictionary
+	)
+	var standing_style_pinned := (
+		standing_tile.get_theme_stylebox("panel")
+		if standing_tile is PanelContainer else
+		null
+	)
+	_check(
+		standing_tile is PanelContainer
+		and not bool(settled_farmer_arrival.get("active", true))
+		and bool(settled_farmer_arrival.get("pinned", false))
+		and standing_tile.modulate == Color.WHITE
+		and standing_style_pinned != null
+		and standing_style_pinned != standing_style_before
+		and simulation.export_save_state() == farmer_save_before,
+		"a reached panel should retain a quiet destination pin after its arrival flash settles",
+		failures,
+	)
+	office.call("_activate_campaign_order_return_cue")
+	await process_frame
+	await process_frame
+	await process_frame
+	var returned_farmer_driver := (
+		(office.call("_flockwatch_diagnostic_state") as Dictionary).get(
+			"campaign_order_driver",
+			{},
+		) as Dictionary
+	)
+	var returned_farmer_arrival := (
+		returned_farmer_driver.get("page_arrival", {}) as Dictionary
+	)
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_TODAY
+		and office.get_viewport().gui_get_focus_owner() == first_order_glance
+		and standing_tile != null
+		and standing_tile.modulate == Color.WHITE
+		and not bool(returned_farmer_arrival.get("pinned", true))
+		and standing_tile.get_theme_stylebox("panel") == standing_style_before
+		and simulation.export_save_state() == farmer_save_before,
+		"returning from Farmer Standing should restore the source goal without residual emphasis",
+		failures,
+	)
+	flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_OPERATIONS)
+	await process_frame
+	var operations_scroll := flockwatch_navigation.page_scroll(
+		FlockwatchNavigation.PAGE_OPERATIONS,
+	)
+	if operations_scroll != null:
+		operations_scroll.scroll_vertical = 100000
+	await process_frame
+	flockwatch_navigation.open_page(FlockwatchNavigation.PAGE_TODAY)
+	first_order_glance.set_meta("metric", &"average_compliance")
+	office.call("_configure_campaign_order_driver_action", first_order_glance)
+	var coop_driver_before := (
+		(office.call("_flockwatch_diagnostic_state") as Dictionary).get(
+			"campaign_order_driver",
+			{},
+		) as Dictionary
+	)
+	var coop_arrival_before := coop_driver_before.get("page_arrival", {}) as Dictionary
+	var coop_save_before := simulation.export_save_state()
+	if order_driver_button != null:
+		order_driver_button.pressed.emit()
+	await process_frame
+	await process_frame
+	var coop_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var coop_driver := coop_state.get("campaign_order_driver", {}) as Dictionary
+	var coop_result := coop_driver.get("last_result", {}) as Dictionary
+	var coop_arrival := coop_driver.get("page_arrival", {}) as Dictionary
+	var exposure_panel := office.find_child(
+		"RoosterOperationsExposureGlancePanel",
+		true,
+		false,
+	) as Control
+	var exposure_offset := (
+		exposure_panel.global_position.y - operations_scroll.global_position.y
+		if exposure_panel != null and operations_scroll != null else
+		9999.0
+	)
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_OPERATIONS
+		and String(coop_result.get("action_id", "")) == "coop_controls"
+		and String(coop_result.get("target", "")) == "RoosterOperationsExposureGlancePanel"
+		and bool(coop_result.get("target_available", false))
+		and not bool(coop_result.get("filed_choice", true))
+		and exposure_panel != null
+		and exposure_panel.is_visible_in_tree()
+		and exposure_offset >= 0.0
+		and exposure_offset <= 20.0
+		and bool(coop_arrival.get("active", false))
+		and bool(coop_arrival.get("animated", false))
+		and String(coop_arrival.get("page", "")) == "operations"
+		and String(coop_arrival.get("target", "")) == "RoosterOperationsExposureGlancePanel"
+		and int(coop_arrival.get("serial", 0)) == int(coop_arrival_before.get("serial", 0)) + 1
+		and exposure_panel.modulate != Color.WHITE
+		and simulation.export_save_state() == coop_save_before,
+		"a compliance driver should land on the exact exposure control instead of generic shift actions",
+		failures,
+	)
+	office.call("_activate_campaign_order_return_cue")
+	await process_frame
+	await process_frame
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_TODAY
+		and exposure_panel != null
+		and exposure_panel.modulate == Color.WHITE
+		and simulation.export_save_state() == coop_save_before,
+		"returning from Compliance Exposure should restore the source goal without residual emphasis",
+		failures,
+	)
+	first_order_glance.set_meta("metric", original_driver_metric)
+	office.call("_configure_campaign_order_driver_action", first_order_glance)
+	var cause_focus_save_before := simulation.export_save_state()
+	var first_cause_click := InputEventMouseButton.new()
+	first_cause_click.button_index = MOUSE_BUTTON_LEFT
+	first_cause_click.pressed = true
+	office.call(
+		"_on_campaign_order_glance_gui_input",
+		first_cause_click,
+		first_order_glance,
+	)
+	await process_frame
+	var first_cause_click_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and int(
+			(first_cause_click_state.get("campaign_order_causes", {}) as Dictionary).get(
+				"activation_serial",
+				0,
+			)
+		) == 0,
+		"the first pointer tap on a cause-bearing goal should select it without leaving the ledger",
+		failures,
+	)
+	var second_cause_click := InputEventMouseButton.new()
+	second_cause_click.button_index = MOUSE_BUTTON_LEFT
+	second_cause_click.pressed = true
+	office.call(
+		"_on_campaign_order_glance_gui_input",
+		second_cause_click,
+		first_order_glance,
+	)
+	await process_frame
+	await process_frame
+	var cause_focus_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var cause_focus := cause_focus_state.get("campaign_order_causes", {}) as Dictionary
+	var cause_focus_result := cause_focus.get("last_focus_result", {}) as Dictionary
+	var exact_file_arrival := cause_focus.get("claim_file_arrival", {}) as Dictionary
+	var exact_hen_arrival := cause_focus.get("hen_dossier_arrival", {}) as Dictionary
+	var source_return := cause_focus_state.get("campaign_order_return", {}) as Dictionary
+	_check(
+		not bool(office.get("_flockwatch_open"))
+		and routing_ui != null
+		and routing_ui.focused_worker_id() == 0
+		and camera_controller != null
+		and camera_controller.is_focused()
+		and int(cause_focus.get("activation_serial", 0)) == 1
+		and int(cause_focus_result.get("worker_id", -1)) == 0
+		and String(cause_focus_result.get("objective_id", "")) == String(requested_objective_id)
+		and int(cause_focus_result.get("claim_id", -1)) == 1
+		and String(cause_focus_result.get("target_kind", "")) in ["claim_file", "hen_dossier"]
+		and (
+			bool(cause_focus_result.get("claim_available", false))
+			== (String(cause_focus_result.get("target_kind", "")) == "claim_file")
+		)
+		and bool(cause_focus_result.get("target_available", false))
+		and not bool(cause_focus_result.get("filed_choice", true))
+		and (
+			(
+				bool(exact_file_arrival.get("active", false))
+				and int(exact_file_arrival.get("claim_id", -1)) == 1
+				and int(exact_file_arrival.get("serial", 0)) == 1
+			)
+			if bool(cause_focus_result.get("claim_available", false)) else
+			not bool(exact_file_arrival.get("active", true))
+		)
+		and (
+			not bool(exact_hen_arrival.get("active", true))
+			if bool(cause_focus_result.get("claim_available", false)) else
+			(
+				bool(exact_hen_arrival.get("active", false))
+				and int(exact_hen_arrival.get("worker_id", -1)) == 0
+				and int(exact_hen_arrival.get("serial", 0)) == int(
+					driver_hen_arrival.get("serial", 0)
+				) + 1
+				and routing_ui.active_dossier_tab() == &"route"
+			)
+		)
+		and bool(source_return.get("visible", false))
+		and String(source_return.get("handoff_kind", "")) == String(
+			cause_focus_result.get("target_kind", "")
+		)
+		and String(source_return.get("icon_kind", "")) == (
+			"files" if bool(cause_focus_result.get("claim_available", false)) else "flock"
+		)
+		and guidance_icon.icon_kind() == StringName(source_return.get("icon_kind", &""))
+		and simulation.export_save_state() == cause_focus_save_before,
+		"activating a goal cause should locate its live source hen and preserve an exact return without filing gameplay",
+		failures,
+	)
+	if guidance_action != null:
+		guidance_action.pressed.emit()
+	await process_frame
+	await process_frame
+	await process_frame
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and office.get_viewport().gui_get_focus_owner() == first_order_glance,
+		"the cause locator return should restore the same goal tile",
+		failures,
+	)
+	var stale_receipt := (
+		first_order_glance.get_meta("cause_receipt", {}) as Dictionary
+	).duplicate(true)
+	var stale_source := (stale_receipt.get("source", {}) as Dictionary).duplicate(true)
+	stale_source["claim_id"] = 999999
+	stale_receipt["source"] = stale_source
+	first_order_glance.set_meta("cause_receipt", stale_receipt)
+	var stale_locator_save_before := simulation.export_save_state()
+	var stale_locator_activated := bool(office.call(
+		"_activate_campaign_order_cause_source",
+		first_order_glance,
+	))
+	var stale_locator_state := office.call("_flockwatch_diagnostic_state") as Dictionary
+	var stale_locator_focus := (
+		stale_locator_state.get("campaign_order_causes", {}) as Dictionary
+	).get("last_focus_result", {}) as Dictionary
+	var stale_return := stale_locator_state.get("campaign_order_return", {}) as Dictionary
+	var stale_arrival := (
+		stale_locator_state.get("campaign_order_causes", {}) as Dictionary
+	).get("claim_file_arrival", {}) as Dictionary
+	var stale_hen_arrival := (
+		stale_locator_state.get("campaign_order_causes", {}) as Dictionary
+	).get("hen_dossier_arrival", {}) as Dictionary
+	_check(
+		stale_locator_activated
+		and String(stale_locator_focus.get("target_kind", "")) == "hen_dossier"
+		and not bool(stale_locator_focus.get("claim_available", true))
+		and String(stale_return.get("handoff_kind", "")) == "hen_dossier"
+		and String(stale_return.get("icon_kind", "")) == "flock"
+		and not bool(stale_arrival.get("active", true))
+		and int(stale_arrival.get("serial", 0)) == int(exact_file_arrival.get("serial", 0))
+		and routing_ui.active_dossier_tab() == &"route"
+		and bool(stale_hen_arrival.get("active", false))
+		and int(stale_hen_arrival.get("worker_id", -1)) == 0
+		and int(stale_hen_arrival.get("serial", 0)) == int(
+			exact_hen_arrival.get("serial", 0)
+		) + 1
+		and guidance_icon.icon_kind() == &"flock"
+		and simulation.export_save_state() == stale_locator_save_before,
+		"a stale receipt should use the hen fallback glyph without substituting a newer file",
+		failures,
+	)
+	office.call("_activate_campaign_order_return_cue")
+	office.set("_campaign_order_cause_receipts", {})
+	office.call("_update_campaign_objectives_label", simulation.snapshot())
+	if camera_controller != null:
+		camera_controller.show_overview()
+	office.call("_set_flockwatch_open", false)
+	await process_frame
+	_check(
+		badge_promotion_icon != null and not badge_promotion_icon.visible,
+		"the opening +3 bundle should not imply a promotion before it can reach the next threshold",
 		failures,
 	)
 	_check(quota_progress != null and int(quota_progress.max_value) == 16 and int(quota_progress.value) == 0, "top HUD should scale the opening objective to four active hens", failures)

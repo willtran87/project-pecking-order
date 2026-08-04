@@ -702,9 +702,19 @@ func _run() -> void:
 	_check(
 		doctrine_label != null
 		and doctrine_label.visible
-		and "SHELL ASSURANCE" in doctrine_label.text
+		and doctrine_label.text == "SHELL ASSURANCE  ·  +QUALITY  ·  WATCH WELFARE"
+		and doctrine_label.autowrap_mode == TextServer.AUTOWRAP_OFF
+		and doctrine_label.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS
+		and _contains_all(
+			String(doctrine_label.get_meta("accessible_text", "")),
+			["SHELL ASSURANCE", "SHELL QUALITY", "COMPLIANCE", "FLOCK WELFARE"],
+		)
+		and _contains_all(
+			doctrine_label.tooltip_text,
+			["Win through clean output", "PLAYBOOK", "FULL EDGE", "WATCH"],
+		)
 		and String(doctrine_label.get_meta("milestone_id", "")) == "shell_quality_lab",
-		"day-three Office HUD should identify the filed Shell Assurance doctrine",
+		"day-three Office HUD should show a one-line doctrine glance while preserving the full playbook",
 		failures,
 	)
 	_check(

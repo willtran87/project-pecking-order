@@ -569,6 +569,34 @@ var _campaign_objectives_label: Label
 var _campaign_orders_heading_label: Label
 var _campaign_orders_glance_grid: GridContainer
 var _campaign_order_glances: Array[Label] = []
+var _focused_campaign_order_id: StringName = &""
+var _campaign_order_focus_serial := 0
+var _campaign_order_driver_button: Button
+var _campaign_order_driver_icon: FlockwatchIconBadge
+var _campaign_order_driver_label: Label
+var _campaign_order_driver_action: Dictionary = {}
+var _campaign_order_driver_activation_serial := 0
+var _last_campaign_order_driver_result: Dictionary = {}
+var _campaign_order_page_arrival_target: Control
+var _campaign_order_page_arrival_target_name := ""
+var _campaign_order_page_arrival_page_id: StringName = &""
+var _campaign_order_page_arrival_serial := 0
+var _campaign_order_page_arrival_active := false
+var _campaign_order_page_arrival_animated := false
+var _campaign_order_page_arrival_reduced_motion := false
+var _campaign_order_page_arrival_pinned := false
+var _campaign_order_page_arrival_tween: Tween
+var _campaign_order_page_arrival_original_style: StyleBox
+var _campaign_order_page_arrival_had_panel_override := false
+var _campaign_order_return_cue: Dictionary = {}
+var _campaign_order_return_serial := 0
+var _campaign_order_return_activation_serial := 0
+var _last_campaign_order_return_result: Dictionary = {}
+var _campaign_order_cause_receipts: Dictionary = {}
+var _campaign_order_cause_serial := 0
+var _campaign_order_cause_activation_serial := 0
+var _last_campaign_order_cause_focus_result: Dictionary = {}
+var _campaign_order_pointer_armed_id: StringName = &""
 var _campaign_doctrine_label: Label
 var _campaign_safeguards_label: Label
 var _campaign_safeguard_glance: Label
@@ -1018,6 +1046,26 @@ func _ready() -> void:
 		_capture_signage_preview(Vector3(9.55, 1.35, 5.25), "signage_intake.png")
 	elif "--capture-campaign-title" in OS.get_cmdline_user_args() or "--capture-campaign-title" in OS.get_cmdline_args():
 		_capture_campaign_title_preview()
+	elif "--capture-goal-cause-locator" in OS.get_cmdline_user_args() or "--capture-goal-cause-locator" in OS.get_cmdline_args():
+		_capture_campaign_goal_cause_locator_preview()
+	elif "--capture-goal-cause-fallback" in OS.get_cmdline_user_args() or "--capture-goal-cause-fallback" in OS.get_cmdline_args():
+		_capture_campaign_goal_cause_locator_preview(true)
+	elif "--capture-goal-driver-route" in OS.get_cmdline_user_args() or "--capture-goal-driver-route" in OS.get_cmdline_args():
+		_capture_campaign_goal_driver_route_preview()
+	elif "--capture-goal-driver-flock-care" in OS.get_cmdline_user_args() or "--capture-goal-driver-flock-care" in OS.get_cmdline_args():
+		_capture_campaign_goal_driver_flock_care_preview()
+	elif "--capture-goal-driver-farmer-standing" in OS.get_cmdline_user_args() or "--capture-goal-driver-farmer-standing" in OS.get_cmdline_args():
+		_capture_campaign_goal_driver_farmer_standing_preview()
+	elif "--capture-goal-driver-coop-controls" in OS.get_cmdline_user_args() or "--capture-goal-driver-coop-controls" in OS.get_cmdline_args():
+		_capture_campaign_goal_driver_coop_controls_preview()
+	elif "--capture-goal-driver-live-files" in OS.get_cmdline_user_args() or "--capture-goal-driver-live-files" in OS.get_cmdline_args():
+		_capture_campaign_goal_driver_live_files_preview()
+	elif "--capture-goal-driver-live-files-empty" in OS.get_cmdline_user_args() or "--capture-goal-driver-live-files-empty" in OS.get_cmdline_args():
+		_capture_campaign_goal_driver_live_files_preview(true)
+	elif "--capture-campaign-promotion-tracker" in OS.get_cmdline_user_args() or "--capture-campaign-promotion-tracker" in OS.get_cmdline_args():
+		_capture_campaign_promotion_tracker_preview()
+	elif "--capture-campaign-promotion-ready" in OS.get_cmdline_user_args() or "--capture-campaign-promotion-ready" in OS.get_cmdline_args():
+		_capture_campaign_promotion_tracker_preview(true)
 	elif "--capture-campaign-report" in OS.get_cmdline_user_args() or "--capture-campaign-report" in OS.get_cmdline_args():
 		_capture_campaign_promotion_opportunity_preview()
 	elif "--capture-campaign-report-opportunity" in OS.get_cmdline_user_args() or "--capture-campaign-report-opportunity" in OS.get_cmdline_args():
@@ -5136,11 +5184,9 @@ func _apply_live_hud_presentation(compact: bool) -> void:
 	var routing_top := FIRST_CLUTCH_ROUTING_TOP if compact else LIVE_ROUTING_TOP
 	if _routing_ui != null:
 		_routing_ui.set_top_inset(routing_top)
-	if _flockwatch_toggle != null:
-		_flockwatch_toggle.offset_top = routing_top
-		_flockwatch_toggle.offset_bottom = routing_top + 44.0
 	if _flockwatch_panel != null:
 		_flockwatch_panel.offset_top = routing_top + 52.0
+	_refresh_flockwatch_toggle_layout()
 
 
 func _build_ui() -> void:
@@ -5282,6 +5328,7 @@ func _build_ui() -> void:
 	_flockwatch_toggle.offset_top = 120.0
 	_flockwatch_toggle.offset_right = -18.0
 	_flockwatch_toggle.offset_bottom = 164.0
+	_flockwatch_toggle.z_index = 5
 	_flockwatch_toggle.text = "FLOCKWATCH  [V]"
 	_flockwatch_toggle.tooltip_text = "Open the rooster's performance ledger."
 	_flockwatch_toggle.pressed.connect(_on_flockwatch_pressed)
@@ -5340,12 +5387,57 @@ func _build_ui() -> void:
 	)
 	today_section.add_child(_campaign_orders_glance_grid)
 	for glance_index in range(3):
-		_campaign_order_glances.append(_add_flockwatch_glance_tile(
+		var order_glance := _add_flockwatch_glance_tile(
 			_campaign_orders_glance_grid,
 			"CampaignOrderGlance%d" % (glance_index + 1),
 			"ORDER\nAWAITING FILE",
 			&"goal",
-		))
+		)
+		order_glance.focus_mode = Control.FOCUS_ALL
+		order_glance.focus_entered.connect(
+			_on_campaign_order_glance_focus_changed.bind(order_glance, true)
+		)
+		order_glance.focus_exited.connect(
+			_on_campaign_order_glance_focus_changed.bind(order_glance, false)
+		)
+		order_glance.gui_input.connect(
+			_on_campaign_order_glance_gui_input.bind(order_glance)
+		)
+		_campaign_order_glances.append(order_glance)
+	_campaign_order_driver_button = Button.new()
+	_campaign_order_driver_button.name = "CampaignOrderDriverAction"
+	_campaign_order_driver_button.flat = true
+	_campaign_order_driver_button.visible = false
+	_campaign_order_driver_button.focus_mode = Control.FOCUS_ALL
+	_campaign_order_driver_button.custom_minimum_size.y = 30.0
+	_campaign_order_driver_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	_campaign_order_driver_button.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+	_campaign_order_driver_button.pressed.connect(_on_campaign_order_driver_pressed)
+	today_section.add_child(_campaign_order_driver_button)
+	var order_driver_content := HBoxContainer.new()
+	order_driver_content.name = "CampaignOrderDriverContent"
+	order_driver_content.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	order_driver_content.offset_left = 7.0
+	order_driver_content.offset_right = -7.0
+	order_driver_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	order_driver_content.add_theme_constant_override("separation", 7)
+	_campaign_order_driver_button.add_child(order_driver_content)
+	_campaign_order_driver_icon = FlockwatchIconBadgeScript.new()
+	_campaign_order_driver_icon.name = "CampaignOrderDriverIcon"
+	_campaign_order_driver_icon.set_badge_size(20.0)
+	order_driver_content.add_child(_campaign_order_driver_icon)
+	_campaign_order_driver_label = _make_label("SHOW DRIVER", 11, Color("dce7e8"))
+	_campaign_order_driver_label.name = "CampaignOrderDriverLabel"
+	_campaign_order_driver_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_campaign_order_driver_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_campaign_order_driver_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_campaign_order_driver_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	order_driver_content.add_child(_campaign_order_driver_label)
+	var order_driver_chevron := _make_label("›", 18, Color("d9c47d"))
+	order_driver_chevron.name = "CampaignOrderDriverChevron"
+	order_driver_chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	order_driver_chevron.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	order_driver_content.add_child(order_driver_chevron)
 	_campaign_objectives_label = _make_label("Day 1 orders are being stamped.", 13, Color("d7e5df"))
 	_campaign_objectives_label.name = "CampaignObjectivesLabel"
 	_campaign_objectives_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -5353,7 +5445,10 @@ func _build_ui() -> void:
 	today_section.add_child(_campaign_objectives_label)
 	_campaign_doctrine_label = _make_label("", 12, Color("9fd3c5"))
 	_campaign_doctrine_label.name = "CampaignActiveDoctrine"
-	_campaign_doctrine_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_campaign_doctrine_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_campaign_doctrine_label.clip_text = true
+	_campaign_doctrine_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_campaign_doctrine_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_campaign_doctrine_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	_campaign_doctrine_label.visible = false
 	today_section.add_child(_campaign_doctrine_label)
@@ -5817,6 +5912,7 @@ func _build_ui() -> void:
 	_campaign_ui.milestone_choice.connect(_on_campaign_milestone_requested)
 	_campaign_ui.presentation_state_changed.connect(_on_campaign_presentation_state_changed)
 	_campaign_ui.report_filing_settled.connect(_on_campaign_report_filing_settled)
+	_campaign_ui.live_order_mark_requested.connect(_on_campaign_live_order_mark_requested)
 	_campaign_ui.career_sponsorship_requested.connect(_on_career_sponsorship_requested)
 	_campaign_ui.market_contract_sign_requested.connect(_on_market_contract_sign_requested)
 	_campaign_ui.market_contract_decline_requested.connect(_on_market_contract_decline_requested)
@@ -7109,6 +7205,18 @@ func _spawn_decision_consequence_receipts(
 		"entries": semantic_entries,
 		"accessible_text": "%s. %s" % [option_label, " ".join(accessible_lines)],
 	}
+	_record_campaign_order_cause_receipts(
+		before,
+		after,
+		option_label,
+		&"decision",
+		"",
+		{
+			"source_kind": "decision_file",
+			"source_label": option_label,
+			"source_id": String(result.get("option_id", "")),
+		},
+	)
 	if entries.is_empty() or _ui_root == null:
 		return
 	var source_center := get_viewport().get_visible_rect().size * 0.5
@@ -9404,6 +9512,9 @@ func _validated_routing_assignment_undo(snapshot: Dictionary) -> Dictionary:
 
 
 func _on_claim_resolution_requested(worker_id: int, path_id: StringName) -> void:
+	var before_snapshot := _simulation.snapshot()
+	var source_worker := _worker_record(before_snapshot, worker_id)
+	var source_claim := source_worker.get("current_claim", {}) as Dictionary
 	var result := _simulation.set_claim_resolution(worker_id, path_id)
 	if not bool(result.get("accepted", false)):
 		_ticker_label.text = String(result.get(
@@ -9419,6 +9530,24 @@ func _on_claim_resolution_requested(worker_id: int, path_id: StringName) -> void
 	))
 	if _audio_feedback != null:
 		_audio_feedback.play_decision_resolved()
+	var path_label := String(path_id).replace("_", " ").to_upper()
+	match path_id:
+		&"humane_settlement": path_label = "HUMANE"
+		&"fast_denial": path_label = "DENIAL"
+		&"coverage_exception": path_label = "EXCEPTION"
+	_record_campaign_order_cause_receipts(
+		before_snapshot,
+		_simulation.snapshot(),
+		path_label,
+		&"claim_path",
+		"",
+		{
+			"source_kind": "worker_file",
+			"source_label": String(source_worker.get("name", "HEN")),
+			"worker_id": worker_id,
+			"claim_id": int(source_claim.get("id", -1)),
+		},
+	)
 	_save_campaign_checkpoint("claim_resolution")
 
 
@@ -9452,6 +9581,8 @@ func _handle_first_clutch_primary_action() -> bool:
 
 
 func _on_personnel_action_requested(worker_id: int, action_id: StringName) -> void:
+	var before_snapshot := _simulation.snapshot()
+	var source_worker := _worker_record(before_snapshot, worker_id)
 	var result := _simulation.perform_personnel_action(worker_id, action_id)
 	if not bool(result.get("accepted", false)):
 		_ticker_label.text = String(result.get("reason", "PERSONNEL ACTION HELD."))
@@ -9462,6 +9593,19 @@ func _on_personnel_action_requested(worker_id: int, action_id: StringName) -> vo
 	_ticker_label.text = "%s%s" % [String(result.get("outcome", "Personnel action filed.")), preferred_note]
 	if _audio_feedback != null:
 		_audio_feedback.play_decision_resolved()
+	_record_campaign_order_cause_receipts(
+		before_snapshot,
+		_simulation.snapshot(),
+		"CHECK-IN",
+		&"personnel",
+		"",
+		{
+			"source_kind": "worker_personnel",
+			"source_label": String(source_worker.get("name", "HEN")),
+			"worker_id": worker_id,
+			"action_id": String(action_id),
+		},
+	)
 	_first_clutch_record_checkin(worker_id)
 	_save_campaign_checkpoint("personnel_action")
 
@@ -13769,6 +13913,7 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 		]
 	var lines: Array[String] = []
 	var tooltip_lines: Array[String] = []
+	var live_order_states: Array[Dictionary] = []
 	var on_track := 0
 	var eggs_today := int(live_metrics.get("eggs", 0))
 	for objective in objectives:
@@ -13778,18 +13923,32 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 		if projected_met:
 			on_track += 1
 		var status := "TRACK" if projected_met else "NEEDS"
+		var measure_text := _campaign_objective_measure_text(
+			metric,
+			StringName(objective.get("comparison", &"minimum")),
+			actual,
+			int(objective.get("target", 0)),
+			eggs_today,
+		)
 		lines.append("%s  ·  %s  ·  %s  ·  +%d" % [
 			status,
 			_campaign_objective_short_label(metric),
-			_campaign_objective_measure_text(
-				metric,
-				StringName(objective.get("comparison", &"minimum")),
-				actual,
-				int(objective.get("target", 0)),
-				eggs_today,
-			),
+			measure_text,
 			int(objective.get("score_award", 0)),
 		])
+		if not senior_mode:
+			live_order_states.append({
+				"id": String(objective.get("id", "order_%d" % (live_order_states.size() + 1))),
+				"label": String(objective.get("title", "Probation order")),
+				"metric": String(metric),
+				"icon": String(_campaign_objective_icon(metric)),
+				"on_track": projected_met,
+				"detail": "%s  //  %s  //  %s" % [
+					"ON TRACK" if projected_met else "NEEDS ACTION",
+					String(objective.get("title", "Probation order")).to_upper(),
+					measure_text,
+				],
+			})
 		tooltip_lines.append("%s  ·  %s\n%s" % [
 			"ON TRACK" if projected_met else "NEEDS ACTION",
 			String(objective.get("title", "Probation order")).to_upper(),
@@ -13797,7 +13956,7 @@ func _update_campaign_objectives_label(snapshot: Dictionary = {}) -> void:
 		])
 	_campaign_objectives_label.set_meta("orders_on_track", on_track)
 	_campaign_objectives_label.set_meta("orders_total", objectives.size())
-	_sync_live_order_badge(on_track, objectives.size(), senior_mode)
+	_sync_live_order_badge(on_track, objectives.size(), senior_mode, live_order_states)
 	if bool(career_forecast.get("visible", false)):
 		_apply_senior_career_forecast_label(career_forecast)
 		return
@@ -13831,6 +13990,7 @@ func _apply_campaign_orders_glance(
 	eggs_today: int,
 ) -> void:
 	_set_campaign_orders_glance_visible(not objectives.is_empty())
+	var active_objective_ids: Array[StringName] = []
 	for index in range(_campaign_order_glances.size()):
 		var glance := _campaign_order_glances[index]
 		var tile := _flockwatch_glance_tile(glance)
@@ -13838,8 +13998,21 @@ func _apply_campaign_orders_glance(
 		if tile != null:
 			tile.visible = has_order
 		if not has_order:
+			var removed_objective_id := StringName(glance.get_meta("objective_id", &""))
+			if glance.has_focus():
+				glance.release_focus()
+			if _focused_campaign_order_id == removed_objective_id:
+				_focused_campaign_order_id = &""
+				_clear_campaign_order_driver_action()
+			glance.focus_mode = Control.FOCUS_NONE
+			glance.set_meta("objective_id", "")
+			glance.set_meta("cause_receipt", {})
+			glance.set_meta("cause_source_available", false)
+			glance.mouse_default_cursor_shape = Control.CURSOR_ARROW
 			continue
 		var objective := objectives[index]
+		var objective_id := StringName(objective.get("id", "order_%d" % (index + 1)))
+		active_objective_ids.append(objective_id)
 		var metric := StringName(objective.get("metric", &""))
 		var comparison := StringName(objective.get("comparison", &"minimum"))
 		var actual := int(objective.get("actual", 0))
@@ -13851,7 +14024,7 @@ func _apply_campaign_orders_glance(
 			if pending_first_egg else
 			(Color("a7dbc9") if on_track else Color("f0aa95"))
 		)
-		glance.text = _campaign_objective_action_glance(
+		var glance_copy := _campaign_objective_action_glance(
 			metric,
 			comparison,
 			actual,
@@ -13859,6 +14032,27 @@ func _apply_campaign_orders_glance(
 			eggs_today,
 			on_track,
 		)
+		var cause_receipt := (
+			_campaign_order_cause_receipts.get(objective_id, {}) as Dictionary
+		).duplicate(true)
+		var cause_source_available := _campaign_order_cause_source_available(cause_receipt)
+		if not cause_receipt.is_empty():
+			var cause_copy := String(cause_receipt.get("copy", "CHANGE FILED"))
+			if cause_source_available and StringName(cause_receipt.get("cause_kind", &"")) == &"routed_egg":
+				var source_label := String(
+					(cause_receipt.get("source", {}) as Dictionary).get("source_label", "HEN")
+				).strip_edges().to_upper()
+				cause_copy = cause_copy.replace(
+					String(cause_receipt.get("cause_label", source_label)),
+					source_label,
+				)
+			glance_copy += "\n%s%s" % [
+				cause_copy,
+				"  ↗" if cause_source_available else "",
+			]
+		glance.text = glance_copy
+		glance.max_lines_visible = 3 if not cause_receipt.is_empty() else 2
+		glance.custom_minimum_size.y = 52.0 if not cause_receipt.is_empty() else 40.0
 		glance.add_theme_color_override("font_color", accent)
 		_set_flockwatch_glance_icon(glance, _campaign_objective_icon(metric), accent)
 		var detail := "%s  ·  %s\n%s" % [
@@ -13870,10 +14064,743 @@ func _apply_campaign_orders_glance(
 			String(objective.get("title", "PROBATION ORDER")).to_upper(),
 			String(objective.get("description", "Filed against the closing ledger.")),
 		]
+		if not cause_receipt.is_empty():
+			detail += "\nLATEST CAUSE  ·  %s" % String(cause_receipt.get(
+				"detail",
+				"A filed action changed this live goal.",
+			))
+			if cause_source_available:
+				detail += "\nACTIVATE AGAIN  ·  FIND %s  ·  NO ACTION FILED" % String(
+					(cause_receipt.get("source", {}) as Dictionary).get(
+						"source_label",
+						"SOURCE HEN",
+					)
+				).to_upper()
 		glance.tooltip_text = detail
+		glance.focus_mode = Control.FOCUS_ALL
+		glance.set_meta("objective_id", String(objective_id))
+		glance.set_meta("objective_title", String(objective.get("title", "PROBATION ORDER")))
+		glance.set_meta("metric", String(metric))
+		glance.set_meta("on_track", on_track)
+		glance.set_meta("focus_accent", accent)
+		glance.set_meta("cause_receipt", cause_receipt)
+		glance.set_meta("cause_source_available", cause_source_available)
+		glance.mouse_default_cursor_shape = (
+			Control.CURSOR_POINTING_HAND
+			if cause_source_available else
+			Control.CURSOR_ARROW
+		)
 		if tile != null:
 			tile.tooltip_text = detail
+			tile.set_meta("objective_id", String(glance.get_meta("objective_id", "")))
+			tile.set_meta("cause_receipt", cause_receipt)
+			tile.set_meta("cause_source_available", cause_source_available)
 		glance.set_meta("accessible_text", "%s\n%s" % [glance.text, detail])
+		_refresh_campaign_order_glance_focus_style(glance)
+		if glance.has_focus():
+			_configure_campaign_order_driver_action(glance)
+	if objectives.is_empty():
+		_clear_campaign_order_driver_action()
+		_campaign_order_return_cue.clear()
+		_campaign_order_cause_receipts.clear()
+	elif not _campaign_order_return_cue.is_empty():
+		var return_objective_id := StringName(_campaign_order_return_cue.get("objective_id", &""))
+		var return_goal_exists := false
+		for objective in objectives:
+			if StringName(objective.get("id", &"")) == return_objective_id:
+				return_goal_exists = true
+				break
+		if not return_goal_exists:
+			_campaign_order_return_cue.clear()
+	for receipt_id_value in _campaign_order_cause_receipts.keys():
+		var receipt_id := StringName(receipt_id_value)
+		if receipt_id not in active_objective_ids:
+			_campaign_order_cause_receipts.erase(receipt_id_value)
+
+
+func _record_campaign_order_cause_receipts(
+	before_snapshot: Dictionary,
+	after_snapshot: Dictionary,
+	cause_label: String,
+	cause_kind: StringName,
+	event_label: String = "",
+	source: Dictionary = {},
+) -> int:
+	if (
+		_campaign_state == null
+		or _campaign_senior_roost
+		or before_snapshot.is_empty()
+		or after_snapshot.is_empty()
+	):
+		return 0
+	var before_metrics := _campaign_live_metrics(before_snapshot)
+	var after_metrics := _campaign_live_metrics(after_snapshot)
+	var before_rows: Array[Dictionary] = _campaign_state.current_objective_progress(
+		before_metrics
+	)
+	var after_rows: Array[Dictionary] = _campaign_state.current_objective_progress(
+		after_metrics
+	)
+	if before_rows.is_empty() or after_rows.is_empty():
+		return 0
+	var before_by_id: Dictionary = {}
+	for before_row: Dictionary in before_rows:
+		before_by_id[StringName(before_row.get("id", &""))] = before_row
+	var compact_cause := _compact_campaign_order_cause_label(cause_label)
+	var changed_count := 0
+	for after_row: Dictionary in after_rows:
+		var objective_id := StringName(after_row.get("id", &""))
+		var before_row := before_by_id.get(objective_id, {}) as Dictionary
+		if objective_id == &"" or before_row.is_empty():
+			continue
+		var metric := StringName(after_row.get("metric", &""))
+		var actual_before := int(before_row.get("actual", 0))
+		var actual_after := int(after_row.get("actual", actual_before))
+		var status_changed := (
+			bool(before_row.get("projected_met", false))
+			!= bool(after_row.get("projected_met", false))
+		)
+		var first_shell_result := (
+			metric == &"crack_rate_basis_points"
+			and int(before_metrics.get("eggs", 0)) == 0
+			and int(after_metrics.get("eggs", 0)) > 0
+		)
+		if actual_before == actual_after and not status_changed and not first_shell_result:
+			continue
+		_campaign_order_cause_serial += 1
+		var comparison := StringName(after_row.get("comparison", &"minimum"))
+		var target := int(after_row.get("target", 0))
+		var before_measure := _campaign_objective_measure_text(
+			metric,
+			comparison,
+			actual_before,
+			target,
+			int(before_metrics.get("eggs", 0)),
+		)
+		var after_measure := _campaign_objective_measure_text(
+			metric,
+			comparison,
+			actual_after,
+			target,
+			int(after_metrics.get("eggs", 0)),
+		)
+		_campaign_order_cause_receipts[objective_id] = {
+			"serial": _campaign_order_cause_serial,
+			"objective_id": String(objective_id),
+			"metric": String(metric),
+			"cause_kind": String(cause_kind),
+			"cause_label": compact_cause,
+			"copy": _campaign_order_cause_copy(
+				metric,
+				actual_before,
+				actual_after,
+				compact_cause,
+				event_label,
+			),
+			"before": actual_before,
+			"after": actual_after,
+			"on_track_before": bool(before_row.get("projected_met", false)),
+			"on_track_after": bool(after_row.get("projected_met", false)),
+			"detail": "%s changed %s from %s to %s." % [
+				compact_cause,
+				String(after_row.get("title", "this goal")),
+				before_measure,
+				after_measure,
+			],
+			"source": source.duplicate(true),
+		}
+		changed_count += 1
+	if changed_count > 0:
+		_update_campaign_objectives_label(after_snapshot)
+	return changed_count
+
+
+func _compact_campaign_order_cause_label(cause_label: String) -> String:
+	var compact := cause_label.strip_edges().to_upper()
+	if compact.is_empty():
+		compact = "FILED ACTION"
+	if compact.length() > 16:
+		compact = "%s…" % compact.left(15).strip_edges()
+	return compact
+
+
+func _campaign_order_cause_copy(
+	metric: StringName,
+	actual_before: int,
+	actual_after: int,
+	cause_label: String,
+	event_label: String,
+) -> String:
+	if metric == &"quota_met":
+		return "%s · %s" % ["MET" if actual_after > 0 else "OPEN", cause_label]
+	if metric == &"crack_rate_basis_points" and not event_label.is_empty():
+		return "%s %s" % [
+			"!" if event_label.strip_edges().to_lower() == "cracked" else "✓",
+			cause_label,
+		]
+	var delta := actual_after - actual_before
+	var delta_copy := "%s%d" % ["+" if delta > 0 else "", delta]
+	if metric == &"crack_rate_basis_points":
+		delta_copy = "%s%.1fPT" % [
+			"+" if delta > 0 else "",
+			float(delta) / 100.0,
+		]
+	return "%s · %s" % [delta_copy, cause_label]
+
+
+func _campaign_order_cause_source_available(receipt: Dictionary) -> bool:
+	if receipt.is_empty():
+		return false
+	var source := receipt.get("source", {}) as Dictionary
+	var worker_id := int(source.get("worker_id", -1))
+	if worker_id < 0 or not _worker_views.has(worker_id):
+		return false
+	var worker_view := _worker_views.get(worker_id) as ChickenView
+	return worker_view != null and is_instance_valid(worker_view) and worker_view.is_visible_in_tree()
+
+
+func _activate_campaign_order_cause_source(glance: Label) -> bool:
+	if glance == null or not is_instance_valid(glance):
+		return false
+	var receipt := glance.get_meta("cause_receipt", {}) as Dictionary
+	if not _campaign_order_cause_source_available(receipt):
+		return false
+	var source := receipt.get("source", {}) as Dictionary
+	var worker_id := int(source.get("worker_id", -1))
+	var worker_view := _worker_views.get(worker_id) as ChickenView
+	if worker_view == null or not is_instance_valid(worker_view):
+		return false
+	var source_label := String(source.get("source_label", "HEN")).strip_edges().to_upper()
+	var objective_id := StringName(glance.get_meta("objective_id", &""))
+	var objective_title := String(
+		glance.get_meta("objective_title", "TODAY'S GOAL")
+	).strip_edges().to_upper()
+	var metric := StringName(glance.get_meta("metric", &""))
+	var order_index := _campaign_order_glances.find(glance)
+	_campaign_order_cause_activation_serial += 1
+	if _flockwatch_open:
+		_set_flockwatch_open(false)
+	# A landmark focus deliberately emits worker_id = -1, so an armed dispatch tray
+	# can never interpret this locator as a route filing. The dossier focus is then
+	# applied independently as presentation state.
+	if _camera_controller != null:
+		_camera_controller.focus_point(
+			worker_view.global_position + Vector3.UP * 0.82,
+			"%s · LATEST CAUSE" % source_label,
+			0.32,
+		)
+	var requested_claim_id := int(source.get("claim_id", -1))
+	var claim_available := false
+	var focus_target: Control
+	if _routing_ui != null:
+		_routing_ui.set_focus(worker_id)
+		if requested_claim_id >= 0:
+			focus_target = _routing_ui.focus_claim_file(requested_claim_id)
+			claim_available = focus_target != null
+		if not claim_available and _routing_ui.has_method("focus_hen_dossier"):
+			focus_target = _routing_ui.focus_hen_dossier(worker_id)
+	var handoff_kind := &"claim_file" if claim_available else &"hen_dossier"
+	_set_campaign_order_return_cue({
+		"objective_id": String(objective_id),
+		"objective_title": objective_title,
+		"order_index": order_index,
+		"metric": String(metric),
+		"icon_kind": "files" if claim_available else "flock",
+		"handoff_kind": String(handoff_kind),
+		"source_label": source_label,
+	})
+	_last_campaign_order_cause_focus_result = {
+		"serial": _campaign_order_cause_activation_serial,
+		"source_serial": int(receipt.get("serial", 0)),
+		"objective_id": String(objective_id),
+		"order_index": order_index,
+		"worker_id": worker_id,
+		"worker_name": source_label,
+		"source_kind": String(source.get("source_kind", "worker")),
+		"claim_id": requested_claim_id,
+		"claim_available": claim_available,
+		"target_kind": String(handoff_kind),
+		"dossier_tab": (
+			String(_routing_ui.active_dossier_tab()) if _routing_ui != null else ""
+		),
+		"focus_target": String(focus_target.name) if focus_target != null else "",
+		"target_available": focus_target != null,
+		"filed_choice": false,
+	}
+	_publish_status_copy("LATEST CAUSE  ·  %s" % source_label, false)
+	if _simulation != null:
+		var snapshot := _simulation.snapshot()
+		_update_guidance(snapshot)
+		_publish_web_diagnostic_state(snapshot)
+	return true
+
+
+func _on_campaign_order_glance_focus_changed(glance: Label, focused: bool) -> void:
+	if glance == null or not is_instance_valid(glance):
+		return
+	if focused:
+		_focused_campaign_order_id = StringName(glance.get_meta("objective_id", &""))
+		_campaign_order_focus_serial += 1
+		_configure_campaign_order_driver_action(glance)
+	elif _focused_campaign_order_id == StringName(glance.get_meta("objective_id", &"")):
+		_focused_campaign_order_id = &""
+	_refresh_campaign_order_glance_focus_style(glance)
+
+
+func _on_campaign_order_glance_gui_input(event: InputEvent, glance: Label) -> void:
+	if glance == null or not is_instance_valid(glance):
+		return
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		if mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed:
+			var objective_id := StringName(glance.get_meta("objective_id", &""))
+			var was_pointer_armed := (
+				objective_id != &"" and _campaign_order_pointer_armed_id == objective_id
+			)
+			_campaign_order_pointer_armed_id = objective_id
+			glance.grab_focus()
+			if was_pointer_armed:
+				_activate_campaign_order_cause_source(glance)
+			glance.accept_event()
+		return
+	if not event.is_action_pressed(&"ui_accept"):
+		return
+	if event is InputEventKey and (event as InputEventKey).echo:
+		return
+	glance.accept_event()
+	if _activate_campaign_order_cause_source(glance):
+		return
+	_configure_campaign_order_driver_action(glance)
+	_on_campaign_order_driver_pressed()
+
+
+func _configure_campaign_order_driver_action(glance: Label) -> void:
+	if _campaign_order_driver_button == null or glance == null:
+		return
+	var objective_id := StringName(glance.get_meta("objective_id", &""))
+	var metric := StringName(glance.get_meta("metric", &""))
+	if objective_id == &"" or metric == &"":
+		_clear_campaign_order_driver_action()
+		return
+	var driver := _campaign_order_driver_for_metric(metric)
+	driver["objective_id"] = String(objective_id)
+	driver["objective_title"] = String(glance.get_meta("objective_title", "PROBATION ORDER"))
+	driver["metric"] = String(metric)
+	driver["on_track"] = bool(glance.get_meta("on_track", false))
+	driver["order_index"] = _campaign_order_glances.find(glance)
+	_campaign_order_driver_action = driver
+	var accent: Color = glance.get_meta("focus_accent", Color("d9c47d"))
+	var label := String(driver.get("label", "SHOW DRIVER"))
+	var title := String(driver.get("objective_title", "PROBATION ORDER")).to_upper()
+	var exact_detail := (
+		"%s  //  %s\nShows the live control that most directly affects this goal. "
+		+ "No choice is filed automatically."
+	) % [title, label]
+	_campaign_order_driver_button.visible = true
+	_campaign_order_driver_button.tooltip_text = exact_detail
+	_campaign_order_driver_button.set_meta("objective_id", String(objective_id))
+	_campaign_order_driver_button.set_meta("metric", String(metric))
+	_campaign_order_driver_button.set_meta("driver_action_id", String(driver.get("action_id", "")))
+	_campaign_order_driver_button.set_meta("accessible_text", exact_detail)
+	_campaign_order_driver_label.text = label
+	_campaign_order_driver_label.add_theme_color_override("font_color", accent)
+	_campaign_order_driver_icon.configure(StringName(driver.get("icon_kind", &"goal")), accent)
+	var normal_style := _panel_style(Color("17252f"), 0.82, 6, 1)
+	normal_style.border_color = Color(accent, 0.34)
+	var hover_style := _panel_style(Color("22343f"), 0.96, 6, 1)
+	hover_style.border_color = Color(accent, 0.72)
+	var focus_style := _panel_style(Color("22343f"), 0.98, 6, 2)
+	focus_style.border_color = accent
+	_campaign_order_driver_button.add_theme_stylebox_override("normal", normal_style)
+	_campaign_order_driver_button.add_theme_stylebox_override("hover", hover_style)
+	_campaign_order_driver_button.add_theme_stylebox_override("pressed", hover_style)
+	_campaign_order_driver_button.add_theme_stylebox_override("focus", focus_style)
+
+
+func _clear_campaign_order_driver_action() -> void:
+	_campaign_order_driver_action.clear()
+	if _campaign_order_driver_button == null:
+		return
+	if _campaign_order_driver_button.has_focus():
+		_campaign_order_driver_button.release_focus()
+	_campaign_order_driver_button.visible = false
+	_campaign_order_driver_button.set_meta("objective_id", "")
+	_campaign_order_driver_button.set_meta("metric", "")
+	_campaign_order_driver_button.set_meta("driver_action_id", "")
+
+
+func _campaign_order_driver_for_metric(metric: StringName) -> Dictionary:
+	match metric:
+		&"quota_met", &"eggs":
+			return {
+				"label": "SHOW HEN ROUTES",
+				"action_id": "hen_routes",
+				"icon_kind": "egg",
+			}
+		&"rework", &"overdue_files", &"crack_rate_basis_points":
+			return {
+				"label": "SHOW LIVE FILES",
+				"action_id": "file_trays",
+				"icon_kind": "files",
+			}
+		&"welfare", &"average_welfare":
+			return {
+				"label": "SHOW FLOCK CARE",
+				"action_id": "flock_care",
+				"icon_kind": "flock",
+			}
+		&"farmer_favor", &"average_farmer_favor":
+			return {
+				"label": "SHOW FARMER STANDING",
+				"action_id": "farmer_standing",
+				"icon_kind": "cash",
+			}
+		&"compliance", &"average_compliance":
+			return {
+				"label": "SHOW COMPLIANCE EXPOSURE",
+				"action_id": "coop_controls",
+				"icon_kind": "shield",
+			}
+	return {
+		"label": "SHOW TODAY'S DRIVER",
+		"action_id": "today_driver",
+		"icon_kind": "goal",
+	}
+
+
+func _on_campaign_order_driver_pressed() -> void:
+	if _campaign_order_driver_action.is_empty():
+		return
+	var driver := _campaign_order_driver_action.duplicate(true)
+	var action_id := StringName(driver.get("action_id", &""))
+	_campaign_order_driver_activation_serial += 1
+	var target_name := ""
+	var target_available := false
+	var live_file_available := true
+	match action_id:
+		&"hen_routes":
+			_focus_guidance_hen()
+			var route_target: Control
+			if _routing_ui != null:
+				var worker_id := _routing_ui.focused_worker_id()
+				if worker_id >= 0 and _routing_ui.has_method("focus_hen_dossier"):
+					route_target = _routing_ui.focus_hen_dossier(worker_id)
+			target_name = String(route_target.name) if route_target != null else ""
+			target_available = (
+				route_target != null
+				and _camera_controller != null
+				and _camera_controller.is_focused()
+			)
+		&"file_trays":
+			if _flockwatch_open:
+				_set_flockwatch_open(false)
+			if _routing_ui != null:
+				# `_process` normally restores this surface after the drawer closes,
+				# but this handoff resolves in the same input frame. Make the promised
+				# trays visible before selecting an exact live target.
+				_routing_ui.visible = not _blocking_management_surface_open()
+				var tray := _routing_ui.focus_priority_dispatch_tray()
+				if tray != null:
+					target_name = String(tray.name)
+					target_available = true
+					live_file_available = bool(
+						_routing_ui.return_cue_focus_state().get("available", false)
+					)
+		&"flock_care":
+			var care_target := _open_campaign_order_driver_page(
+				FlockwatchNavigation.PAGE_FLOCK,
+				PackedStringArray(["FlockCareSection", "FlockwatchFlockSection"]),
+			)
+			target_name = String(care_target.name) if care_target != null else ""
+			target_available = care_target != null
+		&"farmer_standing":
+			var standing_target := _open_campaign_order_driver_page(
+				FlockwatchNavigation.PAGE_TODAY,
+				PackedStringArray(["FlockwatchTodayCashGlanceTile"]),
+			)
+			target_name = String(standing_target.name) if standing_target != null else ""
+			target_available = standing_target != null
+		&"coop_controls":
+			var operations_target := _open_campaign_order_driver_page(
+				FlockwatchNavigation.PAGE_OPERATIONS,
+				PackedStringArray([
+					"RoosterOperationsExposureGlancePanel",
+					"RoosterOperationsSection",
+					"FlockwatchOperationsSection",
+				]),
+			)
+			target_name = (
+				String(operations_target.name) if operations_target != null else ""
+			)
+			target_available = operations_target != null
+		_:
+			var today_target := _open_campaign_order_driver_page(
+				FlockwatchNavigation.PAGE_TODAY,
+				PackedStringArray(["CampaignOrdersHeading", "FlockwatchTodaySection"]),
+			)
+			target_name = String(today_target.name) if today_target != null else ""
+			target_available = today_target != null
+	if target_available:
+		_set_campaign_order_return_cue(driver)
+	_last_campaign_order_driver_result = {
+		"serial": _campaign_order_driver_activation_serial,
+		"objective_id": String(driver.get("objective_id", "")),
+		"metric": String(driver.get("metric", "")),
+		"action_id": String(action_id),
+		"target": target_name,
+		"target_available": target_available,
+		"live_file_available": live_file_available,
+		"filed_choice": false,
+	}
+	if _audio_feedback != null:
+		_audio_feedback.play_ui_tick()
+	if _simulation != null:
+		var snapshot := _simulation.snapshot()
+		_update_guidance(snapshot)
+		_publish_web_diagnostic_state(snapshot)
+
+
+func _set_campaign_order_return_cue(driver: Dictionary) -> void:
+	var objective_id := StringName(driver.get("objective_id", &""))
+	if objective_id == &"":
+		return
+	_campaign_order_return_serial += 1
+	var title := String(driver.get("objective_title", "TODAY'S GOAL")).strip_edges().to_upper()
+	var icon_kind := StringName(driver.get("icon_kind", &"goal"))
+	var handoff_kind := StringName(driver.get("handoff_kind", &""))
+	var source_label := String(driver.get("source_label", "")).strip_edges().to_upper()
+	var handoff_context := ""
+	match handoff_kind:
+		&"claim_file":
+			handoff_context = " Returning from %s's exact claim file." % source_label
+		&"hen_dossier":
+			handoff_context = " Returning from %s's hen dossier." % source_label
+	_campaign_order_return_cue = {
+		"serial": _campaign_order_return_serial,
+		"objective_id": String(objective_id),
+		"objective_title": title,
+		"order_index": int(driver.get("order_index", -1)),
+		"metric": String(driver.get("metric", "")),
+		"icon_kind": String(icon_kind),
+		"handoff_kind": String(handoff_kind),
+		"copy": "RETURN: %s" % title,
+		"accessible_text": (
+			"Return to Flockwatch Today and focus %s.%s "
+			+ "This only restores context; no gameplay choice is filed."
+		) % [title, handoff_context],
+	}
+
+
+func _activate_campaign_order_return_cue() -> void:
+	if _campaign_order_return_cue.is_empty():
+		return
+	_clear_campaign_order_page_arrival()
+	if _routing_ui != null and _routing_ui.has_method("clear_dispatch_tray_arrival"):
+		_routing_ui.clear_dispatch_tray_arrival()
+	var cue := _campaign_order_return_cue.duplicate(true)
+	var objective_id := StringName(cue.get("objective_id", &""))
+	var order_index := int(cue.get("order_index", -1))
+	_campaign_order_return_activation_serial += 1
+	_campaign_order_return_cue.clear()
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
+	var target_available := false
+	for glance in _campaign_order_glances:
+		if (
+			StringName(glance.get_meta("objective_id", &"")) == objective_id
+			and glance.is_visible_in_tree()
+		):
+			target_available = true
+			break
+	_last_campaign_order_return_result = {
+		"serial": _campaign_order_return_activation_serial,
+		"source_serial": int(cue.get("serial", 0)),
+		"objective_id": String(objective_id),
+		"order_index": order_index,
+		"icon_kind": String(cue.get("icon_kind", "goal")),
+		"handoff_kind": String(cue.get("handoff_kind", "")),
+		"target_available": target_available,
+		"filed_choice": false,
+	}
+	call_deferred("_focus_campaign_order_glance", objective_id, order_index)
+	if _simulation != null:
+		_update_guidance(_simulation.snapshot())
+
+
+func _open_campaign_order_driver_page(
+	page_id: StringName,
+	target_names: PackedStringArray,
+) -> Control:
+	_open_flockwatch_page(page_id)
+	if _flockwatch_navigation == null or _flockwatch_navigation.current_page_id() != page_id:
+		return null
+	var target: Control
+	for target_name: String in target_names:
+		var candidate := find_child(target_name, true, false) as Control
+		if candidate != null and candidate.is_visible_in_tree():
+			target = candidate
+			break
+	if target == null:
+		return null
+	var scroll := _flockwatch_navigation.page_scroll(page_id)
+	if scroll != null:
+		# A large section can already intersect the viewport while its meaningful
+		# heading remains far above it, causing ensure_control_visible() to retain
+		# stale reading context. Land the exact driver target at the reading edge.
+		var component_offset := (
+			target.global_position.y
+			- scroll.global_position.y
+			+ float(scroll.scroll_vertical)
+			- 8.0
+		)
+		scroll.scroll_vertical = maxi(0, int(component_offset))
+	_flockwatch_navigation.focus_current_tab()
+	_acknowledge_campaign_order_page_arrival(target, page_id)
+	return target
+
+
+func _acknowledge_campaign_order_page_arrival(
+	target: Control,
+	page_id: StringName,
+) -> void:
+	if target == null or not is_instance_valid(target) or not target.is_visible_in_tree():
+		return
+	_clear_campaign_order_page_arrival()
+	_campaign_order_page_arrival_serial += 1
+	_campaign_order_page_arrival_target = target
+	_campaign_order_page_arrival_target_name = String(target.name)
+	_campaign_order_page_arrival_page_id = page_id
+	_campaign_order_page_arrival_active = true
+	_campaign_order_page_arrival_reduced_motion = _prefers_reduced_motion()
+	_campaign_order_page_arrival_animated = not _campaign_order_page_arrival_reduced_motion
+	if target is PanelContainer:
+		_campaign_order_page_arrival_had_panel_override = target.has_theme_stylebox_override(
+			"panel"
+		)
+		_campaign_order_page_arrival_original_style = target.get_theme_stylebox("panel")
+		if _campaign_order_page_arrival_original_style != null:
+			var arrival_style := (
+				_campaign_order_page_arrival_original_style.duplicate() as StyleBox
+			)
+			if arrival_style is StyleBoxFlat:
+				var arrival_flat := arrival_style as StyleBoxFlat
+				arrival_flat.border_color = Color("f4d27b")
+				arrival_flat.set_border_width_all(2)
+				target.add_theme_stylebox_override("panel", arrival_flat)
+	target.modulate = Color("fff0bd")
+	var arrival_serial := _campaign_order_page_arrival_serial
+	if not _campaign_order_page_arrival_reduced_motion:
+		_campaign_order_page_arrival_tween = _presentation_tween(target)
+		_campaign_order_page_arrival_tween.tween_interval(0.12)
+		_campaign_order_page_arrival_tween.tween_property(
+			target,
+			"modulate",
+			Color.WHITE,
+			0.42,
+		)
+	get_tree().create_timer(0.62).timeout.connect(
+		_settle_campaign_order_page_arrival.bind(arrival_serial)
+	)
+
+
+func _settle_campaign_order_page_arrival(arrival_serial: int) -> void:
+	if (
+		arrival_serial != _campaign_order_page_arrival_serial
+		or not _campaign_order_page_arrival_active
+	):
+		return
+	if (
+		_campaign_order_page_arrival_target is PanelContainer
+		and _campaign_order_page_arrival_original_style is StyleBoxFlat
+	):
+		if (
+			_campaign_order_page_arrival_tween != null
+			and _campaign_order_page_arrival_tween.is_valid()
+		):
+			_campaign_order_page_arrival_tween.kill()
+		_campaign_order_page_arrival_tween = null
+		_campaign_order_page_arrival_target.modulate = Color.WHITE
+		var pinned_style := (
+			_campaign_order_page_arrival_original_style.duplicate() as StyleBoxFlat
+		)
+		var pinned_border := Color("d9c47d")
+		pinned_border.a = 0.72
+		pinned_style.border_color = pinned_border
+		if (
+			pinned_style.border_width_left
+			+ pinned_style.border_width_top
+			+ pinned_style.border_width_right
+			+ pinned_style.border_width_bottom
+			== 0
+		):
+			pinned_style.set_border_width_all(1)
+		_campaign_order_page_arrival_target.add_theme_stylebox_override(
+			"panel",
+			pinned_style,
+		)
+		_campaign_order_page_arrival_active = false
+		_campaign_order_page_arrival_pinned = true
+		return
+	_clear_campaign_order_page_arrival()
+
+
+func _clear_campaign_order_page_arrival() -> void:
+	if (
+		_campaign_order_page_arrival_tween != null
+		and _campaign_order_page_arrival_tween.is_valid()
+	):
+		_campaign_order_page_arrival_tween.kill()
+	_campaign_order_page_arrival_tween = null
+	if (
+		_campaign_order_page_arrival_target != null
+		and is_instance_valid(_campaign_order_page_arrival_target)
+	):
+		if _campaign_order_page_arrival_target is PanelContainer:
+			if (
+				_campaign_order_page_arrival_had_panel_override
+				and _campaign_order_page_arrival_original_style != null
+			):
+				_campaign_order_page_arrival_target.add_theme_stylebox_override(
+					"panel",
+					_campaign_order_page_arrival_original_style,
+				)
+			else:
+				_campaign_order_page_arrival_target.remove_theme_stylebox_override(
+					"panel"
+				)
+		_campaign_order_page_arrival_target.modulate = Color.WHITE
+	_campaign_order_page_arrival_target = null
+	_campaign_order_page_arrival_original_style = null
+	_campaign_order_page_arrival_had_panel_override = false
+	_campaign_order_page_arrival_active = false
+	_campaign_order_page_arrival_pinned = false
+
+
+func _campaign_order_page_arrival_state() -> Dictionary:
+	return {
+		"active": _campaign_order_page_arrival_active,
+		"animated": _campaign_order_page_arrival_animated,
+		"pinned": _campaign_order_page_arrival_pinned,
+		"reduced_motion": _campaign_order_page_arrival_reduced_motion,
+		"serial": _campaign_order_page_arrival_serial,
+		"page": String(_campaign_order_page_arrival_page_id),
+		"target": _campaign_order_page_arrival_target_name,
+	}
+
+
+func _refresh_campaign_order_glance_focus_style(glance: Label) -> void:
+	var tile := _flockwatch_glance_tile(glance)
+	if tile == null:
+		return
+	var accent: Color = glance.get_meta("focus_accent", Color("71838b"))
+	var focused := glance.has_focus()
+	var style := _panel_style(Color("182530"), 0.96, 6, 2 if focused else 1)
+	style.border_color = Color(accent, 0.96 if focused else 0.34)
+	style.content_margin_left = 6.0
+	style.content_margin_right = 6.0
+	style.content_margin_top = 4.0
+	style.content_margin_bottom = 4.0
+	tile.add_theme_stylebox_override("panel", style)
+	tile.set_meta("direct_focus", focused)
 
 
 func _campaign_objective_action_glance(
@@ -13896,13 +14823,19 @@ func _campaign_objective_action_glance(
 		&"crack_rate_basis_points":
 			if eggs_today == 0:
 				return "CRACKS ≤ %.0f%%\nEGG 1 PENDING" % (float(target) / 100.0)
-			return "CRACKS ≤ %.0f%%\n%.1f%% NOW  ·  %s" % [
+			return "CRACKS ≤ %.0f%%\n%.1f%%  ·  %s" % [
 				float(target) / 100.0,
 				float(actual) / 100.0,
 				"SAFE" if on_track else "OVER",
 			]
 		&"welfare", &"average_welfare":
 			return "WELFARE %d+\n%d NOW  ·  %s" % [
+				target,
+				actual,
+				"SAFE" if on_track else "NEED %d" % maxi(0, target - actual),
+			]
+		&"farmer_favor", &"average_farmer_favor":
+			return "FAVOR %d+\n%d  ·  %s" % [
 				target,
 				actual,
 				"SAFE" if on_track else "NEED %d" % maxi(0, target - actual),
@@ -13922,7 +14855,12 @@ func _campaign_objective_action_glance(
 	]
 
 
-func _sync_live_order_badge(on_track: int, total: int, senior_mode: bool) -> void:
+func _sync_live_order_badge(
+	on_track: int,
+	total: int,
+	senior_mode: bool,
+	order_states: Array[Dictionary] = [],
+) -> void:
 	if _campaign_ui == null or not _campaign_ui.has_method("set_live_order_progress"):
 		return
 	var context := StringName("probation:%d" % (_campaign_state.completed_shifts + 1))
@@ -13931,7 +14869,13 @@ func _sync_live_order_badge(on_track: int, total: int, senior_mode: bool) -> voi
 			_senior_roost_state.current_year_number(),
 			_senior_roost_state.current_quarter_in_year(),
 		])
-	var delta := int(_campaign_ui.call("set_live_order_progress", on_track, total, context))
+	var delta := int(_campaign_ui.call(
+		"set_live_order_progress",
+		on_track,
+		total,
+		context,
+		order_states,
+	))
 	if delta == 0 or _audio_feedback == null:
 		return
 	if delta > 0:
@@ -13948,6 +14892,7 @@ func _update_campaign_doctrine_label(senior_mode: bool) -> void:
 	if not _campaign_doctrine_label.visible:
 		_campaign_doctrine_label.text = ""
 		_campaign_doctrine_label.tooltip_text = ""
+		_campaign_doctrine_label.set_meta("accessible_text", "")
 		_campaign_doctrine_label.set_meta("doctrine_id", "")
 		_campaign_doctrine_label.set_meta("milestone_id", "")
 		return
@@ -13955,11 +14900,28 @@ func _update_campaign_doctrine_label(senior_mode: bool) -> void:
 	var watchouts := _doctrine_terms(doctrine.get("watchouts", []))
 	var primary_strength := _doctrine_primary_term(doctrine.get("strengths", []))
 	var primary_watchout := _doctrine_primary_term(doctrine.get("watchouts", []))
-	_campaign_doctrine_label.text = "DOCTRINE  //  %s%s%s" % [
-		String(doctrine.get("label", "PROBATION SPECIALTY")),
-		"  //  EDGE %s" % primary_strength if not primary_strength.is_empty() else "",
-		"  //  WATCH %s" % primary_watchout if not primary_watchout.is_empty() else "",
+	var doctrine_name := String(doctrine.get("label", "PROBATION SPECIALTY"))
+	_campaign_doctrine_label.text = "%s%s%s" % [
+		doctrine_name,
+		(
+			"  ·  +%s" % _doctrine_compact_term(primary_strength)
+			if not primary_strength.is_empty() else
+			""
+		),
+		(
+			"  ·  WATCH %s" % _doctrine_compact_term(primary_watchout)
+			if not primary_watchout.is_empty() else
+			""
+		),
 	]
+	_campaign_doctrine_label.set_meta(
+		"accessible_text",
+		"ACTIVE DOCTRINE  //  %s  //  FULL EDGE  //  %s  //  WATCH  //  %s" % [
+			doctrine_name,
+			strengths,
+			watchouts,
+		],
+	)
 	_campaign_doctrine_label.tooltip_text = "%s\n\nPLAYBOOK  //  %s" % [
 		String(doctrine.get("summary", "This specialization remains active for the probation file.")),
 		"%s\n\nFULL EDGE  //  %s\nWATCH  //  %s" % [
@@ -13993,6 +14955,20 @@ func _doctrine_primary_term(value: Variant) -> String:
 	if not value is Array or (value as Array).is_empty():
 		return ""
 	return String((value as Array)[0]).strip_edges().to_upper()
+
+
+func _doctrine_compact_term(term: String) -> String:
+	const COMPACT_TERMS := {
+		"FARMER FAVOR": "FAVOR",
+		"FLOCK WELFARE": "WELFARE",
+		"SHELL QUALITY": "QUALITY",
+		"FEED FUND": "FUND",
+		"RECOVERY DAYS": "RECOVERY",
+		"QUOTA PRESSURE": "QUOTA",
+		"SHELL SUPPORT": "SHELLS",
+	}
+	var normalized := term.strip_edges().to_upper()
+	return String(COMPACT_TERMS.get(normalized, normalized))
 
 
 func _update_flock_labor_label(snapshot: Dictionary) -> void:
@@ -15061,6 +16037,80 @@ func _flockwatch_diagnostic_state() -> Dictionary:
 		"available_pages": available_pages,
 		"accessible_text": accessible_copy if _flockwatch_open else "",
 		"last_feedback": last_feedback,
+		"focused_campaign_order_id": String(_focused_campaign_order_id),
+		"campaign_order_focus_serial": _campaign_order_focus_serial,
+		"campaign_order_driver": {
+			"visible": (
+				_campaign_order_driver_button != null
+				and _campaign_order_driver_button.is_visible_in_tree()
+			),
+			"objective_id": String(_campaign_order_driver_action.get("objective_id", "")),
+			"metric": String(_campaign_order_driver_action.get("metric", "")),
+			"action_id": String(_campaign_order_driver_action.get("action_id", "")),
+			"label": (
+				_campaign_order_driver_label.text
+				if _campaign_order_driver_label != null else
+				""
+			),
+			"activation_serial": _campaign_order_driver_activation_serial,
+			"last_result": _last_campaign_order_driver_result.duplicate(true),
+			"page_arrival": _campaign_order_page_arrival_state(),
+			"dispatch_tray_arrival": (
+				_routing_ui.dispatch_tray_arrival_state()
+				if _routing_ui != null and _routing_ui.has_method("dispatch_tray_arrival_state") else
+				{}
+			),
+			"hen_dossier_arrival": (
+				_routing_ui.hen_dossier_arrival_state()
+				if _routing_ui != null and _routing_ui.has_method("hen_dossier_arrival_state") else
+				{}
+			),
+		},
+		"campaign_order_return": {
+			"visible": (
+				not _campaign_order_return_cue.is_empty()
+				and _guidance_action_id == &"campaign_order_return"
+			),
+			"serial": _campaign_order_return_serial,
+			"objective_id": String(_campaign_order_return_cue.get("objective_id", "")),
+			"order_index": int(_campaign_order_return_cue.get("order_index", -1)),
+			"copy": String(_campaign_order_return_cue.get("copy", "")),
+			"icon_kind": String(_campaign_order_return_cue.get("icon_kind", "")),
+			"handoff_kind": String(_campaign_order_return_cue.get("handoff_kind", "")),
+			"activation_serial": _campaign_order_return_activation_serial,
+			"last_result": _last_campaign_order_return_result.duplicate(true),
+		},
+		"campaign_order_causes": _campaign_order_cause_diagnostic_state(),
+	}
+
+
+func _campaign_order_cause_diagnostic_state() -> Dictionary:
+	var receipts: Array[Dictionary] = []
+	for glance in _campaign_order_glances:
+		var objective_id := StringName(glance.get_meta("objective_id", &""))
+		if objective_id == &"" or not _campaign_order_cause_receipts.has(objective_id):
+			continue
+		var receipt := (
+			_campaign_order_cause_receipts[objective_id] as Dictionary
+		).duplicate(true)
+		receipt["source_available"] = _campaign_order_cause_source_available(receipt)
+		receipts.append(receipt)
+	return {
+		"serial": _campaign_order_cause_serial,
+		"count": receipts.size(),
+		"receipts": receipts,
+		"activation_serial": _campaign_order_cause_activation_serial,
+		"last_focus_result": _last_campaign_order_cause_focus_result.duplicate(true),
+		"claim_file_arrival": (
+			_routing_ui.claim_file_arrival_state()
+			if _routing_ui != null and _routing_ui.has_method("claim_file_arrival_state") else
+			{}
+		),
+		"hen_dossier_arrival": (
+			_routing_ui.hen_dossier_arrival_state()
+			if _routing_ui != null and _routing_ui.has_method("hen_dossier_arrival_state") else
+			{}
+		),
 	}
 
 
@@ -16130,6 +17180,11 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"campaign_intake_phase": campaign_intake_phase,
 		"campaign_day": int(_campaign_state.completed_shifts) + 1,
 		"campaign_score": int(_campaign_state.probation_score),
+		"probation_order_tracker": (
+			_campaign_ui.live_order_progress()
+			if _campaign_ui != null else
+			{}
+		),
 		"case_docket": (snapshot.get("case_docket", {}) as Dictionary).duplicate(true),
 		"challenge_contract": challenge_contract,
 		"selected_new_challenge_contract": selected_new_challenge_contract,
@@ -16356,6 +17411,45 @@ func _on_flockwatch_pressed() -> void:
 		_acknowledge_first_clutch_orders_handoff()
 
 
+func _on_campaign_live_order_mark_requested(
+	objective_id: StringName,
+	order_index: int,
+) -> void:
+	if objective_id == &"" or order_index < 0:
+		return
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
+	_acknowledge_first_clutch_orders_handoff()
+	call_deferred("_focus_campaign_order_glance", objective_id, order_index)
+
+
+func _focus_campaign_order_glance(
+	objective_id: StringName,
+	order_index: int,
+) -> void:
+	if not _flockwatch_open or _flockwatch_navigation == null:
+		return
+	var target: Label
+	for glance in _campaign_order_glances:
+		if StringName(glance.get_meta("objective_id", &"")) == objective_id:
+			target = glance
+			break
+	if target == null and order_index >= 0 and order_index < _campaign_order_glances.size():
+		target = _campaign_order_glances[order_index]
+	if target == null or not target.is_visible_in_tree():
+		return
+	var tile := _flockwatch_glance_tile(target)
+	var scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_TODAY)
+	if scroll != null and tile != null:
+		scroll.ensure_control_visible(tile)
+	target.grab_focus()
+	_focused_campaign_order_id = StringName(target.get_meta("objective_id", objective_id))
+	target.set_meta("opened_from_live_mark", true)
+	if _audio_feedback != null:
+		_audio_feedback.play_ui_tick()
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
 func _acknowledge_first_clutch_orders_handoff() -> void:
 	if not _flockwatch_open or not _first_clutch_orders_handoff_pending():
 		return
@@ -16405,6 +17499,11 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 			0.0,
 		)
 	_flockwatch_open = is_open
+	_refresh_flockwatch_toggle_layout()
+	if not is_open:
+		_focused_campaign_order_id = &""
+		_campaign_order_pointer_armed_id = &""
+		_clear_campaign_order_driver_action()
 	var marker_context_page := (
 		_flockwatch_navigation.current_page_id()
 		if _flockwatch_navigation != null else
@@ -16529,9 +17628,9 @@ func _update_flockwatch_toggle(snapshot: Dictionary = {}) -> void:
 	var headcount := int(active_snapshot.get("active_staff_count", _worker_views.size()))
 	var capacity := _office_capacity_from_snapshot(active_snapshot)
 	if _flockwatch_open:
-		# Keep the control's identity stable. The former rotating copy made one
-		# button look like four unrelated systems depending on office state.
-		_flockwatch_toggle.text = "FLOCKWATCH  ·  CLOSE  [V]"
+		# Once open, the stable launcher becomes a compact action inside the
+		# ledger header instead of repeating the drawer name above the panel.
+		_flockwatch_toggle.text = "CLOSE  [V]"
 		_flockwatch_toggle.tooltip_text = (
 			"Close Flockwatch and restore the full coop view.\n"
 			+ "Active flock: %d of %d authorized desks." % [headcount, capacity]
@@ -16604,6 +17703,32 @@ func _update_flockwatch_toggle(snapshot: Dictionary = {}) -> void:
 		+ "Active flock: %d of %d authorized desks." % [headcount, capacity]
 	)
 	_apply_flockwatch_binding_hint()
+
+
+func _refresh_flockwatch_toggle_layout() -> void:
+	if _flockwatch_toggle == null:
+		return
+	var routing_top := (
+		FIRST_CLUTCH_ROUTING_TOP
+		if _compact_live_hud_applied else
+		LIVE_ROUTING_TOP
+	)
+	if _flockwatch_open and _flockwatch_navigation != null:
+		_flockwatch_navigation.adopt_header_action(_flockwatch_toggle)
+		_flockwatch_toggle.custom_minimum_size = Vector2(122.0, 34.0)
+		_flockwatch_toggle.size_flags_horizontal = Control.SIZE_SHRINK_END
+		_flockwatch_toggle.z_index = 0
+		return
+	if _ui_root != null and _flockwatch_toggle.get_parent() != _ui_root:
+		_flockwatch_toggle.reparent(_ui_root, false)
+	_flockwatch_toggle.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_flockwatch_toggle.custom_minimum_size = Vector2.ZERO
+	_flockwatch_toggle.size_flags_horizontal = Control.SIZE_FILL
+	_flockwatch_toggle.z_index = 5
+	_flockwatch_toggle.offset_left = -250.0
+	_flockwatch_toggle.offset_top = routing_top
+	_flockwatch_toggle.offset_right = -18.0
+	_flockwatch_toggle.offset_bottom = routing_top + 44.0
 
 
 func _apply_flockwatch_binding_hint() -> void:
@@ -16691,15 +17816,16 @@ func _on_guidance_action_pressed() -> void:
 		&"today":
 			_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
 			_acknowledge_first_clutch_orders_handoff()
+		&"campaign_order_return":
+			_activate_campaign_order_return_cue()
 		&"records":
 			_open_flockwatch_page(FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS)
 		&"routing_chase":
 			if _flockwatch_open:
 				_set_flockwatch_open(false)
 			if _routing_ui != null and _routing_ui.has_method("focus_priority_dispatch_tray"):
-				var tray := _routing_ui.focus_priority_dispatch_tray()
-				if tray is Control:
-					_pulse_action_target(tray as Control)
+				_routing_ui.visible = not _blocking_management_surface_open()
+				_routing_ui.focus_priority_dispatch_tray()
 		&"capital":
 			_open_flockwatch_page(FlockwatchNavigation.PAGE_CAPITAL)
 		&"first_hen":
@@ -16882,6 +18008,17 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			&"files",
 			String(_routing_return_cue.get("accessible_text", "Choose an intake tray to resume routing.")),
 			&"routing_chase",
+		)
+		return
+	if not _campaign_order_return_cue.is_empty():
+		_set_guidance(
+			String(_campaign_order_return_cue.get("copy", "RETURN: TODAY'S GOAL")),
+			StringName(_campaign_order_return_cue.get("icon_kind", &"goal")),
+			String(_campaign_order_return_cue.get(
+				"accessible_text",
+				"Return to the originating Flockwatch goal without filing a choice.",
+			)),
+			&"campaign_order_return",
 		)
 		return
 	var eggs := int(snapshot.get("eggs_today", 0))
@@ -17659,10 +18796,13 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	_sync_flockwatch_glance(
 		_today_cash_glance,
 		_today_ledger_label,
-		"$%s\nREADY" % _compact_flockwatch_currency(int(economic_cash.get(
-			"spendable_fund_cents",
-			snapshot.get("spendable_fund_cents", 0),
-		))),
+		"$%s\nFAVOR %d" % [
+			_compact_flockwatch_currency(int(economic_cash.get(
+				"spendable_fund_cents",
+				snapshot.get("spendable_fund_cents", 0),
+			))),
+			int(snapshot.get("executive_confidence", 0)),
+		],
 		Color("d9c47d"),
 	)
 	var case_docket := snapshot.get("case_docket", {}) as Dictionary
@@ -18043,6 +19183,33 @@ func _on_egg_laid(
 			streak_tween.tween_property(_quality_streak_label, "modulate", Color.WHITE, 0.65)
 	if quality == &"golden" and _camera_controller != null:
 		_camera_controller.show_event_focus(worker_view.global_position + Vector3.UP * 0.82, "GOLDEN EGG", 1.55)
+	var after_snapshot := _simulation.snapshot()
+	var before_snapshot := after_snapshot.duplicate(true)
+	before_snapshot["eggs_today"] = maxi(
+		0,
+		int(after_snapshot.get("eggs_today", 0)) - 1,
+	)
+	if quality == &"cracked":
+		before_snapshot["cracked_today"] = maxi(
+			0,
+			int(after_snapshot.get("cracked_today", 0)) - 1,
+		)
+	var worker_after := _worker_record(after_snapshot, worker_id)
+	var worker_name := String(worker_after.get("name", "HEN %d" % (worker_id + 1)))
+	var lane_label := _dispatch_lane_label(StringName(worker_after.get("assigned_lane", &"auto")))
+	_record_campaign_order_cause_receipts(
+		before_snapshot,
+		after_snapshot,
+		"%s/%s" % [worker_name, lane_label],
+		&"routed_egg",
+		String(quality),
+		{
+			"source_kind": "worker_file",
+			"source_label": worker_name,
+			"worker_id": worker_id,
+			"claim_id": int(worker_after.get("last_completed_claim_id", -1)),
+		},
+	)
 	# The tutorial's first delivery remains a hard recovery point. Once the player
 	# is on the ordinary floor, burst production is coalesced instead of forcing a
 	# complete verified file transaction for every individual egg.
@@ -24416,6 +25583,263 @@ func _capture_campaign_promotion_opportunity_preview() -> void:
 	_set_campaign_modal_open(true)
 	await get_tree().create_timer(0.55).timeout
 	_save_preview("probation_report.png")
+
+
+func _capture_campaign_promotion_tracker_preview(
+	promotion_ready: bool = false,
+	save_capture: bool = true,
+) -> void:
+	_decision_host.visible = false
+	_campaign_state = CampaignStateScript.new()
+	# File two authentic shifts and the required milestone so the live day-three
+	# tracker inherits a real 77 -> 80 Golden Management promotion opportunity.
+	var opening_report := _campaign_capture_report(1)
+	opening_report["eggs"] = 18
+	opening_report["quota"] = 24
+	opening_report["cracked"] = 3
+	opening_report["welfare"] = 47
+	opening_report["compliance"] = 80
+	opening_report["farmer_favor"] = 60
+	opening_report["overdue_claims"] = 1
+	var opening_result: Dictionary = _campaign_state.record_shift(opening_report, {})
+	var second_result: Dictionary = _campaign_state.record_shift(_campaign_capture_report(2), {})
+	var milestone_filed: bool = _campaign_state.choose_milestone(&"padded_perches")
+	if (
+		not bool(opening_result.get("accepted", false))
+		or not bool(second_result.get("accepted", false))
+		or not milestone_filed
+		or _campaign_state.probation_score != 77
+	):
+		push_error("Promotion tracker capture fixture must reach an authentic 77 score.")
+		get_tree().quit(1)
+		return
+	_campaign_review_stage = &"active"
+	_simulation.day = _campaign_state.completed_shifts + 1
+	_prepare_capture_running()
+	_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
+	_set_campaign_modal_open(false)
+	_update_campaign_objectives_label(_simulation.snapshot())
+	await get_tree().process_frame
+	await get_tree().process_frame
+	# The authoritative forecast above seeds the stable Day 3 objective identities
+	# at 2/3, so the ready transition can identify the exact quota mark that moves.
+	if promotion_ready:
+		# Satisfy the remaining live quota order through the simulation metric so
+		# subsequent presentation refreshes preserve the authentic 3/3 state.
+		_simulation.eggs_today = _simulation.quota_target
+		_simulation.eggs_total = maxi(_simulation.eggs_total, _simulation.eggs_today)
+		await get_tree().process_frame
+		_update_campaign_objectives_label(_simulation.snapshot())
+	await get_tree().create_timer(0.65).timeout
+	if save_capture:
+		_save_preview(
+			"promotion_order_ready.png" if promotion_ready else "promotion_order_tracker.png"
+		)
+
+
+func _capture_campaign_goal_cause_locator_preview(stale_receipt: bool = false) -> void:
+	await _capture_campaign_promotion_tracker_preview(false, false)
+	# Keep one live authoritative file in the fixture so closing Flockwatch restores
+	# the same claim the receipt names, exactly as it would during normal play.
+	if not _simulation.workers.is_empty():
+		var preview_worker := _simulation.workers[0] as ChickenState
+		if preview_worker.current_claim == null:
+			preview_worker.current_claim = ClaimState.new(
+				731,
+				&"nest_damage",
+				"NEST DAMAGE",
+				1.15,
+				760,
+				0.045,
+				1080,
+				1440,
+				360,
+			)
+			preview_worker.work_state = ChickenState.WorkState.WORKING
+			preview_worker.work_progress = 34.0
+	var before_snapshot := _simulation.snapshot()
+	var after_snapshot := before_snapshot.duplicate(true)
+	after_snapshot["eggs_today"] = int(before_snapshot.get("quota_target", 1))
+	var source_worker := _worker_record(after_snapshot, 0)
+	_record_campaign_order_cause_receipts(
+		before_snapshot,
+		after_snapshot,
+		"MABEL/NEST",
+		&"routed_egg",
+		"sound",
+		{
+			"source_kind": "worker_file",
+			"source_label": String(source_worker.get("name", "MABEL")),
+			"worker_id": 0,
+			"claim_id": 999999 if stale_receipt else int(
+				(source_worker.get("current_claim", {}) as Dictionary).get("id", -1)
+			),
+		},
+	)
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_save_preview(
+		"goal_cause_fallback.png" if stale_receipt else "goal_cause_locator.png"
+	)
+
+
+func _capture_campaign_goal_driver_route_preview() -> void:
+	await _capture_campaign_promotion_tracker_preview(false, false)
+	if _simulation.workers.is_empty() or _routing_ui == null:
+		push_error("Goal driver Route capture requires one visible hen dossier.")
+		get_tree().quit(1)
+		return
+	var preview_worker := _simulation.workers[0] as ChickenState
+	if preview_worker.current_claim == null:
+		preview_worker.current_claim = ClaimState.new(
+			731,
+			&"nest_damage",
+			"NEST DAMAGE",
+			1.15,
+			760,
+			0.045,
+			1080,
+			1440,
+			360,
+		)
+		preview_worker.work_state = ChickenState.WorkState.WORKING
+		preview_worker.work_progress = 34.0
+	_on_snapshot_changed(_simulation.snapshot())
+	_routing_ui.set_focus(0)
+	_routing_ui.call("_on_dossier_tab_pressed", &"claim")
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
+	await get_tree().process_frame
+	if _campaign_order_glances.is_empty():
+		push_error("Goal driver Route capture requires one campaign order tile.")
+		get_tree().quit(1)
+		return
+	var glance := _campaign_order_glances[0] as Label
+	_configure_campaign_order_driver_action(glance)
+	glance.grab_focus()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_save_preview("goal_driver_route.png")
+
+
+func _capture_campaign_goal_driver_flock_care_preview() -> void:
+	await _capture_campaign_promotion_tracker_preview(false, false)
+	if _campaign_order_glances.is_empty() or _flockwatch_navigation == null:
+		push_error("Goal driver Flock Care capture requires one campaign order tile.")
+		get_tree().quit(1)
+		return
+	# Seed the page with a deliberately stale lower reading position. The real
+	# driver must override it and land on the exact care filing.
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_FLOCK)
+	await get_tree().process_frame
+	var flock_scroll := _flockwatch_navigation.page_scroll(FlockwatchNavigation.PAGE_FLOCK)
+	if flock_scroll != null:
+		flock_scroll.scroll_vertical = 100000
+	await get_tree().process_frame
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
+	await get_tree().process_frame
+	var glance := _campaign_order_glances[0] as Label
+	glance.text = "WELFARE >= 72\n88 NOW  ·  SAFE"
+	glance.set_meta("objective_id", &"rested_flock")
+	glance.set_meta("objective_title", "RESTED FLOCK")
+	glance.set_meta("metric", &"average_welfare")
+	glance.set_meta("on_track", true)
+	glance.set_meta("focus_accent", Color("73b5a7"))
+	_configure_campaign_order_driver_action(glance)
+	glance.grab_focus()
+	_refresh_campaign_order_glance_focus_style(glance)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_save_preview("goal_driver_flock_care.png")
+
+
+func _capture_campaign_goal_driver_farmer_standing_preview() -> void:
+	await _capture_campaign_promotion_tracker_preview(false, false)
+	if _campaign_order_glances.is_empty() or _flockwatch_navigation == null:
+		push_error("Goal driver Farmer Standing capture requires one campaign order tile.")
+		get_tree().quit(1)
+		return
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
+	await get_tree().process_frame
+	var glance := _campaign_order_glances[0] as Label
+	glance.text = "FAVOR 52+\n49  ·  NEED 3"
+	glance.set_meta("objective_id", &"farmer_confidence")
+	glance.set_meta("objective_title", "FARMER CONFIDENCE")
+	glance.set_meta("metric", &"average_farmer_favor")
+	glance.set_meta("on_track", false)
+	glance.set_meta("focus_accent", Color("d68a68"))
+	_configure_campaign_order_driver_action(glance)
+	_campaign_order_driver_button.grab_focus()
+	_refresh_campaign_order_glance_focus_style(glance)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_save_preview("goal_driver_farmer_standing.png")
+
+
+func _capture_campaign_goal_driver_coop_controls_preview() -> void:
+	await _capture_campaign_promotion_tracker_preview(false, false)
+	if _campaign_order_glances.is_empty() or _flockwatch_navigation == null:
+		push_error("Goal driver Compliance capture requires one campaign order tile.")
+		get_tree().quit(1)
+		return
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_OPERATIONS)
+	await get_tree().process_frame
+	var operations_scroll := _flockwatch_navigation.page_scroll(
+		FlockwatchNavigation.PAGE_OPERATIONS,
+	)
+	if operations_scroll != null:
+		operations_scroll.scroll_vertical = 100000
+	await get_tree().process_frame
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
+	await get_tree().process_frame
+	var glance := _campaign_order_glances[0] as Label
+	glance.text = "COMPLIANCE >= 55\n81 NOW  ·  SAFE"
+	glance.set_meta("objective_id", &"coop_compliance")
+	glance.set_meta("objective_title", "COOP COMPLIANCE")
+	glance.set_meta("metric", &"average_compliance")
+	glance.set_meta("on_track", true)
+	glance.set_meta("focus_accent", Color("73b5a7"))
+	_configure_campaign_order_driver_action(glance)
+	_campaign_order_driver_button.grab_focus()
+	_refresh_campaign_order_glance_focus_style(glance)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_save_preview("goal_driver_coop_controls.png")
+
+
+func _capture_campaign_goal_driver_live_files_preview(empty_intake: bool = false) -> void:
+	await _capture_campaign_promotion_tracker_preview(false, false)
+	if _campaign_order_glances.is_empty() or _routing_ui == null:
+		push_error("Goal driver Live Files capture requires the routing surface.")
+		get_tree().quit(1)
+		return
+	if empty_intake:
+		for lane: StringName in DepartmentSimulation.CLAIM_LANES:
+			_simulation._claim_queues[lane] = []
+		_simulation.call("_sync_claims_waiting")
+		_on_snapshot_changed(_simulation.snapshot())
+		await get_tree().process_frame
+	elif _routing_ui.dispatch_priority_state().is_empty():
+		push_error("Goal driver Live Files capture requires one urgent intake tray.")
+		get_tree().quit(1)
+		return
+	_open_flockwatch_page(FlockwatchNavigation.PAGE_TODAY)
+	await get_tree().process_frame
+	var glance := _campaign_order_glances[0] as Label
+	glance.text = "REWORK <= 3\n0 NOW  ·  SAFE"
+	glance.set_meta("objective_id", &"clean_files")
+	glance.set_meta("objective_title", "CLEAN FILES")
+	glance.set_meta("metric", &"rework")
+	glance.set_meta("on_track", true)
+	glance.set_meta("focus_accent", Color("73b5a7"))
+	_configure_campaign_order_driver_action(glance)
+	glance.grab_focus()
+	_refresh_campaign_order_glance_focus_style(glance)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_save_preview(
+		"goal_driver_live_files_empty.png" if empty_intake else "goal_driver_live_files.png"
+	)
 
 
 func _capture_senior_policy_receipt_preview(with_shift_delta: bool = false) -> void:

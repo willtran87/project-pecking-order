@@ -9180,3 +9180,770 @@ The next major systems milestone is persistent worker relationships and individu
 - Suggested next polish audit: carry the promotion-ready crest into the active
   shift's compact order tracker, so players can preserve or recover the three
   required checks without reopening the report.
+
+## 2026-08-04 - Live promotion order tracker
+
+- Carried the report's promotion crest into the active shift's compact order
+  tracker. When the disclosed three-order bundle reaches the exact next rank,
+  a muted crest marks a recoverable opportunity and the crest settles to cream
+  once all three orders are on track.
+- Kept the persistent surface symbol-first: the existing `ON TRACK 2 / 3`
+  count and three pips remain the only visible copy. Exact reward, score gap,
+  threshold, target rank, and the live-estimate caveat remain available through
+  tooltip and assistive metadata.
+- The cue is driven by the same authoritative `promotion_opportunity` projection
+  as the closing report. Routine bundles, top-rank files, hidden badges, and
+  every Senior Roost shift explicitly clear the crest and its state metadata.
+- Added a deterministic active-shift browser preview that files two ordinary
+  shifts and Padded Perches to reach an authentic 77-point Day 3 file, then
+  exposes the recoverable 2/3 state against the 80-point Golden Management gate.
+- `probation_campaign_ui_test.gd`, `management_loop_ui_test.gd`,
+  `senior_roost_ui_test.gd`, and `probation_campaign_integration_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/promotion-order-tracker-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/promotion-order-tracker-final-v2/shot-0.png`. Diagnostics
+  record a loaded active Day 3 campaign at score 77, 2/3 orders on track, a
+  recoverable promotion opportunity, zero orphan nodes, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,726,836-byte PCK SHA-256 is
+  `4067621C54EFA3F661AB628DA6C60288070194C2841F338377D428CA8155E245`,
+  and the refreshed local production server on port 3000 (PID 48984) serves the
+  new build. Export roots contain no temp files.
+- Suggested next polish audit: give the crest one restrained completion glow
+  when the live tracker first reaches 3/3, so the promotion-ready moment reads
+  even when the player's attention is centered on the office floor.
+
+## 2026-08-04 - Promotion-ready crest glow
+
+- Added one restrained live completion beat when a genuine promotion
+  opportunity crosses from incomplete to 3/3: the crest brightens and grows 16
+  percent, then settles to the stable cream ready state in 0.4 seconds.
+- The pulse is edge-triggered rather than refresh-triggered. It does not replay
+  while 3/3 remains stable, and a regression below 3/3 cancels the tween and
+  restores the brass recoverable state immediately.
+- Reduced-motion mode records the same ready transition and settles it
+  instantly with no scale or brightness animation. Routine and hidden tracker
+  states clear all active pulse metadata.
+- Added a deterministic ready-state browser preview that reaches score 77
+  through ordinary campaign scoring, then satisfies the remaining Day 3 quota
+  order through the simulation's authoritative live metric rather than forcing
+  a presentation-only result.
+- `probation_campaign_ui_test.gd`, `management_loop_ui_test.gd`,
+  `senior_roost_ui_test.gd`, and `probation_campaign_integration_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/promotion-ready-glow-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/promotion-ready-glow-final-v2/shot-0.png`. Diagnostics record
+  a loaded active Day 3 campaign at score 77, 3/3 orders on track, promotion
+  ready, pulse serial 1 settled, zero orphan nodes, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,730,804-byte PCK SHA-256 is
+  `E303868DDECDA5F7AD08B3CB2547BA0FEB522178AFD348069E5BEB710CB8928F`,
+  and the refreshed local production server on port 3000 (PID 3252) serves the
+  new build. Export roots contain no temp files.
+- Suggested next polish audit: localize live-order changes to the individual pip
+  that filled or emptied, so players can read cause and effect without the
+  entire compact badge flashing for every change.
+
+## 2026-08-04 - Localized live-order pips
+
+- Replaced the broad whole-badge flash with a localized pip transition. A newly
+  satisfied order briefly grows and brightens mint; a lost order briefly
+  contracts and warms rust, while the surrounding score, day, crest, and other
+  pips stay visually stable.
+- The transition targets every changed pip for multi-order jumps, but ordinary
+  one-step movement touches only the exact boundary pip. New shift contexts seed
+  quietly and cannot replay stale feedback.
+- Reduced-motion mode records fill/empty direction and the same authoritative
+  serial without applying scale or tint animation. Interrupted transitions
+  settle before the next live projection is presented.
+- Extended browser diagnostics with the aggregate change serial and a compact
+  per-pip state array, making it possible to verify which stamp changed without
+  relying on an animation-frame screenshot.
+- `probation_campaign_ui_test.gd`, `management_loop_ui_test.gd`,
+  `senior_roost_ui_test.gd`, and `probation_campaign_integration_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/localized-order-pips-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/localized-order-pips-final-v1/shot-0.png`. Diagnostics record
+  a loaded score-77 Day 3 campaign at 3/3, one settled crest pulse, one settled
+  fill on pip three only, zero orphan nodes, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,732,900-byte PCK SHA-256 is
+  `7C70A91DAF652FF8251C069521F79F7E5432EF66372D1867B43E6AC71A7066F5`,
+  and the refreshed local production server on port 3000 (PID 52232) serves the
+  new build. Export roots contain no temp files.
+- Suggested next polish audit: replace anonymous aggregate pips with stable
+  per-order semantic marks, so the compact badge can show whether quota, farmer
+  confidence, or rework changed without opening Flockwatch.
+
+## 2026-08-04 - Semantic live-order marks
+
+- Replaced anonymous aggregate pips with three stable, font-independent order
+  marks. The active badge now preserves each authored objective's identity and
+  uses the existing egg, flock, shield, cash, or files vocabulary without
+  adding another persistent line of HUD text.
+- Each mark carries exact status, objective name, and live comparison through
+  tooltip/accessibility metadata. Day 3 now reads as egg / quota, coin stack /
+  farmer confidence, and file tray / rework at a glance.
+- Order feedback is identity-aware rather than count-boundary-aware. A quota
+  recovery pulses the egg mark even when it is the first authored order, and a
+  same-count swap can show one exact mark filling while another empties.
+- New contexts and changed objective catalogs seed quietly. Reduced-motion mode
+  records the same per-order transitions and settles them instantly.
+- Aligned the deterministic promotion preview's simulation day with its real
+  two-shift campaign history, eliminating the Day 1 / Day 3 contradiction in
+  browser evidence.
+- `probation_campaign_ui_test.gd`, `management_loop_ui_test.gd`,
+  `senior_roost_ui_test.gd`, and `probation_campaign_integration_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/semantic-order-marks-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/semantic-order-marks-final-v2/shot-0.png`. Diagnostics record
+  score 77 on Day 3, 3/3 orders on track, stable egg/cash/files identities, one
+  settled quota fill, one settled promotion glow, zero browser errors, and no
+  orphaned test helpers.
+- All 36 distributed Web payload copies match. The 9,739,092-byte PCK SHA-256 is
+  `574BB3091582B2D603C6E59EC75E914B2AD17CFC727854AF350325F0BD4D5CDE`,
+  and the refreshed local production server on port 3000 (PID 10936) serves the
+  exact build. Export roots contain no temp files; port 3011 is closed.
+- Suggested next polish audit: let a semantic order mark open Flockwatch on that
+  exact objective for mouse, touch, keyboard, and controller users, turning the
+  compact status row into a direct progressive-disclosure shortcut.
+
+## 2026-08-04 - Direct live-order shortcuts
+
+- Turned each compact egg, cash, and files mark into a 28x24 direct shortcut.
+  Mouse, touch, keyboard, and controller activation now opens Flockwatch Today,
+  scrolls to the exact authored objective, and applies a status-colored focus
+  ring without adding another persistent HUD instruction.
+- Stable objective IDs drive the handoff, so changing order catalogs cannot
+  focus the wrong row. Exact tooltip and accessibility metadata explain the
+  destination, while diagnostics record the requested order and focus serial.
+- The shortcut consumes pointer input cleanly. Browser validation caught and
+  removed a click-through path that could select a hen behind the HUD and pull
+  the camera away from the office overview.
+- `probation_campaign_ui_test.gd`, `management_loop_ui_test.gd`,
+  `senior_roost_ui_test.gd`, and `probation_campaign_integration_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/order-mark-shortcuts-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/order-mark-shortcuts-final-v3/shot-2.png`. Diagnostics record
+  score 77 on Day 3, 3/3 orders on track, a pointer request for
+  `prove_the_plan`, exact Today focus, home camera, no selected worker, zero
+  orphan nodes, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,743,156-byte PCK SHA-256 is
+  `BF8FF848F50E625EBDAE4011D0C489071CE3BB67936F16C5C00354D71D71A8D3`,
+  and the refreshed local production server on port 3000 (PID 45668) serves the
+  exact build. Browser helpers and temporary input choreography were cleaned up.
+- Suggested next polish audit: let the focused Flockwatch goal offer one compact
+  context action that highlights the most relevant current intervention without
+  auto-solving the decision.
+
+## 2026-08-04 - Goal driver handoffs
+
+- Added one progressive-disclosure action beneath the focused Today goal. The
+  compact icon chip uses plain `SHOW ...` language and appears only after a goal
+  is focused, keeping the default Flockwatch layer as quiet as before.
+- Each probation metric now leads to its most relevant live control: quota and
+  egg goals show hen routes; rework, overdue, and crack goals show active file
+  trays; welfare opens flock care; farmer favor opens farmer records; and
+  compliance opens coop controls.
+- Driver actions only navigate, focus, and briefly highlight. They never choose
+  a route, spend Feed Fund, authorize a policy, or file any gameplay decision.
+  Keyboard/controller accept on a focused goal performs the same safe handoff.
+- Browser validation exercised the full order-mark -> exact goal -> driver chip
+  -> Mabel route-panel chain. The route panel opened with no route preselected,
+  and diagnostics explicitly recorded `filed_choice: false`.
+- `probation_campaign_ui_test.gd`, `management_loop_ui_test.gd`,
+  `senior_roost_ui_test.gd`, and `probation_campaign_integration_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/goal-driver-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/goal-driver-final-v1/shot-2.png`; end-to-end activation
+  evidence is `output/web-game/goal-driver-activation-v1/shot-1.png`. The final
+  state records Day 3, score 77, 3/3 goals, `SHOW HEN ROUTES`, home camera, no
+  selected worker, zero orphan nodes, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,749,876-byte PCK SHA-256 is
+  `0B944EB5D094228EF5923D953026937BF435E765B316264BF72D938E8CA6DDEA`,
+  and the refreshed local production server on port 3000 (PID 5100) serves the
+  exact build. Browser helpers and temporary input choreography were cleaned up.
+- Suggested next polish audit: preserve the originating goal as a compact return
+  cue after a driver handoff, so players can inspect the live control and jump
+  back to the exact goal without losing context.
+
+## 2026-08-04 - Goal return cues
+
+- Reused the existing top guidance strip as a temporary return breadcrumb after
+  every successful goal-driver handoff. It now reads `RETURN: [GOAL]` with the
+  same semantic icon instead of adding another panel or persistent instruction.
+- The cue retains the stable objective ID and authored order index. Activating
+  it opens Flockwatch Today, scrolls to the originating goal, restores its focus
+  ring, and then consumes the cue so normal guidance resumes immediately.
+- Critical decisions, shift review, First Clutch, and urgent routing handoffs
+  keep precedence over this optional navigation cue. A changed objective catalog
+  clears stale return state rather than pointing at a replacement by position.
+- Return actions remain presentation-only. Diagnostics record the source and
+  activation serials, exact objective, target availability, and
+  `filed_choice: false`.
+- Browser validation exercised the complete mark -> goal -> driver -> Mabel ->
+  return -> same goal loop. The cue is visible in
+  `output/web-game/goal-return-cue-v1/shot-1.png`; the completed round trip is
+  recorded in `output/web-game/goal-return-roundtrip-v2/state-0.json` with
+  `prove_the_plan` restored, Today open, and no browser errors or orphan nodes.
+- `probation_campaign_ui_test.gd`, `management_loop_ui_test.gd`,
+  `senior_roost_ui_test.gd`, and `probation_campaign_integration_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/goal-return-beta-release-gate.json`.
+- All 36 distributed Web payload copies match. The 9,749,844-byte PCK SHA-256 is
+  `CFAF5BC7FB7F9588D450F5E5A89D6609C63C73FF0646A73127E2556642ACD39A`,
+  and the refreshed local production server on port 3000 (PID 7628) serves the
+  exact build. Browser helpers and temporary input choreography were cleaned up.
+- Suggested next polish audit: when an actual route or decision changes a goal,
+  attach one brief cause receipt to that exact tile so players can see which
+  action produced the status change without reading the full ledger.
+
+## 2026-08-04 - Exact goal cause receipts
+
+- Flockwatch goal tiles now add one compact, temporary cause line only when a
+  filed player action changes that exact objective. Examples include
+  `+1 · MABEL/NEST`, `✓ MABEL/NEST`, and `MET · MABEL/NEST`.
+- The full before/after cause stays available through the tile tooltip and
+  accessible `LATEST CAUSE` text. Unchanged goals remain untouched, stale
+  receipts clear with the objective catalog, and the extra row height appears
+  only on tiles that have a receipt.
+- Wired the receipt projection through policy decisions, claimant paths,
+  personnel check-ins, and routed eggs. It remains presentation-only: no save,
+  audio, automatic filing, or simulation state is added.
+- The accepted 1280x720 visual is
+  `output/web-game/goal-cause-native-v1/shot-0.png`. A final production browser
+  smoke at 10x speed reports no browser errors and zero orphan nodes.
+- Focused campaign coverage passes 4/4. The release gate passes 44/44 checks,
+  including all 49/49 rendered Web tests, at
+  `output/release/goal-cause-beta-release-gate-v2.json`.
+- All 36 distributed Web payload copies match. The 9,757,460-byte PCK SHA-256 is
+  `7CEB4706EAE079DBBF704E63669C8320D307A6A962D8179AEB2A183B74632B99`,
+  and the refreshed local production server on port 3000 (PID 46836) serves the
+  exact build. Temporary browser choreography was removed and task-owned test
+  helpers were cleaned up.
+- Suggested next polish audit: let a still-valid cause receipt focus its source
+  hen or filing from the existing tile, without adding persistent chrome or
+  triggering an action.
+
+## 2026-08-04 - Goal cause source locator
+
+- Actionable goal receipts now end with one compact `↗`. A second pointer tap,
+  or Enter on the focused tile, closes Flockwatch and locates the surviving
+  source hen and dossier without filing a route, check-in, or other choice.
+- Routed-egg receipts shorten their visible source to the hen name, such as
+  `MET · MABEL ↗`, while the full worker/lane cause remains in the tooltip and
+  accessible text. Policy-only receipts stay informational when no physical
+  source survives.
+- The existing guidance strip becomes the exact return path. Activating it
+  reopens Today, restores the originating objective by stable ID, and consumes
+  the cue; no new panel or permanent instruction was added.
+- Explicit pointer arming keeps the first tap selection-only even when Godot
+  focuses the label before its input callback. The official browser loop caught
+  and verified this ordering edge case as well as the initial Day 3 ellipsis.
+- The complete production-browser goal -> Mabel -> same-goal loop is recorded
+  in `output/web-game/goal-cause-locator-roundtrip-final-v1/state-0.json` with
+  both activation serials, `filed_choice: false`, no errors, and zero orphan
+  nodes. The accepted compact visual is
+  `output/web-game/goal-cause-locator-visual-final-v1/shot-0.png`.
+- Focused campaign coverage passes 4/4, with the pointer-order regression rerun
+  directly. The exact final release gate passes 44/44 checks and all 49/49
+  rendered Web tests at
+  `output/release/goal-cause-locator-beta-release-gate.json`.
+- All 36 distributed Web payload copies match. The 9,758,836-byte PCK SHA-256 is
+  `B51AF2D8474D8971C376ABC2F79B26A32A1032C1532B7BC8FC357B2A5018147B`,
+  and local production on port 3000 (PID 39480) serves the exact build. Test
+  helpers and temporary browser choreography were cleaned up.
+- Suggested next polish audit: when the receipt's exact claim is still current,
+  open that claim tab inside the located hen's dossier; otherwise retain the
+  safe hen-level fallback implemented here.
+
+## 2026-08-04 - Exact claim-file cause handoffs
+
+- A goal cause receipt now opens the selected hen's File tab when its recorded
+  claim ID still matches the authoritative live claim. Completed or stale claim
+  receipts deliberately stop at the hen dossier instead of substituting a newer
+  file, so the navigation trail never lies about what caused the goal change.
+- The handoff remains presentation-only. It focuses existing dossier controls,
+  preserves the exact goal return cue, and records claim availability, target
+  kind, active dossier tab, and `filed_choice: false` in browser diagnostics.
+- The deterministic locator preview now carries an authentic current Day 3 file
+  and can complete its native capture without the nested promotion fixture
+  exiting early. The accepted production-browser evidence is
+  `output/web-game/claim-file-locator-accepted-v1/shot-0.png`: Mabel's Nest
+  Damage file #0731 is open on File, due in 360 minutes, with no route or
+  claimant path filed.
+- `management_loop_ui_test.gd`, `probation_campaign_integration_test.gd`,
+  `probation_campaign_ui_test.gd`, and `senior_roost_ui_test.gd` pass 4/4. The
+  claim-routing contract passes twice consecutively and now compares its queue
+  presentation with the authoritative live count instead of a timing-sensitive
+  literal.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/goal-claim-file-beta-release-gate-v2.json`. All nine deployable
+  payload files match; the 9,762,500-byte PCK SHA-256 is
+  `F8FF1B8FD2F38473B40514D962C7841F1E4EDE2EB9BEFD5865E583FCC1032337`.
+- Local production is refreshed on port 3000 (PID 30576). The official browser
+  client reports claim #0731 available, target kind `claim_file`, File active,
+  exact return visible, `filed_choice: false`, zero errors, and zero orphan
+  nodes. Temporary input choreography and task-owned test helpers were cleaned
+  up.
+- Suggested next polish audit: let the compact return cue distinguish a claim
+  file handoff from a hen-level fallback through its existing icon, without
+  adding copy or another persistent control.
+
+## 2026-08-04 - Semantic cause-return glyphs
+
+- The existing one-line goal return cue now preserves the kind of context the
+  player just inspected without adding copy or another control. An exact live
+  claim uses the established folder glyph; a stale-claim hen fallback uses the
+  established flock/heart glyph. Ordinary goal-driver returns retain their
+  original metric icon.
+- Tooltip and accessibility detail identify the originating claim file or hen
+  dossier, while the visible copy remains exactly `RETURN: [GOAL]`. Return
+  diagnostics now retain `icon_kind` and `handoff_kind` before and after the cue
+  is consumed.
+- Native coverage explicitly forces both an exact-file path and a stale receipt
+  path, verifies the matching glyph, and confirms the simulation save remains
+  unchanged. Focused campaign coverage passes 4/4.
+- The accepted production-browser evidence is
+  `output/web-game/cause-return-icon-accepted-v1/shot-0.png`. It shows the folder
+  glyph beside `RETURN: PROVE THE PLAN` while Mabel's exact File #0731 is open;
+  browser state reports `files`, `claim_file`, `filed_choice: false`, zero errors,
+  and zero orphan nodes.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/cause-return-icon-beta-release-gate.json`. All nine deployable
+  payload files match; the 9,763,588-byte PCK SHA-256 is
+  `BAE34AA20C5FF9588A36647EE052FA7B2C95A447E6C6C8F1ECBAFEA649E7B525`.
+- Local production is refreshed on port 3000 (PID 52004). Temporary browser
+  choreography and task-owned test helpers were cleaned up.
+- Suggested next polish audit: give the exact File tab a brief, reduced-motion-
+  safe arrival emphasis so the player sees where the handoff landed without
+  adding labels or persistent decoration.
+
+## 2026-08-04 - Exact File arrival acknowledgment
+
+- Exact live goal-cause receipts now land with a brief warm acknowledgment on
+  the existing File tab and file header. Full motion adds a tiny tab lift;
+  reduced motion keeps the same confirmation as a static tint. The effect adds
+  no label, control, sound, or persistent layout space.
+- The acknowledgment is presentation-only and bound to the exact authoritative
+  claim ID. A stale receipt, worker change, non-File tab, or replacement claim
+  clears it immediately, so hen-level fallbacks cannot imply that a newer file
+  matched the old receipt.
+- Focused native routing and management coverage verifies the one-shot serial,
+  exact claim binding, stale cancellation, reduced-motion behavior, and
+  byte-for-byte unchanged simulation saves.
+- The accepted production-wrapper replay is
+  `output/web-game/claim-file-arrival-v6/shot-0.png`. It shows Mabel's exact File
+  #0731 open beside the folder return cue; browser diagnostics retain arrival
+  serial 1, `claim_file`, `filed_choice: false`, zero errors, and zero orphan
+  nodes after the transient effect settles.
+- The final release gate passes all 44/44 checks and 49/49 rendered Web tests at
+  `output/release/claim-file-arrival-beta-release-gate.json`. All nine deployable
+  payload files match; the 9,764,804-byte PCK SHA-256 is
+  `35444B2F9D49D3EB229CF9479D2D218751BA4DBF979A5069557BBFADE2D7D529`.
+- Temporary browser choreography and all task-owned native/browser test helpers
+  were cleaned up. Local production is restored on port 3000 after the gate.
+
+## 2026-08-04 - Stale goal receipts now land at hen level
+
+- Goal-cause receipts that no longer match a hen's live file now explicitly
+  restore that hen's Route dossier, even when the same hen was already focused
+  on an older File tab. The fallback can no longer leave stale claimant context
+  visible while reporting a hen-level handoff.
+- The existing selected-hen name and specialty block receives the same brief
+  warm arrival acknowledgment as exact File handoffs. Full motion adds a tiny
+  identity lift; reduced motion is tint-only. Exact File and hen-level pulses
+  cancel each other, add no text or layout space, and never file gameplay.
+- The fallback preview is deterministic through `goal-cause-fallback`, allowing
+  the production wrapper to exercise the real stale-receipt path. Focused
+  routing and management regressions verify Route selection, exact worker
+  binding, one-shot arrival serials, mutual cancellation, and unchanged saves.
+- Accepted production evidence is
+  `output/web-game/hen-dossier-fallback-v1/shot-0.png`: the heart return glyph,
+  Mabel identity acknowledgment, and Route tab are visible while diagnostics
+  report `hen_dossier`, no File pulse, no filed choice, zero errors, and zero
+  orphan nodes. The complete return is captured at
+  `output/web-game/hen-dossier-fallback-return-v2/shot-0.png`; it restores
+  Flockwatch Today and focuses the original Prove the Plan goal tile.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/hen-dossier-fallback-beta-release-gate.json`. All nine payload
+  files match; the 9,768,532-byte PCK SHA-256 is
+  `1CBDD5DDC2E316FD6B38DE544653483CB47E0EE04E5F791C0CAECFEB5A2FC9C8`.
+- Temporary browser choreography and task-owned test helpers were cleaned up.
+  Suggested next polish audit: review other goal-driver handoffs for places
+  where an already-focused panel can preserve stale sub-context after landing.
+
+## 2026-08-04 - Goal driver now lands on the promised Route context
+
+- `SHOW HEN ROUTES` now opens the selected hen's Route dossier explicitly,
+  even if that same hen was already focused on File, Support, or Profile. The
+  goal label and the destination can no longer disagree because stale dossier
+  sub-context survived the handoff.
+- The landing reuses the selected-hen identity acknowledgment and existing
+  return cue. It adds no copy or layout, files no claimant choice, and leaves
+  the authoritative save unchanged.
+- Focused management and routing regressions deliberately seed Mabel's File
+  tab before activating the goal driver, then verify Route, camera focus, the
+  exact worker/arrival serial, no filed choice, and unchanged persistence.
+- Accepted production-wrapper evidence is
+  `output/web-game/goal-driver-route-keyboard-v1/shot-0.png`; it shows Mabel's
+  Route dossier and `RETURN: PROVE THE PLAN`. The full round trip is captured
+  at `output/web-game/goal-driver-route-return-v1/shot-0.png`, restoring
+  Flockwatch Today and the exact original goal without changing the claim.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/goal-driver-route-beta-release-gate.json`. All nine payload
+  files match; the 9,769,364-byte PCK SHA-256 is
+  `A9DC754FFEF44B4270ADF110CD2661187EC0F4CA7BC3B2DBB4927A59690B2156`.
+- Temporary browser choreography and task-owned processes were cleaned up.
+  Suggested next polish audit: verify non-hen goal drivers always focus their
+  exact page section rather than merely reopening an already-visible page.
+
+## 2026-08-04 - Goal drivers now clear stale Flockwatch reading positions
+
+- Non-hen goal drivers now resolve an exact visible destination and place its
+  heading at the Flockwatch reading edge. A large page root can no longer count
+  as success merely because some part of it intersects the viewport while the
+  promised filing remains offscreen.
+- `SHOW FLOCK CARE` prioritizes the live `FlockCareSection`; Farmer Records
+  prioritizes the Farmer Relations filing and falls back to the visible archive
+  heading when that specialized file is unavailable. Diagnostics now report the
+  control that actually received the handoff rather than a hard-coded page name.
+- Focused management coverage deliberately scrolls the Flock page to its bottom,
+  returns to Today, activates a welfare driver, and verifies that Flock Care
+  lands within 20 pixels of the reading edge with no filed choice or save change.
+  Flockwatch navigation coverage and editor parsing also pass.
+- Accepted production-wrapper evidence is
+  `output/web-game/goal-driver-flock-care-v1/shot-0.png`; it shows the exact
+  `FLOCK CARE & TRAINING` file at the top with `RETURN: RESTED FLOCK`. The full
+  return is captured at
+  `output/web-game/goal-driver-flock-care-return-v1/shot-0.png`, restoring the
+  exact source goal. Browser diagnostics report zero errors and orphan nodes.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/goal-driver-exact-anchor-beta-release-gate.json`. All nine
+  payload files match; the 9,770,052-byte PCK SHA-256 is
+  `763082519B9EB93B76D15CC804B30AE30C9C29C184C96C87DE71B276093B6530`.
+- Temporary browser choreography and task-owned helpers were cleaned up.
+  Suggested next polish audit: give exact page-section arrivals the same
+  reduced-motion-safe semantic acknowledgment contract as hen/file landings.
+
+## 2026-08-04 - Exact page arrivals now acknowledge the destination
+
+- Goal-driver page handoffs now give the exact destination a brief warm outline
+  and tint without adding copy, controls, or layout. Full motion uses a restrained
+  fade; reduced motion holds the same acknowledgment statically before clearing.
+- Arrival state records the exact page, target, serial, motion mode, and active
+  lifecycle. Starting a new arrival or activating the return cue cancels the old
+  tween first, restores the original style resource exactly, and prevents color
+  bleed into a later page.
+- Focused management coverage verifies full-motion and reduced-motion variants,
+  one-shot serials, exact Flock Care binding, early-return cancellation, settled
+  style restoration, no filed choice, and byte-for-byte unchanged simulation saves.
+- Accepted production evidence is
+  `output/web-game/goal-driver-page-arrival-v2/shot-0.png`; the gold outline makes
+  `FLOCK CARE & TRAINING` immediately legible as the destination while keeping
+  the drawer compact. The completed return is captured at
+  `output/web-game/goal-driver-page-arrival-return-v1/shot-0.png`; Today and the
+  exact source goal return with no lingering highlight. Browser diagnostics show
+  zero errors and zero orphan nodes.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/goal-driver-page-arrival-beta-release-gate.json`. All nine
+  payload files match; the 9,772,276-byte PCK SHA-256 is
+  `76083C89018ED16DF765B7B8FDC25231F0605C57B03DD00F3926A7B57245BA42`.
+- Temporary browser choreography was cleaned up. Suggested next polish audit:
+  extend the same reduced-motion-safe arrival contract to the `SHOW LIVE FILES`
+  dispatch-tray handoff, whose legacy generic pulse is invisible in reduced mode.
+
+## 2026-08-04 - Live Files handoff refinement in progress
+
+- Moved the `SHOW LIVE FILES` destination acknowledgment into the routing UI so
+  it binds to the exact urgent dispatch tray instead of relying on Office's
+  generic pulse.
+- The presentation is full-motion or static reduced-motion as appropriate,
+  records lane/target/serial diagnostics, cancels competing dossier arrivals,
+  and clears when the tray is activated or the player returns to Flockwatch.
+- Added focused routing and management coverage for exact binding, motion mode,
+  clean cancellation, and unchanged authoritative saves. Browser/export and
+  release-gate verification remain to be completed.
+
+## 2026-08-04 - Live Files handoff now lands visibly and returns cleanly
+
+- Fixed the same-frame drawer-close race that previously asked the routing UI
+  for a visible tray before `_process` had restored that surface. `SHOW LIVE
+  FILES` and the ordinary routing-chase cue now restore the routing surface
+  immediately and land on the most urgent enabled tray.
+- The exact tray receives one semantic arrival acknowledgment: a restrained
+  warm tint/scale in full motion, a static tint in reduced motion, its normal
+  persistent keyboard focus ring, and lane/target/serial diagnostics. Pressing
+  the tray, opening an exact dossier arrival, settling the timer, or returning
+  to Flockwatch restores every presentation property without filing gameplay.
+- Focused `claim_routing_ui_test.gd` and `management_loop_ui_test.gd` pass,
+  including full/reduced motion, exact target binding, immediate-surface reveal,
+  unchanged saves, tray activation cleanup, and the complete return path.
+- Accepted production evidence is
+  `output/web-game/goal-driver-live-files-v2/shot-0.png`: the drawer is closed,
+  the Nest tray is visibly focused, and `RETURN: CLEAN FILES` is present. The
+  completed round trip is
+  `output/web-game/goal-driver-live-files-return-v3/shot-0.png`, restoring Today
+  and the exact Clean Files goal with no lingering arrival. Both official-client
+  states report zero errors and zero orphan nodes.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/goal-driver-live-files-arrival-beta-release-gate.json`. All
+  nine payload files match; the 9,776,420-byte PCK SHA-256 is
+  `B31FD9DF539299B59C4889F4305AA72D7FD98945BCBAAA2392D38182F63AC06F`.
+- Temporary browser choreography was removed and no task-owned helper process or
+  test port remains. Suggested next polish audit: make empty Live Files handoffs
+  distinguish `WAITING FOR INTAKE` as clearly as populated-tray arrivals without
+  adding another persistent text block.
+
+## 2026-08-04 - Empty Live Files handoff refinement in progress
+
+- Empty intake now lands on the queue strip with a brief teal acknowledgment and
+  replaces the existing strip title with `INTAKE CLEAR · WAITING`; no new panel,
+  persistent copy, fake file, or gameplay action is introduced.
+- The fallback records a distinct `waiting_for_intake` reason, reports that no
+  live file is available, supports static reduced-motion presentation, and
+  restores title, tint, accessibility, focus mode, and layout exactly on clear.
+- Focused routing and management regressions pass. An attempted fallback border
+  was removed after the late contract-layout invariant correctly caught that it
+  could perturb strip geometry; the final treatment is tint-and-title only.
+- Web export, official-client inspection, and the release gate remain.
+
+## 2026-08-04 - Empty Live Files handoff verified
+
+- Accepted production evidence is
+  `output/web-game/goal-driver-live-files-empty-v1/shot-0.png`: the routing strip
+  uses its existing title slot for `INTAKE CLEAR · WAITING`, every tray truthfully
+  reads zero, and `RETURN: CLEAN FILES` remains available. The complete return is
+  `output/web-game/goal-driver-live-files-empty-return-v1/shot-0.png`, restoring
+  Today and the exact Clean Files goal without residual tint, title, or focus.
+- Browser diagnostics distinguish a valid queue-strip target from an available
+  file (`target_available=true`, `live_file_available=false`) and report zero
+  errors and zero orphan nodes. Focused routing and management tests remain green.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/goal-driver-live-files-empty-beta-release-gate.json`. All nine
+  payload files match; the 9,776,724-byte PCK SHA-256 is
+  `FABB412F5133C41B02EAAFF3EB081D20B122F6A67CB5003597BA7861C7187531`.
+- Temporary action files and the release gate's task-owned visual-helper process
+  tree were cleaned up. Suggested next polish audit: review non-actionable goal
+  destinations for the same honest `target exists` versus `action available`
+  distinction so guidance never implies a choice that is currently impossible.
+
+## 2026-08-04 - Compliance goal-driver refinement in progress
+
+- Reframed the compliance driver from generic `SHOW COOP CONTROLS` to the more
+  truthful `SHOW COMPLIANCE EXPOSURE` and routed it past unrelated feed/overtime
+  controls to the exact Rooster Operations exposure glance.
+- Named the existing exposure chip panel so exact page arrival can acknowledge
+  the whole visual control with the standard motion/reduced-motion contract.
+- Added management coverage for stale Operations scroll, exact 20px landing,
+  page-arrival serials, clean return, and unchanged simulation saves. Focused,
+  browser, export, and release verification remain.
+
+## 2026-08-04 - Compliance goal driver verified
+
+- `SHOW COMPLIANCE EXPOSURE` now opens Operations on the exact Rooster
+  Operations exposure glance instead of the generic feed-party/overtime area.
+  Bottom reading space lets the final filing align at the reading edge without
+  adding another visible panel or another block of explanatory copy.
+- Accepted production evidence is
+  `output/web-game/goal-driver-coop-controls-final-v4/shot-0.png`: the exact
+  exposure glance is framed at the top of Operations and `RETURN: COOP
+  COMPLIANCE` is present. The completed round trip is
+  `output/web-game/goal-driver-coop-controls-return-final-v1/shot-0.png`, which
+  restores Today and the original compliance goal.
+- Official-client state confirms the exact
+  `RoosterOperationsExposureGlancePanel` target, a successful Operations page
+  arrival, clean return activation, unchanged simulation state, zero browser
+  errors, and zero orphan nodes.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/goal-driver-coop-controls-beta-release-gate.json`. All nine
+  payload files match; the 9,777,108-byte PCK SHA-256 is
+  `8B1BFF72E698F3BBF397E65DB7C790CB33B7FC33E2B0753CF159C80CA950EE1B`.
+- Temporary choreography files and isolated test ports were removed. The local
+  production build remains available on port 3000 with an empty stderr log.
+
+## 2026-08-04 - Farmer standing refinement in progress
+
+- Replaced the vague cash-tile `READY` state with the live Farmer Favor value,
+  keeping spendable Feed Fund and reputation visible together in the same
+  compact two-line tile.
+- Reframed the Farmer Favor goal driver from `SHOW FARMER RECORDS` to `SHOW
+  FARMER STANDING`; it now acknowledges the exact visible Today tile instead of
+  opening a generic Records archive that may have no available Gallery action.
+- Added deterministic preview routing plus focused density and management-loop
+  coverage for compact copy, exact target binding, stale scroll, clean return,
+  and unchanged simulation saves. Both focused tests pass; Web capture, export,
+  and the complete release gate remain.
+
+## 2026-08-04 - Farmer standing refinement verified
+
+- Farmer Favor goals now use the compact `FAVOR 52+ / 49 · NEED 3` form, while
+  the persistent Today resource tile pairs spendable Feed Fund with live Favor
+  (`$20 / FAVOR 52`) instead of the ambiguous word `READY`.
+- Accepted production evidence is
+  `output/web-game/goal-driver-farmer-standing-final-v3/shot-0.png`: the exact
+  Favor tile is visible with `RETURN: FARMER CONFIDENCE`. The completed round
+  trip is `output/web-game/goal-driver-farmer-standing-return-final-v2/shot-0.png`,
+  restoring the compact source goal without truncation or residual emphasis.
+- Official-client diagnostics bind the driver to
+  `FlockwatchTodayCashGlanceTile`, report a successful Today arrival and return,
+  and contain zero browser errors and zero orphan nodes. Focused Today-density
+  and management-loop tests pass.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/goal-driver-farmer-standing-beta-release-gate.json`. All nine
+  deployment files match; the 9,776,164-byte PCK SHA-256 is
+  `3C86948B208651454C83F18354AB5910E347A6EB3E09AC53F839C1F69423B3D2`.
+- Temporary choreography and isolated test ports were removed. The local
+  production build remains available on port 3000 with an empty stderr log.
+
+## 2026-08-04 - Destination pin refinement in progress
+
+- Exact Flockwatch panel destinations now settle from their brief arrival flash
+  into a quiet warm border, keeping the requested control legible until the
+  player returns or opens another destination.
+- The pin reuses the target panel itself, adds no explanatory copy, preserves
+  reduced-motion behavior, and restores the panel's exact prior style on return.
+- Added management-loop coverage for the flash-to-pin transition, unchanged
+  simulation state, and complete cleanup when the player returns to the goal.
+
+## 2026-08-04 - Destination pin refinement verified
+
+- Exact Flockwatch panel handoffs now settle into a restrained one-pixel warm
+  border after the arrival flash. The marker persists long enough to identify
+  the requested control, adds no copy, and clears completely on Return.
+- Native management-loop and Today-density regressions pass. The full release
+  gate passes at `output/release/destination-pin-beta-release-gate.json`; after
+  re-exporting the live Web payload, the post-export Web/parity gate also passes
+  at `output/release/destination-pin-export-beta-release-gate.json`.
+- Independent settled-state evidence is
+  `output/web-game/destination-pin-final-v2/shot-0.png`; diagnostics report
+  `pinned=true`, the exact `FlockwatchTodayCashGlanceTile` target, zero browser
+  errors, and zero orphan nodes. The return proof is
+  `output/web-game/destination-pin-return-final/shot-0.png`, with `pinned=false`
+  and one successful return activation.
+- `docs/`, `web/public/game/`, and the running production wrapper now share the
+  same 9,778,036-byte PCK with SHA-256
+  `696A15EB852AC8FDF57107C302F7DC907FCBC7DF676BA27A8EF46550C96A5CDE`.
+  Temporary choreography files are removed; the browser drivers exited and the
+  production game remains available on port 3000.
+
+## 2026-08-04 - One-line notice refinement in progress
+
+- Replaced the paragraph-like Flockwatch notice banner with a bounded one-line
+  glance that cannot expand the ledger vertically; overflow now trims cleanly.
+- Added semantic compaction for the frequent Farmer Inspection completion while
+  keeping the complete authored receipt in the tooltip, diagnostics, and
+  accessibility narration.
+- Added focused navigation and management-loop contracts for concise visible
+  copy, exact semantic preservation, and stable single-line presentation.
+
+## 2026-08-04 - One-line notice refinement verified
+
+- Flockwatch's latest notice is now a fixed one-line glance with clean ellipsis
+  fallback, preventing routine receipts from consuming valuable ledger height.
+  Farmer Inspection resolves to `LATEST · INSPECTION COMPLETE · CREDIT FILED`.
+- The accepted 1280x720 evidence at
+  `output/web-game/one-line-notice-final/shot-0.png` keeps all three goals, the
+  driver action, safeguard, and all four live `NOW` tiles visible together.
+- Independent browser state retains the exact authored Farmer Inspection copy
+  in both diagnostics and accessibility narration, with zero browser errors and
+  zero orphan nodes. Focused Flockwatch navigation and management-loop tests
+  pass.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/one-line-notice-beta-release-gate.json`; all deployment PCKs
+  match the served 9,778,244-byte payload with SHA-256
+  `A132257F088BB3CAFF072E37EB5CB565FED6A3843A5488DD3D60B8F3CF6D7FAB`.
+  Temporary choreography was removed, all test processes exited, and the
+  production build remains available on port 3000.
+
+## 2026-08-04 - Doctrine glance refinement in progress
+
+- Replaced the wrapping slash-delimited doctrine filing with a direct one-line
+  formula: doctrine, primary benefit, and primary watchout.
+- Added compact mechanic aliases (`QUALITY`, `WELFARE`, `FAVOR`, and similar)
+  so the glance communicates the same decision shape without ledger jargon.
+- Preserved the complete strengths, watchouts, summary, and playbook in the
+  tooltip and accessible text; added integration coverage for both layers.
+
+## 2026-08-04 - Doctrine glance refinement verified
+
+- The active doctrine now reads as a one-line gameplay relationship, such as
+  `FLOCK STEWARDSHIP · +WELFARE · WATCH FAVOR`, instead of wrapping a
+  slash-delimited filing sentence.
+- Accepted production evidence is
+  `output/web-game/doctrine-glance-final/shot-0.png`; the primary benefit and
+  watchout are both fully visible and the reclaimed space exposes more of Today.
+- Browser diagnostics retain all three strengths, both watchouts, the complete
+  playbook, and the authoritative milestone identity. The accessible page copy
+  includes the full doctrine edges; there are zero browser errors and zero
+  orphan nodes.
+- The real day-three milestone integration, Today-density, and management-loop
+  checks pass. The final release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/doctrine-glance-beta-release-gate.json`.
+- All deployment copies match the 9,777,828-byte PCK with SHA-256
+  `7A21620DAF3C111FA58DC262003CB2A969EC7284AAB2D0BD757973C6464B51BB`.
+  Temporary choreography was removed; the production build remains on port 3000.
+
+## 2026-08-04 - Integrated Flockwatch close refinement in progress
+
+- Converted the wide floating `FLOCKWATCH · CLOSE` launcher into a compact
+  `CLOSE` action docked within the open ledger's header.
+- The same control identity, V binding, tooltip, signal, focus restoration, and
+  closed-state action-count launcher remain intact.
+- Added real First Clutch handoff coverage proving the open control stays inside
+  the ledger header while the durable tutorial acknowledgment still files once.
+- Independent pointer capture found that a separately overlaid button still lost
+  hit-testing to the ledger despite drawing above it. The same toggle is now
+  reparented into Flockwatch's real header while open and returned to the HUD
+  root when closed, giving it native layout and pointer ownership.
+
+## 2026-08-04 - Integrated Flockwatch close refinement verified
+
+- The wide detached `FLOCKWATCH · CLOSE` bar is gone. While the ledger is open,
+  the same button now lives beside the Flockwatch title as compact
+  `CLOSE [V / Back]`; closing returns it to the full live-floor launcher.
+- Accepted open-state evidence is
+  `output/web-game/integrated-close-final-v2/shot-0.png`. The official pointer
+  round trip is `output/web-game/integrated-close-roundtrip-final-v5/shot-0.png`,
+  with Flockwatch hidden, camera input restored, and the wide launcher visible.
+- The focused navigation, real viewport pointer, keyboard/controller, focus
+  restoration, and opening-layout checks pass. Both official Web states report
+  zero browser errors and zero orphan nodes.
+- The separate `first_clutch_induction_test.gd` was run twice and failed at the
+  same earlier 1×/Priority Peck timing assertion before reaching this handoff;
+  its later failures cascade from that pre-existing timing miss. The focused
+  First Clutch-independent input path covering this exact control passes.
+- The final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/integrated-close-beta-release-gate.json`. Deployment copies
+  match the 9,777,988-byte PCK with SHA-256
+  `DC6F92DF40FAE3DB3D2DE0C399385E61F6D84257610432B9D511324B07294E41`.
+  Temporary choreography was removed; the production server remains on port 3000.
+
+## 2026-08-04 - Contextual routing-strip refinement in progress
+
+- The overview routing strip no longer reserves a wide empty momentum slot when
+  there is no live fit chain, reward, break, recovery, or tray selection.
+- Selecting a tray reveals the same compact `PICK` / `FIT` relationship and
+  extends the strip only for the duration of that actionable context; filing the
+  route restores the clean idle extent.
+- Added real routing-flow coverage for the idle, armed, and settled footprints.
+
+## 2026-08-04 - Contextual routing-strip refinement verified
+
+- The idle `PECKWORK ROUTING` strip now ends immediately after `OVERDUE`; its
+  previously empty momentum tail is absent from the accepted live browser frame
+  at `output/web-game/contextual-routing-strip-unobstructed-final/shot-2.png`.
+- Arming a tray reveals and allocates the `PICK` / `FIT` slot; filing the first
+  route hides it and restores the exact idle rectangle. The complete
+  `claim_routing_ui_test.gd` campaign flow passes with these three states locked.
+- Official browser diagnostics report zero errors and zero orphan nodes. The
+  final release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/contextual-routing-strip-beta-release-gate.json`.
+- `docs`, `web/public/game`, `web/dist/client/game`, and the served production
+  payload match at 9,778,996 bytes with SHA-256
+  `FB08C001908EFD2974D25ECC8EC14171D0270448E8CAAC5BA24FAA65D3B9C0AD`.
+  Temporary choreography and every task-owned Godot/browser client process were
+  removed; the production server remains available on port 3000.

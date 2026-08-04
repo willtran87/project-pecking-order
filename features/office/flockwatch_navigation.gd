@@ -148,6 +148,7 @@ var _sections: Dictionary = {}
 var _original_parent_orders: Dictionary = {}
 
 var _page_button_group: ButtonGroup
+var _heading: HBoxContainer
 var _all_filings_toggle: Button
 var _more_files_button: MenuButton
 var _feedback_panel: PanelContainer
@@ -442,7 +443,7 @@ func set_last_feedback(copy: String) -> void:
 		return
 	_feedback_panel.visible = not _last_feedback.is_empty()
 	_feedback_label.text = (
-		"LATEST NOTICE  /  %s" % _display_feedback(_last_feedback)
+		"LATEST  ·  %s" % _display_feedback(_last_feedback)
 		if not _last_feedback.is_empty() else ""
 	)
 	_feedback_label.tooltip_text = _last_feedback
@@ -477,6 +478,27 @@ func adopt_context_action(control: Control) -> bool:
 func context_actions() -> VBoxContainer:
 	_ensure_interface()
 	return _context_actions
+
+
+## Docks an existing host-owned action beside the Flockwatch title without
+## replacing its identity, signals, focus mode, or binding semantics.
+func adopt_header_action(control: Control) -> bool:
+	_ensure_interface()
+	if control == null or not is_instance_valid(control) or control == self:
+		return false
+	if control.get_parent() != _heading:
+		control.reparent(_heading, false)
+	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	control.offset_left = 0.0
+	control.offset_top = 0.0
+	control.offset_right = 0.0
+	control.offset_bottom = 0.0
+	return true
+
+
+func header() -> HBoxContainer:
+	_ensure_interface()
+	return _heading
 
 
 ## Reuses an already-built Flockwatch ScrollContainer as one page, preserving
@@ -648,11 +670,11 @@ func _ensure_interface() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	add_theme_constant_override("separation", 7)
 
-	var heading := HBoxContainer.new()
-	heading.name = "FlockwatchNavigationHeading"
-	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_theme_constant_override("separation", 8)
-	add_child(heading)
+	_heading = HBoxContainer.new()
+	_heading.name = "FlockwatchNavigationHeading"
+	_heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_heading.add_theme_constant_override("separation", 8)
+	add_child(_heading)
 	var title := Label.new()
 	title.name = "FlockwatchNavigationTitle"
 	title.text = "FLOCKWATCH"
@@ -660,7 +682,7 @@ func _ensure_interface() -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 17)
-	heading.add_child(title)
+	_heading.add_child(title)
 	_page_button_group = ButtonGroup.new()
 	_page_button_group.allow_unpress = false
 	var navigation := HBoxContainer.new()
@@ -722,7 +744,10 @@ func _ensure_interface() -> void:
 	add_child(_feedback_panel)
 	_feedback_label = Label.new()
 	_feedback_label.name = "FlockwatchLatestFeedbackCopy"
-	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_feedback_label.clip_text = true
+	_feedback_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_feedback_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_feedback_label.add_theme_color_override("font_color", Color("d8e8e2"))
 	_feedback_label.add_theme_font_size_override("font_size", 12)
 	_feedback_panel.add_child(_feedback_label)
@@ -927,13 +952,15 @@ func _focus_control_for_page(page_id: StringName) -> Button:
 
 
 func _display_feedback(copy: String) -> String:
-	const MAX_VISIBLE_CHARACTERS := 180
+	const MAX_VISIBLE_CHARACTERS := 72
 	var normalized := copy.strip_edges().to_upper()
 	if normalized.begins_with("SHIFT PAUSED."):
 		return "PAUSED  ·  TIME SAFE"
 	if normalized.begins_with("SHIFT RUNNING AT "):
 		var speed_label := copy.substr("SHIFT RUNNING AT ".length()).get_slice(".", 0).strip_edges()
 		return "LIVE %s  ·  HENS ACTIVE" % speed_label.replace("x", "×")
+	if normalized.begins_with("FARMER INSPECTION COMPLETE"):
+		return "INSPECTION COMPLETE  ·  CREDIT FILED"
 	if copy.length() <= MAX_VISIBLE_CHARACTERS:
 		return copy
 	return copy.left(MAX_VISIBLE_CHARACTERS - 1).rstrip(" ,.;:") + "…"

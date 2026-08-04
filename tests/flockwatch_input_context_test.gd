@@ -81,6 +81,17 @@ func _run() -> void:
 	_check(bool(office.get("_flockwatch_open")), "The mapped V key should open Flockwatch", failures)
 	_check(panel != null and panel.visible, "Opening should expose the ledger panel", failures)
 	_check(
+		toggle != null
+		and panel != null
+		and navigation != null
+		and toggle.text.begins_with("CLOSE")
+		and toggle.get_parent() == navigation.header()
+		and toggle.size.x <= 136.0
+		and toggle.size.y <= 36.0,
+		"the open-state toggle should become a compact action inside the ledger header",
+		failures,
+	)
+	_check(
 		navigation != null
 		and root.gui_get_focus_owner() == navigation.page_button(navigation.current_page_id()),
 		"Opening from the canvas should move focus to the current filing tab",
@@ -163,6 +174,26 @@ func _run() -> void:
 		failures,
 	)
 
+	_stage = "pointer close"
+	if toggle != null:
+		await _send_mouse_click(toggle.get_global_rect().get_center())
+	_check(
+		not bool(office.get("_flockwatch_open"))
+		and panel != null
+		and not panel.visible,
+		"the docked header action should close Flockwatch through real pointer hit-testing",
+		failures,
+	)
+	await _send_key(KEY_V)
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and toggle != null
+		and navigation != null
+		and toggle.get_parent() == navigation.header(),
+		"keyboard reopen should redock the same close action after a pointer close",
+		failures,
+	)
+
 	_stage = "controller close and focus restore"
 	await _send_joy_button(JOY_BUTTON_BACK)
 	await process_frame
@@ -171,6 +202,14 @@ func _run() -> void:
 	_check(
 		root.gui_get_focus_owner() == toggle,
 		"A user close should restore focus to the control that opened Flockwatch",
+		failures,
+	)
+	_check(
+		toggle != null
+		and toggle.text.begins_with("FLOCKWATCH")
+		and is_equal_approx(toggle.offset_top, Office.LIVE_ROUTING_TOP)
+		and is_equal_approx(toggle.offset_bottom, Office.LIVE_ROUTING_TOP + 44.0),
+		"closing should restore the full-size Flockwatch launcher in its live-floor position",
 		failures,
 	)
 	_check(
@@ -237,6 +276,25 @@ func _send_key(physical_keycode: Key) -> void:
 	Input.parse_input_event(press)
 	await process_frame
 	var release := press.duplicate() as InputEventKey
+	release.pressed = false
+	Input.parse_input_event(release)
+	await process_frame
+
+
+func _send_mouse_click(position: Vector2) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = position
+	motion.global_position = position
+	Input.parse_input_event(motion)
+	await process_frame
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.position = position
+	press.global_position = position
+	press.pressed = true
+	Input.parse_input_event(press)
+	await process_frame
+	var release := press.duplicate() as InputEventMouseButton
 	release.pressed = false
 	Input.parse_input_event(release)
 	await process_frame

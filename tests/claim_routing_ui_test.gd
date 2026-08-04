@@ -18,6 +18,7 @@ func _run() -> void:
 	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
 	var routing_ui := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
 	var queue_strip := office.find_child("PeckworkQueueStrip", true, false) as PanelContainer
+	var queue_title := office.find_child("RoutingQueueTitle", true, false) as Label
 	var dossier := office.find_child("PeckworkAssignmentDossier", true, false) as PanelContainer
 	var nest_queue := office.find_child("Queue_nest_damage", true, false) as Label
 	var predator_queue := office.find_child("Queue_predator_loss", true, false) as Label
@@ -101,7 +102,105 @@ func _run() -> void:
 		"a non-empty overview tray should be an enabled semantic dispatch action",
 		failures,
 	)
+	var idle_queue_rect := queue_strip.get_global_rect() if queue_strip != null else Rect2()
+	_check(
+		dispatch_momentum != null
+		and not dispatch_momentum.is_visible_in_tree()
+		and queue_strip != null
+		and bool(queue_strip.get_meta("compact_idle_extent", false))
+		and idle_queue_rect.size.x <= 536.0,
+		"idle routing should end after Overdue instead of reserving an empty momentum tail",
+		failures,
+	)
 	var dispatch_save_before := simulation.export_save_state()
+	var dispatch_arrival_before := routing_ui.dispatch_tray_arrival_state()
+	var priority_target := routing_ui.focus_priority_dispatch_tray()
+	var priority_arrival := routing_ui.dispatch_tray_arrival_state()
+	_check(
+		priority_target != null
+		and priority_target is Button
+		and bool(priority_arrival.get("active", false))
+		and bool(priority_arrival.get("animated", false))
+		and not bool(priority_arrival.get("reduced_motion", true))
+		and String(priority_arrival.get("target", "")) == String(priority_target.name)
+		and String(priority_arrival.get("lane", "")) != ""
+		and int(priority_arrival.get("serial", 0)) == int(dispatch_arrival_before.get("serial", 0)) + 1
+		and simulation.export_save_state() == dispatch_save_before,
+		"a live-files handoff should acknowledge the exact urgent tray without arming a route",
+		failures,
+	)
+	routing_ui.set_reduced_motion(true)
+	var reduced_priority_target := routing_ui.focus_priority_dispatch_tray()
+	var reduced_priority_arrival := routing_ui.dispatch_tray_arrival_state()
+	_check(
+		reduced_priority_target == priority_target
+		and bool(reduced_priority_arrival.get("active", false))
+		and not bool(reduced_priority_arrival.get("animated", true))
+		and bool(reduced_priority_arrival.get("reduced_motion", false))
+		and int(reduced_priority_arrival.get("serial", 0)) == int(priority_arrival.get("serial", 0)) + 1
+		and (reduced_priority_target as Control).modulate != Color.WHITE
+		and simulation.export_save_state() == dispatch_save_before,
+		"reduced motion should retain a static exact-tray acknowledgment without mutating gameplay",
+		failures,
+	)
+	var populated_routing_snapshot := (
+		routing_ui.get("_snapshot") as Dictionary
+	).duplicate(true)
+	var empty_routing_snapshot := populated_routing_snapshot.duplicate(true)
+	var empty_routing := (
+		empty_routing_snapshot.get("routing", {}) as Dictionary
+	).duplicate(true)
+	var empty_counts: Dictionary = {}
+	var empty_items: Dictionary = {}
+	for lane: StringName in [&"nest_damage", &"predator_loss", &"appeals"]:
+		empty_counts[lane] = 0
+		empty_counts[String(lane)] = 0
+		empty_items[lane] = []
+		empty_items[String(lane)] = []
+	empty_routing["queue_counts"] = empty_counts.duplicate(true)
+	empty_routing["overdue_by_lane"] = empty_counts.duplicate(true)
+	empty_routing_snapshot["routing"] = empty_routing
+	empty_routing_snapshot["claim_queue_counts"] = empty_counts.duplicate(true)
+	empty_routing_snapshot["claim_queue_overdue_counts"] = empty_counts.duplicate(true)
+	empty_routing_snapshot["claim_queue_items"] = empty_items
+	routing_ui.apply_snapshot(empty_routing_snapshot)
+	await process_frame
+	var fallback_style_before := queue_strip.get_theme_stylebox("panel")
+	var fallback_arrival_before := routing_ui.dispatch_tray_arrival_state()
+	var fallback_target := routing_ui.focus_priority_dispatch_tray()
+	var fallback_arrival := routing_ui.dispatch_tray_arrival_state()
+	_check(
+		fallback_target == queue_strip
+		and bool(fallback_arrival.get("active", false))
+		and bool(fallback_arrival.get("fallback", false))
+		and String(fallback_arrival.get("reason", "")) == "waiting_for_intake"
+		and String(fallback_arrival.get("target", "")) == "PeckworkQueueStrip"
+		and String(fallback_arrival.get("lane", "")) == ""
+		and not bool(fallback_arrival.get("animated", true))
+		and bool(fallback_arrival.get("reduced_motion", false))
+		and int(fallback_arrival.get("serial", 0)) == int(fallback_arrival_before.get("serial", 0)) + 1
+		and queue_strip.modulate != Color.WHITE
+		and queue_title != null
+		and queue_title.text == "INTAKE CLEAR  ·  WAITING"
+		and "no file is ready" in queue_strip.accessibility_name
+		and simulation.export_save_state() == dispatch_save_before,
+		"an empty Live Files handoff should acknowledge waiting intake without inventing a file",
+		failures,
+	)
+	routing_ui.clear_dispatch_tray_arrival()
+	_check(
+		not bool(routing_ui.dispatch_tray_arrival_state().get("active", true))
+		and queue_strip.modulate == Color.WHITE
+		and queue_strip.get_theme_stylebox("panel") == fallback_style_before
+		and queue_title != null
+		and queue_title.text == "PECKWORK ROUTING"
+		and queue_strip.focus_mode == Control.FOCUS_NONE
+		and queue_strip.accessibility_name.is_empty(),
+		"clearing a waiting-intake arrival should restore the queue strip exactly",
+		failures,
+	)
+	routing_ui.apply_snapshot(populated_routing_snapshot)
+	routing_ui.set_reduced_motion(false)
 	var camera_controller := office.get("_camera_controller") as ManagementCameraController
 	var camera_before := camera_controller.navigation_state() if camera_controller != null else {}
 	if nest_dispatch_tray != null:
@@ -114,8 +213,24 @@ func _run() -> void:
 		failures,
 	)
 	_check(
+		not bool(routing_ui.dispatch_tray_arrival_state().get("active", true))
+		and priority_target.modulate == Color.WHITE,
+		"activating the acknowledged tray should clear its transient arrival state",
+		failures,
+	)
+	_check(
 		dispatch_momentum != null and "PICK" in dispatch_momentum.text,
 		"armed dispatch should replace prose with a compact pick-star cue",
+		failures,
+	)
+	var active_queue_rect := queue_strip.get_global_rect() if queue_strip != null else Rect2()
+	_check(
+		dispatch_momentum != null
+		and dispatch_momentum.is_visible_in_tree()
+		and queue_strip != null
+		and bool(queue_strip.get_meta("momentum_slot_active", false))
+		and active_queue_rect.size.x >= idle_queue_rect.size.x + 130.0,
+		"arming a tray should reveal the momentum cue and restore its dedicated strip space",
 		failures,
 	)
 	var recommended_id := int(office.get("_dispatch_recommended_worker_id"))
@@ -213,6 +328,14 @@ func _run() -> void:
 	await process_frame
 	_check(dispatch_committed, "choosing the highlighted hen should file the authoritative route", failures)
 	_check(StringName(office.get("_dispatch_lane")) == &"", "a filed route should leave dispatch mode cleanly", failures)
+	var settled_queue_rect := queue_strip.get_global_rect() if queue_strip != null else Rect2()
+	_check(
+		dispatch_momentum != null
+		and not dispatch_momentum.is_visible_in_tree()
+		and settled_queue_rect.is_equal_approx(idle_queue_rect),
+		"filing the first route should retire the transient cue and restore the clean idle strip",
+		failures,
+	)
 	_check(
 		recommended_view != null
 		and not bool(recommended_view.dispatch_candidate_snapshot().get("active", true))
@@ -745,6 +868,57 @@ func _run() -> void:
 		"File should become the single active dossier tab",
 		failures,
 	)
+	var exact_claim_id := int(opening_claim.get("id", -1))
+	var claim_save_before := simulation.export_save_state()
+	var arrival_before := routing_ui.claim_file_arrival_state()
+	var exact_claim_target := routing_ui.focus_claim_file(exact_claim_id)
+	var exact_arrival := routing_ui.claim_file_arrival_state()
+	_check(
+		exact_claim_target != null
+		and routing_ui.active_dossier_tab() == &"claim"
+		and bool(exact_arrival.get("active", false))
+		and int(exact_arrival.get("claim_id", -1)) == exact_claim_id
+		and int(exact_arrival.get("serial", 0)) == int(arrival_before.get("serial", 0)) + 1
+		and simulation.export_save_state() == claim_save_before,
+		"an exact live claim receipt should acknowledge that File without filing a claimant path",
+		failures,
+	)
+	var stale_claim_target := routing_ui.focus_claim_file(exact_claim_id + 10000)
+	var stale_arrival := routing_ui.claim_file_arrival_state()
+	_check(
+		stale_claim_target == null
+		and not bool(stale_arrival.get("active", true))
+		and int(stale_arrival.get("serial", 0)) == int(exact_arrival.get("serial", 0))
+		and simulation.export_save_state() == claim_save_before,
+		"a stale claim receipt should cancel exact-file emphasis without substituting a newer file or mutating gameplay",
+		failures,
+	)
+	var hen_dossier_target := routing_ui.focus_hen_dossier(0)
+	var hen_dossier_arrival := routing_ui.hen_dossier_arrival_state()
+	_check(
+		hen_dossier_target != null
+		and routing_ui.active_dossier_tab() == &"route"
+		and bool(hen_dossier_arrival.get("active", false))
+		and int(hen_dossier_arrival.get("worker_id", -1)) == 0
+		and int(hen_dossier_arrival.get("serial", 0)) == 1
+		and simulation.export_save_state() == claim_save_before,
+		"a hen-level receipt fallback should acknowledge the Route dossier without mutating gameplay",
+		failures,
+	)
+	routing_ui.set_reduced_motion(true)
+	var reduced_claim_target := routing_ui.focus_claim_file(exact_claim_id)
+	var reduced_arrival := routing_ui.claim_file_arrival_state()
+	_check(
+		reduced_claim_target != null
+		and not bool(routing_ui.hen_dossier_arrival_state().get("active", true))
+		and bool(reduced_arrival.get("active", false))
+		and not bool(reduced_arrival.get("animated", true))
+		and bool(reduced_arrival.get("reduced_motion", false))
+		and simulation.export_save_state() == claim_save_before,
+		"reduced motion should keep a brief static exact-File acknowledgment without mutating gameplay",
+		failures,
+	)
+	routing_ui.set_reduced_motion(false)
 	_check(
 		dossier_summary != null
 		and dossier_summary.is_visible_in_tree()
@@ -1045,7 +1219,13 @@ func _run() -> void:
 	var claim := worker_zero.get("current_claim", {}) as Dictionary
 	_check(StringName(claim.get("lane", &"")) == &"predator_loss", "assigned hen should pull only from the selected tray", failures)
 	_check(current_claim != null and "PREDATOR LOSS" in current_claim.text, "dossier should expose the current file and progress", failures)
-	_check(predator_queue != null and "1" in predator_queue.text, "queue strip should react when a file enters peckwork", failures)
+	var authoritative_predator_count := simulation.claim_queue_count(&"predator_loss")
+	_check(
+		predator_queue != null
+		and "PREDATOR  %d" % authoritative_predator_count in predator_queue.text,
+		"queue strip should react when a file enters peckwork",
+		failures,
+	)
 
 	var feedback := office.get("_workstation_feedback") as WorkstationFeedback
 	if feedback != null:

@@ -34,6 +34,7 @@ func _run() -> void:
 	var rank_label := ui.find_child("ReportRank", true, false) as Label
 	var rank_icon := ui.find_child("ReportRankIcon", true, false) as TextureRect
 	var rank_progress := ui.find_child("ReportRankProgress", true, false) as ProgressBar
+	var live_order_promotion_icon := ui.find_child("ProbationOrderPromotionIcon", true, false) as TextureRect
 	var secondary_caption := ui.find_child("ReportShiftDeltaCaption", true, false) as Label
 	var secondary_icon := ui.find_child("ReportShiftDeltaIcon", true, false) as TextureRect
 	var secondary_value := ui.find_child("ReportShiftDelta", true, false) as Label
@@ -95,6 +96,11 @@ func _run() -> void:
 		rank_progress != null and not rank_progress.is_visible_in_tree()
 		and not bool(rank_progress.get_meta("threshold_backed", true)),
 		"Senior career titles should not inherit the probation score ladder",
+		failures,
+	)
+	_check(
+		live_order_promotion_icon != null and not live_order_promotion_icon.visible,
+		"Senior reports should not inherit the live probation promotion crest",
 		failures,
 	)
 	_check(

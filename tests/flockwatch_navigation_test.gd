@@ -199,6 +199,40 @@ func _run() -> void:
 	required_action.pressed.emit()
 	_check(int(observed_actions["required"]) == 2, "Required action should remain connected after page switching", failures)
 
+	# The live notice is a one-line glance rather than another paragraph inside
+	# the ledger. Exact authored copy remains available to assistive narration
+	# and pointer users through the accessible summary and tooltip.
+	var inspection_notice := "FARMER INSPECTION COMPLETE. Credit has been successfully harvested."
+	navigation.set_last_feedback(inspection_notice)
+	await process_frame
+	var feedback_panel := navigation.find_child(
+		"FlockwatchLatestFeedback",
+		true,
+		false,
+	) as PanelContainer
+	var feedback_copy := navigation.find_child(
+		"FlockwatchLatestFeedbackCopy",
+		true,
+		false,
+	) as Label
+	_check(
+		feedback_panel != null
+		and feedback_panel.visible
+		and feedback_copy != null
+		and feedback_copy.text == "LATEST  ·  INSPECTION COMPLETE  ·  CREDIT FILED"
+		and feedback_copy.autowrap_mode == TextServer.AUTOWRAP_OFF
+		and feedback_copy.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS,
+		"the latest notice should remain a bounded one-line glance",
+		failures,
+	)
+	_check(
+		feedback_copy.tooltip_text == inspection_notice
+		and inspection_notice in navigation.accessible_text()
+		and navigation.last_feedback() == inspection_notice,
+		"notice compaction should preserve the exact authored receipt semantically",
+		failures,
+	)
+
 	# The explicit escape hatch preserves reachability without teaching the
 	# presentation layer anything about the economy.
 	navigation.set_show_all_filings(true)

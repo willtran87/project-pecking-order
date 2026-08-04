@@ -575,11 +575,14 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		flockwatch_toggle.text == "FLOCKWATCH  ·  CLOSE  [%s]" % flockwatch_hint
+		flockwatch_toggle.text == "CLOSE  [%s]" % flockwatch_hint
 		and flockwatch_toggle.tooltip_text.begins_with("Close Flockwatch")
+		and flockwatch_toggle.get_parent() == (office.get("_flockwatch_navigation") as FlockwatchNavigation).header()
+		and flockwatch_toggle.size.x <= 136.0
+		and flockwatch_toggle.size.y <= 36.0
 		and guidance != null
 		and "FIRST CLUTCH 5/5" not in guidance.text,
-		"acknowledgment should retire the tutorial cue while leaving the ledger open",
+		"acknowledgment should retire the tutorial cue and dock a compact close action in the ledger header",
 		failures,
 	)
 

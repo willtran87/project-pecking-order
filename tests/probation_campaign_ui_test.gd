@@ -18,6 +18,8 @@ func _run() -> void:
 		"challenge_contract": &"",
 		"title_phase": &"",
 		"report_filing_settled": 0,
+		"live_order_id": &"",
+		"live_order_index": -1,
 	}
 	var harness := Control.new()
 	harness.name = "ProbationCampaignUITestHarness"
@@ -38,6 +40,11 @@ func _run() -> void:
 	ui.report_filing_settled.connect(
 		func(_reveal_key: String, _instant: bool) -> void:
 			observed["report_filing_settled"] += 1
+	)
+	ui.live_order_mark_requested.connect(
+		func(objective_id: StringName, order_index: int) -> void:
+			observed["live_order_id"] = objective_id
+			observed["live_order_index"] = order_index
 	)
 	await process_frame
 
@@ -69,6 +76,16 @@ func _run() -> void:
 		"status": "Probation",
 		"score": 50,
 		"challenge_contract": _challenge_contract("executive_audit"),
+		"next_objective": {
+			"promotion_opportunity": {
+				"available": true,
+				"current_score": 77,
+				"reward_score": 3,
+				"projected_score": 80,
+				"next_threshold": 80,
+				"next_rank_label": "Golden Management Track",
+			},
+		},
 	})
 	await process_frame
 	_check(status_label != null and status_label.text == "SCORE 50 / 100", "active probation badge should name the score scale explicitly", failures)
@@ -82,50 +99,206 @@ func _run() -> void:
 		failures,
 	)
 	var order_progress_row := ui.find_child("ProbationOrderProgressRow", true, false) as HBoxContainer
+	var order_promotion_icon := ui.find_child("ProbationOrderPromotionIcon", true, false) as TextureRect
 	var order_progress_label := ui.find_child("ProbationOrderProgressLabel", true, false) as Label
 	var first_order_stamp := ui.find_child("ProbationOrderStamp1", true, false) as PanelContainer
+	var first_order_action := ui.find_child("ProbationOrderStampAction1", true, false) as Button
+	var second_order_stamp := ui.find_child("ProbationOrderStamp2", true, false) as PanelContainer
 	var third_order_stamp := ui.find_child("ProbationOrderStamp3", true, false) as PanelContainer
-	var seeded_delta := ui.set_live_order_progress(2, 3, &"probation:1")
+	var day_one_states: Array[Dictionary] = [
+		{
+			"id": "prove_the_plan", "label": "Prove the plan", "metric": "quota_met",
+			"icon": "egg", "on_track": false,
+			"detail": "NEEDS ACTION  //  PROVE THE PLAN  //  OPEN",
+		},
+		{
+			"id": "farmer_confidence", "label": "Farmer confidence",
+			"metric": "farmer_favor", "icon": "cash", "on_track": true,
+			"detail": "ON TRACK  //  FARMER CONFIDENCE  //  76/52% FLOOR",
+		},
+		{
+			"id": "no_rework_spiral", "label": "No rework spiral", "metric": "rework",
+			"icon": "files", "on_track": true,
+			"detail": "ON TRACK  //  NO REWORK SPIRAL  //  0/0 CAP",
+		},
+	]
+	var seeded_delta := ui.set_live_order_progress(2, 3, &"probation:1", day_one_states)
 	await process_frame
 	_check(
 		seeded_delta == 0
 		and order_progress_row != null
 		and order_progress_row.is_visible_in_tree()
+		and bool(order_progress_row.get_meta("promotion_opportunity", false))
+		and not bool(order_progress_row.get_meta("promotion_ready", true))
+		and order_promotion_icon != null and order_promotion_icon.is_visible_in_tree()
+		and order_promotion_icon.texture != null
+		and String(order_promotion_icon.get_meta("semantic_icon", "")) == "rank_crest"
+		and String(order_promotion_icon.get_meta("promotion_state", "")) == "recover"
+		and int(order_promotion_icon.get_meta("target_score", 0)) == 80
 		and order_progress_label != null
-		and order_progress_label.text == "ON TRACK  2 / 3",
-		"active badge should quietly seed the exact live order count without adding another panel",
+		and order_progress_label.text == "ON TRACK  2 / 3"
+		and order_progress_label.tooltip_text.begins_with("PROMOTION IN REACH  //  2 / 3 ORDERS ON TRACK  //  +3 SCORE  //  77 -> 80  //  GOLDEN MANAGEMENT TRACK"),
+		"a promotion opportunity should join the live order count with one recoverable crest",
+		failures,
+	)
+	if first_order_action != null:
+		first_order_action.grab_focus()
+		var accept_press := InputEventAction.new()
+		accept_press.action = &"ui_accept"
+		accept_press.pressed = true
+		Input.parse_input_event(accept_press)
+		await process_frame
+		var accept_release := InputEventAction.new()
+		accept_release.action = &"ui_accept"
+		accept_release.pressed = false
+		Input.parse_input_event(accept_release)
+		await process_frame
+	_check(
+		first_order_action != null
+		and first_order_action.focus_mode == Control.FOCUS_ALL
+		and first_order_action.custom_minimum_size == Vector2(28.0, 24.0)
+		and String(first_order_action.get_meta("semantic_action", "")) == "open_flockwatch_order"
+		and "OPEN THIS GOAL IN FLOCKWATCH" in first_order_action.tooltip_text
+		and StringName(observed.get("live_order_id", &"")) == &"prove_the_plan"
+		and int(observed.get("live_order_index", -1)) == 0
+		and int(ui.live_order_progress().get("mark_request_serial", 0)) == 1
+		and String(ui.live_order_progress().get("last_requested_objective_id", "")) == "prove_the_plan",
+		"each semantic mark should be a focusable mouse, touch, keyboard, and controller shortcut",
 		failures,
 	)
 	_check(
 		first_order_stamp != null
+		and second_order_stamp != null
 		and third_order_stamp != null
 		and first_order_stamp.is_visible_in_tree()
-		and third_order_stamp.is_visible_in_tree(),
-		"active badge should expose one stable visual stamp for each authored order",
+		and third_order_stamp.is_visible_in_tree()
+		and String(first_order_stamp.get_meta("objective_id", "")) == "prove_the_plan"
+		and String(first_order_stamp.get_meta("metric", "")) == "quota_met"
+		and String(first_order_stamp.get_meta("semantic_icon", "")) == "egg"
+		and not bool(first_order_stamp.get_meta("on_track", true))
+		and String(second_order_stamp.get_meta("objective_id", "")) == "farmer_confidence"
+		and String(second_order_stamp.get_meta("semantic_icon", "")) == "cash"
+		and bool(second_order_stamp.get_meta("on_track", false))
+		and String(third_order_stamp.get_meta("objective_id", "")) == "no_rework_spiral"
+		and String(third_order_stamp.get_meta("semantic_icon", "")) == "files"
+		and bool(third_order_stamp.get_meta("on_track", false))
+		and first_order_stamp.tooltip_text.begins_with("NEEDS ACTION  //  PROVE THE PLAN")
+		and not bool(first_order_stamp.get_meta("change_pulse_active", true))
+		and not bool(third_order_stamp.get_meta("change_pulse_active", true))
+		and String(third_order_stamp.get_meta("change_settled", "")) == "seeded",
+		"active badge should expose stable quota, confidence, and rework marks in authored order",
 		failures,
 	)
-	var improved_delta := ui.set_live_order_progress(3, 3, &"probation:1")
+	var ready_states := day_one_states.duplicate(true)
+	ready_states[0]["on_track"] = true
+	ready_states[0]["detail"] = "ON TRACK  //  PROVE THE PLAN  //  MET"
+	var improved_delta := ui.set_live_order_progress(3, 3, &"probation:1", ready_states)
 	_check(
 		improved_delta == 1
 		and order_progress_label.text == "ON TRACK  3 / 3"
-		and int(ui.live_order_progress().get("on_track", 0)) == 3,
-		"same-day improvement should return one semantic transition and update the compact badge",
+		and bool(order_progress_row.get_meta("promotion_ready", false))
+		and String(order_promotion_icon.get_meta("promotion_state", "")) == "ready"
+		and order_promotion_icon.modulate.is_equal_approx(Color("f4df9d"))
+		and int(ui.live_order_progress().get("on_track", 0)) == 3
+		and bool(ui.live_order_progress().get("promotion_ready", false))
+		and int(order_promotion_icon.get_meta("promotion_ready_pulse_serial", 0)) == 1
+		and bool(order_promotion_icon.get_meta("promotion_ready_pulse_active", false))
+		and String(order_promotion_icon.get_meta("promotion_ready_pulse_settled", "")) == "animating"
+		and badge.modulate.is_equal_approx(Color.WHITE)
+		and bool(first_order_stamp.get_meta("change_pulse_active", false))
+		and String(first_order_stamp.get_meta("change_direction", "")) == "fill"
+		and int(first_order_stamp.get_meta("change_serial", 0)) == 1
+		and String(first_order_stamp.get_meta("change_settled", "")) == "animating"
+		and first_order_stamp.scale.is_equal_approx(Vector2(1.10, 1.55))
+		and first_order_stamp.modulate.is_equal_approx(Color("d7ffe9"))
+		and not bool(third_order_stamp.get_meta("change_pulse_active", true)),
+		"the completed quota order should pulse its egg mark rather than an aggregate boundary",
+		failures,
+	)
+	await create_timer(0.45).timeout
+	_check(
+		not bool(order_promotion_icon.get_meta("promotion_ready_pulse_active", true))
+		and String(order_promotion_icon.get_meta("promotion_ready_pulse_settled", "")) == "settled"
+		and order_promotion_icon.scale.is_equal_approx(Vector2.ONE)
+		and order_promotion_icon.modulate.is_equal_approx(Color("f4df9d"))
+		and not bool(first_order_stamp.get_meta("change_pulse_active", true))
+		and String(first_order_stamp.get_meta("change_settled", "")) == "settled"
+		and first_order_stamp.scale.is_equal_approx(Vector2.ONE)
+		and first_order_stamp.modulate.is_equal_approx(Color.WHITE),
+		"promotion-ready glow and changed semantic mark should settle to their stable states",
 		failures,
 	)
 	ui.set_reduced_motion(true)
-	var risk_delta := ui.set_live_order_progress(2, 3, &"probation:1")
+	var risk_delta := ui.set_live_order_progress(2, 3, &"probation:1", day_one_states)
 	_check(
 		risk_delta == -1
 		and badge.modulate.is_equal_approx(Color.WHITE)
+		and String(first_order_stamp.get_meta("change_direction", "")) == "empty"
+		and int(first_order_stamp.get_meta("change_serial", 0)) == 2
+		and not bool(first_order_stamp.get_meta("change_pulse_active", true))
+		and String(first_order_stamp.get_meta("change_settled", "")) == "instant"
+		and first_order_stamp.scale.is_equal_approx(Vector2.ONE)
 		and "Nothing is filed until review" in order_progress_label.tooltip_text
 		and "Closing metrics can still move" in order_progress_label.tooltip_text,
 		"risk transitions should remain legible without a pulse when reduced motion is active",
 		failures,
 	)
-	var next_day_delta := ui.set_live_order_progress(1, 3, &"probation:2")
+	var swapped_states := day_one_states.duplicate(true)
+	swapped_states[0]["on_track"] = true
+	swapped_states[1]["on_track"] = false
+	var swap_delta := ui.set_live_order_progress(2, 3, &"probation:1", swapped_states)
 	_check(
-		next_day_delta == 0 and order_progress_label.text == "ON TRACK  1 / 3",
+		swap_delta == 0
+		and String(first_order_stamp.get_meta("change_direction", "")) == "fill"
+		and String(second_order_stamp.get_meta("change_direction", "")) == "empty"
+		and int(first_order_stamp.get_meta("change_serial", 0)) == 3
+		and int(second_order_stamp.get_meta("change_serial", 0)) == 3
+		and String(first_order_stamp.get_meta("change_settled", "")) == "instant"
+		and String(second_order_stamp.get_meta("change_settled", "")) == "instant",
+		"equal-count swaps should still identify the exact order gained and order lost",
+		failures,
+	)
+	var swapped_ready_states := swapped_states.duplicate(true)
+	swapped_ready_states[1]["on_track"] = true
+	var reduced_ready_delta := ui.set_live_order_progress(3, 3, &"probation:1", swapped_ready_states)
+	_check(
+		reduced_ready_delta == 1
+		and int(order_promotion_icon.get_meta("promotion_ready_pulse_serial", 0)) == 2
+		and not bool(order_promotion_icon.get_meta("promotion_ready_pulse_active", true))
+		and String(order_promotion_icon.get_meta("promotion_ready_pulse_settled", "")) == "instant"
+		and order_promotion_icon.scale.is_equal_approx(Vector2.ONE)
+		and order_promotion_icon.modulate.is_equal_approx(Color("f4df9d"))
+		and String(second_order_stamp.get_meta("change_direction", "")) == "fill"
+		and int(second_order_stamp.get_meta("change_serial", 0)) == 4
+		and not bool(second_order_stamp.get_meta("change_pulse_active", true))
+		and String(second_order_stamp.get_meta("change_settled", "")) == "instant",
+		"reduced motion should acknowledge promotion readiness without animating",
+		failures,
+	)
+	var next_day_states := day_one_states.duplicate(true)
+	next_day_states[1]["on_track"] = false
+	var next_day_delta := ui.set_live_order_progress(1, 3, &"probation:2", next_day_states)
+	_check(
+		next_day_delta == 0
+		and order_progress_label.text == "ON TRACK  1 / 3"
+		and String(order_promotion_icon.get_meta("promotion_state", "")) == "recover"
+		and String(third_order_stamp.get_meta("change_direction", "stale")) == ""
+		and String(third_order_stamp.get_meta("change_settled", "")) == "seeded",
 		"a new shift should seed quietly instead of replaying a stale reward cue",
+		failures,
+	)
+	ui.show_active_campaign({
+		"next_objective": {
+			"promotion_opportunity": {"available": false},
+		},
+	})
+	_check(
+		not order_promotion_icon.visible
+		and not bool(order_progress_row.get_meta("promotion_opportunity", true))
+		and not bool(ui.live_order_progress().get("promotion_opportunity", true))
+		and not bool(order_promotion_icon.get_meta("promotion_ready_pulse_active", true))
+		and String(order_promotion_icon.get_meta("promotion_ready_pulse_settled", "")) == "cleared",
+		"routine score bundles should clear the live promotion crest",
 		failures,
 	)
 

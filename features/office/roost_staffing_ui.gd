@@ -708,6 +708,14 @@ func _build_operations_section() -> void:
 	_operations_section.add_theme_stylebox_override("panel", _facility_card_style(true, false, true))
 	_operations_section.visible = false
 	_operations_domain.add_child(_operations_section)
+	# Reserve quiet reading space after the final Operations control so direct
+	# links can place a bottom-row chip at the drawer's reading edge instead of
+	# leaving it stranded against the viewport footer.
+	var operations_reading_tail := Control.new()
+	operations_reading_tail.name = "OperationsReadingTail"
+	operations_reading_tail.custom_minimum_size.y = 220.0
+	operations_reading_tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_operations_domain.add_child(operations_reading_tail)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
@@ -760,6 +768,9 @@ func _build_operations_section() -> void:
 	_operations_automation_glance.name = "RoosterOperationsAutomationGlance"
 	_operations_exposure_glance = _metric_chip(glance_grid, "EXPOSURE\nNONE")
 	_operations_exposure_glance.name = "RoosterOperationsExposureGlance"
+	(_operations_exposure_glance.get_parent() as PanelContainer).name = (
+		"RoosterOperationsExposureGlancePanel"
+	)
 
 	_operations_next_action_label = _make_label("", 10, Color("d7c17d"))
 	_operations_next_action_label.name = "RoosterOperationsNextAction"
