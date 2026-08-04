@@ -217,6 +217,154 @@ static func action_icon(kind: StringName) -> Texture2D:
 			+ "fill='#f6fff8' stroke='#101a23' stroke-width='1.4' "
 			+ "stroke-linejoin='round'/>"
 		)
+	elif kind == &"order_clutch":
+		# An egg silhouette makes the quota order readable before its label.
+		symbol = (
+			"<path d='M12 2.8 C8.5 2.8 5.3 9.3 5.3 14.3 "
+			+ "C5.3 18.4 8.1 21.2 12 21.2 C15.9 21.2 18.7 18.4 18.7 14.3 "
+			+ "C18.7 9.3 15.5 2.8 12 2.8 Z' fill='#f3dfaa' stroke='#101a23' "
+			+ "stroke-width='1.5'/><path d='M8.8 15.1 C10.7 16.3 13.4 16.3 15.2 14.7' "
+			+ "fill='none' stroke='#31584f' stroke-width='1.5' stroke-linecap='round'/>"
+		)
+	elif kind == &"order_compliance":
+		# Shield plus check communicates an orderly, compliant close.
+		symbol = (
+			"<path d='M12 2.5 L20 5.8 V11.4 C20 16.2 16.8 19.8 12 21.5 "
+			+ "C7.2 19.8 4 16.2 4 11.4 V5.8 Z' fill='#d9e5e2' stroke='#101a23' "
+			+ "stroke-width='1.5'/><path d='M7.7 11.8 L10.6 14.5 L16.5 8.6' "
+			+ "fill='none' stroke='#31584f' stroke-width='2.2' stroke-linecap='round' "
+			+ "stroke-linejoin='round'/>"
+		)
+	elif kind == &"status_pass":
+		# A ringed check is a stable non-color pass badge for compact report chips.
+		symbol = (
+			"<circle cx='12' cy='12' r='9' fill='#d9e5e2' stroke='#101a23' "
+			+ "stroke-width='1.5'/><path d='M7.2 12.2 L10.6 15.3 L17.3 8.6' "
+			+ "fill='none' stroke='#31584f' stroke-width='2.2' stroke-linecap='round' "
+			+ "stroke-linejoin='round'/>"
+		)
+	elif kind == &"status_need":
+		# A diamond and exclamation remain distinct from the pass ring without color.
+		symbol = (
+			"<path d='M12 2.5 L21.5 12 L12 21.5 L2.5 12 Z' fill='#f3dfaa' "
+			+ "stroke='#101a23' stroke-width='1.5' stroke-linejoin='round'/>"
+			+ "<path d='M12 7.1 V13.5 M12 17 V17.2' fill='none' stroke='#55312e' "
+			+ "stroke-width='2.4' stroke-linecap='round'/>"
+		)
+	elif kind == &"score_gain":
+		# A ringed rising arrow makes a positive shift contribution read as movement,
+		# rather than a second cumulative score.
+		symbol = (
+			"<circle cx='12' cy='12' r='9.2' fill='#d9e5e2' stroke='#101a23' "
+			+ "stroke-width='1.5'/><path d='M7 16 L16.5 6.5 M11 6.5 H16.5 V12' "
+			+ "fill='none' stroke='#31584f' stroke-width='2.2' stroke-linecap='round' "
+			+ "stroke-linejoin='round'/>"
+		)
+	elif kind == &"score_loss":
+		# A diamond-backed falling arrow stays distinguishable from a gain without
+		# depending on the rust color used by the value.
+		symbol = (
+			"<path d='M12 2.5 L21.5 12 L12 21.5 L2.5 12 Z' fill='#f3dfaa' "
+			+ "stroke='#101a23' stroke-width='1.5' stroke-linejoin='round'/>"
+			+ "<path d='M7 8 L16.5 17.5 M11 17.5 H16.5 V12' fill='none' "
+			+ "stroke='#55312e' stroke-width='2.2' stroke-linecap='round' "
+			+ "stroke-linejoin='round'/>"
+		)
+	elif kind == &"score_even":
+		# A ringed level mark gives zero movement its own non-color state.
+		symbol = (
+			"<circle cx='12' cy='12' r='9.2' fill='#d9e5e2' stroke='#101a23' "
+			+ "stroke-width='1.5'/><path d='M7 12 H17' fill='none' stroke='#53656d' "
+			+ "stroke-width='2.4' stroke-linecap='round'/>"
+		)
+	elif kind == &"score_sum":
+		# Three filed chips converging into one arrow visually explains that the
+		# neighboring signed value is the receipt total, not another independent stat.
+		symbol = (
+			"<rect x='2.4' y='3.1' width='5.2' height='4.2' rx='1.1' fill='#d9e5e2' "
+			+ "stroke='#101a23' stroke-width='1'/><rect x='2.4' y='9.9' width='5.2' "
+			+ "height='4.2' rx='1.1' fill='#f3dfaa' stroke='#101a23' stroke-width='1'/>"
+			+ "<rect x='2.4' y='16.7' width='5.2' height='4.2' rx='1.1' fill='#d9e5e2' "
+			+ "stroke='#101a23' stroke-width='1'/><path d='M8.7 5.2 H10.4 V12 H13.2 "
+			+ "M8.7 12 H13.2 M8.7 18.8 H10.4 V12 M13.2 8.3 L20.7 12 "
+			+ "L13.2 15.7 Z' fill='#31584f' stroke='#101a23' stroke-width='1' "
+			+ "stroke-linejoin='round'/>"
+		)
+	elif kind == &"rank_crest":
+		# A comb-topped shield reads as earned coop rank and remains distinct from
+		# receipt checks, score arrows, and action icons at compact sizes.
+		symbol = (
+			"<path d='M6 6.3 L7.2 2.8 L10.2 5.3 L12 2.2 L13.8 5.3 L16.8 2.8 "
+			+ "L18 6.3 V11.5 C18 16.2 15.5 19.2 12 21.3 C8.5 19.2 6 16.2 6 11.5 Z' "
+			+ "fill='#f3dfaa' stroke='#101a23' stroke-width='1.5' stroke-linejoin='round'/>"
+			+ "<path d='M12 8.2 L13.1 10.5 L15.6 10.8 L13.8 12.6 L14.2 15.1 L12 13.9 "
+			+ "L9.8 15.1 L10.2 12.6 L8.4 10.8 L10.9 10.5 Z' fill='#31584f' "
+			+ "stroke='#101a23' stroke-width='0.7' stroke-linejoin='round'/>"
+		)
+	elif kind == &"order_trays":
+		# A shallow inbox with three files turns backlog control into a symbol.
+		symbol = (
+			"<path d='M3 9 H21 L19 20 H5 Z' fill='#d9e5e2' stroke='#101a23' "
+			+ "stroke-width='1.5' stroke-linejoin='round'/><path d='M7 4 H17 V12 H14.6 "
+			+ "L13.2 14 H10.8 L9.4 12 H7 Z' fill='#f3dfaa' stroke='#101a23' "
+			+ "stroke-width='1.4' stroke-linejoin='round'/><path d='M9.2 7 H14.8 M9.2 9.6 H13' "
+			+ "stroke='#31584f' stroke-width='1.4' stroke-linecap='round'/>"
+		)
+	elif kind == &"receipt_shell":
+		# A split shell makes quality gains and deductions legible without the
+		# accounting label, while its egg outline keeps it in the farm language.
+		symbol = (
+			"<path d='M12 2.8 C8.5 2.8 5.3 9.3 5.3 14.3 C5.3 18.4 8.1 21.2 "
+			+ "12 21.2 C15.9 21.2 18.7 18.4 18.7 14.3 C18.7 9.3 15.5 2.8 12 2.8 Z' "
+			+ "fill='#f3dfaa' stroke='#101a23' stroke-width='1.5'/><path d='M13.4 5.7 "
+			+ "L10.4 10.1 L13.1 12.4 L10.7 17.8' fill='none' stroke='#55312e' "
+			+ "stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/>"
+		)
+	elif kind == &"receipt_flock":
+		# Two eggs held by a broad heart-shaped wing read as flock care rather
+		# than a generic health badge, and survive monochrome presentation.
+		symbol = (
+			"<path d='M12 21 C9.8 18.4 4 15.3 4 9.7 C4 6.8 5.8 4.7 8.4 4.7 "
+			+ "C10 4.7 11.2 5.6 12 6.8 C12.8 5.6 14 4.7 15.6 4.7 C18.2 4.7 "
+			+ "20 6.8 20 9.7 C20 15.3 14.2 18.4 12 21 Z' fill='#d9e5e2' "
+			+ "stroke='#101a23' stroke-width='1.4'/><ellipse cx='9.2' cy='11.6' rx='2.1' "
+			+ "ry='2.8' fill='#f3dfaa'/><ellipse cx='14.8' cy='11.6' rx='2.1' ry='2.8' "
+			+ "fill='#f3dfaa'/>"
+		)
+	elif kind == &"receipt_cap":
+		# A score pip meeting a hard ceiling communicates a capped total.
+		symbol = (
+			"<path d='M4 5 H20' stroke='#f3dfaa' stroke-width='2.2' "
+			+ "stroke-linecap='round'/><path d='M7 9 V19 M12 12 V19 M17 15 V19' "
+			+ "stroke='#d9e5e2' stroke-width='3' stroke-linecap='round'/>"
+		)
+	elif kind == &"receipt_specialty":
+		# A high-contrast star seal marks an exceptional milestone bonus.
+		symbol = (
+			"<path d='M12 2.5 L14.8 8.4 L21.3 9.2 L16.5 13.7 L17.8 20.2 L12 17 "
+			+ "L6.2 20.2 L7.5 13.7 L2.7 9.2 L9.2 8.4 Z' fill='#f3dfaa' "
+			+ "stroke='#101a23' stroke-width='1.5' stroke-linejoin='round'/>"
+		)
+	elif kind == &"receipt_hen":
+		# A compact hen profile identifies the credited layer without another
+		# field caption; comb, eye, and beak keep it distinct at small sizes.
+		symbol = (
+			"<path d='M6 20 C4.8 16.2 5.3 11.4 8.7 8.7 C9.2 6.2 10.8 3.5 "
+			+ "12.3 6 C13.7 3.1 15.5 4.2 15.4 7 C18.2 7.2 20 9.6 19.4 12.8 "
+			+ "C18.7 16.8 13.9 19.3 6 20 Z' fill='#f3dfaa' stroke='#101a23' "
+			+ "stroke-width='1.4' stroke-linejoin='round'/><path d='M19 10.3 L22 12.2 L19 13.4 Z' "
+			+ "fill='#d68c45' stroke='#101a23' stroke-width='1'/><circle cx='16.1' cy='10.2' "
+			+ "r='1.1' fill='#243341'/>"
+		)
+	elif kind == &"receipt_fund":
+		# The ringed coin and signed stroke communicate Feed Fund impact before
+		# the value, including a visible neutral $0 state.
+		symbol = (
+			"<circle cx='12' cy='12' r='9.2' fill='#f3dfaa' stroke='#101a23' "
+			+ "stroke-width='1.5'/><path d='M15.8 8.1 C14.7 6.9 9.1 6.5 8.5 9.4 "
+			+ "C7.8 13 15.8 10.9 15.5 14.8 C15.2 17.7 9.5 17.6 8.1 15.9 M12 5.7 V18.3' "
+			+ "fill='none' stroke='#31584f' stroke-width='1.7' stroke-linecap='round'/>"
+		)
 	else:
 		return null
 	var svg := (

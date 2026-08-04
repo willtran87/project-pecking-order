@@ -26,6 +26,7 @@ func _run() -> void:
 	var clock := office.get("_clock") as SimulationClock
 	var campaign: CampaignState = office.get("_campaign_state") as CampaignState
 	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
+	var audio_feedback := office.get("_audio_feedback") as OfficeAudioFeedback
 	var day_badge := office.find_child("ProbationDayLabel", true, false) as Label
 	var objectives_label := office.find_child("CampaignObjectivesLabel", true, false) as Label
 	var safeguards_label := office.find_child("CampaignSafeguardForecast", true, false) as Label
@@ -35,7 +36,17 @@ func _run() -> void:
 	var next_shift_button := office.find_child("BeginNextShiftButton", true, false) as Button
 	var report_panel := office.find_child("ProbationReportPanel", true, false) as PanelContainer
 	var report_shift_delta := office.find_child("ReportShiftDelta", true, false) as Label
+	var report_shift_delta_caption := office.find_child("ReportShiftDeltaCaption", true, false) as Label
+	var report_shift_delta_icon := office.find_child("ReportShiftDeltaIcon", true, false) as TextureRect
+	var report_rank_icon := office.find_child("ReportRankIcon", true, false) as TextureRect
+	var report_rank_caption := office.find_child("ReportRankCaption", true, false) as Label
+	var report_rank_progress := office.find_child("ReportRankProgress", true, false) as ProgressBar
+	var objective_reward_badge := office.find_child("NextShiftObjectiveRewardBadge", true, false) as PanelContainer
+	var objective_promotion_icon := office.find_child("NextShiftObjectivePromotionIcon", true, false) as TextureRect
 	var report_receipt_summary := office.find_child("ReportScoreReceiptSummary", true, false) as Label
+	var report_receipt_grid := office.find_child("ReportScoreReceiptGrid", true, false) as GridContainer
+	var report_score_row := office.find_child("ProbationReportScoreRow", true, false) as HFlowContainer
+	var report_score := office.find_child("ReportScore", true, false) as Label
 	var hen_highlight_card := office.find_child("ShiftHenHighlightCard", true, false) as PanelContainer
 	var hen_highlight_eyebrow := office.find_child("ShiftHenHighlightEyebrow", true, false) as Label
 	var hen_highlight_headline := office.find_child("ShiftHenHighlightHeadline", true, false) as Label
@@ -65,6 +76,16 @@ func _run() -> void:
 		"challenge selection changes should route immediately to Office's Web diagnostic publisher",
 		failures,
 	)
+	_check(
+		_signal_routes_to(
+			campaign_ui,
+			&"report_filing_settled",
+			office,
+			&"_on_campaign_report_filing_settled",
+		),
+		"a settled report filing should route one semantic receipt to Office audio",
+		failures,
+	)
 	_check(DisplayServer.get_name() == "headless", "focused integration test must run through the headless Office branch", failures)
 	_check(campaign_ui != null and campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "headless Office should boot directly into an active campaign", failures)
 	_check(campaign != null and campaign.outcome == CampaignState.OUTCOME_IN_PROGRESS and campaign.completed_shifts == 0, "headless Office should open a fresh five-shift probation state", failures)
@@ -73,10 +94,7 @@ func _run() -> void:
 	_check(
 		safeguards_label != null and not safeguards_label.visible
 		and safeguard_glance != null and safeguard_glance.visible
-		and "SAFE 1/5" in safeguards_label.text
-		and "SHIFTS 0/5" in safeguards_label.text
-		and "RISK FLOCK WELFARE -45" in safeguards_label.text
-		and _contains_all(safeguard_glance.text, ["1/5 SAFE", "WELFARE -45"])
+		and _contains_all(safeguard_glance.text, ["1 / 5 SAFE", "WELFARE", "NEEDS 45"])
 		and "SAFEGUARD" in String(safeguard_glance.get_meta("accessible_text", "")),
 		"office Flockwatch should expose a glance tile while retaining the exact pass count and normalized blocker (tile: %s)" % (
 			safeguard_glance.text if safeguard_glance != null else "<missing>"
@@ -101,6 +119,9 @@ func _run() -> void:
 	await process_frame
 	var challenge_selector := office.find_child("ChallengeContractSelector", true, false) as OptionButton
 	var challenge_summary := office.find_child("ChallengeContractSummary", true, false) as Label
+	var challenge_fund := office.find_child("ChallengeOpeningFund", true, false) as Label
+	var challenge_quota := office.find_child("ChallengeOpeningQuota", true, false) as Label
+	var challenge_files := office.find_child("ChallengeOpeningFiles", true, false) as Label
 	var supported_index := -1
 	if challenge_selector != null:
 		for index: int in range(challenge_selector.item_count):
@@ -122,9 +143,9 @@ func _run() -> void:
 	)
 	_check(
 		challenge_summary != null
-		and _contains_all(challenge_summary.text, [
-			"FUND $65.00", "QUOTA 14", "6 FILES",
-		]),
+		and challenge_fund != null and challenge_fund.text == "$65"
+		and challenge_quota != null and challenge_quota.text == "14"
+		and challenge_files != null and challenge_files.text == "6",
 		"production intake should disclose Supported Flock's key opening numbers before filing",
 		failures,
 	)
@@ -406,6 +427,14 @@ func _run() -> void:
 	_check(report_panel != null and report_panel.is_visible_in_tree(), "probation report should be visibly presented", failures)
 	_check(day_badge.text == "DAY 1 / 5", "between-shift presentation should identify the reviewed day out of five", failures)
 	_check(_objective_bullets(report_objective.text if report_objective != null else "") == 3, "probation report should present all three next-shift objectives", failures)
+	await create_timer(1.05).timeout
+	var report_audio := audio_feedback.feedback_snapshot() if audio_feedback != null else {}
+	_check(
+		String(report_audio.get("last_cue", "")) == "report_filed"
+		and String(report_audio.get("last_bus", "")) == "UI",
+		"the complete report evidence sweep should end with one quiet UI filing receipt",
+		failures,
+	)
 
 	# The report must disclose the exact causal score receipt from CampaignState and
 	# the same character moment emitted by DepartmentSimulation, rather than
@@ -433,10 +462,77 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		report_receipt_summary != null
-		and report_receipt_summary.is_visible_in_tree()
-		and ("%d -> %d" % [int(first_receipt.get("score_before", 0)), int(first_receipt.get("score_after", 0))]) in report_receipt_summary.text,
-		"visible receipt summary should render the authoritative before-and-after score",
+		report_shift_delta_caption != null and report_shift_delta_caption.text == "THIS SHIFT"
+		and report_shift_delta_caption.tooltip_text == "SHIFT SCORE"
+		and report_shift_delta_icon != null and report_shift_delta_icon.is_visible_in_tree()
+		and String(report_shift_delta_icon.get_meta("semantic_icon", "")) == "score_sum"
+		and String(report_shift_delta_icon.get_meta("delta_direction", "")) == "gain",
+		"the authoritative shift receipt should read as the filed component sum rather than a second cumulative score",
+		failures,
+	)
+	_check(
+		report_rank_icon != null and report_rank_icon.is_visible_in_tree()
+		and report_rank_icon.texture != null
+		and String(report_rank_icon.get_meta("semantic_icon", "")) == "rank_crest"
+		and String(first_receipt.get("rank_change", "")) == "promotion"
+		and report_rank_caption != null and report_rank_caption.text == "PROMOTED"
+		and bool(report_rank_icon.get_meta("promotion_stamp", false))
+		and String(report_rank_icon.get_meta("promotion_stamp_motion", "")) == "completed"
+		and report_rank_icon.tooltip_text == "PROMOTED  //  TRUSTED LAYER  //  FROM PROBATIONARY MANAGER",
+		"the live threshold crossing should settle as one visible promoted crest stamp",
+		failures,
+	)
+	var live_rank_progress := CampaignState.rank_progress_for_score(
+		int(first_receipt.get("score_after", 0)),
+	)
+	_check(
+		report_rank_progress != null and report_rank_progress.is_visible_in_tree()
+		and is_equal_approx(
+			report_rank_progress.value,
+			float(live_rank_progress.get("progress_basis_points", -1)),
+		)
+		and int(report_rank_progress.get_meta("current_score", -1))
+		== int(first_receipt.get("score_after", 0))
+		and int(report_rank_progress.get_meta("points_to_next", -1))
+		== int(live_rank_progress.get("points_to_next", -2)),
+		"the live rank rail should consume CampaignState's exact promotion threshold",
+		failures,
+	)
+	_check(
+		objective_reward_badge != null and objective_reward_badge.is_visible_in_tree()
+		and not bool(objective_reward_badge.get_meta("promotion_opportunity", true))
+		and objective_promotion_icon != null and not objective_promotion_icon.visible
+		and not bool(report_rank_progress.get_meta("promotion_opportunity", true)),
+		"a live +3 bundle should stay visually routine when it cannot reach the next rank",
+		failures,
+	)
+	_check(
+		report_receipt_summary != null and not report_receipt_summary.is_visible_in_tree()
+		and report_receipt_grid != null and report_receipt_grid.is_visible_in_tree()
+		and ("Score %d to %d" % [
+			int(first_receipt.get("score_before", 0)),
+			int(first_receipt.get("score_after", 0)),
+		]) in report_receipt_grid.tooltip_text,
+		"visible receipt chips should retain the authoritative before-and-after score",
+		failures,
+	)
+	var live_shift_panel := (
+		report_shift_delta.get_parent().get_parent().get_parent() as PanelContainer
+		if report_shift_delta != null else
+		null
+	)
+	var live_score_panel := (
+		report_score.get_parent().get_parent().get_parent() as PanelContainer
+		if report_score != null else
+		null
+	)
+	_check(
+		report_score_row != null and bool(report_score_row.get_meta("receipt_equation", false))
+		and report_score_row.get_child(1) == live_shift_panel
+		and report_score_row.get_child(2) == live_score_panel
+		and live_shift_panel != null
+		and int(live_shift_panel.get_meta("receipt_component_count", 0)) == 5,
+		"the live report should place the five authoritative receipts directly before their shift total and cumulative score",
 		failures,
 	)
 	_check(hen_highlight_card != null and hen_highlight_card.is_visible_in_tree(), "emitted hen highlight should appear as a visible report card", failures)

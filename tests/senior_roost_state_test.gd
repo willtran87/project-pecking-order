@@ -33,6 +33,20 @@ func _init() -> void:
 
 	var first := senior.record_shift(_good_report(6, 11, 11_000))
 	_check(bool(first.get("accepted", false)) and not bool(first.get("quarter_complete", true)), "first Senior shift should file without closing the quarter", failures)
+	var first_board_delta := senior.latest_annual_mandate_delta()
+	var first_changes := first_board_delta.get("changes", []) as Array
+	var quota_change := {}
+	var welfare_change := {}
+	for change_value in first_changes:
+		var change := change_value as Dictionary
+		if String(change.get("metric", "")) == "quota_met_shifts":
+			quota_change = change
+		elif String(change.get("metric", "")) == "welfare_average":
+			welfare_change = change
+	_check(bool(first_board_delta.get("visible", false)) and int(first_board_delta.get("day", 0)) == 6 and int(first_board_delta.get("shift_index", 0)) == 1, "the first filed shift should expose one derived annual Board delta receipt", failures)
+	_check(int(quota_change.get("delta", 0)) == 1 and String(quota_change.get("impact", "")) == "improved", "a met quota shift should visibly advance the reliable-clutch target", failures)
+	_check(int(welfare_change.get("delta", 0)) == 72 and bool(welfare_change.get("status_changed", false)) and bool(welfare_change.get("met", false)), "the first welfare evidence should disclose both its signed movement and target crossing", failures)
+	_check((senior.snapshot().get("annual_mandate_delta", {}) as Dictionary) == first_board_delta, "the derived Board delta should be available to every presentation snapshot", failures)
 	var before_duplicate := senior.to_dictionary()
 	var duplicate := senior.record_shift(_good_report(6, 12, 12_000))
 	_check(not bool(duplicate.get("accepted", true)), "duplicate Senior days must be rejected", failures)

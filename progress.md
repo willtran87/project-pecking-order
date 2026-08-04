@@ -7900,3 +7900,1283 @@ The next major systems milestone is persistent worker relationships and individu
 - Suggested next polish audit: briefly pulse only the Board tile changed by a
   filed shift and show its signed delta, making the connection between the
   player's quarter decisions and year-long mandate progress feel immediate.
+
+## 2026-08-03 - Shift-to-Board causal feedback
+
+- Annual Board targets now retain a compact `THIS SHIFT` receipt after each
+  filed Senior shift. Only changed metrics receive the signed delta and thicker
+  outline; unchanged targets remain visually quiet. Changed tiles briefly pulse
+  once when full motion is enabled, while reduced-motion players receive the
+  same persistent semantic receipt without animation.
+- The receipt is derived from the authoritative annual-mandate evidence ledger
+  by comparing the latest filed evidence with the preceding evidence set. No
+  new saved counter or parallel gameplay authority was introduced. Full change
+  detail remains in the objective tooltip and accessibility metadata.
+- Added a deterministic `senior-board-delta` browser preview backed by one
+  authentic accepted Senior shift. Accepted evidence is
+  `output/web-game/board-shift-delta-final-v1/shot-0.png`: Reliable Clutch shows
+  `THIS SHIFT +1`, Flock Continuity shows `THIS SHIFT +72`, and unchanged
+  Current Payroll carries no delta. The row fits cleanly without clipping or
+  overlap, and no browser error artifact was produced.
+- The first focused run caught a Variant-inference warning treated as a compile
+  error; the evidence row is now explicitly typed. The first integration pass
+  also exposed that its new assertions inspected the hidden pre-shift Board
+  before the authentic review advanced to the player-facing Senior report. The
+  assertions now run at the real report moment and validate the visible receipt.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, and `senior_roost_integration_test.gd` pass together
+  (4/4). The bundled-Node release gate passes ESLint, all 49/49 rendered Web
+  tests, the production wrapper test, and every physical/usability release
+  contract.
+- Godot Web export and the optimized Vinext build pass. All 36 payload copies
+  match across `docs`, `web/public/game`, root `dist`, and
+  `web/dist/client/game`. HTML SHA-256 is
+  `A511CEB2CD63AFE922007D3613E6119F7A1E343925A733126719932FC5127796`;
+  the 9,679,764-byte PCK SHA-256 is
+  `0E5FB0FC70C3572E31B8B747ED8ADCA7C8EFB2191B101D9771A39EC954488753`.
+  The local production server serves that exact PCK.
+- The official browser helper retains SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+  Temporary Godot and browser verification processes are cleaned. The
+  intentional local production server remains on port 3000 as PID 39140 with
+  HTTP 200.
+- Suggested next polish audit: add a tiny progress-fill rail inside each Board
+  tile so year-long magnitude reads without numbers, including correctly
+  inverted fill behavior for maximum targets.
+
+## 2026-08-03 - Glance-first Board progress rails
+
+- Added a four-pixel semantic progress rail to every annual Board target tile.
+  The rails reuse each authoritative objective's `progress_basis_points`, so
+  year-long magnitude is readable before the player parses `actual / target`.
+  No percentage label was added, preserving the compact report hierarchy.
+- Minimum and maximum targets share the same visual contract: more fill always
+  means closer to compliance. The maximum-style Current Payroll target therefore
+  renders full at `0 / 0`, while Reliable Clutch renders one-sixth at `1 / 6`.
+  A presentation fallback mirrors the authority calculation for older or
+  lightweight snapshots that do not yet carry `progress_basis_points`.
+- Accepted browser evidence is
+  `output/web-game/board-progress-rails-final-v1/shot-0.png`. The one-sixth
+  Clutch rail and two full satisfied rails are distinct at 1280x720, remain
+  subordinate to status/value/delta text, and introduce no clipping, overlap,
+  or browser error artifact. Browser state confirms the exact 1,667 / 10,000 /
+  10,000 basis-point progression values.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, and `senior_roost_integration_test.gd` pass together
+  (4/4), including legacy snapshot fallback, minimum progress, maximum inversion,
+  and the authentic shift-to-report sequence.
+- Godot Web export, the optimized Vinext build, ESLint, all 49/49 rendered Web
+  tests, the production wrapper test, and every physical/usability release
+  contract pass. All 36 payload copies match. HTML SHA-256 is
+  `74C0FBA5D523D27B08320AB1B56270C7443BDE2D040E4CF176EF09BC08602B25`;
+  the 9,681,156-byte PCK SHA-256 is
+  `D706245F2B83D2247041F09DBC9C169423F8D17E9773CDA00F496B795D7197CE`,
+  and the local production server serves that exact PCK.
+- Temporary Godot and browser verification processes are cleaned. The
+  intentional production server remains on port 3000 as PID 33732 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: replace the three repeated `ON TRACK` prose lines
+  above the Board with compact icon-led quarter-driver chips, retaining their
+  exact descriptions in the card tooltip and accessibility text.
+
+## 2026-08-03 - Compact quarter-driver chips
+
+- Replaced the three repeated in-quarter `ON TRACK` sentences with one stable
+  row of semantic driver chips. Each chip leads with the same `+` / `!` visual
+  language used by the Board, names the scored driver, and shows its exact
+  current/target value (`QUOTA RELIABILITY 1 / 3`, `SHELL INTEGRITY 6.7% /
+  15.0%`, `SENIOR STANDING 100 / 60`).
+- The authoritative objective rows now travel as structured
+  `quarter_drivers` presentation data. The original explanations remain intact
+  in each chip tooltip, the containing objective tooltip, and accessibility
+  metadata; the visible report no longer spends three lines repeating status.
+- Accepted browser evidence is
+  `output/web-game/quarter-driver-chips-final-v1/shot-0.png`. The chips fit in a
+  single row at 1280x720, the Board targets and shift deltas retain their
+  hierarchy beneath them, the action row moves materially upward, and no text
+  clips or wraps. No browser error artifact was produced; runtime state confirms
+  authentic Senior Shift 1, Board 2/3, and two authoritative target changes.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, and `senior_roost_integration_test.gd` pass together
+  (4/4). Integration coverage proves the prose body is replaced only for the
+  structured in-quarter state and returns for reward/policy reports.
+- Godot Web export, optimized Vinext build, ESLint, all 49/49 rendered Web tests,
+  the production wrapper test, and every physical/usability release contract
+  pass. All 36 payload copies match. HTML SHA-256 is
+  `CD0E783003B6B542399AFDC884DA7EC8ECE7AFA379B9702C646BDD3BEDA4B9D1`;
+  the 9,683,988-byte PCK SHA-256 is
+  `9E0A98DD69DA1C7DBB657B99B66F321F014AA5EB0FEB849D8DCC196B76BA7D80`,
+  and the local production server serves that exact PCK.
+- Temporary Godot and browser verification processes are cleaned. The
+  intentional production server remains on port 3000 as PID 40800 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: remove the duplicate Roost Marks readout between
+  the report header and Senior Career Ledgers, giving the top row a distinct
+  planning signal instead of repeating the same career currency twice.
+
+## 2026-08-03 - Distinct Senior reward forecast header
+
+- Removed the duplicate lifetime Roost Marks readout from the Senior report
+  header. Decision gates now show `AVAILABLE MARKS`, which represents genuinely
+  uncommitted currency after stakes and career spending; active quarters show a
+  distinct `MARKS FORECAST` derived from the authoritative quarter scorer.
+- The forecast opens only after the first filed Senior shift, then reports the
+  current reward projection (`+3` in the accepted strong-shift evidence). Its
+  tooltip explicitly says `if this quarter filed at the current projection`,
+  names the exact 100 / 100 projected score, and preserves the distinction
+  between provisional reward and lifetime marks already filed below.
+- The first browser pass used `BOARD TARGETS 2 / 3`. Visual inspection caught
+  that this merely duplicated the Board summary beneath it, so the accepted
+  design was refined to the more useful reward forecast. The final header now
+  answers three separate questions: projected reward, shifts filed, and career
+  title.
+- Accepted browser evidence is
+  `output/web-game/senior-header-marks-forecast-final-v1/shot-0.png`. `+3 MARKS
+  FORECAST` fits cleanly in the compact header tile, lifetime Roost Marks remain
+  in Senior Career Ledgers, and the report introduces no clipping, wrapping, or
+  browser error artifact.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, and `senior_roost_integration_test.gd` pass together
+  (4/4). The authentic flow verifies Available Marks at mandate selection,
+  `OPEN` before the first shift, and `+3` immediately after the filed shift.
+- Godot Web export, optimized Vinext build, ESLint, all 49/49 rendered Web tests,
+  the production wrapper test, and every physical/usability release contract
+  pass. All 36 payload copies match. HTML SHA-256 is
+  `0E534CB91CBDA607F8E477D5ACBD91862A64DC78722BD8363E46759E59227859`;
+  the 9,682,292-byte PCK SHA-256 is
+  `504CF5F91D3529EA3827FF1DE60A6548D58C66D421ADA1E3AF07563E7299FB3D`,
+  and the local production server serves that exact PCK.
+- Temporary Godot and browser verification processes are cleaned. The
+  intentional production server remains on port 3000 as PID 37024 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: hide the Shift Highlight card when no authentic
+  named-hen evidence exists, rather than showing a generic `0 EGGS` placeholder
+  beside an otherwise complete Senior receipt.
+
+## 2026-08-03 - Evidence-only Senior shift highlights
+
+- Fixed the Senior report adapter so an empty authoritative `hen_highlight`
+  dictionary remains empty. The presentation layer no longer manufactures a
+  false report by adding the current day to missing evidence.
+- Shift Highlight now appears only when the filed workday report contains a
+  genuine named-hen result. When it does not, the useful Policy Ledger expands
+  across the complete story row instead of sharing space with generic
+  `SHIFT HIGHLIGHT` / `0 EGGS` filler.
+- Added integration coverage for both sides of the contract: an empty highlight
+  hides the card, while restoring the authentic named-hen report makes it
+  visible again.
+- Accepted browser evidence is
+  `output/web-game/senior-empty-highlight-final-v1/shot-0.png`. The Policy Ledger
+  spans the freed width, the `+3 MARKS FORECAST` header remains distinct from
+  lifetime Roost Marks, and the report has no clipping, overlap, or browser
+  error artifact.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, and `senior_roost_integration_test.gd` pass together
+  (4/4). The beta release gate also passes.
+- All 36 distributed Web payload copies match. The 9,682,228-byte PCK SHA-256 is
+  `9C002979C6CD3BE904E2B066099B22B9E7248C88771C8CAD2B41CAA94725692E`,
+  and the local production server serves that exact PCK.
+- Temporary Godot and browser verification processes were cleaned. The
+  intentional production server remains on port 3000 as PID 27256 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: the three `SENIOR CAREER LEDGERS` tiles still
+  carry small, dense accounting lines. Consider one icon-led subtitle per tile
+  with the exact lifetime accounting retained in tooltip and accessible text.
+
+## 2026-08-03 - Glance-first Senior career ledgers
+
+- Replaced the three dense, tiny Career Ledger accounting lines with one
+  action-oriented glance state each: marks ready to spend, seals needed for the
+  next mandate tier, and whether the first quarter is open or a prior quarter
+  has filed.
+- Reused the report's established semantic symbol language (`+` achieved or
+  available, `!` warning, `>` next, `-` none) so the states remain meaningful
+  without color. The first visual pass exposed missing decorative Unicode
+  glyphs in the bundled mono font; the accepted font-safe symbols render
+  crisply in the exported game.
+- Preserved the complete available / invested / staked / forfeited accounting,
+  exact tier explanation, and quarter filing context on each tile's tooltip and
+  accessible metadata. None of that authority was removed from the report.
+- Accepted browser evidence is
+  `output/web-game/senior-ledger-glance-final-v1/shot-0.png`. All three subtitles
+  fit on one line, their teal contrast is clear, and the shorter ledger row
+  removes visual noise without introducing clipping or fallback glyphs.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, and `senior_roost_integration_test.gd` pass together
+  (4/4). The browser capture reports active Senior state with no error artifact,
+  and the beta release gate passes.
+- All 36 distributed Web payload copies match. The 9,681,892-byte PCK SHA-256 is
+  `3FFB1C33191B0CADE0D897877FAE64135264B9E68BD5769538A933B931E12A4B`,
+  and the local production server serves that exact PCK.
+- Temporary Godot and browser verification processes were cleaned. The
+  intentional production server remains on port 3000 as PID 34692 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: the active-quarter header says `1 of 3 quarter
+  shifts are now filed`; make that receipt number-aware (`shift is` versus
+  `shifts are`) and assess whether the sentence can be shortened further.
+
+## 2026-08-03 - Actionable-only Senior report controls
+
+- Removed unavailable Requisitions from the visible report action row instead
+  of reserving a disabled 180px button beside the real next action. Visibility
+  and enabled state now both follow the authoritative
+  `staffing_planning_open` flag.
+- Preserved the complete staffing path: when closing-credit work opens planning,
+  Requisitions reappears enabled, opens Flockwatch, suspends the report, and
+  restores the exact actionable report when closed.
+- Removed the repeated active-quarter subtitle below `SHIFT N FILED`. The shift
+  tile, policy receipt, heading, and primary `PLAN Q ... SHIFT ...` action already
+  communicate that state, so the extra sentence added grammar and density but
+  no decision information.
+- Accepted browser evidence is
+  `output/web-game/senior-action-hierarchy-v1/shot-0.png`. The active-quarter
+  report now leads directly from heading to metrics, and its action row contains
+  only the safe Shelve exit and the dominant next-shift plan. There is no dead
+  control, clipping, overlap, or browser error artifact.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, `senior_roost_integration_test.gd`, and
+  `staffing_ui_test.gd` pass together (5/5). The beta release gate also passes.
+- All 36 distributed Web payload copies match. The 9,683,748-byte PCK SHA-256 is
+  `1CA49A3B258A50068BD3BCF70618CBBFD79489C9386950026735AEC67BE57CC0`,
+  and the local production server serves that exact PCK.
+- Temporary Godot and browser verification processes were cleaned. The
+  intentional production server remains on port 3000 as PID 17020 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: the background `SENIOR ROOST / Y1 / Q1 / SHIFT`
+  HUD badge remains visible behind a report that already owns the complete
+  calendar context. Consider suppressing that duplicate badge while a Senior
+  report is foregrounded, then restoring it with the office.
+
+## 2026-08-03 - Single-source Senior calendar context
+
+- Suppressed the compact Senior HUD badge only while a Senior report is the
+  foreground surface. The report kicker and heading now remain the single
+  calendar authority instead of competing with a second year / quarter / shift
+  badge above the modal.
+- Kept report-owned suppression separate from the existing external drawer and
+  management-surface suppression. Leaving a report releases only its own flag;
+  it never forces the badge over a morning briefing or another blocking surface.
+- Verified both restoration paths: direct return to an unobstructed active
+  office restores the badge, while Flockwatch still suppresses and restores it
+  through its independent ownership contract.
+- Accepted browser evidence is
+  `output/web-game/senior-report-badge-final-v1/shot-0.png`. The full report is
+  centered without an orphan badge above it, no calendar information is lost,
+  and there is no clipping, overlap, or browser error artifact.
+- `opening_experience_progression_test.gd`, `probation_campaign_ui_test.gd`,
+  `senior_roost_state_test.gd`, `senior_roost_ui_test.gd`,
+  `senior_roost_integration_test.gd`, and `staffing_ui_test.gd` pass together
+  (6/6). The beta release gate also passes.
+- All 36 distributed Web payload copies match. The 9,684,020-byte PCK SHA-256 is
+  `44D71251F1D7279E7C5C41A1F49AACB1A8B34745E0D89B8395CEA17E98BDC003`,
+  and the local production server serves that exact PCK.
+- Temporary Godot and browser verification processes were cleaned. The
+  intentional production server remains on port 3000 as PID 11584 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: when no named-hen highlight exists, the two-line
+  Policy Ledger still reserves the same 96px story-card height as the richer
+  split layout. Consider a smaller evidence-only minimum in that state while
+  preserving the full-height card when a real highlight is present.
+
+## 2026-08-03 - Evidence-sized Senior story receipts
+
+- Reduced the Senior report story card from 96px to 76px only when the Policy
+  Ledger is the sole evidence and contains the compact signed quarter-policy
+  receipt. The report now fits the two authoritative lines instead of displaying
+  an empty third line of visual space.
+- Added a semantic `compact_policy_only` presentation contract rather than
+  deriving layout from rendered copy. Generic probation receipts remain at the
+  established 96px height, and any genuine named-hen highlight immediately
+  restores the full split-story height.
+- Accepted browser evidence is
+  `output/web-game/senior-policy-story-height-final-v1/shot-0.png`. The report is
+  visibly tighter without clipping, overlap, a duplicate Senior calendar badge,
+  or an unavailable Requisitions control. The browser capture produced no error
+  artifact and its state records the active Senior quarter.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, and `senior_roost_integration_test.gd` pass together
+  (4/4), including compact policy-only sizing and authentic-highlight
+  restoration. The beta release gate also passes.
+- All 36 distributed Web payload copies match. The 9,684,292-byte PCK SHA-256 is
+  `FF6497A4FE0A3D1E5336B9A5792C0766EBAA4E875C330D3203BA3AC0E92341DB`,
+  and the local production server serves that exact PCK.
+- Temporary Godot, browser, and Playwright helper processes were cleaned. The
+  intentional production server remains on port 3000 as PID 18800 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: the Senior report still carries a fixed 1040px
+  desktop minimum width. Its content is now compact enough to consider a modest
+  width reduction, but portrait and narrow-desktop containment should be audited
+  before changing that shared report width.
+
+## 2026-08-03 - Focused Senior report width
+
+- Reduced the Senior decision document from a 1040px to a 960px desktop width,
+  giving the office more visible context around the modal and shortening the
+  scan distance between related ledgers, Board targets, and actions.
+- Rebalanced only legacy minimums that prevented the tighter composition: the
+  heading now reserves 340px, while paired policy and named-hen evidence reserve
+  560px and 300px. The authentic split-story state still remains on one desktop
+  row rather than silently wrapping.
+- The first browser pass exposed a two-line `SENIOR CLAIMS ROOSTER` title at a
+  provisional 220px. Restoring its tile to 236px kept the career title on one
+  line while preserving the 960px report; the accepted second pass is
+  `output/web-game/senior-report-width-final-v2/shot-0.png`.
+- Responsive coverage confirms the report remains viewport-derived at 390x844
+  (338px wide), releases the desktop heading minimum, disables horizontal
+  scrolling, and preserves the existing vertical flow. The accepted browser
+  capture has no clipping, overlap, browser error artifact, or orphan nodes.
+- `probation_campaign_ui_test.gd`, `senior_roost_state_test.gd`,
+  `senior_roost_ui_test.gd`, and `senior_roost_integration_test.gd` pass together
+  (4/4). The beta release gate also passes.
+- All 36 distributed Web payload copies match. The 9,684,628-byte PCK SHA-256 is
+  `57306A8054B658A8820DA0B9452A08AEA1482B8E1B7BD3920E8FE3EC2F645001`,
+  and the local production server serves that exact PCK.
+- Temporary Godot, browser, and Playwright helper processes were cleaned. The
+  intentional production server remains on port 3000 as PID 39940 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: exercise the intermediate 720-1099px compact
+  breakpoint with a real three-policy filing report. The layout is contained,
+  but the 1+2 or 2+1 policy-card wrap could be made more intentional if it reads
+  unevenly at common tablet and small-laptop widths.
+
+## 2026-08-03 - Intentional responsive policy flow
+
+- Replaced incidental policy-card wrapping with an explicit comparison contract:
+  at 800px and above, three choices share one equal row; below 800px, each choice
+  becomes a full-width stacked decision card. This removes the ambiguous orphan
+  card that could otherwise read as subordinate or preselected.
+- Added a small border and rounding allowance to the computed three-column width
+  so the third policy does not jump to a second line at the exact 800px boundary.
+  At 760px the stack uses the complete report reading width, while the existing
+  390x844 portrait path remains vertical-scroll-only and horizontally contained.
+- Exposed the existing authentic probation-report capture through the local Web
+  preview map. Accepted browser evidence is
+  `output/web-game/responsive-policy-flow-final-v3/shot-0.png`; the real paired
+  credit and hen evidence, ledgers, safeguards, objective, and actions remain
+  aligned with no clipping, browser error artifact, or orphan nodes.
+- `probation_campaign_ui_test.gd`, `senior_roost_ui_test.gd`, and
+  `senior_roost_integration_test.gd` pass together (3/3). The focused UI contract
+  directly proves the 800px three-column row and 760px full-width stack. The beta
+  release gate also passes.
+- All 36 distributed Web payload copies match. The 9,685,124-byte PCK SHA-256 is
+  `171DE9D695EB2D31C68C56C4613B65600C7BBD2D63B08987545FA1F1EBD7C8DC`,
+  and the local production server serves that exact PCK.
+- Temporary Godot, browser, and Playwright helper processes were cleaned. The
+  intentional production server remains on port 3000 as PID 32064 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: the all-pass probation safeguard receipt still
+  renders five full accounting sentences. Consider a five-chip pass summary with
+  exact targets and deltas retained in tooltip and accessible detail, while
+  preserving full prose whenever any safeguard is at risk.
+
+## 2026-08-03 - Glance-first all-pass safeguards
+
+- Replaced the five repeated accounting sentences in an all-pass interim
+  probation forecast with five stable `+` chips: Score, Flock, Obedience, Favor,
+  and Shell. Each chip shows its current value and pass state in one glance.
+- Kept the authoritative rules intact. Every compact chip and the receipt panel
+  retain the exact comparison, target, and signed gap in tooltip and accessible
+  metadata; an at-risk forecast still renders every full sentence plus the
+  largest recoverable blocker.
+- The compact receipt uses five columns on desktop and two on narrow screens,
+  while the existing final-review safeguard tiles remain unchanged. Reapplying
+  a report snapshot also preserves live milestone controls and their focus flow.
+- Accepted browser evidence is
+  `output/web-game/probation-pass-chips-final-v1/shot-0.png`. The safeguard block
+  is substantially shorter, the next-shift objective rises into the initial
+  1280x720 view, and there is no clipping, overlap, browser error artifact, or
+  orphan-node growth.
+- `probation_campaign_ui_test.gd`, `senior_roost_ui_test.gd`, and
+  `senior_roost_integration_test.gd` pass together (3/3). The beta release gate
+  also passes.
+- All 36 distributed Web payload copies match. The 9,686,532-byte PCK SHA-256 is
+  `5A838F5CE8DB66A5800150CE2E4CEC23319556EB355E6E92824B88A6083281A1`,
+  and the local production server serves that exact PCK.
+- Temporary Godot, browser, and Playwright helper processes were cleaned. The
+  intentional production server remains on port 3000 as PID 42304 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: the all-pass report now exposes the next-shift
+  objective immediately, but that objective still uses three prose bullets.
+  Consider three compact order chips with the complete quota, compliance, and
+  queue rules retained as progressive detail.
+
+## 2026-08-03 - Glance-first next-shift orders
+
+- Replaced the probation report's three prose objective bullets with a compact
+  three-card order strip. Egg, shield, and inbox icons now identify quota,
+  compliance, and backlog at a glance; the cards reduce each target to `HIT
+  QUOTA`, `68+`, and `<= 3`.
+- Made the presentation state-driven by carrying the authored objective records
+  into `next_objective.orders`. The complete titles, descriptions, comparisons,
+  and targets remain available in card tooltips and accessible metadata. A lone
+  or malformed order safely falls back to the original prose description, and
+  Senior quarter-driver and Board-target strips remain unchanged.
+- Added intentional responsive sizing: the three orders share one desktop row
+  and become inset full-width cards on narrow screens. The focused UI contract
+  passes its 390x844 and 150-percent expanded-copy containment checks.
+- Accepted browser evidence is
+  `output/web-game/probation-objective-chips-final-v1/shot-0.png`. All safeguards,
+  next-shift orders, reward, and both report actions fit in the initial 1280x720
+  view with no clipping, overlap, browser error artifact, or orphan-node growth.
+- `probation_campaign_ui_test.gd`, `senior_roost_ui_test.gd`, and
+  `senior_roost_integration_test.gd` pass together (3/3). The beta release gate
+  also passes.
+- All 36 distributed Web payload copies match. The 9,690,260-byte PCK SHA-256 is
+  `4A01F369A1F009E5EFB8B0856B7DDAEECACDC38E5359FDEB23CFF899761CC1A4`,
+  and the local production server serves that exact PCK.
+- Temporary Godot, browser, and Playwright helper processes were cleaned. The
+  intentional production server remains on port 3000 as PID 41672 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: the upper score receipt still wraps into two terse
+  accounting lines. Consider five tiny signed delta chips while retaining the
+  full causal receipt as tooltip and accessible detail.
+
+## 2026-08-03 - Signed score receipt chips
+
+- Replaced the wrapped score-accounting sentence beneath the report title with
+  five compact signed chips: Orders, Clutch, Shells, Queues, and Flock. Positive
+  and negative components now use teal and rust card treatments, so the direction
+  of each contribution is visible before reading the number.
+- Preserved the authoritative receipt as progressive detail. The grid and every
+  chip retain the before/after score, exact component label, signed delta, and
+  authored cause in tooltips and accessible metadata; the Shift Score metric
+  shares the complete receipt. Missing receipt data still restores the neutral
+  explanatory sentence rather than showing an empty strip.
+- Added responsive behavior: five equal chips share the desktop heading width
+  and switch to two columns on narrow screens. The existing 390x844 and
+  150-percent expanded-copy containment checks remain green, while Senior report
+  notes continue to use their authored prose.
+- Accepted browser evidence is
+  `output/web-game/probation-score-receipt-chips-final-v1/shot-0.png`. The title
+  hierarchy is cleaner, all report sections and actions remain in the initial
+  1280x720 view, and there is no clipping, overlap, browser error artifact, or
+  orphan-node growth.
+- `probation_campaign_ui_test.gd`, `senior_roost_ui_test.gd`, and
+  `senior_roost_integration_test.gd` pass together (3/3). The beta release gate
+  also passes.
+- All 36 distributed Web payload copies match. The 9,691,908-byte PCK SHA-256 is
+  `D6E530626DECB7C1DE7231BB9A1DAF1074F55B187E768B702C9E41D72D604C4A`,
+  and the local production server serves that exact PCK.
+- Temporary Godot, browser, and Playwright helper processes were cleaned. The
+  intentional production server remains on port 3000 as PID 24288 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: the Credit Filed and Hen File cards now contain
+  the report's densest remaining prose. Consider a compact attribution/evidence
+  strip while preserving the authored narrative as progressive detail.
+
+## 2026-08-03 - Attribution and hen evidence strips
+
+- Replaced the probation report's last two prose-heavy story blocks with compact
+  evidence strips. Credit filings now show the layer, filed byline beneficiary,
+  and exact Feed Fund impact; hen highlights show eggs, sound output, the golden
+  or cracked exception, and credited value.
+- Kept the authored satire intact as progressive detail. Both cards, every chip,
+  and their hidden semantic labels retain the complete decision outcome, career
+  title, relationship, and factual shift metric in tooltips and accessible
+  metadata. Legacy highlight snapshots without structured metrics safely retain
+  the original prose and metric lines.
+- Reduced paired probation story cards from 96px to 76px only when both semantic
+  evidence strips are available. Senior policy receipts, authentic Senior hen
+  stories, lone cards, and legacy fallbacks keep their established sizing.
+- Refreshed three stale end-to-end assertions so they test the current glance
+  surfaces: the Flockwatch blocker tile, dedicated opening-contract metrics, and
+  the score receipt's progressive before/after detail.
+- Accepted browser evidence is
+  `output/web-game/probation-story-evidence-final-v1/shot-0.png`. The complete
+  1280x720 report now reads as a consistent hierarchy of chips and ledgers with
+  no clipping, overlap, browser error artifact, or orphan-node growth.
+- `campaign_ending_ui_test.gd`, `probation_campaign_integration_test.gd`,
+  `probation_campaign_ui_test.gd`, `senior_roost_integration_test.gd`, and
+  `senior_roost_ui_test.gd` pass together (5/5). The beta release gate also
+  passes.
+- All 36 distributed Web payload copies match. The 9,696,180-byte PCK SHA-256 is
+  `2B20D8C3BCA5527E64F9DBF4A9AC8697575282842FFD0D5C58A146FE4FAEE91B`,
+  and the local production server serves that exact PCK.
+- Temporary Godot, browser, and Playwright helper processes were cleaned. The
+  intentional production server remains on port 3000 as PID 33212 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: add a restrained, reduced-motion-safe filing
+  reveal for the report's signed chips and evidence tiles so the causal sequence
+  lands with more tactile payoff without adding more copy.
+
+## 2026-08-03 - Tactile report filing reveal
+
+- Added one restrained filing sequence to the between-shift report: the five
+  signed score chips arrive first, followed by the three credit-attribution
+  chips and four hen-evidence chips. The 12-step sequence uses short opacity-only
+  Godot tweens, preserves container geometry, and settles in roughly half a
+  second without adding any labels or instructions.
+- Repeated snapshots settle immediately instead of replaying stale celebration.
+  Reduced-motion mode cancels an active reveal and restores every chip to its
+  final state instantly. Stable group/order metadata makes both paths directly
+  testable without relying on screenshot timing.
+- Extended `probation_campaign_ui_test.gd` to prove the complete score-to-credit-
+  to-hen order, the instant reduced-motion path, the live staggered path, and the
+  final settled state. `campaign_ending_ui_test.gd`,
+  `probation_campaign_integration_test.gd`, `probation_campaign_ui_test.gd`,
+  `senior_roost_integration_test.gd`, and `senior_roost_ui_test.gd` pass together
+  (5/5).
+- Accepted browser evidence is
+  `output/web-game/probation-report-filing-reveal-final-v1/shot-0.png`. The
+  settled 1280x720 report remains fully visible and readable, with no clipping,
+  overlap, browser error artifact, or orphan-node growth.
+- The Vinext production build, ESLint, and all 49/49 rendered and physical Web
+  tests pass under bundled Node 24. The Web-only beta release gate passes all
+  9 checks at
+  `output/release/probation-report-filing-reveal-beta-release-gate.json`.
+- All 36 distributed Web payload copies match. The 9,698,212-byte PCK SHA-256 is
+  `75A46506A956A167D68AB556A549C5A8C1BE934E5C133E523B0685226359EB6A`,
+  and the local production server serves that exact PCK.
+- Export backups, the accidental package-manager probe files, and every Godot,
+  browser, and official Playwright process launched by this pass were cleaned.
+  The intentional production server remains on port 3000 as PID 33212 with HTTP
+  200. The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: pair the final evidence chip with one quiet
+  semantic file-stamp cue, respecting the existing audio, reduced-motion, and
+  focus-pause preferences so the payoff remains tactile without becoming noisy.
+
+## 2026-08-03 - Semantic report filing receipt
+
+- Added one procedural `report_filed` receipt at the actual end of the report's
+  score-to-credit-to-hen evidence sweep. The dry two-contact stamp is synthesized
+  once, reuses the fixed eight-voice pool, routes through the independently
+  adjustable UI bus, and is deliberately quieter and shorter than policies,
+  commendations, or campaign verdicts.
+- Kept presentation timing and audio policy separated by a semantic
+  `report_filing_settled` signal. Standard motion cues only after the final chip;
+  reduced motion settles and cues immediately; identical report snapshots do
+  neither again. Focus pause discards the one-shot rather than replaying it late,
+  and routine report filing intentionally emits no vibration.
+- Fixed a stale hidden-state defect found by the new signal test: reports without
+  credit or hen evidence now clear the old child strips and their compact-card
+  metadata, preventing invisible chips from driving hidden animation or audio.
+- `audio_feedback_test.gd`, `campaign_ending_ui_test.gd`,
+  `probation_campaign_integration_test.gd`, `probation_campaign_ui_test.gd`,
+  `senior_roost_integration_test.gd`, and `senior_roost_ui_test.gd` pass together
+  (6/6). The tests cover fixed-pool reuse, UI-bus routing, no routine haptic,
+  duplicate limiting, focus pause, reduced-motion timing, stale-state cleanup,
+  and the real Office presentation handoff.
+- Accepted browser evidence is
+  `output/web-game/report-filing-audio-final-v1/shot-0.png`. The complete report
+  remains contained and readable. Its diagnostic records exactly one
+  `report_filed` cue on `UI`, zero haptics, zero errors, and zero orphan nodes.
+- The bundled-Node Web gate passes ESLint, all 49/49 rendered and physical Web
+  tests, the production-server contract, and all 9 release checks at
+  `output/release/report-filing-audio-beta-release-gate.json`.
+- All 36 distributed Web payload copies match. The 9,698,084-byte PCK SHA-256 is
+  `CABC5F5C9240F5FC0DE74A944241282FE269A56A059FCACADB9E3E34A369DC1D`,
+  and the local production server serves that exact PCK.
+- Every Godot, browser, and official Playwright process launched by this pass was
+  cleaned, with no export or package-manager artifacts left behind. The
+  intentional production server remains on port 3000 as PID 33212 with HTTP 200.
+  The official browser helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: replace the remaining objective reward sentence
+  with one compact signed reward badge beside the three order cards, retaining
+  the authored explanation in tooltip and accessible detail.
+
+## 2026-08-03 - Compact probation reward badge
+
+- Replaced the probation objective's final reward sentence with one compact
+  `+3 SCORE` badge in the objective header. The three icon-led order cards now
+  carry the complete visible play instruction with no extra prose line beneath
+  them.
+- Added `reward_score` to the authoritative probation presentation snapshot so
+  the signed badge is driven by gameplay data rather than parsed display copy.
+  The complete authored reward rule remains on both the badge and objective card
+  as tooltip and accessible detail.
+- Kept every non-probation fallback intact. Legacy objectives still render their
+  reward text, and Senior Roost reports keep the full annual Board progress line
+  while suppressing the probation-only score badge.
+- `campaign_ending_ui_test.gd`, `probation_campaign_integration_test.gd`,
+  `probation_campaign_ui_test.gd`, `senior_roost_integration_test.gd`, and
+  `senior_roost_ui_test.gd` pass together (5/5). The bundled-Node Web gate passes
+  ESLint, all 49/49 rendered and physical Web tests, the production-server
+  contract, and all 9 release checks at
+  `output/release/objective-reward-badge-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/objective-reward-badge-final-v1/shot-0.png`. The badge is
+  visually grouped with the three orders, the prior reward sentence is gone,
+  every report action remains visible at 1280x720, and the diagnostic records
+  zero console/page errors, zero orphan nodes, one `report_filed` cue on `UI`,
+  and zero haptics.
+- All 36 distributed Web payload copies match. The 9,699,460-byte PCK SHA-256 is
+  `E82049F36C026E1A2C0538951DB8E0E3AF907A468355F75F70ADC16D92B1DEC7`,
+  and the local production server serves that exact PCK.
+- Temporary Godot and helper processes were cleaned. The helper's one lingering
+  isolated headless Chromium tree and its exact temporary Playwright profile
+  were also removed; normal browsers were untouched. The intentional production
+  server remains on port 3000 as PID 33212 with HTTP 200.
+- Suggested next polish audit: tighten the cumulative ledger captions into
+  metric-first labels so the middle of the report scans as quickly as its new
+  receipt, evidence, safeguard, and objective strips.
+
+## 2026-08-03 - Value-first probation and career records
+
+- Rebuilt the three report record cards around a two-line, value-first hierarchy:
+  the large metric and plain-language label now share the first line, with only
+  the compact qualifier beneath. Card height dropped from 73px to 60px without
+  shrinking the primary values or changing their authoritative formatting.
+- Replaced `CUMULATIVE PROBATION LEDGERS` with `PROBATION RECORD // 5-SHIFT VIEW`
+  and `SENIOR CAREER LEDGERS` with `SENIOR CAREER RECORD`. Predictable visible
+  bookkeeping phrases now contract to `5-SHIFT AVG`, `2-SHIFT TOTAL`, and
+  `$68.00 CREDIT`; exact authored accounting remains on each card as tooltip and
+  accessible detail.
+- Added stable `metric_first` metadata and named metric rows so the hierarchy is
+  directly testable. Probation and Senior layouts use the same component, while
+  explicit Senior glance states and lifetime-accounting tooltips remain intact.
+- `probation_campaign_ui_test.gd`, `senior_roost_ui_test.gd`,
+  `probation_campaign_integration_test.gd`, and
+  `senior_roost_integration_test.gd` pass together (4/4), including desktop,
+  390x844, and 150-percent expanded-copy coverage.
+- Accepted browser evidence is
+  `output/web-game/value-first-record-final-v1/shot-0.png`. The three metrics
+  scan left-to-right in one line, every report action remains above the fold at
+  1280x720, and the diagnostic records zero console/page errors, zero orphan
+  nodes, one `report_filed` cue on `UI`, and zero haptics.
+- The bundled-Node Web gate passes ESLint, all 49/49 rendered and physical Web
+  tests, the production-server contract, and all 9 release checks at
+  `output/release/value-first-record-beta-release-gate.json`.
+- All 36 distributed Web payload copies match. The 9,701,444-byte PCK SHA-256 is
+  `81D0B25ECFE24F6AFF36D5CAB74CA2B14D84A8FFC267E254FDBD70B0E7469A65`,
+  and the local production server serves that exact PCK.
+- Temporary Godot, helper, and headless-browser processes from this pass are
+  closed with no export backup artifacts left behind. The intentional production
+  server remains on port 3000 as PID 33212 with HTTP 200. The official browser
+  helper remains unchanged at SHA-256
+  `E95C3BCBDC0D15EB08FD3A6021283EC32F715B51F1E5847D3DB20DF526BE5996`.
+- Suggested next polish audit: replace the remaining `PROBATION PASS SAFEGUARDS`
+  filing jargon with a compact five-target pass check while preserving every
+  threshold, comparison, and signed gap in progressive detail.
+
+## 2026-08-03 - Compact five-target pass checks
+
+- Replaced the probation report's dense safeguard ledger with the same five
+  compact status chips in both healthy and at-risk states. The report now leads
+  with `PASS CHECK // 5 TARGETS`, a plain pass count, and one concise next fix;
+  an at-risk favor result reads `! FAVOR / 49 / NEED 1` while passing targets
+  stay visually quiet.
+- Preserved the complete authoritative rule on every chip through tooltip and
+  accessibility text, including metric name, comparison, threshold, and signed
+  gap. The hidden detailed rows remain populated for final-receipt semantics,
+  while report presentation no longer asks players to parse a second ledger.
+- Added the deterministic `probation-report-risk` Web preview backed by the real
+  campaign forecast so the single-blocker hierarchy can be reviewed without
+  mutating a save.
+- `probation_campaign_ui_test.gd` and `campaign_ending_ui_test.gd` pass (2/2),
+  including desktop, 390x844, 150-percent expanded-copy, at-risk, all-pass, and
+  final-receipt coverage. The bundled-Node Web gate passes all 9 release checks,
+  including ESLint and all 49/49 rendered and physical Web tests, at
+  `output/release/pass-check-chips-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/pass-check-chips-final-v1/shot-0.png` for the healthy state
+  and `output/web-game/pass-check-risk-final-v3/shot-0.png` for the at-risk
+  state. Both keep every report action above the fold. The at-risk diagnostic
+  records exactly one recoverable blocker, four passing targets, zero
+  console/page errors, zero orphan nodes, one `report_filed` cue on `UI`, and
+  zero haptics.
+- All 36 distributed Web payload copies match. The 9,700,644-byte PCK SHA-256 is
+  `7C2DE8A96FEC2BC69E6DCEBAC2ACB43C107F3D8FBCEA408C35D0D41CF2160AF2`.
+  The intentional production server remains on port 3000 as PID 33212 with HTTP
+  200 and serves that exact PCK.
+- The isolated latest-build server on port 3011 and the official helper's
+  browser were closed after capture; no temporary server remains. Suggested
+  next polish audit: simplify the top assessment strip's remaining accounting
+  labels into icon-first receipts while retaining their exact filing detail on
+  demand.
+
+## 2026-08-03 - Icon-first shift score receipt
+
+- Replaced the five repeated score-component captions beneath the report title
+  with cached procedural symbols for orders, clutch, shell quality, queue
+  control, and flock care. Each compact chip now pairs one distinct shape with
+  only its signed score delta, turning the assessment header into a fast causal
+  read instead of another accounting row.
+- Added dedicated shell, flock-care, score-cap, and specialty-seal vectors to
+  the shared management icon language. The receipt reuses existing compliance,
+  egg, and tray symbols where their meaning already matches; every chip exposes
+  stable `icon_first` and `semantic_icon` metadata for regression coverage.
+- Preserved each complete component name, signed value, authored cause, whole
+  shift score transition, tooltip, and accessible description. Shape and sign
+  carry the distinction independently of color, and the same component logic
+  supports negative, capped, and milestone outcomes.
+- `probation_campaign_ui_test.gd` and `campaign_ending_ui_test.gd` pass (2/2),
+  including desktop, 390x844, 150-percent expanded-copy, and ending coverage.
+  The bundled-Node Web gate passes all 9 release checks, including ESLint, all
+  49/49 rendered and physical Web tests, and the production-server payload
+  contract at `output/release/icon-score-receipt-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/icon-score-receipt-local-final-v1/shot-0.png`. All report
+  actions remain above the fold; diagnostics record zero console/page errors,
+  zero orphan nodes, one semantic `report_filed` UI cue, and zero haptics.
+- All 36 distributed Web payload copies match. The 9,702,292-byte PCK SHA-256 is
+  `6572B47249FA47817E7DF476EF8DC98D99F77A6078A57E9F275051FBBF557D98`,
+  and the local production server serves that exact payload.
+- The isolated port-3011 server and every helper browser were closed. The stale
+  intentional server was refreshed onto the current production bundle and now
+  remains at port 3000 as PID 41304 with HTTP 200. Suggested next polish audit:
+  turn the credit and hen-evidence headers into one outcome-first story beat so
+  the report's middle reads as quickly as its score receipt and pass check.
+
+## 2026-08-03 - Outcome-first report stories
+
+- Reworked the report's paired credit and hen cards around the result rather
+  than the filing form. Credit now leads with the chosen outcome, such as
+  `SHARE THE SCOOP // CREDIT`, and the hen card leads with identity/relationship
+  plus its authored highlight, such as `MABEL // WARY` and
+  `GOLDEN DELIVERABLE`.
+- Replaced seven repeated field captions (`LAYER`, `BYLINE`, `FUND`, `EGGS`,
+  `SOUND`, `GOLD`, and `CREDIT`) with cached hen, flock, Feed Fund, egg, shield,
+  star, and cracked-shell symbols paired with their exact values. Added reusable
+  procedural hen and Feed Fund icons to the shared management icon language.
+- Preserved the complete memo classification, authored outcome, named subject,
+  attribution transfer, exact cost, career title, relationship, production
+  evidence, and credit amount in tooltip/accessibility detail. Senior policy
+  receipts retain their existing accounting layout.
+- The first browser capture exposed a zero-width autowrap defect that stacked
+  values one character per line and pushed actions below the fold. Icon-led
+  values now have explicit intrinsic widths, no-wrap behavior, and predictable
+  compact-card sizing; the corrected browser frame keeps both actions visible.
+- `probation_campaign_ui_test.gd` and `campaign_ending_ui_test.gd` pass (2/2),
+  including desktop, 390x844, 150-percent expanded-copy, standard credit,
+  Golden Dossier, Flock Restructuring, and final-ending coverage. The bundled
+  Node gate passes all 9 release checks and all 49/49 rendered/physical Web
+  tests at `output/release/outcome-first-story-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/outcome-first-story-final-v2/shot-0.png`. The corrected frame
+  records zero console/page errors, zero orphan nodes, one `report_filed` cue on
+  the UI bus, and zero haptics.
+- All 36 distributed Web payload copies match. The 9,704,660-byte PCK SHA-256 is
+  `F1A0C4D13DC3235A311E3D57E60BE7BD7F6DD50657BAAF0A574018869B8182C6`,
+  and the intentional production server on port 3000 (PID 41304) serves that
+  exact payload with HTTP 200. Every helper browser and Godot process launched
+  for the pass was closed.
+- Suggested next polish audit: shorten the remaining `CLOSING FILE 3 / 3` report
+  kicker into a plain shift-result label while keeping campaign stage and filing
+  provenance in its tooltip and accessible text.
+
+## 2026-08-03 - Plain shift-result report header
+
+- Replaced the probation report's long `CLOSING FILE 3 / 3 · SHIFT N OF 5 ·
+  PROBATION REPORT` kicker with the glance-readable `SHIFT N RESULTS`. The large
+  assessment title now has one quiet context cue instead of a second title made
+  from filing provenance.
+- Preserved the complete original closing-file, shift-count, campaign-stage, and
+  report classification string as the kicker's tooltip and accessible label.
+  Stable `glance_kicker` metadata makes the progressive-disclosure contract
+  directly testable, while Senior reports retain their year/quarter kicker.
+- `probation_campaign_ui_test.gd`, `campaign_ending_ui_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3), including desktop, 390x844,
+  150-percent expanded-copy, probation endings, and Senior report coverage.
+  The bundled-Node gate passes all 9 release checks and all 49/49 rendered and
+  physical Web tests at
+  `output/release/plain-report-kicker-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/plain-report-kicker-final-v1/shot-0.png`. The quiet kicker
+  leaves every report action above the fold and records zero console/page
+  errors, zero orphan nodes, one `report_filed` UI cue, and zero haptics.
+- All 36 distributed Web payload copies match. The 9,704,484-byte PCK SHA-256 is
+  `A2A0F97189DCC56CFA5D705A2EC28F59F9AA8D7629158A5CF5EC0A9970210167`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helper and Godot test processes closed.
+- Suggested next polish audit: make the two report actions outcome-first so a
+  player can predict whether each button returns to planning or advances the
+  campaign without interpreting `SHELVE` and `FILE & PLAN` filing metaphors.
+
+## 2026-08-03 - Outcome-first report actions
+
+- Renamed the probation report's secondary `SHELVE` action to `SAVE & EXIT` and
+  its primary `FILE & PLAN` action to `NEXT SHIFT`. Players can now predict the
+  outcome of either decision without translating the bureau's filing metaphor.
+- Kept the existing safe-shelf and forward-arrow symbols, `[A]` and `[C]`
+  shortcuts, visual priority, public signals, checkpoint behavior, and Senior
+  policy/mandate filing labels. Stable `outcome_first_action` metadata records
+  the safe-exit and advance semantics directly.
+- Rewrote the secondary action's full assistive description to explicitly state
+  that it saves the career checkpoint, returns to intake, and resumes from the
+  exact checkpoint. The primary button retains the complete authored
+  `FILE REPORT & PLAN NEXT SHIFT` explanation for progressive detail.
+- `probation_campaign_ui_test.gd`, `campaign_ending_ui_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3), including direct activation of both
+  public actions, desktop, 390x844, 150-percent expanded-copy, endings, and
+  Senior policy coverage. The bundled-Node gate passes all 9 release checks and
+  all 49/49 rendered/physical Web tests at
+  `output/release/outcome-first-report-actions-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/outcome-first-report-actions-final-v1/shot-0.png`. Both
+  buttons remain fully visible and visually ordered at 1280x720; diagnostics
+  record zero console/page errors, zero orphan nodes, one `report_filed` UI cue,
+  and zero haptics.
+- All 36 distributed Web payload copies match. The 9,704,580-byte PCK SHA-256 is
+  `06492941B068126161D413D95E81B0B31817C2C9EDC5CE4862CE75CCE864BBB9`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helper and Godot processes closed.
+- Suggested next polish audit: collapse the redundant `NEXT SHIFT OBJECTIVE //
+  DAY N PROBATION ORDERS` heading into the simpler `DAY N ORDERS`, preserving
+  its full campaign and reward context on demand.
+
+## 2026-08-03 - Compact day-specific order heading
+
+- Replaced the probation report's redundant `NEXT SHIFT OBJECTIVE // DAY N
+  PROBATION ORDERS` heading with the glance-readable `DAY N ORDERS`. The three
+  icon-led order cards and the score reward now carry the gameplay meaning
+  without a second explanatory title.
+- Preserved the complete authored section/title string and reward rule in the
+  heading's tooltip and accessible text. Stable `compact_orders_heading`
+  metadata makes that progressive-disclosure contract directly testable;
+  Senior quarterly objective headings remain unchanged.
+- `probation_campaign_ui_test.gd`, `campaign_ending_ui_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3), including probation and Senior report
+  regressions. The bundled-Node release gate passes all 9 checks and all 49/49
+  rendered Web tests at
+  `output/release/compact-day-orders-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/compact-day-orders-final-v1/shot-0.png`. The report remains
+  fully visible at 1280x720 and diagnostics record a loaded game, all five
+  safeguards passing, zero orphan nodes, the expected `report_filed` UI cue,
+  and zero haptics or browser errors.
+- All 36 distributed Web payload copies match. The 9,705,108-byte PCK SHA-256
+  is `C72D9E6EF7C6ED0A82CC5FF6743887537FE3E7BF0B075FD8DB1736F7118DC343`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helper and Godot processes closed, no
+  alternate test listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: simplify `PROBATION RECORD // 5-SHIFT VIEW` to
+  `5-SHIFT RECORD`, retaining the full campaign context on hover and for
+  assistive readers.
+
+## 2026-08-03 - Compact five-shift record heading
+
+- Replaced the report divider `PROBATION RECORD // 5-SHIFT VIEW` with the
+  glance-readable `5-SHIFT RECORD`. The visible day counter, three cumulative
+  metrics, and pass panel already communicate the surrounding campaign context.
+- Preserved the complete authored divider as the label's tooltip and accessible
+  name. Stable `compact_record_heading` metadata makes the progressive-detail
+  contract testable, while custom ledger titles and `SENIOR CAREER RECORD`
+  remain unchanged.
+- `probation_campaign_ui_test.gd`, `campaign_ending_ui_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3). The bundled-Node release gate passes all
+  9 checks and all 49/49 rendered Web tests at
+  `output/release/compact-record-heading-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/compact-record-heading-final-v1/shot-0.png`. The quieter
+  divider keeps the report balanced and fully visible at 1280x720; runtime
+  diagnostics record a loaded game, all five safeguards passing, zero orphan
+  nodes, the expected `report_filed` UI cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,705,556-byte PCK SHA-256
+  is `8FF315F41F0B397DAFFC5D7F39DE094F17A067701291F232A1ADBE0D9BB237B6`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All test/helper processes closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: simplify the duplicated `PASS CHECK // 5
+  TARGETS` and `ALL 5 PASS // SHIFT N / 5` copy into one clear probation-check
+  label and one compact `5/5 PASS` status line.
+
+## 2026-08-03 - Compact probation check
+
+- Replaced the between-shift panel's duplicated `PASS CHECK // 5 TARGETS` and
+  `ALL 5 PASS // SHIFT N / 5` hierarchy with the clearer `PROBATION CHECK` and
+  `5/5 PASS // SHIFT N/5`. At-risk reports use the same numeric status followed
+  by the single actionable `FIX` cue.
+- Preserved the exact authored pass-check heading, full contract, thresholds,
+  comparisons, and signed gaps in tooltips and accessible text. Stable
+  `compact_pass_heading` metadata makes that progressive-disclosure contract
+  testable; the final campaign receipt keeps its formal closing heading.
+- `probation_campaign_ui_test.gd`, `campaign_ending_ui_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3), including all-pass and recoverable-gap
+  report states. The bundled-Node release gate passes all 9 checks and all 49/49
+  rendered Web tests at
+  `output/release/compact-probation-check-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/compact-probation-check-final-v1/shot-0.png`. The numeric
+  status scans directly into the five contributing chips, all report controls
+  remain above the fold, and diagnostics record a loaded game, five passing
+  safeguards, zero orphan nodes, the expected `report_filed` UI cue, zero
+  haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,705,396-byte PCK SHA-256
+  is `F5113A8F6C0964CC948B0D1FBA62F439B936FE766C685C309CDF6D9DF83A345C`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helper/test processes closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: replace `SHARE THE SCOOP // CREDIT` with the
+  outcome-first `CREDIT GOES TO`, retaining the original bureau attribution
+  language as progressive detail.
+
+## 2026-08-04 - Outcome-first credit heading
+
+- Replaced the probation report's option-first `SHARE THE SCOOP // CREDIT`-style
+  heading with the plain `CREDIT GOES TO`. The three adjacent icon chips now
+  answer the natural follow-up directly: named layer, flock share, and fund cost.
+- Preserved each exact authored decision, filing type, subject, attribution
+  route, fund effect, and narrative outcome in the label/card tooltip and
+  accessible text. Stable `outcome_first_credit_heading` metadata distinguishes
+  probation attribution from Senior policy-ledger receipts and resets cleanly
+  across reused report views.
+- `probation_campaign_ui_test.gd`, `campaign_ending_ui_test.gd`,
+  `senior_roost_ui_test.gd`, and the full `decision_loop_ui_test.gd` pass (4/4).
+  The decision-loop coverage now dismisses visible character asides before
+  asserting restored simulation speeds, matching the real pause/dismiss/resume
+  interaction. The bundled-Node release gate passes all 9 checks and all 49/49
+  rendered Web tests at
+  `output/release/outcome-first-credit-heading-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/outcome-first-credit-heading-final-v1/shot-0.png`. The credit
+  result reads directly into the three evidence chips, all report controls stay
+  above the fold, and diagnostics record a loaded game, five passing safeguards,
+  zero orphan nodes, the expected `report_filed` UI cue, zero haptics, and no
+  browser errors.
+- All 36 distributed Web payload copies match. The 9,705,492-byte PCK SHA-256
+  is `8FCC5812516D3F58F5B7F547E8C82A51F9E8ABEB58246257CD6402D163FE6BC3`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helper/test processes closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: replace the repeated `/ PASS` suffix inside each
+  green safeguard chip with a consistent checkmark badge, retaining the written
+  status in tooltips and accessible text so the row becomes even faster to scan.
+
+## 2026-08-04 - Symbol-first safeguard chips
+
+- Replaced the repeated `+ METRIC / VALUE / PASS` copy in every between-shift
+  safeguard chip with a ringed check badge plus only the metric and value.
+  At-risk chips use a distinct diamond-exclamation badge and retain the compact
+  `NEED N` recovery amount.
+- Added reusable `status_pass` and `status_need` vector icons to the management
+  theme. Their ring-versus-diamond silhouettes communicate state without color;
+  each chip still exposes the complete written PASS/AT RISK rule, threshold,
+  comparison, and signed gap through tooltip and accessible text.
+- The first glyph-based draft exposed a three-pixel overflow at 390x844 with
+  150-percent UI scale and expanded copy. Replacing the font glyph with a drawn
+  badge and retaining a compact two-line metric/value stack restored full mobile
+  containment and physical access to both report actions.
+- `probation_campaign_ui_test.gd`, `campaign_ending_ui_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3), including all-pass, recoverable-gap,
+  desktop, 390x844, and 150-percent expanded-copy states. The bundled-Node gate
+  passes all 9 release checks and all 49/49 rendered Web tests at
+  `output/release/symbol-first-safeguards-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/symbol-first-safeguards-final-v1/shot-0.png`. Five consistent
+  checks now lead the safeguard row without repeated PASS text; diagnostics
+  record a loaded game, five passing safeguards, zero orphan nodes, the expected
+  `report_filed` UI cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,706,548-byte PCK SHA-256
+  is `009C903C935A6ABBE4CCFFE6B9AD2DADACB83C9D9AD33B5A46A80C77FB2F57A8`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helper/test processes closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: turn the small `DAY N / 5` campaign counter into
+  a five-segment progress rail, retaining the exact day text for tooltips and
+  assistive readers so probation progress is understood before it is read.
+
+## 2026-08-04 - Five-segment probation day rail
+
+- Added a five-segment progress rail beneath the probation badge so campaign
+  position reads visually at a glance. Completed, current, and upcoming shifts
+  use distinct states while the exact `DAY N / 5` text remains visible.
+- Preserved the authored day count, segment state, and current-shift wording in
+  metadata, tooltips, and accessible text. The rail is suppressed in Senior
+  Roost mode, where the probation timeline no longer applies.
+- `probation_campaign_integration_test.gd`, `probation_campaign_ui_test.gd`,
+  and `senior_roost_ui_test.gd` pass (3/3), including day-one, day-three, and
+  Senior-state coverage. The bundled-Node gate passes all 9 release checks and
+  all 49/49 rendered Web tests at
+  `output/release/probation-day-rail-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/probation-day-rail-final-v1/shot-0.png`. The first segment is
+  visibly current, the remaining four are upcoming, the exact day copy stays
+  legible, and the taller badge remains clear of the report. Diagnostics record
+  a loaded game, five passing safeguards, zero orphan nodes, the expected
+  `report_filed` UI cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,708,276-byte PCK SHA-256
+  is `53B9FA04CE488A92B3ECA8BA8650F473837781C17B6E0737614E239FBEBE3651`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helpers started by this pass closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: distinguish the report's `SHIFT SCORE +23` from
+  total `SCORE 73` with a small delta badge and the visible caption `THIS SHIFT`,
+  retaining the authored wording in tooltip and accessible text.
+
+## 2026-08-04 - Directional shift-score receipt
+
+- Reframed the report's second score card from the accounting-like `SHIFT SCORE`
+  to the plain visible caption `THIS SHIFT`, so it cannot be mistaken for the
+  adjacent cumulative `SCORE` total.
+- Added compact, shape-distinct rising, falling, and level score icons. The live
+  receipt chooses the correct direction from its authoritative signed delta;
+  missing receipts show `--` without an icon, and Senior Roost calendar metrics
+  retain their authored caption without inheriting probation movement semantics.
+- Preserved `SHIFT SCORE`, the exact signed value, the before/after total, and
+  every causal receipt component in tooltips, metadata, and accessible text.
+- `probation_campaign_ui_test.gd`, `probation_campaign_integration_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3). The bundled-Node release gate passes all
+  9 checks and all 49/49 rendered Web tests at
+  `output/release/shift-score-delta-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/shift-score-delta-final-v1/shot-0.png`. The cumulative total
+  and this-shift movement now read as different concepts at a glance; all report
+  controls remain above the fold. Diagnostics record a loaded game, five passing
+  safeguards, zero orphan nodes, the expected `report_filed` cue, zero haptics,
+  and no browser errors.
+- All 36 distributed Web payload copies match. The 9,710,756-byte PCK SHA-256
+  is `524A76CC7F16A4236DEC5BEFFC395EA2D2711B43E3FD2AFBAD508FF121421ACC`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helpers started by this pass closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: remove the repeated `SHIFT N/5` text from the
+  visible probation-check summary now that the persistent five-segment badge
+  carries time, retaining that exact context in tooltip and accessible text.
+
+## 2026-08-04 - Compact probation status line
+
+- Removed the duplicate `SHIFT N/5` clause from the visible between-shift
+  probation check. The persistent five-segment badge already communicates time,
+  so the receipt now leads with only the actionable status: `5/5 PASS`, or the
+  pass count followed by one `FIX` target when a safeguard is at risk.
+- Retained the exact completed/required shift count, contract, pass state, and
+  every safeguard comparison in tooltip and accessible text. Stable metadata
+  records that visible shift context comes from the persistent day rail.
+- `probation_campaign_ui_test.gd`, `probation_campaign_integration_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3), including desktop, mobile, 150-percent
+  UI scale, real campaign receipts, and Senior isolation. The bundled-Node gate
+  passes all 9 checks and all 49/49 rendered Web tests at
+  `output/release/compact-probation-status-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/compact-probation-status-final-v1/shot-0.png`. The report now
+  reads `PROBATION CHECK / 5/5 PASS` without repeating the visible `DAY 1 / 5`
+  badge; all controls remain above the fold. Diagnostics record a loaded game,
+  five passing safeguards, zero orphan nodes, the expected `report_filed` cue,
+  zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,710,900-byte PCK SHA-256
+  is `3FCE15CC621AF79ED062D0F55922CC70CDE93453F0325ACE3706F31C6086C375`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helpers started by this pass closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: collapse the duplicated `SHIFT N RESULTS` kicker
+  and `FARMER'S SHIFT ASSESSMENT` title into one stronger result heading, while
+  retaining closing-file provenance in tooltip and accessible text.
+
+## 2026-08-04 - Unified shift-results heading
+
+- Collapsed the probation report's small `SHIFT N RESULTS` kicker and large
+  `FARMER'S SHIFT ASSESSMENT` title into one strong `SHIFT N RESULTS` heading.
+  This removes a complete line of repeated orientation and gives the score
+  receipt row more breathing room.
+- Preserved the authored assessment title and full closing-file provenance in
+  the merged heading's tooltip, metadata, and accessible text. Senior Roost
+  keeps its separate year/quarter kicker and authored filing heading because
+  both pieces carry distinct career-calendar meaning there.
+- `probation_campaign_ui_test.gd`, `probation_campaign_integration_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3), including desktop, mobile, 150-percent
+  UI scale, real campaign receipts, and Senior reuse. The bundled-Node release
+  gate passes all 9 checks and all 49/49 rendered Web tests at
+  `output/release/merged-report-heading-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/merged-report-heading-final-v1/shot-0.png`. One result heading
+  now anchors the five score components and three outcome metrics; the complete
+  report is shorter and every action remains above the fold. Diagnostics record
+  a loaded game, five passing safeguards, zero orphan nodes, the expected
+  `report_filed` cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,711,220-byte PCK SHA-256
+  is `45D20458D483111ECC60470A33C49D00A7FBBF8BA4D026A1BA9920D58CB889E6`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helpers started by this pass closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: give the spacious rank card one compact,
+  shape-distinct rank crest so promotion status feels earned and reads visually
+  without adding another explanatory sentence.
+
+## 2026-08-04 - Earned-rank crest
+
+- Added a compact comb-topped shield crest to the report rank card. Its star seal
+  makes rank and promotion status recognizable as a reward without adding more
+  visible explanation or reusing the report's receipt/action symbols.
+- Preserved exact progressive and assistive detail on the crest, title, rank
+  caption, tooltip, and accessibility metadata. Senior Roost now explicitly
+  identifies the same component as `CAREER TITLE  //  SENIOR CLAIMS ROOSTER`.
+- Browser inspection caught the first widened-card treatment wrapping the entire
+  rank card onto a second header row. The final treatment keeps the established
+  236px card, uses a 20px crest and compact title type, and holds all report
+  metrics on one row while keeping the longest Senior title unwrapped.
+- `probation_campaign_ui_test.gd`, `probation_campaign_integration_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3). The bundled-Node release gate passes all
+  9 checks and all 49/49 rendered Web tests at
+  `output/release/rank-crest-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/rank-crest-final-v2/shot-0.png`. Diagnostics record a loaded
+  game, five passing safeguards, zero orphan nodes, the expected `report_filed`
+  cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,712,644-byte PCK SHA-256 is
+  `44AE2BE864B7DECB2F44F06FDAE9ED2BDF103BDC127A2EA91E1C2DE02A3DE9FB`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. All helpers started by this pass closed, no
+  alternate listener remains, and the export roots contain no temp files.
+- Suggested next polish audit: add one subtle visual connector between the five
+  score receipts and `THIS SHIFT` so their sum reads instantly without another
+  sentence, while preserving every exact component in progressive detail.
+
+## 2026-08-04 - Receipt-to-score visual flow
+
+- Reordered filed probation results into one causal left-to-right scan:
+  five signed receipt chips -> `THIS SHIFT` total -> cumulative `SCORE` -> rank.
+  This removes the unrelated cumulative card that previously interrupted the
+  calculation, without adding any visible instructional copy.
+- Replaced the shift card's generic movement badge with a compact many-to-one
+  receipt glyph. Semantic metadata retains gain/loss/even direction, identifies
+  all five source components, and preserves the exact before/after calculation
+  in tooltip and assistive text.
+- Kept Senior Roost's authored primary-score-before-calendar hierarchy intact;
+  only a valid probation score receipt enables the equation layout.
+- `probation_campaign_ui_test.gd`, `probation_campaign_integration_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3). The bundled-Node release gate passes all
+  9 checks and all 49/49 rendered Web tests at
+  `output/release/score-flow-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/score-flow-final-v1/shot-0.png`. The complete report remains
+  above the fold and diagnostics record a loaded game, five passing safeguards,
+  zero orphan nodes, the expected `report_filed` cue, zero haptics, and no
+  browser errors.
+- All 36 distributed Web payload copies match. The 9,713,732-byte PCK SHA-256 is
+  `9119D09FFF70666C981CCFF4F44D194CDF64F811517A3FC79D059D62B50DC7C4`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. Export roots contain no temp files.
+- Suggested next polish audit: let the staggered receipt reveal finish with one
+  restrained, reduced-motion-safe pulse on the shift-total card, reinforcing
+  the calculation as a satisfying filed result without another label.
+
+## 2026-08-04 - Shift-total confirmation pulse
+
+- Extended the existing evidence filing sequence with one restrained 3.5-percent
+  pulse on the `THIS SHIFT` card after the final receipt, credit, and hen-evidence
+  chip lands. The total now feels causally earned without adding copy, particles,
+  or layout movement.
+- Synchronized the quiet `report_filed` cue to the end of the pulse so visual and
+  audio confirmation resolve as one result moment. The full sequence remains
+  below one second.
+- Reduced-motion mode skips scaling, settles the same semantic result instantly,
+  and still emits exactly one filing receipt. Senior reports without the
+  probation receipt equation skip the total pulse and retain their authored flow.
+- Isolated the motion fixture from a deliberately merged Senior badge state,
+  preventing stale identity from contaminating the independent probation reveal
+  scenario.
+- `probation_campaign_ui_test.gd`, `probation_campaign_integration_test.gd`, and
+  `senior_roost_ui_test.gd` pass (3/3). The bundled-Node release gate passes all
+  9 checks and all 49/49 rendered Web tests at
+  `output/release/score-total-pulse-beta-release-gate.json`.
+- Accepted settled browser evidence is
+  `output/web-game/score-total-pulse-final-v1/shot-0.png`; a mid-sequence capture
+  is at `output/web-game/score-total-pulse-mid-v1/shot-0.png`. Diagnostics record
+  a loaded game, five passing safeguards, zero orphan nodes, the expected
+  `report_filed` cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,715,636-byte PCK SHA-256 is
+  `C3E33A871931DAB035A90077611B68E3DC7A0C024846E8D8DB9817BF888DC563`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. Export roots contain no temp files.
+- Suggested next polish audit: add one thin, threshold-backed progress rail to
+  the rank card so the current title also communicates momentum toward the next
+  promotion without another visible sentence.
+
+## 2026-08-04 - Threshold-backed rank momentum
+
+- Added an authoritative rank-progress projection to `CampaignState`. Every
+  probation score now exposes its current 20-point band, exact next threshold,
+  remaining points, next title, and deterministic basis-point progress.
+- Added a thin brass progress rail beneath the report's crest and title. The
+  current preview score of 73 renders 65 percent through Trusted Layer toward
+  the 80-point Golden Management threshold, while the exact `7 TO GOLDEN
+  MANAGEMENT TRACK` gap remains in tooltip and assistive detail.
+- Top-rank reports render a full rail rather than appearing to restart at zero.
+  Senior career titles intentionally hide the probation ladder and retain their
+  separate promotion system.
+- The new rail fits inside the existing rank card: every summary card remains on
+  one row, report height is unchanged, and the full decision surface stays above
+  the fold.
+- `campaign_state_test.gd`, `probation_campaign_ui_test.gd`,
+  `probation_campaign_integration_test.gd`, and `senior_roost_ui_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/rank-progress-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/rank-progress-final-v1/shot-0.png`. Diagnostics record a
+  loaded game, five passing safeguards, zero orphan nodes, the expected
+  `report_filed` cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,719,572-byte PCK SHA-256 is
+  `17D7B0B7E12C8804A99736879957736876243363A80B71460522C018EAFE1AB6`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. Export roots contain no temp files.
+- Suggested next polish audit: when a filed receipt crosses a real rank
+  threshold, turn the ordinary crest/rail update into one compact promotion
+  stamp moment so advancement feels meaningfully different from routine score.
+
+## 2026-08-04 - Authoritative promotion stamp
+
+- Extended score receipts with authoritative `rank_before`, `rank_after`, exact
+  display names, and a stable `promotion` / `demotion` / `steady` classification.
+  Presentation no longer guesses whether a title change occurred.
+- Genuine upward threshold crossings replace the generic `RANK` caption with a
+  brass `PROMOTED` stamp, strengthen the card border, and retain the new title,
+  crest, and next-rank rail in the same compact footprint. The live preview's
+  50 -> 73 receipt correctly files `PROBATIONARY MANAGER -> TRUSTED LAYER`.
+- After the receipt chips and shift-total pulse resolve, the crest performs one
+  brief 22-percent stamp pop. The quiet filing cue waits for that final promotion
+  beat, keeping the complete chain under one second.
+- Reduced-motion promotions settle the same semantic stamp instantly. Routine,
+  downward, empty-evidence, and Senior reports skip the celebratory animation
+  and explicitly clear its metadata.
+- `campaign_state_test.gd`, `probation_campaign_ui_test.gd`,
+  `probation_campaign_integration_test.gd`, and `senior_roost_ui_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/promotion-stamp-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/promotion-stamp-final-v1/shot-0.png`. Diagnostics record a
+  loaded game, five passing safeguards, zero orphan nodes, the expected
+  `report_filed` cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,722,468-byte PCK SHA-256 is
+  `814D35D121D7957FFC5277F1A05FAF57619AE376FEF8AAD05B5231A532FF1E80`,
+  and the intentional local production server on port 3000 (PID 41304) serves
+  that exact payload with HTTP 200. Export roots contain no temp files.
+- Suggested next polish audit: when the next shift's three-order score bundle is
+  enough to cross the visible rank threshold, visually link its reward badge to
+  the promotion rail so the player sees an actionable advancement opportunity
+  without another instruction paragraph.
+
+## 2026-08-04 - Promotion-ready order bundle
+
+- Added an authoritative reward projection to `CampaignState`. A disclosed
+  score bundle now identifies an opportunity only when it reaches the exact
+  next rank threshold; rewards below the gap and rewards at top rank stay quiet.
+- Linked genuine opportunities with one shared visual language: the next-shift
+  `+3 SCORE` badge gains the rank crest and a brighter brass edge while the
+  threshold rail brightens to match. No instruction paragraph was added.
+- Preserved full detail through tooltips and assistive metadata, including the
+  current score, projected score, exact threshold, and target rank. Routine
+  probation reports and every Senior Roost report explicitly clear the cue.
+- Added a deterministic two-shift browser preview that reaches 77 through normal
+  scoring, making the next three-order bundle an exact 77 -> 80 Golden
+  Management opportunity.
+- `campaign_state_test.gd`, `probation_campaign_ui_test.gd`,
+  `probation_campaign_integration_test.gd`, and `senior_roost_ui_test.gd` pass
+  (4/4). The bundled-Node release gate passes all 9 checks and all 49/49 rendered
+  Web tests at `output/release/promotion-opportunity-beta-release-gate.json`.
+- Accepted browser evidence is
+  `output/web-game/promotion-opportunity-final-v7/shot-0.png`. Diagnostics record
+  a loaded 77-point probation report, five passing safeguards, zero orphan
+  nodes, the expected `report_filed` cue, zero haptics, and no browser errors.
+- All 36 distributed Web payload copies match. The 9,726,228-byte PCK SHA-256 is
+  `A79360931E75F07F6E22816D6005382A9525F5254DCA0E376D966DC552507172`,
+  and the refreshed local production server on port 3000 serves that exact
+  payload with HTTP 200. Export roots contain no temp files.
+- Suggested next polish audit: carry the promotion-ready crest into the active
+  shift's compact order tracker, so players can preserve or recover the three
+  required checks without reopening the report.

@@ -45,6 +45,7 @@ var _upgrade_approved: AudioStreamWAV
 var _feed_party: AudioStreamWAV
 var _feed_nibble: AudioStreamWAV
 var _review_stamp: AudioStreamWAV
+var _report_filed: AudioStreamWAV
 var _ui_tick: AudioStreamWAV
 var _decision_alert: AudioStreamWAV
 var _policy_stamp: AudioStreamWAV
@@ -93,6 +94,9 @@ func _ready() -> void:
 	# becoming a second celebratory jingle or allocating a stream at runtime.
 	_feed_nibble = _synth_impact(610.0, 155.0, 0.095, 0.24, 0.72, 3201, 0.46)
 	_review_stamp = _synth_chirp(150.0, 92.0, 0.30, 0.58, 0.06)
+	# A dry two-contact filing stamp closes the report's visual evidence sweep.
+	# It is intentionally shorter and quieter than a policy or verdict cadence.
+	_report_filed = _synth_impact(510.0, 105.0, 0.105, 0.30, 0.50, 3107, 0.42)
 	_ui_tick = _synth_chirp(520.0, 565.0, 0.055, 0.24, 0.0)
 	_decision_alert = _synth_sequence(PackedFloat32Array([294.0, 294.0, 440.0]), 0.09, 0.42)
 	_policy_stamp = _synth_sequence(PackedFloat32Array([349.0, 523.0, 698.0]), 0.085, 0.40)
@@ -226,6 +230,21 @@ func play_feed_nibble(worker_id: int) -> bool:
 
 func play_review() -> void:
 	_play(&"review", _review_stamp, 1.0, -6.0, 180, BUS_SFX, PRIORITY_CONFIRMATION)
+
+
+## One quiet semantic receipt after the score, attribution, and hen evidence
+## have all settled. UI routing inherits the player's independent interface mix;
+## focus pause discards it instead of replaying it late.
+func play_report_filed() -> bool:
+	return _play(
+		&"report_filed",
+		_report_filed,
+		1.0,
+		-10.0,
+		500,
+		BUS_UI,
+		PRIORITY_CONFIRMATION,
+	)
 
 
 func play_ui_tick() -> void:

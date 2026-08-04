@@ -48,23 +48,40 @@ func _run() -> void:
 
 	var senior: SeniorRoostState = office.get("_senior_roost_state") as SeniorRoostState
 	var report := office.find_child("ProbationReportPanel", true, false) as PanelContainer
+	var day_badge := office.find_child("ProbationDayBadge", true, false) as PanelContainer
 	var report_heading := office.find_child("ProbationReportTitle", true, false) as Label
+	var report_heading_note := office.find_child("ReportScoreReceiptSummary", true, false) as Label
 	var report_objective_title := office.find_child("NextShiftObjective", true, false) as Label
 	var report_objective_body := office.find_child("NextShiftObjectiveDescription", true, false) as Label
 	var report_objective_progress := office.find_child("NextShiftObjectiveProgress", true, false) as Label
 	var report_objective_card := office.find_child("NextShiftObjectiveCard", true, false) as PanelContainer
+	var report_driver_strip := office.find_child("QuarterDriverStrip", true, false) as HFlowContainer
 	var hen_highlight_card := office.find_child("ShiftHenHighlightCard", true, false) as PanelContainer
+	var credit_memo_card := office.find_child("FiledCreditMemoCard", true, false) as PanelContainer
+	var report_story_row := office.find_child("ReportShiftStories", true, false) as HFlowContainer
+	var report_primary_value := office.find_child("ReportScore", true, false) as Label
+	var report_primary_caption := office.find_child("ReportScoreCaption", true, false) as Label
+	var roost_marks_value := office.find_child("ReportLedgerValue1", true, false) as Label
 	var board_seals_value := office.find_child("ReportLedgerValue2", true, false) as Label
 	var quarter_score_value := office.find_child("ReportLedgerValue3", true, false) as Label
+	var roost_marks_card := office.find_child("ReportCumulativeLedger1", true, false) as PanelContainer
+	var roost_marks_glance := office.find_child("ReportLedgerDetail1", true, false) as Label
+	var board_seals_glance := office.find_child("ReportLedgerDetail2", true, false) as Label
+	var quarter_score_glance := office.find_child("ReportLedgerDetail3", true, false) as Label
+	var requisitions_button := office.find_child("ReviewRoostRequisitionsButton", true, false) as Button
 	var continue_button := office.find_child("ContinueProbationButton", true, false) as Button
 	var policy_cards := office.find_children("MilestoneChoice_*", "Button", true, false)
 	_check(bool(office.get("_campaign_senior_roost")), "successful continuation should enter the real Senior mode", failures)
 	_check(senior != null and senior.status == SeniorRoostState.STATUS_QUARTER_CHOICE, "Senior entry should open the first annual planning gate", failures)
+	_check(report_primary_value != null and report_primary_value.text == "0" and report_primary_caption != null and report_primary_caption.text == "AVAILABLE MARKS", "annual mandate selection should expose uncommitted career currency rather than duplicate the lifetime ledger", failures)
 	_check(senior != null and senior.requires_annual_mandate(), "Senior entry should require one frozen annual Board Mandate before Q1 policy", failures)
 	_check(senior.last_recorded_day == 5, "Senior ledger should begin immediately after the fifth probation shift", failures)
 	_check(campaign.completed_shifts == 5, "Senior entry must not mutate the immutable probation record", failures)
 	_check(report != null and report.is_visible_in_tree() and policy_cards.size() == 3, "Senior entry should open exactly three visible annual mandate cards", failures)
+	_check(day_badge != null and not day_badge.is_visible_in_tree() and bool(day_badge.get_meta("suppressed_by_report", false)), "the real Senior planning report should own calendar context without a duplicate background badge", failures)
 	_check(continue_button != null and continue_button.disabled, "first Senior shift must remain gated until annual terms and a policy are filed", failures)
+	var senior_staffing_open := bool(simulation.snapshot().get("staffing_planning_open", false))
+	_check(requisitions_button != null and requisitions_button.is_visible_in_tree() == senior_staffing_open and requisitions_button.disabled == not senior_staffing_open, "Senior Requisitions visibility should exactly follow authoritative staffing availability", failures)
 	_check(report_heading != null and "ANNUAL BOARD MANDATE" in report_heading.text, "entry report should explain the year-long Board decision", failures)
 	_check(
 		board_seals_value != null and board_seals_value.text == "0",
@@ -111,6 +128,9 @@ func _run() -> void:
 	senior = office.get("_senior_roost_state") as SeniorRoostState
 	continue_button = office.find_child("ContinueProbationButton", true, false) as Button
 	_check(senior.status == SeniorRoostState.STATUS_ACTIVE and senior.active_policy_id == &"harvest_forecast", "policy intent should reach the authoritative career state", failures)
+	_check(report_primary_value != null and report_primary_value.text == "OPEN" and report_primary_caption.text == "MARKS FORECAST" and roost_marks_value != null and roost_marks_value.text == "0", "an opened quarter should replace duplicate lifetime currency with a distinct reward forecast", failures)
+	_check(roost_marks_glance != null and roost_marks_glance.text == "- NONE READY TO SPEND" and board_seals_glance != null and board_seals_glance.text == "> 1 SEAL TO TIER 1" and quarter_score_glance != null and quarter_score_glance.text == "> FIRST QUARTER OPEN", "the authentic Senior report should reduce career ledger accounting to three icon-led glance states", failures)
+	_check(roost_marks_card != null and "0 AVAILABLE" in roost_marks_card.tooltip_text and "0 FORFEITED" in roost_marks_card.tooltip_text and String(roost_marks_card.get_meta("accessible_text", "")).contains("ROOST MARKS 0"), "the authentic compact Roost Marks tile should preserve exact career accounting for hover and assistive readers", failures)
 	_check(simulation.revenue_cents == fund_before + 6000 and simulation.quota_target == quota_before + 2, "policy should apply its exact authoritative liquidity and quota effects once", failures)
 	var policy_receipt_label := office.find_child("FiledCreditMemoLabel", true, false) as Label
 	_check(policy_receipt_label != null and "POLICY LEDGER  //  HARVEST FORECAST" in policy_receipt_label.text and "FUND $ +60" in policy_receipt_label.text and "FAVOR +24" in policy_receipt_label.text and "QUOTA +2" in policy_receipt_label.text and "COMPLIANCE -4" in policy_receipt_label.text, "accepted policy should replace prose with one exact signed ledger receipt", failures)
@@ -144,6 +164,7 @@ func _run() -> void:
 	_press(open_contract_shift)
 	await process_frame
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "filed policy should return to the playable office", failures)
+	_check(day_badge != null and not bool(day_badge.get_meta("suppressed_by_report", true)), "leaving the real Senior report should release report-owned badge suppression without overriding another foreground surface", failures)
 	_check(simulation.day == 6 and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "Senior continuation should open the next real simulation briefing", failures)
 	_check((office.find_child("ProbationDayLabel", true, false) as Label).text == "Y1 · Q1 · SHIFT 1 / 3", "active badge should expose the three-shift quarter cadence", failures)
 
@@ -166,6 +187,46 @@ func _run() -> void:
 			await process_frame
 			_check(not (office.find_child("ContinueProbationButton", true, false) as Button).disabled, "in-quarter shift report should permit next-shift planning", failures)
 			_check(hen_highlight_card != null and hen_highlight_card.is_visible_in_tree(), "in-quarter shift %d should retain its named-hen story receipt" % (senior_day - 5), failures)
+		if senior_day == 6:
+			_check(report_primary_value != null and report_primary_value.text == "+3" and "score 100 / 100 and +3 Roost Marks" in report_primary_value.tooltip_text, "the header reward forecast should update immediately from the authentic filed shift", failures)
+			_check(report_heading_note != null and report_heading_note.text.is_empty(), "the in-quarter header should not repeat policy and shift state already shown by the receipt, metric tile, and primary action", failures)
+			var quota_driver := office.find_child("QuarterDriver_quota_shifts", true, false) as PanelContainer
+			var shell_driver := office.find_child("QuarterDriver_crack_rate_basis_points", true, false) as PanelContainer
+			var standing_driver := office.find_child("QuarterDriver_quarter_score", true, false) as PanelContainer
+			var shell_driver_label := shell_driver.find_child("QuarterDriverLabel", true, false) as Label if shell_driver != null else null
+			_check(report_driver_strip != null and report_driver_strip.is_visible_in_tree() and report_driver_strip.get_child_count() == 3 and report_objective_body != null and not report_objective_body.is_visible_in_tree(), "the in-quarter report should replace three repeated prose lines with three stable driver chips", failures)
+			_check(quota_driver != null and shell_driver != null and standing_driver != null and String(quota_driver.get_meta("status", "")) == "on_track", "quarter driver chips should expose stable semantic identities and status", failures)
+			_check(shell_driver_label != null and shell_driver_label.text == "+ SHELL INTEGRITY  6.7% / 15.0%", "the shell driver should compress its maximum threshold into one exact scan line", failures)
+			_check(report_objective_card != null and "Keep the quarter crack rate at or below 15% for full quality credit." in report_objective_card.tooltip_text and String(report_objective_card.get_meta("accessible_text", "")).contains("Project at least 60 points"), "compact quarter drivers should retain every exact explanation in progressive and assistive detail", failures)
+			var live_clutch_tile := office.find_child("BoardTarget_quota_met_shifts", true, false) as PanelContainer
+			var live_welfare_tile := office.find_child("BoardTarget_welfare_average", true, false) as PanelContainer
+			var live_payroll_tile := office.find_child("BoardTarget_wage_arrears_shifts", true, false) as PanelContainer
+			var clutch_delta := live_clutch_tile.find_child("BoardTargetDelta", true, false) as Label if live_clutch_tile != null else null
+			var welfare_delta := live_welfare_tile.find_child("BoardTargetDelta", true, false) as Label if live_welfare_tile != null else null
+			var payroll_delta := live_payroll_tile.find_child("BoardTargetDelta", true, false) as Label if live_payroll_tile != null else null
+			var clutch_rail := live_clutch_tile.find_child("BoardTargetProgress", true, false) as ProgressBar if live_clutch_tile != null else null
+			var welfare_rail := live_welfare_tile.find_child("BoardTargetProgress", true, false) as ProgressBar if live_welfare_tile != null else null
+			var payroll_rail := live_payroll_tile.find_child("BoardTargetProgress", true, false) as ProgressBar if live_payroll_tile != null else null
+			_check(clutch_delta != null and clutch_delta.text == "THIS SHIFT +1" and int(live_clutch_tile.get_meta("last_shift_delta", 0)) == 1, "a quota-clearing shift should connect directly to Reliable Clutch with one signed delta", failures)
+			_check(welfare_delta != null and welfare_delta.text == "THIS SHIFT +72" and String(live_welfare_tile.get_meta("status", "")) == "met", "first-shift welfare evidence should show its signed movement and crossed target", failures)
+			_check(payroll_delta == null and not bool(live_payroll_tile.get_meta("recent_change", true)), "an unchanged payroll target should remain visually quiet", failures)
+			_check(clutch_rail != null and clutch_rail.value == 1667.0, "the Reliable Clutch rail should expose one-sixth year progress without another label", failures)
+			_check(welfare_rail != null and welfare_rail.value == 10_000.0 and payroll_rail != null and payroll_rail.value == 10_000.0, "met minimum and maximum Board targets should both resolve to full semantic rails", failures)
+			_check(report_objective_card != null and "THIS SHIFT  //  RELIABLE CLUTCH +1 (IMPROVED)" in report_objective_card.tooltip_text and "FLOCK CONTINUITY +72 (IMPROVED)" in report_objective_card.tooltip_text, "the compact Board receipt should preserve every changed metric in progressive detail", failures)
+			var highlighted_report := (office.get("_last_workday_report") as Dictionary).duplicate(true)
+			var unhighlighted_report := highlighted_report.duplicate(true)
+			unhighlighted_report["hen_highlight"] = {}
+			office.set("_last_workday_report", unhighlighted_report)
+			office.call("_show_senior_roost_report", "senior_empty_highlight_test")
+			await process_frame
+			_check(not hen_highlight_card.is_visible_in_tree(), "a Senior report without authentic named-hen evidence should suppress the generic highlight placeholder", failures)
+			_check(credit_memo_card != null and credit_memo_card.custom_minimum_size.y == 76.0 and report_story_row != null and bool(report_story_row.get_meta("compact_policy_only", false)), "a policy-only Senior story row should use the compact evidence height", failures)
+			office.set("_last_workday_report", highlighted_report)
+			office.call("_show_senior_roost_report", "senior_named_highlight_restore_test")
+			await process_frame
+			_check(hen_highlight_card.is_visible_in_tree(), "restoring authentic named-hen evidence should restore the shift highlight card", failures)
+			_check(credit_memo_card.custom_minimum_size.y == 96.0 and not bool(report_story_row.get_meta("compact_policy_only", true)), "restoring a named-hen story should restore the full paired-story height", failures)
+			_check(report.custom_minimum_size.x == 960.0 and absf(credit_memo_card.get_global_rect().position.y - hen_highlight_card.get_global_rect().position.y) <= 1.0, "the tighter desktop report should keep authentic policy and hen evidence on one row", failures)
 
 	office.call("_advance_after_closing_credit")
 	await process_frame
@@ -181,6 +242,9 @@ func _run() -> void:
 	_check(report_objective_body != null and "FILED SCORE" in report_objective_body.text and "CREDIT LEADERS" in report_objective_body.text and "TOP MARK TIER" in report_objective_body.text, "perfect quarter receipt should connect score, strongest components, and remaining opportunity", failures)
 	_check(report_objective_progress != null and report_objective_progress.text == "BOARD 2 / 3 MET  //  1 NEED ACTION  //  YEAR 3 / 12", "later-quarter planning should keep annual progress readable in one stable scan line", failures)
 	_check(report_objective_card != null and "LARGEST RECOVERABLE BLOCKER" in report_objective_card.tooltip_text and "RELIABLE CLUTCH" in report_objective_card.tooltip_text, "later-quarter planning should retain the exact largest recoverable blocker in progressive detail", failures)
+	var closing_clutch_tile := office.find_child("BoardTarget_quota_met_shifts", true, false) as PanelContainer
+	var closing_clutch_delta := closing_clutch_tile.find_child("BoardTargetDelta", true, false) as Label if closing_clutch_tile != null else null
+	_check(closing_clutch_delta != null and closing_clutch_delta.text == "THIS SHIFT +1" and "THIS SHIFT  //  RELIABLE CLUTCH +1 (IMPROVED)" in report_objective_card.tooltip_text, "quarter-close planning should retain the final shift-to-year causal receipt", failures)
 	_check(hen_highlight_card != null and not hen_highlight_card.is_visible_in_tree(), "quarter planning should retire the previous shift highlight so policy controls retain the visual hierarchy", failures)
 	_check(quarter_score_value != null and quarter_score_value.text == "100", "closed quarter score should render as points rather than inheriting a percent format", failures)
 	var mandate_progress := senior.current_annual_mandate_progress()

@@ -1019,7 +1019,13 @@ func _ready() -> void:
 	elif "--capture-campaign-title" in OS.get_cmdline_user_args() or "--capture-campaign-title" in OS.get_cmdline_args():
 		_capture_campaign_title_preview()
 	elif "--capture-campaign-report" in OS.get_cmdline_user_args() or "--capture-campaign-report" in OS.get_cmdline_args():
-		_capture_campaign_report_preview()
+		_capture_campaign_promotion_opportunity_preview()
+	elif "--capture-campaign-report-opportunity" in OS.get_cmdline_user_args() or "--capture-campaign-report-opportunity" in OS.get_cmdline_args():
+		_capture_campaign_promotion_opportunity_preview()
+	elif "--capture-campaign-report-risk" in OS.get_cmdline_user_args() or "--capture-campaign-report-risk" in OS.get_cmdline_args():
+		_capture_campaign_report_preview(true)
+	elif "--capture-senior-board-delta" in OS.get_cmdline_user_args() or "--capture-senior-board-delta" in OS.get_cmdline_args():
+		_capture_senior_policy_receipt_preview(true)
 	elif "--capture-senior-policy-receipt" in OS.get_cmdline_user_args() or "--capture-senior-policy-receipt" in OS.get_cmdline_args():
 		_capture_senior_policy_receipt_preview()
 	elif "--capture-career-sponsorship-confirmation" in OS.get_cmdline_user_args() or "--capture-career-sponsorship-confirmation" in OS.get_cmdline_args():
@@ -5810,6 +5816,7 @@ func _build_ui() -> void:
 	_campaign_ui.title_intake_phase_changed.connect(_on_campaign_title_intake_phase_changed)
 	_campaign_ui.milestone_choice.connect(_on_campaign_milestone_requested)
 	_campaign_ui.presentation_state_changed.connect(_on_campaign_presentation_state_changed)
+	_campaign_ui.report_filing_settled.connect(_on_campaign_report_filing_settled)
 	_campaign_ui.career_sponsorship_requested.connect(_on_career_sponsorship_requested)
 	_campaign_ui.market_contract_sign_requested.connect(_on_market_contract_sign_requested)
 	_campaign_ui.market_contract_decline_requested.connect(_on_market_contract_decline_requested)
@@ -10279,6 +10286,14 @@ func _on_campaign_presentation_state_changed() -> void:
 		_publish_web_diagnostic_state(_simulation.snapshot())
 
 
+func _on_campaign_report_filing_settled(_reveal_key: String, _instant: bool) -> void:
+	# ProbationCampaignUI owns visual timing; the pooled audio layer owns mix,
+	# limiter, autoplay, and focus behavior. Keeping the handoff semantic prevents
+	# report snapshots from allocating players or layering duplicate cues.
+	if _audio_feedback != null and _campaign_ui.modal_state() == ProbationCampaignUI.VIEW_REPORT:
+		_audio_feedback.play_report_filed()
+
+
 func _on_interaction_safety_presentation_changed() -> void:
 	# Confirmation dialogs and one-level Undo are presentation state. They may
 	# open while the simulation is paused, so publish immediately rather than
@@ -10683,7 +10698,13 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 			if not objective_lines.is_empty() else
 			"The permanent coop record is ready for final review."
 		),
+		"orders": objectives.duplicate(true),
+		"reward_score": 3,
 		"reward": "Complete all three orders for a +3 score bundle.",
+		"promotion_opportunity": CampaignStateScript.promotion_opportunity_for_reward(
+			_campaign_state.probation_score,
+			3,
+		),
 	}
 	var raw_milestones: Array = []
 	if completed == CampaignStateScript.MILESTONE_AFTER_SHIFT and view == &"between_shift":
@@ -10727,6 +10748,9 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		"total_days": CampaignStateScript.CAMPAIGN_LENGTH,
 		"score": _campaign_state.probation_score,
 		"rank": CampaignStateScript.rank_display_name(_campaign_state.probation_rank),
+		"rank_progress": CampaignStateScript.rank_progress_for_score(
+			_campaign_state.probation_score,
+		),
 		"challenge_contract": challenge_contract,
 		"ledgers": [
 			{
@@ -10775,6 +10799,9 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 	var mandate_required := _senior_roost_state.requires_annual_mandate()
 	var active_mandate := _senior_roost_state.active_annual_mandate()
 	var mandate_progress := _senior_roost_state.current_annual_mandate_progress(
+		_campaign_live_metrics(_simulation.snapshot()) if view == &"active" else {}
+	)
+	var career_forecast := _senior_roost_state.current_career_forecast(
 		_campaign_live_metrics(_simulation.snapshot()) if view == &"active" else {}
 	)
 	var mandate_tier := _senior_roost_state.mandate_tier_eligibility()
@@ -11087,11 +11114,10 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			continue_label = "BEGIN QUARTER %d · SHIFT 1  [C]" % quarter_number
 		else:
 			report_heading = "QUARTER %d · SHIFT %d FILED" % [quarter_number, display_shift]
-			report_note = "%s remains active. %d of %d quarter shifts are now filed." % [
-				policy_title,
-				shifts_filed,
-				SeniorRoostStateScript.SHIFTS_PER_QUARTER,
-			]
+			# The heading, shift metric, policy receipt, and primary action already
+			# carry this state. Leaving the subtitle empty removes a repeated sentence
+			# from the scan path without hiding any authoritative information.
+			report_note = ""
 			continue_label = "PLAN QUARTER %d · SHIFT %d  [C]" % [
 				quarter_number,
 				_senior_roost_state.current_shift_in_quarter(),
@@ -11109,6 +11135,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			objective = {
 				"title": "YEAR %d · QUARTER %d · %s" % [year_number, quarter_number, policy_title],
 				"description": "\n".join(objective_lines),
+				"quarter_drivers": objective_rows,
 				"reward": "Score 40+ earns 1 Roost Mark Â· 60+ earns 2 Â· 80+ earns 3.",
 			}
 
@@ -11152,7 +11179,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		and status_id == SeniorRoostStateScript.STATUS_ACTIVE
 	):
 		var highlight_value: Variant = _last_workday_report.get("hen_highlight", {})
-		if highlight_value is Dictionary:
+		if highlight_value is Dictionary and not (highlight_value as Dictionary).is_empty():
 			hen_highlight = (highlight_value as Dictionary).duplicate(true)
 			hen_highlight["day"] = display_shift
 
@@ -11169,6 +11196,11 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		{
 			"label": "Roost Marks",
 			"value": _senior_roost_state.roost_marks,
+			"glance": (
+				"+ %d READY TO SPEND" % available_roost_marks
+				if available_roost_marks > 0 else
+				"- NONE READY TO SPEND"
+			),
 			"detail": "%d AVAILABLE  ·  %d INVESTED  ·  %d STAKED  ·  %d FORFEITED" % [
 				available_roost_marks,
 				invested_roost_marks,
@@ -11180,6 +11212,15 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			"label": "Board Seals",
 			"value": mandate_seals,
 			"format": "number",
+			"glance": (
+				"+ MAX TIER UNLOCKED"
+				if int(mandate_tier.get("eligible_tier", 0)) >= int(mandate_tier.get("max_tier", 3)) else
+				"> %d SEAL%s TO TIER %d" % [
+					int(mandate_tier.get("seals_to_next_tier", 0)),
+					"" if int(mandate_tier.get("seals_to_next_tier", 0)) == 1 else "S",
+					int(mandate_tier.get("eligible_tier", 0)) + 1,
+				]
+			),
 			"detail": "MANDATE TIER %d  ·  %s" % [
 				int(mandate_tier.get("eligible_tier", 0)),
 				_senior_mandate_tier_tooltip(mandate_tier).to_upper(),
@@ -11189,6 +11230,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			"label": "Quarter score",
 			"value": last_quarter_score,
 			"format": "number",
+			"glance": "+ LAST QUARTER FILED" if not quarter_review.is_empty() else "> FIRST QUARTER OPEN",
 			"detail": "LAST CLOSED QUARTER" if not quarter_review.is_empty() else "FIRST QUARTER OPEN",
 		},
 		{
@@ -11203,6 +11245,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			"label": "Annual score",
 			"value": int(annual_review.get("score", 0)),
 			"format": "number",
+			"glance": "+ SAFEGUARDS PASSED" if bool(annual_review.get("passed", false)) else "! IMPROVEMENT YEAR",
 			"detail": "PASSED" if bool(annual_review.get("passed", false)) else "IMPROVEMENT YEAR",
 		}
 		ledgers[3] = {
@@ -11210,6 +11253,31 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			"value": _senior_roost_state.successful_years,
 			"detail": "OF %d REVIEWED" % _senior_roost_state.completed_years,
 		}
+
+	var available_marks := int(state_snapshot.get(
+		"available_roost_marks",
+		_senior_roost_state.roost_marks,
+	))
+	var primary_metric_display := str(available_marks)
+	var primary_metric_caption := "AVAILABLE MARKS"
+	var primary_metric_tooltip := "%d uncommitted Roost Mark%s remain after stakes and career spending." % [
+		available_marks,
+		"" if available_marks == 1 else "s",
+	]
+	if status_id == SeniorRoostStateScript.STATUS_ACTIVE:
+		primary_metric_caption = "MARKS FORECAST"
+		if career_forecast.is_empty():
+			primary_metric_display = "OPEN"
+			primary_metric_tooltip = "The quarter reward forecast opens after the first filed Senior shift."
+		else:
+			var projected_marks := int(career_forecast.get("projected_marks", 0))
+			var projected_score := int(career_forecast.get("projected_score", 0))
+			primary_metric_display = "+%d" % projected_marks
+			primary_metric_tooltip = "If this quarter filed at the current projection: score %d / 100 and +%d Roost Mark%s." % [
+				projected_score,
+				projected_marks,
+				"" if projected_marks == 1 else "s",
+			]
 
 	return {
 		"view": view,
@@ -11229,14 +11297,16 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			"Y%d · Q%d · SHIFT %d / %d" % [year_number, quarter_number, display_shift, SeniorRoostStateScript.SHIFTS_PER_QUARTER]))
 		),
 		"score": _senior_roost_state.roost_marks,
-		"score_caption": "ROOST MARKS",
+		"primary_metric_display": primary_metric_display,
+		"primary_metric_tooltip": primary_metric_tooltip,
+		"score_caption": primary_metric_caption,
 		"rank": _senior_roost_state.promotion_title(),
 		"rank_caption": "CAREER TITLE",
 		"secondary_metric_display": secondary_display,
 		"secondary_metric_caption": secondary_caption,
 		"secondary_metric_tooltip": secondary_tooltip,
 		"ledgers": ledgers,
-		"ledger_section_title": "SENIOR CAREER LEDGERS",
+		"ledger_section_title": "SENIOR CAREER RECORD",
 		"report_kicker": "SENIOR ROOST  //  YEAR %d  //  QUARTER %d" % [year_number, quarter_number],
 		"report_heading": report_heading,
 		"report_note": report_note,
@@ -11274,6 +11344,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 		"senior_roost": state_snapshot,
 		"annual_mandate": active_mandate,
 		"annual_mandate_progress": mandate_progress,
+		"annual_mandate_delta": state_snapshot.get("annual_mandate_delta", {}),
 		"annual_strategy_recap": (
 			SeniorRoostStateScript.annual_strategy_recap(annual_review)
 			if status_id == SeniorRoostStateScript.STATUS_ANNUAL_REVIEW else
@@ -24282,10 +24353,14 @@ func _capture_campaign_title_preview() -> void:
 	_save_preview("probation_title.png")
 
 
-func _capture_campaign_report_preview() -> void:
+func _capture_campaign_report_preview(at_risk: bool = false) -> void:
 	_decision_host.visible = false
 	_campaign_state = CampaignStateScript.new()
 	var report := _campaign_capture_report(1)
+	if at_risk:
+		# This deterministic fixture exercises the compact needs-action chips using
+		# the same authoritative campaign forecast as an ordinary played shift.
+		report["farmer_favor"] = 49
 	_last_workday_report = report.duplicate(true)
 	_campaign_state.record_shift(report, {})
 	_simulation.last_credit_allocation = {
@@ -24304,10 +24379,46 @@ func _capture_campaign_report_preview() -> void:
 	_campaign_ui.show_between_shift_report(_campaign_presentation_snapshot(&"between_shift"))
 	_set_campaign_modal_open(true)
 	await get_tree().create_timer(0.55).timeout
+	_save_preview("probation_report_risk.png" if at_risk else "probation_report.png")
+
+
+func _capture_campaign_promotion_opportunity_preview() -> void:
+	_decision_host.visible = false
+	_campaign_state = CampaignStateScript.new()
+	# Shift one lands at 54 through ordinary scoring, then the clean shift-two
+	# fixture reaches 77. The disclosed +3 order bundle therefore reaches the
+	# real Golden Management threshold exactly, without mutating campaign rules.
+	var opening_report := _campaign_capture_report(1)
+	opening_report["eggs"] = 18
+	opening_report["quota"] = 24
+	opening_report["cracked"] = 3
+	opening_report["welfare"] = 47
+	opening_report["compliance"] = 60
+	opening_report["farmer_favor"] = 60
+	_campaign_state.record_shift(opening_report, {})
+	var report := _campaign_capture_report(2)
+	_last_workday_report = report.duplicate(true)
+	_campaign_state.record_shift(report, {})
+	_simulation.last_credit_allocation = {
+		"day": 2,
+		"decision_id": "closing_credit_memo",
+		"option_id": "share_the_scoop",
+		"style_id": "shared_scoop",
+		"worker_id": 1,
+		"worker_name": "Mabel",
+		"cost_cents": 0,
+		"outcome": "Mabel's clutch was credited to the flock. The farmer retained management's name on the presentation.",
+		"special_event": false,
+		"projected": false,
+	}
+	_campaign_review_stage = &"probation"
+	_campaign_ui.show_between_shift_report(_campaign_presentation_snapshot(&"between_shift"))
+	_set_campaign_modal_open(true)
+	await get_tree().create_timer(0.55).timeout
 	_save_preview("probation_report.png")
 
 
-func _capture_senior_policy_receipt_preview() -> void:
+func _capture_senior_policy_receipt_preview(with_shift_delta: bool = false) -> void:
 	_decision_host.visible = false
 	_campaign_state = CampaignStateScript.new()
 	_senior_roost_state = SeniorRoostStateScript.new()
@@ -24338,13 +24449,24 @@ func _capture_senior_policy_receipt_preview() -> void:
 		push_error("Senior policy receipt capture could not file Harvest Forecast.")
 		get_tree().quit(1)
 		return
+	if with_shift_delta:
+		_last_workday_report = _career_sponsorship_capture_report(6, 1)
+		var shift_receipt: Dictionary = _senior_roost_state.record_shift(
+			_last_workday_report
+		)
+		if not bool(shift_receipt.get("accepted", false)):
+			push_error("Senior Board delta capture could not file its demonstration shift.")
+			get_tree().quit(1)
+			return
 	_campaign_senior_roost = true
 	_campaign_review_stage = &"senior_quarter"
 	_campaign_ui.show_between_shift_report(_senior_presentation_snapshot(&"between_shift"))
 	_set_campaign_modal_open(true)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	_save_preview("senior_policy_receipt.png")
+	_save_preview(
+		"senior_board_delta.png" if with_shift_delta else "senior_policy_receipt.png"
+	)
 
 
 func _capture_career_sponsorship_preview() -> void:

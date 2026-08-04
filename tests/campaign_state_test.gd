@@ -24,6 +24,49 @@ func _test_catalog_and_shift_gate(failures: Array[String]) -> void:
 	_check(campaign.completed_shifts == 0, "new campaign should start before shift one", failures)
 	_check(campaign.probation_score == CampaignState.STARTING_SCORE, "new campaign should expose its probation score", failures)
 	_check(campaign.probation_rank == CampaignState.RANK_PROBATIONARY, "starting score should derive the probationary rank", failures)
+	var starting_rank_progress := CampaignState.rank_progress_for_score(campaign.probation_score)
+	_check(
+		int(starting_rank_progress.get("band_floor", -1)) == 40
+		and int(starting_rank_progress.get("next_threshold", -1)) == 60
+		and int(starting_rank_progress.get("progress_basis_points", -1)) == 5000
+		and int(starting_rank_progress.get("points_to_next", -1)) == 10
+		and String(starting_rank_progress.get("next_rank", "")) == "trusted_layer",
+		"rank progress should derive exactly from the authoritative 20-point ladder",
+		failures,
+	)
+	var trusted_progress := CampaignState.rank_progress_for_score(73)
+	_check(
+		int(trusted_progress.get("progress_basis_points", -1)) == 6500
+		and int(trusted_progress.get("points_to_next", -1)) == 7
+		and String(trusted_progress.get("next_rank_label", "")) == "Golden Management Track",
+		"trusted rank progress should expose the exact remaining promotion gap",
+		failures,
+	)
+	var top_progress := CampaignState.rank_progress_for_score(91)
+	_check(
+		bool(top_progress.get("complete", false))
+		and int(top_progress.get("progress_basis_points", -1)) == 10_000
+		and int(top_progress.get("points_to_next", -1)) == 0,
+		"the top rank should render a complete rail instead of restarting an empty band",
+		failures,
+	)
+	var promotion_ready := CampaignState.promotion_opportunity_for_reward(77, 3)
+	var promotion_short := CampaignState.promotion_opportunity_for_reward(76, 3)
+	var top_reward := CampaignState.promotion_opportunity_for_reward(91, 3)
+	_check(
+		bool(promotion_ready.get("available", false))
+		and int(promotion_ready.get("projected_score", -1)) == 80
+		and int(promotion_ready.get("next_threshold", -1)) == 80
+		and String(promotion_ready.get("next_rank", "")) == "golden_management",
+		"a disclosed reward should identify an exact next-rank crossing",
+		failures,
+	)
+	_check(
+		not bool(promotion_short.get("available", true))
+		and not bool(top_reward.get("available", true)),
+		"a reward below the threshold or beyond the top rank should not advertise a promotion",
+		failures,
+	)
 	_check(campaign.outcome == CampaignState.OUTCOME_IN_PROGRESS, "new campaign should be in progress", failures)
 	for shift_number in range(1, CampaignState.CAMPAIGN_LENGTH + 1):
 		var objectives := campaign.objectives_for_shift(shift_number)
@@ -105,6 +148,20 @@ func _test_current_workday_report_fallbacks(failures: Array[String]) -> void:
 	_check(int(record.get("welfare", -1)) == 80, "worker morale, stress, and fatigue should derive a deterministic closing welfare index", failures)
 	_check(int(record.get("compliance", -1)) == 76, "simulation compliance float should normalize to an integer", failures)
 	_check(int(record.get("farmer_favor", -1)) == 64, "executive_confidence should map to farmer favor", failures)
+	var score_receipt := campaign.latest_score_receipt()
+	var receipt_rank_before := CampaignState.rank_for_score(int(score_receipt.get("score_before", 0)))
+	var receipt_rank_after := CampaignState.rank_for_score(int(score_receipt.get("score_after", 0)))
+	_check(
+		String(score_receipt.get("rank_before", "")) == String(receipt_rank_before)
+		and String(score_receipt.get("rank_before_label", "")) == CampaignState.rank_display_name(receipt_rank_before)
+		and String(score_receipt.get("rank_after", "")) == String(receipt_rank_after)
+		and String(score_receipt.get("rank_after_label", "")) == CampaignState.rank_display_name(receipt_rank_after)
+		and String(score_receipt.get("rank_change", "")) == (
+			"promotion" if receipt_rank_before != receipt_rank_after else "steady"
+		),
+		"score receipts should authoritatively classify real rank crossings",
+		failures,
+	)
 
 
 func _test_five_shift_pass_and_cumulative_ledgers(failures: Array[String]) -> void:

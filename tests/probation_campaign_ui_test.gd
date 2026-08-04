@@ -17,6 +17,7 @@ func _run() -> void:
 		"milestone": &"",
 		"challenge_contract": &"",
 		"title_phase": &"",
+		"report_filing_settled": 0,
 	}
 	var harness := Control.new()
 	harness.name = "ProbationCampaignUITestHarness"
@@ -34,15 +35,34 @@ func _run() -> void:
 	ui.title_intake_phase_changed.connect(
 		func(phase: StringName) -> void: observed["title_phase"] = phase
 	)
+	ui.report_filing_settled.connect(
+		func(_reveal_key: String, _instant: bool) -> void:
+			observed["report_filing_settled"] += 1
+	)
 	await process_frame
 
 	var badge := ui.find_child("ProbationDayBadge", true, false) as PanelContainer
 	var status_label := ui.find_child("ProbationStatusLabel", true, false) as Label
 	var day_label := ui.find_child("ProbationDayLabel", true, false) as Label
+	var day_progress_rail := ui.find_child("ProbationDayProgressRail", true, false) as HBoxContainer
+	var day_segment_1 := ui.find_child("ProbationDaySegment1", true, false) as PanelContainer
+	var day_segment_3 := ui.find_child("ProbationDaySegment3", true, false) as PanelContainer
+	var day_segment_5 := ui.find_child("ProbationDaySegment5", true, false) as PanelContainer
 	var modal_host := ui.find_child("ProbationModalHost", true, false) as Control
 	_check(badge != null and badge.is_visible_in_tree(), "probation badge should always be visible", failures)
 	_check(status_label != null and status_label.text == "PROBATION", "badge should default to probation status", failures)
 	_check(day_label != null and day_label.text == "DAY 1 / 5", "badge should open on day one of five", failures)
+	_check(
+		day_progress_rail != null and day_progress_rail.is_visible_in_tree()
+		and int(day_progress_rail.get_meta("current_day", 0)) == 1
+		and day_segment_1 != null and String(day_segment_1.get_meta("state", "")) == "current"
+		and day_segment_3 != null and String(day_segment_3.get_meta("state", "")) == "upcoming"
+		and day_segment_5 != null and String(day_segment_5.get_meta("state", "")) == "upcoming"
+		and day_label.tooltip_text == "DAY 1 / 5"
+		and String(day_label.get_meta("accessible_text", "")) == day_label.tooltip_text,
+		"probation badge should pair its exact day label with a five-segment visual rail",
+		failures,
+	)
 	_check(modal_host != null and not modal_host.is_visible_in_tree(), "active campaign should leave the office unobstructed", failures)
 
 	ui.show_active_campaign({
@@ -576,6 +596,13 @@ func _run() -> void:
 	})
 	await process_frame
 	_check(day_label.text == "DAY 3 / 5", "badge should react to plain campaign snapshot data", failures)
+	_check(
+		String(day_segment_1.get_meta("state", "")) == "complete"
+		and String(day_segment_3.get_meta("state", "")) == "current"
+		and String(day_segment_5.get_meta("state", "")) == "upcoming",
+		"day rail should distinguish completed, current, and upcoming probation shifts",
+		failures,
+	)
 	_check(not continue_button.disabled, "continue should enable when a resumable campaign exists", failures)
 	continue_button.pressed.emit()
 	_check(int(observed["continue"]) == 1, "continue action should emit its public signal", failures)
@@ -585,6 +612,18 @@ func _run() -> void:
 		"total_days": 5,
 		"score": 1840,
 		"rank": "Silver Comb",
+		"rank_progress": {
+			"current_score": 1840,
+			"current_rank": "silver_comb",
+			"current_rank_label": "Silver Comb",
+			"band_floor": 1500,
+			"next_threshold": 2000,
+			"next_rank": "golden_comb",
+			"next_rank_label": "Golden Comb",
+			"points_to_next": 160,
+			"progress_basis_points": 6800,
+			"complete": false,
+		},
 		"score_receipt": {
 			"shift_number": 2,
 			"score_before": 1703,
@@ -592,6 +631,11 @@ func _run() -> void:
 			"score_delta": 137,
 			"raw_shift_delta": 137,
 			"applied_shift_delta": 137,
+			"rank_before": "bronze_comb",
+			"rank_before_label": "Bronze Comb",
+			"rank_after": "silver_comb",
+			"rank_after_label": "Silver Comb",
+			"rank_change": "promotion",
 			"components": [
 				{
 					"id": "probation_orders",
@@ -629,7 +673,9 @@ func _run() -> void:
 			"day": 2,
 			"decision_id": "golden_egg_dossier",
 			"option_id": "farmer_credit",
+			"style_id": "shared_scoop",
 			"worker_name": "Mabel",
+			"cost_cents": 0,
 			"outcome": "The farmer presented Mabel's golden file as a management breakthrough.",
 		},
 		"hen_highlight": {
@@ -641,6 +687,11 @@ func _run() -> void:
 			"headline": "Golden Deliverable",
 			"body": "Mabel laid one golden egg. The farmer congratulated management before collecting it.",
 			"metric": "5 EGGS  //  4 SOUND  //  1 GOLDEN  //  $14.80 CREDIT",
+			"eggs": 5,
+			"sound": 4,
+			"cracked": 0,
+			"golden": 1,
+			"credit_cents": 1480,
 			"tone": "gold",
 		},
 		"ledgers": [
@@ -651,10 +702,25 @@ func _run() -> void:
 		"challenge_contract": _challenge_contract("standard_filing"),
 		"probation_safeguard_forecast": _safeguard_forecast(false, false),
 		"next_objective": {
-			"title": "Clear Predator Backlog",
-			"description": "Close six Predator Loss files before noon.",
-			"progress": 0,
-			"target": 6,
+			"title": "Day 3 probation orders",
+			"description": "- Meet the clutch: Meet the farmer's daily quota.\n- Orderly coop: Close with compliance at 68 or better.\n- Trim the trays: Leave no more than three overdue files.",
+			"orders": [
+				{"id": "meet_the_clutch", "title": "Meet the clutch", "description": "Meet the farmer's daily quota.", "metric": "quota_met", "comparison": "equal", "target": 1},
+				{"id": "orderly_coop", "title": "Orderly coop", "description": "Close with compliance at 68 or better.", "metric": "compliance", "comparison": "minimum", "target": 68},
+				{"id": "trim_the_trays", "title": "Trim the trays", "description": "Leave no more than three overdue files.", "metric": "overdue_files", "comparison": "maximum", "target": 3},
+			],
+			"reward_score": 3,
+			"reward": "Complete all three orders for a +3 score bundle.",
+			"promotion_opportunity": {
+				"available": true,
+				"current_score": 1997,
+				"reward_score": 3,
+				"projected_score": 2000,
+				"next_threshold": 2000,
+				"next_rank": "golden_comb",
+				"next_rank_label": "Golden Comb",
+				"points_to_next": 3,
+			},
 		},
 		"milestone_choices": [
 			{
@@ -682,26 +748,66 @@ func _run() -> void:
 	await process_frame
 	var report_panel := ui.find_child("ProbationReportPanel", true, false) as PanelContainer
 	var report_day := ui.find_child("ProbationReportDay", true, false) as Label
+	var report_heading := ui.find_child("ProbationReportTitle", true, false) as Label
 	var score := ui.find_child("ReportScore", true, false) as Label
 	var shift_delta := ui.find_child("ReportShiftDelta", true, false) as Label
+	var shift_delta_caption := ui.find_child("ReportShiftDeltaCaption", true, false) as Label
+	var shift_delta_icon := ui.find_child("ReportShiftDeltaIcon", true, false) as TextureRect
+	var shift_delta_panel := (
+		shift_delta.get_parent().get_parent().get_parent() as PanelContainer
+		if shift_delta != null else
+		null
+	)
+	var score_panel := (
+		score.get_parent().get_parent().get_parent() as PanelContainer
+		if score != null else
+		null
+	)
+	var score_row := ui.find_child("ProbationReportScoreRow", true, false) as HFlowContainer
 	var receipt_summary := ui.find_child("ReportScoreReceiptSummary", true, false) as Label
+	var receipt_grid := ui.find_child("ReportScoreReceiptGrid", true, false) as GridContainer
 	var rank := ui.find_child("ReportRank", true, false) as Label
+	var rank_caption := ui.find_child("ReportRankCaption", true, false) as Label
+	var rank_icon := ui.find_child("ReportRankIcon", true, false) as TextureRect
+	var rank_value_row := ui.find_child("ReportRankValueRow", true, false) as HBoxContainer
+	var rank_progress := ui.find_child("ReportRankProgress", true, false) as ProgressBar
 	var story_row := ui.find_child("ReportShiftStories", true, false) as HFlowContainer
 	var credit_memo_card := ui.find_child("FiledCreditMemoCard", true, false) as PanelContainer
+	var credit_memo_label := ui.find_child("FiledCreditMemoLabel", true, false) as Label
+	var credit_glance := ui.find_child("FiledCreditMemoGlanceStrip", true, false) as HFlowContainer
 	var highlight_card := ui.find_child("ShiftHenHighlightCard", true, false) as PanelContainer
 	var highlight_eyebrow := ui.find_child("ShiftHenHighlightEyebrow", true, false) as Label
 	var highlight_headline := ui.find_child("ShiftHenHighlightHeadline", true, false) as Label
 	var highlight_body := ui.find_child("ShiftHenHighlightBody", true, false) as Label
 	var highlight_metric := ui.find_child("ShiftHenHighlightMetric", true, false) as Label
+	var highlight_glance := ui.find_child("ShiftHenHighlightGlanceStrip", true, false) as HFlowContainer
 	var first_ledger := ui.find_child("ReportLedgerValue1", true, false) as Label
 	var second_ledger := ui.find_child("ReportLedgerValue2", true, false) as Label
 	var third_ledger := ui.find_child("ReportLedgerValue3", true, false) as Label
+	var ledger_section := ui.find_child("ReportLedgerSectionTitle", true, false) as Label
+	var first_ledger_card := ui.find_child("ReportCumulativeLedger1", true, false) as PanelContainer
+	var first_ledger_line := ui.find_child("ReportLedgerMetricLine1", true, false) as HBoxContainer
+	var first_ledger_detail := ui.find_child("ReportLedgerDetail1", true, false) as Label
 	var safeguard_panel := ui.find_child("ReportProbationSafeguardReceipt", true, false) as PanelContainer
+	var safeguard_heading := ui.find_child("ReportProbationSafeguardHeading", true, false) as Label
+	var safeguard_grid := ui.find_child("ReportProbationSafeguardGrid", true, false) as GridContainer
 	var safeguard_summary := ui.find_child("ReportProbationSafeguardSummary", true, false) as Label
 	var safeguard_score := ui.find_child("ReportProbationSafeguardRow_1", true, false) as Label
 	var safeguard_favor := ui.find_child("ReportProbationSafeguardRow_4", true, false) as Label
 	var safeguard_shells := ui.find_child("ReportProbationSafeguardRow_5", true, false) as Label
+	var safeguard_pass_grid := ui.find_child("ReportProbationSafeguardPassGrid", true, false) as GridContainer
+	var safeguard_pass_score := ui.find_child("ReportProbationSafeguardPassRow_1", true, false) as Label
+	var safeguard_pass_favor := ui.find_child("ReportProbationSafeguardPassRow_4", true, false) as Label
+	var safeguard_pass_score_icon := ui.find_child("ReportProbationSafeguardPassIcon_1", true, false) as TextureRect
+	var safeguard_pass_favor_icon := ui.find_child("ReportProbationSafeguardPassIcon_4", true, false) as TextureRect
 	var objective := ui.find_child("NextShiftObjective", true, false) as Label
+	var objective_body := ui.find_child("NextShiftObjectiveDescription", true, false) as Label
+	var objective_orders := ui.find_child("ProbationOrderStrip", true, false) as HFlowContainer
+	var objective_reward_badge := ui.find_child("NextShiftObjectiveRewardBadge", true, false) as PanelContainer
+	var objective_promotion_icon := ui.find_child("NextShiftObjectivePromotionIcon", true, false) as TextureRect
+	var objective_reward_label := ui.find_child("NextShiftObjectiveRewardLabel", true, false) as Label
+	var objective_progress := ui.find_child("NextShiftObjectiveProgress", true, false) as Label
+	var objective_card := ui.find_child("NextShiftObjectiveCard", true, false) as PanelContainer
 	var milestone_section := ui.find_child("MilestoneChoiceSection", true, false) as VBoxContainer
 	var choice := ui.find_child("MilestoneChoice_fast_keys", true, false) as Button
 	var milestone_hint := ui.find_child("MilestoneChoiceHint", true, false) as Label
@@ -709,39 +815,141 @@ func _run() -> void:
 	var report_continue := ui.find_child("ContinueProbationButton", true, false) as Button
 	_check(report_panel != null and report_panel.is_visible_in_tree(), "between shifts should show the probation report", failures)
 	_check(
+		int(observed["report_filing_settled"]) == 1,
+		"reduced-motion reports should settle one semantic filing receipt immediately",
+		failures,
+	)
+	_check(
+		shift_delta_panel != null
+		and String(shift_delta_panel.get_meta("result_pulse_motion", "")) == "instant"
+		and bool(shift_delta_panel.get_meta("result_pulse_receipt", false))
+		and is_equal_approx(shift_delta_panel.scale.x, 1.0),
+		"reduced-motion reports should settle the shift-total confirmation without animation",
+		failures,
+	)
+	_check(
+		rank_icon != null
+		and String(rank_icon.get_meta("promotion_stamp_motion", "")) == "instant"
+		and bool(rank_icon.get_meta("promotion_stamp", false))
+		and is_equal_approx(rank_icon.scale.x, 1.0),
+		"reduced-motion promotions should settle one semantic crest stamp instantly",
+		failures,
+	)
+	_check(
 		report_day != null
-		and report_day.text == "CLOSING FILE 3 / 3 · SHIFT 2 OF 5 · PROBATION REPORT",
-		"probation report should identify itself as the third and final closing file",
+		and report_day.text == "SHIFT 2 RESULTS"
+		and not report_day.visible
+		and report_day.tooltip_text == "CLOSING FILE 3 / 3 · SHIFT 2 OF 5 · PROBATION REPORT"
+		and String(report_day.get_meta("accessible_text", "")) == report_day.tooltip_text
+		and bool(report_day.get_meta("merged_into_result_heading", false))
+		and report_heading != null and report_heading.text == "SHIFT 2 RESULTS"
+		and report_heading.tooltip_text.begins_with("FARMER'S SHIFT ASSESSMENT\nCLOSING FILE 3 / 3")
+		and String(report_heading.get_meta("accessible_text", "")) == report_heading.tooltip_text
+		and String(report_heading.get_meta("authored_report_heading", "")) == "FARMER'S SHIFT ASSESSMENT"
+		and bool(report_heading.get_meta("compact_result_heading", false)),
+		"probation reports should merge duplicate result headings while retaining authored filing provenance",
 		failures,
 	)
 	_check(score != null and score.text == "1,840", "report should present a readable cumulative score", failures)
 	_check(shift_delta != null and shift_delta.text == "+137", "report should present the exact signed shift score", failures)
 	_check(
+		shift_delta_caption != null and shift_delta_caption.text == "THIS SHIFT"
+		and shift_delta_caption.tooltip_text == "SHIFT SCORE"
+		and String(shift_delta_caption.get_meta("accessible_text", "")) == "SHIFT SCORE"
+		and shift_delta_icon != null and shift_delta_icon.is_visible_in_tree()
+		and shift_delta_icon.texture != null
+		and String(shift_delta_icon.get_meta("semantic_icon", "")) == "score_sum"
+		and String(shift_delta_icon.get_meta("delta_direction", "")) == "gain"
+		and shift_delta_panel != null
+		and bool(shift_delta_panel.get_meta("compact_delta_caption", false))
+		and String(shift_delta_panel.get_meta("authored_metric_caption", "")) == "SHIFT SCORE"
+		and String(shift_delta.get_meta("accessible_text", "")).begins_with("SHIFT SCORE +137"),
+		"shift contribution should use a plain caption and receipt-sum badge while retaining authored semantics",
+		failures,
+	)
+	_check(
 		shift_delta != null and _colors_close(shift_delta.get_theme_color("font_color"), Color("73b5a7")),
 		"a positive shift score should use the report's positive teal",
 		failures,
 	)
+	var receipt_orders := ui.find_child("ReportScoreReceiptChipLabel_1", true, false) as Label
+	var receipt_clutch := ui.find_child("ReportScoreReceiptChipLabel_2", true, false) as Label
+	var receipt_shells := ui.find_child("ReportScoreReceiptChipLabel_3", true, false) as Label
+	var receipt_queues := ui.find_child("ReportScoreReceiptChipLabel_4", true, false) as Label
+	var receipt_flock := ui.find_child("ReportScoreReceiptChipLabel_5", true, false) as Label
+	var receipt_orders_icon := ui.find_child("ReportScoreReceiptChipIcon_1", true, false) as TextureRect
+	var receipt_shells_icon := ui.find_child("ReportScoreReceiptChipIcon_3", true, false) as TextureRect
+	var receipt_flock_icon := ui.find_child("ReportScoreReceiptChipIcon_5", true, false) as TextureRect
+	var receipt_orders_card := ui.find_child("ReportScoreReceiptChip_1", true, false) as PanelContainer
 	_check(
-		receipt_summary != null
-		and "1703 -> 1840" in receipt_summary.text
-		and "ORDERS +120" in receipt_summary.text
-		and "CLUTCH +47" in receipt_summary.text
-		and "SHELLS -12" in receipt_summary.text
-		and "QUEUES -8" in receipt_summary.text
-		and "FLOCK -10" in receipt_summary.text,
-		"score receipt summary should expose every grouped causal component",
+		receipt_grid != null and receipt_grid.is_visible_in_tree()
+		and receipt_grid.columns == 5
+		and receipt_summary != null and not receipt_summary.is_visible_in_tree()
+		and receipt_orders != null and receipt_orders.text == "+120"
+		and receipt_clutch != null and receipt_clutch.text == "+47"
+		and receipt_shells != null and receipt_shells.text == "-12"
+		and receipt_queues != null and receipt_queues.text == "-8"
+		and receipt_flock != null and receipt_flock.text == "-10"
+		and receipt_orders_icon != null and receipt_orders_icon.texture != null
+		and receipt_shells_icon != null and receipt_shells_icon.texture != null
+		and receipt_flock_icon != null and receipt_flock_icon.texture != null
+		and receipt_orders_card != null and bool(receipt_orders_card.get_meta("icon_first", false))
+		and String(receipt_orders_card.get_meta("semantic_icon", "")) == "order_compliance"
+		and String(receipt_shells_icon.get_meta("semantic_icon", "")) == "receipt_shell"
+		and String(receipt_flock_icon.get_meta("semantic_icon", "")) == "receipt_flock",
+		"score receipts should replace accounting captions with five icon-led signed deltas",
 		failures,
 	)
 	_check(
-		receipt_summary != null
-		and "SHIFT 2 SCORE RECEIPT" in receipt_summary.tooltip_text
-		and "Probation Orders  +120" in receipt_summary.tooltip_text
-		and "Two orders cleared without an exception." in receipt_summary.tooltip_text
-		and shift_delta.tooltip_text == receipt_summary.tooltip_text,
-		"receipt summary and score metric should retain the full causal detail in a shared tooltip",
+		receipt_grid != null
+		and "SHIFT 2 SCORE RECEIPT" in receipt_grid.tooltip_text
+		and "Probation Orders  +120" in receipt_grid.tooltip_text
+		and "Two orders cleared without an exception." in receipt_grid.tooltip_text
+		and String(receipt_grid.get_meta("accessible_text", "")) == receipt_grid.tooltip_text
+		and receipt_orders != null
+		and receipt_orders.tooltip_text == "Probation Orders  +120  //  Two orders cleared without an exception."
+		and shift_delta.tooltip_text == receipt_grid.tooltip_text,
+		"receipt chips and score metric should retain the full causal detail for pointer and assistive access",
 		failures,
 	)
-	_check(rank != null and rank.text == "SILVER COMB", "report should present the campaign rank", failures)
+	_check(
+		score_row != null and bool(score_row.get_meta("receipt_equation", false))
+		and String(score_row.get_meta("visual_flow", "")) == "receipt_components_to_shift_total_to_score"
+		and score_row.get_child(1) == shift_delta_panel
+		and score_row.get_child(2) == score_panel
+		and shift_delta_panel != null
+		and bool(shift_delta_panel.get_meta("receives_score_receipts", false))
+		and int(shift_delta_panel.get_meta("receipt_component_count", 0)) == 5
+		and score_panel != null and bool(score_panel.get_meta("follows_shift_total", false)),
+		"filed receipt components should flow directly into this-shift total before the cumulative score",
+		failures,
+	)
+	_check(
+		rank != null and rank.text == "SILVER COMB"
+		and rank_caption != null and rank_caption.text == "PROMOTED"
+		and rank_value_row != null and rank.get_parent() == rank_value_row
+		and rank_value_row.get_child(0) == rank_icon
+		and rank_icon != null and rank_icon.texture != null
+		and String(rank_icon.get_meta("semantic_icon", "")) == "rank_crest"
+		and String(rank_icon.get_meta("rank_title", "")) == "SILVER COMB"
+		and rank.tooltip_text == "PROMOTED  //  SILVER COMB  //  FROM BRONZE COMB"
+		and String(rank.get_meta("accessible_text", "")) == rank.tooltip_text,
+		"a real upward rank crossing should become one compact promoted crest stamp",
+		failures,
+	)
+	_check(
+		rank_progress != null and rank_progress.is_visible_in_tree()
+		and not rank_progress.show_percentage
+		and is_equal_approx(rank_progress.value, 6800.0)
+		and bool(rank_progress.get_meta("threshold_backed", false))
+		and int(rank_progress.get_meta("points_to_next", -1)) == 160
+		and String(rank_progress.get_meta("next_rank_label", "")) == "GOLDEN COMB"
+		and bool(rank_progress.get_meta("promotion_opportunity", false))
+		and int(rank_progress.get_meta("projected_score", -1)) == 2000
+		and rank_progress.tooltip_text == "PROMOTED  //  SILVER COMB  //  FROM BRONZE COMB  //  SCORE 1840 / 2000  //  160 TO GOLDEN COMB  //  NEXT ORDER BUNDLE CAN PROMOTE",
+		"report rank should show exact threshold-backed momentum without another visible label",
+		failures,
+	)
 	_check(
 		rank != null
 		and rank.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
@@ -757,23 +965,164 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		safeguard_panel != null and safeguard_panel.is_visible_in_tree()
-		and safeguard_summary != null
-		and _contains_all(safeguard_summary.text, [
-			"CURRENT FORECAST", "STANDARD FILING", "4 / 5 SAFEGUARDS", "2 / 5 SHIFTS FILED",
-			"ACTION REQUIRED", "LARGEST RECOVERABLE GAP", "FARMER FAVOR", "-1 POINT",
-		]),
-		"between-shift report should expose the exact pass count and largest recoverable gap",
+		ledger_section != null and ledger_section.text == "5-SHIFT RECORD"
+		and ledger_section.tooltip_text == "PROBATION RECORD  //  5-SHIFT VIEW"
+		and String(ledger_section.get_meta("accessible_text", "")) == ledger_section.tooltip_text
+		and bool(ledger_section.get_meta("compact_record_heading", false))
+		and first_ledger_card != null and first_ledger_card.custom_minimum_size.y == 60.0
+		and bool(first_ledger_card.get_meta("metric_first", false))
+		and first_ledger_line != null and first_ledger_line.get_child(0) == first_ledger
+		and first_ledger_detail != null and first_ledger_detail.text == "2-SHIFT TOTAL",
+		"probation records should use a compact heading and present each metric first in a compact two-line card",
 		failures,
 	)
 	_check(
-		safeguard_score != null and safeguard_score.text == "PASS  //  PROBATION SCORE  //  65 >= 60  //  +5 POINTS"
-		and safeguard_favor != null and safeguard_favor.text == "AT RISK  //  FARMER FAVOR  //  49 >= 50  //  -1 POINT"
-		and safeguard_shells != null and safeguard_shells.text == "PASS  //  CRACK RATE  //  25.00% <= 25.00%  //  0.00 PTS",
-		"forecast rows should state current values, comparisons, thresholds, and signed gaps without hidden rules",
+		first_ledger_card != null and first_ledger_card.tooltip_text == "TWO-SHIFT TOTAL"
+		and String(first_ledger_card.get_meta("accessible_text", "")).contains(
+			"EGGS FILED 47. TWO-SHIFT TOTAL"
+		),
+		"compact record cards should retain the complete authored accounting detail",
 		failures,
 	)
-	_check(objective != null and "CLEAR PREDATOR BACKLOG" in objective.text, "report should teach the next-shift objective", failures)
+	_check(
+		safeguard_panel != null and safeguard_panel.is_visible_in_tree()
+		and safeguard_heading != null and safeguard_heading.text == "PROBATION CHECK"
+		and safeguard_heading.tooltip_text == "PASS CHECK  //  5 TARGETS"
+		and String(safeguard_heading.get_meta("accessible_text", "")) == safeguard_heading.tooltip_text
+		and bool(safeguard_heading.get_meta("compact_pass_heading", false))
+		and safeguard_summary != null
+		and safeguard_summary.text == "4/5 PASS  //  FIX FAVOR 1"
+		and String(safeguard_summary.get_meta("shift_context_source", "")) == "persistent_day_rail"
+		and int(safeguard_summary.get_meta("completed_shifts", -1)) == 2
+		and int(safeguard_summary.get_meta("required_shifts", -1)) == 5
+		and bool(safeguard_summary.get_meta("compact_status_only", false)),
+		"between-shift reports should reduce five filed terms to one plain pass check and next fix without repeating the day rail",
+		failures,
+	)
+	_check(
+		safeguard_summary != null
+		and "2 / 5 SHIFTS FILED" in safeguard_summary.tooltip_text
+		and String(safeguard_summary.get_meta("accessible_text", "")) == safeguard_summary.tooltip_text,
+		"the compact pass check should retain exact shift progress for pointer and assistive access",
+		failures,
+	)
+	_check(
+		safeguard_grid != null and not safeguard_grid.is_visible_in_tree()
+		and safeguard_pass_grid != null and safeguard_pass_grid.is_visible_in_tree()
+		and safeguard_pass_score != null and safeguard_pass_score.text == "SCORE\n65"
+		and String(safeguard_pass_score.get_meta("visual_status_symbol", "")) == "checkmark_badge"
+		and safeguard_pass_score_icon != null and safeguard_pass_score_icon.texture != null
+		and String(safeguard_pass_score_icon.get_meta("semantic_icon", "")) == "status_pass"
+		and safeguard_pass_score.tooltip_text.begins_with("PASS  //  PROBATION SCORE")
+		and safeguard_pass_favor != null and safeguard_pass_favor.text == "FAVOR\n49 NEED 1"
+		and String(safeguard_pass_favor.get_meta("visual_status_symbol", "")) == "attention_badge"
+		and safeguard_pass_favor_icon != null and safeguard_pass_favor_icon.texture != null
+		and String(safeguard_pass_favor_icon.get_meta("semantic_icon", "")) == "status_need",
+		"at-risk forecasts should use the same five status-first chips as successful reports",
+		failures,
+	)
+	_check(
+		safeguard_score != null and not safeguard_score.is_visible_in_tree()
+		and safeguard_favor != null and not safeguard_favor.is_visible_in_tree()
+		and safeguard_shells != null and not safeguard_shells.is_visible_in_tree()
+		and safeguard_pass_favor != null
+		and safeguard_pass_favor.tooltip_text == "AT RISK  //  FARMER FAVOR  //  49 >= 50  //  -1 POINT"
+		and "STANDARD FILING" in safeguard_panel.tooltip_text
+		and "LARGEST RECOVERABLE GAP  //  FARMER FAVOR  //  -1 POINT" in safeguard_panel.tooltip_text,
+		"compact pass checks should retain every contract, threshold, comparison, and signed gap as progressive detail",
+		failures,
+	)
+	var all_pass_report := ui.campaign_snapshot().duplicate(true)
+	all_pass_report["probation_safeguard_forecast"] = _safeguard_forecast(false, true)
+	ui.show_between_shift_report(all_pass_report)
+	await process_frame
+	await process_frame
+	_check(
+		safeguard_pass_grid != null and safeguard_pass_grid.is_visible_in_tree()
+		and safeguard_summary.text == "5/5 PASS"
+		and safeguard_pass_grid.columns == 5,
+		"an all-pass forecast should collapse into one status line and five-chip desktop receipt",
+		failures,
+	)
+	_check(
+		safeguard_score != null and not safeguard_score.is_visible_in_tree()
+		and safeguard_pass_score != null and safeguard_pass_score.text == "SCORE\n65"
+		and safeguard_pass_favor != null and safeguard_pass_favor.text == "FAVOR\n52"
+		and String(safeguard_pass_favor.get_meta("visual_status_symbol", "")) == "checkmark_badge"
+		and String(safeguard_pass_favor_icon.get_meta("semantic_icon", "")) == "status_pass",
+		"compact pass chips should communicate status, metric, and current value without repeated accounting sentences",
+		failures,
+	)
+	_check(
+		safeguard_pass_favor != null
+		and safeguard_pass_favor.tooltip_text == "PASS  //  FARMER FAVOR  //  52 >= 50  //  +2 POINTS"
+		and String(safeguard_pass_favor.get_meta("accessible_text", "")) == safeguard_pass_favor.tooltip_text
+		and "PASS  //  CRACK RATE  //  25.00% <= 25.00%  //  0.00 PTS" in safeguard_panel.tooltip_text,
+		"compact all-pass receipts should retain every exact target and signed delta for pointer and assistive detail",
+		failures,
+	)
+	var clutch_order := ui.find_child("ProbationOrderLabel_1", true, false) as Label
+	var compliance_order := ui.find_child("ProbationOrderLabel_2", true, false) as Label
+	var tray_order := ui.find_child("ProbationOrderLabel_3", true, false) as Label
+	var clutch_order_card := ui.find_child("ProbationOrder_1", true, false) as PanelContainer
+	_check(
+		objective_orders != null and objective_orders.is_visible_in_tree()
+		and objective_body != null and not objective_body.is_visible_in_tree()
+		and clutch_order != null and clutch_order.text == "MEET THE CLUTCH\nHIT QUOTA"
+		and compliance_order != null and compliance_order.text == "ORDERLY COOP\n68+"
+		and tray_order != null and tray_order.text == "TRIM THE TRAYS\n<= 3",
+		"probation reports should replace three prose bullets with three glance-readable order chips",
+		failures,
+	)
+	_check(
+		clutch_order != null
+		and clutch_order_card != null
+		and clutch_order_card.tooltip_text == "Meet the clutch. Meet the farmer's daily quota. Target HIT QUOTA."
+		and String(clutch_order.get_meta("accessible_text", "")) == clutch_order.tooltip_text
+		and String(objective_orders.get_meta("accessible_text", "")) == String(
+			(all_pass_report["next_objective"] as Dictionary)["description"]
+		),
+		"compact order chips should retain the complete authored instruction for pointer and assistive detail",
+		failures,
+	)
+	_check(
+		objective_reward_badge != null and objective_reward_badge.is_visible_in_tree()
+		and objective_reward_label != null and objective_reward_label.text == "+3 SCORE"
+		and objective_promotion_icon != null and objective_promotion_icon.is_visible_in_tree()
+		and objective_promotion_icon.texture != null
+		and String(objective_promotion_icon.get_meta("semantic_icon", "")) == "rank_crest"
+		and bool(objective_reward_badge.get_meta("promotion_opportunity", false))
+		and int(objective_reward_badge.get_meta("projected_score", -1)) == 2000
+		and int(objective_reward_badge.get_meta("target_score", -1)) == 2000
+		and objective_progress != null and not objective_progress.is_visible_in_tree(),
+		"a threshold-crossing order bundle should share the rank crest and brass emphasis",
+		failures,
+	)
+	_check(
+		objective_reward_badge != null
+		and objective_reward_badge.tooltip_text == "PROMOTION READY  //  COMPLETE ALL 3 ORDERS  //  +3 SCORE  //  1997 -> 2000  //  GOLDEN COMB"
+		and String(objective_reward_badge.get_meta("accessible_text", "")) == objective_reward_badge.tooltip_text
+		and objective_card != null
+		and objective_card.tooltip_text.contains("Meet the farmer's daily quota")
+		and objective_card.tooltip_text.contains("Complete all three orders for a +3 score bundle."),
+		"the compact reward badge and objective card should retain the complete authored rules as progressive detail",
+		failures,
+	)
+	# Applying a fresh report snapshot rebuilds authored milestone buttons. Keep
+	# subsequent interaction assertions pointed at the live controls.
+	choice = ui.find_child("MilestoneChoice_fast_keys", true, false) as Button
+	milestone_hint = ui.find_child("MilestoneChoiceHint", true, false) as Label
+	report_continue = ui.find_child("ContinueProbationButton", true, false) as Button
+	_check(
+		objective != null
+		and objective.text == "DAY 3 ORDERS"
+		and objective.tooltip_text.contains("NEXT SHIFT OBJECTIVE  //  DAY 3 PROBATION ORDERS")
+		and objective.tooltip_text.contains("Complete all three orders for a +3 score bundle.")
+		and String(objective.get_meta("accessible_text", "")) == objective.tooltip_text
+		and bool(objective.get_meta("compact_orders_heading", false)),
+		"structured probation orders should use a compact day heading while preserving authored context as progressive detail",
+		failures,
+	)
 	_check(
 		story_row != null and story_row.is_visible_in_tree()
 		and credit_memo_card != null and credit_memo_card.is_visible_in_tree()
@@ -781,12 +1130,86 @@ func _run() -> void:
 		"credit attribution and the causal hen file should share the report story row",
 		failures,
 	)
+	var credit_layer := ui.find_child("FiledCreditLayerChipLabel", true, false) as Label
+	var credit_byline := ui.find_child("FiledCreditBylineChipLabel", true, false) as Label
+	var credit_fund := ui.find_child("FiledCreditFundChipLabel", true, false) as Label
+	var credit_layer_icon := ui.find_child("FiledCreditLayerChipIcon", true, false) as TextureRect
+	var credit_byline_icon := ui.find_child("FiledCreditBylineChipIcon", true, false) as TextureRect
+	var credit_fund_icon := ui.find_child("FiledCreditFundChipIcon", true, false) as TextureRect
 	_check(
-		highlight_eyebrow != null and highlight_eyebrow.text == "HEN FILE  //  MABEL  //  WARM"
+		credit_memo_label != null and credit_memo_label.text == "CREDIT GOES TO"
+		and bool(credit_memo_label.get_meta("outcome_first_credit_heading", false))
+		and credit_memo_label.tooltip_text.begins_with("GOLDEN DOSSIER FILED  //  FARMER CREDIT")
+		and credit_glance != null and credit_glance.is_visible_in_tree()
+		and credit_layer != null and credit_layer.text == "MABEL"
+		and credit_byline != null and credit_byline.text == "FLOCK"
+		and credit_fund != null and credit_fund.text == "$0"
+		and credit_layer_icon != null and credit_layer_icon.texture != null
+		and String(credit_layer_icon.get_meta("semantic_icon", "")) == "receipt_hen"
+		and credit_byline_icon != null and credit_byline_icon.texture != null
+		and String(credit_byline_icon.get_meta("semantic_icon", "")) == "receipt_flock"
+		and credit_fund_icon != null and credit_fund_icon.texture != null
+		and String(credit_fund_icon.get_meta("semantic_icon", "")) == "receipt_fund"
+		and "farmer presented Mabel's golden file" in credit_glance.tooltip_text
+		and "MABEL -> FLOCK  //  FUND NO COST" in credit_glance.tooltip_text
+		and String(credit_glance.get_meta("accessible_text", "")) == credit_glance.tooltip_text,
+		"credit evidence should lead with a plain attribution heading and use icon-led attribution and fund values",
+		failures,
+	)
+	_check(
+		highlight_eyebrow != null and highlight_eyebrow.text == "MABEL  //  WARM"
 		and highlight_headline != null and highlight_headline.text == "GOLDEN DELIVERABLE"
-		and highlight_body != null and "farmer congratulated management" in highlight_body.text
-		and highlight_metric != null and highlight_metric.text == "5 EGGS  //  4 SOUND  //  1 GOLDEN  //  $14.80 CREDIT",
+		and highlight_body != null and not highlight_body.is_visible_in_tree()
+		and "farmer congratulated management" in highlight_body.text
+		and highlight_metric != null and not highlight_metric.is_visible_in_tree()
+		and highlight_metric.text == "5 EGGS  //  4 SOUND  //  1 GOLDEN  //  $14.80 CREDIT"
+		and highlight_glance != null and highlight_glance.is_visible_in_tree(),
 		"hen highlight should preserve the subject, satirical outcome, and shift evidence",
+		failures,
+	)
+	var evidence_eggs := ui.find_child("ShiftHenEvidenceChip_1Label", true, false) as Label
+	var evidence_sound := ui.find_child("ShiftHenEvidenceChip_2Label", true, false) as Label
+	var evidence_gold := ui.find_child("ShiftHenEvidenceChip_3Label", true, false) as Label
+	var evidence_credit := ui.find_child("ShiftHenEvidenceChip_4Label", true, false) as Label
+	var evidence_eggs_icon := ui.find_child("ShiftHenEvidenceChip_1Icon", true, false) as TextureRect
+	var evidence_gold_icon := ui.find_child("ShiftHenEvidenceChip_3Icon", true, false) as TextureRect
+	var evidence_credit_icon := ui.find_child("ShiftHenEvidenceChip_4Icon", true, false) as TextureRect
+	var receipt_first_chip := ui.find_child("ReportScoreReceiptChip_1", true, false) as PanelContainer
+	var receipt_last_chip := ui.find_child("ReportScoreReceiptChip_5", true, false) as PanelContainer
+	var credit_first_chip := ui.find_child("FiledCreditLayerChip", true, false) as PanelContainer
+	var credit_last_chip := ui.find_child("FiledCreditFundChip", true, false) as PanelContainer
+	var hen_first_chip := ui.find_child("ShiftHenEvidenceChip_1", true, false) as PanelContainer
+	var hen_last_chip := ui.find_child("ShiftHenEvidenceChip_4", true, false) as PanelContainer
+	_check(
+		evidence_eggs != null and evidence_eggs.text == "5"
+		and evidence_sound != null and evidence_sound.text == "4"
+		and evidence_gold != null and evidence_gold.text == "1"
+		and evidence_credit != null and evidence_credit.text == "$14.80"
+		and evidence_eggs_icon != null and evidence_eggs_icon.texture != null
+		and String(evidence_eggs_icon.get_meta("semantic_icon", "")) == "order_clutch"
+		and evidence_gold_icon != null and evidence_gold_icon.texture != null
+		and String(evidence_gold_icon.get_meta("semantic_icon", "")) == "receipt_specialty"
+		and evidence_credit_icon != null and evidence_credit_icon.texture != null
+		and String(evidence_credit_icon.get_meta("semantic_icon", "")) == "receipt_fund"
+		and bool(story_row.get_meta("compact_story_glance", false))
+		and credit_memo_card.custom_minimum_size.y == 76.0
+		and highlight_card.custom_minimum_size.y == 76.0,
+		"paired probation evidence should use one caption-free icon row of exact results",
+		failures,
+	)
+	_check(
+		receipt_first_chip != null and int(receipt_first_chip.get_meta("reveal_order", -1)) == 0
+		and receipt_last_chip != null and int(receipt_last_chip.get_meta("reveal_order", -1)) == 4
+		and credit_first_chip != null and int(credit_first_chip.get_meta("reveal_order", -1)) == 5
+		and credit_last_chip != null and int(credit_last_chip.get_meta("reveal_order", -1)) == 7
+		and hen_first_chip != null and int(hen_first_chip.get_meta("reveal_order", -1)) == 8
+		and hen_last_chip != null and int(hen_last_chip.get_meta("reveal_order", -1)) == 11
+		and String(receipt_grid.get_meta("reveal_motion", "")) == "instant"
+		and String(credit_glance.get_meta("reveal_motion", "")) == "instant"
+		and String(highlight_glance.get_meta("reveal_motion", "")) == "instant"
+		and receipt_first_chip.modulate.is_equal_approx(Color.WHITE)
+		and hen_last_chip.modulate.is_equal_approx(Color.WHITE),
+		"report evidence should retain one score-to-attribution-to-hen filing order and settle instantly under reduced motion",
 		failures,
 	)
 	_check(
@@ -832,9 +1255,10 @@ func _run() -> void:
 			["Review Roost requisitions", "closing-credit file"],
 		)
 		and report_continue != null
-		and report_continue.text == "FILE & PLAN  [C]"
+		and report_continue.text == "NEXT SHIFT  [C]"
 		and report_continue.icon != null
 		and String(report_continue.get_meta("semantic_icon", "")) == "advance_arrow"
+		and String(report_continue.get_meta("outcome_first_action", "")) == "advance"
 		and _contains_all(
 			String(report_continue.get_meta("accessible_text", "")),
 			["FILE REPORT & PLAN NEXT SHIFT", "Choose one milestone card"],
@@ -859,15 +1283,16 @@ func _run() -> void:
 	_check(int(observed["continue"]) == 2, "report continuation should reuse the campaign continuation signal", failures)
 	var abandon := ui.find_child("AbandonCampaignButton", true, false) as Button
 	_check(
-		abandon != null and abandon.text == "SHELVE  [A]"
+		abandon != null and abandon.text == "SAVE & EXIT  [A]"
 		and abandon.theme_type_variation != &"DangerButton"
 		and abandon.icon != null
 		and String(abandon.get_meta("semantic_icon", "")) == "safe_shelve"
+		and String(abandon.get_meta("outcome_first_action", "")) == "save_exit"
 		and _contains_all(
 			String(abandon.get_meta("accessible_text", "")),
-			["return to intake", "exact checkpoint"],
+			["Save this checkpoint", "return to intake", "exact checkpoint"],
 		),
-		"leaving a report should be presented as a safe shelve action rather than destructive abandonment",
+		"leaving a report should state its safe save-and-exit outcome rather than use a filing metaphor",
 		failures,
 	)
 	if abandon != null:
@@ -924,16 +1349,27 @@ func _run() -> void:
 	})
 	await process_frame
 	await process_frame
-	_check(shift_delta != null and shift_delta.text == "--", "missing receipt data should use an explicit unavailable shift score", failures)
 	_check(
-		receipt_summary != null and receipt_summary.text == "Cumulative results follow you through all five shifts.",
+		shift_delta != null and shift_delta.text == "--"
+		and shift_delta_caption != null and shift_delta_caption.text == "THIS SHIFT"
+		and shift_delta_icon != null and not shift_delta_icon.visible
+		and String(shift_delta_icon.get_meta("semantic_icon", "")) == "score_pending",
+		"missing receipt data should use an explicit unavailable shift score without implying movement",
+		failures,
+	)
+	_check(
+		receipt_summary != null and receipt_summary.is_visible_in_tree()
+		and receipt_summary.text == "Cumulative results follow you through all five shifts."
+		and receipt_grid != null and not receipt_grid.is_visible_in_tree(),
 		"missing receipt data should restore the neutral report explanation",
 		failures,
 	)
 	_check(
 		story_row != null and not story_row.is_visible_in_tree()
 		and credit_memo_card != null and not credit_memo_card.is_visible_in_tree()
-		and highlight_card != null and not highlight_card.is_visible_in_tree(),
+		and credit_glance != null and not credit_glance.visible
+		and highlight_card != null and not highlight_card.is_visible_in_tree()
+		and highlight_glance != null and not highlight_glance.visible,
 		"story row should collapse completely when neither attribution nor hen data exists",
 		failures,
 	)
@@ -1074,6 +1510,72 @@ func _run() -> void:
 		status_label.text == "ROOST  73"
 		and status_label.tooltip_text == "SENIOR ROOST  73",
 		"active badge should expose a fitted long-term status and preserve its full accessible label",
+		failures,
+	)
+	_check(
+		day_progress_rail != null and not day_progress_rail.is_visible_in_tree(),
+		"Senior calendar badges should not inherit the five-shift probation rail",
+		failures,
+	)
+
+	ui.set_reduced_motion(false)
+	var motion_report := all_pass_report.duplicate(true)
+	# The badge exercise immediately above intentionally merges a Senior status
+	# into the component snapshot; restore the authored probation identity for
+	# this independent report-motion scenario.
+	motion_report["status"] = "Probation"
+	motion_report.erase("senior_roost")
+	var motion_receipt := motion_report.get("score_receipt", {}) as Dictionary
+	motion_receipt["score_after"] = int(motion_receipt.get("score_after", 0)) + 1
+	motion_report["score_receipt"] = motion_receipt
+	ui.show_between_shift_report(motion_report)
+	await process_frame
+	await process_frame
+	var motion_first := ui.find_child("ReportScoreReceiptChip_1", true, false) as PanelContainer
+	var motion_last := ui.find_child("ShiftHenEvidenceChip_4", true, false) as PanelContainer
+	var motion_grid := ui.find_child("ReportScoreReceiptGrid", true, false) as GridContainer
+	_check(
+		motion_first != null and motion_last != null and motion_grid != null
+		and String(motion_grid.get_meta("reveal_motion", "")) == "staggered"
+		and int(motion_first.get_meta("reveal_order", -1)) == 0
+		and int(motion_last.get_meta("reveal_order", -1)) == 11
+		and motion_last.modulate.a < 0.1
+		and shift_delta_panel != null
+		and String(shift_delta_panel.get_meta("result_pulse_motion", "")) == "queued"
+		and rank_icon != null
+		and String(rank_icon.get_meta("promotion_stamp_motion", "")) == "queued",
+		"standard motion should stagger the filing sequence without changing report layout",
+		failures,
+	)
+	await create_timer(0.6).timeout
+	_check(
+		motion_first != null and is_equal_approx(motion_first.modulate.a, 1.0)
+		and motion_last != null and is_equal_approx(motion_last.modulate.a, 1.0)
+		and String(motion_grid.get_meta("reveal_motion", "")) == "completed"
+		and shift_delta_panel != null
+		and String(shift_delta_panel.get_meta("result_pulse_motion", "")) == "pulsing"
+		and shift_delta_panel.scale.x > 1.005
+		and int(observed["report_filing_settled"]) == 1,
+		"the shift total should pulse only after every evidence chip lands (first_alpha=%.3f last_alpha=%.3f mode=%s pulse=%s scale=%.3f receipts=%d)" % [
+			motion_first.modulate.a if motion_first != null else -1.0,
+			motion_last.modulate.a if motion_last != null else -1.0,
+			String(motion_grid.get_meta("reveal_motion", "missing")) if motion_grid != null else "missing",
+			String(shift_delta_panel.get_meta("result_pulse_motion", "missing")) if shift_delta_panel != null else "missing",
+			shift_delta_panel.scale.x if shift_delta_panel != null else -1.0,
+			int(observed["report_filing_settled"]),
+		],
+		failures,
+	)
+	await create_timer(0.35).timeout
+	_check(
+		shift_delta_panel != null
+		and is_equal_approx(shift_delta_panel.scale.x, 1.0)
+		and String(shift_delta_panel.get_meta("result_pulse_motion", "")) == "completed"
+		and rank_icon != null
+		and String(rank_icon.get_meta("promotion_stamp_motion", "")) == "completed"
+		and is_equal_approx(rank_icon.scale.x, 1.0)
+		and int(observed["report_filing_settled"]) == 2,
+		"the complete evidence-to-total-to-promotion filing should settle in under one second",
 		failures,
 	)
 

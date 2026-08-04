@@ -245,8 +245,25 @@ func _check_credit_prefix(
 	})
 	await process_frame
 	_check(memo_card != null and memo_card.is_visible_in_tree(), "%s memo should be visible on its report day" % expected_prefix, failures)
-	_check(memo_label != null and memo_label.text.begins_with(expected_prefix + "  //"), "%s should use a distinct report prefix" % expected_prefix, failures)
-	_check(memo_label != null and String(memo.get("outcome", "")) in memo_label.text, "%s should retain its filed outcome" % expected_prefix, failures)
+	var visible_story_type := expected_prefix.trim_suffix(" FILED")
+	_check(
+		memo_label != null
+		and memo_label.text == "CREDIT GOES TO"
+		and bool(memo_label.get_meta("outcome_first_credit_heading", false)),
+		"%s should use one outcome-first attribution heading without filing jargon" % expected_prefix,
+		failures,
+	)
+	_check(
+		memo_label != null
+		and memo_label.tooltip_text.begins_with(expected_prefix + "  //")
+		and visible_story_type in memo_label.tooltip_text
+		and String(memo.get("outcome", "")) in memo_label.tooltip_text
+		and String(memo_label.get_meta("accessible_text", "")).contains(
+			String(memo.get("outcome", "")),
+		),
+		"%s should retain its filed outcome as progressive detail" % expected_prefix,
+		failures,
+	)
 	_check(memo_label != null and memo_label.autowrap_mode == TextServer.AUTOWRAP_WORD_SMART, "%s memo should remain readable when it wraps" % expected_prefix, failures)
 
 

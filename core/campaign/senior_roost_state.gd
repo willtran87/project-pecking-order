@@ -383,6 +383,60 @@ func current_annual_mandate_progress(live_metrics: Dictionary = {}) -> Dictionar
 	return _mandate_progress(_active_annual_mandate, evidence)
 
 
+func latest_annual_mandate_delta() -> Dictionary:
+	## Derive the latest visible Board movement from authoritative evidence. The
+	## receipt is presentation-only and never needs another persisted counter.
+	if _active_annual_mandate.is_empty() or current_mandate_evidence.is_empty():
+		return {}
+	var previous_evidence: Array[Dictionary] = []
+	for index in range(current_mandate_evidence.size() - 1):
+		previous_evidence.append(current_mandate_evidence[index].duplicate(true))
+	var previous := _mandate_progress(_active_annual_mandate, previous_evidence)
+	var current := _mandate_progress(_active_annual_mandate, current_mandate_evidence)
+	var previous_by_metric: Dictionary = {}
+	for row_value in previous.get("objectives", []) as Array:
+		if row_value is Dictionary:
+			var row := row_value as Dictionary
+			previous_by_metric[String(row.get("metric", ""))] = row
+	var changes: Array[Dictionary] = []
+	for row_value in current.get("objectives", []) as Array:
+		if not row_value is Dictionary:
+			continue
+		var row := row_value as Dictionary
+		var metric := String(row.get("metric", ""))
+		var before := previous_by_metric.get(metric, {}) as Dictionary
+		var previous_actual := int(before.get("actual", 0))
+		var actual := int(row.get("actual", 0))
+		var delta := actual - previous_actual
+		var status_changed := bool(before.get("met", false)) != bool(row.get("met", false))
+		if delta == 0 and not status_changed:
+			continue
+		var comparison := String(row.get("comparison", "minimum"))
+		var progress_delta := delta if comparison == "minimum" else -delta
+		changes.append({
+			"metric": metric,
+			"label": String(row.get("label", "BOARD TARGET")),
+			"comparison": comparison,
+			"previous_actual": previous_actual,
+			"actual": actual,
+			"target": int(row.get("target", 0)),
+			"delta": delta,
+			"impact": (
+				"improved" if progress_delta > 0 else
+				("setback" if progress_delta < 0 else "steady")
+			),
+			"status_changed": status_changed,
+			"met": bool(row.get("met", false)),
+		})
+	var latest_evidence := current_mandate_evidence.back() as Dictionary
+	return {
+		"visible": not changes.is_empty(),
+		"day": int(latest_evidence.get("day", last_recorded_day)),
+		"shift_index": current_mandate_evidence.size(),
+		"changes": changes,
+	}
+
+
 static func marks_for_score(score: int) -> int:
 	## One canonical boundary function owns both live reward projection and the
 	## exact quarter-close award. Keeping the 40 / 60 / 80 gates here prevents
@@ -1004,6 +1058,7 @@ func last_quarter_score_breakdown() -> Dictionary:
 
 func snapshot() -> Dictionary:
 	var mandate_progress := current_annual_mandate_progress()
+	var mandate_delta := latest_annual_mandate_delta()
 	var strategy_recap := annual_strategy_recap(last_annual_review) \
 		if status == STATUS_ANNUAL_REVIEW else {}
 	return {
@@ -1033,6 +1088,7 @@ func snapshot() -> Dictionary:
 		"annual_mandate_offers": annual_mandate_catalog(),
 		"active_annual_mandate": active_annual_mandate(),
 		"annual_mandate_progress": mandate_progress,
+		"annual_mandate_delta": mandate_delta,
 		"mandate_seals": mandate_seals,
 		"eligible_mandate_tier": eligible_mandate_tier(),
 		"mandate_tier_eligibility": mandate_tier_eligibility(),

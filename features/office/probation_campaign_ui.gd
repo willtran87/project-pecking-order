@@ -15,6 +15,7 @@ signal challenge_contract_changed(contract_id: StringName)
 signal title_intake_phase_changed(phase: StringName)
 signal milestone_choice(choice_id: StringName)
 signal presentation_state_changed
+signal report_filing_settled(reveal_key: String, instant: bool)
 signal career_sponsorship_requested(worker_id: int, lane_id: StringName)
 signal market_contract_sign_requested(
 	offer_id: StringName,
@@ -39,6 +40,21 @@ const DEFAULT_TOTAL_DAYS := 5
 const PROBATION_SCORE_LIMIT := 100
 const PROBATION_PASS_THRESHOLD := 60
 const MAX_BADGE_ORDER_SEGMENTS := 3
+const MAX_BADGE_DAY_SEGMENTS := DEFAULT_TOTAL_DAYS
+const REPORT_DESKTOP_WIDTH := 960.0
+const REPORT_HEADING_DESKTOP_WIDTH := 340.0
+const REPORT_CREDIT_DESKTOP_WIDTH := 560.0
+const REPORT_HIGHLIGHT_DESKTOP_WIDTH := 300.0
+const REPORT_STORY_FULL_HEIGHT := 96.0
+const REPORT_STORY_COMPACT_HEIGHT := 76.0
+const REPORT_REVEAL_DURATION := 0.13
+const REPORT_REVEAL_STAGGER := 0.035
+const REPORT_TOTAL_PULSE_SCALE := 1.035
+const REPORT_TOTAL_PULSE_IN_DURATION := 0.08
+const REPORT_TOTAL_PULSE_OUT_DURATION := 0.14
+const REPORT_PROMOTION_STAMP_SCALE := 1.22
+const REPORT_PROMOTION_STAMP_IN_DURATION := 0.06
+const REPORT_PROMOTION_STAMP_OUT_DURATION := 0.10
 const DEFAULT_CHALLENGE_CONTRACT_ID: StringName = &"standard_filing"
 const DEFAULT_CHALLENGE_CONTRACT := {
 	"id": "standard_filing",
@@ -84,12 +100,15 @@ var _selected_challenge_contract_id: StringName = DEFAULT_CHALLENGE_CONTRACT_ID
 var _challenge_selector_syncing := false
 var _title_new_file_setup := false
 var _title_contract_terms_expanded := false
+var _last_board_pulse_key := ""
 
 var _day_badge: PanelContainer
 var _active_badge_top := 120.0
 var _badge_suppressed := false
 var _status_label: Label
 var _day_label: Label
+var _day_progress_row: HBoxContainer
+var _day_progress_segments: Array[PanelContainer] = []
 var _order_progress_row: HBoxContainer
 var _order_progress_label: Label
 var _order_progress_segments: Array[PanelContainer] = []
@@ -98,6 +117,8 @@ var _live_orders_total := 0
 var _live_order_context: StringName = &""
 var _order_progress_seeded := false
 var _order_progress_tween: Tween
+var _report_reveal_tween: Tween
+var _last_report_reveal_key := ""
 var _reduced_motion := false
 var _modal_host: Control
 var _modal_scroll: ScrollContainer
@@ -142,25 +163,38 @@ var _report_continue_button: Button
 var _report_day_label: Label
 var _report_heading_label: Label
 var _report_heading_note: Label
+var _report_score_receipt_grid: GridContainer
 var _report_ledger_section_label: Label
 var _report_score_label: Label
 var _report_shift_delta_label: Label
+var _report_shift_delta_icon: TextureRect
 var _report_rank_label: Label
+var _report_rank_icon: TextureRect
+var _report_rank_progress: ProgressBar
 var _report_ledger_labels: Array[Dictionary] = []
 var _report_safeguard_panel: PanelContainer
 var _report_safeguard_summary: Label
 var _report_safeguard_grid: GridContainer
 var _report_safeguard_rows: Array[Label] = []
+var _report_safeguard_pass_grid: GridContainer
+var _report_safeguard_pass_rows: Array[Label] = []
 var _credit_memo_card: PanelContainer
 var _credit_memo_label: Label
+var _credit_memo_glance_strip: HFlowContainer
 var _hen_highlight_card: PanelContainer
 var _hen_highlight_eyebrow: Label
 var _hen_highlight_headline: Label
 var _hen_highlight_body: Label
 var _hen_highlight_metric: Label
+var _hen_highlight_glance_strip: HFlowContainer
 var _objective_card: PanelContainer
 var _objective_title_label: Label
+var _objective_reward_badge: PanelContainer
+var _objective_promotion_icon: TextureRect
+var _objective_reward_label: Label
 var _objective_body_label: Label
+var _objective_order_strip: HFlowContainer
+var _objective_driver_strip: HFlowContainer
 var _objective_board_strip: HFlowContainer
 var _objective_progress_label: Label
 var _milestone_section: VBoxContainer
@@ -444,6 +478,13 @@ func set_reduced_motion(enabled: bool) -> void:
 	_reduced_motion = enabled
 	if _reduced_motion and _order_progress_tween != null and _order_progress_tween.is_valid():
 		_order_progress_tween.kill()
+	if _reduced_motion and _report_reveal_tween != null and _report_reveal_tween.is_valid():
+		_report_reveal_tween.kill()
+		_set_report_reveal_controls_settled("instant")
+		_set_report_total_pulse_settled("instant")
+		_set_report_promotion_stamp_settled("instant")
+		if _view == VIEW_REPORT and not _last_report_reveal_key.is_empty():
+			report_filing_settled.emit(_last_report_reveal_key, true)
 	if _day_badge != null:
 		_day_badge.modulate = Color.WHITE
 
@@ -461,7 +502,7 @@ func set_badge_presentation(active_top: float, suppressed: bool) -> void:
 	_active_badge_top = sanitized_top
 	_badge_suppressed = suppressed
 	if _day_badge != null:
-		_day_badge.visible = not suppressed
+		_refresh_day_badge_visibility()
 		_position_badge(_view != VIEW_ACTIVE)
 
 
@@ -471,6 +512,14 @@ func active_badge_top() -> float:
 
 func is_badge_suppressed() -> bool:
 	return _badge_suppressed
+
+
+func _refresh_day_badge_visibility() -> void:
+	if _day_badge == null:
+		return
+	var report_owns_context := _view == VIEW_REPORT and _is_senior_snapshot()
+	_day_badge.visible = not _badge_suppressed and not report_owns_context
+	_day_badge.set_meta("suppressed_by_report", report_owns_context)
 
 
 func _merge_snapshot(snapshot: Dictionary) -> void:
@@ -520,6 +569,19 @@ func _build_day_badge() -> void:
 	_day_label.name = "ProbationDayLabel"
 	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(_day_label)
+	_day_progress_row = HBoxContainer.new()
+	_day_progress_row.name = "ProbationDayProgressRail"
+	_day_progress_row.mouse_filter = Control.MOUSE_FILTER_STOP
+	_day_progress_row.add_theme_constant_override("separation", 4)
+	stack.add_child(_day_progress_row)
+	for index in range(MAX_BADGE_DAY_SEGMENTS):
+		var segment := PanelContainer.new()
+		segment.name = "ProbationDaySegment%d" % (index + 1)
+		segment.custom_minimum_size = Vector2(24.0, 5.0)
+		segment.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		segment.mouse_filter = Control.MOUSE_FILTER_STOP
+		_day_progress_row.add_child(segment)
+		_day_progress_segments.append(segment)
 	_order_progress_row = HBoxContainer.new()
 	_order_progress_row.name = "ProbationOrderProgressRow"
 	_order_progress_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -537,6 +599,52 @@ func _build_day_badge() -> void:
 		_order_progress_row.add_child(segment)
 		_order_progress_segments.append(segment)
 	_refresh_live_order_badge()
+	_refresh_day_progress_rail(1, DEFAULT_TOTAL_DAYS, "DAY 1 / 5")
+
+
+func _refresh_day_progress_rail(day: int, total_days: int, exact_day_text: String) -> void:
+	if _day_progress_row == null:
+		return
+	var show_rail := not _is_senior_snapshot() and total_days == DEFAULT_TOTAL_DAYS
+	_day_progress_row.visible = show_rail
+	_day_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_day_label.tooltip_text = exact_day_text
+	_day_label.set_meta("accessible_text", exact_day_text)
+	_day_label.set_meta("segment_progress", show_rail)
+	_day_progress_row.tooltip_text = exact_day_text
+	_day_progress_row.set_meta("accessible_text", exact_day_text)
+	_day_progress_row.set_meta("current_day", day)
+	_day_progress_row.set_meta("total_days", total_days)
+	for index in range(_day_progress_segments.size()):
+		var segment := _day_progress_segments[index]
+		var segment_day := index + 1
+		segment.visible = show_rail and segment_day <= total_days
+		if not segment.visible:
+			continue
+		var state := "current" if segment_day == day else (
+			"complete" if segment_day < day else "upcoming"
+		)
+		segment.tooltip_text = "%s  //  SHIFT %d %s" % [
+			exact_day_text,
+			segment_day,
+			state.to_upper(),
+		]
+		segment.set_meta("day", segment_day)
+		segment.set_meta("state", state)
+		segment.set_meta("accessible_text", segment.tooltip_text)
+		segment.add_theme_stylebox_override(
+			"panel",
+			_panel_style(
+				Color("54451f") if state == "current" else (
+					Color("315f58") if state == "complete" else Color("263640")
+				),
+				BRASS if state == "current" else (
+					Color("91c8bb") if state == "complete" else Color("50666c")
+				),
+				2,
+				1,
+			),
+		)
 
 
 func _refresh_live_order_badge() -> void:
@@ -875,7 +983,7 @@ func _build_title_panel(parent: Control) -> void:
 func _build_report_panel(parent: Control) -> void:
 	_report_panel = PanelContainer.new()
 	_report_panel.name = "ProbationReportPanel"
-	_report_panel.custom_minimum_size = Vector2(1040.0, 0.0)
+	_report_panel.custom_minimum_size = Vector2(REPORT_DESKTOP_WIDTH, 0.0)
 	_report_panel.focus_mode = Control.FOCUS_ALL
 	_report_panel.add_theme_stylebox_override(
 		"panel",
@@ -887,7 +995,7 @@ func _build_report_panel(parent: Control) -> void:
 	# restrained vertical rhythm keeps the complete decision gate visible at the
 	# reference 1440x900 Web viewport without removing any authored detail.
 	var content := _panel_content(_report_panel, 26, 14, 6)
-	_report_day_label = _make_label("CLOSING FILE 3 / 3 · SHIFT 1 OF 5 · PROBATION REPORT", 12, BRASS)
+	_report_day_label = _make_label("SHIFT 1 RESULTS", 12, BRASS)
 	_report_day_label.name = "ProbationReportDay"
 	_report_day_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_report_day_label)
@@ -898,7 +1006,7 @@ func _build_report_panel(parent: Control) -> void:
 	_report_score_row.add_theme_constant_override("v_separation", 8)
 	content.add_child(_report_score_row)
 	_report_heading_stack = VBoxContainer.new()
-	_report_heading_stack.custom_minimum_size.x = 390.0
+	_report_heading_stack.custom_minimum_size.x = REPORT_HEADING_DESKTOP_WIDTH
 	_report_heading_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_report_heading_stack.add_theme_constant_override("separation", 2)
 	_report_score_row.add_child(_report_heading_stack)
@@ -915,11 +1023,21 @@ func _build_report_panel(parent: Control) -> void:
 	_report_heading_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_report_heading_note.mouse_filter = Control.MOUSE_FILTER_STOP
 	_report_heading_stack.add_child(_report_heading_note)
+	_report_score_receipt_grid = GridContainer.new()
+	_report_score_receipt_grid.name = "ReportScoreReceiptGrid"
+	_report_score_receipt_grid.columns = 5
+	_report_score_receipt_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_report_score_receipt_grid.add_theme_constant_override("h_separation", 4)
+	_report_score_receipt_grid.add_theme_constant_override("v_separation", 4)
+	_report_score_receipt_grid.visible = false
+	_report_heading_stack.add_child(_report_score_receipt_grid)
 	_report_score_label = _make_metric("ReportScore", "0", "SCORE", 132.0)
 	_report_score_row.add_child(_metric_panel(_report_score_label))
-	_report_shift_delta_label = _make_metric("ReportShiftDelta", "+0", "SHIFT SCORE", 126.0)
+	_report_shift_delta_label = _make_metric("ReportShiftDelta", "+0", "THIS SHIFT", 126.0)
+	_decorate_shift_delta_metric()
 	_report_score_row.add_child(_metric_panel(_report_shift_delta_label))
-	_report_rank_label = _make_metric("ReportRank", "UNRANKED", "RANK", 236.0, 16, true)
+	_report_rank_label = _make_metric("ReportRank", "UNRANKED", "RANK", 236.0, 14, true)
+	_decorate_report_rank_metric()
 	_report_score_row.add_child(_metric_panel(_report_rank_label))
 
 	content.add_child(HSeparator.new())
@@ -930,7 +1048,10 @@ func _build_report_panel(parent: Control) -> void:
 	content.add_child(_report_story_row)
 	_credit_memo_card = PanelContainer.new()
 	_credit_memo_card.name = "FiledCreditMemoCard"
-	_credit_memo_card.custom_minimum_size = Vector2(600.0, 96.0)
+	_credit_memo_card.custom_minimum_size = Vector2(
+		REPORT_CREDIT_DESKTOP_WIDTH,
+		REPORT_STORY_FULL_HEIGHT,
+	)
 	_credit_memo_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_credit_memo_card.add_theme_stylebox_override(
 		"panel",
@@ -950,11 +1071,24 @@ func _build_report_panel(parent: Control) -> void:
 	_credit_memo_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_credit_memo_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_credit_memo_label.mouse_filter = Control.MOUSE_FILTER_STOP
-	credit_margin.add_child(_credit_memo_label)
+	var credit_stack := VBoxContainer.new()
+	credit_stack.add_theme_constant_override("separation", 4)
+	credit_margin.add_child(credit_stack)
+	credit_stack.add_child(_credit_memo_label)
+	_credit_memo_glance_strip = HFlowContainer.new()
+	_credit_memo_glance_strip.name = "FiledCreditMemoGlanceStrip"
+	_credit_memo_glance_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_credit_memo_glance_strip.add_theme_constant_override("h_separation", 5)
+	_credit_memo_glance_strip.add_theme_constant_override("v_separation", 4)
+	_credit_memo_glance_strip.visible = false
+	credit_stack.add_child(_credit_memo_glance_strip)
 
 	_hen_highlight_card = PanelContainer.new()
 	_hen_highlight_card.name = "ShiftHenHighlightCard"
-	_hen_highlight_card.custom_minimum_size = Vector2(320.0, 96.0)
+	_hen_highlight_card.custom_minimum_size = Vector2(
+		REPORT_HIGHLIGHT_DESKTOP_WIDTH,
+		REPORT_STORY_FULL_HEIGHT,
+	)
 	_hen_highlight_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_report_story_row.add_child(_hen_highlight_card)
 	var highlight_stack := _panel_content(_hen_highlight_card, 14, 8, 1)
@@ -966,6 +1100,13 @@ func _build_report_panel(parent: Control) -> void:
 	_hen_highlight_headline.name = "ShiftHenHighlightHeadline"
 	_hen_highlight_headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	highlight_stack.add_child(_hen_highlight_headline)
+	_hen_highlight_glance_strip = HFlowContainer.new()
+	_hen_highlight_glance_strip.name = "ShiftHenHighlightGlanceStrip"
+	_hen_highlight_glance_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hen_highlight_glance_strip.add_theme_constant_override("h_separation", 4)
+	_hen_highlight_glance_strip.add_theme_constant_override("v_separation", 4)
+	_hen_highlight_glance_strip.visible = false
+	highlight_stack.add_child(_hen_highlight_glance_strip)
 	_hen_highlight_body = _make_label("Awaiting a closing hen file.", 11, INK)
 	_hen_highlight_body.name = "ShiftHenHighlightBody"
 	_hen_highlight_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -977,14 +1118,20 @@ func _build_report_panel(parent: Control) -> void:
 	_hen_highlight_metric.name = "ShiftHenHighlightMetric"
 	_hen_highlight_metric.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	highlight_stack.add_child(_hen_highlight_metric)
-	_report_ledger_section_label = _section_label("CUMULATIVE PROBATION LEDGERS")
+	_report_ledger_section_label = _section_label("5-SHIFT RECORD")
 	_report_ledger_section_label.name = "ReportLedgerSectionTitle"
 	content.add_child(_report_ledger_section_label)
 	_build_ledger_row(content, "Report", _report_ledger_labels)
-	var report_safeguards := _build_safeguard_receipt(content, "Report", _report_safeguard_rows)
+	var report_safeguards := _build_safeguard_receipt(
+		content,
+		"Report",
+		_report_safeguard_rows,
+		_report_safeguard_pass_rows,
+	)
 	_report_safeguard_panel = report_safeguards["panel"] as PanelContainer
 	_report_safeguard_summary = report_safeguards["summary"] as Label
 	_report_safeguard_grid = report_safeguards["grid"] as GridContainer
+	_report_safeguard_pass_grid = report_safeguards["pass_grid"] as GridContainer
 
 	_objective_card = PanelContainer.new()
 	_objective_card.name = "NextShiftObjectiveCard"
@@ -994,14 +1141,63 @@ func _build_report_panel(parent: Control) -> void:
 	)
 	content.add_child(_objective_card)
 	var objective_content := _panel_content(_objective_card, 16, 10, 3)
+	var objective_header := HBoxContainer.new()
+	objective_header.name = "NextShiftObjectiveHeader"
+	objective_header.add_theme_constant_override("separation", 10)
+	objective_content.add_child(objective_header)
 	_objective_title_label = _make_label("NEXT SHIFT OBJECTIVE", 14, TEAL)
 	_objective_title_label.name = "NextShiftObjective"
+	_objective_title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_objective_title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	objective_content.add_child(_objective_title_label)
+	objective_header.add_child(_objective_title_label)
+	_objective_reward_badge = PanelContainer.new()
+	_objective_reward_badge.name = "NextShiftObjectiveRewardBadge"
+	_objective_reward_badge.custom_minimum_size = Vector2(104.0, 28.0)
+	_objective_reward_badge.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("1b3738"), BRASS, 7, 1),
+	)
+	_objective_reward_badge.visible = false
+	objective_header.add_child(_objective_reward_badge)
+	var reward_content := _panel_content(_objective_reward_badge, 9, 4, 0)
+	var reward_line := HBoxContainer.new()
+	reward_line.name = "NextShiftObjectiveRewardLine"
+	reward_line.alignment = BoxContainer.ALIGNMENT_CENTER
+	reward_line.add_theme_constant_override("separation", 5)
+	reward_content.add_child(reward_line)
+	_objective_promotion_icon = TextureRect.new()
+	_objective_promotion_icon.name = "NextShiftObjectivePromotionIcon"
+	_objective_promotion_icon.custom_minimum_size = Vector2(16.0, 16.0)
+	_objective_promotion_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_objective_promotion_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_objective_promotion_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_objective_promotion_icon.texture = ManagementTheme.action_icon(&"rank_crest")
+	_objective_promotion_icon.set_meta("semantic_icon", "rank_crest")
+	_objective_promotion_icon.visible = false
+	reward_line.add_child(_objective_promotion_icon)
+	_objective_reward_label = _make_label("+3 SCORE", 10, CREAM)
+	_objective_reward_label.name = "NextShiftObjectiveRewardLabel"
+	_objective_reward_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_objective_reward_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	reward_line.add_child(_objective_reward_label)
 	_objective_body_label = _make_label("Awaiting the next quota notice.", 13, INK)
 	_objective_body_label.name = "NextShiftObjectiveDescription"
 	_objective_body_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	objective_content.add_child(_objective_body_label)
+	_objective_order_strip = HFlowContainer.new()
+	_objective_order_strip.name = "ProbationOrderStrip"
+	_objective_order_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_objective_order_strip.add_theme_constant_override("h_separation", 8)
+	_objective_order_strip.add_theme_constant_override("v_separation", 7)
+	_objective_order_strip.visible = false
+	objective_content.add_child(_objective_order_strip)
+	_objective_driver_strip = HFlowContainer.new()
+	_objective_driver_strip.name = "QuarterDriverStrip"
+	_objective_driver_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_objective_driver_strip.add_theme_constant_override("h_separation", 8)
+	_objective_driver_strip.add_theme_constant_override("v_separation", 6)
+	_objective_driver_strip.visible = false
+	objective_content.add_child(_objective_driver_strip)
 	_objective_board_strip = HFlowContainer.new()
 	_objective_board_strip.name = "BoardTargetStrip"
 	_objective_board_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1023,6 +1219,8 @@ func _build_report_panel(parent: Control) -> void:
 	_milestone_section.add_child(_milestone_section_label)
 	_milestone_buttons_host = HFlowContainer.new()
 	_milestone_buttons_host.name = "MilestoneChoiceCards"
+	_milestone_buttons_host.alignment = FlowContainer.ALIGNMENT_CENTER
+	_milestone_buttons_host.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_milestone_buttons_host.add_theme_constant_override("h_separation", 10)
 	_milestone_buttons_host.add_theme_constant_override("v_separation", 8)
 	_milestone_section.add_child(_milestone_buttons_host)
@@ -1065,24 +1263,25 @@ func _build_report_panel(parent: Control) -> void:
 	_report_actions.add_child(_report_requisitions_button)
 	_report_shelve_button = _make_button(
 		"AbandonCampaignButton",
-		"SHELVE  [A]",
+		"SAVE & EXIT  [A]",
 		&"DecisionChoiceButton",
 	)
-	_report_shelve_button.custom_minimum_size = Vector2(135.0, 44.0)
+	_report_shelve_button.custom_minimum_size = Vector2(160.0, 44.0)
 	_style_report_action(_report_shelve_button, &"shelve")
 	_report_shelve_button.set_meta(
 		"exact_action_label",
-		"Safely shelve this file and return to intake [A].",
+		"Save this checkpoint and return to intake [A].",
 	)
+	_report_shelve_button.set_meta("outcome_first_action", "save_exit")
 	_report_shelve_button.tooltip_text = (
-		"Safely shelve this career file and return to intake. Continue resumes the exact checkpoint."
+		"Save this career checkpoint and return to intake. Continue resumes the exact checkpoint."
 	)
 	_report_shelve_button.shortcut = _shortcut(KEY_A)
 	_report_shelve_button.pressed.connect(_on_abandon_campaign_pressed)
 	_report_actions.add_child(_report_shelve_button)
 	_report_continue_button = _make_button(
 		"ContinueProbationButton",
-		"FILE & PLAN  [C]",
+		"NEXT SHIFT  [C]",
 		&"PrimaryButton",
 	)
 	_report_continue_button.custom_minimum_size = Vector2(220.0, 44.0)
@@ -1251,6 +1450,7 @@ func _build_safeguard_receipt(
 	parent: VBoxContainer,
 	prefix: String,
 	rows: Array[Label],
+	pass_rows: Array[Label] = [],
 ) -> Dictionary:
 	var panel := PanelContainer.new()
 	panel.name = "%sProbationSafeguardReceipt" % prefix
@@ -1262,13 +1462,20 @@ func _build_safeguard_receipt(
 	parent.add_child(panel)
 	var content := _panel_content(panel, 16, 10, 4)
 	var final_receipt := prefix == "Final"
+	var authored_heading := (
+		"FINAL PASS CHECK  //  5 TARGETS" if final_receipt else "PASS CHECK  //  5 TARGETS"
+	)
 	var heading := _make_label(
-		"FIVE SAFEGUARDS" if final_receipt else "PROBATION PASS SAFEGUARDS  //  EXACT FILING TERMS",
+		authored_heading if final_receipt else "PROBATION CHECK",
 		11,
 		TEAL,
 	)
 	heading.name = "%sProbationSafeguardHeading" % prefix
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	heading.mouse_filter = Control.MOUSE_FILTER_STOP
+	heading.tooltip_text = authored_heading
+	heading.set_meta("accessible_text", authored_heading)
+	heading.set_meta("compact_pass_heading", not final_receipt)
 	content.add_child(heading)
 	var summary := _make_label("IF FILED NOW  //  0 / 5 SAFEGUARDS", 14, CREAM)
 	summary.name = "%sProbationSafeguardSummary" % prefix
@@ -1304,7 +1511,48 @@ func _build_safeguard_receipt(
 		else:
 			grid.add_child(row)
 		rows.append(row)
-	return {"panel": panel, "summary": summary, "grid": grid}
+	var pass_grid: GridContainer = null
+	if not final_receipt:
+		pass_grid = GridContainer.new()
+		pass_grid.name = "%sProbationSafeguardPassGrid" % prefix
+		pass_grid.columns = 5
+		pass_grid.visible = false
+		pass_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		pass_grid.add_theme_constant_override("h_separation", 8)
+		pass_grid.add_theme_constant_override("v_separation", 6)
+		content.add_child(pass_grid)
+		for index: int in range(5):
+			var card := PanelContainer.new()
+			card.name = "%sProbationSafeguardPassCard_%d" % [prefix, index + 1]
+			card.custom_minimum_size = Vector2(120.0, 50.0)
+			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			card.mouse_filter = Control.MOUSE_FILTER_PASS
+			card.add_theme_stylebox_override(
+				"panel",
+				_panel_style(Color("213b3b"), Color("6f9d8f"), 7, 1),
+			)
+			pass_grid.add_child(card)
+			var stack := _panel_content(card, 8, 6, 0)
+			var line := HBoxContainer.new()
+			line.alignment = BoxContainer.ALIGNMENT_CENTER
+			line.add_theme_constant_override("separation", 4)
+			stack.add_child(line)
+			var status_icon := TextureRect.new()
+			status_icon.name = "%sProbationSafeguardPassIcon_%d" % [prefix, index + 1]
+			status_icon.custom_minimum_size = Vector2(16.0, 16.0)
+			status_icon.texture = ManagementTheme.action_icon(&"status_pass")
+			status_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			status_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			status_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			status_icon.set_meta("semantic_icon", "status_pass")
+			line.add_child(status_icon)
+			var pass_row := _make_label("TARGET\n0", 9, Color("a7dbc9"))
+			pass_row.name = "%sProbationSafeguardPassRow_%d" % [prefix, index + 1]
+			pass_row.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			pass_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			line.add_child(pass_row)
+			pass_rows.append(pass_row)
+	return {"panel": panel, "summary": summary, "grid": grid, "pass_grid": pass_grid}
 
 
 func _build_replacement_confirmation() -> void:
@@ -1400,7 +1648,13 @@ func _refresh() -> void:
 			status_tooltip = _challenge_contract_terms_text(_active_challenge_contract(), true)
 	_status_label.text = status_text
 	_status_label.tooltip_text = status_tooltip
-	_day_label.text = String(_snapshot.get("day_badge_text", "DAY %d / %d" % [day, total_days]))
+	var exact_day_text := String(_snapshot.get(
+		"day_badge_text",
+		"DAY %d / %d" % [day, total_days],
+	))
+	_day_label.text = exact_day_text
+	_refresh_day_progress_rail(day, total_days, exact_day_text)
+	_refresh_day_badge_visibility()
 	_refresh_live_order_badge()
 
 	var modal_open := _view != VIEW_ACTIVE
@@ -2027,7 +2281,7 @@ func _challenge_contract_terms_text(contract: Dictionary, include_heading: bool)
 
 func _refresh_report(day: int, total_days: int) -> void:
 	var senior := _is_senior_snapshot()
-	_report_day_label.text = String(_snapshot.get(
+	var full_report_kicker := String(_snapshot.get(
 		"report_kicker",
 		(
 			"SENIOR ROOST  //  YEAR %d  //  QUARTER %d  //  SHIFT %d OF %d" % [
@@ -2040,14 +2294,46 @@ func _refresh_report(day: int, total_days: int) -> void:
 			"CLOSING FILE 3 / 3 · SHIFT %d OF %d · PROBATION REPORT" % [day, total_days]
 		),
 	))
-	_report_heading_label.text = String(_snapshot.get(
+	var authored_report_heading := String(_snapshot.get(
 		"report_heading",
 		"SENIOR ROOST QUARTERLY FILING" if senior else "FARMER'S SHIFT ASSESSMENT",
 	)).to_upper()
-	_report_ledger_section_label.text = String(_snapshot.get(
+	var compact_result_heading := "SHIFT %d RESULTS" % day
+	_report_day_label.text = full_report_kicker if senior else compact_result_heading
+	_report_day_label.visible = senior
+	_report_day_label.tooltip_text = full_report_kicker
+	_report_day_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_report_day_label.set_meta("accessible_text", full_report_kicker)
+	_report_day_label.set_meta("glance_kicker", false)
+	_report_day_label.set_meta("merged_into_result_heading", not senior)
+	_report_heading_label.text = authored_report_heading if senior else compact_result_heading
+	_report_heading_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_report_heading_label.tooltip_text = (
+		authored_report_heading
+		if senior else
+		"%s\n%s" % [authored_report_heading, full_report_kicker]
+	)
+	_report_heading_label.set_meta("accessible_text", _report_heading_label.tooltip_text)
+	_report_heading_label.set_meta("authored_report_heading", authored_report_heading)
+	_report_heading_label.set_meta("compact_result_heading", not senior)
+	var authored_ledger_section_title := String(_snapshot.get(
 		"ledger_section_title",
-		"SENIOR CAREER LEDGERS" if senior else "CUMULATIVE PROBATION LEDGERS",
+		"SENIOR CAREER RECORD" if senior else "PROBATION RECORD  //  5-SHIFT VIEW",
 	)).to_upper()
+	var show_compact_ledger_heading := (
+		not senior
+		and authored_ledger_section_title == "PROBATION RECORD  //  5-SHIFT VIEW"
+	)
+	_report_ledger_section_label.text = (
+		"5-SHIFT RECORD" if show_compact_ledger_heading else authored_ledger_section_title
+	)
+	_report_ledger_section_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_report_ledger_section_label.tooltip_text = authored_ledger_section_title
+	_report_ledger_section_label.set_meta("accessible_text", authored_ledger_section_title)
+	_report_ledger_section_label.set_meta(
+		"compact_record_heading",
+		show_compact_ledger_heading,
+	)
 	_milestone_section_label.text = String(_snapshot.get(
 		"choice_section_title",
 		"QUARTERLY CAPITAL POLICY  //  FILE ONE" if senior else "MILESTONE REQUISITION  //  CHOOSE ONE PERMANENT EDGE",
@@ -2058,30 +2344,59 @@ func _refresh_report(day: int, total_days: int) -> void:
 	)))
 	if _report_requisitions_button != null:
 		var staffing_open := bool(_snapshot.get("staffing_planning_open", false))
+		_report_requisitions_button.visible = staffing_open
 		_report_requisitions_button.disabled = not staffing_open
 		_report_requisitions_button.tooltip_text = (
 			"Open Flockwatch to commission perches, compare applicants, or release a worker before filing the next shift."
 			if staffing_open else
 			"Roost requisitions open after every required closing-credit file has been resolved."
 		)
-	_report_score_label.text = _format_integer(int(_snapshot.get("score", 0)))
+	_report_score_label.text = String(_snapshot.get(
+		"primary_metric_display",
+		_format_integer(int(_snapshot.get("score", 0))),
+	))
 	_report_rank_label.text = String(_snapshot.get("rank", "UNRANKED")).to_upper()
+	var authored_secondary_caption := String(_snapshot.get(
+		"secondary_metric_caption",
+		"SHIFT SCORE",
+	)).to_upper()
+	var visible_secondary_caption := (
+		authored_secondary_caption if senior else "THIS SHIFT"
+	)
+	_set_metric_caption(_report_shift_delta_label, visible_secondary_caption)
 	_update_score_receipt(day)
-	_set_metric_caption(_report_score_label, String(_snapshot.get("score_caption", "SCORE")))
-	_set_metric_caption(_report_shift_delta_label, String(_snapshot.get("secondary_metric_caption", "SHIFT SCORE")))
-	_set_metric_caption(_report_rank_label, String(_snapshot.get("rank_caption", "RANK")))
+	var primary_metric_caption := String(_snapshot.get("score_caption", "SCORE"))
+	var primary_metric_tooltip := String(_snapshot.get("primary_metric_tooltip", ""))
+	_set_metric_caption(_report_score_label, primary_metric_caption)
+	_report_score_label.tooltip_text = primary_metric_tooltip
+	_report_score_label.set_meta("accessible_text", "%s %s. %s" % [
+		primary_metric_caption,
+		_report_score_label.text,
+		primary_metric_tooltip,
+	])
+	_metric_panel(_report_score_label).tooltip_text = primary_metric_tooltip
+	var rank_caption := String(_snapshot.get("rank_caption", "RANK")).to_upper()
+	_set_metric_caption(_report_rank_label, rank_caption)
+	_refresh_report_rank_presentation(rank_caption)
 	if _snapshot.has("secondary_metric_display"):
 		_report_shift_delta_label.text = String(_snapshot["secondary_metric_display"])
 		_report_shift_delta_label.add_theme_color_override("font_color", CREAM)
 		_report_shift_delta_label.tooltip_text = String(_snapshot.get("secondary_metric_tooltip", ""))
+	_refresh_shift_delta_semantics(
+		authored_secondary_caption,
+		visible_secondary_caption,
+		senior,
+	)
 	_update_credit_memo(day)
 	_update_hen_highlight(day)
+	_queue_report_evidence_reveal(day)
 	_update_ledger_labels(_report_ledger_labels)
 	_refresh_probation_safeguard_receipt(
 		_report_safeguard_panel,
 		_report_safeguard_summary,
 		_report_safeguard_rows,
 		false,
+		_report_safeguard_pass_rows,
 	)
 	_update_objective()
 	_rebuild_milestone_choices()
@@ -2097,14 +2412,250 @@ func _refresh_report(day: int, total_days: int) -> void:
 	call_deferred("_reset_report_scroll")
 
 
+func _queue_report_evidence_reveal(report_day: int) -> void:
+	# Dynamic report chips are rebuilt for each filing. Defer one frame so their
+	# container layout is settled, then reveal the causal receipt from score to
+	# attribution to hen evidence without moving any layout geometry.
+	var reveal_key := str(hash([
+		report_day,
+		_snapshot.get("score_receipt", {}),
+		_snapshot.get("credit_memo", {}),
+		_snapshot.get("hen_highlight", {}),
+	]))
+	call_deferred("_play_report_evidence_reveal", reveal_key)
+
+
+func _report_reveal_controls() -> Array[Control]:
+	var controls: Array[Control] = []
+	for group_value: Variant in [
+		{"strip": _report_score_receipt_grid, "id": "score"},
+		{"strip": _credit_memo_glance_strip, "id": "credit"},
+		{"strip": _hen_highlight_glance_strip, "id": "hen"},
+	]:
+		var group := group_value as Dictionary
+		var strip := group.get("strip") as Control
+		if strip == null or not strip.visible:
+			continue
+		for child: Node in strip.get_children():
+			if child is Control:
+				var control := child as Control
+				control.set_meta("reveal_group", String(group["id"]))
+				control.set_meta("reveal_order", controls.size())
+				controls.append(control)
+	return controls
+
+
+func _set_report_reveal_controls_settled(mode: String) -> void:
+	for control: Control in _report_reveal_controls():
+		control.modulate = Color.WHITE
+		control.set_meta("reveal_motion", mode)
+	for strip: Control in [
+		_report_score_receipt_grid,
+		_credit_memo_glance_strip,
+		_hen_highlight_glance_strip,
+	]:
+		if strip != null:
+			strip.set_meta("reveal_motion", mode)
+
+
+func _report_shift_total_panel() -> PanelContainer:
+	return _metric_panel(_report_shift_delta_label) if _report_shift_delta_label != null else null
+
+
+func _set_report_total_pulse_settled(mode: String) -> void:
+	var panel := _report_shift_total_panel()
+	if panel == null:
+		return
+	panel.scale = Vector2.ONE
+	panel.pivot_offset = panel.size * 0.5
+	panel.set_meta("result_pulse_motion", mode)
+	panel.set_meta("result_pulse_scale", REPORT_TOTAL_PULSE_SCALE)
+	panel.set_meta("result_pulse_receipt", bool(_report_score_row.get_meta(
+		"receipt_equation",
+		false,
+	)) if _report_score_row != null else false)
+
+
+func _report_score_receipt() -> Dictionary:
+	var raw_receipt: Variant = _snapshot.get("score_receipt", {})
+	return raw_receipt as Dictionary if raw_receipt is Dictionary else {}
+
+
+func _report_is_promotion() -> bool:
+	return (
+		not _is_senior_snapshot()
+		and String(_report_score_receipt().get("rank_change", "steady")) == "promotion"
+	)
+
+
+func _set_report_promotion_stamp_settled(mode: String) -> void:
+	if _report_rank_icon == null:
+		return
+	_report_rank_icon.scale = Vector2.ONE
+	_report_rank_icon.pivot_offset = _report_rank_icon.size * 0.5
+	_report_rank_icon.set_meta(
+		"promotion_stamp_motion",
+		mode if _report_is_promotion() else "skipped",
+	)
+	_report_rank_icon.set_meta("promotion_stamp_scale", REPORT_PROMOTION_STAMP_SCALE)
+
+
+func _play_report_evidence_reveal(reveal_key: String) -> void:
+	if _view != VIEW_REPORT:
+		return
+	if _report_reveal_tween != null and _report_reveal_tween.is_valid():
+		_report_reveal_tween.kill()
+	var controls := _report_reveal_controls()
+	if controls.is_empty():
+		_set_report_total_pulse_settled("skipped")
+		_set_report_promotion_stamp_settled("skipped")
+		return
+	if reveal_key == _last_report_reveal_key:
+		_set_report_reveal_controls_settled("instant" if _reduced_motion else "settled")
+		_set_report_total_pulse_settled("instant" if _reduced_motion else "settled")
+		_set_report_promotion_stamp_settled("instant" if _reduced_motion else "settled")
+		return
+	if _reduced_motion:
+		_set_report_reveal_controls_settled("instant")
+		_set_report_total_pulse_settled("instant")
+		_set_report_promotion_stamp_settled("instant")
+		_last_report_reveal_key = reveal_key
+		report_filing_settled.emit(reveal_key, true)
+		return
+	_last_report_reveal_key = reveal_key
+	for strip: Control in [
+		_report_score_receipt_grid,
+		_credit_memo_glance_strip,
+		_hen_highlight_glance_strip,
+	]:
+		if strip != null:
+			strip.set_meta("reveal_motion", "staggered")
+	_set_report_total_pulse_settled("queued")
+	_set_report_promotion_stamp_settled("queued")
+	_report_reveal_tween = create_tween().set_parallel(true)
+	for index: int in controls.size():
+		var control := controls[index]
+		control.modulate = Color(1.0, 1.0, 1.0, 0.0)
+		control.set_meta("reveal_motion", "staggered")
+		var reveal := _report_reveal_tween.tween_property(
+			control,
+			"modulate:a",
+			1.0,
+			REPORT_REVEAL_DURATION,
+		)
+		reveal.set_delay(float(index) * REPORT_REVEAL_STAGGER)
+		reveal.set_trans(Tween.TRANS_QUAD)
+		reveal.set_ease(Tween.EASE_OUT)
+	_report_reveal_tween.finished.connect(
+		_on_report_evidence_reveal_finished.bind(reveal_key),
+		CONNECT_ONE_SHOT,
+	)
+
+
+func _on_report_evidence_reveal_finished(reveal_key: String) -> void:
+	if _view != VIEW_REPORT or reveal_key != _last_report_reveal_key:
+		return
+	_set_report_reveal_controls_settled("completed")
+	_play_report_total_pulse(reveal_key)
+
+
+func _play_report_total_pulse(reveal_key: String) -> void:
+	var panel := _report_shift_total_panel()
+	var has_receipt_equation := (
+		_report_score_row != null
+		and bool(_report_score_row.get_meta("receipt_equation", false))
+	)
+	if panel == null or not has_receipt_equation:
+		_set_report_total_pulse_settled("skipped")
+		report_filing_settled.emit(reveal_key, false)
+		return
+	panel.pivot_offset = panel.size * 0.5
+	panel.set_meta("result_pulse_motion", "pulsing")
+	_report_reveal_tween = create_tween()
+	var pulse_in := _report_reveal_tween.tween_property(
+		panel,
+		"scale",
+		Vector2.ONE * REPORT_TOTAL_PULSE_SCALE,
+		REPORT_TOTAL_PULSE_IN_DURATION,
+	)
+	pulse_in.set_trans(Tween.TRANS_QUAD)
+	pulse_in.set_ease(Tween.EASE_OUT)
+	var pulse_out := _report_reveal_tween.tween_property(
+		panel,
+		"scale",
+		Vector2.ONE,
+		REPORT_TOTAL_PULSE_OUT_DURATION,
+	)
+	pulse_out.set_trans(Tween.TRANS_BACK)
+	pulse_out.set_ease(Tween.EASE_OUT)
+	_report_reveal_tween.finished.connect(
+		_on_report_total_pulse_finished.bind(reveal_key),
+		CONNECT_ONE_SHOT,
+	)
+
+
+func _on_report_total_pulse_finished(reveal_key: String) -> void:
+	if _view != VIEW_REPORT or reveal_key != _last_report_reveal_key:
+		return
+	_set_report_total_pulse_settled("completed")
+	if _report_is_promotion():
+		_play_report_promotion_stamp(reveal_key)
+		return
+	report_filing_settled.emit(reveal_key, false)
+
+
+func _play_report_promotion_stamp(reveal_key: String) -> void:
+	if _report_rank_icon == null or not _report_is_promotion():
+		_set_report_promotion_stamp_settled("skipped")
+		report_filing_settled.emit(reveal_key, false)
+		return
+	_report_rank_icon.pivot_offset = _report_rank_icon.size * 0.5
+	_report_rank_icon.set_meta("promotion_stamp_motion", "stamping")
+	_report_reveal_tween = create_tween()
+	var stamp_in := _report_reveal_tween.tween_property(
+		_report_rank_icon,
+		"scale",
+		Vector2.ONE * REPORT_PROMOTION_STAMP_SCALE,
+		REPORT_PROMOTION_STAMP_IN_DURATION,
+	)
+	stamp_in.set_trans(Tween.TRANS_QUAD)
+	stamp_in.set_ease(Tween.EASE_OUT)
+	var stamp_out := _report_reveal_tween.tween_property(
+		_report_rank_icon,
+		"scale",
+		Vector2.ONE,
+		REPORT_PROMOTION_STAMP_OUT_DURATION,
+	)
+	stamp_out.set_trans(Tween.TRANS_BACK)
+	stamp_out.set_ease(Tween.EASE_OUT)
+	_report_reveal_tween.finished.connect(
+		_on_report_promotion_stamp_finished.bind(reveal_key),
+		CONNECT_ONE_SHOT,
+	)
+
+
+func _on_report_promotion_stamp_finished(reveal_key: String) -> void:
+	if _view != VIEW_REPORT or reveal_key != _last_report_reveal_key:
+		return
+	_set_report_promotion_stamp_settled("completed")
+	report_filing_settled.emit(reveal_key, false)
+
+
 func _update_score_receipt(report_day: int) -> void:
+	for child: Node in _report_score_receipt_grid.get_children():
+		_report_score_receipt_grid.remove_child(child)
+		child.queue_free()
+	_report_score_receipt_grid.visible = false
 	var receipt_value: Variant = _snapshot.get("score_receipt", {})
 	var receipt := receipt_value as Dictionary if receipt_value is Dictionary else {}
 	var valid := not receipt.is_empty() and int(receipt.get("shift_number", 0)) == report_day
 	if not valid:
+		_refresh_report_score_hierarchy(false, 0)
+		_report_heading_note.visible = true
 		_report_shift_delta_label.text = "--"
 		_report_shift_delta_label.add_theme_color_override("font_color", MUTED)
 		_report_shift_delta_label.tooltip_text = "No shift score receipt is available."
+		_refresh_shift_delta_icon(0, false)
 		_report_heading_note.text = String(_snapshot.get(
 			"report_note",
 			"Career results and quarterly safeguards remain on the permanent coop record."
@@ -2124,9 +2675,9 @@ func _update_score_receipt(report_day: int) -> void:
 	_report_shift_delta_label.text = _format_signed_delta(score_delta)
 	var delta_color := TEAL if score_delta > 0 else (RUST if score_delta < 0 else MUTED)
 	_report_shift_delta_label.add_theme_color_override("font_color", delta_color)
+	_refresh_shift_delta_icon(score_delta, true)
 	var raw_components: Variant = receipt.get("components", [])
 	var components: Array = raw_components as Array if raw_components is Array else []
-	var compact_parts: Array[String] = []
 	var detail_lines: Array[String] = [
 		"SHIFT %d SCORE RECEIPT" % report_day,
 		"Score %d to %d (%s)" % [score_before, score_after, _format_signed_delta(score_delta)],
@@ -2137,25 +2688,113 @@ func _update_score_receipt(report_day: int) -> void:
 		var component := component_value as Dictionary
 		var component_delta := int(component.get("delta", 0))
 		var short_label := _receipt_component_short_label(StringName(component.get("id", &"")))
-		compact_parts.append("%s %s" % [short_label, _format_signed_delta(component_delta)])
 		detail_lines.append("%s  %s  //  %s" % [
 			String(component.get("label", short_label)),
 			_format_signed_delta(component_delta),
 			String(component.get("detail", "Filed in the permanent career ledger.")),
 		])
-	_report_heading_note.add_theme_font_size_override("font_size", 11)
-	_report_heading_note.text = "RECEIPT  %d -> %d  //  %s" % [
-		score_before,
-		score_after,
-		"  /  ".join(compact_parts),
-	]
-	_report_heading_note.tooltip_text = "\n".join(detail_lines)
+	var receipt_detail := "\n".join(detail_lines)
+	_rebuild_score_receipt_grid(components, receipt_detail)
+	_refresh_report_score_hierarchy(
+		_report_score_receipt_grid.visible,
+		_report_score_receipt_grid.get_child_count(),
+	)
+	_report_heading_note.visible = not _report_score_receipt_grid.visible
+	_report_heading_note.text = "RECEIPT  %d -> %d" % [score_before, score_after]
+	_report_heading_note.tooltip_text = receipt_detail
 	_report_shift_delta_label.tooltip_text = _report_heading_note.tooltip_text
 	_report_shift_delta_label.mouse_filter = Control.MOUSE_FILTER_STOP
 	_metric_panel(_report_shift_delta_label).add_theme_stylebox_override(
 		"panel",
 		_panel_style(Color("1d3039"), delta_color.darkened(0.12), 8, 1),
 	)
+
+
+func _rebuild_score_receipt_grid(components: Array, receipt_detail: String) -> void:
+	var index := 0
+	for component_value: Variant in components:
+		if not component_value is Dictionary:
+			continue
+		var component := component_value as Dictionary
+		var component_delta := int(component.get("delta", 0))
+		var short_label := _receipt_component_short_label(
+			StringName(component.get("id", &"")),
+		)
+		var exact_detail := "%s  %s  //  %s" % [
+			String(component.get("label", short_label)),
+			_format_signed_delta(component_delta),
+			String(component.get("detail", "Filed in the permanent career ledger.")),
+		]
+		var tone := TEAL if component_delta > 0 else (RUST if component_delta < 0 else MUTED)
+		var panel := PanelContainer.new()
+		panel.name = "ReportScoreReceiptChip_%d" % (index + 1)
+		panel.custom_minimum_size = Vector2(52.0, 34.0)
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		panel.add_theme_stylebox_override(
+			"panel",
+			_panel_style(tone.darkened(0.67), tone.darkened(0.08), 6, 1),
+		)
+		panel.tooltip_text = exact_detail
+		var component_id := StringName(component.get("id", &""))
+		var icon_kind := _receipt_component_icon(component_id)
+		panel.set_meta("component_id", String(component_id))
+		panel.set_meta("semantic_icon", String(icon_kind))
+		panel.set_meta("icon_first", true)
+		panel.set_meta("accessible_text", exact_detail)
+		var content := _panel_content(panel, 5, 4, 0)
+		var line := HBoxContainer.new()
+		line.alignment = BoxContainer.ALIGNMENT_CENTER
+		line.add_theme_constant_override("separation", 4)
+		content.add_child(line)
+		var icon := TextureRect.new()
+		icon.name = "ReportScoreReceiptChipIcon_%d" % (index + 1)
+		icon.custom_minimum_size = Vector2(18.0, 18.0)
+		icon.texture = ManagementTheme.action_icon(icon_kind)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.tooltip_text = exact_detail
+		icon.set_meta("semantic_icon", String(icon_kind))
+		line.add_child(icon)
+		var label := _make_label(_format_signed_delta(component_delta), 10, INK)
+		label.name = "ReportScoreReceiptChipLabel_%d" % (index + 1)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.tooltip_text = exact_detail
+		label.set_meta("accessible_text", exact_detail)
+		line.add_child(label)
+		_report_score_receipt_grid.add_child(panel)
+		index += 1
+	_report_score_receipt_grid.visible = index > 0
+	_report_score_receipt_grid.tooltip_text = receipt_detail
+	_report_score_receipt_grid.set_meta("accessible_text", receipt_detail)
+
+
+func _refresh_report_score_hierarchy(receipt_available: bool, component_count: int) -> void:
+	if _report_score_row == null:
+		return
+	var score_panel := _metric_panel(_report_score_label)
+	var shift_panel := _metric_panel(_report_shift_delta_label)
+	if score_panel == null or shift_panel == null:
+		return
+	var direct_receipt_flow := receipt_available and not _is_senior_snapshot()
+	# A filed probation receipt should read left-to-right as components, shift
+	# total, then cumulative career score. Senior calendar metrics retain their
+	# authored primary-before-secondary hierarchy.
+	if direct_receipt_flow:
+		_report_score_row.move_child(shift_panel, 1)
+		_report_score_row.move_child(score_panel, 2)
+	else:
+		_report_score_row.move_child(score_panel, 1)
+		_report_score_row.move_child(shift_panel, 2)
+	_report_score_row.set_meta("receipt_equation", direct_receipt_flow)
+	_report_score_row.set_meta("visual_flow", (
+		"receipt_components_to_shift_total_to_score"
+		if direct_receipt_flow else
+		"primary_to_secondary"
+	))
+	shift_panel.set_meta("receives_score_receipts", direct_receipt_flow)
+	shift_panel.set_meta("receipt_component_count", component_count if direct_receipt_flow else 0)
+	score_panel.set_meta("follows_shift_total", direct_receipt_flow)
 
 
 func _signed_receipt_delta(value: float) -> String:
@@ -2194,17 +2833,141 @@ func _senior_policy_receipt_metrics(memo: Dictionary) -> Array[String]:
 	return metrics
 
 
+func _clear_story_glance_strip(strip: HFlowContainer) -> void:
+	for child: Node in strip.get_children():
+		strip.remove_child(child)
+		child.queue_free()
+	strip.visible = false
+
+
+func _add_story_glance_chip(
+	strip: HFlowContainer,
+	node_name: String,
+	caption: String,
+	value: String,
+	detail: String,
+	tone: Color,
+	minimum_width: float,
+	icon_kind: StringName = &"",
+) -> void:
+	var panel := PanelContainer.new()
+	panel.name = node_name
+	var icon_value_width := 28.0 + float(value.length()) * 7.0
+	panel.custom_minimum_size = Vector2(
+		maxf(minimum_width, icon_value_width) if icon_kind != &"" else minimum_width,
+		28.0,
+	)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override(
+		"panel",
+		_panel_style(tone.darkened(0.70), tone.darkened(0.12), 5, 1),
+	)
+	panel.tooltip_text = detail
+	panel.set_meta("accessible_text", detail)
+	panel.set_meta("caption", caption)
+	panel.set_meta("icon_first", icon_kind != &"")
+	panel.set_meta("semantic_icon", String(icon_kind))
+	var content := _panel_content(panel, 5, 3, 0)
+	var line := HBoxContainer.new()
+	line.alignment = BoxContainer.ALIGNMENT_CENTER
+	line.add_theme_constant_override("separation", 4)
+	content.add_child(line)
+	if icon_kind != &"":
+		var icon := TextureRect.new()
+		icon.name = "%sIcon" % node_name
+		icon.custom_minimum_size = Vector2(16.0, 16.0)
+		icon.texture = ManagementTheme.action_icon(icon_kind)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.tooltip_text = detail
+		icon.set_meta("semantic_icon", String(icon_kind))
+		line.add_child(icon)
+	var label := _make_label(value if icon_kind != &"" else "%s\n%s" % [caption, value], 9, INK)
+	label.name = "%sLabel" % node_name
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = (
+		TextServer.AUTOWRAP_OFF if icon_kind != &"" else TextServer.AUTOWRAP_WORD_SMART
+	)
+	if icon_kind != &"":
+		label.custom_minimum_size.x = maxf(18.0, float(value.length()) * 7.0)
+		label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	label.tooltip_text = detail
+	label.set_meta("accessible_text", detail)
+	line.add_child(label)
+	strip.add_child(panel)
+
+
+func _credit_byline(style_id: StringName, subject_name: String) -> String:
+	match style_id:
+		&"individual_merit":
+			return subject_name if not subject_name.is_empty() else "LAYER"
+		&"shared_scoop":
+			return "FLOCK"
+		&"management_innovation":
+			return "MGMT"
+	return "FILED"
+
+
+func _rebuild_credit_glance_strip(memo: Dictionary, full_detail: String) -> void:
+	_clear_story_glance_strip(_credit_memo_glance_strip)
+	var subject_name := String(memo.get("worker_name", "LAYER")).strip_edges().to_upper()
+	var style_id := StringName(memo.get("style_id", &""))
+	var cost_cents := maxi(0, int(memo.get("cost_cents", 0)))
+	_add_story_glance_chip(
+		_credit_memo_glance_strip,
+		"FiledCreditLayerChip",
+		"LAYER",
+		subject_name if not subject_name.is_empty() else "UNFILED",
+		full_detail,
+		BRASS,
+		104.0,
+		&"receipt_hen",
+	)
+	_add_story_glance_chip(
+		_credit_memo_glance_strip,
+		"FiledCreditBylineChip",
+		"BYLINE",
+		_credit_byline(style_id, subject_name),
+		full_detail,
+		TEAL if style_id != &"management_innovation" else RUST,
+		104.0,
+		&"receipt_flock",
+	)
+	_add_story_glance_chip(
+		_credit_memo_glance_strip,
+		"FiledCreditFundChip",
+		"FUND",
+		"$0" if cost_cents == 0 else "-$%.2f" % (float(cost_cents) / 100.0),
+		full_detail,
+		TEAL if cost_cents == 0 else RUST,
+		104.0,
+		&"receipt_fund",
+	)
+	_credit_memo_glance_strip.visible = true
+	_credit_memo_glance_strip.tooltip_text = full_detail
+	_credit_memo_glance_strip.set_meta("accessible_text", full_detail)
+
+
 func _update_credit_memo(report_day: int) -> void:
 	var memo_value: Variant = _snapshot.get("credit_memo", {})
 	var memo := memo_value as Dictionary if memo_value is Dictionary else {}
 	var visible := not memo.is_empty() and int(memo.get("day", 0)) == report_day
 	_credit_memo_card.visible = visible
 	if not visible:
+		_clear_story_glance_strip(_credit_memo_glance_strip)
+		_credit_memo_card.set_meta("compact_policy_receipt", false)
+		_credit_memo_card.set_meta("compact_story_glance", false)
+		_credit_memo_label.set_meta("outcome_first_credit_heading", false)
 		_sync_report_story_visibility()
 		return
 	var option_name := String(memo.get("option_id", "credit_filed")).replace("_", " ").to_upper()
 	var subject_name := String(memo.get("worker_name", "")).to_upper()
 	var decision_id := StringName(String(memo.get("decision_id", "")))
+	_credit_memo_card.set_meta("compact_policy_receipt", decision_id == &"senior_quarter_policy")
+	_credit_memo_card.set_meta("compact_story_glance", false)
+	_credit_memo_label.set_meta("outcome_first_credit_heading", false)
 	var prefix := "CREDIT FILED"
 	if decision_id == &"flock_restructuring":
 		prefix = "FLOCK RESTRUCTURING FILED"
@@ -2217,6 +2980,8 @@ func _update_credit_memo(report_day: int) -> void:
 		"The closing attribution is now part of the permanent coop record.",
 	))
 	if decision_id == &"senior_quarter_policy":
+		_clear_story_glance_strip(_credit_memo_glance_strip)
+		_credit_memo_label.add_theme_font_size_override("font_size", 12)
 		var receipt_metrics := _senior_policy_receipt_metrics(memo)
 		_credit_memo_label.text = "%s  //  %s\n%s" % [
 			prefix,
@@ -2238,15 +3003,29 @@ func _update_credit_memo(report_day: int) -> void:
 		)
 		_sync_report_story_visibility()
 		return
-	_credit_memo_label.text = "%s  //  %s%s\n%s" % [
+	var byline := _credit_byline(StringName(memo.get("style_id", &"")), subject_name)
+	var fund_detail := "NO COST" if int(memo.get("cost_cents", 0)) <= 0 else "-$%.2f" % (
+		float(int(memo.get("cost_cents", 0))) / 100.0
+	)
+	var full_detail := "%s  //  %s%s\nATTRIBUTION  //  %s -> %s  //  FUND %s\n%s" % [
 		prefix,
 		option_name,
 		("  //  %s" % subject_name if not subject_name.is_empty() else ""),
+		subject_name if not subject_name.is_empty() else "UNFILED",
+		byline,
+		fund_detail,
 		outcome,
 	]
-	_credit_memo_label.tooltip_text = _credit_memo_label.text
-	_credit_memo_label.set_meta("accessible_text", _credit_memo_label.text.replace("\n", " "))
+	_credit_memo_label.text = "CREDIT GOES TO"
+	_credit_memo_label.add_theme_font_size_override("font_size", 14)
+	_credit_memo_label.tooltip_text = full_detail
+	_credit_memo_label.set_meta("accessible_text", full_detail.replace("\n", " "))
 	_credit_memo_label.set_meta("receipt_metrics", [])
+	_credit_memo_label.set_meta("outcome_first_credit_heading", true)
+	_credit_memo_card.tooltip_text = full_detail
+	_credit_memo_card.set_meta("accessible_text", full_detail.replace("\n", " "))
+	_credit_memo_card.set_meta("compact_story_glance", true)
+	_rebuild_credit_glance_strip(memo, full_detail)
 	_credit_memo_card.add_theme_stylebox_override(
 		"panel",
 		_panel_style(Color("20333a"), Color("8b7444"), 8, 1),
@@ -2260,6 +3039,8 @@ func _update_hen_highlight(report_day: int) -> void:
 	var visible := not highlight.is_empty() and int(highlight.get("day", 0)) == report_day
 	_hen_highlight_card.visible = visible
 	if not visible:
+		_clear_story_glance_strip(_hen_highlight_glance_strip)
+		_hen_highlight_card.set_meta("compact_story_glance", false)
 		_sync_report_story_visibility()
 		return
 	var worker_name := String(highlight.get("worker_name", "CLAIMS HEN")).to_upper()
@@ -2267,7 +3048,7 @@ func _update_hen_highlight(report_day: int) -> void:
 	var relationship := String(highlight.get("relationship_label", "UNFILED")).to_upper()
 	var body := String(highlight.get("body", "The flock closed another shift."))
 	var metric := String(highlight.get("metric", "%d EGGS" % int(highlight.get("eggs", 0))))
-	_hen_highlight_eyebrow.text = "HEN FILE  //  %s  //  %s" % [worker_name, relationship]
+	_hen_highlight_eyebrow.text = "%s  //  %s" % [worker_name, relationship]
 	_hen_highlight_headline.text = String(highlight.get("headline", "SHIFT HIGHLIGHT")).to_upper()
 	_hen_highlight_body.text = body
 	_hen_highlight_metric.text = metric
@@ -2280,6 +3061,16 @@ func _update_hen_highlight(report_day: int) -> void:
 	]
 	_hen_highlight_body.tooltip_text = tooltip
 	_hen_highlight_card.tooltip_text = tooltip
+	_hen_highlight_card.set_meta("accessible_text", tooltip.replace("\n", " "))
+	var has_glance_data := (
+		highlight.has("eggs")
+		and highlight.has("sound")
+		and highlight.has("credit_cents")
+	)
+	_rebuild_hen_highlight_glance_strip(highlight, tooltip, has_glance_data)
+	_hen_highlight_body.visible = not has_glance_data
+	_hen_highlight_metric.visible = not has_glance_data
+	_hen_highlight_card.set_meta("compact_story_glance", has_glance_data)
 	var accent := _highlight_tone_color(StringName(highlight.get("tone", &"quality")))
 	_hen_highlight_eyebrow.add_theme_color_override("font_color", accent)
 	_hen_highlight_card.add_theme_stylebox_override(
@@ -2289,10 +3080,82 @@ func _update_hen_highlight(report_day: int) -> void:
 	_sync_report_story_visibility()
 
 
+func _rebuild_hen_highlight_glance_strip(
+	highlight: Dictionary,
+	full_detail: String,
+	visible: bool,
+) -> void:
+	_clear_story_glance_strip(_hen_highlight_glance_strip)
+	if not visible:
+		return
+	var accent := _highlight_tone_color(StringName(highlight.get("tone", &"quality")))
+	var golden := maxi(0, int(highlight.get("golden", 0)))
+	var exception_label := "GOLD" if golden > 0 else "CRACKED"
+	var exception_value := golden if golden > 0 else maxi(0, int(highlight.get("cracked", 0)))
+	var values := [
+		{
+			"caption": "EGGS",
+			"value": str(maxi(0, int(highlight.get("eggs", 0)))),
+			"icon": &"order_clutch",
+		},
+		{
+			"caption": "SOUND",
+			"value": str(maxi(0, int(highlight.get("sound", 0)))),
+			"icon": &"order_compliance",
+		},
+		{
+			"caption": exception_label,
+			"value": str(exception_value),
+			"icon": &"receipt_specialty" if golden > 0 else &"receipt_shell",
+		},
+		{
+			"caption": "CREDIT",
+			"value": "$%.2f" % (float(maxi(0, int(highlight.get("credit_cents", 0)))) / 100.0),
+			"icon": &"receipt_fund",
+		},
+	]
+	for index in values.size():
+		var item := values[index] as Dictionary
+		_add_story_glance_chip(
+			_hen_highlight_glance_strip,
+			"ShiftHenEvidenceChip_%d" % (index + 1),
+			String(item["caption"]),
+			String(item["value"]),
+			full_detail,
+			accent,
+			48.0,
+			StringName(item["icon"]),
+		)
+	_hen_highlight_glance_strip.visible = true
+	_hen_highlight_glance_strip.tooltip_text = full_detail
+	_hen_highlight_glance_strip.set_meta("accessible_text", full_detail)
+
+
 func _sync_report_story_visibility() -> void:
 	if _report_story_row == null or _credit_memo_card == null or _hen_highlight_card == null:
 		return
 	_report_story_row.visible = _credit_memo_card.visible or _hen_highlight_card.visible
+	var compact_policy_only := (
+		_credit_memo_card.visible
+		and not _hen_highlight_card.visible
+		and bool(_credit_memo_card.get_meta("compact_policy_receipt", false))
+	)
+	var compact_story_glance := (
+		_credit_memo_card.visible
+		and _hen_highlight_card.visible
+		and bool(_credit_memo_card.get_meta("compact_story_glance", false))
+		and bool(_hen_highlight_card.get_meta("compact_story_glance", false))
+	)
+	_credit_memo_card.custom_minimum_size.y = (
+		REPORT_STORY_COMPACT_HEIGHT
+		if compact_policy_only or compact_story_glance else
+		REPORT_STORY_FULL_HEIGHT
+	)
+	_hen_highlight_card.custom_minimum_size.y = (
+		REPORT_STORY_COMPACT_HEIGHT if compact_story_glance else REPORT_STORY_FULL_HEIGHT
+	)
+	_report_story_row.set_meta("compact_policy_only", compact_policy_only)
+	_report_story_row.set_meta("compact_story_glance", compact_story_glance)
 
 
 func _receipt_component_short_label(component_id: StringName) -> String:
@@ -2314,6 +3177,25 @@ func _receipt_component_short_label(component_id: StringName) -> String:
 	return String(component_id).replace("_", " ").to_upper()
 
 
+func _receipt_component_icon(component_id: StringName) -> StringName:
+	match component_id:
+		&"probation_orders":
+			return &"order_compliance"
+		&"daily_clutch":
+			return &"order_clutch"
+		&"shell_quality":
+			return &"receipt_shell"
+		&"queue_control":
+			return &"order_trays"
+		&"flock_safeguards":
+			return &"receipt_flock"
+		&"score_cap":
+			return &"receipt_cap"
+		&"milestone_bonus":
+			return &"receipt_specialty"
+	return &"order_compliance"
+
+
 func _format_signed_delta(value: int) -> String:
 	return "+%d" % value if value > 0 else str(value)
 
@@ -2323,6 +3205,7 @@ func _refresh_probation_safeguard_receipt(
 	summary: Label,
 	rows: Array[Label],
 	final_receipt: bool,
+	pass_rows: Array[Label] = [],
 ) -> void:
 	if panel == null or summary == null:
 		return
@@ -2341,6 +3224,10 @@ func _refresh_probation_safeguard_receipt(
 		return
 	var pass_count := clampi(int(forecast.get("pass_count", 0)), 0, criteria.size())
 	var all_pass := bool(forecast.get("all_pass", false))
+	if not final_receipt and _report_safeguard_grid != null:
+		_report_safeguard_grid.visible = false
+	if not final_receipt and _report_safeguard_pass_grid != null:
+		_report_safeguard_pass_grid.visible = true
 	var summary_prefix := "FINAL RESULT" if final_receipt else "CURRENT FORECAST"
 	var active_contract := _active_challenge_contract()
 	var contract_label := _challenge_contract_label(active_contract, false)
@@ -2370,6 +3257,20 @@ func _refresh_probation_safeguard_receipt(
 		]
 		if final_receipt else exact_summary
 	)
+	if not final_receipt:
+		var completed_shifts := maxi(0, int(forecast.get("completed_shifts", 0)))
+		var required_shifts := maxi(1, int(forecast.get("required_shifts", DEFAULT_TOTAL_DAYS)))
+		# The persistent campaign badge already carries the five-shift timeline.
+		# Keep this line focused on the decision: how many safeguards pass and,
+		# when needed, which single gap the player should fix next.
+		summary.text = "%d/%d PASS" % [
+			pass_count,
+			criteria.size(),
+		]
+		summary.set_meta("shift_context_source", "persistent_day_rail")
+		summary.set_meta("completed_shifts", completed_shifts)
+		summary.set_meta("required_shifts", required_shifts)
+		summary.set_meta("compact_status_only", true)
 	summary.add_theme_color_override("font_color", TEAL if all_pass else RUST)
 	var tooltip_lines: Array[String] = [
 		exact_summary,
@@ -2393,12 +3294,56 @@ func _refresh_probation_safeguard_receipt(
 			_probation_safeguard_glance_text(criterion)
 			if final_receipt else exact_row
 		)
+		label.visible = final_receipt
 		label.add_theme_color_override(
 			"font_color",
 			Color("a7dbc9") if bool(criterion.get("pass", false)) else Color("f0aa95"),
 		)
 		label.tooltip_text = exact_row
 		label.set_meta("accessible_text", exact_row)
+		if not final_receipt and index < pass_rows.size():
+			var pass_label := pass_rows[index]
+			var passed := bool(criterion.get("pass", false))
+			pass_label.visible = true
+			pass_label.text = _probation_safeguard_report_chip_text(criterion)
+			pass_label.add_theme_color_override(
+				"font_color",
+				Color("a7dbc9") if passed else Color("f0aa95"),
+			)
+			pass_label.tooltip_text = exact_row
+			pass_label.set_meta("accessible_text", exact_row)
+			pass_label.set_meta("visual_status_symbol", "checkmark_badge" if passed else "attention_badge")
+			var pass_card: PanelContainer = null
+			var pass_ancestor := pass_label.get_parent()
+			while pass_ancestor != null:
+				if pass_ancestor is PanelContainer:
+					pass_card = pass_ancestor as PanelContainer
+					break
+				pass_ancestor = pass_ancestor.get_parent()
+			if pass_card != null:
+				var status_icon := pass_card.find_child(
+					"ReportProbationSafeguardPassIcon_%d" % (index + 1),
+					true,
+					false,
+				) as TextureRect
+				if status_icon != null:
+					var icon_kind := &"status_pass" if passed else &"status_need"
+					status_icon.texture = ManagementTheme.action_icon(icon_kind)
+					status_icon.tooltip_text = exact_row
+					status_icon.set_meta("semantic_icon", String(icon_kind))
+				pass_card.tooltip_text = exact_row
+				pass_card.set_meta("accessible_text", exact_row)
+				pass_card.set_meta("status", "pass" if passed else "needs_action")
+				pass_card.set_meta("visual_status_symbol", "checkmark_badge" if passed else "attention_badge")
+				pass_card.add_theme_stylebox_override(
+					"panel",
+					_panel_style(
+						Color("213b3b") if passed else Color("3d2c2b"),
+						Color("6f9d8f") if passed else Color("b66d5c"),
+						7,
+						1,
+					),
+				)
 		var row_card := label.get_parent().get_parent().get_parent() as PanelContainer
 		if final_receipt and row_card != null:
 			row_card.tooltip_text = exact_row
@@ -2419,7 +3364,10 @@ func _refresh_probation_safeguard_receipt(
 			String(blocker.get("label", "SAFEGUARD")).to_upper(),
 			_probation_safeguard_gap_text(blocker),
 		]
-		summary.text += "\n" + blocker_line
+		summary.text += "  //  FIX %s %s" % [
+			_probation_safeguard_short_label(blocker),
+			_probation_safeguard_need_text(blocker),
+		]
 		tooltip_lines.append(blocker_line)
 	panel.tooltip_text = "\n".join(tooltip_lines)
 	panel.set_meta("accessible_text", panel.tooltip_text)
@@ -2428,19 +3376,7 @@ func _refresh_probation_safeguard_receipt(
 
 
 func _probation_safeguard_glance_text(criterion: Dictionary) -> String:
-	var id := StringName(String(criterion.get("id", "")))
-	var short_label := "SAFEGUARD"
-	match id:
-		&"score":
-			short_label = "SCORE"
-		&"welfare":
-			short_label = "FLOCK"
-		&"compliance":
-			short_label = "OBEDIENCE"
-		&"farmer_favor":
-			short_label = "FAVOR"
-		&"crack_rate":
-			short_label = "SHELL"
+	var short_label := _probation_safeguard_short_label(criterion)
 	var metric := String(criterion.get("metric", ""))
 	var value := _probation_safeguard_value_text(metric, int(criterion.get("projected_value", 0)))
 	return "%s\n%s / %s" % [
@@ -2448,6 +3384,44 @@ func _probation_safeguard_glance_text(criterion: Dictionary) -> String:
 		value,
 		"PASS" if bool(criterion.get("pass", false)) else "HELD",
 	]
+
+
+func _probation_safeguard_short_label(criterion: Dictionary) -> String:
+	var id := StringName(String(criterion.get("id", "")))
+	match id:
+		&"score":
+			return "SCORE"
+		&"welfare":
+			return "FLOCK"
+		&"compliance":
+			return "OBEDIENCE"
+		&"farmer_favor":
+			return "FAVOR"
+		&"crack_rate":
+			return "SHELL"
+	return "TARGET"
+
+
+func _probation_safeguard_report_chip_text(criterion: Dictionary) -> String:
+	var metric := String(criterion.get("metric", ""))
+	var value := _probation_safeguard_value_text(metric, int(criterion.get("projected_value", 0)))
+	if bool(criterion.get("pass", false)):
+		return "%s\n%s" % [
+			_probation_safeguard_short_label(criterion),
+			value,
+		]
+	return "%s\n%s NEED %s" % [
+		_probation_safeguard_short_label(criterion),
+		value,
+		_probation_safeguard_need_text(criterion),
+	]
+
+
+func _probation_safeguard_need_text(criterion: Dictionary) -> String:
+	var gap := absi(int(criterion.get("signed_gap", 0)))
+	if String(criterion.get("metric", "")) == "crack_rate_basis_points":
+		return "%.2f" % (float(gap) / 100.0)
+	return str(gap)
 
 
 func _probation_safeguard_row_text(criterion: Dictionary, final_receipt: bool) -> String:
@@ -2620,38 +3594,151 @@ func _update_objective() -> void:
 		"description",
 		objective.get("detail", "The farmer has not filed the next clutch target."),
 	))
-	_objective_title_label.text = "%s  //  %s" % [
-		String(_snapshot.get(
-			"objective_section_title",
-			"QUARTER OBJECTIVE" if _is_senior_snapshot() else "NEXT SHIFT OBJECTIVE",
-		)).to_upper(),
-		title.to_upper(),
-	]
 	_objective_body_label.text = description
+	var orders_value: Variant = objective.get("orders", [])
+	var probation_orders := (
+		orders_value as Array
+		if orders_value is Array and not _is_senior_snapshot() else
+		[]
+	)
+	var reward_detail := String(objective.get("reward", "")).strip_edges()
+	var reward_score := int(objective.get("reward_score", 0))
+	var opportunity_value: Variant = objective.get("promotion_opportunity", {})
+	var opportunity := (
+		opportunity_value as Dictionary
+		if opportunity_value is Dictionary and not _is_senior_snapshot() else
+		{}
+	)
+	var promotion_available := bool(opportunity.get("available", false))
+	var promotion_detail := ""
+	if promotion_available:
+		promotion_detail = "PROMOTION READY  //  COMPLETE ALL 3 ORDERS  //  %s%d SCORE  //  %d -> %d  //  %s" % [
+			"+" if reward_score > 0 else "",
+			reward_score,
+			int(opportunity.get("current_score", 0)),
+			int(opportunity.get("next_threshold", 0)),
+			String(opportunity.get("next_rank_label", "NEXT RANK")).to_upper(),
+		]
+	var section_title := String(_snapshot.get(
+		"objective_section_title",
+		"QUARTER OBJECTIVE" if _is_senior_snapshot() else "NEXT SHIFT OBJECTIVE",
+	)).to_upper()
+	var authored_title := title.to_upper()
+	var full_objective_title := "%s  //  %s" % [section_title, authored_title]
+	var show_compact_orders_heading := probation_orders.size() >= 2
+	_objective_title_label.text = (
+		authored_title.replace("PROBATION ORDERS", "ORDERS")
+		if show_compact_orders_heading else
+		full_objective_title
+	)
+	var objective_title_detail := full_objective_title
+	if not reward_detail.is_empty():
+		objective_title_detail += "\nREWARD  //  %s" % reward_detail
+	_objective_title_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_objective_title_label.tooltip_text = objective_title_detail
+	_objective_title_label.set_meta("accessible_text", objective_title_detail)
+	_objective_title_label.set_meta("compact_orders_heading", show_compact_orders_heading)
+	_rebuild_probation_order_strip(probation_orders, description)
+	var show_reward_badge := (
+		_objective_order_strip.visible
+		and reward_score != 0
+		and not reward_detail.is_empty()
+	)
+	_objective_reward_badge.visible = show_reward_badge
+	if show_reward_badge:
+		_objective_reward_label.text = "%s%d SCORE" % [
+			"+" if reward_score > 0 else "",
+			reward_score,
+		]
+		var exact_reward_detail := promotion_detail if promotion_available else reward_detail
+		_objective_reward_badge.add_theme_stylebox_override(
+			"panel",
+			_panel_style(
+				Color("25352f") if promotion_available else Color("1b3738"),
+				Color("f4df9d") if promotion_available else BRASS,
+				7,
+				2 if promotion_available else 1,
+			),
+		)
+		_objective_promotion_icon.visible = promotion_available
+		_objective_reward_badge.tooltip_text = exact_reward_detail
+		_objective_reward_badge.set_meta("accessible_text", exact_reward_detail)
+		_objective_reward_badge.set_meta("promotion_opportunity", promotion_available)
+		_objective_reward_badge.set_meta("projected_score", int(opportunity.get("projected_score", 0)))
+		_objective_reward_badge.set_meta("target_score", int(opportunity.get("next_threshold", 0)))
+		_objective_reward_badge.set_meta("next_rank_label", String(opportunity.get("next_rank_label", "")))
+		_objective_reward_label.tooltip_text = exact_reward_detail
+		_objective_reward_label.set_meta("accessible_text", exact_reward_detail)
+	else:
+		_objective_promotion_icon.visible = false
+		_objective_reward_badge.tooltip_text = ""
+		_objective_reward_badge.set_meta("accessible_text", "")
+		_objective_reward_badge.set_meta("promotion_opportunity", false)
+		_objective_reward_badge.set_meta("projected_score", 0)
+		_objective_reward_badge.set_meta("target_score", 0)
+		_objective_reward_badge.set_meta("next_rank_label", "")
+		_objective_reward_label.tooltip_text = ""
+		_objective_reward_label.set_meta("accessible_text", "")
+	var driver_value: Variant = objective.get("quarter_drivers", [])
+	var quarter_drivers := driver_value as Array if driver_value is Array else []
+	var driver_detail := _quarter_driver_detail(quarter_drivers)
+	_objective_body_label.visible = (
+		quarter_drivers.is_empty() and not _objective_order_strip.visible
+	)
+	_rebuild_objective_driver_strip(quarter_drivers, driver_detail)
 	var mandate_value: Variant = _snapshot.get("annual_mandate_progress", {})
 	var mandate_progress := (
 		mandate_value as Dictionary if mandate_value is Dictionary else {}
 	)
 	if not mandate_progress.is_empty():
+		_objective_reward_badge.visible = false
+		_objective_progress_label.visible = true
 		var board_detail := String(objective.get("board_detail", "")).strip_edges()
-		_rebuild_objective_board_strip(mandate_progress, board_detail)
+		var mandate_delta_value: Variant = _snapshot.get("annual_mandate_delta", {})
+		var mandate_delta := (
+			mandate_delta_value as Dictionary
+			if mandate_delta_value is Dictionary else
+			{}
+		)
+		var delta_detail := _board_delta_detail(mandate_delta)
+		var detail_sections: Array[String] = []
+		if not driver_detail.is_empty():
+			detail_sections.append("QUARTER DRIVERS\n%s" % driver_detail)
+		if not board_detail.is_empty():
+			detail_sections.append(board_detail)
+		var full_board_detail := "\n\n".join(detail_sections)
+		if not delta_detail.is_empty():
+			full_board_detail += "\n\nTHIS SHIFT  //  %s" % delta_detail
+		_rebuild_objective_board_strip(
+			mandate_progress,
+			full_board_detail,
+			mandate_delta,
+		)
 		_objective_progress_label.text = String(objective.get(
 			"board_summary",
 			_board_progress_summary(mandate_progress),
 		))
-		_objective_card.tooltip_text = board_detail
-		_objective_card.set_meta("accessible_text", board_detail)
+		_objective_card.tooltip_text = full_board_detail
+		_objective_card.set_meta("accessible_text", full_board_detail)
 	elif objective.has("progress") or objective.has("target"):
-		_rebuild_objective_board_strip({}, "")
+		_objective_reward_badge.visible = false
+		_objective_progress_label.visible = true
+		_rebuild_objective_board_strip({}, "", {})
 		_objective_progress_label.text = "PROGRESS CARRIED FORWARD  %s / %s" % [
 			str(objective.get("progress", 0)),
 			str(objective.get("target", "—")),
 		]
+		_objective_card.tooltip_text = driver_detail
+		_objective_card.set_meta("accessible_text", driver_detail)
 	else:
-		_rebuild_objective_board_strip({}, "")
-		_objective_progress_label.text = String(objective.get("reward", ""))
-		_objective_card.tooltip_text = ""
-		_objective_card.set_meta("accessible_text", "")
+		_rebuild_objective_board_strip({}, "", {})
+		_objective_progress_label.text = reward_detail
+		_objective_progress_label.visible = not show_reward_badge
+		var objective_detail := driver_detail if not driver_detail.is_empty() else description
+		if not reward_detail.is_empty():
+			objective_detail = "%s\n\nREWARD  //  %s" % [objective_detail, reward_detail]
+		_objective_card.tooltip_text = objective_detail
+		_objective_card.set_meta("accessible_text", objective_detail)
 
 
 func _board_progress_summary(progress: Dictionary) -> String:
@@ -2667,6 +3754,167 @@ func _board_progress_summary(progress: Dictionary) -> String:
 	]
 
 
+func _probation_order_value(row: Dictionary) -> String:
+	var metric := String(row.get("metric", ""))
+	var comparison := String(row.get("comparison", "minimum"))
+	var target := int(row.get("target", 0))
+	if metric == "quota_met":
+		return "HIT QUOTA"
+	if metric == "compliance":
+		return "%d+" % target
+	if metric == "overdue_files":
+		return "<= %d" % target
+	match comparison:
+		"maximum":
+			return "<= %d" % target
+		"equal":
+			return "= %d" % target
+	return "%d+" % target
+
+
+func _probation_order_icon(row: Dictionary) -> StringName:
+	match StringName(row.get("id", "")):
+		&"meet_the_clutch":
+			return &"order_clutch"
+		&"orderly_coop":
+			return &"order_compliance"
+		&"trim_the_trays":
+			return &"order_trays"
+	return &"order_clutch"
+
+
+func _rebuild_probation_order_strip(orders: Array, detail: String) -> void:
+	for child: Node in _objective_order_strip.get_children():
+		_objective_order_strip.remove_child(child)
+		child.queue_free()
+	# A lone or malformed order is clearer as its authored sentence. The shipped
+	# probation cadence always provides three structured orders for this strip.
+	var valid_orders: Array[Dictionary] = []
+	for order_value: Variant in orders:
+		if order_value is Dictionary:
+			valid_orders.append(order_value as Dictionary)
+	if valid_orders.size() < 2:
+		_objective_order_strip.visible = false
+		return
+	_objective_order_strip.visible = true
+	_objective_order_strip.tooltip_text = detail
+	_objective_order_strip.set_meta("accessible_text", detail)
+	for index in valid_orders.size():
+		var row := valid_orders[index]
+		var title := String(row.get("title", "Probation order"))
+		var description := String(row.get("description", "Meet the filed target."))
+		var value := _probation_order_value(row)
+		var exact_detail := "%s. %s Target %s." % [title, description, value]
+		var panel := PanelContainer.new()
+		panel.name = "ProbationOrder_%d" % (index + 1)
+		panel.custom_minimum_size = Vector2(270.0, 42.0)
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		panel.add_theme_stylebox_override(
+			"panel",
+			_panel_style(Color("1b3738"), Color("4c786f"), 7, 1),
+		)
+		panel.tooltip_text = exact_detail
+		panel.set_meta("order_id", String(row.get("id", "")))
+		panel.set_meta("accessible_text", exact_detail)
+		var content := _panel_content(panel, 9, 6, 0)
+		var line := HBoxContainer.new()
+		line.add_theme_constant_override("separation", 7)
+		content.add_child(line)
+		var icon := TextureRect.new()
+		icon.name = "ProbationOrderIcon_%d" % (index + 1)
+		icon.custom_minimum_size = Vector2(22.0, 22.0)
+		icon.texture = ManagementTheme.action_icon(_probation_order_icon(row))
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_child(icon)
+		var label := _make_label("%s\n%s" % [title.to_upper(), value], 10, INK)
+		label.name = "ProbationOrderLabel_%d" % (index + 1)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		label.tooltip_text = exact_detail
+		label.set_meta("accessible_text", exact_detail)
+		line.add_child(label)
+		_objective_order_strip.add_child(panel)
+
+
+func _quarter_driver_value(row: Dictionary) -> String:
+	var metric := String(row.get("metric", ""))
+	var actual := int(row.get("actual", 0))
+	var target := int(row.get("target", 0))
+	if metric.ends_with("basis_points"):
+		return "%.1f%% / %.1f%%" % [float(actual) / 100.0, float(target) / 100.0]
+	return "%d / %d" % [actual, target]
+
+
+func _quarter_driver_detail(drivers: Array) -> String:
+	var lines: Array[String] = []
+	for row_value: Variant in drivers:
+		if not row_value is Dictionary:
+			continue
+		var row := row_value as Dictionary
+		lines.append("%s  //  %s  //  %s  //  %s" % [
+			"ON TRACK" if bool(row.get("projected_met", false)) else "NEEDS ACTION",
+			String(row.get("title", "QUARTER DRIVER")),
+			_quarter_driver_value(row),
+			String(row.get("description", "Quarter safeguard filed.")),
+		])
+	return "\n".join(lines)
+
+
+func _rebuild_objective_driver_strip(drivers: Array, detail: String) -> void:
+	for child: Node in _objective_driver_strip.get_children():
+		_objective_driver_strip.remove_child(child)
+		child.queue_free()
+	_objective_driver_strip.visible = not drivers.is_empty()
+	_objective_driver_strip.tooltip_text = detail
+	_objective_driver_strip.set_meta("accessible_text", detail)
+	for row_value: Variant in drivers:
+		if not row_value is Dictionary:
+			continue
+		var row := row_value as Dictionary
+		var on_track := bool(row.get("projected_met", false))
+		var metric := String(row.get("metric", "quarter_driver"))
+		var panel := PanelContainer.new()
+		panel.name = "QuarterDriver_%s" % metric
+		panel.custom_minimum_size = Vector2(220.0, 30.0)
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		panel.add_theme_stylebox_override(
+			"panel",
+			_panel_style(
+				Color("203a3b") if on_track else Color("3b302d"),
+				Color("4c786f") if on_track else Color("8e5145"),
+				6,
+				1,
+			),
+		)
+		panel.tooltip_text = "%s  //  %s" % [
+			String(row.get("description", "Quarter safeguard filed.")),
+			_quarter_driver_value(row),
+		]
+		panel.set_meta("status", "on_track" if on_track else "needs_action")
+		panel.set_meta("metric", metric)
+		panel.set_meta("actual", int(row.get("actual", 0)))
+		panel.set_meta("target", int(row.get("target", 0)))
+		panel.set_meta("comparison", String(row.get("comparison", "minimum")))
+		panel.set_meta("accessible_text", "%s. %s. %s. %s" % [
+			"On track" if on_track else "Needs action",
+			String(row.get("title", "Quarter driver")),
+			_quarter_driver_value(row),
+			String(row.get("description", "Quarter safeguard filed.")),
+		])
+		var content := _panel_content(panel, 9, 6, 0)
+		var label := _make_label("%s %s  %s" % [
+			"+" if on_track else "!",
+			String(row.get("title", "QUARTER DRIVER")).to_upper(),
+			_quarter_driver_value(row),
+		], 10, TEAL if on_track else RUST)
+		label.name = "QuarterDriverLabel"
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		content.add_child(label)
+		_objective_driver_strip.add_child(panel)
+
+
 func _board_target_value(row: Dictionary) -> String:
 	var metric := String(row.get("metric", ""))
 	var actual := int(row.get("actual", 0))
@@ -2678,12 +3926,107 @@ func _board_target_value(row: Dictionary) -> String:
 	return "%d / %d" % [actual, target]
 
 
-func _rebuild_objective_board_strip(progress: Dictionary, detail: String) -> void:
+func _signed_board_delta(metric: String, delta: int) -> String:
+	var sign := "+" if delta > 0 else ("-" if delta < 0 else "")
+	var magnitude := absi(delta)
+	if metric.ends_with("basis_points"):
+		return "%s%.1f%%" % [sign, float(magnitude) / 100.0]
+	if metric.ends_with("_cents") or metric == "credited_cents":
+		return "$ %s%.2f" % [sign, float(magnitude) / 100.0]
+	return "%s%d" % [sign, magnitude]
+
+
+func _board_delta_detail(delta_receipt: Dictionary) -> String:
+	var lines: Array[String] = []
+	for change_value: Variant in delta_receipt.get("changes", []) as Array:
+		if not change_value is Dictionary:
+			continue
+		var change := change_value as Dictionary
+		lines.append("%s %s (%s)" % [
+			String(change.get("label", "BOARD TARGET")),
+			_signed_board_delta(
+				String(change.get("metric", "")),
+				int(change.get("delta", 0)),
+			),
+			String(change.get("impact", "steady")).to_upper(),
+		])
+	return "  //  ".join(lines)
+
+
+func _board_target_progress_rail(row: Dictionary) -> ProgressBar:
+	var met := bool(row.get("met", false))
+	var progress_basis_points := 10_000 if met else 0
+	if row.has("progress_basis_points"):
+		progress_basis_points = clampi(int(row["progress_basis_points"]), 0, 10_000)
+	elif not met:
+		var actual := int(row.get("actual", 0))
+		var target := int(row.get("target", 0))
+		if String(row.get("comparison", "minimum")) == "minimum":
+			progress_basis_points = clampi(
+				roundi(float(actual) / float(maxi(1, target)) * 10_000.0),
+				0,
+				10_000,
+			)
+		elif target > 0:
+			progress_basis_points = clampi(
+				roundi(float(target) / float(maxi(1, actual)) * 10_000.0),
+				0,
+				10_000,
+			)
+	var rail := ProgressBar.new()
+	rail.name = "BoardTargetProgress"
+	rail.custom_minimum_size = Vector2(0.0, 4.0)
+	rail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rail.min_value = 0.0
+	rail.max_value = 10_000.0
+	rail.value = float(progress_basis_points)
+	rail.show_percentage = false
+	rail.add_theme_stylebox_override(
+		"background",
+		_panel_style(Color("132126"), Color("30484a"), 2, 0),
+	)
+	var fill_color := Color("73b5a7") if met else Color("c96f59")
+	rail.add_theme_stylebox_override(
+		"fill",
+		_panel_style(fill_color, fill_color, 2, 0),
+	)
+	rail.set_meta("progress_basis_points", progress_basis_points)
+	rail.set_meta("comparison", String(row.get("comparison", "minimum")))
+	rail.set_meta(
+		"accessible_text",
+		"Board progress %d percent toward target." % roundi(
+			float(progress_basis_points) / 100.0,
+		),
+	)
+	return rail
+
+
+func _rebuild_objective_board_strip(
+	progress: Dictionary,
+	detail: String,
+	delta_receipt: Dictionary,
+) -> void:
 	for child: Node in _objective_board_strip.get_children():
 		_objective_board_strip.remove_child(child)
 		child.queue_free()
 	var objectives_value: Variant = progress.get("objectives", [])
 	var objectives := objectives_value as Array if objectives_value is Array else []
+	var changes_by_metric: Dictionary = {}
+	for change_value: Variant in delta_receipt.get("changes", []) as Array:
+		if change_value is Dictionary:
+			var change := change_value as Dictionary
+			changes_by_metric[String(change.get("metric", ""))] = change
+	var pulse_key := "%s:%d:%d:%d" % [
+		String(progress.get("mandate_id", "")),
+		int(progress.get("year", 0)),
+		int(delta_receipt.get("shift_index", 0)),
+		int(delta_receipt.get("day", 0)),
+	]
+	var pulse_recent_changes := (
+		bool(delta_receipt.get("visible", false))
+		and pulse_key != _last_board_pulse_key
+	)
 	_objective_board_strip.visible = not objectives.is_empty()
 	_objective_board_strip.tooltip_text = detail
 	_objective_board_strip.set_meta("accessible_text", detail)
@@ -2693,6 +4036,7 @@ func _rebuild_objective_board_strip(progress: Dictionary, detail: String) -> voi
 		var row := row_value as Dictionary
 		var met := bool(row.get("met", false))
 		var metric := String(row.get("metric", "board_target"))
+		var recent_change := changes_by_metric.get(metric, {}) as Dictionary
 		var panel := PanelContainer.new()
 		panel.name = "BoardTarget_%s" % metric
 		panel.custom_minimum_size = Vector2(220.0, 50.0)
@@ -2703,17 +4047,25 @@ func _rebuild_objective_board_strip(progress: Dictionary, detail: String) -> voi
 				Color("203a3b") if met else Color("3b302d"),
 				Color("73b5a7") if met else Color("c96f59"),
 				7,
-				1,
+				2 if not recent_change.is_empty() else 1,
 			),
 		)
 		panel.tooltip_text = detail
 		panel.set_meta("status", "met" if met else "needs_action")
 		panel.set_meta("metric", metric)
-		panel.set_meta("accessible_text", "%s. %s. Actual %s." % [
+		panel.set_meta("recent_change", not recent_change.is_empty())
+		panel.set_meta("last_shift_delta", int(recent_change.get("delta", 0)))
+		var accessible_text := "%s. %s. Actual %s." % [
 			"Met" if met else "Needs action",
 			String(row.get("label", "BOARD TARGET")),
 			_board_target_value(row),
-		])
+		]
+		if not recent_change.is_empty():
+			accessible_text += " This shift %s, %s." % [
+				_signed_board_delta(metric, int(recent_change.get("delta", 0))),
+				String(recent_change.get("impact", "steady")),
+			]
+		panel.set_meta("accessible_text", accessible_text)
 		var content := _panel_content(panel, 10, 7, 1)
 		var status := _make_label(
 			"%s  //  %s" % [
@@ -2726,10 +4078,40 @@ func _rebuild_objective_board_strip(progress: Dictionary, detail: String) -> voi
 		status.name = "BoardTargetState"
 		status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		content.add_child(status)
+		var value_row := HBoxContainer.new()
+		value_row.name = "BoardTargetValueRow"
+		value_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		value_row.add_theme_constant_override("separation", 8)
+		content.add_child(value_row)
 		var value := _make_label(_board_target_value(row), 13, CREAM)
 		value.name = "BoardTargetValue"
-		content.add_child(value)
+		value_row.add_child(value)
+		if not recent_change.is_empty():
+			var impact := String(recent_change.get("impact", "steady"))
+			var delta := _make_label(
+				"THIS SHIFT %s" % _signed_board_delta(
+					metric,
+					int(recent_change.get("delta", 0)),
+				),
+				9,
+				TEAL if impact == "improved" else (RUST if impact == "setback" else MUTED),
+			)
+			delta.name = "BoardTargetDelta"
+			delta.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			delta.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			value_row.add_child(delta)
+		content.add_child(_board_target_progress_rail(row))
 		_objective_board_strip.add_child(panel)
+		if pulse_recent_changes and not recent_change.is_empty() and not _reduced_motion:
+			panel.self_modulate = Color(1.0, 0.78, 0.58, 1.0)
+			create_tween().tween_property(
+				panel,
+				"self_modulate",
+				Color.WHITE,
+				0.7,
+			).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	if pulse_recent_changes:
+		_last_board_pulse_key = pulse_key
 
 
 func _senior_policy_effect_glance(effect: String) -> String:
@@ -3270,10 +4652,35 @@ func _update_ledger_labels(targets: Array[Dictionary]) -> void:
 		var title_label := target["title"] as Label
 		var value_label := target["value"] as Label
 		var detail_label := target["detail"] as Label
+		var card := target.get("card") as PanelContainer
 		title_label.text = String(ledger.get("label", "LEDGER %d" % (index + 1))).to_upper()
 		value_label.text = _ledger_display_value(ledger)
-		detail_label.text = String(ledger.get("detail", "CUMULATIVE"))
-		detail_label.tooltip_text = detail_label.text
+		var exact_detail := String(ledger.get("detail", "CUMULATIVE")).strip_edges().to_upper()
+		var glance_text := String(
+			ledger.get("glance", _compact_ledger_glance(exact_detail))
+		).strip_edges().to_upper()
+		detail_label.text = glance_text
+		detail_label.tooltip_text = exact_detail
+		detail_label.set_meta("accessible_text", exact_detail)
+		var accessible_text := "%s %s. %s" % [
+			title_label.text,
+			value_label.text,
+			exact_detail,
+		]
+		if card != null:
+			card.tooltip_text = exact_detail
+			card.set_meta("accessible_text", accessible_text)
+			card.set_meta("glance_text", glance_text)
+			card.set_meta("exact_detail", exact_detail)
+			card.set_meta("metric_first", true)
+
+
+func _compact_ledger_glance(exact_detail: String) -> String:
+	# The card keeps the exact authored accounting in progressive detail. Only
+	# the visible scan line contracts predictable bookkeeping phrases.
+	return exact_detail.replace("FIVE-SHIFT", "5-SHIFT").replace(
+		"TWO-SHIFT", "2-SHIFT"
+	).replace("AVERAGE", "AVG").replace("CREDIT HARVESTED", "CREDIT")
 
 
 func _normalized_ledgers() -> Array[Dictionary]:
@@ -3374,6 +4781,10 @@ func _apply_responsive_layout() -> void:
 	_modal_scroll.offset_bottom = -92.0 if sticky_final_actions else -18.0
 	if _report_safeguard_grid != null:
 		_report_safeguard_grid.columns = 1 if narrow else 2
+	if _report_score_receipt_grid != null:
+		_report_score_receipt_grid.columns = 2 if narrow else 5
+	if _report_safeguard_pass_grid != null:
+		_report_safeguard_pass_grid.columns = 2 if narrow else 5
 	if _final_safeguard_grid != null:
 		_final_safeguard_grid.columns = 2 if narrow else 5
 	if _final_ending_glance_grid != null:
@@ -3381,13 +4792,15 @@ func _apply_responsive_layout() -> void:
 
 	_modal_center.custom_minimum_size = Vector2(panel_width, modal_height)
 	_title_panel.custom_minimum_size = Vector2(minf(760.0, panel_width), 0.0)
-	_report_panel.custom_minimum_size = Vector2(minf(1040.0, panel_width), 0.0)
+	_report_panel.custom_minimum_size = Vector2(minf(REPORT_DESKTOP_WIDTH, panel_width), 0.0)
 	_final_panel.custom_minimum_size = Vector2(minf(860.0, panel_width), 0.0)
 	if _replacement_confirmation_panel != null:
 		_replacement_confirmation_panel.custom_minimum_size = Vector2(minf(560.0, panel_width), 0.0)
 	if _title_challenge_selector != null:
 		_title_challenge_selector.custom_minimum_size.x = 220.0 if narrow else 250.0
-	_report_heading_stack.custom_minimum_size.x = 0.0 if compact else 390.0
+	_report_heading_stack.custom_minimum_size.x = (
+		0.0 if compact else REPORT_HEADING_DESKTOP_WIDTH
+	)
 
 	var report_score_panel := _metric_panel(_report_score_label)
 	var report_shift_panel := _metric_panel(_report_shift_delta_label)
@@ -3409,11 +4822,39 @@ func _apply_responsive_layout() -> void:
 				(child as PanelContainer).custom_minimum_size.x = ledger_width
 
 	if _credit_memo_card != null:
-		_credit_memo_card.custom_minimum_size.x = 260.0 if narrow else 600.0
+		_credit_memo_card.custom_minimum_size.x = (
+			260.0 if narrow else REPORT_CREDIT_DESKTOP_WIDTH
+		)
 	if _hen_highlight_card != null:
-		_hen_highlight_card.custom_minimum_size.x = 260.0 if narrow else 320.0
+		_hen_highlight_card.custom_minimum_size.x = (
+			260.0 if narrow else REPORT_HIGHLIGHT_DESKTOP_WIDTH
+		)
 
-	var milestone_width := 260.0 if narrow else 285.0
+	# Preserve three equal comparison columns on small laptops, then switch to
+	# deliberate full-width cards before their contents become cramped. HFlow's
+	# generic last-line alignment leaves a lone third card visually stranded.
+	var report_content_width := maxf(
+		1.0,
+		minf(REPORT_DESKTOP_WIDTH, panel_width) - 52.0,
+	)
+	if _objective_order_strip != null:
+		# The strip sits inside the objective card's own 16px side padding, so its
+		# stacked width must leave room for that nested inset on narrow screens.
+		var order_width := maxf(210.0, report_content_width - 36.0)
+		if viewport_size.x >= 800.0:
+			order_width = clampf((report_content_width - 16.0) / 3.0, 210.0, 290.0)
+		for child in _objective_order_strip.get_children():
+			if child is PanelContainer:
+				(child as PanelContainer).custom_minimum_size.x = order_width
+	var milestone_width := report_content_width
+	if viewport_size.x >= 800.0:
+		milestone_width = clampf(
+			# Two 10px gaps plus a small allowance for panel borders and integer
+			# rounding keep the final column from wrapping at exactly 800px.
+			(report_content_width - 28.0) / 3.0,
+			220.0,
+			285.0,
+		)
 	for button_value in _milestone_buttons.values():
 		var milestone_button := button_value as Button
 		if milestone_button != null:
@@ -3437,14 +4878,14 @@ func _position_badge(modal_open: bool) -> void:
 		_day_badge.offset_left = -318.0
 		_day_badge.offset_top = 14.0
 		_day_badge.offset_right = -18.0
-		_day_badge.offset_bottom = 58.0
+		_day_badge.offset_bottom = 82.0
 	else:
 		# This slot sits between the routing strip and Flockwatch button in the
 		# 1280x720 office HUD, so the badge never covers hens or workstations.
 		_day_badge.offset_left = -490.0
 		_day_badge.offset_top = _active_badge_top
 		_day_badge.offset_right = -268.0
-		_day_badge.offset_bottom = _active_badge_top + 44.0
+		_day_badge.offset_bottom = _active_badge_top + 68.0
 
 
 func _on_final_sticky_primary_pressed() -> void:
@@ -3632,27 +5073,35 @@ func _build_ledger_row(parent: VBoxContainer, prefix: String, targets: Array[Dic
 	for index: int in range(3):
 		var card := PanelContainer.new()
 		card.name = "%sCumulativeLedger%d" % [prefix, index + 1]
-		card.custom_minimum_size = Vector2(220.0, 73.0)
+		card.custom_minimum_size = Vector2(220.0, 60.0)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.add_theme_stylebox_override(
 			"panel",
 			_panel_style(NAVY_RAISED, Color("4a5d66"), 8, 1),
 		)
 		row.add_child(card)
-		var stack := _panel_content(card, 13, 8, 0)
-		var title_label := _make_label("LEDGER", 10, MUTED)
-		title_label.name = "%sLedgerTitle%d" % [prefix, index + 1]
-		stack.add_child(title_label)
+		var stack := _panel_content(card, 13, 7, 1)
+		var metric_line := HBoxContainer.new()
+		metric_line.name = "%sLedgerMetricLine%d" % [prefix, index + 1]
+		metric_line.add_theme_constant_override("separation", 9)
+		stack.add_child(metric_line)
 		var value_label := _make_label("0", 19, CREAM)
 		value_label.name = "%sLedgerValue%d" % [prefix, index + 1]
-		stack.add_child(value_label)
-		var detail_label := _make_label("CUMULATIVE", 9, Color("82939d"))
+		value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		metric_line.add_child(value_label)
+		var title_label := _make_label("LEDGER", 10, MUTED)
+		title_label.name = "%sLedgerTitle%d" % [prefix, index + 1]
+		title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		metric_line.add_child(title_label)
+		var detail_label := _make_label("CUMULATIVE", 10, TEAL)
 		detail_label.name = "%sLedgerDetail%d" % [prefix, index + 1]
-		detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		detail_label.max_lines_visible = 2
+		detail_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		detail_label.max_lines_visible = 1
 		detail_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		stack.add_child(detail_label)
 		targets.append({
+			"card": card,
 			"title": title_label,
 			"value": value_label,
 			"detail": detail_label,
@@ -3690,14 +5139,279 @@ func _make_metric(
 	return value_label
 
 
+func _decorate_report_rank_metric() -> void:
+	if _report_rank_label == null:
+		return
+	var stack := _report_rank_label.get_parent() as VBoxContainer
+	var panel := _metric_panel(_report_rank_label)
+	if stack == null or panel == null:
+		return
+	stack.remove_child(_report_rank_label)
+	var value_row := HBoxContainer.new()
+	value_row.name = "ReportRankValueRow"
+	value_row.add_theme_constant_override("separation", 5)
+	value_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	stack.add_child(value_row)
+	_report_rank_icon = TextureRect.new()
+	_report_rank_icon.name = "ReportRankIcon"
+	_report_rank_icon.custom_minimum_size = Vector2(20.0, 20.0)
+	_report_rank_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_report_rank_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_report_rank_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	_report_rank_icon.texture = ManagementTheme.action_icon(&"rank_crest")
+	_report_rank_icon.set_meta("semantic_icon", "rank_crest")
+	value_row.add_child(_report_rank_icon)
+	_report_rank_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	value_row.add_child(_report_rank_label)
+	_report_rank_progress = ProgressBar.new()
+	_report_rank_progress.name = "ReportRankProgress"
+	_report_rank_progress.custom_minimum_size = Vector2(0.0, 4.0)
+	_report_rank_progress.min_value = 0.0
+	_report_rank_progress.max_value = 10_000.0
+	_report_rank_progress.show_percentage = false
+	_report_rank_progress.mouse_filter = Control.MOUSE_FILTER_STOP
+	_report_rank_progress.visible = false
+	_report_rank_progress.add_theme_stylebox_override(
+		"background",
+		_panel_style(Color("263b43"), Color("263b43"), 2, 0),
+	)
+	_report_rank_progress.add_theme_stylebox_override(
+		"fill",
+		_panel_style(Color("c9a54b"), Color("c9a54b"), 2, 0),
+	)
+	stack.add_child(_report_rank_progress)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.set_meta("visual_reward", "rank_crest")
+
+
+func _refresh_report_rank_presentation(rank_caption: String) -> void:
+	if _report_rank_label == null:
+		return
+	var receipt := _report_score_receipt()
+	var promoted := _report_is_promotion()
+	var promotion_from := String(receipt.get("rank_before_label", "")).to_upper()
+	var visible_caption := "PROMOTED" if promoted else rank_caption
+	_set_metric_caption(_report_rank_label, visible_caption)
+	var caption := _metric_panel(_report_rank_label).find_child(
+		"ReportRankCaption",
+		true,
+		false,
+	) as Label
+	if caption != null:
+		caption.add_theme_color_override("font_color", BRASS if promoted else MUTED)
+	var exact_rank := (
+		"PROMOTED  //  %s  //  FROM %s" % [_report_rank_label.text, promotion_from]
+		if promoted else
+		"%s  //  %s" % [rank_caption, _report_rank_label.text]
+	)
+	_report_rank_label.tooltip_text = exact_rank
+	_report_rank_label.set_meta("accessible_text", exact_rank)
+	_report_rank_label.set_meta("visual_reward", "rank_crest")
+	var panel := _metric_panel(_report_rank_label)
+	if panel != null:
+		panel.add_theme_stylebox_override(
+			"panel",
+			_panel_style(
+				Color("25352f") if promoted else Color("1d3039"),
+				Color("c9a54b") if promoted else Color("53656d"),
+				8,
+				1,
+			),
+		)
+		panel.tooltip_text = exact_rank
+		panel.set_meta("accessible_text", exact_rank)
+		panel.set_meta("visual_reward", "rank_crest")
+		panel.set_meta("rank_change", "promotion" if promoted else String(receipt.get("rank_change", "steady")))
+		panel.set_meta("promotion_from", promotion_from if promoted else "")
+		panel.set_meta("promotion_to", _report_rank_label.text if promoted else "")
+	if _report_rank_icon != null:
+		_report_rank_icon.tooltip_text = exact_rank
+		_report_rank_icon.set_meta("accessible_text", exact_rank)
+		_report_rank_icon.set_meta("rank_title", _report_rank_label.text)
+		_report_rank_icon.set_meta("promotion_stamp", promoted)
+	_refresh_report_rank_progress(exact_rank)
+
+
+func _refresh_report_rank_progress(exact_rank: String) -> void:
+	if _report_rank_progress == null:
+		return
+	var raw_progress: Variant = _snapshot.get("rank_progress", {})
+	var progress := raw_progress as Dictionary if raw_progress is Dictionary else {}
+	var available := not _is_senior_snapshot() and not progress.is_empty()
+	_report_rank_progress.visible = available
+	var panel := _metric_panel(_report_rank_label)
+	if not available:
+		_report_rank_progress.value = 0.0
+		_report_rank_progress.tooltip_text = ""
+		_report_rank_progress.set_meta("threshold_backed", false)
+		_report_rank_progress.set_meta("promotion_opportunity", false)
+		_report_rank_progress.set_meta("projected_score", 0)
+		if panel != null:
+			panel.set_meta("rank_progress_visible", false)
+			panel.set_meta("promotion_opportunity", false)
+		return
+	var progress_basis_points := clampi(
+		int(progress.get("progress_basis_points", 0)),
+		0,
+		10_000,
+	)
+	var current_score := int(progress.get("current_score", 0))
+	var next_threshold := int(progress.get("next_threshold", 100))
+	var points_to_next := maxi(0, int(progress.get("points_to_next", 0)))
+	var next_rank_label := String(progress.get("next_rank_label", "TOP RANK")).to_upper()
+	var complete := bool(progress.get("complete", false))
+	var objective_value: Variant = _snapshot.get("next_objective", {})
+	var objective := objective_value as Dictionary if objective_value is Dictionary else {}
+	var opportunity_value: Variant = objective.get("promotion_opportunity", {})
+	var opportunity := opportunity_value as Dictionary if opportunity_value is Dictionary else {}
+	var promotion_available := (
+		not _is_senior_snapshot()
+		and bool(opportunity.get("available", false))
+		and int(opportunity.get("next_threshold", -1)) == next_threshold
+	)
+	var detail := (
+		"%s  //  SCORE %d  //  TOP RANK" % [exact_rank, current_score]
+		if complete else
+		"%s  //  SCORE %d / %d  //  %d TO %s" % [
+			exact_rank,
+			current_score,
+			next_threshold,
+			points_to_next,
+			next_rank_label,
+		]
+	)
+	if promotion_available:
+		detail += "  //  NEXT ORDER BUNDLE CAN PROMOTE"
+	_report_rank_progress.value = progress_basis_points
+	_report_rank_progress.add_theme_stylebox_override(
+		"fill",
+		_panel_style(
+			Color("f4df9d") if promotion_available else Color("c9a54b"),
+			Color("f4df9d") if promotion_available else Color("c9a54b"),
+			2,
+			0,
+		),
+	)
+	_report_rank_progress.tooltip_text = detail
+	_report_rank_progress.set_meta("accessible_text", detail)
+	_report_rank_progress.set_meta("threshold_backed", true)
+	_report_rank_progress.set_meta("progress_basis_points", progress_basis_points)
+	_report_rank_progress.set_meta("current_score", current_score)
+	_report_rank_progress.set_meta("next_threshold", next_threshold)
+	_report_rank_progress.set_meta("points_to_next", points_to_next)
+	_report_rank_progress.set_meta("next_rank_label", next_rank_label)
+	_report_rank_progress.set_meta("complete", complete)
+	_report_rank_progress.set_meta("promotion_opportunity", promotion_available)
+	_report_rank_progress.set_meta("projected_score", int(opportunity.get("projected_score", 0)))
+	if panel != null:
+		panel.tooltip_text = detail
+		panel.set_meta("accessible_text", detail)
+		panel.set_meta("rank_progress_visible", true)
+		panel.set_meta("promotion_opportunity", promotion_available)
+
+
+func _decorate_shift_delta_metric() -> void:
+	if _report_shift_delta_label == null:
+		return
+	var stack := _report_shift_delta_label.get_parent() as VBoxContainer
+	if stack == null:
+		return
+	var caption := stack.get_node_or_null("ReportShiftDeltaCaption") as Label
+	if caption == null:
+		return
+	stack.remove_child(caption)
+	var caption_row := HBoxContainer.new()
+	caption_row.name = "ReportShiftDeltaCaptionRow"
+	caption_row.add_theme_constant_override("separation", 4)
+	caption_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(caption_row)
+	stack.move_child(caption_row, 0)
+	_report_shift_delta_icon = TextureRect.new()
+	_report_shift_delta_icon.name = "ReportShiftDeltaIcon"
+	_report_shift_delta_icon.custom_minimum_size = Vector2(16.0, 16.0)
+	_report_shift_delta_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_report_shift_delta_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_report_shift_delta_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	_report_shift_delta_icon.visible = false
+	caption_row.add_child(_report_shift_delta_icon)
+	caption.mouse_filter = Control.MOUSE_FILTER_STOP
+	caption_row.add_child(caption)
+	var panel := _metric_panel(_report_shift_delta_label)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.set_meta("delta_metric", true)
+
+
+func _refresh_shift_delta_icon(score_delta: int, available: bool) -> void:
+	if _report_shift_delta_icon == null:
+		return
+	_report_shift_delta_icon.visible = available and not _is_senior_snapshot()
+	if not available:
+		_report_shift_delta_icon.texture = null
+		_report_shift_delta_icon.set_meta("semantic_icon", "score_pending")
+		_report_shift_delta_icon.set_meta("delta_direction", "pending")
+		return
+	var icon_kind: StringName = &"score_sum"
+	_report_shift_delta_icon.texture = ManagementTheme.action_icon(icon_kind)
+	_report_shift_delta_icon.set_meta("semantic_icon", String(icon_kind))
+	_report_shift_delta_icon.set_meta("delta_direction", (
+		"gain" if score_delta > 0 else ("loss" if score_delta < 0 else "even")
+	))
+
+
+func _refresh_shift_delta_semantics(
+	authored_caption: String,
+	visible_caption: String,
+	senior: bool,
+) -> void:
+	if _report_shift_delta_label == null:
+		return
+	var detail := _report_shift_delta_label.tooltip_text
+	var accessible_text := "%s %s" % [
+		authored_caption,
+		_report_shift_delta_label.text,
+	]
+	if not detail.is_empty():
+		accessible_text += ". %s" % detail
+	_report_shift_delta_label.set_meta("accessible_text", accessible_text)
+	var panel := _metric_panel(_report_shift_delta_label)
+	panel.tooltip_text = detail
+	panel.set_meta("authored_metric_caption", authored_caption)
+	panel.set_meta("visible_metric_caption", visible_caption)
+	panel.set_meta("compact_delta_caption", not senior)
+	var caption := _report_shift_delta_label.get_parent().find_child(
+		"ReportShiftDeltaCaption",
+		true,
+		false,
+	) as Label
+	if caption != null:
+		caption.tooltip_text = authored_caption
+		caption.set_meta("accessible_text", authored_caption)
+	if _report_shift_delta_icon != null:
+		_report_shift_delta_icon.visible = _report_shift_delta_icon.visible and not senior
+		_report_shift_delta_icon.tooltip_text = accessible_text
+		_report_shift_delta_icon.set_meta("accessible_text", accessible_text)
+
+
 func _metric_panel(value_label: Label) -> PanelContainer:
-	return value_label.get_parent().get_parent().get_parent() as PanelContainer
+	var ancestor: Node = value_label
+	while ancestor != null:
+		if ancestor is PanelContainer:
+			return ancestor as PanelContainer
+		ancestor = ancestor.get_parent()
+	return null
 
 
 func _set_metric_caption(value_label: Label, caption: String) -> void:
 	if value_label == null:
 		return
-	var caption_label := value_label.get_parent().get_node_or_null("%sCaption" % value_label.name) as Label
+	var panel := _metric_panel(value_label)
+	if panel == null:
+		return
+	var caption_label := panel.find_child(
+		"%sCaption" % value_label.name,
+		true,
+		false,
+	) as Label
 	if caption_label != null:
 		caption_label.text = caption.to_upper()
 
@@ -3722,6 +5436,7 @@ func _set_report_continue_presentation(exact_label: String) -> void:
 		return
 	_report_continue_button.text = _compact_report_continue_label(exact_label)
 	_report_continue_button.set_meta("exact_action_label", exact_label)
+	_report_continue_button.set_meta("outcome_first_action", "advance")
 	_style_report_action(_report_continue_button, &"advance")
 
 
@@ -3732,7 +5447,7 @@ func _compact_report_continue_label(exact_label: String) -> String:
 	if label.begins_with("SELECT A MANDATE"):
 		return "FILE MANDATE  [C]"
 	if label.begins_with("FILE REPORT & PLAN NEXT SHIFT"):
-		return "FILE & PLAN  [C]"
+		return "NEXT SHIFT  [C]"
 	if label.begins_with("PLAN NEXT SENIOR SHIFT"):
 		return "NEXT SHIFT  [C]"
 	if label.begins_with("BEGIN YEAR") and " PLANNING" in label:

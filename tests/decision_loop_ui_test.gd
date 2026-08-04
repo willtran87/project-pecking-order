@@ -33,6 +33,9 @@ func _run() -> void:
 	var character_dialogue_panel := office.find_child(
 		"CharacterDialoguePanel", true, false
 	) as PanelContainer
+	var character_dialogue_dismiss := office.find_child(
+		"CharacterDialogueDismiss", true, false
+	) as Button
 
 	_check(simulation != null, "office should expose its authoritative simulation", failures)
 	_check(clock != null and clock.speed_index == 0, "morning briefing should pause the simulation clock", failures)
@@ -191,6 +194,9 @@ func _run() -> void:
 	)
 	decision_diagnostic = office.call("_pending_decision_diagnostic_state") as Dictionary
 	_check(not bool(decision_diagnostic.get("visible", true)), "closed decisions should not leak stale choice text", failures)
+	_check(clock.speed_index == 0, "the directive result aside should pause the running shift while it is visible", failures)
+	_press(character_dialogue_dismiss)
+	await process_frame
 	_check(clock.speed_index == 1, "authorized morning directive should begin the shift at 1x", failures)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING, "directive authorization should enter the running phase", failures)
 	_check(directive_badge != null and "HARVEST" in directive_badge.text, "top HUD should identify the active policy", failures)
@@ -261,6 +267,9 @@ func _run() -> void:
 	_check(not decision_host.visible, "resolved incident should close its card", failures)
 	_check(clock.speed_index == 0, "resolve-and-stay-paused should preserve a stopped clock", failures)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING, "resolved incident should return simulation authority to the running phase", failures)
+	if character_dialogue_panel != null and character_dialogue_panel.visible:
+		_press(character_dialogue_dismiss)
+		await process_frame
 
 	# Resume at 3x, then prove the second incident remembers and restores that speed.
 	clock.set_speed(2)
@@ -274,6 +283,10 @@ func _run() -> void:
 	_press(confirm_button)
 	await process_frame
 	_check(not decision_host.visible, "resolve-and-resume should close the incident card", failures)
+	_check(clock.speed_index == 0, "the incident result aside should pause before restoring the running speed", failures)
+	if character_dialogue_panel != null and character_dialogue_panel.visible:
+		_press(character_dialogue_dismiss)
+		await process_frame
 	_check(clock.speed_index == 2, "resolve-and-resume should restore the pre-incident 3x speed", failures)
 	_check(simulation.incidents_resolved_today == 2, "both incident choices should be recorded for the farmer review", failures)
 	var incident_responses := simulation.incident_responses_for_day(1)
@@ -322,7 +335,13 @@ func _run() -> void:
 	await process_frame
 	_check(not decision_host.visible, "filed credit memo should close its dossier", failures)
 	_check(probation_report != null and probation_report.visible, "filed credit should advance to the cumulative probation report", failures)
-	_check(filed_credit_label != null and "REWARD TOP LAYER" in filed_credit_label.text, "probation report should retain the filed attribution", failures)
+	_check(
+		filed_credit_label != null and filed_credit_label.text == "CREDIT GOES TO"
+		and "REWARD TOP LAYER" in filed_credit_label.tooltip_text
+		and bool(filed_credit_label.get_meta("outcome_first_credit_heading", false)),
+		"probation report should show a plain credit heading and retain the exact filed attribution on demand",
+		failures,
+	)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW and clock.speed_index == 0, "probation report should keep the completed shift locked", failures)
 	_press(probation_continue)
 	await process_frame

@@ -391,6 +391,11 @@ func score_receipt_for_shift(shift_number: int) -> Dictionary:
 				"tone": &"positive" if milestone_bonus > 0 else &"neutral",
 			})
 	var score_after_report := clampi(record.score_after + milestone_bonus, 0, 100)
+	var rank_before := rank_for_score(score_before)
+	var rank_after := rank_for_score(score_after_report)
+	var rank_change := "steady"
+	if rank_before != rank_after:
+		rank_change = "promotion" if score_after_report > score_before else "demotion"
 	return {
 		"shift_number": shift_number,
 		"score_before": score_before,
@@ -401,7 +406,11 @@ func score_receipt_for_shift(shift_number: int) -> Dictionary:
 		"clamped": cap_adjustment != 0,
 		"score_after_shift": record.score_after,
 		"score_after": score_after_report,
-		"rank_after": String(rank_for_score(score_after_report)),
+		"rank_before": String(rank_before),
+		"rank_before_label": rank_display_name(rank_before),
+		"rank_after": String(rank_after),
+		"rank_after_label": rank_display_name(rank_after),
+		"rank_change": rank_change,
 		"milestone_bonus": milestone_bonus,
 		"milestone_title": milestone_title,
 		"components": components,
@@ -739,6 +748,80 @@ static func rank_display_name(rank_id: StringName) -> String:
 			return "Golden Management Track"
 		_:
 			return "Unknown Rank"
+
+
+static func rank_progress_for_score(score: int) -> Dictionary:
+	var current_score := clampi(score, 0, 100)
+	var current_rank := rank_for_score(current_score)
+	var band_floor := 0
+	var next_threshold := 20
+	var next_rank: StringName = RANK_CRITICAL_REVIEW
+	match current_rank:
+		RANK_CRITICAL_REVIEW:
+			band_floor = 20
+			next_threshold = 40
+			next_rank = RANK_PROBATIONARY
+		RANK_PROBATIONARY:
+			band_floor = 40
+			next_threshold = 60
+			next_rank = RANK_TRUSTED_LAYER
+		RANK_TRUSTED_LAYER:
+			band_floor = 60
+			next_threshold = 80
+			next_rank = RANK_GOLDEN_MANAGEMENT
+		RANK_GOLDEN_MANAGEMENT:
+			band_floor = 80
+			next_threshold = 100
+			next_rank = &""
+	var complete := next_rank == &""
+	var progress_basis_points := 10_000 if complete else clampi(
+		int(round(
+			float(current_score - band_floor)
+			/ float(maxi(1, next_threshold - band_floor))
+			* 10_000.0
+		)),
+		0,
+		10_000,
+	)
+	return {
+		"current_score": current_score,
+		"current_rank": String(current_rank),
+		"current_rank_label": rank_display_name(current_rank),
+		"band_floor": band_floor,
+		"next_threshold": next_threshold,
+		"next_rank": String(next_rank),
+		"next_rank_label": "TOP RANK" if complete else rank_display_name(next_rank),
+		"points_to_next": 0 if complete else maxi(0, next_threshold - current_score),
+		"progress_basis_points": progress_basis_points,
+		"complete": complete,
+	}
+
+
+## Projects a disclosed score reward against the same rank ladder used to file
+## the campaign. This never grants score; it only identifies a real next-rank
+## crossing that the presentation layer can communicate as an opportunity.
+static func promotion_opportunity_for_reward(score: int, reward_score: int) -> Dictionary:
+	var progress := rank_progress_for_score(score)
+	var current_score := int(progress.get("current_score", 0))
+	var positive_reward := maxi(0, reward_score)
+	var projected_score := clampi(current_score + positive_reward, 0, 100)
+	var next_threshold := int(progress.get("next_threshold", 100))
+	var complete := bool(progress.get("complete", false))
+	var available := (
+		positive_reward > 0
+		and not complete
+		and projected_score >= next_threshold
+	)
+	return {
+		"available": available,
+		"current_score": current_score,
+		"reward_score": reward_score,
+		"projected_score": projected_score,
+		"next_threshold": next_threshold,
+		"next_rank": String(progress.get("next_rank", "")),
+		"next_rank_label": String(progress.get("next_rank_label", "TOP RANK")),
+		"points_to_next": int(progress.get("points_to_next", 0)),
+	}
 
 
 func _validate_shift_input(report: Dictionary, closing_snapshot: Dictionary) -> PackedStringArray:

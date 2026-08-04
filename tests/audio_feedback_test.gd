@@ -134,6 +134,20 @@ func _run() -> void:
 	for voice in voices:
 		(voice as AudioStreamPlayer).stop()
 		(voice as AudioStreamPlayer).stream = null
+	var report_haptic_before := int(audio.feedback_snapshot().get("haptic_serial", -1))
+	_check(audio.play_report_filed(), "a settled report should receive one quiet filing receipt", failures)
+	var report_feedback := audio.feedback_snapshot()
+	_check(
+		String(report_feedback.get("last_cue", "")) == "report_filed"
+		and String(report_feedback.get("last_bus", "")) == "UI"
+		and int(report_feedback.get("haptic_serial", -1)) == report_haptic_before,
+		"report filing should respect the independent UI mix without adding routine vibration",
+		failures,
+	)
+	_check(not audio.play_report_filed(), "duplicate report receipts should be limited", failures)
+	for voice in voices:
+		(voice as AudioStreamPlayer).stop()
+		(voice as AudioStreamPlayer).stream = null
 
 	# The production-line API must remain physical, semantic, and allocation-free.
 	# Distinct cue IDs may play together while a rapid duplicate is rejected.
@@ -201,6 +215,7 @@ func _run() -> void:
 		&"peck_contact", &"lay_release", &"sorter_clack",
 		&"basket_thunk", &"payout_confirmation", &"attention_restored",
 		&"settlement_release",
+		&"report_filed",
 		&"denied", &"shift_alert", &"feed_nibble", &"best_fit_filed", &"file_routed",
 		&"best_fit_work_started", &"file_work_started",
 	]:
@@ -318,6 +333,7 @@ func _run() -> void:
 	_check(audio.is_focus_paused(), "feedback pool should expose focus pause state", failures)
 	var serial_while_focused := int(audio.feedback_snapshot().get("cue_serial", -1))
 	_check(not audio.play_denied(&"background"), "focus pause should discard new one-shots", failures)
+	_check(not audio.play_report_filed(), "focus pause should discard report receipts", failures)
 	_check(not audio.play_campaign_outcome(true), "focus pause should discard verdict one-shots instead of resuming them late", failures)
 	_check(int(audio.feedback_snapshot().get("cue_serial", -1)) == serial_while_focused, "discarded focus-paused cues should not advance diagnostics", failures)
 	for voice in stressed_voices:

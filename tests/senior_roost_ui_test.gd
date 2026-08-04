@@ -30,7 +30,29 @@ func _run() -> void:
 	var report := ui.find_child("ProbationReportPanel", true, false) as PanelContainer
 	var kicker := ui.find_child("ProbationReportDay", true, false) as Label
 	var heading := ui.find_child("ProbationReportTitle", true, false) as Label
+	var heading_stack := heading.get_parent() as VBoxContainer if heading != null else null
+	var rank_label := ui.find_child("ReportRank", true, false) as Label
+	var rank_icon := ui.find_child("ReportRankIcon", true, false) as TextureRect
+	var rank_progress := ui.find_child("ReportRankProgress", true, false) as ProgressBar
+	var secondary_caption := ui.find_child("ReportShiftDeltaCaption", true, false) as Label
+	var secondary_icon := ui.find_child("ReportShiftDeltaIcon", true, false) as TextureRect
+	var secondary_value := ui.find_child("ReportShiftDelta", true, false) as Label
+	var score_value := ui.find_child("ReportScore", true, false) as Label
+	var score_row := ui.find_child("ProbationReportScoreRow", true, false) as HFlowContainer
+	var secondary_panel := (
+		secondary_value.get_parent().get_parent().get_parent() as PanelContainer
+		if secondary_value != null else
+		null
+	)
+	var score_panel := (
+		score_value.get_parent().get_parent().get_parent() as PanelContainer
+		if score_value != null else
+		null
+	)
+	var day_badge := ui.find_child("ProbationDayBadge", true, false) as PanelContainer
 	var ledger_title := ui.find_child("ReportLedgerSectionTitle", true, false) as Label
+	var first_ledger_line := ui.find_child("ReportLedgerMetricLine1", true, false) as HBoxContainer
+	var first_ledger_value := ui.find_child("ReportLedgerValue1", true, false) as Label
 	var choice_title := ui.find_child("MilestoneChoiceSectionTitle", true, false) as Label
 	var continue_button := ui.find_child("ContinueProbationButton", true, false) as Button
 	var requisitions_button := ui.find_child("ReviewRoostRequisitionsButton", true, false) as Button
@@ -41,16 +63,87 @@ func _run() -> void:
 	var board_strip := ui.find_child("BoardTargetStrip", true, false) as HFlowContainer
 	var clutch_tile := ui.find_child("BoardTarget_quota_met_shifts", true, false) as PanelContainer
 	var payroll_tile := ui.find_child("BoardTarget_wage_arrears_shifts", true, false) as PanelContainer
+	var clutch_rail := clutch_tile.find_child("BoardTargetProgress", true, false) as ProgressBar if clutch_tile != null else null
+	var payroll_rail := payroll_tile.find_child("BoardTargetProgress", true, false) as ProgressBar if payroll_tile != null else null
 	var objective_progress := ui.find_child("NextShiftObjectiveProgress", true, false) as Label
+	var objective_reward_badge := ui.find_child("NextShiftObjectiveRewardBadge", true, false) as PanelContainer
+	var objective_promotion_icon := ui.find_child("NextShiftObjectivePromotionIcon", true, false) as TextureRect
 	var objective_card := ui.find_child("NextShiftObjectiveCard", true, false) as PanelContainer
 	_check(report != null and report.is_visible_in_tree(), "Senior policy filing should reuse the full report surface", failures)
-	_check(kicker != null and "YEAR 1" in kicker.text and "QUARTER 1" in kicker.text, "Senior report should orient the player within the career calendar", failures)
-	_check(heading != null and heading.text == "QUARTER 1 CAPITAL FILING", "Senior report heading should be authored by its snapshot", failures)
-	_check(ledger_title != null and ledger_title.text == "SENIOR CAREER LEDGERS", "Senior report should name career ledgers without probation copy", failures)
+	_check(report != null and report.custom_minimum_size.x == 960.0, "desktop Senior reports should use the tighter 960px decision width", failures)
+	_check(heading_stack != null and heading_stack.custom_minimum_size.x == 340.0, "the desktop report heading should release legacy width while preserving a stable metric row", failures)
+	_check(
+		rank_label != null and rank_label.get_line_count() == 1,
+		"the tighter desktop header should keep the Senior career title on one line",
+		failures,
+	)
+	_check(
+		rank_icon != null and rank_icon.is_visible_in_tree()
+		and rank_icon.texture != null
+		and String(rank_icon.get_meta("semantic_icon", "")) == "rank_crest"
+		and rank_label.tooltip_text == "CAREER TITLE  //  SENIOR CLAIMS ROOSTER",
+		"the Senior title should pair its exact accessible copy with one rank crest",
+		failures,
+	)
+	_check(
+		not bool(rank_icon.get_meta("promotion_stamp", true))
+		and String(rank_icon.get_meta("promotion_stamp_motion", "")) == "skipped",
+		"Senior career titles should not inherit probation promotion stamps",
+		failures,
+	)
+	_check(
+		rank_progress != null and not rank_progress.is_visible_in_tree()
+		and not bool(rank_progress.get_meta("threshold_backed", true)),
+		"Senior career titles should not inherit the probation score ladder",
+		failures,
+	)
+	_check(
+		objective_promotion_icon != null and not objective_promotion_icon.visible
+		and not bool(objective_reward_badge.get_meta("promotion_opportunity", true)),
+		"Senior policy rewards should not inherit probation promotion opportunities",
+		failures,
+	)
+	_check(
+		kicker != null and kicker.visible
+		and "YEAR 1" in kicker.text and "QUARTER 1" in kicker.text
+		and not bool(kicker.get_meta("merged_into_result_heading", true)),
+		"Senior report should retain its separate career-calendar orientation",
+		failures,
+	)
+	_check(
+		heading != null and heading.text == "QUARTER 1 CAPITAL FILING"
+		and not bool(heading.get_meta("compact_result_heading", true))
+		and String(heading.get_meta("authored_report_heading", "")) == "QUARTER 1 CAPITAL FILING",
+		"Senior report heading should remain authored by its snapshot",
+		failures,
+	)
+	_check(
+		secondary_caption != null and secondary_caption.text == "QUARTER SHIFTS"
+		and secondary_icon != null and not secondary_icon.visible
+		and secondary_panel != null
+		and not bool(secondary_panel.get_meta("compact_delta_caption", true))
+		and String(secondary_panel.get_meta("authored_metric_caption", "")) == "QUARTER SHIFTS",
+		"Senior reports should retain their authored calendar metric without a probation delta badge",
+		failures,
+	)
+	_check(
+		score_row != null and not bool(score_row.get_meta("receipt_equation", true))
+		and String(score_row.get_meta("visual_flow", "")) == "primary_to_secondary"
+		and score_row.get_child(1) == score_panel
+		and score_row.get_child(2) == secondary_panel,
+		"Senior reports should preserve their authored primary-to-calendar metric hierarchy",
+		failures,
+	)
+	_check(day_badge != null and not day_badge.is_visible_in_tree() and bool(day_badge.get_meta("suppressed_by_report", false)), "a foreground Senior report should suppress the duplicate background calendar badge", failures)
+	_check(ledger_title != null and ledger_title.text == "SENIOR CAREER RECORD", "Senior report should name the career record without probation copy or accounting jargon", failures)
+	_check(first_ledger_line != null and first_ledger_value != null and first_ledger_line.get_child(0) == first_ledger_value, "Senior career cards should share the value-first report hierarchy", failures)
 	_check(choice_title != null and "CAPITAL POLICY" in choice_title.text, "quarter gate should explain the decision class", failures)
 	_check(board_strip != null and board_strip.is_visible_in_tree() and board_strip.get_child_count() == 3, "Senior reports should render the annual Board as three stable target tiles", failures)
 	_check(clutch_tile != null and String(clutch_tile.get_meta("status", "")) == "needs_action" and payroll_tile != null and String(payroll_tile.get_meta("status", "")) == "met", "Board target state should remain semantic when color is unavailable", failures)
-	_check(objective_progress != null and objective_progress.text == "BOARD 1 / 3 MET  //  2 NEED ACTION  //  YEAR 0 / 12", "Senior reports should reduce annual Board progress to one scan-first summary", failures)
+	_check(clutch_rail != null and clutch_rail.value == 0.0 and not clutch_rail.show_percentage, "an untouched minimum Board target should render an empty glance rail without duplicate text", failures)
+	_check(payroll_rail != null and payroll_rail.value == 10_000.0 and String(payroll_rail.get_meta("comparison", "")) == "maximum", "a satisfied maximum Board target should invert correctly into a full glance rail", failures)
+	_check(objective_progress != null and objective_progress.is_visible_in_tree() and objective_progress.text == "BOARD 1 / 3 MET  //  2 NEED ACTION  //  YEAR 0 / 12", "Senior reports should reduce annual Board progress to one scan-first summary", failures)
+	_check(objective_reward_badge != null and not objective_reward_badge.is_visible_in_tree(), "probation score badges should not displace Senior Board progress", failures)
 	_check(objective_card != null and objective_card.tooltip_text.contains("LARGEST RECOVERABLE BLOCKER"), "the compact Board strip should retain the exact annual ledger in progressive detail", failures)
 	_check(_visible_text(ui).find("probation") == -1, "visible Senior UI must not leak probation wording", failures)
 	_check(merit != null and merit.disabled and "$2.00 more" in merit.tooltip_text, "unaffordable policies should be visibly disabled with an exact reserve explanation", failures)
@@ -86,6 +179,7 @@ func _run() -> void:
 	_check(forecast_fund_chip != null and forecast_fund_chip.text == "$ +60", "positive Feed Fund movement should use the same signed metric position", failures)
 	_check(forecast != null and "SCORE WATCH  //  QUOTA RELIABILITY + FLOCK WELFARE + OBEDIENCE" in forecast.tooltip_text, "Senior policy tooltips should retain the complete scored risk", failures)
 	_check(continue_button != null and continue_button.disabled, "a quarter must remain gated until an available policy is filed", failures)
+	_check(requisitions_button != null and not requisitions_button.is_visible_in_tree() and requisitions_button.disabled, "unavailable Senior requisitions should leave the visible action row until staffing planning opens", failures)
 	_check(
 		continue_button != null
 		and continue_button.text == "FILE POLICY  [C]"
@@ -98,8 +192,9 @@ func _run() -> void:
 		and requisitions_button.text == "REQUISITIONS  [R]"
 		and requisitions_button.icon != null
 		and shelve_button != null
-		and shelve_button.text == "SHELVE  [A]"
-		and shelve_button.icon != null,
+		and shelve_button.text == "SAVE & EXIT  [A]"
+		and shelve_button.icon != null
+		and String(shelve_button.get_meta("outcome_first_action", "")) == "save_exit",
 		"Senior report actions should use compact symbols and verbs without dropping exact semantics",
 		failures,
 	)
@@ -116,9 +211,21 @@ func _run() -> void:
 	# Advanced annual Books own permanent career risk. Selecting one should only
 	# stage the exact stake; the existing Continue action must confirm it.
 	observed["chosen"] = &""
-	ui.show_between_shift_report(_advanced_mandate_snapshot())
+	var advanced_snapshot := _advanced_mandate_snapshot()
+	var advanced_ledgers := advanced_snapshot.get("ledgers", []) as Array
+	(advanced_ledgers[0] as Dictionary)["glance"] = "+ 2 READY TO SPEND"
+	(advanced_ledgers[1] as Dictionary)["glance"] = "> 1 SEAL TO TIER 2"
+	(advanced_ledgers[2] as Dictionary)["glance"] = "> FIRST QUARTER OPEN"
+	ui.show_between_shift_report(advanced_snapshot)
 	await process_frame
 	await process_frame
+	var marks_card := ui.find_child("ReportCumulativeLedger1", true, false) as PanelContainer
+	var marks_glance := ui.find_child("ReportLedgerDetail1", true, false) as Label
+	var seals_glance := ui.find_child("ReportLedgerDetail2", true, false) as Label
+	var quarter_glance := ui.find_child("ReportLedgerDetail3", true, false) as Label
+	_check(marks_glance != null and marks_glance.text == "+ 2 READY TO SPEND" and seals_glance != null and seals_glance.text == "> 1 SEAL TO TIER 2" and quarter_glance != null and quarter_glance.text == "> FIRST QUARTER OPEN", "Senior career ledgers should replace dense accounting lines with stable icon-led glance states", failures)
+	_check(marks_card != null and "2 AVAILABLE" in marks_card.tooltip_text and "0 FORFEITED" in marks_card.tooltip_text and String(marks_card.get_meta("accessible_text", "")).contains("ROOST MARKS 5"), "compact ledger subtitles should retain exact lifetime accounting in progressive and assistive detail", failures)
+	_check("INVESTED" not in _visible_text(ui) and "FORFEITED" not in _visible_text(ui), "exact career accounting should no longer compete with the report's visible scan path", failures)
 	var advanced := ui.find_child("MilestoneChoice_mutual_assurance", true, false) as Button
 	var standard := ui.find_child("MilestoneChoice_standard_board_book", true, false) as Button
 	var mandate_hint := ui.find_child("MilestoneChoiceHint", true, false) as Label
@@ -157,11 +264,36 @@ func _run() -> void:
 		standard.pressed.emit()
 	_check(StringName(observed["chosen"]) == &"standard_board_book", "the no-stake fallback should retain its immediate filing flow", failures)
 
+	harness.size = Vector2(800.0, 720.0)
+	await process_frame
+	await process_frame
+	var choice_host := ui.find_child("MilestoneChoiceCards", true, false) as HFlowContainer
+	var compact_choices := ui.find_children("MilestoneChoice_*", "Button", true, false)
+	_check(choice_host != null and choice_host.alignment == FlowContainer.ALIGNMENT_CENTER and compact_choices.size() == 3, "small-laptop policy choices should use an intentional centered flow", failures)
+	if compact_choices.size() == 3:
+		var first_rect := (compact_choices[0] as Button).get_global_rect()
+		var second_rect := (compact_choices[1] as Button).get_global_rect()
+		var third_rect := (compact_choices[2] as Button).get_global_rect()
+		_check(absf(first_rect.position.y - second_rect.position.y) <= 1.0 and absf(first_rect.position.y - third_rect.position.y) <= 1.0, "an 800px policy filing should preserve one balanced three-card comparison row (rects=%s / %s / %s)" % [first_rect, second_rect, third_rect], failures)
+		_check(first_rect.size.x >= 220.0 and first_rect.size.x <= 230.0 and absf(first_rect.size.x - third_rect.size.x) <= 1.0, "small-laptop policy columns should share the available report width evenly (rects=%s / %s / %s)" % [first_rect, second_rect, third_rect], failures)
+
+	harness.size = Vector2(760.0, 720.0)
+	await process_frame
+	await process_frame
+	compact_choices = ui.find_children("MilestoneChoice_*", "Button", true, false)
+	if compact_choices.size() == 3:
+		var first_stacked_rect := (compact_choices[0] as Button).get_global_rect()
+		var second_stacked_rect := (compact_choices[1] as Button).get_global_rect()
+		var third_stacked_rect := (compact_choices[2] as Button).get_global_rect()
+		_check(second_stacked_rect.position.y >= first_stacked_rect.end.y - 0.5 and third_stacked_rect.position.y >= second_stacked_rect.end.y - 0.5, "sub-800px policy choices should become a deliberate one-card-per-row decision stack", failures)
+		_check(absf(first_stacked_rect.size.x - third_stacked_rect.size.x) <= 1.0 and first_stacked_rect.size.x >= 650.0, "stacked policy choices should use the full readable report width instead of leaving an orphan column", failures)
+
 	harness.size = Vector2(390.0, 844.0)
 	await process_frame
 	await process_frame
 	var report_rect := report.get_global_rect()
 	_check(report_rect.position.x >= -0.5 and report_rect.end.x <= 390.5, "Senior policy report should stay inside a 390px portrait viewport (rect=%s)" % report_rect, failures)
+	_check(report.custom_minimum_size.x == 338.0 and heading_stack != null and heading_stack.custom_minimum_size.x == 0.0, "portrait Senior reports should derive their width from the viewport and release the desktop heading minimum", failures)
 	var scroll := ui.find_child("ProbationModalScroll", true, false) as ScrollContainer
 	_check(scroll != null and scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "Senior reports should never require horizontal scrolling", failures)
 
@@ -181,6 +313,9 @@ func _run() -> void:
 	_check(_visible_text(ui).find("probation") == -1, "annual Senior UI must remain free of probation copy", failures)
 	continue_button.pressed.emit()
 	_check(int(observed["continued"]) == 1, "annual continuation should reuse the public campaign intent", failures)
+	ui.show_active_campaign(_quarter_policy_snapshot())
+	await process_frame
+	_check(day_badge != null and day_badge.is_visible_in_tree() and not bool(day_badge.get_meta("suppressed_by_report", true)), "returning to the office should restore the Senior calendar badge", failures)
 
 	if not failures.is_empty():
 		for failure in failures:
@@ -209,7 +344,11 @@ func _quarter_policy_snapshot() -> Dictionary:
 		"continue_tooltip": "Open Quarter 1 under the selected capital policy.",
 		"choice_required": true,
 		"score": 0,
+		"secondary_metric_display": "0 / 3",
+		"secondary_metric_caption": "QUARTER SHIFTS",
+		"secondary_metric_tooltip": "Three filed shifts close a Senior Roost quarter.",
 		"rank": "Senior Claims Rooster",
+		"rank_caption": "CAREER TITLE",
 		"ledgers": [
 			{"label": "ROOST MARKS", "value": 0, "detail": "CAREER TOTAL"},
 			{"label": "FEED FUND", "value": 1000, "format": "currency_cents", "detail": "SPENDABLE"},
