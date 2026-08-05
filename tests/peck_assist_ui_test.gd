@@ -21,7 +21,9 @@ func _run() -> void:
 	var assist_button := office.find_child("PeckAssistButton", true, false) as Button
 	var intent_button := office.find_child("HenIntentAction", true, false) as Button
 	var claim_label := office.find_child("RoutingCurrentClaim", true, false) as Label
-	var claim_detail := office.find_child("RoutingClaimDetail", true, false) as Label
+	var claim_phase_icon := office.find_child("RoutingClaimPhaseIcon", true, false) as TextureRect
+	var claim_phase_progress := office.find_child("RoutingClaimPhaseProgress", true, false) as Label
+	var claim_detail := office.find_child("RoutingClaimDetail", true, false) as Control
 	var progress_track := office.find_child("RoutingClaimProgressTrack", true, false) as Control
 	var gold_band := office.find_child("PriorityPeckGoldBand", true, false) as ColorRect
 	var ideal_marker := office.find_child("PriorityPeckIdealMarker", true, false) as ColorRect
@@ -123,6 +125,21 @@ func _run() -> void:
 	)
 	if simulation != null:
 		simulation.set_worker_at_workstation(0, true)
+		# One authoritative tick assigns the first file and exposes the pre-gold
+		# timing state without depending on a restored campaign's incidental frame.
+		simulation.advance_tick()
+	await process_frame
+	_check(
+		assist_button != null
+		and assist_button.disabled
+		and assist_button.text.begins_with("PECK")
+		and "E / A" in assist_button.text
+		and "BUILDING RHYTHM" not in assist_button.text
+		and "wait for the file meter" in assist_button.accessibility_name
+		and assist_button.accessibility_name == String(assist_button.get_meta("accessible_text", "")),
+		"the warming timing window should preserve one recognizable action target while assistive copy explains its lock",
+		failures,
+	)
 	var first_window_open := _advance_until_assist_available(simulation, 0)
 	await process_frame
 	_check(first_window_open, "a seated working hen should enter the Priority Peck timing window", failures)
@@ -133,12 +150,14 @@ func _run() -> void:
 	)
 	var open_assist := simulation.peck_assist_status(0) if simulation != null else {}
 	_check(
-		timing_label != null
+		 timing_label != null
 		and timing_label.is_visible_in_tree()
+		and timing_label.text.begins_with("PECK NOW")
 		and String(open_assist.get("timing_label", "")) in timing_label.text
-		and "PECK NOW" in timing_label.text
 		and "58-66%" in timing_label.tooltip_text
-		and "ideal 62%" in timing_label.tooltip_text,
+		and "ideal 62%" in timing_label.tooltip_text
+		and "Priority Peck now" in timing_label.accessibility_name
+		and timing_label.tooltip_text == timing_label.accessibility_name,
 		"an active claim should show the immediate action while retaining exact timing detail on demand",
 		failures,
 	)
@@ -345,25 +364,55 @@ func _run() -> void:
 		simulation.advance_tick()
 	await process_frame
 	_check(
-		claim_label != null and "3  LAY" in claim_label.text,
-		"a boosted file reaching 100%% should move into the concise laying phase (actual: %s)" % (
+		claim_label != null
+		and claim_label.text.begins_with("APPEALS #")
+		and "LAYING" not in claim_label.text
+		and claim_phase_icon != null
+		and claim_phase_icon.is_visible_in_tree()
+		and claim_phase_icon.texture != null
+		and String(claim_phase_icon.get_meta("semantic_shape", "")) == "egg_receipt"
+		and claim_phase_progress != null
+		and claim_phase_progress.text == "100%"
+		and "Step 3, egg laying" in claim_label.accessibility_name,
+		"a boosted file reaching 100%% should replace the laying word with the egg receipt (actual: %s)" % (
 			claim_label.text if claim_label != null else "<missing>"
 		),
 		failures,
 	)
+	var laying_claim_facts := (
+		claim_detail.get_meta("facts", []) as Array
+		if claim_detail != null else
+		[]
+	)
 	_check(
 		claim_detail != null
-		and "PAYOUT" in claim_detail.text
-		and "NEXT: GRADING > FARMER" in claim_detail.text
-		and not "DUE IN" in claim_detail.text,
-		"the non-interactive delivery beat should prioritize payout and destination over its retired deadline",
+		and claim_detail.is_visible_in_tree()
+		and laying_claim_facts.size() == 3
+		and String((laying_claim_facts[0] as Dictionary).get("icon", "")) == "cash"
+		and String((laying_claim_facts[0] as Dictionary).get("value", "")).begins_with("$")
+		and String((laying_claim_facts[1] as Dictionary).get("icon", "")) == "shell_risk"
+		and String((laying_claim_facts[1] as Dictionary).get("value", "")).ends_with("%")
+		and String((laying_claim_facts[2] as Dictionary).get("icon", "")) == "grading"
+		and String((laying_claim_facts[2] as Dictionary).get("value", "")) == "GRADING"
+		and "farmer basket" in claim_detail.accessibility_name
+		and claim_detail.tooltip_text == claim_detail.accessibility_name,
+		"the non-interactive delivery beat should use payout, cracked-shell, and grading facts without a retired deadline sentence",
 		failures,
 	)
 	_check(
-		assist_receipt != null
-		and "LAYING  >  GRADING  >  FARMER" in assist_receipt.text
-		and "CLEAN EGG REFUNDS 1" in assist_receipt.text,
-		"the completed Priority Peck receipt should hand off into the visible delivery journey",
+		assist_receipt != null and not assist_receipt.is_visible_in_tree(),
+		"the completed Priority Peck receipt should retire its dense laying sentence",
+		failures,
+	)
+	var delivery_lifecycle := routing_ui.routing_lifecycle_state()
+	_check(
+		bool(delivery_lifecycle.get("visible", false))
+		and String(delivery_lifecycle.get("active_stage", "")) == "egg"
+		and bool(delivery_lifecycle.get("clean_delivery_refund", false))
+		and String(delivery_lifecycle.get("reward_shape", "")) == "charge_diamond_plus_one"
+		and not bool(delivery_lifecycle.get("route_hint_visible", true))
+		and "restore one Priority Peck charge" in String(delivery_lifecycle.get("accessible_text", "")),
+		"laying should replace prose with the active egg stage and one renewable-charge diamond",
 		failures,
 	)
 	var laying_handoff := (

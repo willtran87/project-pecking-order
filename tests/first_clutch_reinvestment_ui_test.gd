@@ -154,6 +154,61 @@ func _run() -> void:
 		"purchase should restore prior 3x speed and release the orders handoff",
 		failures,
 	)
+	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
+	var guidance := office.get("_guidance_label") as Label
+	var flockwatch_hint := OfficeActionCatalog.binding_label(&"toggle_flockwatch")
+	_check(
+		flockwatch_toggle != null
+		and flockwatch_toggle.text == "TODAY'S 3 ORDERS  [%s]" % flockwatch_hint
+		and guidance != null
+		and guidance.text == "ORDERS READY  >  OPEN  [%s]" % flockwatch_hint,
+		"closing the reward card should expose one consistent orders action in the HUD and guidance rail",
+		failures,
+	)
+	var handoff_coach := office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
+	_check(
+		String(handoff_coach.get("visual_title", "")) == "OPEN TODAY'S ORDERS  [%s]" % flockwatch_hint
+		and String(handoff_coach.get("visual_body", "")) == "FIRST EGG FILED  >  3 LIVE GOALS"
+		and String(handoff_coach.get("title", "")).begins_with("FIRST CLUTCH FILED"),
+		"orders handoff should pair one concise visual action with the complete filed receipt",
+		failures,
+	)
+	flockwatch_toggle.pressed.emit()
+	await process_frame
+	await process_frame
+	await process_frame
+	var order_glances := office.get("_campaign_order_glances") as Array
+	var first_order := order_glances[0] as Label if not order_glances.is_empty() else null
+	var first_order_tile := office.call("_flockwatch_glance_tile", first_order) as PanelContainer if first_order != null else null
+	var focus_owner := root.gui_get_focus_owner()
+	var order_driver := office.find_child("CampaignOrderDriverAction", true, false) as Button
+	var orders_heading := office.find_child("CampaignOrdersHeading", true, false) as Label
+	var order_handoff_diagnostic := {
+		"open": bool(office.get("_flockwatch_open")),
+		"focus": String(focus_owner.name) if focus_owner != null else "",
+		"handoff_source": bool(first_order.get_meta("opened_from_orders_handoff", false)) if first_order != null else false,
+		"spotlight": bool(first_order_tile.get_meta("direct_focus", false)) if first_order_tile != null else false,
+		"cursor": first_order.mouse_default_cursor_shape if first_order != null else -1,
+		"driver_visible": order_driver != null and order_driver.is_visible_in_tree(),
+		"driver_action": String(order_driver.get_meta("driver_action_id", "")) if order_driver != null else "",
+		"heading": orders_heading.text if orders_heading != null else "",
+	}
+	_check(
+		bool(office.get("_flockwatch_open"))
+		and first_order != null
+		and order_driver != null
+		and bool(first_order.get_meta("opened_from_orders_handoff", false))
+		and first_order_tile != null
+		and bool(first_order_tile.get_meta("direct_focus", false))
+		and first_order.mouse_default_cursor_shape == Control.CURSOR_POINTING_HAND
+		and order_driver.is_visible_in_tree()
+		and String(order_driver.get_meta("driver_action_id", "")) != ""
+		and guidance.text == "ORDER PICKED  >  SHOW HEN ROUTES"
+		and orders_heading != null
+		and orders_heading.text == "3 GOALS  ·  PICK ONE  ·  +9",
+		"opening the released orders should select the first actionable card and expose its live driver: %s" % JSON.stringify(order_handoff_diagnostic),
+		failures,
+	)
 	var feedback := office.get("_workstation_feedback") as WorkstationFeedback
 	var worker_snapshot := _worker_snapshot(simulation, 0)
 	var desk_index := int(worker_snapshot.get("desk_index", -1))

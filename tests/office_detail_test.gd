@@ -77,8 +77,17 @@ func _run() -> void:
 		and bool(opening_west_furnishings.get_meta(&"visual_only", false))
 		and bool(opening_west_furnishings.get_meta(&"collision_free", false))
 		and bool(opening_west_furnishings.get_meta(&"navigation_free", false))
-		and int(opening_west_furnishings.get_meta(&"retired_at_capacity", -1)) == 5,
-		"opening west furnishings should remain visual-only temporary office staging",
+		and bool(opening_west_furnishings.get_meta(&"persistent_across_shifts", false))
+		and int(opening_west_furnishings.get_meta(&"retired_at_capacity", 0)) == -1,
+		"west records and visitor furnishings should remain persistent visual-only office staging",
+		failures,
+	)
+	var second_perch_flex := office.find_child("WestSecondPerchFlexFurnishings", true, false)
+	_check(
+		second_perch_flex != null
+		and bool(second_perch_flex.get_meta(&"visual_only", false))
+		and int(second_perch_flex.get_meta(&"converted_at_capacity", -1)) == 6,
+		"only the sixth-perch footprint should be marked as convertible furnishing space",
 		failures,
 	)
 	_check(office.find_children("WestFlexBinder_*", "MeshInstance3D", true, false).size() == 7, "west supply cabinet should carry a readable binder run", failures)

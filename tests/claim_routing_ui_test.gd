@@ -23,19 +23,29 @@ func _run() -> void:
 	var nest_queue := office.find_child("Queue_nest_damage", true, false) as Label
 	var predator_queue := office.find_child("Queue_predator_loss", true, false) as Label
 	var appeals_queue := office.find_child("Queue_appeals", true, false) as Label
+	var nest_queue_icon := office.find_child("QueueIcon_nest_damage", true, false) as TextureRect
+	var predator_queue_icon := office.find_child("QueueIcon_predator_loss", true, false) as TextureRect
+	var appeals_queue_icon := office.find_child("QueueIcon_appeals", true, false) as TextureRect
+	var overdue_queue_icon := office.find_child("QueueOverdueStateIcon", true, false) as TextureRect
 	var nest_dispatch_tray := office.find_child("DispatchTray_nest_damage", true, false) as Button
 	var dispatch_momentum := office.find_child("DispatchMomentum", true, false) as Label
 	var dispatch_break_glyph := office.find_child("DispatchMomentumBreakGlyph", true, false) as Control
+	var status_toast_label := office.find_child("StatusToastLabel", true, false) as Label
 	var queue_contract_badge := office.find_child("RoutingQueueContractBadge", true, false) as Label
 	var assign_auto := office.find_child("Assign_auto", true, false) as Button
 	var assign_nest := office.find_child("Assign_nest_damage", true, false) as Button
 	var assign_predator := office.find_child("Assign_predator_loss", true, false) as Button
 	var assign_appeals := office.find_child("Assign_appeals", true, false) as Button
 	var current_claim := office.find_child("RoutingCurrentClaim", true, false) as Label
+	var claim_phase_icon := office.find_child("RoutingClaimPhaseIcon", true, false) as TextureRect
+	var claim_phase_progress := office.find_child("RoutingClaimPhaseProgress", true, false) as Label
+	var claim_detail := office.find_child("RoutingClaimDetail", true, false) as Control
 	var current_contract_badge := office.find_child("RoutingCurrentContractBadge", true, false) as Label
 	var automation_hint := office.find_child("RoutingAutomationHint", true, false) as Label
 	var worker_career := office.find_child("RoutingWorkerCareer", true, false) as Label
 	var worker_profile := office.find_child("RoutingWorkerSpecialty", true, false) as Label
+	var worker_profile_icon := office.find_child("RoutingWorkerProfileIcon", true, false) as TextureRect
+	var worker_specialty_icon := office.find_child("RoutingWorkerSpecialtyIcon", true, false) as TextureRect
 	var manager_trust := office.find_child("RoutingManagerTrust", true, false) as Label
 	var grievance := office.find_child("RoutingGrievance", true, false) as Label
 	var check_in_status := office.find_child("RoutingCheckInStatus", true, false) as Label
@@ -92,9 +102,33 @@ func _run() -> void:
 	await process_frame
 
 	_check(queue_strip != null and queue_strip.is_visible_in_tree(), "typed queue strip should remain visible in overview", failures)
-	_check(nest_queue != null and "2" in nest_queue.text, "opening strip should show two Nest Damage files", failures)
-	_check(predator_queue != null and "2" in predator_queue.text, "opening strip should show two Predator Loss files", failures)
-	_check(appeals_queue != null and "2" in appeals_queue.text, "opening strip should show two Appeals files", failures)
+	var default_queue_state := routing_ui.queue_strip_state() if routing_ui != null else {}
+	var default_queue_lanes := default_queue_state.get("lanes", []) as Array
+	var complete_default_queue_marks := 0
+	for default_lane: Dictionary in default_queue_lanes:
+		if (
+			bool(default_lane.get("icon_visible", false))
+			and not String(default_lane.get("semantic_icon", "")).is_empty()
+			and not String(default_lane.get("accessible_text", "")).is_empty()
+		):
+			complete_default_queue_marks += 1
+	_check(
+		queue_title != null and queue_title.text == "ROUTING"
+		and nest_queue != null and nest_queue.text == "2"
+		and predator_queue != null and predator_queue.text == "2"
+		and appeals_queue != null and appeals_queue.text == "2"
+		and nest_queue_icon != null and nest_queue_icon.is_visible_in_tree()
+		and predator_queue_icon != null and predator_queue_icon.is_visible_in_tree()
+		and appeals_queue_icon != null and appeals_queue_icon.is_visible_in_tree()
+		and overdue_queue_icon != null and overdue_queue_icon.is_visible_in_tree()
+		and default_queue_lanes.size() == 3
+		and complete_default_queue_marks == 3
+		and bool(default_queue_state.get("compact_lane_marks", false))
+		and String(default_queue_state.get("shape_language", "")).contains("fox=predator")
+		and String(default_queue_state.get("overdue_state_shape", "")) == "ring_check",
+		"default routing should communicate three named trays and overdue state through persistent shapes plus counts",
+		failures,
+	)
 	_check(queue_contract_badge != null and not queue_contract_badge.visible, "contract badge should stay hidden when routing trays contain only internal files", failures)
 	_check(dossier != null and not dossier.is_visible_in_tree(), "worker dossier should stay hidden before a hen is selected", failures)
 	_check(
@@ -108,8 +142,53 @@ func _run() -> void:
 		and not dispatch_momentum.is_visible_in_tree()
 		and queue_strip != null
 		and bool(queue_strip.get_meta("compact_idle_extent", false))
-		and idle_queue_rect.size.x <= 536.0,
+		and idle_queue_rect.size.x <= 420.0,
 		"idle routing should end after Overdue instead of reserving an empty momentum tail",
+		failures,
+	)
+	var scaled_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	scaled_preferences["ui_scale"] = 1.5
+	office.set("_player_preferences", scaled_preferences)
+	office.call("_apply_management_ui_preferences")
+	await process_frame
+	await process_frame
+	var scaled_queue_state := routing_ui.queue_strip_state() if routing_ui != null else {}
+	var scaled_queue_rect := queue_strip.get_global_rect() if queue_strip != null else Rect2()
+	_check(
+		is_equal_approx(float(scaled_queue_state.get("interface_scale", 0.0)), 1.5)
+		and bool(scaled_queue_state.get("compact_lane_marks", false))
+		and String(scaled_queue_state.get("heading", "")) == "ROUTING"
+		and scaled_queue_rect.size.x <= 420.0
+		and nest_queue_icon != null and nest_queue_icon.is_visible_in_tree()
+		and predator_queue_icon != null and predator_queue_icon.is_visible_in_tree()
+		and appeals_queue_icon != null and appeals_queue_icon.is_visible_in_tree()
+		and overdue_queue_icon != null and overdue_queue_icon.is_visible_in_tree()
+		and nest_queue_icon.texture != null
+		and predator_queue_icon.texture != null
+		and appeals_queue_icon.texture != null
+		and String(nest_queue_icon.get_meta("semantic_icon", "")) == "lane_nest"
+		and String(predator_queue_icon.get_meta("semantic_icon", "")) == "lane_predator"
+		and String(appeals_queue_icon.get_meta("semantic_icon", "")) == "lane_appeals"
+		and "NEST" not in nest_queue.text
+		and "PREDATOR" not in predator_queue.text
+		and "APPEALS" not in appeals_queue.text,
+		"150-percent routing should replace crowded lane words with distinct semantic marks and contained counts",
+		failures,
+	)
+	scaled_preferences["ui_scale"] = 1.0
+	office.set("_player_preferences", scaled_preferences)
+	office.call("_apply_management_ui_preferences")
+	await process_frame
+	await process_frame
+	_check(
+		queue_title != null and queue_title.text == "ROUTING"
+		and nest_queue_icon != null and nest_queue_icon.is_visible_in_tree()
+		and predator_queue_icon != null and predator_queue_icon.is_visible_in_tree()
+		and appeals_queue_icon != null and appeals_queue_icon.is_visible_in_tree()
+		and "NEST" not in nest_queue.text
+		and "PREDATOR" not in predator_queue.text
+		and "APPEALS" not in appeals_queue.text,
+		"returning to 100 percent should preserve the icon-led routing language",
 		failures,
 	)
 	var dispatch_save_before := simulation.export_save_state()
@@ -193,7 +272,7 @@ func _run() -> void:
 		and queue_strip.modulate == Color.WHITE
 		and queue_strip.get_theme_stylebox("panel") == fallback_style_before
 		and queue_title != null
-		and queue_title.text == "PECKWORK ROUTING"
+		and queue_title.text == "ROUTING"
 		and queue_strip.focus_mode == Control.FOCUS_NONE
 		and queue_strip.accessibility_name.is_empty(),
 		"clearing a waiting-intake arrival should restore the queue strip exactly",
@@ -352,6 +431,23 @@ func _run() -> void:
 	_check(
 		int((office.get("_dispatch_last_receipt") as Dictionary).get("momentum_chain", 0)) == 1,
 		"the first best-fit dispatch should begin the visible fit chain",
+		failures,
+	)
+	_check(
+		status_toast_label != null
+		and " > NEST" in status_toast_label.text
+		and "FIT 1" in status_toast_label.text
+		and "NEXT FILE READY" in status_toast_label.text
+		and "BEST FIT" not in status_toast_label.text
+		and "FROM NEST" not in status_toast_label.text
+		and "Best-fit route filed:" in status_toast_label.tooltip_text
+		and "Best-fit streak 1" in status_toast_label.tooltip_text
+		and status_toast_label.accessibility_name == status_toast_label.tooltip_text,
+		"the route receipt should use direction and outcome symbols while keeping the complete result accessible [text=%s tooltip=%s accessibility=%s]" % [
+			status_toast_label.text if status_toast_label != null else "<missing>",
+			status_toast_label.tooltip_text if status_toast_label != null else "<missing>",
+			status_toast_label.accessibility_name if status_toast_label != null else "<missing>",
+		],
 		failures,
 	)
 	await create_timer(1.15).timeout
@@ -764,10 +860,14 @@ func _run() -> void:
 		routing_ui.set_color_vision_mode(&"color_blind_safe")
 	await process_frame
 	_check(
-		nest_queue != null and "[N] NEST" in nest_queue.text
-		and predator_queue != null and "[P] PREDATOR" in predator_queue.text
-		and appeals_queue != null and "[A] APPEALS" in appeals_queue.text,
-		"safe color-vision mode should add redundant lane markers without removing names",
+		nest_queue != null and nest_queue_icon != null and nest_queue_icon.is_visible_in_tree()
+		and predator_queue != null and predator_queue_icon != null and predator_queue_icon.is_visible_in_tree()
+		and appeals_queue != null and appeals_queue_icon != null and appeals_queue_icon.is_visible_in_tree()
+		and String(nest_queue_icon.get_meta("semantic_icon", "")) == "lane_nest"
+		and String(predator_queue_icon.get_meta("semantic_icon", "")) == "lane_predator"
+		and String(appeals_queue_icon.get_meta("semantic_icon", "")) == "lane_appeals"
+		and nest_dispatch_tray != null and "NEST" in nest_dispatch_tray.accessibility_name,
+		"safe color-vision mode should preserve shape-distinct lanes and complete accessible names",
 		failures,
 	)
 	_check(
@@ -786,12 +886,55 @@ func _run() -> void:
 	if routing_ui != null:
 		routing_ui.set_color_vision_mode(&"standard")
 	await process_frame
+	var specialty_fit_button_count := 0
+	for assignment_button: Button in [assign_nest, assign_predator, assign_appeals]:
+		if (
+			assignment_button != null
+			and assignment_button.text.ends_with("  FIT")
+			and bool(assignment_button.get_meta("specialty_match", false))
+		):
+			specialty_fit_button_count += 1
 	_check(
 		assign_auto != null and assign_auto.text == "AUTO"
-		and assign_nest != null and assign_nest.text == "NEST"
-		and assign_predator != null and assign_predator.text == "PREDATOR"
-		and assign_appeals != null and assign_appeals.text == "APPEALS",
-		"routing controls should use one-word actions that remain readable in the first-use dossier",
+		and assign_nest != null and assign_nest.text.begins_with("NEST")
+		and assign_predator != null and assign_predator.text.begins_with("PREDATOR")
+		and assign_appeals != null and assign_appeals.text.begins_with("APPEALS")
+		and specialty_fit_button_count == 1,
+		"routing controls should remain concise while marking the selected hen's one credentialed fit",
+		failures,
+	)
+	_check(
+		assign_auto != null and assign_auto.icon != null
+		and assign_nest != null and assign_nest.icon != null
+		and assign_predator != null and assign_predator.icon != null
+		and assign_appeals != null and assign_appeals.icon != null
+		and String(assign_auto.get_meta("semantic_icon", "")) == "order_trays"
+		and String(assign_nest.get_meta("semantic_icon", "")) == "lane_nest"
+		and String(assign_predator.get_meta("semantic_icon", "")) == "lane_predator"
+		and String(assign_appeals.get_meta("semantic_icon", "")) == "lane_appeals"
+		and assign_auto.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT
+		and assign_nest.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT
+		and assign_predator.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT
+		and assign_appeals.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT,
+		"route choices should carry four persistent, shape-distinct lane marks",
+		failures,
+	)
+	var route_choice_state := routing_ui.routing_choice_state() if routing_ui != null else {}
+	var route_choice_rows := route_choice_state.get("choices", []) as Array
+	var complete_marked_route_count := 0
+	for route_choice: Dictionary in route_choice_rows:
+		if (
+			bool(route_choice.get("icon_visible", false))
+			and not String(route_choice.get("semantic_icon", "")).is_empty()
+			and not String(route_choice.get("accessible_text", "")).is_empty()
+		):
+			complete_marked_route_count += 1
+	_check(
+		route_choice_rows.size() == 4
+		and bool(route_choice_state.get("visible", false))
+		and String(route_choice_state.get("shape_language", "")).contains("fox=predator")
+		and complete_marked_route_count == 4,
+		"route-choice diagnostics should expose every visible mark and its complete action name",
 		failures,
 	)
 	_check(
@@ -814,7 +957,74 @@ func _run() -> void:
 		"a newly selected hen should open on the Route dossier tab",
 		failures,
 	)
+	_check(
+		route_tab != null and route_tab.icon != null
+		and claim_tab != null and claim_tab.icon != null
+		and support_tab != null and support_tab.icon != null
+		and profile_tab != null and profile_tab.icon != null
+		and String(route_tab.get_meta("semantic_icon", "")) == "order_trays"
+		and String(claim_tab.get_meta("semantic_icon", "")) == "requisitions"
+		and String(support_tab.get_meta("semantic_icon", "")) == "receipt_flock"
+		and String(profile_tab.get_meta("semantic_icon", "")) == "rank_crest"
+		and route_tab.text == "ROUTE"
+		and claim_tab.text == "FILE"
+		and support_tab.text == "CARE"
+		and profile_tab.text == "BIO"
+		and support_tab.accessibility_name.begins_with("Support and care tab.")
+		and profile_tab.accessibility_name.begins_with("Hen profile tab.")
+		and route_tab.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT
+		and claim_tab.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT
+		and support_tab.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT
+		and profile_tab.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT,
+		"dossier destinations should carry four persistent, shape-distinct marks",
+		failures,
+	)
+	var dossier_tab_state := routing_ui.dossier_tab_state() if routing_ui != null else {}
+	var dossier_tab_rows := dossier_tab_state.get("tabs", []) as Array
+	var complete_dossier_tab_count := 0
+	for dossier_tab: Dictionary in dossier_tab_rows:
+		if (
+			bool(dossier_tab.get("icon_visible", false))
+			and not String(dossier_tab.get("semantic_icon", "")).is_empty()
+			and not String(dossier_tab.get("accessible_text", "")).is_empty()
+		):
+			complete_dossier_tab_count += 1
+	_check(
+		dossier_tab_rows.size() == 4
+		and bool(dossier_tab_state.get("visible", false))
+		and String(dossier_tab_state.get("active_tab", "")) == "route"
+		and String(dossier_tab_state.get("shape_language", "")).contains("crest=profile")
+		and complete_dossier_tab_count == 4,
+		"dossier-tab diagnostics should expose every visible mark and complete destination name",
+		failures,
+	)
 	_check(assign_auto != null and assign_auto.is_visible_in_tree() and not assign_auto.disabled, "the Route tab should expose live routing", failures)
+	_check(
+		worker_profile_icon != null and worker_profile_icon.texture != null
+		and worker_specialty_icon != null and worker_specialty_icon.texture != null
+		and worker_profile_icon.is_visible_in_tree()
+		and worker_specialty_icon.is_visible_in_tree()
+		and String(worker_profile_icon.get_meta("semantic_icon", "")) == "rank_crest"
+		and String(worker_specialty_icon.get_meta("semantic_icon", "")) == "lane_appeals"
+		and String(worker_specialty_icon.get_meta("specialty_lane", "")) == "appeals",
+		"selected-hen identity should pair a credential crest with Mabel's shape-distinct specialty mark",
+		failures,
+	)
+	var selected_identity_state := (
+		routing_ui.selected_hen_identity_state() if routing_ui != null else {}
+	)
+	_check(
+		bool(selected_identity_state.get("visible", false))
+		and bool(selected_identity_state.get("profile_icon_visible", false))
+		and bool(selected_identity_state.get("specialty_icon_visible", false))
+		and String(selected_identity_state.get("profile_icon", "")) == "rank_crest"
+		and String(selected_identity_state.get("specialty_icon", "")) == "lane_appeals"
+		and String(selected_identity_state.get("specialty_lane", "")) == "appeals"
+		and not String(selected_identity_state.get("accessible_text", "")).is_empty()
+		and String(selected_identity_state.get("shape_language", "")).contains("crest=work profile"),
+		"selected-hen identity diagnostics should expose both visible marks and the complete character description",
+		failures,
+	)
 	var opening_worker := _worker_snapshot(simulation.snapshot(), 0)
 	if (opening_worker.get("current_claim", {}) as Dictionary).is_empty():
 		var claimant_snapshot := simulation.snapshot().duplicate(true)
@@ -1059,12 +1269,30 @@ func _run() -> void:
 	_check(automation_hint != null and _contains_all(automation_hint.tooltip_text, ["auto is opt-in", "secondary accreditation", "never completes a file", "lays an egg"]), "AUTO support should explain opt-in scope, credential recognition, and the no-production boundary", failures)
 
 	var manual_snapshot := auto_snapshot.duplicate(true)
-	_set_worker_fixture(manual_snapshot, 0, {"assigned_lane": &"predator_loss", "assignment": &"predator_loss"})
+	_set_worker_fixture(manual_snapshot, 0, {
+		"assigned_lane": &"predator_loss",
+		"assignment": &"predator_loss",
+		"specialty": &"appeals",
+		"secondary_specialty": &"",
+	})
 	if routing_ui != null:
 		routing_ui.apply_snapshot(manual_snapshot)
 	await process_frame
-	_check(automation_hint != null and _contains_all(automation_hint.text, ["manual override", "it auto support off"]), "a manual tray should be visibly identified as an explicit IT AUTO override", failures)
-	_check(automation_hint != null and _contains_all(automation_hint.tooltip_text, ["explicit override", "do not apply"]), "manual routing should explain that IT pace and grace are not active", failures)
+	_check(automation_hint != null and _contains_all(automation_hint.text, ["off-fit route", "no auto bonus"]), "an out-of-specialty manual tray should lead with its fit tradeoff", failures)
+	_check(automation_hint != null and _contains_all(automation_hint.tooltip_text, ["explicit override", "do not apply", "raises time and shell risk"]), "off-fit manual routing should retain exact automation and route-risk consequences", failures)
+
+	var manual_fit_snapshot := auto_snapshot.duplicate(true)
+	_set_worker_fixture(manual_fit_snapshot, 0, {
+		"assigned_lane": &"appeals",
+		"assignment": &"appeals",
+		"specialty": &"appeals",
+		"secondary_specialty": &"",
+	})
+	if routing_ui != null:
+		routing_ui.apply_snapshot(manual_fit_snapshot)
+	await process_frame
+	_check(automation_hint != null and _contains_all(automation_hint.text, ["fit route", "no auto bonus"]) and not "off-fit" in automation_hint.text.to_lower(), "a specialty-fit manual tray should show both its fit and AUTO tradeoff", failures)
+	_check(automation_hint != null and _contains_all(automation_hint.tooltip_text, ["explicit override", "do not apply", "matches a filed specialty"]), "fit manual routing should retain exact automation and specialty consequences", failures)
 
 	var applicant_snapshot := auto_snapshot.duplicate(true)
 	_set_worker_fixture(applicant_snapshot, 0, {"employed": false, "assigned_lane": &"auto", "assignment": &"auto"})
@@ -1218,11 +1446,56 @@ func _run() -> void:
 	worker_zero = _worker_snapshot(simulation.snapshot(), 0)
 	var claim := worker_zero.get("current_claim", {}) as Dictionary
 	_check(StringName(claim.get("lane", &"")) == &"predator_loss", "assigned hen should pull only from the selected tray", failures)
-	_check(current_claim != null and "PREDATOR LOSS" in current_claim.text, "dossier should expose the current file and progress", failures)
+	_check(
+		current_claim != null
+		and current_claim.text.begins_with("PREDATOR LOSS #")
+		and "PECKING" not in current_claim.text
+		and claim_phase_icon != null
+		and claim_phase_icon.is_visible_in_tree()
+		and claim_phase_icon.texture != null
+		and String(claim_phase_icon.get_meta("semantic_shape", "")) == "work_dial"
+		and int(claim_phase_icon.get_meta("progress_bucket", -1)) >= 0
+		and claim_phase_progress != null
+		and claim_phase_progress.is_visible_in_tree()
+		and claim_phase_progress.text.ends_with("%")
+		and "Step 2, peckwork" in current_claim.accessibility_name
+		and "percent complete" in current_claim.accessibility_name
+		and claim_phase_icon.accessibility_name == current_claim.accessibility_name
+		and current_claim.tooltip_text == current_claim.accessibility_name,
+		"the dossier should pair file identity with a progress dial while retaining its exact work phase",
+		failures,
+	)
+	var active_claim_facts := (
+		claim_detail.get_meta("facts", []) as Array
+		if claim_detail != null else
+		[]
+	)
+	_check(
+		claim_detail != null
+		and claim_detail.is_visible_in_tree()
+		and active_claim_facts.size() == 4
+		and String((active_claim_facts[0] as Dictionary).get("role", "")) == "deadline"
+		and "M" in String((active_claim_facts[0] as Dictionary).get("value", ""))
+		and String((active_claim_facts[1] as Dictionary).get("icon", "")) == "cash"
+		and String((active_claim_facts[2] as Dictionary).get("icon", "")) == "shell_risk"
+		and String((active_claim_facts[3] as Dictionary).get("value", "")) == "EGG"
+		and ("Due in" in claim_detail.accessibility_name or "Overdue by" in claim_detail.accessibility_name)
+		and "Estimated shell crack risk" in claim_detail.accessibility_name
+		and "lay the egg" in claim_detail.accessibility_name
+		and claim_detail.tooltip_text == claim_detail.accessibility_name,
+		"active file facts should expose an icon-led deadline-value-risk-outcome strip with complete semantics (facts=%s accessible=%s)" % [
+			JSON.stringify(active_claim_facts),
+			claim_detail.accessibility_name if claim_detail != null else "<missing>",
+		],
+		failures,
+	)
 	var authoritative_predator_count := simulation.claim_queue_count(&"predator_loss")
 	_check(
 		predator_queue != null
-		and "PREDATOR  %d" % authoritative_predator_count in predator_queue.text,
+		and predator_queue.text.begins_with(str(authoritative_predator_count))
+		and predator_queue_icon != null
+		and predator_queue_icon.is_visible_in_tree()
+		and String(predator_queue_icon.get_meta("semantic_icon", "")) == "lane_predator",
 		"queue strip should react when a file enters peckwork",
 		failures,
 	)

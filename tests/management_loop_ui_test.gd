@@ -28,11 +28,43 @@ func _run() -> void:
 	var review_continue := office.find_child("BeginNextShiftButton", true, false) as Button
 	var decision_host := office.find_child("ManagementDecisionHost", true, false) as Control
 	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
+	var settings_button := office.find_child("OpenSettingsButton", true, false) as Button
+	var day_label := office.get("_day_label") as Label
+	var time_label := office.get("_time_label") as Label
+	var fund_label := office.get("_revenue_label") as Label
+	var clock_status := office.find_child("ShiftClockStatus", true, false) as HBoxContainer
+	var clock_status_icon := office.find_child("ShiftClockStatusIcon", true, false) as FlockwatchIconBadge
+	var fund_status := office.find_child("FundStatus", true, false) as HBoxContainer
+	var fund_status_icon := office.find_child("FundStatusIcon", true, false) as FlockwatchIconBadge
+	var shift_goal_status := office.find_child("ShiftEggGoalStatus", true, false) as HBoxContainer
+	var shift_goal_icon := office.find_child("ShiftEggGoalIcon", true, false) as FlockwatchIconBadge
+	var live_policy_label := office.find_child("LivePolicyLabel", true, false) as Label
+	var live_policy_icon := office.find_child("LivePolicyIcon", true, false) as FlockwatchIconBadge
 	var guidance := office.get("_guidance_label") as Label
-	var guidance_icon := office.find_child("GuidanceIcon", true, false) as Control
+	var guidance_icon := office.find_child("GuidanceIcon", true, false) as FlockwatchIconBadge
 	var guidance_action := office.find_child("GuidanceActionButton", true, false) as Button
+	var guidance_chevron := office.find_child("GuidanceActionChevron", true, false) as Label
 	_check(clock != null and clock.speed_index == 0, "first shift should begin paused for its morning directive", failures)
 	_check(decision_host != null and decision_host.is_visible_in_tree(), "opening directive should be presented as a blocking decision", failures)
+	_check(
+		shift_goal_status != null
+		and String(shift_goal_status.get_meta("semantic_icon", "")) == "egg"
+		and shift_goal_icon != null
+		and shift_goal_icon.visible
+		and shift_goal_icon.icon_kind() == &"egg"
+		and live_policy_label != null
+		and live_policy_label.text == "BRIEFING"
+		and live_policy_icon != null
+		and live_policy_icon.visible,
+		"the permanent objective rail should begin with stable egg and policy shapes instead of repeated category words [goal=%s goal-visible=%s policy=%s policy-kind=%s policy-visible=%s]" % [
+			String(shift_goal_status.get_meta("semantic_icon", "")) if shift_goal_status != null else "missing",
+			str(shift_goal_icon.visible) if shift_goal_icon != null else "missing",
+			live_policy_label.text if live_policy_label != null else "missing",
+			String(live_policy_icon.icon_kind()) if live_policy_icon != null else "missing",
+			str(live_policy_icon.visible) if live_policy_icon != null else "missing",
+		],
+		failures,
+	)
 	_check(
 		guidance != null
 		and guidance_icon != null
@@ -60,6 +92,7 @@ func _run() -> void:
 	var assurance_chip_row := office.find_child("DecisionEffectChips_shell_assurance", true, false) as HBoxContainer
 	var confirm_decision := office.find_child("ConfirmDecisionButton", true, false) as Button
 	var decision_body := office.find_child("DecisionBody", true, false) as Label
+	var decision_preview := office.find_child("DecisionPreview", true, false) as Label
 	var decision_order_glance := office.find_child("DecisionOrderGlance", true, false) as GridContainer
 	var opening_order := office.find_child("DecisionOrderValue_0", true, false) as Label
 	var quality_order := office.find_child("DecisionOrderValue_1", true, false) as Label
@@ -76,7 +109,10 @@ func _run() -> void:
 	)
 	_check(
 		decision_body != null
-		and decision_body.text == "Choose one rule for the whole flock."
+		and decision_body.text == "Match today's goals, then start the shift."
+		and String(decision_body.get_meta("accessible_text", "")).begins_with(
+			"Choose one rule for the whole flock."
+		)
 		and decision_order_glance != null
 		and decision_order_glance.is_visible_in_tree()
 		and opening_order != null
@@ -88,6 +124,14 @@ func _run() -> void:
 		"morning policy should show three glance-first scored order tiles before authorization",
 		failures,
 	)
+	_check(
+		decision_preview != null
+		and not decision_preview.is_visible_in_tree()
+		and confirm_decision != null
+		and confirm_decision.text == "SELECT A RULE ABOVE",
+		"morning policy should remove the duplicate lower prompt before selection",
+		failures,
+	)
 	if assurance_option != null and confirm_decision != null:
 		assurance_option.pressed.emit()
 		_check(not confirm_decision.disabled, "selecting a directive should enable authorization", failures)
@@ -96,6 +140,147 @@ func _run() -> void:
 	_check(not decision_host.is_visible_in_tree(), "authorizing a directive should close the decision modal", failures)
 	_check(StringName(simulation.active_directive_snapshot().get("id", &"")) == &"shell_assurance", "authorized directive should become authoritative", failures)
 	_check(clock.speed_index == 1, "authorizing the morning directive should start the shift", failures)
+	_check(
+		live_policy_label.text == "ASSURANCE"
+		and live_policy_icon.icon_kind() == &"shield"
+		and live_policy_icon.is_visible_in_tree()
+		and "POLICY" in String(live_policy_label.get_meta("full_text", ""))
+		and "SHELL ASSURANCE" in String(live_policy_label.get_meta("accessible_text", "")),
+		"the filed policy should read as a shield plus short name while retaining its complete terms",
+		failures,
+	)
+	var pause_toggle := office.find_child("SpeedButton_0", true, false) as Button
+	_check(
+		pause_toggle != null
+		and pause_toggle.text == "PAUSE"
+		and StringName(pause_toggle.get_meta("clock_action", &"")) == &"pause"
+		and pause_toggle.tooltip_text == "Pause simulation."
+		and pause_toggle.accessibility_name == "Pause simulation. Press Space.",
+		"the running clock control should communicate the pause action consistently",
+		failures,
+	)
+	var authored_flockwatch_text := flockwatch_toggle.text if flockwatch_toggle != null else ""
+	var authored_fund_text := fund_label.text if fund_label != null else ""
+	_check(
+		clock_status != null
+		and bool(clock_status.get_meta("icon_led_status_marks", false))
+		and clock_status.get_theme_constant("separation") == 5
+		and clock_status_icon != null
+		and clock_status_icon.is_visible_in_tree()
+		and clock_status_icon.icon_kind() == &"clock"
+		and day_label.text == "DAY 1"
+		and time_label.text == "8:00 AM"
+		and fund_status != null
+		and bool(fund_status.get_meta("icon_led_status_marks", false))
+		and fund_status_icon != null
+		and fund_status_icon.is_visible_in_tree()
+		and fund_status_icon.icon_kind() == &"cash"
+		and fund_label.text == "$50.00"
+		and "FEED FUND" in String(fund_label.get_meta("full_text", ""))
+		and "Feed Fund available" in String(fund_status.get_meta("accessible_text", "")),
+		"the default HUD should use persistent clock and cash shapes while preserving exact time, fund terminology, and values",
+		failures,
+	)
+	var enlarged_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	enlarged_preferences["ui_scale"] = 1.5
+	office.set("_player_preferences", enlarged_preferences)
+	office.call("_apply_management_ui_preferences")
+	await process_frame
+	await process_frame
+	_check(
+		flockwatch_toggle != null
+		and bool(flockwatch_toggle.get_meta("compact_action_mark", false))
+		and bool(flockwatch_toggle.get_meta("icon_led_action_mark", false))
+		and String(flockwatch_toggle.get_meta("semantic_icon", "")) == "flockwatch_ledger"
+		and flockwatch_toggle.icon != null
+		and flockwatch_toggle.text == String(flockwatch_toggle.get_meta("compact_text", ""))
+		and "FLOCKWATCH" in flockwatch_toggle.text
+		and " / " not in flockwatch_toggle.text
+		and "Binding:" in flockwatch_toggle.tooltip_text
+		and " / " in String(flockwatch_toggle.get_meta("full_text", ""))
+		and String(flockwatch_toggle.get_meta("full_text", "")) in String(flockwatch_toggle.get_meta("accessible_text", ""))
+		and settings_button != null
+		and bool(settings_button.get_meta("icon_led_action_mark", false))
+		and String(settings_button.get_meta("semantic_icon", "")) == "settings_cog"
+		and settings_button.icon != null
+		and settings_button.text == String(settings_button.get_meta("compact_text", ""))
+		and flockwatch_toggle.position.x + flockwatch_toggle.size.x <= office.get_viewport().get_visible_rect().size.x - 18.0,
+		"150-percent HUD should keep Flockwatch recognizable and actionable without clipping its secondary binding [flock=%s compact=%s icon-led=%s semantic=%s icon=%s full=%s accessible=%s settings=%s settings-icon=%s end=%.1f]" % [
+			flockwatch_toggle.text if flockwatch_toggle != null else "missing",
+			str(flockwatch_toggle.get_meta("compact_action_mark", false)) if flockwatch_toggle != null else "missing",
+			str(flockwatch_toggle.get_meta("icon_led_action_mark", false)) if flockwatch_toggle != null else "missing",
+			String(flockwatch_toggle.get_meta("semantic_icon", "")) if flockwatch_toggle != null else "missing",
+			str(flockwatch_toggle.icon != null) if flockwatch_toggle != null else "missing",
+			String(flockwatch_toggle.get_meta("full_text", "")) if flockwatch_toggle != null else "missing",
+			String(flockwatch_toggle.get_meta("accessible_text", "")) if flockwatch_toggle != null else "missing",
+			settings_button.text if settings_button != null else "missing",
+			str(settings_button.icon != null) if settings_button != null else "missing",
+			flockwatch_toggle.position.x + flockwatch_toggle.size.x if flockwatch_toggle != null else -1.0,
+		],
+		failures,
+	)
+	_check(
+		day_label != null and day_label.text == "DAY 1"
+		and time_label != null and time_label.text == "8:00 AM"
+		and fund_label != null and fund_label.text == "$50.00"
+		and "FEED FUND" in String(fund_label.get_meta("full_text", ""))
+		and fund_status != null
+		and "Feed Fund available" in String(fund_status.get_meta("accessible_text", ""))
+		and clock_status != null and bool(clock_status.get_meta("compact_status_marks", false))
+		and clock_status.get_theme_constant("separation") == 5
+		and clock_status_icon != null and clock_status_icon.is_visible_in_tree()
+		and clock_status_icon.icon_kind() == &"clock"
+		and fund_status_icon != null and fund_status_icon.is_visible_in_tree()
+		and fund_status_icon.icon_kind() == &"cash"
+		and settings_button != null
+		and fund_status.get_global_rect().end.x <= settings_button.get_global_rect().position.x - 10.0,
+		"150-percent HUD should group exact day, time, and Feed Fund values behind stable clock and cash marks",
+		failures,
+	)
+	enlarged_preferences["ui_scale"] = 1.0
+	office.set("_player_preferences", enlarged_preferences)
+	office.call("_apply_management_ui_preferences")
+	await process_frame
+	await process_frame
+	_check(
+		flockwatch_toggle.text == authored_flockwatch_text
+		and bool(flockwatch_toggle.get_meta("compact_action_mark", false))
+		and bool(flockwatch_toggle.get_meta("icon_led_action_mark", false))
+		and flockwatch_toggle.icon != null
+		and settings_button != null
+		and settings_button.text == String(settings_button.get_meta("compact_text", ""))
+		and bool(settings_button.get_meta("icon_led_action_mark", false))
+		and settings_button.icon != null
+		and fund_label.text == authored_fund_text
+		and bool(clock_status.get_meta("icon_led_status_marks", false))
+		and clock_status_icon != null and clock_status_icon.is_visible_in_tree()
+		and fund_status_icon != null and fund_status_icon.is_visible_in_tree()
+		and shift_goal_icon != null and shift_goal_icon.is_visible_in_tree()
+		and live_policy_icon != null and live_policy_icon.is_visible_in_tree()
+		and live_policy_label.text == "ASSURANCE",
+		"returning to 100 percent should preserve icon-led utility and shift-status semantics",
+		failures,
+	)
+	if pause_toggle != null:
+		pause_toggle.pressed.emit()
+	await process_frame
+	_check(
+		clock.speed_index == 0
+		and pause_toggle.text == "RESUME"
+		and StringName(pause_toggle.get_meta("clock_action", &"")) == &"resume"
+		and pause_toggle.tooltip_text == "Resume simulation at normal 1× speed."
+		and pause_toggle.accessibility_name == "Resume simulation at normal 1× speed. Press Space.",
+		"the paused clock control should expose a direct resume action instead of a stale pause label",
+		failures,
+	)
+	if pause_toggle != null:
+		pause_toggle.pressed.emit()
+	await process_frame
+	_check(
+		clock.speed_index == 1 and pause_toggle.text == "PAUSE",
+		"pressing the paused clock control should resume normal 1× simulation speed",
+		failures,
+	)
 	var outcome_receipt := office.get("_latest_action_outcome_receipt") as Dictionary
 	var outcome_ids: Array[StringName] = []
 	var outcome_copy: Array[String] = []
@@ -164,11 +349,22 @@ func _run() -> void:
 	_check(
 		guidance != null
 		and guidance_action != null
-		and guidance.text == "NEXT: OPEN TODAY'S GOALS"
+		and guidance.text == "GOALS"
+		and "NEXT:" not in guidance.text
 		and guidance.text.length() <= 40
+		and guidance_icon != null
+		and guidance_icon.icon_kind() == &"clipboard"
+		and String(guidance_icon.get_meta("semantic_icon", "")) == "clipboard"
+		and guidance_chevron != null
+		and guidance.get_global_rect().size.x >= 40.0
+		and guidance_chevron.get_global_rect().position.x - guidance.get_global_rect().end.x <= 12.0
 		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"today"
 		and "open today's goals" in String(guidance.get_meta("accessible_text", "")).to_lower(),
-		"pausing should replace prose with a short state-aware next move",
+		"pausing should group the icon, destination, and chevron without narrating or visually disconnecting its affordance [copy=%s icon=%s meta=%s]" % [
+			guidance.text if guidance != null else "missing",
+			String(guidance_icon.icon_kind()) if guidance_icon != null else "missing",
+			String(guidance_icon.get_meta("semantic_icon", "")) if guidance_icon != null else "missing",
+		],
 		failures,
 	)
 	_check(
@@ -226,7 +422,7 @@ func _run() -> void:
 		campaign_objectives != null
 		and badge_order_progress != null
 		and badge_order_progress.is_visible_in_tree()
-		and badge_order_progress.text == "ON TRACK  %d / %d" % [
+		and badge_order_progress.text == "%d / %d" % [
 			int(campaign_objectives.get_meta("orders_on_track", -1)),
 			int(campaign_objectives.get_meta("orders_total", -1)),
 		],
@@ -245,7 +441,10 @@ func _run() -> void:
 			and not String(stamp.get_meta("metric", "")).is_empty()
 			and String(stamp.get_meta("semantic_icon", "goal")) in [
 				"egg", "flock", "cash", "shield", "files",
+				"order_clutch", "order_favor", "order_compliance", "order_trays",
 			]
+			and String(stamp.get_meta("status_icon", "")) in ["status_pass", "status_need"]
+			and String(stamp.get_meta("state_shape", "")) in ["ring_check", "diamond_exclamation"]
 			and "//" in String(stamp.get_meta("accessible_text", ""))
 		)
 		if bool(stamp.get_meta("on_track", false)):
@@ -389,6 +588,7 @@ func _run() -> void:
 	var traced_result := traced_driver.get("last_result", {}) as Dictionary
 	var driver_hen_arrival := traced_driver.get("hen_dossier_arrival", {}) as Dictionary
 	var return_cue := traced_order_state.get("campaign_order_return", {}) as Dictionary
+	var appeals_fit_button := office.find_child("Assign_appeals", true, false) as Button
 	var camera_controller := office.get("_camera_controller") as ManagementCameraController
 	_check(
 		not bool(office.get("_flockwatch_open"))
@@ -410,20 +610,34 @@ func _run() -> void:
 		failures,
 	)
 	_check(
+		appeals_fit_button != null
+		and appeals_fit_button.text.contains("APPEALS")
+		and appeals_fit_button.text.ends_with("FIT")
+		and bool(appeals_fit_button.get_meta("specialty_match", false))
+		and "SPECIALTY FIT" in appeals_fit_button.tooltip_text,
+		"the revealed route grid should mark Mabel's credentialed Appeals lane at a glance",
+		failures,
+	)
+	_check(
 		bool(return_cue.get("visible", false))
 		and int(return_cue.get("serial", 0)) == 1
 		and String(return_cue.get("objective_id", "")) == String(requested_objective_id)
 		and String(return_cue.get("copy", "")).begins_with("RETURN: ")
+		and String(return_cue.get("driver_action_id", "")) == "hen_routes"
 		and guidance != null
-		and guidance.text == String(return_cue.get("copy", ""))
+		and guidance.text == "ROUTE MABEL  >  APPEALS FIT / AUTO"
 		and guidance_action != null
-		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"campaign_order_return"
-		and "no gameplay choice is filed" in guidance.tooltip_text.to_lower(),
-		"a driver handoff should reuse the compact guidance strip as an exact return cue",
+		and guidance_action.disabled
+		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &""
+		and flockwatch_toggle != null
+		and flockwatch_toggle.text.begins_with("RETURN")
+		and "RETURN TO GOAL" in String(flockwatch_toggle.get_meta("full_text", ""))
+		and "no route is filed" in guidance.tooltip_text.to_lower(),
+		"a route driver should prioritize the visible route choice and move exact return to Flockwatch",
 		failures,
 	)
-	if guidance_action != null:
-		guidance_action.pressed.emit()
+	if flockwatch_toggle != null:
+		flockwatch_toggle.pressed.emit()
 	await process_frame
 	await process_frame
 	await process_frame

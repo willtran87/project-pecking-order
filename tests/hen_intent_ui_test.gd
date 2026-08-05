@@ -41,6 +41,7 @@ func _run() -> void:
 	root.add_child(chicken)
 	await process_frame
 	var marker := chicken.find_child("HenIntentMarker", true, false) as Sprite3D
+	var focus_halo := chicken.find_child("ManagementFocusHalo", true, false) as Sprite3D
 	_check(
 		marker != null and marker.visible and marker.texture != null,
 		"ChickenView should render the authored no-text intent marker above the hen",
@@ -53,16 +54,68 @@ func _run() -> void:
 	)
 	_check(
 		bool(marker.get_meta("compact", false))
-		and is_equal_approx(marker.pixel_size, ChickenView.HEN_INTENT_COMPACT_PIXEL_SIZE)
+		and is_equal_approx(marker.pixel_size, ChickenView.HEN_INTENT_READY_PIXEL_SIZE)
+		and StringName(marker.get_meta("focus_role", &"")) == &"peer"
+		and StringName(marker.get_meta("semantic_shape", &"")) == &"route_pin"
 		and StringName(marker.get_meta("intent_id", &"")) == &"ready"
 		and String(marker.get_meta("action_label", "")) == "SET ROUTE",
-		"a low-urgency ready pin should use the compact, route-specific presentation while preserving its action semantics [compact=%s size=%.6f expected=%.6f intent=%s action=%s]" % [
+		"a low-urgency ready pin should use a slightly larger route-specific presentation while preserving its action semantics [compact=%s size=%.6f expected=%.6f intent=%s action=%s]" % [
 			str(marker.get_meta("compact", false)),
 			marker.pixel_size,
-			ChickenView.HEN_INTENT_COMPACT_PIXEL_SIZE,
+			ChickenView.HEN_INTENT_READY_PIXEL_SIZE,
 			String(marker.get_meta("intent_id", &"")),
 			String(marker.get_meta("action_label", "")),
 		],
+		failures,
+	)
+	chicken.set_management_focus(false, true)
+	var peer_marker_height := marker.position.y
+	_check(
+		StringName(marker.get_meta("focus_role", &"")) == &"background"
+		and is_equal_approx(
+			marker.pixel_size,
+			ChickenView.HEN_INTENT_READY_PIXEL_SIZE * ChickenView.HEN_INTENT_BACKGROUND_SCALE,
+		)
+		and is_equal_approx(marker.modulate.a, ChickenView.HEN_INTENT_BACKGROUND_ALPHA),
+		"an unselected hen's routine pin should recede while another hen owns management focus",
+		failures,
+	)
+	chicken.set_management_focus(true, true)
+	_check(
+		StringName(marker.get_meta("focus_role", &"")) == &"selected"
+		and is_equal_approx(marker.pixel_size, ChickenView.HEN_INTENT_READY_PIXEL_SIZE)
+		and is_equal_approx(marker.modulate.a, 1.0),
+		"the selected hen's pin should retain full size and contrast",
+		failures,
+	)
+	_check(
+		is_equal_approx(
+			marker.position.y,
+			peer_marker_height + ChickenView.HEN_INTENT_SELECTED_HEIGHT_LIFT,
+		),
+		"the selected world pin should lift above the hen silhouette instead of covering her face",
+		failures,
+	)
+	_check(
+		focus_halo != null
+		and focus_halo.visible
+		and focus_halo.texture != null
+		and is_equal_approx(focus_halo.position.y, marker.position.y)
+		and focus_halo.pixel_size > marker.pixel_size
+		and StringName(focus_halo.get_meta("semantic_role", &"")) == &"selected_hen"
+		and int(focus_halo.get_meta("selected_worker_id", -1)) == int(first_worker.get("id", -2))
+		and bool(marker.get_meta("selection_halo_visible", false)),
+		"the selected hen should own one persistent no-text focus bracket behind her route pin",
+		failures,
+	)
+	chicken.set_management_focus(false, false)
+	_check(
+		StringName(marker.get_meta("focus_role", &"")) == &"peer"
+		and is_equal_approx(marker.pixel_size, ChickenView.HEN_INTENT_READY_PIXEL_SIZE)
+		and is_equal_approx(marker.modulate.a, 1.0)
+		and focus_halo != null and not focus_halo.visible
+		and not bool(marker.get_meta("selection_halo_visible", true)),
+		"office overview should restore equal pin weight across the flock",
 		failures,
 	)
 	var second_worker := (workers[1] as Dictionary).duplicate(true)
@@ -114,6 +167,7 @@ func _run() -> void:
 	await process_frame
 	_check(
 		int(marker.get_meta("intent_transition_serial", 0)) > world_transition_serial
+		and StringName(marker.get_meta("semantic_shape", &"")) == &"work_dial"
 		and bool(marker.get_meta("intent_transition_animated", false))
 		and "ready" in String(marker.get_meta("intent_transition_from", ""))
 		and "sync" in String(marker.get_meta("intent_transition_to", ""))
@@ -121,7 +175,16 @@ func _run() -> void:
 			not marker.scale.is_equal_approx(Vector3.ONE)
 			or not marker.modulate.is_equal_approx(Color.WHITE)
 		),
-		"a same-hen semantic change should animate the world pin once with explicit old and new meaning",
+		"a same-hen semantic change should animate the world pin once with explicit old and new meaning (shape=%s serial=%d before=%d animated=%s from=%s to=%s scale=%s modulate=%s)" % [
+			String(marker.get_meta("semantic_shape", &"")),
+			int(marker.get_meta("intent_transition_serial", 0)),
+			world_transition_serial,
+			str(marker.get_meta("intent_transition_animated", false)),
+			String(marker.get_meta("intent_transition_from", "")),
+			String(marker.get_meta("intent_transition_to", "")),
+			str(marker.scale),
+			str(marker.modulate),
+		],
 		failures,
 	)
 	await create_timer(0.36).timeout
@@ -131,6 +194,23 @@ func _run() -> void:
 		"the world-pin handoff should settle fully without leaving scale or color residue",
 		failures,
 	)
+	first_worker["hen_intent"] = _intent(&"delivery", &"delivery", &"route", "TRACK EGG", 1)
+	first_worker["progress"] = 100.0
+	chicken.apply_snapshot(first_worker)
+	await process_frame
+	_check(
+		StringName(marker.get_meta("semantic_shape", &"")) == &"egg_receipt"
+		and StringName(marker.get_meta("intent_id", &"")) == &"delivery"
+		and String(marker.get_meta("action_label", "")) == "TRACK EGG"
+		and is_equal_approx(marker.pixel_size, ChickenView.HEN_INTENT_DELIVERY_PIXEL_SIZE)
+		and marker.texture != null,
+		"laying should replace the work dial with one distinct egg receipt silhouette",
+		failures,
+	)
+	first_worker["hen_intent"] = _intent(&"sync", &"sync", &"peck", "SYNC PECK", 3)
+	first_worker["progress"] = 65.0
+	chicken.apply_snapshot(first_worker)
+	await process_frame
 	var ready_halo := chicken.find_child("PriorityPeckReadyHalo", true, false) as Sprite3D
 	var ready_serial := int(marker.get_meta("priority_peck_ready_serial", 0))
 	_check(
@@ -281,10 +361,11 @@ func _run() -> void:
 		_intent(&"sync", &"sync", &"peck", "SYNC PECK", 3),
 		_intent(&"deadline", &"urgent", &"claim", "OPEN FILE", 3),
 		_intent(&"care", &"care", &"support", "CHECK IN", 2),
-		_intent(&"choice", &"choice", &"claim", "CHOOSE PATH", 2),
+		_intent(&"choice", &"choice", &"claim", "CHOOSE OUTCOME", 2),
 		_intent(&"match", &"match", &"claim", "GOOD MATCH", 1),
 		_intent(&"ready", &"ready", &"route", "SET ROUTE", 1),
 		_intent(&"steady", &"steady", &"claim", "TRACK FILE", 1),
+		_intent(&"delivery", &"delivery", &"route", "TRACK EGG", 1),
 	]
 	var presented_texture_ids: Dictionary[int, bool] = {}
 	for variant: Dictionary in intent_variants:
@@ -297,11 +378,23 @@ func _run() -> void:
 		var presented_icon := intent_button.icon if intent_button != null else null
 		if presented_icon != null:
 			presented_texture_ids[presented_icon.get_instance_id()] = true
+		var expected_visual_label := (
+			"OUTCOME <55%"
+			if StringName(variant.get("id", &"")) == &"choice" else
+			String(variant.get("action_label", ""))
+		)
 		_check(
 			intent_button != null
 			and presented_icon != null
 			and StringName(intent_button.get_meta("intent_icon", &"")) == StringName(variant.get("icon", &""))
-			and String(variant.get("action_label", "")) in intent_button.text
+			and expected_visual_label in intent_button.text
+			and (
+				"CHOOSE OUTCOME" in String(intent_button.get_meta("accessible_text", ""))
+				and int(intent_button.get_meta("outcome_cutoff_progress", -1)) == 55
+				and intent_button.get_theme_font_size("font_size") == 9
+				if StringName(variant.get("id", &"")) == &"choice" else
+				true
+			)
 			and not _has_ascii_intent_prefix(intent_button.text),
 			"every dossier intent should reuse its authored pin icon without an ASCII prefix [variant=%s text=%s]" % [
 				str(variant),
@@ -311,7 +404,7 @@ func _run() -> void:
 		)
 	_check(
 		presented_texture_ids.size() == intent_variants.size(),
-		"all seven dossier intents should retain visually distinct authored textures",
+		"all eight dossier intents should retain visually distinct authored textures",
 		failures,
 	)
 	var emitted_pecks: Array[int] = []
@@ -522,7 +615,9 @@ func _run() -> void:
 		missed_button != null
 		and missed_button.text == "MISSED"
 		and missed_label != null
-		and missed_label.text == "NEXT FILE RESETS",
+		and missed_label.text == "NEXT FILE  •  TRY AGAIN"
+		and "window missed" in missed_label.accessibility_name
+		and "next file" in missed_label.accessibility_name.to_lower(),
 		"the settled dossier should keep one terse failure word and one explicit recovery path",
 		failures,
 	)
@@ -585,7 +680,7 @@ func _run() -> void:
 			push_error("HEN_INTENT_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("HEN_INTENT_UI_TEST_PASSED priorities=8 progress_ring=5 pins=compact+staggered+semantic bond=thresholded dossier=icon-parity+contextual coach=protected")
+	print("HEN_INTENT_UI_TEST_PASSED priorities=8 progress_ring=5 lifecycle_shapes=route+work+egg pins=compact+staggered+semantic bond=thresholded dossier=icon-parity+contextual coach=protected")
 	quit(0)
 
 
@@ -622,6 +717,7 @@ func _assert_intent_priorities(simulation: DepartmentSimulation, failures: Array
 	var laying_intent := simulation.call("_worker_hen_intent_snapshot", laying) as Dictionary
 	_check(
 		StringName(laying_intent.get("id", &"")) == &"delivery"
+		and StringName(laying_intent.get("icon", &"")) == &"delivery"
 		and StringName(laying_intent.get("action_id", &"")) == &"route"
 		and String(laying_intent.get("action_label", "")) == "TRACK EGG"
 		and "grading" in String(laying_intent.get("detail", "")).to_lower()
@@ -634,8 +730,17 @@ func _assert_intent_priorities(simulation: DepartmentSimulation, failures: Array
 	_check(_intent_id(simulation, care) == &"care", "high strain should publish care intent", failures)
 	var choice := base.duplicate(true)
 	choice["current_claim"] = {"minutes_until_deadline": 180, "resolution_locked": false}
-	choice["claim_resolution_status"] = {"available": true}
-	_check(_intent_id(simulation, choice) == &"choice", "open claimant path should publish choice intent", failures)
+	choice["claim_resolution_status"] = {"available": true, "cutoff_progress": 55.0}
+	var choice_intent := simulation.call("_worker_hen_intent_snapshot", choice) as Dictionary
+	_check(
+		StringName(choice_intent.get("id", &"")) == &"choice"
+		and String(choice_intent.get("action_label", "")) == "CHOOSE OUTCOME"
+		and int(choice_intent.get("cutoff_progress", -1)) == 55
+		and "care, pace, risk, and cost" in String(choice_intent.get("detail", ""))
+		and "CHOOSE PATH" not in String(choice_intent.get("action_label", "")),
+		"open claimant resolution should use outcome language that cannot be confused with tray routing",
+		failures,
+	)
 	var steady := base.duplicate(true)
 	steady["current_claim"] = {"minutes_until_deadline": 180, "resolution_locked": true}
 	var steady_intent := simulation.call("_worker_hen_intent_snapshot", steady) as Dictionary

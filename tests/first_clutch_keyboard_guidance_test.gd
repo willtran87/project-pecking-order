@@ -35,6 +35,13 @@ func _run() -> void:
 	var simulation := office.get("_simulation") as DepartmentSimulation
 	var diagnostic := office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
 	_check("Press Enter" in String(diagnostic.get("guidance", "")), "specialty guidance should disclose the contextual Enter action", failures)
+	_check(String(diagnostic.get("visual_title", "")) == "CHOOSE APPEALS" and "ROUTE MABEL TO" in String(diagnostic.get("title", "")), "specialty guidance should pair one direct visual title with the complete semantic route identity", failures)
+	_check(
+		String(diagnostic.get("visual_body", "")) == "FIT = FASTER + SAFER"
+		and "Specialty matching improves speed and shell safety" in String(diagnostic.get("body", "")),
+		"specialty guidance should expose concise visual causality while retaining its complete explanation",
+		failures,
+	)
 	_check(bool(office.call("_handle_first_clutch_primary_action")), "Enter action should activate the highlighted specialty route", failures)
 	await process_frame
 	snapshot = office.first_clutch_snapshot()
@@ -48,7 +55,22 @@ func _run() -> void:
 	snapshot = office.first_clutch_snapshot()
 	_check(bool(snapshot.get("checkin_filed", false)), "contextual check-in should reach the authoritative personnel system", failures)
 	_check(StringName(snapshot.get("stage", &"")) == &"priority_peck", "two contextual actions should reach the live Priority Peck lesson", failures)
+	diagnostic = office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
+	_check(String(diagnostic.get("visual_title", "")) == "RESUME AT 1x" and String(diagnostic.get("primary_action_shortcut", "")) == "1" and String(diagnostic.get("title", "")) == "LAND MABEL'S PRIORITY PECK", "paused Priority guidance should lead with its immediate speed action while retaining the complete lesson identity", failures)
 	_check(not bool(office.call("_handle_first_clutch_primary_action")), "Enter should return to normal behavior outside the two guided dossier steps", failures)
+
+	var first_clutch := office.get("_first_clutch") as Dictionary
+	first_clutch["assisted_worker_id"] = int(snapshot.get("target_worker_id", 0))
+	first_clutch["assisted_claim_id"] = 42
+	first_clutch["delivery_laid"] = false
+	office.set("_first_clutch", first_clutch)
+	diagnostic = office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
+	_check(StringName(diagnostic.get("stage", &"")) == &"delivery" and String(diagnostic.get("visual_title", "")) == "WATCH MABEL FINISH", "post-peck guidance should lead with the hen's immediate observable action", failures)
+	_check(String(diagnostic.get("visual_body", "")) == "PECK LANDED  >  FINISH FILE  >  LAY EGG" and int(diagnostic.get("assisted_claim_id", -1)) == 42, "post-peck guidance should retain the exact file while compressing its lifecycle", failures)
+	first_clutch["delivery_laid"] = true
+	office.set("_first_clutch", first_clutch)
+	diagnostic = office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
+	_check(String(diagnostic.get("visual_title", "")) == "FOLLOW THE EGG" and String(diagnostic.get("visual_body", "")) == "GRADING  >  FARMER BASKET  >  FEED FUND", "laid delivery should switch to an egg-led reward path", failures)
 
 	store.delete()
 	office.queue_free()

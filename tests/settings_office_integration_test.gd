@@ -29,6 +29,7 @@ func _run() -> void:
 
 	var settings := office.find_child("PlayerSettings", true, false) as PeckingOrderSettingsUI
 	var open_button := office.find_child("OpenSettingsButton", true, false) as Button
+	var speed_control := office.find_child("SimulationSpeedControl", true, false) as HBoxContainer
 	var career_category := office.find_child("SettingsCategory_Career", true, false) as Button
 	var controls_category := office.find_child("SettingsCategory_Controls", true, false) as Button
 	var controller := office.find_child("ManagementCameraController", true, false) as ManagementCameraController
@@ -53,7 +54,18 @@ func _run() -> void:
 		else null
 	)
 	_check(settings != null and not settings.is_open(), "settings should be integrated but hidden on boot", failures)
-	_check(open_button != null and open_button.focus_mode == Control.FOCUS_ALL and "F10" in open_button.text, "the persistent HUD should expose a keyboard-focusable settings route", failures)
+	_check(
+		open_button != null
+		and open_button.focus_mode == Control.FOCUS_ALL
+		and "F10" in open_button.text
+		and open_button.text == String(open_button.get_meta("compact_text", ""))
+		and bool(open_button.get_meta("icon_led_action_mark", false))
+		and String(open_button.get_meta("semantic_icon", "")) == "settings_cog"
+		and open_button.icon != null
+		and String(open_button.get_meta("full_text", "")) in String(open_button.get_meta("accessible_text", "")),
+		"the persistent HUD should expose a cog-led keyboard-focusable settings route with its complete authored binding available semantically",
+		failures,
+	)
 	_check(controller != null and atmosphere != null and routing != null, "comfort settings should have live camera, atmosphere, and routing targets", failures)
 	_check(audio_feedback != null and audio_director != null and audio_director.fixed_player_count() == 4, "the integrated office should own bounded feedback plus pressure-and-momentum adaptive audio", failures)
 	for action: StringName in OfficeActionCatalogScript.managed_actions():
@@ -225,6 +237,20 @@ func _run() -> void:
 	office.set("_player_preferences", comfort)
 	office.call("_apply_player_preferences")
 	await process_frame
+	_check(
+		open_button != null
+		and speed_control != null
+		and bool(open_button.get_meta("compact_action_mark", false))
+		and open_button.text == String(open_button.get_meta("compact_text", ""))
+		and open_button.text == "SETTINGS  [F10]"
+		and " / " not in open_button.text
+		and " / " in String(open_button.get_meta("full_text", ""))
+		and String(open_button.get_meta("full_text", "")) in String(open_button.get_meta("accessible_text", ""))
+		and "Binding:" in open_button.tooltip_text
+		and open_button.get_global_rect().end.x <= speed_control.get_global_rect().position.x - 10.0,
+		"150-percent HUD should keep Settings and its primary safety key readable without crowding the speed controls",
+		failures,
+	)
 	var flockwatch_navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
 	if flockwatch_navigation != null:
 		office.call("_set_flockwatch_open", true)
@@ -485,7 +511,20 @@ func _run() -> void:
 		failures,
 	)
 	var nest_queue := office.find_child("Queue_nest_damage", true, false) as Label
-	_check(nest_queue != null and "[N]" in nest_queue.text, "safe palette should add a redundant Nest routing marker", failures)
+	var nest_queue_icon := office.find_child("QueueIcon_nest_damage", true, false) as TextureRect
+	_check(
+		nest_queue != null
+		and (
+			"[N]" in nest_queue.text
+			or (
+				nest_queue_icon != null
+				and nest_queue_icon.visible
+				and String(nest_queue_icon.get_meta("semantic_icon", "")) == "lane_nest"
+			)
+		),
+		"safe palette should add a redundant Nest text marker or enlarged-scale semantic lane mark",
+		failures,
+	)
 	_check(
 		_contains_all(
 			settings.accessible_text() if settings != null else "",
@@ -629,6 +668,16 @@ func _run() -> void:
 	# preference file; persistence itself has a separate crash-recovery test.
 	office.set("_player_preferences", original)
 	office.call("_apply_player_preferences")
+	await process_frame
+	_check(
+		open_button.text == String(open_button.get_meta("compact_text", ""))
+		and bool(open_button.get_meta("compact_action_mark", false))
+		and bool(open_button.get_meta("icon_led_action_mark", false))
+		and open_button.icon != null
+		and " / " in String(open_button.get_meta("full_text", "")),
+		"restoring 100 percent should preserve the cog-led Settings action and complete semantic binding",
+		failures,
+	)
 	office.free()
 	await process_frame
 	preferences_store.delete_preferences()

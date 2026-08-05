@@ -55,6 +55,9 @@ func _run() -> void:
 	var first_ledger_line := ui.find_child("ReportLedgerMetricLine1", true, false) as HBoxContainer
 	var first_ledger_value := ui.find_child("ReportLedgerValue1", true, false) as Label
 	var choice_title := ui.find_child("MilestoneChoiceSectionTitle", true, false) as Label
+	var edge_legend := ui.find_child("MilestoneEdgeLegend", true, false) as Label
+	var watch_legend := ui.find_child("MilestoneWatchLegend", true, false) as Label
+	var board_legend := ui.find_child("MilestoneBoardLegend", true, false) as Label
 	var continue_button := ui.find_child("ContinueProbationButton", true, false) as Button
 	var requisitions_button := ui.find_child("ReviewRoostRequisitionsButton", true, false) as Button
 	var shelve_button := ui.find_child("AbandonCampaignButton", true, false) as Button
@@ -144,6 +147,14 @@ func _run() -> void:
 	_check(ledger_title != null and ledger_title.text == "SENIOR CAREER RECORD", "Senior report should name the career record without probation copy or accounting jargon", failures)
 	_check(first_ledger_line != null and first_ledger_value != null and first_ledger_line.get_child(0) == first_ledger_value, "Senior career cards should share the value-first report hierarchy", failures)
 	_check(choice_title != null and "CAPITAL POLICY" in choice_title.text, "quarter gate should explain the decision class", failures)
+	_check(
+		edge_legend != null and edge_legend.text == "+ HELP"
+		and watch_legend != null and watch_legend.text == "! RISK"
+		and board_legend != null and board_legend.is_visible_in_tree()
+		and board_legend.text == "B BOARD",
+		"Senior policy filing should decode benefit, risk, and Board-fit symbols in the section header",
+		failures,
+	)
 	_check(board_strip != null and board_strip.is_visible_in_tree() and board_strip.get_child_count() == 3, "Senior reports should render the annual Board as three stable target tiles", failures)
 	_check(clutch_tile != null and String(clutch_tile.get_meta("status", "")) == "needs_action" and payroll_tile != null and String(payroll_tile.get_meta("status", "")) == "met", "Board target state should remain semantic when color is unavailable", failures)
 	_check(clutch_rail != null and clutch_rail.value == 0.0 and not clutch_rail.show_percentage, "an untouched minimum Board target should render an empty glance rail without duplicate text", failures)

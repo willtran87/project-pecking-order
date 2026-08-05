@@ -60,6 +60,37 @@ func _run() -> void:
 		"the record celebration should remain compact visually and exact accessibly",
 		failures,
 	)
+	var post_record_receipt := _best_fit_dispatch(simulation, &"nest_damage", failures)
+	_check(
+		int(post_record_receipt.get("momentum_chain", 0)) == 16,
+		"the real post-record route should advance the authoritative chain to x16",
+		failures,
+	)
+	routing_ui.apply_snapshot(simulation.snapshot())
+	routing_ui.set_dispatch_state(&"", 16, "", "")
+	_check(
+		momentum_label.text == "FIT 16 / 20"
+		and "Best-fit record 16" in momentum_label.tooltip_text
+		and "next mastery record is 20" in momentum_label.tooltip_text
+		and momentum_label.accessibility_name == momentum_label.tooltip_text
+		and int(momentum_label.get_meta("mastery_target", 0)) == 20,
+		"the post-record strip should use a familiar progress fraction with exact accessible context [text=%s tooltip=%s accessibility=%s target=%d]" % [
+			momentum_label.text,
+			momentum_label.tooltip_text,
+			momentum_label.accessibility_name,
+			int(momentum_label.get_meta("mastery_target", 0)),
+		],
+		failures,
+	)
+	routing_ui.set_dispatch_state(&"appeals", 16, "Mabel", "")
+	_check(
+		momentum_label.text == "PICK FIT 16 / 20"
+		and "Best fit: Mabel" in momentum_label.tooltip_text
+		and "16 of 20" in momentum_label.tooltip_text
+		and momentum_label.accessibility_name == momentum_label.tooltip_text,
+		"tray selection should preserve the same mastery fraction while naming the recommended hen",
+		failures,
+	)
 	office.call(
 		"_on_routing_reward_presented",
 		int(record_reward.get("worker_id", -1)),

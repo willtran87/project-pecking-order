@@ -90,7 +90,7 @@ func _run() -> void:
 	_check(
 		prelude_button != null
 		and prelude_button.is_visible_in_tree()
-		and "OPEN MABEL'S FILE" in prelude_button.text,
+		and prelude_button.text == "OPEN FIRST FILE  [ENTER]",
 		"pre-policy orientation should expose one explicit Mabel file action",
 		failures,
 	)
@@ -357,11 +357,13 @@ func _run() -> void:
 	_check(StringName(state.get("stage", "")) == &"priority_peck" and int(state.get("progress", -1)) == 3, "Continue should resume at the exact next action", failures)
 
 	# Restored camera framing is presentation-only, so focus the persisted target
-	# again, wait for her physical chair arrival, and build a real claim rhythm.
+	# again, resume the intentionally frozen 0x route, wait for her physical chair
+	# arrival, and then pause to build a deterministic real claim rhythm.
 	camera = office.get("_camera_controller") as ManagementCameraController
 	if camera != null:
 		camera.focus_worker(target_worker_id)
 	await process_frame
+	clock.set_speed(1)
 	var seated := await _wait_until_worker_seated(office, target_worker_id, 720)
 	_check(seated, "restored target hen should physically reach her workstation", failures)
 	clock.set_speed(0)
@@ -549,11 +551,11 @@ func _run() -> void:
 	var flockwatch_hint := OfficeActionCatalogScript.binding_label(&"toggle_flockwatch")
 	_check(
 		flockwatch_toggle != null
-		and flockwatch_toggle.text == "FLOCKWATCH  ·  3 ACTIONS  [%s]" % flockwatch_hint
+		and flockwatch_toggle.text == "TODAY'S 3 ORDERS  [%s]" % flockwatch_hint
 		and guidance != null
-		and guidance.text.begins_with("GOALS READY:")
+		and guidance.text == "ORDERS READY  >  OPEN  [%s]" % flockwatch_hint
 		and "three probation orders" in String(guidance.get_meta("accessible_text", "")).to_lower(),
-		"resolved reinvestment should reveal the stable Flockwatch action count, current binding, and objectives guidance",
+		"resolved reinvestment should name today's three orders, current binding, and exact next action",
 		failures,
 	)
 	_check(_press(flockwatch_toggle), "player should be able to acknowledge the handoff by opening Flockwatch", failures)
@@ -1010,7 +1012,26 @@ func _start_new_coached_campaign(office: Office, failures: Array[String]) -> voi
 	await process_frame
 	await process_frame
 	await _authorize_opening_policy(office, failures)
+	var character_dialogue = office.get("_character_dialogue_ui")
+	for _dialogue_index in 6:
+		if (
+			character_dialogue == null
+			or not bool((character_dialogue.call("diagnostic_state") as Dictionary).get(
+				"visible",
+				false,
+			))
+		):
+			break
+		character_dialogue.call("dismiss_current")
+		await process_frame
 	var clock := office.get("_clock") as SimulationClock
+	if clock != null:
+		clock.set_speed(1)
+	_check(
+		await _wait_until_worker_seated(office, 0, 720),
+		"regression fixture should resume the authored target into her real chair",
+		failures,
+	)
 	if clock != null:
 		clock.set_speed(0)
 	var state := office.first_clutch_snapshot()
@@ -1029,6 +1050,18 @@ func _route_target_to_specialty(
 	simulation: DepartmentSimulation,
 	worker_id: int
 ) -> bool:
+	var character_dialogue = office.get("_character_dialogue_ui")
+	for _dialogue_index in 6:
+		if (
+			character_dialogue == null
+			or not bool((character_dialogue.call("diagnostic_state") as Dictionary).get(
+				"visible",
+				false,
+			))
+		):
+			break
+		character_dialogue.call("dismiss_current")
+		await process_frame
 	var camera := office.get("_camera_controller") as ManagementCameraController
 	if camera != null:
 		camera.focus_worker(worker_id)

@@ -90,6 +90,20 @@ func _run() -> void:
 	_assert_stable_desks_and_routes(
 		office, workstations, workstation_instance_ids, original_routes, 4, failures,
 	)
+	var simulation := office.get("_simulation") as DepartmentSimulation
+	var day_one_snapshot := simulation.snapshot()
+	var day_one_furnishings := _interior_furnishing_signature(office)
+	var next_day_same_office := day_one_snapshot.duplicate(true)
+	next_day_same_office["day"] = int(day_one_snapshot.get("day", 1)) + 1
+	office.call("_on_snapshot_changed", next_day_same_office)
+	await process_frame
+	_check(
+		_interior_furnishing_signature(office) == day_one_furnishings,
+		"advancing a shift at unchanged capacity should preserve every interior furnishing instance and visibility state",
+		failures,
+	)
+	office.call("_on_snapshot_changed", day_one_snapshot)
+	await process_frame
 
 	_stage = "checking fresh core"
 	var fresh := office.call("office_physical_presentation_snapshot") as Dictionary
@@ -113,6 +127,10 @@ func _run() -> void:
 	var marker_04 := office.find_child("CapacityAuthorization_04", true, false) as Node3D
 	var marker_05 := office.find_child("CapacityAuthorization_05", true, false) as Node3D
 	var west_partition := office.find_child("WestLeasePartition", true, false) as Node3D
+	var west_furnishings := office.find_child("OpeningWestOfficeFurnishings", true, false) as Node3D
+	var west_flex_furnishings := office.find_child("WestSecondPerchFlexFurnishings", true, false) as Node3D
+	var west_supply_cabinet := office.find_child("WestFlexSupplyCabinet", true, false) as Node3D
+	var west_visitor_nook := office.find_child("WestVisitorOfficeNook", true, false) as Node3D
 	var west_fill := office.find_child("FluorescentFill_0", true, false) as OmniLight3D
 	var west_zone_04 := office.find_child("Zone_WestPerch04", true, false) as Node3D
 	var west_zone_05 := office.find_child("Zone_WestPerch05", true, false) as Node3D
@@ -139,6 +157,14 @@ func _run() -> void:
 	)
 	if west_partition != null:
 		_assert_partition_route_clearance(west_partition, failures)
+	_check(
+		west_furnishings != null and west_furnishings.is_visible_in_tree()
+		and west_flex_furnishings != null and west_flex_furnishings.is_visible_in_tree()
+		and west_supply_cabinet != null and west_supply_cabinet.is_visible_in_tree()
+		and west_visitor_nook != null and west_visitor_nook.is_visible_in_tree(),
+		"fresh office should expose its persistent west furnishings and convertible sixth-perch nook",
+		failures,
+	)
 	_check(
 		west_zone_04 != null and not west_zone_04.is_visible_in_tree()
 		and west_zone_05 != null and not west_zone_05.is_visible_in_tree(),
@@ -225,6 +251,14 @@ func _run() -> void:
 		failures,
 	)
 	_check(
+		west_furnishings != null and west_furnishings.is_visible_in_tree()
+		and west_flex_furnishings != null and west_flex_furnishings.is_visible_in_tree()
+		and west_supply_cabinet != null and west_supply_cabinet.is_visible_in_tree()
+		and west_visitor_nook != null and west_visitor_nook.is_visible_in_tree(),
+		"capacity five should retain every west furnishing outside the commissioned desk footprint",
+		failures,
+	)
+	_check(
 		west_zone_04 != null and west_zone_04.is_visible_in_tree()
 		and west_zone_05 != null and not west_zone_05.is_visible_in_tree()
 		and pipeline_board != null and not pipeline_board.is_visible_in_tree(),
@@ -266,6 +300,14 @@ func _run() -> void:
 	_check(
 		west_partition != null and not west_partition.is_visible_in_tree(),
 		"the full bureau should keep the temporary west partition retired",
+		failures,
+	)
+	_check(
+		west_furnishings != null and west_furnishings.is_visible_in_tree()
+		and west_supply_cabinet != null and west_supply_cabinet.is_visible_in_tree()
+		and west_visitor_nook != null and west_visitor_nook.is_visible_in_tree()
+		and west_flex_furnishings != null and not west_flex_furnishings.is_visible_in_tree(),
+		"capacity six should preserve perimeter furniture and convert only the sixth-perch footprint",
 		failures,
 	)
 	_check(
@@ -393,6 +435,26 @@ func _capture_workstations(office: Office, failures: Array[String]) -> Array[Nod
 			failures,
 		)
 		result.append(matches[0] as Node3D if matches.size() == 1 else null)
+	return result
+
+
+func _interior_furnishing_signature(office: Office) -> Dictionary:
+	var result := {}
+	for node_name in [
+		"OpeningWestOfficeFurnishings",
+		"WestSecondPerchFlexFurnishings",
+		"WestFlexSupplyCabinet",
+		"WestFlexMailTable",
+		"WestFlexFileCart",
+		"WestFlexCoatStand",
+		"WestFlexProjectStation",
+		"WestVisitorOfficeNook",
+	]:
+		var node := office.find_child(node_name, true, false) as Node3D
+		result[node_name] = {
+			"instance_id": node.get_instance_id() if node != null else 0,
+			"visible": node.is_visible_in_tree() if node != null else false,
+		}
 	return result
 
 
@@ -639,6 +701,17 @@ func _is_subset(subset: Array[String], superset: Array[String]) -> bool:
 
 func _finish(office: Office, store: Variant, failures: Array[String]) -> void:
 	if office != null and is_instance_valid(office):
+		# Capacity changes rebuild optional storytelling over several frames. Let the
+		# staged builder settle before freeing its owner so rendered capture runs end
+		# without a resumed-after-free coroutine error.
+		var storytelling := office.get("_office_storytelling") as OfficeStorytelling
+		for _frame in 40:
+			if storytelling == null or not is_instance_valid(storytelling):
+				break
+			var build_state := storytelling.optional_visual_build_snapshot()
+			if bool(build_state.get("ready", false)):
+				break
+			await process_frame
 		office.free()
 	await process_frame
 	store.delete()

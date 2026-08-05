@@ -9947,3 +9947,1852 @@ The next major systems milestone is persistent worker relationships and individu
   `FB08C001908EFD2974D25ECC8EC14171D0270448E8CAAC5BA24FAA65D3B9C0AD`.
   Temporary choreography and every task-owned Godot/browser client process were
   removed; the production server remains available on port 3000.
+
+## 2026-08-04 - First Clutch route hierarchy refinement in progress
+
+- Removed the competing selected-state emphasis between the current `AUTO`
+  route and the coached `APPEALS [ENTER]` recommendation.
+- During the route lesson, the current route remains readable but subdued while
+  the recommended specialty match owns the sole prominent control treatment.
+- Added accessibility and diagnostic identity for current versus recommended
+  routes, plus exact restoration coverage when the lesson advances.
+
+## 2026-08-04 - First Clutch route hierarchy refinement verified
+
+- The coached route now has one clear visual priority: the current `AUTO` route
+  remains readable but subdued, while `APPEALS [ENTER]` owns the active
+  specialty-colored border.
+- The accepted browser evidence is
+  `output/web-game/first-clutch-route-hierarchy-final/shot-2.png`; the official
+  browser capture contains zero error files and zero orphan nodes.
+- Focused coach restoration and Enter-activation tests pass. The full beta
+  release gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/first-clutch-route-hierarchy-beta-release-gate.json`.
+- `docs`, `web/public/game`, `web/dist/client/game`, and the served production
+  payload match at 9,779,812 bytes with SHA-256
+  `6C2E25F9D3C8D1F190B00D08D8FC336F9B074D931B99D48AD3634767B6FF3B37`.
+  Temporary choreography and every task-owned Godot/browser client process were
+  removed; the production server remains available on port 3000.
+
+## 2026-08-04 - First Clutch progress-rail refinement in progress
+
+- Replaced the tutorial card's text-heavy `1 / 5` fraction with a compact
+  five-step rail: checks mark completed steps, a filled diamond marks the active
+  action, and hollow rings show what remains.
+- Preserved an exact accessible progress sentence and exposed the rail's state
+  through component presentation metadata.
+- Character-led orientation copy intentionally hides the procedural rail until
+  the actionable tutorial begins.
+
+## 2026-08-04 - First Clutch progress-rail refinement verified
+
+- The accepted live frame at
+  `output/web-game/first-clutch-progress-rail-final-v5/shot-3.png` replaces the
+  old `1 / 5` fraction with one completed check, one active diamond, and three
+  upcoming rings while keeping the route action visually dominant.
+- The official browser flow progressed from intake through policy selection and
+  Mabel's dialogue to the real specialty-route stage. It reports progress `1`,
+  zero browser errors, and zero orphan nodes.
+- Focused coach and keyboard-guidance tests pass. The full beta release gate
+  passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/first-clutch-progress-rail-beta-release-gate.json`.
+- `docs`, `web/public/game`, `web/dist/client/game`, and the served production
+  payload match at 9,782,484 bytes with SHA-256
+  `0631D42961A9E9F27A50CABE7DD3D7CDBD9BA908A9B238EE23A40504610EC376`.
+  Temporary choreography and intermediate probes were removed; the production
+  server remains available on port 3000.
+
+## 2026-08-04 - Selected-hen work-cycle refinement in progress
+
+- Replaced the idle dossier sentence explaining `route -> peck -> egg` with a
+  compact visual lifecycle rail.
+- The current route step uses a tray glyph and gold underline; upcoming peckwork
+  and delivery use screen and egg shapes connected by directional arrows.
+- Preserved the complete work-loop explanation for assistive technology and
+  exposed the semantic sequence through component metadata.
+
+## 2026-08-04 - Selected-hen work-cycle refinement verified
+
+- The accepted browser frame at
+  `output/web-game/routing-lifecycle-rail-final-v2/shot-3.png` replaces the idle
+  instructional sentence with a legible tray -> workstation -> egg diagram.
+  The route step is gold and underlined; future steps stay quieter so the
+  recommended `APPEALS [ENTER]` action remains the primary control.
+- The lifecycle rail is limited to a selected hen waiting for work. Normal
+  routing and active Priority Peck tests confirm live-file economics, progress,
+  and timing controls retain their established presentation.
+- The official browser reports First Clutch route stage `1`, zero errors, and
+  zero orphan nodes. The full beta release gate passes 44/44 checks and all
+  49/49 rendered Web tests at
+  `output/release/routing-lifecycle-rail-beta-release-gate.json`.
+- `docs`, `web/public/game`, `web/dist/client/game`, and the served production
+  payload match at 9,785,124 bytes with SHA-256
+  `3266766D5008F881704F7E39F81F2C8A118F22EB0C6DCE26D22F17BD4935E061`.
+  Temporary choreography and the discarded first visual pass were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Clock action clarity refinement in progress
+
+- Converting the clock's fixed `PAUSE` speed selector into a true `PAUSE` / `RESUME` action so its label describes the next click, not an ambiguous state.
+- Aligning mouse behavior with the existing Space shortcut, with explicit tooltip and accessibility copy for both states.
+- Adding focused management-loop coverage for the complete running -> paused -> resumed interaction.
+
+## 2026-08-04 - Clock action clarity refinement verified
+
+- Replaced the inert paused-state `PAUSE` button with a real toggle: stopped time now shows `RESUME`, resumes at normal `1×`, then switches back to `PAUSE` while time is moving. Mouse and Space now share the same action path.
+- Added state-specific tooltip, accessibility name, and semantic `clock_action` metadata so pointer, keyboard, and assistive users receive the same exact intent.
+- Extended `management_loop_ui_test.gd` across the full running -> paused -> resumed path, including label, tooltip, accessibility, semantic action, and clock-speed assertions.
+- Focused parse/integration verification passed. Official Playwright captures prove both visible states: `output/web-game/clock-action-clarity-final/shot-3.png` shows `RESUME` at 8:00 AM, and `output/web-game/clock-action-resume-final/shot-0.png` shows `PAUSE` at 8:10 AM after Space resumes 1× speed. Exported state matched the frame (`clock_speed_index=1`, `clock_multiplier=1.0`) with zero orphan nodes and no browser-console error artifact.
+- Full beta release gate passed 44/44 checks (35 Godot, 4 Web, 5 release), including 49/49 rendered Web tests, lint, production serving, release-evidence contracts, and exact nine-file Pages/wrapper parity. Report: `output/release/clock-action-clarity-beta-release-gate.json`.
+- Exported payload parity: `docs/index.pck` and `web/public/game/index.pck` are both 9,787,524 bytes with SHA-256 `67817596BC50A56487B643A370FD31D0E1E3D3CD505C65405A2AC69D3A8EC82F`.
+- Removed task-owned browser choreography after validation; the existing local production server on port 3000 remains available.
+
+## 2026-08-04 - Selected-hen world-signal hierarchy refinement in progress
+
+- Establishing a clear selected-versus-background hierarchy for the circular world intent pins that currently compete equally across the office floor.
+- Keeping the inspected hen at full size and contrast while routine background pins recede; urgent care/deadline pins retain stronger visibility.
+- Preserving equal peer weight in office overview and exposing the hierarchy through browser diagnostics and focused tests.
+
+## 2026-08-04 - Selected-hen world-signal hierarchy refinement verified
+
+- Focused inspection now establishes a legible floor hierarchy: the selected hen's intent pin remains full-size and full-contrast, while routine background pins recede to 62% scale and 54% opacity. Urgent background pins retain a protected 80% scale and 78% opacity.
+- The selected pin lifts 0.34 world units above the hen silhouette, keeping Mabel's face and character animation readable instead of covering them. Returning to office overview removes the lift and restores every pin to equal peer weight.
+- The accepted focused frame is `output/web-game/intent-focus-hierarchy-final-v2/shot-3.png`; the accepted overview round trip is `output/web-game/intent-focus-overview-final/shot-0.png`. Browser diagnostics exactly report selected/background/peer roles, scale, lift, and alpha with zero errors and zero orphan nodes.
+- Focused hen-intent and full feedback-orchestra integration tests pass. The final beta release gate passes 44/44 checks (35 Godot, 4 Web, 5 release) and all 49/49 rendered Web tests at `output/release/intent-focus-hierarchy-beta-release-gate.json`.
+- `docs/index.pck` and `web/public/game/index.pck` match at 9,790,804 bytes with SHA-256 `008E3C71E9D8DC4FF6608B614DBC40CC1B5D2462111A806DB6D24F7926DBE3A3`.
+- Temporary choreography, the superseded first visual capture, and every task-owned Godot/browser process were removed; the existing production server remains available on port 3000.
+
+## 2026-08-04 - First Clutch overview-handoff refinement complete
+
+- Replacing the visibly truncated `RETURN TO MABE` recovery control with the shorter, direct `FIND MABEL` action.
+- Compressing the overview-only specialty explanation into the font-safe `MATCH SPECIALTY > SPEED + / CRACKS -` while preserving the complete instructional sentence for tooltips and assistive technology.
+- Adding component metadata and focused coverage for visual copy, accessible copy, and the exact recovery action.
+- Completed: the overview-only route explanation is now one complete, glanceable cause/effect line, while its full instruction remains available through the label's accessibility name and tooltip.
+- Completed: the recovery action now reads `FIND MABEL`, exposes a `focus_target` diagnostic role, and restores Mabel's focused dossier without advancing the tutorial stage.
+- The first exported capture exposed unsupported Unicode arrow glyphs; the accepted copy uses font-safe ASCII symbols and renders without tofu boxes or truncation.
+- Focused parser, coach UI, and keyboard-guidance checks pass. The full beta release gate passes 44/44 checks and the rendered web suite passes 49/49 tests in `output/release/first-clutch-overview-handoff-beta-release-gate.json`.
+- Accepted exported-Web evidence: `output/web-game/first-clutch-overview-handoff-final-v2/shot-0.png` shows the clean overview handoff; `output/web-game/first-clutch-overview-handoff-roundtrip-final-v2/shot-0.png` shows Mabel restored with `APPEALS [ENTER]` highlighted. Both captures report zero browser errors and zero orphan nodes.
+- The synchronized Web PCK is 9,791,268 bytes with SHA-256 `299C00C87BBDE71DC42BD6BCC64BAD7DBC690325C9FD276B7212A9562073A502` across `docs`, `web/public/game`, the production bundle, and the live local server.
+
+## 2026-08-04 - Idle dossier action-header refinement complete
+
+- Replacing the selected hen's system-like `1 ROUTE / WAITING FOR AUTO-SORTED FILE` header with the direct `1 CHOOSE A ROUTE` action when Auto has no active file.
+- Preserving the exact idle and Auto-sorting explanation through tooltip, accessibility name, and lifecycle presentation metadata.
+- Keeping manually assigned empty trays factual with a compact lane-specific waiting status instead of presenting a false action.
+- Completed: the focused idle dossier now leads with `1 CHOOSE A ROUTE`; active files retain their live status and manually assigned empty trays retain lane-specific waiting copy.
+- `render_game_to_text` now mirrors the visible lifecycle header, its semantic role, and its full accessible explanation. The accepted browser state reports Mabel focused, `header_role=route_action`, active stage `route`, zero errors, and zero orphan nodes.
+- Accepted exported-Web evidence: `output/web-game/idle-route-action-header-final-v2/shot-0.png`. The superseded pre-diagnostic capture and temporary choreography were removed.
+- Parser, focused First Clutch UI, and broader claim-routing UI checks pass. The full beta release gate passes 44/44 checks and all 49/49 rendered Web tests in `output/release/idle-route-action-header-beta-release-gate.json`.
+- The synchronized Web PCK is 9,792,516 bytes with SHA-256 `55CD3E180AB225E78FA6E14BF5950984FED72290A958387395EDDE2F0C037D67` across `docs`, `web/public/game`, the production bundle, and the live local server.
+
+## 2026-08-04 - First Clutch action-title refinement complete
+
+- Collapsing the route coach's duplicated `ROUTE MABEL TO APPEALS & EXCEPTIONS` heading into the direct visual action `CHOOSE APPEALS`.
+- Preserving the complete worker and specialty identity through the title label's tooltip, accessibility name, presentation metadata, and Web diagnostics.
+- Retaining the corrective `MATCH MABEL'S TRAY` visual title when a coached hen is already stamped to the wrong manual route.
+- Completed: the specialty-route coach now shows `CHOOSE APPEALS`; every other stage retains its authored title and a mismatched manual route still shows `MATCH MABEL'S TRAY`.
+- The title label, coach tooltip, component presentation state, and `render_game_to_text` retain `ROUTE MABEL TO APPEALS & EXCEPTIONS` as the complete semantic identity.
+- Accepted exported-Web evidence: `output/web-game/first-clutch-action-title-final/shot-0.png` shows the focused dossier hierarchy; `output/web-game/first-clutch-action-title-overview-final/shot-0.png` shows the complete overview handoff. Both states report the concise/full title pair, zero errors, and zero orphan nodes.
+- Parser and focused coach/keyboard tests pass. The full beta release gate passes 44/44 checks and all 49/49 rendered Web tests in `output/release/first-clutch-action-title-beta-release-gate.json`.
+- The synchronized Web PCK is 9,792,948 bytes with SHA-256 `B63973343B9028DB55081DDE25F0203C8CF0C4FCF01AD2194ECEE0AE217963A0` across `docs`, `web/public/game`, the production bundle, and the live local server.
+
+## 2026-08-04 - Selected-hen specialty identity refinement complete
+
+- Replacing the duplicated `SPECIALTY / APPEALS = BEST FIT` line with the character-forward `APPEALS SPECIALIST` identity.
+- Keeping `BEST FIT > APPEALS [ENTER]` as the dossier's one actionable match instruction.
+- Preserving the speed and shell-safety rationale through tooltip, accessibility name, lifecycle metadata, and Web diagnostics.
+- Completed: the focused dossier identifies Mabel as `APPEALS SPECIALIST`, while the neighboring best-fit line remains the single route instruction.
+- Normal dossiers reset to their complete worker identity, check-in exposes a dedicated profile identity, and route mismatches expose a target-route role so no coached semantics leak across stages.
+- Accepted exported-Web evidence: `output/web-game/specialist-identity-final/shot-0.png`. Browser diagnostics report `identity_role=specialist_identity`, the full match rationale, zero errors, and zero orphan nodes.
+- Parser, focused First Clutch UI, and broader claim-routing UI checks pass. The full beta release gate passes 44/44 checks and all 49/49 rendered Web tests in `output/release/specialist-identity-beta-release-gate.json`.
+- The synchronized Web PCK is 9,794,292 bytes with SHA-256 `AE6A71EA12111C8B07151067B8788CCA8C4A341583FB1F19BFFF3C15550DAEC9` across `docs`, `web/public/game`, the production bundle, and the live local server.
+
+## 2026-08-04 - Focused route-payoff refinement complete
+
+- Replacing duplicated `BEST FIT > APPEALS [ENTER]` copy with the consequence-first `MATCH > SPEED + / CRACKS -` signal.
+- Keeping the highlighted tray button as the dossier's sole route action.
+- Preserving exact speed, shell-risk, and keyboard guidance through accessibility, tooltip, lifecycle metadata, and Web diagnostics.
+- Completed: the selected dossier now explains the specialty payoff without echoing its highlighted route button; the corrective unmatched route keeps its direct `ROUTE > ... [ENTER]` instruction.
+- Accepted exported-Web evidence: `output/web-game/route-payoff-final/shot-0.png`. Browser diagnostics report `route_hint_role=match_payoff`, complete keyboard and cause-effect guidance, zero errors, and zero orphan nodes.
+- Parser, focused First Clutch UI, and broader claim-routing UI checks pass. The full beta release gate passes 44/44 checks and all 49/49 rendered Web tests in `output/release/route-payoff-beta-release-gate.json`.
+- The synchronized Web PCK is 9,794,308 bytes with SHA-256 `07EE8AD8E3E5FA06880D3B420E2E4F95B7B9D62C5EB3EA97FE9139B4E477EB1D` across `docs`, `web/public/game`, the production bundle, and the live local server.
+
+## 2026-08-04 - First Clutch profile-payoff refinement complete
+
+- Following the real Appeals route handoff exposed duplicate check-in copy: the profile identity, recommendation card, and highlighted button repeated `CREDIT CONSCIOUS` and `SHARE CREDIT`.
+- Collapsing the center card to `PROFILE MATCH > TRUST + / GRIEVANCE -`, with the highlighted `SHARE CREDIT [ENTER]` button retaining sole ownership of the action.
+- Preserving the exact profile recommendation, authored description, numerical preview, and keyboard path through accessibility, tooltip, component metadata, and exported-Web diagnostics.
+- Completed: the check-in card is now a single vertically centered payoff signal; Mabel's profile identity and the highlighted Share Credit stamp each appear only where they perform a distinct job.
+- Accepted exported-Web evidence: `output/web-game/profile-payoff-final/shot-0.png`. Diagnostics report `dossier_summary_role=profile_payoff`, the exact $7.00/trust/grievance/favor preview, `Enter` as the primary shortcut, zero errors, and zero orphan nodes.
+- Parser, focused First Clutch UI, and keyboard-guidance checks pass. The full beta release gate passes 44/44 checks and all 49/49 rendered Web tests in `output/release/profile-payoff-beta-release-gate.json`.
+- The synchronized Web PCK is 9,794,196 bytes with SHA-256 `0E9EC8F6C204440B677F5DC1F726FE145B516DAB6E127C3E75C8A5A26BBB8D80` across `docs`, `web/public/game`, the production bundle, and the live local server.
+
+## 2026-08-04 - Priority Peck micro-step guidance complete
+
+- Following the real Share Credit filing exposed a paused timing lesson whose visible title said `LAND MABEL'S PRIORITY PECK` even though the immediate action was Resume.
+- Making the compact coach track the live micro-step: `RESUME AT 1x`, `WAIT FOR MABEL'S FILE`, `WATCH FOR GOLD`, then `PECK NOW [E]`.
+- Retaining `LAND MABEL'S PRIORITY PECK` as the complete semantic lesson identity and publishing the current shortcut through browser diagnostics.
+- Retiring hidden dossier-summary copy from presentation diagnostics so Priority Peck no longer reports the previous profile-payoff card after it leaves the screen.
+- Completed: the paused timing lesson now visibly says `RESUME AT 1x` beside the highlighted speed control; running/no-file, active-file, and open-gold states each receive their own concise title without changing authoritative timing behavior.
+- Accepted exported-Web evidence: `output/web-game/priority-peck-resume-final/shot-0.png`. Diagnostics report `visual_title=RESUME AT 1x`, full title `LAND MABEL'S PRIORITY PECK`, shortcut `1`, no stale dossier summary, zero errors, and zero orphan nodes.
+- Parser, focused coach UI, and keyboard-guidance checks pass. The full beta release gate passes 44/44 checks and all 49/49 rendered Web tests in `output/release/priority-peck-microsteps-beta-release-gate.json`.
+- The synchronized Web PCK is 9,795,316 bytes with SHA-256 `61B18781E6828FFA47C184F20AC1E5D2291741C475F08FC3ACD9741433D442F9` across `docs`, `web/public/game`, the production bundle, and the live local server.
+
+## 2026-08-04 - Priority Peck dossier handoff refinement in progress
+
+- The real post-route timing screen still presented `1 CHOOSE A ROUTE`/route-stage
+  lifecycle semantics and an IT automation note after Mabel's route was already
+  locked.
+- Reframing the empty-file state as step 2 `WAIT FOR LIVE FILE`, advancing the
+  visual lifecycle to peckwork, and replacing automation prose with a compact
+  resume/file/gold sequence.
+- Keeping the full timing explanation in tooltip and accessibility metadata;
+  no routing, clock, or Priority Peck authority is changing.
+
+## 2026-08-04 - Priority Peck dossier handoff refinement complete
+
+- The paused timing lesson now advances the selected-hen lifecycle to peckwork
+  and reads `2 WAIT FOR LIVE FILE` instead of presenting the already-completed
+  route as the current step.
+- Replaced the unrelated manual-route/IT automation note with the glanceable
+  `RESUME 1x > FILE > GOLD` sequence. Running empty-file, building-rhythm,
+  open-window, and paused active-file states each retain their own short copy;
+  the complete timing instruction remains accessible.
+- Accepted live browser evidence is
+  `output/web-game/priority-peck-dossier-handoff-final/shot-0.png`. The same
+  intake-to-policy-to-route-to-check-in flow reached the real paused Priority
+  Peck state with zero browser-console errors.
+- Focused coach and keyboard-guidance tests pass. The post-export beta release
+  gate passes 44/44 checks and all 49/49 rendered Web tests at
+  `output/release/priority-peck-dossier-handoff-beta-release-gate.json`.
+- The synchronized Pages, production wrapper, and live local payload are
+  9,796,884 bytes with SHA-256
+  `7D75A8C5F07BE35CF6E1169530C9CA631E9115188F868FEB2174F3206EC42C93`.
+  Temporary choreography and task-owned browser/test processes were removed;
+  the production server remains available on port 3000.
+
+## 2026-08-04 - First Clutch delivery handoff refinement complete
+
+- Replaced the post-peck coach's long delivery sentences with two observable
+  micro-states: `WATCH MABEL FINISH` and `FOLLOW THE EGG`.
+- Added a compact causal chain for each state: `PECK LANDED > FINISH FILE > LAY
+  EGG`, then `GRADING > FARMER BASKET > FEED FUND`. The full worker, claim,
+  grading, and recovery explanations remain available through accessibility
+  names and tooltips.
+- The selected dossier now keeps the exact assisted claim visible while it is
+  finishing, then advances its shape-distinct lifecycle rail from the peckwork
+  screen to the egg step when grading begins. Semantic roles distinguish the
+  assisted-file and grading states for Web diagnostics.
+- Focused coach and authoritative keyboard-guidance tests pass. The exported
+  build was inspected through the official Web game client and the resumed
+  production wrapper reports zero browser-console errors.
+- The post-export beta gate passes 44/44 checks and all 49/49 rendered Web tests
+  at `output/release/first-clutch-delivery-handoff-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,797,972 bytes with SHA-256
+  `FAE84FE904DC6022AA14DCB65699A6CEA6E90D3EC68CB4CECEA6FDF9011E6A7E`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - First Clutch orders handoff refinement complete
+
+- Replaced the post-reinvestment `FLOCKWATCH · 3 ACTIONS` internal-system label
+  with the player-facing `TODAY'S 3 ORDERS` action.
+- Aligned the HUD guidance, compact completion coach, current input binding,
+  tooltip, and accessibility copy around one next step: open today's orders.
+- Added a deterministic `--capture-first-clutch-orders` fixture that resolves
+  the real Bank choice and confirmation path before capturing the released
+  handoff. The inspected native frame at
+  `output/web-game/first-clutch-orders-handoff-native/first_clutch_orders_handoff.png`
+  shows the orders button and guidance rail clearly without covering the floor.
+- Focused reinvestment UI coverage passes. The older all-in-one induction test
+  still hits its pre-existing live Priority Peck timing race before reaching
+  this handoff; the focused authoritative path is green.
+- The official Web game client boots the synchronized production payload, and
+  the resumed local production wrapper reports zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at
+  `output/release/first-clutch-orders-handoff-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,799,060 bytes with SHA-256
+  `546F92129CA544D840FFCB6B14E01F567D9920C9A64F3CB121B6E88DFB68A90F`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - First Clutch orders dashboard refinement complete
+
+- The released `TODAY'S 3 ORDERS` handoff opened a strong compact dashboard,
+  but its goal cards still read like passive status tiles and the global rail
+  immediately reverted to the unrelated `NEXT: SELECT A HEN` instruction.
+- The first unmet goal is now visually selected as the drawer settles, its
+  exact live driver is revealed immediately, every goal uses a pointing cursor,
+  and the heading compresses the interaction to `3 GOALS > PICK ONE > +9`.
+- The global guidance rail follows the same selected driver, for example
+  `ORDER PICKED > SHOW HEN ROUTES`, while complete descriptions remain in
+  tooltips, accessibility metadata, and diagnostics.
+- Added the deterministic `--capture-first-clutch-orders-open` fixture. The
+  inspected native frame is
+  `output/web-game/first-clutch-orders-dashboard-native-final-v2/first_clutch_orders_dashboard.png`.
+- Focused reinvestment, Today-density, and broader management-loop UI coverage
+  pass. The official Web client boots the synchronized payload, and the local
+  production wrapper reports zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at
+  `output/release/first-clutch-orders-dashboard-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,798,676 bytes with SHA-256
+  `6F49897B92FCD265F88504EA74F494E9B58306E728EEA0C8770A13F0BDABF924`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Orders-to-route driver handoff refinement complete
+
+- Following `SHOW HEN ROUTES` exposed the correct Mabel route dossier, but the
+  primary rail immediately promoted `RETURN: PROVE THE PLAN` instead of the
+  route choice visible on screen.
+- The route handoff now reads `ROUTE MABEL > MATCH OR AUTO`, while the compact
+  launcher becomes `RETURN TO GOAL [V / Back]`. Activating that launcher returns
+  to and focuses the exact originating Today order without filing a route.
+- Return diagnostics now retain the originating driver action, and route
+  guidance keeps the full specialty/Auto tradeoff plus return behavior in its
+  tooltip and accessibility copy.
+- Added `--capture-goal-driver-route-handoff`; the inspected native frame is
+  `output/web-game/goal-driver-route-handoff-final/goal_driver_route_handoff.png`.
+- The complete Orders -> route dossier -> exact Today return path passes the
+  broader management-loop UI test, alongside claim-routing and Today-density
+  coverage. The official Web client boots the synchronized payload, and the
+  local production wrapper reports zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at
+  `output/release/orders-route-driver-handoff-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,799,572 bytes with SHA-256
+  `77CEB7F8BE4A5AFCE11EF29AE8CB84C8E986438271B3449C92AFC3A6889FEC5B`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Route fit decision refinement complete
+
+- The Orders-to-route handoff named `MATCH OR AUTO`, but the route grid left the
+  player to cross-reference Mabel's dossier identity with four equally terse
+  buttons to discover that Appeals was her credentialed match.
+- Each focused hen now marks exactly one primary credentialed route as `FIT`
+  directly on the button; Auto remains a distinct balanced current choice.
+  Secondary accreditations receive the same mark when present.
+- The handoff rail now names the actual comparison, for example
+  `ROUTE MABEL > APPEALS FIT / AUTO`. Exact pace, shell-safety, automation, and
+  return behavior remain in tooltips and accessibility copy.
+- Accepted native evidence is
+  `output/web-game/route-fit-handoff-final/goal_driver_route_handoff.png`.
+  Management-loop and broad claim-routing UI coverage pass, including the
+  one-fit-per-focused-hen contract.
+- The official Web client boots the synchronized payload, and the local
+  production wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at
+  `output/release/route-fit-decision-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,799,892 bytes with SHA-256
+  `01D216BE681C143ED58EE4EEC95538EE52EC7C66A783589E14AB8E9D25CDFAED`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Routing mastery fraction refinement complete
+
+- The persistent routing HUD still compressed best-fit progression as
+  `FIT ×16 NEXT 20`, forcing the player to infer that 20 was a mastery target.
+- Active mastery progress now uses the familiar `FIT 16 / 20` fraction. While
+  a tray is selected, the same state reads `PICK FIT 16 / 20` instead of
+  changing notation mid-decision.
+- Full streak, next-record, reward, best-hen, and no-timer explanations remain
+  in tooltips and are now mirrored to the label's native accessibility name.
+- Focused mastery and broad claim-routing coverage pass. The inspected real
+  x15-to-x16 work-start frame is
+  `output/web-game/routing-mastery-fraction-native-final/routing_work_start.png`;
+  the fraction remains legible in the compact queue strip without widening or
+  obscuring the office.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at
+  `output/release/routing-mastery-fraction-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,800,164 bytes with SHA-256
+  `E4B2B71E4CCF6CDEF95EE833D5A8D0C7B2FF9352CA35A9FABC06AC2DC6ACFE90`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Shift egg-goal HUD refinement complete
+
+- The persistent shift objective still labeled its primary production bar
+  `SHIFT CLUTCH`, requiring new players to infer that the number counts eggs.
+- The rail now says simply `EGGS`, leaving the existing progress bar and
+  `laid / goal` fraction to communicate the objective with fewer words.
+- The progress bar and numeric readout share exact dynamic tooltip and native
+  accessibility copy for eggs laid, eggs remaining, and the completed-goal
+  state.
+- Opening-experience and 150%-text resilience coverage pass. The inspected
+  normal-play frame is
+  `output/web-game/shift-egg-goal-native-final/routing_work_start.png`; `EGGS`,
+  its progress bar, and `0 / 16` read as one compact objective without shifting
+  the policy or next-action rails.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/shift-egg-goal-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,799,844 bytes with SHA-256
+  `214753F4D518BB1CBC9803DCA083FCBD2B0CAFA62E62BDE4123B470822AC9125`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Route success receipt refinement complete
+
+- The transient route payoff repeated `BEST FIT` and `FIT ×16`, described the
+  assignment as `MABEL FROM APPEALS`, and ended with the internal queue phrase
+  `NEXT FILE QUEUED`.
+- The receipt now uses a directional action chain such as
+  `MABEL > APPEALS • FIT 16 • PACE +15% • NEXT FILE READY`.
+- The shorter visual line preserves the exact route, fit streak, reward, and
+  next state in a named tooltip and native accessibility label.
+- Full claim-routing integration coverage passes. The inspected x16 reward
+  frame is
+  `output/web-game/route-success-receipt-native-final/routing_work_start.png`;
+  the banner now reads `MABEL > APPEALS • FIT 16 • PACE +15% • NEXT FILE READY`
+  without widening or competing with the office.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/route-success-receipt-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,799,972 bytes with SHA-256
+  `27A0BFFAA014EA0217BC7676978A113B34E03FE77586DAF966D6FECAB2022B71`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Route fit benefit cue refinement complete
+
+- The route coach and live dossier still described a specialty match with the
+  symbolic `MATCH > SPEED + / CRACKS -`, even though the route buttons now use
+  the clearer `FIT` vocabulary.
+- Both surfaces now say `FIT = FASTER + SAFER`, directly connecting the button
+  choice to its two gameplay benefits in plain language.
+- Precise pace and shell-crack consequences remain available in the tooltip,
+  accessibility label, and semantic presentation metadata.
+- Focused First Clutch coach and keyboard-guidance coverage passes. The
+  inspected route frame is
+  `output/web-game/route-fit-benefit-native-final/first_clutch_induction.png`;
+  the new cue reads clearly beneath the route lifecycle rail without widening
+  or competing with the four route choices.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/route-fit-benefit-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,799,812 bytes with SHA-256
+  `29431FECE99418EF397A773D27C0866C341752844C5A145D823E688C470943A4`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Manual route tradeoff refinement complete
+
+- Normal-play manual routes still showed the system-centric warning
+  `MANUAL OVERRIDE / IT AUTO SUPPORT OFF`, leaving players to infer whether the
+  chosen tray was a good specialty match.
+- The dossier now leads with the gameplay consequence: `FIT ROUTE • NO AUTO
+  BONUS` for a credential match and `OFF-FIT ROUTE • NO AUTO BONUS` otherwise.
+- Exact IT Coop pace/grace exclusions and off-specialty time/shell-risk effects
+  remain in the tooltip and accessibility label.
+- Focused claim-routing coverage passes for both fit and off-fit manual routes.
+  The inspected normal-play frame is
+  `output/web-game/manual-route-tradeoff-native-final/peckwork_routing.png`;
+  `APPEALS FIT` and `FIT ROUTE • NO AUTO BONUS` read as a compact action and
+  tradeoff pair without competing with the file meter.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/manual-route-tradeoff-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,799,716 bytes with SHA-256
+  `566E3FEC7435D224CB9EF9FD48760B5E637014EE604819B27F3729BB1B16A837`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Priority Peck timing-language refinement complete
+
+- The recurring timing band still read like compressed prose: `WAIT • PECK WHEN
+  GOLD LIGHTS`, with the timing-quality label placed before the urgent action.
+- The cue now follows a consistent player rhythm: `WAIT FOR GOLD • THEN PECK`,
+  `PECK NOW • [RHYTHM]`, and `NEXT FILE • TRY AGAIN`.
+- Each state now owns a complete tooltip and native accessibility label while
+  retaining the exact gold-window percentages and ideal timing marker.
+- Focused Priority Peck and hen-intent coverage passes across ready and missed
+  states. Inspected frames are
+  `output/web-game/priority-peck-language-native-final/peckwork_routing.png`,
+  `peck_assist_ready.png`, and `peck_assist_missed.png`; the prepare, act, and
+  recover cues remain compact beside the live meter and route controls.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/priority-peck-language-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,800,276 bytes with SHA-256
+  `2E54C053151ABBD4FB68DE031D610EF6098E1ACF73936D6C06F3BFA561DE6CFD`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Active-file header refinement complete
+
+- The core dossier header still compressed tutorial numbering, an abbreviated
+  action, lane, ID, rework state, and progress into strings such as
+  `2 PECK / APPEALS #0003 • 0%`.
+- Active work now leads with the object players are managing, using compact
+  status such as `APPEALS #0003 • PECKING 0%` or `APPEALS #0003 • LAYING 90%`.
+- The full loop step, state, file identity, percentage, and rework status remain
+  available through the tooltip and native accessibility label.
+- Focused claim-routing and next-file receipt coverage passes. The inspected
+  normal-play frame is
+  `output/web-game/active-file-header-native-final/peckwork_routing.png`;
+  `APPEALS #0003 • PECKING 0%` reads cleanly above the deadline/value row and
+  leaves the route controls undisturbed.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/active-file-header-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,801,060 bytes with SHA-256
+  `84960D5362F352ECCCBDBF9CBF7410464C7F198D432FA441478A40ACC78077F4`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Active-file facts strip refinement complete
+
+- The detail row beneath the selected file still mixed sentence fragments and
+  separators, such as `DUE IN 358m • $8.20 • crack 18% • NEXT / lay completed
+  egg`.
+- Active work now uses the compact decision strip `358M LEFT • $8.20 • CRACK
+  18% • NEXT: EGG`; laying switches to payout, crack risk, and `NEXT: GRADING`.
+- Full deadline phrasing, estimated risk meaning, egg outcome, and the
+  grading-to-farmer journey remain in the tooltip and accessibility label.
+- Focused claim-routing and Priority Peck delivery coverage passes. Inspected
+  frames are `output/web-game/active-file-facts-native-final/peckwork_routing.png`
+  and `peck_delivery.png`; work and delivery facts remain aligned beneath the
+  file-first header without widening the dossier.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/active-file-facts-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,801,204 bytes with SHA-256
+  `0E4CEB0ACE30DF5ED26BB3EC7A0942FAD517CFAEDEC44591883AA64934BAB696`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Selected-hen vitals strip refinement complete
+
+- The persistent bottom strip repeated work state/progress from the open
+  dossier and spelled out every wellbeing label, creating another dense line
+  across the playable office.
+- It now behaves as a focused vitals glance: `MABEL • ♥ 74 • Zz 7 • ! 12 •
+  CRACK 18%`; work state and progress remain in the file header directly above.
+- The hen name, exact state/progress, morale, fatigue, stress, and estimated
+  crack risk remain in the tooltip, native accessibility label, and semantic
+  role metadata.
+- Focused feedback-orchestration coverage passes. The inspected normal-play
+  frame is `output/web-game/selected-hen-vitals-native-final/peckwork_routing.png`;
+  every symbol renders cleanly, the strip is substantially shorter, and the
+  dossier remains the sole visual source for work progress.
+- The official Web client boots the synchronized payload, and the production
+  wrapper renders cleanly with zero browser-console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/selected-hen-vitals-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,802,356 bytes with SHA-256
+  `9F4E447C84F294ECB6681AF65EAEF01417E189D49DA40E5C28A2D649BC0D05DE`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Stable Priority Peck action refinement complete
+
+- The live timing cue already said `WAIT FOR GOLD  •  THEN PECK`, but the
+  adjacent disabled control replaced the action with a second status sentence,
+  `BUILDING RHYTHM`, before turning into `PECK NOW`.
+- The control now remains `PECK [E / A]` while it charges. The existing gold
+  band, moving file meter, color state, and timing cue own readiness, so players
+  can learn one action position and label without rereading the button.
+- The full unavailable-until-gold meaning remains in the native accessibility
+  label and semantic metadata. Focused validation and visual release evidence
+  remain aligned.
+- `peck_assist_ui_test.gd` passes the full warming, open, paused, result,
+  delivery, and dialogue-blocked interaction chain. The inspected normal-play
+  frame is
+  `output/web-game/stable-peck-action-native-final/peckwork_routing.png`; the
+  stable action label is contained, legible, and visually subordinate until the
+  gold window opens.
+- The official Web client boots the synchronized payload with readable state
+  output and zero console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/stable-peck-action-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,802,788 bytes with SHA-256
+  `6ABB153535459B94DE1C19593E3EE9399CA6A00C785483FB0B73CC4E2CB28A93`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Claimant-outcome handoff refinement complete
+
+- The selected-hen shortcut said `CHOOSE PATH` while sitting directly beside
+  AUTO, NEST, PREDATOR, and APPEALS tray-routing controls. Two different
+  decisions therefore competed for the same route/path vocabulary.
+- The shortcut now says `CHOOSE OUTCOME`; its complete explanation asks players
+  to compare care, pace, risk, and cost before the 55% lock. Clicking it still
+  opens the existing File choices without selecting or filing anything.
+- Native inspection caught the full instruction clipping in the compact action
+  slot. Progressive detail now renders `OUTCOME ›` on the button while retaining
+  `CHOOSE OUTCOME` and the comparison criteria in tooltip/accessibility copy.
+- Focused hen-intent and claim-routing suites pass. They verify priority,
+  semantic icon parity, keyboard focus handoff, and that opening the outcome
+  choices never files one implicitly.
+- The inspected normal-play frame is
+  `output/web-game/claimant-outcome-handoff-native-final/peckwork_routing.png`;
+  `OUTCOME ›` is fully contained and visually distinct from every tray route.
+- The official Web client boots the synchronized payload with matching text
+  state and zero console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at
+  `output/release/claimant-outcome-handoff-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,801,396 bytes with SHA-256
+  `D100BB667D01D4DDCD128569CBBF065782A95D8A574FF158721CFC476CEB7C55`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Outcome cutoff glance refinement complete
+
+- The claimant outcome shortcut was distinct from tray routing, but its 55%
+  lock remained hidden in progressive-detail copy. This made the required order
+  of operations easy to miss because Priority Peck's gold window follows soon
+  afterward.
+- The compact control now reads `OUTCOME <55%`. The percentage comes from the
+  authoritative resolution status, and the fuller comparison guidance remains
+  in tooltip/accessibility copy.
+- Native inspection rejected the longer `OUTCOME BY 55%` treatment because its
+  final symbol clipped; the shorter mathematical badge retains the complete
+  decision boundary in the same footprint.
+- Focused hen-intent coverage passes with the authoritative cutoff, compact
+  visual label, semantic full copy, icon parity, and keyboard handoff intact.
+- The inspected normal-play frame is
+  `output/web-game/outcome-cutoff-glance-native-final/peckwork_routing.png`;
+  `OUTCOME <55%` is fully visible at the existing button width and does not
+  disturb the selected-hen dossier or route controls.
+- The official Web client boots the synchronized payload with matching text
+  state and zero console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/outcome-cutoff-glance-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,803,700 bytes with SHA-256
+  `B1B03BE2C2C0603294A27DED43DC436D387F9539AB04C03027CB270E499582BF`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Clickable guidance-label refinement complete
+
+- The paused header guidance is already an icon-led clickable control with a
+  hover state and chevron, but it still narrated the interaction as
+  `NEXT: OPEN TODAY'S GOALS` or `NEXT: SELECT A HEN`.
+- The visible control now leads with its destination: `TODAY'S GOALS` when the
+  ledger is closed and `SELECT A HEN` when it is open. Full paused-state intent
+  remains in tooltip, accessibility copy, and guidance metadata.
+- `management_loop_ui_test.gd` passes the paused destination, click-through,
+  tooltip/accessibility, consequence receipt, and management-loop interaction
+  chain.
+- The inspected normal-play frame is
+  `output/web-game/clickable-guidance-label-native-final/peckwork_routing.png`;
+  the pause/goal icon, `TODAY'S GOALS`, and chevron read as one deliberate
+  control without clipping or leaving an ambiguous sentence fragment.
+- The official Web client boots the synchronized payload with matching text
+  state and zero console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at
+  `output/release/clickable-guidance-label-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,805,620 bytes with SHA-256
+  `1DB8ACB0A12BF1DCEDF6FDC8F5C7BFB9EE5A43E51E378636938B0C4EA7D3EA52`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Guidance action-cluster refinement complete
+
+- Shortening the paused guidance revealed that its label still expanded across
+  the entire header and pinned the chevron near the far-right edge, visually
+  disconnecting the affordance from `TODAY'S GOALS`.
+- The full-width button retains its generous hit target, while its visible goal
+  icon, destination label, and chevron now remain grouped at the leading edge.
+- Native inspection rejected the first shrink-only layout because trimmed labels
+  can report a zero minimum width. Guidance now measures the active visual copy,
+  caps it at 430px, and reserves that exact width before placing the chevron.
+- `management_loop_ui_test.gd` passes the measured label width, <=12px chevron
+  gap, full hit target, paused click-through, and accessible-detail chain.
+- The inspected normal-play frame is
+  `output/web-game/guidance-action-cluster-native-final/peckwork_routing.png`;
+  `TODAY'S GOALS ›` now reads as one compact action beside its goal icon, with
+  no missing text, distant affordance, or header collision.
+- The official Web client boots the synchronized payload with matching text
+  state and zero console errors.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at `output/release/guidance-action-cluster-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,805,812 bytes with SHA-256
+  `5DF6204790633B11956EA72E5FB58D73582A319F553BA86065482D8DE1A3BD43`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000.
+
+## 2026-08-04 - Capital glance clarity refinement complete
+
+- Audited the densest built-in Flockwatch Capital preview and found that its
+  three decision numbers used accounting shorthand (`FREE / MARGIN / TO GO`),
+  while a failed requisition was truncated before revealing the amount needed.
+- The compact economic summary now reads `SPEND / NET / NEED`, separating the
+  immediately spendable $20 from the $50 Feed Fund in the header without
+  changing the authoritative values or their exact ledger/tooltips.
+- Failed requisitions now compact into a complete action receipt such as
+  `REQUISITION BLOCKED · NEED $5.00 MORE`; the original authored reason remains
+  intact for hover and accessible narration.
+- `economic_briefing_test.gd` and `flockwatch_navigation_test.gd` pass the new
+  plain-language glance, extracted shortfall, and full semantic receipt.
+- The confirmed native inspection frame is
+  `output/web-game/capital-glance-clarity-native-confirm/requisitions.png`; the
+  official Web client also boots the synchronized payload with populated state
+  and zero console errors at
+  `output/web-game/capital-glance-clarity-official/shot-0.png`.
+- The post-export beta release gate passes 44/44 checks and all 49/49 rendered
+  Web tests at
+  `output/release/capital-glance-clarity-beta-release-gate.json`.
+- The synchronized Pages, public, production-wrapper, and live local payload is
+  9,806,260 bytes with SHA-256
+  `6E4E057BBE466BE2EDC9AA1F5C992392D7C6E09FB72DED9CD9D0E9FF36FA9A7C`.
+  Temporary browser choreography and task-owned processes were removed; the
+  production server remains available on port 3000 (PID 44076).
+
+## 2026-08-04 - Duplicate-chicken report diagnosed
+
+- Reproduced the opening/paused breakroom presentation and inspected the Web
+  runtime projection. The four visible chickens are unique workers: Mabel (0),
+  Pip (1), Henrietta (2), and Dot (3), assigned respectively to water, coffee,
+  lounge, and browsing interactions.
+- The duplicate impression comes from four employees sharing one base chicken
+  mesh and clustering in the breakroom while the shift is held; palettes and
+  accessories differ, but those distinctions are subtle at the management
+  camera distance. No duplicate runtime worker ID was observed.
+- A screenshot is still needed if the reported state contains more than four
+  opening hens or the exact same name/accessory twice; that would indicate a
+  separate departure/restore lifecycle edge rather than this normal roster.
+- Follow-up isolated the report to the incident auto-pause boundary. A focused
+  identity trace held all four `ChickenView` instance IDs constant across
+  opening, running, `AWAITING_INCIDENT`, and resolved states; active children
+  remained 4 and departing children remained 0 throughout.
+- Root cause: incident auto-pause stops `SimulationClock`, but presentation
+  routes continue in `ChickenView` real-time physics. At accelerated pacing,
+  an incident can overtake entrance/break routing; movement then continues or
+  catches up behind the modal and reads as one flock leaving while another
+  flock spawns for the desks. This is a presentation synchronization defect,
+  not authoritative roster duplication.
+- The temporary identity diagnostic was removed after execution, and no test
+  process was left running. A future fix should hold or settle ordinary worker
+  routes while the blocking incident surface is open without freezing required
+  decision UI or altering authoritative work state.
+- End-of-day follow-up traced the same four instance IDs through shift close,
+  Farmer Review, credit filing, and the next morning. Active children remained
+  4, departing children remained 0, and no worker view was recreated.
+- Shift close does, however, clear every current claim and set every employed
+  worker to `IDLE` at once. Any view traveling to or occupying a break station
+  therefore reverses toward its desk while the full-screen review obscures the
+  route. Combined with real-time route motion continuing under blocking review
+  surfaces, that synchronized return convincingly reads as a replacement flock.
+- The end-of-day identity diagnostic and native capture process were cleaned up.
+  The required presentation fix should cover all blocking management surfaces,
+  including incident and day review, rather than patching incident flow alone.
+- Completed the cross-surface lifecycle audit. Every player-facing pause path
+  converges on `SimulationClock` 0x: manual pause, incidents and directives,
+  Farmer Review and closing credit, campaign/title reports, Settings and focus
+  loss, capital/campus planning, and blocking character dialogue. Flockwatch and
+  held confirmations do not independently stop the clock, so they remain live.
+- `Office` now projects that single authoritative pause state onto active and
+  departing `ChickenView` instances. Ordinary entrance, desk, break, and return
+  routes retain their exact world position at 0x instead of completing beneath
+  a modal; ambient pose and causal peck/lay feedback continue to animate.
+- Authored real-time lifecycle events remain intentionally exempt: Feed Party
+  attendance, campus commutes, predator panic, and explicit office departures.
+  Capture-only scene staging is also exempt, preserving the art pipeline.
+- Worker spawning now retires any stale departing view with the same worker ID
+  before creating its authoritative replacement, enforcing one visible model
+  per ID even across a rapid restore or roster reversal.
+- Added `tests/chicken_lifecycle_pause_test.gd`. It proves route position is
+  stable while held, action contacts stay live, every active Office worker
+  follows the 0x/1x boundary, Feed Party keeps moving, and active/departing
+  registries cannot overlap one ID.
+- Focused validation passes: chicken lifecycle pause, campus portfolio commute,
+  Feed Party event presentation, Feed Party speed restoration, predator debug
+  gating, feedback timing, decision/review UI, campaign ending UI, Settings
+  integration, character dialogue UI, and presentation smoke. All launched
+  Godot test processes exited.
+- The local Web export is synchronized across Pages, public, and the running
+  production wrapper: 9,807,364 bytes, SHA-256
+  `D93E39E292BEEF97049521550463C1ABEF516B7E2DF8551AC1CA9EBB8A56907C`.
+  The payload served from port 3000 matches the on-disk export byte-for-byte.
+
+## 2026-08-04 - Between-shift office furnishing continuity
+
+- Traced the reported furniture swap to the capacity presentation: commissioning
+  the fifth perch hid the temporary west partition and every child beneath it,
+  unintentionally removing the records cabinet, mailroom, project station, file
+  cart, coat stand, and visitor nook as one large visual block.
+- Moved the west office furnishings under the persistent core presentation. The
+  fifth-perch office now retains the complete furnished west side; the sixth
+  perch converts only its overlapping mail/project footprint, while the supply
+  cabinet and visitor nook remain for the life of the office.
+- Added a same-capacity day-boundary invariant to
+  `office_physical_staging_test.gd`: Day 1 -> Day 2 must preserve the exact
+  furnishing instance IDs and visibility states. Capacity 4/5/6 assertions also
+  verify the persistent perimeter and explicitly convertible sixth-perch nook.
+- Updated the office-detail contract to distinguish persistent furnishings from
+  the visual-only sixth-perch flex group. Office physical staging, office detail,
+  and opening-experience progression tests pass.
+- Rendered and inspected all three 2560x1440 capacity states. Capacity five now
+  reads as the same lived-in office with one commissioned desk instead of an
+  emptied west floor; capacity six retains the perimeter records/visitor story.
+- Refreshed the Web export and synchronized its PCK across `docs`, the public
+  wrapper, and the built client. The exported runtime boots through the official
+  browser harness, publishes a populated game-state snapshot, and produced no
+  console or page errors. The served payload is 9,807,492 bytes with SHA-256
+  `0FC44F9679DE320CEBF6B3BE2929AD381FCFA7E9E1668D1D2DDE1FF463CA21EF`.
+
+## 2026-08-04 - First-impression clarity polish
+
+- Removed the duplicated difficulty copy from the opening selector. Its three
+  options now read as clear difficulty/profile pairs, with Standard explicitly
+  marked Recommended instead of displaying `STANDARD STANDARD FILING`.
+- Reworked the probation journey into numbered, plain-language beats: team up,
+  work five shifts, and pass the final review. The same rules remain available
+  through the existing disclosure, while the at-a-glance path is easier to scan.
+- Updated the UI contract for the new labels; `probation_campaign_ui_test.gd`
+  passes across title, resume, report, final, and 390x844 responsive states.
+- `opening_experience_progression_test.gd` also passes. Exported browser
+  captures verify both the revised title screen and its primary-action handoff
+  into Mabel's first contextual office task, with no console/page error file.
+- The refreshed 9,807,604-byte PCK matches across `docs`, public, built client,
+  and the payload served on port 3000 (SHA-256
+  `92D3978D98F16EFCEFA21974CC4802C986D669C185D6FB4A9F685C10BF6D0685`).
+
+## 2026-08-04 - First office action hierarchy polish
+
+- Removed the repeated `OPEN MABEL'S FILE` language from the first live office
+  card. The card now establishes `MEET MABEL`, compresses her Appeals specialty
+  and personality into one line, and leaves `OPEN FIRST FILE` as the sole action.
+- Preserved the complete authored title, quote, and next-step explanation in the
+  existing accessibility names and tooltips rather than deleting that context.
+- Updated the coach and induction contracts. The focused first-clutch coach UI
+  test passes across compact, disclosure, focus, and recovery states.
+- The complete induction run exposed an obsolete test assumption that restored
+  worker routes advance at 0x. The lifecycle fix deliberately freezes them;
+  the end-to-end scenario now resumes Mabel for her chair arrival before
+  pausing its deterministic Priority Peck setup, matching the visible guidance.
+- The same pause contract also applied to the induction's auxiliary fresh-file
+  fixtures. They now dismiss the authored opening dialogue, resume the target
+  into her chair, and only then freeze deterministic edge-case setup.
+- Hardened the First Clutch orders handoff discovered during teardown testing:
+  Flockwatch focus settling now uses a cancellation-safe deferred callback
+  rather than leaving a coroutine that can resume after Office is freed.
+- The complete First Clutch induction now passes through prelude, policy,
+  routing, check-in, Priority Peck, egg delivery, reinvestment, save/restore,
+  review recovery, and rollover. Focused coach and Flockwatch navigation tests
+  also pass.
+- Exported browser captures confirm the smaller `MEET MABEL` card, its single
+  `OPEN FIRST FILE` action, and the Enter-key handoff into the live three-rule
+  policy decision. Both state snapshots report the expected authoritative stage
+  and produced no console/page error file.
+- The refreshed 9,807,300-byte PCK matches across `docs`, public, built client,
+  and port 3000 (SHA-256
+  `C9D7E16058AEBD0B58C782B0CBE81D97CB4F3735B9CDA7DD5BC02D1C0C652E9C`).
+
+## 2026-08-04 - Opening policy decision density polish
+
+- Removed the opening rule screen's repeated lower instruction. The title and
+  one short subtitle now establish the task once; the disabled action points
+  spatially to `SELECT A RULE ABOVE` without echoing the headline.
+- Selecting a rule collapses all completed instructional copy, reveals the exact
+  compact fit/edge receipt, colors the three affected goals, and changes the
+  primary action directly to `START SHIFT · [RULE]`.
+- Preserved the full comparison instruction and policy consequences in existing
+  accessibility metadata. Decision-loop and management-loop UI tests pass.
+- Inspected the exported unselected policy state: the duplicate lower prompt is
+  gone, the modal is shorter, and `SELECT A RULE ABOVE` remains visibly disabled
+  until a real choice. Browser state confirms an active directive with no
+  selection/confirmation, and no console/page error file was produced.
+- Selection, goal highlighting, the compact consequence receipt, authorization,
+  and shift start remain covered by both passing Godot UI flows. The refreshed
+  9,807,220-byte PCK matches the payload served on port 3000 (SHA-256
+  `C8CB08215EBC1A12C8B5BD3050615B4E69F3AA4F7FF651E47C4546FD1537C9C7`).
+
+## 2026-08-04 - Policy tradeoff clarity polish
+
+- Replaced the ambiguous `HELP` / `WATCH` policy counts with direct `HELPS` /
+  `RISKS` language on every directive card and its selected consequence receipt.
+- Selected goals now gain persistent `+` or `!` markers in addition to their
+  teal/amber styling, so the policy-to-goal relationship no longer depends on
+  color perception. The unselected row restores the original concise goal text.
+- Kept the complete policy-to-order titles, consequence details, and directional
+  ledger caveat in the existing assistive description.
+- `decision_loop_ui_test.gd`, `directive_order_fit_test.gd`, and
+  `management_loop_ui_test.gd` pass with the new labels, selection markers,
+  authorization flow, and five-day derived fit matrix.
+- Exported and inspected the selected Harvest state through the official browser
+  client. All three goal markers, all three concise tradeoff lines, the exact
+  edge receipt, and the Start action are visible without clipping; diagnostic
+  state reports `record_harvest` selected and confirmation enabled. No browser
+  error file was produced.
+- Synchronized the refreshed 9,807,460-byte PCK across `docs`, public, and built
+  client payloads. The payload served on port 3000 has matching SHA-256
+  `805B78DB6FD7AEDD5AE74A391E799C3DCF4FA06DC8BB3400584E1BC3B751D53D`.
+
+## 2026-08-04 - Policy confirmation hierarchy polish
+
+- Removed the repeated help/risk counts beneath a selected policy; those counts
+  remain visible once on the cards and are expressed per goal with `+` / `!`.
+- Replaced the two-line jargon-heavy `EDGE` receipt with one explicit selection
+  line: selected rule plus what it is best for.
+- Rewrote all three long-term summaries in concrete game language: more eggs and
+  fewer waiting files, fewer cracks and better compliance, or calmer hens and
+  faster recovery. Assistive details now use `RISKS` and `LONG-TERM STRENGTH`
+  consistently while retaining the exact affected order titles and ledger caveat.
+- `decision_loop_ui_test.gd`, `directive_order_fit_test.gd`, and
+  `management_loop_ui_test.gd` pass across selection, authorization, active-rule
+  tooltip carryover, all five campaign days, and the broader management loop.
+- Inspected the exported selected-Harvest state through the official browser
+  client. The confirmation now fits on one unclipped line with visibly more
+  breathing room before the primary action; browser diagnostics agree that
+  Harvest is selected and authorization is enabled. No browser error file was
+  produced. The client reached its outer timeout only after writing the complete
+  screenshot and state artifacts, and its process exited.
+- Synchronized the refreshed 9,808,004-byte PCK across `docs`, public, and built
+  client payloads. The payload served on port 3000 has matching SHA-256
+  `29500E7F540CD139D44EEBAEF79E94E8950F3224714092C39D28670D90A1136B`.
+
+## 2026-08-04 - Title intake language polish
+
+- Replaced the mechanical fresh-file instruction with one short action sequence:
+  choose a difficulty, then start.
+- Simplified the saved-file branch to `Continue where you left off, or review a
+  fresh file.` The full save-verification and replacement-safety explanation
+  remains in tooltip and assistive metadata.
+- Compressed the long difficulty route line to one plain glance label:
+  `MORE FORGIVING`, `BALANCED`, or `HIGH PRESSURE`, followed by the existing
+  lock warning. Exact route, guidance, opening resources, and pass terms remain
+  available through the same tooltip and disclosure.
+- `probation_campaign_ui_test.gd` passes the title/resume/staged-new-file flow,
+  all three difficulty profiles, 390x844 portrait, 150% UI scale, and expanded
+  copy. `opening_experience_progression_test.gd` also passes the complete first
+  office handoff and adaptive management-surface contract.
+- Inspected the refreshed title in the official browser client: the shorter
+  instruction and `BALANCED  ·  LOCKS ON START` summary remain unclipped with a
+  calmer visual hierarchy. A second pointer run starts the career and lands on
+  the live `MEET MABEL` / `OPEN FIRST FILE` office task. Both state snapshots
+  match the rendered stage and produced no browser error file.
+- Synchronized the refreshed 9,808,260-byte PCK across `docs`, public, and built
+  client payloads. The payload served on port 3000 has matching SHA-256
+  `FCF879E548FFE382845E564A5DFFBC6AFE0A6B49108AA2C4C4B9F828A3997AAA`.
+
+## 2026-08-05 - First office progressive disclosure polish
+
+- Removed the inactive simulation-speed cluster and Flockwatch launcher from
+  Mabel's opening `OPEN FIRST FILE` beat, leaving one unmistakable gameplay
+  action beside the office view. Both controls return as soon as the file has
+  been inspected and the policy handoff begins.
+- Guarded the hidden Flockwatch shortcut during that same pre-policy state so
+  keyboard and controller input cannot open an advanced management surface
+  before the tutorial introduces it.
+- Added production-scene regression coverage for the focused opening state.
+  `opening_experience_progression_test.gd`, `management_loop_ui_test.gd`, and
+  the complete `first_clutch_induction_test.gd` all pass, including the policy,
+  speed-gate, routing, save/restore, and end-to-end induction transitions.
+- Inspected the exported title-to-office handoff through the official browser
+  client. The screenshot shows only the campaign badge, Settings, and the
+  `OPEN FIRST FILE` action; diagnostic state confirms the `inspect` prelude and
+  no browser error artifact was produced. The client reached its outer timeout
+  after writing the complete screenshot and state files, and left no task-owned
+  browser process running.
+- Synchronized the refreshed 9,807,012-byte PCK across `docs`, public, and built
+  client payloads. The payload served on port 3000 has matching SHA-256
+  `0AB1466389B8B11666C5444C133A8DF543BC1933F7DE0909F623D174C2AA74B4`.
+
+## 2026-08-05 - Opening policy selection hierarchy polish
+
+- Made the chosen opening policy unmistakable without relying on color: its
+  card gains a leading `>` marker and stays at full brightness while the two
+  still-available alternatives recede to 64% opacity.
+- Kept the interaction reversible before authorization. Selecting another rule
+  transfers the marker, full-strength treatment, and alternative styling with
+  no stale state; all other decision categories retain their existing peer-card
+  presentation.
+- Added regression coverage for the initial equal-weight policy row, selected
+  and alternative presentation roles, switching choices, exact policy fit, and
+  final Harvest authorization. `decision_loop_ui_test.gd`,
+  `directive_order_fit_test.gd`, and `management_loop_ui_test.gd` pass.
+- Inspected both the native NVIDIA render and the exported browser canvas. The
+  selected card is dominant, alternatives remain readable, the confirmation
+  hierarchy stays unclipped, diagnostics report `record_harvest`, and no browser
+  error artifact was produced. The first short browser attempt's exact six-
+  process tree was cleaned; the successful bounded retry exited on its own.
+- Synchronized the refreshed 9,807,764-byte PCK across `docs`, public, and built
+  client payloads. The payload served on port 3000 has matching SHA-256
+  `3C41F229EB3148ECD4207606F273377B4488232800B990B6713F46DFF2EA74D1`.
+- Suggested next pass: audit incident cards separately before extending this
+  hierarchy; those decisions can include unavailable and cost-gated options,
+  so their alternative treatment should be tuned to preserve warning contrast.
+
+## 2026-08-05 - Incident commitment and consequence polish
+
+- Distinguished keyboard focus from a committed incident response. The chosen
+  card now gains a leading `>` marker and stays at full strength; only another
+  actionable response recedes to 72% opacity. Disabled and cost-gated cards keep
+  full warning contrast and receive an explicit unavailable presentation role.
+- Switching incident responses transfers the marker and hierarchy without stale
+  state. The selected consequence, pivot opportunity, exact costs, and both
+  stay-paused/resume authorization paths remain unchanged.
+- Added the missing `PIVOT OPPORTUNITY // ACTIVE` context to the affected card's
+  tooltip and assistive copy, matching the visible card and its modified total.
+- Fixed a consequence-handoff race: a generic dialogue-driven `SHIFT PAUSED`
+  notice can no longer overwrite a higher-priority `PRECEDENT FILED` receipt.
+  The exact precedent remains the latest toast, Shift Record entry, and
+  Flockwatch assistive notice while the paused clock remains visible in the HUD.
+- `decision_loop_ui_test.gd`, `incident_follow_through_ui_test.gd`, and
+  `management_loop_ui_test.gd` pass across choice switching, cost disclosure,
+  stay-paused, resume-at-prior-speed, precedent persistence, dialogue handoff,
+  and the surrounding management loop.
+- Inspected the selected Ledger Molt incident in both the native NVIDIA render
+  and exported browser canvas. The marker/hierarchy is clear and unclipped;
+  browser diagnostics report `spreadsheet` selected and no error artifact was
+  produced. The temporary Web capture argument was removed immediately after
+  inspection, and the normal served launch reports an empty argument list.
+- Synchronized the refreshed 9,809,092-byte PCK across `docs`, public, and built
+  client payloads. The payload served on port 3000 has matching SHA-256
+  `7CFA8EED43A6563071E002D9A656BEC3FF95AFEAEB961F5D6F940EF0DF14D756`.
+- Suggested next pass: audit the selected incident consequence paragraph at
+  portrait width; desktop now reads cleanly, but its exact multi-line receipt
+  should remain the source of truth before any further icon compression.
+
+## 2026-08-05 - Portrait decision-card readability polish
+
+- Replaced the option-count-only decision grid with a width-aware rule. At
+  phone width, incident, directive, and reinvestment choices now stack into one
+  full-width column; desktop retains its efficient two- and three-column rows.
+- Preserved the existing flock-petition breakpoints and all selection,
+  consequence, disabled-state, keyboard, and authorization behavior.
+- Corrected the focused incident regression to render inside a real 390x844
+  sub-viewport. It now verifies the one-column grid, 338px contained decision
+  card, selected precedent consequence, and the unchanged desktop layout.
+- `incident_follow_through_ui_test.gd`, `decision_loop_ui_test.gd`,
+  `management_loop_ui_test.gd`, `first_clutch_reinvestment_ui_test.gd`, and
+  `flock_petition_ui_test.gd` pass. Editor parsing also completes cleanly.
+- Inspected the native 390x844 selected incident capture and the normal exported
+  browser launch. The portrait responses are readable full-width touch targets,
+  the exact consequence remains vertically scrollable, the Web payload reports
+  no browser errors, and all temporary capture resources were removed.
+- Synchronized the refreshed 9,809,412-byte PCK across `docs`, public, and built
+  client payloads. The locally served payload has matching SHA-256
+  `AE0024A3DA0F05FC63C682A3CD51881A5C3925FAD5057DAC30956365D483186C`.
+
+## 2026-08-05 - Selected incident receipt compression
+
+- Removed repeated prose after an incident response is selected. The visible
+  receipt now keeps only the chosen action, exact immediate effects, active
+  pivot state, next related case, and exact future consequence.
+- On phone-width cards, selecting a response also retires the already-read
+  incident setup and prior-case paragraph. Both reversible response cards and
+  both authorization paths now fit together inside the 390x844 viewport.
+- Preserved the complete tagline, authored consequence, and precedent wording
+  in the receipt's assistive metadata. Desktop keeps its incident context while
+  benefiting from the same shorter selected receipt.
+- Editor parsing, `incident_follow_through_ui_test.gd`,
+  `decision_loop_ui_test.gd`, and `management_loop_ui_test.gd` pass. The focused
+  test now asserts the two authorization buttons are physically on-screen.
+- Inspected the native NVIDIA 390x844 capture and exported browser selected
+  Ledger Molt capture. Browser diagnostics report `spreadsheet` selected,
+  confirmation enabled, the compact exact receipt, and no error artifact.
+- Restored the served launch to empty arguments and removed the temporary input
+  file. Synchronized the 9,806,772-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `A8E60B8A1E981F360DCD35DBC679EA9C582DF6B69368584DBFF0B6865BD46959`.
+- Suggested next pass: apply the same "decision first, detail on demand" audit
+  to the longest between-shift report before changing any underlying economics.
+
+## 2026-08-05 - Between-shift report detail drawer
+
+- Reorganized the probation report around the next useful decision. Shift score,
+  next-day orders, milestone requisition, and exit/continue actions now form the
+  default view; filed credit, hen evidence, five-shift ledgers, and safeguard
+  accounting live in a collapsed `SHIFT DETAILS [D]` drawer.
+- The drawer opens and closes in place with the button or `D`, and resets closed
+  for each newly filed report so historical detail cannot crowd out the next
+  shift's plan.
+- Preserved the full report in assistive output even while its visual details
+  are folded, including the visible results heading, exact score, hen highlight,
+  ledger values, safeguard thresholds, objectives, milestone prompt, and action.
+- Editor parsing, `probation_campaign_ui_test.gd`, `decision_loop_ui_test.gd`,
+  and `probation_campaign_integration_test.gd` pass. The integration regression
+  also opens the drawer and verifies that live worker evidence remains intact.
+- Inspected the exported browser report at Day 3 / score 77. The complete
+  decision path fits in one 1280x720 view, no browser error artifact was
+  produced, and the temporary capture argument and input file were removed.
+- Synchronized the refreshed 9,809,428-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `F439886859293EA25BBF198371E70EDF6551998E10180D1DAE1DB68B55270169`.
+- Suggested next pass: reduce the milestone cards to a compact benefit/tradeoff
+  hierarchy while retaining their exact figures in tooltips and assistive copy.
+
+## 2026-08-05 - Milestone requisition glance cards
+
+- Compressed probation doctrine choices from equal-weight contract paragraphs
+  into three deliberate lines: doctrine identity, furnishing plus primary effect,
+  and a `+` benefit / `!` watch pairing. All three choices now scan as a single
+  comparison row without wrapping into dense five-line blocks.
+- Shortened only the visual vocabulary (`WORK SPEED`, `CRACKS`, `/ EGG`, and the
+  strongest final clause for multi-effect benefits). Exact authored effects,
+  full strengths, watchouts, summary, and playbook remain in each tooltip and
+  assistive description.
+- Added every offered milestone to the report's assistive output, so the folded
+  decision-first report remains complete for nonvisual navigation.
+- Editor parsing, `probation_campaign_ui_test.gd`, and
+  `probation_campaign_integration_test.gd` pass. The focused regression now
+  enforces the three-line glance and exact-detail preservation.
+- Inspected both unselected and selected exported browser states. Shell
+  Assurance remains bright after selection, alternatives recede, score advances
+  to 79, the doctrine appears in game state, and `NEXT SHIFT` becomes primary.
+  No browser error artifacts were produced.
+- Restored the served launch to empty arguments and removed all three temporary
+  input files. No task capture or Godot processes remain; the intentionally
+  running local server was preserved.
+- Synchronized the refreshed 9,810,068-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `A21C8D88B7476AE60DB2241554BFFB0003945674177EBC13ECC237630E1E05BB`.
+- Suggested next pass: give the milestone section a tiny persistent symbol
+  legend near its heading so first-time players decode `+` and `!` instantly
+  without expanding any copy.
+
+## 2026-08-05 - Milestone symbol-language legend
+
+- Added a compact, color-coded legend beside the milestone heading: teal
+  `+ EDGE` identifies the permanent strength and brass `! WATCH` identifies the
+  ongoing tradeoff. Each label carries an exact explanatory tooltip and
+  assistive description.
+- Adapted the same component for Senior Roost policy filings as `+ HELP`,
+  `! RISK`, and `B BOARD`, keeping the later career comparison language aligned
+  with the existing card metrics without leaking Senior terminology into
+  probation.
+- Kept the legend outside the cards so the three-line comparison surface remains
+  unchanged. Its heading row expands responsively instead of widening the cards.
+- Editor parsing, `probation_campaign_ui_test.gd`, and `senior_roost_ui_test.gd`
+  pass, including their 390x844 responsive sweeps and both vocabulary modes.
+- Inspected the exported browser selection state. The legend stays subordinate
+  to the section heading, Shell Assurance selection, and primary `NEXT SHIFT`
+  action; game state reports the matching doctrine and no browser error artifact.
+- Restored the normal empty Web launch arguments and removed the temporary input
+  file. Synchronized the 9,811,188-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `C524D8C79C137AB4ABCBCEBED2067BB4A2E8CDD1B2DD53EA4FC52468228AE819`.
+- Suggested next pass: audit the next-day order chips for equally terse icon and
+  state language, especially the duplicated egg glyph on every objective row.
+
+## 2026-08-05 - Metric-backed next-day order icons
+
+- Fixed current campaign objectives falling through an obsolete ID-only icon
+  selector. Report order symbols now resolve from the stable metric first, so
+  renamed and future objectives keep the correct visual language automatically.
+- Day 3 now uses a distinct egg for quota, barn-heart for farmer confidence, and
+  file inbox for rework. Compliance keeps its shield-check symbol, eliminating
+  the repeated egg row without adding labels or instructions.
+- Added the barn-heart `order_favor` asset to the shared management icon theme;
+  its farm silhouette communicates external trust without borrowing the Feed
+  Fund cash symbol or flock-care heart.
+- Added metric and semantic-icon metadata to both each order card and its icon,
+  while retaining the exact authored title, description, and target in pointer
+  and assistive detail.
+- Editor parsing and `probation_campaign_ui_test.gd` pass, including responsive
+  coverage and explicit quota/compliance/favor/rework mapping regressions.
+- Inspected the current exported Day 3 browser report. All three real campaign
+  orders are visually distinct, the surrounding decision hierarchy is unchanged,
+  game state remains Day 3 / score 77, and no browser error artifact was produced.
+- Restored empty Web launch arguments, removed the temporary capture input, and
+  confirmed no task capture or Godot process remains. Synchronized the refreshed
+  9,811,636-byte PCK across `docs`, public, and built client payloads with SHA-256
+  `F8280C24F20C1197F5D53B5904EA4DA1D0DA4D967D04090F685335179D874404`.
+- Suggested next pass: carry the same metric-backed icon mapping into the compact
+  live order stamps so report planning and in-shift tracking use one vocabulary.
+
+## 2026-08-05 - Unified live order stamp vocabulary
+
+- Normalized compact in-shift stamps from their authoritative metrics instead of
+  trusting legacy caller hints. Quota, farmer favor, compliance, and rework now
+  use the same `order_clutch`, `order_favor`, `order_compliance`, and
+  `order_trays` semantics as the between-shift planning report.
+- Extended the lightweight Flockwatch badge renderer with aliases for the shared
+  order symbols and a matching line-art barn-heart for farmer confidence. Feed
+  Fund cash remains a separate symbol, so trust and money no longer blur together.
+- Preserved legacy hints only as the fallback for unknown metrics, keeping custom
+  or future objectives compatible while making shipped goals deterministic.
+- Editor parsing, `probation_campaign_ui_test.gd`, and
+  `management_loop_ui_test.gd` pass across seeding, focusable goal shortcuts,
+  state changes, promotion readiness, and the surrounding management loop.
+- Inspected the exported active Day 3 tracker in the browser. The HUD shows the
+  three distinct order marks at 2/3 on track; rendered state reports exact
+  `order_clutch`, `order_favor`, and `order_trays` semantics, and no browser error
+  artifact was produced.
+- Restored empty Web launch arguments, removed the temporary capture input, and
+  confirmed no task capture or Godot process remains. Synchronized the refreshed
+  9,812,980-byte PCK across `docs`, public, and built client payloads with SHA-256
+  `811CD9B842C63D9C8D584F7381C1D6731120BAAE1CD7C3463CAC740D9E59C9B9`.
+- Suggested next pass: improve the tracker stamps' tiny need/met state shapes so
+  players can read status before relying on red/teal color.
+
+## 2026-08-05 - Non-color live order state marks
+
+- Paired every compact live-order category symbol with a separate status mark:
+  a ring-check for `ON TRACK` and a diamond-exclamation for `NEEDS ACTION`.
+  Red and teal now reinforce the state instead of carrying it alone.
+- Kept the stamps compact by arranging both symbols on one centered line and
+  preserving the full objective, target, and state in the existing tooltip and
+  assistive text.
+- Exposed `status_icon` and `state_shape` in rendered game state, making the
+  non-color distinction deterministic and directly regression-testable.
+- Editor parsing, `probation_campaign_ui_test.gd`, and
+  `management_loop_ui_test.gd` pass across seeded state, a live quota change,
+  promotion tracking, and the surrounding management loop.
+- Inspected the exported active Day 3 tracker in the browser at its real HUD
+  scale. The quota order shows diamond-exclamation / needs action, the farmer
+  and rework orders show ring-check / on track, and state confirms the expected
+  2/3 split with no browser error artifact.
+- Restored empty Web launch arguments and removed the temporary capture input.
+  Synchronized the refreshed 9,814,116-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `3929A76166F8ACA02312A10E78A0E5EC92B273DC1B0619820F1F41780D2C315F`.
+- Suggested next pass: inspect the tracker under enlarged UI scale and narrow
+  browser widths so the two-symbol language remains equally clear there.
+
+## 2026-08-05 - Interface-scaled live order tracker
+
+- Fixed the accessibility-scale mismatch where tracker text grew at 125%/150%
+  but its category icons, state marks, and interactive targets stayed at their
+  tiny 100% geometry.
+- Added one coherent scaling pass for the order stamps, category symbols,
+  ring-check / diamond-exclamation marks, promotion crest, transparent action
+  targets, and the containing badge frame. Default 100% presentation is
+  unchanged; 150% now uses 48x36 stamps and 15px status marks.
+- Made the active badge widen into its reserved gap between routing and
+  Flockwatch, while narrow layouts cap the enlarged frame to the viewport with
+  18px side margins.
+- Exposed interface scale and rendered mark sizes in diagnostic game state and
+  added a deterministic maximum-scale promotion-tracker capture fixture.
+- Editor parsing, `probation_campaign_ui_test.gd`, and
+  `management_loop_ui_test.gd` pass. The focused regression explicitly verifies
+  150% geometry and full containment at 390x844 before restoring desktop scale.
+- Inspected the exported maximum-scale Day 3 tracker in the browser. The three
+  category/state pairs remain distinct, the badge fits cleanly between adjacent
+  HUD surfaces, rendered state confirms 48x36 / 15px geometry and the authentic
+  2/3 split, and no browser error artifact was produced.
+- Restored empty Web launch arguments and removed the temporary capture input.
+  Synchronized the refreshed 9,815,940-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `19D04FF72EF2BB3414FE690FC550E3D63DE09982EEA01C842CF8100BF52DDCC4`.
+- Suggested next pass: give the live routing chips the same maximum-scale
+  treatment; their longer lane counts become crowded before the tracker does.
+
+## 2026-08-05 - Maximum-scale routing marks
+
+- Fixed 125%/150% routing labels spilling across their fixed tray actions. At
+  enlarged interface scales, the strip now uses a nest-and-egg mark, fox mark,
+  and returning-file mark for Nest Damage, Predator Loss, and Appeals, pairing
+  each distinct shape with only its waiting and overdue counts.
+- Reused the tracker status language for the aggregate overdue state: a ringed
+  check when clear and a diamond-exclamation when files are late. Exact lane
+  names, counts, dispatch intent, and overdue detail remain in tooltips and
+  accessibility labels.
+- Preserved the authored text-first `PECKWORK ROUTING` strip at 100%. Switching
+  scale live cleanly moves to `ROUTING` plus semantic marks at 125%/150% and
+  restores the original presentation when returning to 100%.
+- Added routing-scale presentation to diagnostic game state, including strip
+  width, lane icon semantics, visible labels, and aggregate overdue icon.
+- Editor parsing, `claim_routing_ui_test.gd`, and `management_loop_ui_test.gd`
+  pass. The routing integration exercises a live 100% -> 150% -> 100% switch
+  before continuing through its full dispatch and dossier coverage.
+- Inspected the exported maximum-scale Day 3 office in the browser. The three
+  tray symbols and counts are bounded, the strip remains 534px wide, the
+  diamond-exclamation reports six overdue files, the order tracker remains
+  separate at 2/3, and no browser error artifact was produced.
+- Restored empty Web launch arguments and removed the temporary capture input.
+  Synchronized the refreshed 9,821,124-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `960986E974E054B27D27368E5473CC813132EDC2EBDF0A201412AA93C91F7C06`.
+- Suggested next pass: adapt the top-bar policy label at maximum scale; its full
+  doctrine name currently ellipsizes before the rest of the HUD does.
+
+## 2026-08-05 - Semantic maximum-scale policy badge
+
+- Replaced the truncated 125%/150% policy rail with a stable semantic mark and
+  the complete short policy name: egg/Harvest, shield/Assurance, flock/Flock
+  Care, goal/briefing, and distinct compact or pause marks for labor actions.
+  The authored text-first `POLICY · ...` treatment remains unchanged at 100%.
+- Matched each policy name to its mark accent and let the label consume the
+  remaining reserved badge width. This fixes the browser-only zero-width label
+  allocation that initially showed a shield without `ASSURANCE`.
+- Preserved the exact filed policy name, modifier preview, current order fit,
+  and long-term strength in tooltip and accessibility text. Diagnostic state
+  now publishes the visible/full/compact copy, semantic mark, interface scale,
+  and complete assistive description.
+- Editor parsing, `decision_loop_ui_test.gd`, and `management_loop_ui_test.gd`
+  pass. The focused decision regression verifies live 100% -> 150% -> 100%
+  switching, semantic icon and color, a real rendered label allocation, and
+  exact order-fit accessibility copy.
+- Inspected the exported authentic Day 3 office at 150% in the browser. The
+  shield and complete `ASSURANCE` label are visible, color-matched, and bounded;
+  the compact routing rail and 2/3 promotion tracker remain intact. Rendered
+  state confirms the Shell Assurance terms and no browser error artifact was
+  produced.
+- Restored empty Web launch arguments and removed the temporary capture input.
+  Synchronized the refreshed 9,823,668-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `BCA3612B2EF74309C7FEF44369D02DB74F5E8462E9FD05035E906507BC791A2B`.
+- Suggested next pass: give the right-edge Flockwatch toggle its own enlarged-
+  scale treatment; `[V / Back]` now reaches the viewport edge at 150%.
+
+## 2026-08-05 - Enlarged-scale Flockwatch action
+
+- Kept the complete authored Flockwatch action and all current bindings at
+  100%, while 125%/150% now shows the stable action identity plus the primary
+  key. The redundant secondary controller hint moves into the tooltip and exact
+  accessibility description instead of clipping against the viewport edge.
+- Added concise enlarged-scale variants for ordinary Flockwatch, actionable
+  requisition counts, the three-orders handoff, return-to-goal cue, and the
+  in-ledger Close action. The 150% Close control receives a matching 150px
+  header allocation after it is reparented into the drawer.
+- Published visible/full/compact copy, scale mode, exact assistive description,
+  and rendered position/size through browser diagnostic state.
+- Editor parsing, `management_loop_ui_test.gd`, and
+  `first_clutch_reinvestment_ui_test.gd` pass. The focused management regression
+  switches 100% -> 150% -> 100%, checks the button's right boundary, and proves
+  the full dual binding remains accessible.
+- Inspected the authentic Day 3 office at 150% in the browser. Collapsed
+  `FLOCKWATCH [V]` retains an 18px right margin; opening produces a fully visible
+  `CLOSE [V]` in the ledger header; closing restores the original launcher and
+  focus outline. No browser error artifact was produced across the sequence.
+- Restored empty Web launch arguments and removed every temporary action file.
+  Synchronized the refreshed 9,827,988-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `F73A7B85C02A852FC8244888D3319ED7F7D528B19AA762F4E59052656B4CF8CF`.
+- Suggested next pass: compact the top-row Settings binding at enlarged scales;
+  `[F10 / Guide]` is now the densest remaining 150% HUD label.
+
+## 2026-08-05 - Enlarged-scale Settings route
+
+- Preserved the complete `SETTINGS [F10 / Guide]` action at 100%, while
+  125%/150% now shows the persistent `SETTINGS [F10]` safety route. The exact
+  controller binding remains in tooltip and accessibility copy.
+- Reduced the 150% Settings action from 255px to 176px in the authentic Day 3
+  HUD, leaving a clear 31px boundary before Resume and the speed controls.
+- Published visible/full/compact Settings copy, scale mode, assistive text, and
+  rendered geometry through browser diagnostic state.
+- Editor parsing, `settings_office_integration_test.gd`, and
+  `management_loop_ui_test.gd` pass. The Settings integration covers the live
+  100% -> 150% -> 100% change, containment against speed controls, full binding
+  narration, opening/closing, remapping, and the non-remappable F10 route.
+- Updated one stale color-vision assertion to recognize the enlarged routing
+  rail's semantic Nest icon as the intended redundant cue when its text marker
+  is compacted. The underlying routing behavior was unchanged.
+- Inspected the exported 150% Day 3 office and opened the real Settings sheet in
+  the browser. The compact action is bounded, the sheet reports 150% scale and
+  fits its complete Display & Accessibility surface, and no browser error
+  artifact was produced.
+- Restored empty Web launch arguments and removed the temporary capture inputs.
+  Synchronized the refreshed 9,828,852-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `143FB5A82C632EA7E4EC3FF943CE740FB35272B1B2378F404C69ED06C41CAB96`.
+- Suggested next pass: close the enlarged-HUD sweep with a spacing audit of the
+  Day, clock, and Feed Fund cluster so those three live values read as one calm
+  status group rather than competing labels.
+
+## 2026-08-05 - Semantic shift status cluster
+
+- Preserved the complete text-first Day, time, and `FEED FUND` treatment at
+  100%, while 125%/150% now groups the exact values behind a clock mark and a
+  cash-stack mark. The enlarged fund copy is reduced to `$50.00`; its complete
+  authored label remains available to tooltips, metadata, and assistive text.
+- Added an authored clock glyph to the shared semantic icon renderer and kept
+  both status marks decorative to input, so the group communicates meaning
+  without adding new controls or interaction ambiguity.
+- Published compact/full copy, icon kinds and visibility, assistive descriptions,
+  scale mode, and rendered clock/fund geometry through browser diagnostic state.
+- Editor parsing, `management_loop_ui_test.gd`, and
+  `egg_grading_feedback_test.gd` pass. The focused management regression covers
+  100% -> 150% -> 100%, exact live values, semantic icons, accessible text,
+  spacing before Settings, and restoration of the full authored fund label. The
+  egg feedback regression proves the live fund count-up still reaches its
+  authoritative balance.
+- Inspected the exported Day 3 office at 150% in the production browser. The
+  clock, `$50.00`, compact Settings route, Resume, and all speed actions fit as a
+  balanced status line with no overlap or browser error artifact.
+- Restored empty Web launch arguments and removed the temporary browser action
+  file. Synchronized the refreshed 9,830,244-byte PCK across `docs`, public, and
+  built client payloads with SHA-256
+  `8ED72ACEEC1806912A3A8C6896868E3CBA5DC2A172FB685178C5F0E9D23866F5`.
+- Suggested next pass: move the glance-first polish onto the office floor by
+  tightening the selected-hen and ready-to-route world cues at overview zoom.
+
+## 2026-08-05 - Selected-hen world ownership cue
+
+- Increased only the routine route-ready pin from 0.0075 to 0.0082 pixel scale,
+  leaving care, deadline, matching, and active-work urgency sizing unchanged.
+  The pin now publishes `route_pin` as its semantic shape instead of relying on
+  color alone.
+- Added one persistent gold corner bracket behind the selected hen's existing
+  intent pin. It follows the authored selection height lift, never receives
+  input, disappears in overview, and does not compete with transient Priority
+  Peck or team-lift feedback.
+- Preserved the existing focus hierarchy: the selected pin keeps full contrast,
+  routine background pins recede, and urgent background pins retain enough
+  weight to remain actionable.
+- Published semantic shape and selected-bracket visibility through browser
+  diagnostic state. Expanded `hen_intent_ui_test.gd` to cover ready-pin scale,
+  route shape, exact selected bracket ownership, alignment, size, texture, and
+  complete removal when overview resumes.
+- Editor parsing, `hen_intent_ui_test.gd`, and `management_loop_ui_test.gd`
+  pass. The official production browser renders the enlarged overview pins with
+  no console or page error artifact; the native authored routing frame confirms
+  the selected bracket and dossier point to the same Mabel desk.
+- A deliberately long deterministic click replay exceeded its bounded timeout;
+  its exact Node and five browser child processes were identified and terminated.
+  No Playwright or project Godot process was left running.
+- Restored empty Web launch arguments and removed every temporary action file.
+  Synchronized the refreshed 9,832,564-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `F4886573D35E901E6322103632BE043B8AAF31A0AF91001BCE4A3AC04515403C`.
+- Suggested next pass: carry the same glance-first ownership language through
+  the route -> peck -> egg handoff so the active desk state changes visibly
+  without asking the player to reopen the dossier.
+
+## 2026-08-05 - Route-to-egg lifecycle silhouettes
+
+- Split the existing hen intent marker into three stage-specific silhouettes:
+  a pointed signpost for route setup, a circular progress dial for active work,
+  and a vertical egg receipt for laying and delivery. This replaces one reused
+  signpost meaning without adding a panel, label, or new world-space object.
+- Gave the authoritative laying intent its own `delivery` icon and egg-with-
+  handoff-arrow artwork. The selected dossier reuses that same icon beside
+  `TRACK EGG`, while the existing `NEXT: GRADING` and farmer-delivery flow remain
+  unchanged.
+- Published `route_pin`, `work_dial`, and `egg_receipt` through the existing
+  world diagnostic contract. The marker texture cache now includes semantic
+  shape so identical urgency/progress values cannot accidentally reuse the
+  wrong lifecycle frame.
+- Editor parsing, `hen_intent_ui_test.gd`, `management_loop_ui_test.gd`, and
+  `egg_grading_feedback_test.gd` pass. The focused regression covers all three
+  silhouettes, the authoritative laying icon, transition behavior, and all
+  eight distinct dossier intent textures.
+- Inspected both the native authored delivery frame and the exported production
+  browser frame. Browser state reports focused intent `delivery`, world shape
+  `egg_receipt`, and the selected-hen bracket still visible; no console/page
+  error artifact was produced.
+- The official browser client wrote its screenshot and diagnostic state but did
+  not exit before the 90-second software-WebGL bound. Its exact Node/Chromium
+  process tree was terminated, normal empty Web launch arguments were restored,
+  and the temporary action payload was removed. No test Godot or Playwright
+  process remains.
+- Synchronized the refreshed 9,833,124-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `0555E0F92DAD54A4267ABC9DE327EE8BADE0108DBD6CBFD33B47DD04051C2BF5`.
+- Suggested next pass: replace the remaining selected-dossier lifecycle sentence
+  with the same three connected stage shapes, retaining the full explanation in
+  assistive text and tooltips.
+
+## 2026-08-05 - Live dossier lifecycle rail
+
+- Promoted the existing tray -> screen -> egg lifecycle rail from an idle-only
+  hint into a persistent selected-file indicator. It now advances from route to
+  peck to egg using authoritative claim and worker state, including normal play,
+  live claims, laying, and the First Clutch coach.
+- Removed the long `LAYING > GRADING > FARMER · CLEAN EGG REFUNDS 1` receipt from
+  the visible laying dossier. The payout/crack/next-destination line remains,
+  while the rail owns current-stage communication and its tooltip/assistive text
+  retains the complete delivery explanation.
+- Added one teal charge diamond with a small `+1` beside the active egg stage
+  when a clean assisted delivery will restore Priority Peck. This reuses the
+  established filled-diamond charge language instead of introducing another
+  sentence or unrelated icon family.
+- Published rail visibility, active stage, clean-delivery refund, reward shape,
+  and retired hint visibility through browser diagnostics. Expanded
+  `peck_assist_ui_test.gd` to prove the prose disappears only when the active egg
+  rail and accessible renewable-charge receipt replace it.
+- Editor parsing, `peck_assist_ui_test.gd`, `first_clutch_coach_ui_test.gd`, and
+  `management_loop_ui_test.gd` pass. The normal route/claim controls, First
+  Clutch disclosure stages, mouse/keyboard action path, and paused management
+  loop remain intact.
+- Inspected authored native and official production-browser delivery frames at
+  1600x900 and 1280x720. The rail fits without overlap; browser state reports
+  active stage `egg`, reward shape `charge_diamond_plus_one`, hidden/empty legacy
+  hint copy, and no console or page error artifact.
+- Restored empty Web launch arguments and removed the temporary one-frame action
+  payload. The official browser client completed normally, and no Godot,
+  Playwright, or Chromium test process remains.
+- Synchronized the refreshed 9,834,308-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `B6ACEDE6275755A9D086358E03DB1E35587AE01B913136165C824CC1ACCCF164`.
+- Suggested next pass: apply the same icon-first reduction to the selected-file
+  `PAYOUT / CRACK / NEXT` row, keeping exact values and full consequences in its
+  tooltip and accessibility description.
+
+## 2026-08-05 - Selected-file semantic fact strip
+
+- Replaced the selected file's dense `DUE / PAYOUT / CRACK / NEXT` sentence with
+  a compact icon-and-value strip. Active work shows deadline, payout, cracked-
+  shell risk, and egg outcome; laying shows payout, cracked-shell risk, and the
+  grading destination without carrying a retired deadline into delivery.
+- Added dedicated cracked-egg and egg-with-magnifier marks to the shared
+  Flockwatch icon badge language. Risk retains the authored semantic alert color,
+  while destination and value remain visually distinct without relying on color.
+- Kept the exact operational meaning in one tooltip and accessibility label,
+  including due/overdue wording, payout, estimated shell risk, and the full
+  grading-to-farmer destination.
+- Combined the fact strip and route -> peck -> egg rail into one horizontal
+  context row. This preserves the dossier's fixed footprint when a contract badge
+  appears and keeps the 1280px layout clear of the bottom ticker.
+- `claim_routing_ui_test.gd`, `peck_assist_ui_test.gd`, and
+  `management_loop_ui_test.gd` pass. The focused contracts cover both four-fact
+  working state and three-fact laying state, exact assistive copy, dossier
+  stability, ticker clearance, and the surrounding paused management loop.
+- Inspected the authored native and official production-browser delivery frames.
+  Browser state reports visible cash, `shell_risk`, and `grading` facts, the egg
+  lifecycle stage, and the complete accessible receipt; no browser-error artifact
+  was produced.
+- Restored empty Web launch arguments and removed the temporary action payload.
+  No Godot, Playwright, or Chromium test process remains; the intentional local
+  production server is still healthy at `http://127.0.0.1:3000/`.
+- Synchronized the refreshed 9,838,660-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `049EB7CCE302157BA3AC9FB979751932BE999252D43F2D984600823F6988BD08`.
+- Suggested next pass: replace the remaining `PECKING / LAYING` word in the file
+  header with the established work-dial or egg silhouette plus percentage,
+  retaining the complete phase name in its tooltip and accessibility label.
+
+## 2026-08-05 - Selected-file phase silhouette header
+
+- Replaced the active file header's repeated `PECKING / LAYING` word with the
+  same semantic silhouette used over the selected hen: a progress-ring work
+  dial during peckwork and an egg receipt during laying. The exact percentage
+  remains beside the mark, so identity -> phase -> progress reads in one sweep.
+- Reused `ChickenView.hen_intent_icon_texture()` instead of inventing a second
+  icon family. Work progress is bucketed into the existing ring treatment; egg
+  delivery uses the established receipt-with-handoff-arrow shape.
+- Kept the full `Step 2, peckwork` / `Step 3, egg laying` sentence on the file
+  identity, phase mark, and progress value for tooltip and accessibility use.
+  Browser diagnostics now publish phase visibility, semantic shape, progress,
+  and exact accessible copy independently from the shortened visual header.
+- The first native review caught an ellipsis/minimum-width interaction that
+  collapsed the file identity. Added a fixed compact identity column and
+  re-captured; `APPEALS #0003`, egg receipt, and `100%` now remain balanced
+  against contract badges and route controls at 1280x720.
+- Editor parsing, `claim_routing_ui_test.gd`, `peck_assist_ui_test.gd`, and
+  `first_clutch_coach_ui_test.gd` pass. Coverage proves the work-dial and egg-
+  receipt handoff, exact progress, complete assistive semantics, dossier/ticker
+  containment, and staged tutorial restoration.
+- Inspected the corrected native frame and official production-browser frame.
+  Browser state reports `header_copy=APPEALS #0003`, `egg_receipt`, `100%`, and
+  `Step 3, egg laying`; no console or page-error artifact was produced.
+- Restored empty Web launch arguments and removed the temporary one-frame action
+  payload. A separate pre-existing Playwright tree targeting port 4173 matched
+  the broad final audit and was also terminated; the intentional Pecking Order
+  production server on port 3000 remains healthy.
+- Synchronized the refreshed 9,840,772-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `A97B19BAB6BDEF3CA086DD9527DCBBE08E2950F0AE9C068FB5A8F1C6FECE0278`.
+- Suggested next pass: add the established lane marks directly to the four route
+  choices so AUTO, NEST, PREDATOR, and APPEALS become recognizable before their
+  labels are read, while preserving the existing words and keyboard behavior.
+
+## 2026-08-05 - Shape-distinct route choices
+
+- Added persistent semantic icons to all four selected-hen route choices using
+  the existing action artwork: filing tray for AUTO, egg-in-nest for NEST,
+  fox face for PREDATOR, and returning claim sheet for APPEALS.
+- Kept the complete route words, specialty `FIT` suffix, tooltips, keyboard
+  focus, selection state, and First Clutch `[ENTER]` guidance. The icons add
+  pre-attentive recognition without making the player memorize an icon-only UI.
+- Published a compact `routing_choices` diagnostic contract with selected lane,
+  label, semantic icon, icon visibility, specialty fit, accessible action name,
+  and the non-color shape language for all four choices.
+- Editor parsing, `claim_routing_ui_test.gd`, and
+  `first_clutch_coach_ui_test.gd` pass. Coverage proves all four persistent
+  textures and exact semantics, standard/color-safe label behavior, specialty
+  fit, and coached recommendation/demotion without focus theft.
+- Inspected standard delivery and First Clutch native frames. All four marks fit
+  their 142x34 actions; `APPEALS FIT` remains unclipped, and the recommended
+  APPEALS mark stays readable inside the tutorial's highlighted choice.
+- The First Clutch capture exceeded its 30-second command bound after saving the
+  correct frame. The timed command left no Godot process behind. The official
+  browser client then completed normally with no error artifact or leftover
+  Playwright process.
+- Browser state reports four visible, distinct semantic marks, selected AUTO,
+  and the complete `APPEALS route, specialty fit` accessible action.
+- Restored empty Web launch arguments and removed the temporary one-frame action
+  payload. The intentional local production server remains healthy on port 3000.
+- Synchronized the refreshed 9,841,076-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `F1D426B566693691C5BACC0254FEF6AD4D499DAF22CCB9AC44D9AA8D893DEACC`.
+- Suggested next pass: give ROUTE, FILE, SUPPORT, and PROFILE their own small tab
+  marks so the dossier's four destinations become recognizable without removing
+  the stable words players already use.
+
+## 2026-08-05 - Shape-distinct dossier tabs
+
+- Added persistent semantic marks to the selected-hen dossier destinations:
+  filing tray for ROUTE, requisition sheet for FILE, flock-care heart for CARE,
+  and rank crest for BIO.
+- Reduced the two longest visual labels from SUPPORT and PROFILE to CARE and BIO
+  so their silhouettes survive at gameplay scale. Complete Support and Hen
+  profile names, explanations, and consequences remain in accessibility names
+  and tooltips.
+- Widened the identity strip and gave the four 68x30 tabs enough breathing room
+  for text and icon silhouettes without crowding the active file lifecycle or
+  the route-choice grid.
+- Published a `dossier_tabs` browser diagnostic contract containing active tab,
+  visible label, semantic icon, icon visibility, selection, accessible text,
+  and the tray/document/flock-care/crest shape language.
+- `claim_routing_ui_test.gd` and `first_clutch_coach_ui_test.gd` pass. Coverage
+  locks all four textures, semantic IDs, concise labels, complete accessible
+  names, selected state, and preservation through First Clutch.
+- Inspected clean standard-delivery and First Clutch native frames at
+  `output/native-dossier-tab-marks-20260805/peck_delivery.png` and
+  `output/native-dossier-tab-first-clutch-20260805/first_clutch_induction.png`.
+  The dossier remains contained and the icon-led destinations are readable.
+- The official browser client completed at
+  `output/web-game/dossier-tab-marks-browser-20260805/` with only its screenshot
+  and state artifact. Browser state reports all four icons visible, ROUTE
+  selected, concise CARE/BIO labels, and complete accessible destination names.
+- Restored empty Web launch arguments and removed the temporary one-frame action
+  payload. No scoped Godot, Node, or Playwright process remains; the intentional
+  local production server remains healthy on port 3000 with PID 44076.
+- Synchronized the refreshed 9,842,196-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `662D444F1AF6A5002DF35569F0731281C375D0019423EF1F133A6A9AAE3E92BC`.
+- Suggested next pass: give the selected-hen identity a compact profile seal and
+  specialty-lane mark so character role and best-fit work read before the
+  `CREDIT CONSCIOUS / APPEALS` line.
+
+## 2026-08-05 - Shape-distinct selected-hen identity
+
+- Added two persistent non-interactive marks ahead of the selected hen's compact
+  identity line: a gold rank crest for the filed work profile and the live
+  lane-specific symbol for the hen's primary specialty.
+- Bound the specialty mark to authoritative worker data on every refresh. First
+  Clutch temporarily reinforces its highlighted target lane through the same
+  mark, so the identity cue and recommended tray cannot disagree visually.
+- Kept the existing profile phrase, complete temperament, work-style, flock-bond,
+  accreditation, training, petition, and care descriptions in the established
+  label tooltip and accessibility name.
+- Published a `selected_hen_identity` browser diagnostic contract with focused
+  worker ID, visual copy, complete accessible copy, profile and specialty icon
+  visibility, semantic icon IDs, specialty lane, and shape language.
+- `claim_routing_ui_test.gd` and `first_clutch_coach_ui_test.gd` pass. Coverage
+  proves Mabel's rank crest and APPEALS mark render from the real specialty data
+  and remain correct during the coached APPEALS recommendation.
+- Inspected clean standard-delivery and First Clutch native frames at
+  `output/native-selected-hen-identity-marks-20260805/peck_delivery.png` and
+  `output/native-selected-hen-identity-first-clutch-20260805/first_clutch_induction.png`.
+  Both marks remain readable without squeezing tabs, lifecycle, or actions.
+- The official browser client completed at
+  `output/web-game/selected-hen-identity-browser-20260805/` with only its
+  screenshot and state artifact. Browser state reports a visible `rank_crest`,
+  visible `lane_appeals`, authoritative `appeals` specialty, and the complete
+  character description.
+- Restored empty Web launch arguments and removed the temporary one-frame action
+  payload. No scoped Godot, Node, or Playwright process remains; the intentional
+  local production server remains healthy on port 3000 with PID 44076.
+- Synchronized the refreshed 9,843,908-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `0153136C2DAE560EDD353BAE27BFAEF25DD015B3AD2C98CB05FE1E57CDE2C264`.
+- Suggested next pass: use the existing Nest, Predator, and Appeals marks in the
+  top routing queue at default scale, leaving only counts visible while exact
+  lane names remain in tooltips and accessibility text.
+
+## 2026-08-05 - Icon-led routing queue
+
+- Replaced the repeated top-queue lane words at every interface scale with the
+  established Nest, fox, and return-file symbols plus count-only labels. The
+  overdue state now keeps its ring/check or diamond/warning shape visible too.
+- Preserved the full Nest Damage, Predator Loss, Appeals, overdue counts, and
+  dispatch instructions in tooltips and accessibility names, so the cleaner
+  visual treatment does not remove exact meaning or keyboard guidance.
+- Reduced the idle routing strip from roughly 534 px to 404-406 px while keeping
+  its existing momentum extension and retraction behavior. The First Clutch
+  layout uses the same stable compact footprint.
+- Kept the contract badge at a fixed compact width so showing it cannot shift the
+  queue geometry; its complete copy remains available through its tooltip.
+- Expanded the browser diagnostic contract with full queue accessibility copy,
+  icon visibility, overdue state shape, and the shared semantic shape language.
+- `claim_routing_ui_test.gd`, `first_clutch_coach_ui_test.gd`, and
+  `settings_office_integration_test.gd` pass. Coverage locks icon-led labels at
+  100% and 150%, complete accessible lane names, overdue shapes, and stable
+  queue geometry.
+- Inspected clean native frames at
+  `output/native-icon-led-routing-queue-20260805/peck_delivery.png` and
+  `output/native-icon-led-routing-queue-first-clutch-20260805/first_clutch_induction.png`.
+- The official browser client completed at
+  `output/web-game/icon-led-routing-queue-browser-20260805/` with only its
+  screenshot and state artifact. Browser state reports all four icons visible,
+  `ROUTING`, count-only labels, complete accessible names, and a 406 px strip.
+- Restored empty Web launch arguments and removed the temporary action payload.
+  No scoped capture or test process remains; the intentional local production
+  server remains healthy on port 3000 with PID 44076.
+- Synchronized the refreshed 9,844,276-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `7102ABC02B9A1218325C0DDFEEFAF7418CF84A4CF1B8B367D9BCB1BC414E88DC`.
+- Suggested next pass: convert the always-visible Eggs, Policy, and Today's Goals
+  status cluster to persistent egg, shield, and clipboard marks with concise
+  labels while retaining the exact status in hover and accessibility copy.
+
+## 2026-08-05 - Icon-led live objective rail
+
+- Replaced the permanent `EGGS` category word with a 22 px egg silhouette beside
+  the existing quota bar and exact laid/target readout. The complete laid,
+  target, and remaining values stay on the bar, readout, tooltip, and assistive
+  name.
+- Made the live policy icon persistent at every interface scale. The rail now
+  shows the directive-specific egg, shield, flock, compact, or pause shape plus
+  only the short policy name; full `POLICY · ...` copy and exact consequences
+  remain in metadata, tooltips, and accessibility output.
+- Added a distinct checklist clipboard to the shared icon badge language. The
+  paused direct action now reads `GOALS` instead of `TODAY'S GOALS`, while its
+  semantic copy still explains that it opens today's goals and can be activated
+  directly.
+- Published `shift_objective`, persistent policy icon visibility, and next-action
+  icon semantics through the browser diagnostic contract.
+- `management_loop_ui_test.gd`, `decision_loop_ui_test.gd`, and
+  `opening_experience_progression_test.gd` pass. Coverage locks the default and
+  150% policy shapes, egg quota semantics, clipboard action, exact hidden copy,
+  and First Clutch's deliberate objective-rail collapse.
+- Inspected the clean native gameplay frame at
+  `output/native-icon-led-objective-rail-20260805/peck_delivery.png`.
+- The official browser client completed at
+  `output/web-game/icon-led-objective-rail-browser-20260805/` with only its
+  screenshot and state artifact. Browser state reports a visible egg with
+  `0 / 16`, a visible Assurance shield, and a visible Goals clipboard, all with
+  complete accessible meaning.
+- Restored empty Web launch arguments and removed the temporary action payload.
+  No scoped capture or test process remains; the intentional local production
+  server remains healthy on port 3000 with PID 44076.
+- Synchronized the refreshed 9,846,036-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `D619975D6B5F84C381350F3E29D4600E0F7861FFCC5C3A19BDD4F23E86785C56`.
+- Suggested next pass: give Settings and Flockwatch stable cog and ledger marks,
+  then move their secondary keyboard/controller bindings out of the permanent
+  rail and into tooltips while preserving the primary binding at a glance.
+
+## 2026-08-05 - Icon-led utility chrome
+
+- Added two reusable button textures to the management icon language: a toothed
+  cog for Settings and a bound record for the Flockwatch ledger. Both remain
+  visible at every interface scale and do not rely on color for identity.
+- Settings now keeps only `F10` on the permanent rail; its complete `F10 / Guide`
+  route, comfort/control description, and remapping context remain in tooltip
+  and accessibility copy.
+- Flockwatch now keeps only `V` on the permanent launcher; `V / Back` and the
+  exact active-flock ledger description remain semantically available. Close,
+  order, action-count, and return states retain concise visible verbs plus their
+  complete action names in metadata and assistive text.
+- Reduced the default Flockwatch launcher from 232 px to 200 px. Its 150% layout
+  uses a 220 px scale-aware footprint so the right edge stays pinned 18 px from
+  the viewport instead of letting the icon/text minimum spill off-screen.
+- Expanded the browser diagnostic contract with utility icon-led state, semantic
+  icon IDs, and actual icon visibility for both actions.
+- `settings_office_integration_test.gd`, `management_loop_ui_test.gd`, and
+  `opening_experience_progression_test.gd` pass. Coverage includes remapped
+  bindings, Settings focus safety, Flockwatch open/close and goal-return flows,
+  default scale, 150% containment, and First Clutch chrome suppression.
+- Inspected the clean native gameplay frame at
+  `output/native-icon-led-utility-chrome-20260805/peck_delivery.png`.
+- The official browser client completed at
+  `output/web-game/icon-led-utility-chrome-browser-20260805/` with only its
+  screenshot and state artifact. Browser state reports a visible cog with
+  `SETTINGS [F10]`, a visible ledger with `FLOCKWATCH [V]`, and complete secondary
+  bindings in accessible copy.
+- Restored empty Web launch arguments and removed the temporary action payload.
+  No scoped capture or test process remains; the intentional local production
+  server remains healthy on port 3000 with PID 44076.
+- Synchronized the refreshed 9,846,324-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `91C6C718C0C53A76C10A3A01F93AA87C32EE0E01E78BEEAEFF23AF3E845E256F`.
+- Suggested next pass: make the existing clock and Feed Fund shapes persistent
+  at default scale, then remove only the redundant `FEED FUND` prefix while
+  retaining `DAY 1`, exact time, exact cash, and complete semantic descriptions.
+
+## 2026-08-05 - Icon-led shift clock and Feed Fund
+
+- Made the existing clock and cash-stack marks persistent at every interface
+  scale. The live rail now reads clock + `DAY 1` + exact time and cash stack +
+  exact dollar amount instead of repeating the Feed Fund category in text.
+- Preserved the complete `FEED FUND $...` source copy, exact Shift clock wording,
+  and current values in tooltips, accessibility names, and browser diagnostics.
+- Standardized both status groups on 5 px internal spacing. In the production
+  frame the clock group is 136 px and the cash group is 74 px, leaving more air
+  around Settings without sacrificing immediate numerical information.
+- Added persistent `icon_led_status_marks` metadata and published it through the
+  Web state contract alongside actual clock/cash icon visibility.
+- `management_loop_ui_test.gd`, `settings_office_integration_test.gd`, and
+  `opening_experience_progression_test.gd` pass. Coverage locks default and 150%
+  icon-led status, exact values, full hidden terminology, Settings containment,
+  and First Clutch's intentional HUD collapse.
+- Inspected the clean native gameplay frame at
+  `output/native-icon-led-shift-status-20260805/peck_delivery.png`.
+- The official browser client completed at
+  `output/web-game/icon-led-shift-status-browser-20260805/` with only its
+  screenshot and state artifact. Browser state reports visible clock/cash marks,
+  `DAY 1`, `8:04 AM`, `$50.00`, and complete accessible descriptions.
+- Restored empty Web launch arguments and removed the temporary action payload.
+  No scoped capture or test process remains; the intentional local production
+  server remains healthy on port 3000 with PID 44076.
+- Synchronized the refreshed 9,846,260-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `95483D81F24CB71D35DCF7C663C734BB600CECE86A7DDFFC8794FE4D398B8C47`.
+- Suggested next pass: simplify the floating probation score card with stable
+  score, calendar, and order-check shapes so its three numbers scan as quickly
+  as the newly icon-led permanent rail.
+
+## 2026-08-05 - Icon-led probation score card
+
+- Rebuilt the floating campaign card around three stable line-art signals: a
+  score rosette, calendar grid, and checked-order sheet. The permanent layer now
+  shows only `50 / 100`, `1 / 5`, and `2 / 3` while the five-shift rail and
+  individual order stamps retain detailed state.
+- Preserved the complete `SCORE`, `DAY`, live-estimate, challenge-contract, pass
+  threshold, and filing caveat wording in tooltips, accessibility metadata, and
+  browser diagnostics. Senior Roost keeps its authored year/quarter cadence and
+  fitted status wording instead of inheriting probation-only abbreviations.
+- Made all three headline marks scale with the 100-150% interface setting and
+  published their icon IDs, visibility, concise values, exact semantic copy,
+  and shared shape language through the existing probation-order diagnostic.
+- `probation_campaign_ui_test.gd`, `management_loop_ui_test.gd`, and
+  `probation_campaign_integration_test.gd` pass. Coverage includes active,
+  promotion-ready, report, final, Senior, 390px-wide, and 150% scale states plus
+  authoritative Office goal projection.
+- Inspected the clean native gameplay frame at
+  `output/native-icon-led-probation-card-20260805/peck_delivery.png`.
+- The official browser client completed at
+  `output/web-game/icon-led-probation-card-browser-20260805/` with only its
+  screenshot and state artifact. Browser state reports all three marks visible
+  with `50 / 100`, `1 / 5`, and `2 / 3` plus complete semantic descriptions.
+- Restored empty Web launch arguments and removed the temporary one-frame action
+  payload. No scoped Godot, Node, or Playwright process remains; the intentional
+  local production server remains healthy on port 3000 with PID 44076.
+- Synchronized the refreshed 9,849,812-byte PCK across `docs`, public, and built
+  client payloads with SHA-256
+  `B53B00BC9DB3BF97640DEE5FBD1F238391B6D849945F2B8D44EF027E5A613713`.
+- Suggested next pass: convert the selected-hen lifecycle path from its remaining
+  `ROUTE`, `PECK`, and `EGG` words into persistent folder, monitor, and egg marks
+  while preserving exact workflow status in hover and assistive copy.

@@ -3,6 +3,7 @@ extends Control
 
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
 const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
+const FlockwatchIconBadgeScript := preload("res://features/office/flockwatch_icon_badge.gd")
 
 
 class PriorityPeckIntentLink:
@@ -238,6 +239,203 @@ class PriorityPeckChargeMeter:
 				)
 
 
+class FirstClutchProgressRail:
+	extends Control
+
+	var completed_steps := 0
+	var step_total := 5
+
+
+	func set_progress(next_completed: int, next_total: int) -> void:
+		step_total = clampi(next_total, 1, 9)
+		completed_steps = clampi(next_completed, 0, step_total)
+		custom_minimum_size = Vector2(maxf(78.0, step_total * 15.0), 14.0)
+		var active_step := mini(completed_steps + 1, step_total)
+		accessibility_name = (
+			"First Clutch: all %d steps complete." % step_total
+			if completed_steps >= step_total else
+			"First Clutch: %d of %d steps complete; step %d active."
+			% [completed_steps, step_total, active_step]
+		)
+		tooltip_text = accessibility_name
+		set_meta("completed_steps", completed_steps)
+		set_meta("total_steps", step_total)
+		set_meta("active_step", 0 if completed_steps >= step_total else active_step)
+		set_meta("shape_language", "check=complete; diamond=active; ring=upcoming")
+		queue_redraw()
+
+
+	func presentation_state() -> Dictionary:
+		return {
+			"visible": visible,
+			"completed_steps": completed_steps,
+			"total_steps": step_total,
+			"active_step": int(get_meta("active_step", 0)),
+			"accessible_text": accessibility_name,
+			"shape_language": String(get_meta("shape_language", "")),
+		}
+
+
+	func _draw() -> void:
+		if step_total <= 0:
+			return
+		var gap := 15.0
+		var rail_width := (step_total - 1) * gap
+		var start_x := (size.x - rail_width) * 0.5
+		var center_y := size.y * 0.5
+		if step_total > 1:
+			draw_line(
+				Vector2(start_x, center_y),
+				Vector2(start_x + rail_width, center_y),
+				Color("51636b"),
+				1.2,
+				true,
+			)
+		for index in step_total:
+			var center := Vector2(start_x + index * gap, center_y)
+			if index < completed_steps:
+				draw_circle(center, 4.4, Color("73b5a7"))
+				draw_line(center + Vector2(-2.1, 0.1), center + Vector2(-0.4, 1.8), Color("effff9"), 1.25, true)
+				draw_line(center + Vector2(-0.4, 1.8), center + Vector2(2.5, -2.0), Color("effff9"), 1.25, true)
+			elif index == completed_steps:
+				var radius := 5.0
+				var diamond := PackedVector2Array([
+					center + Vector2(0.0, -radius),
+					center + Vector2(radius, 0.0),
+					center + Vector2(0.0, radius),
+					center + Vector2(-radius, 0.0),
+					center + Vector2(0.0, -radius),
+				])
+				draw_colored_polygon(diamond, Color("d8b967"))
+				draw_polyline(diamond, Color("fff0ae"), 1.2, true)
+				draw_circle(center, 1.25, Color("fff9df"))
+			else:
+				draw_circle(center, 3.5, Color("172832"))
+				draw_arc(center, 3.5, 0.0, TAU, 16, Color("7b8e95"), 1.2, true)
+
+
+class RoutingLifecycleRail:
+	extends Control
+
+	const STAGES: Array[StringName] = [&"route", &"peck", &"egg"]
+	const LABELS := ["ROUTE", "PECK", "EGG"]
+
+	var active_stage: StringName = &"route"
+	var clean_delivery_refund := false
+
+
+	func set_stage(stage: StringName, restores_charge_on_clean_delivery := false) -> void:
+		active_stage = stage if stage in STAGES else &"route"
+		clean_delivery_refund = (
+			restores_charge_on_clean_delivery and active_stage == &"egg"
+		)
+		var stage_index := STAGES.find(active_stage)
+		accessibility_name = (
+			"Work cycle: route a file, the hen pecks it, then lays the completed egg. "
+			+ "Current step: %s."
+		) % String(LABELS[stage_index]).to_lower()
+		if clean_delivery_refund:
+			accessibility_name += (
+				" This clean assisted egg will restore one Priority Peck charge "
+				+ "when it reaches the farmer."
+			)
+		tooltip_text = accessibility_name
+		set_meta("active_stage", active_stage)
+		set_meta("active_index", stage_index)
+		set_meta("sequence", ["route", "peck", "egg"])
+		set_meta("clean_delivery_refund", clean_delivery_refund)
+		set_meta("reward_shape", &"charge_diamond_plus_one" if clean_delivery_refund else &"")
+		set_meta(
+			"shape_language",
+			"tray=route; screen=peck; oval=egg; diamond+1=clean delivery restores peck",
+		)
+		queue_redraw()
+
+
+	func presentation_state() -> Dictionary:
+		return {
+			"visible": is_visible_in_tree(),
+			"active_stage": String(active_stage),
+			"sequence": ["route", "peck", "egg"],
+			"accessible_text": accessibility_name,
+			"shape_language": String(get_meta("shape_language", "")),
+			"clean_delivery_refund": clean_delivery_refund,
+			"reward_shape": String(get_meta("reward_shape", &"")),
+		}
+
+
+	func _draw() -> void:
+		var font := get_theme_default_font()
+		var active_index := STAGES.find(active_stage)
+		var station_width := 76.0
+		var connector_width := 13.0
+		var station_step := station_width + connector_width
+		for index in STAGES.size():
+			var origin_x := index * station_step
+			var completed := index < active_index
+			var active := index == active_index
+			var color := Color("73b5a7") if completed else Color("d8b967") if active else Color("71828a")
+			if active:
+				draw_rect(Rect2(origin_x, 22.0, 71.0, 2.0), Color("d8b967"), true)
+			match index:
+				0:
+					_draw_tray(Vector2(origin_x + 9.0, 11.5), color)
+				1:
+					_draw_screen(Vector2(origin_x + 9.0, 11.5), color)
+				2:
+					_draw_egg(Vector2(origin_x + 9.0, 11.5), color)
+			draw_string(
+				font,
+				Vector2(origin_x + 20.0, 15.5),
+				String(LABELS[index]),
+				HORIZONTAL_ALIGNMENT_LEFT,
+				53.0,
+				10,
+				color.lightened(0.14) if active else color,
+			)
+			if index < STAGES.size() - 1:
+				var arrow_start := Vector2(origin_x + 74.0, 11.5)
+				var arrow_end := Vector2(origin_x + 85.0, 11.5)
+				draw_line(arrow_start, arrow_end, Color("52656d"), 1.2, true)
+				draw_line(arrow_end, arrow_end + Vector2(-3.0, -2.5), Color("52656d"), 1.2, true)
+				draw_line(arrow_end, arrow_end + Vector2(-3.0, 2.5), Color("52656d"), 1.2, true)
+		if clean_delivery_refund:
+			var reward_center := Vector2(258.0, 11.5)
+			var reward_radius := 5.0
+			var reward_diamond := PackedVector2Array([
+				reward_center + Vector2(0.0, -reward_radius),
+				reward_center + Vector2(reward_radius, 0.0),
+				reward_center + Vector2(0.0, reward_radius),
+				reward_center + Vector2(-reward_radius, 0.0),
+			])
+			draw_colored_polygon(reward_diamond, Color("73b5a7"))
+			draw_line(reward_center + Vector2(-2.1, 0.0), reward_center + Vector2(2.1, 0.0), Color("effff9"), 1.15, true)
+			draw_line(reward_center + Vector2(0.0, -2.1), reward_center + Vector2(0.0, 2.1), Color("effff9"), 1.15, true)
+			draw_string(font, Vector2(266.0, 15.5), "+1", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 10, Color("9fd4bd"))
+
+
+	func _draw_tray(center: Vector2, color: Color) -> void:
+		draw_rect(Rect2(center + Vector2(-6.0, -3.0), Vector2(12.0, 8.0)), color, false, 1.25)
+		draw_line(center + Vector2(-4.0, -5.0), center + Vector2(1.0, -5.0), color, 1.25, true)
+		draw_line(center + Vector2(1.0, -5.0), center + Vector2(3.0, -3.0), color, 1.25, true)
+
+
+	func _draw_screen(center: Vector2, color: Color) -> void:
+		draw_rect(Rect2(center + Vector2(-6.0, -5.0), Vector2(12.0, 9.0)), color, false, 1.25)
+		draw_line(center + Vector2(0.0, 4.0), center + Vector2(0.0, 6.0), color, 1.25, true)
+		draw_line(center + Vector2(-3.0, 6.0), center + Vector2(3.0, 6.0), color, 1.25, true)
+
+
+	func _draw_egg(center: Vector2, color: Color) -> void:
+		var points := PackedVector2Array()
+		for point_index in 17:
+			var angle := TAU * float(point_index) / 16.0
+			var vertical := sin(angle)
+			var taper := 1.0 - maxf(0.0, -vertical) * 0.18
+			points.append(center + Vector2(cos(angle) * 4.2 * taper, vertical * 6.0))
+		draw_polyline(points, color, 1.25, true)
+
+
 class RoutingMomentumBreakGlyph:
 	extends Control
 
@@ -355,8 +553,8 @@ const DISPATCH_BREAK_RECOVERY_SECONDS := 0.92
 const DISPATCH_RECOVERY_DISPLAY_SECONDS := 1.55
 const DISPATCH_RECOVERY_JOIN_SECONDS := 0.78
 const DISPATCH_RECOVERY_GLYPH_SECONDS := 1.12
-const QUEUE_IDLE_RIGHT := 552.0
-const QUEUE_MOMENTUM_RIGHT := 694.0
+const QUEUE_IDLE_RIGHT := 422.0
+const QUEUE_MOMENTUM_RIGHT := 561.0
 
 const LANE_ORDER: Array[StringName] = [
 	&"nest_damage",
@@ -404,9 +602,14 @@ const PERSONNEL_ACTION_TOOLTIPS := {
 
 var _queue_labels: Dictionary[StringName, Label] = {}
 var _queue_buttons: Dictionary[StringName, Button] = {}
+var _queue_lane_icons: Dictionary[StringName, TextureRect] = {}
 var _queue_title_label: Label
 var _queue_contract_badge: Label
 var _queue_compact_label: Label
+var _queue_row: HBoxContainer
+var _queue_heading: VBoxContainer
+var _queue_overdue_host: HBoxContainer
+var _queue_overdue_icon: TextureRect
 var _dispatch_momentum_label: Label
 var _dispatch_momentum_break_glyph: RoutingMomentumBreakGlyph
 var _return_cue_focus_serial := 0
@@ -416,6 +619,7 @@ var _personnel_buttons: Dictionary[StringName, Button] = {}
 var _queue_panel: PanelContainer
 var _first_clutch_panel: PanelContainer
 var _first_clutch_progress_label: Label
+var _first_clutch_progress_rail: FirstClutchProgressRail
 var _first_clutch_title_label: Label
 var _first_clutch_body_label: Label
 var _first_clutch_return_button: Button
@@ -423,6 +627,9 @@ var _first_clutch_skip_button: Button
 var _focus_panel: PanelContainer
 var _worker_name_label: Label
 var _worker_career_label: Label
+var _worker_identity_row: HBoxContainer
+var _worker_profile_icon: TextureRect
+var _worker_specialty_icon: TextureRect
 var _worker_trait_label: Label
 var _hen_intent_button: Button
 var _details_button: Button
@@ -442,9 +649,16 @@ var _dispatch_tray_arrival_serial := 0
 var _dispatch_tray_arrival_fallback := false
 var _dispatch_tray_arrival_queue_title_text := ""
 var _current_claim_label: Label
+var _claim_phase_icon: TextureRect
+var _claim_phase_progress_label: Label
 var _golden_file_badge: Label
 var _current_contract_badge: Label
-var _claim_detail_label: Label
+var _claim_context_row: HBoxContainer
+var _claim_detail_strip: HBoxContainer
+var _claim_detail_fact_groups: Array[Control] = []
+var _claim_detail_fact_icons: Array[Control] = []
+var _claim_detail_fact_values: Array[Label] = []
+var _routing_lifecycle_rail: RoutingLifecycleRail
 var _claim_progress_track: Control
 var _claim_progress_bar: ProgressBar
 var _peck_timing_band: ColorRect
@@ -533,6 +747,8 @@ var _first_clutch_compact := false
 var _last_first_clutch_skip_rect := Rect2()
 var _details_expanded := false
 var _top_inset := 120.0
+var _interface_scale := 1.0
+var _icon_led_queue_marks := true
 
 
 func _ready() -> void:
@@ -720,6 +936,93 @@ func egg_journey_receipt_state() -> Dictionary:
 		"copy": _routing_hint_label.text,
 		"accessible_text": String(_routing_hint_label.get_meta("accessible_text", "")),
 	}
+
+
+func routing_lifecycle_state() -> Dictionary:
+	var state := (
+		_routing_lifecycle_rail.presentation_state()
+		if _routing_lifecycle_rail != null else
+		{"visible": false}
+	)
+	state["header_copy"] = _current_claim_label.text if _current_claim_label != null else ""
+	state["header_accessible_text"] = (
+		String(_current_claim_label.get_meta("accessible_text", ""))
+		if _current_claim_label != null else
+		""
+	)
+	state["header_role"] = (
+		String(_current_claim_label.get_meta("presentation_role", &"status"))
+		if _current_claim_label != null else
+		"status"
+	)
+	state["header_phase_visible"] = (
+		_claim_phase_icon.is_visible_in_tree()
+		if _claim_phase_icon != null else
+		false
+	)
+	state["header_phase_shape"] = (
+		String(_claim_phase_icon.get_meta("semantic_shape", ""))
+		if _claim_phase_icon != null else
+		""
+	)
+	state["header_phase_progress"] = (
+		_claim_phase_progress_label.text
+		if _claim_phase_progress_label != null and _claim_phase_progress_label.visible else
+		""
+	)
+	state["header_phase_accessible_text"] = (
+		_claim_phase_icon.accessibility_name
+		if _claim_phase_icon != null else
+		""
+	)
+	state["identity_copy"] = _worker_trait_label.text if _worker_trait_label != null else ""
+	state["identity_accessible_text"] = (
+		String(_worker_trait_label.get_meta("accessible_text", ""))
+		if _worker_trait_label != null else
+		""
+	)
+	state["identity_role"] = (
+		String(_worker_trait_label.get_meta("presentation_role", &"worker_identity"))
+		if _worker_trait_label != null else
+		"worker_identity"
+	)
+	state["route_hint_copy"] = _routing_hint_label.text if _routing_hint_label != null else ""
+	state["route_hint_accessible_text"] = (
+		String(_routing_hint_label.get_meta("accessible_text", ""))
+		if _routing_hint_label != null else
+		""
+	)
+	state["route_hint_role"] = (
+		String(_routing_hint_label.get_meta("presentation_role", &"status"))
+		if _routing_hint_label != null else
+		"status"
+	)
+	state["route_hint_visible"] = (
+		_routing_hint_label.is_visible_in_tree()
+		if _routing_hint_label != null else
+		false
+	)
+	state["claim_facts_visible"] = (
+		_claim_detail_strip.is_visible_in_tree()
+		if _claim_detail_strip != null else
+		false
+	)
+	state["claim_facts"] = (
+		(_claim_detail_strip.get_meta("facts", []) as Array).duplicate(true)
+		if _claim_detail_strip != null else
+		[]
+	)
+	state["claim_facts_accessible_text"] = (
+		String(_claim_detail_strip.get_meta("accessible_text", ""))
+		if _claim_detail_strip != null else
+		""
+	)
+	state["claim_facts_shape_language"] = (
+		String(_claim_detail_strip.get_meta("shape_language", ""))
+		if _claim_detail_strip != null else
+		""
+	)
+	return state
 
 
 func golden_file_state() -> Dictionary:
@@ -1581,8 +1884,21 @@ func first_clutch_stage() -> StringName:
 ## temporarily hides the whole routing layer behind a blocking surface.
 func first_clutch_presentation_state() -> Dictionary:
 	var primary_action := ""
+	var recommended_route := ""
+	var demoted_current_route := ""
 	if _first_clutch_cued_control != null and is_instance_valid(_first_clutch_cued_control):
 		primary_action = _first_clutch_cued_control.name
+	for lane in ASSIGNMENT_ORDER:
+		var route_button := _assignment_buttons.get(lane) as Button
+		if route_button == null:
+			continue
+		if bool(route_button.get_meta("first_clutch_recommended_route", false)):
+			recommended_route = String(lane)
+		if bool(route_button.get_meta("first_clutch_current_route_demoted", false)):
+			demoted_current_route = String(lane)
+	var dossier_summary_visible := (
+		_dossier_summary_label != null and _dossier_summary_label.is_visible_in_tree()
+	)
 	return {
 		"active": bool(_first_clutch.get("visible", false)),
 		"stage": String(first_clutch_stage()),
@@ -1601,6 +1917,43 @@ func first_clutch_presentation_state() -> Dictionary:
 		"priority_peck_visible": is_dossier_section_visible(&"priority_peck"),
 		"details_visible": _details_button != null and _details_button.visible,
 		"primary_action_node": primary_action,
+		"recommended_route": recommended_route,
+		"demoted_current_route": demoted_current_route,
+		"visual_title": _first_clutch_title_label.text if _first_clutch_title_label != null else "",
+		"accessible_title": (
+			String(_first_clutch_title_label.get_meta("accessible_text", ""))
+			if _first_clutch_title_label != null else
+			""
+		),
+		"visual_body": _first_clutch_body_label.text if _first_clutch_body_label != null else "",
+		"accessible_body": (
+			String(_first_clutch_body_label.get_meta("accessible_text", ""))
+			if _first_clutch_body_label != null else
+			""
+		),
+		"dossier_summary_copy": (
+			_dossier_summary_label.text if dossier_summary_visible else ""
+		),
+		"dossier_summary_accessible_text": (
+			String(_dossier_summary_label.get_meta("accessible_text", ""))
+			if dossier_summary_visible else
+			""
+		),
+		"dossier_summary_role": (
+			String(_dossier_summary_label.get_meta("presentation_role", &"dossier_detail"))
+			if dossier_summary_visible else
+			"hidden"
+		),
+		"dossier_summary_visible": dossier_summary_visible,
+		"return_action_label": (
+			_first_clutch_return_button.text
+			if _first_clutch_return_button != null and _first_clutch_return_button.visible else
+			""
+		),
+		"progress_rail": (
+			_first_clutch_progress_rail.presentation_state()
+			if _first_clutch_progress_rail != null else {}
+		),
 	}
 
 
@@ -1624,6 +1977,98 @@ func routing_choices_accessible_text() -> String:
 			_assignment_tooltip(lane),
 		])
 	return "; ".join(choices)
+
+
+func routing_choice_state() -> Dictionary:
+	var choices: Array[Dictionary] = []
+	var worker := _worker_snapshot(_focused_worker_id)
+	var selected_lane := StringName(String(worker.get(
+		"assignment",
+		worker.get("assigned_lane", &"auto"),
+	)))
+	for lane in ASSIGNMENT_ORDER:
+		var button := _assignment_buttons.get(lane) as Button
+		if button == null:
+			continue
+		choices.append({
+			"lane": String(lane),
+			"label": button.text,
+			"semantic_icon": String(button.get_meta("semantic_icon", "")),
+			"icon_visible": button.icon != null and button.is_visible_in_tree(),
+			"selected": lane == selected_lane,
+			"specialty_match": bool(button.get_meta("specialty_match", false)),
+			"accessible_text": button.accessibility_name,
+		})
+	return {
+		"visible": _assignment_section != null and _assignment_section.is_visible_in_tree(),
+		"selected_lane": String(selected_lane),
+		"shape_language": "tray=auto; nest=damage; fox=predator; return-file=appeals",
+		"choices": choices,
+	}
+
+
+func dossier_tab_state() -> Dictionary:
+	var tabs: Array[Dictionary] = []
+	for tab_id: StringName in [&"route", &"claim", &"support", &"profile"]:
+		var button := _dossier_tab_buttons.get(tab_id) as Button
+		if button == null:
+			continue
+		tabs.append({
+			"id": String(tab_id),
+			"label": button.text,
+			"semantic_icon": String(button.get_meta("semantic_icon", "")),
+			"icon_visible": button.icon != null and button.is_visible_in_tree(),
+			"selected": button.button_pressed,
+			"accessible_text": button.accessibility_name,
+		})
+	return {
+		"visible": _dossier_tabs != null and _dossier_tabs.is_visible_in_tree(),
+		"active_tab": String(_active_dossier_tab),
+		"shape_language": "tray=route; document=file; flock-care=support; crest=profile",
+		"tabs": tabs,
+	}
+
+
+func selected_hen_identity_state() -> Dictionary:
+	return {
+		"visible": (
+			_worker_identity_row != null
+			and _worker_identity_row.is_visible_in_tree()
+		),
+		"worker_id": _focused_worker_id,
+		"visual_copy": _worker_trait_label.text if _worker_trait_label != null else "",
+		"accessible_text": (
+			_worker_trait_label.accessibility_name
+			if _worker_trait_label != null else
+			""
+		),
+		"profile_icon": (
+			String(_worker_profile_icon.get_meta("semantic_icon", ""))
+			if _worker_profile_icon != null else
+			""
+		),
+		"profile_icon_visible": (
+			_worker_profile_icon != null
+			and _worker_profile_icon.texture != null
+			and _worker_profile_icon.is_visible_in_tree()
+		),
+		"specialty_lane": (
+			String(_worker_specialty_icon.get_meta("specialty_lane", ""))
+			if _worker_specialty_icon != null else
+			""
+		),
+		"specialty_icon": (
+			String(_worker_specialty_icon.get_meta("semantic_icon", ""))
+			if _worker_specialty_icon != null else
+			""
+		),
+		"specialty_icon_visible": (
+			_worker_specialty_icon != null
+			and _worker_specialty_icon.texture != null
+			and _worker_specialty_icon.is_visible_in_tree()
+		),
+		"shape_language": "crest=work profile; lane mark=primary specialty",
+	}
 
 
 ## One compact read model keeps browser narration and regression fixtures aligned
@@ -1725,6 +2170,74 @@ func set_top_inset(inset: float) -> void:
 	_apply_first_clutch_layout()
 
 
+## Use the same symbol-plus-count queue language at every interface scale so the
+## always-visible strip stays glanceable. Exact lane names remain in each tray's
+## tooltip and accessibility label rather than being repeated across the HUD.
+func set_interface_scale(scale: float) -> void:
+	_interface_scale = clampf(scale, 1.0, 1.5)
+	_icon_led_queue_marks = true
+	if _queue_title_label != null:
+		_queue_title_label.text = "ROUTING"
+	if _queue_heading != null:
+		_queue_heading.custom_minimum_size.x = 104.0
+	if _queue_row != null:
+		_queue_row.add_theme_constant_override("separation", 7)
+	var mark_size := Vector2.ONE * roundf(12.0 * _interface_scale)
+	for lane: StringName in LANE_ORDER:
+		var lane_icon := _queue_lane_icons.get(lane) as TextureRect
+		if lane_icon != null:
+			lane_icon.custom_minimum_size = mark_size
+			lane_icon.visible = _icon_led_queue_marks
+	if _queue_overdue_icon != null:
+		_queue_overdue_icon.custom_minimum_size = mark_size
+		_queue_overdue_icon.visible = _icon_led_queue_marks
+	if _queue_panel != null:
+		_queue_panel.set_meta("interface_scale", _interface_scale)
+		_queue_panel.set_meta("compact_lane_marks", _icon_led_queue_marks)
+		_refresh()
+	_apply_first_clutch_layout()
+
+
+func queue_strip_state() -> Dictionary:
+	var lanes: Array[Dictionary] = []
+	for lane: StringName in LANE_ORDER:
+		var lane_icon := _queue_lane_icons.get(lane) as TextureRect
+		var lane_label := _queue_labels.get(lane) as Label
+		lanes.append({
+			"lane": String(lane),
+			"label": lane_label.text if lane_label != null else "",
+			"semantic_icon": String(lane_icon.get_meta("semantic_icon", "")) if lane_icon != null else "",
+			"icon_visible": lane_icon != null and lane_icon.is_visible_in_tree(),
+			"accessible_text": (
+				(_queue_buttons.get(lane) as Button).accessibility_name
+				if _queue_buttons.has(lane) else
+				""
+			),
+		})
+	var strip_rect := _queue_panel.get_global_rect() if _queue_panel != null else Rect2()
+	return {
+		"visible": _queue_panel != null and _queue_panel.visible,
+		"interface_scale": _interface_scale,
+		"compact_lane_marks": _icon_led_queue_marks,
+		"heading": _queue_title_label.text if _queue_title_label != null else "",
+		"width": strip_rect.size.x,
+		"overdue_label": String((_queue_labels.get(&"overdue") as Label).text) if _queue_labels.has(&"overdue") else "",
+		"overdue_icon": String(_queue_overdue_icon.get_meta("semantic_icon", "")) if _queue_overdue_icon != null else "",
+		"overdue_icon_visible": (
+			_queue_overdue_icon != null
+			and _queue_overdue_icon.is_visible_in_tree()
+		),
+		"overdue_state_shape": (
+			String(_queue_overdue_icon.get_meta("state_shape", ""))
+			if _queue_overdue_icon != null else
+			""
+		),
+		"accessible_text": _queue_panel.tooltip_text if _queue_panel != null else "",
+		"shape_language": "nest=repair; fox=predator; return-file=appeals; ring/diamond=overdue state",
+		"lanes": lanes,
+	}
+
+
 func top_inset() -> float:
 	return _top_inset
 
@@ -1757,7 +2270,7 @@ func _build_queue_strip() -> void:
 	_queue_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_queue_panel.offset_left = 18.0
 	_queue_panel.offset_top = 120.0
-	_queue_panel.offset_right = 650.0
+	_queue_panel.offset_right = QUEUE_IDLE_RIGHT
 	_queue_panel.offset_bottom = 158.0
 	_queue_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	_queue_panel.add_theme_stylebox_override("panel", _panel_style(Color("16242d"), 0.96, Color("52646d"), 7, 1))
@@ -1769,19 +2282,20 @@ func _build_queue_strip() -> void:
 	margin.add_theme_constant_override("margin_top", 5)
 	margin.add_theme_constant_override("margin_bottom", 5)
 	_queue_panel.add_child(margin)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 9)
-	margin.add_child(row)
-	var queue_heading := VBoxContainer.new()
-	queue_heading.name = "RoutingQueueHeading"
-	queue_heading.custom_minimum_size.x = 124.0
-	queue_heading.add_theme_constant_override("separation", 0)
-	row.add_child(queue_heading)
-	_queue_title_label = _make_label("PECKWORK ROUTING", 12, Color("e7c56e"))
+	_queue_row = HBoxContainer.new()
+	_queue_row.name = "RoutingQueueRow"
+	_queue_row.add_theme_constant_override("separation", 7)
+	margin.add_child(_queue_row)
+	_queue_heading = VBoxContainer.new()
+	_queue_heading.name = "RoutingQueueHeading"
+	_queue_heading.custom_minimum_size.x = 104.0
+	_queue_heading.add_theme_constant_override("separation", 0)
+	_queue_row.add_child(_queue_heading)
+	_queue_title_label = _make_label("ROUTING", 12, Color("e7c56e"))
 	_queue_title_label.name = "RoutingQueueTitle"
-	queue_heading.add_child(_queue_title_label)
-	_queue_contract_badge = _make_contract_badge("RoutingQueueContractBadge", 124.0)
-	queue_heading.add_child(_queue_contract_badge)
+	_queue_heading.add_child(_queue_title_label)
+	_queue_contract_badge = _make_contract_badge("RoutingQueueContractBadge", 104.0)
+	_queue_heading.add_child(_queue_contract_badge)
 	_queue_compact_label = _make_label("FILES  0  /  OVERDUE  0", 12, Color("c7d3d7"))
 	_queue_compact_label.name = "RoutingQueueCompactSummary"
 	_queue_compact_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1789,37 +2303,73 @@ func _build_queue_strip() -> void:
 	_queue_compact_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_queue_compact_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_queue_compact_label.visible = false
-	row.add_child(_queue_compact_label)
+	_queue_row.add_child(_queue_compact_label)
 	for lane in LANE_ORDER:
 		var tray_button := Button.new()
 		tray_button.name = "DispatchTray_%s" % String(lane)
-		tray_button.custom_minimum_size.x = 96.0 if lane == &"predator_loss" else 86.0
+		tray_button.custom_minimum_size.x = 62.0
 		tray_button.focus_mode = Control.FOCUS_ALL
 		tray_button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		tray_button.theme_type_variation = &"DecisionChoiceButton"
 		tray_button.tooltip_text = "Dispatch the next %s file. Then choose a hen; the gold star marks the best fit." % _lane_name(lane)
 		tray_button.pressed.connect(_on_dispatch_tray_pressed.bind(lane))
-		row.add_child(tray_button)
+		_queue_row.add_child(tray_button)
 		_queue_buttons[lane] = tray_button
-		var label := _make_label("%s  0" % _lane_short_name(lane), 12, _lane_color(lane))
+		var tray_line := HBoxContainer.new()
+		tray_line.name = "QueueLine_%s" % String(lane)
+		tray_line.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		tray_line.alignment = BoxContainer.ALIGNMENT_CENTER
+		tray_line.add_theme_constant_override("separation", 2)
+		tray_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tray_button.add_child(tray_line)
+		var lane_icon := TextureRect.new()
+		lane_icon.name = "QueueIcon_%s" % String(lane)
+		lane_icon.custom_minimum_size = Vector2(14.0, 14.0)
+		lane_icon.texture = ManagementUIThemeScript.action_icon(_lane_queue_icon(lane))
+		lane_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		lane_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		lane_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lane_icon.visible = true
+		lane_icon.set_meta("semantic_icon", String(_lane_queue_icon(lane)))
+		tray_line.add_child(lane_icon)
+		_queue_lane_icons[lane] = lane_icon
+		var label := _make_label("0", 12, _lane_color(lane))
 		label.name = "Queue_%s" % String(lane)
-		label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tray_button.add_child(label)
+		tray_line.add_child(label)
 		_queue_labels[lane] = label
-	var debt := _make_label("OVERDUE  0", 12, _lane_color(&"overdue"))
+	_queue_overdue_host = HBoxContainer.new()
+	_queue_overdue_host.name = "QueueOverdueHost"
+	_queue_overdue_host.custom_minimum_size.x = 66.0
+	_queue_overdue_host.alignment = BoxContainer.ALIGNMENT_CENTER
+	_queue_overdue_host.add_theme_constant_override("separation", 2)
+	_queue_overdue_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_queue_row.add_child(_queue_overdue_host)
+	_queue_overdue_icon = TextureRect.new()
+	_queue_overdue_icon.name = "QueueOverdueStateIcon"
+	_queue_overdue_icon.custom_minimum_size = Vector2(14.0, 14.0)
+	_queue_overdue_icon.texture = ManagementUIThemeScript.action_icon(&"status_pass")
+	_queue_overdue_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_queue_overdue_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_queue_overdue_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_queue_overdue_icon.visible = true
+	_queue_overdue_icon.set_meta("semantic_icon", "status_pass")
+	_queue_overdue_icon.set_meta("state_shape", "ring_check")
+	_queue_overdue_host.add_child(_queue_overdue_icon)
+	var debt := _make_label("0", 12, _lane_color(&"overdue"))
 	debt.name = "QueueOverdue"
-	debt.custom_minimum_size.x = 86.0
-	row.add_child(debt)
+	debt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_queue_overdue_host.add_child(debt)
 	_queue_labels[&"overdue"] = debt
 	_dispatch_momentum_label = _make_label("", 11, Color("e7c56e"))
 	_dispatch_momentum_label.name = "DispatchMomentum"
 	_dispatch_momentum_label.custom_minimum_size.x = 132.0
 	_dispatch_momentum_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_dispatch_momentum_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(_dispatch_momentum_label)
+	_queue_row.add_child(_dispatch_momentum_label)
 	_dispatch_momentum_break_glyph = RoutingMomentumBreakGlyph.new()
 	_dispatch_momentum_break_glyph.name = "DispatchMomentumBreakGlyph"
 	_dispatch_momentum_break_glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1864,10 +2414,23 @@ func _build_first_clutch_coach() -> void:
 	copy.add_theme_constant_override("separation", 1)
 	row.add_child(copy)
 
-	_first_clutch_progress_label = _make_label("FIRST CLUTCH  0 / 5", 10, Color("d8b967"))
+	var progress_row := HBoxContainer.new()
+	progress_row.name = "FirstClutchProgressRow"
+	progress_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	progress_row.add_theme_constant_override("separation", 8)
+	copy.add_child(progress_row)
+
+	_first_clutch_progress_label = _make_label("FIRST CLUTCH", 10, Color("d8b967"))
 	_first_clutch_progress_label.name = "FirstClutchProgress"
 	_first_clutch_progress_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	copy.add_child(_first_clutch_progress_label)
+	progress_row.add_child(_first_clutch_progress_label)
+
+	_first_clutch_progress_rail = FirstClutchProgressRail.new()
+	_first_clutch_progress_rail.name = "FirstClutchProgressRail"
+	_first_clutch_progress_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_first_clutch_progress_rail.focus_mode = Control.FOCUS_NONE
+	_first_clutch_progress_rail.set_progress(0, 5)
+	progress_row.add_child(_first_clutch_progress_rail)
 
 	_first_clutch_title_label = _make_label("INSPECT A HEN", 14, Color("f6e5b5"))
 	_first_clutch_title_label.name = "FirstClutchActionTitle"
@@ -1916,7 +2479,7 @@ func _apply_first_clutch_layout() -> void:
 	if _queue_panel != null:
 		_queue_panel.offset_left = 12.0 if narrow else 18.0
 		_queue_panel.offset_top = _top_inset
-		_queue_panel.offset_right = maxf(12.0, available_width - 12.0) if narrow else 650.0
+		_queue_panel.offset_right = maxf(12.0, available_width - 12.0) if narrow else QUEUE_IDLE_RIGHT
 		_queue_panel.offset_bottom = _top_inset + 38.0
 		if _queue_compact_label != null:
 			_queue_compact_label.visible = narrow
@@ -1982,15 +2545,15 @@ func _build_focus_dossier() -> void:
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 16)
 	margin.add_theme_constant_override("margin_right", 16)
-	margin.add_theme_constant_override("margin_top", 11)
-	margin.add_theme_constant_override("margin_bottom", 11)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_bottom", 8)
 	_focus_panel.add_child(margin)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 18)
 	margin.add_child(row)
 
 	var identity := VBoxContainer.new()
-	identity.custom_minimum_size.x = 205.0
+	identity.custom_minimum_size.x = 281.0
 	identity.add_theme_constant_override("separation", 2)
 	row.add_child(identity)
 	identity.add_child(_make_label("SELECTED HEN", 11, Color("d8b967")))
@@ -2018,26 +2581,79 @@ func _build_focus_dossier() -> void:
 	_worker_career_label.name = "RoutingWorkerCareer"
 	_worker_career_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	identity.add_child(_worker_career_label)
+	_worker_identity_row = HBoxContainer.new()
+	_worker_identity_row.name = "RoutingWorkerIdentityRow"
+	_worker_identity_row.add_theme_constant_override("separation", 4)
+	identity.add_child(_worker_identity_row)
+	_worker_profile_icon = TextureRect.new()
+	_worker_profile_icon.name = "RoutingWorkerProfileIcon"
+	_worker_profile_icon.custom_minimum_size = Vector2(16.0, 16.0)
+	_worker_profile_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_worker_profile_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_worker_profile_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_worker_profile_icon.texture = ManagementUIThemeScript.action_icon(&"rank_crest")
+	_worker_profile_icon.set_meta("semantic_icon", &"rank_crest")
+	_worker_identity_row.add_child(_worker_profile_icon)
+	_worker_specialty_icon = TextureRect.new()
+	_worker_specialty_icon.name = "RoutingWorkerSpecialtyIcon"
+	_worker_specialty_icon.custom_minimum_size = Vector2(16.0, 16.0)
+	_worker_specialty_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_worker_specialty_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_worker_specialty_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_worker_specialty_icon.texture = ManagementUIThemeScript.action_icon(&"lane_nest")
+	_worker_specialty_icon.set_meta("semantic_icon", &"lane_nest")
+	_worker_specialty_icon.set_meta("specialty_lane", &"nest_damage")
+	_worker_identity_row.add_child(_worker_specialty_icon)
 	_worker_trait_label = _make_label("SPECIALTY  /  NEST DAMAGE", 11, Color("aebdc5"))
 	_worker_trait_label.name = "RoutingWorkerSpecialty"
-	identity.add_child(_worker_trait_label)
+	_worker_trait_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_worker_trait_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_worker_identity_row.add_child(_worker_trait_label)
 	_dossier_tabs = HBoxContainer.new()
 	_dossier_tabs.name = "RoutingDossierTabs"
 	_dossier_tabs.add_theme_constant_override("separation", 3)
 	identity.add_child(_dossier_tabs)
+	var dossier_tab_icons: Dictionary[StringName, StringName] = {
+		&"route": &"order_trays",
+		&"claim": &"requisitions",
+		&"support": &"receipt_flock",
+		&"profile": &"rank_crest",
+	}
+	var dossier_tab_labels: Dictionary[StringName, String] = {
+		&"route": "ROUTE",
+		&"claim": "FILE",
+		&"support": "CARE",
+		&"profile": "BIO",
+	}
+	var dossier_tab_accessible_names: Dictionary[StringName, String] = {
+		&"route": "Route tab",
+		&"claim": "File tab",
+		&"support": "Support and care tab",
+		&"profile": "Hen profile tab",
+	}
 	for tab_id: StringName in [&"route", &"claim", &"support", &"profile"]:
 		var tab := Button.new()
 		tab.name = "DossierTab_%s" % String(tab_id)
-		tab.text = "FILE" if tab_id == &"claim" else String(tab_id).to_upper()
+		tab.text = dossier_tab_labels[tab_id]
+		var semantic_icon := dossier_tab_icons[tab_id]
+		tab.icon = ManagementUIThemeScript.action_icon(semantic_icon)
+		tab.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		tab.expand_icon = true
+		tab.set_meta("semantic_icon", semantic_icon)
 		tab.toggle_mode = true
-		tab.custom_minimum_size = Vector2(47.0, 24.0)
+		tab.custom_minimum_size = Vector2(68.0, 30.0)
 		tab.add_theme_font_size_override("font_size", 9)
+		tab.add_theme_constant_override("icon_separation", 3)
 		tab.tooltip_text = {
 			&"route": "Current file, tray routing, and Priority Peck.",
 			&"claim": "Claimant context and the exact settlement, denial, or exception tradeoff.",
 			&"support": "Recognition, coaching, pressure, and check-in status.",
 			&"profile": "Career, specialties, trust, grievance, and care details.",
 		}[tab_id]
+		tab.accessibility_name = "%s. %s" % [
+			dossier_tab_accessible_names[tab_id],
+			tab.tooltip_text,
+		]
 		tab.pressed.connect(_on_dossier_tab_pressed.bind(tab_id))
 		_dossier_tabs.add_child(tab)
 		_dossier_tab_buttons[tab_id] = tab
@@ -2057,13 +2673,32 @@ func _build_focus_dossier() -> void:
 	row.add_child(active_file)
 	_claim_header = HBoxContainer.new()
 	_claim_header.name = "RoutingClaimHeader"
-	_claim_header.add_theme_constant_override("separation", 8)
+	_claim_header.add_theme_constant_override("separation", 7)
 	active_file.add_child(_claim_header)
 	_current_claim_label = _make_label("WAITING FOR PECKWORK", 16, Color("eef2e9"))
 	_current_claim_label.name = "RoutingCurrentClaim"
-	_current_claim_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_current_claim_label.custom_minimum_size.x = 210.0
 	_current_claim_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_claim_header.add_child(_current_claim_label)
+	_claim_phase_icon = TextureRect.new()
+	_claim_phase_icon.name = "RoutingClaimPhaseIcon"
+	_claim_phase_icon.custom_minimum_size = Vector2(22.0, 22.0)
+	_claim_phase_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_claim_phase_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_claim_phase_icon.mouse_filter = Control.MOUSE_FILTER_STOP
+	_claim_phase_icon.focus_mode = Control.FOCUS_NONE
+	_claim_phase_icon.visible = false
+	_claim_header.add_child(_claim_phase_icon)
+	_claim_phase_progress_label = _make_label("", 16, Color("e7c56e"))
+	_claim_phase_progress_label.name = "RoutingClaimPhaseProgress"
+	_claim_phase_progress_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_claim_phase_progress_label.visible = false
+	_claim_header.add_child(_claim_phase_progress_label)
+	var claim_header_spacer := Control.new()
+	claim_header_spacer.name = "RoutingClaimHeaderSpacer"
+	claim_header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	claim_header_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_claim_header.add_child(claim_header_spacer)
 	_golden_file_badge = _make_label("* GOLD", 12, Color("ffd75e"))
 	_golden_file_badge.name = "RoutingGoldenFileBadge"
 	_golden_file_badge.visible = false
@@ -2071,10 +2706,45 @@ func _build_focus_dossier() -> void:
 	_claim_header.add_child(_golden_file_badge)
 	_current_contract_badge = _make_contract_badge("RoutingCurrentContractBadge", 154.0)
 	_claim_header.add_child(_current_contract_badge)
-	_claim_detail_label = _make_label("Auto-sort will favor specialty and deadline.", 12, Color("aebdc5"))
-	_claim_detail_label.name = "RoutingClaimDetail"
-	_claim_detail_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	active_file.add_child(_claim_detail_label)
+	_claim_context_row = HBoxContainer.new()
+	_claim_context_row.name = "RoutingClaimContextRow"
+	_claim_context_row.custom_minimum_size.y = 25.0
+	_claim_context_row.add_theme_constant_override("separation", 18)
+	_claim_context_row.mouse_filter = Control.MOUSE_FILTER_PASS
+	active_file.add_child(_claim_context_row)
+	_claim_detail_strip = HBoxContainer.new()
+	_claim_detail_strip.name = "RoutingClaimDetail"
+	_claim_detail_strip.custom_minimum_size.y = 20.0
+	_claim_detail_strip.add_theme_constant_override("separation", 10)
+	_claim_detail_strip.mouse_filter = Control.MOUSE_FILTER_STOP
+	_claim_detail_strip.focus_mode = Control.FOCUS_NONE
+	_claim_detail_strip.set_meta("shape_language", "clock=deadline; cash=payout; cracked egg=shell risk; egg or magnifier=next destination")
+	_claim_context_row.add_child(_claim_detail_strip)
+	for fact_index in 4:
+		var fact := HBoxContainer.new()
+		fact.name = "ClaimFact_%d" % fact_index
+		fact.add_theme_constant_override("separation", 2)
+		fact.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_claim_detail_strip.add_child(fact)
+		var icon := FlockwatchIconBadgeScript.new()
+		icon.name = "ClaimFactIcon_%d" % fact_index
+		icon.set_badge_size(16.0)
+		fact.add_child(icon)
+		var value := _make_label("", 11, Color("b8c8cc"))
+		value.name = "ClaimFactValue_%d" % fact_index
+		value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fact.add_child(value)
+		_claim_detail_fact_groups.append(fact)
+		_claim_detail_fact_icons.append(icon)
+		_claim_detail_fact_values.append(value)
+	_routing_lifecycle_rail = RoutingLifecycleRail.new()
+	_routing_lifecycle_rail.name = "RoutingLifecycleRail"
+	_routing_lifecycle_rail.custom_minimum_size = Vector2(290.0, 25.0)
+	_routing_lifecycle_rail.mouse_filter = Control.MOUSE_FILTER_PASS
+	_routing_lifecycle_rail.focus_mode = Control.FOCUS_NONE
+	_routing_lifecycle_rail.set_stage(&"route")
+	_routing_lifecycle_rail.visible = false
+	_claim_context_row.add_child(_routing_lifecycle_rail)
 	_claim_progress_track = Control.new()
 	_claim_progress_track.name = "RoutingClaimProgressTrack"
 	_claim_progress_track.custom_minimum_size.y = 16.0
@@ -2185,7 +2855,12 @@ func _build_focus_dossier() -> void:
 		var button := Button.new()
 		button.name = "Assign_%s" % String(assignment)
 		button.set_meta("assignment_lane", assignment)
+		var semantic_icon := _lane_queue_icon(assignment)
+		button.set_meta("semantic_icon", semantic_icon)
 		button.text = _lane_action_name(assignment)
+		button.icon = ManagementUIThemeScript.action_icon(semantic_icon)
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.add_theme_constant_override("icon_separation", 5)
 		button.custom_minimum_size = Vector2(142.0, 34.0)
 		button.theme_type_variation = &"DecisionChoiceButton"
 		button.tooltip_text = _assignment_tooltip(assignment)
@@ -2526,6 +3201,87 @@ func context_action_state() -> Dictionary:
 	}
 
 
+func _set_claim_detail_facts(facts: Array[Dictionary], accessible_text: String) -> void:
+	if _claim_detail_strip == null:
+		return
+	var presented: Array[Dictionary] = []
+	for fact_index in _claim_detail_fact_groups.size():
+		var visible := fact_index < facts.size()
+		_claim_detail_fact_groups[fact_index].visible = visible
+		if not visible:
+			continue
+		var fact := facts[fact_index]
+		var kind := StringName(String(fact.get("icon", "goal")))
+		var value := String(fact.get("value", ""))
+		var role := StringName(String(fact.get("role", "status")))
+		var accent := fact.get("accent", Color("b8c8cc")) as Color
+		_claim_detail_fact_icons[fact_index].call("configure", kind, accent)
+		_claim_detail_fact_icons[fact_index].set_meta("semantic_icon", kind)
+		_claim_detail_fact_values[fact_index].text = value
+		_claim_detail_fact_values[fact_index].add_theme_color_override("font_color", accent.lightened(0.12))
+		_claim_detail_fact_groups[fact_index].set_meta("presentation_role", role)
+		presented.append({
+			"role": String(role),
+			"icon": String(kind),
+			"value": value,
+		})
+	_claim_detail_strip.tooltip_text = accessible_text
+	_claim_detail_strip.accessibility_name = accessible_text
+	_claim_detail_strip.set_meta("accessible_text", accessible_text)
+	_claim_detail_strip.set_meta("facts", presented)
+	_claim_detail_strip.set_meta("fact_count", presented.size())
+
+
+func _clear_claim_phase_header() -> void:
+	_claim_phase_icon.visible = false
+	_claim_phase_icon.texture = null
+	_claim_phase_icon.tooltip_text = ""
+	_claim_phase_icon.accessibility_name = ""
+	_claim_phase_icon.set_meta("semantic_shape", &"")
+	_claim_phase_icon.set_meta("phase", &"")
+	_claim_phase_icon.set_meta("progress_bucket", -1)
+	_claim_phase_progress_label.visible = false
+	_claim_phase_progress_label.text = ""
+	_claim_phase_progress_label.tooltip_text = ""
+	_claim_phase_progress_label.accessibility_name = ""
+
+
+## Reuses the selected hen's world-space work dial and egg receipt in the file
+## header. The neighboring percentage carries the exact amount; full phase copy
+## remains on the header tooltip and accessibility description.
+func _set_claim_phase_header(
+	phase: StringName,
+	progress: int,
+	accessible_text: String,
+) -> void:
+	var laying := phase == &"egg"
+	var semantic_shape: StringName = &"egg_receipt" if laying else &"work_dial"
+	var icon_kind: StringName = &"delivery" if laying else &"steady"
+	var progress_bucket := (
+		-1 if laying else clampi(ceili(float(progress) / 20.0), 0, 5)
+	)
+	_claim_phase_icon.texture = ChickenView.hen_intent_icon_texture(
+		icon_kind,
+		progress_bucket,
+		2,
+		semantic_shape,
+	)
+	_claim_phase_icon.visible = true
+	_claim_phase_icon.tooltip_text = accessible_text
+	_claim_phase_icon.accessibility_name = accessible_text
+	_claim_phase_icon.set_meta("semantic_shape", semantic_shape)
+	_claim_phase_icon.set_meta("phase", phase)
+	_claim_phase_icon.set_meta("progress_bucket", progress_bucket)
+	_claim_phase_progress_label.text = "%d%%" % clampi(progress, 0, 100)
+	_claim_phase_progress_label.visible = true
+	_claim_phase_progress_label.tooltip_text = accessible_text
+	_claim_phase_progress_label.accessibility_name = accessible_text
+	_claim_phase_progress_label.add_theme_color_override(
+		"font_color",
+		Color("8fc9b8") if laying else Color("e7c56e"),
+	)
+
+
 func _refresh() -> void:
 	if _queue_panel == null or _focus_panel == null:
 		return
@@ -2538,18 +3294,37 @@ func _refresh() -> void:
 		queue_total += count
 		var lane_overdue := int(overdue_counts.get(lane, overdue_counts.get(String(lane), 0)))
 		var suffix := "  !%d" % lane_overdue if lane_overdue > 0 else ""
-		_queue_labels[lane].text = "%s  %d%s" % [_lane_short_name(lane), count, suffix]
+		_queue_labels[lane].text = "%d%s" % [count, suffix]
 		_queue_labels[lane].add_theme_color_override("font_color", _lane_color(lane))
+		_queue_labels[lane].tooltip_text = "%s  //  %d WAITING  //  %d OVERDUE" % [
+			_lane_name(lane), count, lane_overdue,
+		]
 		var tray_button := _queue_buttons.get(lane) as Button
 		if tray_button != null:
 			tray_button.disabled = not _interaction_enabled or int(_snapshot.get("shift_phase", 1)) != 1 or count <= 0
 			tray_button.theme_type_variation = (
 				&"SelectedChoiceButton" if lane == _active_dispatch_lane else &"DecisionChoiceButton"
 			)
-			tray_button.accessibility_name = "%s tray, %d waiting" % [_lane_name(lane), count]
+			tray_button.accessibility_name = "%s tray, %d waiting, %d overdue" % [
+				_lane_name(lane), count, lane_overdue,
+			]
+			tray_button.tooltip_text = (
+				"%s TRAY  //  %d WAITING  //  %d OVERDUE\n" % [
+					_lane_name(lane), count, lane_overdue,
+				]
+				+ "Dispatch the next file, then choose a hen; the gold star marks the best fit."
+			)
 	var overdue := int(routing.get("overdue_total", _snapshot.get("overdue_claims", 0)))
-	_queue_labels[&"overdue"].text = "OVERDUE  %d" % overdue
+	_queue_labels[&"overdue"].text = str(overdue)
 	_queue_labels[&"overdue"].modulate = Color.WHITE if overdue > 0 else Color(1.0, 1.0, 1.0, 0.62)
+	if _queue_overdue_host != null:
+		_queue_overdue_host.tooltip_text = "%d FILES OVERDUE ACROSS ALL TRAYS" % overdue
+		_queue_overdue_host.set_meta("accessible_text", _queue_overdue_host.tooltip_text)
+	if _queue_overdue_icon != null:
+		var overdue_icon_kind: StringName = &"status_need" if overdue > 0 else &"status_pass"
+		_queue_overdue_icon.texture = ManagementUIThemeScript.action_icon(overdue_icon_kind)
+		_queue_overdue_icon.set_meta("semantic_icon", String(overdue_icon_kind))
+		_queue_overdue_icon.set_meta("state_shape", "diamond_exclamation" if overdue > 0 else "ring_check")
 	_queue_compact_label.text = "FILES  %d  /  OVERDUE  %d" % [queue_total, overdue]
 	_queue_compact_label.add_theme_color_override(
 		"font_color",
@@ -2559,6 +3334,7 @@ func _refresh() -> void:
 		var mastery_state := routing_mastery_state()
 		var mastery_active := bool(mastery_state.get("active", false))
 		var mastery_target := int(mastery_state.get("next_milestone", 0))
+		var mastery_progress := "%d / %d" % [_dispatch_momentum_chain, mastery_target]
 		var immediate_mastery_reward := (
 			_dispatch_reward_label.begins_with("RECORD")
 			or _dispatch_reward_label.begins_with("ALL")
@@ -2569,13 +3345,13 @@ func _refresh() -> void:
 			_apply_dispatch_break_presentation()
 		elif _active_dispatch_lane != &"":
 			_dispatch_momentum_label.text = (
-				"PICK ×%d NEXT %d" % [_dispatch_momentum_chain, mastery_target]
+				"PICK FIT %s" % mastery_progress
 				if mastery_active and mastery_target > _dispatch_momentum_chain else
 				"PICK · ×%d" % _dispatch_momentum_chain
 				if _dispatch_momentum_chain >= 2 else
 				"PICK"
 			)
-			_dispatch_momentum_label.tooltip_text = (
+			var pick_tooltip := (
 				"Choose a hen. Best fit: %s.%s" % [
 					_dispatch_recommended_name,
 					(" %s is ready." % _dispatch_reward_label) if not _dispatch_reward_label.is_empty() else "",
@@ -2583,11 +3359,19 @@ func _refresh() -> void:
 				if not _dispatch_recommended_name.is_empty() else
 				"Choose a hen. The gold star marks the best fit."
 			)
+			if mastery_active and mastery_target > _dispatch_momentum_chain:
+				pick_tooltip += " Best-fit mastery: %d of %d. The streak has no timer." % [
+					_dispatch_momentum_chain,
+					mastery_target,
+				]
+			_dispatch_momentum_label.tooltip_text = pick_tooltip
+			_dispatch_momentum_label.accessibility_name = pick_tooltip
+			_dispatch_momentum_label.set_meta("accessible_text", pick_tooltip)
 		elif _dispatch_momentum_chain >= 2:
 			_dispatch_momentum_label.text = (
 				"FIT ×%d  %s" % [_dispatch_momentum_chain, _dispatch_reward_label]
 				if immediate_mastery_reward else
-				"FIT ×%d NEXT %d" % [_dispatch_momentum_chain, mastery_target]
+				"FIT %s" % mastery_progress
 				if mastery_active and mastery_target > _dispatch_momentum_chain else
 				"FIT ×%d  %s" % [_dispatch_momentum_chain, _dispatch_reward_label]
 				if not _dispatch_reward_label.is_empty() else
@@ -2602,6 +3386,7 @@ func _refresh() -> void:
 				"accessible_text",
 				_dispatch_momentum_label.tooltip_text,
 			)
+			_dispatch_momentum_label.accessibility_name = _dispatch_momentum_label.tooltip_text
 			_dispatch_momentum_label.set_meta("mastery_target", mastery_target)
 			_dispatch_momentum_label.set_meta(
 				"mastery_target_kind",
@@ -2610,6 +3395,11 @@ func _refresh() -> void:
 		elif not _dispatch_reward_label.is_empty():
 			_dispatch_momentum_label.text = _dispatch_reward_label
 			_dispatch_momentum_label.tooltip_text = "Earned routing reward ready."
+			_dispatch_momentum_label.accessibility_name = _dispatch_momentum_label.tooltip_text
+			_dispatch_momentum_label.set_meta(
+				"accessible_text",
+				_dispatch_momentum_label.tooltip_text,
+			)
 		else:
 			_dispatch_momentum_label.text = ""
 			_dispatch_momentum_label.tooltip_text = ""
@@ -2657,6 +3447,7 @@ func _refresh() -> void:
 	)))
 	var assignment := StringName(worker.get("assignment", worker.get("assigned_lane", &"auto")))
 	_worker_name_label.text = worker_name.to_upper()
+	_refresh_worker_identity_marks(specialty)
 	var career_title := String(worker.get("career_title", "PECKWORK ASSOCIATE"))
 	var career_xp := maxi(0, int(worker.get("career_xp", 0)))
 	var next_xp := int(worker.get("career_xp_next", worker.get("career_xp_to_next", 0)))
@@ -2744,6 +3535,12 @@ func _refresh() -> void:
 		_worker_trait_label.text += "  /  PETITION SPONSOR"
 		_worker_trait_label.tooltip_text += "\nThis hen signed the current flock petition."
 		_worker_trait_label.add_theme_color_override("font_color", Color("df9278"))
+	_worker_trait_label.accessibility_name = "%s. %s" % [
+		_worker_trait_label.text,
+		_worker_trait_label.tooltip_text,
+	]
+	_worker_trait_label.set_meta("accessible_text", _worker_trait_label.accessibility_name)
+	_worker_trait_label.set_meta("presentation_role", &"worker_identity")
 	var claim: Dictionary = worker.get("current_claim", {}) as Dictionary
 	var golden_file_target := bool(claim.get("routing_golden_target", false))
 	_golden_file_badge.visible = golden_file_target
@@ -2760,10 +3557,26 @@ func _refresh() -> void:
 		_golden_file_badge.set_meta("accessibility_label", "Golden File sealed on claim %04d" % int(claim.get("id", 0)))
 	_refresh_contract_badge(_current_contract_badge, claim)
 	if claim.is_empty():
-		_current_claim_label.text = "1  ROUTE  /  WAITING FOR %s FILE" % (_lane_name(assignment) if assignment != &"auto" else "AUTO-SORTED")
+		_clear_claim_phase_header()
+		if assignment == &"auto":
+			_current_claim_label.text = "1  CHOOSE A ROUTE"
+			_current_claim_label.accessibility_name = (
+				"Step 1, choose a route for %s. No file is active. "
+				+ "Auto sorting remains available and will favor specialty and deadline."
+			) % worker_name
+			_current_claim_label.set_meta("presentation_role", &"route_action")
+		else:
+			_current_claim_label.text = "1  %s ROUTE  /  WAITING" % _lane_name(assignment)
+			_current_claim_label.accessibility_name = (
+				"Step 1, route a file. %s is waiting for the next %s file."
+				% [worker_name, _lane_name(assignment)]
+			)
+			_current_claim_label.set_meta("presentation_role", &"route_status")
+		_current_claim_label.tooltip_text = _current_claim_label.accessibility_name
+		_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
 		_claim_progress_bar.value = 0.0
 		_claim_progress_track.visible = false
-		_claim_detail_label.text = "NEXT  /  hen sits, pecks the screen, then lays the completed egg"
+		_routing_lifecycle_rail.set_stage(&"route")
 	else:
 		var lane := StringName(claim.get("lane", &"nest_damage"))
 		var claim_id := int(claim.get("id", 0))
@@ -2771,33 +3584,84 @@ func _refresh() -> void:
 		var progress := int(worker.get("progress", 0))
 		_claim_progress_track.visible = true
 		_claim_progress_bar.value = progress
-		var loop_verb := "2  PECK"
+		var file_step := 2
+		var file_state_accessible := "peckwork"
+		var file_phase: StringName = &"peck"
 		if worker_state_label == "LAYING":
-			loop_verb = "3  LAY"
+			file_step = 3
+			file_state_accessible = "egg laying"
+			file_phase = &"egg"
 		elif worker_state_label not in ["PECKING", "WORKING"]:
-			loop_verb = worker_state_label
-		_current_claim_label.text = "%s  /  %s #%04d%s  ·  %d%%" % [
-			loop_verb, _lane_name(lane), claim_id, ("  /  REWORK" if rework else ""), progress,
+			file_state_accessible = worker_state_label.replace("_", " ").to_lower()
+		_current_claim_label.text = "%s #%04d%s" % [
+			_lane_name(lane), claim_id, ("  •  REWORK" if rework else ""),
 		]
+		_current_claim_label.accessibility_name = (
+			"Step %d, %s. %s file #%04d is %d percent complete.%s"
+			% [
+				file_step,
+				file_state_accessible,
+				_lane_name(lane).to_lower(),
+				claim_id,
+				progress,
+				" This file is rework." if rework else "",
+			]
+		)
+		_current_claim_label.tooltip_text = _current_claim_label.accessibility_name
+		_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
+		_current_claim_label.set_meta("presentation_role", &"file_status")
+		_set_claim_phase_header(
+			file_phase,
+			progress,
+			_current_claim_label.accessibility_name,
+		)
 		var value_cents := int(claim.get("value_cents", 0))
 		var remaining_minutes := int(claim.get("minutes_until_deadline", 0))
+		var claim_overdue := bool(claim.get("overdue", false))
 		var urgency := (
-			"OVERDUE BY %dm" % absi(remaining_minutes)
-			if bool(claim.get("overdue", false)) else
-			"DUE IN %dm" % maxi(0, remaining_minutes)
+			"%dM OVERDUE" % absi(remaining_minutes)
+			if claim_overdue else
+			"%dM LEFT" % maxi(0, remaining_minutes)
+		)
+		var urgency_accessible := (
+			"Overdue by %d minutes" % absi(remaining_minutes)
+			if claim_overdue else
+			"Due in %d minutes" % maxi(0, remaining_minutes)
 		)
 		var crack_risk := int(float(worker.get("estimated_crack_risk", 0.0)) * 100.0)
+		var shell_risk_color := SemanticColorPaletteScript.quality_color(
+			&"cracked",
+			_color_vision_mode,
+		)
+		var claim_facts: Array[Dictionary] = []
 		if worker_state_label == "LAYING":
-			_claim_detail_label.text = "PAYOUT $%.2f  ·  RISK %d%%  ·  NEXT: GRADING > FARMER" % [
-				value_cents / 100.0,
-				crack_risk,
+			claim_facts = [
+				{"role": &"payout", "icon": &"cash", "value": "$%.2f" % (value_cents / 100.0), "accent": Color("73b5a7")},
+				{"role": &"shell_risk", "icon": &"shell_risk", "value": "%d%%" % crack_risk, "accent": shell_risk_color},
+				{"role": &"next_destination", "icon": &"grading", "value": "GRADING", "accent": Color("8fc9b8")},
 			]
+			var laying_facts_accessible := (
+				"Payout $%.2f. Estimated shell crack risk %d percent. Next, grading, then the farmer basket."
+				% [value_cents / 100.0, crack_risk]
+			)
+			_set_claim_detail_facts(claim_facts, laying_facts_accessible)
 		else:
-			_claim_detail_label.text = "%s  ·  $%.2f  ·  crack %d%%  ·  NEXT  /  lay completed egg" % [
-				urgency,
-				value_cents / 100.0,
-				crack_risk,
+			claim_facts = [
+				{
+					"role": &"deadline",
+					"icon": &"clock",
+					"value": "%dM OVER" % absi(remaining_minutes) if claim_overdue else "%dM" % maxi(0, remaining_minutes),
+					"accent": Color("df826f") if claim_overdue else Color("d7c17d"),
+				},
+				{"role": &"payout", "icon": &"cash", "value": "$%.2f" % (value_cents / 100.0), "accent": Color("73b5a7")},
+				{"role": &"shell_risk", "icon": &"shell_risk", "value": "%d%%" % crack_risk, "accent": shell_risk_color},
+				{"role": &"next_destination", "icon": &"egg", "value": "EGG", "accent": Color("d8b967")},
 			]
+			var working_facts_accessible := (
+				"%s. File value $%.2f. Estimated shell crack risk %d percent. Next, finish the work and lay the egg."
+				% [urgency_accessible, value_cents / 100.0, crack_risk]
+			)
+			_set_claim_detail_facts(claim_facts, working_facts_accessible)
 	_refresh_claim_resolution_controls(worker, claim)
 	var assist := worker.get("peck_assist", {}) as Dictionary
 	var assist_available := bool(assist.get("available", false)) and _interaction_enabled
@@ -2821,6 +3685,7 @@ func _refresh() -> void:
 	)))
 	var assist_receipt_text := ""
 	var assist_receipt_tooltip := ""
+	var assist_receipt_active := false
 	_refresh_peck_timing_presentation(assist, assist_state, claim.is_empty())
 	# Pausing is an inspection tool, not a dead end. Keep an authoritative open
 	# window actionable and make its one deliberate consequence explicit: the
@@ -2857,10 +3722,14 @@ func _refresh() -> void:
 			]
 			_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("d5aa4f"), Color("f1d681"), 0))
 		&"not_ready":
-			_peck_assist_button.text = "BUILDING RHYTHM"
+			# Keep the action target stable while the timing label and meter explain
+			# readiness. This lets players learn one button position instead of
+			# parsing a second status sentence that later turns into the action.
+			_peck_assist_button.text = "PECK  [%s]" % _peck_assist_binding_label
 			_claim_progress_bar.add_theme_stylebox_override("fill", _compact_button_style(Color("4d8d83"), Color("75b6a9"), 0))
 		&"used":
 			if last_assist_matches_claim:
+				assist_receipt_active = true
 				var rating := String(last_assist.get("rating", "steady")).to_upper()
 				var progress_gain := int(roundf(float(last_assist.get("progress_gain", 0.0))))
 				var risk_points := float(last_assist.get("quality_modifier", 0.0)) * 100.0
@@ -2872,8 +3741,7 @@ func _refresh() -> void:
 				)
 				_peck_assist_button.add_theme_color_override("font_disabled_color", Color("c9e5b9"))
 				assist_receipt_text = (
-					"LAYING  >  GRADING  >  FARMER  ·  CLEAN EGG REFUNDS 1"
-					if worker_state_label == "LAYING" else
+					"" if worker_state_label == "LAYING" else
 					"FILE +%d%%  ·  RISK %s  ·  CLEAN EGG REFUNDS 1" % [progress_gain, risk_text]
 				)
 				assist_receipt_tooltip = "%s Priority Peck landed on this exact file: +%d%% progress, shell risk %s, chain x%d. A sound or golden delivery restores its attention charge." % [
@@ -2897,11 +3765,24 @@ func _refresh() -> void:
 			)
 		_:
 			_peck_assist_button.text = "NO ACTIVE FILE" if claim.is_empty() else "PECK SUPPORT LOCKED"
+	var lifecycle_stage := (
+		&"route" if claim.is_empty() else
+		&"egg" if worker_state_label == "LAYING" else
+		&"peck"
+	)
+	var lifecycle_replaces_hint := (
+		lifecycle_stage == &"egg" and assist_receipt_active
+	)
+	_routing_lifecycle_rail.set_stage(lifecycle_stage, lifecycle_replaces_hint)
+	_routing_hint_label.set_meta("lifecycle_replaces_hint", lifecycle_replaces_hint)
 	_peck_assist_button.accessibility_name = (
 		"Resume at normal speed and Priority Peck this file"
 		if resume_required else
+		"Priority Peck unavailable; wait for the file meter to reach the gold band"
+		if assist_state == &"not_ready" else
 		_peck_assist_button.text
 	)
+	_peck_assist_button.set_meta("accessible_text", _peck_assist_button.accessibility_name)
 	if golden_file_target:
 		# The milestone seal owns the file's primary outcome color through LAYING;
 		# Priority Peck remains legible through its separate button and timing band.
@@ -2936,7 +3817,11 @@ func _refresh() -> void:
 			+ ("Secondary accreditation is recognized by dispatch." if auto_secondary else "Dispatch recognizes the primary specialty only.")
 		)
 	else:
-		_routing_hint_label.text = "MANUAL OVERRIDE / IT AUTO SUPPORT OFF"
+		_routing_hint_label.text = (
+			"FIT ROUTE  •  NO AUTO BONUS"
+			if assignment_is_credentialed else
+			"OFF-FIT ROUTE  •  NO AUTO BONUS"
+		)
 		_routing_hint_label.tooltip_text = (
 			"This manual %s tray is an explicit override, so IT Coop AUTO pace and grace do not apply. %s"
 			% [
@@ -2950,11 +3835,21 @@ func _refresh() -> void:
 			("EGG" if assist_pending == 1 else "EGGS"),
 			_routing_hint_label.text,
 		]
-	if not assist_receipt_text.is_empty():
+	if lifecycle_replaces_hint:
+		_routing_hint_label.text = ""
+		_routing_hint_label.tooltip_text = assist_receipt_tooltip
+		_routing_hint_label.add_theme_color_override("font_color", Color("a8c894"))
+	elif not assist_receipt_text.is_empty():
 		_routing_hint_label.text = assist_receipt_text
 		_routing_hint_label.tooltip_text = assist_receipt_tooltip
 		_routing_hint_label.add_theme_color_override("font_color", Color("a8c894"))
-	_refresh_egg_journey_receipt(_focused_worker_id, not assist_receipt_text.is_empty())
+	_routing_hint_label.set_meta(
+		"presentation_role",
+		&"delivery_lifecycle_details" if lifecycle_replaces_hint else &"status",
+	)
+	_routing_hint_label.accessibility_name = _routing_hint_label.tooltip_text
+	_routing_hint_label.set_meta("accessible_text", _routing_hint_label.accessibility_name)
+	_refresh_egg_journey_receipt(_focused_worker_id, assist_receipt_active)
 	var manager_trust := clampf(float(worker.get("manager_trust", worker.get("trust", 50.0))), 0.0, 100.0)
 	var grievance := clampf(float(worker.get("grievance", 0.0)), 0.0, 100.0)
 	_trust_label.text = "TRUST  %d" % int(roundf(manager_trust))
@@ -2972,10 +3867,22 @@ func _refresh() -> void:
 	for lane in ASSIGNMENT_ORDER:
 		var button := _assignment_buttons[lane]
 		button.remove_theme_font_size_override("font_size")
-		button.text = _lane_action_name(lane)
+		var specialty_match := (
+			lane != &"auto"
+			and (lane == specialty or (secondary_specialty != &"" and lane == secondary_specialty))
+		)
+		button.text = "%s  FIT" % _lane_action_name(lane) if specialty_match else _lane_action_name(lane)
 		button.disabled = not can_assign
 		button.theme_type_variation = &"SelectedChoiceButton" if lane == assignment else &"DecisionChoiceButton"
 		button.tooltip_text = _assignment_tooltip(lane)
+		button.set_meta("specialty_match", specialty_match)
+		button.accessibility_name = (
+			"%s route, specialty fit" % _lane_action_name(lane)
+			if specialty_match else
+			"%s route" % _lane_action_name(lane)
+		)
+		if specialty_match:
+			button.tooltip_text += " SPECIALTY FIT: this credential improves work pace and shell safety."
 		if lane == &"auto":
 			button.tooltip_text += (
 				" IT Coop support will apply to this employed hen."
@@ -3104,6 +4011,10 @@ func _refresh() -> void:
 		preferred_action,
 		worker_action,
 	)
+	_dossier_summary_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_dossier_summary_label.accessibility_name = _dossier_summary_label.tooltip_text
+	_dossier_summary_label.set_meta("accessible_text", _dossier_summary_label.accessibility_name)
+	_dossier_summary_label.set_meta("presentation_role", &"dossier_detail")
 	_refresh_first_clutch()
 
 
@@ -3246,18 +4157,29 @@ func _refresh_peck_timing_presentation(
 		]
 	)
 	_claim_progress_track.tooltip_text = timing_tooltip
-	_peck_timing_label.tooltip_text = timing_tooltip
+	var timing_accessible := timing_tooltip
 	if claim_empty:
 		_peck_timing_label.text = ""
+		_peck_timing_label.tooltip_text = ""
+		_peck_timing_label.accessibility_name = ""
+		_peck_timing_label.set_meta("accessible_text", "")
 		return
 	match assist_state:
 		&"not_ready":
-			_peck_timing_label.text = "WAIT  ·  PECK WHEN GOLD LIGHTS"
+			_peck_timing_label.text = "WAIT FOR GOLD  •  THEN PECK"
+			timing_accessible = (
+				"Wait for the file meter to reach the gold band, then use Priority Peck. "
+				+ timing_tooltip
+			)
 			_peck_timing_band.color = Color(0.95, 0.72, 0.22, 0.42)
 			_peck_timing_label.add_theme_color_override("font_color", Color("77b7aa"))
 		&"open":
 			var timing_label := String(assist.get("timing_label", "WORKABLE RHYTHM"))
-			_peck_timing_label.text = "%s  ·  PECK NOW" % timing_label
+			_peck_timing_label.text = "PECK NOW  •  %s" % timing_label
+			timing_accessible = (
+				"Priority Peck now. %s. " % timing_label
+				+ timing_tooltip
+			)
 			var timing_color := Color("e7d7a4")
 			if "GOLDEN" in timing_label:
 				timing_color = Color("f1d681")
@@ -3270,11 +4192,19 @@ func _refresh_peck_timing_presentation(
 				_peck_timing_band.color = Color(0.89, 0.58, 0.28, 0.48)
 			_peck_timing_label.add_theme_color_override("font_color", timing_color)
 		&"missed", &"passed":
-			_peck_timing_label.text = "NEXT FILE RESETS"
+			_peck_timing_label.text = "NEXT FILE  •  TRY AGAIN"
+			timing_accessible = (
+				"Priority Peck window missed. Try again on the next file. "
+				+ timing_tooltip
+			)
 			_peck_timing_band.color = Color(0.62, 0.38, 0.31, 0.34)
 			_peck_timing_label.add_theme_color_override("font_color", Color("c97d6b"))
 		_:
 			_peck_timing_label.text = ""
+			timing_accessible = ""
+	_peck_timing_label.tooltip_text = timing_accessible
+	_peck_timing_label.accessibility_name = timing_accessible
+	_peck_timing_label.set_meta("accessible_text", timing_accessible)
 
 
 func _refresh_claim_resolution_controls(
@@ -3473,24 +4403,45 @@ func _refresh_first_clutch() -> void:
 		_first_clutch.get("completed_steps", 0),
 	)), 0, total)
 	var eyebrow := String(_first_clutch.get("eyebrow", "")).strip_edges().to_upper()
-	_first_clutch_progress_label.text = (
-		eyebrow if not eyebrow.is_empty() else "FIRST CLUTCH  %d / %d" % [progress, total]
+	var character_led_orientation := (
+		bool(_first_clutch.get("pre_policy", false)) and not eyebrow.is_empty()
 	)
-	_first_clutch_title_label.text = String(_first_clutch.get(
+	_first_clutch_progress_label.text = eyebrow if character_led_orientation else "FIRST CLUTCH"
+	_first_clutch_progress_rail.visible = not character_led_orientation
+	_first_clutch_progress_rail.set_progress(progress, total)
+	var accessible_title := String(_first_clutch.get(
 		"title",
 		_first_clutch.get("action_title", "INSPECT A HEN"),
 	)).strip_edges().to_upper()
+	if accessible_title.is_empty():
+		accessible_title = "INSPECT A HEN"
+	_first_clutch_title_label.text = String(_first_clutch.get(
+		"visual_title",
+		accessible_title,
+	)).strip_edges().to_upper()
 	if _first_clutch_title_label.text.is_empty():
-		_first_clutch_title_label.text = "INSPECT A HEN"
-	_first_clutch_body_label.text = String(_first_clutch.get(
+		_first_clutch_title_label.text = accessible_title
+	_first_clutch_title_label.accessibility_name = accessible_title
+	_first_clutch_title_label.tooltip_text = accessible_title
+	_first_clutch_title_label.set_meta("accessible_text", accessible_title)
+	var accessible_body := String(_first_clutch.get(
 		"body",
 		_first_clutch.get("action_body", "Click a hen or press Tab to open her work file."),
 	)).strip_edges()
+	if accessible_body.is_empty():
+		accessible_body = "Complete the highlighted management action."
+	_first_clutch_body_label.text = String(_first_clutch.get(
+		"visual_body",
+		accessible_body,
+	)).strip_edges()
 	if _first_clutch_body_label.text.is_empty():
-		_first_clutch_body_label.text = "Complete the highlighted management action."
+		_first_clutch_body_label.text = accessible_body
+	_first_clutch_body_label.accessibility_name = accessible_body
+	_first_clutch_body_label.tooltip_text = accessible_body
+	_first_clutch_body_label.set_meta("accessible_text", accessible_body)
 	_first_clutch_panel.tooltip_text = "%s\n%s" % [
-		_first_clutch_title_label.text,
-		_first_clutch_body_label.text,
+		accessible_title,
+		accessible_body,
 	]
 	var can_skip := bool(_first_clutch.get("can_skip", true))
 	var skip_had_focus := _first_clutch_skip_button.has_focus()
@@ -3519,6 +4470,8 @@ func _refresh_first_clutch() -> void:
 	_apply_first_clutch_control_cue()
 	_apply_first_clutch_route_glance()
 	_apply_first_clutch_check_in_glance()
+	_apply_first_clutch_priority_peck_glance()
+	_apply_first_clutch_delivery_glance()
 
 
 ## Turns the first routing lesson into one glanceable match: the hen's filed
@@ -3544,22 +4497,61 @@ func _apply_first_clutch_route_glance() -> void:
 	var lane_name := _lane_name(lane)
 	var route_color := _lane_color(lane)
 	var target_button := _assignment_buttons[lane] as Button
+	_refresh_worker_identity_marks(lane)
 	target_button.text = "%s  [ENTER]" % _lane_action_name(lane)
 	target_button.add_theme_font_size_override("font_size", 11)
+	target_button.set_meta("first_clutch_recommended_route", true)
+	target_button.accessibility_name = "Recommended best-fit route: %s. Press Enter." % lane_name
+	var current_lane := StringName(String(worker.get(
+		"assignment",
+		worker.get("assigned_lane", &"auto"),
+	)))
+	if current_lane != lane and _assignment_buttons.has(current_lane):
+		var current_button := _assignment_buttons[current_lane] as Button
+		current_button.theme_type_variation = &"DecisionChoiceButton"
+		current_button.self_modulate = Color(1.0, 1.0, 1.0, 0.58)
+		current_button.set_meta("first_clutch_current_route_demoted", true)
+		current_button.accessibility_name = (
+			"Current route: %s. Change to recommended %s to continue First Clutch."
+			% [_lane_name(current_lane), lane_name]
+		)
 	_worker_trait_label.text = (
-		"SPECIALTY  /  %s  =  BEST FIT" % lane_name
+		"%s SPECIALIST" % lane_name
 		if matched else
 		"TARGET TRAY  /  %s" % lane_name
 	)
+	_worker_trait_label.accessibility_name = (
+		(
+			"%s's %s specialty matches the highlighted %s tray. "
+			+ "A specialty match improves speed and shell safety."
+		) % [String(worker.get("name", "This hen")), lane_name, lane_name]
+		if matched else
+		"The highlighted target tray is %s; choose it to continue First Clutch." % lane_name
+	)
+	_worker_trait_label.tooltip_text = _worker_trait_label.accessibility_name
+	_worker_trait_label.set_meta("accessible_text", _worker_trait_label.accessibility_name)
+	_worker_trait_label.set_meta(
+		"presentation_role",
+		&"specialist_identity" if matched else &"target_route",
+	)
 	_worker_trait_label.add_theme_color_override("font_color", route_color.lightened(0.18))
-	_routing_hint_label.text = "%s  >  %s  [ENTER]" % [
-		"BEST FIT" if matched else "ROUTE",
-		_lane_short_name(lane),
-	]
-	_routing_hint_label.tooltip_text = String(_first_clutch.get(
+	var route_guidance := String(_first_clutch.get(
 		"guidance",
 		"Press Enter or choose the highlighted %s tray." % lane_name,
 	))
+	if matched:
+		_routing_hint_label.text = "FIT = FASTER + SAFER"
+		_routing_hint_label.accessibility_name = (
+			"Specialty match: speed improves and shell crack risk decreases. "
+			+ route_guidance
+		)
+		_routing_hint_label.set_meta("presentation_role", &"match_payoff")
+	else:
+		_routing_hint_label.text = "ROUTE  >  %s  [ENTER]" % _lane_short_name(lane)
+		_routing_hint_label.accessibility_name = route_guidance
+		_routing_hint_label.set_meta("presentation_role", &"route_action")
+	_routing_hint_label.tooltip_text = _routing_hint_label.accessibility_name
+	_routing_hint_label.set_meta("accessible_text", _routing_hint_label.accessibility_name)
 	_routing_hint_label.add_theme_color_override("font_color", route_color.lightened(0.22))
 
 
@@ -3600,21 +4592,32 @@ func _apply_first_clutch_check_in_glance() -> void:
 		PERSONNEL_ACTION_NAMES.get(action_id, String(action_id).replace("_", " ")),
 	)).to_upper()
 	var profile_name := String(worker.get("career_profile_name", "PROFILE FIT")).to_upper()
+	var worker_name := String(worker.get("name", "This hen"))
 	var target_button := _personnel_buttons[action_id] as Button
 	target_button.text = "%s  [ENTER]" % action_name
 	target_button.add_theme_font_size_override("font_size", 10)
 	_worker_trait_label.text = "PROFILE  /  %s" % profile_name
+	_worker_trait_label.accessibility_name = "%s's active work profile is %s." % [worker_name, profile_name]
+	_worker_trait_label.tooltip_text = _worker_trait_label.accessibility_name
+	_worker_trait_label.set_meta("accessible_text", _worker_trait_label.accessibility_name)
+	_worker_trait_label.set_meta("presentation_role", &"profile_identity")
 	_worker_trait_label.add_theme_color_override("font_color", Color("8fc9b8"))
 	_dossier_summary_label.visible = true
-	_dossier_summary_label.text = "%s  >  %s\n%s" % [
-		profile_name,
-		action_name,
-		_personnel_effect_glance(action_id),
-	]
-	_dossier_summary_label.tooltip_text = "%s\n%s" % [
-		String(definition.get("description", PERSONNEL_ACTION_TOOLTIPS.get(action_id, ""))),
-		String(definition.get("preview", "")),
-	]
+	_dossier_summary_label.text = "PROFILE MATCH  >  %s" % _personnel_effect_glance(action_id)
+	_dossier_summary_label.accessibility_name = (
+		"Profile match for %s: %s recommends %s. %s %s"
+		% [
+			worker_name,
+			profile_name,
+			action_name,
+			String(definition.get("description", PERSONNEL_ACTION_TOOLTIPS.get(action_id, ""))),
+			String(definition.get("preview", "")),
+		]
+	).strip_edges()
+	_dossier_summary_label.tooltip_text = _dossier_summary_label.accessibility_name
+	_dossier_summary_label.set_meta("accessible_text", _dossier_summary_label.accessibility_name)
+	_dossier_summary_label.set_meta("presentation_role", &"profile_payoff")
+	_dossier_summary_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_dossier_summary_label.add_theme_color_override("font_color", Color("bce4d8"))
 	_dossier_summary_label.add_theme_stylebox_override(
 		"normal",
@@ -3633,6 +4636,119 @@ func _personnel_effect_glance(action_id: StringName) -> String:
 		&"quota_pressure":
 			return "PACE +  /  TRUST -"
 	return "PROFILE EFFECT  /  SEE DETAILS"
+
+
+## Keeps the timing lesson aligned with the action the player is actually
+## learning. The specialty route is already complete here, so an empty tray is
+## a wait-for-work state—not another route decision—and the automation note is
+## less useful than the three-beat rhythm the player should watch.
+func _apply_first_clutch_priority_peck_glance() -> void:
+	if (
+		_first_clutch_disclosure_stage() != &"priority_peck"
+		or not _first_clutch_has_contextual_dossier()
+	):
+		return
+	var worker := _worker_snapshot(_focused_worker_id)
+	var claim := worker.get("current_claim", {}) as Dictionary
+	var assist := worker.get("peck_assist", {}) as Dictionary
+	var assist_state := StringName(assist.get("window_state", &"locked"))
+	var resume_required := bool(_first_clutch.get("resume_required", false))
+	var worker_name := String(worker.get("name", "This hen"))
+	_routing_lifecycle_rail.set_stage(&"peck")
+	if claim.is_empty():
+		_clear_claim_phase_header()
+		_current_claim_label.text = "2  WAIT FOR LIVE FILE"
+		_current_claim_label.accessibility_name = (
+			"Step 2, Priority Peck. %s is correctly routed and waiting for a live file. "
+			+ "When work arrives, watch its progress meter for the gold timing window."
+		) % worker_name
+		_current_claim_label.tooltip_text = _current_claim_label.accessibility_name
+		_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
+		_current_claim_label.set_meta("presentation_role", &"priority_wait")
+		_routing_hint_label.text = (
+			"RESUME 1x  >  FILE  >  GOLD"
+			if resume_required else
+			"FILE INCOMING  >  WATCH GOLD"
+		)
+	else:
+		match assist_state:
+			&"open":
+				_routing_hint_label.text = (
+					"RESUME 1x  >  PECK NOW"
+					if resume_required else
+					"GOLD OPEN  >  PECK NOW  [%s]" % _peck_assist_binding_label
+				)
+			&"not_ready":
+				_routing_hint_label.text = (
+					"RESUME 1x  >  WATCH GOLD"
+					if resume_required else
+					"BUILD RHYTHM  >  WATCH GOLD"
+				)
+			&"used":
+				# Keep the exact landed receipt authored by the normal dossier.
+				return
+			_:
+				_routing_hint_label.text = "WATCH FILE  >  GOLD WINDOW"
+	_routing_hint_label.accessibility_name = String(_first_clutch.get(
+		"body",
+		"Watch the live file meter for the gold Priority Peck window.",
+	))
+	_routing_hint_label.tooltip_text = _routing_hint_label.accessibility_name
+	_routing_hint_label.set_meta("accessible_text", _routing_hint_label.accessibility_name)
+	_routing_hint_label.set_meta("presentation_role", &"priority_sequence")
+	_routing_hint_label.add_theme_color_override("font_color", Color("e5ca72"))
+
+
+## Turns the post-peck handoff into the same three-beat visual language as the
+## rest of First Clutch. The player tracks one assisted file until it becomes
+## an egg, then the active lifecycle shape and copy move to grading together.
+func _apply_first_clutch_delivery_glance() -> void:
+	if (
+		_first_clutch_disclosure_stage() != &"delivery"
+		or not _first_clutch_has_contextual_dossier()
+	):
+		return
+	var worker := _worker_snapshot(_focused_worker_id)
+	var worker_name := String(worker.get("name", "This hen"))
+	var claim_id := int(_first_clutch.get("assisted_claim_id", -1))
+	var egg_laid := bool(_first_clutch.get("delivery_laid", false))
+	_clear_claim_phase_header()
+	if egg_laid:
+		_routing_lifecycle_rail.set_stage(&"egg", true)
+		_current_claim_label.text = "3  EGG IN GRADING"
+		_current_claim_label.accessibility_name = (
+			"Step 3, egg delivery. %s finished assisted claim #%04d. "
+			+ "Its egg is moving through grading toward the farmer basket."
+		) % [worker_name, maxi(0, claim_id)]
+		_current_claim_label.set_meta("presentation_role", &"delivery_grading")
+		_routing_hint_label.text = "GRADING  >  FARMER BASKET  >  FEED FUND"
+		_routing_hint_label.set_meta("presentation_role", &"delivery_sequence")
+	else:
+		_routing_lifecycle_rail.set_stage(&"peck")
+		_current_claim_label.text = (
+			"2  ASSISTED FILE #%04d  /  FINISHING" % claim_id
+			if claim_id >= 0 else
+			"2  ASSISTED FILE  /  FINISHING"
+		)
+		_current_claim_label.accessibility_name = (
+			"Step 2, assisted file. Priority Peck landed; watch %s finish claim #%04d and lay its egg."
+			% [worker_name, maxi(0, claim_id)]
+		)
+		_current_claim_label.set_meta("presentation_role", &"delivery_file")
+		_routing_hint_label.text = "PECK LANDED  >  FINISH FILE  >  LAY EGG"
+		_routing_hint_label.set_meta("presentation_role", &"delivery_sequence")
+	_current_claim_label.tooltip_text = _current_claim_label.accessibility_name
+	_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
+	_routing_hint_label.accessibility_name = String(_first_clutch.get(
+		"body",
+		"Follow the assisted file through egg delivery.",
+	))
+	_routing_hint_label.tooltip_text = _routing_hint_label.accessibility_name
+	_routing_hint_label.set_meta("accessible_text", _routing_hint_label.accessibility_name)
+	_routing_hint_label.add_theme_color_override(
+		"font_color",
+		Color("9fd4bd") if egg_laid else Color("e5ca72"),
+	)
 
 
 func _first_clutch_disclosure_stage() -> StringName:
@@ -3702,13 +4818,15 @@ func _apply_dossier_disclosure() -> void:
 	# inspection, personnel, timing, and delivery steps.
 	_queue_panel.visible = normal_play or (target_matches and stage == &"specialty_route")
 	_claim_header.visible = show_claim
-	_claim_detail_label.visible = show_claim
 	_dossier_summary_label.visible = (
 		normal_play
 		and _active_dossier_tab in [&"claim", &"support", &"profile"]
 	)
 	var worker := _worker_snapshot(_focused_worker_id)
 	var claim := worker.get("current_claim", {}) as Dictionary
+	_claim_context_row.visible = show_claim
+	_claim_detail_strip.visible = show_claim and not claim.is_empty()
+	_routing_lifecycle_rail.visible = show_claim
 	_claim_progress_track.visible = show_claim and not claim.is_empty()
 	var show_timing := (
 		not claim.is_empty()
@@ -3726,7 +4844,13 @@ func _apply_dossier_disclosure() -> void:
 	_personnel_actions_section.visible = show_check_in
 
 	_assist_row.visible = route_tab or show_routing or show_priority or show_delivery
-	_routing_hint_label.visible = _assist_row.visible
+	_routing_hint_label.visible = (
+		_assist_row.visible
+		and not (
+			normal_play
+			and bool(_routing_hint_label.get_meta("lifecycle_replaces_hint", false))
+		)
+	)
 	_peck_assist_button.visible = route_tab or show_priority
 	_peck_charge_meter.visible = _peck_assist_button.visible and _claim_progress_track.visible
 
@@ -3869,11 +4993,24 @@ func _clear_first_clutch_control_cue() -> void:
 	if _first_clutch_cued_control != null and is_instance_valid(_first_clutch_cued_control):
 		_first_clutch_cued_control.self_modulate = Color.WHITE
 	_first_clutch_cued_control = null
+	var focused_worker := _worker_snapshot(_focused_worker_id)
+	var current_lane := StringName(String(focused_worker.get(
+		"assignment",
+		focused_worker.get("assigned_lane", &"auto"),
+	)))
 	for lane in ASSIGNMENT_ORDER:
 		var assignment_button := _assignment_buttons.get(lane) as Button
 		if assignment_button == null:
 			continue
 		assignment_button.set_meta("first_clutch_cue", false)
+		assignment_button.set_meta("first_clutch_recommended_route", false)
+		assignment_button.set_meta("first_clutch_current_route_demoted", false)
+		assignment_button.accessibility_name = ""
+		assignment_button.self_modulate = Color.WHITE
+		if not focused_worker.is_empty():
+			assignment_button.theme_type_variation = (
+				&"SelectedChoiceButton" if lane == current_lane else &"DecisionChoiceButton"
+			)
 		for style_name in [&"normal", &"hover", &"pressed", &"disabled", &"focus"]:
 			assignment_button.remove_theme_stylebox_override(style_name)
 	for action_id in PERSONNEL_ACTION_ORDER:
@@ -4154,12 +5291,16 @@ func _refresh_first_clutch_return_action(coach_visible: bool) -> void:
 		worker_name = "HEN %d" % (target_worker_id + 1)
 	if pre_policy:
 		_first_clutch_return_button.custom_minimum_size.x = 166.0
-		_first_clutch_return_button.text = "OPEN %s'S FILE  [ENTER]" % worker_name.to_upper()
+		_first_clutch_return_button.text = "OPEN FIRST FILE  [ENTER]"
 		_first_clutch_return_button.tooltip_text = "Open %s's live dossier, then choose the flock policy." % worker_name
+		_first_clutch_return_button.accessibility_name = _first_clutch_return_button.tooltip_text
+		_first_clutch_return_button.set_meta("first_clutch_action", &"open_target_file")
 		return
 	_first_clutch_return_button.custom_minimum_size.x = 108.0
-	_first_clutch_return_button.text = "RETURN TO %s" % worker_name.to_upper()
-	_first_clutch_return_button.tooltip_text = "Return to %s's work file without advancing the coach." % worker_name
+	_first_clutch_return_button.text = "FIND %s" % worker_name.to_upper()
+	_first_clutch_return_button.tooltip_text = "Find %s and reopen her work file without advancing the coach." % worker_name
+	_first_clutch_return_button.accessibility_name = _first_clutch_return_button.tooltip_text
+	_first_clutch_return_button.set_meta("first_clutch_action", &"focus_target")
 
 
 func _on_dispatch_tray_pressed(lane: StringName) -> void:
@@ -4512,6 +5653,13 @@ func _refresh_hen_intent(worker: Dictionary) -> void:
 	var urgency := clampi(int(intent.get("urgency", 1)), 1, 3)
 	var action_id := StringName(String(intent.get("action_id", "route")))
 	var action_label := String(intent.get("action_label", "OPEN")).to_upper()
+	var choice_intent := StringName(String(intent.get("id", ""))) == &"choice"
+	var outcome_cutoff := clampi(int(intent.get("cutoff_progress", 55)), 1, 99)
+	var visual_action_label := (
+		"OUTCOME <%d%%" % outcome_cutoff
+		if choice_intent else
+		action_label
+	)
 	var intent_key := "%s|%s|%s" % [String(icon), String(action_id), action_label]
 	var previous_intent_key := _last_hen_intent_key
 	var detail := String(intent.get("detail", "Open this hen's next useful action."))
@@ -4524,10 +5672,16 @@ func _refresh_hen_intent(worker: Dictionary) -> void:
 		):
 			detail = "%s\n%s" % [detail, _peck_assist_button.tooltip_text]
 	_hen_intent_button.icon = ChickenView.hen_intent_icon_texture(icon, -1, urgency)
-	_hen_intent_button.text = "%s  ›" % action_label
+	_hen_intent_button.text = (
+		visual_action_label
+		if choice_intent else
+		"%s  ›" % visual_action_label
+	)
+	_hen_intent_button.add_theme_font_size_override("font_size", 9 if choice_intent else 10)
 	_hen_intent_button.tooltip_text = detail
 	_hen_intent_button.set_meta("action_id", action_id)
 	_hen_intent_button.set_meta("intent_icon", icon)
+	_hen_intent_button.set_meta("outcome_cutoff_progress", outcome_cutoff if choice_intent else -1)
 	_hen_intent_button.set_meta("accessible_text", "%s. %s" % [action_label, detail])
 	_hen_intent_button.disabled = not action_available
 	_hen_intent_button.theme_type_variation = (
@@ -4670,6 +5824,26 @@ func _lane_action_name(lane: StringName) -> String:
 func _lane_short_name(lane: StringName) -> String:
 	var display := String(LANE_SHORT_NAMES.get(lane, String(lane).replace("_", " ").to_upper()))
 	return SemanticColorPaletteScript.marked_lane_name(display, lane, _color_vision_mode)
+
+
+func _lane_queue_icon(lane: StringName) -> StringName:
+	match lane:
+		&"nest_damage": return &"lane_nest"
+		&"predator_loss": return &"lane_predator"
+		&"appeals": return &"lane_appeals"
+	return &"order_trays"
+
+
+func _refresh_worker_identity_marks(specialty: StringName) -> void:
+	if _worker_profile_icon != null:
+		_worker_profile_icon.texture = ManagementUIThemeScript.action_icon(&"rank_crest")
+		_worker_profile_icon.set_meta("semantic_icon", &"rank_crest")
+	if _worker_specialty_icon == null:
+		return
+	var semantic_icon := _lane_queue_icon(specialty)
+	_worker_specialty_icon.texture = ManagementUIThemeScript.action_icon(semantic_icon)
+	_worker_specialty_icon.set_meta("semantic_icon", semantic_icon)
+	_worker_specialty_icon.set_meta("specialty_lane", specialty)
 
 
 func _lane_color(lane: StringName) -> Color:

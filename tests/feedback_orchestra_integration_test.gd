@@ -19,6 +19,7 @@ func _run() -> void:
 	var storytelling := office.get("_office_storytelling") as OfficeStorytelling
 	var worker_views: Dictionary = office.get("_worker_views") as Dictionary
 	var worker_view := worker_views.get(0) as ChickenView
+	var ticker := office.get("_ticker_label") as Label
 	_check(simulation != null, "Office should expose its authoritative simulation", failures)
 	_check(clock != null, "Office should expose its simulation clock", failures)
 	_check(audio != null, "Office should install pooled audio feedback", failures)
@@ -93,8 +94,43 @@ func _run() -> void:
 	simulation.set_worker_at_workstation(0, true)
 	office.call("_on_camera_focus_changed", "MABEL", 0)
 	await process_frame
+	_check(
+		ticker != null
+		and "MABEL" in ticker.text
+		and "♥" in ticker.text
+		and "Zz" in ticker.text
+		and "!" in ticker.text
+		and "CRACK" in ticker.text
+		and not "MORALE" in ticker.text
+		and not "FATIGUE" in ticker.text
+		and not "STRESS" in ticker.text
+		and "Morale" in ticker.accessibility_name
+		and "Fatigue" in ticker.accessibility_name
+		and "Stress" in ticker.accessibility_name
+		and "Estimated shell crack risk" in ticker.accessibility_name
+		and ticker.tooltip_text == ticker.accessibility_name
+		and StringName(ticker.get_meta("presentation_role", &"")) == &"worker_vitals",
+		"selected-hen status should use a compact visual vitals strip with a complete semantic equivalent",
+		failures,
+	)
 	cue_events.clear()
 	var intent_marker := worker_view.find_child("HenIntentMarker", true, false) as Sprite3D
+	var background_worker_view := worker_views.get(1) as ChickenView
+	var background_marker := (
+		background_worker_view.find_child("HenIntentMarker", true, false) as Sprite3D
+		if background_worker_view != null else
+		null
+	)
+	_check(
+		intent_marker != null
+		and background_marker != null
+		and StringName(intent_marker.get_meta("focus_role", &"")) == &"selected"
+		and StringName(background_marker.get_meta("focus_role", &"")) == &"background"
+		and background_marker.pixel_size < intent_marker.pixel_size
+		and background_marker.modulate.a < intent_marker.modulate.a,
+		"inspecting one hen should keep her world pin prominent while routine flock pins recede",
+		failures,
+	)
 	var opportunity_visual_serial := int(
 		intent_marker.get_meta("priority_peck_ready_serial", 0)
 		if intent_marker != null else

@@ -47,8 +47,14 @@ func _run() -> void:
 	var routing_ui := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
 	var live_hud := office.find_child("LiveShiftHUD", true, false) as PanelContainer
 	var objective_row := office.find_child("ShiftObjectiveRow", true, false) as HBoxContainer
+	var shift_egg_goal_label := office.find_child("ShiftEggGoalLabel", true, false) as Label
+	var shift_egg_goal_status := office.find_child("ShiftEggGoalStatus", true, false) as HBoxContainer
+	var shift_egg_goal_icon := office.find_child("ShiftEggGoalIcon", true, false) as FlockwatchIconBadge
+	var shift_quota_progress := office.find_child("ShiftQuotaProgress", true, false) as ProgressBar
+	var shift_quota_readout := office.find_child("ShiftQuotaReadout", true, false) as Label
 	var queue_strip := office.find_child("PeckworkQueueStrip", true, false) as PanelContainer
 	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
+	var speed_control := office.find_child("SimulationSpeedControl", true, false) as HBoxContainer
 	var flockwatch_panel := office.find_child("FlockwatchLedger", true, false) as PanelContainer
 	var status_toast := office.find_child("StatusToast", true, false) as PanelContainer
 	var status_history := office.find_child("FlockwatchStatusHistory", true, false) as Label
@@ -187,6 +193,14 @@ func _run() -> void:
 		failures,
 	)
 	_check(
+		flockwatch_toggle != null
+		and not flockwatch_toggle.visible
+		and speed_control != null
+		and not speed_control.visible,
+		"the opening file task should defer ledger and clock controls until the first file is inspected",
+		failures,
+	)
+	_check(
 		live_hud != null
 		and is_equal_approx(live_hud.offset_bottom, Office.FIRST_CLUTCH_HUD_HEIGHT)
 		and objective_row != null
@@ -260,6 +274,28 @@ func _run() -> void:
 		and queue_strip != null
 		and is_equal_approx(queue_strip.offset_top, Office.LIVE_ROUTING_TOP),
 		"normal play should restore the complete live HUD and its established routing position",
+		failures,
+	)
+	_check(
+		shift_egg_goal_label != null
+		and shift_egg_goal_label.text.is_empty()
+		and not shift_egg_goal_label.visible
+		and shift_egg_goal_status != null
+		and String(shift_egg_goal_status.get_meta("semantic_icon", "")) == "egg"
+		and String(shift_egg_goal_status.get_meta("shape_language", "")) == "egg=shift quota"
+		and shift_egg_goal_icon != null
+		and shift_egg_goal_icon.is_visible_in_tree()
+		and shift_egg_goal_icon.icon_kind() == &"egg"
+		and shift_quota_progress != null
+		and shift_quota_readout != null
+		and shift_quota_readout.text == "%d / %d" % [
+			roundi(shift_quota_progress.value),
+			roundi(shift_quota_progress.max_value),
+		]
+		and "remaining this shift" in shift_quota_progress.tooltip_text
+		and shift_quota_progress.accessibility_name == shift_quota_progress.tooltip_text
+		and shift_quota_readout.accessibility_name == shift_quota_progress.tooltip_text,
+		"the always-visible shift goal should use an egg shape and keep exact laid/remaining context accessible",
 		failures,
 	)
 	campaign_ui.show_active_campaign()

@@ -23,6 +23,8 @@ func _run() -> void:
 	var decision_order_glance := office.find_child("DecisionOrderGlance", true, false) as GridContainer
 	var decision_preview := office.find_child("DecisionPreview", true, false) as Label
 	var directive_badge := office.get("_directive_badge") as Label
+	var directive_badge_host := office.find_child("LivePolicyBadge", true, false) as HBoxContainer
+	var directive_badge_icon := office.find_child("LivePolicyIcon", true, false) as FlockwatchIconBadge
 	var review_scrim := office.find_child("DayReviewScrim", true, false) as ColorRect
 	var next_shift_button := office.find_child("BeginNextShiftButton", true, false) as Button
 	var probation_report := office.find_child("ProbationReportPanel", true, false) as PanelContainer
@@ -59,6 +61,15 @@ func _run() -> void:
 		and decision_order_glance.is_visible_in_tree()
 		and decision_order_glance.columns == 3,
 		"the opening policy should lead with one short action and one row of three scored orders",
+		failures,
+	)
+	_check(
+		decision_preview != null
+		and not decision_preview.is_visible_in_tree()
+		and confirm_button != null
+		and confirm_button.disabled
+		and confirm_button.text == "SELECT A RULE ABOVE",
+		"unselected opening policy should omit the duplicate lower prompt and point to the real choices",
 		failures,
 	)
 	var opening_accessibility := String(office.call(
@@ -125,16 +136,27 @@ func _run() -> void:
 		)
 
 	var harvest_button := office.find_child("DecisionOption_record_harvest", true, false) as Button
+	var assurance_button := office.find_child("DecisionOption_shell_assurance", true, false) as Button
+	var care_button := office.find_child("DecisionOption_sustainable_flock", true, false) as Button
 	var harvest_chip_row := office.find_child("DecisionEffectChips_record_harvest", true, false) as HBoxContainer
 	_check(
 		harvest_button != null
 		and not harvest_button.disabled
 		and "1  HARVEST" in harvest_button.text
 		and "INITIATIVE" not in harvest_button.text
-		and "1 HELP  ·  2 WATCH" in harvest_button.text
+		and "HELPS 1  ·  RISKS 2" in harvest_button.text
 		and harvest_chip_row != null
 		and harvest_chip_row.get_child_count() == 3,
 		"record harvest should expose a readable short label and intuitive Day 1 tradeoff before selection",
+		failures,
+	)
+	_check(
+		harvest_button.modulate == Color.WHITE
+		and assurance_button != null
+		and assurance_button.modulate == Color.WHITE
+		and care_button != null
+		and care_button.modulate == Color.WHITE,
+		"unselected policy cards should begin as equally weighted choices",
 		failures,
 	)
 	_press(harvest_button)
@@ -144,8 +166,8 @@ func _run() -> void:
 		and not decision_title.is_visible_in_tree()
 		and decision_title.text == "PICK TODAY'S FLOCK RULE"
 		and decision_body != null
-		and decision_body.text == "Check the goal colors, then start.",
-		"selecting a rule should collapse the completed prompt and replace stale guidance",
+		and not decision_body.is_visible_in_tree(),
+		"selecting a rule should collapse all completed instructional copy",
 		failures,
 	)
 	_check(
@@ -155,20 +177,42 @@ func _run() -> void:
 	)
 	_check(
 		decision_preview != null
-		and "HARVEST  ·  1 HELP  ·  2 WATCH" in decision_preview.text
-		and "EDGE  ·  OUTPUT + QUEUE CONTROL" in decision_preview.text
+		and decision_preview.text == "SELECTED  ·  HARVEST  ·  BEST FOR MORE EGGS + FEWER WAITING FILES"
 		and "TODAY'S ORDER FIT" in String(decision_preview.get_meta("accessible_text", ""))
 		and "SUPPORTS: OPENING CLUTCH" in String(decision_preview.get_meta("accessible_text", ""))
-		and "WATCH: SOUND START, SETTLED FLOCK" in String(decision_preview.get_meta("accessible_text", "")),
-		"selected policy should show a compact result while retaining exact fit for assistive output",
+		and "RISKS: SOUND START, SETTLED FLOCK" in String(decision_preview.get_meta("accessible_text", "")),
+		"selected policy should show one plain result while retaining exact fit for assistive output",
 		failures,
 	)
 	_check(
 		decision_order_heading != null
-		and decision_order_heading.text == "TODAY'S GOALS  ·  TEAL HELPS  ·  AMBER WATCH",
-		"selected policy should turn the goal row into the visual help/watch explanation",
+		and decision_order_heading.text == "TODAY'S GOALS  ·  + HELPS  ·  ! RISKS"
+		and (office.find_child("DecisionOrderValue_0", true, false) as Label).text == "+  18+ EGGS"
+		and (office.find_child("DecisionOrderValue_1", true, false) as Label).text == "!  CRACKS <=20%"
+		and (office.find_child("DecisionOrderValue_2", true, false) as Label).text == "!  WELFARE 48+",
+		"selected policy should explain each affected goal without relying on color alone",
 		failures,
 	)
+	_check(
+		harvest_button.text.begins_with("> 1  HARVEST")
+		and harvest_button.modulate == Color.WHITE
+		and StringName(harvest_button.get_meta("selection_visual_role", &"")) == &"selected"
+		and is_equal_approx(assurance_button.modulate.a, 0.64)
+		and is_equal_approx(care_button.modulate.a, 0.64)
+		and StringName(assurance_button.get_meta("selection_visual_role", &"")) == &"alternative",
+		"a selected opening rule should gain a shape marker while the two alternatives recede",
+		failures,
+	)
+	_press(assurance_button)
+	_check(
+		assurance_button.text.begins_with("> 2  ASSURANCE")
+		and assurance_button.modulate == Color.WHITE
+		and is_equal_approx(harvest_button.modulate.a, 0.64)
+		and harvest_button.text.begins_with("1  HARVEST"),
+		"changing the policy choice should transfer the visual hierarchy without stale selection marks",
+		failures,
+	)
+	_press(harvest_button)
 	decision_diagnostic = office.call("_pending_decision_diagnostic_state") as Dictionary
 	_check(
 		String(decision_diagnostic.get("selected_option_id", "")) == "record_harvest"
@@ -201,10 +245,47 @@ func _run() -> void:
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING, "directive authorization should enter the running phase", failures)
 	_check(directive_badge != null and "HARVEST" in directive_badge.text, "top HUD should identify the active policy", failures)
 	_check(
-		directive_badge != null
+		 directive_badge != null
 		and "SUPPORTS: OPENING CLUTCH" in directive_badge.tooltip_text
-		and "WATCH: SOUND START, SETTLED FLOCK" in directive_badge.tooltip_text,
+		and "RISKS: SOUND START, SETTLED FLOCK" in directive_badge.tooltip_text,
 		"active policy tooltip should retain its Day 1 order fit after authorization",
+		failures,
+	)
+	var scaled_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	scaled_preferences["ui_scale"] = 1.5
+	office.set("_player_preferences", scaled_preferences)
+	office.call("_apply_management_ui_preferences")
+	await process_frame
+	await process_frame
+	_check(
+		directive_badge != null and directive_badge.text == "HARVEST"
+		and directive_badge_host != null
+		and bool(directive_badge_host.get_meta("compact_policy_mark", false))
+		and directive_badge_icon != null and directive_badge_icon.is_visible_in_tree()
+		and directive_badge_icon.icon_kind() == &"egg"
+		and String(directive_badge.get_meta("semantic_icon", "")) == "egg"
+		and directive_badge.get_theme_color("font_color") == Color("e99479")
+		and directive_badge.is_visible_in_tree()
+		and directive_badge.size.x >= 90.0
+		and "RECORD HARVEST INITIATIVE" in String(directive_badge.get_meta("accessible_text", ""))
+		and "SUPPORTS: OPENING CLUTCH" in String(directive_badge.get_meta("accessible_text", "")),
+		"150-percent HUD should pair the complete short policy name with its semantic mark and exact assistive terms",
+		failures,
+	)
+	scaled_preferences["ui_scale"] = 1.0
+	office.set("_player_preferences", scaled_preferences)
+	office.call("_apply_management_ui_preferences")
+	await process_frame
+	await process_frame
+	_check(
+		directive_badge.text == "HARVEST"
+		and directive_badge_host != null
+		and bool(directive_badge_host.get_meta("icon_led_policy_mark", false))
+		and directive_badge_icon != null
+		and directive_badge_icon.is_visible_in_tree()
+		and directive_badge_icon.icon_kind() == &"egg"
+		and "POLICY  ·  HARVEST" == String(directive_badge.get_meta("full_text", "")),
+		"returning to 100 percent should preserve the icon-led policy and its complete semantic copy",
 		failures,
 	)
 
@@ -237,6 +318,14 @@ func _run() -> void:
 		"free incident response should communicate its speed-for-safety tradeoff without clipped prose",
 		failures,
 	)
+	_check(
+		patch_button.modulate == Color.WHITE
+		and spreadsheet_button.modulate == Color.WHITE
+		and not patch_button.text.begins_with(">")
+		and not spreadsheet_button.text.begins_with(">"),
+		"focused incident options should begin as equal candidates without implying a filed selection",
+		failures,
+	)
 	var incident_accessibility := String(office.call(
 		"_web_accessibility_summary",
 		simulation.snapshot(),
@@ -251,14 +340,36 @@ func _run() -> void:
 	)
 	_press(spreadsheet_button)
 	_check(
+		spreadsheet_button.text.begins_with("> 2  //  SHADOW SHEET")
+		and spreadsheet_button.modulate == Color.WHITE
+		and StringName(spreadsheet_button.get_meta("selection_visual_role", &"")) == &"selected"
+		and is_equal_approx(patch_button.modulate.a, 0.72)
+		and StringName(patch_button.get_meta("selection_visual_role", &"")) == &"alternative",
+		"an incident selection should gain a non-color commitment marker while another available response recedes",
+		failures,
+	)
+	_press(patch_button)
+	_check(
+		patch_button.text.begins_with("> 1  //  EMERGENCY PATCH")
+		and patch_button.modulate == Color.WHITE
+		and is_equal_approx(spreadsheet_button.modulate.a, 0.72)
+		and spreadsheet_button.text.begins_with("2  //  SHADOW SHEET"),
+		"changing an incident response should transfer the commitment hierarchy without stale markers",
+		failures,
+	)
+	_press(spreadsheet_button)
+	_check(
 		decision_preview != null
-		and "Keep the Fund; trade safety and obedience for speed." in decision_preview.text
+		and "Keep the Fund; trade safety and obedience for speed." not in decision_preview.text
 		and "No cost" in decision_preview.text
 		and "+5% speed" in decision_preview.text
 		and "+6.0% crack risk" in decision_preview.text
 		and "-6.0 obedience" in decision_preview.text
-		and "NEXT FARMER STORY" in decision_preview.text,
-		"selecting a concise incident card should disclose its exact immediate and precedent effects",
+		and "NEXT FARMER STORY" in decision_preview.text
+		and "Keep the Fund; trade safety and obedience for speed." in String(
+			decision_preview.get_meta("accessible_text", "")
+		),
+		"selected incidents should show exact effects without repeated prose while assistive output retains it",
 		failures,
 	)
 	_check(not stay_paused_button.disabled, "selecting an incident response should enable stay-paused resolution", failures)

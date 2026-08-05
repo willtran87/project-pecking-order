@@ -204,8 +204,7 @@ func _run() -> void:
 	)
 	_check(
 		orders_heading != null
-		and orders_heading.text.begins_with("TODAY'S 3 GOALS")
-		and "+9 SCORE" in orders_heading.text
+		and orders_heading.text == "3 GOALS  ·  PICK ONE  ·  +9"
 		and snapshot_heading != null and snapshot_heading.text == "NOW",
 		"Today should name the three-goal plan and its complete score reward",
 		failures,

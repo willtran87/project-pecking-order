@@ -232,6 +232,16 @@ func _run() -> void:
 		"notice compaction should preserve the exact authored receipt semantically",
 		failures,
 	)
+	var requisition_notice := "REQUISITION DENIED: $5.00 more spendable feed fund required."
+	navigation.set_last_feedback(requisition_notice)
+	await process_frame
+	_check(
+		feedback_copy.text == "LATEST  ·  REQUISITION BLOCKED  ·  NEED $5.00 MORE"
+		and feedback_copy.tooltip_text == requisition_notice
+		and requisition_notice in navigation.accessible_text(),
+		"failed requisitions should show the shortfall as a complete one-line action receipt",
+		failures,
+	)
 
 	# The explicit escape hatch preserves reachability without teaching the
 	# presentation layer anything about the economy.

@@ -59,7 +59,7 @@ func _run() -> void:
 					failures,
 				)
 				_check(
-					String(fit.get("compact", "")) == "ORDER FIT %d  /  WATCH %d" % [int(counts[0]), int(counts[1])]
+					String(fit.get("compact", "")) == "HELPS %d  ·  RISKS %d" % [int(counts[0]), int(counts[1])]
 					and "directional; closing ledger decides" in String(fit.get("detail", ""))
 					and not String(fit.get("long_term", "")).is_empty(),
 					"Day %d %s guidance should remain compact, transparent, and strategically grounded" % [day, directive_id],

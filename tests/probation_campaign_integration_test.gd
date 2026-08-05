@@ -47,6 +47,8 @@ func _run() -> void:
 	var report_receipt_grid := office.find_child("ReportScoreReceiptGrid", true, false) as GridContainer
 	var report_score_row := office.find_child("ProbationReportScoreRow", true, false) as HFlowContainer
 	var report_score := office.find_child("ReportScore", true, false) as Label
+	var report_details_toggle := office.find_child("ReportDetailsToggle", true, false) as Button
+	var report_details_section := office.find_child("ReportDetailsSection", true, false) as VBoxContainer
 	var hen_highlight_card := office.find_child("ShiftHenHighlightCard", true, false) as PanelContainer
 	var hen_highlight_eyebrow := office.find_child("ShiftHenHighlightEyebrow", true, false) as Label
 	var hen_highlight_headline := office.find_child("ShiftHenHighlightHeadline", true, false) as Label
@@ -89,7 +91,12 @@ func _run() -> void:
 	_check(DisplayServer.get_name() == "headless", "focused integration test must run through the headless Office branch", failures)
 	_check(campaign_ui != null and campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "headless Office should boot directly into an active campaign", failures)
 	_check(campaign != null and campaign.outcome == CampaignState.OUTCOME_IN_PROGRESS and campaign.completed_shifts == 0, "headless Office should open a fresh five-shift probation state", failures)
-	_check(day_badge != null and day_badge.text == "DAY 1 / 5", "campaign presentation should expose Day 1 / 5", failures)
+	_check(
+		day_badge != null and day_badge.text == "1 / 5"
+		and day_badge.tooltip_text == "DAY 1 / 5",
+		"calendar-led campaign presentation should expose shift 1 / 5 with exact semantic copy",
+		failures,
+	)
 	_check(_nonempty_lines(objectives_label.text if objectives_label != null else "").size() == 3, "active campaign presentation should show all three current objectives", failures)
 	_check(
 		safeguards_label != null and not safeguards_label.visible
@@ -425,7 +432,11 @@ func _run() -> void:
 	await process_frame
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_REPORT, "advancing should open the probation report", failures)
 	_check(report_panel != null and report_panel.is_visible_in_tree(), "probation report should be visibly presented", failures)
-	_check(day_badge.text == "DAY 1 / 5", "between-shift presentation should identify the reviewed day out of five", failures)
+	_check(
+		day_badge.text == "1 / 5" and day_badge.tooltip_text == "DAY 1 / 5",
+		"between-shift presentation should retain the exact reviewed day behind its compact calendar value",
+		failures,
+	)
 	_check(_objective_bullets(report_objective.text if report_objective != null else "") == 3, "probation report should present all three next-shift objectives", failures)
 	await create_timer(1.05).timeout
 	var report_audio := audio_feedback.feedback_snapshot() if audio_feedback != null else {}
@@ -535,6 +546,16 @@ func _run() -> void:
 		"the live report should place the five authoritative receipts directly before their shift total and cumulative score",
 		failures,
 	)
+	_check(
+		report_details_toggle != null
+		and report_details_section != null
+		and not report_details_section.is_visible_in_tree()
+		and String(first_highlight.get("worker_name", "")) in campaign_ui.accessible_text(),
+		"live reports should fold exact accounting by default without removing it from assistive output",
+		failures,
+	)
+	_press(report_details_toggle)
+	await process_frame
 	_check(hen_highlight_card != null and hen_highlight_card.is_visible_in_tree(), "emitted hen highlight should appear as a visible report card", failures)
 	_check(
 		hen_highlight_eyebrow != null
@@ -569,7 +590,11 @@ func _run() -> void:
 	await process_frame
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "filing shift-one report should return to the office", failures)
 	_check(simulation.day == 2 and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "filing shift-one report should open the day-two briefing", failures)
-	_check(day_badge.text == "DAY 2 / 5", "active presentation should advance to Day 2 / 5", failures)
+	_check(
+		day_badge.text == "2 / 5" and day_badge.tooltip_text == "DAY 2 / 5",
+		"active calendar value should advance to shift 2 / 5",
+		failures,
+	)
 	_check(_nonempty_lines(objectives_label.text).size() == 3, "day-two office HUD should retain three objectives", failures)
 
 	_complete_representative_shift(simulation, clock, 7100)
@@ -587,7 +612,11 @@ func _run() -> void:
 	continue_button = office.find_child("ContinueProbationButton", true, false) as Button
 	var milestone_cards := office.find_children("MilestoneChoice_*", "Button", true, false)
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_REPORT, "shift-two advancement should open the probation milestone report", failures)
-	_check(day_badge.text == "DAY 2 / 5", "milestone report should identify Day 2 / 5", failures)
+	_check(
+		day_badge.text == "2 / 5" and day_badge.tooltip_text == "DAY 2 / 5",
+		"milestone report should retain exact Day 2 / 5 meaning behind its calendar value",
+		failures,
+	)
 	_check(milestone_cards.size() == 3, "shift-two milestone gate should present exactly three choices", failures)
 	_check(campaign.is_milestone_choice_available(), "campaign domain should require a milestone after shift two", failures)
 	_check(continue_button != null and continue_button.disabled, "milestone report should disable continuation before selection", failures)
@@ -696,7 +725,11 @@ func _run() -> void:
 	await process_frame
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_ACTIVE, "chosen milestone should permit return to the office", failures)
 	_check(simulation.day == 3 and simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE, "chosen milestone should permit the day-three briefing", failures)
-	_check(day_badge.text == "DAY 3 / 5", "post-milestone presentation should advance to Day 3 / 5", failures)
+	_check(
+		day_badge.text == "3 / 5" and day_badge.tooltip_text == "DAY 3 / 5",
+		"post-milestone calendar value should advance to shift 3 / 5",
+		failures,
+	)
 	_check(_nonempty_lines(objectives_label.text).size() == 3, "post-milestone presentation should show all three day-three objectives", failures)
 	var probation_doctrine := office.call("_probation_doctrine_snapshot") as Dictionary
 	_check(

@@ -281,6 +281,7 @@ Successful runs end with their matching `_PASSED` markers, including the Flock R
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --headless --path . --script tests/first_clutch_induction_test.gd
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --headless --path . --script tests/living_clutch_storytelling_test.gd
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --headless --path . --script tests/feedback_timing_test.gd
+& "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --headless --path . --script tests/chicken_lifecycle_pause_test.gd
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --headless --path . --script tests/feedback_orchestra_integration_test.gd
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --headless --path . --script tests/flock_petition_test.gd
 & "$env:LOCALAPPDATA\Programs\Godot\4.7\Godot_v4.7-stable_win64_console.exe" --headless --path . --script tests/flock_petition_ui_test.gd

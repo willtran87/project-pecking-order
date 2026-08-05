@@ -115,13 +115,22 @@ const HEN_INTENT_COLORS := {
 	&"choice": "668fbd",
 	&"match": "d6ad4d",
 	&"ready": "c8a24d",
+	&"delivery": "d7b85b",
 	&"steady": "729b70",
 }
 const HEN_INTENT_BASE_HEIGHT := 1.80
 const HEN_INTENT_HEIGHT_OFFSETS := [0.0, 0.11, 0.22, 0.11]
 const HEN_INTENT_COMPACT_PIXEL_SIZE := 0.0075
+const HEN_INTENT_READY_PIXEL_SIZE := 0.0082
+const HEN_INTENT_DELIVERY_PIXEL_SIZE := 0.0084
 const HEN_INTENT_STANDARD_PIXEL_SIZE := 0.009
 const HEN_INTENT_URGENT_PIXEL_SIZE := 0.0096
+const HEN_INTENT_BACKGROUND_SCALE := 0.62
+const HEN_INTENT_BACKGROUND_URGENT_SCALE := 0.80
+const HEN_INTENT_BACKGROUND_ALPHA := 0.54
+const HEN_INTENT_BACKGROUND_URGENT_ALPHA := 0.78
+const HEN_INTENT_SELECTED_HEIGHT_LIFT := 0.34
+const HEN_INTENT_SELECTED_HALO_SCALE := 1.42
 const HEN_INTENT_HANDOFF_SCALE := Vector3(0.90, 0.90, 0.90)
 const HEN_INTENT_HANDOFF_SCALE_SECONDS := 0.20
 const HEN_INTENT_HANDOFF_COLOR_SECONDS := 0.30
@@ -142,6 +151,8 @@ const HEN_INTENT_SYMBOLS := {
 	&"match": "M32 8 L39 23 L56 25 L44 37 L47 54 L32 46 L17 54 L20 37 L8 25 L25 23 Z",
 	# A signpost communicates routing without reusing the egg silhouette.
 	&"ready": "M29 8 H35 V56 H29 Z M29 14 H12 V25 H29 Z M12 19 L20 11 V27 Z M35 34 H52 V45 H35 Z M52 39 L44 31 V47 Z",
+	# An egg with a cut-out handoff arrow closes the route -> peck -> egg loop.
+	&"delivery": "M32 7 C21 7 14 26 14 40 C14 52 22 58 32 58 C42 58 50 52 50 40 C50 26 43 7 32 7 Z M29 21 H35 V38 H43 L32 50 L21 38 H29 Z",
 	&"steady": "M15 31 L27 43 L50 19 L55 25 L27 53 L9 36 Z",
 }
 const FLOCK_BOND_COLORS := {
@@ -156,6 +167,7 @@ const FLOCK_BOND_SYMBOLS := {
 }
 
 static var _hen_intent_texture_cache: Dictionary[String, Texture2D] = {}
+static var _management_focus_halo_texture: Texture2D
 static var _priority_peck_ready_halo_texture: Texture2D
 static var _priority_peck_missed_halo_texture: Texture2D
 static var _team_lift_marker_texture: Texture2D
@@ -196,6 +208,7 @@ var _presentation_update_accumulator := 0.0
 var _presentation_update_count := 0
 var _route: Array[Vector3] = []
 var _route_index: int = 0
+var _route_progress_held: bool = false
 var _home_position := Vector3.ZERO
 var _break_position := Vector3.ZERO
 var _arrival_route: Array[Vector3] = []
@@ -269,9 +282,13 @@ var _panic_active := false
 var _panic_remaining := 0.0
 var _panic_threat_origin := Vector3.ZERO
 var _hen_intent_marker: Sprite3D
+var _management_focus_halo: Sprite3D
 var _priority_peck_ready_halo: Sprite3D
 var _team_lift_marker: Sprite3D
 var _hen_intent: Dictionary = {}
+var _hen_intent_urgency := 1
+var _management_focus_selected := false
+var _management_focus_active := false
 var _hen_intent_transition_tween: Tween
 var _priority_peck_ready_tween: Tween
 var _team_lift_tween: Tween
@@ -665,6 +682,35 @@ func set_reduced_motion(enabled: bool) -> void:
 		_reset_dispatch_recommendation_handoff()
 
 
+## Keeps a live employee in the exact same world-space route position while a
+## management pause owns the simulation. Ambient pose and causal action feedback
+## still animate, so a paused office remains alive without silently completing
+## entrances, break returns, or departures behind a blocking surface.
+func set_route_progress_held(held: bool) -> void:
+	_route_progress_held = held
+
+
+func is_route_progress_held() -> bool:
+	return _route_progress_held
+
+
+func _ordinary_route_progress_blocked() -> bool:
+	if not _route_progress_held:
+		return false
+	# These are authored event/lifecycle sequences rather than passive simulation
+	# routing. They must finish even while the production clock is stopped.
+	return _destination_kind not in [
+		&"feed_outbound",
+		&"feed_party",
+		&"feed_return",
+		&"campus_outbound",
+		&"campus_duty",
+		&"campus_return",
+		&"departure",
+		&"panic",
+	]
+
+
 func presentation_update_rate_hz() -> float:
 	if _presentation_update_interval <= 0.0:
 		return 0.0
@@ -746,15 +792,16 @@ func _physics_process(delta: float) -> void:
 		return
 	_phase += delta
 	_state_elapsed += delta
-	if _panic_active:
-		_panic_remaining = maxf(0.0, _panic_remaining - delta)
-		if _panic_remaining <= 0.0:
-			_panic_active = false
-			_destination_kind = &"home"
-			_set_route([_home_position])
+	if not _ordinary_route_progress_blocked():
+		if _panic_active:
+			_panic_remaining = maxf(0.0, _panic_remaining - delta)
+			if _panic_remaining <= 0.0:
+				_panic_active = false
+				_destination_kind = &"home"
+				_set_route([_home_position])
+		_advance_route(delta)
+		_update_break_interaction_timeline(delta)
 	_advance_feedback_timelines(delta)
-	_advance_route(delta)
-	_update_break_interaction_timeline(delta)
 	_update_pose_blends(delta)
 	# Hidden workers must continue routes and gameplay-facing contact timelines,
 	# but their model transforms do not need to be rewritten until visible again.
@@ -1689,6 +1736,24 @@ func _build_hen_intent_marker() -> void:
 	_priority_peck_ready_halo.texture = _priority_peck_halo_texture()
 	_priority_peck_ready_halo.visible = false
 	add_child(_priority_peck_ready_halo)
+	_management_focus_halo = Sprite3D.new()
+	_management_focus_halo.name = "ManagementFocusHalo"
+	_management_focus_halo.position = Vector3(
+		0.0,
+		HEN_INTENT_BASE_HEIGHT + height_offset,
+		0.0,
+	)
+	_management_focus_halo.pixel_size = (
+		HEN_INTENT_READY_PIXEL_SIZE * HEN_INTENT_SELECTED_HALO_SCALE
+	)
+	_management_focus_halo.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_management_focus_halo.no_depth_test = true
+	_management_focus_halo.render_priority = 18
+	_management_focus_halo.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_management_focus_halo.texture = _management_focus_texture()
+	_management_focus_halo.visible = false
+	_management_focus_halo.set_meta("semantic_role", &"selected_hen")
+	add_child(_management_focus_halo)
 	_team_lift_marker = Sprite3D.new()
 	_team_lift_marker.name = "TeamLiftMarker"
 	_team_lift_marker.position = Vector3(
@@ -1899,34 +1964,127 @@ func _apply_hen_intent(intent: Dictionary, progress: float = -1.0) -> void:
 		_last_hen_intent_key = ""
 		_hen_intent_marker.texture = null
 		return
+	var intent_id := StringName(String(intent.get("id", "")))
 	var action_id := StringName(String(intent.get("action_id", "route")))
 	var action_label := String(intent.get("action_label", "OPEN")).to_upper()
-	var intent_key := "%s|%s|%s" % [String(icon), String(action_id), action_label]
+	var semantic_shape := _hen_intent_semantic_shape(intent_id)
+	var intent_key := "%s|%s|%s|%s" % [
+		String(icon),
+		String(action_id),
+		action_label,
+		String(semantic_shape),
+	]
 	var previous_intent_key := _last_hen_intent_key
 	var progress_bucket := (
 		clampi(ceili(clampf(progress, 0.0, 100.0) / 20.0), 0, 5)
 		if progress >= 0.0 else
 		-1
 	)
-	var urgency := clampi(int(intent.get("urgency", 1)), 1, 3)
-	_hen_intent_marker.pixel_size = (
-		HEN_INTENT_URGENT_PIXEL_SIZE
-		if urgency >= 3 else
-		HEN_INTENT_STANDARD_PIXEL_SIZE
-		if urgency == 2 else
-		HEN_INTENT_COMPACT_PIXEL_SIZE
+	_hen_intent_urgency = clampi(int(intent.get("urgency", 1)), 1, 3)
+	_hen_intent_marker.texture = hen_intent_icon_texture(
+		icon,
+		progress_bucket,
+		_hen_intent_urgency,
+		semantic_shape,
 	)
-	_hen_intent_marker.texture = hen_intent_icon_texture(icon, progress_bucket, urgency)
 	_hen_intent_marker.set_meta("progress_bucket", progress_bucket)
-	_hen_intent_marker.set_meta("urgency", urgency)
-	_hen_intent_marker.set_meta("compact", urgency == 1)
-	_hen_intent_marker.set_meta("intent_id", StringName(String(intent.get("id", ""))))
+	_hen_intent_marker.set_meta("urgency", _hen_intent_urgency)
+	_hen_intent_marker.set_meta("compact", _hen_intent_urgency == 1)
+	_hen_intent_marker.set_meta("intent_id", intent_id)
 	_hen_intent_marker.set_meta("action_label", action_label)
+	_hen_intent_marker.set_meta("semantic_shape", semantic_shape)
+	_refresh_hen_intent_focus_presentation()
 	_last_hen_intent_key = intent_key
 	if previous_intent_key.is_empty():
 		_reset_hen_intent_transition()
 	elif previous_intent_key != intent_key:
-		_play_hen_intent_transition(previous_intent_key, intent_key, urgency)
+		_play_hen_intent_transition(previous_intent_key, intent_key, _hen_intent_urgency)
+
+
+## Keeps every flock signal available in overview, then establishes one clear
+## foreground pin while the manager inspects a hen. Urgent background signals
+## retain more weight so hierarchy never hides a deadline or care need.
+func set_management_focus(selected: bool, focus_active: bool) -> void:
+	_management_focus_selected = selected and focus_active
+	_management_focus_active = focus_active
+	if _hen_intent_transition_tween != null and _hen_intent_transition_tween.is_valid():
+		_hen_intent_transition_tween.kill()
+		_hen_intent_transition_tween = null
+	if _hen_intent_marker != null:
+		_hen_intent_marker.scale = Vector3.ONE
+	_refresh_hen_intent_focus_presentation()
+
+
+func _hen_intent_base_pixel_size() -> float:
+	if _hen_intent_urgency >= 3:
+		return HEN_INTENT_URGENT_PIXEL_SIZE
+	if _hen_intent_urgency == 2:
+		return HEN_INTENT_STANDARD_PIXEL_SIZE
+	if StringName(_hen_intent.get("id", &"")) == &"delivery":
+		return HEN_INTENT_DELIVERY_PIXEL_SIZE
+	if StringName(_hen_intent.get("id", &"")) == &"ready":
+		return HEN_INTENT_READY_PIXEL_SIZE
+	return HEN_INTENT_COMPACT_PIXEL_SIZE
+
+
+static func _hen_intent_semantic_shape(intent_id: StringName) -> StringName:
+	match intent_id:
+		&"ready":
+			return &"route_pin"
+		&"delivery":
+			return &"egg_receipt"
+		_:
+			return &"work_dial"
+
+
+func _hen_intent_focus_modulate() -> Color:
+	if not _management_focus_active or _management_focus_selected:
+		return Color.WHITE
+	return Color(1.0, 1.0, 1.0, (
+		HEN_INTENT_BACKGROUND_URGENT_ALPHA
+		if _hen_intent_urgency >= 3 else
+		HEN_INTENT_BACKGROUND_ALPHA
+	))
+
+
+func _refresh_hen_intent_focus_presentation() -> void:
+	if _hen_intent_marker == null:
+		return
+	var focus_role := &"peer"
+	var size_scale := 1.0
+	var height_lift := 0.0
+	if _management_focus_active:
+		if _management_focus_selected:
+			focus_role = &"selected"
+			height_lift = HEN_INTENT_SELECTED_HEIGHT_LIFT
+		else:
+			focus_role = &"background"
+			size_scale = (
+				HEN_INTENT_BACKGROUND_URGENT_SCALE
+				if _hen_intent_urgency >= 3 else
+				HEN_INTENT_BACKGROUND_SCALE
+			)
+	_hen_intent_marker.pixel_size = _hen_intent_base_pixel_size() * size_scale
+	_hen_intent_marker.position.y = (
+		HEN_INTENT_BASE_HEIGHT
+		+ float(_hen_intent_marker.get_meta("height_offset", 0.0))
+		+ height_lift
+	)
+	_hen_intent_marker.modulate = _hen_intent_focus_modulate()
+	_hen_intent_marker.set_meta("focus_role", focus_role)
+	_hen_intent_marker.set_meta("focus_size_scale", size_scale)
+	_hen_intent_marker.set_meta("focus_height_lift", height_lift)
+	var selection_halo_visible := (
+		_management_focus_selected and _hen_intent_marker.visible
+	)
+	_hen_intent_marker.set_meta("selection_halo_visible", selection_halo_visible)
+	if _management_focus_halo != null:
+		_management_focus_halo.visible = selection_halo_visible
+		_management_focus_halo.position.y = _hen_intent_marker.position.y
+		_management_focus_halo.pixel_size = (
+			_hen_intent_base_pixel_size() * HEN_INTENT_SELECTED_HALO_SCALE
+		)
+		_management_focus_halo.set_meta("selected_worker_id", worker_id)
 
 
 func _play_hen_intent_transition(from_key: String, to_key: String, urgency: int) -> void:
@@ -1956,7 +2114,7 @@ func _play_hen_intent_transition(from_key: String, to_key: String, urgency: int)
 	_hen_intent_transition_tween.tween_property(
 		_hen_intent_marker,
 		"modulate",
-		Color.WHITE,
+		_hen_intent_focus_modulate(),
 		HEN_INTENT_HANDOFF_COLOR_SECONDS,
 	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 
@@ -1967,7 +2125,7 @@ func _reset_hen_intent_transition() -> void:
 	_hen_intent_transition_tween = null
 	if _hen_intent_marker != null:
 		_hen_intent_marker.scale = Vector3.ONE
-		_hen_intent_marker.modulate = Color.WHITE
+		_refresh_hen_intent_focus_presentation()
 		_hen_intent_marker.set_meta("intent_transition_animated", false)
 
 
@@ -2256,6 +2414,22 @@ static func _priority_peck_halo_texture() -> Texture2D:
 	return _priority_peck_ready_halo_texture
 
 
+static func _management_focus_texture() -> Texture2D:
+	if _management_focus_halo_texture != null:
+		return _management_focus_halo_texture
+	var svg := (
+		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
+		+ "<path d='M24 5 H14 Q5 5 5 14 V24 M40 5 H50 Q59 5 59 14 V24 M59 40 V50 Q59 59 50 59 H40 M24 59 H14 Q5 59 5 50 V40' fill='none' stroke='#f1d681' stroke-width='4' stroke-linecap='round'/>"
+		+ "<circle cx='32' cy='32' r='27' fill='none' stroke='#fff0b8' stroke-opacity='.34' stroke-width='2'/>"
+		+ "</svg>"
+	)
+	var image := Image.new()
+	if image.load_svg_from_string(svg, 1.0) != OK:
+		return null
+	_management_focus_halo_texture = ImageTexture.create_from_image(image)
+	return _management_focus_halo_texture
+
+
 static func _priority_peck_missed_texture() -> Texture2D:
 	if _priority_peck_missed_halo_texture != null:
 		return _priority_peck_missed_halo_texture
@@ -2289,25 +2463,40 @@ static func hen_intent_icon_texture(
 	icon: StringName,
 	progress_bucket: int = -1,
 	urgency: int = 1,
+	semantic_shape: StringName = &"work_dial",
 ) -> Texture2D:
-	var cache_key := "%s:%d:%d" % [String(icon), progress_bucket, urgency]
+	var cache_key := "%s:%d:%d:%s" % [
+		String(icon),
+		progress_bucket,
+		urgency,
+		String(semantic_shape),
+	]
 	if _hen_intent_texture_cache.has(cache_key):
 		return _hen_intent_texture_cache[cache_key]
 	var fill := String(HEN_INTENT_COLORS.get(icon, "729b70"))
 	var symbol := String(HEN_INTENT_SYMBOLS.get(icon, HEN_INTENT_SYMBOLS[&"steady"]))
 	var ring := ""
-	if progress_bucket >= 0:
+	if progress_bucket >= 0 and semantic_shape == &"work_dial":
 		var ring_length := snappedf(175.93 * float(progress_bucket) / 5.0, 0.01)
 		ring = (
 			"<circle cx='32' cy='32' r='28' fill='none' stroke='#35444b' stroke-width='4'/>"
 			+ "<circle cx='32' cy='32' r='28' fill='none' stroke='#fff0b8' stroke-width='%d' stroke-linecap='round' stroke-dasharray='%.2f 175.93' transform='rotate(-90 32 32)'/>" % [5 if urgency >= 3 else 4, ring_length]
 		)
+	var frame := "<circle cx='32' cy='32' r='29' fill='#101a21' fill-opacity='.92' stroke='#f6e5b5' stroke-width='2'/>"
+	var inner_frame := "<circle cx='32' cy='32' r='22' fill='#%s'/>" % fill
+	if semantic_shape == &"route_pin":
+		frame = (
+			"<path d='M25 53 L39 53 L32 63 Z' fill='#101a21' fill-opacity='.92' stroke='#f6e5b5' stroke-width='2' stroke-linejoin='round'/>"
+			+ frame
+		)
+	elif semantic_shape == &"egg_receipt":
+		frame = "<path d='M32 2 C17 2 8 23 8 39 C8 54 18 63 32 63 C46 63 56 54 56 39 C56 23 47 2 32 2 Z' fill='#101a21' fill-opacity='.92' stroke='#f6e5b5' stroke-width='2'/>"
+		inner_frame = "<path d='M32 8 C21 8 14 25 14 39 C14 50 21 57 32 57 C43 57 50 50 50 39 C50 25 43 8 32 8 Z' fill='#%s'/>" % fill
 	var svg := (
 		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
-		+ "<path d='M25 53 L39 53 L32 63 Z' fill='#101a21' fill-opacity='.92' stroke='#f6e5b5' stroke-width='2' stroke-linejoin='round'/>"
-		+ "<circle cx='32' cy='32' r='29' fill='#101a21' fill-opacity='.92' stroke='#f6e5b5' stroke-width='2'/>"
+		+ frame
 		+ ring
-		+ "<circle cx='32' cy='32' r='22' fill='#%s'/>" % fill
+		+ inner_frame
 		+ "<path d='%s' fill='#fff8dc' fill-rule='evenodd'/>" % symbol
 		+ "</svg>"
 	)

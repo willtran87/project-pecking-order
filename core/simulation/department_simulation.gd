@@ -21287,7 +21287,7 @@ func _worker_hen_intent_snapshot(worker_snapshot: Dictionary) -> Dictionary:
 	if state_label == "LAYING" and not claim.is_empty():
 		return {
 			"id": &"delivery",
-			"icon": &"ready",
+			"icon": &"delivery",
 			"action_id": &"route",
 			"action_label": "TRACK EGG",
 			"detail": "%s's file is locked and the egg is laying. Track it through grading to farmer delivery; a clean assisted egg returns 1 Priority Peck charge." % worker_name,
@@ -21324,17 +21324,22 @@ func _worker_hen_intent_snapshot(worker_snapshot: Dictionary) -> Dictionary:
 	if not claim.is_empty():
 		var resolution := worker_snapshot.get("claim_resolution_status", {}) as Dictionary
 		var progress := roundi(float(worker_snapshot.get("progress", 0.0)))
+		var resolution_cutoff := roundi(float(resolution.get(
+			"cutoff_progress",
+			CLAIM_RESOLUTION_CUTOFF_PROGRESS,
+		)))
 		if (
 			bool(resolution.get("available", false))
 			and not bool(claim.get("resolution_locked", false))
-			and progress < 55
+			and progress < resolution_cutoff
 		):
 			return {
 				"id": &"choice",
 				"icon": &"choice",
 				"action_id": &"claim",
-				"action_label": "CHOOSE PATH",
-				"detail": "%s's claimant path is open before 55%% progress. Compare the three outcomes." % worker_name,
+				"action_label": "CHOOSE OUTCOME",
+				"cutoff_progress": resolution_cutoff,
+				"detail": "%s's claimant outcome is open before %d%% progress. Compare care, pace, risk, and cost." % [worker_name, resolution_cutoff],
 				"urgency": 2,
 				"actionable": true,
 			}

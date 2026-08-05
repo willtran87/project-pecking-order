@@ -172,7 +172,30 @@ static func action_icon(kind: StringName) -> Texture2D:
 	if _action_icon_cache.has(kind):
 		return _action_icon_cache[kind]
 	var symbol := ""
-	if kind == &"irreversible":
+	if kind == &"settings":
+		# A toothed cog keeps the comfort/control route recognizable after the
+		# secondary controller binding moves out of the permanent HUD.
+		symbol = (
+			"<circle cx='12' cy='12' r='7.4' fill='#d9e5e2' stroke='#101a23' "
+			+ "stroke-width='1.5'/><path d='M12 1.6 V5 M12 19 V22.4 M1.6 12 H5 "
+			+ "M19 12 H22.4 M4.5 4.5 L6.9 6.9 M17.1 17.1 L19.5 19.5 "
+			+ "M19.5 4.5 L17.1 6.9 M6.9 17.1 L4.5 19.5' fill='none' "
+			+ "stroke='#f3dfaa' stroke-width='2.5' stroke-linecap='round'/>"
+			+ "<circle cx='12' cy='12' r='2.8' fill='#31584f' stroke='#101a23' "
+			+ "stroke-width='1.2'/>"
+		)
+	elif kind == &"ledger":
+		# A bound record with visible filing lines reads as the persistent
+		# Flockwatch ledger route without borrowing the Goals clipboard.
+		symbol = (
+			"<path d='M4 3.2 H20 V20.8 H4 Z' fill='#d9e5e2' stroke='#101a23' "
+			+ "stroke-width='1.5' stroke-linejoin='round'/><path d='M7.2 3.5 V20.5 "
+			+ "M10 8 H17 M10 12 H17 M10 16 H15.2' fill='none' stroke='#31584f' "
+			+ "stroke-width='1.7' stroke-linecap='round'/><path d='M3 7 H6 M3 12 H6 "
+			+ "M3 17 H6' fill='none' stroke='#f3dfaa' stroke-width='1.8' "
+			+ "stroke-linecap='round'/>"
+		)
+	elif kind == &"irreversible":
 		# A warning triangle and heavy exclamation stay distinct from the return
 		# arrow in monochrome, high contrast, and color-vision modes.
 		symbol = (
@@ -217,6 +240,39 @@ static func action_icon(kind: StringName) -> Texture2D:
 			+ "fill='#f6fff8' stroke='#101a23' stroke-width='1.4' "
 			+ "stroke-linejoin='round'/>"
 		)
+	elif kind == &"lane_nest":
+		# Egg seated in a straw bowl distinguishes repair/nest intake at HUD size.
+		symbol = (
+			"<path d='M4 15.5 C6.6 20.7 17.4 20.7 20 15.5' fill='#d8aa58' "
+			+ "stroke='#101a23' stroke-width='1.5' stroke-linecap='round'/>"
+			+ "<path d='M5 14.2 L2.8 11.8 M8.2 14 L6.8 10.8 M15.8 14 L17.2 10.8 "
+			+ "M19 14.2 L21.2 11.8' fill='none' stroke='#f3dfaa' stroke-width='1.8' "
+			+ "stroke-linecap='round'/><path d='M12 3.3 C8.9 3.3 7.1 8.1 7.1 11.5 "
+			+ "C7.1 14.4 9.2 16.2 12 16.2 C14.8 16.2 16.9 14.4 16.9 11.5 "
+			+ "C16.9 8.1 15.1 3.3 12 3.3 Z' fill='#d9e5e2' stroke='#101a23' "
+			+ "stroke-width='1.4'/>"
+		)
+	elif kind == &"lane_predator":
+		# Pointed ears and alert eyes read as predator loss without another word.
+		symbol = (
+			"<path d='M4 4 L9 7.1 C10.8 6.4 13.2 6.4 15 7.1 L20 4 L18.4 11.2 "
+			+ "C18 16.5 15.7 20.5 12 21.2 C8.3 20.5 6 16.5 5.6 11.2 Z' "
+			+ "fill='#d68c45' stroke='#101a23' stroke-width='1.5' stroke-linejoin='round'/>"
+			+ "<path d='M8 11.2 L10.3 12.4 M16 11.2 L13.7 12.4 M10 16 H14 "
+			+ "M12 14.2 V16' fill='none' stroke='#243341' stroke-width='1.7' "
+			+ "stroke-linecap='round'/>"
+		)
+	elif kind == &"lane_appeals":
+		# A filed sheet with a returning arrow communicates reconsideration.
+		symbol = (
+			"<path d='M6 3.2 H16.2 L20 7 V20.8 H6 Z' fill='#d9e5e2' "
+			+ "stroke='#101a23' stroke-width='1.4' stroke-linejoin='round'/>"
+			+ "<path d='M16 3.5 V7.3 H19.7 M9 10 H16 M9 13 H14' fill='none' "
+			+ "stroke='#52617a' stroke-width='1.5' stroke-linecap='round'/>"
+			+ "<path d='M15.8 18.5 C12.4 21 7.8 18.9 8.2 15.5 M8.2 15.5 L8 19.1 "
+			+ "M8.2 15.5 L11.6 16.1' fill='none' stroke='#bf8fd2' stroke-width='1.8' "
+			+ "stroke-linecap='round' stroke-linejoin='round'/>"
+		)
 	elif kind == &"order_clutch":
 		# An egg silhouette makes the quota order readable before its label.
 		symbol = (
@@ -234,6 +290,16 @@ static func action_icon(kind: StringName) -> Texture2D:
 			+ "stroke-width='1.5'/><path d='M7.7 11.8 L10.6 14.5 L16.5 8.6' "
 			+ "fill='none' stroke='#31584f' stroke-width='2.2' stroke-linecap='round' "
 			+ "stroke-linejoin='round'/>"
+		)
+	elif kind == &"order_favor":
+		# A farm roof carrying a heart reads as farmer trust without borrowing the
+		# cash symbol used by Feed Fund receipts or the egg used by quota orders.
+		symbol = (
+			"<path d='M3 10 L12 2.8 L21 10 V21 H3 Z' fill='#d9e5e2' "
+			+ "stroke='#101a23' stroke-width='1.5' stroke-linejoin='round'/>"
+			+ "<path d='M8 13 C8 10.7 11 10.1 12 12 C13 10.1 16 10.7 16 13 "
+			+ "C16 15.4 13.7 17.1 12 18.5 C10.3 17.1 8 15.4 8 13 Z' "
+			+ "fill='#f3dfaa' stroke='#55312e' stroke-width='1.1'/>"
 		)
 	elif kind == &"status_pass":
 		# A ringed check is a stable non-color pass badge for compact report chips.

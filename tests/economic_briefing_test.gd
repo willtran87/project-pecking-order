@@ -168,9 +168,9 @@ func _run() -> void:
 	var details_toggle := ui.find_child("EconomicBriefingDetailsToggle", true, false) as Button
 	_check(
 		headline != null and "DAY 1" in headline.text
-		and free_glance != null and _contains_all(free_glance.text, ["FREE", "$20.00"])
-		and margin_glance != null and _contains_all(margin_glance.text, ["MARGIN", "-$30.00"])
-		and break_even_glance != null and _contains_all(break_even_glance.text, ["TO GO", "$30.00"])
+		and free_glance != null and _contains_all(free_glance.text, ["SPEND", "$20.00"])
+		and margin_glance != null and _contains_all(margin_glance.text, ["NET", "-$30.00"])
+		and break_even_glance != null and _contains_all(break_even_glance.text, ["NEED", "$30.00"])
 		and watch_glance != null
 		and "!" in watch_glance.text
 		and not "AUTO" in watch_glance.text

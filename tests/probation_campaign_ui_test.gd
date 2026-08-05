@@ -50,7 +50,9 @@ func _run() -> void:
 
 	var badge := ui.find_child("ProbationDayBadge", true, false) as PanelContainer
 	var status_label := ui.find_child("ProbationStatusLabel", true, false) as Label
+	var status_icon := ui.find_child("ProbationScoreIcon", true, false) as FlockwatchIconBadge
 	var day_label := ui.find_child("ProbationDayLabel", true, false) as Label
+	var day_icon := ui.find_child("ProbationDayIcon", true, false) as FlockwatchIconBadge
 	var day_progress_rail := ui.find_child("ProbationDayProgressRail", true, false) as HBoxContainer
 	var day_segment_1 := ui.find_child("ProbationDaySegment1", true, false) as PanelContainer
 	var day_segment_3 := ui.find_child("ProbationDaySegment3", true, false) as PanelContainer
@@ -58,9 +60,15 @@ func _run() -> void:
 	var modal_host := ui.find_child("ProbationModalHost", true, false) as Control
 	_check(badge != null and badge.is_visible_in_tree(), "probation badge should always be visible", failures)
 	_check(status_label != null and status_label.text == "PROBATION", "badge should default to probation status", failures)
-	_check(day_label != null and day_label.text == "DAY 1 / 5", "badge should open on day one of five", failures)
+	_check(day_label != null and day_label.text == "1 / 5", "calendar-led badge should open on shift one of five", failures)
 	_check(
 		day_progress_rail != null and day_progress_rail.is_visible_in_tree()
+		and status_icon != null and status_icon.is_visible_in_tree()
+		and status_icon.icon_kind() == &"score"
+		and String(status_icon.get_meta("state_shape", "")) == "score_rosette"
+		and day_icon != null and day_icon.is_visible_in_tree()
+		and day_icon.icon_kind() == &"calendar"
+		and String(day_icon.get_meta("state_shape", "")) == "calendar_grid"
 		and int(day_progress_rail.get_meta("current_day", 0)) == 1
 		and day_segment_1 != null and String(day_segment_1.get_meta("state", "")) == "current"
 		and day_segment_3 != null and String(day_segment_3.get_meta("state", "")) == "upcoming"
@@ -88,7 +96,13 @@ func _run() -> void:
 		},
 	})
 	await process_frame
-	_check(status_label != null and status_label.text == "SCORE 50 / 100", "active probation badge should name the score scale explicitly", failures)
+	_check(
+		status_label != null and status_label.text == "50 / 100"
+		and status_label.tooltip_text.begins_with("SCORE 50 / 100")
+		and String(status_label.get_meta("accessible_text", "")) == status_label.tooltip_text,
+		"score rosette should carry the category while the value retains its exact scale",
+		failures,
+	)
 	_check(
 		status_label != null
 		and _contains_all(status_label.tooltip_text, [
@@ -99,12 +113,19 @@ func _run() -> void:
 		failures,
 	)
 	var order_progress_row := ui.find_child("ProbationOrderProgressRow", true, false) as HBoxContainer
+	var order_progress_icon := ui.find_child("ProbationOrderProgressIcon", true, false) as FlockwatchIconBadge
 	var order_promotion_icon := ui.find_child("ProbationOrderPromotionIcon", true, false) as TextureRect
 	var order_progress_label := ui.find_child("ProbationOrderProgressLabel", true, false) as Label
 	var first_order_stamp := ui.find_child("ProbationOrderStamp1", true, false) as PanelContainer
+	var first_order_stamp_icon := ui.find_child("ProbationOrderStampIcon1", true, false) as FlockwatchIconBadge
+	var first_order_state_icon := ui.find_child("ProbationOrderStampStateIcon1", true, false) as TextureRect
 	var first_order_action := ui.find_child("ProbationOrderStampAction1", true, false) as Button
 	var second_order_stamp := ui.find_child("ProbationOrderStamp2", true, false) as PanelContainer
+	var second_order_stamp_icon := ui.find_child("ProbationOrderStampIcon2", true, false) as FlockwatchIconBadge
+	var second_order_state_icon := ui.find_child("ProbationOrderStampStateIcon2", true, false) as TextureRect
 	var third_order_stamp := ui.find_child("ProbationOrderStamp3", true, false) as PanelContainer
+	var third_order_stamp_icon := ui.find_child("ProbationOrderStampIcon3", true, false) as FlockwatchIconBadge
+	var third_order_state_icon := ui.find_child("ProbationOrderStampStateIcon3", true, false) as TextureRect
 	var day_one_states: Array[Dictionary] = [
 		{
 			"id": "prove_the_plan", "label": "Prove the plan", "metric": "quota_met",
@@ -124,6 +145,7 @@ func _run() -> void:
 	]
 	var seeded_delta := ui.set_live_order_progress(2, 3, &"probation:1", day_one_states)
 	await process_frame
+	var icon_led_tracker := ui.live_order_progress()
 	_check(
 		seeded_delta == 0
 		and order_progress_row != null
@@ -136,9 +158,30 @@ func _run() -> void:
 		and String(order_promotion_icon.get_meta("promotion_state", "")) == "recover"
 		and int(order_promotion_icon.get_meta("target_score", 0)) == 80
 		and order_progress_label != null
-		and order_progress_label.text == "ON TRACK  2 / 3"
+		and order_progress_icon != null and order_progress_icon.is_visible_in_tree()
+		and order_progress_icon.icon_kind() == &"order_check"
+		and String(order_progress_icon.get_meta("state_shape", "")) == "checked_order_sheet"
+		and order_progress_label.text == "2 / 3"
 		and order_progress_label.tooltip_text.begins_with("PROMOTION IN REACH  //  2 / 3 ORDERS ON TRACK  //  +3 SCORE  //  77 -> 80  //  GOLDEN MANAGEMENT TRACK"),
 		"a promotion opportunity should join the live order count with one recoverable crest",
+		failures,
+	)
+	_check(
+		bool(icon_led_tracker.get("headline_icon_led", false))
+		and String(icon_led_tracker.get("headline_shape_language", "")) == "score_rosette + calendar_grid + checked_order_sheet"
+		and String(icon_led_tracker.get("score_icon", "")) == "score"
+		and bool(icon_led_tracker.get("score_icon_visible", false))
+		and String(icon_led_tracker.get("score_text", "")) == "50 / 100"
+		and String(icon_led_tracker.get("score_accessible_text", "")).begins_with("SCORE 50 / 100")
+		and String(icon_led_tracker.get("day_icon", "")) == "calendar"
+		and bool(icon_led_tracker.get("day_icon_visible", false))
+		and String(icon_led_tracker.get("day_text", "")) == "1 / 5"
+		and String(icon_led_tracker.get("day_accessible_text", "")) == "DAY 1 / 5"
+		and String(icon_led_tracker.get("order_icon", "")) == "order_check"
+		and bool(icon_led_tracker.get("order_icon_visible", false))
+		and String(icon_led_tracker.get("order_text", "")) == "2 / 3"
+		and String(icon_led_tracker.get("order_accessible_text", "")).begins_with("PROMOTION IN REACH"),
+		"browser diagnostics should publish the three stable headline shapes, concise values, and complete semantic copy",
 		failures,
 	)
 	if first_order_action != null:
@@ -156,7 +199,7 @@ func _run() -> void:
 	_check(
 		first_order_action != null
 		and first_order_action.focus_mode == Control.FOCUS_ALL
-		and first_order_action.custom_minimum_size == Vector2(28.0, 24.0)
+		and first_order_action.custom_minimum_size == Vector2(32.0, 24.0)
 		and String(first_order_action.get_meta("semantic_action", "")) == "open_flockwatch_order"
 		and "OPEN THIS GOAL IN FLOCKWATCH" in first_order_action.tooltip_text
 		and StringName(observed.get("live_order_id", &"")) == &"prove_the_plan"
@@ -174,13 +217,24 @@ func _run() -> void:
 		and third_order_stamp.is_visible_in_tree()
 		and String(first_order_stamp.get_meta("objective_id", "")) == "prove_the_plan"
 		and String(first_order_stamp.get_meta("metric", "")) == "quota_met"
-		and String(first_order_stamp.get_meta("semantic_icon", "")) == "egg"
+		and String(first_order_stamp.get_meta("semantic_icon", "")) == "order_clutch"
+		and first_order_stamp_icon != null and first_order_stamp_icon.icon_kind() == &"order_clutch"
+		and first_order_state_icon != null
+		and String(first_order_state_icon.get_meta("semantic_icon", "")) == "status_need"
+		and String(first_order_stamp.get_meta("state_shape", "")) == "diamond_exclamation"
 		and not bool(first_order_stamp.get_meta("on_track", true))
 		and String(second_order_stamp.get_meta("objective_id", "")) == "farmer_confidence"
-		and String(second_order_stamp.get_meta("semantic_icon", "")) == "cash"
+		and String(second_order_stamp.get_meta("semantic_icon", "")) == "order_favor"
+		and second_order_stamp_icon != null and second_order_stamp_icon.icon_kind() == &"order_favor"
+		and second_order_state_icon != null
+		and String(second_order_state_icon.get_meta("semantic_icon", "")) == "status_pass"
+		and String(second_order_stamp.get_meta("state_shape", "")) == "ring_check"
 		and bool(second_order_stamp.get_meta("on_track", false))
 		and String(third_order_stamp.get_meta("objective_id", "")) == "no_rework_spiral"
-		and String(third_order_stamp.get_meta("semantic_icon", "")) == "files"
+		and String(third_order_stamp.get_meta("semantic_icon", "")) == "order_trays"
+		and third_order_stamp_icon != null and third_order_stamp_icon.icon_kind() == &"order_trays"
+		and third_order_state_icon != null
+		and String(third_order_state_icon.get_meta("semantic_icon", "")) == "status_pass"
 		and bool(third_order_stamp.get_meta("on_track", false))
 		and first_order_stamp.tooltip_text.begins_with("NEEDS ACTION  //  PROVE THE PLAN")
 		and not bool(first_order_stamp.get_meta("change_pulse_active", true))
@@ -189,13 +243,51 @@ func _run() -> void:
 		"active badge should expose stable quota, confidence, and rework marks in authored order",
 		failures,
 	)
+	ui.set_interface_scale(1.5)
+	await process_frame
+	await process_frame
+	var scaled_progress := ui.live_order_progress()
+	var scaled_stamp_size := scaled_progress.get("stamp_size", {}) as Dictionary
+	var scaled_state_icon_size := scaled_progress.get("state_icon_size", {}) as Dictionary
+	var scaled_badge_rect := badge.get_global_rect() if badge != null else Rect2()
+	_check(
+		is_equal_approx(float(scaled_progress.get("interface_scale", 0.0)), 1.5)
+		and is_equal_approx(float(scaled_stamp_size.get("width", 0.0)), 48.0)
+		and is_equal_approx(float(scaled_stamp_size.get("height", 0.0)), 36.0)
+		and is_equal_approx(float(scaled_state_icon_size.get("width", 0.0)), 15.0)
+		and status_icon.custom_minimum_size == Vector2(25.5, 25.5)
+		and day_icon.custom_minimum_size == Vector2(25.5, 25.5)
+		and order_progress_icon.custom_minimum_size == Vector2(25.5, 25.5)
+		and first_order_stamp_icon.custom_minimum_size == Vector2(19.5, 19.5)
+		and first_order_action.custom_minimum_size == Vector2(48.0, 36.0)
+		and scaled_badge_rect.size.x >= 309.5
+		and scaled_badge_rect.end.x <= harness.size.x + 0.5,
+		"150-percent interface scale should enlarge tracker marks, hit areas, and frame together",
+		failures,
+	)
+	harness.size = Vector2(390.0, 844.0)
+	await process_frame
+	await process_frame
+	var narrow_scaled_badge_rect := badge.get_global_rect() if badge != null else Rect2()
+	_check(
+		narrow_scaled_badge_rect.position.x >= -0.5
+		and narrow_scaled_badge_rect.end.x <= harness.size.x + 0.5
+		and narrow_scaled_badge_rect.size.x >= 353.5
+		and String(badge.get_meta("layout_mode", "")) == "narrow",
+		"the enlarged tracker should stay fully contained in a 390px-wide viewport",
+		failures,
+	)
+	harness.size = Vector2(1280.0, 720.0)
+	ui.set_interface_scale(1.0)
+	await process_frame
+	await process_frame
 	var ready_states := day_one_states.duplicate(true)
 	ready_states[0]["on_track"] = true
 	ready_states[0]["detail"] = "ON TRACK  //  PROVE THE PLAN  //  MET"
 	var improved_delta := ui.set_live_order_progress(3, 3, &"probation:1", ready_states)
 	_check(
 		improved_delta == 1
-		and order_progress_label.text == "ON TRACK  3 / 3"
+		and order_progress_label.text == "3 / 3"
 		and bool(order_progress_row.get_meta("promotion_ready", false))
 		and String(order_promotion_icon.get_meta("promotion_state", "")) == "ready"
 		and order_promotion_icon.modulate.is_equal_approx(Color("f4df9d"))
@@ -206,6 +298,9 @@ func _run() -> void:
 		and String(order_promotion_icon.get_meta("promotion_ready_pulse_settled", "")) == "animating"
 		and badge.modulate.is_equal_approx(Color.WHITE)
 		and bool(first_order_stamp.get_meta("change_pulse_active", false))
+		and first_order_state_icon != null
+		and String(first_order_state_icon.get_meta("semantic_icon", "")) == "status_pass"
+		and String(first_order_stamp.get_meta("state_shape", "")) == "ring_check"
 		and String(first_order_stamp.get_meta("change_direction", "")) == "fill"
 		and int(first_order_stamp.get_meta("change_serial", 0)) == 1
 		and String(first_order_stamp.get_meta("change_settled", "")) == "animating"
@@ -280,7 +375,7 @@ func _run() -> void:
 	var next_day_delta := ui.set_live_order_progress(1, 3, &"probation:2", next_day_states)
 	_check(
 		next_day_delta == 0
-		and order_progress_label.text == "ON TRACK  1 / 3"
+		and order_progress_label.text == "1 / 3"
 		and String(order_promotion_icon.get_meta("promotion_state", "")) == "recover"
 		and String(third_order_stamp.get_meta("change_direction", "stale")) == ""
 		and String(third_order_stamp.get_meta("change_settled", "")) == "seeded",
@@ -332,6 +427,9 @@ func _run() -> void:
 	var journey_file := ui.find_child("ProbationJourneyFile", true, false) as Label
 	var journey_shifts := ui.find_child("ProbationJourneyShifts", true, false) as Label
 	var journey_review := ui.find_child("ProbationJourneyReview", true, false) as Label
+	var journey_file_caption := ui.find_child("ProbationJourneyFileCaption", true, false) as Label
+	var journey_shifts_caption := ui.find_child("ProbationJourneyShiftsCaption", true, false) as Label
+	var journey_review_caption := ui.find_child("ProbationJourneyReviewCaption", true, false) as Label
 	var new_button := ui.find_child("NewCampaignButton", true, false) as Button
 	var continue_button := ui.find_child("ContinueCampaignButton", true, false) as Button
 	var back_button := ui.find_child("BackToSavedCampaignButton", true, false) as Button
@@ -344,8 +442,10 @@ func _run() -> void:
 	)
 	_check(
 		 title_description != null
-		and title_description.text == "Pick a difficulty. Start shift one.",
-		"title subtitle should connect Mabel to the shared permanent file",
+		and title_description.text == "Choose a difficulty, then start."
+		and "terms lock when Shift 1 starts" in title_description.tooltip_text
+		and title_description.tooltip_text == String(title_description.get_meta("accessible_text", "")),
+		"title subtitle should state the setup action once while retaining its locked-terms explanation",
 		failures,
 	)
 	_check(
@@ -396,25 +496,28 @@ func _run() -> void:
 	_check(
 		probation_summary != null and probation_summary.is_visible_in_tree()
 		and probation_summary_detail != null
-		and probation_summary_detail.text == "REPORT AFTER EACH SHIFT"
+		and probation_summary_detail.text == "QUICK RECAP AFTER EACH SHIFT"
 		and journey_file != null and journey_file.text == "1 FILE"
 		and journey_shifts != null and journey_shifts.text == "5 SHIFTS"
-		and journey_review != null and journey_review.text == "REVIEW"
+		and journey_review != null and journey_review.text == "FINAL REVIEW"
+		and journey_file_caption != null and journey_file_caption.text == "1  TEAM UP"
+		and journey_shifts_caption != null and journey_shifts_caption.text == "2  WORK"
+		and journey_review_caption != null and journey_review_caption.text == "3  PASS"
 		and ui.find_child("ProbationDayStamp_1", true, false) == null
 		and ui.find_child("ProbationDayStamp_5", true, false) == null,
-		"one concise five-shift summary should replace five equal-weight day stamps",
+		"one numbered three-step journey should replace abstract labels and five equal-weight day stamps",
 		failures,
 	)
 	_check(
 		challenge_selector != null
 		and challenge_selector.item_count == 3
 		and challenge_selector.focus_mode == Control.FOCUS_ALL
-		and challenge_selector.get_item_text(0) == "[LEARNING] SUPPORTED FLOCK"
-		and challenge_selector.get_item_text(1) == "[STANDARD] STANDARD FILING"
-		and challenge_selector.get_item_text(2) == "[EXPERT] EXECUTIVE AUDIT"
-		and challenge_selector.get_item_text(challenge_selector.selected) == "[STANDARD] STANDARD FILING"
+		and challenge_selector.get_item_text(0) == "LEARNING  ·  SUPPORTED"
+		and challenge_selector.get_item_text(1) == "STANDARD  ·  RECOMMENDED"
+		and challenge_selector.get_item_text(2) == "EXPERT  ·  EXECUTIVE"
+		and challenge_selector.get_item_text(challenge_selector.selected) == "STANDARD  ·  RECOMMENDED"
 		and ui.selected_challenge_contract_id() == &"standard_filing",
-		"title should default its keyboard/controller selector to the Standard filing",
+		"title should default its keyboard/controller selector to a clear recommended Standard filing",
 		failures,
 	)
 	_check(
@@ -427,8 +530,9 @@ func _run() -> void:
 		and challenge_terms_toggle.focus_mode == Control.FOCUS_ALL
 		and challenge_terms_toggle.shortcut != null
 		and challenge_detail != null and not challenge_detail.is_visible_in_tree()
-		and "BALANCED ROUTES" in challenge_summary.text
-		and "LOCKS ON START" in challenge_summary.text
+		and challenge_summary.text == "BALANCED  ·  LOCKS ON START"
+		and "BALANCED ROUTES" in challenge_summary.tooltip_text
+		and challenge_summary.tooltip_text == String(challenge_summary.get_meta("accessible_text", ""))
 		and _contains_all(challenge_terms_toggle.tooltip_text, [
 			"recommended authored balance",
 			"SCORE >= 60 / 100", "WELFARE >= 45", "COMPLIANCE >= 55",
@@ -455,6 +559,7 @@ func _run() -> void:
 		challenge_selector.item_selected.emit(0)
 	_check(
 		ui.selected_challenge_contract_id() == &"supported_flock"
+		and challenge_summary.text == "MORE FORGIVING  ·  LOCKS ON START"
 		and challenge_detail != null
 		and _contains_all(challenge_detail.text, [
 			"FUND $65.00", "QUOTA 14", "LIVE FILES 6", "RECOVERY CUSHION",
@@ -470,6 +575,7 @@ func _run() -> void:
 	_check(
 		ui.selected_challenge_contract_id() == &"executive_audit"
 		and StringName(observed["challenge_contract"]) == &"executive_audit"
+		and challenge_summary.text == "HIGH PRESSURE  ·  LOCKS ON START"
 		and challenge_detail != null
 		and _contains_all(challenge_detail.text, [
 			"FUND $48.00", "QUOTA 18", "LIVE FILES 8", "AUDIT SURGE",
@@ -768,7 +874,11 @@ func _run() -> void:
 		"continue_available": true,
 	})
 	await process_frame
-	_check(day_label.text == "DAY 3 / 5", "badge should react to plain campaign snapshot data", failures)
+	_check(
+		day_label.text == "3 / 5" and day_label.tooltip_text == "DAY 3 / 5",
+		"calendar-led badge should react to plain campaign snapshot data",
+		failures,
+	)
 	_check(
 		String(day_segment_1.get_meta("state", "")) == "complete"
 		and String(day_segment_3.get_meta("state", "")) == "current"
@@ -982,10 +1092,46 @@ func _run() -> void:
 	var objective_progress := ui.find_child("NextShiftObjectiveProgress", true, false) as Label
 	var objective_card := ui.find_child("NextShiftObjectiveCard", true, false) as PanelContainer
 	var milestone_section := ui.find_child("MilestoneChoiceSection", true, false) as VBoxContainer
+	var milestone_legend := ui.find_child("MilestoneSymbolLegend", true, false) as HBoxContainer
+	var milestone_edge_legend := ui.find_child("MilestoneEdgeLegend", true, false) as Label
+	var milestone_watch_legend := ui.find_child("MilestoneWatchLegend", true, false) as Label
+	var milestone_board_legend := ui.find_child("MilestoneBoardLegend", true, false) as Label
 	var choice := ui.find_child("MilestoneChoice_fast_keys", true, false) as Button
 	var milestone_hint := ui.find_child("MilestoneChoiceHint", true, false) as Label
 	var requisitions := ui.find_child("ReviewRoostRequisitionsButton", true, false) as Button
 	var report_continue := ui.find_child("ContinueProbationButton", true, false) as Button
+	var report_details_toggle := ui.find_child("ReportDetailsToggle", true, false) as Button
+	var report_details_section := ui.find_child("ReportDetailsSection", true, false) as VBoxContainer
+	_check(
+		report_details_toggle != null
+		and report_details_toggle.text == "SHIFT DETAILS  [D]"
+		and report_details_section != null
+		and not report_details_section.is_visible_in_tree()
+		and objective_card != null and objective_card.is_visible_in_tree()
+		and report_continue != null and report_continue.is_visible_in_tree(),
+		"between-shift reports should open on score, tomorrow's plan, and actions with accounting folded",
+		failures,
+	)
+	var collapsed_report_accessibility := ui.accessible_text()
+	_check(
+		_contains_all(
+			collapsed_report_accessibility,
+			["SHIFT 2 RESULTS", "Score 1,840", "Mabel", "GOLDEN DELIVERABLE", "DAY 3 PROBATION ORDERS"],
+		),
+		"folded report details should remain fully represented in assistive output (%s)" % collapsed_report_accessibility,
+		failures,
+	)
+	if report_details_toggle != null:
+		report_details_toggle.pressed.emit()
+	await process_frame
+	_check(
+		report_details_toggle != null
+		and report_details_toggle.text == "HIDE SHIFT DETAILS  [D]"
+		and report_details_section != null
+		and report_details_section.is_visible_in_tree(),
+		"Shift Details should reveal the complete accounting in place without changing report state",
+		failures,
+	)
 	_check(report_panel != null and report_panel.is_visible_in_tree(), "between shifts should show the probation report", failures)
 	_check(
 		int(observed["report_filing_settled"]) == 1,
@@ -1210,6 +1356,10 @@ func _run() -> void:
 	ui.show_between_shift_report(all_pass_report)
 	await process_frame
 	await process_frame
+	report_details_toggle = ui.find_child("ReportDetailsToggle", true, false) as Button
+	if report_details_toggle != null:
+		report_details_toggle.pressed.emit()
+	await process_frame
 	_check(
 		safeguard_pass_grid != null and safeguard_pass_grid.is_visible_in_tree()
 		and safeguard_summary.text == "5/5 PASS"
@@ -1238,6 +1388,9 @@ func _run() -> void:
 	var compliance_order := ui.find_child("ProbationOrderLabel_2", true, false) as Label
 	var tray_order := ui.find_child("ProbationOrderLabel_3", true, false) as Label
 	var clutch_order_card := ui.find_child("ProbationOrder_1", true, false) as PanelContainer
+	var clutch_order_icon := ui.find_child("ProbationOrderIcon_1", true, false) as TextureRect
+	var compliance_order_icon := ui.find_child("ProbationOrderIcon_2", true, false) as TextureRect
+	var tray_order_icon := ui.find_child("ProbationOrderIcon_3", true, false) as TextureRect
 	_check(
 		objective_orders != null and objective_orders.is_visible_in_tree()
 		and objective_body != null and not objective_body.is_visible_in_tree()
@@ -1245,6 +1398,27 @@ func _run() -> void:
 		and compliance_order != null and compliance_order.text == "ORDERLY COOP\n68+"
 		and tray_order != null and tray_order.text == "TRIM THE TRAYS\n<= 3",
 		"probation reports should replace three prose bullets with three glance-readable order chips",
+		failures,
+	)
+	_check(
+		clutch_order_card != null
+		and String(clutch_order_card.get_meta("semantic_icon", "")) == "order_clutch"
+		and clutch_order_icon != null
+		and String(clutch_order_icon.get_meta("semantic_icon", "")) == "order_clutch"
+		and compliance_order_icon != null
+		and String(compliance_order_icon.get_meta("semantic_icon", "")) == "order_compliance"
+		and tray_order_icon != null
+		and String(tray_order_icon.get_meta("semantic_icon", "")) == "order_trays"
+		and clutch_order_icon.texture != compliance_order_icon.texture
+		and compliance_order_icon.texture != tray_order_icon.texture
+		and StringName(ui.call("_probation_order_icon", {
+			"id": "farmer_confidence", "metric": "farmer_favor",
+		})) == &"order_favor"
+		and StringName(ui.call("_probation_order_icon", {
+			"id": "no_rework_spiral", "metric": "rework",
+		})) == &"order_trays"
+		and ManagementUIThemeScript.action_icon(&"order_favor") != null,
+		"next-day orders should use distinct metric-backed quota, compliance, farmer-trust, and rework symbols",
 		failures,
 	)
 	_check(
@@ -1403,18 +1577,34 @@ func _run() -> void:
 	)
 	_check(milestone_section != null and milestone_section.is_visible_in_tree(), "offered milestones should appear as choice cards", failures)
 	_check(
+		milestone_legend != null and milestone_legend.is_visible_in_tree()
+		and milestone_edge_legend != null and milestone_edge_legend.text == "+ EDGE"
+		and milestone_edge_legend.tooltip_text == "EDGE  //  The doctrine's permanent strength."
+		and milestone_watch_legend != null and milestone_watch_legend.text == "! WATCH"
+		and milestone_watch_legend.tooltip_text == "WATCH  //  The doctrine's ongoing tradeoff."
+		and milestone_board_legend != null and not milestone_board_legend.visible,
+		"probation milestones should decode their benefit and tradeoff symbols without adding card prose",
+		failures,
+	)
+	_check(
 		choice != null and choice.focus_mode == Control.FOCUS_ALL
-		and choice.custom_minimum_size.y >= 108.0
+		and choice.custom_minimum_size.y >= 88.0
+		and choice.text.split("\n", false).size() == 3
 		and _contains_all(choice.text, [
-			"SHELL ASSURANCE", "BRASS KEYCAPS", "EDGE SHELL QUALITY",
-			"WATCH FLOCK WELFARE", "+10% processing speed",
+			"SHELL ASSURANCE", "BRASS KEYCAPS", "+10% WORK SPEED",
+			"+ SHELL QUALITY", "! FLOCK WELFARE",
 		])
 		and _contains_all(choice.tooltip_text, [
-			"Peckwork starts faster.", "SHELL QUALITY // COMPLIANCE",
+			"Peckwork starts faster.", "+10% processing speed",
+			"SHELL QUALITY // COMPLIANCE",
 			"Alternate quality pressure with recovery.",
 		])
+		and _contains_all(String(choice.get_meta("accessible_text", "")), [
+			"Option 1", "SHELL ASSURANCE", "+10% processing speed",
+			"SHELL QUALITY // COMPLIANCE", "FLOCK WELFARE",
+		])
 		and String(choice.get_meta("doctrine_id", "")) == "fast_keys",
-		"doctrine milestone cards should stay focusable while disclosing identity, edge, obligation, effect, and playbook",
+		"doctrine milestone cards should use a compact three-line glance while preserving exact effect, edge, obligation, and playbook detail",
 		failures,
 	)
 	_check(report_continue != null and report_continue.disabled, "report should wait for a required milestone choice", failures)
@@ -1675,7 +1865,13 @@ func _run() -> void:
 	ui.hide_modal()
 	await process_frame
 	_check(not ui.is_modal_open() and not modal_host.is_visible_in_tree(), "closing campaign cards should restore the unobstructed office", failures)
-	_check(badge.is_visible_in_tree() and day_label.text == "DAY 5 / 5", "day badge should persist after closing a modal", failures)
+	_check(
+		badge.is_visible_in_tree()
+		and day_label.text == "5 / 5"
+		and day_label.tooltip_text == "DAY 5 / 5",
+		"calendar-led day badge should persist after closing a modal",
+		failures,
+	)
 
 	ui.show_active_campaign({"status": "Senior Roost", "score": 73})
 	await process_frame

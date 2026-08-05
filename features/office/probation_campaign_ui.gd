@@ -43,6 +43,11 @@ const PROBATION_SCORE_LIMIT := 100
 const PROBATION_PASS_THRESHOLD := 60
 const MAX_BADGE_ORDER_SEGMENTS := 3
 const MAX_BADGE_DAY_SEGMENTS := DEFAULT_TOTAL_DAYS
+const LIVE_ORDER_STAMP_SIZE := Vector2(32.0, 24.0)
+const LIVE_ORDER_CATEGORY_ICON_SIZE := 13.0
+const LIVE_ORDER_STATE_ICON_SIZE := 10.0
+const LIVE_ORDER_PROMOTION_ICON_SIZE := 16.0
+const BADGE_HEADLINE_ICON_SIZE := 17.0
 const REPORT_DESKTOP_WIDTH := 960.0
 const REPORT_HEADING_DESKTOP_WIDTH := 340.0
 const REPORT_CREDIT_DESKTOP_WIDTH := 560.0
@@ -107,15 +112,20 @@ var _last_board_pulse_key := ""
 var _day_badge: PanelContainer
 var _active_badge_top := 120.0
 var _badge_suppressed := false
+var _interface_scale := 1.0
 var _status_label: Label
+var _status_icon: FlockwatchIconBadge
 var _day_label: Label
+var _day_icon: FlockwatchIconBadge
 var _day_progress_row: HBoxContainer
 var _day_progress_segments: Array[PanelContainer] = []
 var _order_progress_row: HBoxContainer
+var _order_progress_icon: FlockwatchIconBadge
 var _order_promotion_icon: TextureRect
 var _order_progress_label: Label
 var _order_progress_segments: Array[PanelContainer] = []
 var _order_progress_icons: Array[Control] = []
+var _order_progress_state_icons: Array[TextureRect] = []
 var _order_progress_actions: Array[Button] = []
 var _live_orders_on_track := -1
 var _live_orders_total := 0
@@ -158,6 +168,9 @@ var _title_new_button: Button
 var _title_back_button: Button
 var _report_score_row: HFlowContainer
 var _report_heading_stack: VBoxContainer
+var _report_details_toggle: Button
+var _report_details_section: VBoxContainer
+var _report_details_expanded := false
 var _report_story_row: HFlowContainer
 var _report_ledger_row: HFlowContainer
 var _report_actions: HFlowContainer
@@ -211,6 +224,10 @@ var _objective_board_strip: HFlowContainer
 var _objective_progress_label: Label
 var _milestone_section: VBoxContainer
 var _milestone_section_label: Label
+var _milestone_legend_row: HBoxContainer
+var _milestone_edge_legend_label: Label
+var _milestone_watch_legend_label: Label
+var _milestone_board_legend_label: Label
 var _milestone_buttons_host: HFlowContainer
 var _milestone_hint_label: Label
 var _milestone_buttons: Dictionary[StringName, Button] = {}
@@ -342,6 +359,7 @@ func prewarm_hidden_surfaces() -> void:
 func show_between_shift_report(snapshot: Dictionary = {}) -> void:
 	_hide_campaign_replacement(false)
 	_pending_milestone_confirmation = &""
+	_set_report_details_expanded(false)
 	_merge_snapshot(snapshot)
 	_snapshot["view"] = VIEW_REPORT
 	_view = VIEW_REPORT
@@ -350,6 +368,30 @@ func show_between_shift_report(snapshot: Dictionary = {}) -> void:
 		_snapshot.get("milestone_selected", &""),
 	))
 	_refresh()
+
+
+func _on_report_details_toggled() -> void:
+	_set_report_details_expanded(not _report_details_expanded)
+
+
+func _set_report_details_expanded(expanded: bool) -> void:
+	_report_details_expanded = expanded
+	if _report_details_section != null:
+		_report_details_section.visible = expanded
+	if _report_details_toggle == null:
+		return
+	_report_details_toggle.text = (
+		"HIDE SHIFT DETAILS  [D]" if expanded else "SHIFT DETAILS  [D]"
+	)
+	_report_details_toggle.tooltip_text = (
+		"Hide filed credit, hen evidence, five-shift ledgers, and safeguard accounting."
+		if expanded else
+		"Show filed credit, hen evidence, five-shift ledgers, and safeguard accounting."
+	)
+	_report_details_toggle.set_meta(
+		"accessible_text",
+		_report_details_toggle.tooltip_text,
+	)
 
 
 ## Opens the sequential Farm Mutual planning file after the closing report and
@@ -415,6 +457,64 @@ func campaign_snapshot() -> Dictionary:
 ## final cards stay glance-first while this string retains the authored coda
 ## and every exact filing comparison for assistive browser clients.
 func accessible_text() -> String:
+	if _view == VIEW_REPORT:
+		var report_parts: Array[String] = []
+		if _report_heading_label != null:
+			report_parts.append(_report_heading_label.text)
+			var authored_heading := String(_report_heading_label.get_meta(
+				"accessible_text",
+				_report_heading_label.text,
+			))
+			if authored_heading != _report_heading_label.text:
+				report_parts.append(authored_heading)
+		if _report_score_label != null and _report_shift_delta_label != null and _report_rank_label != null:
+			report_parts.append("Score %s. This shift %s. Rank %s." % [
+				_report_score_label.text,
+				_report_shift_delta_label.text,
+				_report_rank_label.text,
+			])
+		if _credit_memo_card != null and _credit_memo_card.visible and _credit_memo_label != null:
+			report_parts.append(String(_credit_memo_label.get_meta(
+				"accessible_text",
+				_credit_memo_label.tooltip_text if not _credit_memo_label.tooltip_text.is_empty() else _credit_memo_label.text,
+			)))
+		if _hen_highlight_card != null and _hen_highlight_card.visible:
+			report_parts.append("%s. %s. %s." % [
+				_hen_highlight_headline.text,
+				_hen_highlight_body.tooltip_text if not _hen_highlight_body.tooltip_text.is_empty() else _hen_highlight_body.text,
+				_hen_highlight_metric.text,
+			])
+		for ledger: Dictionary in _report_ledger_labels:
+			var title := ledger.get("title") as Label
+			var value := ledger.get("value") as Label
+			var detail := ledger.get("detail") as Label
+			if title != null and value != null and detail != null:
+				report_parts.append("%s %s. %s." % [title.text, value.text, detail.text])
+		if _report_safeguard_panel != null and not _report_safeguard_panel.tooltip_text.is_empty():
+			report_parts.append(_report_safeguard_panel.tooltip_text)
+		if _objective_title_label != null:
+			report_parts.append("Next shift: %s. %s. %s." % [
+				_objective_title_label.text,
+				_objective_body_label.text,
+				_objective_progress_label.text,
+			])
+			if not _objective_title_label.tooltip_text.is_empty():
+				report_parts.append(_objective_title_label.tooltip_text)
+		if _milestone_section.visible and _milestone_hint_label != null:
+			report_parts.append(_milestone_hint_label.text)
+			for button_value: Variant in _milestone_buttons.values():
+				var milestone_button := button_value as Button
+				if milestone_button != null:
+					report_parts.append(String(milestone_button.get_meta(
+						"accessible_text",
+						milestone_button.tooltip_text,
+					)))
+		if _report_continue_button != null:
+			report_parts.append(String(_report_continue_button.get_meta(
+				"accessible_text",
+				_report_continue_button.text,
+			)))
+		return "\n".join(report_parts)
 	if _view == VIEW_FINAL:
 		var parts: Array[String] = []
 		if _final_verdict_label != null:
@@ -545,11 +645,13 @@ func _sanitize_live_order_states(
 		var objective_id := String(source.get("id", "order_%d" % (index + 1)))
 		if objective_id.is_empty():
 			objective_id = "order_%d" % (index + 1)
+		var metric := StringName(source.get("metric", ""))
+		var metric_icon := _probation_order_metric_icon(metric)
 		result.append({
 			"id": objective_id,
 			"label": String(source.get("label", "ORDER %d" % (index + 1))).to_upper(),
-			"metric": String(source.get("metric", "")),
-			"icon": String(source.get("icon", "goal")),
+			"metric": String(metric),
+			"icon": String(metric_icon if metric_icon != &"" else StringName(source.get("icon", "goal"))),
 			"on_track": bool(source.get("on_track", false)),
 			"detail": String(source.get("detail", "")),
 		})
@@ -565,6 +667,8 @@ func live_order_progress() -> Dictionary:
 			"objective_id": String(segment.get_meta("objective_id", "")),
 			"metric": String(segment.get_meta("metric", "")),
 			"semantic_icon": String(segment.get_meta("semantic_icon", "goal")),
+			"status_icon": String(segment.get_meta("status_icon", "status_need")),
+			"state_shape": String(segment.get_meta("state_shape", "diamond_exclamation")),
 			"on_track": bool(segment.get_meta("on_track", false)),
 			"accessible_text": String(segment.get_meta("accessible_text", "")),
 			"active": bool(segment.get_meta("change_pulse_active", false)),
@@ -573,11 +677,38 @@ func live_order_progress() -> Dictionary:
 			"settled": String(segment.get_meta("change_settled", "idle")),
 			"request_serial": int(segment.get_meta("request_serial", 0)),
 		})
+	var stamp_size := (
+		_order_progress_segments[0].custom_minimum_size
+		if not _order_progress_segments.is_empty() else
+		LIVE_ORDER_STAMP_SIZE
+	)
+	var state_icon_size := (
+		_order_progress_state_icons[0].custom_minimum_size
+		if not _order_progress_state_icons.is_empty() else
+		Vector2.ONE * LIVE_ORDER_STATE_ICON_SIZE
+	)
 	return {
 		"on_track": maxi(0, _live_orders_on_track),
 		"total": _live_orders_total,
 		"context": String(_live_order_context),
+		"interface_scale": _interface_scale,
+		"stamp_size": {"width": stamp_size.x, "height": stamp_size.y},
+		"state_icon_size": {"width": state_icon_size.x, "height": state_icon_size.y},
 		"visible": _order_progress_row != null and _order_progress_row.visible,
+		"headline_icon_led": true,
+		"headline_shape_language": "score_rosette + calendar_grid + checked_order_sheet",
+		"score_icon": String(_status_icon.icon_kind()) if _status_icon != null else "",
+		"score_icon_visible": _status_icon != null and _status_icon.is_visible_in_tree(),
+		"score_text": _status_label.text if _status_label != null else "",
+		"score_accessible_text": String(_status_label.get_meta("accessible_text", "")) if _status_label != null else "",
+		"day_icon": String(_day_icon.icon_kind()) if _day_icon != null else "",
+		"day_icon_visible": _day_icon != null and _day_icon.is_visible_in_tree(),
+		"day_text": _day_label.text if _day_label != null else "",
+		"day_accessible_text": String(_day_label.get_meta("accessible_text", "")) if _day_label != null else "",
+		"order_icon": String(_order_progress_icon.icon_kind()) if _order_progress_icon != null else "",
+		"order_icon_visible": _order_progress_icon != null and _order_progress_icon.is_visible_in_tree(),
+		"order_text": _order_progress_label.text if _order_progress_label != null else "",
+		"order_accessible_text": String(_order_progress_label.get_meta("accessible_text", "")) if _order_progress_label != null else "",
 		"promotion_opportunity": (
 			bool(_order_progress_row.get_meta("promotion_opportunity", false))
 			if _order_progress_row != null else
@@ -643,6 +774,43 @@ func set_badge_presentation(active_top: float, suppressed: bool) -> void:
 		_position_badge(_view != VIEW_ACTIVE)
 
 
+## Keeps the live tracker's symbols and hit areas aligned with the player's
+## interface-scale choice. Text already scales through Office's theme pass; the
+## compact marks need an explicit geometry pass so 150% does not mean large copy
+## beside 10px status shapes.
+func set_interface_scale(scale: float) -> void:
+	_interface_scale = clampf(scale, 1.0, 1.5)
+	var compact_scale := _interface_scale
+	var stamp_size := LIVE_ORDER_STAMP_SIZE * compact_scale
+	var category_icon_size := LIVE_ORDER_CATEGORY_ICON_SIZE * compact_scale
+	var state_icon_size := Vector2.ONE * LIVE_ORDER_STATE_ICON_SIZE * compact_scale
+	var promotion_icon_size := Vector2.ONE * LIVE_ORDER_PROMOTION_ICON_SIZE * compact_scale
+	var headline_icon_size := BADGE_HEADLINE_ICON_SIZE * compact_scale
+	for icon: FlockwatchIconBadge in [_status_icon, _day_icon, _order_progress_icon]:
+		if icon != null:
+			icon.set_badge_size(headline_icon_size)
+	for index in range(_order_progress_segments.size()):
+		var segment := _order_progress_segments[index]
+		segment.custom_minimum_size = stamp_size
+		segment.set_meta("interface_scale", _interface_scale)
+		segment.set_meta("touch_target_size", stamp_size)
+		if index < _order_progress_icons.size():
+			_order_progress_icons[index].call("set_badge_size", category_icon_size)
+		if index < _order_progress_state_icons.size():
+			_order_progress_state_icons[index].custom_minimum_size = state_icon_size
+		if index < _order_progress_actions.size():
+			_order_progress_actions[index].custom_minimum_size = stamp_size
+	if _order_promotion_icon != null:
+		_order_promotion_icon.custom_minimum_size = promotion_icon_size
+	if _order_progress_row != null:
+		_order_progress_row.set_meta("interface_scale", _interface_scale)
+		_order_progress_row.set_meta("stamp_size", stamp_size)
+		_order_progress_row.set_meta("state_icon_size", state_icon_size)
+	if _day_badge != null:
+		_day_badge.set_meta("interface_scale", _interface_scale)
+		_position_badge(_view != VIEW_ACTIVE)
+
+
 func active_badge_top() -> float:
 	return _active_badge_top
 
@@ -697,15 +865,40 @@ func _build_day_badge() -> void:
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 10)
 	stack.add_child(row)
+	var status_group := HBoxContainer.new()
+	status_group.name = "ProbationScoreGroup"
+	status_group.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status_group.add_theme_constant_override("separation", 4)
+	status_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(status_group)
+	_status_icon = FlockwatchIconBadgeScript.new() as FlockwatchIconBadge
+	_status_icon.name = "ProbationScoreIcon"
+	_status_icon.configure(&"score", BRASS)
+	_status_icon.set_badge_size(BADGE_HEADLINE_ICON_SIZE)
+	_status_icon.set_meta("semantic_icon", "score")
+	_status_icon.set_meta("state_shape", "score_rosette")
+	status_group.add_child(_status_icon)
 	_status_label = _make_label("PROBATION", 11, BRASS)
 	_status_label.name = "ProbationStatusLabel"
 	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	row.add_child(_status_label)
+	status_group.add_child(_status_label)
+	var day_group := HBoxContainer.new()
+	day_group.name = "ProbationDayGroup"
+	day_group.add_theme_constant_override("separation", 3)
+	day_group.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(day_group)
+	_day_icon = FlockwatchIconBadgeScript.new() as FlockwatchIconBadge
+	_day_icon.name = "ProbationDayIcon"
+	_day_icon.configure(&"calendar", CREAM)
+	_day_icon.set_badge_size(BADGE_HEADLINE_ICON_SIZE)
+	_day_icon.set_meta("semantic_icon", "calendar")
+	_day_icon.set_meta("state_shape", "calendar_grid")
+	day_group.add_child(_day_icon)
 	_day_label = _make_label("DAY 1 / 5", 15, CREAM)
 	_day_label.name = "ProbationDayLabel"
 	_day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(_day_label)
+	day_group.add_child(_day_label)
 	_day_progress_row = HBoxContainer.new()
 	_day_progress_row.name = "ProbationDayProgressRail"
 	_day_progress_row.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -724,9 +917,16 @@ func _build_day_badge() -> void:
 	_order_progress_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_order_progress_row.add_theme_constant_override("separation", 4)
 	stack.add_child(_order_progress_row)
+	_order_progress_icon = FlockwatchIconBadgeScript.new() as FlockwatchIconBadge
+	_order_progress_icon.name = "ProbationOrderProgressIcon"
+	_order_progress_icon.configure(&"order_check", MUTED)
+	_order_progress_icon.set_badge_size(BADGE_HEADLINE_ICON_SIZE)
+	_order_progress_icon.set_meta("semantic_icon", "order_check")
+	_order_progress_icon.set_meta("state_shape", "checked_order_sheet")
+	_order_progress_row.add_child(_order_progress_icon)
 	_order_promotion_icon = TextureRect.new()
 	_order_promotion_icon.name = "ProbationOrderPromotionIcon"
-	_order_promotion_icon.custom_minimum_size = Vector2(16.0, 16.0)
+	_order_promotion_icon.custom_minimum_size = Vector2.ONE * LIVE_ORDER_PROMOTION_ICON_SIZE
 	_order_promotion_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_order_promotion_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_order_promotion_icon.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -737,38 +937,58 @@ func _build_day_badge() -> void:
 	_order_promotion_icon.set_meta("promotion_ready_pulse_settled", "idle")
 	_order_promotion_icon.visible = false
 	_order_progress_row.add_child(_order_promotion_icon)
-	_order_progress_label = _make_label("ON TRACK 0 / 3", 9, MUTED)
+	_order_progress_label = _make_label("0 / 3", 10, MUTED)
 	_order_progress_label.name = "ProbationOrderProgressLabel"
 	_order_progress_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_order_progress_row.add_child(_order_progress_label)
 	for index in range(MAX_BADGE_ORDER_SEGMENTS):
 		var segment := PanelContainer.new()
 		segment.name = "ProbationOrderStamp%d" % (index + 1)
-		segment.custom_minimum_size = Vector2(28.0, 24.0)
+		segment.custom_minimum_size = LIVE_ORDER_STAMP_SIZE
 		segment.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		segment.set_meta("status_icon", "status_need")
+		segment.set_meta("state_shape", "diamond_exclamation")
 		segment.set_meta("change_pulse_active", false)
 		segment.set_meta("change_direction", "")
 		segment.set_meta("change_serial", 0)
 		segment.set_meta("change_settled", "idle")
 		_order_progress_row.add_child(segment)
 		_order_progress_segments.append(segment)
+		var stamp_line := HBoxContainer.new()
+		stamp_line.name = "ProbationOrderStampLine%d" % (index + 1)
+		stamp_line.alignment = BoxContainer.ALIGNMENT_CENTER
+		stamp_line.add_theme_constant_override("separation", 1)
+		stamp_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		segment.add_child(stamp_line)
 		var icon := FlockwatchIconBadgeScript.new()
 		icon.name = "ProbationOrderStampIcon%d" % (index + 1)
-		icon.set_badge_size(14.0)
+		icon.set_badge_size(LIVE_ORDER_CATEGORY_ICON_SIZE)
 		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		segment.add_child(icon)
+		stamp_line.add_child(icon)
 		_order_progress_icons.append(icon)
+		var state_icon := TextureRect.new()
+		state_icon.name = "ProbationOrderStampStateIcon%d" % (index + 1)
+		state_icon.custom_minimum_size = Vector2.ONE * LIVE_ORDER_STATE_ICON_SIZE
+		state_icon.texture = ManagementTheme.action_icon(&"status_need")
+		state_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		state_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		state_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		state_icon.set_meta("semantic_icon", "status_need")
+		state_icon.set_meta("state_shape", "diamond_exclamation")
+		stamp_line.add_child(state_icon)
+		_order_progress_state_icons.append(state_icon)
 		var action := Button.new()
 		action.name = "ProbationOrderStampAction%d" % (index + 1)
 		action.flat = true
 		action.text = ""
-		action.custom_minimum_size = Vector2(28.0, 24.0)
+		action.custom_minimum_size = LIVE_ORDER_STAMP_SIZE
 		action.focus_mode = Control.FOCUS_NONE
 		action.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		action.pressed.connect(_on_live_order_mark_pressed.bind(index))
 		segment.add_child(action)
 		_order_progress_actions.append(action)
+	set_interface_scale(_interface_scale)
 	_refresh_live_order_badge()
 	_refresh_day_progress_rail(1, DEFAULT_TOTAL_DAYS, "DAY 1 / 5")
 
@@ -842,7 +1062,7 @@ func _refresh_live_order_badge() -> void:
 	# These are live projections, not completed orders. Calling them "ORDERS"
 	# beside filled segments made safe opening metrics look pre-awarded. Keep the
 	# closing report as the only place that presents an order as filed.
-	_order_progress_label.text = "ON TRACK  %d / %d" % [on_track, _live_orders_total]
+	_order_progress_label.text = "%d / %d" % [on_track, _live_orders_total]
 	_order_progress_label.add_theme_color_override(
 		"font_color",
 		TEAL if on_track == _live_orders_total else (RUST if on_track == 0 else CREAM),
@@ -871,6 +1091,14 @@ func _refresh_live_order_badge() -> void:
 	_order_progress_label.set_meta("accessible_text", exact_detail)
 	_order_progress_row.tooltip_text = exact_detail
 	_order_progress_row.set_meta("accessible_text", exact_detail)
+	_order_progress_row.set_meta("icon_led_headline", true)
+	_order_progress_row.set_meta("state_shape", "checked_order_sheet")
+	if _order_progress_icon != null:
+		_order_progress_icon.configure(
+			&"order_check",
+			TEAL if on_track == _live_orders_total else (RUST if on_track == 0 else CREAM),
+		)
+		_order_progress_icon.set_meta("accessible_text", exact_detail)
 	_order_progress_row.set_meta("promotion_opportunity", promotion_available)
 	_order_progress_row.set_meta("promotion_ready", promotion_ready)
 	_order_progress_row.set_meta("next_rank_label", String(opportunity.get("next_rank_label", "")))
@@ -903,6 +1131,8 @@ func _refresh_live_order_badge() -> void:
 			segment.set_meta("objective_id", "")
 			segment.set_meta("metric", "")
 			segment.set_meta("semantic_icon", "goal")
+			segment.set_meta("status_icon", "status_need")
+			segment.set_meta("state_shape", "diamond_exclamation")
 			segment.set_meta("on_track", false)
 			segment.set_meta("accessible_text", "")
 			if index < _order_progress_actions.size():
@@ -929,6 +1159,10 @@ func _refresh_live_order_badge() -> void:
 		segment.set_meta("semantic_icon", String(icon_kind))
 		segment.set_meta("on_track", active)
 		segment.set_meta("accessible_text", accessible_detail)
+		var status_icon_kind: StringName = &"status_pass" if active else &"status_need"
+		var state_shape := "ring_check" if active else "diamond_exclamation"
+		segment.set_meta("status_icon", String(status_icon_kind))
+		segment.set_meta("state_shape", state_shape)
 		if index < _order_progress_actions.size():
 			var action := _order_progress_actions[index]
 			action.disabled = not semantic or objective_id.is_empty()
@@ -947,6 +1181,12 @@ func _refresh_live_order_badge() -> void:
 				icon_kind,
 				Color("a7dbc9") if active else Color("f0aa95"),
 			)
+		if index < _order_progress_state_icons.size():
+			var state_icon := _order_progress_state_icons[index]
+			state_icon.texture = ManagementTheme.action_icon(status_icon_kind)
+			state_icon.tooltip_text = accessible_detail
+			state_icon.set_meta("semantic_icon", String(status_icon_kind))
+			state_icon.set_meta("state_shape", state_shape)
 		segment.add_theme_stylebox_override(
 			"panel",
 			_panel_style(
@@ -1216,7 +1456,7 @@ func _build_title_panel(parent: Control) -> void:
 	_title_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_title_heading)
 	_title_description = _make_label(
-		"Pick a difficulty. Start shift one.",
+		"Choose a difficulty, then start.",
 		15,
 		Color("c4d0d4"),
 	)
@@ -1357,7 +1597,7 @@ func _build_title_panel(parent: Control) -> void:
 	)
 	content.add_child(_title_probation_summary)
 	var probation_content := _panel_content(_title_probation_summary, 15, 6, 3)
-	var probation_heading := _make_label("YOUR RUN", 11, BRASS)
+	var probation_heading := _make_label("YOUR 3-STEP RUN", 11, BRASS)
 	probation_heading.name = "ProbationFiveShiftHeading"
 	probation_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	probation_content.add_child(probation_heading)
@@ -1368,13 +1608,13 @@ func _build_title_panel(parent: Control) -> void:
 	journey.add_theme_constant_override("v_separation", 8)
 	probation_content.add_child(journey)
 	for metric in [
-		_make_metric("ProbationJourneyFile", "1 FILE", "PAIR UP", 175.0, 18),
-		_make_metric("ProbationJourneyShifts", "5 SHIFTS", "PROVE IT", 175.0, 18),
-		_make_metric("ProbationJourneyReview", "REVIEW", "FINISH", 175.0, 18),
+		_make_metric("ProbationJourneyFile", "1 FILE", "1  TEAM UP", 175.0, 18),
+		_make_metric("ProbationJourneyShifts", "5 SHIFTS", "2  WORK", 175.0, 18),
+		_make_metric("ProbationJourneyReview", "FINAL REVIEW", "3  PASS", 175.0, 18),
 	]:
 		_metric_panel(metric).custom_minimum_size.y = 52.0
 		journey.add_child(_metric_panel(metric))
-	var probation_detail := _make_label("REPORT AFTER EACH SHIFT", 10, Color("d4c38f"))
+	var probation_detail := _make_label("QUICK RECAP AFTER EACH SHIFT", 10, Color("d4c38f"))
 	probation_detail.name = "ProbationFiveShiftDetail"
 	probation_detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	probation_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1488,11 +1728,25 @@ func _build_report_panel(parent: Control) -> void:
 	_report_score_row.add_child(_metric_panel(_report_rank_label))
 
 	content.add_child(HSeparator.new())
+	_report_details_toggle = _make_button(
+		"ReportDetailsToggle",
+		"SHIFT DETAILS  [D]",
+		&"DecisionChoiceButton",
+	)
+	_report_details_toggle.custom_minimum_size = Vector2(190.0, 40.0)
+	_report_details_toggle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_report_details_toggle.shortcut = _shortcut(KEY_D)
+	_report_details_toggle.pressed.connect(_on_report_details_toggled)
+	content.add_child(_report_details_toggle)
+	_report_details_section = VBoxContainer.new()
+	_report_details_section.name = "ReportDetailsSection"
+	_report_details_section.add_theme_constant_override("separation", 6)
+	content.add_child(_report_details_section)
 	_report_story_row = HFlowContainer.new()
 	_report_story_row.name = "ReportShiftStories"
 	_report_story_row.add_theme_constant_override("h_separation", 10)
 	_report_story_row.add_theme_constant_override("v_separation", 8)
-	content.add_child(_report_story_row)
+	_report_details_section.add_child(_report_story_row)
 	_credit_memo_card = PanelContainer.new()
 	_credit_memo_card.name = "FiledCreditMemoCard"
 	_credit_memo_card.custom_minimum_size = Vector2(
@@ -1567,10 +1821,10 @@ func _build_report_panel(parent: Control) -> void:
 	highlight_stack.add_child(_hen_highlight_metric)
 	_report_ledger_section_label = _section_label("5-SHIFT RECORD")
 	_report_ledger_section_label.name = "ReportLedgerSectionTitle"
-	content.add_child(_report_ledger_section_label)
-	_build_ledger_row(content, "Report", _report_ledger_labels)
+	_report_details_section.add_child(_report_ledger_section_label)
+	_build_ledger_row(_report_details_section, "Report", _report_ledger_labels)
 	var report_safeguards := _build_safeguard_receipt(
-		content,
+		_report_details_section,
 		"Report",
 		_report_safeguard_rows,
 		_report_safeguard_pass_rows,
@@ -1579,6 +1833,7 @@ func _build_report_panel(parent: Control) -> void:
 	_report_safeguard_summary = report_safeguards["summary"] as Label
 	_report_safeguard_grid = report_safeguards["grid"] as GridContainer
 	_report_safeguard_pass_grid = report_safeguards["pass_grid"] as GridContainer
+	_set_report_details_expanded(false)
 
 	_objective_card = PanelContainer.new()
 	_objective_card.name = "NextShiftObjectiveCard"
@@ -1661,9 +1916,38 @@ func _build_report_panel(parent: Control) -> void:
 	_milestone_section.name = "MilestoneChoiceSection"
 	_milestone_section.add_theme_constant_override("separation", 5)
 	content.add_child(_milestone_section)
+	var milestone_heading_row := HBoxContainer.new()
+	milestone_heading_row.name = "MilestoneChoiceHeadingRow"
+	milestone_heading_row.add_theme_constant_override("separation", 10)
+	milestone_heading_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_milestone_section.add_child(milestone_heading_row)
 	_milestone_section_label = _section_label("MILESTONE REQUISITION  //  CHOOSE ONE PERMANENT EDGE")
 	_milestone_section_label.name = "MilestoneChoiceSectionTitle"
-	_milestone_section.add_child(_milestone_section_label)
+	_milestone_section_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	milestone_heading_row.add_child(_milestone_section_label)
+	_milestone_legend_row = HBoxContainer.new()
+	_milestone_legend_row.name = "MilestoneSymbolLegend"
+	_milestone_legend_row.add_theme_constant_override("separation", 10)
+	milestone_heading_row.add_child(_milestone_legend_row)
+	_milestone_edge_legend_label = _make_label("+ EDGE", 10, TEAL)
+	_milestone_edge_legend_label.name = "MilestoneEdgeLegend"
+	_milestone_edge_legend_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_milestone_edge_legend_label.tooltip_text = "EDGE  //  The doctrine's permanent strength."
+	_milestone_edge_legend_label.set_meta("accessible_text", _milestone_edge_legend_label.tooltip_text)
+	_milestone_legend_row.add_child(_milestone_edge_legend_label)
+	_milestone_watch_legend_label = _make_label("! WATCH", 10, BRASS)
+	_milestone_watch_legend_label.name = "MilestoneWatchLegend"
+	_milestone_watch_legend_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_milestone_watch_legend_label.tooltip_text = "WATCH  //  The doctrine's ongoing tradeoff."
+	_milestone_watch_legend_label.set_meta("accessible_text", _milestone_watch_legend_label.tooltip_text)
+	_milestone_legend_row.add_child(_milestone_watch_legend_label)
+	_milestone_board_legend_label = _make_label("B BOARD", 10, Color("a9c8c0"))
+	_milestone_board_legend_label.name = "MilestoneBoardLegend"
+	_milestone_board_legend_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	_milestone_board_legend_label.tooltip_text = "BOARD  //  Fit with the annual mandate."
+	_milestone_board_legend_label.set_meta("accessible_text", _milestone_board_legend_label.tooltip_text)
+	_milestone_board_legend_label.visible = false
+	_milestone_legend_row.add_child(_milestone_board_legend_label)
 	_milestone_buttons_host = HFlowContainer.new()
 	_milestone_buttons_host.name = "MilestoneChoiceCards"
 	_milestone_buttons_host.alignment = FlowContainer.ALIGNMENT_CENTER
@@ -2092,14 +2376,29 @@ func _refresh() -> void:
 			status_text = "ROOST  %s" % score_text
 		else:
 			status_text = "SCORE %s / %d" % [score_text, PROBATION_SCORE_LIMIT]
-			status_tooltip = _challenge_contract_terms_text(_active_challenge_contract(), true)
-	_status_label.text = status_text
+			status_tooltip = "%s\n%s" % [
+				status_text,
+				_challenge_contract_terms_text(_active_challenge_contract(), true),
+			]
+	var visible_status_text := status_text
+	if _view == VIEW_ACTIVE and _snapshot.has("score") and not _is_senior_snapshot():
+		visible_status_text = "%s / %d" % [
+			_format_integer(int(_snapshot.get("score", 0))),
+			PROBATION_SCORE_LIMIT,
+		]
+	_status_label.text = visible_status_text
 	_status_label.tooltip_text = status_tooltip
+	_status_label.set_meta("accessible_text", status_tooltip)
+	_status_label.set_meta("icon_led", true)
 	var exact_day_text := String(_snapshot.get(
 		"day_badge_text",
 		"DAY %d / %d" % [day, total_days],
 	))
-	_day_label.text = exact_day_text
+	_day_label.text = (
+		"%d / %d" % [day, total_days]
+		if not _is_senior_snapshot() and exact_day_text.begins_with("DAY ") else
+		exact_day_text
+	)
 	_refresh_day_progress_rail(day, total_days, exact_day_text)
 	_refresh_day_badge_visibility()
 	_refresh_live_order_badge()
@@ -2171,10 +2470,17 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 		)
 	if _title_description != null:
 		_title_description.text = (
-			"Pick a difficulty. Start shift one."
+			"Choose a difficulty, then start."
 			if setup_visible else
-			"Continue the saved filing candidate; it will be verified before the coop opens, or deliberately review a new file."
+			"Continue where you left off, or review a fresh file."
 		)
+		var title_description_detail := (
+			"Choose one of three difficulty profiles. Its terms lock when Shift 1 starts."
+			if setup_visible else
+			"Continue verifies the saved file before the coop opens. Reviewing a fresh file leaves the save untouched until replacement is confirmed."
+		)
+		_title_description.tooltip_text = title_description_detail
+		_title_description.set_meta("accessible_text", title_description_detail)
 	if _title_profile_card != null:
 		_title_profile_card.visible = setup_visible
 	if _title_challenge_card != null:
@@ -2380,18 +2686,20 @@ func _update_challenge_contract_detail(contract: Dictionary) -> void:
 	var difficulty_label := _challenge_contract_difficulty_label(contract)
 	var difficulty_guidance := String(contract.get("difficulty_guidance", "")).strip_edges()
 	if _title_challenge_summary != null:
-		_title_challenge_summary.text = "%s%s" % [
-			route_brief if not route_brief.is_empty() else "%s RUN" % difficulty_label,
-			"  ·  LOCKS ON START",
-		]
+		_title_challenge_summary.text = "%s  ·  LOCKS ON START" % _challenge_contract_glance_label(contract)
 		_title_challenge_summary.tooltip_text = "\n".join([
 			"%s DIFFICULTY" % difficulty_label,
 			difficulty_guidance,
 			description,
+			route_brief,
 			route_guidance,
 			opening_terms,
 			terms,
 		].filter(func(line: String) -> bool: return not line.is_empty()))
+		_title_challenge_summary.set_meta(
+			"accessible_text",
+			_title_challenge_summary.tooltip_text,
+		)
 	var defaults := DEFAULT_CHALLENGE_CONTRACT.get("opening_terms", {}) as Dictionary
 	var opening_value: Variant = contract.get("opening_terms", defaults)
 	var opening := opening_value as Dictionary if opening_value is Dictionary else defaults
@@ -2697,11 +3005,22 @@ func _challenge_contract_difficulty_label(contract: Dictionary) -> String:
 	return label if not label.is_empty() else "STANDARD"
 
 
+func _challenge_contract_glance_label(contract: Dictionary) -> String:
+	match StringName(String(contract.get("difficulty", "standard")).strip_edges().to_lower()):
+		&"learning":
+			return "MORE FORGIVING"
+		&"expert":
+			return "HIGH PRESSURE"
+		_:
+			return "BALANCED"
+
+
 func _challenge_contract_selector_label(contract: Dictionary) -> String:
-	return "[%s] %s" % [
-		_challenge_contract_difficulty_label(contract),
-		_challenge_contract_label(contract, false),
-	]
+	var difficulty := _challenge_contract_difficulty_label(contract)
+	var profile := _challenge_contract_label(contract, true)
+	if StringName(contract.get("id", &"")) == DEFAULT_CHALLENGE_CONTRACT_ID:
+		profile = "RECOMMENDED"
+	return "%s  ·  %s" % [difficulty, profile]
 
 
 func _challenge_contract_terms_text(contract: Dictionary, include_heading: bool) -> String:
@@ -2785,6 +3104,21 @@ func _refresh_report(day: int, total_days: int) -> void:
 		"choice_section_title",
 		"QUARTERLY CAPITAL POLICY  //  FILE ONE" if senior else "MILESTONE REQUISITION  //  CHOOSE ONE PERMANENT EDGE",
 	)).to_upper()
+	_milestone_edge_legend_label.text = "+ HELP" if senior else "+ EDGE"
+	_milestone_edge_legend_label.tooltip_text = (
+		"HELP  //  The policy's strongest quarter benefit."
+		if senior else
+		"EDGE  //  The doctrine's permanent strength."
+	)
+	_milestone_edge_legend_label.set_meta("accessible_text", _milestone_edge_legend_label.tooltip_text)
+	_milestone_watch_legend_label.text = "! RISK" if senior else "! WATCH"
+	_milestone_watch_legend_label.tooltip_text = (
+		"RISK  //  The policy's primary quarter tradeoff."
+		if senior else
+		"WATCH  //  The doctrine's ongoing tradeoff."
+	)
+	_milestone_watch_legend_label.set_meta("accessible_text", _milestone_watch_legend_label.tooltip_text)
+	_milestone_board_legend_label.visible = senior
 	_set_report_continue_presentation(String(_snapshot.get(
 		"continue_label",
 		"FILE POLICY & OPEN QUARTER  [C]" if senior else "FILE REPORT & PLAN NEXT SHIFT  [C]",
@@ -4219,7 +4553,23 @@ func _probation_order_value(row: Dictionary) -> String:
 	return "%d+" % target
 
 
+func _probation_order_metric_icon(metric: StringName) -> StringName:
+	match metric:
+		&"quota_met":
+			return &"order_clutch"
+		&"farmer_favor":
+			return &"order_favor"
+		&"compliance":
+			return &"order_compliance"
+		&"rework", &"overdue_files":
+			return &"order_trays"
+	return &""
+
+
 func _probation_order_icon(row: Dictionary) -> StringName:
+	var metric_icon := _probation_order_metric_icon(StringName(row.get("metric", "")))
+	if metric_icon != &"":
+		return metric_icon
 	match StringName(row.get("id", "")):
 		&"meet_the_clutch":
 			return &"order_clutch"
@@ -4252,6 +4602,7 @@ func _rebuild_probation_order_strip(orders: Array, detail: String) -> void:
 		var description := String(row.get("description", "Meet the filed target."))
 		var value := _probation_order_value(row)
 		var exact_detail := "%s. %s Target %s." % [title, description, value]
+		var icon_kind := _probation_order_icon(row)
 		var panel := PanelContainer.new()
 		panel.name = "ProbationOrder_%d" % (index + 1)
 		panel.custom_minimum_size = Vector2(270.0, 42.0)
@@ -4262,6 +4613,8 @@ func _rebuild_probation_order_strip(orders: Array, detail: String) -> void:
 		)
 		panel.tooltip_text = exact_detail
 		panel.set_meta("order_id", String(row.get("id", "")))
+		panel.set_meta("metric", String(row.get("metric", "")))
+		panel.set_meta("semantic_icon", String(icon_kind))
 		panel.set_meta("accessible_text", exact_detail)
 		var content := _panel_content(panel, 9, 6, 0)
 		var line := HBoxContainer.new()
@@ -4270,10 +4623,12 @@ func _rebuild_probation_order_strip(orders: Array, detail: String) -> void:
 		var icon := TextureRect.new()
 		icon.name = "ProbationOrderIcon_%d" % (index + 1)
 		icon.custom_minimum_size = Vector2(22.0, 22.0)
-		icon.texture = ManagementTheme.action_icon(_probation_order_icon(row))
+		icon.texture = ManagementTheme.action_icon(icon_kind)
 		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.tooltip_text = exact_detail
+		icon.set_meta("semantic_icon", String(icon_kind))
 		line.add_child(icon)
 		var label := _make_label("%s\n%s" % [title.to_upper(), value], 10, INK)
 		label.name = "ProbationOrderLabel_%d" % (index + 1)
@@ -4780,11 +5135,11 @@ func _rebuild_milestone_choices() -> void:
 			("\n%s" % effect if not effect.is_empty() else ""),
 		]
 		if not doctrine.is_empty():
-			button_copy = "%d  //  %s\n%s%s\nEDGE %s  //  WATCH %s" % [
+			button_copy = "%d  //  %s\n%s  ·  %s\n+ %s  //  ! %s" % [
 				index + 1,
 				doctrine_label,
 				title.to_upper(),
-				("  //  %s" % effect if not effect.is_empty() else ""),
+				_compact_milestone_effect(effect, description),
 				primary_strength,
 				primary_watchout,
 			]
@@ -4818,9 +5173,9 @@ func _rebuild_milestone_choices() -> void:
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.custom_minimum_size = Vector2(
 			0.0,
-			96.0 if not strategy.is_empty() else (108.0 if not doctrine.is_empty() else 88.0),
+			96.0 if not strategy.is_empty() else (88.0 if not doctrine.is_empty() else 88.0),
 		)
-		if not strategy.is_empty():
+		if not strategy.is_empty() or not doctrine.is_empty():
 			button.add_theme_font_size_override("font_size", 12)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.shortcut = _shortcut([KEY_1, KEY_2, KEY_3][index])
@@ -4861,9 +5216,10 @@ func _rebuild_milestone_choices() -> void:
 			),
 		))
 		if not doctrine.is_empty():
-			default_tooltip = "%s\n\n%s\n%s\n\nFULL EDGE  //  %s\nWATCH  //  %s\n\nPLAYBOOK  //  %s" % [
+			default_tooltip = "%s\n\n%s\nEFFECT  //  %s\n%s\n\nFULL EDGE  //  %s\nWATCH  //  %s\n\nPLAYBOOK  //  %s" % [
 				default_tooltip,
 				description,
+				effect if not effect.is_empty() else description,
 				String(doctrine.get("summary", "This doctrine remains permanent for probation.")),
 				strengths,
 				watchouts,
@@ -4896,7 +5252,20 @@ func _rebuild_milestone_choices() -> void:
 				String(_selected_milestone).replace("_", " ").to_upper()
 			)
 		button.tooltip_text = default_tooltip
-		if not strategy.is_empty():
+		if not doctrine.is_empty():
+			button.set_meta(
+				"accessible_text",
+				"Option %d. %s. %s. Effect %s. Full edge %s. Watch %s. %s" % [
+					index + 1,
+					doctrine_label,
+					title,
+					effect if not effect.is_empty() else description,
+					strengths,
+					watchouts,
+					default_tooltip.replace("\n", " "),
+				],
+			)
+		elif not strategy.is_empty():
 			button.set_meta(
 				"glance_symbol_language",
 				"plus_benefit_bang_tradeoff_b_board",
@@ -5003,6 +5372,25 @@ func _doctrine_primary_term(value: Variant) -> String:
 	if not value is Array or (value as Array).is_empty():
 		return "UNLISTED"
 	return String((value as Array)[0]).strip_edges().to_upper()
+
+
+func _compact_milestone_effect(effect: String, description: String) -> String:
+	var source := effect.strip_edges()
+	if source.is_empty():
+		source = description.strip_edges()
+	# A milestone card is a glance, not its contract. Show the strongest final
+	# clause when a benefit contains multiple exact effects; the complete effect
+	# remains in the tooltip and assistive text.
+	var clauses := source.split("/", false)
+	if clauses.size() > 1:
+		source = clauses[-1].strip_edges()
+	var compact := source.trim_suffix(".").to_upper()
+	compact = compact.replace("PROCESSING SPEED", "WORK SPEED")
+	compact = compact.replace("STRESS GAIN", "STRESS")
+	compact = compact.replace("FATIGUE GAIN", "FATIGUE")
+	compact = compact.replace("CRACK RISK", "CRACKS")
+	compact = compact.replace(" PER EGG", " / EGG")
+	return compact
 
 
 func _update_milestone_selection() -> void:
@@ -5319,20 +5707,30 @@ func _apply_responsive_layout() -> void:
 
 func _position_badge(modal_open: bool) -> void:
 	var available_width := size.x if size.x > 1.0 else get_viewport_rect().size.x
+	var scale_factor := inverse_lerp(1.0, 1.5, _interface_scale)
+	var badge_height := lerpf(68.0, 88.0, scale_factor)
 	if modal_open or available_width < 720.0:
 		# Senior reports pair a full career-mode label with year/quarter context.
 		# Give both labels enough room instead of ellipsizing the mode at 1280x720.
-		_day_badge.offset_left = -318.0
+		var narrow_width := minf(
+			lerpf(300.0, 360.0, scale_factor),
+			maxf(222.0, available_width - 36.0),
+		)
+		_day_badge.offset_left = -18.0 - narrow_width
 		_day_badge.offset_top = 14.0
 		_day_badge.offset_right = -18.0
-		_day_badge.offset_bottom = 82.0
+		_day_badge.offset_bottom = 14.0 + badge_height
+		_day_badge.set_meta("layout_mode", "narrow")
 	else:
 		# This slot sits between the routing strip and Flockwatch button in the
 		# 1280x720 office HUD, so the badge never covers hens or workstations.
-		_day_badge.offset_left = -490.0
+		var active_width := lerpf(222.0, 310.0, scale_factor)
+		_day_badge.offset_left = -268.0 - active_width
 		_day_badge.offset_top = _active_badge_top
 		_day_badge.offset_right = -268.0
-		_day_badge.offset_bottom = _active_badge_top + 68.0
+		_day_badge.offset_bottom = _active_badge_top + badge_height
+		_day_badge.set_meta("layout_mode", "desktop")
+	_day_badge.set_meta("badge_height", badge_height)
 
 
 func _on_final_sticky_primary_pressed() -> void:

@@ -961,9 +961,27 @@ func _display_feedback(copy: String) -> String:
 		return "LIVE %s  ·  HENS ACTIVE" % speed_label.replace("x", "×")
 	if normalized.begins_with("FARMER INSPECTION COMPLETE"):
 		return "INSPECTION COMPLETE  ·  CREDIT FILED"
+	if normalized.begins_with("REQUISITION DENIED"):
+		var shortfall := _requisition_shortfall(copy)
+		return (
+			"REQUISITION BLOCKED  ·  NEED %s MORE" % shortfall
+			if not shortfall.is_empty() else
+			"REQUISITION BLOCKED  ·  MORE CASH NEEDED"
+		)
 	if copy.length() <= MAX_VISIBLE_CHARACTERS:
 		return copy
 	return copy.left(MAX_VISIBLE_CHARACTERS - 1).rstrip(" ,.;:") + "…"
+
+
+func _requisition_shortfall(copy: String) -> String:
+	var separator_index := copy.find(":")
+	if separator_index < 0:
+		return ""
+	var detail := copy.substr(separator_index + 1).strip_edges()
+	for token: String in detail.split(" ", false):
+		if token.begins_with("$"):
+			return token.rstrip(" ,.;:")
+	return ""
 
 
 func _snapshot_relevant_to_page(page_id: StringName) -> bool:

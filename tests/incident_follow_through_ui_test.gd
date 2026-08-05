@@ -7,8 +7,12 @@ func _init() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+	var test_viewport := SubViewport.new()
+	test_viewport.size = Vector2i(390, 844)
+	test_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(test_viewport)
 	var office := Office.new()
-	root.add_child(office)
+	test_viewport.add_child(office)
 	await process_frame
 	await process_frame
 	var simulation := office.get("_simulation") as DepartmentSimulation
@@ -39,12 +43,35 @@ func _run() -> void:
 	await process_frame
 	var body := office.find_child("DecisionBody", true, false) as Label
 	var attend_button := office.find_child("DecisionOption_attend_status_sync", true, false) as Button
+	var options := office.find_child("DecisionOptions", true, false) as GridContainer
+	var decision_panel := office.find_child("ManagementDecisionCard", true, false) as PanelContainer
 	var decision_preview := office.find_child("DecisionPreview", true, false) as Label
 	var confirm_button := office.find_child("ConfirmDecisionButton", true, false) as Button
+	var stay_paused_button := office.find_child("ResolveStayPausedButton", true, false) as Button
 	var precedent_label := office.find_child("FlockwatchTodayPrecedent", true, false) as Label
 	var flockwatch_navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
 	var diagnostic := office.call("_pending_decision_diagnostic_state") as Dictionary
 	var diagnostic_memory := diagnostic.get("case_memory", {}) as Dictionary
+	_check(
+		options != null
+		and options.columns == 1
+		and decision_panel != null
+		and decision_panel.custom_minimum_size.x <= 338.0
+		and decision_panel.get_global_rect().position.x >= -0.5
+		and decision_panel.get_global_rect().end.x <= 390.5,
+		"390x844 incident decisions should stack readable touch cards inside the portrait viewport (columns=%s minimum=%s rect=%s)" % [
+			options.columns if options != null else -1,
+			decision_panel.custom_minimum_size if decision_panel != null else Vector2.ZERO,
+			decision_panel.get_global_rect() if decision_panel != null else Rect2(),
+		],
+		failures,
+	)
+	_check(
+		int(office.call("_decision_option_column_count", &"incident", &"", 2, 760.0)) == 2
+		and int(office.call("_decision_option_column_count", &"directive", &"", 3, 940.0)) == 3,
+		"desktop incident and directive decisions should retain their efficient multi-column layouts",
+		failures,
+	)
 	_check(
 		body != null
 		and "PIVOT OPPORTUNITY" in body.text
@@ -65,9 +92,23 @@ func _run() -> void:
 		await process_frame
 	_check(
 		decision_preview != null
+		and body != null
+		and not body.is_visible_in_tree()
+		and "Gain executive favor; lose production time" not in decision_preview.text
+		and "ACTIVE PIVOT" in decision_preview.text
+		and "-7% speed this shift" in decision_preview.text
+		and "+10 farmer favor" in decision_preview.text
 		and "PIVOT OPPORTUNITY // NEXT CREDIT TOWN HALL" in decision_preview.text
 		and "meeting minutes discount CREDIT THE LAYERS from $10 to $6" in decision_preview.text,
-		"selecting a response should disclose the exact precedent it sets before authorization",
+		"compact selection should retire repeated setup prose but retain exact current and future consequences",
+		failures,
+	)
+	_check(
+		confirm_button != null
+		and stay_paused_button != null
+		and confirm_button.get_global_rect().end.y <= 844.5
+		and stay_paused_button.get_global_rect().end.y <= 844.5,
+		"both incident authorization paths should remain visible without scrolling after a portrait selection",
 		failures,
 	)
 	_check(
@@ -106,7 +147,7 @@ func _run() -> void:
 	if "--capture-incident-follow-through" in OS.get_cmdline_user_args():
 		DirAccess.make_dir_recursive_absolute("res://output/web-game/incident-follow-through-v1")
 		await process_frame
-		var image := root.get_texture().get_image()
+		var image := test_viewport.get_texture().get_image()
 		image.save_png("res://output/web-game/incident-follow-through-v1/case-memory.png")
 
 	if confirm_button != null:
@@ -158,9 +199,10 @@ func _run() -> void:
 		failures,
 	)
 	office.queue_free()
+	test_viewport.queue_free()
 	await process_frame
 	if failures.is_empty():
-		print("INCIDENT_FOLLOW_THROUGH_UI_TEST_PASSED card=true preview=true resolution=true audio=precedent_filed")
+		print("INCIDENT_FOLLOW_THROUGH_UI_TEST_PASSED card=true preview=true resolution=true responsive=390x844+desktop audio=precedent_filed")
 		quit(0)
 		return
 	for failure in failures:

@@ -146,19 +146,19 @@ func _ensure_interface() -> void:
 	_free_cash_glance = _metric_chip(
 		glance_grid,
 		"EconomicBriefingFreeCashGlance",
-		"FREE\n--",
+		"SPEND\n--",
 		COLOR_TEAL,
 	)
 	_margin_glance = _metric_chip(
 		glance_grid,
 		"EconomicBriefingMarginGlance",
-		"MARGIN\n--",
+		"NET\n--",
 		COLOR_GOLD,
 	)
 	_break_even_glance = _metric_chip(
 		glance_grid,
 		"EconomicBriefingBreakEvenGlance",
-		"TO GO\n--",
+		"NEED\n--",
 		COLOR_INK,
 	)
 	_watch_glance = _label("! AWAITING PRIORITY", 12, COLOR_WARNING)
@@ -255,9 +255,9 @@ func _ensure_interface() -> void:
 func _refresh() -> void:
 	if _briefing.is_empty():
 		_headline.text = "AWAITING AUTHORITATIVE LEDGER"
-		_free_cash_glance.text = "FREE\n--"
-		_margin_glance.text = "MARGIN\n--"
-		_break_even_glance.text = "TO GO\n--"
+		_free_cash_glance.text = "SPEND\n--"
+		_margin_glance.text = "NET\n--"
+		_break_even_glance.text = "NEED\n--"
 		_watch_glance.text = "! AWAITING PRIORITY"
 		_cash.text = "CASH / awaiting projection"
 		_costs.text = "COSTS / awaiting projection"
@@ -292,9 +292,12 @@ func _refresh() -> void:
 	var spendable_fund_cents := int(cash.get("spendable_fund_cents", 0))
 	var secured_margin_cents := int(cash.get("secured_operating_margin_cents", 0))
 	var break_even_remaining_cents := int(cash.get("break_even_remaining_cents", 0))
-	_free_cash_glance.text = "FREE\n%s" % _money(spendable_fund_cents)
-	_margin_glance.text = "MARGIN\n%s" % _signed_money(secured_margin_cents)
-	_break_even_glance.text = "TO GO\n%s" % _money(break_even_remaining_cents)
+	# These are the three numbers players use to make the immediate decision.
+	# Keep the exact accounting terms in tooltips and the folded ledger, while
+	# making the glance readable without first learning the filing vocabulary.
+	_free_cash_glance.text = "SPEND\n%s" % _money(spendable_fund_cents)
+	_margin_glance.text = "NET\n%s" % _signed_money(secured_margin_cents)
+	_break_even_glance.text = "NEED\n%s" % _money(break_even_remaining_cents)
 	_free_cash_glance.tooltip_text = (
 		"Spendable fund after protected reserves: %s." % _money(spendable_fund_cents)
 	)
