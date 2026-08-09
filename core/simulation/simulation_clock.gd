@@ -36,6 +36,7 @@ var _simulation: DepartmentSimulation
 var _ticks_advanced_last_frame: int = 0
 var _advancing_tick_batch := false
 var _precision_focus_active := false
+var _interaction_hold_active := false
 var _catch_up_publication_pending := false
 
 
@@ -45,7 +46,7 @@ func initialize(simulation: DepartmentSimulation) -> void:
 
 func _process(delta: float) -> void:
 	_ticks_advanced_last_frame = 0
-	if _simulation == null or speed_index == 0:
+	if _simulation == null or speed_index == 0 or _interaction_hold_active:
 		return
 
 	_accumulator += delta * effective_multiplier()
@@ -96,6 +97,8 @@ func pending_tick_count() -> int:
 
 
 func effective_multiplier() -> float:
+	if _interaction_hold_active:
+		return 0.0
 	var requested := SPEED_MULTIPLIERS[speed_index]
 	if _precision_focus_active and requested > PRECISION_FOCUS_MULTIPLIER:
 		return PRECISION_FOCUS_MULTIPLIER
@@ -119,6 +122,27 @@ func set_precision_focus_active(active: bool) -> void:
 		# burst through the first precision frame. Preserve only fractional time.
 		_accumulator = fmod(_accumulator, BASE_TICK_SECONDS)
 	precision_focus_changed.emit(active, effective_multiplier())
+
+
+## Held irreversible confirmations temporarily stop authority without replacing
+## the player's requested speed. Closing the ledger therefore resumes the exact
+## prior pace, while every other pause owner remains independent.
+func set_interaction_hold_active(active: bool) -> void:
+	if _interaction_hold_active == active:
+		return
+	_interaction_hold_active = active
+	_ticks_advanced_last_frame = 0
+	if active:
+		# Never carry an almost-complete tick through a potentially long reading
+		# pause; the filed or canceled choice starts from a clean visual beat.
+		_accumulator = 0.0
+		_catch_up_publication_pending = false
+	_presentation_elapsed_seconds = MAX_ACCELERATED_PRESENTATION_INTERVAL_SECONDS
+	precision_focus_changed.emit(_precision_focus_active, effective_multiplier())
+
+
+func interaction_hold_active() -> bool:
+	return _interaction_hold_active
 
 
 ## True only while authoritative ticks are being serviced for one rendered

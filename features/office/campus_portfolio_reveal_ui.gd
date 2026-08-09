@@ -88,6 +88,29 @@ func is_reveal_visible() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_reveal_visible() or _continue_button == null:
+		return {}
+	var copy := _continue_button.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": "campus_portfolio_reveal_continue",
+		"actionable": not _continue_button.disabled,
+		"semantic_icon": "advance_arrow",
+		"icon_visible": _continue_button.icon != null,
+		"accessible_text": _continue_button.tooltip_text,
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	_continue_button.grab_focus()
+	return true
+
+
 func receipt_snapshot() -> Dictionary:
 	return _receipt.duplicate(true)
 
@@ -398,7 +421,10 @@ func _apply_responsive_layout() -> void:
 	var portrait := size.x < size.y and size.x <= 520.0
 	_receipt_panel.offset_left = 10.0 if compact else 52.0
 	_receipt_panel.offset_right = -10.0 if compact else -52.0
-	_receipt_panel.offset_top = -440.0 if portrait else (-220.0 if compact else -246.0)
+	# Desktop needs enough fixed height for the four-column receipt plus its
+	# non-scrolling action rail. Its authored content minimum is 471px; a 482px
+	# frame keeps that rail inside the 720px canvas with a small safety margin.
+	_receipt_panel.offset_top = -440.0 if portrait else (-220.0 if compact else -500.0)
 	_receipt_panel.offset_bottom = -10.0 if compact else -18.0
 	if _asset_label != null:
 		_asset_label.add_theme_font_size_override("font_size", 16 if compact else 20)

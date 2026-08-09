@@ -50,7 +50,7 @@ func _run() -> void:
 
 	diagnostic = office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
 	_check("Press Enter" in String(diagnostic.get("guidance", "")), "check-in guidance should disclose the contextual Enter action", failures)
-	_check(bool(office.call("_handle_first_clutch_primary_action")), "Enter action should activate Mabel's highlighted PROFILE FIT", failures)
+	_check(bool(office.call("_handle_first_clutch_primary_action")), "Enter action should activate Mabel's highlighted FILE CHECK-IN", failures)
 	await process_frame
 	snapshot = office.first_clutch_snapshot()
 	_check(bool(snapshot.get("checkin_filed", false)), "contextual check-in should reach the authoritative personnel system", failures)

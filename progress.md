@@ -11796,3 +11796,1625 @@ The next major systems milestone is persistent worker relationships and individu
 - Suggested next pass: convert the selected-hen lifecycle path from its remaining
   `ROUTE`, `PECK`, and `EGG` words into persistent folder, monitor, and egg marks
   while preserving exact workflow status in hover and assistive copy.
+
+## 2026-08-08 - Morning-plan to closing-ledger strategy receipt
+
+- Closed the remaining strategy-loop gap without adding another modal or save
+  authority. The between-shift report now places one compact policy receipt
+  directly beneath the score equation: filed policy, disclosed `HELPS / RISKS`
+  forecast, and authoritative `HELP / RISKS COVERED` result.
+- The result is derived from the exact morning directive-fit rules and the
+  immutable completed CampaignShiftRecord objective results. It resolves to
+  `PLAN HELD`, `MIXED RESULT`, `PIVOT NEEDED`, or `NO DIRECT BET`; selecting a
+  seemingly aligned policy never guarantees a congratulatory result.
+- Preserved exact order-by-order evidence, relation, and completion state in the
+  receipt tooltip and accessibility metadata. The visible layer remains one
+  icon-led row and adds no duplicate explanatory paragraph.
+- Refactored policy-fit comparison to accept an explicit authored objective set,
+  allowing the closing report to reconcile the completed shift instead of
+  accidentally comparing against tomorrow's orders.
+- Published the complete strategy receipt through the Web diagnostic contract,
+  including policy identity, forecast, actual counts, status, and evidence.
+- Added `docs/PRODUCT_ENHANCEMENT_RESOLUTION.md` as the comprehensive acceptance
+  map for the earlier enhancement review, distinguishing shipped product systems
+  from human and physical-hardware evidence gates.
+- Editor parsing, `directive_order_fit_test.gd`,
+  `probation_campaign_ui_test.gd`, and
+  `probation_campaign_integration_test.gd` pass. The integration fixture proves
+  Shell Assurance can support its shell order while still producing a truthful
+  mixed result when the risked opening clutch is missed.
+- Inspected the native and official production-browser report frames at
+  `output/native-strategy-receipt-20260808/probation_report.png` and
+  `output/web-game/strategy-receipt-browser-final-20260808/shot-0.png`.
+  The browser state reports `PLAN HELD`, Assurance, `HELPS 1 / RISKS 2`, and
+  `1/1 HELP / 2/2 RISKS COVERED`; no browser error artifact was produced.
+- Terminated the exact temporary Python server tree on port 4199 after the Web
+  run. No scoped Godot, Playwright, Chromium, or temporary server process
+  remains; the intentional local production server is still listening on port
+  3000 with PID 44076.
+
+## 2026-08-08 - Icon-only selected-hen work cycle
+
+- Removed the remaining permanent `ROUTE`, `PECK`, and `EGG` words from the
+  selected-hen lifecycle rail. The same workflow now reads as a persistent file
+  tray -> work monitor -> egg receipt sequence, reducing repeated text without
+  changing any route, Priority Peck, grading, or delivery authority.
+- Added non-color state grammar: completed stations carry a check, the current
+  station has a double frame and pointer, and upcoming stations remain single
+  outlines. Clean assisted delivery retains its separate `+1` charge diamond.
+- Reduced the lifecycle footprint from 290 px to 178 px so live deadline,
+  payout, shell-risk, and destination facts have more breathing room.
+- Kept the complete route/peck/egg explanation and current step in tooltip and
+  accessibility text. Browser diagnostics now publish the three semantic
+  shapes, each station's `complete/current/upcoming` state, and an explicit
+  `visible_stage_labels: false` contract.
+- Editor parsing, `first_clutch_coach_ui_test.gd`, `peck_assist_ui_test.gd`,
+  `claim_routing_ui_test.gd`, and `management_loop_ui_test.gd` pass. Coverage
+  locks the route, live-peck, delivery, reward, hidden-label, and assistive-copy
+  states.
+- Inspected all three native states at
+  `output/native-icon-lifecycle-route-20260808/first_clutch_induction.png`,
+  `output/native-icon-lifecycle-peck-20260808/peck_assist_ready.png`, and
+  `output/native-icon-lifecycle-20260808/peck_delivery.png`.
+- The official browser client completed at
+  `output/web-game/icon-lifecycle-browser-20260808/`. Its production WebGL
+  frame matches native, state reports tray/monitor/egg as
+  `complete/complete/current`, and no browser error artifact was produced.
+- Restored the temporary export's empty Web launch arguments, removed its
+  action payload, and terminated only Python PIDs 65768 and 72208. Port 4207 is
+  empty; the intentional local production server remains on port 3000 with PID
+  44076.
+- The repository-actionable enhancement list is now represented by
+  `docs/PRODUCT_ENHANCEMENT_RESOLUTION.md`. Remaining release work is external
+  evidence: moderated human comprehension sessions plus physical device,
+  screen-reader, and representative low-end hardware signoff.
+
+## 2026-08-08 - Screen-reader announcement arbitration
+
+- Fixed a concrete Web accessibility defect in which the complete changing game
+  summary was the page's only polite live region. During a running shift, clock,
+  fund, egg, and queue updates could therefore cause a screen reader to repeat a
+  long status line even when the player took no action.
+- Split the shell contract into a complete `game-status` description attached to
+  the canvas with `aria-live="off"` and one `game-announcement` status region for
+  bounded authored events. The full state remains available on deliberate
+  canvas focus instead of being removed in the name of quietness.
+- Added an authoritative presentation-only announcement object with `kind`,
+  stable `key`, and concise `text`. Decisions, route selection and receipts,
+  Flockwatch, capital/campus screens, commissioning, shift review, career
+  intake, campaign records, dialogue, First Clutch, action receipts, and real
+  notifications remain announced; routine simulation ticks publish an empty
+  event.
+- Decision announcements retain the current selection and preview but omit the
+  duplicated full choice ledger. Flockwatch announces its current page and
+  latest feedback rather than attempting to speak the whole open filing.
+- `management_loop_ui_test.gd`, the production Web build, ESLint, and all 45
+  rendered-shell/accessibility tests pass. Coverage proves changing clock/fund
+  summaries stay silent, stable event keys survive those changes, and loading
+  still announces in 25% steps.
+- The official browser client completed at
+  `output/web-game/accessibility-announcement-browser-20260808/` with no error
+  artifact. Production state reports a concise `career_intake` event.
+- A hydrated production-DOM audit proved the full status is non-live and 323
+  characters long, the sole live region is `role=status` / `aria-live=polite`,
+  and its text exactly matches the authored runtime event.
+- Deleted the temporary action and DOM-audit scripts and stopped only production
+  server PID 66420. Port 4211 is empty; the intentional local production server
+  remains on port 3000 with PID 44076.
+
+## 2026-08-08 - Farm-office role vocabulary
+
+- Removed the opening's last contradictory corporate role language. Mabel now
+  enters as a `JUNIOR PECKWORK HEN`, the Web shell introduces her at a peckwork
+  desk routing egg files, and the career ladder and Senior Roost use the same
+  Peckwork role family.
+- Updated player-visible fallback roles and authored dialogue fixtures without
+  renaming internal claim IDs, save fields, or claimant-specific story language.
+  Existing careers therefore derive the new labels without a schema migration.
+- Added adaptive 12/14 px rank typography for long titles so the Senior
+  Peckwork Rooster label remains one line without widening or lengthening the
+  960 px closing report.
+- Godot export parsing and five focused suites pass: personnel career,
+  probation campaign UI, Senior Roost UI, First Clutch UI, and character
+  dialogue UI. Coverage includes 390x844 and 150-percent report layouts.
+- The production Web build and ESLint pass, and all 45 rendered-shell tests
+  pass. The fresh exported PCK matched the production shell payload by SHA-256.
+- Inspected the official production WebGL capture at
+  `output/web-game/farm-language-browser-20260808/shot-0.png`; the title is
+  balanced, the diagnostic state reports a valid career-intake event, and no
+  browser error artifact was produced.
+- Removed the temporary browser action and stopped only verification server
+  PID 4876. Port 4213 is empty; the intentional local production server remains
+  on port 3000 with PID 44076.
+
+## 2026-08-08 - Systematic farm-office work vocabulary
+
+- Completed a player-facing string audit and replaced mechanical insurance
+  language with the game's farm-office model: files, trays, eggs, Peckwork,
+  live-file capacity, egg credit, and the Automated File Sorter now agree across
+  career guidance, facilities, staffing, briefings, feedback, signs, tooltips,
+  the Web handbook, and accessibility narration.
+- Kept `claimant` only where it identifies the farmer/person or an irreversible
+  claimant-path decision. Internal claim IDs, save fields, schemas, and code
+  symbols remain unchanged, so existing career files require no migration.
+- Fixed a responsive feedback loss found by the contract pass: the compact
+  flock-policy badge now says `ACTION FILED` instead of hiding the scheduled
+  state behind the generic `FLOCK ACTION` label.
+- Godot export parsing and roughly 20 affected native suites pass, covering
+  production economics, routing, First Clutch, Peck Assist, internship,
+  capital/campus, storytelling, Farmer Relations, career sponsorship, and
+  Senior Roost contracts.
+- The production Web build, ESLint, and all 45 rendered-shell tests pass. The
+  fresh Web export compiled all 23 changed scripts, and its PCK matched the
+  production-shell payload by SHA-256.
+- The official browser client reached live Day 1 gameplay at
+  `output/web-game/file-language-gameplay-live-20260808/shot-1.png`. State
+  reports `campaign_stage: active`, the First Clutch objective says `OPEN
+  MABEL'S FIRST FILE`, routing describes file/tray/egg, and no browser error
+  artifact was produced.
+- Deleted the temporary action payload and stopped only production server PID
+  42804. Port 4215 is empty; the intentional local production server remains on
+  port 3000 with PID 44076.
+- Repository-actionable findings are resolved in
+  `docs/PRODUCT_ENHANCEMENT_RESOLUTION.md`. External release evidence still
+  remains: moderated human comprehension, physical-device, screen-reader, and
+  representative low-end hardware signoff.
+
+## 2026-08-08 - Runtime-soak and local production recovery
+
+- Found the intentionally running port-3000 server stuck on the loading shell:
+  its in-memory production manifest referenced a JavaScript asset removed by a
+  newer build. Replaced only stale PID 44076 with the current hidden production
+  server, PID 49940; `http://127.0.0.1:3000/` now loads the verified candidate.
+- Repaired the authoritative runtime soak after progressive-disclosure and
+  safety changes made its old input choreography stale. It now focuses the
+  canvas before game shortcuts, navigates directly to the Career category,
+  moves deliberately from safe return to dangerous replacement, acknowledges
+  authored dialogue, and normalizes resumed presentation with Escape before
+  measuring the floor.
+- The repaired soak exposed a real 73.4 KiB diagnostic regression against the
+  committed 64 KiB ceiling. Removed the duplicated 10.4 KiB Economic Briefing
+  projection from the tick diagnostic; the complete briefing remains rendered
+  and narrated by Flockwatch, while compact authoritative cash/cost fields stay
+  available to persistence and progression audits.
+- The fresh production diagnostic is 61.5 KiB at intake. The complete two-cycle
+  soak passes with 63.0-63.3 KiB active snapshots, two 21.2 KiB portable backup
+  round trips, zero browser errors/failures, zero native/WASM memory growth,
+  and responsive camera/frame checks. Evidence is under
+  `output/web-game/runtime-soak-overlay-aware-20260808/`.
+- Godot export parsing and `runtime_projection_cache_test.gd` pass. The Web
+  production build, ESLint, 50 rendered/GPU-environment tests, and the
+  production-server payload test pass. `docs/`, `web/public/game/`, and the
+  local production payload share PCK SHA-256
+  `5643A503B94C5699BEFC1912BA159025ABC9E9127FE6354D6ECFA2456F3AEBCF`.
+
+## 2026-08-08 - Consequential-choice clock safety and complete beta gate
+
+- The representative beta release gate exposed one real interaction-safety
+  defect: a claimant-path confirmation hid ordinary input but allowed one
+  economic tick to change time and worker state behind `NO CHANGE UNTIL YOU
+  FILE`.
+- Added a first-class interaction hold to `SimulationClock`. Every shared held
+  confirmation now makes effective time 0x and freezes chicken route progress
+  without replacing the player's requested 1x/3x/10x pace. Cancel or filing
+  therefore resumes the exact selected pace while settings, dialogue, focus,
+  and campaign pause owners remain independent.
+- Strengthened `interaction_safety_contract_test.gd` to prove authoritative
+  save neutrality, silence, effective 0x, requested-speed retention, and exact
+  release after cancel. The focused contract and runtime projection cache test
+  pass.
+- The complete representative beta gate passes all 44 checks in 343.485
+  seconds. The machine-readable report is
+  `output/release/beta-release-current-20260808.json`.
+- Exported the corrected Web candidate and synchronized `docs/`,
+  `web/public/game/`, and `web/dist/client/game/`. The PCK is 9,864,884 bytes
+  with SHA-256
+  `69D01DE66EE92ED7A2E4D196C66ED3540559C7507700822893326C1CC85B8045`.
+- The official browser client capture at
+  `output/web-game/confirmation-clock-hold-20260808/` reports the claimant
+  confirmation and blocking backdrop visible, `clock_interaction_hold_active`
+  true, effective multiplier 0, no pending/advanced ticks, no orphan nodes, and
+  no browser error artifact. The visual confirmation remains concise and keeps
+  the safe `KEEP STANDARD` action focused.
+- Replaced only the stale intentional production server PID 49940 with current
+  PID 57316. `http://127.0.0.1:3000/` returns HTTP 200 and serves the exact PCK;
+  server stderr is empty. The scoped Playwright/Godot processes exited, while
+  unrelated workspace processes were left untouched.
+
+## 2026-08-08 - Exhaustive product-findings resolution
+
+- Escalated beyond the representative gate to all 230 isolated native tests.
+  The first audit exposed six deterministic presentation/navigation gaps that
+  the representative matrix did not cover; the resolved exhaustive run passes
+  230 / 230 with zero failures and zero timeouts at
+  `output/godot-full-suite-20260808-resolved/full-suite-summary.json`.
+- Preserved the compact icon-led Flockwatch launcher while restoring its full
+  action name and alternate binding in tooltip/accessibility metadata. The
+  open-state action now occupies a true 132 px header footprint, and First
+  Clutch handoff checks cover both terse visible copy and complete semantics.
+- Promoted the closing consequence attribution and named-hen outcome cards out
+  of the collapsed accounting drawer. Players now see who received credit and
+  what happened to a hen in the report's primary scan path; multi-row ledgers
+  and safeguards remain progressively disclosed behind `SHIFT DETAILS`.
+- Restored the authored provisions-delivery camera reveal after an accepted
+  grain order. The durable Operations receipt remains available, while the
+  ledger briefly yields the screen to the physical sacks and hopper change.
+- Focused regressions pass for Flockwatch input, First Clutch reinvestment and
+  the complete induction journey, campaign ending, Senior Roost, and feed
+  procurement. The rebuilt representative beta gate passes all 44 checks in
+  370.574 seconds at `output/release/beta-release-resolved-20260808.json`.
+- Exported and synchronized the final Web candidate across `docs/`,
+  `web/public/game/`, and `web/dist/client/game/`: `index.pck` is 9,863,428
+  bytes with SHA-256
+  `CC17B2188E10A70228CC983265D814BCFB2D6E2DE2800A527B109D3BB55885D8`.
+- The official browser client produced a clean production intake capture under
+  `output/web-game/resolved-product-20260808/` and a clean deterministic report
+  capture under `output/web-game/resolved-report-20260808/`. Visual inspection
+  confirms the outcome cards are concise, aligned, and visible above the
+  collapsed detail action; neither run produced a browser error artifact.
+- Replaced only stale local production PID 57316 with current hidden PID 41772.
+  `http://127.0.0.1:3000/` returns HTTP 200, serves the exact candidate PCK, and
+  has empty stderr. The temporary diagnostic server was stopped, port 4217 is
+  free, and its payload copy/download were sent to the Recycle Bin.
+
+## 2026-08-08 - Truthful post-shift action hierarchy
+
+- A deterministic Economic Briefing capture exposed one remaining core-loop
+  contradiction: the top guidance offered `START TOMORROW` while Flockwatch
+  offered `CHOOSE MORNING POLICY`, even though the real next action first opens
+  the current shift's report.
+- Centralized the review continuation contract. The ordinary path now reads
+  `FILE SHIFT RESULTS`; restructuring, golden egg, closing credit, public
+  Gallery, Senior Roost, and completed-probation states each name the exact file
+  or review they open. Tooltip, native accessibility name, and mirrored
+  accessibility metadata explain what follows without lengthening the button.
+- `flockwatch_today_density_test.gd` covers the visible action, requisition
+  guidance, semantic detail, and every specialized branch. Economic Briefing,
+  probation integration, Senior Roost integration, Farmer Relations Gallery
+  integration, and campaign-ending UI tests also pass.
+- The resolved 1280x720 native render is
+  `output/native-economic-briefing-resolved-20260808/economic_briefing.png`; both
+  guidance surfaces now agree and the compact management panel remains legible.
+- Re-exported and synchronized `docs/`, `web/public/game/`, and
+  `web/dist/client/game/`. All three PCKs are 9,865,732 bytes with SHA-256
+  `DB569CD465A65920B51147CCC5289901FA7E4339661C94A115C4B58AAD734393`.
+- The Node 24 production build, ESLint, and all 50 rendered/GPU-environment
+  tests pass. The official browser client produced a clean WebGL intake at
+  `output/web-game/review-action-resolved-20260808/` with no error artifact and
+  zero orphan nodes.
+- Replaced only the stale intentional server PID 41772 with hidden PID 71924.
+  `http://127.0.0.1:3000/` returns HTTP 200, serves the exact candidate PCK, and
+  has empty stderr. The slow verification client was explicitly stopped, the
+  bounded rerun exited, and its temporary action payload was deleted.
+
+## 2026-08-09 - Accessible required-action parity
+
+- Audited the corrected review handoff at 150% UI scale and through the
+  production wrapper at 2560x1600, 1440x900, 390x844 portrait, and 844x390
+  landscape. The complete action remains unclipped, the wrapper has no
+  horizontal overflow, and the mobile shell retains its explicit fullscreen /
+  rotate guidance.
+- The responsive diagnostic exposed an assistive contradiction hidden by the
+  clean visuals: review-state Flockwatch visibly hosted `FILE SHIFT RESULTS`,
+  but its live announcement told nonvisual players to close Flockwatch and
+  return to the floor.
+- Flockwatch now derives reachable context-action narration from the same
+  docked control that receives input. Its native summary and bounded Web live
+  event include the exact visible label plus semantic detail; close-and-return
+  remains the objective only when no required in-panel action is present.
+- `flockwatch_navigation_test.gd`, `flockwatch_today_density_test.gd`, and
+  `management_loop_ui_test.gd` pass. Coverage proves the required-action and
+  ordinary close paths independently, plus full readability and containment at
+  150% scale.
+- The Node 24 production build, ESLint, and all 50 rendered/GPU-environment
+  tests pass. The official browser evidence at
+  `output/web-game/flockwatch-accessibility-resolved-20260809/` reports the
+  visible and announced `FILE SHIFT RESULTS` action, no contradictory close
+  instruction, no browser error artifact, and zero orphan nodes. The synthetic
+  Economic Briefing diagnostic size remains consistent with its prior
+  all-systems fixture rather than representing a new payload regression.
+- Synchronized `docs/`, `web/public/game/`, and `web/dist/client/game/` at
+  9,865,732 bytes with SHA-256
+  `BEC13BCE991B95D7361A2AA6A303B433952B1507E1A2DBA34D9E6A7FB02E4EA3`.
+  Replaced only stale production PID 71924 with hidden PID 63976; port 3000
+  returns HTTP 200, serves the exact PCK, and has empty stderr.
+
+## 2026-08-09 - Irreversible confirmation live-event priority
+
+- Reproduced a remaining assistive-technology defect in the served claimant
+  path: the permanent confirmation was visible, safely focused, blocking input,
+  and holding authoritative time, but `accessibility_announcement` was empty.
+  The browser's deliberate canvas summary described the dialog, while its sole
+  polite live region therefore never actively announced that the blocking
+  choice had appeared.
+- Added one generic held-confirmation event source above every parent management
+  surface. Claimant paths, hen releases, management succession, sponsorship,
+  flock-relations disposition, public campaigns, career restore, and future
+  themed confirmations now publish exact authored copy when available. A
+  bounded fallback still names the irreversible action, safe return, and
+  no-change contract.
+- `interaction_safety_contract_test.gd` now proves real claimant and release
+  dialogs publish stable, nonempty live-event keys with exact filing and return
+  actions. The actual succession dialog retains safe focus and exact accessible
+  economics under `manager_recruitment_ui_test.gd`; the rendered browser bridge
+  independently proves parent Flockwatch copy cannot replace the held event.
+- Focused native tests pass for interaction safety, management succession, and
+  the management loop. The Node 24 build and ESLint pass, as do all 50
+  rendered-shell and physical-GPU-environment tests.
+- Re-exported and synchronized `docs/`, `web/public/game/`, and the production
+  `dist/` package. All PCKs are 9,866,548 bytes with SHA-256
+  `C41707430EC922700096FB42BF30A2073B337156BF99B40ED03B8213D96B67AF`.
+- Official served-browser evidence at
+  `output/web-game/confirmation-announcement-resolved-20260809/` reports
+  `held_confirmation_claimant_path`, the exact no-change / confirm / safe-return
+  copy, safe-return focus, a blocking 0.58-alpha backdrop, active clock hold,
+  no browser errors, and zero orphan nodes. Replaced only verified production
+  PID 63976 with hidden PID 72668; `http://127.0.0.1:3000/` returns HTTP 200,
+  serves the exact candidate PCK, and has empty stderr. All scoped Godot and
+  Playwright verification processes exited, and temporary action/download
+  payloads were deleted; the intentional production server remains running.
+
+## 2026-08-09 - One authoritative fresh-player action
+
+- Audited a fresh production intake rather than inferring onboarding quality
+  from campaign tests. The visible card was concise and correctly said
+  `Choose a difficulty, then start`, but `render_game_to_text` contradicted it
+  with a non-actionable generic `FINISH THE HIGHLIGHTED ACTION`; the polite live
+  region also renamed difficulty as a `pressure file`.
+- Added one title-primary-action read model owned by `ProbationCampaignUI`.
+  Fresh intake now publishes `NEXT: CHOOSE DIFFICULTY`, the exact visible
+  `START SHIFT 1 [N]` target, and the three-step run context. Resume intake
+  publishes `NEXT: CONTINUE SAVED FILE`, its exact visible target, and the
+  unchanged-save alternative. Office HUD guidance, Web diagnostics, the full
+  canvas summary, and bounded live event all consume this same contract.
+- A forced recovery-title regression then exposed a lifecycle ownership gap:
+  an underlying morning decision could remain internally visible and steal
+  assistive priority even though intake covered it. `_show_campaign_title` now
+  retires both decision and closing-review surfaces for every fresh, recovery,
+  portable-import, and return-to-intake entry path; checkpoint activation
+  reconstructs any legitimate pending decision when Continue succeeds.
+- Fresh/resume/staged-new-file title coverage, campaign intake transaction
+  safety, resume preview validation, Settings backup/restore UI, and the full
+  management-loop UI pass. The Node 24 production build and ESLint pass, as do
+  all 50 rendered-shell and physical-GPU-environment tests.
+- The official served capture at
+  `output/web-game/intake-action-contract-resolved-20260809/` is visually
+  unchanged and remains glance-first. Its state reports actionable
+  `campaign_new`, exact visible `START SHIFT 1 [N]`, the matching authored live
+  event, no hidden pending decision, no browser errors, and zero orphan nodes.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and the
+  root production `dist/` package at 9,868,548 bytes with SHA-256
+  `CBAD663C717010B31F86B21C593EC18E9098C62448A669DFA66CE604D9AD0CA5`.
+  Replaced only verified production PID 72668 with hidden PID 72744;
+  `http://127.0.0.1:3000/` returns HTTP 200, serves the exact candidate PCK,
+  and has empty stderr.
+- Remaining evidence TODOs are unchanged: moderated first-session comprehension
+  and fun sessions, intended browser/OS screen-reader signoff, physical mobile
+  input/audio/haptics/thermal passes, and representative low-end GPU soak.
+
+## 2026-08-09 - One first check-in action name
+
+- Exercised the fresh first-shift handoff through policy choice and Mabel's
+  coached personnel filing. The policy surfaces were already concise, but the
+  check-in lesson asked a new player to infer that `FILE CHECK-IN`, `PROFILE
+  MATCH`, and `SHARE CREDIT` were the same required action.
+- Collapsed the tutorial's visible vocabulary to one exact action: the coach,
+  guidance, focused button, recommendation card, next-action contract, and Web
+  live event now all say `FILE CHECK-IN`. The underlying `SHARE CREDIT` action,
+  Credit Conscious profile fit, exact trust/grievance/favor economics, one-file
+  scarcity, and permanence remain available in tooltip and accessibility copy.
+- Focused native tests pass for the compact coach, direct keyboard activation,
+  the complete Mabel induction sequence, and ordinary claim routing. The Node
+  24 production build and ESLint pass, as do all 50 rendered-shell and physical
+  GPU-environment contracts.
+- Official served evidence at
+  `output/web-game/check-in-language-resolved-20260809/` shows the single action
+  vocabulary without clipping or added density. Its diagnostics report the
+  exact recommendation and underlying action, a matching authored live event,
+  no browser errors, and zero orphan nodes.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,869,236 bytes with SHA-256
+  `D527FF52678A8C2715C8470ABC7FCA49D8C0ED207B6E64874EA891A87DBE1ECC`.
+  Replaced only verified production PID 72744 with hidden PID 41124;
+  `http://127.0.0.1:3000/` returns HTTP 200, serves the exact candidate PCK,
+  and has empty stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Authoritative first-egg decision action
+
+- Audited the remaining First Clutch handoffs in the served game: Priority
+  Peck, egg delivery/grading, and the first-egg reinvestment. Their rendered
+  surfaces were concise and materially legible, but the clean reinvestment card
+  was globally mislabeled as `INCIDENT: CHOOSE A RESPONSE`.
+- Added a first-egg-specific action contract. Before selection, guidance and
+  diagnostics now say `FIRST EGG: REWARD MABEL OR BANK`; after a card is chosen,
+  they advance to the exact visible `INSTALL ...` or `BANK ...` authorization.
+  The full canvas summary and bounded live announcement say to choose where the
+  first egg goes, and First Clutch guidance preserves the choose-then-authorize
+  sequence before today's three orders open.
+- `first_clutch_reinvestment_ui_test.gd` now proves initial action ownership,
+  selected authorization handoff, summary/live-event vocabulary, complete
+  economic detail, mobile containment, keyboard selection, exact-once debit,
+  physical installation, and speed restoration. The complete First Clutch
+  induction, direct keyboard guidance, and management loop also pass.
+- Fresh Web export, Node 24 production build, and ESLint pass, as do all 50
+  rendered-shell and physical GPU-environment contracts. Official served
+  evidence at `output/web-game/first-egg-action-resolved-20260809/` shows the
+  unchanged concise three-choice card; diagnostics report the matching first-
+  egg action, objective, coach guidance, no browser errors, and zero orphan
+  nodes.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,869,892 bytes with SHA-256
+  `E2E3A7DA088EEB45746902BDDD1B04935A808FDF5ED36E9E329082C1102E01B5`.
+  Replaced only verified production PID 41124 and intermediate verified PID
+  70300; hidden PID 40956 now serves `http://127.0.0.1:3000/` with HTTP 200,
+  exact candidate bytes, and empty stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Reachable closing-report milestone action
+
+- Audited the probation closing report after the results, accountability, and
+  next-day orders were already on screen. The report correctly required a
+  milestone requisition before the next shift, but the global action contract
+  fell back to the non-actionable `DECIDE: FINISH THE HIGHLIGHTED ACTION`, so
+  keyboard and assistive players were not directed to any reachable control.
+- Added an authoritative report action contract. Before selection, diagnostics,
+  guidance, and narration now say `NEXT: CHOOSE ONE PERMANENT EDGE` (or the
+  Senior capital-policy equivalent), expose `campaign_milestone`, and focus the
+  first available card. After selection they advance to the exact visible
+  `NEXT SHIFT [C]` filing action and focus that button.
+- Focused native regressions pass for the campaign report, campaign intake
+  safety, management loop, and probation integration. Fresh Web export, Node 24
+  production build, ESLint, and all 50 rendered-shell and physical-GPU contract
+  tests also pass.
+- Official served evidence at
+  `output/web-game/campaign-report-action-resolved-20260809/` shows the concise
+  report unchanged. Its state reports three available cards, actionable
+  `campaign_milestone`, the exact matching live objective, no browser errors,
+  and zero orphan chickens.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,874,948 bytes with SHA-256
+  `5C669D55431FBBAD36A7E7B39D76A935F59790512B462D5B6A27D1327B95713C`.
+  Replaced only verified production PID 40956; hidden PID 1376 now serves
+  `http://127.0.0.1:3000/` with HTTP 200, exact candidate bytes, and empty
+  stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Reachable contract-board and final-review actions
+
+- Audited the two remaining non-title campaign modals in the served WebGL game.
+  Both the Farm Mutual board and campaign final displayed clear, focusable
+  controls, but global diagnostics and assistive narration published the
+  disabled generic `DECIDE: FINISH THE HIGHLIGHTED ACTION` with no action ID.
+- Added authoritative modal action contracts. Farm Mutual now progresses from
+  `PICK A CLIENT` to the exact visible binder signature, a replay-safe receipt
+  wait, and the exact next-day briefing; held clients route to another signable
+  folder or the explicit standard-book action. The campaign final now targets
+  the exact visible Senior Roost continuation after a pass or protected Retry
+  confirmation after a failed file. Global activation focuses each real control.
+- Contract-board selection, signing, receipt gating, held-client recovery, final
+  pass/fail actions, campaign accessibility, management-loop, and probation
+  integration regressions pass. Fresh Web export, Node 24 production build,
+  ESLint, and all 50 rendered-shell and physical-GPU contract tests pass.
+- Official served evidence at
+  `output/web-game/campaign-modal-action-resolved-20260809/` preserves the clean
+  glance-first screens. Diagnostics report actionable `campaign_contract_sign`
+  and `campaign_final_continue`, lead narration with their exact visible labels,
+  expose the underlying economics, and contain no browser errors or orphan hens.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,878,884 bytes with SHA-256
+  `E545992E5ABB8D050DCAFEBB6EDA7998666118699535EB327AFF87DA228D119B`.
+  Replaced only verified production PIDs 1376 and 16024 during the two-pass
+  release check; hidden PID 66084 now serves `http://127.0.0.1:3000/` with HTTP
+  200, exact candidate bytes, and empty stderr.
+- Removed the two test-owned Playwright client helpers left by the capture
+  process; no Godot or browser-client test process remains. The intentional
+  production server is the only task-owned process left running.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - One reachable Flockwatch review action
+
+- Audited representative Capital, Operations, Governance, and Senior management
+  previews. Flockwatch correctly docked and announced `CONTINUE: FILE SHIFT
+  RESULTS` above every filing page, but global diagnostics still published
+  `NEXT: REQUISITION OR SHIFT RESULTS` with a Capital action, so activation
+  reopened the page instead of reaching the visible required control.
+- Added one shared Flockwatch context-action contract derived from the actual
+  docked enabled control. While it is visible, the HUD, action button, browser
+  diagnostics, and assistive summary all use its exact label and detail; global
+  activation focuses that same preserved Button. Pages without a required
+  context action retain their existing goal and intervention guidance.
+- Focused navigation, Today-density/review, and management-loop regressions pass.
+  Fresh Web export, Node 24 production build, ESLint, and all 50 rendered-shell
+  and physical-GPU contract tests pass.
+- Official served evidence at
+  `output/web-game/flockwatch-context-action-resolved-20260809/` shows the clean
+  Capital ledger with the required filing docked above requisitions and repeated
+  in the compact HUD. Diagnostics report actionable
+  `flockwatch_context_action`, the exact visible copy, no browser errors, and no
+  orphan hens.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,879,476 bytes with SHA-256
+  `7A93A26CD2D5F86C3BBBC56C8C754F62E6AC008A148EFD82B35428F81268CB5A`.
+  Replaced only verified production PID 66084; hidden PID 73932 now serves
+  `http://127.0.0.1:3000/` with HTTP 200, exact candidate bytes, and empty
+  stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Reachable standalone overlays and safe confirmations
+
+- Audited Settings, claimant-path confirmation, career sponsorship confirmation,
+  Campus Portfolio, Farmgate filing, and contract pricing in the served WebGL
+  game. Settings and both confirmations announced their visible purpose but
+  published a covered floor or campaign action; a fully commissioned Campus
+  Portfolio likewise published the underlying requisitions route instead of its
+  visible `RETURN TO BLUEPRINT` control. Farmgate and contract pricing retained
+  their previously resolved exact actions.
+- Added one authoritative standalone-overlay contract derived from each real
+  enabled fixed-rail Button. Settings, Capital Blueprint, Campus Expansion,
+  Campus Portfolio, and both commissioning receipts now publish and focus the
+  exact build/place/file/continue action when available, otherwise their exact
+  safe return. Every styled irreversible confirmation publishes and focuses its
+  cancel action (`KEEP`, `KEEP STANDARD`, or the authored equivalent); global
+  activation can never file the permanent choice.
+- Settings, interaction-safety, Capital Blueprint, Campus Expansion, Campus
+  Portfolio, both reveal, and management-loop regressions pass. Fresh Web
+  export, Node 24 production build, ESLint, all 50 rendered-shell and physical
+  display contract tests, and the production wrapper payload test pass.
+- Official served evidence at
+  `output/web-game/overlay-action-contract-resolved-20260809/` shows the complete
+  Campus Portfolio and claimant confirmation without layout regressions.
+  Diagnostics publish actionable `campus_portfolio_return`, `settings_return`,
+  and `held_confirmation_safe_return` with exact visible labels. All four
+  captures contain no browser errors and zero orphan hens.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,885,236 bytes with SHA-256
+  `B7ED66A0529BCCAB2CB1108CADC4911F6CAAE3636138FAF6F15974CD23E38157`.
+  Replaced only verified production PID 73932; hidden PID 30036 now serves
+  `http://127.0.0.1:3000/` with HTTP 200, exact candidate bytes, and empty
+  stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Exact selected-decision actions
+
+- Audited morning policy and incident decisions in the served WebGL game. The
+  selected card correctly exposed its filing button, but global guidance and
+  assistive narration still asked the player to choose a response, obscuring
+  the second half of the choose-then-authorize loop.
+- Added one authoritative decision action contract for directives, incidents,
+  restructuring, credit, major events, and First Egg reinvestment. Before a
+  selection it publishes and focuses an available card; after selection it
+  publishes and focuses the exact enabled authorization button, including its
+  pause/resume consequence. The same stage and label now drive the HUD,
+  keyboard guidance, browser diagnostics, and assistive objective.
+- Decision-loop, First Clutch reinvestment, First Clutch keyboard guidance,
+  management-loop, and editor parse regressions pass. Fresh Web export, Node 24
+  production build, ESLint, all 50 rendered-shell and physical-display contract
+  tests, and the production wrapper payload test pass.
+- Official served evidence at
+  `output/web-game/decision-action-resolved-20260809/` shows the selected policy
+  advancing to `START SHIFT · HARVEST` and the selected incident advancing to
+  `RESOLVE & RESUME 1×`. Both are actionable `decision` controls in `confirm`
+  stage, match their visible buttons and spoken objectives exactly, contain no
+  browser errors, and report zero orphan hens. The First Egg selection stage
+  retains its authored `REWARD MABEL OR BANK` prompt.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,886,340 bytes with SHA-256
+  `D631F76FF324002EB81BE4059EFD062D2A27432BE185BEC9F0E9BB0CF98827C7`.
+  Replaced only verified production PID 30036; hidden PID 67952 now serves
+  `http://127.0.0.1:3000/` with HTTP 200, exact candidate bytes, and empty
+  stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Exact decision guidance in both assistive channels
+
+- Continued the global-action audit beyond the prior visual/HUD fix and found
+  that the complete screen-reader inspection summary still told players to
+  choose a response after a card had already been selected. The bounded polite
+  live announcement was exact, so deliberate inspection and live feedback could
+  contradict one another at the authorization boundary.
+- Derived the inspection objective from the same authoritative decision action
+  contract. Policy, incident, restructuring, credit, major-event, and First Egg
+  summaries now remain detailed while advancing to the exact visible filing
+  action after selection; changing cards and the no-mutation-until-filed safety
+  promise remain explicit.
+- Godot editor parse, decision-loop, First Egg reinvestment, and management-loop
+  regressions pass. Fresh Web export, Node 24 production build, ESLint, all 50
+  rendered-shell and physical-display contract tests, and the production
+  wrapper payload test pass.
+- Official served evidence at
+  `output/web-game/decision-accessibility-resolved-20260809/` preserves the clean
+  selected policy and incident layouts. Diagnostics remain actionable exact
+  `decision` controls in `confirm` stage, announcements match the visible
+  buttons, both captures have no browser errors, and both report zero orphan
+  hens. Native assertions directly verify that the complete inspection summary
+  names those actions and no longer contains the stale choice objective.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,887,316 bytes with SHA-256
+  `B670E3210510D731B6AA5F3AA8249CB1F0ED947103F261EEB0572040BD360202`.
+  Replaced only verified production PID 67952; hidden PID 66508 now serves
+  `http://127.0.0.1:3000/` with HTTP 200, exact candidate bytes, and empty
+  stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Safe confirmations own deliberate assistive inspection
+
+- Audited cross-channel priority for irreversible confirmations. Their focused
+  safe return, global action, and bounded live announcement correctly outranked
+  the parent management page, but the complete screen-reader inspection summary
+  had no confirmation branch and could describe the visually blocked parent.
+- Made the active held confirmation the first inspection-summary authority. Its
+  authored permanent filing ledger remains intact, while the objective derives
+  from the same non-destructive action contract and names the exact visible safe
+  return with the explicit no-mutation guarantee.
+- Claimant-path and hen-release assertions now prove that both confirmation
+  families own deliberate inspection and retain their exact confirm/return
+  labels. Godot editor parse, the full interaction-safety lifecycle, campaign
+  intake recovery, settings, and management-loop regressions pass. Fresh Web
+  export, Node 24 production build, ESLint, all 50 rendered-shell and physical-
+  display contracts, and the production wrapper payload test pass.
+- Official served evidence at
+  `output/web-game/confirmation-inspection-resolved-20260809/` shows claimant
+  settlement and Pip release dialogs with blocking scrims, danger-styled filing,
+  safe-return focus, and their exact authored ledgers. Diagnostics publish
+  actionable `held_confirmation_safe_return` controls, the live events identify
+  the correct confirmation family, both captures contain no browser errors, and
+  both report zero orphan hens.
+- Synchronized `docs/`, `web/public/game/`, `web/dist/client/game/`, and root
+  `dist/` at 9,887,044 bytes with SHA-256
+  `066A58A524CD09BF749E55ADACA0291D80170A678DC35373E037D526B133EEE3`.
+  Replaced only verified production PID 66508; hidden PID 44408 now serves
+  `http://127.0.0.1:3000/` with HTTP 200, exact candidate bytes, and empty
+  stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Native campus-reveal narration and reachable desktop actions
+
+- Audited top-layer accessibility across Campus Portfolio planning and its
+  player-held deed/build/completion/staffing reveals. The reveal already owned
+  global action diagnostics, but native deliberate inspection and live events
+  omitted it; the Web wrapper's independent fallback masked that gap.
+- Made the visible reveal a first-class native accessibility surface. Its exact
+  authoritative receipt now owns the complete inspection summary and a bounded
+  `campus_portfolio_reveal` event, both driven by the real `CONTINUE` action
+  before any underlying planner, review, or Flockwatch state.
+- Added a deterministic localhost `campus-portfolio-reveal` route that stages a
+  real Orchard Row deed purchase through simulation authority. Its first exact
+  WebGL capture exposed a second defect: the receipt's 471px content minimum
+  extended below the authored 1280x720 canvas and hid both actions.
+- Sized the desktop receipt frame from that measured minimum with a safety
+  margin and added a direct 1280x720 containment assertion alongside existing
+  844x390, 390x844, reduced-motion, 150%-scale, and expanded-copy coverage. The
+  corrected capture keeps `RETURN TO PORTFOLIO` and `CONTINUE` fully visible
+  while preserving a live-world campus strip above the filed receipt.
+- Godot editor parse, complete deed/project/queue/construction/staffing reveal
+  integration, responsive reveal UI, ordinary facility commissioning, and the
+  management loop pass. Fresh Web exports and Node 24 production builds pass;
+  ESLint, all 50 rendered-shell and physical-display contracts, and production
+  payload verification pass on the final source/build sequence.
+- Official served evidence at
+  `output/web-game/campus-reveal-accessibility-resolved-20260809/reveal-layout-fixed/`
+  reports actionable `campus_portfolio_reveal_continue`, exact native reveal
+  narration, no browser errors, and zero orphan hens. Synchronized `docs/`,
+  `web/public/game/`, `web/dist/client/game/`, and root `dist/` at 9,891,012
+  bytes with SHA-256
+  `F08607B4285EAC5288C591A117AB46F7B05CD8B594C926AB7D294521CEA8C3D5`.
+  Replaced only verified production PIDs 44408, 61772, and 40240 across the
+  accessibility/preview/layout verification sequence; hidden PID 52556 now
+  serves `http://127.0.0.1:3000/` with HTTP 200, exact candidate bytes, and
+  empty stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Campus reveal notification-layer ownership
+
+- The corrected Campus Portfolio capture exposed three detached `PACE`, `RISK`,
+  and `RULES` cards behind its otherwise-contained receipt. Diagnostic state
+  confirmed these were a still-live decision consequence receipt, not duplicate
+  choice chips or campus content.
+- Made the held campus receipt use the shared blocking-surface notification
+  handoff. It now archives the exact prior semantic outcome and retires every
+  transient consequence panel before focusing the parcel and exposing the new
+  world result. A focused integration fixture stages live feedback first and
+  asserts the visual nodes, receipt state, and handoff reason all reconcile.
+- Godot editor parse plus Campus Portfolio reveal integration, responsive reveal
+  layout, and the wider management-loop tests pass. The fresh Web export, Node
+  24 lint/build, all 50 rendered-shell and physical-display contracts, and the
+  production payload test pass. All candidate PCK copies are 9,890,276 bytes
+  with SHA-256
+  `CE927C2DE03441B2F1CAFF35DD3FCE8815181283F8844D8E43DCA4E8F6453518`.
+- Official served evidence at
+  `output/web-game/campus-reveal-layer-resolved-20260809/official-client/` is
+  visually clean and reports the exact `CONTINUE` action, hidden/archived action
+  feedback with three panels retired by `campus_portfolio_reveal`, no browser
+  errors, and zero orphan nodes. Replaced only verified production PID 52556;
+  hidden PID 48204 now serves `http://127.0.0.1:3000/` with HTTP 200, exact
+  9,890,276-byte payload length, and empty stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - High-load Web diagnostic ceiling restored
+
+- Audited the latest official production state against the committed 64 KiB
+  release ceiling. The Campus Portfolio reveal had regressed to 486,386 bytes;
+  its dominant branch was a 362,055-byte Contract Board projection recursively
+  repeating every offer, price, clause, and rider combination even while that
+  board was not visible.
+- Added compact diagnostic projections for Contract Board planning, Campus
+  Portfolio, Campus Expansion, Flock Provisions, Farmer Relations Gallery, and
+  Farmgate Dispatch. They preserve the current player-visible economics,
+  selected terms, owned land, commissioned services, modules, projects,
+  staffing, resources, and exact next action while omitting hidden catalogs and
+  histories from the synchronous tick mirror. Authored UI choices, receipts,
+  tooltips, and accessibility narration are unchanged.
+- Added `web_diagnostic_compaction_test.gd`, which constructs the authentic
+  heavy Day 14 contract/campus state and proves bounded hidden and visible
+  Contract Board projections, four retained campus modules, retained operational
+  expansion authority, and a 14,894-byte combined heavy projection. The focused
+  five-test native regression set passes with clean teardown.
+- Fresh Web export, Node 24 lint/build, all 51 rendered-shell, physical-display,
+  and production-wrapper contracts pass. Official production evidence at
+  `output/web-game/web-diagnostic-compaction-20260809/official-client/` is
+  visually clean and measures 62,236 bytes against the 65,536-byte ceiling.
+  It reports a 2,059-byte inactive Contract Board, 2,380-byte Campus Portfolio,
+  1,739-byte Campus Expansion, the exact reachable `CONTINUE` action, archived
+  prior feedback, no browser error artifact, and zero orphan nodes.
+- Synchronized candidate PCK copies are 9,892,276 bytes with SHA-256
+  `6E5CF2C8C97498CB675A88BD7C20A4847DD05C242073EF2CA1B1A69510D7514B`.
+  Replaced only verified production PID 48204; hidden PID 72972 serves
+  `http://127.0.0.1:3000/` with HTTP 200, the exact payload length, and empty
+  stderr. All test-owned Godot, Node, and Playwright processes were cleaned up.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Management and active-feedback diagnostic ceiling restored
+
+- Continued the completion audit across opening, morning policy, shift handoff,
+  Economic Briefing, and egg-journey production routes. The Economic Briefing
+  contradicted the 64 KiB release contract at 119,781 bytes even though its
+  visible filing was concise. A 62,827-byte Capital branch contained a
+  59,494-byte thirteen-facility current/next effect matrix, while inactive egg
+  feedback repeated 5,424 bytes of the same arbitration blocker across dormant
+  credit, stock, placement, and destination pools.
+- Added a bounded facility projection that retains all thirteen identities,
+  exact lock/purchase state, price, upkeep, level, and plain-language reason.
+  Consequence summaries remain present once a facility is unlocked, actionable,
+  or owned; locked future rows already retain their exact gate. The authentic
+  heavy fixture reduces from 58,721 to 4,720 bytes without losing any actionable
+  row.
+- Added an egg-journey projection that preserves complete receipts whenever any
+  receipt, acknowledgment, debit, settlement, placement, or destination pulse is
+  active. Dormant pools collapse to one 1,258-byte support summary instead of
+  repeating arbitration internals. The regression proves a staged live receipt
+  round-trips byte-for-byte while the inactive fixture falls from 4,047 bytes.
+- Expanded routing diagnostics with the real component and dossier rectangles,
+  visibility, and viewport containment. The official active-egg capture proves
+  that the apparent early missing receipt was preview timing: once its authored
+  setup settles, the `1244x140` dossier is contained at `(18,526)` and visibly
+  shows `LAST EGG #9001 / FARMER +$4.55`.
+- Godot editor parse; the seven affected economy, facility, egg-feedback,
+  management-loop, projection-cache, and compaction regressions; the focused
+  routing geometry pair; Node 24 lint/build; and all 51 rendered-shell,
+  physical-display, and production-wrapper contracts pass. The heavy compact
+  projection set is 20,907 bytes before the rest of the bounded game state.
+- Official production evidence at
+  `output/web-game/routing-geometry-audit-20260809/` is visually clean and has no
+  browser error artifact or orphan nodes. Economic Briefing measures 59,821
+  bytes; the complete active egg receipt measures 62,577 bytes. Both remain
+  below the 65,536-byte release ceiling with exact visible next-action and
+  receipt authority intact.
+- Synchronized candidate PCK copies are 9,897,076 bytes with SHA-256
+  `5589B1FCA369398EBB2634CC9CE0B71DB84291A88A1251C757497266F59E76C1`.
+  Replaced only verified production PIDs 72972, 50560, and 71848 across the
+  measured export sequence; hidden PID 53820 serves
+  `http://127.0.0.1:3000/` with HTTP 200, exact payload length, and empty stderr.
+  All test-owned Godot, Node, and Playwright processes were cleaned up.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Heavy management diagnostics brought below the release ceiling
+
+- Audited Contract Board, pricing, Capital facilities, Flock Provisions,
+  Farmgate Dispatch, Flock Relations, and Rooster Operations with the official
+  production browser client. The first pass reproduced six over-budget states
+  at 66,620-72,777 bytes and traced them to full facility effect matrices,
+  repeated commissioning receipts/history, off-page manager catalogs, dormant
+  desk rails, duplicated safeguard prose, and default per-hen animation fields.
+- Added bounded management projections. Contract choice cards retain exact
+  lane mix, economics, gates, and arrival summaries while the selected/active
+  binder retains its schedule. Operations retains current facility economics,
+  manager counts, and next action on every page, then publishes the compact
+  manager roster/candidate choices on its own filing. Flock Care retains current
+  recovery/training terms. Capital retains the latest unique receipt and history
+  count. Live work rails and Team Lift feedback remain complete; dormant pools
+  collapse to counters. All five probation criteria remain exact without
+  repeating the complete challenge brief.
+- The authentic regression now reduces Operations from 15,400 to 6,177 bytes,
+  Flock Care from 12,365 to 2,390 bytes, and a synthetic 65,346-byte capital
+  history to 1,013 bytes. Live work-progress state round-trips byte-for-byte;
+  every manager, criterion, current care effect, and actionable facility remains
+  present.
+- Godot parse/export, the compaction regression, thirteen related management,
+  economy, capital, routing, and UI regressions, Node 24 lint/build, and all
+  51 rendered-shell/physical-display/production-wrapper contracts pass.
+- Official production evidence at
+  `output/web-game/management-compaction-final-20260809/` is visually clean,
+  loaded, free of browser-error artifacts, and reports zero orphan nodes. Final
+  state sizes are Contract Board 63,001; pricing 62,958; facilities 57,724;
+  provisions 60,762; farmgate 62,928; flock relations 60,541; and Operations
+  64,016 bytes, all below the 65,536-byte release ceiling.
+- All five release PCK copies are 9,899,396 bytes with SHA-256
+  `81E607AE4331F0840CF10B71AC61C09DA5D488DC0040AF28FCFABBBD931BCA06`.
+  Hidden PID 57760 serves `http://127.0.0.1:3000/` with HTTP 200, exact payload
+  parity, and empty stderr. Test-owned Godot, Node, and Playwright processes were
+  cleaned up; the production server remains intentional.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Operations and held-confirmation diagnostic safety margin
+
+- Continued the completion audit against the original economic-game and UX
+  criteria instead of treating a barely passing payload as production-ready.
+  The detailed Operations filing had only 1,520 bytes of diagnostic headroom;
+  the first live succession capture reduced that to 1,001 bytes because it
+  mirrored the complete successor catalog behind a pointer-blocking modal.
+- Normalized the detailed manager state without losing decisions. Roster rows
+  retain identity, archetype, salary, assignment/posture IDs, influence,
+  interventions, and credit claims; the authoritative assignment/posture option
+  catalogs retain their labels and effects. Successor rows retain identity,
+  role, default posture, availability/reason, signing fee, appointment salary,
+  and payroll delta, while their shared displaced manager and resulting payroll
+  are published once instead of six times.
+- Dormant claimant, route-undo, release, and succession confirmation templates
+  now collapse to authoritative visibility flags. Any live irreversible surface
+  retains its complete exact safety contract. While that surface blocks the
+  Operations page, the inaccessible background catalog collapses to exact roster
+  and candidate counts; cancel or filing restores every row on the next state.
+- The authentic regression reduces Operations from 15,400 to 5,744 bytes.
+  Dormant interaction safety falls below 300 bytes, a live confirmation
+  round-trips byte-for-byte, and a held Operations catalog remains under 3,000
+  bytes while preserving its counts.
+- Godot export; the compaction, interaction-safety, manager-recruitment,
+  Operations-economy, and management-loop regressions; Node 24 lint/build; and
+  all 51 rendered-shell/physical-display/production-wrapper tests pass.
+- Official production evidence at
+  `output/web-game/operations-safety-margin-final-20260809/` is visually clean,
+  loaded, free of browser-error artifacts, and reports zero orphan nodes.
+  Detailed Operations measures 61,852 bytes with 3,684 bytes free. Its live
+  succession confirmation measures 60,499 bytes with 5,037 bytes free and
+  visibly retains candidate, replacement, cost, roster, payroll, posture,
+  output, permanence, confirm, and safe-return terms.
+- All five release PCK copies are 9,904,196 bytes with SHA-256
+  `FB038136366FD3A39CA5694B4E1558AEC79511B117DD4A86E3EBE6A1308B06B1`.
+  Hidden PID 54132 serves `http://127.0.0.1:3000/` with HTTP 200, exact payload
+  parity, and empty stderr. Test-owned resources were cleaned after capture; the
+  production server remains intentional.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Player-controlled First Clutch guidance
+
+- Closed the remaining onboarding-control gap from the product criteria. The
+  independently persisted preference schema is now v10 and supports Full
+  Coach, compact Essential Cues, and Off for future files; every schema from
+  v1-v9 migrates to the prior full-coach behavior.
+- The optional coach now says `HIDE` and explains its recovery route. Settings
+  exposes the three guidance levels plus a contextual `REOPEN CURRENT FIRST
+  CLUTCH` action. Reopening restores the exact saved tutorial step, changes the
+  preference back to Full, and writes both the preference and campaign
+  checkpoints without rewinding claims, money, policy, or worker state.
+- Off-mode campaign creation suppresses automatic coaching but retains the
+  bound first-hen context, so the current file remains recoverable. Essential
+  mode retains the progress rail and active action while collapsing the dense
+  explanatory paragraph; exact detail remains in accessible text and tooltips.
+- Preference-store, browser-mirror, Settings component/integration,
+  First-Clutch coach, and complete induction lifecycle regressions pass. The
+  lifecycle run covers Full, Essential, Off, hide persistence, reopen
+  persistence, disabled-start recovery, and the original route-to-egg flow.
+- The refreshed Web export, Node 24 lint/build, and all 51 rendered-shell,
+  physical-display, and production-server contracts pass. Official production
+  evidence at `output/web-game/guidance-controls-browser-20260809/initial/` is
+  visually clean and error-free; its live diagnostic publishes schema-v10
+  `guidance_mode` and contextual replay availability. The complete production
+  Settings audit in the adjacent `settings/` folder reports zero browser
+  errors, Full guidance before and after reload, replay unavailable before a
+  coach is hidden, no horizontal overflow at 844x390, and a 16:9 canvas.
+- All five release PCK copies are 9,906,820 bytes with SHA-256
+  `F3ED7BC7FF1DB7382E7F8F7E2DD7122EE90B77D95AD39A42297A8A8A342DC952`.
+  Hidden PID 48156 serves `http://127.0.0.1:3000/` with HTTP 200, exact payload
+  parity, and empty stderr. Test-owned Godot, Node, Chromium, and temporary
+  action resources were cleaned after verification; the production server
+  remains intentional.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Adaptive, non-interruptive routing recovery
+
+- Closed the product criterion requiring help to adapt to repeated mistakes
+  without interrupting successful play. A single manual off-specialty route
+  remains a quiet, valid strategic choice; two consecutive changed manual
+  routes outside filed specialties produce one temporary HUD recovery action
+  aimed at the exact latest hen and her credentialed tray.
+- The cue never pauses the clock or files a route. Activation opens that hen's
+  Route dossier, where the specialty-fit tray and still-valid current choice
+  remain visible together. A credentialed or Auto correction clears the pattern
+  immediately; an ignored cue expires after nine seconds, and a later mistake
+  outside that window starts a fresh count instead of reviving stale coaching.
+- Full guidance names the observed `OUT-OF-FIT x2` pattern and exact hen;
+  Essential shows only the direct restore action; Off records no adaptive
+  coaching. Critical modals, incidents, First Clutch, live goals, market terms,
+  and timed Priority Peck guidance retain higher priority than recovery.
+- The new adaptive-routing regression passes threshold, single-choice silence,
+  exact action, no-mutation dossier handoff, immediate correction quieting,
+  Essential, Off, and expiry cases. The complete claim-routing, First Clutch
+  induction/save/reload, Settings integration, and interaction-safety
+  regressions also pass.
+- Godot release export, Node 24 lint/build, and all 51 rendered-shell,
+  physical-display, and production-server contracts pass. Official client
+  evidence at `output/web-game/adaptive-routing-browser-20260809/initial/` is
+  visually clean, loaded, and error-free. Deterministic production evidence in
+  the adjacent `recovery/` folder shows the compact overview cue and its exact
+  Pip Route-dossier handoff; diagnostics report Full guidance, worker 1, Nest
+  specialty, the selected Predator tray, active Route tab, zero browser errors,
+  and 52,491 bytes against the 65,536-byte ceiling.
+- All five release PCK copies are 9,907,732 bytes with SHA-256
+  `D25F66BAED65BE19F1F70C0D1237B549DB790D1952C4778093F88A84064AA9B0`.
+  Hidden PID 57008 serves `http://127.0.0.1:3000/` with HTTP 200, exact served
+  payload parity, and empty stderr. Test-owned Godot, Node, Chromium, and
+  temporary audit/action resources were cleaned after verification; the
+  unrelated pre-existing client on port 4194 was left untouched.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Always-revisitable First Clutch playbook
+
+- Closed the remaining onboarding revisit contradiction. Settings now keeps one
+  contextual First Clutch control: an unfinished hidden coach exposes `RESUME
+  CURRENT FIRST CLUTCH`, while completed, skipped, disabled-start, and pre-file
+  states expose an enabled `REVIEW FIRST CLUTCH PLAYBOOK` action instead of a
+  disabled replay button.
+- Review opens a compact five-step icon route in place: `INSPECT > ROUTE >
+  CHECK-IN > PECK > REINVEST`. Tooltips and assistive narration preserve the
+  exact specialty-fit, clock, Priority Peck, receipt, and Today-order reasons
+  behind those short visual verbs.
+- The playbook never emits the replay signal, changes a preference, rewinds a
+  campaign, or mutates the economy. It closes in place, wraps without horizontal
+  overflow at 844x390 and 390x844, and unfinished live progress retains the
+  original saved-step resume behavior.
+- Settings diagnostics now publish the contextual reference mode, visibility,
+  five-step count, and explicit non-mutating contract. Component and complete
+  First Clutch induction/save/reload regressions pass.
+- Fresh Godot Web export, Node 24 lint/build, and all 51 rendered-shell,
+  physical-display, and production-server contracts pass. The permanent
+  Settings browser audit reports review mode before and after reload, five
+  steps, no campaign mutation, zero browser errors, no 844x390 horizontal
+  overflow, and a 16:9 canvas.
+- Official client evidence at
+  `output/web-game/first-clutch-playbook-browser-20260809/` shows the complete
+  icon route at desktop and compact landscape sizes. The authored capture is
+  visually clean; full assistive detail remains present while the visible route
+  stays to five short verbs.
+- All six synchronized release PCK copies are 9,911,460 bytes with SHA-256
+  `876595E2ECBFE46283A17DA5B4556EF3AA07FA399355F758B02116F07A585952`.
+  Hidden PID 69672 serves `http://127.0.0.1:3000/` with HTTP 200, exact payload
+  parity, and empty stderr. The candidate server, lifecycle tests, browser
+  audits, Chromium instances, and temporary audit source were cleaned after
+  verification.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Adaptive routing success payoff
+
+- Closed the recovery loop after repeated out-of-fit routing. The temporary
+  coach still appears only after two consecutive changed manual mismatches, but
+  correcting the exact coached hen now earns one compact `FIT RESTORED` milestone
+  instead of silently disappearing.
+- The receipt is deliberately non-modal and truthful: a filed specialty names
+  the matching tray, while Auto explains that it favors specialties and urgent
+  deadlines. A valid route on another hen clears the streak without publishing
+  a false success. The reward plays the restorative UI cue and optional haptic;
+  older consequence cards retire so the browser live region narrates the full
+  recovery reason during the toast's bounded hold.
+- Focused adaptive-routing coverage passes exact-hen correction, Auto, wrong-hen
+  silence, Full/Essential/Off guidance, expiry, audio, haptic, notification, and
+  assistive-output contracts. Claim routing, Settings integration, and
+  interaction-safety regressions also pass.
+- Fresh Godot Web export, Node 24 lint/build, and all 51 rendered-shell,
+  physical-display, and production-server contracts pass. Official browser
+  evidence at `output/web-game/adaptive-routing-success-browser-20260809/live-2/`
+  shows the compact receipt outside the play area with zero browser errors;
+  diagnostics confirm the cleared recovery state, milestone priority,
+  `attention_restored` cue, retired stale action receipt, full notification
+  narration, and a 52,268-byte payload under the 65,536-byte ceiling.
+- All six synchronized release PCK copies are 9,914,436 bytes with SHA-256
+  `47C60150E8505486B30E6DD014BBC3394175D06EE43ACED6D497D7991273A95E`.
+  Hidden PID 72916 serves `http://127.0.0.1:3000/` with HTTP 200, exact served
+  payload parity, and empty stderr. The old production process, candidate
+  server, browser clients, Godot tests, and temporary action/payload resources
+  were cleaned; only the intentional verified production server remains.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Recoverable core-action holds
+
+- Closed a high-frequency feedback hole where rejected routing, one-level Undo,
+  and Priority Peck requests could replace text inside an already-hidden toast
+  panel. Those failures now enter the priority publisher, bounded Shift Record,
+  tooltip/accessibility metadata, and Web live region while retaining the
+  existing semantic denied cue.
+- Visible copy is deliberately verb-first and compact: stale commands say
+  `PICK ACTIVE HEN`, `CHOOSE NEW ROUTE`, or `REVIEW CURRENT ROUTE`; Priority
+  Peck states say `WAIT FOR GOLD`, `WAIT FOR WORK`, `BUILD TO 58%`,
+  `TRY NEXT FILE`, or `0 CHARGES > DELIVER`. Exact authored causes and recovery
+  rules remain available on demand instead of expanding the floor toast.
+- The complete Priority Peck UI test now verifies the no-mutation rejection,
+  action-priority toast, full live narration, stale Undo/route recovery, and
+  Priority-only depleted-charge behavior. Claim-routing, interaction-safety,
+  and Settings preference regressions also pass.
+- Fresh Godot Web export, Node 24 lint/build, and all 51 rendered-shell,
+  physical-display, and production-server contracts pass. Official browser
+  evidence at `output/web-game/core-action-hold-browser-20260809/live-2/` is
+  visually clean and error-free; diagnostics confirm action priority, denied
+  audio, stale action-receipt retirement, exact live-region recovery text, and
+  a 52,252-byte payload under the 65,536-byte ceiling.
+- All six synchronized release PCK copies are 9,914,900 bytes with SHA-256
+  `5A40E9A476EE0BB68B80787C632315CF6D7ABA1B92E0DE9FD26F2944FCA94454`.
+  Hidden PID 74028 serves `http://127.0.0.1:3000/` with HTTP 200, exact served
+  payload parity, and empty stderr. The prior production server, candidate,
+  official browser client, native tests, and temporary action/payload files
+  were cleaned; unrelated Bird Squad test processes were identified and left
+  untouched.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Recoverable economic filing failures
+
+- Closed the remaining systemic rejection-feedback gap across ten consequential
+  filing families: claimant paths, personnel check-ins, facilities, provisions,
+  Farmgate mandates, Gallery campaigns, Flock Relations cases, internships,
+  management directives, and staffing files. Every failure now enters one
+  shared priority publisher instead of writing into a potentially hidden label.
+- Visible receipts stay concise and verb-first, such as
+  `PROVISIONS HELD  ·  REVIEW LOT`; exact authored causes and the recovery rule
+  remain available through semantic detail, the Web live region, and the
+  bounded Shift Record. Rejections preserve authoritative simulation/save
+  state, Priority mode retains them, Archive Only suppresses only the floor
+  toast, and an open Flockwatch remains presentation owner.
+- `economic_action_hold_feedback_test.gd` covers all ten systems, non-mutation,
+  live narration, Priority, Archive Only, and Flockwatch ownership. Personnel,
+  provisions, Farmgate, Gallery, Flock Relations, internship, operations,
+  Peck Assist, and Settings integration regressions pass.
+- Fresh Godot Web export, Node 24 lint/build, and all 51 rendered-shell,
+  physical-display, and production-server contracts pass. Official browser
+  evidence at `output/web-game/economic-action-hold-browser-20260809/live/` is
+  visually clean and error-free; diagnostics confirm action priority, denied
+  audio, exact capacity recovery narration, stale action-panel retirement, and
+  a 52,247-byte payload under the 65,536-byte ceiling.
+- All six synchronized release PCK copies are 9,917,268 bytes with SHA-256
+  `9D241C499455BD9CC6866004D367E9286CE5AE832942A0D38086B9879CA5D64C`.
+  Hidden PID 57172 serves `http://127.0.0.1:3000/` with HTTP 200, exact served
+  payload parity, and empty stderr. The prior production server, candidate,
+  official browser client, native tests, and temporary action/payload files
+  were cleaned; unrelated Bird Squad test processes were left untouched.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Recoverable strategic filing failures
+
+- Closed the remaining high-impact strategic rejection gap across eleven
+  progression families: capital plans, management watches, campus projects,
+  routing-pod placement, North Meadow, milestones, sponsorship, Senior Roost,
+  next-shift filing, Farm Mutual, and continue/recovery. These failures now use
+  the shared action-priority publisher instead of writing into hidden status
+  labels, and duplicate semantic phrasing is suppressed.
+- An open management surface remains the visible owner. Capital Blueprint,
+  Campus Expansion, Campus Portfolio, and campaign reports show one compact
+  rust-colored hold receipt in their header while the exact cause and recovery
+  instruction stay available through the inspector, tooltip metadata, bounded
+  Shift Record, and Web live status. The floor toast remains hidden behind a
+  blocking planner, held confirmations remain exclusive, and every rejected
+  action preserves authoritative simulation and checkpoint state.
+- `strategic_action_hold_feedback_test.gd` passes all eleven families,
+  non-mutation, modal ownership, exact narration, and deduplication;
+  `economic_action_hold_feedback_test.gd` still passes its ten families. Node
+  24 lint/build and all 51 rendered-shell, physical-display, and production
+  server contracts pass.
+- Final browser inspection at eleven seconds is visually clean and error-free:
+  Capital Blueprint visibly owns `CAPITAL PLAN HELD · REVIEW FACILITY`, the
+  live status explains that the facility price changed and directs the player
+  to compare current cost with protected reserve, and no competing floor toast
+  appears. Supporting captured evidence is under
+  `output/web-game/strategic-action-hold-browser-20260809/live-3/`; the bounded
+  diagnostic payload is 55,803 bytes against the 65,536-byte ceiling.
+- All six synchronized release PCK copies are 9,922,244 bytes with SHA-256
+  `62960560C30A89D27F4013BC4D8B8EE54E78FCF9723532D7E760E7ADB408602C`.
+  Hidden PID 66136 serves `http://127.0.0.1:3000/` with HTTP 200, exact served
+  payload parity, and empty stderr. The prior production server, candidate,
+  browser tab, native test processes, temporary action file, served-payload
+  probe, and stale export temporary files were cleaned; unrelated Bird Squad
+  processes were left untouched.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Visible save and recovery failures
+
+- Closed two remaining silent-loss presentation gaps. A failed first New File
+  checkpoint now stays on intake with `NEW FILE HELD · RETRY SAVE`, no resumable
+  authority, and the exact bounded write reason. If every primary/backup
+  candidate fails semantic validation, Campaign, Office, and Senior state stay
+  atomically unchanged while intake shows `SAVE HELD · REVIEW RECOVERY` and
+  disables Continue.
+- Both failures use the shared action-priority publisher. The compact receipt is
+  visibly owned by the career-intake header; its full cause remains in tooltip
+  and accessibility metadata, the bounded Shift Record, live Web narration,
+  and checkpoint diagnostics. Failed replacement still restores the preceding
+  verified file when one exists instead of exposing the unverified candidate.
+- `checkpoint_office_integration_test.gd`,
+  `campaign_semantic_recovery_test.gd`, campaign intake safety, strategic hold,
+  and interaction-safety regressions pass. Node 24 lint/build and all 51
+  rendered-shell, physical-display, and production-server contracts also pass.
+- Final served-browser inspection at eleven seconds is visually clean and
+  error-free: the compact rust save badge remains legible without competing
+  with the difficulty and Start Shift controls, while the live announcement
+  retains the complete validation cause and recovery action. The browser tab,
+  port-3001 candidate, and browser-test runtime were closed afterward.
+- All six synchronized release PCK copies are 9,922,452 bytes with SHA-256
+  `4B655D5D002EA8F1A602858B58005B177B3325E548EF6133DB5628596BC10677`.
+  Hidden PID 39304 serves `http://127.0.0.1:3000/` with HTTP 200, exact served
+  payload parity, and empty stderr. The prior production process, failed
+  handoff attempt, native tests, candidate server, served-payload probe, and
+  temporary export resources were cleaned.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Native economic release enforcement
+
+- Closed a release-automation gap: GitHub's Quality gate previously invoked the
+  beta verifier with `-SkipGodot`, so a green workflow did not exercise the
+  authoritative simulation, balance, checkpoint, or save/recovery contracts.
+  The workflow now has a separate Windows native-integrity job that downloads
+  the official Godot 4.7 archive, verifies SHA-256
+  `02A5312236F4E0209C78BCB2F52135B1963E6B8888C873C9CEE81459E60BCD71`
+  before extraction, runs seven critical suites through the bounded shard
+  runner, and uploads its complete summary and logs.
+- Expanded the local beta gate with the campaign balance playthrough, campaign
+  save store, semantic recovery, checkpoint coordination, operations economy,
+  and persistence. These are now release-blocking rather than being covered
+  only by an occasional full-suite run.
+- Strengthened the balance lab across all three replay dockets. Each docket must
+  retain three viable doctrines, materially distinct outcome vectors, and no
+  doctrine that weakly dominates every alternative. The first draft also
+  required the same comparative ordering on every docket; the real matrix
+  correctly rejected that assumption because changing conditions changed route
+  rankings. The final contract instead requires at least two different
+  score-leading doctrines across the replay set, directly enforcing contextual
+  strategy value rather than one universal best route.
+- The final balance matrix passes in 120.095 seconds with eight profiles, three
+  challenge contracts, seven strategy routes, seven Board-book routes, four
+  Senior dockets, three replay dominance matrices, and at least two contextual
+  score leaders. Campaign save, semantic recovery, checkpoint integration,
+  interaction safety, operations economy, and simulation persistence also pass;
+  the mirrored native set totals seven passed suites with zero timeouts.
+- PowerShell parsing, YAML parsing, and `git diff --check` pass. No runtime game
+  source or release payload changed, so the already verified PCK remains current.
+  Both temporary validation bundles were moved to the Recycle Bin; no test-owned
+  Godot, Node, or browser process remains, port 3001 is free, and production PID
+  39304 still serves HTTP 200 on port 3000 with empty stderr.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Unambiguous active-goal ledger
+
+- Audited the live first-policy, first-routing, and Flockwatch Today states with
+  the prescribed production-browser client. The compact policy and routing
+  surfaces remained clear, but Today's `3 GOALS · PICK ONE · +9` heading could
+  incorrectly imply that only one objective was active.
+- Replaced that ambiguity with `3 ACTIVE GOALS · +9 SCORE`. The retained tooltip
+  and accessibility metadata now state that all three goals are active, together
+  award nine score, a clean sweep adds three more, and any goal card can be
+  selected to inspect its strongest live driver. Generic heading resets also
+  clear this semantic metadata so it cannot leak to another filing state.
+- `flockwatch_today_density_test.gd`, `first_clutch_reinvestment_ui_test.gd`, and
+  `management_loop_ui_test.gd` pass natively. Node 24 lint and production build
+  pass, followed by all 51 rendered-shell, physical-GPU-environment, and
+  production-server tests.
+- Re-exported and synchronized the Godot Web candidate. All six release PCK
+  copies are 9,923,124 bytes with SHA-256
+  `53CFCF90657B2B4B80BA35E2B8BEA17CF287ABA368C8BA7E8EF9E7D5C1D610E4`.
+  Production PID 39304 serves `http://127.0.0.1:3000/` with HTTP 200 and exact
+  served-payload parity.
+- The final production capture at
+  `output/web-game/active-goals-browser-20260809/flockwatch-today/shot-0.png`
+  visibly shows the new heading; its 55,584-byte diagnostic contains the full
+  accessible rule and no browser-error artifact. The earlier comparison bundle
+  was moved to the Recycle Bin, the browser client closed, no test-owned Godot,
+  Node, or browser process remains, and port 3001 is free.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Distinct shift quota and scored goals
+
+- Exercised the complete live goal interaction with the prescribed browser
+  client: select `OPENING CLUTCH`, reveal `SHOW HEN ROUTES`, arrive at Mabel's
+  exact routing drawer, then use `RETURN [V]` to restore the selected goal and
+  its driver action. That interaction chain was already coherent and remained
+  presentation-only.
+- The live comparison exposed a separate comprehension problem: the permanent
+  egg rail showed `0 / 16` while the scored goal showed `0 / 18`, without a
+  visible role for the lower target. The HUD now reads `QUOTA · 0 / 16`; its
+  tooltip and accessibility text explain that this operating requirement is
+  separate from potentially higher Flockwatch score goals. The Flockwatch goal
+  heading carries the reciprocal explanation without adding visible prose.
+- `opening_experience_progression_test.gd`,
+  `flockwatch_today_density_test.gd`, and `management_loop_ui_test.gd` pass in
+  the bounded native harness, including 150%-scale HUD coverage. Node 24 lint,
+  the production build, and all 51 rendered-shell, physical-display, and
+  production-server tests pass.
+- Re-exported and synchronized all six release PCK locations at 9,925,364 bytes
+  with SHA-256
+  `21D34F7D7BD15782148082E21C2F499C635B2829D7BC9FFE5307FB8C6C980DBD`.
+  The final production evidence at
+  `output/web-game/quota-goal-identity-browser-20260809/` shows the compact
+  quota and selected 18-egg goal together; its 58,944-byte diagnostic records
+  the exact distinction, successful driver target, successful return, and no
+  browser-error artifact.
+- Five exploratory browser bundles and their temporary action file were moved
+  to the Recycle Bin. The browser client and native harness closed their owned
+  processes; production PID 39304 remains the sole listener on port 3000, and
+  port 3001 is free.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Route commitment advances to Resume
+
+- Exercised the complete production route chain from Opening Clutch through
+  `SHOW HEN ROUTES` to Mabel's `APPEALS FIT` choice. The route filed
+  authoritatively, but global guidance still asked the player to repeat the
+  choice and the selected-route waiting header clipped its status.
+- A successful manual route now acknowledges the filed tray and advances the
+  global next action to `<ROUTE> SET > RESUME 1x` while paused or `<ROUTE> SET >
+  WATCH NEXT FILE` while running. Activating paused guidance focuses the visible
+  Resume control without starting time. Progressive detail explains that
+  current files finish before the new tray applies, preserves one-level Undo,
+  and retains the exact Return to Goal route.
+- The routing dossier now uses the compact complete status `1 <ROUTE> -
+  WAITING`. The focused native harness passed `management_loop_ui_test.gd`,
+  `claim_routing_ui_test.gd`, `first_clutch_coach_ui_test.gd`, and
+  `interaction_safety_contract_test.gd` (4/4). Node 24 lint and production build
+  pass, followed by all 51 rendered-shell, physical-display, and
+  production-server tests.
+- Re-exported and synchronized all six release PCK locations at 9,926,692 bytes
+  with SHA-256
+  `C83D79D24CC4EBAE6A2A297AAE574731FCB8911F301EA59F1FC260D2032B136D`.
+  Production PID 39304 serves HTTP 200 on port 3000 with byte-for-byte matching
+  payload; port 3001 is free.
+- The final production evidence at
+  `output/web-game/route-set-next-action-browser-20260809/` visibly shows
+  `APPEALS SET > RESUME 1x`, the Resume control, complete `1 APPEALS - WAITING`
+  status, selected Appeals Fit, and adjacent Undo. Its 57,188-byte diagnostic
+  independently records `appeals`, actionable `resume_shift`, the full deferral
+  and Undo truth, and no browser-error artifact.
+- The exploratory browser bundle and temporary choreography file were moved to
+  the Recycle Bin. The accidental default-folder capture was removed and the
+  two pre-existing tracked evidence slots were restored exactly from `HEAD`.
+  Both browser runs and the native harness closed their owned processes; no
+  test-owned Godot, Node, or browser process remains. Export directories contain
+  no replacement temp files and `git diff --check` passes.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Input-equivalent global goal guidance
+
+- Audited the post-route browser diagnostic against the actual global action.
+  Its generic assistive suffix implied every activation went directly to an
+  action even when Resume, decision, review, campaign, recovery, or Feed Party
+  guidance only moved focus to a safe control. More importantly, the selected
+  Today goal published an actionable `campaign_order_driver` chevron whose ID
+  had no handler, so keyboard/controller HUD activation did nothing.
+- Added one centralized activation contract for global guidance. Every cue now
+  publishes `execute`, `navigate`, `focus_target`, or `contextual` behavior and
+  an exact matching hint to its button tooltip, accessibility text, and browser
+  diagnostic. Resume explicitly says that the first activation focuses Resume
+  and the second starts 1x; Priority Peck truthfully remains an immediate
+  execution; focus-only decisions never imply a mutation.
+- Wired `campaign_order_driver` to the same non-mutating handler as the visible
+  Flockwatch driver button. Browser inspection then exposed a second
+  input-specific gap: pointer focus configured the lower driver but left the
+  HUD at `SELECT A HEN` while paused. The goal-focus handler now updates guidance
+  and diagnostics immediately, matching live-mark, keyboard, and controller
+  focus without waiting for a simulation snapshot.
+- The focused native action-contract shard passed 5/5, and the final
+  pointer-specific rerun passed `management_loop_ui_test.gd` plus
+  `flockwatch_today_density_test.gd` 2/2. Node 24 lint and production build pass;
+  all 51 rendered-shell, physical-display, and production-server tests pass.
+- Re-exported and synchronized all six release PCK locations at 9,926,836 bytes
+  with SHA-256
+  `05FD231FEEDE86166A5C318238BB8F1D6F894ADFF4D19A3F829F5E2FFD08AC53`.
+  Production PID 39304 serves HTTP 200 on port 3000 with the exact same bytes;
+  port 3001 is free.
+- The final real-flow browser evidence at
+  `output/web-game/global-goal-driver-production-final-20260809/` selects
+  Opening Clutch by pointer, activates the persistent HUD rather than the lower
+  driver button, reaches `DossierTab_route`, and only then files Appeals. Its
+  57,237-byte diagnostic records driver serial 1, `hen_routes`, target available,
+  `filed_choice=false`, selected lane `appeals`, next action `resume_shift`,
+  behavior `focus_target`, and no browser-error artifact. The inspected capture
+  retains the complete route header, selected fit, Undo, Return, and Resume.
+- Five exploratory browser bundles and two temporary choreography files were
+  moved to the Recycle Bin. The overlong software-WebGL probe was explicitly
+  terminated and its owned process closed; the completed clients and native
+  harnesses also closed cleanly. No current-task browser, Node, or Godot process
+  remains, and export directories contain no replacement temp files.
+- Remaining external evidence gates are unchanged: moderated usability/fun and
+  comprehension sessions, intended browser/OS screen-reader signoff, physical
+  mobile input/audio/haptics/thermal passes, and representative low-end GPU
+  soak.
+
+## 2026-08-09 - Completion audit confirms external release boundary
+
+- Re-audited the full product-resolution matrix, current shipped frame, core
+  checklist, beta-readiness contract, and exact-candidate release validators.
+  No additional code-addressable product criterion remains open; the inspected
+  production frame and its diagnostic retain the verified route commitment,
+  global input contract, progressive detail, and accessible state.
+- Ran `verify_physical_release_evidence.ps1` against the current checkout and
+  9,926,836-byte PCK. It fails closed because the evidence identity targets an
+  older commit and payload, every required hardware session remains unsigned,
+  and the iOS, Android, screen-reader, audio, integrated-GPU, and discrete-GPU
+  measurements are still placeholders rather than observations.
+- Ran `verify_usability_playtest_evidence.ps1`; it fails closed because
+  `output/release/usability-playtest-evidence.json` does not exist. The required
+  independently moderated comprehension, fun, pacing, friction, strategic
+  depth, feedback-clarity, and fatigue sessions therefore have no evidence for
+  this exact candidate.
+- The same external-evidence condition has persisted across more than three
+  consecutive goal turns. Further local edits or synthetic browser runs cannot
+  produce truthful human or physical-device results, so production-readiness
+  completion is blocked pending those sessions rather than being inferred from
+  automation.
+
+## 2026-08-09 - Reproducible release candidate and blocker dashboard
+
+- Audited the requested 47-item enhancement program against the current product
+  resolution matrix. The player-facing comprehension, consequence, recovery,
+  progression, accessibility, save, performance, and ethical-engagement items
+  already have shipped implementation evidence; the repeatability gap was that
+  exact candidate identity and external blockers were scattered across dated
+  one-off reports.
+- Added `tools/write_release_readiness_report.ps1`. One command now binds the
+  current Git commit to the authoritative PCK, compares all nine public payload
+  files and all six shipping PCK locations, checks automated-gate freshness,
+  rejects stale physical/usability records, counts both seven-session matrices,
+  and writes a machine-readable manifest plus a concise Markdown dashboard.
+  `-RequireReleaseReady` exits 1 whenever any blocker remains.
+- Wired the report's schema/parity/session contract into
+  `verify_beta_release.ps1` without converting legitimate external blockers
+  into failures of the tooling itself. The new contract passed inside the
+  bounded release-tooling gate; the explicit require-ready negative test exited
+  1 as designed.
+- Regenerated the current dashboard after the gate. All nine public payload
+  comparisons and all six 9,926,836-byte PCK locations pass, and the automated
+  gate is current. The remaining five blockers are exact and truthful: the
+  source candidate is not frozen, physical evidence targets another candidate,
+  seven physical sessions are pending, usability evidence is absent, and seven
+  moderated sessions are pending.
+- Updated and synchronized the beta-readiness and product-resolution documents.
+  The prescribed browser client loaded the real production wrapper at the
+  Flockwatch Today state; the visually inspected 1280x720 frame is clean, its
+  diagnostic is 55,763 bytes, and no browser-error artifact was produced.
+- Removed the four temporary require-ready/self-test reports. The client and
+  release tools exited normally; no task-owned process remains. Production PID
+  39304 remains the sole listener on port 3000, and port 3001 is free.
+- Next external action remains unchanged: freeze and publish one exact candidate,
+  then complete and register the fourteen candidate-bound human/device sessions.
+
+## 2026-08-09 - Truthful pause ownership and exact continuation
+
+- Replaced the clock HUD's independent paused/running guess with one
+  presentation-only pause contract derived from authoritative clock state and
+  the surface that currently owns input. Manual pause remains an enabled
+  `RESUME`; incidents, reviews, campaign records, Settings, management files,
+  character dialogue, Feed Party, focus loss, and irreversible confirmations
+  now publish `PAUSED`, their owner, their exact continuation, and whether
+  return is manual, automatic, or confirmation-driven.
+- Fixed the incident mismatch where the auto-paused decision card was correct
+  but the disabled global clock still read `RESUME`. Incident selection now
+  refreshes the contract immediately, and resolving with Stay Paused returns
+  pause ownership plus the enabled Resume control to the player after any
+  blocking result aside is filed away.
+- Added `pause_context` to bounded Web diagnostics and Flockwatch's retained
+  presentation projection. Routine pause prose now renders as the compact
+  `PAUSED · <OWNER> · <NEXT ACTION>` receipt while its tooltip, accessibility
+  summary, button metadata, and browser diagnostic retain the complete reason,
+  safety guarantee, and exact continuation.
+- Expanded `management_loop_ui_test.gd` and `decision_loop_ui_test.gd` around
+  manual pause, incident auto-pause, selected resolution, dialogue handoff, and
+  resume ownership. Both pass. `interaction_safety_contract_test.gd` and
+  `settings_office_integration_test.gd` also pass, including held-confirmation
+  and focus-pause restoration behavior.
+- Re-exported the Godot Web payload and synchronized all six shipping PCK
+  locations at 9,933,412 bytes with SHA-256
+  `0D9E6F6FC1B99F8D68082BCB788C3B4BF9F548F5630F90DB4AD17F37EF4F9A32`.
+  Node 24.14 build and ESLint pass; all 50 rendered-shell and physical-display
+  environment tests pass; the complete candidate-bound beta gate passes.
+- Official-client browser evidence is retained at
+  `output/web-game/pause-contract-incident-v1/`,
+  `output/web-game/pause-contract-flockwatch-v3/`, and
+  `output/web-game/pause-contract-resume-v2/`. The inspected 1280x720 frames
+  show a clean incident card, an enabled manual Resume, the compact Flockwatch
+  receipt without clipping, and the restored running Pause control. Diagnostics
+  prove incident owner/choice, player owner/Resume, and inactive pause after
+  Space resumes 1x; every state is under 56 KiB and no error artifact exists.
+- Updated `docs/PRODUCT_ENHANCEMENT_RESOLUTION.md` and regenerated the exact
+  readiness dashboard. Automation and six-way artifact parity are current; the
+  same five honest external blockers remain: an unfrozen dirty candidate, stale
+  physical record, seven pending physical sessions, missing usability record,
+  and seven pending moderated sessions.
+- All focused native/browser clients and the test-owned 3001 production server
+  are closed. Port 3001 is free. The user-requested local production wrapper is
+  restored on PID 15660 at `http://127.0.0.1:3000/`; it returns HTTP 200 and
+  serves the exact 9,933,412-byte PCK above with an empty stderr log.
+
+## 2026-08-09 - Actionable between-shift market pulse
+
+- Closed a planning-information gap between the simulation's authoritative
+  market calendar and the campaign report. Every playable probation and Senior
+  Roost between-shift report now receives a bounded projection of the current
+  season, remaining duration, strongest demand lane and signed modifier, feed
+  spot quote, cause, certainty, uncertainty, and following market turn directly
+  from `economic_briefing_snapshot()`.
+- Added one compact calendar-led `NEXT MARKET` row between the plan receipt and
+  tomorrow's orders. Its visible layer is limited to season/duration, demand
+  opportunity, and feed price; cause, uncertainty, and the following season stay
+  in the tooltip and complete assistive summary rather than adding another
+  paragraph or modal. The row remains bounded at 1280x720, 390x844, and 150%
+  interface scale.
+- Extended `probation_campaign_ui_test.gd` with exact visible/semantic market
+  assertions and responsive bounds, and extended
+  `probation_campaign_integration_test.gd` to prove the real Office carries the
+  simulation's values without UI recomputation. Both pass, as do
+  `senior_roost_ui_test.gd` and `management_loop_ui_test.gd`.
+- Corrected the deterministic probation-report preview to advance the simulated
+  market day alongside its two filed shifts. Official-client evidence at
+  `output/web-game/report-market-pulse-v3/` shows a clean 1280x720 report with
+  `BASELINE BOOK · 3 DAYS`, `NEST DAMAGE +0%`, and `FEED $2.00`; both diagnostics
+  stay under 53 KiB and no browser-error artifact was produced.
+- Re-exported and rebuilt the Web wrapper with Node 24.14. All six shipping PCK
+  locations are byte-identical at 9,938,468 bytes with SHA-256
+  `4F60870BD6E09CB607431702005A7DFC16E6E8EDA157DEECBA83F0C054A7B536`.
+  The complete beta release gate passes after explicitly pinning Node 24 (the
+  first run passed all native shards but correctly rejected the system Node 20
+  before Web checks).
+- Refreshed the release dashboard. Automated evidence and six-way payload parity
+  pass; the same five honest external blockers remain: an unfrozen dirty
+  candidate, stale physical evidence, seven pending physical sessions, missing
+  usability evidence, and seven pending moderated sessions.
+- The official browser client, every Godot test process, and the test-owned port
+  3001 server are closed. The user-requested local production wrapper remains on
+  PID 15660 at `http://127.0.0.1:3000/` and serves the new 9,938,468-byte payload.
+
+## 2026-08-09 - Live operating margin and break-even payoff
+
+- Replaced the default Today coin tile's secondary Farmer Favor number with the
+  simulation's authoritative secured operating net. The two visible lines are
+  now `FREE` and `NET`, remain inside the existing 18-character glance budget,
+  and change from deficit rust to cleared teal without adding another panel or
+  paragraph. Reserve, remaining break-even need, standings, and the exact net
+  definition remain available through tooltip and assistive detail.
+- Added a per-shift negative-to-nonnegative crossing tracker. A real crossing
+  publishes one `BREAK EVEN CLEARED` milestone, commendation audio, tile pulse,
+  and Shift Record entry. It seeds silently on load and day changes, and its
+  day-scoped receipt prevents repeated snapshots or later re-crossings from
+  replaying the reward.
+- Extended `flockwatch_today_density_test.gd` around exact visible values,
+  semantic accounting detail, diagnostic metadata, milestone classification,
+  and replay suppression. It passes with `economic_briefing_test.gd`,
+  `management_loop_ui_test.gd`, and `probation_campaign_integration_test.gd`.
+- Re-exported and rebuilt the Web candidate with Node 24.14. All six PCK
+  locations are byte-identical at 9,938,004 bytes with SHA-256
+  `32A8113020E69AC4058AD2717A3498A723FEE578BA8540570899ADB79EC34370`.
+- Official-client evidence at `output/web-game/economic-break-even-v2/` shows a
+  clean 1280x720 Today brief with `FREE $20`, `NET +$5`, and the single compact
+  break-even notice. Both diagnostic states are 55,138 bytes and no browser
+  error artifact was produced.
+- The test action file and failed pre-restart capture were removed. The local
+  production wrapper was restarted only after the rebuilt asset hashes changed;
+  it now runs on PID 25812 at `http://127.0.0.1:3000/`, serves the exact candidate
+  PCK, and has an empty stderr log.
+- The complete candidate-bound beta gate then passed in 468.894 seconds: 50
+  checks, 40 Godot suites, 4 Web checks including all 50 rendered-shell tests,
+  6 release/tooling contracts, and zero failures. The refreshed readiness
+  dashboard confirms 6/6 payload parity and current automated evidence.
+- Five external release blockers remain truthful and unchanged: the dirty
+  candidate is not frozen, its physical evidence is stale, seven physical
+  sessions are pending, moderated usability evidence is absent, and seven
+  moderated sessions are pending. No automated run was represented as those
+  human or hardware observations.
+
+## 2026-08-09 - Final completion and blocked audit
+
+- Reconciled the referenced economic-management, UX, accessibility, balance,
+  saving, and production criteria against the current resolution matrix. Its 38
+  implementation rows contain no unresolved-system markers, the exact candidate
+  still has a current 50/50 beta gate, and all six shipping PCK locations remain
+  synchronized.
+- Verified the live port-3000 runtime byte-for-byte rather than trusting its
+  headers: the served 9,938,004-byte PCK hashes to
+  `32A8113020E69AC4058AD2717A3498A723FEE578BA8540570899ADB79EC34370`,
+  exactly matching the authoritative candidate. Port 3001 remains free.
+- Re-ran both external evidence validators. Physical validation fails with 188
+  exact issues because the retained record targets an older commit/PCK and all
+  seven device, screen-reader, audio, and GPU sessions remain unsigned.
+  Usability validation fails because the exact-candidate evidence file and all
+  seven independently moderated sessions do not exist.
+- Removed both temporary completion-audit reports after recording their result.
+  No new browser, Godot, or server process was launched by this audit; the
+  user-requested production instance remains available on PID 25812.
+- This identical external-evidence condition has now recurred for the strict
+  three-turn blocked audit. Further repository edits or synthetic automation
+  cannot produce truthful physical-device or independently moderated human
+  observations, so the active production-readiness goal is blocked pending
+  that external execution and candidate freeze.

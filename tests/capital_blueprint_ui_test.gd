@@ -74,6 +74,16 @@ func _run() -> void:
 	_check(ui.selected_facility_id() == &"candling_rework_bay", "the first actionable parcel should be the initial selection", failures)
 	_check(pin_button != null and not pin_button.disabled, "the actionable opening parcel should preserve the optional Pin action", failures)
 	_check(purchase_button != null and not purchase_button.disabled, "an authoritative READY upgrade should expose its purchase action", failures)
+	var blueprint_primary := ui.primary_action_state()
+	ui.focus_primary_action()
+	_check(
+		String(blueprint_primary.get("copy", "")) == purchase_button.text
+		and String(blueprint_primary.get("action_id", ""))
+		== "capital_blueprint_purchase"
+		and purchase_button.has_focus(),
+		"Capital Blueprint should publish and focus the exact enabled build action",
+		failures,
+	)
 	_check(
 		_contains_all(ui.inspector_accessible_text(), ["why now", "you get", "you owe", "after build", "gates", "$120.00", "+$5.00"]),
 		"the inspector should expose only its five plain-language decision sections with exact economics",

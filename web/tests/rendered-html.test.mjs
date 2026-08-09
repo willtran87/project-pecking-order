@@ -45,6 +45,26 @@ async function accessibleStatusBuilder() {
   return sandbox.__accessibleStatusBuilder;
 }
 
+async function liveAnnouncementBuilder() {
+	const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+	const start = page.indexOf("function buildLiveGameAnnouncement(");
+	const end = page.indexOf("function loadGodotScript", start);
+	assert.notEqual(start, -1, "live announcement builder should exist");
+	assert.notEqual(end, -1, "live announcement helper boundary should exist");
+
+	const source = `${page.slice(start, end)}\nglobalThis.__liveAnnouncementBuilder = buildLiveGameAnnouncement;`;
+	const compiled = ts.transpileModule(source, {
+		compilerOptions: {
+			target: ts.ScriptTarget.ES2022,
+			module: ts.ModuleKind.None,
+		},
+	}).outputText;
+	const sandbox = {};
+	runInNewContext(compiled, sandbox);
+	assert.equal(typeof sandbox.__liveAnnouncementBuilder, "function");
+	return sandbox.__liveAnnouncementBuilder;
+}
+
 async function persistenceStatusBuilders() {
 	const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 	const start = page.indexOf("function diagnosticPlainText(");
@@ -238,7 +258,9 @@ test("server-renders the playable Pecking Order shell", async () => {
 	assert.match(html, /F10 for Coop Settings and Controls/i);
 	assert.match(html, /Controls can be rebound from the settings panel/i);
   assert.match(html, /aria-keyshortcuts="1 2 3 Enter N R D C E P O Space V F10 Tab Escape"/i);
-  assert.match(html, /id="game-status"[^>]+role="status"[^>]+aria-live="polite"[^>]+aria-atomic="true"/i);
+  assert.match(html, /id="game-status"[^>]+aria-live="off"[^>]+aria-atomic="true"/i);
+	assert.doesNotMatch(html, /id="game-status"[^>]+role="status"/i);
+	assert.match(html, /id="game-announcement"[^>]+role="status"[^>]+aria-live="polite"[^>]+aria-atomic="true"/i);
   assert.equal((html.match(/role="status"/g) ?? []).length, 1);
   assert.match(html, /Game loading\. Objective: wait for the career file to open\./i);
 	assert.match(html, /data-save-status="checking"/i);
@@ -257,11 +279,77 @@ test("server-renders the playable Pecking Order shell", async () => {
 	assert.match(html, /Controller: A Priority Peck/i);
 	assert.match(html, /right shoulder cycle hen/i);
 	assert.match(html, /Settings [+] controls/i);
-	assert.match(html, /Meet Mabel at her claims desk/i);
+	assert.match(html, /Meet Mabel at her peckwork desk/i);
+	assert.match(html, /Route egg files/i);
+	assert.match(html, /When the file bar enters its gold window/i);
+	assert.doesNotMatch(html, /claims desk|claim bar|alternate claim specialty/i);
 	assert.match(html, /<details id="management-handbook"[^>]+class="handbook-details">/i);
 	assert.match(html, /Management Handbook/i);
 	assert.match(html, /Optional field reference/i);
 	assert.doesNotMatch(html, /<details class="handbook-details"[^>]+open/i);
+});
+
+test("keeps routine clock churn out of the polite live region", async () => {
+	const buildAnnouncement = await liveAnnouncementBuilder();
+	const context = { loaded: true, loadError: "", loadProgress: 100 };
+	const quietAtEight = buildAnnouncement(JSON.stringify({
+		accessibility_summary: "Day 1, 8:04 AM. Feed Fund $50.00.",
+		accessibility_announcement: { kind: "", key: "", text: "" },
+	}), context);
+	const quietAtNine = buildAnnouncement(JSON.stringify({
+		accessibility_summary: "Day 1, 9:12 AM. Feed Fund $54.20.",
+		accessibility_announcement: { kind: "", key: "", text: "" },
+	}), context);
+	assert.equal(quietAtEight.key, "");
+	assert.equal(quietAtEight.text, "");
+	assert.equal(quietAtNine.key, "");
+	assert.equal(quietAtNine.text, "");
+
+	const filed = buildAnnouncement(JSON.stringify({
+		accessibility_summary: "Day 1, 9:12 AM. Feed Fund $54.20.",
+		accessibility_announcement: {
+			kind: "action_feedback",
+			key: "action_feedback:42",
+			text: "Assurance filed. Shell risk decreased by 5 percent",
+		},
+	}), context);
+	assert.equal(filed.key, "action_feedback:42");
+	assert.equal(filed.text, "Assurance filed. Shell risk decreased by 5 percent.");
+
+	const sameFiledLater = buildAnnouncement(JSON.stringify({
+		accessibility_summary: "Day 1, 10:30 AM. Feed Fund $59.00.",
+		accessibility_announcement: {
+			kind: "action_feedback",
+			key: "action_feedback:42",
+			text: "Assurance filed. Shell risk decreased by 5 percent",
+		},
+	}), context);
+	assert.equal(sameFiledLater.key, filed.key);
+	assert.equal(sameFiledLater.text, filed.text);
+
+	const heldConfirmation = buildAnnouncement(JSON.stringify({
+		accessibility_summary: "Flockwatch opened to Today's orders.",
+		accessibility_announcement: {
+			kind: "held_confirmation_claimant_path",
+			key: "held_confirmation_claimant_path:91",
+			text: (
+				"FILE HUMANE SETTLEMENT? NO CHANGE UNTIL YOU FILE. "
+				+ "Confirm: FILE SETTLEMENT. Safe return: KEEP STANDARD"
+			),
+		},
+	}), context);
+	assert.equal(heldConfirmation.key, "held_confirmation_claimant_path:91");
+	assert.match(heldConfirmation.text, /NO CHANGE UNTIL YOU FILE/i);
+	assert.match(heldConfirmation.text, /Safe return: KEEP STANDARD/i);
+	assert.doesNotMatch(heldConfirmation.text, /Flockwatch opened/i);
+
+	const loading = buildAnnouncement(undefined, {
+		loaded: false,
+		loadError: "",
+		loadProgress: 49,
+	});
+	assert.equal(loading.key, "loading:25");
+	assert.match(loading.text, /25 percent/);
 });
 
 test("narrates the visible Priority Peck recommendation without requiring hen cycling", async () => {
@@ -697,7 +785,7 @@ test("announces one-level route Undo without implying economic rollback", async 
 		},
 	}), { loaded: true, loadError: "", loadProgress: 100 });
 	assert.match(status, /Route Undo is available to restore Nest Damage/);
-	assert.match(status, /completed claim work will not be rolled back/);
+	assert.match(status, /completed file work will not be rolled back/);
 	assert.match(status, /Objective: route files and keep the objectives on track/);
 });
 
@@ -1661,7 +1749,7 @@ test("announces frozen Rooster Operations and IT Coop economics without a new sh
     next_operations_action: {
       facility_id: "it_coop",
       next_level: 3,
-      next_level_name: "Automated Claims Sorter",
+		next_level_name: "Automated File Sorter",
       can_purchase: false,
       reason: "Records Annex level 3 is required.",
       cost_cents: 18000,
@@ -1686,7 +1774,7 @@ test("announces frozen Rooster Operations and IT Coop economics without a new sh
   assert.match(farmerReview, /Density 3 managers for 4 hens, 50 meeting minutes, 2 conflicting directives, overmanaged/);
   assert.match(farmerReview, /3 management reports filed today; management reports produce zero eggs/);
   assert.match(farmerReview, /Successor slate: 3 non-incumbent candidates/);
-  assert.match(farmerReview, /Next operations gate: Automated Claims Sorter, level 3, \$180\.00 capital and \+\$4\.00 daily operating cost/);
+	assert.match(farmerReview, /Next operations gate: Automated File Sorter, level 3, \$180\.00 capital and \+\$4\.00 daily operating cost/);
   assert.match(farmerReview, /Gate: Records Annex level 3 is required/);
   assert.match(farmerReview, /open Requisitions to manage capital, provisions, and any named-hen case files/);
 

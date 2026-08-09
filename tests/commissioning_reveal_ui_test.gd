@@ -60,6 +60,15 @@ func _run() -> void:
 	_check(scroll != null and action_rail != null and not scroll.is_ancestor_of(action_rail), "held actions should remain outside the receipt scroll surface", failures)
 	_check(return_button != null and continue_button != null and return_button.focus_mode == Control.FOCUS_ALL and continue_button.focus_mode == Control.FOCUS_ALL, "both player-held actions should be keyboard focusable", failures)
 	_check(continue_button != null and root.gui_get_focus_owner() == continue_button, "the safe Continue action should receive initial focus", failures)
+	var reveal_primary := ui.primary_action_state()
+	_check(
+		String(reveal_primary.get("copy", "")) == "CONTINUE"
+		and String(reveal_primary.get("action_id", ""))
+		== "commissioning_reveal_continue"
+		and bool(reveal_primary.get("actionable", false)),
+		"commissioning receipts should publish their exact held Continue action",
+		failures,
+	)
 
 	var copied := ui.receipt_snapshot()
 	copied["cost_cents"] = 1

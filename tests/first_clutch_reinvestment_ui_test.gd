@@ -53,6 +53,7 @@ func _run() -> void:
 	var body := office.get("_decision_body") as Label
 	var confirm := office.find_child("ConfirmDecisionButton", true, false) as Button
 	var option_buttons := office.get("_decision_option_buttons") as Array
+	var guidance := office.get("_guidance_label") as Label
 	_check(
 		decision_host != null
 		and decision_host.visible
@@ -69,6 +70,42 @@ func _run() -> void:
 		and "$%.2f RESERVED" % (float(reserve) / 100.0) in body.text
 		and "$4.25" in String(body.get_meta("accessible_text", "")),
 		"body should expose created value, protected reserve, and spendable balance exactly",
+		failures,
+	)
+	var initial_next_action := office.call("_next_action_diagnostic_state") as Dictionary
+	var initial_summary := String(office.call("_web_accessibility_summary", simulation.snapshot()))
+	var initial_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+		initial_summary,
+	) as Dictionary
+	var initial_coach := office.call(
+		"_first_clutch_coach_snapshot",
+		simulation.snapshot(),
+	) as Dictionary
+	_check(
+		guidance != null
+		and guidance.text == "FIRST EGG: REWARD MABEL OR BANK"
+		and String(initial_next_action.get("copy", "")) == guidance.text
+		and String(initial_next_action.get("action_id", "")) == "decision"
+		and "Choose where Mabel's first egg goes" in String(initial_next_action.get("accessible_text", ""))
+		and "INCIDENT" not in String(initial_next_action.get("copy", "")),
+		"the global next action should name the visible first-egg decision instead of misclassifying it as an incident",
+		failures,
+	)
+	_check(
+		String(initial_coach.get("guidance", ""))
+		== "Choose where Mabel's first egg goes, then authorize; today's three orders will open.",
+		"First Clutch guidance should retain the required choose-then-authorize sequence",
+		failures,
+	)
+	_check(
+		"Objective: choose where the first egg goes" in initial_summary
+		and "choose a response" not in initial_summary
+		and String(initial_announcement.get("kind", "")) == "management_decision"
+		and "Objective: choose where the first egg goes" in String(initial_announcement.get("text", ""))
+		and "review the response" not in String(initial_announcement.get("text", "")),
+		"first-egg summary and live narration should use the authored reinvestment objective",
 		failures,
 	)
 	_check(option_buttons.size() == 3, "offer should contain two requisitions plus Bank", failures)
@@ -125,10 +162,22 @@ func _run() -> void:
 		failures,
 	)
 	var selected_diagnostic := office.call("_pending_decision_diagnostic_state") as Dictionary
+	var selected_next_action := office.call("_next_action_diagnostic_state") as Dictionary
 	_check(
 		String(selected_diagnostic.get("prompt", "")).begins_with("SELECTED")
 		and "INSTALL" in String(selected_diagnostic.get("confirm_label", "")),
 		"diagnostic state should mirror the selected card preview and exact authorization action",
+		failures,
+	)
+	_check(
+		guidance != null
+		and guidance.text == "FIRST EGG: %s" % String(selected_diagnostic.get("confirm_label", ""))
+		and String(selected_next_action.get("copy", "")) == guidance.text
+		and (
+			"Press Enter to %s" % String(selected_diagnostic.get("confirm_label", ""))
+			in String(selected_next_action.get("accessible_text", ""))
+		),
+		"selecting a first-egg option should advance the global action to the exact visible authorization",
 		failures,
 	)
 	var enter := InputEventKey.new()
@@ -155,14 +204,15 @@ func _run() -> void:
 		failures,
 	)
 	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
-	var guidance := office.get("_guidance_label") as Label
 	var flockwatch_hint := OfficeActionCatalog.binding_label(&"toggle_flockwatch")
 	_check(
 		flockwatch_toggle != null
-		and flockwatch_toggle.text == "TODAY'S 3 ORDERS  [%s]" % flockwatch_hint
+		and flockwatch_toggle.text == "3 ORDERS  [%s]" % flockwatch_hint.split(" / ", false)[0]
+		and String(flockwatch_toggle.get_meta("full_text", "")) == "TODAY'S 3 ORDERS  [%s]" % flockwatch_hint
+		and String(flockwatch_toggle.get_meta("accessible_text", "")).contains("TODAY'S 3 ORDERS")
 		and guidance != null
 		and guidance.text == "ORDERS READY  >  OPEN  [%s]" % flockwatch_hint,
-		"closing the reward card should expose one consistent orders action in the HUD and guidance rail",
+		"closing the reward card should expose a compact orders action with full assistive meaning and matching guidance",
 		failures,
 	)
 	var handoff_coach := office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
@@ -205,7 +255,8 @@ func _run() -> void:
 		and String(order_driver.get_meta("driver_action_id", "")) != ""
 		and guidance.text == "ORDER PICKED  >  SHOW HEN ROUTES"
 		and orders_heading != null
-		and orders_heading.text == "3 GOALS  ·  PICK ONE  ·  +9",
+		and orders_heading.text == "3 ACTIVE GOALS  ·  +9 SCORE"
+		and "All 3 goals are active" in String(orders_heading.get_meta("accessible_text", "")),
 		"opening the released orders should select the first actionable card and expose its live driver: %s" % JSON.stringify(order_handoff_diagnostic),
 		failures,
 	)

@@ -31,7 +31,7 @@ const CAMPAIGN_GLANCE_LABELS := {
 const CAMPAIGN_ACTIONS := {
 	&"layer_profile": "CREDIT LAYER",
 	&"clutch_results_board": "POST RESULTS",
-	&"farmer_method": "CLAIM METHOD",
+	&"farmer_method": "FARMER METHOD",
 }
 
 const COLOR_INK := Color("e9edf0")

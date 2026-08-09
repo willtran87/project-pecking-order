@@ -38,6 +38,7 @@ func _run() -> void:
 	var character_dialogue_dismiss := office.find_child(
 		"CharacterDialogueDismiss", true, false
 	) as Button
+	var pause_toggle := office.find_child("SpeedButton_0", true, false) as Button
 
 	_check(simulation != null, "office should expose its authoritative simulation", failures)
 	_check(clock != null and clock.speed_index == 0, "morning briefing should pause the simulation clock", failures)
@@ -184,6 +185,36 @@ func _run() -> void:
 		"selected policy should show one plain result while retaining exact fit for assistive output",
 		failures,
 	)
+	var selected_policy_action := office.call(
+		"_next_action_diagnostic_state",
+	) as Dictionary
+	var selected_policy_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+	) as Dictionary
+	var selected_policy_summary := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		String(selected_policy_action.get("copy", ""))
+		== confirm_button.text
+		and String(selected_policy_action.get("visible_label", ""))
+		== confirm_button.text
+		and String(selected_policy_action.get("stage", "")) == "confirm"
+		and ("Press Enter to %s" % confirm_button.text.replace("  ", " "))
+		in selected_policy_summary
+		and "choose a response" not in selected_policy_summary.to_lower()
+		and ("Press Enter to %s" % confirm_button.text.replace("  ", " "))
+		in String(selected_policy_announcement.get("text", "")),
+		"selected policy guidance, inspection summary, and live narration should advance to the exact visible start action (action=%s summary=%s announcement=%s)"
+		% [
+			JSON.stringify(selected_policy_action),
+			selected_policy_summary,
+			JSON.stringify(selected_policy_announcement),
+		],
+		failures,
+	)
 	_check(
 		decision_order_heading != null
 		and decision_order_heading.text == "TODAY'S GOALS  ·  + HELPS  ·  ! RISKS"
@@ -298,6 +329,20 @@ func _run() -> void:
 	_check(clock.speed_index == 0, "incident card should auto-pause the clock", failures)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_INCIDENT, "incident should block the running phase until resolved", failures)
 	_check(stay_paused_button != null and stay_paused_button.visible, "incident card should offer a stay-paused resolution", failures)
+	var incident_pause_context := office.call("_pause_context_state") as Dictionary
+	_check(
+		pause_toggle != null
+		and pause_toggle.text == "PAUSED"
+		and pause_toggle.disabled
+		and StringName(pause_toggle.get_meta("clock_action", &"")) == &"blocked"
+		and StringName(pause_toggle.get_meta("pause_owner_id", &"")) == &"incident"
+		and "Next action: INCIDENT: CHOOSE A RESPONSE" in pause_toggle.tooltip_text
+		and String(incident_pause_context.get("owner_id", "")) == "incident"
+		and String(incident_pause_context.get("next_action", "")) == "INCIDENT: CHOOSE A RESPONSE"
+		and not bool(incident_pause_context.get("speed_button_actionable", true)),
+		"incident auto-pause should replace the misleading Resume control with its owner and exact response action",
+		failures,
+	)
 
 	var spreadsheet_button := office.find_child("DecisionOption_spreadsheet", true, false) as Button
 	var patch_button := office.find_child("DecisionOption_patch", true, false) as Button
@@ -372,6 +417,31 @@ func _run() -> void:
 		"selected incidents should show exact effects without repeated prose while assistive output retains it",
 		failures,
 	)
+	var selected_incident_action := office.call(
+		"_next_action_diagnostic_state",
+	) as Dictionary
+	var selected_incident_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+	) as Dictionary
+	var selected_incident_summary := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		String(selected_incident_action.get("copy", ""))
+		== confirm_button.text
+		and String(selected_incident_action.get("visible_label", ""))
+		== confirm_button.text
+		and String(selected_incident_action.get("stage", "")) == "confirm"
+		and ("Press Enter to %s" % confirm_button.text.replace("  ", " "))
+		in selected_incident_summary
+		and "choose a response" not in selected_incident_summary.to_lower()
+		and ("Press Enter to %s" % confirm_button.text.replace("  ", " "))
+		in String(selected_incident_announcement.get("text", "")),
+		"selected incident guidance, inspection summary, and live narration should advance to the exact visible resolution action",
+		failures,
+	)
 	_check(not stay_paused_button.disabled, "selecting an incident response should enable stay-paused resolution", failures)
 	_press(stay_paused_button)
 	await process_frame
@@ -381,6 +451,16 @@ func _run() -> void:
 	if character_dialogue_panel != null and character_dialogue_panel.visible:
 		_press(character_dialogue_dismiss)
 		await process_frame
+	var settled_pause_context := office.call("_pause_context_state") as Dictionary
+	_check(
+		pause_toggle.text == "RESUME"
+		and not pause_toggle.disabled
+		and StringName(pause_toggle.get_meta("clock_action", &"")) == &"resume"
+		and String(settled_pause_context.get("owner_id", "")) == "player"
+		and bool(settled_pause_context.get("speed_button_actionable", false)),
+		"choosing resolve-and-stay-paused should return pause ownership and Resume to the player",
+		failures,
+	)
 
 	# Resume at 3x, then prove the second incident remembers and restores that speed.
 	clock.set_speed(2)
@@ -442,6 +522,17 @@ func _run() -> void:
 	var reward_button := office.find_child("DecisionOption_reward_top_layer", true, false) as Button
 	_check(reward_button != null and not reward_button.disabled, "individual merit should be a valid closing attribution", failures)
 	_press(reward_button)
+	var selected_credit_action := office.call(
+		"_next_action_diagnostic_state",
+	) as Dictionary
+	_check(
+		String(selected_credit_action.get("copy", "")) == "FILE CREDIT MEMO"
+		and String(selected_credit_action.get("visible_label", ""))
+		== confirm_button.text
+		and String(selected_credit_action.get("stage", "")) == "confirm",
+		"selected closing credit should advance to the exact visible filing action",
+		failures,
+	)
 	_press(confirm_button)
 	await process_frame
 	_check(not decision_host.visible, "filed credit memo should close its dossier", failures)

@@ -1,0 +1,82 @@
+name: Quality gate
+
+on:
+  push:
+    branches: [main, "codex/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  native-economic-integrity:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache pinned Godot 4.7 runtime
+        id: cache-godot
+        uses: actions/cache@v4
+        with:
+          path: .ci/godot/4.7
+          key: godot-4.7-stable-win64-02a5312236f4e0209c78bcb2f52135b1963e6b8888c873c9cee81459e60bcd71
+      - name: Install checksum-verified Godot 4.7 runtime
+        if: steps.cache-godot.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "Godot_v4.7-stable_win64.exe.zip"
+          $destination = Join-Path $PWD ".ci/godot/4.7"
+          $expectedSha256 = "02A5312236F4E0209C78BCB2F52135B1963E6B8888C873C9CEE81459E60BCD71"
+          Invoke-WebRequest `
+            -Uri "https://github.com/godotengine/godot-builds/releases/download/4.7-stable/Godot_v4.7-stable_win64.exe.zip" `
+            -OutFile $archive
+          $actualSha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+          if ($actualSha256 -ne $expectedSha256) {
+            throw "Godot archive checksum mismatch: $actualSha256"
+          }
+          New-Item -ItemType Directory -Path $destination -Force | Out-Null
+          Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
+      - name: Verify native economy, balance, persistence, and recovery
+        shell: pwsh
+        run: |
+          $godot = (Resolve-Path ".ci/godot/4.7/Godot_v4.7-stable_win64_console.exe").Path
+          $tests = @(
+            "campaign_balance_playthrough_test.gd",
+            "campaign_save_store_test.gd",
+            "campaign_semantic_recovery_test.gd",
+            "checkpoint_office_integration_test.gd",
+            "interaction_safety_contract_test.gd",
+            "operations_economy_test.gd",
+            "simulation_persistence_test.gd"
+          )
+          ./tools/run_godot_test_shard.ps1 `
+            -Shard 0 `
+            -Modulo 1 `
+            -OutputDirectory "output/ci/native-economic-integrity" `
+            -TimeoutSeconds 300 `
+            -Godot $godot `
+            -TestNames $tests
+      - name: Upload native integrity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-economic-integrity
+          path: output/ci/native-economic-integrity
+          if-no-files-found: error
+
+  web-and-release-parity:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install Web dependencies
+        working-directory: web
+        run: npm ci
+      - name: Verify rendered Web behavior, accessibility, lint, and release parity
+        shell: pwsh
+        run: ./tools/verify_beta_release.ps1 -SkipGodot

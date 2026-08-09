@@ -151,6 +151,9 @@ func _migrate_legacy_preferences(source: Dictionary, from_version: int) -> Dicti
 	if version == 8:
 		migrated["settings_category"] = "comfort"
 		version = 9
+	if version == 9:
+		migrated["guidance_mode"] = "full"
+		version = 10
 	if version != PlayerPreferencesStoreScript.CURRENT_SCHEMA_VERSION:
 		return {}
 	return migrated if PlayerPreferencesStoreScript.validate(migrated).is_empty() else {}
@@ -175,6 +178,8 @@ func _matches_legacy_schema(preferences: Dictionary, version: int) -> bool:
 		expected.append_array(["particle_level", "camera_motion", "camera_sensitivity"])
 	if version >= 9:
 		expected.append("settings_category")
+	if version >= 10:
+		expected.append("guidance_mode")
 	if not _has_exact_keys(preferences, expected):
 		return false
 	var audio_value: Variant = preferences.get("audio", null)

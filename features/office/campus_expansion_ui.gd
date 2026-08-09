@@ -125,6 +125,51 @@ func is_open() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_open():
+		return {}
+	var pod := _model.routing_pod()
+	var target := _relocate_button if bool(pod.get("placed", false)) else _place_button
+	var action_id := (
+		"campus_expansion_relocate"
+		if bool(pod.get("placed", false)) else
+		"campus_expansion_place"
+	)
+	if target == null or target.disabled or not target.is_visible_in_tree():
+		target = _close_button
+		action_id = "campus_expansion_return"
+	if target == null or not target.is_visible_in_tree():
+		return {}
+	var copy := target.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": action_id,
+		"actionable": not target.disabled,
+		"semantic_icon": "safe_return" if target == _close_button else "capital",
+		"icon_visible": target.icon != null,
+		"accessible_text": (
+			target.tooltip_text.strip_edges()
+			if not target.tooltip_text.strip_edges().is_empty() else
+			copy
+		),
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	var action_id := String(state.get("action_id", ""))
+	var target := _place_button
+	if action_id == "campus_expansion_relocate":
+		target = _relocate_button
+	elif action_id == "campus_expansion_return":
+		target = _close_button
+	target.grab_focus()
+	return true
+
+
 func selected_socket_id() -> StringName:
 	return _selected_socket_id
 
@@ -167,7 +212,10 @@ func presentation_state() -> Dictionary:
 func accessible_text() -> String:
 	var parts: Array[String] = [
 		"CAMPUS EXPANSION",
-		_header_status.text,
+		String(_header_status.get_meta(
+			"accessible_text",
+			_header_status.tooltip_text if not _header_status.tooltip_text.is_empty() else _header_status.text,
+		)),
 		_parcel_title.text,
 		_parcel_status.text,
 		_parcel_costs.text,
@@ -191,6 +239,15 @@ func accessible_text() -> String:
 	parts.append(_benefit_summary.text)
 	parts.append(_selection_summary.text)
 	return "; ".join(parts).replace("\n", "; ")
+
+
+func present_action_hold(copy: String, detail: String) -> void:
+	if _header_status == null:
+		return
+	_header_status.text = copy
+	_header_status.tooltip_text = detail
+	_header_status.set_meta("accessible_text", detail)
+	_header_status.add_theme_color_override("font_color", COLOR_RUST)
 
 
 func _build_interface() -> void:
@@ -525,6 +582,7 @@ func _refresh() -> void:
 
 
 func _refresh_header() -> void:
+	_header_status.add_theme_color_override("font_color", COLOR_TEAL)
 	var parcel := _model.parcel()
 	var pod := _model.routing_pod()
 	_header_status.text = "NORTH MEADOW / %s / POD %s" % [
@@ -533,6 +591,8 @@ func _refresh_header() -> void:
 		if bool(pod.get("placed", false)) else
 		"UNPLACED",
 	]
+	_header_status.tooltip_text = _header_status.text
+	_header_status.set_meta("accessible_text", _header_status.text)
 
 
 func _refresh_parcel() -> void:

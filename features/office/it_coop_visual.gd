@@ -548,7 +548,7 @@ func _build_automated_sorter(parent: Node3D) -> void:
 	_patch_invoice_root.set_meta(&"authoritative_records_only", true)
 	sorter.add_child(_patch_invoice_root)
 	var plate := _add_box(parent, "AutomatedClaimsSorterPlateHost", Vector3(2.30, 0.29, 0.08), Vector3(1.78, 2.76, -2.58), DEEP_TEAL, 0.74)
-	EnvironmentalSignageScript.add_panel(plate, "AutomatedClaimsSorterPlate", "AUTOMATED CLAIMS SORTER", Vector3(0.0, 0.0, 0.047), Vector2(2.08, 0.20), DEEP_TEAL, CREAM, Vector3.ZERO, 11, 0.0023, &"utility", &"machine")
+	EnvironmentalSignageScript.add_panel(plate, "AutomatedClaimsSorterPlate", "AUTOMATED FILE SORTER", Vector3(0.0, 0.0, 0.047), Vector2(2.08, 0.20), DEEP_TEAL, CREAM, Vector3.ZERO, 11, 0.0023, &"utility", &"machine")
 
 
 func _apply_visibility() -> void:

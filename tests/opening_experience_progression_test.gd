@@ -288,14 +288,15 @@ func _run() -> void:
 		and shift_egg_goal_icon.icon_kind() == &"egg"
 		and shift_quota_progress != null
 		and shift_quota_readout != null
-		and shift_quota_readout.text == "%d / %d" % [
+		and shift_quota_readout.text == "QUOTA  ·  %d / %d" % [
 			roundi(shift_quota_progress.value),
 			roundi(shift_quota_progress.max_value),
 		]
-		and "remaining this shift" in shift_quota_progress.tooltip_text
+		and "Shift quota" in shift_quota_progress.tooltip_text
+		and "separate from Flockwatch score goals" in shift_quota_progress.tooltip_text
 		and shift_quota_progress.accessibility_name == shift_quota_progress.tooltip_text
 		and shift_quota_readout.accessibility_name == shift_quota_progress.tooltip_text,
-		"the always-visible shift goal should use an egg shape and keep exact laid/remaining context accessible",
+		"the always-visible shift quota should name its role and distinguish itself from scored Flockwatch goals",
 		failures,
 	)
 	campaign_ui.show_active_campaign()

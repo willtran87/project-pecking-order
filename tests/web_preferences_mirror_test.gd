@@ -20,6 +20,7 @@ func _init() -> void:
 	)
 	_expect(mirror.decode(payload) == preferences, "valid preferences round-trip exactly")
 	var legacy_v2 := preferences.duplicate(true)
+	legacy_v2.erase("guidance_mode")
 	legacy_v2.erase("settings_category")
 	legacy_v2.erase("notice_level")
 	legacy_v2.erase("notice_duration")
@@ -43,6 +44,7 @@ func _init() -> void:
 		"unversioned schema-two mirrors preserve the combined music and ambience setting",
 	)
 	var legacy_v3 := preferences.duplicate(true)
+	legacy_v3.erase("guidance_mode")
 	legacy_v3.erase("settings_category")
 	legacy_v3.erase("notice_level")
 	legacy_v3.erase("notice_duration")
@@ -66,6 +68,7 @@ func _init() -> void:
 		"schema-three mirrors should gain the non-interrupting-compatible all-notices default",
 	)
 	var legacy_v4 := preferences.duplicate(true)
+	legacy_v4.erase("guidance_mode")
 	legacy_v4.erase("settings_category")
 	legacy_v4.erase("notice_duration")
 	legacy_v4.erase("effect_level")
@@ -90,6 +93,7 @@ func _init() -> void:
 		"schema-four mirrors should gain safe feedback pacing and supported-device haptics defaults",
 	)
 	var legacy_v5 := preferences.duplicate(true)
+	legacy_v5.erase("guidance_mode")
 	legacy_v5.erase("settings_category")
 	legacy_v5.erase("animation_speed")
 	legacy_v5.erase("tooltip_delay")
@@ -110,6 +114,7 @@ func _init() -> void:
 		"schema-five mirrors should gain independent standard presentation timing defaults",
 	)
 	var legacy_v6 := preferences.duplicate(true)
+	legacy_v6.erase("guidance_mode")
 	legacy_v6.erase("settings_category")
 	legacy_v6.erase("particle_level")
 	legacy_v6.erase("camera_motion")
@@ -129,6 +134,7 @@ func _init() -> void:
 		"schema-six browser mirrors preserve the old UI mix across both semantic channels",
 	)
 	var legacy_v7 := preferences.duplicate(true)
+	legacy_v7.erase("guidance_mode")
 	legacy_v7.erase("settings_category")
 	legacy_v7.erase("particle_level")
 	legacy_v7.erase("camera_motion")
@@ -146,6 +152,7 @@ func _init() -> void:
 		"schema-seven browser mirrors gain independent comfort controls without changing presentation",
 	)
 	var legacy_v8 := preferences.duplicate(true)
+	legacy_v8.erase("guidance_mode")
 	legacy_v8.erase("settings_category")
 	var migrated_v8 := mirror.decode(JSON.stringify({
 		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
@@ -155,6 +162,17 @@ func _init() -> void:
 	_expect(
 		String(migrated_v8.get("settings_category", "")) == "comfort",
 		"schema-eight browser mirrors should gain the neutral Comfort and Display view",
+	)
+	var legacy_v9 := preferences.duplicate(true)
+	legacy_v9.erase("guidance_mode")
+	var migrated_v9 := mirror.decode(JSON.stringify({
+		"format": WebPreferencesMirrorScript.MIRROR_FORMAT,
+		"schema_version": 9,
+		"preferences": legacy_v9,
+	}))
+	_expect(
+		String(migrated_v9.get("guidance_mode", "")) == "full",
+		"schema-nine browser mirrors should preserve the prior full-coach behavior",
 	)
 	_expect(mirror.decode("[]").is_empty(), "array roots are rejected")
 	_expect(not mirror.last_error.is_empty(), "invalid roots disclose an error")
@@ -173,7 +191,7 @@ func _init() -> void:
 	})
 	_expect(mirror.decode(future_payload).is_empty(), "future mirror schemas are rejected")
 	if _failures == 0:
-		print("WEB_PREFERENCES_MIRROR_TEST_PASSED assertions=16 envelope=versioned legacy=v2-music-ambience+v3-notices+v4-feedback+v5-timing+v6-semantic-audio+v7-camera-particles+v8-categories")
+		print("WEB_PREFERENCES_MIRROR_TEST_PASSED envelope=versioned legacy=v2-music-ambience+v3-notices+v4-feedback+v5-timing+v6-semantic-audio+v7-camera-particles+v8-categories+v9-guidance")
 	quit(_failures)
 
 

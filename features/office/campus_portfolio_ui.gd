@@ -159,6 +159,47 @@ func is_open() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_open():
+		return {}
+	var target := _action_button
+	var action_id := "campus_portfolio_file"
+	var detail := (
+		_action_summary.text.strip_edges()
+		if _action_summary != null else
+		"File the selected campus plan."
+	)
+	if target == null or target.disabled or not target.is_visible_in_tree():
+		target = _return_button
+		action_id = "campus_portfolio_return"
+		detail = "Return to Capital Blueprint with every campus filing preserved."
+	if target == null or not target.is_visible_in_tree():
+		return {}
+	var copy := target.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": action_id,
+		"actionable": not target.disabled,
+		"semantic_icon": "safe_return" if target == _return_button else "capital",
+		"icon_visible": target.icon != null,
+		"accessible_text": detail,
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	var target := (
+		_return_button
+		if String(state.get("action_id", "")) == "campus_portfolio_return" else
+		_action_button
+	)
+	target.grab_focus()
+	return true
+
+
 func layout_mode_name() -> StringName:
 	return _layout_mode
 
@@ -225,7 +266,13 @@ func presentation_state() -> Dictionary:
 
 
 func accessible_text() -> String:
-	var pieces: Array[String] = [_model.accessible_summary()]
+	var pieces: Array[String] = [
+		String(_header_status.get_meta(
+			"accessible_text",
+			_header_status.tooltip_text if not _header_status.tooltip_text.is_empty() else _header_status.text,
+		)),
+		_model.accessible_summary(),
+	]
 	for parcel_record: Dictionary in _model.parcels():
 		pieces.append("%s, %s." % [String(parcel_record.get("name", "Parcel")), String(parcel_record.get("status_label", "HELD"))])
 	for project_record: Dictionary in _model.projects():
@@ -238,6 +285,15 @@ func accessible_text() -> String:
 		if label != null and not label.text.strip_edges().is_empty():
 			pieces.append(label.text.replace("\n", "; "))
 	return " ".join(pieces)
+
+
+func present_action_hold(copy: String, detail: String) -> void:
+	if _header_status == null:
+		return
+	_header_status.text = copy
+	_header_status.tooltip_text = detail
+	_header_status.set_meta("accessible_text", detail)
+	_header_status.add_theme_color_override("font_color", COLOR_RUST)
 
 
 func _build_interface() -> void:
@@ -554,12 +610,15 @@ func _refresh() -> void:
 func _refresh_header() -> void:
 	if _header_status == null:
 		return
+	_header_status.add_theme_color_override("font_color", COLOR_TEAL)
 	var active := _model.projects().size()
 	_header_status.text = "%d PARCELS  /  %d ACTIVE PROJECT%s" % [
 		_model.parcels().size(),
 		active,
 		"" if active == 1 else "S",
 	]
+	_header_status.tooltip_text = _header_status.text
+	_header_status.set_meta("accessible_text", _header_status.text)
 
 
 func _refresh_resources() -> void:
@@ -892,7 +951,7 @@ func _compact_effect_copy(source: String) -> String:
 	var upper := source.to_upper()
 	var values := _number_tokens(upper)
 	if "CLAIM" in upper and not values.is_empty():
-		return "CLAIMS\n+%s LIVE" % values[0].trim_suffix("%")
+		return "FILES\n+%s LIVE" % values[0].trim_suffix("%")
 	if "$" in upper and "EGG" in upper and not values.is_empty():
 		return "EGG VALUE\n+$%s" % values[0].trim_suffix("%")
 	if "STORAGE" in upper and "SCOOP" in upper and not values.is_empty():

@@ -8,6 +8,7 @@ extends Control
 ## and shift transitions remain authoritative intent signals for the caller.
 
 signal contract_selected(offer_id: StringName)
+signal presentation_state_changed
 signal contract_sign_requested(
 	offer_id: StringName,
 	clause_id: StringName,
@@ -191,6 +192,141 @@ func presentation_state() -> Dictionary:
 		"decline_pending": _decline_pending,
 		"continue_enabled": _continue_button != null and not _continue_button.disabled,
 		"signed_contract": _signed_contract_receipt(),
+	}
+
+
+## One authoritative read model keeps the fixed action rail, global guidance,
+## browser diagnostics, and assistive narration on the same reachable control.
+## A disabled Sign button is never advertised as the current action.
+func primary_action_state() -> Dictionary:
+	if _continue_button != null and _continue_button.visible and not _continue_button.disabled:
+		return _button_action_state(
+			_continue_button,
+			&"campaign_contract_continue",
+			&"advance_arrow",
+			"File the signed or declined receipt and open the next morning briefing.",
+		)
+	if _signature_pending:
+		return {
+			"copy": _sign_button.text if _sign_button != null else "SIGNATURE SENT  //  AWAITING RECEIPT",
+			"action_id": "",
+			"actionable": false,
+			"visible_label": _sign_button.text if _sign_button != null else "SIGNATURE SENT  //  AWAITING RECEIPT",
+			"semantic_icon": "files",
+			"icon_visible": true,
+			"accessible_text": "Signature sent. Await the authoritative Farm Mutual receipt; duplicate filing is locked.",
+		}
+	if _decline_pending:
+		return {
+			"copy": "STANDARD BOOK REQUEST SENT  //  AWAITING RECEIPT",
+			"action_id": "",
+			"actionable": false,
+			"visible_label": "STANDARD BOOK REQUEST SENT  //  AWAITING RECEIPT",
+			"semantic_icon": "files",
+			"icon_visible": true,
+			"accessible_text": "Standard-book request sent. Await the authoritative decline receipt; duplicate filing is locked.",
+		}
+	if _selected_offer_id == &"":
+		var offer_count := _offer_buttons.size()
+		return {
+			"copy": "NEXT: PICK A CLIENT",
+			"action_id": "campaign_contract_offer",
+			"actionable": _first_offer_button() != null,
+			"visible_label": "PICK A CLIENT",
+			"semantic_icon": "files",
+			"icon_visible": true,
+			"accessible_text": "Choose one of %d client binders, then compare its exact reward, loss, workload, and signing terms." % offer_count,
+		}
+	if _sign_button != null and _sign_button.visible and not _sign_button.disabled:
+		return _button_action_state(
+			_sign_button,
+			&"campaign_contract_sign",
+			&"cash",
+			"Sign the selected binder with its disclosed reward, loss, workload, and pricing terms.",
+		)
+	var alternate := _first_signable_offer_button()
+	if alternate != null:
+		var hold_reason := (
+			_terms_reason.text.strip_edges()
+			if _terms_reason != null and _terms_reason.is_visible_in_tree() else
+			"The selected client cannot be signed under the current terms."
+		)
+		return {
+			"copy": "NEXT: PICK ANOTHER CLIENT",
+			"action_id": "campaign_contract_offer",
+			"actionable": true,
+			"visible_label": alternate.text,
+			"semantic_icon": "files",
+			"icon_visible": true,
+			"accessible_text": "%s Choose another available client binder." % hold_reason,
+		}
+	if _decline_button != null and _decline_button.visible and not _decline_button.disabled:
+		return _button_action_state(
+			_decline_button,
+			&"campaign_contract_decline",
+			&"return_arrow",
+			"Keep the standard book and proceed without an outside Farm Mutual binder.",
+		)
+	return {
+		"copy": "CONTRACT BOARD HELD",
+		"action_id": "",
+		"actionable": false,
+		"visible_label": _sign_button.text if _sign_button != null else "CONTRACT BOARD HELD",
+		"semantic_icon": "files",
+		"icon_visible": true,
+		"accessible_text": (
+			_terms_reason.text.strip_edges()
+			if _terms_reason != null and _terms_reason.is_visible_in_tree() else
+			"No client binder can currently be filed. Review the visible hold requirements."
+		),
+	}
+
+
+func focus_primary_action() -> bool:
+	var action := primary_action_state()
+	if action.is_empty() or not bool(action.get("actionable", false)):
+		return false
+	match StringName(action.get("action_id", &"")):
+		&"campaign_contract_continue":
+			_continue_button.grab_focus()
+			return true
+		&"campaign_contract_sign":
+			_sign_button.grab_focus()
+			return true
+		&"campaign_contract_decline":
+			_decline_button.grab_focus()
+			return true
+		&"campaign_contract_offer":
+			var target := _first_signable_offer_button()
+			if target == null:
+				target = _first_offer_button()
+			if target != null:
+				target.grab_focus()
+				return true
+	return false
+
+
+func _button_action_state(
+	button: Button,
+	action_id: StringName,
+	semantic_icon: StringName,
+	fallback_accessible_text: String,
+) -> Dictionary:
+	var detail := String(button.get_meta(
+		"accessible_text",
+		button.tooltip_text if not button.tooltip_text.is_empty() else fallback_accessible_text,
+	)).strip_edges()
+	return {
+		"copy": button.text,
+		"action_id": String(action_id),
+		"actionable": button.is_visible_in_tree() and not button.disabled,
+		"visible_label": button.text,
+		"semantic_icon": String(semantic_icon),
+		"icon_visible": true,
+		"accessible_text": "Activate %s. %s" % [
+			button.text.replace("  ", " "),
+			detail,
+		],
 	}
 
 
@@ -1414,6 +1550,7 @@ func _on_offer_pressed(offer_id: StringName) -> void:
 	_refresh_selection()
 	_refresh_actions(_signed_contract_receipt(), _decline_receipt())
 	contract_selected.emit(offer_id)
+	presentation_state_changed.emit()
 	if _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
 
@@ -1427,6 +1564,7 @@ func _on_sign_pressed() -> void:
 		return
 	_signature_pending = true
 	_refresh_actions({}, {})
+	presentation_state_changed.emit()
 	contract_sign_requested.emit(
 		_selected_offer_id,
 		_selected_clause_id(),
@@ -1445,6 +1583,7 @@ func _on_negotiation_toggle_pressed() -> void:
 		_queue_focus(selected_button)
 	elif _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
+	presentation_state_changed.emit()
 
 
 func _on_clause_pressed(clause_id: StringName) -> void:
@@ -1460,6 +1599,7 @@ func _on_clause_pressed(clause_id: StringName) -> void:
 	_signature_pending = false
 	_refresh_selection()
 	_refresh_actions(_signed_contract_receipt(), _decline_receipt())
+	presentation_state_changed.emit()
 	if _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
 
@@ -1471,6 +1611,7 @@ func _on_reset_clause_pressed() -> void:
 	_signature_pending = false
 	_refresh_selection()
 	_refresh_actions(_signed_contract_receipt(), _decline_receipt())
+	presentation_state_changed.emit()
 	if _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
 
@@ -1485,6 +1626,7 @@ func _on_pricing_pressed(pricing_id: StringName) -> void:
 	_signature_pending = false
 	_refresh_selection()
 	_refresh_actions(_signed_contract_receipt(), _decline_receipt())
+	presentation_state_changed.emit()
 	if _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
 
@@ -1500,6 +1642,7 @@ func _on_decline_pressed() -> void:
 		return
 	_decline_pending = true
 	_refresh_actions({}, {})
+	presentation_state_changed.emit()
 	decline_requested.emit()
 
 
@@ -1738,6 +1881,19 @@ func _first_offer_button() -> Button:
 	for child: Node in _offer_cards.get_children():
 		if child is Button:
 			return child as Button
+	return null
+
+
+func _first_signable_offer_button() -> Button:
+	for child: Node in _offer_cards.get_children():
+		if not child is Button:
+			continue
+		var button := child as Button
+		var offer_id := StringName(button.get_meta("offer_id", &""))
+		if offer_id == _selected_offer_id:
+			continue
+		if bool(button.get_meta("can_sign", false)):
+			return button
 	return null
 
 

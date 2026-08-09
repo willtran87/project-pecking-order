@@ -74,7 +74,7 @@ const ASSIGNMENT_ORDER: Array[StringName] = [
 
 const ASSIGNMENTS := {
 	&"guided_shadow": {
-		"label": "GUIDED CLAIM SHADOW",
+		"label": "GUIDED FILE SHADOW",
 		"promise": "Learn the full file lifecycle beside the flock.",
 		"disclosure": "+1 live-file capacity; +1% flock work. No shell-risk change.",
 		"capacity_bonus": 1,

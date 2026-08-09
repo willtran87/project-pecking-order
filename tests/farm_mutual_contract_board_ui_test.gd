@@ -75,6 +75,19 @@ func _run() -> void:
 	var selection_hint := ui.find_child("ContractSelectionHint", true, false) as Label
 
 	_check(panel != null and panel.is_visible_in_tree(), "planning snapshot should reveal the Farm Mutual panel", failures)
+	var initial_primary_action := ui.primary_action_state()
+	_check(
+		String(initial_primary_action.get("copy", "")) == "NEXT: PICK A CLIENT"
+		and String(initial_primary_action.get("action_id", "")) == "campaign_contract_offer"
+		and bool(initial_primary_action.get("actionable", false))
+		and "reward, loss, workload, and signing terms" in String(
+			initial_primary_action.get("accessible_text", "")
+		)
+		and ui.focus_primary_action()
+		and root.gui_get_focus_owner() == offer_buttons[0],
+		"global contract guidance should name and focus the first real client choice",
+		failures,
+	)
 	_check(scroll != null and scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "board should own an automatic vertical scroll path", failures)
 	_check(scroll != null and scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "responsive board should never depend on horizontal scrolling", failures)
 	_check(target_day != null and target_day.text == "DAY 3", "board should name the exact next shift", failures)
@@ -192,6 +205,19 @@ func _run() -> void:
 	_check(sign_requests.is_empty(), "numeric folder selection must never authorize a liability", failures)
 	_check(terms_card != null and terms_card.visible, "selection should open one complete Terms card", failures)
 	_check(sign_button != null and not sign_button.disabled and _shortcut_has_key(sign_button, KEY_ENTER), "selected affordable folder should enable explicit Enter signing", failures)
+	var sign_primary_action := ui.primary_action_state()
+	_check(
+		String(sign_primary_action.get("copy", "")) == sign_button.text
+		and String(sign_primary_action.get("action_id", "")) == "campaign_contract_sign"
+		and bool(sign_primary_action.get("actionable", false))
+		and String(sign_primary_action.get("accessible_text", "")).begins_with(
+			"Activate SIGN PREDATOR POOL [ENTER]."
+		)
+		and ui.focus_primary_action()
+		and root.gui_get_focus_owner() == sign_button,
+		"selected binder guidance should advance to and focus the exact visible Sign action",
+		failures,
+	)
 	_check(negotiation_toggle != null and negotiation_toggle.visible, "an opened binder with authored clauses should reveal its N negotiation control", failures)
 	_check(
 		terms_detail_toggle != null
@@ -270,6 +296,14 @@ func _run() -> void:
 		failures,
 	)
 	_check(sign_button != null and sign_button.disabled and "AWAITING RECEIPT" in sign_button.text, "sign intent should lock against replay while awaiting authority", failures)
+	var pending_primary_action := ui.primary_action_state()
+	_check(
+		String(pending_primary_action.get("copy", "")) == sign_button.text
+		and not bool(pending_primary_action.get("actionable", true))
+		and String(pending_primary_action.get("action_id", "")).is_empty(),
+		"pending signature guidance should expose the visible receipt wait without a replay action",
+		failures,
+	)
 	_check(continue_button != null and continue_button.disabled, "sign intent alone must not unlock Continue", failures)
 	_press_key(KEY_ENTER)
 	await process_frame
@@ -291,6 +325,16 @@ func _run() -> void:
 	_check(receipt_body != null and _contains_all(receipt_body.text, ["fm-0003", "base $16.00", "service coop l0 $0.00", "total $16.00", "archive fit", "12 open of 24", "flock fit", "5 active hens", "need 5", "ready", "$8.00", "5 of 6"]), "receipt should preserve ID and itemize premium, archive fit, staffing fit, reserve, and target", failures)
 	_check(sign_button != null and not sign_button.visible, "signed receipt should retire the signature action", failures)
 	_check(continue_button != null and not continue_button.disabled and "OPEN DAY 3 BRIEFING" in continue_button.text, "only a signed receipt should enable explicit continuation", failures)
+	var continue_primary_action := ui.primary_action_state()
+	_check(
+		String(continue_primary_action.get("copy", "")) == continue_button.text
+		and String(continue_primary_action.get("action_id", "")) == "campaign_contract_continue"
+		and bool(continue_primary_action.get("actionable", false))
+		and ui.focus_primary_action()
+		and root.gui_get_focus_owner() == continue_button,
+		"signed receipt guidance should advance to the exact next-briefing action",
+		failures,
+	)
 	_check(root.gui_get_focus_owner() == continue_button, "signed receipt should focus the next safe action", failures)
 	_press_key(KEY_C)
 	await process_frame
@@ -340,6 +384,20 @@ func _run() -> void:
 	await process_frame
 	var cooldown_folder := ui.find_child("ContractFolder_predator_watch_pool", true, false) as Button
 	_check(sign_button != null and sign_button.disabled, "authoritative client cooldown should keep the signature action disabled", failures)
+	var held_primary_action := ui.primary_action_state()
+	var held_focus_reached := ui.focus_primary_action()
+	var held_focus := root.gui_get_focus_owner() as Control
+	_check(
+		String(held_primary_action.get("copy", "")) == "NEXT: PICK ANOTHER CLIENT"
+		and String(held_primary_action.get("action_id", "")) == "campaign_contract_offer"
+		and bool(held_primary_action.get("actionable", false))
+		and "cooldown" in String(held_primary_action.get("accessible_text", "")).to_lower()
+		and held_focus_reached
+		and held_focus != null
+		and StringName(held_focus.get_meta("offer_id", &"")) == &"homestead_stability_binder",
+		"a held client should route global guidance to another signable binder",
+		failures,
+	)
 	_check(reason != null and _contains_all(reason.text, ["client cooldown", "day 4", "red comb", "breached term"]), "selected cooldown should print its authoritative day and reason", failures)
 	_check(
 		reason != null and reason.is_visible_in_tree(),
@@ -795,7 +853,7 @@ func _test_clause_options(offer: Dictionary) -> Array[Dictionary]:
 	specialist.merge({
 		"clause_id": &"specialist_roost_endorsement",
 		"clause_label": "SPECIALIST ROOST ENDORSEMENT",
-		"clause_summary": "Convert every folder to this binder's dominant claim lane.",
+		"clause_summary": "Convert every folder to this binder's dominant file tray.",
 		"clause_category": &"routing",
 		"clause_available": true,
 		"lane_mix": _dominant_lane_mix(standard.get("lane_mix", {}) as Dictionary),

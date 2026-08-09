@@ -1544,7 +1544,7 @@ func _build_facility_card(
 	var node_suffix := _safe_node_suffix(String(facility_id))
 	var display_name := String(facility.get("display_name", facility.get("name", facility.get("short_name", "UNFILED FACILITY"))))
 	var short_name := String(facility.get("short_name", display_name))
-	var description := String(facility.get("description", "A proposed addition to the claims floor."))
+	var description := String(facility.get("description", "A proposed addition to the peckwork floor."))
 	var level := _facility_level(facility_id, facility)
 	var max_level := maxi(1, int(facility.get("max_level", 1)))
 	var installed := bool(facility.get("installed", level > 0 or _facility_is_owned(facility_id, facility)))
@@ -2878,7 +2878,7 @@ func _refresh_release_controls(spendable: int, planning_open: bool) -> void:
 	elif reason.is_empty() and not affordable:
 		reason = "Spendable Feed Fund is short by $%.2f." % ((release_cost - spendable) / 100.0)
 	elif reason.is_empty() and not can_release:
-		reason = "At least one active hen must remain on the claim floor."
+		reason = "At least one active hen must remain on the peckwork floor."
 	_release_button.tooltip_text = (
 		"Release this hen for an exact separation cost of $%.2f." % (release_cost / 100.0)
 		if enabled else

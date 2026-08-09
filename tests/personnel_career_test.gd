@@ -29,12 +29,12 @@ func _run() -> void:
 func _test_career_tiers(failures: Array[String]) -> void:
 	var worker := ChickenState.new(0, "Boundary Hen", 0, 1.0, 0.9, &"appeals")
 	var cases: Array[Dictionary] = [
-		{"xp": 0, "level": 0, "title": "JUNIOR CLAIMS HEN", "next": 18},
-		{"xp": 17, "level": 0, "title": "JUNIOR CLAIMS HEN", "next": 18},
+		{"xp": 0, "level": 0, "title": "JUNIOR PECKWORK HEN", "next": 18},
+		{"xp": 17, "level": 0, "title": "JUNIOR PECKWORK HEN", "next": 18},
 		{"xp": 18, "level": 1, "title": "ACCREDITED LAYER", "next": 45},
 		{"xp": 44, "level": 1, "title": "ACCREDITED LAYER", "next": 45},
-		{"xp": 45, "level": 2, "title": "SENIOR CLAIMS HEN", "next": 80},
-		{"xp": 79, "level": 2, "title": "SENIOR CLAIMS HEN", "next": 80},
+		{"xp": 45, "level": 2, "title": "SENIOR PECKWORK HEN", "next": 80},
+		{"xp": 79, "level": 2, "title": "SENIOR PECKWORK HEN", "next": 80},
 		{"xp": 80, "level": 3, "title": "PRINCIPAL SHELL ADJUSTER", "next": -1},
 	]
 	for case in cases:

@@ -481,7 +481,7 @@ func _run() -> void:
 			"id": &"max_scale_capture",
 			"portrait_id": &"mabel",
 			"speaker_name": "Mabel",
-			"speaker_role": "Junior Claims Hen / Appeals",
+			"speaker_role": "Junior Peckwork Hen / Appeals",
 			"channel": &"private_aside",
 			"text": "I found the exclusion. I also found the farmer's name. Those are apparently different performance categories.",
 			"hold_seconds": 15.0,

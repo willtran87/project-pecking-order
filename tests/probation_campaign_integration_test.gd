@@ -45,6 +45,17 @@ func _run() -> void:
 	var objective_promotion_icon := office.find_child("NextShiftObjectivePromotionIcon", true, false) as TextureRect
 	var report_receipt_summary := office.find_child("ReportScoreReceiptSummary", true, false) as Label
 	var report_receipt_grid := office.find_child("ReportScoreReceiptGrid", true, false) as GridContainer
+	var report_strategy_card := office.find_child("ReportStrategyReceipt", true, false) as PanelContainer
+	var report_strategy_icon := office.find_child("ReportStrategyPolicyIcon", true, false) as FlockwatchIconBadge
+	var report_strategy_outcome := office.find_child("ReportStrategyOutcome", true, false) as Label
+	var report_strategy_policy := office.find_child("ReportStrategyPolicy", true, false) as Label
+	var report_strategy_forecast := office.find_child("ReportStrategyForecast", true, false) as Label
+	var report_strategy_actual := office.find_child("ReportStrategyActual", true, false) as Label
+	var report_market_card := office.find_child("ReportMarketPulse", true, false) as PanelContainer
+	var report_market_icon := office.find_child("ReportMarketPulseIcon", true, false) as FlockwatchIconBadge
+	var report_market_kicker := office.find_child("ReportMarketPulseKicker", true, false) as Label
+	var report_market_season := office.find_child("ReportMarketPulseSeason", true, false) as Label
+	var report_market_signal := office.find_child("ReportMarketPulseSignal", true, false) as Label
 	var report_score_row := office.find_child("ProbationReportScoreRow", true, false) as HFlowContainer
 	var report_score := office.find_child("ReportScore", true, false) as Label
 	var report_details_toggle := office.find_child("ReportDetailsToggle", true, false) as Button
@@ -454,11 +465,74 @@ func _run() -> void:
 	var first_workday_report := observed.get("last_workday_report", {}) as Dictionary
 	var first_highlight := first_workday_report.get("hen_highlight", {}) as Dictionary
 	var report_snapshot := campaign_ui.campaign_snapshot()
+	var strategy_receipt := report_snapshot.get("strategy_receipt", {}) as Dictionary
+	var market_forecast := report_snapshot.get("market_forecast", {}) as Dictionary
+	var economic_market := (
+		simulation.economic_briefing_snapshot().get("market", {}) as Dictionary
+	)
+	var current_market := economic_market.get("current", {}) as Dictionary
 	_check(not first_receipt.is_empty(), "completed shift should expose an authoritative score receipt", failures)
 	_check(int(first_receipt.get("shift_number", 0)) == 1, "latest score receipt should identify the reviewed shift", failures)
 	_check(not first_highlight.is_empty() and int(first_highlight.get("day", 0)) == 1, "workday completion should emit one factual day-one hen highlight", failures)
 	_check((report_snapshot.get("score_receipt", {}) as Dictionary) == first_receipt, "between-shift snapshot should carry CampaignState's latest score receipt unchanged", failures)
 	_check((report_snapshot.get("hen_highlight", {}) as Dictionary) == first_highlight, "between-shift snapshot should carry DepartmentSimulation's emitted hen highlight unchanged", failures)
+	_check(
+		String(strategy_receipt.get("directive_id", "")) == "shell_assurance"
+		and int(strategy_receipt.get("day", 0)) == 1
+		and String(strategy_receipt.get("status", "")) == "mixed"
+		and String(strategy_receipt.get("headline", "")) == "MIXED RESULT"
+		and String(strategy_receipt.get("forecast", "")) == "HELPS 1 / RISKS 1"
+		and String(strategy_receipt.get("actual", "")) == "1/1 HELP / 0/1 RISKS COVERED"
+		and int(strategy_receipt.get("neutral_total", 0)) == 1
+		and int(strategy_receipt.get("neutral_met", 0)) == 1,
+		"the report snapshot should compare the filed morning policy with authoritative day-one orders",
+		failures,
+	)
+	_check(
+		bool(market_forecast.get("visible", false))
+		and int(market_forecast.get("day", 0)) == simulation.day
+		and String(market_forecast.get("season_short_label", ""))
+		== String(current_market.get("short_label", ""))
+		and int(market_forecast.get("days_remaining", -1))
+		== int(economic_market.get("current_days_remaining", -2))
+		and int(market_forecast.get("opportunity_demand_basis_points", -1))
+		== int(economic_market.get("opportunity_demand_basis_points", -2))
+		and int(market_forecast.get("feed_spot_unit_price_cents", -1))
+		== int(economic_market.get("feed_spot_unit_price_cents", -2)),
+		"between-shift presentation should carry the simulation's next-shift market calendar without recomputing it",
+		failures,
+	)
+	_check(
+		report_market_card != null and report_market_card.is_visible_in_tree()
+		and report_market_icon != null and report_market_icon.icon_kind() == &"calendar"
+		and report_market_kicker != null and report_market_kicker.text == "NEXT MARKET"
+		and report_market_season != null
+		and String(current_market.get("short_label", "")).to_upper() in report_market_season.text
+		and report_market_signal != null and "FEED $" in report_market_signal.text
+		and int(report_market_card.get_meta("day", 0)) == simulation.day
+		and int(report_market_card.get_meta("demand_basis_points", -1))
+		== int(economic_market.get("opportunity_demand_basis_points", -2))
+		and "CAUSE  //" in report_market_card.tooltip_text
+		and "UNCERTAINTY  //" in report_market_card.tooltip_text,
+		"the real report should render the authoritative forecast as an icon-led planning pulse with full assistive context",
+		failures,
+	)
+	_check(
+		report_strategy_card != null and report_strategy_card.is_visible_in_tree()
+		and String(report_strategy_card.get_meta("status", "")) == "mixed"
+		and report_strategy_icon != null and report_strategy_icon.icon_kind() == &"shield"
+		and String(report_strategy_icon.get_meta("semantic_icon", "")) == "shield"
+		and report_strategy_outcome != null and report_strategy_outcome.text == "MIXED RESULT"
+		and report_strategy_policy != null and report_strategy_policy.text == "ASSURANCE"
+		and report_strategy_forecast != null
+		and report_strategy_forecast.text == "HELPS 1 / RISKS 1"
+		and report_strategy_actual != null
+		and report_strategy_actual.text == "1/1 HELP / 0/1 RISKS COVERED"
+		and "MISSED / RISK / OPENING CLUTCH" in report_strategy_card.tooltip_text
+		and String(report_strategy_card.get_meta("accessible_text", "")) == report_strategy_card.tooltip_text,
+		"the visible closing receipt should preserve the plan-to-result causal chain without another modal",
+		failures,
+	)
 	_check(
 		(report_snapshot.get("probation_safeguard_forecast", {}) as Dictionary)
 		== campaign.probation_safeguard_forecast(),
@@ -628,7 +702,11 @@ func _run() -> void:
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_REPORT, "milestone gate should keep the probation report open", failures)
 	_check(simulation.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW and simulation.day == 3, "milestone gate should prevent the day-three briefing", failures)
 	_check(campaign.chosen_milestone_id == &"", "blocked continuation should not fabricate a selection", failures)
-	_check(ticker != null and "MILESTONE REQUIRED" in ticker.text, "blocked continuation should explain the required choice", failures)
+	_check(
+		ticker != null and ticker.text == "NEXT SHIFT HELD  ·  CHOOSE EDGE",
+		"blocked continuation should name the held filing and exact required action",
+		failures,
+	)
 
 	var quality_choice := office.find_child("MilestoneChoice_shell_quality_lab", true, false) as Button
 	_check(quality_choice != null and not quality_choice.disabled, "shell-quality milestone should be selectable", failures)

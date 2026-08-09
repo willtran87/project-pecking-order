@@ -97,6 +97,28 @@ func _run() -> void:
 		"the non-remappable F10 safety route should open Settings above campaign intake",
 		failures,
 	)
+	var settings_close := office.find_child(
+		"SettingsCloseButton",
+		true,
+		false,
+	) as Button
+	var settings_next_action := office.call(
+		"_next_action_diagnostic_state",
+	) as Dictionary
+	if settings_close != null:
+		settings_close.release_focus()
+	office.call("_on_guidance_action_pressed")
+	_check(
+		String(settings_next_action.get("copy", ""))
+		== "RETURN TO THE FLOOR  [F10 / ESC]"
+		and String(settings_next_action.get("action_id", ""))
+		== "settings_return"
+		and bool(settings_next_action.get("actionable", false))
+		and settings_close != null
+		and settings_close.has_focus(),
+		"Settings should replace covered floor guidance with its exact safe return and focus that same control",
+		failures,
+	)
 	var archived_settings_receipt := office.get("_latest_action_outcome_receipt") as Dictionary
 	_check(
 		not bool(archived_settings_receipt.get("visible", true))

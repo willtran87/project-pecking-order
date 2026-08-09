@@ -85,7 +85,7 @@ func _run() -> void:
 		rank_icon != null and rank_icon.is_visible_in_tree()
 		and rank_icon.texture != null
 		and String(rank_icon.get_meta("semantic_icon", "")) == "rank_crest"
-		and rank_label.tooltip_text == "CAREER TITLE  //  SENIOR CLAIMS ROOSTER",
+		and rank_label.tooltip_text == "CAREER TITLE  //  SENIOR PECKWORK ROOSTER",
 		"the Senior title should pair its exact accessible copy with one rank crest",
 		failures,
 	)
@@ -249,11 +249,16 @@ func _run() -> void:
 	_check(advanced != null and not advanced.disabled, "an affordable advanced Board Book should be keyboard accessible", failures)
 	_check(advanced != null and "NEW PORTFOLIO CLEAR" in advanced.text, "unmastered annual cards should disclose their permanent variety reward", failures)
 	_check(standard != null and "MASTERED x2" in standard.text, "repeat annual cards should disclose existing mastery without promising duplicate recognition", failures)
+	var presentation_changes_before_advanced := int(observed["presentation_changes"])
 	if advanced != null:
 		advanced.pressed.emit()
 	await process_frame
 	_check(StringName(observed["chosen"]) == &"", "the first advanced-card activation must not reserve career marks", failures)
-	_check(int(observed["presentation_changes"]) == 1, "staging a paused advanced confirmation should request one diagnostic presentation refresh", failures)
+	_check(
+		int(observed["presentation_changes"]) == presentation_changes_before_advanced + 1,
+		"staging a paused advanced confirmation should request exactly one diagnostic presentation refresh",
+		failures,
+	)
 	_check(ui.selected_milestone_id() == &"mutual_assurance", "the inspected advanced Book should remain visibly selected", failures)
 	_check(continue_button != null and not continue_button.disabled and "CONFIRM 2-MARK STAKE" in continue_button.text, "the existing action should become an explicit exact-stake confirmation", failures)
 	_check(
@@ -364,7 +369,7 @@ func _quarter_policy_snapshot() -> Dictionary:
 		"secondary_metric_display": "0 / 3",
 		"secondary_metric_caption": "QUARTER SHIFTS",
 		"secondary_metric_tooltip": "Three filed shifts close a Senior Roost quarter.",
-		"rank": "Senior Claims Rooster",
+		"rank": "Senior Peckwork Rooster",
 		"rank_caption": "CAREER TITLE",
 		"ledgers": [
 			{"label": "ROOST MARKS", "value": 0, "detail": "CAREER TOTAL"},
@@ -512,7 +517,7 @@ func _advanced_mandate_snapshot() -> Dictionary:
 		"choice_required": true,
 		"selected_milestone": "",
 		"score": 5,
-		"rank": "Senior Claims Rooster",
+		"rank": "Senior Peckwork Rooster",
 		"ledgers": [
 			{"label": "ROOST MARKS", "value": 5, "detail": "2 AVAILABLE  Â·  0 INVESTED  Â·  0 STAKED  Â·  0 FORFEITED"},
 			{"label": "BOARD SEALS", "value": 1, "format": "number", "detail": "MANDATE TIER 1"},

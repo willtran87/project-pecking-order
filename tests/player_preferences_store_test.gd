@@ -32,7 +32,7 @@ func _run() -> void:
 	var default_preferences: Dictionary = PlayerPreferencesStoreScript.defaults()
 	_check(PlayerPreferencesStoreScript.validate(default_preferences).is_empty(), "defaults should satisfy the strict persistence schema", failures)
 	_check(
-		default_preferences.keys().size() == 19
+		default_preferences.keys().size() == 20
 		and (default_preferences.get("audio", {}) as Dictionary).keys().size() == 7
 		and String(default_preferences.get("settings_category", "")) == "comfort"
 		and String(default_preferences.get("notice_level", "")) == "all"
@@ -43,6 +43,7 @@ func _run() -> void:
 		and String(default_preferences.get("camera_sensitivity", "")) == "standard"
 		and String(default_preferences.get("animation_speed", "")) == "standard"
 		and String(default_preferences.get("tooltip_delay", "")) == "standard"
+		and String(default_preferences.get("guidance_mode", "")) == "full"
 		and bool(default_preferences.get("haptics_enabled", false))
 		and bool(default_preferences.get("pause_when_unfocused", false)),
 		"preferences should remain a compact campaign-independent contract",
@@ -81,6 +82,7 @@ func _run() -> void:
 		"camera_sensitivity": "telepathic",
 		"animation_speed": "warp",
 		"tooltip_delay": "eventually",
+		"guidance_mode": "relentless",
 		"haptics_enabled": "sometimes",
 		"pause_when_unfocused": false,
 		"settings_category": "hidden_lab",
@@ -126,6 +128,7 @@ func _run() -> void:
 		and String(sanitized.get("camera_sensitivity", "")) == "standard"
 		and String(sanitized.get("animation_speed", "")) == "standard"
 		and String(sanitized.get("tooltip_delay", "")) == "standard"
+		and String(sanitized.get("guidance_mode", "")) == "full"
 		and bool(sanitized.get("haptics_enabled", false))
 		and not bool(sanitized.get("pause_when_unfocused", true))
 		and String(sanitized.get("settings_category", "")) == "comfort"
@@ -221,6 +224,7 @@ func _run() -> void:
 	legacy_preferences.erase("haptics_enabled")
 	legacy_preferences.erase("pause_when_unfocused")
 	legacy_preferences.erase("settings_category")
+	legacy_preferences.erase("guidance_mode")
 	(legacy_preferences.get("audio", {}) as Dictionary).erase("ambient")
 	var legacy_envelope := {
 		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
@@ -243,6 +247,7 @@ func _run() -> void:
 		and bool(migrated_preferences.get("haptics_enabled", false))
 		and bool(migrated_preferences.get("pause_when_unfocused", false))
 		and String(migrated_preferences.get("settings_category", "")) == "comfort"
+		and String(migrated_preferences.get("guidance_mode", "")) == "full"
 		and (migrated_preferences.get("audio", {}) as Dictionary).has("ambient")
 		and (migrated_preferences.get("audio", {}) as Dictionary).has("alerts")
 		and (migrated_preferences.get("audio", {}) as Dictionary).has("voice")
@@ -252,6 +257,7 @@ func _run() -> void:
 	)
 	_check(store.delete_preferences(), "migrated preference fixture should be removable", failures)
 	var schema_five_preferences := default_preferences.duplicate(true)
+	schema_five_preferences.erase("guidance_mode")
 	schema_five_preferences.erase("settings_category")
 	schema_five_preferences.erase("particle_level")
 	schema_five_preferences.erase("camera_motion")
@@ -277,6 +283,7 @@ func _run() -> void:
 	)
 	_check(store.delete_preferences(), "schema-five migration fixture should be removable", failures)
 	var schema_six_preferences := default_preferences.duplicate(true)
+	schema_six_preferences.erase("guidance_mode")
 	schema_six_preferences.erase("settings_category")
 	schema_six_preferences.erase("particle_level")
 	schema_six_preferences.erase("camera_motion")
@@ -309,6 +316,7 @@ func _run() -> void:
 	)
 	_check(store.delete_preferences(), "schema-six migration fixture should be removable", failures)
 	var schema_seven_preferences := default_preferences.duplicate(true)
+	schema_seven_preferences.erase("guidance_mode")
 	schema_seven_preferences.erase("settings_category")
 	schema_seven_preferences.erase("particle_level")
 	schema_seven_preferences.erase("camera_motion")
@@ -332,6 +340,7 @@ func _run() -> void:
 	)
 	_check(store.delete_preferences(), "schema-seven migration fixture should be removable", failures)
 	var schema_eight_preferences := default_preferences.duplicate(true)
+	schema_eight_preferences.erase("guidance_mode")
 	schema_eight_preferences.erase("settings_category")
 	var schema_eight_envelope := {
 		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
@@ -348,6 +357,23 @@ func _run() -> void:
 		failures,
 	)
 	_check(store.delete_preferences(), "schema-eight migration fixture should be removable", failures)
+	var schema_nine_preferences := default_preferences.duplicate(true)
+	schema_nine_preferences.erase("guidance_mode")
+	var schema_nine_envelope := {
+		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
+		"schema_version": 9,
+		"preferences": schema_nine_preferences,
+		"metadata": {"saved_at_unix": 0, "save_revision": 8},
+	}
+	_check(_write_raw(TEST_PRIMARY_PATH, JSON.stringify(schema_nine_envelope)), "test should write a schema-nine fixture", failures)
+	var migrated_schema_nine := store.load_preferences()
+	_check(
+		String(migrated_schema_nine.get("guidance_mode", "")) == "full"
+		and PlayerPreferencesStoreScript.validate(migrated_schema_nine).is_empty(),
+		"schema-nine preferences should gain full first-shift guidance without changing existing play",
+		failures,
+	)
+	_check(store.delete_preferences(), "schema-nine migration fixture should be removable", failures)
 	var future_envelope := {
 		"format": PlayerPreferencesStoreScript.PREFERENCES_FORMAT,
 		"schema_version": PlayerPreferencesStoreScript.CURRENT_SCHEMA_VERSION + 1,
@@ -369,7 +395,7 @@ func _run() -> void:
 			push_error("PLAYER_PREFERENCES_STORE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v9 migration=v1+v2+v3+v4+v5+v6+v7+v8 categories=persistent+validated color-vision=safe+symbols notices=level+duration effects=independent+particles camera=motion+sensitivity presentation=animation-speed+tooltip-delay haptics=optional focus-pause=default-on validation=strict atomic=backup-recovery audio=7-bus preferences=campaign-independent")
+	print("PLAYER_PREFERENCES_STORE_TEST_PASSED schema=v10 migration=v1+v2+v3+v4+v5+v6+v7+v8+v9 guidance=full+essential+off categories=persistent+validated color-vision=safe+symbols notices=level+duration effects=independent+particles camera=motion+sensitivity presentation=animation-speed+tooltip-delay haptics=optional focus-pause=default-on validation=strict atomic=backup-recovery audio=7-bus preferences=campaign-independent")
 	quit(0)
 
 

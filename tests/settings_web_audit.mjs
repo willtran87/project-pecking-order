@@ -86,7 +86,7 @@ const toggleHighContrast = async (expectedState) => {
   // High Contrast, then activate it with Space. Hidden category pages do not
   // enter the focus path.
   await page.waitForTimeout(250);
-  for (let index = 0; index < 18; index += 1) {
+  for (let index = 0; index < 19; index += 1) {
     await page.keyboard.press("Tab");
   }
   await page.waitForTimeout(300);
@@ -169,6 +169,12 @@ if (
   || initial.settings.animation_speed_multiplier !== 1
   || initial.settings.tooltip_delay !== "standard"
   || initial.settings.tooltip_delay_seconds !== 0.5
+  || initial.settings.guidance_mode !== "full"
+  || initial.settings.first_clutch_replay_available !== false
+  || initial.settings.first_clutch_reference?.mode !== "review"
+  || initial.settings.first_clutch_reference?.playbook_visible !== false
+  || initial.settings.first_clutch_reference?.step_count !== 5
+  || initial.settings.first_clutch_reference?.mutates_campaign !== false
   || initial.settings.haptics_enabled !== true
 ) {
   throw new Error("Fresh browser settings did not publish the feedback preference defaults.");
@@ -186,6 +192,7 @@ if (
   || !initial.settings.accessible_text.toLowerCase().includes("camera input sensitivity standard")
   || !initial.settings.accessible_text.toLowerCase().includes("animation speed standard")
   || !initial.settings.accessible_text.toLowerCase().includes("tooltip delay standard")
+  || !initial.settings.accessible_text.toLowerCase().includes("guidance full")
   || !initial.settings.accessible_text.toLowerCase().includes("standard duration")
   || !initial.settings.accessible_text.toLowerCase().includes("haptics enabled")
 ) {
@@ -259,6 +266,10 @@ if (
   || restored?.settings?.animation_speed_multiplier !== 1
   || restored?.settings?.tooltip_delay !== "standard"
   || restored?.settings?.tooltip_delay_seconds !== 0.5
+  || restored?.settings?.guidance_mode !== "full"
+  || restored?.settings?.first_clutch_reference?.mode !== "review"
+  || restored?.settings?.first_clutch_reference?.step_count !== 5
+  || restored?.settings?.first_clutch_reference?.mutates_campaign !== false
   || restored?.settings?.haptics_enabled !== true
 ) {
   throw new Error("Feedback preferences did not survive browser preference restoration.");

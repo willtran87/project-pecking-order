@@ -86,6 +86,29 @@ func is_reveal_visible() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_reveal_visible() or _continue_button == null:
+		return {}
+	var copy := _continue_button.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": "commissioning_reveal_continue",
+		"actionable": not _continue_button.disabled,
+		"semantic_icon": "advance_arrow",
+		"icon_visible": _continue_button.icon != null,
+		"accessible_text": _continue_button.tooltip_text,
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	_continue_button.grab_focus()
+	return true
+
+
 func receipt_snapshot() -> Dictionary:
 	return _receipt.duplicate(true)
 

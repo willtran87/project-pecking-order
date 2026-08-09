@@ -46,6 +46,11 @@ type AccessibleStatusContext = {
 	persistenceStatus?: string;
 };
 
+type LiveGameAnnouncement = {
+	key: string;
+	text: string;
+};
+
 const INITIAL_BROWSER_STORAGE_CAPABILITY: BrowserStorageCapability = { status: "checking" };
 const MAX_PORTABLE_BACKUP_BYTES = 8 * 1024 * 1024;
 const PLAYER_PREFERENCES_STORAGE_KEY = "pecking-order.player-preferences";
@@ -82,6 +87,10 @@ export default function Home() {
   const [gameStatus, setGameStatus] = useState(
     "Game loading. Objective: wait for the career file to open.",
   );
+	const [gameAnnouncement, setGameAnnouncement] = useState<LiveGameAnnouncement>({
+		key: "loading:0",
+		text: "Game loading. Objective: wait for the career file to open.",
+	});
 	const persistencePresentation = buildPersistencePresentation(
 		browserStorageCapability,
 		checkpointDiagnostic,
@@ -260,6 +269,11 @@ export default function Home() {
 			"routing-return": "--capture-routing-return",
 			"routing-return-cue": "--capture-routing-return-cue",
 			"routing-return-cue-cleared": "--capture-routing-return-cue-cleared",
+			"adaptive-routing-success": "--capture-adaptive-routing-success",
+			"core-action-hold": "--capture-core-action-hold",
+			"economic-action-hold": "--capture-economic-action-hold",
+			"strategic-action-hold": "--capture-strategic-action-hold",
+			"save-recovery-hold": "--capture-save-recovery-hold",
 			"routing-landing": "--capture-routing-landing",
 			"routing-work-start": "--capture-routing-work-start",
 			"work-progress": "--capture-work-progress",
@@ -279,6 +293,7 @@ export default function Home() {
 			"farmgate-dispatch": "--capture-farmgate-ui",
 			"farmgate-filing": "--capture-farmgate-filing",
 			"settings-handoff": "--capture-settings-handoff",
+			"first-clutch-playbook": "--capture-first-clutch-playbook",
 			"confirmation-handoff": "--capture-confirmation-handoff",
 			"staff-release-confirmation": "--capture-staff-release-confirmation",
 			"manager-succession-confirmation": "--capture-manager-succession-confirmation",
@@ -287,6 +302,7 @@ export default function Home() {
 			"rooster-operations": "--capture-rooster-operations-ui",
 			"flock-care": "--capture-flock-care-ui",
 			"flockwatch-today": "--capture-flock-labor",
+			"economic-break-even": "--capture-economic-break-even",
 			"flock-petition": "--capture-petition",
 			"career-sponsorship": "--capture-career-sponsorship",
 			"career-sponsorship-confirmation": "--capture-career-sponsorship-confirmation",
@@ -307,6 +323,7 @@ export default function Home() {
 			"senior-board-delta": "--capture-senior-board-delta",
 			"probation-final": "--capture-campaign-final",
 			"campus-portfolio": "--capture-campus-portfolio-ui",
+			"campus-portfolio-reveal": "--capture-campus-portfolio-reveal",
 			"contract-board": "--capture-contract-board-ui",
 			"contract-pricing": "--capture-contract-pricing-ui",
 			"contract-pricing-access": "--capture-contract-pricing-access-ui",
@@ -421,13 +438,20 @@ export default function Home() {
 				browserStorageCapability,
 				checkpointForSummary,
 			);
-      const summary = buildAccessibleGameStatus(renderedState, {
+			const statusContext = {
         loaded,
         loadError,
         loadProgress,
 				persistenceStatus: persistenceForSummary.accessibleText,
-      });
+			};
+			const summary = buildAccessibleGameStatus(renderedState, statusContext);
+			const announcement = buildLiveGameAnnouncement(renderedState, statusContext);
       setGameStatus((current) => current === summary ? current : summary);
+			setGameAnnouncement((current) => (
+				current.key === announcement.key && current.text === announcement.text
+					? current
+					: announcement
+			));
     };
 
     refreshAccessibleGameStatus();
@@ -559,7 +583,7 @@ export default function Home() {
           <h1 id="page-title">Earn your roost.</h1>
         </div>
         <p className="intro-copy">
-          Meet Mabel at her claims desk. Route peckwork. Grow the roost. Build
+          Meet Mabel at her peckwork desk. Route egg files. Grow the roost. Build
           careers. Secure the grain reserve. Protect the flock. Every decision
           enters your shared permanent coop record.
         </p>
@@ -603,12 +627,20 @@ export default function Home() {
         <p
           id="game-status"
           className="visually-hidden"
-          role="status"
-          aria-live="polite"
+		  aria-live="off"
           aria-atomic="true"
         >
           {gameStatus}
         </p>
+		<p
+		  id="game-announcement"
+		  className="visually-hidden"
+		  role="status"
+		  aria-live="polite"
+		  aria-atomic="true"
+		>
+		  <span key={gameAnnouncement.key}>{gameAnnouncement.text}</span>
+		</p>
 
         <div className="game-stage" ref={gameStage}>
 			<input
@@ -715,7 +747,7 @@ export default function Home() {
 		    <article>
 		      <span className="briefing-number">02</span>
 		      <h2>Route the peckwork</h2>
-		      <p>Click a hen to inspect her specialty and current file, plus her career, temperament, exact work-style tradeoff, closest perchmate bond, trust, and grievance. Choose AUTO, NEST, PREDATOR, or APPEALS routing. AUTO remains opt-in for each employed hen and keeps temperament at a neutral baseline; choosing a manual tray is an explicit override that engages her disclosed work style. Matched specialties clear files faster; temperament can trade pace, shell safety, strain, or recovery, so a looming deadline may justify an imperfect route. Open FILE before 55% completion to see who claimed, what happened, what they need, and what delay costs them, then keep standard handling or file a disclosed Settlement, Fast Denial, or Coverage Exception. Nest paths can restore handler morale, Predator paths carry extra stress, and Appeals paths change audit order. A clean fast denial helps today&apos;s closure rate but returns the same claimant to tomorrow&apos;s Appeals tray. When the claim bar enters its gold window, press E for one of three priority pecks per shift. Use her profile to share credit, coach, or apply pressure within the day&apos;s Rooster Operations check-in allowance. Those choices become evidence when a named hen files a flock petition.</p>
+		      <p>Click a hen to inspect her specialty and current file, plus her career, temperament, exact work-style tradeoff, closest perchmate bond, trust, and grievance. Choose AUTO, NEST, PREDATOR, or APPEALS routing. AUTO remains opt-in for each employed hen and keeps temperament at a neutral baseline; choosing a manual tray is an explicit override that engages her disclosed work style. Matched specialties clear files faster; temperament can trade pace, shell safety, strain, or recovery, so a looming deadline may justify an imperfect route. Open FILE before 55% completion to see the claimant, what happened, what they need, and what delay costs them, then keep standard handling or file a disclosed Settlement, Fast Denial, or Coverage Exception. Nest paths can restore handler morale, Predator paths carry extra stress, and Appeals paths change audit order. A clean fast denial helps today&apos;s closure rate but returns the same claimant to tomorrow&apos;s Appeals tray. When the file bar enters its gold window, press E for one of three priority pecks per shift. Use her profile to share credit, coach, or apply pressure within the day&apos;s Rooster Operations check-in allowance. Those choices become evidence when a named hen files a flock petition.</p>
 		    </article>
 		    <article>
 		      <span className="briefing-number">03</span>
@@ -806,6 +838,37 @@ function buildAccessibleGameStatus(
 }
 
 
+function buildLiveGameAnnouncement(
+	renderedState: string | undefined,
+	context: AccessibleStatusContext,
+): LiveGameAnnouncement {
+	if (context.loadError) {
+		const reason = diagnosticPlainText(context.loadError, 160);
+		return {
+			key: `load-error:${reason}`,
+			text: `Game unavailable. ${reason} Objective: reload the terminal and try again.`,
+		};
+	}
+	if (!context.loaded) {
+		const announcedProgress = Math.floor(context.loadProgress / 25) * 25;
+		return {
+			key: `loading:${announcedProgress}`,
+			text: announcedProgress > 0
+				? `Game loading, ${announcedProgress} percent. Objective: wait for the career file to open.`
+				: "Game loading. Objective: wait for the career file to open.",
+		};
+	}
+
+	const state = parseGameDiagnostic(renderedState);
+	const authored = recordValue(state.accessibility_announcement);
+	const text = diagnosticPlainText(authored.text, 1000);
+	if (text.length === 0) return { key: "", text: "" };
+	const kind = diagnosticPlainText(authored.kind, 80) || "game_event";
+	const key = diagnosticPlainText(authored.key, 240) || `${kind}:${text}`;
+	return { key, text: withTerminalPunctuation(text) };
+}
+
+
 function buildGameStateAccessibleStatus(
 	renderedState: string | undefined,
 	context: AccessibleStatusContext,
@@ -849,7 +912,7 @@ function buildGameStateAccessibleStatus(
 			routingSafety.claim_confirmation_claim_id,
 			-1,
 		));
-		return `Irreversible claimant path awaiting confirmation. ${path}${claimId >= 0 ? ` for claim ${claimId}` : ""}. No Feed Fund or claim state has changed. Objective: confirm the disclosed filing or cancel to keep the current path.`;
+		return `Irreversible claimant path awaiting confirmation. ${path}${claimId >= 0 ? ` for file ${claimId}` : ""}. No Feed Fund or file state has changed. Objective: confirm the disclosed filing or cancel to keep the current path.`;
 	}
 	if (staffingSafety.release_confirmation_visible === true) {
 		const authoredConfirmation = diagnosticPlainText(
@@ -895,7 +958,7 @@ function buildGameStateAccessibleStatus(
 		? ` Route Undo is available to restore ${diagnosticTitle(
 			diagnosticPlainText(routingSafety.route_undo_previous_lane, 60)
 				|| "the prior tray",
-		)} for future files; completed claim work will not be rolled back.`
+		)} for future files; completed file work will not be rolled back.`
 		: "";
 	const capacityCommissioning = recordValue(state.capacity_commissioning);
 	if (capacityCommissioning.active === true) {
@@ -1105,7 +1168,7 @@ function buildGameStateAccessibleStatus(
 	const sponsorshipObjective = sponsorshipVisible
 		? sponsorshipReason.length > 0
 			? ` Optional Career Sponsorship: ${sponsorshipReason}`
-			: ` Optional Career Sponsorship available: bank your ${sponsorshipMarks} marks or invest ${sponsorshipCost} marks and ${formatCurrencyFromCents(sponsorshipFundCost)} in one hen's alternate claim specialty; ${sponsorshipTrainingSummary}, coaching +${sponsorshipCoachingBonus} XP, then +${formatCurrencyFromCents(sponsorshipWageBonus)} daily wage.`
+			: ` Optional Career Sponsorship available: bank your ${sponsorshipMarks} marks or invest ${sponsorshipCost} marks and ${formatCurrencyFromCents(sponsorshipFundCost)} in one hen's alternate routing specialty; ${sponsorshipTrainingSummary}, coaching +${sponsorshipCoachingBonus} XP, then +${formatCurrencyFromCents(sponsorshipWageBonus)} daily wage.`
 		: "";
   const shiftLabel = seniorActive
     ? `Senior Year ${seniorYear}, Quarter ${seniorQuarter}, Shift ${seniorShift}`

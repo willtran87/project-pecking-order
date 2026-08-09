@@ -12,7 +12,7 @@ extends RefCounted
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
 
-const CURRENT_SCHEMA_VERSION := 9
+const CURRENT_SCHEMA_VERSION := 10
 const PREFERENCES_FORMAT := "pecking_order_player_preferences"
 const DEFAULT_FILENAME := "player_preferences.json"
 const MAX_FILE_BYTES := 512 * 1024
@@ -31,6 +31,7 @@ const CAMERA_SENSITIVITIES: Array[String] = ["low", "standard", "high"]
 const SETTINGS_CATEGORIES: Array[String] = ["audio", "comfort", "controls", "career"]
 const ANIMATION_SPEEDS: Array[String] = ["relaxed", "standard", "brisk"]
 const TOOLTIP_DELAYS: Array[String] = ["short", "standard", "long"]
+const GUIDANCE_MODES: Array[String] = ["full", "essential", "off"]
 const AUDIO_BUS_IDS: Array[String] = [
 	"master",
 	"sfx",
@@ -91,6 +92,7 @@ static func defaults() -> Dictionary:
 		"settings_category": "comfort",
 		"animation_speed": "standard",
 		"tooltip_delay": "standard",
+		"guidance_mode": "full",
 		"haptics_enabled": true,
 		"pause_when_unfocused": true,
 		# Empty means the catalog defaults. Only explicit overrides need to be
@@ -166,6 +168,9 @@ static func sanitize(source: Dictionary) -> Dictionary:
 	var tooltip_delay := String(source.get("tooltip_delay", ""))
 	if tooltip_delay in TOOLTIP_DELAYS:
 		result["tooltip_delay"] = tooltip_delay
+	var guidance_mode := String(source.get("guidance_mode", ""))
+	if guidance_mode in GUIDANCE_MODES:
+		result["guidance_mode"] = guidance_mode
 	if typeof(source.get("haptics_enabled", null)) == TYPE_BOOL:
 		result["haptics_enabled"] = bool(source["haptics_enabled"])
 	if typeof(source.get("pause_when_unfocused", null)) == TYPE_BOOL:
@@ -186,7 +191,7 @@ static func validate(preferences: Dictionary) -> String:
 		"notice_level", "notice_duration", "effect_level",
 		"particle_level", "camera_motion", "camera_sensitivity",
 		"settings_category",
-		"animation_speed", "tooltip_delay", "haptics_enabled",
+		"animation_speed", "tooltip_delay", "guidance_mode", "haptics_enabled",
 		"pause_when_unfocused", "input_bindings",
 	]
 	var key_error := _exact_string_keys_error(preferences, expected_keys, "preferences")
@@ -241,6 +246,8 @@ static func validate(preferences: Dictionary) -> String:
 		return "preferences.animation_speed is invalid"
 	if typeof(preferences.get("tooltip_delay")) != TYPE_STRING or String(preferences.get("tooltip_delay")) not in TOOLTIP_DELAYS:
 		return "preferences.tooltip_delay is invalid"
+	if typeof(preferences.get("guidance_mode")) != TYPE_STRING or String(preferences.get("guidance_mode")) not in GUIDANCE_MODES:
+		return "preferences.guidance_mode is invalid"
 	if typeof(preferences.get("haptics_enabled")) != TYPE_BOOL:
 		return "preferences.haptics_enabled must be a Boolean"
 	if typeof(preferences.get("pause_when_unfocused")) != TYPE_BOOL:
@@ -710,6 +717,16 @@ func _migrate_one_version(envelope: Dictionary, from_version: int) -> Dictionary
 		preferences["settings_category"] = "comfort"
 		migrated["preferences"] = preferences
 		migrated["schema_version"] = 9
+		return migrated
+	if from_version == 9:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["guidance_mode"] = "full"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 10
 		return migrated
 	return {}
 

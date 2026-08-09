@@ -108,6 +108,16 @@ func _run() -> void:
 	ui.select_socket(&"meadow_west")
 	_check(place_button != null and place_button.visible and not place_button.disabled and _contains_all(place_button.text, ["place egg routing pod", "$75.00"]), "cleared Socket A should expose the exact pod placement quote", failures)
 	_check(relocate_button != null and not relocate_button.visible, "unplaced pod should not expose relocation", failures)
+	var expansion_primary := ui.primary_action_state()
+	ui.focus_primary_action()
+	_check(
+		String(expansion_primary.get("copy", "")) == place_button.text
+		and String(expansion_primary.get("action_id", ""))
+		== "campus_expansion_place"
+		and place_button.has_focus(),
+		"Campus Expansion should publish and focus its exact enabled pod filing",
+		failures,
+	)
 	if place_button != null:
 		place_button.pressed.emit()
 	_check((observed["placements"] as Array) == [&"meadow_west"], "placement confirmation should emit only the selected stable socket ID", failures)

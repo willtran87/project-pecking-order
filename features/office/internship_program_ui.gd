@@ -380,7 +380,7 @@ func _onboard_tooltip(candidate: Dictionary) -> String:
 	var reason := String(candidate.get("onboard_reason", ""))
 	var exact := (
 		"Start a three-shift supervised rotation for $3.00. The default Guided "
-		+ "Claim Shadow adds +1 live-file capacity and +1% flock work with no "
+		+ "File Shadow adds +1 live-file capacity and +1% flock work with no "
 		+ "shell-risk change."
 	)
 	return exact if reason.is_empty() else "%s\nHELD: %s" % [exact, reason]

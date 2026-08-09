@@ -13,6 +13,7 @@ signal reset_defaults_requested
 signal binding_capture_requested(action: StringName, event: InputEvent)
 signal career_backup_export_requested
 signal career_backup_import_requested(json_text: String)
+signal first_clutch_replay_requested
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const AUDIO_BUSES := [
@@ -81,6 +82,33 @@ const CATEGORY_LABELS := {
 	&"controls": "CONTROLS",
 	&"career": "CAREER BACKUP",
 }
+const FIRST_CLUTCH_PLAYBOOK_STEPS := [
+	{
+		"verb": "INSPECT",
+		"icon": &"receipt_hen",
+		"detail": "Select a hen card to inspect strengths, current specialty fit, and stress.",
+	},
+	{
+		"verb": "ROUTE",
+		"icon": &"receipt_specialty",
+		"detail": "Choose a matching specialty lane or Auto to avoid wasted work.",
+	},
+	{
+		"verb": "CHECK-IN",
+		"icon": &"order_trays",
+		"detail": "File the highlighted check-in choice, then return the clock to normal speed.",
+	},
+	{
+		"verb": "PECK",
+		"icon": &"score_gain",
+		"detail": "Use Priority Peck when the moving marker crosses the green zone.",
+	},
+	{
+		"verb": "REINVEST",
+		"icon": &"receipt_cap",
+		"detail": "Read the egg receipt, reinvest or bank it, then open Today's orders.",
+	},
+]
 
 var _preferences: Dictionary = {}
 var _suppress_updates: bool = false
@@ -106,9 +134,14 @@ var _effect_level_selector: OptionButton
 var _particle_level_selector: OptionButton
 var _animation_speed_selector: OptionButton
 var _tooltip_delay_selector: OptionButton
+var _guidance_mode_selector: OptionButton
 var _contrast_toggle: CheckButton
 var _haptics_toggle: CheckButton
 var _focus_pause_toggle: CheckButton
+var _first_clutch_replay_button: Button
+var _first_clutch_replay_available := false
+var _first_clutch_playbook: VBoxContainer
+var _first_clutch_playbook_visible := false
 var _binding_buttons: Dictionary = {}
 var _controls_grid: GridContainer
 var _comfort_grid: GridContainer
@@ -188,9 +221,11 @@ func show_settings(
 	preferences: Dictionary,
 	binding_labels: Dictionary = {},
 	backup_available: bool = false,
+	first_clutch_replay_available: bool = false,
 ) -> void:
 	_preferences = preferences.duplicate(true)
 	set_career_backup_available(backup_available)
+	set_first_clutch_replay_available(first_clutch_replay_available)
 	_suppress_updates = true
 	_sync_controls_from_preferences()
 	_set_active_category(
@@ -211,6 +246,7 @@ func show_settings(
 func hide_settings() -> void:
 	_capture_action = &""
 	_capture_pending = false
+	_set_first_clutch_playbook_visible(false)
 	_pending_backup_text = ""
 	_pending_backup_source = ""
 	_pending_export_text = ""
@@ -231,6 +267,34 @@ func active_category() -> StringName:
 	return _active_category
 
 
+## Exposes the one safe, always-available exit as the authoritative action while
+## this full-screen sheet owns input. Office uses the same Button for browser
+## diagnostics and focus handoff instead of leaking a covered floor objective.
+func primary_action_state() -> Dictionary:
+	if not is_open() or _close_button == null or not _close_button.is_visible_in_tree():
+		return {}
+	var copy := _close_button.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": "settings_return",
+		"actionable": not _close_button.disabled,
+		"semantic_icon": "safe_return",
+		"icon_visible": _close_button.icon != null,
+		"accessible_text": (
+			"Return to the floor. Preferences save immediately and no career state changes."
+		),
+	}
+
+
+func focus_primary_action() -> bool:
+	var action := primary_action_state()
+	if action.is_empty() or not bool(action.get("actionable", false)):
+		return false
+	_close_button.grab_focus()
+	return true
+
+
 func set_status(message: String) -> void:
 	if _status_label != null:
 		_status_label.text = message
@@ -246,6 +310,59 @@ func set_career_backup_available(available: bool) -> void:
 			if available else
 			"Start or continue a campaign before exporting a career backup."
 		)
+
+
+func set_first_clutch_replay_available(available: bool) -> void:
+	_first_clutch_replay_available = available
+	if _first_clutch_replay_button == null:
+		return
+	if available:
+		_set_first_clutch_playbook_visible(false)
+	_first_clutch_replay_button.disabled = false
+	_first_clutch_replay_button.text = (
+		"RESUME CURRENT FIRST CLUTCH"
+		if available else
+		(
+			"CLOSE FIRST CLUTCH PLAYBOOK"
+			if _first_clutch_playbook_visible else
+			"REVIEW FIRST CLUTCH PLAYBOOK"
+		)
+	)
+	_first_clutch_replay_button.tooltip_text = (
+		"Restore the saved First Clutch step without rewinding any work or economy state."
+		if available else
+		"Open a compact five-step refresher. Reviewing it never changes the campaign or economy."
+	)
+	tooltip_text = accessible_text()
+
+
+func first_clutch_reference_state() -> Dictionary:
+	return {
+		"mode": "resume" if _first_clutch_replay_available else "review",
+		"playbook_visible": _first_clutch_playbook_visible,
+		"step_count": FIRST_CLUTCH_PLAYBOOK_STEPS.size(),
+		"mutates_campaign": false,
+	}
+
+
+func _on_first_clutch_reference_pressed() -> void:
+	if _first_clutch_replay_available:
+		first_clutch_replay_requested.emit()
+		return
+	_set_first_clutch_playbook_visible(not _first_clutch_playbook_visible)
+
+
+func _set_first_clutch_playbook_visible(visible_value: bool) -> void:
+	_first_clutch_playbook_visible = visible_value
+	if _first_clutch_playbook != null:
+		_first_clutch_playbook.visible = visible_value
+	if _first_clutch_replay_button != null and not _first_clutch_replay_available:
+		_first_clutch_replay_button.text = (
+			"CLOSE FIRST CLUTCH PLAYBOOK"
+			if visible_value else
+			"REVIEW FIRST CLUTCH PLAYBOOK"
+		)
+	tooltip_text = accessible_text()
 
 
 func present_career_backup(json_text: String) -> bool:
@@ -374,7 +491,7 @@ func accessible_text() -> String:
 				+ "Detail %s. Effect density %s. Particle density %s. "
 				+ "Animation speed %s. Tooltip delay %s. Priority Peck timing %s. "
 				+ "Transient notices %s for %s duration. Haptics %s where supported. "
-				+ "Pause when unfocused %s."
+				+ "Guidance %s. Pause when unfocused %s."
 			) % [
 				String(_preferences.get("motion_mode", "system")),
 				roundi(float(_preferences.get("ui_scale", 1.0)) * 100.0),
@@ -391,8 +508,17 @@ func accessible_text() -> String:
 				String(_preferences.get("notice_level", "all")).replace("_", " "),
 				String(_preferences.get("notice_duration", "standard")),
 				"enabled" if bool(_preferences.get("haptics_enabled", true)) else "disabled",
+				String(_preferences.get("guidance_mode", "full")),
 				"on" if bool(_preferences.get("pause_when_unfocused", true)) else "off",
 			]
+			if _first_clutch_playbook_visible:
+				summary += " First Clutch playbook: "
+				var playbook_steps: Array[String] = []
+				for step: Dictionary in FIRST_CLUTCH_PLAYBOOK_STEPS:
+					playbook_steps.append(
+						"%s. %s" % [String(step.get("verb", "")), String(step.get("detail", ""))]
+					)
+				summary += " ".join(playbook_steps)
 	if _capture_action != &"":
 		summary += " Binding capture for %s is %s." % [
 			String(ACTION_LABELS.get(_capture_action, _capture_action)).capitalize(),
@@ -759,6 +885,14 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_tooltip_delay_selector.name = "TooltipDelaySelector"
 	_tooltip_delay_selector.tooltip_text = "Choose how long the pointer rests before a new explanatory tooltip opens. Focus-visible labels and accessible summaries remain immediate."
 	_tooltip_delay_selector.item_selected.connect(_on_tooltip_delay_selected)
+	_guidance_mode_selector = _choice_row(
+		_comfort_grid,
+		"FIRST-SHIFT GUIDANCE",
+		["FULL COACH", "ESSENTIAL CUES", "OFF FOR NEW FILES"],
+	)
+	_guidance_mode_selector.name = "GuidanceModeSelector"
+	_guidance_mode_selector.tooltip_text = "Choose the complete First Clutch coach, compact action-only cues, or no automatic coach on future files. Core controls and live objective guidance remain available in every mode."
+	_guidance_mode_selector.item_selected.connect(_on_guidance_mode_selected)
 
 	_contrast_toggle = CheckButton.new()
 	_contrast_toggle.name = "HighContrastToggle"
@@ -781,6 +915,56 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_focus_pause_toggle.focus_mode = Control.FOCUS_ALL
 	_focus_pause_toggle.toggled.connect(_on_focus_pause_toggled)
 	section.add_child(_focus_pause_toggle)
+	_first_clutch_replay_button = Button.new()
+	_first_clutch_replay_button.name = "FirstClutchReplayButton"
+	_first_clutch_replay_button.focus_mode = Control.FOCUS_ALL
+	_first_clutch_replay_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_first_clutch_replay_button.custom_minimum_size = Vector2(260.0, 42.0)
+	_first_clutch_replay_button.pressed.connect(_on_first_clutch_reference_pressed)
+	section.add_child(_first_clutch_replay_button)
+	_first_clutch_playbook = VBoxContainer.new()
+	_first_clutch_playbook.name = "FirstClutchPlaybook"
+	_first_clutch_playbook.add_theme_constant_override("separation", 8)
+	section.add_child(_first_clutch_playbook)
+	var playbook_route := HFlowContainer.new()
+	playbook_route.name = "FirstClutchPlaybookRoute"
+	playbook_route.add_theme_constant_override("h_separation", 8)
+	playbook_route.add_theme_constant_override("v_separation", 8)
+	_first_clutch_playbook.add_child(playbook_route)
+	for index: int in FIRST_CLUTCH_PLAYBOOK_STEPS.size():
+		var step: Dictionary = FIRST_CLUTCH_PLAYBOOK_STEPS[index]
+		var step_panel := PanelContainer.new()
+		step_panel.name = "FirstClutchPlaybookStep%d" % (index + 1)
+		step_panel.custom_minimum_size = Vector2(132.0, 44.0)
+		step_panel.tooltip_text = String(step.get("detail", ""))
+		step_panel.add_theme_stylebox_override("panel", _playbook_step_style())
+		playbook_route.add_child(step_panel)
+		var step_margin := MarginContainer.new()
+		step_margin.add_theme_constant_override("margin_left", 8)
+		step_margin.add_theme_constant_override("margin_right", 8)
+		step_margin.add_theme_constant_override("margin_top", 6)
+		step_margin.add_theme_constant_override("margin_bottom", 6)
+		step_panel.add_child(step_margin)
+		var step_row := HBoxContainer.new()
+		step_row.add_theme_constant_override("separation", 6)
+		step_margin.add_child(step_row)
+		var step_icon := TextureRect.new()
+		step_icon.custom_minimum_size = Vector2(24.0, 24.0)
+		step_icon.texture = ManagementTheme.action_icon(StringName(step.get("icon", &"order_trays")))
+		step_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		step_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		step_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		step_row.add_child(step_icon)
+		var step_label := _label("%d  %s" % [index + 1, String(step.get("verb", ""))], 11, Color("edf3f2"))
+		step_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		step_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		step_row.add_child(step_label)
+	var playbook_hint := _label("HEN  >  FIT  >  CHECK-IN  >  PECK  >  REINVEST", 11, Color("9bd9cc"))
+	playbook_hint.name = "FirstClutchPlaybookHint"
+	playbook_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	playbook_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_first_clutch_playbook.add_child(playbook_hint)
+	set_first_clutch_replay_available(_first_clutch_replay_available)
 	var safety := _label("F10 and the controller Guide button always open this panel. Escape and controller B always provide a safe return.", 12, Color("b9c8cc"))
 	safety.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	section.add_child(safety)
@@ -1012,6 +1196,7 @@ func _sync_controls_from_preferences() -> void:
 	_particle_level_selector.select(["full", "reduced", "off"].find(String(_preferences.get("particle_level", "full"))))
 	_animation_speed_selector.select(["relaxed", "standard", "brisk"].find(String(_preferences.get("animation_speed", "standard"))))
 	_tooltip_delay_selector.select(["short", "standard", "long"].find(String(_preferences.get("tooltip_delay", "standard"))))
+	_guidance_mode_selector.select(["full", "essential", "off"].find(String(_preferences.get("guidance_mode", "full"))))
 	_contrast_toggle.button_pressed = bool(_preferences.get("high_contrast", false))
 	_haptics_toggle.button_pressed = bool(_preferences.get("haptics_enabled", true))
 	_focus_pause_toggle.button_pressed = bool(_preferences.get("pause_when_unfocused", true))
@@ -1091,6 +1276,10 @@ func _on_animation_speed_selected(index: int) -> void:
 
 func _on_tooltip_delay_selected(index: int) -> void:
 	_set_preference("tooltip_delay", ["short", "standard", "long"][clampi(index, 0, 2)])
+
+
+func _on_guidance_mode_selected(index: int) -> void:
+	_set_preference("guidance_mode", ["full", "essential", "off"][clampi(index, 0, 2)])
 
 
 func _on_contrast_toggled(enabled: bool) -> void:
@@ -1223,6 +1412,15 @@ func _section_style() -> StyleBoxFlat:
 	style.border_color = Color("405665")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(9)
+	return style
+
+
+func _playbook_step_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("223843", 0.98)
+	style.border_color = Color("4f8b82")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(7)
 	return style
 
 

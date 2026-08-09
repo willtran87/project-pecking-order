@@ -264,12 +264,14 @@ async function portableRoundTrip(cycle) {
   const beforeDigest = authoritativeDigest(before);
   await openSettings();
 
-  // Settings deliberately focuses its close button. Eighteen forward focus
-  // steps traverse ten controls across the five independent audio buses, six
-  // selectors, two comfort toggles, then the first Career Backup action. Focus
-  // traversal also scrolls the button into view, keeping this an end-user path
-  // instead of a test-only bridge.
-  for (let index = 0; index < 19; index += 1) await page.keyboard.press("Tab");
+  // Settings deliberately focuses its close button. Move to the first category,
+  // wrap left from Audio to Career, then enter the visible page. This follows
+  // the shipped progressive-disclosure navigation instead of coupling the soak
+  // to the number of controls in unrelated categories.
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("ArrowLeft");
+  await waitForState("snapshot => snapshot.settings?.active_category === 'career'");
+  await page.keyboard.press("Tab");
   const downloadPromise = page.waitForEvent("download", { timeout: 10_000 });
   await page.keyboard.press("Enter");
   const download = await downloadPromise;
@@ -289,8 +291,23 @@ async function portableRoundTrip(cycle) {
     buffer: backup,
   });
   await waitForState("snapshot => /awaiting replacement confirmation/i.test(snapshot.settings?.accessible_text ?? '')");
+  await page.locator("#canvas").focus();
+  // Held confirmations intentionally focus the safe-return action. Move left
+  // once to the explicitly dangerous VALIDATE & REPLACE action before Enter.
+  await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("Enter");
-  await waitForState("snapshot => snapshot.campaign_stage === 'title' && snapshot.resume_available === true");
+  try {
+    await waitForState("snapshot => snapshot.campaign_stage === 'title' && snapshot.resume_available === true");
+  } catch (error) {
+    const observed = await state();
+    throw new Error(`portable replacement confirmation did not reach intake: ${JSON.stringify({
+      cycle,
+      campaignStage: observed.campaign_stage,
+      resumeAvailable: observed.resume_available,
+      settings: observed.settings,
+      checkpoint: observed.checkpoint,
+    })}`, { cause: error });
+  }
   await page.waitForTimeout(400);
   const canvas = page.locator("#canvas");
   await canvas.click({ position: { x: 8, y: 8 } });
@@ -305,6 +322,31 @@ async function portableRoundTrip(cycle) {
       intakePhase: observed.campaign_intake_phase,
       resumeAvailable: observed.resume_available,
       checkpoint: observed.checkpoint,
+    })}`, { cause: error });
+  }
+  const resumed = await state();
+  if (resumed.character_dialogue?.visible === true) {
+    await canvas.focus();
+    await page.keyboard.press("Enter");
+    await waitForState("snapshot => snapshot.character_dialogue?.visible === false");
+  }
+  await canvas.focus();
+  await page.keyboard.press("Escape");
+  try {
+    await waitForState("snapshot => snapshot.camera?.input_enabled === true");
+  } catch (error) {
+    const observed = await state();
+    throw new Error(`resumed career did not return to an interactive floor: ${JSON.stringify({
+      cycle,
+      campaignStage: observed.campaign_stage,
+      firstClutch: observed.first_clutch,
+      returnRecap: observed.resume_return_recap,
+      campaignUi: observed.campaign_ui,
+      characterDialogue: observed.character_dialogue,
+      settings: observed.settings,
+      flockwatch: observed.flockwatch,
+      pendingDecision: observed.pending_decision,
+      camera: observed.camera,
     })}`, { cause: error });
   }
   await page.waitForTimeout(350);
@@ -338,6 +380,8 @@ try {
     "snapshot => snapshot.boot?.optional_visuals?.ready === true || snapshot.boot?.optional_visuals?.deferred !== true",
     60_000,
   );
+  const gameCanvas = page.locator("#canvas");
+  await gameCanvas.focus();
   await page.keyboard.press("KeyN");
   await waitForState("snapshot => snapshot.campaign_stage === 'active'");
 
@@ -363,10 +407,30 @@ try {
     await waitForState("snapshot => snapshot.first_clutch?.visible === false");
   }
 
+  const afterFirstFile = await state();
+  if (afterFirstFile.character_dialogue?.visible === true) {
+    await gameCanvas.focus();
+    await page.keyboard.press("Enter");
+    await waitForState("snapshot => snapshot.character_dialogue?.visible === false");
+  }
+
   // Escape restores overview without clicking a hen and opening her required
   // First Clutch personnel file. The camera's pre-GUI path is focus-independent.
+  await gameCanvas.focus();
   await page.keyboard.press("Escape");
-  await waitForState("snapshot => snapshot.camera?.input_enabled === true");
+  try {
+    await waitForState("snapshot => snapshot.camera?.input_enabled === true");
+  } catch (error) {
+    const observed = await state();
+    throw new Error(`overview did not restore after the First Clutch file: ${JSON.stringify({
+      campaignStage: observed.campaign_stage,
+      pendingDecisionKind: observed.pending_decision_kind,
+      firstClutch: observed.first_clutch,
+      camera: observed.camera,
+      characterDialogue: observed.character_dialogue,
+      selectedHenIdentity: observed.selected_hen_identity,
+    })}`, { cause: error });
+  }
 
   await checkpoint("runtime_soak_warmup");
   await page.waitForTimeout(750);

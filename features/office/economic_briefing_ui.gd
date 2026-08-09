@@ -330,7 +330,7 @@ func _refresh() -> void:
 		_money(int(cash.get("break_even_remaining_cents", 0))),
 	]
 	_cash.tooltip_text = (
-		"Run rate uses only claim credit already secured today against the full filed "
+		"Run rate uses only egg credit already secured today against the full filed "
 		+ "operating cost. Unearned binder premiums and future eggs are excluded."
 	)
 
@@ -383,12 +383,12 @@ func _refresh() -> void:
 		"" if int(market.get("current_days_remaining", 0)) == 1 else "S",
 		String(market.get("forecast_certainty", "FILED CALENDAR")),
 		market_cause,
-		String(market.get("opportunity_lane_label", "CLAIMS")).to_upper(),
+		String(market.get("opportunity_lane_label", "FILES")).to_upper(),
 		_signed_percent(demand_delta),
 		_money(int(market.get("feed_spot_unit_price_cents", 0))),
 		int(market.get("next_market_day", 1)),
 		String(next_market.get("short_label", "BASELINE BOOK")),
-		String(market.get("next_opportunity_lane_label", "CLAIMS")).to_upper(),
+		String(market.get("next_opportunity_lane_label", "FILES")).to_upper(),
 		_signed_percent(next_demand_delta),
 		_money(int(market.get("next_feed_spot_unit_price_cents", 0))),
 	]
@@ -399,7 +399,7 @@ func _refresh() -> void:
 		)),
 		String(market.get(
 			"forecast_uncertainty",
-			"The calendar is filed; individual claim intake can still vary.",
+			"The calendar is filed; individual file intake can still vary.",
 		)),
 	]
 

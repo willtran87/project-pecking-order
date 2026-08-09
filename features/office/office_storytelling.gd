@@ -630,7 +630,7 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 			+ int(queue_counts.get(&"predator_loss", queue_counts.get("predator_loss", 0)))
 			+ int(queue_counts.get(&"appeals", queue_counts.get("appeals", 0)))
 		)
-		_claim_closure_label.text = "CLAIM CLOSURE\nCLOSED %03d  /  OPEN %02d" % [
+		_claim_closure_label.text = "FILE CLOSURE\nCLOSED %03d  /  OPEN %02d" % [
 			int(snapshot.get("eggs_today", 0)),
 			open_claims,
 		]
@@ -3978,7 +3978,7 @@ func _build_records_and_intake_story() -> void:
 		14, 0.0030, &"utility", &"screen", true
 	)
 	_claim_closure_label = _add_mounted_label(
-		_intake_story_content, "ClaimsClosureBoard", "CLAIM CLOSURE\nCLOSED 000  /  OPEN 00",
+		_intake_story_content, "ClaimsClosureBoard", "FILE CLOSURE\nCLOSED 000  /  OPEN 00",
 		_intake_position + Vector3(-0.98, 1.58, 0.44), Vector2(1.22, 0.46),
 		Color("3b3f4f"), Color("e7dec7"), Vector3.ZERO,
 		12, 0.0027, &"utility", &"screen", true

@@ -603,17 +603,17 @@ func _sponsorship_rejection(
 	if primary_lane not in SPONSORSHIP_LANES:
 		return {
 			"reason_id": "invalid_primary_lane",
-			"reason": "Career Sponsorship requires a recognized primary claim lane.",
+			"reason": "Career Sponsorship requires a recognized primary routing specialty.",
 		}
 	if secondary_lane not in SPONSORSHIP_LANES:
 		return {
 			"reason_id": "invalid_secondary_lane",
-			"reason": "Career Sponsorship requires a recognized secondary claim lane.",
+			"reason": "Career Sponsorship requires a recognized secondary routing specialty.",
 		}
 	if secondary_lane == primary_lane:
 		return {
 			"reason_id": "same_lane",
-			"reason": "Career Sponsorship must add a claim lane beyond the hen's primary specialty.",
+			"reason": "Career Sponsorship must add a routing specialty beyond the hen's primary one.",
 		}
 	if sponsorship_history.size() >= MAX_SPONSORSHIP_HISTORY:
 		return {
@@ -957,7 +957,7 @@ func promotion_title() -> String:
 		return "REGIONAL COOP DIRECTOR"
 	if roost_marks >= 6:
 		return "DEPARTMENT ROOSTER"
-	return "SENIOR CLAIMS ROOSTER"
+	return "SENIOR PECKWORK ROOSTER"
 
 
 func active_policy() -> Dictionary:

@@ -458,7 +458,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		mabel_identity != null and mabel_identity.text == "MABEL  //  JUNIOR CLAIMS HEN",
+		mabel_identity != null and mabel_identity.text == "MABEL  //  JUNIOR PECKWORK HEN",
 		"Mabel profile should establish her name and current role",
 		failures,
 	)
@@ -485,6 +485,19 @@ func _run() -> void:
 		and new_button.theme_type_variation == &"PrimaryButton"
 		and new_button.focus_mode == Control.FOCUS_ALL,
 		"fresh intake should expose one primary Mabel action with keyboard focus",
+		failures,
+	)
+	var fresh_primary_action := ui.title_primary_action_state()
+	_check(
+		String(fresh_primary_action.get("copy", "")) == "NEXT: CHOOSE DIFFICULTY"
+		and String(fresh_primary_action.get("action_id", "")) == "campaign_new"
+		and bool(fresh_primary_action.get("actionable", false))
+		and String(fresh_primary_action.get("visible_label", "")) == new_button.text
+		and _contains_all(
+			String(fresh_primary_action.get("accessible_text", "")),
+			["Choose a difficulty", "three-step run", "START SHIFT 1 [N]"],
+		),
+		"fresh intake should publish the same visible next action to assistive and diagnostic clients",
 		failures,
 	)
 	_check(
@@ -696,11 +709,24 @@ func _run() -> void:
 		"a resumable intake should be Continue-first with one primary CTA and a secondary new-file path",
 		failures,
 	)
+	var resume_primary_action := ui.title_primary_action_state()
+	_check(
+		String(resume_primary_action.get("copy", "")) == "NEXT: CONTINUE SAVED FILE"
+		and String(resume_primary_action.get("action_id", "")) == "campaign_continue"
+		and bool(resume_primary_action.get("actionable", false))
+		and String(resume_primary_action.get("visible_label", "")) == continue_button.text
+		and _contains_all(
+			String(resume_primary_action.get("accessible_text", "")),
+			["CONTINUE SAVED FILE [C]", "verify and resume", "without changing"],
+		),
+		"resume intake should publish its real primary CTA instead of generic modal guidance",
+		failures,
+	)
 	_check(
 		mabel_card != null and not mabel_card.is_visible_in_tree()
 		and challenge_card != null and not challenge_card.is_visible_in_tree()
 		and probation_summary != null and not probation_summary.is_visible_in_tree()
-		and mabel_identity != null and mabel_identity.text == "MABEL  //  JUNIOR CLAIMS HEN",
+		and mabel_identity != null and mabel_identity.text == "MABEL  //  JUNIOR PECKWORK HEN",
 		"resume landing should suppress setup density while retaining Mabel's authored identity for the new-file stage",
 		failures,
 	)
@@ -732,6 +758,14 @@ func _run() -> void:
 		ui.title_intake_phase() == &"new_file"
 		and StringName(observed["title_phase"]) == &"new_file",
 		"staging a new file should publish its visible intake phase",
+		failures,
+	)
+	_check(
+		String(ui.title_primary_action_state().get("visible_label", ""))
+		== "START SHIFT 1  [N]"
+		and String(ui.title_primary_action_state().get("action_id", ""))
+		== "campaign_new",
+		"staged new-file setup should switch the semantic primary action with the visible CTA",
 		failures,
 	)
 	_check(
@@ -952,6 +986,41 @@ func _run() -> void:
 				},
 			],
 		},
+		"strategy_receipt": {
+			"day": 2,
+			"directive_id": "shell_assurance",
+			"policy_name": "ASSURANCE",
+			"semantic_icon": "shield",
+			"status": "mixed",
+			"tone": "warning",
+			"headline": "MIXED RESULT",
+			"forecast": "HELPS 2 / RISKS 1",
+			"actual": "1/2 HELP / 1/1 RISKS COVERED",
+			"support_total": 2,
+			"support_met": 1,
+			"risk_total": 1,
+			"risk_covered": 1,
+			"detail": "MORNING PLAN / ASSURANCE\nFORECAST / HELPS 2 / RISKS 1\nCLOSING RESULT / 1/2 HELP / 1/1 RISKS COVERED\nMET / SUPPORT / ORDERLY COOP\nMISSED / SUPPORT / CLEAN FILES\nMET / RISK / MEET THE CLUTCH",
+		},
+		"market_forecast": {
+			"visible": true,
+			"day": 3,
+			"season_label": "SPRING HATCH SURGE",
+			"season_short_label": "SPRING SURGE",
+			"days_remaining": 2,
+			"cause": "Nest-damage demand rises as fresh hatches strain the routine-loss book.",
+			"certainty": "GUARANTEED CALENDAR",
+			"uncertainty": "The season and spot quote are filed; seeded file mix can still vary.",
+			"opportunity_lane_id": "nest_damage",
+			"opportunity_lane_label": "Nest damage",
+			"opportunity_demand_basis_points": 2000,
+			"feed_spot_unit_price_cents": 240,
+			"next_market_day": 5,
+			"next_season_short_label": "PREDATOR SEASON",
+			"next_opportunity_lane_label": "Predator loss",
+			"next_opportunity_demand_basis_points": 2500,
+			"next_feed_spot_unit_price_cents": 260,
+		},
 		"credit_memo": {
 			"day": 2,
 			"decision_id": "golden_egg_dossier",
@@ -965,7 +1034,7 @@ func _run() -> void:
 			"day": 2,
 			"type": "golden_deliverable",
 			"worker_name": "Mabel",
-			"career_title": "Senior Claims Hen",
+			"career_title": "Senior Peckwork Hen",
 			"relationship_label": "Warm",
 			"headline": "Golden Deliverable",
 			"body": "Mabel laid one golden egg. The farmer congratulated management before collecting it.",
@@ -1049,6 +1118,17 @@ func _run() -> void:
 	var score_row := ui.find_child("ProbationReportScoreRow", true, false) as HFlowContainer
 	var receipt_summary := ui.find_child("ReportScoreReceiptSummary", true, false) as Label
 	var receipt_grid := ui.find_child("ReportScoreReceiptGrid", true, false) as GridContainer
+	var strategy_card := ui.find_child("ReportStrategyReceipt", true, false) as PanelContainer
+	var strategy_icon := ui.find_child("ReportStrategyPolicyIcon", true, false) as FlockwatchIconBadge
+	var strategy_outcome := ui.find_child("ReportStrategyOutcome", true, false) as Label
+	var strategy_policy := ui.find_child("ReportStrategyPolicy", true, false) as Label
+	var strategy_forecast := ui.find_child("ReportStrategyForecast", true, false) as Label
+	var strategy_actual := ui.find_child("ReportStrategyActual", true, false) as Label
+	var market_card := ui.find_child("ReportMarketPulse", true, false) as PanelContainer
+	var market_icon := ui.find_child("ReportMarketPulseIcon", true, false) as FlockwatchIconBadge
+	var market_kicker := ui.find_child("ReportMarketPulseKicker", true, false) as Label
+	var market_season := ui.find_child("ReportMarketPulseSeason", true, false) as Label
+	var market_signal := ui.find_child("ReportMarketPulseSignal", true, false) as Label
 	var rank := ui.find_child("ReportRank", true, false) as Label
 	var rank_caption := ui.find_child("ReportRankCaption", true, false) as Label
 	var rank_icon := ui.find_child("ReportRankIcon", true, false) as TextureRect
@@ -1116,7 +1196,7 @@ func _run() -> void:
 	_check(
 		_contains_all(
 			collapsed_report_accessibility,
-			["SHIFT 2 RESULTS", "Score 1,840", "Mabel", "GOLDEN DELIVERABLE", "DAY 3 PROBATION ORDERS"],
+			["SHIFT 2 RESULTS", "Score 1,840", "Mabel", "GOLDEN DELIVERABLE", "NEXT SHIFT MARKET", "GUARANTEED CALENDAR", "DAY 3 PROBATION ORDERS"],
 		),
 		"folded report details should remain fully represented in assistive output (%s)" % collapsed_report_accessibility,
 		failures,
@@ -1133,6 +1213,44 @@ func _run() -> void:
 		failures,
 	)
 	_check(report_panel != null and report_panel.is_visible_in_tree(), "between shifts should show the probation report", failures)
+	_check(
+		strategy_card != null and strategy_card.is_visible_in_tree()
+		and String(strategy_card.get_meta("status", "")) == "mixed"
+		and String(strategy_card.get_meta("directive_id", "")) == "shell_assurance"
+		and int(strategy_card.get_meta("support_total", 0)) == 2
+		and int(strategy_card.get_meta("support_met", 0)) == 1
+		and int(strategy_card.get_meta("risk_total", 0)) == 1
+		and int(strategy_card.get_meta("risk_covered", 0)) == 1
+		and strategy_icon != null and strategy_icon.icon_kind() == &"shield"
+		and String(strategy_icon.get_meta("semantic_icon", "")) == "shield"
+		and strategy_outcome != null and strategy_outcome.text == "MIXED RESULT"
+		and strategy_policy != null and strategy_policy.text == "ASSURANCE"
+		and strategy_forecast != null and strategy_forecast.text == "HELPS 2 / RISKS 1"
+		and strategy_actual != null
+		and strategy_actual.text == "1/2 HELP / 1/1 RISKS COVERED"
+		and "MISSED / SUPPORT / CLEAN FILES" in strategy_card.tooltip_text
+		and String(strategy_card.get_meta("accessible_text", "")) == strategy_card.tooltip_text,
+		"the closing report should reconcile the morning policy forecast with exact order outcomes",
+		failures,
+	)
+	_check(
+		market_card != null and market_card.is_visible_in_tree()
+		and market_icon != null and market_icon.icon_kind() == &"calendar"
+		and String(market_icon.get_meta("semantic_icon", "")) == "calendar"
+		and market_kicker != null and market_kicker.text == "NEXT MARKET"
+		and market_season != null and market_season.text == "SPRING SURGE  ·  2 DAYS"
+		and market_signal != null and market_signal.text == "NEST DAMAGE +20%  ·  FEED $2.40"
+		and int(market_card.get_meta("day", 0)) == 3
+		and String(market_card.get_meta("opportunity_lane", "")) == "nest_damage"
+		and int(market_card.get_meta("demand_basis_points", 0)) == 2000
+		and int(market_card.get_meta("feed_spot_unit_price_cents", 0)) == 240
+		and "CAUSE  //  Nest-damage demand rises" in market_card.tooltip_text
+		and "UNCERTAINTY  //  The season and spot quote are filed" in market_card.tooltip_text
+		and "THEN  //  DAY 5  //  PREDATOR SEASON  //  PREDATOR LOSS +25%  //  FEED $2.60" in market_card.tooltip_text
+		and String(market_card.get_meta("accessible_text", "")).contains("GUARANTEED CALENDAR"),
+		"the next-shift report should expose a compact actionable market pulse while retaining cause, certainty, and the following turn",
+		failures,
+	)
 	_check(
 		int(observed["report_filing_settled"]) == 1,
 		"reduced-motion reports should settle one semantic filing receipt immediately",
@@ -1561,7 +1679,7 @@ func _run() -> void:
 	)
 	_check(
 		highlight_body != null
-		and "SENIOR CLAIMS HEN" in highlight_body.tooltip_text
+		and "SENIOR PECKWORK HEN" in highlight_body.tooltip_text
 		and "5 EGGS" in highlight_body.tooltip_text
 		and highlight_eyebrow != null
 		and _colors_close(highlight_eyebrow.get_theme_color("font_color"), Color("d1a650")),
@@ -1608,6 +1726,21 @@ func _run() -> void:
 		failures,
 	)
 	_check(report_continue != null and report_continue.disabled, "report should wait for a required milestone choice", failures)
+	var initial_report_action := ui.report_primary_action_state()
+	_check(
+		String(initial_report_action.get("copy", "")) == "NEXT: CHOOSE ONE PERMANENT EDGE"
+		and String(initial_report_action.get("action_id", "")) == "campaign_milestone"
+		and bool(initial_report_action.get("actionable", false))
+		and "available permanent milestone cards" in String(initial_report_action.get("accessible_text", "")),
+		"report action state should expose the required milestone instead of its disabled continuation",
+		failures,
+	)
+	_check(
+		ui.focus_report_primary_action()
+		and ui.get_viewport().gui_get_focus_owner() == choice,
+		"the required report action should focus the first available milestone card",
+		failures,
+	)
 	_check(
 		requisitions != null
 		and requisitions.text == "REQUISITIONS  [R]"
@@ -1641,6 +1774,17 @@ func _run() -> void:
 	_check(choice != null and choice.theme_type_variation == &"SelectedChoiceButton", "selected milestone should remain visually persistent", failures)
 	_check(milestone_hint != null and "SHELL ASSURANCE  //  BRASS KEYCAPS" in milestone_hint.text, "selected doctrine identity should remain visible before filing", failures)
 	_check(report_continue != null and not report_continue.disabled, "choosing a milestone should unlock continuation", failures)
+	var selected_report_action := ui.report_primary_action_state()
+	_check(
+		String(selected_report_action.get("copy", "")) == "NEXT SHIFT  [C]"
+		and String(selected_report_action.get("action_id", "")) == "campaign_report_continue"
+		and bool(selected_report_action.get("actionable", false))
+		and "FILE REPORT & PLAN NEXT SHIFT" in String(selected_report_action.get("accessible_text", ""))
+		and ui.focus_report_primary_action()
+		and ui.get_viewport().gui_get_focus_owner() == report_continue,
+		"selected milestone should hand the report action to the exact visible next-shift filing",
+		failures,
+	)
 	if report_continue != null:
 		report_continue.pressed.emit()
 	_check(int(observed["continue"]) == 2, "report continuation should reuse the campaign continuation signal", failures)
@@ -1762,12 +1906,25 @@ func _run() -> void:
 	var final_safeguard_card_1 := ui.find_child("FinalProbationSafeguardCard_1", true, false) as PanelContainer
 	var final_message := ui.find_child("FinalProbationMessage", true, false) as Label
 	var final_sticky_bar := ui.find_child("FinalStickyActionBar", true, false) as PanelContainer
+	var final_sticky_primary := ui.find_child("FinalStickyPrimaryButton", true, false) as Button
 	_check(final_panel != null and final_panel.is_visible_in_tree(), "day five should show the final campaign review", failures)
 	_check(verdict != null and verdict.text == "PROBATION PASSED", "final review should clearly distinguish a pass", failures)
 	_check(
 		final_continue != null and not final_continue.is_visible_in_tree()
 		and final_sticky_bar != null and final_sticky_bar.is_visible_in_tree(),
 		"passing desktop review should expose one sticky senior-roost continuation without a duplicate row",
+		failures,
+	)
+	var passed_final_action := ui.final_primary_action_state()
+	_check(
+		final_sticky_primary != null
+		and String(passed_final_action.get("copy", "")) == final_sticky_primary.text
+		and String(passed_final_action.get("action_id", "")) == "campaign_final_continue"
+		and bool(passed_final_action.get("actionable", false))
+		and "optional Senior Roost" in String(passed_final_action.get("accessible_text", ""))
+		and ui.focus_final_primary_action()
+		and root.gui_get_focus_owner() == final_sticky_primary,
+		"passing final review guidance should name and focus the exact visible Senior Roost action",
 		failures,
 	)
 	_check(
@@ -1845,6 +2002,20 @@ func _run() -> void:
 	)
 	var retry := ui.find_child("FinalNewCampaignButton", true, false) as Button
 	_check(retry != null and "RETRY PROBATION" in retry.text, "failure should offer an immediate retry", failures)
+	var failed_final_action := ui.final_primary_action_state()
+	_check(
+		final_sticky_primary != null
+		and String(failed_final_action.get("copy", "")) == final_sticky_primary.text
+		and String(failed_final_action.get("action_id", "")) == "campaign_final_retry"
+		and bool(failed_final_action.get("actionable", false))
+		and "protected replacement confirmation" in String(
+			failed_final_action.get("accessible_text", "")
+		)
+		and ui.focus_final_primary_action()
+		and root.gui_get_focus_owner() == final_sticky_primary,
+		"failed final review guidance should name and focus the exact protected Retry action",
+		failures,
+	)
 	for viewport_size: Vector2 in [
 		Vector2(1280.0, 720.0),
 		Vector2(2560.0, 1600.0),
@@ -2151,16 +2322,26 @@ func _check_report_story_layout(
 	await process_frame
 	var credit_card := ui.find_child("FiledCreditMemoCard", true, false) as PanelContainer
 	var highlight_card := ui.find_child("ShiftHenHighlightCard", true, false) as PanelContainer
+	var market_card := ui.find_child("ReportMarketPulse", true, false) as PanelContainer
 	_check(
 		credit_card != null and credit_card.is_visible_in_tree()
-		and highlight_card != null and highlight_card.is_visible_in_tree(),
-		"both report story cards should remain visible at %s" % viewport_size,
+		and highlight_card != null and highlight_card.is_visible_in_tree()
+		and market_card != null and market_card.is_visible_in_tree(),
+		"report stories and the next-market pulse should remain visible at %s" % viewport_size,
 		failures,
 	)
-	if credit_card == null or highlight_card == null:
+	if credit_card == null or highlight_card == null or market_card == null:
 		return
 	var credit_rect := credit_card.get_global_rect()
 	var highlight_rect := highlight_card.get_global_rect()
+	var market_rect := market_card.get_global_rect()
+	_check(
+		market_rect.position.x >= -0.5
+		and market_rect.end.x <= viewport_size.x + 0.5
+		and market_rect.size.y >= 36.0,
+		"next-market pulse should stay bounded and legible at %s (rect %s)" % [viewport_size, market_rect],
+		failures,
+	)
 	if expect_wrapped:
 		_check(
 			is_equal_approx(credit_card.custom_minimum_size.x, 260.0)

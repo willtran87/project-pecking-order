@@ -112,6 +112,11 @@ func _run() -> void:
 	)
 
 	var snapshot := simulation.snapshot()
+	var economic_briefing := snapshot.get("economic_briefing", {}) as Dictionary
+	var economic_cash := economic_briefing.get("cash", {}) as Dictionary
+	var spendable_cents := int(economic_cash.get("spendable_fund_cents", 0))
+	var secured_margin_cents := int(economic_cash.get("secured_operating_margin_cents", 0))
+	var break_even_remaining_cents := int(economic_cash.get("break_even_remaining_cents", 0))
 	var morale_total := 0.0
 	var workers := snapshot.get("workers", []) as Array
 	for worker_value: Variant in workers:
@@ -194,19 +199,34 @@ func _run() -> void:
 	)
 	_check(
 		cash_glance != null
-		and "FAVOR %d" % int(snapshot.get("executive_confidence", 0)) in cash_glance.text
+		and _contains_all(cash_glance.text, [
+			"FREE $%s" % _compact_currency(spendable_cents),
+			"NET %s" % _signed_currency(secured_margin_cents),
+		])
 		and "CASH" not in cash_glance.text
 		and _contains_all(String(cash_glance.get_meta("accessible_text", "")), [
-			"FARMER FAVOR", "COOP OBEDIENCE", "RESERVED",
-		]),
-		"coin icon tile should pair spendable money with visible farmer favor and retain complete semantics",
+			"FARMER FAVOR", "COOP OBEDIENCE", "RESERVED", "NEED", "Secured net",
+		])
+		and int(cash_glance.get_meta("spendable_fund_cents", -1)) == spendable_cents
+		and int(cash_glance.get_meta("secured_operating_margin_cents", 1)) == secured_margin_cents
+		and int(cash_glance.get_meta("break_even_remaining_cents", -1)) == break_even_remaining_cents
+		and StringName(cash_glance.get_meta("margin_state", &"")) == (
+			&"deficit" if secured_margin_cents < 0 else &"cleared"
+		),
+		"coin icon tile should pair spendable money with live operating net and retain complete semantics",
 		failures,
 	)
 	_check(
 		orders_heading != null
-		and orders_heading.text == "3 GOALS  ·  PICK ONE  ·  +9"
+		and orders_heading.text == "3 ACTIVE GOALS  ·  +9 SCORE"
+		and _contains_all(String(orders_heading.get_meta("accessible_text", "")), [
+			"All 3 goals are active",
+			"clean sweep adds +3 more",
+			"Select any goal card",
+			"top HUD quota is a separate operating target",
+		])
 		and snapshot_heading != null and snapshot_heading.text == "NOW",
-		"Today should name the three-goal plan and its complete score reward",
+		"Today should identify every goal as active, disclose its score pool, and preserve goal-card navigation semantics",
 		failures,
 	)
 	_check(
@@ -214,6 +234,49 @@ func _run() -> void:
 			workload_glance, clutch_glance, flock_glance, cash_glance,
 		]),
 		"the four always-visible status tiles should stay within an 18-character glance budget",
+		failures,
+	)
+
+	var operating_cost := simulation.current_daily_operating_cost_cents()
+	simulation.credited_today_cents = maxi(0, operating_cost - 100)
+	office.call("_apply_snapshot_presentation", simulation.snapshot())
+	await process_frame
+	var milestones_before := _count_status_prefix(
+		office.get("_status_history") as Array,
+		"BREAK EVEN CLEARED",
+	)
+	simulation.credited_today_cents = operating_cost + 500
+	office.call("_apply_snapshot_presentation", simulation.snapshot())
+	await process_frame
+	var milestones_after_crossing := _count_status_prefix(
+		office.get("_status_history") as Array,
+		"BREAK EVEN CLEARED",
+	)
+	var ticker := office.get("_ticker_label") as Label
+	_check(
+		cash_glance != null
+		and _contains_all(cash_glance.text, ["NET +$5"])
+		and StringName(cash_glance.get_meta("margin_state", &"")) == &"cleared"
+		and navigation.last_feedback() == "BREAK EVEN CLEARED · NET +$5"
+		and ticker != null
+		and _contains_all(String(ticker.get_meta("accessible_text", "")), [
+			"Secured income now covers today's complete filed operating cost",
+			"can still change the margin",
+			"Open Capital for the exact ledger",
+		])
+		and StringName(office.call("_status_priority", navigation.last_feedback())) == &"milestone"
+		and milestones_after_crossing == milestones_before + 1,
+		"crossing break-even should create one clear, semantic milestone and update the live margin tile",
+		failures,
+	)
+	office.call("_apply_snapshot_presentation", simulation.snapshot())
+	await process_frame
+	_check(
+		_count_status_prefix(
+			office.get("_status_history") as Array,
+			"BREAK EVEN CLEARED",
+		) == milestones_after_crossing,
+		"re-presenting a cleared ledger should not replay the break-even milestone",
 		failures,
 	)
 	_check(
@@ -303,6 +366,174 @@ func _run() -> void:
 		"required progression must remain in the global context-action host",
 		failures,
 	)
+	simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
+	office.call("_on_snapshot_changed", simulation.snapshot())
+	await process_frame
+	await process_frame
+	_check(
+		continue_button != null
+		and continue_button.visible
+		and continue_button.text == "CONTINUE: FILE SHIFT RESULTS",
+		"ordinary review progression should name the shift results it actually opens",
+		failures,
+	)
+	_check(
+		continue_button != null
+		and _contains_all(continue_button.tooltip_text, ["shift's results", "morning policy"])
+		and continue_button.accessibility_name == continue_button.tooltip_text
+		and String(continue_button.get_meta("accessible_text", "")) == continue_button.tooltip_text,
+		"review progression should explain the exact next action through native and mirrored accessibility semantics",
+		failures,
+	)
+	office.call("_on_review_requisitions_pressed")
+	await process_frame
+	var guidance_label := office.get("_guidance_label") as Label
+	var guidance_action := office.find_child("GuidanceActionButton", true, false) as Button
+	var review_next_action := office.call("_next_action_diagnostic_state") as Dictionary
+	_check(
+		guidance_label != null
+		and guidance_action != null
+		and guidance_label.text == continue_button.text
+		and _contains_all(guidance_label.tooltip_text, [
+			continue_button.text,
+			continue_button.tooltip_text,
+		])
+		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"flockwatch_context_action"
+		and String(review_next_action.get("copy", "")) == continue_button.text
+		and String(review_next_action.get("action_id", "")) == "flockwatch_context_action"
+		and bool(review_next_action.get("actionable", false)),
+		"requisition review should promote the exact reachable shift-results filing above the page deck",
+		failures,
+	)
+	office.call("_on_guidance_action_pressed")
+	await process_frame
+	_check(
+		root.gui_get_focus_owner() == continue_button,
+		"global review activation should focus the docked Continue action instead of reopening Capital",
+		failures,
+	)
+	var review_accessibility := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	var review_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+		review_accessibility,
+	) as Dictionary
+	_check(
+		_contains_all(review_accessibility, [
+			"Required action: CONTINUE: FILE SHIFT RESULTS",
+			"complete the required in-panel action",
+		])
+		and "close Flockwatch to return to the floor" not in review_accessibility,
+		"assistive review summary should name the same required in-panel progression as the visible action",
+		failures,
+	)
+	_check(
+		String(review_announcement.get("kind", "")) == "flockwatch"
+		and _contains_all(String(review_announcement.get("text", "")), [
+			"Required action: CONTINUE: FILE SHIFT RESULTS",
+			"complete it when ready",
+		])
+		and "close Flockwatch to return to the floor" not in String(review_announcement.get("text", "")),
+		"Flockwatch live announcement should not tell nonvisual players to leave the required action",
+		failures,
+	)
+	var scaled_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	scaled_preferences["ui_scale"] = 1.5
+	office.set("_player_preferences", scaled_preferences)
+	office.call("_apply_management_ui_preferences")
+	await process_frame
+	await process_frame
+	var flockwatch_panel := office.find_child("FlockwatchLedger", true, false) as PanelContainer
+	var continue_font := continue_button.get_theme_font("font") if continue_button != null else null
+	var continue_font_size := continue_button.get_theme_font_size("font_size") if continue_button != null else 0
+	var continue_copy_width := (
+		continue_font.get_string_size(
+			continue_button.text,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			continue_font_size,
+		).x
+		if continue_font != null and continue_button != null else
+		INF
+	)
+	var continue_style := continue_button.get_theme_stylebox("normal") if continue_button != null else null
+	var continue_horizontal_inset := (
+		continue_style.get_content_margin(SIDE_LEFT) + continue_style.get_content_margin(SIDE_RIGHT)
+		if continue_style != null else
+		0.0
+	)
+	_check(
+		continue_button != null
+		and continue_button.is_visible_in_tree()
+		and continue_copy_width <= continue_button.size.x - continue_horizontal_inset + 0.5,
+		"150-percent review action should remain fully readable instead of relying on clipped text",
+		failures,
+	)
+	_check(
+		flockwatch_panel != null
+		and flockwatch_panel.get_global_rect().encloses(continue_button.get_global_rect()),
+		"150-percent review action should remain inside the bounded Flockwatch panel",
+		failures,
+	)
+	scaled_preferences["ui_scale"] = 1.0
+	office.set("_player_preferences", scaled_preferences)
+	office.call("_apply_management_ui_preferences")
+	await process_frame
+	await process_frame
+	var specialized_snapshot := simulation.snapshot()
+	specialized_snapshot["credit_memo_pending"] = true
+	specialized_snapshot["credit_memo_id"] = &"flock_restructuring"
+	var specialized_action := office.call("_review_progression_action", specialized_snapshot) as Dictionary
+	_check(
+		String(specialized_action.get("button_text", "")) == "CONTINUE: OPEN RESTRUCTURING FILE"
+		and "before this shift's report" in String(specialized_action.get("exact_detail", "")),
+		"restructuring review should name its required intermediate file",
+		failures,
+	)
+	specialized_snapshot["credit_memo_id"] = &"golden_egg_dossier"
+	specialized_action = office.call("_review_progression_action", specialized_snapshot) as Dictionary
+	_check(
+		String(specialized_action.get("button_text", "")) == "CONTINUE: OPEN GOLDEN DOSSIER"
+		and "before this shift's report" in String(specialized_action.get("exact_detail", "")),
+		"golden credit review should name its required intermediate dossier",
+		failures,
+	)
+	specialized_snapshot["credit_memo_id"] = &"ordinary_closing_credit"
+	specialized_action = office.call("_review_progression_action", specialized_snapshot) as Dictionary
+	_check(
+		String(specialized_action.get("button_text", "")) == "CONTINUE: FILE CLOSING CREDIT"
+		and "before this shift's report" in String(specialized_action.get("exact_detail", "")),
+		"ordinary credit review should name the closing credit filing",
+		failures,
+	)
+	specialized_snapshot["credit_memo_pending"] = false
+	specialized_snapshot["credit_memo_id"] = &""
+	office.set("_campaign_senior_roost", true)
+	specialized_action = office.call("_review_progression_action", specialized_snapshot) as Dictionary
+	_check(
+		String(specialized_action.get("button_text", "")) == "CONTINUE: OPEN SENIOR REPORT"
+		and "Senior Roost report" in String(specialized_action.get("exact_detail", "")),
+		"Senior Roost review should name its quarterly report",
+		failures,
+	)
+	office.set("_campaign_senior_roost", false)
+	var campaign_state = office.get("_campaign_state")
+	var previous_outcome: StringName = campaign_state.outcome
+	campaign_state.outcome = CampaignState.OUTCOME_PASSED
+	specialized_action = office.call("_review_progression_action", specialized_snapshot) as Dictionary
+	_check(
+		String(specialized_action.get("button_text", "")) == "CONTINUE: OPEN FINAL REVIEW"
+		and "final review" in String(specialized_action.get("exact_detail", "")),
+		"completed probation should name its final review",
+		failures,
+	)
+	campaign_state.outcome = previous_outcome
+	simulation.shift_phase = DepartmentSimulation.ShiftPhase.RUNNING
+	office.call("_on_snapshot_changed", simulation.snapshot())
+	await process_frame
 	navigation.set_show_all_filings(true)
 	await process_frame
 	_check(
@@ -324,6 +555,22 @@ func _contains_all(text: String, fragments: Array[String]) -> bool:
 		if fragment not in text:
 			return false
 	return true
+
+
+func _compact_currency(cents: int) -> String:
+	return str(cents / 100) if cents % 100 == 0 else "%.2f" % (float(cents) / 100.0)
+
+
+func _signed_currency(cents: int) -> String:
+	return "%s$%s" % ["+" if cents >= 0 else "-", _compact_currency(absi(cents))]
+
+
+func _count_status_prefix(entries: Array, prefix: String) -> int:
+	var count := 0
+	for entry: Variant in entries:
+		if String(entry).begins_with(prefix):
+			count += 1
+	return count
 
 
 func _order_glances_are_compact(glances: Array[Node]) -> bool:

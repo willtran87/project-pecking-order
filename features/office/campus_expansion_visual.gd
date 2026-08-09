@@ -663,7 +663,7 @@ func _build_routing_pod() -> void:
 	_pod_label = EnvironmentalSignageScript.add_panel(
 		identity_host,
 		"EggRoutingPodIdentity",
-		"EGG ROUTING POD\nCLAIMS-TO-CLUTCH TRANSFER",
+		"EGG ROUTING POD\nFILES-TO-CLUTCH TRANSFER",
 		Vector3(0.0, 0.0, -0.072),
 		Vector2(2.18, 0.46),
 		DEEP_GREEN,

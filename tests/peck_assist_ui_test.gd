@@ -112,17 +112,69 @@ func _run() -> void:
 	# selection stays safe, then one explicit confirmation resumes and stamps.
 	if clock != null:
 		clock.set_speed(0)
+	office.call("_retire_action_outcome_receipts", &"core_action_hold_test", false)
 	var uses_before_invalid_resume := simulation.peck_assists_used_today if simulation != null else -1
 	office.call("_on_peck_assist_requested", 0)
 	await process_frame
+	var held_notifications := office.call("_notification_diagnostic_state") as Dictionary
+	var held_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+		"",
+	) as Dictionary
 	_check(
 		clock != null
 		and clock.speed_index == 0
 		and simulation != null
-		and simulation.peck_assists_used_today == uses_before_invalid_resume,
-		"an invalid paused request should neither resume time nor spend attention",
+		and simulation.peck_assists_used_today == uses_before_invalid_resume
+		and bool(held_notifications.get("toast_visible", false))
+		and String(held_notifications.get("toast_copy", "")) == "PECK HELD  ·  WAIT FOR WORK"
+		and String(held_notifications.get("toast_priority", "")) == "action"
+		and "actively pecking a file" in String(held_announcement.get("text", "")),
+		"an invalid paused request should preserve time and attention while showing one concise, fully narrated recovery receipt",
 		failures,
 	)
+	office.call("_on_worker_assignment_undo_requested", 0)
+	var stale_undo_notifications := office.call("_notification_diagnostic_state") as Dictionary
+	_check(
+		String(stale_undo_notifications.get("toast_copy", ""))
+		== "UNDO HELD  ·  CHOOSE NEW ROUTE"
+		and "Choose a new route" in String(
+			(office.get("_ticker_label") as Label).get_meta("accessible_text", ""),
+		),
+		"a stale one-level Undo should replace hidden label text with an actionable priority receipt",
+		failures,
+	)
+	office.call("_on_worker_assignment_requested", -1, &"auto")
+	var stale_route_notifications := office.call("_notification_diagnostic_state") as Dictionary
+	_check(
+		String(stale_route_notifications.get("toast_copy", ""))
+		== "ROUTE HELD  ·  PICK ACTIVE HEN"
+		and "current employed hen" in String(
+			(office.get("_ticker_label") as Label).get_meta("accessible_text", ""),
+		),
+		"a stale route command should identify the unavailable hen and retain the exact recovery path assistively",
+		failures,
+	)
+	var priority_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	priority_preferences["notice_level"] = "priority"
+	office.set("_player_preferences", priority_preferences)
+	office.call("_publish_priority_peck_hold", {
+		"window_state": &"spent",
+		"reason": "A clean assisted delivery restores the next management-attention charge.",
+	})
+	var spent_notifications := office.call("_notification_diagnostic_state") as Dictionary
+	_check(
+		bool(spent_notifications.get("toast_visible", false))
+		and String(spent_notifications.get("toast_copy", "")) == "PECK HELD  ·  0 CHARGES  >  DELIVER"
+		and "clean assisted delivery restores" in String(
+			(office.get("_ticker_label") as Label).get_meta("accessible_text", ""),
+		),
+		"priority-only notices should retain the compact depleted-charge receipt and its exact recovery rule",
+		failures,
+	)
+	priority_preferences["notice_level"] = "all"
+	office.set("_player_preferences", priority_preferences)
 	if simulation != null:
 		simulation.set_worker_at_workstation(0, true)
 		# One authoritative tick assigns the first file and exposes the pre-gold
@@ -405,9 +457,14 @@ func _run() -> void:
 		failures,
 	)
 	var delivery_lifecycle := routing_ui.routing_lifecycle_state()
+	var delivery_lifecycle_stages := delivery_lifecycle.get("stage_states", []) as Array
 	_check(
 		bool(delivery_lifecycle.get("visible", false))
 		and String(delivery_lifecycle.get("active_stage", "")) == "egg"
+		and not bool(delivery_lifecycle.get("visible_stage_labels", true))
+		and delivery_lifecycle_stages.size() == 3
+		and String((delivery_lifecycle_stages[2] as Dictionary).get("semantic_shape", "")) == "egg_receipt"
+		and String((delivery_lifecycle_stages[2] as Dictionary).get("state", "")) == "current"
 		and bool(delivery_lifecycle.get("clean_delivery_refund", false))
 		and String(delivery_lifecycle.get("reward_shape", "")) == "charge_diamond_plus_one"
 		and not bool(delivery_lifecycle.get("route_hint_visible", true))

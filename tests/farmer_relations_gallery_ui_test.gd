@@ -94,7 +94,7 @@ func _run() -> void:
 	)
 	_check(layer != null and not layer.disabled and layer.focus_mode == Control.FOCUS_ALL and layer.text == "CREDIT LAYER", "Layer Profile should be a short keyboard action", failures)
 	_check(clutch != null and not clutch.disabled and clutch.text == "POST RESULTS", "Clutch Results should be a short action", failures)
-	_check(farmer != null and not farmer.disabled and farmer.text == "CLAIM METHOD", "Farmer's Method should be a short satirical action", failures)
+	_check(farmer != null and not farmer.disabled and farmer.text == "FARMER METHOD", "Farmer's Method should be a short farm-office action", failures)
 	var layer_terms := ui.find_child("FarmerRelationsCampaignTerms_layer_profile", true, false) as Label
 	var layer_evidence := ui.find_child("FarmerRelationsCampaignEvidence_layer_profile", true, false) as Label
 	var layer_cost := ui.find_child("FarmerRelationsCampaignCost_layer_profile", true, false) as Label

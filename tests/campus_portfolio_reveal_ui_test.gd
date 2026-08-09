@@ -60,6 +60,15 @@ func _run() -> void:
 	_check(scroll != null and rail != null and not scroll.is_ancestor_of(rail), "held actions should stay outside the scrolling receipt", failures)
 	_check(return_button != null and continue_button != null and return_button.focus_mode == Control.FOCUS_ALL and continue_button.focus_mode == Control.FOCUS_ALL, "both reveal choices should support keyboard focus", failures)
 	_check(continue_button != null and root.gui_get_focus_owner() == continue_button, "Continue should receive safe initial focus", failures)
+	var reveal_primary := ui.primary_action_state()
+	_check(
+		String(reveal_primary.get("copy", "")) == "CONTINUE"
+		and String(reveal_primary.get("action_id", ""))
+		== "campus_portfolio_reveal_continue"
+		and bool(reveal_primary.get("actionable", false)),
+		"campus receipts should publish their exact held Continue action",
+		failures,
+	)
 
 	for _frame: int in 6:
 		await process_frame
@@ -82,6 +91,7 @@ func _run() -> void:
 	_check(ui.used_reduced_motion() and not ui.entrance_animated(), "reduced motion should bypass the entrance tween", failures)
 	_check(panel != null and is_equal_approx(panel.modulate.a, 1.0), "reduced-motion receipt should appear at full opacity", failures)
 
+	await _assert_layout(harness, ui, panel, rail, return_button, continue_button, Vector2(1280.0, 720.0), true, failures)
 	await _assert_layout(harness, ui, panel, rail, return_button, continue_button, Vector2(844.0, 390.0), true, failures)
 	await _assert_layout(harness, ui, panel, rail, return_button, continue_button, Vector2(390.0, 844.0), false, failures)
 

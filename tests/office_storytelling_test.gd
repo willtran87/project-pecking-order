@@ -611,9 +611,11 @@ func _run() -> void:
 	var closure_board := staging.find_child("ClaimsClosureBoard", true, false) as Label3D
 	_check(
 		closure_board != null
+		and "FILE CLOSURE" in closure_board.text
+		and "CLAIM CLOSURE" not in closure_board.text
 		and "CLOSED 019" in closure_board.text
 		and "OPEN 06" in closure_board.text,
-		"claim closure board should report the authoritative completed clutch and three-lane open queue",
+		"file closure board should report the authoritative completed clutch and three-tray open queue",
 		failures
 	)
 

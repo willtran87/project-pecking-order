@@ -46,6 +46,23 @@ func _run() -> void:
 	var guidance_chevron := office.find_child("GuidanceActionChevron", true, false) as Label
 	_check(clock != null and clock.speed_index == 0, "first shift should begin paused for its morning directive", failures)
 	_check(decision_host != null and decision_host.is_visible_in_tree(), "opening directive should be presented as a blocking decision", failures)
+	var opening_accessibility := String(
+		office.call("_web_accessibility_summary", simulation.snapshot())
+	)
+	var opening_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+		opening_accessibility,
+	) as Dictionary
+	_check(
+		String(opening_announcement.get("kind", "")) == "management_decision"
+		and String(opening_announcement.get("key", "")).begins_with("management_decision:")
+		and "PICK TODAY'S FLOCK RULE" in String(opening_announcement.get("text", ""))
+		and "Objective: review the response" in String(opening_announcement.get("text", ""))
+		and String(opening_announcement.get("text", "")).length() < opening_accessibility.length(),
+		"the browser live region should receive the authored morning decision instead of polling noise [summary=%s announcement=%s]" % [opening_accessibility, str(opening_announcement)],
+		failures,
+	)
 	_check(
 		shift_goal_status != null
 		and String(shift_goal_status.get_meta("semantic_icon", "")) == "egg"
@@ -75,7 +92,14 @@ func _run() -> void:
 		and guidance.text.length() <= 40
 		and "select a policy card" in String(guidance.get_meta("accessible_text", "")).to_lower()
 		and guidance.tooltip_text == String(guidance.get_meta("accessible_text", ""))
-		and guidance_icon.tooltip_text == guidance.tooltip_text,
+		and guidance_icon.tooltip_text == guidance.tooltip_text
+		and String(guidance_action.get_meta("activation_behavior", "")) == "focus_target"
+		and "focus the next safe decision control" in String(
+			guidance_action.get_meta("accessible_text", "")
+		)
+		and "go directly there" not in String(
+			guidance_action.get_meta("accessible_text", "")
+		).to_lower(),
 		"the HUD should expose one compact next action with the exact explanation available semantically",
 		failures,
 	)
@@ -268,9 +292,20 @@ func _run() -> void:
 		clock.speed_index == 0
 		and pause_toggle.text == "RESUME"
 		and StringName(pause_toggle.get_meta("clock_action", &"")) == &"resume"
-		and pause_toggle.tooltip_text == "Resume simulation at normal 1× speed."
-		and pause_toggle.accessibility_name == "Resume simulation at normal 1× speed. Press Space.",
-		"the paused clock control should expose a direct resume action instead of a stale pause label",
+		and StringName(pause_toggle.get_meta("pause_owner_id", &"")) == &"player"
+		and "Pause owner: Player" in pause_toggle.tooltip_text
+		and "Next action: RESUME 1×" in pause_toggle.tooltip_text
+		and pause_toggle.accessibility_name == "%s Press Space." % pause_toggle.tooltip_text,
+		"a manual pause should expose its owner, safety guarantee, and direct resume action",
+		failures,
+	)
+	var manual_pause_context := office.call("_pause_context_state") as Dictionary
+	_check(
+		bool(manual_pause_context.get("active", false))
+		and String(manual_pause_context.get("owner_id", "")) == "player"
+		and String(manual_pause_context.get("next_action", "")) == "RESUME 1×"
+		and bool(manual_pause_context.get("speed_button_actionable", false)),
+		"manual pause diagnostics should publish the same truthful continuation contract",
 		failures,
 	)
 	if pause_toggle != null:
@@ -397,11 +432,27 @@ func _run() -> void:
 		"activating the paused next-move cue should open Today's Goals directly",
 		failures,
 	)
+	var flockwatch_accessibility := String(
+		office.call("_web_accessibility_summary", simulation.snapshot())
+	)
+	var flockwatch_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+		flockwatch_accessibility,
+	) as Dictionary
+	_check(
+		String(flockwatch_announcement.get("kind", "")) == "flockwatch"
+		and String(flockwatch_announcement.get("key", "")).begins_with("flockwatch:")
+		and "Objective: review the open filing" in String(flockwatch_announcement.get("text", "")),
+		"opening Flockwatch should create one bounded management-surface announcement",
+		failures,
+	)
 	_check(
 		latest_feedback != null
-		and latest_feedback.text == "LATEST  ·  PAUSED  ·  TIME SAFE"
-		and "SHIFT PAUSED" in latest_feedback.tooltip_text,
-		"Today's visible archive glance should compact the routine pause echo while preserving the exact notice semantically",
+		and latest_feedback.text == "LATEST  ·  PAUSED  ·  PLAYER  ·  RESUME 1×"
+		and "Pause owner: Player" in latest_feedback.tooltip_text
+		and "Next action: RESUME 1×" in latest_feedback.tooltip_text,
+		"Today's archive glance should name the pause owner and exact continuation without repeating dense prose",
 		failures,
 	)
 	office.call("_set_flockwatch_open", false)
@@ -534,6 +585,12 @@ func _run() -> void:
 		first_order_action.pressed.emit()
 	await process_frame
 	await process_frame
+	# Reproduce the ordinary pointer-focus path after an intentionally stale HUD.
+	# A paused shift will not emit another simulation snapshot to repair it.
+	office.call("_set_guidance", "STALE GOAL GUIDANCE")
+	if first_order_glance != null:
+		office.call("_on_campaign_order_glance_focus_changed", first_order_glance, true)
+	await process_frame
 	var focused_control := office.get_viewport().gui_get_focus_owner()
 	var focused_order_state := office.call("_flockwatch_diagnostic_state") as Dictionary
 	var order_driver_button := office.find_child(
@@ -542,6 +599,7 @@ func _run() -> void:
 		false,
 	) as Button
 	var order_driver_state := focused_order_state.get("campaign_order_driver", {}) as Dictionary
+	var driver_next_action := office.call("_next_action_diagnostic_state") as Dictionary
 	var focused_order_tile := office.call(
 		"_flockwatch_glance_tile",
 		first_order_glance,
@@ -570,7 +628,14 @@ func _run() -> void:
 		and String(order_driver_state.get("objective_id", "")) == String(requested_objective_id)
 		and String(order_driver_state.get("action_id", "")) == "hen_routes"
 		and "SHOW HEN ROUTES" in String(order_driver_state.get("label", ""))
-		and "No choice is filed automatically" in order_driver_button.tooltip_text,
+		and "No choice is filed automatically" in order_driver_button.tooltip_text
+		and guidance_action != null
+		and not guidance_action.disabled
+		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"campaign_order_driver"
+		and String(driver_next_action.get("activation_behavior", "")) == "navigate"
+		and "no choice is filed automatically" in String(
+			driver_next_action.get("accessible_text", "")
+		).to_lower(),
 		"the focused goal should disclose one compact, non-authoritative driver handoff",
 		failures,
 	)
@@ -579,8 +644,8 @@ func _run() -> void:
 	if routing_ui != null:
 		routing_ui.set_focus(0)
 		routing_ui.call("_on_dossier_tab_pressed", &"claim")
-	if order_driver_button != null:
-		order_driver_button.pressed.emit()
+	if guidance_action != null:
+		guidance_action.pressed.emit()
 	await process_frame
 	await process_frame
 	var traced_order_state := office.call("_flockwatch_diagnostic_state") as Dictionary
@@ -634,6 +699,46 @@ func _run() -> void:
 		and "RETURN TO GOAL" in String(flockwatch_toggle.get_meta("full_text", ""))
 		and "no route is filed" in guidance.tooltip_text.to_lower(),
 		"a route driver should prioritize the visible route choice and move exact return to Flockwatch",
+		failures,
+	)
+	if appeals_fit_button != null:
+		appeals_fit_button.pressed.emit()
+	await process_frame
+	await process_frame
+	var routed_worker := office.call("_worker_record", simulation.snapshot(), 0) as Dictionary
+	var routed_lifecycle := routing_ui.routing_lifecycle_state() if routing_ui != null else {}
+	var resume_button := office.find_child("SpeedButton_0", true, false) as Button
+	_check(
+		StringName(routed_worker.get("assigned_lane", &"")) == &"appeals"
+		and String(routed_lifecycle.get("header_copy", "")) == "1  APPEALS  ·  WAITING"
+		and StringName(routed_lifecycle.get("header_role", &"")) == &"route_status"
+		and "waiting for the next APPEALS file" in String(
+			routed_lifecycle.get("header_accessible_text", "")
+		),
+		"filing the Appeals route should replace the clipped waiting header with one complete route status",
+		failures,
+	)
+	_check(
+		guidance != null
+		and guidance.text == "APPEALS SET  >  RESUME 1×"
+		and guidance_action != null
+		and not guidance_action.disabled
+		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"resume_shift"
+		and String(guidance_action.get_meta("activation_behavior", "")) == "focus_target"
+		and "focus Resume; activate Resume to start 1×" in String(
+			guidance_action.get_meta("accessible_text", "")
+		)
+		and "Current files finish before the new tray applies" in guidance.tooltip_text
+		and "Undo restores the prior route" in guidance.tooltip_text,
+		"a filed route should acknowledge the completed decision and advance global guidance to Resume",
+		failures,
+	)
+	if guidance_action != null:
+		guidance_action.pressed.emit()
+	await process_frame
+	_check(
+		resume_button != null and root.gui_get_focus_owner() == resume_button,
+		"activating completed-route guidance should focus the visible Resume control without starting time implicitly",
 		failures,
 	)
 	if flockwatch_toggle != null:

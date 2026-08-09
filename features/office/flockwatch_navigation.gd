@@ -89,6 +89,7 @@ const GOVERNANCE_RECEIPT_KEYS: Array[StringName] = [
 const SNAPSHOT_PROJECTION_KEYS: Array[StringName] = [
 	&"first_clutch_active",
 	&"first_clutch",
+	&"pause_context",
 	&"case_docket",
 	&"economic_briefing",
 	&"relevant_flockwatch_pages",
@@ -187,6 +188,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			var stage := StringName(String(first_clutch.get("stage", &"")))
 			_first_clutch_active = bool(first_clutch.get("visible", false)) and stage != &"complete"
 	_recompute_availability()
+	_refresh_feedback_presentation()
 
 
 ## Keeps critical spoken evidence current while the visual drawer is closed.
@@ -439,14 +441,27 @@ func available_page_labels() -> Array[String]:
 func set_last_feedback(copy: String) -> void:
 	_ensure_interface()
 	_last_feedback = copy.strip_edges()
+	_refresh_feedback_presentation()
+
+
+func _refresh_feedback_presentation() -> void:
 	if _feedback_panel == null or _feedback_label == null:
 		return
 	_feedback_panel.visible = not _last_feedback.is_empty()
+	var visible_copy := _display_feedback(_last_feedback)
+	var semantic_copy := _last_feedback
+	var pause_context := _snapshot.get("pause_context", {}) as Dictionary
+	if (
+		bool(pause_context.get("active", false))
+		and _last_feedback.to_upper().begins_with("SHIFT PAUSED.")
+	):
+		visible_copy = String(pause_context.get("compact_copy", visible_copy)).strip_edges()
+		semantic_copy = String(pause_context.get("accessible_text", semantic_copy)).strip_edges()
 	_feedback_label.text = (
-		"LATEST  ·  %s" % _display_feedback(_last_feedback)
+		"LATEST  ·  %s" % visible_copy
 		if not _last_feedback.is_empty() else ""
 	)
-	_feedback_label.tooltip_text = _last_feedback
+	_feedback_label.tooltip_text = semantic_copy
 
 
 func last_feedback() -> String:
@@ -478,6 +493,89 @@ func adopt_context_action(control: Control) -> bool:
 func context_actions() -> VBoxContainer:
 	_ensure_interface()
 	return _context_actions
+
+
+## Names any globally docked progression action that is currently reachable.
+## Office uses this same semantic source for native inspection and the Web live
+## announcement, so a required Continue action cannot be visible yet omitted or
+## contradicted for nonvisual players.
+func context_action_accessible_text() -> String:
+	_ensure_interface()
+	var actions: Array[String] = []
+	for child: Node in _context_actions.get_children():
+		var control := child as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var base_button := control as BaseButton
+		if base_button != null and base_button.disabled:
+			continue
+		var label := ""
+		if control is Button:
+			label = (control as Button).text.strip_edges()
+		var detail := control.accessibility_name.strip_edges()
+		if detail.is_empty():
+			detail = String(control.get_meta("accessible_text", "")).strip_edges()
+		if detail.is_empty():
+			detail = control.tooltip_text.strip_edges()
+		if detail.is_empty():
+			detail = label
+		elif not label.is_empty() and label.to_lower() not in detail.to_lower():
+			detail = "%s. %s" % [label, detail]
+		if not detail.is_empty():
+			actions.append(detail)
+	return " ".join(actions)
+
+
+## Returns the one docked progression control that is actually reachable above
+## every filing page. Global guidance consumes this instead of advertising an
+## underlying page or shift action while Continue is visibly waiting here.
+func context_primary_action_state() -> Dictionary:
+	_ensure_interface()
+	var control := _first_reachable_context_action()
+	if control == null:
+		return {}
+	var label := control.name
+	if control is Button:
+		label = (control as Button).text.strip_edges()
+	var detail := control.accessibility_name.strip_edges()
+	if detail.is_empty():
+		detail = String(control.get_meta("accessible_text", "")).strip_edges()
+	if detail.is_empty():
+		detail = control.tooltip_text.strip_edges()
+	if detail.is_empty():
+		detail = label
+	elif not label.is_empty() and label.to_lower() not in detail.to_lower():
+		detail = "%s. %s" % [label, detail]
+	return {
+		"copy": label,
+		"action_id": "flockwatch_context_action",
+		"actionable": true,
+		"visible_label": label,
+		"semantic_icon": "advance_arrow",
+		"icon_visible": control is Button and (control as Button).icon != null,
+		"accessible_text": detail,
+	}
+
+
+func focus_context_primary_action() -> bool:
+	var control := _first_reachable_context_action()
+	if control == null or control.focus_mode == Control.FOCUS_NONE:
+		return false
+	control.grab_focus()
+	return true
+
+
+func _first_reachable_context_action() -> Control:
+	_ensure_interface()
+	for child: Node in _context_actions.get_children():
+		var control := child as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var base_button := control as BaseButton
+		if base_button != null and base_button.disabled:
+			continue
+		return control
+	return null
 
 
 ## Docks an existing host-owned action beside the Flockwatch title without
@@ -583,6 +681,15 @@ func accessible_text() -> String:
 	]
 	if not _last_feedback.is_empty():
 		summary += " Latest notice: %s" % _last_feedback
+	var pause_context := _snapshot.get("pause_context", {}) as Dictionary
+	if bool(pause_context.get("active", false)):
+		summary += " Pause status: %s" % String(pause_context.get(
+			"accessible_text",
+			"The shift is paused and simulation time is safe.",
+		))
+	var context_action := context_action_accessible_text()
+	if not context_action.is_empty():
+		summary += " Required action: %s" % context_action
 	var visible_page_copy := _current_page_visible_accessible_copy()
 	if not visible_page_copy.is_empty():
 		summary += " Visible filing: %s" % visible_page_copy

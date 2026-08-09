@@ -224,6 +224,11 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var continue_button := office.find_child("ContinueCampaignButton", true, false) as Button
+	var recovery_status := office.find_child("ProbationStatusLabel", true, false) as Label
+	var recovery_announcement := office.call(
+		"_web_accessibility_announcement",
+		(office.get("_simulation") as DepartmentSimulation).snapshot(),
+	) as Dictionary
 	_check(
 		(office.get("_campaign_state") as CampaignState).to_dictionary() == campaign_before
 		and (office.get("_simulation") as DepartmentSimulation).export_save_state() == simulation_before
@@ -233,10 +238,18 @@ func _run() -> void:
 	)
 	_check(
 		continue_button != null and continue_button.disabled
-		and "No complete campaign, office, and Senior ledger passed validation" in (
-			office.get("_ticker_label") as Label
-		).text,
-		"all-invalid recovery should disable Continue and explain the composite hold",
+		and ticker.text == "SAVE HELD  ·  REVIEW RECOVERY"
+		and recovery_status != null
+		and recovery_status.text == "SAVE HELD  ·  REVIEW RECOVERY"
+		and "No complete campaign, office, and Senior ledger passed validation" in String(
+			recovery_status.get_meta("accessible_text", "")
+		)
+		and String(recovery_announcement.get("kind", "")) == "career_intake"
+		and "Career recovery held" in String(recovery_announcement.get("text", ""))
+		and "No complete campaign, office, and Senior ledger passed validation" in String(
+			recovery_announcement.get("text", "")
+		),
+		"all-invalid recovery should disable Continue and keep its compact hold plus exact recovery reason visible and narrated",
 		failures,
 	)
 	var invalid_diagnostic := office.call("_checkpoint_diagnostic_state") as Dictionary

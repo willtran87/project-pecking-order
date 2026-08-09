@@ -92,6 +92,16 @@ func _run() -> void:
 
 	_check(ui.selected_parcel_id() == &"north_meadow" and ui.selected_pad_id() == &"meadow_west" and ui.selected_module_id() == &"collection_rail_hub", "projection-selected parcel, pad, and module should establish context", failures)
 	_check(action_button != null and not action_button.disabled and _contains_all(action_button.text, ["queue", "collection rail hub", "$140.00", "2 shifts"]), "ready module should expose one exact queue CTA", failures)
+	var portfolio_primary := ui.primary_action_state()
+	ui.focus_primary_action()
+	_check(
+		String(portfolio_primary.get("copy", "")) == action_button.text
+		and String(portfolio_primary.get("action_id", ""))
+		== "campus_portfolio_file"
+		and action_button.has_focus(),
+		"Campus Portfolio should publish and focus its exact enabled filing",
+		failures,
+	)
 	_check(_contains_all(ui.accessible_text(), ["campus portfolio", "3 parcels", "collection rail hub", "$140.00", "contractors", "power", "cold"]), "accessible copy should cover the visible portfolio decision", failures)
 	if action_button != null:
 		action_button.pressed.emit()

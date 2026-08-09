@@ -2,8 +2,10 @@ extends SceneTree
 
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
+const PlayerPreferencesStoreScript := preload("res://core/settings/player_preferences_store.gd")
 const MAIN_SAVE_FILENAME := "first_clutch_induction_test.json"
 const INFLIGHT_SAVE_FILENAME := "first_clutch_induction_inflight_test.json"
+const PREFERENCES_FILENAME := "first_clutch_induction_preferences_test.json"
 const TEST_TIME_SCALE := 6.0
 const PERSISTED_FIELDS: Array[String] = [
 	"version",
@@ -42,6 +44,7 @@ func _run() -> void:
 	var inflight_store = CampaignSaveStoreScript.new(INFLIGHT_SAVE_FILENAME)
 	store.delete()
 	inflight_store.delete()
+	PlayerPreferencesStoreScript.new(PREFERENCES_FILENAME).delete_preferences()
 
 	var office: Office = await _spawn_office(store)
 	var simulation := office.get("_simulation") as DepartmentSimulation
@@ -551,7 +554,9 @@ func _run() -> void:
 	var flockwatch_hint := OfficeActionCatalogScript.binding_label(&"toggle_flockwatch")
 	_check(
 		flockwatch_toggle != null
-		and flockwatch_toggle.text == "TODAY'S 3 ORDERS  [%s]" % flockwatch_hint
+		and flockwatch_toggle.text == "3 ORDERS  [%s]" % flockwatch_hint.split(" / ", false)[0]
+		and String(flockwatch_toggle.get_meta("full_text", "")) == "TODAY'S 3 ORDERS  [%s]" % flockwatch_hint
+		and String(flockwatch_toggle.get_meta("accessible_text", "")).contains("TODAY'S 3 ORDERS")
 		and guidance != null
 		and guidance.text == "ORDERS READY  >  OPEN  [%s]" % flockwatch_hint
 		and "three probation orders" in String(guidance.get_meta("accessible_text", "")).to_lower(),
@@ -577,7 +582,9 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		flockwatch_toggle.text == "CLOSE  [%s]" % flockwatch_hint
+		flockwatch_toggle.text == "CLOSE  [%s]" % flockwatch_hint.split(" / ", false)[0]
+		and String(flockwatch_toggle.get_meta("full_text", "")) == "CLOSE  [%s]" % flockwatch_hint
+		and String(flockwatch_toggle.get_meta("accessible_text", "")).contains("Close Flockwatch")
 		and flockwatch_toggle.tooltip_text.begins_with("Close Flockwatch")
 		and flockwatch_toggle.get_parent() == (office.get("_flockwatch_navigation") as FlockwatchNavigation).header()
 		and flockwatch_toggle.size.x <= 136.0
@@ -638,6 +645,72 @@ func _run() -> void:
 	_check(bool(state.get("dismissed", false)) and not bool(state.get("completed", true)), "Skip should dismiss without fabricating completion", failures)
 	_check(coach != null and not coach.visible, "dismissed coach should leave the full management surface unobstructed", failures)
 	_check(_checkpoint_reason(inflight_store) == "first_clutch_skipped" and bool(_saved_first_clutch(inflight_store).get("dismissed", false)), "Skip should persist immediately in the campaign session", failures)
+	var saved_stage := StringName(state.get("stage", &""))
+	office.call("_on_settings_requested")
+	await process_frame
+	var replay_button := office.find_child("FirstClutchReplayButton", true, false) as Button
+	_check(
+		replay_button != null and replay_button.is_visible_in_tree() and not replay_button.disabled,
+		"Settings should expose replay only for a hidden unfinished first-shift coach",
+		failures,
+	)
+	_check(_press(replay_button), "the production Settings action should reopen First Clutch", failures)
+	await process_frame
+	state = office.first_clutch_snapshot()
+	_check(
+		not bool(state.get("dismissed", true))
+		and StringName(state.get("stage", &"")) == saved_stage
+		and String((office.get("_player_preferences") as Dictionary).get("guidance_mode", "")) == "full",
+		"replay should restore the saved step in full mode without rewinding campaign work",
+		failures,
+	)
+	_check(
+		_checkpoint_reason(inflight_store) == "first_clutch_reopened"
+		and not bool(_saved_first_clutch(inflight_store).get("dismissed", true)),
+		"replay should persist immediately as a campaign checkpoint",
+		failures,
+	)
+	office.call("_on_settings_close_requested")
+	await process_frame
+	skip_button = office.find_child("FirstClutchSkip", true, false) as Button
+	_check(_press(skip_button), "the reopened coach should remain independently hideable", failures)
+	await process_frame
+	var guidance_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	guidance_preferences["guidance_mode"] = "off"
+	office.call("_on_preferences_changed", guidance_preferences)
+	campaign_ui.show_title(false)
+	await process_frame
+	_check(_press(office.find_child("NewCampaignButton", true, false) as Button), "a no-coach preference should still allow a normal new campaign", failures)
+	await process_frame
+	state = office.first_clutch_snapshot()
+	_check(
+		bool(state.get("dismissed", false))
+		and int(state.get("target_worker_id", -1)) >= 0
+		and not (office.find_child("FirstClutchCoach", true, false) as PanelContainer).visible,
+		"guidance Off should suppress automatic coaching without removing the recoverable first-hen context",
+		failures,
+	)
+	guidance_preferences = (office.get("_player_preferences") as Dictionary).duplicate(true)
+	guidance_preferences["guidance_mode"] = "essential"
+	office.call("_on_preferences_changed", guidance_preferences)
+	campaign_ui.show_title(false)
+	await process_frame
+	_check(_press(office.find_child("NewCampaignButton", true, false) as Button), "essential guidance should still allow a normal new campaign", failures)
+	await process_frame
+	state = office.first_clutch_snapshot()
+	var essential_coach := office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
+	var coach_body := office.find_child("FirstClutchActionBody", true, false) as Label
+	_check(
+		not bool(state.get("dismissed", true))
+		and bool(essential_coach.get("essential_only", false))
+		and coach_body != null and not coach_body.visible,
+		"essential guidance should preserve the live coach step while collapsing its explanatory paragraph",
+		failures,
+	)
+	guidance_preferences = (office.get("_player_preferences") as Dictionary).duplicate(true)
+	guidance_preferences["guidance_mode"] = "full"
+	office.call("_on_preferences_changed", guidance_preferences)
+	await process_frame
 
 	# Focused lifecycle regressions use clean campaigns on the already-booted
 	# Office. This keeps their save and UI wiring real while avoiding repeated 3D
@@ -660,7 +733,8 @@ func _run() -> void:
 	await process_frame
 	var main_cleaned := store.delete()
 	var inflight_cleaned := inflight_store.delete()
-	_check(main_cleaned and inflight_cleaned and not store.has_save() and not inflight_store.has_save(), "isolated induction checkpoints should be cleaned up", failures)
+	var preferences_cleaned := PlayerPreferencesStoreScript.new(PREFERENCES_FILENAME).delete_preferences()
+	_check(main_cleaned and inflight_cleaned and preferences_cleaned and not store.has_save() and not inflight_store.has_save(), "isolated induction checkpoints and preferences should be cleaned up", failures)
 
 	if not failures.is_empty():
 		Engine.time_scale = original_time_scale
@@ -669,7 +743,7 @@ func _run() -> void:
 		quit(1)
 		return
 	Engine.time_scale = original_time_scale
-	print("FIRST_CLUTCH_INDUCTION_TEST_PASSED path=Mabel-prelude-policy-route-checkin-continue-assist-lay-present-reinvest restore=prelude+open-file+priority+offer coach=resume-required+gated-orders-handoff recovery=inflight+offer-persistence choices=bank+idempotent edges=speed-gate+retarget+global-checkin+ordered-completion+review-restore+rollover-claim skip=persisted json=round-trip")
+	print("FIRST_CLUTCH_INDUCTION_TEST_PASSED path=Mabel-prelude-policy-route-checkin-continue-assist-lay-present-reinvest restore=prelude+open-file+priority+offer coach=full+essential+off+reopen recovery=inflight+offer-persistence choices=bank+idempotent edges=speed-gate+retarget+global-checkin+ordered-completion+review-restore+rollover-claim skip=persisted json=round-trip")
 	quit(0)
 
 
@@ -1188,6 +1262,7 @@ func _wait_until_first_clutch_field(
 func _spawn_office(store: CampaignSaveStore) -> Office:
 	var office := Office.new()
 	office.set("_campaign_store", store)
+	office.set("_preferences_store", PlayerPreferencesStoreScript.new(PREFERENCES_FILENAME))
 	office.set("_allow_automated_campaign_saves", true)
 	root.add_child(office)
 	await process_frame

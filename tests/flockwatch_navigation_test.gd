@@ -42,6 +42,7 @@ func _run() -> void:
 	var required_action := Button.new()
 	required_action.name = "ContinueRequiredAction"
 	required_action.text = "CONTINUE REQUIRED FILING"
+	required_action.accessibility_name = "File the required closing record before continuing."
 	required_action.focus_mode = Control.FOCUS_ALL
 	required_action.custom_minimum_size = Vector2(240.0, 38.0)
 	context_action_host.add_child(required_action)
@@ -96,6 +97,29 @@ func _run() -> void:
 		required_action.focus_mode == required_action_focus_mode
 		and required_action.is_visible_in_tree(),
 		"Context adoption should preserve focus semantics and immediate reachability",
+		failures,
+	)
+	_check(
+		_contains_all(navigation.context_action_accessible_text(), [
+			"CONTINUE REQUIRED FILING",
+			"File the required closing record before continuing.",
+		])
+		and "Required action: CONTINUE REQUIRED FILING" in navigation.accessible_text(),
+		"reachable context progression should be included in Flockwatch accessibility narration",
+		failures,
+	)
+	var context_primary_action := navigation.context_primary_action_state()
+	_check(
+		String(context_primary_action.get("copy", "")) == required_action.text
+		and String(context_primary_action.get("action_id", "")) == "flockwatch_context_action"
+		and bool(context_primary_action.get("actionable", false))
+		and _contains_all(String(context_primary_action.get("accessible_text", "")), [
+			"CONTINUE REQUIRED FILING",
+			"File the required closing record before continuing.",
+		])
+		and navigation.focus_context_primary_action()
+		and root.gui_get_focus_owner() == required_action,
+		"the shared action contract should name and focus the exact reachable docked control",
 		failures,
 	)
 	required_action.pressed.emit()

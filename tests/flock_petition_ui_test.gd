@@ -1,7 +1,7 @@
 extends SceneTree
 
 
-const PETITION_PROMISE := "Assign the sponsor to her trained claim lane for the entire next shift."
+const PETITION_PROMISE := "Assign the sponsor to her trained file tray for the entire next shift."
 const PETITION_TEST := "Sponsor remains assigned to her specialty lane for the full shift."
 
 
@@ -206,7 +206,10 @@ func _run() -> void:
 	)
 	_check(
 		"ACTION FILED" in policy_badge.text and "scheduled for Day 3" in policy_badge.tooltip_text,
-		"top policy badge should signal scheduled collective action",
+		"top policy badge should signal scheduled collective action (text=%s tooltip=%s)" % [
+			policy_badge.text,
+			policy_badge.tooltip_text,
+		],
 		failures,
 	)
 

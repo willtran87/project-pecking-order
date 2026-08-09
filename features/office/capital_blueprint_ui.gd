@@ -143,6 +143,52 @@ func is_open() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_open():
+		return {}
+	var target := _purchase_button
+	var action_id := "capital_blueprint_purchase"
+	var semantic_icon := "capital"
+	if target == null or target.disabled or not target.is_visible_in_tree():
+		target = _pin_button
+		action_id = "capital_blueprint_pin"
+		semantic_icon = "pin"
+	if target == null or target.disabled or not target.is_visible_in_tree():
+		target = _return_button
+		action_id = "capital_blueprint_return"
+		semantic_icon = "safe_return"
+	if target == null or not target.is_visible_in_tree():
+		return {}
+	var copy := target.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": action_id,
+		"actionable": not target.disabled,
+		"semantic_icon": semantic_icon,
+		"icon_visible": target.icon != null,
+		"accessible_text": (
+			target.tooltip_text.strip_edges()
+			if not target.tooltip_text.strip_edges().is_empty() else
+			copy
+		),
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	var action_id := String(state.get("action_id", ""))
+	var target := _purchase_button
+	if action_id == "capital_blueprint_pin":
+		target = _pin_button
+	elif action_id == "capital_blueprint_return":
+		target = _return_button
+	target.grab_focus()
+	return true
+
+
 func selected_facility_id() -> StringName:
 	return _selected_facility_id
 
@@ -169,6 +215,10 @@ func inspector_accessible_text() -> String:
 	if facility.is_empty():
 		return "The selected capital parcel is not in the authoritative catalog."
 	var sections: Array[String] = [
+		String(_plan_summary_label.get_meta(
+			"accessible_text",
+			_plan_summary_label.tooltip_text if not _plan_summary_label.tooltip_text.is_empty() else _plan_summary_label.text,
+		)),
 		String(_inspector_title.text),
 		String(_inspector_status.text),
 	]
@@ -177,6 +227,15 @@ func inspector_accessible_text() -> String:
 		if label != null:
 			sections.append("%s: %s" % [String(section_id).replace("_", " "), label.text])
 	return " ".join(sections).replace("\n", "; ")
+
+
+func present_action_hold(copy: String, detail: String) -> void:
+	if _plan_summary_label == null:
+		return
+	_plan_summary_label.text = copy
+	_plan_summary_label.tooltip_text = detail
+	_plan_summary_label.set_meta("accessible_text", detail)
+	_plan_summary_label.add_theme_color_override("font_color", COLOR_RUST)
 
 
 func select_facility(facility_id: StringName, emit_preview: bool = true) -> bool:
@@ -579,17 +638,20 @@ func _refresh_campus_expansion_button() -> void:
 
 
 func _refresh_plan_summary() -> void:
+	_plan_summary_label.add_theme_color_override("font_color", COLOR_TEAL)
 	var pinned_id := _model.pinned_facility_id()
 	var pinned := _model.facility(pinned_id)
 	if pinned_id == &"" or pinned.is_empty():
 		_plan_summary_label.text = "NO CAPITAL PLAN PINNED"
 		_plan_summary_label.tooltip_text = "Select any parcel and pin it without spending Feed Fund."
+		_plan_summary_label.set_meta("accessible_text", _plan_summary_label.tooltip_text)
 		return
 	_plan_summary_label.text = "CAPITAL PLAN / %s / %s" % [
 		String(pinned.get("short_name", pinned.get("display_name", pinned_id))).to_upper(),
 		String(pinned.get("readiness_label", "BLOCKED")),
 	]
 	_plan_summary_label.tooltip_text = String(pinned.get("why_now", ""))
+	_plan_summary_label.set_meta("accessible_text", _plan_summary_label.tooltip_text)
 
 
 func _refresh_parcel_buttons() -> void:

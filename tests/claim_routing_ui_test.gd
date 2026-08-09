@@ -1512,6 +1512,14 @@ func _run() -> void:
 		var dossier_rect := dossier.get_global_rect()
 		_check(dossier_rect.position.x >= 0.0 and dossier_rect.end.x <= 1280.0, "routing dossier should fit the 1280-wide game stage", failures)
 		_check(dossier_rect.position.y >= 0.0 and dossier_rect.end.y <= 666.0, "routing dossier should clear the bottom ticker", failures)
+		var lifecycle_state := routing_ui.routing_lifecycle_state() if routing_ui != null else {}
+		_check(
+			bool(lifecycle_state.get("dossier_visible", false))
+			and bool(lifecycle_state.get("dossier_contained", false))
+			and float((lifecycle_state.get("dossier_rect", {}) as Dictionary).get("height", 0.0)) > 0.0,
+			"routing diagnostics should prove the visible dossier is contained in the game stage",
+			failures,
+		)
 
 	await create_timer(0.4).timeout
 	office.free()

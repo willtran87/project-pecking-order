@@ -205,7 +205,7 @@ func _init() -> void:
 		quit(1)
 		return
 
-	print("CAMPAIGN_BALANCE_PLAYTHROUGH_TEST_PASSED profiles=%d challenge_contracts=3 board_books=7 strategy_routes=7 gold_controls=1 senior_dockets=4" % PROFILE_IDS.size())
+	print("CAMPAIGN_BALANCE_PLAYTHROUGH_TEST_PASSED profiles=%d challenge_contracts=3 board_books=7 strategy_routes=7 gold_controls=1 senior_dockets=4 replay_dominance_matrices=%d contextual_score_leaders=2+" % [PROFILE_IDS.size(), REPLAY_DOCKET_SEEDS.size()])
 	quit(0)
 
 
@@ -353,7 +353,10 @@ func _check_seed_determinism_probe(failures: Array[String]) -> void:
 
 
 func _check_replay_docket_viability(failures: Array[String]) -> void:
+	var score_leaders: Dictionary = {}
 	for docket_seed in REPLAY_DOCKET_SEEDS:
+		var docket_results: Dictionary = {}
+		var docket_vectors: Array[Dictionary] = []
 		for doctrine_id_value in VIABLE_DOCTRINES.keys():
 			var doctrine_id := StringName(doctrine_id_value)
 			var result := _run_profile(
@@ -379,6 +382,24 @@ func _check_replay_docket_viability(failures: Array[String]) -> void:
 				"replay docket %d must preserve the viable %s Standard Filing route" % [docket_seed, doctrine_id],
 				failures,
 			)
+			docket_results[String(doctrine_id)] = result
+			docket_vectors.append(result)
+		_check(
+			not _matrix_has_dominant_doctrine(docket_results),
+			"replay docket %d must not contain one doctrine that weakly dominates every alternative" % docket_seed,
+			failures,
+		)
+		_check(
+			_doctrine_vectors_are_materially_distinct(docket_vectors),
+			"replay docket %d must preserve materially distinct doctrine outcomes" % docket_seed,
+			failures,
+		)
+		score_leaders[String(_doctrine_metric_leader(docket_results, "probation_score"))] = true
+	_check(
+		score_leaders.size() >= 2,
+		"changing replay dockets must change the score-leading doctrine instead of preserving one universal best route",
+		failures,
+	)
 
 
 func _check_supported_guided_no_micro_viability(failures: Array[String]) -> void:
@@ -1957,6 +1978,19 @@ func _doctrine_outcome_vector(result: Dictionary) -> Dictionary:
 		"closing_fund_cents": int(result.get("closing_fund_cents", 0)),
 		"total_eggs": int(result.get("total_eggs", 0)),
 	}
+
+
+func _doctrine_metric_leader(results: Dictionary, metric: String) -> StringName:
+	var leader: StringName = &""
+	var leader_value := -2_000_000_000
+	for doctrine_id_value in results.keys():
+		var doctrine_id := StringName(doctrine_id_value)
+		var vector := _doctrine_outcome_vector(results[doctrine_id_value] as Dictionary)
+		var value := int(vector.get(metric, leader_value))
+		if leader == &"" or value > leader_value:
+			leader = doctrine_id
+			leader_value = value
+	return leader
 
 
 func _doctrine_route_tradeoffs_are_legible(results: Dictionary) -> bool:

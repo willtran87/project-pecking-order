@@ -22,6 +22,7 @@ func _run() -> void:
 	await process_frame
 
 	var simulation := office.get("_simulation") as DepartmentSimulation
+	var clock := office.get("_clock") as SimulationClock
 	var routing_ui := office.find_child(
 		"PeckworkRoutingUI",
 		true,
@@ -163,6 +164,7 @@ func _run() -> void:
 	)
 	await process_frame
 	var save_before_claim_confirmation := simulation.export_save_state()
+	var requested_speed_before_claim_confirmation := clock.speed_index if clock != null else -1
 	var cue_serial_before_claim_confirmation := int(
 		audio_feedback.feedback_snapshot().get("cue_serial", -1)
 	)
@@ -222,6 +224,53 @@ func _run() -> void:
 		failures,
 	)
 	_check(
+		clock != null
+		and clock.interaction_hold_active()
+		and is_zero_approx(clock.effective_multiplier())
+		and requested_speed_before_claim_confirmation > 0
+		and clock.speed_index == requested_speed_before_claim_confirmation,
+		"held confirmation should freeze effective time without replacing the requested speed",
+		failures,
+	)
+	var claim_live_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+	) as Dictionary
+	var claim_inspection_summary := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		String(claim_live_announcement.get("kind", ""))
+		== "held_confirmation_claimant_path"
+		and not String(claim_live_announcement.get("key", "")).is_empty()
+		and _contains_all(
+			String(claim_live_announcement.get("text", "")),
+			[
+				"FILE HUMANE SETTLEMENT?",
+				"NO CHANGE UNTIL YOU FILE.",
+				"Confirm: FILE SETTLEMENT",
+				"Safe return: KEEP STANDARD",
+			],
+		),
+		"claimant confirmation should outrank its parent surface in the authored Web live event",
+		failures,
+	)
+	_check(
+		_contains_all(
+			claim_inspection_summary,
+			[
+				"FILE HUMANE SETTLEMENT?",
+				"Confirm: FILE SETTLEMENT",
+				"Safe return: KEEP STANDARD",
+				"Objective: Safe return: KEEP STANDARD",
+				"permanent filing remains unconfirmed",
+			],
+		),
+		"complete assistive inspection should prioritize the claimant confirmation and its exact safe return",
+		failures,
+	)
+	_check(
 		claim_confirmation != null
 		and claim_confirmation.title == "FILE HUMANE SETTLEMENT?"
 		and claim_confirm_button != null
@@ -278,13 +327,32 @@ func _run() -> void:
 		"held confirmation should archive routine prose and action semantics without overlap",
 		failures,
 	)
+	var save_after_claim_confirmation := simulation.export_save_state()
+	var cue_serial_after_claim_confirmation := int(
+		audio_feedback.feedback_snapshot().get("cue_serial", -2)
+	)
+	var confirmation_changed_keys: Array[String] = []
+	for key: Variant in save_before_claim_confirmation:
+		if (
+			not save_after_claim_confirmation.has(key)
+			or save_before_claim_confirmation[key] != save_after_claim_confirmation[key]
+		):
+			confirmation_changed_keys.append(String(key))
+	for key: Variant in save_after_claim_confirmation:
+		if not save_before_claim_confirmation.has(key):
+			confirmation_changed_keys.append(String(key))
+	confirmation_changed_keys.sort()
 	_check(
-		simulation.export_save_state() == save_before_claim_confirmation
-		and int(audio_feedback.feedback_snapshot().get(
-			"cue_serial",
-			-2,
-		)) == cue_serial_before_claim_confirmation,
-		"confirmation handoff should be save-neutral and silent",
+		save_after_claim_confirmation == save_before_claim_confirmation
+		and cue_serial_after_claim_confirmation == cue_serial_before_claim_confirmation,
+		(
+			"confirmation handoff should be save-neutral and silent "
+			+ "(changed=%s cue=%d->%d)"
+		) % [
+			confirmation_changed_keys,
+			cue_serial_before_claim_confirmation,
+			cue_serial_after_claim_confirmation,
+		],
 		failures,
 	)
 	_check(
@@ -300,6 +368,9 @@ func _run() -> void:
 		not claim_confirmation.visible
 		and confirmation_scrim != null
 		and not confirmation_scrim.visible
+		and clock != null
+		and not clock.interaction_hold_active()
+		and clock.speed_index == requested_speed_before_claim_confirmation
 		and simulation.revenue_cents == fund_before_claim
 		and simulation.workers[0].current_claim != null
 		and simulation.workers[0].current_claim.id == claim_id_before
@@ -397,6 +468,14 @@ func _run() -> void:
 	)
 	var release_name := simulation.workers[1].display_name.to_upper()
 	var release_safety := staffing_ui.interaction_safety_state()
+	var release_live_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+	) as Dictionary
+	var release_inspection_summary := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
 	var release_confirm_initial := release_confirmation.get_ok_button()
 	var release_cancel_initial := release_confirmation.get_cancel_button()
 	_check(
@@ -420,6 +499,24 @@ func _run() -> void:
 		and String(release_safety.get("release_confirmation_focus", ""))
 		== "safe_return",
 		"release confirmation should name the filing, distinguish danger from safe return, and focus the safe choice",
+		failures,
+	)
+	var held_next_action := office.call(
+		"_next_action_diagnostic_state",
+	) as Dictionary
+	if release_confirm_initial != null:
+		release_confirm_initial.grab_focus()
+	office.call("_on_guidance_action_pressed")
+	_check(
+		String(held_next_action.get("copy", "")) == "KEEP"
+		and String(held_next_action.get("visible_label", "")) == "KEEP"
+		and String(held_next_action.get("action_id", ""))
+		== "held_confirmation_safe_return"
+		and bool(held_next_action.get("actionable", false))
+		and release_cancel_initial.has_focus()
+		and simulation.workers[1].employed
+		and simulation.revenue_cents == fund_before_release,
+		"every held confirmation should publish and focus its exact safe return without filing the permanent action",
 		failures,
 	)
 	_check(
@@ -446,6 +543,36 @@ func _run() -> void:
 			],
 		),
 		"release confirmation should disclose exact economic and operational consequences in visual and accessible ledgers",
+		failures,
+	)
+	_check(
+		String(release_live_announcement.get("kind", ""))
+		== "held_confirmation_hen_release"
+		and not String(release_live_announcement.get("key", "")).is_empty()
+		and _contains_all(
+			String(release_live_announcement.get("text", "")),
+			[
+				"FILE %s'S RELEASE?" % release_name,
+				"NO CHANGE UNTIL YOU FILE.",
+				"Confirm: FILE",
+				"Safe return: KEEP",
+			],
+		),
+		"release confirmation should outrank staffing in the authored Web live event",
+		failures,
+	)
+	_check(
+		_contains_all(
+			release_inspection_summary,
+			[
+				"FILE %s'S RELEASE?" % release_name,
+				"Confirm: FILE",
+				"Safe return: KEEP",
+				"Objective: Safe return: KEEP",
+				"permanent filing remains unconfirmed",
+			],
+		),
+		"complete assistive inspection should prioritize the release confirmation and its exact safe return",
 		failures,
 	)
 	_check(

@@ -69,7 +69,7 @@ func _test_invalid_guards_are_atomic(failures: Array[String]) -> void:
 	_assert_rejected_atomic(
 		simulation,
 		0,
-		"build the claim rhythm",
+		"build the file rhythm",
 		"early timing attempt",
 		failures,
 	)

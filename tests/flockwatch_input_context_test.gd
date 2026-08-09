@@ -85,6 +85,8 @@ func _run() -> void:
 		and panel != null
 		and navigation != null
 		and toggle.text.begins_with("CLOSE")
+		and String(toggle.get_meta("full_text", "")).begins_with("CLOSE")
+		and String(toggle.get_meta("accessible_text", "")).contains("Close Flockwatch")
 		and toggle.get_parent() == navigation.header()
 		and toggle.size.x <= 136.0
 		and toggle.size.y <= 36.0,

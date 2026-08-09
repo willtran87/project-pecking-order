@@ -45,7 +45,7 @@ func _run() -> void:
 		badge != null
 		and badge.visible
 		and badge.text == "* GOLD"
-		and "claim #%04d" % target_claim_id in badge.tooltip_text,
+		and "file #%04d" % target_claim_id in badge.tooltip_text,
 		"the dossier should show one compact, accessible seal for the exact claim",
 		failures,
 	)

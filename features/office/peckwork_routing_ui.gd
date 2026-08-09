@@ -319,6 +319,7 @@ class RoutingLifecycleRail:
 
 	const STAGES: Array[StringName] = [&"route", &"peck", &"egg"]
 	const LABELS := ["ROUTE", "PECK", "EGG"]
+	const STAGE_SHAPES: Array[StringName] = [&"file_tray", &"work_monitor", &"egg_receipt"]
 
 	var active_stage: StringName = &"route"
 	var clean_delivery_refund := false
@@ -343,20 +344,41 @@ class RoutingLifecycleRail:
 		set_meta("active_stage", active_stage)
 		set_meta("active_index", stage_index)
 		set_meta("sequence", ["route", "peck", "egg"])
+		set_meta("stage_shapes", ["file_tray", "work_monitor", "egg_receipt"])
+		set_meta("visible_stage_labels", false)
 		set_meta("clean_delivery_refund", clean_delivery_refund)
 		set_meta("reward_shape", &"charge_diamond_plus_one" if clean_delivery_refund else &"")
 		set_meta(
 			"shape_language",
-			"tray=route; screen=peck; oval=egg; diamond+1=clean delivery restores peck",
+			(
+				"file tray=route; work monitor=peck; egg receipt=egg; "
+				+ "check=complete; double frame+pointer=current; outline=upcoming; "
+				+ "diamond+1=clean delivery restores peck"
+			),
 		)
 		queue_redraw()
 
 
 	func presentation_state() -> Dictionary:
+		var active_index := STAGES.find(active_stage)
+		var stage_states: Array[Dictionary] = []
+		for index in STAGES.size():
+			stage_states.append({
+				"id": String(STAGES[index]),
+				"accessible_label": String(LABELS[index]),
+				"semantic_shape": String(STAGE_SHAPES[index]),
+				"state": (
+					"complete" if index < active_index else
+					"current" if index == active_index else
+					"upcoming"
+				),
+			})
 		return {
 			"visible": is_visible_in_tree(),
 			"active_stage": String(active_stage),
 			"sequence": ["route", "peck", "egg"],
+			"stage_states": stage_states,
+			"visible_stage_labels": false,
 			"accessible_text": accessibility_name,
 			"shape_language": String(get_meta("shape_language", "")),
 			"clean_delivery_refund": clean_delivery_refund,
@@ -367,40 +389,44 @@ class RoutingLifecycleRail:
 	func _draw() -> void:
 		var font := get_theme_default_font()
 		var active_index := STAGES.find(active_stage)
-		var station_width := 76.0
-		var connector_width := 13.0
-		var station_step := station_width + connector_width
+		var station_step := 51.0
 		for index in STAGES.size():
-			var origin_x := index * station_step
+			var center := Vector2(14.0 + index * station_step, 11.5)
 			var completed := index < active_index
 			var active := index == active_index
-			var color := Color("73b5a7") if completed else Color("d8b967") if active else Color("71828a")
+			var plate := Rect2(center - Vector2(14.0, 10.5), Vector2(28.0, 21.0))
+			var color := Color("effff9") if completed else Color("fff0ae") if active else Color("82939a")
+			var plate_fill := Color("245449") if completed else Color("453a1f") if active else Color("17252c")
+			draw_rect(plate, plate_fill, true)
+			draw_rect(plate, Color("73b5a7") if completed else Color("d8b967") if active else Color("52656d"), false, 1.25)
 			if active:
-				draw_rect(Rect2(origin_x, 22.0, 71.0, 2.0), Color("d8b967"), true)
+				draw_rect(plate.grow(-2.5), Color("e8cb70"), false, 1.0)
+				var pointer := PackedVector2Array([
+					center + Vector2(-3.0, 10.5),
+					center + Vector2(3.0, 10.5),
+					center + Vector2(0.0, 13.5),
+				])
+				draw_colored_polygon(pointer, Color("d8b967"))
 			match index:
 				0:
-					_draw_tray(Vector2(origin_x + 9.0, 11.5), color)
+					_draw_tray(center, color)
 				1:
-					_draw_screen(Vector2(origin_x + 9.0, 11.5), color)
+					_draw_screen(center, color)
 				2:
-					_draw_egg(Vector2(origin_x + 9.0, 11.5), color)
-			draw_string(
-				font,
-				Vector2(origin_x + 20.0, 15.5),
-				String(LABELS[index]),
-				HORIZONTAL_ALIGNMENT_LEFT,
-				53.0,
-				10,
-				color.lightened(0.14) if active else color,
-			)
+					_draw_egg(center, color)
+			if completed:
+				var check_center := center + Vector2(10.5, -7.5)
+				draw_circle(check_center, 3.6, Color("73b5a7"))
+				draw_line(check_center + Vector2(-1.8, 0.0), check_center + Vector2(-0.4, 1.4), Color("effff9"), 1.0, true)
+				draw_line(check_center + Vector2(-0.4, 1.4), check_center + Vector2(2.0, -1.5), Color("effff9"), 1.0, true)
 			if index < STAGES.size() - 1:
-				var arrow_start := Vector2(origin_x + 74.0, 11.5)
-				var arrow_end := Vector2(origin_x + 85.0, 11.5)
+				var arrow_start := center + Vector2(17.0, 0.0)
+				var arrow_end := center + Vector2(34.0, 0.0)
 				draw_line(arrow_start, arrow_end, Color("52656d"), 1.2, true)
 				draw_line(arrow_end, arrow_end + Vector2(-3.0, -2.5), Color("52656d"), 1.2, true)
 				draw_line(arrow_end, arrow_end + Vector2(-3.0, 2.5), Color("52656d"), 1.2, true)
 		if clean_delivery_refund:
-			var reward_center := Vector2(258.0, 11.5)
+			var reward_center := Vector2(148.0, 11.5)
 			var reward_radius := 5.0
 			var reward_diamond := PackedVector2Array([
 				reward_center + Vector2(0.0, -reward_radius),
@@ -411,7 +437,7 @@ class RoutingLifecycleRail:
 			draw_colored_polygon(reward_diamond, Color("73b5a7"))
 			draw_line(reward_center + Vector2(-2.1, 0.0), reward_center + Vector2(2.1, 0.0), Color("effff9"), 1.15, true)
 			draw_line(reward_center + Vector2(0.0, -2.1), reward_center + Vector2(0.0, 2.1), Color("effff9"), 1.15, true)
-			draw_string(font, Vector2(266.0, 15.5), "+1", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 10, Color("9fd4bd"))
+			draw_string(font, Vector2(156.0, 15.5), "+1", HORIZONTAL_ALIGNMENT_LEFT, 20.0, 10, Color("9fd4bd"))
 
 
 	func _draw_tray(center: Vector2, color: Color) -> void:
@@ -1021,6 +1047,26 @@ func routing_lifecycle_state() -> Dictionary:
 		String(_claim_detail_strip.get_meta("shape_language", ""))
 		if _claim_detail_strip != null else
 		""
+	)
+	var component_rect := get_global_rect()
+	var dossier_rect := _focus_panel.get_global_rect() if _focus_panel != null else Rect2()
+	var viewport_rect := Rect2(Vector2.ZERO, get_viewport_rect().size)
+	state["component_rect"] = {
+		"x": component_rect.position.x,
+		"y": component_rect.position.y,
+		"width": component_rect.size.x,
+		"height": component_rect.size.y,
+	}
+	state["dossier_rect"] = {
+		"x": dossier_rect.position.x,
+		"y": dossier_rect.position.y,
+		"width": dossier_rect.size.x,
+		"height": dossier_rect.size.y,
+	}
+	state["dossier_visible"] = _focus_panel != null and _focus_panel.is_visible_in_tree()
+	state["dossier_contained"] = (
+		dossier_rect.has_area()
+		and viewport_rect.encloses(dossier_rect)
 	)
 	return state
 
@@ -2460,8 +2506,8 @@ func _build_first_clutch_coach() -> void:
 
 	_first_clutch_skip_button = Button.new()
 	_first_clutch_skip_button.name = "FirstClutchSkip"
-	_first_clutch_skip_button.text = "SKIP"
-	_first_clutch_skip_button.tooltip_text = "Retire the optional first-clutch coach."
+	_first_clutch_skip_button.text = "HIDE"
+	_first_clutch_skip_button.tooltip_text = "Hide the optional coach. Reopen it from Settings without rewinding work."
 	_first_clutch_skip_button.custom_minimum_size = Vector2(58.0, 30.0)
 	_first_clutch_skip_button.add_theme_font_size_override("font_size", 10)
 	_first_clutch_skip_button.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -2739,7 +2785,7 @@ func _build_focus_dossier() -> void:
 		_claim_detail_fact_values.append(value)
 	_routing_lifecycle_rail = RoutingLifecycleRail.new()
 	_routing_lifecycle_rail.name = "RoutingLifecycleRail"
-	_routing_lifecycle_rail.custom_minimum_size = Vector2(290.0, 25.0)
+	_routing_lifecycle_rail.custom_minimum_size = Vector2(178.0, 25.0)
 	_routing_lifecycle_rail.mouse_filter = Control.MOUSE_FILTER_PASS
 	_routing_lifecycle_rail.focus_mode = Control.FOCUS_NONE
 	_routing_lifecycle_rail.set_stage(&"route")
@@ -3551,10 +3597,10 @@ func _refresh() -> void:
 	)
 	if golden_file_target:
 		_golden_file_badge.tooltip_text = (
-			"Golden File seal: claim #%04d will grade golden if it arrives clean. "
+			"Golden File seal: file #%04d will grade golden if it arrives clean. "
 			+ "A crack preserves the reward and moves the seal to the next active file."
 		) % int(claim.get("id", 0))
-		_golden_file_badge.set_meta("accessibility_label", "Golden File sealed on claim %04d" % int(claim.get("id", 0)))
+		_golden_file_badge.set_meta("accessibility_label", "Golden File sealed on file %04d" % int(claim.get("id", 0)))
 	_refresh_contract_badge(_current_contract_badge, claim)
 	if claim.is_empty():
 		_clear_claim_phase_header()
@@ -3566,7 +3612,7 @@ func _refresh() -> void:
 			) % worker_name
 			_current_claim_label.set_meta("presentation_role", &"route_action")
 		else:
-			_current_claim_label.text = "1  %s ROUTE  /  WAITING" % _lane_name(assignment)
+			_current_claim_label.text = "1  %s  ·  WAITING" % _lane_name(assignment)
 			_current_claim_label.accessibility_name = (
 				"Step 1, route a file. %s is waiting for the next %s file."
 				% [worker_name, _lane_name(assignment)]
@@ -3909,7 +3955,7 @@ func _refresh() -> void:
 		)
 		_assignment_undo_button.tooltip_text = (
 			"Restore %s's prior %s route. This changes the next tray only; "
-			+ "completed claim work is never rolled back."
+			+ "completed file work is never rolled back."
 		) % [
 			worker_name,
 			_lane_name(undo_previous_lane),
@@ -4080,7 +4126,7 @@ func _refresh_egg_journey_receipt(worker_id: int, current_file_receipt_visible: 
 		"Previous egg outcome, separate from %s's current controls. " % worker_name
 		+ "%s egg%s is %s%s." % [
 			quality.capitalize(),
-			" from claim %04d" % claim_id if claim_id >= 0 else "",
+			" from file %04d" % claim_id if claim_id >= 0 else "",
 			(
 				"moving through grading to %s" % destination.capitalize()
 				if stage == &"grading" else
@@ -4380,7 +4426,10 @@ func _refresh_first_clutch() -> void:
 			not coach_active
 			and not (worker.get("hen_intent", {}) as Dictionary).is_empty()
 		)
-	var compact := coach_active and _first_clutch_has_contextual_dossier()
+	var compact := coach_active and (
+		_first_clutch_has_contextual_dossier()
+		or bool(_first_clutch.get("essential_only", false))
+	)
 	if compact != _first_clutch_compact:
 		_first_clutch_compact = compact
 		_apply_first_clutch_layout()
@@ -4567,9 +4616,9 @@ func _first_clutch_route_lane() -> StringName:
 	return lane if lane in ASSIGNMENT_ORDER else &""
 
 
-## Uses the otherwise empty center of the coached dossier to explain the one
-## permanent personnel stamp at a glance. Exact authored costs and numerical
-## effects stay in the established action tooltip.
+## Uses the otherwise empty center of the coached dossier to name the one
+## required tutorial action. The permanent personnel action underneath stays
+## explicit in the tooltip and accessibility copy, along with its exact effects.
 func _apply_first_clutch_check_in_glance() -> void:
 	if (
 		_first_clutch_disclosure_stage() != &"check_in"
@@ -4594,8 +4643,21 @@ func _apply_first_clutch_check_in_glance() -> void:
 	var profile_name := String(worker.get("career_profile_name", "PROFILE FIT")).to_upper()
 	var worker_name := String(worker.get("name", "This hen"))
 	var target_button := _personnel_buttons[action_id] as Button
-	target_button.text = "%s  [ENTER]" % action_name
+	var action_description := String(definition.get(
+		"description",
+		PERSONNEL_ACTION_TOOLTIPS.get(action_id, ""),
+	))
+	var action_preview := String(definition.get("preview", ""))
+	var check_in_detail := (
+		"File this profile-fit check-in using %s. %s %s Permanent; uses the one available flock check-in."
+		% [action_name, action_description, action_preview]
+	).strip_edges()
+	target_button.text = "FILE CHECK-IN  [ENTER]"
 	target_button.add_theme_font_size_override("font_size", 10)
+	target_button.tooltip_text = check_in_detail
+	target_button.accessibility_name = check_in_detail
+	target_button.set_meta("accessible_text", check_in_detail)
+	target_button.set_meta("presentation_role", &"check_in_action")
 	_worker_trait_label.text = "PROFILE  /  %s" % profile_name
 	_worker_trait_label.accessibility_name = "%s's active work profile is %s." % [worker_name, profile_name]
 	_worker_trait_label.tooltip_text = _worker_trait_label.accessibility_name
@@ -4603,20 +4665,20 @@ func _apply_first_clutch_check_in_glance() -> void:
 	_worker_trait_label.set_meta("presentation_role", &"profile_identity")
 	_worker_trait_label.add_theme_color_override("font_color", Color("8fc9b8"))
 	_dossier_summary_label.visible = true
-	_dossier_summary_label.text = "PROFILE MATCH  >  %s" % _personnel_effect_glance(action_id)
+	_dossier_summary_label.text = "RECOMMENDED  >  FILE CHECK-IN"
 	_dossier_summary_label.accessibility_name = (
-		"Profile match for %s: %s recommends %s. %s %s"
+		"Recommended check-in for %s: FILE CHECK-IN uses %s because %s is a profile match. %s %s"
 		% [
 			worker_name,
-			profile_name,
 			action_name,
-			String(definition.get("description", PERSONNEL_ACTION_TOOLTIPS.get(action_id, ""))),
-			String(definition.get("preview", "")),
+			profile_name,
+			action_description,
+			action_preview,
 		]
 	).strip_edges()
 	_dossier_summary_label.tooltip_text = _dossier_summary_label.accessibility_name
 	_dossier_summary_label.set_meta("accessible_text", _dossier_summary_label.accessibility_name)
-	_dossier_summary_label.set_meta("presentation_role", &"profile_payoff")
+	_dossier_summary_label.set_meta("presentation_role", &"check_in_recommendation")
 	_dossier_summary_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_dossier_summary_label.add_theme_color_override("font_color", Color("bce4d8"))
 	_dossier_summary_label.add_theme_stylebox_override(
@@ -4717,7 +4779,7 @@ func _apply_first_clutch_delivery_glance() -> void:
 		_routing_lifecycle_rail.set_stage(&"egg", true)
 		_current_claim_label.text = "3  EGG IN GRADING"
 		_current_claim_label.accessibility_name = (
-			"Step 3, egg delivery. %s finished assisted claim #%04d. "
+			"Step 3, egg delivery. %s finished assisted file #%04d. "
 			+ "Its egg is moving through grading toward the farmer basket."
 		) % [worker_name, maxi(0, claim_id)]
 		_current_claim_label.set_meta("presentation_role", &"delivery_grading")
@@ -4731,7 +4793,7 @@ func _apply_first_clutch_delivery_glance() -> void:
 			"2  ASSISTED FILE  /  FINISHING"
 		)
 		_current_claim_label.accessibility_name = (
-			"Step 2, assisted file. Priority Peck landed; watch %s finish claim #%04d and lay its egg."
+			"Step 2, assisted file. Priority Peck landed; watch %s finish file #%04d and lay its egg."
 			% [worker_name, maxi(0, claim_id)]
 		)
 		_current_claim_label.set_meta("presentation_role", &"delivery_file")

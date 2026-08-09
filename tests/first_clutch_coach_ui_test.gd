@@ -147,7 +147,19 @@ func _run() -> void:
 	_check(lifecycle_rail != null and lifecycle_rail.is_visible_in_tree() and StringName(lifecycle_rail.get_meta("active_stage", &"")) == &"route", "an idle coached dossier should replace lifecycle prose with the active route-stage rail", failures)
 	_check(lifecycle_rail != null and "route a file" in lifecycle_rail.accessibility_name and "completed egg" in lifecycle_rail.accessibility_name, "the lifecycle rail should retain the complete accessible work-loop explanation", failures)
 	var lifecycle_state := routing_ui.routing_lifecycle_state()
-	_check(String(lifecycle_state.get("active_stage", "")) == "route" and String(lifecycle_state.get("shape_language", "")).contains("oval=egg"), "lifecycle metadata should expose its route, screen, and egg shape language", failures)
+	var lifecycle_stages := lifecycle_state.get("stage_states", []) as Array
+	_check(
+		String(lifecycle_state.get("active_stage", "")) == "route"
+		and not bool(lifecycle_state.get("visible_stage_labels", true))
+		and lifecycle_stages.size() == 3
+		and String((lifecycle_stages[0] as Dictionary).get("semantic_shape", "")) == "file_tray"
+		and String((lifecycle_stages[0] as Dictionary).get("state", "")) == "current"
+		and String((lifecycle_stages[1] as Dictionary).get("semantic_shape", "")) == "work_monitor"
+		and String((lifecycle_stages[2] as Dictionary).get("semantic_shape", "")) == "egg_receipt"
+		and String(lifecycle_state.get("shape_language", "")).contains("double frame+pointer=current"),
+		"lifecycle metadata should expose an icon-only route, monitor, and egg sequence with non-color current state",
+		failures,
+	)
 	_check(String(lifecycle_state.get("header_copy", "")) == "1  CHOOSE A ROUTE" and StringName(lifecycle_state.get("header_role", &"")) == &"route_action" and "Auto sorting remains available" in String(lifecycle_state.get("header_accessible_text", "")), "lifecycle metadata should expose the concise action and its complete operational meaning", failures)
 	_check(String(lifecycle_state.get("identity_copy", "")) == "APPEALS SPECIALIST" and StringName(lifecycle_state.get("identity_role", &"")) == &"specialist_identity" and "shell safety" in String(lifecycle_state.get("identity_accessible_text", "")), "lifecycle metadata should expose the specialist identity and its full matching rationale", failures)
 	_check(String(lifecycle_state.get("route_hint_copy", "")) == "FIT = FASTER + SAFER" and StringName(lifecycle_state.get("route_hint_role", &"")) == &"match_payoff" and "shell crack risk decreases" in String(lifecycle_state.get("route_hint_accessible_text", "")), "lifecycle metadata should expose the concise match payoff and its exact consequence", failures)
@@ -238,12 +250,13 @@ func _run() -> void:
 	_check(queue != null and not queue.visible, "check-in stage should hide unrelated queue chrome", failures)
 	_check(root.gui_get_focus_owner() == share_credit, "stage disclosure should move focus from a hidden route action to the coached check-in", failures)
 	_check(share_credit != null and bool(share_credit.get_meta("first_clutch_cue", false)), "check-in stage should cue the exact profile-fit action", failures)
-	_check(share_credit != null and "[ENTER]" in share_credit.text, "the profile-fit stamp should disclose its direct keyboard action", failures)
+	_check(share_credit != null and share_credit.text == "FILE CHECK-IN  [ENTER]", "the coached personnel stamp should use the same visible action name as the tutorial", failures)
+	_check(share_credit != null and "using SHARE CREDIT" in share_credit.tooltip_text and "Permanent" in share_credit.tooltip_text and "one available flock check-in" in share_credit.tooltip_text and share_credit.accessibility_name == share_credit.tooltip_text and String(share_credit.get_meta("accessible_text", "")) == share_credit.tooltip_text, "the unified check-in action should retain its underlying mechanic, scarcity, and permanence in semantic detail", failures)
 	_check(worker_specialty != null and "PROFILE" in worker_specialty.text and "CREDIT CONSCIOUS" in worker_specialty.text, "the hen identity should replace unrelated route data with the active work profile", failures)
-	_check(dossier_summary != null and dossier_summary.is_visible_in_tree() and dossier_summary.text == "PROFILE MATCH  >  TRUST +  /  GRIEVANCE -", "the empty dossier center should explain the profile payoff without duplicating the identity or highlighted action", failures)
-	_check(dossier_summary != null and "CREDIT CONSCIOUS recommends SHARE CREDIT" in dossier_summary.accessibility_name and "Builds trust and eases grievances" in dossier_summary.accessibility_name and dossier_summary.tooltip_text == dossier_summary.accessibility_name and dossier_summary.vertical_alignment == VERTICAL_ALIGNMENT_CENTER, "the concise profile payoff should retain the complete recommendation semantically and sit cleanly in its card", failures)
+	_check(dossier_summary != null and dossier_summary.is_visible_in_tree() and dossier_summary.text == "RECOMMENDED  >  FILE CHECK-IN", "the dossier center should reinforce the tutorial's single visible action name", failures)
+	_check(dossier_summary != null and "FILE CHECK-IN uses SHARE CREDIT" in dossier_summary.accessibility_name and "CREDIT CONSCIOUS is a profile match" in dossier_summary.accessibility_name and "Builds trust and eases grievances" in dossier_summary.accessibility_name and dossier_summary.tooltip_text == dossier_summary.accessibility_name and dossier_summary.vertical_alignment == VERTICAL_ALIGNMENT_CENTER, "the concise recommendation should retain the complete underlying personnel action semantically and sit cleanly in its card", failures)
 	var check_in_presentation := routing_ui.first_clutch_presentation_state()
-	_check(bool(check_in_presentation.get("dossier_summary_visible", false)) and String(check_in_presentation.get("dossier_summary_copy", "")) == "PROFILE MATCH  >  TRUST +  /  GRIEVANCE -" and StringName(check_in_presentation.get("dossier_summary_role", &"")) == &"profile_payoff" and "SHARE CREDIT" in String(check_in_presentation.get("dossier_summary_accessible_text", "")), "check-in presentation metadata should expose the visible concise payoff and full recommendation", failures)
+	_check(bool(check_in_presentation.get("dossier_summary_visible", false)) and String(check_in_presentation.get("dossier_summary_copy", "")) == "RECOMMENDED  >  FILE CHECK-IN" and StringName(check_in_presentation.get("dossier_summary_role", &"")) == &"check_in_recommendation" and "SHARE CREDIT" in String(check_in_presentation.get("dossier_summary_accessible_text", "")), "check-in presentation metadata should expose the unified visible action and its full recommendation", failures)
 	_check(check_in_status != null and "1 OF 1 LEFT" in check_in_status.text and "PERMANENT" in check_in_status.text, "the filing status should summarize scarcity and permanence", failures)
 	_check(career_coach != null and not bool(career_coach.get_meta("first_clutch_cue", false)), "check-in stage should clear unrelated personnel cues", failures)
 	_check(assign_appeals != null and not bool(assign_appeals.get_meta("first_clutch_cue", false)), "changing stages should restore the previous route control", failures)
@@ -268,6 +281,15 @@ func _run() -> void:
 	_check(current_claim != null and current_claim.text == "2  WAIT FOR LIVE FILE" and StringName(current_claim.get_meta("presentation_role", &"")) == &"priority_wait", "Priority Peck should replace the completed route action with the live-file wait state", failures)
 	_check(lifecycle_rail != null and lifecycle_rail.is_visible_in_tree() and StringName(lifecycle_rail.get_meta("active_stage", &"")) == &"peck", "Priority Peck should advance the visual work cycle from route to peck even before a file arrives", failures)
 	var priority_lifecycle := routing_ui.routing_lifecycle_state()
+	var priority_lifecycle_stages := priority_lifecycle.get("stage_states", []) as Array
+	_check(
+		priority_lifecycle_stages.size() == 3
+		and String((priority_lifecycle_stages[0] as Dictionary).get("state", "")) == "complete"
+		and String((priority_lifecycle_stages[1] as Dictionary).get("state", "")) == "current"
+		and String((priority_lifecycle_stages[2] as Dictionary).get("state", "")) == "upcoming",
+		"Priority Peck should show route checked, the monitor current, and the egg upcoming without stage words",
+		failures,
+	)
 	_check(String(priority_lifecycle.get("route_hint_copy", "")) == "FILE INCOMING  >  WATCH GOLD" and StringName(priority_lifecycle.get("route_hint_role", &"")) == &"priority_sequence", "running Priority guidance should replace the unrelated automation note with a glanceable file-to-gold sequence", failures)
 	var priority_presentation := routing_ui.first_clutch_presentation_state()
 	_check(not bool(priority_presentation.get("dossier_summary_visible", true)) and String(priority_presentation.get("dossier_summary_copy", "")) == "" and StringName(priority_presentation.get("dossier_summary_role", &"")) == &"hidden", "Priority Peck metadata should retire the hidden profile-payoff card instead of publishing stale copy", failures)
@@ -394,6 +416,15 @@ func _run() -> void:
 	var delivery_egg_state := routing_ui.routing_lifecycle_state()
 	_check(title != null and title.text == "FOLLOW THE EGG", "laid delivery should shift the coach's visual subject from hen to egg", failures)
 	_check(String(delivery_egg_state.get("active_stage", "")) == "egg" and String(delivery_egg_state.get("header_copy", "")) == "3  EGG IN GRADING", "laid delivery should advance the dossier lifecycle to its shape-distinct egg step", failures)
+	var delivery_lifecycle_stages := delivery_egg_state.get("stage_states", []) as Array
+	_check(
+		delivery_lifecycle_stages.size() == 3
+		and String((delivery_lifecycle_stages[0] as Dictionary).get("state", "")) == "complete"
+		and String((delivery_lifecycle_stages[1] as Dictionary).get("state", "")) == "complete"
+		and String((delivery_lifecycle_stages[2] as Dictionary).get("state", "")) == "current",
+		"laid delivery should check the tray and monitor while framing the egg receipt as current",
+		failures,
+	)
 	_check(String(delivery_egg_state.get("route_hint_copy", "")) == "GRADING  >  FARMER BASKET  >  FEED FUND", "laid delivery should make the reward destination visible at a glance", failures)
 	_check(skip != null and skip.is_visible_in_tree(), "delivery should preserve Skip until the authoritative payload retires it", failures)
 	if skip != null:
@@ -531,7 +562,7 @@ func _fixture_snapshot() -> Dictionary:
 			"name": "Mabel",
 			"specialty": &"appeals",
 			"assignment": &"auto",
-			"career_title": "Junior Claims Hen",
+			"career_title": "Junior Peckwork Hen",
 			"career_xp": 0,
 			"career_xp_next": 18,
 			"career_profile_name": "Credit Conscious",
@@ -547,14 +578,14 @@ func _fixture_snapshot() -> Dictionary:
 				"remaining": 3,
 				"limit": 3,
 				"window_start": 28.0,
-				"reason": "Build the claim rhythm to 28% before stamping.",
+				"reason": "Build the file rhythm to 28% before stamping.",
 			},
 		}, {
 			"id": 1,
 			"name": "Penny",
 			"specialty": &"nest_damage",
 			"assignment": &"auto",
-			"career_title": "Junior Claims Hen",
+			"career_title": "Junior Peckwork Hen",
 			"career_xp": 0,
 			"career_xp_next": 18,
 			"career_profile_name": "Steady Scratcher",
@@ -570,7 +601,7 @@ func _fixture_snapshot() -> Dictionary:
 				"remaining": 3,
 				"limit": 3,
 				"window_start": 28.0,
-				"reason": "Build the claim rhythm to 28% before stamping.",
+				"reason": "Build the file rhythm to 28% before stamping.",
 			},
 		}],
 	}

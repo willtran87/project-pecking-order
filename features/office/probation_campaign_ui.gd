@@ -196,6 +196,17 @@ var _report_shift_delta_icon: TextureRect
 var _report_rank_label: Label
 var _report_rank_icon: TextureRect
 var _report_rank_progress: ProgressBar
+var _report_strategy_card: PanelContainer
+var _report_strategy_icon: FlockwatchIconBadge
+var _report_strategy_outcome: Label
+var _report_strategy_policy: Label
+var _report_strategy_forecast: Label
+var _report_strategy_actual: Label
+var _report_market_card: PanelContainer
+var _report_market_icon: FlockwatchIconBadge
+var _report_market_kicker: Label
+var _report_market_season: Label
+var _report_market_signal: Label
 var _report_ledger_labels: Array[Dictionary] = []
 var _report_safeguard_panel: PanelContainer
 var _report_safeguard_summary: Label
@@ -445,6 +456,205 @@ func title_intake_phase() -> StringName:
 	return TITLE_PHASE_NEW_FILE if _title_new_file_setup else TITLE_PHASE_RESUME
 
 
+## One read model keeps the visible intake CTA, browser diagnostics, and
+## assistive objective aligned. It describes the action that is actually on the
+## title card instead of falling back to the obscured in-game HUD guidance.
+func title_primary_action_state() -> Dictionary:
+	if _view != VIEW_TITLE:
+		return {}
+	if _title_new_file_setup:
+		var start_label := (
+			_title_new_button.text
+			if _title_new_button != null else
+			"START SHIFT 1  [N]"
+		)
+		return {
+			"copy": "NEXT: CHOOSE DIFFICULTY",
+			"action_id": "campaign_new",
+			"actionable": (
+				_title_new_button != null
+				and _title_new_button.is_visible_in_tree()
+				and not _title_new_button.disabled
+			),
+			"visible_label": start_label,
+			"semantic_icon": "goal",
+			"icon_visible": true,
+			"accessible_text": (
+				"Choose a difficulty, review the three-step run, then activate %s."
+				% start_label.replace("  ", " ")
+			),
+		}
+	var continue_label := (
+		_continue_title_button.text
+		if _continue_title_button != null else
+		"CONTINUE SAVED FILE  [C]"
+	)
+	return {
+		"copy": "NEXT: CONTINUE SAVED FILE",
+		"action_id": "campaign_continue",
+		"actionable": (
+			_continue_title_button != null
+			and _continue_title_button.is_visible_in_tree()
+			and not _continue_title_button.disabled
+		),
+		"visible_label": continue_label,
+		"semantic_icon": "goal",
+		"icon_visible": true,
+		"accessible_text": (
+			"Activate %s to verify and resume, or review a new file without changing the saved career."
+			% continue_label.replace("  ", " ")
+		),
+	}
+
+
+## One read model keeps the between-shift report's required choice and its
+## eventual filing action aligned with HUD guidance, diagnostics, and assistive
+## narration. Disabled continuation is never reported as the current action.
+func report_primary_action_state() -> Dictionary:
+	if _view != VIEW_REPORT:
+		return {}
+	var available_choices: Array[Button] = []
+	for button_value: Variant in _milestone_buttons.values():
+		var choice := button_value as Button
+		if choice != null and choice.is_visible_in_tree() and not choice.disabled:
+			available_choices.append(choice)
+	var choice_required := (
+		_milestone_section != null
+		and _milestone_section.visible
+		and _selected_milestone == &""
+		and _report_continue_button != null
+		and _report_continue_button.disabled
+	)
+	if choice_required:
+		var senior := _is_senior_snapshot()
+		return {
+			"copy": (
+				"NEXT: CHOOSE ONE CAPITAL POLICY"
+				if senior else
+				"NEXT: CHOOSE ONE PERMANENT EDGE"
+			),
+			"action_id": "campaign_milestone",
+			"actionable": not available_choices.is_empty(),
+			"visible_label": (
+				_milestone_section_label.text
+				if _milestone_section_label != null else
+				("CHOOSE ONE CAPITAL POLICY" if senior else "CHOOSE ONE PERMANENT EDGE")
+			),
+			"semantic_icon": "goal",
+			"icon_visible": true,
+			"accessible_text": (
+				"Choose one of %d available %s. %s"
+				% [
+					available_choices.size(),
+					"capital policy cards" if senior else "permanent milestone cards",
+					_milestone_hint_label.text if _milestone_hint_label != null else "",
+				]
+			).strip_edges(),
+		}
+	var visible_label := (
+		_report_continue_button.text
+		if _report_continue_button != null else
+		"NEXT SHIFT  [C]"
+	)
+	return {
+		"copy": visible_label,
+		"action_id": "campaign_report_continue",
+		"actionable": (
+			_report_continue_button != null
+			and _report_continue_button.is_visible_in_tree()
+			and not _report_continue_button.disabled
+		),
+		"visible_label": visible_label,
+		"semantic_icon": (
+			String(_report_continue_button.get_meta("semantic_icon", "advance_arrow"))
+			if _report_continue_button != null else
+			"advance_arrow"
+		),
+		"icon_visible": _report_continue_button != null and _report_continue_button.icon != null,
+		"accessible_text": (
+			String(_report_continue_button.get_meta(
+				"accessible_text",
+				_report_continue_button.tooltip_text,
+			))
+			if _report_continue_button != null else
+			"File the report and plan the next shift."
+		),
+	}
+
+
+func focus_report_primary_action() -> bool:
+	var action := report_primary_action_state()
+	if action.is_empty() or not bool(action.get("actionable", false)):
+		return false
+	if String(action.get("action_id", "")) == "campaign_report_continue":
+		_report_continue_button.grab_focus()
+		return true
+	for button_value: Variant in _milestone_buttons.values():
+		var choice := button_value as Button
+		if choice != null and choice.is_visible_in_tree() and not choice.disabled:
+			choice.grab_focus()
+			return true
+	return false
+
+
+## The final review always has one forward primary action: enter Senior Roost
+## after a pass, or open the protected retry confirmation after a failed file.
+## This mirrors whichever desktop/mobile copy is actually visible.
+func final_primary_action_state() -> Dictionary:
+	if _view != VIEW_FINAL:
+		return {}
+	var passed := _campaign_passed()
+	var button := _final_primary_button()
+	if button == null:
+		return {}
+	return {
+		"copy": button.text,
+		"action_id": (
+			"campaign_final_continue" if passed else "campaign_final_retry"
+		),
+		"actionable": button.is_visible_in_tree() and not button.disabled,
+		"visible_label": button.text,
+		"semantic_icon": "advance_arrow" if passed else "reset_arrow",
+		"icon_visible": true,
+		"accessible_text": (
+			"Activate %s to continue this approved file into the optional Senior Roost, or shelve the completed file and return to intake."
+			% button.text.replace("  ", " ")
+			if passed else
+			"Activate %s to open a protected replacement confirmation before retrying probation, or shelve this closed file and return to intake."
+			% button.text.replace("  ", " ")
+		),
+	}
+
+
+func focus_final_primary_action() -> bool:
+	var action := final_primary_action_state()
+	if action.is_empty() or not bool(action.get("actionable", false)):
+		return false
+	var button := _final_primary_button()
+	if button == null:
+		return false
+	button.grab_focus()
+	return true
+
+
+func contract_board_primary_action_state() -> Dictionary:
+	if _view != VIEW_CONTRACT_BOARD or _contract_board_ui == null:
+		return {}
+	return _contract_board_ui.primary_action_state()
+
+
+func focus_contract_board_primary_action() -> bool:
+	if _view != VIEW_CONTRACT_BOARD or _contract_board_ui == null:
+		return false
+	return _contract_board_ui.focus_primary_action()
+
+
+func _final_primary_button() -> Button:
+	if _final_sticky_action_bar != null and _final_sticky_action_bar.is_visible_in_tree():
+		return _final_sticky_primary_button
+	return _final_continue_button if _campaign_passed() else _final_new_button
+
+
 func campaign_snapshot() -> Dictionary:
 	var result := _snapshot.duplicate(true)
 	var confirmation := _pending_milestone_confirmation_snapshot()
@@ -453,12 +663,24 @@ func campaign_snapshot() -> Dictionary:
 	return result
 
 
+func present_action_hold(copy: String, detail: String) -> void:
+	if _status_label == null:
+		return
+	_status_label.text = copy
+	_status_label.tooltip_text = detail
+	_status_label.set_meta("accessible_text", detail)
+	_status_label.add_theme_color_override("font_color", RUST)
+
+
 ## A concise semantic mirror for the canvas-only campaign surfaces. Visible
 ## final cards stay glance-first while this string retains the authored coda
 ## and every exact filing comparison for assistive browser clients.
 func accessible_text() -> String:
 	if _view == VIEW_REPORT:
-		var report_parts: Array[String] = []
+		var report_parts: Array[String] = [String(_status_label.get_meta(
+			"accessible_text",
+			_status_label.tooltip_text if not _status_label.tooltip_text.is_empty() else _status_label.text,
+		))]
 		if _report_heading_label != null:
 			report_parts.append(_report_heading_label.text)
 			var authored_heading := String(_report_heading_label.get_meta(
@@ -484,6 +706,11 @@ func accessible_text() -> String:
 				_hen_highlight_body.tooltip_text if not _hen_highlight_body.tooltip_text.is_empty() else _hen_highlight_body.text,
 				_hen_highlight_metric.text,
 			])
+		if _report_market_card != null and _report_market_card.visible:
+			report_parts.append(String(_report_market_card.get_meta(
+				"accessible_text",
+				_report_market_card.tooltip_text,
+			)))
 		for ledger: Dictionary in _report_ledger_labels:
 			var title := ledger.get("title") as Label
 			var value := ledger.get("value") as Label
@@ -1431,6 +1658,9 @@ func _build_modal_host() -> void:
 	_contract_board_ui.contract_sign_requested.connect(_on_market_contract_sign_requested)
 	_contract_board_ui.decline_requested.connect(_on_market_contract_decline_requested)
 	_contract_board_ui.continue_requested.connect(_on_continue_campaign_pressed)
+	_contract_board_ui.presentation_state_changed.connect(
+		_on_contract_board_presentation_state_changed
+	)
 	_modal_host.add_child(_contract_board_ui)
 	_build_replacement_confirmation()
 
@@ -1509,7 +1739,7 @@ func _build_title_panel(parent: Control) -> void:
 	profile_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	profile_copy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	profile.add_child(profile_copy)
-	var identity := _make_label("MABEL  //  JUNIOR CLAIMS HEN", 15, CREAM)
+	var identity := _make_label("MABEL  //  JUNIOR PECKWORK HEN", 15, CREAM)
 	identity.name = "CampaignMabelIdentity"
 	identity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profile_copy.add_child(identity)
@@ -1727,6 +1957,79 @@ func _build_report_panel(parent: Control) -> void:
 	_decorate_report_rank_metric()
 	_report_score_row.add_child(_metric_panel(_report_rank_label))
 
+	_report_strategy_card = PanelContainer.new()
+	_report_strategy_card.name = "ReportStrategyReceipt"
+	_report_strategy_card.visible = false
+	_report_strategy_card.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("1d3039"), Color("6d8e86"), 8, 1),
+	)
+	content.add_child(_report_strategy_card)
+	var strategy_content := _panel_content(_report_strategy_card, 12, 7, 0)
+	var strategy_flow := HFlowContainer.new()
+	strategy_flow.name = "ReportStrategyReceiptFlow"
+	strategy_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	strategy_flow.add_theme_constant_override("h_separation", 12)
+	strategy_flow.add_theme_constant_override("v_separation", 5)
+	strategy_content.add_child(strategy_flow)
+	_report_strategy_icon = FlockwatchIconBadgeScript.new() as FlockwatchIconBadge
+	_report_strategy_icon.name = "ReportStrategyPolicyIcon"
+	_report_strategy_icon.custom_minimum_size = Vector2(22.0, 22.0)
+	_report_strategy_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strategy_flow.add_child(_report_strategy_icon)
+	_report_strategy_outcome = _make_label("PLAN HELD", 12, TEAL)
+	_report_strategy_outcome.name = "ReportStrategyOutcome"
+	_report_strategy_outcome.custom_minimum_size.x = 112.0
+	strategy_flow.add_child(_report_strategy_outcome)
+	_report_strategy_policy = _make_label("POLICY", 11, CREAM)
+	_report_strategy_policy.name = "ReportStrategyPolicy"
+	_report_strategy_policy.custom_minimum_size.x = 132.0
+	strategy_flow.add_child(_report_strategy_policy)
+	_report_strategy_forecast = _make_label("HELPS 0 / RISKS 0", 10, BRASS)
+	_report_strategy_forecast.name = "ReportStrategyForecast"
+	_report_strategy_forecast.custom_minimum_size.x = 152.0
+	strategy_flow.add_child(_report_strategy_forecast)
+	_report_strategy_actual = _make_label("0/0 HELP / 0/0 RISKS COVERED", 10, MUTED)
+	_report_strategy_actual.name = "ReportStrategyActual"
+	_report_strategy_actual.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	strategy_flow.add_child(_report_strategy_actual)
+
+	_report_market_card = PanelContainer.new()
+	_report_market_card.name = "ReportMarketPulse"
+	_report_market_card.visible = false
+	_report_market_card.mouse_filter = Control.MOUSE_FILTER_STOP
+	_report_market_card.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("243941"), Color("8b7444"), 8, 1),
+	)
+	content.add_child(_report_market_card)
+	var market_content := _panel_content(_report_market_card, 12, 7, 0)
+	var market_flow := HFlowContainer.new()
+	market_flow.name = "ReportMarketPulseFlow"
+	market_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	market_flow.add_theme_constant_override("h_separation", 12)
+	market_flow.add_theme_constant_override("v_separation", 4)
+	market_content.add_child(market_flow)
+	_report_market_icon = FlockwatchIconBadgeScript.new() as FlockwatchIconBadge
+	_report_market_icon.name = "ReportMarketPulseIcon"
+	_report_market_icon.set_badge_size(22.0)
+	_report_market_icon.configure(&"calendar", BRASS)
+	_report_market_icon.set_meta("semantic_icon", "calendar")
+	market_flow.add_child(_report_market_icon)
+	_report_market_kicker = _make_label("NEXT MARKET", 10, BRASS)
+	_report_market_kicker.name = "ReportMarketPulseKicker"
+	_report_market_kicker.custom_minimum_size.x = 94.0
+	market_flow.add_child(_report_market_kicker)
+	_report_market_season = _make_label("BASELINE BOOK  ·  1 DAY", 11, CREAM)
+	_report_market_season.name = "ReportMarketPulseSeason"
+	_report_market_season.custom_minimum_size.x = 176.0
+	market_flow.add_child(_report_market_season)
+	_report_market_signal = _make_label("FILES +0%  ·  FEED $0.00", 11, TEAL)
+	_report_market_signal.name = "ReportMarketPulseSignal"
+	_report_market_signal.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_report_market_signal.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	market_flow.add_child(_report_market_signal)
+
 	content.add_child(HSeparator.new())
 	_report_details_toggle = _make_button(
 		"ReportDetailsToggle",
@@ -1746,7 +2049,11 @@ func _build_report_panel(parent: Control) -> void:
 	_report_story_row.name = "ReportShiftStories"
 	_report_story_row.add_theme_constant_override("h_separation", 10)
 	_report_story_row.add_theme_constant_override("v_separation", 8)
-	_report_details_section.add_child(_report_story_row)
+	# Consequences and named-hen stories are the shift's causal payoff, not dense
+	# accounting detail. Keep them in the report's primary scan path while the
+	# multi-row ledger and safeguards remain behind Shift Details.
+	content.add_child(_report_story_row)
+	content.move_child(_report_story_row, _report_details_toggle.get_index())
 	_credit_memo_card = PanelContainer.new()
 	_credit_memo_card.name = "FiledCreditMemoCard"
 	_credit_memo_card.custom_minimum_size = Vector2(
@@ -2363,6 +2670,7 @@ func _build_replacement_confirmation() -> void:
 func _refresh() -> void:
 	if _day_badge == null:
 		return
+	_status_label.add_theme_color_override("font_color", BRASS)
 	var total_days := maxi(1, int(_snapshot.get("total_days", DEFAULT_TOTAL_DAYS)))
 	var day := clampi(int(_snapshot.get("day", 1)), 1, total_days)
 	var status_text := String(_snapshot.get("status", "PROBATION")).strip_edges().to_upper()
@@ -3146,6 +3454,8 @@ func _refresh_report(day: int, total_days: int) -> void:
 	)
 	_set_metric_caption(_report_shift_delta_label, visible_secondary_caption)
 	_update_score_receipt(day)
+	_update_strategy_receipt(day)
+	_update_market_forecast()
 	var primary_metric_caption := String(_snapshot.get("score_caption", "SCORE"))
 	var primary_metric_tooltip := String(_snapshot.get("primary_metric_tooltip", ""))
 	_set_metric_caption(_report_score_label, primary_metric_caption)
@@ -3191,6 +3501,143 @@ func _refresh_report(day: int, total_days: int) -> void:
 	# the milestone/action controls without the ScrollContainer hiding the score.
 	_queue_focus(_report_panel)
 	call_deferred("_reset_report_scroll")
+
+
+func _update_strategy_receipt(report_day: int) -> void:
+	if _report_strategy_card == null:
+		return
+	var receipt_value: Variant = _snapshot.get("strategy_receipt", {})
+	var receipt := receipt_value as Dictionary if receipt_value is Dictionary else {}
+	var visible := (
+		not _is_senior_snapshot()
+		and not receipt.is_empty()
+		and int(receipt.get("day", 0)) == report_day
+	)
+	_report_strategy_card.visible = visible
+	if not visible:
+		_report_strategy_card.set_meta("status", "")
+		_report_strategy_card.set_meta("accessible_text", "")
+		return
+	var status := StringName(receipt.get("status", &"mixed"))
+	var tone := TEAL
+	match status:
+		&"pivot":
+			tone = RUST
+		&"mixed":
+			tone = BRASS
+		&"no_direct_bet":
+			tone = MUTED
+	var icon_kind := StringName(receipt.get("semantic_icon", &"goal"))
+	var detail := String(receipt.get(
+		"detail",
+		"The morning policy forecast was reconciled against the closing ledger.",
+	))
+	_report_strategy_icon.configure(icon_kind, tone)
+	_report_strategy_icon.tooltip_text = detail
+	_report_strategy_icon.set_meta("semantic_icon", String(icon_kind))
+	_report_strategy_outcome.text = String(receipt.get("headline", "MIXED RESULT"))
+	_report_strategy_outcome.add_theme_color_override("font_color", tone)
+	_report_strategy_policy.text = String(receipt.get("policy_name", "POLICY"))
+	_report_strategy_forecast.text = String(receipt.get("forecast", "HELPS 0 / RISKS 0"))
+	_report_strategy_actual.text = String(receipt.get(
+		"actual",
+		"0/0 HELP / 0/0 RISKS COVERED",
+	))
+	for label: Label in [
+		_report_strategy_outcome,
+		_report_strategy_policy,
+		_report_strategy_forecast,
+		_report_strategy_actual,
+	]:
+		label.tooltip_text = detail
+		label.set_meta("accessible_text", detail)
+	_report_strategy_card.tooltip_text = detail
+	_report_strategy_card.set_meta("accessible_text", detail)
+	_report_strategy_card.set_meta("status", String(status))
+	_report_strategy_card.set_meta("directive_id", String(receipt.get("directive_id", "")))
+	_report_strategy_card.set_meta("semantic_icon", String(icon_kind))
+	_report_strategy_card.set_meta("support_total", int(receipt.get("support_total", 0)))
+	_report_strategy_card.set_meta("support_met", int(receipt.get("support_met", 0)))
+	_report_strategy_card.set_meta("risk_total", int(receipt.get("risk_total", 0)))
+	_report_strategy_card.set_meta("risk_covered", int(receipt.get("risk_covered", 0)))
+	_report_strategy_card.add_theme_stylebox_override(
+		"panel",
+		_panel_style(tone.darkened(0.72), tone.darkened(0.10), 8, 1),
+	)
+
+
+func _update_market_forecast() -> void:
+	if _report_market_card == null:
+		return
+	var forecast_value: Variant = _snapshot.get("market_forecast", {})
+	var forecast := forecast_value as Dictionary if forecast_value is Dictionary else {}
+	var visible := bool(forecast.get("visible", false)) and not forecast.is_empty()
+	_report_market_card.visible = visible
+	if not visible:
+		_report_market_card.tooltip_text = ""
+		_report_market_card.set_meta("accessible_text", "")
+		return
+	var day := int(forecast.get("day", 1))
+	var days_remaining := maxi(0, int(forecast.get("days_remaining", 0)))
+	var demand_basis_points := int(forecast.get("opportunity_demand_basis_points", 0))
+	var lane := String(forecast.get("opportunity_lane_label", "FILES")).to_upper()
+	var season := String(forecast.get("season_short_label", "BASELINE BOOK")).to_upper()
+	var price_cents := int(forecast.get("feed_spot_unit_price_cents", 0))
+	_report_market_kicker.text = "NEXT MARKET"
+	_report_market_season.text = "%s  ·  %d DAY%s" % [
+		season,
+		days_remaining,
+		"" if days_remaining == 1 else "S",
+	]
+	_report_market_signal.text = "%s %s  ·  FEED $%.2f" % [
+		lane,
+		_market_signed_percent(demand_basis_points),
+		float(price_cents) / 100.0,
+	]
+	var next_day := int(forecast.get("next_market_day", day + 1))
+	var detail := (
+		"NEXT SHIFT MARKET  //  DAY %d\n"
+		+ "SEASON  //  %s  //  %d DAY%s REMAINING\n"
+		+ "CAUSE  //  %s\n"
+		+ "OPPORTUNITY  //  %s %s  //  FEED $%.2f PER SCOOP\n"
+		+ "FORECAST  //  %s\n"
+		+ "UNCERTAINTY  //  %s\n"
+		+ "THEN  //  DAY %d  //  %s  //  %s %s  //  FEED $%.2f"
+	) % [
+		day,
+		String(forecast.get("season_label", season)).to_upper(),
+		days_remaining,
+		"" if days_remaining == 1 else "S",
+		String(forecast.get("cause", "Farm Mutual's filed calendar sets demand.")),
+		lane,
+		_market_signed_percent(demand_basis_points),
+		float(price_cents) / 100.0,
+		String(forecast.get("certainty", "FILED CALENDAR")),
+		String(forecast.get("uncertainty", "Individual file intake can still vary.")),
+		next_day,
+		String(forecast.get("next_season_short_label", "BASELINE BOOK")).to_upper(),
+		String(forecast.get("next_opportunity_lane_label", "FILES")).to_upper(),
+		_market_signed_percent(int(forecast.get("next_opportunity_demand_basis_points", 0))),
+		float(int(forecast.get("next_feed_spot_unit_price_cents", 0))) / 100.0,
+	]
+	for label: Label in [_report_market_kicker, _report_market_season, _report_market_signal]:
+		label.tooltip_text = detail
+		label.set_meta("accessible_text", detail)
+	_report_market_icon.tooltip_text = detail
+	_report_market_card.tooltip_text = detail
+	_report_market_card.set_meta("accessible_text", detail.replace("\n", " "))
+	_report_market_card.set_meta("day", day)
+	_report_market_card.set_meta("season", season)
+	_report_market_card.set_meta("opportunity_lane", String(forecast.get("opportunity_lane_id", "")))
+	_report_market_card.set_meta("demand_basis_points", demand_basis_points)
+	_report_market_card.set_meta("feed_spot_unit_price_cents", price_cents)
+
+
+func _market_signed_percent(basis_points: int) -> String:
+	return "%s%d%%" % [
+		"+" if basis_points >= 0 else "-",
+		roundi(absf(float(basis_points)) / 100.0),
+	]
 
 
 func _queue_report_evidence_reveal(report_day: int) -> void:
@@ -3824,8 +4271,8 @@ func _update_hen_highlight(report_day: int) -> void:
 		_hen_highlight_card.set_meta("compact_story_glance", false)
 		_sync_report_story_visibility()
 		return
-	var worker_name := String(highlight.get("worker_name", "CLAIMS HEN")).to_upper()
-	var career_title := String(highlight.get("career_title", "CLAIMS HEN")).to_upper()
+	var worker_name := String(highlight.get("worker_name", "PECKWORK HEN")).to_upper()
+	var career_title := String(highlight.get("career_title", "PECKWORK HEN")).to_upper()
 	var relationship := String(highlight.get("relationship_label", "UNFILED")).to_upper()
 	var body := String(highlight.get("body", "The flock closed another shift."))
 	var metric := String(highlight.get("metric", "%d EGGS" % int(highlight.get("eggs", 0))))
@@ -4297,6 +4744,12 @@ func _refresh_final() -> void:
 	)
 	_final_continue_button.visible = passed
 	_final_new_button.text = "NEW CAMPAIGN  [N]" if passed else "RETRY PROBATION  [N]"
+	_final_continue_button.tooltip_text = "Continue this approved file into the optional post-campaign Senior Roost."
+	_final_new_button.tooltip_text = (
+		"Start a new campaign after a protected replacement confirmation."
+		if passed else
+		"Open a protected replacement confirmation before retrying probation."
+	)
 	_final_sticky_primary_button.text = (
 		"ENTER THE SENIOR ROOST  [C]" if passed else "RETRY PROBATION  [N]"
 	)
@@ -5355,6 +5808,7 @@ func _rebuild_milestone_choices() -> void:
 		_queue_focus(first_available if first_available != null else _report_panel)
 	else:
 		_queue_focus(_report_continue_button)
+	presentation_state_changed.emit()
 
 
 func _doctrine_terms(value: Variant) -> String:
@@ -5804,6 +6258,10 @@ func _on_market_contract_decline_requested() -> void:
 	market_contract_decline_requested.emit()
 
 
+func _on_contract_board_presentation_state_changed() -> void:
+	presentation_state_changed.emit()
+
+
 func _on_new_campaign_pressed() -> void:
 	if _view == VIEW_TITLE and _snapshot_continue_available() and not _title_new_file_setup:
 		_title_new_file_setup = true
@@ -6032,6 +6490,10 @@ func _decorate_report_rank_metric() -> void:
 func _refresh_report_rank_presentation(rank_caption: String) -> void:
 	if _report_rank_label == null:
 		return
+	_report_rank_label.add_theme_font_size_override(
+		"font_size",
+		12 if _report_rank_label.text.length() > 21 else 14,
+	)
 	var receipt := _report_score_receipt()
 	var promoted := _report_is_promotion()
 	var promotion_from := String(receipt.get("rank_before_label", "")).to_upper()

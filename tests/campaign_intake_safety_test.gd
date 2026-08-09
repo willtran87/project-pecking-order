@@ -19,6 +19,39 @@ func _run() -> void:
 	root.add_child(office)
 	await process_frame
 	await process_frame
+	office.call("_show_campaign_title", false)
+	await process_frame
+	await process_frame
+	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
+	var fresh_next_action := office.call("_next_action_diagnostic_state") as Dictionary
+	var fresh_summary := String(office.call(
+		"_web_accessibility_summary",
+		(office.get("_simulation") as DepartmentSimulation).snapshot(),
+	))
+	var fresh_announcement := office.call(
+		"_web_accessibility_announcement",
+		(office.get("_simulation") as DepartmentSimulation).snapshot(),
+		fresh_summary,
+	) as Dictionary
+	_check(
+		campaign_ui != null
+		and campaign_ui.title_intake_phase() == &"new_file"
+		and String(fresh_next_action.get("copy", "")) == "NEXT: CHOOSE DIFFICULTY"
+		and String(fresh_next_action.get("action_id", "")) == "campaign_new"
+		and bool(fresh_next_action.get("actionable", false))
+		and "Choose a difficulty" in fresh_summary
+		and "START SHIFT 1 [N]" in fresh_summary
+		and String(fresh_announcement.get("kind", "")) == "career_intake"
+		and "Choose a difficulty" in String(fresh_announcement.get("text", ""))
+		and "pressure file" not in String(fresh_announcement.get("text", "")),
+		"fresh intake diagnostics and narration should mirror the visible difficulty-to-start action [phase=%s next=%s summary=%s announcement=%s]" % [
+			String(campaign_ui.title_intake_phase()) if campaign_ui != null else "missing",
+			str(fresh_next_action),
+			fresh_summary,
+			str(fresh_announcement),
+		],
+		failures,
+	)
 
 	var blueprint := office.get("_capital_blueprint_ui") as CapitalBlueprintUI
 	_check(
@@ -56,7 +89,6 @@ func _run() -> void:
 	var shelved_interface_context := (
 		shelved_session.get("interface_context", {}) as Dictionary
 	)
-	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
 	var continue_button := office.find_child("ContinueCampaignButton", true, false) as Button
 	_check(not shelved.is_empty() and store.has_save(), "return to intake must preserve a loadable campaign", failures)
 	_check(
@@ -79,6 +111,23 @@ func _run() -> void:
 		campaign_ui != null and campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE
 		and continue_button != null and not continue_button.disabled,
 		"safe return should open intake with Continue available",
+		failures,
+	)
+	var resume_next_action := office.call("_next_action_diagnostic_state") as Dictionary
+	var resume_announcement := office.call(
+		"_web_accessibility_announcement",
+		(office.get("_simulation") as DepartmentSimulation).snapshot(),
+	) as Dictionary
+	_check(
+		campaign_ui.title_intake_phase() == &"resume"
+		and String(resume_next_action.get("copy", "")) == "NEXT: CONTINUE SAVED FILE"
+		and String(resume_next_action.get("action_id", "")) == "campaign_continue"
+		and bool(resume_next_action.get("actionable", false))
+		and "CONTINUE SAVED FILE [C]" in String(resume_announcement.get("text", ""))
+		and "review a new file without changing" in String(
+			resume_announcement.get("text", "")
+		).to_lower(),
+		"resume intake diagnostics and narration should mirror the visible Continue-first hierarchy",
 		failures,
 	)
 
@@ -112,6 +161,107 @@ func _run() -> void:
 		and bool(recovered.get("recovered_from_backup", false))
 		and String((recovered.get("metadata", {}) as Dictionary).get("reason", "")) == "returned_to_intake",
 		"replacement should retain the prior shelved file as a verified recovery copy",
+		failures,
+	)
+
+	# A paused campaign report owns one real action. Its disabled Next Shift
+	# button must not leak through diagnostics before the required milestone is
+	# selected, and activating the global action must reach the visible card.
+	campaign_ui.show_between_shift_report({
+		"day": 2,
+		"total_days": 5,
+		"score": 64,
+		"rank": "Trusted Layer",
+		"choice_required": true,
+		"milestone_choices": [{
+			"id": "report_action_fixture",
+			"title": "Clear Peckwork Keys",
+			"description": "Make the next shift's work easier to read.",
+			"effect": "+8% processing speed",
+		}],
+		"next_objective": {
+			"title": "Day 3 orders",
+			"description": "File the next three farm orders.",
+		},
+	})
+	await process_frame
+	await process_frame
+	var report_next_action := office.call("_next_action_diagnostic_state") as Dictionary
+	var report_summary := String(office.call(
+		"_web_accessibility_summary",
+		(office.get("_simulation") as DepartmentSimulation).snapshot(),
+	))
+	var report_announcement := office.call(
+		"_web_accessibility_announcement",
+		(office.get("_simulation") as DepartmentSimulation).snapshot(),
+		report_summary,
+	) as Dictionary
+	var report_choice := office.find_child(
+		"MilestoneChoice_report_action_fixture",
+		true,
+		false,
+	) as Button
+	office.call("_on_guidance_action_pressed")
+	await process_frame
+	_check(
+		String(report_next_action.get("copy", "")) == "NEXT: CHOOSE ONE PERMANENT EDGE"
+		and String(report_next_action.get("action_id", "")) == "campaign_milestone"
+		and bool(report_next_action.get("actionable", false))
+		and "available permanent milestone cards" in String(report_next_action.get("accessible_text", ""))
+		and "FINISH THE HIGHLIGHTED ACTION" not in String(report_next_action.get("copy", ""))
+		and report_choice != null
+		and root.gui_get_focus_owner() == report_choice,
+		"campaign report diagnostics and activation should target the visible required milestone",
+		failures,
+	)
+	_check(
+		"Objective: Choose one of 1 available permanent milestone cards" in report_summary
+		and String(report_announcement.get("kind", "")) == "campaign_record"
+		and "Choose one of 1 available permanent milestone cards" in String(report_announcement.get("text", ""))
+		and "available continuation" not in String(report_announcement.get("text", "")),
+		"campaign report summary and live narration should name the same reachable milestone action",
+		failures,
+	)
+
+	# The closing campaign card also owns an exact visible primary action. Global
+	# guidance must reach Senior Roost (or Retry on a failed file) instead of
+	# falling back to a disabled generic campaign instruction.
+	campaign_ui.show_final_review({
+		"day": 5,
+		"score": 77,
+		"rank": "Trusted Layer",
+		"passed": true,
+		"challenge_contract": {
+			"id": "standard_filing",
+			"label": "STANDARD FILING",
+		},
+	})
+	await process_frame
+	await process_frame
+	var final_next_action := office.call("_next_action_diagnostic_state") as Dictionary
+	var final_announcement := office.call(
+		"_web_accessibility_announcement",
+		(office.get("_simulation") as DepartmentSimulation).snapshot(),
+	) as Dictionary
+	var final_primary := office.find_child("FinalStickyPrimaryButton", true, false) as Button
+	office.call("_on_guidance_action_pressed")
+	await process_frame
+	_check(
+		final_primary != null
+		and String(final_next_action.get("copy", "")) == final_primary.text
+		and String(final_next_action.get("action_id", "")) == "campaign_final_continue"
+		and bool(final_next_action.get("actionable", false))
+		and "FINISH THE HIGHLIGHTED ACTION" not in String(final_next_action.get("copy", ""))
+		and root.gui_get_focus_owner() == final_primary,
+		"campaign final diagnostics and activation should target the visible Senior Roost action",
+		failures,
+	)
+	_check(
+		String(final_announcement.get("kind", "")) == "campaign_record"
+		and "Campaign final review opened" in String(final_announcement.get("text", ""))
+		and "optional Senior Roost" in String(final_announcement.get("text", ""))
+		and "available continuation" not in String(final_announcement.get("text", "")),
+		"campaign final narration should name the reachable visible continuation",
 		failures,
 	)
 

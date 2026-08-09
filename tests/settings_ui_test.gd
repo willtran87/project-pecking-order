@@ -17,7 +17,7 @@ func _run() -> void:
 	var observed_preferences: Array[Dictionary] = []
 	var observed_bindings: Array[Dictionary] = []
 	var observed_backup_imports: Array[String] = []
-	var intent_counts := {"close": 0, "reset": 0, "backup_export": 0}
+	var intent_counts := {"close": 0, "reset": 0, "backup_export": 0, "coach_replay": 0}
 	settings.preferences_changed.connect(
 		func(value: Dictionary) -> void: observed_preferences.append(value.duplicate(true))
 	)
@@ -33,10 +33,11 @@ func _run() -> void:
 	settings.career_backup_import_requested.connect(
 		func(json_text: String) -> void: observed_backup_imports.append(json_text)
 	)
+	settings.first_clutch_replay_requested.connect(func() -> void: intent_counts["coach_replay"] += 1)
 	await process_frame
 
 	_check(not settings.is_open(), "settings should not obstruct the office on boot", failures)
-	settings.show_settings(_preferences(), _binding_labels(), true)
+	settings.show_settings(_preferences(), _binding_labels(), true, true)
 	await process_frame
 	await process_frame
 	_check(settings.is_open(), "show_settings should expose the responsive modal", failures)
@@ -73,7 +74,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		_contains_all(settings.accessible_text(), ["comfort & display category, 2 of 4", "motion reduced", "camera motion reduced", "camera input sensitivity low", "125 percent", "high contrast on", "color vision standard", "effect density reduced", "particle density off", "animation speed relaxed", "tooltip delay long", "timing lenient", "transient notices priority for extended duration", "haptics disabled", "pause when unfocused on"])
+		_contains_all(settings.accessible_text(), ["comfort & display category, 2 of 4", "motion reduced", "camera motion reduced", "camera input sensitivity low", "125 percent", "high contrast on", "color vision standard", "effect density reduced", "particle density off", "animation speed relaxed", "tooltip delay long", "timing lenient", "transient notices priority for extended duration", "haptics disabled", "guidance essential", "pause when unfocused on"])
 		and "master 80 percent" not in settings.accessible_text().to_lower(),
 		"settings narration should summarize only the active category",
 		failures,
@@ -249,6 +250,8 @@ func _run() -> void:
 	var particle_level := settings.find_child("ParticleLevelSelector", true, false) as OptionButton
 	var animation_speed := settings.find_child("AnimationSpeedSelector", true, false) as OptionButton
 	var tooltip_delay := settings.find_child("TooltipDelaySelector", true, false) as OptionButton
+	var guidance_mode := settings.find_child("GuidanceModeSelector", true, false) as OptionButton
+	var coach_replay := settings.find_child("FirstClutchReplayButton", true, false) as Button
 	var haptics := settings.find_child("HapticsToggle", true, false) as CheckButton
 	var focus_pause := settings.find_child("PauseWhenUnfocusedToggle", true, false) as CheckButton
 	if comfort_category != null:
@@ -289,6 +292,11 @@ func _run() -> void:
 	if tooltip_delay != null:
 		tooltip_delay.select(0)
 		tooltip_delay.item_selected.emit(0)
+	if guidance_mode != null:
+		guidance_mode.select(2)
+		guidance_mode.item_selected.emit(2)
+	if coach_replay != null:
+		coach_replay.pressed.emit()
 	if haptics != null:
 		haptics.button_pressed = true
 	if focus_pause != null:
@@ -307,9 +315,70 @@ func _run() -> void:
 		and String(observed_preferences.back().get("particle_level", "")) == "reduced"
 		and String(observed_preferences.back().get("animation_speed", "")) == "brisk"
 		and String(observed_preferences.back().get("tooltip_delay", "")) == "short"
+		and String(observed_preferences.back().get("guidance_mode", "")) == "off"
 		and bool(observed_preferences.back().get("haptics_enabled", false))
-		and not bool(observed_preferences.back().get("pause_when_unfocused", true)),
+		and not bool(observed_preferences.back().get("pause_when_unfocused", true))
+		and coach_replay != null and not coach_replay.disabled
+		and int(intent_counts["coach_replay"]) == 1,
 		"comfort and notice selectors should emit their exact canonical settings",
+		failures,
+	)
+	var preferences_before_review := observed_preferences.size()
+	settings.set_first_clutch_replay_available(false)
+	_check(
+		coach_replay != null and not coach_replay.disabled
+		and coach_replay.text == "REVIEW FIRST CLUTCH PLAYBOOK"
+		and String(settings.first_clutch_reference_state().get("mode", "")) == "review",
+		"completed or skipped guidance should expose an always-available playbook instead of a dead replay control",
+		failures,
+	)
+	if coach_replay != null:
+		coach_replay.pressed.emit()
+	var playbook := settings.find_child("FirstClutchPlaybook", true, false) as VBoxContainer
+	var playbook_route := settings.find_child("FirstClutchPlaybookRoute", true, false) as HFlowContainer
+	_check(
+		playbook != null and playbook.visible
+		and playbook_route != null
+		and settings.find_children("FirstClutchPlaybookStep*", "PanelContainer", true, false).size() == 5
+		and int(settings.first_clutch_reference_state().get("step_count", 0)) == 5
+		and not bool(settings.first_clutch_reference_state().get("mutates_campaign", true))
+		and int(intent_counts["coach_replay"]) == 1
+		and observed_preferences.size() == preferences_before_review,
+		"review mode should reveal five visual steps without emitting replay or changing preferences",
+		failures,
+	)
+	_check(
+		_contains_all(
+			settings.accessible_text(),
+			["first clutch playbook", "inspect", "specialty fit", "route", "check-in", "priority peck", "reinvest", "today's orders"],
+		),
+		"the icon-led playbook should retain the exact route in assistive narration",
+		failures,
+	)
+	if coach_replay != null:
+		coach_replay.pressed.emit()
+	_check(
+		playbook != null and not playbook.visible
+		and coach_replay != null and coach_replay.text == "REVIEW FIRST CLUTCH PLAYBOOK",
+		"the reference should close in place without changing settings or campaign state",
+		failures,
+	)
+	if coach_replay != null:
+		coach_replay.pressed.emit()
+	settings.hide_settings()
+	settings.show_settings(_preferences(), _binding_labels(), true, false)
+	await process_frame
+	_check(
+		playbook != null and not playbook.visible
+		and coach_replay != null and coach_replay.text == "REVIEW FIRST CLUTCH PLAYBOOK",
+		"leaving Settings should collapse the optional refresher before the next visit",
+		failures,
+	)
+	settings.set_first_clutch_replay_available(true)
+	_check(
+		coach_replay != null and coach_replay.text == "RESUME CURRENT FIRST CLUTCH"
+		and String(settings.first_clutch_reference_state().get("mode", "")) == "resume",
+		"an unfinished hidden coach should retain the higher-priority resume action",
 		failures,
 	)
 
@@ -469,8 +538,15 @@ func _run() -> void:
 		close.pressed.emit()
 	_check(int(intent_counts["reset"]) == 1 and int(intent_counts["close"]) == 1, "reset and safe-return buttons should emit host-owned intents exactly once", failures)
 
+	settings.set_first_clutch_replay_available(false)
+	if comfort_category != null:
+		comfort_category.pressed.emit()
+	if coach_replay != null:
+		coach_replay.pressed.emit()
 	for viewport_size: Vector2 in [Vector2(844.0, 390.0), Vector2(390.0, 844.0)]:
 		harness.size = viewport_size
+		if comfort_category != null:
+			comfort_category.pressed.emit()
 		await process_frame
 		await process_frame
 		var rect := panel.get_global_rect()
@@ -481,6 +557,14 @@ func _run() -> void:
 			failures,
 		)
 		_check(scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "compact settings should keep every option reachable by scroll", failures)
+		_check(
+			playbook_route != null and playbook_route.size.x <= scroll.size.x + 0.5,
+			"the five-step playbook should wrap without horizontal overflow at %dx%d" % [
+				int(viewport_size.x),
+				int(viewport_size.y),
+			],
+			failures,
+		)
 		for category_button: Button in [
 			audio_category,
 			comfort_category,
@@ -506,7 +590,7 @@ func _run() -> void:
 			push_error("SETTINGS_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_UI_TEST_PASSED categories=4+persistent+arrow+contextual-narration audio=7+alerts+cutout-cues comfort=motion+camera-motion+sensitivity+particles+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
+	print("SETTINGS_UI_TEST_PASSED categories=4+persistent+arrow+contextual-narration audio=7+alerts+cutout-cues comfort=motion+camera-motion+sensitivity+particles+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause first-clutch=resume+five-step-review+non-mutating controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
 	quit(0)
 
 
@@ -535,6 +619,7 @@ func _preferences() -> Dictionary:
 		"particle_level": "off",
 		"animation_speed": "relaxed",
 		"tooltip_delay": "long",
+		"guidance_mode": "essential",
 		"haptics_enabled": false,
 		"pause_when_unfocused": true,
 		"settings_category": "comfort",

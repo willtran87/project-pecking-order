@@ -90,7 +90,12 @@ try {
             "settings_office_integration_test.gd",
             "ui_text_expansion_resilience_test.gd",
             "campaign_intake_safety_test.gd",
-            "simulation_persistence_test.gd"
+            "campaign_save_store_test.gd",
+            "campaign_semantic_recovery_test.gd",
+            "checkpoint_office_integration_test.gd",
+            "simulation_persistence_test.gd",
+            "operations_economy_test.gd",
+            "campaign_balance_playthrough_test.gd"
         )
         foreach ($testName in $nativeTests) {
             Invoke-CheckedCommand -Name "godot/$testName" -Command {
@@ -168,6 +173,16 @@ try {
             -NonInteractive `
             -File (Join-Path $root "tools\verify_usability_playtest_handoff.ps1") `
             -ReportPath "output\release\usability-playtest-handoff-self-test.json"
+    }
+    Invoke-CheckedCommand -Name "release/readiness-report-contract" -Command {
+        & $powershellExecutable `
+            -NoLogo `
+            -NoProfile `
+            -NonInteractive `
+            -File (Join-Path $root "tools\write_release_readiness_report.ps1") `
+            -SelfTest `
+            -OutputPath "output\release\release-readiness-self-test.json" `
+            -MarkdownPath "output\release\release-readiness-self-test.md"
     }
 
     $releaseFiles = @(

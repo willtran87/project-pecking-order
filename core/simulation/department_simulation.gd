@@ -495,7 +495,7 @@ const MARKET_CONTRACT_CLAUSE_DEFINITIONS := {
 	},
 	&"specialist_roost_endorsement": {
 		"label": "SPECIALIST ROOST ENDORSEMENT",
-		"summary": "Convert every folder to this binder's authored dominant claim lane.",
+		"summary": "Convert every folder to this binder's authored dominant file tray.",
 		"category": &"routing",
 		"requires_negotiation_room": true,
 		"premium_basis_points": 3500,
@@ -738,7 +738,7 @@ const FACILITY_DEFINITIONS := {
 	&"candling_rework_bay": {
 		"name": "CANDLING & REWORK BAY",
 		"short_name": "CANDLING BAY",
-		"description": "A lit shell-inspection bench and dedicated return lane for cracked claims.",
+		"description": "A lit shell-inspection bench and dedicated return lane for cracked files.",
 		"cost_cents": 4000,
 		"daily_maintenance_cents": 300,
 		"max_level": 1,
@@ -748,7 +748,7 @@ const FACILITY_DEFINITIONS := {
 		"rework_speed_multiplier": 1.20,
 		"benefits": [
 			"-1.5% crack risk across the office",
-			"+20% processing speed for rework claims",
+			"+20% processing speed for rework files",
 		],
 		"tradeoffs": [
 			"Adds $3.00 in maintenance to every shift",
@@ -793,7 +793,7 @@ const FACILITY_DEFINITIONS := {
 		"claim_capacity_per_level": CLAIM_CAPACITY_PER_RECORDS_LEVEL,
 		"benefits": [
 			"+6 live file capacity per level",
-			"Retains claim demand that would otherwise leave the farm",
+			"Retains file demand that would otherwise leave the farm",
 		],
 		"tradeoffs": [
 			"Daily archive maintenance rises to $4 / $7 / $11",
@@ -955,7 +955,7 @@ const FACILITY_DEFINITIONS := {
 		"level_names": [
 			"CABLE & REPAIR BENCH",
 			"PREDICTIVE DISPATCH RACK",
-			"AUTOMATED CLAIMS SORTER",
+			"AUTOMATED FILE SORTER",
 		],
 	},
 	FLOCK_RELATIONS_OFFICE_ID: {
@@ -1212,7 +1212,7 @@ const FLOCK_PETITION_DEFINITIONS := {
 	&"specialty_respect": {
 		"title": "A HEN REQUESTS HER OWN KIND OF PECKWORK",
 		"compact_name": "SPECIALTY NEST COMPACT",
-		"promise": "Assign the sponsor to her trained claim lane for the entire next shift.",
+		"promise": "Assign the sponsor to her trained file tray for the entire next shift.",
 		"condition": "Sponsor remains assigned to her specialty lane for the full shift.",
 		"sign_cost_cents": 800,
 		"priority": 3,
@@ -2052,7 +2052,7 @@ func configure_opening_challenge(contract: Dictionary) -> Dictionary:
 	for lane_value: Variant in lanes_value as Array:
 		var lane := StringName(String(lane_value).strip_edges().to_lower())
 		if not CLAIM_LANE_DEFINITIONS.has(lane):
-			rejected["reason"] = "The selected challenge names an unknown opening claim lane."
+			rejected["reason"] = "The selected challenge names an unknown opening file tray."
 			return rejected
 		additional_lanes.append(lane)
 	if additional_lanes.size() > 4:
@@ -4578,7 +4578,7 @@ func campus_expansion_snapshot() -> Dictionary:
 		},
 	]
 	var operational_benefits: Array[String] = [
-		"LIVE CLAIM CAPACITY  +%d FILES%s" % [claim_bonus, " / ACTIVE" if claim_bonus > 0 else " / HELD"],
+		"LIVE FILE CAPACITY  +%d FILES%s" % [claim_bonus, " / ACTIVE" if claim_bonus > 0 else " / HELD"],
 		"FARMGATE FINISHED-EGG STORAGE  +%d EGGS%s" % [farmgate_bonus, " / ACTIVE" if farmgate_bonus > 0 else " / HELD"],
 	]
 	var routing_pod := {
@@ -4875,7 +4875,7 @@ func _campus_portfolio_unassignment_capacity_reason(module_id: StringName) -> St
 			_claim_capacity_for_facilities_and_campus(owned_facilities, campus_expansion_state)
 		)
 		if _outstanding_claim_count() + _pending_market_contract_claim_count() > capacity_without_rail:
-			return "Route or finish claims before releasing the Collection Rail hen; the live ledger exceeds capacity without her."
+			return "Route or finish files before releasing the Collection Rail hen; the live ledger exceeds capacity without her."
 	elif module_id == CampusPortfolioStateScript.GRAIN_RECOVERY_MILL:
 		var base_feed_capacity := _facility_level_schedule_value(
 			FEED_PROCUREMENT_CAPACITY_SCOOPS,
@@ -7020,7 +7020,7 @@ func economic_briefing_snapshot() -> Dictionary:
 			),
 			"forecast_certainty": "GUARANTEED CALENDAR",
 			"forecast_uncertainty": (
-				"The season and spot quote are filed; seeded claim mix can still vary."
+				"The season and spot quote are filed; seeded file mix can still vary."
 			),
 			"next_market_day": next_market_day,
 			"opportunity_lane_id": opportunity_lane,
@@ -7194,7 +7194,7 @@ func _economic_watch_rows(
 			],
 			"target_label": "$0.00 OR BETTER",
 			"why": (
-				"Secured claim credit is compared with every filed operating cost; "
+				"Secured egg credit is compared with every filed operating cost; "
 				+ "unearned eggs and binder premiums remain excluded."
 			),
 			"action": (
@@ -7326,7 +7326,7 @@ func _economic_resource_rows(
 			"id": &"feed_fund",
 			"label": "FEED FUND",
 			"value_cents": revenue_cents,
-			"source": "Sound and golden claim credit, fulfilled Mutual binders, and filed awards.",
+			"source": "Sound and golden egg credit, fulfilled Mutual binders, and filed awards.",
 			"use": "Feed, payroll, facilities, resolutions, procurement, and capital.",
 			"limit": "Protected obligations are unavailable for discretionary spending.",
 			"strategic_value": "Liquidity for surviving this shift and choosing the next one.",
@@ -7368,7 +7368,7 @@ func _economic_resource_rows(
 			"source": "Two points per fulfilled binder, minus one per breach.",
 			"use": "Gates Service Coop tiers, negotiation, and Treasury capacity.",
 			"limit": "Standard-book days are neutral; breaches also break clean streaks.",
-			"strategic_value": "Long-run client access earned by reliable claim handling.",
+			"strategic_value": "Long-run client access earned by reliable file handling.",
 		},
 		{
 			"id": &"live_file_capacity",
@@ -7377,7 +7377,7 @@ func _economic_resource_rows(
 			"capacity": current_claim_capacity(),
 			"unit": "files",
 			"source": "Records facilities and commissioned routing infrastructure.",
-			"use": "Holds accepted claims and creates room for disclosed binder arrivals.",
+			"use": "Holds accepted files and creates room for disclosed binder arrivals.",
 			"limit": "Storage does not add workers; excess demand is turned away.",
 			"strategic_value": "Captures opportunity only when staffing and routing can clear it.",
 		},
@@ -7437,7 +7437,7 @@ func _economic_bottleneck_rows(
 			"id": &"break_even",
 			"severity": 1,
 			"label": "BREAK-EVEN GAP",
-			"reason": "$%.2f more secured claim credit is needed to cover today's filed operating cost."
+			"reason": "$%.2f more secured egg credit is needed to cover today's filed operating cost."
 				% (float(-secured_margin) / 100.0),
 			"action": "Finish sound work before buying optional interventions; binder upside is not counted until earned.",
 		})
@@ -7472,7 +7472,7 @@ func _economic_strategy_rows() -> Array[Dictionary]:
 			"id": &"throughput",
 			"label": "THROUGHPUT ROOST",
 			"lever": "Route specialties, Priority Peck, overtime, and packing capacity.",
-			"upside": "Clear more sound claims before deadlines and capture busy-book demand.",
+			"upside": "Clear more sound files before deadlines and capture busy-book demand.",
 			"counterweight": "Strain, cracks, rework, payroll, and welfare scrutiny rise if pushed blindly.",
 		},
 		{
@@ -7492,7 +7492,7 @@ func _economic_strategy_rows() -> Array[Dictionary]:
 		{
 			"id": &"contract",
 			"label": "MUTUAL SPECIALIST",
-			"lever": "Build standing, negotiate riders, and selectively bind seasonal claim books.",
+			"lever": "Build standing, negotiate riders, and selectively bind seasonal file books.",
 			"upside": "Earn premiums, outside files, and better Service Coop access.",
 			"counterweight": "Breach reserves, clauses, and demand spikes make overcommitment expensive.",
 		},
@@ -7528,7 +7528,7 @@ func _economic_recovery_rows(
 			"label": "FILE THE STANDARD BOOK",
 			"available": bool(contract_board.get("planning_open", false)),
 			"effect": "Decline optional binder exposure without losing standing.",
-			"tradeoff": "Forfeit that binder's premium and outside claim opportunity.",
+			"tradeoff": "Forfeit that binder's premium and outside file opportunity.",
 		},
 		{
 			"id": &"treasury_bridge",
@@ -15200,7 +15200,7 @@ func _apply_routing_momentum_milestone(
 				"id": &"golden_file",
 				"label": "GOLD SEALED" if not target.is_empty() else "GOLD READY",
 				"description": (
-					"Claim #%04d is sealed golden through grading." % int(target.get("claim_id", 0))
+					"File #%04d is sealed golden through grading." % int(target.get("claim_id", 0))
 					if not target.is_empty() else
 					"The next active file receives the golden seal."
 				),
@@ -15725,17 +15725,17 @@ func peck_assist_status(worker_id: int) -> Dictionary:
 		return status
 	if worker.work_state != ChickenState.WorkState.WORKING or worker.current_claim == null:
 		status["window_state"] = &"waiting"
-		status["reason"] = "Wait until %s is actively pecking a claim." % worker.display_name
+		status["reason"] = "Wait until %s is actively pecking a file." % worker.display_name
 		return status
 	var claim_id := worker.current_claim.id
 	status["claim_id"] = claim_id
 	if _assisted_claim_ids.has(claim_id):
 		status["window_state"] = &"used"
-		status["reason"] = "This claim already carries a Priority Peck stamp."
+		status["reason"] = "This file already carries a Priority Peck stamp."
 		return status
 	if _missed_assist_claim_ids.has(claim_id):
 		status["window_state"] = &"missed"
-		status["reason"] = "The synchronization window closed; the next claim can restart the chain."
+		status["reason"] = "The synchronization window closed; the next file can restart the chain."
 		return status
 	var progress := worker.work_progress
 	var score := _peck_assist_timing_score(progress)
@@ -15743,11 +15743,11 @@ func peck_assist_status(worker_id: int) -> Dictionary:
 	status["timing_label"] = _peck_assist_timing_label(score)
 	if progress < window_start:
 		status["window_state"] = &"not_ready"
-		status["reason"] = "Build the claim rhythm to %d%% before stamping." % int(window_start)
+		status["reason"] = "Build the file rhythm to %d%% before stamping." % int(window_start)
 		return status
 	if progress > window_end:
 		status["window_state"] = &"passed"
-		status["reason"] = "The safe synchronization window has passed for this claim."
+		status["reason"] = "The safe synchronization window has passed for this file."
 		return status
 	status["available"] = true
 	status["window_state"] = &"open"
@@ -15797,7 +15797,7 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 	var worker := workers[worker_id]
 	var claim_id := int(status.get("claim_id", -1))
 	if worker.current_claim == null or worker.current_claim.id != claim_id:
-		return {"accepted": false, "reason": "The active claim changed before the stamp landed."}
+		return {"accepted": false, "reason": "The active file changed before the stamp landed."}
 
 	var progress_before := worker.work_progress
 	var stress_before := worker.stress
@@ -15883,7 +15883,7 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 	result = _normalized_peck_assist_record(result)
 	last_peck_assist = result.duplicate(true)
 	announcement_posted.emit(
-		"PRIORITY PECK %s: %s synchronized claim #%04d. Chain x%d." % [
+		"PRIORITY PECK %s: %s synchronized file #%04d. Chain x%d." % [
 			String(rating).to_upper(), worker.display_name, claim_id, peck_assist_streak,
 		]
 	)
@@ -15901,7 +15901,7 @@ func settle_peck_assist_delivery(claim_id: int, quality: StringName) -> Dictiona
 		return _rejected_peck_assist_delivery(
 			claim_id,
 			normalized_quality,
-			"A valid completed claim is required before attention can be restored.",
+			"A valid completed file is required before attention can be restored.",
 		)
 	if _settled_peck_assist_delivery_ids.has(claim_id):
 		return _rejected_peck_assist_delivery(
@@ -15914,7 +15914,7 @@ func settle_peck_assist_delivery(claim_id: int, quality: StringName) -> Dictiona
 		var missing_reason := (
 			"Cracked assisted work breaks the chain and cannot restore attention."
 			if normalized_quality == &"cracked" else
-			"No clean assisted delivery is pending for claim #%04d." % claim_id
+			"No clean assisted delivery is pending for file #%04d." % claim_id
 		)
 		return _rejected_peck_assist_delivery(claim_id, normalized_quality, missing_reason)
 	var token := token_value as Dictionary
@@ -15923,7 +15923,7 @@ func settle_peck_assist_delivery(claim_id: int, quality: StringName) -> Dictiona
 		return _rejected_peck_assist_delivery(
 			claim_id,
 			normalized_quality,
-			"Claim #%04d was graded %s, not %s; the delivery token remains pending." % [
+			"File #%04d was graded %s, not %s; the delivery token remains pending." % [
 				claim_id,
 				String(expected_quality).to_upper(),
 				String(normalized_quality).to_upper(),
@@ -15961,7 +15961,7 @@ func settle_peck_assist_delivery(claim_id: int, quality: StringName) -> Dictiona
 		"gross_interventions": peck_assist_interventions_today,
 		"refunds": peck_assist_refunds_today,
 		"pending_delivery_count": _pending_peck_assist_deliveries.size(),
-		"reason": "%s claim #%04d reached the farmer; one attention charge was restored." % [
+		"reason": "%s file #%04d reached the farmer; one attention charge was restored." % [
 			String(normalized_quality).capitalize(),
 			claim_id,
 		],
@@ -16309,7 +16309,7 @@ func _flock_restructuring_body(
 		elif worker.last_personnel_action_day == completed_day and worker.last_personnel_action == &"career_coaching":
 			context_lines.append("Her approved coaching time was counted against visible output.")
 	if context_lines.size() <= 2:
-		context_lines.append("The ranking excludes claim difficulty, breaks covered, and work reassigned by management.")
+		context_lines.append("The ranking excludes file difficulty, breaks covered, and work reassigned by management.")
 	return "%s\n\n%s\n\n%s\n%s" % [
 		"The farmer wants one efficiency variance removed before the final presentation. The frozen ranking nominates %s because the ledger measures credited output, not how the work was produced." % subject_name,
 		"\n".join(ranking_lines),
@@ -19702,7 +19702,7 @@ func begin_first_clutch_reinvestment(
 		)
 	if claim_id < 1:
 		return _rejected_first_clutch_reinvestment(
-			"A valid collected claim is required before reinvestment can open.",
+			"A valid collected egg receipt is required before reinvestment can open.",
 		)
 	if normalized_quality not in [&"sound", &"golden", &"cracked"]:
 		return _rejected_first_clutch_reinvestment(
@@ -20613,7 +20613,7 @@ func _flock_relations_case_title(case_type: StringName) -> String:
 		&"burnout_case":
 			return "OCCUPATIONAL NEST STRAIN CASE"
 		&"credit_claim":
-			return "WORK PRODUCT CREDIT CLAIM"
+			return "WORK PRODUCT CREDIT FILE"
 	return "WORKPLACE GRIEVANCE"
 
 
@@ -22313,7 +22313,7 @@ func _complete_egg(worker: ChickenState) -> void:
 			golden_today += 1
 			executive_confidence = minf(100.0, executive_confidence + 1.5)
 			announcement_posted.emit(
-				"GOLDEN FILE: sealed claim #%04d reached grading clean for %s." % [
+				"GOLDEN FILE: sealed file #%04d reached grading clean for %s." % [
 					assisted_claim_id,
 					worker.display_name,
 				]
@@ -22344,7 +22344,7 @@ func _complete_egg(worker: ChickenState) -> void:
 		priority_credit_today_cents += priority_credit_cents
 		priority_credit_total_cents += priority_credit_cents
 		announcement_posted.emit(
-			"PRIORITY CREDIT: management added $%.2f to %s's finished claim." % [
+			"PRIORITY CREDIT: management added $%.2f to %s's finished file." % [
 				float(priority_credit_cents) / 100.0, worker.display_name,
 			]
 		)
@@ -22361,7 +22361,7 @@ func _complete_egg(worker: ChickenState) -> void:
 				assisted_claim_id,
 			)
 			announcement_posted.emit(
-				"PRIORITY PECK CHAIN BROKEN: claim #%04d cracked and cannot restore attention." % assisted_claim_id
+				"PRIORITY PECK CHAIN BROKEN: file #%04d cracked and cannot restore attention." % assisted_claim_id
 			)
 		elif (
 			quality in [&"sound", &"golden"]
