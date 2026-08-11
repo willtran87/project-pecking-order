@@ -89,7 +89,7 @@ jobs:
         working-directory: web
         run: npm ci
       - name: Verify rendered Web behavior, accessibility, lint, and release parity
-        shell: pwsh
+        shell: powershell
         run: |
           $report = "output/release/beta-release-gate.json"
           $powershell = (Get-Process -Id $PID).Path
