@@ -13418,3 +13418,46 @@ The next major systems milestone is persistent worker relationships and individu
   cannot produce truthful physical-device or independently moderated human
   observations, so the active production-readiness goal is blocked pending
   that external execution and candidate freeze.
+
+## 2026-08-10 - Node 24 release-action hardening
+
+- Re-audited the exact published candidate against the referenced production
+  criteria rather than relying on the prior resolution claim. The deterministic
+  Godot signal audit reports no risky anonymous signal lambdas. The prescribed
+  Web-game client loaded the local production wrapper, retained a 51,751-byte
+  bounded diagnostic, wrote a clean 1280x720 intake capture, and produced no
+  browser-error artifact; the capture was visually inspected.
+- Closed the remaining automated release warning: the green GitHub jobs were
+  still using Node 20 action runtimes under GitHub's forced Node 24 shim.
+  `.github/workflows/quality-gate.yml` now uses `actions/checkout@v6`,
+  `actions/cache@v5`, `actions/setup-node@v6`, and
+  `actions/upload-artifact@v6`. Each official major tag exists and each selected
+  major runs on Node 24 according to its official action documentation.
+- Parsed the updated workflow as YAML, asserted the exact action-major matrix,
+  rejected any retained v4 reference, and passed `git diff --check`.
+- No game/runtime source or shipping payload changed. The only remaining
+  production-readiness evidence is still external: seven physical-device/audio/
+  assistive-technology/GPU sessions and seven independently moderated usability
+  sessions for the exact frozen candidate.
+
+## 2026-08-10 - Progressive handbook disclosure
+
+- Replaced the Management Handbook's default walls of mechanics text with three
+  glance-first loops and nine short action cards: plan/act/review,
+  inspect/match/intervene, and read/choose/invest. The complete campaign,
+  routing, claimant, facilities, and Senior-system references remain available
+  in three closed-by-default disclosure panels.
+- Extended the rendered-HTML regression to require all nine cues, all three
+  optional references, their closed default state, the preserved detailed copy,
+  and 44px reference-summary targets. The exact Node 24 build, 50 Web tests, and
+  ESLint pass cleanly.
+- Exercised the production build with the prescribed Web-game client and a
+  focused Playwright audit at 1280x900 and 390x844. Visual inspection confirms a
+  clear three-column desktop scan and a readable single-column mobile scan. The
+  mobile audit reports nine action markers, three closed references, 44px
+  summary targets, no horizontal overflow, and no console or page errors.
+- The isolated port-3001 audit server was stopped after capture; the user's
+  existing port-3000 local instance remains untouched. The only remaining
+  production-readiness evidence is external: seven physical-device/audio/
+  assistive-technology/GPU sessions and seven independently moderated usability
+  sessions for the exact frozen candidate.

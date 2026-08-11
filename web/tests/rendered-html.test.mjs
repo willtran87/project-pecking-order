@@ -1296,6 +1296,9 @@ test("keeps the full probation-to-Senior reference in a collapsed responsive han
 
   assert.equal((page.match(/<article>/g) ?? []).length, 3);
   assert.equal((html.match(/class="briefing-number"/g) ?? []).length, 3);
+	assert.equal((html.match(/class="briefing-action-mark"/g) ?? []).length, 9);
+	assert.equal((page.match(/className="briefing-deep-dive"/g) ?? []).length, 3);
+	assert.doesNotMatch(page, /<details className="briefing-deep-dive" open>/);
 	assert.match(page, /<details id="management-handbook" ref=\{handbookDetails\} className="handbook-details">/);
 	assert.match(page, /<strong>Management Handbook<\/strong>/);
 	assert.match(page, /<details className="control-details">/);
@@ -1304,11 +1307,15 @@ test("keeps the full probation-to-Senior reference in a collapsed responsive han
   assert.match(html, /Five-shift authored campaign/);
 	assert.match(html, /Optional Senior file/);
   assert.match(html, /Clear the daily orders/);
+	assert.match(html, /Pick a policy, work the three live goals, then file the shift/);
+	assert.match(html, /Campaign scoring reference/);
   assert.match(html, /three probation orders each shift/);
   assert.match(html, /one score across the authored five-shift campaign/);
 	assert.match(html, /optional post-campaign management file/);
 	assert.match(html, /not a prerequisite for seeing the ending/);
   assert.match(html, /Route the peckwork/);
+	assert.match(html, /Match each hen to the right tray/);
+	assert.match(html, /Routing and claimant reference/);
   assert.match(html, /specialty and current file/);
 	assert.match(html, /career, temperament, exact work-style tradeoff, closest perchmate bond, trust, and grievance/);
 	assert.match(html, /AUTO remains opt-in for each employed hen and keeps temperament at a neutral baseline/);
@@ -1333,6 +1340,8 @@ test("keeps the full probation-to-Senior reference in a collapsed responsive han
 	assert.match(html, /manual tray is an explicit override/);
 	assert.match(html, /Rooster Operations check-in allowance/);
 	assert.match(html, /Grow the bureau/);
+	assert.match(html, /solve one bottleneck, then invest with the reserve protected/);
+	assert.match(html, /Facilities and Senior systems/);
 	assert.match(html, /authorize vacant perches/);
 	assert.match(html, /applicant specialties, wages, and profiles/);
 	assert.match(html, /Records Annex raises live-file capacity from 18 to 24, 30, then 36/i);
@@ -1391,6 +1400,8 @@ test("keeps the full probation-to-Senior reference in a collapsed responsive han
 	assert.doesNotMatch(page, /[·–→…]/);
 
   assert.match(css, /\.briefing\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,\s*1fr\)/);
+	assert.match(css, /\.briefing-actions\s*\{[\s\S]*list-style:\s*none/);
+	assert.match(css, /\.briefing-deep-dive > summary\s*\{[\s\S]*min-height:\s*44px/);
   assert.match(css, /@media \(max-width:\s*1000px\)[\s\S]*\.briefing\s*\{\s*grid-template-columns:\s*1fr/);
 	assert.match(css, /body\s*\{[\s\S]*overflow-x:\s*clip/);
 	assert.match(css, /\.game-stage\s*\{[\s\S]*100dvh - 220px/);

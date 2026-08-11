@@ -742,28 +742,61 @@ export default function Home() {
 		    <article>
 		      <span className="briefing-number">01</span>
 		      <h2>Clear the daily orders</h2>
-		      <p>Choose a morning policy, then clear three probation orders each shift. Quota, shell quality, flock welfare, deadlines, and farmer favor shape one score across the authored five-shift campaign. Senior quarters are an optional post-campaign management file, not a prerequisite for seeing the ending.</p>
+		      <p className="briefing-lead">Pick a policy, work the three live goals, then file the shift.</p>
+		      <ol className="briefing-actions" aria-label="Daily management loop">
+		        <li><span className="briefing-action-mark" aria-hidden="true">1</span><span><strong>Plan</strong><small>Choose today&apos;s policy.</small></span></li>
+		        <li><span className="briefing-action-mark" aria-hidden="true">2</span><span><strong>Act</strong><small>Route hens toward three goals.</small></span></li>
+		        <li><span className="briefing-action-mark" aria-hidden="true">3</span><span><strong>Review</strong><small>Read the result and adapt.</small></span></li>
+		      </ol>
+		      <details className="briefing-deep-dive">
+		        <summary>Campaign scoring reference</summary>
+		        <div className="briefing-deep-body">
+		          <p>Choose a morning policy, then clear three probation orders each shift. Quota, shell quality, flock welfare, deadlines, and farmer favor shape one score across the authored five-shift campaign. Senior quarters are an optional post-campaign management file, not a prerequisite for seeing the ending.</p>
+		        </div>
+		      </details>
 		    </article>
 		    <article>
 		      <span className="briefing-number">02</span>
 		      <h2>Route the peckwork</h2>
-		      <p>Click a hen to inspect her specialty and current file, plus her career, temperament, exact work-style tradeoff, closest perchmate bond, trust, and grievance. Choose AUTO, NEST, PREDATOR, or APPEALS routing. AUTO remains opt-in for each employed hen and keeps temperament at a neutral baseline; choosing a manual tray is an explicit override that engages her disclosed work style. Matched specialties clear files faster; temperament can trade pace, shell safety, strain, or recovery, so a looming deadline may justify an imperfect route. Open FILE before 55% completion to see the claimant, what happened, what they need, and what delay costs them, then keep standard handling or file a disclosed Settlement, Fast Denial, or Coverage Exception. Nest paths can restore handler morale, Predator paths carry extra stress, and Appeals paths change audit order. A clean fast denial helps today&apos;s closure rate but returns the same claimant to tomorrow&apos;s Appeals tray. When the file bar enters its gold window, press E for one of three priority pecks per shift. Use her profile to share credit, coach, or apply pressure within the day&apos;s Rooster Operations check-in allowance. Those choices become evidence when a named hen files a flock petition.</p>
+		      <p className="briefing-lead">Match each hen to the right tray. Break the pattern only for a clear reason.</p>
+		      <ol className="briefing-actions" aria-label="Peckwork routing loop">
+		        <li><span className="briefing-action-mark" aria-hidden="true">1</span><span><strong>Inspect</strong><small>Open a hen&apos;s live file.</small></span></li>
+		        <li><span className="briefing-action-mark" aria-hidden="true">2</span><span><strong>Match</strong><small>Use specialty, risk, and deadline.</small></span></li>
+		        <li><span className="briefing-action-mark" aria-hidden="true">3</span><span><strong>Intervene</strong><small>Peck, reroute, or support.</small></span></li>
+		      </ol>
+		      <details className="briefing-deep-dive">
+		        <summary>Routing and claimant reference</summary>
+		        <div className="briefing-deep-body">
+		          <p>Click a hen to inspect her specialty and current file, plus her career, temperament, exact work-style tradeoff, closest perchmate bond, trust, and grievance. Choose AUTO, NEST, PREDATOR, or APPEALS routing. AUTO remains opt-in for each employed hen and keeps temperament at a neutral baseline; choosing a manual tray is an explicit override that engages her disclosed work style. Matched specialties clear files faster; temperament can trade pace, shell safety, strain, or recovery, so a looming deadline may justify an imperfect route. Open FILE before 55% completion to see the claimant, what happened, what they need, and what delay costs them, then keep standard handling or file a disclosed Settlement, Fast Denial, or Coverage Exception. Nest paths can restore handler morale, Predator paths carry extra stress, and Appeals paths change audit order. A clean fast denial helps today&apos;s closure rate but returns the same claimant to tomorrow&apos;s Appeals tray. When the file bar enters its gold window, press E for one of three priority pecks per shift. Use her profile to share credit, coach, or apply pressure within the day&apos;s Rooster Operations check-in allowance. Those choices become evidence when a named hen files a flock petition.</p>
+		        </div>
+		      </details>
 		    </article>
 		    <article>
 		      <span className="briefing-number">03</span>
 		      <h2>Grow the bureau</h2>
-		      <p>Between shifts, open Flockwatch Capital for the exact run rate, cost breakdown, next Farm Mutual market, primary bottleneck, resource map, strategy counterweights, and recovery routes. Use Flock to authorize vacant perches and compare applicant specialties, wages, and profiles. Capital also holds the Blueprint and Campus Portfolio for visible office expansion.</p>
-		      <ul className="briefing-list">
-		        <li>The Flock Provisions Co-op turns feed into a real supply chain with seasonal quotes, finite bins, spoilage, and visible sacks.</li>
-		        <li>Wellness Nest tiers add recovery perches and protect Rested Flock welfare; Training Roost tiers reduce sponsorship cost and production drag. Rooster Operations Office tiers add check-ins but also supervisor payroll and surveillance pressure. IT Coop tiers improve only AUTO-routed work while raising compliance exposure.</li>
-		        <li>Flock Relations turns documented strain into named-hen case files: fund a remedy, mediate, file a coercive PIP, or commission arbitration.</li>
-		        <li>The Farmer Relations Gallery can turn one real shift into a Layer Profile, Clutch Results Board, or Farmer&apos;s Method campaign; standing, cash effects, and the chosen attribution stay on the permanent wall.</li>
-		        <li>The Records Annex raises live-file capacity from 18 to 24, 30, then 36. From Day 3, that opens Farm Mutual folders with disclosed lane mix, timed arrivals, premium, and breach charge. Three-day market seasons begin on Day 6. Successful binders earn standing and Bronze, Silver, then Gold seals that commission three visible Service Coop tiers. Gold accreditation can open a physical Negotiation Room where one rush, specialist, or welfare rider changes the exact settlement.</li>
-		        <li>The Farmgate Dispatch Depot stores finished eggs as real lots. File Farmer Pickup, County Auction, Regional Showcase, or Hold the Basket; capacity, shelf life, fees, spoilage, and every crate appear in the office.</li>
-		        <li>North Meadow is genuinely player-owned land: buy the parcel, commission circulation and power, choose one of two route-safe pads for an Egg Routing Pod, relocate it later, and add optional cold-chain capacity. Every filing changes the visible campus and its recurring costs.</li>
-		        <li>The Campus Portfolio extends North Meadow&apos;s shared utilities into Orchard Row and Creekside Yard. File deeds, choose surveyed pads, and queue the Collection Rail Hub, Grain Recovery Mill, Creekside Chilling Exchange, or Contractor Roost for one-to-three-shift construction. Contractor, power, and cold capacity are finite, and a completed module only delivers its economic benefit when an available named hen staffs it.</li>
-		      </ul>
-		      <p>Feed, payroll, upkeep, arrears, settlements, and signed breach exposure are reserved before spending. When browser storage is available, the terminal checkpoints roster, case, order, and capital decisions. Pass Shift 5 to unlock three-shift Senior quarters, live Career Forecasts, capital policies, annual reviews, and promotion marks you can bank or invest in a named hen&apos;s cross-training.</p>
+		      <p className="briefing-lead">Use each shift&apos;s result to solve one bottleneck, then invest with the reserve protected.</p>
+		      <ol className="briefing-actions" aria-label="Bureau growth loop">
+		        <li><span className="briefing-action-mark" aria-hidden="true">1</span><span><strong>Read</strong><small>Check margin and next market.</small></span></li>
+		        <li><span className="briefing-action-mark" aria-hidden="true">2</span><span><strong>Choose</strong><small>Staff, recover, or expand.</small></span></li>
+		        <li><span className="briefing-action-mark" aria-hidden="true">3</span><span><strong>Invest</strong><small>Fund one strategic edge.</small></span></li>
+		      </ol>
+		      <details className="briefing-deep-dive">
+		        <summary>Facilities and Senior systems</summary>
+		        <div className="briefing-deep-body">
+		          <p>Between shifts, open Flockwatch Capital for the exact run rate, cost breakdown, next Farm Mutual market, primary bottleneck, resource map, strategy counterweights, and recovery routes. Use Flock to authorize vacant perches and compare applicant specialties, wages, and profiles. Capital also holds the Blueprint and Campus Portfolio for visible office expansion.</p>
+		          <ul className="briefing-list">
+		            <li>The Flock Provisions Co-op turns feed into a real supply chain with seasonal quotes, finite bins, spoilage, and visible sacks.</li>
+		            <li>Wellness Nest tiers add recovery perches and protect Rested Flock welfare; Training Roost tiers reduce sponsorship cost and production drag. Rooster Operations Office tiers add check-ins but also supervisor payroll and surveillance pressure. IT Coop tiers improve only AUTO-routed work while raising compliance exposure.</li>
+		            <li>Flock Relations turns documented strain into named-hen case files: fund a remedy, mediate, file a coercive PIP, or commission arbitration.</li>
+		            <li>The Farmer Relations Gallery can turn one real shift into a Layer Profile, Clutch Results Board, or Farmer&apos;s Method campaign; standing, cash effects, and the chosen attribution stay on the permanent wall.</li>
+		            <li>The Records Annex raises live-file capacity from 18 to 24, 30, then 36. From Day 3, that opens Farm Mutual folders with disclosed lane mix, timed arrivals, premium, and breach charge. Three-day market seasons begin on Day 6. Successful binders earn standing and Bronze, Silver, then Gold seals that commission three visible Service Coop tiers. Gold accreditation can open a physical Negotiation Room where one rush, specialist, or welfare rider changes the exact settlement.</li>
+		            <li>The Farmgate Dispatch Depot stores finished eggs as real lots. File Farmer Pickup, County Auction, Regional Showcase, or Hold the Basket; capacity, shelf life, fees, spoilage, and every crate appear in the office.</li>
+		            <li>North Meadow is genuinely player-owned land: buy the parcel, commission circulation and power, choose one of two route-safe pads for an Egg Routing Pod, relocate it later, and add optional cold-chain capacity. Every filing changes the visible campus and its recurring costs.</li>
+		            <li>The Campus Portfolio extends North Meadow&apos;s shared utilities into Orchard Row and Creekside Yard. File deeds, choose surveyed pads, and queue the Collection Rail Hub, Grain Recovery Mill, Creekside Chilling Exchange, or Contractor Roost for one-to-three-shift construction. Contractor, power, and cold capacity are finite, and a completed module only delivers its economic benefit when an available named hen staffs it.</li>
+		          </ul>
+		          <p>Feed, payroll, upkeep, arrears, settlements, and signed breach exposure are reserved before spending. When browser storage is available, the terminal checkpoints roster, case, order, and capital decisions. Pass Shift 5 to unlock three-shift Senior quarters, live Career Forecasts, capital policies, annual reviews, and promotion marks you can bank or invest in a named hen&apos;s cross-training.</p>
+		        </div>
+		      </details>
 		    </article>
 		  </div>
 		</details>
