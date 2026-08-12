@@ -267,6 +267,22 @@ func active_category() -> StringName:
 	return _active_category
 
 
+## Opens one existing settings page without changing the player's remembered
+## default unless the caller explicitly asks to persist it. The deferred focus
+## handoff runs after the responsive container has completed its visibility sort.
+func reveal_category(
+	category_id: StringName,
+	persist: bool = false,
+	focus_category: bool = true,
+) -> void:
+	_set_active_category(category_id, persist)
+	if not focus_category:
+		return
+	var button := _category_buttons.get(_active_category) as Button
+	if button != null and button.is_visible_in_tree():
+		button.call_deferred("grab_focus")
+
+
 ## Exposes the one safe, always-available exit as the authoritative action while
 ## this full-screen sheet owns input. Office uses the same Button for browser
 ## diagnostics and focus handoff instead of leaking a covered floor objective.

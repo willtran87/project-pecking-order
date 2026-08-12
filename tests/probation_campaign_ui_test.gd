@@ -442,7 +442,8 @@ func _run() -> void:
 	)
 	_check(
 		 title_description != null
-		and title_description.text == "Choose a difficulty, then start."
+		and title_description.text == "Protect the flock. Survive five shifts."
+		and "Help Mabel" in title_description.tooltip_text
 		and "terms lock when Shift 1 starts" in title_description.tooltip_text
 		and title_description.tooltip_text == String(title_description.get_meta("accessible_text", "")),
 		"title subtitle should state the setup action once while retaining its locked-terms explanation",

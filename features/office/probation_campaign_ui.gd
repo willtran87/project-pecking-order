@@ -1223,14 +1223,28 @@ func _build_day_badge() -> void:
 func _refresh_day_progress_rail(day: int, total_days: int, exact_day_text: String) -> void:
 	if _day_progress_row == null:
 		return
+	var chapter_value: Variant = _snapshot.get("chapter", {})
+	var chapter := chapter_value as Dictionary if chapter_value is Dictionary else {}
+	var chapter_title := String(chapter.get("title", "")).to_upper()
+	var chapter_detail := String(chapter.get("accessible_text", ""))
+	var day_context := exact_day_text
+	if not chapter_title.is_empty():
+		day_context += "  //  %s" % chapter_title
 	var show_rail := not _is_senior_snapshot() and total_days == DEFAULT_TOTAL_DAYS
 	_day_progress_row.visible = show_rail
 	_day_label.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Preserve the stable compact calendar tooltip used by existing pointer and
+	# integration contracts. The richer chapter is additive semantic metadata.
 	_day_label.tooltip_text = exact_day_text
-	_day_label.set_meta("accessible_text", exact_day_text)
+	_day_label.set_meta(
+		"accessible_text",
+		chapter_detail if not chapter_detail.is_empty() else day_context,
+	)
 	_day_label.set_meta("segment_progress", show_rail)
-	_day_progress_row.tooltip_text = exact_day_text
-	_day_progress_row.set_meta("accessible_text", exact_day_text)
+	_day_progress_row.tooltip_text = chapter_detail if not chapter_detail.is_empty() else day_context
+	_day_progress_row.set_meta("accessible_text", _day_progress_row.tooltip_text)
+	_day_progress_row.set_meta("chapter_id", String(chapter.get("id", "")))
+	_day_progress_row.set_meta("chapter_title", chapter_title)
 	_day_progress_row.set_meta("current_day", day)
 	_day_progress_row.set_meta("total_days", total_days)
 	for index in range(_day_progress_segments.size()):
@@ -1243,7 +1257,7 @@ func _refresh_day_progress_rail(day: int, total_days: int, exact_day_text: Strin
 			"complete" if segment_day < day else "upcoming"
 		)
 		segment.tooltip_text = "%s  //  SHIFT %d %s" % [
-			exact_day_text,
+			day_context,
 			segment_day,
 			state.to_upper(),
 		]
@@ -2777,13 +2791,19 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 			"YOUR COOP FILE IS READY."
 		)
 	if _title_description != null:
+		var chapter_value: Variant = _snapshot.get("chapter", {})
+		var chapter := chapter_value as Dictionary if chapter_value is Dictionary else {}
 		_title_description.text = (
-			"Choose a difficulty, then start."
+			"Protect the flock. Survive five shifts."
 			if setup_visible else
 			"Continue where you left off, or review a fresh file."
 		)
 		var title_description_detail := (
-			"Choose one of three difficulty profiles. Its terms lock when Shift 1 starts."
+			"%s Choose one of three difficulty profiles; its terms lock when Shift 1 starts."
+			% String(chapter.get(
+				"promise",
+				"Help Mabel carry one real file from tray to farmer without spending the flock to do it.",
+			))
 			if setup_visible else
 			"Continue verifies the saved file before the coop opens. Reviewing a fresh file leaves the save untouched until replacement is confirmed."
 		)
@@ -3355,6 +3375,8 @@ func _challenge_contract_terms_text(contract: Dictionary, include_heading: bool)
 
 func _refresh_report(day: int, total_days: int) -> void:
 	var senior := _is_senior_snapshot()
+	var chapter_value: Variant = _snapshot.get("chapter", {})
+	var chapter := chapter_value as Dictionary if chapter_value is Dictionary else {}
 	var full_report_kicker := String(_snapshot.get(
 		"report_kicker",
 		(
@@ -3373,6 +3395,18 @@ func _refresh_report(day: int, total_days: int) -> void:
 		"SENIOR ROOST QUARTERLY FILING" if senior else "FARMER'S SHIFT ASSESSMENT",
 	)).to_upper()
 	var compact_result_heading := "SHIFT %d RESULTS" % day
+	if not senior and not chapter.is_empty():
+		compact_result_heading += "  //  %s" % String(chapter.get("title", "PROBATION")).to_upper()
+	var momentum_value: Variant = _snapshot.get("momentum_brief", {})
+	var momentum := momentum_value as Dictionary if momentum_value is Dictionary else {}
+	if (
+		not senior
+		and StringName(String(momentum.get("status", ""))) == &"comeback"
+	):
+		compact_result_heading += "\nCOMEBACK  //  %s" % String(momentum.get(
+			"short_label",
+			"RECOVER THE FILE",
+		)).to_upper()
 	_report_day_label.text = full_report_kicker if senior else compact_result_heading
 	_report_day_label.visible = senior
 	_report_day_label.tooltip_text = full_report_kicker
@@ -3385,7 +3419,18 @@ func _refresh_report(day: int, total_days: int) -> void:
 	_report_heading_label.tooltip_text = (
 		authored_report_heading
 		if senior else
-		"%s\n%s" % [authored_report_heading, full_report_kicker]
+		"%s\n%s%s" % [
+			authored_report_heading,
+			full_report_kicker,
+			("\n%s\n%s%s" % [
+				String(chapter.get("verb", "FILE THE SHIFT")),
+				String(chapter.get("promise", "")),
+				("\n%s  //  %s" % [
+					String(momentum.get("headline", "NEXT SHIFT")),
+					String(momentum.get("detail", "")),
+				] if not momentum.is_empty() else ""),
+			] if not chapter.is_empty() else ""),
+		]
 	)
 	_report_heading_label.set_meta("accessible_text", _report_heading_label.tooltip_text)
 	_report_heading_label.set_meta("authored_report_heading", authored_report_heading)
@@ -4725,6 +4770,29 @@ func _refresh_final() -> void:
 			"The farmer has reclaimed the badge. Your file may be reopened for another five-shift probation."
 		),
 	))
+	var legacy_value: Variant = _snapshot.get("campaign_legacy", {})
+	var legacy := legacy_value as Dictionary if legacy_value is Dictionary else {}
+	var replay_value: Variant = _snapshot.get("replay_recommendation", {})
+	var replay := replay_value as Dictionary if replay_value is Dictionary else {}
+	var epilogue_value: Variant = _snapshot.get("flock_epilogue", [])
+	var epilogue := epilogue_value as Array if epilogue_value is Array else []
+	if not legacy.is_empty():
+		_final_message_label.text += "\n\nYOUR LEGACY  //  %s\n%s" % [
+			String(legacy.get("title", "UNFILED ROOST")),
+			String(legacy.get("detail", "The file records no single management identity.")),
+		]
+	for entry_value: Variant in epilogue:
+		if entry_value is Dictionary:
+			var entry := entry_value as Dictionary
+			_final_message_label.text += "\n%s  //  %s" % [
+				String(entry.get("worker_name", "PECKWORK HEN")).to_upper(),
+				String(entry.get("outcome", "The hen remains in the permanent record.")),
+			]
+	if not replay.is_empty():
+		_final_message_label.text += "\n\nNEXT RUN  //  %s\n%s" % [
+			String(replay.get("action", "TRY A DIFFERENT DOCTRINE")),
+			String(replay.get("rationale", "Change the plan and compare the consequence.")),
+		]
 	_final_message_label.set_meta("accessible_text", _final_message_label.text)
 	_refresh_final_ending_glance(ending, passed, _final_message_label.text)
 	_final_score_label.text = _format_integer(int(_snapshot.get("score", 0)))
@@ -4790,6 +4858,37 @@ func _refresh_final_ending_glance(
 				if passed else
 				_ending_beats("FILE", "HELD", "BADGE", "RECLAIMED", "NEXT", "RETRY")
 			)
+	var legacy_value: Variant = _snapshot.get("campaign_legacy", {})
+	var legacy := legacy_value as Dictionary if legacy_value is Dictionary else {}
+	var replay_value: Variant = _snapshot.get("replay_recommendation", {})
+	var replay := replay_value as Dictionary if replay_value is Dictionary else {}
+	var epilogue_value: Variant = _snapshot.get("flock_epilogue", [])
+	var epilogue := epilogue_value as Array if epilogue_value is Array else []
+	# The same three glance slots now close the full experiential loop when the
+	# authoritative snapshot provides it: who the manager became, what one named
+	# hen carries forward, and how a genuinely different replay begins.
+	if not legacy.is_empty():
+		beats[0] = {
+			"caption": "YOUR LEGACY",
+			"value": String(legacy.get("title", "UNFILED ROOST")).to_upper(),
+			"detail": String(legacy.get("detail", exact_message)),
+		}
+	if not epilogue.is_empty() and epilogue[0] is Dictionary:
+		var flock_beat := epilogue[0] as Dictionary
+		beats[1] = {
+			"caption": String(flock_beat.get("worker_name", "THE FLOCK")).to_upper(),
+			"value": String(flock_beat.get("value", "REMEMBERED")).to_upper(),
+			"detail": String(flock_beat.get("outcome", exact_message)),
+		}
+	if not replay.is_empty():
+		beats[2] = {
+			"caption": "NEXT FILE",
+			"value": String(replay.get("contract_short_label", "NEW PLAN")).to_upper(),
+			"detail": "%s  //  %s" % [
+				String(replay.get("action", "TRY A DIFFERENT DOCTRINE")),
+				String(replay.get("rationale", "Change the plan and compare the consequence.")),
+			],
+		}
 	for index: int in range(mini(_final_ending_glance_tiles.size(), beats.size())):
 		var tile := _final_ending_glance_tiles[index]
 		var beat := beats[index]
@@ -4798,8 +4897,9 @@ func _refresh_final_ending_glance(
 		var value := tile.get("value") as Label
 		caption.text = String(beat.get("caption", "OUTCOME"))
 		value.text = String(beat.get("value", "FILED"))
-		card.tooltip_text = exact_message
-		card.set_meta("accessible_text", "%s: %s. %s" % [caption.text, value.text, exact_message])
+		var beat_detail := String(beat.get("detail", exact_message))
+		card.tooltip_text = "%s\n\n%s" % [beat_detail, exact_message]
+		card.set_meta("accessible_text", "%s: %s. %s" % [caption.text, value.text, card.tooltip_text])
 
 
 func _ending_beats(

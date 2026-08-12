@@ -140,6 +140,12 @@ button:focus-visible, a:focus-visible, iframe:focus-visible, summary:focus-visib
   box-shadow: 0 0 12px rgba(244, 210, 123, 0.62);
 }
 
+.system-state[data-save-status="ready"] .status-light,
+.career-state[data-save-status="ready"] .status-light {
+  background: var(--green);
+  box-shadow: 0 0 12px rgba(157, 217, 164, 0.72);
+}
+
 .system-state[data-save-status="degraded"] .status-light,
 .system-state[data-save-status="unavailable"] .status-light {
   background: #e28b78;
@@ -359,14 +365,22 @@ h1 {
 .terminal-footer span { white-space: nowrap; }
 
 .career-state {
-  display: inline-flex;
+  position: relative;
   min-width: 0;
-  align-items: center;
-  gap: 8px;
   margin-right: auto;
-  overflow-wrap: anywhere;
   color: var(--paper);
 }
+
+.career-state > summary {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.career-state > summary::-webkit-details-marker { display: none; }
 
 .career-state .status-light {
   flex: 0 0 auto;
@@ -383,6 +397,68 @@ h1 {
 .career-state[data-save-status="unavailable"] .status-light {
   background: #e28b78;
   box-shadow: 0 0 10px rgba(226, 139, 120, 0.62);
+}
+
+.save-detail-panel {
+  position: absolute;
+  z-index: 9;
+  bottom: calc(100% + 12px);
+  left: 0;
+  width: min(380px, calc(100vw - 48px));
+  padding: 14px;
+  border: 1px solid #647488;
+  border-radius: 9px;
+  background: #161e29;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.46);
+}
+
+.save-detail-panel strong,
+.save-detail-panel p,
+.save-detail-panel small {
+  display: block;
+  white-space: normal;
+}
+
+.save-detail-panel strong {
+  color: var(--yellow);
+  font: 700 11px/1.25 ui-monospace, "Cascadia Mono", monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.save-detail-panel p {
+  margin: 8px 0 0;
+  color: var(--paper);
+  line-height: 1.45;
+}
+
+.save-detail-panel small {
+  margin-top: 9px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.save-settings-button {
+  min-height: 40px;
+  margin-top: 12px;
+  padding: 0 12px;
+  border: 1px solid #647488;
+  border-radius: 6px;
+  background: #202c3a;
+  color: var(--paper);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.save-settings-button:hover,
+.save-settings-button:focus-visible {
+  border-color: var(--yellow);
+  color: var(--yellow);
+}
+
+.save-settings-button:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .control-details {

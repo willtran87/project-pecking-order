@@ -31,7 +31,7 @@ type CheckpointDiagnostic = {
 };
 
 type PersistencePresentation = {
-	tone: "checking" | "saved" | "degraded" | "unavailable";
+	tone: "checking" | "ready" | "saved" | "degraded" | "unavailable";
 	headerText: string;
 	footerText: string;
 	accessibleText: string;
@@ -72,6 +72,7 @@ export default function Home() {
   const gameStage = useRef<HTMLDivElement>(null);
 	const careerBackupInput = useRef<HTMLInputElement>(null);
 	const handbookDetails = useRef<HTMLDetailsElement>(null);
+	const saveDetails = useRef<HTMLDetailsElement>(null);
   const started = useRef(false);
   const [loaded, setLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
@@ -95,6 +96,9 @@ export default function Home() {
 		browserStorageCapability,
 		checkpointDiagnostic,
 	);
+	const portableBackupHint = checkpointDiagnostic.hasCheckpoint
+		? "Download or restore a portable copy outside browser storage."
+		: "Restore a portable file now; downloads unlock after the first verified save.";
 	const focusedPlay = playModePreference === "focused"
 		|| (playModePreference === "auto" && campaignActive);
 
@@ -489,6 +493,11 @@ export default function Home() {
 		gameCanvas.current?.focus({ preventScroll: true });
 	}
 
+	function openSaveSettings() {
+		if (saveDetails.current) saveDetails.current.open = false;
+		invokeMobileAction("career_backup");
+	}
+
 	function runTouchControl(event: ReactTouchEvent<HTMLButtonElement>, action: () => void) {
 		if (event.touches.length === 0) return;
 		action();
@@ -569,7 +578,8 @@ export default function Home() {
         </a>
         <div
 			className="system-state"
-			aria-label="Career save status"
+			aria-label={persistencePresentation.accessibleText}
+			title={persistencePresentation.accessibleText}
 			data-save-status={persistencePresentation.tone}
 		>
           <span className="status-light" aria-hidden="true" />
@@ -585,7 +595,7 @@ export default function Home() {
         <p className="intro-copy">
           Meet Mabel at her peckwork desk. Route egg files. Grow the roost. Build
           careers. Secure the grain reserve. Protect the flock. Every decision
-          enters your shared permanent coop record.
+          shapes your shared coop record.
         </p>
       </section>
 
@@ -695,11 +705,34 @@ export default function Home() {
 
         <div className="terminal-footer">
 		  <span className="mobile-play-note">For the clearest mobile view, tap Full screen and rotate to landscape.</span>
-		  <span className="career-state" data-save-status={persistencePresentation.tone}>
-		    <span className="status-light" aria-hidden="true" />
-		    {persistencePresentation.footerText}
-		  </span>
-		  <details className="control-details">
+		  <details
+		    ref={saveDetails}
+		    className="career-state"
+		    data-save-status={persistencePresentation.tone}
+		    name="terminal-footer-panel"
+		  >
+		    <summary
+		      aria-label={`${persistencePresentation.accessibleText} Open save details.`}
+		      title={persistencePresentation.accessibleText}
+		    >
+		      <span className="status-light" aria-hidden="true" />
+		      {persistencePresentation.footerText}
+		    </summary>
+		    <div className="save-detail-panel">
+		      <strong>{persistencePresentation.footerText}</strong>
+		      <p>{persistencePresentation.accessibleText}</p>
+		      <small>{portableBackupHint}</small>
+		      <button
+		        className="save-settings-button"
+		        type="button"
+		        disabled={!loaded}
+		        onClick={openSaveSettings}
+		      >
+		        Open Career Backup
+		      </button>
+		    </div>
+		  </details>
+		  <details className="control-details" name="terminal-footer-panel">
 		    <summary>Controls</summary>
 		    <div className="control-menu">
 		      <div className="control-grid" aria-label="Keyboard and pointer controls">
@@ -1712,7 +1745,6 @@ function buildPersistencePresentation(
 	checkpoint: CheckpointDiagnostic,
 ): PersistencePresentation {
 	const storageAccessible = browserStorageAccessibleText(storage);
-	const storageFooter = browserStorageFooterText(storage);
 	const unavailableStatuses = ["unavailable", "disabled", "unsupported"];
 	const failedStatuses = ["failed", "error", "degraded"];
 	const checkpointUnavailable = unavailableStatuses.includes(checkpoint.status);
@@ -1728,8 +1760,8 @@ function buildPersistencePresentation(
 			: "";
 		return {
 			tone: "unavailable",
-			headerText: "Career saving unavailable",
-			footerText: "Career saving unavailable",
+			headerText: "Saving unavailable",
+			footerText: "Saving unavailable",
 			accessibleText: `Career saving is unavailable.${runtimeReason}${reason} ${storageAccessible}`.replace(/\s+/g, " ").trim(),
 		};
 	}
@@ -1739,16 +1771,16 @@ function buildPersistencePresentation(
 			: "";
 		return {
 			tone: "degraded",
-			headerText: "Career save degraded",
-			footerText: `Checkpoint failed | ${storageFooter}`,
+			headerText: "Save needs attention",
+			footerText: "Save needs attention",
 			accessibleText: `Career checkpoint failed.${reason} ${storageAccessible}`.replace(/\s+/g, " ").trim(),
 		};
 	}
 	if (checkpoint.saving) {
 		return {
 			tone: "checking",
-			headerText: "Saving career checkpoint",
-			footerText: `Saving checkpoint | ${storageFooter}`,
+			headerText: "Saving...",
+			footerText: "Saving...",
 			accessibleText: `Career checkpoint is being saved. ${storageAccessible}`,
 		};
 	}
@@ -1758,8 +1790,8 @@ function buildPersistencePresentation(
 			: " No successful checkpoint is recorded yet.";
 		return {
 			tone: "checking",
-			headerText: "Unsaved career changes pending",
-			footerText: `Checkpoint pending | ${storageFooter}`,
+			headerText: "Save pending",
+			footerText: "Save pending",
 			accessibleText: `Career changes are waiting for the next checkpoint.${priorSave} ${storageAccessible}`,
 		};
 	}
@@ -1767,35 +1799,44 @@ function buildPersistencePresentation(
 		if (storage.status === "persistent") {
 			return {
 				tone: "saved",
-				headerText: "Career saved | persistent storage",
-				footerText: "Saved checkpoint | persistent browser storage",
+				headerText: "Saved",
+				footerText: "Saved",
 				accessibleText: "Career checkpoint saved. Browser storage is persistent.",
 			};
 		}
 		if (storage.status === "best_effort") {
 			return {
 				tone: "saved",
-				headerText: "Career saved | best-effort storage",
-				footerText: "Saved checkpoint | best-effort browser storage",
+				headerText: "Saved",
+				footerText: "Saved",
 				accessibleText: "Career checkpoint saved. Browser storage is available on a best-effort basis and may be cleared by the browser.",
 			};
 		}
 		return {
 			tone: "checking",
-			headerText: "Career saved | checking storage",
-			footerText: "Saved checkpoint | checking browser storage",
+			headerText: "Checking saved file",
+			footerText: "Checking saved file",
 			accessibleText: "Career checkpoint saved. Browser storage persistence is still being checked.",
 		};
 	}
 
+	if (checkpoint.present && storage.status !== "checking") {
+		return {
+			tone: "ready",
+			headerText: "Autosave ready",
+			footerText: "Autosave ready",
+			accessibleText: `Autosave is ready. No career checkpoint exists yet. ${storageAccessible}`,
+		};
+	}
+
 	const pendingDetail = checkpoint.present
-		? "The game has not reported a successful checkpoint yet."
+		? "The runtime is ready, but browser storage is still being checked."
 		: "The game checkpoint bridge has not reported yet.";
 	return {
 		tone: "checking",
-		headerText: "Checkpoint pending",
-		footerText: `Checkpoint pending | ${storageFooter}`,
-		accessibleText: `Career save status is pending. ${pendingDetail} ${storageAccessible}`,
+		headerText: "Checking autosave",
+		footerText: "Checking autosave",
+		accessibleText: `Autosave status is being checked. ${pendingDetail} ${storageAccessible}`,
 	};
 }
 
@@ -1810,20 +1851,6 @@ function browserStorageAccessibleText(storage: BrowserStorageCapability): string
 			return "Browser storage is unavailable.";
 		default:
 			return "Browser storage persistence is still being checked.";
-	}
-}
-
-
-function browserStorageFooterText(storage: BrowserStorageCapability): string {
-	switch (storage.status) {
-		case "persistent":
-			return "persistent browser storage";
-		case "best_effort":
-			return "best-effort browser storage";
-		case "unavailable":
-			return "browser storage unavailable";
-		default:
-			return "checking browser storage";
 	}
 }
 

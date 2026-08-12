@@ -26,6 +26,43 @@ const CHALLENGE_CONTRACT_IDS: Array[StringName] = [
 	CHALLENGE_STANDARD_FILING,
 	CHALLENGE_EXECUTIVE_AUDIT,
 ]
+const SHIFT_CHAPTERS := {
+	1: {
+		"id": &"first_clutch",
+		"title": "FIRST CLUTCH",
+		"verb": "MEET THE FLOCK",
+		"promise": "Help Mabel carry one real file from tray to farmer without spending the flock to do it.",
+		"pressure": "LEARN THE FLOOR",
+	},
+	2: {
+		"id": &"competing_orders",
+		"title": "COMPETING ORDERS",
+		"verb": "CHOOSE WHAT MATTERS",
+		"promise": "Balance quota, care, and credit before one permanent doctrine locks your management style.",
+		"pressure": "TRADEOFFS ARRIVE",
+	},
+	3: {
+		"id": &"chosen_roost",
+		"title": "THE CHOSEN ROOST",
+		"verb": "PROVE THE PLAN",
+		"promise": "Make your filed specialization survive a changing market and the obligations it does not cover.",
+		"pressure": "THE PLAN MEETS REALITY",
+	},
+	4: {
+		"id": &"ranking_day",
+		"title": "RANKING DAY",
+		"verb": "ANSWER FOR THE SYSTEM",
+		"promise": "The Pecking Order becomes a people decision, and one hen will remember what you file.",
+		"pressure": "THE FLOCK IS WATCHING",
+	},
+	5: {
+		"id": &"permanent_record",
+		"title": "THE PERMANENT RECORD",
+		"verb": "LIVE WITH THE RESULT",
+		"promise": "Close the final clutch and discover what the farmer rewards, what the flock remembers, and who you became.",
+		"pressure": "EVERY CHOICE CLOSES",
+	},
+}
 const CHALLENGE_CONTRACTS := {
 	CHALLENGE_SUPPORTED_FLOCK: {
 		"id": "supported_flock",
@@ -163,6 +200,115 @@ static func challenge_contract(contract_id: StringName) -> Dictionary:
 	if not CHALLENGE_CONTRACTS.has(normalized):
 		return {}
 	return (CHALLENGE_CONTRACTS[normalized] as Dictionary).duplicate(true)
+
+
+## Authored dramatic identity for each shift. This is presentation-only and
+## intentionally derived from the immutable five-shift structure, so existing
+## saves gain the complete arc without a schema migration.
+static func shift_chapter(shift_number: int) -> Dictionary:
+	var normalized := clampi(shift_number, 1, CAMPAIGN_LENGTH)
+	var chapter := (SHIFT_CHAPTERS.get(normalized, {}) as Dictionary).duplicate(true)
+	chapter["shift_number"] = normalized
+	chapter["total_shifts"] = CAMPAIGN_LENGTH
+	chapter["short_label"] = "SHIFT %d  //  %s" % [
+		normalized,
+		String(chapter.get("title", "PROBATION")),
+	]
+	chapter["accessible_text"] = "%s. %s. %s" % [
+		String(chapter.get("short_label", "SHIFT %d" % normalized)),
+		String(chapter.get("verb", "FILE THE SHIFT")),
+		String(chapter.get("promise", "Complete the filed probation orders.")),
+	]
+	return chapter
+
+
+func current_chapter() -> Dictionary:
+	return shift_chapter(clampi(completed_shifts + 1, 1, CAMPAIGN_LENGTH))
+
+
+## Turns the latest immutable score/objective record into one actionable
+## between-shift beat. A setback points to the largest recoverable safeguard;
+## a solid result identifies momentum without manufacturing another reward.
+func momentum_brief() -> Dictionary:
+	if shift_records.is_empty():
+		return {
+			"status": &"opening",
+			"headline": "FIRST FILE",
+			"short_label": "MEET MABEL  //  ROUTE ONE FILE",
+			"detail": "Inspect Mabel, match her to Appeals, and watch the consequence reach the farmer.",
+		}
+	var record: CampaignShiftRecord = shift_records.back()
+	var missed_results: Array[Dictionary] = []
+	for result_value in record.objective_results:
+		if result_value is Dictionary and not bool((result_value as Dictionary).get("completed", false)):
+			missed_results.append((result_value as Dictionary).duplicate(true))
+	var safeguards := probation_safeguard_forecast()
+	var blocker := safeguards.get("largest_recoverable_blocker", {}) as Dictionary
+	if record.score_delta < 0 or missed_results.size() >= 2 or not blocker.is_empty():
+		var blocker_label := String(blocker.get("label", "PROBATION SCORE")).to_upper()
+		var recovery_detail := (
+			"Recover %s before the final filing; its current gap is %d%s."
+			% [
+				blocker_label.to_lower(),
+				int(blocker.get("distance_to_pass", 0)),
+				String(blocker.get("unit", "")),
+			]
+			if not blocker.is_empty() else
+			"Use the next shift's policy, routes, and care actions to recover the missed orders."
+		)
+		return {
+			"status": &"comeback",
+			"headline": "COMEBACK FILE",
+			"short_label": "%s NEEDS RECOVERY" % blocker_label,
+			"detail": recovery_detail,
+			"missed_order_count": missed_results.size(),
+			"score_delta": record.score_delta,
+			"blocker": blocker.duplicate(true),
+		}
+	var next_chapter := shift_chapter(clampi(completed_shifts + 1, 1, CAMPAIGN_LENGTH))
+	return {
+		"status": &"momentum",
+		"headline": "MOMENTUM HELD",
+		"short_label": String(next_chapter.get("pressure", "NEXT SHIFT READY")),
+		"detail": "The last shift added %+d score. %s" % [
+			record.score_delta,
+			String(next_chapter.get("promise", "The next shift is ready.")),
+		],
+		"missed_order_count": missed_results.size(),
+		"score_delta": record.score_delta,
+	}
+
+
+## Suggests a run that changes the decision texture instead of merely asking
+## for a higher score. Challenge terms remain selectable only through the
+## existing protected new-campaign intake.
+func replay_recommendation() -> Dictionary:
+	var contract_id := challenge_contract_id
+	var recommended_id := contract_id
+	var action := "TRY A DIFFERENT DOCTRINE"
+	var rationale := "Keep the filed difficulty and choose a different permanent doctrine to expose another viable strategy."
+	if outcome == OUTCOME_FAILED and contract_id != CHALLENGE_SUPPORTED_FLOCK:
+		recommended_id = CHALLENGE_SUPPORTED_FLOCK
+		action = "RECOVER WITH MORE ROOM"
+		rationale = "Use the learning contract to practice a different plan with a larger opening cushion."
+	elif contract_id == CHALLENGE_SUPPORTED_FLOCK:
+		recommended_id = CHALLENGE_STANDARD_FILING
+		action = "STEP UP TO STANDARD"
+		rationale = "Carry the plan into the authored baseline, where every safeguard has less recovery room."
+	elif contract_id == CHALLENGE_STANDARD_FILING and outcome == OUTCOME_PASSED:
+		recommended_id = CHALLENGE_EXECUTIVE_AUDIT
+		action = "FACE THE EXECUTIVE AUDIT"
+		rationale = "Start with tighter cash, a higher quota, and extra live files; the same doctrine must adapt sooner."
+	var contract := challenge_contract(recommended_id)
+	return {
+		"contract_id": String(recommended_id),
+		"contract_label": String(contract.get("label", "STANDARD FILING")),
+		"contract_short_label": String(contract.get("short_label", "STANDARD")),
+		"action": action,
+		"rationale": rationale,
+		"changes_contract": recommended_id != contract_id,
+		"alternate_doctrine": chosen_milestone_id != &"",
+	}
 
 
 ## A contract may be selected exactly once on a pristine in-memory campaign.
@@ -568,6 +714,9 @@ func final_evaluation() -> Dictionary:
 func snapshot() -> Dictionary:
 	var data := to_dictionary()
 	data["current_objectives"] = current_objectives()
+	data["current_chapter"] = current_chapter()
+	data["momentum_brief"] = momentum_brief()
+	data["replay_recommendation"] = replay_recommendation()
 	data["milestone_available"] = is_milestone_choice_available()
 	data["available_milestones"] = available_milestone_choices()
 	data["active_unlock_effects"] = active_unlock_effects()

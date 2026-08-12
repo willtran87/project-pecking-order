@@ -2333,6 +2333,136 @@ func campaign_ending_snapshot(passed: bool) -> Dictionary:
 	return base
 
 
+## Three bounded, named outcomes for the final review. The epilogue reads the
+## same authoritative worker, relationship, career, and restructuring state
+## used by the simulation; it never persists or awards a second result.
+func campaign_flock_epilogue() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	var used_worker_ids: Dictionary = {}
+	var restructured_name := String(flock_restructuring_record.get("worker_name", ""))
+	if not restructured_name.is_empty():
+		for worker: ChickenState in workers:
+			if worker.display_name != restructured_name:
+				continue
+			var option_id := StringName(String(flock_restructuring_record.get("option_id", "")))
+			var value := "REDEPLOYED"
+			var outcome := "%s kept her chair with a corrected specialty route." % worker.display_name
+			var tone: StringName = &"care"
+			if option_id == &"nominate_variance":
+				value = "RELEASED"
+				outcome = "%s was removed as the variance; the flock keeps the precedent." % worker.display_name
+				tone = &"danger"
+			elif option_id == &"contest_ranking":
+				value = "STOOD TOGETHER"
+				outcome = "%s kept her chair after the flock contested the ranking together." % worker.display_name
+				tone = &"solidarity"
+			entries.append(_campaign_epilogue_entry(
+				worker,
+				"RESTRUCTURING",
+				value,
+				outcome,
+				tone,
+			))
+			used_worker_ids[worker.id] = true
+			break
+
+	var trust_worker := _campaign_epilogue_worker(used_worker_ids, &"trust")
+	if trust_worker != null:
+		var relationship := trust_worker.relationship_label().to_upper()
+		var trust_outcome := (
+			"%s leaves the file trusting the manager enough to face another shift."
+			% trust_worker.display_name
+			if trust_worker.manager_trust >= 60.0 and trust_worker.grievance <= 35.0 else
+			"%s leaves the file wary, with every credit decision still remembered."
+			% trust_worker.display_name
+		)
+		entries.append(_campaign_epilogue_entry(
+			trust_worker,
+			"TRUST",
+			relationship,
+			trust_outcome,
+			&"care" if trust_worker.manager_trust >= 60.0 else &"warning",
+		))
+		used_worker_ids[trust_worker.id] = true
+
+	var career_worker := _campaign_epilogue_worker(used_worker_ids, &"career")
+	if career_worker != null:
+		entries.append(_campaign_epilogue_entry(
+			career_worker,
+			"CAREER",
+			career_worker.career_title(),
+			"%s closes probation with %d career XP and %d credited egg%s on her record."
+			% [
+				career_worker.display_name,
+				career_worker.career_xp,
+				career_worker.eggs_laid,
+				"" if career_worker.eggs_laid == 1 else "s",
+			],
+			&"quality",
+		))
+		used_worker_ids[career_worker.id] = true
+
+	var strain_worker := _campaign_epilogue_worker(used_worker_ids, &"strain")
+	if strain_worker != null and entries.size() < 3:
+		var burden := roundi((strain_worker.stress + strain_worker.fatigue) * 0.5)
+		entries.append(_campaign_epilogue_entry(
+			strain_worker,
+			"STRAIN",
+			"%d%% BURDEN" % burden,
+			(
+				"%s reaches the closing bell carrying visible strain into whatever comes next."
+				% strain_worker.display_name
+				if burden >= 45 else
+				"%s reaches the closing bell with enough recovery left to begin again."
+				% strain_worker.display_name
+			),
+			&"danger" if burden >= 45 else &"care",
+		))
+	while entries.size() > 3:
+		entries.pop_back()
+	return entries
+
+
+func _campaign_epilogue_worker(used_worker_ids: Dictionary, axis: StringName) -> ChickenState:
+	var selected: ChickenState = null
+	var selected_score := -INF
+	for worker: ChickenState in workers:
+		if used_worker_ids.has(worker.id):
+			continue
+		var score := 0.0
+		match axis:
+			&"trust":
+				score = worker.manager_trust - worker.grievance * 0.65
+			&"career":
+				score = float(worker.career_xp * 4 + worker.eggs_laid)
+			&"strain":
+				score = worker.stress + worker.fatigue + worker.grievance * 0.5
+		if selected == null or score > selected_score:
+			selected = worker
+			selected_score = score
+	return selected
+
+
+func _campaign_epilogue_entry(
+	worker: ChickenState,
+	caption: String,
+	value: String,
+	outcome: String,
+	tone: StringName,
+) -> Dictionary:
+	return {
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"caption": caption,
+		"value": value,
+		"outcome": outcome,
+		"tone": tone,
+		"employed": worker.employed,
+		"career_title": worker.career_title(),
+		"relationship_label": worker.relationship_label(),
+	}
+
+
 func apply_campaign_unlock(unlock_id: StringName) -> bool:
 	if unlock_id not in CAMPAIGN_UNLOCKS:
 		return false

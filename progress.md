@@ -13461,3 +13461,102 @@ The next major systems milestone is persistent worker relationships and individu
   production-readiness evidence is external: seven physical-device/audio/
   assistive-technology/GPU sessions and seven independently moderated usability
   sessions for the exact frozen candidate.
+
+## 2026-08-10 - Glanceable autosave confidence
+
+- Replaced the Web shell's duplicated `Checkpoint pending | best-effort browser
+  storage` jargon with an evidence-bound status sequence: `Checking autosave`
+  before runtime evidence, `Autosave ready` only after the checkpoint bridge and
+  browser storage are available, `Saving...` or `Save pending` during writes,
+  and `Saved` only after a successful checkpoint. Failure states remain explicit
+  as `Save needs attention` or `Saving unavailable`.
+- Preserved the complete persistence truth as matching hover and assistive labels
+  on both status locations, including whether no career checkpoint exists yet,
+  whether storage is persistent or best-effort, and the sanitized runtime error
+  when saving fails. Added a distinct green `ready` tone without conflating it
+  with a completed save.
+- The exact Node 24 production build, all 50 Web checks, and ESLint pass. The
+  prescribed Web-game client also passes. Focused Playwright evidence at
+  `output/web-game/autosave-glance-v1/` proves the exact ready transition at
+  1280x900 and 390x844, identical header/footer diagnostics, no horizontal
+  overflow, and no console or page errors; both screenshots were visually
+  inspected.
+- The temporary audit script and isolated port-3001 production server were
+  removed after verification. The user's existing port-3000 local instance was
+  not replaced. The broader production-readiness evidence still requires seven
+  physical-device/audio/assistive-technology/GPU sessions and seven independently
+  moderated usability sessions for the frozen candidate.
+- Closed the remaining touch-discoverability gap by making the footer status a
+  native, closed-by-default disclosure. Pointer and keyboard users can reveal
+  the exact storage durability plus a direct `Open Career Backup` action without
+  adding default HUD text. The compact summary and action both keep 40px targets.
+- Pointer open, Space close, and Enter reopen all pass at 1280x900 and 390x844.
+  The open panel remains fully inside both viewports, produces no horizontal
+  overflow, and generates no console or page errors. Final evidence lives at
+  `output/web-game/save-disclosure-v2/` and the prescribed client evidence at
+  `output/web-game/save-disclosure-client-v2/`; the final screenshot was visually
+  inspected. The nearby intro now says decisions `shape` the coop record instead
+  of promising technically permanent browser persistence.
+- Grouped Save Details and Controls with the native named-details contract so
+  opening either closes the other instead of stacking panels over the office.
+  The backup handoff closes the disclosure before invoking the existing
+  allow-listed game bridge. Evidence at
+  `output/web-game/save-settings-handoff-v1/` proves the replacement sequence,
+  direct settings open, visible Career Backup category, Escape return, 40px
+  action, no overflow, and no browser errors at desktop and mobile widths.
+- Added the narrow `career_backup` bridge action to land directly on the existing
+  Career Backup page and focus its category button. The responsive Settings
+  container exposes `reveal_category()` for this one-time destination without
+  persisting it, so ordinary F10 Settings still opens the player's previously
+  saved category. The focused settings, Office integration, and portable-backup
+  integration suites all pass.
+- Re-exported and synchronized the shipping Web candidate. Both authoritative
+  roots contain the same 9,938,964-byte PCK with SHA-256
+  `4CCC7D6C4F5CF360BB821877BECDF09B1611309761635830F93FA7DBEC717C1C`.
+  Browser evidence at `output/web-game/career-backup-direct-v1/` proves Career
+  Backup 4 of 4 opens directly at 1280x900 and 390x844, its restore/export truth
+  is present, the remembered Comfort category is unchanged, ordinary Settings
+  reopens Comfort, and no overflow or browser error occurs.
+- The complete beta release gate passes in 418.171 seconds: 50 checks, including
+  40 Godot suites, four Web/toolchain checks, six release-contract/parity checks,
+  and zero failures. All test-owned Godot/Node processes are closed, port 3001 is
+  free, and the user-requested port-3000 instance remains untouched on PID 25812.
+- Synchronized all six local PCK mirrors after the export; each is 9,938,964
+  bytes with the same `4CCC7D…C717C1C` hash. The refreshed readiness report
+  passes its nine-file artifact parity check and correctly remains not release
+  ready for five non-implementation reasons: the 11-file tracked candidate is
+  not committed, physical and usability records target the prior candidate,
+  seven physical sessions remain pending, and seven independently moderated
+  usability sessions remain pending. No prior observation was carried forward
+  across the new candidate hash.
+
+## 2026-08-12 - Campaign cohesion and personal payoff
+
+- Gave the existing five-shift probation run a named dramatic arc without adding
+  new save authority: First Clutch, Competing Orders, The Chosen Roost, Ranking
+  Day, and The Permanent Record. Intake now states the complete objective in one
+  line, and the compact day/report surfaces identify the current chapter while
+  preserving detailed meaning in assistive metadata.
+- Added an authoritative derived momentum handoff. A poor shift produces one
+  `COMEBACK FILE` tied to the largest failed safeguard; a stable shift confirms
+  held momentum. The contract is presentation-only and cannot award resources,
+  alter scores, or create duplicate progression.
+- Made the ending personal and replayable: the active doctrine becomes `YOUR
+  LEGACY`, up to three unique named hens receive consequences derived from the
+  live flock record, and `NEXT FILE` recommends a supported, standard,
+  executive, or alternate-doctrine run based on the completed contract.
+- Added focused coverage for all five distinct chapters, Mabel's opening hook,
+  comeback targeting, replay recommendations, unique named flock epilogues,
+  contested restructuring consequences, enhanced ending tiles, compact report
+  copy, and accessibility metadata. All five focused suites pass.
+- Visually inspected the production Web report at 1280x720 and the native final
+  review at 1280x720. The chapter/comeback hierarchy, three ending payoffs, and
+  fixed action rail are contained and readable; the prescribed browser client
+  produced runtime text with no console or page errors.
+- Re-exported the Web runtime and synchronized all six shipping PCK mirrors at
+  9,942,692 bytes with SHA-256
+  `21C577D7B90BE25D54A75D69A0E34F219C9E468467F665DF6E76F1D84039EAEF`.
+  The complete 50-check beta release gate passes in 545.909 seconds, including
+  40 native suites, 50 rendered-Web assertions, the production server check,
+  and artifact parity. Port 3001 is free, every test-owned process is closed,
+  and the user's port-3000 instance remains untouched on PID 25812.

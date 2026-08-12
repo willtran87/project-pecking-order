@@ -2039,6 +2039,8 @@ func _on_web_mobile_action_requested(arguments: Array) -> void:
 	match action:
 		&"settings":
 			_on_settings_requested()
+		&"career_backup":
+			_on_career_backup_settings_requested()
 		&"overview":
 			if _settings_ui != null and _settings_ui.is_open():
 				_on_settings_close_requested()
@@ -2077,6 +2079,17 @@ func _on_web_mobile_action_requested(arguments: Array) -> void:
 		_:
 			return
 	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_career_backup_settings_requested() -> void:
+	if _settings_ui == null:
+		return
+	if not _settings_ui.is_open():
+		_on_settings_requested()
+	if _settings_ui.is_open():
+		# This route is a one-time destination, not a preference mutation. Ordinary
+		# F10 Settings should still reopen the category the player last filed.
+		_settings_ui.reveal_category(&"career", false, true)
 
 
 func _on_web_focus_pause_requested(arguments: Array) -> void:
@@ -12320,6 +12333,26 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 	var active_doctrine: Dictionary = _campaign_state.active_doctrine()
 	var leadership_record := _simulation.leadership_record_snapshot()
 	var ending := _simulation.campaign_ending_snapshot(bool(final_evaluation.get("passed", false)))
+	var chapter := CampaignStateScript.shift_chapter(campaign_day)
+	var momentum_brief := _campaign_state.momentum_brief()
+	var replay_recommendation := _campaign_state.replay_recommendation()
+	var legacy_title := String(active_doctrine.get(
+		"label",
+		leadership_record.get("title", "UNFILED ROOST"),
+	)).to_upper()
+	var legacy_detail := String(active_doctrine.get(
+		"summary",
+		leadership_record.get(
+			"description",
+			"The permanent record could not identify one consistent management style.",
+		),
+	))
+	var campaign_legacy := {
+		"title": legacy_title,
+		"detail": legacy_detail,
+		"doctrine_id": String(_campaign_state.chosen_milestone_id),
+		"leadership_id": String(leadership_record.get("id", "unfiled")),
+	}
 	var score_receipt := _campaign_state.latest_score_receipt()
 	var strategy_receipt := (
 		_campaign_strategy_receipt(completed)
@@ -12350,6 +12383,11 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 			_campaign_state.probation_score,
 		),
 		"challenge_contract": challenge_contract,
+		"chapter": chapter,
+		"momentum_brief": momentum_brief,
+		"replay_recommendation": replay_recommendation,
+		"campaign_legacy": campaign_legacy,
+		"flock_epilogue": _simulation.campaign_flock_epilogue(),
 		"ledgers": [
 			{
 				"label": "Flock welfare",
@@ -16962,6 +17000,7 @@ func _show_campaign_title(continue_available: bool) -> void:
 		"view": &"title",
 		"day": 1,
 		"total_days": CampaignStateScript.CAMPAIGN_LENGTH,
+		"chapter": CampaignStateScript.shift_chapter(1),
 		"continue_available": continue_available,
 		"resume_summary": resume_summary,
 		"challenge_contract_catalog": CampaignStateScript.challenge_contract_catalog(),

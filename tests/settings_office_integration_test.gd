@@ -140,6 +140,26 @@ func _run() -> void:
 	if settings != null:
 		settings.close_requested.emit()
 	await process_frame
+	var remembered_category_before_backup_route := String(
+		(office.get("_player_preferences") as Dictionary).get("settings_category", "")
+	)
+	office.call("_on_web_mobile_action_requested", ["career_backup"])
+	await process_frame
+	await process_frame
+	_check(
+		settings != null and settings.is_open()
+		and settings.active_category() == &"career"
+		and String((office.get("_player_preferences") as Dictionary).get(
+			"settings_category",
+			"",
+		)) == remembered_category_before_backup_route
+		and career_category != null and career_category.has_focus(),
+		"the allow-listed Web backup route should open and focus Career Backup without replacing the player's remembered Settings category",
+		failures,
+	)
+	if settings != null:
+		settings.close_requested.emit()
+	await process_frame
 
 	if open_button != null:
 		open_button.pressed.emit()

@@ -236,6 +236,8 @@ test("server-renders the playable Pecking Order shell", async () => {
   const html = await response.text();
   assert.match(html, /<title>Pecking Order/i);
   assert.match(html, /Earn your roost\./);
+  assert.match(html, /Every decision shapes your shared coop record\./);
+  assert.doesNotMatch(html, /permanent coop record/i);
   assert.match(html, /Live career file/i);
   assert.match(html, /Opening career file/i);
   assert.match(html, /Preparing the browser runtime/i);
@@ -264,8 +266,8 @@ test("server-renders the playable Pecking Order shell", async () => {
   assert.equal((html.match(/role="status"/g) ?? []).length, 1);
   assert.match(html, /Game loading\. Objective: wait for the career file to open\./i);
 	assert.match(html, /data-save-status="checking"/i);
-	assert.match(html, /Checkpoint pending/i);
-	assert.match(html, /Checkpoint pending \| checking browser storage/i);
+	assert.match(html, /Checking autosave/i);
+	assert.doesNotMatch(html, /Checkpoint pending/i);
 	assert.doesNotMatch(html, /autosave operational|autosave active/i);
   assert.doesNotMatch(html, /coordinate_system|godot_canvas|__pecking_order_state/i);
   assert.doesNotMatch(html, /Loading saved coop records/i);
@@ -274,8 +276,13 @@ test("server-renders the playable Pecking Order shell", async () => {
 	assert.match(html, /<button[^>]+aria-controls="management-handbook"[^>]*>Handbook<\/button>/i);
 	assert.match(html, /<button[^>]+aria-pressed="false"[^>]+aria-label="Focus the game"[^>]*>Focus game<\/button>/i);
   assert.match(html, /Full screen/);
-	assert.match(html, /<span class="career-state" data-save-status="checking">/i);
-	assert.match(html, /<details class="control-details"><summary>Controls<\/summary>/i);
+	assert.match(html, /<details[^>]+class="career-state"[^>]+data-save-status="checking"/i);
+	assert.doesNotMatch(html, /<details[^>]+class="career-state"[^>]+open/i);
+	assert.equal((html.match(/name="terminal-footer-panel"/g) ?? []).length, 2);
+	assert.match(html, /aria-label="Autosave status is being checked\./i);
+	assert.match(html, /Restore a portable file now; downloads unlock after the first verified save\./i);
+	assert.match(html, /<button[^>]+class="save-settings-button"[^>]+disabled=""[^>]*>\s*Open Career Backup\s*<\/button>/i);
+	assert.match(html, /<details class="control-details" name="terminal-footer-panel"><summary>Controls<\/summary>/i);
 	assert.match(html, /Controller: A Priority Peck/i);
 	assert.match(html, /right shoulder cycle hen/i);
 	assert.match(html, /Settings [+] controls/i);
@@ -466,6 +473,9 @@ test("focuses the wrapper after a campaign begins while retaining a manual page-
 	assert.match(page, /invokeMobileAction\("cycle_hen"\)/);
 	assert.match(page, /invokeMobileAction\("flockwatch"\)/);
 	assert.match(page, /invokeMobileAction\("settings"\)/);
+	assert.match(page, /invokeMobileAction\("career_backup"\)/);
+	assert.match(page, /if \(saveDetails\.current\) saveDetails\.current\.open = false/);
+	assert.match(page, /onClick=\{openSaveSettings\}/);
 	assert.match(page, /invokeMobileAction\("zoom_in"\)/);
 	assert.match(page, /invokeMobileAction\("zoom_out"\)/);
 	assert.match(page, /runTouchControl\(event, \(\) => invokeMobileAction\("zoom_in"\)\)/);
@@ -497,11 +507,12 @@ test("reports checkpoint evidence truthfully across persistent, best-effort, pen
 		has_checkpoint: false,
 		write_success_count: 0,
 	});
-	const pending = buildPresentation({ status: "persistent" }, cleanWithoutEvidence);
-	assert.equal(pending.tone, "checking");
-	assert.match(pending.headerText, /Checkpoint pending/);
-	assert.match(pending.accessibleText, /has not reported a successful checkpoint yet/);
-	assert.doesNotMatch(pending.accessibleText, /checkpoint saved/i);
+	const ready = buildPresentation({ status: "persistent" }, cleanWithoutEvidence);
+	assert.equal(ready.tone, "ready");
+	assert.equal(ready.headerText, "Autosave ready");
+	assert.equal(ready.footerText, "Autosave ready");
+	assert.match(ready.accessibleText, /No career checkpoint exists yet/);
+	assert.doesNotMatch(ready.accessibleText, /checkpoint saved/i);
 
 	const saved = parseCheckpoint({
 		status: "clean",
@@ -514,12 +525,13 @@ test("reports checkpoint evidence truthfully across persistent, best-effort, pen
 	});
 	const persistent = buildPresentation({ status: "persistent" }, saved);
 	assert.equal(persistent.tone, "saved");
-	assert.match(persistent.headerText, /Career saved \| persistent storage/);
+	assert.equal(persistent.headerText, "Saved");
+	assert.equal(persistent.footerText, "Saved");
 	assert.match(persistent.accessibleText, /Career checkpoint saved\. Browser storage is persistent\./);
 
 	const bestEffort = buildPresentation({ status: "best_effort" }, saved);
 	assert.equal(bestEffort.tone, "saved");
-	assert.match(bestEffort.headerText, /Career saved \| best-effort storage/);
+	assert.equal(bestEffort.headerText, "Saved");
 	assert.match(bestEffort.accessibleText, /may be cleared by the browser/);
 
 	const runtimeNonPersistent = parseCheckpoint({
@@ -534,7 +546,7 @@ test("reports checkpoint evidence truthfully across persistent, best-effort, pen
 	for (const storageStatus of ["persistent", "best_effort"]) {
 		const unavailableRuntime = buildPresentation({ status: storageStatus }, runtimeNonPersistent);
 		assert.equal(unavailableRuntime.tone, "unavailable");
-		assert.match(unavailableRuntime.headerText, /Career saving unavailable/);
+		assert.equal(unavailableRuntime.headerText, "Saving unavailable");
 		assert.match(unavailableRuntime.accessibleText, /game runtime reports that its user filesystem is not persistent/);
 		assert.doesNotMatch(unavailableRuntime.accessibleText, /checkpoint saved/i);
 	}
@@ -560,7 +572,7 @@ test("reports checkpoint evidence truthfully across persistent, best-effort, pen
 		write_success_count: 1,
 		last_saved_unix_msec: 1_753_000_000_000,
 	}));
-	assert.match(saving.headerText, /Saving career checkpoint/);
+	assert.equal(saving.headerText, "Saving...");
 	assert.doesNotMatch(saving.accessibleText, /checkpoint saved/i);
 
 	const dirty = buildPresentation({ status: "persistent" }, parseCheckpoint({
@@ -570,7 +582,7 @@ test("reports checkpoint evidence truthfully across persistent, best-effort, pen
 		write_success_count: 1,
 		last_saved_unix_msec: 1_753_000_000_000,
 	}));
-	assert.match(dirty.headerText, /Unsaved career changes pending/);
+	assert.equal(dirty.headerText, "Save pending");
 	assert.match(dirty.accessibleText, /prior successful checkpoint is recorded/);
 	assert.doesNotMatch(dirty.accessibleText, /checkpoint saved/i);
 
@@ -582,13 +594,21 @@ test("reports checkpoint evidence truthfully across persistent, best-effort, pen
 		write_success_count: 1,
 	}));
 	assert.equal(failed.tone, "degraded");
-	assert.match(failed.headerText, /Career save degraded/);
+	assert.equal(failed.headerText, "Save needs attention");
 	assert.match(failed.accessibleText, /Indexed write failed\./);
 	assert.doesNotMatch(failed.accessibleText, /<|>|script|globalThis/);
 
 	const unavailable = buildPresentation({ status: "unavailable" }, saved);
 	assert.equal(unavailable.tone, "unavailable");
 	assert.match(unavailable.accessibleText, /Career saving is unavailable/);
+
+	const runtimeMissing = buildPresentation({ status: "persistent" }, {
+		...cleanWithoutEvidence,
+		present: false,
+	});
+	assert.equal(runtimeMissing.tone, "checking");
+	assert.equal(runtimeMissing.headerText, "Checking autosave");
+	assert.match(runtimeMissing.accessibleText, /checkpoint bridge has not reported yet/i);
 });
 
 test("probes browser durability and forwards every lifecycle boundary through a late-bound bridge", async () => {
@@ -1301,7 +1321,7 @@ test("keeps the full probation-to-Senior reference in a collapsed responsive han
 	assert.doesNotMatch(page, /<details className="briefing-deep-dive" open>/);
 	assert.match(page, /<details id="management-handbook" ref=\{handbookDetails\} className="handbook-details">/);
 	assert.match(page, /<strong>Management Handbook<\/strong>/);
-	assert.match(page, /<details className="control-details">/);
+	assert.match(page, /<details className="control-details" name="terminal-footer-panel">/);
 	assert.match(page, /<summary>Controls<\/summary>/);
 	assert.match(page, /className="control-grid" aria-label="Keyboard and pointer controls"/);
   assert.match(html, /Five-shift authored campaign/);
@@ -1367,7 +1387,7 @@ test("keeps the full probation-to-Senior reference in a collapsed responsive han
 	assert.match(html, /Collection Rail Hub, Grain Recovery Mill, Creekside Chilling Exchange, or Contractor Roost/i);
 	assert.match(html, /Contractor, power, and cold capacity are finite/i);
 	assert.match(html, /completed module only delivers its economic benefit when an available named hen staffs it/i);
-	assert.match(html, /Checkpoint pending \| checking browser storage/);
+	assert.match(html, /Checking autosave/);
 	assert.doesNotMatch(html, /autosave operational|autosave active/i);
 	assert.match(html, /Hen \/ route file/);
 	assert.match(html, /Flockwatch \+ roster/);
@@ -1402,6 +1422,9 @@ test("keeps the full probation-to-Senior reference in a collapsed responsive han
   assert.match(css, /\.briefing\s*\{[\s\S]*grid-template-columns:\s*repeat\(3,\s*1fr\)/);
 	assert.match(css, /\.briefing-actions\s*\{[\s\S]*list-style:\s*none/);
 	assert.match(css, /\.briefing-deep-dive > summary\s*\{[\s\S]*min-height:\s*44px/);
+	assert.match(css, /\.career-state > summary\s*\{[\s\S]*min-height:\s*40px/);
+	assert.match(css, /\.save-detail-panel\s*\{[\s\S]*width:\s*min\(380px,\s*calc\(100vw - 48px\)\)/);
+	assert.match(css, /\.save-settings-button\s*\{[\s\S]*min-height:\s*40px/);
   assert.match(css, /@media \(max-width:\s*1000px\)[\s\S]*\.briefing\s*\{\s*grid-template-columns:\s*1fr/);
 	assert.match(css, /body\s*\{[\s\S]*overflow-x:\s*clip/);
 	assert.match(css, /\.game-stage\s*\{[\s\S]*100dvh - 220px/);

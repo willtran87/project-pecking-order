@@ -35,6 +35,8 @@ func _run() -> void:
 	var sticky_leave := ui.find_child("FinalStickyLeaveButton", true, false) as Button
 	var ending_beat_1 := ui.find_child("FinalEndingBeat1", true, false) as PanelContainer
 	var ending_caption_1 := ui.find_child("FinalEndingBeatCaption1", true, false) as Label
+	var ending_caption_2 := ui.find_child("FinalEndingBeatCaption2", true, false) as Label
+	var ending_caption_3 := ui.find_child("FinalEndingBeatCaption3", true, false) as Label
 	var ending_value_1 := ui.find_child("FinalEndingBeatValue1", true, false) as Label
 	var ending_value_2 := ui.find_child("FinalEndingBeatValue2", true, false) as Label
 	var ending_value_3 := ui.find_child("FinalEndingBeatValue3", true, false) as Label
@@ -110,6 +112,47 @@ func _run() -> void:
 	if sticky_primary != null:
 		sticky_primary.pressed.emit()
 	_check(int(observed["continue"]) == successful_endings.size() + 1, "in-flow and sticky successful actions should preserve the public continuation signal", failures)
+
+	var experiential_final := _final_snapshot(true, successful_endings[2])
+	experiential_final["campaign_legacy"] = {
+		"title": "FLOCK STEWARDSHIP",
+		"detail": "You built durable output through recovery and shared credit.",
+	}
+	experiential_final["flock_epilogue"] = [
+		{
+			"worker_name": "Mabel",
+			"caption": "RESTRUCTURING",
+			"value": "STOOD TOGETHER",
+			"outcome": "Mabel kept her chair after the flock contested the ranking together.",
+		},
+	]
+	experiential_final["replay_recommendation"] = {
+		"contract_short_label": "EXECUTIVE",
+		"action": "FACE THE EXECUTIVE AUDIT",
+		"rationale": "Start with tighter cash, a higher quota, and extra live files.",
+	}
+	ui.apply_snapshot(experiential_final)
+	await process_frame
+	await process_frame
+	_check(
+		ending_caption_1 != null and ending_caption_1.text == "YOUR LEGACY"
+		and ending_value_1 != null and ending_value_1.text == "FLOCK STEWARDSHIP"
+		and ending_caption_2 != null and ending_caption_2.text == "MABEL"
+		and ending_value_2 != null and ending_value_2.text == "STOOD TOGETHER"
+		and ending_caption_3 != null and ending_caption_3.text == "NEXT FILE"
+		and ending_value_3 != null and ending_value_3.text == "EXECUTIVE",
+		"an experiential final snapshot should replace generic beats with legacy, named-flock, and replay payoffs",
+		failures,
+	)
+	_check(
+		message != null
+		and "YOUR LEGACY  //  FLOCK STEWARDSHIP" in message.text
+		and "MABEL  //  Mabel kept her chair" in message.text
+		and "NEXT RUN  //  FACE THE EXECUTIVE AUDIT" in message.text
+		and not message.visible,
+		"the low-text finale should retain the complete authored legacy and epilogue as progressive detail",
+		failures,
+	)
 
 	# The longest authored title must remain readable in the portrait web layout.
 	harness.size = Vector2(390.0, 844.0)

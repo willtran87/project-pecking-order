@@ -35,6 +35,7 @@ func _run() -> void:
 	var review_scrim := office.find_child("DayReviewScrim", true, false) as ColorRect
 	var next_shift_button := office.find_child("BeginNextShiftButton", true, false) as Button
 	var report_panel := office.find_child("ProbationReportPanel", true, false) as PanelContainer
+	var report_heading := office.find_child("ProbationReportTitle", true, false) as Label
 	var report_shift_delta := office.find_child("ReportShiftDelta", true, false) as Label
 	var report_shift_delta_caption := office.find_child("ReportShiftDeltaCaption", true, false) as Label
 	var report_shift_delta_icon := office.find_child("ReportShiftDeltaIcon", true, false) as TextureRect
@@ -106,6 +107,11 @@ func _run() -> void:
 		day_badge != null and day_badge.text == "1 / 5"
 		and day_badge.tooltip_text == "DAY 1 / 5",
 		"calendar-led campaign presentation should expose shift 1 / 5 with exact semantic copy",
+		failures,
+	)
+	_check(
+		"FIRST CLUTCH" in String(day_badge.get_meta("accessible_text", "")),
+		"the compact day badge should retain the current dramatic chapter in assistive detail",
 		failures,
 	)
 	_check(_nonempty_lines(objectives_label.text if objectives_label != null else "").size() == 3, "active campaign presentation should show all three current objectives", failures)
@@ -444,6 +450,11 @@ func _run() -> void:
 	_check(campaign_ui.modal_state() == ProbationCampaignUI.VIEW_REPORT, "advancing should open the probation report", failures)
 	_check(report_panel != null and report_panel.is_visible_in_tree(), "probation report should be visibly presented", failures)
 	_check(
+		report_heading != null and "SHIFT 1 RESULTS  //  FIRST CLUTCH" in report_heading.text,
+		"the first report should close the named First Clutch chapter instead of reading as a generic ledger",
+		failures,
+	)
+	_check(
 		day_badge.text == "1 / 5" and day_badge.tooltip_text == "DAY 1 / 5",
 		"between-shift presentation should retain the exact reviewed day behind its compact calendar value",
 		failures,
@@ -667,6 +678,11 @@ func _run() -> void:
 	_check(
 		day_badge.text == "2 / 5" and day_badge.tooltip_text == "DAY 2 / 5",
 		"active calendar value should advance to shift 2 / 5",
+		failures,
+	)
+	_check(
+		"COMPETING ORDERS" in String(day_badge.get_meta("accessible_text", "")),
+		"day two should visibly retain the campaign's next dramatic chapter in semantic context",
 		failures,
 	)
 	_check(_nonempty_lines(objectives_label.text).size() == 3, "day-two office HUD should retain three objectives", failures)

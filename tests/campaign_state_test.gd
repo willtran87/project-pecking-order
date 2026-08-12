@@ -4,6 +4,7 @@ extends SceneTree
 func _init() -> void:
 	var failures: Array[String] = []
 	_test_catalog_and_shift_gate(failures)
+	_test_experience_arc_and_replay(failures)
 	_test_live_objective_projection(failures)
 	_test_current_workday_report_fallbacks(failures)
 	_test_five_shift_pass_and_cumulative_ledgers(failures)
@@ -17,6 +18,94 @@ func _init() -> void:
 		return
 	print("CAMPAIGN_STATE_TEST_PASSED shifts=5 objectives=15 milestone=1-of-3 outcome=pass/fail schema=validated-json")
 	quit(0)
+
+
+func _test_experience_arc_and_replay(failures: Array[String]) -> void:
+	var chapter_ids: Dictionary = {}
+	for shift_number in range(1, CampaignState.CAMPAIGN_LENGTH + 1):
+		var chapter := CampaignState.shift_chapter(shift_number)
+		var chapter_id := String(chapter.get("id", ""))
+		chapter_ids[chapter_id] = true
+		_check(
+			int(chapter.get("shift_number", 0)) == shift_number
+			and not String(chapter.get("title", "")).is_empty()
+			and not String(chapter.get("verb", "")).is_empty()
+			and not String(chapter.get("promise", "")).is_empty(),
+			"shift %d should expose one complete authored dramatic chapter" % shift_number,
+			failures,
+		)
+	_check(chapter_ids.size() == 5, "the five-shift run should have five distinct chapter identities", failures)
+	_check(
+		String(CampaignState.shift_chapter(1).get("title", "")) == "FIRST CLUTCH"
+		and String(CampaignState.shift_chapter(4).get("title", "")) == "RANKING DAY"
+		and String(CampaignState.shift_chapter(5).get("title", "")) == "THE PERMANENT RECORD",
+		"the authored arc should escalate from first flock contact through people consequences to closure",
+		failures,
+	)
+
+	var campaign := CampaignState.new()
+	var opening := campaign.momentum_brief()
+	_check(
+		StringName(String(opening.get("status", ""))) == &"opening"
+		and "MABEL" in String(opening.get("short_label", "")),
+		"a fresh file should lead with one named hen and one concrete action",
+		failures,
+	)
+	var poor := campaign.record_shift(_poor_report(1, 0), _poor_snapshot())
+	_check(bool(poor.get("accepted", false)), "experience fixture should accept one valid poor shift", failures)
+	var comeback := campaign.momentum_brief()
+	_check(
+		StringName(String(comeback.get("status", ""))) == &"comeback"
+		and "RECOVERY" in String(comeback.get("short_label", ""))
+		and not (comeback.get("blocker", {}) as Dictionary).is_empty(),
+		"a bad shift should become one specific recoverable comeback brief",
+		failures,
+	)
+	var failed_replay := campaign.replay_recommendation()
+	_check(
+		String(failed_replay.get("contract_id", "")) == "standard_filing"
+		and not bool(failed_replay.get("changes_contract", true)),
+		"an in-progress Standard file should recommend a different doctrine without inventing a contract change",
+		failures,
+	)
+	var supported := CampaignState.new()
+	_check(
+		supported.select_challenge_contract(CampaignState.CHALLENGE_SUPPORTED_FLOCK),
+		"replay fixture should file the Supported contract",
+		failures,
+	)
+	supported.outcome = CampaignState.OUTCOME_PASSED
+	_check(
+		String(supported.replay_recommendation().get("contract_id", "")) == "standard_filing",
+		"a completed Supported file should invite the authored Standard contract",
+		failures,
+	)
+	var passed_standard := CampaignState.new()
+	passed_standard.outcome = CampaignState.OUTCOME_PASSED
+	_check(
+		String(passed_standard.replay_recommendation().get("contract_id", "")) == "executive_audit",
+		"a passed Standard file should invite the Executive Audit",
+		failures,
+	)
+	var failed_executive := CampaignState.new()
+	_check(
+		failed_executive.select_challenge_contract(CampaignState.CHALLENGE_EXECUTIVE_AUDIT),
+		"replay fixture should file the Executive contract",
+		failures,
+	)
+	failed_executive.outcome = CampaignState.OUTCOME_FAILED
+	_check(
+		String(failed_executive.replay_recommendation().get("contract_id", "")) == "supported_flock",
+		"a failed Executive file should offer a real fail-forward recovery contract",
+		failures,
+	)
+	var snapshot := campaign.snapshot()
+	_check(
+		(snapshot.get("current_chapter", {}) as Dictionary) == campaign.current_chapter()
+		and (snapshot.get("momentum_brief", {}) as Dictionary) == comeback,
+		"campaign snapshots should publish the derived chapter and comeback without persisting duplicate authority",
+		failures,
+	)
 
 
 func _test_catalog_and_shift_gate(failures: Array[String]) -> void:
