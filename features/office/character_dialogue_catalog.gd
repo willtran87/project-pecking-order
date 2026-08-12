@@ -292,6 +292,28 @@ static func beats_for_snapshot(previous: Dictionary, current: Dictionary) -> Arr
 static func beat_for_decision_result(result: Dictionary, day: int) -> Dictionary:
 	if result.is_empty():
 		return {}
+	var character_arc := result.get("character_arc", {}) as Dictionary
+	if not character_arc.is_empty():
+		var speaker_id := StringName(character_arc.get("speaker_id", &"mabel"))
+		var tone := StringName(character_arc.get("tone", &""))
+		var option_label := String(character_arc.get("option_label", "THAT RESPONSE")).to_lower()
+		var supportive := tone in [&"care", &"quality"]
+		var line := (
+			"That was my file. You chose %s. I expected the memo to forget who carried it; you didn't." % option_label
+			if supportive else
+			"That was my file. You chose %s. The memo forgot who carried it. I won't." % option_label
+		)
+		return _entry(
+			"incident_witness_%d_%s_%d" % [
+				day,
+				String(character_arc.get("pair_id", "case")),
+				int(character_arc.get("beat", 1)),
+			],
+			speaker_id,
+			line,
+			_default_channel(speaker_id),
+			10.0,
+		)
 	var option_id := StringName(String(result.get(
 		"option_id",
 		result.get("choice_id", result.get("response_id", "")),

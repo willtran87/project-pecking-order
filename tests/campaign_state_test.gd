@@ -30,7 +30,9 @@ func _test_experience_arc_and_replay(failures: Array[String]) -> void:
 			int(chapter.get("shift_number", 0)) == shift_number
 			and not String(chapter.get("title", "")).is_empty()
 			and not String(chapter.get("verb", "")).is_empty()
-			and not String(chapter.get("promise", "")).is_empty(),
+			and not String(chapter.get("promise", "")).is_empty()
+			and not String(chapter.get("farmer_memo", "")).is_empty()
+			and "Farmer memo" in String(chapter.get("accessible_text", "")),
 			"shift %d should expose one complete authored dramatic chapter" % shift_number,
 			failures,
 		)

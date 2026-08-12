@@ -3403,10 +3403,14 @@ func _refresh_report(day: int, total_days: int) -> void:
 		not senior
 		and StringName(String(momentum.get("status", ""))) == &"comeback"
 	):
-		compact_result_heading += "\nCOMEBACK  //  %s" % String(momentum.get(
-			"short_label",
-			"RECOVER THE FILE",
-		)).to_upper()
+		var watch_label := String(
+			(momentum.get("blocker", {}) as Dictionary).get("label", "FILE")
+		).to_upper().trim_prefix("FARMER ")
+		compact_result_heading += "\nFARMER WATCH  //  %s LOW" % watch_label
+	elif not senior and not chapter.is_empty():
+		compact_result_heading += "\nFARMER  //  %s" % String(
+			chapter.get("farmer_short", "FILE THE RESULT")
+		).to_upper()
 	_report_day_label.text = full_report_kicker if senior else compact_result_heading
 	_report_day_label.visible = senior
 	_report_day_label.tooltip_text = full_report_kicker

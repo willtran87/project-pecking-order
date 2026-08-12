@@ -18,7 +18,7 @@ func _run() -> void:
 	_check_migration_and_rejection(failures)
 
 	if failures.is_empty():
-		print("INCIDENT_FOLLOW_THROUGH_TEST_PASSED pairs=3 branches=12 exact_effects=true open_precedents=3 persistence=v27 bounded=24 review=true")
+		print("INCIDENT_FOLLOW_THROUGH_TEST_PASSED pairs=6 branches=24 exact_effects=true open_precedents=6 persistence=validated bounded=24 review=true")
 		quit(0)
 		return
 	for failure in failures:
@@ -316,6 +316,12 @@ func _check_adaptive_pivot_mastery(failures: Array[String]) -> void:
 		[&"feed_shortfall", &"optimize_portions"],
 		[&"credit_town_hall", &"credit_layers"],
 		[&"calendar_overflow", &"attend_status_sync"],
+		[&"nest_heatwave", &"authorize_cooling"],
+		[&"cold_storage_audit", &"stage_thermostat"],
+		[&"fox_drill", &"run_evacuate"],
+		[&"badge_scan", &"accept_tags"],
+		[&"egg_showcase", &"send_flock"],
+		[&"return_to_sender", &"classify_success"],
 	]
 	for index in sequence.size():
 		var response: Array = sequence[index]
@@ -325,7 +331,7 @@ func _check_adaptive_pivot_mastery(failures: Array[String]) -> void:
 			1,
 			index + 1,
 		)
-		if index in [1, 3]:
+		if index in [1, 3, 5, 7, 9]:
 			_check(
 				int(simulation.incident_pivot_mastery_snapshot().get("mastered_count", -1)) == (index + 1) / 2,
 				"each first counterweight pivot should file one permanent case-pair receipt",
@@ -334,10 +340,10 @@ func _check_adaptive_pivot_mastery(failures: Array[String]) -> void:
 	simulation._decision_serial = sequence.size()
 	var mastery := simulation.incident_pivot_mastery_snapshot()
 	_check(
-		int(mastery.get("mastered_count", -1)) == 3
+		int(mastery.get("mastered_count", -1)) == 6
 		and bool(mastery.get("complete", false))
-		and simulation.incident_pivot_mastery_receipts.size() == 3,
-		"using the highlighted pivot in all three pairs should complete adaptive casework exactly once per pair",
+		and simulation.incident_pivot_mastery_receipts.size() == 6,
+		"using the highlighted pivot in all six pairs should complete adaptive casework exactly once per pair",
 		failures,
 	)
 
@@ -358,7 +364,7 @@ func _check_adaptive_pivot_mastery(failures: Array[String]) -> void:
 	_check(
 		migrated.restore_save_state(legacy_v26)
 		and int(migrated.export_save_state().get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION
-		and int(migrated.incident_pivot_mastery_snapshot().get("mastered_count", -1)) == 3,
+		and int(migrated.incident_pivot_mastery_snapshot().get("mastered_count", -1)) == 6,
 		"authentic v26 response history should reconstruct adaptive mastery without inventing evidence",
 		failures,
 	)

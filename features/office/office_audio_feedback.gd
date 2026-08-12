@@ -51,6 +51,7 @@ var _decision_alert: AudioStreamWAV
 var _policy_stamp: AudioStreamWAV
 var _decision_resolved: AudioStreamWAV
 var _precedent_filed: AudioStreamWAV
+var _case_pivot: AudioStreamWAV
 var _peck_assist: AudioStreamWAV
 var _peck_assist_perfect: AudioStreamWAV
 var _priority_peck_ready: AudioStreamWAV
@@ -108,6 +109,13 @@ func _ready() -> void:
 		PackedFloat32Array([392.0, 294.0, 523.0, 698.0]),
 		0.070,
 		0.38,
+	)
+	# The connected-case callback answers the precedent motif, dips once, then
+	# resolves above it. Players can hear that memory changed the live choice.
+	_case_pivot = _synth_sequence(
+		PackedFloat32Array([392.0, 523.0, 440.0, 659.25, 880.0]),
+		0.065,
+		0.42,
 	)
 	_peck_assist = _synth_sequence(PackedFloat32Array([360.0, 470.0, 590.0]), 0.055, 0.34)
 	# Perfect adds a bright fourth note so it cannot be mistaken for the shorter
@@ -273,6 +281,18 @@ func play_precedent_filed() -> void:
 	_play(
 		&"precedent_filed", _precedent_filed, 1.0, -7.0, 180,
 		BUS_UI, PRIORITY_IMPORTANT,
+	)
+
+
+func play_case_pivot(mastered_count: int = 1) -> bool:
+	return _play(
+		&"case_pivot",
+		_case_pivot,
+		1.0 + minf(0.12, maxi(0, mastered_count - 1) * 0.02),
+		-5.5,
+		260,
+		BUS_UI,
+		PRIORITY_RARE,
 	)
 
 

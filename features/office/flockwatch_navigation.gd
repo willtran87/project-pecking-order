@@ -714,7 +714,7 @@ func accessible_text() -> String:
 		if mastered_pivots > 0:
 			summary += " Adaptive casework: %d of %d case pairs mastered%s." % [
 				mastered_pivots,
-				int(pivot_mastery.get("total_count", 3)),
+				int(pivot_mastery.get("total_count", 6)),
 				"; WINGS BOTH WAYS commendation filed" if bool(pivot_mastery.get("complete", false)) else "",
 			]
 	elif _current_page_id == PAGE_CAPITAL:

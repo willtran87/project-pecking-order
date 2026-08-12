@@ -51,7 +51,7 @@ func _run() -> void:
 
 	var adapting := Commendations.evaluate({"incident_pivot_mastery": {"mastered_count": 2}}, {})
 	_check(not bool(_row(adapting, &"adaptive_casework").get("earned", true)), "two mastered case pairs should not file adaptive casework early", failures)
-	_check(String(_row(adapting, &"adaptive_casework").get("progress_label", "")) == "2 / 3 CASE PAIRS", "adaptive casework should disclose exact permanent progress", failures)
+	_check(String(_row(adapting, &"adaptive_casework").get("progress_label", "")) == "2 / 6 CASE PAIRS", "adaptive casework should disclose exact permanent progress", failures)
 
 	var failed_campaign := growing_campaign.duplicate(true)
 	failed_campaign["completed_shifts"] = 5
@@ -69,7 +69,7 @@ func _run() -> void:
 		"wellness_nest_room": 1,
 		"training_roost": 1,
 	}
-	complete_simulation["incident_pivot_mastery"] = {"mastered_count": 3}
+	complete_simulation["incident_pivot_mastery"] = {"mastered_count": 6}
 	var complete_campaign := {
 		"completed_shifts": 5,
 		"outcome": "passed",
@@ -108,7 +108,7 @@ func _run() -> void:
 			push_error("CAREER_COMMENDATIONS_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAREER_COMMENDATIONS_TEST_PASSED count=12 sources=permanent adaptive=3-pairs portfolio=distinct-books next=ordered final=safeguarded diagnostic=compact")
+	print("CAREER_COMMENDATIONS_TEST_PASSED count=12 sources=permanent adaptive=6-pairs portfolio=distinct-books next=ordered final=safeguarded diagnostic=compact")
 	quit(0)
 
 

@@ -289,6 +289,17 @@ func _run() -> void:
 	_check(&"precedent_filed" in cue_events, "filed precedents should emit a distinct semantic cue", failures)
 	_check(String(precedent_snapshot.get("last_cue", "")) == "precedent_filed", "precedent diagnostics should identify the single confirmation cadence", failures)
 	_check(int(precedent_snapshot.get("cue_serial", -1)) == serial_before_precedent + 1, "one filed precedent should advance audio diagnostics exactly once", failures)
+	await create_timer(0.20).timeout
+	var serial_before_pivot := int(audio.feedback_snapshot().get("cue_serial", -1))
+	_check(audio.play_case_pivot(4), "a connected-case counter-strategy should play its resolving callback cadence", failures)
+	var pivot_snapshot := audio.feedback_snapshot()
+	_check(&"case_pivot" in cue_events, "adaptive casework should emit a distinct semantic cue", failures)
+	_check(
+		String(pivot_snapshot.get("last_cue", "")) == "case_pivot"
+		and int(pivot_snapshot.get("cue_serial", -1)) == serial_before_pivot + 1,
+		"case-pivot diagnostics should expose exactly one accepted mastery cadence",
+		failures,
+	)
 
 	# A routine quality must never consume the limiter window for a rare result.
 	await create_timer(0.20).timeout

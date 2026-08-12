@@ -366,6 +366,9 @@ var _intake_story_content: Node3D
 var _records_zone: Node3D
 var _west_perch_04_zone: Node3D
 var _west_perch_05_zone: Node3D
+var _career_trophy_slots: Array[MeshInstance3D] = []
+var _career_trophy_label: Label3D
+var _commendations_visual_snapshot: Dictionary = {}
 
 
 func _ready() -> void:
@@ -493,6 +496,27 @@ func set_office_physical_presentation(capacity: int, dormant_west_context: bool 
 	_office_physical_capacity = clampi(capacity, 0, 6)
 	_dormant_west_context = dormant_west_context and _office_physical_capacity < 6
 	_apply_office_physical_presentation_state()
+
+
+func set_commendations_snapshot(snapshot: Dictionary) -> void:
+	_commendations_visual_snapshot = snapshot.duplicate(true)
+	var earned_count := clampi(int(snapshot.get("earned_count", 0)), 0, _career_trophy_slots.size())
+	for slot_index in _career_trophy_slots.size():
+		var slot := _career_trophy_slots[slot_index]
+		if slot == null or not is_instance_valid(slot):
+			continue
+		var earned := slot_index < earned_count
+		slot.material_override = _material(
+			Color("e0b34f") if earned else Color("465055"),
+			0.26 if earned else 0.82,
+			0.38 if earned else 0.04,
+		)
+		slot.set_meta("commendation_earned", earned)
+	if _career_trophy_label != null and is_instance_valid(_career_trophy_label):
+		_career_trophy_label.text = "CAREER FILE  /  %d OF %d" % [
+			earned_count,
+			maxi(_career_trophy_slots.size(), int(snapshot.get("total_count", 12))),
+		]
 
 
 func _apply_office_physical_presentation_state() -> void:
@@ -2983,6 +3007,8 @@ func _clear_built_roots() -> void:
 	_grading_receipt_queue.clear()
 	_grading_receipt_pool = null
 	_grading_receipt_label = null
+	_career_trophy_slots.clear()
+	_career_trophy_label = null
 	_grading_receipt_quality_stripe = null
 	_grading_receipt_active = false
 	_grading_receipt_elapsed = 0.0
@@ -3276,6 +3302,71 @@ func _build_campus_portfolio_visual() -> void:
 	campus_portfolio_visual.call("build")
 
 
+func _build_career_trophy_shelf() -> void:
+	_career_trophy_slots.clear()
+	var shelf_center := PERCH_CENTER + Vector3(0.0, 3.80, 0.70)
+	_add_box(
+		management_perch_root,
+		"CareerTrophyShelf",
+		Vector3(3.62, 0.96, 0.10),
+		shelf_center,
+		Color("26383a"),
+		0.72,
+		0.12,
+	)
+	for ledge_index in 2:
+		_add_box(
+			management_perch_root,
+			"CareerTrophyLedge_%02d" % ledge_index,
+			Vector3(3.50, 0.08, 0.34),
+			shelf_center + Vector3(0.0, -0.20 + ledge_index * 0.41, 0.10),
+			Color("74583d"),
+			0.46,
+			0.20,
+		)
+	for slot_index in 12:
+		var column := slot_index % 6
+		var row := slot_index / 6
+		var slot_position := shelf_center + Vector3(
+			-1.42 + column * 0.57,
+			-0.07 + row * 0.41,
+			0.22,
+		)
+		_add_cylinder(
+			management_perch_root,
+			"CareerTrophyPlinth_%02d" % (slot_index + 1),
+			slot_position + Vector3(0.0, -0.10, 0.0),
+			0.105,
+			0.055,
+			Color("b28b45"),
+			0.36,
+		)
+		var trophy := _add_egg(
+			management_perch_root,
+			"CareerTrophy_%02d" % (slot_index + 1),
+			slot_position,
+			Color("465055"),
+		)
+		trophy.scale = Vector3(0.12, 0.17, 0.12)
+		trophy.set_meta("commendation_slot", slot_index)
+		_career_trophy_slots.append(trophy)
+	_career_trophy_label = _add_mounted_label(
+		management_perch_root,
+		"CareerTrophyLabel",
+		"CAREER FILE  /  0 OF 12",
+		shelf_center + Vector3(0.0, -0.39, 0.18),
+		Vector2(2.82, 0.22),
+		Color("303b3e"),
+		Color("e5dcc3"),
+		Vector3.ZERO,
+		13,
+		0.0048,
+		&"secondary",
+		&"plaque",
+	)
+	set_commendations_snapshot(_commendations_visual_snapshot)
+
+
 func _build_management_perch() -> void:
 	management_perch_root = Node3D.new()
 	management_perch_root.name = "RoosterManagementPerch"
@@ -3283,6 +3374,7 @@ func _build_management_perch() -> void:
 
 	_add_box(management_perch_root, "PerchRaisedFoundation", Vector3(4.35, 0.22, 1.42), PERCH_CENTER + Vector3(0.0, 0.11, 0.0), Color("3f494c"), 0.72)
 	_add_box(management_perch_root, "PerchBrassEdge", Vector3(4.46, 0.10, 0.10), PERCH_CENTER + Vector3(0.0, 0.27, 0.73), Color("b28b45"), 0.32, 0.52)
+	_build_career_trophy_shelf()
 	var glass_post_positions: Array[Vector3] = []
 	for post_x in [-2.08, 0.0, 2.08]:
 		glass_post_positions.append(PERCH_CENTER + Vector3(post_x, 1.48, 0.70))

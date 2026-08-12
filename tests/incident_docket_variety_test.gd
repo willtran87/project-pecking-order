@@ -41,7 +41,7 @@ func _run() -> void:
 	_check(_open_incident(legacy, 1, 1) == &"wellness_request", "legacy docket should preserve day-one welfare onboarding", failures)
 	_check(_open_incident(legacy, 3, 0) == &"ledger_molt", "legacy docket should preserve the shipped day-three balance schedule", failures)
 	_check(_open_incident(legacy, 3, 1) == &"wellness_request", "legacy docket should preserve the shipped day-three second incident", failures)
-	_check(DepartmentSimulation.INCIDENT_ORDER.size() == 6, "new dockets should rotate through six standard incidents", failures)
+	_check(DepartmentSimulation.INCIDENT_ORDER.size() == 12, "new dockets should rotate through twelve standard incidents", failures)
 	_check(DepartmentSimulation.LEGACY_INCIDENT_ORDER.size() == 4, "the legacy docket should retain its exact four-case cadence", failures)
 	for incident_id: StringName in DepartmentSimulation.INCIDENT_ORDER:
 		var expected_target := StringName(DepartmentSimulation.INCIDENT_PAIR_SOURCE.get(incident_id, &""))
@@ -109,7 +109,7 @@ func _run() -> void:
 	_check(not DepartmentSimulation.new(4703, 4).restore_save_state(smuggled_v23), "a claimed v23 checkpoint must not smuggle v24 docket authority", failures)
 
 	if failures.is_empty():
-		print("INCIDENT_DOCKET_VARIETY_TEST_PASSED dockets=4 rotation_cases=6 rotations=18 connected_pairs=3 choices=12 persisted=true migration=v23_to_v24")
+		print("INCIDENT_DOCKET_VARIETY_TEST_PASSED dockets=4 rotation_cases=12 rotations=36 connected_pairs=6 choices=24 persisted=true migration=v23_to_current")
 		quit(0)
 		return
 	for failure in failures:

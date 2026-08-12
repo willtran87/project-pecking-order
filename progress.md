@@ -13560,3 +13560,43 @@ The next major systems milestone is persistent worker relationships and individu
   40 native suites, 50 rendered-Web assertions, the production server check,
   and artifact parity. Port 3001 is free, every test-owned process is closed,
   and the user's port-3000 instance remains untouched on PID 25812.
+
+## 2026-08-12 - Complete-game systems pass
+
+- Doubled the standard incident docket from 6 to 12 cases and from 3 to 6
+  connected counter-strategy pairs. Climate/quality, security/surveillance, and
+  publicity/claimant cases now join the existing ledger/story, wellness/feed,
+  and meetings/credit files. Every branch has an immediate operational or
+  relationship consequence, a disclosed opposite-tone callback, deterministic
+  rotation, bounded history, and save-safe mastery receipt.
+- Gave every connected pair a deterministic named hen witness. Both halves
+  return to the same worker, resolutions alter her real trust/grievance state,
+  and her portrait cutout reacts to supportive or harmful handling. No new save
+  schema or parallel relationship authority was introduced.
+- Made the Farmer a recurring antagonist in all five chapters. Full memos remain
+  in accessible chapter detail; the visible report uses one compact `FARMER` or
+  `FARMER WATCH` line. Visual review caught and removed a five-line report-title
+  stack before acceptance.
+- Added a distinct five-note adaptive-casework cadence to the fixed eight-voice
+  procedural pool, while keeping completed mastery owned by the existing
+  commendation fanfare. Expanded WINGS BOTH WAYS from three to all six case
+  pairs.
+- Turned the twelve permanent commendations into a physical two-tier archive
+  cabinet above Flockwatch. Earned brass eggs, locked dark eggs, individual
+  plinths, and a compact count reconstruct from authority across office rebuilds.
+  The first floating-shelf draft was rejected during visual inspection and
+  replaced with the backed, ledged cabinet.
+- Focused Godot coverage passes for the 12-case docket, 24 connected branches,
+  named witness callbacks, procedural audio, six-pair commendation, campaign
+  chapters, responsive report UI, trophy reconstruction, office storytelling,
+  decision lifecycle, and office commendation integration. The prescribed Web
+  client loaded the final candidate with 12 incidents, 6 mastery pairs, 12
+  commendations, bounded diagnostics, and no browser error artifact.
+- The final Web PCK is 9,957,492 bytes with SHA-256
+  `E8E8D88E07F2EA6E1F16FA4D2A7E34C12A706E5680EA306AB4C809E0DF65819F`
+  at all six shipping PCK locations. Temporary port 3001 and capture processes
+  were closed; the user-owned port-3000 process remained untouched.
+- Human first-15-minute comprehension/fun sessions and physical device, audio,
+  assistive-technology, and GPU observations remain external evidence. The game
+  now exposes the software needed to run them, but no automated result is
+  represented as a human or hardware observation.

@@ -1298,6 +1298,12 @@ const INCIDENT_ORDER: Array[StringName] = [
 	&"feed_shortfall",
 	&"calendar_overflow",
 	&"credit_town_hall",
+	&"nest_heatwave",
+	&"cold_storage_audit",
+	&"fox_drill",
+	&"badge_scan",
+	&"egg_showcase",
+	&"return_to_sender",
 ]
 const INCIDENT_DOCKET_SEED_OFFSET := 32_452_843
 const INCIDENT_RESPONSE_VERSION := 1
@@ -1307,6 +1313,9 @@ const INCIDENT_PAIR_ORDER: Array[StringName] = [
 	&"ledger_story",
 	&"wellness_feed",
 	&"calendar_credit",
+	&"climate_quality",
+	&"security_surveillance",
+	&"publicity_claimants",
 ]
 const INCIDENT_SHORT_TITLES := {
 	&"ledger_molt": "LEDGER MOLT",
@@ -1315,6 +1324,12 @@ const INCIDENT_SHORT_TITLES := {
 	&"feed_shortfall": "FEED SHORTFALL",
 	&"calendar_overflow": "MEETING OVERFLOW",
 	&"credit_town_hall": "CREDIT TOWN HALL",
+	&"nest_heatwave": "NEST HEATWAVE",
+	&"cold_storage_audit": "COLD ROOM AUDIT",
+	&"fox_drill": "FOX DRILL",
+	&"badge_scan": "BADGE SCAN",
+	&"egg_showcase": "EGG SHOWCASE",
+	&"return_to_sender": "RETURN TO SENDER",
 }
 const INCIDENT_PAIR_SOURCE := {
 	&"ledger_molt": &"farmer_story",
@@ -1323,6 +1338,12 @@ const INCIDENT_PAIR_SOURCE := {
 	&"feed_shortfall": &"wellness_request",
 	&"calendar_overflow": &"credit_town_hall",
 	&"credit_town_hall": &"calendar_overflow",
+	&"nest_heatwave": &"cold_storage_audit",
+	&"cold_storage_audit": &"nest_heatwave",
+	&"fox_drill": &"badge_scan",
+	&"badge_scan": &"fox_drill",
+	&"egg_showcase": &"return_to_sender",
+	&"return_to_sender": &"egg_showcase",
 }
 const INCIDENT_PAIR_IDS := {
 	&"ledger_molt": &"ledger_story",
@@ -1331,11 +1352,20 @@ const INCIDENT_PAIR_IDS := {
 	&"feed_shortfall": &"wellness_feed",
 	&"calendar_overflow": &"calendar_credit",
 	&"credit_town_hall": &"calendar_credit",
+	&"nest_heatwave": &"climate_quality",
+	&"cold_storage_audit": &"climate_quality",
+	&"fox_drill": &"security_surveillance",
+	&"badge_scan": &"security_surveillance",
+	&"egg_showcase": &"publicity_claimants",
+	&"return_to_sender": &"publicity_claimants",
 }
 const INCIDENT_PAIR_LABELS := {
 	&"ledger_story": "LEDGER / STORY",
 	&"wellness_feed": "WELLNESS / FEED",
 	&"calendar_credit": "MEETINGS / CREDIT",
+	&"climate_quality": "CLIMATE / QUALITY",
+	&"security_surveillance": "SECURITY / SURVEILLANCE",
+	&"publicity_claimants": "PUBLICITY / CLAIMANTS",
 }
 const INCIDENT_FOLLOW_THROUGH_DEFINITIONS := {
 	&"ledger_molt": {
@@ -1361,6 +1391,30 @@ const INCIDENT_FOLLOW_THROUGH_DEFINITIONS := {
 	&"credit_town_hall": {
 		&"cancel_status_sync": {"id": &"cancel_bargain_to_roosters", "label": "PRIOR MEETING FILE / SYNC CANCELED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The cancellation bargain makes crediting the roosters worth +2 more farmer favor.", "affected_option_id": &"credit_roosters"},
 		&"attend_status_sync": {"id": &"minutes_to_layers", "label": "PRIOR MEETING FILE / EVERY SYNC ATTENDED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The meeting minutes lower the cost of crediting the layers from $10 to $6.", "affected_option_id": &"credit_layers"},
+	},
+	&"nest_heatwave": {
+		&"open_cold_room": {"id": &"cold_room_to_cooling", "label": "PRIOR QUALITY FILE / COLD ROOM OPENED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The audit record makes filing seasonal variance faster.", "affected_option_id": &"seasonal_variance"},
+		&"stage_thermostat": {"id": &"staged_audit_to_variance", "label": "PRIOR QUALITY FILE / THERMOSTAT STAGED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The staged reading discounts emergency cooling by $4.", "affected_option_id": &"authorize_cooling"},
+	},
+	&"cold_storage_audit": {
+		&"authorize_cooling": {"id": &"cooling_to_open_audit", "label": "PRIOR CLIMATE FILE / COOLING AUTHORIZED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The cooling receipt makes staging the thermostat easier upstairs.", "affected_option_id": &"stage_thermostat"},
+		&"seasonal_variance": {"id": &"variance_to_staged_audit", "label": "PRIOR CLIMATE FILE / HEAT RECLASSIFIED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The variance memo makes opening the real cold room restore more trust.", "affected_option_id": &"open_cold_room"},
+	},
+	&"fox_drill": {
+		&"reject_tags": {"id": &"privacy_to_evacuate", "label": "PRIOR ACCESS FILE / TAGS REJECTED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The privacy filing makes a desktop drill faster to certify.", "affected_option_id": &"desktop_drill"},
+		&"accept_tags": {"id": &"tracking_to_desktop", "label": "PRIOR ACCESS FILE / TAGS ACCEPTED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The tracking rollout makes a real evacuation easier to trust.", "affected_option_id": &"run_evacuate"},
+	},
+	&"badge_scan": {
+		&"run_evacuate": {"id": &"evacuation_to_privacy", "label": "PRIOR SAFETY FILE / EVACUATION RUN", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The real drill makes accepting tracking tags faster upstairs.", "affected_option_id": &"accept_tags"},
+		&"desktop_drill": {"id": &"desktop_to_tracking", "label": "PRIOR SAFETY FILE / DESKTOP DRILL", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The paper drill supplies evidence for rejecting individual tracking.", "affected_option_id": &"reject_tags"},
+	},
+	&"egg_showcase": {
+		&"reimburse_claimant": {"id": &"claimant_to_flock", "label": "PRIOR CLAIM FILE / CLAIMANT REPAID", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The repayment record makes the management deck unusually profitable.", "affected_option_id": &"send_deck"},
+		&"classify_success": {"id": &"success_to_deck", "label": "PRIOR CLAIM FILE / RETURN RECLASSIFIED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The success memo makes sending the flock restore more trust.", "affected_option_id": &"send_flock"},
+	},
+	&"return_to_sender": {
+		&"send_flock": {"id": &"flock_to_claimant", "label": "PRIOR SHOWCASE FILE / FLOCK PRESENT", "strategy_label": "PIVOT OPPORTUNITY", "summary": "Public authorship makes reclassifying a return faster upstairs.", "affected_option_id": &"classify_success"},
+		&"send_deck": {"id": &"deck_to_success", "label": "PRIOR SHOWCASE FILE / DECK PRESENTED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The showcase deck makes reimbursing the claimant restore more trust.", "affected_option_id": &"reimburse_claimant"},
 	},
 }
 const INCIDENT_DEFINITIONS := {
@@ -1601,6 +1655,144 @@ const INCIDENT_DEFINITIONS := {
 					"strategy_label": "PIVOT OPPORTUNITY",
 					"summary": "The manager byline raises CANCEL THE STATUS SYNC from +2 to +4 flock trust.",
 				},
+			},
+		],
+	},
+	&"nest_heatwave": {
+		"title": "THE NEST FLOOR IS OVERHEATING",
+		"body": "The cooling budget expired before the weather did. Shell losses are already climbing.",
+		"witness_prompt": "has been moving overheated files by wing",
+		"choices": [
+			{
+				"id": &"authorize_cooling", "label": "AUTHORIZE EMERGENCY COOLING", "short_label": "COOL THE FLOOR",
+				"glance": "FLOCK +  /  FUND -", "tagline": "Spend now to protect hens and shells.",
+				"preview": "Cost $12  /  strain -  /  shells +  /  trust +", "cost_cents": 1200, "tone": &"care",
+				"outcome": "Cooling reached the nest floor. Finance has classified breathable air as a pilot.",
+				"effects": {"morale_delta": 3.0, "stress_delta": -3.0, "fatigue_delta": -5.0, "crack_modifier": -0.03, "trust_delta": 2.0, "grievance_delta": -2.0},
+				"precedent": {"target_incident_id": &"cold_storage_audit", "target_label": "NEXT COLD ROOM AUDIT", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The cooling receipt makes a transparent audit safer."},
+			},
+			{
+				"id": &"seasonal_variance", "label": "FILE IT AS SEASONAL VARIANCE", "short_label": "FILE VARIANCE",
+				"glance": "SPEED +  /  SHELLS -", "tagline": "Keep output moving; leave the heat with the flock.",
+				"preview": "No cost  /  speed +  /  strain +  /  favor +", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The heat became a seasonal variance. The season has declined responsibility.",
+				"effects": {"work_multiplier": 1.05, "fatigue_delta": 5.0, "executive_delta": 4.0, "crack_modifier": 0.02, "trust_delta": -2.0, "grievance_delta": 3.0},
+				"precedent": {"target_incident_id": &"cold_storage_audit", "target_label": "NEXT COLD ROOM AUDIT", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The variance memo can support a staged thermostat reading."},
+			},
+		],
+	},
+	&"cold_storage_audit": {
+		"title": "THE COLD ROOM AUDIT ARRIVED WARM",
+		"body": "The inspector wants the real temperature log. The farmer wants a photogenic number.",
+		"witness_prompt": "signed the temperature ledger everyone is disputing",
+		"choices": [
+			{
+				"id": &"open_cold_room", "label": "OPEN THE REAL COLD ROOM", "short_label": "OPEN THE ROOM",
+				"glance": "ORDER +  /  SPEED -", "tagline": "Show the real floor and accept the slowdown.",
+				"preview": "speed -  /  obedience +  /  shells +  /  favor -", "cost_cents": 0, "tone": &"quality",
+				"outcome": "The real cold room was opened. The inspector found several unphotogenic facts.",
+				"effects": {"work_multiplier": 0.96, "compliance_delta": 5.0, "executive_delta": -2.0, "crack_modifier": -0.02, "trust_delta": 2.0, "grievance_delta": -2.0},
+				"precedent": {"target_incident_id": &"nest_heatwave", "target_label": "NEXT NEST HEATWAVE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The audit record discounts emergency cooling by $4."},
+			},
+			{
+				"id": &"stage_thermostat", "label": "STAGE THE THERMOSTAT PHOTO", "short_label": "STAGE PHOTO",
+				"glance": "FAVOR +  /  ORDER -", "tagline": "Protect the story; deepen compliance debt.",
+				"preview": "speed +  /  favor +  /  obedience -  /  shells -", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The thermostat photographed beautifully. The cold room did not attend.",
+				"effects": {"work_multiplier": 1.03, "compliance_delta": -6.0, "executive_delta": 6.0, "crack_modifier": 0.04, "trust_delta": -3.0, "grievance_delta": 4.0},
+				"precedent": {"target_incident_id": &"nest_heatwave", "target_label": "NEXT NEST HEATWAVE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The staged reading makes seasonal variance faster."},
+			},
+		],
+	},
+	&"fox_drill": {
+		"title": "THE FOX ALARM NEEDS A PASSING SCORE",
+		"body": "The alarm works. The exits work on paper. The flock would like to test the remaining parts.",
+		"witness_prompt": "found the blocked west exit first",
+		"choices": [
+			{
+				"id": &"run_evacuate", "label": "RUN THE REAL EVACUATION", "short_label": "EVACUATE",
+				"glance": "SAFETY +  /  SPEED -", "tagline": "Lose production time; prove the route works.",
+				"preview": "speed -  /  stress -  /  obedience +  /  unity +", "cost_cents": 0, "tone": &"quality",
+				"outcome": "The flock reached the yard. The west exit reached a maintenance ticket.",
+				"effects": {"work_multiplier": 0.93, "stress_delta": -4.0, "compliance_delta": 4.0, "solidarity_delta": 3.0, "trust_delta": 2.0, "grievance_delta": -2.0},
+				"precedent": {"target_incident_id": &"badge_scan", "target_label": "NEXT BADGE SCAN", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The drill supplies evidence against individual tracking."},
+			},
+			{
+				"id": &"desktop_drill", "label": "CERTIFY A DESKTOP DRILL", "short_label": "PAPER DRILL",
+				"glance": "SPEED +  /  TRUST -", "tagline": "Keep output moving; certify the paperwork.",
+				"preview": "speed +  /  favor +  /  stress +  /  trust -", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The desktop drill passed. The fox has not been informed of the paperwork.",
+				"effects": {"work_multiplier": 1.03, "stress_delta": 4.0, "executive_delta": 3.0, "trust_delta": -2.0, "grievance_delta": 3.0},
+				"precedent": {"target_incident_id": &"badge_scan", "target_label": "NEXT BADGE SCAN", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The paper drill makes tracking easier to certify."},
+			},
+		],
+	},
+	&"badge_scan": {
+		"title": "THE FARMER WANTS LOCATION TAGS ON EVERY HEN",
+		"body": "Management calls it flow telemetry. The flock calls it being followed to lunch.",
+		"witness_prompt": "was tracked through three authorized breaks",
+		"choices": [
+			{
+				"id": &"reject_tags", "label": "REJECT INDIVIDUAL TRACKING", "short_label": "REJECT TAGS",
+				"glance": "TRUST +  /  FAVOR -", "tagline": "Protect privacy; spend executive favor.",
+				"preview": "favor -  /  trust +  /  grievance -  /  unity +", "cost_cents": 0, "tone": &"care",
+				"outcome": "Individual tags were rejected. The farmer has requested aggregate suspicion instead.",
+				"effects": {"executive_delta": -4.0, "trust_delta": 4.0, "grievance_delta": -4.0, "solidarity_delta": 4.0},
+				"precedent": {"target_incident_id": &"fox_drill", "target_label": "NEXT FOX DRILL", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The privacy filing strengthens a real evacuation drill."},
+			},
+			{
+				"id": &"accept_tags", "label": "ACCEPT THE FLOW TAGS", "short_label": "ACCEPT TAGS",
+				"glance": "SPEED +  /  FLOCK -", "tagline": "Gain throughput; trade away privacy.",
+				"preview": "speed +  /  obedience +  /  stress +  /  grievance +", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The tags went live. Management can now locate every slowdown except management.",
+				"effects": {"work_multiplier": 1.04, "compliance_delta": 3.0, "stress_delta": 4.0, "trust_delta": -3.0, "grievance_delta": 5.0},
+				"precedent": {"target_incident_id": &"fox_drill", "target_label": "NEXT FOX DRILL", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The tracking rollout speeds a desktop certification."},
+			},
+		],
+	},
+	&"egg_showcase": {
+		"title": "THE COUNTY SHOWCASE WANTS THE FLOCK'S BEST EGG",
+		"body": "The invitation includes room for one egg, one manager, and no production staff.",
+		"witness_prompt": "laid the egg selected for the showcase",
+		"choices": [
+			{
+				"id": &"send_flock", "label": "SEND THE HEN WITH HER EGG", "short_label": "SEND THE HEN",
+				"glance": "FLOCK +  /  FUND -", "tagline": "Pay travel; make authorship visible.",
+				"preview": "Cost $8  /  morale +  /  favor +  /  trust +", "cost_cents": 800, "tone": &"care",
+				"outcome": "The hen and her egg attended together. The program required a wider credit line.",
+				"effects": {"morale_delta": 6.0, "stress_delta": -2.0, "executive_delta": 4.0, "solidarity_delta": 3.0, "trust_delta": 3.0, "grievance_delta": -2.0},
+				"precedent": {"target_incident_id": &"return_to_sender", "target_label": "NEXT RETURNED BASKET", "strategy_label": "PIVOT OPPORTUNITY", "summary": "Public authorship makes claimant repair more credible."},
+			},
+			{
+				"id": &"send_deck", "label": "SEND THE MANAGEMENT DECK", "short_label": "SEND THE DECK",
+				"glance": "FAVOR +  /  FLOCK -", "tagline": "Keep production staffed; keep credit upstairs.",
+				"preview": "speed +  /  favor ++  /  morale -  /  trust -", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The deck won Best Egg Narrative. The egg was listed under technical support.",
+				"effects": {"work_multiplier": 1.03, "executive_delta": 8.0, "morale_delta": -5.0, "trust_delta": -4.0, "grievance_delta": 5.0},
+				"precedent": {"target_incident_id": &"return_to_sender", "target_label": "NEXT RETURNED BASKET", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The showcase deck supports a success reclassification."},
+			},
+		],
+	},
+	&"return_to_sender": {
+		"title": "A CRACKED BASKET HAS BEEN RETURNED",
+		"body": "The claimant wants repayment. The farmer wants the return counted as engagement.",
+		"witness_prompt": "packed the returned basket under quota pressure",
+		"choices": [
+			{
+				"id": &"reimburse_claimant", "label": "REIMBURSE THE CLAIMANT", "short_label": "REPAY CLAIM",
+				"glance": "ORDER +  /  FUND -", "tagline": "Pay the loss; repair the relationship.",
+				"preview": "Cost $10  /  obedience +  /  trust +  /  favor -", "cost_cents": 1000, "tone": &"quality",
+				"outcome": "The claimant was repaid. Accounting has discovered the customer was real.",
+				"effects": {"compliance_delta": 4.0, "executive_delta": -2.0, "trust_delta": 4.0, "grievance_delta": -3.0, "solidarity_delta": 2.0},
+				"precedent": {"target_incident_id": &"egg_showcase", "target_label": "NEXT EGG SHOWCASE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The repair record makes visible flock authorship credible."},
+			},
+			{
+				"id": &"classify_success", "label": "CLASSIFY IT AS ENGAGEMENT", "short_label": "COUNT ENGAGEMENT",
+				"glance": "CASH +  /  TRUST -", "tagline": "Book the return as success; deepen the debt.",
+				"preview": "+$8 fund  /  favor +  /  morale -  /  grievance +", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The return became engagement. The claimant remains statistically enthusiastic.",
+				"effects": {"revenue_delta_cents": 800, "credited_delta_cents": 800, "executive_delta": 6.0, "morale_delta": -4.0, "trust_delta": -4.0, "grievance_delta": 5.0},
+				"precedent": {"target_incident_id": &"egg_showcase", "target_label": "NEXT EGG SHOWCASE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The success memo makes the management deck more valuable."},
 			},
 		],
 	},
@@ -18323,6 +18515,7 @@ func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 	if not INCIDENT_DEFINITIONS.has(incident_id):
 		return choices
 	var follow_through := incident_follow_through_snapshot(incident_id)
+	var follow_through_id := StringName(follow_through.get("id", &""))
 	var definition := INCIDENT_DEFINITIONS[incident_id] as Dictionary
 	for choice_value in definition.get("choices", []):
 		var choice := (choice_value as Dictionary).duplicate(true)
@@ -18338,7 +18531,7 @@ func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 				float(ledger_molt_spreadsheet_crack_basis_points()) / 100.0,
 				float(ledger_molt_spreadsheet_compliance_loss_millipoints()) / 1000.0,
 			]
-		match StringName(follow_through.get("id", &"")):
+		match follow_through_id:
 			&"transparency_to_shadow_sheet":
 				if option_id == &"spreadsheet":
 					choice["preview"] = String(choice.get("preview", "")).replace(
@@ -18398,12 +18591,26 @@ func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 					choice["preview"] = String(choice.get("preview", "")).replace(
 						"+10 farmer favor", "+12 farmer favor"
 					)
+			&"staged_audit_to_variance":
+				if option_id == &"authorize_cooling":
+					choice["cost_cents"] = 800
+					choice["preview"] = String(choice.get("preview", "")).replace("Cost $12", "Cost $8")
 		var affected_option_id := StringName(follow_through.get("affected_option_id", &""))
 		if affected_option_id != &"" and option_id == affected_option_id:
 			choice["case_memory_active"] = true
 			choice["case_memory_label"] = String(follow_through.get(
 				"strategy_label", "PIVOT OPPORTUNITY"
 			))
+			if follow_through_id in [
+				&"staged_audit_to_variance", &"variance_to_staged_audit", &"tracking_to_desktop",
+				&"desktop_to_tracking", &"success_to_deck", &"deck_to_success",
+			]:
+				choice["preview"] = String(choice.get("preview", "")) + "  /  callback trust +"
+			elif follow_through_id in [
+				&"cold_room_to_cooling", &"cooling_to_open_audit", &"privacy_to_evacuate",
+				&"evacuation_to_privacy", &"claimant_to_flock", &"flock_to_claimant",
+			]:
+				choice["preview"] = String(choice.get("preview", "")) + "  /  callback speed +"
 		choices.append(choice)
 	return choices
 
@@ -18468,6 +18675,41 @@ func case_docket_snapshot() -> Dictionary:
 	}
 
 
+func incident_character_arc_snapshot(incident_id: StringName) -> Dictionary:
+	var pair_id := StringName(INCIDENT_PAIR_IDS.get(incident_id, &""))
+	if pair_id == &"" or workers.is_empty():
+		return {}
+	var employed_workers: Array[ChickenState] = []
+	for worker in workers:
+		if worker.employed:
+			employed_workers.append(worker)
+	if employed_workers.is_empty():
+		return {}
+	# A connected pair always belongs to the same witness. The assignment is
+	# deterministic, survives save/load without another schema field, and turns
+	# the follow-through case into a relationship callback instead of trivia.
+	var pair_index := maxi(0, INCIDENT_PAIR_ORDER.find(pair_id))
+	var witness := employed_workers[pair_index % employed_workers.size()]
+	var prior_beats := 0
+	for record in incident_response_history:
+		var prior_incident := StringName(record.get("incident_id", &""))
+		if StringName(INCIDENT_PAIR_IDS.get(prior_incident, &"")) == pair_id:
+			prior_beats += 1
+	var definition := INCIDENT_DEFINITIONS.get(incident_id, {}) as Dictionary
+	var speaker_id := StringName(witness.display_name.to_lower().replace(" ", "_"))
+	return {
+		"pair_id": pair_id,
+		"worker_id": witness.id,
+		"worker_name": witness.display_name,
+		"speaker_id": speaker_id,
+		"beat": prior_beats + 1,
+		"beat_label": "CALLBACK %d" % prior_beats if prior_beats > 0 else "FIRST IMPRESSION",
+		"witness_prompt": String(definition.get("witness_prompt", "is named in this file")),
+		"trust_before": witness.manager_trust,
+		"grievance_before": witness.grievance,
+	}
+
+
 func _maybe_open_incident() -> bool:
 	if _incident_slot >= INCIDENT_MINUTES.size():
 		return false
@@ -18501,6 +18743,7 @@ func _maybe_open_incident() -> bool:
 		for choice in _incident_choices(incident_id):
 			options.append(choice.duplicate(true))
 		var case_memory := incident_follow_through_snapshot(incident_id)
+		var character_arc := incident_character_arc_snapshot(incident_id)
 		pending_decision = {
 			"serial": _decision_serial,
 			"kind": &"incident",
@@ -18513,6 +18756,12 @@ func _maybe_open_incident() -> bool:
 		}
 		if not case_memory.is_empty():
 			pending_decision["case_memory"] = case_memory.duplicate(true)
+		if not character_arc.is_empty():
+			pending_decision["character_arc"] = character_arc.duplicate(true)
+			pending_decision["eyebrow"] = "INCIDENT  /  %s'S FILE  /  AUTO-PAUSED  /  %s" % [
+				String(character_arc.get("worker_name", "FLOCK")).to_upper(),
+				_format_time(minute_of_day),
+			]
 	_incident_slot += 1
 	shift_phase = ShiftPhase.AWAITING_INCIDENT
 	shift_phase_changed.emit(shift_phase)
@@ -18543,6 +18792,7 @@ func _resolve_incident(option_id: StringName) -> bool:
 		_incident_option_cost_cents(incident_id, option_id)
 	)
 	var case_memory := pending_decision.get("case_memory", {}) as Dictionary
+	var character_arc := pending_decision.get("character_arc", {}) as Dictionary
 	var spendable := spendable_fund_cents()
 	if spendable < cost_cents:
 		announcement_posted.emit(
@@ -18558,6 +18808,7 @@ func _resolve_incident(option_id: StringName) -> bool:
 		petition_record = _apply_flock_petition_response(option_id, chosen)
 	else:
 		_apply_incident_effects(incident_id, option_id, case_memory)
+		_apply_incident_character_consequence(character_arc, StringName(chosen.get("tone", &"")))
 	incidents_resolved_today += 1
 	var outcome := String(chosen.get("outcome", "Incident response recorded."))
 	var serial := int(pending_decision.get("serial", -1))
@@ -18603,6 +18854,16 @@ func _resolve_incident(option_id: StringName) -> bool:
 	else:
 		result["incident_response"] = incident_response.duplicate(true)
 		result["case_memory"] = case_memory.duplicate(true)
+		if not character_arc.is_empty():
+			character_arc["option_label"] = String(chosen.get("short_label", chosen.get("label", "RESPONSE")))
+			character_arc["tone"] = StringName(chosen.get("tone", &""))
+			var worker_id := int(character_arc.get("worker_id", -1))
+			for witness in workers:
+				if witness.id == worker_id:
+					character_arc["trust_after"] = witness.manager_trust
+					character_arc["grievance_after"] = witness.grievance
+					break
+			result["character_arc"] = character_arc.duplicate(true)
 		if not case_pivot.is_empty():
 			result["case_pivot"] = case_pivot.duplicate(true)
 			result["case_pivot_mastery"] = incident_pivot_mastery_snapshot()
@@ -19115,6 +19376,18 @@ func _apply_incident_effects(
 	follow_through: Dictionary = {},
 ) -> void:
 	var follow_through_id := StringName(follow_through.get("id", &""))
+	var choice := _incident_choice_definition(incident_id, option_id)
+	var effect_bundle := choice.get("effects", {}) as Dictionary
+	if not effect_bundle.is_empty():
+		_apply_incident_effect_bundle(effect_bundle)
+		# Connected-case pivots are small but tangible: they alter the option the
+		# filed precedent named without introducing a second hidden ruleset.
+		match follow_through_id:
+			&"staged_audit_to_variance", &"variance_to_staged_audit", &"tracking_to_desktop", &"desktop_to_tracking", &"success_to_deck", &"deck_to_success":
+				_adjust_worker_relationships(1.0, -1.0)
+			&"cold_room_to_cooling", &"cooling_to_open_audit", &"privacy_to_evacuate", &"evacuation_to_privacy", &"claimant_to_flock", &"flock_to_claimant":
+				_incident_work_multiplier *= 1.02
+		return
 	match incident_id:
 		&"ledger_molt":
 			if option_id == &"patch":
@@ -19226,6 +19499,41 @@ func _apply_incident_effects(
 		&"cancel_bargain_to_roosters":
 			if incident_id == &"credit_town_hall" and option_id == &"credit_roosters":
 				executive_confidence = minf(100.0, executive_confidence + 2.0)
+
+
+func _apply_incident_effect_bundle(effects: Dictionary) -> void:
+	_incident_work_multiplier *= maxf(0.1, float(effects.get("work_multiplier", 1.0)))
+	_incident_strain_multiplier *= maxf(0.1, float(effects.get("strain_multiplier", 1.0)))
+	_incident_crack_modifier += float(effects.get("crack_modifier", 0.0))
+	_incident_golden_modifier += float(effects.get("golden_modifier", 0.0))
+	revenue_cents += int(effects.get("revenue_delta_cents", 0))
+	credited_today_cents += int(effects.get("credited_delta_cents", 0))
+	compliance = clampf(compliance + float(effects.get("compliance_delta", 0.0)), 0.0, 100.0)
+	executive_confidence = clampf(
+		executive_confidence + float(effects.get("executive_delta", 0.0)), 0.0, 100.0
+	)
+	solidarity = clampf(solidarity + float(effects.get("solidarity_delta", 0.0)), 0.0, 100.0)
+	_pending_quota_adjustment += int(effects.get("quota_delta", 0))
+	_adjust_workers(
+		float(effects.get("morale_delta", 0.0)),
+		float(effects.get("stress_delta", 0.0)),
+		float(effects.get("fatigue_delta", 0.0)),
+	)
+	_adjust_worker_relationships(
+		float(effects.get("trust_delta", 0.0)),
+		float(effects.get("grievance_delta", 0.0)),
+	)
+
+
+func _apply_incident_character_consequence(character_arc: Dictionary, tone: StringName) -> void:
+	var worker_id := int(character_arc.get("worker_id", -1))
+	for worker in workers:
+		if worker.id != worker_id or not worker.employed:
+			continue
+		var supportive := tone in [&"care", &"quality"]
+		worker.manager_trust = clampf(worker.manager_trust + (3.0 if supportive else -3.0), 0.0, 100.0)
+		worker.grievance = clampf(worker.grievance + (-2.0 if supportive else 3.0), 0.0, 100.0)
+		return
 
 
 func _adjust_workers(morale_delta: float, stress_delta: float, fatigue_delta: float) -> void:

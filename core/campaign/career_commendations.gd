@@ -20,6 +20,7 @@ const BOARD_PORTFOLIO: StringName = &"board_portfolio"
 const COMPLETE_BOARD_LEDGER: StringName = &"complete_board_ledger"
 const BOARD_PORTFOLIO_TARGET := 3
 const BOARD_BOOK_TOTAL := 7
+const ADAPTIVE_CASE_PAIR_TOTAL := 6
 
 const IDS: Array[StringName] = [
 	FIRST_EGG,
@@ -66,8 +67,8 @@ static func definitions() -> Array[Dictionary]:
 		_definition(
 			ADAPTIVE_CASEWORK,
 			"WINGS BOTH WAYS",
-			"Use an active counterweight pivot in all three recurring case pairs.",
-			"Three-hinge adaptability stamp",
+			"Use an active counterweight pivot in all six recurring case pairs.",
+			"Six-hinge adaptability stamp",
 		),
 		_definition(
 			PROBATION_SURVIVOR,
@@ -134,7 +135,9 @@ static func evaluate(
 		if pivot_mastery_value is Dictionary else
 		{}
 	)
-	var mastered_pivot_pairs := clampi(int(pivot_mastery.get("mastered_count", 0)), 0, 3)
+	var mastered_pivot_pairs := clampi(
+		int(pivot_mastery.get("mastered_count", 0)), 0, ADAPTIVE_CASE_PAIR_TOTAL
+	)
 
 	var milestone_value: Variant = campaign.get("milestone", {})
 	var milestone := milestone_value as Dictionary if milestone_value is Dictionary else {}
@@ -159,9 +162,9 @@ static func evaluate(
 		MUTUAL_KEEPER: _source(mini(fulfilled_contracts, 3), 3, fulfilled_contracts >= 3, "%d / 3 BINDERS" % mini(fulfilled_contracts, 3)),
 		ADAPTIVE_CASEWORK: _source(
 			mastered_pivot_pairs,
-			3,
-			mastered_pivot_pairs >= 3,
-			"%d / 3 CASE PAIRS" % mastered_pivot_pairs,
+			ADAPTIVE_CASE_PAIR_TOTAL,
+			mastered_pivot_pairs >= ADAPTIVE_CASE_PAIR_TOTAL,
+			"%d / %d CASE PAIRS" % [mastered_pivot_pairs, ADAPTIVE_CASE_PAIR_TOTAL],
 		),
 		PROBATION_SURVIVOR: _source(
 			completed_shifts,

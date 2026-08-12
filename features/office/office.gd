@@ -1087,6 +1087,8 @@ func _ready() -> void:
 		_capture_signage_preview(Vector3(-10.65, 2.05, -0.20), "signage_left.png")
 	elif "--capture-breakroom" in OS.get_cmdline_user_args() or "--capture-breakroom" in OS.get_cmdline_args():
 		_capture_breakroom_preview()
+	elif "--capture-career-trophies" in OS.get_cmdline_user_args() or "--capture-career-trophies" in OS.get_cmdline_args():
+		_capture_career_trophies_preview()
 	elif "--capture-signage-desk" in OS.get_cmdline_user_args() or "--capture-signage-desk" in OS.get_cmdline_args():
 		_capture_signage_preview(desk_position(0) + Vector3(0.0, 1.20, 0.35), "signage_desk.png")
 	elif "--capture-signage-intake" in OS.get_cmdline_user_args() or "--capture-signage-intake" in OS.get_cmdline_args():
@@ -8279,11 +8281,14 @@ func _on_decision_resolved(result: Dictionary) -> void:
 	elif kind == &"incident":
 		var pivot_mastery := result.get("case_pivot_mastery", {}) as Dictionary
 		var completed_adaptive_casework := bool(pivot_mastery.get("complete", false))
+		var case_pivot := result.get("case_pivot", {}) as Dictionary
 		if _audio_feedback != null:
 			if completed_adaptive_casework:
 				# The snapshot-driven commendation refresh owns the one semantic cue.
 				# Avoid layering the ordinary precedent stamp beneath it.
 				pass
+			elif not case_pivot.is_empty():
+				_audio_feedback.play_case_pivot(int(pivot_mastery.get("mastered_count", 1)))
 			elif not (result.get("filed_precedent", {}) as Dictionary).is_empty():
 				_audio_feedback.play_precedent_filed()
 			else:
@@ -16849,6 +16854,8 @@ func _update_commendations(snapshot: Dictionary, force: bool = false) -> void:
 		senior_snapshot,
 	)
 	_commendations_snapshot = evaluated.duplicate(true)
+	if _office_storytelling != null and _office_storytelling.has_method("set_commendations_snapshot"):
+		_office_storytelling.call("set_commendations_snapshot", evaluated)
 	var earned_count := int(evaluated.get("earned_count", 0))
 	var total_count := int(evaluated.get("total_count", CareerCommendationsScript.IDS.size()))
 	var next_value: Variant = evaluated.get("next", {})
@@ -28876,6 +28883,20 @@ func _capture_breakroom_preview() -> void:
 	)
 	await get_tree().create_timer(7.2).timeout
 	_save_preview("breakroom.png")
+
+
+func _capture_career_trophies_preview() -> void:
+	_prepare_capture_running()
+	_hide_world_capture_overlays()
+	_office_storytelling.set_commendations_snapshot({"earned_count": 5, "total_count": 12})
+	_camera_controller.focus_point(
+		OfficeStorytellingScript.PERCH_CENTER + Vector3(0.0, 2.55, 0.50),
+		"CAREER TROPHY ART CHECK",
+		0.35,
+		4.8,
+	)
+	await get_tree().create_timer(1.0).timeout
+	_save_preview("career_trophies.png")
 
 
 func _capture_campaign_title_preview() -> void:

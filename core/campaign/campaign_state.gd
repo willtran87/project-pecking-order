@@ -33,6 +33,8 @@ const SHIFT_CHAPTERS := {
 		"verb": "MEET THE FLOCK",
 		"promise": "Help Mabel carry one real file from tray to farmer without spending the flock to do it.",
 		"pressure": "LEARN THE FLOOR",
+		"farmer_memo": "ONE CLEAN BASKET. NAMES OPTIONAL.",
+		"farmer_short": "NAMES OPTIONAL",
 	},
 	2: {
 		"id": &"competing_orders",
@@ -40,6 +42,8 @@ const SHIFT_CHAPTERS := {
 		"verb": "CHOOSE WHAT MATTERS",
 		"promise": "Balance quota, care, and credit before one permanent doctrine locks your management style.",
 		"pressure": "TRADEOFFS ARRIVE",
+		"farmer_memo": "PICK A MODEL. MAKE IT LOOK INEVITABLE.",
+		"farmer_short": "PICK A MODEL",
 	},
 	3: {
 		"id": &"chosen_roost",
@@ -47,6 +51,8 @@ const SHIFT_CHAPTERS := {
 		"verb": "PROVE THE PLAN",
 		"promise": "Make your filed specialization survive a changing market and the obligations it does not cover.",
 		"pressure": "THE PLAN MEETS REALITY",
+		"farmer_memo": "YOUR PLAN OWNS EVERY EXCEPTION.",
+		"farmer_short": "OWN EXCEPTIONS",
 	},
 	4: {
 		"id": &"ranking_day",
@@ -54,6 +60,8 @@ const SHIFT_CHAPTERS := {
 		"verb": "ANSWER FOR THE SYSTEM",
 		"promise": "The Pecking Order becomes a people decision, and one hen will remember what you file.",
 		"pressure": "THE FLOCK IS WATCHING",
+		"farmer_memo": "RANK THEM. I ONLY READ THE TOP LINE.",
+		"farmer_short": "TOP LINE ONLY",
 	},
 	5: {
 		"id": &"permanent_record",
@@ -61,6 +69,8 @@ const SHIFT_CHAPTERS := {
 		"verb": "LIVE WITH THE RESULT",
 		"promise": "Close the final clutch and discover what the farmer rewards, what the flock remembers, and who you became.",
 		"pressure": "EVERY CHOICE CLOSES",
+		"farmer_memo": "FILE THE RESULT. I WILL FILE THE CREDIT.",
+		"farmer_short": "CREDIT UPSTAIRS",
 	},
 }
 const CHALLENGE_CONTRACTS := {
@@ -214,10 +224,11 @@ static func shift_chapter(shift_number: int) -> Dictionary:
 		normalized,
 		String(chapter.get("title", "PROBATION")),
 	]
-	chapter["accessible_text"] = "%s. %s. %s" % [
+	chapter["accessible_text"] = "%s. %s. %s. Farmer memo: %s" % [
 		String(chapter.get("short_label", "SHIFT %d" % normalized)),
 		String(chapter.get("verb", "FILE THE SHIFT")),
 		String(chapter.get("promise", "Complete the filed probation orders.")),
+		String(chapter.get("farmer_memo", "FILE THE RESULT.")),
 	]
 	return chapter
 
