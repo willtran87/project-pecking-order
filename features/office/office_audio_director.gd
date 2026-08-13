@@ -242,7 +242,10 @@ func mix_snapshot() -> Dictionary:
 
 func _select_scenario(next_id: StringName) -> void:
 	var normalized := next_id
-	if normalized not in [&"harvest_surge", &"shell_audit", &"flock_walkout"]:
+	if normalized not in [
+		&"harvest_surge", &"shell_audit", &"flock_walkout",
+		&"thin_margin", &"fox_season", &"credit_scramble",
+	]:
 		normalized = &"baseline_book"
 	if normalized == _scenario_id:
 		return
@@ -251,10 +254,12 @@ func _select_scenario(next_id: StringName) -> void:
 		return
 	var source: AudioStream = SCENARIO_HARVEST_TRACK
 	match _scenario_id:
-		&"shell_audit":
+		&"shell_audit", &"fox_season":
 			source = SCENARIO_AUDIT_TRACK
-		&"flock_walkout":
+		&"flock_walkout", &"thin_margin":
 			source = SCENARIO_WALKOUT_TRACK
+		&"credit_scramble":
+			source = SCENARIO_HARVEST_TRACK
 	_scenario_player.stop()
 	_scenario_player.stream = _looping_copy(source)
 	_scenario_player.play()

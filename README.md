@@ -77,6 +77,17 @@ The first playable foundation includes:
 
 ## Management Loop
 
+Career intake now protects three independent local **Roost** slots. Each slot
+keeps its own verified campaign/recovery files and one player-selected coop
+identity—Open Nest Co-op, Brass Beak Bureau, or Field & Flock Union—which appears
+on the physical office archive and the final legacy record. New files explicitly
+select the proven Baseline Book or one of six authored replay pressures. The
+original Harvest Surge, Shell Audit, and Flock Walkout are joined by Thin Margin,
+Fox Season, and Credit Scramble; every file states one opening rule, changes the
+actual Day 1 structure, carries a legible rival-coop benchmark, and culminates in
+the existing permanent Final Hearing. Completed files can download a compact,
+privacy-local legacy card; the game never transmits it.
+
 Every shift opens with three morning-policy cards. The player chooses throughput, shell assurance, or sustainable flock care, reviews the complete tradeoff, and explicitly authorizes it. Each card derives a compact `ORDER FIT / WATCH` count from that day's three immutable probation orders; selecting it names the exact supported goals, conflicting goals, and longer-term file edge while stating that the closing ledger still decides the result. A new file holds Day 1 at a paused floor orientation until the player inspects a hen and chooses 1×; later briefings resume normally. At 11:00 AM and 2:00 PM, satirical office incidents auto-pause the shift and require a response; each option exposes its cost before it can be confirmed. The top HUD keeps the live egg quota, clean-clutch streak, and active policy visible throughout the shift. The existing score/day badge also carries three compact order stamps derived from the same live projection as Flockwatch; a newly safe or newly at-risk order produces one restrained visual and audio cue, while new shifts seed silently and reduced-motion mode updates without pulsing. Sound and golden eggs extend the streak and add a capped value bonus; a cracked egg resets it.
 
 On a fresh file, the optional First Clutch coach locks onto the first inspected hen and follows only authoritative actions. It remembers valid actions completed out of order, permits wrong routing and missed Peck windows, survives Continue, and retires permanently after the target hen's assisted egg reaches the farmer or the player chooses Skip. The compact card never pauses production or replaces the selected-hen dossier.

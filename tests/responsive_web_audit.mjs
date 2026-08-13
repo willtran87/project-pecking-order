@@ -49,7 +49,7 @@ if (startGame) {
   if (!bounds) throw new Error("Unable to locate the game canvas for the live opening audit.");
   await page.mouse.click(
     bounds.x + bounds.width * 0.5,
-    bounds.y + bounds.height * (594 / 720),
+    bounds.y + bounds.height * (657 / 720),
   );
   await page.waitForTimeout(1_500);
 }

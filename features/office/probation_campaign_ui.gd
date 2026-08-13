@@ -12,6 +12,10 @@ signal new_campaign
 signal abandon_campaign
 signal review_requisitions
 signal challenge_contract_changed(contract_id: StringName)
+signal career_slot_changed(slot_id: StringName)
+signal career_identity_changed(identity_id: StringName)
+signal replay_scenario_changed(scenario_id: StringName)
+signal legacy_card_requested
 signal title_intake_phase_changed(phase: StringName)
 signal milestone_choice(choice_id: StringName)
 signal presentation_state_changed
@@ -29,6 +33,7 @@ const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const CareerSponsorshipUIScript := preload("res://features/office/career_sponsorship_ui.gd")
 const FarmMutualContractBoardUIScript := preload("res://features/office/farm_mutual_contract_board_ui.gd")
 const FlockwatchIconBadgeScript := preload("res://features/office/flockwatch_icon_badge.gd")
+const GameCopyScript := preload("res://core/localization/game_copy.gd")
 const MabelPortrait: Texture2D = preload("res://assets/npcs/mabel/portraits/mabel_portrait_anxious.png")
 
 const VIEW_TITLE := &"title"
@@ -104,6 +109,10 @@ var _view: StringName = VIEW_ACTIVE
 var _selected_milestone := &""
 var _pending_milestone_confirmation := &""
 var _selected_challenge_contract_id: StringName = DEFAULT_CHALLENGE_CONTRACT_ID
+var _selected_career_slot_id: StringName = &"roost_a"
+var _selected_career_identity_id: StringName = &"open_nest"
+var _selected_replay_scenario_id: StringName = &"baseline_book"
+var _career_setup_syncing := false
 var _challenge_selector_syncing := false
 var _title_new_file_setup := false
 var _title_contract_terms_expanded := false
@@ -151,6 +160,11 @@ var _final_panel: PanelContainer
 var _title_heading: Label
 var _title_description: Label
 var _title_profile_card: PanelContainer
+var _title_career_setup_card: PanelContainer
+var _title_slot_selector: OptionButton
+var _title_identity_selector: OptionButton
+var _title_scenario_selector: OptionButton
+var _title_scenario_rule: Label
 var _title_probation_summary: PanelContainer
 var _title_actions: HFlowContainer
 var _title_resume_card: PanelContainer
@@ -258,6 +272,7 @@ var _final_safeguard_grid: GridContainer
 var _final_safeguard_rows: Array[Label] = []
 var _final_continue_button: Button
 var _final_new_button: Button
+var _final_share_button: Button
 
 var _replacement_confirmation_host: Control
 var _replacement_confirmation_panel: PanelContainer
@@ -300,6 +315,11 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				"id",
 				DEFAULT_CHALLENGE_CONTRACT_ID,
 			)))
+	_selected_career_slot_id = StringName(String(_snapshot.get("active_career_slot", _selected_career_slot_id)))
+	var profile_value: Variant = _snapshot.get("career_profile", {})
+	if profile_value is Dictionary:
+		_selected_career_identity_id = StringName(String((profile_value as Dictionary).get("id", _selected_career_identity_id)))
+	_selected_replay_scenario_id = StringName(String(_snapshot.get("selected_replay_scenario_id", _selected_replay_scenario_id)))
 	_selected_milestone = StringName(_snapshot.get(
 		"selected_milestone",
 		_snapshot.get("milestone_selected", &""),
@@ -448,6 +468,10 @@ func selected_milestone_id() -> StringName:
 ## this stable ID when the unchanged zero-argument new_campaign signal fires.
 func selected_challenge_contract_id() -> StringName:
 	return _selected_challenge_contract_id
+
+
+func selected_replay_scenario_id() -> StringName:
+	return _selected_replay_scenario_id
 
 
 func title_intake_phase() -> StringName:
@@ -1689,18 +1713,21 @@ func _build_title_panel(parent: Control) -> void:
 	)
 	parent.add_child(_title_panel)
 
-	var content := _panel_content(_title_panel, 28, 14, 8)
-	var eyebrow := _make_label("YOUR FIRST COOP FILE", 12, BRASS)
+	# Keep the entire first-file decision and its primary action visible inside
+	# the reference 1280x720 canvas. The modal remains scrollable for enlarged
+	# type and smaller viewports, but baseline play should never hide START.
+	var content := _panel_content(_title_panel, 28, 9, 5)
+	var eyebrow := _make_label(GameCopyScript.text(&"PO_INTAKE_FIRST_FILE", "YOUR FIRST COOP FILE"), 12, BRASS)
 	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	eyebrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(eyebrow)
-	_title_heading = _make_label("MEET MABEL", 30, CREAM)
+	_title_heading = _make_label(GameCopyScript.text(&"PO_INTAKE_MEET_MABEL", "MEET MABEL"), 30, CREAM)
 	_title_heading.name = "CampaignTitle"
 	_title_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_title_heading)
 	_title_description = _make_label(
-		"Choose a difficulty, then start.",
+		GameCopyScript.text(&"PO_INTAKE_DESCRIPTION", "Choose a difficulty and replay file, then start."),
 		15,
 		Color("c4d0d4"),
 	)
@@ -1722,13 +1749,13 @@ func _build_title_panel(parent: Control) -> void:
 	var profile_margin := MarginContainer.new()
 	profile_margin.add_theme_constant_override("margin_left", 14)
 	profile_margin.add_theme_constant_override("margin_right", 18)
-	profile_margin.add_theme_constant_override("margin_top", 6)
-	profile_margin.add_theme_constant_override("margin_bottom", 6)
+	profile_margin.add_theme_constant_override("margin_top", 4)
+	profile_margin.add_theme_constant_override("margin_bottom", 4)
 	profile_margin.add_child(profile)
 	_title_profile_card.add_child(profile_margin)
 	var portrait_frame := PanelContainer.new()
 	portrait_frame.name = "CampaignMabelPortraitFrame"
-	portrait_frame.custom_minimum_size = Vector2(82.0, 82.0)
+	portrait_frame.custom_minimum_size = Vector2(68.0, 68.0)
 	portrait_frame.add_theme_stylebox_override(
 		"panel",
 		_panel_style(Color("15262f"), BRASS, 46, 2),
@@ -1766,6 +1793,40 @@ func _build_title_panel(parent: Control) -> void:
 	quote.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profile_copy.add_child(quote)
 
+	_title_career_setup_card = PanelContainer.new()
+	_title_career_setup_card.name = "CareerSetupCard"
+	_title_career_setup_card.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("192a32"), Color("536b72"), 9, 1),
+	)
+	content.add_child(_title_career_setup_card)
+	var career_content := _panel_content(_title_career_setup_card, 14, 6, 4)
+	var career_header := _make_label(GameCopyScript.text(&"PO_INTAKE_CAREER", "YOUR COOP FILE"), 11, BRASS)
+	career_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	career_content.add_child(career_header)
+	var career_flow := HFlowContainer.new()
+	career_flow.name = "CareerSetupSelectors"
+	career_flow.alignment = FlowContainer.ALIGNMENT_CENTER
+	career_flow.add_theme_constant_override("h_separation", 8)
+	career_flow.add_theme_constant_override("v_separation", 8)
+	career_content.add_child(career_flow)
+	_title_slot_selector = _career_setup_selector("CareerSlotSelector", Vector2(145.0, 34.0))
+	_title_identity_selector = _career_setup_selector("CareerIdentitySelector", Vector2(210.0, 34.0))
+	_title_scenario_selector = _career_setup_selector("ReplayScenarioSelector", Vector2(210.0, 34.0))
+	_title_slot_selector.item_selected.connect(_on_career_slot_selected)
+	_title_identity_selector.item_selected.connect(_on_career_identity_selected)
+	_title_scenario_selector.item_selected.connect(_on_replay_scenario_selected)
+	career_flow.add_child(_title_slot_selector)
+	career_flow.add_child(_title_identity_selector)
+	career_flow.add_child(_title_scenario_selector)
+	_title_scenario_rule = _make_label("BASELINE  //  PROVEN FIVE-SHIFT FILE", 10, MUTED)
+	_title_scenario_rule.name = "ReplayScenarioRule"
+	_title_scenario_rule.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_title_scenario_rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title_scenario_rule.max_lines_visible = 2
+	_title_scenario_rule.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	career_content.add_child(_title_scenario_rule)
+
 	_title_challenge_card = PanelContainer.new()
 	_title_challenge_card.name = "ChallengeContractCard"
 	_title_challenge_card.add_theme_stylebox_override(
@@ -1773,13 +1834,13 @@ func _build_title_panel(parent: Control) -> void:
 		_panel_style(Color("1b2d36"), Color("6d8e86"), 9, 1),
 	)
 	content.add_child(_title_challenge_card)
-	var challenge_content := _panel_content(_title_challenge_card, 16, 8, 4)
+	var challenge_content := _panel_content(_title_challenge_card, 16, 6, 3)
 	var challenge_header := HFlowContainer.new()
 	challenge_header.name = "ChallengeContractHeader"
 	challenge_header.add_theme_constant_override("h_separation", 12)
 	challenge_header.add_theme_constant_override("v_separation", 6)
 	challenge_content.add_child(challenge_header)
-	var challenge_label := _make_label("DIFFICULTY", 11, TEAL)
+	var challenge_label := _make_label(GameCopyScript.text(&"PO_INTAKE_DIFFICULTY", "DIFFICULTY"), 11, TEAL)
 	challenge_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	challenge_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	challenge_label.custom_minimum_size.x = 210.0
@@ -1788,7 +1849,7 @@ func _build_title_panel(parent: Control) -> void:
 	_title_challenge_selector.name = "ChallengeContractSelector"
 	_title_challenge_selector.fit_to_longest_item = false
 	_title_challenge_selector.clip_text = true
-	_title_challenge_selector.custom_minimum_size = Vector2(250.0, 40.0)
+	_title_challenge_selector.custom_minimum_size = Vector2(250.0, 36.0)
 	_title_challenge_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_title_challenge_selector.focus_mode = Control.FOCUS_ALL
 	_title_challenge_selector.theme_type_variation = &"DecisionChoiceButton"
@@ -1812,14 +1873,14 @@ func _build_title_panel(parent: Control) -> void:
 	_title_opening_quota = _make_metric("ChallengeOpeningQuota", "16", "EGG QUOTA", 150.0, 19)
 	_title_opening_files = _make_metric("ChallengeOpeningFiles", "6", "OPEN FILES", 150.0, 19)
 	for metric in [_title_opening_fund, _title_opening_quota, _title_opening_files]:
-		_metric_panel(metric).custom_minimum_size.y = 52.0
+		_metric_panel(metric).custom_minimum_size.y = 48.0
 		opening_glance.add_child(_metric_panel(metric))
 	_title_challenge_terms_toggle = _make_button(
 		"ChallengeContractTermsToggle",
 		"RULES  [T]",
 		&"DecisionChoiceButton",
 	)
-	_title_challenge_terms_toggle.custom_minimum_size = Vector2(220.0, 34.0)
+	_title_challenge_terms_toggle.custom_minimum_size = Vector2(220.0, 32.0)
 	_title_challenge_terms_toggle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_title_challenge_terms_toggle.toggle_mode = true
 	_title_challenge_terms_toggle.shortcut = _shortcut(KEY_T)
@@ -1840,7 +1901,7 @@ func _build_title_panel(parent: Control) -> void:
 		_panel_style(Color("1a2932"), Color("665b42"), 7, 1),
 	)
 	content.add_child(_title_probation_summary)
-	var probation_content := _panel_content(_title_probation_summary, 15, 6, 3)
+	var probation_content := _panel_content(_title_probation_summary, 15, 4, 2)
 	var probation_heading := _make_label("YOUR 3-STEP RUN", 11, BRASS)
 	probation_heading.name = "ProbationFiveShiftHeading"
 	probation_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1856,7 +1917,7 @@ func _build_title_panel(parent: Control) -> void:
 		_make_metric("ProbationJourneyShifts", "5 SHIFTS", "2  WORK", 175.0, 18),
 		_make_metric("ProbationJourneyReview", "FINAL REVIEW", "3  PASS", 175.0, 18),
 	]:
-		_metric_panel(metric).custom_minimum_size.y = 52.0
+		_metric_panel(metric).custom_minimum_size.y = 46.0
 		journey.add_child(_metric_panel(metric))
 	var probation_detail := _make_label("QUICK RECAP AFTER EACH SHIFT", 10, Color("d4c38f"))
 	probation_detail.name = "ProbationFiveShiftDetail"
@@ -1890,13 +1951,13 @@ func _build_title_panel(parent: Control) -> void:
 	_title_actions.add_theme_constant_override("h_separation", 12)
 	_title_actions.add_theme_constant_override("v_separation", 10)
 	content.add_child(_title_actions)
-	_continue_title_button = _make_button("ContinueCampaignButton", "CONTINUE SAVED FILE  [C]", &"PrimaryButton")
+	_continue_title_button = _make_button("ContinueCampaignButton", GameCopyScript.text(&"PO_INTAKE_CONTINUE", "CONTINUE SAVED FILE  [C]"), &"PrimaryButton")
 	_continue_title_button.custom_minimum_size = Vector2(260.0, 48.0)
 	_continue_title_button.shortcut = _shortcut(KEY_C)
 	_continue_title_button.pressed.connect(_on_continue_campaign_pressed)
 	_title_actions.add_child(_continue_title_button)
-	_title_new_button = _make_button("NewCampaignButton", "START SHIFT 1  [N]", &"PrimaryButton")
-	_title_new_button.custom_minimum_size = Vector2(270.0, 44.0)
+	_title_new_button = _make_button("NewCampaignButton", GameCopyScript.text(&"PO_INTAKE_START", "START SHIFT 1  [N]"), &"PrimaryButton")
+	_title_new_button.custom_minimum_size = Vector2(270.0, 42.0)
 	_title_new_button.shortcut = _shortcut(KEY_N)
 	_title_new_button.pressed.connect(_on_new_campaign_pressed)
 	_title_actions.add_child(_title_new_button)
@@ -2439,6 +2500,11 @@ func _build_final_panel(parent: Control) -> void:
 	_final_new_button.shortcut = _shortcut(KEY_N)
 	_final_new_button.pressed.connect(_on_new_campaign_pressed)
 	_final_actions.add_child(_final_new_button)
+	_final_share_button = _make_button("FinalShareLegacyButton", GameCopyScript.text(&"PO_FINAL_SHARE", "SAVE LEGACY CARD"), &"DecisionChoiceButton")
+	_final_share_button.custom_minimum_size = Vector2(190.0, 46.0)
+	_final_share_button.tooltip_text = GameCopyScript.text(&"PO_FINAL_SHARE_HELP", "Download a privacy-local summary of this completed career. Nothing is transmitted.")
+	_final_share_button.pressed.connect(func() -> void: legacy_card_requested.emit())
+	_final_actions.add_child(_final_share_button)
 	_final_continue_button = _make_button("FinalContinueCampaignButton", "ENTER THE SENIOR ROOST  [C]", &"PrimaryButton")
 	_final_continue_button.custom_minimum_size = Vector2(260.0, 46.0)
 	_final_continue_button.shortcut = _shortcut(KEY_C)
@@ -2750,6 +2816,7 @@ func _refresh() -> void:
 
 func _refresh_title() -> void:
 	_rebuild_challenge_contract_selector()
+	_refresh_career_setup()
 	var can_continue := _snapshot_continue_available()
 	var resume_value: Variant = _snapshot.get("resume_summary", {})
 	var resume_summary := resume_value as Dictionary if resume_value is Dictionary else {}
@@ -2811,6 +2878,8 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 		_title_description.set_meta("accessible_text", title_description_detail)
 	if _title_profile_card != null:
 		_title_profile_card.visible = setup_visible
+	if _title_career_setup_card != null:
+		_title_career_setup_card.visible = setup_visible
 	if _title_challenge_card != null:
 		_title_challenge_card.visible = setup_visible
 	if _title_probation_summary != null:
@@ -2985,6 +3054,90 @@ func _rebuild_challenge_contract_selector() -> void:
 		)))
 		_snapshot["selected_new_challenge_contract_id"] = String(_selected_challenge_contract_id)
 		_update_challenge_contract_detail(selected_contract)
+
+
+func _refresh_career_setup() -> void:
+	if _title_slot_selector == null or _title_identity_selector == null or _title_scenario_selector == null:
+		return
+	_career_setup_syncing = true
+	_populate_career_selector(
+		_title_slot_selector,
+		_snapshot.get("career_slot_catalog", []),
+		_selected_career_slot_id,
+		"label",
+	)
+	_populate_career_selector(
+		_title_identity_selector,
+		_snapshot.get("career_identity_catalog", []),
+		_selected_career_identity_id,
+		"short",
+	)
+	_populate_career_selector(
+		_title_scenario_selector,
+		_snapshot.get("replay_scenario_catalog", []),
+		_selected_replay_scenario_id,
+		"short",
+	)
+	_career_setup_syncing = false
+	var selected := _catalog_entry(_snapshot.get("replay_scenario_catalog", []), _selected_replay_scenario_id)
+	if _title_scenario_rule != null:
+		_title_scenario_rule.text = "%s  //  %s" % [
+			String(selected.get("short", "BASELINE")).to_upper(),
+			String(selected.get("opening_rule", "The proven five-shift filing.")),
+		]
+		_title_scenario_rule.tooltip_text = "%s\n%s" % [
+			String(selected.get("opening_rule", "The proven five-shift filing.")),
+			String(selected.get("victory_twist", "Complete the authored probation file.")),
+		]
+		_title_scenario_rule.set_meta("accessible_text", _title_scenario_rule.tooltip_text)
+
+
+func _populate_career_selector(selector: OptionButton, catalog_value: Variant, selected_id: StringName, label_key: String) -> void:
+	selector.clear()
+	var catalog := catalog_value as Array if catalog_value is Array else []
+	var selected_index := 0
+	for index: int in range(catalog.size()):
+		if not catalog[index] is Dictionary:
+			continue
+		var entry := catalog[index] as Dictionary
+		var entry_id := StringName(String(entry.get("id", "")))
+		selector.add_item(String(entry.get(label_key, entry.get("label", entry_id))).to_upper())
+		selector.set_item_metadata(selector.item_count - 1, String(entry_id))
+		if entry_id == selected_id:
+			selected_index = selector.item_count - 1
+	if selector.item_count > 0:
+		selector.select(selected_index)
+
+
+func _catalog_entry(catalog_value: Variant, entry_id: StringName) -> Dictionary:
+	if not catalog_value is Array:
+		return {}
+	for value: Variant in catalog_value as Array:
+		if value is Dictionary and StringName(String((value as Dictionary).get("id", ""))) == entry_id:
+			return (value as Dictionary).duplicate(true)
+	return {}
+
+
+func _on_career_slot_selected(index: int) -> void:
+	if _career_setup_syncing or index < 0 or index >= _title_slot_selector.item_count:
+		return
+	_selected_career_slot_id = StringName(String(_title_slot_selector.get_item_metadata(index)))
+	career_slot_changed.emit(_selected_career_slot_id)
+
+
+func _on_career_identity_selected(index: int) -> void:
+	if _career_setup_syncing or index < 0 or index >= _title_identity_selector.item_count:
+		return
+	_selected_career_identity_id = StringName(String(_title_identity_selector.get_item_metadata(index)))
+	career_identity_changed.emit(_selected_career_identity_id)
+
+
+func _on_replay_scenario_selected(index: int) -> void:
+	if _career_setup_syncing or index < 0 or index >= _title_scenario_selector.item_count:
+		return
+	_selected_replay_scenario_id = StringName(String(_title_scenario_selector.get_item_metadata(index)))
+	_refresh_career_setup()
+	replay_scenario_changed.emit(_selected_replay_scenario_id)
 
 
 func _on_challenge_contract_selected(index: int) -> void:
@@ -3643,6 +3796,9 @@ func _update_market_forecast() -> void:
 		_market_signed_percent(demand_basis_points),
 		float(price_cents) / 100.0,
 	]
+	var rival_value: Variant = _snapshot.get("rival_coop", {})
+	if rival_value is Dictionary and not (rival_value as Dictionary).is_empty():
+		_report_market_signal.text += "  ·  RIVAL %+d" % int((rival_value as Dictionary).get("difference", 0))
 	var next_day := int(forecast.get("next_market_day", day + 1))
 	var detail := (
 		"NEXT SHIFT MARKET  //  DAY %d\n"
@@ -4778,6 +4934,10 @@ func _refresh_final() -> void:
 	var legacy := legacy_value as Dictionary if legacy_value is Dictionary else {}
 	var replay_value: Variant = _snapshot.get("replay_recommendation", {})
 	var replay := replay_value as Dictionary if replay_value is Dictionary else {}
+	var rival_value: Variant = _snapshot.get("rival_coop", {})
+	var rival := rival_value as Dictionary if rival_value is Dictionary else {}
+	var profile_value: Variant = _snapshot.get("career_profile", {})
+	var profile := profile_value as Dictionary if profile_value is Dictionary else {}
 	var future_value: Variant = _snapshot.get("campaign_future", {})
 	var future := future_value as Dictionary if future_value is Dictionary else {}
 	var epilogue_value: Variant = _snapshot.get("flock_epilogue", [])
@@ -4888,6 +5048,10 @@ func _refresh_final_ending_glance(
 	var legacy := legacy_value as Dictionary if legacy_value is Dictionary else {}
 	var replay_value: Variant = _snapshot.get("replay_recommendation", {})
 	var replay := replay_value as Dictionary if replay_value is Dictionary else {}
+	var rival_value: Variant = _snapshot.get("rival_coop", {})
+	var rival := rival_value as Dictionary if rival_value is Dictionary else {}
+	var profile_value: Variant = _snapshot.get("career_profile", {})
+	var profile := profile_value as Dictionary if profile_value is Dictionary else {}
 	var future_value: Variant = _snapshot.get("campaign_future", {})
 	var future := future_value as Dictionary if future_value is Dictionary else {}
 	var epilogue_value: Variant = _snapshot.get("flock_epilogue", [])
@@ -4902,7 +5066,7 @@ func _refresh_final_ending_glance(
 	# genuinely different replay is worth starting.
 	if not legacy.is_empty():
 		beats[0] = {
-			"caption": "YOUR LEGACY",
+			"caption": String(profile.get("short", "YOUR LEGACY")).to_upper(),
 			"value": String(legacy.get("title", "UNFILED ROOST")).to_upper(),
 			"detail": String(legacy.get("detail", exact_message)),
 		}
@@ -4921,11 +5085,19 @@ func _refresh_final_ending_glance(
 		}
 	if not replay.is_empty():
 		beats[3] = {
-			"caption": "NEXT FILE",
+			"caption": "RIVAL FILE" if not rival.is_empty() else "NEXT FILE",
 			"value": String(replay.get("contract_short_label", "NEW PLAN")).to_upper(),
-			"detail": "%s  //  %s" % [
+			"detail": "%s  //  %s%s" % [
 				String(replay.get("action", "TRY A DIFFERENT DOCTRINE")),
 				String(replay.get("rationale", "Change the plan and compare the consequence.")),
+				(
+					"  //  %s: %+d. %s" % [
+						String(rival.get("name", "RIVAL COOP")),
+						int(rival.get("difference", 0)),
+						String(rival.get("rule", "")),
+					]
+					if not rival.is_empty() else ""
+				),
 			],
 		}
 	for index: int in range(mini(_final_ending_glance_tiles.size(), beats.size())):
@@ -6951,6 +7123,18 @@ func _make_button(node_name: String, text: String, variation: StringName) -> But
 	button.theme_type_variation = variation
 	button.focus_mode = Control.FOCUS_ALL
 	return button
+
+
+func _career_setup_selector(node_name: String, minimum_size: Vector2) -> OptionButton:
+	var selector := OptionButton.new()
+	selector.name = node_name
+	selector.fit_to_longest_item = false
+	selector.clip_text = true
+	selector.custom_minimum_size = minimum_size
+	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selector.focus_mode = Control.FOCUS_ALL
+	selector.theme_type_variation = &"DecisionChoiceButton"
+	return selector
 
 
 func _shortcut(keycode: Key) -> Shortcut:

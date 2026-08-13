@@ -12,6 +12,7 @@ func _run() -> void:
 	var observed := {
 		"continue": 0,
 		"new_campaign": 0,
+		"legacy_card": 0,
 	}
 	var harness := Control.new()
 	harness.name = "CampaignEndingUITestHarness"
@@ -21,6 +22,7 @@ func _run() -> void:
 	harness.add_child(ui)
 	ui.continue_campaign.connect(func() -> void: observed["continue"] += 1)
 	ui.new_campaign.connect(func() -> void: observed["new_campaign"] += 1)
+	ui.legacy_card_requested.connect(func() -> void: observed["legacy_card"] += 1)
 	await process_frame
 
 	var verdict := ui.find_child("FinalProbationVerdict", true, false) as Label
@@ -30,6 +32,7 @@ func _run() -> void:
 	var continue_button := ui.find_child("FinalContinueCampaignButton", true, false) as Button
 	var new_button := ui.find_child("FinalNewCampaignButton", true, false) as Button
 	var leave_button := ui.find_child("FinalAbandonCampaignButton", true, false) as Button
+	var share_button := ui.find_child("FinalShareLegacyButton", true, false) as Button
 	var sticky_bar := ui.find_child("FinalStickyActionBar", true, false) as PanelContainer
 	var sticky_primary := ui.find_child("FinalStickyPrimaryButton", true, false) as Button
 	var sticky_leave := ui.find_child("FinalStickyLeaveButton", true, false) as Button
@@ -50,7 +53,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(final_panel != null and modal_host != null, "final review should retain its blocking modal structure", failures)
-	_check(continue_button != null and new_button != null and leave_button != null, "final review should retain all campaign actions", failures)
+	_check(continue_button != null and new_button != null and leave_button != null and share_button != null, "final review should retain campaign actions plus a privacy-local legacy export", failures)
 	_check(sticky_bar != null and sticky_primary != null and sticky_leave != null, "desktop final review should expose its always-visible action strip", failures)
 
 	var successful_endings: Array[Dictionary] = [
@@ -114,6 +117,9 @@ func _run() -> void:
 	if sticky_primary != null:
 		sticky_primary.pressed.emit()
 	_check(int(observed["continue"]) == successful_endings.size() + 1, "in-flow and sticky successful actions should preserve the public continuation signal", failures)
+	if share_button != null:
+		share_button.pressed.emit()
+	_check(int(observed["legacy_card"]) == 1, "the final legacy action should emit one export intent", failures)
 
 	var experiential_final := _final_snapshot(true, successful_endings[2])
 	experiential_final["campaign_legacy"] = {

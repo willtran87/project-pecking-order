@@ -38,6 +38,7 @@ const SeniorRoostStateScript := preload("res://core/campaign/senior_roost_state.
 const CareerCommendationsScript := preload("res://core/campaign/career_commendations.gd")
 const CareerRunArchiveScript := preload("res://core/campaign/career_run_archive.gd")
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
+const CareerPortfolioStoreScript := preload("res://core/persistence/career_portfolio_store.gd")
 const CheckpointCoordinatorScript := preload("res://core/persistence/checkpoint_coordinator.gd")
 const ProbationCampaignUIScript := preload("res://features/office/probation_campaign_ui.gd")
 const CharacterDialogueUIScript := preload("res://features/office/character_dialogue_ui.gd")
@@ -133,7 +134,7 @@ const COLLECTION_STRUCTURAL_SHADOW_PREFIXES := [
 	"EggCollectionCartBasket",
 	"EggCollectionCartHandle",
 ]
-const CAREER_DOCKET_SEEDS := [1701, 4703, 7919, 12011]
+const CAREER_DOCKET_SEEDS := [1701, 4703, 7919, 12011, 15013, 18041, 24029]
 const PECK_ASSIST_ACTION: StringName = &"peck_assist"
 const PECK_FOCUS_LEAD_PROGRESS := 16.0
 const PECK_FOCUS_RESULT_HOLD_MSEC := 2500
@@ -502,6 +503,10 @@ var _last_reviewed_day: int = 1
 var _campaign_state = CampaignStateScript.new()
 var _senior_roost_state = SeniorRoostStateScript.new()
 var _campaign_store = CampaignSaveStoreScript.new(CAMPAIGN_SAVE_FILENAME)
+var _career_portfolio_store = CareerPortfolioStoreScript.new()
+var _active_career_slot: StringName = &"roost_a"
+var _career_profile: Dictionary = CareerPortfolioStoreScript.identity(&"open_nest")
+var _selected_replay_scenario_id: StringName = &"baseline_book"
 var _career_run_archive = CareerRunArchiveScript.new()
 var _current_campaign_run_id := ""
 var _checkpoint_coordinator = CheckpointCoordinatorScript.new()
@@ -770,6 +775,11 @@ func _ready() -> void:
 	_boot_started_msec = Time.get_ticks_msec()
 	_boot_mark(&"entry")
 	name = "CorporateClaimsDivision"
+	# Focused persistence tests inject an isolated save store before entering the
+	# tree. Preserve that explicit authority instead of silently switching them to
+	# a player roost; ordinary native/Web launches always load the portfolio.
+	if not (_allow_automated_campaign_saves and DisplayServer.get_name() == "headless"):
+		_load_career_portfolio()
 	# Envelope validity is enough to offer Continue, but it is not proof that the
 	# nested campaign, simulation, and Senior ledgers can activate together.
 	_has_campaign_checkpoint_candidate = _campaign_store != null and _campaign_store.has_save()
@@ -797,6 +807,7 @@ func _ready() -> void:
 		Vector3(9.55, 0.0, 5.35),
 		Vector3(9.4, 0.0, -6.85),
 	)
+	_office_storytelling.apply_career_profile(_career_profile)
 	_office_storytelling.egg_graded.connect(_on_egg_graded)
 	_office_storytelling.egg_reached_presentation_detailed.connect(_on_egg_reached_presentation)
 	_office_storytelling.optional_visuals_finished.connect(_on_optional_storytelling_finished)
@@ -1755,6 +1766,54 @@ func _on_playtest_receipt_export_requested() -> void:
 		return
 	_settings_ui.present_playtest_receipt(_first_session_funnel.export_receipt())
 	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_legacy_card_requested() -> void:
+	if _campaign_state == null or _simulation == null or _campaign_state.completed_shifts < CampaignStateScript.CAMPAIGN_LENGTH:
+		_publish_economic_action_hold(
+			"LEGACY CARD",
+			"FINISH THE FILE",
+			"The shareable legacy card opens only after the five-shift final review.",
+			"Legacy card",
+		)
+		return
+	var evaluation := _campaign_state.final_evaluation()
+	var leadership := _simulation.leadership_record_snapshot()
+	var scenario := _simulation.scenario_identity_snapshot()
+	var hearing := _simulation.final_hearing_snapshot()
+	var rival := _simulation.rival_coop_snapshot(
+		_campaign_state.probation_score,
+		_campaign_state.completed_shifts,
+	)
+	var card := {
+		"format": "pecking_order_legacy_card",
+		"version": 1,
+		"privacy": "No personal data. Created locally and never transmitted by the game.",
+		"coop": String(_career_profile.get("label", "OPEN NEST CO-OP")),
+		"emblem": String(_career_profile.get("emblem", "OPEN WING")),
+		"scenario": String(scenario.get("name", "BASELINE BOOK")),
+		"difficulty": String(_campaign_state.challenge_contract_snapshot().get("label", "STANDARD FILING")),
+		"score": _campaign_state.probation_score,
+		"rank": CampaignStateScript.rank_display_name(_campaign_state.probation_rank),
+		"passed": bool(evaluation.get("passed", false)),
+		"legacy": String(leadership.get("title", "UNFILED ROOST")),
+		"final_hearing": String(hearing.get("option_label", "STANDARD RECORD")),
+		"rival": String(rival.get("name", "GOLDEN COMB GROUP")),
+		"rival_margin": int(rival.get("difference", 0)),
+		"run_count": int(_career_run_archive.comparison().get("run_count", 0)),
+	}
+	var json_text := JSON.stringify(card, "  ")
+	var filename := "pecking-order-%s-legacy.json" % String(_career_profile.get("id", "open_nest"))
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(json_text.to_utf8_buffer(), filename, "application/json")
+	else:
+		DisplayServer.clipboard_set(json_text)
+	_ticker_label.text = "LEGACY CARD READY. %s" % (
+		"Downloaded locally; nothing was transmitted."
+		if OS.has_feature("web") else
+		"Copied to the clipboard; nothing was transmitted."
+	)
+	_ticker_panel.visible = true
 
 
 func _on_career_backup_import_requested(json_text: String) -> void:
@@ -6444,6 +6503,10 @@ func _build_ui() -> void:
 	_campaign_ui.abandon_campaign.connect(_on_campaign_abandon_requested)
 	_campaign_ui.review_requisitions.connect(_on_campaign_review_requisitions_requested)
 	_campaign_ui.challenge_contract_changed.connect(_on_campaign_challenge_contract_changed)
+	_campaign_ui.career_slot_changed.connect(_on_career_slot_changed)
+	_campaign_ui.career_identity_changed.connect(_on_career_identity_changed)
+	_campaign_ui.replay_scenario_changed.connect(_on_replay_scenario_changed)
+	_campaign_ui.legacy_card_requested.connect(_on_legacy_card_requested)
 	_campaign_ui.title_intake_phase_changed.connect(_on_campaign_title_intake_phase_changed)
 	_campaign_ui.milestone_choice.connect(_on_campaign_milestone_requested)
 	_campaign_ui.presentation_state_changed.connect(_on_campaign_presentation_state_changed)
@@ -11665,6 +11728,50 @@ func _fresh_campaign_seed() -> int:
 	return int(CAREER_DOCKET_SEEDS[docket_rng.randi_range(0, CAREER_DOCKET_SEEDS.size() - 1)])
 
 
+func _load_career_portfolio() -> void:
+	if _career_portfolio_store == null:
+		_career_portfolio_store = CareerPortfolioStoreScript.new()
+	_career_portfolio_store.load_portfolio()
+	_active_career_slot = _career_portfolio_store.active_slot_id()
+	_career_profile = _career_portfolio_store.profile_for_slot(_active_career_slot)
+	_campaign_store = CampaignSaveStoreScript.new(
+		CareerPortfolioStoreScript.filename_for_slot(_active_career_slot)
+	)
+
+
+func _on_career_slot_changed(slot_id: StringName) -> void:
+	if _campaign_ui == null or _campaign_ui.modal_state() != ProbationCampaignUI.VIEW_TITLE:
+		return
+	if not _career_portfolio_store.activate_slot(slot_id):
+		_ticker_label.text = "ROOST HELD. %s" % _career_portfolio_store.last_error
+		return
+	_checkpoint_coordinator.discard_pending()
+	_campaign_session_checkpoint_enabled = false
+	_active_career_slot = slot_id
+	_career_profile = _career_portfolio_store.profile_for_slot(slot_id)
+	_campaign_store = CampaignSaveStoreScript.new(CareerPortfolioStoreScript.filename_for_slot(slot_id))
+	_has_campaign_checkpoint_candidate = _campaign_store.has_save()
+	_has_verified_campaign_checkpoint = false
+	_show_campaign_title(_has_campaign_checkpoint_candidate)
+	_set_campaign_modal_open(true)
+
+
+func _on_career_identity_changed(identity_id: StringName) -> void:
+	if not _career_portfolio_store.set_identity(_active_career_slot, identity_id):
+		_ticker_label.text = "COOP IDENTITY HELD. %s" % _career_portfolio_store.last_error
+		return
+	_career_profile = _career_portfolio_store.profile_for_slot(_active_career_slot)
+	if _office_storytelling != null:
+		_office_storytelling.apply_career_profile(_career_profile)
+	_show_campaign_title(_campaign_store.has_save())
+
+
+func _on_replay_scenario_changed(scenario_id: StringName) -> void:
+	_selected_replay_scenario_id = scenario_id
+	if _simulation != null:
+		_publish_web_diagnostic_state(_simulation.snapshot())
+
+
 func _new_campaign_run_id(career_seed: int) -> String:
 	return "run-%d-%d-%d" % [
 		career_seed,
@@ -11708,7 +11815,9 @@ func _on_campaign_new_requested() -> void:
 	_character_dialogue_previous_snapshot.clear()
 	if _character_dialogue_ui != null:
 		_character_dialogue_ui.clear_session()
-	var fresh_seed := _fresh_campaign_seed()
+	var fresh_seed := DepartmentSimulation.replay_scenario_seed(_selected_replay_scenario_id)
+	if fresh_seed not in CAREER_DOCKET_SEEDS:
+		fresh_seed = _fresh_campaign_seed()
 	var fresh_simulation := DepartmentSimulation.new(
 		1701,
 		INITIAL_CAMPAIGN_STAFF,
@@ -12466,6 +12575,7 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 	var replay_recommendation := _campaign_state.replay_recommendation()
 	var final_hearing := _simulation.final_hearing_snapshot()
 	var run_history := _career_run_archive.comparison()
+	var rival_coop := _simulation.rival_coop_snapshot(_campaign_state.probation_score, completed)
 	var legacy_title := String(active_doctrine.get(
 		"label",
 		leadership_record.get("title", "UNFILED ROOST"),
@@ -12518,6 +12628,9 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		"replay_recommendation": replay_recommendation,
 		"final_hearing": final_hearing,
 		"run_history": run_history,
+		"rival_coop": rival_coop,
+		"career_profile": _career_profile.duplicate(true),
+		"active_career_slot": String(_active_career_slot),
 		"campaign_legacy": campaign_legacy,
 		"flock_epilogue": flock_epilogue,
 		"campaign_future": _campaign_future_snapshot(ending, leadership_record, flock_epilogue),
@@ -14550,6 +14663,8 @@ func _write_campaign_checkpoint(reason: String) -> bool:
 			"interface_context": _campaign_interface_context(),
 			"run_archive": _career_run_archive.entries(),
 			"current_run_id": _current_campaign_run_id,
+			"career_profile": _career_profile.duplicate(true),
+			"career_slot": String(_active_career_slot),
 		},
 	}
 	var metadata := {
@@ -14562,6 +14677,8 @@ func _write_campaign_checkpoint(reason: String) -> bool:
 		"review_stage": String(_campaign_review_stage),
 		"senior_years": _senior_roost_state.completed_years,
 		"roost_marks": _senior_roost_state.roost_marks,
+		"career_slot": String(_active_career_slot),
+		"career_identity_id": String(_career_profile.get("id", "open_nest")),
 	}
 	var safe_payload := _json_safe_variant(payload) as Dictionary
 	var safe_metadata := _json_safe_variant(metadata) as Dictionary
@@ -14967,6 +15084,9 @@ func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
 			restored_campaign,
 			simulation_data_value as Dictionary,
 		)
+	var career_profile := CareerPortfolioStoreScript.normalize_profile(
+		session.get("career_profile", _career_profile)
+	)
 	var review_stage_value: Variant = session.get("review_stage", "active")
 	if typeof(review_stage_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
 		return {"ok": false, "error": "session.review_stage must be a string"}
@@ -15028,6 +15148,7 @@ func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
 		),
 		"run_archive": staged_run_archive,
 		"current_run_id": current_run_id,
+		"career_profile": career_profile,
 	}
 
 
@@ -15045,6 +15166,11 @@ func _activate_staged_campaign_checkpoint(staged: Dictionary) -> bool:
 	_first_clutch = (staged.get("first_clutch", {}) as Dictionary).duplicate(true)
 	_career_run_archive = staged.get("run_archive", CareerRunArchiveScript.new())
 	_current_campaign_run_id = String(staged.get("current_run_id", ""))
+	_career_profile = (
+		staged.get("career_profile", _career_profile) as Dictionary
+	).duplicate(true)
+	if _office_storytelling != null:
+		_office_storytelling.apply_career_profile(_career_profile)
 	return true
 
 
@@ -17154,6 +17280,17 @@ func _show_campaign_title(continue_available: bool) -> void:
 		var ui_selection := StringName(_campaign_ui.call("selected_challenge_contract_id"))
 		if not CampaignStateScript.challenge_contract(ui_selection).is_empty():
 			selected_challenge_id = ui_selection
+	if _campaign_ui != null and _campaign_ui.has_method("selected_replay_scenario_id"):
+		_selected_replay_scenario_id = StringName(_campaign_ui.call("selected_replay_scenario_id"))
+	var slot_catalog := CareerPortfolioStoreScript.slot_catalog()
+	for slot: Dictionary in slot_catalog:
+		var slot_store = CampaignSaveStoreScript.new(String(slot.get("filename", CAMPAIGN_SAVE_FILENAME)))
+		var occupied := slot_store.has_save()
+		slot["occupied"] = occupied
+		slot["label"] = "%s%s" % [
+			String(slot.get("label", "ROOST")),
+			"  •  SAVED" if occupied else "  •  OPEN",
+		]
 	_campaign_ui.apply_snapshot({
 		"view": &"title",
 		"day": 1,
@@ -17163,6 +17300,12 @@ func _show_campaign_title(continue_available: bool) -> void:
 		"resume_summary": resume_summary,
 		"challenge_contract_catalog": CampaignStateScript.challenge_contract_catalog(),
 		"selected_new_challenge_contract_id": String(selected_challenge_id),
+		"active_career_slot": String(_active_career_slot),
+		"career_profile": _career_profile.duplicate(true),
+		"career_slot_catalog": slot_catalog,
+		"career_identity_catalog": CareerPortfolioStoreScript.identity_catalog(),
+		"replay_scenario_catalog": DepartmentSimulation.replay_scenario_catalog(),
+		"selected_replay_scenario_id": String(_selected_replay_scenario_id),
 	})
 	_campaign_ui.show_title(continue_available)
 

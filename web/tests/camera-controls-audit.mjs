@@ -53,7 +53,7 @@ try {
 	const canvas = page.locator("canvas");
 	let box = await canvas.boundingBox();
 	assert.ok(box, "the Godot canvas must have visible bounds");
-	await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * (594 / 720));
+	await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * (657 / 720));
 	await waitForState(
 		(snapshot) => snapshot.campaign_stage === "active",
 		"new campaign activation",

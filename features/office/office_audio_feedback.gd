@@ -283,6 +283,12 @@ func play_scenario_fit(scenario_id: StringName) -> bool:
 			pitch = 0.94
 		&"flock_walkout":
 			pitch = 1.02
+		&"thin_margin":
+			pitch = 0.82
+		&"fox_season":
+			pitch = 1.16
+		&"credit_scramble":
+			pitch = 1.28
 		_:
 			return false
 	return _play(

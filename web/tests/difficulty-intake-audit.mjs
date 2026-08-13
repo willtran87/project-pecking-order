@@ -86,7 +86,7 @@ try {
 	await page.keyboard.press("KeyT");
 	await page.waitForTimeout(300);
 
-	await clickAuthored(640, 594);
+	await clickAuthored(640, 657);
 	const active = await waitForState(
 		(snapshot) => snapshot.campaign_stage === "active"
 			&& snapshot.challenge_contract?.id === "executive_audit",
@@ -98,8 +98,8 @@ try {
 		minimum_score: 65,
 		minimum_welfare: 48,
 		minimum_compliance: 65,
-		minimum_farmer_favor: 53,
-		maximum_crack_rate_basis_points: 2300,
+		minimum_farmer_favor: 52,
+		maximum_crack_rate_basis_points: 2450,
 	});
 	evidence.activeContract = {
 		id: active.challenge_contract.id,

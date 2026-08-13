@@ -373,8 +373,10 @@ var _scenario_identity_root: Node3D
 var _scenario_identity_label: Label3D
 var _scenario_charter_root: Node3D
 var _scenario_charter_label: Label3D
+var _coop_identity_label: Label3D
 var _scenario_prop_roots: Dictionary = {}
 var _scenario_identity_id: StringName = &"baseline_book"
+var _career_profile: Dictionary = {}
 
 
 func _ready() -> void:
@@ -2779,6 +2781,12 @@ func _build_scenario_identity_dressing() -> void:
 		16, 0.0046, &"secondary", &"destination", true,
 	)
 	_scenario_charter_root.visible = false
+	_coop_identity_label = _add_mounted_label(
+		_scenario_identity_root, "CoopIdentityPlaque", "OPEN NEST CO-OP  •  OPEN WING",
+		center + Vector3(0.0, 0.70, 0.57), Vector2(3.45, 0.28),
+		Color("4b3a2c"), Color("f2dfac"), Vector3.ZERO,
+		12, 0.0042, &"secondary", &"identity", true,
+	)
 
 	var baseline := Node3D.new()
 	baseline.name = "BaselineBookProps"
@@ -2810,14 +2818,53 @@ func _build_scenario_identity_dressing() -> void:
 		_add_box(walkout, "WalkoutPlacard_%02d" % index, Vector3(0.54, 0.44, 0.08), center + Vector3(placard_x, 1.28 + (index % 2) * 0.16, 0.56), Color("b96b55") if index % 2 == 0 else Color("79a98f"), 0.76)
 		_add_box(walkout, "WalkoutHandle_%02d" % index, Vector3(0.06, 0.66, 0.06), center + Vector3(placard_x, 0.88, 0.54), Color("806044"), 0.82)
 
+	var margin := Node3D.new()
+	margin.name = "ThinMarginProps"
+	_scenario_identity_root.add_child(margin)
+	for index in 6:
+		_add_box(margin, "MarginLedger_%02d" % index, Vector3(0.42, 0.12, 0.56), center + Vector3(-1.25 + index * 0.50, 0.98 + index * 0.035, 0.52), Color("b98f52") if index % 2 == 0 else Color("6f7a70"), 0.78)
+	_add_box(margin, "MarginRedLine", Vector3(3.0, 0.06, 0.08), center + Vector3(0.0, 1.42, 0.59), Color("c45f52"), 0.70)
+
+	var fox := Node3D.new()
+	fox.name = "FoxSeasonProps"
+	_scenario_identity_root.add_child(fox)
+	for index in 3:
+		var beacon := _add_cylinder(fox, "FoxBeacon_%02d" % index, center + Vector3(-1.0 + index, 1.14, 0.53), 0.24, 0.42, Color("d36b4d"), 0.32)
+		beacon.material_override = _emissive_material(Color("d36b4d"), 0.62)
+	_add_box(fox, "FoxWindowWatch", Vector3(3.1, 0.12, 0.22), center + Vector3(0.0, 0.92, 0.50), Color("434f4d"), 0.62)
+
+	var credit := Node3D.new()
+	credit.name = "CreditScrambleProps"
+	_scenario_identity_root.add_child(credit)
+	for index in 4:
+		_add_box(credit, "CreditPressCard_%02d" % index, Vector3(0.58, 0.42, 0.08), center + Vector3(-1.15 + index * 0.76, 1.17 + (index % 2) * 0.12, 0.56), Color("e0d6bb"), 0.76)
+	_add_cylinder(credit, "CreditCameraLens", center + Vector3(0.0, 0.88, 0.56), 0.30, 0.26, Color("3b454a"), 0.66)
+
 	_scenario_prop_roots = {
 		&"baseline_book": baseline,
 		&"harvest_surge": harvest,
 		&"shell_audit": audit,
 		&"flock_walkout": walkout,
+		&"thin_margin": margin,
+		&"fox_season": fox,
+		&"credit_scramble": credit,
 	}
 	_scenario_identity_id = &"baseline_book"
 	_apply_scenario_identity({})
+	apply_career_profile(_career_profile)
+
+
+func apply_career_profile(profile: Dictionary) -> void:
+	_career_profile = profile.duplicate(true)
+	if _coop_identity_label == null:
+		return
+	_coop_identity_label.text = "%s  •  %s" % [
+		String(profile.get("label", "OPEN NEST CO-OP")).to_upper(),
+		String(profile.get("emblem", "OPEN WING")).to_upper(),
+	]
+	_coop_identity_label.modulate = Color(String(profile.get("color", "73b5a7")))
+	_coop_identity_label.set_meta("career_identity_id", String(profile.get("id", "open_nest")))
+	EnvironmentalSignageScript.refit_label(_coop_identity_label)
 
 
 func _apply_scenario_identity(snapshot: Dictionary) -> void:
@@ -2858,6 +2905,15 @@ func _apply_scenario_identity(snapshot: Dictionary) -> void:
 		&"flock_walkout":
 			_scenario_identity_label.text = "FLOCK WALKOUT\nLABOR WATCH"
 			_scenario_identity_label.modulate = Color("9cd5ad")
+		&"thin_margin":
+			_scenario_identity_label.text = "THIN MARGIN\nEVERY CENT VISIBLE"
+			_scenario_identity_label.modulate = Color("e0b96b")
+		&"fox_season":
+			_scenario_identity_label.text = "FOX SEASON\nPROTECT, DON'T POLICE"
+			_scenario_identity_label.modulate = Color("e58a67")
+		&"credit_scramble":
+			_scenario_identity_label.text = "CREDIT SCRAMBLE\nNAME THE WORK"
+			_scenario_identity_label.modulate = Color("d8ca8c")
 		_:
 			_scenario_identity_label.text = "BASELINE BOOK\nBALANCED INTAKE"
 			_scenario_identity_label.modulate = Color("d8e7dc")
@@ -3116,6 +3172,7 @@ func _clear_built_roots() -> void:
 	_scenario_identity_label = null
 	_scenario_charter_root = null
 	_scenario_charter_label = null
+	_coop_identity_label = null
 	_scenario_prop_roots.clear()
 	shell_quality_lab_visual = null
 	packing_annex_visual = null

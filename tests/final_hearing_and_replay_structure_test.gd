@@ -15,14 +15,14 @@ func _init() -> void:
 			push_error("FINAL_HEARING_AND_REPLAY_STRUCTURE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FINAL_HEARING_AND_REPLAY_STRUCTURE_TEST_PASSED scenarios=3 openings=distinct climax=playable witness=named charter=persisted archive=bounded+comparative")
+	print("FINAL_HEARING_AND_REPLAY_STRUCTURE_TEST_PASSED scenarios=6 openings=distinct climax=playable witness=named charter=persisted archive=bounded+comparative")
 	quit(0)
 
 
 func _test_scenario_openings(failures: Array[String]) -> void:
 	var observed_counts: Dictionary[String, int] = {}
 	var observed_rules: Dictionary[String, String] = {}
-	for seed in [4703, 7919, 12011]:
+	for seed in SimulationScript.AUTHORED_SCENARIO_SEEDS:
 		var simulation := SimulationScript.new(1701, 4, seed) as DepartmentSimulation
 		var campaign := CampaignScript.new() as CampaignState
 		var result := simulation.configure_opening_challenge(campaign.challenge_contract_snapshot())
@@ -36,6 +36,10 @@ func _test_scenario_openings(failures: Array[String]) -> void:
 	_check(int(observed_counts.get("harvest_surge", 0)) == 8, "Harvest Surge should open with two visible rush files", failures)
 	_check(int(observed_counts.get("shell_audit", 0)) == 8, "Shell Audit should open with two visible appeal files", failures)
 	_check(int(observed_counts.get("flock_walkout", 0)) == 6, "Flock Walkout should change worker state instead of adding files", failures)
+	_check(int(observed_counts.get("thin_margin", 0)) == 6, "Thin Margin should change cash and quota instead of adding files", failures)
+	_check(int(observed_counts.get("fox_season", 0)) == 8, "Fox Season should open with two visible predator files", failures)
+	_check(int(observed_counts.get("credit_scramble", 0)) == 8, "Credit Scramble should open with two visible repair files", failures)
+	_check(observed_counts.size() == 6, "the replay catalog should expose six distinct authored pressures", failures)
 
 
 func _test_final_hearing(failures: Array[String]) -> void:

@@ -2,6 +2,8 @@ extends SceneTree
 
 const ProbationCampaignUIScript := preload("res://features/office/probation_campaign_ui.gd")
 const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
+const CareerPortfolioScript := preload("res://core/persistence/career_portfolio_store.gd")
+const SimulationScript := preload("res://core/simulation/department_simulation.gd")
 
 
 func _init() -> void:
@@ -16,6 +18,9 @@ func _run() -> void:
 		"abandon": 0,
 		"milestone": &"",
 		"challenge_contract": &"",
+		"career_slot": &"",
+		"career_identity": &"",
+		"replay_scenario": &"",
 		"title_phase": &"",
 		"report_filing_settled": 0,
 		"live_order_id": &"",
@@ -34,6 +39,9 @@ func _run() -> void:
 	ui.challenge_contract_changed.connect(
 		func(contract_id: StringName) -> void: observed["challenge_contract"] = contract_id
 	)
+	ui.career_slot_changed.connect(func(value: StringName) -> void: observed["career_slot"] = value)
+	ui.career_identity_changed.connect(func(value: StringName) -> void: observed["career_identity"] = value)
+	ui.replay_scenario_changed.connect(func(value: StringName) -> void: observed["replay_scenario"] = value)
 	ui.title_intake_phase_changed.connect(
 		func(phase: StringName) -> void: observed["title_phase"] = phase
 	)
@@ -404,6 +412,12 @@ func _run() -> void:
 		"continue_available": false,
 		"challenge_contract_catalog": _challenge_contract_catalog(),
 		"selected_new_challenge_contract_id": "standard_filing",
+		"active_career_slot": "roost_a",
+		"career_profile": CareerPortfolioScript.identity(&"open_nest"),
+		"career_slot_catalog": CareerPortfolioScript.slot_catalog(),
+		"career_identity_catalog": CareerPortfolioScript.identity_catalog(),
+		"replay_scenario_catalog": SimulationScript.replay_scenario_catalog(),
+		"selected_replay_scenario_id": "baseline_book",
 	})
 	await process_frame
 	var title_panel := ui.find_child("CampaignTitlePanel", true, false) as PanelContainer
@@ -415,6 +429,10 @@ func _run() -> void:
 	var mabel_quote := ui.find_child("CampaignMabelQuote", true, false) as Label
 	var mabel_portrait := ui.find_child("CampaignMabelPortrait", true, false) as TextureRect
 	var challenge_selector := ui.find_child("ChallengeContractSelector", true, false) as OptionButton
+	var career_slot_selector := ui.find_child("CareerSlotSelector", true, false) as OptionButton
+	var career_identity_selector := ui.find_child("CareerIdentitySelector", true, false) as OptionButton
+	var replay_scenario_selector := ui.find_child("ReplayScenarioSelector", true, false) as OptionButton
+	var replay_scenario_rule := ui.find_child("ReplayScenarioRule", true, false) as Label
 	var challenge_card := ui.find_child("ChallengeContractCard", true, false) as PanelContainer
 	var challenge_summary := ui.find_child("ChallengeContractSummary", true, false) as Label
 	var challenge_fund := ui.find_child("ChallengeOpeningFund", true, false) as Label
@@ -434,6 +452,19 @@ func _run() -> void:
 	var continue_button := ui.find_child("ContinueCampaignButton", true, false) as Button
 	var back_button := ui.find_child("BackToSavedCampaignButton", true, false) as Button
 	_check(title_panel != null and title_panel.is_visible_in_tree(), "first load should show the campaign title panel", failures)
+	_check(
+		career_slot_selector != null and career_slot_selector.item_count == 3
+		and career_identity_selector != null and career_identity_selector.item_count == 3
+		and replay_scenario_selector != null and replay_scenario_selector.item_count == 7
+		and replay_scenario_rule != null and "PROVEN FIVE-SHIFT" in replay_scenario_rule.text.to_upper(),
+		"new-file intake should expose three isolated roosts, three coop identities, and baseline plus six compact replay files (slots=%d identities=%d scenarios=%d rule=%s)" % [
+			career_slot_selector.item_count if career_slot_selector != null else -1,
+			career_identity_selector.item_count if career_identity_selector != null else -1,
+			replay_scenario_selector.item_count if replay_scenario_selector != null else -1,
+			replay_scenario_rule.text if replay_scenario_rule != null else "missing",
+		],
+		failures,
+	)
 	_check(modal_host.is_visible_in_tree(), "title panel should be an intentional blocking modal", failures)
 	_check(
 		title_heading != null and title_heading.text == "MEET MABEL",

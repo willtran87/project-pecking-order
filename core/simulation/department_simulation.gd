@@ -1306,7 +1306,15 @@ const INCIDENT_ORDER: Array[StringName] = [
 	&"return_to_sender",
 ]
 const INCIDENT_DOCKET_SEED_OFFSET := 32_452_843
-const AUTHORED_SCENARIO_SEEDS := [4703, 7919, 12011]
+const AUTHORED_SCENARIO_SEEDS := [4703, 7919, 12011, 15013, 18041, 24029]
+const SCENARIO_SEED_IDS := {
+	4703: &"flock_walkout",
+	7919: &"shell_audit",
+	12011: &"harvest_surge",
+	15013: &"thin_margin",
+	18041: &"fox_season",
+	24029: &"credit_scramble",
+}
 const FINAL_HEARING_INCIDENT_ID: StringName = &"final_hearing"
 const SCENARIO_IDENTITIES := {
 	&"harvest_surge": {
@@ -1344,6 +1352,50 @@ const SCENARIO_IDENTITIES := {
 		"climax_title": "THE FLOCK ASKS WHO OWNS THE FLOOR",
 		"climax_body": "The hens will finish the clutch. Before they do, they want one promise that survives your probation badge.",
 		"promise": "Sustainable policy turns worker pressure into trust, recovery, and steadier shells.",
+		"rival_name": "Golden Comb Group",
+		"rival_rule": "They lead on raw output; beat them by holding welfare and score together.",
+	},
+	&"thin_margin": {
+		"name": "THIN MARGIN",
+		"short": "MARGIN",
+		"icon": &"fund",
+		"favored_directive": &"sustainable_flock",
+		"favored_finale_option": &"publish_ledger",
+		"opening_rule": "Eight dollars are already committed and the quota rises by one.",
+		"victory_twist": "Finish solvent without turning care into the first budget cut.",
+		"climax_title": "THE LEDGER HAS ROOM FOR ONE PRINCIPLE",
+		"climax_body": "The margin survived. The closing signature decides whether the savings belong to the farmer, the public record, or the flock.",
+		"promise": "Sustainable policy reduces the human cost of a cash-starved opening.",
+		"rival_name": "Pennyfeather Mutual",
+		"rival_rule": "They win on cash alone; beat them with a solvent file that still protects the flock.",
+	},
+	&"fox_season": {
+		"name": "FOX SEASON",
+		"short": "FOX WATCH",
+		"icon": &"warning",
+		"favored_directive": &"shell_assurance",
+		"favored_finale_option": &"sign_flock_charter",
+		"opening_rule": "Two predator files arrive and every hen begins the day watching the windows.",
+		"victory_twist": "Protect the basket without making surveillance the permanent workplace.",
+		"climax_title": "SECURITY ASKS WHO THE LOCKS ARE FOR",
+		"climax_body": "The fox is gone. The final filing decides whether protection becomes evidence, authority, or a flock guarantee.",
+		"promise": "Assurance policy stabilizes shells while the flock absorbs a visible stress shock.",
+		"rival_name": "Iron Roost Assurance",
+		"rival_rule": "They lead on compliance; beat them without leaving trust behind the locked door.",
+	},
+	&"credit_scramble": {
+		"name": "CREDIT SCRAMBLE",
+		"short": "CREDIT",
+		"icon": &"star",
+		"favored_directive": &"record_harvest",
+		"favored_finale_option": &"back_farmer",
+		"opening_rule": "The farmer claims the opening basket and two repair files need visible owners.",
+		"victory_twist": "Win public standing while keeping the flock visible in the record.",
+		"climax_title": "THE FARMER HAS ALREADY WRITTEN THE HEADLINE",
+		"climax_body": "The cameras are ready. Your signature decides whose work survives the announcement.",
+		"promise": "Harvest policy recovers favor quickly, but attribution choices decide the ending.",
+		"rival_name": "Sunrise Egg Office",
+		"rival_rule": "They lead the publicity table; beat them by pairing output with attributed work.",
 	},
 }
 const INCIDENT_RESPONSE_VERSION := 1
@@ -18803,11 +18855,53 @@ func scenario_identity_snapshot() -> Dictionary:
 			"favored_directive": &"",
 			"promise": "No docket policy receives a scenario advantage.",
 		}
-	var scenario_ids: Array[StringName] = [&"harvest_surge", &"shell_audit", &"flock_walkout"]
-	var scenario_id := scenario_ids[posmod(_career_seed / 100, scenario_ids.size())]
+	var scenario_id: StringName = SCENARIO_SEED_IDS.get(_career_seed, &"harvest_surge")
 	var result := (SCENARIO_IDENTITIES[scenario_id] as Dictionary).duplicate(true)
 	result["id"] = scenario_id
+	result["seed"] = _career_seed
 	return result
+
+
+static func replay_scenario_catalog() -> Array[Dictionary]:
+	var result: Array[Dictionary] = [{
+		"id": "baseline_book",
+		"name": "BASELINE BOOK",
+		"short": "BASELINE",
+		"seed": 1701,
+		"opening_rule": "The proven five-shift filing with no scenario advantage.",
+	}]
+	for seed_value in AUTHORED_SCENARIO_SEEDS:
+		var scenario_id: StringName = SCENARIO_SEED_IDS[seed_value]
+		var scenario := (SCENARIO_IDENTITIES[scenario_id] as Dictionary).duplicate(true)
+		scenario["id"] = String(scenario_id)
+		scenario["seed"] = seed_value
+		result.append(scenario)
+	return result
+
+
+static func replay_scenario_seed(scenario_id: StringName) -> int:
+	if scenario_id == &"baseline_book":
+		return 1701
+	for seed_value in AUTHORED_SCENARIO_SEEDS:
+		if SCENARIO_SEED_IDS[seed_value] == scenario_id:
+			return seed_value
+	return 1701
+
+
+func rival_coop_snapshot(probation_score: int, completed_shifts: int) -> Dictionary:
+	var scenario := scenario_identity_snapshot()
+	var rival_name := String(scenario.get("rival_name", "Golden Comb Group"))
+	var benchmark := clampi(47 + completed_shifts * 6 + posmod(_career_seed, 4), 47, 82)
+	var difference := probation_score - benchmark
+	return {
+		"name": rival_name,
+		"benchmark": benchmark,
+		"player_score": probation_score,
+		"difference": difference,
+		"standing": &"ahead" if difference >= 0 else &"behind",
+		"short_label": "%+d VS %s" % [difference, rival_name.to_upper()],
+		"rule": String(scenario.get("rival_rule", "Beat the outside benchmark without abandoning the filed plan.")),
+	}
 
 
 func _apply_scenario_opening_structure() -> void:
@@ -18837,6 +18931,19 @@ func _apply_scenario_opening_structure() -> void:
 			# relationship is strained. This keeps the scenario's pressure on trust
 			# rather than turning it into an unrelated shell-quality trap.
 			_incident_crack_modifier -= 0.024
+		&"thin_margin":
+			revenue_cents = maxi(0, revenue_cents - 800)
+			quota_target += 1
+			_adjust_workers(-2.0, 2.0, 1.0)
+		&"fox_season":
+			_enqueue_new_claim(&"predator_loss")
+			_enqueue_new_claim(&"predator_loss")
+			_adjust_workers(-4.0, 5.0, 3.0)
+			_incident_crack_modifier += 0.008
+		&"credit_scramble":
+			_enqueue_new_claim(&"nest_damage")
+			_enqueue_new_claim(&"nest_damage")
+			executive_confidence = maxf(0.0, executive_confidence - 6.0)
 
 
 func final_hearing_snapshot() -> Dictionary:
@@ -18887,6 +18994,16 @@ func _apply_scenario_directive_modifier(directive_id: StringName) -> void:
 			&"harvest_surge":
 				_directive_crack_modifier -= 0.006
 				_adjust_workers(0.75, -0.50, -0.75)
+			&"thin_margin":
+				# A cash-starved docket should test solvency, not randomly erase the
+				# assurance route's earned Senior shell-control identity.
+				_directive_crack_modifier -= 0.012
+				_adjust_workers(1.0, -1.0, -1.0)
+			&"fox_season":
+				_directive_crack_modifier -= 0.010
+				_adjust_workers(0.75, -1.25, -1.0)
+			&"credit_scramble":
+				executive_confidence = minf(100.0, executive_confidence + 1.0)
 		return
 	# Authored scenario runs begin prepared rather than arbitrarily punished.
 	# Reading the docket grants a small shell-control credit; matching its named
@@ -18910,6 +19027,16 @@ func _apply_scenario_directive_modifier(directive_id: StringName) -> void:
 			_adjust_workers(3.0, -3.0, -2.0)
 			_adjust_worker_relationships(3.0, -3.0)
 			executive_confidence = minf(100.0, executive_confidence + 3.0)
+		&"thin_margin":
+			_directive_work_multiplier *= 1.05
+			_adjust_workers(4.0, -4.0, -3.0)
+		&"fox_season":
+			_directive_crack_modifier -= 0.030
+			compliance = minf(100.0, compliance + 3.0)
+			_adjust_workers(2.0, -4.0, -3.0)
+		&"credit_scramble":
+			_directive_work_multiplier *= 1.10
+			executive_confidence = minf(100.0, executive_confidence + 8.0)
 
 
 func _relationship_arc_stage(trust: float, grievance: float, prior_beats: int) -> Dictionary:
@@ -18954,7 +19081,10 @@ func incident_character_arc_snapshot(incident_id: StringName) -> Dictionary:
 	# the follow-through case into a relationship callback instead of trivia.
 	var pair_index := maxi(0, INCIDENT_PAIR_ORDER.find(pair_id))
 	if final_hearing:
-		var scenario_ids: Array[StringName] = [&"harvest_surge", &"shell_audit", &"flock_walkout"]
+		var scenario_ids: Array[StringName] = [
+			&"harvest_surge", &"shell_audit", &"flock_walkout",
+			&"thin_margin", &"fox_season", &"credit_scramble",
+		]
 		pair_index = maxi(0, scenario_ids.find(StringName(scenario_identity_snapshot().get("id", &""))))
 	var witness := employed_workers[pair_index % employed_workers.size()]
 	var prior_beats := 0

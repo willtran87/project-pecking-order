@@ -117,7 +117,7 @@ try {
     "fresh title boot",
     90_000,
   );
-  await clickAuthored(640, 594);
+  await clickAuthored(640, 657);
   await waitForState(
     "snapshot => snapshot.campaign_stage === 'active'",
     "new campaign activation",

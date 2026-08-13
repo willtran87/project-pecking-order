@@ -121,7 +121,7 @@ const evidence = { url, layouts: [], gestures: {}, panels: {} };
 try {
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await waitForState((state) => state.loaded === true || state.campaign_stage === "title", "Godot title boot", 45_000);
-  const start = await canvasPoint(0.5, 594 / 720);
+  const start = await canvasPoint(0.5, 657 / 720);
   await page.touchscreen.tap(start.x, start.y);
   await waitForState((state) => state.campaign_stage === "active", "touch New Campaign", 25_000);
   await page.waitForFunction(() => document.querySelector("main")?.getAttribute("data-play-mode") === "focused");

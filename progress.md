@@ -13726,3 +13726,43 @@ The next major systems milestone is persistent worker relationships and individu
   port 3001 is free and no repository-owned Godot or Node test process remains.
   Human comprehension/fun sessions and physical-device observations remain
   external evidence and are not represented as automated findings.
+
+## 2026-08-13 - Complete-product ownership and replay pass
+
+- Added three isolated local career Roosts with a tiny atomic portfolio index;
+  the historical save remains Roost A, while B/C use independent verified
+  campaign and recovery files. Slot switching occurs only at owned intake.
+- Added three persistent cosmetic coop identities. Identity is kept separate
+  from economic authority, checkpointed with the active file, printed on the
+  physical scenario cabinet, used in the ending glance, and exported locally.
+- Expanded selectable replay content from three to six authored pressures plus
+  Baseline. Thin Margin, Fox Season, and Credit Scramble have unique opening
+  structure, one-rule intake copy, policy fit, rival benchmark, Final Hearing,
+  office props, and adaptive-score mapping.
+- Added a deterministic rival-coop comparison to the existing report market
+  strip and ending tile. This is disclosed comparison pressure, not an opaque AI
+  economy or a new default screen.
+- Added an opt-in final legacy-card download/copy with explicit no-transmission
+  language and no personal data.
+- Added stable localization keys and an imported English catalog for the primary
+  intake/setup/export journey. The build remains honestly English-only.
+- Engine import/parse is clean. Focused career portfolio, six-scenario opening,
+  campaign UI, ending UI, storytelling, audio, save-store, semantic recovery,
+  and the expanded six-scenario deterministic balance matrix pass. The matrix
+  proves all 18 probation doctrine/scenario matchups, every authored Senior
+  Board Book, and the deliberate unprepared Gold control.
+- The 1280x720 renderer inspection caught and corrected a primary-action fold:
+  the ownership selectors, difficulty, three-step journey, and `START SHIFT 1`
+  now fit in one glance. The prescribed client published `loaded=true` with no
+  browser-error artifact, and the independent difficulty audit entered a live
+  Expert Day 1 file with no console/page errors.
+- The complete release gate passes 55/55 checks in 425.539 seconds: 45 isolated
+  Godot contracts, four Web/toolchain checks, and six evidence/parity release
+  contracts. All nine Pages/wrapper payloads match; `index.pck` is 10,458,696
+  bytes with SHA-256
+  `79A7F0025B1AB4955BA1CDD0AFE5D7AE0BB081E4748DB8259B0DB0FDBB4A2143`.
+- The exact temporary production-server process was stopped after inspection;
+  port 3001 is free and no repository-owned Godot or browser process remains.
+- Human moderated fun/comprehension sessions and real-device touch, listening,
+  assistive-technology, and physical-GPU observations remain external work; no
+  code change is represented as fabricated human or hardware evidence.
