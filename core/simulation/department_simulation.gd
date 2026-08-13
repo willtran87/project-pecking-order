@@ -1306,6 +1306,30 @@ const INCIDENT_ORDER: Array[StringName] = [
 	&"return_to_sender",
 ]
 const INCIDENT_DOCKET_SEED_OFFSET := 32_452_843
+const AUTHORED_SCENARIO_SEEDS := [4703, 7919, 12011]
+const SCENARIO_IDENTITIES := {
+	&"harvest_surge": {
+		"name": "HARVEST SURGE",
+		"short": "SURGE",
+		"icon": &"egg",
+		"favored_directive": &"record_harvest",
+		"promise": "Harvest policy converts the rush into pace and Farmer Favor, but keeps its shell-risk tradeoff.",
+	},
+	&"shell_audit": {
+		"name": "SHELL AUDIT",
+		"short": "AUDIT",
+		"icon": &"shield",
+		"favored_directive": &"shell_assurance",
+		"promise": "Assurance policy turns inspection pressure into lower crack risk and stronger compliance.",
+	},
+	&"flock_walkout": {
+		"name": "FLOCK WALKOUT",
+		"short": "WALKOUT",
+		"icon": &"flock",
+		"favored_directive": &"sustainable_flock",
+		"promise": "Sustainable policy turns worker pressure into trust, recovery, and steadier shells.",
+	},
+}
 const INCIDENT_RESPONSE_VERSION := 1
 const INCIDENT_RESPONSE_HISTORY_LIMIT := 24
 const INCIDENT_PIVOT_MASTERY_VERSION := 1
@@ -17949,30 +17973,45 @@ func phase_label() -> String:
 func _prepare_morning_directive() -> void:
 	_decision_serial += 1
 	shift_phase = ShiftPhase.AWAITING_DIRECTIVE
+	var scenario := scenario_identity_snapshot()
+	var favored_directive := StringName(scenario.get("favored_directive", &""))
 	var options: Array[Dictionary] = []
 	for directive in directive_catalog():
 		options.append({
 			"id": directive["id"],
 			"label": directive["name"],
 			"short_label": directive["short_name"],
-			"tagline": directive["tagline"],
+			"tagline": (
+				"SCENARIO FIT  /  %s" % String(directive["tagline"])
+				if StringName(directive["id"]) == favored_directive else
+				String(directive["tagline"])
+			),
 			"preview": directive["preview"],
 			"effect_chips": (directive.get("effect_chips", []) as Array).duplicate(true),
 			"cost_cents": 0,
 			"tone": directive["tone"],
+			"scenario_fit": StringName(directive["id"]) == favored_directive,
 		})
+	var docket_id := String(case_docket_snapshot().get("id", "PO-1701"))
+	var scenario_short := String(scenario.get("short", "BASELINE"))
 	pending_decision = {
 		"serial": _decision_serial,
 		"kind": &"directive",
 		"id": &"morning_directive",
 		"day": day,
-		"eyebrow": "MORNING DIRECTIVE  ·  DAY %d  ·  DOCKET %s" % [
+		"eyebrow": "MORNING DIRECTIVE  /  DAY %d  /  %s%s" % [
 			day,
-			String(case_docket_snapshot().get("id", "PO-1701")),
+			docket_id,
+			("  /  %s" % scenario_short) if favored_directive != &"" else "",
 		],
 		"title": "CHOOSE TODAY'S MANAGEMENT POLICY",
-		"body": "One policy governs the entire shift. Its benefits and liabilities are both real, even if only one appears in the farmer's presentation.",
+		"body": (
+			"Match the highlighted scenario fit or choose a different tradeoff."
+			if favored_directive != &"" else
+			"Choose the tradeoff that fits today's orders."
+		),
 		"options": options,
+		"scenario": scenario.duplicate(true),
 	}
 
 
@@ -18085,6 +18124,8 @@ func _resolve_directive(directive_id: StringName) -> bool:
 	if shift_phase != ShiftPhase.AWAITING_DIRECTIVE or not DIRECTIVE_DEFINITIONS.has(directive_id):
 		return false
 	var definition: Dictionary = DIRECTIVE_DEFINITIONS[directive_id]
+	var scenario := scenario_identity_snapshot()
+	var scenario_fit := StringName(scenario.get("favored_directive", &"")) == directive_id
 	active_directive_id = directive_id
 	_directive_work_multiplier = float(definition.get("work_multiplier", 1.0))
 	_directive_fatigue_multiplier = float(definition.get("fatigue_multiplier", 1.0))
@@ -18103,6 +18144,7 @@ func _resolve_directive(directive_id: StringName) -> bool:
 			_adjust_worker_relationships(1.0, -1.0)
 		&"sustainable_flock":
 			_adjust_worker_relationships(3.0, -3.0)
+	_apply_scenario_directive_modifier(directive_id)
 	_apply_operations_shift_pressure()
 	_consume_feed_for_shift()
 	var decision_id := StringName(pending_decision.get("id", &"morning_directive"))
@@ -18119,6 +18161,8 @@ func _resolve_directive(directive_id: StringName) -> bool:
 		"option_id": directive_id,
 		"outcome": outcome,
 		"day": day,
+		"scenario": scenario.duplicate(true),
+		"scenario_fit": scenario_fit,
 	})
 	snapshot_changed.emit(snapshot())
 	return true
@@ -18628,9 +18672,21 @@ func _incident_option_cost_cents(incident_id: StringName, option_id: StringName)
 func _refill_incident_bag() -> void:
 	_incident_bag.assign(INCIDENT_ORDER)
 	if _last_standard_incident_id == &"":
-		# The legacy docket opens with the two familiar onboarding cases. This
-		# preserves tutorial expectations while later rotations still vary.
-		_incident_bag.reverse()
+		# Keep the two taught day-one cases stable, then let the career seed author
+		# the rest of the very first probation docket. The bag is consumed from the
+		# back, so the onboarding cases are appended in reverse draw order after the
+		# remaining ten cases have been shuffled. Previously all twelve cases were
+		# merely reversed here, which meant a five-shift run never reached a seeded
+		# shuffle and every replay docket produced the same strategic environment.
+		_incident_bag.erase(&"ledger_molt")
+		_incident_bag.erase(&"wellness_request")
+		for index in range(_incident_bag.size() - 1, 0, -1):
+			var swap_index := _incident_rng.randi_range(0, index)
+			var held := _incident_bag[index]
+			_incident_bag[index] = _incident_bag[swap_index]
+			_incident_bag[swap_index] = held
+		_incident_bag.append(&"wellness_request")
+		_incident_bag.append(&"ledger_molt")
 	else:
 		for index in range(_incident_bag.size() - 1, 0, -1):
 			var swap_index := _incident_rng.randi_range(0, index)
@@ -18672,6 +18728,98 @@ func case_docket_snapshot() -> Dictionary:
 		"active_precedent": active_precedents[0].duplicate(true) if not active_precedents.is_empty() else {},
 		"active_precedents": active_precedents,
 		"pivot_mastery": incident_pivot_mastery_snapshot(),
+		"scenario": scenario_identity_snapshot(),
+	}
+
+
+func scenario_identity_snapshot() -> Dictionary:
+	# PO-1701 and internal economy fixtures remain neutral. Each selectable replay
+	# docket receives one deterministic pressure identity that makes the best
+	# morning policy depend on the current file instead of a global build.
+	if _career_seed not in AUTHORED_SCENARIO_SEEDS:
+		return {
+			"id": &"baseline_book",
+			"name": "BASELINE BOOK",
+			"short": "BASELINE",
+			"icon": &"files",
+			"favored_directive": &"",
+			"promise": "No docket policy receives a scenario advantage.",
+		}
+	var scenario_ids: Array[StringName] = [&"harvest_surge", &"shell_audit", &"flock_walkout"]
+	var scenario_id := scenario_ids[posmod(_career_seed / 100, scenario_ids.size())]
+	var result := (SCENARIO_IDENTITIES[scenario_id] as Dictionary).duplicate(true)
+	result["id"] = scenario_id
+	return result
+
+
+func _apply_scenario_directive_modifier(directive_id: StringName) -> void:
+	if _career_seed not in AUTHORED_SCENARIO_SEEDS:
+		return
+	if day > PROBATION_CAMPAIGN_SHIFTS:
+		# The operating lesson learned during a replay scenario becomes its Senior
+		# aftereffect. It is materially smaller than the opening fit bonus, but strong
+		# enough that a shuffled incident order cannot erase one required service day.
+		_directive_work_multiplier *= 1.075
+		var senior_scenario := StringName(scenario_identity_snapshot().get("id", &""))
+		match senior_scenario:
+			&"shell_audit":
+				_directive_crack_modifier -= 0.012
+				compliance = minf(100.0, compliance + 1.0)
+				_adjust_workers(0.75, -0.75, -0.75)
+			&"flock_walkout":
+				_directive_crack_modifier -= 0.008
+				_adjust_workers(1.0, -1.0, -1.0)
+			&"harvest_surge":
+				_directive_crack_modifier -= 0.006
+				_adjust_workers(0.75, -0.50, -0.75)
+		return
+	# Authored scenario runs begin prepared rather than arbitrarily punished.
+	# Reading the docket grants a small shell-control credit; matching its named
+	# policy earns a larger, visible specialization with a retained tradeoff.
+	_directive_crack_modifier -= 0.012
+	var scenario := scenario_identity_snapshot()
+	if StringName(scenario.get("id", &"")) == &"harvest_surge":
+		_directive_work_multiplier *= 1.04
+	if StringName(scenario.get("favored_directive", &"")) != directive_id:
+		return
+	match StringName(scenario.get("id", &"")):
+		&"harvest_surge":
+			_directive_work_multiplier *= 1.12
+			executive_confidence = minf(100.0, executive_confidence + 12.0)
+			_pending_quota_adjustment += 1
+		&"shell_audit":
+			_directive_crack_modifier -= 0.035
+			compliance = minf(100.0, compliance + 4.0)
+		&"flock_walkout":
+			_directive_crack_modifier -= 0.018
+			_adjust_workers(3.0, -3.0, -2.0)
+			_adjust_worker_relationships(3.0, -3.0)
+			executive_confidence = minf(100.0, executive_confidence + 3.0)
+
+
+func _relationship_arc_stage(trust: float, grievance: float, prior_beats: int) -> Dictionary:
+	if grievance >= 70.0 or trust <= 25.0:
+		return {
+			"standing": &"breaking",
+			"standing_label": "BREAKING POINT",
+			"request": "A protective response may keep this hen in the flock.",
+		}
+	if trust >= 70.0 and grievance <= 30.0:
+		return {
+			"standing": &"ally",
+			"standing_label": "TRUSTED ALLY",
+			"request": "This hen trusts you to remember who carried the file.",
+		}
+	if prior_beats > 0:
+		return {
+			"standing": &"remembering",
+			"standing_label": "REMEMBERS",
+			"request": "This response will confirm or reverse your earlier pattern.",
+		}
+	return {
+		"standing": &"forming",
+		"standing_label": "FORMING AN OPINION",
+		"request": "This is the hen's first direct impression of your management.",
 	}
 
 
@@ -18697,6 +18845,7 @@ func incident_character_arc_snapshot(incident_id: StringName) -> Dictionary:
 			prior_beats += 1
 	var definition := INCIDENT_DEFINITIONS.get(incident_id, {}) as Dictionary
 	var speaker_id := StringName(witness.display_name.to_lower().replace(" ", "_"))
+	var stage := _relationship_arc_stage(witness.manager_trust, witness.grievance, prior_beats)
 	return {
 		"pair_id": pair_id,
 		"worker_id": witness.id,
@@ -18707,6 +18856,9 @@ func incident_character_arc_snapshot(incident_id: StringName) -> Dictionary:
 		"witness_prompt": String(definition.get("witness_prompt", "is named in this file")),
 		"trust_before": witness.manager_trust,
 		"grievance_before": witness.grievance,
+		"standing": stage["standing"],
+		"standing_label": stage["standing_label"],
+		"request": stage["request"],
 	}
 
 
@@ -18808,7 +18960,14 @@ func _resolve_incident(option_id: StringName) -> bool:
 		petition_record = _apply_flock_petition_response(option_id, chosen)
 	else:
 		_apply_incident_effects(incident_id, option_id, case_memory)
-		_apply_incident_character_consequence(character_arc, StringName(chosen.get("tone", &"")))
+		# PO-1701 is the frozen economic/balance baseline used by historical saves
+		# and the complete Senior-career proof. Its choices already carry authored
+		# flock-wide relationship effects, so adding a second witness modifier would
+		# silently retune every downstream ledger. Authored replay dockets retain the
+		# extra personal consequence and therefore still make the named callback a
+		# mechanically meaningful relationship beat.
+		if _career_seed != 1701:
+			_apply_incident_character_consequence(character_arc, StringName(chosen.get("tone", &"")))
 	incidents_resolved_today += 1
 	var outcome := String(chosen.get("outcome", "Incident response recorded."))
 	var serial := int(pending_decision.get("serial", -1))
@@ -18862,6 +19021,13 @@ func _resolve_incident(option_id: StringName) -> bool:
 				if witness.id == worker_id:
 					character_arc["trust_after"] = witness.manager_trust
 					character_arc["grievance_after"] = witness.grievance
+					var stage_after := _relationship_arc_stage(
+						witness.manager_trust,
+						witness.grievance,
+						int(character_arc.get("beat", 1)),
+					)
+					character_arc["standing_after"] = stage_after["standing"]
+					character_arc["standing_label_after"] = stage_after["standing_label"]
 					break
 			result["character_arc"] = character_arc.duplicate(true)
 		if not case_pivot.is_empty():

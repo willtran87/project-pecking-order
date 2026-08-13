@@ -298,11 +298,14 @@ static func beat_for_decision_result(result: Dictionary, day: int) -> Dictionary
 		var tone := StringName(character_arc.get("tone", &""))
 		var option_label := String(character_arc.get("option_label", "THAT RESPONSE")).to_lower()
 		var supportive := tone in [&"care", &"quality"]
-		var line := (
-			"That was my file. You chose %s. I expected the memo to forget who carried it; you didn't." % option_label
-			if supportive else
-			"That was my file. You chose %s. The memo forgot who carried it. I won't." % option_label
-		)
+		var standing := StringName(character_arc.get("standing_after", character_arc.get("standing", &"forming")))
+		var line := "That was my file. You chose %s. I won't forget." % option_label
+		if supportive:
+			line = "That was my file. You chose %s. You remembered me." % option_label
+		elif standing == &"breaking":
+			line = "That was my file. You chose %s. I am done calling this temporary." % option_label
+		elif standing == &"ally":
+			line = "That was my file. You chose %s. I trusted you; now I need a reason to keep doing that." % option_label
 		return _entry(
 			"incident_witness_%d_%s_%d" % [
 				day,

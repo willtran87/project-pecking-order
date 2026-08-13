@@ -49,6 +49,7 @@ var _report_filed: AudioStreamWAV
 var _ui_tick: AudioStreamWAV
 var _decision_alert: AudioStreamWAV
 var _policy_stamp: AudioStreamWAV
+var _scenario_fit: AudioStreamWAV
 var _decision_resolved: AudioStreamWAV
 var _precedent_filed: AudioStreamWAV
 var _case_pivot: AudioStreamWAV
@@ -101,6 +102,9 @@ func _ready() -> void:
 	_ui_tick = _synth_chirp(520.0, 565.0, 0.055, 0.24, 0.0)
 	_decision_alert = _synth_sequence(PackedFloat32Array([294.0, 294.0, 440.0]), 0.09, 0.42)
 	_policy_stamp = _synth_sequence(PackedFloat32Array([349.0, 523.0, 698.0]), 0.085, 0.40)
+	# One recognizable three-note docket motif confirms that the chosen policy
+	# matched the scenario. Scenario identity changes pitch, not voice count.
+	_scenario_fit = _synth_sequence(PackedFloat32Array([392.0, 587.33, 783.99]), 0.075, 0.38)
 	_decision_resolved = _synth_chirp(480.0, 720.0, 0.17, 0.38, 0.0)
 	# One restrained stamp-and-rise cadence confirms that a decision changed a
 	# future case. It remains a single pooled UI voice rather than layering the
@@ -268,6 +272,29 @@ func play_decision_alert() -> void:
 
 func play_policy_stamp() -> void:
 	_play(&"policy", _policy_stamp, 1.0, -5.5, 160, BUS_UI, PRIORITY_IMPORTANT)
+
+
+func play_scenario_fit(scenario_id: StringName) -> bool:
+	var pitch := 1.0
+	match scenario_id:
+		&"harvest_surge":
+			pitch = 1.10
+		&"shell_audit":
+			pitch = 0.94
+		&"flock_walkout":
+			pitch = 1.02
+		_:
+			return false
+	return _play(
+		StringName("scenario_fit_%s" % String(scenario_id)),
+		_scenario_fit,
+		pitch,
+		-5.0,
+		220,
+		BUS_UI,
+		PRIORITY_IMPORTANT,
+		&"scenario_fit",
+	)
 
 
 func play_decision_resolved() -> void:

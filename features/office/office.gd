@@ -8256,7 +8256,11 @@ func _on_decision_resolved(result: Dictionary) -> void:
 		return
 	if kind == &"directive":
 		if _audio_feedback != null:
-			_audio_feedback.play_policy_stamp()
+			var scenario := result.get("scenario", {}) as Dictionary
+			if bool(result.get("scenario_fit", false)):
+				_audio_feedback.play_scenario_fit(StringName(scenario.get("id", &"")))
+			else:
+				_audio_feedback.play_policy_stamp()
 		var hold_for_first_clutch := _should_hold_first_clutch_orientation()
 		_clock.set_speed(0 if hold_for_first_clutch else 1)
 		if hold_for_first_clutch:
@@ -16853,6 +16857,7 @@ func _update_commendations(snapshot: Dictionary, force: bool = false) -> void:
 		campaign_snapshot,
 		senior_snapshot,
 	)
+	evaluated["management_identity"] = _simulation.leadership_record_snapshot()
 	_commendations_snapshot = evaluated.duplicate(true)
 	if _office_storytelling != null and _office_storytelling.has_method("set_commendations_snapshot"):
 		_office_storytelling.call("set_commendations_snapshot", evaluated)

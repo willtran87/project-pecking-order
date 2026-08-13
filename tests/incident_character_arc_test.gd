@@ -15,6 +15,12 @@ func _init() -> void:
 		"both halves of a connected case should belong to one stable named hen",
 		failures,
 	)
+	_check(
+		StringName(first_arc.get("standing", &"")) == &"forming"
+		and not String(first_arc.get("request", "")).is_empty(),
+		"a first witnessed file should disclose the hen's persistent relationship stage",
+		failures,
+	)
 
 	var result_events: Array[Dictionary] = []
 	simulation.decision_resolved.connect(func(result: Dictionary) -> void:
@@ -45,6 +51,11 @@ func _init() -> void:
 		and StringName(resolved_arc.get("tone", &"")) == &"danger"
 		and float(resolved_arc.get("trust_after", 999.0)) < trust_before,
 		"the result should preserve the witness and expose the relationship consequence",
+		failures,
+	)
+	_check(
+		not String(resolved_arc.get("standing_label_after", "")).is_empty(),
+		"the resolution should expose the witness's updated standing for later callbacks",
 		failures,
 	)
 	var reaction := DialogueCatalog.beat_for_decision_result(result, 1)

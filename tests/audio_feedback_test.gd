@@ -261,6 +261,16 @@ func _run() -> void:
 		failures,
 	)
 
+	await create_timer(0.46).timeout
+	_check(audio.play_scenario_fit(&"shell_audit"), "a matched docket policy should play its scenario motif", failures)
+	_check(
+		&"scenario_fit_shell_audit" in cue_events
+		and String(audio.feedback_snapshot().get("last_bus", "")) == "UI",
+		"scenario fit should expose a distinct semantic cue on the UI mix",
+		failures,
+	)
+	_check(not audio.play_scenario_fit(&"baseline_book"), "the neutral baseline should not fabricate a scenario motif", failures)
+
 	# Final campaign outcomes use unmistakably different cadences and expose a
 	# compact diagnostic receipt without adding playback nodes.
 	await create_timer(0.20).timeout

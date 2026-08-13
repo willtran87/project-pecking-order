@@ -13600,3 +13600,35 @@ The next major systems milestone is persistent worker relationships and individu
   assistive-technology, and GPU observations remain external evidence. The game
   now exposes the software needed to run them, but no automated result is
   represented as a human or hardware observation.
+
+## 2026-08-12 - Scenario identity and persistent payoff
+
+- Turned the three selectable replay files into distinct strategic scenarios:
+  Flock Walkout rewards sustainable policy, Shell Audit rewards assurance, and
+  Harvest Surge rewards harvest policy. The first two tutorial cases remain
+  stable, while the rest of the first probation docket now shuffles immediately.
+  Morning cards identify one scenario fit with compact copy and a semantic cue.
+- Rebalanced the complete authored campaign matrix so all probation doctrines,
+  all challenge contracts, all seven Senior Board Books, all four docket seeds,
+  and the deliberate unprepared Gold failure remain authentic. Replay matrices
+  now produce multiple best policy leaders instead of one universal doctrine;
+  the historical PO-1701 ledger and exact operations fixtures remain frozen.
+- Deepened connected-case character continuity with derived forming,
+  remembering, ally, and breaking-point stages. The same named hen carries both
+  halves of a case, real trust/grievance updates her stage, and her concise
+  portrait reaction reflects the result without adding save authority.
+- Made accumulated player expression physical: the twelve-slot career cabinet
+  now adopts the earned management identity (Flock Steward, Meritocratic
+  Rooster, Credit Harvester, or Split Ledger) and reconstructs consistently
+  between shifts. Scenario-fit policy choices gained a distinct three-note
+  procedural motif inside the existing fixed eight-voice pool.
+- Fresh Godot Web export and Node 24 production build pass. The complete beta
+  gate passes 50/50 checks in 898.409 seconds, including 40 native suites, the
+  authentic multi-year balance proof, rendered Web checks, production-server
+  validation, release contracts, and nine-file payload parity. Browser review at
+  1280x720 produced no error artifact. All six PCK mirrors match at 9,963,236
+  bytes with SHA-256 `070B49253CD22EC7F5C01ED30ECFF9877A22104E8E395D763B0C8DA51F5FB17E`.
+- Both temporary port-3001 inspection servers were stopped by exact PID and the
+  port is free. The user-owned port-3000 process remains untouched on PID 25812.
+  Human comprehension/fun sessions and physical-device observations remain
+  external evidence and are not represented as automated findings.

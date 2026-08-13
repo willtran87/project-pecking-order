@@ -513,10 +513,26 @@ func set_commendations_snapshot(snapshot: Dictionary) -> void:
 		)
 		slot.set_meta("commendation_earned", earned)
 	if _career_trophy_label != null and is_instance_valid(_career_trophy_label):
-		_career_trophy_label.text = "CAREER FILE  /  %d OF %d" % [
+		var identity := snapshot.get("management_identity", {}) as Dictionary
+		var identity_title := String(identity.get("title", "CAREER FILE"))
+		var identity_id := StringName(identity.get("id", &"unfiled"))
+		var identity_color := Color("e5dcc3")
+		match identity_id:
+			&"shared_scoop":
+				identity_color = Color("8ed3b1")
+			&"individual_merit":
+				identity_color = Color("e0b34f")
+			&"management_innovation":
+				identity_color = Color("ef9a76")
+			&"split_ledger":
+				identity_color = Color("91c5df")
+		_career_trophy_label.text = "%s  /  %d OF %d" % [
+			identity_title,
 			earned_count,
 			maxi(_career_trophy_slots.size(), int(snapshot.get("total_count", 12))),
 		]
+		_career_trophy_label.modulate = identity_color
+		_career_trophy_label.set_meta("management_identity", String(identity_id))
 
 
 func _apply_office_physical_presentation_state() -> void:

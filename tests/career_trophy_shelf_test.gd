@@ -26,6 +26,20 @@ func _run() -> void:
 		if bool(slot.get_meta("commendation_earned", false)):
 			earned_count += 1
 	_check(earned_count == 5 and label.text == "CAREER FILE  /  5 OF 12", "earned commendations should become five visible brass trophies with a compact count", failures)
+	staging.set_commendations_snapshot({
+		"earned_count": 5,
+		"total_count": 12,
+		"management_identity": {
+			"id": &"shared_scoop",
+			"title": "FLOCK STEWARD",
+		},
+	})
+	_check(
+		label.text == "FLOCK STEWARD  /  5 OF 12"
+		and String(label.get_meta("management_identity", "")) == "shared_scoop",
+		"the physical career shelf should visibly adopt the player's earned management identity",
+		failures,
+	)
 	staging.configure(OfficeStorytellingScript.DEFAULT_DESK_POSITIONS)
 	var rebuilt_label := staging.find_child("CareerTrophyLabel", true, false) as Label3D
 	var rebuilt_earned := 0
@@ -33,7 +47,7 @@ func _run() -> void:
 		var rebuilt_slot := staging.find_child("CareerTrophy_%02d" % (slot_index + 1), true, false)
 		if rebuilt_slot != null and bool(rebuilt_slot.get_meta("commendation_earned", false)):
 			rebuilt_earned += 1
-	_check(rebuilt_label != null and rebuilt_label.text == "CAREER FILE  /  5 OF 12" and rebuilt_earned == 5, "rebuilding the same office between shifts should preserve the authoritative trophy display", failures)
+	_check(rebuilt_label != null and rebuilt_label.text == "FLOCK STEWARD  /  5 OF 12" and rebuilt_earned == 5, "rebuilding the same office between shifts should preserve the authoritative trophy display and identity", failures)
 	staging.queue_free()
 
 	if failures.is_empty():

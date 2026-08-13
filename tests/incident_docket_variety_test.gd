@@ -8,17 +8,39 @@ func _init() -> void:
 func _run() -> void:
 	var failures: Array[String] = []
 	var authored_seeds := [4703, 7919, 12011]
+	var expected_scenarios := {
+		4703: [&"flock_walkout", &"sustainable_flock"],
+		7919: [&"shell_audit", &"shell_assurance"],
+		12011: [&"harvest_surge", &"record_harvest"],
+	}
 	var rotation_signatures: Dictionary[String, bool] = {}
 	for seed in authored_seeds:
 		var first := DepartmentSimulation.new(1701, 4, seed)
 		var replay := DepartmentSimulation.new(1701, 4, seed)
+		var scenario := first.scenario_identity_snapshot()
+		var expected: Array = expected_scenarios[seed]
+		_check(
+			StringName(scenario.get("id", &"")) == expected[0]
+			and StringName(scenario.get("favored_directive", &"")) == expected[1],
+			"docket %d should expose its distinct strategic scenario and policy fit" % seed,
+			failures,
+		)
+		first._prepare_morning_directive()
+		var directive := first.pending_decision_snapshot()
+		var fit_count := 0
+		for option_value in directive.get("options", []):
+			var option := option_value as Dictionary
+			if bool(option.get("scenario_fit", false)):
+				fit_count += 1
+				_check(StringName(option.get("id", &"")) == expected[1], "the highlighted policy should match the docket's disclosed fit", failures)
+		_check(fit_count == 1 and String(scenario.get("short", "")) in String(directive.get("eyebrow", "")), "the morning card should communicate one scenario fit at a glance", failures)
 		var rotation_size := DepartmentSimulation.INCIDENT_ORDER.size()
 		var first_sequence := _draw_incidents(first, rotation_size * 3)
 		var replay_sequence := _draw_incidents(replay, rotation_size * 3)
 		_check(first_sequence == replay_sequence, "docket %d should replay deterministically" % seed, failures)
 		_check(
-			first_sequence.slice(0, 4) == DepartmentSimulation.LEGACY_INCIDENT_ORDER,
-			"docket %d should preserve the four familiar cases at the start of its expanded rotation" % seed,
+			first_sequence.slice(0, 2) == DepartmentSimulation.LEGACY_INCIDENT_ORDER.slice(0, 2),
+			"docket %d should preserve the two taught day-one cases before its seeded scenario begins" % seed,
 			failures,
 		)
 		_check(
@@ -33,8 +55,8 @@ func _run() -> void:
 			_check(_contains_every_incident_once(rotation), "docket %d rotation %d should contain every standard incident exactly once" % [seed, rotation_index + 1], failures)
 		for index in range(1, first_sequence.size()):
 			_check(first_sequence[index] != first_sequence[index - 1], "docket %d should never repeat a standard incident back-to-back" % seed, failures)
-		rotation_signatures[JSON.stringify(first_sequence.slice(rotation_size, rotation_size * 3))] = true
-	_check(rotation_signatures.size() >= 2, "the three replay dockets should produce at least two distinct post-onboarding rotations", failures)
+		rotation_signatures[JSON.stringify(first_sequence.slice(2, rotation_size * 3))] = true
+	_check(rotation_signatures.size() >= 2, "the three replay dockets should produce at least two distinct first-run scenarios", failures)
 
 	var legacy := DepartmentSimulation.new(1701, 4)
 	_check(_open_incident(legacy, 1, 0) == &"ledger_molt", "legacy docket should preserve day-one ledger onboarding", failures)
