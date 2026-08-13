@@ -2374,12 +2374,12 @@ func _build_final_panel(parent: Control) -> void:
 
 	_final_ending_glance_grid = GridContainer.new()
 	_final_ending_glance_grid.name = "FinalEndingGlance"
-	_final_ending_glance_grid.columns = 3
+	_final_ending_glance_grid.columns = 2
 	_final_ending_glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_final_ending_glance_grid.add_theme_constant_override("h_separation", 10)
 	_final_ending_glance_grid.add_theme_constant_override("v_separation", 8)
 	content.add_child(_final_ending_glance_grid)
-	for index: int in range(3):
+	for index: int in range(4):
 		var card := PanelContainer.new()
 		card.name = "FinalEndingBeat%d" % (index + 1)
 		card.custom_minimum_size = Vector2(190.0, 58.0)
@@ -4778,6 +4778,8 @@ func _refresh_final() -> void:
 	var legacy := legacy_value as Dictionary if legacy_value is Dictionary else {}
 	var replay_value: Variant = _snapshot.get("replay_recommendation", {})
 	var replay := replay_value as Dictionary if replay_value is Dictionary else {}
+	var future_value: Variant = _snapshot.get("campaign_future", {})
+	var future := future_value as Dictionary if future_value is Dictionary else {}
 	var epilogue_value: Variant = _snapshot.get("flock_epilogue", [])
 	var epilogue := epilogue_value as Array if epilogue_value is Array else []
 	if not legacy.is_empty():
@@ -4792,6 +4794,12 @@ func _refresh_final() -> void:
 				String(entry.get("worker_name", "PECKWORK HEN")).to_upper(),
 				String(entry.get("outcome", "The hen remains in the permanent record.")),
 			]
+	if not future.is_empty():
+		_final_message_label.text += "\n\n%s  //  %s\n%s" % [
+			String(future.get("title", "OFFICE FUTURE")),
+			String(future.get("value", "FILE REOPENS")),
+			String(future.get("detail", "The consequences continue into the next file.")),
+		]
 	if not replay.is_empty():
 		_final_message_label.text += "\n\nNEXT RUN  //  %s\n%s" % [
 			String(replay.get("action", "TRY A DIFFERENT DOCTRINE")),
@@ -4866,11 +4874,18 @@ func _refresh_final_ending_glance(
 	var legacy := legacy_value as Dictionary if legacy_value is Dictionary else {}
 	var replay_value: Variant = _snapshot.get("replay_recommendation", {})
 	var replay := replay_value as Dictionary if replay_value is Dictionary else {}
+	var future_value: Variant = _snapshot.get("campaign_future", {})
+	var future := future_value as Dictionary if future_value is Dictionary else {}
 	var epilogue_value: Variant = _snapshot.get("flock_epilogue", [])
 	var epilogue := epilogue_value as Array if epilogue_value is Array else []
-	# The same three glance slots now close the full experiential loop when the
-	# authoritative snapshot provides it: who the manager became, what one named
-	# hen carries forward, and how a genuinely different replay begins.
+	beats.append({
+		"caption": "NEXT FILE",
+		"value": "SENIOR ROOST" if passed else "RETRY",
+		"detail": exact_message,
+	})
+	# Four glance slots close the experiential loop: who the manager became,
+	# what one named hen carries forward, how the workplace changed, and why a
+	# genuinely different replay is worth starting.
 	if not legacy.is_empty():
 		beats[0] = {
 			"caption": "YOUR LEGACY",
@@ -4884,8 +4899,14 @@ func _refresh_final_ending_glance(
 			"value": String(flock_beat.get("value", "REMEMBERED")).to_upper(),
 			"detail": String(flock_beat.get("outcome", exact_message)),
 		}
-	if not replay.is_empty():
+	if not future.is_empty():
 		beats[2] = {
+			"caption": String(future.get("title", "OFFICE FUTURE")).to_upper(),
+			"value": String(future.get("value", "FILE REOPENS")).to_upper(),
+			"detail": String(future.get("detail", exact_message)),
+		}
+	if not replay.is_empty():
+		beats[3] = {
 			"caption": "NEXT FILE",
 			"value": String(replay.get("contract_short_label", "NEW PLAN")).to_upper(),
 			"detail": "%s  //  %s" % [
@@ -6181,7 +6202,7 @@ func _apply_responsive_layout() -> void:
 	if _final_safeguard_grid != null:
 		_final_safeguard_grid.columns = 2 if narrow else 5
 	if _final_ending_glance_grid != null:
-		_final_ending_glance_grid.columns = 1 if narrow else 3
+		_final_ending_glance_grid.columns = 1 if narrow else 2
 
 	_modal_center.custom_minimum_size = Vector2(panel_width, modal_height)
 	_title_panel.custom_minimum_size = Vector2(minf(760.0, panel_width), 0.0)

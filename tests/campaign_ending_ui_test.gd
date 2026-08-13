@@ -37,14 +37,16 @@ func _run() -> void:
 	var ending_caption_1 := ui.find_child("FinalEndingBeatCaption1", true, false) as Label
 	var ending_caption_2 := ui.find_child("FinalEndingBeatCaption2", true, false) as Label
 	var ending_caption_3 := ui.find_child("FinalEndingBeatCaption3", true, false) as Label
+	var ending_caption_4 := ui.find_child("FinalEndingBeatCaption4", true, false) as Label
 	var ending_value_1 := ui.find_child("FinalEndingBeatValue1", true, false) as Label
 	var ending_value_2 := ui.find_child("FinalEndingBeatValue2", true, false) as Label
 	var ending_value_3 := ui.find_child("FinalEndingBeatValue3", true, false) as Label
+	var ending_value_4 := ui.find_child("FinalEndingBeatValue4", true, false) as Label
 	_check(verdict != null and message != null, "final review should expose readable verdict and message labels", failures)
 	_check(
-		ending_beat_1 != null and ending_caption_1 != null
-		and ending_value_1 != null and ending_value_2 != null and ending_value_3 != null,
-		"final review should expose three glance-first ending beats",
+		ending_beat_1 != null and ending_caption_1 != null and ending_caption_4 != null
+		and ending_value_1 != null and ending_value_2 != null and ending_value_3 != null and ending_value_4 != null,
+		"final review should expose four glance-first ending beats",
 		failures,
 	)
 	_check(final_panel != null and modal_host != null, "final review should retain its blocking modal structure", failures)
@@ -131,6 +133,11 @@ func _run() -> void:
 		"action": "FACE THE EXECUTIVE AUDIT",
 		"rationale": "Start with tighter cash, a higher quota, and extra live files.",
 	}
+	experiential_final["campaign_future"] = {
+		"title": "OFFICE FUTURE",
+		"value": "FLOCK HAS LEVERAGE",
+		"detail": "The hens keep a voice in future rankings and working conditions.",
+	}
 	ui.apply_snapshot(experiential_final)
 	await process_frame
 	await process_frame
@@ -139,15 +146,18 @@ func _run() -> void:
 		and ending_value_1 != null and ending_value_1.text == "FLOCK STEWARDSHIP"
 		and ending_caption_2 != null and ending_caption_2.text == "MABEL"
 		and ending_value_2 != null and ending_value_2.text == "STOOD TOGETHER"
-		and ending_caption_3 != null and ending_caption_3.text == "NEXT FILE"
-		and ending_value_3 != null and ending_value_3.text == "EXECUTIVE",
-		"an experiential final snapshot should replace generic beats with legacy, named-flock, and replay payoffs",
+		and ending_caption_3 != null and ending_caption_3.text == "OFFICE FUTURE"
+		and ending_value_3 != null and ending_value_3.text == "FLOCK HAS LEVERAGE"
+		and ending_caption_4 != null and ending_caption_4.text == "NEXT FILE"
+		and ending_value_4 != null and ending_value_4.text == "EXECUTIVE",
+		"an experiential final snapshot should replace generic beats with legacy, named-flock, office-future, and replay payoffs",
 		failures,
 	)
 	_check(
 		message != null
 		and "YOUR LEGACY  //  FLOCK STEWARDSHIP" in message.text
 		and "MABEL  //  Mabel kept her chair" in message.text
+		and "OFFICE FUTURE  //  FLOCK HAS LEVERAGE" in message.text
 		and "NEXT RUN  //  FACE THE EXECUTIVE AUDIT" in message.text
 		and not message.visible,
 		"the low-text finale should retain the complete authored legacy and epilogue as progressive detail",
@@ -253,7 +263,7 @@ func _run() -> void:
 			push_error("CAMPAIGN_ENDING_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPAIGN_ENDING_UI_TEST_PASSED endings=4 authored-titles controls=keyboard+focus+sticky-next-step portrait=wrapped memos=restructuring+golden+standard")
+	print("CAMPAIGN_ENDING_UI_TEST_PASSED endings=4 authored-titles beats=legacy+hen+office-future+replay controls=keyboard+focus+sticky-next-step portrait=wrapped memos=restructuring+golden+standard")
 	quit(0)
 
 

@@ -369,6 +369,10 @@ var _west_perch_05_zone: Node3D
 var _career_trophy_slots: Array[MeshInstance3D] = []
 var _career_trophy_label: Label3D
 var _commendations_visual_snapshot: Dictionary = {}
+var _scenario_identity_root: Node3D
+var _scenario_identity_label: Label3D
+var _scenario_prop_roots: Dictionary = {}
+var _scenario_identity_id: StringName = &"baseline_book"
 
 
 func _ready() -> void:
@@ -634,6 +638,7 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 		previous_snapshot.is_empty()
 		or now_msec >= _next_live_signage_refresh_msec
 		or queue_changed
+		or previous_snapshot.get("case_docket", {}) != snapshot.get("case_docket", {})
 		or int(previous_snapshot.get("day", -1)) != int(snapshot.get("day", -1))
 		or int(previous_snapshot.get("shift_phase", -1))
 			!= int(snapshot.get("shift_phase", -1))
@@ -646,6 +651,7 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 	)
 	if live_signage_due:
 		_next_live_signage_refresh_msec = now_msec + LIVE_SIGNAGE_REFRESH_MSEC
+		_apply_scenario_identity(snapshot)
 	if live_signage_due and _metrics_label != null:
 		var lane_counts := snapshot.get("claim_queue_counts", {}) as Dictionary
 		_metrics_label.text = "YIELD  %03d / %03d\nN %02d   P %02d   A %02d\n%s  ·  LIVE" % [
@@ -2733,6 +2739,7 @@ func _build_all() -> void:
 	_build_zone_markers()
 	_build_bureau_satire()
 	_build_records_and_intake_story()
+	_build_scenario_identity_dressing()
 	_rebuild_campus_presentation()
 	_apply_office_physical_presentation_state()
 	if _defer_optional_visuals and is_inside_tree():
@@ -2740,6 +2747,98 @@ func _build_all() -> void:
 	else:
 		_build_optional_visuals_immediately()
 		_rebuild_campus_presentation()
+
+
+## Scenario rules now alter the room at a glance, not only numbers in a docket.
+## This perimeter vignette is non-colliding and stable across shifts; only its
+## authored prop set and concise destination sign change.
+func _build_scenario_identity_dressing() -> void:
+	_scenario_identity_root = Node3D.new()
+	_scenario_identity_root.name = "ScenarioIdentityDressing"
+	add_child(_scenario_identity_root)
+	var center := Vector3(-9.25, 0.0, -7.55)
+	_add_box(_scenario_identity_root, "ScenarioWallBacker", Vector3(4.25, 2.45, 0.12), center + Vector3(0.0, 1.65, 0.0), Color("344247"), 0.78)
+	_add_box(_scenario_identity_root, "ScenarioCounter", Vector3(4.05, 0.15, 0.76), center + Vector3(0.0, 0.77, 0.47), Color("73573e"), 0.64, 0.10)
+	_scenario_identity_label = _add_mounted_label(
+		_scenario_identity_root, "ScenarioIdentityBoard",
+		"BASELINE BOOK\nBALANCED INTAKE",
+		center + Vector3(0.0, 2.05, 0.09), Vector2(3.62, 0.82),
+		Color("274447"), Color("d8e7dc"), Vector3.ZERO,
+		22, 0.0048, &"primary", &"destination", true,
+	)
+
+	var baseline := Node3D.new()
+	baseline.name = "BaselineBookProps"
+	_scenario_identity_root.add_child(baseline)
+	for index in 5:
+		_add_box(baseline, "BaselineBinder_%02d" % index, Vector3(0.48, 0.62, 0.24), center + Vector3(-1.35 + index * 0.67, 1.15, 0.50), Color("66777a") if index % 2 == 0 else Color("9a875d"), 0.82)
+
+	var harvest := Node3D.new()
+	harvest.name = "HarvestSurgeProps"
+	_scenario_identity_root.add_child(harvest)
+	for index in 4:
+		var sack := _add_sphere(harvest, "HarvestSack_%02d" % index, center + Vector3(-1.20 + index * 0.80, 1.08, 0.52), Vector3(0.35, 0.48, 0.28), Color("c29a56"), 10, 6)
+		sack.rotation_degrees.z = -7.0 + index * 4.0
+	_add_box(harvest, "HarvestDispatchArrow", Vector3(2.75, 0.12, 0.18), center + Vector3(0.0, 0.43, 0.54), Color("e0b34f"), 0.36, 0.20)
+
+	var audit := Node3D.new()
+	audit.name = "ShellAuditProps"
+	_scenario_identity_root.add_child(audit)
+	for index in 4:
+		var lamp := _add_cylinder(audit, "AuditLamp_%02d" % index, center + Vector3(-1.20 + index * 0.80, 1.15, 0.52), 0.22, 0.45, Color("74b8c8"), 0.34)
+		lamp.material_override = _emissive_material(Color("74b8c8"), 0.72)
+	_add_box(audit, "AuditEvidenceTray", Vector3(2.95, 0.10, 0.46), center + Vector3(0.0, 0.91, 0.50), Color("8ba3aa"), 0.46, 0.18)
+
+	var walkout := Node3D.new()
+	walkout.name = "FlockWalkoutProps"
+	_scenario_identity_root.add_child(walkout)
+	for index in 5:
+		var placard_x := -1.45 + index * 0.72
+		_add_box(walkout, "WalkoutPlacard_%02d" % index, Vector3(0.54, 0.44, 0.08), center + Vector3(placard_x, 1.28 + (index % 2) * 0.16, 0.56), Color("b96b55") if index % 2 == 0 else Color("79a98f"), 0.76)
+		_add_box(walkout, "WalkoutHandle_%02d" % index, Vector3(0.06, 0.66, 0.06), center + Vector3(placard_x, 0.88, 0.54), Color("806044"), 0.82)
+
+	_scenario_prop_roots = {
+		&"baseline_book": baseline,
+		&"harvest_surge": harvest,
+		&"shell_audit": audit,
+		&"flock_walkout": walkout,
+	}
+	_scenario_identity_id = &"baseline_book"
+	_apply_scenario_identity({})
+
+
+func _apply_scenario_identity(snapshot: Dictionary) -> void:
+	if _scenario_identity_root == null or not is_instance_valid(_scenario_identity_root):
+		return
+	var docket_value: Variant = snapshot.get("case_docket", {})
+	var docket := docket_value as Dictionary if docket_value is Dictionary else {}
+	var scenario_value: Variant = docket.get("scenario", {})
+	var scenario := scenario_value as Dictionary if scenario_value is Dictionary else {}
+	var next_id := StringName(String(scenario.get("id", _scenario_identity_id)))
+	if next_id not in _scenario_prop_roots:
+		next_id = &"baseline_book"
+	_scenario_identity_id = next_id
+	for id_value: Variant in _scenario_prop_roots:
+		var prop_root := _scenario_prop_roots[id_value] as Node3D
+		if prop_root != null:
+			prop_root.visible = StringName(id_value) == _scenario_identity_id
+	if _scenario_identity_label == null:
+		return
+	match _scenario_identity_id:
+		&"harvest_surge":
+			_scenario_identity_label.text = "HARVEST SURGE\nOUTPUT WINDOW"
+			_scenario_identity_label.modulate = Color("f0c76a")
+		&"shell_audit":
+			_scenario_identity_label.text = "SHELL AUDIT\nPROVE EVERY EGG"
+			_scenario_identity_label.modulate = Color("8bd9e8")
+		&"flock_walkout":
+			_scenario_identity_label.text = "FLOCK WALKOUT\nLABOR WATCH"
+			_scenario_identity_label.modulate = Color("9cd5ad")
+		_:
+			_scenario_identity_label.text = "BASELINE BOOK\nBALANCED INTAKE"
+			_scenario_identity_label.modulate = Color("d8e7dc")
+	EnvironmentalSignageScript.refit_label(_scenario_identity_label)
+	_scenario_identity_label.set_meta("scenario_id", String(_scenario_identity_id))
 
 
 func _build_optional_visuals_immediately() -> void:
@@ -2981,7 +3080,7 @@ func _clear_built_roots() -> void:
 		campus_expansion_visual.call("clear")
 	if campus_portfolio_visual != null and is_instance_valid(campus_portfolio_visual):
 		campus_portfolio_visual.call("clear")
-	for built_root in [management_perch_root, egg_collection_root, zone_markers_root, bureau_satire_root, records_archive_root, shell_quality_lab_visual, packing_annex_visual, records_annex_visual, farm_mutual_service_coop_visual, farm_mutual_negotiation_room_visual, farm_mutual_contract_board_visual, care_campus_spine_root, wellness_nest_visual, training_roost_visual, farmer_relations_gallery_visual, operations_campus_spine_root, rooster_operations_office_visual, it_coop_visual, flock_relations_office_visual, feed_procurement_coop_visual, farmgate_dispatch_depot_visual, campus_expansion_visual, campus_portfolio_visual]:
+	for built_root in [management_perch_root, egg_collection_root, zone_markers_root, bureau_satire_root, records_archive_root, _scenario_identity_root, shell_quality_lab_visual, packing_annex_visual, records_annex_visual, farm_mutual_service_coop_visual, farm_mutual_negotiation_room_visual, farm_mutual_contract_board_visual, care_campus_spine_root, wellness_nest_visual, training_roost_visual, farmer_relations_gallery_visual, operations_campus_spine_root, rooster_operations_office_visual, it_coop_visual, flock_relations_office_visual, feed_procurement_coop_visual, farmgate_dispatch_depot_visual, campus_expansion_visual, campus_portfolio_visual]:
 		if built_root != null and is_instance_valid(built_root):
 			built_root.free()
 	management_perch_root = null
@@ -2989,6 +3088,9 @@ func _clear_built_roots() -> void:
 	zone_markers_root = null
 	bureau_satire_root = null
 	records_archive_root = null
+	_scenario_identity_root = null
+	_scenario_identity_label = null
+	_scenario_prop_roots.clear()
 	shell_quality_lab_visual = null
 	packing_annex_visual = null
 	records_annex_visual = null

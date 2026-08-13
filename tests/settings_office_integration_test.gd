@@ -67,7 +67,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(controller != null and atmosphere != null and routing != null, "comfort settings should have live camera, atmosphere, and routing targets", failures)
-	_check(audio_feedback != null and audio_director != null and audio_director.fixed_player_count() == 4, "the integrated office should own bounded feedback plus pressure-and-momentum adaptive audio", failures)
+	_check(audio_feedback != null and audio_director != null and audio_director.fixed_player_count() == 6, "the integrated office should own bounded feedback plus authored pressure, momentum, scenario, and review audio", failures)
 	for action: StringName in OfficeActionCatalogScript.managed_actions():
 		_check(InputMap.has_action(action) and not InputMap.action_get_events(action).is_empty(), "%s should have a semantic keyboard/gamepad path" % action, failures)
 	var settings_shortcut := InputEventKey.new()

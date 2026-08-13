@@ -78,7 +78,9 @@ try {
 
   const baseline = await state();
   assert.equal(baseline.audio?.director?.player_count, 4);
-  assert.equal(baseline.audio?.director?.raw_pcm_bytes, 1_024_000);
+  assert.equal(baseline.audio?.director?.source, "authored_ogg");
+  assert.equal(baseline.audio?.director?.authored_track_count, 8);
+  assert.equal(baseline.audio?.director?.arrangement_seconds, 24);
   assert.ok((baseline.audio?.director?.momentum_target ?? 1) <= 0.01);
 
   let productive = null;
@@ -132,7 +134,8 @@ try {
       eggs: baseline.eggs_today,
       quota: baseline.quota_target,
       playerCount: baseline.audio?.director?.player_count,
-      rawPcmBytes: baseline.audio?.director?.raw_pcm_bytes,
+      scoreSource: baseline.audio?.director?.source,
+      authoredTrackCount: baseline.audio?.director?.authored_track_count,
       pressureTarget: baseline.audio?.director?.pressure_target,
       momentumTarget: baseline.audio?.director?.momentum_target,
     },

@@ -41,6 +41,7 @@ func _run() -> void:
 		"FarmBureauZoneMarkers",
 		"FarmBureauSatire",
 		"ArchiveAndIntakeStory",
+		"ScenarioIdentityDressing",
 		"ShellQualityLabVisual",
 		"PackingAnnexVisual",
 		"RecordsAnnexVisual",
@@ -58,6 +59,41 @@ func _run() -> void:
 		"FeedProcurementCoopVisual",
 	]:
 		_check(staging.find_child(root_name, true, false) != null, "staging should expose %s" % root_name, failures)
+	var scenario_board := staging.find_child("ScenarioIdentityBoard", true, false) as Label3D
+	var baseline_props := staging.find_child("BaselineBookProps", true, false) as Node3D
+	var harvest_props := staging.find_child("HarvestSurgeProps", true, false) as Node3D
+	var audit_props := staging.find_child("ShellAuditProps", true, false) as Node3D
+	var walkout_props := staging.find_child("FlockWalkoutProps", true, false) as Node3D
+	_check(
+		scenario_board != null and baseline_props != null and harvest_props != null
+		and audit_props != null and walkout_props != null,
+		"the office should expose one physical scenario board and four authored prop sets",
+		failures,
+	)
+	var scenario_expectations := {
+		&"harvest_surge": ["HARVEST SURGE", harvest_props],
+		&"shell_audit": ["SHELL AUDIT", audit_props],
+		&"flock_walkout": ["FLOCK WALKOUT", walkout_props],
+	}
+	for scenario_id: StringName in scenario_expectations:
+		staging.apply_snapshot({
+			"day": 1,
+			"shift_phase": 1,
+			"case_docket": {"scenario": {"id": scenario_id}},
+		})
+		var expectation := scenario_expectations[scenario_id] as Array
+		var expected_root := expectation[1] as Node3D
+		_check(
+			scenario_board != null and String(expectation[0]) in scenario_board.text
+			and StringName(scenario_board.get_meta("scenario_id", "")) == scenario_id,
+			"%s should be legible on the physical scenario board" % scenario_id,
+			failures,
+		)
+		_check(expected_root != null and expected_root.visible, "%s should reveal its authored prop identity" % scenario_id, failures)
+		for prop_id: StringName in scenario_expectations:
+			var prop_root := (scenario_expectations[prop_id] as Array)[1] as Node3D
+			if prop_id != scenario_id:
+				_check(prop_root != null and not prop_root.visible, "%s should hide unrelated %s props" % [scenario_id, prop_id], failures)
 	_check(staging.find_children("FarmMutualContractBoardVisual", "Node3D", true, false).size() == 1, "post-add configuration should rebuild exactly one contract-board root", failures)
 	_check(staging.find_children("FarmMutualServiceCoopVisual", "Node3D", true, false).size() == 1, "post-add configuration should rebuild exactly one Service Coop root", failures)
 	_check(staging.find_children("FarmMutualNegotiationRoomVisual", "Node3D", true, false).size() == 1, "post-add configuration should rebuild exactly one negotiation-room root", failures)

@@ -16,6 +16,7 @@ const OfficeAudioDirectorScript := preload("res://features/office/office_audio_d
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
 const PlayerPreferencesStoreScript := preload("res://core/settings/player_preferences_store.gd")
 const WebPreferencesMirrorScript := preload("res://core/settings/web_preferences_mirror.gd")
+const FirstSessionFunnelScript := preload("res://core/experience/first_session_funnel.gd")
 const SettingsUIScript := preload("res://features/office/settings_ui.gd")
 const PeckworkRoutingUIScript := preload("res://features/office/peckwork_routing_ui.gd")
 const RoostStaffingUIScript := preload("res://features/office/roost_staffing_ui.gd")
@@ -512,6 +513,7 @@ var _web_mobile_action_callback
 var _web_focus_pause_callback
 var _web_diagnostic_request_callback
 var _web_accessibility_request_callback
+var _first_session_funnel = FirstSessionFunnelScript.new()
 var _last_lifecycle_checkpoint_frame: int = -1
 var _last_lifecycle_checkpoint_revision: int = -1
 var _campaign_session_checkpoint_enabled := false
@@ -11717,6 +11719,7 @@ func _on_campaign_new_requested() -> void:
 		)
 		return
 	_campaign_session_checkpoint_enabled = true
+	_first_session_funnel.begin_new_file()
 	_campaign_ui.show_active_campaign(_campaign_presentation_snapshot(&"active"))
 	_set_campaign_modal_open(false)
 	_present_first_hen_prelude()
@@ -12249,6 +12252,53 @@ func _show_campaign_final_review() -> void:
 	_save_campaign_checkpoint("final_review")
 
 
+## A compact, derived epilogue for the organization itself. Endings already
+## settle the farmer and flock ledgers; this makes the lasting office change
+## legible without creating another save field or another management screen.
+func _campaign_future_snapshot(
+	ending: Dictionary,
+	leadership_record: Dictionary,
+	flock_epilogue: Array,
+) -> Dictionary:
+	var ending_id := StringName(ending.get("id", &""))
+	var title := "OFFICE FUTURE"
+	var value := "FILE REOPENS"
+	var detail := "The bureau remains operational, but the next rooster inherits every unresolved filing."
+	match ending_id:
+		&"farmer_favorite":
+			value = "QUOTAS EXPAND"
+			detail = "Farm Mutual adds capacity and a harder target. The clean deck becomes the new baseline."
+		&"benevolent_rooster":
+			value = "CARE ENDURES"
+			detail = "Recovery time and support stay in the operating plan, even after their cost enters the permanent record."
+		&"collective_bargaining":
+			value = "FLOCK HAS LEVERAGE"
+			detail = "The hens keep a voice in future rankings, credit filings, and working conditions."
+		&"probation_terminated":
+			value = "DESKS REMEMBER"
+			detail = "The badge changes hands, but the flock keeps the record of what happened under this rooster."
+		&"probationary_rooster":
+			value = "SCRUTINY RISES"
+			detail = "The bureau continues under a tighter review and an unfinished leadership file."
+		_:
+			if bool(ending.get("passed", false)):
+				value = "SENIOR ROOST OPENS"
+				detail = "This management record now shapes a larger office with more expensive consequences."
+	var leadership_title := String(leadership_record.get("title", "")).strip_edges()
+	if not leadership_title.is_empty():
+		detail += " Leadership record: %s." % leadership_title
+	if not flock_epilogue.is_empty() and flock_epilogue[0] is Dictionary:
+		var first_hen := flock_epilogue[0] as Dictionary
+		var worker_name := String(first_hen.get("worker_name", "")).strip_edges()
+		if not worker_name.is_empty():
+			detail += " %s will carry that consequence forward." % worker_name
+	return {
+		"title": title,
+		"value": value,
+		"detail": detail,
+	}
+
+
 func _campaign_market_forecast(visible: bool) -> Dictionary:
 	if _simulation == null:
 		return {"visible": false}
@@ -12342,6 +12392,7 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 	var active_doctrine: Dictionary = _campaign_state.active_doctrine()
 	var leadership_record := _simulation.leadership_record_snapshot()
 	var ending := _simulation.campaign_ending_snapshot(bool(final_evaluation.get("passed", false)))
+	var flock_epilogue: Array = _simulation.campaign_flock_epilogue()
 	var chapter := CampaignStateScript.shift_chapter(campaign_day)
 	var momentum_brief := _campaign_state.momentum_brief()
 	var replay_recommendation := _campaign_state.replay_recommendation()
@@ -12396,7 +12447,8 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		"momentum_brief": momentum_brief,
 		"replay_recommendation": replay_recommendation,
 		"campaign_legacy": campaign_legacy,
-		"flock_epilogue": _simulation.campaign_flock_epilogue(),
+		"flock_epilogue": flock_epilogue,
+		"campaign_future": _campaign_future_snapshot(ending, leadership_record, flock_epilogue),
 		"ledgers": [
 			{
 				"label": "Flock welfare",
@@ -14735,6 +14787,7 @@ func _load_campaign_checkpoint() -> void:
 	_has_verified_campaign_checkpoint = true
 	_checkpoint_last_error = ""
 	_campaign_session_checkpoint_enabled = true
+	_first_session_funnel.begin_resume()
 	for unlock_value in _campaign_state.unlocked_feature_ids:
 		_simulation.apply_campaign_unlock(StringName(unlock_value))
 	_last_reviewed_day = _simulation.day
@@ -16994,6 +17047,7 @@ func _set_campaign_modal_open(is_open: bool) -> void:
 
 func _show_campaign_title(continue_available: bool) -> void:
 	_campaign_session_checkpoint_enabled = false
+	_first_session_funnel.begin_intake()
 	# Intake owns the screen. Recovery, portable import, and fresh-title paths can
 	# arrive while an in-memory morning decision or closing review still exists;
 	# retire those underlying surfaces here so they cannot steal focus or
@@ -19877,6 +19931,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"flockwatch": _flockwatch_diagnostic_state(),
 		"commendations": _commendations_diagnostic_state(),
 		"checkpoint": _checkpoint_diagnostic_state(),
+		"first_session_funnel": _first_session_funnel.snapshot(),
 		"campaign_stage": "title" if title_open else String(_campaign_review_stage),
 		"campaign_intake_phase": campaign_intake_phase,
 		"campaign_day": int(_campaign_state.completed_shifts) + 1,
@@ -21674,6 +21729,11 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		)
 	_character_dialogue_previous_snapshot = dialogue_projection
 	var active_snapshot := _snapshot_with_active_workers(snapshot)
+	_first_session_funnel.observe(
+		active_snapshot,
+		_first_clutch,
+		_campaign_review_stage,
+	)
 	_apply_office_capacity_visibility(_office_capacity_from_snapshot(snapshot))
 	_reconcile_worker_views(snapshot)
 	if _management_presence != null:

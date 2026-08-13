@@ -18,6 +18,17 @@ $root = Split-Path -Parent $PSScriptRoot
 $started = Get-Date
 $checks = [ordered]@{}
 
+# Normalize an optional portable runtime before any nested Push-Location call.
+# A relative NodeDirectory is documented and useful for CI caches, but leaving
+# it relative made the Web phase resolve it underneath web/ after every native
+# contract had already passed.
+if (-not [string]::IsNullOrWhiteSpace($NodeDirectory)) {
+    if (-not [IO.Path]::IsPathRooted($NodeDirectory)) {
+        $NodeDirectory = Join-Path $root $NodeDirectory
+    }
+    $NodeDirectory = [IO.Path]::GetFullPath($NodeDirectory)
+}
+
 function Invoke-CheckedCommand {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -59,7 +70,9 @@ try {
             "personnel_career_test.gd",
             "chicken_render_hot_path_test.gd",
             "opening_experience_progression_test.gd",
-            "probation_campaign_ui_test.gd",
+			"first_session_funnel_test.gd",
+			"probation_campaign_ui_test.gd",
+			"campaign_ending_ui_test.gd",
             "career_sponsorship_ui_test.gd",
             "career_sponsorship_integration_test.gd",
             "incident_docket_variety_test.gd",
@@ -68,6 +81,7 @@ try {
             "feed_procurement_ui_test.gd",
             "farmgate_dispatch_ui_contract_test.gd",
             "audio_feedback_test.gd",
+			"office_audio_director_test.gd",
             "office_storytelling_test.gd",
             "character_dialogue_portrait_test.gd",
             "character_dialogue_ui_test.gd",

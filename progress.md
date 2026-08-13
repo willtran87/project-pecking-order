@@ -13632,3 +13632,57 @@ The next major systems milestone is persistent worker relationships and individu
   port is free. The user-owned port-3000 process remains untouched on PID 25812.
   Human comprehension/fun sessions and physical-device observations remain
   external evidence and are not represented as automated findings.
+
+## 2026-08-12 - Complete-game closure in progress
+
+- Replaced the four synthesized eight-second adaptive beds with eight compact,
+  reproducible authored Ogg tracks: 24-second office and ambient arrangements,
+  pressure and momentum stems, a dedicated review cue, and distinct Harvest
+  Surge, Shell Audit, and Flock Walkout identities. Six fixed players preserve
+  the existing Music/Ambient preference buses, focus pause, and allocation-free
+  mix updates; only the one scenario player swaps between preloaded stems when
+  a filed replay identity changes.
+- Added `tools/build_authored_score.py` as the deterministic source pipeline.
+  The eight shipping tracks total under 0.5 MB and require no network or sample
+  library. Godot imported every asset successfully.
+- Updated native and browser audio contracts for the authored source, eight-track
+  package, 24-second arrangement, scenario mix, and review transition. The
+  focused audio-director and full Settings/Office integration suites pass.
+- Next: add the privacy-local first-session funnel, physical scenario dressing,
+  stronger final legacy/replay payoff, then export and visually verify the exact
+  Web candidate.
+
+### Closure systems complete
+
+- Added a privacy-local `FirstSessionFunnel` with nine idempotent milestones and
+  explicit 5-second through 20-minute experience budgets. It never enters saves
+  or network traffic and deliberately excludes resumed files, giving future
+  in-person sessions an honest tuning instrument without player tracking.
+- Added stable, non-colliding scenario dressing to the office perimeter. Harvest
+  Surge, Shell Audit, and Flock Walkout now switch a concise physical board plus
+  distinct sacks/dispatch, inspection lamps/evidence, or placard silhouettes;
+  the office layout itself remains deterministic across shifts.
+- Expanded the campaign ending into a responsive 2x2 consequence glance:
+  management legacy, a named hen's carried outcome, the office's lasting future,
+  and a materially different next-file hook. Full prose remains progressive
+  tooltip/accessibility detail instead of returning to a dense reading screen.
+- Focused Godot contracts pass for scenario staging, four-part campaign endings,
+  authored adaptive audio, and first-session funnel privacy/budgets.
+- Next: export the exact Web candidate, run the release and high-resolution
+  visual gates, commit, push, publish Pages, and refresh the local instance.
+
+### Exact candidate verified
+
+- Exported the closure candidate and synchronized all six shipping PCK mirrors
+  at 10,430,804 bytes with SHA-256
+  `3E60B8405DF6ABB70A3814079C2E2AAD8E253B190E437503F0700DEB773CC715`.
+- Fixed the release verifier's relative `-NodeDirectory` handling so its portable
+  toolchain remains valid after nested working-directory changes. The complete
+  gate then passed 53/53 checks in 401.47 seconds: 43 native Godot contracts,
+  four Web/toolchain checks, and six evidence/parity release contracts.
+- Browser captures at 2560x1600, 1440x900, 390x844, and 844x390 report zero
+  browser errors and zero horizontal overflow. Original-resolution inspection
+  confirms the first-file hierarchy stays readable, desktop canvas scaling is
+  crisp, and the mobile shell intentionally recommends landscape/fullscreen.
+- Temporary port-3001 production server and its exact test-owned process tree
+  were stopped; port 3001 is free and no repository test process remains.
