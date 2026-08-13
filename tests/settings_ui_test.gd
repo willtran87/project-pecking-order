@@ -17,7 +17,7 @@ func _run() -> void:
 	var observed_preferences: Array[Dictionary] = []
 	var observed_bindings: Array[Dictionary] = []
 	var observed_backup_imports: Array[String] = []
-	var intent_counts := {"close": 0, "reset": 0, "backup_export": 0, "coach_replay": 0}
+	var intent_counts := {"close": 0, "reset": 0, "backup_export": 0, "playtest_export": 0, "coach_replay": 0}
 	settings.preferences_changed.connect(
 		func(value: Dictionary) -> void: observed_preferences.append(value.duplicate(true))
 	)
@@ -32,6 +32,9 @@ func _run() -> void:
 	)
 	settings.career_backup_import_requested.connect(
 		func(json_text: String) -> void: observed_backup_imports.append(json_text)
+	)
+	settings.playtest_receipt_export_requested.connect(
+		func() -> void: intent_counts["playtest_export"] += 1
 	)
 	settings.first_clutch_replay_requested.connect(func() -> void: intent_counts["coach_replay"] += 1)
 	await process_frame
@@ -96,6 +99,7 @@ func _run() -> void:
 
 	var backup_export := settings.find_child("CareerBackupExportButton", true, false) as Button
 	var backup_import := settings.find_child("CareerBackupImportButton", true, false) as Button
+	var playtest_export := settings.find_child("PlaytestReceiptExportButton", true, false) as Button
 	var backup_confirmation := settings.find_child(
 		"CareerBackupImportConfirmation",
 		true,
@@ -104,10 +108,11 @@ func _run() -> void:
 	_check(
 		backup_export != null and not backup_export.disabled
 		and backup_import != null and not backup_import.disabled
+		and playtest_export != null and not playtest_export.disabled
 		and backup_confirmation != null
 		and backup_confirmation.get_label().autowrap_mode == TextServer.AUTOWRAP_WORD_SMART
 		and backup_confirmation.get_label().custom_minimum_size.x >= 560.0,
-		"career safety should expose focusable export, restore, and confirmation controls",
+		"career safety should expose focusable backup, restore, playtest export, and confirmation controls",
 		failures,
 	)
 	_check(
@@ -140,6 +145,13 @@ func _run() -> void:
 	_check(
 		int(intent_counts["backup_export"]) == 1,
 		"backup export should emit one host-owned durability request",
+		failures,
+	)
+	if playtest_export != null:
+		playtest_export.pressed.emit()
+	_check(
+		int(intent_counts["playtest_export"]) == 1,
+		"playtest export should require one explicit player-owned request",
 		failures,
 	)
 	var portable_fixture := "{\"format\":\"pecking_order_campaign\",\"schema_version\":2}"
@@ -590,7 +602,7 @@ func _run() -> void:
 			push_error("SETTINGS_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_UI_TEST_PASSED categories=4+persistent+arrow+contextual-narration audio=7+alerts+cutout-cues comfort=motion+camera-motion+sensitivity+particles+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause first-clutch=resume+five-step-review+non-mutating controls=15+camera backup=export+confirm+cancel binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
+	print("SETTINGS_UI_TEST_PASSED categories=4+persistent+arrow+contextual-narration audio=7+alerts+cutout-cues comfort=motion+camera-motion+sensitivity+particles+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause first-clutch=resume+five-step-review+non-mutating controls=15+camera backup=export+confirm+cancel playtest=explicit-local-export binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
 	quit(0)
 
 

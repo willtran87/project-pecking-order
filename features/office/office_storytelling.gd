@@ -371,6 +371,8 @@ var _career_trophy_label: Label3D
 var _commendations_visual_snapshot: Dictionary = {}
 var _scenario_identity_root: Node3D
 var _scenario_identity_label: Label3D
+var _scenario_charter_root: Node3D
+var _scenario_charter_label: Label3D
 var _scenario_prop_roots: Dictionary = {}
 var _scenario_identity_id: StringName = &"baseline_book"
 
@@ -2766,6 +2768,17 @@ func _build_scenario_identity_dressing() -> void:
 		Color("274447"), Color("d8e7dc"), Vector3.ZERO,
 		22, 0.0048, &"primary", &"destination", true,
 	)
+	_scenario_charter_root = Node3D.new()
+	_scenario_charter_root.name = "PermanentCharterPlaque"
+	_scenario_identity_root.add_child(_scenario_charter_root)
+	_add_box(_scenario_charter_root, "PermanentCharterFrame", Vector3(3.25, 0.72, 0.09), center + Vector3(0.0, 0.28, 0.10), Color("b38a4f"), 0.68, 0.42)
+	_scenario_charter_label = _add_mounted_label(
+		_scenario_charter_root, "PermanentCharterLabel", "PERMANENT RULE\nUNFILED",
+		center + Vector3(0.0, 0.29, 0.16), Vector2(2.85, 0.50),
+		Color("2d3436"), Color("f2dfac"), Vector3.ZERO,
+		16, 0.0046, &"secondary", &"destination", true,
+	)
+	_scenario_charter_root.visible = false
 
 	var baseline := Node3D.new()
 	baseline.name = "BaselineBookProps"
@@ -2818,6 +2831,17 @@ func _apply_scenario_identity(snapshot: Dictionary) -> void:
 	if next_id not in _scenario_prop_roots:
 		next_id = &"baseline_book"
 	_scenario_identity_id = next_id
+	var hearing_value: Variant = docket.get("final_hearing", {})
+	var hearing := hearing_value as Dictionary if hearing_value is Dictionary else {}
+	var hearing_resolved := bool(hearing.get("resolved", false))
+	if _scenario_charter_root != null:
+		_scenario_charter_root.visible = hearing_resolved
+	if hearing_resolved and _scenario_charter_label != null:
+		_scenario_charter_label.text = "PERMANENT RULE\n%s" % String(
+			hearing.get("option_label", "FILED CHARTER")
+		).to_upper()
+		_scenario_charter_label.set_meta("final_hearing_option_id", String(hearing.get("option_id", "")))
+		EnvironmentalSignageScript.refit_label(_scenario_charter_label)
 	for id_value: Variant in _scenario_prop_roots:
 		var prop_root := _scenario_prop_roots[id_value] as Node3D
 		if prop_root != null:
@@ -3090,6 +3114,8 @@ func _clear_built_roots() -> void:
 	records_archive_root = null
 	_scenario_identity_root = null
 	_scenario_identity_label = null
+	_scenario_charter_root = null
+	_scenario_charter_label = null
 	_scenario_prop_roots.clear()
 	shell_quality_lab_visual = null
 	packing_annex_visual = null

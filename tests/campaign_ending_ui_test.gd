@@ -138,6 +138,16 @@ func _run() -> void:
 		"value": "FLOCK HAS LEVERAGE",
 		"detail": "The hens keep a voice in future rankings and working conditions.",
 	}
+	experiential_final["final_hearing"] = {
+		"resolved": true,
+		"option_label": "SIGN THE FLOCK CHARTER",
+		"outcome": "The flock charter remains on the office wall.",
+	}
+	experiential_final["run_history"] = {
+		"run_count": 2,
+		"headline": "RUN 2  /  BEST 78",
+		"detail": "+9 score versus the previous file. Two scenarios are archived.",
+	}
 	ui.apply_snapshot(experiential_final)
 	await process_frame
 	await process_frame
@@ -159,8 +169,10 @@ func _run() -> void:
 		and "MABEL  //  Mabel kept her chair" in message.text
 		and "OFFICE FUTURE  //  FLOCK HAS LEVERAGE" in message.text
 		and "NEXT RUN  //  FACE THE EXECUTIVE AUDIT" in message.text
+		and "FINAL HEARING  //  SIGN THE FLOCK CHARTER" in message.text
+		and "RUN ARCHIVE  //  RUN 2  /  BEST 78" in message.text
 		and not message.visible,
-		"the low-text finale should retain the complete authored legacy and epilogue as progressive detail",
+		"the low-text finale should retain legacy, epilogue, playable climax, and run comparison as progressive detail",
 		failures,
 	)
 

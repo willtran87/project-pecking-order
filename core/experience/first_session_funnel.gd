@@ -122,6 +122,19 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 	}
 
 
+## Explicit, player-triggered handoff for a moderator or issue report. Calling
+## this never transmits anything; it only produces a bounded JSON receipt that
+## the player may choose to save and share.
+func export_receipt(now_msec: int = -1) -> String:
+	var payload := snapshot(now_msec)
+	payload["export_version"] = 1
+	payload["consent"] = "PLAYER REQUESTED LOCAL EXPORT"
+	payload["contains_personal_data"] = false
+	payload["transmitted"] = false
+	payload["instructions"] = "Share this file only if you choose to participate in a playtest or bug report."
+	return JSON.stringify(payload, "  ")
+
+
 func _definition(milestone_id: StringName) -> Dictionary:
 	for definition in MILESTONES:
 		if StringName(definition["id"]) == milestone_id:

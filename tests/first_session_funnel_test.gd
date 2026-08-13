@@ -25,6 +25,12 @@ func _init() -> void:
 	var rows := complete["milestones"] as Array
 	_check(bool((rows[6] as Dictionary)["inside_budget"]), "a delivered egg inside ten minutes should satisfy the payoff budget", failures)
 	_check(is_equal_approx(float((rows[6] as Dictionary)["elapsed_seconds"]), 450.0), "the first egg should retain exact local elapsed time", failures)
+	var receipt_text := funnel.export_receipt(901_000)
+	var receipt_value: Variant = JSON.parse_string(receipt_text)
+	_check(receipt_value is Dictionary, "the opt-in playtest handoff should export bounded JSON", failures)
+	var receipt := receipt_value as Dictionary if receipt_value is Dictionary else {}
+	_check(String(receipt.get("consent", "")) == "PLAYER REQUESTED LOCAL EXPORT" and not bool(receipt.get("transmitted", true)), "the receipt should state explicit local consent and no transmission", failures)
+	_check(not bool(receipt.get("contains_personal_data", true)), "the local receipt should declare its no-personal-data contract", failures)
 
 	# Repeated observation is idempotent, and a resumed career is excluded rather
 	# than fabricating a partial first-session record from old authority.
@@ -39,7 +45,7 @@ func _init() -> void:
 			push_error("FIRST_SESSION_FUNNEL_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FIRST_SESSION_FUNNEL_TEST_PASSED privacy=local milestones=9 budgets=explicit resume=excluded idempotent=true")
+	print("FIRST_SESSION_FUNNEL_TEST_PASSED privacy=local milestones=9 budgets=explicit export=opt-in+not-transmitted resume=excluded idempotent=true")
 	quit(0)
 
 

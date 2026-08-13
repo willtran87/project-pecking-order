@@ -13,6 +13,7 @@ signal reset_defaults_requested
 signal binding_capture_requested(action: StringName, event: InputEvent)
 signal career_backup_export_requested
 signal career_backup_import_requested(json_text: String)
+signal playtest_receipt_export_requested
 signal first_clutch_replay_requested
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
@@ -70,6 +71,7 @@ const ACTION_LABELS := {
 }
 const MAX_PORTABLE_BACKUP_BYTES := 8 * 1024 * 1024
 const PORTABLE_BACKUP_FILENAME := "pecking-order-career-backup.json"
+const PLAYTEST_RECEIPT_FILENAME := "pecking-order-playtest-receipt.json"
 const CATEGORY_ORDER: Array[StringName] = [
 	&"audio",
 	&"comfort",
@@ -150,6 +152,7 @@ var _status_label: Label
 var _close_button: Button
 var _backup_export_button: Button
 var _backup_import_button: Button
+var _playtest_receipt_button: Button
 var _backup_available: bool = false
 var _backup_import_dialog: FileDialog
 var _backup_export_dialog: FileDialog
@@ -400,6 +403,23 @@ func present_career_backup(json_text: String) -> bool:
 	return true
 
 
+func present_playtest_receipt(json_text: String) -> bool:
+	if json_text.is_empty() or json_text.to_utf8_buffer().size() > 64 * 1024:
+		set_status("Playtest receipt held: the local receipt was empty or oversized.")
+		return false
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(
+			json_text.to_utf8_buffer(),
+			PLAYTEST_RECEIPT_FILENAME,
+			"application/json",
+		)
+		set_status("Local playtest receipt downloaded. It was not transmitted; share it only by choice.")
+		return true
+	DisplayServer.clipboard_set(json_text)
+	set_status("Local playtest receipt copied to the clipboard. It was not transmitted.")
+	return true
+
+
 ## Stages untrusted text behind an explicit replacement confirmation. Office
 ## still owns envelope and domain validation, so this method cannot mutate a
 ## career even when called with malformed input.
@@ -498,7 +518,8 @@ func accessible_text() -> String:
 					if _backup_available else
 					"Export requires a verified campaign checkpoint."
 				)
-				+ " Restore requires explicit replacement confirmation."
+				+ " Restore requires explicit replacement confirmation. "
+				+ "A separate local playtest receipt can be exported by choice and is never transmitted by the game."
 			)
 		_:
 			summary += (
@@ -1036,8 +1057,17 @@ func _build_career_backup_section(parent: VBoxContainer) -> void:
 	_backup_import_button.tooltip_text = "Choose a Pecking Order JSON backup. Nothing changes until confirmation and full validation."
 	_backup_import_button.pressed.connect(_open_career_backup_import)
 	actions.add_child(_backup_import_button)
+	_playtest_receipt_button = Button.new()
+	_playtest_receipt_button.name = "PlaytestReceiptExportButton"
+	_playtest_receipt_button.text = "EXPORT LOCAL PLAYTEST RECEIPT"
+	_playtest_receipt_button.focus_mode = Control.FOCUS_ALL
+	_playtest_receipt_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_playtest_receipt_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_playtest_receipt_button.tooltip_text = "Create a local first-session timing receipt. Nothing is uploaded or transmitted."
+	_playtest_receipt_button.pressed.connect(func() -> void: playtest_receipt_export_requested.emit())
+	actions.add_child(_playtest_receipt_button)
 	var safety := _label(
-		"Restore never executes objects or scripts from a file. Invalid, oversized, newer-version, or incomplete ledgers are rejected before the current save changes.",
+		"Restore never executes objects or scripts from a file. The optional playtest receipt contains only local milestone timings and is never uploaded by the game.",
 		12,
 		Color("b9c8cc"),
 	)

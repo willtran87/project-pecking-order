@@ -1307,12 +1307,18 @@ const INCIDENT_ORDER: Array[StringName] = [
 ]
 const INCIDENT_DOCKET_SEED_OFFSET := 32_452_843
 const AUTHORED_SCENARIO_SEEDS := [4703, 7919, 12011]
+const FINAL_HEARING_INCIDENT_ID: StringName = &"final_hearing"
 const SCENARIO_IDENTITIES := {
 	&"harvest_surge": {
 		"name": "HARVEST SURGE",
 		"short": "SURGE",
 		"icon": &"egg",
 		"favored_directive": &"record_harvest",
+		"favored_finale_option": &"back_farmer",
+		"opening_rule": "Two rush files and a higher opening quota arrive before the first bell.",
+		"victory_twist": "Prove that output can rise without making the flock disposable.",
+		"climax_title": "THE FARMER DEMANDS A RECORD BASKET",
+		"climax_body": "The trucks are waiting. The farmer offers permanent capacity if your final signature says output comes first.",
 		"promise": "Harvest policy converts the rush into pace and Farmer Favor, but keeps its shell-risk tradeoff.",
 	},
 	&"shell_audit": {
@@ -1320,6 +1326,11 @@ const SCENARIO_IDENTITIES := {
 		"short": "AUDIT",
 		"icon": &"shield",
 		"favored_directive": &"shell_assurance",
+		"favored_finale_option": &"publish_ledger",
+		"opening_rule": "Two appeal files arrive under an active shell-control inspection.",
+		"victory_twist": "Finish with evidence the inspector can verify, not merely a clean headline.",
+		"climax_title": "THE INSPECTOR DEMANDS ONE SIGNATURE",
+		"climax_body": "Every basket is on the table. The inspector will accept a quiet assurance, a public ledger, or the farmer's personal guarantee.",
 		"promise": "Assurance policy turns inspection pressure into lower crack risk and stronger compliance.",
 	},
 	&"flock_walkout": {
@@ -1327,6 +1338,11 @@ const SCENARIO_IDENTITIES := {
 		"short": "WALKOUT",
 		"icon": &"flock",
 		"favored_directive": &"sustainable_flock",
+		"favored_finale_option": &"sign_flock_charter",
+		"opening_rule": "Mabel begins near a breaking point and the flock enters with organized solidarity.",
+		"victory_twist": "Resolve whether worker voice becomes policy or remains another poster.",
+		"climax_title": "THE FLOCK ASKS WHO OWNS THE FLOOR",
+		"climax_body": "The hens will finish the clutch. Before they do, they want one promise that survives your probation badge.",
 		"promise": "Sustainable policy turns worker pressure into trust, recovery, and steadier shells.",
 	},
 }
@@ -1354,6 +1370,7 @@ const INCIDENT_SHORT_TITLES := {
 	&"badge_scan": "BADGE SCAN",
 	&"egg_showcase": "EGG SHOWCASE",
 	&"return_to_sender": "RETURN TO SENDER",
+	FINAL_HEARING_INCIDENT_ID: "FINAL HEARING",
 }
 const INCIDENT_PAIR_SOURCE := {
 	&"ledger_molt": &"farmer_story",
@@ -1817,6 +1834,34 @@ const INCIDENT_DEFINITIONS := {
 				"outcome": "The return became engagement. The claimant remains statistically enthusiastic.",
 				"effects": {"revenue_delta_cents": 800, "credited_delta_cents": 800, "executive_delta": 6.0, "morale_delta": -4.0, "trust_delta": -4.0, "grievance_delta": 5.0},
 				"precedent": {"target_incident_id": &"egg_showcase", "target_label": "NEXT EGG SHOWCASE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The success memo makes the management deck more valuable."},
+			},
+		],
+	},
+	FINAL_HEARING_INCIDENT_ID: {
+		"title": "THE PERMANENT RECORD NEEDS YOUR SIGNATURE",
+		"body": "The farmer, the flock, and the ledger are finally in the same room. Only one promise can become office policy.",
+		"witness_prompt": "carried the first file and now stands beside the final basket",
+		"choices": [
+			{
+				"id": &"back_farmer", "label": "BACK THE FARMER'S QUOTA", "short_label": "FARMER'S QUOTA",
+				"glance": "FAVOR ++  /  FLOCK --", "tagline": "Win executive backing; make output the permanent rule.",
+				"preview": "favor +8  /  speed +6%  /  trust -6  /  grievance +6", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The farmer signed first. The new quota was posted before the applause ended.",
+				"effects": {"work_multiplier": 1.06, "executive_delta": 8.0, "morale_delta": -4.0, "trust_delta": -6.0, "grievance_delta": 6.0, "solidarity_delta": -3.0},
+			},
+			{
+				"id": &"sign_flock_charter", "label": "SIGN THE FLOCK CHARTER", "short_label": "FLOCK CHARTER",
+				"glance": "FLOCK ++  /  FAVOR -", "tagline": "Make worker voice permanent; spend the closing reserve.",
+				"preview": "Cost $8  /  morale +6  /  trust +5  /  obedience +4  /  favor -4", "cost_cents": 800, "tone": &"care",
+				"outcome": "The flock charter was signed. The farmer asked whether permanent ink was strictly necessary.",
+				"effects": {"compliance_delta": 4.0, "executive_delta": -4.0, "morale_delta": 6.0, "stress_delta": -4.0, "trust_delta": 5.0, "grievance_delta": -5.0, "solidarity_delta": 6.0},
+			},
+			{
+				"id": &"publish_ledger", "label": "PUBLISH THE COMPLETE LEDGER", "short_label": "OPEN LEDGER",
+				"glance": "ORDER ++  /  FAVOR -", "tagline": "Make every tradeoff inspectable; accept scrutiny from both sides.",
+				"preview": "obedience +8  /  shell risk -2%  /  unity +4  /  favor -2", "cost_cents": 0, "tone": &"quality",
+				"outcome": "The complete ledger was posted. Everyone found a number they wished had remained private.",
+				"effects": {"compliance_delta": 8.0, "executive_delta": -2.0, "crack_modifier": -0.02, "trust_delta": 3.0, "grievance_delta": -2.0, "solidarity_delta": 4.0},
 			},
 		],
 	},
@@ -2298,6 +2343,7 @@ func configure_opening_challenge(contract: Dictionary) -> Dictionary:
 	quota_target = opening_quota
 	for lane in additional_lanes:
 		_enqueue_new_claim(lane)
+	_apply_scenario_opening_structure()
 	_sync_claims_waiting()
 	_opening_challenge_configured = true
 	return {
@@ -18006,6 +18052,10 @@ func _prepare_morning_directive() -> void:
 		],
 		"title": "CHOOSE TODAY'S MANAGEMENT POLICY",
 		"body": (
+			String(scenario.get("opening_rule", "Match the highlighted scenario fit or choose a different tradeoff."))
+			if favored_directive != &"" and day == 1 else
+			String(scenario.get("victory_twist", "Choose the policy that prepares the permanent record."))
+			if favored_directive != &"" and day == PROBATION_CAMPAIGN_SHIFTS else
 			"Match the highlighted scenario fit or choose a different tradeoff."
 			if favored_directive != &"" else
 			"Choose the tradeoff that fits today's orders."
@@ -18575,6 +18625,13 @@ func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 				float(ledger_molt_spreadsheet_crack_basis_points()) / 100.0,
 				float(ledger_molt_spreadsheet_compliance_loss_millipoints()) / 1000.0,
 			]
+		elif incident_id == FINAL_HEARING_INCIDENT_ID:
+			var scenario := scenario_identity_snapshot()
+			var favored_option := StringName(scenario.get("favored_finale_option", &""))
+			choice["scenario_fit"] = option_id == favored_option
+			if option_id == favored_option:
+				choice["tagline"] = "SCENARIO FIT  /  " + String(choice.get("tagline", "File the permanent rule."))
+				choice["preview"] = String(choice.get("preview", "")) + "  /  scenario leverage +"
 		match follow_through_id:
 			&"transparency_to_shadow_sheet":
 				if option_id == &"spreadsheet":
@@ -18729,6 +18786,7 @@ func case_docket_snapshot() -> Dictionary:
 		"active_precedents": active_precedents,
 		"pivot_mastery": incident_pivot_mastery_snapshot(),
 		"scenario": scenario_identity_snapshot(),
+		"final_hearing": final_hearing_snapshot(),
 	}
 
 
@@ -18752,6 +18810,60 @@ func scenario_identity_snapshot() -> Dictionary:
 	return result
 
 
+func _apply_scenario_opening_structure() -> void:
+	# These are visible starting conditions, not hidden difficulty multipliers.
+	# Baseline/legacy dockets remain byte-for-byte neutral.
+	match StringName(scenario_identity_snapshot().get("id", &"baseline_book")):
+		&"harvest_surge":
+			_enqueue_new_claim(&"nest_damage")
+			_enqueue_new_claim(&"predator_loss")
+			quota_target += 1
+		&"shell_audit":
+			_enqueue_new_claim(&"appeals")
+			_enqueue_new_claim(&"appeals")
+			# The inspector explicitly trades one egg of volume for verified service;
+			# the extra appeals remain real work without silently invalidating the
+			# long-career assurance route.
+			quota_target = maxi(1, quota_target - 1)
+			compliance = minf(100.0, compliance + 4.0)
+			_incident_crack_modifier += 0.01
+		&"flock_walkout":
+			if not workers.is_empty():
+				workers[0].morale = maxf(0.0, workers[0].morale - 8.0)
+				workers[0].manager_trust = maxf(0.0, workers[0].manager_trust - 10.0)
+				workers[0].grievance = minf(100.0, workers[0].grievance + 18.0)
+			solidarity = minf(100.0, solidarity + 12.0)
+			# Organized hens cross-check one another's baskets even while the manager
+			# relationship is strained. This keeps the scenario's pressure on trust
+			# rather than turning it into an unrelated shell-quality trap.
+			_incident_crack_modifier -= 0.024
+
+
+func final_hearing_snapshot() -> Dictionary:
+	var record := _latest_incident_response(FINAL_HEARING_INCIDENT_ID, incident_response_history)
+	if record.is_empty():
+		var scenario_id := StringName(scenario_identity_snapshot().get("id", &"baseline_book"))
+		return {
+			"resolved": false,
+			"required": day == PROBATION_CAMPAIGN_SHIFTS and scenario_id != &"baseline_book",
+			"scenario": scenario_identity_snapshot(),
+		}
+	var response := _incident_response_snapshot(record)
+	response["resolved"] = true
+	response["required"] = false
+	response["scenario"] = scenario_identity_snapshot()
+	response["charter_label"] = String(response.get("option_label", "PERMANENT RECORD"))
+	return response
+
+
+func _final_hearing_definition() -> Dictionary:
+	var definition := (INCIDENT_DEFINITIONS[FINAL_HEARING_INCIDENT_ID] as Dictionary).duplicate(true)
+	var scenario := scenario_identity_snapshot()
+	definition["title"] = String(scenario.get("climax_title", definition.get("title", "FINAL HEARING")))
+	definition["body"] = String(scenario.get("climax_body", definition.get("body", "The permanent record needs a signature.")))
+	return definition
+
+
 func _apply_scenario_directive_modifier(directive_id: StringName) -> void:
 	if _career_seed not in AUTHORED_SCENARIO_SEEDS:
 		return
@@ -18759,7 +18871,10 @@ func _apply_scenario_directive_modifier(directive_id: StringName) -> void:
 		# The operating lesson learned during a replay scenario becomes its Senior
 		# aftereffect. It is materially smaller than the opening fit bonus, but strong
 		# enough that a shuffled incident order cannot erase one required service day.
-		_directive_work_multiplier *= 1.075
+		# Replay scenarios carry two additional opening obligations into the long
+		# career. The learned operating cadence must cover one service day without
+		# erasing the Board Book's shell, welfare, or compliance tests.
+		_directive_work_multiplier *= 1.12
 		var senior_scenario := StringName(scenario_identity_snapshot().get("id", &""))
 		match senior_scenario:
 			&"shell_audit":
@@ -18825,7 +18940,8 @@ func _relationship_arc_stage(trust: float, grievance: float, prior_beats: int) -
 
 func incident_character_arc_snapshot(incident_id: StringName) -> Dictionary:
 	var pair_id := StringName(INCIDENT_PAIR_IDS.get(incident_id, &""))
-	if pair_id == &"" or workers.is_empty():
+	var final_hearing := incident_id == FINAL_HEARING_INCIDENT_ID
+	if (pair_id == &"" and not final_hearing) or workers.is_empty():
 		return {}
 	var employed_workers: Array[ChickenState] = []
 	for worker in workers:
@@ -18837,17 +18953,23 @@ func incident_character_arc_snapshot(incident_id: StringName) -> Dictionary:
 	# deterministic, survives save/load without another schema field, and turns
 	# the follow-through case into a relationship callback instead of trivia.
 	var pair_index := maxi(0, INCIDENT_PAIR_ORDER.find(pair_id))
+	if final_hearing:
+		var scenario_ids: Array[StringName] = [&"harvest_surge", &"shell_audit", &"flock_walkout"]
+		pair_index = maxi(0, scenario_ids.find(StringName(scenario_identity_snapshot().get("id", &""))))
 	var witness := employed_workers[pair_index % employed_workers.size()]
 	var prior_beats := 0
 	for record in incident_response_history:
 		var prior_incident := StringName(record.get("incident_id", &""))
-		if StringName(INCIDENT_PAIR_IDS.get(prior_incident, &"")) == pair_id:
+		if (
+			(final_hearing and prior_incident == FINAL_HEARING_INCIDENT_ID)
+			or (not final_hearing and StringName(INCIDENT_PAIR_IDS.get(prior_incident, &"")) == pair_id)
+		):
 			prior_beats += 1
 	var definition := INCIDENT_DEFINITIONS.get(incident_id, {}) as Dictionary
 	var speaker_id := StringName(witness.display_name.to_lower().replace(" ", "_"))
 	var stage := _relationship_arc_stage(witness.manager_trust, witness.grievance, prior_beats)
 	return {
-		"pair_id": pair_id,
+		"pair_id": &"permanent_record" if final_hearing else pair_id,
 		"worker_id": witness.id,
 		"worker_name": witness.display_name,
 		"speaker_id": speaker_id,
@@ -18879,7 +19001,16 @@ func _maybe_open_incident() -> bool:
 		pending_decision = petition_decision
 	else:
 		var incident_id: StringName
-		if _career_seed == 1701 or is_petition_slot:
+		var scenario_id := StringName(scenario_identity_snapshot().get("id", &"baseline_book"))
+		var is_final_hearing: bool = (
+			day == PROBATION_CAMPAIGN_SHIFTS
+			and _incident_slot == INCIDENT_MINUTES.size() - 1
+			and scenario_id != &"baseline_book"
+			and not bool(final_hearing_snapshot().get("resolved", false))
+		)
+		if is_final_hearing:
+			incident_id = FINAL_HEARING_INCIDENT_ID
+		elif _career_seed == 1701 or is_petition_slot:
 			# PO-1701 is the shipped balance baseline and the destination for legacy
 			# saves. A petition slot with no eligible sponsor also retains its authored
 			# structural fallback. New ordinary docket slots use the shuffled bag.
@@ -18890,7 +19021,11 @@ func _maybe_open_incident() -> bool:
 			_last_standard_incident_id = incident_id
 		else:
 			incident_id = _next_standard_incident_id()
-		var definition: Dictionary = INCIDENT_DEFINITIONS[incident_id]
+		var definition: Dictionary = (
+			_final_hearing_definition()
+			if incident_id == FINAL_HEARING_INCIDENT_ID else
+			INCIDENT_DEFINITIONS[incident_id]
+		)
 		var options: Array[Dictionary] = []
 		for choice in _incident_choices(incident_id):
 			options.append(choice.duplicate(true))
@@ -18906,14 +19041,24 @@ func _maybe_open_incident() -> bool:
 			"body": String(definition.get("body", "A measurable variance requires management attention.")),
 			"options": options,
 		}
+		if incident_id == FINAL_HEARING_INCIDENT_ID:
+			pending_decision["eyebrow"] = "FINAL HEARING  /  PERMANENT CHOICE  /  AUTO-PAUSED  /  %s" % _format_time(minute_of_day)
+			pending_decision["scenario"] = scenario_identity_snapshot()
 		if not case_memory.is_empty():
 			pending_decision["case_memory"] = case_memory.duplicate(true)
 		if not character_arc.is_empty():
 			pending_decision["character_arc"] = character_arc.duplicate(true)
-			pending_decision["eyebrow"] = "INCIDENT  /  %s'S FILE  /  AUTO-PAUSED  /  %s" % [
-				String(character_arc.get("worker_name", "FLOCK")).to_upper(),
-				_format_time(minute_of_day),
-			]
+			pending_decision["eyebrow"] = (
+				"FINAL HEARING  /  %s WITNESSES  /  PERMANENT CHOICE  /  %s" % [
+					String(character_arc.get("worker_name", "FLOCK")).to_upper(),
+					_format_time(minute_of_day),
+				]
+				if incident_id == FINAL_HEARING_INCIDENT_ID else
+				"INCIDENT  /  %s'S FILE  /  AUTO-PAUSED  /  %s" % [
+					String(character_arc.get("worker_name", "FLOCK")).to_upper(),
+					_format_time(minute_of_day),
+				]
+			)
 	_incident_slot += 1
 	shift_phase = ShiftPhase.AWAITING_INCIDENT
 	shift_phase_changed.emit(shift_phase)
@@ -19546,6 +19691,21 @@ func _apply_incident_effects(
 	var effect_bundle := choice.get("effects", {}) as Dictionary
 	if not effect_bundle.is_empty():
 		_apply_incident_effect_bundle(effect_bundle)
+		if incident_id == FINAL_HEARING_INCIDENT_ID:
+			var favored_option := StringName(scenario_identity_snapshot().get("favored_finale_option", &""))
+			if option_id == favored_option:
+				# A scenario-fit signature rewards reading the whole run without
+				# turning any one charter into a universal best answer.
+				match option_id:
+					&"back_farmer":
+						executive_confidence = minf(100.0, executive_confidence + 2.0)
+						_incident_work_multiplier *= 1.02
+					&"sign_flock_charter":
+						_adjust_worker_relationships(2.0, -2.0)
+						solidarity = minf(100.0, solidarity + 2.0)
+					&"publish_ledger":
+						compliance = minf(100.0, compliance + 2.0)
+						_incident_crack_modifier -= 0.01
 		# Connected-case pivots are small but tangible: they alter the option the
 		# filed precedent named without introducing a second hidden ruleset.
 		match follow_through_id:

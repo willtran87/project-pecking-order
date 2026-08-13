@@ -104,6 +104,7 @@ try {
             "settings_office_integration_test.gd",
             "ui_text_expansion_resilience_test.gd",
             "campaign_intake_safety_test.gd",
+            "final_hearing_and_replay_structure_test.gd",
             "campaign_save_store_test.gd",
             "campaign_semantic_recovery_test.gd",
             "checkpoint_office_integration_test.gd",

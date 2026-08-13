@@ -64,9 +64,12 @@ func _run() -> void:
 	var harvest_props := staging.find_child("HarvestSurgeProps", true, false) as Node3D
 	var audit_props := staging.find_child("ShellAuditProps", true, false) as Node3D
 	var walkout_props := staging.find_child("FlockWalkoutProps", true, false) as Node3D
+	var charter_plaque := staging.find_child("PermanentCharterPlaque", true, false) as Node3D
+	var charter_label := staging.find_child("PermanentCharterLabel", true, false) as Label3D
 	_check(
 		scenario_board != null and baseline_props != null and harvest_props != null
-		and audit_props != null and walkout_props != null,
+		and audit_props != null and walkout_props != null
+		and charter_plaque != null and charter_label != null,
 		"the office should expose one physical scenario board and four authored prop sets",
 		failures,
 	)
@@ -94,6 +97,22 @@ func _run() -> void:
 			var prop_root := (scenario_expectations[prop_id] as Array)[1] as Node3D
 			if prop_id != scenario_id:
 				_check(prop_root != null and not prop_root.visible, "%s should hide unrelated %s props" % [scenario_id, prop_id], failures)
+	_check(charter_plaque != null and not charter_plaque.visible, "the permanent charter should remain absent before the playable Final Hearing", failures)
+	staging.apply_snapshot({
+		"day": 5,
+		"shift_phase": 1,
+		"case_docket": {
+			"scenario": {"id": &"flock_walkout"},
+			"final_hearing": {"resolved": true, "option_id": &"sign_flock_charter", "option_label": "SIGN THE FLOCK CHARTER"},
+		},
+	})
+	_check(
+		charter_plaque != null and charter_plaque.visible
+		and charter_label != null and "SIGN THE FLOCK CHARTER" in charter_label.text
+		and String(charter_label.get_meta("final_hearing_option_id", "")) == "sign_flock_charter",
+		"the filed Final Hearing choice should become a permanent physical office plaque",
+		failures,
+	)
 	_check(staging.find_children("FarmMutualContractBoardVisual", "Node3D", true, false).size() == 1, "post-add configuration should rebuild exactly one contract-board root", failures)
 	_check(staging.find_children("FarmMutualServiceCoopVisual", "Node3D", true, false).size() == 1, "post-add configuration should rebuild exactly one Service Coop root", failures)
 	_check(staging.find_children("FarmMutualNegotiationRoomVisual", "Node3D", true, false).size() == 1, "post-add configuration should rebuild exactly one negotiation-room root", failures)

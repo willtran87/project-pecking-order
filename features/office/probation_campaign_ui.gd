@@ -4805,6 +4805,20 @@ func _refresh_final() -> void:
 			String(replay.get("action", "TRY A DIFFERENT DOCTRINE")),
 			String(replay.get("rationale", "Change the plan and compare the consequence.")),
 		]
+	var hearing_value: Variant = _snapshot.get("final_hearing", {})
+	var hearing := hearing_value as Dictionary if hearing_value is Dictionary else {}
+	if bool(hearing.get("resolved", false)):
+		_final_message_label.text += "\n\nFINAL HEARING  //  %s\n%s" % [
+			String(hearing.get("option_label", "PERMANENT RECORD")),
+			String(hearing.get("outcome", "The closing charter remains on the office wall.")),
+		]
+	var history_value: Variant = _snapshot.get("run_history", {})
+	var history := history_value as Dictionary if history_value is Dictionary else {}
+	if int(history.get("run_count", 0)) > 0:
+		_final_message_label.text += "\n\nRUN ARCHIVE  //  %s\n%s" % [
+			String(history.get("headline", "PERMANENT FILE")),
+			String(history.get("detail", "This run is now in the career archive.")),
+		]
 	_final_message_label.set_meta("accessible_text", _final_message_label.text)
 	_refresh_final_ending_glance(ending, passed, _final_message_label.text)
 	_final_score_label.text = _format_integer(int(_snapshot.get("score", 0)))

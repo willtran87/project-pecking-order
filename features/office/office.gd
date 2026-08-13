@@ -36,6 +36,7 @@ const CampusPortfolioRevealUIScript := preload("res://features/office/campus_por
 const CampaignStateScript := preload("res://core/campaign/campaign_state.gd")
 const SeniorRoostStateScript := preload("res://core/campaign/senior_roost_state.gd")
 const CareerCommendationsScript := preload("res://core/campaign/career_commendations.gd")
+const CareerRunArchiveScript := preload("res://core/campaign/career_run_archive.gd")
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
 const CheckpointCoordinatorScript := preload("res://core/persistence/checkpoint_coordinator.gd")
 const ProbationCampaignUIScript := preload("res://features/office/probation_campaign_ui.gd")
@@ -501,6 +502,8 @@ var _last_reviewed_day: int = 1
 var _campaign_state = CampaignStateScript.new()
 var _senior_roost_state = SeniorRoostStateScript.new()
 var _campaign_store = CampaignSaveStoreScript.new(CAMPAIGN_SAVE_FILENAME)
+var _career_run_archive = CareerRunArchiveScript.new()
+var _current_campaign_run_id := ""
 var _checkpoint_coordinator = CheckpointCoordinatorScript.new()
 var _has_campaign_checkpoint_candidate := false
 var _has_verified_campaign_checkpoint := false
@@ -1744,6 +1747,13 @@ func _on_career_backup_export_requested() -> void:
 		return
 	_settings_ui.present_career_backup(json_text)
 	_settings_ui.set_career_backup_available(true)
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _on_playtest_receipt_export_requested() -> void:
+	if _settings_ui == null or _simulation == null:
+		return
+	_settings_ui.present_playtest_receipt(_first_session_funnel.export_receipt())
 	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
@@ -6449,6 +6459,7 @@ func _build_ui() -> void:
 	_settings_ui.reset_defaults_requested.connect(_on_preferences_reset_requested)
 	_settings_ui.career_backup_export_requested.connect(_on_career_backup_export_requested)
 	_settings_ui.career_backup_import_requested.connect(_on_career_backup_import_requested)
+	_settings_ui.playtest_receipt_export_requested.connect(_on_playtest_receipt_export_requested)
 	_settings_ui.first_clutch_replay_requested.connect(_on_first_clutch_replay_requested)
 	_settings_ui.close_requested.connect(_on_settings_close_requested)
 	_ui_root.add_child(_settings_ui)
@@ -11654,6 +11665,27 @@ func _fresh_campaign_seed() -> int:
 	return int(CAREER_DOCKET_SEEDS[docket_rng.randi_range(0, CAREER_DOCKET_SEEDS.size() - 1)])
 
 
+func _new_campaign_run_id(career_seed: int) -> String:
+	return "run-%d-%d-%d" % [
+		career_seed,
+		int(Time.get_unix_time_from_system() * 1000.0),
+		Time.get_ticks_usec(),
+	]
+
+
+func _legacy_campaign_run_id(campaign, simulation_data: Dictionary) -> String:
+	# Older checkpoints did not carry an explicit campaign nonce. Their completed
+	# authority is still stable across repeated final-review openings, so use a
+	# deterministic migration identity until the next genuinely new file.
+	return "legacy-%d-%s-%d-%d-%d" % [
+		int(simulation_data.get("career_seed", 1701)),
+		String(campaign.challenge_contract_id),
+		int(campaign.total_eggs),
+		int(campaign.total_credited_cents),
+		int(campaign.completed_shifts),
+	]
+
+
 func _on_campaign_new_requested() -> void:
 	# A new file is committed through CampaignSaveStore's verified temporary-file
 	# transaction. Keeping the current primary in place until that commit succeeds
@@ -11676,10 +11708,11 @@ func _on_campaign_new_requested() -> void:
 	_character_dialogue_previous_snapshot.clear()
 	if _character_dialogue_ui != null:
 		_character_dialogue_ui.clear_session()
+	var fresh_seed := _fresh_campaign_seed()
 	var fresh_simulation := DepartmentSimulation.new(
 		1701,
 		INITIAL_CAMPAIGN_STAFF,
-		_fresh_campaign_seed(),
+		fresh_seed,
 	)
 	var opening_result := fresh_simulation.configure_opening_challenge(
 		fresh_campaign.challenge_contract_snapshot(),
@@ -11693,6 +11726,7 @@ func _on_campaign_new_requested() -> void:
 	if not _simulation.restore_save_state(fresh_simulation.export_save_state()):
 		push_error("Could not reset the office simulation for a new probation file.")
 		return
+	_current_campaign_run_id = _new_campaign_run_id(fresh_seed)
 	_reset_first_clutch(String(_player_preferences.get("guidance_mode", "full")) != "off")
 	_prime_first_hen_prelude()
 	_reset_campaign_session_visuals()
@@ -12242,6 +12276,7 @@ func _show_campaign_final_review() -> void:
 	_campaign_review_stage = &"final"
 	_day_review_scrim.visible = false
 	_set_flockwatch_open(false)
+	_archive_current_campaign_run()
 	if _audio_feedback != null and _audio_feedback.has_method("play_campaign_outcome"):
 		_audio_feedback.call(
 			"play_campaign_outcome",
@@ -12250,6 +12285,39 @@ func _show_campaign_final_review() -> void:
 	_campaign_ui.show_final_review(_campaign_presentation_snapshot(&"final"))
 	_set_campaign_modal_open(true)
 	_save_campaign_checkpoint("final_review")
+
+
+func _archive_current_campaign_run() -> bool:
+	if _campaign_state == null or _campaign_state.outcome == CampaignStateScript.OUTCOME_IN_PROGRESS:
+		return false
+	var scenario := _simulation.scenario_identity_snapshot()
+	var hearing := _simulation.final_hearing_snapshot()
+	var contract := _campaign_state.challenge_contract_snapshot()
+	var doctrine := _campaign_state.active_doctrine()
+	var mastery := _simulation.incident_pivot_mastery_snapshot()
+	if _current_campaign_run_id.is_empty():
+		_current_campaign_run_id = _legacy_campaign_run_id(
+			_campaign_state,
+			_simulation.export_save_state(),
+		)
+	return _career_run_archive.record({
+		"run_id": _current_campaign_run_id,
+		"scenario_id": String(scenario.get("id", "baseline_book")),
+		"scenario_label": String(scenario.get("name", "BASELINE BOOK")),
+		"contract_id": String(contract.get("id", "standard_filing")),
+		"contract_label": String(contract.get("short_label", "STANDARD")),
+		"doctrine_id": String(_campaign_state.chosen_milestone_id),
+		"doctrine_label": String(doctrine.get("label", "UNFILED ROOST")),
+		"hearing_choice_id": String(hearing.get("option_id", "unfiled")),
+		"hearing_choice_label": String(hearing.get("option_label", "UNFILED")),
+		"score": _campaign_state.probation_score,
+		"welfare": _campaign_state.average_welfare(),
+		"compliance": _campaign_state.average_compliance(),
+		"farmer_favor": _campaign_state.average_farmer_favor(),
+		"crack_rate_basis_points": _campaign_state.cumulative_crack_rate_basis_points(),
+		"mastered_pairs": int(mastery.get("mastered_count", 0)),
+		"passed": _campaign_state.outcome == CampaignStateScript.OUTCOME_PASSED,
+	})
 
 
 ## A compact, derived epilogue for the organization itself. Endings already
@@ -12396,6 +12464,8 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 	var chapter := CampaignStateScript.shift_chapter(campaign_day)
 	var momentum_brief := _campaign_state.momentum_brief()
 	var replay_recommendation := _campaign_state.replay_recommendation()
+	var final_hearing := _simulation.final_hearing_snapshot()
+	var run_history := _career_run_archive.comparison()
 	var legacy_title := String(active_doctrine.get(
 		"label",
 		leadership_record.get("title", "UNFILED ROOST"),
@@ -12446,6 +12516,8 @@ func _campaign_presentation_snapshot(view: StringName) -> Dictionary:
 		"chapter": chapter,
 		"momentum_brief": momentum_brief,
 		"replay_recommendation": replay_recommendation,
+		"final_hearing": final_hearing,
+		"run_history": run_history,
 		"campaign_legacy": campaign_legacy,
 		"flock_epilogue": flock_epilogue,
 		"campaign_future": _campaign_future_snapshot(ending, leadership_record, flock_epilogue),
@@ -14476,6 +14548,8 @@ func _write_campaign_checkpoint(reason: String) -> bool:
 			"senior_roost": _senior_roost_state.is_active(),
 			"first_clutch": _first_clutch.duplicate(true),
 			"interface_context": _campaign_interface_context(),
+			"run_archive": _career_run_archive.entries(),
+			"current_run_id": _current_campaign_run_id,
 		},
 	}
 	var metadata := {
@@ -14879,6 +14953,20 @@ func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
 				"session.interface_context failed validation",
 			)),
 		}
+	var staged_run_archive = CareerRunArchiveScript.new()
+	if not staged_run_archive.restore(session.get("run_archive", [])):
+		return {"ok": false, "error": "session.run_archive failed validation"}
+	var current_run_id_value: Variant = session.get("current_run_id", "")
+	if typeof(current_run_id_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+		return {"ok": false, "error": "session.current_run_id must be a string"}
+	var current_run_id := String(current_run_id_value).strip_edges()
+	if current_run_id.length() > 120 or "\n" in current_run_id or "\r" in current_run_id:
+		return {"ok": false, "error": "session.current_run_id is outside supported limits"}
+	if current_run_id.is_empty():
+		current_run_id = _legacy_campaign_run_id(
+			restored_campaign,
+			simulation_data_value as Dictionary,
+		)
 	var review_stage_value: Variant = session.get("review_stage", "active")
 	if typeof(review_stage_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
 		return {"ok": false, "error": "session.review_stage must be a string"}
@@ -14938,6 +15026,8 @@ func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
 			first_clutch_data,
 			not session.has("first_clutch"),
 		),
+		"run_archive": staged_run_archive,
+		"current_run_id": current_run_id,
 	}
 
 
@@ -14953,6 +15043,8 @@ func _activate_staged_campaign_checkpoint(staged: Dictionary) -> bool:
 	).duplicate(true)
 	_campaign_senior_roost = bool(staged.get("senior_active", false))
 	_first_clutch = (staged.get("first_clutch", {}) as Dictionary).duplicate(true)
+	_career_run_archive = staged.get("run_archive", CareerRunArchiveScript.new())
+	_current_campaign_run_id = String(staged.get("current_run_id", ""))
 	return true
 
 

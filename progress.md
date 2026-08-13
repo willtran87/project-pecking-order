@@ -13686,3 +13686,43 @@ The next major systems milestone is persistent worker relationships and individu
   crisp, and the mobile shell intentionally recommends landscape/fullscreen.
 - Temporary port-3001 production server and its exact test-owned process tree
   were stopped; port 3001 is free and no repository test process remains.
+
+## 2026-08-13 - Final Hearing and comparative replay loop
+
+- Shift 5 in every authored replay scenario now culminates in a playable Final
+  Hearing instead of a routine second incident. A stable named hen witnesses
+  three permanent charter choices; the filed response changes simulation
+  authority, appears in the ending, and mounts as a lasting physical plaque.
+  The original Standard Filing retains its frozen, proven economy docket.
+- Replay files now change their starting structure as well as their modifiers:
+  Harvest Surge opens with rush files and a higher quota, Shell Audit opens with
+  appeals and inspection pressure, and Flock Walkout opens with Mabel at a
+  relationship breaking point plus stronger flock solidarity. Morning guidance
+  reduces each opening to one rule and each climax to one victory twist.
+- Added a bounded, checkpointed eight-run career archive. Final review compares
+  the latest result with the previous file, retains the best score, and reports
+  scenario/doctrine breadth without telemetry or another default screen.
+- The privacy-local first-session funnel can now produce an explicitly opt-in
+  JSON receipt from Settings. It declares no personal data and no transmission;
+  the player alone decides whether to share the downloaded/copied artifact.
+- Added focused contracts for scenario openings, the named-witness climax,
+  permanent charter persistence, bounded comparative archive behavior, local
+  receipt consent, Settings wiring, physical office payoff, and ending detail.
+  The new climax/replay contract is also part of local and CI release gates.
+- The authentic campaign balance proof passes after preserving the frozen
+  Standard Filing docket and compensating each replay scenario only on its
+  intended axis. All probation doctrines, challenge contracts, authored seeds,
+  seven Board Books, and the deliberate unprepared Gold failure remain proven.
+- Exported the exact Web candidate and passed the complete beta release gate:
+  54/54 checks in 422.696 seconds, comprising 44 native Godot contracts, four
+  Web/toolchain checks, and six release evidence/parity contracts. The nine-file
+  Pages/production payload is synchronized; `index.pck` is 10,438,148 bytes with
+  SHA-256 `AD356FCFE89F9FB8B46042680A9388CA5FF2D4E5367BD8E71021C679EB7E9FAE`.
+- The prescribed renderer-backed browser client loaded the production wrapper,
+  reported `loaded=true`, `mode=godot_canvas`, zero orphan nodes, and no browser
+  error artifact. Original-resolution inspection confirms the 1280x720 first
+  file remains contained, glance-first, and readable over the office.
+- The temporary port-3001 production server and browser client were stopped;
+  port 3001 is free and no repository-owned Godot or Node test process remains.
+  Human comprehension/fun sessions and physical-device observations remain
+  external evidence and are not represented as automated findings.

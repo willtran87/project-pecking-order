@@ -71,6 +71,14 @@ func _run() -> void:
 		"the baseline checkpoint should retain its exact transaction reason",
 		failures,
 	)
+	var current_run_id := String(office.get("_current_campaign_run_id"))
+	var opening_session := store.last_payload.get("session", {}) as Dictionary
+	_check(
+		not current_run_id.is_empty()
+		and String(opening_session.get("current_run_id", "")) == current_run_id,
+		"a new campaign should persist one stable archive identity before play begins",
+		failures,
+	)
 
 	var coordinator = office.get("_checkpoint_coordinator")
 	coordinator.configure(60_000, 60_000, 1_000)
@@ -239,7 +247,7 @@ func _run() -> void:
 			push_error("CHECKPOINT_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CHECKPOINT_OFFICE_INTEGRATION_TEST_PASSED burst=5x1 lifecycle=subsumes+revision+retry tutorial=immediate intake=no-fabrication+visible-save-hold diagnostics=truthful")
+	print("CHECKPOINT_OFFICE_INTEGRATION_TEST_PASSED burst=5x1 lifecycle=subsumes+revision+retry tutorial=immediate intake=no-fabrication+visible-save-hold run_id=stable diagnostics=truthful")
 	quit(0)
 
 
