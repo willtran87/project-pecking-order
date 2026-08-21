@@ -543,7 +543,7 @@ func _run() -> void:
 		and probation_summary_detail != null
 		and probation_summary_detail.text == "QUICK RECAP AFTER EACH SHIFT"
 		and journey_file != null and journey_file.text == "1 FILE"
-		and journey_shifts != null and journey_shifts.text == "5 SHIFTS"
+		and journey_shifts != null and journey_shifts.text == "5 QUICK FILES"
 		and journey_review != null and journey_review.text == "FINAL REVIEW"
 		and journey_file_caption != null and journey_file_caption.text == "1  TEAM UP"
 		and journey_shifts_caption != null and journey_shifts_caption.text == "2  WORK"

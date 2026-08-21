@@ -3502,6 +3502,7 @@ func _refresh() -> void:
 	var temperament_label := String(worker.get("temperament_label", "STEADY HEN"))
 	var temperament_description := String(worker.get("temperament_description", ""))
 	var flock_bond := worker.get("flock_bond", {}) as Dictionary
+	var personal_mastery := worker.get("personal_mastery", {}) as Dictionary
 	var temperament_effect := worker.get("temperament_effect", {}) as Dictionary
 	var preferred_action := StringName(worker.get("preferred_personnel_action", &""))
 	_worker_career_label.text = (
@@ -3528,6 +3529,13 @@ func _refresh() -> void:
 			"summary",
 			"No active perchmate relationship is filed.",
 		))
+	if not personal_mastery.is_empty():
+		_worker_trait_label.tooltip_text += "\nMASTERY %d/%d / NEXT %s → %s" % [
+			int(personal_mastery.get("completed", 0)),
+			int(personal_mastery.get("total", 3)),
+			String(personal_mastery.get("next_label", "MASTERED")),
+			String(personal_mastery.get("next_reward", career_title)).to_upper(),
+		]
 	if secondary_specialty != &"":
 		_worker_trait_label.tooltip_text += "\nSECONDARY ACCREDITATION: %s receives the same specialist speed and shell-risk treatment when routed manually." % _lane_name(secondary_specialty)
 	if training_specialty != &"":
@@ -4396,10 +4404,21 @@ func _refresh_dossier_summary(
 			var work_style_summary := String(temperament_effect.get("summary", "steady baseline"))
 			var flock_bond := worker.get("flock_bond", {}) as Dictionary
 			var bond_line := String(flock_bond.get("summary", "No active perchmate relationship is filed."))
-			_dossier_summary_label.text = "%s  /  %s SPECIALIST  /  %s\nTEMPERAMENT  /  %s  /  %s: %s\nFLOCK BOND  /  %s\nCARE  morale %d  /  stress %d  /  fatigue %d  /  shell risk %d%%" % [
+			var personal_mastery := worker.get("personal_mastery", {}) as Dictionary
+			var mastery_line := "MASTERY  %d/%d  /  NEXT %s → %s" % [
+				int(personal_mastery.get("completed", 0)),
+				int(personal_mastery.get("total", 3)),
+				String(personal_mastery.get("next_label", "MASTERED")),
+				String(personal_mastery.get(
+					"next_reward",
+					worker.get("career_title", "MASTER LAYER"),
+				)).to_upper(),
+			]
+			_dossier_summary_label.text = "%s  /  %s SPECIALIST  /  %s\n%s\nTEMPERAMENT  /  %s  /  %s: %s\nFLOCK BOND  /  %s\nCARE  morale %d  /  stress %d  /  fatigue %d  /  shell risk %d%%" % [
 				career_profile_name.to_upper(),
 				_lane_name(specialty),
 				("AUTO SORT" if assignment == &"auto" else "%s TRAY" % _lane_name(assignment)),
+				mastery_line,
 				temperament_label,
 				work_style_label,
 				work_style_summary,

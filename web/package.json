@@ -27,6 +27,7 @@
 		"audit:focus-safety": "node ../tests/focus_loss_web_audit.mjs",
 		"audit:audio-momentum": "node tests/audio-momentum-audit.mjs",
 		"audit:priority-peck": "node tests/priority-peck-focus-audit.mjs",
+		"audit:gameplay-pulse": "node tests/gameplay-pulse-audit.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate"
   },

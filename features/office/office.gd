@@ -17,6 +17,7 @@ const OfficeActionCatalogScript := preload("res://core/settings/office_action_ca
 const PlayerPreferencesStoreScript := preload("res://core/settings/player_preferences_store.gd")
 const WebPreferencesMirrorScript := preload("res://core/settings/web_preferences_mirror.gd")
 const FirstSessionFunnelScript := preload("res://core/experience/first_session_funnel.gd")
+const GameplayPulseDirectorScript := preload("res://core/experience/gameplay_pulse_director.gd")
 const SettingsUIScript := preload("res://features/office/settings_ui.gd")
 const PeckworkRoutingUIScript := preload("res://features/office/peckwork_routing_ui.gd")
 const RoostStaffingUIScript := preload("res://features/office/roost_staffing_ui.gd")
@@ -525,6 +526,8 @@ var _web_focus_pause_callback
 var _web_diagnostic_request_callback
 var _web_accessibility_request_callback
 var _first_session_funnel = FirstSessionFunnelScript.new()
+var _gameplay_pulse_director = GameplayPulseDirectorScript.new()
+var _gameplay_pulse: Dictionary = {}
 var _last_lifecycle_checkpoint_frame: int = -1
 var _last_lifecycle_checkpoint_revision: int = -1
 var _campaign_session_checkpoint_enabled := false
@@ -699,6 +702,9 @@ var _quality_streak_label: Label
 var _directive_badge_host: HBoxContainer
 var _directive_badge_icon: FlockwatchIconBadge
 var _directive_badge: Label
+var _core_loop_host: HBoxContainer
+var _core_loop_icons: Array[FlockwatchIconBadge] = []
+var _rival_pulse_label: Label
 var _guidance_action_button: Button
 var _guidance_icon: FlockwatchIconBadge
 var _guidance_label: Label
@@ -1637,6 +1643,7 @@ func _on_settings_requested() -> void:
 	if _settings_ui.is_open():
 		_on_settings_close_requested()
 		return
+	_first_session_funnel.observe_signal(&"settings_opened")
 	# Settings is the non-remappable safety and reading surface above every other
 	# modal. Preserve the structured action result, but retire its lower-priority
 	# global cards before the settings sheet claims the screen.
@@ -5881,6 +5888,32 @@ func _build_ui() -> void:
 	_directive_badge.set_meta("full_text", "POLICY  ·  UNSET")
 	_directive_badge.set_meta("compact_text", "BRIEFING")
 	_directive_badge_host.add_child(_directive_badge)
+	_core_loop_host = HBoxContainer.new()
+	_core_loop_host.name = "CoreLoopPulse"
+	_core_loop_host.custom_minimum_size.x = 86.0
+	_core_loop_host.add_theme_constant_override("separation", 3)
+	_core_loop_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_core_loop_host.tooltip_text = "FILE → HEN → EGG → CREDIT"
+	_core_loop_host.set_meta("shape_language", "file=route; flock=work; egg=delivery; cash=credit")
+	_shift_objective_row.add_child(_core_loop_host)
+	for definition in GameplayPulseDirectorScript.LOOP_STEPS:
+		var loop_icon := FlockwatchIconBadgeScript.new()
+		loop_icon.name = "CoreLoop_%s" % String(definition.get("id", "step")).capitalize()
+		loop_icon.set_badge_size(16.0)
+		loop_icon.configure(
+			StringName(definition.get("icon", &"goal")),
+			Color("667780"),
+		)
+		loop_icon.set_meta("loop_step_id", String(definition.get("id", "")))
+		loop_icon.set_meta("semantic_icon", String(definition.get("icon", "goal")))
+		_core_loop_host.add_child(loop_icon)
+		_core_loop_icons.append(loop_icon)
+	_rival_pulse_label = _make_label("RIVAL ±0", 12, Color("b8c3cc"))
+	_rival_pulse_label.name = "RivalPulseLabel"
+	_rival_pulse_label.custom_minimum_size.x = 82.0
+	_rival_pulse_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_rival_pulse_label.visible = false
+	_shift_objective_row.add_child(_rival_pulse_label)
 	_guidance_action_button = Button.new()
 	_guidance_action_button.name = "GuidanceActionButton"
 	_guidance_action_button.flat = true
@@ -10484,6 +10517,7 @@ func _record_adaptive_route_outcome(
 	):
 		_clear_adaptive_route_recovery()
 	_adaptive_route_miss_streak += 1
+	_first_session_funnel.observe_signal(&"route_miss")
 	_adaptive_route_last_miss_at_msec = now_msec
 	if _adaptive_route_miss_streak < ADAPTIVE_ROUTE_MISS_THRESHOLD:
 		_adaptive_route_recovery.clear()
@@ -11163,6 +11197,7 @@ func _on_next_moment_pressed() -> void:
 			"Next Moment is available during an active shift after the current management file is closed.",
 		)
 		return
+	_first_session_funnel.observe_signal(&"next_moment_used")
 	_next_moment_previous_speed = _clock.speed_index if _clock.speed_index > 0 else 1
 	_next_moment_active = true
 	_clock.set_speed(3)
@@ -19130,6 +19165,115 @@ func _focus_decision_primary_action() -> bool:
 	return false
 
 
+func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
+	if _gameplay_pulse_director == null:
+		_gameplay_pulse.clear()
+		return
+	var routing_lifecycle := (
+		_routing_ui.routing_lifecycle_state()
+		if _routing_ui != null and _routing_ui.has_method("routing_lifecycle_state") else
+		{}
+	)
+	var on_track := int(
+		_campaign_objectives_label.get_meta("orders_on_track", 0)
+		if _campaign_objectives_label != null else
+		0
+	)
+	var order_total := int(
+		_campaign_objectives_label.get_meta("orders_total", 0)
+		if _campaign_objectives_label != null else
+		0
+	)
+	var completed: int = _campaign_state.completed_shifts if _campaign_state != null else 0
+	var focused_worker_id := (
+		_routing_ui.focused_worker_id()
+		if _routing_ui != null and _routing_ui.has_method("focused_worker_id") else
+		-1
+	)
+	_gameplay_pulse = _gameplay_pulse_director.compose({
+		"simulation": snapshot,
+		"next_action": _next_action_diagnostic_state(),
+		"routing_lifecycle": routing_lifecycle,
+		"action_feedback": _latest_action_outcome_receipt,
+		"momentum_brief": (
+			_campaign_state.momentum_brief() if _campaign_state != null else {}
+		),
+		"rival": (
+			_simulation.rival_coop_snapshot(_campaign_state.probation_score, completed)
+			if _simulation != null and _campaign_state != null else
+			{}
+		),
+		"chapter": (
+			_campaign_state.current_chapter() if _campaign_state != null else {}
+		),
+		"first_session_funnel": _first_session_funnel.snapshot(),
+		"adaptive": _adaptive_route_recovery_diagnostic_state(),
+		"order_pulse": {"on_track": on_track, "total": order_total},
+		"focused_worker_id": focused_worker_id,
+	})
+	var loop := _gameplay_pulse.get("core_loop", {}) as Dictionary
+	var loop_steps := loop.get("steps", []) as Array
+	for index in _core_loop_icons.size():
+		var loop_icon := _core_loop_icons[index]
+		if loop_icon == null or index >= loop_steps.size():
+			continue
+		var step := loop_steps[index] as Dictionary
+		var state := StringName(step.get("state", &"upcoming"))
+		var accent := Color("667780")
+		if state == &"current":
+			accent = Color("f4cd66")
+		elif state == &"complete":
+			accent = Color("9ccfc2")
+		loop_icon.configure(StringName(step.get("icon", &"goal")), accent)
+		loop_icon.tooltip_text = "%s  ·  %s" % [
+			String(step.get("label", "STEP")),
+			String(state).replace("_", " ").to_upper(),
+		]
+		loop_icon.set_meta("state", String(state))
+	if _core_loop_host != null:
+		_core_loop_host.tooltip_text = String(loop.get(
+			"accessible_text",
+			"Work loop: file to hen, hen to egg, egg to farmer credit.",
+		))
+		_core_loop_host.set_meta("active_stage", String(loop.get("active_stage", "file")))
+		_core_loop_host.set_meta("accessible_text", _core_loop_host.tooltip_text)
+	var rival := _gameplay_pulse.get("rival_pulse", {}) as Dictionary
+	if _rival_pulse_label != null:
+		_rival_pulse_label.visible = (
+			bool(rival.get("visible", false))
+			and int(snapshot.get("eggs_today", 0)) > 0
+			and int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING
+		)
+		rival["hud_visible"] = _rival_pulse_label.visible
+		_rival_pulse_label.text = String(rival.get("compact", "RIVAL ±0"))
+		_rival_pulse_label.tooltip_text = String(rival.get("detail", ""))
+		_rival_pulse_label.accessibility_name = "%s. %s" % [
+			_rival_pulse_label.text,
+			_rival_pulse_label.tooltip_text,
+		]
+		_rival_pulse_label.add_theme_color_override(
+			"font_color",
+			Color("9ccfc2") if int(rival.get("difference", 0)) >= 0 else Color("efaa84"),
+		)
+	var preview := _gameplay_pulse.get("action_preview", {}) as Dictionary
+	var preview_line := String(preview.get("compact", ""))
+	var glance_line := "\nAT A GLANCE  ·  %s" % preview_line
+	if not preview_line.is_empty() and _guidance_action_button != null:
+		_guidance_action_button.tooltip_text += glance_line
+		_guidance_action_button.set_meta(
+			"accessible_text",
+			String(_guidance_action_button.get_meta("accessible_text", "")) + glance_line,
+		)
+		_guidance_action_button.set_meta("gameplay_pulse", _gameplay_pulse.duplicate(true))
+	if not preview_line.is_empty() and _guidance_label != null:
+		_guidance_label.tooltip_text += glance_line
+		_guidance_label.set_meta("accessible_text", _guidance_label.tooltip_text)
+		_guidance_label.accessibility_name = _guidance_label.tooltip_text
+		if _guidance_icon != null:
+			_guidance_icon.tooltip_text = _guidance_label.tooltip_text
+			_guidance_icon.accessibility_name = _guidance_label.tooltip_text
+
+
 func _next_action_diagnostic_state() -> Dictionary:
 	var held_confirmation_action := _active_held_confirmation_primary_action_state()
 	if not held_confirmation_action.is_empty():
@@ -20355,6 +20499,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			{"visible": false}
 		),
 		"next_action": _next_action_diagnostic_state(),
+		"gameplay_pulse": _gameplay_pulse.duplicate(true),
 		"next_moment": _next_moment_diagnostic_state(),
 		"clutch_reward_ladder": _clutch_reward_ladder_snapshot(
 			int(snapshot.get("quality_streak", 0))
@@ -20821,6 +20966,8 @@ func _acknowledge_first_clutch_orders_handoff() -> void:
 
 func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 	var changed := _flockwatch_open != is_open
+	if changed and is_open:
+		_first_session_funnel.observe_signal(&"ledger_opened")
 	var restore_farmer_review := (
 		changed
 		and not is_open
@@ -21276,6 +21423,7 @@ func _guidance_activation_contract(action_id: StringName) -> Dictionary:
 
 
 func _on_guidance_action_pressed() -> void:
+	_first_session_funnel.observe_signal(&"guidance_used")
 	# Covered HUD guidance can receive a browser or test activation even while a
 	# higher modal owns the canvas. Always route that request to the visible safe
 	# action before consulting the underlying floor action id.
@@ -22611,6 +22759,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	_update_flock_labor_label(snapshot)
 	_update_records_archive_summary(snapshot)
 	_update_guidance(snapshot)
+	_refresh_gameplay_pulse(snapshot)
 	_update_commendations(snapshot)
 	_publish_web_diagnostic_state(snapshot)
 

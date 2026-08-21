@@ -22142,6 +22142,58 @@ func runtime_projection_cache_diagnostics() -> Dictionary:
 	}
 
 
+## Compact three-beat personal arc derived from the career authority that
+## already changes wage, pace, shell risk, credentials, and world presentation.
+## No separate mastery currency or save field is introduced.
+func _worker_personal_mastery_snapshot(worker_snapshot: Dictionary) -> Dictionary:
+	var level := int(worker_snapshot.get("career_level", 0))
+	var secondary_ready := bool(worker_snapshot.get("has_secondary_specialty", false))
+	var rows: Array[Dictionary] = [
+		{
+			"id": "trusted_layer",
+			"label": "TRUSTED LAYER",
+			"complete": level >= 1,
+			"reward": "CAREER TITLE + DESK CREDENTIAL",
+		},
+		{
+			"id": "second_lane",
+			"label": "SECOND LANE",
+			"complete": secondary_ready,
+			"reward": "SECONDARY SPECIALTY + TORSO BADGE",
+		},
+		{
+			"id": "lead_hen",
+			"label": "LEAD HEN",
+			"complete": level >= 3,
+			"reward": "MASTER LAYER TITLE + OFFICE CREST",
+		},
+	]
+	var completed := 0
+	var next_id := ""
+	var next_label := "MASTERED"
+	var next_reward := String(worker_snapshot.get("career_title", "MASTER LAYER"))
+	for row in rows:
+		if bool(row.get("complete", false)):
+			completed += 1
+		elif next_id.is_empty():
+			next_id = String(row.get("id", ""))
+			next_label = String(row.get("label", "NEXT MASTERY"))
+			next_reward = String(row.get("reward", "VISIBLE CAREER REWARD"))
+	return {
+		"worker_id": int(worker_snapshot.get("id", -1)),
+		"worker_name": String(worker_snapshot.get("name", "HEN")),
+		"completed": completed,
+		"total": rows.size(),
+		"complete": completed == rows.size(),
+		"next_id": next_id,
+		"next_label": next_label,
+		"next_reward": next_reward,
+		"rows": rows,
+		"career_xp": int(worker_snapshot.get("career_xp", 0)),
+		"career_next_threshold": int(worker_snapshot.get("career_next_threshold", -1)),
+	}
+
+
 ## Projects the single most useful next read for a hen. This remains a
 ## presentation-only summary: actions still flow through their existing
 ## authoritative APIs, while every surface shares one stable priority order.
@@ -22402,6 +22454,9 @@ func snapshot(
 		var resolution_status := claim_resolution_status(worker.id)
 		resolution_status.erase("catalog")
 		worker_snapshot["claim_resolution_status"] = resolution_status
+		worker_snapshot["personal_mastery"] = _worker_personal_mastery_snapshot(
+			worker_snapshot
+		)
 		worker_snapshot["hen_intent"] = _worker_hen_intent_snapshot(worker_snapshot)
 		worker_snapshots.append(worker_snapshot)
 	var queue_snapshot := _queue_snapshot()

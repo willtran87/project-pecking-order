@@ -59,7 +59,11 @@ func _test_experience_arc_and_replay(failures: Array[String]) -> void:
 	_check(
 		StringName(String(comeback.get("status", ""))) == &"comeback"
 		and "RECOVERY" in String(comeback.get("short_label", ""))
-		and not (comeback.get("blocker", {}) as Dictionary).is_empty(),
+		and not (comeback.get("blocker", {}) as Dictionary).is_empty()
+		and StringName(comeback.get("action_id", &"")) == &"comeback_file"
+		and bool(comeback.get("take_me_there", false))
+		and String((comeback.get("recovery_stamp", {}) as Dictionary).get("label", "")) == "LESSON FILED"
+		and bool((comeback.get("recovery_stamp", {}) as Dictionary).get("earned", false)),
 		"a bad shift should become one specific recoverable comeback brief",
 		failures,
 	)

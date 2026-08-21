@@ -44,8 +44,24 @@ func _run() -> void:
 	var guidance_icon := office.find_child("GuidanceIcon", true, false) as FlockwatchIconBadge
 	var guidance_action := office.find_child("GuidanceActionButton", true, false) as Button
 	var guidance_chevron := office.find_child("GuidanceActionChevron", true, false) as Label
+	var core_loop := office.find_child("CoreLoopPulse", true, false) as HBoxContainer
+	var rival_pulse := office.find_child("RivalPulseLabel", true, false) as Label
 	_check(clock != null and clock.speed_index == 0, "first shift should begin paused for its morning directive", failures)
 	_check(decision_host != null and decision_host.is_visible_in_tree(), "opening directive should be presented as a blocking decision", failures)
+	office.call("_refresh_gameplay_pulse", simulation.snapshot())
+	var gameplay_pulse := office.get("_gameplay_pulse") as Dictionary
+	_check(
+		core_loop != null
+		and core_loop.get_child_count() == 4
+		and String(core_loop.get_meta("active_stage", "")) == "file"
+		and String(core_loop.get_meta("accessible_text", "")).begins_with("Work loop:")
+		and rival_pulse != null
+		and not rival_pulse.visible
+		and gameplay_pulse.has("hen_mastery")
+		and not bool(gameplay_pulse.get("authoritative", true)),
+		"the live objective rail should expose a four-shape work loop while keeping the pre-egg rival beat quiet and presentation-only",
+		failures,
+	)
 	var opening_accessibility := String(
 		office.call("_web_accessibility_summary", simulation.snapshot())
 	)
@@ -164,6 +180,18 @@ func _run() -> void:
 	_check(not decision_host.is_visible_in_tree(), "authorizing a directive should close the decision modal", failures)
 	_check(StringName(simulation.active_directive_snapshot().get("id", &"")) == &"shell_assurance", "authorized directive should become authoritative", failures)
 	_check(clock.speed_index == 1, "authorizing the morning directive should start the shift", failures)
+	var eggs_before_rival_probe := simulation.eggs_today
+	simulation.eggs_today = 1
+	office.call("_refresh_gameplay_pulse", simulation.snapshot())
+	_check(
+		rival_pulse.visible
+		and rival_pulse.text.begins_with("RIVAL ")
+		and bool(((office.get("_gameplay_pulse") as Dictionary).get("rival_pulse", {}) as Dictionary).get("hud_visible", false)),
+		"the disclosed rival margin should enter the HUD only after the first live delivery",
+		failures,
+	)
+	simulation.eggs_today = eggs_before_rival_probe
+	office.call("_refresh_gameplay_pulse", simulation.snapshot())
 	var next_moment_button := office.find_child("NextMomentButton", true, false) as Button
 	_check(
 		next_moment_button != null

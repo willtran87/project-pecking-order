@@ -6,7 +6,7 @@ extends RefCounted
 ## exists so browser diagnostics, moderated sessions, and deterministic audits
 ## can answer when the first meaningful actions and payoff actually happened.
 
-const VERSION := 1
+const VERSION := 2
 const MILESTONES: Array[Dictionary] = [
 	{"id": &"intake_ready", "label": "INTAKE READY", "target_seconds": 5},
 	{"id": &"file_started", "label": "FILE STARTED", "target_seconds": 60},
@@ -16,13 +16,21 @@ const MILESTONES: Array[Dictionary] = [
 	{"id": &"priority_peck", "label": "PRIORITY PECK", "target_seconds": 480},
 	{"id": &"first_egg", "label": "FIRST EGG DELIVERED", "target_seconds": 600},
 	{"id": &"reinvestment", "label": "FIRST REINVESTMENT", "target_seconds": 720},
-	{"id": &"first_review", "label": "FIRST SHIFT REVIEW", "target_seconds": 1_200},
+	{"id": &"first_review", "label": "FIRST SHIFT REVIEW", "target_seconds": 900},
+]
+const SIGNAL_IDS: Array[StringName] = [
+	&"guidance_used",
+	&"ledger_opened",
+	&"route_miss",
+	&"next_moment_used",
+	&"settings_opened",
 ]
 
 var _started_msec := 0
 var _active := false
 var _mode: StringName = &"idle"
 var _reached_msec: Dictionary[StringName, int] = {}
+var _signals: Dictionary[StringName, int] = {}
 
 
 func begin_intake(now_msec: int = -1) -> void:
@@ -30,6 +38,7 @@ func begin_intake(now_msec: int = -1) -> void:
 	_active = true
 	_mode = &"fresh_intake"
 	_reached_msec.clear()
+	_signals.clear()
 	mark(&"intake_ready", _started_msec)
 
 
@@ -44,6 +53,14 @@ func begin_resume() -> void:
 	_active = false
 	_mode = &"resumed_file"
 	_reached_msec.clear()
+	_signals.clear()
+
+
+func observe_signal(signal_id: StringName) -> bool:
+	if not _active or signal_id not in SIGNAL_IDS:
+		return false
+	_signals[signal_id] = int(_signals.get(signal_id, 0)) + 1
+	return true
 
 
 func mark(milestone_id: StringName, now_msec: int = -1) -> bool:
@@ -103,6 +120,16 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 			"target_seconds": int(definition["target_seconds"]),
 			"inside_budget": reached and elapsed_seconds <= float(definition["target_seconds"]),
 		})
+	var signal_snapshot: Dictionary = {}
+	for signal_id in SIGNAL_IDS:
+		signal_snapshot[String(signal_id)] = int(_signals.get(signal_id, 0))
+	var friction_flags: Array[String] = []
+	if int(_signals.get(&"route_miss", 0)) >= 2:
+		friction_flags.append("repeated_route_miss")
+	if int(_signals.get(&"ledger_opened", 0)) >= 3 and reached_count < 6:
+		friction_flags.append("frequent_ledger_reference")
+	if int(_signals.get(&"guidance_used", 0)) >= 4 and reached_count < 5:
+		friction_flags.append("primary_action_reliance")
 	return {
 		"version": VERSION,
 		"privacy": "LOCAL SESSION ONLY / NEVER TRANSMITTED",
@@ -119,6 +146,8 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 		"complete": reached_count == MILESTONES.size(),
 		"next_id": String(next_id),
 		"milestones": rows,
+		"signals": signal_snapshot,
+		"friction_flags": friction_flags,
 	}
 
 
@@ -127,7 +156,7 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 ## the player may choose to save and share.
 func export_receipt(now_msec: int = -1) -> String:
 	var payload := snapshot(now_msec)
-	payload["export_version"] = 1
+	payload["export_version"] = 2
 	payload["consent"] = "PLAYER REQUESTED LOCAL EXPORT"
 	payload["contains_personal_data"] = false
 	payload["transmitted"] = false

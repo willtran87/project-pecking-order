@@ -1914,7 +1914,7 @@ func _build_title_panel(parent: Control) -> void:
 	probation_content.add_child(journey)
 	for metric in [
 		_make_metric("ProbationJourneyFile", "1 FILE", "1  TEAM UP", 175.0, 18),
-		_make_metric("ProbationJourneyShifts", "5 SHIFTS", "2  WORK", 175.0, 18),
+		_make_metric("ProbationJourneyShifts", "5 QUICK FILES", "2  WORK", 175.0, 18),
 		_make_metric("ProbationJourneyReview", "FINAL REVIEW", "3  PASS", 175.0, 18),
 	]:
 		_metric_panel(metric).custom_minimum_size.y = 46.0
@@ -3569,7 +3569,7 @@ func _refresh_report(day: int, total_days: int) -> void:
 		var watch_label := String(
 			(momentum.get("blocker", {}) as Dictionary).get("label", "FILE")
 		).to_upper().trim_prefix("FARMER ")
-		compact_result_heading += "\nFARMER WATCH  //  %s LOW" % watch_label
+		compact_result_heading += "\nLESSON FILED  //  %s RECOVERABLE" % watch_label
 	elif not senior and not chapter.is_empty():
 		compact_result_heading += "\nFARMER  //  %s" % String(
 			chapter.get("farmer_short", "FILE THE RESULT")

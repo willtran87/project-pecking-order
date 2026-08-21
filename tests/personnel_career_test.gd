@@ -16,6 +16,7 @@ func _run() -> void:
 	_test_actions_change_authoritative_speed_and_risk(failures)
 	_test_check_in_reopens_next_shift(failures)
 	_test_laid_egg_awards_xp_and_promotes(failures)
+	_test_personal_mastery_projection(failures)
 
 	if not failures.is_empty():
 		for failure in failures:
@@ -24,6 +25,24 @@ func _run() -> void:
 		return
 	print("PERSONNEL_CAREER_TEST_PASSED tiers=4 profiles=deterministic actions=atomic careers=causal shifts=reopen")
 	quit(0)
+
+
+func _test_personal_mastery_projection(failures: Array[String]) -> void:
+	var simulation := DepartmentSimulation.new(777)
+	var worker := simulation.workers[0]
+	worker.career_xp = 45
+	worker.secondary_specialty = &"predator_loss"
+	var workers := simulation.snapshot().get("workers", []) as Array
+	var mastery := (workers[0] as Dictionary).get("personal_mastery", {}) as Dictionary
+	_check(
+		int(mastery.get("completed", 0)) == 2
+		and int(mastery.get("total", 0)) == 3
+		and String(mastery.get("next_id", "")) == "lead_hen"
+		and String(mastery.get("next_reward", "")).contains("OFFICE CREST")
+		and (mastery.get("rows", []) as Array).size() == 3,
+		"career authority should derive one visible three-stage personal mastery arc per hen",
+		failures,
+	)
 
 
 func _test_career_tiers(failures: Array[String]) -> void:

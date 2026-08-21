@@ -13835,3 +13835,12 @@ The next major systems milestone is persistent worker relationships and individu
   fixtures and atomic registration now preserve/normalize the same UTC instant.
 - The isolated production server and portable Node runtime were removed. Port
   3001 is free; the existing user-owned port-3000 instance remains untouched.
+## 2026-08-21 — Clarity and delight pulse
+
+- Added a presentation-only `GameplayPulseDirector` that consolidates the latest 20 intuitiveness, fun, engagement, and reward items into stable derived cues without mutating simulation, campaign, economy, or save authority.
+- Added the permanent file → hen → egg → credit HUD strip, a post-first-egg disclosed rival margin, compact action consequence previews, combo readiness, golden-moment and celebration tiers, Quick Docket framing, and privacy-local comprehension diagnostics.
+- Added three-stage personal mastery for every hen and surfaced the next named reward in the worker tooltip and Bio dossier. Poor shifts now earn a `LESSON FILED` recovery stamp while preserving filed rewards and career progress.
+- Added focused native and browser coverage plus `docs/CLARITY_DELIGHT_RESOLUTION.md`, which maps every requested item to its visible implementation and proof boundary.
+- The native-size production browser audit passes with all 20 pulse keys, the four-stage loop, a quiet pre-delivery rival beat, local-only diagnostics, and zero page/console errors. Original-size inspection confirms the live strip and Quick File intake copy are unclipped.
+- The complete beta release gate passes 56/56 checks in 530.864 seconds: 46 native contracts, Web lint/render/production coverage, five evidence/readiness contracts, and exact nine-file Pages parity. The 10,492,900-byte shipping PCK is synchronized at SHA-256 `0B14706D8B17E9A942EF04537285FDE2939C5E2B34D25970EBC21A24B5170EEB`.
+- The owned port-3001 production server and checksum-verified portable Node 22 runtime were removed after verification. Port 3001 is free and the user-owned port-3000 listener remains untouched.

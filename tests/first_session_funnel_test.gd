@@ -11,6 +11,13 @@ func _init() -> void:
 	_check(bool(intake["active"]) and String(intake["mode"]) == "fresh_intake", "intake should start one local funnel", failures)
 	_check(String(intake["privacy"]) == "LOCAL SESSION ONLY / NEVER TRANSMITTED", "diagnostics should state the privacy boundary exactly", failures)
 	_check(int(intake["reached_count"]) == 1 and String(intake["next_id"]) == "file_started", "intake should expose the next missing player beat", failures)
+	funnel.observe_signal(&"guidance_used")
+	funnel.observe_signal(&"route_miss")
+	funnel.observe_signal(&"route_miss")
+	funnel.observe_signal(&"ledger_opened")
+	var signaled := funnel.snapshot(7_000)
+	_check(int((signaled["signals"] as Dictionary).get("route_miss", 0)) == 2, "local comprehension signals should count repeated friction", failures)
+	_check((signaled["friction_flags"] as Array).has("repeated_route_miss"), "repeated route misses should publish one local friction flag", failures)
 
 	funnel.begin_new_file(31_000)
 	funnel.observe({}, {"inspected": true}, &"active", 81_000)
@@ -45,7 +52,7 @@ func _init() -> void:
 			push_error("FIRST_SESSION_FUNNEL_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FIRST_SESSION_FUNNEL_TEST_PASSED privacy=local milestones=9 budgets=explicit export=opt-in+not-transmitted resume=excluded idempotent=true")
+	print("FIRST_SESSION_FUNNEL_TEST_PASSED privacy=local milestones=9 budgets=explicit signals=local friction=derived export=opt-in+not-transmitted resume=excluded idempotent=true")
 	quit(0)
 
 
