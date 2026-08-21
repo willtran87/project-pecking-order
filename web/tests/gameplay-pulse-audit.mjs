@@ -105,11 +105,15 @@ try {
 	];
 	for (const key of rewardItems) assert.ok(Object.hasOwn(pulse.reward_loop, key), `missing reward-loop item: ${key}`);
 	assert.equal(Object.keys(pulse.reward_loop).length, 16, "reward loop should contain fifteen projections plus its authority flag");
-	assert.equal(pulse.reward_loop.authoritative, false);
+	assert.equal(pulse.reward_loop.authoritative, true);
 	assert.equal(pulse.reward_loop.optional_shift_contract.failure_penalty, 0);
 	assert.deepEqual(pulse.reward_loop.clutch_carton.thresholds, [2, 4, 8]);
 	assert.equal(pulse.reward_loop.three_beat_finale.beats.length, 3);
 	assert.equal(pulse.authoritative, false);
+	assert.equal(pulse.active_playbook.authoritative, true);
+	assert.equal(pulse.active_playbook.shift_plan.length, 3);
+	assert.ok(pulse.active_playbook.options.length >= 10, "the compact playbook should expose progressive authoritative choices");
+	assert.ok(pulse.active_playbook.options.every((option) => option.gain && option.cost && option.risk), "every playbook action should disclose gain, cost, and risk");
 	assert.equal(pulse.core_loop.compact, "FILE → HEN → EGG → CREDIT");
 	assert.deepEqual(pulse.core_loop.steps.map((step) => step.id), ["file", "hen", "egg", "credit"]);
 	assert.equal(pulse.rival_pulse.hud_visible, false, "rival beat should stay quiet before the first egg");
@@ -123,13 +127,17 @@ try {
 		rivalPulse: pulse.rival_pulse,
 		henMastery: pulse.hen_mastery,
 		rewardLoop: pulse.reward_loop,
+		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
 	await page.screenshot({ path: path.join(outputDirectory, "clarity-pulse.png"), fullPage: true });
+	await clickAuthored(825, 65);
+	await page.waitForTimeout(500);
+	await page.screenshot({ path: path.join(outputDirectory, "active-playbook-menu.png"), fullPage: true });
 } finally {
 	await browser.close();
 }
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED items=20 reward-loop=15 loop=4-stage rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED items=20 reward-loop=15 playbook=authoritative loop=4-stage rival=quiet-before-first-egg privacy=local");

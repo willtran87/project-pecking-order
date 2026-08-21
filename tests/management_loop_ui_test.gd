@@ -46,6 +46,7 @@ func _run() -> void:
 	var guidance_chevron := office.find_child("GuidanceActionChevron", true, false) as Label
 	var core_loop := office.find_child("CoreLoopPulse", true, false) as HBoxContainer
 	var reward_loop_host := office.find_child("RewardLoopPulse", true, false) as HBoxContainer
+	var active_playbook_button := office.find_child("ActivePlaybookButton", true, false) as MenuButton
 	var clutch_carton := office.find_child("ClutchCartonPulse", true, false) as HBoxContainer
 	var rival_pulse := office.find_child("RivalPulseLabel", true, false) as Label
 	_check(clock != null and clock.speed_index == 0, "first shift should begin paused for its morning directive", failures)
@@ -64,11 +65,13 @@ func _run() -> void:
 		and reward_loop_host != null
 		and reward_loop_host.get_child_count() == 4
 		and not reward_loop_host.visible
+		and active_playbook_button != null
+		and not active_playbook_button.visible
 		and clutch_carton != null
 		and clutch_carton.get_child_count() == 3
 		and not clutch_carton.visible
 		and not bool(gameplay_pulse.get("authoritative", true)),
-		"the objective rail should prepare four reward shapes and a three-egg clutch track while keeping pre-shift projections quiet and presentation-only",
+		"the objective rail should prepare four reward shapes, a three-egg clutch track, and a hidden progressive playbook before the shift",
 		failures,
 	)
 	var opening_accessibility := String(
@@ -205,13 +208,25 @@ func _run() -> void:
 		reward_loop_host.visible
 		and clutch_carton.visible
 		and int(reward_loop_host.get_meta("item_count", 0)) == 15
-		and not bool(live_reward_loop.get("authoritative", true))
+		and bool(live_reward_loop.get("authoritative", false))
+		and active_playbook_button.visible
+		and bool(active_playbook_button.get_meta("authoritative", false))
+		and active_playbook_button.get_popup().item_count >= 4
+		and active_playbook_button.get_popup().item_count <= 7
 		and String((live_reward_loop.get("combo_recipe", {}) as Dictionary).get("label", "")) == "SHELL LOCK"
 		and String((live_reward_loop.get("strategy_identity", {}) as Dictionary).get("label", "")) == "SHELL GUARDIAN"
 		and "SHELL GUARDIAN" in live_policy_label.tooltip_text,
-		"a live shift should expose fifteen compact reward projections through four icons, the clutch track, and the filed strategy tooltip",
+		"a live shift should expose authoritative reward cues through four icons, the clutch track, and one progressive playbook menu",
 		failures,
 	)
+	var playbook_map := office.get("_active_playbook_menu_map") as Dictionary
+	var contract_item_id := -1
+	for menu_id_value in playbook_map:
+		var option := playbook_map[menu_id_value] as Dictionary
+		if String(option.get("kind", "")) == "contract" and String(option.get("id", "")) == "clean_pair":
+			contract_item_id = int(menu_id_value)
+			break
+	_check(contract_item_id >= 0, "the playbook menu should retain exact action metadata behind concise labels", failures)
 	simulation.eggs_today = eggs_before_rival_probe
 	office.call("_refresh_gameplay_pulse", simulation.snapshot())
 	var next_moment_button := office.find_child("NextMomentButton", true, false) as Button

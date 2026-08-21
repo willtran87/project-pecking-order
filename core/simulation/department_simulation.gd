@@ -1989,6 +1989,43 @@ const PERSONNEL_ACTION_DEFINITIONS := {
 		"tone": &"danger",
 	},
 }
+const PLAYBOOK_CONTRACT_DEFINITIONS := {
+	&"clean_pair": {"label": "CLEAN PAIR", "icon": &"shield", "target": 2, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "CHAIN MAY RESET"},
+	&"fit_three": {"label": "FIT THREE", "icon": &"route", "target": 3, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "FIT CHAIN MAY BREAK"},
+	&"peck_pair": {"label": "PECK PAIR", "icon": &"sync", "target": 2, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "TIMING CHAIN MAY RESET"},
+}
+const PLAYBOOK_PREPARATION_DEFINITIONS := {
+	&"brace_shells": {"label": "BRACE SHELLS", "icon": &"shield", "gain": "SHELL RISK -2.5%", "cost": "PACE -3%", "risk": "LOWER OUTPUT"},
+	&"clear_trays": {"label": "CLEAR TRAYS", "icon": &"route", "gain": "PACE +5%", "cost": "SHELL RISK +1.2%", "risk": "QUALITY EXPOSURE"},
+	&"rest_flock": {"label": "REST FLOCK", "icon": &"care", "gain": "STRAIN -12%", "cost": "$2.00", "risk": "FEED FUND"},
+}
+const PLAYBOOK_RIVAL_DEFINITIONS := {
+	&"defend": {"label": "DEFEND LEAD", "icon": &"shield", "gain": "SHELL RISK -1.5%", "cost": "PACE -2%", "risk": "RIVAL KEEPS PACE"},
+	&"counter": {"label": "COUNTER PUSH", "icon": &"rival", "gain": "PACE +4%", "cost": "SHELL RISK +1.2%", "risk": "QUALITY EXPOSURE"},
+	&"ignore": {"label": "BACK THE FLOCK", "icon": &"care", "gain": "SOLIDARITY +2", "cost": "NO RIVAL MODIFIER", "risk": "MARGIN UNCHANGED"},
+}
+const PLAYBOOK_LOADOUT_DEFINITIONS := {
+	&"pace_floor": {"label": "PACE FLOOR", "icon": &"route", "gain": "PACE +4%", "cost": "SHELL RISK +0.8%", "risk": "FAST / FRAGILE"},
+	&"quality_floor": {"label": "QUALITY FLOOR", "icon": &"shield", "gain": "SHELL RISK -1.8%", "cost": "PACE -2%", "risk": "SLOWER CLUTCH"},
+	&"care_floor": {"label": "CARE FLOOR", "icon": &"care", "gain": "STRAIN -10%", "cost": "PACE -1%", "risk": "MODEST OUTPUT"},
+}
+const PLAYBOOK_RECOVERY_DEFINITIONS := {
+	&"steady_fund": {"label": "STEADY FUND", "icon": &"cash", "gain": "QUOTA -2", "cost": "FARMER FAVOR -2", "risk": "LOWER CEILING"},
+	&"repair_flock": {"label": "REPAIR FLOCK", "icon": &"care", "gain": "STRAIN -8", "cost": "$3.00", "risk": "FEED FUND"},
+	&"salvage_order": {"label": "SALVAGE ORDER", "icon": &"route", "gain": "PACE +6%", "cost": "SHELL RISK +2%", "risk": "QUALITY EXPOSURE"},
+}
+const PLAYBOOK_SIDE_GOAL_DEFINITIONS := {
+	&"clean_carton": {"label": "CLEAN ×4", "icon": &"egg", "target": 4, "gain": "PERSONAL CLUTCH MARK"},
+	&"lane_mastery": {"label": "MASTER 4 FILES", "icon": &"route", "target": 4, "gain": "LANE MASTERY MARK"},
+	&"gold_file": {"label": "LAND GOLD", "icon": &"golden", "target": 1, "gain": "GOLD FILE MARK"},
+	&"team_lift": {"label": "TEAM LIFT", "icon": &"sync", "target": 1, "gain": "BOND MARK"},
+	&"fund_growth": {"label": "FUND +$10", "icon": &"cash", "target": 1000, "gain": "GROWTH MARK"},
+}
+const PLAYBOOK_REWARD_DEFINITIONS := {
+	&"fund": {"label": "+$3 FEED FUND", "icon": &"cash", "gain": "$3.00", "cost": "NONE", "risk": "NO HEN GROWTH"},
+	&"mastery": {"label": "+6 HEN XP", "icon": &"flock", "gain": "6 CAREER XP", "cost": "NONE", "risk": "NO CASH"},
+	&"recovery": {"label": "FLOCK -4 STRAIN", "icon": &"care", "gain": "STRESS -4", "cost": "NONE", "risk": "NO CASH OR XP"},
+}
 const CAREER_PROFILE_DEFINITIONS := {
 	&"credit_conscious": {
 		"name": "CREDIT CONSCIOUS",
@@ -2073,6 +2110,7 @@ var upgrade_levels: Dictionary = {
 	&"nest_cushion": 0,
 }
 var first_clutch_reinvestment: Dictionary = {}
+var active_playbook: Dictionary = {}
 var requisition_spend_today_cents: int = 0
 var requisition_spend_total_cents: int = 0
 var orientation_procurement_match_today_cents: int = 0
@@ -9098,6 +9136,7 @@ func export_save_state() -> Dictionary:
 		"incident_pivot_mastery_receipts": incident_pivot_mastery_receipts.duplicate(true),
 		"upgrade_levels": saved_upgrades,
 		"first_clutch_reinvestment": first_clutch_reinvestment.duplicate(true),
+		"active_playbook": active_playbook.duplicate(true),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
 		"requisition_spend_total_cents": requisition_spend_total_cents,
 		"orientation_procurement_match_today_cents": orientation_procurement_match_today_cents,
@@ -9367,6 +9406,16 @@ func restore_save_state(data: Dictionary) -> bool:
 		return false
 	var restored_first_clutch_reinvestment := (
 		validated_reinvestment.get("record", {}) as Dictionary
+	)
+	var active_playbook_validation := _validated_active_playbook(
+		data.get("active_playbook", null),
+		saved_day,
+		worker_data.size(),
+	)
+	if not bool(active_playbook_validation.get("valid", false)):
+		return false
+	var restored_active_playbook := (
+		active_playbook_validation.get("record", {}) as Dictionary
 	)
 	var reinvestment_match_used := int(
 		restored_first_clutch_reinvestment.get("procurement_match_used_cents", 0)
@@ -10900,6 +10949,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	_pending_rework = restored_rework
 	upgrade_levels = restored_upgrade_levels
 	first_clutch_reinvestment = restored_first_clutch_reinvestment
+	active_playbook = restored_active_playbook.duplicate(true)
 	requisition_spend_today_cents = restored_requisition_spend_today
 	requisition_spend_total_cents = restored_requisition_spend_total
 	orientation_procurement_match_today_cents = restored_orientation_match_today
@@ -11063,6 +11113,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	_incident_golden_modifier = clampf(float(modifiers.get("incident_golden_modifier", 0.0)), -0.25, 0.25)
 	_incident_feed_adjustment_cents = clampi(int(modifiers.get("incident_feed_adjustment_cents", 0)), -100000, 100000)
 	_pending_quota_adjustment = clampi(int(modifiers.get("pending_quota_adjustment", 0)), -100, 100)
+	_ensure_active_playbook()
 	_worker_at_workstation.clear()
 	for worker in workers:
 		_worker_at_workstation[worker.id] = false
@@ -13313,6 +13364,69 @@ func _cumulative_upgrade_spend_cents(levels: Dictionary) -> int:
 		for level_before in level:
 			total += _upgrade_list_cost_for_level(upgrade_id, level_before)
 	return total
+
+
+func _validated_active_playbook(
+	value: Variant,
+	saved_day: int,
+	worker_count: int,
+) -> Dictionary:
+	# Version 30 checkpoints predate this optional layer, so absence restores a
+	# fresh same-day playbook. Once present, every authoritative choice is checked.
+	if value == null:
+		return {"valid": true, "record": {}}
+	if not value is Dictionary:
+		return {"valid": false, "record": {}}
+	var source := value as Dictionary
+	if source.is_empty():
+		return {"valid": true, "record": {}}
+	if not _is_integral_number(source.get("day", null)) or int(source.get("day", 0)) != saved_day:
+		return {"valid": false, "record": {}}
+	var definition_fields := {
+		"contract_id": PLAYBOOK_CONTRACT_DEFINITIONS,
+		"preparation_id": PLAYBOOK_PREPARATION_DEFINITIONS,
+		"rival_response_id": PLAYBOOK_RIVAL_DEFINITIONS,
+		"loadout_id": PLAYBOOK_LOADOUT_DEFINITIONS,
+		"recovery_id": PLAYBOOK_RECOVERY_DEFINITIONS,
+		"side_goal_id": PLAYBOOK_SIDE_GOAL_DEFINITIONS,
+		"contract_reward_id": PLAYBOOK_REWARD_DEFINITIONS,
+	}
+	var normalized := {"day": saved_day}
+	for field_name: String in definition_fields:
+		var field_value: Variant = source.get(field_name, "")
+		if typeof(field_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+			return {"valid": false, "record": {}}
+		var choice_id := StringName(String(field_value))
+		if choice_id != &"" and not (definition_fields[field_name] as Dictionary).has(choice_id):
+			return {"valid": false, "record": {}}
+		normalized[field_name] = String(choice_id)
+	for integer_field in ["side_goal_fund_baseline_cents", "receipt_serial"]:
+		if not _is_integral_number(source.get(integer_field, null)):
+			return {"valid": false, "record": {}}
+		var integer_value := int(source.get(integer_field, -1))
+		if integer_value < 0 or integer_value > 2_000_000_000:
+			return {"valid": false, "record": {}}
+		normalized[integer_field] = integer_value
+	var signature_values: Variant = source.get("signature_worker_ids", null)
+	if not signature_values is Array:
+		return {"valid": false, "record": {}}
+	var normalized_signature_ids: Array[int] = []
+	for worker_id_value in signature_values as Array:
+		if not _is_integral_number(worker_id_value):
+			return {"valid": false, "record": {}}
+		var worker_id := int(worker_id_value)
+		if worker_id < 0 or worker_id >= worker_count or worker_id in normalized_signature_ids:
+			return {"valid": false, "record": {}}
+		normalized_signature_ids.append(worker_id)
+	normalized["signature_worker_ids"] = normalized_signature_ids
+	if typeof(source.get("teamwork_used", null)) != TYPE_BOOL:
+		return {"valid": false, "record": {}}
+	normalized["teamwork_used"] = bool(source.get("teamwork_used", false))
+	var receipt_value: Variant = source.get("last_receipt", null)
+	if not receipt_value is Dictionary:
+		return {"valid": false, "record": {}}
+	normalized["last_receipt"] = (receipt_value as Dictionary).duplicate(true)
+	return {"valid": true, "record": normalized}
 
 
 func _validated_first_clutch_reinvestment(
@@ -16074,6 +16188,406 @@ func _rejected_personnel_action(reason: String) -> Dictionary:
 	return {"accepted": false, "reason": reason}
 
 
+func _reset_active_playbook() -> void:
+	active_playbook = {
+		"day": day,
+		"contract_id": "",
+		"preparation_id": "",
+		"rival_response_id": "",
+		"loadout_id": "",
+		"recovery_id": "",
+		"side_goal_id": "",
+		"side_goal_fund_baseline_cents": revenue_cents,
+		"signature_worker_ids": [],
+		"teamwork_used": false,
+		"contract_reward_id": "",
+		"last_receipt": {},
+		"receipt_serial": 0,
+	}
+
+
+func _ensure_active_playbook() -> void:
+	if active_playbook.is_empty() or int(active_playbook.get("day", 0)) != day:
+		_reset_active_playbook()
+
+
+func _playbook_contract_progress(contract_id: StringName) -> int:
+	match contract_id:
+		&"clean_pair":
+			return quality_streak
+		&"fit_three":
+			return routing_momentum_chain
+		&"peck_pair":
+			return peck_assist_streak
+	return 0
+
+
+func _playbook_side_goal_progress(goal_id: StringName) -> int:
+	match goal_id:
+		&"clean_carton":
+			return quality_streak
+		&"lane_mastery":
+			var best := 0
+			for lane in CLAIM_LANES:
+				best = maxi(best, int(lane_processed_today.get(lane, 0)))
+			return best
+		&"gold_file":
+			return golden_today
+		&"team_lift":
+			return 1 if bool(active_playbook.get("teamwork_used", false)) else 0
+		&"fund_growth":
+			return maxi(0, revenue_cents - int(active_playbook.get("side_goal_fund_baseline_cents", revenue_cents)))
+	return 0
+
+
+func _playbook_option(
+	kind: StringName,
+	choice_id: StringName,
+	definition: Dictionary,
+	available: bool = true,
+	reason: String = "",
+) -> Dictionary:
+	var detail := "%s  ·  %s  ·  %s" % [
+		String(definition.get("gain", "VISIBLE GAIN")),
+		String(definition.get("cost", "NO COST")),
+		String(definition.get("risk", "NO HIDDEN RISK")),
+	]
+	if not reason.is_empty():
+		detail += "\n%s" % reason
+	return {
+		"kind": String(kind),
+		"id": String(choice_id),
+		"key": "%s:%s" % [String(kind), String(choice_id)],
+		"label": String(definition.get("label", choice_id)).to_upper(),
+		"icon": String(definition.get("icon", "goal")),
+		"gain": String(definition.get("gain", "VISIBLE GAIN")),
+		"cost": String(definition.get("cost", "NO COST")),
+		"risk": String(definition.get("risk", "NO HIDDEN RISK")),
+		"available": available,
+		"reason": reason,
+		"detail": detail,
+	}
+
+
+func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
+	_ensure_active_playbook()
+	var contract_id := StringName(active_playbook.get("contract_id", &""))
+	var contract_definition := PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
+	var contract_progress := _playbook_contract_progress(contract_id)
+	var contract_target := int(contract_definition.get("target", 0))
+	var contract_complete := not contract_definition.is_empty() and contract_progress >= contract_target
+	var side_goal_id := StringName(active_playbook.get("side_goal_id", &""))
+	var side_goal_definition := PLAYBOOK_SIDE_GOAL_DEFINITIONS.get(side_goal_id, {}) as Dictionary
+	var side_goal_progress := _playbook_side_goal_progress(side_goal_id)
+	var side_goal_target := int(side_goal_definition.get("target", 0))
+	var options: Array[Dictionary] = []
+	var running := shift_phase == ShiftPhase.RUNNING and pending_decision.is_empty()
+	if contract_id == &"":
+		for choice_id: StringName in PLAYBOOK_CONTRACT_DEFINITIONS:
+			options.append(_playbook_option(&"contract", choice_id, PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], running, "Accept one optional shift challenge; declining has no penalty."))
+	if String(active_playbook.get("loadout_id", "")).is_empty() and eggs_today == 0:
+		for choice_id: StringName in PLAYBOOK_LOADOUT_DEFINITIONS:
+			options.append(_playbook_option(&"loadout", choice_id, PLAYBOOK_LOADOUT_DEFINITIONS[choice_id], running, "Locks when the first egg is delivered."))
+	if String(active_playbook.get("preparation_id", "")).is_empty() and incidents_resolved_today == 0:
+		for choice_id: StringName in PLAYBOOK_PREPARATION_DEFINITIONS:
+			var affordable := choice_id != &"rest_flock" or spendable_fund_cents() >= 200
+			options.append(_playbook_option(&"preparation", choice_id, PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], running and affordable, "Prepare once before the first incident." if affordable else "Feed Fund needs $2.00 spendable."))
+	if String(active_playbook.get("rival_response_id", "")).is_empty() and eggs_today > 0:
+		for choice_id: StringName in PLAYBOOK_RIVAL_DEFINITIONS:
+			options.append(_playbook_option(&"rival", choice_id, PLAYBOOK_RIVAL_DEFINITIONS[choice_id], running, "One transparent response for this shift."))
+	if side_goal_id == &"":
+		for choice_id: StringName in PLAYBOOK_SIDE_GOAL_DEFINITIONS:
+			options.append(_playbook_option(&"side_goal", choice_id, PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], running, "Pin one personal ambition; no failure penalty."))
+	var signature_ids := active_playbook.get("signature_worker_ids", []) as Array
+	var signature_reason := "Select an active hen."
+	var signature_available := false
+	var signature_label := "HEN SIGNATURE"
+	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
+		var focused_worker := workers[focused_worker_id]
+		var preferred_action := _preferred_personnel_action(focused_worker)
+		var preferred_definition := PERSONNEL_ACTION_DEFINITIONS.get(preferred_action, {}) as Dictionary
+		signature_label = "%s / %s" % [focused_worker.display_name.to_upper(), String(preferred_definition.get("short_name", "SIGNATURE"))]
+		signature_available = running and focused_worker_id not in signature_ids and bool(personnel_action_status().get("available", false))
+		signature_reason = "Uses the normal flock check-in allowance." if signature_available else "This hen's signature or today's flock allowance is already used."
+	options.append(_playbook_option(&"signature", &"activate", {"label": signature_label, "icon": &"flock", "gain": "PROFILE-SPECIFIC EFFECT", "cost": "NORMAL CHECK-IN", "risk": "ONE PER HEN / SHIFT"}, signature_available, signature_reason))
+	var teamwork_available := false
+	var teamwork_reason := "Select a bonded hen with a Good Perch or Clutchmates relationship."
+	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
+		var bond := _worker_flock_bond_snapshot(workers[focused_worker_id])
+		teamwork_available = running and not bool(active_playbook.get("teamwork_used", false)) and int(bond.get("score", 0)) >= 60
+		teamwork_reason = "%s + %s at %d/100; restores morale and one attention charge." % [workers[focused_worker_id].display_name, String(bond.get("partner_name", "PERCHMATE")), int(bond.get("score", 0))]
+	options.append(_playbook_option(&"teamwork", &"team_lift", {"label": "TEAM LIFT", "icon": &"sync", "gain": "PAIR MORALE + ATTENTION", "cost": "ONCE / SHIFT", "risk": "REQUIRES BOND 60"}, teamwork_available, teamwork_reason))
+	if contract_complete and String(active_playbook.get("contract_reward_id", "")).is_empty():
+		for choice_id: StringName in PLAYBOOK_REWARD_DEFINITIONS:
+			options.append(_playbook_option(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], running, "Claim one reward for the completed optional contract."))
+	var recovery_open := (
+		running
+		and String(active_playbook.get("recovery_id", "")).is_empty()
+		and (revenue_cents < 2500 or executive_confidence < 45.0 or _average_worker_stress() >= 55.0)
+	)
+	if recovery_open:
+		for choice_id: StringName in PLAYBOOK_RECOVERY_DEFINITIONS:
+			var affordable := choice_id != &"repair_flock" or spendable_fund_cents() >= 300
+			options.append(_playbook_option(&"recovery", choice_id, PLAYBOOK_RECOVERY_DEFINITIONS[choice_id], affordable, "Choose one comeback plan." if affordable else "Feed Fund needs $3.00 spendable."))
+	options.append(_playbook_option(&"practice", &"peck", {"label": "PRACTICE PECK", "icon": &"sync", "gain": "TIMING FEEDBACK", "cost": "NONE", "risk": "NO REWARD"}, running and focused_worker_id >= 0, "Reads the current timing cursor without spending attention or changing the file."))
+	var directive_combo := {
+		&"record_harvest": {"id": "harvest_hustle", "label": "HARVEST HUSTLE", "icon": "egg", "effect": "PACE +5%"},
+		&"shell_assurance": {"id": "shell_lock", "label": "SHELL LOCK", "icon": "shield", "effect": "SHELL RISK -2%"},
+		&"sustainable_flock": {"id": "perch_partners", "label": "PERCH PARTNERS", "icon": "care", "effect": "STRAIN -10%"},
+	}.get(active_directive_id, {"id": "unfiled", "label": "COMBO LOCKED", "icon": "sync", "effect": "FILE A POLICY"}) as Dictionary
+	var combo_active := routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+	return {
+		"day": day,
+		"authoritative": true,
+		"options": options,
+		"contract": {"id": String(contract_id), "label": String(contract_definition.get("label", "PICK CONTRACT")), "icon": String(contract_definition.get("icon", "goal")), "progress": contract_progress, "target": contract_target, "complete": contract_complete, "reward_claimed": not String(active_playbook.get("contract_reward_id", "")).is_empty(), "reward_id": String(active_playbook.get("contract_reward_id", "")), "optional": true, "failure_penalty": 0},
+		"combo": {"id": String(directive_combo.get("id", "")), "label": String(directive_combo.get("label", "COMBO")), "icon": String(directive_combo.get("icon", "sync")), "active": combo_active, "progress": routing_momentum_chain, "target": ROUTING_MOMENTUM_PACE_MILESTONE, "effect": String(directive_combo.get("effect", ""))},
+		"shift_plan": _playbook_shift_plan(contract_definition, directive_combo),
+		"preparation_id": String(active_playbook.get("preparation_id", "")),
+		"rival_response_id": String(active_playbook.get("rival_response_id", "")),
+		"loadout_id": String(active_playbook.get("loadout_id", "")),
+		"recovery_id": String(active_playbook.get("recovery_id", "")),
+		"side_goal": {"id": String(side_goal_id), "label": String(side_goal_definition.get("label", "PIN A GOAL")), "icon": String(side_goal_definition.get("icon", "goal")), "progress": side_goal_progress, "target": side_goal_target, "complete": not side_goal_definition.is_empty() and side_goal_progress >= side_goal_target, "failure_penalty": 0},
+		"teamwork_used": bool(active_playbook.get("teamwork_used", false)),
+		"boss_file": {"active": day == PROBATION_CAMPAIGN_SHIFTS, "label": String(scenario_identity_snapshot().get("climax_title", "FINAL HEARING")), "mechanics": ["POLICY", "INCIDENT", "CREDIT"]},
+		"opportunity_shapes": [
+			{"id": "golden", "icon": "golden", "shape": "star", "active": routing_momentum_golden_target_worker_id >= 0},
+			{"id": "urgent", "icon": "status_need", "shape": "diamond", "active": _overdue_claim_count(false) > 0},
+			{"id": "teamwork", "icon": "sync", "shape": "linked", "active": teamwork_available},
+			{"id": "contract", "icon": "goal", "shape": "stamp", "active": contract_complete},
+		],
+		"last_receipt": (active_playbook.get("last_receipt", {}) as Dictionary).duplicate(true),
+		"receipt_serial": int(active_playbook.get("receipt_serial", 0)),
+	}
+
+
+func _playbook_shift_plan(contract_definition: Dictionary, combo: Dictionary) -> Array[Dictionary]:
+	return [
+		{"id": "observe", "icon": "goal", "label": String(active_directive_snapshot().get("short_name", "PICK POLICY"))},
+		{"id": "act", "icon": String(combo.get("icon", "sync")), "label": String(combo.get("label", "BUILD COMBO"))},
+		{"id": "reward", "icon": String(contract_definition.get("icon", "egg")), "label": String(contract_definition.get("label", "PICK CONTRACT"))},
+	]
+
+
+func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id: int = -1) -> Dictionary:
+	_ensure_active_playbook()
+	if shift_phase != ShiftPhase.RUNNING or not pending_decision.is_empty():
+		return {"accepted": false, "reason": "Resolve the current management file first."}
+	if kind == &"signature":
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+			return {"accepted": false, "reason": "Select an active hen first."}
+		var used_ids := active_playbook.get("signature_worker_ids", []) as Array
+		if worker_id in used_ids:
+			return {"accepted": false, "reason": "%s already used her signature this shift." % workers[worker_id].display_name}
+		var action_id := _preferred_personnel_action(workers[worker_id])
+		var signature_result := perform_personnel_action(worker_id, action_id)
+		if not bool(signature_result.get("accepted", false)):
+			return signature_result
+		used_ids.append(worker_id)
+		active_playbook["signature_worker_ids"] = used_ids
+		signature_result["playbook_kind"] = "signature"
+		signature_result["signature"] = true
+		return _file_playbook_receipt(signature_result)
+	if kind == &"contract":
+		if not PLAYBOOK_CONTRACT_DEFINITIONS.has(choice_id) or not String(active_playbook.get("contract_id", "")).is_empty():
+			return {"accepted": false, "reason": "This shift's optional contract is already filed."}
+		active_playbook["contract_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], "Optional contract accepted. Missing it carries no penalty."))
+	if kind == &"loadout":
+		if not PLAYBOOK_LOADOUT_DEFINITIONS.has(choice_id) or not String(active_playbook.get("loadout_id", "")).is_empty() or eggs_today > 0:
+			return {"accepted": false, "reason": "The floor loadout locks after selection or first delivery."}
+		active_playbook["loadout_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_LOADOUT_DEFINITIONS[choice_id], "Office loadout filed for this shift."))
+	if kind == &"preparation":
+		if not PLAYBOOK_PREPARATION_DEFINITIONS.has(choice_id) or not String(active_playbook.get("preparation_id", "")).is_empty() or incidents_resolved_today > 0:
+			return {"accepted": false, "reason": "Incident preparation is already locked."}
+		if choice_id == &"rest_flock":
+			if spendable_fund_cents() < 200:
+				return {"accepted": false, "reason": "Rest preparation needs $2.00 spendable Feed Fund."}
+			revenue_cents -= 200
+		active_playbook["preparation_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], "Preparation will alter the first pressure response."))
+	if kind == &"rival":
+		if not PLAYBOOK_RIVAL_DEFINITIONS.has(choice_id) or not String(active_playbook.get("rival_response_id", "")).is_empty() or eggs_today <= 0:
+			return {"accepted": false, "reason": "The rival response opens after the first delivery and files once."}
+		active_playbook["rival_response_id"] = String(choice_id)
+		if choice_id == &"ignore":
+			solidarity = minf(100.0, solidarity + 2.0)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_RIVAL_DEFINITIONS[choice_id], "Rival response filed with no hidden catch-up rule."))
+	if kind == &"side_goal":
+		if not PLAYBOOK_SIDE_GOAL_DEFINITIONS.has(choice_id) or not String(active_playbook.get("side_goal_id", "")).is_empty():
+			return {"accepted": false, "reason": "One personal ambition is already pinned."}
+		active_playbook["side_goal_id"] = String(choice_id)
+		active_playbook["side_goal_fund_baseline_cents"] = revenue_cents
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], "Personal ambition pinned; missing it has no penalty."))
+	if kind == &"reward":
+		return _claim_playbook_contract_reward(choice_id, worker_id)
+	if kind == &"teamwork":
+		return _perform_playbook_teamwork(worker_id)
+	if kind == &"recovery":
+		return _perform_playbook_recovery(choice_id)
+	if kind == &"practice":
+		return _practice_playbook_peck(worker_id)
+	return {"accepted": false, "reason": "That playbook action is not available."}
+
+
+func _playbook_choice_result(kind: StringName, choice_id: StringName, definition: Dictionary, outcome: String) -> Dictionary:
+	return {"accepted": true, "playbook_kind": String(kind), "choice_id": String(choice_id), "label": String(definition.get("label", choice_id)), "effects": {"gain": String(definition.get("gain", "")), "cost": String(definition.get("cost", "")), "risk": String(definition.get("risk", ""))}, "outcome": outcome, "day": day}
+
+
+func _file_playbook_receipt(result: Dictionary) -> Dictionary:
+	active_playbook["receipt_serial"] = int(active_playbook.get("receipt_serial", 0)) + 1
+	result["receipt_serial"] = int(active_playbook["receipt_serial"])
+	active_playbook["last_receipt"] = result.duplicate(true)
+	announcement_posted.emit(String(result.get("outcome", "Playbook action filed.")))
+	snapshot_changed.emit(snapshot())
+	return result
+
+
+func _claim_playbook_contract_reward(choice_id: StringName, worker_id: int) -> Dictionary:
+	var contract_id := StringName(active_playbook.get("contract_id", &""))
+	var contract_definition := PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
+	if contract_definition.is_empty() or _playbook_contract_progress(contract_id) < int(contract_definition.get("target", 0)):
+		return {"accepted": false, "reason": "Complete the accepted optional contract first."}
+	if not String(active_playbook.get("contract_reward_id", "")).is_empty() or not PLAYBOOK_REWARD_DEFINITIONS.has(choice_id):
+		return {"accepted": false, "reason": "This contract reward is already filed or unavailable."}
+	var reward_worker: ChickenState
+	if worker_id >= 0 and worker_id < workers.size() and workers[worker_id].employed:
+		reward_worker = workers[worker_id]
+	else:
+		for candidate in workers:
+			if candidate.employed:
+				reward_worker = candidate
+				break
+	match choice_id:
+		&"fund":
+			revenue_cents += 300
+			credited_today_cents += 300
+		&"mastery":
+			if reward_worker != null:
+				reward_worker.add_career_xp(6)
+		&"recovery":
+			_adjust_workers(0.0, -4.0, -4.0)
+	active_playbook["contract_reward_id"] = String(choice_id)
+	return _file_playbook_receipt(_playbook_choice_result(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], "%s claimed for %s." % [String(PLAYBOOK_REWARD_DEFINITIONS[choice_id].get("label", "Reward")), String(contract_definition.get("label", "the contract"))]))
+
+
+func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
+	if bool(active_playbook.get("teamwork_used", false)):
+		return {"accepted": false, "reason": "Team Lift is already filed this shift."}
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return {"accepted": false, "reason": "Select a bonded hen first."}
+	var worker := workers[worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	var partner_id := int(bond.get("partner_id", -1))
+	if int(bond.get("score", 0)) < 60 or partner_id < 0 or partner_id >= workers.size():
+		return {"accepted": false, "reason": "Team Lift requires a Good Perch bond at 60 or higher."}
+	for teammate_id in [worker_id, partner_id]:
+		workers[teammate_id].morale = minf(100.0, workers[teammate_id].morale + 6.0)
+		workers[teammate_id].stress = maxf(0.0, workers[teammate_id].stress - 4.0)
+		workers[teammate_id].manager_trust = minf(100.0, workers[teammate_id].manager_trust + 2.0)
+	routing_momentum_peck_recharge_bank = 1
+	active_playbook["teamwork_used"] = true
+	return _file_playbook_receipt({"accepted": true, "playbook_kind": "teamwork", "choice_id": "team_lift", "worker_id": worker_id, "partner_id": partner_id, "label": "TEAM LIFT", "effects": {"morale": 6, "stress": -4, "attention_charge": 1}, "outcome": "%s and %s filed Team Lift." % [worker.display_name, String(bond.get("partner_name", "her perchmate"))], "day": day})
+
+
+func _perform_playbook_recovery(choice_id: StringName) -> Dictionary:
+	if not PLAYBOOK_RECOVERY_DEFINITIONS.has(choice_id) or not String(active_playbook.get("recovery_id", "")).is_empty():
+		return {"accepted": false, "reason": "A recovery plan is already filed or unavailable."}
+	if revenue_cents >= 2500 and executive_confidence >= 45.0 and _average_worker_stress() < 55.0:
+		return {"accepted": false, "reason": "Recovery plans open when cash, favor, or flock strain needs repair."}
+	match choice_id:
+		&"steady_fund":
+			quota_target = maxi(1, quota_target - 2)
+			executive_confidence = maxf(0.0, executive_confidence - 2.0)
+		&"repair_flock":
+			if spendable_fund_cents() < 300:
+				return {"accepted": false, "reason": "Flock repair needs $3.00 spendable Feed Fund."}
+			revenue_cents -= 300
+			_adjust_workers(3.0, -8.0, -8.0)
+		&"salvage_order":
+			pass
+	active_playbook["recovery_id"] = String(choice_id)
+	return _file_playbook_receipt(_playbook_choice_result(&"recovery", choice_id, PLAYBOOK_RECOVERY_DEFINITIONS[choice_id], "Comeback plan filed; banked rewards remain safe."))
+
+
+func _practice_playbook_peck(worker_id: int) -> Dictionary:
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return {"accepted": false, "reason": "Select an active hen for practice."}
+	var worker := workers[worker_id]
+	var status := peck_assist_status(worker_id)
+	var progress := worker.work_progress
+	var ideal := float(status.get("ideal_progress", PECK_ASSIST_IDEAL_PROGRESS))
+	var delta := absf(progress - ideal)
+	return {"accepted": true, "playbook_kind": "practice", "choice_id": "peck", "worker_id": worker_id, "label": "PRACTICE PECK", "effects": {}, "practice": true, "changes_authority": false, "outcome": "Practice: %s is %.0f points from the ideal peck mark. No charge or reward changed." % [worker.display_name, delta], "day": day}
+
+
+func _average_worker_stress() -> float:
+	var total := 0.0
+	var count := 0
+	for worker in workers:
+		if worker.employed:
+			total += worker.stress
+			count += 1
+	return total / maxf(1.0, float(count))
+
+
+func _playbook_work_multiplier() -> float:
+	_ensure_active_playbook()
+	var multiplier := 1.0
+	match StringName(active_playbook.get("loadout_id", &"")):
+		&"pace_floor": multiplier *= 1.04
+		&"quality_floor": multiplier *= 0.98
+		&"care_floor": multiplier *= 0.99
+	if incidents_resolved_today == 0:
+		match StringName(active_playbook.get("preparation_id", &"")):
+			&"brace_shells": multiplier *= 0.97
+			&"clear_trays": multiplier *= 1.05
+	match StringName(active_playbook.get("rival_response_id", &"")):
+		&"defend": multiplier *= 0.98
+		&"counter": multiplier *= 1.04
+	match StringName(active_playbook.get("recovery_id", &"")):
+		&"salvage_order": multiplier *= 1.06
+	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"record_harvest":
+		multiplier *= 1.05
+	return clampf(multiplier, 0.80, 1.30)
+
+
+func _playbook_crack_modifier() -> float:
+	_ensure_active_playbook()
+	var modifier := 0.0
+	match StringName(active_playbook.get("loadout_id", &"")):
+		&"pace_floor": modifier += 0.008
+		&"quality_floor": modifier -= 0.018
+	if incidents_resolved_today == 0:
+		match StringName(active_playbook.get("preparation_id", &"")):
+			&"brace_shells": modifier -= 0.025
+			&"clear_trays": modifier += 0.012
+	match StringName(active_playbook.get("rival_response_id", &"")):
+		&"defend": modifier -= 0.015
+		&"counter": modifier += 0.012
+	if StringName(active_playbook.get("recovery_id", &"")) == &"salvage_order":
+		modifier += 0.02
+	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"shell_assurance":
+		modifier -= 0.02
+	return clampf(modifier, -0.12, 0.12)
+
+
+func _playbook_strain_multiplier() -> float:
+	_ensure_active_playbook()
+	var multiplier := 1.0
+	if StringName(active_playbook.get("loadout_id", &"")) == &"care_floor":
+		multiplier *= 0.90
+	if (
+		incidents_resolved_today == 0
+		and StringName(active_playbook.get("preparation_id", &"")) == &"rest_flock"
+	):
+		multiplier *= 0.88
+	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"sustainable_flock":
+		multiplier *= 0.90
+	return clampf(multiplier, 0.65, 1.0)
+
+
 func peck_assist_delivery_status() -> Dictionary:
 	var pending_deliveries := _pending_peck_assist_delivery_snapshot()
 	var pending_delivery: Dictionary = (
@@ -18069,6 +18583,7 @@ func phase_label() -> String:
 
 
 func _prepare_morning_directive() -> void:
+	_ensure_active_playbook()
 	_decision_serial += 1
 	shift_phase = ShiftPhase.AWAITING_DIRECTIVE
 	var scenario := scenario_identity_snapshot()
@@ -20042,6 +20557,7 @@ func _reset_daily_decision_state() -> void:
 	_incident_golden_modifier = 0.0
 	_incident_feed_adjustment_cents = 0
 	_pending_quota_adjustment = 0
+	_reset_active_playbook()
 
 
 func _initialize_claim_queues() -> void:
@@ -22652,9 +23168,9 @@ func snapshot(
 		"incidents_resolved_today": incidents_resolved_today,
 		"incident_responses_today": incident_responses_for_day(day),
 		"decision_modifiers": {
-			"work_multiplier": _directive_work_multiplier * _incident_work_multiplier * _work_to_rule_work_multiplier(),
-			"fatigue_multiplier": _directive_fatigue_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0,
-			"stress_multiplier": _directive_stress_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0,
+			"work_multiplier": _directive_work_multiplier * _incident_work_multiplier * _work_to_rule_work_multiplier() * _playbook_work_multiplier(),
+			"fatigue_multiplier": _directive_fatigue_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0 * _playbook_strain_multiplier(),
+			"stress_multiplier": _directive_stress_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0 * _playbook_strain_multiplier(),
 			"feed_strain_basis_points": _feed_procurement.active_strain_basis_points,
 			"morale_drain_multiplier": _directive_morale_drain_multiplier,
 			"crack_modifier": (
@@ -22662,7 +23178,11 @@ func snapshot(
 				+ _incident_crack_modifier
 				+ _work_to_rule_crack_modifier()
 				+ float(facility_effects().get("crack_modifier", 0.0))
+				+ _playbook_crack_modifier()
 			),
+			"playbook_work_multiplier": _playbook_work_multiplier(),
+			"playbook_crack_modifier": _playbook_crack_modifier(),
+			"playbook_strain_multiplier": _playbook_strain_multiplier(),
 			"facility_crack_modifier": float(facility_effects().get("crack_modifier", 0.0)),
 			"facility_rework_speed_multiplier": float(facility_effects().get("rework_speed_multiplier", 1.0)),
 			"work_to_rule_work_multiplier": _work_to_rule_work_multiplier(),
@@ -22674,6 +23194,7 @@ func snapshot(
 		"upgrade_levels": upgrade_levels.duplicate(),
 		"upgrade_catalog": upgrade_catalog(),
 		"first_clutch_reinvestment": first_clutch_reinvestment_status(),
+		"active_playbook": playbook_snapshot(),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
 		"requisition_spend_total_cents": requisition_spend_total_cents,
 		"orientation_procurement_match_today_cents": orientation_procurement_match_today_cents,
@@ -22842,18 +23363,21 @@ func _refresh_runtime_tick_snapshot(
 			_directive_work_multiplier
 			* _incident_work_multiplier
 			* _work_to_rule_work_multiplier()
+			* _playbook_work_multiplier()
 		),
 		"fatigue_multiplier": (
 			_directive_fatigue_multiplier
 			* _incident_strain_multiplier
 			* float(_feed_procurement.active_strain_basis_points)
 			/ 10_000.0
+			* _playbook_strain_multiplier()
 		),
 		"stress_multiplier": (
 			_directive_stress_multiplier
 			* _incident_strain_multiplier
 			* float(_feed_procurement.active_strain_basis_points)
 			/ 10_000.0
+			* _playbook_strain_multiplier()
 		),
 		"feed_strain_basis_points": _feed_procurement.active_strain_basis_points,
 		"morale_drain_multiplier": _directive_morale_drain_multiplier,
@@ -22862,7 +23386,11 @@ func _refresh_runtime_tick_snapshot(
 			+ _incident_crack_modifier
 			+ _work_to_rule_crack_modifier()
 			+ float(facility_effects().get("crack_modifier", 0.0))
+			+ _playbook_crack_modifier()
 		),
+		"playbook_work_multiplier": _playbook_work_multiplier(),
+		"playbook_crack_modifier": _playbook_crack_modifier(),
+		"playbook_strain_multiplier": _playbook_strain_multiplier(),
 		"facility_crack_modifier": float(
 			facility_effects().get("crack_modifier", 0.0)
 		),
@@ -22876,6 +23404,7 @@ func _refresh_runtime_tick_snapshot(
 		"quota_adjustment": _pending_quota_adjustment,
 	}
 	result["first_clutch_reinvestment"] = first_clutch_reinvestment_status()
+	result["active_playbook"] = playbook_snapshot()
 	result["requisition_spend_today_cents"] = requisition_spend_today_cents
 	result["requisition_spend_total_cents"] = requisition_spend_total_cents
 	result["orientation_procurement_match_today_cents"] = orientation_procurement_match_today_cents
@@ -23025,9 +23554,12 @@ func _update_worker(worker: ChickenState) -> void:
 				_directive_work_multiplier
 				* _incident_work_multiplier
 				* _work_to_rule_work_multiplier()
+				* _playbook_work_multiplier()
 			)
 			var total_work_factor := clampf(overtime_factor * tool_factor * decision_work_factor, 0.55, 1.70)
-			var decision_strain_factor := _incident_strain_multiplier
+			var decision_strain_factor := (
+				_incident_strain_multiplier * _playbook_strain_multiplier()
+			)
 			var campaign_fatigue_factor := 0.90 if has_campaign_unlock(&"welfare_breaks") else 1.0
 			var campaign_stress_factor := 0.88 if has_campaign_unlock(&"welfare_breaks") else 1.0
 			var career_work_factor := _career_relationship_work_multiplier(worker)
@@ -23143,6 +23675,7 @@ func _error_risk_for(worker: ChickenState) -> float:
 		error_risk -= 0.025
 	error_risk += float(facility_effects().get("crack_modifier", 0.0))
 	error_risk += _directive_crack_modifier + _incident_crack_modifier + _work_to_rule_crack_modifier()
+	error_risk += _playbook_crack_modifier()
 	error_risk += _career_relationship_crack_modifier(worker)
 	error_risk += _personnel_shift_crack_modifier(worker)
 	error_risk += float(_worker_temperament_effect(worker).get("crack_modifier", 0.0))
@@ -23600,6 +24133,7 @@ func _complete_workday() -> void:
 	var completed_intake_missed_value_cents := intake_missed_value_today_cents
 	var completed_intake_missed_value_total_cents := intake_missed_value_total_cents
 	var completed_first_clutch_reinvestment := first_clutch_reinvestment_status()
+	var completed_active_playbook := playbook_snapshot()
 	var completed_requisition_spend_cents := requisition_spend_today_cents
 	var completed_orientation_match_cents := orientation_procurement_match_today_cents
 	var completed_new_facility_unlocks: Array[Dictionary] = []
@@ -24036,6 +24570,7 @@ func _complete_workday() -> void:
 		"best_market_clean_contract_streak": best_market_clean_contract_streak,
 		"farm_mutual_standing": completed_farm_mutual_standing,
 		"first_clutch_reinvestment": completed_first_clutch_reinvestment,
+		"active_playbook": completed_active_playbook,
 		"requisition_spend_cents": completed_requisition_spend_cents,
 		"requisition_spend_total_cents": requisition_spend_total_cents,
 		"orientation_procurement_match_cents": completed_orientation_match_cents,

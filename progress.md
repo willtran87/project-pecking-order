@@ -21,6 +21,12 @@ Original prompt: The performance visibility menu is blocking some of the screen,
 
 ## Current work
 
+- Implemented the authoritative Active Playbook from the latest fun/intuitiveness findings without adding another blocking panel.
+- The live `PLAN / PLAY / SIGNATURE / REWARD` menu now files optional contracts, pre-incident preparation, loadouts, rival responses, side goals, Team Lift, recovery, hen signatures, consequence-free practice, and choose-one rewards.
+- Policy-specific three-route combos now causally change pace, shell risk, or strain; every choice discloses gain, cost, and risk.
+- Playbook state survives mid-shift JSON checkpoints, appears in runtime snapshots and completed-shift reports, and resets once on day rollover.
+- Added focused native and browser contracts plus `docs/ACTIVE_PLAYBOOK_RESOLUTION.md` mapping all 25 findings to implementation.
+
 - Recompose the HUD so management metrics do not obscure the playable office.
 - Replace insurance-heavy labels with a coherent farm-corporate vocabulary.
 - Add readable environmental storytelling while preserving chicken navigation routes.
@@ -13855,3 +13861,13 @@ The next major systems milestone is persistent worker relationships and individu
 - Godot 4.7 import, focused director/UI contracts, Web export, and the Node 22 Vinext production build pass. The dedicated production-browser audit enters a real Day 1 shift, proves all fifteen projections and the three-beat finale, captures the compact rail, and reports zero console/page errors.
 - Original-size inspection confirms the four reward shapes and three clutch eggs stay contained alongside the shortened `×N` count. The complete beta release gate passes 56/56 checks in 587.771 seconds.
 - The exact 10,508,500-byte candidate is synchronized across both shipping PCK mirrors at SHA-256 `50DAC8F3C726C17316B3B6C63BBB64366958630A708B4C97240CF1E4083BECA7`.
+
+## 2026-08-21 — Authoritative Active Playbook
+
+- Converted the fifteen reward-loop projections and ten intuitiveness findings into one bounded authoritative shift layer: optional contracts, policy combos, preparation, rival responses, loadouts, personal side goals, Team Lift, signature actions, recovery, practice, and choose-one rewards.
+- The HUD adds one `PLAN / PLAY / SIGNATURE / REWARD` control rather than another panel. Live visual review caught an initially dense seventeen-row menu; staged progressive disclosure now shows only the current three-choice planning step plus usable contextual actions and practice.
+- Every option discloses gain, cost, and risk. Policy combos and selected plans feed the real pace, crack-risk, and strain calculations; the completed-shift report captures the plan before its clean daily reset.
+- Active Playbook state is validated and persisted in mid-shift schema-v30 checkpoints while remaining backward-compatible with older v30 saves that predate the optional field.
+- Added `docs/ACTIVE_PLAYBOOK_RESOLUTION.md`, `active_playbook_test.gd`, Playbook-aware projection/UI coverage, browser gain/cost/risk assertions, and an inspected live menu capture with distinct non-color icons and an unobstructed office.
+- The complete beta release gate passes 57/57 checks in 553.402 seconds. Web lint, all 50 rendered-wrapper tests, the production-server contract, evidence/handoff contracts, and nine-file release parity are clean.
+- The synchronized shipping PCK is 10,531,668 bytes with SHA-256 `C87DBF1B77C4BCFF4C750C76C2F642E875F43815B16035130061163D3D7E52F6` across `docs`, `web/public/game`, and the production bundle.

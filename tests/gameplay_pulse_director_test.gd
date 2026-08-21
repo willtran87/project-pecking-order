@@ -83,13 +83,44 @@ func _init() -> void:
 	_check(((reward_loop.get("three_beat_finale", {}) as Dictionary).get("beats", []) as Array).size() == 3, "the shift finale should retain win, lesson, and next beats", failures)
 	_check((pulse.get("comprehension_tuning", {}) as Dictionary).get("friction_flags", []) == ["repeated_route_miss"], "local friction signals should reach the diagnostic pulse without authority", failures)
 	_check(not bool(pulse.get("authoritative", true)), "the entire pulse must remain presentation-only", failures)
+	var active_pulse := director.compose({
+		"simulation": {
+			"day": 2,
+			"shift_phase": 1,
+			"quality_streak": 2,
+			"routing_momentum": {"chain": 3, "next_milestone": 6},
+			"active_directive": {"id": "shell_assurance"},
+			"workers": [{"id": 0, "name": "Mabel", "employed": true}],
+		},
+		"focused_worker_id": 0,
+		"active_playbook": {
+			"authoritative": true,
+			"contract": {"id": "clean_pair", "label": "CLEAN PAIR", "progress": 2, "target": 2, "complete": true, "reward_claimed": false},
+			"combo": {"id": "shell_lock", "label": "SHELL LOCK", "progress": 3, "target": 3, "active": true, "effect": "SHELL RISK -2%"},
+			"loadout_id": "quality_floor",
+			"options": [
+				{"kind": "signature", "label": "MABEL / SHARE CREDIT", "icon": "flock", "available": true, "detail": "PROFILE-SPECIFIC EFFECT"},
+				{"kind": "teamwork", "label": "TEAM LIFT", "icon": "sync", "available": true, "detail": "PAIR MORALE + ATTENTION"},
+			],
+			"opportunity_shapes": [{"id": "contract", "shape": "stamp", "active": true}],
+		},
+	})
+	var active_reward_loop := active_pulse.get("reward_loop", {}) as Dictionary
+	_check(
+		bool(active_reward_loop.get("authoritative", false))
+		and bool((active_reward_loop.get("future_reward_ghost", {}) as Dictionary).get("claimable", false))
+		and bool((active_reward_loop.get("signature_ability", {}) as Dictionary).get("ready", false))
+		and String((active_reward_loop.get("furnishing_loadout", {}) as Dictionary).get("label", "")) == "QUALITY FLOOR",
+		"an active playbook should replace projections with the exact filed contract, combo, signature, and loadout authority",
+		failures,
+	)
 
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("GAMEPLAY_PULSE_DIRECTOR_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("GAMEPLAY_PULSE_DIRECTOR_TEST_PASSED items=20 reward-loop=15 authority=presentation-only loop=4-stage rival=disclosed mastery=3-stage recovery=fail-forward")
+	print("GAMEPLAY_PULSE_DIRECTOR_TEST_PASSED items=20 reward-loop=15 authority=playbook-aware loop=4-stage rival=disclosed mastery=3-stage recovery=fail-forward")
 	quit(0)
 
 

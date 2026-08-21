@@ -1,9 +1,9 @@
 class_name GameplayPulseDirector
 extends RefCounted
 
-## Presentation-only coordinator for the game's clarity and delight layer.
-## Every row derives from existing simulation/campaign authority; this director
-## never awards currency, changes difficulty, files a choice, or enters a save.
+## Read-only coordinator for the game's clarity and delight layer. It can project
+## the authoritative Active Playbook, but never awards currency, changes
+## difficulty, files a choice, or enters a save itself.
 
 const LOOP_STEPS: Array[Dictionary] = [
 	{"id": &"file", "label": "FILE", "icon": &"clipboard"},
@@ -49,6 +49,7 @@ func compose(context: Dictionary) -> Dictionary:
 	var chapter := context.get("chapter", {}) as Dictionary
 	var order_pulse := context.get("order_pulse", {}) as Dictionary
 	var focus_worker_id := int(context.get("focused_worker_id", -1))
+	var active_playbook := context.get("active_playbook", {}) as Dictionary
 	var workers := simulation.get("workers", []) as Array
 	var core_loop := _core_loop(lifecycle, feedback)
 	var intention := _priority_intention(workers, focus_worker_id)
@@ -77,6 +78,7 @@ func compose(context: Dictionary) -> Dictionary:
 		golden_moment,
 		celebration,
 		momentum,
+		active_playbook,
 	)
 	return {
 		"version": 1,
@@ -142,6 +144,7 @@ func _reward_loop(
 	golden_moment: Dictionary,
 	celebration: Dictionary,
 	momentum: Dictionary,
+	active_playbook: Dictionary,
 ) -> Dictionary:
 	var worker := _focused_worker(workers, focused_worker_id)
 	var worker_name := String(worker.get("name", "HEN")).to_upper()
@@ -217,7 +220,7 @@ func _reward_loop(
 		"uses_existing_review": true,
 	}
 	var opportunity := _surprise_opportunity(simulation, routing_momentum, order_pulse)
-	return {
+	var result := {
 		"signature_ability": {
 			"icon": "flock", "label": "%s / %s" % [worker_name, signature_name],
 			"ready": signature_ready, "worker_id": int(worker.get("id", -1)),
@@ -269,6 +272,91 @@ func _reward_loop(
 		},
 		"authoritative": false,
 	}
+	return _project_active_playbook(result, active_playbook)
+
+
+func _project_active_playbook(result: Dictionary, playbook: Dictionary) -> Dictionary:
+	if playbook.is_empty() or not bool(playbook.get("authoritative", false)):
+		return result
+	var options := playbook.get("options", []) as Array
+	var signature_option: Dictionary = {}
+	var teamwork_option: Dictionary = {}
+	for option_value in options:
+		if not option_value is Dictionary:
+			continue
+		var option := option_value as Dictionary
+		match StringName(option.get("kind", &"")):
+			&"signature": signature_option = option
+			&"teamwork": teamwork_option = option
+	var contract := (playbook.get("contract", {}) as Dictionary).duplicate(true)
+	contract["detail"] = "%s %d/%d. Optional; skipping it has no penalty." % [
+		String(contract.get("label", "PICK CONTRACT")).capitalize(),
+		int(contract.get("progress", 0)),
+		int(contract.get("target", 0)),
+	]
+	contract["uses_existing_reward"] = false
+	contract["authoritative_choice"] = true
+	result["optional_shift_contract"] = contract
+	var combo := (playbook.get("combo", {}) as Dictionary).duplicate(true)
+	combo["ready"] = bool(combo.get("active", false))
+	combo["detail"] = "%s %d/%d. %s" % [
+		String(combo.get("label", "COMBO")).capitalize(),
+		int(combo.get("progress", 0)),
+		int(combo.get("target", 0)),
+		String(combo.get("effect", "")),
+	]
+	combo["authoritative_effect"] = true
+	result["combo_recipe"] = combo
+	if not signature_option.is_empty():
+		result["signature_ability"] = {
+			"icon": String(signature_option.get("icon", "flock")),
+			"label": String(signature_option.get("label", "HEN SIGNATURE")),
+			"ready": bool(signature_option.get("available", false)),
+			"detail": String(signature_option.get("detail", "Uses the normal flock check-in.")),
+			"authoritative_choice": true,
+		}
+	if not teamwork_option.is_empty():
+		result["relationship_teamwork"] = {
+			"icon": String(teamwork_option.get("icon", "sync")),
+			"label": String(teamwork_option.get("label", "TEAM LIFT")),
+			"available": bool(teamwork_option.get("available", false)),
+			"detail": String(teamwork_option.get("detail", "Requires a bond at 60.")),
+			"authoritative_choice": true,
+		}
+	var loadout_id := String(playbook.get("loadout_id", ""))
+	if not loadout_id.is_empty():
+		result["furnishing_loadout"] = {
+			"icon": "facility",
+			"label": loadout_id.replace("_", " ").to_upper(),
+			"strategy_id": loadout_id,
+			"detail": "The selected shift loadout now changes pace, shell risk, or strain.",
+			"authoritative_choice": true,
+		}
+	var reward_claimable := (
+		bool(contract.get("complete", false))
+		and not bool(contract.get("reward_claimed", false))
+	)
+	result["future_reward_ghost"] = {
+		"icon": "egg",
+		"label": "CHOOSE REWARD" if reward_claimable else "CONTRACT REWARD",
+		"ghosted": not reward_claimable,
+		"ready": reward_claimable,
+		"progress": int(contract.get("progress", 0)),
+		"target": int(contract.get("target", 0)),
+		"detail": "Complete the optional contract, then choose Feed Fund, hen XP, or flock recovery.",
+		"claimable": reward_claimable,
+		"authoritative_choice": true,
+	}
+	result["surprise_opportunity"] = {
+		"icon": "goal",
+		"label": "VISIBLE OPPORTUNITIES",
+		"active": true,
+		"shapes": (playbook.get("opportunity_shapes", []) as Array).duplicate(true),
+		"detail": "Star, diamond, linked, and stamp silhouettes identify opportunity types without relying on color.",
+		"deterministic": true,
+	}
+	result["authoritative"] = true
+	return result
 
 
 func _focused_worker(workers: Array, focused_worker_id: int) -> Dictionary:
