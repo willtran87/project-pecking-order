@@ -207,7 +207,7 @@ Default gamepad bindings mirror the floor controls: Start pauses, D-pad Left/Dow
 
 ## Validation
 
-The beta acceptance contract, hardware-only sign-off boundaries, and complete release command are documented in [Beta Readiness](docs/BETA_READINESS.md). The complete 30-item structural pass is documented in [Intuitive, Fun, and Rewarding Loop Resolution](docs/INTUITIVE_FUN_ENGAGEMENT_RESOLUTION.md), and the latest 20-item low-text clarity/delight pass is mapped in [Clarity and Delight Resolution](docs/CLARITY_DELIGHT_RESOLUTION.md). Run `./tools/verify_beta_release.ps1` from the repository root to verify representative native contracts, Web behavior and accessibility, lint, and exact Pages/localhost payload parity.
+The beta acceptance contract, hardware-only sign-off boundaries, and complete release command are documented in [Beta Readiness](docs/BETA_READINESS.md). The complete 30-item structural pass is documented in [Intuitive, Fun, and Rewarding Loop Resolution](docs/INTUITIVE_FUN_ENGAGEMENT_RESOLUTION.md), the 20-item low-text clarity/delight pass is mapped in [Clarity and Delight Resolution](docs/CLARITY_DELIGHT_RESOLUTION.md), and the latest fifteen engagement upgrades are traced in [Reward Loop Expansion Resolution](docs/REWARD_LOOP_EXPANSION_RESOLUTION.md). Run `./tools/verify_beta_release.ps1` from the repository root to verify representative native contracts, Web behavior and accessibility, lint, and exact Pages/localhost payload parity.
 
 Run this focused contract check for Rooster Operations, IT Coop, Flock Relations, Flock Provisions, Harvest Credit, their Flockwatch/dossier surfaces, persistence, and modeled rooms:
 

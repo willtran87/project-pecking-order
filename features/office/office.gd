@@ -699,11 +699,15 @@ var _shift_egg_goal_label: Label
 var _quota_progress: ProgressBar
 var _quota_progress_label: Label
 var _quality_streak_label: Label
+var _clutch_carton_host: HBoxContainer
+var _clutch_carton_icons: Array[FlockwatchIconBadge] = []
 var _directive_badge_host: HBoxContainer
 var _directive_badge_icon: FlockwatchIconBadge
 var _directive_badge: Label
 var _core_loop_host: HBoxContainer
 var _core_loop_icons: Array[FlockwatchIconBadge] = []
+var _reward_loop_host: HBoxContainer
+var _reward_loop_icons: Dictionary[StringName, FlockwatchIconBadge] = {}
 var _rival_pulse_label: Label
 var _guidance_action_button: Button
 var _guidance_icon: FlockwatchIconBadge
@@ -5865,8 +5869,25 @@ func _build_ui() -> void:
 	_quota_progress_label.custom_minimum_size.x = 128.0
 	_shift_objective_row.add_child(_quota_progress_label)
 	_quality_streak_label = _make_label("CLEAN CLUTCH  ×0", 14, Color("9ccfc2"))
-	_quality_streak_label.custom_minimum_size.x = 152.0
+	_quality_streak_label.name = "CleanClutchCount"
+	_quality_streak_label.custom_minimum_size.x = 30.0
 	_shift_objective_row.add_child(_quality_streak_label)
+	_clutch_carton_host = HBoxContainer.new()
+	_clutch_carton_host.name = "ClutchCartonPulse"
+	_clutch_carton_host.custom_minimum_size.x = 55.0
+	_clutch_carton_host.add_theme_constant_override("separation", 1)
+	_clutch_carton_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_clutch_carton_host.tooltip_text = "Clean-clutch reward track: 2 / 4 / 8."
+	_shift_objective_row.add_child(_clutch_carton_host)
+	for threshold in [2, 4, 8]:
+		var clutch_icon := FlockwatchIconBadgeScript.new()
+		clutch_icon.name = "ClutchReward_%d" % threshold
+		clutch_icon.set_badge_size(16.0)
+		clutch_icon.configure(&"egg", Color("53636c"))
+		clutch_icon.set_meta("threshold", threshold)
+		clutch_icon.set_meta("semantic_icon", "egg")
+		_clutch_carton_host.add_child(clutch_icon)
+		_clutch_carton_icons.append(clutch_icon)
 	_directive_badge_host = HBoxContainer.new()
 	_directive_badge_host.name = "LivePolicyBadge"
 	_directive_badge_host.custom_minimum_size.x = 138.0
@@ -5908,6 +5929,24 @@ func _build_ui() -> void:
 		loop_icon.set_meta("semantic_icon", String(definition.get("icon", "goal")))
 		_core_loop_host.add_child(loop_icon)
 		_core_loop_icons.append(loop_icon)
+	_reward_loop_host = HBoxContainer.new()
+	_reward_loop_host.name = "RewardLoopPulse"
+	_reward_loop_host.custom_minimum_size.x = 76.0
+	_reward_loop_host.add_theme_constant_override("separation", 3)
+	_reward_loop_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_reward_loop_host.tooltip_text = "Signature · optional contract · named combo · next reward"
+	_reward_loop_host.set_meta("authoritative", false)
+	_shift_objective_row.add_child(_reward_loop_host)
+	for definition in GameplayPulseDirectorScript.REWARD_LOOP_ICONS:
+		var reward_icon := FlockwatchIconBadgeScript.new()
+		var reward_id := StringName(definition.get("id", &"reward"))
+		reward_icon.name = "RewardLoop_%s" % String(reward_id).to_pascal_case()
+		reward_icon.set_badge_size(16.0)
+		reward_icon.configure(StringName(definition.get("icon", &"goal")), Color("53636c"))
+		reward_icon.set_meta("reward_loop_id", String(reward_id))
+		reward_icon.set_meta("semantic_icon", String(definition.get("icon", "goal")))
+		_reward_loop_host.add_child(reward_icon)
+		_reward_loop_icons[reward_id] = reward_icon
 	_rival_pulse_label = _make_label("RIVAL ±0", 12, Color("b8c3cc"))
 	_rival_pulse_label.name = "RivalPulseLabel"
 	_rival_pulse_label.custom_minimum_size.x = 82.0
@@ -19237,6 +19276,54 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		))
 		_core_loop_host.set_meta("active_stage", String(loop.get("active_stage", "file")))
 		_core_loop_host.set_meta("accessible_text", _core_loop_host.tooltip_text)
+	var reward_loop := _gameplay_pulse.get("reward_loop", {}) as Dictionary
+	for definition in GameplayPulseDirectorScript.REWARD_LOOP_ICONS:
+		var reward_id := StringName(definition.get("id", &""))
+		var reward_icon: FlockwatchIconBadge = _reward_loop_icons.get(reward_id)
+		if reward_icon == null:
+			continue
+		var reward := reward_loop.get(reward_id, {}) as Dictionary
+		var ready := bool(reward.get("ready", reward.get("complete", false)))
+		var active := bool(reward.get("active", false))
+		if reward_id == &"future_reward_ghost":
+			active = not reward.is_empty()
+		var accent := Color("53636c")
+		if ready:
+			accent = Color("f4cd66")
+		elif active:
+			accent = Color("9ccfc2")
+		reward_icon.configure(StringName(reward.get("icon", definition.get("icon", &"goal"))), accent)
+		reward_icon.tooltip_text = "%s  ·  %s\n%s" % [
+			String(definition.get("label", "REWARD")),
+			String(reward.get("label", "LOCKED")),
+			String(reward.get("detail", "Progress is disclosed when the shift begins.")),
+		]
+		reward_icon.accessibility_name = reward_icon.tooltip_text
+		reward_icon.set_meta("ready", ready)
+		reward_icon.set_meta("active", active)
+		reward_icon.set_meta("projection", reward.duplicate(true))
+	if _reward_loop_host != null:
+		_reward_loop_host.visible = int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING
+		_reward_loop_host.set_meta("items", reward_loop.duplicate(true))
+		_reward_loop_host.set_meta("item_count", maxi(0, reward_loop.size() - 1))
+	var clutch := reward_loop.get("clutch_carton", {}) as Dictionary
+	var clutch_thresholds := clutch.get("thresholds", [2, 4, 8]) as Array
+	var clutch_filled := int(clutch.get("filled", 0))
+	for index in _clutch_carton_icons.size():
+		var clutch_icon := _clutch_carton_icons[index]
+		if clutch_icon == null:
+			continue
+		var threshold := int(clutch_thresholds[index]) if index < clutch_thresholds.size() else (index + 1) * 2
+		var filled := clutch_filled >= threshold
+		var next := not filled and threshold == int(clutch.get("next_threshold", 2))
+		clutch_icon.configure(&"egg", Color("f4cd66") if filled else (Color("9ccfc2") if next else Color("53636c")))
+		clutch_icon.tooltip_text = "CLEAN ×%d  ·  %s\n%s" % [threshold, "FILLED" if filled else ("NEXT" if next else "LOCKED"), String(clutch.get("detail", ""))]
+		clutch_icon.accessibility_name = clutch_icon.tooltip_text
+		clutch_icon.set_meta("filled", filled)
+	if _clutch_carton_host != null:
+		_clutch_carton_host.visible = int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING or clutch_filled > 0
+		_clutch_carton_host.tooltip_text = String(clutch.get("detail", "Clean-clutch reward track: 2 / 4 / 8."))
+		_clutch_carton_host.set_meta("projection", clutch.duplicate(true))
 	var rival := _gameplay_pulse.get("rival_pulse", {}) as Dictionary
 	if _rival_pulse_label != null:
 		_rival_pulse_label.visible = (
@@ -19246,7 +19333,12 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		)
 		rival["hud_visible"] = _rival_pulse_label.visible
 		_rival_pulse_label.text = String(rival.get("compact", "RIVAL ±0"))
-		_rival_pulse_label.tooltip_text = String(rival.get("detail", ""))
+		var counterplay := reward_loop.get("rival_counterplay", {}) as Dictionary
+		_rival_pulse_label.tooltip_text = "%s\n%s\n%s" % [
+			String(rival.get("detail", "")),
+			String(counterplay.get("label", "COUNTERPLAY LOCKED")),
+			String(counterplay.get("rule", "")),
+		]
 		_rival_pulse_label.accessibility_name = "%s. %s" % [
 			_rival_pulse_label.text,
 			_rival_pulse_label.tooltip_text,
@@ -19255,6 +19347,16 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 			"font_color",
 			Color("9ccfc2") if int(rival.get("difference", 0)) >= 0 else Color("efaa84"),
 		)
+	var strategy := reward_loop.get("strategy_identity", {}) as Dictionary
+	var loadout := reward_loop.get("furnishing_loadout", {}) as Dictionary
+	if _directive_badge != null and not strategy.is_empty():
+		_directive_badge.tooltip_text += "\n\n%s  ·  %s\n%s" % [
+			String(strategy.get("label", "SHIFT STRATEGY")),
+			String(loadout.get("label", "BALANCED OFFICE")),
+			String(strategy.get("detail", "")),
+		]
+		_directive_badge.set_meta("strategy_identity", strategy.duplicate(true))
+		_directive_badge.set_meta("furnishing_loadout", loadout.duplicate(true))
 	var preview := _gameplay_pulse.get("action_preview", {}) as Dictionary
 	var preview_line := String(preview.get("compact", ""))
 	var glance_line := "\nAT A GLANCE  ·  %s" % preview_line
@@ -22436,10 +22538,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	var reward_ladder := _clutch_reward_ladder_snapshot(quality_streak)
 	var packing_status := snapshot.get("packing_contract", {}) as Dictionary
 	if bool(packing_status.get("enabled", false)):
-		_quality_streak_label.text = "CLEAN ×%d  ·  CARTON %d/6" % [
-			quality_streak,
-			int(packing_status.get("carton_progress", 0)),
-		]
+		_quality_streak_label.text = "×%d" % quality_streak
 		_quality_streak_label.tooltip_text = "%s\n%s" % [
 			"Sound and golden eggs fill the Packing Annex carton. The sixth pays $%.2f at annex level %d."
 			% [
@@ -22449,7 +22548,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 			String(reward_ladder.get("accessible_text", "")),
 		]
 	else:
-		_quality_streak_label.text = String(reward_ladder.get("compact", "CLEAN ×%d" % quality_streak))
+		_quality_streak_label.text = "×%d" % quality_streak
 		_quality_streak_label.tooltip_text = String(reward_ladder.get(
 			"accessible_text",
 			"Consecutive sound or golden eggs increase the clean-clutch credit.",

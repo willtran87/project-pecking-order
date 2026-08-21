@@ -45,6 +45,8 @@ func _run() -> void:
 	var guidance_action := office.find_child("GuidanceActionButton", true, false) as Button
 	var guidance_chevron := office.find_child("GuidanceActionChevron", true, false) as Label
 	var core_loop := office.find_child("CoreLoopPulse", true, false) as HBoxContainer
+	var reward_loop_host := office.find_child("RewardLoopPulse", true, false) as HBoxContainer
+	var clutch_carton := office.find_child("ClutchCartonPulse", true, false) as HBoxContainer
 	var rival_pulse := office.find_child("RivalPulseLabel", true, false) as Label
 	_check(clock != null and clock.speed_index == 0, "first shift should begin paused for its morning directive", failures)
 	_check(decision_host != null and decision_host.is_visible_in_tree(), "opening directive should be presented as a blocking decision", failures)
@@ -58,8 +60,15 @@ func _run() -> void:
 		and rival_pulse != null
 		and not rival_pulse.visible
 		and gameplay_pulse.has("hen_mastery")
+		and gameplay_pulse.has("reward_loop")
+		and reward_loop_host != null
+		and reward_loop_host.get_child_count() == 4
+		and not reward_loop_host.visible
+		and clutch_carton != null
+		and clutch_carton.get_child_count() == 3
+		and not clutch_carton.visible
 		and not bool(gameplay_pulse.get("authoritative", true)),
-		"the live objective rail should expose a four-shape work loop while keeping the pre-egg rival beat quiet and presentation-only",
+		"the objective rail should prepare four reward shapes and a three-egg clutch track while keeping pre-shift projections quiet and presentation-only",
 		failures,
 	)
 	var opening_accessibility := String(
@@ -183,11 +192,24 @@ func _run() -> void:
 	var eggs_before_rival_probe := simulation.eggs_today
 	simulation.eggs_today = 1
 	office.call("_refresh_gameplay_pulse", simulation.snapshot())
+	var live_reward_loop := (office.get("_gameplay_pulse") as Dictionary).get("reward_loop", {}) as Dictionary
 	_check(
 		rival_pulse.visible
 		and rival_pulse.text.begins_with("RIVAL ")
+		and "filed cumulative score" in rival_pulse.tooltip_text
 		and bool(((office.get("_gameplay_pulse") as Dictionary).get("rival_pulse", {}) as Dictionary).get("hud_visible", false)),
 		"the disclosed rival margin should enter the HUD only after the first live delivery",
+		failures,
+	)
+	_check(
+		reward_loop_host.visible
+		and clutch_carton.visible
+		and int(reward_loop_host.get_meta("item_count", 0)) == 15
+		and not bool(live_reward_loop.get("authoritative", true))
+		and String((live_reward_loop.get("combo_recipe", {}) as Dictionary).get("label", "")) == "SHELL LOCK"
+		and String((live_reward_loop.get("strategy_identity", {}) as Dictionary).get("label", "")) == "SHELL GUARDIAN"
+		and "SHELL GUARDIAN" in live_policy_label.tooltip_text,
+		"a live shift should expose fifteen compact reward projections through four icons, the clutch track, and the filed strategy tooltip",
 		failures,
 	)
 	simulation.eggs_today = eggs_before_rival_probe

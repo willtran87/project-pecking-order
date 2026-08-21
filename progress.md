@@ -13844,3 +13844,14 @@ The next major systems milestone is persistent worker relationships and individu
 - The native-size production browser audit passes with all 20 pulse keys, the four-stage loop, a quiet pre-delivery rival beat, local-only diagnostics, and zero page/console errors. Original-size inspection confirms the live strip and Quick File intake copy are unclipped.
 - The complete beta release gate passes 56/56 checks in 530.864 seconds: 46 native contracts, Web lint/render/production coverage, five evidence/readiness contracts, and exact nine-file Pages parity. The 10,492,900-byte shipping PCK is synchronized at SHA-256 `0B14706D8B17E9A942EF04537285FDE2939C5E2B34D25970EBC21A24B5170EEB`.
 - The owned port-3001 production server and checksum-verified portable Node 22 runtime were removed after verification. Port 3001 is free and the user-owned port-3000 listener remains untouched.
+
+## 2026-08-21 — Reward-loop expansion
+
+- Consolidated the fifteen requested engagement upgrades into one presentation-only reward-loop projection over existing simulation and campaign authority.
+- Added four compact live shapes for hen signature, optional shift contract, named policy combo, and ghosted next reward. Added a physical three-egg clean-clutch track and reduced its redundant rail copy to `×N`.
+- Preferred personnel actions now read as `SIG` moves while retaining their normal flock allowance, exact costs, and atomic filing behavior. Policy tooltips declare a strategy identity and furnishing loadout; rival details now include transparent counterplay.
+- Added named policy recipes, penalty-free rotating contracts, hen promises, route-chain planning, near-miss rescue choices, future rewards, three-beat finales, bonded teamwork, deterministic opportunity files, and office celebration projections.
+- Added `docs/REWARD_LOOP_EXPANSION_RESOLUTION.md` with an exact fifteen-item implementation/authority/evidence matrix and explicit human-fun verification boundary.
+- Godot 4.7 import, focused director/UI contracts, Web export, and the Node 22 Vinext production build pass. The dedicated production-browser audit enters a real Day 1 shift, proves all fifteen projections and the three-beat finale, captures the compact rail, and reports zero console/page errors.
+- Original-size inspection confirms the four reward shapes and three clutch eggs stay contained alongside the shortened `×N` count. The complete beta release gate passes 56/56 checks in 587.771 seconds.
+- The exact 10,508,500-byte candidate is synchronized across both shipping PCK mirrors at SHA-256 `50DAC8F3C726C17316B3B6C63BBB64366958630A708B4C97240CF1E4083BECA7`.

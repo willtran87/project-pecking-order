@@ -96,6 +96,19 @@ try {
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
+	const rewardItems = [
+		"signature_ability", "combo_recipe", "optional_shift_contract", "clutch_carton",
+		"hen_promise", "rival_counterplay", "route_chain_plan", "near_miss_rescue",
+		"furnishing_loadout", "future_reward_ghost", "three_beat_finale",
+		"strategy_identity", "relationship_teamwork", "surprise_opportunity",
+		"office_celebration",
+	];
+	for (const key of rewardItems) assert.ok(Object.hasOwn(pulse.reward_loop, key), `missing reward-loop item: ${key}`);
+	assert.equal(Object.keys(pulse.reward_loop).length, 16, "reward loop should contain fifteen projections plus its authority flag");
+	assert.equal(pulse.reward_loop.authoritative, false);
+	assert.equal(pulse.reward_loop.optional_shift_contract.failure_penalty, 0);
+	assert.deepEqual(pulse.reward_loop.clutch_carton.thresholds, [2, 4, 8]);
+	assert.equal(pulse.reward_loop.three_beat_finale.beats.length, 3);
 	assert.equal(pulse.authoritative, false);
 	assert.equal(pulse.core_loop.compact, "FILE → HEN → EGG → CREDIT");
 	assert.deepEqual(pulse.core_loop.steps.map((step) => step.id), ["file", "hen", "egg", "credit"]);
@@ -109,6 +122,7 @@ try {
 		actionPreview: pulse.action_preview,
 		rivalPulse: pulse.rival_pulse,
 		henMastery: pulse.hen_mastery,
+		rewardLoop: pulse.reward_loop,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
 	await page.screenshot({ path: path.join(outputDirectory, "clarity-pulse.png"), fullPage: true });
@@ -118,4 +132,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED items=20 loop=4-stage rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED items=20 reward-loop=15 loop=4-stage rival=quiet-before-first-egg privacy=local");

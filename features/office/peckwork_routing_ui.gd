@@ -4042,13 +4042,13 @@ func _refresh() -> void:
 			"short_name",
 			definition.get("button_label", definition.get("display_name", definition.get("name", PERSONNEL_ACTION_NAMES[action_id]))),
 		)).to_upper()
-		personnel_button.text = "%s%s" % [("FIT / " if preferred_action == action_id else ""), action_label]
+		personnel_button.text = "%s%s" % [("SIG / " if preferred_action == action_id else ""), action_label]
 		var preview := String(definition.get("preview", definition.get("description", PERSONNEL_ACTION_TOOLTIPS[action_id])))
 		var action_cost := int(definition.get("cost_cents", 0))
 		var affordable := int(_snapshot.get("spendable_fund_cents", _snapshot.get("revenue_cents", 0))) >= action_cost
 		personnel_button.tooltip_text = "%s%s%s" % [
 			preview,
-			" Profile match for this hen." if preferred_action == action_id else "",
+			" Signature move for this hen; it still uses one normal flock check-in." if preferred_action == action_id else "",
 			(
 				" This hen already has a filed check-in today."
 				if worker_action_filed else

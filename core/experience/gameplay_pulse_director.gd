@@ -23,6 +23,19 @@ const ACTION_PREVIEWS := {
 	&"decision": {"icons": [&"goal", &"receipt"], "compact": "CHOICE → FILED"},
 }
 
+const REWARD_LOOP_ICONS: Array[Dictionary] = [
+	{"id": &"signature_ability", "icon": &"flock", "label": "SIGNATURE"},
+	{"id": &"optional_shift_contract", "icon": &"goal", "label": "CONTRACT"},
+	{"id": &"combo_recipe", "icon": &"sync", "label": "COMBO"},
+	{"id": &"future_reward_ghost", "icon": &"egg", "label": "NEXT REWARD"},
+]
+
+const PERSONNEL_ACTION_NAMES := {
+	&"share_credit": "SHARE CREDIT",
+	&"career_coaching": "CAREER COACH",
+	&"quota_pressure": "STRETCH CLUTCH",
+}
+
 
 func compose(context: Dictionary) -> Dictionary:
 	var simulation := context.get("simulation", {}) as Dictionary
@@ -50,6 +63,21 @@ func compose(context: Dictionary) -> Dictionary:
 	var rival_pulse := _rival_pulse(rival, order_pulse)
 	var quick_docket := _quick_docket(simulation, chapter, order_pulse)
 	var fail_forward := _fail_forward(momentum, next_action)
+	var reward_loop := _reward_loop(
+		simulation,
+		workers,
+		focus_worker_id,
+		routing_momentum,
+		rival_pulse,
+		order_pulse,
+		adaptive,
+		relationship,
+		intention,
+		mastery,
+		golden_moment,
+		celebration,
+		momentum,
+	)
 	return {
 		"version": 1,
 		"authoritative": false,
@@ -88,6 +116,7 @@ func compose(context: Dictionary) -> Dictionary:
 			)),
 		},
 		"celebration_hierarchy": celebration,
+		"reward_loop": reward_loop,
 		"comprehension_tuning": {
 			"privacy": String(funnel.get("privacy", "LOCAL SESSION ONLY / NEVER TRANSMITTED")),
 			"next_id": String(funnel.get("next_id", "")),
@@ -97,6 +126,258 @@ func compose(context: Dictionary) -> Dictionary:
 			"friction_flags": (funnel.get("friction_flags", []) as Array).duplicate(true),
 		},
 	}
+
+
+func _reward_loop(
+	simulation: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	routing_momentum: Dictionary,
+	rival_pulse: Dictionary,
+	order_pulse: Dictionary,
+	adaptive: Dictionary,
+	relationship: Dictionary,
+	intention: Dictionary,
+	mastery: Dictionary,
+	golden_moment: Dictionary,
+	celebration: Dictionary,
+	momentum: Dictionary,
+) -> Dictionary:
+	var worker := _focused_worker(workers, focused_worker_id)
+	var worker_name := String(worker.get("name", "HEN")).to_upper()
+	var preferred_action := StringName(worker.get("preferred_personnel_action", &""))
+	var action_status := simulation.get("personnel_action_status", {}) as Dictionary
+	var signature_name := String(PERSONNEL_ACTION_NAMES.get(preferred_action, "CHECK-IN"))
+	var action_definition: Dictionary = {}
+	for action_value in simulation.get("personnel_catalog", []) as Array:
+		var candidate := action_value as Dictionary
+		if StringName(candidate.get("id", &"")) == preferred_action:
+			action_definition = candidate
+			break
+	if not action_definition.is_empty():
+		signature_name = String(action_definition.get("short_name", action_definition.get("name", signature_name))).to_upper()
+	var signature_ready := (
+		not preferred_action.is_empty()
+		and bool(action_status.get("available", simulation.get("personnel_action_available", false)))
+		and int(action_status.get("remaining", 1)) > 0
+		and int(worker.get("last_personnel_action_day", -1)) != int(simulation.get("day", 1))
+	)
+	var directive := simulation.get("active_directive", {}) as Dictionary
+	var directive_id := StringName(directive.get("id", &""))
+	var strategy := _strategy_identity(directive_id)
+	var chain := int(routing_momentum.get("chain", 0))
+	var chain_target := int(routing_momentum.get("next_milestone", 3))
+	if chain_target <= chain:
+		chain_target = 3 if chain < 3 else (6 if chain < 6 else (9 if chain < 9 else 12))
+	var combo := _named_combo(directive_id, chain, chain_target)
+	var contract := _optional_contract(simulation, routing_momentum)
+	var carton := _clutch_carton(simulation)
+	var promise := _hen_promise(simulation, worker, intention)
+	var counterplay := _rival_counterplay(rival_pulse, order_pulse)
+	var route_plan := {
+		"label": "ROUTE CHAIN",
+		"progress": chain,
+		"target": chain_target,
+		"next_reward": String(routing_momentum.get("next_reward", "PACE BOOST")),
+		"golden_target_worker_id": int(routing_momentum.get("golden_target_worker_id", -1)),
+		"detail": "Route the next specialty-fit file to reach %d and earn %s." % [chain_target, String(routing_momentum.get("next_reward", "the next disclosed reward"))],
+		"uses_existing_authority": true,
+	}
+	var rescue_active := (
+		bool(adaptive.get("active", false))
+		or StringName(momentum.get("status", &"")) == &"comeback"
+		or not (routing_momentum.get("recovery", {}) as Dictionary).is_empty()
+	)
+	var facilities_value: Variant = simulation.get("owned_facilities", {})
+	var chosen_reinvestment := simulation.get("first_clutch_reinvestment", {}) as Dictionary
+	var furnishings: Array[String] = []
+	if facilities_value is Dictionary:
+		for facility_id in (facilities_value as Dictionary):
+			if int((facilities_value as Dictionary).get(facility_id, 0)) > 0:
+				furnishings.append(String(facility_id).replace("_", " ").to_upper())
+	elif facilities_value is Array:
+		for facility_value in facilities_value as Array:
+			if facility_value is Dictionary:
+				furnishings.append(String((facility_value as Dictionary).get("name", (facility_value as Dictionary).get("id", "FURNISHING"))).to_upper())
+			else:
+				furnishings.append(String(facility_value).replace("_", " ").to_upper())
+	if not chosen_reinvestment.is_empty():
+		furnishings.append(String(chosen_reinvestment.get("label", chosen_reinvestment.get("choice_id", "FIRST CLUTCH"))).to_upper())
+	var next_mastery := String(mastery.get("next_label", "NEXT HEN MASTERY")).to_upper()
+	var future_reward := String(routing_momentum.get("next_reward", next_mastery)).to_upper()
+	if future_reward.is_empty():
+		future_reward = next_mastery
+	var finale := {
+		"beats": [
+			{"id": "win", "icon": "egg", "label": String(momentum.get("headline", "SHIFT WIN"))},
+			{"id": "lesson", "icon": "receipt", "label": String(momentum.get("short_label", "LESSON FILED"))},
+			{"id": "next", "icon": "goal", "label": String(momentum.get("detail", "NEXT MOVE"))},
+		],
+		"details_folded": true,
+		"uses_existing_review": true,
+	}
+	var opportunity := _surprise_opportunity(simulation, routing_momentum, order_pulse)
+	return {
+		"signature_ability": {
+			"icon": "flock", "label": "%s / %s" % [worker_name, signature_name],
+			"ready": signature_ready, "worker_id": int(worker.get("id", -1)),
+			"action_id": String(preferred_action),
+			"detail": "%s's signature check-in is %s. It uses the existing flock allowance." % [worker_name.capitalize(), "ready" if signature_ready else "not ready"],
+			"uses_existing_action": true,
+		},
+		"combo_recipe": combo,
+		"optional_shift_contract": contract,
+		"clutch_carton": carton,
+		"hen_promise": promise,
+		"rival_counterplay": counterplay,
+		"route_chain_plan": route_plan,
+		"near_miss_rescue": {
+			"icon": "care", "label": "RESCUE ROUTE", "active": rescue_active,
+			"choices": ["PECK", "BEST FIT", "CARE"],
+			"detail": "A near miss can be recovered through the existing peck, best-fit, or care action; banked rewards stay safe.",
+			"grants_free_reward": false,
+		},
+		"furnishing_loadout": {
+			"icon": "facility", "label": String(strategy.get("loadout", "BALANCED OFFICE")),
+			"owned": furnishings, "strategy_id": String(strategy.get("id", "balanced")),
+			"detail": "Office furnishings express the active strategy and retain their existing simulation effects.",
+			"uses_existing_authority": true,
+		},
+		"future_reward_ghost": {
+			"icon": "egg", "label": future_reward, "ghosted": true,
+			"progress": chain, "target": chain_target,
+			"detail": "%s unlocks only when its disclosed authoritative condition is met." % future_reward.capitalize(),
+			"claimable": false,
+		},
+		"three_beat_finale": finale,
+		"strategy_identity": strategy,
+		"relationship_teamwork": {
+			"icon": "sync", "label": "%s + %s" % [String(relationship.get("worker_name", worker_name)).to_upper(), String(relationship.get("partner_name", "PERCHMATE")).to_upper()],
+			"available": bool(relationship.get("available", false)), "score": int(relationship.get("score", 50)),
+			"detail": String(relationship.get("detail", "Build a named bond through existing care and routing actions.")),
+			"uses_existing_bond": true,
+		},
+		"surprise_opportunity": opportunity,
+		"office_celebration": {
+			"icon": "egg", "label": String(celebration.get("tier", "quiet")).to_upper(),
+			"active": String(celebration.get("tier", "quiet")) != "quiet",
+			"participant": String(golden_moment.get("worker_name", "FLOCK")),
+			"motion": String(celebration.get("motion", "none")),
+			"audio": String(celebration.get("audio", "none")),
+			"detail": "Lighting, sound, props, and nearby hens celebrate only filed success.",
+			"uses_existing_feedback": true,
+		},
+		"authoritative": false,
+	}
+
+
+func _focused_worker(workers: Array, focused_worker_id: int) -> Dictionary:
+	for value in workers:
+		var worker := value as Dictionary
+		if int(worker.get("id", -1)) == focused_worker_id:
+			return worker
+	for value in workers:
+		var worker := value as Dictionary
+		if bool(worker.get("employed", false)):
+			return worker
+	return {}
+
+
+func _strategy_identity(directive_id: StringName) -> Dictionary:
+	match directive_id:
+		&"record_harvest":
+			return {"id": "harvest_driver", "icon": "egg", "label": "HARVEST DRIVER", "loadout": "PACE FLOOR", "detail": "Fast routes and combo chains define this shift."}
+		&"shell_assurance":
+			return {"id": "shell_guardian", "icon": "shield", "label": "SHELL GUARDIAN", "loadout": "QUALITY FLOOR", "detail": "Clean clutches and safe shells define this shift."}
+		&"sustainable_flock":
+			return {"id": "flock_steward", "icon": "care", "label": "FLOCK STEWARD", "loadout": "CARE FLOOR", "detail": "Recovery and relationship strength define this shift."}
+	return {"id": "balanced", "icon": "goal", "label": "BRIEFING DUE", "loadout": "BALANCED OFFICE", "detail": "Choose a policy to declare today's play style."}
+
+
+func _named_combo(directive_id: StringName, chain: int, target: int) -> Dictionary:
+	var name := "PERCH PARTNERS"
+	var icon := "sync"
+	match directive_id:
+		&"record_harvest":
+			name = "HARVEST HUSTLE"
+			icon = "egg"
+		&"shell_assurance":
+			name = "SHELL LOCK"
+			icon = "shield"
+		&"sustainable_flock":
+			name = "PERCH PARTNERS"
+			icon = "care"
+	return {
+		"icon": icon, "label": name, "progress": mini(chain, target), "target": target,
+		"ready": chain >= target,
+		"detail": "%s %d/%d. Keep specialty-fit routes linked to earn the next existing chain reward." % [name.capitalize(), mini(chain, target), target],
+		"uses_existing_momentum": true,
+	}
+
+
+func _optional_contract(simulation: Dictionary, routing_momentum: Dictionary) -> Dictionary:
+	var day := int(simulation.get("day", 1))
+	var definitions := [
+		{"id": "clean_pair", "icon": "shield", "label": "CLEAN PAIR", "progress": int(simulation.get("quality_streak", 0)), "target": 2, "reward": "STEADY CLUTCH CREDIT"},
+		{"id": "best_fit_triple", "icon": "route", "label": "FIT THREE", "progress": int(routing_momentum.get("chain", 0)), "target": 3, "reward": "PACE +15%"},
+		{"id": "peck_pair", "icon": "sync", "label": "PECK PAIR", "progress": int(simulation.get("peck_assist_streak", 0)), "target": 2, "reward": "PRIORITY CREDIT"},
+	]
+	var contract := (definitions[(maxi(1, day) - 1) % definitions.size()] as Dictionary).duplicate(true)
+	contract["optional"] = true
+	contract["complete"] = int(contract["progress"]) >= int(contract["target"])
+	contract["failure_penalty"] = 0
+	contract["uses_existing_reward"] = true
+	contract["detail"] = "%s %d/%d. Optional; skipping it has no penalty. Reward: %s." % [String(contract["label"]).capitalize(), mini(int(contract["progress"]), int(contract["target"])), int(contract["target"]), String(contract["reward"]).capitalize()]
+	return contract
+
+
+func _clutch_carton(simulation: Dictionary) -> Dictionary:
+	var streak := int(simulation.get("quality_streak", 0))
+	var packing := simulation.get("packing_contract", {}) as Dictionary
+	var threshold := 2 if streak < 2 else (4 if streak < 4 else 8)
+	return {
+		"icon": "egg", "label": "CLUTCH TRACK", "filled": mini(streak, 8), "slots": 8,
+		"thresholds": [2, 4, 8], "next_threshold": threshold,
+		"packing_progress": int(packing.get("carton_progress", 0)), "packing_target": 6,
+		"detail": "Clean eggs fill the 2 / 4 / 8 clutch track; the Packing Annex carton remains %d/6." % int(packing.get("carton_progress", 0)),
+		"uses_existing_rewards": true,
+	}
+
+
+func _hen_promise(simulation: Dictionary, worker: Dictionary, intention: Dictionary) -> Dictionary:
+	var compact := simulation.get("flock_compact", {}) as Dictionary
+	var sponsor_name := String(compact.get("sponsor_name", intention.get("worker_name", worker.get("name", "HEN")))).to_upper()
+	var promise := String(compact.get("promise", intention.get("detail", "Complete the highlighted hen need.")))
+	var active := not compact.is_empty() or not intention.is_empty()
+	return {
+		"icon": "care", "label": "%s'S PROMISE" % sponsor_name, "active": active,
+		"worker_id": int(intention.get("worker_id", worker.get("id", -1))),
+		"detail": promise, "fulfillment_receipt": (simulation.get("flock_compact_receipt", {}) as Dictionary).duplicate(true),
+		"uses_existing_compact": true,
+	}
+
+
+func _rival_counterplay(rival_pulse: Dictionary, order_pulse: Dictionary) -> Dictionary:
+	var behind := int(rival_pulse.get("difference", 0)) < 0
+	var action := "PROTECT ON-TRACK FILES" if behind else "BANK THE LEAD"
+	return {
+		"icon": "rival", "label": action, "active": bool(rival_pulse.get("visible", false)),
+		"difference": int(rival_pulse.get("difference", 0)),
+		"rule": "The rival margin uses filed cumulative score; %d/%d current orders are on track." % [int(order_pulse.get("on_track", 0)), int(order_pulse.get("total", 0))],
+		"detail": "%s. No hidden catch-up bonus changes the simulation." % action.capitalize(),
+		"changes_difficulty": false,
+	}
+
+
+func _surprise_opportunity(simulation: Dictionary, routing_momentum: Dictionary, order_pulse: Dictionary) -> Dictionary:
+	var golden_target := int(routing_momentum.get("golden_target_worker_id", -1))
+	var queue_counts := simulation.get("claim_queue_counts", {}) as Dictionary
+	var urgent := int(queue_counts.get("overdue", 0)) + int(queue_counts.get("urgent", 0))
+	if golden_target >= 0:
+		return {"icon": "golden", "label": "GOLDEN FILE", "active": true, "worker_id": golden_target, "risk": "BREAK THE FIT CHAIN", "reward": "GOLDEN DELIVERY", "detail": "A disclosed golden target is live; route the matching file before the opportunity passes.", "deterministic": true}
+	if urgent > 0:
+		return {"icon": "status_need", "label": "RUSH SAVE", "active": true, "worker_id": -1, "risk": "%d URGENT" % urgent, "reward": "ORDER RECOVERY", "detail": "An urgent file can recover an at-risk order through the normal route action.", "deterministic": true}
+	return {"icon": "goal", "label": "OPPORTUNITY READY", "active": int(order_pulse.get("total", 0)) > 0, "worker_id": -1, "risk": "NONE HIDDEN", "reward": "NEXT DISCLOSED PULSE", "detail": "The next opportunity appears from visible routing or order state.", "deterministic": true}
 
 
 func _core_loop(lifecycle: Dictionary, feedback: Dictionary) -> Dictionary:
