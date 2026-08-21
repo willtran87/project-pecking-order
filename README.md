@@ -188,6 +188,7 @@ Keyboard shortcuts:
 
 - `Space`: pause or resume
 - `1`, `2`, `3`: select a decision card, annual Board Mandate, or Farm Mutual folder while its surface is open; otherwise normal, fast, and ultra speed
+- `4`: advance safely at 10x until the next decision, shift review, or open Priority Peck window; press again to stop and restore the prior pace
 - `Enter`: authorize the selected policy, incident response, annual Board Mandate, or disclosed Farm Mutual binder
 - `N`: open or close the Farm Mutual rider drawer while contract planning is active
 - `R`: restore Standard Terms for the selected Farm Mutual binder
@@ -202,11 +203,11 @@ Keyboard shortcuts:
 
 The Comfort & Controls ledger persists separately from the campaign save. It provides independent Master, sound-effect, interface, corporate-music, and office-ambience levels; mute controls; system, reduced, or full motion; 100%, 125%, or 150% interface scale; high contrast; a color-blind-safe gameplay palette with redundant lane and egg-quality symbols; three visual-quality presets; standard, lenient, or extended Priority Peck timing; and a default-on focus-loss safety that pauses a live shift while another window or browser tab owns focus, then restores the exact prior clock speed only when no management surface owns the pause. Core floor actions plus camera pan and zoom can be rebound for keyboard or gamepad buttons, while pointer drag/wheel, touch drag/pinch, controller sticks, `F10`, and `Esc` remain safe built-in routes. On Web, validated preferences also use a fixed, size-bounded browser mirror so an immediate reload cannot outrun the virtual filesystem's asynchronous IndexedDB flush.
 
-Default gamepad bindings mirror the floor controls: Start pauses, D-pad Left/Down/Right selects 1x/3x/10x speed, A performs Priority Peck, Y funds a Feed Party, X toggles overtime, Back opens Flockwatch, Right Bumper cycles hens, B returns to the office overview, and Guide opens Comfort & Controls. The simulation pauses while the settings ledger is open and preserves the previously focused control when it closes.
+Default gamepad bindings mirror the floor controls: Start pauses, D-pad Left/Down/Right selects 1x/3x/10x speed, D-pad Up advances safely to the next moment, A performs Priority Peck, Y funds a Feed Party, X toggles overtime, Back opens Flockwatch, Right Bumper cycles hens, B returns to the office overview, and Guide opens Comfort & Controls. The simulation pauses while the settings ledger is open and preserves the previously focused control when it closes.
 
 ## Validation
 
-The beta acceptance contract, hardware-only sign-off boundaries, and complete release command are documented in [Beta Readiness](docs/BETA_READINESS.md). Run `./tools/verify_beta_release.ps1` from the repository root to verify representative native contracts, Web behavior and accessibility, lint, and exact Pages/localhost payload parity.
+The beta acceptance contract, hardware-only sign-off boundaries, and complete release command are documented in [Beta Readiness](docs/BETA_READINESS.md). The complete 30-item clarity, engagement, and reward closure is documented in [Intuitive, Fun, and Rewarding Loop Resolution](docs/INTUITIVE_FUN_ENGAGEMENT_RESOLUTION.md). Run `./tools/verify_beta_release.ps1` from the repository root to verify representative native contracts, Web behavior and accessibility, lint, and exact Pages/localhost payload parity.
 
 Run this focused contract check for Rooster Operations, IT Coop, Flock Relations, Flock Provisions, Harvest Credit, their Flockwatch/dossier surfaces, persistence, and modeled rooms:
 
@@ -444,7 +445,7 @@ npm run audit:camera-controls -- http://localhost:3000/?build=camera-controls-au
 ```
 
 The audit completes the real opening briefing, retires the optional coach,
-opens Settings, verifies all 17 semantic actions, changes Pan Right from its
+opens Settings, verifies all 18 semantic actions, changes Pan Right from its
 `D / Right Arrow` defaults to `J`, and returns to the floor. It fails unless the
 new binding is transactionally saved, `D` is inert, `J` reaches the camera, and
 the browser remains error-free. Captures include the complete scrolled camera

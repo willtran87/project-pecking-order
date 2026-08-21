@@ -164,6 +164,46 @@ func _run() -> void:
 	_check(not decision_host.is_visible_in_tree(), "authorizing a directive should close the decision modal", failures)
 	_check(StringName(simulation.active_directive_snapshot().get("id", &"")) == &"shell_assurance", "authorized directive should become authoritative", failures)
 	_check(clock.speed_index == 1, "authorizing the morning directive should start the shift", failures)
+	var next_moment_button := office.find_child("NextMomentButton", true, false) as Button
+	_check(
+		next_moment_button != null
+		and next_moment_button.text.begins_with("NEXT")
+		and "decision" in next_moment_button.tooltip_text.to_lower(),
+		"the live clock should offer one concise, explained Next Moment control",
+		failures,
+	)
+	var next_moment_idle := office.call("_next_moment_diagnostic_state") as Dictionary
+	_check(
+		String(next_moment_idle.get("target_label", "")) == "DECISION / PECK / REVIEW"
+		and int(next_moment_idle.get("target_worker_id", -2)) == -1
+		and bool(next_moment_idle.get("camera_focus_on_stop", false)),
+		"Next Moment should disclose its fallback target and guarantee a camera handoff",
+		failures,
+	)
+	if next_moment_button != null:
+		next_moment_button.pressed.emit()
+	_check(
+		clock.speed_index == 3
+		and bool((office.call("_next_moment_diagnostic_state") as Dictionary).get("active", false))
+		and next_moment_button.text.begins_with("STOP"),
+		"Next Moment should temporarily seek at 10x and expose a reversible stop state",
+		failures,
+	)
+	office.call("_on_speed_button_pressed", 1)
+	_check(
+		clock.speed_index == 1
+		and not bool((office.call("_next_moment_diagnostic_state") as Dictionary).get("active", true)),
+		"a direct speed choice should safely reclaim pace ownership from Next Moment",
+		failures,
+	)
+	var reward_ladder := office.call("_clutch_reward_ladder_snapshot", 4) as Dictionary
+	_check(
+		String(reward_ladder.get("tier_label", "")) == "ROLLING"
+		and int(reward_ladder.get("next_threshold", 0)) == 8
+		and int(reward_ladder.get("current_bonus_cents", 0)) == 140,
+		"the compact clean-clutch ladder should expose exact milestone and reward authority",
+		failures,
+	)
 	_check(
 		live_policy_label.text == "ASSURANCE"
 		and live_policy_icon.icon_kind() == &"shield"

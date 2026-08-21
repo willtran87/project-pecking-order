@@ -15,7 +15,7 @@ func _init() -> void:
 			push_error("FINAL_HEARING_AND_REPLAY_STRUCTURE_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FINAL_HEARING_AND_REPLAY_STRUCTURE_TEST_PASSED scenarios=6 openings=distinct climax=playable witness=named charter=persisted archive=bounded+comparative")
+	print("FINAL_HEARING_AND_REPLAY_STRUCTURE_TEST_PASSED scenarios=6 openings=distinct climax=playable witness=named charter=persisted archive=bounded+comparative+mastery-stamps")
 	quit(0)
 
 
@@ -80,6 +80,19 @@ func _test_run_archive(failures: Array[String]) -> void:
 	var comparison: Dictionary = archive.call("comparison")
 	_check(int(comparison.get("score_delta", 0)) == 13, "run history should compare the latest score to the previous file", failures)
 	_check(int(comparison.get("scenario_count", 0)) == 2 and int(comparison.get("doctrine_count", 0)) == 2, "run history should expose mastery breadth", failures)
+	_check(
+		int(comparison.get("mastery_stamp_count", 0)) == 4
+		and int(comparison.get("mastery_stamp_total", 0)) == 6,
+		"each passed scenario should derive clear and flock-safe stamps from the bounded receipts",
+		failures,
+	)
+	var current_mastery := comparison.get("current_scenario_mastery", {}) as Dictionary
+	_check(
+		int(current_mastery.get("earned_count", 0)) == 2
+		and "80" in String(current_mastery.get("next_stamp_detail", "")),
+		"the current scenario card should tease its next exact mastery target",
+		failures,
+	)
 	var restored: RefCounted = ArchiveScript.new()
 	_check(bool(restored.call("restore", archive.call("entries"))), "the bounded archive should validate and restore", failures)
 	_check(int((restored.call("comparison") as Dictionary).get("run_count", 0)) == 2, "restored run history should retain its count", failures)

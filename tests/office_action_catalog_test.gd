@@ -26,8 +26,8 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		OfficeActionCatalogScript.managed_actions().size() == 17,
-		"the semantic catalog should expose all seventeen agreed Office actions",
+		OfficeActionCatalogScript.managed_actions().size() == 18,
+		"the semantic catalog should expose all eighteen agreed Office actions",
 		failures,
 	)
 	for action: StringName in OfficeActionCatalogScript.managed_actions():
@@ -148,7 +148,7 @@ func _run() -> void:
 			push_error("OFFICE_ACTION_CATALOG_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("OFFICE_ACTION_CATALOG_TEST_PASSED actions=17 camera=pan+zoom legacy_peck=preserved transactions=atomic defaults=keyboard+gamepad")
+	print("OFFICE_ACTION_CATALOG_TEST_PASSED actions=18 next_moment=4+dpad-up camera=pan+zoom legacy_peck=preserved transactions=atomic defaults=keyboard+gamepad")
 	quit(0)
 
 
@@ -162,6 +162,8 @@ func _defaults_match_contract() -> bool:
 		and _has_joy_button(&"speed_fast", JOY_BUTTON_DPAD_DOWN)
 		and _has_physical_key(&"speed_ultra", KEY_3)
 		and _has_joy_button(&"speed_ultra", JOY_BUTTON_DPAD_RIGHT)
+		and _has_physical_key(&"next_moment", KEY_4)
+		and _has_joy_button(&"next_moment", JOY_BUTTON_DPAD_UP)
 		and _has_physical_key(&"peck_assist", KEY_E)
 		and _has_joy_button(&"peck_assist", JOY_BUTTON_A)
 		and _has_physical_key(&"fund_feed_party", KEY_P)

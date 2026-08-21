@@ -19,6 +19,14 @@ func _init() -> void:
 	restored.load_portfolio()
 	_check(restored.active_slot_id() == &"roost_b", "the active career roost should persist", failures)
 	_check(String(restored.profile_for_slot(&"roost_b").get("id", "")) == "field_union", "the coop identity should persist with its roost", failures)
+	var identity_profile := restored.profile_for_slot(&"roost_b")
+	_check(
+		not String(identity_profile.get("promise", "")).is_empty()
+		and not String(identity_profile.get("ritual", "")).is_empty()
+		and not String(identity_profile.get("prop", "")).is_empty(),
+		"each cosmetic co-op identity should communicate a promise, ritual, and physical signature",
+		failures,
+	)
 	_check(PortfolioScript.filename_for_slot(&"roost_a") != PortfolioScript.filename_for_slot(&"roost_b"), "career roosts must use isolated campaign files", failures)
 	var catalog := SimulationScript.replay_scenario_catalog()
 	_check(catalog.size() == 7, "the intake should offer baseline plus six authored replay files", failures)

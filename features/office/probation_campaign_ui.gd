@@ -3072,6 +3072,16 @@ func _refresh_career_setup() -> void:
 		_selected_career_identity_id,
 		"short",
 	)
+	var selected_identity := _catalog_entry(
+		_snapshot.get("career_identity_catalog", []),
+		_selected_career_identity_id,
+	)
+	_title_identity_selector.tooltip_text = "%s\n%s\nOffice signature: %s." % [
+		String(selected_identity.get("promise", "Choose the coop identity printed on this career file.")),
+		String(selected_identity.get("ritual", "This identity is cosmetic and does not change the economy.")),
+		String(selected_identity.get("prop", "COOP PLAQUE")),
+	]
+	_title_identity_selector.set_meta("accessible_text", _title_identity_selector.tooltip_text)
 	_populate_career_selector(
 		_title_scenario_selector,
 		_snapshot.get("replay_scenario_catalog", []),
@@ -4979,6 +4989,17 @@ func _refresh_final() -> void:
 			String(history.get("headline", "PERMANENT FILE")),
 			String(history.get("detail", "This run is now in the career archive.")),
 		]
+		var current_mastery_value: Variant = history.get("current_scenario_mastery", {})
+		var current_mastery := (
+			current_mastery_value as Dictionary
+			if current_mastery_value is Dictionary else
+			{}
+		)
+		if not current_mastery.is_empty():
+			_final_message_label.text += "\nSCENARIO STAMPS  //  %d / 3  //  %s" % [
+				int(current_mastery.get("earned_count", 0)),
+				String(current_mastery.get("next_stamp_detail", "Mastery card complete.")),
+			]
 	_final_message_label.set_meta("accessible_text", _final_message_label.text)
 	_refresh_final_ending_glance(ending, passed, _final_message_label.text)
 	_final_score_label.text = _format_integer(int(_snapshot.get("score", 0)))

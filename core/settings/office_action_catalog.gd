@@ -18,6 +18,7 @@ const ACTION_IDS: Array[StringName] = [
 	&"speed_normal",
 	&"speed_fast",
 	&"speed_ultra",
+	&"next_moment",
 	PECK_ASSIST,
 	&"fund_feed_party",
 	&"toggle_overtime",
@@ -67,6 +68,14 @@ const DEFINITIONS := {
 		"bindings": [
 			{"type": "key", "physical_keycode": KEY_3},
 			{"type": "joypad_button", "button_index": JOY_BUTTON_DPAD_RIGHT},
+		],
+	},
+	&"next_moment": {
+		"display_name": "Advance to Next Moment",
+		"group": "floor",
+		"bindings": [
+			{"type": "key", "physical_keycode": KEY_4},
+			{"type": "joypad_button", "button_index": JOY_BUTTON_DPAD_UP},
 		],
 	},
 	PECK_ASSIST: {

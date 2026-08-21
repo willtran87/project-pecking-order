@@ -190,6 +190,15 @@ function Require-MeaningfulText {
 
 function Test-IsoTimestamp {
     param([object]$Value)
+    # PowerShell 7's ConvertFrom-Json materializes ISO-8601 strings as temporal
+    # objects. Preserve the explicit-offset contract for those values instead
+    # of stringifying them through the current culture and losing the suffix.
+    if ($Value -is [DateTimeOffset]) {
+        return $true
+    }
+    if ($Value -is [DateTime]) {
+        return $Value.Kind -ne [DateTimeKind]::Unspecified
+    }
     if (-not (Test-MeaningfulText $Value)) {
         return $false
     }
@@ -204,6 +213,12 @@ function Convert-IsoTimestamp {
     param([object]$Value)
     if (-not (Test-IsoTimestamp $Value)) {
         return $null
+    }
+    if ($Value -is [DateTimeOffset]) {
+        return $Value
+    }
+    if ($Value -is [DateTime]) {
+        return [DateTimeOffset]::new($Value)
     }
     return [DateTimeOffset]::Parse([string]$Value)
 }
@@ -1040,8 +1055,8 @@ if ($SelfTest) {
     }
 
     $prematureApproval = ($validFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json)
-    $approvalTime = [DateTimeOffset]::Parse(
-        [string]$prematureApproval.decision.approved_at_utc
+    $approvalTime = Convert-IsoTimestamp (
+        Get-Field $prematureApproval.decision "approved_at_utc"
     )
     $prematureApproval.decision.approved_at_utc =
         $approvalTime.AddMinutes(-1).ToString("o")

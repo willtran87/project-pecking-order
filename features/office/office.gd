@@ -136,6 +136,9 @@ const COLLECTION_STRUCTURAL_SHADOW_PREFIXES := [
 ]
 const CAREER_DOCKET_SEEDS := [1701, 4703, 7919, 12011, 15013, 18041, 24029]
 const PECK_ASSIST_ACTION: StringName = &"peck_assist"
+const NEXT_MOMENT_ACTION: StringName = &"next_moment"
+const CLUTCH_REWARD_THRESHOLDS := [2, 4, 8]
+const CLUTCH_REWARD_LABELS := ["STEADY", "ROLLING", "GOLDEN RUN"]
 const PECK_FOCUS_LEAD_PROGRESS := 16.0
 const PECK_FOCUS_RESULT_HOLD_MSEC := 2500
 const PECK_FOCUS_MISSED_HOLD_MSEC := 2500
@@ -663,6 +666,9 @@ var _flockwatch_open: bool = false
 var _flockwatch_prior_focus_owner: Control
 var _speed_control: HBoxContainer
 var _speed_buttons: Array[Button] = []
+var _next_moment_button: Button
+var _next_moment_active := false
+var _next_moment_previous_speed := 1
 var _priority_peck_focus_worker_id := -1
 var _priority_peck_result_hold_until_msec := 0
 var _priority_peck_result_hold_worker_id := -1
@@ -808,6 +814,7 @@ func _ready() -> void:
 		Vector3(9.4, 0.0, -6.85),
 	)
 	_office_storytelling.apply_career_profile(_career_profile)
+	_office_storytelling.apply_scenario_mastery(_career_run_archive.comparison())
 	_office_storytelling.egg_graded.connect(_on_egg_graded)
 	_office_storytelling.egg_reached_presentation_detailed.connect(_on_egg_reached_presentation)
 	_office_storytelling.optional_visuals_finished.connect(_on_optional_storytelling_finished)
@@ -2146,6 +2153,9 @@ func _on_web_mobile_action_requested(arguments: Array) -> void:
 		&"pause":
 			if not _blocking_management_surface_open() and not _flockwatch_open:
 				_on_pause_requested()
+		&"next_moment":
+			if not _blocking_management_surface_open() and not _flockwatch_open:
+				_on_next_moment_pressed()
 		&"peck_assist":
 			if not _flockwatch_open and not _peck_assist_input_blocked():
 				_request_peck_assist_from_input()
@@ -2367,7 +2377,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			_request_peck_assist_from_input()
 		get_viewport().set_input_as_handled()
 		return
-	if _is_action_press(event, &"pause_simulation"):
+	if _is_action_press(event, NEXT_MOMENT_ACTION):
+		_on_next_moment_pressed()
+	elif _is_action_press(event, &"pause_simulation"):
 		_on_pause_requested()
 	elif _is_action_press(event, &"speed_normal"):
 		_on_speed_button_pressed(1)
@@ -5798,6 +5810,18 @@ func _build_ui() -> void:
 			button.pressed.connect(_on_speed_button_pressed.bind(index))
 		_speed_control.add_child(button)
 		_speed_buttons.append(button)
+	_next_moment_button = Button.new()
+	_next_moment_button.name = "NextMomentButton"
+	_next_moment_button.text = "NEXT  [4]"
+	_next_moment_button.theme_type_variation = &"SpeedButton"
+	_next_moment_button.custom_minimum_size = Vector2(82.0, 32.0)
+	_next_moment_button.tooltip_text = "Advance safely at 10× until the next decision, shift review, or open Priority Peck window."
+	_next_moment_button.accessibility_name = "%s Binding: %s." % [
+		_next_moment_button.tooltip_text,
+		_action_hint(NEXT_MOMENT_ACTION),
+	]
+	_next_moment_button.pressed.connect(_on_next_moment_pressed)
+	_speed_control.add_child(_next_moment_button)
 
 	_shift_objective_row = HBoxContainer.new()
 	_shift_objective_row.name = "ShiftObjectiveRow"
@@ -6942,6 +6966,9 @@ func _build_decision_modal() -> void:
 func _on_decision_requested(decision: Dictionary) -> void:
 	if decision.is_empty() or _decision_host == null:
 		return
+	# Restore the player's prior pace before the decision captures its resume
+	# speed; the temporary 10× seek is never allowed to leak past the moment.
+	_finish_next_moment("NEXT MOMENT REACHED  ·  DECISION READY", false)
 	_decision_before_snapshot = _simulation.snapshot().duplicate(true)
 	_active_decision = decision.duplicate(true)
 	var decision_panel_width := minf(
@@ -8408,6 +8435,7 @@ func _on_decision_resolved(result: Dictionary) -> void:
 
 
 func _on_workday_completed(report: Dictionary) -> void:
+	_finish_next_moment("NEXT MOMENT REACHED  ·  SHIFT REVIEW READY", true)
 	_clock.set_speed(0)
 	var filed_report := report.duplicate(true)
 	if not filed_report.has("routing_momentum"):
@@ -10782,6 +10810,14 @@ func _refresh_priority_peck_precision_focus(snapshot: Dictionary) -> void:
 		return
 	_refresh_priority_peck_opportunity_audio(snapshot)
 	var candidate := _priority_peck_precision_candidate(snapshot)
+	if _next_moment_active and StringName(candidate.get("window_state", &"")) == &"open":
+		var reached_worker_id := int(candidate.get("worker_id", -1))
+		_finish_next_moment("NEXT MOMENT REACHED  ·  PRIORITY PECK READY", true)
+		# The moment must be understandable without hunting around the office.
+		# Center the authored hen target after the temporary seek relinquishes clock
+		# ownership; focusing the already-selected hen is safe and idempotent.
+		if reached_worker_id >= 0 and _camera_controller != null:
+			_camera_controller.focus_worker(reached_worker_id)
 	var result_hold_active := (
 		Time.get_ticks_msec() < _priority_peck_result_hold_until_msec
 		and _priority_peck_result_hold_worker_id >= 0
@@ -11077,6 +11113,170 @@ func _refresh_speed_button_copy() -> void:
 				"%s remains selected. Inspecting this approaching Priority Peck "
 				+ "temporarily holds the effective clock at 1×; the selected speed resumes automatically."
 			) % labels[index]
+	if _next_moment_button != null:
+		var next_hint := _action_hint(NEXT_MOMENT_ACTION)
+		var primary_hint := next_hint.split(" / ", false)[0]
+		var target_state := _next_moment_target_state()
+		var target_label := String(target_state.get(
+			"label",
+			"DECISION / PECK / REVIEW",
+		))
+		_next_moment_button.text = (
+			"STOP  [%s]" % primary_hint
+			if _next_moment_active else
+			"NEXT  [%s]" % primary_hint
+		)
+		_next_moment_button.disabled = not controls_available and not _next_moment_active
+		_next_moment_button.theme_type_variation = (
+			&"ActiveSpeedButton" if _next_moment_active else &"SpeedButton"
+		)
+		_next_moment_button.tooltip_text = (
+			"Seeking %s. Stop advancing and return to the speed selected before Next Moment."
+			% target_label.to_lower()
+			if _next_moment_active else
+			String(target_state.get(
+				"detail",
+				"Advance safely at 10× until the next decision, shift review, or open Priority Peck window.",
+			))
+		)
+		_next_moment_button.accessibility_name = "%s Binding: %s." % [
+			_next_moment_button.tooltip_text,
+			next_hint,
+		]
+
+
+func _on_next_moment_pressed() -> void:
+	if _next_moment_active:
+		_finish_next_moment("NEXT MOMENT CANCELED  ·  MANUAL PACE RESTORED", false)
+		return
+	if (
+		_simulation == null
+		or _clock == null
+		or _simulation.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING
+		or _feed_party_active
+		or _blocking_management_surface_open()
+		or (_character_dialogue_ui != null and _character_dialogue_ui.is_blocking())
+	):
+		_publish_status_copy(
+			"NEXT MOMENT HELD  ·  FINISH THE OPEN FILE",
+			true,
+			"Next Moment is available during an active shift after the current management file is closed.",
+		)
+		return
+	_next_moment_previous_speed = _clock.speed_index if _clock.speed_index > 0 else 1
+	_next_moment_active = true
+	_clock.set_speed(3)
+	_refresh_speed_button_copy()
+	var target_state := _next_moment_target_state()
+	_publish_status_copy(
+		"NEXT MOMENT  ·  SEEKING %s" % String(target_state.get(
+			"label",
+			"DECISION / PECK / REVIEW",
+		)).to_upper(),
+		true,
+		String(target_state.get(
+			"detail",
+			"Advancing safely at ten times speed. The clock will stop at the next decision, shift review, or open Priority Peck window.",
+		)),
+	)
+
+
+func _finish_next_moment(copy: String, pause_at_moment: bool) -> void:
+	if not _next_moment_active:
+		return
+	var restore_speed := clampi(_next_moment_previous_speed, 1, 3)
+	_next_moment_active = false
+	_next_moment_previous_speed = 1
+	if _clock != null:
+		_clock.set_speed(0 if pause_at_moment else restore_speed)
+	_refresh_speed_button_copy()
+	if not copy.is_empty():
+		_publish_status_copy(copy)
+
+
+func _next_moment_diagnostic_state() -> Dictionary:
+	var target_state := _next_moment_target_state()
+	return {
+		"active": _next_moment_active,
+		"target": String(target_state.get("id", "next_management_moment")),
+		"target_label": String(target_state.get("label", "DECISION / PECK / REVIEW")),
+		"target_worker_id": int(target_state.get("worker_id", -1)),
+		"camera_focus_on_stop": true,
+		"previous_speed_index": _next_moment_previous_speed,
+		"binding": _action_hint(NEXT_MOMENT_ACTION),
+		"button_text": _next_moment_button.text if _next_moment_button != null else "",
+	}
+
+
+func _next_moment_target_state(snapshot: Dictionary = {}) -> Dictionary:
+	var source := snapshot
+	if source.is_empty() and _simulation != null:
+		source = _simulation.snapshot()
+	var candidate := _priority_peck_precision_candidate(source)
+	if not candidate.is_empty():
+		var worker_name := String(candidate.get("worker_name", "HEN")).to_upper()
+		return {
+			"id": "priority_peck",
+			"label": "%s'S PRIORITY PECK" % worker_name,
+			"worker_id": int(candidate.get("worker_id", -1)),
+			"detail": (
+				"Advance safely at 10× to %s's next Priority Peck window. "
+				+ "The clock will pause and the camera will center the ready hen."
+			) % worker_name.capitalize(),
+		}
+	return {
+		"id": "next_management_moment",
+		"label": "DECISION / PECK / REVIEW",
+		"worker_id": -1,
+		"detail": (
+			"Advance safely at 10× until the next decision, shift review, or open "
+			+ "Priority Peck window. The clock stops before player input is required."
+		),
+	}
+
+
+func _clutch_reward_ladder_snapshot(streak: int) -> Dictionary:
+	var safe_streak := maxi(0, streak)
+	var tier_index := -1
+	for index in CLUTCH_REWARD_THRESHOLDS.size():
+		if safe_streak >= int(CLUTCH_REWARD_THRESHOLDS[index]):
+			tier_index = index
+	var next_threshold := 0
+	var next_label := ""
+	for index in CLUTCH_REWARD_THRESHOLDS.size():
+		if safe_streak < int(CLUTCH_REWARD_THRESHOLDS[index]):
+			next_threshold = int(CLUTCH_REWARD_THRESHOLDS[index])
+			next_label = String(CLUTCH_REWARD_LABELS[index])
+			break
+	var tier_label := String(CLUTCH_REWARD_LABELS[tier_index]) if tier_index >= 0 else "BUILDING"
+	var milestone_label := ""
+	for index in CLUTCH_REWARD_THRESHOLDS.size():
+		if safe_streak == int(CLUTCH_REWARD_THRESHOLDS[index]):
+			milestone_label = String(CLUTCH_REWARD_LABELS[index])
+			break
+	var compact := "CLEAN ×%d" % safe_streak
+	if next_threshold > 0 and milestone_label.is_empty():
+		compact += "  → %d" % next_threshold
+	else:
+		compact += "  ·  %s" % tier_label
+	return {
+		"streak": safe_streak,
+		"tier_index": tier_index,
+		"tier_label": tier_label,
+		"milestone_label": milestone_label,
+		"next_threshold": next_threshold,
+		"next_label": next_label,
+		"complete": next_threshold == 0,
+		"current_bonus_cents": mini(safe_streak, 8) * 35,
+		"compact": compact,
+		"accessible_text": (
+			"Clean clutch %d. Maximum streak credit reached at $%.2f per egg."
+			% [safe_streak, float(mini(safe_streak, 8) * 35) / 100.0]
+			if next_threshold == 0 else
+			"Clean clutch %d. Current streak credit is $%.2f per egg. Reach %d clean eggs for the %s milestone."
+			% [safe_streak, float(mini(safe_streak, 8) * 35) / 100.0, next_threshold, next_label.capitalize()]
+		),
+	}
 
 
 func _peck_assist_input_blocked() -> bool:
@@ -12386,6 +12586,8 @@ func _show_campaign_final_review() -> void:
 	_day_review_scrim.visible = false
 	_set_flockwatch_open(false)
 	_archive_current_campaign_run()
+	if _office_storytelling != null:
+		_office_storytelling.apply_scenario_mastery(_career_run_archive.comparison())
 	if _audio_feedback != null and _audio_feedback.has_method("play_campaign_outcome"):
 		_audio_feedback.call(
 			"play_campaign_outcome",
@@ -15171,6 +15373,7 @@ func _activate_staged_campaign_checkpoint(staged: Dictionary) -> bool:
 	).duplicate(true)
 	if _office_storytelling != null:
 		_office_storytelling.apply_career_profile(_career_profile)
+		_office_storytelling.apply_scenario_mastery(_career_run_archive.comparison())
 	return true
 
 
@@ -20089,6 +20292,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"D standard book",
 			"C continue",
 			"%s select rider or pause" % _action_hint(&"pause_simulation"),
+			"%s advance safely to the next moment" % _action_hint(NEXT_MOMENT_ACTION),
 			"%s Flockwatch" % _action_hint(&"toggle_flockwatch"),
 			"%s Feed Party" % _action_hint(&"fund_feed_party"),
 			"%s after-hours pecking" % _action_hint(&"toggle_overtime"),
@@ -20151,6 +20355,10 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			{"visible": false}
 		),
 		"next_action": _next_action_diagnostic_state(),
+		"next_moment": _next_moment_diagnostic_state(),
+		"clutch_reward_ladder": _clutch_reward_ladder_snapshot(
+			int(snapshot.get("quality_streak", 0))
+		),
 		"action_feedback": _latest_action_outcome_receipt.duplicate(true),
 		"egg_journey": egg_journey_diagnostic,
 		"character_dialogue": (
@@ -22077,22 +22285,29 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		_shift_goal_status_host.set_meta("target", quota_target)
 		_shift_goal_status_host.set_meta("remaining", eggs_remaining)
 	var quality_streak := int(snapshot.get("quality_streak", 0))
+	var reward_ladder := _clutch_reward_ladder_snapshot(quality_streak)
 	var packing_status := snapshot.get("packing_contract", {}) as Dictionary
 	if bool(packing_status.get("enabled", false)):
 		_quality_streak_label.text = "CLEAN ×%d  ·  CARTON %d/6" % [
 			quality_streak,
 			int(packing_status.get("carton_progress", 0)),
 		]
-		_quality_streak_label.tooltip_text = (
+		_quality_streak_label.tooltip_text = "%s\n%s" % [
 			"Sound and golden eggs fill the Packing Annex carton. The sixth pays $%.2f at annex level %d."
 			% [
 				float(packing_status.get("next_carton_bonus_cents", 0)) / 100.0,
 				int(packing_status.get("level", 0)),
-			]
-		)
+			],
+			String(reward_ladder.get("accessible_text", "")),
+		]
 	else:
-		_quality_streak_label.text = "CLEAN CLUTCH  ×%d" % quality_streak
-		_quality_streak_label.tooltip_text = "Consecutive sound or golden eggs increase the clean-clutch credit."
+		_quality_streak_label.text = String(reward_ladder.get("compact", "CLEAN ×%d" % quality_streak))
+		_quality_streak_label.tooltip_text = String(reward_ladder.get(
+			"accessible_text",
+			"Consecutive sound or golden eggs increase the clean-clutch credit.",
+		))
+	_quality_streak_label.accessibility_name = _quality_streak_label.tooltip_text
+	_quality_streak_label.set_meta("reward_ladder", reward_ladder.duplicate(true))
 	_quality_streak_label.add_theme_color_override(
 		"font_color",
 		Color("f4cd66")
@@ -22916,6 +23131,10 @@ func _on_egg_graded(
 		(" + $%.2f CLUTCH" % (streak_bonus_cents / 100.0) if streak_bonus_cents > 0 else ""),
 		destination,
 	]
+	var reward_ladder := _clutch_reward_ladder_snapshot(_simulation.quality_streak)
+	var milestone_label := String(reward_ladder.get("milestone_label", ""))
+	if quality in [&"sound", &"golden"] and not milestone_label.is_empty():
+		_ticker_label.text += "  ·  %s" % milestone_label
 
 
 func _on_egg_reached_presentation(
@@ -25387,6 +25606,11 @@ func _on_speed_button_pressed(index: int) -> void:
 	if _feed_party_active:
 		_publish_status_copy("CLOCK LOCKED. Feed Party attendance is still in progress.")
 		return
+	# A direct pace choice takes ownership from the temporary seek without first
+	# restoring its older pace.
+	if _next_moment_active:
+		_next_moment_active = false
+		_next_moment_previous_speed = 1
 	_clock.set_speed(index)
 	if _audio_feedback != null:
 		_audio_feedback.play_ui_tick()

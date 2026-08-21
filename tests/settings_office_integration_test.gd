@@ -729,7 +729,7 @@ func _run() -> void:
 			push_error("SETTINGS_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe categories=host-persisted+restored input=17+camera+ack+rollback+sensitivity audio=feedback+adaptive+ambient+alerts+cutout-cues notices=priority+archive-only+semantic-labels+duration effects=density+particles+motion+camera-motion-off presentation=animation-speed+tooltip-delay haptics=optional focus-pause=restore+opt-out contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
+	print("SETTINGS_OFFICE_INTEGRATION_TEST_PASSED modal=safe categories=host-persisted+restored input=18+next-moment+camera+ack+rollback+sensitivity audio=feedback+adaptive+ambient+alerts+cutout-cues notices=priority+archive-only+semantic-labels+duration effects=density+particles+motion+camera-motion-off presentation=animation-speed+tooltip-delay haptics=optional focus-pause=restore+opt-out contrast=theme+ring color-vision=palette+symbols detail=live timing=authoritative")
 	quit(0)
 
 

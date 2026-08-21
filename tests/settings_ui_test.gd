@@ -55,7 +55,13 @@ func _run() -> void:
 	_check(panel != null and scroll != null, "settings should use a bounded panel with vertical scrolling", failures)
 	_check(close != null and close.focus_mode == Control.FOCUS_ALL, "the safe return should remain keyboard focusable", failures)
 	_check(reset != null and reset.focus_mode == Control.FOCUS_ALL, "default restoration should remain keyboard focusable", failures)
-	_check(settings.find_children("Binding_*", "Button", true, false).size() == 15, "all fifteen player-remappable floor and camera controls should be visible", failures)
+	_check(settings.find_children("Binding_*", "Button", true, false).size() == 16, "all sixteen player-remappable floor and camera controls should be visible", failures)
+	var next_moment_binding := settings.find_child("Binding_next_moment", true, false) as Button
+	_check(
+		next_moment_binding != null and "4 / D-pad Up" in next_moment_binding.text,
+		"Next Moment should be visible and remappable alongside the other clock controls",
+		failures,
+	)
 	var pan_left_binding := settings.find_child("Binding_camera_pan_left", true, false) as Button
 	var zoom_in_binding := settings.find_child("Binding_camera_zoom_in", true, false) as Button
 	_check(
@@ -602,7 +608,7 @@ func _run() -> void:
 			push_error("SETTINGS_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SETTINGS_UI_TEST_PASSED categories=4+persistent+arrow+contextual-narration audio=7+alerts+cutout-cues comfort=motion+camera-motion+sensitivity+particles+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause first-clutch=resume+five-step-review+non-mutating controls=15+camera backup=export+confirm+cancel playtest=explicit-local-export binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
+	print("SETTINGS_UI_TEST_PASSED categories=4+persistent+arrow+contextual-narration audio=7+alerts+cutout-cues comfort=motion+camera-motion+sensitivity+particles+contrast+color-vision+symbols+scale+detail+timing+notice-level+duration+effect-density+animation-speed+tooltip-delay+haptics+focus-pause first-clutch=resume+five-step-review+non-mutating controls=16+next-moment+camera backup=export+confirm+cancel playtest=explicit-local-export binding_ack=pending+success+rejection+cancel responsive=844x390+390x844")
 	quit(0)
 
 
@@ -645,6 +651,7 @@ func _binding_labels() -> Dictionary:
 		&"speed_normal": "1 / D-pad Left",
 		&"speed_fast": "2 / D-pad Down",
 		&"speed_ultra": "3 / D-pad Right",
+		&"next_moment": "4 / D-pad Up",
 		&"peck_assist": "E / A",
 		&"fund_feed_party": "P / Y",
 		&"toggle_overtime": "O / X",

@@ -22,6 +22,8 @@ const IDENTITY_DEFINITIONS := {
 		"emblem": "OPEN WING",
 		"color": "73b5a7",
 		"promise": "Care is an operating system, not a poster.",
+		"ritual": "Every shift opens with one flock check-in.",
+		"prop": "LIVING NEST PLANT",
 	},
 	&"brass_beak": {
 		"label": "BRASS BEAK BUREAU",
@@ -29,6 +31,8 @@ const IDENTITY_DEFINITIONS := {
 		"emblem": "BRASS EGG",
 		"color": "d1a650",
 		"promise": "Every result earns a visible receipt.",
+		"ritual": "Every clean clutch receives a brass seal.",
+		"prop": "BRASS CLUTCH SEAL",
 	},
 	&"field_union": {
 		"label": "FIELD & FLOCK UNION",
@@ -36,6 +40,8 @@ const IDENTITY_DEFINITIONS := {
 		"emblem": "JOINED PERCH",
 		"color": "c96f59",
 		"promise": "No basket is credited without the flock that filled it.",
+		"ritual": "Every review names the hens behind the result.",
+		"prop": "JOINED PERCH FLAGS",
 	},
 }
 

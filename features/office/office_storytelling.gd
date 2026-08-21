@@ -374,9 +374,12 @@ var _scenario_identity_label: Label3D
 var _scenario_charter_root: Node3D
 var _scenario_charter_label: Label3D
 var _coop_identity_label: Label3D
+var _scenario_mastery_label: Label3D
 var _scenario_prop_roots: Dictionary = {}
+var _coop_identity_prop_roots: Dictionary = {}
 var _scenario_identity_id: StringName = &"baseline_book"
 var _career_profile: Dictionary = {}
+var _scenario_mastery_snapshot: Dictionary = {}
 
 
 func _ready() -> void:
@@ -2787,6 +2790,38 @@ func _build_scenario_identity_dressing() -> void:
 		Color("4b3a2c"), Color("f2dfac"), Vector3.ZERO,
 		12, 0.0042, &"secondary", &"identity", true,
 	)
+	_scenario_mastery_label = _add_mounted_label(
+		_scenario_identity_root, "ScenarioMasteryPlaque", "SCENARIO STAMPS  ○○○",
+		center + Vector3(0.0, 1.52, 0.09), Vector2(2.75, 0.24),
+		Color("293a3d"), Color("b9c8c4"), Vector3.ZERO,
+		12, 0.0042, &"secondary", &"plaque", true,
+	)
+
+	# The selected co-op now leaves one stable, cosmetic signature in the room.
+	# It never changes walkability or economy authority and survives shift rebuilds.
+	var open_nest := Node3D.new()
+	open_nest.name = "OpenNestIdentityProp"
+	_scenario_identity_root.add_child(open_nest)
+	_add_cylinder(open_nest, "OpenNestPlanter", center + Vector3(1.62, 1.05, 0.55), 0.22, 0.31, Color("8b6547"), 0.70)
+	for leaf_index in 3:
+		_add_sphere(open_nest, "OpenNestLeaf_%02d" % leaf_index, center + Vector3(1.46 + leaf_index * 0.15, 1.39 + (leaf_index % 2) * 0.10, 0.55), Vector3(0.17, 0.28, 0.12), Color("73b57d"), 8, 6)
+	var brass_beak := Node3D.new()
+	brass_beak.name = "BrassBeakIdentityProp"
+	_scenario_identity_root.add_child(brass_beak)
+	_add_cylinder(brass_beak, "BrassClutchSeal", center + Vector3(1.62, 1.20, 0.55), 0.31, 0.10, Color("d1a650"), 0.24)
+	_add_box(brass_beak, "BrassSealStand", Vector3(0.64, 0.12, 0.42), center + Vector3(1.62, 0.96, 0.53), Color("5d4933"), 0.68)
+	var field_union := Node3D.new()
+	field_union.name = "FieldUnionIdentityProp"
+	_scenario_identity_root.add_child(field_union)
+	for flag_index in 2:
+		var flag_x := 1.42 + flag_index * 0.38
+		_add_box(field_union, "UnionFlag_%02d" % flag_index, Vector3(0.30, 0.34, 0.07), center + Vector3(flag_x, 1.32, 0.57), Color("c96f59") if flag_index == 0 else Color("e0c47a"), 0.60)
+		_add_box(field_union, "UnionFlagPost_%02d" % flag_index, Vector3(0.04, 0.66, 0.04), center + Vector3(flag_x - 0.13, 1.06, 0.54), Color("76583e"), 0.80)
+	_coop_identity_prop_roots = {
+		&"open_nest": open_nest,
+		&"brass_beak": brass_beak,
+		&"field_union": field_union,
+	}
 
 	var baseline := Node3D.new()
 	baseline.name = "BaselineBookProps"
@@ -2852,6 +2887,7 @@ func _build_scenario_identity_dressing() -> void:
 	_scenario_identity_id = &"baseline_book"
 	_apply_scenario_identity({})
 	apply_career_profile(_career_profile)
+	apply_scenario_mastery(_scenario_mastery_snapshot)
 
 
 func apply_career_profile(profile: Dictionary) -> void:
@@ -2864,7 +2900,36 @@ func apply_career_profile(profile: Dictionary) -> void:
 	]
 	_coop_identity_label.modulate = Color(String(profile.get("color", "73b5a7")))
 	_coop_identity_label.set_meta("career_identity_id", String(profile.get("id", "open_nest")))
+	_coop_identity_label.set_meta("promise", String(profile.get("promise", "")))
+	_coop_identity_label.set_meta("ritual", String(profile.get("ritual", "")))
+	_coop_identity_label.set_meta("signature_prop", String(profile.get("prop", "")))
+	var profile_id := StringName(String(profile.get("id", "open_nest")))
+	for identity_id in _coop_identity_prop_roots:
+		var prop_root := _coop_identity_prop_roots[identity_id] as Node3D
+		if prop_root != null:
+			prop_root.visible = StringName(identity_id) == profile_id
 	EnvironmentalSignageScript.refit_label(_coop_identity_label)
+
+
+func apply_scenario_mastery(snapshot: Dictionary) -> void:
+	_scenario_mastery_snapshot = snapshot.duplicate(true)
+	if _scenario_mastery_label == null:
+		return
+	var current_value: Variant = snapshot.get("current_scenario_mastery", snapshot)
+	var current := current_value as Dictionary if current_value is Dictionary else {}
+	var earned := clampi(int(current.get("earned_count", 0)), 0, 3)
+	var marks := ""
+	for stamp_index in 3:
+		marks += "●" if stamp_index < earned else "○"
+	_scenario_mastery_label.text = "SCENARIO STAMPS  %s" % marks
+	_scenario_mastery_label.modulate = Color("f0c76a") if earned == 3 else Color("b9c8c4")
+	_scenario_mastery_label.set_meta("earned_count", earned)
+	_scenario_mastery_label.set_meta("total_count", 3)
+	_scenario_mastery_label.set_meta("detail", String(current.get(
+		"next_stamp_detail",
+		"Clear this scenario to begin its mastery card.",
+	)))
+	EnvironmentalSignageScript.refit_label(_scenario_mastery_label)
 
 
 func _apply_scenario_identity(snapshot: Dictionary) -> void:
@@ -3173,7 +3238,9 @@ func _clear_built_roots() -> void:
 	_scenario_charter_root = null
 	_scenario_charter_label = null
 	_coop_identity_label = null
+	_scenario_mastery_label = null
 	_scenario_prop_roots.clear()
+	_coop_identity_prop_roots.clear()
 	shell_quality_lab_visual = null
 	packing_annex_visual = null
 	records_annex_visual = null

@@ -78,12 +78,24 @@ if ([string]$result.status -notin @("pass", "fail", "blocked")) {
 if (-not (Test-MeaningfulText $result.tester)) {
     throw "Session result needs a non-placeholder tester."
 }
+$signedAtValue = $result.signed_at_utc
 $signedAt = [DateTimeOffset]::MinValue
+$signedAtParsed = if ($signedAtValue -is [DateTimeOffset]) {
+    $signedAt = $signedAtValue
+    $true
+}
+elseif ($signedAtValue -is [DateTime] -and $signedAtValue.Kind -ne [DateTimeKind]::Unspecified) {
+    # ConvertFrom-Json normalizes an explicit +00:00 string to a local DateTime
+    # in PowerShell 7. Recover the same instant in UTC before enforcing the
+    # registration contract's zero-offset requirement.
+    $signedAt = [DateTimeOffset]::new($signedAtValue).ToUniversalTime()
+    $true
+}
+else {
+    [DateTimeOffset]::TryParse([string]$signedAtValue, [ref]$signedAt)
+}
 if (
-    -not [DateTimeOffset]::TryParse(
-        [string]$result.signed_at_utc,
-        [ref]$signedAt
-    ) -or
+    -not $signedAtParsed -or
     $signedAt.Offset -ne [TimeSpan]::Zero -or
     $signedAt -gt [DateTimeOffset]::UtcNow.AddMinutes(5)
 ) {

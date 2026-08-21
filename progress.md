@@ -13766,3 +13766,72 @@ The next major systems milestone is persistent worker relationships and individu
 - Human moderated fun/comprehension sessions and real-device touch, listening,
   assistive-technology, and physical-GPU observations remain external work; no
   code change is represented as fabricated human or hardware evidence.
+
+## 2026-08-20 - Intuitive loop and reward resolution
+
+- Audited the 35-item intuitiveness/fun/reward checklist against the current
+  game. Existing First Clutch, global guidance, route feedback, authored events,
+  living office, character callbacks, campaign endings, automation, replay
+  files, and resume recap already satisfy most items without another UI layer.
+- Added a remappable `NEXT [4]` / D-pad Up control. It temporarily advances at
+  10x, yields safely at a decision, shift review, or open Priority Peck window,
+  can be canceled, and restores the player's prior pace instead of leaking the
+  seek speed beyond the moment.
+- Added a compact, authority-derived clean-clutch ladder: Steady at 2, Rolling
+  at 4, and Golden Run at 8. It exposes the next threshold and exact existing
+  streak credit without adding a currency or changing payout balance.
+- Added three derived mastery stamps per archived scenario: Clear, Flock Safe,
+  and Gold File. Final review names the next exact target and the office mounts
+  the current three-mark card physically; no schema migration is required.
+- Deepened the three cosmetic co-op identities with a promise, ritual, and
+  stable room signature (living nest plant, brass clutch seal, or joined-perch
+  flags). Identity remains separate from simulation and economy authority.
+- Added `docs/GAME_LOOP_REWARD_RESOLUTION.md`, mapping every requested item to
+  its implementation and evidence while preserving the external human-playtest
+  boundary.
+- Godot 4.7 editor import is parse-clean. Focused input catalog, final
+  hearing/archive, career identity, physical trophy/mastery, and complete
+  management-loop UI contracts pass.
+- The Web export and Vinext production build pass under Node 22. The dedicated
+  live-shift Playwright audit reaches Day 1, retires optional first-run guidance,
+  verifies `NEXT [4]` -> temporary 10x -> `STOP [4]` -> restored 1x, confirms
+  the first Steady reward threshold, captures both UI states, and reports no
+  console or page errors. Visual inspection confirms the expanded clock row and
+  lower action dossier remain contained at 1280x720.
+
+## 2026-08-21 - Intuitive, fun, and rewarding loop closure
+
+- Audited the requested 30-item follow-up against the shipped authoritative
+  systems. Personality, relationships, causal egg delivery, route/policy
+  previews, combos, permanent growth, office transformation, collections,
+  strategic unlocks, replay modifiers, rivals, connected incidents, comeback
+  files, progressive disclosure, onboarding, and actionable reviews already
+  have focused implementation and regression evidence.
+- Closed the remaining Next Moment handoff gap: the remappable control now names
+  the moment it is seeking, states that it stops before input, publishes its
+  target and camera contract to diagnostics, and centers the ready hen when a
+  Priority Peck window stops the temporary 10x seek.
+- Added `docs/INTUITIVE_FUN_ENGAGEMENT_RESOLUTION.md`, mapping all 30 requested
+  improvements to the exact shipped system and primary evidence without adding
+  another default panel or claiming automated proof of subjective fun.
+- Focused native coverage passes 7/7, including portfolio/identity, scenario
+  mastery, final-hearing replay structure, Settings/action bindings, and the
+  complete management-loop UI contract. Godot 4.7 import and Web export are
+  parse-clean; the production Vinext build also completes under Node 22.
+- The prescribed Web client and a dedicated live interaction audit complete
+  without console/page errors. The latter proves temporary 10x activation,
+  manual 1x restoration, Mabel's real-file target acquisition, an automatic
+  Priority Peck pause, and camera/target agreement on worker 0. Original-size
+  inspection confirms the live hierarchy and focused timing cue remain clear.
+- Synchronized the exact 10,473,432-byte candidate across every shipping PCK
+  mirror; SHA-256 is
+  `31C68E2B62109FC950A09BE964D8A7BA6CD069DA8C7E13F7CFEE0AD9E9441997`.
+- The complete native/Web run passed its first 49 checks before correctly
+  rejecting stale Pages payload parity. After synchronization, the six release
+  evidence/handoff/readiness/parity checks pass, yielding 55 distinct passed
+  checks for the final candidate.
+- Corrected release-tool timestamp handling for PowerShell 7, which materializes
+  explicit-offset JSON strings as `DateTime` objects. Physical-evidence invalid
+  fixtures and atomic registration now preserve/normalize the same UTC instant.
+- The isolated production server and portable Node runtime were removed. Port
+  3001 is free; the existing user-owned port-3000 instance remains untouched.
