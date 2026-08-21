@@ -13871,3 +13871,32 @@ The next major systems milestone is persistent worker relationships and individu
 - Added `docs/ACTIVE_PLAYBOOK_RESOLUTION.md`, `active_playbook_test.gd`, Playbook-aware projection/UI coverage, browser gain/cost/risk assertions, and an inspected live menu capture with distinct non-color icons and an unobstructed office.
 - The complete beta release gate passes 57/57 checks in 553.402 seconds. Web lint, all 50 rendered-wrapper tests, the production-server contract, evidence/handoff contracts, and nine-file release parity are clean.
 - The synchronized shipping PCK is 10,531,668 bytes with SHA-256 `C87DBF1B77C4BCFF4C750C76C2F642E875F43815B16035130061163D3D7E52F6` across `docs`, `web/public/game`, and the production bundle.
+
+## 2026-08-21 — Guided strategy and payoff consolidation
+
+- Consolidated the latest 24 intuitiveness, fun, reward, and replay findings into
+  one guided layer over the existing simulation rather than adding another
+  panel or economy.
+- Fast, Safe, and Flock now atomically file the former contract, floor-focus,
+  preparation, and personal-goal setup choices. The current policy recommends
+  one without auto-filing it; advanced custom planning unlocks after Shift 1.
+- Replaced the permanent production-stage icon rail with the larger shift arc:
+  Plan → Work → Respond → Reward. The exact file → hen → egg → credit chain
+  remains available in diagnostics and causal world presentation.
+- Added five stable action verbs, exact plan gain/cost/risk previews, one-target
+  world-focus metadata, an 8–12 minute session contract, a one-major/one-optional/
+  one-surprise content budget, Perfect Play progress, and explicit reward drafting.
+- Added distinct physical signature silhouettes for Share Credit, Career
+  Coaching, and Stretch Clutch. Manual Team Lift now synchronizes its existing
+  semantic world markers across both named hens.
+- Added `docs/GUIDED_STRATEGY_PAYOFF_RESOLUTION.md` and focused native/browser
+  contracts. Initial Active Playbook, director, signature-feedback, management
+  UI, and persistence tests pass after correcting the awaiting-directive journey
+  stage to remain Plan rather than Respond.
+- The prescribed browser client and production guided-loop audit enter a real
+  Day 1 shift without page or console errors. The audit proves all 24 mapped
+  improvements, three presets, the four-stage journey, and five stable verbs.
+  Original-size inspection confirms the compact five-row opening plan menu is
+  legible, unobstructed, and visibly recommends the directive-matched Fast plan.
+- Next: run the complete beta gate, publish the synchronized candidate, verify
+  live Pages byte parity, and remove every owned test process and runtime.

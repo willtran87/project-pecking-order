@@ -56,8 +56,8 @@ func _run() -> void:
 	_check(
 		core_loop != null
 		and core_loop.get_child_count() == 4
-		and String(core_loop.get_meta("active_stage", "")) == "file"
-		and String(core_loop.get_meta("accessible_text", "")).begins_with("Work loop:")
+		and String(core_loop.get_meta("active_stage", "")) == "plan"
+		and String(core_loop.get_meta("accessible_text", "")).begins_with("Shift journey:")
 		and rival_pulse != null
 		and not rival_pulse.visible
 		and gameplay_pulse.has("hen_mastery")
@@ -220,13 +220,20 @@ func _run() -> void:
 		failures,
 	)
 	var playbook_map := office.get("_active_playbook_menu_map") as Dictionary
-	var contract_item_id := -1
+	var safe_plan_item_id := -1
 	for menu_id_value in playbook_map:
 		var option := playbook_map[menu_id_value] as Dictionary
-		if String(option.get("kind", "")) == "contract" and String(option.get("id", "")) == "clean_pair":
-			contract_item_id = int(menu_id_value)
+		if String(option.get("kind", "")) == "preset" and String(option.get("id", "")) == "safe":
+			safe_plan_item_id = int(menu_id_value)
 			break
-	_check(contract_item_id >= 0, "the playbook menu should retain exact action metadata behind concise labels", failures)
+	_check(
+		safe_plan_item_id >= 0
+		and String((playbook_map[safe_plan_item_id] as Dictionary).get("gain", "")) == "SHELL RISK -4.3% / CLEAN REWARD"
+		and bool((playbook_map[safe_plan_item_id] as Dictionary).get("recommended", false))
+		and String(active_playbook_button.text).begins_with("CHOOSE PLAN"),
+		"the playbook menu should reduce setup to a recommended safe plan while retaining exact gain, cost, and risk metadata",
+		failures,
+	)
 	simulation.eggs_today = eggs_before_rival_probe
 	office.call("_refresh_gameplay_pulse", simulation.snapshot())
 	var next_moment_button := office.find_child("NextMomentButton", true, false) as Button

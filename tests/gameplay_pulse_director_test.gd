@@ -43,7 +43,7 @@ func _init() -> void:
 		"focused_worker_id": 7,
 	})
 	var required := [
-		"focus_mode", "action_preview", "core_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
@@ -56,6 +56,23 @@ func _init() -> void:
 	_check(steps.size() == 4 and String(core_loop.get("active_stage", "")) == "hen", "the permanent loop should translate peckwork into the hen stage", failures)
 	_check(String((steps[0] as Dictionary).get("state", "")) == "complete" and String((steps[1] as Dictionary).get("state", "")) == "current", "loop progress should mark prior and current stages correctly", failures)
 	_check(String((pulse.get("action_preview", {}) as Dictionary).get("compact", "")) == "FILE → HEN", "the current action should retain one icon-first consequence preview", failures)
+	var shift_journey := pulse.get("shift_journey", {}) as Dictionary
+	_check(
+		String(shift_journey.get("compact", "")) == "PLAN → WORK → RESPOND → REWARD"
+		and (shift_journey.get("steps", []) as Array).size() == 4
+		and String(shift_journey.get("active_stage", "")) == "respond",
+		"the visible shift journey should identify the current response stage without replacing the production-chain diagnostic",
+		failures,
+	)
+	var guided_loop := pulse.get("guided_loop", {}) as Dictionary
+	_check(
+		int(guided_loop.get("item_count", 0)) == 24
+		and (guided_loop.get("core_vocabulary", {}) as Dictionary).get("verbs", []) == ["INSPECT", "ROUTE", "HELP", "PECK", "INVEST"]
+		and bool((guided_loop.get("one_action_one_target", {}) as Dictionary).get("world_outline", false))
+		and int((guided_loop.get("daily_content_budget", {}) as Dictionary).get("major", 0)) == 1,
+		"the guided loop should consolidate all twenty-four improvements around five verbs, one world target, and a bounded daily choice budget",
+		failures,
+	)
 	_check(String((pulse.get("combo_readiness", {}) as Dictionary).get("compact", "")) == "2/3 COMBO ARMED", "routing momentum should disclose the next combo threshold", failures)
 	_check(bool((pulse.get("relationship_episode", {}) as Dictionary).get("available", false)), "a strong named bond should surface one relationship episode", failures)
 	_check(String((pulse.get("rival_pulse", {}) as Dictionary).get("compact", "")) == "RIVAL -3", "the rival pulse should expose the exact disclosed margin", failures)
@@ -95,6 +112,10 @@ func _init() -> void:
 		"focused_worker_id": 0,
 		"active_playbook": {
 			"authoritative": true,
+			"strategy_preset_id": "safe",
+			"strategy_preset": {"label": "SAFE PLAN", "gain": "SHELL RISK -4.3%", "cost": "PACE -4.9%", "risk": "LOWER OUTPUT"},
+			"recommended_preset_id": "safe",
+			"smart_default": {"id": "safe", "label": "SAFE PLAN", "one_click": true},
 			"contract": {"id": "clean_pair", "label": "CLEAN PAIR", "progress": 2, "target": 2, "complete": true, "reward_claimed": false},
 			"combo": {"id": "shell_lock", "label": "SHELL LOCK", "progress": 3, "target": 3, "active": true, "effect": "SHELL RISK -2%"},
 			"loadout_id": "quality_floor",
@@ -103,6 +124,12 @@ func _init() -> void:
 				{"kind": "teamwork", "label": "TEAM LIFT", "icon": "sync", "available": true, "detail": "PAIR MORALE + ATTENTION"},
 			],
 			"opportunity_shapes": [{"id": "contract", "shape": "stamp", "active": true}],
+			"shift_journey": [
+				{"id": "plan", "label": "PLAN", "icon": "goal", "state": "complete"},
+				{"id": "work", "label": "WORK", "icon": "route", "state": "complete"},
+				{"id": "respond", "label": "RESPOND", "icon": "shield", "state": "complete"},
+				{"id": "reward", "label": "REWARD", "icon": "egg", "state": "current"},
+			],
 		},
 	})
 	var active_reward_loop := active_pulse.get("reward_loop", {}) as Dictionary
@@ -114,13 +141,21 @@ func _init() -> void:
 		"an active playbook should replace projections with the exact filed contract, combo, signature, and loadout authority",
 		failures,
 	)
+	var active_guided := active_pulse.get("guided_loop", {}) as Dictionary
+	_check(
+		String(((active_guided.get("strategy_presets", {}) as Dictionary).get("selected", ""))) == "safe"
+		and bool((active_guided.get("immediate_reward_draft", {}) as Dictionary).get("ready", false))
+		and String((active_guided.get("compound_success", {}) as Dictionary).get("label", "")) == "2/3 PERFECT PLAY",
+		"the active guided loop should project the filed preset, immediate reward draft, and compound-play progress from authority",
+		failures,
+	)
 
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("GAMEPLAY_PULSE_DIRECTOR_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("GAMEPLAY_PULSE_DIRECTOR_TEST_PASSED items=20 reward-loop=15 authority=playbook-aware loop=4-stage rival=disclosed mastery=3-stage recovery=fail-forward")
+	print("GAMEPLAY_PULSE_DIRECTOR_TEST_PASSED items=20 reward-loop=15 guided-loop=24 authority=playbook-aware journey=4-stage rival=disclosed mastery=3-stage recovery=fail-forward")
 	quit(0)
 
 

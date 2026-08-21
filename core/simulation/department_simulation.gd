@@ -2026,6 +2026,52 @@ const PLAYBOOK_REWARD_DEFINITIONS := {
 	&"mastery": {"label": "+6 HEN XP", "icon": &"flock", "gain": "6 CAREER XP", "cost": "NONE", "risk": "NO CASH"},
 	&"recovery": {"label": "FLOCK -4 STRAIN", "icon": &"care", "gain": "STRESS -4", "cost": "NONE", "risk": "NO CASH OR XP"},
 }
+const PLAYBOOK_STRATEGY_PRESET_ORDER: Array[StringName] = [
+	&"fast",
+	&"safe",
+	&"flock",
+]
+const PLAYBOOK_STRATEGY_PRESET_DEFINITIONS := {
+	&"fast": {
+		"label": "FAST PLAN",
+		"icon": &"route",
+		"contract_id": &"fit_three",
+		"loadout_id": &"pace_floor",
+		"preparation_id": &"clear_trays",
+		"side_goal_id": &"lane_mastery",
+		"gain": "PACE +9.2% / FIT REWARD",
+		"cost": "SHELL RISK +2.0%",
+		"risk": "FAST / FRAGILE",
+		"promise": "Move fitted files quickly and turn a three-route chain into a reward draft.",
+		"cost_cents": 0,
+	},
+	&"safe": {
+		"label": "SAFE PLAN",
+		"icon": &"shield",
+		"contract_id": &"clean_pair",
+		"loadout_id": &"quality_floor",
+		"preparation_id": &"brace_shells",
+		"side_goal_id": &"clean_carton",
+		"gain": "SHELL RISK -4.3% / CLEAN REWARD",
+		"cost": "PACE -4.9%",
+		"risk": "LOWER OUTPUT",
+		"promise": "Protect shells, build a clean clutch, and draft a reward without gambling banked progress.",
+		"cost_cents": 0,
+	},
+	&"flock": {
+		"label": "FLOCK PLAN",
+		"icon": &"care",
+		"contract_id": &"peck_pair",
+		"loadout_id": &"care_floor",
+		"preparation_id": &"rest_flock",
+		"side_goal_id": &"team_lift",
+		"gain": "STRAIN -20.8% / TEAM PLAY",
+		"cost": "$2.00 / PACE -1%",
+		"risk": "FEED FUND",
+		"promise": "Protect the flock, coordinate a bonded pair, and turn two strong pecks into a reward draft.",
+		"cost_cents": 200,
+	},
+}
 const CAREER_PROFILE_DEFINITIONS := {
 	&"credit_conscious": {
 		"name": "CREDIT CONSCIOUS",
@@ -13383,6 +13429,7 @@ func _validated_active_playbook(
 	if not _is_integral_number(source.get("day", null)) or int(source.get("day", 0)) != saved_day:
 		return {"valid": false, "record": {}}
 	var definition_fields := {
+		"strategy_preset_id": PLAYBOOK_STRATEGY_PRESET_DEFINITIONS,
 		"contract_id": PLAYBOOK_CONTRACT_DEFINITIONS,
 		"preparation_id": PLAYBOOK_PREPARATION_DEFINITIONS,
 		"rival_response_id": PLAYBOOK_RIVAL_DEFINITIONS,
@@ -13397,7 +13444,8 @@ func _validated_active_playbook(
 		if typeof(field_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
 			return {"valid": false, "record": {}}
 		var choice_id := StringName(String(field_value))
-		if choice_id != &"" and not (definition_fields[field_name] as Dictionary).has(choice_id):
+		var custom_strategy := field_name == "strategy_preset_id" and choice_id == &"custom"
+		if choice_id != &"" and not custom_strategy and not (definition_fields[field_name] as Dictionary).has(choice_id):
 			return {"valid": false, "record": {}}
 		normalized[field_name] = String(choice_id)
 	for integer_field in ["side_goal_fund_baseline_cents", "receipt_serial"]:
@@ -16191,6 +16239,7 @@ func _rejected_personnel_action(reason: String) -> Dictionary:
 func _reset_active_playbook() -> void:
 	active_playbook = {
 		"day": day,
+		"strategy_preset_id": "",
 		"contract_id": "",
 		"preparation_id": "",
 		"rival_response_id": "",
@@ -16266,7 +16315,52 @@ func _playbook_option(
 		"available": available,
 		"reason": reason,
 		"detail": detail,
+		"recommended": bool(definition.get("recommended", false)),
+		"promise": String(definition.get("promise", "")),
 	}
+
+
+func _recommended_playbook_strategy_id() -> StringName:
+	match active_directive_id:
+		&"record_harvest":
+			return &"fast"
+		&"sustainable_flock":
+			return &"flock"
+	return &"safe"
+
+
+func _playbook_shift_journey(contract_complete: bool) -> Array[Dictionary]:
+	var preset_id := String(active_playbook.get("strategy_preset_id", ""))
+	var stage := &"plan"
+	if not preset_id.is_empty():
+		stage = &"work"
+	if shift_phase == ShiftPhase.RUNNING and (
+		not pending_decision.is_empty() or (
+			eggs_today > 0 and String(active_playbook.get("rival_response_id", "")).is_empty()
+		)
+	):
+		stage = &"respond"
+	if contract_complete and String(active_playbook.get("contract_reward_id", "")).is_empty():
+		stage = &"reward"
+	if shift_phase == ShiftPhase.REVIEW:
+		stage = &"reward"
+	var definitions: Array[Dictionary] = [
+		{"id": &"plan", "label": "PLAN", "icon": "goal"},
+		{"id": &"work", "label": "WORK", "icon": "route"},
+		{"id": &"respond", "label": "RESPOND", "icon": "shield"},
+		{"id": &"reward", "label": "REWARD", "icon": "egg"},
+	]
+	var active_index := 0
+	for index in definitions.size():
+		if StringName(definitions[index].get("id", &"")) == stage:
+			active_index = index
+			break
+	var result: Array[Dictionary] = []
+	for index in definitions.size():
+		var step := definitions[index].duplicate(true)
+		step["state"] = "current" if index == active_index else ("complete" if index < active_index else "upcoming")
+		result.append(step)
+	return result
 
 
 func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
@@ -16282,20 +16376,53 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 	var side_goal_target := int(side_goal_definition.get("target", 0))
 	var options: Array[Dictionary] = []
 	var running := shift_phase == ShiftPhase.RUNNING and pending_decision.is_empty()
-	if contract_id == &"":
+	var strategy_preset_id := StringName(active_playbook.get("strategy_preset_id", &""))
+	var recommended_preset_id := _recommended_playbook_strategy_id()
+	var bundled_plan_unfiled := (
+		contract_id == &""
+		and String(active_playbook.get("loadout_id", "")).is_empty()
+		and String(active_playbook.get("preparation_id", "")).is_empty()
+		and side_goal_id == &""
+	)
+	if strategy_preset_id == &"" and bundled_plan_unfiled:
+		for choice_id in PLAYBOOK_STRATEGY_PRESET_ORDER:
+			var preset_definition := (PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[choice_id] as Dictionary).duplicate(true)
+			preset_definition["recommended"] = choice_id == recommended_preset_id
+			var affordable := spendable_fund_cents() >= int(preset_definition.get("cost_cents", 0))
+			var planning_open := eggs_today == 0 and incidents_resolved_today == 0
+			var preset_reason := (
+				"Recommended for today's policy. Files plan, challenge, preparation, and personal goal in one action."
+				if choice_id == recommended_preset_id else
+				"Files plan, challenge, preparation, and personal goal in one action."
+			)
+			if not affordable:
+				preset_reason = "Feed Fund needs $2.00 spendable for the flock plan."
+			elif not planning_open:
+				preset_reason = "Guided plans lock after the first delivery or resolved incident."
+			options.append(_playbook_option(&"preset", choice_id, preset_definition, running and affordable and planning_open, preset_reason))
+		if day >= 2:
+			options.append(_playbook_option(&"customize", &"advanced", {
+				"label": "CUSTOM PLAN",
+				"icon": &"facility",
+				"gain": "CHOOSE EACH PART",
+				"cost": "MORE DECISIONS",
+				"risk": "ADVANCED",
+				"promise": "Open the individual contract, loadout, preparation, and side-goal choices.",
+			}, running, "Advanced planning unlocks after the first shift."))
+	if strategy_preset_id == &"custom" and contract_id == &"":
 		for choice_id: StringName in PLAYBOOK_CONTRACT_DEFINITIONS:
 			options.append(_playbook_option(&"contract", choice_id, PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], running, "Accept one optional shift challenge; declining has no penalty."))
-	if String(active_playbook.get("loadout_id", "")).is_empty() and eggs_today == 0:
+	if strategy_preset_id == &"custom" and String(active_playbook.get("loadout_id", "")).is_empty() and eggs_today == 0:
 		for choice_id: StringName in PLAYBOOK_LOADOUT_DEFINITIONS:
 			options.append(_playbook_option(&"loadout", choice_id, PLAYBOOK_LOADOUT_DEFINITIONS[choice_id], running, "Locks when the first egg is delivered."))
-	if String(active_playbook.get("preparation_id", "")).is_empty() and incidents_resolved_today == 0:
+	if strategy_preset_id == &"custom" and String(active_playbook.get("preparation_id", "")).is_empty() and incidents_resolved_today == 0:
 		for choice_id: StringName in PLAYBOOK_PREPARATION_DEFINITIONS:
 			var affordable := choice_id != &"rest_flock" or spendable_fund_cents() >= 200
 			options.append(_playbook_option(&"preparation", choice_id, PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], running and affordable, "Prepare once before the first incident." if affordable else "Feed Fund needs $2.00 spendable."))
 	if String(active_playbook.get("rival_response_id", "")).is_empty() and eggs_today > 0:
 		for choice_id: StringName in PLAYBOOK_RIVAL_DEFINITIONS:
 			options.append(_playbook_option(&"rival", choice_id, PLAYBOOK_RIVAL_DEFINITIONS[choice_id], running, "One transparent response for this shift."))
-	if side_goal_id == &"":
+	if strategy_preset_id == &"custom" and side_goal_id == &"":
 		for choice_id: StringName in PLAYBOOK_SIDE_GOAL_DEFINITIONS:
 			options.append(_playbook_option(&"side_goal", choice_id, PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], running, "Pin one personal ambition; no failure penalty."))
 	var signature_ids := active_playbook.get("signature_worker_ids", []) as Array
@@ -16340,9 +16467,22 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		"day": day,
 		"authoritative": true,
 		"options": options,
+		"strategy_preset_id": String(strategy_preset_id),
+		"strategy_preset": (PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(strategy_preset_id, {}) as Dictionary).duplicate(true),
+		"recommended_preset_id": String(recommended_preset_id),
+		"smart_default": {
+			"id": String(recommended_preset_id),
+			"label": String((PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[recommended_preset_id] as Dictionary).get("label", "SAFE PLAN")),
+			"automatic": false,
+			"one_click": true,
+		},
 		"contract": {"id": String(contract_id), "label": String(contract_definition.get("label", "PICK CONTRACT")), "icon": String(contract_definition.get("icon", "goal")), "progress": contract_progress, "target": contract_target, "complete": contract_complete, "reward_claimed": not String(active_playbook.get("contract_reward_id", "")).is_empty(), "reward_id": String(active_playbook.get("contract_reward_id", "")), "optional": true, "failure_penalty": 0},
 		"combo": {"id": String(directive_combo.get("id", "")), "label": String(directive_combo.get("label", "COMBO")), "icon": String(directive_combo.get("icon", "sync")), "active": combo_active, "progress": routing_momentum_chain, "target": ROUTING_MOMENTUM_PACE_MILESTONE, "effect": String(directive_combo.get("effect", ""))},
 		"shift_plan": _playbook_shift_plan(contract_definition, directive_combo),
+		"shift_journey": _playbook_shift_journey(contract_complete),
+		"core_verbs": ["INSPECT", "ROUTE", "HELP", "PECK", "INVEST"],
+		"choice_budget": {"major": 1, "optional": 1, "surprise": 1, "detail": "One major plan, one optional goal, and one visible surprise at a time."},
+		"session_target_minutes": {"minimum": 8, "maximum": 12},
 		"preparation_id": String(active_playbook.get("preparation_id", "")),
 		"rival_response_id": String(active_playbook.get("rival_response_id", "")),
 		"loadout_id": String(active_playbook.get("loadout_id", "")),
@@ -16373,6 +16513,60 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 	_ensure_active_playbook()
 	if shift_phase != ShiftPhase.RUNNING or not pending_decision.is_empty():
 		return {"accepted": false, "reason": "Resolve the current management file first."}
+	if kind == &"preset":
+		if not PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.has(choice_id):
+			return {"accepted": false, "reason": "That guided plan is unavailable."}
+		if (
+			not String(active_playbook.get("strategy_preset_id", "")).is_empty()
+			or not String(active_playbook.get("contract_id", "")).is_empty()
+			or not String(active_playbook.get("loadout_id", "")).is_empty()
+			or not String(active_playbook.get("preparation_id", "")).is_empty()
+			or not String(active_playbook.get("side_goal_id", "")).is_empty()
+			or eggs_today > 0
+			or incidents_resolved_today > 0
+		):
+			return {"accepted": false, "reason": "Today's guided plan is already filed or production has begun."}
+		var preset := PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[choice_id] as Dictionary
+		var preset_cost := int(preset.get("cost_cents", 0))
+		if spendable_fund_cents() < preset_cost:
+			return {"accepted": false, "reason": "The %s needs $%.2f spendable Feed Fund." % [String(preset.get("label", "plan")).to_lower(), float(preset_cost) / 100.0]}
+		if preset_cost > 0:
+			revenue_cents -= preset_cost
+		active_playbook["strategy_preset_id"] = String(choice_id)
+		active_playbook["contract_id"] = String(preset.get("contract_id", ""))
+		active_playbook["loadout_id"] = String(preset.get("loadout_id", ""))
+		active_playbook["preparation_id"] = String(preset.get("preparation_id", ""))
+		active_playbook["side_goal_id"] = String(preset.get("side_goal_id", ""))
+		active_playbook["side_goal_fund_baseline_cents"] = revenue_cents
+		var preset_result := _playbook_choice_result(
+			kind,
+			choice_id,
+			preset,
+			"%s filed in one move. Follow the highlighted world target, then draft the completed contract reward." % String(preset.get("label", "Guided plan")),
+		)
+		preset_result["bundled_choices"] = {
+			"contract_id": String(active_playbook["contract_id"]),
+			"loadout_id": String(active_playbook["loadout_id"]),
+			"preparation_id": String(active_playbook["preparation_id"]),
+			"side_goal_id": String(active_playbook["side_goal_id"]),
+		}
+		preset_result["cost_cents"] = preset_cost
+		return _file_playbook_receipt(preset_result)
+	if kind == &"customize":
+		if choice_id != &"advanced" or day < 2:
+			return {"accepted": false, "reason": "Advanced planning unlocks after the first shift."}
+		if not String(active_playbook.get("strategy_preset_id", "")).is_empty() or eggs_today > 0:
+			return {"accepted": false, "reason": "Today's plan is already filed or production has begun."}
+		active_playbook["strategy_preset_id"] = "custom"
+		return _file_playbook_receipt({
+			"accepted": true,
+			"playbook_kind": "customize",
+			"choice_id": "advanced",
+			"label": "CUSTOM PLAN",
+			"effects": {"gain": "CHOOSE EACH PART", "cost": "MORE DECISIONS", "risk": "ADVANCED"},
+			"outcome": "Custom planning opened. Choose one challenge, floor focus, preparation, and personal goal.",
+			"day": day,
+		})
 	if kind == &"signature":
 		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
 			return {"accepted": false, "reason": "Select an active hen first."}

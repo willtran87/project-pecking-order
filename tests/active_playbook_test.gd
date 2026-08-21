@@ -13,12 +13,50 @@ func _init() -> void:
 	_check(
 		bool(opening.get("authoritative", false))
 		and (opening.get("shift_plan", []) as Array).size() == 3
-		and (opening.get("options", []) as Array).size() >= 10,
-		"the running shift should expose one authoritative three-step plan with progressive choices",
+		and (opening.get("shift_journey", []) as Array).size() == 4
+		and (opening.get("options", []) as Array).size() >= 5
+		and String(opening.get("recommended_preset_id", "")) == "safe",
+		"the running shift should expose three guided plans, one four-stage journey, and a policy-fit recommendation",
 		failures,
 	)
-	_check(_has_option(opening, &"contract", &"fit_three", true), "an optional fit contract should be available", failures)
+	_check(_has_option(opening, &"preset", &"fast", true), "the fast one-click plan should be available", failures)
+	_check(_has_option(opening, &"preset", &"safe", true), "the policy-fit safe plan should be available", failures)
+	_check(_has_option(opening, &"preset", &"flock", true), "the flock one-click plan should be available", failures)
 	_check(_has_option(opening, &"practice", &"peck", true), "practice should be consequence-free and available", failures)
+
+	var preset_simulation := DepartmentSimulation.new(260822, 4)
+	for worker_id in preset_simulation.workers.size():
+		preset_simulation.set_worker_at_workstation(worker_id, true)
+	_check(preset_simulation.select_directive(&"shell_assurance"), "preset fixture should enter a running shift", failures)
+	preset_simulation.revenue_cents = 10000
+	var guided_plan := preset_simulation.perform_playbook_action(&"preset", &"safe", 0)
+	var guided_state := preset_simulation.playbook_snapshot(0)
+	var guided_modifiers := preset_simulation.snapshot().get("decision_modifiers", {}) as Dictionary
+	_check(
+		bool(guided_plan.get("accepted", false))
+		and String(guided_state.get("strategy_preset_id", "")) == "safe"
+		and String((guided_state.get("contract", {}) as Dictionary).get("id", "")) == "clean_pair"
+		and String(guided_state.get("loadout_id", "")) == "quality_floor"
+		and String(guided_state.get("preparation_id", "")) == "brace_shells"
+		and String((guided_state.get("side_goal", {}) as Dictionary).get("id", "")) == "clean_carton"
+		and is_equal_approx(float(guided_modifiers.get("playbook_work_multiplier", 1.0)), 0.9506)
+		and is_equal_approx(float(guided_modifiers.get("playbook_crack_modifier", 0.0)), -0.043),
+		"one safe-plan action should atomically file its challenge, floor focus, preparation, goal, and exact modifiers",
+		failures,
+	)
+	_check(
+		not bool(preset_simulation.perform_playbook_action(&"preset", &"fast", 0).get("accepted", false)),
+		"a guided plan should file exactly once",
+		failures,
+	)
+	var preset_restored := DepartmentSimulation.new(6, 4)
+	_check(
+		preset_restored.restore_save_state(preset_simulation.export_save_state())
+		and String(preset_restored.active_playbook.get("strategy_preset_id", "")) == "safe"
+		and String((preset_restored.playbook_snapshot(0).get("smart_default", {}) as Dictionary).get("id", "")) == "safe",
+		"the atomic guided plan and its non-mutating recommendation should survive a checkpoint",
+		failures,
+	)
 
 	var contract := simulation.perform_playbook_action(&"contract", &"fit_three", 0)
 	var loadout := simulation.perform_playbook_action(&"loadout", &"quality_floor", 0)
@@ -126,7 +164,7 @@ func _init() -> void:
 			push_error("ACTIVE_PLAYBOOK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("ACTIVE_PLAYBOOK_TEST_PASSED choices=9 plan=3 reward=choose-one practice=atomic persistence=round-trip rollover=clean")
+	print("ACTIVE_PLAYBOOK_TEST_PASSED choices=9 presets=3 journey=4 reward=choose-one practice=atomic persistence=round-trip rollover=clean")
 	quit(0)
 
 

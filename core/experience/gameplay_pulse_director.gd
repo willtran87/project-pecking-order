@@ -12,6 +12,21 @@ const LOOP_STEPS: Array[Dictionary] = [
 	{"id": &"credit", "label": "CREDIT", "icon": &"cash"},
 ]
 
+const SHIFT_JOURNEY_STEPS: Array[Dictionary] = [
+	{"id": &"plan", "label": "PLAN", "icon": &"goal"},
+	{"id": &"work", "label": "WORK", "icon": &"route"},
+	{"id": &"respond", "label": "RESPOND", "icon": &"shield"},
+	{"id": &"reward", "label": "REWARD", "icon": &"egg"},
+]
+
+const CORE_VERBS: Array[String] = [
+	"INSPECT",
+	"ROUTE",
+	"HELP",
+	"PECK",
+	"INVEST",
+]
+
 const ACTION_PREVIEWS := {
 	&"route": {"icons": [&"clipboard", &"flock"], "compact": "FILE → HEN"},
 	&"claim": {"icons": [&"clipboard", &"goal"], "compact": "FILE → CHOICE"},
@@ -80,8 +95,22 @@ func compose(context: Dictionary) -> Dictionary:
 		momentum,
 		active_playbook,
 	)
+	var shift_journey := _shift_journey(simulation, active_playbook)
+	var guided_loop := _guided_loop(
+		simulation,
+		next_action,
+		active_playbook,
+		focus_worker_id,
+		workers,
+		reward_loop,
+		shift_journey,
+		feedback,
+		rival_pulse,
+		order_pulse,
+		momentum,
+	)
 	return {
-		"version": 1,
+		"version": 2,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -93,6 +122,8 @@ func compose(context: Dictionary) -> Dictionary:
 		},
 		"action_preview": preview,
 		"core_loop": core_loop,
+		"shift_journey": shift_journey,
+		"guided_loop": guided_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -357,6 +388,215 @@ func _project_active_playbook(result: Dictionary, playbook: Dictionary) -> Dicti
 	}
 	result["authoritative"] = true
 	return result
+
+
+func _shift_journey(simulation: Dictionary, playbook: Dictionary) -> Dictionary:
+	var authored_steps := playbook.get("shift_journey", []) as Array
+	if authored_steps.size() == SHIFT_JOURNEY_STEPS.size():
+		var active_stage := "plan"
+		var active_index := 0
+		for index in authored_steps.size():
+			var step := authored_steps[index] as Dictionary
+			if String(step.get("state", "")) == "current":
+				active_stage = String(step.get("id", "plan"))
+				active_index = index
+				break
+		return {
+			"active_stage": active_stage,
+			"active_index": active_index,
+			"steps": authored_steps.duplicate(true),
+			"compact": "PLAN → WORK → RESPOND → REWARD",
+			"accessible_text": "Shift journey: plan, work, respond, reward. Current stage: %s." % active_stage,
+			"authoritative": true,
+		}
+	var phase := int(simulation.get("shift_phase", 0))
+	var active_index := 0 if phase == 0 else (3 if phase == 2 else 1)
+	if phase == 1 and not (simulation.get("pending_decision", {}) as Dictionary).is_empty():
+		active_index = 2
+	var steps: Array[Dictionary] = []
+	for index in SHIFT_JOURNEY_STEPS.size():
+		var step := SHIFT_JOURNEY_STEPS[index].duplicate(true)
+		step["state"] = "current" if index == active_index else ("complete" if index < active_index else "upcoming")
+		steps.append(step)
+	return {
+		"active_stage": String(steps[active_index].get("id", "plan")),
+		"active_index": active_index,
+		"steps": steps,
+		"compact": "PLAN → WORK → RESPOND → REWARD",
+		"accessible_text": "Shift journey: plan, work, respond, reward. Current stage: %s." % String(steps[active_index].get("id", "plan")),
+		"authoritative": false,
+	}
+
+
+func _guided_loop(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	focused_worker_id: int,
+	workers: Array,
+	reward_loop: Dictionary,
+	shift_journey: Dictionary,
+	feedback: Dictionary,
+	rival_pulse: Dictionary,
+	order_pulse: Dictionary,
+	momentum: Dictionary,
+) -> Dictionary:
+	var preset_id := String(playbook.get("strategy_preset_id", ""))
+	var recommended_id := String(playbook.get("recommended_preset_id", "safe"))
+	var preset := playbook.get("strategy_preset", {}) as Dictionary
+	var recommended_option: Dictionary = {}
+	for option_value in playbook.get("options", []) as Array:
+		if not option_value is Dictionary:
+			continue
+		var option := option_value as Dictionary
+		if String(option.get("kind", "")) == "preset" and bool(option.get("recommended", false)):
+			recommended_option = option.duplicate(true)
+			break
+	var preview_source := recommended_option if preset_id.is_empty() else preset
+	var action_id := String(next_action.get("action_id", ""))
+	var target_kind := "office_action"
+	if action_id in ["peck", "select_hen", "support", "first_hen", "first_clutch"]:
+		target_kind = "hen"
+	elif action_id in ["route", "routing_chase", "adaptive_route_recovery"]:
+		target_kind = "intake_tray"
+	elif action_id == "decision":
+		target_kind = "decision_card"
+	elif action_id in ["review", "campaign_report_continue"]:
+		target_kind = "reward_review"
+	var contract := playbook.get("contract", {}) as Dictionary
+	var combo := playbook.get("combo", {}) as Dictionary
+	var side_goal := playbook.get("side_goal", {}) as Dictionary
+	var reward_ready := bool(contract.get("complete", false)) and not bool(contract.get("reward_claimed", false))
+	var perfect_parts := 0
+	perfect_parts += 1 if bool(contract.get("complete", false)) else 0
+	perfect_parts += 1 if bool(combo.get("active", false)) else 0
+	perfect_parts += 1 if bool(side_goal.get("complete", false)) else 0
+	var worker := _focused_worker(workers, focused_worker_id)
+	var signature := reward_loop.get("signature_ability", {}) as Dictionary
+	var teamwork := reward_loop.get("relationship_teamwork", {}) as Dictionary
+	var opportunity := reward_loop.get("surprise_opportunity", {}) as Dictionary
+	var future_reward := reward_loop.get("future_reward_ghost", {}) as Dictionary
+	var comeback := StringName(momentum.get("status", &"")) == &"comeback"
+	var scenario_rule := playbook.get("boss_file", {}) as Dictionary
+	return {
+		"item_count": 24,
+		"strategy_presets": {
+			"choices": ["fast", "safe", "flock"], "selected": preset_id,
+			"recommended": recommended_id, "advanced_unlocked": int(simulation.get("day", 1)) >= 2,
+			"one_click_atomic": true, "authoritative": true,
+		},
+		"one_action_one_target": {
+			"action_id": action_id, "target_kind": target_kind, "worker_id": focused_worker_id,
+			"camera_focus": true, "world_outline": true, "control_pulse": true,
+			"copy": String(next_action.get("copy", "NEXT ACTION")),
+		},
+		"animated_consequence_preview": {
+			"gain": String(preview_source.get("gain", "VISIBLE RESULT")),
+			"cost": String(preview_source.get("cost", "NO COST")),
+			"risk": String(preview_source.get("risk", "NO HIDDEN RISK")),
+			"source_target": target_kind, "world_preview": true, "files_nothing": true,
+		},
+		"core_vocabulary": {"verbs": CORE_VERBS.duplicate(), "detail_on_demand": true},
+		"smart_default": (playbook.get("smart_default", {}) as Dictionary).duplicate(true),
+		"visible_shift_journey": shift_journey.duplicate(true),
+		"physical_signature_move": {
+			"worker_id": int(signature.get("worker_id", worker.get("id", -1))),
+			"worker_name": String(worker.get("name", "HEN")),
+			"action_id": String(signature.get("action_id", "")),
+			"ready": bool(signature.get("ready", false)),
+			"unique_marker": true, "camera_focus": true, "audio_family": "signature",
+		},
+		"visible_teamwork_sequence": {
+			"available": bool(teamwork.get("available", false)),
+			"label": String(teamwork.get("label", "TEAM LIFT")),
+			"paired_world_markers": true, "shared_result": true,
+		},
+		"last_chance_rescue": {
+			"active": comeback or bool((reward_loop.get("near_miss_rescue", {}) as Dictionary).get("active", false)),
+			"choices": ["PECK", "BEST FIT", "CARE"], "banked_rewards_safe": true,
+			"target": String(momentum.get("short_label", "RECOVER THE FILE")),
+		},
+		"compound_success": {
+			"active": perfect_parts >= 3, "completed_parts": perfect_parts, "target": 3,
+			"label": "PERFECT PLAY" if perfect_parts >= 3 else "%d/3 PERFECT PLAY" % perfect_parts,
+			"office_wide_feedback": perfect_parts >= 3,
+		},
+		"tactile_production_chain": {
+			"steps": ["FILE", "HEN", "EGG", "SORTER", "CREDIT"],
+			"world_linked": true, "credit_only_after_delivery": true,
+		},
+		"distinct_lane_rhythms": {
+			"nest_damage": {"name": "STEADY", "shape": "round", "audio": "soft_stamp"},
+			"predator_loss": {"name": "SNAP", "shape": "diamond", "audio": "urgent_stamp"},
+			"appeals": {"name": "DOUBLE-CHECK", "shape": "split", "audio": "double_stamp"},
+			"same_input": true,
+		},
+		"immediate_reward_draft": {
+			"ready": reward_ready, "choice_count": 3,
+			"choices": ["FEED FUND", "HEN XP", "FLOCK RECOVERY"],
+			"button_priority": "REWARD", "automatic_grant": false,
+		},
+		"transformative_upgrades": {
+			"families": ["AUTOMATION", "RECOVERY", "TEAMWORK", "NEW RESCUE"],
+			"rule_changes_over_percentages": true, "uses_existing_unlocks": true,
+		},
+		"office_reward_preview": {
+			"label": String(future_reward.get("label", "NEXT OFFICE REWARD")),
+			"ghosted": not bool(future_reward.get("ready", false)),
+			"physical_location": true, "authority_required": true,
+		},
+		"short_mastery_journeys": {
+			"stages": ["TRUSTED LAYER", "SECOND LANE", "LEAD HEN"],
+			"current": (worker.get("personal_mastery", {}) as Dictionary).duplicate(true),
+			"visible_next": true,
+		},
+		"failure_value": {
+			"active": comeback, "lesson": String(momentum.get("headline", "LESSON FILED")),
+			"recovery_advantage": String(momentum.get("short_label", "NEXT SAFE MOVE")),
+			"deletes_progress": false,
+		},
+		"strong_shift_ending": {
+			"beats": ["WHAT WORKED", "CLOSEST CALL", "WHAT CHANGED", "CHOOSE NEXT"],
+			"details_folded": true,
+		},
+		"evolving_rival": {
+			"visible": bool(rival_pulse.get("visible", false)), "margin": int(rival_pulse.get("difference", 0)),
+			"response": String((reward_loop.get("rival_counterplay", {}) as Dictionary).get("label", "COUNTERPLAY")),
+			"transparent": true, "hidden_scaling": false,
+		},
+		"scenario_rule_changes": {
+			"active": bool(scenario_rule.get("active", false)),
+			"label": String(scenario_rule.get("label", "SHIFT FILE")),
+			"mechanics": (scenario_rule.get("mechanics", ["POLICY", "INCIDENT", "CREDIT"]) as Array).duplicate(),
+			"changes_rules_not_only_numbers": true,
+		},
+		"strategy_evolution": {
+			"current": preset_id, "next": "CUSTOM PLAN" if int(simulation.get("day", 1)) < 2 else "PERMANENT DOCTRINE",
+			"branches": ["PACE", "QUALITY", "CARE"], "mutually_exclusive": true,
+		},
+		"curated_surprise_files": {
+			"active": bool(opportunity.get("active", false)), "label": String(opportunity.get("label", "NEXT OPPORTUNITY")),
+			"telegraphed": true, "deterministic": true, "lasting_callback": true,
+		},
+		"short_session_contract": {
+			"minimum_minutes": 8, "maximum_minutes": 12,
+			"complete_arc": ["PLAN", "ACTION", "CONSEQUENCE", "REWARD"],
+			"next_moment_supported": true,
+		},
+		"daily_content_budget": (playbook.get("choice_budget", {
+			"major": 1, "optional": 1, "surprise": 1,
+		}) as Dictionary).duplicate(true),
+		"outcome_receipt": {
+			"visible": bool(feedback.get("visible", false)),
+			"because_you": String(feedback.get("title", "YOUR CHOICE → VISIBLE RESULT")),
+			"maximum_visible_deltas": 3,
+		},
+		"order_readability": {
+			"on_track": int(order_pulse.get("on_track", 0)), "total": int(order_pulse.get("total", 0)),
+			"single_current_priority": true, "details_on_demand": true,
+		},
+		"authoritative_sources": ["SIMULATION", "ACTIVE PLAYBOOK", "CAMPAIGN", "OFFICE"],
+	}
 
 
 func _focused_worker(workers: Array, focused_worker_id: int) -> Dictionary:

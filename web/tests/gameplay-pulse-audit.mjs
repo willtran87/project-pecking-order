@@ -84,12 +84,13 @@ try {
 
 	active = await waitForState(
 		(snapshot) => snapshot.shift_phase === 1
-			&& snapshot.gameplay_pulse?.core_loop?.steps?.length === 4,
+			&& snapshot.gameplay_pulse?.shift_journey?.steps?.length === 4
+			&& snapshot.gameplay_pulse?.guided_loop?.item_count === 24,
 		"gameplay clarity pulse",
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
@@ -112,10 +113,26 @@ try {
 	assert.equal(pulse.authoritative, false);
 	assert.equal(pulse.active_playbook.authoritative, true);
 	assert.equal(pulse.active_playbook.shift_plan.length, 3);
-	assert.ok(pulse.active_playbook.options.length >= 10, "the compact playbook should expose progressive authoritative choices");
+	assert.equal(pulse.active_playbook.shift_journey.length, 4);
+	assert.ok(pulse.active_playbook.options.length >= 5 && pulse.active_playbook.options.length <= 6, "the compact playbook should expose three guided plans plus only contextual play actions");
 	assert.ok(pulse.active_playbook.options.every((option) => option.gain && option.cost && option.risk), "every playbook action should disclose gain, cost, and risk");
+	assert.deepEqual(pulse.active_playbook.options.filter((option) => option.kind === "preset").map((option) => option.id), ["fast", "safe", "flock"]);
+	assert.equal(pulse.active_playbook.recommended_preset_id, "fast", "the opening harvest directive should recommend the Fast plan");
 	assert.equal(pulse.core_loop.compact, "FILE → HEN → EGG → CREDIT");
 	assert.deepEqual(pulse.core_loop.steps.map((step) => step.id), ["file", "hen", "egg", "credit"]);
+	assert.equal(pulse.shift_journey.compact, "PLAN → WORK → RESPOND → REWARD");
+	assert.deepEqual(pulse.shift_journey.steps.map((step) => step.id), ["plan", "work", "respond", "reward"]);
+	assert.equal(pulse.guided_loop.item_count, 24);
+	assert.deepEqual(pulse.guided_loop.core_vocabulary.verbs, ["INSPECT", "ROUTE", "HELP", "PECK", "INVEST"]);
+	assert.equal(pulse.guided_loop.strategy_presets.recommended, "fast");
+	assert.equal(pulse.guided_loop.strategy_presets.one_click_atomic, true);
+	assert.equal(pulse.guided_loop.one_action_one_target.world_outline, true);
+	assert.deepEqual(pulse.guided_loop.short_session_contract, {
+		minimum_minutes: 8,
+		maximum_minutes: 12,
+		complete_arc: ["PLAN", "ACTION", "CONSEQUENCE", "REWARD"],
+		next_moment_supported: true,
+	});
 	assert.equal(pulse.rival_pulse.hud_visible, false, "rival beat should stay quiet before the first egg");
 	assert.equal(pulse.adaptive_assistance.changes_difficulty, false);
 	assert.equal(pulse.comprehension_tuning.privacy, "LOCAL SESSION ONLY / NEVER TRANSMITTED");
@@ -127,6 +144,8 @@ try {
 		rivalPulse: pulse.rival_pulse,
 		henMastery: pulse.hen_mastery,
 		rewardLoop: pulse.reward_loop,
+		shiftJourney: pulse.shift_journey,
+		guidedLoop: pulse.guided_loop,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
@@ -140,4 +159,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED items=20 reward-loop=15 playbook=authoritative loop=4-stage rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED items=20 reward-loop=15 guided-loop=24 presets=3 journey=4-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

@@ -5918,10 +5918,10 @@ func _build_ui() -> void:
 	_core_loop_host.custom_minimum_size.x = 86.0
 	_core_loop_host.add_theme_constant_override("separation", 3)
 	_core_loop_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_core_loop_host.tooltip_text = "FILE → HEN → EGG → CREDIT"
-	_core_loop_host.set_meta("shape_language", "file=route; flock=work; egg=delivery; cash=credit")
+	_core_loop_host.tooltip_text = "PLAN → WORK → RESPOND → REWARD"
+	_core_loop_host.set_meta("shape_language", "goal=plan; route=work; shield=respond; egg=reward")
 	_shift_objective_row.add_child(_core_loop_host)
-	for definition in GameplayPulseDirectorScript.LOOP_STEPS:
+	for definition in GameplayPulseDirectorScript.SHIFT_JOURNEY_STEPS:
 		var loop_icon := FlockwatchIconBadgeScript.new()
 		loop_icon.name = "CoreLoop_%s" % String(definition.get("id", "step")).capitalize()
 		loop_icon.set_badge_size(16.0)
@@ -19273,7 +19273,7 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	})
 	_gameplay_pulse["active_playbook"] = active_playbook.duplicate(true)
 	_refresh_active_playbook_menu(active_playbook, focused_worker_id)
-	var loop := _gameplay_pulse.get("core_loop", {}) as Dictionary
+	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
 		var loop_icon := _core_loop_icons[index]
@@ -19297,7 +19297,7 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 			"accessible_text",
 			"Work loop: file to hen, hen to egg, egg to farmer credit.",
 		))
-		_core_loop_host.set_meta("active_stage", String(loop.get("active_stage", "file")))
+		_core_loop_host.set_meta("active_stage", String(loop.get("active_stage", "plan")))
 		_core_loop_host.set_meta("accessible_text", _core_loop_host.tooltip_text)
 	var reward_loop := _gameplay_pulse.get("reward_loop", {}) as Dictionary
 	for definition in GameplayPulseDirectorScript.REWARD_LOOP_ICONS:
@@ -19382,6 +19382,7 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		_directive_badge.set_meta("furnishing_loadout", loadout.duplicate(true))
 	var preview := _gameplay_pulse.get("action_preview", {}) as Dictionary
 	var preview_line := String(preview.get("compact", ""))
+	var guided_loop := _gameplay_pulse.get("guided_loop", {}) as Dictionary
 	var glance_line := "\nAT A GLANCE  ·  %s" % preview_line
 	if not preview_line.is_empty() and _guidance_action_button != null:
 		_guidance_action_button.tooltip_text += glance_line
@@ -19390,6 +19391,16 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 			String(_guidance_action_button.get_meta("accessible_text", "")) + glance_line,
 		)
 		_guidance_action_button.set_meta("gameplay_pulse", _gameplay_pulse.duplicate(true))
+		_guidance_action_button.set_meta(
+			"world_target",
+			(guided_loop.get("one_action_one_target", {}) as Dictionary).duplicate(true),
+		)
+		_guidance_action_button.set_meta(
+			"consequence_preview",
+			(guided_loop.get("animated_consequence_preview", {}) as Dictionary).duplicate(true),
+		)
+	if _core_loop_host != null:
+		_core_loop_host.set_meta("guided_loop", guided_loop.duplicate(true))
 	if not preview_line.is_empty() and _guidance_label != null:
 		_guidance_label.tooltip_text += glance_line
 		_guidance_label.set_meta("accessible_text", _guidance_label.tooltip_text)
@@ -19413,7 +19424,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		return
 	var options := playbook.get("options", []) as Array
 	var primary_kind := ""
-	for priority_kind in ["reward", "recovery", "contract", "loadout", "preparation", "rival", "side_goal"]:
+	for priority_kind in ["reward", "recovery", "preset", "customize", "contract", "loadout", "preparation", "rival", "side_goal"]:
 		for option_value in options:
 			if option_value is Dictionary and String((option_value as Dictionary).get("kind", "")) == priority_kind:
 				primary_kind = priority_kind
@@ -19448,7 +19459,9 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			popup.add_separator()
 		previous_kind = kind
 		var available := bool(option.get("available", false))
-		var label := "%s  ·  %s" % [
+		var recommended_mark := "★  " if bool(option.get("recommended", false)) else ""
+		var label := "%s%s  ·  %s" % [
+			recommended_mark,
 			kind.replace("_", " ").to_upper(),
 			String(option.get("label", "PLAY")),
 		]
@@ -19471,7 +19484,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	var combo := playbook.get("combo", {}) as Dictionary
 	var side_goal := playbook.get("side_goal", {}) as Dictionary
 	var plan_labels: Array[String] = []
-	for step_value in playbook.get("shift_plan", []):
+	for step_value in playbook.get("shift_journey", []):
 		if step_value is Dictionary:
 			plan_labels.append(String((step_value as Dictionary).get("label", "STEP")))
 	var detail_lines: Array[String] = []
@@ -19497,10 +19510,14 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	var last_receipt := playbook.get("last_receipt", {}) as Dictionary
 	if not last_receipt.is_empty():
 		detail_lines.append("LAST  ·  %s" % String(last_receipt.get("outcome", "PLAY FILED")))
+	var strategy_preset_id := String(playbook.get("strategy_preset_id", ""))
+	var strategy_preset := playbook.get("strategy_preset", {}) as Dictionary
+	var plan_filed := not strategy_preset_id.is_empty() or not String(contract.get("id", "")).is_empty()
 	_active_playbook_button.text = (
 		"REWARD  ▾" if ready_kind == "reward" else
 		"SIGNATURE  ▾" if ready_kind == "signature" else
-		"PLAN  ▾" if String(contract.get("id", "")).is_empty() else
+		"CHOOSE PLAN  ▾" if not plan_filed else
+		"%s  ▾" % String(strategy_preset.get("label", "PLAN")).trim_suffix(" PLAN") if strategy_preset_id != "custom" else
 		"PLAY  ▾"
 	)
 	_active_playbook_button.icon = ManagementUIThemeScript.action_icon(
@@ -19508,7 +19525,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	)
 	_active_playbook_button.tooltip_text = "\n".join(detail_lines)
 	_active_playbook_button.accessibility_name = (
-		"Active shift playbook. %s. Open to compare gain, cost, and risk."
+		"Active shift playbook. Core actions: Inspect, Route, Help, Peck, Invest. %s. Open to compare gain, cost, and risk."
 		% " ".join(detail_lines)
 	)
 	_active_playbook_button.set_meta("authoritative", true)
@@ -19561,7 +19578,36 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 	}
 	_active_playbook_menu_fingerprint = ""
 	if _audio_feedback != null:
-		_audio_feedback.play_decision_resolved()
+		if kind in [&"reward", &"teamwork"]:
+			_audio_feedback.play_commendation()
+		else:
+			_audio_feedback.play_decision_resolved()
+	if kind == &"preset":
+		_pulse_action_target(_active_playbook_button)
+	if kind == &"signature":
+		var signature_worker_id := int(result.get("worker_id", _active_playbook_focused_worker_id))
+		var signature_view := _worker_views.get(signature_worker_id) as ChickenView
+		if signature_view != null and is_instance_valid(signature_view):
+			signature_view.play_signature_feedback(StringName(result.get("action_id", &"")))
+		if _camera_controller != null and signature_worker_id >= 0:
+			_camera_controller.focus_worker(signature_worker_id)
+	if kind == &"teamwork":
+		var authority_key := "playbook:%d" % int(result.get("receipt_serial", 0))
+		for teammate_id in [int(result.get("worker_id", -1)), int(result.get("partner_id", -1))]:
+			var teammate_view := _worker_views.get(teammate_id) as ChickenView
+			if teammate_view == null or not is_instance_valid(teammate_view):
+				continue
+			teammate_view.play_team_lift_feedback({
+				"authority_key": authority_key,
+				"worker_id": teammate_id,
+				"morale_delta": 6.0,
+				"stress_delta": -4.0,
+				"fatigue_delta": 0.0,
+			})
+		if _camera_controller != null and int(result.get("worker_id", -1)) >= 0:
+			_camera_controller.focus_worker(int(result.get("worker_id", -1)))
+	if kind == &"reward" and _office_atmosphere != null:
+		_office_atmosphere.pulse_farmer_review()
 	if not bool(result.get("practice", false)):
 		_save_campaign_checkpoint("active_playbook_%s" % String(kind))
 	var refreshed_snapshot := _simulation.snapshot()
@@ -20684,6 +20730,17 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			team_lift_state
 			if bool(team_lift_state.get("active", false))
 				or int(team_lift_state.get("serial", 0)) > 0 else
+			{"active": false}
+		)
+		var signature_state := (
+			worker_view.signature_feedback_state()
+			if worker_view != null and is_instance_valid(worker_view) else
+			{}
+		)
+		intent_diagnostic["signature_move"] = (
+			signature_state
+			if bool(signature_state.get("active", false))
+				or int(signature_state.get("serial", 0)) > 0 else
 			{"active": false}
 		)
 		hen_intents.append(intent_diagnostic)

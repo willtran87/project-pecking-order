@@ -171,6 +171,7 @@ static var _management_focus_halo_texture: Texture2D
 static var _priority_peck_ready_halo_texture: Texture2D
 static var _priority_peck_missed_halo_texture: Texture2D
 static var _team_lift_marker_texture: Texture2D
+static var _signature_marker_textures: Dictionary[StringName, Texture2D] = {}
 static var _flock_bond_texture_cache: Dictionary[StringName, Texture2D] = {}
 static var _dispatch_candidate_texture_cache: Dictionary[StringName, Texture2D] = {}
 
@@ -285,6 +286,7 @@ var _hen_intent_marker: Sprite3D
 var _management_focus_halo: Sprite3D
 var _priority_peck_ready_halo: Sprite3D
 var _team_lift_marker: Sprite3D
+var _signature_marker: Sprite3D
 var _hen_intent: Dictionary = {}
 var _hen_intent_urgency := 1
 var _management_focus_selected := false
@@ -292,6 +294,7 @@ var _management_focus_active := false
 var _hen_intent_transition_tween: Tween
 var _priority_peck_ready_tween: Tween
 var _team_lift_tween: Tween
+var _signature_tween: Tween
 var _last_hen_intent_key := ""
 var _hen_intent_transition_serial := 0
 var _priority_peck_ready_serial := 0
@@ -299,6 +302,9 @@ var _priority_peck_missed_serial := 0
 var _team_lift_serial := 0
 var _team_lift_receipt: Dictionary = {}
 var _team_lift_marker_origin := Vector3.ZERO
+var _signature_marker_origin := Vector3.ZERO
+var _signature_serial := 0
+var _signature_action_id: StringName = &""
 var _priority_peck_halo_origin := Vector3.ZERO
 var _reduced_motion := false
 var _flock_bond_marker: Sprite3D
@@ -1770,6 +1776,21 @@ func _build_hen_intent_marker() -> void:
 	_team_lift_marker.texture = _team_lift_texture()
 	_team_lift_marker.visible = false
 	add_child(_team_lift_marker)
+	_signature_marker = Sprite3D.new()
+	_signature_marker.name = "SignatureMoveMarker"
+	_signature_marker.position = Vector3(
+		0.0,
+		HEN_INTENT_BASE_HEIGHT + height_offset + 0.38,
+		0.0,
+	)
+	_signature_marker_origin = _signature_marker.position
+	_signature_marker.pixel_size = 0.0094
+	_signature_marker.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_signature_marker.no_depth_test = true
+	_signature_marker.render_priority = 24
+	_signature_marker.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_signature_marker.visible = false
+	add_child(_signature_marker)
 	_hen_intent_marker = Sprite3D.new()
 	_hen_intent_marker.name = "HenIntentMarker"
 	_hen_intent_marker.position = Vector3(
@@ -2285,6 +2306,77 @@ func _reset_priority_peck_ready_feedback() -> void:
 		_hen_intent_marker.set_meta("priority_peck_missed_capture_staged", false)
 
 
+## Gives each preferred personnel action a distinct, bounded world signature.
+## The marker identifies the acting hen while the existing personnel receipt
+## remains the sole source of economic authority.
+func play_signature_feedback(action_id: StringName) -> bool:
+	_reset_signature_feedback()
+	if _signature_marker == null:
+		return false
+	_signature_serial += 1
+	_signature_action_id = action_id
+	_signature_marker.texture = _signature_texture(action_id)
+	_signature_marker.visible = true
+	_signature_marker.position = _signature_marker_origin
+	_signature_marker.scale = Vector3.ONE * (1.0 if _reduced_motion else 0.68)
+	_signature_marker.modulate = Color.WHITE
+	_signature_marker.set_meta("active", true)
+	_signature_marker.set_meta("serial", _signature_serial)
+	_signature_marker.set_meta("action_id", String(action_id))
+	_signature_marker.set_meta("worker_id", worker_id)
+	_signature_marker.set_meta("animated", not _reduced_motion)
+	_signature_tween = create_tween().bind_node(_signature_marker)
+	if _reduced_motion:
+		_signature_tween.tween_interval(1.05)
+	else:
+		_signature_tween.set_parallel(true)
+		_signature_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_signature_tween.tween_property(_signature_marker, "scale", Vector3.ONE * 1.12, 0.24)
+		_signature_tween.tween_property(
+			_signature_marker,
+			"position",
+			_signature_marker_origin + Vector3(0.0, 0.32, 0.0),
+			0.88,
+		).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		_signature_tween.tween_property(
+			_signature_marker,
+			"modulate:a",
+			0.0,
+			0.32,
+		).set_delay(0.62).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	_signature_tween.chain().tween_callback(_finish_signature_feedback)
+	return true
+
+
+func signature_feedback_state() -> Dictionary:
+	return {
+		"active": _signature_marker != null and _signature_marker.visible,
+		"serial": _signature_serial,
+		"worker_id": worker_id,
+		"action_id": String(_signature_action_id),
+		"animated": bool(_signature_marker.get_meta("animated", false)) if _signature_marker != null else false,
+	}
+
+
+func _finish_signature_feedback() -> void:
+	_signature_tween = null
+	if _signature_marker != null:
+		_signature_marker.visible = false
+		_signature_marker.set_meta("active", false)
+
+
+func _reset_signature_feedback() -> void:
+	if _signature_tween != null and _signature_tween.is_valid():
+		_signature_tween.kill()
+	_signature_tween = null
+	if _signature_marker != null:
+		_signature_marker.visible = false
+		_signature_marker.position = _signature_marker_origin
+		_signature_marker.scale = Vector3.ONE
+		_signature_marker.modulate = Color.WHITE
+		_signature_marker.set_meta("active", false)
+
+
 ## Marks the exact hens changed by the authoritative x10 Team Lift receipt.
 ## The shared icon is deliberately compact: the routing strip carries the
 ## numbers while matching world markers answer "who received it?" at a glance.
@@ -2396,6 +2488,36 @@ static func _team_lift_texture() -> Texture2D:
 		return null
 	_team_lift_marker_texture = ImageTexture.create_from_image(image)
 	return _team_lift_marker_texture
+
+
+static func _signature_texture(action_id: StringName) -> Texture2D:
+	if _signature_marker_textures.has(action_id):
+		return _signature_marker_textures[action_id]
+	var fill := "d6ad4d"
+	var symbol := "M32 9 L39 24 L56 26 L44 38 L47 55 L32 47 L17 55 L20 38 L8 26 L25 24 Z"
+	match action_id:
+		&"share_credit":
+			fill = "d99676"
+			symbol = "M32 53 C10 40 12 18 24 18 C30 18 32 23 32 27 C32 23 35 18 41 18 C53 18 55 40 32 53 Z"
+		&"career_coaching":
+			fill = "6fa7c7"
+			symbol = "M15 16 H49 V49 H15 Z M21 22 H43 V27 H21 Z M21 32 H38 V37 H21 Z M21 42 H34 V46 H21 Z"
+		&"quota_pressure":
+			fill = "d9775f"
+			symbol = "M34 8 L17 34 H29 L25 56 L49 27 H36 L43 8 Z"
+	var svg := (
+		"<svg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 64 64'>"
+		+ "<circle cx='32' cy='32' r='29' fill='#101a21' fill-opacity='.95' stroke='#fff0b8' stroke-width='3'/>"
+		+ "<circle cx='32' cy='32' r='23' fill='#%s'/>" % fill
+		+ "<path d='%s' fill='#fff8dc' fill-rule='evenodd'/>" % symbol
+		+ "</svg>"
+	)
+	var image := Image.new()
+	if image.load_svg_from_string(svg, 1.0) != OK:
+		return null
+	var texture := ImageTexture.create_from_image(image)
+	_signature_marker_textures[action_id] = texture
+	return texture
 
 
 static func _priority_peck_halo_texture() -> Texture2D:
