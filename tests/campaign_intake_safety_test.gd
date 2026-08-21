@@ -35,16 +35,16 @@ func _run() -> void:
 	) as Dictionary
 	_check(
 		campaign_ui != null
-		and campaign_ui.title_intake_phase() == &"new_file"
-		and String(fresh_next_action.get("copy", "")) == "NEXT: CHOOSE DIFFICULTY"
-		and String(fresh_next_action.get("action_id", "")) == "campaign_new"
+		and campaign_ui.title_intake_phase() == &"quick_start"
+		and String(fresh_next_action.get("copy", "")) == "NEXT: QUICK START"
+		and String(fresh_next_action.get("action_id", "")) == "campaign_quick_start"
 		and bool(fresh_next_action.get("actionable", false))
-		and "Choose a difficulty" in fresh_summary
-		and "START SHIFT 1 [N]" in fresh_summary
+		and "recommended Standard" in fresh_summary
+		and "QUICK START [N]" in fresh_summary
 		and String(fresh_announcement.get("kind", "")) == "career_intake"
-		and "Choose a difficulty" in String(fresh_announcement.get("text", ""))
+		and "recommended Standard" in String(fresh_announcement.get("text", ""))
 		and "pressure file" not in String(fresh_announcement.get("text", "")),
-		"fresh intake diagnostics and narration should mirror the visible difficulty-to-start action [phase=%s next=%s summary=%s announcement=%s]" % [
+		"fresh intake diagnostics and narration should mirror the visible Quick Start action [phase=%s next=%s summary=%s announcement=%s]" % [
 			String(campaign_ui.title_intake_phase()) if campaign_ui != null else "missing",
 			str(fresh_next_action),
 			fresh_summary,

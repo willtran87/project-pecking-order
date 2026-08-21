@@ -1083,9 +1083,10 @@ test("sanitizes probation doctrine copy and suppresses it before selection, on t
 
 	const title = buildStatus(JSON.stringify({
 		campaign_stage: "title",
+		campaign_intake_phase: "quick_start",
 		probation_doctrine: probationDoctrine(),
 	}), context);
-	assert.equal(title, "Campaign menu open. Objective: choose a filing standard, then meet Mabel and open the new career file.");
+	assert.equal(title, "Campaign menu open. Meet Mabel. Objective: activate Quick Start for the recommended Standard, Open Nest, Baseline file, or choose Customize for optional setup.");
 
 	const seniorFlockwatch = buildStatus(JSON.stringify({
 		campaign_stage: "senior_quarter",

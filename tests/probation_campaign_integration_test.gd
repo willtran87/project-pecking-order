@@ -141,6 +141,9 @@ func _run() -> void:
 	# into the new authoritative campaign and verified checkpoint.
 	office.call("_show_campaign_title", false)
 	await process_frame
+	var customize_button := office.find_child("CustomizeCampaignButton", true, false) as Button
+	_press(customize_button)
+	await process_frame
 	var challenge_selector := office.find_child("ChallengeContractSelector", true, false) as OptionButton
 	var challenge_summary := office.find_child("ChallengeContractSummary", true, false) as Label
 	var challenge_fund := office.find_child("ChallengeOpeningFund", true, false) as Label

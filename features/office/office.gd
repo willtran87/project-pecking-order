@@ -4890,6 +4890,7 @@ func _spawn_worker_view(worker_data: Dictionary, arrival_order: int = -1) -> Chi
 	view.feed_party_attendance_completed.connect(_on_feed_party_attendance_completed)
 	view.workstation_presence_changed.connect(_on_worker_workstation_presence_changed)
 	view.office_departure_completed.connect(_on_worker_departure_completed.bind(view))
+	view.management_selection_requested.connect(_on_world_worker_selected)
 	view.work_peck_contact.connect(_on_work_peck_contact)
 	view.priority_peck_contact.connect(_on_priority_peck_contact)
 	view.lay_release_reached.connect(_on_lay_release_reached)
@@ -5989,6 +5990,10 @@ func _build_ui() -> void:
 		_panel_style(Color("24343e"), 0.78, 7, 2),
 	)
 	_guidance_action_button.pressed.connect(_on_guidance_action_pressed)
+	_guidance_action_button.mouse_entered.connect(_on_guidance_preview_entered)
+	_guidance_action_button.mouse_exited.connect(_on_guidance_preview_exited)
+	_guidance_action_button.focus_entered.connect(_on_guidance_preview_entered)
+	_guidance_action_button.focus_exited.connect(_on_guidance_preview_exited)
 	_shift_objective_row.add_child(_guidance_action_button)
 	var guidance_content := HBoxContainer.new()
 	guidance_content.name = "GuidanceActionContent"
@@ -19401,6 +19406,12 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		)
 	if _core_loop_host != null:
 		_core_loop_host.set_meta("guided_loop", guided_loop.duplicate(true))
+		_core_loop_host.set_meta("physical_loop", (
+			_gameplay_pulse.get("physical_loop", {}) as Dictionary
+		).duplicate(true))
+	_apply_attention_focus(StringName(String(
+		(_gameplay_pulse.get("focus_mode", {}) as Dictionary).get("action_id", "")
+	)))
 	if not preview_line.is_empty() and _guidance_label != null:
 		_guidance_label.tooltip_text += glance_line
 		_guidance_label.set_meta("accessible_text", _guidance_label.tooltip_text)
@@ -21651,6 +21662,51 @@ func _on_pecking_order_worker_selected(worker_id: int) -> void:
 		_camera_controller.focus_worker(worker_id)
 
 
+func _on_world_worker_selected(worker_id: int) -> void:
+	# The camera-focus handler is already the single route commit edge. Reusing
+	# it means tray -> physical hen produces the same folder travel, undo receipt,
+	# and authoritative simulation command as selecting the dossier entry.
+	_on_pecking_order_worker_selected(worker_id)
+
+
+func _on_guidance_preview_entered() -> void:
+	if _guidance_action_button == null or _guidance_action_button.disabled:
+		return
+	var target := _guidance_action_button.get_meta("world_target", {}) as Dictionary
+	var target_worker_id := int(target.get("worker_id", -1))
+	if target_worker_id < 0:
+		return
+	var view := _worker_views.get(target_worker_id) as ChickenView
+	if view != null and is_instance_valid(view):
+		view.set_consequence_preview(true, _guidance_action_id)
+
+
+func _on_guidance_preview_exited() -> void:
+	if (
+		_guidance_action_button != null
+		and (_guidance_action_button.is_hovered() or _guidance_action_button.has_focus())
+	):
+		return
+	for view_value: Variant in _worker_views.values():
+		var view := view_value as ChickenView
+		if view != null and is_instance_valid(view):
+			view.set_consequence_preview(false)
+
+
+func _apply_attention_focus(action_id: StringName) -> void:
+	var active := action_id != &""
+	if _guidance_action_button != null:
+		_guidance_action_button.set_meta("attention_mode_active", active)
+		_guidance_action_button.set_meta("primary_action_id", String(action_id))
+	if _core_loop_host != null:
+		_core_loop_host.modulate.a = 0.66 if active else 1.0
+	if _reward_loop_host != null:
+		var reward_action := action_id in [&"review", &"campaign_report_continue"]
+		_reward_loop_host.modulate.a = 1.0 if reward_action or not active else 0.54
+	if _flockwatch_toggle != null:
+		_flockwatch_toggle.modulate.a = 0.72 if active else 1.0
+
+
 func _set_guidance(
 	copy: String,
 	icon_kind: StringName = &"goal",
@@ -22732,7 +22788,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 			not bool(_first_clutch.get("dismissed", true))
 			and not bool(_first_clutch.get("completed", false))
 		)
-	var snapshot_day := int(snapshot["day"])
+	var snapshot_day := int(snapshot.get("day", presented_day))
 	if snapshot_day > _last_reviewed_day and _management_presence != null:
 		_last_reviewed_day = snapshot_day
 		if _office_atmosphere != null:
@@ -22740,8 +22796,8 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		_management_presence.play_review()
 		if _camera_controller != null:
 			_camera_controller.focus_point(_management_presence.review_focus_point(), "FARMER INSPECTION", 0.85)
-	_update_shift_clock_copy(int(snapshot["day"]), String(snapshot["time_label"]))
-	_authoritative_revenue_cents = int(snapshot["revenue_cents"])
+	_update_shift_clock_copy(snapshot_day, String(snapshot.get("time_label", "")))
+	_authoritative_revenue_cents = int(snapshot.get("revenue_cents", 0))
 	var available_to_display := maxi(0, _authoritative_revenue_cents - _pending_collection_cents)
 	if _displayed_revenue_cents < 0:
 		_displayed_revenue_cents = available_to_display
@@ -22753,8 +22809,8 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		_displayed_revenue_cents = available_to_display
 		_fund_visual_target_cents = available_to_display
 		_update_fund_label()
-	var eggs_today := int(snapshot["eggs_today"])
-	var quota_target := maxi(1, int(snapshot["quota_target"]))
+	var eggs_today := int(snapshot.get("eggs_today", 0))
+	var quota_target := maxi(1, int(snapshot.get("quota_target", 1)))
 	_quota_progress.max_value = quota_target
 	_quota_progress.value = mini(eggs_today, quota_target)
 	_quota_progress_label.text = "QUOTA  ·  %d / %d" % [eggs_today, quota_target]
@@ -22898,9 +22954,9 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		"Live files against current intake capacity, including overdue files and files turned away today."
 	)
 	_today_clutch_label.text = "CLUTCH · %d / %d TODAY · %d CAREER EGGS" % [
-		int(snapshot["eggs_today"]),
-		int(snapshot["quota_target"]),
-		int(snapshot["eggs_total"]),
+		int(snapshot.get("eggs_today", 0)),
+		int(snapshot.get("quota_target", 0)),
+		int(snapshot.get("eggs_total", 0)),
 	]
 	_today_clutch_label.tooltip_text = (
 		"Today's gathered eggs against the clutch target, followed by the career egg total."
@@ -22915,7 +22971,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 			_worker_views[worker_id].apply_snapshot(worker_snapshot)
 	_today_flock_label.text = "FLOCK · %d%% SPIRITS · %d%% UNITY RISK" % [
 		int(morale_total / maxf(1.0, float(worker_data.size()))),
-		int(snapshot["solidarity"]),
+		int(snapshot.get("solidarity", 0)),
 	]
 	_today_flock_label.tooltip_text = (
 		"Average flock morale and the current unity pressure behind labor petitions."
@@ -22944,8 +23000,8 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		_signed_flockwatch_currency(secured_margin_cents),
 		float(break_even_remaining_cents) / 100.0,
 		int(snapshot.get("market_contract_standing", 0)),
-		int(snapshot["executive_confidence"]),
-		int(snapshot["compliance"]),
+		int(snapshot.get("executive_confidence", 0)),
+		int(snapshot.get("compliance", 0)),
 	]
 	_today_ledger_label.tooltip_text = (
 		"Feed Fund minus protected payroll, feed, upkeep, breach, arrears, and debt "
@@ -23045,7 +23101,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		_today_precedent_label.text = ""
 		_today_precedent_label.tooltip_text = ""
 
-	var overtime_active := bool(snapshot["overtime_enabled"])
+	var overtime_active := bool(snapshot.get("overtime_enabled", false))
 	_overtime_button.text = "%s  [%s]" % [
 		"END AFTER-HOURS PECKING" if overtime_active else "ENABLE AFTER-HOURS PECKING",
 		_action_hint(&"toggle_overtime"),
@@ -23062,7 +23118,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	if _continue_shift_button.visible:
 		_apply_review_progression_action(snapshot)
 
-	var fund_cents := int(snapshot["revenue_cents"])
+	var fund_cents := int(snapshot.get("revenue_cents", 0))
 	var spendable_fund_cents := int(snapshot.get("spendable_fund_cents", fund_cents))
 	var feed_used := bool(snapshot.get("feed_party_used_today", false))
 	if campaign_modal_open:

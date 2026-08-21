@@ -449,6 +449,7 @@ func _run() -> void:
 	var journey_shifts_caption := ui.find_child("ProbationJourneyShiftsCaption", true, false) as Label
 	var journey_review_caption := ui.find_child("ProbationJourneyReviewCaption", true, false) as Label
 	var new_button := ui.find_child("NewCampaignButton", true, false) as Button
+	var customize_button := ui.find_child("CustomizeCampaignButton", true, false) as Button
 	var continue_button := ui.find_child("ContinueCampaignButton", true, false) as Button
 	var back_button := ui.find_child("BackToSavedCampaignButton", true, false) as Button
 	_check(title_panel != null and title_panel.is_visible_in_tree(), "first load should show the campaign title panel", failures)
@@ -474,8 +475,8 @@ func _run() -> void:
 	_check(
 		 title_description != null
 		and title_description.text == "Protect the flock. Survive five shifts."
-		and "Help Mabel" in title_description.tooltip_text
-		and "terms lock when Shift 1 starts" in title_description.tooltip_text
+		and "recommended Standard" in title_description.tooltip_text
+		and "Customize is optional" in title_description.tooltip_text
 		and title_description.tooltip_text == String(title_description.get_meta("accessible_text", "")),
 		"title subtitle should state the setup action once while retaining its locked-terms explanation",
 		failures,
@@ -513,7 +514,7 @@ func _run() -> void:
 	)
 	_check(
 		new_button != null
-		and new_button.text == "START SHIFT 1  [N]"
+		and new_button.text == "QUICK START  [N]"
 		and new_button.theme_type_variation == &"PrimaryButton"
 		and new_button.focus_mode == Control.FOCUS_ALL,
 		"fresh intake should expose one primary Mabel action with keyboard focus",
@@ -521,21 +522,44 @@ func _run() -> void:
 	)
 	var fresh_primary_action := ui.title_primary_action_state()
 	_check(
-		String(fresh_primary_action.get("copy", "")) == "NEXT: CHOOSE DIFFICULTY"
-		and String(fresh_primary_action.get("action_id", "")) == "campaign_new"
+		String(fresh_primary_action.get("copy", "")) == "NEXT: QUICK START"
+		and String(fresh_primary_action.get("action_id", "")) == "campaign_quick_start"
 		and bool(fresh_primary_action.get("actionable", false))
 		and String(fresh_primary_action.get("visible_label", "")) == new_button.text
 		and _contains_all(
 			String(fresh_primary_action.get("accessible_text", "")),
-			["Choose a difficulty", "three-step run", "START SHIFT 1 [N]"],
+			["QUICK START [N]", "recommended Standard", "Customize"],
 		),
 		"fresh intake should publish the same visible next action to assistive and diagnostic clients",
 		failures,
 	)
 	_check(
 		_count_visible_primary_buttons(title_panel) == 1
+		and customize_button != null and customize_button.is_visible_in_tree()
+		and customize_button.text == "CUSTOMIZE  [A]"
 		and back_button != null and not back_button.is_visible_in_tree(),
-		"fresh intake should have exactly one visually primary CTA and no irrelevant Back action",
+		"fresh intake should have one primary Quick Start, one optional Customize action, and no irrelevant Back action",
+		failures,
+	)
+	_check(
+		challenge_card != null and not challenge_card.is_visible_in_tree()
+		and probation_summary != null and not probation_summary.is_visible_in_tree()
+		and ui.title_intake_phase() == &"quick_start",
+		"Quick Start should collapse advanced file terms and publish its distinct intake phase",
+		failures,
+	)
+	if customize_button != null:
+		customize_button.pressed.emit()
+	await process_frame
+	await process_frame
+	_check(
+		ui.title_intake_phase() == &"new_file"
+		and challenge_card != null and challenge_card.is_visible_in_tree()
+		and probation_summary != null and probation_summary.is_visible_in_tree()
+		and new_button.text == "START SHIFT 1  [N]"
+		and back_button != null and back_button.is_visible_in_tree()
+		and back_button.text == "BACK TO QUICK START  [B]",
+		"Customize should reveal the complete existing setup without changing its authority",
 		failures,
 	)
 	_check(

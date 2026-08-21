@@ -43,7 +43,7 @@ func _init() -> void:
 		"focused_worker_id": 7,
 	})
 	var required := [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
@@ -71,6 +71,26 @@ func _init() -> void:
 		and bool((guided_loop.get("one_action_one_target", {}) as Dictionary).get("world_outline", false))
 		and int((guided_loop.get("daily_content_budget", {}) as Dictionary).get("major", 0)) == 1,
 		"the guided loop should consolidate all twenty-four improvements around five verbs, one world target, and a bounded daily choice budget",
+		failures,
+	)
+	var physical_loop := pulse.get("physical_loop", {}) as Dictionary
+	var physical_items := physical_loop.get("items", {}) as Dictionary
+	_check(
+		int(physical_loop.get("item_count", 0)) == 24
+		and int(physical_loop.get("resolved_count", 0)) == 24
+		and bool(physical_loop.get("all_resolved", false))
+		and physical_items.has("quick_start")
+		and physical_items.has("direct_world_routing")
+		and physical_items.has("next_shift_preview"),
+		"the physical loop contract should resolve all twenty-four audited enhancements to real game surfaces",
+		failures,
+	)
+	_check(
+		PeckworkRoutingUI._peck_rating_label(&"steady") == "GOOD"
+		and PeckworkRoutingUI._peck_rating_label(&"strong") == "GREAT"
+		and PeckworkRoutingUI._peck_rating_label(&"perfect") == "PERFECT"
+		and PeckworkRoutingUI._peck_rating_label(&"scramble") == "LATE",
+		"Priority Peck should present a readable Good, Great, Perfect skill ladder while preserving stable receipt IDs",
 		failures,
 	)
 	_check(String((pulse.get("combo_readiness", {}) as Dictionary).get("compact", "")) == "2/3 COMBO ARMED", "routing momentum should disclose the next combo threshold", failures)
@@ -155,7 +175,7 @@ func _init() -> void:
 			push_error("GAMEPLAY_PULSE_DIRECTOR_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("GAMEPLAY_PULSE_DIRECTOR_TEST_PASSED items=20 reward-loop=15 guided-loop=24 authority=playbook-aware journey=4-stage rival=disclosed mastery=3-stage recovery=fail-forward")
+	print("GAMEPLAY_PULSE_DIRECTOR_TEST_PASSED items=20 reward-loop=15 guided-loop=24 physical-loop=24 authority=playbook-aware journey=4-stage rival=disclosed mastery=3-stage recovery=fail-forward")
 	quit(0)
 
 

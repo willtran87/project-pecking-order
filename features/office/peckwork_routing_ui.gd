@@ -3784,7 +3784,7 @@ func _refresh() -> void:
 		&"used":
 			if last_assist_matches_claim:
 				assist_receipt_active = true
-				var rating := String(last_assist.get("rating", "steady")).to_upper()
+				var rating := _peck_rating_label(StringName(last_assist.get("rating", &"steady")))
 				var progress_gain := int(roundf(float(last_assist.get("progress_gain", 0.0))))
 				var risk_points := float(last_assist.get("quality_modifier", 0.0)) * 100.0
 				var risk_text := "%s%.1f%%" % [("+" if risk_points > 0.0 else ""), risk_points]
@@ -5962,6 +5962,17 @@ func _make_label(text: String, font_size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	return label
+
+
+## Friendly presentation names keep the skill ladder immediately legible while
+## the stable simulation receipt IDs remain perfect/strong/steady/scramble.
+static func _peck_rating_label(rating: StringName) -> String:
+	match rating:
+		&"perfect": return "PERFECT"
+		&"strong": return "GREAT"
+		&"steady": return "GOOD"
+		&"scramble": return "LATE"
+		_: return String(rating).replace("_", " ").to_upper()
 
 
 func _make_contract_badge(control_name: String, minimum_width: float) -> Label:

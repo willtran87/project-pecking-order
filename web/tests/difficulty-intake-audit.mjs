@@ -45,6 +45,16 @@ async function clickAuthored(x, y) {
 const evidence = { url, selections: [], activeContract: {}, errors };
 try {
 	await page.goto(url, { waitUntil: "domcontentloaded" });
+	const quickStart = await waitForState(
+		(snapshot) => snapshot.loaded === true
+			&& snapshot.campaign_stage === "title"
+			&& snapshot.campaign_intake_phase === "quick_start",
+		"recommended Quick Start intake",
+		60_000,
+	);
+	assert.equal(quickStart.selected_new_challenge_contract?.id, "standard_filing");
+	await page.screenshot({ path: path.join(outputDirectory, "quick-start.png"), fullPage: true });
+	await page.keyboard.press("KeyA");
 	const standard = await waitForState(
 		(snapshot) => snapshot.loaded === true
 			&& snapshot.campaign_stage === "title"

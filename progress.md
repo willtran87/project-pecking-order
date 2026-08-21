@@ -13900,3 +13900,30 @@ The next major systems milestone is persistent worker relationships and individu
   legible, unobstructed, and visibly recommends the directive-matched Fast plan.
 - Next: run the complete beta gate, publish the synchronized candidate, verify
   live Pages byte parity, and remove every owned test process and runtime.
+
+## 2026-08-21 — Physical and intuitive loop closure
+
+- Reconciled the latest 24-item enhancement audit against the existing campaign,
+  simulation, Active Playbook, character, office, career, and replay systems.
+- Fresh intake now presents Mabel with one recommended Quick Start and one
+  optional Customize action. Quick Start files the stable Standard / Open Nest /
+  Baseline defaults; Customize reveals the unchanged complete setup and safe
+  replacement flow.
+- Every chicken now owns one bounded world click/tap target. Arming a tray and
+  selecting the physical hen reuses the single camera-focus dispatch edge and
+  existing folder travel, undo, and simulation command.
+- The Next Action stays visually dominant, previews its focused consequence on
+  the target hen without filing, and clears that preview on exit. Priority Peck
+  presents its stable rating IDs as Good, Great, Perfect, and Late.
+- Added a 24-item `physical_loop` diagnostic contract plus
+  `docs/PHYSICAL_INTUITIVE_LOOP_RESOLUTION.md`, with explicit authority and
+  automated-versus-human evidence boundaries.
+- Godot import and focused gameplay-pulse, physical ChickenView, campaign intake,
+  campaign safety, and First Clutch UI contracts pass.
+- Production browser verification proves the recommended Quick Start, all 24
+  physical-loop mappings, three strategy presets, four-stage journey, complete
+  advanced difficulty path, and zero console/page errors. Original-size review
+  confirms the compact intake and live office remain contained at 1440x900.
+- The complete beta release gate passes 58/58 checks in 453.346 seconds. The
+  synchronized 10,560,148-byte shipping PCK has SHA-256
+  `FA3B8D6EE2943601515764AC2711D709D8097D28ED92DE602B600B6DFE2E981A`.

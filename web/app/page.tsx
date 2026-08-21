@@ -1338,6 +1338,9 @@ function buildGameStateAccessibleStatus(
 		if (resumeAvailable && intakePhase !== "new_file") {
 			return `Campaign menu open.${resumeTerms}${returnRecapText}${offlineRecapText} Objective: continue the saved-file candidate, or review a new file.`;
 		}
+		if (intakePhase === "quick_start") {
+			return "Campaign menu open. Meet Mabel. Objective: activate Quick Start for the recommended Standard, Open Nest, Baseline file, or choose Customize for optional setup.";
+		}
 		const savedCandidateNote = resumeAvailable
 			? " The saved-file candidate remains unchanged until replacement is confirmed."
 			: "";

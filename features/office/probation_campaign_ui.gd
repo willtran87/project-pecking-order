@@ -41,6 +41,7 @@ const VIEW_ACTIVE := &"active"
 const VIEW_REPORT := &"between_shift"
 const VIEW_CONTRACT_BOARD := &"contract_board"
 const VIEW_FINAL := &"final"
+const TITLE_PHASE_QUICK_START := &"quick_start"
 const TITLE_PHASE_RESUME := &"resume"
 const TITLE_PHASE_NEW_FILE := &"new_file"
 const DEFAULT_TOTAL_DAYS := 5
@@ -179,6 +180,7 @@ var _title_opening_files: Label
 var _title_challenge_terms_toggle: Button
 var _title_challenge_detail: Label
 var _title_new_button: Button
+var _title_customize_button: Button
 var _title_back_button: Button
 var _report_score_row: HFlowContainer
 var _report_heading_stack: VBoxContainer
@@ -302,7 +304,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
 	_view = _read_view(_snapshot)
 	if _view == VIEW_TITLE:
-		_title_new_file_setup = not _snapshot_continue_available()
+		_title_new_file_setup = false
 		_title_contract_terms_expanded = false
 	if _snapshot.has("selected_new_challenge_contract_id"):
 		_selected_challenge_contract_id = StringName(String(
@@ -336,7 +338,7 @@ func show_title(continue_available: bool = false) -> void:
 	_snapshot["continue_available"] = continue_available
 	_view = VIEW_TITLE
 	_selected_milestone = &""
-	_title_new_file_setup = not continue_available
+	_title_new_file_setup = false
 	_title_contract_terms_expanded = false
 	_refresh()
 
@@ -477,7 +479,9 @@ func selected_replay_scenario_id() -> StringName:
 func title_intake_phase() -> StringName:
 	if _view != VIEW_TITLE:
 		return &""
-	return TITLE_PHASE_NEW_FILE if _title_new_file_setup else TITLE_PHASE_RESUME
+	if _title_new_file_setup:
+		return TITLE_PHASE_NEW_FILE
+	return TITLE_PHASE_RESUME if _snapshot_continue_available() else TITLE_PHASE_QUICK_START
 
 
 ## One read model keeps the visible intake CTA, browser diagnostics, and
@@ -506,6 +510,28 @@ func title_primary_action_state() -> Dictionary:
 			"accessible_text": (
 				"Choose a difficulty, review the three-step run, then activate %s."
 				% start_label.replace("  ", " ")
+			),
+		}
+	if not _snapshot_continue_available():
+		var quick_label := (
+			_title_new_button.text
+			if _title_new_button != null else
+			"QUICK START  [N]"
+		)
+		return {
+			"copy": "NEXT: QUICK START",
+			"action_id": "campaign_quick_start",
+			"actionable": (
+				_title_new_button != null
+				and _title_new_button.is_visible_in_tree()
+				and not _title_new_button.disabled
+			),
+			"visible_label": quick_label,
+			"semantic_icon": "goal",
+			"icon_visible": true,
+			"accessible_text": (
+				"Activate %s for the recommended Standard, Open Nest, Baseline file, or choose Customize for optional setup."
+				% quick_label.replace("  ", " ")
 			),
 		}
 	var continue_label := (
@@ -1961,6 +1987,15 @@ func _build_title_panel(parent: Control) -> void:
 	_title_new_button.shortcut = _shortcut(KEY_N)
 	_title_new_button.pressed.connect(_on_new_campaign_pressed)
 	_title_actions.add_child(_title_new_button)
+	_title_customize_button = _make_button(
+		"CustomizeCampaignButton",
+		"CUSTOMIZE  [A]",
+		&"DecisionChoiceButton",
+	)
+	_title_customize_button.custom_minimum_size = Vector2(210.0, 42.0)
+	_title_customize_button.shortcut = _shortcut(KEY_A)
+	_title_customize_button.pressed.connect(_on_title_customize_pressed)
+	_title_actions.add_child(_title_customize_button)
 	_title_back_button = _make_button(
 		"BackToSavedCampaignButton",
 		"BACK TO SAVED FILE  [B]",
@@ -2846,23 +2881,21 @@ func _snapshot_continue_available() -> bool:
 
 
 func _apply_title_hierarchy(can_continue: bool) -> void:
-	# A fresh intake has no landing decision to make, so it opens directly on the
-	# compact new-file terms. A valid checkpoint instead receives a resume-first
-	# landing with one primary action and an explicit secondary path to setup.
-	_title_new_file_setup = _title_new_file_setup or not can_continue
+	# Fresh players get one recommended action. Optional file terms remain one
+	# explicit step away, while valid checkpoints retain their resume-first path.
 	var setup_visible := _title_new_file_setup
+	var quick_start_visible := not can_continue and not setup_visible
 	if _title_heading != null:
 		_title_heading.text = (
-			"MEET MABEL"
-			if setup_visible else
-			"YOUR COOP FILE IS READY."
+			"MEET MABEL" if not can_continue else
+			("MEET MABEL" if setup_visible else "YOUR COOP FILE IS READY.")
 		)
 	if _title_description != null:
 		var chapter_value: Variant = _snapshot.get("chapter", {})
 		var chapter := chapter_value as Dictionary if chapter_value is Dictionary else {}
 		_title_description.text = (
 			"Protect the flock. Survive five shifts."
-			if setup_visible else
+			if not can_continue or setup_visible else
 			"Continue where you left off, or review a fresh file."
 		)
 		var title_description_detail := (
@@ -2872,12 +2905,15 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 				"Help Mabel carry one real file from tray to farmer without spending the flock to do it.",
 			))
 			if setup_visible else
+			("Start immediately with the recommended Standard, Open Nest, Baseline file. Customize is optional."
+			if quick_start_visible else
 			"Continue verifies the saved file before the coop opens. Reviewing a fresh file leaves the save untouched until replacement is confirmed."
+			)
 		)
 		_title_description.tooltip_text = title_description_detail
 		_title_description.set_meta("accessible_text", title_description_detail)
 	if _title_profile_card != null:
-		_title_profile_card.visible = setup_visible
+		_title_profile_card.visible = setup_visible or quick_start_visible
 	if _title_career_setup_card != null:
 		_title_career_setup_card.visible = setup_visible
 	if _title_challenge_card != null:
@@ -2891,12 +2927,11 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 	_continue_title_button.theme_type_variation = &"PrimaryButton"
 	_title_new_button.visible = true
 	_title_new_button.theme_type_variation = (
-		&"PrimaryButton" if setup_visible else &"DecisionChoiceButton"
+		&"PrimaryButton" if setup_visible or quick_start_visible else &"DecisionChoiceButton"
 	)
 	_title_new_button.text = (
-		"START SHIFT 1  [N]"
-		if setup_visible else
-		"REVIEW A NEW FILE  [N]"
+		"START SHIFT 1  [N]" if setup_visible else
+		("QUICK START  [N]" if quick_start_visible else "REVIEW A NEW FILE  [N]")
 	)
 	_title_new_button.tooltip_text = (
 		"Open a five-shift probation file under %s.%s" % [
@@ -2905,13 +2940,24 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 			if can_continue else "",
 		]
 		if setup_visible else
+		("Start now with Standard difficulty, Open Nest identity, and the Baseline file."
+		if quick_start_visible else
 		"Review Mabel's new-file introduction and immutable challenge terms. The saved file is not changed."
+		)
 	)
-	_title_back_button.visible = can_continue and setup_visible
+	_title_customize_button.visible = quick_start_visible
+	_title_customize_button.tooltip_text = "Choose difficulty, career identity, roost slot, and replay file before starting."
+	_title_customize_button.set_meta("accessible_text", _title_customize_button.tooltip_text)
+	_title_back_button.visible = setup_visible
+	_title_back_button.text = (
+		"BACK TO SAVED FILE  [B]" if can_continue else "BACK TO QUICK START  [B]"
+	)
 	_apply_title_contract_disclosure()
 
 	if can_continue and not setup_visible:
 		_queue_focus(_continue_title_button)
+	elif quick_start_visible:
+		_queue_focus(_title_new_button)
 	elif _title_challenge_selector != null and _title_challenge_selector.visible:
 		_queue_focus(_title_challenge_selector)
 	else:
@@ -3312,12 +3358,30 @@ func _on_challenge_contract_terms_toggled() -> void:
 
 
 func _on_title_back_pressed() -> void:
-	if not _snapshot_continue_available() or not _title_new_file_setup:
+	if not _title_new_file_setup:
 		return
+	if not _snapshot_continue_available():
+		_reset_quick_start_defaults()
 	_title_new_file_setup = false
 	_title_contract_terms_expanded = false
 	_refresh_title()
 	title_intake_phase_changed.emit(title_intake_phase())
+
+
+func _on_title_customize_pressed() -> void:
+	if _view != VIEW_TITLE or _snapshot_continue_available() or _title_new_file_setup:
+		return
+	_title_new_file_setup = true
+	_title_contract_terms_expanded = false
+	_refresh_title()
+	title_intake_phase_changed.emit(title_intake_phase())
+
+
+func _reset_quick_start_defaults() -> void:
+	_selected_challenge_contract_id = DEFAULT_CHALLENGE_CONTRACT_ID
+	_selected_career_slot_id = &"roost_a"
+	_selected_career_identity_id = &"open_nest"
+	_selected_replay_scenario_id = &"baseline_book"
 
 
 func _challenge_contract_catalog() -> Array[Dictionary]:
@@ -6601,6 +6665,8 @@ func _on_new_campaign_pressed() -> void:
 		_refresh_title()
 		title_intake_phase_changed.emit(title_intake_phase())
 		return
+	if _view == VIEW_TITLE and not _snapshot_continue_available() and not _title_new_file_setup:
+		_reset_quick_start_defaults()
 	if _campaign_replacement_requires_confirmation():
 		_show_campaign_replacement_confirmation()
 		return

@@ -393,7 +393,7 @@ func _run() -> void:
 	_check(_worker_progress(simulation, 0) > first_progress_before, "accepted mouse invocation should advance authoritative claim progress", failures)
 	_check(assist_button != null and assist_button.disabled, "a stamped claim should immediately lock against duplicate input", failures)
 	_check(
-		assist_button != null and String(first_result.get("rating", "")).to_upper() in assist_button.text,
+		assist_button != null and _display_rating(first_result) in assist_button.text,
 		"button should retain the exact completed timing rating",
 		failures,
 	)
@@ -600,7 +600,7 @@ func _run() -> void:
 	)
 	_check(
 		assist_button != null
-		and String(second_result.get("rating", "")).to_upper() in assist_button.text
+		and _display_rating(second_result) in assist_button.text
 		and "shell risk" in assist_button.tooltip_text,
 		"the dossier should retain rating, gain, and shell-risk outcome clarity",
 		failures,
@@ -625,6 +625,10 @@ func _run() -> void:
 		return
 	print("PECK_ASSIST_UI_TEST_PASSED dossier=contained mouse=authoritative paused=explicit_resume dialogue_guard=time-safe semantic_input=authoritative precision_focus=1x outcome=retained")
 	quit(0)
+
+
+func _display_rating(receipt: Dictionary) -> String:
+	return PeckworkRoutingUI._peck_rating_label(StringName(receipt.get("rating", &"steady")))
 
 
 func _start_normal_running_campaign(office: Office, failures: Array[String]) -> void:

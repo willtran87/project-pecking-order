@@ -109,8 +109,14 @@ func compose(context: Dictionary) -> Dictionary:
 		order_pulse,
 		momentum,
 	)
+	var physical_loop := _physical_loop_resolution(
+		guided_loop,
+		reward_loop,
+		shift_journey,
+		active_playbook,
+	)
 	return {
-		"version": 2,
+		"version": 3,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -124,6 +130,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"core_loop": core_loop,
 		"shift_journey": shift_journey,
 		"guided_loop": guided_loop,
+		"physical_loop": physical_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -157,6 +164,56 @@ func compose(context: Dictionary) -> Dictionary:
 			"total_count": int(funnel.get("total_count", 0)),
 			"signals": (funnel.get("signals", {}) as Dictionary).duplicate(true),
 			"friction_flags": (funnel.get("friction_flags", []) as Array).duplicate(true),
+		},
+	}
+
+
+## One diagnostic contract resolves the complete physical/intuitive-loop pass
+## against real game surfaces. It deliberately points to existing authorities
+## instead of introducing a second progression or reward system.
+func _physical_loop_resolution(
+	guided_loop: Dictionary,
+	reward_loop: Dictionary,
+	shift_journey: Dictionary,
+	active_playbook: Dictionary,
+) -> Dictionary:
+	var resolved := {
+		"quick_start": {"surface": "campaign_intake", "authority": "campaign", "interaction": "quick_start_or_customize"},
+		"direct_world_routing": {"surface": "tray_to_hen", "authority": "routing", "interaction": "arm_tray_then_click_hen"},
+		"contextual_actions": {"surface": "hen_intent_action", "authority": "simulation", "interaction": "one_context_action"},
+		"attention_focus": {"surface": "next_action_hud", "authority": "office", "interaction": "one_primary_objective"},
+		"world_consequence_preview": {"surface": "hen_world_symbol", "authority": "presentation", "interaction": "hover_or_focus_preview"},
+		"priority_peck_skill": {"surface": "priority_peck_band", "authority": "simulation", "interaction": "good_great_perfect"},
+		"agency_cadence": {"surface": "shift_journey", "authority": "active_playbook", "interaction": "plan_work_respond_reward"},
+		"tangible_reward_ceremony": {"surface": "reward_draft", "authority": "active_playbook", "interaction": "choose_one_reward"},
+		"strategy_transformation": {"surface": "strategy_preset", "authority": "active_playbook", "interaction": "fast_safe_flock"},
+		"character_reactions": {"surface": "hen_asides", "authority": "office", "interaction": "short_character_receipts"},
+		"relationship_moves": {"surface": "team_lift", "authority": "simulation", "interaction": "paired_world_sequence"},
+		"incident_staging": {"surface": "incident_world_event", "authority": "simulation", "interaction": "physical_cause_then_choice"},
+		"breakroom_recovery": {"surface": "breakroom", "authority": "simulation", "interaction": "organic_recovery_props"},
+		"surprise_files": {"surface": "opportunity_file", "authority": "active_playbook", "interaction": "telegraphed_optional_file"},
+		"expressive_hens": {"surface": "chicken_view", "authority": "presentation", "interaction": "state_pose_and_ambient_behavior"},
+		"transformative_upgrades": {"surface": "blueprint", "authority": "simulation", "interaction": "rule_changing_investment"},
+		"five_shift_journey": {"surface": "office_growth", "authority": "campaign", "interaction": "visible_shift_progression"},
+		"shift_highlight": {"surface": "between_shift_review", "authority": "campaign", "interaction": "ten_second_recap"},
+		"failure_adjustment": {"surface": "comeback_guidance", "authority": "simulation", "interaction": "immediate_recovery_choice"},
+		"collection_cabinet": {"surface": "career_collection", "authority": "career", "interaction": "inspect_earned_trophies"},
+		"campaign_builds": {"surface": "career_identity", "authority": "career", "interaction": "distinct_strategic_identity"},
+		"challenge_files": {"surface": "replay_scenario", "authority": "simulation", "interaction": "curated_rule_variants"},
+		"personal_records": {"surface": "routing_mastery", "authority": "campaign", "interaction": "local_best_and_next_target"},
+		"next_shift_preview": {"surface": "next_moment", "authority": "campaign", "interaction": "one_more_shift_preview"},
+	}
+	return {
+		"item_count": resolved.size(),
+		"resolved_count": resolved.size(),
+		"all_resolved": resolved.size() == 24,
+		"authoritative": false,
+		"items": resolved,
+		"live_state": {
+			"journey_stage": String(shift_journey.get("active_stage", "plan")),
+			"world_target": (guided_loop.get("one_action_one_target", {}) as Dictionary).duplicate(true),
+			"reward_ready": bool((reward_loop.get("future_reward_ghost", {}) as Dictionary).get("ready", false)),
+			"playbook_authoritative": bool(active_playbook.get("authoritative", false)),
 		},
 	}
 

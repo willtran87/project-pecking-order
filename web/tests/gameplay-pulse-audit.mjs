@@ -49,7 +49,14 @@ try {
 		(snapshot) => snapshot.loaded === true && snapshot.campaign_stage === "title",
 		"title boot",
 	);
-	evidence.title = { stage: title.campaign_stage };
+	assert.equal(title.campaign_intake_phase, "quick_start");
+	assert.equal(title.selected_new_challenge_contract?.id, "standard_filing");
+	evidence.title = {
+		stage: title.campaign_stage,
+		intakePhase: title.campaign_intake_phase,
+		defaultContract: title.selected_new_challenge_contract?.id,
+	};
+	await page.screenshot({ path: path.join(outputDirectory, "quick-start.png"), fullPage: true });
 	await page.keyboard.press("KeyN");
 	await waitForState((snapshot) => snapshot.campaign_stage === "active", "new file activation");
 	await page.keyboard.press("Enter");
@@ -90,7 +97,7 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
@@ -123,6 +130,19 @@ try {
 	assert.equal(pulse.shift_journey.compact, "PLAN → WORK → RESPOND → REWARD");
 	assert.deepEqual(pulse.shift_journey.steps.map((step) => step.id), ["plan", "work", "respond", "reward"]);
 	assert.equal(pulse.guided_loop.item_count, 24);
+	assert.equal(pulse.physical_loop.item_count, 24);
+	assert.equal(pulse.physical_loop.resolved_count, 24);
+	assert.equal(pulse.physical_loop.all_resolved, true);
+	const physicalLoopKeys = [
+		"quick_start", "direct_world_routing", "contextual_actions", "attention_focus",
+		"world_consequence_preview", "priority_peck_skill", "agency_cadence",
+		"tangible_reward_ceremony", "strategy_transformation", "character_reactions",
+		"relationship_moves", "incident_staging", "breakroom_recovery", "surprise_files",
+		"expressive_hens", "transformative_upgrades", "five_shift_journey", "shift_highlight",
+		"failure_adjustment", "collection_cabinet", "campaign_builds", "challenge_files",
+		"personal_records", "next_shift_preview",
+	];
+	assert.deepEqual(Object.keys(pulse.physical_loop.items).toSorted(), physicalLoopKeys.toSorted());
 	assert.deepEqual(pulse.guided_loop.core_vocabulary.verbs, ["INSPECT", "ROUTE", "HELP", "PECK", "INVEST"]);
 	assert.equal(pulse.guided_loop.strategy_presets.recommended, "fast");
 	assert.equal(pulse.guided_loop.strategy_presets.one_click_atomic, true);
@@ -146,6 +166,7 @@ try {
 		rewardLoop: pulse.reward_loop,
 		shiftJourney: pulse.shift_journey,
 		guidedLoop: pulse.guided_loop,
+		physicalLoop: pulse.physical_loop,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
@@ -159,4 +180,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED items=20 reward-loop=15 guided-loop=24 presets=3 journey=4-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended items=20 reward-loop=15 guided-loop=24 physical-loop=24 presets=3 journey=4-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

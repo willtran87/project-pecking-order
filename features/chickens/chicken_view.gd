@@ -5,6 +5,10 @@ signal feed_party_attendance_ready(worker_id: int)
 signal feed_party_attendance_completed(worker_id: int)
 signal workstation_presence_changed(worker_id: int, is_present: bool)
 signal office_departure_completed(worker_id: int)
+## A click or tap on the physical hen asks the office presentation owner to
+## inspect her. When a routing tray is armed, the office reuses the same focus
+## event to commit the handoff, keeping simulation authority outside this view.
+signal management_selection_requested(worker_id: int)
 ## Ambient work pecks emit one visual contact per authored peck cycle, but only
 ## while the hen is physically seated at an active file. This keeps screen
 ## feedback causal without making the workstation controller poll every bird.
@@ -316,6 +320,9 @@ var _dispatch_recommendation_serial := 0
 var _dispatch_recommendation_active := false
 var _dispatch_recommendation_animated := false
 var _dispatch_recommendation_lane: StringName = &""
+var _management_pick_area: Area3D
+var _consequence_preview_active := false
+var _consequence_preview_kind: StringName = &""
 
 
 func configure(worker_snapshot: Dictionary) -> void:
@@ -1505,8 +1512,64 @@ func _build_character(worker_name: String, color_index: int) -> void:
 		_career_credential_profile_visible = _career_credential_badge.visible
 		_career_credential_rest_position = _career_credential_badge.position
 	_cache_secondary_motion_parts()
+	_build_management_pick_area()
 	_build_hen_intent_marker()
 	_build_break_interaction_prop()
+
+
+func _build_management_pick_area() -> void:
+	_management_pick_area = Area3D.new()
+	_management_pick_area.name = "ManagementPickArea"
+	_management_pick_area.collision_layer = 1 << 19
+	_management_pick_area.collision_mask = 0
+	_management_pick_area.input_ray_pickable = true
+	_management_pick_area.monitoring = false
+	_management_pick_area.monitorable = false
+	_management_pick_area.position = Vector3(0.0, 0.82, 0.0)
+	var collision := CollisionShape3D.new()
+	collision.name = "ManagementPickShape"
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.48
+	capsule.height = 1.65
+	collision.shape = capsule
+	_management_pick_area.add_child(collision)
+	_management_pick_area.input_event.connect(_on_management_pick_input_event)
+	add_child(_management_pick_area)
+
+
+func management_pick_state() -> Dictionary:
+	return {
+		"worker_id": worker_id,
+		"built": _management_pick_area != null,
+		"input_ray_pickable": (
+			_management_pick_area != null and _management_pick_area.input_ray_pickable
+		),
+		"collision_layer": (
+			_management_pick_area.collision_layer if _management_pick_area != null else 0
+		),
+		"semantic_action": "inspect_or_dispatch",
+	}
+
+
+func _on_management_pick_input_event(
+	_camera: Node,
+	event: InputEvent,
+	_event_position: Vector3,
+	_normal: Vector3,
+	_shape_idx: int,
+) -> void:
+	var activated := false
+	if event is InputEventMouseButton:
+		var mouse_event := event as InputEventMouseButton
+		activated = (
+			mouse_event.button_index == MOUSE_BUTTON_LEFT and mouse_event.pressed
+		)
+	elif event is InputEventScreenTouch:
+		activated = (event as InputEventScreenTouch).pressed
+	if not activated:
+		return
+	management_selection_requested.emit(worker_id)
+	get_viewport().set_input_as_handled()
 
 
 func _build_break_interaction_prop() -> void:
@@ -2034,6 +2097,33 @@ func set_management_focus(selected: bool, focus_active: bool) -> void:
 	if _hen_intent_marker != null:
 		_hen_intent_marker.scale = Vector3.ONE
 	_refresh_hen_intent_focus_presentation()
+
+
+## Preview-only anticipation for the global next-action control. It reuses the
+## hen's existing world symbol, changes no simulation data, and restores the
+## ordinary focus hierarchy as soon as hover/focus leaves the action.
+func set_consequence_preview(active: bool, kind: StringName = &"") -> void:
+	_consequence_preview_active = active
+	_consequence_preview_kind = kind if active else &""
+	if _hen_intent_marker == null:
+		return
+	_hen_intent_marker.set_meta("consequence_preview_active", active)
+	_hen_intent_marker.set_meta("consequence_preview_kind", String(_consequence_preview_kind))
+	if active and _hen_intent_marker.visible:
+		_hen_intent_marker.scale = Vector3(1.16, 1.16, 1.16)
+		_hen_intent_marker.modulate = Color("f8dc83")
+	else:
+		_hen_intent_marker.scale = Vector3.ONE
+		_refresh_hen_intent_focus_presentation()
+
+
+func consequence_preview_state() -> Dictionary:
+	return {
+		"active": _consequence_preview_active,
+		"kind": String(_consequence_preview_kind),
+		"world_symbol_visible": _hen_intent_marker != null and _hen_intent_marker.visible,
+		"authoritative": false,
+	}
 
 
 func _hen_intent_base_pixel_size() -> float:
