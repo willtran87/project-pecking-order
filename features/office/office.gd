@@ -5828,7 +5828,7 @@ func _build_ui() -> void:
 		_speed_buttons.append(button)
 	_next_moment_button = Button.new()
 	_next_moment_button.name = "NextMomentButton"
-	_next_moment_button.text = "NEXT  [4]"
+	_next_moment_button.text = "»  [4]"
 	_next_moment_button.theme_type_variation = &"SpeedButton"
 	_next_moment_button.custom_minimum_size = Vector2(82.0, 32.0)
 	_next_moment_button.tooltip_text = "Advance safely at 10× until the next decision, shift review, or open Priority Peck window."
@@ -5962,6 +5962,7 @@ func _build_ui() -> void:
 	_active_playbook_button.tooltip_text = "Open the active shift playbook. Every choice shows gain, cost, and risk before filing."
 	_active_playbook_button.accessibility_name = _active_playbook_button.tooltip_text
 	_active_playbook_button.get_popup().id_pressed.connect(_on_active_playbook_item_pressed)
+	_active_playbook_button.get_popup().popup_hide.connect(_on_active_playbook_popup_hide)
 	_shift_objective_row.add_child(_active_playbook_button)
 	_rival_pulse_label = _make_label("RIVAL ±0", 12, Color("b8c3cc"))
 	_rival_pulse_label.name = "RivalPulseLabel"
@@ -6596,6 +6597,9 @@ func _build_ui() -> void:
 	_routing_ui = PeckworkRoutingUIScript.new() as PeckworkRoutingUI
 	_routing_ui.assignment_requested.connect(_on_worker_assignment_requested)
 	_routing_ui.dispatch_lane_requested.connect(_on_dispatch_lane_requested)
+	_routing_ui.dispatch_drag_started.connect(_on_dispatch_drag_started)
+	_routing_ui.dispatch_drag_released.connect(_on_dispatch_drag_released)
+	_routing_ui.dispatch_drag_canceled.connect(_on_dispatch_drag_canceled)
 	_routing_ui.assignment_undo_requested.connect(
 		_on_worker_assignment_undo_requested
 	)
@@ -8118,6 +8122,7 @@ func _spawn_decision_consequence_receipts(
 ) -> void:
 	_retire_action_outcome_receipts(&"replaced", false)
 	var entries := _decision_consequence_entries(before, after)
+	var visible_entries: Array = entries.slice(0, mini(3, entries.size()))
 	var option_label := String(result.get("option_id", "DECISION")).replace("_", " ").to_upper()
 	for option_value in _active_decision.get("options", []):
 		var option := option_value as Dictionary
@@ -8140,6 +8145,7 @@ func _spawn_decision_consequence_receipts(
 		"visible": not entries.is_empty(),
 		"title": option_label,
 		"entries": semantic_entries,
+		"visible_entry_count": visible_entries.size(),
 		"accessible_text": "%s. %s" % [option_label, " ".join(accessible_lines)],
 	}
 	_record_campaign_order_cause_receipts(
@@ -8164,15 +8170,15 @@ func _spawn_decision_consequence_receipts(
 		)
 	var receipt_size := Vector2(154.0, 42.0)
 	var gap := 8.0
-	var row_width := receipt_size.x * entries.size() + gap * maxi(0, entries.size() - 1)
+	var row_width := receipt_size.x * visible_entries.size() + gap * maxi(0, visible_entries.size() - 1)
 	var row_left := source_center.x - row_width * 0.5
 	var reduced_motion := _prefers_reduced_motion()
 	var capture_holds_receipt := (
 		"--capture-action-feedback" in OS.get_cmdline_user_args()
 		or "--capture-action-feedback" in OS.get_cmdline_args()
 	)
-	for index in entries.size():
-		var entry := entries[index] as Dictionary
+	for index in visible_entries.size():
+		var entry := visible_entries[index] as Dictionary
 		var panel := PanelContainer.new()
 		panel.name = "ActionOutcomeReceipt_%d" % index
 		panel.custom_minimum_size = receipt_size
@@ -10204,7 +10210,47 @@ func _apply_dispatch_candidate_markers() -> void:
 			not candidate.is_empty(),
 			int(worker_id) == _dispatch_recommended_worker_id,
 			_dispatch_lane,
+			bool(candidate.get("specialty_match", false)),
+			bool(candidate.get("ready", false)),
 		)
+
+
+func _on_dispatch_drag_started(lane: StringName) -> void:
+	if lane != _dispatch_lane:
+		_on_dispatch_lane_requested(lane)
+	_publish_status_copy("DRAG %s FILE  •  DROP ON A HEN" % _dispatch_lane_label(lane), false)
+
+
+func _on_dispatch_drag_released(lane: StringName, viewport_position: Vector2) -> void:
+	if lane != _dispatch_lane:
+		_clear_dispatch_mode(true)
+		return
+	var camera := get_viewport().get_camera_3d()
+	if camera == null:
+		_clear_dispatch_mode(true)
+		return
+	var ray_from := camera.project_ray_origin(viewport_position)
+	var ray_to := ray_from + camera.project_ray_normal(viewport_position) * 1000.0
+	var query := PhysicsRayQueryParameters3D.create(ray_from, ray_to, 1 << 19)
+	query.collide_with_areas = true
+	query.collide_with_bodies = false
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	var collider := hit.get("collider") as Node
+	var worker_view: ChickenView
+	if collider != null and collider.get_parent() is ChickenView:
+		worker_view = collider.get_parent() as ChickenView
+	if worker_view != null and _commit_dispatch(worker_view.worker_id):
+		return
+	_clear_dispatch_mode(true)
+	_publish_status_copy("TRAY RETURNED  •  DROP ON A MARKED HEN", false)
+	if _audio_feedback != null:
+		_audio_feedback.play_denied(&"routing")
+
+
+func _on_dispatch_drag_canceled(_lane: StringName) -> void:
+	# A pointer release below the drag threshold is an ordinary tray click; the
+	# Button's pressed signal remains the sole activation edge for that gesture.
+	pass
 
 
 func _clear_dispatch_mode(keep_momentum: bool = true) -> void:
@@ -10297,6 +10343,12 @@ func _commit_dispatch(worker_id: int) -> bool:
 		elif bool(momentum.get("pace_active", false)):
 			_dispatch_reward_label = "PACE +15%"
 	var worker_name := String(candidate.get("worker_name", "HEN %d" % (worker_id + 1)))
+	var worker_view := _worker_views.get(worker_id) as ChickenView
+	if worker_view != null:
+		worker_view.play_short_bark(
+			"PERFECT FIT!" if recommended else "I'VE GOT IT!" if bool(candidate.get("specialty_match", false)) else "RISKY ROUTE.",
+			&"success" if recommended else &"neutral" if bool(candidate.get("specialty_match", false)) else &"risk",
+		)
 	_dispatch_last_receipt = receipt.duplicate(true)
 	var delivery_started := false
 	if _workstation_feedback != null:
@@ -11217,7 +11269,7 @@ func _refresh_speed_button_copy() -> void:
 		_next_moment_button.text = (
 			"STOP  [%s]" % primary_hint
 			if _next_moment_active else
-			"NEXT  [%s]" % primary_hint
+		"»  [%s]" % primary_hint
 		)
 		_next_moment_button.disabled = not controls_available and not _next_moment_active
 		_next_moment_button.theme_type_variation = (
@@ -19331,7 +19383,17 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		reward_icon.set_meta("active", active)
 		reward_icon.set_meta("projection", reward.duplicate(true))
 	if _reward_loop_host != null:
-		_reward_loop_host.visible = int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING
+		var reward_ready := false
+		for reward_id in _reward_loop_icons:
+			var projection := reward_loop.get(reward_id, {}) as Dictionary
+			if bool(projection.get("ready", projection.get("complete", false))):
+				reward_ready = true
+				break
+		_reward_loop_host.visible = (
+			int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING
+			and not String(active_playbook.get("strategy_preset_id", "")).is_empty()
+			and (int(snapshot.get("eggs_today", 0)) > 0 or reward_ready)
+		)
 		_reward_loop_host.set_meta("items", reward_loop.duplicate(true))
 		_reward_loop_host.set_meta("item_count", maxi(0, reward_loop.size() - 1))
 	var clutch := reward_loop.get("clutch_carton", {}) as Dictionary
@@ -19349,9 +19411,11 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		clutch_icon.accessibility_name = clutch_icon.tooltip_text
 		clutch_icon.set_meta("filled", filled)
 	if _clutch_carton_host != null:
-		_clutch_carton_host.visible = int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING or clutch_filled > 0
+		_clutch_carton_host.visible = clutch_filled > 0
 		_clutch_carton_host.tooltip_text = String(clutch.get("detail", "Clean-clutch reward track: 2 / 4 / 8."))
 		_clutch_carton_host.set_meta("projection", clutch.duplicate(true))
+	if _quality_streak_label != null:
+		_quality_streak_label.visible = int(snapshot.get("quality_streak", 0)) > 0
 	var rival := _gameplay_pulse.get("rival_pulse", {}) as Dictionary
 	if _rival_pulse_label != null:
 		_rival_pulse_label.visible = (
@@ -19429,13 +19493,16 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		_simulation != null
 		and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
 	)
-	_active_playbook_button.visible = running
+	var strategy_preset_id := String(playbook.get("strategy_preset_id", ""))
+	var playbook_contract := playbook.get("contract", {}) as Dictionary
+	var plan_filed := not strategy_preset_id.is_empty() or not String(playbook_contract.get("id", "")).is_empty()
+	_active_playbook_button.visible = running and plan_filed
 	_active_playbook_button.disabled = not running
 	if not running:
 		return
 	var options := playbook.get("options", []) as Array
 	var primary_kind := ""
-	for priority_kind in ["reward", "recovery", "preset", "customize", "contract", "loadout", "preparation", "rival", "side_goal"]:
+	for priority_kind in ["reward", "push_luck", "recovery", "preset", "customize", "contract", "loadout", "preparation", "rival", "side_goal", "automation"]:
 		for option_value in options:
 			if option_value is Dictionary and String((option_value as Dictionary).get("kind", "")) == priority_kind:
 				primary_kind = priority_kind
@@ -19521,9 +19588,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	var last_receipt := playbook.get("last_receipt", {}) as Dictionary
 	if not last_receipt.is_empty():
 		detail_lines.append("LAST  ·  %s" % String(last_receipt.get("outcome", "PLAY FILED")))
-	var strategy_preset_id := String(playbook.get("strategy_preset_id", ""))
 	var strategy_preset := playbook.get("strategy_preset", {}) as Dictionary
-	var plan_filed := not strategy_preset_id.is_empty() or not String(contract.get("id", "")).is_empty()
+	_active_playbook_button.visible = running and plan_filed
 	_active_playbook_button.text = (
 		"REWARD  ▾" if ready_kind == "reward" else
 		"SIGNATURE  ▾" if ready_kind == "signature" else
@@ -19575,6 +19641,13 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 	_publish_status_copy(outcome, true, outcome)
 	if not bool(result.get("accepted", false)):
 		return
+	if String(result.get("playbook_kind", "")) == "teamwork":
+		for teammate_id in [int(result.get("worker_id", -1)), int(result.get("partner_id", -1))]:
+			var teammate := _worker_views.get(teammate_id) as ChickenView
+			if teammate != null:
+				teammate.play_short_bark("TOGETHER!", &"team")
+	if String(result.get("playbook_kind", "")) == "reward" and _office_atmosphere != null:
+		_office_atmosphere.pulse_strategy_reward()
 	var receipt_label := String(result.get("label", option.get("label", "PLAY FILED"))).to_upper()
 	_latest_action_outcome_receipt = {
 		"visible": true,
@@ -19624,6 +19697,16 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 	var refreshed_snapshot := _simulation.snapshot()
 	_refresh_gameplay_pulse(refreshed_snapshot)
 	_publish_web_diagnostic_state(refreshed_snapshot)
+
+
+func _on_active_playbook_popup_hide() -> void:
+	if _simulation == null or _active_playbook_button == null:
+		return
+	call_deferred(
+		"_refresh_active_playbook_menu",
+		_simulation.playbook_snapshot(_active_playbook_focused_worker_id),
+		_active_playbook_focused_worker_id,
+	)
 
 
 func _next_action_diagnostic_state() -> Dictionary:
@@ -21798,6 +21881,11 @@ func _guidance_activation_contract(action_id: StringName) -> Dictionary:
 				"behavior": "execute",
 				"hint": "Activate to use Priority Peck now.",
 			}
+		&"playbook":
+			return {
+				"behavior": "choose",
+				"hint": "Activate to compare Fast, Safe, and Flock plans; no plan is filed until you choose one.",
+			}
 		&"resume_shift":
 			return {
 				"behavior": "focus_target",
@@ -21847,6 +21935,12 @@ func _on_guidance_action_pressed() -> void:
 	if _guidance_action_id == &"":
 		return
 	match _guidance_action_id:
+		&"playbook":
+			if _active_playbook_button != null:
+				_active_playbook_button.visible = true
+				_active_playbook_button.disabled = false
+				_active_playbook_button.grab_focus()
+				_active_playbook_button.show_popup()
 		&"decision":
 			_focus_decision_primary_action()
 		&"review":
@@ -22073,6 +22167,18 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			&"today",
 		)
 		return
+	if shift_phase == DepartmentSimulation.ShiftPhase.RUNNING:
+		var playbook := _simulation.playbook_snapshot(
+			_routing_ui.focused_worker_id() if _routing_ui != null else -1
+		)
+		if String(playbook.get("strategy_preset_id", "")).is_empty():
+			_set_guidance(
+				"CHOOSE: FAST / SAFE / FLOCK",
+				&"goal",
+				"Pick one readable shift identity. Each plan shows its gain, cost, and risk before filing.",
+				&"playbook",
+			)
+			return
 	if shift_phase == DepartmentSimulation.ShiftPhase.RUNNING and not _routing_return_cue.is_empty():
 		_set_guidance(
 			String(_routing_return_cue.get("copy", "ROUTING RECORD")),
@@ -23375,6 +23481,10 @@ func _on_egg_laid(
 	_spawn_egg_vfx(egg.position, quality, worker_id)
 	if _office_atmosphere != null:
 		_office_atmosphere.pulse_egg_laid(worker_view.egg_lay_origin_global(), quality)
+	worker_view.play_short_bark(
+		"GOLDEN FILE!" if quality == &"golden" else "NEEDS REWORK." if quality == &"cracked" else "CLEAN SHELL!",
+		&"success" if quality in [&"sound", &"golden"] else &"risk",
+	)
 
 	var streak := _simulation.quality_streak
 	var streak_bonus := _simulation.last_streak_bonus_cents

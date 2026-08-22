@@ -20,10 +20,12 @@ func _run() -> void:
 	var red_bar := atmosphere.find_child("RedAlertStrip", true, false) as MeshInstance3D
 	var farmer_spotlight := atmosphere.find_child("FarmerReviewSpotlight", true, false) as SpotLight3D
 	var event_bursts := atmosphere.find_child("EventBursts", true, false) as Node3D
+	var strategy_shelf := atmosphere.find_child("StrategyRewardShelf", true, false) as Node3D
 	_check(dust != null and dust.visibility_aabb.size.length() > 1.0, "dust motes need explicit visibility bounds", failures)
 	_check(feathers != null and feathers.visibility_aabb.size.length() > 1.0, "feathers need explicit visibility bounds", failures)
 	_check(accents.size() == 3, "atmosphere should keep the accent light budget at three", failures)
 	_check(event_bursts != null and event_bursts.get_child_count() == 8, "event particles should use the bounded eight-slot pool", failures)
+	_check(strategy_shelf != null and strategy_shelf.find_children("StrategyEgg_*", "MeshInstance3D", true, false).size() == 3, "the office should physically display the plan, contract, and reward beats", failures)
 	if event_bursts != null:
 		for burst_value in event_bursts.get_children():
 			var burst := burst_value as GPUParticles3D
@@ -42,9 +44,14 @@ func _run() -> void:
 		"eggs_today": 3,
 		"quota_target": 12,
 		"workers": [{"stress": 82.0}],
+		"active_playbook": {
+			"strategy_preset_id": "safe",
+			"contract": {"complete": true, "reward_claimed": true},
+		},
 	})
 	atmosphere.pulse_alert(0.8)
 	atmosphere.pulse_farmer_review()
+	atmosphere.pulse_strategy_reward()
 	atmosphere.pulse_egg_laid(Vector3.ZERO, &"golden")
 	await process_frame
 	await process_frame
@@ -53,6 +60,14 @@ func _run() -> void:
 	_check(red_material != null and red_material.emission_enabled, "overtime bars should use emissive materials", failures)
 	_check(farmer_spotlight != null and farmer_spotlight.light_energy > 0.5, "farmer review should receive a focused golden light cue", failures)
 	_check(atmosphere.find_child("EggGatheringPulse*", true, false) != null, "egg events should create a bounded one-shot burst", failures)
+	var strategy_snapshot := atmosphere.effect_snapshot()
+	_check(
+		String(strategy_snapshot.get("strategy_identity", "")) == "safe"
+		and int(strategy_snapshot.get("visible_reward_eggs", 0)) == 3
+		and not String(strategy_snapshot.get("pacing_stage", "")).is_empty(),
+		"strategy identity, visible rewards, and the authored tension beat should be inspectable",
+		failures,
+	)
 	_check(event_bursts != null and event_bursts.get_child_count() == 8, "egg events must reuse the resident particle pool", failures)
 	atmosphere.set_particle_level(&"reduced")
 	var particle_reduced_snapshot := atmosphere.effect_snapshot()

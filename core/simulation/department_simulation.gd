@@ -2026,6 +2026,22 @@ const PLAYBOOK_REWARD_DEFINITIONS := {
 	&"mastery": {"label": "+6 HEN XP", "icon": &"flock", "gain": "6 CAREER XP", "cost": "NONE", "risk": "NO CASH"},
 	&"recovery": {"label": "FLOCK -4 STRAIN", "icon": &"care", "gain": "STRESS -4", "cost": "NONE", "risk": "NO CASH OR XP"},
 }
+const PLAYBOOK_PUSH_LUCK_DEFINITIONS := {
+	&"bank_clutch": {
+		"label": "BANK THE CLUTCH",
+		"icon": &"shield",
+		"gain": "SHELL RISK -2.5%",
+		"cost": "PACE -5%",
+		"risk": "LESS BONUS OUTPUT",
+	},
+	&"chase_premium": {
+		"label": "CHASE PREMIUM",
+		"icon": &"golden",
+		"gain": "CLEAN VALUE +15%",
+		"cost": "SHELL RISK +4%",
+		"risk": "THE CLUTCH CAN BREAK",
+	},
+}
 const PLAYBOOK_STRATEGY_PRESET_ORDER: Array[StringName] = [
 	&"fast",
 	&"safe",
@@ -13437,6 +13453,7 @@ func _validated_active_playbook(
 		"recovery_id": PLAYBOOK_RECOVERY_DEFINITIONS,
 		"side_goal_id": PLAYBOOK_SIDE_GOAL_DEFINITIONS,
 		"contract_reward_id": PLAYBOOK_REWARD_DEFINITIONS,
+		"push_luck_id": PLAYBOOK_PUSH_LUCK_DEFINITIONS,
 	}
 	var normalized := {"day": saved_day}
 	for field_name: String in definition_fields:
@@ -13455,6 +13472,10 @@ func _validated_active_playbook(
 		if integer_value < 0 or integer_value > 2_000_000_000:
 			return {"valid": false, "record": {}}
 		normalized[integer_field] = integer_value
+	var push_luck_start_eggs := int(source.get("push_luck_start_eggs", 0))
+	if push_luck_start_eggs < 0 or push_luck_start_eggs > 2_000_000_000:
+		return {"valid": false, "record": {}}
+	normalized["push_luck_start_eggs"] = push_luck_start_eggs
 	var signature_values: Variant = source.get("signature_worker_ids", null)
 	if not signature_values is Array:
 		return {"valid": false, "record": {}}
@@ -13470,6 +13491,7 @@ func _validated_active_playbook(
 	if typeof(source.get("teamwork_used", null)) != TYPE_BOOL:
 		return {"valid": false, "record": {}}
 	normalized["teamwork_used"] = bool(source.get("teamwork_used", false))
+	normalized["mastery_auto_used"] = bool(source.get("mastery_auto_used", false))
 	var receipt_value: Variant = source.get("last_receipt", null)
 	if not receipt_value is Dictionary:
 		return {"valid": false, "record": {}}
@@ -16250,6 +16272,9 @@ func _reset_active_playbook() -> void:
 		"signature_worker_ids": [],
 		"teamwork_used": false,
 		"contract_reward_id": "",
+		"push_luck_id": "",
+		"push_luck_start_eggs": 0,
+		"mastery_auto_used": false,
 		"last_receipt": {},
 		"receipt_serial": 0,
 	}
@@ -16447,6 +16472,31 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 	if contract_complete and String(active_playbook.get("contract_reward_id", "")).is_empty():
 		for choice_id: StringName in PLAYBOOK_REWARD_DEFINITIONS:
 			options.append(_playbook_option(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], running, "Claim one reward for the completed optional contract."))
+	if eggs_today >= quota_target and String(active_playbook.get("push_luck_id", "")).is_empty():
+		for choice_id: StringName in PLAYBOOK_PUSH_LUCK_DEFINITIONS:
+			options.append(_playbook_option(
+				&"push_luck",
+				choice_id,
+				PLAYBOOK_PUSH_LUCK_DEFINITIONS[choice_id],
+				running,
+				"Quota is safe. Choose whether the rest of this shift protects the clutch or presses for premium value.",
+			))
+	var mastery_auto_available := (
+		running
+		and routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+		and not bool(active_playbook.get("mastery_auto_used", false))
+		and focused_worker_id >= 0
+		and focused_worker_id < workers.size()
+		and workers[focused_worker_id].employed
+	)
+	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE:
+		options.append(_playbook_option(&"automation", &"auto_fit", {
+			"label": "TEACH AUTO FIT",
+			"icon": &"route",
+			"gain": "SELECTED HEN ROUTES BY FIT",
+			"cost": "USES MASTERY MARK",
+			"risk": "AUTO FAVORS DEADLINES",
+		}, mastery_auto_available, "Select the hen whose solved route should now run automatically."))
 	var recovery_open := (
 		running
 		and String(active_playbook.get("recovery_id", "")).is_empty()
@@ -16489,6 +16539,17 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		"recovery_id": String(active_playbook.get("recovery_id", "")),
 		"side_goal": {"id": String(side_goal_id), "label": String(side_goal_definition.get("label", "PIN A GOAL")), "icon": String(side_goal_definition.get("icon", "goal")), "progress": side_goal_progress, "target": side_goal_target, "complete": not side_goal_definition.is_empty() and side_goal_progress >= side_goal_target, "failure_penalty": 0},
 		"teamwork_used": bool(active_playbook.get("teamwork_used", false)),
+		"push_luck": {
+			"id": String(active_playbook.get("push_luck_id", "")),
+			"start_eggs": int(active_playbook.get("push_luck_start_eggs", 0)),
+			"open": eggs_today >= quota_target,
+		},
+		"mastery_automation": {
+			"ready": mastery_auto_available,
+			"used": bool(active_playbook.get("mastery_auto_used", false)),
+			"chain": routing_momentum_chain,
+			"target": ROUTING_MOMENTUM_PACE_MILESTONE,
+		},
 		"boss_file": {"active": day == PROBATION_CAMPAIGN_SHIFTS, "label": String(scenario_identity_snapshot().get("climax_title", "FINAL HEARING")), "mechanics": ["POLICY", "INCIDENT", "CREDIT"]},
 		"opportunity_shapes": [
 			{"id": "golden", "icon": "golden", "shape": "star", "active": routing_momentum_golden_target_worker_id >= 0},
@@ -16616,6 +16677,37 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], "Personal ambition pinned; missing it has no penalty."))
 	if kind == &"reward":
 		return _claim_playbook_contract_reward(choice_id, worker_id)
+	if kind == &"push_luck":
+		if not PLAYBOOK_PUSH_LUCK_DEFINITIONS.has(choice_id) or not String(active_playbook.get("push_luck_id", "")).is_empty() or eggs_today < quota_target:
+			return {"accepted": false, "reason": "Secure today's quota before choosing a clutch finish."}
+		active_playbook["push_luck_id"] = String(choice_id)
+		active_playbook["push_luck_start_eggs"] = eggs_today
+		return _file_playbook_receipt(_playbook_choice_result(
+			kind,
+			choice_id,
+			PLAYBOOK_PUSH_LUCK_DEFINITIONS[choice_id],
+			"Quota banked. %s now shapes every remaining file this shift." % String(PLAYBOOK_PUSH_LUCK_DEFINITIONS[choice_id].get("label", "Clutch finish")),
+		))
+	if kind == &"automation":
+		if choice_id != &"auto_fit" or bool(active_playbook.get("mastery_auto_used", false)):
+			return {"accepted": false, "reason": "That mastery automation is already filed."}
+		if routing_momentum_chain < ROUTING_MOMENTUM_PACE_MILESTONE:
+			return {"accepted": false, "reason": "Build a fitted routing chain before teaching Auto Fit."}
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+			return {"accepted": false, "reason": "Select the hen whose routing rule should be automated."}
+		if not set_worker_assignment(worker_id, &"auto"):
+			return {"accepted": false, "reason": "Auto Fit could not be filed for that hen."}
+		active_playbook["mastery_auto_used"] = true
+		return _file_playbook_receipt({
+			"accepted": true,
+			"playbook_kind": "automation",
+			"choice_id": "auto_fit",
+			"worker_id": worker_id,
+			"label": "AUTO FIT TAUGHT",
+			"effects": {"gain": "ROUTING AUTOMATED", "cost": "MASTERY MARK", "risk": "DEADLINES MAY OVERRIDE FIT"},
+			"outcome": "%s learned Auto Fit. Her next files now balance specialty and deadline without repeated routing clicks." % workers[worker_id].display_name,
+			"day": day,
+		})
 	if kind == &"teamwork":
 		return _perform_playbook_teamwork(worker_id)
 	if kind == &"recovery":
@@ -16742,6 +16834,9 @@ func _playbook_work_multiplier() -> float:
 		&"counter": multiplier *= 1.04
 	match StringName(active_playbook.get("recovery_id", &"")):
 		&"salvage_order": multiplier *= 1.06
+	match StringName(active_playbook.get("push_luck_id", &"")):
+		&"bank_clutch": multiplier *= 0.95
+		&"chase_premium": multiplier *= 1.10
 	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"record_harvest":
 		multiplier *= 1.05
 	return clampf(multiplier, 0.80, 1.30)
@@ -16762,6 +16857,9 @@ func _playbook_crack_modifier() -> float:
 		&"counter": modifier += 0.012
 	if StringName(active_playbook.get("recovery_id", &"")) == &"salvage_order":
 		modifier += 0.02
+	match StringName(active_playbook.get("push_luck_id", &"")):
+		&"bank_clutch": modifier -= 0.025
+		&"chase_premium": modifier += 0.04
 	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"shell_assurance":
 		modifier -= 0.02
 	return clampf(modifier, -0.12, 0.12)
@@ -23765,6 +23863,10 @@ func _update_worker(worker: ChickenState) -> void:
 				and worker.has_specialty(worker.current_claim.lane) else
 				1.0
 			)
+			# The opening file is a comprehension beat: it reaches a visible payoff
+			# quickly enough for a first-session player to connect route -> work -> egg.
+			# This disappears permanently after the first career delivery.
+			var first_payoff_factor := 1.35 if _guided_first_payoff_active() else 1.0
 			var career_strain_factor := _career_strain_multiplier(worker)
 			var wellness_strain_factor := wellness_strain_gain_multiplier()
 			var feed_strain_factor := (
@@ -23782,6 +23884,7 @@ func _update_worker(worker: ChickenState) -> void:
 				* automation_work_multiplier(worker)
 				* career_work_factor
 				* routing_pace_factor
+				* first_payoff_factor
 				* float(temperament_effect.get("work_multiplier", 1.0))
 				* float(_manager_effect_for_worker(worker).get("work_multiplier", 1.0))
 				* _internship_program.work_multiplier()
@@ -23883,6 +23986,19 @@ func _error_risk_for(worker: ChickenState) -> float:
 	return clampf(error_risk, 0.02, 0.92)
 
 
+func _guided_first_payoff_active() -> bool:
+	## The assist belongs to the explicit first-session plan, not every new
+	## simulation. Keeping unplanned/headless campaigns on the authored economy
+	## preserves seeded balance outcomes and makes filing a plan meaningful.
+	return (
+		eggs_total == 0
+		and (
+			not String(active_playbook.get("strategy_preset_id", "")).is_empty()
+			or not String(active_playbook.get("loadout_id", "")).is_empty()
+		)
+	)
+
+
 func _apply_claim_lane_outcome(
 	claim: ClaimState,
 	worker: ChickenState,
@@ -23953,6 +24069,10 @@ func _apply_claim_resolution_outcome(
 func _complete_egg(worker: ChickenState) -> void:
 	var completed_claim := worker.current_claim
 	var error_risk := _error_risk_for(worker)
+	# Never turn the first career payoff into a punishment. Later files use the
+	# full authored economy, including visible quality risk and rework.
+	if _guided_first_payoff_active():
+		error_risk = 0.0
 	var assisted_claim_id := completed_claim.id if completed_claim != null else -1
 	var was_assisted := assisted_claim_id > 0 and _assisted_claim_ids.has(assisted_claim_id)
 	var assist_chain := int(_assist_chain_by_claim_id.get(assisted_claim_id, 0))
@@ -24013,6 +24133,12 @@ func _complete_egg(worker: ChickenState) -> void:
 		value_cents += 25
 	if quality in [&"sound", &"golden"]:
 		value_cents += _campus_portfolio.good_egg_bonus_cents(_campus_portfolio_context())
+	if (
+		quality in [&"sound", &"golden"]
+		and StringName(active_playbook.get("push_luck_id", &"")) == &"chase_premium"
+		and eggs_today >= int(active_playbook.get("push_luck_start_eggs", eggs_today + 1))
+	):
+		value_cents = roundi(float(value_cents) * 1.15)
 	var priority_credit_cents := 0
 	if quality != &"cracked" and assist_chain > 0:
 		priority_credit_cents = 20 * mini(assist_chain, 5)

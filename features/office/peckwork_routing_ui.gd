@@ -558,6 +558,9 @@ class RoutingMomentumBreakGlyph:
 signal assignment_requested(worker_id: int, lane: StringName)
 signal assignment_undo_requested(worker_id: int)
 signal dispatch_lane_requested(lane: StringName)
+signal dispatch_drag_started(lane: StringName)
+signal dispatch_drag_released(lane: StringName, viewport_position: Vector2)
+signal dispatch_drag_canceled(lane: StringName)
 signal claim_resolution_requested(worker_id: int, path_id: StringName)
 signal personnel_action_requested(worker_id: int, action_id: StringName)
 signal peck_assist_requested(worker_id: int)
@@ -718,6 +721,10 @@ var _active_dispatch_lane: StringName = &""
 var _dispatch_momentum_chain := 0
 var _dispatch_recommended_name := ""
 var _dispatch_reward_label := ""
+var _dispatch_drag_lane: StringName = &""
+var _dispatch_drag_origin := Vector2.ZERO
+var _dispatch_dragging := false
+var _dispatch_drag_release_consumed := false
 var _routing_best_chain := 0
 var _routing_next_milestone := 0
 var _routing_next_reward := ""
@@ -2359,6 +2366,7 @@ func _build_queue_strip() -> void:
 		tray_button.theme_type_variation = &"DecisionChoiceButton"
 		tray_button.tooltip_text = "Dispatch the next %s file. Then choose a hen; the gold star marks the best fit." % _lane_name(lane)
 		tray_button.pressed.connect(_on_dispatch_tray_pressed.bind(lane))
+		tray_button.gui_input.connect(_on_dispatch_tray_gui_input.bind(lane))
 		_queue_row.add_child(tray_button)
 		_queue_buttons[lane] = tray_button
 		var tray_line := HBoxContainer.new()
@@ -5387,8 +5395,53 @@ func _refresh_first_clutch_return_action(coach_visible: bool) -> void:
 func _on_dispatch_tray_pressed(lane: StringName) -> void:
 	if not _interaction_enabled or lane not in LANE_ORDER:
 		return
+	if _dispatch_drag_release_consumed:
+		return
 	_finish_dispatch_tray_arrival()
 	dispatch_lane_requested.emit(lane)
+
+
+func _on_dispatch_tray_gui_input(event: InputEvent, lane: StringName) -> void:
+	if not _interaction_enabled or lane not in LANE_ORDER:
+		return
+	var pointer_position := get_viewport().get_mouse_position()
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		pointer_position = event.position
+	if (
+		(event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT)
+		or event is InputEventScreenTouch
+	):
+		if event.pressed:
+			_dispatch_drag_lane = lane
+			_dispatch_drag_origin = pointer_position
+			_dispatch_dragging = false
+			return
+		if _dispatch_drag_lane != lane:
+			return
+		if _dispatch_dragging:
+			_dispatch_drag_release_consumed = true
+			dispatch_drag_released.emit(lane, pointer_position)
+			call_deferred("_clear_dispatch_drag_release_guard")
+		else:
+			dispatch_drag_canceled.emit(lane)
+		_dispatch_drag_lane = &""
+		_dispatch_dragging = false
+		accept_event()
+		return
+	if (
+		(event is InputEventMouseMotion or event is InputEventScreenDrag)
+		and _dispatch_drag_lane == lane
+		and pointer_position.distance_to(_dispatch_drag_origin) >= 10.0
+	):
+		if not _dispatch_dragging:
+			_dispatch_dragging = true
+			_finish_dispatch_tray_arrival()
+			dispatch_drag_started.emit(lane)
+		accept_event()
+
+
+func _clear_dispatch_drag_release_guard() -> void:
+	_dispatch_drag_release_consumed = false
 
 
 func _on_assignment_pressed(lane: StringName) -> void:

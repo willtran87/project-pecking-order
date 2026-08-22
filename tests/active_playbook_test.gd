@@ -123,6 +123,25 @@ func _init() -> void:
 	simulation.revenue_cents = 2000
 	var recovery := simulation.perform_playbook_action(&"recovery", &"steady_fund", 0)
 	_check(bool(recovery.get("accepted", false)), "a transparent recovery plan should open under cash pressure", failures)
+	simulation.quota_target = 1
+	var push_luck := simulation.perform_playbook_action(&"push_luck", &"chase_premium", 0)
+	var push_modifiers := simulation.snapshot().get("decision_modifiers", {}) as Dictionary
+	_check(
+		bool(push_luck.get("accepted", false))
+		and float(push_modifiers.get("playbook_work_multiplier", 1.0)) > 1.0
+		and float(push_modifiers.get("playbook_crack_modifier", 0.0)) > 0.0
+		and not bool(simulation.perform_playbook_action(&"push_luck", &"bank_clutch", 0).get("accepted", false)),
+		"a safe quota should open one transparent, one-shot push-your-luck finish",
+		failures,
+	)
+	var automation := simulation.perform_playbook_action(&"automation", &"auto_fit", 0)
+	_check(
+		bool(automation.get("accepted", false))
+		and simulation.workers[0].assigned_lane == &"auto"
+		and bool((simulation.playbook_snapshot(0).get("mastery_automation", {}) as Dictionary).get("used", false)),
+		"routing mastery should convert one solved hen route into authoritative Auto Fit",
+		failures,
+	)
 
 	var encoded := JSON.stringify({"simulation": simulation.export_save_state()})
 	var parsed: Variant = JSON.parse_string(encoded)
@@ -142,9 +161,11 @@ func _init() -> void:
 			and String(restored_playbook.get("rival_response_id", "")) == "counter"
 			and String(restored_playbook.get("recovery_id", "")) == "steady_fund"
 			and String(restored_playbook.get("side_goal_id", "")) == "team_lift"
+			and String(restored_playbook.get("push_luck_id", "")) == "chase_premium"
+			and bool(restored_playbook.get("mastery_auto_used", false))
 			and bool(restored_playbook.get("teamwork_used", false))
 			and (restored_playbook.get("signature_worker_ids", []) as Array) == [0]
-			and int(restored_playbook.get("receipt_serial", 0)) == 9
+			and int(restored_playbook.get("receipt_serial", 0)) == 11
 			and String((restored.playbook_snapshot(0).get("contract", {}) as Dictionary).get("id", "")) == "fit_three",
 			"restore should preserve all filed playbook choices and receipts",
 			failures,
@@ -159,12 +180,31 @@ func _init() -> void:
 			failures,
 		)
 
+	var first_payoff := DepartmentSimulation.new(260823, 4)
+	for worker_id in first_payoff.workers.size():
+		first_payoff.set_worker_at_workstation(worker_id, true)
+	_check(first_payoff.select_directive(&"shell_assurance"), "first-payoff fixture should start", failures)
+	_check(
+		bool(first_payoff.perform_playbook_action(&"preset", &"safe", 0).get("accepted", false)),
+		"the guided first-payoff fixture should file its visible plan",
+		failures,
+	)
+	for tick_index in 240:
+		if first_payoff.eggs_total > 0:
+			break
+		first_payoff.advance_tick(false)
+	_check(
+		first_payoff.eggs_total > 0 and first_payoff.cracked_eggs == 0,
+		"the first career delivery should arrive promptly and never teach the loop with a crack",
+		failures,
+	)
+
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("ACTIVE_PLAYBOOK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("ACTIVE_PLAYBOOK_TEST_PASSED choices=9 presets=3 journey=4 reward=choose-one practice=atomic persistence=round-trip rollover=clean")
+	print("ACTIVE_PLAYBOOK_TEST_PASSED choices=11 presets=3 journey=4 reward=choose-one push-luck=one-shot automation=mastery first-payoff=protected persistence=round-trip rollover=clean")
 	quit(0)
 
 

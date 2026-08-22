@@ -320,6 +320,10 @@ var _dispatch_recommendation_serial := 0
 var _dispatch_recommendation_active := false
 var _dispatch_recommendation_animated := false
 var _dispatch_recommendation_lane: StringName = &""
+var _short_bark_label: Label3D
+var _short_bark_tween: Tween
+var _short_bark_serial := 0
+var _short_bark_copy := ""
 var _management_pick_area: Area3D
 var _consequence_preview_active := false
 var _consequence_preview_kind: StringName = &""
@@ -1889,6 +1893,18 @@ func _build_hen_intent_marker() -> void:
 	_dispatch_candidate_marker.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_dispatch_candidate_marker.visible = false
 	add_child(_dispatch_candidate_marker)
+	_short_bark_label = Label3D.new()
+	_short_bark_label.name = "ShortBark"
+	_short_bark_label.position = Vector3(0.0, 2.68 + height_offset, 0.0)
+	_short_bark_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_short_bark_label.no_depth_test = true
+	_short_bark_label.render_priority = 25
+	_short_bark_label.font_size = 34
+	_short_bark_label.outline_size = 10
+	_short_bark_label.modulate = Color("fff4cf")
+	_short_bark_label.outline_modulate = Color("172129")
+	_short_bark_label.visible = false
+	add_child(_short_bark_label)
 
 
 ## Highlights this hen while a physical intake tray is waiting for dispatch.
@@ -1898,12 +1914,16 @@ func set_dispatch_candidate(
 	active: bool,
 	recommended: bool = false,
 	lane: StringName = &"",
+	specialty_match: bool = true,
+	ready: bool = true,
 ) -> void:
 	_reset_dispatch_recommendation_handoff()
 	_dispatch_candidate = {
 		"active": active,
 		"recommended": recommended,
 		"lane": lane,
+		"specialty_match": specialty_match,
+		"ready": ready,
 	}
 	if _dispatch_candidate_marker == null:
 		return
@@ -1915,7 +1935,12 @@ func set_dispatch_candidate(
 	if not active:
 		_dispatch_candidate_marker.texture = null
 		return
-	var kind: StringName = &"recommended" if recommended else &"eligible"
+	var kind: StringName = (
+		&"recommended" if recommended else
+		&"fit" if specialty_match and ready else
+		&"busy" if specialty_match else
+		&"risky"
+	)
 	_dispatch_candidate_marker.texture = _dispatch_candidate_texture(kind)
 	_dispatch_candidate_marker.modulate = Color.WHITE
 
@@ -2015,17 +2040,25 @@ func _reset_dispatch_recommendation_handoff() -> void:
 func _dispatch_candidate_texture(kind: StringName) -> Texture2D:
 	if _dispatch_candidate_texture_cache.has(kind):
 		return _dispatch_candidate_texture_cache[kind]
-	var fill := "d6ad4d" if kind == &"recommended" else "58a99b"
+	var fill := (
+		"d6ad4d" if kind == &"recommended" else
+		"58a99b" if kind == &"fit" else
+		"8c7e5d" if kind == &"busy" else
+		"9b645f"
+	)
 	var symbol := (
 		HEN_INTENT_SYMBOLS[&"match"]
 		if kind == &"recommended" else
 		"M14 18 H50 V30 H42 L32 46 L22 30 H14 Z"
+		if kind in [&"fit", &"busy"] else
+		"M18 17 L47 46 M47 17 L18 46"
 	)
+	var stroke := " stroke='#fff8dc' stroke-width='7' stroke-linecap='round'" if kind == &"risky" else ""
 	var svg := (
 		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
 		+ "<circle cx='32' cy='32' r='29' fill='#101a21' fill-opacity='.94' stroke='#fff0b8' stroke-width='3'/>"
 		+ "<circle cx='32' cy='32' r='23' fill='#%s'/>" % fill
-		+ "<path d='%s' fill='#fff8dc' fill-rule='evenodd'/>" % symbol
+		+ "<path d='%s' fill='#fff8dc' fill-rule='evenodd'%s/>" % [symbol, stroke]
 		+ "</svg>"
 	)
 	var image := Image.new()
@@ -2034,6 +2067,47 @@ func _dispatch_candidate_texture(kind: StringName) -> Texture2D:
 	var texture := ImageTexture.create_from_image(image)
 	_dispatch_candidate_texture_cache[kind] = texture
 	return texture
+
+
+## A terse, spatial reaction that makes the flock readable without opening a
+## dialogue panel. Long narrative copy remains in the optional employee file.
+func play_short_bark(copy: String, tone: StringName = &"neutral") -> void:
+	if _short_bark_label == null:
+		return
+	var clean_copy := copy.strip_edges().to_upper()
+	if clean_copy.length() > 22:
+		clean_copy = clean_copy.left(21).strip_edges() + "…"
+	if clean_copy.is_empty():
+		return
+	if _short_bark_tween != null and _short_bark_tween.is_valid():
+		_short_bark_tween.kill()
+	_short_bark_serial += 1
+	_short_bark_copy = clean_copy
+	_short_bark_label.text = clean_copy
+	_short_bark_label.modulate = {
+		&"success": Color("ffe18a"),
+		&"risk": Color("f1a29a"),
+		&"team": Color("9fe0ca"),
+	}.get(tone, Color("fff4cf"))
+	_short_bark_label.visible = true
+	_short_bark_label.scale = Vector3.ONE if _reduced_motion else Vector3(0.82, 0.82, 0.82)
+	_short_bark_tween = create_tween().bind_node(_short_bark_label)
+	if not _reduced_motion:
+		_short_bark_tween.tween_property(_short_bark_label, "scale", Vector3.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_short_bark_tween.tween_interval(1.05)
+	_short_bark_tween.tween_property(_short_bark_label, "modulate:a", 0.0, 0.28)
+	_short_bark_tween.tween_callback(func() -> void:
+		_short_bark_label.visible = false
+		_short_bark_label.modulate.a = 1.0
+	)
+
+
+func short_bark_snapshot() -> Dictionary:
+	return {
+		"serial": _short_bark_serial,
+		"copy": _short_bark_copy,
+		"visible": _short_bark_label != null and _short_bark_label.visible,
+	}
 
 
 func _apply_hen_intent(intent: Dictionary, progress: float = -1.0) -> void:

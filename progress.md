@@ -13927,3 +13927,16 @@ The next major systems milestone is persistent worker relationships and individu
 - The complete beta release gate passes 58/58 checks in 453.346 seconds. The
   synchronized 10,560,148-byte shipping PCK has SHA-256
   `FA3B8D6EE2943601515764AC2711D709D8097D28ED92DE602B600B6DFE2E981A`.
+# 2026-08-22 — Intuitive loop consolidation
+
+- Consolidated the opening shift around one contextual primary action: the guidance strip now offers Fast, Safe, or Flock directly, while the plan menu becomes a secondary status control only after filing.
+- Added forgiving physical tray-to-hen drag routing, differentiated best-fit/fit/busy/risky world markers, safe outside-drop cancellation, and spatial hen reactions.
+- Guaranteed a prompt, clean first career payoff; capped visible decision receipts at three consequence chips while retaining full accessible detail.
+- Added a post-quota bank-versus-premium push-your-luck decision and a routing-mastery Auto Fit conversion using existing simulation authority.
+- Added terse world-space chicken barks for routing, egg quality, and Team Lift; retained longer dialogue as optional detail.
+- Added strategy-colored office identity, a physical three-egg plan/contract/reward shelf, an exact-once reward spectacle, and deterministic plan/build/pressure/recovery/finale atmosphere beats.
+- Added focused authoritative tests and an honest unaided-human comprehension protocol in `docs/INTUITIVE_LOOP_RESOLUTION.md`.
+- Scoped the clean, accelerated first payoff to a filed guided plan so onboarding stays forgiving without perturbing unplanned/headless campaign balance. The focused playbook contract and the complete seeded campaign matrix both pass, including the authentic unprepared Gold failure control.
+- The authoritative beta release gate passes 58/58 checks in 555.397 seconds under Node 24.19.0. The focused interaction suite also passes 9/9.
+- Browser verification is clean at 2560×1600, 1280×720, and 390×844 with zero console errors and zero horizontal overflow; all Codex-owned browser, server, and test processes are cleaned after use.
+- Both release targets are byte-identical across all nine deployables. The final 10,577,172-byte PCK has SHA-256 `5101C5E9D15462E271FC7AD145A5180A9C0BE0EDEAD0663C757FF3936188DBD7`.

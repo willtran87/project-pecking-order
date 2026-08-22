@@ -12,6 +12,11 @@ const NORMAL_EAST_COLOR := Color("b9d8d2")
 const NORMAL_INTAKE_COLOR := Color("efc772")
 const OVERTIME_RED := Color("df5a54")
 const OVERTIME_BLUE := Color("5b89c9")
+const STRATEGY_COLORS := {
+	&"fast": Color("e5a64d"),
+	&"safe": Color("6db8bd"),
+	&"flock": Color("82bd76"),
+}
 
 const OFFICE_PARTICLE_BOUNDS := AABB(Vector3(-12.2, -0.5, -9.2), Vector3(24.4, 4.6, 18.4))
 const EVENT_PARTICLE_BOUNDS := AABB(Vector3(-2.2, -1.0, -2.2), Vector3(4.4, 4.5, 4.4))
@@ -28,6 +33,12 @@ var _alert_materials: Array[StandardMaterial3D] = []
 var _event_bursts: Node3D
 var _event_burst_pool: Array[GPUParticles3D] = []
 var _farmer_spotlight: SpotLight3D
+var _strategy_reward_eggs: Array[MeshInstance3D] = []
+var _strategy_reward_materials: Array[StandardMaterial3D] = []
+var _strategy_reward_count := 0
+var _strategy_id: StringName = &""
+var _strategy_accent := Color("d7c27a")
+var _pacing_stage: StringName = &"plan"
 
 var _overtime_target: float = 0.0
 var _overtime_blend: float = 0.0
@@ -49,6 +60,7 @@ func _ready() -> void:
 	_build_ambient_particles()
 	_build_zone_lights()
 	_build_overtime_alert_bars()
+	_build_strategy_reward_shelf()
 	_event_bursts = Node3D.new()
 	_event_bursts.name = "EventBursts"
 	add_child(_event_bursts)
@@ -75,6 +87,25 @@ func update_from_snapshot(snapshot: Dictionary) -> void:
 	var quota := maxf(1.0, float(snapshot.get("quota_target", 1.0)))
 	var quota_progress := clampf(float(snapshot.get("eggs_today", 0.0)) / quota, 0.0, 1.0)
 	_quota_pressure = _late_day * (1.0 - quota_progress)
+	_pacing_stage = (
+		&"plan" if float(snapshot.get("eggs_today", 0.0)) <= 0.0 else
+		&"build" if quota_progress < 0.55 else
+		&"pressure" if quota_progress < 1.0 and _late_day > 0.42 else
+		&"recovery" if quota_progress >= 1.0 and _late_day < 0.88 else
+		&"finale"
+	)
+	var playbook := snapshot.get("active_playbook", {}) as Dictionary
+	_strategy_id = StringName(String(playbook.get("strategy_preset_id", "")))
+	_strategy_accent = STRATEGY_COLORS.get(_strategy_id, Color("d7c27a"))
+	var contract := playbook.get("contract", {}) as Dictionary
+	var reward_count := 0
+	if _strategy_id != &"":
+		reward_count = 1
+	if bool(contract.get("complete", false)):
+		reward_count = 2
+	if bool(contract.get("reward_claimed", false)):
+		reward_count = 3
+	_apply_strategy_reward_state(reward_count)
 
 	var workers: Array = snapshot.get("workers", [])
 	var stress_total := 0.0
@@ -142,6 +173,30 @@ func pulse_farmer_review() -> void:
 	_spotlight_tween.tween_property(_farmer_spotlight, "light_energy", 0.0, 1.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 
 
+## One authored spectacle per shift: the plan, completed contract, and claimed
+## reward light physical eggs on the back-wall shelf instead of living only in UI.
+func pulse_strategy_reward() -> void:
+	if _strategy_reward_eggs.is_empty():
+		return
+	var egg := _strategy_reward_eggs[clampi(_strategy_reward_count - 1, 0, _strategy_reward_eggs.size() - 1)]
+	if _allows_event_bursts():
+		_spawn_event_burst(
+			"StrategyRewardPulse",
+			egg.global_position,
+			_strategy_accent,
+			_effect_count(22),
+			Vector3.UP,
+			Vector2(0.55, 1.20),
+			1.15,
+		)
+	_event_pulse = 1.0
+	if _reduced_motion:
+		return
+	egg.scale = Vector3(0.34, 0.46, 0.34) * 1.55
+	var tween := create_tween().bind_node(egg)
+	tween.tween_property(egg, "scale", Vector3(0.34, 0.46, 0.34), 0.46).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
+
+
 func set_atmosphere_enabled(enabled: bool) -> void:
 	_atmosphere_enabled = enabled
 	_apply_effect_preferences()
@@ -177,7 +232,52 @@ func effect_snapshot() -> Dictionary:
 		"ambient_particles": _allows_ambient_particles(),
 		"event_bursts": _allows_event_bursts(),
 		"animation_speed_multiplier": _animation_speed_multiplier,
+		"strategy_identity": String(_strategy_id),
+		"visible_reward_eggs": _strategy_reward_count,
+		"pacing_stage": String(_pacing_stage),
 	}
+
+
+func _build_strategy_reward_shelf() -> void:
+	var display := Node3D.new()
+	display.name = "StrategyRewardShelf"
+	display.position = Vector3(0.0, 2.42, -8.34)
+	add_child(display)
+	var shelf := MeshInstance3D.new()
+	shelf.name = "RewardShelf"
+	shelf.mesh = ProceduralPrimitiveCache.box(Vector3(1.55, 0.09, 0.32))
+	var shelf_material := StandardMaterial3D.new()
+	shelf_material.albedo_color = Color("594536")
+	shelf_material.roughness = 0.78
+	shelf.material_override = shelf_material
+	display.add_child(shelf)
+	for index in 3:
+		var egg := MeshInstance3D.new()
+		egg.name = "StrategyEgg_%d" % (index + 1)
+		egg.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 18, 10)
+		egg.position = Vector3((float(index) - 1.0) * 0.48, 0.36, 0.0)
+		egg.scale = Vector3(0.34, 0.46, 0.34)
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color("3d4445")
+		material.roughness = 0.48
+		material.emission_enabled = true
+		material.emission = Color("3d4445")
+		material.emission_energy_multiplier = 0.0
+		egg.material_override = material
+		display.add_child(egg)
+		_strategy_reward_eggs.append(egg)
+		_strategy_reward_materials.append(material)
+	_apply_strategy_reward_state(0)
+
+
+func _apply_strategy_reward_state(count: int) -> void:
+	_strategy_reward_count = clampi(count, 0, 3)
+	for index in _strategy_reward_materials.size():
+		var earned := index < _strategy_reward_count
+		var material := _strategy_reward_materials[index]
+		material.albedo_color = _strategy_accent.lightened(0.12 * float(index)) if earned else Color("3d4445")
+		material.emission = _strategy_accent if earned else Color("3d4445")
+		material.emission_energy_multiplier = 0.32 if earned else 0.0
 
 
 func _apply_effect_preferences() -> void:
@@ -382,9 +482,10 @@ func _update_zone_lights() -> void:
 	var pressure_boost := _quota_pressure * 0.025 + _average_stress * 0.018
 	var pulse_boost := _event_pulse * 0.08
 
-	_zone_lights[0].light_color = NORMAL_WEST_COLOR.lerp(OVERTIME_RED, _overtime_blend)
-	_zone_lights[1].light_color = NORMAL_EAST_COLOR.lerp(OVERTIME_BLUE, _overtime_blend)
-	_zone_lights[2].light_color = NORMAL_INTAKE_COLOR.lerp(Color("b8788d"), _overtime_blend * 0.42)
+	var strategy_weight := 0.24 if _strategy_id != &"" else 0.0
+	_zone_lights[0].light_color = NORMAL_WEST_COLOR.lerp(_strategy_accent, strategy_weight).lerp(OVERTIME_RED, _overtime_blend)
+	_zone_lights[1].light_color = NORMAL_EAST_COLOR.lerp(_strategy_accent, strategy_weight * 0.82).lerp(OVERTIME_BLUE, _overtime_blend)
+	_zone_lights[2].light_color = NORMAL_INTAKE_COLOR.lerp(_strategy_accent, strategy_weight).lerp(Color("b8788d"), _overtime_blend * 0.42)
 
 	_zone_lights[0].light_energy = (
 		0.13 + _late_day * 0.025 + pressure_boost + pulse_boost

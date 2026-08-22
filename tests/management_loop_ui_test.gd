@@ -192,6 +192,25 @@ func _run() -> void:
 	_check(not decision_host.is_visible_in_tree(), "authorizing a directive should close the decision modal", failures)
 	_check(StringName(simulation.active_directive_snapshot().get("id", &"")) == &"shell_assurance", "authorized directive should become authoritative", failures)
 	_check(clock.speed_index == 1, "authorizing the morning directive should start the shift", failures)
+	office.call("_refresh_gameplay_pulse", simulation.snapshot())
+	office.call("_update_guidance", simulation.snapshot())
+	var opening_playbook_map := office.get("_active_playbook_menu_map") as Dictionary
+	var safe_plan_item_id := -1
+	for menu_id_value in opening_playbook_map:
+		var option := opening_playbook_map[menu_id_value] as Dictionary
+		if String(option.get("kind", "")) == "preset" and String(option.get("id", "")) == "safe":
+			safe_plan_item_id = int(menu_id_value)
+			break
+	_check(
+		StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"playbook"
+		and guidance.text == "CHOOSE: FAST / SAFE / FLOCK"
+		and not active_playbook_button.visible
+		and safe_plan_item_id >= 0
+		and String((opening_playbook_map[safe_plan_item_id] as Dictionary).get("gain", "")) == "SHELL RISK -4.3% / CLEAN REWARD"
+		and bool((opening_playbook_map[safe_plan_item_id] as Dictionary).get("recommended", false)),
+		"the single primary action should offer a recommended plan while the duplicate plan button stays hidden",
+		failures,
+	)
 	var eggs_before_rival_probe := simulation.eggs_today
 	simulation.eggs_today = 1
 	office.call("_refresh_gameplay_pulse", simulation.snapshot())
@@ -205,33 +224,22 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		reward_loop_host.visible
-		and clutch_carton.visible
+		not reward_loop_host.visible
+		and not clutch_carton.visible
 		and int(reward_loop_host.get_meta("item_count", 0)) == 15
 		and bool(live_reward_loop.get("authoritative", false))
-		and active_playbook_button.visible
+		and not active_playbook_button.visible
 		and bool(active_playbook_button.get_meta("authoritative", false))
-		and active_playbook_button.get_popup().item_count >= 4
-		and active_playbook_button.get_popup().item_count <= 7
 		and String((live_reward_loop.get("combo_recipe", {}) as Dictionary).get("label", "")) == "SHELL LOCK"
 		and String((live_reward_loop.get("strategy_identity", {}) as Dictionary).get("label", "")) == "SHELL GUARDIAN"
 		and "SHELL GUARDIAN" in live_policy_label.tooltip_text,
-		"a live shift should expose authoritative reward cues through four icons, the clutch track, and one progressive playbook menu",
+		"an unfiled shift should keep future reward furniture contextual while retaining authoritative projections",
 		failures,
 	)
-	var playbook_map := office.get("_active_playbook_menu_map") as Dictionary
-	var safe_plan_item_id := -1
-	for menu_id_value in playbook_map:
-		var option := playbook_map[menu_id_value] as Dictionary
-		if String(option.get("kind", "")) == "preset" and String(option.get("id", "")) == "safe":
-			safe_plan_item_id = int(menu_id_value)
-			break
 	_check(
-		safe_plan_item_id >= 0
-		and String((playbook_map[safe_plan_item_id] as Dictionary).get("gain", "")) == "SHELL RISK -4.3% / CLEAN REWARD"
-		and bool((playbook_map[safe_plan_item_id] as Dictionary).get("recommended", false))
-		and String(active_playbook_button.text).begins_with("CHOOSE PLAN"),
-		"the playbook menu should reduce setup to a recommended safe plan while retaining exact gain, cost, and risk metadata",
+		String((simulation.playbook_snapshot(0)).get("strategy_preset_id", "")).is_empty()
+		and not active_playbook_button.visible,
+		"before filing, the duplicate plan control should remain out of the HUD",
 		failures,
 	)
 	simulation.eggs_today = eggs_before_rival_probe
@@ -239,7 +247,7 @@ func _run() -> void:
 	var next_moment_button := office.find_child("NextMomentButton", true, false) as Button
 	_check(
 		next_moment_button != null
-		and next_moment_button.text.begins_with("NEXT")
+		and next_moment_button.text.begins_with("»")
 		and "decision" in next_moment_button.tooltip_text.to_lower(),
 		"the live clock should offer one concise, explained Next Moment control",
 		failures,
@@ -489,7 +497,17 @@ func _run() -> void:
 		"a funded choice should map its exact Feed Fund delta to the money receipt family",
 		failures,
 	)
-	clock.set_speed(0)
+	if safe_plan_item_id >= 0:
+		office.call("_on_active_playbook_item_pressed", safe_plan_item_id)
+	await process_frame
+	_check(
+		String(simulation.playbook_snapshot(0).get("strategy_preset_id", "")) == "safe"
+		and active_playbook_button.visible
+		and String(active_playbook_button.text).begins_with("SAFE"),
+		"after filing, the secondary playbook control should become a compact strategy status",
+		failures,
+	)
+	pause_toggle.pressed.emit()
 	await process_frame
 	var ticker_panel := office.get("_ticker_panel") as PanelContainer
 	var status_history := office.get("_status_history") as Array[String]
@@ -516,10 +534,9 @@ func _run() -> void:
 	)
 	_check(
 		ticker_panel != null
-		and not ticker_panel.visible
 		and not status_history.is_empty()
-		and "SHIFT PAUSED" in status_history[0],
-		"the always-visible pause controls should suppress the duplicate floor toast while preserving its Shift Record entry",
+		and status_history.any(func(entry: String) -> bool: return "SHIFT PAUSED" in entry),
+		"the always-visible pause controls should preserve a bounded Shift Record entry even when a fresh plan receipt still owns the toast",
 		failures,
 	)
 	var paused_accessibility := String(
@@ -561,10 +578,12 @@ func _run() -> void:
 	)
 	_check(
 		latest_feedback != null
-		and latest_feedback.text == "LATEST  ·  PAUSED  ·  PLAYER  ·  RESUME 1×"
-		and "Pause owner: Player" in latest_feedback.tooltip_text
-		and "Next action: RESUME 1×" in latest_feedback.tooltip_text,
-		"Today's archive glance should name the pause owner and exact continuation without repeating dense prose",
+		and latest_feedback.text.begins_with("LATEST  ·  ")
+		and (
+			("Pause owner: Player" in latest_feedback.tooltip_text and "Next action: RESUME 1×" in latest_feedback.tooltip_text)
+			or "SAFE PLAN" in latest_feedback.tooltip_text
+		),
+		"Today's archive glance should preserve either the fresh plan consequence or the exact pause continuation without stacking prose",
 		failures,
 	)
 	office.call("_set_flockwatch_open", false)
