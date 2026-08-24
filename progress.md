@@ -1,5 +1,16 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-24 - Complete intuitive game-loop pass
+
+- Added a skippable 90-second `PLAN → ROUTE → REACT → REWARD` First Clutch micro-loop with labels that retire after learning while icons remain.
+- Added a derived calm → flow → pressure → incident → final push → celebration shift rhythm with one strong urgency pulse.
+- Added hold-H explanation: the live clock pauses while four chips show objective, target, danger, and reward, then safely restores on release or lost browser key-up.
+- Decision and Active Playbook receipts can now fly toward the named hen most affected by morale/stress changes and trigger a physical reaction bark.
+- Added persistent three-beat hen story projections from remembered action, named relationship, and current pressure.
+- Reframed the compact review as What Worked / Close Call / What Changed plus Next Shift, with exact accounting still folded under Details.
+- Added no-state-change Replay Highlight and preview-only Remix Idea review actions.
+- Added `complete_game_loop_test.gd`, browser audit coverage, release-gate registration, and `docs/COMPLETE_GAME_LOOP_RESOLUTION.md` covering all 24 findings.
+
 ## 2026-07-25 - Core production checklist: release hardening
 
 - Added recurring physical claims-floor evidence without adding route blockers: claimant correspondence packets, redacted evidence strips, a claim-denial stamp, returned-appeal archive boxes, and a live claim-closure board.

@@ -70,6 +70,7 @@ try {
             "active_playbook_test.gd",
 			"engagement_advancement_test.gd",
 			"intuitive_engagement_completion_test.gd",
+			"complete_game_loop_test.gd",
             "guided_strategy_feedback_test.gd",
             "gameplay_pulse_director_test.gd",
             "personnel_career_test.gd",

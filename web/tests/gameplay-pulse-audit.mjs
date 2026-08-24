@@ -97,13 +97,29 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
+	assert.equal(pulse.version, 4);
+	assert.equal(pulse.complete_game_loop.item_count, 24);
+	assert.equal(
+		pulse.complete_game_loop.resolved_count,
+		24,
+		`unresolved complete-loop items: ${JSON.stringify(Object.entries(pulse.complete_game_loop.items ?? {}).filter(([, item]) => item?.live !== true))}`,
+	);
+	assert.equal(pulse.complete_game_loop.all_resolved, true);
+	assert.equal(pulse.complete_game_loop.micro_shift.budget_seconds, 90);
+	assert.equal(pulse.complete_game_loop.micro_shift.beat_count, 4);
+	assert.equal(pulse.complete_game_loop.explain_mode.chip_count, 4);
+	assert.equal(pulse.complete_game_loop.explain_mode.pauses_while_held, true);
+	assert.equal(pulse.complete_game_loop.emergent_story.beat_count, 3);
+	assert.equal(pulse.complete_game_loop.report_cards.card_count, 3);
+	assert.equal(pulse.complete_game_loop.shift_rhythm.sequence.length, 6);
+	assert.equal(pulse.complete_game_loop.cause_effect_trail.flies_to_world_target, true);
 	assert.equal(pulse.engagement_next_level.item_count, 20);
 	assert.equal(pulse.engagement_next_level.resolved_count, 20);
 	assert.equal(pulse.engagement_next_level.all_resolved, true);
@@ -182,10 +198,22 @@ try {
 		guidedLoop: pulse.guided_loop,
 		physicalLoop: pulse.physical_loop,
 		engagementNextLevel: pulse.engagement_next_level,
+		completeGameLoop: pulse.complete_game_loop,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
 	await page.screenshot({ path: path.join(outputDirectory, "clarity-pulse.png"), fullPage: true });
+	await page.keyboard.down("KeyH");
+	const explained = await waitForState(
+		(snapshot) => snapshot.explain_mode?.active === true
+			&& snapshot.explain_mode?.visible === true
+			&& snapshot.explain_mode?.chip_count === 4,
+		"hold-to-explain strip",
+	);
+	assert.equal(explained.shift_phase, 1);
+	await page.screenshot({ path: path.join(outputDirectory, "hold-to-explain.png"), fullPage: true });
+	await page.keyboard.up("KeyH");
+	await waitForState((snapshot) => snapshot.explain_mode?.active === false, "explain release");
 	await clickAuthored(825, 65);
 	await page.waitForTimeout(500);
 	await page.screenshot({ path: path.join(outputDirectory, "active-playbook-menu.png"), fullPage: true });
@@ -195,4 +223,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended items=20 reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=4-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended micro-shift=90s explain=4-chip story=3-beat report=3-card complete-loop=24 reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

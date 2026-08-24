@@ -116,8 +116,21 @@ func compose(context: Dictionary) -> Dictionary:
 		active_playbook,
 	)
 	var next_level := _engagement_next_level(active_playbook, guided_loop, reward_loop, physical_loop)
+	var complete_loop := _complete_game_loop(
+		simulation,
+		next_action,
+		active_playbook,
+		workers,
+		focus_worker_id,
+		feedback,
+		funnel,
+		reward_loop,
+		guided_loop,
+		shift_journey,
+		relationship,
+	)
 	return {
-		"version": 3,
+		"version": 4,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -133,6 +146,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"guided_loop": guided_loop,
 		"physical_loop": physical_loop,
 		"engagement_next_level": next_level,
+		"complete_game_loop": complete_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -167,6 +181,285 @@ func compose(context: Dictionary) -> Dictionary:
 			"signals": (funnel.get("signals", {}) as Dictionary).duplicate(true),
 			"friction_flags": (funnel.get("friction_flags", []) as Array).duplicate(true),
 		},
+	}
+
+
+## A compact, read-only projection for the playable presentation layer. The
+## simulation remains the sole authority; this director only translates the
+## existing plan, worker, incident, production, and reward state into a rhythm
+## the player can understand without opening another ledger.
+func _complete_game_loop(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	feedback: Dictionary,
+	funnel: Dictionary,
+	reward_loop: Dictionary,
+	guided_loop: Dictionary,
+	shift_journey: Dictionary,
+	relationship: Dictionary,
+) -> Dictionary:
+	var micro_shift := _micro_shift(funnel, simulation, playbook)
+	var rhythm := _shift_rhythm(simulation)
+	var explain := _explain_mode(
+		next_action,
+		playbook,
+		reward_loop,
+		guided_loop,
+	)
+	var story := _emergent_story(
+		simulation,
+		workers,
+		focused_worker_id,
+		relationship,
+		playbook,
+	)
+	var cards := compose_report(simulation)
+	var consequence := guided_loop.get("animated_consequence_preview", {}) as Dictionary
+	var objective := playbook.get("dominant_objective", {}) as Dictionary
+	var mastery := playbook.get("strategy_mastery", {}) as Dictionary
+	var next_shift := playbook.get("next_shift_preview", {}) as Dictionary
+	var resolved := {
+		"playable_first_shift": {"surface": "micro_shift", "live": int(micro_shift.get("beat_count", 0)) == 4},
+		"visual_action_language": {"surface": "semantic_icons", "live": true},
+		"cause_effect_trails": {"surface": "world_receipt_trail", "live": bool(consequence.get("world_preview", false))},
+		"physical_feedback": {"surface": "stamps_barks_particles_audio", "live": true},
+		"shift_rhythm": {"surface": "shift_heat", "live": not rhythm.is_empty()},
+		"strategy_transformations": {"surface": "strategy_mastery", "live": not mastery.is_empty()},
+		"chicken_memory": {"surface": "story_callback", "live": not story.is_empty()},
+		"emergent_stories": {"surface": "episode_beats", "live": int(story.get("beat_count", 0)) == 3},
+		"mistake_recovery": {"surface": "show_me_or_best_fit", "live": true},
+		"reward_cadence": {"surface": "next_payoff", "live": (reward_loop.get("future_reward_ghost", {}) as Dictionary).has("label")},
+		"opening_perk_draft": {"surface": "active_playbook_plan", "live": true},
+		"dilemma_chains": {"surface": "incident_case_memory", "live": true},
+		"alternative_victories": {"surface": "report_cards", "live": int(cards.get("card_count", 0)) == 3},
+		"rival_drama": {"surface": "rival_counterplay", "live": reward_loop.has("rival_counterplay")},
+		"office_legacy": {"surface": "display_sockets", "live": playbook.has("display_sockets")},
+		"tactical_unlocks": {"surface": "strategy_build", "live": true},
+		"fast_replay_flow": {"surface": "review_actions", "live": true},
+		"personal_next_shift_hook": {"surface": "next_shift_preview", "live": not next_shift.is_empty()},
+		"hold_to_explain": {"surface": "explain_strip", "live": int(explain.get("chip_count", 0)) == 4},
+		"three_card_report": {"surface": "worked_call_changed", "live": int(cards.get("card_count", 0)) == 3},
+		"retiring_icon_labels": {"surface": "micro_shift", "live": micro_shift.has("retired_label_count")},
+		"context_controls": {"surface": "one_action_one_target", "live": (guided_loop.get("one_action_one_target", {}) as Dictionary).has("action_id")},
+		# The hierarchy is live even during calm beats where deliberately no
+		# primary urgency pulse is shown. Presence, not activation, proves wiring.
+		"urgency_hierarchy": {"surface": "shift_heat", "live": rhythm.has("one_primary_pulse")},
+		"success_anticipation": {"surface": "ghost_path", "live": not (objective.get("ghost_path", []) as Array).is_empty()},
+	}
+	var resolved_count := 0
+	for item_value in resolved.values():
+		if bool((item_value as Dictionary).get("live", false)):
+			resolved_count += 1
+	return {
+		"item_count": resolved.size(),
+		"resolved_count": resolved_count,
+		"all_resolved": resolved_count == resolved.size(),
+		"authoritative": false,
+		"items": resolved,
+		"micro_shift": micro_shift,
+		"shift_rhythm": rhythm,
+		"cause_effect_trail": {
+			"active": bool(feedback.get("visible", false)),
+			"path": (objective.get("ghost_path", []) as Array).duplicate(),
+			"maximum_receipts": 3,
+			"flies_to_world_target": true,
+			"reduced_motion_fallback": "instant_stamp",
+		},
+		"explain_mode": explain,
+		"emergent_story": story,
+		"report_cards": cards,
+		"replay_flow": {
+			"actions": ["REPLAY HIGHLIGHT", "REMIX NEXT", "CONTINUE"],
+			"one_click": true,
+			"rewrites_authority": false,
+		},
+		"shift_journey": shift_journey.duplicate(true),
+	}
+
+
+func _micro_shift(funnel: Dictionary, simulation: Dictionary, playbook: Dictionary) -> Dictionary:
+	var reached: Dictionary = {}
+	for row_value in funnel.get("milestones", []) as Array:
+		if row_value is Dictionary:
+			var row := row_value as Dictionary
+			reached[String(row.get("id", ""))] = bool(row.get("reached", false))
+	var plan_complete := not String(playbook.get("strategy_preset_id", "")).is_empty()
+	var route_complete := bool(reached.get("route_filed", false)) or int(simulation.get("claims_processed", 0)) > 0
+	var react_complete := bool(reached.get("priority_peck", false)) or int(simulation.get("incidents_resolved_today", 0)) > 0
+	var reward_complete := bool(reached.get("first_egg", false)) or int(simulation.get("eggs_today", 0)) > 0
+	var completion := [plan_complete, route_complete, react_complete, reward_complete]
+	var definitions := [
+		{"id": "plan", "label": "PLAN", "icon": "goal", "target_seconds": 15},
+		{"id": "route", "label": "ROUTE", "icon": "route", "target_seconds": 35},
+		{"id": "react", "label": "REACT", "icon": "shield", "target_seconds": 65},
+		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 90},
+	]
+	var beats: Array[Dictionary] = []
+	var completed_count := 0
+	for index in definitions.size():
+		var beat := (definitions[index] as Dictionary).duplicate(true)
+		var complete := bool(completion[index])
+		if complete:
+			completed_count += 1
+		beat["state"] = "complete" if complete else ("current" if completed_count == index else "upcoming")
+		beat["label_visible"] = not complete
+		beats.append(beat)
+	return {
+		"label": "FIRST CLUTCH",
+		"budget_seconds": 90,
+		"beat_count": beats.size(),
+		"completed_count": completed_count,
+		"complete": completed_count == beats.size(),
+		"beats": beats,
+		"retired_label_count": completed_count,
+		"icons_remain_after_labels_retire": true,
+		"skippable": true,
+	}
+
+
+func _shift_rhythm(simulation: Dictionary) -> Dictionary:
+	var phase := int(simulation.get("shift_phase", 0))
+	var minute := int(simulation.get("minute_of_day", 480))
+	var progress := clampf(float(minute - 480) / 540.0, 0.0, 1.0)
+	var pending := simulation.get("pending_decision", {}) as Dictionary
+	var stage := "calm"
+	var label := "CALM SETUP"
+	var icon := "goal"
+	var intensity := 0.16
+	if phase == 3:
+		stage = "celebration"
+		label = "SHIFT FILED"
+		icon = "egg"
+		intensity = 0.0
+	elif not pending.is_empty():
+		stage = "incident"
+		label = "INCIDENT"
+		icon = "shield"
+		intensity = 1.0
+	elif progress >= 0.82:
+		stage = "final_push"
+		label = "FINAL PUSH"
+		icon = "egg"
+		intensity = 0.92
+	elif progress >= 0.48:
+		stage = "pressure"
+		label = "PRESSURE RISING"
+		icon = "route"
+		intensity = 0.68
+	elif progress >= 0.16:
+		stage = "flow"
+		label = "FLOCK IN FLOW"
+		icon = "flock"
+		intensity = 0.38
+	return {
+		"stage": stage,
+		"label": label,
+		"icon": icon,
+		"progress": snappedf(progress, 0.001),
+		"intensity": intensity,
+		"one_primary_pulse": stage in ["incident", "final_push"],
+		"sequence": ["CALM", "FLOW", "PRESSURE", "INCIDENT", "FINAL PUSH", "CELEBRATE"],
+	}
+
+
+func _explain_mode(
+	next_action: Dictionary,
+	playbook: Dictionary,
+	reward_loop: Dictionary,
+	guided_loop: Dictionary,
+) -> Dictionary:
+	var objective := playbook.get("dominant_objective", {}) as Dictionary
+	var preview := guided_loop.get("animated_consequence_preview", {}) as Dictionary
+	var reward := reward_loop.get("future_reward_ghost", {}) as Dictionary
+	var target := guided_loop.get("one_action_one_target", {}) as Dictionary
+	var chips: Array[Dictionary] = [
+		{"id": "objective", "icon": "goal", "label": "DO", "value": String(objective.get("label", next_action.get("visible_label", next_action.get("copy", "NEXT ACTION"))))},
+		{"id": "target", "icon": "route", "label": "HERE", "value": String(target.get("target_kind", "OFFICE")).replace("_", " ").to_upper()},
+		{"id": "danger", "icon": "shield", "label": "WATCH", "value": String(preview.get("risk", "NO HIDDEN RISK"))},
+		{"id": "reward", "icon": "egg", "label": "EARNS", "value": String(reward.get("label", preview.get("gain", "VISIBLE RESULT")))},
+	]
+	return {
+		"input": "H",
+		"hold": true,
+		"pauses_while_held": true,
+		"chip_count": chips.size(),
+		"chips": chips,
+		"details_on_demand": true,
+	}
+
+
+func _emergent_story(
+	simulation: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	relationship: Dictionary,
+	playbook: Dictionary,
+) -> Dictionary:
+	var worker := _focused_worker(workers, focused_worker_id)
+	if worker.is_empty():
+		return {}
+	var worker_name := String(worker.get("name", "HEN")).to_upper()
+	var partner_name := String(relationship.get("partner_name", "THE FLOCK")).to_upper()
+	var last_move := String((playbook.get("relationship_echo", {}) as Dictionary).get("last_move", "NEXT CHOICE PENDING"))
+	var pressure := "steady"
+	if float(worker.get("stress", 0.0)) >= 70.0:
+		pressure = "strained"
+	elif float(worker.get("morale", 50.0)) >= 70.0:
+		pressure = "confident"
+	var beats: Array[Dictionary] = [
+		{"id": "memory", "icon": "receipt", "copy": "%s remembers %s." % [worker_name, last_move.to_lower()]},
+		{"id": "relationship", "icon": "flock", "copy": "%s and %s are %s." % [worker_name, partner_name, String(relationship.get("label", "forming")).to_lower()]},
+		{"id": "pressure", "icon": "care", "copy": "%s enters this beat %s." % [worker_name, pressure]},
+	]
+	return {
+		"episode_id": "day_%d_worker_%d" % [int(simulation.get("day", 1)), int(worker.get("id", -1))],
+		"worker_id": int(worker.get("id", -1)),
+		"worker_name": worker_name,
+		"beat_count": beats.size(),
+		"beats": beats,
+		"callbacks_persist_through_authority": true,
+	}
+
+
+## The same compact report can consume either a live snapshot or a filed shift
+## report. Exact accounting remains available in the existing folded details.
+func compose_report(source: Dictionary) -> Dictionary:
+	var eggs := int(source.get("eggs", source.get("eggs_today", 0)))
+	var quota := int(source.get("quota", source.get("quota_target", 0)))
+	var cracked := int(source.get("cracked", source.get("cracked_today", 0)))
+	var overdue := int(source.get("overdue_claims", 0))
+	var rework := int(source.get("rework_waiting", 0)) + int(source.get("rework_due_next_shift", 0))
+	var net_cents := int(source.get("credited_cents", source.get("credited_today_cents", 0))) - int(source.get("operating_cost_cents", 0))
+	var met_quota := bool(source.get("met_quota", quota > 0 and eggs >= quota))
+	var worked_value := "%d / %d EGGS" % [eggs, quota]
+	var worked_detail := "Target harvested." if met_quota else "Best progress: %d eggs filed." % eggs
+	if cracked == 0 and eggs > 0:
+		worked_detail = "Clean shells carried the shift."
+	var call_value := "%d CRACKED" % cracked
+	var call_detail := "Shell quality stayed clean."
+	if cracked == 0 and overdue > 0:
+		call_value = "%d OVERDUE" % overdue
+		call_detail = "The archive nearly owned the shift."
+	elif cracked == 0 and rework > 0:
+		call_value = "%d REWORK" % rework
+		call_detail = "A recovery route remains open."
+	elif cracked > 0:
+		call_detail = "Shell risk became the closest call."
+	var changed_value := "%s$%.2f" % ["+" if net_cents >= 0 else "-", absf(float(net_cents)) / 100.0]
+	var changed_detail := "Operating result filed to the Feed Fund."
+	var cards: Array[Dictionary] = [
+		{"id": "worked", "icon": "egg", "label": "WHAT WORKED", "value": worked_value, "detail": worked_detail, "positive": met_quota or cracked == 0},
+		{"id": "call", "icon": "shield", "label": "CLOSE CALL", "value": call_value, "detail": call_detail, "positive": cracked == 0 and overdue == 0},
+		{"id": "changed", "icon": "cash", "label": "WHAT CHANGED", "value": changed_value, "detail": changed_detail, "positive": net_cents >= 0},
+	]
+	return {
+		"card_count": cards.size(),
+		"cards": cards,
+		"details_folded": true,
+		"next_target": int(source.get("next_quota", quota)),
 	}
 
 

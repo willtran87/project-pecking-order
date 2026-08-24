@@ -130,6 +130,22 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 		friction_flags.append("frequent_ledger_reference")
 	if int(_signals.get(&"guidance_used", 0)) >= 4 and reached_count < 5:
 		friction_flags.append("primary_action_reliance")
+	var micro_definitions: Array[Dictionary] = [
+		{"id": "plan", "label": "PLAN", "icon": "goal", "target_seconds": 15, "complete": bool(_reached_msec.has(&"file_started"))},
+		{"id": "route", "label": "ROUTE", "icon": "route", "target_seconds": 35, "complete": bool(_reached_msec.has(&"route_filed"))},
+		{"id": "react", "label": "REACT", "icon": "shield", "target_seconds": 65, "complete": bool(_reached_msec.has(&"priority_peck"))},
+		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 90, "complete": bool(_reached_msec.has(&"first_egg"))},
+	]
+	var micro_completed := 0
+	var micro_beats: Array[Dictionary] = []
+	for definition in micro_definitions:
+		var beat := definition.duplicate(true)
+		var beat_complete := bool(beat.get("complete", false))
+		if beat_complete:
+			micro_completed += 1
+		beat["state"] = "complete" if beat_complete else ("current" if micro_completed == micro_beats.size() else "upcoming")
+		beat["label_visible"] = not beat_complete
+		micro_beats.append(beat)
 	return {
 		"version": VERSION,
 		"privacy": "LOCAL SESSION ONLY / NEVER TRANSMITTED",
@@ -148,6 +164,15 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 		"milestones": rows,
 		"signals": signal_snapshot,
 		"friction_flags": friction_flags,
+		"micro_shift": {
+			"budget_seconds": 90,
+			"beat_count": micro_beats.size(),
+			"completed_count": micro_completed,
+			"complete": micro_completed == micro_beats.size(),
+			"beats": micro_beats,
+			"retired_label_count": micro_completed,
+			"icons_remain_after_labels_retire": true,
+		},
 	}
 
 

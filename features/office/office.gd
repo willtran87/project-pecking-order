@@ -718,6 +718,11 @@ var _guidance_icon: FlockwatchIconBadge
 var _guidance_label: Label
 var _guidance_action_chevron: Label
 var _guidance_action_id: StringName = &""
+var _explain_strip: PanelContainer
+var _explain_chip_labels: Array[Label] = []
+var _explain_mode_active := false
+var _explain_previous_speed := 0
+var _last_shift_rhythm_stage: StringName = &""
 var _decision_before_snapshot: Dictionary = {}
 var _latest_action_outcome_receipt: Dictionary = {}
 var _active_action_outcome_panels: Array[Control] = []
@@ -741,6 +746,9 @@ var _review_details_toggle: Button
 var _review_details_scroll: ScrollContainer
 var _review_details_expanded := false
 var _review_story: Label
+var _review_replay_button: Button
+var _review_remix_button: Button
+var _review_remix_index := -1
 var _continue_shift_button: Button
 var _begin_next_shift_button: Button
 var _decision_host: Control
@@ -806,6 +814,7 @@ func _ready() -> void:
 	_has_verified_campaign_checkpoint = false
 	_install_web_checkpoint_bridge()
 	_ensure_peck_assist_input_action()
+	_ensure_explain_input_action()
 	_load_player_preferences()
 	_boot_mark(&"preferences")
 	_build_environment()
@@ -1202,6 +1211,16 @@ func _on_optional_storytelling_finished() -> void:
 
 func _ensure_peck_assist_input_action() -> void:
 	OfficeActionCatalogScript.install_defaults()
+
+
+func _ensure_explain_input_action() -> void:
+	if not InputMap.has_action(&"explain_mode"):
+		InputMap.add_action(&"explain_mode")
+	if not InputMap.action_get_events(&"explain_mode").is_empty():
+		return
+	var explain_key := InputEventKey.new()
+	explain_key.physical_keycode = KEY_H
+	InputMap.action_add_event(&"explain_mode", explain_key)
 
 
 func _load_player_preferences() -> void:
@@ -2290,6 +2309,14 @@ func _predator_debug_shortcut_enabled() -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed(&"explain_mode") and not (event is InputEventKey and event.echo):
+		_begin_explain_mode()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_released(&"explain_mode"):
+		_end_explain_mode()
+		get_viewport().set_input_as_handled()
+		return
 	if (
 		_settings_ui != null
 		and _settings_ui.is_open()
@@ -2423,6 +2450,58 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _is_action_press(event: InputEvent, action: StringName) -> bool:
 	return event.is_action_pressed(action) and not (event is InputEventKey and event.echo)
+
+
+func _begin_explain_mode() -> void:
+	if (
+		_explain_mode_active
+		or _explain_strip == null
+		or _blocking_management_surface_open()
+		or _flockwatch_open
+		or _settings_ui != null and _settings_ui.is_open()
+	):
+		return
+	_explain_mode_active = true
+	_explain_previous_speed = _clock.speed_index if _clock != null else 0
+	if _clock != null and _explain_previous_speed > 0:
+		_clock.set_speed(0)
+	_explain_strip.visible = true
+	_explain_strip.modulate = Color.WHITE
+	_explain_strip.set_meta("active", true)
+	_explain_strip.set_meta("paused_previous_speed", _explain_previous_speed)
+	_on_guidance_preview_entered()
+	if not _prefers_reduced_motion():
+		_explain_strip.modulate.a = 0.0
+		_explain_strip.scale = Vector2(0.97, 0.97)
+		_explain_strip.pivot_offset = _explain_strip.size * 0.5
+		var tween := _presentation_tween(_explain_strip).set_parallel(true)
+		tween.tween_property(_explain_strip, "modulate:a", 1.0, 0.12)
+		tween.tween_property(_explain_strip, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_publish_web_diagnostic_state(_simulation.snapshot())
+
+
+func _end_explain_mode() -> void:
+	if not _explain_mode_active:
+		return
+	_explain_mode_active = false
+	if _explain_strip != null:
+		_explain_strip.visible = false
+		_explain_strip.modulate = Color.WHITE
+		_explain_strip.scale = Vector2.ONE
+		_explain_strip.set_meta("active", false)
+	_on_guidance_preview_exited()
+	var restore_speed := _explain_previous_speed
+	_explain_previous_speed = 0
+	if (
+		restore_speed > 0
+		and _clock != null
+		and _simulation != null
+		and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+		and not _blocking_management_surface_open()
+		and not _feed_party_active
+	):
+		_clock.set_speed(restore_speed)
+	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _is_managed_action_press(event: InputEvent) -> bool:
@@ -5008,6 +5087,10 @@ func _on_predator_victim_captured(worker_id: int, threat_origin: Vector3) -> voi
 
 
 func _process(delta: float) -> void:
+	# Browsers can occasionally swallow a key-up when focus moves outside the
+	# canvas. Never leave the explain hold or its temporary pause latched.
+	if _explain_mode_active and not Input.is_action_pressed(&"explain_mode"):
+		_end_explain_mode()
 	_sync_held_confirmation_presentation()
 	_process_breakroom_life(delta)
 	_process_fund_counter(delta)
@@ -6613,6 +6696,7 @@ func _build_ui() -> void:
 		_on_interaction_safety_presentation_changed
 	)
 	_ui_root.add_child(_routing_ui)
+	_build_explain_strip()
 	_build_held_confirmation_scrim()
 	_build_day_review_panel()
 	_build_decision_modal()
@@ -6663,6 +6747,77 @@ func _build_held_confirmation_scrim() -> void:
 		"Decision in progress. Background management controls are unavailable.",
 	)
 	_ui_root.add_child(_held_confirmation_scrim)
+
+
+func _build_explain_strip() -> void:
+	_explain_strip = PanelContainer.new()
+	_explain_strip.name = "HoldToExplainStrip"
+	_explain_strip.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_explain_strip.offset_left = -388.0
+	_explain_strip.offset_top = -112.0
+	_explain_strip.offset_right = 388.0
+	_explain_strip.offset_bottom = -22.0
+	_explain_strip.z_index = 46
+	_explain_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_explain_strip.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("16242d"), 0.985, 12, 2),
+	)
+	_explain_strip.visible = false
+	_explain_strip.set_meta("input", "H")
+	_explain_strip.set_meta("hold_to_explain", true)
+	_ui_root.add_child(_explain_strip)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 12)
+	margin.add_theme_constant_override("margin_right", 12)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	_explain_strip.add_child(margin)
+	var chips := HBoxContainer.new()
+	chips.name = "ExplainChips"
+	chips.add_theme_constant_override("separation", 8)
+	chips.alignment = BoxContainer.ALIGNMENT_CENTER
+	margin.add_child(chips)
+	for definition in [
+		{"id": "objective", "icon": &"goal", "copy": "DO  ·  NEXT ACTION"},
+		{"id": "target", "icon": &"route", "copy": "HERE  ·  WORLD TARGET"},
+		{"id": "danger", "icon": &"shield", "copy": "WATCH  ·  RISK"},
+		{"id": "reward", "icon": &"egg", "copy": "EARNS  ·  PAYOFF"},
+	]:
+		var chip := PanelContainer.new()
+		chip.name = "ExplainChip_%s" % String(definition.get("id", "chip")).capitalize()
+		chip.custom_minimum_size = Vector2(176.0, 56.0)
+		chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip.add_theme_stylebox_override(
+			"panel",
+			_panel_style(Color("20333d"), 0.98, 8, 1),
+		)
+		chips.add_child(chip)
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("separation", 6)
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip.add_child(row)
+		var icon := FlockwatchIconBadgeScript.new()
+		icon.set_badge_size(20.0)
+		icon.configure(StringName(definition.get("icon", &"goal")), Color("f0ce78"))
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(icon)
+		var label := _make_label(String(definition.get("copy", "EXPLAIN")), 11, Color("e7edf0"))
+		label.name = "ExplainValue_%s" % String(definition.get("id", "chip")).capitalize()
+		label.custom_minimum_size = Vector2(108.0, 38.0)
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		label.max_lines_visible = 2
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(label)
+		_explain_chip_labels.append(label)
 
 
 func _build_day_review_panel() -> void:
@@ -6774,8 +6929,24 @@ func _build_day_review_panel() -> void:
 	content.add_child(hint)
 	var buttons := HFlowContainer.new()
 	buttons.alignment = FlowContainer.ALIGNMENT_CENTER
-	buttons.add_theme_constant_override("separation", 14)
+	buttons.add_theme_constant_override("separation", 8)
 	content.add_child(buttons)
+	_review_replay_button = Button.new()
+	_review_replay_button.name = "ReviewReplayHighlightButton"
+	_review_replay_button.text = "▶"
+	_review_replay_button.custom_minimum_size = Vector2(44.0, 48.0)
+	_review_replay_button.tooltip_text = "Replay the shift's strongest physical hen highlight. No state changes."
+	_review_replay_button.accessibility_name = "Replay shift highlight. No state changes."
+	_review_replay_button.pressed.connect(_on_review_replay_highlight_pressed)
+	buttons.add_child(_review_replay_button)
+	_review_remix_button = Button.new()
+	_review_remix_button.name = "ReviewRemixNextButton"
+	_review_remix_button.text = "↻"
+	_review_remix_button.custom_minimum_size = Vector2(44.0, 48.0)
+	_review_remix_button.tooltip_text = "Cycle a different Fast, Safe, or Flock idea for the next shift. Preview only."
+	_review_remix_button.accessibility_name = "Remix the next shift idea. Preview only."
+	_review_remix_button.pressed.connect(_on_review_remix_pressed)
+	buttons.add_child(_review_remix_button)
 	var requisitions := Button.new()
 	requisitions.name = "ReviewRequisitionsButton"
 	requisitions.text = "STAFF / CASES"
@@ -8139,6 +8310,7 @@ func _spawn_decision_consequence_receipts(
 			"icon": String(entry.get("icon", "goal")),
 			"copy": String(entry.get("copy", "CHANGE FILED")),
 			"detail": String(entry.get("detail", "Decision consequence filed.")),
+			"world_target_worker_id": int(entry.get("world_target_worker_id", -1)),
 		})
 		accessible_lines.append(String(entry.get("detail", "Decision consequence filed.")))
 	_latest_action_outcome_receipt = {
@@ -8220,6 +8392,27 @@ func _spawn_decision_consequence_receipts(
 				- _ui_root.get_global_rect().position
 				- receipt_size * 0.5
 			)
+		var world_target_worker_id := int(entry.get("world_target_worker_id", -1))
+		var world_target_view := _worker_views.get(world_target_worker_id) as ChickenView
+		if (
+			world_target_view != null
+			and is_instance_valid(world_target_view)
+			and _management_camera != null
+			and not _management_camera.is_position_behind(
+				world_target_view.global_position + Vector3(0.0, 1.45, 0.0)
+			)
+		):
+			target_position = (
+				_management_camera.unproject_position(
+					world_target_view.global_position + Vector3(0.0, 1.45, 0.0)
+				)
+				- _ui_root.get_global_rect().position
+				- receipt_size * 0.5
+			)
+			panel.set_meta("flies_to_world_target", true)
+			panel.set_meta("world_target_worker_id", world_target_worker_id)
+			if index == 0:
+				world_target_view.play_short_bark("I FELT THAT!", &"team")
 		var tween := _presentation_tween(panel)
 		tween.tween_interval(float(index) * 0.07)
 		tween.tween_property(panel, "modulate:a", 1.0, 0.12)
@@ -8311,6 +8504,7 @@ func _decision_consequence_entries(before: Dictionary, after: Dictionary) -> Arr
 			"Average flock morale changed from %d to %d." % [roundi(morale_before), roundi(morale_after)],
 			_flockwatch_toggle,
 			Color("8ed3b1") if morale_delta > 0 else Color("e99479"),
+			_most_changed_worker_id(before, after, &"morale"),
 		)
 	var stress_before := _snapshot_worker_average(before, &"stress")
 	var stress_after := _snapshot_worker_average(after, &"stress")
@@ -8322,6 +8516,7 @@ func _decision_consequence_entries(before: Dictionary, after: Dictionary) -> Arr
 			"Average flock stress changed from %d to %d." % [roundi(stress_before), roundi(stress_after)],
 			_flockwatch_toggle,
 			Color("8ed3b1") if stress_delta < 0 else Color("e99479"),
+			_most_changed_worker_id(before, after, &"stress"),
 		)
 	var compliance_before := roundi(float(before.get("compliance", 0.0)))
 	var compliance_after := roundi(float(after.get("compliance", compliance_before)))
@@ -8367,6 +8562,7 @@ func _append_action_consequence(
 	detail: String,
 	target: Control,
 	accent: Color,
+	world_target_worker_id: int = -1,
 ) -> void:
 	entries.append({
 		"id": id,
@@ -8375,7 +8571,31 @@ func _append_action_consequence(
 		"detail": detail,
 		"target": target,
 		"accent": accent,
+		"world_target_worker_id": world_target_worker_id,
 	})
+
+
+func _most_changed_worker_id(before: Dictionary, after: Dictionary, field: StringName) -> int:
+	var before_by_id: Dictionary = {}
+	for worker_value in before.get("workers", []) as Array:
+		if worker_value is Dictionary:
+			var worker := worker_value as Dictionary
+			before_by_id[int(worker.get("id", -1))] = worker
+	var best_id := -1
+	var best_delta := 0.0
+	for worker_value in after.get("workers", []) as Array:
+		if not worker_value is Dictionary:
+			continue
+		var worker := worker_value as Dictionary
+		var worker_id := int(worker.get("id", -1))
+		var prior := before_by_id.get(worker_id, {}) as Dictionary
+		if prior.is_empty():
+			continue
+		var delta := absf(float(worker.get(field, 0.0)) - float(prior.get(field, 0.0)))
+		if delta > best_delta:
+			best_delta = delta
+			best_id = worker_id
+	return best_id
 
 
 func _snapshot_worker_average(snapshot: Dictionary, field: StringName) -> float:
@@ -8840,6 +9060,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 		_review_fund_value.text = "$%.2f" % (float(closing_fund) / 100.0)
 	if _review_next_value != null:
 		_review_next_value.text = str(int(report.get("next_quota", quota)))
+	_apply_three_card_review(report)
 	if _review_summary != null:
 		var shell_summary := (
 			"OK  CLEAN SHELLS   /   * %d GOLDEN" % golden
@@ -9161,6 +9382,10 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			float(int(closing_leader.get("credit_cents", 0))) / 100.0,
 		]
 	_review_story.text = review_highlight
+	_review_story.set_meta("filed_highlight", review_highlight)
+	_review_remix_index = -1
+	if _review_remix_button != null:
+		_review_remix_button.text = "↻"
 	if not personnel_action.is_empty():
 		_review_results.text += "\nPersonnel outcome: %s" % String(
 			personnel_action.get("outcome", "Check-in filed.")
@@ -9205,6 +9430,96 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	else:
 		_day_review_panel.modulate = Color.WHITE
 		_day_review_panel.scale = Vector2.ONE
+
+
+func _apply_three_card_review(report: Dictionary) -> void:
+	var projection := _gameplay_pulse_director.compose_report(report)
+	var cards := projection.get("cards", []) as Array
+	var value_labels: Array[Label] = [
+		_review_eggs_value,
+		_review_net_value,
+		_review_fund_value,
+	]
+	var captions := ["WHAT WORKED", "WHAT CHANGED", "CLOSE CALL"]
+	var card_indexes := [0, 2, 1]
+	for index in value_labels.size():
+		var value_label := value_labels[index]
+		if value_label == null:
+			continue
+		var caption := value_label.get_parent().find_child(
+			value_label.name.trim_suffix("Value") + "Caption",
+			true,
+			false,
+		) as Label
+		if caption != null:
+			caption.text = captions[index]
+		var card: Dictionary = (
+			cards[card_indexes[index]] as Dictionary
+			if card_indexes[index] < cards.size() else
+			{}
+		)
+		value_label.tooltip_text = "%s  ·  %s\n%s" % [
+			captions[index],
+			String(card.get("value", value_label.text)),
+			String(card.get("detail", "Filed shift result.")),
+		]
+		value_label.accessibility_name = value_label.tooltip_text
+		value_label.set_meta("report_card", card.duplicate(true))
+	if _review_next_value != null:
+		var next_caption := _review_next_value.get_parent().find_child(
+			"FarmerReviewNextCaption",
+			true,
+			false,
+		) as Label
+		if next_caption != null:
+			next_caption.text = "NEXT SHIFT"
+	if _day_review_panel != null:
+		_day_review_panel.set_meta("three_card_report", projection.duplicate(true))
+		_day_review_panel.set_meta(
+			"fast_replay_flow",
+			{"actions": ["replay_highlight", "remix_idea", "continue"], "one_click": true},
+		)
+
+
+func _on_review_replay_highlight_pressed() -> void:
+	if _last_workday_report.is_empty() or _day_review_scrim == null:
+		return
+	_day_review_scrim.visible = false
+	_refresh_floor_input_context()
+	_play_shift_highlight_replay(_last_workday_report)
+	_publish_status_copy("REPLAYING THE SHIFT'S HEN HIGHLIGHT.", false)
+	await get_tree().create_timer(2.4).timeout
+	if (
+		_simulation != null
+		and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW
+		and not _blocking_management_surface_open()
+	):
+		_day_review_scrim.visible = true
+		_refresh_floor_input_context()
+		if _review_replay_button != null:
+			_review_replay_button.grab_focus()
+
+
+func _on_review_remix_pressed() -> void:
+	if _review_story == null:
+		return
+	var ideas: Array[Dictionary] = [
+		{"id": "fast", "label": "FAST", "copy": "NEXT IDEA  ·  FAST  ·  chase pace; watch shell exposure."},
+		{"id": "safe", "label": "SAFE", "copy": "NEXT IDEA  ·  SAFE  ·  protect shells; accept a steadier tempo."},
+		{"id": "flock", "label": "FLOCK", "copy": "NEXT IDEA  ·  FLOCK  ·  build bonds; trade some raw pace."},
+	]
+	_review_remix_index = posmod(_review_remix_index + 1, ideas.size())
+	var idea := ideas[_review_remix_index] as Dictionary
+	_review_story.text = String(idea.get("copy", "NEXT IDEA"))
+	_review_story.tooltip_text = "Preview only. Continue to the next shift, then file any available plan."
+	_review_story.set_meta("remix_strategy_id", String(idea.get("id", "")))
+	if _review_remix_button != null:
+		_review_remix_button.text = "↻"
+		_review_remix_button.tooltip_text = "%s\nPreview only. Continue, then file any available plan." % String(idea.get("copy", "NEXT IDEA"))
+		_review_remix_button.set_meta("preview_only", true)
+		_review_remix_button.set_meta("strategy_id", String(idea.get("id", "")))
+	if _audio_feedback != null:
+		_audio_feedback.play_decision_resolved()
 
 
 func _review_progression_action(snapshot: Dictionary = {}) -> Dictionary:
@@ -19355,6 +19670,10 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	})
 	_gameplay_pulse["active_playbook"] = active_playbook.duplicate(true)
 	_refresh_active_playbook_menu(active_playbook, focused_worker_id)
+	_apply_complete_game_loop_presentation(
+		_gameplay_pulse.get("complete_game_loop", {}) as Dictionary,
+		snapshot,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -19508,6 +19827,80 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		if _guidance_icon != null:
 			_guidance_icon.tooltip_text = _guidance_label.tooltip_text
 			_guidance_icon.accessibility_name = _guidance_label.tooltip_text
+
+
+func _apply_complete_game_loop_presentation(loop: Dictionary, snapshot: Dictionary) -> void:
+	if loop.is_empty():
+		return
+	var explain := loop.get("explain_mode", {}) as Dictionary
+	var chips := explain.get("chips", []) as Array
+	for index in mini(_explain_chip_labels.size(), chips.size()):
+		var chip := chips[index] as Dictionary
+		var label := _explain_chip_labels[index]
+		if label == null:
+			continue
+		var value := String(chip.get("value", "")).strip_edges()
+		if value.length() > 18:
+			value = value.left(17).trim_suffix(" ") + "…"
+		label.text = "%s\n%s" % [String(chip.get("label", "LOOK")), value]
+		label.tooltip_text = "%s: %s" % [String(chip.get("label", "LOOK")), String(chip.get("value", ""))]
+		label.accessibility_name = label.tooltip_text
+	if _explain_strip != null:
+		_explain_strip.set_meta("projection", explain.duplicate(true))
+		_explain_strip.set_meta("chip_count", chips.size())
+
+	var micro_shift := loop.get("micro_shift", {}) as Dictionary
+	if _core_loop_host != null:
+		_core_loop_host.set_meta("micro_shift", micro_shift.duplicate(true))
+		_core_loop_host.set_meta("retired_label_count", int(micro_shift.get("retired_label_count", 0)))
+
+	var rhythm := loop.get("shift_rhythm", {}) as Dictionary
+	var stage := StringName(String(rhythm.get("stage", "calm")))
+	var accent := Color("8faeb4")
+	match stage:
+		&"flow": accent = Color("8fd1b0")
+		&"pressure": accent = Color("e4c36e")
+		&"incident": accent = Color("ed927a")
+		&"final_push": accent = Color("f4cd66")
+		&"celebration": accent = Color("9ccfc2")
+	if _shift_goal_status_icon != null:
+		_shift_goal_status_icon.configure(&"egg", accent)
+		_shift_goal_status_icon.tooltip_text = "%s  ·  %d%% OF SHIFT" % [
+			String(rhythm.get("label", "SHIFT RHYTHM")),
+			roundi(float(rhythm.get("progress", 0.0)) * 100.0),
+		]
+		_shift_goal_status_icon.set_meta("rhythm", rhythm.duplicate(true))
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("shift_rhythm", rhythm.duplicate(true))
+		_top_hud_panel.set_meta("one_primary_pulse", bool(rhythm.get("one_primary_pulse", false)))
+	if stage != _last_shift_rhythm_stage:
+		var previous_stage := _last_shift_rhythm_stage
+		_last_shift_rhythm_stage = stage
+		if previous_stage != &"" and int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING:
+			var bark := ""
+			if stage == &"flow":
+				bark = "IN THE GROOVE!"
+			elif stage == &"pressure":
+				bark = "QUEUE'S RISING!"
+			elif stage == &"final_push":
+				bark = "FINAL PUSH!"
+			if not bark.is_empty():
+				var story := loop.get("emergent_story", {}) as Dictionary
+				var worker_id := int(story.get("worker_id", -1))
+				var view := _worker_views.get(worker_id) as ChickenView
+				if view != null and is_instance_valid(view):
+					view.play_short_bark(bark, &"team")
+			if stage == &"final_push" and _audio_feedback != null:
+				_audio_feedback.play_shift_alert(float(rhythm.get("intensity", 0.9)))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta(
+			"emergent_story",
+			(loop.get("emergent_story", {}) as Dictionary).duplicate(true),
+		)
+		_active_playbook_button.set_meta(
+			"complete_game_loop",
+			loop.duplicate(true),
+		)
 
 
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
@@ -19680,6 +20073,7 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 	var option := _active_playbook_menu_map[item_id] as Dictionary
 	var kind := StringName(option.get("kind", &""))
 	var choice_id := StringName(option.get("id", &""))
+	var before_playbook_snapshot := _simulation.snapshot()
 	var result := _simulation.perform_playbook_action(
 		kind,
 		choice_id,
@@ -19718,6 +20112,19 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 		}],
 		"accessible_text": "%s. %s" % [receipt_label, outcome],
 	}
+	var after_playbook_snapshot := _simulation.snapshot()
+	if not _decision_consequence_entries(
+		before_playbook_snapshot,
+		after_playbook_snapshot,
+	).is_empty():
+		var prior_decision := _active_decision
+		_active_decision = {"options": [option.duplicate(true)]}
+		_spawn_decision_consequence_receipts(
+			before_playbook_snapshot,
+			after_playbook_snapshot,
+			{"option_id": String(choice_id)},
+		)
+		_active_decision = prior_decision
 	_active_playbook_menu_fingerprint = ""
 	if _audio_feedback != null:
 		if kind in [&"reward", &"teamwork"]:
@@ -21004,6 +21411,17 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		),
 		"next_action": _next_action_diagnostic_state(),
 		"gameplay_pulse": _gameplay_pulse.duplicate(true),
+		"explain_mode": {
+			"active": _explain_mode_active,
+			"visible": _explain_strip != null and _explain_strip.visible,
+			"input": "H",
+			"chip_count": _explain_chip_labels.size(),
+			"projection": (
+				_explain_strip.get_meta("projection", {}) as Dictionary
+				if _explain_strip != null else
+				{}
+			),
+		},
 		"next_moment": _next_moment_diagnostic_state(),
 		"clutch_reward_ladder": _clutch_reward_ladder_snapshot(
 			int(snapshot.get("quality_streak", 0))
