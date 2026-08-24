@@ -507,6 +507,18 @@ func _run() -> void:
 		"after filing, the secondary playbook control should become a compact strategy status",
 		failures,
 	)
+	var advanced_playbook := simulation.playbook_snapshot(0)
+	office.call("_refresh_active_playbook_menu", advanced_playbook, 0)
+	var advanced_menu_map := office.get("_active_playbook_menu_map") as Dictionary
+	_check(
+		(advanced_playbook.get("display_sockets", []) as Array).size() == 3
+		and not (advanced_playbook.get("build_identity", {}) as Dictionary).is_empty()
+		and not (advanced_playbook.get("career_story", {}) as Dictionary).is_empty()
+		and advanced_menu_map.values().any(func(option: Variant) -> bool: return option is Dictionary and String((option as Dictionary).get("kind", "")) == "proposal"),
+		"the compact playbook should project fixed display sockets, build identity, a hen story, and one actionable proposal without adding another HUD panel",
+		failures,
+	)
+	office.call("_refresh_active_playbook_menu", simulation.playbook_snapshot(-1), -1)
 	pause_toggle.pressed.emit()
 	await process_frame
 	var ticker_panel := office.get("_ticker_panel") as PanelContainer

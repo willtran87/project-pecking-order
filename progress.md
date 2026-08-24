@@ -13940,3 +13940,15 @@ The next major systems milestone is persistent worker relationships and individu
 - The authoritative beta release gate passes 58/58 checks in 555.397 seconds under Node 24.19.0. The focused interaction suite also passes 9/9.
 - Browser verification is clean at 2560×1600, 1280×720, and 390×844 with zero console errors and zero horizontal overflow; all Codex-owned browser, server, and test processes are cleaned after use.
 - Both release targets are byte-identical across all nine deployables. The final 10,577,172-byte PCK has SHA-256 `5101C5E9D15462E271FC7AD145A5180A9C0BE0EDEAD0663C757FF3936188DBD7`.
+
+# 2026-08-24 — Engagement advancement
+
+- Unified fourteen engagement findings into the existing Active Playbook rather than adding another dashboard or currency.
+- Added structured forecast → action → reconciled-result receipts, one context-authored hen proposal, disclosed mastery delegation rules, and a one-shot `SHOW ME` recovery action.
+- Added one optional hen-reactive office toy beat per shift, one deterministic authored office episode per docket, and three fixed cosmetic sockets on the physical plan/contract/reward shelf.
+- Added derived multi-shift hen career chapters, routing/quality personal-best comparisons, a compact build-identity summary, and deterministic `PO-####-D#` challenge codes.
+- Extended authentic shift-hen reports with a skippable three-beat world replay and exposed a skippable Day 1 plan → route → result spotlight path.
+- Added `docs/ENGAGEMENT_ADVANCEMENT_RESOLUTION.md` and an automated engagement contract. The five-person unaided comprehension protocol is fully specified and instrumented; real participant findings remain explicitly external evidence.
+- Godot 4.7 import plus focused engagement, management-loop UI, atmosphere, and shift-highlight contracts pass. Prescribed production-browser captures verify the 1280×720 intake and live Day 1 office with zero console errors and zero orphan nodes.
+- The complete beta release gate passes 59/59 checks in 631.531 seconds. Both release targets are byte-identical; the final 10,587,188-byte PCK has SHA-256 `5B268B7A8388D1A52FD70E45985FED75C78CDCF76CA5BE4B715FDB13C91E3161`.
+- Every Codex-owned Godot, Node, Chromium, and local server process was closed after verification; ports 3001 and 63839 were confirmed free without touching the user-owned port 3000 instance.

@@ -2088,6 +2088,27 @@ const PLAYBOOK_STRATEGY_PRESET_DEFINITIONS := {
 		"cost_cents": 200,
 	},
 }
+const PLAYBOOK_HEN_PROPOSAL_DEFINITIONS := {
+	&"own_lane": {"label": "TRUST MY LANE", "icon": &"flock", "gain": "FIT + TRUST", "cost": "ONE PROPOSAL", "risk": "SPECIALTY FIRST"},
+	&"pair_perch": {"label": "PAIR MY PERCH", "icon": &"sync", "gain": "PAIR RECOVERY", "cost": "ONE PROPOSAL", "risk": "REQUIRES BOND"},
+	&"protect_clutch": {"label": "PROTECT MY CLUTCH", "icon": &"care", "gain": "STRAIN -4", "cost": "PACE -2%", "risk": "ONE SHIFT"},
+}
+const PLAYBOOK_OFFICE_TOY_DEFINITIONS := {
+	&"desk_bell": {"label": "RING DESK BELL", "icon": &"sync", "gain": "HEN REACTION", "cost": "NONE", "risk": "ONCE / SHIFT"},
+	&"copy_test": {"label": "TEST THE COPIER", "icon": &"files", "gain": "HEN REACTION", "cost": "NONE", "risk": "ONCE / SHIFT"},
+	&"cooler_break": {"label": "COOLER BREAK", "icon": &"care", "gain": "STRAIN -2", "cost": "NONE", "risk": "ONCE / SHIFT"},
+}
+const PLAYBOOK_DISPLAY_STYLE_ORDER: Array[StringName] = [&"brass", &"shell", &"flock"]
+const PLAYBOOK_DISPLAY_STYLE_DEFINITIONS := {
+	&"brass": {"label": "BRASS FILE", "icon": &"golden", "accent": "f0bd5f"},
+	&"shell": {"label": "SHELL LEDGER", "icon": &"shield", "accent": "7bc3c8"},
+	&"flock": {"label": "FLOCK PATCH", "icon": &"flock", "accent": "8ac47a"},
+}
+const PLAYBOOK_RARE_EPISODE_DEFINITIONS := {
+	&"printer_revolt": {"label": "PRINTER REVOLT", "icon": &"files", "gain": "ATTENTION +1", "cost": "$1.00", "risk": "CLEAR THE JAM"},
+	&"coffee_union": {"label": "COFFEE UNION", "icon": &"care", "gain": "FLOCK STRAIN -3", "cost": "PACE -1%", "risk": "ONE SHIFT"},
+	&"bell_audit": {"label": "BELL AUDIT", "icon": &"shield", "gain": "COMPLIANCE +2", "cost": "MORALE -1", "risk": "VISIBLE TRADE"},
+}
 const CAREER_PROFILE_DEFINITIONS := {
 	&"credit_conscious": {
 		"name": "CREDIT CONSCIOUS",
@@ -13492,6 +13513,27 @@ func _validated_active_playbook(
 		return {"valid": false, "record": {}}
 	normalized["teamwork_used"] = bool(source.get("teamwork_used", false))
 	normalized["mastery_auto_used"] = bool(source.get("mastery_auto_used", false))
+	for optional_bool in ["rescue_used", "rare_episode_resolved"]:
+		var optional_value: Variant = source.get(optional_bool, false)
+		if typeof(optional_value) != TYPE_BOOL:
+			return {"valid": false, "record": {}}
+		normalized[optional_bool] = bool(optional_value)
+	var proposal_worker_id := int(source.get("proposal_worker_id", -1))
+	if proposal_worker_id < -1 or proposal_worker_id >= worker_count:
+		return {"valid": false, "record": {}}
+	normalized["proposal_worker_id"] = proposal_worker_id
+	var proposal_id := StringName(String(source.get("proposal_id", "")))
+	if proposal_id != &"" and not PLAYBOOK_HEN_PROPOSAL_DEFINITIONS.has(proposal_id):
+		return {"valid": false, "record": {}}
+	normalized["proposal_id"] = String(proposal_id)
+	var toy_id := StringName(String(source.get("toy_id", "")))
+	if toy_id != &"" and not PLAYBOOK_OFFICE_TOY_DEFINITIONS.has(toy_id):
+		return {"valid": false, "record": {}}
+	normalized["toy_id"] = String(toy_id)
+	var display_style_index := int(source.get("display_style_index", 0))
+	if display_style_index < 0 or display_style_index >= PLAYBOOK_DISPLAY_STYLE_ORDER.size():
+		return {"valid": false, "record": {}}
+	normalized["display_style_index"] = display_style_index
 	var receipt_value: Variant = source.get("last_receipt", null)
 	if not receipt_value is Dictionary:
 		return {"valid": false, "record": {}}
@@ -16275,6 +16317,12 @@ func _reset_active_playbook() -> void:
 		"push_luck_id": "",
 		"push_luck_start_eggs": 0,
 		"mastery_auto_used": false,
+		"proposal_worker_id": -1,
+		"proposal_id": "",
+		"rescue_used": false,
+		"toy_id": "",
+		"display_style_index": 0,
+		"rare_episode_resolved": false,
 		"last_receipt": {},
 		"receipt_serial": 0,
 	}
@@ -16342,6 +16390,12 @@ func _playbook_option(
 		"detail": detail,
 		"recommended": bool(definition.get("recommended", false)),
 		"promise": String(definition.get("promise", "")),
+		"forecast": {
+			"gain": String(definition.get("gain", "VISIBLE GAIN")),
+			"cost": String(definition.get("cost", "NO COST")),
+			"risk": String(definition.get("risk", "NO HIDDEN RISK")),
+			"uncertainty": "DISCLOSED",
+		},
 	}
 
 
@@ -16386,6 +16440,116 @@ func _playbook_shift_journey(contract_complete: bool) -> Array[Dictionary]:
 		step["state"] = "current" if index == active_index else ("complete" if index < active_index else "upcoming")
 		result.append(step)
 	return result
+
+
+func _playbook_proposal_id(worker_id: int) -> StringName:
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return &""
+	var worker := workers[worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	if int(bond.get("score", 0)) >= 60:
+		return &"pair_perch"
+	if worker.stress >= 55.0 or worker.fatigue >= 60.0:
+		return &"protect_clutch"
+	return &"own_lane"
+
+
+func _rare_office_episode_id() -> StringName:
+	var episode_day := 2 + posmod(_career_seed, 3)
+	if day != episode_day:
+		return &""
+	var episode_ids: Array[StringName] = [&"printer_revolt", &"coffee_union", &"bell_audit"]
+	return episode_ids[posmod(_career_seed, episode_ids.size())]
+
+
+func _build_identity_snapshot() -> Dictionary:
+	var preset_id := StringName(String(active_playbook.get("strategy_preset_id", "")))
+	var preset := PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(preset_id, {}) as Dictionary
+	# Default AUTO is a player routing choice, not proof that mastery was taught.
+	# Only the filed mastery receipt may claim a taught delegation rule.
+	var auto_count := 1 if bool(active_playbook.get("mastery_auto_used", false)) else 0
+	var identity_label := String(preset.get("label", "OPEN BOOK"))
+	if auto_count > 0:
+		identity_label += " / TAUGHT FLOCK"
+	return {
+		"label": identity_label,
+		"strategy": String(preset_id),
+		"automated_hens": auto_count,
+		"side_goal": String(active_playbook.get("side_goal_id", "")),
+		"summary": "%s · %d routing rule%s · %s" % [
+			identity_label,
+			auto_count,
+			"" if auto_count == 1 else "s",
+			String(active_directive_snapshot().get("short_name", "POLICY OPEN")),
+		],
+	}
+
+
+func _career_story_snapshot(focused_worker_id: int) -> Dictionary:
+	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
+		return {}
+	var worker := workers[focused_worker_id]
+	var chapter := "NEW PERCH"
+	if worker.career_xp >= 40:
+		chapter = "FLOCK VETERAN"
+	elif worker.manager_trust >= 65.0:
+		chapter = "TRUSTED HAND"
+	elif worker.grievance >= 45.0:
+		chapter = "RELATIONSHIP AT RISK"
+	return {
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"chapter": chapter,
+		"beat": "Day %d · %s · trust %d" % [day, worker.career_title(), roundi(worker.manager_trust)],
+		"persistent_sources": ["career_xp", "manager_trust", "grievance", "flock_bond"],
+	}
+
+
+func _playbook_display_sockets() -> Array[Dictionary]:
+	var style_index := int(active_playbook.get("display_style_index", 0))
+	var style_id := PLAYBOOK_DISPLAY_STYLE_ORDER[style_index]
+	var style := PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[style_id] as Dictionary
+	return [
+		{"id": "plan", "label": "PLAN", "earned": not String(active_playbook.get("strategy_preset_id", "")).is_empty(), "style_id": String(style_id), "style": style.duplicate(true)},
+		{"id": "contract", "label": "CONTRACT", "earned": not String(active_playbook.get("contract_id", "")).is_empty(), "style_id": String(style_id), "style": style.duplicate(true)},
+		{"id": "reward", "label": "REWARD", "earned": not String(active_playbook.get("contract_reward_id", "")).is_empty(), "style_id": String(style_id), "style": style.duplicate(true)},
+	]
+
+
+func challenge_code() -> String:
+	return "PO-%04d-D%d" % [posmod(_career_seed, 10_000), clampi(day, 1, 99)]
+
+
+static func challenge_seed_from_code(code: String) -> int:
+	return int(challenge_state_from_code(code).get("seed", -1))
+
+
+static func challenge_state_from_code(code: String) -> Dictionary:
+	var normalized := code.strip_edges().to_upper()
+	if not normalized.begins_with("PO-"):
+		return {}
+	var parts := normalized.split("-")
+	if parts.size() != 3 or not parts[1].is_valid_int() or not parts[2].begins_with("D"):
+		return {}
+	var day_text := parts[2].trim_prefix("D")
+	if not day_text.is_valid_int():
+		return {}
+	var seed := int(parts[1])
+	var coded_day := int(day_text)
+	if seed < 0 or seed > 9999 or coded_day < 1 or coded_day > 99:
+		return {}
+	return {"seed": seed, "day": coded_day, "code": "PO-%04d-D%d" % [seed, coded_day]}
+
+
+static func first_session_comprehension_protocol() -> Dictionary:
+	return {
+		"participants_required": 5,
+		"unaided": true,
+		"tasks": ["Choose a plan", "Route one file", "Recover one mistake", "Explain one result"],
+		"pass_rule": "At least 4 of 5 participants complete all four tasks without outside instruction.",
+		"instrumented_events": ["plan_filed", "route_completed", "rescue_used", "result_explained"],
+		"status": "AWAITING REAL PARTICIPANTS",
+	}
 
 
 func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
@@ -16462,6 +16626,22 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		signature_available = running and focused_worker_id not in signature_ids and bool(personnel_action_status().get("available", false))
 		signature_reason = "Uses the normal flock check-in allowance." if signature_available else "This hen's signature or today's flock allowance is already used."
 	options.append(_playbook_option(&"signature", &"activate", {"label": signature_label, "icon": &"flock", "gain": "PROFILE-SPECIFIC EFFECT", "cost": "NORMAL CHECK-IN", "risk": "ONE PER HEN / SHIFT"}, signature_available, signature_reason))
+	var proposal_id := _playbook_proposal_id(focused_worker_id)
+	var proposal_open := (
+		running
+		and proposal_id != &""
+		and int(active_playbook.get("proposal_worker_id", -1)) < 0
+		and not strategy_preset_id.is_empty()
+	)
+	if proposal_id != &"":
+		var proposal_definition := PLAYBOOK_HEN_PROPOSAL_DEFINITIONS[proposal_id] as Dictionary
+		options.append(_playbook_option(
+			&"proposal",
+			proposal_id,
+			proposal_definition,
+			proposal_open,
+			"%s is proposing this herself; accept or ignore it with no failure penalty." % workers[focused_worker_id].display_name,
+		))
 	var teamwork_available := false
 	var teamwork_reason := "Select a bonded hen with a Good Perch or Clutchmates relationship."
 	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
@@ -16506,6 +16686,46 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		for choice_id: StringName in PLAYBOOK_RECOVERY_DEFINITIONS:
 			var affordable := choice_id != &"repair_flock" or spendable_fund_cents() >= 300
 			options.append(_playbook_option(&"recovery", choice_id, PLAYBOOK_RECOVERY_DEFINITIONS[choice_id], affordable, "Choose one comeback plan." if affordable else "Feed Fund needs $3.00 spendable."))
+	var rescue_open := (
+		running
+		and not bool(active_playbook.get("rescue_used", false))
+		and focused_worker_id >= 0
+		and (cracked_today > 0 or (eggs_today > 0 and routing_momentum_chain == 0) or _overdue_claim_count(false) > 0)
+	)
+	if rescue_open:
+		options.append(_playbook_option(&"rescue", &"show_me", {
+			"label": "SHOW ME",
+			"icon": &"route",
+			"gain": "SPECIALTY ROUTE + ATTENTION",
+			"cost": "ONE RESCUE / SHIFT",
+			"risk": "NO BONUS REWARD",
+		}, true, "A contextual recovery: fit the selected hen to her specialty and restore one help charge."))
+	if String(active_playbook.get("toy_id", "")).is_empty() and eggs_today > 0:
+		for toy_id: StringName in PLAYBOOK_OFFICE_TOY_DEFINITIONS:
+			options.append(_playbook_option(&"toy", toy_id, PLAYBOOK_OFFICE_TOY_DEFINITIONS[toy_id], running, "A tiny physical office beat; once per shift and never required."))
+	var episode_id := _rare_office_episode_id()
+	if episode_id != &"" and not bool(active_playbook.get("rare_episode_resolved", false)):
+		var episode_definition := PLAYBOOK_RARE_EPISODE_DEFINITIONS[episode_id] as Dictionary
+		var episode_affordable := episode_id != &"printer_revolt" or spendable_fund_cents() >= 100
+		options.append(_playbook_option(&"episode", episode_id, episode_definition, running and episode_affordable, "One authored office episode in this five-shift docket." if episode_affordable else "The printer repair needs $1.00 spendable."))
+	if not strategy_preset_id.is_empty():
+		var next_style_index := (int(active_playbook.get("display_style_index", 0)) + 1) % PLAYBOOK_DISPLAY_STYLE_ORDER.size()
+		var next_style_id := PLAYBOOK_DISPLAY_STYLE_ORDER[next_style_index]
+		var next_style := PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[next_style_id] as Dictionary
+		options.append(_playbook_option(&"display", next_style_id, {
+			"label": "DISPLAY: %s" % String(next_style.get("label", "STYLE")),
+			"icon": next_style.get("icon", &"facility"),
+			"gain": "RESTYLE 3 FIXED SOCKETS",
+			"cost": "NONE",
+			"risk": "COSMETIC ONLY",
+		}, running, "Cycles the earned plan, contract, and reward display—never free placement."))
+	options.append(_playbook_option(&"challenge", &"copy_code", {
+		"label": "COPY %s" % challenge_code(),
+		"icon": &"files",
+		"gain": "SHARE THIS DOCKET",
+		"cost": "NONE",
+		"risk": "SAME SEED / DAY",
+	}, running, "Copy a compact deterministic challenge code."))
 	options.append(_playbook_option(&"practice", &"peck", {"label": "PRACTICE PECK", "icon": &"sync", "gain": "TIMING FEEDBACK", "cost": "NONE", "risk": "NO REWARD"}, running and focused_worker_id >= 0, "Reads the current timing cursor without spending attention or changing the file."))
 	var directive_combo := {
 		&"record_harvest": {"id": "harvest_hustle", "label": "HARVEST HUSTLE", "icon": "egg", "effect": "PACE +5%"},
@@ -16530,6 +16750,15 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		"combo": {"id": String(directive_combo.get("id", "")), "label": String(directive_combo.get("label", "COMBO")), "icon": String(directive_combo.get("icon", "sync")), "active": combo_active, "progress": routing_momentum_chain, "target": ROUTING_MOMENTUM_PACE_MILESTONE, "effect": String(directive_combo.get("effect", ""))},
 		"shift_plan": _playbook_shift_plan(contract_definition, directive_combo),
 		"shift_journey": _playbook_shift_journey(contract_complete),
+		"opening_spotlight": {
+			"active": day == 1 and eggs_today == 0,
+			"path": [
+				{"icon": "goal", "label": "PICK PLAN", "world_target": "plan_button"},
+				{"icon": "route", "label": "ROUTE FILE", "world_target": "intake_tray"},
+				{"icon": "egg", "label": "SEE RESULT", "world_target": "farmer_basket"},
+			],
+			"skippable": true,
+		},
 		"core_verbs": ["INSPECT", "ROUTE", "HELP", "PECK", "INVEST"],
 		"choice_budget": {"major": 1, "optional": 1, "surprise": 1, "detail": "One major plan, one optional goal, and one visible surprise at a time."},
 		"session_target_minutes": {"minimum": 8, "maximum": 12},
@@ -16549,7 +16778,29 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"used": bool(active_playbook.get("mastery_auto_used", false)),
 			"chain": routing_momentum_chain,
 			"target": ROUTING_MOMENTUM_PACE_MILESTONE,
+			"rules": [
+				{"id": "specialty_first", "label": "SPECIALTY FIRST", "condition": "MATCH EXISTS", "fallback": "EARLIEST DEADLINE"},
+				{"id": "deadline_first", "label": "DEADLINE FIRST", "condition": "FILE OVERDUE", "fallback": "BEST FIT"},
+			],
 		},
+		"hen_proposal": {
+			"worker_id": int(active_playbook.get("proposal_worker_id", focused_worker_id)),
+			"id": String(active_playbook.get("proposal_id", proposal_id)),
+			"accepted": int(active_playbook.get("proposal_worker_id", -1)) >= 0,
+			"optional": true,
+		},
+		"contextual_rescue": {"used": bool(active_playbook.get("rescue_used", false)), "available": rescue_open, "label": "SHOW ME"},
+		"office_toy": {"id": String(active_playbook.get("toy_id", "")), "used": not String(active_playbook.get("toy_id", "")).is_empty(), "optional": true},
+		"rare_episode": {"id": String(episode_id), "active": episode_id != &"", "resolved": bool(active_playbook.get("rare_episode_resolved", false)), "authored": true},
+		"display_sockets": _playbook_display_sockets(),
+		"build_identity": _build_identity_snapshot(),
+		"career_story": _career_story_snapshot(focused_worker_id),
+		"personal_best": {
+			"routing": {"current": routing_momentum_chain, "best": best_routing_momentum_chain, "delta": routing_momentum_chain - best_routing_momentum_chain},
+			"quality": {"current": quality_streak, "best": best_quality_streak, "delta": quality_streak - best_quality_streak},
+		},
+		"challenge": {"code": challenge_code(), "seed": _career_seed, "day": day, "shareable": true},
+		"comprehension_study": first_session_comprehension_protocol(),
 		"boss_file": {"active": day == PROBATION_CAMPAIGN_SHIFTS, "label": String(scenario_identity_snapshot().get("climax_title", "FINAL HEARING")), "mechanics": ["POLICY", "INCIDENT", "CREDIT"]},
 		"opportunity_shapes": [
 			{"id": "golden", "icon": "golden", "shape": "star", "active": routing_momentum_golden_target_worker_id >= 0},
@@ -16574,6 +16825,88 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 	_ensure_active_playbook()
 	if shift_phase != ShiftPhase.RUNNING or not pending_decision.is_empty():
 		return {"accepted": false, "reason": "Resolve the current management file first."}
+	if kind == &"proposal":
+		if not PLAYBOOK_HEN_PROPOSAL_DEFINITIONS.has(choice_id) or int(active_playbook.get("proposal_worker_id", -1)) >= 0:
+			return {"accepted": false, "reason": "This shift's hen proposal is already answered or unavailable."}
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed or _playbook_proposal_id(worker_id) != choice_id:
+			return {"accepted": false, "reason": "Select the hen who made this proposal."}
+		var proposal_worker := workers[worker_id]
+		match choice_id:
+			&"own_lane":
+				set_worker_assignment(worker_id, proposal_worker.specialty)
+				proposal_worker.manager_trust = minf(100.0, proposal_worker.manager_trust + 3.0)
+			&"pair_perch":
+				var proposal_bond := _worker_flock_bond_snapshot(proposal_worker)
+				var proposal_partner_id := int(proposal_bond.get("partner_id", -1))
+				if proposal_partner_id < 0 or proposal_partner_id >= workers.size():
+					return {"accepted": false, "reason": "That perch bond is no longer available."}
+				for teammate_id in [worker_id, proposal_partner_id]:
+					workers[teammate_id].morale = minf(100.0, workers[teammate_id].morale + 3.0)
+					workers[teammate_id].stress = maxf(0.0, workers[teammate_id].stress - 2.0)
+			&"protect_clutch":
+				proposal_worker.stress = maxf(0.0, proposal_worker.stress - 4.0)
+				proposal_worker.fatigue = maxf(0.0, proposal_worker.fatigue - 3.0)
+		active_playbook["proposal_worker_id"] = worker_id
+		active_playbook["proposal_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(
+			kind,
+			choice_id,
+			PLAYBOOK_HEN_PROPOSAL_DEFINITIONS[choice_id],
+			"%s's %s proposal is now visible in the floor plan." % [proposal_worker.display_name, String(PLAYBOOK_HEN_PROPOSAL_DEFINITIONS[choice_id].get("label", "hen"))],
+		))
+	if kind == &"rescue":
+		if choice_id != &"show_me" or bool(active_playbook.get("rescue_used", false)):
+			return {"accepted": false, "reason": "Show Me is already used or unavailable."}
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+			return {"accepted": false, "reason": "Select an active hen for the rescue route."}
+		set_worker_assignment(worker_id, workers[worker_id].specialty)
+		routing_momentum_peck_recharge_bank = maxi(1, routing_momentum_peck_recharge_bank)
+		active_playbook["rescue_used"] = true
+		return _file_playbook_receipt({
+			"accepted": true, "playbook_kind": "rescue", "choice_id": "show_me", "worker_id": worker_id,
+			"label": "SHOW ME", "effects": {"gain": "SPECIALTY ROUTE + ATTENTION", "cost": "ONE RESCUE / SHIFT", "risk": "NO BONUS REWARD"},
+			"outcome": "%s is back on her specialty lane; one help charge is ready. No reward was granted." % workers[worker_id].display_name, "day": day,
+		})
+	if kind == &"toy":
+		if not PLAYBOOK_OFFICE_TOY_DEFINITIONS.has(choice_id) or not String(active_playbook.get("toy_id", "")).is_empty():
+			return {"accepted": false, "reason": "The office already had its playful beat this shift."}
+		var toy_worker_id := worker_id
+		if toy_worker_id < 0 or toy_worker_id >= workers.size() or not workers[toy_worker_id].employed:
+			for candidate in workers:
+				if candidate.employed:
+					toy_worker_id = candidate.id
+					break
+		if toy_worker_id >= 0:
+			workers[toy_worker_id].morale = minf(100.0, workers[toy_worker_id].morale + 1.0)
+			if choice_id == &"cooler_break":
+				workers[toy_worker_id].stress = maxf(0.0, workers[toy_worker_id].stress - 2.0)
+		active_playbook["toy_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_OFFICE_TOY_DEFINITIONS[choice_id], "%s reacted to the %s. Small, optional, and done for this shift." % [workers[toy_worker_id].display_name, String(PLAYBOOK_OFFICE_TOY_DEFINITIONS[choice_id].get("label", "office toy")).to_lower()]))
+	if kind == &"episode":
+		if choice_id != _rare_office_episode_id() or bool(active_playbook.get("rare_episode_resolved", false)):
+			return {"accepted": false, "reason": "That office episode is not active."}
+		match choice_id:
+			&"printer_revolt":
+				if spendable_fund_cents() < 100:
+					return {"accepted": false, "reason": "The printer repair needs $1.00 spendable."}
+				revenue_cents -= 100
+				routing_momentum_peck_recharge_bank = maxi(1, routing_momentum_peck_recharge_bank)
+			&"coffee_union":
+				_adjust_workers(0.0, -3.0, -2.0)
+			&"bell_audit":
+				compliance = minf(100.0, compliance + 2.0)
+				_adjust_workers(-1.0, 0.0, 0.0)
+		active_playbook["rare_episode_resolved"] = true
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_RARE_EPISODE_DEFINITIONS[choice_id], "%s resolved. Its disclosed trade is now part of this docket's story." % String(PLAYBOOK_RARE_EPISODE_DEFINITIONS[choice_id].get("label", "Office episode"))))
+	if kind == &"display":
+		if choice_id not in PLAYBOOK_DISPLAY_STYLE_ORDER:
+			return {"accepted": false, "reason": "That fixed display style is unavailable."}
+		active_playbook["display_style_index"] = PLAYBOOK_DISPLAY_STYLE_ORDER.find(choice_id)
+		return _file_playbook_receipt({"accepted": true, "playbook_kind": "display", "choice_id": String(choice_id), "label": "DISPLAY RESTYLED", "effects": {"gain": "3 FIXED SOCKETS", "cost": "NONE", "risk": "COSMETIC ONLY"}, "outcome": "The plan, contract, and reward sockets now use %s. Nothing can overlap the office floor." % String(PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[choice_id].get("label", "this style")), "day": day})
+	if kind == &"challenge":
+		if choice_id != &"copy_code":
+			return {"accepted": false, "reason": "That challenge code action is unavailable."}
+		return {"accepted": true, "playbook_kind": "challenge", "choice_id": "copy_code", "label": "CHALLENGE CODE", "code": challenge_code(), "changes_authority": false, "outcome": "%s is ready to share." % challenge_code(), "day": day}
 	if kind == &"preset":
 		if not PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.has(choice_id):
 			return {"accepted": false, "reason": "That guided plan is unavailable."}
@@ -16722,6 +17055,17 @@ func _playbook_choice_result(kind: StringName, choice_id: StringName, definition
 
 
 func _file_playbook_receipt(result: Dictionary) -> Dictionary:
+	var effects := result.get("effects", {}) as Dictionary
+	result["decision_arc"] = {
+		"forecast": {
+			"gain": String(effects.get("gain", "SEE OUTCOME")),
+			"cost": String(effects.get("cost", "NONE")),
+			"risk": String(effects.get("risk", "NONE")),
+		},
+		"action": String(result.get("label", "PLAY FILED")),
+		"result": String(result.get("outcome", "Playbook action filed.")),
+		"reconciled": true,
+	}
 	active_playbook["receipt_serial"] = int(active_playbook.get("receipt_serial", 0)) + 1
 	result["receipt_serial"] = int(active_playbook["receipt_serial"])
 	active_playbook["last_receipt"] = result.duplicate(true)
@@ -25170,6 +25514,20 @@ func _format_shift_hen_highlight(
 		"body": body,
 		"metric": metric,
 		"tone": String(tone),
+		"career_arc": {
+			"chapter": "FLOCK VETERAN" if worker.career_xp >= 40 else ("TRUSTED HAND" if worker.manager_trust >= 65.0 else "NEW PERCH"),
+			"beat": "Day %d · %s · trust %d" % [completed_day, worker.career_title(), roundi(worker.manager_trust)],
+			"continues_next_shift": true,
+		},
+		"highlight_replay": {
+			"duration_seconds": 3.0,
+			"skippable": true,
+			"beats": [
+				{"at": 0.0, "icon": "flock", "label": worker.display_name.to_upper()},
+				{"at": 1.0, "icon": "egg", "label": "%d EGGS" % eggs},
+				{"at": 2.0, "icon": "cash", "label": "$%.2f CREDIT" % (float(credit_cents) / 100.0)},
+			],
+		},
 	}
 
 

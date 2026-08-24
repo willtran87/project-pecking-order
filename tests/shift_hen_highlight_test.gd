@@ -103,6 +103,8 @@ func _test_workday_report_freezes_json_safe_shift_story(failures: Array[String])
 	_check(int(highlight.get("sound", -1)) == 1 and int(highlight.get("golden", -1)) == 1, "emitted story should freeze the exact quality mix", failures)
 	_check(int(highlight.get("credit_cents", -1)) == 1600, "emitted story should freeze the exact credited value", failures)
 	_check(int(highlight.get("stress", -1)) == 81 and int(highlight.get("fatigue", -1)) == 86, "emitted story should capture closing strain before overnight recovery", failures)
+	_check(((highlight.get("highlight_replay", {}) as Dictionary).get("beats", []) as Array).size() == 3, "the authentic report should carry a short hen-to-eggs-to-credit replay", failures)
+	_check(not (highlight.get("career_arc", {}) as Dictionary).is_empty(), "the named shift story should continue the hen's persistent career arc", failures)
 	_check(simulation.workers[2].stress < 81.0 and simulation.workers[2].fatigue < 86.0, "overnight recovery should occur only after the report story is frozen", failures)
 
 	var reset_row := _row_for_worker(simulation.current_pecking_order(), 2)

@@ -8565,8 +8565,33 @@ func _on_workday_completed(report: Dictionary) -> void:
 			push_error("Probation shift could not be recorded: %s" % str(campaign_result.get("errors", [])))
 	_campaign_review_stage = &"farmer"
 	_save_campaign_checkpoint("workday_completed")
+	_play_shift_highlight_replay(report)
 	_show_farmer_review(report)
 	_refresh_commendations_from_authority()
+
+
+func _play_shift_highlight_replay(report: Dictionary) -> void:
+	var highlight := report.get("hen_highlight", {}) as Dictionary
+	var replay := highlight.get("highlight_replay", {}) as Dictionary
+	var worker_id := int(highlight.get("worker_id", -1))
+	if replay.is_empty() or worker_id < 0:
+		return
+	var worker_view := _worker_views.get(worker_id) as ChickenView
+	if worker_view == null:
+		return
+	var label := "%s  ·  %d EGGS" % [
+		String(highlight.get("worker_name", "HEN")).to_upper(),
+		int(highlight.get("eggs", 0)),
+	]
+	if _camera_controller != null:
+		_camera_controller.show_event_focus(
+			worker_view.global_position + Vector3.UP * 0.82,
+			label,
+			float(replay.get("duration_seconds", 3.0)),
+		)
+	worker_view.play_short_bark("MY SHIFT!", &"team")
+	if _office_atmosphere != null:
+		_office_atmosphere.pulse_strategy_reward()
 
 
 func _routing_review_receipt(
@@ -19502,7 +19527,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		return
 	var options := playbook.get("options", []) as Array
 	var primary_kind := ""
-	for priority_kind in ["reward", "push_luck", "recovery", "preset", "customize", "contract", "loadout", "preparation", "rival", "side_goal", "automation"]:
+	for priority_kind in ["reward", "rescue", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "rival", "side_goal", "automation", "toy", "display", "challenge"]:
 		for option_value in options:
 			if option_value is Dictionary and String((option_value as Dictionary).get("kind", "")) == priority_kind:
 				primary_kind = priority_kind
@@ -19646,6 +19671,16 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 			var teammate := _worker_views.get(teammate_id) as ChickenView
 			if teammate != null:
 				teammate.play_short_bark("TOGETHER!", &"team")
+	if String(result.get("playbook_kind", "")) in ["proposal", "toy", "rescue"]:
+		var reaction_worker_id := int(result.get("worker_id", _active_playbook_focused_worker_id))
+		var reaction_worker := _worker_views.get(reaction_worker_id) as ChickenView
+		if reaction_worker != null:
+			var reaction_copy := "MY IDEA!" if kind == &"proposal" else ("BACK AT IT!" if kind == &"rescue" else "BOK!")
+			reaction_worker.play_short_bark(reaction_copy, &"team")
+	if kind in [&"toy", &"episode", &"display"] and _office_atmosphere != null:
+		_office_atmosphere.pulse_strategy_reward()
+	if kind == &"challenge":
+		DisplayServer.clipboard_set(String(result.get("code", "")))
 	if String(result.get("playbook_kind", "")) == "reward" and _office_atmosphere != null:
 		_office_atmosphere.pulse_strategy_reward()
 	var receipt_label := String(result.get("label", option.get("label", "PLAY FILED"))).to_upper()

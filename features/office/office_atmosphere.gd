@@ -97,6 +97,12 @@ func update_from_snapshot(snapshot: Dictionary) -> void:
 	var playbook := snapshot.get("active_playbook", {}) as Dictionary
 	_strategy_id = StringName(String(playbook.get("strategy_preset_id", "")))
 	_strategy_accent = STRATEGY_COLORS.get(_strategy_id, Color("d7c27a"))
+	var display_sockets := playbook.get("display_sockets", []) as Array
+	if not display_sockets.is_empty() and display_sockets[0] is Dictionary:
+		var display_style := (display_sockets[0] as Dictionary).get("style", {}) as Dictionary
+		var display_accent := String(display_style.get("accent", ""))
+		if not display_accent.is_empty():
+			_strategy_accent = Color(display_accent)
 	var contract := playbook.get("contract", {}) as Dictionary
 	var reward_count := 0
 	if _strategy_id != &"":

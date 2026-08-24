@@ -4569,6 +4569,14 @@ func _update_hen_highlight(report_day: int) -> void:
 	_hen_highlight_body.tooltip_text = tooltip
 	_hen_highlight_card.tooltip_text = tooltip
 	_hen_highlight_card.set_meta("accessible_text", tooltip.replace("\n", " "))
+	_hen_highlight_card.set_meta(
+		"highlight_replay",
+		(highlight.get("highlight_replay", {}) as Dictionary).duplicate(true),
+	)
+	_hen_highlight_card.set_meta(
+		"career_arc",
+		(highlight.get("career_arc", {}) as Dictionary).duplicate(true),
+	)
 	var has_glance_data := (
 		highlight.has("eggs")
 		and highlight.has("sound")
