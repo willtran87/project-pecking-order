@@ -2042,6 +2042,64 @@ const PLAYBOOK_PUSH_LUCK_DEFINITIONS := {
 		"risk": "THE CLUTCH CAN BREAK",
 	},
 }
+const PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS := {
+	&"rush_hour": {
+		"label": "RUSH HOUR",
+		"icon": &"route",
+		"gain": "PACE +10%",
+		"cost": "QUOTA +2",
+		"risk": "SHELL RISK +1%",
+		"rule": "Two extra eggs join the order; every fitted file moves faster.",
+	},
+	&"glass_carton": {
+		"label": "GLASS CARTON",
+		"icon": &"golden",
+		"gain": "CLEAN VALUE +20%",
+		"cost": "SHELL RISK +3%",
+		"risk": "CRACKS PAY NOTHING",
+		"rule": "Every sound or golden egg is worth more, but the grading rail is unforgiving.",
+	},
+	&"one_bell": {
+		"label": "ONE BELL",
+		"icon": &"warning",
+		"gain": "PACE +8%",
+		"cost": "SHOW ME DISABLED",
+		"risk": "NO ROUTE RESCUE",
+		"rule": "The floor runs faster, but the one-shot route rescue is unavailable.",
+	},
+}
+const PLAYBOOK_COMBO_RECIPE_DEFINITIONS := {
+	&"fast": {
+		"id": &"file_flywheel",
+		"label": "FILE FLYWHEEL",
+		"icon": &"route",
+		"effect": "PACE +3%",
+		"steps": [
+			{"id": &"fit_routes", "label": "FIT ×3", "target": 3},
+			{"id": &"priority_peck", "label": "PECK ×1", "target": 1},
+		],
+	},
+	&"safe": {
+		"id": &"shell_seal",
+		"label": "SHELL SEAL",
+		"icon": &"shield",
+		"effect": "SHELL RISK -1.5%",
+		"steps": [
+			{"id": &"clean_eggs", "label": "CLEAN ×2", "target": 2},
+			{"id": &"bank_clutch", "label": "BANK CLUTCH", "target": 1},
+		],
+	},
+	&"flock": {
+		"id": &"perch_pact",
+		"label": "PERCH PACT",
+		"icon": &"care",
+		"effect": "STRAIN -12%",
+		"steps": [
+			{"id": &"team_lift", "label": "TEAM LIFT", "target": 1},
+			{"id": &"hen_signature", "label": "HEN SIGNATURE", "target": 1},
+		],
+	},
+}
 const PLAYBOOK_STRATEGY_PRESET_ORDER: Array[StringName] = [
 	&"fast",
 	&"safe",
@@ -13475,6 +13533,7 @@ func _validated_active_playbook(
 		"side_goal_id": PLAYBOOK_SIDE_GOAL_DEFINITIONS,
 		"contract_reward_id": PLAYBOOK_REWARD_DEFINITIONS,
 		"push_luck_id": PLAYBOOK_PUSH_LUCK_DEFINITIONS,
+		"challenge_modifier_id": PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS,
 	}
 	var normalized := {"day": saved_day}
 	for field_name: String in definition_fields:
@@ -16316,6 +16375,7 @@ func _reset_active_playbook() -> void:
 		"contract_reward_id": "",
 		"push_luck_id": "",
 		"push_luck_start_eggs": 0,
+		"challenge_modifier_id": "",
 		"mastery_auto_used": false,
 		"proposal_worker_id": -1,
 		"proposal_id": "",
@@ -16485,6 +16545,233 @@ func _build_identity_snapshot() -> Dictionary:
 	}
 
 
+func _playbook_combo_step_progress(step_id: StringName) -> int:
+	match step_id:
+		&"fit_routes":
+			return routing_momentum_chain
+		&"priority_peck":
+			return peck_assist_streak
+		&"clean_eggs":
+			return quality_streak
+		&"bank_clutch":
+			return 1 if StringName(active_playbook.get("push_luck_id", &"")) == &"bank_clutch" else 0
+		&"team_lift":
+			return 1 if bool(active_playbook.get("teamwork_used", false)) else 0
+		&"hen_signature":
+			return (active_playbook.get("signature_worker_ids", []) as Array).size()
+	return 0
+
+
+func _playbook_combo_recipe_snapshot() -> Dictionary:
+	var preset_id := StringName(active_playbook.get("strategy_preset_id", &""))
+	if preset_id == &"custom" or not PLAYBOOK_COMBO_RECIPE_DEFINITIONS.has(preset_id):
+		match active_directive_id:
+			&"record_harvest": preset_id = &"fast"
+			&"sustainable_flock": preset_id = &"flock"
+			_: preset_id = &"safe"
+	var definition := PLAYBOOK_COMBO_RECIPE_DEFINITIONS[preset_id] as Dictionary
+	var steps: Array[Dictionary] = []
+	var completed := 0
+	for step_value in definition.get("steps", []) as Array:
+		var step := (step_value as Dictionary).duplicate(true)
+		var step_id := StringName(step.get("id", &""))
+		var target := maxi(1, int(step.get("target", 1)))
+		var progress := _playbook_combo_step_progress(step_id)
+		step["progress"] = mini(progress, target)
+		step["complete"] = progress >= target
+		if bool(step["complete"]):
+			completed += 1
+		steps.append(step)
+	return {
+		"id": String(definition.get("id", "combo_recipe")),
+		"label": String(definition.get("label", "COMBO RECIPE")),
+		"icon": String(definition.get("icon", "sync")),
+		"effect": String(definition.get("effect", "VISIBLE BONUS")),
+		"steps": steps,
+		"completed_steps": completed,
+		"total_steps": steps.size(),
+		"complete": completed == steps.size() and not steps.is_empty(),
+		"ordered": false,
+		"rule": "Complete both short actions in any order; progress is never consumed.",
+	}
+
+
+func _playbook_prediction_snapshot(contract: Dictionary) -> Dictionary:
+	var preset_id := StringName(active_playbook.get("strategy_preset_id", &""))
+	if String(contract.get("id", "")).is_empty():
+		return {
+			"plan_id": String(preset_id),
+			"plan_label": "PREDICTION OPEN",
+			"forecast": "CHOOSE A PLAN",
+			"progress": 0,
+			"target": 0,
+			"verdict": "AWAITING PLAN",
+			"score": 0,
+			"complete": false,
+			"closed": false,
+			"immediate": true,
+			"detail": "Choose Fast, Safe, or Flock to make one visible shift prediction.",
+		}
+	var target := maxi(1, int(contract.get("target", 1)))
+	var progress := maxi(0, int(contract.get("progress", 0)))
+	var complete := bool(contract.get("complete", false))
+	var closed := shift_phase == ShiftPhase.REVIEW or minute_of_day >= SHIFT_END_MINUTE
+	var verdict := "BUILDING"
+	var score := 0
+	if complete:
+		verdict = "CALLED IT"
+		score = 2
+	elif progress >= target - 1:
+		verdict = "CLOSE CALL"
+		score = 1
+	elif closed:
+		verdict = "SURPRISE FILED"
+	var plan_label := String((PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(preset_id, {}) as Dictionary).get("label", "CUSTOM PLAN"))
+	return {
+		"plan_id": String(preset_id),
+		"plan_label": plan_label,
+		"forecast": String(contract.get("label", "PICK A PLAN")),
+		"progress": mini(progress, target),
+		"target": target,
+		"verdict": verdict,
+		"score": score,
+		"complete": complete,
+		"closed": closed,
+		"immediate": true,
+		"detail": "%s predicted %s · %d/%d · %s" % [plan_label, String(contract.get("label", "shift result")), mini(progress, target), target, verdict],
+	}
+
+
+func _playbook_primary_objective_snapshot(options: Array[Dictionary]) -> Dictionary:
+	var priorities := [
+		"reward", "rescue", "push_luck", "proposal", "modifier", "rival",
+		"signature", "teamwork", "automation", "toy", "practice",
+	]
+	var selected: Dictionary = {}
+	for priority in priorities:
+		for option in options:
+			if String(option.get("kind", "")) == priority and bool(option.get("available", false)):
+				selected = option.duplicate(true)
+				break
+		if not selected.is_empty():
+			break
+	if selected.is_empty():
+		return {
+			"verb": "ROUTE",
+			"label": "ROUTE THE NEXT FILE",
+			"icon": "route",
+			"world_target": "intake_tray",
+			"ghost_path": ["INTAKE", "BEST-FIT HEN", "SORTER", "FARMER"],
+			"single": true,
+		}
+	var kind := String(selected.get("kind", "play"))
+	var target := "active_playbook"
+	if kind in ["signature", "proposal", "rescue", "teamwork", "practice", "automation"]:
+		target = "focused_hen"
+	elif kind == "toy":
+		target = "breakroom"
+	elif kind == "reward":
+		target = "reward_shelf"
+	return {
+		"kind": kind,
+		"id": String(selected.get("id", "")),
+		"verb": "CHOOSE" if kind in ["reward", "push_luck", "modifier", "rival"] else "ACT",
+		"label": String(selected.get("label", "NEXT PLAY")),
+		"icon": String(selected.get("icon", "goal")),
+		"world_target": target,
+		"ghost_path": ["CURRENT FILE", target.replace("_", " ").to_upper(), "VISIBLE RESULT"],
+		"single": true,
+		"gain": String(selected.get("gain", "VISIBLE RESULT")),
+		"cost": String(selected.get("cost", "NONE")),
+		"risk": String(selected.get("risk", "NONE")),
+	}
+
+
+func _playbook_relationship_echo_snapshot(focused_worker_id: int) -> Dictionary:
+	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
+		return {}
+	var worker := workers[focused_worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	return {
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"partner_id": int(bond.get("partner_id", -1)),
+		"partner_name": String(bond.get("partner_name", "PERCHMATE")),
+		"score": int(bond.get("score", 0)),
+		"standing": String(bond.get("label", bond.get("relationship_label", "FORMING"))),
+		"last_move": "TEAM LIFT" if bool(active_playbook.get("teamwork_used", false)) else ("HEN SIGNATURE" if focused_worker_id in (active_playbook.get("signature_worker_ids", []) as Array) else "NEXT CHOICE PENDING"),
+		"world_echo": true,
+	}
+
+
+func _playbook_strategy_mastery_snapshot(combo_recipe: Dictionary, contract: Dictionary, side_goal: Dictionary) -> Dictionary:
+	var marks := 0
+	marks += 1 if bool(contract.get("complete", false)) else 0
+	marks += 1 if bool(combo_recipe.get("complete", false)) else 0
+	marks += 1 if bool(side_goal.get("complete", false)) else 0
+	var tier := "LEARNING"
+	if marks >= 3:
+		tier = "SIGNATURE BUILD"
+	elif marks >= 2:
+		tier = "ONLINE"
+	elif marks >= 1:
+		tier = "TAKING SHAPE"
+	return {
+		"tier": tier,
+		"marks": marks,
+		"target": 3,
+		"identity": _build_identity_snapshot(),
+		"strength": String(combo_recipe.get("effect", "BALANCED FLOOR")),
+		"weakness": String((PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(StringName(active_playbook.get("strategy_preset_id", &"")), {}) as Dictionary).get("risk", "NO SPECIALIZATION")),
+		"transformative_at": 3,
+	}
+
+
+func _next_shift_tease_snapshot() -> Dictionary:
+	var next_day := day + 1
+	if day >= PROBATION_CAMPAIGN_SHIFTS:
+		return {
+			"day": day,
+			"label": "FINAL RECORD",
+			"icon": "star",
+			"detail": "Your plan, strongest hen, relationships, and final signature decide the permanent coop record.",
+			"climax": true,
+		}
+	var scenario := scenario_identity_snapshot()
+	return {
+		"day": next_day,
+		"label": "DAY %d · %s" % [next_day, String(scenario.get("short", "NEXT FILE"))],
+		"icon": String(scenario.get("icon", "files")),
+		"detail": "%s One new pressure beat and the next visible office reward arrive after this report." % String(scenario.get("victory_twist", "The probation file keeps evolving.")),
+		"one_more_shift": true,
+	}
+
+
+func _campaign_legacy_evidence_snapshot() -> Dictionary:
+	var strongest_worker: ChickenState
+	for candidate in workers:
+		if not candidate.employed:
+			continue
+		if strongest_worker == null or candidate.career_xp > strongest_worker.career_xp:
+			strongest_worker = candidate
+	var strongest_name := "THE FLOCK"
+	var strongest_title := "UNFILED"
+	var relationship := "FORMING"
+	if strongest_worker != null:
+		strongest_name = strongest_worker.display_name
+		strongest_title = strongest_worker.career_title()
+		relationship = strongest_worker.relationship_label()
+	var combo := _playbook_combo_recipe_snapshot()
+	return {
+		"build": _build_identity_snapshot(),
+		"strongest_hen": {"name": strongest_name, "title": strongest_title, "career_xp": strongest_worker.career_xp if strongest_worker != null else 0},
+		"relationship": relationship,
+		"combo": {"label": String(combo.get("label", "NO COMBO")), "complete": bool(combo.get("complete", false))},
+		"challenge_modifier": String(active_playbook.get("challenge_modifier_id", "")),
+		"summary": "%s built %s; %s stands as %s; the flock relationship is %s." % [strongest_name, String(_build_identity_snapshot().get("label", "OPEN BOOK")), strongest_name, strongest_title, relationship],
+	}
+
+
 func _career_story_snapshot(focused_worker_id: int) -> Dictionary:
 	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
 		return {}
@@ -16608,6 +16895,21 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		for choice_id: StringName in PLAYBOOK_PREPARATION_DEFINITIONS:
 			var affordable := choice_id != &"rest_flock" or spendable_fund_cents() >= 200
 			options.append(_playbook_option(&"preparation", choice_id, PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], running and affordable, "Prepare once before the first incident." if affordable else "Feed Fund needs $2.00 spendable."))
+	if (
+		day >= 2
+		and not strategy_preset_id.is_empty()
+		and String(active_playbook.get("challenge_modifier_id", "")).is_empty()
+		and eggs_today == 0
+		and incidents_resolved_today == 0
+	):
+		for choice_id: StringName in PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS:
+			options.append(_playbook_option(
+				&"modifier",
+				choice_id,
+				PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS[choice_id],
+				running,
+				"Optional shift spice. Skip it freely; filing one changes today's rules and locks the other two.",
+			))
 	if String(active_playbook.get("rival_response_id", "")).is_empty() and eggs_today > 0:
 		for choice_id: StringName in PLAYBOOK_RIVAL_DEFINITIONS:
 			options.append(_playbook_option(&"rival", choice_id, PLAYBOOK_RIVAL_DEFINITIONS[choice_id], running, "One transparent response for this shift."))
@@ -16689,6 +16991,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 	var rescue_open := (
 		running
 		and not bool(active_playbook.get("rescue_used", false))
+		and StringName(active_playbook.get("challenge_modifier_id", &"")) != &"one_bell"
 		and focused_worker_id >= 0
 		and (cracked_today > 0 or (eggs_today > 0 and routing_momentum_chain == 0) or _overdue_claim_count(false) > 0)
 	)
@@ -16733,6 +17036,10 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		&"sustainable_flock": {"id": "perch_partners", "label": "PERCH PARTNERS", "icon": "care", "effect": "STRAIN -10%"},
 	}.get(active_directive_id, {"id": "unfiled", "label": "COMBO LOCKED", "icon": "sync", "effect": "FILE A POLICY"}) as Dictionary
 	var combo_active := routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+	var combo_recipe := _playbook_combo_recipe_snapshot()
+	var contract_snapshot := {"id": String(contract_id), "label": String(contract_definition.get("label", "PICK CONTRACT")), "icon": String(contract_definition.get("icon", "goal")), "progress": contract_progress, "target": contract_target, "complete": contract_complete, "reward_claimed": not String(active_playbook.get("contract_reward_id", "")).is_empty(), "reward_id": String(active_playbook.get("contract_reward_id", "")), "optional": true, "failure_penalty": 0}
+	var side_goal_snapshot := {"id": String(side_goal_id), "label": String(side_goal_definition.get("label", "PIN A GOAL")), "icon": String(side_goal_definition.get("icon", "goal")), "progress": side_goal_progress, "target": side_goal_target, "complete": not side_goal_definition.is_empty() and side_goal_progress >= side_goal_target, "failure_penalty": 0}
+	var prediction_score := _playbook_prediction_snapshot(contract_snapshot)
 	return {
 		"day": day,
 		"authoritative": true,
@@ -16746,8 +17053,11 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"automatic": false,
 			"one_click": true,
 		},
-		"contract": {"id": String(contract_id), "label": String(contract_definition.get("label", "PICK CONTRACT")), "icon": String(contract_definition.get("icon", "goal")), "progress": contract_progress, "target": contract_target, "complete": contract_complete, "reward_claimed": not String(active_playbook.get("contract_reward_id", "")).is_empty(), "reward_id": String(active_playbook.get("contract_reward_id", "")), "optional": true, "failure_penalty": 0},
+		"contract": contract_snapshot,
 		"combo": {"id": String(directive_combo.get("id", "")), "label": String(directive_combo.get("label", "COMBO")), "icon": String(directive_combo.get("icon", "sync")), "active": combo_active, "progress": routing_momentum_chain, "target": ROUTING_MOMENTUM_PACE_MILESTONE, "effect": String(directive_combo.get("effect", ""))},
+		"combo_recipe": combo_recipe,
+		"prediction_score": prediction_score,
+		"dominant_objective": _playbook_primary_objective_snapshot(options),
 		"shift_plan": _playbook_shift_plan(contract_definition, directive_combo),
 		"shift_journey": _playbook_shift_journey(contract_complete),
 		"opening_spotlight": {
@@ -16766,7 +17076,13 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		"rival_response_id": String(active_playbook.get("rival_response_id", "")),
 		"loadout_id": String(active_playbook.get("loadout_id", "")),
 		"recovery_id": String(active_playbook.get("recovery_id", "")),
-		"side_goal": {"id": String(side_goal_id), "label": String(side_goal_definition.get("label", "PIN A GOAL")), "icon": String(side_goal_definition.get("icon", "goal")), "progress": side_goal_progress, "target": side_goal_target, "complete": not side_goal_definition.is_empty() and side_goal_progress >= side_goal_target, "failure_penalty": 0},
+		"side_goal": side_goal_snapshot,
+		"challenge_modifier": {
+			"id": String(active_playbook.get("challenge_modifier_id", "")),
+			"definition": (PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS.get(StringName(active_playbook.get("challenge_modifier_id", &"")), {}) as Dictionary).duplicate(true),
+			"optional": true,
+			"skippable": true,
+		},
 		"teamwork_used": bool(active_playbook.get("teamwork_used", false)),
 		"push_luck": {
 			"id": String(active_playbook.get("push_luck_id", "")),
@@ -16794,7 +17110,9 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		"rare_episode": {"id": String(episode_id), "active": episode_id != &"", "resolved": bool(active_playbook.get("rare_episode_resolved", false)), "authored": true},
 		"display_sockets": _playbook_display_sockets(),
 		"build_identity": _build_identity_snapshot(),
+		"strategy_mastery": _playbook_strategy_mastery_snapshot(combo_recipe, contract_snapshot, side_goal_snapshot),
 		"career_story": _career_story_snapshot(focused_worker_id),
+		"relationship_echo": _playbook_relationship_echo_snapshot(focused_worker_id),
 		"personal_best": {
 			"routing": {"current": routing_momentum_chain, "best": best_routing_momentum_chain, "delta": routing_momentum_chain - best_routing_momentum_chain},
 			"quality": {"current": quality_streak, "best": best_quality_streak, "delta": quality_streak - best_quality_streak},
@@ -16802,6 +17120,8 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		"challenge": {"code": challenge_code(), "seed": _career_seed, "day": day, "shareable": true},
 		"comprehension_study": first_session_comprehension_protocol(),
 		"boss_file": {"active": day == PROBATION_CAMPAIGN_SHIFTS, "label": String(scenario_identity_snapshot().get("climax_title", "FINAL HEARING")), "mechanics": ["POLICY", "INCIDENT", "CREDIT"]},
+		"next_shift_preview": _next_shift_tease_snapshot(),
+		"campaign_legacy_evidence": _campaign_legacy_evidence_snapshot() if day == PROBATION_CAMPAIGN_SHIFTS else {},
 		"opportunity_shapes": [
 			{"id": "golden", "icon": "golden", "shape": "star", "active": routing_momentum_golden_target_worker_id >= 0},
 			{"id": "urgent", "icon": "status_need", "shape": "diamond", "active": _overdue_claim_count(false) > 0},
@@ -16907,6 +17227,26 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		if choice_id != &"copy_code":
 			return {"accepted": false, "reason": "That challenge code action is unavailable."}
 		return {"accepted": true, "playbook_kind": "challenge", "choice_id": "copy_code", "label": "CHALLENGE CODE", "code": challenge_code(), "changes_authority": false, "outcome": "%s is ready to share." % challenge_code(), "day": day}
+	if kind == &"modifier":
+		if day < 2 or not PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS.has(choice_id):
+			return {"accepted": false, "reason": "Optional shift modifiers unlock after the first shift."}
+		if (
+			not String(active_playbook.get("challenge_modifier_id", "")).is_empty()
+			or String(active_playbook.get("strategy_preset_id", "")).is_empty()
+			or eggs_today > 0
+			or incidents_resolved_today > 0
+		):
+			return {"accepted": false, "reason": "Choose one optional modifier after the plan and before production begins."}
+		active_playbook["challenge_modifier_id"] = String(choice_id)
+		if choice_id == &"rush_hour":
+			quota_target += 2
+		var modifier_definition := PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS[choice_id] as Dictionary
+		return _file_playbook_receipt(_playbook_choice_result(
+			kind,
+			choice_id,
+			modifier_definition,
+			"%s filed. %s" % [String(modifier_definition.get("label", "Shift modifier")), String(modifier_definition.get("rule", "Today's rules changed visibly."))],
+		))
 	if kind == &"preset":
 		if not PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.has(choice_id):
 			return {"accepted": false, "reason": "That guided plan is unavailable."}
@@ -17181,6 +17521,14 @@ func _playbook_work_multiplier() -> float:
 	match StringName(active_playbook.get("push_luck_id", &"")):
 		&"bank_clutch": multiplier *= 0.95
 		&"chase_premium": multiplier *= 1.10
+	match StringName(active_playbook.get("challenge_modifier_id", &"")):
+		&"rush_hour": multiplier *= 1.10
+		&"one_bell": multiplier *= 1.08
+	if (
+		StringName(active_playbook.get("strategy_preset_id", &"")) == &"fast"
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
+	):
+		multiplier *= 1.03
 	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"record_harvest":
 		multiplier *= 1.05
 	return clampf(multiplier, 0.80, 1.30)
@@ -17204,6 +17552,14 @@ func _playbook_crack_modifier() -> float:
 	match StringName(active_playbook.get("push_luck_id", &"")):
 		&"bank_clutch": modifier -= 0.025
 		&"chase_premium": modifier += 0.04
+	match StringName(active_playbook.get("challenge_modifier_id", &"")):
+		&"rush_hour": modifier += 0.01
+		&"glass_carton": modifier += 0.03
+	if (
+		StringName(active_playbook.get("strategy_preset_id", &"")) == &"safe"
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
+	):
+		modifier -= 0.015
 	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"shell_assurance":
 		modifier -= 0.02
 	return clampf(modifier, -0.12, 0.12)
@@ -17221,6 +17577,11 @@ func _playbook_strain_multiplier() -> float:
 		multiplier *= 0.88
 	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"sustainable_flock":
 		multiplier *= 0.90
+	if (
+		StringName(active_playbook.get("strategy_preset_id", &"")) == &"flock"
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
+	):
+		multiplier *= 0.88
 	return clampf(multiplier, 0.65, 1.0)
 
 
@@ -20105,11 +20466,13 @@ func final_hearing_snapshot() -> Dictionary:
 			"resolved": false,
 			"required": day == PROBATION_CAMPAIGN_SHIFTS and scenario_id != &"baseline_book",
 			"scenario": scenario_identity_snapshot(),
+			"legacy_evidence": _campaign_legacy_evidence_snapshot(),
 		}
 	var response := _incident_response_snapshot(record)
 	response["resolved"] = true
 	response["required"] = false
 	response["scenario"] = scenario_identity_snapshot()
+	response["legacy_evidence"] = _campaign_legacy_evidence_snapshot()
 	response["charter_label"] = String(response.get("option_label", "PERMANENT RECORD"))
 	return response
 
@@ -20117,8 +20480,13 @@ func final_hearing_snapshot() -> Dictionary:
 func _final_hearing_definition() -> Dictionary:
 	var definition := (INCIDENT_DEFINITIONS[FINAL_HEARING_INCIDENT_ID] as Dictionary).duplicate(true)
 	var scenario := scenario_identity_snapshot()
+	var legacy := _campaign_legacy_evidence_snapshot()
 	definition["title"] = String(scenario.get("climax_title", definition.get("title", "FINAL HEARING")))
-	definition["body"] = String(scenario.get("climax_body", definition.get("body", "The permanent record needs a signature.")))
+	definition["body"] = "%s\n\nPERMANENT EVIDENCE  ·  %s" % [
+		String(scenario.get("climax_body", definition.get("body", "The permanent record needs a signature."))),
+		String(legacy.get("summary", "The flock arrives with a visible record.")),
+	]
+	definition["legacy_evidence"] = legacy
 	return definition
 
 
@@ -20325,6 +20693,7 @@ func _maybe_open_incident() -> bool:
 		if incident_id == FINAL_HEARING_INCIDENT_ID:
 			pending_decision["eyebrow"] = "FINAL HEARING  /  PERMANENT CHOICE  /  AUTO-PAUSED  /  %s" % _format_time(minute_of_day)
 			pending_decision["scenario"] = scenario_identity_snapshot()
+			pending_decision["legacy_evidence"] = _campaign_legacy_evidence_snapshot()
 		if not case_memory.is_empty():
 			pending_decision["case_memory"] = case_memory.duplicate(true)
 		if not character_arc.is_empty():
@@ -24483,6 +24852,11 @@ func _complete_egg(worker: ChickenState) -> void:
 		and eggs_today >= int(active_playbook.get("push_luck_start_eggs", eggs_today + 1))
 	):
 		value_cents = roundi(float(value_cents) * 1.15)
+	if (
+		quality in [&"sound", &"golden"]
+		and StringName(active_playbook.get("challenge_modifier_id", &"")) == &"glass_carton"
+	):
+		value_cents = roundi(float(value_cents) * 1.20)
 	var priority_credit_cents := 0
 	if quality != &"cracked" and assist_chain > 0:
 		priority_credit_cents = 20 * mini(assist_chain, 5)

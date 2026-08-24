@@ -115,6 +115,7 @@ func compose(context: Dictionary) -> Dictionary:
 		shift_journey,
 		active_playbook,
 	)
+	var next_level := _engagement_next_level(active_playbook, guided_loop, reward_loop, physical_loop)
 	return {
 		"version": 3,
 		"authoritative": false,
@@ -131,6 +132,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"shift_journey": shift_journey,
 		"guided_loop": guided_loop,
 		"physical_loop": physical_loop,
+		"engagement_next_level": next_level,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -165,6 +167,57 @@ func compose(context: Dictionary) -> Dictionary:
 			"signals": (funnel.get("signals", {}) as Dictionary).duplicate(true),
 			"friction_flags": (funnel.get("friction_flags", []) as Array).duplicate(true),
 		},
+	}
+
+
+func _engagement_next_level(
+	playbook: Dictionary,
+	guided_loop: Dictionary,
+	reward_loop: Dictionary,
+	physical_loop: Dictionary,
+) -> Dictionary:
+	var objective := playbook.get("dominant_objective", {}) as Dictionary
+	var prediction := playbook.get("prediction_score", {}) as Dictionary
+	var recipe := playbook.get("combo_recipe", {}) as Dictionary
+	var mastery := playbook.get("strategy_mastery", {}) as Dictionary
+	var relationship := playbook.get("relationship_echo", {}) as Dictionary
+	var modifier := playbook.get("challenge_modifier", {}) as Dictionary
+	var legacy := playbook.get("campaign_legacy_evidence", {}) as Dictionary
+	var resolved := {
+		"ghost_route_tutorial": {"surface": "next_action_world_path", "live": not objective.is_empty()},
+		"one_dominant_objective": {"surface": "dominant_objective", "live": bool(objective.get("single", false))},
+		"physical_cause_and_effect": {"surface": "file_hen_sorter_credit", "live": bool((guided_loop.get("tactile_production_chain", {}) as Dictionary).get("world_linked", false))},
+		"prediction_scoring": {"surface": "called_it_close_call", "live": bool(prediction.get("immediate", false))},
+		"distinct_strategy_identity": {"surface": "strategy_mastery", "live": not mastery.is_empty()},
+		"combo_recipes": {"surface": "two_action_recipe", "live": int(recipe.get("total_steps", 0)) == 2},
+		"hen_mastery_tracks": {"surface": "hen_bio", "live": bool((guided_loop.get("short_mastery_journeys", {}) as Dictionary).get("visible_next", false))},
+		"relationship_consequences": {"surface": "relationship_echo", "live": not relationship.is_empty()},
+		"near_miss_feedback": {"surface": "show_me", "live": (reward_loop.get("near_miss_rescue", {}) as Dictionary).has("active")},
+		"tactical_office_interactions": {"surface": "office_toy", "live": (playbook.get("office_toy", {}) as Dictionary).has("optional")},
+		"shift_twists": {"surface": "challenge_modifier", "live": bool(modifier.get("optional", false))},
+		"push_your_luck": {"surface": "bank_or_chase", "live": (playbook.get("push_luck", {}) as Dictionary).has("open")},
+		"rivalries": {"surface": "rival_counterplay", "live": reward_loop.has("rival_counterplay")},
+		"compressed_shift_payoff": {"surface": "four_beat_review", "live": bool((guided_loop.get("strong_shift_ending", {}) as Dictionary).get("details_folded", false))},
+		"transformative_milestones": {"surface": "strategy_mastery", "live": int(mastery.get("transformative_at", 0)) == 3},
+		"optional_challenge_modifiers": {"surface": "active_playbook", "live": bool(modifier.get("skippable", false))},
+		"one_more_shift_preview": {"surface": "next_shift_preview", "live": not (playbook.get("next_shift_preview", {}) as Dictionary).is_empty()},
+		"retiring_guidance": {"surface": "first_session_funnel", "live": true},
+		"fast_experimentation": {"surface": "practice_peck", "live": true},
+		"campaign_climax": {"surface": "final_hearing", "live": not legacy.is_empty() or not bool((playbook.get("boss_file", {}) as Dictionary).get("active", false))},
+	}
+	var live_count := 0
+	for item in resolved.values():
+		if bool((item as Dictionary).get("live", false)):
+			live_count += 1
+	return {
+		"item_count": resolved.size(),
+		"resolved_count": live_count,
+		"all_resolved": live_count == resolved.size(),
+		"items": resolved,
+		"dominant_objective": objective.duplicate(true),
+		"prediction_score": prediction.duplicate(true),
+		"combo_recipe": recipe.duplicate(true),
+		"physical_loop": physical_loop.duplicate(true),
 	}
 
 
@@ -546,6 +599,8 @@ func _guided_loop(
 			"action_id": action_id, "target_kind": target_kind, "worker_id": focused_worker_id,
 			"camera_focus": true, "world_outline": true, "control_pulse": true,
 			"copy": String(next_action.get("copy", "NEXT ACTION")),
+			"ghost_path": ((playbook.get("dominant_objective", {}) as Dictionary).get("ghost_path", []) as Array).duplicate(),
+			"playbook_objective": (playbook.get("dominant_objective", {}) as Dictionary).duplicate(true),
 		},
 		"animated_consequence_preview": {
 			"gain": String(preview_source.get("gain", "VISIBLE RESULT")),
@@ -555,6 +610,9 @@ func _guided_loop(
 		},
 		"core_vocabulary": {"verbs": CORE_VERBS.duplicate(), "detail_on_demand": true},
 		"smart_default": (playbook.get("smart_default", {}) as Dictionary).duplicate(true),
+		"prediction_score": (playbook.get("prediction_score", {}) as Dictionary).duplicate(true),
+		"combo_recipe": (playbook.get("combo_recipe", {}) as Dictionary).duplicate(true),
+		"strategy_mastery": (playbook.get("strategy_mastery", {}) as Dictionary).duplicate(true),
 		"visible_shift_journey": shift_journey.duplicate(true),
 		"physical_signature_move": {
 			"worker_id": int(signature.get("worker_id", worker.get("id", -1))),

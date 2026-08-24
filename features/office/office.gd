@@ -19527,7 +19527,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		return
 	var options := playbook.get("options", []) as Array
 	var primary_kind := ""
-	for priority_kind in ["reward", "rescue", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "rival", "side_goal", "automation", "toy", "display", "challenge"]:
+	for priority_kind in ["reward", "rescue", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "modifier", "rival", "side_goal", "automation", "toy", "display", "challenge"]:
 		for option_value in options:
 			if option_value is Dictionary and String((option_value as Dictionary).get("kind", "")) == priority_kind:
 				primary_kind = priority_kind
@@ -19585,6 +19585,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		item_id += 1
 	var contract := playbook.get("contract", {}) as Dictionary
 	var combo := playbook.get("combo", {}) as Dictionary
+	var combo_recipe := playbook.get("combo_recipe", {}) as Dictionary
+	var prediction := playbook.get("prediction_score", {}) as Dictionary
 	var side_goal := playbook.get("side_goal", {}) as Dictionary
 	var plan_labels: Array[String] = []
 	for step_value in playbook.get("shift_journey", []):
@@ -19604,6 +19606,19 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		int(combo.get("target", 0)),
 		String(combo.get("effect", "")),
 	])
+	if not combo_recipe.is_empty():
+		detail_lines.append("%s  %d/%d  ·  %s" % [
+			String(combo_recipe.get("label", "COMBO RECIPE")),
+			int(combo_recipe.get("completed_steps", 0)),
+			int(combo_recipe.get("total_steps", 2)),
+			String(combo_recipe.get("effect", "VISIBLE BONUS")),
+		])
+	if not prediction.is_empty() and int(prediction.get("target", 0)) > 0:
+		detail_lines.append("PREDICTION  ·  %s  ·  %d/%d" % [
+			String(prediction.get("verdict", "BUILDING")),
+			int(prediction.get("progress", 0)),
+			int(prediction.get("target", 0)),
+		])
 	if not String(side_goal.get("id", "")).is_empty():
 		detail_lines.append("%s  %d/%d" % [
 			String(side_goal.get("label", "SIDE GOAL")),
@@ -19617,6 +19632,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	_active_playbook_button.visible = running and plan_filed
 	_active_playbook_button.text = (
 		"REWARD  ▾" if ready_kind == "reward" else
+		"CALLED IT  ▾" if String(prediction.get("verdict", "")) == "CALLED IT" else
+		"COMBO READY  ▾" if bool(combo_recipe.get("complete", false)) else
 		"SIGNATURE  ▾" if ready_kind == "signature" else
 		"CHOOSE PLAN  ▾" if not plan_filed else
 		"%s  ▾" % String(strategy_preset.get("label", "PLAN")).trim_suffix(" PLAN") if strategy_preset_id != "custom" else
@@ -19635,6 +19652,12 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	_active_playbook_button.set_meta("option_count", display_options.size())
 	_active_playbook_button.set_meta("total_option_count", options.size())
 	_active_playbook_button.set_meta("primary_kind", primary_kind)
+	_active_playbook_button.set_meta(
+		"dominant_objective",
+		(playbook.get("dominant_objective", {}) as Dictionary).duplicate(true),
+	)
+	_active_playbook_button.set_meta("prediction_score", prediction.duplicate(true))
+	_active_playbook_button.set_meta("combo_recipe", combo_recipe.duplicate(true))
 
 
 func _playbook_menu_icon(icon_kind: StringName) -> StringName:
@@ -19677,7 +19700,7 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 		if reaction_worker != null:
 			var reaction_copy := "MY IDEA!" if kind == &"proposal" else ("BACK AT IT!" if kind == &"rescue" else "BOK!")
 			reaction_worker.play_short_bark(reaction_copy, &"team")
-	if kind in [&"toy", &"episode", &"display"] and _office_atmosphere != null:
+	if kind in [&"toy", &"episode", &"display", &"modifier"] and _office_atmosphere != null:
 		_office_atmosphere.pulse_strategy_reward()
 	if kind == &"challenge":
 		DisplayServer.clipboard_set(String(result.get("code", "")))

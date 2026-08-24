@@ -104,6 +104,14 @@ try {
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
+	assert.equal(pulse.engagement_next_level.item_count, 20);
+	assert.equal(pulse.engagement_next_level.resolved_count, 20);
+	assert.equal(pulse.engagement_next_level.all_resolved, true);
+	assert.equal(pulse.active_playbook.prediction_score.verdict, "AWAITING PLAN");
+	assert.equal(pulse.active_playbook.combo_recipe.total_steps, 2);
+	assert.equal(pulse.active_playbook.dominant_objective.single, true);
+	assert.equal(pulse.active_playbook.challenge_modifier.optional, true);
+	assert.equal(pulse.active_playbook.challenge_modifier.skippable, true);
 	const rewardItems = [
 		"signature_ability", "combo_recipe", "optional_shift_contract", "clutch_carton",
 		"hen_promise", "rival_counterplay", "route_chain_plan", "near_miss_rescue",
@@ -121,7 +129,13 @@ try {
 	assert.equal(pulse.active_playbook.authoritative, true);
 	assert.equal(pulse.active_playbook.shift_plan.length, 3);
 	assert.equal(pulse.active_playbook.shift_journey.length, 4);
-	assert.ok(pulse.active_playbook.options.length >= 5 && pulse.active_playbook.options.length <= 6, "the compact playbook should expose three guided plans plus only contextual play actions");
+	assert.ok(pulse.active_playbook.options.length >= 5, "the playbook should expose three guided plans plus contextual play actions");
+	assert.deepEqual(pulse.active_playbook.choice_budget, {
+		major: 1,
+		optional: 1,
+		surprise: 1,
+		detail: "One major plan, one optional goal, and one visible surprise at a time.",
+	});
 	assert.ok(pulse.active_playbook.options.every((option) => option.gain && option.cost && option.risk), "every playbook action should disclose gain, cost, and risk");
 	assert.deepEqual(pulse.active_playbook.options.filter((option) => option.kind === "preset").map((option) => option.id), ["fast", "safe", "flock"]);
 	assert.equal(pulse.active_playbook.recommended_preset_id, "fast", "the opening harvest directive should recommend the Fast plan");
@@ -156,7 +170,7 @@ try {
 	assert.equal(pulse.rival_pulse.hud_visible, false, "rival beat should stay quiet before the first egg");
 	assert.equal(pulse.adaptive_assistance.changes_difficulty, false);
 	assert.equal(pulse.comprehension_tuning.privacy, "LOCAL SESSION ONLY / NEVER TRANSMITTED");
-	evidence.active = {
+		evidence.active = {
 		stage: active.campaign_stage,
 		itemCount: required.length,
 		coreLoop: pulse.core_loop,
@@ -167,6 +181,7 @@ try {
 		shiftJourney: pulse.shift_journey,
 		guidedLoop: pulse.guided_loop,
 		physicalLoop: pulse.physical_loop,
+		engagementNextLevel: pulse.engagement_next_level,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
@@ -180,4 +195,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended items=20 reward-loop=15 guided-loop=24 physical-loop=24 presets=3 journey=4-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended items=20 reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=4-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

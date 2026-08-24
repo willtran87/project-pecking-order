@@ -13952,3 +13952,17 @@ The next major systems milestone is persistent worker relationships and individu
 - Godot 4.7 import plus focused engagement, management-loop UI, atmosphere, and shift-highlight contracts pass. Prescribed production-browser captures verify the 1280×720 intake and live Day 1 office with zero console errors and zero orphan nodes.
 - The complete beta release gate passes 59/59 checks in 631.531 seconds. Both release targets are byte-identical; the final 10,587,188-byte PCK has SHA-256 `5B268B7A8388D1A52FD70E45985FED75C78CDCF76CA5BE4B715FDB13C91E3161`.
 - Every Codex-owned Godot, Node, Chromium, and local server process was closed after verification; ports 3001 and 63839 were confirmed free without touching the user-owned port 3000 instance.
+
+# 2026-08-24 — Intuitive engagement completion
+
+- Closed the latest twenty-item gameplay follow-up as one Active Playbook extension rather than another dashboard, currency, or mandatory chore.
+- Added live plan prediction scoring (`CALLED IT`, `CLOSE CALL`, `BUILDING`, `SURPRISE FILED`) and three two-action recipes with real plan-specific pace, shell, or strain bonuses.
+- Added three optional, mutually exclusive Shift 2+ rule modifiers: Rush Hour, Glass Carton, and One Bell. Their quota, pace, shell, value, and rescue consequences are authoritative and persist in the existing shift checkpoint.
+- Added one dominant playbook objective with a symbolic physical ghost path, strategy mastery tiers through `SIGNATURE BUILD`, focused relationship echoes, and a concrete next-shift tease.
+- The final hearing now incorporates the player's build, strongest hen and title, relationship standing, completed recipe, and optional modifier into its permanent evidence.
+- Added `docs/INTUITIVE_ENGAGEMENT_COMPLETION.md` plus `intuitive_engagement_completion_test.gd`; focused import, Active Playbook, prior engagement, and new completion contracts pass.
+- Real participant fun/comprehension findings remain external; the in-game five-person protocol still honestly reports `AWAITING REAL PARTICIPANTS`.
+- The complete beta release gate passes 60/60 in 573.409 seconds; the post-export Web/parity gate passes 10/10 in 42.183 seconds.
+- The prescribed browser client and the production gameplay-pulse audit pass with all twenty new mappings live, no console/page errors, and inspected 1280×720 and 1440×900 captures.
+- The synchronized nine-file Web candidate is 10,603,908 bytes with SHA-256 `896463434C4E698C2CEC403A9663E5EB3FD0A7D87D4CFBDDFD084C9E76065474` across `docs`, `web/public/game`, and the production bundle.
+- Every Codex-owned Playwright, Chromium, wrapper, and internal Vinext process was closed. Ports 3001 and 51321 are free; the user-owned port-3000 instance remains untouched.
