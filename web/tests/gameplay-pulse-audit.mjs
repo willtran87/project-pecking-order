@@ -97,14 +97,31 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 4);
+	assert.equal(pulse.version, 5);
+	assert.equal(pulse.mastery_replay.item_count, 30);
+	assert.equal(
+		pulse.mastery_replay.resolved_count,
+		30,
+		`unresolved mastery/replay items: ${JSON.stringify(Object.entries(pulse.mastery_replay.items ?? {}).filter(([, item]) => item?.live !== true))}`,
+	);
+	assert.equal(pulse.mastery_replay.all_resolved, true);
+	assert.equal(pulse.mastery_replay.decision_stack.maximum_major_choices, 1);
+	assert.equal(pulse.mastery_replay.decision_stack.unrelated_actions_folded, true);
+	assert.equal(pulse.mastery_replay.manager_power.input, "Q");
+	assert.equal(pulse.mastery_replay.manager_power.opens_playbook, true);
+	assert.equal(pulse.mastery_replay.manager_power.files_on_press, false);
+	assert.equal(pulse.mastery_replay.unlock_ladder.step_count, 3);
+	assert.equal(pulse.mastery_replay.replay.same_seed, true);
+	assert.equal(pulse.mastery_replay.campaign_finale.decisive, true);
+	assert.equal(pulse.mastery_replay.comprehension_protocol.real_participants_required, true);
+	assert.equal(pulse.mastery_replay.comprehension_protocol.fabricated_results, false);
 	assert.equal(pulse.complete_game_loop.item_count, 24);
 	assert.equal(
 		pulse.complete_game_loop.resolved_count,
@@ -199,6 +216,7 @@ try {
 		physicalLoop: pulse.physical_loop,
 		engagementNextLevel: pulse.engagement_next_level,
 		completeGameLoop: pulse.complete_game_loop,
+		masteryReplay: pulse.mastery_replay,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
@@ -214,8 +232,12 @@ try {
 	await page.screenshot({ path: path.join(outputDirectory, "hold-to-explain.png"), fullPage: true });
 	await page.keyboard.up("KeyH");
 	await waitForState((snapshot) => snapshot.explain_mode?.active === false, "explain release");
-	await clickAuthored(825, 65);
-	await page.waitForTimeout(500);
+	await page.keyboard.press("KeyQ");
+	await waitForState(
+		(snapshot) => snapshot.manager_power?.popup_visible === true,
+		"manager power playbook shortcut",
+	);
+	assert.equal((await state()).manager_power.files_on_press, false);
 	await page.screenshot({ path: path.join(outputDirectory, "active-playbook-menu.png"), fullPage: true });
 } finally {
 	await browser.close();
@@ -223,4 +245,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended micro-shift=90s explain=4-chip story=3-beat report=3-card complete-loop=24 reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended micro-shift=90s explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

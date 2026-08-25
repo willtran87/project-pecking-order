@@ -1,5 +1,13 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-25 - Mastery and replay completion pass
+
+- Added one compact 30-item mastery/replay projection that progressively reveals systems, keeps one obvious decision, and exposes the next payoff without adding another panel.
+- Added a safe `Q` Active Playbook shortcut for contextual signature, teamwork, rescue, and automation powers; opening the menu never files a choice.
+- Unified short unlock previews, hen career milestones, strategy records, rival counterplay, story arcs, challenge remix, and the decisive Final Hearing under existing simulation authority.
+- Preserved honest playtest boundaries: local first-shift instrumentation is implemented, while real-participant comprehension evidence remains explicitly required and is never fabricated.
+- Added native/browser release contracts and `docs/MASTERY_REPLAY_RESOLUTION.md` mapping all thirty findings.
+
 ## 2026-08-24 - Complete intuitive game-loop pass
 
 - Added a skippable 90-second `PLAN → ROUTE → REACT → REWARD` First Clutch micro-loop with labels that retire after learning while icons remain.

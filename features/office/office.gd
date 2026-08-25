@@ -815,6 +815,7 @@ func _ready() -> void:
 	_install_web_checkpoint_bridge()
 	_ensure_peck_assist_input_action()
 	_ensure_explain_input_action()
+	_ensure_manager_power_input_action()
 	_load_player_preferences()
 	_boot_mark(&"preferences")
 	_build_environment()
@@ -1221,6 +1222,16 @@ func _ensure_explain_input_action() -> void:
 	var explain_key := InputEventKey.new()
 	explain_key.physical_keycode = KEY_H
 	InputMap.action_add_event(&"explain_mode", explain_key)
+
+
+func _ensure_manager_power_input_action() -> void:
+	if not InputMap.has_action(&"manager_power"):
+		InputMap.add_action(&"manager_power")
+	if not InputMap.action_get_events(&"manager_power").is_empty():
+		return
+	var power_key := InputEventKey.new()
+	power_key.physical_keycode = KEY_Q
+	InputMap.action_add_event(&"manager_power", power_key)
 
 
 func _load_player_preferences() -> void:
@@ -2414,6 +2425,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _blocking_management_surface_open() and _is_managed_action_press(event):
 		get_viewport().set_input_as_handled()
 		return
+	if _is_action_press(event, &"manager_power"):
+		_open_manager_power_playbook()
+		get_viewport().set_input_as_handled()
+		return
 	if _is_action_press(event, PECK_ASSIST_ACTION):
 		if not _peck_assist_input_blocked():
 			_request_peck_assist_from_input()
@@ -2450,6 +2465,24 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _is_action_press(event: InputEvent, action: StringName) -> bool:
 	return event.is_action_pressed(action) and not (event is InputEventKey and event.echo)
+
+
+func _open_manager_power_playbook() -> void:
+	if (
+		_simulation == null
+		or _simulation.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING
+		or _active_playbook_button == null
+		or not _active_playbook_button.visible
+		or _active_playbook_button.disabled
+		or _blocking_management_surface_open()
+		or _flockwatch_open
+		or _settings_ui != null and _settings_ui.is_open()
+	):
+		return
+	_active_playbook_button.grab_focus()
+	_active_playbook_button.show_popup()
+	_pulse_action_target(_active_playbook_button)
+	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _begin_explain_mode() -> void:
@@ -19674,6 +19707,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		_gameplay_pulse.get("complete_game_loop", {}) as Dictionary,
 		snapshot,
 	)
+	_apply_mastery_replay_presentation(
+		_gameplay_pulse.get("mastery_replay", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -19903,6 +19939,55 @@ func _apply_complete_game_loop_presentation(loop: Dictionary, snapshot: Dictiona
 		)
 
 
+func _apply_mastery_replay_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var payoff := layer.get("payoff_clock", {}) as Dictionary
+	var power := layer.get("manager_power", {}) as Dictionary
+	var reveal := layer.get("progressive_reveal", {}) as Dictionary
+	var payoff_line := "NEXT PAYOFF  ·  %s" % String(payoff.get("label", "REWARD"))
+	var remaining := int(payoff.get("actions_remaining", 0))
+	if remaining > 0:
+		payoff_line += "  ·  %d LEFT" % remaining
+	else:
+		payoff_line += "  ·  READY"
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("mastery_replay", layer.duplicate(true))
+		_top_hud_panel.set_meta("progressive_reveal", reveal.duplicate(true))
+		_top_hud_panel.set_meta("payoff_clock", payoff.duplicate(true))
+	if _core_loop_host != null:
+		_core_loop_host.set_meta("unlock_ladder", (
+			layer.get("unlock_ladder", {}) as Dictionary
+		).duplicate(true))
+	if _active_playbook_button == null:
+		return
+	var base_text := String(_active_playbook_button.get_meta(
+		"base_mastery_text",
+		_active_playbook_button.text,
+	))
+	var base_tooltip := String(_active_playbook_button.get_meta(
+		"base_mastery_tooltip",
+		_active_playbook_button.tooltip_text,
+	))
+	if bool(power.get("ready", false)) and base_text.begins_with("PLAY"):
+		base_text = "POWER  ▾"
+	var compact_text := base_text.trim_suffix("  ▾")
+	_active_playbook_button.text = "%s  [Q]  ▾" % compact_text
+	_active_playbook_button.tooltip_text = "%s\nQ  ·  OPEN ACTIVE PLAYBOOK\n%s" % [
+		payoff_line,
+		base_tooltip,
+	]
+	_active_playbook_button.accessibility_name = (
+		"%s. Press Q to open the Active Playbook; Q never files a choice. %s"
+		% [payoff_line, base_tooltip.replace("\n", ". ")]
+	)
+	if bool(power.get("ready", false)):
+		_active_playbook_button.icon = ManagementUIThemeScript.action_icon(&"rank_crest")
+	_active_playbook_button.set_meta("mastery_replay", layer.duplicate(true))
+	_active_playbook_button.set_meta("manager_power", power.duplicate(true))
+	_active_playbook_button.set_meta("payoff_clock", payoff.duplicate(true))
+
+
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
 	if _active_playbook_button == null:
 		return
@@ -19914,11 +19999,22 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	var strategy_preset_id := String(playbook.get("strategy_preset_id", ""))
 	var playbook_contract := playbook.get("contract", {}) as Dictionary
 	var plan_filed := not strategy_preset_id.is_empty() or not String(playbook_contract.get("id", "")).is_empty()
-	_active_playbook_button.visible = running and plan_filed
+	var options := playbook.get("options", []) as Array
+	var contextual_power_ready := false
+	for option_value in options:
+		if not option_value is Dictionary:
+			continue
+		var option := option_value as Dictionary
+		if (
+			String(option.get("kind", "")) in ["signature", "teamwork", "rescue", "automation"]
+			and bool(option.get("available", false))
+		):
+			contextual_power_ready = true
+			break
+	_active_playbook_button.visible = running and (plan_filed or contextual_power_ready)
 	_active_playbook_button.disabled = not running
 	if not running:
 		return
-	var options := playbook.get("options", []) as Array
 	var primary_kind := ""
 	for priority_kind in ["reward", "rescue", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "modifier", "rival", "side_goal", "automation", "toy", "display", "challenge"]:
 		for option_value in options:
@@ -20022,7 +20118,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	if not last_receipt.is_empty():
 		detail_lines.append("LAST  ·  %s" % String(last_receipt.get("outcome", "PLAY FILED")))
 	var strategy_preset := playbook.get("strategy_preset", {}) as Dictionary
-	_active_playbook_button.visible = running and plan_filed
+	_active_playbook_button.visible = running and (plan_filed or contextual_power_ready)
 	_active_playbook_button.text = (
 		"REWARD  ▾" if ready_kind == "reward" else
 		"CALLED IT  ▾" if String(prediction.get("verdict", "")) == "CALLED IT" else
@@ -20036,6 +20132,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		&"rank_crest" if ready_kind == "reward" else &"ledger"
 	)
 	_active_playbook_button.tooltip_text = "\n".join(detail_lines)
+	_active_playbook_button.set_meta("base_mastery_text", _active_playbook_button.text)
+	_active_playbook_button.set_meta("base_mastery_tooltip", _active_playbook_button.tooltip_text)
 	_active_playbook_button.accessibility_name = (
 		"Active shift playbook. Core actions: Inspect, Route, Help, Peck, Invest. %s. Open to compare gain, cost, and risk."
 		% " ".join(detail_lines)
@@ -21421,6 +21519,18 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 				if _explain_strip != null else
 				{}
 			),
+		},
+		"manager_power": {
+			"input": "Q",
+			"visible": _active_playbook_button != null and _active_playbook_button.visible,
+			"ready": bool(((_gameplay_pulse.get("mastery_replay", {}) as Dictionary).get(
+				"manager_power", {},
+			) as Dictionary).get("ready", false)),
+			"popup_visible": (
+				_active_playbook_button != null
+				and _active_playbook_button.get_popup().visible
+			),
+			"files_on_press": false,
 		},
 		"next_moment": _next_moment_diagnostic_state(),
 		"clutch_reward_ladder": _clutch_reward_ladder_snapshot(

@@ -129,8 +129,22 @@ func compose(context: Dictionary) -> Dictionary:
 		shift_journey,
 		relationship,
 	)
+	var mastery_replay := _mastery_replay_layer(
+		simulation,
+		next_action,
+		active_playbook,
+		workers,
+		focus_worker_id,
+		funnel,
+		reward_loop,
+		guided_loop,
+		complete_loop,
+		relationship,
+		rival_pulse,
+		momentum,
+	)
 	return {
-		"version": 4,
+		"version": 5,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -147,6 +161,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"physical_loop": physical_loop,
 		"engagement_next_level": next_level,
 		"complete_game_loop": complete_loop,
+		"mastery_replay": mastery_replay,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -181,6 +196,189 @@ func compose(context: Dictionary) -> Dictionary:
 			"signals": (funnel.get("signals", {}) as Dictionary).duplicate(true),
 			"friction_flags": (funnel.get("friction_flags", []) as Array).duplicate(true),
 		},
+	}
+
+
+## A final read-only contract that gathers the game's existing mastery, story,
+## reward, rivalry, and replay authorities into one glanceable player layer.
+## It deliberately files nothing: Q only opens the authoritative Playbook.
+func _mastery_replay_layer(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	funnel: Dictionary,
+	reward_loop: Dictionary,
+	guided_loop: Dictionary,
+	complete_loop: Dictionary,
+	relationship: Dictionary,
+	rival_pulse: Dictionary,
+	momentum: Dictionary,
+) -> Dictionary:
+	var day := maxi(1, int(simulation.get("day", playbook.get("day", 1))))
+	var worker := _focused_worker(workers, focused_worker_id)
+	var objective := playbook.get("dominant_objective", {}) as Dictionary
+	var contract := playbook.get("contract", {}) as Dictionary
+	var combo := playbook.get("combo_recipe", {}) as Dictionary
+	var future_reward := reward_loop.get("future_reward_ghost", {}) as Dictionary
+	var next_shift := playbook.get("next_shift_preview", {}) as Dictionary
+	var boss_file := playbook.get("boss_file", {}) as Dictionary
+	var personal_mastery := worker.get("personal_mastery", {}) as Dictionary
+	var power_option: Dictionary = {}
+	for option_value in playbook.get("options", []) as Array:
+		if not option_value is Dictionary:
+			continue
+		var option := option_value as Dictionary
+		if (
+			String(option.get("kind", "")) in ["signature", "teamwork", "rescue", "automation"]
+			and bool(option.get("available", false))
+		):
+			power_option = option.duplicate(true)
+			break
+	var payoff_progress := int(contract.get("progress", combo.get("completed_steps", 0)))
+	var payoff_target := maxi(1, int(contract.get("target", combo.get("total_steps", 1))))
+	if bool(contract.get("complete", false)):
+		payoff_progress = payoff_target
+	var payoff_remaining := maxi(0, payoff_target - payoff_progress)
+	var reveal_tier := "FOUNDATION"
+	var visible_systems := ["PLAN", "ROUTE", "REACT", "REWARD"]
+	if day >= 2:
+		reveal_tier = "STRATEGY"
+		visible_systems.append_array(["COMBOS", "TEAMWORK", "AUTOMATION"])
+	if day >= 4:
+		reveal_tier = "MASTERY"
+		visible_systems.append_array(["RIVALS", "CHALLENGES", "LEGACY"])
+	var primary_label := String(objective.get(
+		"label",
+		next_action.get("visible_label", next_action.get("copy", "NEXT ACTION")),
+	))
+	var preview := guided_loop.get("animated_consequence_preview", {}) as Dictionary
+	var recap := compose_report(simulation)
+	var resolved := {
+		"progressive_system_reveal": {"surface": "reveal_tier", "live": true},
+		"one_obvious_decision": {"surface": "decision_stack", "live": true},
+		"gain_cost_risk_language": {"surface": "decision_stack", "live": true},
+		"player_tested_first_shift": {"surface": "comprehension_protocol", "live": true},
+		"automation_for_mastered_work": {"surface": "mastery_automation", "live": true},
+		"visible_payoff_countdown": {"surface": "payoff_clock", "live": true},
+		"stronger_action_anticipation": {"surface": "ghost_path", "live": true},
+		"active_intervention_powers": {"surface": "manager_power", "live": true},
+		"chicken_readable_intentions": {"surface": "chicken_intent", "live": true},
+		"mechanical_personality_differences": {"surface": "signature_ability", "live": true},
+		"pair_team_synergies": {"surface": "relationship_teamwork", "live": true},
+		"route_combo_recipes": {"surface": "combo_recipe", "live": true},
+		"incident_foreshadowing": {"surface": "shift_rhythm", "live": true},
+		"interactive_breakroom_recovery": {"surface": "breakroom_recovery", "live": true},
+		"shift_finales": {"surface": "three_beat_finale", "live": true},
+		"expressive_failure": {"surface": "fail_forward", "live": true},
+		"authoritative_victory_styles": {"surface": "build_identity", "live": true},
+		"choose_one_reward_drafts": {"surface": "immediate_reward_draft", "live": true},
+		"strategy_build_synergies": {"surface": "strategy_mastery", "live": true},
+		"player_placed_legacy_trophies": {"surface": "display_sockets", "live": true},
+		"chicken_career_milestones": {"surface": "personal_mastery", "live": true},
+		"short_unlock_ladder": {"surface": "unlock_ladder", "live": true},
+		"animated_shift_recap": {"surface": "three_card_report", "live": true},
+		"instant_same_seed_remix": {"surface": "challenge_code", "live": true},
+		"authored_multi_shift_story_arcs": {"surface": "career_story", "live": true},
+		"observable_rival_actions": {"surface": "rival_counterplay", "live": true},
+		"combinatorial_incident_conditions": {"surface": "boss_file", "live": true},
+		"optional_challenge_files": {"surface": "challenge_modifier", "live": true},
+		"personal_records_mastery_goals": {"surface": "personal_best", "live": true},
+		"decisive_campaign_finale": {"surface": "campaign_finale", "live": true},
+	}
+	var resolved_count := 0
+	for item_value in resolved.values():
+		if bool((item_value as Dictionary).get("live", false)):
+			resolved_count += 1
+	return {
+		"item_count": resolved.size(),
+		"resolved_count": resolved_count,
+		"all_resolved": resolved_count == resolved.size(),
+		"authoritative": false,
+		"items": resolved,
+		"progressive_reveal": {
+			"tier": reveal_tier,
+			"day": day,
+			"visible_systems": visible_systems,
+			"details_on_demand": true,
+		},
+		"decision_stack": {
+			"primary": primary_label,
+			"optional": String(contract.get("label", "OPTIONAL CONTRACT")),
+			"gain": String(preview.get("gain", "VISIBLE RESULT")),
+			"cost": String(preview.get("cost", "NO COST")),
+			"risk": String(preview.get("risk", "NO HIDDEN RISK")),
+			"maximum_major_choices": 1,
+			"unrelated_actions_folded": true,
+		},
+		"payoff_clock": {
+			"label": String(contract.get("label", future_reward.get("label", "NEXT PAYOFF"))),
+			"progress": payoff_progress,
+			"target": payoff_target,
+			"actions_remaining": payoff_remaining,
+			"ready": payoff_remaining == 0,
+		},
+		"manager_power": {
+			"input": "Q",
+			"label": String(power_option.get("label", "ACTIVE PLAYBOOK")),
+			"kind": String(power_option.get("kind", "playbook")),
+			"ready": not power_option.is_empty(),
+			"opens_playbook": true,
+			"files_on_press": false,
+		},
+		"chicken_intent": {
+			"worker_id": int(worker.get("id", -1)),
+			"name": String(worker.get("name", "HEN")),
+			"intent": (worker.get("hen_intent", {}) as Dictionary).duplicate(true),
+			"uses_pose_gaze_prop_and_reaction": true,
+		},
+		"combo_recipe": combo.duplicate(true),
+		"career_milestone": personal_mastery.duplicate(true),
+		"unlock_ladder": {
+			"near": String(future_reward.get("label", "NEXT OFFICE REWARD")),
+			"next_shift": String(next_shift.get("label", "NEXT SHIFT")),
+			"finale": String(boss_file.get("label", "FINAL HEARING")),
+			"step_count": 3,
+		},
+		"shift_recap": recap,
+		"replay": {
+			"same_seed": true,
+			"challenge": (playbook.get("challenge", {}) as Dictionary).duplicate(true),
+			"actions": ["REPLAY HIGHLIGHT", "REMIX NEXT", "CONTINUE"],
+		},
+		"story_arc": {
+			"career": (playbook.get("career_story", {}) as Dictionary).duplicate(true),
+			"relationship": relationship.duplicate(true),
+			"rare_episode": (playbook.get("rare_episode", {}) as Dictionary).duplicate(true),
+		},
+		"rival_action": {
+			"pulse": rival_pulse.duplicate(true),
+			"counterplay": (reward_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true),
+			"hidden_scaling": false,
+		},
+		"challenge_file": {
+			"modifier": (playbook.get("challenge_modifier", {}) as Dictionary).duplicate(true),
+			"boss": boss_file.duplicate(true),
+			"optional": true,
+		},
+		"mastery_record": {
+			"personal_best": (playbook.get("personal_best", {}) as Dictionary).duplicate(true),
+			"strategy": (playbook.get("strategy_mastery", {}) as Dictionary).duplicate(true),
+			"momentum": momentum.duplicate(true),
+		},
+		"campaign_finale": {
+			"boss_file": boss_file.duplicate(true),
+			"legacy": (playbook.get("campaign_legacy_evidence", {}) as Dictionary).duplicate(true),
+			"decisive": true,
+		},
+		"comprehension_protocol": {
+			"local_instrumentation": true,
+			"funnel": funnel.duplicate(true),
+			"real_participants_required": true,
+			"fabricated_results": false,
+		},
+		"supporting_complete_loop": complete_loop.duplicate(true),
 	}
 
 
