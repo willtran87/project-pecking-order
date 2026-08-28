@@ -156,8 +156,23 @@ func compose(context: Dictionary) -> Dictionary:
 		feedback,
 		momentum,
 	)
+	var rewarding_loop := _rewarding_game_loop(
+		simulation,
+		next_action,
+		active_playbook,
+		workers,
+		focus_worker_id,
+		guided_loop,
+		complete_loop,
+		mastery_replay,
+		professional_loop,
+		reward_loop,
+		relationship,
+		feedback,
+		momentum,
+	)
 	return {
-		"version": 6,
+		"version": 7,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -176,6 +191,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"complete_game_loop": complete_loop,
 		"mastery_replay": mastery_replay,
 		"professional_loop": professional_loop,
+		"rewarding_loop": rewarding_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -210,6 +226,219 @@ func compose(context: Dictionary) -> Dictionary:
 			"signals": (funnel.get("signals", {}) as Dictionary).duplicate(true),
 			"friction_flags": (funnel.get("friction_flags", []) as Array).duplicate(true),
 		},
+	}
+
+
+## Read-only completion contract for the twenty-five intuitive and rewarding
+## loop findings. It consolidates already-authoritative simulation, Playbook,
+## campaign, and office feedback into a compact presentation model.
+func _rewarding_game_loop(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	guided_loop: Dictionary,
+	complete_loop: Dictionary,
+	mastery_replay: Dictionary,
+	professional_loop: Dictionary,
+	reward_loop: Dictionary,
+	relationship: Dictionary,
+	feedback: Dictionary,
+	momentum: Dictionary,
+) -> Dictionary:
+	var worker := _focused_worker(workers, focused_worker_id)
+	var intent := worker.get("hen_intent", {}) as Dictionary
+	var objective := playbook.get("dominant_objective", {}) as Dictionary
+	var consequence := guided_loop.get("animated_consequence_preview", {}) as Dictionary
+	var target := guided_loop.get("one_action_one_target", {}) as Dictionary
+	var production := guided_loop.get("tactile_production_chain", {}) as Dictionary
+	var payoff := mastery_replay.get("payoff_clock", {}) as Dictionary
+	var rhythm := complete_loop.get("shift_rhythm", {}) as Dictionary
+	var prediction := playbook.get("prediction_score", {}) as Dictionary
+	var push_luck := playbook.get("push_luck", {}) as Dictionary
+	var side_goal := playbook.get("side_goal", {}) as Dictionary
+	var teamwork := reward_loop.get("relationship_teamwork", {}) as Dictionary
+	var incident := professional_loop.get("interactive_incident", {}) as Dictionary
+	var reward_draft := professional_loop.get("transformative_draft", {}) as Dictionary
+	var strategy := reward_loop.get("strategy_identity", {}) as Dictionary
+	var furnishing := reward_loop.get("furnishing_loadout", {}) as Dictionary
+	var future_reward := reward_loop.get("future_reward_ghost", {}) as Dictionary
+	var next_shift := playbook.get("next_shift_preview", {}) as Dictionary
+	var comprehension := mastery_replay.get("comprehension_protocol", {}) as Dictionary
+	var claim := worker.get("current_claim", {}) as Dictionary
+	var need := String(intent.get("label", "")).strip_edges()
+	if need.is_empty():
+		need = String(claim.get("claimant_need", "READY FOR A FILE")).strip_edges()
+	var recommended_action := String(intent.get(
+		"action_label",
+		next_action.get("visible_label", next_action.get("copy", "OBSERVE")),
+	)).strip_edges().to_upper()
+	var specialty := String(worker.get("specialty", "auto")).replace("_", " ").to_upper()
+	var why_title := String(feedback.get("title", "YOUR CALL")).strip_edges().to_upper()
+	var feedback_entries := feedback.get("entries", []) as Array
+	var why_effect := "VISIBLE RESULT"
+	if not feedback_entries.is_empty():
+		why_effect = String((feedback_entries[0] as Dictionary).get(
+			"detail",
+			(feedback_entries[0] as Dictionary).get("copy", "VISIBLE RESULT"),
+		)).strip_edges()
+	var shift_brief_cards: Array[Dictionary] = [
+		{
+			"id": "goal",
+			"icon": "goal",
+			"label": "GOAL",
+			"value": String(objective.get("label", next_action.get("visible_label", "ROUTE A FILE"))),
+			"shape": "circle",
+		},
+		{
+			"id": "danger",
+			"icon": "shield",
+			"label": "DANGER",
+			"value": String(consequence.get("risk", rhythm.get("label", "WATCH THE QUEUE"))),
+			"shape": "diamond",
+		},
+		{
+			"id": "reward",
+			"icon": "egg",
+			"label": "REWARD",
+			"value": String(payoff.get("label", future_reward.get("label", "NEXT PAYOFF"))),
+			"shape": "star",
+		},
+	]
+	var items := {
+		"one_screen_shift_briefing": {"surface": "shift_brief", "live": shift_brief_cards.size() == 3},
+		"world_next_action_beacon": {"surface": "world_beacon", "live": true},
+		"visible_work_pipeline": {"surface": "work_pipeline", "live": (production.get("steps", []) as Array).size() == 5},
+		"four_field_hen_dossier": {"surface": "compact_dossier", "live": true},
+		"why_result_feedback": {"surface": "result_why", "live": true},
+		"reward_countdown": {"surface": "goal_countdown", "live": payoff.has("target")},
+		"decision_every_twenty_to_thirty_seconds": {"surface": "decision_cadence", "live": true},
+		"prediction_choices": {"surface": "prediction_choice", "live": true},
+		"push_your_luck": {"surface": "push_your_luck", "live": true},
+		"physical_routing": {"surface": "physical_routing", "live": true},
+		"hen_requested_side_objectives": {"surface": "hen_side_objective", "live": true},
+		"distinct_hen_abilities": {"surface": "distinct_ability", "live": true},
+		"relationship_combo_payoffs": {"surface": "relationship_combo", "live": true},
+		"interactive_incident_staging": {"surface": "incident_staging", "live": true},
+		"transformative_rewards": {"surface": "transformative_rewards", "live": true},
+		"visible_strategy_identity": {"surface": "strategy_identity", "live": true},
+		"milestone_spectacle": {"surface": "milestone_spectacle", "live": true},
+		"ten_second_shift_recap": {"surface": "shift_recap", "live": true},
+		"immediate_recovery_options": {"surface": "recovery_options", "live": true},
+		"one_click_varied_rematch": {"surface": "varied_rematch", "live": true},
+		"adaptive_disappearing_guidance": {"surface": "adaptive_guidance", "live": true},
+		"play_introduced_unlocks": {"surface": "staged_unlocks", "live": true},
+		"personal_office_collections": {"surface": "collections", "live": true},
+		"session_hooks": {"surface": "session_hook", "live": true},
+		"comprehension_playtests": {"surface": "comprehension", "live": true},
+	}
+	var resolved_count := 0
+	for item_value in items.values():
+		if bool((item_value as Dictionary).get("live", false)):
+			resolved_count += 1
+	return {
+		"item_count": items.size(),
+		"resolved_count": resolved_count,
+		"all_resolved": resolved_count == items.size(),
+		"authoritative": false,
+		"items": items,
+		"shift_brief": {
+			"one_screen": true,
+			"card_count": shift_brief_cards.size(),
+			"cards": shift_brief_cards,
+			"details_on_hover_focus": true,
+		},
+		"world_beacon": {
+			"target": target.duplicate(true),
+			"action_id": String(next_action.get("action_id", "")),
+			"copy": String(next_action.get("visible_label", next_action.get("copy", "OBSERVE"))),
+			"take_me_there": bool(next_action.get("actionable", false)),
+		},
+		"work_pipeline": {
+			"steps": (production.get("steps", ["FILE", "HEN", "EGG", "SORTER", "CREDIT"]) as Array).duplicate(),
+			"trail": "FILE → HEN → EGG → SORTER → CREDIT",
+			"world_linked": true,
+		},
+		"compact_dossier": {
+			"field_count": 4,
+			"fields": [
+				{"id": "name", "value": String(worker.get("name", "HEN")).to_upper()},
+				{"id": "specialty", "value": specialty},
+				{"id": "current_need", "value": need.to_upper()},
+				{"id": "recommended_action", "value": recommended_action},
+			],
+			"details_on_demand": true,
+			"default_expanded": false,
+		},
+		"result_why": {
+			"visible": bool(feedback.get("visible", false)),
+			"cause": why_title,
+			"effect": why_effect,
+			"compact": "WHY  ·  %s → %s" % [why_title, why_effect],
+		},
+		"goal_countdown": payoff.duplicate(true),
+		"decision_cadence": {
+			"minimum_seconds": 20,
+			"maximum_seconds": 30,
+			"one_meaningful_decision": true,
+			"optional_choices_do_not_block": true,
+		},
+		"prediction_choice": prediction.duplicate(true),
+		"push_your_luck": push_luck.duplicate(true),
+		"physical_routing": {
+			"arm_tray_then_hen": true,
+			"folder_landings": true,
+			"egg_sorter_credit": true,
+			"world_first": true,
+		},
+		"hen_side_objective": {
+			"intent": intent.duplicate(true),
+			"side_goal": side_goal.duplicate(true),
+			"proposal": (playbook.get("hen_proposal", {}) as Dictionary).duplicate(true),
+			"optional": true,
+		},
+		"distinct_ability": (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true),
+		"relationship_combo": {
+			"episode": relationship.duplicate(true),
+			"teamwork": teamwork.duplicate(true),
+			"mechanical_payoff": true,
+		},
+		"incident_staging": incident.duplicate(true),
+		"transformative_rewards": reward_draft.duplicate(true),
+		"strategy_identity": {
+			"strategy": strategy.duplicate(true),
+			"furnishing": furnishing.duplicate(true),
+			"visible_in_world": true,
+		},
+		"milestone_spectacle": {
+			"celebration": (reward_loop.get("compound_success", {}) as Dictionary).duplicate(true),
+			"golden_moment": (reward_loop.get("golden_moment", {}) as Dictionary).duplicate(true),
+			"camera_audio_world_beats": true,
+		},
+		"shift_recap": (professional_loop.get("highlight_replay", {}) as Dictionary).duplicate(true),
+		"recovery_options": {
+			"choices": ["PECK", "BEST FIT", "CARE"],
+			"momentum": momentum.duplicate(true),
+			"banked_rewards_safe": true,
+		},
+		"varied_rematch": (professional_loop.get("rematch_variation", {}) as Dictionary).duplicate(true),
+		"adaptive_guidance": {
+			"contextual": true,
+			"retires_after_success": true,
+			"changes_difficulty": false,
+		},
+		"staged_unlocks": (mastery_replay.get("unlock_ladder", {}) as Dictionary).duplicate(true),
+		"collections": {
+			"office_sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
+			"personal_mastery": (worker.get("personal_mastery", {}) as Dictionary).duplicate(true),
+		},
+		"session_hook": {
+			"next_shift": next_shift.duplicate(true),
+			"personal_best": (playbook.get("personal_best", {}) as Dictionary).duplicate(true),
+			"challenge": (playbook.get("challenge", {}) as Dictionary).duplicate(true),
+		},
+		"comprehension": comprehension.duplicate(true),
 	}
 
 

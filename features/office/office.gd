@@ -19734,6 +19734,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_professional_loop_presentation(
 		_gameplay_pulse.get("professional_loop", {}) as Dictionary,
 	)
+	_apply_rewarding_loop_presentation(
+		_gameplay_pulse.get("rewarding_loop", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -20072,6 +20075,67 @@ func _apply_professional_loop_presentation(layer: Dictionary) -> void:
 		_active_playbook_button.text = "%s  [Q]  ▾" % action_label
 		_active_playbook_button.set_meta("contextual_power_label", action_label)
 		_active_playbook_button.set_meta("professional_loop", layer.duplicate(true))
+
+
+func _apply_rewarding_loop_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var brief := layer.get("shift_brief", {}) as Dictionary
+	var cards := brief.get("cards", []) as Array
+	var accents := [Color("9ccfc2"), Color("efaa84"), Color("f4cd66")]
+	for index in _consequence_icons.size():
+		var icon := _consequence_icons[index]
+		if icon == null or index >= cards.size():
+			continue
+		var card := cards[index] as Dictionary
+		icon.configure(
+			StringName(card.get("icon", &"goal")),
+			accents[index] if index < accents.size() else Color("dce7e8"),
+		)
+		icon.tooltip_text = "%s  ·  %s" % [
+			String(card.get("label", "BRIEF")),
+			String(card.get("value", "REVIEW THE FLOOR")),
+		]
+		icon.accessibility_name = icon.tooltip_text
+		icon.set_meta("rewarding_brief", card.duplicate(true))
+	if _consequence_icon_host != null:
+		_consequence_icon_host.visible = cards.size() == 3
+		_consequence_icon_host.tooltip_text = "SHIFT BRIEF  ·  GOAL / DANGER / REWARD"
+		_consequence_icon_host.set_meta("shift_brief", brief.duplicate(true))
+		_consequence_icon_host.set_meta("semantic_order", ["goal", "danger", "reward"])
+	var countdown := layer.get("goal_countdown", {}) as Dictionary
+	var remaining := maxi(0, int(countdown.get("actions_remaining", 0)))
+	var reward_label := String(countdown.get("label", "NEXT PAYOFF")).strip_edges().to_upper()
+	if _shift_egg_goal_label != null:
+		_shift_egg_goal_label.visible = true
+		_shift_egg_goal_label.text = "%d LEFT" % remaining if remaining > 0 else "READY"
+		_shift_egg_goal_label.tooltip_text = "NEXT PAYOFF  ·  %s  ·  %s" % [
+			reward_label,
+			"%d action%s left" % [remaining, "" if remaining == 1 else "s"]
+			if remaining > 0 else
+			"ready now",
+		]
+		_shift_egg_goal_label.accessibility_name = _shift_egg_goal_label.tooltip_text
+		_shift_egg_goal_label.set_meta("payoff_countdown", countdown.duplicate(true))
+	var why := layer.get("result_why", {}) as Dictionary
+	if bool(why.get("visible", false)) and _guidance_action_button != null:
+		var why_copy := String(why.get("compact", "")).strip_edges()
+		if not why_copy.is_empty() and not _guidance_action_button.tooltip_text.contains("WHY  ·"):
+			_guidance_action_button.tooltip_text += "\n%s" % why_copy
+			_guidance_action_button.accessibility_name = _guidance_action_button.tooltip_text
+		_guidance_action_button.set_meta("result_why", why.duplicate(true))
+	if _routing_ui != null:
+		_routing_ui.set_meta(
+			"rewarding_compact_dossier",
+			(layer.get("compact_dossier", {}) as Dictionary).duplicate(true),
+		)
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("rewarding_loop", layer.duplicate(true))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta(
+			"decision_cadence",
+			(layer.get("decision_cadence", {}) as Dictionary).duplicate(true),
+		)
 
 
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:

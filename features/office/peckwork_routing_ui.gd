@@ -910,7 +910,9 @@ func set_focus(worker_id: int) -> void:
 		set_meta("peck_missed_capture_staged", false)
 		_reset_hen_intent_transition()
 		_last_hen_intent_key = ""
-		_details_expanded = not bool(_first_clutch.get("visible", false))
+		# Every newly selected hen opens as a four-field action card. The full
+		# routing, claimant, care, and profile ledgers remain one click away.
+		_details_expanded = false
 		_active_dossier_tab = &"route"
 	_focused_worker_id = worker_id
 	_refresh()
@@ -1103,7 +1105,7 @@ func apply_first_clutch(coach: Dictionary) -> void:
 	_first_clutch = coach.duplicate(true)
 	var is_active := bool(_first_clutch.get("visible", false))
 	if previous_stage != _first_clutch_disclosure_stage() or was_active != is_active:
-		_details_expanded = not is_active
+		_details_expanded = false
 	_refresh_first_clutch()
 
 
@@ -2082,6 +2084,26 @@ func dossier_tab_state() -> Dictionary:
 	}
 
 
+## Read-only diagnostics for the default four-field selected-hen card.
+func compact_dossier_state() -> Dictionary:
+	var compact := (
+		_focus_panel != null
+		and _focus_panel.is_visible_in_tree()
+		and not bool(_first_clutch.get("visible", false))
+		and not _details_expanded
+	)
+	return {
+		"visible": compact,
+		"field_count": 4,
+		"fields": ["name", "specialty", "current_need", "recommended_action"],
+		"details_on_demand": _details_button != null and _details_button.is_visible_in_tree(),
+		"details_expanded": _details_expanded,
+		"summary": _dossier_summary_label.text if _dossier_summary_label != null else "",
+		"recommended_action": _hen_intent_button.text if _hen_intent_button != null else "",
+		"panel_height": _focus_panel.size.y if _focus_panel != null else 0.0,
+	}
+
+
 func selected_hen_identity_state() -> Dictionary:
 	return {
 		"visible": (
@@ -2985,6 +3007,7 @@ func _build_claim_resolution_confirmation() -> void:
 func _on_dossier_tab_pressed(tab_id: StringName) -> void:
 	if tab_id not in [&"route", &"claim", &"support", &"profile"]:
 		return
+	_details_expanded = true
 	if tab_id != &"claim":
 		_finish_claim_file_arrival()
 	if tab_id != &"route":
@@ -4076,7 +4099,12 @@ func _refresh() -> void:
 	_dossier_summary_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_dossier_summary_label.accessibility_name = _dossier_summary_label.tooltip_text
 	_dossier_summary_label.set_meta("accessible_text", _dossier_summary_label.accessibility_name)
-	_dossier_summary_label.set_meta("presentation_role", &"dossier_detail")
+	_dossier_summary_label.set_meta(
+		"presentation_role",
+		&"compact_hen_card"
+		if not bool(_first_clutch.get("visible", false)) and not _details_expanded else
+		&"dossier_detail",
+	)
 	_refresh_first_clutch()
 
 
@@ -4318,6 +4346,28 @@ func _refresh_dossier_summary(
 	if _dossier_summary_label == null:
 		return
 	_dossier_summary_label.remove_theme_stylebox_override("normal")
+	if not bool(_first_clutch.get("visible", false)) and not _details_expanded:
+		var claim := worker.get("current_claim", {}) as Dictionary
+		var intent := worker.get("hen_intent", {}) as Dictionary
+		var need := String(intent.get("label", "")).strip_edges().to_upper()
+		if need.is_empty():
+			need = String(claim.get("claimant_need", "READY FOR A FILE")).strip_edges().to_upper()
+		var next_action := String(intent.get("action_label", "")).strip_edges().to_upper()
+		if next_action.is_empty():
+			var assignment := StringName(worker.get("assignment", worker.get("assigned_lane", &"auto")))
+			next_action = (
+				"ROUTE BEST-FIT FILE"
+				if assignment == &"auto" else
+				"PULL %s FILE" % _lane_name(assignment)
+			)
+		_dossier_summary_label.text = "NEED  ·  %s\nNEXT  ·  %s" % [need, next_action]
+		_dossier_summary_label.tooltip_text = (
+			"Current need: %s. Recommended action: %s. Open More for routing, claimant, care, and profile details."
+			% [need.capitalize(), next_action.capitalize()]
+		)
+		_dossier_summary_label.add_theme_color_override("font_color", Color("dce7e8"))
+		_dossier_summary_label.set_meta("presentation_role", &"compact_hen_card")
+		return
 	match _active_dossier_tab:
 		&"claim":
 			var claim := worker.get("current_claim", {}) as Dictionary
@@ -4881,14 +4931,22 @@ func _apply_dossier_disclosure() -> void:
 		previous_focus_owner = viewport.gui_get_focus_owner()
 	var coach_active := bool(_first_clutch.get("visible", false))
 	var normal_play := not coach_active
+	var compact_play := normal_play and not _details_expanded
 	var target_matches := _first_clutch_has_contextual_dossier()
 	var stage := _first_clutch_disclosure_stage()
 	if stage == &"":
 		stage = &"inspect"
-	var route_tab := normal_play and _active_dossier_tab == &"route"
-	var claim_tab := normal_play and _active_dossier_tab == &"claim"
-	var support_tab := normal_play and _active_dossier_tab == &"support"
-	var profile_tab := normal_play and _active_dossier_tab == &"profile"
+	var route_tab := normal_play and _details_expanded and _active_dossier_tab == &"route"
+	var claim_tab := normal_play and _details_expanded and _active_dossier_tab == &"claim"
+	var support_tab := normal_play and _details_expanded and _active_dossier_tab == &"support"
+	var profile_tab := normal_play and _details_expanded and _active_dossier_tab == &"profile"
+	var compact_recovery := compact_play and _assignment_undo_button.visible
+	_focus_panel.offset_top = (-210.0 if compact_recovery else -174.0) if compact_play else -222.0
+	_focus_panel.offset_right = -520.0 if compact_play else -18.0
+	_focus_panel.set_meta("compact_action_card", compact_play)
+	_focus_panel.set_meta("essential_field_count", 4)
+	_dossier_summary_label.custom_minimum_size.y = 42.0 if compact_play else 54.0
+	_dossier_summary_label.max_lines_visible = 2 if compact_play else 4
 
 	var show_claim := route_tab or claim_tab or (coach_active and stage in [
 		&"inspect",
@@ -4908,8 +4966,11 @@ func _apply_dossier_disclosure() -> void:
 	_queue_panel.visible = normal_play or (target_matches and stage == &"specialty_route")
 	_claim_header.visible = show_claim
 	_dossier_summary_label.visible = (
-		normal_play
-		and _active_dossier_tab in [&"claim", &"support", &"profile"]
+		compact_play
+		or (
+			normal_play
+			and _active_dossier_tab in [&"claim", &"support", &"profile"]
+		)
 	)
 	var worker := _worker_snapshot(_focused_worker_id)
 	var claim := worker.get("current_claim", {}) as Dictionary
@@ -4932,9 +4993,10 @@ func _apply_dossier_disclosure() -> void:
 	_claim_resolution_section.visible = claim_tab and not claim.is_empty()
 	_personnel_actions_section.visible = show_check_in
 
-	_assist_row.visible = route_tab or show_routing or show_priority or show_delivery
+	_assist_row.visible = route_tab or show_routing or show_priority or show_delivery or compact_recovery
 	_routing_hint_label.visible = (
 		_assist_row.visible
+		and not compact_play
 		and not (
 			normal_play
 			and bool(_routing_hint_label.get_meta("lifecycle_replaces_hint", false))
@@ -4948,16 +5010,16 @@ func _apply_dossier_disclosure() -> void:
 	_grievance_label.visible = profile_tab or (coach_active and _details_expanded)
 	_check_in_status_label.visible = show_check_in
 	_personnel_status.visible = profile_tab or show_check_in or (coach_active and _details_expanded)
-	_dossier_tabs.visible = normal_play
-	_details_button.visible = coach_active
+	_dossier_tabs.visible = normal_play and _details_expanded
+	_details_button.visible = normal_play or coach_active
 	for tab_id: StringName in _dossier_tab_buttons:
 		var tab_button := _dossier_tab_buttons[tab_id] as Button
 		tab_button.set_pressed_no_signal(tab_id == _active_dossier_tab)
-	_details_button.text = "HIDE DETAILS" if _details_expanded else "DETAILS"
+	_details_button.text = "LESS" if _details_expanded else "MORE"
 	_details_button.tooltip_text = (
-		"Hide career, trust, grievance, and care details."
+		"Return to name, specialty, current need, and recommended action."
 		if _details_expanded else
-		"Show career, trust, grievance, and care details for this hen."
+		"Show routing, claimant, care, career, trust, and grievance details for this hen."
 	)
 	if not profile_tab and not _details_expanded and not worker.is_empty():
 		var specialty := StringName(worker.get("specialty", &"nest_damage"))

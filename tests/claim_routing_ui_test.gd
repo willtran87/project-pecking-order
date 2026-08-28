@@ -50,6 +50,7 @@ func _run() -> void:
 	var grievance := office.find_child("RoutingGrievance", true, false) as Label
 	var check_in_status := office.find_child("RoutingCheckInStatus", true, false) as Label
 	var dossier_summary := office.find_child("RoutingDossierSummary", true, false) as Label
+	var details_toggle := office.find_child("RoutingDetailsToggle", true, false) as Button
 	var route_tab := office.find_child("DossierTab_route", true, false) as Button
 	var claim_tab := office.find_child("DossierTab_claim", true, false) as Button
 	var support_tab := office.find_child("DossierTab_support", true, false) as Button
@@ -949,6 +950,20 @@ func _run() -> void:
 		routing_ui.set_focus(0)
 	await process_frame
 	_check(dossier != null and dossier.is_visible_in_tree(), "selecting a hen should open her routing dossier", failures)
+	var compact_dossier := routing_ui.compact_dossier_state() if routing_ui != null else {}
+	_check(
+		bool(compact_dossier.get("visible", false))
+		and int(compact_dossier.get("field_count", 0)) == 4
+		and bool(compact_dossier.get("details_on_demand", false))
+		and dossier_summary != null
+		and _contains_all(dossier_summary.text, ["need", "next"])
+		and details_toggle != null
+		and details_toggle.text == "MORE",
+		"a newly selected hen should open as a concise name, specialty, need, and next-action card",
+		failures,
+	)
+	_check(_press(details_toggle), "More should reveal the complete selected-hen dossier", failures)
+	await process_frame
 	_check(
 		routing_ui != null
 		and routing_ui.active_dossier_tab() == &"route"
@@ -1428,6 +1443,8 @@ func _run() -> void:
 	_check(float(second_worker_after.get("manager_trust", 0.0)) == float(second_worker_before.get("manager_trust", 0.0)), "rejected second action should not mutate the other hen", failures)
 	if routing_ui != null:
 		routing_ui.set_focus(0)
+	await process_frame
+	_check(_press(details_toggle), "More should restore file progress controls after changing hens", failures)
 	await process_frame
 
 	if assign_predator != null:

@@ -278,8 +278,10 @@ func _run() -> void:
 	)
 	_check(
 		shift_egg_goal_label != null
-		and shift_egg_goal_label.text.is_empty()
-		and not shift_egg_goal_label.visible
+		and shift_egg_goal_label.visible
+		and (shift_egg_goal_label.text.ends_with("LEFT") or shift_egg_goal_label.text == "READY")
+		and "NEXT PAYOFF" in shift_egg_goal_label.tooltip_text
+		and shift_egg_goal_label.has_meta("payoff_countdown")
 		and shift_egg_goal_status != null
 		and String(shift_egg_goal_status.get_meta("semantic_icon", "")) == "egg"
 		and String(shift_egg_goal_status.get_meta("shape_language", "")) == "egg=shift quota"

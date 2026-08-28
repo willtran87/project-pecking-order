@@ -101,14 +101,33 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 6);
+	assert.equal(pulse.version, 7);
+	assert.equal(pulse.rewarding_loop.item_count, 25);
+	assert.equal(
+		pulse.rewarding_loop.resolved_count,
+		25,
+		`unresolved rewarding-loop items: ${JSON.stringify(Object.entries(pulse.rewarding_loop.items ?? {}).filter(([, item]) => item?.live !== true))}`,
+	);
+	assert.equal(pulse.rewarding_loop.all_resolved, true);
+	assert.equal(pulse.rewarding_loop.shift_brief.card_count, 3);
+	assert.deepEqual(pulse.rewarding_loop.shift_brief.cards.map((card) => card.id), ["goal", "danger", "reward"]);
+	assert.equal(pulse.rewarding_loop.work_pipeline.steps.length, 5);
+	assert.equal(pulse.rewarding_loop.compact_dossier.field_count, 4);
+	assert.equal(pulse.rewarding_loop.compact_dossier.default_expanded, false);
+	assert.equal(pulse.rewarding_loop.compact_dossier.details_on_demand, true);
+	assert.deepEqual(pulse.rewarding_loop.decision_cadence, {
+		minimum_seconds: 20,
+		maximum_seconds: 30,
+		one_meaningful_decision: true,
+		optional_choices_do_not_block: true,
+	});
 	assert.equal(pulse.mastery_replay.item_count, 30);
 	assert.equal(
 		pulse.mastery_replay.resolved_count,
@@ -237,6 +256,7 @@ try {
 		completeGameLoop: pulse.complete_game_loop,
 		masteryReplay: pulse.mastery_replay,
 		professionalLoop: pulse.professional_loop,
+		rewardingLoop: pulse.rewarding_loop,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};

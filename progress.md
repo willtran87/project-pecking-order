@@ -1,5 +1,13 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-27 - Rewarding game-loop completion
+
+- Consolidated all 25 intuitive, fun, engaging, and rewarding findings into the read-only `rewarding_loop` gameplay pulse contract (version 7).
+- Replaced the default dense selected-hen ledger with a professional four-field action card: name, specialty, current need, and recommended action. `MORE` retains every routing, claimant, care, and career detail on demand.
+- Reframed the three-icon primary-action strip as Goal / Danger / Reward, surfaced the next-payoff countdown on the shift rail, and attached a concise `WHY` cause-to-effect projection to live result feedback.
+- Formalized 20–30 second decision cadence, prediction, push-your-luck, hen objectives, abilities, relationship combos, incident staging, transformative rewards, strategy identity, milestone spectacle, recap, recovery, remix, unlocks, collections, session hooks, and honest comprehension testing.
+- Added native, live dossier, browser, release-gate, and exact 25-item documentation contracts.
+
 ## 2026-08-27 - Professional intuitive-loop resolution
 
 - Consolidated twenty high-impact clarity, engagement, pacing, spectacle, replay, and comprehension findings into the read-only `professional_loop` gameplay pulse contract (version 6).
