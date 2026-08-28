@@ -18,6 +18,7 @@ const PlayerPreferencesStoreScript := preload("res://core/settings/player_prefer
 const WebPreferencesMirrorScript := preload("res://core/settings/web_preferences_mirror.gd")
 const FirstSessionFunnelScript := preload("res://core/experience/first_session_funnel.gd")
 const GameplayPulseDirectorScript := preload("res://core/experience/gameplay_pulse_director.gd")
+const TacticalRoutePlannerScript := preload("res://core/experience/tactical_route_planner.gd")
 const SettingsUIScript := preload("res://features/office/settings_ui.gd")
 const PeckworkRoutingUIScript := preload("res://features/office/peckwork_routing_ui.gd")
 const RoostStaffingUIScript := preload("res://features/office/roost_staffing_ui.gd")
@@ -470,6 +471,7 @@ var _audio_feedback: Node
 var _audio_director: Node
 var _routing_ui: PeckworkRoutingUI
 var _routing_assignment_undo: Dictionary = {}
+var _tactical_route_planner = TacticalRoutePlannerScript.new()
 var _adaptive_route_miss_streak := 0
 var _adaptive_route_last_miss_at_msec := 0
 var _adaptive_route_recovery: Dictionary = {}
@@ -10935,6 +10937,13 @@ func _on_worker_assignment_requested(worker_id: int, lane: StringName) -> void:
 	var before_snapshot := _simulation.snapshot()
 	var worker_before := _worker_record(before_snapshot, worker_id)
 	var previous_lane := StringName(worker_before.get("assigned_lane", &""))
+	if (
+		_clock != null
+		and _clock.speed_index == 0
+		and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+	):
+		_queue_tactical_route_assignment(worker_before, lane)
+		return
 	var assignment_changed := not worker_before.is_empty() and previous_lane != lane
 	var prior_undo := _routing_assignment_undo.duplicate(true)
 	if (
@@ -10979,6 +10988,144 @@ func _on_worker_assignment_requested(worker_id: int, lane: StringName) -> void:
 	_first_clutch_record_routing(worker_id, lane)
 	_update_guidance(_simulation.snapshot())
 	_save_campaign_checkpoint("routing_assignment")
+
+
+func _queue_tactical_route_assignment(worker: Dictionary, lane: StringName) -> void:
+	if (
+		worker.is_empty()
+		or lane not in PeckworkRoutingUI.ASSIGNMENT_ORDER
+		or not bool(worker.get("employed", int(worker.get("desk_index", -1)) >= 0))
+	):
+		_publish_status_copy(
+			"PLAN HELD  ·  PICK ACTIVE HEN",
+			true,
+			"No route was filed. Choose a current employed hen and an available intake tray.",
+		)
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"routing")
+		return
+	var worker_id := int(worker.get("id", -1))
+	var worker_name := String(worker.get("name", "HEN %d" % (worker_id + 1)))
+	var current_lane := StringName(worker.get("assigned_lane", &"auto"))
+	var result := _tactical_route_planner.queue_route(
+		worker_id,
+		worker_name,
+		lane,
+		current_lane,
+	)
+	_apply_tactical_route_plan_preview()
+	if not bool(result.get("accepted", false)):
+		var reason := String(result.get("reason", "PLAN HELD"))
+		var detail := (
+			"This hen already uses that tray; any unfiled preview for her was removed."
+			if reason == "ALREADY FILED" else
+			"The pause plan holds three hens. Resume to file it, or undo a queued hen before adding another."
+		)
+		_publish_status_copy("%s  ·  NOTHING FILED" % reason, true, detail)
+		if _audio_feedback != null:
+			_audio_feedback.play_denied(&"routing")
+		_update_guidance(_simulation.snapshot())
+		return
+	var plan := result.get("plan", {}) as Dictionary
+	var lane_label := "AUTO" if lane == &"auto" else _dispatch_lane_label(lane)
+	_ticker_label.text = "PLAN %d/%d  ·  %s → %s  ·  RESUME TO FILE" % [
+		int(plan.get("count", 0)),
+		int(plan.get("capacity", TacticalRoutePlannerScript.CAPACITY)),
+		worker_name.to_upper(),
+		lane_label,
+	]
+	if _audio_feedback != null:
+		_audio_feedback.play_ui_tick()
+	_update_guidance(_simulation.snapshot())
+
+
+func _commit_tactical_route_plan() -> void:
+	if _tactical_route_planner == null or _tactical_route_planner.is_empty():
+		return
+	var commands := _tactical_route_planner.drain()
+	var filed_labels: Array[String] = []
+	var held_count := 0
+	for command in commands:
+		var worker_id := int(command.get("worker_id", -1))
+		var lane := StringName(command.get("lane", ""))
+		var before_snapshot := _simulation.snapshot()
+		var worker_before := _worker_record(before_snapshot, worker_id)
+		var previous_lane := StringName(worker_before.get("assigned_lane", &""))
+		if worker_before.is_empty() or lane not in PeckworkRoutingUI.ASSIGNMENT_ORDER:
+			held_count += 1
+			continue
+		if not _simulation.set_worker_assignment(worker_id, lane):
+			held_count += 1
+			continue
+		var worker_name := String(command.get("worker_name", "HEN %d" % (worker_id + 1)))
+		var lane_label := "AUTO" if lane == &"auto" else _dispatch_lane_label(lane)
+		filed_labels.append("%s → %s" % [worker_name.to_upper(), lane_label])
+		_routing_assignment_undo = {
+			"day": int(before_snapshot.get("day", 0)),
+			"worker_id": worker_id,
+			"worker_name": worker_name,
+			"previous_lane": previous_lane,
+			"current_lane": lane,
+		}
+		_record_adaptive_route_outcome(worker_before, lane, previous_lane != lane)
+		_first_clutch_record_routing(worker_id, lane)
+	_apply_tactical_route_plan_preview()
+	if not filed_labels.is_empty():
+		var title := "PLAN FILED  ·  %d ROUTE%s" % [
+			filed_labels.size(),
+			"" if filed_labels.size() == 1 else "S",
+		]
+		var detail := "%s. Current files finish before each new tray applies." % "; ".join(filed_labels)
+		if held_count > 0:
+			detail += " %d stale route%s held safely." % [held_count, " was" if held_count == 1 else "s were"]
+		_publish_status_copy(title, true, detail)
+		_save_campaign_checkpoint("tactical_route_plan")
+	elif held_count > 0:
+		_publish_status_copy(
+			"PLAN HELD  ·  NOTHING FILED",
+			true,
+			"The queued hens or trays were no longer active. Review the current flock before planning again.",
+		)
+
+
+func _cancel_tactical_route_plan_for_worker(worker_id: int) -> bool:
+	if _tactical_route_planner == null:
+		return false
+	var result := _tactical_route_planner.cancel_route(worker_id)
+	if not bool(result.get("accepted", false)):
+		return false
+	var removed := result.get("entry", {}) as Dictionary
+	_apply_tactical_route_plan_preview()
+	_publish_status_copy(
+		"PLANNED ROUTE REMOVED  ·  NOTHING FILED",
+		true,
+		"%s's pause preview was removed. Existing work and the filed route are unchanged."
+		% String(removed.get("worker_name", "That hen")),
+	)
+	if _audio_feedback != null:
+		_audio_feedback.play_ui_tick()
+	_update_guidance(_simulation.snapshot())
+	return true
+
+
+func _tactical_route_plan_snapshot() -> Dictionary:
+	if _tactical_route_planner == null:
+		return {
+			"count": 0,
+			"capacity": TacticalRoutePlannerScript.CAPACITY,
+			"queued": [],
+			"files_nothing": true,
+			"commits_on_resume": true,
+		}
+	return _tactical_route_planner.snapshot()
+
+
+func _apply_tactical_route_plan_preview() -> void:
+	var plan := _tactical_route_plan_snapshot()
+	if _routing_ui != null:
+		_routing_ui.set_meta("tactical_route_plan", plan.duplicate(true))
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("tactical_route_plan", plan.duplicate(true))
 
 
 func _record_adaptive_route_outcome(
@@ -11119,6 +11266,8 @@ func _focus_adaptive_route_recovery() -> void:
 
 
 func _on_worker_assignment_undo_requested(worker_id: int) -> void:
+	if _cancel_tactical_route_plan_for_worker(worker_id):
+		return
 	var snapshot := _simulation.snapshot()
 	var undo := _validated_routing_assignment_undo(snapshot)
 	if undo.is_empty() or int(undo.get("worker_id", -1)) != worker_id:
@@ -12538,6 +12687,7 @@ func _on_campaign_new_requested() -> void:
 	# transaction. Keeping the current primary in place until that commit succeeds
 	# also lets the store refresh its recovery copy with the previous campaign.
 	_routing_assignment_undo.clear()
+	_tactical_route_planner.clear()
 	_clear_adaptive_route_recovery()
 	var had_prior_save := _campaign_store.has_save()
 	var selected_challenge_id := CampaignStateScript.CHALLENGE_STANDARD_FILING
@@ -15652,6 +15802,7 @@ func _publish_checkpoint_diagnostic() -> void:
 
 func _load_campaign_checkpoint() -> void:
 	_routing_assignment_undo.clear()
+	_tactical_route_planner.clear()
 	_clear_adaptive_route_recovery()
 	var candidates: Array[Dictionary] = _campaign_store.load_recovery_candidates()
 	if candidates.is_empty():
@@ -19721,6 +19872,8 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		"order_pulse": {"on_track": on_track, "total": order_total},
 		"focused_worker_id": focused_worker_id,
 		"active_playbook": active_playbook,
+		"tactical_route_plan": _tactical_route_plan_snapshot(),
+		"challenge_contract_catalog": CampaignStateScript.challenge_contract_catalog(),
 	})
 	_gameplay_pulse["active_playbook"] = active_playbook.duplicate(true)
 	_refresh_active_playbook_menu(active_playbook, focused_worker_id)
@@ -19742,6 +19895,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	)
 	_apply_strategic_flow_presentation(
 		_gameplay_pulse.get("strategic_flow_loop", {}) as Dictionary,
+	)
+	_apply_tactile_reward_loop_presentation(
+		_gameplay_pulse.get("tactile_reward_loop", {}) as Dictionary,
 	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
@@ -20262,6 +20418,44 @@ func _apply_strategic_flow_presentation(layer: Dictionary) -> void:
 			"resource_source_use_animation",
 			(layer.get("resource_flow", {}) as Dictionary).duplicate(true),
 		)
+
+
+func _apply_tactile_reward_loop_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var tactical_plan := layer.get("tactical_pause_plan", {}) as Dictionary
+	var puzzle := layer.get("shift_puzzle", {}) as Dictionary
+	var pressure := layer.get("queue_pressure", {}) as Dictionary
+	var wager := layer.get("prediction_wager", {}) as Dictionary
+	var payoff := layer.get("payoff_anticipation", {}) as Dictionary
+	if _routing_ui != null:
+		_routing_ui.set_meta("tactical_route_plan", tactical_plan.duplicate(true))
+		_routing_ui.set_meta("cause_effect_trail", (layer.get("cause_effect_trail", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("queue_pressure", pressure.duplicate(true))
+		_routing_ui.set_meta("chicken_chain_reaction", (layer.get("chicken_chain_reaction", {}) as Dictionary).duplicate(true))
+	if _directive_badge != null:
+		_directive_badge.set_meta("shift_puzzle", puzzle.duplicate(true))
+		_directive_badge.set_meta("intensity_contracts", (layer.get("intensity_contracts", {}) as Dictionary).duplicate(true))
+		if not _directive_badge.tooltip_text.contains("\nPUZZLE  ·"):
+			_directive_badge.tooltip_text += "\nPUZZLE  ·  %s\nINTENSITY  ·  PLAYER CONTRACT" % String(
+				puzzle.get("label", "BALANCED FLOOR"),
+			)
+		_directive_badge.accessibility_name = _directive_badge.tooltip_text
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("prediction_wager", wager.duplicate(true))
+		_active_playbook_button.set_meta("decisive_shift_choice", (layer.get("decisive_shift_choice", {}) as Dictionary).duplicate(true))
+		if not _active_playbook_button.tooltip_text.contains("\nWAGER  ·"):
+			_active_playbook_button.tooltip_text += "\nWAGER  ·  OPTIONAL / PROGRESS SAFE\nCHOICE  ·  ONE MEMORABLE SHIFT BEAT"
+		_active_playbook_button.accessibility_name = _active_playbook_button.tooltip_text
+	if _shift_egg_goal_label != null:
+		_shift_egg_goal_label.set_meta("payoff_anticipation", payoff.duplicate(true))
+		if not _shift_egg_goal_label.tooltip_text.contains("\nPAYOFF  ·"):
+			_shift_egg_goal_label.tooltip_text += "\nPAYOFF  ·  BUILDUP SCALES WITH IMPORTANCE"
+		_shift_egg_goal_label.accessibility_name = _shift_egg_goal_label.tooltip_text
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("tactile_reward_loop", layer.duplicate(true))
+		_top_hud_panel.set_meta("resource_identities", (layer.get("resource_identities", {}) as Dictionary).duplicate(true))
+		_top_hud_panel.set_meta("office_hotspots", (layer.get("office_hotspots", {}) as Dictionary).duplicate(true))
 
 
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
@@ -22676,6 +22870,16 @@ func _set_guidance(
 	)
 	_guidance_label.tooltip_text = detail
 	_guidance_label.set_meta("accessible_text", detail)
+	# Navigation and pause-planning cues are one compact destination, not a
+	# consequence receipt. Retire the three-icon outcome strip so its chevron
+	# stays visually attached to the action label.
+	if _consequence_icon_host != null:
+		if action_id in [&"today", &"resume_shift"]:
+			_consequence_icon_host.visible = false
+		else:
+			_consequence_icon_host.visible = int(
+				_consequence_icon_host.get_meta("icon_count", 0),
+			) == 3
 	if _guidance_icon != null:
 		_guidance_icon.configure(icon_kind, Color("d9c47d"))
 		_guidance_icon.tooltip_text = detail
@@ -23027,6 +23231,23 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			&"goal",
 			orders_detail,
 			&"today",
+		)
+		return
+	var tactical_plan := _tactical_route_plan_snapshot()
+	if (
+		shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+		and _clock != null
+		and _clock.speed_index == 0
+		and int(tactical_plan.get("count", 0)) > 0
+	):
+		_set_guidance(
+			"PLAN %d/%d  >  RESUME TO FILE" % [
+				int(tactical_plan.get("count", 0)),
+				int(tactical_plan.get("capacity", TacticalRoutePlannerScript.CAPACITY)),
+			],
+			&"route",
+			"Queued routes are previews only. Resume at 1×, 2×, or 3× to file the batch; use a queued hen's Undo action to remove her preview.",
+			&"resume_shift",
 		)
 		return
 	if shift_phase == DepartmentSimulation.ShiftPhase.RUNNING:
@@ -23656,6 +23877,14 @@ func _on_clock_tick_batch_completed(_tick_count: int) -> void:
 func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	_presentation_update_count += 1
 	_last_presented_tick_revision = int(snapshot.get("authoritative_tick_revision", 0))
+	if (
+		_tactical_route_planner != null
+		and int(snapshot.get("shift_phase", DepartmentSimulation.ShiftPhase.RUNNING))
+		!= DepartmentSimulation.ShiftPhase.RUNNING
+		and not _tactical_route_planner.is_empty()
+	):
+		_tactical_route_planner.clear()
+		_apply_tactical_route_plan_preview()
 	var presented_day := int(snapshot.get("day", 1))
 	if _dispatch_last_day < 0:
 		_dispatch_last_day = presented_day
@@ -27137,6 +27366,8 @@ func _on_speed_button_pressed(index: int) -> void:
 	if _next_moment_active:
 		_next_moment_active = false
 		_next_moment_previous_speed = 1
+	if index > 0:
+		_commit_tactical_route_plan()
 	_clock.set_speed(index)
 	if _audio_feedback != null:
 		_audio_feedback.play_ui_tick()
@@ -27176,8 +27407,14 @@ func _on_speed_changed(speed_index: int, multiplier: float) -> void:
 	var review_open := _day_review_scrim != null and _day_review_scrim.visible
 	var decision_open := _decision_host != null and _decision_host.visible
 	if _ticker_label != null and not _feed_party_active and not review_open and not decision_open and not campaign_open:
+		var tactical_plan := _tactical_route_plan_snapshot()
 		var clock_copy := (
-			"SHIFT PAUSED. Inspect the flock, review requisitions, or resume when ready."
+			"PLAN %d/%d  ·  CHOOSE HEN ROUTES  ·  RESUME TO FILE" % [
+				int(tactical_plan.get("count", 0)),
+				int(tactical_plan.get("capacity", TacticalRoutePlannerScript.CAPACITY)),
+			]
+			if speed_index == 0 and int(tactical_plan.get("count", 0)) > 0 else
+			"SHIFT PAUSED. Inspect the flock, plan up to three routes, or resume when ready."
 			if speed_index == 0 else
 			"SHIFT RUNNING AT %dx. Click a hen to inspect; the clutch target stays above." % int(multiplier)
 		)

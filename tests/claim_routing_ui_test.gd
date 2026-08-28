@@ -1450,6 +1450,19 @@ func _run() -> void:
 	if assign_predator != null:
 		assign_predator.pressed.emit()
 	await process_frame
+	var tactical_plan := office.call("_tactical_route_plan_snapshot") as Dictionary
+	_check(
+		int(tactical_plan.get("count", 0)) == 1
+		and bool(tactical_plan.get("files_nothing", false)),
+		"a paused dossier route should remain an unfiled tactical preview until Resume",
+		failures,
+	)
+	if int(tactical_plan.get("count", 0)) > 0:
+		office.call("_on_speed_button_pressed", 1)
+		var simulation_clock = office.get("_clock")
+		if simulation_clock != null:
+			simulation_clock.set_speed(0)
+		await process_frame
 	var worker_zero := _worker_snapshot(simulation.snapshot(), 0)
 	_check(StringName(worker_zero.get("assigned_lane", &"")) == &"predator_loss", "routing button should change authoritative worker assignment", failures)
 	_check(assign_predator != null and assign_predator.theme_type_variation == &"SelectedChoiceButton", "selected tray should be visually persistent", failures)

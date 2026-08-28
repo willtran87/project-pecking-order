@@ -537,10 +537,14 @@ func _run() -> void:
 		and guidance_chevron.get_global_rect().position.x - guidance.get_global_rect().end.x <= 12.0
 		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"today"
 		and "open today's goals" in String(guidance.get_meta("accessible_text", "")).to_lower(),
-		"pausing should group the icon, destination, and chevron without narrating or visually disconnecting its affordance [copy=%s icon=%s meta=%s]" % [
+		"pausing should group the icon, destination, and chevron without narrating or visually disconnecting its affordance [copy=%s icon=%s meta=%s action=%s width=%.1f gap=%.1f accessible=%s]" % [
 			guidance.text if guidance != null else "missing",
 			String(guidance_icon.icon_kind()) if guidance_icon != null else "missing",
 			String(guidance_icon.get_meta("semantic_icon", "")) if guidance_icon != null else "missing",
+			String(guidance_action.get_meta("guidance_action_id", &"")) if guidance_action != null else "missing",
+			guidance.get_global_rect().size.x if guidance != null else -1.0,
+			guidance_chevron.get_global_rect().position.x - guidance.get_global_rect().end.x if guidance_chevron != null and guidance != null else -1.0,
+			String(guidance.get_meta("accessible_text", "")) if guidance != null else "missing",
 		],
 		failures,
 	)
@@ -849,21 +853,19 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var routed_worker := office.call("_worker_record", simulation.snapshot(), 0) as Dictionary
-	var routed_lifecycle := routing_ui.routing_lifecycle_state() if routing_ui != null else {}
+	var tactical_plan := office.call("_tactical_route_plan_snapshot") as Dictionary
 	var resume_button := office.find_child("SpeedButton_0", true, false) as Button
 	_check(
-		StringName(routed_worker.get("assigned_lane", &"")) == &"appeals"
-		and String(routed_lifecycle.get("header_copy", "")) == "1  APPEALS  ·  WAITING"
-		and StringName(routed_lifecycle.get("header_role", &"")) == &"route_status"
-		and "waiting for the next APPEALS file" in String(
-			routed_lifecycle.get("header_accessible_text", "")
-		),
-		"filing the Appeals route should replace the clipped waiting header with one complete route status",
+		StringName(routed_worker.get("assigned_lane", &"")) != &"appeals"
+		and int(tactical_plan.get("count", 0)) == 1
+		and bool(tactical_plan.get("files_nothing", false))
+		and String((((tactical_plan.get("queued", []) as Array)[0]) as Dictionary).get("lane", "")) == "appeals",
+		"a paused Appeals choice should create one honest preview without filing the route",
 		failures,
 	)
 	_check(
 		guidance != null
-		and guidance.text == "APPEALS SET  >  RESUME 1×"
+		and guidance.text == "PLAN 1/3  >  RESUME TO FILE"
 		and guidance_action != null
 		and not guidance_action.disabled
 		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"resume_shift"
@@ -871,9 +873,9 @@ func _run() -> void:
 		and "focus Resume; activate Resume to start 1×" in String(
 			guidance_action.get_meta("accessible_text", "")
 		)
-		and "Current files finish before the new tray applies" in guidance.tooltip_text
-		and "Undo restores the prior route" in guidance.tooltip_text,
-		"a filed route should acknowledge the completed decision and advance global guidance to Resume",
+		and "Queued routes are previews only" in guidance.tooltip_text
+		and "Undo" in guidance.tooltip_text,
+		"a planned route should explain its preview status and expose Resume as the explicit commit",
 		failures,
 	)
 	if guidance_action != null:
@@ -881,9 +883,24 @@ func _run() -> void:
 	await process_frame
 	_check(
 		resume_button != null and root.gui_get_focus_owner() == resume_button,
-		"activating completed-route guidance should focus the visible Resume control without starting time implicitly",
+		"activating planned-route guidance should focus the visible Resume control without filing implicitly",
 		failures,
 	)
+	if resume_button != null:
+		resume_button.pressed.emit()
+	await process_frame
+	await process_frame
+	routed_worker = office.call("_worker_record", simulation.snapshot(), 0) as Dictionary
+	tactical_plan = office.call("_tactical_route_plan_snapshot") as Dictionary
+	_check(
+		StringName(routed_worker.get("assigned_lane", &"")) == &"appeals"
+		and int(tactical_plan.get("count", -1)) == 0
+		and clock.speed_index == 1,
+		"activating Resume should atomically file the planned route batch before time advances",
+		failures,
+	)
+	pause_toggle.pressed.emit()
+	await process_frame
 	if flockwatch_toggle != null:
 		flockwatch_toggle.pressed.emit()
 	await process_frame

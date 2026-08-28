@@ -14019,3 +14019,15 @@ The next major systems milestone is persistent worker relationships and individu
 - The prescribed browser client and the production gameplay-pulse audit pass with all twenty new mappings live, no console/page errors, and inspected 1280×720 and 1440×900 captures.
 - The synchronized nine-file Web candidate is 10,603,908 bytes with SHA-256 `896463434C4E698C2CEC403A9663E5EB3FD0A7D87D4CFBDDFD084C9E76065474` across `docs`, `web/public/game`, and the production bundle.
 - Every Codex-owned Playwright, Chromium, wrapper, and internal Vinext process was closed. Ports 3001 and 51321 are free; the user-owned port-3000 instance remains untouched.
+
+# 2026-08-28 — Tactile reward loop and tactical pause planning
+
+- Reconciled the latest twenty approved improvements against the shipped simulation, campaign, Active Playbook, chicken, office, audio, and review authorities. Existing systems remain the source of truth; the pass adds no parallel economy, chicken state, or dense default panel.
+- Added an ephemeral three-command tactical route planner. While paused, a hen route changes nothing authoritative; the player can revise or remove it, and Resume files the ordered batch through `DepartmentSimulation` before time advances. Stale commands hold safely, only a filed batch checkpoints, and every unfiled plan clears outside the running shift.
+- Added the presentation-only `tactile_reward_loop` contract covering tutorial practice, physical cause/effect, queue pressure, six resource identities, short scenario puzzles, chicken chain reactions, payoff anticipation, safe prediction wagers, decisive shift choices, comeback sequences, transformative upgrades, office hotspots, personal goals, relationships, ten-second highlights, strategy-shaped furnishing, permanent scenarios, three intensity contracts, and honest comprehension sessions.
+- Tightened pause guidance so navigation and Resume cues keep their chevron attached to the label instead of retaining an irrelevant three-icon consequence strip.
+- Added `docs/TACTILE_REWARD_LOOP_RESOLUTION.md`, focused planner/projection contracts, commit-on-resume integration coverage in the complete management and claim-routing suites, and exact browser assertions for the new layer.
+- Focused Godot 4.7 contracts pass for the planner, tactile projection, strategic flow, gameplay director, complete management HUD, and claim-routing surface.
+- Original-size browser inspection is clean at 2560x1600, 1440x900, and 844x390, including the live office, compact touch layout, Active Playbook, and four-option Route dossier. The production audit proves all twenty tactile-reward mappings with zero console or page errors.
+- The complete beta release gate passes 68/68 checks in 515.993 seconds. Both release targets contain the byte-identical 10,692,688-byte PCK with SHA-256 `90B4445E1B445B6069B559FAFB94739490B2D5901360A34F5DCED4ADE8B9F456`.
+- Every Codex-owned Godot test process and local production server was closed after verification; port 3001 is confirmed free.

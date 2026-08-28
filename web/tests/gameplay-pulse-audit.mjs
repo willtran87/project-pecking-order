@@ -63,6 +63,7 @@ try {
 	await page.screenshot({ path: path.join(outputDirectory, "quick-start.png"), fullPage: true });
 	await page.keyboard.press("KeyN");
 	await waitForState((snapshot) => snapshot.campaign_stage === "active", "new file activation");
+	for (let index = 0; index < 4; index += 1) await page.keyboard.press("Tab");
 	await page.keyboard.press("Enter");
 	await page.waitForTimeout(500);
 	await page.keyboard.press("Digit1");
@@ -101,14 +102,14 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow_loop", "tactile_reward_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 9);
+	assert.equal(pulse.version, 10);
 	assert.equal(pulse.rewarding_loop.item_count, 25);
 	assert.equal(
 		pulse.rewarding_loop.resolved_count,
@@ -148,6 +149,16 @@ try {
 	assert.equal(pulse.strategic_flow_loop.item_count, 30);
 	assert.equal(pulse.strategic_flow_loop.resolved_count, 30);
 	assert.equal(pulse.strategic_flow_loop.all_resolved, true);
+	assert.equal(pulse.tactile_reward_loop.item_count, 20);
+	assert.equal(pulse.tactile_reward_loop.resolved_count, 20);
+	assert.equal(pulse.tactile_reward_loop.all_resolved, true);
+	assert.equal(pulse.tactile_reward_loop.tactical_pause_plan.capacity, 3);
+	assert.equal(pulse.tactile_reward_loop.tactical_pause_plan.files_nothing, true);
+	assert.equal(pulse.tactile_reward_loop.resource_identities.count, 6);
+	assert.equal(pulse.tactile_reward_loop.intensity_contracts.count, 3);
+	assert.equal(pulse.tactile_reward_loop.scenario_board.permanent, true);
+	assert.equal(pulse.tactile_reward_loop.comprehension.real_participants_required, true);
+	assert.equal(pulse.tactile_reward_loop.comprehension.results_never_fabricated, true);
 	assert.equal(pulse.strategic_flow_loop.authoritative, false);
 	assert.equal(pulse.strategic_flow_loop.route_preview.files_nothing, true);
 	assert.equal(pulse.strategic_flow_loop.bottleneck.color_only, false);
@@ -288,10 +299,19 @@ try {
 		rewardingLoop: pulse.rewarding_loop,
 		compellingLoop: pulse.compelling_loop,
 		strategicFlowLoop: pulse.strategic_flow_loop,
+		tactileRewardLoop: pulse.tactile_reward_loop,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
 	await page.screenshot({ path: path.join(outputDirectory, "clarity-pulse.png"), fullPage: true });
+	await clickAuthored(260, 645);
+	const routeOptions = await waitForState(
+		(snapshot) => snapshot.routing_choices?.visible === true
+			&& snapshot.routing_choices?.choices?.length === 4,
+		"pause route planning choices",
+	);
+	assert.equal(routeOptions.gameplay_pulse?.tactile_reward_loop?.tactical_pause_plan?.count, 0);
+	await page.screenshot({ path: path.join(outputDirectory, "tactical-route-options.png"), fullPage: true });
 	await page.keyboard.down("KeyH");
 	const explained = await waitForState(
 		(snapshot) => snapshot.explain_mode?.active === true
@@ -316,4 +336,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended micro-shift=60s strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended micro-shift=60s tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

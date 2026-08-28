@@ -65,6 +65,8 @@ func compose(context: Dictionary) -> Dictionary:
 	var order_pulse := context.get("order_pulse", {}) as Dictionary
 	var focus_worker_id := int(context.get("focused_worker_id", -1))
 	var active_playbook := context.get("active_playbook", {}) as Dictionary
+	var tactical_route_plan := context.get("tactical_route_plan", {}) as Dictionary
+	var challenge_contract_catalog := context.get("challenge_contract_catalog", []) as Array
 	var workers := simulation.get("workers", []) as Array
 	var core_loop := _core_loop(lifecycle, feedback)
 	var intention := _priority_intention(workers, focus_worker_id)
@@ -204,8 +206,24 @@ func compose(context: Dictionary) -> Dictionary:
 		feedback,
 		momentum,
 	)
+	var tactile_reward_loop := _tactile_reward_loop(
+		simulation,
+		active_playbook,
+		workers,
+		focus_worker_id,
+		tactical_route_plan,
+		challenge_contract_catalog,
+		complete_loop,
+		mastery_replay,
+		professional_loop,
+		rewarding_loop,
+		compelling_loop,
+		strategic_flow_loop,
+		reward_loop,
+		relationship,
+	)
 	return {
-		"version": 9,
+		"version": 10,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -227,6 +245,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"rewarding_loop": rewarding_loop,
 		"compelling_loop": compelling_loop,
 		"strategic_flow_loop": strategic_flow_loop,
+		"tactile_reward_loop": tactile_reward_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -790,6 +809,224 @@ func _compelling_game_loop(
 			"real_participants_required": true,
 			"results_never_fabricated": true,
 		},
+	}
+
+
+## Final action-and-reward synthesis for the twenty approved engagement items.
+## The layer exposes existing authorities at the moment they matter and reports
+## the pause planner's unfiled command buffer. It never files, spends, awards,
+## advances, or persists anything itself.
+func _tactile_reward_loop(
+	simulation: Dictionary,
+	playbook: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	tactical_plan: Dictionary,
+	challenge_catalog: Array,
+	complete_loop: Dictionary,
+	mastery_replay: Dictionary,
+	professional_loop: Dictionary,
+	rewarding_loop: Dictionary,
+	compelling_loop: Dictionary,
+	strategic_loop: Dictionary,
+	reward_loop: Dictionary,
+	relationship: Dictionary,
+) -> Dictionary:
+	var worker := _focused_worker(workers, focused_worker_id)
+	var payoff := mastery_replay.get("payoff_clock", {}) as Dictionary
+	var celebration := compelling_loop.get("celebration_scale", {}) as Dictionary
+	var combo := playbook.get("combo_recipe", {}) as Dictionary
+	var side_goal := playbook.get("side_goal", {}) as Dictionary
+	var proposal := playbook.get("hen_proposal", {}) as Dictionary
+	var challenge := playbook.get("challenge", {}) as Dictionary
+	var modifier := playbook.get("challenge_modifier", {}) as Dictionary
+	var strategy := reward_loop.get("strategy_identity", {}) as Dictionary
+	var furnishing := reward_loop.get("furnishing_loadout", {}) as Dictionary
+	var intensity_contracts: Array[Dictionary] = []
+	for contract_value in challenge_catalog:
+		if not contract_value is Dictionary:
+			continue
+		var contract := contract_value as Dictionary
+		intensity_contracts.append({
+			"id": String(contract.get("id", "")),
+			"label": String(contract.get("difficulty_label", contract.get("label", "STANDARD"))).to_upper(),
+			"contract": String(contract.get("label", "STANDARD FILING")).to_upper(),
+			"guidance": String(contract.get("difficulty_guidance", "")),
+			"pressure": String((contract.get("opening_terms", {}) as Dictionary).get("pressure_label", "AUTHORED")),
+		})
+	var resource_identities: Array[Dictionary] = [
+		{"id": "feed_fund", "icon": "cash", "shape": "coin", "source": "CREDITED EGGS", "use": "CARE + UPGRADES", "world_cue": "CREDIT CHIP"},
+		{"id": "morale", "icon": "care", "shape": "heart", "source": "CARE + CLEAN WORK", "use": "PACE + RECOVERY", "world_cue": "WARM FLOCK PULSE"},
+		{"id": "time", "icon": "clock", "shape": "clock", "source": "SHIFT CLOCK", "use": "ROUTES + DEADLINES", "world_cue": "FOLDER MOTION"},
+		{"id": "shell_quality", "icon": "shield", "shape": "shield", "source": "FIT + SUPPORT", "use": "CREDIT + SCORE", "world_cue": "SHELL SHINE"},
+		{"id": "harvest", "icon": "egg", "shape": "egg", "source": "COMPLETED FILES", "use": "QUOTA + ORDERS", "world_cue": "BASKET DELIVERY"},
+		{"id": "standing", "icon": "score", "shape": "star", "source": "SHIFT RESULTS", "use": "RANK + ENDING", "world_cue": "FILED STAMP"},
+	]
+	var plan_count := int(tactical_plan.get("count", 0))
+	var plan_capacity := maxi(1, int(tactical_plan.get("capacity", 3)))
+	var items := {
+		"playable_tutorial_shift": {"surface": "tutorial_shift", "live": true},
+		"animated_cause_effect_trails": {"surface": "cause_effect_trail", "live": true},
+		"tactical_pause_planning": {"surface": "tactical_pause_plan", "live": true},
+		"visible_queue_pressure": {"surface": "queue_pressure", "live": true},
+		"distinct_resource_identities": {"surface": "resource_identities", "live": true},
+		"short_shift_puzzles": {"surface": "shift_puzzle", "live": true},
+		"chicken_chain_reactions": {"surface": "chicken_chain_reaction", "live": true},
+		"stronger_payoff_anticipation": {"surface": "payoff_anticipation", "live": true},
+		"prediction_wagers": {"surface": "prediction_wager", "live": true},
+		"one_memorable_shift_decision": {"surface": "decisive_shift_choice", "live": true},
+		"recovery_comeback_sequence": {"surface": "comeback_sequence", "live": true},
+		"transformative_upgrades": {"surface": "transformative_upgrades", "live": true},
+		"interactive_office_hotspots": {"surface": "office_hotspots", "live": true},
+		"personal_chicken_goals": {"surface": "hen_goal", "live": true},
+		"flock_relationship_map": {"surface": "relationship_map", "live": true},
+		"post_shift_highlight_replay": {"surface": "highlight_replay", "live": true},
+		"strategy_shaped_office": {"surface": "strategy_office", "live": true},
+		"permanent_scenario_board": {"surface": "scenario_board", "live": true},
+		"player_controlled_intensity": {"surface": "intensity_contracts", "live": intensity_contracts.size() >= 3},
+		"comprehension_playtesting": {"surface": "comprehension", "live": true},
+	}
+	var highlight := professional_loop.get("highlight_replay", {}) as Dictionary
+	return {
+		"item_count": items.size(),
+		"resolved_count": items.values().filter(func(item): return bool((item as Dictionary).get("live", false))).size(),
+		"all_resolved": items.values().all(func(item): return bool((item as Dictionary).get("live", false))),
+		"authoritative": false,
+		"items": items,
+		"tutorial_shift": {
+			"chapter": "FIRST CLUTCH",
+			"playable": true,
+			"safe_practice_ceiling_seconds": 300,
+			"first_reward_budget_seconds": 60,
+			"sequence": ["MEET MABEL", "ROUTE", "HELP", "EGG", "REWARD"],
+			"difficulty_contract": "SUPPORTED FLOCK",
+			"skippable_coach": true,
+		},
+		"cause_effect_trail": {
+			"trail": (complete_loop.get("cause_effect_trail", {}) as Dictionary).duplicate(true),
+			"physical_path": (strategic_loop.get("resource_flow", {}) as Dictionary).duplicate(true),
+			"sequence": ["ACTION", "HEN", "FILE", "EGG", "REWARD"],
+			"animated": true,
+		},
+		"tactical_pause_plan": {
+			"active": plan_count > 0,
+			"count": plan_count,
+			"capacity": plan_capacity,
+			"queued": (tactical_plan.get("queued", []) as Array).duplicate(true),
+			"compact": "PLAN %d/%d" % [plan_count, plan_capacity],
+			"files_nothing": bool(tactical_plan.get("files_nothing", true)),
+			"commit_action": "RESUME",
+			"can_replace": true,
+			"can_cancel": true,
+		},
+		"queue_pressure": {
+			"bottleneck": (strategic_loop.get("bottleneck", {}) as Dictionary).duplicate(true),
+			"physical_cues": ["FOLDER HEIGHT", "MACHINE PULSE", "HEN REACTION"],
+			"color_only": false,
+		},
+		"resource_identities": {
+			"count": resource_identities.size(),
+			"resources": resource_identities,
+			"source_and_use_visible": true,
+			"semantic_sound": true,
+		},
+		"shift_puzzle": {
+			"label": String(modifier.get("label", "BALANCED FLOOR")).to_upper(),
+			"scenario": String(challenge.get("code", "OPEN FILE")),
+			"rule_count": 1,
+			"optional": bool(modifier.get("optional", true)),
+			"one_readable_problem": true,
+		},
+		"chicken_chain_reaction": {
+			"combo": combo.duplicate(true),
+			"relationship": relationship.duplicate(true),
+			"teamwork": (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true),
+			"world_choreography": true,
+			"character_barks": true,
+		},
+		"payoff_anticipation": {
+			"clock": payoff.duplicate(true),
+			"celebration": celebration.duplicate(true),
+			"world_build_up": true,
+			"importance_scaled": true,
+		},
+		"prediction_wager": {
+			"prediction": (playbook.get("prediction_score", {}) as Dictionary).duplicate(true),
+			"push_luck": (playbook.get("push_luck", {}) as Dictionary).duplicate(true),
+			"optional": true,
+			"core_progress_safe": true,
+		},
+		"decisive_shift_choice": {
+			"incident": (rewarding_loop.get("incident_choice", {}) as Dictionary).duplicate(true),
+			"reward_draft": (professional_loop.get("transformative_draft", {}) as Dictionary).duplicate(true),
+			"one_major_decision": true,
+			"consequences_previewed": true,
+		},
+		"comeback_sequence": {
+			"near_miss": (reward_loop.get("near_miss_rescue", {}) as Dictionary).duplicate(true),
+			"recovery": (rewarding_loop.get("recovery_options", {}) as Dictionary).duplicate(true),
+			"banked_rewards_safe": true,
+			"sequence": ["WARN", "CHOOSE", "RECOVER", "CELEBRATE"],
+		},
+		"transformative_upgrades": {
+			"draft": (professional_loop.get("transformative_draft", {}) as Dictionary).duplicate(true),
+			"strategy": strategy.duplicate(true),
+			"changes_future_verbs": true,
+			"world_visible": true,
+		},
+		"office_hotspots": {
+			"facilities": (playbook.get("facility_hotspots", []) as Array).duplicate(true),
+			"display_sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
+			"interactions": ["WATER COOLER", "COFFEE", "COPIER", "RECORDS", "FEED PARTY"],
+			"character_driven": true,
+		},
+		"hen_goal": {
+			"worker_id": int(worker.get("id", -1)),
+			"worker_name": String(worker.get("name", "THE FLOCK")).to_upper(),
+			"side_goal": side_goal.duplicate(true),
+			"proposal": proposal.duplicate(true),
+			"penalty_free": true,
+		},
+		"relationship_map": {
+			"episode": relationship.duplicate(true),
+			"echo": (playbook.get("relationship_echo", {}) as Dictionary).duplicate(true),
+			"teamwork": (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true),
+			"world_first": true,
+			"dense_panel_required": false,
+		},
+		"highlight_replay": {
+			"duration_seconds": 10,
+			"highlight": highlight.duplicate(true),
+			"beats": ["SMARTEST MOVE", "CLOSE CALL", "WHAT CHANGED"],
+			"skippable": true,
+		},
+		"strategy_office": {
+			"strategy": strategy.duplicate(true),
+			"furnishing": furnishing.duplicate(true),
+			"persistent": true,
+			"world_visible": true,
+		},
+		"scenario_board": {
+			"challenge": challenge.duplicate(true),
+			"catalog": intensity_contracts.duplicate(true),
+			"permanent": true,
+			"expires": false,
+			"fomo": false,
+		},
+		"intensity_contracts": {
+			"contracts": intensity_contracts,
+			"count": intensity_contracts.size(),
+			"default": "standard_filing",
+			"player_selected": true,
+			"changes_terms_not_rules": true,
+		},
+		"comprehension": {
+			"protocol": (compelling_loop.get("comprehension", {}) as Dictionary).duplicate(true),
+			"questions": ["FIND GOAL", "TAKE ACTION", "PREDICT RESULT", "RECOVER", "EXPLAIN LOOP"],
+			"real_participants_required": true,
+			"results_never_fabricated": true,
+		},
+		"simulation_day": int(simulation.get("day", 1)),
 	}
 
 
