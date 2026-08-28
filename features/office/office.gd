@@ -19740,6 +19740,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_compelling_loop_presentation(
 		_gameplay_pulse.get("compelling_loop", {}) as Dictionary,
 	)
+	_apply_strategic_flow_presentation(
+		_gameplay_pulse.get("strategic_flow_loop", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -20204,6 +20207,60 @@ func _apply_compelling_loop_presentation(layer: Dictionary) -> void:
 		_routing_ui.set_meta(
 			"adaptive_information_density",
 			(layer.get("information_density", {}) as Dictionary).duplicate(true),
+		)
+
+
+func _apply_strategic_flow_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var bottleneck := layer.get("bottleneck", {}) as Dictionary
+	var forecast := layer.get("strategy_forecast", {}) as Dictionary
+	var roster := layer.get("roster_warning", {}) as Dictionary
+	var handoff := layer.get("handoff", {}) as Dictionary
+	var route_preview := layer.get("route_preview", {}) as Dictionary
+	if _shift_goal_status_icon != null:
+		_shift_goal_status_icon.set_meta("live_bottleneck", bottleneck.duplicate(true))
+		if not _shift_goal_status_icon.tooltip_text.contains("\nBOTTLENECK  ·"):
+			_shift_goal_status_icon.tooltip_text += "\nBOTTLENECK  ·  %s" % String(
+				bottleneck.get("label", "WATCH THE FLOOR"),
+			)
+		_shift_goal_status_icon.accessibility_name = _shift_goal_status_icon.tooltip_text
+	if _directive_badge != null:
+		_directive_badge.set_meta("strategy_forecast", forecast.duplicate(true))
+		_directive_badge.set_meta("roster_warning", roster.duplicate(true))
+		if not _directive_badge.tooltip_text.contains("\nFORECAST  ·"):
+			_directive_badge.tooltip_text += "\nFORECAST  ·  %s\nROSTER  ·  %s" % [
+				String(forecast.get("compact", "BALANCED · AWAITING PLAN")),
+				String(roster.get("compact", "FULL COVERAGE")),
+			]
+		_directive_badge.accessibility_name = _directive_badge.tooltip_text
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("perfect_handoff", handoff.duplicate(true))
+		_active_playbook_button.set_meta(
+			"saved_loadouts",
+			(layer.get("saved_loadouts", {}) as Dictionary).duplicate(true),
+		)
+		_active_playbook_button.set_meta(
+			"mid_shift_plan_adjustment",
+			(layer.get("plan_adjustment", {}) as Dictionary).duplicate(true),
+		)
+		if not _active_playbook_button.tooltip_text.contains("\nHANDOFF  ·"):
+			_active_playbook_button.tooltip_text += "\nHANDOFF  ·  %s\nADJUST  ·  SIGNATURE / TEAMWORK / RESCUE" % String(
+				handoff.get("compact", "HANDOFF 0/2"),
+			)
+		_active_playbook_button.accessibility_name = _active_playbook_button.tooltip_text
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("strategic_flow_loop", layer.duplicate(true))
+		_top_hud_panel.set_meta(
+			"career_legacy",
+			(layer.get("career_legacy", {}) as Dictionary).duplicate(true),
+		)
+	if _routing_ui != null:
+		_routing_ui.set_meta("interactive_route_preview", route_preview.duplicate(true))
+		_routing_ui.set_meta("live_bottleneck", bottleneck.duplicate(true))
+		_routing_ui.set_meta(
+			"resource_source_use_animation",
+			(layer.get("resource_flow", {}) as Dictionary).duplicate(true),
 		)
 
 

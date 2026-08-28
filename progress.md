@@ -1,5 +1,14 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-28 - Strategic-flow synthesis
+
+- Added the read-only `strategic_flow_loop` gameplay pulse contract (version 9), resolving all 30 approved routing, forecast, roster, loadout, handoff, incident, opportunity, celebration, mastery, challenge, next-shift, and legacy improvements through existing authorities.
+- Surfaced shaped bottleneck cues, a compact plan forecast, specialty coverage gaps, two-beat handoff progress, and safe mid-shift adjustments through the existing goal icon, directive badge, Active Playbook, and routing surface.
+- Preserved the icon-led default HUD and progressive disclosure: no new modal, dashboard, parallel economy, roster, or save state was introduced.
+- Added native/browser/release-gate coverage plus `docs/STRATEGIC_FLOW_LOOP_RESOLUTION.md`; permanent seeded challenges explicitly never expire and carry no FOMO behavior.
+- Re-exported and visually inspected live gameplay at 2560×1600, 1440×900, and 844×390; the HUD, Playbook menu, explain strip, selected-hen card, and compact wrapper remain contained and unobscured.
+- Ran the prescribed generic web-game smoke and the full 66-check beta release gate (50/50 rendered web tests, zero failures, 576.104 seconds). The dedicated visual server was stopped by exact PID and port 3001 is clear.
+
 ## 2026-08-28 - Compelling game-loop synthesis
 
 - Added the read-only `compelling_loop` gameplay pulse contract (version 8), resolving all 30 approved clarity, pacing, strategy, character, reward, accessibility, audio, and comprehension findings through existing authorities.

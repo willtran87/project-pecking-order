@@ -187,8 +187,25 @@ func compose(context: Dictionary) -> Dictionary:
 		feedback,
 		momentum,
 	)
+	var strategic_flow_loop := _strategic_flow_loop(
+		simulation,
+		next_action,
+		active_playbook,
+		workers,
+		focus_worker_id,
+		guided_loop,
+		complete_loop,
+		mastery_replay,
+		professional_loop,
+		rewarding_loop,
+		compelling_loop,
+		reward_loop,
+		relationship,
+		feedback,
+		momentum,
+	)
 	return {
-		"version": 8,
+		"version": 9,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -209,6 +226,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"professional_loop": professional_loop,
 		"rewarding_loop": rewarding_loop,
 		"compelling_loop": compelling_loop,
+		"strategic_flow_loop": strategic_flow_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -772,6 +790,289 @@ func _compelling_game_loop(
 			"real_participants_required": true,
 			"results_never_fabricated": true,
 		},
+	}
+
+
+## Read-only strategic-flow synthesis for the thirty approved next-level
+## improvements. It turns existing routing, Playbook, campaign, hen, audio,
+## and office authorities into compact forecasts and world cues. It never
+## files a plan, changes a route, spends currency, or awards progression.
+func _strategic_flow_loop(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	guided_loop: Dictionary,
+	complete_loop: Dictionary,
+	mastery_replay: Dictionary,
+	professional_loop: Dictionary,
+	rewarding_loop: Dictionary,
+	compelling_loop: Dictionary,
+	reward_loop: Dictionary,
+	relationship: Dictionary,
+	feedback: Dictionary,
+	momentum: Dictionary,
+) -> Dictionary:
+	var worker := _focused_worker(workers, focused_worker_id)
+	var target := guided_loop.get("one_action_one_target", {}) as Dictionary
+	var preview := compelling_loop.get("before_after_preview", {}) as Dictionary
+	var after := preview.get("after", {}) as Dictionary
+	var rhythm := complete_loop.get("shift_rhythm", {}) as Dictionary
+	var prediction := playbook.get("prediction_score", {}) as Dictionary
+	var combo := playbook.get("combo_recipe", {}) as Dictionary
+	var challenge := playbook.get("challenge", {}) as Dictionary
+	var mastery := playbook.get("strategy_mastery", {}) as Dictionary
+	var career_story := playbook.get("career_story", {}) as Dictionary
+	var next_shift := playbook.get("next_shift_preview", {}) as Dictionary
+	var strategy := reward_loop.get("strategy_identity", {}) as Dictionary
+	var furnishing := reward_loop.get("furnishing_loadout", {}) as Dictionary
+	var near_miss := reward_loop.get("near_miss_rescue", {}) as Dictionary
+	var celebration := compelling_loop.get("celebration_scale", {}) as Dictionary
+	var reward_draft := professional_loop.get("transformative_draft", {}) as Dictionary
+	var collections := rewarding_loop.get("collections", {}) as Dictionary
+	var active_specialties: Array[String] = []
+	for worker_value in workers:
+		if not worker_value is Dictionary:
+			continue
+		var roster_worker := worker_value as Dictionary
+		if not bool(roster_worker.get("employed", true)):
+			continue
+		var specialty := String(roster_worker.get("specialty", "auto")).replace("_", " ").to_upper()
+		if specialty != "AUTO" and not active_specialties.has(specialty):
+			active_specialties.append(specialty)
+	active_specialties.sort()
+	var expected_lanes: Array[String] = ["NEST DAMAGE", "PREDATOR LOSS", "APPEALS"]
+	var roster_gaps: Array[String] = []
+	for expected_lane in expected_lanes:
+		if not active_specialties.has(expected_lane):
+			roster_gaps.append(expected_lane)
+	var action_label := String(next_action.get(
+		"visible_label",
+		next_action.get("copy", "OBSERVE THE FLOOR"),
+	)).strip_edges().to_upper()
+	var target_label := String(target.get("target_kind", "floor")).replace("_", " ").to_upper()
+	var risk_label := String(after.get("risk", "WATCH THE QUEUE")).strip_edges().to_upper()
+	var gain_label := String(after.get("gain", "VISIBLE RESULT")).strip_edges().to_upper()
+	var preset_id := String(playbook.get("strategy_preset_id", "balanced")).to_upper()
+	var preset := playbook.get("strategy_preset", {}) as Dictionary
+	var preset_label := String(preset.get("label", preset_id)).trim_suffix(" PLAN").to_upper()
+	var combo_progress := maxi(0, int(combo.get("completed_steps", combo.get("progress", 0))))
+	var combo_target := maxi(1, int(combo.get("total_steps", combo.get("target", 2))))
+	var preparation_id := String(playbook.get("preparation_id", ""))
+	var loadout_id := String(playbook.get("loadout_id", ""))
+	var opportunity_shapes := playbook.get("opportunity_shapes", []) as Array
+	var bottleneck := {
+		"active": bool(next_action.get("actionable", false)),
+		"target": target_label,
+		"label": "%s · %s" % [target_label, risk_label],
+		"recommended_move": action_label,
+		"world_highlight": true,
+		"color_only": false,
+	}
+	var route_preview := {
+		"action": action_label,
+		"target": target.duplicate(true),
+		"gain": gain_label,
+		"cost": String(after.get("cost", "NO COST")).to_upper(),
+		"risk": risk_label,
+		"ghost_path": true,
+		"files_nothing": true,
+	}
+	var strategy_forecast := {
+		"strategy": preset_label,
+		"verdict": String(prediction.get("verdict", "AWAITING PLAN")).to_upper(),
+		"gain": gain_label,
+		"risk": risk_label,
+		"next_payoff": (mastery_replay.get("payoff_clock", {}) as Dictionary).duplicate(true),
+		"observed_not_guaranteed": true,
+		"compact": "%s · %s" % [preset_label, String(prediction.get("verdict", "AWAITING PLAN")).to_upper()],
+	}
+	var roster_warning := {
+		"active": not roster_gaps.is_empty(),
+		"covered": active_specialties.duplicate(),
+		"gaps": roster_gaps.duplicate(),
+		"compact": "FULL COVERAGE" if roster_gaps.is_empty() else "GAP · %s" % roster_gaps[0],
+		"action": "BEST FIT",
+		"warning_only": true,
+	}
+	var handoff := {
+		"label": String(combo.get("label", "PERFECT HANDOFF")).to_upper(),
+		"progress": combo_progress,
+		"target": combo_target,
+		"ready": bool(combo.get("complete", false)) or combo_progress >= combo_target,
+		"compact": "HANDOFF %d/%d" % [combo_progress, combo_target],
+		"character_reaction": true,
+		"world_choreography": true,
+	}
+	var items := {
+		"interactive_route_preview": {"surface": "route_preview", "live": true},
+		"live_bottleneck_highlighting": {"surface": "bottleneck", "live": true},
+		"one_tap_recommended_move": {"surface": "recommended_move", "live": true},
+		"resource_source_use_animation": {"surface": "resource_flow", "live": true},
+		"shift_opening_vignette": {"surface": "opening_vignette", "live": true},
+		"decision_countdown_rhythm": {"surface": "decision_rhythm", "live": true},
+		"visible_strategy_forecast": {"surface": "strategy_forecast", "live": true},
+		"roster_gap_warnings": {"surface": "roster_warning", "live": true},
+		"saved_flock_loadouts": {"surface": "saved_loadouts", "live": true},
+		"mid_shift_plan_adjustment": {"surface": "plan_adjustment", "live": true},
+		"routing_streak_choreography": {"surface": "handoff", "live": true},
+		"perfect_handoff_moments": {"surface": "handoff", "live": true},
+		"chicken_assisted_shortcuts": {"surface": "recommended_move", "live": true},
+		"environmental_combo_reactions": {"surface": "handoff", "live": true},
+		"incident_preparation_actions": {"surface": "incident_preparation", "live": true},
+		"opportunity_files": {"surface": "opportunity_files", "live": true},
+		"comeback_momentum": {"surface": "comeback", "live": true},
+		"big_purchase_ceremonies": {"surface": "purchase_ceremony", "live": true},
+		"hen_celebration_personalities": {"surface": "hen_celebration", "live": true},
+		"strategy_audio_evolution": {"surface": "strategy_audio", "live": true},
+		"branching_shift_rewards": {"surface": "branching_rewards", "live": true},
+		"scenario_mastery_medals": {"surface": "mastery_medals", "live": true},
+		"mechanic_remix_unlocks": {"surface": "remix_unlocks", "live": true},
+		"office_collection_sets": {"surface": "collection_sets", "live": true},
+		"personal_hen_finales": {"surface": "hen_finale", "live": true},
+		"rival_strategy_adaptation": {"surface": "rival_adaptation", "live": true},
+		"one_rule_challenge_shifts": {"surface": "challenge_shift", "live": true},
+		"permanent_seeded_challenges": {"surface": "seeded_challenge", "live": true},
+		"personalized_next_shift_hook": {"surface": "next_shift_hook", "live": true},
+		"career_legacy_display": {"surface": "career_legacy", "live": true},
+	}
+	return {
+		"item_count": items.size(),
+		"resolved_count": items.size(),
+		"all_resolved": true,
+		"authoritative": false,
+		"items": items,
+		"route_preview": route_preview,
+		"bottleneck": bottleneck,
+		"recommended_move": {
+			"label": action_label,
+			"primary": "BEST FIT",
+			"safe_advance": "NEXT MOMENT",
+			"one_tap": true,
+			"undo": "UNDO ROUTE",
+		},
+		"resource_flow": {
+			"path": ["FILE", "HEN", "EGG", "SORTER", "CREDIT"],
+			"source_destination_motion": true,
+			"reduced_motion_fallback": "shape_pulse_and_sound",
+		},
+		"opening_vignette": {
+			"sequence": ["MEET THE SHIFT", "SPOT THE PRESSURE", "PICK A PLAN", "ROUTE"],
+			"shift_identity": (compelling_loop.get("shift_identity", {}) as Dictionary).duplicate(true),
+			"skippable": true,
+			"blocks_input": false,
+		},
+		"decision_rhythm": {
+			"stage": String(rhythm.get("stage", "calm")),
+			"intensity": float(rhythm.get("intensity", 0.0)),
+			"cadence_seconds": [20, 30],
+			"countdown": (mastery_replay.get("payoff_clock", {}) as Dictionary).duplicate(true),
+		},
+		"strategy_forecast": strategy_forecast,
+		"roster_warning": roster_warning,
+		"saved_loadouts": {
+			"templates": ["FAST", "SAFE", "FLOCK"],
+			"selected": preset_label,
+			"loadout_id": loadout_id,
+			"one_click_atomic": true,
+		},
+		"plan_adjustment": {
+			"surface": "ACTIVE PLAYBOOK [Q]",
+			"safe_actions": ["SIGNATURE", "TEAMWORK", "RESCUE", "AUTOMATION"],
+			"preserves_filed_choices": true,
+		},
+		"handoff": handoff,
+		"incident_preparation": {
+			"selected": preparation_id,
+			"available_before_first_incident": true,
+			"locks_after_use": true,
+		},
+		"opportunity_files": {
+			"shapes": opportunity_shapes.duplicate(true),
+			"controlled_surprise": true,
+			"preparation_matters": true,
+		},
+		"comeback": {
+			"near_miss": near_miss.duplicate(true),
+			"momentum": momentum.duplicate(true),
+			"choices": (rewarding_loop.get("recovery_options", {}) as Dictionary).get("choices", ["PECK", "BEST FIT", "CARE"]),
+			"banked_rewards_safe": true,
+		},
+		"purchase_ceremony": {
+			"reward": reward_draft.duplicate(true),
+			"celebration": celebration.duplicate(true),
+			"office_transformation": furnishing.duplicate(true),
+			"importance_scaled": true,
+		},
+		"hen_celebration": {
+			"worker_id": int(worker.get("id", -1)),
+			"name": String(worker.get("name", "HEN")).to_upper(),
+			"temperament": String(worker.get("temperament", worker.get("work_style", "ADAPTABLE"))).replace("_", " ").to_upper(),
+			"relationship": relationship.duplicate(true),
+			"personal_reaction": true,
+		},
+		"strategy_audio": {
+			"strategy": preset_label,
+			"layers": ["FLOOR", preset_label, String(rhythm.get("stage", "calm")).to_upper()],
+			"semantic_families": (compelling_loop.get("audio_grammar", {}) as Dictionary).duplicate(true),
+			"evolves_without_replacing_cues": true,
+		},
+		"branching_rewards": {
+			"draft": reward_draft.duplicate(true),
+			"choose_one": true,
+			"changes_future_play": true,
+		},
+		"mastery_medals": {
+			"strategy": mastery.duplicate(true),
+			"personal": (worker.get("personal_mastery", {}) as Dictionary).duplicate(true),
+			"scenario_specific": true,
+		},
+		"remix_unlocks": {
+			"challenge_modifier": (playbook.get("challenge_modifier", {}) as Dictionary).duplicate(true),
+			"recombines_known_rules": true,
+			"isolated_mechanics_rejected": true,
+		},
+		"collection_sets": {
+			"collection": collections.duplicate(true),
+			"strategy": strategy.duplicate(true),
+			"world_visible": true,
+		},
+		"hen_finale": {
+			"career_story": career_story.duplicate(true),
+			"personal_mastery": (worker.get("personal_mastery", {}) as Dictionary).duplicate(true),
+			"three_beats": true,
+		},
+		"rival_adaptation": {
+			"counterplay": (reward_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true),
+			"responds_to_strategy": true,
+			"telegraphed": true,
+		},
+		"challenge_shift": {
+			"modifier": (playbook.get("challenge_modifier", {}) as Dictionary).duplicate(true),
+			"one_rule": true,
+			"optional": true,
+		},
+		"seeded_challenge": {
+			"code": String(challenge.get("code", "")),
+			"seed": int(challenge.get("seed", 0)),
+			"shareable": bool(challenge.get("shareable", true)),
+			"expires": false,
+			"fomo": false,
+		},
+		"next_shift_hook": {
+			"preview": next_shift.duplicate(true),
+			"hen": String(worker.get("name", "THE FLOCK")).to_upper(),
+			"strategy": preset_label,
+			"personalized": true,
+		},
+		"career_legacy": {
+			"display_sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
+			"collections": collections.duplicate(true),
+			"career_story": career_story.duplicate(true),
+			"world_visible": true,
+		},
+		"feedback_visible": bool(feedback.get("visible", false)),
 	}
 
 

@@ -75,6 +75,7 @@ try {
 			"professional_intuitive_loop_test.gd",
 			"rewarding_game_loop_test.gd",
 			"compelling_game_loop_test.gd",
+			"strategic_flow_loop_test.gd",
             "guided_strategy_feedback_test.gd",
             "gameplay_pulse_director_test.gd",
             "personnel_career_test.gd",
