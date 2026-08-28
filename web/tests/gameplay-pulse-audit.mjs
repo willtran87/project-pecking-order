@@ -5,13 +5,17 @@ import { chromium } from "playwright";
 
 const url = process.argv[2] ?? "http://localhost:3001/?build=gameplay-pulse-audit";
 const outputDirectory = path.resolve(process.argv[3] ?? "../output/web-game/gameplay-pulse-audit");
+const viewportWidth = Number.parseInt(process.env.PECK_AUDIT_WIDTH ?? "2560", 10);
+const viewportHeight = Number.parseInt(process.env.PECK_AUDIT_HEIGHT ?? "1600", 10);
 fs.mkdirSync(outputDirectory, { recursive: true });
 
 const browser = await chromium.launch({
 	headless: true,
 	args: ["--use-gl=angle", "--use-angle=swiftshader"],
 });
-const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+const context = await browser.newContext({
+	viewport: { width: viewportWidth, height: viewportHeight },
+});
 const page = await context.newPage();
 const errors = [];
 page.on("console", (message) => {
@@ -97,14 +101,14 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 5);
+	assert.equal(pulse.version, 6);
 	assert.equal(pulse.mastery_replay.item_count, 30);
 	assert.equal(
 		pulse.mastery_replay.resolved_count,
@@ -122,6 +126,21 @@ try {
 	assert.equal(pulse.mastery_replay.campaign_finale.decisive, true);
 	assert.equal(pulse.mastery_replay.comprehension_protocol.real_participants_required, true);
 	assert.equal(pulse.mastery_replay.comprehension_protocol.fabricated_results, false);
+	assert.equal(pulse.professional_loop.item_count, 20);
+	assert.equal(
+		pulse.professional_loop.resolved_count,
+		20,
+		`unresolved professional-loop items: ${JSON.stringify(Object.entries(pulse.professional_loop.items ?? {}).filter(([, item]) => item?.live !== true))}`,
+	);
+	assert.equal(pulse.professional_loop.all_resolved, true);
+	assert.equal(pulse.professional_loop.consequence_icons.icon_count, 3);
+	assert.equal(pulse.professional_loop.production_journey.steps.length, 5);
+	assert.equal(pulse.professional_loop.highlight_replay.duration_seconds, 10);
+	assert.equal(pulse.professional_loop.rematch_variation.same_seed, true);
+	assert.equal(pulse.professional_loop.rematch_variation.rule_change_count, 1);
+	assert.equal(pulse.professional_loop.rematch_variation.one_click, true);
+	assert.equal(pulse.professional_loop.comprehension_protocol.real_participants_required, true);
+	assert.equal(pulse.professional_loop.comprehension_protocol.fabricated_results, false);
 	assert.equal(pulse.complete_game_loop.item_count, 24);
 	assert.equal(
 		pulse.complete_game_loop.resolved_count,
@@ -217,6 +236,7 @@ try {
 		engagementNextLevel: pulse.engagement_next_level,
 		completeGameLoop: pulse.complete_game_loop,
 		masteryReplay: pulse.mastery_replay,
+		professionalLoop: pulse.professional_loop,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};

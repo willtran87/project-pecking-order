@@ -716,6 +716,8 @@ var _rival_pulse_label: Label
 var _guidance_action_button: Button
 var _guidance_icon: FlockwatchIconBadge
 var _guidance_label: Label
+var _consequence_icon_host: HBoxContainer
+var _consequence_icons: Array[FlockwatchIconBadge] = []
 var _guidance_action_chevron: Label
 var _guidance_action_id: StringName = &""
 var _explain_strip: PanelContainer
@@ -6133,6 +6135,25 @@ func _build_ui() -> void:
 	_guidance_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_guidance_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	guidance_content.add_child(_guidance_label)
+	_consequence_icon_host = HBoxContainer.new()
+	_consequence_icon_host.name = "ConsequenceIconStrip"
+	_consequence_icon_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_consequence_icon_host.add_theme_constant_override("separation", 1)
+	for definition in [
+		{"name": "BenefitIcon", "icon": &"egg", "accent": Color("9ccfc2")},
+		{"name": "CostIcon", "icon": &"cash", "accent": Color("d9c47d")},
+		{"name": "RiskIcon", "icon": &"shield", "accent": Color("efaa84")},
+	]:
+		var consequence_icon := FlockwatchIconBadgeScript.new()
+		consequence_icon.name = String(definition.get("name", "ConsequenceIcon"))
+		consequence_icon.set_badge_size(20.0)
+		consequence_icon.configure(
+			StringName(definition.get("icon", &"goal")),
+			definition.get("accent", Color("dce7e8")) as Color,
+		)
+		_consequence_icon_host.add_child(consequence_icon)
+		_consequence_icons.append(consequence_icon)
+	guidance_content.add_child(_consequence_icon_host)
 	_guidance_action_chevron = _make_label("›", 19, Color("d9c47d"))
 	_guidance_action_chevron.name = "GuidanceActionChevron"
 	_guidance_action_chevron.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -19710,6 +19731,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_mastery_replay_presentation(
 		_gameplay_pulse.get("mastery_replay", {}) as Dictionary,
 	)
+	_apply_professional_loop_presentation(
+		_gameplay_pulse.get("professional_loop", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -19986,6 +20010,68 @@ func _apply_mastery_replay_presentation(layer: Dictionary) -> void:
 	_active_playbook_button.set_meta("mastery_replay", layer.duplicate(true))
 	_active_playbook_button.set_meta("manager_power", power.duplicate(true))
 	_active_playbook_button.set_meta("payoff_clock", payoff.duplicate(true))
+
+
+func _apply_professional_loop_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var focus := layer.get("attention_focus", {}) as Dictionary
+	var icon_strip := layer.get("consequence_icons", {}) as Dictionary
+	var icon_rows := icon_strip.get("icons", []) as Array
+	var icon_accents := [Color("9ccfc2"), Color("d9c47d"), Color("efaa84")]
+	for index in _consequence_icons.size():
+		var icon := _consequence_icons[index]
+		if icon == null or index >= icon_rows.size():
+			continue
+		var row := icon_rows[index] as Dictionary
+		icon.configure(
+			StringName(row.get("icon", &"goal")),
+			icon_accents[index] if index < icon_accents.size() else Color("dce7e8"),
+		)
+		icon.tooltip_text = "%s  ·  %s" % [
+			String(row.get("id", "outcome")).replace("_", " ").to_upper(),
+			String(row.get("value", "VISIBLE RESULT")),
+		]
+		icon.accessibility_name = icon.tooltip_text
+		icon.set_meta("projection", row.duplicate(true))
+	if _consequence_icon_host != null:
+		_consequence_icon_host.visible = icon_rows.size() == 3
+		_consequence_icon_host.set_meta("icon_count", icon_rows.size())
+		_consequence_icon_host.set_meta("projection", icon_strip.duplicate(true))
+	if _guidance_action_button != null and icon_rows.size() == 3:
+		var compact_lines: Array[String] = []
+		for row_value in icon_rows:
+			var row := row_value as Dictionary
+			compact_lines.append("%s: %s" % [
+				String(row.get("id", "outcome")).replace("_", " ").to_upper(),
+				String(row.get("value", "VISIBLE RESULT")),
+			])
+		var consequence_copy := "\n" + "  ·  ".join(compact_lines)
+		if not _guidance_action_button.tooltip_text.contains("BENEFIT:"):
+			_guidance_action_button.tooltip_text += consequence_copy
+		_guidance_action_button.accessibility_name = _guidance_action_button.tooltip_text
+		_guidance_action_button.set_meta("consequence_icons", icon_strip.duplicate(true))
+	var secondary_alpha := clampf(float(focus.get("secondary_chrome_alpha", 0.66)), 0.4, 1.0)
+	var focus_active := String(focus.get("mode", "observe")) != "observe"
+	if _core_loop_host != null:
+		_core_loop_host.modulate.a = secondary_alpha if focus_active else 1.0
+	if _reward_loop_host != null and String(focus.get("mode", "")) != "reward":
+		_reward_loop_host.modulate.a = secondary_alpha if focus_active else 1.0
+	if _flockwatch_toggle != null:
+		_flockwatch_toggle.modulate.a = secondary_alpha if focus_active else 1.0
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("professional_loop", layer.duplicate(true))
+		_top_hud_panel.set_meta("attention_focus", focus.duplicate(true))
+	var power := layer.get("contextual_power", {}) as Dictionary
+	if _active_playbook_button != null and bool(power.get("ready", false)):
+		var action_label := String(power.get("label", "ACTIVE PLAYBOOK")).strip_edges().to_upper()
+		if action_label.contains("/"):
+			action_label = action_label.get_slice("/", 1).strip_edges()
+		if action_label.length() > 18:
+			action_label = action_label.left(17).trim_suffix(" ") + "…"
+		_active_playbook_button.text = "%s  [Q]  ▾" % action_label
+		_active_playbook_button.set_meta("contextual_power_label", action_label)
+		_active_playbook_button.set_meta("professional_loop", layer.duplicate(true))
 
 
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:

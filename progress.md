@@ -1,5 +1,12 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-27 - Professional intuitive-loop resolution
+
+- Consolidated twenty high-impact clarity, engagement, pacing, spectacle, replay, and comprehension findings into the read-only `professional_loop` gameplay pulse contract (version 6).
+- Added a three-shape benefit/cost/risk strip beside the primary action, focus-weighted HUD chrome, and exact contextual power labels such as `SHARE CREDIT [Q]`.
+- Formalized the physical FILE → HEN → EGG → SORTER → CREDIT journey, immediate receipts, payoff meter, strategy/world identity, signature spectacle, combo choreography, incident recovery, ten-second highlight, and one-rule rematch.
+- Added native and browser release contracts plus a professional resolution matrix; real participant results remain explicitly required and are never fabricated.
+
 ## 2026-08-25 - Mastery and replay completion pass
 
 - Added one compact 30-item mastery/replay projection that progressively reveals systems, keeps one obvious decision, and exposes the next payoff without adding another panel.

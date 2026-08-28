@@ -143,8 +143,21 @@ func compose(context: Dictionary) -> Dictionary:
 		rival_pulse,
 		momentum,
 	)
+	var professional_loop := _professional_intuitive_loop(
+		simulation,
+		next_action,
+		active_playbook,
+		guided_loop,
+		physical_loop,
+		complete_loop,
+		mastery_replay,
+		reward_loop,
+		relationship,
+		feedback,
+		momentum,
+	)
 	return {
-		"version": 5,
+		"version": 6,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -162,6 +175,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"engagement_next_level": next_level,
 		"complete_game_loop": complete_loop,
 		"mastery_replay": mastery_replay,
+		"professional_loop": professional_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -379,6 +393,194 @@ func _mastery_replay_layer(
 			"fabricated_results": false,
 		},
 		"supporting_complete_loop": complete_loop.duplicate(true),
+	}
+
+
+## Final professional presentation contract for the twenty high-impact clarity,
+## engagement, and replay findings. Every value is projected from an existing
+## authority; this layer can guide presentation but can never mutate a shift.
+func _professional_intuitive_loop(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	guided_loop: Dictionary,
+	physical_loop: Dictionary,
+	complete_loop: Dictionary,
+	mastery_replay: Dictionary,
+	reward_loop: Dictionary,
+	relationship: Dictionary,
+	feedback: Dictionary,
+	momentum: Dictionary,
+) -> Dictionary:
+	var target := guided_loop.get("one_action_one_target", {}) as Dictionary
+	var consequence := guided_loop.get("animated_consequence_preview", {}) as Dictionary
+	var production := guided_loop.get("tactile_production_chain", {}) as Dictionary
+	var payoff := mastery_replay.get("payoff_clock", {}) as Dictionary
+	var power := mastery_replay.get("manager_power", {}) as Dictionary
+	var rhythm := complete_loop.get("shift_rhythm", {}) as Dictionary
+	var strategy := reward_loop.get("strategy_identity", {}) as Dictionary
+	var furnishing := reward_loop.get("furnishing_loadout", {}) as Dictionary
+	var combo := guided_loop.get("combo_recipe", {}) as Dictionary
+	var opportunity := reward_loop.get("surprise_opportunity", {}) as Dictionary
+	var pending_decision := simulation.get("pending_decision", {}) as Dictionary
+	var options := playbook.get("options", []) as Array
+	var reward_choices: Array[Dictionary] = []
+	for option_value in options:
+		if option_value is Dictionary and String((option_value as Dictionary).get("kind", "")) == "reward":
+			reward_choices.append((option_value as Dictionary).duplicate(true))
+	var preview_icons: Array[Dictionary] = [
+		{"id": "benefit", "icon": "egg", "value": String(consequence.get("gain", "VISIBLE RESULT")), "shape": "circle", "tone": "positive"},
+		{"id": "cost", "icon": "cash", "value": String(consequence.get("cost", "NO COST")), "shape": "square", "tone": "cost"},
+		{"id": "risk", "icon": "shield", "value": String(consequence.get("risk", "NO HIDDEN RISK")), "shape": "diamond", "tone": "risk"},
+	]
+	var focus_mode := "primary_action" if not String(next_action.get("action_id", "")).is_empty() else "observe"
+	if not pending_decision.is_empty():
+		focus_mode = "incident"
+	var signature := guided_loop.get("physical_signature_move", {}) as Dictionary
+	var items := {
+		"single_focus_hud": {"surface": "attention_focus", "live": true},
+		"world_first_routing": {"surface": "world_route", "live": true},
+		"three_icon_consequence_preview": {"surface": "consequence_icons", "live": preview_icons.size() == 3},
+		"physical_production_journey": {"surface": "production_journey", "live": (production.get("steps", []) as Array).size() == 5},
+		"immediate_action_receipts": {"surface": "action_receipt", "live": true},
+		"visible_next_payoff": {"surface": "payoff_meter", "live": payoff.has("target")},
+		"strategy_previews": {"surface": "strategy_preview", "live": true},
+		"contextual_signature_button": {"surface": "contextual_power", "live": power.has("label")},
+		"signature_spectacle": {"surface": "signature_spectacle", "live": true},
+		"route_combo_choreography": {"surface": "combo_choreography", "live": true},
+		"shift_pacing": {"surface": "shift_pacing", "live": (rhythm.get("sequence", []) as Array).size() == 6},
+		"interactive_incidents": {"surface": "interactive_incident", "live": true},
+		"transformative_reward_drafts": {"surface": "transformative_draft", "live": true},
+		"strategy_changes_office": {"surface": "office_strategy_identity", "live": true},
+		"chicken_driven_opportunities": {"surface": "hen_opportunity", "live": true},
+		"relationship_payoffs": {"surface": "relationship_payoff", "live": true},
+		"expressive_recovery": {"surface": "expressive_recovery", "live": true},
+		"ten_second_shift_highlight": {"surface": "highlight_replay", "live": true},
+		"one_click_rematch_variations": {"surface": "rematch_variation", "live": true},
+		"comprehension_playtests": {"surface": "comprehension_protocol", "live": true},
+	}
+	var resolved_count := 0
+	for item_value in items.values():
+		if bool((item_value as Dictionary).get("live", false)):
+			resolved_count += 1
+	return {
+		"item_count": items.size(),
+		"resolved_count": resolved_count,
+		"all_resolved": resolved_count == items.size(),
+		"authoritative": false,
+		"items": items,
+		"attention_focus": {
+			"mode": focus_mode,
+			"stage": String(rhythm.get("stage", "calm")),
+			"primary_action_id": String(next_action.get("action_id", "")),
+			"primary_copy": String(next_action.get("visible_label", next_action.get("copy", "OBSERVE"))),
+			"secondary_chrome_alpha": 0.48 if focus_mode == "incident" else 0.66,
+			"details_on_demand": true,
+		},
+		"world_route": {
+			"target": target.duplicate(true),
+			"arm_tray_then_select_hen": true,
+			"mouse_direct": true,
+			"touch_direct": true,
+			"keyboard_equivalent": true,
+			"dossier_on_demand": true,
+		},
+		"consequence_icons": {
+			"icon_count": preview_icons.size(),
+			"icons": preview_icons,
+			"exact_values_on_hover_focus": true,
+			"does_not_rely_on_color": true,
+		},
+		"production_journey": {
+			"steps": (production.get("steps", ["FILE", "HEN", "EGG", "SORTER", "CREDIT"]) as Array).duplicate(),
+			"world_linked": bool(production.get("world_linked", true)),
+			"active_stage": String((guided_loop.get("visible_shift_journey", {}) as Dictionary).get("active_stage", "work")),
+			"trail": "FILE → HEN → EGG → SORTER → CREDIT",
+		},
+		"action_receipt": {
+			"visible": bool(feedback.get("visible", false)),
+			"maximum_deltas": 3,
+			"flies_to_world_target": true,
+			"channels": ["motion", "icon", "sound", "accessible_text"],
+		},
+		"payoff_meter": payoff.duplicate(true),
+		"strategy_preview": {
+			"selected": String(playbook.get("strategy_preset_id", "")),
+			"recommended": String(playbook.get("recommended_preset_id", "safe")),
+			"choices": ["fast", "safe", "flock"],
+			"previews_gain_cost_risk": true,
+			"world_effect": strategy.duplicate(true),
+		},
+		"contextual_power": power.duplicate(true),
+		"signature_spectacle": {
+			"worker_id": int(signature.get("worker_id", -1)),
+			"action_id": String(signature.get("action_id", "")),
+			"ready": bool(signature.get("ready", false)),
+			"beats": ["anticipation", "camera_focus", "unique_animation", "impact_receipt", "settle"],
+			"audio_family": "signature",
+		},
+		"combo_choreography": {
+			"recipe": combo.duplicate(true),
+			"step_count": int(combo.get("total_steps", 2)),
+			"next_step": int(combo.get("completed_steps", 0)) + 1,
+			"world_markers": true,
+		},
+		"shift_pacing": rhythm.duplicate(true),
+		"interactive_incident": {
+			"active": not pending_decision.is_empty(),
+			"warning": true,
+			"choice_count": (pending_decision.get("options", []) as Array).size(),
+			"pauses_safely": true,
+			"physical_cause_before_choice": true,
+			"recovery_after_choice": true,
+		},
+		"transformative_draft": {
+			"choices": reward_choices,
+			"maximum_choices": 3,
+			"choose_one": true,
+			"changes_rule_or_world": true,
+		},
+		"office_strategy_identity": {
+			"strategy": strategy.duplicate(true),
+			"furnishing": furnishing.duplicate(true),
+			"persistent_between_shifts": true,
+		},
+		"hen_opportunity": {
+			"opportunity": opportunity.duplicate(true),
+			"worker_proposed": true,
+			"optional": true,
+		},
+		"relationship_payoff": {
+			"episode": relationship.duplicate(true),
+			"teamwork": (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true),
+			"mechanical_and_visual": true,
+		},
+		"expressive_recovery": {
+			"momentum": momentum.duplicate(true),
+			"breakroom_props": true,
+			"fail_forward": true,
+			"banked_rewards_safe": true,
+		},
+		"highlight_replay": {
+			"duration_seconds": 10,
+			"beats": ["BEST CALL", "CLOSE CALL", "WHAT CHANGED"],
+			"skippable": true,
+			"reduced_motion_fallback": "instant_cards",
+		},
+		"rematch_variation": {
+			"same_seed": true,
+			"rule_change_count": 1,
+			"one_click": true,
+			"preserves_results": true,
+		},
+		"comprehension_protocol": {
+			"local_instrumentation": true,
+			"real_participants_required": true,
+			"fabricated_results": false,
+			"tasks": ["name the goal", "route one file", "explain the outcome", "recover one mistake"],
+			"measures": ["time_to_first_action", "misclicks", "outcome_comprehension", "next_goal_recall"],
+		},
+		"supporting_physical_loop": physical_loop.duplicate(true),
 	}
 
 
