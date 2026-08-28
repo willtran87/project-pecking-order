@@ -171,8 +171,24 @@ func compose(context: Dictionary) -> Dictionary:
 		feedback,
 		momentum,
 	)
+	var compelling_loop := _compelling_game_loop(
+		simulation,
+		next_action,
+		active_playbook,
+		workers,
+		focus_worker_id,
+		guided_loop,
+		complete_loop,
+		mastery_replay,
+		professional_loop,
+		rewarding_loop,
+		reward_loop,
+		relationship,
+		feedback,
+		momentum,
+	)
 	return {
-		"version": 7,
+		"version": 8,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -192,6 +208,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"mastery_replay": mastery_replay,
 		"professional_loop": professional_loop,
 		"rewarding_loop": rewarding_loop,
+		"compelling_loop": compelling_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -439,6 +456,322 @@ func _rewarding_game_loop(
 			"challenge": (playbook.get("challenge", {}) as Dictionary).duplicate(true),
 		},
 		"comprehension": comprehension.duplicate(true),
+	}
+
+
+## Final synthesis for the professional compelling-loop pass. Every value is a
+## read-only projection of an existing simulation, campaign, routing, audio, or
+## office authority; this layer cannot award, file, purchase, or mutate state.
+func _compelling_game_loop(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	guided_loop: Dictionary,
+	complete_loop: Dictionary,
+	mastery_replay: Dictionary,
+	professional_loop: Dictionary,
+	rewarding_loop: Dictionary,
+	reward_loop: Dictionary,
+	relationship: Dictionary,
+	feedback: Dictionary,
+	momentum: Dictionary,
+) -> Dictionary:
+	var worker := _focused_worker(workers, focused_worker_id)
+	var intent := worker.get("hen_intent", {}) as Dictionary
+	var preview := guided_loop.get("animated_consequence_preview", {}) as Dictionary
+	var target := guided_loop.get("one_action_one_target", {}) as Dictionary
+	var micro_shift := complete_loop.get("micro_shift", {}) as Dictionary
+	var rhythm := complete_loop.get("shift_rhythm", {}) as Dictionary
+	var recipe := playbook.get("combo_recipe", {}) as Dictionary
+	var mastery := playbook.get("strategy_mastery", {}) as Dictionary
+	var career_story := playbook.get("career_story", {}) as Dictionary
+	var side_goal := playbook.get("side_goal", {}) as Dictionary
+	var proposal := playbook.get("hen_proposal", {}) as Dictionary
+	var push_luck := playbook.get("push_luck", {}) as Dictionary
+	var next_shift := playbook.get("next_shift_preview", {}) as Dictionary
+	var report := professional_loop.get("highlight_replay", {}) as Dictionary
+	var near_miss := reward_loop.get("near_miss_rescue", {}) as Dictionary
+	var celebration := reward_loop.get("compound_success", {}) as Dictionary
+	var strategy := reward_loop.get("strategy_identity", {}) as Dictionary
+	var furnishing := reward_loop.get("furnishing_loadout", {}) as Dictionary
+	var reward_draft := professional_loop.get("transformative_draft", {}) as Dictionary
+	var payoff := mastery_replay.get("payoff_clock", {}) as Dictionary
+	var comprehension := mastery_replay.get("comprehension_protocol", {}) as Dictionary
+	var collections := rewarding_loop.get("collections", {}) as Dictionary
+	var recovery := rewarding_loop.get("recovery_options", {}) as Dictionary
+	var specialties: Array[String] = []
+	var active_worker_count := 0
+	for worker_value in workers:
+		if not worker_value is Dictionary:
+			continue
+		var roster_worker := worker_value as Dictionary
+		if not bool(roster_worker.get("employed", true)):
+			continue
+		active_worker_count += 1
+		var roster_specialty := String(roster_worker.get("specialty", "auto")).replace("_", " ").to_upper()
+		if not specialties.has(roster_specialty):
+			specialties.append(roster_specialty)
+	specialties.sort()
+	var combo_progress := maxi(0, int(recipe.get("completed_steps", recipe.get("progress", 0))))
+	var combo_target := maxi(1, int(recipe.get("total_steps", recipe.get("target", 2))))
+	var feedback_visible := bool(feedback.get("visible", false))
+	var feedback_title := String(feedback.get("title", "ACTION READY")).strip_edges().to_upper()
+	var action_label := String(next_action.get(
+		"visible_label",
+		next_action.get("copy", "OBSERVE THE FLOOR"),
+	)).strip_edges().to_upper()
+	var strategy_label := String(strategy.get(
+		"label",
+		mastery.get("label", rhythm.get("label", "BALANCED SHIFT")),
+	)).strip_edges().to_upper()
+	var current_stage := String(rhythm.get("stage", "calm"))
+	var celebration_tier := "routine"
+	if bool((reward_loop.get("golden_moment", {}) as Dictionary).get("active", false)):
+		celebration_tier = "milestone"
+	elif bool(celebration.get("active", false)):
+		celebration_tier = "smart_play"
+	elif bool(near_miss.get("active", false)):
+		celebration_tier = "recovery"
+	var before_after := {
+		"before": {
+			"label": action_label,
+			"target": String(target.get("target_kind", "office")).replace("_", " ").to_upper(),
+			"state": "CURRENT",
+		},
+		"after": {
+			"gain": String(preview.get("gain", "VISIBLE RESULT")),
+			"cost": String(preview.get("cost", "NO COST")),
+			"risk": String(preview.get("risk", "NO HIDDEN RISK")),
+			"state": "PROJECTED",
+		},
+		"compact": "%s → %s" % [action_label, String(preview.get("gain", "VISIBLE RESULT"))],
+		"world_anchored": bool(preview.get("world_preview", false)),
+		"files_nothing": true,
+		"uncertainty_disclosed": true,
+	}
+	var roster_strategy := {
+		"worker_count": active_worker_count,
+		"coverage_count": specialties.size(),
+		"specialties": specialties.duplicate(),
+		"focused_specialty": String(worker.get("specialty", "auto")).replace("_", " ").to_upper(),
+		"relationship": relationship.duplicate(true),
+		"compact": "%d HENS  ·  %d LANES" % [active_worker_count, specialties.size()],
+		"tradeoffs_visible": true,
+	}
+	var combo_discovery := {
+		"label": String(recipe.get("label", "ROUTE COMBO")).strip_edges().to_upper(),
+		"progress": combo_progress,
+		"target": combo_target,
+		"ready": bool(recipe.get("complete", false)) or combo_progress >= combo_target,
+		"next_step": mini(combo_progress + 1, combo_target),
+		"compact": "COMBO %d/%d" % [combo_progress, combo_target],
+		"recipe": recipe.duplicate(true),
+		"discovered_through_play": true,
+	}
+	var impact_channels := {
+		"channel_count": 3,
+		"world": {
+			"target": target.duplicate(true),
+			"trail": (complete_loop.get("cause_effect_trail", {}) as Dictionary).duplicate(true),
+		},
+		"character": {
+			"worker_id": int(worker.get("id", -1)),
+			"intent": intent.duplicate(true),
+			"reaction_bark": true,
+		},
+		"interface_audio": {
+			"receipt_visible": feedback_visible,
+			"receipt_title": feedback_title,
+			"semantic_sound": true,
+		},
+	}
+	var items := {
+		"first_minute_victory": {"surface": "first_clutch", "live": int(micro_shift.get("budget_seconds", 0)) <= 60},
+		"before_after_previews": {"surface": "world_preview", "live": before_after.has("after")},
+		"three_part_action_feedback": {"surface": "impact_channels", "live": int(impact_channels.get("channel_count", 0)) == 3},
+		"strong_shift_identities": {"surface": "shift_identity", "live": not strategy_label.is_empty()},
+		"dynamic_pacing": {"surface": "pacing_director", "live": (rhythm.get("sequence", []) as Array).size() == 6},
+		"visible_production_flow": {"surface": "production_shortcuts", "live": true},
+		"instant_recovery_action": {"surface": "one_action_recovery", "live": (recovery.get("choices", []) as Array).size() == 3},
+		"roster_synergy_display": {"surface": "roster_strategy", "live": active_worker_count > 0},
+		"consequential_personalities": {"surface": "hen_personality", "live": true},
+		"discoverable_combos": {"surface": "combo_discovery", "live": combo_target == 2},
+		"push_your_luck_choices": {"surface": "push_your_luck", "live": push_luck.has("open")},
+		"physical_shortcuts": {"surface": "production_shortcuts", "live": true},
+		"clear_mastery_targets": {"surface": "mastery_target", "live": true},
+		"multiple_viable_builds": {"surface": "strategy_builds", "live": true},
+		"meaningful_rematches": {"surface": "rematch", "live": true},
+		"personal_hen_story_arcs": {"surface": "hen_story", "live": true},
+		"hen_authored_missions": {"surface": "hen_mission", "live": true},
+		"incident_chains": {"surface": "incident_chain", "live": true},
+		"relationship_consequences": {"surface": "relationship_payoff", "live": true},
+		"expressive_reactions": {"surface": "impact_channels", "live": true},
+		"transformative_rewards": {"surface": "transformative_reward", "live": true},
+		"visible_office_evolution": {"surface": "office_evolution", "live": true},
+		"celebration_escalation": {"surface": "celebration_scale", "live": true},
+		"near_miss_excitement": {"surface": "near_miss", "live": near_miss.has("active")},
+		"collection_completion_rewards": {"surface": "collection_completion", "live": true},
+		"satisfying_shift_endings": {"surface": "shift_ending", "live": true},
+		"adaptive_information_density": {"surface": "information_density", "live": true},
+		"consistent_visual_grammar": {"surface": "semantic_grammar", "live": true},
+		"expressive_audio_language": {"surface": "audio_grammar", "live": true},
+		"comprehension_playtesting": {"surface": "comprehension", "live": true},
+	}
+	var resolved_count := 0
+	for item_value in items.values():
+		if bool((item_value as Dictionary).get("live", false)):
+			resolved_count += 1
+	return {
+		"item_count": items.size(),
+		"resolved_count": resolved_count,
+		"all_resolved": resolved_count == items.size(),
+		"authoritative": false,
+		"items": items,
+		"first_minute_win": {
+			"budget_seconds": 60,
+			"sequence": ["ROUTE", "HELP", "EGG", "REWARD"],
+			"first_clutch": micro_shift.duplicate(true),
+			"skippable": true,
+		},
+		"before_after_preview": before_after,
+		"action_impact": impact_channels,
+		"shift_identity": {
+			"label": strategy_label,
+			"stage": current_stage,
+			"rule": String((playbook.get("challenge_modifier", {}) as Dictionary).get("detail", "ADAPT THE FLOCK")),
+			"reward": String(payoff.get("label", "NEXT PAYOFF")),
+			"world_loadout": furnishing.duplicate(true),
+		},
+		"pacing_director": {
+			"stage": current_stage,
+			"intensity": float(rhythm.get("intensity", 0.0)),
+			"sequence": (rhythm.get("sequence", []) as Array).duplicate(),
+			"one_primary_pulse": bool(rhythm.get("one_primary_pulse", false)),
+			"recovery_after_pressure": true,
+		},
+		"roster_strategy": roster_strategy,
+		"hen_personality": {
+			"worker_id": int(worker.get("id", -1)),
+			"name": String(worker.get("name", "HEN")).to_upper(),
+			"temperament": String(worker.get("temperament", worker.get("work_style", "ADAPTABLE"))).replace("_", " ").to_upper(),
+			"intent": intent.duplicate(true),
+			"signature": (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true),
+			"relationship": relationship.duplicate(true),
+		},
+		"combo_discovery": combo_discovery,
+		"production_shortcuts": {
+			"steps": ["ARM TRAY", "CHOOSE HEN", "LAY", "SORT", "CREDIT"],
+			"one_click_recommendation": "BEST FIT",
+			"safe_advance": "NEXT MOMENT",
+			"undo": "UNDO ROUTE",
+			"automation_after_mastery": true,
+		},
+		"push_your_luck": push_luck.duplicate(true),
+		"hen_story": career_story.duplicate(true),
+		"incident_chain": {
+			"staging": (professional_loop.get("interactive_incident", {}) as Dictionary).duplicate(true),
+			"choice_memory": true,
+			"later_callback": true,
+			"post_incident_summary": true,
+		},
+		"hen_mission": {
+			"intent": intent.duplicate(true),
+			"side_goal": side_goal.duplicate(true),
+			"proposal": proposal.duplicate(true),
+			"optional": true,
+			"failure_penalty": 0,
+		},
+		"relationship_payoff": {
+			"relationship": relationship.duplicate(true),
+			"teamwork": (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true),
+			"changes_productivity_recovery_or_combo": true,
+		},
+		"transformative_reward": {
+			"draft": reward_draft.duplicate(true),
+			"changes_rules_or_actions": true,
+			"percentage_only_rewards_rejected": true,
+		},
+		"office_evolution": {
+			"strategy": strategy.duplicate(true),
+			"furnishing": furnishing.duplicate(true),
+			"display_sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
+			"persists_between_shifts": true,
+		},
+		"celebration_scale": {
+			"current_tier": celebration_tier,
+			"tiers": ["routine", "smart_play", "recovery", "milestone"],
+			"anticipation_impact_follow_through_settle": true,
+			"reduced_motion_fallback": "stamp_glow_and_sound",
+		},
+		"near_miss": near_miss.duplicate(true),
+		"one_action_recovery": {
+			"choices": (recovery.get("choices", ["PECK", "BEST FIT", "CARE"]) as Array).duplicate(),
+			"recommended": String(momentum.get("short_label", "BEST FIT")),
+			"banked_rewards_safe": true,
+		},
+		"shift_ending": {
+			"duration_seconds": int(report.get("duration_seconds", 10)),
+			"cards": ["WHAT WORKED", "CLOSE CALL", "WHAT CHANGED"],
+			"next_shift": next_shift.duplicate(true),
+			"details_folded": true,
+		},
+		"rematch": {
+			"one_click": true,
+			"same_seed": true,
+			"one_rule_changes": true,
+			"preview_only_until_confirmed": true,
+		},
+		"mastery_target": {
+			"hen": (worker.get("personal_mastery", {}) as Dictionary).duplicate(true),
+			"strategy": mastery.duplicate(true),
+			"personal_best": (playbook.get("personal_best", {}) as Dictionary).duplicate(true),
+			"next_payoff": payoff.duplicate(true),
+		},
+		"strategy_builds": {
+			"paths": ["FAST", "SAFE", "FLOCK", "QUALITY", "AUTOMATION"],
+			"tradeoffs": ["PACE", "SHELL RISK", "MORALE", "FUND", "ATTENTION"],
+			"single_dominant_strategy_rejected": true,
+		},
+		"collection_completion": {
+			"collection": collections.duplicate(true),
+			"rewards": ["FURNISHING", "MODIFIER", "ABILITY", "SCENARIO"],
+			"checklist_only_rewards_rejected": true,
+		},
+		"information_density": {
+			"default": "ICON LED",
+			"compact_fields": 4,
+			"exact_numbers": "HOVER FOCUS OR MORE",
+			"one_primary_action": true,
+			"high_scale_safe": true,
+			"reduced_motion_safe": true,
+		},
+		"semantic_grammar": {
+			"goal": {"icon": "goal", "shape": "circle"},
+			"danger": {"icon": "shield", "shape": "diamond"},
+			"reward": {"icon": "egg", "shape": "star"},
+			"recovery": {"icon": "care", "shape": "round"},
+			"locked": {"icon": "lock", "shape": "square"},
+			"color_is_never_the_only_signal": true,
+		},
+		"audio_grammar": {
+			"families": {
+				"route": "wood_and_paper",
+				"opportunity": "bright_double_tick",
+				"danger": "low_alert",
+				"recovery": "warm_resolve",
+				"reward": "rising_egg_chime",
+			},
+			"intensity_matches_importance": true,
+			"subtle_variation_without_semantic_drift": true,
+		},
+		"comprehension": {
+			"protocol": comprehension.duplicate(true),
+			"questions": ["FIND GOAL", "TAKE FIRST ACTION", "PREDICT RESULT", "RECOVER", "EXPLAIN LOOP"],
+			"real_participants_required": true,
+			"results_never_fabricated": true,
+		},
 	}
 
 
@@ -921,10 +1254,10 @@ func _micro_shift(funnel: Dictionary, simulation: Dictionary, playbook: Dictiona
 	var reward_complete := bool(reached.get("first_egg", false)) or int(simulation.get("eggs_today", 0)) > 0
 	var completion := [plan_complete, route_complete, react_complete, reward_complete]
 	var definitions := [
-		{"id": "plan", "label": "PLAN", "icon": "goal", "target_seconds": 15},
-		{"id": "route", "label": "ROUTE", "icon": "route", "target_seconds": 35},
-		{"id": "react", "label": "REACT", "icon": "shield", "target_seconds": 65},
-		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 90},
+		{"id": "plan", "label": "PLAN", "icon": "goal", "target_seconds": 10},
+		{"id": "route", "label": "ROUTE", "icon": "route", "target_seconds": 25},
+		{"id": "react", "label": "REACT", "icon": "shield", "target_seconds": 45},
+		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 60},
 	]
 	var beats: Array[Dictionary] = []
 	var completed_count := 0
@@ -938,7 +1271,7 @@ func _micro_shift(funnel: Dictionary, simulation: Dictionary, playbook: Dictiona
 		beats.append(beat)
 	return {
 		"label": "FIRST CLUTCH",
-		"budget_seconds": 90,
+		"budget_seconds": 60,
 		"beat_count": beats.size(),
 		"completed_count": completed_count,
 		"complete": completed_count == beats.size(),

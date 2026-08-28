@@ -7,7 +7,7 @@ remain the only gameplay authorities.
 
 ## The playable rhythm
 
-- The fresh-player funnel now exposes a skippable 90-second micro-shift:
+- The fresh-player funnel now exposes a skippable 60-second micro-shift:
   `PLAN → ROUTE → REACT → REWARD`. Completed labels retire while their four
   learned icons remain.
 - Every live shift now has a derived six-stage rhythm: calm, flow, pressure,
@@ -44,7 +44,7 @@ anticipation.
 
 ## Evidence
 
-- `tests/complete_game_loop_test.gd` verifies the 90-second four-beat funnel,
+- `tests/complete_game_loop_test.gd` verifies the 60-second four-beat funnel,
   24-item projection, six-stage rhythm, four-chip explanation, three-beat hen
   episode, three-card report, and live Office controls.
 - `web/tests/gameplay-pulse-audit.mjs` verifies the same contract in the exported

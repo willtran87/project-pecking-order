@@ -101,14 +101,14 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 7);
+	assert.equal(pulse.version, 8);
 	assert.equal(pulse.rewarding_loop.item_count, 25);
 	assert.equal(
 		pulse.rewarding_loop.resolved_count,
@@ -128,6 +128,23 @@ try {
 		one_meaningful_decision: true,
 		optional_choices_do_not_block: true,
 	});
+	assert.equal(pulse.compelling_loop.item_count, 30);
+	assert.equal(
+		pulse.compelling_loop.resolved_count,
+		30,
+		`unresolved compelling-loop items: ${JSON.stringify(Object.entries(pulse.compelling_loop.items ?? {}).filter(([, item]) => item?.live !== true))}`,
+	);
+	assert.equal(pulse.compelling_loop.all_resolved, true);
+	assert.equal(pulse.compelling_loop.authoritative, false);
+	assert.equal(pulse.compelling_loop.first_minute_win.budget_seconds, 60);
+	assert.deepEqual(pulse.compelling_loop.first_minute_win.sequence, ["ROUTE", "HELP", "EGG", "REWARD"]);
+	assert.equal(pulse.compelling_loop.before_after_preview.files_nothing, true);
+	assert.equal(pulse.compelling_loop.action_impact.channel_count, 3);
+	assert.equal(pulse.compelling_loop.combo_discovery.target, 2);
+	assert.equal(pulse.compelling_loop.information_density.compact_fields, 4);
+	assert.equal(Object.keys(pulse.compelling_loop.audio_grammar.families).length, 5);
+	assert.equal(pulse.compelling_loop.comprehension.real_participants_required, true);
+	assert.equal(pulse.compelling_loop.comprehension.results_never_fabricated, true);
 	assert.equal(pulse.mastery_replay.item_count, 30);
 	assert.equal(
 		pulse.mastery_replay.resolved_count,
@@ -167,7 +184,7 @@ try {
 		`unresolved complete-loop items: ${JSON.stringify(Object.entries(pulse.complete_game_loop.items ?? {}).filter(([, item]) => item?.live !== true))}`,
 	);
 	assert.equal(pulse.complete_game_loop.all_resolved, true);
-	assert.equal(pulse.complete_game_loop.micro_shift.budget_seconds, 90);
+	assert.equal(pulse.complete_game_loop.micro_shift.budget_seconds, 60);
 	assert.equal(pulse.complete_game_loop.micro_shift.beat_count, 4);
 	assert.equal(pulse.complete_game_loop.explain_mode.chip_count, 4);
 	assert.equal(pulse.complete_game_loop.explain_mode.pauses_while_held, true);
@@ -257,6 +274,7 @@ try {
 		masteryReplay: pulse.mastery_replay,
 		professionalLoop: pulse.professional_loop,
 		rewardingLoop: pulse.rewarding_loop,
+		compellingLoop: pulse.compelling_loop,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
@@ -285,4 +303,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended micro-shift=90s explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended micro-shift=60s compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

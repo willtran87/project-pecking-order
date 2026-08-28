@@ -7,7 +7,7 @@ This pass resolves the thirty remaining intuitiveness, engagement, mastery, and 
 | 1 | Progressive system reveal | Foundation, Strategy, and Mastery tiers reveal only the systems relevant to the current campaign day. |
 | 2 | One obvious decision | The live decision stack exposes one primary action and folds unrelated choices into the Active Playbook. |
 | 3 | Gain / cost / risk language | Every surfaced plan and contextual play uses the same three-part consequence grammar. |
-| 4 | Player-tested first shift | A local, privacy-preserving comprehension funnel and 90-second First Clutch protocol are ready for real-participant evidence; the game never fabricates results. |
+| 4 | Player-tested first shift | A local, privacy-preserving comprehension funnel and 60-second First Clutch protocol are ready for real-participant evidence; the game never fabricates results. |
 | 5 | Automation for mastered work | Teach Auto Fit converts a demonstrated routing pattern into an authoritative automation rule with a visible fallback. |
 | 6 | Visible payoff countdown | The Active Playbook now shows the next contract payoff and actions remaining. |
 | 7 | Stronger action anticipation | The dominant objective retains its world ghost path and pre-action consequence preview. |

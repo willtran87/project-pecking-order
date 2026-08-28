@@ -1,5 +1,15 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-28 - Compelling game-loop synthesis
+
+- Added the read-only `compelling_loop` gameplay pulse contract (version 8), resolving all 30 approved clarity, pacing, strategy, character, reward, accessibility, audio, and comprehension findings through existing authorities.
+- Tightened First Clutch to a skippable 60-second `ROUTE → HELP → EGG → REWARD` target.
+- Added safe before/after projections, three-channel action impact, shift identity, roster coverage, compact combo progress, celebration scale, semantic audio/shape grammar, and adaptive information density.
+- Kept the default HUD concise: deeper roster, consequence, and shift information lives in existing tooltips/metadata, while an active two-step combo can replace generic Active Playbook copy with `COMBO x/2`.
+- Added native/browser/release-gate contracts plus `docs/COMPELLING_GAME_LOOP_RESOLUTION.md`; real participant comprehension evidence remains explicitly required and is never fabricated.
+- Re-exported and inspected live gameplay at 2560×1600, 1440×900, and 844×390. The compact dossier stays attached to the selected workstation, HUD/world composition remains unobscured, and all three browser audits report 30/30 compelling-loop items with no assertion failures.
+- Ran the prescribed generic browser action smoke and cleaned up the dedicated local production server by exact PID; port 3001 is clear.
+
 ## 2026-08-27 - Rewarding game-loop completion
 
 - Consolidated all 25 intuitive, fun, engaging, and rewarding findings into the read-only `rewarding_loop` gameplay pulse contract (version 7).

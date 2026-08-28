@@ -19737,6 +19737,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_rewarding_loop_presentation(
 		_gameplay_pulse.get("rewarding_loop", {}) as Dictionary,
 	)
+	_apply_compelling_loop_presentation(
+		_gameplay_pulse.get("compelling_loop", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -20135,6 +20138,72 @@ func _apply_rewarding_loop_presentation(layer: Dictionary) -> void:
 		_active_playbook_button.set_meta(
 			"decision_cadence",
 			(layer.get("decision_cadence", {}) as Dictionary).duplicate(true),
+		)
+
+
+func _apply_compelling_loop_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var before_after := layer.get("before_after_preview", {}) as Dictionary
+	var before := before_after.get("before", {}) as Dictionary
+	var after := before_after.get("after", {}) as Dictionary
+	for icon in _consequence_icons:
+		if icon == null:
+			continue
+		icon.set_meta("before_after_preview", before_after.duplicate(true))
+		if not icon.tooltip_text.contains("\nNOW  ·"):
+			icon.tooltip_text += "\nNOW  ·  %s\nAFTER  ·  %s" % [
+				String(before.get("label", "OBSERVE")),
+				String(after.get("gain", "VISIBLE RESULT")),
+			]
+		icon.accessibility_name = icon.tooltip_text
+	var identity := layer.get("shift_identity", {}) as Dictionary
+	var roster := layer.get("roster_strategy", {}) as Dictionary
+	if _directive_badge != null:
+		if not _directive_badge.tooltip_text.contains("\nSHIFT  ·"):
+			_directive_badge.tooltip_text += "\nSHIFT  ·  %s\nROSTER  ·  %s" % [
+				String(identity.get("label", "BALANCED SHIFT")),
+				String(roster.get("compact", "FLOCK COVERAGE")),
+			]
+		_directive_badge.accessibility_name = _directive_badge.tooltip_text
+		_directive_badge.set_meta("shift_identity", identity.duplicate(true))
+		_directive_badge.set_meta("roster_strategy", roster.duplicate(true))
+	if _shift_goal_status_icon != null:
+		_shift_goal_status_icon.tooltip_text += "\n%s" % String(identity.get("label", "BALANCED SHIFT"))
+		_shift_goal_status_icon.set_meta("shift_identity", identity.duplicate(true))
+	var combo := layer.get("combo_discovery", {}) as Dictionary
+	var combo_progress := int(combo.get("progress", 0))
+	var combo_target := int(combo.get("target", 0))
+	var hen_personality := layer.get("hen_personality", {}) as Dictionary
+	var power := hen_personality.get("signature", {}) as Dictionary
+	if (
+		_active_playbook_button != null
+		and combo_progress > 0
+		and combo_progress < combo_target
+		and not bool(power.get("ready", false))
+	):
+		_active_playbook_button.text = "COMBO %d/%d  [Q]  ▾" % [combo_progress, combo_target]
+		_active_playbook_button.set_meta("combo_discovery", combo.duplicate(true))
+		if not _active_playbook_button.tooltip_text.begins_with("COMBO "):
+			_active_playbook_button.tooltip_text = "%s\n%s" % [
+				String(combo.get("compact", "COMBO IN PROGRESS")),
+				_active_playbook_button.tooltip_text,
+			]
+		_active_playbook_button.accessibility_name = _active_playbook_button.tooltip_text
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("compelling_loop", layer.duplicate(true))
+		_top_hud_panel.set_meta(
+			"celebration_scale",
+			(layer.get("celebration_scale", {}) as Dictionary).duplicate(true),
+		)
+		_top_hud_panel.set_meta(
+			"audio_grammar",
+			(layer.get("audio_grammar", {}) as Dictionary).duplicate(true),
+		)
+	if _routing_ui != null:
+		_routing_ui.set_meta(
+			"adaptive_information_density",
+			(layer.get("information_density", {}) as Dictionary).duplicate(true),
 		)
 
 

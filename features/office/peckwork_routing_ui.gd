@@ -4942,7 +4942,9 @@ func _apply_dossier_disclosure() -> void:
 	var profile_tab := normal_play and _details_expanded and _active_dossier_tab == &"profile"
 	var compact_recovery := compact_play and _assignment_undo_button.visible
 	_focus_panel.offset_top = (-210.0 if compact_recovery else -174.0) if compact_play else -222.0
-	_focus_panel.offset_right = -520.0 if compact_play else -18.0
+	# Keep the four-field action card visually attached to the selected hen
+	# instead of spanning across unrelated desks at wide desktop resolutions.
+	_focus_panel.offset_right = -760.0 if compact_play else -18.0
 	_focus_panel.set_meta("compact_action_card", compact_play)
 	_focus_panel.set_meta("essential_field_count", 4)
 	_dossier_summary_label.custom_minimum_size.y = 42.0 if compact_play else 54.0
