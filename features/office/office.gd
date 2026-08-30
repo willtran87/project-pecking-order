@@ -19991,6 +19991,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_consolidated_game_loop_presentation(
 		_gameplay_pulse.get("consolidated_game_loop", {}) as Dictionary,
 	)
+	_apply_professional_gameplay_completion_presentation(
+		_gameplay_pulse.get("professional_gameplay_completion", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -20652,6 +20655,36 @@ func _apply_consolidated_game_loop_presentation(layer: Dictionary) -> void:
 		_directive_badge.set_meta("management_build", (layer.get("management_build", {}) as Dictionary).duplicate(true))
 
 
+func _apply_professional_gameplay_completion_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var attention := layer.get("attention_choreography", {}) as Dictionary
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("professional_gameplay_completion", layer.duplicate(true))
+		_top_hud_panel.set_meta("attention_choreography", attention.duplicate(true))
+	if _routing_ui != null:
+		if _routing_ui.has_method("apply_professional_completion_state"):
+			_routing_ui.apply_professional_completion_state(layer)
+		else:
+			_routing_ui.set_meta("professional_gameplay_completion", layer.duplicate(true))
+	if _guidance_action_button != null:
+		_guidance_action_button.set_meta("attention_focus_id", String(attention.get("focus_id", "plan")))
+		_guidance_action_button.set_meta("required_shortcut_count", 0)
+		_guidance_action_button.set_meta("interaction_chain", (layer.get("interaction_chain", {}) as Dictionary).duplicate(true))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("delegation", (layer.get("delegation", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("pair_ability", (layer.get("pair_ability", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("what_if_planning", (layer.get("what_if_planning", {}) as Dictionary).duplicate(true))
+	if _rival_pulse_label != null:
+		_rival_pulse_label.set_meta("visible_rival_race", (layer.get("rival_race", {}) as Dictionary).duplicate(true))
+	if _reward_loop_host != null:
+		_reward_loop_host.set_meta("reward_readiness", (layer.get("reward_readiness", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("celebration_choice", (layer.get("celebration_choice", {}) as Dictionary).duplicate(true))
+	if _directive_badge != null:
+		_directive_badge.set_meta("authored_hero_case", (layer.get("hero_case", {}) as Dictionary).duplicate(true))
+		_directive_badge.set_meta("next_shift_hook", (layer.get("next_shift_hook", {}) as Dictionary).duplicate(true))
+
+
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
 	if _active_playbook_button == null:
 		return
@@ -20670,7 +20703,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			continue
 		var option := option_value as Dictionary
 		if (
-			String(option.get("kind", "")) in ["signature", "teamwork", "rescue", "automation", "intervention"]
+			String(option.get("kind", "")) in ["signature", "teamwork", "rescue", "automation", "automation_policy", "intervention"]
 			and bool(option.get("available", false))
 		):
 			contextual_power_ready = true
@@ -20680,9 +20713,13 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	if not running:
 		return
 	var primary_kind := ""
-	for priority_kind in ["reward", "rescue", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "modifier", "rival", "side_goal", "automation", "toy", "display", "challenge"]:
+	for priority_kind in ["reward", "rescue", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "modifier", "rival", "side_goal", "automation", "automation_policy", "toy", "display", "challenge"]:
 		for option_value in options:
-			if option_value is Dictionary and String((option_value as Dictionary).get("kind", "")) == priority_kind:
+			if (
+				option_value is Dictionary
+				and String((option_value as Dictionary).get("kind", "")) == priority_kind
+				and bool((option_value as Dictionary).get("available", false))
+			):
 				primary_kind = priority_kind
 				break
 		if not primary_kind.is_empty():
@@ -20694,8 +20731,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		var option := option_value as Dictionary
 		var kind := String(option.get("kind", ""))
 		if (
-			kind == primary_kind
-			or kind == "practice"
+			(kind == primary_kind and bool(option.get("available", false)))
+			or (kind == "practice" and bool(option.get("available", false)))
 			or (kind in ["signature", "teamwork", "intervention"] and bool(option.get("available", false)))
 		):
 			display_options.append(option)

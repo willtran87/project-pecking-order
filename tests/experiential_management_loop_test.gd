@@ -83,7 +83,7 @@ func _init() -> void:
 	var layer := pulse.get("experiential_management_loop", {}) as Dictionary
 	var explain := (pulse.get("complete_game_loop", {}) as Dictionary).get("explain_mode", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 13
+		int(pulse.get("version", 0)) == 14
 		and int(layer.get("item_count", 0)) == 20
 		and int(layer.get("resolved_count", 0)) == 20
 		and bool(layer.get("all_resolved", false))

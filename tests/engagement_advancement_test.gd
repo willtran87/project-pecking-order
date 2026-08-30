@@ -45,7 +45,7 @@ func _init() -> void:
 
 	var playbook := simulation.playbook_snapshot(0)
 	_check(not (playbook.get("build_identity", {}) as Dictionary).is_empty(), "the current build should have a compact identity summary", failures)
-	_check(((playbook.get("mastery_automation", {}) as Dictionary).get("rules", []) as Array).size() == 2, "mastery automation should disclose specialty and deadline rules", failures)
+	_check(((playbook.get("mastery_automation", {}) as Dictionary).get("rules", []) as Array).size() == 3, "mastery automation should disclose specialty, deadline, and strain-protection rules", failures)
 	_check(not (playbook.get("career_story", {}) as Dictionary).is_empty(), "persistent hen state should project as a multi-shift career story", failures)
 	_check((playbook.get("personal_best", {}) as Dictionary).has("routing"), "live progress should compare against a persistent personal best", failures)
 

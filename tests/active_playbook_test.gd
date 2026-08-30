@@ -108,8 +108,16 @@ func _init() -> void:
 			worker.morale = 100.0
 			worker.stress = 0.0
 			worker.fatigue = 0.0
+	var teamwork_xp_before := simulation.workers[0].career_xp
 	var teamwork := simulation.perform_playbook_action(&"teamwork", &"team_lift", 0)
-	_check(bool(teamwork.get("accepted", false)) and simulation.routing_momentum_peck_recharge_bank == 1, "a strong named bond should unlock one manual Team Lift", failures)
+	_check(
+		bool(teamwork.get("accepted", false))
+		and String(teamwork.get("ability_id", "")) == "mentor_handoff"
+		and simulation.workers[0].career_xp == teamwork_xp_before + 2
+		and simulation.routing_momentum_peck_recharge_bank == 0,
+		"a strong named bond should execute its pair-specific Mentor Handoff instead of a generic Team Lift",
+		failures,
+	)
 
 	var side_goal := simulation.perform_playbook_action(&"side_goal", &"team_lift", 0)
 	_check(bool(side_goal.get("accepted", false)), "a personal side goal should be player-authored and penalty-free", failures)
@@ -138,8 +146,18 @@ func _init() -> void:
 	_check(
 		bool(automation.get("accepted", false))
 		and simulation.workers[0].assigned_lane == &"auto"
+		and simulation.workers[0].automation_policy_unlocked
+		and simulation.workers[0].automation_policy_id == &"specialty_first"
 		and bool((simulation.playbook_snapshot(0).get("mastery_automation", {}) as Dictionary).get("used", false)),
-		"routing mastery should convert one solved hen route into authoritative Auto Fit",
+		"routing mastery should convert one solved hen route into authoritative Auto Fit with a persistent default policy",
+		failures,
+	)
+	var automation_policy := simulation.perform_playbook_action(&"automation_policy", &"deadline_first", 0)
+	_check(
+		bool(automation_policy.get("accepted", false))
+		and simulation.workers[0].automation_policy_id == &"deadline_first"
+		and _has_option(simulation.playbook_snapshot(0), &"automation_policy", &"protect_strain", true),
+		"the player should be able to revise an unlocked hen's delegation rule from the authoritative Playbook",
 		failures,
 	)
 
@@ -164,8 +182,10 @@ func _init() -> void:
 			and String(restored_playbook.get("push_luck_id", "")) == "chase_premium"
 			and bool(restored_playbook.get("mastery_auto_used", false))
 			and bool(restored_playbook.get("teamwork_used", false))
+			and restored.workers[0].automation_policy_unlocked
+			and restored.workers[0].automation_policy_id == &"deadline_first"
 			and (restored_playbook.get("signature_worker_ids", []) as Array) == [0]
-			and int(restored_playbook.get("receipt_serial", 0)) == 11
+			and int(restored_playbook.get("receipt_serial", 0)) == 12
 			and String((restored.playbook_snapshot(0).get("contract", {}) as Dictionary).get("id", "")) == "fit_three",
 			"restore should preserve all filed playbook choices and receipts",
 			failures,
@@ -204,7 +224,7 @@ func _init() -> void:
 			push_error("ACTIVE_PLAYBOOK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("ACTIVE_PLAYBOOK_TEST_PASSED choices=11 presets=3 journey=4 reward=choose-one push-luck=one-shot automation=mastery first-payoff=protected persistence=round-trip rollover=clean")
+	print("ACTIVE_PLAYBOOK_TEST_PASSED choices=12 presets=3 journey=4 reward=choose-one push-luck=one-shot automation=3-policy pair-ability=mentor-handoff first-payoff=protected persistence=round-trip rollover=clean")
 	quit(0)
 
 

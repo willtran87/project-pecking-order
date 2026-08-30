@@ -106,6 +106,11 @@ const PERSONNEL_ACTION_IDS: Array[StringName] = [
 	&"career_coaching",
 	&"quota_pressure",
 ]
+const AUTOMATION_POLICY_IDS: Array[StringName] = [
+	&"specialty_first",
+	&"deadline_first",
+	&"protect_strain",
+]
 const CAREER_THRESHOLDS: Array[int] = [0, 18, 45, 80]
 const CAREER_TITLES: Array[String] = [
 	"JUNIOR PECKWORK HEN",
@@ -137,6 +142,8 @@ var secondary_specialty: StringName = &""
 var cross_training_target: StringName = &""
 var cross_training_worked_this_shift: bool = false
 var assigned_lane: StringName = &"auto"
+var automation_policy_id: StringName = &"specialty_first"
+var automation_policy_unlocked: bool = false
 var manually_routed: bool = false
 var current_claim: ClaimState
 var morale: float = 74.0
@@ -182,6 +189,10 @@ static func default_career_profile(worker_id: int) -> StringName:
 
 static func default_temperament(worker_id: int) -> StringName:
 	return TEMPERAMENT_ORDER[posmod(worker_id, TEMPERAMENT_ORDER.size())]
+
+
+static func is_valid_automation_policy(policy_id: StringName) -> bool:
+	return policy_id in AUTOMATION_POLICY_IDS
 
 
 static func temperament_definition(worker_id: int) -> Dictionary:
@@ -404,6 +415,8 @@ func to_save_data() -> Dictionary:
 		"cross_training_target": String(cross_training_target),
 		"cross_training_worked_this_shift": cross_training_worked_this_shift,
 		"assigned_lane": String(assigned_lane),
+		"automation_policy_id": String(automation_policy_id),
+		"automation_policy_unlocked": automation_policy_unlocked,
 		"manually_routed": manually_routed,
 		"current_claim": current_claim.to_save_data() if current_claim != null else {},
 		"morale": morale,
@@ -437,6 +450,16 @@ func apply_save_data(data: Dictionary) -> bool:
 	accuracy = clampf(float(data.get("accuracy", accuracy)), 0.25, 0.999)
 	specialty = StringName(String(data.get("specialty", specialty)))
 	assigned_lane = StringName(String(data.get("assigned_lane", assigned_lane)))
+	var saved_automation_policy := StringName(String(data.get(
+		"automation_policy_id",
+		&"specialty_first",
+	)))
+	automation_policy_id = (
+		saved_automation_policy
+		if is_valid_automation_policy(saved_automation_policy) else
+		&"specialty_first"
+	)
+	automation_policy_unlocked = bool(data.get("automation_policy_unlocked", false))
 	manually_routed = (
 		bool(data.get("manually_routed", false))
 		and assigned_lane != &"auto"

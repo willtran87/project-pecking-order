@@ -14069,3 +14069,15 @@ The next major systems milestone is persistent worker relationships and individu
 - Production browser audits pass at 2560×1600, 1440×900, and 844×390 with zero console/page errors; original-size inspection confirms icon-led hierarchy, contained Playbook choices, and unclipped compact touch controls.
 - The complete beta release gate passes 71/71 checks in 694.54 seconds. Both release targets contain the byte-identical 10,734,412-byte PCK with SHA-256 `3E65136928897DF3DDABCF259899B7F50A96DDFC673E2FB44A378F661395D3FC`.
 - The owned local production wrapper was stopped after browser verification, port 3001 is confirmed free, no Godot process remains, and the pre-existing user service on port 3000 was left untouched.
+
+# 2026-08-30 — Professional gameplay completion
+
+- Closed the exact 23-item professional gameplay brief through existing simulation, Active Playbook, flock, rival, office, progression, and review authorities; no parallel economy, roster, claim queue, or save authority was introduced.
+- Added persistent per-hen Auto Fit rules: Specialty First, Deadline First, and Protect Strain. The selected policy changes authoritative claim selection, survives checkpoint round-trips, remains reversible, and keeps exceptions manual.
+- Replaced generic manual Team Lift outcomes with four pair-derived abilities—Specialist Duet, Mentor Handoff, Deadline Cover, and Shell Guard—with distinct authoritative morale, stress, trust, career XP, or attention effects.
+- Added phase-aware attention choreography, the shared `SELECT → PREVIEW → COMMIT → LAND` interaction grammar, world-first preview metadata, one-second causal receipts, reversible three-plan comparison, disclosed rival races, eight authored hero cases, six no-FOMO mastery challenges, reward anticipation, choice-driven celebrations, fail-forward branches, chapter transformations, and next-shift hooks.
+- Fixed an existing Playbook hierarchy defect discovered during original-size review: an unavailable proposal could outrank and hide the three actionable plan presets. Menu groups now require at least one available action, and unavailable dead ends are omitted.
+- Added `docs/PROFESSIONAL_GAMEPLAY_COMPLETION_RESOLUTION.md`, strengthened the five-person session card with eye target, cursor path, first hesitation, 30-second route, and zero-required-shortcut thresholds, and retained the honest `AWAITING REAL PARTICIPANTS` evidence state.
+- Production browser audits pass at 2560×1600, 1440×900, and 844×390 with all 23 mappings live and zero console/page errors. Original-size inspection confirms a contained icon-led office and an actionable Fast/Safe/Flock Playbook menu at desktop and compact widths.
+- The complete beta release gate passes 72/72 checks in 608.162 seconds. Both release targets contain the byte-identical 10,760,860-byte PCK with SHA-256 `FD75365078750A8B4FCC34D1B31643058B0F36937B0410BCE7153393222016D9`.
+- The owned production wrapper was stopped after verification, port 3001 is free, no owned Godot process remains, and the pre-existing service on port 3000 was left untouched.

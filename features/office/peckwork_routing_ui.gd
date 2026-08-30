@@ -980,6 +980,7 @@ func routing_lifecycle_state() -> Dictionary:
 		{"visible": false}
 	)
 	state["header_copy"] = _current_claim_label.text if _current_claim_label != null else ""
+	state["active_dispatch_lane"] = String(_active_dispatch_lane)
 	state["header_accessible_text"] = (
 		String(_current_claim_label.get_meta("accessible_text", ""))
 		if _current_claim_label != null else
@@ -1150,6 +1151,54 @@ func set_dispatch_state(
 	_dispatch_recommended_name = recommended_name
 	_dispatch_reward_label = reward_label
 	_refresh()
+
+
+## Applies the canonical phase-focus projection after the ordinary dossier has
+## refreshed. This is presentation-only: it never arms a tray, assigns a hen,
+## advances time, or files a simulation command.
+func apply_professional_completion_state(state: Dictionary) -> void:
+	set_meta("professional_gameplay_completion", state.duplicate(true))
+	if state.is_empty() or _focus_panel == null or _queue_panel == null:
+		return
+	var attention := state.get("attention_choreography", {}) as Dictionary
+	var focus_id := StringName(attention.get("focus_id", &"plan"))
+	_focus_panel.set_meta("attention_focus_id", String(focus_id))
+	_focus_panel.set_meta("one_primary_action", bool(attention.get("one_primary", true)))
+	_focus_panel.set_meta("invalid_choices_hidden", bool(attention.get("invalid_choices_hidden", true)))
+	_focus_panel.set_meta("visible_groups", (attention.get("visible_groups", []) as Array).duplicate(true))
+	_queue_panel.set_meta("attention_primary", String(attention.get("primary", "OBSERVE")))
+	if bool(_first_clutch.get("visible", false)):
+		return
+	match focus_id:
+		&"pickup_file":
+			_queue_panel.visible = true
+			if _assignment_section != null:
+				_assignment_section.visible = false
+			if _peck_assist_button != null:
+				_peck_assist_button.visible = false
+			if _claim_header != null:
+				_claim_header.visible = true
+			if _current_claim_label != null:
+				_current_claim_label.text = "1  PICK A FILE"
+				_current_claim_label.tooltip_text = "Choose one physical routing tray, then select a highlighted hen. Route choices stay hidden until a file is armed."
+				_current_claim_label.accessibility_name = _current_claim_label.tooltip_text
+				_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
+				_current_claim_label.set_meta("presentation_role", &"primary_action")
+		&"choose_hen":
+			_queue_panel.visible = true
+			if _claim_header != null:
+				_claim_header.visible = true
+			if _current_claim_label != null:
+				_current_claim_label.text = "2  PICK A HEN"
+				_current_claim_label.tooltip_text = "The file is armed. Choose a highlighted hen; the gold marker is the best fit."
+				_current_claim_label.accessibility_name = _current_claim_label.tooltip_text
+				_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
+				_current_claim_label.set_meta("presentation_role", &"primary_action")
+		&"work":
+			if _assignment_section != null:
+				_assignment_section.visible = false
+		_:
+			pass
 
 
 func play_dispatch_reward(

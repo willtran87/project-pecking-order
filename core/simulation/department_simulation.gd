@@ -2027,6 +2027,32 @@ const PLAYBOOK_RIVAL_DEFINITIONS := {
 	&"counter": {"label": "COUNTER PUSH", "icon": &"rival", "gain": "PACE +4%", "cost": "SHELL RISK +1.2%", "risk": "QUALITY EXPOSURE"},
 	&"ignore": {"label": "BACK THE FLOCK", "icon": &"care", "gain": "SOLIDARITY +2", "cost": "NO RIVAL MODIFIER", "risk": "MARGIN UNCHANGED"},
 }
+const PLAYBOOK_DELEGATION_POLICY_DEFINITIONS := {
+	&"specialty_first": {
+		"label": "SPECIALTY FIRST",
+		"icon": &"route",
+		"gain": "MATCHED FILES FIRST",
+		"cost": "180M DEADLINE GRACE",
+		"risk": "URGENT FILES CAN OVERRIDE",
+		"rule": "Prefer the hen's accredited lanes while the earliest file remains inside the disclosed grace window.",
+	},
+	&"deadline_first": {
+		"label": "DEADLINE FIRST",
+		"icon": &"clock",
+		"gain": "EARLIEST FILE FIRST",
+		"cost": "SPECIALTY MAY MISS",
+		"risk": "MORE STRAIN / SHELL RISK",
+		"rule": "Always take the earliest deadline across every tray, using file ID as the stable tie-break.",
+	},
+	&"protect_strain": {
+		"label": "PROTECT STRAIN",
+		"icon": &"care",
+		"gain": "MATCHED WORK WHEN STRAINED",
+		"cost": "SLOWER QUEUE CLEAR",
+		"risk": "DEADLINES OVERRIDE AT 30M",
+		"rule": "At 55+ stress, keep the hen in accredited lanes unless the earliest file leads by more than 30 minutes.",
+	},
+}
 const PLAYBOOK_LOADOUT_DEFINITIONS := {
 	&"pace_floor": {"label": "PACE FLOOR", "icon": &"route", "gain": "PACE +4%", "cost": "SHELL RISK +0.8%", "risk": "FAST / FRAGILE"},
 	&"quality_floor": {"label": "QUALITY FLOOR", "icon": &"shield", "gain": "SHELL RISK -1.8%", "cost": "PACE -2%", "risk": "SLOWER CLUTCH"},
@@ -16859,7 +16885,24 @@ static func first_session_comprehension_protocol() -> Dictionary:
 		"unaided": true,
 		"tasks": ["Choose a plan", "Route one file", "Recover one mistake", "Explain one result"],
 		"pass_rule": "At least 4 of 5 participants complete all four tasks without outside instruction.",
-		"instrumented_events": ["plan_filed", "route_completed", "rescue_used", "result_explained"],
+		"thresholds": {
+			"choose_plan_unaided": "4/5",
+			"route_within_seconds": 30,
+			"explain_result_correctly": "4/5",
+			"required_shortcut_discovery": 0,
+		},
+		"observations": ["eye_target", "cursor_path", "first_hesitation", "recovery_path"],
+		"instrumented_events": [
+			"plan_filed",
+			"route_completed",
+			"rescue_used",
+			"result_explained",
+			"shortcut_required",
+			"attention_target_changed",
+		],
+		"real_humans_required": true,
+		"results_complete": false,
+		"never_fabricate": true,
 		"status": "AWAITING REAL PARTICIPANTS",
 	}
 
@@ -16985,11 +17028,26 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		))
 	var teamwork_available := false
 	var teamwork_reason := "Select a bonded hen with a Good Perch or Clutchmates relationship."
+	var teamwork_ability: Dictionary = {}
 	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
 		var bond := _worker_flock_bond_snapshot(workers[focused_worker_id])
 		teamwork_available = running and not bool(active_playbook.get("teamwork_used", false)) and int(bond.get("score", 0)) >= 60
-		teamwork_reason = "%s + %s at %d/100; restores morale and one attention charge." % [workers[focused_worker_id].display_name, String(bond.get("partner_name", "PERCHMATE")), int(bond.get("score", 0))]
-	options.append(_playbook_option(&"teamwork", &"team_lift", {"label": "TEAM LIFT", "icon": &"sync", "gain": "PAIR MORALE + ATTENTION", "cost": "ONCE / SHIFT", "risk": "REQUIRES BOND 60"}, teamwork_available, teamwork_reason))
+		var partner_id := int(bond.get("partner_id", -1))
+		if partner_id >= 0 and partner_id < workers.size():
+			teamwork_ability = _team_lift_ability(workers[focused_worker_id], workers[partner_id])
+		teamwork_reason = "%s + %s at %d/100; %s." % [
+			workers[focused_worker_id].display_name,
+			String(bond.get("partner_name", "PERCHMATE")),
+			int(bond.get("score", 0)),
+			String(teamwork_ability.get("summary", "restore morale and one attention charge")),
+		]
+	options.append(_playbook_option(&"teamwork", &"team_lift", {
+		"label": String(teamwork_ability.get("label", "TEAM LIFT")),
+		"icon": teamwork_ability.get("icon", &"sync"),
+		"gain": String(teamwork_ability.get("gain", "PAIR MORALE + ATTENTION")),
+		"cost": "ONCE / SHIFT",
+		"risk": "REQUIRES BOND 60",
+	}, teamwork_available, teamwork_reason))
 	if contract_complete and String(active_playbook.get("contract_reward_id", "")).is_empty():
 		for choice_id: StringName in PLAYBOOK_REWARD_DEFINITIONS:
 			options.append(_playbook_option(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], running, "Claim one reward for the completed optional contract."))
@@ -17016,8 +17074,28 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"icon": &"route",
 			"gain": "SELECTED HEN ROUTES BY FIT",
 			"cost": "USES MASTERY MARK",
-			"risk": "AUTO FAVORS DEADLINES",
+			"risk": "EXCEPTIONS STAY MANUAL",
 		}, mastery_auto_available, "Select the hen whose solved route should now run automatically."))
+	var delegation_policy_id: StringName = &""
+	var delegation_policy_unlocked := false
+	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
+		var focused_automation_worker := workers[focused_worker_id]
+		delegation_policy_id = focused_automation_worker.automation_policy_id
+		delegation_policy_unlocked = (
+			focused_automation_worker.automation_policy_unlocked
+			and focused_automation_worker.assigned_lane == AUTO_ASSIGNMENT
+		)
+		if delegation_policy_unlocked:
+			for policy_id: StringName in PLAYBOOK_DELEGATION_POLICY_DEFINITIONS:
+				if policy_id == delegation_policy_id:
+					continue
+				options.append(_playbook_option(
+					&"automation_policy",
+					policy_id,
+					PLAYBOOK_DELEGATION_POLICY_DEFINITIONS[policy_id],
+					running,
+					"Reversible management rule for this hen's future routine files.",
+				))
 	var recovery_open := (
 		running
 		and String(active_playbook.get("recovery_id", "")).is_empty()
@@ -17092,6 +17170,13 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"automatic": false,
 			"one_click": true,
 		},
+		"strategy_comparison": {
+			"current_id": String(strategy_preset_id),
+			"recommended_id": String(recommended_preset_id),
+			"reversible_preview": true,
+			"changes_authority": false,
+			"plans": _strategy_comparison_catalog(strategy_preset_id, recommended_preset_id),
+		},
 		"contract": contract_snapshot,
 		"combo": {"id": String(directive_combo.get("id", "")), "label": String(directive_combo.get("label", "COMBO")), "icon": String(directive_combo.get("icon", "sync")), "active": combo_active, "progress": routing_momentum_chain, "target": ROUTING_MOMENTUM_PACE_MILESTONE, "effect": String(directive_combo.get("effect", ""))},
 		"combo_recipe": combo_recipe,
@@ -17130,6 +17215,11 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"skippable": true,
 		},
 		"teamwork_used": bool(active_playbook.get("teamwork_used", false)),
+		"teamwork": {
+			"used": bool(active_playbook.get("teamwork_used", false)),
+			"available": teamwork_available,
+			"ability": teamwork_ability.duplicate(true),
+		},
 		"push_luck": {
 			"id": String(active_playbook.get("push_luck_id", "")),
 			"start_eggs": int(active_playbook.get("push_luck_start_eggs", 0)),
@@ -17140,10 +17230,10 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"used": bool(active_playbook.get("mastery_auto_used", false)),
 			"chain": routing_momentum_chain,
 			"target": ROUTING_MOMENTUM_PACE_MILESTONE,
-			"rules": [
-				{"id": "specialty_first", "label": "SPECIALTY FIRST", "condition": "MATCH EXISTS", "fallback": "EARLIEST DEADLINE"},
-				{"id": "deadline_first", "label": "DEADLINE FIRST", "condition": "FILE OVERDUE", "fallback": "BEST FIT"},
-			],
+			"policy_id": String(delegation_policy_id),
+			"policy_unlocked": delegation_policy_unlocked,
+			"policy": (PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.get(delegation_policy_id, {}) as Dictionary).duplicate(true),
+			"rules": _delegation_policy_catalog(),
 		},
 		"hen_proposal": {
 			"worker_id": int(active_playbook.get("proposal_worker_id", focused_worker_id)),
@@ -17444,6 +17534,8 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			return {"accepted": false, "reason": "Select the hen whose routing rule should be automated."}
 		if not set_worker_assignment(worker_id, &"auto"):
 			return {"accepted": false, "reason": "Auto Fit could not be filed for that hen."}
+		workers[worker_id].automation_policy_unlocked = true
+		workers[worker_id].automation_policy_id = &"specialty_first"
 		active_playbook["mastery_auto_used"] = true
 		return _file_playbook_receipt({
 			"accepted": true,
@@ -17452,7 +17544,36 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			"worker_id": worker_id,
 			"label": "AUTO FIT TAUGHT",
 			"effects": {"gain": "ROUTING AUTOMATED", "cost": "MASTERY MARK", "risk": "DEADLINES MAY OVERRIDE FIT"},
-			"outcome": "%s learned Auto Fit. Her next files now balance specialty and deadline without repeated routing clicks." % workers[worker_id].display_name,
+			"outcome": "%s learned Auto Fit with Specialty First. Her delegation rule is now persistent and can be revised from the Playbook." % workers[worker_id].display_name,
+			"day": day,
+		})
+	if kind == &"automation_policy":
+		if not PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.has(choice_id):
+			return {"accepted": false, "reason": "That delegation policy is not available."}
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+			return {"accepted": false, "reason": "Select the hen whose delegation rule should change."}
+		var automation_worker := workers[worker_id]
+		if not automation_worker.automation_policy_unlocked or automation_worker.assigned_lane != AUTO_ASSIGNMENT:
+			return {"accepted": false, "reason": "Teach this hen Auto Fit before revising her delegation rule."}
+		if automation_worker.automation_policy_id == choice_id:
+			return {"accepted": false, "reason": "That delegation rule is already active."}
+		automation_worker.automation_policy_id = choice_id
+		var policy_definition := PLAYBOOK_DELEGATION_POLICY_DEFINITIONS[choice_id] as Dictionary
+		return _file_playbook_receipt({
+			"accepted": true,
+			"playbook_kind": "automation_policy",
+			"choice_id": String(choice_id),
+			"worker_id": worker_id,
+			"label": String(policy_definition.get("label", "AUTO POLICY")),
+			"effects": {
+				"gain": String(policy_definition.get("gain", "ROUTINE DELEGATION")),
+				"cost": String(policy_definition.get("cost", "NONE")),
+				"risk": String(policy_definition.get("risk", "EXCEPTIONS REMAIN MANUAL")),
+			},
+			"outcome": "%s now delegates routine files by %s. Exceptions remain visible and manual." % [
+				automation_worker.display_name,
+				String(policy_definition.get("label", "AUTO POLICY")).capitalize(),
+			],
 			"day": day,
 		})
 	if kind == &"teamwork":
@@ -17516,6 +17637,92 @@ func _claim_playbook_contract_reward(choice_id: StringName, worker_id: int) -> D
 	return _file_playbook_receipt(_playbook_choice_result(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], "%s claimed for %s." % [String(PLAYBOOK_REWARD_DEFINITIONS[choice_id].get("label", "Reward")), String(contract_definition.get("label", "the contract"))]))
 
 
+func _delegation_policy_catalog() -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	for policy_id: StringName in PLAYBOOK_DELEGATION_POLICY_DEFINITIONS:
+		var row := (PLAYBOOK_DELEGATION_POLICY_DEFINITIONS[policy_id] as Dictionary).duplicate(true)
+		row["id"] = String(policy_id)
+		row["persistent"] = true
+		row["exceptions_manual"] = true
+		catalog.append(row)
+	return catalog
+
+
+func _strategy_comparison_catalog(current_id: StringName, recommended_id: StringName) -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	for plan_id in PLAYBOOK_STRATEGY_PRESET_ORDER:
+		var definition := PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[plan_id] as Dictionary
+		catalog.append({
+			"id": String(plan_id),
+			"label": String(definition.get("label", "PLAN")),
+			"icon": String(definition.get("icon", &"goal")),
+			"gain": String(definition.get("gain", "")),
+			"cost": String(definition.get("cost", "")),
+			"risk": String(definition.get("risk", "")),
+			"promise": String(definition.get("promise", "")),
+			"current": plan_id == current_id,
+			"recommended": plan_id == recommended_id,
+		})
+	return catalog
+
+
+func _team_lift_ability(worker: ChickenState, partner: ChickenState) -> Dictionary:
+	if worker == null or partner == null:
+		return {}
+	var specialties: Array[StringName] = [worker.specialty, partner.specialty]
+	if worker.specialty == partner.specialty:
+		return {
+			"id": "specialist_duet",
+			"label": "SPECIALIST DUET",
+			"icon": &"sync",
+			"gain": "XP +3 / MORALE +4",
+			"summary": "file a shared specialty lesson and restore morale",
+			"morale": 4.0,
+			"stress": -3.0,
+			"trust": 2.0,
+			"career_xp": 3,
+			"attention_charge": 0,
+		}
+	if &"appeals" in specialties and &"nest_damage" in specialties:
+		return {
+			"id": "mentor_handoff",
+			"label": "MENTOR HANDOFF",
+			"icon": &"flock",
+			"gain": "XP +2 / STRESS -5",
+			"summary": "turn the handoff into career growth and calmer work",
+			"morale": 4.0,
+			"stress": -5.0,
+			"trust": 3.0,
+			"career_xp": 2,
+			"attention_charge": 0,
+		}
+	if &"appeals" in specialties and &"predator_loss" in specialties:
+		return {
+			"id": "deadline_cover",
+			"label": "DEADLINE COVER",
+			"icon": &"clock",
+			"gain": "ATTENTION +1 / STRESS -4",
+			"summary": "cover the deadline and restore one attention charge",
+			"morale": 3.0,
+			"stress": -4.0,
+			"trust": 2.0,
+			"career_xp": 0,
+			"attention_charge": 1,
+		}
+	return {
+		"id": "shell_guard",
+		"label": "SHELL GUARD",
+		"icon": &"shield",
+		"gain": "TRUST +4 / STRESS -4",
+		"summary": "steady the risky file with a trusted shell check",
+		"morale": 4.0,
+		"stress": -4.0,
+		"trust": 4.0,
+		"career_xp": 0,
+		"attention_charge": 0,
+	}
+
+
 func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
 	if bool(active_playbook.get("teamwork_used", false)):
 		return {"accepted": false, "reason": "Team Lift is already filed this shift."}
@@ -17526,13 +17733,42 @@ func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
 	var partner_id := int(bond.get("partner_id", -1))
 	if int(bond.get("score", 0)) < 60 or partner_id < 0 or partner_id >= workers.size():
 		return {"accepted": false, "reason": "Team Lift requires a Good Perch bond at 60 or higher."}
+	var ability := _team_lift_ability(worker, workers[partner_id])
+	var morale_delta := float(ability.get("morale", 4.0))
+	var stress_delta := float(ability.get("stress", -4.0))
+	var trust_delta := float(ability.get("trust", 2.0))
+	var career_xp_delta := int(ability.get("career_xp", 0))
 	for teammate_id in [worker_id, partner_id]:
-		workers[teammate_id].morale = minf(100.0, workers[teammate_id].morale + 6.0)
-		workers[teammate_id].stress = maxf(0.0, workers[teammate_id].stress - 4.0)
-		workers[teammate_id].manager_trust = minf(100.0, workers[teammate_id].manager_trust + 2.0)
-	routing_momentum_peck_recharge_bank = 1
+		workers[teammate_id].morale = clampf(workers[teammate_id].morale + morale_delta, 0.0, 100.0)
+		workers[teammate_id].stress = clampf(workers[teammate_id].stress + stress_delta, 0.0, 100.0)
+		workers[teammate_id].manager_trust = clampf(workers[teammate_id].manager_trust + trust_delta, 0.0, 100.0)
+		if career_xp_delta > 0:
+			workers[teammate_id].add_career_xp(career_xp_delta)
+	if int(ability.get("attention_charge", 0)) > 0:
+		routing_momentum_peck_recharge_bank = 1
 	active_playbook["teamwork_used"] = true
-	return _file_playbook_receipt({"accepted": true, "playbook_kind": "teamwork", "choice_id": "team_lift", "worker_id": worker_id, "partner_id": partner_id, "label": "TEAM LIFT", "effects": {"morale": 6, "stress": -4, "attention_charge": 1}, "outcome": "%s and %s filed Team Lift." % [worker.display_name, String(bond.get("partner_name", "her perchmate"))], "day": day})
+	return _file_playbook_receipt({
+		"accepted": true,
+		"playbook_kind": "teamwork",
+		"choice_id": "team_lift",
+		"ability_id": String(ability.get("id", "team_lift")),
+		"worker_id": worker_id,
+		"partner_id": partner_id,
+		"label": String(ability.get("label", "TEAM LIFT")),
+		"effects": {
+			"morale": morale_delta,
+			"stress": stress_delta,
+			"trust": trust_delta,
+			"career_xp": career_xp_delta,
+			"attention_charge": int(ability.get("attention_charge", 0)),
+		},
+		"outcome": "%s and %s filed %s." % [
+			worker.display_name,
+			String(bond.get("partner_name", "her perchmate")),
+			String(ability.get("label", "Team Lift")).capitalize(),
+		],
+		"day": day,
+	})
 
 
 func _perform_playbook_recovery(choice_id: StringName) -> Dictionary:
@@ -21838,6 +22074,13 @@ func _take_claim_for_worker(worker: ChickenState) -> ClaimState:
 
 	if urgent_claim == null:
 		return null
+	var automation_policy := (
+		worker.automation_policy_id
+		if worker.automation_policy_unlocked else
+		&"specialty_first"
+	)
+	if automation_policy == &"deadline_first":
+		return _remove_claim_at(urgent_lane, urgent_index)
 	var trained_lanes: Array[StringName] = [worker.specialty]
 	if (
 		automation_recognizes_secondary_specialties()
@@ -21864,10 +22107,13 @@ func _take_claim_for_worker(worker: ChickenState) -> ClaimState:
 			trained_lane = lane
 			trained_index = candidate_index
 			trained_claim = candidate
+	var specialty_grace_minutes := automation_specialty_grace_minutes()
+	if automation_policy == &"protect_strain" and worker.stress >= 55.0:
+		specialty_grace_minutes = 30
 	if (
 		trained_claim != null
 		and trained_claim.deadline_operational_minute
-			<= urgent_claim.deadline_operational_minute + automation_specialty_grace_minutes()
+			<= urgent_claim.deadline_operational_minute + specialty_grace_minutes
 	):
 		return _remove_claim_at(trained_lane, trained_index)
 	return _remove_claim_at(urgent_lane, urgent_index)
@@ -24003,6 +24249,13 @@ func snapshot(
 			("AUTO DISPATCH" if worker.assigned_lane == AUTO_ASSIGNMENT else
 			_lane_display_name(worker.assigned_lane)
 			)
+		)
+		worker_snapshot["automation_policy_id"] = String(worker.automation_policy_id)
+		worker_snapshot["automation_policy_unlocked"] = worker.automation_policy_unlocked
+		worker_snapshot["automation_policy"] = (
+			(PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.get(worker.automation_policy_id, {}) as Dictionary).duplicate(true)
+			if worker.automation_policy_unlocked else
+			{}
 		)
 		var hire_added_daily_operating_cents := (
 			_hire_feed_obligation_delta_cents() + worker.daily_wage_cents()
