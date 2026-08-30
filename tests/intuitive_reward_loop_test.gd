@@ -53,7 +53,7 @@ func _run() -> void:
 		"comprehension_driven_playtesting",
 	]
 	_check(
-		int(pulse.get("version", 0)) == 12
+		int(pulse.get("version", 0)) == 13
 		and int(layer.get("item_count", 0)) == 20
 		and int(layer.get("resolved_count", 0)) == 20
 		and bool(layer.get("all_resolved", false))
@@ -108,6 +108,17 @@ func _run() -> void:
 		and String(station_snapshot.get("last_intervention_id", "")) == "ring_bell"
 		and (station_snapshot.get("sequence", []) as Array) == ["CALL", "FLOCK", "RESULT"],
 		"an accepted manager call should play exactly one visual three-beat sequence",
+		failures,
+	)
+	presence.apply_consolidated_loop_state(pulse.get("consolidated_game_loop", {}) as Dictionary)
+	presence.play_core_loop_sequence(&"route", &"best_fit")
+	await create_timer(0.05).timeout
+	station_snapshot = presence.command_station_snapshot()
+	_check(
+		int(station_snapshot.get("sequence_serial", 0)) == 2
+		and String(station_snapshot.get("last_action_id", "")) == "route"
+		and bool(station_snapshot.get("canonical_loop", false)),
+		"ordinary accepted routes should use the same physical three-beat station language",
 		failures,
 	)
 

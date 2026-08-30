@@ -18,12 +18,12 @@ func _run() -> void:
 	var funnel_snapshot := funnel.snapshot(32_000)
 	var micro := funnel_snapshot.get("micro_shift", {}) as Dictionary
 	_check(
-		int(micro.get("budget_seconds", 0)) == 60
+		int(micro.get("budget_seconds", 0)) == 30
 		and int(micro.get("beat_count", 0)) == 4
 		and int(micro.get("completed_count", 0)) == 4
 		and bool(micro.get("complete", false))
 		and int(micro.get("retired_label_count", 0)) == 4,
-		"the local first-session funnel should resolve plan, route, react, and reward inside one 60-second micro-shift contract",
+		"the local first-session funnel should resolve plan, route, react, and reward inside one 30-second micro-shift contract",
 		failures,
 	)
 
@@ -93,7 +93,7 @@ func _run() -> void:
 	var explain := complete_loop.get("explain_mode", {}) as Dictionary
 	var story := complete_loop.get("emergent_story", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 12
+		int(pulse.get("version", 0)) == 13
 		and int(complete_loop.get("item_count", 0)) == 24
 		and bool(complete_loop.get("all_resolved", false))
 		and String(rhythm.get("stage", "")) == "final_push"
@@ -203,7 +203,7 @@ func _run() -> void:
 			push_error("COMPLETE_GAME_LOOP_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("COMPLETE_GAME_LOOP_TEST_PASSED first_shift=60s rhythm=6-stage explain=4-chip trails=world stories=3-beat report=3-card replay=fast items=24")
+	print("COMPLETE_GAME_LOOP_TEST_PASSED first_shift=30s rhythm=6-stage explain=4-chip trails=world stories=3-beat report=3-card replay=fast items=24")
 	quit(0)
 
 

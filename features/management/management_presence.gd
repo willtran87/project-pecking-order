@@ -249,6 +249,46 @@ func play_manager_intervention(choice_id: StringName) -> void:
 	_command_station_tween.tween_property(_command_station_result_beacon, "scale", Vector3.ONE, 0.24)
 
 
+## Universal FILE/ACTION -> FLOCK -> RESULT presentation for every accepted
+## route or Playbook action. It never files the action or changes simulation.
+func play_core_loop_sequence(action_id: StringName, result_id: StringName = &"result") -> void:
+	if _command_station_root == null or _command_station_status_beacon == null or _command_station_result_beacon == null:
+		return
+	if _command_station_tween != null and _command_station_tween.is_valid():
+		_command_station_tween.kill()
+	_command_station_serial += 1
+	var source: Node3D = _command_station_hero_file
+	if source == null or not source.visible:
+		source = _command_station_choice_roots.get(&"ring_bell") as Node3D
+	if source == null:
+		return
+	_command_station_root.set_meta("cause_effect_sequence", ["ACTION", "FLOCK", "RESULT"])
+	_command_station_root.set_meta("last_action_id", action_id)
+	_command_station_root.set_meta("last_result_id", result_id)
+	_command_station_root.set_meta("sequence_serial", _command_station_serial)
+	source.scale = Vector3.ONE
+	_command_station_status_beacon.scale = Vector3.ONE
+	_command_station_result_beacon.scale = Vector3.ONE
+	_command_station_tween = create_tween().bind_node(self)
+	_command_station_tween.set_speed_scale(_animation_speed_multiplier)
+	_command_station_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_command_station_tween.tween_property(source, "scale", Vector3.ONE * 1.24, 0.10)
+	_command_station_tween.tween_property(source, "scale", Vector3.ONE, 0.14)
+	_command_station_tween.tween_property(_command_station_status_beacon, "scale", Vector3.ONE * 1.36, 0.12)
+	_command_station_tween.tween_property(_command_station_status_beacon, "scale", Vector3.ONE, 0.16)
+	_command_station_tween.set_trans(Tween.TRANS_BACK)
+	_command_station_tween.tween_property(_command_station_result_beacon, "scale", Vector3.ONE * 1.48, 0.14)
+	_command_station_tween.tween_property(_command_station_result_beacon, "scale", Vector3.ONE, 0.20)
+
+
+func apply_consolidated_loop_state(state: Dictionary) -> void:
+	if _command_station_root == null:
+		return
+	_command_station_root.set_meta("consolidated_game_loop", state.duplicate(true))
+	_command_station_root.set_meta("canonical_loop", true)
+	_command_station_root.set_meta("unified_cue", (state.get("unified_cue", {}) as Dictionary).duplicate(true))
+
+
 func command_station_snapshot() -> Dictionary:
 	return {
 		"physical": _command_station_root != null,
@@ -264,6 +304,16 @@ func command_station_snapshot() -> Dictionary:
 			_command_station_root.get_meta("last_intervention_id", &"")
 			if _command_station_root != null else
 			&""
+		),
+		"last_action_id": String(
+			_command_station_root.get_meta("last_action_id", &"")
+			if _command_station_root != null else
+			&""
+		),
+		"canonical_loop": bool(
+			_command_station_root.get_meta("canonical_loop", false)
+			if _command_station_root != null else
+			false
 		),
 		"adds_collision": false,
 		"presentation_only": true,

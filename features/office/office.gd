@@ -10835,6 +10835,11 @@ func _commit_dispatch(worker_id: int) -> bool:
 			reward_id,
 			reward,
 		)
+	if delivery_started and _management_presence != null:
+		_management_presence.play_core_loop_sequence(
+			&"route",
+			reward_id if reward_id != &"" else &"filed",
+		)
 	_clear_dispatch_mode(true)
 	if reward_id != &"":
 		if (
@@ -19983,6 +19988,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_intuitive_reward_presentation(
 		_gameplay_pulse.get("intuitive_reward_loop", {}) as Dictionary,
 	)
+	_apply_consolidated_game_loop_presentation(
+		_gameplay_pulse.get("consolidated_game_loop", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -20609,6 +20617,41 @@ func _apply_intuitive_reward_presentation(layer: Dictionary) -> void:
 		_core_loop_host.set_meta("mastery_feedback", (layer.get("mastery_feedback", {}) as Dictionary).duplicate(true))
 
 
+func _apply_consolidated_game_loop_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var cue := layer.get("unified_cue", {}) as Dictionary
+	if _management_presence != null:
+		_management_presence.apply_consolidated_loop_state(layer)
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("canonical_game_loop", layer.duplicate(true))
+	if _core_loop_host != null:
+		_core_loop_host.tooltip_text = "NOW  %s\nWHY  %s\nREWARD  %s" % [
+			String(cue.get("now", "OBSERVE")),
+			String(cue.get("why", "MOVE THE SHIFT")),
+			String(cue.get("reward", "VISIBLE RESULT")),
+		]
+		_core_loop_host.set_meta("canonical", true)
+		_core_loop_host.set_meta("unified_cue", cue.duplicate(true))
+		_core_loop_host.set_meta("shift_arc", (layer.get("shift_arc", {}) as Dictionary).duplicate(true))
+	if _guidance_action_button != null:
+		_guidance_action_button.set_meta("now_why_reward", cue.duplicate(true))
+		_guidance_action_button.set_meta("one_primary_action", true)
+	if _routing_ui != null:
+		_routing_ui.set_meta("chicken_identities", (layer.get("chicken_identities", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("flock_pairings", (layer.get("flock_pairings", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("hero_case", (layer.get("hero_case", {}) as Dictionary).duplicate(true))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("canonical_game_loop", layer.duplicate(true))
+		_active_playbook_button.set_meta("management_build", (layer.get("management_build", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("rival_counterplay", (layer.get("rival_counterplay", {}) as Dictionary).duplicate(true))
+	if _reward_loop_host != null:
+		_reward_loop_host.set_meta("three_level_cadence", (layer.get("reward_cadence", {}) as Dictionary).duplicate(true))
+	if _directive_badge != null:
+		_directive_badge.set_meta("hero_case", (layer.get("hero_case", {}) as Dictionary).duplicate(true))
+		_directive_badge.set_meta("management_build", (layer.get("management_build", {}) as Dictionary).duplicate(true))
+
+
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
 	if _active_playbook_button == null:
 		return
@@ -20825,6 +20868,8 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 		_office_atmosphere.pulse_strategy_reward()
 	if kind == &"intervention" and _management_presence != null:
 		_management_presence.play_manager_intervention(choice_id)
+	elif _management_presence != null:
+		_management_presence.play_core_loop_sequence(kind, choice_id)
 	if kind == &"challenge":
 		DisplayServer.clipboard_set(String(result.get("code", "")))
 	if String(result.get("playbook_kind", "")) == "reward" and _office_atmosphere != null:

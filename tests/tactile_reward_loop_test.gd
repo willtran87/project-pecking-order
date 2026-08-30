@@ -47,7 +47,7 @@ func _run() -> void:
 	})
 	var layer := pulse.get("tactile_reward_loop", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 12
+		int(pulse.get("version", 0)) == 13
 		and int(layer.get("item_count", 0)) == 20
 		and int(layer.get("resolved_count", 0)) == 20
 		and bool(layer.get("all_resolved", false))
@@ -73,7 +73,7 @@ func _run() -> void:
 	var scenario := layer.get("scenario_board", {}) as Dictionary
 	_check(
 		int(tutorial.get("safe_practice_ceiling_seconds", 0)) == 300
-		and int(tutorial.get("first_reward_budget_seconds", 0)) == 60
+		and int(tutorial.get("first_reward_budget_seconds", 0)) == 30
 		and int(intensity.get("count", 0)) == 3
 		and String(intensity.get("default", "")) == "standard_filing"
 		and bool(scenario.get("permanent", false))

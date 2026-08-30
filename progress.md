@@ -14057,3 +14057,15 @@ The next major systems milestone is persistent worker relationships and individu
 - Production browser audits pass at 2560×1600, 1440×900, and 844×390 with zero console/page errors; visual inspection confirms compact icon-led choices, clear hierarchy, and unclipped touch controls.
 - The complete beta release gate passes 70/70 checks in 549.63 seconds. Both release targets contain the byte-identical 10,719,328-byte PCK with SHA-256 `BA51DA2BCF6F72F0DAB82A2C9C0E3A798807DF9DC90C42D0C2B52BFB250E0B36`.
 - The owned local production wrapper was stopped after verification, port 3001 is confirmed free, no Godot process remains, and the pre-existing user service on port 3000 was left untouched.
+
+# 2026-08-30 — Consolidated professional game loop
+
+- Consolidated the latest sixteen approved improvements into one canonical `NOW → WHY → REWARD` projection sourced from existing simulation, Active Playbook, chicken, rival, environment, story, and progression authorities.
+- Tightened the measured First Clutch micro-shift from 60 seconds to a 30-second 5/12/22/30 `PLAN → ROUTE → REACT → REWARD` target while retaining the prepared file, protected payoff, smart plan default, and skippable coaching.
+- Extended the physical manager station's interrupt-safe three-beat language to accepted routes and all accepted Playbook actions without adding collision, authority, or a new HUD panel.
+- Consolidated decision-relevant hen identities, de-duplicated bonded pairs, six existing office hotspots, twelve deterministic case constellations, a three-slot player-authored build, rival forecasts, three-level reward cadence, learned verbs, recurring stories, and proof-gated routine automation.
+- Added `docs/CONSOLIDATED_GAME_LOOP_RESOLUTION.md`, a practical five-person `docs/FIRST_SHIFT_PLAYTEST_CARD.md`, and an exact native contract. Real participant results remain honestly external and are not represented as complete.
+- Godot import and the focused consolidated, intuitive reward, complete loop, compelling loop, tactile loop, UI, render-hot-path, and audio contracts pass.
+- Production browser audits pass at 2560×1600, 1440×900, and 844×390 with zero console/page errors; original-size inspection confirms icon-led hierarchy, contained Playbook choices, and unclipped compact touch controls.
+- The complete beta release gate passes 71/71 checks in 694.54 seconds. Both release targets contain the byte-identical 10,734,412-byte PCK with SHA-256 `3E65136928897DF3DDABCF259899B7F50A96DDFC673E2FB44A378F661395D3FC`.
+- The owned local production wrapper was stopped after browser verification, port 3001 is confirmed free, no Godot process remains, and the pre-existing user service on port 3000 was left untouched.

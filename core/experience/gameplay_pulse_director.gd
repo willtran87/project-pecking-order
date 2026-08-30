@@ -1,6 +1,8 @@
 class_name GameplayPulseDirector
 extends RefCounted
 
+const ConsolidatedGameLoopScript := preload("res://core/experience/consolidated_game_loop.gd")
+
 ## Read-only coordinator for the game's clarity and delight layer. It can project
 ## the authoritative Active Playbook, but never awards currency, changes
 ## difficulty, files a choice, or enters a save itself.
@@ -255,8 +257,23 @@ func compose(context: Dictionary) -> Dictionary:
 		experiential_management_loop,
 		reward_loop,
 	)
+	var consolidated_game_loop := ConsolidatedGameLoopScript.compose({
+		"simulation": simulation,
+		"next_action": next_action,
+		"active_playbook": active_playbook,
+		"first_session_funnel": funnel,
+		"action_feedback": feedback,
+		"focused_worker_id": focus_worker_id,
+		"guided_loop": guided_loop,
+		"complete_loop": complete_loop,
+		"rewarding_loop": rewarding_loop,
+		"strategic_loop": strategic_flow_loop,
+		"experiential_loop": experiential_management_loop,
+		"intuitive_loop": intuitive_reward_loop,
+		"reward_loop": reward_loop,
+	})
 	return {
-		"version": 12,
+		"version": 13,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -281,6 +298,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"tactile_reward_loop": tactile_reward_loop,
 		"experiential_management_loop": experiential_management_loop,
 		"intuitive_reward_loop": intuitive_reward_loop,
+		"consolidated_game_loop": consolidated_game_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -660,7 +678,7 @@ func _compelling_game_loop(
 		},
 	}
 	var items := {
-		"first_minute_victory": {"surface": "first_clutch", "live": int(micro_shift.get("budget_seconds", 0)) <= 60},
+		"first_minute_victory": {"surface": "first_clutch", "live": int(micro_shift.get("budget_seconds", 0)) <= 30},
 		"before_after_previews": {"surface": "world_preview", "live": before_after.has("after")},
 		"three_part_action_feedback": {"surface": "impact_channels", "live": int(impact_channels.get("channel_count", 0)) == 3},
 		"strong_shift_identities": {"surface": "shift_identity", "live": not strategy_label.is_empty()},
@@ -702,7 +720,7 @@ func _compelling_game_loop(
 		"authoritative": false,
 		"items": items,
 		"first_minute_win": {
-			"budget_seconds": 60,
+			"budget_seconds": 30,
 			"sequence": ["ROUTE", "HELP", "EGG", "REWARD"],
 			"first_clutch": micro_shift.duplicate(true),
 			"skippable": true,
@@ -1281,7 +1299,7 @@ func _tactile_reward_loop(
 			"chapter": "FIRST CLUTCH",
 			"playable": true,
 			"safe_practice_ceiling_seconds": 300,
-			"first_reward_budget_seconds": 60,
+			"first_reward_budget_seconds": 30,
 			"sequence": ["MEET MABEL", "ROUTE", "HELP", "EGG", "REWARD"],
 			"difficulty_contract": "SUPPORTED FLOCK",
 			"skippable_coach": true,
@@ -2178,10 +2196,10 @@ func _micro_shift(funnel: Dictionary, simulation: Dictionary, playbook: Dictiona
 	var reward_complete := bool(reached.get("first_egg", false)) or int(simulation.get("eggs_today", 0)) > 0
 	var completion := [plan_complete, route_complete, react_complete, reward_complete]
 	var definitions := [
-		{"id": "plan", "label": "PLAN", "icon": "goal", "target_seconds": 10},
-		{"id": "route", "label": "ROUTE", "icon": "route", "target_seconds": 25},
-		{"id": "react", "label": "REACT", "icon": "shield", "target_seconds": 45},
-		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 60},
+		{"id": "plan", "label": "PLAN", "icon": "goal", "target_seconds": 5},
+		{"id": "route", "label": "ROUTE", "icon": "route", "target_seconds": 12},
+		{"id": "react", "label": "REACT", "icon": "shield", "target_seconds": 22},
+		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 30},
 	]
 	var beats: Array[Dictionary] = []
 	var completed_count := 0
@@ -2195,7 +2213,7 @@ func _micro_shift(funnel: Dictionary, simulation: Dictionary, playbook: Dictiona
 		beats.append(beat)
 	return {
 		"label": "FIRST CLUTCH",
-		"budget_seconds": 60,
+		"budget_seconds": 30,
 		"beat_count": beats.size(),
 		"completed_count": completed_count,
 		"complete": completed_count == beats.size(),

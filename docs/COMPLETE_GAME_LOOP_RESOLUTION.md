@@ -7,7 +7,7 @@ remain the only gameplay authorities.
 
 ## The playable rhythm
 
-- The fresh-player funnel now exposes a skippable 60-second micro-shift:
+- The fresh-player funnel now exposes a skippable 30-second micro-shift:
   `PLAN → ROUTE → REACT → REWARD`. Completed labels retire while their four
   learned icons remain.
 - Every live shift now has a derived six-stage rhythm: calm, flow, pressure,

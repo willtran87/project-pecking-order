@@ -6,7 +6,7 @@ extends RefCounted
 ## exists so browser diagnostics, moderated sessions, and deterministic audits
 ## can answer when the first meaningful actions and payoff actually happened.
 
-const VERSION := 2
+const VERSION := 3
 const MILESTONES: Array[Dictionary] = [
 	{"id": &"intake_ready", "label": "INTAKE READY", "target_seconds": 5},
 	{"id": &"file_started", "label": "FILE STARTED", "target_seconds": 60},
@@ -131,10 +131,10 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 	if int(_signals.get(&"guidance_used", 0)) >= 4 and reached_count < 5:
 		friction_flags.append("primary_action_reliance")
 	var micro_definitions: Array[Dictionary] = [
-		{"id": "plan", "label": "PLAN", "icon": "goal", "target_seconds": 10, "complete": bool(_reached_msec.has(&"file_started"))},
-		{"id": "route", "label": "ROUTE", "icon": "route", "target_seconds": 25, "complete": bool(_reached_msec.has(&"route_filed"))},
-		{"id": "react", "label": "REACT", "icon": "shield", "target_seconds": 45, "complete": bool(_reached_msec.has(&"priority_peck"))},
-		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 60, "complete": bool(_reached_msec.has(&"first_egg"))},
+		{"id": "plan", "label": "PLAN", "icon": "goal", "target_seconds": 5, "complete": bool(_reached_msec.has(&"file_started"))},
+		{"id": "route", "label": "ROUTE", "icon": "route", "target_seconds": 12, "complete": bool(_reached_msec.has(&"route_filed"))},
+		{"id": "react", "label": "REACT", "icon": "shield", "target_seconds": 22, "complete": bool(_reached_msec.has(&"priority_peck"))},
+		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 30, "complete": bool(_reached_msec.has(&"first_egg"))},
 	]
 	var micro_completed := 0
 	var micro_beats: Array[Dictionary] = []
@@ -165,7 +165,7 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 		"signals": signal_snapshot,
 		"friction_flags": friction_flags,
 		"micro_shift": {
-			"budget_seconds": 60,
+			"budget_seconds": 30,
 			"beat_count": micro_beats.size(),
 			"completed_count": micro_completed,
 			"complete": micro_completed == micro_beats.size(),

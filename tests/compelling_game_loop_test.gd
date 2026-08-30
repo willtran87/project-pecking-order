@@ -51,7 +51,7 @@ func _run() -> void:
 	})
 	var layer := pulse.get("compelling_loop", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 12
+		int(pulse.get("version", 0)) == 13
 		and int(layer.get("item_count", 0)) == 30
 		and int(layer.get("resolved_count", 0)) == 30
 		and bool(layer.get("all_resolved", false))
@@ -63,7 +63,7 @@ func _run() -> void:
 	var before_after := layer.get("before_after_preview", {}) as Dictionary
 	var impact := layer.get("action_impact", {}) as Dictionary
 	_check(
-		int(first_win.get("budget_seconds", 0)) == 60
+		int(first_win.get("budget_seconds", 0)) == 30
 		and (first_win.get("sequence", []) as Array).size() == 4
 		and before_after.has("before")
 		and before_after.has("after")
@@ -101,7 +101,7 @@ func _run() -> void:
 			push_error("COMPELLING_GAME_LOOP_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("COMPELLING_GAME_LOOP_TEST_PASSED items=30 first_win=60 impact=3 roster=2 combo=1/2 audio=5")
+	print("COMPELLING_GAME_LOOP_TEST_PASSED items=30 first_win=30 impact=3 roster=2 combo=1/2 audio=5")
 	quit(0)
 
 
