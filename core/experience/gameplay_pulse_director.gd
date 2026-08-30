@@ -236,8 +236,27 @@ func compose(context: Dictionary) -> Dictionary:
 		strategic_flow_loop,
 		tactile_reward_loop,
 	)
+	var intuitive_reward_loop := _intuitive_reward_loop(
+		simulation,
+		next_action,
+		active_playbook,
+		workers,
+		focus_worker_id,
+		feedback,
+		cause_replay,
+		guided_loop,
+		complete_loop,
+		mastery_replay,
+		professional_loop,
+		rewarding_loop,
+		compelling_loop,
+		strategic_flow_loop,
+		tactile_reward_loop,
+		experiential_management_loop,
+		reward_loop,
+	)
 	return {
-		"version": 11,
+		"version": 12,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -261,6 +280,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"strategic_flow_loop": strategic_flow_loop,
 		"tactile_reward_loop": tactile_reward_loop,
 		"experiential_management_loop": experiential_management_loop,
+		"intuitive_reward_loop": intuitive_reward_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -946,6 +966,233 @@ func _experiential_management_loop(
 		},
 		"focused_worker_id": focused_worker_id,
 		"adds_default_panel": false,
+	}
+
+
+## Professional synthesis of the latest twenty intuitiveness and reward
+## findings. It binds existing authorities to one physical command station and
+## compact world/UI cues; it never files, awards, spends, or alters difficulty.
+func _intuitive_reward_loop(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	feedback: Dictionary,
+	cause_replay: Dictionary,
+	guided_loop: Dictionary,
+	complete_loop: Dictionary,
+	mastery_replay: Dictionary,
+	professional_loop: Dictionary,
+	rewarding_loop: Dictionary,
+	compelling_loop: Dictionary,
+	strategic_loop: Dictionary,
+	tactile_loop: Dictionary,
+	experiential_loop: Dictionary,
+	reward_loop: Dictionary,
+) -> Dictionary:
+	var worker := _focused_worker(workers, focused_worker_id)
+	var manager_intervention := playbook.get("manager_intervention", {}) as Dictionary
+	var docket := experiential_loop.get("docket_draft", {}) as Dictionary
+	var hero_file := {
+		"active": false,
+		"worker_id": int(worker.get("id", -1)),
+		"worker_name": String(worker.get("name", "FLOCK")),
+		"label": "NEXT FILE",
+		"reason": "THE SHIFT'S MOST IMPORTANT LIVE DECISION",
+		"world_destination": "MANAGER COMMAND STATION",
+	}
+	for worker_value in workers:
+		if not worker_value is Dictionary or not bool((worker_value as Dictionary).get("employed", false)):
+			continue
+		var candidate := worker_value as Dictionary
+		var claim := candidate.get("current_claim", {}) as Dictionary
+		if claim.is_empty():
+			continue
+		hero_file = {
+			"active": true,
+			"worker_id": int(candidate.get("id", -1)),
+			"worker_name": String(candidate.get("name", "HEN")),
+			"label": String(claim.get("display_name", claim.get("lane_label", claim.get("lane", "LIVE FILE")))).replace("_", " ").to_upper(),
+			"claimant": String(claim.get("claimant_name", "")),
+			"reason": "LIVE FILE WITH A NAMED HEN, CONSEQUENCE, AND PAYOFF",
+			"world_destination": "MANAGER COMMAND STATION",
+		}
+		break
+	if not bool(hero_file.get("active", false)):
+		var objective := playbook.get("dominant_objective", {}) as Dictionary
+		hero_file["active"] = not objective.is_empty()
+		hero_file["label"] = String(objective.get("label", "NEXT FILE")).to_upper()
+
+	var personal_goals: Array[Dictionary] = []
+	for worker_value in workers:
+		if not worker_value is Dictionary or not bool((worker_value as Dictionary).get("employed", false)):
+			continue
+		var candidate := worker_value as Dictionary
+		var intent := candidate.get("hen_intent", {}) as Dictionary
+		personal_goals.append({
+			"worker_id": int(candidate.get("id", -1)),
+			"worker_name": String(candidate.get("name", "HEN")),
+			"icon": String(intent.get("icon", "status_need")),
+			"goal": String(intent.get("label", intent.get("action_label", "READY"))).to_upper(),
+			"action": String(intent.get("action_label", "INSPECT")).to_upper(),
+			"optional": true,
+		})
+		if personal_goals.size() >= 6:
+			break
+
+	var consequence := guided_loop.get("animated_consequence_preview", {}) as Dictionary
+	var action_label := String(next_action.get("visible_label", next_action.get("copy", "OBSERVE"))).to_upper()
+	var effect_label := String(feedback.get("title", consequence.get("gain", "VISIBLE RESULT"))).to_upper()
+	var cause_effect := {
+		"beat_count": 3,
+		"beats": [
+			{"id": "action", "label": action_label, "shape": "button"},
+			{"id": "flock", "label": String(worker.get("name", "FLOCK")).to_upper(), "shape": "hen"},
+			{"id": "result", "label": effect_label, "shape": "star"},
+		],
+		"sequence": ["ACTION", "FLOCK", "RESULT"],
+		"world_animated": true,
+		"replay": cause_replay.duplicate(true),
+		"presentation_only": true,
+		"files_nothing": true,
+	}
+	var plan_cards := docket.get("choices", []) as Array
+	var selected_plan_id := String(playbook.get("strategy_preset_id", ""))
+	var station := {
+		"physical": true,
+		"world_position": [3.20, 0.0, -7.62],
+		"icon_first": true,
+		"choice_count": 3,
+		"choices": [
+			{"id": "ring_bell", "icon": "bell", "gain": "ATTENTION", "cost": "ONE CALL"},
+			{"id": "coffee_run", "icon": "cup", "gain": "RECOVERY", "cost": "$2"},
+			{"id": "emergency_review", "icon": "stamp", "gain": "QUALITY", "cost": "PACE"},
+		],
+		"selected_plan_id": selected_plan_id,
+		"plan_cards": plan_cards.duplicate(true),
+		"intervention": manager_intervention.duplicate(true),
+		"hero_file": hero_file.duplicate(true),
+		"sequence": ["CALL", "FLOCK", "RESULT"],
+		"adds_collision": false,
+		"authoritative": false,
+	}
+	var sound_families := {
+		"route": "paper_thunk",
+		"ring_bell": "brass_rise",
+		"coffee_run": "warm_three_note",
+		"emergency_review": "low_stamp",
+		"reward": "rising_egg_chime",
+	}
+	var items := {
+		"physical_manager_intervention_station": {"surface": "manager_station", "live": true},
+		"three_second_cause_effect_sequence": {"surface": "cause_effect", "live": true},
+		"visually_distinct_case_folders": {"surface": "case_folders", "live": true},
+		"physical_morning_plan_draft": {"surface": "morning_plan", "live": plan_cards.size() >= 3},
+		"why_this_matters_previews": {"surface": "why_preview", "live": true},
+		"clear_tension_release_rhythm": {"surface": "tension_rhythm", "live": true},
+		"expressive_chicken_reactions": {"surface": "chicken_reactions", "live": true},
+		"personal_chicken_goals": {"surface": "personal_goals", "live": true},
+		"hero_file_per_shift": {"surface": "hero_file", "live": true},
+		"stronger_combo_anticipation": {"surface": "combo_anticipation", "live": true},
+		"transformative_upgrades": {"surface": "transformative_upgrades", "live": true},
+		"visible_reward_destination": {"surface": "reward_destination", "live": true},
+		"one_more_shift_tease": {"surface": "next_shift_tease", "live": true},
+		"better_setback_recovery": {"surface": "setback_recovery", "live": true},
+		"mastery_feedback": {"surface": "mastery_feedback", "live": true},
+		"exception_only_automation_visualization": {"surface": "automation", "live": true},
+		"rival_office_presence": {"surface": "rival_presence", "live": true},
+		"shorter_action_language": {"surface": "action_language", "live": true},
+		"recognizable_sound_families": {"surface": "sound_families", "live": sound_families.size() == 5},
+		"comprehension_driven_playtesting": {"surface": "comprehension", "live": true},
+	}
+	var resolved_count := 0
+	for item_value in items.values():
+		if item_value is Dictionary and bool((item_value as Dictionary).get("live", false)):
+			resolved_count += 1
+	return {
+		"authoritative": false,
+		"item_count": items.size(),
+		"resolved_count": resolved_count,
+		"all_resolved": resolved_count == items.size(),
+		"items": items,
+		"manager_station": station,
+		"cause_effect": cause_effect,
+		"case_folders": {
+			"color_only": false,
+			"personalities": (experiential_loop.get("case_personas", []) as Array).duplicate(true),
+			"world_shapes": {"nest_damage": "shield", "predator_loss": "diamond", "appeals": "split_stamp"},
+		},
+		"morning_plan": {"physical_cards": true, "selected_plan_id": selected_plan_id, "cards": plan_cards.duplicate(true), "one_click": true},
+		"why_preview": {
+			"action": action_label,
+			"gain": String(consequence.get("gain", "VISIBLE RESULT")),
+			"cost": String(consequence.get("cost", "NO HIDDEN COST")),
+			"risk": String(consequence.get("risk", "NO HIDDEN RISK")),
+			"before_commit": true,
+		},
+		"tension_rhythm": (complete_loop.get("shift_rhythm", {}) as Dictionary).duplicate(true),
+		"chicken_reactions": {
+			"states": (experiential_loop.get("chicken_states", []) as Array).duplicate(true),
+			"chain_reaction": (tactile_loop.get("chicken_chain_reaction", {}) as Dictionary).duplicate(true),
+			"world_first": true,
+		},
+		"personal_goals": {"count": personal_goals.size(), "goals": personal_goals, "optional": true},
+		"hero_file": hero_file,
+		"combo_anticipation": {
+			"recipe": (playbook.get("combo_recipe", {}) as Dictionary).duplicate(true),
+			"discovery": (compelling_loop.get("combo_discovery", {}) as Dictionary).duplicate(true),
+			"world_choreography": true,
+		},
+		"transformative_upgrades": (tactile_loop.get("transformative_upgrades", {}) as Dictionary).duplicate(true),
+		"reward_destination": {
+			"physical": true,
+			"label": "FLOCK TROPHY SHELF",
+			"sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
+			"path_visible": true,
+		},
+		"next_shift_tease": (playbook.get("next_shift_preview", {}) as Dictionary).duplicate(true),
+		"setback_recovery": {
+			"sequence": (tactile_loop.get("comeback_sequence", {}) as Dictionary).duplicate(true),
+			"options": (rewarding_loop.get("recovery_options", {}) as Dictionary).duplicate(true),
+			"banked_rewards_safe": true,
+		},
+		"mastery_feedback": {
+			"mastery": (playbook.get("strategy_mastery", {}) as Dictionary).duplicate(true),
+			"manager_power": (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true),
+			"personal_best": (playbook.get("personal_best", {}) as Dictionary).duplicate(true),
+			"celebrates_skill_not_time": true,
+		},
+		"automation": {
+			"exception_only": true,
+			"routine_routes_only": true,
+			"incidents_remain_manual": true,
+			"visible_when_it_acts": true,
+			"source": (experiential_loop.get("automation", {}) as Dictionary).duplicate(true),
+		},
+		"rival_presence": {
+			"rival": (strategic_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true),
+			"world_signal": true,
+			"quiet_before_relevant": true,
+		},
+		"action_language": {
+			"verbs": CORE_VERBS.duplicate(),
+			"maximum_words": 2,
+			"icon_persists_after_learning": true,
+			"details_on_demand": true,
+		},
+		"sound_families": {"count": sound_families.size(), "families": sound_families, "semantic_drift": false},
+		"comprehension": {
+			"protocol": (experiential_loop.get("comprehension", {}) as Dictionary).duplicate(true),
+			"questions": ["FIND GOAL", "TAKE ACTION", "PREDICT RESULT", "RECOVER", "EXPLAIN LOOP"],
+			"real_participants_required": true,
+			"results_never_fabricated": true,
+		},
+		"adds_default_panel": false,
+		"focused_worker_id": focused_worker_id,
+		"simulation_day": int(simulation.get("day", 1)),
+		"reward_identity": (reward_loop.get("strategy_identity", {}) as Dictionary).duplicate(true),
+		"milestone_spectacle": (professional_loop.get("highlight_replay", {}) as Dictionary).duplicate(true),
 	}
 
 

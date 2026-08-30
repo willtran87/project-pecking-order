@@ -19,6 +19,17 @@ const MANAGER_PAUSE_SECONDS := 1.8
 const FARMER_OFFSTAGE_POSITION := Vector3(13.8, 0.0, 4.3)
 const FARMER_REVIEW_POSITION := Vector3(8.2, 0.0, 4.3)
 const FARMER_REVIEW_DURATION := 2.4
+const COMMAND_STATION_POSITION := Vector3(3.20, 0.0, -7.62)
+const COMMAND_STATION_CHOICE_COLORS := {
+	&"ring_bell": Color("d9ad46"),
+	&"coffee_run": Color("a96d45"),
+	&"emergency_review": Color("4d7f88"),
+}
+const COMMAND_STATION_PLAN_COLORS := {
+	&"fast": Color("d58a3c"),
+	&"safe": Color("4f8190"),
+	&"flock": Color("8b6a8d"),
+}
 
 const MANAGER_ACCESSORIES: Array[StringName] = [
 	&"AccessoryHead_RoundGlasses",
@@ -79,12 +90,32 @@ var _farmer_tween: Tween
 var _farmer_is_reviewing := false
 var _farmer_phase := 0.0
 var _animation_speed_multiplier := 1.0
+var _command_station_root: Node3D
+var _command_station_choice_roots: Dictionary[StringName, Node3D] = {}
+var _command_station_choice_lights: Dictionary[StringName, MeshInstance3D] = {}
+var _command_station_plan_roots: Dictionary[StringName, Node3D] = {}
+var _command_station_status_beacon: Node3D
+var _command_station_status_light: MeshInstance3D
+var _command_station_result_beacon: Node3D
+var _command_station_hero_file: Node3D
+var _command_station_tween: Tween
+var _command_station_state: Dictionary = {}
+var _command_station_fingerprint := ""
+var _command_station_serial := 0
 
 
 func _ready() -> void:
 	name = "ManagementPresence"
+	_build_command_station()
 	_build_manager()
 	_build_farmer()
+
+
+func _exit_tree() -> void:
+	if _command_station_tween != null and _command_station_tween.is_valid():
+		_command_station_tween.kill()
+	if _farmer_tween != null and _farmer_tween.is_valid():
+		_farmer_tween.kill()
 
 
 func _process(delta: float) -> void:
@@ -140,8 +171,200 @@ func set_animation_speed_multiplier(multiplier: float) -> void:
 		_farmer_tween.set_speed_scale(_animation_speed_multiplier)
 
 
+## Projects the existing authoritative playbook onto one compact physical
+## command surface. The station never files a plan or intervention itself.
+func apply_command_station_state(state: Dictionary) -> void:
+	var selected_plan := StringName(state.get("selected_plan_id", &""))
+	var intervention := state.get("intervention", {}) as Dictionary
+	var hero_file := state.get("hero_file", {}) as Dictionary
+	var fingerprint := "%s|%s|%s|%s|%s" % [
+		String(selected_plan),
+		str(bool(intervention.get("used", false))),
+		String(intervention.get("id", "")),
+		str(bool(hero_file.get("active", false))),
+		String(hero_file.get("label", "")),
+	]
+	if fingerprint == _command_station_fingerprint:
+		return
+	_command_station_fingerprint = fingerprint
+	_command_station_state = state.duplicate(true)
+	for plan_id: StringName in _command_station_plan_roots:
+		var plan_root := _command_station_plan_roots[plan_id]
+		if plan_root == null:
+			continue
+		plan_root.scale = Vector3.ONE * (1.16 if plan_id == selected_plan else 0.94)
+		plan_root.set_meta("selected", plan_id == selected_plan)
+	var used := bool(intervention.get("used", false))
+	var selected_intervention := StringName(intervention.get("id", &""))
+	for choice_id: StringName in _command_station_choice_roots:
+		var choice_root := _command_station_choice_roots[choice_id]
+		if choice_root == null:
+			continue
+		var choice_light := _command_station_choice_lights.get(choice_id) as MeshInstance3D
+		if choice_light != null:
+			var light_color: Color = COMMAND_STATION_CHOICE_COLORS.get(choice_id, Color.WHITE)
+			if used and choice_id != selected_intervention:
+				light_color = Color("4f5358")
+			choice_light.material_override = _make_emissive_material(
+				light_color,
+				0.72 if not used or choice_id == selected_intervention else 0.08,
+			)
+		choice_root.set_meta("available", not used)
+		choice_root.set_meta("selected", used and choice_id == selected_intervention)
+	if _command_station_hero_file != null:
+		_command_station_hero_file.visible = bool(hero_file.get("active", false))
+		_command_station_hero_file.set_meta("hero_file", hero_file.duplicate(true))
+	if _command_station_status_light != null:
+		_command_station_status_light.material_override = _make_emissive_material(
+			Color("6f7780") if used else Color("f2c75b"),
+			0.18 if used else 0.82,
+		)
+
+
+## Plays one concise CALL -> FLOCK -> RESULT world sequence after the
+## simulation has already accepted the intervention. It is visual only.
+func play_manager_intervention(choice_id: StringName) -> void:
+	var choice_root := _command_station_choice_roots.get(choice_id) as Node3D
+	if choice_root == null or _command_station_status_beacon == null or _command_station_result_beacon == null:
+		return
+	if _command_station_tween != null and _command_station_tween.is_valid():
+		_command_station_tween.kill()
+	_command_station_serial += 1
+	_command_station_root.set_meta("cause_effect_sequence", ["CALL", "FLOCK", "RESULT"])
+	_command_station_root.set_meta("last_intervention_id", choice_id)
+	_command_station_root.set_meta("sequence_serial", _command_station_serial)
+	choice_root.scale = Vector3.ONE
+	_command_station_status_beacon.scale = Vector3.ONE
+	_command_station_result_beacon.scale = Vector3.ONE
+	_command_station_tween = create_tween().bind_node(self)
+	_command_station_tween.set_speed_scale(_animation_speed_multiplier)
+	_command_station_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_command_station_tween.tween_property(choice_root, "scale", Vector3.ONE * 1.34, 0.12)
+	_command_station_tween.tween_property(choice_root, "scale", Vector3.ONE, 0.16)
+	_command_station_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	_command_station_tween.tween_property(_command_station_status_beacon, "scale", Vector3.ONE * 1.42, 0.14)
+	_command_station_tween.tween_property(_command_station_status_beacon, "scale", Vector3.ONE, 0.18)
+	_command_station_tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_command_station_tween.tween_property(_command_station_result_beacon, "scale", Vector3.ONE * 1.55, 0.16)
+	_command_station_tween.tween_property(_command_station_result_beacon, "scale", Vector3.ONE, 0.24)
+
+
+func command_station_snapshot() -> Dictionary:
+	return {
+		"physical": _command_station_root != null,
+		"position": COMMAND_STATION_POSITION,
+		"choice_count": _command_station_choice_roots.size(),
+		"plan_count": _command_station_plan_roots.size(),
+		"selected_plan_id": String(_command_station_state.get("selected_plan_id", "")),
+		"hero_file": (_command_station_state.get("hero_file", {}) as Dictionary).duplicate(true),
+		"intervention": (_command_station_state.get("intervention", {}) as Dictionary).duplicate(true),
+		"sequence": ["CALL", "FLOCK", "RESULT"],
+		"sequence_serial": _command_station_serial,
+		"last_intervention_id": String(
+			_command_station_root.get_meta("last_intervention_id", &"")
+			if _command_station_root != null else
+			&""
+		),
+		"adds_collision": false,
+		"presentation_only": true,
+	}
+
+
 func animation_speed_multiplier() -> float:
 	return _animation_speed_multiplier
+
+
+func _build_command_station() -> void:
+	_command_station_root = Node3D.new()
+	_command_station_root.name = "ManagerCommandStation"
+	_command_station_root.position = COMMAND_STATION_POSITION
+	_command_station_root.set_meta("interaction_language", "ICON_FIRST")
+	_command_station_root.set_meta("authority", false)
+	_command_station_root.set_meta("adds_collision", false)
+	add_child(_command_station_root)
+
+	_add_box(_command_station_root, "CommandStationBase", Vector3(3.45, 0.72, 0.82), Vector3(0.0, 0.36, 0.0), Color("38434b"), 0.74, 0.08)
+	_add_box(_command_station_root, "CommandStationTop", Vector3(3.72, 0.12, 1.02), Vector3(0.0, 0.78, 0.04), Color("7f6648"), 0.64)
+	_add_box(_command_station_root, "CommandStationBackboard", Vector3(3.52, 1.26, 0.12), Vector3(0.0, 1.48, -0.38), Color("28343c"), 0.78, 0.04)
+	_add_box(_command_station_root, "CommandStationBrassRail", Vector3(3.12, 0.06, 0.08), Vector3(0.0, 2.10, -0.29), Color("c79c4c"), 0.34, 0.62)
+
+	var choice_ids: Array[StringName] = [&"ring_bell", &"coffee_run", &"emergency_review"]
+	for index in choice_ids.size():
+		var choice_id := choice_ids[index]
+		var choice_root := Node3D.new()
+		choice_root.name = "Intervention_%s" % String(choice_id)
+		choice_root.position = Vector3(-1.08 + float(index) * 1.08, 0.91, 0.18)
+		choice_root.set_meta("intervention_id", choice_id)
+		choice_root.set_meta("semantic_shape", ["bell", "cup", "stamp"][index])
+		_command_station_root.add_child(choice_root)
+		_command_station_choice_roots[choice_id] = choice_root
+		var choice_color: Color = COMMAND_STATION_CHOICE_COLORS[choice_id]
+		var light := _add_cylinder(choice_root, "ChoiceLight", 0.14, 0.055, Vector3(0.0, 0.035, 0.20), choice_color, 0.36)
+		light.material_override = _make_emissive_material(choice_color, 0.72)
+		_command_station_choice_lights[choice_id] = light
+		match choice_id:
+			&"ring_bell":
+				var bell := _add_sphere(choice_root, "BellDome", 0.20, Vector3(0.0, 0.18, 0.0), choice_color, 0.28, 0.64)
+				bell.scale = Vector3(1.15, 0.72, 1.15)
+				_add_cylinder(choice_root, "BellButton", 0.055, 0.10, Vector3(0.0, 0.37, 0.0), Color("ead27b"), 0.24)
+			&"coffee_run":
+				_add_cylinder(choice_root, "CoffeeCup", 0.16, 0.29, Vector3(0.0, 0.18, 0.0), Color("eee4d0"), 0.76)
+				_add_box(choice_root, "CoffeeHandle", Vector3(0.13, 0.16, 0.08), Vector3(0.17, 0.19, 0.0), choice_color, 0.72)
+				_add_sphere(choice_root, "CoffeeSteam", 0.045, Vector3(-0.04, 0.39, 0.0), Color("d9e5e3"), 0.92)
+			&"emergency_review":
+				_add_box(choice_root, "ReviewStamp", Vector3(0.30, 0.17, 0.23), Vector3(0.0, 0.19, 0.0), choice_color, 0.66)
+				_add_box(choice_root, "ReviewHandle", Vector3(0.13, 0.22, 0.13), Vector3(0.0, 0.38, 0.0), Color("d7c49e"), 0.74)
+
+	var plan_ids: Array[StringName] = [&"fast", &"safe", &"flock"]
+	for index in plan_ids.size():
+		var plan_id := plan_ids[index]
+		var plan_root := Node3D.new()
+		plan_root.name = "MorningPlan_%s" % String(plan_id)
+		plan_root.position = Vector3(-0.84 + float(index) * 0.84, 1.49, -0.29)
+		plan_root.set_meta("plan_id", plan_id)
+		plan_root.set_meta("semantic_shape", ["chevron", "shield", "flock"][index])
+		_command_station_root.add_child(plan_root)
+		_command_station_plan_roots[plan_id] = plan_root
+		var plan_color: Color = COMMAND_STATION_PLAN_COLORS[plan_id]
+		_add_box(plan_root, "PlanCard", Vector3(0.58, 0.68, 0.045), Vector3.ZERO, Color("efe6d2"), 0.92)
+		match plan_id:
+			&"fast":
+				var arrow := _add_box(plan_root, "FastChevron", Vector3(0.28, 0.09, 0.035), Vector3(0.0, 0.0, 0.05), plan_color, 0.58)
+				arrow.rotation_degrees.z = -24.0
+			&"safe":
+				_add_box(plan_root, "SafeShield", Vector3(0.25, 0.29, 0.035), Vector3(0.0, 0.0, 0.05), plan_color, 0.58)
+			&"flock":
+				_add_sphere(plan_root, "FlockMarkLeft", 0.10, Vector3(-0.08, 0.0, 0.06), plan_color, 0.58)
+				_add_sphere(plan_root, "FlockMarkRight", 0.10, Vector3(0.08, 0.0, 0.06), plan_color.lightened(0.12), 0.58)
+
+	_command_station_status_beacon = Node3D.new()
+	_command_station_status_beacon.name = "FlockEffectBeacon"
+	_command_station_status_beacon.position = Vector3(-1.48, 2.18, -0.30)
+	_command_station_root.add_child(_command_station_status_beacon)
+	_command_station_status_light = _add_sphere(_command_station_status_beacon, "FlockEffectLight", 0.13, Vector3.ZERO, Color("f2c75b"), 0.26)
+	_command_station_status_light.material_override = _make_emissive_material(Color("f2c75b"), 0.82)
+
+	_command_station_result_beacon = Node3D.new()
+	_command_station_result_beacon.name = "ResultBeacon"
+	_command_station_result_beacon.position = Vector3(1.48, 2.18, -0.30)
+	_command_station_root.add_child(_command_station_result_beacon)
+	var result_light := _add_sphere(_command_station_result_beacon, "ResultLight", 0.13, Vector3.ZERO, Color("71c7a5"), 0.26)
+	result_light.material_override = _make_emissive_material(Color("71c7a5"), 0.76)
+
+	_command_station_hero_file = Node3D.new()
+	_command_station_hero_file.name = "HeroFile"
+	_command_station_hero_file.position = Vector3(0.0, 2.24, -0.21)
+	_command_station_root.add_child(_command_station_hero_file)
+	_add_box(_command_station_hero_file, "HeroFileCover", Vector3(0.48, 0.34, 0.055), Vector3.ZERO, Color("bf473f"), 0.70)
+	var hero_seal := _add_cylinder(_command_station_hero_file, "HeroFileSeal", 0.075, 0.025, Vector3(0.12, 0.0, 0.05), Color("f2c75b"), 0.30)
+	hero_seal.rotation_degrees.x = 90.0
+	_command_station_hero_file.visible = false
+
+	apply_command_station_state({
+		"selected_plan_id": "",
+		"hero_file": {"active": false},
+		"intervention": {"used": false, "id": ""},
+	})
 
 
 ## World-space camera target for the visible farmer review position.
@@ -653,6 +876,14 @@ func _make_material(color: Color, roughness: float, metallic: float = 0.0) -> St
 	material.albedo_color = color
 	material.roughness = roughness
 	material.metallic = metallic
+	return material
+
+
+func _make_emissive_material(color: Color, energy: float) -> StandardMaterial3D:
+	var material := _make_material(color, 0.34, 0.10)
+	material.emission_enabled = true
+	material.emission = color
+	material.emission_energy_multiplier = maxf(0.0, energy)
 	return material
 
 

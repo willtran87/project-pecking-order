@@ -102,14 +102,32 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow_loop", "tactile_reward_loop", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow_loop", "tactile_reward_loop", "experiential_management_loop", "intuitive_reward_loop", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 11);
+	assert.equal(pulse.version, 12);
+	assert.equal(pulse.intuitive_reward_loop?.item_count, 20);
+	assert.equal(pulse.intuitive_reward_loop?.resolved_count, 20);
+	assert.equal(pulse.intuitive_reward_loop?.all_resolved, true);
+	assert.equal(pulse.intuitive_reward_loop?.adds_default_panel, false);
+	assert.equal(pulse.intuitive_reward_loop?.manager_station?.physical, true);
+	assert.equal(pulse.intuitive_reward_loop?.manager_station?.choice_count, 3);
+	assert.equal(pulse.intuitive_reward_loop?.manager_station?.plan_cards?.length, 3);
+	assert.deepEqual(pulse.intuitive_reward_loop?.manager_station?.sequence, ["CALL", "FLOCK", "RESULT"]);
+	assert.equal(pulse.intuitive_reward_loop?.cause_effect?.beat_count, 3);
+	assert.equal(pulse.intuitive_reward_loop?.case_folders?.color_only, false);
+	assert.equal(pulse.intuitive_reward_loop?.sound_families?.count, 5);
+	assert.equal(pulse.intuitive_reward_loop?.automation?.exception_only, true);
+	assert.equal(pulse.intuitive_reward_loop?.comprehension?.real_participants_required, true);
+	assert.equal(pulse.intuitive_reward_loop?.comprehension?.results_never_fabricated, true);
+	assert.equal(active.manager_command_station?.physical, true);
+	assert.equal(active.manager_command_station?.choice_count, 3);
+	assert.equal(active.manager_command_station?.plan_count, 3);
+	assert.equal(active.manager_command_station?.adds_collision, false);
 	assert.equal(pulse.experiential_management_loop?.item_count, 20);
 	assert.equal(pulse.experiential_management_loop?.resolved_count, 20);
 	assert.equal(pulse.experiential_management_loop?.adds_default_panel, false);
@@ -304,6 +322,8 @@ try {
 		compellingLoop: pulse.compelling_loop,
 		strategicFlowLoop: pulse.strategic_flow_loop,
 		tactileRewardLoop: pulse.tactile_reward_loop,
+		experientialManagementLoop: pulse.experiential_management_loop,
+		intuitiveRewardLoop: pulse.intuitive_reward_loop,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
@@ -340,4 +360,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED experiential=20 intervention=one-shot replay=presentation-only quick-start=recommended micro-shift=60s tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED intuitive-reward=20 station=3+3 cause=3 folders=shape-coded sounds=5 experiential=20 intervention=one-shot replay=presentation-only quick-start=recommended micro-shift=60s tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

@@ -919,6 +919,9 @@ func play_dispatch_delivery(
 	_add_box_mesh(folder, "FolderCover", Vector3(0.66, 0.025, 0.44), Vector3(0.0, 0.045, 0.025), cover_material)
 	_add_box_mesh(folder, "FolderTab", Vector3(0.22, 0.035, 0.11), Vector3(-0.19, 0.055, -0.245), cover_material)
 	_add_box_mesh(folder, "FolderSpine", Vector3(0.035, 0.075, 0.44), Vector3(-0.33, 0.02, 0.025), edge_material)
+	var semantic_shape := _add_dispatch_lane_marker(folder, lane, lane_color)
+	folder.set_meta("semantic_shape", semantic_shape)
+	folder.set_meta("color_only", false)
 	if recommended:
 		var seal_material := _make_emissive_material(COLOR_GOLDEN, 0.52, 0.46 + mini(chain, 5) * 0.10)
 		_add_cylinder_mesh(folder, "BestFitSeal", 0.095, 0.095, 0.025, Vector3(0.17, 0.075, 0.05), Vector3.ZERO, seal_material)
@@ -952,6 +955,31 @@ func play_dispatch_delivery(
 		)
 	)
 	return true
+
+
+## Every lane has a silhouette that remains recognizable without color. These
+## tiny raised marks travel with the physical folder and do not add UI copy.
+func _add_dispatch_lane_marker(folder: Node3D, lane: StringName, lane_color: Color) -> StringName:
+	var marker_material := _make_emissive_material(lane_color.lightened(0.42), 0.34, 0.52)
+	match lane:
+		&"nest_damage":
+			_add_box_mesh(folder, "FragileShield", Vector3(0.22, 0.025, 0.17), Vector3(0.12, 0.078, 0.02), marker_material)
+			var shield_tip := _add_box_mesh(folder, "FragileShieldTip", Vector3(0.14, 0.025, 0.14), Vector3(0.12, 0.078, 0.12), marker_material)
+			shield_tip.rotation.y = PI / 4.0
+			return &"shield"
+		&"predator_loss":
+			var urgent_diamond := _add_box_mesh(folder, "UrgentDiamond", Vector3(0.20, 0.025, 0.20), Vector3(0.12, 0.078, 0.05), marker_material)
+			urgent_diamond.rotation.y = PI / 4.0
+			return &"diamond"
+		&"appeals":
+			var split_left := _add_box_mesh(folder, "AppealSplitLeft", Vector3(0.075, 0.025, 0.28), Vector3(0.06, 0.078, 0.05), marker_material)
+			var split_right := _add_box_mesh(folder, "AppealSplitRight", Vector3(0.075, 0.025, 0.28), Vector3(0.18, 0.078, 0.05), marker_material)
+			split_left.rotation.y = -0.18
+			split_right.rotation.y = 0.18
+			return &"split_stamp"
+		_:
+			_add_cylinder_mesh(folder, "StandardCircle", 0.10, 0.10, 0.025, Vector3(0.12, 0.078, 0.05), Vector3.ZERO, marker_material)
+			return &"circle"
 
 
 func active_dispatch_delivery_count() -> int:

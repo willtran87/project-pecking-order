@@ -14044,3 +14044,16 @@ The next major systems milestone is persistent worker relationships and individu
 - The official production-browser client and gameplay-pulse audit pass at 2560×1600, 1440×900, and 844×390. Original-size inspection confirms stage anchoring, the contained route dossier, four-chip H overlay, and compact touch controls, with no reported browser errors.
 - The complete beta release gate passes 69/69 checks in 681.715 seconds. All nine release files are byte-identical across `docs` and `web/public/game`; the 10,700,976-byte PCK has SHA-256 `43739F09784A4D7E4F3452C743347DFEB2640A05DC512798991191D678DE16FE`.
 - Every owned production-wrapper process was stopped after browser verification; ports 3001 and 51236 were confirmed free before the final gate.
+
+# 2026-08-29 — Professional intuitive reward loop
+
+- Reconciled the latest twenty approved clarity, fun, engagement, and reward improvements against the existing simulation, Active Playbook, chickens, rival, upgrades, review, and comprehension authorities.
+- Added a collision-free physical manager command station with three intervention objects, three morning-plan cards, a hero-file slot, and an interrupt-safe `CALL → FLOCK → RESULT` sequence.
+- Added raised shield, diamond, and split-stamp silhouettes to routed case folders so lane identity never depends on color alone.
+- Added distinct pooled brass-bell, warm-coffee, and low-review sound signatures without increasing the fixed eight-voice runtime budget.
+- Added the read-only version-12 `intuitive_reward_loop`, mapping the exact twenty findings to compact existing surfaces without a new default panel or save authority.
+- Added `docs/INTUITIVE_REWARD_LOOP_RESOLUTION.md`, focused native coverage, production-browser assertions, and release-gate registration.
+- Focused Godot import, intuitive reward, experiential management, gameplay pulse, audio, render-hot-path, and visual-system contracts pass.
+- Production browser audits pass at 2560×1600, 1440×900, and 844×390 with zero console/page errors; visual inspection confirms compact icon-led choices, clear hierarchy, and unclipped touch controls.
+- The complete beta release gate passes 70/70 checks in 549.63 seconds. Both release targets contain the byte-identical 10,719,328-byte PCK with SHA-256 `BA51DA2BCF6F72F0DAB82A2C9C0E3A798807DF9DC90C42D0C2B52BFB250E0B36`.
+- The owned local production wrapper was stopped after verification, port 3001 is confirmed free, no Godot process remains, and the pre-existing user service on port 3000 was left untouched.

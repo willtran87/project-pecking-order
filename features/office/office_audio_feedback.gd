@@ -71,6 +71,9 @@ var _campaign_pass: AudioStreamWAV
 var _campaign_fail: AudioStreamWAV
 var _commendation_stamp: AudioStreamWAV
 var _dialogue_cutout: AudioStreamWAV
+var _manager_bell: AudioStreamWAV
+var _manager_coffee: AudioStreamWAV
+var _manager_review: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -184,6 +187,12 @@ func _ready() -> void:
 		0.065,
 		0.24,
 	)
+	# Manager interventions use three deliberately different sound families:
+	# brass bell, warm breakroom cadence, and low paper stamp. Players can learn
+	# the choice from sound alone without adding more persistent text.
+	_manager_bell = _synth_sequence(PackedFloat32Array([880.0, 1320.0, 1760.0]), 0.055, 0.34)
+	_manager_coffee = _synth_sequence(PackedFloat32Array([293.66, 369.99, 440.0]), 0.075, 0.28)
+	_manager_review = _synth_impact(430.0, 92.0, 0.145, 0.42, 0.54, 3111, 0.46)
 
 
 func _exit_tree() -> void:
@@ -308,6 +317,17 @@ func play_decision_resolved() -> void:
 		&"decision_resolved", _decision_resolved, 1.0, -8.0, 100,
 		BUS_UI, PRIORITY_CONFIRMATION,
 	)
+
+
+func play_manager_intervention(choice_id: StringName) -> bool:
+	match choice_id:
+		&"ring_bell":
+			return _play(&"manager_bell", _manager_bell, 1.0, -6.5, 180, BUS_UI, PRIORITY_IMPORTANT)
+		&"coffee_run":
+			return _play(&"manager_coffee", _manager_coffee, 1.0, -8.0, 180, BUS_UI, PRIORITY_IMPORTANT)
+		&"emergency_review":
+			return _play(&"manager_review", _manager_review, 1.0, -6.5, 180, BUS_UI, PRIORITY_IMPORTANT)
+	return false
 
 
 func play_precedent_filed() -> void:
@@ -726,7 +746,7 @@ func _emit_haptic(cue: StringName, priority: int) -> void:
 		&"settlement_release",
 		&"best_fit_filed",
 		&"denied", &"shift_alert", &"campaign_pass", &"campaign_fail",
-		&"commendation",
+		&"commendation", &"manager_bell", &"manager_coffee", &"manager_review",
 	]:
 		return
 	var duration_msec := 26

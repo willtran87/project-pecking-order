@@ -19980,6 +19980,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_experiential_management_presentation(
 		_gameplay_pulse.get("experiential_management_loop", {}) as Dictionary,
 	)
+	_apply_intuitive_reward_presentation(
+		_gameplay_pulse.get("intuitive_reward_loop", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -20569,6 +20572,43 @@ func _apply_experiential_management_presentation(layer: Dictionary) -> void:
 		_core_loop_host.set_meta("physical_combo_chains", (layer.get("combo", {}) as Dictionary).duplicate(true))
 
 
+func _apply_intuitive_reward_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var station := layer.get("manager_station", {}) as Dictionary
+	if _management_presence != null:
+		_management_presence.apply_command_station_state(station)
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("intuitive_reward_loop", layer.duplicate(true))
+		_top_hud_panel.set_meta("three_beat_cause_effect", (layer.get("cause_effect", {}) as Dictionary).duplicate(true))
+	if _routing_ui != null:
+		_routing_ui.set_meta("shape_coded_case_folders", (layer.get("case_folders", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("personal_hen_goals", (layer.get("personal_goals", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("setback_recovery", (layer.get("setback_recovery", {}) as Dictionary).duplicate(true))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("physical_manager_station", station.duplicate(true))
+		_active_playbook_button.set_meta("morning_plan_cards", (layer.get("morning_plan", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("combo_anticipation", (layer.get("combo_anticipation", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("short_action_language", (layer.get("action_language", {}) as Dictionary).duplicate(true))
+	if _directive_badge != null:
+		var hero_file := layer.get("hero_file", {}) as Dictionary
+		_directive_badge.set_meta("hero_file", hero_file.duplicate(true))
+		if bool(hero_file.get("active", false)) and not _directive_badge.tooltip_text.contains("\nHERO FILE  ·"):
+			_directive_badge.tooltip_text += "\nHERO FILE  ·  %s  →  %s" % [
+				String(hero_file.get("label", "NEXT FILE")),
+				String(hero_file.get("worker_name", "FLOCK")).to_upper(),
+			]
+			_directive_badge.accessibility_name = _directive_badge.tooltip_text
+	if _shift_egg_goal_label != null:
+		_shift_egg_goal_label.set_meta("visible_reward_destination", (layer.get("reward_destination", {}) as Dictionary).duplicate(true))
+		_shift_egg_goal_label.set_meta("next_shift_tease", (layer.get("next_shift_tease", {}) as Dictionary).duplicate(true))
+	if _rival_pulse_label != null:
+		_rival_pulse_label.set_meta("rival_office_presence", (layer.get("rival_presence", {}) as Dictionary).duplicate(true))
+	if _core_loop_host != null:
+		_core_loop_host.set_meta("recognizable_sound_families", (layer.get("sound_families", {}) as Dictionary).duplicate(true))
+		_core_loop_host.set_meta("mastery_feedback", (layer.get("mastery_feedback", {}) as Dictionary).duplicate(true))
+
+
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
 	if _active_playbook_button == null:
 		return
@@ -20783,6 +20823,8 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 			reaction_worker.play_short_bark(reaction_copy, &"team")
 	if kind in [&"toy", &"episode", &"display", &"modifier", &"intervention"] and _office_atmosphere != null:
 		_office_atmosphere.pulse_strategy_reward()
+	if kind == &"intervention" and _management_presence != null:
+		_management_presence.play_manager_intervention(choice_id)
 	if kind == &"challenge":
 		DisplayServer.clipboard_set(String(result.get("code", "")))
 	if String(result.get("playbook_kind", "")) == "reward" and _office_atmosphere != null:
@@ -20814,7 +20856,9 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 		_active_decision = prior_decision
 	_active_playbook_menu_fingerprint = ""
 	if _audio_feedback != null:
-		if kind in [&"reward", &"teamwork"]:
+		if kind == &"intervention" and _audio_feedback.has_method("play_manager_intervention"):
+			_audio_feedback.call("play_manager_intervention", choice_id)
+		elif kind in [&"reward", &"teamwork"]:
 			_audio_feedback.play_commendation()
 		else:
 			_audio_feedback.play_decision_resolved()
@@ -22053,6 +22097,11 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"station_count": 6,
 			"interactions": breakroom_interactions,
 		},
+		"manager_command_station": (
+			_management_presence.command_station_snapshot()
+			if _management_presence != null else
+			{"physical": false}
+		),
 		"capacity_commissioning": capacity_commissioning_snapshot(),
 		"audio": {
 			"director": (
