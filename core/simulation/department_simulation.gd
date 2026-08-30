@@ -2091,6 +2091,90 @@ const PLAYBOOK_PUSH_LUCK_DEFINITIONS := {
 		"risk": "THE CLUTCH CAN BREAK",
 	},
 }
+const PLAYBOOK_HERO_CASE_ORDER: Array[StringName] = [
+	&"borrowed_nest",
+	&"cracked_precedent",
+	&"golden_rush",
+	&"perch_promise",
+	&"empty_feed_bin",
+	&"three_tray_jam",
+	&"quiet_appeal",
+	&"last_basket",
+]
+const PLAYBOOK_HERO_CASE_DEFINITIONS := {
+	&"borrowed_nest": {
+		"label": "THE BORROWED NEST", "icon": &"clock",
+		"complication": "A deadline file arrived under another hen's name.",
+		"choices": {
+			&"fast_handoff": {"label": "FAST HANDOFF", "icon": &"route", "gain": "FAVOR +2", "cost": "STRAIN +2", "risk": "CREDIT BLURS", "executive_confidence": 2.0, "stress": 2.0, "trust": 1.0},
+			&"safe_review": {"label": "SAFE REVIEW", "icon": &"shield", "gain": "COMPLIANCE +3", "cost": "NO SPEED BONUS", "risk": "DEADLINE TIGHTENS", "compliance": 3.0, "stress": -1.0},
+			&"flock_credit": {"label": "FLOCK CREDIT", "icon": &"flock", "gain": "TRUST +3 / SOLIDARITY +3", "cost": "FAVOR -1", "risk": "RIVAL KEEPS PACE", "executive_confidence": -1.0, "solidarity": 3.0, "trust": 3.0},
+		},
+	},
+	&"cracked_precedent": {
+		"label": "THE CRACKED PRECEDENT", "icon": &"shield",
+		"complication": "A clean rule now carries a rework exception.",
+		"choices": {
+			&"settle_exception": {"label": "SETTLE", "icon": &"cash", "gain": "COMPLIANCE +2", "cost": "$2.00", "risk": "FUND", "revenue_cents": -200, "compliance": 2.0},
+			&"deny_exception": {"label": "DENY", "icon": &"warning", "gain": "FAVOR +2", "cost": "SOLIDARITY -2", "risk": "TRUST -2", "executive_confidence": 2.0, "solidarity": -2.0, "trust": -2.0},
+			&"file_exception": {"label": "FILE EXCEPTION", "icon": &"files", "gain": "COMPLIANCE +4", "cost": "FAVOR -1", "risk": "SLOWER FILE", "executive_confidence": -1.0, "compliance": 4.0},
+		},
+	},
+	&"golden_rush": {
+		"label": "THE GOLDEN RUSH", "icon": &"golden",
+		"complication": "Premium value and the rival clock peaked together.",
+		"choices": {
+			&"defend_rush": {"label": "DEFEND", "icon": &"shield", "gain": "COMPLIANCE +2", "cost": "FAVOR -1", "risk": "LOWER CEILING", "executive_confidence": -1.0, "compliance": 2.0},
+			&"counter_rush": {"label": "COUNTER", "icon": &"rival", "gain": "$2.50 / FAVOR +2", "cost": "STRAIN +3", "risk": "QUALITY", "revenue_cents": 250, "executive_confidence": 2.0, "stress": 3.0},
+			&"back_flock_rush": {"label": "BACK FLOCK", "icon": &"care", "gain": "SOLIDARITY +4 / STRAIN -2", "cost": "NO PREMIUM", "risk": "MARGIN HOLDS", "solidarity": 4.0, "stress": -2.0},
+		},
+	},
+	&"perch_promise": {
+		"label": "THE PERCH PROMISE", "icon": &"sync",
+		"complication": "A bonded pair can save the file at a personal cost.",
+		"choices": {
+			&"promise_team_lift": {"label": "TEAM LIFT", "icon": &"sync", "gain": "TRUST +3 / STRAIN -3", "cost": "ATTENTION USED", "risk": "PAIR DEPENDENCY", "trust": 3.0, "stress": -3.0, "attention": 1},
+			&"promise_solo": {"label": "SOLO ROUTE", "icon": &"route", "gain": "FAVOR +2", "cost": "STRAIN +2", "risk": "NO BOND GROWTH", "executive_confidence": 2.0, "stress": 2.0},
+			&"promise_recover": {"label": "RECOVER", "icon": &"care", "gain": "STRAIN -5", "cost": "$1.00", "risk": "NO SPEED BONUS", "revenue_cents": -100, "stress": -5.0, "trust": 1.0},
+		},
+	},
+	&"empty_feed_bin": {
+		"label": "THE EMPTY FEED BIN", "icon": &"cash",
+		"complication": "Flock recovery competes with a thin Feed Fund.",
+		"choices": {
+			&"bin_coffee": {"label": "COFFEE RUN", "icon": &"care", "gain": "FLOCK STRAIN -4", "cost": "$2.00", "risk": "FUND", "revenue_cents": -200, "all_stress": -4.0},
+			&"bin_steady": {"label": "STEADY FUND", "icon": &"cash", "gain": "$2.00", "cost": "FAVOR -1", "risk": "NO RECOVERY", "revenue_cents": 200, "executive_confidence": -1.0},
+			&"bin_press": {"label": "PRESS ON", "icon": &"warning", "gain": "FAVOR +3", "cost": "FLOCK STRAIN +3", "risk": "QUALITY", "executive_confidence": 3.0, "all_stress": 3.0},
+		},
+	},
+	&"three_tray_jam": {
+		"label": "THE THREE-TRAY JAM", "icon": &"route",
+		"complication": "Specialty fit conflicts with the earliest deadline.",
+		"choices": {
+			&"jam_specialty": {"label": "SPECIALTY FIRST", "icon": &"route", "gain": "TRUST +2", "cost": "DEADLINE RISK", "risk": "QUEUE", "trust": 2.0, "stress": -1.0},
+			&"jam_deadline": {"label": "DEADLINE FIRST", "icon": &"clock", "gain": "FAVOR +2", "cost": "STRAIN +2", "risk": "FIT", "executive_confidence": 2.0, "stress": 2.0},
+			&"jam_protect": {"label": "PROTECT STRAIN", "icon": &"care", "gain": "STRAIN -4", "cost": "FAVOR -1", "risk": "QUEUE", "executive_confidence": -1.0, "stress": -4.0},
+		},
+	},
+	&"quiet_appeal": {
+		"label": "THE QUIET APPEAL", "icon": &"files",
+		"complication": "The technically correct file strains its named hen.",
+		"choices": {
+			&"appeal_signature": {"label": "SIGNATURE", "icon": &"flock", "gain": "TRUST +3", "cost": "FAVOR -1", "risk": "PERSONAL STAKE", "executive_confidence": -1.0, "trust": 3.0},
+			&"appeal_coach": {"label": "CAREER COACH", "icon": &"goal", "gain": "XP +4 / TRUST +2", "cost": "$1.00", "risk": "FUND", "revenue_cents": -100, "career_xp": 4, "trust": 2.0},
+			&"appeal_show": {"label": "SHOW ME", "icon": &"route", "gain": "ATTENTION +1 / STRAIN -2", "cost": "ONE RESCUE", "risk": "NO CASH", "attention": 1, "stress": -2.0},
+		},
+	},
+	&"last_basket": {
+		"label": "THE LAST BASKET", "icon": &"egg",
+		"complication": "Quota is safe; the final clutch can bank or reach.",
+		"choices": {
+			&"basket_bank": {"label": "BANK CLUTCH", "icon": &"shield", "gain": "COMPLIANCE +3", "cost": "NO PREMIUM", "risk": "LOWER CEILING", "compliance": 3.0},
+			&"basket_chase": {"label": "CHASE PREMIUM", "icon": &"golden", "gain": "$3.00 / FAVOR +2", "cost": "STRAIN +3", "risk": "QUALITY", "revenue_cents": 300, "executive_confidence": 2.0, "all_stress": 3.0},
+			&"basket_end": {"label": "END SHIFT", "icon": &"care", "gain": "FLOCK STRAIN -3", "cost": "NO EXTRA OUTPUT", "risk": "NONE", "all_stress": -3.0, "solidarity": 2.0},
+		},
+	},
+}
 const PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS := {
 	&"rush_hour": {
 		"label": "RUSH HOUR",
@@ -2301,6 +2385,7 @@ var upgrade_levels: Dictionary = {
 }
 var first_clutch_reinvestment: Dictionary = {}
 var active_playbook: Dictionary = {}
+var hero_case_history: Array[Dictionary] = []
 var requisition_spend_today_cents: int = 0
 var requisition_spend_total_cents: int = 0
 var orientation_procurement_match_today_cents: int = 0
@@ -9327,6 +9412,7 @@ func export_save_state() -> Dictionary:
 		"upgrade_levels": saved_upgrades,
 		"first_clutch_reinvestment": first_clutch_reinvestment.duplicate(true),
 		"active_playbook": active_playbook.duplicate(true),
+		"hero_case_history": hero_case_history.duplicate(true),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
 		"requisition_spend_total_cents": requisition_spend_total_cents,
 		"orientation_procurement_match_today_cents": orientation_procurement_match_today_cents,
@@ -9607,6 +9693,14 @@ func restore_save_state(data: Dictionary) -> bool:
 	var restored_active_playbook := (
 		active_playbook_validation.get("record", {}) as Dictionary
 	)
+	var hero_history_validation := _validated_hero_case_history(
+		data.get("hero_case_history", []),
+		saved_day,
+		worker_data.size(),
+	)
+	if not bool(hero_history_validation.get("valid", false)):
+		return false
+	var restored_hero_case_history := hero_history_validation.get("history", []) as Array[Dictionary]
 	var reinvestment_match_used := int(
 		restored_first_clutch_reinvestment.get("procurement_match_used_cents", 0)
 	)
@@ -11140,6 +11234,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	upgrade_levels = restored_upgrade_levels
 	first_clutch_reinvestment = restored_first_clutch_reinvestment
 	active_playbook = restored_active_playbook.duplicate(true)
+	hero_case_history = restored_hero_case_history.duplicate(true)
 	requisition_spend_today_cents = restored_requisition_spend_today
 	requisition_spend_total_cents = restored_requisition_spend_total
 	orientation_procurement_match_today_cents = restored_orientation_match_today
@@ -13556,6 +13651,44 @@ func _cumulative_upgrade_spend_cents(levels: Dictionary) -> int:
 	return total
 
 
+func _validated_hero_case_history(value: Variant, saved_day: int, worker_count: int) -> Dictionary:
+	if not value is Array or (value as Array).size() > 32:
+		return {"valid": false, "history": []}
+	var history: Array[Dictionary] = []
+	for row_value in value as Array:
+		if not row_value is Dictionary:
+			return {"valid": false, "history": []}
+		var row := row_value as Dictionary
+		if not _is_integral_number(row.get("day", null)):
+			return {"valid": false, "history": []}
+		var row_day := int(row.get("day", 0))
+		var case_id := StringName(String(row.get("case_id", "")))
+		var choice_id := StringName(String(row.get("choice_id", "")))
+		var case_definition := PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary
+		var worker_id := int(row.get("worker_id", -1))
+		if (
+			row_day < 1 or row_day > saved_day
+			or case_definition.is_empty()
+			or not (case_definition.get("choices", {}) as Dictionary).has(choice_id)
+			or worker_id < -1 or worker_id >= worker_count
+		):
+			return {"valid": false, "history": []}
+		for text_field in ["case_label", "choice_label", "worker_name", "echo"]:
+			if typeof(row.get(text_field, null)) not in [TYPE_STRING, TYPE_STRING_NAME]:
+				return {"valid": false, "history": []}
+		history.append({
+			"day": row_day,
+			"case_id": String(case_id),
+			"case_label": String(row.get("case_label", "")),
+			"choice_id": String(choice_id),
+			"choice_label": String(row.get("choice_label", "")),
+			"worker_id": worker_id,
+			"worker_name": String(row.get("worker_name", "")),
+			"echo": String(row.get("echo", "")),
+		})
+	return {"valid": true, "history": history}
+
+
 func _validated_active_playbook(
 	value: Variant,
 	saved_day: int,
@@ -13627,6 +13760,20 @@ func _validated_active_playbook(
 		if typeof(optional_value) != TYPE_BOOL:
 			return {"valid": false, "record": {}}
 		normalized[optional_bool] = bool(optional_value)
+	var hero_case_id := StringName(String(source.get("hero_case_id", "")))
+	if hero_case_id != &"" and not PLAYBOOK_HERO_CASE_DEFINITIONS.has(hero_case_id):
+		return {"valid": false, "record": {}}
+	normalized["hero_case_id"] = String(hero_case_id)
+	var hero_case_choice_id := StringName(String(source.get("hero_case_choice_id", "")))
+	if hero_case_choice_id != &"":
+		var hero_definition := PLAYBOOK_HERO_CASE_DEFINITIONS.get(hero_case_id, {}) as Dictionary
+		if not (hero_definition.get("choices", {}) as Dictionary).has(hero_case_choice_id):
+			return {"valid": false, "record": {}}
+	normalized["hero_case_choice_id"] = String(hero_case_choice_id)
+	var hero_callback_value: Variant = source.get("hero_case_callback", {})
+	if not hero_callback_value is Dictionary:
+		return {"valid": false, "record": {}}
+	normalized["hero_case_callback"] = (hero_callback_value as Dictionary).duplicate(true)
 	var proposal_worker_id := int(source.get("proposal_worker_id", -1))
 	if proposal_worker_id < -1 or proposal_worker_id >= worker_count:
 		return {"valid": false, "record": {}}
@@ -16434,6 +16581,9 @@ func _reset_active_playbook() -> void:
 		"toy_id": "",
 		"display_style_index": 0,
 		"rare_episode_resolved": false,
+		"hero_case_id": String(_hero_case_id_for_day(day)),
+		"hero_case_choice_id": "",
+		"hero_case_callback": {},
 		"last_receipt": {},
 		"receipt_serial": 0,
 	}
@@ -16695,7 +16845,7 @@ func _playbook_prediction_snapshot(contract: Dictionary) -> Dictionary:
 
 func _playbook_primary_objective_snapshot(options: Array[Dictionary]) -> Dictionary:
 	var priorities := [
-		"reward", "rescue", "push_luck", "proposal", "modifier", "rival",
+		"reward", "rescue", "hero_case", "push_luck", "proposal", "modifier", "rival",
 		"signature", "teamwork", "automation", "toy", "practice",
 	]
 	var selected: Dictionary = {}
@@ -16719,6 +16869,8 @@ func _playbook_primary_objective_snapshot(options: Array[Dictionary]) -> Diction
 	var target := "active_playbook"
 	if kind in ["signature", "proposal", "rescue", "teamwork", "practice", "automation"]:
 		target = "focused_hen"
+	elif kind == "hero_case":
+		target = "incident_desk"
 	elif kind == "toy":
 		target = "breakroom"
 	elif kind == "reward":
@@ -16726,7 +16878,7 @@ func _playbook_primary_objective_snapshot(options: Array[Dictionary]) -> Diction
 	return {
 		"kind": kind,
 		"id": String(selected.get("id", "")),
-		"verb": "CHOOSE" if kind in ["reward", "push_luck", "modifier", "rival"] else "ACT",
+		"verb": "CHOOSE" if kind in ["reward", "hero_case", "push_luck", "modifier", "rival"] else "ACT",
 		"label": String(selected.get("label", "NEXT PLAY")),
 		"icon": String(selected.get("icon", "goal")),
 		"world_target": target,
@@ -16775,6 +16927,77 @@ func _playbook_strategy_mastery_snapshot(combo_recipe: Dictionary, contract: Dic
 		"strength": String(combo_recipe.get("effect", "BALANCED FLOOR")),
 		"weakness": String((PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(StringName(active_playbook.get("strategy_preset_id", &"")), {}) as Dictionary).get("risk", "NO SPECIALIZATION")),
 		"transformative_at": 3,
+	}
+
+
+func _hero_case_id_for_day(target_day: int) -> StringName:
+	return PLAYBOOK_HERO_CASE_ORDER[posmod(maxi(1, target_day) - 1, PLAYBOOK_HERO_CASE_ORDER.size())]
+
+
+func _hero_case_snapshot(focused_worker_id: int) -> Dictionary:
+	_ensure_active_playbook()
+	var case_id := StringName(active_playbook.get("hero_case_id", _hero_case_id_for_day(day)))
+	var definition := (PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary).duplicate(true)
+	var choice_id := StringName(active_playbook.get("hero_case_choice_id", &""))
+	var worker_id := focused_worker_id
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		worker_id = -1
+		for worker in workers:
+			if worker.employed:
+				worker_id = worker.id
+				break
+	var options: Array[Dictionary] = []
+	for option_id: StringName in (definition.get("choices", {}) as Dictionary):
+		var option_definition := definition["choices"][option_id] as Dictionary
+		options.append(_playbook_option(
+			&"hero_case", option_id, option_definition, choice_id == &"",
+			"Choose one disclosed answer; its callback is filed in the shift record.",
+		))
+	return {
+		"id": String(case_id),
+		"label": String(definition.get("label", "HERO FILE")),
+		"icon": String(definition.get("icon", &"files")),
+		"complication": String(definition.get("complication", "A consequential file is ready.")),
+		"worker_id": worker_id,
+		"worker_name": workers[worker_id].display_name if worker_id >= 0 else "THE FLOCK",
+		"active": eggs_today > 0 and choice_id == &"",
+		"resolved": choice_id != &"",
+		"choice_id": String(choice_id),
+		"options": options,
+		"callback": (active_playbook.get("hero_case_callback", {}) as Dictionary).duplicate(true),
+		"persistent_history_count": hero_case_history.size(),
+	}
+
+
+func _automation_report_card(focused_worker_id: int) -> Dictionary:
+	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
+		return {"available": false, "worker_id": -1}
+	var worker := workers[focused_worker_id]
+	var stats := _worker_shift_stat(focused_worker_id)
+	var eggs := maxi(0, int(stats.get("eggs", 0)))
+	var cracked := maxi(0, int(stats.get("cracked", 0)))
+	var clean := maxi(0, eggs - cracked)
+	var policy_id := worker.automation_policy_id if worker.automation_policy_unlocked else &""
+	var recommendation := "KEEP MANUAL"
+	if worker.automation_policy_unlocked and worker.assigned_lane == AUTO_ASSIGNMENT:
+		recommendation = "KEEP %s" % String((PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.get(policy_id, {}) as Dictionary).get("label", "AUTO FIT"))
+		if eggs >= 2 and cracked * 3 > eggs:
+			recommendation = "REVIEW POLICY"
+	return {
+		"available": worker.automation_policy_unlocked,
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"assignment": String(worker.assigned_lane),
+		"policy_id": String(policy_id),
+		"policy": (PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.get(policy_id, {}) as Dictionary).duplicate(true),
+		"handled": eggs,
+		"clean": clean,
+		"cracked": cracked,
+		"golden": maxi(0, int(stats.get("golden", 0))),
+		"credit_cents": maxi(0, int(stats.get("credit_cents", 0))),
+		"clean_rate_percent": roundi(100.0 * float(clean) / float(maxi(1, eggs))),
+		"exceptions_manual": true,
+		"recommendation": recommendation,
 	}
 
 
@@ -16883,8 +17106,8 @@ static func first_session_comprehension_protocol() -> Dictionary:
 	return {
 		"participants_required": 5,
 		"unaided": true,
-		"tasks": ["Choose a plan", "Route one file", "Recover one mistake", "Explain one result"],
-		"pass_rule": "At least 4 of 5 participants complete all four tasks without outside instruction.",
+		"tasks": ["Choose a plan", "Route one file", "Resolve one hero file", "Recover one mistake", "Explain one result"],
+		"pass_rule": "At least 4 of 5 participants complete all five tasks without outside instruction.",
 		"thresholds": {
 			"choose_plan_unaided": "4/5",
 			"route_within_seconds": 30,
@@ -16895,6 +17118,7 @@ static func first_session_comprehension_protocol() -> Dictionary:
 		"instrumented_events": [
 			"plan_filed",
 			"route_completed",
+			"hero_case_resolved",
 			"rescue_used",
 			"result_explained",
 			"shortcut_required",
@@ -16995,6 +17219,13 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 	if String(active_playbook.get("rival_response_id", "")).is_empty() and eggs_today > 0:
 		for choice_id: StringName in PLAYBOOK_RIVAL_DEFINITIONS:
 			options.append(_playbook_option(&"rival", choice_id, PLAYBOOK_RIVAL_DEFINITIONS[choice_id], running, "One transparent response for this shift."))
+	var hero_case := _hero_case_snapshot(focused_worker_id)
+	if bool(hero_case.get("active", false)):
+		for hero_option_value in hero_case.get("options", []) as Array:
+			if hero_option_value is Dictionary:
+				var hero_option := (hero_option_value as Dictionary).duplicate(true)
+				hero_option["available"] = running
+				options.append(hero_option)
 	if strategy_preset_id == &"custom" and side_goal_id == &"":
 		for choice_id: StringName in PLAYBOOK_SIDE_GOAL_DEFINITIONS:
 			options.append(_playbook_option(&"side_goal", choice_id, PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], running, "Pin one personal ambition; no failure penalty."))
@@ -17220,6 +17451,9 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"available": teamwork_available,
 			"ability": teamwork_ability.duplicate(true),
 		},
+		"hero_case": hero_case,
+		"hero_case_history": hero_case_history.duplicate(true),
+		"automation_report": _automation_report_card(focused_worker_id),
 		"push_luck": {
 			"id": String(active_playbook.get("push_luck_id", "")),
 			"start_eggs": int(active_playbook.get("push_luck_start_eggs", 0)),
@@ -17281,6 +17515,8 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 	_ensure_active_playbook()
 	if shift_phase != ShiftPhase.RUNNING or not pending_decision.is_empty():
 		return {"accepted": false, "reason": "Resolve the current management file first."}
+	if kind == &"hero_case":
+		return _perform_playbook_hero_case(choice_id, worker_id)
 	if kind == &"intervention":
 		if not PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS.has(choice_id):
 			return {"accepted": false, "reason": "That manager intervention is unavailable."}
@@ -17583,6 +17819,75 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 	if kind == &"practice":
 		return _practice_playbook_peck(worker_id)
 	return {"accepted": false, "reason": "That playbook action is not available."}
+
+
+func _perform_playbook_hero_case(choice_id: StringName, worker_id: int) -> Dictionary:
+	var case_id := StringName(active_playbook.get("hero_case_id", _hero_case_id_for_day(day)))
+	var definition := PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary
+	var choices := definition.get("choices", {}) as Dictionary
+	if not String(active_playbook.get("hero_case_choice_id", "")).is_empty():
+		return {"accepted": false, "reason": "Today's hero file already has a filed answer."}
+	if eggs_today <= 0:
+		return {"accepted": false, "reason": "Land the first egg before the hero file opens."}
+	if not choices.has(choice_id):
+		return {"accepted": false, "reason": "That answer does not belong to today's hero file."}
+	var effects := choices[choice_id] as Dictionary
+	var fund_delta := int(effects.get("revenue_cents", 0))
+	if fund_delta < 0 and spendable_fund_cents() < -fund_delta:
+		return {"accepted": false, "reason": "That answer needs $%.2f spendable Feed Fund." % (float(-fund_delta) / 100.0)}
+	var target_worker_id := worker_id
+	if target_worker_id < 0 or target_worker_id >= workers.size() or not workers[target_worker_id].employed:
+		target_worker_id = int(_hero_case_snapshot(-1).get("worker_id", -1))
+	var target_worker: ChickenState = workers[target_worker_id] if target_worker_id >= 0 else null
+	revenue_cents = maxi(0, revenue_cents + fund_delta)
+	executive_confidence = clampf(executive_confidence + float(effects.get("executive_confidence", 0.0)), 0.0, 100.0)
+	compliance = clampf(compliance + float(effects.get("compliance", 0.0)), 0.0, 100.0)
+	solidarity = clampf(solidarity + float(effects.get("solidarity", 0.0)), 0.0, 100.0)
+	if effects.has("all_stress"):
+		_adjust_workers(0.0, float(effects.get("all_stress", 0.0)), 0.0)
+	if target_worker != null:
+		target_worker.stress = clampf(target_worker.stress + float(effects.get("stress", 0.0)), 0.0, 100.0)
+		target_worker.manager_trust = clampf(target_worker.manager_trust + float(effects.get("trust", 0.0)), 0.0, 100.0)
+		var career_xp := int(effects.get("career_xp", 0))
+		if career_xp > 0:
+			target_worker.add_career_xp(career_xp)
+	if int(effects.get("attention", 0)) > 0:
+		routing_momentum_peck_recharge_bank = maxi(routing_momentum_peck_recharge_bank, 1)
+	var callback := {
+		"day": day,
+		"case_id": String(case_id),
+		"case_label": String(definition.get("label", "HERO FILE")),
+		"choice_id": String(choice_id),
+		"choice_label": String(effects.get("label", "ANSWER")),
+		"worker_id": target_worker_id,
+		"worker_name": target_worker.display_name if target_worker != null else "THE FLOCK",
+		"echo": "%s will return in the shift review and future docket history." % String(effects.get("label", "This answer")).capitalize(),
+	}
+	active_playbook["hero_case_choice_id"] = String(choice_id)
+	active_playbook["hero_case_callback"] = callback.duplicate(true)
+	hero_case_history.append(callback.duplicate(true))
+	if hero_case_history.size() > 32:
+		hero_case_history.pop_front()
+	return _file_playbook_receipt({
+		"accepted": true,
+		"playbook_kind": "hero_case",
+		"choice_id": String(choice_id),
+		"case_id": String(case_id),
+		"worker_id": target_worker_id,
+		"label": String(effects.get("label", "HERO FILE")),
+		"effects": {
+			"gain": String(effects.get("gain", "VISIBLE CHANGE")),
+			"cost": String(effects.get("cost", "NONE")),
+			"risk": String(effects.get("risk", "NONE")),
+		},
+		"outcome": "%s filed %s for %s. The callback is now part of this campaign." % [
+			String(definition.get("label", "Hero file")).capitalize(),
+			String(effects.get("label", "the answer")).capitalize(),
+			callback["worker_name"],
+		],
+		"callback": callback.duplicate(true),
+		"day": day,
+	})
 
 
 func _playbook_choice_result(kind: StringName, choice_id: StringName, definition: Dictionary, outcome: String) -> Dictionary:

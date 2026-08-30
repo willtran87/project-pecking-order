@@ -5,7 +5,7 @@ extends RefCounted
 ## DepartmentSimulation remains the sole writer. This layer sequences existing
 ## authorities so one useful decision is visible at a time.
 
-const VERSION := 1
+const VERSION := 2
 const ITEM_IDS: Array[StringName] = [
 	&"phase_gated_hud",
 	&"never_show_unusable_decision",
@@ -122,7 +122,9 @@ static func compose(context: Dictionary) -> Dictionary:
 		strategy_comparison = strategy_comparison_value
 	elif strategy_comparison_value is Dictionary:
 		strategy_comparison = (strategy_comparison_value as Dictionary).get("plans", []) as Array
-	var hero_case := _hero_case(simulation, focused_worker)
+	var hero_case := (playbook.get("hero_case", {}) as Dictionary).duplicate(true)
+	if hero_case.is_empty():
+		hero_case = _hero_case(simulation, focused_worker)
 	var rival_race := _rival_race(rival, playbook, simulation)
 	var reward_readiness := _reward_readiness(playbook, simulation, chapter, consolidated)
 	var implementation: Array[Dictionary] = []
@@ -180,6 +182,8 @@ static func compose(context: Dictionary) -> Dictionary:
 		},
 		"hero_case": hero_case,
 		"hero_case_catalog": HERO_CASES.duplicate(true),
+		"hero_case_history": (playbook.get("hero_case_history", []) as Array).duplicate(true),
+		"automation_report": (playbook.get("automation_report", {}) as Dictionary).duplicate(true),
 		"rival_race": rival_race,
 		"what_if_planning": {
 			"reversible": true,
@@ -418,7 +422,7 @@ static func _authority_for(item_id: StringName) -> String:
 	match item_id:
 		&"player_authored_automation_policies": return "CHICKEN STATE + DEPARTMENT SIMULATION"
 		&"pair_specific_flock_abilities": return "FLOCK BOND + TEAM LIFT"
-		&"hand_authored_hero_cases": return "AUTHORED CASE CATALOG + LIVE CLAIM"
+		&"hand_authored_hero_cases": return "DEPARTMENT SIMULATION + PERSISTENT HERO CASE HISTORY"
 		&"visible_rival_races", &"strategy_counters_with_disclosure": return "RIVAL SNAPSHOT + ACTIVE PLAYBOOK"
 		&"reversible_what_if_planning": return "TACTICAL ROUTE PLAN + STRATEGY COMPARISON"
 		&"real_five_person_comprehension_test": return "EXTERNAL HUMAN EVIDENCE PROTOCOL"

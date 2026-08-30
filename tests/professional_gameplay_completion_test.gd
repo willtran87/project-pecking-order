@@ -67,7 +67,7 @@ func _init() -> void:
 		if value is Dictionary:
 			ids.append(String((value as Dictionary).get("id", "")))
 	_check(
-		int(layer.get("version", 0)) == 1
+		int(layer.get("version", 0)) == 2
 		and bool(layer.get("canonical", false))
 		and not bool(layer.get("authoritative", true))
 		and int(layer.get("item_count", 0)) == 23

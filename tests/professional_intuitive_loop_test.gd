@@ -67,7 +67,7 @@ func _run() -> void:
 	var rematch := layer.get("rematch_variation", {}) as Dictionary
 	var study := layer.get("comprehension_protocol", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 14
+		int(pulse.get("version", 0)) == 15
 		and int(layer.get("item_count", 0)) == 20
 		and int(layer.get("resolved_count", 0)) == 20
 		and bool(layer.get("all_resolved", false)),

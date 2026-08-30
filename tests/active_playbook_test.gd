@@ -126,6 +126,18 @@ func _init() -> void:
 
 	simulation.eggs_today = 1
 	simulation.eggs_total = maxi(1, simulation.eggs_total)
+	var hero_before := simulation.playbook_snapshot(0).get("hero_case", {}) as Dictionary
+	var hero := simulation.perform_playbook_action(&"hero_case", &"fast_handoff", 0)
+	_check(
+		String(hero_before.get("id", "")) == "borrowed_nest"
+		and bool(hero_before.get("active", false))
+		and (hero_before.get("options", []) as Array).size() == 3
+		and bool(hero.get("accepted", false))
+		and simulation.hero_case_history.size() == 1
+		and String((simulation.playbook_snapshot(0).get("hero_case", {}) as Dictionary).get("choice_id", "")) == "fast_handoff",
+		"the first delivery should open one authored hero file with three real, one-shot outcomes and a persistent callback",
+		failures,
+	)
 	var rival := simulation.perform_playbook_action(&"rival", &"counter", 0)
 	_check(bool(rival.get("accepted", false)), "the rival response should open after the first delivery", failures)
 	simulation.revenue_cents = 2000
@@ -160,6 +172,18 @@ func _init() -> void:
 		"the player should be able to revise an unlocked hen's delegation rule from the authoritative Playbook",
 		failures,
 	)
+	simulation.call("_record_worker_shift_result", 0, &"sound", 240)
+	simulation.call("_record_worker_shift_result", 0, &"cracked", 0)
+	var automation_report := simulation.playbook_snapshot(0).get("automation_report", {}) as Dictionary
+	_check(
+		bool(automation_report.get("available", false))
+		and String(automation_report.get("policy_id", "")) == "deadline_first"
+		and int(automation_report.get("handled", 0)) == 2
+		and int(automation_report.get("clean_rate_percent", 0)) == 50
+		and bool(automation_report.get("exceptions_manual", false)),
+		"automation should publish an honest per-hen report card from authoritative shift outcomes",
+		failures,
+	)
 
 	var encoded := JSON.stringify({"simulation": simulation.export_save_state()})
 	var parsed: Variant = JSON.parse_string(encoded)
@@ -185,7 +209,8 @@ func _init() -> void:
 			and restored.workers[0].automation_policy_unlocked
 			and restored.workers[0].automation_policy_id == &"deadline_first"
 			and (restored_playbook.get("signature_worker_ids", []) as Array) == [0]
-			and int(restored_playbook.get("receipt_serial", 0)) == 12
+			and int(restored_playbook.get("receipt_serial", 0)) == 13
+			and restored.hero_case_history.size() == 1
 			and String((restored.playbook_snapshot(0).get("contract", {}) as Dictionary).get("id", "")) == "fit_three",
 			"restore should preserve all filed playbook choices and receipts",
 			failures,

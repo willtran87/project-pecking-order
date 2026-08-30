@@ -6,7 +6,9 @@ This pass closes the approved 23-item gameplay brief by strengthening the existi
 
 The live shift now follows one consistent physical grammar: `SELECT → PREVIEW → COMMIT → LAND`. The current phase owns the strongest visual emphasis, invalid future actions stay hidden, pointer/confirm/cancel are sufficient, and detailed prose remains optional.
 
-Auto Fit is now a player-authored management system rather than a fixed convenience. After teaching it to a hen, the player can persistently choose Specialty First, Deadline First, or Protect Strain for that hen. Exceptions stay visible and manual. Team Lift now resolves through four pair-specific abilities—Specialist Duet, Mentor Handoff, Deadline Cover, or Shell Guard—with distinct authoritative morale, stress, trust, career XP, or attention outcomes.
+Auto Fit is now a player-authored management system rather than a fixed convenience. After teaching it to a hen, the player can persistently choose Specialty First, Deadline First, or Protect Strain for that hen. Exceptions stay visible and manual, and a per-hen report card now shows handled, clean, cracked, golden, credit, and a bounded keep/review recommendation from real shift results. Team Lift resolves through four pair-specific abilities—Specialist Duet, Mentor Handoff, Deadline Cover, or Shell Guard—with distinct authoritative morale, stress, trust, career XP, or attention outcomes.
+
+Hero files are now playable simulation events rather than a presentation catalog. The first delivery opens one deterministic file for the shift; each of the eight files offers three disclosed answers. A choice changes existing Fund, favor, compliance, solidarity, attention, career, trust, or strain authority, files one causal receipt, and appends a validated campaign callback that survives save/restore. The Playbook still shows only this current action group plus contextual powers and consequence-free practice, preserving one dominant decision at a time.
 
 ## Exact resolution map
 
@@ -21,7 +23,7 @@ Auto Fit is now a player-authored management system rather than a fixed convenie
 | 7 | One-second causal receipt | The existing receipt is reduced to Action, Target, Outcome with one sound and one number. |
 | 8 | Player-authored automation | ChickenState persists one of three delegation policies; DepartmentSimulation executes it. |
 | 9 | Pair-specific flock abilities | DepartmentSimulation derives and applies four distinct bond outcomes. |
-| 10 | Hand-authored hero cases | Eight authored cases provide complications, multiple solutions, and callbacks. |
+| 10 | Hand-authored hero cases | DepartmentSimulation runs eight authored cases with three authoritative solutions each and a persistent validated callback history. |
 | 11 | Visible rival races | Rival progress, intent, cause, and three responses appear after the first delivery. |
 | 12 | Reversible what-if planning | Fast, Safe, and Flock comparisons are read-only until the player commits. |
 | 13 | Disclosed strategy counters | The trigger and response window are shown; no hidden catch-up punishment exists. |
@@ -38,6 +40,6 @@ Auto Fit is now a player-authored management system rather than a fixed convenie
 
 ## Verification contract
 
-`professional_gameplay_completion_test.gd` proves the exact 23-item projection, phase focus, four-step interaction grammar, three delegation policies, four pair outcomes, eight hero cases, three rival responses, reversible planning, six mastery challenges, and the honest evidence boundary. `active_playbook_test.gd` proves policy unlock, revision, behavior ownership, receipt accounting, and checkpoint persistence alongside a real pair-specific ability.
+`professional_gameplay_completion_test.gd` proves the exact 23-item projection, phase focus, four-step interaction grammar, three delegation policies, four pair outcomes, eight hero cases, three rival responses, reversible planning, six mastery challenges, and the honest evidence boundary. `active_playbook_test.gd` proves policy unlock, revision, behavior ownership, a real three-answer hero-file outcome, persistent callback validation, per-hen automation accounting, receipt accounting, and checkpoint persistence alongside a real pair-specific ability.
 
 The production browser audit checks the same contract in the shipped Web build. Human comprehension cannot be inferred from automated checks: the release continues to report `AWAITING REAL PARTICIPANTS` until five consented sessions satisfy the session card.

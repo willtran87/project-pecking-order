@@ -286,7 +286,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"consolidated_game_loop": consolidated_game_loop,
 	})
 	return {
-		"version": 14,
+		"version": 15,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,

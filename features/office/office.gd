@@ -20713,7 +20713,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	if not running:
 		return
 	var primary_kind := ""
-	for priority_kind in ["reward", "rescue", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "modifier", "rival", "side_goal", "automation", "automation_policy", "toy", "display", "challenge"]:
+	for priority_kind in ["reward", "rescue", "hero_case", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "modifier", "rival", "side_goal", "automation", "automation_policy", "toy", "display", "challenge"]:
 		for option_value in options:
 			if (
 				option_value is Dictionary
@@ -20778,6 +20778,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	var combo_recipe := playbook.get("combo_recipe", {}) as Dictionary
 	var prediction := playbook.get("prediction_score", {}) as Dictionary
 	var side_goal := playbook.get("side_goal", {}) as Dictionary
+	var hero_case := playbook.get("hero_case", {}) as Dictionary
+	var automation_report := playbook.get("automation_report", {}) as Dictionary
 	var plan_labels: Array[String] = []
 	for step_value in playbook.get("shift_journey", []):
 		if step_value is Dictionary:
@@ -20815,6 +20817,13 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			int(side_goal.get("progress", 0)),
 			int(side_goal.get("target", 0)),
 		])
+	if bool(hero_case.get("active", false)):
+		detail_lines.append("HERO FILE  ·  %s" % String(hero_case.get("label", "READY")))
+	if bool(automation_report.get("available", false)):
+		detail_lines.append("AUTO  ·  %d HANDLED  ·  %d%% CLEAN" % [
+			int(automation_report.get("handled", 0)),
+			int(automation_report.get("clean_rate_percent", 0)),
+		])
 	var manager_intervention := playbook.get("manager_intervention", {}) as Dictionary
 	if not bool(manager_intervention.get("used", false)):
 		detail_lines.append("INTERVENTION READY  ·  ONE / SHIFT")
@@ -20825,6 +20834,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	_active_playbook_button.visible = running and (plan_filed or contextual_power_ready)
 	_active_playbook_button.text = (
 		"REWARD  ▾" if ready_kind == "reward" else
+		"HERO FILE  ▾" if ready_kind == "hero_case" else
 		"CALLED IT  ▾" if String(prediction.get("verdict", "")) == "CALLED IT" else
 		"COMBO READY  ▾" if bool(combo_recipe.get("complete", false)) else
 		"SIGNATURE  ▾" if ready_kind == "signature" else
@@ -20853,6 +20863,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	)
 	_active_playbook_button.set_meta("prediction_score", prediction.duplicate(true))
 	_active_playbook_button.set_meta("combo_recipe", combo_recipe.duplicate(true))
+	_active_playbook_button.set_meta("hero_case", hero_case.duplicate(true))
+	_active_playbook_button.set_meta("automation_report", automation_report.duplicate(true))
 
 
 func _playbook_menu_icon(icon_kind: StringName) -> StringName:
@@ -20901,6 +20913,12 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 				"BOK!"
 			)
 			reaction_worker.play_short_bark(reaction_copy, &"team")
+	if kind == &"hero_case":
+		var hero_worker := _worker_views.get(int(result.get("worker_id", -1))) as ChickenView
+		if hero_worker != null:
+			hero_worker.play_short_bark("FILED!", &"team")
+		if _office_atmosphere != null:
+			_office_atmosphere.pulse_strategy_reward()
 	if kind in [&"toy", &"episode", &"display", &"modifier", &"intervention"] and _office_atmosphere != null:
 		_office_atmosphere.pulse_strategy_reward()
 	if kind == &"intervention" and _management_presence != null:

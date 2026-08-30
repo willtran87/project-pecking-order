@@ -14081,3 +14081,13 @@ The next major systems milestone is persistent worker relationships and individu
 - Production browser audits pass at 2560×1600, 1440×900, and 844×390 with all 23 mappings live and zero console/page errors. Original-size inspection confirms a contained icon-led office and an actionable Fast/Safe/Flock Playbook menu at desktop and compact widths.
 - The complete beta release gate passes 72/72 checks in 608.162 seconds. Both release targets contain the byte-identical 10,760,860-byte PCK with SHA-256 `FD75365078750A8B4FCC34D1B31643058B0F36937B0410BCE7153393222016D9`.
 - The owned production wrapper was stopped after verification, port 3001 is free, no owned Godot process remains, and the pre-existing service on port 3000 was left untouched.
+
+# 2026-08-30 — Authoritative hero-file and automation-accountability polish
+
+- Promoted the eight hero files from a read-only catalog into real `DepartmentSimulation` events. The first delivery opens one deterministic file with three disclosed answers; each answer changes existing authoritative resources or hen state and files one causal receipt.
+- Added a bounded, validated 32-entry hero-case history. Exact case, answer, named hen, day, and callback survive JSON checkpoint round-trips; old schema-v30 saves safely default to an empty history.
+- Added an honest per-hen Auto Fit report card derived from `_worker_shift_stats`: handled, clean, cracked, golden, credit, policy, clean rate, exception ownership, and a conservative keep/review recommendation.
+- Kept the presentation concise: the Active Playbook promotes the hero file as one action group, exposes its three icon-led answers, adds a short world reaction, and retains full gain/cost/risk detail in progressive and assistive text.
+- Expanded the real five-person session card with a hero-file comprehension task. Evidence remains `AWAITING REAL PARTICIPANTS`; no human finding is fabricated.
+- The complete beta release gate passes 72/72 checks in 608.631 seconds. Production browser interaction audits pass at 2560×1600, 1440×900, and 844×390 with zero console/page errors; original-size captures show a contained Playbook, readable office, and unclipped compact touch controls.
+- Both release targets contain the byte-identical 10,772,700-byte PCK with SHA-256 `45A4EF76C3CD0E00C59FC19B30763E816FEDBF586281B957A5A027FC567486EF`. The owned wrapper and browser/test processes were closed, ports 3001 and 60092 are free, and the pre-existing port-3000 service remains untouched.
