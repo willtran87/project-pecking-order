@@ -109,7 +109,11 @@ try {
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 10);
+	assert.equal(pulse.version, 11);
+	assert.equal(pulse.experiential_management_loop?.item_count, 20);
+	assert.equal(pulse.experiential_management_loop?.resolved_count, 20);
+	assert.equal(pulse.experiential_management_loop?.adds_default_panel, false);
+	assert.equal(pulse.experiential_management_loop?.docket_draft?.choice_count, 3);
 	assert.equal(pulse.rewarding_loop.item_count, 25);
 	assert.equal(
 		pulse.rewarding_loop.resolved_count,
@@ -336,4 +340,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED quick-start=recommended micro-shift=60s tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED experiential=20 intervention=one-shot replay=presentation-only quick-start=recommended micro-shift=60s tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

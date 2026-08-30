@@ -510,6 +510,19 @@ func _run() -> void:
 	var advanced_playbook := simulation.playbook_snapshot(0)
 	office.call("_refresh_active_playbook_menu", advanced_playbook, 0)
 	var advanced_menu_map := office.get("_active_playbook_menu_map") as Dictionary
+	var intervention_ids: Array[String] = []
+	for option_value in advanced_menu_map.values():
+		if option_value is Dictionary and String((option_value as Dictionary).get("kind", "")) == "intervention":
+			intervention_ids.append(String((option_value as Dictionary).get("id", "")))
+	_check(
+		intervention_ids.size() == 3
+		and "ring_bell" in intervention_ids
+		and "coffee_run" in intervention_ids
+		and "emergency_review" in intervention_ids
+		and not bool((advanced_playbook.get("manager_intervention", {}) as Dictionary).get("used", true)),
+		"the compact filed-plan menu should surface all three one-per-shift manager interventions",
+		failures,
+	)
 	_check(
 		(advanced_playbook.get("display_sockets", []) as Array).size() == 3
 		and not (advanced_playbook.get("build_identity", {}) as Dictionary).is_empty()

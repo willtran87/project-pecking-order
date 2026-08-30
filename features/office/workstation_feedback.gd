@@ -1153,6 +1153,12 @@ func _finish_dispatch_delivery(
 ) -> void:
 	_active_dispatch_deliveries.erase(folder)
 	if station != null and station.root != null:
+		if bool(reward_receipt.get("presentation_only", false)):
+			station.root.set_meta("last_cause_replay_serial", int(reward_receipt.get("cause_replay_serial", 0)))
+			station.root.set_meta("last_cause_replay_lane", lane)
+			if is_instance_valid(folder):
+				folder.queue_free()
+			return
 		station.route_boost = 1.0
 		station.root.set_meta("last_manual_dispatch_lane", lane)
 		station.root.set_meta("last_manual_dispatch_best_fit", recommended)

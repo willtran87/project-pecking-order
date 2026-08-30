@@ -78,6 +78,7 @@ try {
 			"strategic_flow_loop_test.gd",
 			"tactical_route_planner_test.gd",
 			"tactile_reward_loop_test.gd",
+			"experiential_management_loop_test.gd",
             "guided_strategy_feedback_test.gd",
             "gameplay_pulse_director_test.gd",
             "personnel_career_test.gd",

@@ -51,7 +51,7 @@ func _run() -> void:
 	})
 	var layer := pulse.get("compelling_loop", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 10
+		int(pulse.get("version", 0)) == 11
 		and int(layer.get("item_count", 0)) == 30
 		and int(layer.get("resolved_count", 0)) == 30
 		and bool(layer.get("all_resolved", false))

@@ -14031,3 +14031,16 @@ The next major systems milestone is persistent worker relationships and individu
 - Original-size browser inspection is clean at 2560x1600, 1440x900, and 844x390, including the live office, compact touch layout, Active Playbook, and four-option Route dossier. The production audit proves all twenty tactile-reward mappings with zero console or page errors.
 - The complete beta release gate passes 68/68 checks in 515.993 seconds. Both release targets contain the byte-identical 10,692,688-byte PCK with SHA-256 `90B4445E1B445B6069B559FAFB94739490B2D5901360A34F5DCED4ADE8B9F456`.
 - Every Codex-owned Godot test process and local production server was closed after verification; port 3001 is confirmed free.
+
+# 2026-08-29 — Experiential management loop
+
+- Reconciled the latest twenty intuitiveness, fun, engagement, and reward findings against the existing physical office, campaign, simulation, Active Playbook, character, rival, progression, and accessibility authorities.
+- Added one authoritative manager intervention per shift: Ring the Bell restores one bounded attention charge; Coffee Run spends exactly $2 for flock recovery; Emergency Review trades exactly 2% pace for 1.5% lower shell risk and +3 compliance.
+- Intervention choice, exact tradeoff, one-use enforcement, checkpoint validation, and daily reset all live in `DepartmentSimulation`; older schema-v30 checkpoints restore safely with an unused intervention.
+- Holding `H` now pauses and physically replays the latest FILE → HEN → RESULT path. The replay is presentation-only, emits no settlement or reward signal, changes no simulation state, and cleans up its temporary folder.
+- Added the read-only version-11 `experiential_management_loop`, mapping all twenty approved improvements into existing HUD, route, chicken, Playbook, rival, office, reward, and comprehension surfaces without adding a new default panel.
+- Added `docs/EXPERIENTIAL_MANAGEMENT_LOOP_RESOLUTION.md`, exact intervention/persistence/projection coverage, live replay mutation-and-cleanup coverage, and production-browser assertions.
+- Real participant comprehension and fun findings remain external evidence; the instrumented five-person unaided protocol is not represented as completed.
+- The official production-browser client and gameplay-pulse audit pass at 2560×1600, 1440×900, and 844×390. Original-size inspection confirms stage anchoring, the contained route dossier, four-chip H overlay, and compact touch controls, with no reported browser errors.
+- The complete beta release gate passes 69/69 checks in 681.715 seconds. All nine release files are byte-identical across `docs` and `web/public/game`; the 10,700,976-byte PCK has SHA-256 `43739F09784A4D7E4F3452C743347DFEB2640A05DC512798991191D678DE16FE`.
+- Every owned production-wrapper process was stopped after browser verification; ports 3001 and 51236 were confirmed free before the final gate.

@@ -75,7 +75,7 @@ func _run() -> void:
 	var cadence := layer.get("decision_cadence", {}) as Dictionary
 	var why := layer.get("result_why", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 10
+		int(pulse.get("version", 0)) == 11
 		and int(layer.get("item_count", 0)) == 25
 		and int(layer.get("resolved_count", 0)) == 25
 		and bool(layer.get("all_resolved", false)),

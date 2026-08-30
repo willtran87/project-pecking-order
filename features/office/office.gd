@@ -481,6 +481,8 @@ var _dispatch_recommended_worker_id := -1
 var _dispatch_momentum_chain := 0
 var _dispatch_last_day := -1
 var _dispatch_last_receipt: Dictionary = {}
+var _last_cause_replay: Dictionary = {}
+var _cause_replay_serial := 0
 var _dispatch_reward_label := ""
 var _last_team_lift_authority_key := ""
 var _last_team_lift_presentation: Dictionary = {}
@@ -2507,6 +2509,7 @@ func _begin_explain_mode() -> void:
 	_explain_strip.set_meta("active", true)
 	_explain_strip.set_meta("paused_previous_speed", _explain_previous_speed)
 	_on_guidance_preview_entered()
+	_play_last_cause_replay()
 	if not _prefers_reduced_motion():
 		_explain_strip.modulate.a = 0.0
 		_explain_strip.scale = Vector2(0.97, 0.97)
@@ -2521,6 +2524,8 @@ func _end_explain_mode() -> void:
 	if not _explain_mode_active:
 		return
 	_explain_mode_active = false
+	if not _last_cause_replay.is_empty():
+		_last_cause_replay["active"] = false
 	if _explain_strip != null:
 		_explain_strip.visible = false
 		_explain_strip.modulate = Color.WHITE
@@ -2546,6 +2551,60 @@ func _is_managed_action_press(event: InputEvent) -> bool:
 		if _is_action_press(event, action):
 			return true
 	return false
+
+
+func _play_last_cause_replay() -> void:
+	if _dispatch_last_receipt.is_empty() or _workstation_feedback == null:
+		_last_cause_replay = {
+			"available": false,
+			"active": false,
+			"input": "H",
+			"files_nothing": true,
+			"presentation_only": true,
+		}
+		return
+	var worker_id := int(_dispatch_last_receipt.get("worker_id", -1))
+	var lane := StringName(_dispatch_last_receipt.get("lane", &""))
+	if worker_id < 0 or lane == &"" or not _worker_views.has(worker_id):
+		return
+	_cause_replay_serial += 1
+	var started := _workstation_feedback.play_dispatch_delivery(
+		worker_id,
+		lane,
+		to_global(DISPATCH_INTAKE_SOURCE),
+		bool(_dispatch_last_receipt.get("recommended", false)),
+		int(_dispatch_last_receipt.get("momentum_chain", 0)),
+		0.62,
+		&"",
+		{
+			"presentation_only": true,
+			"cause_replay_serial": _cause_replay_serial,
+		},
+	)
+	if not started:
+		return
+	var worker_name := String(_dispatch_last_receipt.get("worker_name", "HEN"))
+	var result_label := _dispatch_reward_label
+	if result_label.is_empty():
+		result_label = "BEST FIT" if bool(_dispatch_last_receipt.get("recommended", false)) else "ROUTE FILED"
+	_last_cause_replay = {
+		"available": true,
+		"active": true,
+		"replayed": true,
+		"serial": _cause_replay_serial,
+		"worker_id": worker_id,
+		"worker_name": worker_name,
+		"lane": String(lane),
+		"file_label": String(lane).replace("_", " ").to_upper(),
+		"result_label": result_label,
+		"path": ["FILE", "HEN", "RESULT"],
+		"input": "H",
+		"files_nothing": true,
+		"presentation_only": true,
+	}
+	var worker_view := _worker_views.get(worker_id) as ChickenView
+	if worker_view != null and is_instance_valid(worker_view):
+		worker_view.play_short_bark("THAT DID IT!", &"success")
 
 
 func _build_environment() -> void:
@@ -6822,6 +6881,10 @@ func _build_explain_strip() -> void:
 	_explain_strip.visible = false
 	_explain_strip.set_meta("input", "H")
 	_explain_strip.set_meta("hold_to_explain", true)
+	_explain_strip.set_meta("replays_last_cause", true)
+	_explain_strip.set_meta("files_nothing", true)
+	_explain_strip.tooltip_text = "Hold H to pause and replay the latest file path. The replay changes nothing."
+	_explain_strip.accessibility_name = _explain_strip.tooltip_text
 	_ui_root.add_child(_explain_strip)
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 12)
@@ -10746,6 +10809,20 @@ func _commit_dispatch(worker_id: int) -> bool:
 			&"success" if recommended else &"neutral" if bool(candidate.get("specialty_match", false)) else &"risk",
 		)
 	_dispatch_last_receipt = receipt.duplicate(true)
+	_last_cause_replay = {
+		"available": true,
+		"active": false,
+		"replayed": false,
+		"worker_id": worker_id,
+		"worker_name": worker_name,
+		"lane": String(lane),
+		"file_label": String(lane).replace("_", " ").to_upper(),
+		"result_label": _dispatch_reward_label if not _dispatch_reward_label.is_empty() else ("BEST FIT" if recommended else "ROUTE FILED"),
+		"path": ["FILE", "HEN", "RESULT"],
+		"input": "H",
+		"files_nothing": true,
+		"presentation_only": true,
+	}
 	var delivery_started := false
 	if _workstation_feedback != null:
 		delivery_started = _workstation_feedback.play_dispatch_delivery(
@@ -19874,6 +19951,7 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		"active_playbook": active_playbook,
 		"tactical_route_plan": _tactical_route_plan_snapshot(),
 		"challenge_contract_catalog": CampaignStateScript.challenge_contract_catalog(),
+		"cause_replay": _last_cause_replay.duplicate(true),
 	})
 	_gameplay_pulse["active_playbook"] = active_playbook.duplicate(true)
 	_refresh_active_playbook_menu(active_playbook, focused_worker_id)
@@ -19898,6 +19976,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	)
 	_apply_tactile_reward_loop_presentation(
 		_gameplay_pulse.get("tactile_reward_loop", {}) as Dictionary,
+	)
+	_apply_experiential_management_presentation(
+		_gameplay_pulse.get("experiential_management_loop", {}) as Dictionary,
 	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
@@ -20458,6 +20539,36 @@ func _apply_tactile_reward_loop_presentation(layer: Dictionary) -> void:
 		_top_hud_panel.set_meta("office_hotspots", (layer.get("office_hotspots", {}) as Dictionary).duplicate(true))
 
 
+func _apply_experiential_management_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	if _routing_ui != null:
+		_routing_ui.set_meta("direct_physical_triage", (layer.get("direct_physical_triage", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("living_queue_pressure", (layer.get("queue_pressure", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("chicken_body_language", (layer.get("chicken_states", []) as Array).duplicate(true))
+		_routing_ui.set_meta("cause_replay", (layer.get("cause_replay", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("case_personas", (layer.get("case_personas", []) as Array).duplicate(true))
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("experiential_management_loop", layer.duplicate(true))
+		_top_hud_panel.set_meta("one_glance_shift_state", (layer.get("glance", {}) as Dictionary).duplicate(true))
+		_top_hud_panel.set_meta("adaptive_pacing", (layer.get("pacing", {}) as Dictionary).duplicate(true))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("incoming_docket_draft", (layer.get("docket_draft", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("manager_intervention", (layer.get("manager_intervention", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("mechanic_upgrades", (layer.get("mechanic_upgrades", {}) as Dictionary).duplicate(true))
+	if _explain_strip != null:
+		_explain_strip.set_meta("cause_replay", (layer.get("cause_replay", {}) as Dictionary).duplicate(true))
+	if _directive_badge != null:
+		_directive_badge.set_meta("meaningful_office_layout", (layer.get("office_layout", {}) as Dictionary).duplicate(true))
+		_directive_badge.set_meta("exclusive_specializations", (layer.get("specializations", {}) as Dictionary).duplicate(true))
+	if _rival_pulse_label != null:
+		_rival_pulse_label.set_meta("visible_rival_office", (layer.get("rival", {}) as Dictionary).duplicate(true))
+		_rival_pulse_label.set_meta("boss_shift", (layer.get("boss_shift", {}) as Dictionary).duplicate(true))
+	if _core_loop_host != null:
+		_core_loop_host.set_meta("silent_opening_shift", ((layer.get("items", {}) as Dictionary).get("silent_opening_shift", {}) as Dictionary).duplicate(true))
+		_core_loop_host.set_meta("physical_combo_chains", (layer.get("combo", {}) as Dictionary).duplicate(true))
+
+
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
 	if _active_playbook_button == null:
 		return
@@ -20476,7 +20587,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			continue
 		var option := option_value as Dictionary
 		if (
-			String(option.get("kind", "")) in ["signature", "teamwork", "rescue", "automation"]
+			String(option.get("kind", "")) in ["signature", "teamwork", "rescue", "automation", "intervention"]
 			and bool(option.get("available", false))
 		):
 			contextual_power_ready = true
@@ -20502,7 +20613,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		if (
 			kind == primary_kind
 			or kind == "practice"
-			or (kind in ["signature", "teamwork"] and bool(option.get("available", false)))
+			or (kind in ["signature", "teamwork", "intervention"] and bool(option.get("available", false)))
 		):
 			display_options.append(option)
 	var fingerprint := "%d|%s" % [focused_worker_id, JSON.stringify(playbook)]
@@ -20584,6 +20695,9 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			int(side_goal.get("progress", 0)),
 			int(side_goal.get("target", 0)),
 		])
+	var manager_intervention := playbook.get("manager_intervention", {}) as Dictionary
+	if not bool(manager_intervention.get("used", false)):
+		detail_lines.append("INTERVENTION READY  ·  ONE / SHIFT")
 	var last_receipt := playbook.get("last_receipt", {}) as Dictionary
 	if not last_receipt.is_empty():
 		detail_lines.append("LAST  ·  %s" % String(last_receipt.get("outcome", "PLAY FILED")))
@@ -20656,13 +20770,18 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 			var teammate := _worker_views.get(teammate_id) as ChickenView
 			if teammate != null:
 				teammate.play_short_bark("TOGETHER!", &"team")
-	if String(result.get("playbook_kind", "")) in ["proposal", "toy", "rescue"]:
+	if String(result.get("playbook_kind", "")) in ["proposal", "toy", "rescue", "intervention"]:
 		var reaction_worker_id := int(result.get("worker_id", _active_playbook_focused_worker_id))
 		var reaction_worker := _worker_views.get(reaction_worker_id) as ChickenView
 		if reaction_worker != null:
-			var reaction_copy := "MY IDEA!" if kind == &"proposal" else ("BACK AT IT!" if kind == &"rescue" else "BOK!")
+			var reaction_copy := (
+				"MY IDEA!" if kind == &"proposal" else
+				"BACK AT IT!" if kind == &"rescue" else
+				("ON IT!" if choice_id == &"ring_bell" else "COFFEE!" if choice_id == &"coffee_run" else "CHECKING!") if kind == &"intervention" else
+				"BOK!"
+			)
 			reaction_worker.play_short_bark(reaction_copy, &"team")
-	if kind in [&"toy", &"episode", &"display", &"modifier"] and _office_atmosphere != null:
+	if kind in [&"toy", &"episode", &"display", &"modifier", &"intervention"] and _office_atmosphere != null:
 		_office_atmosphere.pulse_strategy_reward()
 	if kind == &"challenge":
 		DisplayServer.clipboard_set(String(result.get("code", "")))
@@ -21979,6 +22098,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		),
 		"next_action": _next_action_diagnostic_state(),
 		"gameplay_pulse": _gameplay_pulse.duplicate(true),
+		"cause_replay": _last_cause_replay.duplicate(true),
 		"explain_mode": {
 			"active": _explain_mode_active,
 			"visible": _explain_strip != null and _explain_strip.visible,

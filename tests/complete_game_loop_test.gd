@@ -93,7 +93,7 @@ func _run() -> void:
 	var explain := complete_loop.get("explain_mode", {}) as Dictionary
 	var story := complete_loop.get("emergent_story", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 10
+		int(pulse.get("version", 0)) == 11
 		and int(complete_loop.get("item_count", 0)) == 24
 		and bool(complete_loop.get("all_resolved", false))
 		and String(rhythm.get("stage", "")) == "final_push"
@@ -139,6 +139,35 @@ func _run() -> void:
 	var review_panel := office.find_child("DayReviewPanel", true, false) as PanelContainer
 	var replay_button := office.find_child("ReviewReplayHighlightButton", true, false) as Button
 	var remix_button := office.find_child("ReviewRemixNextButton", true, false) as Button
+	var office_simulation := office.get("_simulation") as DepartmentSimulation
+	var workstation_feedback := office.get("_workstation_feedback") as WorkstationFeedback
+	var replay_authority_before := office_simulation.export_save_state()
+	office.set("_dispatch_last_receipt", {
+		"worker_id": 0,
+		"worker_name": office_simulation.workers[0].display_name,
+		"lane": "appeals",
+		"recommended": true,
+		"momentum_chain": 1,
+	})
+	office.call("_play_last_cause_replay")
+	await process_frame
+	var live_cause_replay := office.get("_last_cause_replay") as Dictionary
+	_check(
+		bool(live_cause_replay.get("available", false))
+		and bool(live_cause_replay.get("presentation_only", false))
+		and bool(live_cause_replay.get("files_nothing", false))
+		and workstation_feedback.active_dispatch_delivery_count() == 1
+		and office_simulation.export_save_state() == replay_authority_before,
+		"the live H replay path should launch one presentation-only folder without filing authority",
+		failures,
+	)
+	await create_timer(0.9).timeout
+	_check(
+		workstation_feedback.active_dispatch_delivery_count() == 0
+		and office_simulation.export_save_state() == replay_authority_before,
+		"the presentation-only replay folder should clean itself up",
+		failures,
+	)
 	office.call("_show_farmer_review", {
 		"day": 1, "eggs": 9, "quota": 8, "met_quota": true,
 		"cracked": 1, "golden": 0, "credited_cents": 1200,

@@ -1999,6 +1999,29 @@ const PLAYBOOK_PREPARATION_DEFINITIONS := {
 	&"clear_trays": {"label": "CLEAR TRAYS", "icon": &"route", "gain": "PACE +5%", "cost": "SHELL RISK +1.2%", "risk": "QUALITY EXPOSURE"},
 	&"rest_flock": {"label": "REST FLOCK", "icon": &"care", "gain": "STRAIN -12%", "cost": "$2.00", "risk": "FEED FUND"},
 }
+const PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS := {
+	&"ring_bell": {
+		"label": "RING THE BELL",
+		"icon": &"sync",
+		"gain": "ATTENTION +1",
+		"cost": "ONE INTERVENTION",
+		"risk": "NO FLOCK RECOVERY",
+	},
+	&"coffee_run": {
+		"label": "COFFEE RUN",
+		"icon": &"care",
+		"gain": "FLOCK RECOVERY",
+		"cost": "$2.00 / ONE INTERVENTION",
+		"risk": "FEED FUND",
+	},
+	&"emergency_review": {
+		"label": "EMERGENCY REVIEW",
+		"icon": &"shield",
+		"gain": "SHELL RISK -1.5% / COMPLIANCE +3",
+		"cost": "PACE -2% / ONE INTERVENTION",
+		"risk": "LOWER OUTPUT",
+	},
+}
 const PLAYBOOK_RIVAL_DEFINITIONS := {
 	&"defend": {"label": "DEFEND LEAD", "icon": &"shield", "gain": "SHELL RISK -1.5%", "cost": "PACE -2%", "risk": "RIVAL KEEPS PACE"},
 	&"counter": {"label": "COUNTER PUSH", "icon": &"rival", "gain": "PACE +4%", "cost": "SHELL RISK +1.2%", "risk": "QUALITY EXPOSURE"},
@@ -13527,6 +13550,7 @@ func _validated_active_playbook(
 		"strategy_preset_id": PLAYBOOK_STRATEGY_PRESET_DEFINITIONS,
 		"contract_id": PLAYBOOK_CONTRACT_DEFINITIONS,
 		"preparation_id": PLAYBOOK_PREPARATION_DEFINITIONS,
+		"manager_intervention_id": PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS,
 		"rival_response_id": PLAYBOOK_RIVAL_DEFINITIONS,
 		"loadout_id": PLAYBOOK_LOADOUT_DEFINITIONS,
 		"recovery_id": PLAYBOOK_RECOVERY_DEFINITIONS,
@@ -16365,6 +16389,7 @@ func _reset_active_playbook() -> void:
 		"strategy_preset_id": "",
 		"contract_id": "",
 		"preparation_id": "",
+		"manager_intervention_id": "",
 		"rival_response_id": "",
 		"loadout_id": "",
 		"recovery_id": "",
@@ -16895,6 +16920,20 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		for choice_id: StringName in PLAYBOOK_PREPARATION_DEFINITIONS:
 			var affordable := choice_id != &"rest_flock" or spendable_fund_cents() >= 200
 			options.append(_playbook_option(&"preparation", choice_id, PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], running and affordable, "Prepare once before the first incident." if affordable else "Feed Fund needs $2.00 spendable."))
+	var intervention_id := StringName(active_playbook.get("manager_intervention_id", &""))
+	var intervention_options: Array[Dictionary] = []
+	if not strategy_preset_id.is_empty() and intervention_id == &"":
+		for choice_id: StringName in PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS:
+			var affordable := choice_id != &"coffee_run" or spendable_fund_cents() >= 200
+			var option := _playbook_option(
+				&"intervention",
+				choice_id,
+				PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS[choice_id],
+				running and affordable,
+				"Spend the one manager intervention for this shift." if affordable else "Feed Fund needs $2.00 spendable.",
+			)
+			intervention_options.append(option)
+			options.append(option)
 	if (
 		day >= 2
 		and not strategy_preset_id.is_empty()
@@ -17073,6 +17112,13 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		"choice_budget": {"major": 1, "optional": 1, "surprise": 1, "detail": "One major plan, one optional goal, and one visible surprise at a time."},
 		"session_target_minutes": {"minimum": 8, "maximum": 12},
 		"preparation_id": String(active_playbook.get("preparation_id", "")),
+		"manager_intervention": {
+			"id": String(intervention_id),
+			"definition": (PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS.get(intervention_id, {}) as Dictionary).duplicate(true),
+			"used": intervention_id != &"",
+			"one_per_shift": true,
+			"options": intervention_options,
+		},
 		"rival_response_id": String(active_playbook.get("rival_response_id", "")),
 		"loadout_id": String(active_playbook.get("loadout_id", "")),
 		"recovery_id": String(active_playbook.get("recovery_id", "")),
@@ -17145,6 +17191,34 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 	_ensure_active_playbook()
 	if shift_phase != ShiftPhase.RUNNING or not pending_decision.is_empty():
 		return {"accepted": false, "reason": "Resolve the current management file first."}
+	if kind == &"intervention":
+		if not PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS.has(choice_id):
+			return {"accepted": false, "reason": "That manager intervention is unavailable."}
+		if String(active_playbook.get("strategy_preset_id", "")).is_empty():
+			return {"accepted": false, "reason": "File a shift plan before intervening."}
+		if not String(active_playbook.get("manager_intervention_id", "")).is_empty():
+			return {"accepted": false, "reason": "The one manager intervention for this shift is already used."}
+		var outcome := ""
+		match choice_id:
+			&"ring_bell":
+				routing_momentum_peck_recharge_bank = maxi(1, routing_momentum_peck_recharge_bank)
+				outcome = "The bell restores one attention charge for a visible recovery or precision play."
+			&"coffee_run":
+				if spendable_fund_cents() < 200:
+					return {"accepted": false, "reason": "The coffee run needs $2.00 spendable Feed Fund."}
+				revenue_cents -= 200
+				_adjust_workers(2.0, -4.0, -2.0)
+				outcome = "The flock takes a real breather: morale rises while strain and fatigue fall."
+			&"emergency_review":
+				compliance = minf(100.0, compliance + 3.0)
+				outcome = "The emergency review trades 2% pace for 1.5% lower shell risk and 3 compliance."
+		active_playbook["manager_intervention_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(
+			kind,
+			choice_id,
+			PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS[choice_id],
+			outcome,
+		))
 	if kind == &"proposal":
 		if not PLAYBOOK_HEN_PROPOSAL_DEFINITIONS.has(choice_id) or int(active_playbook.get("proposal_worker_id", -1)) >= 0:
 			return {"accepted": false, "reason": "This shift's hen proposal is already answered or unavailable."}
@@ -17524,6 +17598,8 @@ func _playbook_work_multiplier() -> float:
 	match StringName(active_playbook.get("challenge_modifier_id", &"")):
 		&"rush_hour": multiplier *= 1.10
 		&"one_bell": multiplier *= 1.08
+	if StringName(active_playbook.get("manager_intervention_id", &"")) == &"emergency_review":
+		multiplier *= 0.98
 	if (
 		StringName(active_playbook.get("strategy_preset_id", &"")) == &"fast"
 		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
@@ -17555,6 +17631,8 @@ func _playbook_crack_modifier() -> float:
 	match StringName(active_playbook.get("challenge_modifier_id", &"")):
 		&"rush_hour": modifier += 0.01
 		&"glass_carton": modifier += 0.03
+	if StringName(active_playbook.get("manager_intervention_id", &"")) == &"emergency_review":
+		modifier -= 0.015
 	if (
 		StringName(active_playbook.get("strategy_preset_id", &"")) == &"safe"
 		and bool(_playbook_combo_recipe_snapshot().get("complete", false))

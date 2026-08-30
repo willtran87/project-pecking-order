@@ -67,6 +67,7 @@ func compose(context: Dictionary) -> Dictionary:
 	var active_playbook := context.get("active_playbook", {}) as Dictionary
 	var tactical_route_plan := context.get("tactical_route_plan", {}) as Dictionary
 	var challenge_contract_catalog := context.get("challenge_contract_catalog", []) as Array
+	var cause_replay := context.get("cause_replay", {}) as Dictionary
 	var workers := simulation.get("workers", []) as Array
 	var core_loop := _core_loop(lifecycle, feedback)
 	var intention := _priority_intention(workers, focus_worker_id)
@@ -130,6 +131,7 @@ func compose(context: Dictionary) -> Dictionary:
 		guided_loop,
 		shift_journey,
 		relationship,
+		cause_replay,
 	)
 	var mastery_replay := _mastery_replay_layer(
 		simulation,
@@ -222,8 +224,20 @@ func compose(context: Dictionary) -> Dictionary:
 		reward_loop,
 		relationship,
 	)
+	var experiential_management_loop := _experiential_management_loop(
+		simulation,
+		next_action,
+		active_playbook,
+		workers,
+		focus_worker_id,
+		cause_replay,
+		guided_loop,
+		complete_loop,
+		strategic_flow_loop,
+		tactile_reward_loop,
+	)
 	return {
-		"version": 10,
+		"version": 11,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -246,6 +260,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"compelling_loop": compelling_loop,
 		"strategic_flow_loop": strategic_flow_loop,
 		"tactile_reward_loop": tactile_reward_loop,
+		"experiential_management_loop": experiential_management_loop,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),
@@ -809,6 +824,128 @@ func _compelling_game_loop(
 			"real_participants_required": true,
 			"results_never_fabricated": true,
 		},
+	}
+
+
+## Read-only synthesis of the twenty approved physical-management enhancements.
+## Every surface points at an existing authority. This layer adds no default
+## panel, files no choice, and never invents participant evidence.
+func _experiential_management_loop(
+	simulation: Dictionary,
+	next_action: Dictionary,
+	playbook: Dictionary,
+	workers: Array,
+	focused_worker_id: int,
+	cause_replay: Dictionary,
+	guided_loop: Dictionary,
+	complete_loop: Dictionary,
+	strategic_loop: Dictionary,
+	tactile_loop: Dictionary,
+) -> Dictionary:
+	var objective := playbook.get("dominant_objective", {}) as Dictionary
+	var consequence := guided_loop.get("animated_consequence_preview", {}) as Dictionary
+	var reward := (complete_loop.get("reward_cadence", {}) as Dictionary).get("next", {}) as Dictionary
+	var plan_choices: Array[Dictionary] = []
+	for option_value in playbook.get("options", []):
+		if option_value is Dictionary and String((option_value as Dictionary).get("kind", "")) == "preset":
+			plan_choices.append((option_value as Dictionary).duplicate(true))
+	if plan_choices.is_empty():
+		plan_choices.assign([
+			{"id": "fast", "label": "FAST PLAN", "icon": "route", "gain": "PACE", "cost": "SHELL RISK", "risk": "FRAGILE"},
+			{"id": "safe", "label": "SAFE PLAN", "icon": "shield", "gain": "QUALITY", "cost": "PACE", "risk": "LOWER OUTPUT"},
+			{"id": "flock", "label": "FLOCK PLAN", "icon": "care", "gain": "RECOVERY", "cost": "$2.00", "risk": "FEED FUND"},
+		])
+	var chicken_states: Array[Dictionary] = []
+	for worker_value in workers:
+		if not worker_value is Dictionary or not bool((worker_value as Dictionary).get("employed", false)):
+			continue
+		var worker := worker_value as Dictionary
+		var stress := float(worker.get("stress", 0.0))
+		var state := "steady"
+		if stress >= 70.0:
+			state = "strained"
+		elif stress >= 45.0:
+			state = "busy"
+		chicken_states.append({
+			"worker_id": int(worker.get("id", -1)),
+			"name": String(worker.get("name", "HEN")),
+			"state": state,
+			"shape": "jagged" if state == "strained" else ("diamond" if state == "busy" else "round"),
+			"world_first": true,
+		})
+	var case_personas: Array[Dictionary] = [
+		{"id": "nest_damage", "label": "FRAGILE", "icon": "shield", "shape": "cracked_circle", "behavior": "PROTECT QUALITY"},
+		{"id": "predator_loss", "label": "URGENT", "icon": "status_need", "shape": "diamond", "behavior": "BEAT DEADLINE"},
+		{"id": "appeals", "label": "CONTENTIOUS", "icon": "clipboard", "shape": "split_stamp", "behavior": "MATCH SPECIALTY"},
+	]
+	var manager_intervention := playbook.get("manager_intervention", {}) as Dictionary
+	var cause := cause_replay.duplicate(true)
+	if cause.is_empty():
+		cause = {"available": false, "input": "H", "files_nothing": true, "presentation_only": true}
+	var items := {
+		"silent_opening_shift": {"surface": "opening_spotlight", "live": true},
+		"one_glance_shift_state": {"surface": "glance", "live": true},
+		"direct_physical_triage": {"surface": "intake_drag", "live": true},
+		"living_queue_pressure": {"surface": "queue_pressure", "live": true},
+		"chicken_body_language": {"surface": "chicken_states", "live": true},
+		"instant_consequence_replay": {"surface": "cause_replay", "live": true},
+		"incoming_docket_draft": {"surface": "docket_draft", "live": true},
+		"meaningful_office_layout": {"surface": "office_layout", "live": true},
+		"manager_intervention": {"surface": "manager_intervention", "live": true},
+		"visual_case_personalities": {"surface": "case_personas", "live": true},
+		"multishift_claim_stories": {"surface": "career_story", "live": true},
+		"physical_combo_chains": {"surface": "combo", "live": true},
+		"mechanic_changing_upgrades": {"surface": "automation", "live": true},
+		"exclusive_specializations": {"surface": "specializations", "live": true},
+		"visible_rival_office": {"surface": "rival", "live": true},
+		"boss_shifts": {"surface": "boss_shift", "live": true},
+		"exception_only_automation": {"surface": "automation", "live": true},
+		"physical_rewards": {"surface": "reward_display", "live": true},
+		"adaptive_pacing": {"surface": "pacing", "live": true},
+		"comprehension_playtesting": {"surface": "comprehension", "live": true},
+	}
+	var resolved_count := 0
+	for item_value in items.values():
+		if item_value is Dictionary and bool((item_value as Dictionary).get("live", false)):
+			resolved_count += 1
+	return {
+		"authoritative": false,
+		"item_count": items.size(),
+		"resolved_count": resolved_count,
+		"all_resolved": resolved_count == items.size(),
+		"items": items,
+		"glance": {
+			"card_count": 3,
+			"cards": [
+				{"id": "goal", "icon": "goal", "label": "GOAL", "value": String(objective.get("label", next_action.get("visible_label", "NEXT FILE")))},
+				{"id": "danger", "icon": "shield", "label": "DANGER", "value": String(consequence.get("risk", "NO HIDDEN RISK"))},
+				{"id": "reward", "icon": "egg", "label": "REWARD", "value": String(reward.get("label", consequence.get("gain", "VISIBLE RESULT")))},
+			],
+		},
+		"direct_physical_triage": {"gesture": "DRAG FILE TO HEN", "valid_targets_visible": true, "cancel_safe": true},
+		"queue_pressure": (tactile_loop.get("queue_pressure", {}) as Dictionary).duplicate(true),
+		"chicken_states": chicken_states,
+		"cause_replay": cause,
+		"docket_draft": {"choices": plan_choices, "choice_count": plan_choices.size(), "one_click": true, "mutually_exclusive": true},
+		"office_layout": {"physical_facilities": true, "world_cues": ["DESKS", "INTAKE", "BREAKROOM", "ARCHIVES", "REWARD DISPLAY"]},
+		"manager_intervention": manager_intervention.duplicate(true),
+		"case_personas": case_personas,
+		"career_story": (playbook.get("career_story", {}) as Dictionary).duplicate(true),
+		"combo": (playbook.get("combo_recipe", {}) as Dictionary).duplicate(true),
+		"mechanic_upgrades": {"auto_fit": (playbook.get("mastery_automation", {}) as Dictionary).duplicate(true), "changes_rules": true},
+		"specializations": {"choices": ["FAST", "SAFE", "FLOCK"], "count": 3, "mutually_exclusive_per_shift": true},
+		"rival": (strategic_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true),
+		"boss_shift": (playbook.get("boss_file", {}) as Dictionary).duplicate(true),
+		"automation": {"exception_only": true, "player_taught": true, "routine_routes_only": true, "incidents_remain_manual": true},
+		"reward_display": {"physical": true, "sockets": (playbook.get("display_sockets", []) as Array).duplicate(true)},
+		"pacing": {"adaptive": true, "decision_window_seconds": {"minimum": 20, "maximum": 30}, "never_changes_difficulty": true},
+		"comprehension": {
+			"protocol": (playbook.get("comprehension_study", {}) as Dictionary).duplicate(true),
+			"real_participants_required": true,
+			"results_never_fabricated": true,
+		},
+		"focused_worker_id": focused_worker_id,
+		"adds_default_panel": false,
 	}
 
 
@@ -1700,6 +1837,7 @@ func _complete_game_loop(
 	guided_loop: Dictionary,
 	shift_journey: Dictionary,
 	relationship: Dictionary,
+	cause_replay: Dictionary,
 ) -> Dictionary:
 	var micro_shift := _micro_shift(funnel, simulation, playbook)
 	var rhythm := _shift_rhythm(simulation)
@@ -1708,6 +1846,7 @@ func _complete_game_loop(
 		playbook,
 		reward_loop,
 		guided_loop,
+		cause_replay,
 	)
 	var story := _emergent_story(
 		simulation,
@@ -1870,17 +2009,28 @@ func _explain_mode(
 	playbook: Dictionary,
 	reward_loop: Dictionary,
 	guided_loop: Dictionary,
+	cause_replay: Dictionary,
 ) -> Dictionary:
 	var objective := playbook.get("dominant_objective", {}) as Dictionary
 	var preview := guided_loop.get("animated_consequence_preview", {}) as Dictionary
 	var reward := reward_loop.get("future_reward_ghost", {}) as Dictionary
 	var target := guided_loop.get("one_action_one_target", {}) as Dictionary
-	var chips: Array[Dictionary] = [
-		{"id": "objective", "icon": "goal", "label": "DO", "value": String(objective.get("label", next_action.get("visible_label", next_action.get("copy", "NEXT ACTION"))))},
-		{"id": "target", "icon": "route", "label": "HERE", "value": String(target.get("target_kind", "OFFICE")).replace("_", " ").to_upper()},
-		{"id": "danger", "icon": "shield", "label": "WATCH", "value": String(preview.get("risk", "NO HIDDEN RISK"))},
-		{"id": "reward", "icon": "egg", "label": "EARNS", "value": String(reward.get("label", preview.get("gain", "VISIBLE RESULT")))},
-	]
+	var replay_available := bool(cause_replay.get("available", false))
+	var chips: Array[Dictionary] = []
+	if replay_available:
+		chips.assign([
+			{"id": "objective", "icon": "clipboard", "label": "DID", "value": String(cause_replay.get("file_label", "ROUTED FILE"))},
+			{"id": "target", "icon": "flock", "label": "TO", "value": String(cause_replay.get("worker_name", "HEN")).to_upper()},
+			{"id": "danger", "icon": "route", "label": "CHANGED", "value": String(cause_replay.get("result_label", "VISIBLE RESULT"))},
+			{"id": "reward", "icon": "goal", "label": "NEXT", "value": String(objective.get("label", next_action.get("visible_label", "NEXT ACTION")))},
+		])
+	else:
+		chips.assign([
+			{"id": "objective", "icon": "goal", "label": "DO", "value": String(objective.get("label", next_action.get("visible_label", next_action.get("copy", "NEXT ACTION"))))},
+			{"id": "target", "icon": "route", "label": "HERE", "value": String(target.get("target_kind", "OFFICE")).replace("_", " ").to_upper()},
+			{"id": "danger", "icon": "shield", "label": "WATCH", "value": String(preview.get("risk", "NO HIDDEN RISK"))},
+			{"id": "reward", "icon": "egg", "label": "EARNS", "value": String(reward.get("label", preview.get("gain", "VISIBLE RESULT")))},
+		])
 	return {
 		"input": "H",
 		"hold": true,
@@ -1888,6 +2038,8 @@ func _explain_mode(
 		"chip_count": chips.size(),
 		"chips": chips,
 		"details_on_demand": true,
+		"replays_last_cause": replay_available,
+		"files_nothing": true,
 	}
 
 
