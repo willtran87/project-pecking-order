@@ -548,7 +548,7 @@ func _build_automated_sorter(parent: Node3D) -> void:
 	_patch_invoice_root.set_meta(&"authoritative_records_only", true)
 	sorter.add_child(_patch_invoice_root)
 	var plate := _add_box(parent, "AutomatedClaimsSorterPlateHost", Vector3(2.30, 0.29, 0.08), Vector3(1.78, 2.76, -2.58), DEEP_TEAL, 0.74)
-	EnvironmentalSignageScript.add_panel(plate, "AutomatedClaimsSorterPlate", "AUTOMATED CLAIMS SORTER", Vector3(0.0, 0.0, 0.047), Vector2(2.08, 0.20), DEEP_TEAL, CREAM, Vector3.ZERO, 11, 0.0023, &"utility", &"machine")
+	EnvironmentalSignageScript.add_panel(plate, "AutomatedClaimsSorterPlate", "AUTOMATED FILE SORTER", Vector3(0.0, 0.0, 0.047), Vector2(2.08, 0.20), DEEP_TEAL, CREAM, Vector3.ZERO, 11, 0.0023, &"utility", &"machine")
 
 
 func _apply_visibility() -> void:
@@ -731,11 +731,9 @@ func _dictionary(value: Variant) -> Dictionary:
 
 
 func _add_box(parent: Node3D, part_name: String, size: Vector3, part_position: Vector3, color: Color, roughness: float = 0.82, metallic: float = 0.0) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
 	parent.add_child(instance)
@@ -743,14 +741,9 @@ func _add_box(parent: Node3D, part_name: String, size: Vector3, part_position: V
 
 
 func _add_cylinder(parent: Node3D, part_name: String, part_position: Vector3, radius: float, height: float, color: Color, roughness: float = 0.82, metallic: float = 0.0) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 16
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.cylinder(radius, radius, height, 16)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
 	parent.add_child(instance)

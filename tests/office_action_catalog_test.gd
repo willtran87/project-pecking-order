@@ -26,8 +26,8 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		OfficeActionCatalogScript.managed_actions().size() == 11,
-		"the semantic catalog should expose all eleven agreed Office actions",
+		OfficeActionCatalogScript.managed_actions().size() == 18,
+		"the semantic catalog should expose all eighteen agreed Office actions",
 		failures,
 	)
 	for action: StringName in OfficeActionCatalogScript.managed_actions():
@@ -49,6 +49,8 @@ func _run() -> void:
 	_check(
 		OfficeActionCatalogScript.binding_label(&"pause_simulation") == "Space / Start"
 		and OfficeActionCatalogScript.binding_label(&"cycle_hen") == "Tab / RB"
+		and OfficeActionCatalogScript.binding_label(&"camera_pan_left") == "A / Left"
+		and OfficeActionCatalogScript.binding_label(&"camera_zoom_out") == "Minus / Kp Subtract"
 		and OfficeActionCatalogScript.binding_label(&"peck_assist") == "Q"
 		and OfficeActionCatalogScript.binding_label(&"not_catalogued").is_empty(),
 		"binding_label should reflect current concise keyboard and gamepad names",
@@ -146,7 +148,7 @@ func _run() -> void:
 			push_error("OFFICE_ACTION_CATALOG_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("OFFICE_ACTION_CATALOG_TEST_PASSED actions=11 legacy_peck=preserved transactions=atomic defaults=keyboard+gamepad")
+	print("OFFICE_ACTION_CATALOG_TEST_PASSED actions=18 next_moment=4+dpad-up camera=pan+zoom legacy_peck=preserved transactions=atomic defaults=keyboard+gamepad")
 	quit(0)
 
 
@@ -160,6 +162,8 @@ func _defaults_match_contract() -> bool:
 		and _has_joy_button(&"speed_fast", JOY_BUTTON_DPAD_DOWN)
 		and _has_physical_key(&"speed_ultra", KEY_3)
 		and _has_joy_button(&"speed_ultra", JOY_BUTTON_DPAD_RIGHT)
+		and _has_physical_key(&"next_moment", KEY_4)
+		and _has_joy_button(&"next_moment", JOY_BUTTON_DPAD_UP)
 		and _has_physical_key(&"peck_assist", KEY_E)
 		and _has_joy_button(&"peck_assist", JOY_BUTTON_A)
 		and _has_physical_key(&"fund_feed_party", KEY_P)
@@ -170,6 +174,18 @@ func _defaults_match_contract() -> bool:
 		and _has_joy_button(&"toggle_flockwatch", JOY_BUTTON_BACK)
 		and _has_logical_key(&"cycle_hen", KEY_TAB)
 		and _has_joy_button(&"cycle_hen", JOY_BUTTON_RIGHT_SHOULDER)
+		and _has_physical_key(&"camera_pan_left", KEY_A)
+		and _has_physical_key(&"camera_pan_left", KEY_LEFT)
+		and _has_physical_key(&"camera_pan_right", KEY_D)
+		and _has_physical_key(&"camera_pan_right", KEY_RIGHT)
+		and _has_physical_key(&"camera_pan_up", KEY_W)
+		and _has_physical_key(&"camera_pan_up", KEY_UP)
+		and _has_physical_key(&"camera_pan_down", KEY_S)
+		and _has_physical_key(&"camera_pan_down", KEY_DOWN)
+		and _has_physical_key(&"camera_zoom_in", KEY_EQUAL)
+		and _has_physical_key(&"camera_zoom_in", KEY_KP_ADD)
+		and _has_physical_key(&"camera_zoom_out", KEY_MINUS)
+		and _has_physical_key(&"camera_zoom_out", KEY_KP_SUBTRACT)
 		and _has_logical_key(&"office_overview", KEY_ESCAPE)
 		and _has_joy_button(&"office_overview", JOY_BUTTON_B)
 		and _has_logical_key(&"open_settings", KEY_F10)

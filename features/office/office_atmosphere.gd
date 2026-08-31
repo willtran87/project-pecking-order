@@ -12,9 +12,15 @@ const NORMAL_EAST_COLOR := Color("b9d8d2")
 const NORMAL_INTAKE_COLOR := Color("efc772")
 const OVERTIME_RED := Color("df5a54")
 const OVERTIME_BLUE := Color("5b89c9")
+const STRATEGY_COLORS := {
+	&"fast": Color("e5a64d"),
+	&"safe": Color("6db8bd"),
+	&"flock": Color("82bd76"),
+}
 
 const OFFICE_PARTICLE_BOUNDS := AABB(Vector3(-12.2, -0.5, -9.2), Vector3(24.4, 4.6, 18.4))
 const EVENT_PARTICLE_BOUNDS := AABB(Vector3(-2.2, -1.0, -2.2), Vector3(4.4, 4.5, 4.4))
+const EVENT_BURST_POOL_SIZE := 8
 
 @export_range(8, 64, 1) var dust_mote_count: int = 32
 @export_range(4, 24, 1) var feather_count: int = 10
@@ -25,7 +31,14 @@ var _drifting_feathers: GPUParticles3D
 var _zone_lights: Array[OmniLight3D] = []
 var _alert_materials: Array[StandardMaterial3D] = []
 var _event_bursts: Node3D
+var _event_burst_pool: Array[GPUParticles3D] = []
 var _farmer_spotlight: SpotLight3D
+var _strategy_reward_eggs: Array[MeshInstance3D] = []
+var _strategy_reward_materials: Array[StandardMaterial3D] = []
+var _strategy_reward_count := 0
+var _strategy_id: StringName = &""
+var _strategy_accent := Color("d7c27a")
+var _pacing_stage: StringName = &"plan"
 
 var _overtime_target: float = 0.0
 var _overtime_blend: float = 0.0
@@ -36,6 +49,10 @@ var _event_pulse: float = 0.0
 var _elapsed: float = 0.0
 var _atmosphere_enabled: bool = true
 var _reduced_motion: bool = false
+var _effect_level: StringName = &"full"
+var _particle_level: StringName = &"full"
+var _animation_speed_multiplier := 1.0
+var _spotlight_tween: Tween
 
 
 func _ready() -> void:
@@ -43,9 +60,11 @@ func _ready() -> void:
 	_build_ambient_particles()
 	_build_zone_lights()
 	_build_overtime_alert_bars()
+	_build_strategy_reward_shelf()
 	_event_bursts = Node3D.new()
 	_event_bursts.name = "EventBursts"
 	add_child(_event_bursts)
+	_build_event_burst_pool()
 
 
 func _process(delta: float) -> void:
@@ -68,6 +87,31 @@ func update_from_snapshot(snapshot: Dictionary) -> void:
 	var quota := maxf(1.0, float(snapshot.get("quota_target", 1.0)))
 	var quota_progress := clampf(float(snapshot.get("eggs_today", 0.0)) / quota, 0.0, 1.0)
 	_quota_pressure = _late_day * (1.0 - quota_progress)
+	_pacing_stage = (
+		&"plan" if float(snapshot.get("eggs_today", 0.0)) <= 0.0 else
+		&"build" if quota_progress < 0.55 else
+		&"pressure" if quota_progress < 1.0 and _late_day > 0.42 else
+		&"recovery" if quota_progress >= 1.0 and _late_day < 0.88 else
+		&"finale"
+	)
+	var playbook := snapshot.get("active_playbook", {}) as Dictionary
+	_strategy_id = StringName(String(playbook.get("strategy_preset_id", "")))
+	_strategy_accent = STRATEGY_COLORS.get(_strategy_id, Color("d7c27a"))
+	var display_sockets := playbook.get("display_sockets", []) as Array
+	if not display_sockets.is_empty() and display_sockets[0] is Dictionary:
+		var display_style := (display_sockets[0] as Dictionary).get("style", {}) as Dictionary
+		var display_accent := String(display_style.get("accent", ""))
+		if not display_accent.is_empty():
+			_strategy_accent = Color(display_accent)
+	var contract := playbook.get("contract", {}) as Dictionary
+	var reward_count := 0
+	if _strategy_id != &"":
+		reward_count = 1
+	if bool(contract.get("complete", false)):
+		reward_count = 2
+	if bool(contract.get("reward_claimed", false)):
+		reward_count = 3
+	_apply_strategy_reward_state(reward_count)
 
 	var workers: Array = snapshot.get("workers", [])
 	var stress_total := 0.0
@@ -87,19 +131,27 @@ func pulse_egg_laid(world_position: Vector3, quality: StringName = &"sound") -> 
 	elif quality == &"cracked":
 		color = Color("b67d70")
 		count = 9
-	if not _reduced_motion:
-		_spawn_event_burst("EggGatheringPulse", world_position, color, count, Vector3.UP, Vector2(0.25, 0.75), 0.72)
+	if _allows_event_bursts():
+		_spawn_event_burst(
+			"EggGatheringPulse",
+			world_position,
+			color,
+			_effect_count(count),
+			Vector3.UP,
+			Vector2(0.25, 0.75),
+			0.72,
+		)
 	_event_pulse = maxf(_event_pulse, 0.5 if quality != &"golden" else 0.9)
 
 
 ## Call when the feed party begins. Defaults to the current trough location.
-func pulse_feed_party(world_position: Vector3 = Vector3(-10.15, 0.72, 0.0)) -> void:
-	if not _reduced_motion:
+func pulse_feed_party(world_position: Vector3 = Vector3(-9.80, 0.72, 0.0)) -> void:
+	if _allows_event_bursts():
 		_spawn_event_burst(
 			"FeedPartyPulse",
 			world_position,
 			Color("e2b84f"),
-			18,
+			_effect_count(18),
 			Vector3.UP,
 			Vector2(0.45, 1.05),
 			1.05
@@ -115,13 +167,40 @@ func pulse_alert(severity: float = 1.0) -> void:
 func pulse_farmer_review() -> void:
 	if _farmer_spotlight == null:
 		return
-	if _reduced_motion:
+	if _reduced_motion or _effect_level != &"full" or not _atmosphere_enabled:
 		_farmer_spotlight.light_energy = 0.0
 		return
 	_farmer_spotlight.light_energy = 0.92 * atmosphere_strength
-	var tween := create_tween().bind_node(self)
-	tween.tween_interval(2.6)
-	tween.tween_property(_farmer_spotlight, "light_energy", 0.0, 1.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	if _spotlight_tween != null and _spotlight_tween.is_valid():
+		_spotlight_tween.kill()
+	_spotlight_tween = create_tween().bind_node(self)
+	_spotlight_tween.set_speed_scale(_animation_speed_multiplier)
+	_spotlight_tween.tween_interval(2.6)
+	_spotlight_tween.tween_property(_farmer_spotlight, "light_energy", 0.0, 1.8).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+
+
+## One authored spectacle per shift: the plan, completed contract, and claimed
+## reward light physical eggs on the back-wall shelf instead of living only in UI.
+func pulse_strategy_reward() -> void:
+	if _strategy_reward_eggs.is_empty():
+		return
+	var egg := _strategy_reward_eggs[clampi(_strategy_reward_count - 1, 0, _strategy_reward_eggs.size() - 1)]
+	if _allows_event_bursts():
+		_spawn_event_burst(
+			"StrategyRewardPulse",
+			egg.global_position,
+			_strategy_accent,
+			_effect_count(22),
+			Vector3.UP,
+			Vector2(0.55, 1.20),
+			1.15,
+		)
+	_event_pulse = 1.0
+	if _reduced_motion:
+		return
+	egg.scale = Vector3(0.34, 0.46, 0.34) * 1.55
+	var tween := create_tween().bind_node(egg)
+	tween.tween_property(egg, "scale", Vector3(0.34, 0.46, 0.34), 0.46).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 
 
 func set_atmosphere_enabled(enabled: bool) -> void:
@@ -134,16 +213,117 @@ func set_reduced_motion(enabled: bool) -> void:
 	_apply_effect_preferences()
 
 
+func set_effect_level(level: StringName) -> void:
+	_effect_level = level if level in [&"full", &"reduced", &"off"] else &"full"
+	_apply_effect_preferences()
+
+
+func set_particle_level(level: StringName) -> void:
+	_particle_level = level if level in [&"full", &"reduced", &"off"] else &"full"
+	_apply_effect_preferences()
+
+
+func set_animation_speed_multiplier(multiplier: float) -> void:
+	_animation_speed_multiplier = clampf(multiplier, 0.5, 2.0)
+	if _spotlight_tween != null and _spotlight_tween.is_valid():
+		_spotlight_tween.set_speed_scale(_animation_speed_multiplier)
+
+
+func effect_snapshot() -> Dictionary:
+	return {
+		"level": String(_effect_level),
+		"particle_level": String(_particle_level),
+		"atmosphere_enabled": _atmosphere_enabled,
+		"reduced_motion": _reduced_motion,
+		"ambient_particles": _allows_ambient_particles(),
+		"event_bursts": _allows_event_bursts(),
+		"animation_speed_multiplier": _animation_speed_multiplier,
+		"strategy_identity": String(_strategy_id),
+		"visible_reward_eggs": _strategy_reward_count,
+		"pacing_stage": String(_pacing_stage),
+	}
+
+
+func _build_strategy_reward_shelf() -> void:
+	var display := Node3D.new()
+	display.name = "StrategyRewardShelf"
+	display.position = Vector3(0.0, 2.42, -8.34)
+	add_child(display)
+	var shelf := MeshInstance3D.new()
+	shelf.name = "RewardShelf"
+	shelf.mesh = ProceduralPrimitiveCache.box(Vector3(1.55, 0.09, 0.32))
+	var shelf_material := StandardMaterial3D.new()
+	shelf_material.albedo_color = Color("594536")
+	shelf_material.roughness = 0.78
+	shelf.material_override = shelf_material
+	display.add_child(shelf)
+	for index in 3:
+		var egg := MeshInstance3D.new()
+		egg.name = "StrategyEgg_%d" % (index + 1)
+		egg.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 18, 10)
+		egg.position = Vector3((float(index) - 1.0) * 0.48, 0.36, 0.0)
+		egg.scale = Vector3(0.34, 0.46, 0.34)
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color("3d4445")
+		material.roughness = 0.48
+		material.emission_enabled = true
+		material.emission = Color("3d4445")
+		material.emission_energy_multiplier = 0.0
+		egg.material_override = material
+		display.add_child(egg)
+		_strategy_reward_eggs.append(egg)
+		_strategy_reward_materials.append(material)
+	_apply_strategy_reward_state(0)
+
+
+func _apply_strategy_reward_state(count: int) -> void:
+	_strategy_reward_count = clampi(count, 0, 3)
+	for index in _strategy_reward_materials.size():
+		var earned := index < _strategy_reward_count
+		var material := _strategy_reward_materials[index]
+		material.albedo_color = _strategy_accent.lightened(0.12 * float(index)) if earned else Color("3d4445")
+		material.emission = _strategy_accent if earned else Color("3d4445")
+		material.emission_energy_multiplier = 0.32 if earned else 0.0
+
+
 func _apply_effect_preferences() -> void:
 	if _dust_motes != null:
-		_dust_motes.emitting = _atmosphere_enabled and not _reduced_motion
+		_dust_motes.emitting = _allows_ambient_particles()
 	if _drifting_feathers != null:
-		_drifting_feathers.emitting = _atmosphere_enabled and not _reduced_motion
+		_drifting_feathers.emitting = _allows_ambient_particles()
 	for light in _zone_lights:
-		light.visible = _atmosphere_enabled
+		light.visible = _atmosphere_enabled and _effect_level != &"off"
 	var alert_bars := get_node_or_null("OvertimeAlertBars") as Node3D
 	if alert_bars != null:
-		alert_bars.visible = _atmosphere_enabled
+		alert_bars.visible = _atmosphere_enabled and _effect_level != &"off"
+	if _farmer_spotlight != null and (
+		not _atmosphere_enabled
+		or _reduced_motion
+		or _effect_level != &"full"
+	):
+		_farmer_spotlight.light_energy = 0.0
+
+
+func _allows_ambient_particles() -> bool:
+	return (
+		_atmosphere_enabled
+		and not _reduced_motion
+		and _particle_level == &"full"
+	)
+
+
+func _allows_event_bursts() -> bool:
+	return (
+		_atmosphere_enabled
+		and not _reduced_motion
+		and _particle_level != &"off"
+	)
+
+
+func _effect_count(full_count: int) -> int:
+	if _particle_level == &"reduced":
+		return maxi(1, ceili(float(full_count) * 0.45))
+	return maxi(1, full_count)
 
 
 func _build_ambient_particles() -> void:
@@ -292,12 +472,10 @@ func _add_alert_bar(parent: Node3D, bar_name: String, bar_position: Vector3, siz
 	material.emission = color
 	material.emission_energy_multiplier = 0.01
 
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = bar_name
 	instance.position = bar_position
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.material_override = material
 	parent.add_child(instance)
 	_alert_materials.append(material)
@@ -310,9 +488,10 @@ func _update_zone_lights() -> void:
 	var pressure_boost := _quota_pressure * 0.025 + _average_stress * 0.018
 	var pulse_boost := _event_pulse * 0.08
 
-	_zone_lights[0].light_color = NORMAL_WEST_COLOR.lerp(OVERTIME_RED, _overtime_blend)
-	_zone_lights[1].light_color = NORMAL_EAST_COLOR.lerp(OVERTIME_BLUE, _overtime_blend)
-	_zone_lights[2].light_color = NORMAL_INTAKE_COLOR.lerp(Color("b8788d"), _overtime_blend * 0.42)
+	var strategy_weight := 0.24 if _strategy_id != &"" else 0.0
+	_zone_lights[0].light_color = NORMAL_WEST_COLOR.lerp(_strategy_accent, strategy_weight).lerp(OVERTIME_RED, _overtime_blend)
+	_zone_lights[1].light_color = NORMAL_EAST_COLOR.lerp(_strategy_accent, strategy_weight * 0.82).lerp(OVERTIME_BLUE, _overtime_blend)
+	_zone_lights[2].light_color = NORMAL_INTAKE_COLOR.lerp(_strategy_accent, strategy_weight).lerp(Color("b8788d"), _overtime_blend * 0.42)
 
 	_zone_lights[0].light_energy = (
 		0.13 + _late_day * 0.025 + pressure_boost + pulse_boost
@@ -348,32 +527,94 @@ func _spawn_event_burst(
 ) -> void:
 	if _event_bursts == null:
 		return
-	var burst := GPUParticles3D.new()
+	var burst: GPUParticles3D
+	for candidate in _event_burst_pool:
+		if is_instance_valid(candidate) and not bool(candidate.get_meta("event_in_use", false)):
+			burst = candidate
+			break
+	if burst == null:
+		# Eight concurrent one-shots exceed the authored office effect budget.
+		# Recycle the oldest bounded slot instead of allocating another GPU system.
+		for candidate in _event_burst_pool:
+			if (
+				burst == null
+				or int(candidate.get_meta("event_started_msec", 0))
+					< int(burst.get_meta("event_started_msec", 0))
+			):
+				burst = candidate
+	if burst == null:
+		return
+	burst.emitting = false
 	burst.name = "%s_%d" % [burst_name, Time.get_ticks_msec()]
 	burst.amount = count
 	burst.lifetime = lifetime
-	burst.one_shot = true
-	burst.explosiveness = 0.88
-	burst.randomness = 0.42
-	burst.local_coords = false
-	burst.visibility_aabb = EVENT_PARTICLE_BOUNDS
-	burst.draw_order = GPUParticles3D.DRAW_ORDER_LIFETIME
 
-	var process_material := ParticleProcessMaterial.new()
-	process_material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	process_material.emission_sphere_radius = 0.12
+	var process_material := burst.process_material as ParticleProcessMaterial
 	process_material.direction = direction.normalized()
-	process_material.spread = 64.0
 	process_material.initial_velocity_min = speed_range.x
 	process_material.initial_velocity_max = speed_range.y
-	process_material.gravity = Vector3(0.0, -0.72, 0.0)
-	process_material.scale_min = 0.55
-	process_material.scale_max = 1.25
-	process_material.color_ramp = _make_fade_gradient(Color(color, 0.0), Color(color, 0.86))
-	burst.process_material = process_material
-	burst.draw_pass_1 = _make_particle_quad(Vector2(0.055, 0.055), color, 0.92, true)
-
-	_event_bursts.add_child(burst)
+	var quad := burst.draw_pass_1 as QuadMesh
+	var draw_material := quad.material as StandardMaterial3D if quad != null else null
+	if draw_material != null:
+		draw_material.albedo_color = Color(color, 0.92 * atmosphere_strength)
 	burst.global_position = world_position
-	burst.finished.connect(burst.queue_free, CONNECT_ONE_SHOT)
+	burst.set_meta("event_in_use", true)
+	burst.set_meta("event_started_msec", Time.get_ticks_msec())
+	burst.restart()
 	burst.emitting = true
+
+
+func _build_event_burst_pool() -> void:
+	for pool_index in EVENT_BURST_POOL_SIZE:
+		var burst := GPUParticles3D.new()
+		burst.name = "EventBurstPool_%02d" % pool_index
+		burst.amount = 18
+		burst.lifetime = 0.72
+		burst.one_shot = true
+		burst.explosiveness = 0.88
+		burst.randomness = 0.42
+		burst.local_coords = false
+		burst.visibility_aabb = EVENT_PARTICLE_BOUNDS
+		burst.draw_order = GPUParticles3D.DRAW_ORDER_LIFETIME
+		var process_material := ParticleProcessMaterial.new()
+		process_material.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		process_material.emission_sphere_radius = 0.12
+		process_material.direction = Vector3.UP
+		process_material.spread = 64.0
+		process_material.initial_velocity_min = 0.25
+		process_material.initial_velocity_max = 0.75
+		process_material.gravity = Vector3(0.0, -0.72, 0.0)
+		process_material.scale_min = 0.55
+		process_material.scale_max = 1.25
+		process_material.color_ramp = _make_fade_gradient(
+			Color(1.0, 1.0, 1.0, 0.0),
+			Color(1.0, 1.0, 1.0, 0.86),
+		)
+		burst.process_material = process_material
+		burst.draw_pass_1 = _make_particle_quad(
+			Vector2(0.055, 0.055),
+			Color("efe4c8"),
+			0.92,
+			true,
+		)
+		burst.set_meta("event_in_use", false)
+		burst.finished.connect(_on_event_burst_finished.bind(burst))
+		_event_bursts.add_child(burst)
+		_event_burst_pool.append(burst)
+		# Run the exact sphere-emission particle shader during the title screen.
+		# Keep it in the opening camera frustum so the renderer cannot cull the
+		# shader warm-up; a zero-alpha draw material keeps it invisible.
+		var warmup_quad := burst.draw_pass_1 as QuadMesh
+		var warmup_material := warmup_quad.material as StandardMaterial3D if warmup_quad != null else null
+		if warmup_material != null:
+			warmup_material.albedo_color = Color(1.0, 1.0, 1.0, 0.0)
+		burst.global_position = Vector3(4.75, 0.65, -0.65)
+		burst.restart()
+		burst.emitting = true
+
+
+func _on_event_burst_finished(burst: GPUParticles3D) -> void:
+	if burst == null or not is_instance_valid(burst):
+		return
+	burst.set_meta("event_in_use", false)
+	burst.name = "EventBurstPool_%02d" % _event_burst_pool.find(burst)

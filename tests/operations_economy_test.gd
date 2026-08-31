@@ -117,7 +117,7 @@ func _test_exact_tier_schedules(failures: Array[String]) -> void:
 	var it_costs := [13_000, 20_000, 30_000]
 	var it_maintenance := [1000, 1700, 2600]
 	var it_days := [6, 9, 12]
-	var it_names := ["CABLE & REPAIR BENCH", "PREDICTIVE DISPATCH RACK", "AUTOMATED CLAIMS SORTER"]
+	var it_names := ["CABLE & REPAIR BENCH", "PREDICTIVE DISPATCH RACK", "AUTOMATED FILE SORTER"]
 	var work_bp := [10_300, 10_600, 11_000]
 	var grace_minutes := [150, 120, 60]
 	var exposure_mp := [1000, 1800, 2800]

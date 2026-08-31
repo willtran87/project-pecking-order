@@ -1,0 +1,2 @@
+# This folder contains the browser shell and generated web build.
+# Godot writes exports here but should not import the frontend source.

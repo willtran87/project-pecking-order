@@ -1,6 +1,11 @@
 extends SceneTree
 
 
+const RAIL_IDLE_MAX_ENERGY := 0.08
+const RAIL_ACTIVE_MIN_ENERGY := 0.18
+const Palette := preload("res://core/settings/semantic_color_palette.gd")
+
+
 func _init() -> void:
 	_run.call_deferred()
 
@@ -15,9 +20,26 @@ func _run() -> void:
 	var simulation := office.get("_simulation") as DepartmentSimulation
 	var storytelling := office.get("_office_storytelling") as OfficeStorytelling
 	var revenue_label := office.get("_revenue_label") as Label
+	var routing_ui := office.find_child("PeckworkRoutingUI", true, false) as PeckworkRoutingUI
+	var journey_label := office.find_child("RoutingAutomationHint", true, false) as Label
+	var workstation_feedback := office.get("_workstation_feedback") as WorkstationFeedback
 	var worker_views: Dictionary = office.get("_worker_views") as Dictionary
 	var worker_view := worker_views.get(0) as ChickenView
-	_check(storytelling != null and revenue_label != null and worker_view != null, "office feedback fixtures should exist", failures)
+	_check(
+		storytelling != null
+		and revenue_label != null
+		and routing_ui != null
+		and journey_label != null
+		and workstation_feedback != null
+		and worker_view != null,
+		"office feedback fixtures should exist",
+		failures,
+	)
+	var safe_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	safe_preferences["color_vision_mode"] = "color_blind_safe"
+	office.set("_player_preferences", safe_preferences)
+	office.call("_apply_player_preferences")
+	await process_frame
 
 	# Close the opening policy so the capture reflects a live shift, then place the
 	# test hen in the same visible seated state required by the production guard.
@@ -26,6 +48,9 @@ func _run() -> void:
 	if assurance_option != null and confirm_decision != null:
 		assurance_option.pressed.emit()
 		confirm_decision.pressed.emit()
+	await process_frame
+	if routing_ui != null:
+		routing_ui.set_focus(0)
 	await process_frame
 	worker_view.set("_is_at_workstation", true)
 	worker_view.set("_seat_blend", 1.0)
@@ -61,20 +86,67 @@ func _run() -> void:
 
 	var opening_fund := simulation.revenue_cents
 	var egg_value := 455
+	var rail_glow := office.find_child("OverheadRowRail_00Glow", true, false) as MeshInstance3D
+	var rail_material := (
+		rail_glow.material_override as StandardMaterial3D
+		if rail_glow != null else
+		null
+	)
+	await process_frame
+	_check(
+		rail_material != null
+		and rail_material.emission_energy_multiplier <= RAIL_IDLE_MAX_ENERGY,
+		"the authorized collection rail should be low-contrast before a real egg enters transit (energy %.3f)" % (
+			rail_material.emission_energy_multiplier if rail_material != null else -1.0
+		),
+		failures,
+	)
+	# The idle-material observation advances one live frame. Reassert both sides of
+	# the production seating contract so this fixture cannot drift into an arrival
+	# walk between observing the empty rail and laying its real routed egg.
+	worker_view.stage_at_workstation_for_introduction()
+	simulation.set_worker_at_workstation(0, true)
 	simulation.revenue_cents += egg_value
 	simulation.eggs_today += 1
 	office.call("_on_egg_laid", 0, &"sound", egg_value)
 	office.call("_on_snapshot_changed", simulation.snapshot())
+	await process_frame
+	var laid_journey := routing_ui.egg_journey_receipt_state() if routing_ui != null else {}
+	_check(
+		journey_label != null
+		and bool(laid_journey.get("visible", false))
+		and StringName(laid_journey.get("stage", &"")) == &"grading"
+		and "LAST EGG" in journey_label.text
+		and "GRADING > FARMER" in journey_label.text
+		and "separate from" in String(laid_journey.get("accessible_text", "")),
+		"laying should hand the selected dossier to a compact, explicitly separate egg journey",
+		failures,
+	)
+	_check(
+		rail_material != null
+		and rail_material.emission_energy_multiplier >= RAIL_ACTIVE_MIN_ENERGY,
+		"a seated hen's real routed egg should illuminate the shared collection rail while in transit (energy %.3f)" % (
+			rail_material.emission_energy_multiplier if rail_material != null else -1.0
+		),
+		failures,
+	)
 	_check("$%.2f" % (opening_fund / 100.0) in revenue_label.text, "Feed Fund should wait for physical collection before displaying egg value", failures)
 	var quota_progress := office.find_child("ShiftQuotaProgress", true, false) as ProgressBar
 	_check(quota_progress != null and int(quota_progress.value) == 1, "quota should react immediately when the hen lays", failures)
 	var routed_egg := office.find_child("Egg_sound_*", true, false) as MeshInstance3D
 	var routed_mesh := routed_egg.mesh if routed_egg != null else null
 	var quality_treatment := routed_egg.find_child("EggQualityTreatment", false, false) as Node3D if routed_egg != null else null
+	var routed_material := routed_egg.material_override as StandardMaterial3D if routed_egg != null else null
 	_check(
 		routed_egg != null and routed_mesh is ArrayMesh,
 		"a routed deliverable should use the authored tapered egg silhouette instead of a spherical placeholder",
 		failures
+	)
+	_check(
+		routed_material != null
+		and routed_material.albedo_color.is_equal_approx(Palette.egg_color(&"sound", &"color_blind_safe")),
+		"safe color-vision mode should recolor the physical sound egg through the semantic palette",
+		failures,
 	)
 	_check(
 		quality_treatment != null
@@ -83,15 +155,35 @@ func _run() -> void:
 		failures
 	)
 	var handoff_echoes := office.find_children("PooledEggHandoffEcho_*", "MeshInstance3D", true, false)
+	var active_handoff_echoes := 0
+	for echo_value in handoff_echoes:
+		if bool((echo_value as MeshInstance3D).get_meta("handoff_in_use", false)):
+			active_handoff_echoes += 1
 	_check(
-		handoff_echoes.size() == 3 and handoff_echoes.size() <= 18,
-		"one routed egg should acquire three echoes from the bounded 18-node handoff pool",
+		handoff_echoes.size() == 18 and active_handoff_echoes == 3,
+		"the prewarmed bounded pool should retain 18 nodes while one routed egg acquires exactly three",
 		failures
 	)
 
 	await _wait_for_flag(graded, "seen", 240)
 	_check(bool(graded["seen"]), "sorter waypoint should emit an explicit grading event", failures)
 	_check(int(graded["value"]) == egg_value and StringName(graded["quality"]) == &"sound", "grading receipt should carry exact authoritative quality and value", failures)
+	var graded_journey := routing_ui.egg_journey_receipt_state() if routing_ui != null else {}
+	_check(
+		StringName(graded_journey.get("stage", &"")) == &"graded"
+		and journey_label != null
+		and "SOUND GRADED > FARMER" in journey_label.text,
+		"the compact receipt should advance at the physical grading gate",
+		failures,
+	)
+	_check(
+		rail_material != null
+		and rail_material.emission_energy_multiplier >= RAIL_ACTIVE_MIN_ENERGY,
+		"the rail should remain illuminated through the real egg's grading waypoint (energy %.3f)" % (
+			rail_material.emission_energy_multiplier if rail_material != null else -1.0
+		),
+		failures,
+	)
 	var printer_body := office.find_child("GradingReceiptPrinterBody", true, false) as MeshInstance3D
 	var printer_slot := office.find_child("GradingReceiptPrinterSlot", true, false) as MeshInstance3D
 	var grading_gate := office.find_child("ShellIntegrityGate", true, false) as MeshInstance3D
@@ -109,6 +201,18 @@ func _run() -> void:
 	var receipt_copy := grading_receipt.find_child("ReceiptText", true, false) as Label3D if grading_receipt != null else null
 	var receipt_paper := grading_receipt.find_child("ReceiptPaper", true, false) as MeshInstance3D if grading_receipt != null else null
 	var receipt_box: BoxMesh = receipt_paper.mesh as BoxMesh if receipt_paper != null else null
+	_check(
+		receipt_copy != null and "[OK] SOUND" in receipt_copy.text,
+		"safe grading receipt should repeat sound quality with a non-color marker",
+		failures,
+	)
+	_check(
+		receipt_copy != null
+		and "LAID BY" in receipt_copy.text
+		and "CREDIT TO FARMER" in receipt_copy.text,
+		"the physical grading docket should preserve labor attribution before management harvests the credit",
+		failures,
+	)
 	_check(
 		grading_receipt != null
 		and receipt_paper != null
@@ -130,7 +234,9 @@ func _run() -> void:
 	)
 	_check(
 		receipt_copy != null
-		and receipt_copy.text == "SOUND  $4.55"
+		and receipt_copy.text.begins_with("[OK] SOUND  $4.55")
+		and "LAID BY" in receipt_copy.text
+		and "CREDIT TO FARMER" in receipt_copy.text
 		and receipt_copy.shaded
 		and receipt_copy.outline_size == 0,
 		"grading docket copy should use printed-paper treatment instead of HUD glow",
@@ -140,9 +246,49 @@ func _run() -> void:
 
 	await _wait_for_flag(collected, "seen", 240)
 	_check(bool(collected["seen"]) and int(collected["value"]) == egg_value, "presentation arrival should carry the same exact value", failures)
+	await process_frame
+	_check(
+		rail_material != null
+		and rail_material.emission_energy_multiplier <= RAIL_IDLE_MAX_ENERGY,
+		"the collection rail should return to low-contrast idle after the egg reaches the basket (energy %.3f)" % (
+			rail_material.emission_energy_multiplier if rail_material != null else -1.0
+		),
+		failures,
+	)
 	await create_timer(0.8).timeout
 	_check("$%.2f" % ((opening_fund + egg_value) / 100.0) in revenue_label.text, "Feed Fund should count up after the farmer collects the egg", failures)
+	_check(
+		"SOUND DELIVERED" in (office.get("_ticker_label") as Label).text
+		and "+$4.55 FEED FUND" in (office.get("_ticker_label") as Label).text,
+		"ordinary farmer arrival should close with one exact Feed Fund receipt",
+		failures,
+	)
 	_check(int(office.get("_pending_collection_cents")) == 0, "collected egg value should leave no pending visual credit", failures)
+	var delivered_journey := routing_ui.egg_journey_receipt_state() if routing_ui != null else {}
+	_check(
+		StringName(delivered_journey.get("stage", &"")) == &"delivered"
+		and journey_label != null
+		and "LAST EGG" in journey_label.text
+		and "FARMER +$4.55" in journey_label.text,
+		"farmer arrival should settle the same compact receipt with exact value",
+		failures,
+	)
+	var world_ack_state := (
+		workstation_feedback.egg_delivery_ack_snapshot()
+		if workstation_feedback != null else
+		{}
+	)
+	var world_acknowledgments := world_ack_state.get("acknowledgments", []) as Array
+	var world_ack := world_acknowledgments[0] as Dictionary if world_acknowledgments.size() == 1 else {}
+	_check(
+		int(world_ack_state.get("pooled_marker_count", 0)) == 6
+		and int(world_ack_state.get("active_count", 0)) == 1
+		and int(world_ack.get("worker_id", -1)) == 0
+		and int(world_ack.get("cash_cents", -1)) == egg_value
+		and String(world_ack.get("shape", "")) == "coin_up_arrow",
+		"real basket arrival should light one pooled payout icon at the exact hen's desk",
+		failures,
+	)
 	for echo_node in office.find_children("PooledEggHandoffEcho_*", "MeshInstance3D", true, false):
 		var echo := echo_node as MeshInstance3D
 		_check(
@@ -191,9 +337,26 @@ func _run() -> void:
 		_check(int(delivery.get("charges", -1)) == 3 and int(delivery.get("refunds", -1)) == 1, "farmer arrival should restore exactly one renewable attention charge", failures)
 		_check(int(delivery.get("pending_delivery_count", -1)) == 0, "basket settlement should consume the exact pending token", failures)
 		_check(int((delivery.get("last_delivery", {}) as Dictionary).get("claim_id", -1)) == assisted_claim_id, "Office should settle the same claim carried by the routed egg", failures)
+		var refunded_journey := routing_ui.egg_journey_receipt_state() if routing_ui != null else {}
+		_check(
+			StringName(refunded_journey.get("stage", &"")) == &"delivered"
+			and int(refunded_journey.get("claim_id", -1)) == assisted_claim_id
+			and journey_label != null
+			and "PECK +1" in journey_label.text,
+			"a clean assisted farmer delivery should close the exact receipt with its renewed charge",
+			failures,
+		)
 		var refund_chip := office.find_child("PriorityPeckRefundChip", true, false) as PanelContainer
 		var refund_copy := refund_chip.get_child(0) as Label if refund_chip != null and refund_chip.get_child_count() > 0 else null
-		_check(refund_chip != null and refund_copy != null and "+1 PRIORITY PECK" in refund_copy.text and "3/3" in refund_copy.text, "physical delivery should launch a concise renewable-attention payoff chip", failures)
+		_check(refund_chip != null and refund_copy != null and "+1 PECK" in refund_copy.text and "3/3 READY" in refund_copy.text, "physical delivery should launch a concise renewable-attention payoff chip", failures)
+		_check(
+			"DELIVERED" in (office.get("_ticker_label") as Label).text
+			and "FUND" in (office.get("_ticker_label") as Label).text
+			and "+1 PECK" in (office.get("_ticker_label") as Label).text
+			and "3/3 READY" in (office.get("_ticker_label") as Label).text,
+			"assisted farmer arrival should combine money and renewed attention in one receipt",
+			failures,
+		)
 		await create_timer(1.8).timeout
 		await process_frame
 		_check(office.find_children("GradingReceipt_*", "Node3D", true, false).is_empty(), "renewed assisted delivery should retire its bounded grading docket", failures)
@@ -209,7 +372,7 @@ func _run() -> void:
 		if not queued_receipts.is_empty() else null
 	)
 	_check(
-		queued_copy != null and queued_copy.text == "GOLDEN  $7.55\n+$0.34 clean-clutch",
+		queued_copy != null and queued_copy.text == "[*] GOLDEN  $7.55\n+$0.34 clean-clutch",
 		"grading docket should preserve exact base value and clean-clutch bonus copy",
 		failures
 	)
@@ -221,7 +384,7 @@ func _run() -> void:
 		if not queued_receipts.is_empty() else null
 	)
 	_check(
-		queued_copy != null and queued_copy.text == "CRACKED  $1.20",
+		queued_copy != null and queued_copy.text == "[X] CRACKED  $1.20",
 		"grading docket queue should advance into the same fixed printer slot (saw %s)" % (
 			queued_copy.text.replace("\n", " / ") if queued_copy != null else "no docket"
 		),
@@ -266,7 +429,7 @@ func _run() -> void:
 			push_error("EGG_GRADING_FEEDBACK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("EGG_GRADING_FEEDBACK_TEST_PASSED lay=quota grade=receipt collect=fund")
+	print("EGG_GRADING_FEEDBACK_TEST_PASSED lay=quota grade=receipt collect=fund journey=separate+save-neutral")
 	quit(0)
 
 

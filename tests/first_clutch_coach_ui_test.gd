@@ -12,9 +12,15 @@ func _run() -> void:
 	root.add_child(routing_ui)
 	await process_frame
 	await process_frame
+	_check(routing_ui.process_mode == Node.PROCESS_MODE_ALWAYS, "First Clutch's visible controls should settle and animate while management pauses the simulation", failures)
+	var settled_skip_target := {"rect": Rect2()}
+	routing_ui.first_clutch_skip_rect_settled.connect(
+		func(rect: Rect2) -> void: settled_skip_target["rect"] = rect
+	)
 
 	var coach := routing_ui.find_child("FirstClutchCoach", true, false) as PanelContainer
 	var progress := routing_ui.find_child("FirstClutchProgress", true, false) as Label
+	var progress_rail := routing_ui.find_child("FirstClutchProgressRail", true, false) as Control
 	var title := routing_ui.find_child("FirstClutchActionTitle", true, false) as Label
 	var body := routing_ui.find_child("FirstClutchActionBody", true, false) as Label
 	var return_to_hen := routing_ui.find_child("FirstClutchReturnToHen", true, false) as Button
@@ -26,9 +32,22 @@ func _run() -> void:
 	var assignments := routing_ui.find_child("RoutingAssignments", true, false) as GridContainer
 	var personnel_actions := routing_ui.find_child("PersonnelActions", true, false) as VBoxContainer
 	var personnel_status := routing_ui.find_child("RoutingPersonnelStatus", true, false) as HBoxContainer
+	var check_in_status := routing_ui.find_child("RoutingCheckInStatus", true, false) as Label
+	var dossier_summary := routing_ui.find_child("RoutingDossierSummary", true, false) as Label
+	var current_claim := routing_ui.find_child("RoutingCurrentClaim", true, false) as Label
+	var lifecycle_rail := routing_ui.find_child("RoutingLifecycleRail", true, false) as Control
 	var assist_row := routing_ui.find_child("RoutingAssistRow", true, false) as HBoxContainer
 	var details := routing_ui.find_child("RoutingDetailsToggle", true, false) as Button
+	var dossier_tabs := routing_ui.find_child("RoutingDossierTabs", true, false) as HBoxContainer
+	var route_tab := routing_ui.find_child("DossierTab_route", true, false) as Button
+	var claim_tab := routing_ui.find_child("DossierTab_claim", true, false) as Button
+	var support_tab := routing_ui.find_child("DossierTab_support", true, false) as Button
+	var profile_tab := routing_ui.find_child("DossierTab_profile", true, false) as Button
 	var worker_career := routing_ui.find_child("RoutingWorkerCareer", true, false) as Label
+	var worker_specialty := routing_ui.find_child("RoutingWorkerSpecialty", true, false) as Label
+	var worker_profile_icon := routing_ui.find_child("RoutingWorkerProfileIcon", true, false) as TextureRect
+	var worker_specialty_icon := routing_ui.find_child("RoutingWorkerSpecialtyIcon", true, false) as TextureRect
+	var routing_hint := routing_ui.find_child("RoutingAutomationHint", true, false) as Label
 	var manager_trust := routing_ui.find_child("RoutingManagerTrust", true, false) as Label
 	var grievance := routing_ui.find_child("RoutingGrievance", true, false) as Label
 	var share_credit := routing_ui.find_child("PersonnelAction_share_credit", true, false) as Button
@@ -36,9 +55,21 @@ func _run() -> void:
 	var priority_peck := routing_ui.find_child("PeckAssistButton", true, false) as Button
 
 	_check(coach != null and not coach.visible, "first-clutch coach should default hidden", failures)
-	_check(progress != null and title != null and body != null, "coach should expose compact progress and current-action copy", failures)
+	_check(progress != null and progress_rail != null and title != null and body != null, "coach should expose visual progress and current-action copy", failures)
 	_check(return_to_hen != null and skip != null, "coach should expose its conditional recovery action and Skip", failures)
 	_check(return_to_hen != null and not return_to_hen.visible, "return action should default hidden without a bound target mismatch", failures)
+	_check(
+		route_tab != null and route_tab.icon != null
+		and claim_tab != null and claim_tab.icon != null
+		and support_tab != null and support_tab.icon != null
+		and profile_tab != null and profile_tab.icon != null
+		and String(route_tab.get_meta("semantic_icon", "")) == "order_trays"
+		and String(claim_tab.get_meta("semantic_icon", "")) == "requisitions"
+		and String(support_tab.get_meta("semantic_icon", "")) == "receipt_flock"
+		and String(profile_tab.get_meta("semantic_icon", "")) == "rank_crest",
+		"First Clutch should preserve the dossier's four shape-distinct destination marks",
+		failures,
+	)
 	if coach != null and skip != null:
 		var interactive := _interactive_descendants(coach)
 		_check(interactive.size() == 1 and interactive[0] == skip, "only Skip should intercept input inside the coach card", failures)
@@ -55,6 +86,8 @@ func _run() -> void:
 		"eyebrow": "FIRST CLUTCH  //  ORIENTATION",
 		"title": "Open Mabel's first file",
 		"body": "Appeals are mine. The farmer usually remembers the basket, not the beak.",
+		"visual_title": "Meet Mabel",
+		"visual_body": "APPEALS SPECIALIST  ·  BASKET FIRST, BEAK SECOND.",
 		"stage": &"inspect",
 		"target_worker_id": 0,
 		"pre_policy": true,
@@ -63,9 +96,12 @@ func _run() -> void:
 	await process_frame
 	_check(coach != null and coach.is_visible_in_tree(), "pre-policy Mabel orientation should reveal the existing coach card", failures)
 	_check(progress != null and progress.text == "FIRST CLUTCH  //  ORIENTATION", "pre-policy card should use a character-led orientation eyebrow", failures)
-	_check(title != null and title.text == "OPEN MABEL'S FIRST FILE", "pre-policy card should name the authored first hen", failures)
-	_check(body != null and "remembers the basket" in body.text, "pre-policy card should retain Mabel's first-person point of view", failures)
-	_check(return_to_hen != null and return_to_hen.visible and "OPEN MABEL'S FILE" in return_to_hen.text, "pre-policy card should expose one explicit file-opening action", failures)
+	_check(progress_rail != null and not progress_rail.visible, "character-led orientation should retire the procedural step rail", failures)
+	_check(title != null and title.text == "MEET MABEL", "pre-policy card should lead with the authored first hen instead of repeating its button action", failures)
+	_check(title != null and title.accessibility_name == "OPEN MABEL'S FIRST FILE", "compact character copy should retain the complete opening action semantically", failures)
+	_check(body != null and body.text == "APPEALS SPECIALIST  ·  BASKET FIRST, BEAK SECOND.", "pre-policy card should compress specialty and personality into one glanceable line", failures)
+	_check(body != null and "remembers the basket" in body.accessibility_name, "compact orientation copy should retain Mabel's complete first-person point of view semantically", failures)
+	_check(return_to_hen != null and return_to_hen.visible and return_to_hen.text == "OPEN FIRST FILE  [ENTER]", "pre-policy card should expose one concise file-opening action without repeating Mabel's name", failures)
 	_check(skip != null and not skip.visible, "pre-policy beat should not expose the later coach Skip action", failures)
 	if coach != null and return_to_hen != null:
 		var prelude_actions := _interactive_descendants(coach)
@@ -85,31 +121,71 @@ func _run() -> void:
 		"visible": true,
 		"progress": 0,
 		"total": 5,
-		"title": "Match Mabel's tray",
+		"eyebrow": "FIRST CLUTCH  0 / 5",
+		"title": "Route Mabel to Appeals & Exceptions",
+		"visual_title": "Choose Appeals",
 		"body": "Choose Appeals, the specialty printed in her dossier.",
+		"visual_body": "FIT = FASTER + SAFER",
 		"stage": &"specialty_route",
 		"target_worker_id": 0,
 		"specialty_name": "APPEALS",
 	})
 	await process_frame
 	_check(coach != null and coach.is_visible_in_tree(), "visible coach data should reveal the card", failures)
-	_check(progress != null and progress.text == "FIRST CLUTCH  0 / 5", "coach should show exact zero-of-five progress", failures)
-	_check(title != null and title.text == "MATCH MABEL'S TRAY", "coach should show the current action title", failures)
-	_check(body != null and "Choose Appeals" in body.text, "coach should show the current action body", failures)
+	_check(progress != null and progress.text == "FIRST CLUTCH", "coach should replace the authored fractional eyebrow with a concise label", failures)
+	_check(progress_rail != null and progress_rail.visible and int(progress_rail.get_meta("completed_steps", -1)) == 0 and int(progress_rail.get_meta("active_step", -1)) == 1 and int(progress_rail.get_meta("total_steps", -1)) == 5, "coach should show the first active step through its five-step visual rail", failures)
+	_check(progress_rail != null and "0 of 5 steps complete" in progress_rail.accessibility_name and "step 1 active" in progress_rail.accessibility_name, "visual step progress should retain an exact accessible equivalent", failures)
+	_check(title != null and title.text == "CHOOSE APPEALS", "coach should reduce the current route step to one direct visual action", failures)
+	_check(title != null and title.accessibility_name == "ROUTE MABEL TO APPEALS & EXCEPTIONS" and title.tooltip_text == title.accessibility_name, "compact coach title should retain the full worker and route identity semantically", failures)
+	_check(body != null and body.text == "FIT = FASTER + SAFER", "coach should replace route prose with one glanceable cause-and-effect signal", failures)
+	_check(body != null and "Choose Appeals" in body.accessibility_name and body.tooltip_text == body.accessibility_name, "compact route copy should retain the full explanation semantically", failures)
 	_check(body != null and not body.visible, "an open coached dossier should collapse duplicate coach body copy", failures)
 	_check(assignments != null and assignments.is_visible_in_tree(), "route stage should expose routing controls", failures)
 	_check(queue != null and queue.is_visible_in_tree(), "route stage should expose its supporting queue counts", failures)
+	_check(current_claim != null and current_claim.text == "1  CHOOSE A ROUTE", "an idle auto-sorted dossier should lead with one direct route action", failures)
+	_check(current_claim != null and "No file is active" in current_claim.accessibility_name and "Auto sorting remains available" in current_claim.accessibility_name and current_claim.tooltip_text == current_claim.accessibility_name, "the compact route action should retain exact idle and automation context", failures)
+	_check(lifecycle_rail != null and lifecycle_rail.is_visible_in_tree() and StringName(lifecycle_rail.get_meta("active_stage", &"")) == &"route", "an idle coached dossier should replace lifecycle prose with the active route-stage rail", failures)
+	_check(lifecycle_rail != null and "route a file" in lifecycle_rail.accessibility_name and "completed egg" in lifecycle_rail.accessibility_name, "the lifecycle rail should retain the complete accessible work-loop explanation", failures)
+	var lifecycle_state := routing_ui.routing_lifecycle_state()
+	var lifecycle_stages := lifecycle_state.get("stage_states", []) as Array
+	_check(
+		String(lifecycle_state.get("active_stage", "")) == "route"
+		and not bool(lifecycle_state.get("visible_stage_labels", true))
+		and lifecycle_stages.size() == 3
+		and String((lifecycle_stages[0] as Dictionary).get("semantic_shape", "")) == "file_tray"
+		and String((lifecycle_stages[0] as Dictionary).get("state", "")) == "current"
+		and String((lifecycle_stages[1] as Dictionary).get("semantic_shape", "")) == "work_monitor"
+		and String((lifecycle_stages[2] as Dictionary).get("semantic_shape", "")) == "egg_receipt"
+		and String(lifecycle_state.get("shape_language", "")).contains("double frame+pointer=current"),
+		"lifecycle metadata should expose an icon-only route, monitor, and egg sequence with non-color current state",
+		failures,
+	)
+	_check(String(lifecycle_state.get("header_copy", "")) == "1  CHOOSE A ROUTE" and StringName(lifecycle_state.get("header_role", &"")) == &"route_action" and "Auto sorting remains available" in String(lifecycle_state.get("header_accessible_text", "")), "lifecycle metadata should expose the concise action and its complete operational meaning", failures)
+	_check(String(lifecycle_state.get("identity_copy", "")) == "APPEALS SPECIALIST" and StringName(lifecycle_state.get("identity_role", &"")) == &"specialist_identity" and "shell safety" in String(lifecycle_state.get("identity_accessible_text", "")), "lifecycle metadata should expose the specialist identity and its full matching rationale", failures)
+	_check(String(lifecycle_state.get("route_hint_copy", "")) == "FIT = FASTER + SAFER" and StringName(lifecycle_state.get("route_hint_role", &"")) == &"match_payoff" and "shell crack risk decreases" in String(lifecycle_state.get("route_hint_accessible_text", "")), "lifecycle metadata should expose the concise match payoff and its exact consequence", failures)
 	_check(personnel_actions != null and not personnel_actions.visible, "route stage should hide untaught personnel actions", failures)
 	_check(priority_peck != null and not priority_peck.visible, "route stage should hide the later Priority Peck action", failures)
 	_check(details != null and details.is_visible_in_tree(), "the compact dossier should retain an accessible Details disclosure", failures)
 	_check(worker_career != null and not worker_career.visible, "advanced career copy should default collapsed", failures)
 	_check(assign_appeals != null and bool(assign_appeals.get_meta("first_clutch_cue", false)), "route stage should cue the exact requested lane", failures)
-	_check(assign_auto != null and not bool(assign_auto.get_meta("first_clutch_cue", false)), "route stage should not cue an unrelated lane", failures)
+	_check(assign_appeals != null and "[ENTER]" in assign_appeals.text, "the coached tray should disclose its direct keyboard action", failures)
+	_check(assign_appeals != null and assign_appeals.icon != null and String(assign_appeals.get_meta("semantic_icon", "")) == "lane_appeals" and assign_auto != null and assign_auto.icon != null and String(assign_auto.get_meta("semantic_icon", "")) == "order_trays", "First Clutch should preserve the persistent APPEALS and AUTO marks while changing emphasis", failures)
+	_check(assign_appeals != null and bool(assign_appeals.get_meta("first_clutch_recommended_route", false)) and "Recommended best-fit route" in assign_appeals.accessibility_name, "the coached tray should own the one explicit recommended-route identity", failures)
+	_check(worker_specialty != null and worker_specialty.text == "APPEALS SPECIALIST", "the compact hen identity should state one character-defining specialty without repeating route instructions", failures)
+	_check(worker_specialty != null and "matches the highlighted APPEALS tray" in worker_specialty.accessibility_name and "improves speed and shell safety" in worker_specialty.accessibility_name and worker_specialty.tooltip_text == worker_specialty.accessibility_name, "the concise specialist identity should retain the complete match explanation semantically", failures)
+	_check(worker_profile_icon != null and worker_profile_icon.texture != null and String(worker_profile_icon.get_meta("semantic_icon", "")) == "rank_crest" and worker_specialty_icon != null and worker_specialty_icon.texture != null and String(worker_specialty_icon.get_meta("semantic_icon", "")) == "lane_appeals" and String(worker_specialty_icon.get_meta("specialty_lane", "")) == "appeals", "First Clutch should reinforce Mabel's profile and highlighted APPEALS fit with the same persistent identity marks", failures)
+	_check(routing_hint != null and routing_hint.text == "FIT = FASTER + SAFER", "the route hint should explain the match payoff without duplicating the highlighted tray action", failures)
+	_check(routing_hint != null and "speed improves" in routing_hint.accessibility_name and "Press Enter" in routing_hint.accessibility_name and routing_hint.tooltip_text == routing_hint.accessibility_name, "the compact match payoff should retain exact consequences and complete route guidance semantically", failures)
+	_check(assign_auto != null and not bool(assign_auto.get_meta("first_clutch_cue", false)) and bool(assign_auto.get_meta("first_clutch_current_route_demoted", false)) and assign_auto.theme_type_variation == &"DecisionChoiceButton" and assign_auto.self_modulate.a < 0.7 and "Current route" in assign_auto.accessibility_name, "the current AUTO route should remain legible but yield visual priority to the recommendation", failures)
 	_check(root.gui_get_focus_owner() == focus_before, "applying a dossier cue must not steal keyboard focus", failures)
 	var route_presentation := routing_ui.first_clutch_presentation_state()
 	_check(StringName(route_presentation.get("stage", &"")) == &"specialty_route", "presentation metadata should expose the normalized route stage", failures)
 	_check(bool(route_presentation.get("routing_visible", false)) and not bool(route_presentation.get("check_in_visible", true)), "presentation metadata should mirror exact route disclosure", failures)
 	_check(String(route_presentation.get("primary_action_node", "")) == "Assign_appeals", "metadata should identify the one visually prominent coached action", failures)
+	_check(String(route_presentation.get("recommended_route", "")) == "appeals" and String(route_presentation.get("demoted_current_route", "")) == "auto", "presentation metadata should distinguish recommended APPEALS from the subdued current AUTO route", failures)
+	_check(String(route_presentation.get("visual_title", "")) == "CHOOSE APPEALS" and String(route_presentation.get("accessible_title", "")) == "ROUTE MABEL TO APPEALS & EXCEPTIONS", "presentation metadata should expose concise visual and complete accessible coach titles", failures)
+	var route_progress := route_presentation.get("progress_rail", {}) as Dictionary
+	_check(int(route_progress.get("active_step", -1)) == 1 and String(route_progress.get("shape_language", "")).contains("diamond=active"), "presentation metadata should expose the progress rail's shape-distinct active step", failures)
 
 	var observed := {"skip": 0, "focus_worker": -1}
 	routing_ui.first_clutch_focus_requested.connect(
@@ -118,7 +194,14 @@ func _run() -> void:
 	routing_ui.set_focus(1)
 	await process_frame
 	_check(return_to_hen != null and return_to_hen.visible, "moving away from a bound tutorial hen should reveal recovery", failures)
-	_check(return_to_hen != null and return_to_hen.text == "RETURN TO MABEL", "recovery should name the bound tutorial hen", failures)
+	_check(
+		return_to_hen != null
+		and return_to_hen.text == "FIND MABEL"
+		and "reopen her work file" in return_to_hen.accessibility_name
+		and StringName(return_to_hen.get_meta("first_clutch_action", &"")) == &"focus_target",
+		"recovery should name the bound hen with one complete, unclipped focus action",
+		failures,
+	)
 	_check(assign_appeals != null and not bool(assign_appeals.get_meta("first_clutch_cue", false)), "moving away should clear dossier-local cues", failures)
 	if coach != null and return_to_hen != null and skip != null:
 		var recovery_actions := _interactive_descendants(coach)
@@ -158,15 +241,26 @@ func _run() -> void:
 	})
 	await process_frame
 	await process_frame
+	_check(progress_rail != null and int(progress_rail.get_meta("completed_steps", -1)) == 2 and int(progress_rail.get_meta("active_step", -1)) == 3, "check-in disclosure should advance the visual rail to step three", failures)
 	_check(assignments != null and not assignments.visible, "check-in stage should retire routing controls", failures)
+	_check(lifecycle_rail != null and not lifecycle_rail.visible, "check-in disclosure should retire the unrelated routing lifecycle rail", failures)
 	_check(personnel_actions != null and personnel_actions.is_visible_in_tree(), "check-in stage should expose personnel actions", failures)
 	_check(personnel_status != null and personnel_status.is_visible_in_tree(), "check-in stage should expose the filing status", failures)
 	_check(assist_row != null and not assist_row.visible, "check-in stage should hide claim-timing controls", failures)
 	_check(queue != null and not queue.visible, "check-in stage should hide unrelated queue chrome", failures)
 	_check(root.gui_get_focus_owner() == share_credit, "stage disclosure should move focus from a hidden route action to the coached check-in", failures)
 	_check(share_credit != null and bool(share_credit.get_meta("first_clutch_cue", false)), "check-in stage should cue the exact profile-fit action", failures)
+	_check(share_credit != null and share_credit.text == "FILE CHECK-IN  [ENTER]", "the coached personnel stamp should use the same visible action name as the tutorial", failures)
+	_check(share_credit != null and "using SHARE CREDIT" in share_credit.tooltip_text and "Permanent" in share_credit.tooltip_text and "one available flock check-in" in share_credit.tooltip_text and share_credit.accessibility_name == share_credit.tooltip_text and String(share_credit.get_meta("accessible_text", "")) == share_credit.tooltip_text, "the unified check-in action should retain its underlying mechanic, scarcity, and permanence in semantic detail", failures)
+	_check(worker_specialty != null and "PROFILE" in worker_specialty.text and "CREDIT CONSCIOUS" in worker_specialty.text, "the hen identity should replace unrelated route data with the active work profile", failures)
+	_check(dossier_summary != null and dossier_summary.is_visible_in_tree() and dossier_summary.text == "RECOMMENDED  >  FILE CHECK-IN", "the dossier center should reinforce the tutorial's single visible action name", failures)
+	_check(dossier_summary != null and "FILE CHECK-IN uses SHARE CREDIT" in dossier_summary.accessibility_name and "CREDIT CONSCIOUS is a profile match" in dossier_summary.accessibility_name and "Builds trust and eases grievances" in dossier_summary.accessibility_name and dossier_summary.tooltip_text == dossier_summary.accessibility_name and dossier_summary.vertical_alignment == VERTICAL_ALIGNMENT_CENTER, "the concise recommendation should retain the complete underlying personnel action semantically and sit cleanly in its card", failures)
+	var check_in_presentation := routing_ui.first_clutch_presentation_state()
+	_check(bool(check_in_presentation.get("dossier_summary_visible", false)) and String(check_in_presentation.get("dossier_summary_copy", "")) == "RECOMMENDED  >  FILE CHECK-IN" and StringName(check_in_presentation.get("dossier_summary_role", &"")) == &"check_in_recommendation" and "SHARE CREDIT" in String(check_in_presentation.get("dossier_summary_accessible_text", "")), "check-in presentation metadata should expose the unified visible action and its full recommendation", failures)
+	_check(check_in_status != null and "1 OF 1 LEFT" in check_in_status.text and "PERMANENT" in check_in_status.text, "the filing status should summarize scarcity and permanence", failures)
 	_check(career_coach != null and not bool(career_coach.get_meta("first_clutch_cue", false)), "check-in stage should clear unrelated personnel cues", failures)
 	_check(assign_appeals != null and not bool(assign_appeals.get_meta("first_clutch_cue", false)), "changing stages should restore the previous route control", failures)
+	_check(assign_auto != null and not bool(assign_auto.get_meta("first_clutch_current_route_demoted", true)) and assign_auto.theme_type_variation == &"SelectedChoiceButton" and assign_auto.self_modulate == Color.WHITE, "leaving the route lesson should restore the real AUTO selection exactly", failures)
 
 	routing_ui.apply_first_clutch({
 		"visible": true,
@@ -184,6 +278,21 @@ func _run() -> void:
 	_check(queue != null and not queue.visible, "Priority Peck stage should keep the queue strip out of the timing task", failures)
 	_check(priority_peck != null and bool(priority_peck.get_meta("first_clutch_cue", false)), "Priority Peck stage should cue the exact stamp even while it is locked", failures)
 	_check(share_credit != null and not bool(share_credit.get_meta("first_clutch_cue", false)), "Priority Peck stage should restore personnel styling", failures)
+	_check(current_claim != null and current_claim.text == "2  WAIT FOR LIVE FILE" and StringName(current_claim.get_meta("presentation_role", &"")) == &"priority_wait", "Priority Peck should replace the completed route action with the live-file wait state", failures)
+	_check(lifecycle_rail != null and lifecycle_rail.is_visible_in_tree() and StringName(lifecycle_rail.get_meta("active_stage", &"")) == &"peck", "Priority Peck should advance the visual work cycle from route to peck even before a file arrives", failures)
+	var priority_lifecycle := routing_ui.routing_lifecycle_state()
+	var priority_lifecycle_stages := priority_lifecycle.get("stage_states", []) as Array
+	_check(
+		priority_lifecycle_stages.size() == 3
+		and String((priority_lifecycle_stages[0] as Dictionary).get("state", "")) == "complete"
+		and String((priority_lifecycle_stages[1] as Dictionary).get("state", "")) == "current"
+		and String((priority_lifecycle_stages[2] as Dictionary).get("state", "")) == "upcoming",
+		"Priority Peck should show route checked, the monitor current, and the egg upcoming without stage words",
+		failures,
+	)
+	_check(String(priority_lifecycle.get("route_hint_copy", "")) == "FILE INCOMING  >  WATCH GOLD" and StringName(priority_lifecycle.get("route_hint_role", &"")) == &"priority_sequence", "running Priority guidance should replace the unrelated automation note with a glanceable file-to-gold sequence", failures)
+	var priority_presentation := routing_ui.first_clutch_presentation_state()
+	_check(not bool(priority_presentation.get("dossier_summary_visible", true)) and String(priority_presentation.get("dossier_summary_copy", "")) == "" and StringName(priority_presentation.get("dossier_summary_role", &"")) == &"hidden", "Priority Peck metadata should retire the hidden profile-payoff card instead of publishing stale copy", failures)
 
 	routing_ui.apply_first_clutch({
 		"visible": true,
@@ -198,6 +307,8 @@ func _run() -> void:
 	await process_frame
 	_check(priority_peck != null and priority_peck.disabled, "fixture should keep Priority Peck unavailable while the clock step is pending", failures)
 	_check(priority_peck != null and not bool(priority_peck.get_meta("first_clutch_cue", false)), "paused Priority step should not highlight the disabled Peck action", failures)
+	priority_lifecycle = routing_ui.routing_lifecycle_state()
+	_check(String(priority_lifecycle.get("route_hint_copy", "")) == "RESUME 1x  >  FILE  >  GOLD" and "Run at 1x" in String(priority_lifecycle.get("route_hint_accessible_text", "")), "paused Priority guidance should show the complete resume-to-window sequence while retaining the authored explanation", failures)
 
 	routing_ui.apply_first_clutch({
 		"visible": true,
@@ -272,8 +383,12 @@ func _run() -> void:
 		"progress": 4,
 		"total": 5,
 		"title": "Follow the assisted file",
+		"visual_title": "Watch Mabel finish",
 		"body": "Watch the same claim reach the farmer basket.",
+		"visual_body": "PECK LANDED  >  FINISH FILE  >  LAY EGG",
 		"target_worker_id": 0,
+		"assisted_claim_id": 42,
+		"delivery_laid": false,
 	})
 	routing_ui.set_focus(0)
 	await process_frame
@@ -281,6 +396,36 @@ func _run() -> void:
 	_check(personnel_actions != null and not personnel_actions.visible, "delivery stage should not reintroduce personnel actions", failures)
 	_check(priority_peck != null and not priority_peck.visible, "delivery stage should retire the completed Priority Peck action", failures)
 	_check(assist_row != null and assist_row.is_visible_in_tree(), "delivery stage should retain compact claim-following context", failures)
+	_check(title != null and title.text == "WATCH MABEL FINISH", "assisted delivery should reduce its coach title to one observable action", failures)
+	_check(body != null and body.text == "PECK LANDED  >  FINISH FILE  >  LAY EGG", "assisted delivery should express the remaining file lifecycle as three beats", failures)
+	var delivery_file_state := routing_ui.routing_lifecycle_state()
+	_check(String(delivery_file_state.get("header_copy", "")) == "2  ASSISTED FILE #0042  /  FINISHING" and String(delivery_file_state.get("header_role", "")) == "delivery_file", "delivery dossier should identify the exact assisted file without generic routing copy", failures)
+	_check(String(delivery_file_state.get("route_hint_copy", "")) == "PECK LANDED  >  FINISH FILE  >  LAY EGG", "delivery dossier should preview the immediate finish-to-egg sequence", failures)
+	routing_ui.set_first_clutch_stage(&"delivery", {
+		"progress": 4,
+		"total": 5,
+		"title": "Follow Mabel's egg through grading",
+		"visual_title": "Follow the egg",
+		"body": "Watch grading carry the egg into the farmer basket.",
+		"visual_body": "GRADING  >  FARMER BASKET  >  FEED FUND",
+		"target_worker_id": 0,
+		"assisted_claim_id": 42,
+		"delivery_laid": true,
+	})
+	await process_frame
+	var delivery_egg_state := routing_ui.routing_lifecycle_state()
+	_check(title != null and title.text == "FOLLOW THE EGG", "laid delivery should shift the coach's visual subject from hen to egg", failures)
+	_check(String(delivery_egg_state.get("active_stage", "")) == "egg" and String(delivery_egg_state.get("header_copy", "")) == "3  EGG IN GRADING", "laid delivery should advance the dossier lifecycle to its shape-distinct egg step", failures)
+	var delivery_lifecycle_stages := delivery_egg_state.get("stage_states", []) as Array
+	_check(
+		delivery_lifecycle_stages.size() == 3
+		and String((delivery_lifecycle_stages[0] as Dictionary).get("state", "")) == "complete"
+		and String((delivery_lifecycle_stages[1] as Dictionary).get("state", "")) == "complete"
+		and String((delivery_lifecycle_stages[2] as Dictionary).get("state", "")) == "current",
+		"laid delivery should check the tray and monitor while framing the egg receipt as current",
+		failures,
+	)
+	_check(String(delivery_egg_state.get("route_hint_copy", "")) == "GRADING  >  FARMER BASKET  >  FEED FUND", "laid delivery should make the reward destination visible at a glance", failures)
 	_check(skip != null and skip.is_visible_in_tree(), "delivery should preserve Skip until the authoritative payload retires it", failures)
 	if skip != null:
 		skip.grab_focus()
@@ -307,21 +452,80 @@ func _run() -> void:
 		failures,
 	)
 
+	routing_ui.apply_first_clutch({
+		"visible": true,
+		"progress": 1,
+		"total": 5,
+		"stage": &"inspect",
+		"title": "Inspect the first hen",
+		"body": "Open the live dossier.",
+		"target_worker_id": 0,
+		"can_skip": true,
+	})
+	await process_frame
+	var published_skip_rect := routing_ui.first_clutch_skip_button_rect()
+	_check(published_skip_rect.size.x > 0.0 and published_skip_rect.size.y > 0.0, "visible Skip should publish its exact canvas target", failures)
+	_check((settled_skip_target["rect"] as Rect2).is_equal_approx(published_skip_rect), "the always-processing UI should announce the same settled target shown on the canvas", failures)
+	if skip != null:
+		skip.grab_focus()
+	await process_frame
+	_check(root.gui_get_focus_owner() == skip, "dismissal focus fixture should begin on visible Skip", failures)
 	routing_ui.set_first_clutch_stage(&"normal")
 	await process_frame
+	_check(routing_ui.first_clutch_skip_button_rect() == Rect2(), "hidden coach should clear its published Skip target", failures)
 	_check(coach != null and not coach.visible, "caller-visible false should hide the coach cleanly for modal states", failures)
+	_check(root.gui_get_focus_owner() == null, "hiding a focused coach should release its invisible GUI focus back to floor controls", failures)
 	_check(priority_peck != null and not bool(priority_peck.get_meta("first_clutch_cue", false)), "hiding the coach should clear its final dossier cue", failures)
 	_check(queue != null and queue.is_visible_in_tree(), "normal play should restore the queue strip", failures)
-	_check(assignments != null and assignments.is_visible_in_tree(), "normal play should restore every routing action", failures)
-	_check(personnel_actions != null and personnel_actions.is_visible_in_tree(), "normal play should restore every personnel action", failures)
-	_check(priority_peck != null and priority_peck.is_visible_in_tree(), "normal play should restore Priority Peck", failures)
+	_check(dossier_tabs != null and dossier_tabs.is_visible_in_tree(), "normal play should restore the Route, Support, and Profile dossier tabs", failures)
+	_check(route_tab != null and route_tab.button_pressed, "normal play should reopen on the Route tab", failures)
+	_check(assignments != null and assignments.is_visible_in_tree(), "the normal Route tab should restore every routing action", failures)
+	_check(personnel_actions != null and not personnel_actions.visible, "the normal Route tab should keep Support actions out of the active category", failures)
+	_check(priority_peck != null and priority_peck.is_visible_in_tree(), "the normal Route tab should restore Priority Peck", failures)
 	_check(compact_queue != null and compact_queue.is_visible_in_tree(), "narrow normal play should collapse queue detail into one summary chip", failures)
 	if queue != null:
 		var normal_queue_rect := queue.get_global_rect()
 		_check(normal_queue_rect.position.x >= 0.0 and normal_queue_rect.end.x <= 390.0, "compact queue chip should remain inside a narrow viewport", failures)
 	var normal_presentation := routing_ui.first_clutch_presentation_state()
 	_check(not bool(normal_presentation.get("active", true)), "normal API state should retire progressive disclosure", failures)
-	_check(bool(normal_presentation.get("routing_visible", false)) and bool(normal_presentation.get("check_in_visible", false)), "normal metadata should prove all management categories are restored", failures)
+	_check(
+		String(normal_presentation.get("active_dossier_tab", "")) == "route"
+		and bool(normal_presentation.get("dossier_tabs_visible", false))
+		and bool(normal_presentation.get("routing_visible", false))
+		and not bool(normal_presentation.get("check_in_visible", true)),
+		"normal metadata should describe the active Route category without claiming hidden Support actions are visible",
+		failures,
+	)
+
+	if support_tab != null:
+		support_tab.pressed.emit()
+	await process_frame
+	await process_frame
+	_check(support_tab != null and support_tab.button_pressed, "Support should become the active dossier tab", failures)
+	_check(personnel_actions != null and personnel_actions.is_visible_in_tree(), "Support should expose every personnel action", failures)
+	_check(assignments != null and not assignments.visible, "Support should hide Route actions while preserving them", failures)
+	var support_presentation := routing_ui.first_clutch_presentation_state()
+	_check(
+		String(support_presentation.get("active_dossier_tab", "")) == "support"
+		and bool(support_presentation.get("check_in_visible", false))
+		and not bool(support_presentation.get("routing_visible", true)),
+		"normal metadata should follow the visible Support category",
+		failures,
+	)
+
+	if profile_tab != null:
+		profile_tab.pressed.emit()
+	await process_frame
+	await process_frame
+	_check(profile_tab != null and profile_tab.button_pressed, "Profile should become the active dossier tab", failures)
+	_check(
+		worker_career != null and worker_career.is_visible_in_tree()
+		and manager_trust != null and manager_trust.is_visible_in_tree()
+		and grievance != null and grievance.is_visible_in_tree(),
+		"Profile should expose the hen's career, trust, and grievance details",
+		failures,
+	)
+	_check(assignments != null and not assignments.visible and personnel_actions != null and not personnel_actions.visible, "Profile should avoid mixing Route or Support controls into its details", failures)
 
 	routing_ui.free()
 	await process_frame
@@ -358,7 +562,7 @@ func _fixture_snapshot() -> Dictionary:
 			"name": "Mabel",
 			"specialty": &"appeals",
 			"assignment": &"auto",
-			"career_title": "Junior Claims Hen",
+			"career_title": "Junior Peckwork Hen",
 			"career_xp": 0,
 			"career_xp_next": 18,
 			"career_profile_name": "Credit Conscious",
@@ -374,14 +578,14 @@ func _fixture_snapshot() -> Dictionary:
 				"remaining": 3,
 				"limit": 3,
 				"window_start": 28.0,
-				"reason": "Build the claim rhythm to 28% before stamping.",
+				"reason": "Build the file rhythm to 28% before stamping.",
 			},
 		}, {
 			"id": 1,
 			"name": "Penny",
 			"specialty": &"nest_damage",
 			"assignment": &"auto",
-			"career_title": "Junior Claims Hen",
+			"career_title": "Junior Peckwork Hen",
 			"career_xp": 0,
 			"career_xp_next": 18,
 			"career_profile_name": "Steady Scratcher",
@@ -397,7 +601,7 @@ func _fixture_snapshot() -> Dictionary:
 				"remaining": 3,
 				"limit": 3,
 				"window_start": 28.0,
-				"reason": "Build the claim rhythm to 28% before stamping.",
+				"reason": "Build the file rhythm to 28% before stamping.",
 			},
 		}],
 	}

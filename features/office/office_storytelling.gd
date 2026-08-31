@@ -2,6 +2,7 @@ class_name OfficeStorytelling
 extends Node3D
 
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
+const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
 const ShellQualityLabVisualScript := preload("res://features/office/shell_quality_lab_visual.gd")
 const PackingAnnexVisualScript := preload("res://features/office/packing_annex_visual.gd")
 const RecordsAnnexVisualScript := preload("res://features/office/records_annex_visual.gd")
@@ -40,6 +41,7 @@ signal egg_graded(
 	streak_bonus_cents: int,
 	grading_world_position: Vector3
 )
+signal optional_visuals_finished
 
 const DEFAULT_DESK_POSITIONS: Array[Vector3] = [
 	Vector3(-6.0, 0.0, -2.8),
@@ -51,13 +53,18 @@ const DEFAULT_DESK_POSITIONS: Array[Vector3] = [
 ]
 const DEFAULT_INTAKE_POSITION := Vector3(9.55, 0.0, 5.35)
 const DEFAULT_PRESENTATION_POSITION := Vector3(9.4, 0.0, -6.85)
+const WEST_PERCH_04_POSITION := Vector3(-6.0, 0.0, -2.8)
+const WEST_PERCH_05_POSITION := Vector3(-6.0, 0.0, 3.0)
 const PERCH_CENTER := Vector3(5.15, 0.0, -8.08)
 const COLLECTION_CART_CENTER := Vector3(10.74, 0.0, -3.55)
 const COLLECTION_RAIL_HEIGHT := 3.18
 const SIDE_MANIFOLD_X := 10.82
 const SORTER_ROUTE_INDEX := 4
 const SORTER_OFFSET_FROM_PRESENTATION_Z := 1.80
-const SORTER_LAMP_IDLE_ENERGY := 0.20
+const SORTER_LAMP_IDLE_ENERGY := 0.02
+const RAIL_IDLE_ENERGY := 0.0
+const RAIL_TRANSIT_ENERGY := 0.46
+const RAIL_TRANSIT_AMPLITUDE := 0.12
 const GRADING_RECEIPT_SLOT_COUNT := 1
 const GRADING_RECEIPT_QUEUE_LIMIT := 6
 const GRADING_RECEIPT_SLOT_SPACING := -0.62
@@ -67,6 +74,14 @@ const MAX_HANDOFF_ECHOES := 18
 const HANDOFF_ECHO_SAMPLE_SECONDS := 0.025
 const HANDOFF_ECHO_HISTORY_SAMPLES := 10
 const HANDOFF_ECHO_HISTORY_STRIDE := 2
+# Facility rooms communicate strategic state, not sub-second worker motion.
+# Refreshing their binders, signs, and constructed props four times per second
+# keeps them visually current without rebuilding the entire campus every 10x tick.
+const FACILITY_VISUAL_REFRESH_MSEC := 250
+# World-space KPI boards are environmental context, while the HUD owns exact
+# sub-second counters. Refresh signs at four hertz, but repaint immediately when
+# an egg, closure, queue, day, or phase changes.
+const LIVE_SIGNAGE_REFRESH_MSEC := 250
 const PRESENTATION_CLUTCH_SLOTS := 24
 const CART_CLUTCH_SLOTS := MAX_VISIBLE_CLUTCH_EGGS - PRESENTATION_CLUTCH_SLOTS
 const REVIEW_SHIFT_PHASE := 3
@@ -81,6 +96,7 @@ const CARE_CAMPUS_FIRST_BAY_FOOTPRINT := Rect2(Vector2(10.75, 8.70), Vector2(1.0
 const CARE_CAMPUS_SECOND_BAY_FOOTPRINT := Rect2(Vector2(10.75, 21.10), Vector2(1.00, 6.10))
 const OPERATIONS_CAMPUS_FIRST_BAY_FOOTPRINT := Rect2(Vector2(10.75, 27.20), Vector2(1.00, 5.90))
 const OPERATIONS_CAMPUS_SECOND_BAY_FOOTPRINT := Rect2(Vector2(10.75, 33.10), Vector2(1.00, 6.10))
+const OPTIONAL_VISUAL_BUILD_COUNT := 18
 
 # Presentation states are deliberately derived from the authoritative snapshot.
 # They are not save data and never alter construction, economy, or unlock state.
@@ -165,6 +181,83 @@ class EggHandoffTrail extends RefCounted:
 	var sample_elapsed: float = 0.0
 	var phase_offset: float = 0.0
 
+
+enum RoutedEggPhase {
+	TRAVEL,
+	SQUASH,
+	HOLD,
+	UNSQUASH,
+	MANIFOLD,
+	DROP,
+	BASKET,
+}
+
+
+class RoutedEggAnimation extends RefCounted:
+	var egg: Node3D
+	var egg_instance_id := 0
+	var worker_id := -1
+	var quality: StringName = &"sound"
+	var free_on_finish := true
+	var value_cents := 0
+	var streak_bonus_cents := 0
+	var route := PackedVector3Array()
+	var rest_scale := Vector3.ONE
+	var phase := RoutedEggPhase.TRAVEL
+	var route_index := 1
+	var travel_end := 0
+	var elapsed := 0.0
+	var duration := 0.0
+	var start_position := Vector3.ZERO
+	var target_position := Vector3.ZERO
+	var start_scale := Vector3.ONE
+	var target_scale := Vector3.ONE
+
+
+class SorterStampAnimation extends RefCounted:
+	var ring: MeshInstance3D
+	var material: StandardMaterial3D
+	var elapsed := 0.0
+
+
+enum SettledEggPhase {
+	IMPACT,
+	BOUNCE,
+	REST,
+}
+
+
+class SettledEggAnimation extends RefCounted:
+	var egg: Node3D
+	var phase := SettledEggPhase.IMPACT
+	var elapsed := 0.0
+	var duration := 0.11
+	var start_position := Vector3.ZERO
+	var target_position := Vector3.ZERO
+	var start_scale := Vector3.ONE
+	var target_scale := Vector3.ONE
+	var rest_position := Vector3.ZERO
+	var rest_scale := Vector3.ONE
+
+
+enum ClutchRecoilPhase {
+	OUT,
+	RETURN,
+}
+
+
+class ClutchRecoilAnimation extends RefCounted:
+	var target_root: Node3D
+	var active := false
+	var phase := ClutchRecoilPhase.OUT
+	var elapsed := 0.0
+	var duration := 0.055
+	var start_rotation := 0.0
+	var target_rotation := 0.0
+	var start_scale := Vector3.ONE
+	var target_scale := Vector3.ONE
+
+
 var management_perch_root: Node3D
 var egg_collection_root: Node3D
 var zone_markers_root: Node3D
@@ -197,12 +290,18 @@ var _desk_positions: Array[Vector3] = DEFAULT_DESK_POSITIONS.duplicate()
 var _intake_position := DEFAULT_INTAKE_POSITION
 var _presentation_position := DEFAULT_PRESENTATION_POSITION
 var _worker_to_desk: Dictionary[int, int] = {}
+var _worker_names: Dictionary[int, String] = {}
 var _pickup_points: Array[Vector3] = []
 var _material_cache: Dictionary[String, StandardMaterial3D] = {}
+var _color_vision_mode: StringName = &"standard"
 var _zone_glows: Array[MeshInstance3D] = []
 var _animated_eggs: Array[Node3D] = []
+var _routed_egg_animations: Array[RoutedEggAnimation] = []
+var _sorter_stamp_animations: Array[SorterStampAnimation] = []
+var _settled_egg_animations: Array[SettledEggAnimation] = []
 var _metrics_label: Label3D
 var _intake_status_label: Label3D
+var _claim_closure_label: Label3D
 var _perch_screen_material: StandardMaterial3D
 var _rail_glow_material: StandardMaterial3D
 var _quality_lamps: Dictionary = {}
@@ -210,10 +309,17 @@ var _quality_lamp_materials: Dictionary = {}
 var _quality_lamp_tweens: Dictionary = {}
 var _grading_receipt_slots: Array = []
 var _grading_receipt_queue: Array[Dictionary] = []
+var _grading_receipt_pool: Node3D
+var _grading_receipt_label: Label3D
+var _grading_receipt_quality_stripe: MeshInstance3D
+var _grading_receipt_active := false
+var _grading_receipt_elapsed := 0.0
+var _grading_receipt_slot_index := -1
 var _clutch_slots: Array[Node3D] = []
-var _clutch_slot_markers: Array[MeshInstance3D] = []
+var _clutch_slot_markers: Array[Dictionary] = []
+var _clutch_cup_batches: Array[MultiMeshInstance3D] = []
 var _settled_clutch_eggs: Array[Node3D] = []
-var _clutch_recoil_tweens: Dictionary = {}
+var _clutch_recoil_animations: Array[ClutchRecoilAnimation] = []
 var _presentation_clutch_root: Node3D
 var _cart_clutch_root: Node3D
 var _collection_cart_basket: MeshInstance3D
@@ -238,6 +344,42 @@ var _visible_campus_footprints: Array[Rect2] = []
 var _visible_campus_bounds := Rect2()
 var _last_campus_presentation_source: Dictionary = {}
 var _last_campus_presentation_options: Dictionary = {}
+var _office_physical_capacity := 6
+var _dormant_west_context := false
+var _defer_optional_visuals := DisplayServer.get_name() != "headless"
+var _lazy_hidden_optional_visuals := false
+var _optional_visuals_ready := false
+var _optional_visual_build_index := 0
+var _optional_visual_instantiated_count := 0
+var _optional_visual_built_indices: Dictionary = {}
+var _optional_visual_build_generation := 0
+var _optional_visual_build_started_msec := 0
+var _optional_visual_build_completed_msec := 0
+var _optional_visual_build_timings: Dictionary = {}
+var _last_snapshot: Dictionary = {}
+var _next_facility_visual_refresh_msec := 0
+var _next_live_signage_refresh_msec := 0
+var _facility_visual_refresh_count := 0
+var _facility_visual_state_fingerprint := 0
+var _archive_story_content: Node3D
+var _intake_story_content: Node3D
+var _records_zone: Node3D
+var _west_perch_04_zone: Node3D
+var _west_perch_05_zone: Node3D
+var _career_trophy_slots: Array[MeshInstance3D] = []
+var _career_trophy_label: Label3D
+var _commendations_visual_snapshot: Dictionary = {}
+var _scenario_identity_root: Node3D
+var _scenario_identity_label: Label3D
+var _scenario_charter_root: Node3D
+var _scenario_charter_label: Label3D
+var _coop_identity_label: Label3D
+var _scenario_mastery_label: Label3D
+var _scenario_prop_roots: Dictionary = {}
+var _coop_identity_prop_roots: Dictionary = {}
+var _scenario_identity_id: StringName = &"baseline_book"
+var _career_profile: Dictionary = {}
+var _scenario_mastery_snapshot: Dictionary = {}
 
 
 func _ready() -> void:
@@ -246,14 +388,85 @@ func _ready() -> void:
 		_build_all()
 
 
+func set_color_vision_mode(mode: StringName) -> void:
+	var normalized := SemanticColorPaletteScript.normalize_mode(mode)
+	if normalized == _color_vision_mode:
+		return
+	_color_vision_mode = normalized
+	for quality_variant in _quality_lamp_materials:
+		var quality := StringName(quality_variant)
+		var material := _quality_lamp_materials.get(quality) as StandardMaterial3D
+		if material == null:
+			continue
+		var color := SemanticColorPaletteScript.quality_color(quality, _color_vision_mode)
+		material.albedo_color = color.darkened(0.68)
+		material.emission = color
+	for egg in _animated_eggs + _settled_clutch_eggs:
+		if egg == null or not is_instance_valid(egg):
+			continue
+		_apply_egg_quality_visual(
+			egg,
+			_normalized_quality(StringName(egg.get_meta("clutch_quality", &"sound"))),
+			egg in _animated_eggs,
+		)
+
+
+func color_vision_mode() -> StringName:
+	return _color_vision_mode
+
+
+## Graphical builds stage expensive, initially hidden campus dressing after the
+## core office becomes interactive. Tests and callers that need immediate
+## construction can opt out before this node enters the tree.
+func set_defer_optional_visuals(defer_build: bool) -> void:
+	if _built:
+		return
+	_defer_optional_visuals = defer_build
+
+
+## Web builds keep undiscovered campus modules out of the live scene tree until
+## their authoritative presentation state becomes visible. The underlying
+## facilities, prices, saves, and UI projections remain available immediately;
+## only thousands of hidden visual nodes are made resident on demand.
+func set_lazy_hidden_optional_visuals(lazy_build: bool) -> void:
+	if _built:
+		return
+	_lazy_hidden_optional_visuals = lazy_build
+
+
+func optional_visual_build_snapshot() -> Dictionary:
+	var now_msec := Time.get_ticks_msec()
+	var elapsed_msec := 0
+	if _optional_visual_build_started_msec > 0:
+		elapsed_msec = maxi(
+			0,
+			(_optional_visual_build_completed_msec if _optional_visuals_ready else now_msec)
+			- _optional_visual_build_started_msec,
+		)
+	return {
+		"deferred": _defer_optional_visuals,
+		"lazy_hidden": _lazy_hidden_optional_visuals,
+		"ready": _optional_visuals_ready,
+		"built_count": _optional_visual_instantiated_count,
+		"total_count": OPTIONAL_VISUAL_BUILD_COUNT,
+		"deferred_count": OPTIONAL_VISUAL_BUILD_COUNT - _optional_visual_instantiated_count,
+		"elapsed_msec": elapsed_msec,
+		"build_timings_msec": _optional_visual_build_timings.duplicate(true),
+	}
+
+
 func _process(delta: float) -> void:
 	_phase += delta
+	_process_grading_receipt(delta)
+	_process_sorter_stamp_animations(delta)
+	_process_settled_egg_animations(delta)
+	_process_clutch_recoil_animations(delta)
+	_process_routed_egg_animations(delta)
 	if _perch_screen_material != null:
 		var energy := (1.18 if _overtime_active else 0.78) + sin(_phase * 2.1) * 0.08
 		_perch_screen_material.emission_energy_multiplier = energy
-	if _rail_glow_material != null:
-		_rail_glow_material.emission_energy_multiplier = 0.50 + sin(_phase * 3.4) * 0.08
-	for egg in _animated_eggs.duplicate():
+	for egg_index in range(_animated_eggs.size() - 1, -1, -1):
+		var egg := _animated_eggs[egg_index]
 		if is_instance_valid(egg):
 			var quality := _normalized_quality(StringName(egg.get_meta("clutch_quality", &"sound")))
 			egg.rotation.y += delta * (4.2 if quality == &"golden" else 2.6)
@@ -261,7 +474,13 @@ func _process(delta: float) -> void:
 				var wobble_origin := float(egg.get_meta("handoff_wobble_origin", 0.0))
 				egg.rotation.z = wobble_origin + sin(_phase * 11.5 + egg.get_instance_id() * 0.013) * 0.13
 		else:
-			_animated_eggs.erase(egg)
+			_animated_eggs.remove_at(egg_index)
+	if _rail_glow_material != null:
+		_rail_glow_material.emission_energy_multiplier = (
+			RAIL_IDLE_ENERGY
+			if _animated_eggs.is_empty() else
+			RAIL_TRANSIT_ENERGY + sin(_phase * 5.4) * RAIL_TRANSIT_AMPLITUDE
+		)
 	_update_egg_handoff_trails(delta)
 
 
@@ -281,6 +500,68 @@ func configure(
 		_build_all()
 
 
+## Presentation-only commissioning state for the internal office. The complete
+## archive and satire remain authored and testable; this only determines when
+## their mature dressing participates in the live scene.
+func set_office_physical_presentation(capacity: int, dormant_west_context: bool = false) -> void:
+	_office_physical_capacity = clampi(capacity, 0, 6)
+	_dormant_west_context = dormant_west_context and _office_physical_capacity < 6
+	_apply_office_physical_presentation_state()
+
+
+func set_commendations_snapshot(snapshot: Dictionary) -> void:
+	_commendations_visual_snapshot = snapshot.duplicate(true)
+	var earned_count := clampi(int(snapshot.get("earned_count", 0)), 0, _career_trophy_slots.size())
+	for slot_index in _career_trophy_slots.size():
+		var slot := _career_trophy_slots[slot_index]
+		if slot == null or not is_instance_valid(slot):
+			continue
+		var earned := slot_index < earned_count
+		slot.material_override = _material(
+			Color("e0b34f") if earned else Color("465055"),
+			0.26 if earned else 0.82,
+			0.38 if earned else 0.04,
+		)
+		slot.set_meta("commendation_earned", earned)
+	if _career_trophy_label != null and is_instance_valid(_career_trophy_label):
+		var identity := snapshot.get("management_identity", {}) as Dictionary
+		var identity_title := String(identity.get("title", "CAREER FILE"))
+		var identity_id := StringName(identity.get("id", &"unfiled"))
+		var identity_color := Color("e5dcc3")
+		match identity_id:
+			&"shared_scoop":
+				identity_color = Color("8ed3b1")
+			&"individual_merit":
+				identity_color = Color("e0b34f")
+			&"management_innovation":
+				identity_color = Color("ef9a76")
+			&"split_ledger":
+				identity_color = Color("91c5df")
+		_career_trophy_label.text = "%s  /  %d OF %d" % [
+			identity_title,
+			earned_count,
+			maxi(_career_trophy_slots.size(), int(snapshot.get("total_count", 12))),
+		]
+		_career_trophy_label.modulate = identity_color
+		_career_trophy_label.set_meta("management_identity", String(identity_id))
+
+
+func _apply_office_physical_presentation_state() -> void:
+	var full_bureau := _office_physical_capacity >= 6
+	if bureau_satire_root != null and is_instance_valid(bureau_satire_root):
+		bureau_satire_root.visible = full_bureau
+	if _archive_story_content != null and is_instance_valid(_archive_story_content):
+		_archive_story_content.visible = full_bureau
+	if _intake_story_content != null and is_instance_valid(_intake_story_content):
+		_intake_story_content.visible = true
+	if _records_zone != null and is_instance_valid(_records_zone):
+		_records_zone.visible = full_bureau
+	if _west_perch_04_zone != null and is_instance_valid(_west_perch_04_zone):
+		_west_perch_04_zone.visible = _office_physical_capacity >= 5
+	if _west_perch_05_zone != null and is_instance_valid(_west_perch_05_zone):
+		_west_perch_05_zone.visible = full_bureau
+
+
 ## Associates simulation worker IDs with desk indices for collection animation.
 ## apply_snapshot() also establishes this mapping automatically.
 func bind_worker_to_desk(worker_id: int, desk_index: int) -> void:
@@ -288,53 +569,97 @@ func bind_worker_to_desk(worker_id: int, desk_index: int) -> void:
 		_worker_to_desk[worker_id] = desk_index
 
 
-## Updates the management KPI board and overtime staging. This method is cheap
-## enough to call on every simulation snapshot.
-func apply_snapshot(snapshot: Dictionary) -> void:
+## Updates the live clutch/KPI staging on every simulation snapshot. Strategic
+## facility rooms are coalesced to four refreshes per second because they rebuild
+## signs and physical evidence from projections that change far less frequently.
+func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = true) -> void:
 	if snapshot.is_empty():
 		return
+	var previous_snapshot := _last_snapshot
+	_last_snapshot = snapshot
 	var workers: Array = snapshot.get("workers", []) as Array
 	for worker_variant in workers:
 		var worker := worker_variant as Dictionary
-		bind_worker_to_desk(int(worker.get("id", -1)), int(worker.get("desk_index", -1)))
+		var worker_id := int(worker.get("id", -1))
+		bind_worker_to_desk(worker_id, int(worker.get("desk_index", -1)))
+		if worker_id >= 0:
+			_worker_names[worker_id] = String(worker.get("name", "HEN %d" % (worker_id + 1)))
 	_reconcile_clutch_from_snapshot(snapshot)
-	if shell_quality_lab_visual != null:
-		shell_quality_lab_visual.apply_snapshot(snapshot)
-	if packing_annex_visual != null:
-		packing_annex_visual.call("apply_snapshot", snapshot)
-	if records_annex_visual != null:
-		records_annex_visual.call("apply_snapshot", snapshot)
-	if farm_mutual_service_coop_visual != null:
-		farm_mutual_service_coop_visual.call("apply_snapshot", snapshot)
-	if farm_mutual_negotiation_room_visual != null:
-		farm_mutual_negotiation_room_visual.call("apply_snapshot", snapshot)
-	if farm_mutual_contract_board_visual != null:
-		farm_mutual_contract_board_visual.call("apply_snapshot", snapshot)
-	if wellness_nest_visual != null:
-		wellness_nest_visual.call("apply_snapshot", snapshot)
-	if training_roost_visual != null:
-		training_roost_visual.call("apply_snapshot", snapshot)
-	if farmer_relations_gallery_visual != null:
-		farmer_relations_gallery_visual.call("apply_snapshot", snapshot)
-	if rooster_operations_office_visual != null:
-		rooster_operations_office_visual.call("apply_snapshot", snapshot)
-	if it_coop_visual != null:
-		it_coop_visual.call("apply_snapshot", snapshot)
-	if flock_relations_office_visual != null:
-		flock_relations_office_visual.call("apply_snapshot", snapshot)
-	if feed_procurement_coop_visual != null:
-		feed_procurement_coop_visual.call("apply_snapshot", snapshot)
-	if farmgate_dispatch_depot_visual != null:
-		farmgate_dispatch_depot_visual.call("apply_snapshot", snapshot)
-	if campus_expansion_visual != null:
-		campus_expansion_visual.call("apply_snapshot", snapshot)
-	if campus_portfolio_visual != null:
-		campus_portfolio_visual.call("apply_snapshot", snapshot)
+	var now_msec := Time.get_ticks_msec()
+	var facility_visual_fingerprint := _facility_visual_state_fingerprint_for(snapshot)
+	var facility_visuals_due: bool = (
+		previous_snapshot.is_empty()
+		or now_msec >= _next_facility_visual_refresh_msec
+		or facility_visual_fingerprint != _facility_visual_state_fingerprint
+		or int(previous_snapshot.get("day", -1)) != int(snapshot.get("day", -1))
+		or int(previous_snapshot.get("shift_phase", -1)) != int(snapshot.get("shift_phase", -1))
+		or previous_snapshot.get("owned_facilities", {}) != snapshot.get("owned_facilities", {})
+	)
+	if facility_visuals_due:
+		_next_facility_visual_refresh_msec = now_msec + FACILITY_VISUAL_REFRESH_MSEC
+		_facility_visual_refresh_count += 1
+		_facility_visual_state_fingerprint = facility_visual_fingerprint
+		if shell_quality_lab_visual != null:
+			shell_quality_lab_visual.apply_snapshot(snapshot)
+		if packing_annex_visual != null:
+			packing_annex_visual.call("apply_snapshot", snapshot)
+		if records_annex_visual != null:
+			records_annex_visual.call("apply_snapshot", snapshot)
+		if farm_mutual_service_coop_visual != null:
+			farm_mutual_service_coop_visual.call("apply_snapshot", snapshot)
+		if farm_mutual_negotiation_room_visual != null:
+			farm_mutual_negotiation_room_visual.call("apply_snapshot", snapshot)
+		if farm_mutual_contract_board_visual != null:
+			farm_mutual_contract_board_visual.call("apply_snapshot", snapshot)
+		if wellness_nest_visual != null:
+			wellness_nest_visual.call("apply_snapshot", snapshot)
+		if training_roost_visual != null:
+			training_roost_visual.call("apply_snapshot", snapshot)
+		if farmer_relations_gallery_visual != null:
+			farmer_relations_gallery_visual.call("apply_snapshot", snapshot)
+		if rooster_operations_office_visual != null:
+			rooster_operations_office_visual.call("apply_snapshot", snapshot)
+		if it_coop_visual != null:
+			it_coop_visual.call("apply_snapshot", snapshot)
+		if flock_relations_office_visual != null:
+			flock_relations_office_visual.call("apply_snapshot", snapshot)
+		if feed_procurement_coop_visual != null:
+			feed_procurement_coop_visual.call("apply_snapshot", snapshot)
+		if farmgate_dispatch_depot_visual != null:
+			farmgate_dispatch_depot_visual.call("apply_snapshot", snapshot)
+		if campus_expansion_visual != null:
+			campus_expansion_visual.call("apply_snapshot", snapshot)
+		if campus_portfolio_visual != null:
+			campus_portfolio_visual.call("apply_snapshot", snapshot)
 	# Child visuals retain their complete locked/survey/owned projections. The
 	# presentation layer gates only their parent roots after those projections
 	# update, so revealing a site later never requires rebuilding or save data.
-	_refresh_campus_presentation_source(snapshot)
-	if _metrics_label != null:
+	if refresh_campus_presentation:
+		_refresh_campus_presentation_source(snapshot)
+	var queue_changed: bool = (
+		previous_snapshot.is_empty()
+		or previous_snapshot.get("claim_queue_counts", {})
+			!= snapshot.get("claim_queue_counts", {})
+	)
+	var live_signage_due: bool = (
+		previous_snapshot.is_empty()
+		or now_msec >= _next_live_signage_refresh_msec
+		or queue_changed
+		or previous_snapshot.get("case_docket", {}) != snapshot.get("case_docket", {})
+		or int(previous_snapshot.get("day", -1)) != int(snapshot.get("day", -1))
+		or int(previous_snapshot.get("shift_phase", -1))
+			!= int(snapshot.get("shift_phase", -1))
+		or int(previous_snapshot.get("eggs_today", -1))
+			!= int(snapshot.get("eggs_today", -1))
+		or int(previous_snapshot.get("eggs_total", -1))
+			!= int(snapshot.get("eggs_total", -1))
+		or int(previous_snapshot.get("claims_processed", -1))
+			!= int(snapshot.get("claims_processed", -1))
+	)
+	if live_signage_due:
+		_next_live_signage_refresh_msec = now_msec + LIVE_SIGNAGE_REFRESH_MSEC
+		_apply_scenario_identity(snapshot)
+	if live_signage_due and _metrics_label != null:
 		var lane_counts := snapshot.get("claim_queue_counts", {}) as Dictionary
 		_metrics_label.text = "YIELD  %03d / %03d\nN %02d   P %02d   A %02d\n%s  ·  LIVE" % [
 			int(snapshot.get("eggs_today", 0)),
@@ -345,13 +670,66 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			String(snapshot.get("time_label", "9:00 AM")),
 		]
 		EnvironmentalSignageScript.refit_label(_metrics_label)
-	if _intake_status_label != null:
+	if live_signage_due and _intake_status_label != null:
 		_intake_status_label.text = "RECEIVED  %04d\nCREDITED  %04d" % [
 			int(snapshot.get("eggs_total", 0)),
 			int(snapshot.get("claims_processed", 0)),
 		]
 		EnvironmentalSignageScript.refit_label(_intake_status_label)
+	if live_signage_due and _claim_closure_label != null:
+		var queue_counts := snapshot.get("claim_queue_counts", {}) as Dictionary
+		var open_claims := (
+			int(queue_counts.get(&"nest_damage", queue_counts.get("nest_damage", 0)))
+			+ int(queue_counts.get(&"predator_loss", queue_counts.get("predator_loss", 0)))
+			+ int(queue_counts.get(&"appeals", queue_counts.get("appeals", 0)))
+		)
+		_claim_closure_label.text = "FILE CLOSURE\nCLOSED %03d  /  OPEN %02d" % [
+			int(snapshot.get("eggs_today", 0)),
+			open_claims,
+		]
+		EnvironmentalSignageScript.refit_label(_claim_closure_label)
 	set_overtime(bool(snapshot.get("overtime_enabled", false)))
+
+
+## Static rooms may skip repeated clock-only snapshots, but authoritative
+## transactions and exception counts must repaint immediately even when they
+## occur inside the 250 ms presentation window. Keep this projection limited to
+## fields consumed by facility visuals so worker progress does not defeat the
+## coalescing budget.
+func _facility_visual_state_fingerprint_for(snapshot: Dictionary) -> int:
+	var facility_states: Array = []
+	for facility_value: Variant in snapshot.get("facility_catalog", []):
+		if facility_value is not Dictionary:
+			continue
+		var facility := facility_value as Dictionary
+		facility_states.append([
+			String(facility.get("id", "")),
+			int(facility.get("current_level", facility.get("level", 0))),
+			bool(facility.get("unlocked", facility.get("available", false))),
+			bool(facility.get("can_purchase", false)),
+			bool(facility.get("maxed", false)),
+		])
+	return hash([
+		snapshot.get("owned_facilities", {}),
+		facility_states,
+		snapshot.get("facility_effects", {}),
+		snapshot.get("campaign_unlocks", {}),
+		int(snapshot.get("packing_carton_progress", 0)),
+		int(snapshot.get("packing_cartons_total", 0)),
+		snapshot.get("packing_annex", {}),
+		snapshot.get("packing_contract", {}),
+		int(snapshot.get("claims_outstanding", snapshot.get("claims_waiting", 0))),
+		snapshot.get("claim_queue_counts", {}),
+		int(snapshot.get("queued_overdue_claims", 0)),
+		int(snapshot.get("intake_rejections_today", 0)),
+		snapshot.get("contract_board", snapshot.get("farm_mutual_contract_board", {})),
+		snapshot.get("feed_procurement", {}),
+		snapshot.get("flock_relations", {}),
+		snapshot.get("farmer_relations_gallery", {}),
+		snapshot.get("farmgate_dispatch", {}),
+		snapshot.get("campus_expansion", {}),
+		snapshot.get("campus_portfolio", {}),
+	])
 
 
 ## Applies a presentation-only campus reveal derived from the authoritative
@@ -367,7 +745,12 @@ func apply_campus_presentation(
 		presentation_state: Dictionary = {},
 ) -> Dictionary:
 	_last_campus_presentation_options = presentation_state.duplicate(true)
-	return _refresh_campus_presentation_source(snapshot)
+	_refresh_campus_presentation_source(snapshot)
+	if _lazy_hidden_optional_visuals and _ensure_required_optional_visuals(snapshot):
+		# Re-run the presentation pass after the required roots exist so the same
+		# transaction that reveals an opportunity also mounts its finished art.
+		_rebuild_campus_presentation()
+	return campus_presentation_snapshot()
 
 
 func _refresh_campus_presentation_source(snapshot: Dictionary) -> Dictionary:
@@ -470,44 +853,189 @@ func animate_egg_collection(
 	egg.set_meta("clutch_day", _displayed_clutch_day)
 	_begin_egg_handoff_feedback(egg, quality)
 	_animated_eggs.append(egg)
-	var tween := create_tween().bind_node(egg)
-	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	var rest_scale := egg.scale
 	var has_sorter_waypoint := route.size() > SORTER_ROUTE_INDEX
-	var last_route_index := route.size() - 1
 	var travel_end := SORTER_ROUTE_INDEX + 1 if has_sorter_waypoint else route.size()
-	for point_index in range(1, travel_end):
-		var duration := 0.22 if point_index <= 2 else 0.34
-		tween.tween_property(egg, "global_position", route[point_index], duration)
-		if point_index == SORTER_ROUTE_INDEX:
-			tween.tween_callback(_on_egg_graded.bind(
-				egg, worker_id, quality, value_cents, streak_bonus_cents
-			))
-			tween.tween_property(egg, "scale", rest_scale * Vector3(1.12, 0.78, 1.12), 0.08).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-			tween.tween_interval(0.15)
-			tween.tween_property(egg, "scale", rest_scale, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-
-	if has_sorter_waypoint:
-		# The public route remains six stable semantic points for compatibility.
-		# These two internal waypoints make the post-grade travel follow the
-		# presentation manifold and drop tube before entering the basket.
-		var manifold_end := to_global(Vector3(
-			SIDE_MANIFOLD_X, COLLECTION_RAIL_HEIGHT, _presentation_position.z
-		))
-		var drop_point := to_global(Vector3(
-			SIDE_MANIFOLD_X, 1.26, _presentation_position.z
-		))
-		tween.tween_property(egg, "global_position", manifold_end, 0.28)
-		tween.tween_property(egg, "global_position", drop_point, 0.24)
-		tween.tween_property(egg, "global_position", route[last_route_index], 0.28)
-	# Invalid/unbound worker IDs retain the original direct fallback from the
-	# shared loop above and still emit an enriched presentation event without
-	# inventing a physical gate pass.
-
-	tween.tween_callback(_on_egg_arrived.bind(
-		egg, worker_id, quality, free_on_finish, value_cents, streak_bonus_cents
-	))
+	var routed := RoutedEggAnimation.new()
+	routed.egg = egg
+	routed.egg_instance_id = egg.get_instance_id()
+	routed.worker_id = worker_id
+	routed.quality = quality
+	routed.free_on_finish = free_on_finish
+	routed.value_cents = value_cents
+	routed.streak_bonus_cents = streak_bonus_cents
+	routed.route = route
+	routed.rest_scale = egg.scale
+	routed.travel_end = travel_end
+	routed.start_position = egg.global_position
+	routed.target_position = route[1]
+	routed.duration = 0.22
+	_routed_egg_animations.append(routed)
 	return true
+
+
+func _process_routed_egg_animations(delta: float) -> void:
+	for animation_index in range(_routed_egg_animations.size() - 1, -1, -1):
+		var animation := _routed_egg_animations[animation_index]
+		if animation == null or animation.egg == null or not is_instance_valid(animation.egg):
+			if animation != null:
+				_release_handoff_trail(animation.egg_instance_id)
+			_routed_egg_animations.remove_at(animation_index)
+			continue
+		if _advance_routed_egg_animation(animation, delta):
+			_routed_egg_animations.remove_at(animation_index)
+
+
+func _advance_routed_egg_animation(animation: RoutedEggAnimation, delta: float) -> bool:
+	var remaining := maxf(0.0, delta)
+	# A large frame may cross several short phases. Consume its remainder so the
+	# economy callback does not slow down when the renderer briefly stutters.
+	for _transition_index in 12:
+		var step := minf(remaining, maxf(0.0, animation.duration - animation.elapsed))
+		animation.elapsed += step
+		remaining -= step
+		var progress := clampf(animation.elapsed / maxf(animation.duration, 0.0001), 0.0, 1.0)
+		_apply_routed_egg_phase(animation, progress)
+		if animation.elapsed + 0.00001 < animation.duration:
+			return false
+		if _complete_routed_egg_phase(animation):
+			return true
+		if remaining <= 0.00001:
+			return false
+	return false
+
+
+func _apply_routed_egg_phase(animation: RoutedEggAnimation, progress: float) -> void:
+	var egg := animation.egg
+	match animation.phase:
+		RoutedEggPhase.TRAVEL, RoutedEggPhase.MANIFOLD, RoutedEggPhase.DROP, RoutedEggPhase.BASKET:
+			egg.global_position = animation.start_position.lerp(
+				animation.target_position, _ease_quad_in_out(progress)
+			)
+		RoutedEggPhase.SQUASH, RoutedEggPhase.UNSQUASH:
+			egg.scale = animation.start_scale.lerp(
+				animation.target_scale, _ease_back_out(progress)
+			)
+
+
+func _complete_routed_egg_phase(animation: RoutedEggAnimation) -> bool:
+	var egg := animation.egg
+	match animation.phase:
+		RoutedEggPhase.TRAVEL:
+			if animation.route_index == SORTER_ROUTE_INDEX:
+				_on_egg_graded(
+					egg,
+					animation.worker_id,
+					animation.quality,
+					animation.value_cents,
+					animation.streak_bonus_cents
+				)
+				_begin_routed_scale_phase(
+					animation,
+					RoutedEggPhase.SQUASH,
+					animation.rest_scale * Vector3(1.12, 0.78, 1.12),
+					0.08
+				)
+			elif animation.route_index + 1 < animation.travel_end:
+				animation.route_index += 1
+				_begin_routed_position_phase(
+					animation,
+					RoutedEggPhase.TRAVEL,
+					animation.route[animation.route_index],
+					0.22 if animation.route_index <= 2 else 0.34
+				)
+			else:
+				_finish_routed_egg_animation(animation)
+				return true
+		RoutedEggPhase.SQUASH:
+			animation.phase = RoutedEggPhase.HOLD
+			animation.elapsed = 0.0
+			animation.duration = 0.15
+		RoutedEggPhase.HOLD:
+			_begin_routed_scale_phase(
+				animation, RoutedEggPhase.UNSQUASH, animation.rest_scale, 0.10
+			)
+		RoutedEggPhase.UNSQUASH:
+			# The public route remains six stable semantic points for compatibility.
+			# These internal points follow the manifold and drop tube into the basket.
+			_begin_routed_position_phase(
+				animation,
+				RoutedEggPhase.MANIFOLD,
+				to_global(Vector3(
+					SIDE_MANIFOLD_X, COLLECTION_RAIL_HEIGHT, _presentation_position.z
+				)),
+				0.28
+			)
+		RoutedEggPhase.MANIFOLD:
+			_begin_routed_position_phase(
+				animation,
+				RoutedEggPhase.DROP,
+				to_global(Vector3(SIDE_MANIFOLD_X, 1.26, _presentation_position.z)),
+				0.24
+			)
+		RoutedEggPhase.DROP:
+			_begin_routed_position_phase(
+				animation,
+				RoutedEggPhase.BASKET,
+				animation.route[animation.route.size() - 1],
+				0.28
+			)
+		RoutedEggPhase.BASKET:
+			_finish_routed_egg_animation(animation)
+			return true
+	return false
+
+
+func _begin_routed_position_phase(
+	animation: RoutedEggAnimation,
+	phase: RoutedEggPhase,
+	target: Vector3,
+	duration: float
+) -> void:
+	animation.phase = phase
+	animation.elapsed = 0.0
+	animation.duration = duration
+	animation.start_position = animation.egg.global_position
+	animation.target_position = target
+
+
+func _begin_routed_scale_phase(
+	animation: RoutedEggAnimation,
+	phase: RoutedEggPhase,
+	target: Vector3,
+	duration: float
+) -> void:
+	animation.phase = phase
+	animation.elapsed = 0.0
+	animation.duration = duration
+	animation.start_scale = animation.egg.scale
+	animation.target_scale = target
+
+
+func _finish_routed_egg_animation(animation: RoutedEggAnimation) -> void:
+	_on_egg_arrived(
+		animation.egg,
+		animation.worker_id,
+		animation.quality,
+		animation.free_on_finish,
+		animation.value_cents,
+		animation.streak_bonus_cents
+	)
+
+
+func _ease_quad_in_out(value: float) -> float:
+	if value < 0.5:
+		return 2.0 * value * value
+	return 1.0 - pow(-2.0 * value + 2.0, 2.0) * 0.5
+
+
+func _ease_quad_out(value: float) -> float:
+	return 1.0 - (1.0 - value) * (1.0 - value)
+
+
+func _ease_back_out(value: float) -> float:
+	const OVERSHOOT := 1.70158
+	var shifted := value - 1.0
+	return 1.0 + (OVERSHOOT + 1.0) * pow(shifted, 3.0) + OVERSHOOT * pow(shifted, 2.0)
 
 
 func presentation_focus_point_global() -> Vector3:
@@ -535,7 +1063,7 @@ func _on_egg_graded(
 	var safe_bonus := maxi(0, streak_bonus_cents)
 	_play_sorter_stamp_feedback(egg, normalized_quality)
 	_pulse_quality_lamp(normalized_quality)
-	_enqueue_grading_receipt(normalized_quality, safe_value, safe_bonus)
+	_enqueue_grading_receipt(normalized_quality, safe_value, safe_bonus, worker_id)
 	egg_graded.emit(
 		worker_id,
 		normalized_quality,
@@ -687,7 +1215,6 @@ func _clear_egg_handoff_feedback() -> void:
 		if is_instance_valid(echo):
 			echo.visible = false
 			echo.set_meta("handoff_in_use", false)
-	_egg_handoff_echo_pool.clear()
 
 
 func _apply_egg_quality_visual(
@@ -705,20 +1232,29 @@ func _apply_egg_quality_visual(
 		mesh_instance.material_override = _egg_quality_material(quality)
 		mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
+	var normalized := _normalized_quality(quality)
 	var existing := egg.get_node_or_null("EggQualityTreatment") as Node3D
+	if existing != null and StringName(existing.get_meta("quality", &"")) == normalized:
+		var existing_ring := existing.get_node_or_null("EggSorterStampRing") as MeshInstance3D
+		if include_transit_cue and existing_ring == null:
+			_add_sorter_stamp_ring(existing, normalized)
+		elif not include_transit_cue and existing_ring != null:
+			existing_ring.visible = false
+		return
 	if existing != null:
 		existing.free()
 	var treatment := Node3D.new()
 	treatment.name = "EggQualityTreatment"
+	treatment.set_meta("quality", normalized)
 	egg.add_child(treatment)
 
-	match quality:
+	match normalized:
 		&"golden":
 			_add_golden_egg_treatment(treatment)
 		&"cracked":
 			_add_cracked_egg_treatment(treatment)
 	if include_transit_cue:
-		_add_sorter_stamp_ring(treatment, quality)
+		_add_sorter_stamp_ring(treatment, normalized)
 
 
 func _add_golden_egg_treatment(parent: Node3D) -> void:
@@ -804,15 +1340,37 @@ func _play_sorter_stamp_feedback(egg: Node3D, quality: StringName) -> void:
 	var ring_color := _egg_quality_color(quality)
 	ring_color.a = 0.70
 	material.albedo_color = ring_color
-	var stamp := create_tween().bind_node(ring).set_parallel(true)
-	stamp.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	stamp.tween_property(ring, "scale", Vector3.ONE * 1.30, 0.28)
-	stamp.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	stamp.tween_property(material, "albedo_color:a", 0.0, 0.28)
-	stamp.chain().tween_callback(func() -> void:
-		if is_instance_valid(ring):
-			ring.visible = false
-	)
+	for animation in _sorter_stamp_animations:
+		if animation.ring == ring:
+			animation.material = material
+			animation.elapsed = 0.0
+			return
+	var animation := SorterStampAnimation.new()
+	animation.ring = ring
+	animation.material = material
+	_sorter_stamp_animations.append(animation)
+
+
+func _process_sorter_stamp_animations(delta: float) -> void:
+	for animation_index in range(_sorter_stamp_animations.size() - 1, -1, -1):
+		var animation := _sorter_stamp_animations[animation_index]
+		if (
+			animation == null
+			or animation.ring == null
+			or not is_instance_valid(animation.ring)
+			or animation.material == null
+		):
+			_sorter_stamp_animations.remove_at(animation_index)
+			continue
+		animation.elapsed += maxf(0.0, delta)
+		var progress := clampf(animation.elapsed / 0.28, 0.0, 1.0)
+		animation.ring.scale = Vector3.ONE * lerpf(0.50, 1.30, _ease_back_out(progress))
+		var color := animation.material.albedo_color
+		color.a = lerpf(0.70, 0.0, progress * progress)
+		animation.material.albedo_color = color
+		if progress >= 1.0:
+			animation.ring.visible = false
+			_sorter_stamp_animations.remove_at(animation_index)
 
 
 func _handoff_echo_material(quality: StringName, echo_index: int) -> StandardMaterial3D:
@@ -850,34 +1408,29 @@ func _make_handoff_ring_material(quality: StringName) -> StandardMaterial3D:
 
 
 func _egg_quality_color(quality: StringName) -> Color:
-	match _normalized_quality(quality):
-		&"golden":
-			return Color("ffd467")
-		&"cracked":
-			return Color("d78372")
-		_:
-			return Color("f2e7c7")
+	return SemanticColorPaletteScript.egg_color(_normalized_quality(quality), _color_vision_mode)
 
 
 func _egg_quality_material(quality: StringName) -> StandardMaterial3D:
 	var normalized := _normalized_quality(quality)
-	var key := "egg_quality_%s" % String(normalized)
+	var key := "egg_quality_%s_%s" % [String(normalized), String(_color_vision_mode)]
 	if _material_cache.has(key):
 		return _material_cache[key]
 	var material := StandardMaterial3D.new()
+	var body_color := SemanticColorPaletteScript.egg_color(normalized, _color_vision_mode)
 	match normalized:
 		&"golden":
-			material.albedo_color = Color("d9a43e")
+			material.albedo_color = body_color
 			material.roughness = 0.20
 			material.metallic = 0.72
 			material.emission_enabled = true
-			material.emission = Color("d9a43e")
+			material.emission = body_color
 			material.emission_energy_multiplier = 0.20
 		&"cracked":
-			material.albedo_color = Color("a87366")
+			material.albedo_color = body_color
 			material.roughness = 0.96
 		_:
-			material.albedo_color = Color("e8dfc4")
+			material.albedo_color = body_color
 			material.roughness = 0.78
 	_material_cache[key] = material
 	return material
@@ -1012,9 +1565,10 @@ func _authoritative_clutch_source(snapshot: Dictionary) -> Dictionary:
 
 func _animated_quality_counts() -> Dictionary:
 	var counts := {&"sound": 0, &"golden": 0, &"cracked": 0}
-	for egg in _animated_eggs.duplicate():
+	for egg_index in range(_animated_eggs.size() - 1, -1, -1):
+		var egg := _animated_eggs[egg_index]
 		if not is_instance_valid(egg):
-			_animated_eggs.erase(egg)
+			_animated_eggs.remove_at(egg_index)
 			continue
 		var quality := _normalized_quality(StringName(egg.get_meta("clutch_quality", &"sound")))
 		counts[quality] = int(counts.get(quality, 0)) + 1
@@ -1109,18 +1663,88 @@ func _settle_real_egg(egg: Node3D, quality: StringName) -> bool:
 	var target := slot.position
 	var rest_scale := Vector3(0.26, 0.36, 0.26)
 	egg.rotation = Vector3(0.0, float(slot_index) * 0.43, 0.0)
-	var landing := create_tween().bind_node(egg)
-	landing.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	landing.tween_property(egg, "position", target + Vector3.UP * 0.015, 0.11)
-	landing.parallel().tween_property(egg, "scale", rest_scale * Vector3(1.18, 0.64, 1.18), 0.11)
-	landing.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	landing.tween_property(egg, "position", target + Vector3.UP * 0.095, 0.09)
-	landing.parallel().tween_property(egg, "scale", rest_scale * 1.08, 0.09)
-	landing.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	landing.tween_property(egg, "position", target, 0.10)
-	landing.parallel().tween_property(egg, "scale", rest_scale, 0.10)
+	var landing := SettledEggAnimation.new()
+	landing.egg = egg
+	landing.start_position = egg.position
+	landing.target_position = target + Vector3.UP * 0.015
+	landing.start_scale = egg.scale
+	landing.target_scale = rest_scale * Vector3(1.18, 0.64, 1.18)
+	landing.rest_position = target
+	landing.rest_scale = rest_scale
+	_settled_egg_animations.append(landing)
 	_pulse_clutch_recoil(target_root, slot_index)
 	return true
+
+
+func _process_settled_egg_animations(delta: float) -> void:
+	for animation_index in range(_settled_egg_animations.size() - 1, -1, -1):
+		var animation := _settled_egg_animations[animation_index]
+		if animation == null or animation.egg == null or not is_instance_valid(animation.egg):
+			_settled_egg_animations.remove_at(animation_index)
+			continue
+		if _advance_settled_egg_animation(animation, delta):
+			_settled_egg_animations.remove_at(animation_index)
+
+
+func _advance_settled_egg_animation(animation: SettledEggAnimation, delta: float) -> bool:
+	var remaining := maxf(0.0, delta)
+	for _transition_index in 3:
+		var step := minf(remaining, maxf(0.0, animation.duration - animation.elapsed))
+		animation.elapsed += step
+		remaining -= step
+		var progress := clampf(animation.elapsed / maxf(animation.duration, 0.0001), 0.0, 1.0)
+		var eased := progress
+		match animation.phase:
+			SettledEggPhase.IMPACT:
+				eased = progress * progress
+			SettledEggPhase.BOUNCE:
+				eased = _ease_back_out(progress)
+			SettledEggPhase.REST:
+				eased = _ease_quad_in_out(progress)
+		animation.egg.position = animation.start_position.lerp(animation.target_position, eased)
+		animation.egg.scale = animation.start_scale.lerp(animation.target_scale, eased)
+		if animation.elapsed + 0.00001 < animation.duration:
+			return false
+		match animation.phase:
+			SettledEggPhase.IMPACT:
+				_begin_settled_egg_phase(
+					animation,
+					SettledEggPhase.BOUNCE,
+					animation.rest_position + Vector3.UP * 0.095,
+					animation.rest_scale * 1.08,
+					0.09
+				)
+			SettledEggPhase.BOUNCE:
+				_begin_settled_egg_phase(
+					animation,
+					SettledEggPhase.REST,
+					animation.rest_position,
+					animation.rest_scale,
+					0.10
+				)
+			SettledEggPhase.REST:
+				animation.egg.position = animation.rest_position
+				animation.egg.scale = animation.rest_scale
+				return true
+		if remaining <= 0.00001:
+			return false
+	return false
+
+
+func _begin_settled_egg_phase(
+	animation: SettledEggAnimation,
+	phase: SettledEggPhase,
+	target_position: Vector3,
+	target_scale: Vector3,
+	duration: float
+) -> void:
+	animation.phase = phase
+	animation.elapsed = 0.0
+	animation.duration = duration
+	animation.start_position = animation.egg.position
+	animation.target_position = target_position
+	animation.start_scale = animation.egg.scale
+	animation.target_scale = target_scale
 
 
 func _configure_settled_egg(egg: Node3D, quality: StringName, slot_index: int) -> void:
@@ -1133,11 +1757,8 @@ func _configure_settled_egg(egg: Node3D, quality: StringName, slot_index: int) -
 
 
 func _next_open_clutch_slot() -> int:
-	var occupied: Dictionary[int, bool] = {}
-	for egg in _settled_clutch_eggs:
-		occupied[int(egg.get_meta("clutch_slot", -1))] = true
 	for slot_index in _clutch_slots.size():
-		if not occupied.has(slot_index):
+		if not bool(_clutch_slot_markers[slot_index].get("occupied", false)):
 			return slot_index
 	return -1
 
@@ -1145,44 +1766,97 @@ func _next_open_clutch_slot() -> int:
 func _set_slot_occupied(slot_index: int, occupied: bool) -> void:
 	if slot_index < 0 or slot_index >= _clutch_slot_markers.size():
 		return
-	var marker := _clutch_slot_markers[slot_index]
-	if marker != null and is_instance_valid(marker):
-		marker.visible = not occupied
+	var marker: Dictionary = _clutch_slot_markers[slot_index]
+	var batch := marker.get("batch") as MultiMeshInstance3D
+	if batch == null or not is_instance_valid(batch) or batch.multimesh == null:
+		return
+	marker["occupied"] = occupied
+	var visible_index := 0
+	for candidate_marker: Dictionary in _clutch_slot_markers:
+		if candidate_marker.get("batch") != batch or bool(candidate_marker.get("occupied", false)):
+			continue
+		var rest_transform: Transform3D = candidate_marker.get("rest_transform", Transform3D.IDENTITY)
+		batch.multimesh.set_instance_transform(visible_index, rest_transform)
+		visible_index += 1
+	batch.multimesh.visible_instance_count = visible_index
 
 
 func _pulse_clutch_recoil(target_root: Node3D, slot_index: int) -> void:
 	if target_root == null:
 		return
-	var root_id := target_root.get_instance_id()
-	var previous := _clutch_recoil_tweens.get(root_id) as Tween
-	if previous != null and previous.is_valid():
-		previous.kill()
 	target_root.rotation.z = 0.0
 	target_root.scale = Vector3.ONE
 	var direction := -1.0 if slot_index % 2 == 0 else 1.0
-	var recoil := create_tween().bind_node(target_root).set_parallel(true)
-	recoil.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	recoil.tween_property(target_root, "rotation:z", deg_to_rad(1.85) * direction, 0.055)
-	recoil.tween_property(target_root, "scale", Vector3(1.028, 0.982, 1.028), 0.055)
-	recoil.chain()
-	recoil.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	recoil.tween_property(target_root, "rotation:z", 0.0, 0.16)
-	recoil.tween_property(target_root, "scale", Vector3.ONE, 0.16)
-	_clutch_recoil_tweens[root_id] = recoil
+	var recoil: ClutchRecoilAnimation = null
+	for candidate in _clutch_recoil_animations:
+		if candidate.target_root == target_root:
+			recoil = candidate
+			break
+	if recoil == null:
+		recoil = ClutchRecoilAnimation.new()
+		recoil.target_root = target_root
+		_clutch_recoil_animations.append(recoil)
+	recoil.active = true
+	recoil.phase = ClutchRecoilPhase.OUT
+	recoil.elapsed = 0.0
+	recoil.duration = 0.055
+	recoil.start_rotation = 0.0
+	recoil.target_rotation = deg_to_rad(1.85) * direction
+	recoil.start_scale = Vector3.ONE
+	recoil.target_scale = Vector3(1.028, 0.982, 1.028)
+
+
+func _process_clutch_recoil_animations(delta: float) -> void:
+	for recoil in _clutch_recoil_animations:
+		if not recoil.active:
+			continue
+		if recoil.target_root == null or not is_instance_valid(recoil.target_root):
+			recoil.active = false
+			continue
+		var remaining := maxf(0.0, delta)
+		for _transition_index in 2:
+			var step := minf(remaining, maxf(0.0, recoil.duration - recoil.elapsed))
+			recoil.elapsed += step
+			remaining -= step
+			var progress := clampf(recoil.elapsed / maxf(recoil.duration, 0.0001), 0.0, 1.0)
+			var eased := (
+				_ease_quad_out(progress)
+				if recoil.phase == ClutchRecoilPhase.OUT else
+				_ease_back_out(progress)
+			)
+			recoil.target_root.rotation.z = lerpf(
+				recoil.start_rotation, recoil.target_rotation, eased
+			)
+			recoil.target_root.scale = recoil.start_scale.lerp(recoil.target_scale, eased)
+			if recoil.elapsed + 0.00001 < recoil.duration:
+				break
+			if recoil.phase == ClutchRecoilPhase.OUT:
+				recoil.phase = ClutchRecoilPhase.RETURN
+				recoil.elapsed = 0.0
+				recoil.duration = 0.16
+				recoil.start_rotation = recoil.target_root.rotation.z
+				recoil.target_rotation = 0.0
+				recoil.start_scale = recoil.target_root.scale
+				recoil.target_scale = Vector3.ONE
+			else:
+				recoil.target_root.rotation.z = 0.0
+				recoil.target_root.scale = Vector3.ONE
+				recoil.active = false
+				break
+			if remaining <= 0.00001:
+				break
 
 
 func _cleanup_invalid_settled_eggs() -> void:
-	for egg in _settled_clutch_eggs.duplicate():
+	for egg_index in range(_settled_clutch_eggs.size() - 1, -1, -1):
+		var egg := _settled_clutch_eggs[egg_index]
 		if not is_instance_valid(egg):
-			_settled_clutch_eggs.erase(egg)
+			_settled_clutch_eggs.remove_at(egg_index)
 
 
 func _clear_settled_clutch() -> void:
-	for recoil_value in _clutch_recoil_tweens.values():
-		var recoil := recoil_value as Tween
-		if recoil != null and recoil.is_valid():
-			recoil.kill()
-	_clutch_recoil_tweens.clear()
+	_settled_egg_animations.clear()
+	_clutch_recoil_animations.clear()
 	for egg in _settled_clutch_eggs:
 		if is_instance_valid(egg):
 			egg.queue_free()
@@ -1240,11 +1914,107 @@ func _pulse_quality_lamp(quality: StringName) -> void:
 	_quality_lamp_tweens[quality] = tween
 
 
-func _enqueue_grading_receipt(quality: StringName, value_cents: int, streak_bonus_cents: int) -> void:
+func _build_grading_receipt_pool() -> void:
+	_grading_receipt_pool = Node3D.new()
+	_grading_receipt_pool.name = "GradingReceiptPool"
+	_grading_receipt_pool.visible = false
+	_grading_receipt_pool.scale = Vector3(1.0, 0.10, 1.0)
+	egg_collection_root.add_child(_grading_receipt_pool)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptShadow",
+		Vector3(0.48, 0.35, 0.016),
+		Vector3(0.012, -0.172, -0.010),
+		Color("20282b"),
+		0.94,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptBackplate",
+		Vector3(0.48, 0.050, 0.024),
+		Vector3(0.0, -0.020, 0.002),
+		Color("304047"),
+		0.58,
+	)
+	# A thicker pooled paper carrier sits behind the fitted printed face. The
+	# EnvironmentalSignage fixture below supplies the millimetre-thin visible
+	# sheet while this stable part preserves the receipt's physical feed stock
+	# and the grading diagnostics' authored ReceiptPaper identity.
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptPaper",
+		Vector3(0.46, 0.33, 0.010),
+		Vector3(0.0, -0.165, 0.014),
+		Color("d4ccb2"),
+		0.98,
+	)
+	_grading_receipt_quality_stripe = _add_box(
+		_grading_receipt_pool,
+		"ReceiptQualityStripe",
+		Vector3(0.025, 0.27, 0.008),
+		Vector3(-0.205, -0.165, 0.026),
+		SemanticColorPaletteScript.quality_color(&"sound", _color_vision_mode),
+		0.76,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptTearBar",
+		Vector3(0.40, 0.018, 0.014),
+		Vector3(0.0, -0.323, 0.027),
+		Color("8c8b7c"),
+		0.44,
+		0.30,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptMountArm",
+		Vector3(0.10, 0.035, 0.030),
+		Vector3(0.17, -0.020, -0.004),
+		Color("56666a"),
+		0.40,
+		0.35,
+	)
+	_add_box(
+		_grading_receipt_pool,
+		"ReceiptMountHinge",
+		Vector3(0.055, 0.055, 0.040),
+		Vector3(0.215, -0.020, -0.004),
+		Color("b08a4d"),
+		0.32,
+		0.52,
+	)
+	# The transient docket is still a physical office document. Building its
+	# paper and type through the same fixture contract as permanent signage keeps
+	# the copy mounted, depth-tested, fitted, and readable instead of introducing
+	# a raw Label3D merely because the document is pooled.
+	_grading_receipt_label = EnvironmentalSignageScript.add_panel(
+		_grading_receipt_pool,
+		"ReceiptText",
+		"FILED RECEIPT",
+		Vector3(0.0, -0.165, 0.016),
+		Vector2(0.46, 0.33),
+		Color("ddd5ba"),
+		Color("304047"),
+		Vector3.ZERO,
+		14,
+		0.0021,
+		&"utility",
+		&"paper",
+	)
+	_grading_receipt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+
+func _enqueue_grading_receipt(
+	quality: StringName,
+	value_cents: int,
+	streak_bonus_cents: int,
+	worker_id: int = -1
+) -> void:
 	var request := {
 		"quality": quality,
 		"value_cents": value_cents,
 		"streak_bonus_cents": streak_bonus_cents,
+		"worker_id": worker_id,
 	}
 	var open_slot := _first_open_receipt_slot()
 	if open_slot >= 0:
@@ -1268,12 +2038,15 @@ func _spawn_grading_receipt(slot_index: int, request: Dictionary) -> void:
 		return
 	if slot_index < 0 or slot_index >= _grading_receipt_slots.size():
 		return
+	if _grading_receipt_pool == null or not is_instance_valid(_grading_receipt_pool):
+		return
 	var quality := _normalized_quality(StringName(request.get("quality", &"sound")))
 	var value_cents := maxi(0, int(request.get("value_cents", 0)))
 	var streak_bonus_cents := maxi(0, int(request.get("streak_bonus_cents", 0)))
+	var worker_id := int(request.get("worker_id", -1))
 	var base_value_cents := maxi(0, value_cents - streak_bonus_cents)
-	var quality_color: Color = GRADING_RECEIPT_COLORS[quality]
-	var receipt := Node3D.new()
+	var quality_color := SemanticColorPaletteScript.quality_color(quality, _color_vision_mode)
+	var receipt := _grading_receipt_pool
 	receipt.name = "GradingReceipt_%d" % slot_index
 	var receipt_rest_position := _sorting_gate_center() + Vector3(
 		-0.62,
@@ -1283,104 +2056,64 @@ func _spawn_grading_receipt(slot_index: int, request: Dictionary) -> void:
 	# The receipt pivots at its top edge so it visibly feeds from the fixed slot.
 	receipt.position = receipt_rest_position
 	receipt.scale = Vector3(1.0, 0.10, 1.0)
-	egg_collection_root.add_child(receipt)
+	receipt.visible = true
 	_grading_receipt_slots[slot_index] = receipt
+	if _grading_receipt_quality_stripe != null:
+		_grading_receipt_quality_stripe.material_override = _material(
+			quality_color,
+			0.76,
+		)
 
-	_add_box(
-		receipt,
-		"ReceiptShadow",
-		Vector3(0.48, 0.35, 0.016),
-		Vector3(0.012, -0.172, -0.010),
-		Color("20282b"),
-		0.94
+	var receipt_text := SemanticColorPaletteScript.marked_quality_name(
+		String(quality).to_upper(),
+		quality,
+		_color_vision_mode,
 	)
-	_add_box(
-		receipt,
-		"ReceiptBackplate",
-		Vector3(0.48, 0.050, 0.024),
-		Vector3(0.0, -0.020, 0.002),
-		Color("304047"),
-		0.58
-	)
-	_add_box(
-		receipt,
-		"ReceiptPaper",
-		Vector3(0.46, 0.33, 0.012),
-		Vector3(0.0, -0.165, 0.016),
-		Color("ddd5ba"),
-		0.98
-	)
-	_add_box(
-		receipt,
-		"ReceiptQualityStripe",
-		Vector3(0.025, 0.27, 0.008),
-		Vector3(-0.205, -0.165, 0.026),
-		quality_color,
-		0.76
-	)
-	_add_box(
-		receipt,
-		"ReceiptTearBar",
-		Vector3(0.40, 0.018, 0.014),
-		Vector3(0.0, -0.323, 0.027),
-		Color("8c8b7c"),
-		0.44,
-		0.30
-	)
-	# Retain the established part names as small, connected feed guides.
-	_add_box(
-		receipt,
-		"ReceiptMountArm",
-		Vector3(0.10, 0.035, 0.030),
-		Vector3(0.17, -0.020, -0.004),
-		Color("56666a"),
-		0.40,
-		0.35
-	)
-	_add_box(
-		receipt,
-		"ReceiptMountHinge",
-		Vector3(0.055, 0.055, 0.040),
-		Vector3(0.215, -0.020, -0.004),
-		Color("b08a4d"),
-		0.32,
-		0.52
-	)
-
-	var receipt_text := String(quality).to_upper()
 	if value_cents > 0:
 		receipt_text += "  $%.2f" % (base_value_cents / 100.0)
 	if streak_bonus_cents > 0:
 		receipt_text += "\n+$%.2f clean-clutch" % (streak_bonus_cents / 100.0)
-	var label := Label3D.new()
-	label.name = "ReceiptText"
-	label.text = receipt_text
-	label.position = Vector3(0.025, -0.165, 0.032)
-	label.font_size = 16
-	label.pixel_size = 0.0021
-	label.width = 185
-	label.line_spacing = -2
-	label.outline_size = 0
-	label.modulate = quality_color.darkened(0.42)
-	label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	label.no_depth_test = false
-	label.fixed_size = false
-	label.shaded = true
-	label.double_sided = false
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
-	EnvironmentalSignageScript.apply_house_type(label, &"paper_notice", true)
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	receipt.add_child(label)
+	if worker_id >= 0:
+		var worker_name := String(_worker_names.get(worker_id, "HEN %d" % (worker_id + 1))).to_upper()
+		receipt_text += "\nLAID BY %s  /  CREDIT TO FARMER" % worker_name
+	_grading_receipt_label.text = receipt_text
+	EnvironmentalSignageScript.refit_label(_grading_receipt_label)
+	_grading_receipt_label.modulate = quality_color.darkened(0.42)
+	_grading_receipt_pool.set_meta("receipt_quality", quality)
+	_grading_receipt_active = true
+	_grading_receipt_elapsed = 0.0
+	_grading_receipt_slot_index = slot_index
 
-	var tween := create_tween().bind_node(receipt)
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	tween.tween_property(receipt, "scale", Vector3.ONE, 0.18)
-	tween.tween_interval(1.22)
-	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	tween.tween_property(receipt, "scale:y", 0.10, 0.28)
-	tween.tween_callback(_finish_grading_receipt.bind(receipt, slot_index))
+
+func _process_grading_receipt(delta: float) -> void:
+	if not _grading_receipt_active:
+		return
+	if _grading_receipt_pool == null or not is_instance_valid(_grading_receipt_pool):
+		_grading_receipt_active = false
+		return
+	_grading_receipt_elapsed += delta
+	if _grading_receipt_elapsed < 0.18:
+		var reveal_progress := clampf(_grading_receipt_elapsed / 0.18, 0.0, 1.0)
+		var eased_reveal := 1.0 - pow(1.0 - reveal_progress, 3.0)
+		_grading_receipt_pool.scale.y = lerpf(0.10, 1.0, eased_reveal)
+	elif _grading_receipt_elapsed < 1.40:
+		_grading_receipt_pool.scale.y = 1.0
+	elif _grading_receipt_elapsed < 1.68:
+		var retire_progress := clampf(
+			(_grading_receipt_elapsed - 1.40) / 0.28,
+			0.0,
+			1.0,
+		)
+		_grading_receipt_pool.scale.y = lerpf(
+			1.0,
+			0.10,
+			retire_progress * retire_progress * retire_progress,
+		)
+	else:
+		_finish_grading_receipt(
+			_grading_receipt_pool,
+			_grading_receipt_slot_index,
+		)
 
 
 func _finish_grading_receipt(receipt: Node3D, slot_index: int) -> void:
@@ -1388,10 +2121,12 @@ func _finish_grading_receipt(receipt: Node3D, slot_index: int) -> void:
 		if _grading_receipt_slots[slot_index] == receipt:
 			_grading_receipt_slots[slot_index] = null
 	if receipt != null and is_instance_valid(receipt):
-		# Release the public slot name before a queued docket is added in the same
-		# frame; otherwise Godot gives the successor an opaque duplicate name.
-		receipt.name = "RetiringGradingReceipt_%d" % slot_index
-		receipt.queue_free()
+		receipt.name = "GradingReceiptPool"
+		receipt.visible = false
+		receipt.scale = Vector3(1.0, 0.10, 1.0)
+	_grading_receipt_active = false
+	_grading_receipt_elapsed = 0.0
+	_grading_receipt_slot_index = -1
 	if not _grading_receipt_queue.is_empty():
 		var next_request: Dictionary = _grading_receipt_queue.pop_front()
 		_spawn_grading_receipt(slot_index, next_request)
@@ -1595,6 +2330,19 @@ func _rebuild_campus_presentation() -> void:
 	for presentation_id: StringName in _campus_presentation_entry_order():
 		var entry := entries.get(presentation_id, {}) as Dictionary
 		if not bool(entry.get("visible", false)):
+			continue
+		# On constrained Web runtimes, teased and generally available projects
+		# stay in the planning/read-model layer. Mounting several multi-room
+		# facilities as soon as their catalog cards unlock caused Day 3 to sprawl
+		# and allocated tens of megabytes before the player chose a project.
+		# Pinning or owning a site still makes its finished art physical immediately.
+		if (
+			_lazy_hidden_optional_visuals
+			and StringName(String(entry.get("state", CAMPUS_PRESENTATION_HIDDEN))) in [
+				CAMPUS_PRESENTATION_TEASED,
+				CAMPUS_PRESENTATION_OFFERED,
+			]
+		):
 			continue
 		visible_ids.append(presentation_id)
 		var footprint := entry.get("footprint", Rect2()) as Rect2
@@ -1985,42 +2733,466 @@ func _facility_footprint(facility_id: StringName) -> Rect2:
 
 func _build_all() -> void:
 	_built = true
+	_optional_visual_build_generation += 1
+	_optional_visual_build_index = 0
+	_optional_visual_instantiated_count = 0
+	_optional_visual_built_indices.clear()
+	_optional_visuals_ready = false
+	_optional_visual_build_started_msec = Time.get_ticks_msec()
+	_optional_visual_build_completed_msec = 0
+	_optional_visual_build_timings.clear()
 	_build_management_perch()
 	_build_egg_collection_chain()
 	_build_zone_markers()
 	_build_bureau_satire()
 	_build_records_and_intake_story()
-	_build_shell_quality_lab_visual()
-	_build_packing_annex_visual()
-	_build_records_annex_visual()
-	_build_farm_mutual_service_coop_visual()
-	_build_farm_mutual_negotiation_room_visual()
-	_build_farm_mutual_contract_board_visual()
-	_build_care_campus_spine()
-	_build_wellness_nest_visual()
-	_build_training_roost_visual()
-	_build_farmer_relations_gallery_visual()
-	_build_operations_campus_spine()
-	_build_rooster_operations_office_visual()
-	_build_it_coop_visual()
-	_build_flock_relations_office_visual()
-	_build_feed_procurement_coop_visual()
-	_build_farmgate_dispatch_depot_visual()
-	_build_campus_expansion_visual()
-	_build_campus_portfolio_visual()
+	_build_scenario_identity_dressing()
 	_rebuild_campus_presentation()
+	_apply_office_physical_presentation_state()
+	if _defer_optional_visuals and is_inside_tree():
+		call_deferred(&"_build_optional_visuals_staged", _optional_visual_build_generation)
+	else:
+		_build_optional_visuals_immediately()
+		_rebuild_campus_presentation()
+
+
+## Scenario rules now alter the room at a glance, not only numbers in a docket.
+## This perimeter vignette is non-colliding and stable across shifts; only its
+## authored prop set and concise destination sign change.
+func _build_scenario_identity_dressing() -> void:
+	_scenario_identity_root = Node3D.new()
+	_scenario_identity_root.name = "ScenarioIdentityDressing"
+	add_child(_scenario_identity_root)
+	var center := Vector3(-9.25, 0.0, -7.55)
+	_add_box(_scenario_identity_root, "ScenarioWallBacker", Vector3(4.25, 2.45, 0.12), center + Vector3(0.0, 1.65, 0.0), Color("344247"), 0.78)
+	_add_box(_scenario_identity_root, "ScenarioCounter", Vector3(4.05, 0.15, 0.76), center + Vector3(0.0, 0.77, 0.47), Color("73573e"), 0.64, 0.10)
+	_scenario_identity_label = _add_mounted_label(
+		_scenario_identity_root, "ScenarioIdentityBoard",
+		"BASELINE BOOK\nBALANCED INTAKE",
+		center + Vector3(0.0, 2.05, 0.09), Vector2(3.62, 0.82),
+		Color("274447"), Color("d8e7dc"), Vector3.ZERO,
+		22, 0.0048, &"primary", &"destination", true,
+	)
+	_scenario_charter_root = Node3D.new()
+	_scenario_charter_root.name = "PermanentCharterPlaque"
+	_scenario_identity_root.add_child(_scenario_charter_root)
+	_add_box(_scenario_charter_root, "PermanentCharterFrame", Vector3(3.25, 0.72, 0.09), center + Vector3(0.0, 0.28, 0.10), Color("b38a4f"), 0.68, 0.42)
+	_scenario_charter_label = _add_mounted_label(
+		_scenario_charter_root, "PermanentCharterLabel", "PERMANENT RULE\nUNFILED",
+		center + Vector3(0.0, 0.29, 0.16), Vector2(2.85, 0.50),
+		Color("2d3436"), Color("f2dfac"), Vector3.ZERO,
+		16, 0.0046, &"secondary", &"destination", true,
+	)
+	_scenario_charter_root.visible = false
+	_coop_identity_label = _add_mounted_label(
+		_scenario_identity_root, "CoopIdentityPlaque", "OPEN NEST CO-OP  •  OPEN WING",
+		center + Vector3(0.0, 0.70, 0.57), Vector2(3.45, 0.28),
+		Color("4b3a2c"), Color("f2dfac"), Vector3.ZERO,
+		12, 0.0042, &"secondary", &"identity", true,
+	)
+	_scenario_mastery_label = _add_mounted_label(
+		_scenario_identity_root, "ScenarioMasteryPlaque", "SCENARIO STAMPS  ○○○",
+		center + Vector3(0.0, 1.52, 0.09), Vector2(2.75, 0.24),
+		Color("293a3d"), Color("b9c8c4"), Vector3.ZERO,
+		12, 0.0042, &"secondary", &"plaque", true,
+	)
+
+	# The selected co-op now leaves one stable, cosmetic signature in the room.
+	# It never changes walkability or economy authority and survives shift rebuilds.
+	var open_nest := Node3D.new()
+	open_nest.name = "OpenNestIdentityProp"
+	_scenario_identity_root.add_child(open_nest)
+	_add_cylinder(open_nest, "OpenNestPlanter", center + Vector3(1.62, 1.05, 0.55), 0.22, 0.31, Color("8b6547"), 0.70)
+	for leaf_index in 3:
+		_add_sphere(open_nest, "OpenNestLeaf_%02d" % leaf_index, center + Vector3(1.46 + leaf_index * 0.15, 1.39 + (leaf_index % 2) * 0.10, 0.55), Vector3(0.17, 0.28, 0.12), Color("73b57d"), 8, 6)
+	var brass_beak := Node3D.new()
+	brass_beak.name = "BrassBeakIdentityProp"
+	_scenario_identity_root.add_child(brass_beak)
+	_add_cylinder(brass_beak, "BrassClutchSeal", center + Vector3(1.62, 1.20, 0.55), 0.31, 0.10, Color("d1a650"), 0.24)
+	_add_box(brass_beak, "BrassSealStand", Vector3(0.64, 0.12, 0.42), center + Vector3(1.62, 0.96, 0.53), Color("5d4933"), 0.68)
+	var field_union := Node3D.new()
+	field_union.name = "FieldUnionIdentityProp"
+	_scenario_identity_root.add_child(field_union)
+	for flag_index in 2:
+		var flag_x := 1.42 + flag_index * 0.38
+		_add_box(field_union, "UnionFlag_%02d" % flag_index, Vector3(0.30, 0.34, 0.07), center + Vector3(flag_x, 1.32, 0.57), Color("c96f59") if flag_index == 0 else Color("e0c47a"), 0.60)
+		_add_box(field_union, "UnionFlagPost_%02d" % flag_index, Vector3(0.04, 0.66, 0.04), center + Vector3(flag_x - 0.13, 1.06, 0.54), Color("76583e"), 0.80)
+	_coop_identity_prop_roots = {
+		&"open_nest": open_nest,
+		&"brass_beak": brass_beak,
+		&"field_union": field_union,
+	}
+
+	var baseline := Node3D.new()
+	baseline.name = "BaselineBookProps"
+	_scenario_identity_root.add_child(baseline)
+	for index in 5:
+		_add_box(baseline, "BaselineBinder_%02d" % index, Vector3(0.48, 0.62, 0.24), center + Vector3(-1.35 + index * 0.67, 1.15, 0.50), Color("66777a") if index % 2 == 0 else Color("9a875d"), 0.82)
+
+	var harvest := Node3D.new()
+	harvest.name = "HarvestSurgeProps"
+	_scenario_identity_root.add_child(harvest)
+	for index in 4:
+		var sack := _add_sphere(harvest, "HarvestSack_%02d" % index, center + Vector3(-1.20 + index * 0.80, 1.08, 0.52), Vector3(0.35, 0.48, 0.28), Color("c29a56"), 10, 6)
+		sack.rotation_degrees.z = -7.0 + index * 4.0
+	_add_box(harvest, "HarvestDispatchArrow", Vector3(2.75, 0.12, 0.18), center + Vector3(0.0, 0.43, 0.54), Color("e0b34f"), 0.36, 0.20)
+
+	var audit := Node3D.new()
+	audit.name = "ShellAuditProps"
+	_scenario_identity_root.add_child(audit)
+	for index in 4:
+		var lamp := _add_cylinder(audit, "AuditLamp_%02d" % index, center + Vector3(-1.20 + index * 0.80, 1.15, 0.52), 0.22, 0.45, Color("74b8c8"), 0.34)
+		lamp.material_override = _emissive_material(Color("74b8c8"), 0.72)
+	_add_box(audit, "AuditEvidenceTray", Vector3(2.95, 0.10, 0.46), center + Vector3(0.0, 0.91, 0.50), Color("8ba3aa"), 0.46, 0.18)
+
+	var walkout := Node3D.new()
+	walkout.name = "FlockWalkoutProps"
+	_scenario_identity_root.add_child(walkout)
+	for index in 5:
+		var placard_x := -1.45 + index * 0.72
+		_add_box(walkout, "WalkoutPlacard_%02d" % index, Vector3(0.54, 0.44, 0.08), center + Vector3(placard_x, 1.28 + (index % 2) * 0.16, 0.56), Color("b96b55") if index % 2 == 0 else Color("79a98f"), 0.76)
+		_add_box(walkout, "WalkoutHandle_%02d" % index, Vector3(0.06, 0.66, 0.06), center + Vector3(placard_x, 0.88, 0.54), Color("806044"), 0.82)
+
+	var margin := Node3D.new()
+	margin.name = "ThinMarginProps"
+	_scenario_identity_root.add_child(margin)
+	for index in 6:
+		_add_box(margin, "MarginLedger_%02d" % index, Vector3(0.42, 0.12, 0.56), center + Vector3(-1.25 + index * 0.50, 0.98 + index * 0.035, 0.52), Color("b98f52") if index % 2 == 0 else Color("6f7a70"), 0.78)
+	_add_box(margin, "MarginRedLine", Vector3(3.0, 0.06, 0.08), center + Vector3(0.0, 1.42, 0.59), Color("c45f52"), 0.70)
+
+	var fox := Node3D.new()
+	fox.name = "FoxSeasonProps"
+	_scenario_identity_root.add_child(fox)
+	for index in 3:
+		var beacon := _add_cylinder(fox, "FoxBeacon_%02d" % index, center + Vector3(-1.0 + index, 1.14, 0.53), 0.24, 0.42, Color("d36b4d"), 0.32)
+		beacon.material_override = _emissive_material(Color("d36b4d"), 0.62)
+	_add_box(fox, "FoxWindowWatch", Vector3(3.1, 0.12, 0.22), center + Vector3(0.0, 0.92, 0.50), Color("434f4d"), 0.62)
+
+	var credit := Node3D.new()
+	credit.name = "CreditScrambleProps"
+	_scenario_identity_root.add_child(credit)
+	for index in 4:
+		_add_box(credit, "CreditPressCard_%02d" % index, Vector3(0.58, 0.42, 0.08), center + Vector3(-1.15 + index * 0.76, 1.17 + (index % 2) * 0.12, 0.56), Color("e0d6bb"), 0.76)
+	_add_cylinder(credit, "CreditCameraLens", center + Vector3(0.0, 0.88, 0.56), 0.30, 0.26, Color("3b454a"), 0.66)
+
+	_scenario_prop_roots = {
+		&"baseline_book": baseline,
+		&"harvest_surge": harvest,
+		&"shell_audit": audit,
+		&"flock_walkout": walkout,
+		&"thin_margin": margin,
+		&"fox_season": fox,
+		&"credit_scramble": credit,
+	}
+	_scenario_identity_id = &"baseline_book"
+	_apply_scenario_identity({})
+	apply_career_profile(_career_profile)
+	apply_scenario_mastery(_scenario_mastery_snapshot)
+
+
+func apply_career_profile(profile: Dictionary) -> void:
+	_career_profile = profile.duplicate(true)
+	if _coop_identity_label == null:
+		return
+	_coop_identity_label.text = "%s  •  %s" % [
+		String(profile.get("label", "OPEN NEST CO-OP")).to_upper(),
+		String(profile.get("emblem", "OPEN WING")).to_upper(),
+	]
+	_coop_identity_label.modulate = Color(String(profile.get("color", "73b5a7")))
+	_coop_identity_label.set_meta("career_identity_id", String(profile.get("id", "open_nest")))
+	_coop_identity_label.set_meta("promise", String(profile.get("promise", "")))
+	_coop_identity_label.set_meta("ritual", String(profile.get("ritual", "")))
+	_coop_identity_label.set_meta("signature_prop", String(profile.get("prop", "")))
+	var profile_id := StringName(String(profile.get("id", "open_nest")))
+	for identity_id in _coop_identity_prop_roots:
+		var prop_root := _coop_identity_prop_roots[identity_id] as Node3D
+		if prop_root != null:
+			prop_root.visible = StringName(identity_id) == profile_id
+	EnvironmentalSignageScript.refit_label(_coop_identity_label)
+
+
+func apply_scenario_mastery(snapshot: Dictionary) -> void:
+	_scenario_mastery_snapshot = snapshot.duplicate(true)
+	if _scenario_mastery_label == null:
+		return
+	var current_value: Variant = snapshot.get("current_scenario_mastery", snapshot)
+	var current := current_value as Dictionary if current_value is Dictionary else {}
+	var earned := clampi(int(current.get("earned_count", 0)), 0, 3)
+	var marks := ""
+	for stamp_index in 3:
+		marks += "●" if stamp_index < earned else "○"
+	_scenario_mastery_label.text = "SCENARIO STAMPS  %s" % marks
+	_scenario_mastery_label.modulate = Color("f0c76a") if earned == 3 else Color("b9c8c4")
+	_scenario_mastery_label.set_meta("earned_count", earned)
+	_scenario_mastery_label.set_meta("total_count", 3)
+	_scenario_mastery_label.set_meta("detail", String(current.get(
+		"next_stamp_detail",
+		"Clear this scenario to begin its mastery card.",
+	)))
+	EnvironmentalSignageScript.refit_label(_scenario_mastery_label)
+
+
+func _apply_scenario_identity(snapshot: Dictionary) -> void:
+	if _scenario_identity_root == null or not is_instance_valid(_scenario_identity_root):
+		return
+	var docket_value: Variant = snapshot.get("case_docket", {})
+	var docket := docket_value as Dictionary if docket_value is Dictionary else {}
+	var scenario_value: Variant = docket.get("scenario", {})
+	var scenario := scenario_value as Dictionary if scenario_value is Dictionary else {}
+	var next_id := StringName(String(scenario.get("id", _scenario_identity_id)))
+	if next_id not in _scenario_prop_roots:
+		next_id = &"baseline_book"
+	_scenario_identity_id = next_id
+	var hearing_value: Variant = docket.get("final_hearing", {})
+	var hearing := hearing_value as Dictionary if hearing_value is Dictionary else {}
+	var hearing_resolved := bool(hearing.get("resolved", false))
+	if _scenario_charter_root != null:
+		_scenario_charter_root.visible = hearing_resolved
+	if hearing_resolved and _scenario_charter_label != null:
+		_scenario_charter_label.text = "PERMANENT RULE\n%s" % String(
+			hearing.get("option_label", "FILED CHARTER")
+		).to_upper()
+		_scenario_charter_label.set_meta("final_hearing_option_id", String(hearing.get("option_id", "")))
+		EnvironmentalSignageScript.refit_label(_scenario_charter_label)
+	for id_value: Variant in _scenario_prop_roots:
+		var prop_root := _scenario_prop_roots[id_value] as Node3D
+		if prop_root != null:
+			prop_root.visible = StringName(id_value) == _scenario_identity_id
+	if _scenario_identity_label == null:
+		return
+	match _scenario_identity_id:
+		&"harvest_surge":
+			_scenario_identity_label.text = "HARVEST SURGE\nOUTPUT WINDOW"
+			_scenario_identity_label.modulate = Color("f0c76a")
+		&"shell_audit":
+			_scenario_identity_label.text = "SHELL AUDIT\nPROVE EVERY EGG"
+			_scenario_identity_label.modulate = Color("8bd9e8")
+		&"flock_walkout":
+			_scenario_identity_label.text = "FLOCK WALKOUT\nLABOR WATCH"
+			_scenario_identity_label.modulate = Color("9cd5ad")
+		&"thin_margin":
+			_scenario_identity_label.text = "THIN MARGIN\nEVERY CENT VISIBLE"
+			_scenario_identity_label.modulate = Color("e0b96b")
+		&"fox_season":
+			_scenario_identity_label.text = "FOX SEASON\nPROTECT, DON'T POLICE"
+			_scenario_identity_label.modulate = Color("e58a67")
+		&"credit_scramble":
+			_scenario_identity_label.text = "CREDIT SCRAMBLE\nNAME THE WORK"
+			_scenario_identity_label.modulate = Color("d8ca8c")
+		_:
+			_scenario_identity_label.text = "BASELINE BOOK\nBALANCED INTAKE"
+			_scenario_identity_label.modulate = Color("d8e7dc")
+	EnvironmentalSignageScript.refit_label(_scenario_identity_label)
+	_scenario_identity_label.set_meta("scenario_id", String(_scenario_identity_id))
+
+
+func _build_optional_visuals_immediately() -> void:
+	if _lazy_hidden_optional_visuals:
+		_optional_visual_build_index = OPTIONAL_VISUAL_BUILD_COUNT
+		_optional_visuals_ready = true
+		_optional_visual_build_completed_msec = Time.get_ticks_msec()
+		return
+	while _optional_visual_build_index < OPTIONAL_VISUAL_BUILD_COUNT:
+		_build_optional_visual(_optional_visual_build_index)
+		_optional_visual_build_index += 1
+	_optional_visuals_ready = true
+	_optional_visual_build_completed_msec = Time.get_ticks_msec()
+
+
+func _build_optional_visuals_staged(generation: int) -> void:
+	# Let Office finish its UI, title card, and first diagnostic snapshot before
+	# consuming another frame. Each later facility is an independent frame so a
+	# mature campus never creates one multi-second main-thread stall.
+	await get_tree().process_frame
+	if _lazy_hidden_optional_visuals:
+		if generation != _optional_visual_build_generation or not is_inside_tree():
+			return
+		_optional_visual_build_index = OPTIONAL_VISUAL_BUILD_COUNT
+		_optional_visuals_ready = true
+		_optional_visual_build_completed_msec = Time.get_ticks_msec()
+		optional_visuals_finished.emit()
+		return
+	while (
+		generation == _optional_visual_build_generation
+		and is_inside_tree()
+		and _optional_visual_build_index < OPTIONAL_VISUAL_BUILD_COUNT
+	):
+		var build_index := _optional_visual_build_index
+		_build_optional_visual(build_index)
+		_optional_visual_build_index += 1
+		_apply_latest_snapshot_to_optional_visual(build_index)
+		_rebuild_campus_presentation()
+		await get_tree().process_frame
+	if generation != _optional_visual_build_generation or not is_inside_tree():
+		return
+	_optional_visuals_ready = true
+	_optional_visual_build_completed_msec = Time.get_ticks_msec()
+	_apply_office_physical_presentation_state()
+	optional_visuals_finished.emit()
+
+
+func _build_optional_visual(build_index: int) -> void:
+	if _optional_visual_built_indices.has(build_index):
+		return
+	var started_msec := Time.get_ticks_msec()
+	var timing_name := "unknown_%d" % build_index
+	match build_index:
+		0:
+			timing_name = "shell_quality_lab"
+			_build_shell_quality_lab_visual()
+		1:
+			timing_name = "packing_annex"
+			_build_packing_annex_visual()
+		2:
+			timing_name = "records_annex"
+			_build_records_annex_visual()
+		3:
+			timing_name = "farm_mutual_service_coop"
+			_build_farm_mutual_service_coop_visual()
+		4:
+			timing_name = "farm_mutual_negotiation_room"
+			_build_farm_mutual_negotiation_room_visual()
+		5:
+			timing_name = "farm_mutual_contract_board"
+			_build_farm_mutual_contract_board_visual()
+		6:
+			timing_name = "care_campus_spine"
+			_build_care_campus_spine()
+		7:
+			timing_name = "wellness_nest"
+			_build_wellness_nest_visual()
+		8:
+			timing_name = "training_roost"
+			_build_training_roost_visual()
+		9:
+			timing_name = "farmer_relations_gallery"
+			_build_farmer_relations_gallery_visual()
+		10:
+			timing_name = "operations_campus_spine"
+			_build_operations_campus_spine()
+		11:
+			timing_name = "rooster_operations_office"
+			_build_rooster_operations_office_visual()
+		12:
+			timing_name = "it_coop"
+			_build_it_coop_visual()
+		13:
+			timing_name = "flock_relations_office"
+			_build_flock_relations_office_visual()
+		14:
+			timing_name = "feed_procurement_coop"
+			_build_feed_procurement_coop_visual()
+		15:
+			timing_name = "farmgate_dispatch_depot"
+			_build_farmgate_dispatch_depot_visual()
+		16:
+			timing_name = "campus_expansion"
+			_build_campus_expansion_visual()
+		17:
+			timing_name = "campus_portfolio"
+			_build_campus_portfolio_visual()
+	_optional_visual_build_timings[timing_name] = maxi(
+		0,
+		Time.get_ticks_msec() - started_msec,
+	)
+	_optional_visual_built_indices[build_index] = true
+	_optional_visual_instantiated_count += 1
+
+
+func _ensure_required_optional_visuals(snapshot: Dictionary) -> bool:
+	var built_any := false
+	for build_index in OPTIONAL_VISUAL_BUILD_COUNT:
+		if (
+			_optional_visual_built_indices.has(build_index)
+			or not _optional_visual_required(build_index)
+		):
+			continue
+		_build_optional_visual(build_index)
+		_apply_latest_snapshot_to_optional_visual(build_index)
+		built_any = true
+	if built_any:
+		_optional_visual_build_completed_msec = Time.get_ticks_msec()
+		# Lazy residency can grow after the initial boot gate; republish the
+		# observability signal without changing the gate's ready state.
+		optional_visuals_finished.emit()
+	return built_any
+
+
+func _optional_visual_required(build_index: int) -> bool:
+	var entries := _campus_presentation.get("entries_by_id", {}) as Dictionary
+	var presentation_ids: Array[StringName] = []
+	match build_index:
+		0: presentation_ids = [CANDLING_REWORK_BAY_ID]
+		1: presentation_ids = [PACKING_ANNEX_ID]
+		2: presentation_ids = [RECORDS_ANNEX_ID]
+		3: presentation_ids = [FARM_MUTUAL_SERVICE_COOP_ID]
+		4: presentation_ids = [FARM_MUTUAL_NEGOTIATION_ROOM_ID]
+		5: presentation_ids = [FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID]
+		6: presentation_ids = [CARE_CAMPUS_SPINE_PRESENTATION_ID]
+		7: presentation_ids = [WELLNESS_NEST_ID]
+		8: presentation_ids = [TRAINING_ROOST_ID]
+		9: presentation_ids = [FARMER_RELATIONS_GALLERY_ID]
+		10: presentation_ids = [OPERATIONS_CAMPUS_SPINE_PRESENTATION_ID]
+		11: presentation_ids = [ROOSTER_OPERATIONS_OFFICE_ID]
+		12: presentation_ids = [IT_COOP_ID]
+		13: presentation_ids = [FLOCK_RELATIONS_OFFICE_ID]
+		14: presentation_ids = [FEED_PROCUREMENT_COOP_ID]
+		15: presentation_ids = [FARMGATE_DISPATCH_DEPOT_ID]
+		16: presentation_ids = [NORTH_MEADOW_PRESENTATION_ID]
+		17:
+			presentation_ids = [
+				ORCHARD_ROW_PRESENTATION_ID,
+				CREEKSIDE_YARD_PRESENTATION_ID,
+				PORTFOLIO_SERVICE_TRUNK_PRESENTATION_ID,
+			]
+	for presentation_id: StringName in presentation_ids:
+		var entry := entries.get(presentation_id, entries.get(String(presentation_id), {})) as Dictionary
+		var state := StringName(String(entry.get("state", CAMPUS_PRESENTATION_HIDDEN)))
+		if state in [
+			CAMPUS_PRESENTATION_PINNED,
+			CAMPUS_PRESENTATION_OWNED,
+		]:
+			return true
+	return false
+
+
+func _apply_latest_snapshot_to_optional_visual(build_index: int) -> void:
+	if _last_snapshot.is_empty():
+		return
+	var root_node: Node = null
+	match build_index:
+		0: root_node = shell_quality_lab_visual
+		1: root_node = packing_annex_visual
+		2: root_node = records_annex_visual
+		3: root_node = farm_mutual_service_coop_visual
+		4: root_node = farm_mutual_negotiation_room_visual
+		5: root_node = farm_mutual_contract_board_visual
+		7: root_node = wellness_nest_visual
+		8: root_node = training_roost_visual
+		9: root_node = farmer_relations_gallery_visual
+		11: root_node = rooster_operations_office_visual
+		12: root_node = it_coop_visual
+		13: root_node = flock_relations_office_visual
+		14: root_node = feed_procurement_coop_visual
+		15: root_node = farmgate_dispatch_depot_visual
+		16: root_node = campus_expansion_visual
+		17: root_node = campus_portfolio_visual
+	if root_node != null and root_node.has_method(&"apply_snapshot"):
+		root_node.call(&"apply_snapshot", _last_snapshot)
 
 
 func _clear_built_roots() -> void:
+	_optional_visual_build_generation += 1
 	_clear_egg_handoff_feedback()
+	_routed_egg_animations.clear()
+	_animated_eggs.clear()
 	for tween_value in _quality_lamp_tweens.values():
 		var lamp_tween := tween_value as Tween
 		if lamp_tween != null and lamp_tween.is_valid():
 			lamp_tween.kill()
-	for recoil_value in _clutch_recoil_tweens.values():
-		var recoil := recoil_value as Tween
-		if recoil != null and recoil.is_valid():
-			recoil.kill()
+	_sorter_stamp_animations.clear()
+	_settled_egg_animations.clear()
+	_clutch_recoil_animations.clear()
 	if shell_quality_lab_visual != null and is_instance_valid(shell_quality_lab_visual):
 		shell_quality_lab_visual.clear()
 	if packing_annex_visual != null and is_instance_valid(packing_annex_visual):
@@ -2053,7 +3225,7 @@ func _clear_built_roots() -> void:
 		campus_expansion_visual.call("clear")
 	if campus_portfolio_visual != null and is_instance_valid(campus_portfolio_visual):
 		campus_portfolio_visual.call("clear")
-	for built_root in [management_perch_root, egg_collection_root, zone_markers_root, bureau_satire_root, records_archive_root, shell_quality_lab_visual, packing_annex_visual, records_annex_visual, farm_mutual_service_coop_visual, farm_mutual_negotiation_room_visual, farm_mutual_contract_board_visual, care_campus_spine_root, wellness_nest_visual, training_roost_visual, farmer_relations_gallery_visual, operations_campus_spine_root, rooster_operations_office_visual, it_coop_visual, flock_relations_office_visual, feed_procurement_coop_visual, farmgate_dispatch_depot_visual, campus_expansion_visual, campus_portfolio_visual]:
+	for built_root in [management_perch_root, egg_collection_root, zone_markers_root, bureau_satire_root, records_archive_root, _scenario_identity_root, shell_quality_lab_visual, packing_annex_visual, records_annex_visual, farm_mutual_service_coop_visual, farm_mutual_negotiation_room_visual, farm_mutual_contract_board_visual, care_campus_spine_root, wellness_nest_visual, training_roost_visual, farmer_relations_gallery_visual, operations_campus_spine_root, rooster_operations_office_visual, it_coop_visual, flock_relations_office_visual, feed_procurement_coop_visual, farmgate_dispatch_depot_visual, campus_expansion_visual, campus_portfolio_visual]:
 		if built_root != null and is_instance_valid(built_root):
 			built_root.free()
 	management_perch_root = null
@@ -2061,6 +3233,14 @@ func _clear_built_roots() -> void:
 	zone_markers_root = null
 	bureau_satire_root = null
 	records_archive_root = null
+	_scenario_identity_root = null
+	_scenario_identity_label = null
+	_scenario_charter_root = null
+	_scenario_charter_label = null
+	_coop_identity_label = null
+	_scenario_mastery_label = null
+	_scenario_prop_roots.clear()
+	_coop_identity_prop_roots.clear()
 	shell_quality_lab_visual = null
 	packing_annex_visual = null
 	records_annex_visual = null
@@ -2085,6 +3265,7 @@ func _clear_built_roots() -> void:
 	campus_portfolio_visual = null
 	_metrics_label = null
 	_intake_status_label = null
+	_claim_closure_label = null
 	_perch_screen_material = null
 	_rail_glow_material = null
 	_quality_lamps.clear()
@@ -2092,15 +3273,29 @@ func _clear_built_roots() -> void:
 	_quality_lamp_tweens.clear()
 	_grading_receipt_slots.clear()
 	_grading_receipt_queue.clear()
+	_grading_receipt_pool = null
+	_grading_receipt_label = null
+	_career_trophy_slots.clear()
+	_career_trophy_label = null
+	_grading_receipt_quality_stripe = null
+	_grading_receipt_active = false
+	_grading_receipt_elapsed = 0.0
+	_grading_receipt_slot_index = -1
 	_clutch_slots.clear()
 	_clutch_slot_markers.clear()
+	_clutch_cup_batches.clear()
 	_settled_clutch_eggs.clear()
-	_clutch_recoil_tweens.clear()
+	_clutch_recoil_animations.clear()
 	_presentation_clutch_root = null
 	_cart_clutch_root = null
 	_collection_cart_basket = null
 	_surplus_marker_root = null
 	_surplus_label = null
+	_archive_story_content = null
+	_intake_story_content = null
+	_records_zone = null
+	_west_perch_04_zone = null
+	_west_perch_05_zone = null
 	_clutch_egg_mesh = null
 	_clutch_cup_mesh = null
 	_displayed_clutch_day = -1
@@ -2375,6 +3570,71 @@ func _build_campus_portfolio_visual() -> void:
 	campus_portfolio_visual.call("build")
 
 
+func _build_career_trophy_shelf() -> void:
+	_career_trophy_slots.clear()
+	var shelf_center := PERCH_CENTER + Vector3(0.0, 3.80, 0.70)
+	_add_box(
+		management_perch_root,
+		"CareerTrophyShelf",
+		Vector3(3.62, 0.96, 0.10),
+		shelf_center,
+		Color("26383a"),
+		0.72,
+		0.12,
+	)
+	for ledge_index in 2:
+		_add_box(
+			management_perch_root,
+			"CareerTrophyLedge_%02d" % ledge_index,
+			Vector3(3.50, 0.08, 0.34),
+			shelf_center + Vector3(0.0, -0.20 + ledge_index * 0.41, 0.10),
+			Color("74583d"),
+			0.46,
+			0.20,
+		)
+	for slot_index in 12:
+		var column := slot_index % 6
+		var row := slot_index / 6
+		var slot_position := shelf_center + Vector3(
+			-1.42 + column * 0.57,
+			-0.07 + row * 0.41,
+			0.22,
+		)
+		_add_cylinder(
+			management_perch_root,
+			"CareerTrophyPlinth_%02d" % (slot_index + 1),
+			slot_position + Vector3(0.0, -0.10, 0.0),
+			0.105,
+			0.055,
+			Color("b28b45"),
+			0.36,
+		)
+		var trophy := _add_egg(
+			management_perch_root,
+			"CareerTrophy_%02d" % (slot_index + 1),
+			slot_position,
+			Color("465055"),
+		)
+		trophy.scale = Vector3(0.12, 0.17, 0.12)
+		trophy.set_meta("commendation_slot", slot_index)
+		_career_trophy_slots.append(trophy)
+	_career_trophy_label = _add_mounted_label(
+		management_perch_root,
+		"CareerTrophyLabel",
+		"CAREER FILE  /  0 OF 12",
+		shelf_center + Vector3(0.0, -0.39, 0.18),
+		Vector2(2.82, 0.22),
+		Color("303b3e"),
+		Color("e5dcc3"),
+		Vector3.ZERO,
+		13,
+		0.0048,
+		&"secondary",
+		&"plaque",
+	)
+	set_commendations_snapshot(_commendations_visual_snapshot)
+
+
 func _build_management_perch() -> void:
 	management_perch_root = Node3D.new()
 	management_perch_root.name = "RoosterManagementPerch"
@@ -2382,8 +3642,11 @@ func _build_management_perch() -> void:
 
 	_add_box(management_perch_root, "PerchRaisedFoundation", Vector3(4.35, 0.22, 1.42), PERCH_CENTER + Vector3(0.0, 0.11, 0.0), Color("3f494c"), 0.72)
 	_add_box(management_perch_root, "PerchBrassEdge", Vector3(4.46, 0.10, 0.10), PERCH_CENTER + Vector3(0.0, 0.27, 0.73), Color("b28b45"), 0.32, 0.52)
+	_build_career_trophy_shelf()
+	var glass_post_positions: Array[Vector3] = []
 	for post_x in [-2.08, 0.0, 2.08]:
-		_add_box(management_perch_root, "PerchGlassPost", Vector3(0.09, 2.46, 0.09), PERCH_CENTER + Vector3(post_x, 1.48, 0.70), Color("48575b"), 0.40, 0.52)
+		glass_post_positions.append(PERCH_CENTER + Vector3(post_x, 1.48, 0.70))
+	_add_box_multimesh(management_perch_root, "PerchGlassPostBatch", Vector3(0.09, 2.46, 0.09), glass_post_positions, Color("48575b"), 0.40, 0.52)
 	_add_glass_box(management_perch_root, "PerchGlassFrontLeft", Vector3(2.00, 2.20, 0.035), PERCH_CENTER + Vector3(-1.04, 1.46, 0.69))
 	_add_glass_box(management_perch_root, "PerchGlassFrontRight", Vector3(2.00, 2.20, 0.035), PERCH_CENTER + Vector3(1.04, 1.46, 0.69))
 	for side_x in [-2.10, 2.10]:
@@ -2391,14 +3654,30 @@ func _build_management_perch() -> void:
 
 	# A luxurious desk with conspicuously little actual paperwork.
 	_add_box(management_perch_root, "ExecutivePerchDesk", Vector3(2.55, 0.15, 0.72), PERCH_CENTER + Vector3(0.0, 1.02, 0.05), Color("6f4f39"), 0.58)
+	var desk_leg_positions: Array[Vector3] = []
 	for leg_x in [-1.12, 1.12]:
-		_add_box(management_perch_root, "ExecutiveDeskLeg", Vector3(0.13, 0.84, 0.54), PERCH_CENTER + Vector3(leg_x, 0.57, 0.05), Color("4f3d32"), 0.72)
+		desk_leg_positions.append(PERCH_CENTER + Vector3(leg_x, 0.57, 0.05))
+	_add_box_multimesh(management_perch_root, "ExecutiveDeskLegBatch", Vector3(0.13, 0.84, 0.54), desk_leg_positions, Color("4f3d32"), 0.72)
+	var monitor_frame_positions: Array[Vector3] = []
+	var monitor_screen_positions: Array[Vector3] = []
 	for monitor_x in [-0.65, 0.0, 0.65]:
-		_add_box(management_perch_root, "FlockwatchMonitorFrame", Vector3(0.56, 0.43, 0.06), PERCH_CENTER + Vector3(monitor_x, 1.40, 0.02), Color("20292e"), 0.46)
-		var screen := _add_box(management_perch_root, "FlockwatchMonitorScreen", Vector3(0.48, 0.35, 0.018), PERCH_CENTER + Vector3(monitor_x, 1.40, 0.057), Color("4e8884"), 0.42)
-		if _perch_screen_material == null:
-			_perch_screen_material = _make_emissive_material(Color("77b5a8"), 0.78)
-			screen.material_override = _perch_screen_material
+		monitor_frame_positions.append(PERCH_CENTER + Vector3(monitor_x, 1.40, 0.02))
+		monitor_screen_positions.append(PERCH_CENTER + Vector3(monitor_x, 1.40, 0.057))
+	_add_box_multimesh(
+		management_perch_root, "FlockwatchMonitorFrameBatch",
+		Vector3(0.56, 0.43, 0.06),
+		monitor_frame_positions,
+		Color("20292e"), 0.46
+	)
+	if _perch_screen_material == null:
+		_perch_screen_material = _make_emissive_material(Color("77b5a8"), 0.78)
+	var monitor_screen_batch := _add_box_multimesh(
+		management_perch_root, "FlockwatchMonitorScreenBatch",
+		Vector3(0.48, 0.35, 0.018),
+		monitor_screen_positions,
+		Color("4e8884"), 0.42
+	)
+	monitor_screen_batch.material_override = _perch_screen_material
 	_add_box(management_perch_root, "ExecutiveRoostSeat", Vector3(0.82, 0.16, 0.62), PERCH_CENTER + Vector3(0.0, 0.68, -0.43), Color("283c4d"), 0.66)
 	var executive_back := _add_box(management_perch_root, "ExecutiveRoostBack", Vector3(0.94, 1.18, 0.18), PERCH_CENTER + Vector3(0.0, 1.24, -0.67), Color("2d4558"), 0.62)
 	executive_back.rotation_degrees.x = -5.0
@@ -2411,25 +3690,13 @@ func _build_management_perch() -> void:
 
 	# Clamp the dashboard to the perch structure. The former screen had a real
 	# frame but no visible support, so its otherwise physical copy still hovered.
+	var display_rail_positions: Array[Vector3] = []
+	var display_clamp_positions: Array[Vector3] = []
 	for support_side in [-1.0, 1.0]:
-		_add_box(
-			management_perch_root,
-			"FlockwatchDisplayRail",
-			Vector3(0.075, 1.18, 0.075),
-			PERCH_CENTER + Vector3(support_side * 1.23, 2.61, 0.705),
-			Color("4c5b5b"),
-			0.46,
-			0.34,
-		)
-		_add_box(
-			management_perch_root,
-			"FlockwatchDisplayClamp",
-			Vector3(0.48, 0.075, 0.085),
-			PERCH_CENTER + Vector3(support_side * 1.43, 3.02, 0.705),
-			Color("4c5b5b"),
-			0.46,
-			0.34,
-		)
+		display_rail_positions.append(PERCH_CENTER + Vector3(support_side * 1.23, 2.61, 0.705))
+		display_clamp_positions.append(PERCH_CENTER + Vector3(support_side * 1.43, 3.02, 0.705))
+	_add_box_multimesh(management_perch_root, "FlockwatchDisplayRailBatch", Vector3(0.075, 1.18, 0.075), display_rail_positions, Color("4c5b5b"), 0.46, 0.34)
+	_add_box_multimesh(management_perch_root, "FlockwatchDisplayClampBatch", Vector3(0.48, 0.075, 0.085), display_clamp_positions, Color("4c5b5b"), 0.46, 0.34)
 	_metrics_label = _add_mounted_label(
 		management_perch_root,
 		"ManagementYieldBoard",
@@ -2471,9 +3738,14 @@ func _build_egg_collection_chain() -> void:
 	_grading_receipt_slots.resize(GRADING_RECEIPT_SLOT_COUNT)
 	_grading_receipt_slots.fill(null)
 	_grading_receipt_queue.clear()
-	_rail_glow_material = _make_emissive_material(Color("e1bf68"), 0.52)
+	_build_grading_receipt_pool()
+	_rail_glow_material = _make_emissive_material(Color("d8b761"), RAIL_IDLE_ENERGY)
+	_rail_glow_material.albedo_color = Color("3f4746")
+	_rail_glow_material.roughness = 0.72
+	_rail_glow_material.metallic = 0.12
 
 	var row_zs: Array[float] = []
+	var tray_rail_positions: Array[Vector3] = []
 	for desk_index in _desk_positions.size():
 		var desk := _desk_positions[desk_index]
 		var pickup := desk + Vector3(1.33, 1.12, 0.70)
@@ -2484,15 +3756,26 @@ func _build_egg_collection_chain() -> void:
 		# Desktop-side collection nests stay opposite the chair approach.
 		_add_box(egg_collection_root, "DeskEggTray_%02d" % desk_index, Vector3(0.76, 0.10, 0.48), pickup, Color("8e6946"), 0.72)
 		for rail_x in [-0.33, 0.33]:
-			_add_box(egg_collection_root, "DeskTrayRail", Vector3(0.06, 0.24, 0.50), pickup + Vector3(rail_x, 0.10, 0.0), Color("b48b50"), 0.50)
+			tray_rail_positions.append(pickup + Vector3(rail_x, 0.10, 0.0))
 		_add_cylinder(egg_collection_root, "EggLiftTube_%02d" % desk_index, Vector3(pickup.x, (pickup.y + COLLECTION_RAIL_HEIGHT) * 0.5, pickup.z), 0.055, COLLECTION_RAIL_HEIGHT - pickup.y, Color("9aa7a4"), 0.38)
 		var status_lamp := _add_sphere(egg_collection_root, "CollectionStatusLamp_%02d" % desk_index, Vector3(pickup.x, COLLECTION_RAIL_HEIGHT, pickup.z), Vector3(0.15, 0.15, 0.15), Color("d7b45e"), 8, 4)
 		status_lamp.material_override = _rail_glow_material
+	_add_box_multimesh(
+		egg_collection_root, "DeskTrayRailBatch", Vector3(0.06, 0.24, 0.50),
+		tray_rail_positions, Color("82745a"), 0.64, 0.12
+	)
 
+	row_zs.sort()
 	for row_index in row_zs.size():
 		var row_z := row_zs[row_index]
-		var start_x := _desk_positions.map(func(position: Vector3) -> float: return position.x).min() as float
-		start_x += 1.33
+		# Each row begins at its own westernmost authorized pickup. A fifth-perch
+		# purchase therefore extends one rail branch; the sixth completes the pair.
+		var start_x := INF
+		for pickup: Vector3 in _pickup_points:
+			if is_equal_approx(pickup.z, row_z):
+				start_x = minf(start_x, pickup.x)
+		if is_inf(start_x):
+			continue
 		_add_rail_segment(egg_collection_root, "OverheadRowRail_%02d" % row_index, Vector3(start_x, COLLECTION_RAIL_HEIGHT, row_z), Vector3(SIDE_MANIFOLD_X, COLLECTION_RAIL_HEIGHT, row_z))
 
 	var forward_z := row_zs.max() as float if not row_zs.is_empty() else 3.70
@@ -2564,7 +3847,7 @@ func _build_sorting_gate() -> void:
 	var quality_order: Array[StringName] = [&"sound", &"golden", &"cracked"]
 	for lamp_index in quality_order.size():
 		var quality := quality_order[lamp_index]
-		var lamp_color: Color = GRADING_RECEIPT_COLORS[quality]
+		var lamp_color := SemanticColorPaletteScript.quality_color(quality, _color_vision_mode)
 		var lamp := _add_sphere(
 			egg_collection_root,
 			"QualityGateLamp_%d" % lamp_index,
@@ -2590,17 +3873,25 @@ func _build_collection_cart() -> void:
 	var cart_center := COLLECTION_CART_CENTER
 	_collection_cart_basket = _add_box(egg_collection_root, "EggCollectionCartBasket", Vector3(0.85, 0.55, 1.05), cart_center + Vector3(0.0, 0.66, 0.0), Color("a07449"), 0.72)
 	_add_box(egg_collection_root, "EggCollectionCartHandle", Vector3(0.72, 0.08, 0.08), cart_center + Vector3(0.0, 1.22, -0.56), Color("555f60"), 0.42, 0.38)
+	var wheel_transforms: Array[Transform3D] = []
 	for wheel_z in [-0.39, 0.39]:
 		for wheel_x in [-0.36, 0.36]:
-			var wheel := _add_cylinder(egg_collection_root, "EggCartWheel", cart_center + Vector3(wheel_x, 0.26, wheel_z), 0.14, 0.08, Color("202628"), 0.90)
-			wheel.rotation_degrees.z = 90.0
+			wheel_transforms.append(Transform3D(
+				Basis.from_euler(Vector3(0.0, 0.0, deg_to_rad(90.0))),
+				cart_center + Vector3(wheel_x, 0.26, wheel_z)
+			))
+	_add_cylinder_multimesh(
+		egg_collection_root, "EggCartWheelBatch", 0.14, 0.08,
+		wheel_transforms, Color("202628"), 0.90
+	)
 
 
 func _build_living_clutch() -> void:
 	_clutch_slots.clear()
 	_clutch_slot_markers.clear()
+	_clutch_cup_batches.clear()
 	_settled_clutch_eggs.clear()
-	_clutch_recoil_tweens.clear()
+	_clutch_recoil_animations.clear()
 	_displayed_clutch_day = -1
 	_desired_clutch_counts = {&"sound": 0, &"golden": 0, &"cracked": 0}
 
@@ -2615,6 +3906,11 @@ func _build_living_clutch() -> void:
 	_presentation_clutch_root.name = "PresentationLivingClutch"
 	_presentation_clutch_root.position = _presentation_position
 	egg_collection_root.add_child(_presentation_clutch_root)
+	var presentation_cup_batch := _add_clutch_cup_batch(
+		_presentation_clutch_root,
+		"EmptyClutchCupBatchPresentation",
+		PRESENTATION_CLUTCH_SLOTS
+	)
 	_add_box(
 		_presentation_clutch_root,
 		"PresentationNestInsert",
@@ -2627,13 +3923,20 @@ func _build_living_clutch() -> void:
 		for column in 6:
 			_add_clutch_slot(
 				_presentation_clutch_root,
-				Vector3(-0.85 + column * 0.34, 0.76 + row * 0.012, -0.50 + row * 0.33)
+				Vector3(-0.85 + column * 0.34, 0.76 + row * 0.012, -0.50 + row * 0.33),
+				presentation_cup_batch,
+				row * 6 + column
 			)
 
 	_cart_clutch_root = Node3D.new()
 	_cart_clutch_root.name = "CollectionCartLivingClutch"
 	_cart_clutch_root.position = COLLECTION_CART_CENTER
 	egg_collection_root.add_child(_cart_clutch_root)
+	var cart_cup_batch := _add_clutch_cup_batch(
+		_cart_clutch_root,
+		"EmptyClutchCupBatchCart",
+		CART_CLUTCH_SLOTS
+	)
 	_add_box(
 		_cart_clutch_root,
 		"CartNestInsert",
@@ -2646,7 +3949,9 @@ func _build_living_clutch() -> void:
 		for column in 3:
 			_add_clutch_slot(
 				_cart_clutch_root,
-				Vector3(-0.26 + column * 0.26, 1.055 + row * 0.010, -0.36 + row * 0.24)
+				Vector3(-0.26 + column * 0.26, 1.055 + row * 0.010, -0.36 + row * 0.24),
+				cart_cup_batch,
+				row * 3 + column
 			)
 
 	assert(_clutch_slots.size() == MAX_VISIBLE_CLUTCH_EGGS)
@@ -2678,9 +3983,112 @@ func _build_living_clutch() -> void:
 	if _surplus_marker_root != null:
 		_surplus_marker_root.set_meta(&"overview_anchor", true)
 	_surplus_marker_root.visible = false
+	_build_handoff_calibration_rack()
+	_prewarm_handoff_echo_pool()
 
 
-func _add_clutch_slot(parent: Node3D, egg_center: Vector3) -> void:
+func _build_handoff_calibration_rack() -> void:
+	# WebGL compiles material variants on their first visible draw. A tiny sorter
+	# calibration rack makes the opaque, metallic/emissive, cracked-shell, alpha
+	# echo, and stamp-ring variants resident during the title screen instead of
+	# freezing the first live egg handoff several seconds into production.
+	var rack := Node3D.new()
+	rack.name = "SorterMaterialCalibrationRack"
+	egg_collection_root.add_child(rack)
+	_add_box(
+		rack,
+		"CalibrationBackplate",
+		Vector3(1.18, 0.42, 0.05),
+		Vector3(9.20, 1.12, -6.08),
+		Color("33464a"),
+		0.72,
+	)
+	var qualities: Array[StringName] = [&"sound", &"golden", &"cracked"]
+	for quality_index in qualities.size():
+		var quality := qualities[quality_index]
+		var x := 8.78 + quality_index * 0.42
+		var body_mesh := BoxMesh.new()
+		body_mesh.size = Vector3(0.20, 0.16, 0.035)
+		var body_swatch := MeshInstance3D.new()
+		body_swatch.name = "CalibrationBodySwatch_%s" % String(quality)
+		body_swatch.mesh = body_mesh
+		body_swatch.position = Vector3(x, 1.20, -6.045)
+		body_swatch.material_override = _egg_quality_material(quality)
+		body_swatch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		rack.add_child(body_swatch)
+
+		var ring_mesh := TorusMesh.new()
+		ring_mesh.inner_radius = 0.065
+		ring_mesh.outer_radius = 0.085
+		ring_mesh.rings = 12
+		ring_mesh.ring_segments = 6
+		var ring_swatch := MeshInstance3D.new()
+		ring_swatch.name = "CalibrationStampSwatch_%s" % String(quality)
+		ring_swatch.mesh = ring_mesh
+		ring_swatch.position = Vector3(x, 1.02, -6.035)
+		ring_swatch.rotation_degrees.x = 90.0
+		ring_swatch.material_override = _make_handoff_ring_material(quality)
+		ring_swatch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		rack.add_child(ring_swatch)
+
+		for echo_index in HANDOFF_ECHOES_PER_EGG:
+			var echo_mesh := BoxMesh.new()
+			echo_mesh.size = Vector3(0.055, 0.055, 0.025)
+			var echo_swatch := MeshInstance3D.new()
+			echo_swatch.name = "CalibrationEchoSwatch_%s_%d" % [
+				String(quality), echo_index,
+			]
+			echo_swatch.mesh = echo_mesh
+			echo_swatch.position = Vector3(
+				x - 0.07 + echo_index * 0.07,
+				0.91,
+				-6.035,
+			)
+			echo_swatch.material_override = _handoff_echo_material(quality, echo_index)
+			echo_swatch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			rack.add_child(echo_swatch)
+
+
+func _prewarm_handoff_echo_pool() -> void:
+	if egg_collection_root == null or _clutch_egg_mesh == null:
+		return
+	while _egg_handoff_echo_pool.size() < MAX_HANDOFF_ECHOES:
+		var echo_index := _egg_handoff_echo_pool.size()
+		var echo := MeshInstance3D.new()
+		echo.name = "PooledEggHandoffEcho_%02d" % echo_index
+		echo.mesh = _clutch_egg_mesh
+		echo.material_override = _handoff_echo_material(
+			&"sound",
+			echo_index % HANDOFF_ECHOES_PER_EGG,
+		)
+		echo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		echo.visible = false
+		echo.set_meta("handoff_in_use", false)
+		egg_collection_root.add_child(echo)
+		_egg_handoff_echo_pool.append(echo)
+
+
+func _add_clutch_cup_batch(parent: Node3D, batch_name: String, instance_count: int) -> MultiMeshInstance3D:
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = _clutch_cup_mesh
+	multimesh.instance_count = instance_count
+	var batch := MultiMeshInstance3D.new()
+	batch.name = batch_name
+	batch.multimesh = multimesh
+	batch.material_override = _material(Color("493b31"), 0.98)
+	batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	parent.add_child(batch)
+	_clutch_cup_batches.append(batch)
+	return batch
+
+
+func _add_clutch_slot(
+	parent: Node3D,
+	egg_center: Vector3,
+	cup_batch: MultiMeshInstance3D,
+	cup_batch_index: int
+) -> void:
 	var slot_index := _clutch_slots.size()
 	var slot := Node3D.new()
 	slot.name = "AuthoritativeClutchSlot_%02d" % slot_index
@@ -2688,28 +4096,46 @@ func _add_clutch_slot(parent: Node3D, egg_center: Vector3) -> void:
 	parent.add_child(slot)
 	_clutch_slots.append(slot)
 
-	var cup := MeshInstance3D.new()
-	cup.name = "EmptyClutchCup_%02d" % slot_index
-	cup.mesh = _clutch_cup_mesh
-	cup.position.y = -0.19
-	cup.scale.z = 0.88
-	cup.material_override = _material(Color("493b31"), 0.98)
-	cup.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	slot.add_child(cup)
-	_clutch_slot_markers.append(cup)
+	assert(cup_batch != null and cup_batch.multimesh != null)
+	assert(cup_batch_index >= 0 and cup_batch_index < cup_batch.multimesh.instance_count)
+	var cup_transform := Transform3D(
+		Basis.from_scale(Vector3(1.0, 1.0, 0.88)),
+		egg_center + Vector3(0.0, -0.19, 0.0)
+	)
+	cup_batch.multimesh.set_instance_transform(cup_batch_index, cup_transform)
+	_clutch_slot_markers.append({
+		"batch": cup_batch,
+		"instance_index": cup_batch_index,
+		"rest_transform": cup_transform,
+		"occupied": false,
+	})
 
 
 func _build_zone_markers() -> void:
 	zone_markers_root = Node3D.new()
 	zone_markers_root.name = "FarmBureauZoneMarkers"
 	add_child(zone_markers_root)
-	_build_zone("MainLayingFloor", Vector3(-0.25, 0.0, 0.05), Vector2(17.8, 11.5), Color("719a8e"))
+	# The opening flock occupies the commissioned center/east pod. The former
+	# 17.8 m outline made the dormant west carpet look complete on Day 1.
+	_build_zone("MainLayingFloor", Vector3(3.25, 0.0, -0.05), Vector2(13.1, 12.35), Color("719a8e"))
+	_west_perch_04_zone = _build_zone(
+		"WestPerch04",
+		WEST_PERCH_04_POSITION,
+		Vector2(5.15, 5.10),
+		Color("719a8e"),
+	)
+	_west_perch_05_zone = _build_zone(
+		"WestPerch05",
+		WEST_PERCH_05_POSITION,
+		Vector2(5.15, 5.10),
+		Color("719a8e"),
+	)
 	_build_zone("PeckworkIntake", _intake_position, Vector2(3.0, 3.0), Color("d2a14e"))
-	_build_zone("RecordsRetention", Vector3(-7.35, 0.0, -8.08), Vector2(2.65, 1.42), Color("8da1a0"))
+	_records_zone = _build_zone("RecordsRetention", Vector3(-7.35, 0.0, -8.08), Vector2(2.65, 1.42), Color("8da1a0"))
 	_build_zone("FarmerPresentation", _presentation_position, Vector2(3.20, 2.50), Color("c89a4a"))
 
 
-func _build_zone(zone_name: String, center: Vector3, size: Vector2, color: Color) -> void:
+func _build_zone(zone_name: String, center: Vector3, size: Vector2, color: Color) -> Node3D:
 	var zone := Node3D.new()
 	zone.name = "Zone_%s" % zone_name
 	zone_markers_root.add_child(zone)
@@ -2724,6 +4150,7 @@ func _build_zone(zone_name: String, center: Vector3, size: Vector2, color: Color
 			z_line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_zone_glows.append(x_line)
 			_zone_glows.append(z_line)
+	return zone
 
 
 func _build_bureau_satire() -> void:
@@ -2791,20 +4218,26 @@ func _build_records_and_intake_story() -> void:
 	records_archive_root = Node3D.new()
 	records_archive_root.name = "ArchiveAndIntakeStory"
 	add_child(records_archive_root)
+	_archive_story_content = Node3D.new()
+	_archive_story_content.name = "ArchiveStoryPresentation"
+	records_archive_root.add_child(_archive_story_content)
+	_intake_story_content = Node3D.new()
+	_intake_story_content.name = "IntakeStoryPresentation"
+	records_archive_root.add_child(_intake_story_content)
 
 	var shelf_center := Vector3(-7.35, 0.0, -8.17)
 	for post_x in [-1.15, 1.15]:
-		_add_box(records_archive_root, "ArchiveShelfPost", Vector3(0.10, 2.32, 0.48), shelf_center + Vector3(post_x, 1.18, 0.0), Color("596467"), 0.48, 0.36)
+		_add_box(_archive_story_content, "ArchiveShelfPost", Vector3(0.10, 2.32, 0.48), shelf_center + Vector3(post_x, 1.18, 0.0), Color("596467"), 0.48, 0.36)
 	for shelf_y in [0.18, 0.92, 1.66, 2.34]:
-		_add_box(records_archive_root, "ArchiveShelf", Vector3(2.42, 0.09, 0.55), shelf_center + Vector3(0.0, shelf_y, 0.0), Color("687477"), 0.50, 0.30)
+		_add_box(_archive_story_content, "ArchiveShelf", Vector3(2.42, 0.09, 0.55), shelf_center + Vector3(0.0, shelf_y, 0.0), Color("687477"), 0.50, 0.30)
 	for box_index in 7:
 		var tier := int(box_index / 3)
 		var column := box_index % 3
 		var box_position := shelf_center + Vector3(-0.75 + column * 0.74, 0.55 + tier * 0.74, 0.0)
-		_add_box(records_archive_root, "LifetimeEggRecordBox_%02d" % box_index, Vector3(0.61, 0.46, 0.44), box_position, Color("b39768") if box_index % 2 == 0 else Color("9e8664"), 0.90)
-		_add_box(records_archive_root, "RecordBoxLabel", Vector3(0.31, 0.13, 0.025), box_position + Vector3(0.0, 0.0, 0.23), Color("e3dcc5"), 0.92)
+		_add_box(_archive_story_content, "LifetimeEggRecordBox_%02d" % box_index, Vector3(0.61, 0.46, 0.44), box_position, Color("b39768") if box_index % 2 == 0 else Color("9e8664"), 0.90)
+		_add_box(_archive_story_content, "RecordBoxLabel", Vector3(0.31, 0.13, 0.025), box_position + Vector3(0.0, 0.0, 0.23), Color("e3dcc5"), 0.92)
 	var archive_header := _add_box(
-		records_archive_root, "ArchiveHeaderBeam", Vector3(2.42, 0.42, 0.12),
+		_archive_story_content, "ArchiveHeaderBeam", Vector3(2.42, 0.42, 0.12),
 		shelf_center + Vector3(0.0, 2.62, 0.0), Color("4e5c5f"), 0.62, 0.24
 	)
 	_add_mounted_label(
@@ -2813,42 +4246,126 @@ func _build_records_and_intake_story() -> void:
 		Color("4e5c5f"), Color("ead9ae"), Vector3.ZERO,
 		14, 0.0030, &"secondary", &"stencil"
 	)
+	var appeal_archive_host := _add_box(
+		_archive_story_content,
+		"AppealArchiveHeaderBeam",
+		Vector3(2.16, 0.30, 0.10),
+		shelf_center + Vector3(0.0, 2.86, 0.0),
+		Color("55455f"),
+		0.66,
+		0.18
+	)
+	_add_mounted_label(
+		appeal_archive_host, "AppealArchiveLabel", "RETURNED APPEALS\nPrior denials enclosed",
+		Vector3(0.0, 0.0, 0.057), Vector2(1.98, 0.25),
+		Color("55455f"), Color("ead9ae"), Vector3.ZERO,
+		11, 0.0025, &"utility", &"stencil"
+	)
+	for appeal_index in 3:
+		var appeal_position := shelf_center + Vector3(
+			-0.73 + appeal_index * 0.73,
+			2.06,
+			0.045,
+		)
+		var appeal_box := _add_box(
+			_archive_story_content,
+			"ReturnedAppealArchiveBox_%02d" % appeal_index,
+			Vector3(0.58, 0.39, 0.46),
+			appeal_position,
+			Color("9a7c9f") if appeal_index % 2 == 0 else Color("836d8d"),
+			0.88
+		)
+		appeal_box.set_meta(&"claims_archive", true)
+		_add_box(
+			_archive_story_content,
+			"ReturnedAppealArchiveLabel_%02d" % appeal_index,
+			Vector3(0.32, 0.12, 0.024),
+			appeal_position + Vector3(0.0, 0.0, 0.242),
+			Color("e7ddc8"),
+			0.92
+		)
 
 	# Intake paperwork sits on the existing counter footprint, so it enriches that
 	# prop rather than adding another floor obstruction.
 	for form_index in 5:
-		_add_box(records_archive_root, "IntakeForm_%02d" % form_index, Vector3(0.72, 0.025, 0.50), _intake_position + Vector3(-0.40 + form_index * 0.018, 1.18 + form_index * 0.027, 0.18 - form_index * 0.01), Color("e3ddc9") if form_index % 2 == 0 else Color("cad5cf"), 0.96)
-	_add_box(records_archive_root, "RejectedShellStamp", Vector3(0.22, 0.31, 0.22), _intake_position + Vector3(0.45, 1.32, 0.22), Color("8f493e"), 0.66)
-	_add_box(records_archive_root, "FarmerCreditLedger", Vector3(0.72, 0.11, 0.52), _intake_position + Vector3(0.42, 1.21, -0.42), Color("4e6b71"), 0.72)
+		_add_box(_intake_story_content, "IntakeForm_%02d" % form_index, Vector3(0.72, 0.025, 0.50), _intake_position + Vector3(-0.40 + form_index * 0.018, 1.18 + form_index * 0.027, 0.18 - form_index * 0.01), Color("e3ddc9") if form_index % 2 == 0 else Color("cad5cf"), 0.96)
+	var denial_stamp := _add_box(_intake_story_content, "RejectedShellStamp", Vector3(0.22, 0.31, 0.22), _intake_position + Vector3(0.45, 1.32, 0.22), Color("8f493e"), 0.66)
+	denial_stamp.set_meta(&"claim_denial_stamp", true)
+	_add_box(
+		_intake_story_content,
+		"ClaimDenialStampFace",
+		Vector3(0.18, 0.025, 0.18),
+		_intake_position + Vector3(0.45, 1.165, 0.22),
+		Color("6f302b"),
+		0.78
+	)
+	# Concise claimant correspondence lives on the real intake counter. The dark
+	# evidence strips turn the paperwork into a repeated claims-floor motif
+	# without adding floating exposition or blocking a route.
+	for packet_index in 3:
+		var packet_position := _intake_position + Vector3(
+			-0.72 + packet_index * 0.29,
+			1.31 + packet_index * 0.018,
+			-0.30 - packet_index * 0.028,
+		)
+		var packet := _add_box(
+			_intake_story_content,
+			"ClaimantCorrespondencePacket_%02d" % packet_index,
+			Vector3(0.62, 0.020, 0.43),
+			packet_position,
+			Color("e3ddc9") if packet_index % 2 == 0 else Color("d0d7cc"),
+			0.96
+		)
+		packet.set_meta(&"claimant_correspondence", true)
+		for redaction_index in 2:
+			_add_box(
+				_intake_story_content,
+				"RedactedEvidenceStrip_%02d_%02d" % [packet_index, redaction_index],
+				Vector3(0.25 - redaction_index * 0.05, 0.008, 0.034),
+				packet_position + Vector3(
+					-0.10 + redaction_index * 0.18,
+					0.014,
+					-0.08 + redaction_index * 0.14,
+				),
+				Color("272b2d"),
+				0.80
+			)
+	_add_box(_intake_story_content, "FarmerCreditLedger", Vector3(0.72, 0.11, 0.52), _intake_position + Vector3(0.42, 1.21, -0.42), Color("4e6b71"), 0.72)
 	_intake_status_label = _add_mounted_label(
-		records_archive_root, "IntakeStatusLedger", "RECEIVED  0000\nCREDITED  0000",
+		_intake_story_content, "IntakeStatusLedger", "RECEIVED  0000\nCREDITED  0000",
 		_intake_position + Vector3(0.0, 1.56, 0.60), Vector2(1.42, 0.52),
 		Color("2b4542"), Color("c8d9b6"), Vector3.ZERO,
 		14, 0.0030, &"utility", &"screen", true
 	)
+	_claim_closure_label = _add_mounted_label(
+		_intake_story_content, "ClaimsClosureBoard", "FILE CLOSURE\nCLOSED 000  /  OPEN 00",
+		_intake_position + Vector3(-0.98, 1.58, 0.44), Vector2(1.22, 0.46),
+		Color("3b3f4f"), Color("e7dec7"), Vector3.ZERO,
+		12, 0.0027, &"utility", &"screen", true
+	)
 	# A deep terminal hood and counter base make this a piece of intake hardware,
 	# not a second management billboard balanced on thin poles.
 	_add_box(
-		records_archive_root, "IntakeLedgerTerminalHood",
+		_intake_story_content, "IntakeLedgerTerminalHood",
 		Vector3(1.58, 0.66, 0.18),
 		_intake_position + Vector3(0.0, 1.56, 0.47),
 		Color("3d4b49"), 0.66, 0.12
 	)
 	_add_box(
-		records_archive_root, "IntakeLedgerTerminalBase",
+		_intake_story_content, "IntakeLedgerTerminalBase",
 		Vector3(1.26, 0.10, 0.46),
 		_intake_position + Vector3(0.0, 1.22, 0.43),
 		Color("59635d"), 0.62, 0.18
 	)
 	for support_x in [-0.52, 0.52]:
 		_add_box(
-			records_archive_root, "IntakeLedgerSupport",
+			_intake_story_content, "IntakeLedgerSupport",
 			Vector3(0.055, 0.32, 0.060),
 			_intake_position + Vector3(support_x, 1.38, 0.52),
 			Color("59676a"), 0.38, 0.42
 		)
 	_add_box(
-		records_archive_root, "IntakeLedgerCrossbar",
+		_intake_story_content, "IntakeLedgerCrossbar",
 		Vector3(1.16, 0.065, 0.065),
 		_intake_position + Vector3(0.0, 1.23, 0.52),
 		Color("59676a"), 0.38, 0.42
@@ -2858,7 +4375,9 @@ func _build_records_and_intake_story() -> void:
 func _add_rail_segment(parent: Node3D, part_name: String, start: Vector3, finish: Vector3) -> MeshInstance3D:
 	var offset := finish - start
 	var length := offset.length()
-	var rail := _add_box(parent, part_name, Vector3(0.095, 0.095, length), start.lerp(finish, 0.5), Color("98a5a3"), 0.32, 0.38)
+	var rail := _add_box(parent, part_name, Vector3(0.095, 0.095, length), start.lerp(finish, 0.5), Color("687674"), 0.58, 0.28)
+	rail.set_meta(&"segment_start", start)
+	rail.set_meta(&"segment_finish", finish)
 	if length > 0.001:
 		rail.look_at(finish, Vector3.UP)
 	var glow := _add_box(parent, "%sGlow" % part_name, Vector3(0.025, 0.026, length * 0.98), start.lerp(finish, 0.5) + Vector3.UP * 0.058, Color("d9bd70"), 0.42)
@@ -2877,13 +4396,35 @@ func _add_box(
 	roughness: float = 0.82,
 	metallic: float = 0.0
 ) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
+	parent.add_child(instance)
+	return instance
+
+
+func _add_box_multimesh(
+	parent: Node3D,
+	part_name: String,
+	size: Vector3,
+	positions: Array[Vector3],
+	color: Color,
+	roughness: float = 0.82,
+	metallic: float = 0.0
+) -> MultiMeshInstance3D:
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = ProceduralPrimitiveCache.box(size)
+	multimesh.instance_count = positions.size()
+	for instance_index in positions.size():
+		multimesh.set_instance_transform(instance_index, Transform3D(Basis.IDENTITY, positions[instance_index]))
+	var instance := MultiMeshInstance3D.new()
+	instance.name = part_name
+	instance.multimesh = multimesh
+	instance.material_override = _material(color, roughness, metallic)
+	instance.set_meta("authored_positions", positions.duplicate())
 	parent.add_child(instance)
 	return instance
 
@@ -2903,16 +4444,35 @@ func _add_cylinder(
 	color: Color,
 	roughness: float = 0.82
 ) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius * 0.92
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 12
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.cylinder(radius * 0.92, radius, height, 12)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness)
+	parent.add_child(instance)
+	return instance
+
+
+func _add_cylinder_multimesh(
+	parent: Node3D,
+	part_name: String,
+	radius: float,
+	height: float,
+	transforms: Array[Transform3D],
+	color: Color,
+	roughness: float = 0.82
+) -> MultiMeshInstance3D:
+	var multimesh := MultiMesh.new()
+	multimesh.transform_format = MultiMesh.TRANSFORM_3D
+	multimesh.mesh = ProceduralPrimitiveCache.cylinder(radius * 0.92, radius, height, 12)
+	multimesh.instance_count = transforms.size()
+	for instance_index in transforms.size():
+		multimesh.set_instance_transform(instance_index, transforms[instance_index])
+	var instance := MultiMeshInstance3D.new()
+	instance.name = part_name
+	instance.multimesh = multimesh
+	instance.material_override = _material(color, roughness)
+	instance.set_meta("authored_transforms", transforms.duplicate())
 	parent.add_child(instance)
 	return instance
 
@@ -2926,14 +4486,9 @@ func _add_sphere(
 	radial_segments: int = 12,
 	rings: int = 6
 ) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = radial_segments
-	mesh.rings = rings
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, radial_segments, rings)
 	instance.position = part_position
 	instance.scale = part_scale
 	instance.material_override = _material(color)

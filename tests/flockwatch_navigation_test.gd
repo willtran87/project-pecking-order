@@ -42,6 +42,7 @@ func _run() -> void:
 	var required_action := Button.new()
 	required_action.name = "ContinueRequiredAction"
 	required_action.text = "CONTINUE REQUIRED FILING"
+	required_action.accessibility_name = "File the required closing record before continuing."
 	required_action.focus_mode = Control.FOCUS_ALL
 	required_action.custom_minimum_size = Vector2(240.0, 38.0)
 	context_action_host.add_child(required_action)
@@ -98,6 +99,29 @@ func _run() -> void:
 		"Context adoption should preserve focus semantics and immediate reachability",
 		failures,
 	)
+	_check(
+		_contains_all(navigation.context_action_accessible_text(), [
+			"CONTINUE REQUIRED FILING",
+			"File the required closing record before continuing.",
+		])
+		and "Required action: CONTINUE REQUIRED FILING" in navigation.accessible_text(),
+		"reachable context progression should be included in Flockwatch accessibility narration",
+		failures,
+	)
+	var context_primary_action := navigation.context_primary_action_state()
+	_check(
+		String(context_primary_action.get("copy", "")) == required_action.text
+		and String(context_primary_action.get("action_id", "")) == "flockwatch_context_action"
+		and bool(context_primary_action.get("actionable", false))
+		and _contains_all(String(context_primary_action.get("accessible_text", "")), [
+			"CONTINUE REQUIRED FILING",
+			"File the required closing record before continuing.",
+		])
+		and navigation.focus_context_primary_action()
+		and root.gui_get_focus_owner() == required_action,
+		"the shared action contract should name and focus the exact reachable docked control",
+		failures,
+	)
 	required_action.pressed.emit()
 	_check(int(observed_actions["required"]) == 1, "A pre-connected required action signal should survive adoption", failures)
 	required_action.grab_focus()
@@ -147,8 +171,18 @@ func _run() -> void:
 		"owned_facilities": {&"it_coop": 1},
 		"facility_catalog": [{"facility_id": &"records_annex", "can_purchase": true}],
 		"pending_receipts": {"records": {"receipt_id": "FR-1"}},
+		"case_docket": {"active_precedents": []},
+		"workers": [{"id": 99, "presentation_only_noise": true}],
 	})
 	await process_frame
+	var retained_snapshot := navigation.get("_snapshot") as Dictionary
+	_check(
+		retained_snapshot.has("case_docket")
+		and retained_snapshot.has("facility_catalog")
+		and not retained_snapshot.has("workers"),
+		"Flockwatch should retain only its bounded discovery and narration projection",
+		failures,
+	)
 	_check(
 		navigation.available_page_ids() == [FlockwatchNavigation.PAGE_TODAY, FlockwatchNavigation.PAGE_FLOCK],
 		"Fresh First Clutch should expose only Today and Flock",
@@ -156,9 +190,21 @@ func _run() -> void:
 	)
 	for hidden_page: StringName in [FlockwatchNavigation.PAGE_OPERATIONS, FlockwatchNavigation.PAGE_CAPITAL, FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS]:
 		var hidden_button := navigation.page_button(hidden_page)
-		_check(hidden_button != null and not hidden_button.visible and hidden_button.focus_mode == Control.FOCUS_NONE, "%s should be hidden and absent from keyboard focus" % String(hidden_page), failures)
+		_check(
+			hidden_button == navigation.more_files_button()
+			and hidden_button.is_visible_in_tree()
+			and hidden_button.focus_mode == Control.FOCUS_ALL,
+			"%s should remain reachable through the compact More Files switcher without exposing a separate tab" % String(hidden_page),
+			failures,
+		)
 		_check(not navigation.page_scroll(hidden_page).visible, "%s content should be hidden" % String(hidden_page), failures)
 	_check(not navigation.open_page(FlockwatchNavigation.PAGE_CAPITAL), "A hidden filing page should not open through the public API", failures)
+	var more_popup := navigation.more_files_button().get_popup()
+	_check(
+		more_popup.item_count == 1 and more_popup.get_item_text(0) == "SHOW EVERY FILE",
+		"undiscovered secondary pages should stay out of the More Files menu while its explicit reachability escape hatch remains",
+		failures,
+	)
 
 	# Context actions sit outside every page scroll. Page changes must therefore
 	# leave a required focused action visible and reachable instead of burying it
@@ -177,12 +223,63 @@ func _run() -> void:
 	required_action.pressed.emit()
 	_check(int(observed_actions["required"]) == 2, "Required action should remain connected after page switching", failures)
 
+	# The live notice is a one-line glance rather than another paragraph inside
+	# the ledger. Exact authored copy remains available to assistive narration
+	# and pointer users through the accessible summary and tooltip.
+	var inspection_notice := "FARMER INSPECTION COMPLETE. Credit has been successfully harvested."
+	navigation.set_last_feedback(inspection_notice)
+	await process_frame
+	var feedback_panel := navigation.find_child(
+		"FlockwatchLatestFeedback",
+		true,
+		false,
+	) as PanelContainer
+	var feedback_copy := navigation.find_child(
+		"FlockwatchLatestFeedbackCopy",
+		true,
+		false,
+	) as Label
+	_check(
+		feedback_panel != null
+		and feedback_panel.visible
+		and feedback_copy != null
+		and feedback_copy.text == "LATEST  ·  INSPECTION COMPLETE  ·  CREDIT FILED"
+		and feedback_copy.autowrap_mode == TextServer.AUTOWRAP_OFF
+		and feedback_copy.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS,
+		"the latest notice should remain a bounded one-line glance",
+		failures,
+	)
+	_check(
+		feedback_copy.tooltip_text == inspection_notice
+		and inspection_notice in navigation.accessible_text()
+		and navigation.last_feedback() == inspection_notice,
+		"notice compaction should preserve the exact authored receipt semantically",
+		failures,
+	)
+	var requisition_notice := "REQUISITION DENIED: $5.00 more spendable feed fund required."
+	navigation.set_last_feedback(requisition_notice)
+	await process_frame
+	_check(
+		feedback_copy.text == "LATEST  ·  REQUISITION BLOCKED  ·  NEED $5.00 MORE"
+		and feedback_copy.tooltip_text == requisition_notice
+		and requisition_notice in navigation.accessible_text(),
+		"failed requisitions should show the shortfall as a complete one-line action receipt",
+		failures,
+	)
+
 	# The explicit escape hatch preserves reachability without teaching the
 	# presentation layer anything about the economy.
 	navigation.set_show_all_filings(true)
 	await process_frame
 	_check(navigation.available_page_ids() == FlockwatchNavigation.PAGE_ORDER, "Show All Filings should expose all five pages", failures)
-	_check(navigation.open_page(FlockwatchNavigation.PAGE_CAPITAL), "Show All should make Capital reachable", failures)
+	more_popup = navigation.more_files_button().get_popup()
+	more_popup.id_pressed.emit(1)
+	_check(
+		navigation.current_page_id() == FlockwatchNavigation.PAGE_CAPITAL
+		and root.gui_get_focus_owner() == navigation.more_files_button(),
+		"the secondary switcher should open Capital and retain a visible keyboard/controller focus target",
+		failures,
+	)
 	await process_frame
 	if capital_action != null:
 		capital_action.grab_focus()
@@ -228,8 +325,8 @@ func _run() -> void:
 	_check(navigation.is_page_available(FlockwatchNavigation.PAGE_OPERATIONS), "Old-save ownership should discover Operations immediately", failures)
 	_check(navigation.is_page_available(FlockwatchNavigation.PAGE_CAPITAL), "Any commissioned facility should keep its Capital filing reachable", failures)
 
-	# Each page keeps an independent vertical scroll position, and the HFlow tab
-	# rail remains contained when all five pages wrap at ledger width.
+	# Each page keeps an independent vertical scroll position, and the primary
+	# rail remains one row even when every secondary filing is available.
 	navigation.apply_snapshot({"day": 2})
 	navigation.reset_discovered_pages()
 	navigation.set_show_all_filings(true)
@@ -256,17 +353,25 @@ func _run() -> void:
 	_check(flock_position > 0 and flock_scroll.scroll_vertical == flock_position, "Flock should retain its independent scroll position", failures)
 
 	var navigation_rect := navigation.get_global_rect()
+	var filing_rail := navigation.find_child("FlockwatchPageNavigation", true, false) as HBoxContainer
+	_check(filing_rail != null and filing_rail.get_child_count() == 3, "Today, Flock, and More Files should be the only one-row navigation controls", failures)
+	var rail_y := -1.0
+	if filing_rail != null:
+		for child: Control in filing_rail.get_children():
+			if rail_y < 0.0:
+				rail_y = child.get_global_rect().position.y
+			_check(is_equal_approx(child.get_global_rect().position.y, rail_y), "%s should stay on the single filing row" % child.name, failures)
 	for page_id: StringName in FlockwatchNavigation.PAGE_ORDER:
 		var button := navigation.page_button(page_id)
 		var rect := button.get_global_rect()
 		_check(
 			rect.position.x >= navigation_rect.position.x - 0.5 and rect.end.x <= navigation_rect.end.x + 0.5,
-			"%s tab should wrap inside a 272 px ledger" % String(page_id),
+			"%s navigation target should remain inside a 272 px ledger" % String(page_id),
 			failures,
 		)
 	_check(navigation.page_content(FlockwatchNavigation.PAGE_TODAY).size.x <= navigation.size.x + 0.5, "Compact page content should not require horizontal scrolling", failures)
-	_check(navigation.all_filings_button().focus_mode == Control.FOCUS_ALL, "All Filings should remain keyboard reachable", failures)
-	_check(_contains_all(navigation.accessible_text(), ["flockwatch", "available", "6 sections", "all filings shown"]), "Navigation should publish a concise accessibility summary", failures)
+	_check(navigation.all_filings_button() == navigation.more_files_button() and navigation.more_files_button().focus_mode == Control.FOCUS_ALL, "More Files should retain the legacy reachability role and keyboard focus", failures)
+	_check(_contains_all(navigation.accessible_text(), ["flockwatch", "available", "6 sections", "more files shows every page"]), "Navigation should publish a concise accessibility summary", failures)
 
 	# With Show All active, every registered feature root is reachable through at
 	# most one page selection and remains the exact same object.

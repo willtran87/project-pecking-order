@@ -33,6 +33,18 @@ function observeErrors(page, phase) {
 		if (message.type() === "error") errors.push(`${phase} console: ${message.text()}`);
 	});
 	page.on("pageerror", (error) => errors.push(`${phase} page: ${String(error)}`));
+	page.on("requestfailed", (request) => {
+		const resourceType = request.resourceType();
+		if (["document", "stylesheet", "script", "fetch"].includes(resourceType)) {
+			errors.push(`${phase} ${resourceType} failed: ${request.url()} (${request.failure()?.errorText ?? "unknown"})`);
+		}
+	});
+	page.on("response", (response) => {
+		const resourceType = response.request().resourceType();
+		if (response.status() >= 400 && ["document", "stylesheet", "script", "fetch"].includes(resourceType)) {
+			errors.push(`${phase} ${resourceType} HTTP ${response.status()}: ${response.url()}`);
+		}
+	});
 }
 
 async function gameState(page) {
@@ -86,6 +98,36 @@ async function focusGameAndPress(page, key) {
 	await page.keyboard.press(key);
 }
 
+async function shellVisualState(page) {
+	return page.evaluate(() => {
+		const shell = document.querySelector(".site-shell");
+		const masthead = document.querySelector(".masthead");
+		const terminal = document.querySelector(".game-terminal");
+		const shellRect = shell?.getBoundingClientRect();
+		const mastheadRect = masthead?.getBoundingClientRect();
+		const terminalStyle = terminal ? getComputedStyle(terminal) : null;
+		const styled = Boolean(
+			document.styleSheets.length > 0
+			&& shellRect
+			&& shellRect.width > 1_000
+			&& mastheadRect
+			&& mastheadRect.height > 40
+			&& terminalStyle
+			&& terminalStyle.borderTopWidth !== "0px"
+		);
+		return {
+			styled,
+			stylesheetCount: document.styleSheets.length,
+			fullscreenElement: document.fullscreenElement?.id ?? "",
+			shellWidth: Math.round(shellRect?.width ?? 0),
+			mastheadHeight: Math.round(mastheadRect?.height ?? 0),
+			terminalBorderTopWidth: terminalStyle?.borderTopWidth ?? "",
+			viewport: { width: innerWidth, height: innerHeight },
+			documentHeight: document.documentElement.scrollHeight,
+		};
+	});
+}
+
 function authoritativeResumeState(state) {
 	const firstClutch = state.first_clutch ?? {};
 	const economy = state.economy ?? {};
@@ -106,6 +148,16 @@ async function openAuditPage(context, phase) {
 	const page = context.pages()[0] ?? await context.newPage();
 	observeErrors(page, phase);
 	await page.goto(url, { waitUntil: "domcontentloaded" });
+	await page.waitForFunction(() => {
+		const shell = document.querySelector(".site-shell");
+		const masthead = document.querySelector(".masthead");
+		return document.styleSheets.length > 0
+			&& (shell?.getBoundingClientRect().width ?? 0) > 1_000
+			&& (masthead?.getBoundingClientRect().height ?? 0) > 40;
+	}, undefined, { timeout: 30_000 });
+	await page.evaluate(async () => {
+		if (document.fonts?.ready) await document.fonts.ready;
+	});
 	await waitForGame(page, "loaded");
 	return page;
 }
@@ -122,6 +174,7 @@ await firstPage.waitForTimeout(1_800);
 const settledState = await gameState(firstPage);
 const expectedResumeState = authoritativeResumeState(settledState);
 const settledHeader = await firstPage.locator(".system-state").innerText();
+const settledVisualState = await shellVisualState(firstPage);
 await firstPage.screenshot({
 	path: path.join(outputDir, "settled-before-browser-close.png"),
 	fullPage: true,
@@ -136,14 +189,22 @@ await waitForGame(
 );
 const restartTitleState = await gameState(secondPage);
 const restartHeader = await secondPage.locator(".system-state").innerText();
+const restartTitleVisualState = await shellVisualState(secondPage);
 await focusGameAndPress(secondPage, "c");
 await waitForGame(secondPage, "active_with_saved_checkpoint");
 await secondPage.waitForTimeout(1_000);
 const restoredState = await gameState(secondPage);
 const actualResumeState = authoritativeResumeState(restoredState);
+const restoredVisualState = await shellVisualState(secondPage);
 await secondPage.screenshot({
 	path: path.join(outputDir, "restored-after-browser-restart.png"),
 	fullPage: true,
+});
+await secondPage.locator(".masthead").screenshot({
+	path: path.join(outputDir, "restored-masthead-after-browser-restart.png"),
+});
+await secondPage.locator(".game-terminal").screenshot({
+	path: path.join(outputDir, "restored-terminal-after-browser-restart.png"),
 });
 await secondContext.close();
 
@@ -154,6 +215,9 @@ const audit = {
 	errors,
 	settledHeader,
 	restartHeader,
+	settledVisualState,
+	restartTitleVisualState,
+	restoredVisualState,
 	checkpointBeforeClose: settledState.checkpoint ?? {},
 	checkpointAfterRestartAtTitle: restartTitleState.checkpoint ?? {},
 	expectedResumeState,
@@ -167,6 +231,12 @@ if (errors.length > 0) {
 }
 if (!exactResumeMatch) {
 	throw new Error(`Authoritative state drifted across browser restart: ${JSON.stringify(audit)}`);
+}
+if (!settledVisualState.styled || !restartTitleVisualState.styled || !restoredVisualState.styled) {
+	throw new Error(`Web shell styling did not survive browser restart: ${JSON.stringify(audit)}`);
+}
+if (restoredVisualState.fullscreenElement !== "") {
+	throw new Error(`Continue unexpectedly entered fullscreen: ${JSON.stringify(audit)}`);
 }
 
 console.log("CHECKPOINT_WEB_PERSISTENCE_AUDIT_PASSED browser=restart indexeddb=restored state=exact");

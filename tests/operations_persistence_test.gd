@@ -35,15 +35,15 @@ func _test_current_schema_round_trip(failures: Array[String]) -> void:
 	for worker_id in [0, 1, 2, 3]:
 		_check(bool(source.perform_personnel_action(worker_id, &"share_credit").get("accepted", false)), "round-trip fixture should file all four tier-three check-ins", failures)
 	var exported := source.export_save_state()
-	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "operations state should export schema v23", failures)
+	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "operations state should export schema v24", failures)
 	var facilities := exported.get("owned_facilities", {}) as Dictionary
-	_check(facilities.size() == 13, "schema v23 should serialize exactly thirteen facility keys", failures)
-	_check(int(facilities.get(String(ROOSTER), -1)) == 3, "schema v23 should serialize Rooster Office tier three", failures)
-	_check(int(facilities.get(String(IT), -1)) == 3, "schema v23 should serialize IT Coop tier three", failures)
-	_check(exported.has("campus_expansion"), "schema v23 should carry the strict North Meadow ledger", failures)
+	_check(facilities.size() == 13, "schema v24 should serialize exactly thirteen facility keys", failures)
+	_check(int(facilities.get(String(ROOSTER), -1)) == 3, "schema v24 should serialize Rooster Office tier three", failures)
+	_check(int(facilities.get(String(IT), -1)) == 3, "schema v24 should serialize IT Coop tier three", failures)
+	_check(exported.has("campus_expansion"), "schema v24 should carry the strict North Meadow ledger", failures)
 
 	var restored := DepartmentSimulation.new(16602, 6)
-	_check(restored.restore_save_state(_json_round_trip(exported)), "valid schema v23 JSON should restore", failures)
+	_check(restored.restore_save_state(_json_round_trip(exported)), "valid schema v24 JSON should restore", failures)
 	_check(restored.facility_level(ROOSTER) == 3 and restored.facility_level(IT) == 3, "round trip should preserve both cumulative operations tiers", failures)
 	_check(restored.current_daily_supervisor_payroll_cents() == 1200, "round trip should restore tier-three supervisor payroll", failures)
 	_check(restored.current_daily_facility_maintenance_cents() == source.current_daily_facility_maintenance_cents(), "round trip should restore every maintenance liability", failures)

@@ -7,6 +7,7 @@ extends Control
 ## identities. Office remains responsible for previewing, pinning, purchasing,
 ## saving, and restoring prior focus.
 
+signal presentation_context_changed
 signal close_requested
 signal preview_requested(facility_id: StringName)
 signal pin_requested(facility_id: StringName)
@@ -142,6 +143,52 @@ func is_open() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_open():
+		return {}
+	var target := _purchase_button
+	var action_id := "capital_blueprint_purchase"
+	var semantic_icon := "capital"
+	if target == null or target.disabled or not target.is_visible_in_tree():
+		target = _pin_button
+		action_id = "capital_blueprint_pin"
+		semantic_icon = "pin"
+	if target == null or target.disabled or not target.is_visible_in_tree():
+		target = _return_button
+		action_id = "capital_blueprint_return"
+		semantic_icon = "safe_return"
+	if target == null or not target.is_visible_in_tree():
+		return {}
+	var copy := target.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": action_id,
+		"actionable": not target.disabled,
+		"semantic_icon": semantic_icon,
+		"icon_visible": target.icon != null,
+		"accessible_text": (
+			target.tooltip_text.strip_edges()
+			if not target.tooltip_text.strip_edges().is_empty() else
+			copy
+		),
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	var action_id := String(state.get("action_id", ""))
+	var target := _purchase_button
+	if action_id == "capital_blueprint_pin":
+		target = _pin_button
+	elif action_id == "capital_blueprint_return":
+		target = _return_button
+	target.grab_focus()
+	return true
+
+
 func selected_facility_id() -> StringName:
 	return _selected_facility_id
 
@@ -168,6 +215,10 @@ func inspector_accessible_text() -> String:
 	if facility.is_empty():
 		return "The selected capital parcel is not in the authoritative catalog."
 	var sections: Array[String] = [
+		String(_plan_summary_label.get_meta(
+			"accessible_text",
+			_plan_summary_label.tooltip_text if not _plan_summary_label.tooltip_text.is_empty() else _plan_summary_label.text,
+		)),
 		String(_inspector_title.text),
 		String(_inspector_status.text),
 	]
@@ -178,25 +229,41 @@ func inspector_accessible_text() -> String:
 	return " ".join(sections).replace("\n", "; ")
 
 
+func present_action_hold(copy: String, detail: String) -> void:
+	if _plan_summary_label == null:
+		return
+	_plan_summary_label.text = copy
+	_plan_summary_label.tooltip_text = detail
+	_plan_summary_label.set_meta("accessible_text", detail)
+	_plan_summary_label.add_theme_color_override("font_color", COLOR_RUST)
+
+
 func select_facility(facility_id: StringName, emit_preview: bool = true) -> bool:
 	if _model.facility(facility_id).is_empty():
 		return false
+	var changed := _selected_facility_id != facility_id
 	_selected_facility_id = facility_id
 	_refresh_parcel_buttons()
 	_refresh_inspector()
 	if emit_preview:
 		preview_requested.emit(facility_id)
+	if changed:
+		presentation_context_changed.emit()
 	return true
 
 
 func set_filter(filter_id: StringName) -> bool:
 	if filter_id not in CapitalBlueprintModel.FILTER_ORDER:
 		return false
+	var prior_filter := _active_filter
+	var prior_selection := _selected_facility_id
 	_active_filter = filter_id
 	var visible_facilities := _model.facilities(_active_filter)
 	if not _facility_in_entries(_selected_facility_id, visible_facilities):
 		_selected_facility_id = _first_facility_id(visible_facilities)
 	_refresh()
+	if prior_filter != _active_filter or prior_selection != _selected_facility_id:
+		presentation_context_changed.emit()
 	return true
 
 
@@ -249,6 +316,7 @@ func _build_interface() -> void:
 	var title := _make_label("CAPITAL BLUEPRINT", 23, COLOR_BRASS)
 	title.name = "CapitalBlueprintTitle"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	header.add_child(title)
 	_plan_summary_label = _make_label("NO CAPITAL PLAN PINNED", 12, COLOR_TEAL)
 	_plan_summary_label.name = "CapitalBlueprintPlanSummary"
@@ -268,6 +336,7 @@ func _build_interface() -> void:
 		var button := Button.new()
 		button.name = "CapitalBlueprintFilter_%s" % String(filter_id)
 		button.custom_minimum_size = Vector2(108.0, 32.0)
+		button.clip_text = true
 		button.focus_mode = Control.FOCUS_ALL
 		button.pressed.connect(_on_filter_pressed.bind(filter_id))
 		filters.add_child(button)
@@ -276,6 +345,7 @@ func _build_interface() -> void:
 	_campus_expansion_button.name = "CapitalBlueprintCampusExpansionButton"
 	_campus_expansion_button.text = "CAMPUS PORTFOLIO  /  LAND & UTILITIES"
 	_campus_expansion_button.custom_minimum_size = Vector2(260.0, 32.0)
+	_campus_expansion_button.clip_text = true
 	_campus_expansion_button.focus_mode = Control.FOCUS_ALL
 	_campus_expansion_button.theme_type_variation = &"PrimaryButton"
 	_campus_expansion_button.pressed.connect(func() -> void: campus_expansion_requested.emit())
@@ -307,15 +377,17 @@ func _build_interface() -> void:
 	_active_body.add_child(_map_panel)
 	_active_body.add_child(_inspector_panel)
 
-	var action_rail := HBoxContainer.new()
+	var action_rail := HFlowContainer.new()
 	action_rail.name = "CapitalBlueprintActionRail"
 	action_rail.custom_minimum_size.y = 46.0
-	action_rail.add_theme_constant_override("separation", 9)
+	action_rail.add_theme_constant_override("h_separation", 9)
+	action_rail.add_theme_constant_override("v_separation", 6)
 	page.add_child(action_rail)
 	_return_button = Button.new()
 	_return_button.name = "CapitalBlueprintReturnButton"
 	_return_button.text = "RETURN TO OFFICE"
 	_return_button.custom_minimum_size = Vector2(170.0, 44.0)
+	_return_button.clip_text = true
 	_return_button.focus_mode = Control.FOCUS_ALL
 	_return_button.pressed.connect(_request_close)
 	action_rail.add_child(_return_button)
@@ -327,6 +399,7 @@ func _build_interface() -> void:
 	_pin_button.name = "CapitalBlueprintPinButton"
 	_pin_button.text = "PIN AS CAPITAL PLAN"
 	_pin_button.custom_minimum_size = Vector2(204.0, 44.0)
+	_pin_button.clip_text = true
 	_pin_button.focus_mode = Control.FOCUS_ALL
 	_pin_button.pressed.connect(_on_pin_pressed)
 	action_rail.add_child(_pin_button)
@@ -335,6 +408,7 @@ func _build_interface() -> void:
 	_purchase_button.text = "AUTHORIZE BUILD"
 	_purchase_button.theme_type_variation = &"PrimaryButton"
 	_purchase_button.custom_minimum_size = Vector2(218.0, 44.0)
+	_purchase_button.clip_text = true
 	_purchase_button.focus_mode = Control.FOCUS_ALL
 	_purchase_button.pressed.connect(_on_purchase_pressed)
 	action_rail.add_child(_purchase_button)
@@ -362,6 +436,7 @@ func _build_map_panel() -> void:
 	margin.add_child(column)
 	var map_heading := _make_label("SURVEYED CAMPUS PARCELS", 12, COLOR_MUTED)
 	map_heading.name = "CapitalBlueprintMapHeading"
+	map_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(map_heading)
 	_map_canvas = Control.new()
 	_map_canvas.name = "CapitalBlueprintMapCanvas"
@@ -563,17 +638,20 @@ func _refresh_campus_expansion_button() -> void:
 
 
 func _refresh_plan_summary() -> void:
+	_plan_summary_label.add_theme_color_override("font_color", COLOR_TEAL)
 	var pinned_id := _model.pinned_facility_id()
 	var pinned := _model.facility(pinned_id)
 	if pinned_id == &"" or pinned.is_empty():
 		_plan_summary_label.text = "NO CAPITAL PLAN PINNED"
 		_plan_summary_label.tooltip_text = "Select any parcel and pin it without spending Feed Fund."
+		_plan_summary_label.set_meta("accessible_text", _plan_summary_label.tooltip_text)
 		return
 	_plan_summary_label.text = "CAPITAL PLAN / %s / %s" % [
 		String(pinned.get("short_name", pinned.get("display_name", pinned_id))).to_upper(),
 		String(pinned.get("readiness_label", "BLOCKED")),
 	]
 	_plan_summary_label.tooltip_text = String(pinned.get("why_now", ""))
+	_plan_summary_label.set_meta("accessible_text", _plan_summary_label.tooltip_text)
 
 
 func _refresh_parcel_buttons() -> void:
@@ -805,12 +883,27 @@ func _apply_responsive_layout() -> void:
 		_body_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 		_map_panel.custom_minimum_size = Vector2(0.0, 318.0)
 		_inspector_panel.custom_minimum_size = Vector2(0.0, 315.0)
-		_plan_summary_label.custom_minimum_size.x = 230.0
+		_plan_summary_label.custom_minimum_size.x = 0.0
+		_return_button.custom_minimum_size.x = 108.0
+		_return_button.text = "RETURN"
+		_pin_button.custom_minimum_size.x = 132.0
+		_pin_button.text = "PIN PLAN"
+		_purchase_button.custom_minimum_size.x = 156.0
+		_campus_expansion_button.custom_minimum_size.x = 190.0
+		for filter_button_value: Variant in _filter_buttons.values():
+			(filter_button_value as Button).custom_minimum_size.x = 78.0
 	else:
 		_body_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		_map_panel.custom_minimum_size = Vector2(520.0, 310.0)
 		_inspector_panel.custom_minimum_size = Vector2(300.0, 310.0)
 		_plan_summary_label.custom_minimum_size.x = 310.0
+		_return_button.custom_minimum_size.x = 170.0
+		_return_button.text = "RETURN TO OFFICE"
+		_pin_button.custom_minimum_size.x = 204.0
+		_purchase_button.custom_minimum_size.x = 218.0
+		_campus_expansion_button.custom_minimum_size.x = 260.0
+		for filter_button_value: Variant in _filter_buttons.values():
+			(filter_button_value as Button).custom_minimum_size.x = 108.0
 	call_deferred("_layout_map_geometry")
 
 

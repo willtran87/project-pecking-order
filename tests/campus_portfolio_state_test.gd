@@ -23,7 +23,7 @@ func _test_exact_economics_and_gates(failures: Array[String]) -> void:
 	var state := Portfolio.new(1)
 	var neutral := state.to_save_data()
 	_check(neutral.keys().size() == Portfolio.SAVE_KEYS.size(), "neutral save should expose only strict save keys", failures)
-	_check(int(neutral.get("version", -1)) == 1, "portfolio save version should be one inside simulation schema v23", failures)
+	_check(int(neutral.get("version", -1)) == 1, "portfolio save version should be one inside simulation schema v24", failures)
 	_check((neutral.get("parcels", {}) as Dictionary).size() == 2, "neutral state should contain exactly two parcel deeds", failures)
 	_check((neutral.get("modules", {}) as Dictionary).size() == 4, "neutral state should contain exactly four module records", failures)
 	_check(state.daily_cost_cents() == 0 and state.capital_spend_total_cents == 0, "neutral portfolio should invent no cost or spending", failures)

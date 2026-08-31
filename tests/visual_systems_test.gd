@@ -48,6 +48,71 @@ func _run() -> void:
 		presence.play_review()
 		await process_frame
 		_check(farmer.visible, "farmer should enter visibly for executive review", failures)
+	if "--capture-manager-comb" in OS.get_cmdline_user_args() and controller != null and manager != null:
+		# The focused character owns this optional visual fixture; normal startup
+		# decisions remain covered by their dedicated UI tests and should not cover it.
+		var decision_host := office.get("_decision_host") as Control
+		if decision_host != null:
+			decision_host.visible = false
+		controller.focus_point(manager.global_position + Vector3(0.0, 1.25, 0.0), "ROOSTER MANAGER", 0.0, 3.8)
+		await create_timer(0.45).timeout
+		var capture_directory := ProjectSettings.globalize_path(
+			"res://output/web-game/manager-comb-attachment-v1"
+		)
+		DirAccess.make_dir_recursive_absolute(capture_directory)
+		var image := root.get_texture().get_image()
+		_check(image != null, "manager comb capture should expose a rendered viewport", failures)
+		if image != null:
+			_check(
+				image.save_png(capture_directory.path_join("manager-comb-attached.png")) == OK,
+				"manager comb capture should save successfully",
+				failures,
+			)
+	if "--capture-seated-wings" in OS.get_cmdline_user_args() and controller != null:
+		var decision_host := office.get("_decision_host") as Control
+		if decision_host != null:
+			decision_host.visible = false
+		var seated_worker := office.find_child("Chicken_Mabel", true, false) as ChickenView
+		_check(seated_worker != null, "seated-wing capture should find Mabel's production model", failures)
+		if seated_worker != null:
+			seated_worker.stage_at_workstation_for_introduction()
+			controller.focus_worker(0)
+			await create_timer(0.45).timeout
+			var capture_directory := ProjectSettings.globalize_path(
+				"res://output/web-game/manager-reference-wings-v1"
+			)
+			DirAccess.make_dir_recursive_absolute(capture_directory)
+			var image := root.get_texture().get_image()
+			_check(image != null, "seated-wing capture should expose a rendered viewport", failures)
+			if image != null:
+				_check(
+					image.save_png(capture_directory.path_join("seated-wing-pose.png")) == OK,
+					"seated-wing capture should save successfully",
+					failures,
+				)
+			seated_worker.apply_snapshot({
+				"state": ChickenState.WorkState.WORKING,
+				"stress": 12.0,
+			})
+			await create_timer(0.22).timeout
+			var working_image := root.get_texture().get_image()
+			_check(working_image != null, "working-wing capture should expose a rendered viewport", failures)
+			if working_image != null:
+				_check(
+					working_image.save_png(capture_directory.path_join("seated-wing-working.png")) == OK,
+					"working-wing capture should save successfully",
+					failures,
+				)
+			seated_worker.depart_office([Vector3(0.0, 0.0, 2.0)])
+			await create_timer(0.40).timeout
+			var walking_image := root.get_texture().get_image()
+			_check(walking_image != null, "walking-wing capture should expose a rendered viewport", failures)
+			if walking_image != null:
+				_check(
+					walking_image.save_png(capture_directory.path_join("walking-wing-side-pose.png")) == OK,
+					"walking-wing capture should save successfully",
+					failures,
+				)
 
 	var feedback := office.find_child("WorkstationFeedback", true, false) as WorkstationFeedback
 	var screen := office.find_child("Screen", true, false) as MeshInstance3D

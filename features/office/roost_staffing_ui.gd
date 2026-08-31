@@ -16,11 +16,22 @@ signal feed_order_requested(order_id: StringName)
 signal farmer_relations_campaign_requested(campaign_id: StringName)
 signal farmgate_dispatch_mandate_requested(mandate_id: StringName)
 signal capital_blueprint_requested
+signal manager_assignment_requested(manager_id: StringName, assignment_id: StringName)
+signal manager_posture_requested(manager_id: StringName, posture_id: StringName)
+signal manager_recruit_requested(candidate_id: StringName)
+signal intern_onboard_requested(candidate_id: StringName)
+signal intern_assignment_requested(candidate_id: StringName, assignment_id: StringName)
+signal intern_review_requested(candidate_id: StringName, resolution_id: StringName)
+signal interaction_safety_changed
+signal presentation_context_changed
 
 const FlockRelationsCaseUIScript := preload("res://features/office/flock_relations_case_ui.gd")
 const FeedProcurementUIScript := preload("res://features/office/feed_procurement_ui.gd")
 const FarmerRelationsGalleryUIScript := preload("res://features/office/farmer_relations_gallery_ui.gd")
 const FarmgateDispatchUIScript := preload("res://features/office/farmgate_dispatch_ui.gd")
+const InternshipProgramUIScript := preload("res://features/office/internship_program_ui.gd")
+const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 const COLOR_BRASS := Color("e7c56e")
 const COLOR_TEAL := Color("73b5a7")
@@ -51,22 +62,48 @@ var _operations_pressure_label: Label
 var _operations_automation_label: Label
 var _operations_exposure_label: Label
 var _operations_next_action_label: Label
+var _manager_density_label: Label
+var _operations_checkins_glance: Label
+var _operations_payroll_glance: Label
+var _operations_pressure_glance: Label
+var _operations_density_glance: Label
+var _operations_automation_glance: Label
+var _operations_exposure_glance: Label
+var _manager_roster_toggle
+var _manager_roster_list: VBoxContainer
+var _manager_candidate_toggle
+var _manager_candidate_list: VBoxContainer
+var _manager_recruit_confirmation: ConfirmationDialog
+var _pending_manager_candidate_id: StringName = &""
+var _manager_recruit_confirmation_origin: Control
 var _flock_relations_ui: VBoxContainer
 var _care_section: PanelContainer
 var _care_gate_label: Label
 var _care_wellness_label: Label
 var _care_training_label: Label
 var _care_next_action_label: Label
+var _care_welfare_glance: Label
+var _care_rest_glance: Label
+var _care_strain_glance: Label
+var _care_recovery_glance: Label
+var _care_training_glance: Label
+var _care_terms_glance: Label
+var _care_next_action_glance: Label
 var _facilities_section: VBoxContainer
 var _facility_list: VBoxContainer
 var _inline_facilities_toggle: Button
 var _inline_facilities_open := false
 var _applicant_list: VBoxContainer
+var _internship_program_ui: InternshipProgramUI
 var _release_selector: OptionButton
 var _release_button: Button
+var _release_confirmation: ConfirmationDialog
+var _pending_release_worker_id := -1
+var _release_confirmation_origin: Control
 var _last_action_label: Label
 var _selected_release_worker_id := -1
 var _facility_refresh_serial := 0
+var _expanded_facility_details: Dictionary = {}
 
 
 func _ready() -> void:
@@ -79,6 +116,10 @@ func _ready() -> void:
 func apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
 	_ensure_interface()
+	if not _pending_release_is_valid():
+		_cancel_release_confirmation(false)
+	if not _pending_manager_recruit_is_valid():
+		_cancel_manager_recruit_confirmation(false)
 	_refresh()
 
 
@@ -92,6 +133,72 @@ func navigation_sections() -> Dictionary:
 		&"capital": _capital_domain,
 		&"records": _governance_domain,
 	}
+
+
+func presentation_context() -> Dictionary:
+	_ensure_interface()
+	return {
+		"feed_offers_expanded": _feed_procurement_ui.offers_expanded(),
+		"farmgate_mandate_expanded": _farmgate_dispatch_ui.mandate_expanded(),
+		"farmgate_mandate_id": String(_farmgate_dispatch_ui.selected_mandate_id()),
+		"flock_relations_cases_expanded": bool(
+			_flock_relations_ui.call("cases_expanded")
+		),
+		"farmer_campaigns_expanded": bool(
+			_farmer_relations_gallery_ui.call("campaigns_expanded")
+		),
+		"inline_facilities_expanded": _inline_facilities_open,
+		"internship_program_expanded": _internship_program_ui.is_expanded(),
+		"manager_roster_expanded": managers_expanded(),
+		"manager_successors_expanded": successors_expanded(),
+	}
+
+
+func restore_presentation_context(context: Dictionary) -> void:
+	_ensure_interface()
+	_feed_procurement_ui.set_offers_expanded(
+		bool(context.get("feed_offers_expanded", false))
+	)
+	_farmgate_dispatch_ui.set_mandate_expanded(
+		bool(context.get("farmgate_mandate_expanded", false))
+	)
+	_farmgate_dispatch_ui.select_mandate(StringName(String(
+		context.get("farmgate_mandate_id", "farmer_pickup")
+	)))
+	_flock_relations_ui.call(
+		"set_cases_expanded",
+		bool(context.get("flock_relations_cases_expanded", false)),
+	)
+	_farmer_relations_gallery_ui.call(
+		"set_campaigns_expanded",
+		bool(context.get("farmer_campaigns_expanded", false)),
+	)
+	_set_inline_facilities_expanded(
+		bool(context.get("inline_facilities_expanded", false))
+	)
+	_internship_program_ui.set_expanded(
+		bool(context.get("internship_program_expanded", false))
+	)
+	set_managers_expanded(bool(context.get("manager_roster_expanded", false)))
+	set_successors_expanded(bool(context.get("manager_successors_expanded", false)))
+
+
+func set_managers_expanded(expanded: bool) -> void:
+	if _manager_roster_toggle != null:
+		_manager_roster_toggle.set_expanded(expanded)
+
+
+func managers_expanded() -> bool:
+	return _manager_roster_toggle != null and _manager_roster_toggle.is_expanded()
+
+
+func set_successors_expanded(expanded: bool) -> void:
+	if _manager_candidate_toggle != null:
+		_manager_candidate_toggle.set_expanded(expanded)
+
+
+func successors_expanded() -> bool:
+	return _manager_candidate_toggle != null and _manager_candidate_toggle.is_expanded()
 
 
 func _ensure_interface() -> void:
@@ -113,6 +220,10 @@ func _build_interface() -> void:
 		_governance_domain,
 	]:
 		add_child(domain)
+	_capital_domain.set_meta(
+		"information_hierarchy",
+		PackedStringArray(["needs_action", "at_a_glance", "details", "receipts"]),
+	)
 	var heading_row := HBoxContainer.new()
 	heading_row.add_theme_constant_override("separation", 8)
 	_flock_domain.add_child(heading_row)
@@ -126,15 +237,7 @@ func _build_interface() -> void:
 	_costs_label = _make_label("Operating reserve is being calculated.", 12, COLOR_MUTED)
 	_costs_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_flock_domain.add_child(_costs_label)
-	_treasury_label = _make_label("TREASURY  awaiting first filed close", 11, COLOR_TEAL)
-	_treasury_label.name = "FarmTreasurySummary"
-	_treasury_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_capital_domain.add_child(_treasury_label)
-	_arrears_label = _make_label("", 12, COLOR_RUST)
-	_arrears_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_arrears_label.visible = false
-	_capital_domain.add_child(_arrears_label)
-
+	_capital_domain.add_child(_hierarchy_heading("NEEDS ACTION", "CapitalNeedsActionHeading"))
 	_capital_blueprint_button = Button.new()
 	_capital_blueprint_button.name = "OpenCapitalBlueprint"
 	_capital_blueprint_button.text = "OPEN CAPITAL BLUEPRINT"
@@ -150,10 +253,24 @@ func _build_interface() -> void:
 	_capital_plan_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_capital_domain.add_child(_capital_plan_label)
 
+	_capital_domain.add_child(_hierarchy_heading("AT A GLANCE", "CapitalAtAGlanceHeading"))
+	_treasury_label = _make_label("TREASURY  awaiting first filed close", 11, COLOR_TEAL)
+	_treasury_label.name = "FarmTreasurySummary"
+	_treasury_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_capital_domain.add_child(_treasury_label)
+	_arrears_label = _make_label("", 12, COLOR_RUST)
+	_arrears_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_arrears_label.visible = false
+	_capital_domain.add_child(_arrears_label)
+	_capital_domain.add_child(_hierarchy_heading("DETAILS", "CapitalDetailsHeading"))
+
 	_farmer_relations_gallery_ui = FarmerRelationsGalleryUIScript.new() as VBoxContainer
 	_farmer_relations_gallery_ui.campaign_requested.connect(
 		func(campaign_id: StringName) -> void:
 			farmer_relations_campaign_requested.emit(campaign_id)
+	)
+	_farmer_relations_gallery_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
 	)
 	_governance_domain.add_child(_farmer_relations_gallery_ui)
 
@@ -162,26 +279,36 @@ func _build_interface() -> void:
 		func(mandate_id: StringName) -> void:
 			farmgate_dispatch_mandate_requested.emit(mandate_id)
 	)
+	_farmgate_dispatch_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
+	)
 	_operations_domain.add_child(_farmgate_dispatch_ui)
 
 	_feed_procurement_ui = FeedProcurementUIScript.new() as FeedProcurementUI
 	_feed_procurement_ui.feed_order_requested.connect(
 		func(order_id: StringName) -> void: feed_order_requested.emit(order_id)
 	)
+	_feed_procurement_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
+	)
 	_operations_domain.add_child(_feed_procurement_ui)
 
 	_capacity_button = Button.new()
 	_capacity_button.name = "PurchaseStaffCapacity"
 	_capacity_button.theme_type_variation = &"PrimaryButton"
-	_capacity_button.custom_minimum_size.y = 40.0
+	_capacity_button.custom_minimum_size.y = 54.0
 	_capacity_button.pressed.connect(func() -> void: capacity_purchase_requested.emit())
 	_capital_domain.add_child(_capacity_button)
 
 	_build_operations_section()
+	_build_manager_recruit_confirmation()
 	_flock_relations_ui = FlockRelationsCaseUIScript.new() as VBoxContainer
 	_flock_relations_ui.action_requested.connect(
 		func(case_id: int, action_id: StringName) -> void:
 			flock_relations_action_requested.emit(case_id, action_id)
+	)
+	_flock_relations_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
 	)
 	_governance_domain.add_child(_flock_relations_ui)
 	_build_flock_care_section()
@@ -193,15 +320,16 @@ func _build_interface() -> void:
 	var facilities_heading := HBoxContainer.new()
 	facilities_heading.add_theme_constant_override("separation", 8)
 	_facilities_section.add_child(facilities_heading)
-	var facilities_title := _make_label("CAPITAL EXPANSIONS", 12, COLOR_BRASS)
+	var facilities_title := _make_label("DIRECT REQUISITIONS", 12, COLOR_BRASS)
 	facilities_title.name = "CapitalExpansionsTitle"
 	facilities_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	facilities_title.tooltip_text = "A compact action fallback. Use Capital Blueprint to compare every parcel, gate, effect, and reserve consequence."
 	facilities_heading.add_child(facilities_title)
 	_inline_facilities_toggle = Button.new()
 	_inline_facilities_toggle.name = "InlineCapitalFileToggle"
-	_inline_facilities_toggle.text = "SHOW"
+	_inline_facilities_toggle.text = "OPEN"
 	_inline_facilities_toggle.custom_minimum_size = Vector2(74.0, 30.0)
-	_inline_facilities_toggle.tooltip_text = "Open the legacy card list without leaving Flockwatch."
+	_inline_facilities_toggle.tooltip_text = "Open compact direct requisitions. Capital Blueprint remains the canonical comparison view."
 	_inline_facilities_toggle.pressed.connect(_on_inline_facilities_toggle_pressed)
 	facilities_heading.add_child(_inline_facilities_toggle)
 	_facility_list = VBoxContainer.new()
@@ -217,6 +345,24 @@ func _build_interface() -> void:
 	_applicant_list.name = "StaffingApplicants"
 	_applicant_list.add_theme_constant_override("separation", 6)
 	_flock_domain.add_child(_applicant_list)
+
+	_internship_program_ui = InternshipProgramUIScript.new() as InternshipProgramUI
+	_internship_program_ui.onboard_requested.connect(
+		func(candidate_id: StringName) -> void:
+			intern_onboard_requested.emit(candidate_id)
+	)
+	_internship_program_ui.assignment_requested.connect(
+		func(candidate_id: StringName, assignment_id: StringName) -> void:
+			intern_assignment_requested.emit(candidate_id, assignment_id)
+	)
+	_internship_program_ui.review_requested.connect(
+		func(candidate_id: StringName, resolution_id: StringName) -> void:
+			intern_review_requested.emit(candidate_id, resolution_id)
+	)
+	_internship_program_ui.presentation_context_changed.connect(
+		func() -> void: presentation_context_changed.emit()
+	)
+	_flock_domain.add_child(_internship_program_ui)
 
 	var release_title := _make_label("ACTIVE ROOST", 12, COLOR_BRASS)
 	_flock_domain.add_child(release_title)
@@ -236,11 +382,175 @@ func _build_interface() -> void:
 	_release_button.custom_minimum_size = Vector2(92.0, 38.0)
 	_release_button.pressed.connect(_on_release_pressed)
 	release_row.add_child(_release_button)
+	_build_release_confirmation()
 
 	_last_action_label = _make_label("", 12, Color("d7c17d"))
 	_last_action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_last_action_label.visible = false
 	_flock_domain.add_child(_last_action_label)
+
+
+func _build_release_confirmation() -> void:
+	_release_confirmation = ConfirmationDialog.new()
+	_release_confirmation.name = "StaffReleaseConfirmation"
+	_release_confirmation.title = "RELEASE A HEN?"
+	_release_confirmation.ok_button_text = "FILE"
+	_release_confirmation.cancel_button_text = "KEEP"
+	_release_confirmation.min_size = Vector2i(340, 250)
+	ManagementUIThemeScript.style_held_confirmation(_release_confirmation)
+	var copy := _release_confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 132.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_release_confirmation.get_ok_button().theme_type_variation = &"DangerButton"
+	_release_confirmation.get_cancel_button().theme_type_variation = &"PrimaryButton"
+	for action_button: Button in [
+		_release_confirmation.get_ok_button(),
+		_release_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size.y = 40.0
+		action_button.add_theme_font_size_override("font_size", 11)
+	_release_confirmation.confirmed.connect(_confirm_release)
+	_release_confirmation.canceled.connect(_cancel_release_confirmation)
+	add_child(_release_confirmation)
+
+
+func interaction_safety_state() -> Dictionary:
+	var worker := _staffing_record(_pending_release_worker_id)
+	var manager_candidate := _manager_candidate_record(_pending_manager_candidate_id)
+	var release_focus := (
+		"confirm"
+		if _release_confirmation != null
+		and _release_confirmation.get_ok_button().has_focus() else
+		"safe_return"
+		if _release_confirmation != null
+		and _release_confirmation.get_cancel_button().has_focus() else
+		""
+	)
+	var manager_focus := (
+		"confirm"
+		if _manager_recruit_confirmation != null
+		and _manager_recruit_confirmation.get_ok_button().has_focus() else
+		"safe_return"
+		if _manager_recruit_confirmation != null
+		and _manager_recruit_confirmation.get_cancel_button().has_focus() else
+		""
+	)
+	return {
+		"release_confirmation_visible": (
+			_release_confirmation != null and _release_confirmation.visible
+		),
+		"release_worker_id": _pending_release_worker_id,
+		"release_worker_name": String(worker.get(
+			"name",
+			worker.get("display_name", ""),
+		)),
+		"release_cost_cents": int(worker.get("release_cost_cents", 0)),
+		"release_confirmation_title": (
+			_release_confirmation.title if _release_confirmation != null else ""
+		),
+		"release_confirmation_confirm_label": (
+			_release_confirmation.get_ok_button().text
+			if _release_confirmation != null else ""
+		),
+		"release_confirmation_cancel_label": (
+			_release_confirmation.get_cancel_button().text
+			if _release_confirmation != null else ""
+		),
+		"release_confirmation_focus": release_focus,
+		"release_confirmation_accessible_text": (
+			String(_release_confirmation.get_meta("accessible_text", ""))
+			if _release_confirmation != null else ""
+		),
+		"release_confirmation_skin": (
+			String(_release_confirmation.get_meta("held_confirmation_skin", ""))
+			if _release_confirmation != null else ""
+		),
+		"manager_recruit_confirmation_visible": (
+			_manager_recruit_confirmation != null
+			and _manager_recruit_confirmation.visible
+		),
+		"manager_candidate_id": String(_pending_manager_candidate_id),
+		"manager_candidate_name": String(manager_candidate.get("name", "")),
+		"manager_recruit_cost_cents": int(manager_candidate.get(
+			"signing_cost_cents",
+			0,
+		)),
+		"manager_replaces_name": String(manager_candidate.get(
+			"replaces_name",
+			"",
+		)),
+		"manager_recruit_confirmation_title": (
+			_manager_recruit_confirmation.title
+			if _manager_recruit_confirmation != null else ""
+		),
+		"manager_recruit_confirmation_confirm_label": (
+			_manager_recruit_confirmation.get_ok_button().text
+			if _manager_recruit_confirmation != null else ""
+		),
+		"manager_recruit_confirmation_cancel_label": (
+			_manager_recruit_confirmation.get_cancel_button().text
+			if _manager_recruit_confirmation != null else ""
+		),
+		"manager_recruit_confirmation_focus": manager_focus,
+		"manager_recruit_confirmation_accessible_text": (
+			String(_manager_recruit_confirmation.get_meta("accessible_text", ""))
+			if _manager_recruit_confirmation != null else ""
+		),
+		"manager_recruit_confirmation_skin": (
+			String(_manager_recruit_confirmation.get_meta(
+				"held_confirmation_skin",
+				"",
+			))
+			if _manager_recruit_confirmation != null else ""
+		),
+	}
+
+
+func has_held_confirmation() -> bool:
+	return (
+		(_release_confirmation != null and _release_confirmation.visible)
+		or (
+			_manager_recruit_confirmation != null
+			and _manager_recruit_confirmation.visible
+		)
+	)
+
+
+func internship_program_diagnostic_state() -> Dictionary:
+	_ensure_interface()
+	return _internship_program_ui.diagnostic_state()
+
+
+func _build_manager_recruit_confirmation() -> void:
+	_manager_recruit_confirmation = ConfirmationDialog.new()
+	_manager_recruit_confirmation.name = "ManagerRecruitConfirmation"
+	_manager_recruit_confirmation.title = "FILE A MANAGEMENT SUCCESSION?"
+	_manager_recruit_confirmation.ok_button_text = "FILE"
+	_manager_recruit_confirmation.cancel_button_text = "KEEP"
+	_manager_recruit_confirmation.min_size = Vector2i(340, 285)
+	ManagementUIThemeScript.style_held_confirmation(_manager_recruit_confirmation)
+	var copy := _manager_recruit_confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 132.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_manager_recruit_confirmation.get_ok_button().theme_type_variation = &"DangerButton"
+	_manager_recruit_confirmation.get_cancel_button().theme_type_variation = &"PrimaryButton"
+	for action_button: Button in [
+		_manager_recruit_confirmation.get_ok_button(),
+		_manager_recruit_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size.y = 40.0
+		action_button.add_theme_font_size_override("font_size", 11)
+	_manager_recruit_confirmation.confirmed.connect(_confirm_manager_recruit)
+	_manager_recruit_confirmation.canceled.connect(
+		_cancel_manager_recruit_confirmation
+	)
+	add_child(_manager_recruit_confirmation)
 
 
 func _new_domain_root(node_name: String) -> VBoxContainer:
@@ -249,6 +559,14 @@ func _new_domain_root(node_name: String) -> VBoxContainer:
 	domain.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	domain.add_theme_constant_override("separation", 7)
 	return domain
+
+
+func _hierarchy_heading(copy: String, node_name: String) -> Label:
+	var heading := _make_label(copy, 10, COLOR_MUTED)
+	heading.name = node_name
+	heading.add_theme_color_override("font_color", Color(COLOR_MUTED, 0.88))
+	heading.tooltip_text = "Capital filing section: %s." % copy.to_lower()
+	return heading
 
 
 func _refresh() -> void:
@@ -330,6 +648,9 @@ func _refresh() -> void:
 	_refresh_flock_care()
 	_refresh_facilities(spendable, operating, planning_open)
 	_refresh_applicants(spendable, planning_open)
+	_internship_program_ui.apply_snapshot(
+		_snapshot.get("internship_program", {}) as Dictionary
+	)
 	_refresh_release_controls(spendable, planning_open)
 	_refresh_last_action()
 
@@ -387,6 +708,14 @@ func _build_operations_section() -> void:
 	_operations_section.add_theme_stylebox_override("panel", _facility_card_style(true, false, true))
 	_operations_section.visible = false
 	_operations_domain.add_child(_operations_section)
+	# Reserve quiet reading space after the final Operations control so direct
+	# links can place a bottom-row chip at the drawer's reading edge instead of
+	# leaving it stranded against the viewport footer.
+	var operations_reading_tail := Control.new()
+	operations_reading_tail.name = "OperationsReadingTail"
+	operations_reading_tail.custom_minimum_size.y = 220.0
+	operations_reading_tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_operations_domain.add_child(operations_reading_tail)
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 10)
@@ -401,27 +730,88 @@ func _build_operations_section() -> void:
 
 	var heading := _make_label("ROOSTER OPERATIONS", 12, COLOR_BRASS)
 	heading.name = "RoosterOperationsHeading"
+	heading.tooltip_text = "Rooster Operations / supervision, management pressure, automation, and succession."
+	heading.set_meta("accessible_text", heading.tooltip_text)
 	column.add_child(heading)
 	_operations_supervision_label = _make_label("", 11, COLOR_TEAL)
 	_operations_supervision_label.name = "RoosterOperationsSupervision"
 	_operations_supervision_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_operations_supervision_label.visible = false
 	column.add_child(_operations_supervision_label)
 	_operations_pressure_label = _make_label("", 10, COLOR_MUTED)
 	_operations_pressure_label.name = "RoosterOperationsPressure"
 	_operations_pressure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_operations_pressure_label.visible = false
 	column.add_child(_operations_pressure_label)
-	_operations_automation_label = _make_label("", 11, COLOR_TEAL)
-	_operations_automation_label.name = "RoosterOperationsAutomation"
-	_operations_automation_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_operations_automation_label)
-	_operations_exposure_label = _make_label("", 10, COLOR_MUTED)
-	_operations_exposure_label.name = "RoosterOperationsExposure"
-	_operations_exposure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_operations_exposure_label)
+	_manager_density_label = _make_label("", 10, COLOR_MUTED)
+	_manager_density_label.name = "ManagementDensity"
+	_manager_density_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_manager_density_label.visible = false
+	column.add_child(_manager_density_label)
+
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "RoosterOperationsGlanceGrid"
+	glance_grid.columns = 2
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	glance_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(glance_grid)
+	_operations_checkins_glance = _metric_chip(glance_grid, "CHECK-IN\n1 LEFT")
+	_operations_checkins_glance.name = "RoosterOperationsCheckinsGlance"
+	_operations_payroll_glance = _metric_chip(glance_grid, "PAY\n$0 / DAY")
+	_operations_payroll_glance.name = "RoosterOperationsPayrollGlance"
+	_operations_pressure_glance = _metric_chip(glance_grid, "PRESSURE\nNONE")
+	_operations_pressure_glance.name = "RoosterOperationsPressureGlance"
+	_operations_density_glance = _metric_chip(glance_grid, "DENSITY\n1 : 0")
+	_operations_density_glance.name = "RoosterOperationsDensityGlance"
+	_operations_automation_glance = _metric_chip(glance_grid, "AUTO\nLOCAL")
+	_operations_automation_glance.name = "RoosterOperationsAutomationGlance"
+	_operations_exposure_glance = _metric_chip(glance_grid, "EXPOSURE\nNONE")
+	_operations_exposure_glance.name = "RoosterOperationsExposureGlance"
+	(_operations_exposure_glance.get_parent() as PanelContainer).name = (
+		"RoosterOperationsExposureGlancePanel"
+	)
+
 	_operations_next_action_label = _make_label("", 10, Color("d7c17d"))
 	_operations_next_action_label.name = "RoosterOperationsNextAction"
 	_operations_next_action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_operations_next_action_label)
+
+	_manager_roster_toggle = FlockwatchDisclosureToggleScript.new()
+	_manager_roster_toggle.name = "ManagerRosterToggle"
+	_manager_roster_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
+	column.add_child(_manager_roster_toggle)
+	_manager_roster_list = VBoxContainer.new()
+	_manager_roster_list.name = "ManagerRoster"
+	_manager_roster_list.add_theme_constant_override("separation", 6)
+	column.add_child(_manager_roster_list)
+	var manager_roster_targets: Array[Control] = [_manager_roster_list]
+	_manager_roster_toggle.configure("MANAGERS", "0", manager_roster_targets, false)
+
+	_manager_candidate_toggle = FlockwatchDisclosureToggleScript.new()
+	_manager_candidate_toggle.name = "ManagerSuccessorToggle"
+	_manager_candidate_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
+	column.add_child(_manager_candidate_toggle)
+	_manager_candidate_list = VBoxContainer.new()
+	_manager_candidate_list.name = "ManagerCandidateSlate"
+	_manager_candidate_list.add_theme_constant_override("separation", 4)
+	column.add_child(_manager_candidate_list)
+	var manager_candidate_targets: Array[Control] = [_manager_candidate_list]
+	_manager_candidate_toggle.configure("SUCCESSORS", "0", manager_candidate_targets, false)
+	_operations_automation_label = _make_label("", 11, COLOR_TEAL)
+	_operations_automation_label.name = "RoosterOperationsAutomation"
+	_operations_automation_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_operations_automation_label.visible = false
+	column.add_child(_operations_automation_label)
+	_operations_exposure_label = _make_label("", 10, COLOR_MUTED)
+	_operations_exposure_label.name = "RoosterOperationsExposure"
+	_operations_exposure_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_operations_exposure_label.visible = false
+	column.add_child(_operations_exposure_label)
 
 
 func _refresh_operations() -> void:
@@ -458,6 +848,12 @@ func _refresh_operations() -> void:
 		"The Rooster Operations Office raises the flock-wide check-in allowance. "
 		+ "A named hen may still receive at most one personnel action per shift."
 	)
+	_operations_supervision_label.set_meta("accessible_text", _operations_supervision_label.text)
+	_operations_checkins_glance.text = "CHECK-IN\n%d LEFT" % actions_remaining
+	_operations_payroll_glance.text = "PAY\n%s / DAY" % _compact_currency(supervisor_payroll)
+	for glance: Label in [_operations_checkins_glance, _operations_payroll_glance]:
+		glance.tooltip_text = _operations_supervision_label.text + "\n" + _operations_supervision_label.tooltip_text
+		glance.set_meta("accessible_text", glance.tooltip_text)
 
 	var grievance_mp := maxi(0, int(supervision.get("surveillance_grievance_millipoints", 0)))
 	var stress_mp := maxi(0, int(supervision.get("surveillance_stress_millipoints", 0)))
@@ -475,6 +871,16 @@ func _refresh_operations() -> void:
 		COLOR_RUST if grievance_mp + stress_mp + solidarity_mp > 0 else COLOR_MUTED,
 	)
 	_operations_pressure_label.tooltip_text = "These once-per-shift pressure values come directly from the authoritative operations ledger."
+	_operations_pressure_label.set_meta("accessible_text", _operations_pressure_label.text)
+	var pressure_total_mp := grievance_mp + stress_mp + solidarity_mp
+	_operations_pressure_glance.text = (
+		"PRESSURE\n+%s" % _millipoints_copy(pressure_total_mp)
+		if pressure_total_mp > 0 else
+		"PRESSURE\nNONE"
+	)
+	_operations_pressure_glance.tooltip_text = _operations_pressure_label.text + "\n" + _operations_pressure_label.tooltip_text
+	_operations_pressure_glance.set_meta("accessible_text", _operations_pressure_glance.tooltip_text)
+	_refresh_manager_roster(operations)
 
 	var automation := operations.get("automation", {}) as Dictionary
 	var it_level := maxi(0, int(operations.get("it_coop_level", automation.get("level", 0))))
@@ -496,6 +902,14 @@ func _refresh_operations() -> void:
 		"IT support applies only while an employed hen is assigned AUTO. "
 		+ "A manual NEST, PREDATOR, or APPEALS route is an explicit override."
 	)
+	_operations_automation_label.set_meta("accessible_text", _operations_automation_label.text)
+	_operations_automation_glance.text = (
+		"AUTO\n+%s%%" % _compact_number(work_bonus_percent)
+		if automation_enabled else
+		"AUTO\nLOCAL"
+	)
+	_operations_automation_glance.tooltip_text = _operations_automation_label.text + "\n" + _operations_automation_label.tooltip_text
+	_operations_automation_glance.set_meta("accessible_text", _operations_automation_glance.tooltip_text)
 
 	var compliance_mp := maxi(0, int(automation.get("compliance_exposure_millipoints", 0)))
 	_operations_exposure_label.text = (
@@ -509,6 +923,14 @@ func _refresh_operations() -> void:
 		COLOR_RUST if compliance_mp > 0 else COLOR_MUTED,
 	)
 	_operations_exposure_label.tooltip_text = "The exposure settles once per shift; it is not inferred from the visible compliance meter."
+	_operations_exposure_label.set_meta("accessible_text", _operations_exposure_label.text)
+	_operations_exposure_glance.text = (
+		"EXPOSURE\n-%s" % _millipoints_copy(compliance_mp)
+		if compliance_mp > 0 else
+		"EXPOSURE\nNONE"
+	)
+	_operations_exposure_glance.tooltip_text = _operations_exposure_label.text + "\n" + _operations_exposure_label.tooltip_text
+	_operations_exposure_glance.set_meta("accessible_text", _operations_exposure_glance.tooltip_text)
 
 	var next_action := operations.get("next_operations_action", {}) as Dictionary
 	_operations_next_action_label.visible = not next_action.is_empty()
@@ -518,6 +940,299 @@ func _refresh_operations() -> void:
 			"reason",
 			next_action.get("action_reason", "The next operations requisition is listed in Capital Expansions below."),
 		))
+
+
+func _refresh_manager_roster(operations: Dictionary) -> void:
+	if _manager_roster_list == null or _manager_density_label == null:
+		return
+	for child in _manager_roster_list.get_children():
+		child.queue_free()
+	var density := operations.get("management_density", {}) as Dictionary
+	var reports := operations.get("management_reports", {}) as Dictionary
+	var risk_label := String(density.get("risk_label", "WORKABLE"))
+	_manager_density_label.text = (
+		"MANAGEMENT DENSITY  %s hens / rooster  /  %s\n"
+		+ "MEETING LOAD  %dm  /  CONFLICTS %d  /  REPORTS %d  /  EGGS 0"
+	) % [
+		String(density.get("label", "1 : 0")),
+		risk_label,
+		int(density.get("meeting_minutes", 0)),
+		int(density.get("conflicting_directives", 0)),
+		int(reports.get("today", 0)),
+	]
+	_manager_density_label.add_theme_color_override(
+		"font_color", COLOR_RUST if risk_label == "OVERMANAGED" else COLOR_MUTED
+	)
+	_manager_density_label.tooltip_text = "More roosters create reports and check-ins, never eggs. Above one manager per two hens, meetings and contradictory directives cut productive time."
+	_manager_density_label.set_meta("accessible_text", _manager_density_label.text)
+	_operations_density_glance.text = "DENSITY\n%s" % String(density.get("label", "1 : 0"))
+	_operations_density_glance.tooltip_text = _manager_density_label.text + "\n" + _manager_density_label.tooltip_text
+	_operations_density_glance.set_meta("accessible_text", _operations_density_glance.tooltip_text)
+	var assignments := operations.get("manager_assignments", []) as Array
+	var postures := operations.get("manager_postures", []) as Array
+	var planning_open := bool(_snapshot.get("staffing_planning_open", false))
+	var manager_roster := operations.get("manager_roster", []) as Array
+	for manager_value in manager_roster:
+		if not manager_value is Dictionary:
+			continue
+		var manager := manager_value as Dictionary
+		_manager_roster_list.add_child(_build_manager_card(manager, assignments, postures, planning_open))
+	if _manager_roster_toggle != null:
+		var expanded: bool = _manager_roster_toggle.is_expanded()
+		_manager_roster_toggle.set_summary(
+			str(manager_roster.size()),
+			"%d named managers. Assignments and postures apply to the authoritative next shift." % manager_roster.size(),
+		)
+		_manager_roster_toggle.set_expanded(expanded, false)
+	_refresh_manager_candidates(operations)
+
+
+func _refresh_manager_candidates(operations: Dictionary) -> void:
+	if _manager_candidate_list == null:
+		return
+	for child in _manager_candidate_list.get_children():
+		child.queue_free()
+	var available: Array[Dictionary] = []
+	for candidate_value in operations.get("manager_candidates", []) as Array:
+		if candidate_value is Dictionary and not bool((candidate_value as Dictionary).get("hired", false)):
+			available.append(candidate_value as Dictionary)
+	var expanded: bool = _manager_candidate_toggle != null and _manager_candidate_toggle.is_expanded()
+	if _manager_candidate_toggle != null:
+		_manager_candidate_toggle.visible = not available.is_empty()
+	if available.is_empty():
+		_manager_candidate_list.visible = false
+		return
+	var heading := _make_label("SCREENED MANAGEMENT SUCCESSORS", 9, COLOR_MUTED)
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	heading.tooltip_text = "A lateral appointment replaces the newest management post; headcount and authorized payroll remain unchanged."
+	_manager_candidate_list.add_child(heading)
+	for candidate in available:
+		var candidate_id := StringName(String(candidate.get("id", "")))
+		var card := PanelContainer.new()
+		card.name = "ManagerCandidateCard_%s" % String(candidate_id)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.add_theme_stylebox_override(
+			"panel",
+			_facility_card_style(false, bool(candidate.get("can_recruit", false)), true),
+		)
+		_manager_candidate_list.add_child(card)
+		var margin := MarginContainer.new()
+		margin.add_theme_constant_override("margin_left", 8)
+		margin.add_theme_constant_override("margin_right", 8)
+		margin.add_theme_constant_override("margin_top", 6)
+		margin.add_theme_constant_override("margin_bottom", 7)
+		card.add_child(margin)
+		var column := VBoxContainer.new()
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		column.add_theme_constant_override("separation", 4)
+		margin.add_child(column)
+		var candidate_heading := _make_label(
+			"%s  /  %s" % [
+				_compact_manager_name(String(candidate.get("name", "ROOSTER"))),
+				String(candidate.get("archetype", "MANAGEMENT")),
+			],
+			10,
+			COLOR_BRASS,
+		)
+		candidate_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(candidate_heading)
+		var doctrine := _make_label(
+			"\"%s\"" % String(candidate.get("doctrine", "Alignment is progress.")),
+			9,
+			COLOR_MUTED,
+		)
+		doctrine.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		doctrine.visible = false
+		column.add_child(doctrine)
+		var terms := _make_label(
+			(
+				"SUCCESSION FEE  $%.2f  /  REPLACES  %s\n"
+				+ "ROOSTERS  %d  /  PAYROLL  $%.2f -> $%.2f/day  /  EGGS  0"
+			) % [
+				float(int(candidate.get("signing_cost_cents", 0))) / 100.0,
+				String(candidate.get("replaces_name", "NEWEST POST")).to_upper(),
+				int(candidate.get("manager_count", 0)),
+				float(int(candidate.get("supervisor_payroll_before_cents", 0))) / 100.0,
+				float(int(candidate.get("supervisor_payroll_after_cents", 0))) / 100.0,
+			],
+			9,
+			COLOR_TEAL,
+		)
+		terms.name = "ManagerCandidateTerms_%s" % String(candidate_id)
+		terms.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		terms.visible = false
+		column.add_child(terms)
+		var exact_terms := "%s. %s. %s" % [candidate_heading.text, doctrine.text, terms.text]
+		candidate_heading.tooltip_text = exact_terms
+		candidate_heading.set_meta("accessible_text", exact_terms)
+		var metrics := GridContainer.new()
+		metrics.name = "ManagerCandidateMetrics_%s" % String(candidate_id)
+		metrics.columns = 2
+		metrics.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		metrics.add_theme_constant_override("h_separation", 4)
+		metrics.add_theme_constant_override("v_separation", 4)
+		column.add_child(metrics)
+		var fee_glance := _metric_chip(metrics, "FEE\n%s" % _compact_currency(int(candidate.get("signing_cost_cents", 0))))
+		fee_glance.name = "ManagerCandidateFee_%s" % String(candidate_id)
+		var replace_glance := _metric_chip(metrics, "REPLACE\n%s" % _compact_manager_name(String(candidate.get("replaces_name", "NEWEST"))))
+		replace_glance.name = "ManagerCandidateReplace_%s" % String(candidate_id)
+		var payroll_glance := _metric_chip(metrics, "PAY\n%s / %s" % [
+			_compact_currency(int(candidate.get("supervisor_payroll_before_cents", 0))),
+			_compact_currency(int(candidate.get("supervisor_payroll_after_cents", 0))),
+		])
+		payroll_glance.name = "ManagerCandidatePayroll_%s" % String(candidate_id)
+		var eggs_glance := _metric_chip(metrics, "EGGS\n0")
+		eggs_glance.name = "ManagerCandidateEggs_%s" % String(candidate_id)
+		for glance: Label in [fee_glance, replace_glance, payroll_glance, eggs_glance]:
+			glance.tooltip_text = exact_terms
+			glance.set_meta("accessible_text", exact_terms)
+		var button := Button.new()
+		button.name = "RecruitManager_%s" % String(candidate_id)
+		button.text = "REVIEW"
+		button.custom_minimum_size.y = 40.0
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.clip_text = true
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		button.disabled = not bool(candidate.get("can_recruit", false))
+		button.tooltip_text = (
+			"%s\n%s\nReview exact succession cost, payroll, replacement, and doctrine before filing."
+			% [
+				String(candidate.get("doctrine", "")),
+				String(candidate.get("reason", "")),
+			]
+		)
+		button.set_meta("accessible_text", button.tooltip_text)
+		button.pressed.connect(func() -> void:
+			_on_manager_recruit_pressed(candidate_id, button)
+		)
+		column.add_child(button)
+		card.tooltip_text = exact_terms
+		card.set_meta("accessible_text", exact_terms)
+	if _manager_candidate_toggle != null:
+		_manager_candidate_toggle.set_summary(
+			str(available.size()),
+			"%d screened successors. Appointment replaces the newest management post and is irreversible." % available.size(),
+		)
+		_manager_candidate_toggle.set_expanded(expanded, false)
+
+
+func _build_manager_card(
+	manager: Dictionary,
+	assignments: Array,
+	postures: Array,
+	planning_open: bool,
+) -> Control:
+	var manager_id := StringName(String(manager.get("id", "")))
+	var card := PanelContainer.new()
+	card.name = "ManagerCard_%s" % String(manager_id)
+	card.add_theme_stylebox_override("panel", _facility_card_style(false, false, false))
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	card.add_child(margin)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 4)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.add_child(column)
+	var heading := _make_label(
+		"%s  /  %s" % [
+			_compact_manager_name(String(manager.get("name", "ROOSTER MANAGER"))),
+			String(manager.get("archetype", "MANAGEMENT")),
+		],
+		10,
+		COLOR_BRASS,
+	)
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(heading)
+	var doctrine := _make_label(
+		"%s  /  $%.2f day  /  INFLUENCE %d\n“%s”" % [
+			String(manager.get("archetype", "MANAGEMENT")),
+			float(int(manager.get("salary_cents", 0))) / 100.0,
+			int(manager.get("influence", 0)),
+			String(manager.get("doctrine", "Alignment is progress.")),
+		],
+		9,
+		COLOR_MUTED,
+	)
+	doctrine.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	doctrine.name = "ManagerDoctrine_%s" % String(manager_id)
+	doctrine.visible = false
+	column.add_child(doctrine)
+	var exact_manager := "%s / %s. %s" % [
+		String(manager.get("name", "ROOSTER MANAGER")).to_upper(),
+		String(manager.get("title", "ACTING LEAD")).to_upper(),
+		doctrine.text,
+	]
+	heading.tooltip_text = exact_manager
+	heading.set_meta("accessible_text", exact_manager)
+	var manager_glance := _make_label(
+		"PAY  %s / DAY   /   INF  %d" % [
+			_compact_currency(int(manager.get("salary_cents", 0))),
+			int(manager.get("influence", 0)),
+		],
+		9,
+		COLOR_MUTED,
+	)
+	manager_glance.name = "ManagerGlance_%s" % String(manager_id)
+	manager_glance.tooltip_text = exact_manager
+	manager_glance.set_meta("accessible_text", exact_manager)
+	column.add_child(manager_glance)
+	var controls := VBoxContainer.new()
+	controls.add_theme_constant_override("separation", 5)
+	controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(controls)
+	var assignment_select := _manager_option_button(
+		"Assignment_%s" % String(manager_id), assignments,
+		StringName(String(manager.get("assignment_id", "whole_flock"))), planning_open,
+	)
+	assignment_select.tooltip_text = "%s\nASSIGNMENT / Choose which hens this rooster manages. Available during planning and review." % exact_manager
+	assignment_select.set_meta("accessible_text", assignment_select.tooltip_text)
+	assignment_select.item_selected.connect(func(index: int) -> void:
+		manager_assignment_requested.emit(manager_id, StringName(String(assignment_select.get_item_metadata(index))))
+	)
+	controls.add_child(assignment_select)
+	var posture_select := _manager_option_button(
+		"Posture_%s" % String(manager_id), postures,
+		StringName(String(manager.get("posture_id", "coach"))), planning_open,
+	)
+	posture_select.tooltip_text = "%s\nPOSTURE / Choose this rooster's next-shift doctrine. Effects apply once the morning directive is filed." % exact_manager
+	posture_select.set_meta("accessible_text", posture_select.tooltip_text)
+	posture_select.item_selected.connect(func(index: int) -> void:
+		manager_posture_requested.emit(manager_id, StringName(String(posture_select.get_item_metadata(index))))
+	)
+	controls.add_child(posture_select)
+	card.tooltip_text = exact_manager
+	card.set_meta("accessible_text", exact_manager)
+	return card
+
+
+func _manager_option_button(
+	node_name: String,
+	catalog: Array,
+	selected_id: StringName,
+	enabled: bool,
+) -> OptionButton:
+	var selector := OptionButton.new()
+	selector.name = node_name
+	selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selector.custom_minimum_size = Vector2(0.0, 34.0)
+	selector.fit_to_longest_item = false
+	selector.clip_text = true
+	selector.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	selector.disabled = not enabled
+	for item_value in catalog:
+		if not item_value is Dictionary:
+			continue
+		var item := item_value as Dictionary
+		var item_id := StringName(String(item.get("id", "")))
+		selector.add_item(String(item.get("label", item_id)))
+		var item_index := selector.item_count - 1
+		selector.set_item_metadata(item_index, String(item_id))
+		if item_id == selected_id:
+			selector.select(item_index)
+	return selector
 
 
 func _build_flock_care_section() -> void:
@@ -541,23 +1256,54 @@ func _build_flock_care_section() -> void:
 
 	var heading := _make_label("FLOCK CARE & TRAINING", 12, COLOR_BRASS)
 	heading.name = "FlockCareHeading"
+	heading.tooltip_text = "Flock care / welfare, physical recovery, training, and the next capital decision."
+	heading.set_meta("accessible_text", heading.tooltip_text)
 	column.add_child(heading)
 	_care_gate_label = _make_label("RESTED FLOCK", 11, COLOR_TEAL)
 	_care_gate_label.name = "FlockCareRestedGate"
 	_care_gate_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_care_gate_label.visible = false
 	column.add_child(_care_gate_label)
 	_care_wellness_label = _make_label("", 11, COLOR_MUTED)
 	_care_wellness_label.name = "FlockCareWellnessSummary"
 	_care_wellness_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_care_wellness_label.visible = false
 	column.add_child(_care_wellness_label)
 	_care_training_label = _make_label("", 11, COLOR_MUTED)
 	_care_training_label.name = "FlockCareTrainingSummary"
 	_care_training_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_care_training_label.visible = false
 	column.add_child(_care_training_label)
+
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "FlockCareGlanceGrid"
+	glance_grid.columns = 2
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	glance_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(glance_grid)
+	_care_welfare_glance = _metric_chip(glance_grid, "WELFARE\n-- / --")
+	_care_welfare_glance.name = "FlockCareWelfareGlance"
+	_care_rest_glance = _metric_chip(glance_grid, "REST\n0 / 0")
+	_care_rest_glance.name = "FlockCareRestGlance"
+	_care_strain_glance = _metric_chip(glance_grid, "STRAIN\nBASE")
+	_care_strain_glance.name = "FlockCareStrainGlance"
+	_care_recovery_glance = _metric_chip(glance_grid, "RECOVER\nBASE")
+	_care_recovery_glance.name = "FlockCareRecoveryGlance"
+	_care_training_glance = _metric_chip(glance_grid, "TRAIN\nNONE")
+	_care_training_glance.name = "FlockCareTrainingGlance"
+	_care_terms_glance = _metric_chip(glance_grid, "TERMS\n$12 / -15% / +0XP")
+	_care_terms_glance.name = "FlockCareTermsGlance"
+
 	_care_next_action_label = _make_label("", 10, Color("d7c17d"))
 	_care_next_action_label.name = "FlockCareNextAction"
 	_care_next_action_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_care_next_action_label.visible = false
 	column.add_child(_care_next_action_label)
+	_care_next_action_glance = _make_label("", 10, Color("d7c17d"))
+	_care_next_action_glance.name = "FlockCareNextActionGlance"
+	_care_next_action_glance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(_care_next_action_glance)
 
 
 func _refresh_flock_care() -> void:
@@ -585,6 +1331,11 @@ func _refresh_flock_care() -> void:
 			"" if absi(margin) == 1 else "s",
 		]
 	)
+	_care_gate_label.set_meta("accessible_text", _care_gate_label.text + "\n" + _care_gate_label.tooltip_text)
+	_care_welfare_glance.text = "WELFARE\n%d / %d  %s" % [welfare, gate, "OK" if gate_met else "SHORT"]
+	_care_welfare_glance.add_theme_color_override("font_color", COLOR_TEAL if gate_met else COLOR_RUST)
+	_care_welfare_glance.tooltip_text = _care_gate_label.text + "\n" + _care_gate_label.tooltip_text
+	_care_welfare_glance.set_meta("accessible_text", _care_welfare_glance.tooltip_text)
 
 	var recovery := care.get("recovery_effects", care.get("effects", {})) as Dictionary
 	var wellness_level := maxi(0, int(care.get(
@@ -615,6 +1366,19 @@ func _refresh_flock_care() -> void:
 		]
 	)
 	_care_wellness_label.tooltip_text = _wellness_care_tooltip(recovery)
+	_care_wellness_label.set_meta("accessible_text", _care_wellness_label.text + "\n" + _care_wellness_label.tooltip_text)
+	_care_rest_glance.text = "REST  L%d\n%d / %d" % [wellness_level, breaks_active, recovery_perches]
+	_care_strain_glance.text = "STRAIN\n%s" % _multiplier_delta_copy(strain_multiplier)
+	_care_recovery_glance.text = "RECOVER\n%s" % _multiplier_delta_copy(break_multiplier)
+	for glance: Label in [_care_rest_glance, _care_strain_glance, _care_recovery_glance]:
+		glance.tooltip_text = _care_wellness_label.text + "\n" + _care_wellness_label.tooltip_text
+		glance.set_meta("accessible_text", glance.tooltip_text)
+	_care_strain_glance.add_theme_color_override(
+		"font_color", COLOR_TEAL if strain_multiplier < 1.0 else COLOR_MUTED
+	)
+	_care_recovery_glance.add_theme_color_override(
+		"font_color", COLOR_TEAL if break_multiplier > 1.0 else COLOR_MUTED
+	)
 
 	var training_terms := care.get("training_terms", {}) as Dictionary
 	var training_level := maxi(0, int(care.get(
@@ -644,21 +1408,45 @@ func _refresh_flock_care() -> void:
 		]
 	)
 	_care_training_label.tooltip_text = _training_care_tooltip(training_terms)
+	_care_training_label.set_meta("accessible_text", _care_training_label.text + "\n" + _care_training_label.tooltip_text)
+	_care_training_glance.text = "TRAIN  L%d\n%s" % [
+		training_level,
+		"%d ACTIVE" % training_active if training_active > 0 else "NONE",
+	]
+	_care_terms_glance.text = "TERMS\n%s / %s / +%dXP" % [
+		_compact_currency(effective_cost),
+		"FULL" if work_penalty <= 0.05 else "-%s%%" % _compact_number(work_penalty),
+		coaching_bonus,
+	]
+	for glance: Label in [_care_training_glance, _care_terms_glance]:
+		glance.tooltip_text = _care_training_label.text + "\n" + _care_training_label.tooltip_text
+		glance.set_meta("accessible_text", glance.tooltip_text)
 
 	var next_action := care.get("next_care_action", {}) as Dictionary
-	_care_next_action_label.visible = not next_action.is_empty()
+	_care_next_action_label.visible = false
+	_care_next_action_glance.visible = not next_action.is_empty()
 	if not next_action.is_empty():
 		_care_next_action_label.text = _care_action_copy(next_action)
 		_care_next_action_label.tooltip_text = String(next_action.get(
 			"reason",
 			next_action.get("action_reason", "The next flock-care requisition is listed in Capital Expansions below."),
 		))
+		_care_next_action_label.set_meta(
+			"accessible_text", _care_next_action_label.text + "\n" + _care_next_action_label.tooltip_text
+		)
+		_care_next_action_glance.text = _care_action_glance_copy(next_action)
+		_care_next_action_glance.tooltip_text = (
+			_care_next_action_label.text + "\n" + _care_next_action_label.tooltip_text
+		)
+		_care_next_action_glance.set_meta("accessible_text", _care_next_action_glance.tooltip_text)
 
 
 func _refresh_capacity_button(capacity: int, maximum: int, spendable: int, planning_open: bool) -> void:
 	var upgrade := _snapshot.get("capacity_upgrade", {}) as Dictionary
 	var cost := int(upgrade.get("cost_cents", upgrade.get("cost", 0)))
+	var added_daily := maxi(0, int(upgrade.get("added_daily_operating_cents", 0)))
 	var next_capacity := int(upgrade.get("next_capacity", mini(maximum, capacity + 1)))
+	var bay_label := "WEST BAY A" if next_capacity == 5 else "WEST BAY B + ARCHIVE"
 	var maxed := bool(upgrade.get("maxed", capacity >= maximum)) or capacity >= maximum
 	var authoritative_can_purchase := bool(upgrade.get("can_purchase", upgrade.get("available", not maxed)))
 	var affordable := spendable >= cost
@@ -666,7 +1454,12 @@ func _refresh_capacity_button(capacity: int, maximum: int, spendable: int, plann
 	_capacity_button.text = (
 		"ROOST CAPACITY FULL  ·  %d PERCHES" % maximum
 		if maxed else
-		"AUTHORIZE PERCH %d  ·  $%.2f" % [next_capacity, cost / 100.0]
+		"AUTHORIZE PERCH %d  ·  $%.2f\n%s  ·  +$%.2f / SHIFT" % [
+			next_capacity,
+			cost / 100.0,
+			bay_label,
+			added_daily / 100.0,
+		]
 	)
 	_capacity_button.disabled = not enabled
 	var reason := String(upgrade.get("reason", ""))
@@ -679,7 +1472,12 @@ func _refresh_capacity_button(capacity: int, maximum: int, spendable: int, plann
 	elif reason.is_empty() and not authoritative_can_purchase:
 		reason = "This capacity requisition is not currently authorized."
 	_capacity_button.tooltip_text = (
-		"Spend $%.2f to reveal one staffed workstation without touching reserved operating costs." % (cost / 100.0)
+		"File $%.2f to commission Perch %d in %s. The authorization opens one vacant workstation and adds $%.2f to each shift's protected operating reserve." % [
+			cost / 100.0,
+			next_capacity,
+			bay_label.to_lower(),
+			added_daily / 100.0,
+		]
 		if enabled else
 		"CAPACITY HELD: %s" % reason
 	)
@@ -700,11 +1498,11 @@ func _refresh_facilities(spendable: int, operating: int, planning_open: bool) ->
 	_facilities_section.visible = not catalog.is_empty()
 	_facility_list.visible = _inline_facilities_open and not catalog.is_empty()
 	if _inline_facilities_toggle != null:
-		_inline_facilities_toggle.text = "HIDE" if _inline_facilities_open else "SHOW"
+		_inline_facilities_toggle.text = "CLOSE" if _inline_facilities_open else "OPEN"
 		_inline_facilities_toggle.tooltip_text = (
-			"Collapse the inline card list and return to the compact ledger."
+			"Close direct requisitions and return to the canonical Capital Blueprint summary."
 			if _inline_facilities_open else
-			"Open the legacy card list here; Capital Blueprint is the clearer comparison view."
+			"Open compact direct requisitions. Capital Blueprint remains the canonical comparison view."
 		)
 	if catalog.is_empty():
 		_restore_facility_navigation.call_deferred(
@@ -719,9 +1517,21 @@ func _refresh_facilities(spendable: int, operating: int, planning_open: bool) ->
 
 
 func _on_inline_facilities_toggle_pressed() -> void:
-	_inline_facilities_open = not _inline_facilities_open
-	_facility_list.visible = _inline_facilities_open
-	_inline_facilities_toggle.text = "HIDE" if _inline_facilities_open else "SHOW"
+	_set_inline_facilities_expanded(not _inline_facilities_open)
+	presentation_context_changed.emit()
+
+
+func _set_inline_facilities_expanded(expanded: bool) -> void:
+	_inline_facilities_open = expanded
+	if _facility_list != null:
+		_facility_list.visible = expanded and _facilities_section.visible
+	if _inline_facilities_toggle != null:
+		_inline_facilities_toggle.text = "CLOSE" if expanded else "OPEN"
+		_inline_facilities_toggle.tooltip_text = (
+			"Close direct requisitions and return to the canonical Capital Blueprint summary."
+			if expanded else
+			"Open compact direct requisitions. Capital Blueprint remains the canonical comparison view."
+		)
 
 
 func _build_facility_card(
@@ -734,7 +1544,7 @@ func _build_facility_card(
 	var node_suffix := _safe_node_suffix(String(facility_id))
 	var display_name := String(facility.get("display_name", facility.get("name", facility.get("short_name", "UNFILED FACILITY"))))
 	var short_name := String(facility.get("short_name", display_name))
-	var description := String(facility.get("description", "A proposed addition to the claims floor."))
+	var description := String(facility.get("description", "A proposed addition to the peckwork floor."))
 	var level := _facility_level(facility_id, facility)
 	var max_level := maxi(1, int(facility.get("max_level", 1)))
 	var installed := bool(facility.get("installed", level > 0 or _facility_is_owned(facility_id, facility)))
@@ -834,17 +1644,42 @@ func _build_facility_card(
 	level_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading_row.add_child(level_label)
 
+	var details_toggle := Button.new()
+	details_toggle.name = "FacilityDetailsToggle_%s" % node_suffix
+	details_toggle.toggle_mode = true
+	details_toggle.focus_mode = Control.FOCUS_ALL
+	details_toggle.custom_minimum_size.y = 32.0
+	details_toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(details_toggle)
+	var details := VBoxContainer.new()
+	details.name = "FacilityDetails_%s" % node_suffix
+	details.add_theme_constant_override("separation", 5)
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(details)
+	var details_expanded := bool(_expanded_facility_details.get(facility_id, false))
+	details.visible = details_expanded
+	details_toggle.set_pressed_no_signal(details_expanded)
+	details_toggle.text = "HIDE DETAILS" if details_expanded else "DETAILS  /  COSTS + EFFECTS"
+	details_toggle.tooltip_text = (
+		"Collapse this direct requisition; the purchase action remains available."
+		if details_expanded else
+		"Review exact costs, gates, effects, and reserve consequences."
+	)
+	details_toggle.toggled.connect(
+		_on_facility_details_toggled.bind(facility_id, details_toggle, details)
+	)
+
 	var description_label := _make_label(description, 11, COLOR_MUTED)
 	description_label.name = "FacilityDescription_%s" % node_suffix
 	description_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(description_label)
+	details.add_child(description_label)
 
 	var cost_flow := HFlowContainer.new()
 	cost_flow.name = "FacilityCosts_%s" % node_suffix
 	cost_flow.add_theme_constant_override("h_separation", 12)
 	cost_flow.add_theme_constant_override("v_separation", 2)
 	cost_flow.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.add_child(cost_flow)
+	details.add_child(cost_flow)
 	var capital_copy := (
 		"CAPITAL COMPLETE"
 		if maxed else
@@ -882,7 +1717,7 @@ func _build_facility_card(
 			"Every listed standing, live-file archive, and active-hen requirement must clear before the next Service Coop tier can be commissioned. "
 			+ "Its premium bonus applies only when a signed Farm Mutual binder succeeds."
 		)
-		column.add_child(service_gate)
+		details.add_child(service_gate)
 	if facility_id == &"farm_mutual_negotiation_room":
 		var negotiation_gate := _make_label(
 			_negotiation_room_gate_copy(facility, maxed),
@@ -895,7 +1730,7 @@ func _build_facility_card(
 			"Gold Farm Mutual standing and the completed Service Coop are structural prerequisites. "
 			+ "Once built, the room remains commissioned and unlocks one disclosed rider per binder."
 		)
-		column.add_child(negotiation_gate)
+		details.add_child(negotiation_gate)
 	if facility_id == &"training_roost" and _has_training_wellness_gate(facility):
 		var training_gate := _make_label(
 			_training_wellness_gate_copy(facility),
@@ -905,13 +1740,13 @@ func _build_facility_card(
 		training_gate.name = "FacilityTrainingWellnessGate_%s" % node_suffix
 		training_gate.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		training_gate.tooltip_text = "Training Roost tiers require a matching Wellness Nest tier so coaching capacity never outruns recovery capacity."
-		column.add_child(training_gate)
+		details.add_child(training_gate)
 	if facility_id in [&"wellness_nest_room", &"training_roost"]:
 		var care_delta := _make_label(_care_facility_delta_copy(facility_id, facility, maxed), 11, COLOR_TEAL)
 		care_delta.name = "FacilityCareDelta_%s" % node_suffix
 		care_delta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		care_delta.tooltip_text = "Current and next-tier values come directly from the facilities ledger."
-		column.add_child(care_delta)
+		details.add_child(care_delta)
 	if facility_id in [&"rooster_operations_office", &"it_coop"]:
 		var operations_delta := _make_label(
 			_operations_facility_delta_copy(facility_id, facility, maxed),
@@ -923,7 +1758,7 @@ func _build_facility_card(
 		operations_delta.tooltip_text = (
 			"Current and next-tier supervision or AUTO-support values come directly from the facilities ledger."
 		)
-		column.add_child(operations_delta)
+		details.add_child(operations_delta)
 	if facility_id == &"flock_relations_office":
 		var relations_gate := _make_label(
 			_flock_relations_gate_copy(facility),
@@ -936,7 +1771,7 @@ func _build_facility_card(
 			"A matching Rooster Operations tier supplies authority; a matching Wellness Nest tier supplies an actual remedy path. "
 			+ "Both permanent dependencies must be commissioned before the next labor-case tier."
 		)
-		column.add_child(relations_gate)
+		details.add_child(relations_gate)
 		var relations_delta := _make_label(
 			_flock_relations_delta_copy(facility, maxed),
 			11,
@@ -947,7 +1782,7 @@ func _build_facility_card(
 		relations_delta.tooltip_text = (
 			"Case slots hold unresolved named-hen files. Review authorizations limit how many real cases management may resolve before the next shift."
 		)
-		column.add_child(relations_delta)
+		details.add_child(relations_delta)
 	if facility_id == &"feed_procurement_coop":
 		var provisions_delta := _make_label(
 			_feed_procurement_delta_copy(facility, maxed),
@@ -960,13 +1795,13 @@ func _build_facility_card(
 			"Bin capacity and supplier access come directly from the facility ledger. "
 			+ "Stored lots still expire, and uncovered demand remains a seasonal spot obligation."
 		)
-		column.add_child(provisions_delta)
+		details.add_child(provisions_delta)
 
 	var benefits_label := _make_label(_facility_benefits_copy(facility), 11, COLOR_TEAL)
 	benefits_label.name = "FacilityBenefits_%s" % node_suffix
 	benefits_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	benefits_label.tooltip_text = "These are the economic effects activated when %s is installed." % display_name
-	column.add_child(benefits_label)
+	details.add_child(benefits_label)
 
 	var projected_spendable := int(facility.get("projected_spendable_fund_cents", spendable - required_spendable))
 	var projected_reserve := int(facility.get(
@@ -985,7 +1820,7 @@ func _build_facility_card(
 	projection_label.name = "FacilityProjection_%s" % node_suffix
 	projection_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	projection_label.tooltip_text = "The protected reserve covers projected payroll, feed, and facility obligations before discretionary spending."
-	column.add_child(projection_label)
+	details.add_child(projection_label)
 
 	var reason := _facility_reason(
 		facility,
@@ -1051,6 +1886,26 @@ func _build_facility_card(
 		column.add_child(reason_label)
 
 
+func _on_facility_details_toggled(
+	expanded: bool,
+	facility_id: StringName,
+	toggle: Button,
+	details: VBoxContainer,
+) -> void:
+	if not expanded and is_inside_tree():
+		var focus_owner := get_viewport().gui_get_focus_owner()
+		if focus_owner != null and (focus_owner == details or details.is_ancestor_of(focus_owner)):
+			toggle.grab_focus()
+	_expanded_facility_details[facility_id] = expanded
+	details.visible = expanded
+	toggle.text = "HIDE DETAILS" if expanded else "DETAILS  /  COSTS + EFFECTS"
+	toggle.tooltip_text = (
+		"Collapse this direct requisition; the purchase action remains available."
+		if expanded else
+		"Review exact costs, gates, effects, and reserve consequences."
+	)
+
+
 func _facility_entries() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	for facility_value in _snapshot.get("facility_catalog", []):
@@ -1101,6 +1956,17 @@ func _multiplier_delta_copy(multiplier: float) -> String:
 func _compact_number(value: float) -> String:
 	var rounded := snappedf(value, 0.1)
 	return str(roundi(rounded)) if is_equal_approx(rounded, float(roundi(rounded))) else "%.1f" % rounded
+
+
+func _compact_currency(value_cents: int) -> String:
+	if value_cents % 100 == 0:
+		return "$%d" % (value_cents / 100)
+	return "$%.2f" % (float(value_cents) / 100.0)
+
+
+func _compact_manager_name(value: String) -> String:
+	var parts := value.strip_edges().to_upper().split(" ", false)
+	return String(parts[0]) if not parts.is_empty() else "ROOSTER"
 
 
 func _millipoints_copy(value: int) -> String:
@@ -1217,6 +2083,35 @@ func _care_action_copy(action: Dictionary) -> String:
 		float(capital_cost) / 100.0,
 		"+" if upkeep_delta >= 0 else "-",
 		absf(float(upkeep_delta) / 100.0),
+	]
+
+
+func _care_action_glance_copy(action: Dictionary) -> String:
+	if bool(action.get("complete", false)):
+		return "NEXT  /  CARE CAMPUS COMPLETE"
+	var facility_id := String(action.get("facility_id", action.get("id", "care_expansion")))
+	var display_name := String(action.get(
+		"short_name",
+		action.get(
+			"display_name",
+			action.get("name", facility_id.replace("_room", "").replace("_", " ").capitalize()),
+		),
+	)).to_upper()
+	var next_level := maxi(1, int(action.get("next_level", action.get("level", 1))))
+	var capital_cost := maxi(0, int(action.get(
+		"capital_cost_cents",
+		action.get("next_level_cost_cents", action.get("cost_cents", 0)),
+	)))
+	var upkeep_delta := int(action.get(
+		"maintenance_delta_cents",
+		action.get("upkeep_delta_cents", 0),
+	))
+	return "NEXT  /  %s L%d\n%s CAPITAL  /  %s%s/DAY" % [
+		display_name,
+		next_level,
+		_compact_currency(capital_cost),
+		"+" if upkeep_delta >= 0 else "-",
+		_compact_currency(absi(upkeep_delta)),
 	]
 
 
@@ -1983,7 +2878,7 @@ func _refresh_release_controls(spendable: int, planning_open: bool) -> void:
 	elif reason.is_empty() and not affordable:
 		reason = "Spendable Feed Fund is short by $%.2f." % ((release_cost - spendable) / 100.0)
 	elif reason.is_empty() and not can_release:
-		reason = "At least one active hen must remain on the claim floor."
+		reason = "At least one active hen must remain on the peckwork floor."
 	_release_button.tooltip_text = (
 		"Release this hen for an exact separation cost of $%.2f." % (release_cost / 100.0)
 		if enabled else
@@ -2000,6 +2895,8 @@ func _refresh_last_action() -> void:
 
 
 func _on_release_selection_changed(index: int) -> void:
+	if _pending_release_worker_id >= 0:
+		_cancel_release_confirmation(false)
 	if index < 0 or index >= _release_selector.item_count:
 		return
 	var metadata: Variant = _release_selector.get_item_metadata(index)
@@ -2013,8 +2910,288 @@ func _on_release_selection_changed(index: int) -> void:
 
 
 func _on_release_pressed() -> void:
-	if _selected_release_worker_id >= 0:
-		release_requested.emit(_selected_release_worker_id)
+	if (
+		_selected_release_worker_id < 0
+		or _release_button == null
+		or _release_button.disabled
+	):
+		return
+	var worker := _staffing_record(_selected_release_worker_id)
+	if worker.is_empty() or not bool(worker.get("can_release", true)):
+		return
+	_pending_release_worker_id = _selected_release_worker_id
+	_release_confirmation_origin = _release_button
+	var display_name := String(worker.get(
+		"name",
+		worker.get(
+			"display_name",
+			"HEN %d" % (_selected_release_worker_id + 1),
+		),
+	)).strip_edges()
+	var release_cost := int(worker.get("release_cost_cents", 0))
+	var wage := int(worker.get("daily_wage_cents", 0))
+	var release_cost_copy := (
+		"$0.00" if release_cost == 0 else "-$%.2f" % (float(release_cost) / 100.0)
+	)
+	_release_confirmation.title = "FILE %s'S RELEASE?" % display_name.to_upper()
+	_release_confirmation.ok_button_text = "FILE"
+	_release_confirmation.cancel_button_text = "KEEP"
+	_release_confirmation.dialog_text = (
+		"HEN  /  %s\n"
+		+ "STATUS  /  EMPLOYED -> RELEASED  ·  PERMANENT\n\n"
+		+ "COST  /  %s FEED FUND\n"
+		+ "PAYROLL  /  -$%.2f / DAY\n"
+		+ "ROOST  /  -1 ACTIVE HEN\n"
+		+ "PERCH  /  VACATED\n\n"
+		+ "NO CHANGE UNTIL YOU FILE."
+	) % [
+		display_name.to_upper(),
+		release_cost_copy,
+		float(wage) / 100.0,
+	]
+	var confirm_button := _release_confirmation.get_ok_button()
+	var cancel_button := _release_confirmation.get_cancel_button()
+	confirm_button.tooltip_text = (
+		"Permanently release %s for %s Feed Fund."
+		% [display_name, release_cost_copy]
+	)
+	cancel_button.tooltip_text = "Return with %s still employed." % display_name
+	var accessible_copy := "%s %s Confirm: %s. Safe return: %s." % [
+		_release_confirmation.title,
+		_release_confirmation.dialog_text.replace("\n", " "),
+		confirm_button.text,
+		cancel_button.text,
+	]
+	_release_confirmation.set_meta("accessible_text", accessible_copy)
+	_release_confirmation.get_label().set_meta("accessible_text", accessible_copy)
+	_release_confirmation.popup_centered_clamped(Vector2i(380, 300), 0.92)
+	cancel_button.call_deferred("grab_focus")
+	interaction_safety_changed.emit()
+
+
+func _confirm_release() -> void:
+	if not _pending_release_is_valid():
+		_cancel_release_confirmation(false)
+		return
+	var worker_id := _pending_release_worker_id
+	_clear_pending_release()
+	if _release_confirmation != null:
+		_release_confirmation.hide()
+	release_requested.emit(worker_id)
+	interaction_safety_changed.emit()
+
+
+func _cancel_release_confirmation(restore_focus: bool = true) -> void:
+	var origin := _release_confirmation_origin
+	var had_pending := _pending_release_worker_id >= 0
+	_clear_pending_release()
+	if _release_confirmation != null:
+		_release_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not origin.disabled
+	):
+		origin.call_deferred("grab_focus")
+	if had_pending:
+		interaction_safety_changed.emit()
+
+
+func _clear_pending_release() -> void:
+	_pending_release_worker_id = -1
+	_release_confirmation_origin = null
+
+
+func _pending_release_is_valid() -> bool:
+	if _pending_release_worker_id < 0:
+		return false
+	if not bool(_snapshot.get("staffing_planning_open", false)):
+		return false
+	var worker := _staffing_record(_pending_release_worker_id)
+	return (
+		not worker.is_empty()
+		and _is_employed(worker)
+		and bool(worker.get("can_release", true))
+		and int(_snapshot.get(
+			"spendable_fund_cents",
+			_snapshot.get("revenue_cents", 0),
+		)) >= int(worker.get("release_cost_cents", 0))
+	)
+
+
+func _on_manager_recruit_pressed(
+	candidate_id: StringName,
+	origin: Control,
+) -> void:
+	if origin == null or not is_instance_valid(origin):
+		return
+	var candidate := _manager_candidate_record(candidate_id)
+	if (
+		candidate.is_empty()
+		or not bool(candidate.get("can_recruit", false))
+		or origin is BaseButton and (origin as BaseButton).disabled
+	):
+		return
+	_pending_manager_candidate_id = candidate_id
+	_manager_recruit_confirmation_origin = origin
+	var candidate_name := String(candidate.get(
+		"name",
+		"ROOSTER CANDIDATE",
+	)).strip_edges()
+	var archetype := String(candidate.get("archetype", "MANAGEMENT")).strip_edges()
+	var replaced_name := String(candidate.get(
+		"replaces_name",
+		"THE NEWEST MANAGER",
+	)).strip_edges()
+	var signing_cost := maxi(0, int(candidate.get("signing_cost_cents", 0)))
+	var payroll_before := maxi(
+		0,
+		int(candidate.get("supervisor_payroll_before_cents", 0)),
+	)
+	var payroll_after := maxi(
+		0,
+		int(candidate.get("supervisor_payroll_after_cents", payroll_before)),
+	)
+	var manager_count := maxi(0, int(candidate.get("manager_count", 0)))
+	var default_posture := _manager_posture_label(
+		StringName(String(candidate.get("default_posture", "coach")))
+	)
+	var signing_cost_copy := (
+		"$0.00" if signing_cost == 0 else "-$%.2f" % (float(signing_cost) / 100.0)
+	)
+	_manager_recruit_confirmation.title = (
+		"APPOINT %s?" % candidate_name.to_upper()
+	)
+	_manager_recruit_confirmation.ok_button_text = "APPOINT"
+	_manager_recruit_confirmation.cancel_button_text = "KEEP"
+	_manager_recruit_confirmation.dialog_text = (
+		"CANDIDATE  /  %s\n"
+		+ "ROLE  /  %s\n"
+		+ "REPLACES  /  %s\n\n"
+		+ "COST  /  %s FEED FUND\n"
+		+ "ROOSTERS  /  %d -> %d\n"
+		+ "PAYROLL  /  $%.2f -> $%.2f / DAY\n"
+		+ "POSTURE  /  %s\n"
+		+ "OUTPUT  /  REPORTS + MEETINGS  ·  EGGS 0\n"
+		+ "TERM  /  PERMANENT THIS REVIEW\n\n"
+		+ "NO CHANGE UNTIL YOU FILE."
+	) % [
+		candidate_name.to_upper(),
+		archetype.to_upper(),
+		replaced_name.to_upper(),
+		signing_cost_copy,
+		manager_count,
+		manager_count,
+		float(payroll_before) / 100.0,
+		float(payroll_after) / 100.0,
+		default_posture.to_upper(),
+	]
+	var confirm_button := _manager_recruit_confirmation.get_ok_button()
+	var cancel_button := _manager_recruit_confirmation.get_cancel_button()
+	confirm_button.tooltip_text = (
+		"Permanently appoint %s for %s Feed Fund, replacing %s."
+		% [candidate_name, signing_cost_copy, replaced_name]
+	)
+	cancel_button.tooltip_text = "Return with %s still appointed." % replaced_name
+	var exact_confirmation := "%s %s Confirm: %s. Safe return: %s." % [
+		_manager_recruit_confirmation.title,
+		_manager_recruit_confirmation.dialog_text.replace("\n", " "),
+		confirm_button.text,
+		cancel_button.text,
+	]
+	var confirmation_copy := _manager_recruit_confirmation.get_label()
+	confirmation_copy.tooltip_text = exact_confirmation
+	confirmation_copy.set_meta("accessible_text", exact_confirmation)
+	_manager_recruit_confirmation.set_meta("accessible_text", exact_confirmation)
+	_manager_recruit_confirmation.popup_centered_clamped(
+		Vector2i(380, 390),
+		0.96,
+	)
+	cancel_button.call_deferred("grab_focus")
+	interaction_safety_changed.emit()
+
+
+func _confirm_manager_recruit() -> void:
+	if not _pending_manager_recruit_is_valid():
+		_cancel_manager_recruit_confirmation(false)
+		return
+	var candidate_id := _pending_manager_candidate_id
+	_clear_pending_manager_recruit()
+	if _manager_recruit_confirmation != null:
+		_manager_recruit_confirmation.hide()
+	manager_recruit_requested.emit(candidate_id)
+	interaction_safety_changed.emit()
+
+
+func _cancel_manager_recruit_confirmation(
+	restore_focus: bool = true,
+) -> void:
+	var origin := _manager_recruit_confirmation_origin
+	var had_pending := _pending_manager_candidate_id != &""
+	_clear_pending_manager_recruit()
+	if _manager_recruit_confirmation != null:
+		_manager_recruit_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not (origin is BaseButton and (origin as BaseButton).disabled)
+	):
+		origin.call_deferred("grab_focus")
+	if had_pending:
+		interaction_safety_changed.emit()
+
+
+func _clear_pending_manager_recruit() -> void:
+	_pending_manager_candidate_id = &""
+	_manager_recruit_confirmation_origin = null
+
+
+func _pending_manager_recruit_is_valid() -> bool:
+	if _pending_manager_candidate_id == &"":
+		return false
+	var candidate := _manager_candidate_record(_pending_manager_candidate_id)
+	return (
+		not candidate.is_empty()
+		and bool(candidate.get("can_recruit", false))
+	)
+
+
+func _manager_candidate_record(candidate_id: StringName) -> Dictionary:
+	if candidate_id == &"":
+		return {}
+	for candidate_value in _operations_snapshot().get(
+		"manager_candidates",
+		[],
+	) as Array:
+		if (
+			candidate_value is Dictionary
+			and StringName(String(
+				(candidate_value as Dictionary).get("id", ""),
+			)) == candidate_id
+		):
+			return (candidate_value as Dictionary).duplicate(true)
+	return {}
+
+
+func _manager_posture_label(posture_id: StringName) -> String:
+	for posture_value in _operations_snapshot().get(
+		"manager_postures",
+		[],
+	) as Array:
+		if (
+			posture_value is Dictionary
+			and StringName(String(
+				(posture_value as Dictionary).get("id", ""),
+			)) == posture_id
+		):
+			return String(
+				(posture_value as Dictionary).get("label", posture_id),
+			)
+	return String(posture_id).replace("_", " ")
 
 
 func _applicant_entries() -> Array[Dictionary]:
@@ -2091,6 +3268,34 @@ func _make_label(copy: String, font_size: int, color: Color) -> Label:
 	label.add_theme_font_size_override("font_size", font_size)
 	label.add_theme_color_override("font_color", color)
 	return label
+
+
+func _metric_chip(parent: GridContainer, copy: String) -> Label:
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size.y = 42.0
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", _metric_chip_style())
+	parent.add_child(panel)
+	var label := _make_label(copy, 10, Color("edf1ec"))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_child(label)
+	return label
+
+
+func _metric_chip_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("1e3039")
+	style.border_color = Color("495f68")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
+	style.content_margin_left = 4.0
+	style.content_margin_right = 4.0
+	style.content_margin_top = 3.0
+	style.content_margin_bottom = 3.0
+	return style
 
 
 func _card_style() -> StyleBoxFlat:

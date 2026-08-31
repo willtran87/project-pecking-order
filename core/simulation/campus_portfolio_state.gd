@@ -85,7 +85,7 @@ const MODULE_DEFINITIONS := {
 		"claim_capacity_bonus": 4,
 		"good_egg_bonus_cents": 25,
 		"benefits": [
-			"+4 live claim slots while staffed and powered",
+			"+4 live-file slots while staffed and powered",
 			"+$0.25 to every sound or golden egg while staffed and powered",
 		],
 		"tradeoffs": [

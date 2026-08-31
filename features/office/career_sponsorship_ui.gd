@@ -35,12 +35,20 @@ var _training_terms: Dictionary = {}
 var _refreshing := false
 
 var _balance_label: Label
+var _marks_glance: Label
+var _fund_glance: Label
+var _training_glance: Label
+var _wage_glance: Label
 var _worker_selector: OptionButton
 var _worker_detail_label: Label
 var _lane_selector: OptionButton
 var _terms_label: Label
 var _reason_label: Label
 var _authorize_button: Button
+var _confirmation: ConfirmationDialog
+var _pending_worker_id := -1
+var _pending_lane_id: StringName = &""
+var _confirmation_origin: Control
 
 
 func _ready() -> void:
@@ -53,6 +61,8 @@ func _ready() -> void:
 
 
 func apply_snapshot(snapshot: Dictionary) -> void:
+	if _confirmation != null and _confirmation.visible:
+		_cancel_confirmation(false)
 	_snapshot = snapshot.duplicate(true)
 	_training_terms = _training_terms_snapshot()
 	_available_marks = maxi(0, int(_snapshot.get("available_marks", 0)))
@@ -83,6 +93,7 @@ func authorization_reason() -> String:
 func _build_interface() -> void:
 	var heading := _make_label("CAREER SPONSORSHIP", 17, COLOR_BRASS)
 	heading.name = "CareerSponsorshipHeading"
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(heading)
 
 	var optional_note := _make_label(
@@ -116,10 +127,28 @@ func _build_interface() -> void:
 	_balance_label = _make_label("AVAILABLE  0 ROOST MARKS", 12, COLOR_BRASS)
 	_balance_label.name = "CareerSponsorshipBalance"
 	_balance_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_balance_label.visible = false
 	form.add_child(_balance_label)
+
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "CareerSponsorshipGlanceGrid"
+	glance_grid.columns = 2
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	glance_grid.add_theme_constant_override("v_separation", 5)
+	form.add_child(glance_grid)
+	_marks_glance = _metric_chip(glance_grid, "MARKS\n-- / --")
+	_marks_glance.name = "CareerSponsorshipMarksGlance"
+	_fund_glance = _metric_chip(glance_grid, "FUND\n--")
+	_fund_glance.name = "CareerSponsorshipFundGlance"
+	_training_glance = _metric_chip(glance_grid, "TRAIN\n--")
+	_training_glance.name = "CareerSponsorshipTrainingGlance"
+	_wage_glance = _metric_chip(glance_grid, "WAGE\n--")
+	_wage_glance.name = "CareerSponsorshipWageGlance"
 
 	var worker_caption := _make_label("HEN CANDIDATE", 11, COLOR_MUTED)
 	worker_caption.name = "CareerSponsorshipHenLabel"
+	worker_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(worker_caption)
 
 	_worker_selector = OptionButton.new()
@@ -135,6 +164,7 @@ func _build_interface() -> void:
 
 	var lane_caption := _make_label("ALTERNATE PECKWORK SPECIALTY", 11, COLOR_MUTED)
 	lane_caption.name = "CareerSponsorshipLaneLabel"
+	lane_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	form.add_child(lane_caption)
 
 	_lane_selector = OptionButton.new()
@@ -146,6 +176,7 @@ func _build_interface() -> void:
 	_terms_label = _make_label("", 11, COLOR_INK)
 	_terms_label.name = "CareerSponsorshipTerms"
 	_terms_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_terms_label.visible = false
 	form.add_child(_terms_label)
 
 	_reason_label = _make_label("", 11, COLOR_RUST)
@@ -161,8 +192,41 @@ func _build_interface() -> void:
 	_authorize_button.focus_mode = Control.FOCUS_ALL
 	_authorize_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_authorize_button.custom_minimum_size = Vector2(0.0, 42.0)
+	_authorize_button.clip_text = true
+	_authorize_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_authorize_button.pressed.connect(_on_authorize_pressed)
 	form.add_child(_authorize_button)
+	_build_confirmation()
+
+
+func _build_confirmation() -> void:
+	_confirmation = ConfirmationDialog.new()
+	_confirmation.name = "CareerSponsorshipConfirmation"
+	_confirmation.title = "FILE CAREER SPONSORSHIP?"
+	_confirmation.ok_button_text = "FILE"
+	_confirmation.cancel_button_text = "KEEP"
+	ManagementTheme.style_held_confirmation(_confirmation)
+	_confirmation.get_cancel_button().tooltip_text = (
+		"Cancel this filing and keep every Roost Mark and Feed Fund dollar."
+	)
+	_confirmation.min_size = Vector2i(340, 300)
+	var copy := _confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 178.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for action_button: Button in [
+		_confirmation.get_ok_button(),
+		_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size.x = 132.0
+		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action_button.autowrap_mode = TextServer.AUTOWRAP_OFF
+		action_button.clip_text = false
+	_confirmation.confirmed.connect(_confirm_sponsorship)
+	_confirmation.canceled.connect(_cancel_confirmation)
+	add_child(_confirmation)
 
 
 func _configure_selector(selector: OptionButton) -> void:
@@ -242,6 +306,7 @@ func _refresh_copy_and_authorization() -> void:
 		"AVAILABLE  %d ROOST %s\nAUTHORIZATION  %d %s + $%.2f FEED FUND"
 		% [_available_marks, available_word, _mark_cost, mark_word, float(_fund_cost_cents) / 100.0]
 	)
+	_balance_label.set_meta("accessible_text", _balance_label.text)
 
 	var worker := _worker_by_id(_selected_worker_id)
 	if worker.is_empty():
@@ -288,6 +353,24 @@ func _refresh_copy_and_authorization() -> void:
 	if coaching_xp_bonus > 0:
 		terms_lines.append("COACHING SUPPORT  +%d career XP per check-in" % coaching_xp_bonus)
 	_terms_label.text = "\n".join(terms_lines)
+	_terms_label.tooltip_text = _terms_label.text
+	_terms_label.set_meta("accessible_text", _terms_label.text)
+	_marks_glance.text = "MARKS\n%d / %d" % [_mark_cost, _available_marks]
+	_fund_glance.text = "FUND\n$%s%s" % [
+		_compact_currency_value(_fund_cost_cents),
+		" / SAVE $%s" % _compact_currency_value(sponsorship_discount)
+		if sponsorship_discount > 0 else
+		"",
+	]
+	_training_glance.text = "TRAIN\n%s%s" % [
+		"FULL" if training_penalty <= 0.05 else "-%s%%" % _compact_number(training_penalty),
+		" / +%dXP" % coaching_xp_bonus if coaching_xp_bonus > 0 else "",
+	]
+	_wage_glance.text = "WAGE\n+$%s/D" % _compact_currency_value(wage_bonus_cents)
+	var glance_accessible := "%s\n%s" % [_balance_label.text, _terms_label.text]
+	for glance: Label in [_marks_glance, _fund_glance, _training_glance, _wage_glance]:
+		glance.tooltip_text = glance_accessible
+		glance.set_meta("accessible_text", glance_accessible)
 
 	var reason := _authorization_reason()
 	_reason_label.visible = not reason.is_empty()
@@ -360,6 +443,10 @@ func _compact_number(value: float) -> String:
 	return str(roundi(rounded)) if is_equal_approx(rounded, float(roundi(rounded))) else "%.1f" % rounded
 
 
+func _compact_currency_value(cents: int) -> String:
+	return str(cents / 100) if cents % 100 == 0 else "%.2f" % (float(cents) / 100.0)
+
+
 func _on_worker_selected(index: int) -> void:
 	if _refreshing or index < 0 or index >= _worker_selector.item_count:
 		return
@@ -387,7 +474,87 @@ func _on_lane_selected(index: int) -> void:
 func _on_authorize_pressed() -> void:
 	if not _authorization_reason().is_empty():
 		return
-	sponsorship_requested.emit(_selected_worker_id, _selected_lane_id)
+	var worker := _worker_by_id(_selected_worker_id)
+	if worker.is_empty() or _selected_lane_id == &"":
+		return
+	_pending_worker_id = _selected_worker_id
+	_pending_lane_id = _selected_lane_id
+	_confirmation_origin = _authorize_button
+	var worker_name := _worker_name(worker).to_upper()
+	var lane_name := _lane_label(_selected_lane_id)
+	var penalty_percent := maxi(0, roundi(_training_work_penalty_percent()))
+	var wage_delta_cents := maxi(0, int(_training_terms.get(
+		"wage_bonus_cents",
+		DEFAULT_DAILY_WAGE_DELTA_CENTS,
+	)))
+	_confirmation.title = "SPONSOR %s?" % worker_name
+	_confirmation.ok_button_text = "FILE"
+	_confirmation.cancel_button_text = "KEEP"
+	for action_button: Button in [
+		_confirmation.get_ok_button(),
+		_confirmation.get_cancel_button(),
+	]:
+		# AcceptDialog refreshes its internal action row when the contextual OK
+		# label changes. Reassert the authored target size after that refresh so
+		# compact and high-scale confirmations cannot collapse to icon-width slits.
+		action_button.custom_minimum_size.x = 132.0
+		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action_button.update_minimum_size()
+	_confirmation.dialog_text = (
+		"This accreditation trains %s toward %s.\n\n"
+		+ "FILE NOW  /  %d ROOST MARKS + $%.2f FEED FUND\n"
+		+ "NEXT SHIFT  /  -%d%% TRAINING THROUGHPUT\n"
+		+ "PERMANENT  /  +$%.2f/DAY WAGE\n\n"
+		+ "No marks, Feed Fund, training, wage, or save state changes until you confirm. "
+		+ "Once filed, this quarter's sponsorship cannot be undone."
+	) % [
+		worker_name,
+		lane_name,
+		_mark_cost,
+		float(_fund_cost_cents) / 100.0,
+		penalty_percent,
+		float(wage_delta_cents) / 100.0,
+	]
+	_confirmation.popup_centered_clamped(Vector2i(390, 370), 0.98)
+
+
+func _confirm_sponsorship() -> void:
+	if (
+		_pending_worker_id < 0
+		or _pending_lane_id == &""
+		or _pending_worker_id != _selected_worker_id
+		or _pending_lane_id != _selected_lane_id
+		or not _authorization_reason().is_empty()
+	):
+		_cancel_confirmation(false)
+		return
+	var worker_id := _pending_worker_id
+	var lane_id := _pending_lane_id
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	sponsorship_requested.emit(worker_id, lane_id)
+
+
+func _cancel_confirmation(restore_focus: bool = true) -> void:
+	var origin := _confirmation_origin
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not origin.disabled
+	):
+		origin.call_deferred("grab_focus")
+
+
+func _clear_pending_confirmation() -> void:
+	_pending_worker_id = -1
+	_pending_lane_id = &""
+	_confirmation_origin = null
 
 
 func _normalized_workers(value: Variant) -> Array[Dictionary]:
@@ -527,10 +694,33 @@ func _make_label(copy: String, font_size: int, color: Color) -> Label:
 	return label
 
 
+func _metric_chip(parent: GridContainer, copy: String) -> Label:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", _metric_style())
+	parent.add_child(panel)
+	var label := _make_label(copy, 11, COLOR_INK)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.custom_minimum_size = Vector2(0.0, 42.0)
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(label)
+	return label
+
+
 func _panel_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = COLOR_NAVY_RAISED
 	style.border_color = COLOR_NAVY.lightened(0.28)
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(7)
+	return style
+
+
+func _metric_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = COLOR_NAVY
+	style.border_color = COLOR_NAVY.lightened(0.34)
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
 	return style

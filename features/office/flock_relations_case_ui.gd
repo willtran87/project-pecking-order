@@ -7,7 +7,10 @@ extends VBoxContainer
 ## disabled reason comes from the authoritative simulation snapshot.
 
 signal action_requested(case_id: int, action_id: StringName)
+signal presentation_context_changed
 
+const FlockwatchDisclosureToggleScript := preload("res://features/office/flockwatch_disclosure_toggle.gd")
+const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
 const COLOR_BRASS := Color("e7c56e")
 const COLOR_PAPER := Color("ddd2b8")
 const COLOR_MUTED := Color("aeb8c4")
@@ -15,11 +18,35 @@ const COLOR_MULBERRY := Color("9d7890")
 const COLOR_TEAL := Color("73b5a7")
 const COLOR_RUST := Color("d68a68")
 
+const CASE_GLANCE_LABELS := {
+	&"pay_dispute": "PAY",
+	&"automation_appeal": "AUTOMATION",
+	&"surveillance_grievance": "SURVEILLANCE",
+	&"burnout_case": "BURNOUT",
+	&"credit_claim": "CREDIT",
+	&"workplace_grievance": "WORKPLACE",
+}
+const ACTION_GLANCE_LABELS := {
+	&"fund_remedy": "REPAIR",
+	&"mediate": "MEDIATE",
+	&"file_pip": "PENALIZE",
+	&"binding_arbitration": "RULING",
+}
+
 var _snapshot: Dictionary = {}
 var _status_label: Label
 var _terms_label: Label
+var _open_glance: Label
+var _review_glance: Label
+var _carry_glance: Label
 var _case_list: VBoxContainer
 var _last_resolution_label: Label
+var _cases_toggle
+var _had_open_cases := false
+var _confirmation: ConfirmationDialog
+var _pending_case_id := -1
+var _pending_action_id: StringName = &""
+var _confirmation_origin: Control
 
 
 func _ready() -> void:
@@ -31,12 +58,14 @@ func _ready() -> void:
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot.duplicate(true)
+	if not _pending_action_is_valid():
+		_cancel_confirmation(false)
 	_refresh()
 
 
 func _build_interface() -> void:
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 8)
+	var header := VBoxContainer.new()
+	header.add_theme_constant_override("separation", 2)
 	add_child(header)
 
 	var title := _make_label("FLOCK RELATIONS", 12, COLOR_BRASS)
@@ -46,25 +75,80 @@ func _build_interface() -> void:
 
 	_status_label = _make_label("CASE INTAKE", 10, COLOR_MULBERRY)
 	_status_label.name = "FlockRelationsStatus"
-	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_status_label.visible = false
 	header.add_child(_status_label)
 
 	_terms_label = _make_label("", 10, COLOR_MUTED)
 	_terms_label.name = "FlockRelationsTerms"
 	_terms_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_terms_label.visible = false
 	add_child(_terms_label)
+
+	var glance_grid := GridContainer.new()
+	glance_grid.name = "FlockRelationsGlanceGrid"
+	glance_grid.columns = 2
+	glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	glance_grid.add_theme_constant_override("h_separation", 5)
+	glance_grid.add_theme_constant_override("v_separation", 5)
+	add_child(glance_grid)
+	_open_glance = _metric_chip(glance_grid, "OPEN\n--")
+	_open_glance.name = "FlockRelationsOpenGlance"
+	_review_glance = _metric_chip(glance_grid, "REVIEW\n--")
+	_review_glance.name = "FlockRelationsReviewGlance"
+
+	_carry_glance = _make_label("UNRESOLVED  /  PRESSURE NEXT SHIFT", 9, COLOR_MUTED)
+	_carry_glance.name = "FlockRelationsCarryGlance"
+	_carry_glance.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_carry_glance)
+
+	_cases_toggle = FlockwatchDisclosureToggleScript.new()
+	_cases_toggle.name = "FlockRelationsCasesToggle"
+	_cases_toggle.disclosure_changed.connect(
+		func(_expanded: bool) -> void: presentation_context_changed.emit()
+	)
+	add_child(_cases_toggle)
 
 	_case_list = VBoxContainer.new()
 	_case_list.name = "FlockRelationsCaseList"
 	_case_list.add_theme_constant_override("separation", 6)
 	_case_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(_case_list)
+	var case_targets: Array[Control] = [_case_list]
+	_cases_toggle.configure("CASES", "CLEAR", case_targets, false)
 
 	_last_resolution_label = _make_label("", 10, COLOR_TEAL)
 	_last_resolution_label.name = "FlockRelationsLastResolution"
 	_last_resolution_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_last_resolution_label.visible = false
 	add_child(_last_resolution_label)
+	_build_confirmation()
+
+
+func _build_confirmation() -> void:
+	_confirmation = ConfirmationDialog.new()
+	_confirmation.name = "FlockRelationsDispositionConfirmation"
+	_confirmation.title = "FILE A PERMANENT HEN DISPOSITION?"
+	_confirmation.ok_button_text = "FILE"
+	_confirmation.cancel_button_text = "KEEP"
+	ManagementTheme.style_held_confirmation(_confirmation)
+	_confirmation.min_size = Vector2i(340, 330)
+	var copy := _confirmation.get_label()
+	copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	copy.custom_minimum_size = Vector2(300.0, 190.0)
+	copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for action_button: Button in [
+		_confirmation.get_ok_button(),
+		_confirmation.get_cancel_button(),
+	]:
+		action_button.custom_minimum_size = Vector2(132.0, 44.0)
+		action_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		action_button.clip_text = true
+		action_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_confirmation.confirmed.connect(_confirm_action)
+	_confirmation.canceled.connect(_cancel_confirmation)
+	add_child(_confirmation)
 
 
 func _refresh() -> void:
@@ -90,6 +174,41 @@ func _refresh() -> void:
 		"LEVEL %d | REVIEW AUTHORIZATIONS %d / %d USED\n"
 		+ "Unresolved files carry compliance, solidarity, and grievance pressure into the next closing."
 	) % [level, used, resolution_limit]
+	var remaining_reviews := maxi(0, resolution_limit - used)
+	_open_glance.text = "OPEN\n%d / %d" % [open_count, capacity]
+	_review_glance.text = "REVIEW\n%d LEFT" % remaining_reviews
+	_open_glance.add_theme_color_override(
+		"font_color",
+		COLOR_RUST if open_count >= capacity and capacity > 0 else COLOR_PAPER,
+	)
+	_review_glance.add_theme_color_override(
+		"font_color",
+		COLOR_RUST if remaining_reviews == 0 else COLOR_PAPER,
+	)
+	_open_glance.tooltip_text = (
+		"%d open hen case%s across %d available slot%s.\n%s"
+		% [
+			open_count,
+			"" if open_count == 1 else "s",
+			capacity,
+			"" if capacity == 1 else "s",
+			_terms_label.text,
+		]
+	)
+	_review_glance.tooltip_text = (
+		"%d of %d review authorization%s remain today.\n%s"
+		% [
+			remaining_reviews,
+			resolution_limit,
+			"" if resolution_limit == 1 else "s",
+			_terms_label.text,
+		]
+	)
+	_carry_glance.tooltip_text = _terms_label.text
+	_open_glance.set_meta("accessible_text", _open_glance.tooltip_text)
+	_review_glance.set_meta("accessible_text", _review_glance.tooltip_text)
+	_carry_glance.set_meta("accessible_text", _carry_glance.tooltip_text)
+	_refresh_cases_disclosure(open_count, capacity)
 
 	for child in _case_list.get_children():
 		child.queue_free()
@@ -117,6 +236,32 @@ func _refresh() -> void:
 		_last_resolution_label.text = _resolution_copy(last_resolution)
 
 
+func set_cases_expanded(expanded: bool) -> void:
+	if _cases_toggle != null:
+		_cases_toggle.set_expanded(expanded)
+
+
+func cases_expanded() -> bool:
+	return _cases_toggle != null and _cases_toggle.is_expanded()
+
+
+func _refresh_cases_disclosure(open_count: int, capacity: int) -> void:
+	if _cases_toggle == null:
+		return
+	var summary := "%d OPEN" % open_count if open_count > 0 else "CLEAR"
+	_cases_toggle.set_summary(
+		summary,
+		(
+			"%d open of %d case slots. Each case retains its full identity, evidence, "
+			+ "available dispositions, exact costs, effects, and held reasons."
+		) % [open_count, capacity]
+	)
+	var has_open_cases := open_count > 0
+	if has_open_cases and not _had_open_cases:
+		_cases_toggle.set_expanded(true, false)
+	_had_open_cases = has_open_cases
+
+
 func _build_case_card(case_record: Dictionary) -> Control:
 	var card := PanelContainer.new()
 	card.name = "FlockRelationsCase_%s" % _safe_suffix(str(case_record.get("case_id", "unfiled")))
@@ -137,34 +282,64 @@ func _build_case_card(case_record: Dictionary) -> Control:
 
 	var worker_name := String(case_record.get("worker_name", "UNFILED HEN")).to_upper()
 	var title := String(case_record.get("title", "WORKPLACE GRIEVANCE")).to_upper()
+	var case_type := StringName(String(case_record.get(
+		"case_type",
+		case_record.get("type", &"workplace_grievance"),
+	)))
 	var severity := clampi(int(case_record.get("severity", 1)), 1, 3)
 	var filed_day := maxi(0, int(case_record.get("filed_day", 0)))
-	var heading := _make_label("%s | %s" % [worker_name, title], 11, COLOR_PAPER)
+	var heading := _make_label(
+		"%s  /  %s" % [worker_name, String(CASE_GLANCE_LABELS.get(case_type, "WORKPLACE"))],
+		11,
+		COLOR_PAPER,
+	)
 	heading.name = "CaseHeading"
 	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	heading.tooltip_text = "%s  /  %s" % [worker_name, title]
+	heading.set_meta("accessible_text", heading.tooltip_text)
+	card.tooltip_text = "%s\n%s" % [heading.tooltip_text, String(case_record.get(
+		"evidence_summary",
+		"Documented workplace strain.",
+	))]
 	column.add_child(heading)
 
 	var metadata := _make_label(
-		"SEVERITY %d | FILED DAY %d | CASE %s" % [
+		"SEV %d  /  D%d" % [
 			severity,
 			filed_day,
-			str(case_record.get("docket_id", case_record.get("case_id", "UNFILED"))),
 		],
 		9,
 		COLOR_RUST if severity >= 3 else COLOR_MUTED,
 	)
 	metadata.name = "CaseMetadata"
 	metadata.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	metadata.tooltip_text = "SEVERITY %d  /  FILED DAY %d  /  CASE %s" % [
+		severity,
+		filed_day,
+		str(case_record.get("docket_id", case_record.get("case_id", "UNFILED"))),
+	]
+	metadata.set_meta("accessible_text", metadata.tooltip_text)
 	column.add_child(metadata)
 
 	var evidence := String(case_record.get("evidence_summary", "Documented workplace strain."))
 	var evidence_label := _make_label(evidence, 10, COLOR_MUTED)
 	evidence_label.name = "CaseEvidence"
 	evidence_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	evidence_label.visible = false
 	column.add_child(evidence_label)
 
-	var actions := HFlowContainer.new()
+	var evidence_grid := GridContainer.new()
+	evidence_grid.name = "CaseEvidenceGrid"
+	evidence_grid.columns = 2
+	evidence_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	evidence_grid.add_theme_constant_override("h_separation", 4)
+	evidence_grid.add_theme_constant_override("v_separation", 4)
+	column.add_child(evidence_grid)
+	_build_evidence_glance(evidence_grid, case_record, evidence)
+
+	var actions := GridContainer.new()
 	actions.name = "CaseActions"
+	actions.columns = 2
 	actions.add_theme_constant_override("h_separation", 6)
 	actions.add_theme_constant_override("v_separation", 6)
 	actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -198,18 +373,158 @@ func _build_action_button(case_record: Dictionary, option: Dictionary) -> Button
 	var button := Button.new()
 	button.name = "FlockRelationsAction_%s" % _safe_suffix(String(action_id))
 	button.theme_type_variation = &"PrimaryButton" if action_id != &"file_pip" else &"DangerButton"
-	button.custom_minimum_size = Vector2(112.0, 38.0)
-	button.text = "%s\n%s" % [label, "NO FUND COST" if cost_cents == 0 else "$%.2f" % (cost_cents / 100.0)]
+	button.custom_minimum_size = Vector2(0.0, 50.0)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var glance_label := String(ACTION_GLANCE_LABELS.get(action_id, label))
+	var cost_copy := "$0" if cost_cents == 0 else "$%.2f" % (cost_cents / 100.0)
+	button.text = "%s\n%s" % [
+		glance_label,
+		cost_copy if enabled else "HELD",
+	]
 	button.disabled = not enabled
-	button.tooltip_text = (
-		"%s\n%s" % [preview, reason]
-		if not enabled else
-		"%s\nThis authorization will be entered immediately in the permanent case ledger." % preview
-	)
+	var exact_header := "%s  /  %s" % [
+		label,
+		"NO FUND COST" if cost_cents == 0 else "$%.2f" % (cost_cents / 100.0),
+	]
+	button.tooltip_text = "%s\n%s\n%s" % [
+		exact_header,
+		preview,
+		reason if not enabled else "This authorization will be entered immediately in the permanent case ledger.",
+	]
 	button.set_meta("case_id", case_id)
 	button.set_meta("action_id", action_id)
-	button.pressed.connect(func() -> void: action_requested.emit(case_id, action_id))
+	button.set_meta("full_action_label", label)
+	button.set_meta("exact_cost_cents", cost_cents)
+	button.set_meta("accessible_text", button.tooltip_text)
+	button.pressed.connect(
+		_on_action_pressed.bind(case_id, action_id, button)
+	)
 	return button
+
+
+func _on_action_pressed(
+	case_id: int,
+	action_id: StringName,
+	origin: Control,
+) -> void:
+	if origin == null or not is_instance_valid(origin):
+		return
+	var case_record := _case_record(case_id)
+	var option := _action_option(case_record, action_id)
+	if (
+		case_record.is_empty()
+		or option.is_empty()
+		or not bool(option.get("enabled", false))
+		or origin is BaseButton and (origin as BaseButton).disabled
+	):
+		return
+	_pending_case_id = case_id
+	_pending_action_id = action_id
+	_confirmation_origin = origin
+	var worker_name := String(case_record.get(
+		"worker_name",
+		"UNFILED HEN",
+	)).strip_edges()
+	var case_title := String(case_record.get(
+		"title",
+		"WORKPLACE CASE",
+	)).strip_edges()
+	var action_label := String(option.get(
+		"label",
+		action_id,
+	)).strip_edges()
+	var cost_cents := maxi(0, int(option.get("cost_cents", 0)))
+	var effect_preview := String(option.get(
+		"effect_preview",
+		"Permanent case effects will be recorded.",
+	)).strip_edges()
+	_confirmation.title = "FILE %s'S DISPOSITION?" % worker_name.to_upper()
+	_confirmation.dialog_text = (
+		"HEN  /  %s\n"
+		+ "CASE  /  %s\n"
+		+ "DISPOSITION  /  %s\n"
+		+ "FEED FUND  /  %s\n"
+		+ "EFFECT  /  %s\n"
+		+ "RECORD  /  PERMANENT LABOR FILE\n\n"
+		+ "Nothing changes until FILE. This cannot be undone during the current review."
+	) % [
+		worker_name.to_upper(),
+		case_title.to_upper(),
+		action_label.to_upper(),
+		"NO FUND COST" if cost_cents == 0 else "$%.2f NOW" % (
+			float(cost_cents) / 100.0
+		),
+		effect_preview.to_upper(),
+	]
+	_confirmation.popup_centered_clamped(Vector2i(380, 420), 0.96)
+
+
+func _confirm_action() -> void:
+	if not _pending_action_is_valid():
+		_cancel_confirmation(false)
+		return
+	var case_id := _pending_case_id
+	var action_id := _pending_action_id
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	action_requested.emit(case_id, action_id)
+
+
+func _cancel_confirmation(restore_focus: bool = true) -> void:
+	var origin := _confirmation_origin
+	_clear_pending_confirmation()
+	if _confirmation != null:
+		_confirmation.hide()
+	if (
+		restore_focus
+		and origin != null
+		and is_instance_valid(origin)
+		and origin.is_visible_in_tree()
+		and not (origin is BaseButton and (origin as BaseButton).disabled)
+	):
+		origin.call_deferred("grab_focus")
+
+
+func _clear_pending_confirmation() -> void:
+	_pending_case_id = -1
+	_pending_action_id = &""
+	_confirmation_origin = null
+
+
+func _pending_action_is_valid() -> bool:
+	if _pending_case_id <= 0 or _pending_action_id == &"":
+		return false
+	var option := _action_option(
+		_case_record(_pending_case_id),
+		_pending_action_id,
+	)
+	return not option.is_empty() and bool(option.get("enabled", false))
+
+
+func _case_record(case_id: int) -> Dictionary:
+	for record: Dictionary in _case_entries(_relations_snapshot()):
+		if int(record.get("case_id", -1)) == case_id:
+			return record
+	return {}
+
+
+func _action_option(
+	case_record: Dictionary,
+	action_id: StringName,
+) -> Dictionary:
+	for value: Variant in case_record.get("action_options", []) as Array:
+		if (
+			value is Dictionary
+			and StringName(String((value as Dictionary).get(
+				"action_id",
+				"",
+			))) == action_id
+		):
+			return value as Dictionary
+	return {}
 
 
 func _relations_snapshot() -> Dictionary:
@@ -231,13 +546,88 @@ func _resolution_copy(resolution: Dictionary) -> String:
 	var worker_name := String(resolution.get("worker_name", "A HEN")).to_upper()
 	var action_label := String(resolution.get("action_label", resolution.get("action_id", "RESOLVED"))).to_upper()
 	var cost_cents := maxi(0, int(resolution.get("cost_cents", 0)))
+	var action_id := StringName(String(resolution.get("action_id", "")))
+	var glance_label := String(ACTION_GLANCE_LABELS.get(action_id, action_label))
 	var outcome := String(resolution.get("outcome", "The case ledger was updated."))
-	return "LAST FILED | %s | %s | %s\n%s" % [
+	var exact_copy := "LAST FILED | %s | %s | %s\n%s" % [
 		worker_name,
 		action_label,
 		"NO FUND COST" if cost_cents == 0 else "$%.2f" % (cost_cents / 100.0),
 		outcome,
 	]
+	_last_resolution_label.tooltip_text = exact_copy
+	_last_resolution_label.set_meta("accessible_text", exact_copy)
+	return "LAST  /  %s  /  %s  /  %s" % [
+		worker_name,
+		glance_label,
+		"$0" if cost_cents == 0 else "-$%.2f" % (cost_cents / 100.0),
+	]
+
+
+func _build_evidence_glance(
+	parent: GridContainer,
+	case_record: Dictionary,
+	exact_summary: String,
+) -> void:
+	var evidence_value: Variant = case_record.get("evidence", {})
+	var evidence := evidence_value as Dictionary if evidence_value is Dictionary else {}
+	var entries: Array[Dictionary] = []
+	if not evidence.is_empty():
+		entries = [
+			{"label": "RISK", "value": str(int(evidence.get("risk_score", 0)))},
+			{"label": "GRIEV", "value": _decimal_copy(float(evidence.get("grievance", 0.0)))},
+			{"label": "STRESS", "value": _decimal_copy(float(evidence.get("stress", 0.0)))},
+		]
+		var arrears_cents := maxi(0, int(evidence.get("wage_arrears_cents", 0)))
+		if arrears_cents > 0:
+			entries.append({
+				"label": "ARREARS",
+				"value": "$%.2f" % (float(arrears_cents) / 100.0),
+			})
+		elif bool(evidence.get("it_coop_installed", false)):
+			entries.append({
+				"label": "COMPLY",
+				"value": _decimal_copy(float(evidence.get("compliance", 0.0))),
+			})
+		else:
+			entries.append({
+				"label": "TRUST",
+				"value": _decimal_copy(float(evidence.get("manager_trust", 0.0))),
+			})
+	else:
+		entries = [
+			{"label": "EVIDENCE", "value": "FILED"},
+			{"label": "STATUS", "value": "OPEN"},
+		]
+	for entry: Dictionary in entries:
+		var chip := _metric_chip(
+			parent,
+			"%s\n%s" % [String(entry.get("label", "FILE")), String(entry.get("value", "--"))],
+		)
+		chip.name = "CaseEvidence%s" % _safe_suffix(String(entry.get("label", "FILE")).to_pascal_case())
+		chip.tooltip_text = exact_summary
+		chip.set_meta("accessible_text", exact_summary)
+
+
+func _metric_chip(parent: GridContainer, copy: String) -> Label:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", _metric_style())
+	parent.add_child(panel)
+	var label := _make_label(copy, 10, COLOR_PAPER)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.custom_minimum_size = Vector2(0.0, 38.0)
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.add_child(label)
+	return label
+
+
+func _decimal_copy(value: float) -> String:
+	var rounded := snappedf(value, 0.1)
+	if is_equal_approx(rounded, float(roundi(rounded))):
+		return str(roundi(rounded))
+	return "%.1f" % rounded
 
 
 func _card_style() -> StyleBoxFlat:
@@ -249,6 +639,15 @@ func _card_style() -> StyleBoxFlat:
 	style.corner_radius_top_right = 5
 	style.corner_radius_bottom_left = 5
 	style.corner_radius_bottom_right = 5
+	return style
+
+
+func _metric_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("242833")
+	style.border_color = Color("4b5360")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(5)
 	return style
 
 

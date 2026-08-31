@@ -13,16 +13,113 @@ const CAREER_PROFILES: Array[StringName] = [
 	&"advancement_minded",
 	&"quota_conditioned",
 ]
+const TEMPERAMENT_ORDER: Array[StringName] = [
+	&"bright_eyed",
+	&"quiet_professional",
+	&"cozy_nester",
+	&"office_gossip",
+	&"methodical_pecker",
+	&"gentle_rebel",
+]
+const TEMPERAMENT_DEFINITIONS := {
+	&"bright_eyed": {
+		"label": "BRIGHT-EYED",
+		"description": "Curious, quick to look up from a file, and visibly energized by a busy floor.",
+		"work_style_label": "FAST SCAN",
+		"pace_basis_points": 400,
+		"crack_basis_points": 100,
+		"strain_basis_points": 10_000,
+		"break_recovery_basis_points": 10_000,
+		"dynamic_axis": &"",
+		"idle_style": 0,
+		"motion_scale": 1.08,
+		"focus_scale": 1.04,
+	},
+	&"quiet_professional": {
+		"label": "QUIET PROFESSIONAL",
+		"description": "Keeps a compact posture, values predictable routines, and lets the paperwork speak.",
+		"work_style_label": "STEADY FILE",
+		"pace_basis_points": 0,
+		"crack_basis_points": -150,
+		"strain_basis_points": 9_800,
+		"break_recovery_basis_points": 10_000,
+		"dynamic_axis": &"",
+		"idle_style": 1,
+		"motion_scale": 0.88,
+		"focus_scale": 0.98,
+	},
+	&"cozy_nester": {
+		"label": "COZY NESTER",
+		"description": "Settles deeply into a perch and recovers best when the flock has room to breathe.",
+		"work_style_label": "DEEP PERCH",
+		"pace_basis_points": -200,
+		"crack_basis_points": -50,
+		"strain_basis_points": 9_000,
+		"break_recovery_basis_points": 11_500,
+		"dynamic_axis": &"",
+		"idle_style": 2,
+		"motion_scale": 0.94,
+		"focus_scale": 0.96,
+	},
+	&"office_gossip": {
+		"label": "PERCH-SIDE NETWORKER",
+		"description": "Tracks every nearby conversation and treats the break route as an informal org chart.",
+		"work_style_label": "PERCH NETWORK",
+		"pace_basis_points": 0,
+		"crack_basis_points": 0,
+		"strain_basis_points": 10_000,
+		"break_recovery_basis_points": 10_000,
+		"dynamic_axis": &"flock_bond",
+		"idle_style": 3,
+		"motion_scale": 1.12,
+		"focus_scale": 1.00,
+	},
+	&"methodical_pecker": {
+		"label": "METHODICAL PECKER",
+		"description": "Works in an even cadence and notices when management changes the filing standard mid-clutch.",
+		"work_style_label": "DOUBLE CHECK",
+		"pace_basis_points": -500,
+		"crack_basis_points": -250,
+		"strain_basis_points": 9_700,
+		"break_recovery_basis_points": 10_000,
+		"dynamic_axis": &"",
+		"idle_style": 4,
+		"motion_scale": 0.90,
+		"focus_scale": 0.91,
+	},
+	&"gentle_rebel": {
+		"label": "GENTLE REBEL",
+		"description": "Appears agreeable, remembers every stolen credit, and quietly checks whether the flock is together.",
+		"work_style_label": "FLOCK RHYTHM",
+		"pace_basis_points": 0,
+		"crack_basis_points": 0,
+		"strain_basis_points": 10_000,
+		"break_recovery_basis_points": 10_000,
+		"dynamic_axis": &"solidarity",
+		"idle_style": 5,
+		"motion_scale": 1.02,
+		"focus_scale": 1.06,
+	},
+}
 const PERSONNEL_ACTION_IDS: Array[StringName] = [
 	&"share_credit",
 	&"career_coaching",
 	&"quota_pressure",
 ]
+const AUTOMATION_POLICY_IDS: Array[StringName] = [
+	&"specialty_first",
+	&"deadline_first",
+	&"protect_strain",
+]
+const PARTNERSHIP_STYLE_IDS: Array[StringName] = [
+	&"precision_duet",
+	&"recovery_pact",
+]
 const CAREER_THRESHOLDS: Array[int] = [0, 18, 45, 80]
 const CAREER_TITLES: Array[String] = [
-	"JUNIOR CLAIMS HEN",
+	"JUNIOR PECKWORK HEN",
 	"ACCREDITED LAYER",
-	"SENIOR CLAIMS HEN",
+	"SENIOR PECKWORK HEN",
 	"PRINCIPAL SHELL ADJUSTER",
 ]
 const MAX_CAREER_XP := 999_999
@@ -49,6 +146,11 @@ var secondary_specialty: StringName = &""
 var cross_training_target: StringName = &""
 var cross_training_worked_this_shift: bool = false
 var assigned_lane: StringName = &"auto"
+var automation_policy_id: StringName = &"specialty_first"
+var automation_policy_unlocked: bool = false
+var partnership_partner_id: int = -1
+var partnership_style_id: StringName = &""
+var manually_routed: bool = false
 var current_claim: ClaimState
 var morale: float = 74.0
 var fatigue: float = 8.0
@@ -89,6 +191,23 @@ func _init(
 
 static func default_career_profile(worker_id: int) -> StringName:
 	return CAREER_PROFILES[posmod(worker_id, CAREER_PROFILES.size())]
+
+
+static func default_temperament(worker_id: int) -> StringName:
+	return TEMPERAMENT_ORDER[posmod(worker_id, TEMPERAMENT_ORDER.size())]
+
+
+static func is_valid_automation_policy(policy_id: StringName) -> bool:
+	return policy_id in AUTOMATION_POLICY_IDS
+
+
+static func is_valid_partnership_style(style_id: StringName) -> bool:
+	return style_id == &"" or style_id in PARTNERSHIP_STYLE_IDS
+
+
+static func temperament_definition(worker_id: int) -> Dictionary:
+	var temperament_id := default_temperament(worker_id)
+	return (TEMPERAMENT_DEFINITIONS.get(temperament_id, {}) as Dictionary).duplicate(true)
 
 
 static func is_valid_career_profile(profile_id: StringName) -> bool:
@@ -234,6 +353,8 @@ func state_label() -> String:
 
 
 func snapshot(current_operational_minute: int = 0) -> Dictionary:
+	var temperament_id := default_temperament(id)
+	var temperament := TEMPERAMENT_DEFINITIONS.get(temperament_id, {}) as Dictionary
 	return {
 		"id": id,
 		"name": display_name,
@@ -249,6 +370,9 @@ func snapshot(current_operational_minute: int = 0) -> Dictionary:
 		"cross_training_work_multiplier": cross_training_work_multiplier(),
 		"cross_training_wage_bonus_cents": cross_training_wage_bonus_cents(),
 		"assigned_lane": assigned_lane,
+		"partnership_partner_id": partnership_partner_id,
+		"partnership_style_id": partnership_style_id,
+		"manually_routed": manually_routed,
 		"current_claim": (
 			current_claim.snapshot(current_operational_minute)
 			if current_claim != null else {}
@@ -261,6 +385,13 @@ func snapshot(current_operational_minute: int = 0) -> Dictionary:
 		"progress": work_progress,
 		"eggs_laid": eggs_laid,
 		"career_profile": career_profile,
+		"temperament_id": temperament_id,
+		"temperament_label": String(temperament.get("label", "STEADY HEN")),
+		"temperament_description": String(temperament.get("description", "")),
+		"temperament_work_style_label": String(temperament.get("work_style_label", "STEADY RHYTHM")),
+		"temperament_idle_style": int(temperament.get("idle_style", 0)),
+		"temperament_motion_scale": float(temperament.get("motion_scale", 1.0)),
+		"temperament_focus_scale": float(temperament.get("focus_scale", 1.0)),
 		"manager_trust": manager_trust,
 		"grievance": grievance,
 		"career_xp": career_xp,
@@ -296,6 +427,11 @@ func to_save_data() -> Dictionary:
 		"cross_training_target": String(cross_training_target),
 		"cross_training_worked_this_shift": cross_training_worked_this_shift,
 		"assigned_lane": String(assigned_lane),
+		"automation_policy_id": String(automation_policy_id),
+		"automation_policy_unlocked": automation_policy_unlocked,
+		"partnership_partner_id": partnership_partner_id,
+		"partnership_style_id": String(partnership_style_id),
+		"manually_routed": manually_routed,
 		"current_claim": current_claim.to_save_data() if current_claim != null else {},
 		"morale": morale,
 		"fatigue": fatigue,
@@ -328,6 +464,32 @@ func apply_save_data(data: Dictionary) -> bool:
 	accuracy = clampf(float(data.get("accuracy", accuracy)), 0.25, 0.999)
 	specialty = StringName(String(data.get("specialty", specialty)))
 	assigned_lane = StringName(String(data.get("assigned_lane", assigned_lane)))
+	var saved_automation_policy := StringName(String(data.get(
+		"automation_policy_id",
+		&"specialty_first",
+	)))
+	automation_policy_id = (
+		saved_automation_policy
+		if is_valid_automation_policy(saved_automation_policy) else
+		&"specialty_first"
+	)
+	automation_policy_unlocked = bool(data.get("automation_policy_unlocked", false))
+	var saved_partnership_partner_id := int(data.get("partnership_partner_id", -1))
+	var saved_partnership_style_id := StringName(String(data.get("partnership_style_id", "")))
+	if (
+		saved_partnership_partner_id < -1
+		or saved_partnership_partner_id > 64
+		or saved_partnership_partner_id == id
+		or not is_valid_partnership_style(saved_partnership_style_id)
+		or (saved_partnership_style_id == &"") != (saved_partnership_partner_id == -1)
+	):
+		return false
+	partnership_partner_id = saved_partnership_partner_id
+	partnership_style_id = saved_partnership_style_id
+	manually_routed = (
+		bool(data.get("manually_routed", false))
+		and assigned_lane != &"auto"
+	)
 	morale = clampf(float(data.get("morale", morale)), 0.0, 100.0)
 	fatigue = clampf(float(data.get("fatigue", fatigue)), 0.0, 100.0)
 	stress = clampf(float(data.get("stress", stress)), 0.0, 100.0)

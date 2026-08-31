@@ -1,6 +1,7 @@
 extends SceneTree
 
 const RevealUIScript := preload("res://features/office/campus_portfolio_reveal_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -25,6 +26,7 @@ func _run() -> void:
 	await process_frame
 
 	var receipt := _receipt()
+	ui.set_animation_speed_multiplier(0.75)
 	ui.show_reveal(receipt, _context(), false)
 	await process_frame
 	await process_frame
@@ -54,9 +56,19 @@ func _run() -> void:
 	receipt["outcome"] = "MUTATED"
 	_check("foundation crew entered" in String(ui.receipt_snapshot().get("outcome", "")).to_lower(), "caller mutations must not alias the held receipt", failures)
 	_check(ui.entrance_animated() and not ui.used_reduced_motion(), "ordinary reveal may use the short entrance", failures)
+	_check(is_equal_approx(ui.animation_speed_multiplier(), 0.75), "receipt entrance should honor the independent relaxed animation speed", failures)
 	_check(scroll != null and rail != null and not scroll.is_ancestor_of(rail), "held actions should stay outside the scrolling receipt", failures)
 	_check(return_button != null and continue_button != null and return_button.focus_mode == Control.FOCUS_ALL and continue_button.focus_mode == Control.FOCUS_ALL, "both reveal choices should support keyboard focus", failures)
 	_check(continue_button != null and root.gui_get_focus_owner() == continue_button, "Continue should receive safe initial focus", failures)
+	var reveal_primary := ui.primary_action_state()
+	_check(
+		String(reveal_primary.get("copy", "")) == "CONTINUE"
+		and String(reveal_primary.get("action_id", ""))
+		== "campus_portfolio_reveal_continue"
+		and bool(reveal_primary.get("actionable", false)),
+		"campus receipts should publish their exact held Continue action",
+		failures,
+	)
 
 	for _frame: int in 6:
 		await process_frame
@@ -79,8 +91,22 @@ func _run() -> void:
 	_check(ui.used_reduced_motion() and not ui.entrance_animated(), "reduced motion should bypass the entrance tween", failures)
 	_check(panel != null and is_equal_approx(panel.modulate.a, 1.0), "reduced-motion receipt should appear at full opacity", failures)
 
+	await _assert_layout(harness, ui, panel, rail, return_button, continue_button, Vector2(1280.0, 720.0), true, failures)
 	await _assert_layout(harness, ui, panel, rail, return_button, continue_button, Vector2(844.0, 390.0), true, failures)
 	await _assert_layout(harness, ui, panel, rail, return_button, continue_button, Vector2(390.0, 844.0), false, failures)
+
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	harness.size = Vector2(390.0, 844.0)
+	await process_frame
+	await process_frame
+	var portrait_bounds := Rect2(Vector2.ZERO, harness.size)
+	_check(_visible_children_fit(ui, portrait_bounds), "390x844 at 150%% with expanded copy should keep every visible campus receipt control inside the viewport (first=%s)" % _first_horizontal_overflow(ui, portrait_bounds), failures)
+	_check(scroll != null and scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED and scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "max-scale campus receipt should remain vertical-scroll-only", failures)
+	_check(rail != null and not scroll.is_ancestor_of(rail), "max-scale campus actions should remain fixed outside the receipt scroll surface", failures)
+	if return_button != null and continue_button != null:
+		_check(portrait_bounds.encloses(return_button.get_global_rect()) and portrait_bounds.encloses(continue_button.get_global_rect()), "max-scale campus receipt should keep both held actions physically reachable", failures)
 
 	ui.free()
 	await process_frame
@@ -89,7 +115,7 @@ func _run() -> void:
 			push_error("CAMPUS_PORTFOLIO_REVEAL_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPUS_PORTFOLIO_REVEAL_UI_TEST_PASSED receipt=exact live-world=visible responsive=844x390+390x844 keyboard=return+continue motion=reduced")
+	print("CAMPUS_PORTFOLIO_REVEAL_UI_TEST_PASSED receipt=exact live-world=visible responsive=844x390+390x844 resilience=390x844+150-percent+expanded-copy keyboard=return+continue motion=reduced+speed")
 	quit(0)
 
 
@@ -162,6 +188,52 @@ func _contains_all(text_value: String, needles: Array[String]) -> bool:
 		if needle.to_lower() not in lowered:
 			return false
 	return true
+
+
+func _visible_children_fit(root_control: Control, viewport_bounds: Rect2) -> bool:
+	return _first_horizontal_overflow(root_control, viewport_bounds) == "none"
+
+
+func _first_horizontal_overflow(root_control: Control, viewport_bounds: Rect2) -> String:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control != null and control.is_visible_in_tree():
+			var rect := control.get_global_rect()
+			if rect.position.x < viewport_bounds.position.x - 0.5 or rect.end.x > viewport_bounds.end.x + 0.5:
+				return "%s rect=%s min=%s" % [control.name, rect, control.get_combined_minimum_size()]
+	return "none"
+
+
+func _apply_explicit_font_scale(root_control: Control, multiplier: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override("font_size", maxi(10, roundi(float(base_size) * multiplier)))
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

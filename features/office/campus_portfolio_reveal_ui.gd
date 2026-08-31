@@ -21,6 +21,7 @@ const COLOR_PANEL := Color("17232d")
 var _receipt: Dictionary = {}
 var _context: Dictionary = {}
 var _reduced_motion := false
+var _animation_speed_multiplier := 1.0
 var _entrance_animated := false
 var _entrance_tween: Tween
 
@@ -68,6 +69,7 @@ func show_reveal(
 		_receipt_panel.modulate.a = 0.0
 		_receipt_panel.position.y += 10.0
 		_entrance_tween = create_tween()
+		_entrance_tween.set_speed_scale(_animation_speed_multiplier)
 		_entrance_tween.set_parallel(true)
 		_entrance_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		_entrance_tween.tween_property(_receipt_panel, "modulate:a", 1.0, 0.22)
@@ -86,6 +88,29 @@ func is_reveal_visible() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_reveal_visible() or _continue_button == null:
+		return {}
+	var copy := _continue_button.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": "campus_portfolio_reveal_continue",
+		"actionable": not _continue_button.disabled,
+		"semantic_icon": "advance_arrow",
+		"icon_visible": _continue_button.icon != null,
+		"accessible_text": _continue_button.tooltip_text,
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	_continue_button.grab_focus()
+	return true
+
+
 func receipt_snapshot() -> Dictionary:
 	return _receipt.duplicate(true)
 
@@ -102,6 +127,16 @@ func presentation_state() -> Dictionary:
 
 func used_reduced_motion() -> bool:
 	return _reduced_motion
+
+
+func set_animation_speed_multiplier(multiplier: float) -> void:
+	_animation_speed_multiplier = clampf(multiplier, 0.5, 2.0)
+	if _entrance_tween != null and _entrance_tween.is_valid():
+		_entrance_tween.set_speed_scale(_animation_speed_multiplier)
+
+
+func animation_speed_multiplier() -> float:
+	return _animation_speed_multiplier
 
 
 func entrance_animated() -> bool:
@@ -158,6 +193,7 @@ func _build_interface() -> void:
 	_eyebrow_label = _make_label("CAMPUS RECORD FILED", 12, COLOR_BRASS)
 	_eyebrow_label.name = "CampusPortfolioRevealEyebrow"
 	_eyebrow_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_eyebrow_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	page.add_child(_eyebrow_label)
 
 	var content_scroll := ScrollContainer.new()
@@ -229,6 +265,7 @@ func _build_interface() -> void:
 	_return_button.text = "RETURN TO PORTFOLIO"
 	_return_button.focus_mode = Control.FOCUS_ALL
 	_return_button.custom_minimum_size = Vector2(185.0, 38.0)
+	_configure_fixed_action_button(_return_button)
 	_return_button.tooltip_text = "Return to the Campus Portfolio with this authoritative result preserved."
 	_return_button.pressed.connect(func() -> void: return_to_portfolio_requested.emit())
 	rail.add_child(_return_button)
@@ -238,6 +275,7 @@ func _build_interface() -> void:
 	_continue_button.theme_type_variation = &"PrimaryButton"
 	_continue_button.focus_mode = Control.FOCUS_ALL
 	_continue_button.custom_minimum_size = Vector2(145.0, 38.0)
+	_configure_fixed_action_button(_continue_button)
 	_continue_button.tooltip_text = "Acknowledge the campus receipt and return to the prior office surface."
 	_continue_button.pressed.connect(func() -> void: continue_requested.emit())
 	rail.add_child(_continue_button)
@@ -383,7 +421,10 @@ func _apply_responsive_layout() -> void:
 	var portrait := size.x < size.y and size.x <= 520.0
 	_receipt_panel.offset_left = 10.0 if compact else 52.0
 	_receipt_panel.offset_right = -10.0 if compact else -52.0
-	_receipt_panel.offset_top = -440.0 if portrait else (-220.0 if compact else -246.0)
+	# Desktop needs enough fixed height for the four-column receipt plus its
+	# non-scrolling action rail. Its authored content minimum is 471px; a 482px
+	# frame keeps that rail inside the 720px canvas with a small safety margin.
+	_receipt_panel.offset_top = -440.0 if portrait else (-220.0 if compact else -500.0)
 	_receipt_panel.offset_bottom = -10.0 if compact else -18.0
 	if _asset_label != null:
 		_asset_label.add_theme_font_size_override("font_size", 16 if compact else 20)
@@ -395,6 +436,10 @@ func _apply_responsive_layout() -> void:
 	]:
 		if column != null:
 			column.custom_minimum_size.x = 0.0 if portrait else (200.0 if compact else 220.0)
+	if _return_button != null:
+		_return_button.custom_minimum_size.x = 148.0 if portrait else 185.0
+	if _continue_button != null:
+		_continue_button.custom_minimum_size.x = 118.0 if portrait else 145.0
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -420,6 +465,12 @@ func _make_label(text_value: String, font_size: int, color: Color) -> Label:
 	label.add_theme_color_override("font_color", color)
 	label.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	return label
+
+
+func _configure_fixed_action_button(button: Button) -> void:
+	button.autowrap_mode = TextServer.AUTOWRAP_OFF
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 
 func _wrap_label(text_value: String, font_size: int, color: Color) -> Label:
