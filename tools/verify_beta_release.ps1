@@ -83,6 +83,7 @@ try {
 			"consolidated_game_loop_test.gd",
 			"professional_gameplay_completion_test.gd",
 			"intuitive_rewarding_completion_test.gd",
+			"cohesive_game_loop_advancement_test.gd",
             "guided_strategy_feedback_test.gd",
             "gameplay_pulse_director_test.gd",
             "personnel_career_test.gd",

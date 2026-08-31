@@ -1,5 +1,13 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-31 - Cohesive game-loop advancement (implementation)
+
+- Reconciled the latest twenty-five approved recommendations against the already-authoritative routing, Active Playbook, staffing, scenario, campaign, hero-file, relationship, rival, upgrade, ending, audio, and first-session systems.
+- Added the canonical read-only `cohesive_game_loop_advancement` contract. It maps every requested item once, adds no panel or currency, and preserves `DepartmentSimulation` and `CampaignState` as the sole writers.
+- Wired the contract into the existing HUD, guidance, hold-to-explain, Active Playbook, bottleneck, directive, and reward surfaces using progressive disclosure rather than adding another dense interface.
+- Added exact native and production-browser assertions plus `docs/COHESIVE_GAME_LOOP_ADVANCEMENT.md`; the real five-person study remains honestly `AWAITING REAL PARTICIPANTS`.
+- The new exact-25 contract and twelve focused prior loop contracts pass under Godot 4.7. One pre-existing `intuitive_reward_loop_test.gd` exit reports its known ObjectDB leak warning while still passing; the new read-only layer adds no Node instances.
+
 ## 2026-08-31 - Core loop mastery polish (implementation)
 
 - Added deterministic queued-file personalities derived from real deadline, rework, value/contract, and lane facts; the carried file now communicates `RUSH`, `RETURNED`, `PRIZE`, `FRAGILE`, `SENSITIVE`, `REPAIR`, or `STEADY` without hidden random rules.
@@ -14147,3 +14155,13 @@ The next major systems milestone is persistent worker relationships and individu
 - The complete beta release gate passes 73/73 checks in 613.325 seconds. Both release targets contain the byte-identical 10,825,288-byte PCK with SHA-256 `DFED59169F634DC5AEBCF394E8302388326BFEA25D700C75B47ABCB6BAA9F877`.
 - The owned production wrapper, Godot, Chromium, and browser-test processes were closed after verification; port 3001 is free and the pre-existing port-3000 service at PID 25812 remains untouched.
 - The instrumented onboarding study still honestly reports `AWAITING REAL PARTICIPANTS`; automated checks do not fabricate five-person usability findings.
+
+# 2026-08-31 — Cohesive professional game-loop advancement
+
+- Resolved the latest exact 25-item brief as one read-only connectivity layer over the shipped simulation, Active Playbook, campaign, staffing, resource, case, relationship, rival, office, progression, scenario, difficulty, audio, and reward authorities. It adds no competing panel, currency, command path, or save authority.
+- Bound the existing Flow bank/chase choice, three disclosed opening contracts, department bottlenecks, meaningful staffing, five-resource opportunity costs, end-of-shift allocation, eight three-answer hero files, seven personalities, persistent pair friction, rival responses, six environmental hotspots, exclusive doctrines, physical transformations, authored endings, seven replay scenarios, three difficulty contracts, five music layers, and bounded reward cadence into one inspectable player-facing contract.
+- Kept the first-shift and icon language concise while making the persistent **why**, consequence, and next-action evidence available through existing HUD, guidance, Active Playbook, directive, and reward-loop surfaces.
+- Added `docs/COHESIVE_GAME_LOOP_ADVANCEMENT.md`, an exact native 25-item contract, pulse integration coverage, and production-browser assertions. Product implementation reports 25/25 complete; real first-player study evidence remains honestly `AWAITING REAL PARTICIPANTS`.
+- The prescribed gameplay-input client and production gameplay-pulse audit pass at 2560×1600, 1280×720, and compact 900×800 with zero console/page errors. Original-size inspection confirms a readable quick start, unclipped icon-led HUD, actionable Playbook, and contained compact controls.
+- The complete beta release gate passes 74/74 checks (64 Godot, 4 web/toolchain, 6 release) with zero failures in 621.879 seconds. Both release targets contain the byte-identical 10,852,708-byte PCK with SHA-256 `4BB9881F4820D759ED210D7D424D7311479A85E17528644B990E4271758268DC`.
+- The owned local production wrapper was stopped after browser verification, port 3001 is free, and the pre-existing user service on port 3000 at PID 25812 remains untouched.

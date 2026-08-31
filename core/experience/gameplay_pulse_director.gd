@@ -4,6 +4,7 @@ extends RefCounted
 const ConsolidatedGameLoopScript := preload("res://core/experience/consolidated_game_loop.gd")
 const ProfessionalGameplayCompletionScript := preload("res://core/experience/professional_gameplay_completion.gd")
 const IntuitiveRewardingCompletionScript := preload("res://core/experience/intuitive_rewarding_completion.gd")
+const CohesiveGameLoopAdvancementScript := preload("res://core/experience/cohesive_game_loop_advancement.gd")
 
 ## Read-only coordinator for the game's clarity and delight layer. It can project
 ## the authoritative Active Playbook, but never awards currency, changes
@@ -71,6 +72,9 @@ func compose(context: Dictionary) -> Dictionary:
 	var active_playbook := context.get("active_playbook", {}) as Dictionary
 	var tactical_route_plan := context.get("tactical_route_plan", {}) as Dictionary
 	var challenge_contract_catalog := context.get("challenge_contract_catalog", []) as Array
+	var scenario_catalog := context.get("scenario_catalog", []) as Array
+	var campaign := context.get("campaign", {}) as Dictionary
+	var scenario := context.get("scenario", {}) as Dictionary
 	var cause_replay := context.get("cause_replay", {}) as Dictionary
 	var workers := simulation.get("workers", []) as Array
 	var core_loop := _core_loop(lifecycle, feedback)
@@ -304,8 +308,25 @@ func compose(context: Dictionary) -> Dictionary:
 		"experiential_management_loop": experiential_management_loop,
 		"intuitive_reward_loop": intuitive_reward_loop,
 	})
+	var cohesive_game_loop_advancement := CohesiveGameLoopAdvancementScript.compose({
+		"simulation": simulation,
+		"active_playbook": active_playbook,
+		"consolidated_game_loop": consolidated_game_loop,
+		"professional_gameplay_completion": professional_gameplay_completion,
+		"intuitive_rewarding_completion": intuitive_rewarding_completion,
+		"first_session_funnel": funnel,
+		"action_feedback": feedback,
+		"relationship_episode": relationship,
+		"rival": rival,
+		"chapter": chapter,
+		"campaign": campaign,
+		"scenario": scenario,
+		"challenge_contract_catalog": challenge_contract_catalog,
+		"scenario_catalog": scenario_catalog,
+		"cause_replay": cause_replay,
+	})
 	return {
-		"version": 20,
+		"version": 21,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -333,6 +354,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"consolidated_game_loop": consolidated_game_loop,
 		"professional_gameplay_completion": professional_gameplay_completion,
 		"intuitive_rewarding_completion": intuitive_rewarding_completion,
+		"cohesive_game_loop_advancement": cohesive_game_loop_advancement,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),

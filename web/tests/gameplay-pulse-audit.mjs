@@ -102,14 +102,14 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow_loop", "tactile_reward_loop", "experiential_management_loop", "intuitive_reward_loop", "consolidated_game_loop", "professional_gameplay_completion", "intuitive_rewarding_completion", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow_loop", "tactile_reward_loop", "experiential_management_loop", "intuitive_reward_loop", "consolidated_game_loop", "professional_gameplay_completion", "intuitive_rewarding_completion", "cohesive_game_loop_advancement", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 20);
+	assert.equal(pulse.version, 21);
 	assert.equal(pulse.consolidated_game_loop?.item_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.implemented_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.all_implemented, true);
@@ -235,6 +235,31 @@ try {
 	assert.equal(masteryPolish?.first_shift_observation?.status, "AWAITING REAL PARTICIPANTS");
 	assert.equal(masteryPolish?.first_shift_observation?.results_complete, false);
 	assert.equal(masteryPolish?.first_shift_observation?.never_fabricate, true);
+	const cohesiveAdvancement = pulse.cohesive_game_loop_advancement;
+	assert.equal(cohesiveAdvancement?.version, 1);
+	assert.equal(cohesiveAdvancement?.item_count, 25);
+	assert.equal(cohesiveAdvancement?.product_complete_count, 25);
+	assert.equal(cohesiveAdvancement?.all_product_work_complete, true);
+	assert.equal(cohesiveAdvancement?.human_evidence_complete, false);
+	assert.equal(cohesiveAdvancement?.adds_default_panel, false);
+	assert.equal(cohesiveAdvancement?.adds_currency, false);
+	assert.equal(new Set((cohesiveAdvancement?.items ?? []).map((item) => item.id)).size, 25);
+	assert.equal(cohesiveAdvancement?.subtraction_guard?.one_primary_action, true);
+	assert.equal(cohesiveAdvancement?.subtraction_guard?.supporting_metric_limit, 2);
+	assert.equal(cohesiveAdvancement?.subtraction_guard?.required_prose_words, 0);
+	assert.deepEqual(cohesiveAdvancement?.icon_curriculum?.order?.map((item) => item.shape), ["STAR", "CHECK", "TRIANGLE"]);
+	assert.deepEqual(cohesiveAdvancement?.why_inspection?.triggers, ["HOLD H", "CLICK LATEST CAUSE"]);
+	assert.deepEqual(cohesiveAdvancement?.flow_cash_out?.choices?.map((item) => item.id), ["bank_clutch", "chase_premium"]);
+	assert.equal(cohesiveAdvancement?.contract_draft?.campaign_contracts?.length, 3);
+	assert.equal(cohesiveAdvancement?.resource_tradeoffs?.resources?.length, 5);
+	assert.equal(cohesiveAdvancement?.signature_content?.hero_case_count, 8);
+	assert.equal(cohesiveAdvancement?.signature_content?.file_personality_count, 7);
+	assert.equal(cohesiveAdvancement?.scenario_modes?.distinct_rules_not_only_numbers, true);
+	assert.equal(cohesiveAdvancement?.difficulty_contracts?.catalog?.length, 3);
+	assert.equal(cohesiveAdvancement?.dynamic_music?.layers?.length, 5);
+	assert.equal(cohesiveAdvancement?.first_player_validation?.status, "AWAITING REAL PARTICIPANTS");
+	assert.equal(cohesiveAdvancement?.first_player_validation?.results_complete, false);
+	assert.equal(cohesiveAdvancement?.first_player_validation?.never_fabricate, true);
 	assert.equal(active.dispatch?.drag_feedback?.visible_carried_file, true);
 	assert.equal(active.dispatch?.drag_feedback?.mouse, true);
 	assert.equal(active.dispatch?.drag_feedback?.touch, true);
@@ -456,6 +481,7 @@ try {
 		intuitiveRewardLoop: pulse.intuitive_reward_loop,
 		professionalGameplayCompletion: pulse.professional_gameplay_completion,
 		intuitiveRewardingCompletion: pulse.intuitive_rewarding_completion,
+		cohesiveGameLoopAdvancement: pulse.cohesive_game_loop_advancement,
 		professionalPolish,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,

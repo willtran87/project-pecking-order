@@ -48,7 +48,7 @@ func _init() -> void:
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
-		"intuitive_rewarding_completion",
+		"intuitive_rewarding_completion", "cohesive_game_loop_advancement",
 	]
 	for key in required:
 		_check(pulse.has(key), "the clarity coordinator should publish %s" % key, failures)
@@ -122,12 +122,17 @@ func _init() -> void:
 	_check((pulse.get("comprehension_tuning", {}) as Dictionary).get("friction_flags", []) == ["repeated_route_miss"], "local friction signals should reach the diagnostic pulse without authority", failures)
 	_check(not bool(pulse.get("authoritative", true)), "the entire pulse must remain presentation-only", failures)
 	var completion := pulse.get("intuitive_rewarding_completion", {}) as Dictionary
+	var advancement := pulse.get("cohesive_game_loop_advancement", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 20
+		int(pulse.get("version", 0)) == 21
 		and int(completion.get("item_count", 0)) == 33
 		and bool(completion.get("all_implemented", false))
-		and String((completion.get("human_study", {}) as Dictionary).get("status", "")) == "AWAITING REAL PARTICIPANTS",
-		"the director should publish the exact 33-item completion layer while keeping real human evidence pending",
+		and String((completion.get("human_study", {}) as Dictionary).get("status", "")) == "AWAITING REAL PARTICIPANTS"
+		and int(advancement.get("item_count", 0)) == 25
+		and bool(advancement.get("all_product_work_complete", false))
+		and not bool(advancement.get("human_evidence_complete", true))
+		and not bool(advancement.get("adds_default_panel", true)),
+		"the director should publish both exact completion layers while keeping real human evidence pending",
 		failures,
 	)
 	var active_pulse := director.compose({

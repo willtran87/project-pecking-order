@@ -19993,6 +19993,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		"active_playbook": active_playbook,
 		"tactical_route_plan": _tactical_route_plan_snapshot(),
 		"challenge_contract_catalog": CampaignStateScript.challenge_contract_catalog(),
+		"scenario_catalog": DepartmentSimulation.replay_scenario_catalog(),
+		"campaign": (_campaign_state.snapshot() if _campaign_state != null else {}),
+		"scenario": (_simulation.scenario_identity_snapshot() if _simulation != null else {}),
 		"cause_replay": _last_cause_replay.duplicate(true),
 	})
 	_gameplay_pulse["active_playbook"] = active_playbook.duplicate(true)
@@ -20033,6 +20036,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	)
 	_apply_intuitive_rewarding_completion_presentation(
 		_gameplay_pulse.get("intuitive_rewarding_completion", {}) as Dictionary,
+	)
+	_apply_cohesive_game_loop_advancement_presentation(
+		_gameplay_pulse.get("cohesive_game_loop_advancement", {}) as Dictionary,
 	)
 	_apply_professional_polish_presentation(
 		((_gameplay_pulse.get("intuitive_rewarding_completion", {}) as Dictionary).get(
@@ -20752,6 +20758,38 @@ func _apply_intuitive_rewarding_completion_presentation(layer: Dictionary) -> vo
 	if _reward_loop_host != null:
 		_reward_loop_host.set_meta("collection_cabinet", (layer.get("collection_cabinet", {}) as Dictionary).duplicate(true))
 		_reward_loop_host.set_meta("strategy_celebration", (layer.get("celebration", {}) as Dictionary).duplicate(true))
+
+
+func _apply_cohesive_game_loop_advancement_presentation(layer: Dictionary) -> void:
+	## Reuse the existing progressive-disclosure surfaces. This layer is a
+	## connective contract, not a new panel or a second way to issue commands.
+	if layer.is_empty():
+		return
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("cohesive_game_loop_advancement", layer.duplicate(true))
+		_top_hud_panel.set_meta("subtraction_guard", (layer.get("subtraction_guard", {}) as Dictionary).duplicate(true))
+		_top_hud_panel.set_meta("content_cadence", (layer.get("content_cadence", {}) as Dictionary).duplicate(true))
+	if _guidance_action_button != null:
+		_guidance_action_button.set_meta("icon_curriculum", (layer.get("icon_curriculum", {}) as Dictionary).duplicate(true))
+		_guidance_action_button.set_meta("first_shift_story", (layer.get("first_shift_story", {}) as Dictionary).duplicate(true))
+	if _explain_strip != null:
+		_explain_strip.set_meta("persistent_why_inspection", (layer.get("why_inspection", {}) as Dictionary).duplicate(true))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("flow_cash_out", (layer.get("flow_cash_out", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("contract_draft", (layer.get("contract_draft", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("end_shift_allocation", (layer.get("end_shift_allocation", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("hen_dilemmas", (layer.get("hen_dilemmas", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("relationship_friction", (layer.get("relationship_friction", {}) as Dictionary).duplicate(true))
+	if _core_loop_host != null:
+		_core_loop_host.set_meta("bottleneck_board", (layer.get("bottleneck_board", {}) as Dictionary).duplicate(true))
+		_core_loop_host.set_meta("resource_tradeoffs", (layer.get("resource_tradeoffs", {}) as Dictionary).duplicate(true))
+	if _directive_badge != null:
+		_directive_badge.set_meta("market_conditions", (layer.get("market_conditions", {}) as Dictionary).duplicate(true))
+		_directive_badge.set_meta("rival_boss_shift", (layer.get("rival_boss_shift", {}) as Dictionary).duplicate(true))
+	if _reward_loop_host != null:
+		_reward_loop_host.set_meta("upgrade_branches", (layer.get("upgrade_branches", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("physical_transformations", (layer.get("physical_transformations", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("strategy_endings", (layer.get("strategy_endings", {}) as Dictionary).duplicate(true))
 
 
 func _apply_professional_polish_presentation(layer: Dictionary) -> void:
