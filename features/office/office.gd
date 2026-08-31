@@ -477,6 +477,7 @@ var _adaptive_route_last_miss_at_msec := 0
 var _adaptive_route_recovery: Dictionary = {}
 var _dispatch_lane: StringName = &""
 var _dispatch_candidates: Array[Dictionary] = []
+var _dispatch_file_preview: Dictionary = {}
 var _dispatch_recommended_worker_id := -1
 var _dispatch_momentum_chain := 0
 var _dispatch_last_day := -1
@@ -10622,6 +10623,7 @@ func _on_dispatch_lane_requested(lane: StringName) -> void:
 		_clear_dispatch_mode(true)
 		_publish_status_copy("%s TRAY RETURNED TO INTAKE." % _dispatch_lane_label(lane), false)
 		return
+	_dispatch_file_preview = _simulation.dispatch_file_preview(lane)
 	_dispatch_candidates = _simulation.dispatch_candidates(lane)
 	if _dispatch_candidates.is_empty():
 		if _audio_feedback != null:
@@ -10641,10 +10643,15 @@ func _on_dispatch_lane_requested(lane: StringName) -> void:
 			_dispatch_momentum_chain,
 			recommended_name,
 			_dispatch_reward_label,
+			_dispatch_file_preview,
 		)
 	_publish_status_copy(
-		"%s TRAY  •  PICK A HEN  •  %s IS THE BEST FIT"
-		% [_dispatch_lane_label(lane), recommended_name.to_upper()],
+		"%s %s  •  PICK A HEN  •  %s IS THE BEST FIT"
+		% [
+			String(_dispatch_file_preview.get("symbol", "")),
+			String(_dispatch_file_preview.get("label", _dispatch_lane_label(lane))),
+			recommended_name.to_upper(),
+		],
 		false,
 	)
 	if _audio_feedback != null:
@@ -10716,6 +10723,7 @@ func _on_dispatch_drag_canceled(_lane: StringName) -> void:
 func _clear_dispatch_mode(keep_momentum: bool = true) -> void:
 	_dispatch_lane = &""
 	_dispatch_candidates.clear()
+	_dispatch_file_preview.clear()
 	_dispatch_recommended_worker_id = -1
 	if not keep_momentum:
 		_dispatch_momentum_chain = 0
@@ -10725,7 +10733,7 @@ func _clear_dispatch_mode(keep_momentum: bool = true) -> void:
 		if view != null:
 			view.set_dispatch_candidate(false)
 	if _routing_ui != null:
-		_routing_ui.set_dispatch_state(&"", _dispatch_momentum_chain, "", _dispatch_reward_label)
+		_routing_ui.set_dispatch_state(&"", _dispatch_momentum_chain, "", _dispatch_reward_label, {})
 
 
 func _on_routing_momentum_broken(receipt: Dictionary) -> void:
@@ -10765,6 +10773,7 @@ func _commit_dispatch(worker_id: int) -> bool:
 		return false
 	var lane := _dispatch_lane
 	var recommended := worker_id == _dispatch_recommended_worker_id
+	var fit_tier := StringName(String(candidate.get("fit_tier", "risky")))
 	var before_snapshot := _simulation.snapshot()
 	var worker_before := _worker_record(before_snapshot, worker_id)
 	var previous_lane := StringName(worker_before.get("assigned_lane", &""))
@@ -10806,8 +10815,8 @@ func _commit_dispatch(worker_id: int) -> bool:
 	var worker_view := _worker_views.get(worker_id) as ChickenView
 	if worker_view != null:
 		worker_view.play_short_bark(
-			"PERFECT FIT!" if recommended else "I'VE GOT IT!" if bool(candidate.get("specialty_match", false)) else "RISKY ROUTE.",
-			&"success" if recommended else &"neutral" if bool(candidate.get("specialty_match", false)) else &"risk",
+			"FLOW LINKED!" if recommended else "FLOW HELD." if fit_tier == &"safe" else "GAMBIT FILED.",
+			&"success" if recommended else &"neutral" if fit_tier == &"safe" else &"risk",
 		)
 	_dispatch_last_receipt = receipt.duplicate(true)
 	_last_cause_replay = {
@@ -10817,7 +10826,7 @@ func _commit_dispatch(worker_id: int) -> bool:
 		"worker_id": worker_id,
 		"worker_name": worker_name,
 		"lane": String(lane),
-		"file_label": String(lane).replace("_", " ").to_upper(),
+		"file_label": String(_dispatch_file_preview.get("label", String(lane).replace("_", " ").to_upper())),
 		"result_label": _dispatch_reward_label if not _dispatch_reward_label.is_empty() else ("BEST FIT" if recommended else "ROUTE FILED"),
 		"path": ["FILE", "HEN", "RESULT"],
 		"input": "H",
@@ -10878,7 +10887,9 @@ func _commit_dispatch(worker_id: int) -> bool:
 		)
 	else:
 		var route_result_copy := (
-			"FIT %d" % _dispatch_momentum_chain if recommended else "ROUTED"
+			"FLOW +1 · FIT %d" % _dispatch_momentum_chain
+			if recommended else
+			"FLOW HELD" if fit_tier == &"safe" else "FLOW RESET"
 		)
 		var reward_copy := "  •  %s" % _dispatch_reward_label if not _dispatch_reward_label.is_empty() else ""
 		var route_status_copy := "%s > %s  •  %s%s  •  NEXT FILE READY" % [
@@ -10888,7 +10899,7 @@ func _commit_dispatch(worker_id: int) -> bool:
 			reward_copy,
 		]
 		var route_accessible_copy := "%s route filed: %s to %s." % [
-			"Best-fit" if recommended else "Standard",
+			"Best-fit flow" if recommended else "Safe hold" if fit_tier == &"safe" else "Risky gambit",
 			worker_name,
 			_dispatch_lane_label(lane).to_lower(),
 		]
@@ -19662,6 +19673,8 @@ func _dispatch_diagnostic_state() -> Dictionary:
 			"pace": String(candidate.get("pace_preview", "slow")),
 			"shell_risk": String(candidate.get("shell_risk_preview", "high")),
 			"reward": String(candidate.get("reward_preview", "recovery")),
+			"strategy": String(candidate.get("strategy_label", "GAMBIT")),
+			"consequence": String(candidate.get("consequence_preview", "FLOW RESETS")),
 		})
 	var recommendation_handoff := {}
 	var recommended_view := _worker_views.get(_dispatch_recommended_worker_id) as ChickenView
@@ -19677,6 +19690,7 @@ func _dispatch_diagnostic_state() -> Dictionary:
 		"lane": String(_dispatch_lane),
 		"candidate_ids": candidate_ids,
 		"candidate_previews": candidate_previews,
+		"file_preview": _dispatch_file_preview.duplicate(true),
 		"fit_legend": {
 			"best": {"shape": "star", "meaning": "FAST / LOW RISK / MOMENTUM"},
 			"safe": {"shape": "check", "meaning": "STEADY / GUARDED / STABLE"},
@@ -20744,11 +20758,14 @@ func _apply_professional_polish_presentation(layer: Dictionary) -> void:
 	if layer.is_empty():
 		return
 	var experiential := layer.get("experiential_polish", {}) as Dictionary
+	var next_level := experiential.get("next_level_polish", {}) as Dictionary
+	var mastery_polish := next_level.get("core_loop_mastery_polish", {}) as Dictionary
 	var spotlight := layer.get("action_spotlight", {}) as Dictionary
 	var payoff := layer.get("payoff_countdown", {}) as Dictionary
 	if _top_hud_panel != null:
 		_top_hud_panel.set_meta("professional_polish", layer.duplicate(true))
 		_top_hud_panel.set_meta("experiential_polish", experiential.duplicate(true))
+		_top_hud_panel.set_meta("core_loop_mastery_polish", mastery_polish.duplicate(true))
 		_top_hud_panel.set_meta("reaction_first_feedback", (layer.get("reaction_first_feedback", {}) as Dictionary).duplicate(true))
 		_top_hud_panel.set_meta("adaptive_information_density", (layer.get("adaptive_information_density", {}) as Dictionary).duplicate(true))
 		_top_hud_panel.set_meta("contextual_hud", (experiential.get("contextual_hud", {}) as Dictionary).duplicate(true))
@@ -20770,6 +20787,8 @@ func _apply_professional_polish_presentation(layer: Dictionary) -> void:
 		_core_loop_host.set_meta("silent_tutorial_file", (experiential.get("silent_tutorial_file", {}) as Dictionary).duplicate(true))
 		_core_loop_host.set_meta("dynamic_pacing_director", (experiential.get("dynamic_pacing", {}) as Dictionary).duplicate(true))
 	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("decision_spikes", (mastery_polish.get("decision_spikes", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("recovery_bargains", (mastery_polish.get("recovery_bargains", {}) as Dictionary).duplicate(true))
 		_active_playbook_button.set_meta("personal_chicken_objectives", (layer.get("personal_objectives", {}) as Dictionary).duplicate(true))
 		_active_playbook_button.set_meta("partnership_choreography", (layer.get("partnership_choreography", {}) as Dictionary).duplicate(true))
 		_active_playbook_button.set_meta("failure_recovery", (layer.get("failure_recovery", {}) as Dictionary).duplicate(true))
@@ -21252,8 +21271,13 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 	if _dispatch_lane != &"":
 		var recommended := _dispatch_candidate_for(_dispatch_recommended_worker_id)
 		return (
-			"%s intake tray selected. Choose a hen in the office. Star: %s, best fit. Check marks are safe alternatives; warning triangles are risky alternatives. Other marked hens remain valid choices. Cancel returns the tray."
-			% [_dispatch_lane_label(_dispatch_lane), String(recommended.get("worker_name", "unknown"))]
+			"%s %s file selected. %s Choose a hen in the office. Star: %s, best fit, adds one flow. Check marks are safe alternatives and hold flow; warning triangles are risky alternatives and reset flow. Hover a hen for pace and shell-risk forecast. Other marked hens remain valid choices. Cancel returns the tray."
+			% [
+				String(_dispatch_file_preview.get("symbol", "")),
+				String(_dispatch_file_preview.get("label", _dispatch_lane_label(_dispatch_lane))),
+				String(_dispatch_file_preview.get("reason", "")),
+				String(recommended.get("worker_name", "unknown")),
+			]
 		)
 	if _workstation_feedback != null:
 		var landing := _workstation_feedback.dispatch_landing_snapshot()
@@ -24304,6 +24328,7 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 			_dispatch_momentum_chain,
 			recommended_name,
 			_dispatch_reward_label,
+			_dispatch_file_preview,
 		)
 	var dialogue_projection := _character_dialogue_projection(snapshot)
 	if not _character_dialogue_previous_snapshot.is_empty():

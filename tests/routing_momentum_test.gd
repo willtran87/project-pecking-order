@@ -69,9 +69,30 @@ func _run() -> void:
 
 	var poor_lane := &"appeals"
 	var candidates := restored.dispatch_candidates(poor_lane)
-	_check(candidates.size() >= 2, "poor-fit fixture should expose a second candidate", failures)
-	if candidates.size() >= 2:
-		var poor_worker_id := int(candidates[1].get("worker_id", -1))
+	var safe_candidate: Dictionary = {}
+	var risky_candidate: Dictionary = {}
+	for candidate in candidates:
+		if String(candidate.get("fit_tier", "")) == "safe" and safe_candidate.is_empty():
+			safe_candidate = candidate
+		elif String(candidate.get("fit_tier", "")) == "risky" and risky_candidate.is_empty():
+			risky_candidate = candidate
+	_check(not safe_candidate.is_empty(), "routing fixture should expose a safe flow-hold alternative", failures)
+	_check(not risky_candidate.is_empty(), "routing fixture should expose a risky flow-reset alternative", failures)
+	if not safe_candidate.is_empty():
+		var safe_worker_id := int(safe_candidate.get("worker_id", -1))
+		restored.set_worker_assignment(safe_worker_id, DepartmentSimulation.AUTO_ASSIGNMENT)
+		var safe := restored.dispatch_worker_to_lane(safe_worker_id, poor_lane)
+		_check(
+			bool(safe.get("accepted", false))
+			and String(safe.get("fit_tier", "")) == "safe"
+			and String(safe.get("route_strategy", "")) == "hold"
+			and int(safe.get("momentum_chain", -1)) == 5
+			and (safe.get("break", {}) as Dictionary).is_empty(),
+			"a check-mark route should preserve earned flow without adding another link",
+			failures,
+		)
+	if not risky_candidate.is_empty():
+		var poor_worker_id := int(risky_candidate.get("worker_id", -1))
 		restored.set_worker_assignment(poor_worker_id, DepartmentSimulation.AUTO_ASSIGNMENT)
 		var poor := restored.dispatch_worker_to_lane(poor_worker_id, poor_lane)
 		_check(bool(poor.get("accepted", false)), "poor-fit dispatch should still route the file", failures)

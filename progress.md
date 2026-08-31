@@ -1,5 +1,15 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-31 - Core loop mastery polish (implementation)
+
+- Added deterministic queued-file personalities derived from real deadline, rework, value/contract, and lane facts; the carried file now communicates `RUSH`, `RETURNED`, `PRIZE`, `FRAGILE`, `SENSITIVE`, `REPAIR`, or `STEADY` without hidden random rules.
+- Added hover-only world forecasts on marked hens with pointer cleanup and accessible non-hover parity. Each target states pace, shell risk, and the exact flow consequence without opening another panel.
+- Made the three routing shapes mechanically truthful: star builds flow, check preserves it, and triangle resets it. Receipts retain fit tier, strategy, and disclosed consequence.
+- Added the exact read-only twenty-item `core_loop_mastery_polish` contract beneath the existing next-level interaction layer, plus native/browser coverage and `docs/CORE_LOOP_MASTERY_COMPLETION.md`.
+- Focused native routing, live office, completion, and gameplay-pulse contracts pass. The prescribed generic browser client and the 2560×1600 production gameplay audit pass with zero console/page errors; original-size review confirms the title, live office, route planner, explanation strip, and Playbook remain contained.
+- The full beta release gate passes 73/73 checks in 611.674 seconds, including 50/50 rendered web tests, production-server validation, and exact nine-file parity. Both release targets contain the byte-identical 10,838,104-byte PCK with SHA-256 `BC88AE645C51B824B8B945E5013D282397B8F889FB69E416182839C8746ABDE9`.
+- Every owned wrapper, Godot, and Chromium process was closed after verification; port 3001 is free and the pre-existing port-3000 service at PID 25812 remains untouched. Real participant evidence still honestly reports `AWAITING REAL PARTICIPANTS`.
+
 ## 2026-08-31 - Experiential interaction polish
 
 - Added the exact 25-item interaction-first `experiential_polish` contract beneath the existing professional completion layer, raising `IntuitiveRewardingCompletion` to version 3 and `GameplayPulseDirector` to version 18 without adding another gameplay authority or blocking panel.

@@ -721,6 +721,7 @@ var _active_dispatch_lane: StringName = &""
 var _dispatch_momentum_chain := 0
 var _dispatch_recommended_name := ""
 var _dispatch_reward_label := ""
+var _dispatch_file_preview: Dictionary = {}
 var _dispatch_drag_lane: StringName = &""
 var _dispatch_drag_origin := Vector2.ZERO
 var _dispatch_dragging := false
@@ -1144,6 +1145,7 @@ func set_dispatch_state(
 	momentum_chain: int = 0,
 	recommended_name: String = "",
 	reward_label: String = "",
+	file_preview: Dictionary = {},
 ) -> void:
 	_active_dispatch_lane = lane if lane in LANE_ORDER else &""
 	_dispatch_momentum_chain = maxi(0, momentum_chain)
@@ -1153,6 +1155,7 @@ func set_dispatch_state(
 		_finish_dispatch_recovery()
 	_dispatch_recommended_name = recommended_name
 	_dispatch_reward_label = reward_label
+	_dispatch_file_preview = file_preview.duplicate(true)
 	_refresh()
 
 
@@ -1210,6 +1213,7 @@ func apply_professional_polish_state(state: Dictionary) -> void:
 		return
 	var experiential := state.get("experiential_polish", {}) as Dictionary
 	var next_level := experiential.get("next_level_polish", {}) as Dictionary
+	var mastery_polish := next_level.get("core_loop_mastery_polish", {}) as Dictionary
 	var spotlight := state.get("action_spotlight", {}) as Dictionary
 	var preview := state.get("before_after_preview", {}) as Dictionary
 	var direct := state.get("direct_file_manipulation", {}) as Dictionary
@@ -1222,6 +1226,10 @@ func apply_professional_polish_state(state: Dictionary) -> void:
 	_queue_panel.set_meta("repetition_director", (state.get("repetition_director", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("experiential_polish", experiential.duplicate(true))
 	_queue_panel.set_meta("next_level_polish", next_level.duplicate(true))
+	_queue_panel.set_meta("core_loop_mastery_polish", mastery_polish.duplicate(true))
+	_queue_panel.set_meta("file_personalities", (mastery_polish.get("file_personalities", {}) as Dictionary).duplicate(true))
+	_queue_panel.set_meta("target_forecasts", (mastery_polish.get("target_forecasts", {}) as Dictionary).duplicate(true))
+	_queue_panel.set_meta("routing_combinations", (mastery_polish.get("routing_combinations", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("drop_target_preview", (next_level.get("drop_target_preview", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("fit_language", (next_level.get("fit_language", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("direct_drag_routing", (experiential.get("direct_drag_routing", {}) as Dictionary).duplicate(true))
@@ -2589,7 +2597,9 @@ func _show_dispatch_drag_ghost(lane: StringName, viewport_position: Vector2) -> 
 	if _dispatch_drag_ghost == null:
 		return
 	_dispatch_drag_ghost.visible = true
-	_dispatch_drag_ghost_label.text = "%s  →  ★  ✓  △" % _lane_name(lane).to_upper()
+	var file_label := String(_dispatch_file_preview.get("label", _lane_name(lane))).to_upper()
+	var file_symbol := String(_dispatch_file_preview.get("symbol", ""))
+	_dispatch_drag_ghost_label.text = "%s %s  →  ★  ✓  △" % [file_symbol, file_label]
 	_dispatch_drag_ghost.set_meta("lane", String(lane))
 	_dispatch_drag_ghost.set_meta("state", &"carrying")
 	_update_dispatch_drag_ghost(viewport_position)
@@ -2624,6 +2634,7 @@ func dispatch_drag_feedback_state() -> Dictionary:
 		"mouse": true,
 		"touch": true,
 		"invalid_drop_returns_file": true,
+		"file_personality": _dispatch_file_preview.duplicate(true),
 	}
 
 
@@ -3590,20 +3601,23 @@ func _refresh() -> void:
 		elif _dispatch_break_remaining > 0.0:
 			_apply_dispatch_break_presentation()
 		elif _active_dispatch_lane != &"":
+			var file_label := String(_dispatch_file_preview.get("label", "FILE"))
 			_dispatch_momentum_label.text = (
-				"PICK FIT %s" % mastery_progress
+				"%s · PICK %s" % [file_label, mastery_progress]
 				if mastery_active and mastery_target > _dispatch_momentum_chain else
-				"PICK · ×%d" % _dispatch_momentum_chain
+				"%s · PICK · ×%d" % [file_label, _dispatch_momentum_chain]
 				if _dispatch_momentum_chain >= 2 else
-				"PICK"
+				"%s · PICK" % file_label
 			)
 			var pick_tooltip := (
-				"Choose a hen. Best fit: %s.%s" % [
+				"%s file: %s Choose a hen. Best fit: %s. Star adds flow; check holds flow; triangle resets flow.%s" % [
+					file_label.capitalize(),
+					String(_dispatch_file_preview.get("reason", "")),
 					_dispatch_recommended_name,
 					(" %s is ready." % _dispatch_reward_label) if not _dispatch_reward_label.is_empty() else "",
 				]
 				if not _dispatch_recommended_name.is_empty() else
-				"Choose a hen. The gold star marks the best fit."
+				"Choose a hen. Star adds flow; check holds flow; triangle resets flow."
 			)
 			if mastery_active and mastery_target > _dispatch_momentum_chain:
 				pick_tooltip += " Best-fit mastery: %d of %d. The streak has no timer." % [

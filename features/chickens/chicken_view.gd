@@ -314,6 +314,7 @@ var _reduced_motion := false
 var _flock_bond_marker: Sprite3D
 var _flock_bond: Dictionary = {}
 var _dispatch_candidate_marker: Sprite3D
+var _dispatch_forecast_label: Label3D
 var _dispatch_candidate: Dictionary = {}
 var _dispatch_recommendation_tween: Tween
 var _dispatch_recommendation_serial := 0
@@ -1538,6 +1539,8 @@ func _build_management_pick_area() -> void:
 	collision.shape = capsule
 	_management_pick_area.add_child(collision)
 	_management_pick_area.input_event.connect(_on_management_pick_input_event)
+	_management_pick_area.mouse_entered.connect(_on_management_pick_mouse_entered)
+	_management_pick_area.mouse_exited.connect(_on_management_pick_mouse_exited)
 	add_child(_management_pick_area)
 
 
@@ -1574,6 +1577,14 @@ func _on_management_pick_input_event(
 		return
 	management_selection_requested.emit(worker_id)
 	get_viewport().set_input_as_handled()
+
+
+func _on_management_pick_mouse_entered() -> void:
+	set_dispatch_forecast_hovered(true)
+
+
+func _on_management_pick_mouse_exited() -> void:
+	set_dispatch_forecast_hovered(false)
 
 
 func _build_break_interaction_prop() -> void:
@@ -1893,6 +1904,18 @@ func _build_hen_intent_marker() -> void:
 	_dispatch_candidate_marker.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_dispatch_candidate_marker.visible = false
 	add_child(_dispatch_candidate_marker)
+	_dispatch_forecast_label = Label3D.new()
+	_dispatch_forecast_label.name = "DispatchForecast"
+	_dispatch_forecast_label.position = Vector3(0.0, 2.50 + height_offset, 0.0)
+	_dispatch_forecast_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_dispatch_forecast_label.no_depth_test = true
+	_dispatch_forecast_label.render_priority = 24
+	_dispatch_forecast_label.font_size = 25
+	_dispatch_forecast_label.outline_size = 9
+	_dispatch_forecast_label.modulate = Color("fff4cf")
+	_dispatch_forecast_label.outline_modulate = Color("172129")
+	_dispatch_forecast_label.visible = false
+	add_child(_dispatch_forecast_label)
 	_short_bark_label = Label3D.new()
 	_short_bark_label.name = "ShortBark"
 	_short_bark_label.position = Vector3(0.0, 2.68 + height_offset, 0.0)
@@ -1935,6 +1958,9 @@ func set_dispatch_candidate(
 		"pace_preview": String(fit_preview.get("pace_preview", "fast" if fit_tier == &"best" else "steady" if fit_tier == &"safe" else "slow")),
 		"shell_risk_preview": String(fit_preview.get("shell_risk_preview", "low" if fit_tier == &"best" else "guarded" if fit_tier == &"safe" else "high")),
 		"reward_preview": String(fit_preview.get("reward_preview", "momentum" if fit_tier == &"best" else "stable" if fit_tier == &"safe" else "recovery")),
+		"strategy_label": String(fit_preview.get("strategy_label", "FLOW" if fit_tier == &"best" else "HOLD" if fit_tier == &"safe" else "GAMBIT")),
+		"consequence_preview": String(fit_preview.get("consequence_preview", "FLOW +1" if fit_tier == &"best" else "FLOW HOLDS" if fit_tier == &"safe" else "FLOW RESETS")),
+		"file_personality": (fit_preview.get("file_personality", {}) as Dictionary).duplicate(true),
 	}
 	if _dispatch_candidate_marker == null:
 		return
@@ -1950,9 +1976,38 @@ func set_dispatch_candidate(
 	_dispatch_candidate_marker.set_meta("handoff_animated", false)
 	if not active:
 		_dispatch_candidate_marker.texture = null
+		set_dispatch_forecast_hovered(false)
 		return
 	_dispatch_candidate_marker.texture = _dispatch_candidate_texture(fit_tier)
 	_dispatch_candidate_marker.modulate = Color.WHITE
+
+
+## Hover reveals one compact, non-authoritative outcome forecast at the target.
+## Touch and keyboard retain the same information in the routing strip's
+## accessible tooltip, so hover is an enhancement rather than a requirement.
+func set_dispatch_forecast_hovered(hovered: bool) -> void:
+	if _dispatch_forecast_label == null:
+		return
+	var active := bool(_dispatch_candidate.get("active", false))
+	_dispatch_forecast_label.visible = hovered and active
+	_dispatch_candidate["forecast_hovered"] = hovered and active
+	if not hovered or not active:
+		_dispatch_forecast_label.text = ""
+		return
+	var fit_tier := String(_dispatch_candidate.get("fit_tier", "risky"))
+	var glyph := "★" if fit_tier == "best" else "✓" if fit_tier == "safe" else "△"
+	var file_personality := _dispatch_candidate.get("file_personality", {}) as Dictionary
+	var file_label := String(file_personality.get("label", "FILE"))
+	_dispatch_forecast_label.text = "%s · %s %s · %s · %s" % [
+		file_label,
+		glyph,
+		String(_dispatch_candidate.get("pace_preview", "slow")).to_upper(),
+		String(_dispatch_candidate.get("shell_risk_preview", "high")).to_upper(),
+		String(_dispatch_candidate.get("consequence_preview", "FLOW RESETS")),
+	]
+	_dispatch_forecast_label.set_meta("file_personality", String(file_personality.get("personality_id", "steady")))
+	_dispatch_forecast_label.set_meta("fit_tier", fit_tier)
+	_dispatch_forecast_label.set_meta("presentation_only", true)
 
 
 func dispatch_candidate_snapshot() -> Dictionary:
@@ -1960,6 +2015,12 @@ func dispatch_candidate_snapshot() -> Dictionary:
 	result["worker_id"] = worker_id
 	result["marker_visible"] = (
 		_dispatch_candidate_marker != null and _dispatch_candidate_marker.visible
+	)
+	result["forecast_visible"] = (
+		_dispatch_forecast_label != null and _dispatch_forecast_label.visible
+	)
+	result["forecast_text"] = (
+		_dispatch_forecast_label.text if _dispatch_forecast_label != null else ""
 	)
 	result["handoff_serial"] = _dispatch_recommendation_serial
 	result["handoff_active"] = _dispatch_recommendation_active

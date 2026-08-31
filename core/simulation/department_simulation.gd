@@ -16053,6 +16053,8 @@ func dispatch_worker_to_lane(worker_id: int, lane: StringName) -> Dictionary:
 	worker.manually_routed = true
 	_breach_specialty_compact_for_assignment(worker)
 	var recommended := bool(selected.get("recommended", false))
+	var fit_tier := StringName(String(selected.get("fit_tier", "risky")))
+	var route_strategy := StringName(String(selected.get("strategy_id", "gambit")))
 	var chain_before := routing_momentum_chain
 	var reward: Dictionary = {}
 	var break_receipt: Dictionary = {}
@@ -16101,7 +16103,7 @@ func dispatch_worker_to_lane(worker_id: int, lane: StringName) -> Dictionary:
 			]
 			reward["worker_id"] = worker.id
 			reward["lane"] = lane
-	else:
+	elif fit_tier == &"risky":
 		break_receipt = _break_routing_momentum(
 			"A poor-fit tray ended the live pace bonus.",
 			&"poor_fit",
@@ -16117,6 +16119,9 @@ func dispatch_worker_to_lane(worker_id: int, lane: StringName) -> Dictionary:
 		"lane": lane,
 		"previous_lane": previous_lane,
 		"recommended": recommended,
+		"fit_tier": fit_tier,
+		"route_strategy": route_strategy,
+		"consequence_preview": String(selected.get("consequence_preview", "FLOW RESETS")),
 		"specialty_match": bool(selected.get("specialty_match", false)),
 		"momentum_before": chain_before,
 		"momentum_chain": routing_momentum_chain,
@@ -16134,6 +16139,11 @@ func dispatch_worker_to_lane(worker_id: int, lane: StringName) -> Dictionary:
 			worker.display_name,
 			String(lane).replace("_", " ").to_upper(),
 			("  %s" % String(reward.get("label", ""))) if not reward.is_empty() else "",
+		])
+	elif fit_tier == &"safe":
+		announcement_posted.emit("SAFE HOLD: %s took the %s tray without breaking flow." % [
+			worker.display_name,
+			String(lane).replace("_", " ").to_upper(),
 		])
 	snapshot_changed.emit(snapshot())
 	return receipt
@@ -16302,6 +16312,85 @@ func _break_routing_momentum(
 	return receipt
 
 
+## Read-only identity for the next physical file in a tray. Personalities are
+## derived only from authoritative file facts, so the same queued file always
+## communicates the same behavior without adding hidden rules or random rolls.
+func dispatch_file_preview(lane: StringName) -> Dictionary:
+	if not CLAIM_LANE_DEFINITIONS.has(lane):
+		return {}
+	var claim_index := _earliest_claim_index(lane)
+	var claim := _claim_at(lane, claim_index)
+	if claim == null:
+		return {}
+	var file := claim.snapshot(_current_operational_minute())
+	_apply_market_contract_claim_snapshot(file)
+	var personality_id: StringName = &"steady"
+	var label := "STEADY"
+	var symbol := "="
+	var shape := "bar"
+	var behavior := "BALANCED"
+	var reason := "A standard file with room for a deliberate route."
+	var minutes_left := int(file.get("minutes_until_deadline", 0))
+	if bool(file.get("overdue", false)) or minutes_left <= 20:
+		personality_id = &"rush"
+		label = "RUSH"
+		symbol = "!"
+		shape = "diamond_exclamation"
+		behavior = "DEADLINE FIRST"
+		reason = "This file is overdue or within twenty minutes of its deadline."
+	elif bool(file.get("is_rework", false)) or bool(file.get("is_claimant_follow_up", false)):
+		personality_id = &"returned"
+		label = "RETURNED"
+		symbol = "↺"
+		shape = "loop_arrow"
+		behavior = "RECOVERY CHANCE"
+		reason = "This file returned from an earlier result and needs a clean recovery."
+	elif bool(file.get("market_contract_rush", false)) or int(file.get("value_cents", 0)) >= 1000:
+		personality_id = &"prize"
+		label = "PRIZE"
+		symbol = "$"
+		shape = "coin_diamond"
+		behavior = "HIGH VALUE"
+		reason = "This file carries an unusually valuable or contracted result."
+	elif lane == &"predator_loss":
+		personality_id = &"fragile"
+		label = "FRAGILE"
+		symbol = "◇"
+		shape = "hollow_diamond"
+		behavior = "PROTECT SHELL"
+		reason = "Predator-loss work carries the tray's highest shell pressure."
+	elif lane == &"appeals":
+		personality_id = &"sensitive"
+		label = "SENSITIVE"
+		symbol = "?"
+		shape = "split_stamp"
+		behavior = "HANDLE WITH CARE"
+		reason = "An appeal can redirect audit order and claimant follow-through."
+	elif lane == &"nest_damage":
+		personality_id = &"repair"
+		label = "REPAIR"
+		symbol = "+"
+		shape = "patch_cross"
+		behavior = "RESTORE MORALE"
+		reason = "Nest-repair relief can restore the handler's morale."
+	return {
+		"claim_id": int(file.get("id", -1)),
+		"lane": lane,
+		"personality_id": personality_id,
+		"label": label,
+		"symbol": symbol,
+		"shape": shape,
+		"behavior": behavior,
+		"reason": reason,
+		"minutes_until_deadline": minutes_left,
+		"overdue": bool(file.get("overdue", false)),
+		"rework": bool(file.get("is_rework", false)),
+		"value_cents": int(file.get("value_cents", 0)),
+		"claimant_name": String(file.get("claimant_name", "")),
+		"authoritative_source": "queued_claim",
+	}
+
+
 ## Ranked, read-only candidates for the physical intake-tray dispatch gesture.
 ## The score intentionally favors specialty fit first, then hens who are already
 ## free for a new file, and finally a calm/energized tie-break. Routing remains
@@ -16310,6 +16399,7 @@ func dispatch_candidates(lane: StringName) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	if not CLAIM_LANE_DEFINITIONS.has(lane):
 		return candidates
+	var file_preview := dispatch_file_preview(lane)
 	for worker in workers:
 		if worker == null or not worker.employed:
 			continue
@@ -16351,6 +16441,10 @@ func dispatch_candidates(lane: StringName) -> Array[Dictionary]:
 		candidates[index]["pace_preview"] = "fast" if fit_tier == "best" else "steady" if fit_tier == "safe" else "slow"
 		candidates[index]["shell_risk_preview"] = "low" if fit_tier == "best" else "guarded" if fit_tier == "safe" else "high"
 		candidates[index]["reward_preview"] = "momentum" if fit_tier == "best" else "stable" if fit_tier == "safe" else "recovery"
+		candidates[index]["strategy_id"] = "flow" if fit_tier == "best" else "hold" if fit_tier == "safe" else "gambit"
+		candidates[index]["strategy_label"] = "FLOW" if fit_tier == "best" else "HOLD" if fit_tier == "safe" else "GAMBIT"
+		candidates[index]["consequence_preview"] = "FLOW +1" if fit_tier == "best" else "FLOW HOLDS" if fit_tier == "safe" else "FLOW RESETS"
+		candidates[index]["file_personality"] = file_preview.duplicate(true)
 	return candidates
 
 

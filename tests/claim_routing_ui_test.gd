@@ -330,6 +330,23 @@ func _run() -> void:
 		"the ranked best-fit hen should receive the star and its compact outcome preview",
 		failures,
 	)
+	if recommended_view != null:
+		recommended_view.set_dispatch_forecast_hovered(true)
+		var hovered_forecast := recommended_view.dispatch_candidate_snapshot()
+		_check(
+			bool(hovered_forecast.get("forecast_visible", false))
+			and "★ FAST" in String(hovered_forecast.get("forecast_text", ""))
+			and "LOW" in String(hovered_forecast.get("forecast_text", ""))
+			and "FLOW +1" in String(hovered_forecast.get("forecast_text", "")),
+			"hovering the target should reveal one compact pace, shell-risk, and flow forecast in the world",
+			failures,
+		)
+		recommended_view.set_dispatch_forecast_hovered(false)
+		_check(
+			not bool(recommended_view.dispatch_candidate_snapshot().get("forecast_visible", true)),
+			"leaving the target should clean up its transient forecast",
+			failures,
+		)
 	_check(
 		int(recommendation_handoff.get("handoff_serial", 0)) == 1
 		and bool(recommendation_handoff.get("handoff_active", false))
@@ -370,16 +387,23 @@ func _run() -> void:
 	var dispatch_diagnostic := office.call("_dispatch_diagnostic_state") as Dictionary
 	var diagnostic_handoff := dispatch_diagnostic.get("recommendation_handoff", {}) as Dictionary
 	var diagnostic_previews := dispatch_diagnostic.get("candidate_previews", []) as Array
+	var diagnostic_file := dispatch_diagnostic.get("file_preview", {}) as Dictionary
 	var fit_legend := dispatch_diagnostic.get("fit_legend", {}) as Dictionary
+	var diagnostic_best := diagnostic_previews[0] as Dictionary if not diagnostic_previews.is_empty() else {}
 	_check(
 		int(diagnostic_handoff.get("worker_id", -1)) == recommended_id
 		and bool(diagnostic_handoff.get("handoff_active", false))
 		and diagnostic_previews.size() == (office.get("_dispatch_candidates") as Array[Dictionary]).size()
+		and int(diagnostic_file.get("claim_id", -1)) > 0
+		and not String(diagnostic_file.get("label", "")).is_empty()
+		and not String(diagnostic_file.get("behavior", "")).is_empty()
+		and String(diagnostic_best.get("strategy", "")) == "FLOW"
+		and String(diagnostic_best.get("consequence", "")) == "FLOW +1"
 		and String((fit_legend.get("best", {}) as Dictionary).get("shape", "")) == "star"
 		and String((fit_legend.get("safe", {}) as Dictionary).get("shape", "")) == "check"
 		and String((fit_legend.get("risky", {}) as Dictionary).get("shape", "")) == "triangle"
 		and not bool(fit_legend.get("color_only", true)),
-		"browser diagnostics should expose the exact handoff and color-independent fit legend",
+		"browser diagnostics should expose the exact file personality, handoff, and color-independent fit legend",
 		failures,
 	)
 	var dispatch_accessibility := String(office.call(
@@ -454,7 +478,7 @@ func _run() -> void:
 		and "NEXT FILE READY" in status_toast_label.text
 		and "BEST FIT" not in status_toast_label.text
 		and "FROM NEST" not in status_toast_label.text
-		and "Best-fit route filed:" in status_toast_label.tooltip_text
+		and "Best-fit flow route filed:" in status_toast_label.tooltip_text
 		and "Best-fit streak 1" in status_toast_label.tooltip_text
 		and status_toast_label.accessibility_name == status_toast_label.tooltip_text,
 		"the route receipt should use direction and outcome symbols while keeping the complete result accessible [text=%s tooltip=%s accessibility=%s]" % [
@@ -673,7 +697,11 @@ func _run() -> void:
 	var current_recommended_id := int(office.get("_dispatch_recommended_worker_id"))
 	for candidate_value in office.get("_dispatch_candidates") as Array[Dictionary]:
 		var candidate_id := int(candidate_value.get("worker_id", -1))
-		if candidate_id >= 0 and candidate_id != current_recommended_id:
+		if (
+			candidate_id >= 0
+			and candidate_id != current_recommended_id
+			and String(candidate_value.get("fit_tier", "")) == "risky"
+		):
 			poor_worker_id = candidate_id
 			break
 	_check(poor_worker_id >= 0, "the fixture should expose a real poor-fit dispatch choice", failures)

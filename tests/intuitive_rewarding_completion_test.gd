@@ -38,7 +38,7 @@ func _init() -> void:
 		if item_value is Dictionary:
 			ids.append(String((item_value as Dictionary).get("id", "")))
 	_check(
-		int(layer.get("version", 0)) == 4
+		int(layer.get("version", 0)) == 5
 		and bool(layer.get("canonical", false))
 		and not bool(layer.get("authoritative", true))
 		and int(layer.get("item_count", 0)) == 33
@@ -101,7 +101,7 @@ func _init() -> void:
 	var rematch := polish.get("rematch_experiment", {}) as Dictionary
 	var observation := polish.get("first_shift_observation", {}) as Dictionary
 	_check(
-		int(polish.get("version", 0)) == 3
+		int(polish.get("version", 0)) == 4
 		and bool(polish.get("canonical", false))
 		and not bool(polish.get("authoritative", true))
 		and not bool(polish.get("adds_default_panel", true))
@@ -148,7 +148,7 @@ func _init() -> void:
 	var experimental_rematch := experiential.get("experimental_rematch", {}) as Dictionary
 	var observed := experiential.get("observed_first_shift", {}) as Dictionary
 	_check(
-		int(experiential.get("version", 0)) == 2
+		int(experiential.get("version", 0)) == 3
 		and bool(experiential.get("canonical", false))
 		and not bool(experiential.get("authoritative", true))
 		and not bool(experiential.get("adds_default_panel", true))
@@ -168,7 +168,7 @@ func _init() -> void:
 	var target_preview := next_level.get("drop_target_preview", {}) as Dictionary
 	var onboarding_evidence := next_level.get("onboarding_evidence", {}) as Dictionary
 	_check(
-		int(next_level.get("version", 0)) == 1
+		int(next_level.get("version", 0)) == 2
 		and bool(next_level.get("canonical", false))
 		and not bool(next_level.get("authoritative", true))
 		and not bool(next_level.get("adds_default_panel", true))
@@ -191,6 +191,43 @@ func _init() -> void:
 		and not bool(onboarding_evidence.get("results_complete", true))
 		and bool(onboarding_evidence.get("never_fabricate", false)),
 		"fit previews, focus, automation, recovery, and onboarding evidence should be clear and honest",
+		failures,
+	)
+	var mastery_polish := next_level.get("core_loop_mastery_polish", {}) as Dictionary
+	var mastery_polish_ids: Array[String] = []
+	for item_value in mastery_polish.get("items", []) as Array:
+		if item_value is Dictionary:
+			mastery_polish_ids.append(String((item_value as Dictionary).get("id", "")))
+	var consequence_preview := mastery_polish.get("consequence_preview", {}) as Dictionary
+	var strategies := consequence_preview.get("strategies", []) as Array
+	var file_personalities := mastery_polish.get("file_personalities", {}) as Dictionary
+	var observation_evidence := mastery_polish.get("first_shift_observation", {}) as Dictionary
+	_check(
+		int(mastery_polish.get("version", 0)) == 1
+		and bool(mastery_polish.get("canonical", false))
+		and not bool(mastery_polish.get("authoritative", true))
+		and not bool(mastery_polish.get("adds_default_panel", true))
+		and int(mastery_polish.get("item_count", 0)) == 20
+		and int(mastery_polish.get("resolved_count", 0)) == 20
+		and bool(mastery_polish.get("all_resolved", false))
+		and mastery_polish_ids.size() == 20
+		and mastery_polish_ids.duplicate().all(func(item_id): return mastery_polish_ids.count(item_id) == 1),
+		"the mastery polish layer should resolve the exact twenty-item brief once without new authority",
+		failures,
+	)
+	_check(
+		(strategies[0] as Dictionary).get("flow", "") == "+1"
+		and (strategies[1] as Dictionary).get("flow", "") == "HOLDS"
+		and (strategies[2] as Dictionary).get("flow", "") == "RESETS"
+		and (file_personalities.get("types", []) as Array).size() == 7
+		and bool(file_personalities.get("derived_from_authoritative_file", false))
+		and bool((mastery_polish.get("target_forecasts", {}) as Dictionary).get("at_target", false))
+		and bool((mastery_polish.get("relationship_teamwork", {}) as Dictionary).get("both_hens_react", false))
+		and bool((mastery_polish.get("recovery_bargains", {}) as Dictionary).get("gain_cost_risk_disclosed", false))
+		and String(observation_evidence.get("status", "")) == "AWAITING REAL PARTICIPANTS"
+		and not bool(observation_evidence.get("results_complete", true))
+		and bool(observation_evidence.get("never_fabricate", false)),
+		"forecasts, file identity, route consequences, teamwork, recovery, and human evidence should be concrete",
 		failures,
 	)
 	_check(
@@ -224,7 +261,7 @@ func _init() -> void:
 			push_error("INTUITIVE_REWARDING_COMPLETION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("INTUITIVE_REWARDING_COMPLETION_TEST_PASSED items=33 polish=25 experiential=25 next-level=25 fit=best+safe+risky drag=mouse+touch study=awaiting-humans")
+	print("INTUITIVE_REWARDING_COMPLETION_TEST_PASSED items=33 polish=25 experiential=25 next-level=25 mastery=20 fit=flow+hold+gambit drag=mouse+touch study=awaiting-humans")
 	quit(0)
 
 

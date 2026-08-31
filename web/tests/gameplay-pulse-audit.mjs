@@ -109,7 +109,7 @@ try {
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 19);
+	assert.equal(pulse.version, 20);
 	assert.equal(pulse.consolidated_game_loop?.item_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.implemented_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.all_implemented, true);
@@ -146,7 +146,7 @@ try {
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.status, "AWAITING REAL PARTICIPANTS");
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.results_complete, false);
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.never_fabricate, true);
-	assert.equal(pulse.intuitive_rewarding_completion?.version, 4);
+	assert.equal(pulse.intuitive_rewarding_completion?.version, 5);
 	assert.equal(pulse.intuitive_rewarding_completion?.item_count, 33);
 	assert.equal(pulse.intuitive_rewarding_completion?.implemented_count, 33);
 	assert.equal(pulse.intuitive_rewarding_completion?.all_implemented, true);
@@ -162,7 +162,7 @@ try {
 	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.results_complete, false);
 	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.never_fabricate, true);
 	const professionalPolish = pulse.intuitive_rewarding_completion?.professional_polish;
-	assert.equal(professionalPolish?.version, 3);
+	assert.equal(professionalPolish?.version, 4);
 	assert.equal(professionalPolish?.item_count, 25);
 	assert.equal(professionalPolish?.resolved_count, 25);
 	assert.equal(professionalPolish?.all_resolved, true);
@@ -183,7 +183,7 @@ try {
 	assert.equal(professionalPolish?.first_shift_observation?.results_complete, false);
 	assert.equal(professionalPolish?.first_shift_observation?.never_fabricate, true);
 	const experientialPolish = professionalPolish?.experiential_polish;
-	assert.equal(experientialPolish?.version, 2);
+	assert.equal(experientialPolish?.version, 3);
 	assert.equal(experientialPolish?.item_count, 25);
 	assert.equal(experientialPolish?.resolved_count, 25);
 	assert.equal(experientialPolish?.all_resolved, true);
@@ -203,7 +203,7 @@ try {
 	assert.equal(experientialPolish?.observed_first_shift?.results_complete, false);
 	assert.equal(experientialPolish?.observed_first_shift?.never_fabricate, true);
 	const nextLevelPolish = experientialPolish?.next_level_polish;
-	assert.equal(nextLevelPolish?.version, 1);
+	assert.equal(nextLevelPolish?.version, 2);
 	assert.equal(nextLevelPolish?.item_count, 25);
 	assert.equal(nextLevelPolish?.resolved_count, 25);
 	assert.equal(nextLevelPolish?.all_resolved, true);
@@ -217,6 +217,24 @@ try {
 	assert.equal(nextLevelPolish?.onboarding_evidence?.status, "AWAITING REAL PARTICIPANTS");
 	assert.equal(nextLevelPolish?.onboarding_evidence?.results_complete, false);
 	assert.equal(nextLevelPolish?.onboarding_evidence?.never_fabricate, true);
+	const masteryPolish = nextLevelPolish?.core_loop_mastery_polish;
+	assert.equal(masteryPolish?.version, 1);
+	assert.equal(masteryPolish?.item_count, 20);
+	assert.equal(masteryPolish?.resolved_count, 20);
+	assert.equal(masteryPolish?.all_resolved, true);
+	assert.equal(masteryPolish?.adds_default_panel, false);
+	assert.equal(new Set((masteryPolish?.items ?? []).map((item) => item.id)).size, 20);
+	assert.deepEqual(masteryPolish?.consequence_preview?.strategies?.map((strategy) => strategy.flow), ["+1", "HOLDS", "RESETS"]);
+	assert.equal(masteryPolish?.target_forecasts?.at_target, true);
+	assert.equal(masteryPolish?.file_personalities?.types?.length, 7);
+	assert.equal(masteryPolish?.file_personalities?.derived_from_authoritative_file, true);
+	assert.equal(masteryPolish?.routing_combinations?.safe_route_preserves_flow, true);
+	assert.equal(masteryPolish?.relationship_teamwork?.both_hens_react, true);
+	assert.equal(masteryPolish?.recovery_bargains?.gain_cost_risk_disclosed, true);
+	assert.equal(masteryPolish?.adaptive_guidance?.changes_difficulty, false);
+	assert.equal(masteryPolish?.first_shift_observation?.status, "AWAITING REAL PARTICIPANTS");
+	assert.equal(masteryPolish?.first_shift_observation?.results_complete, false);
+	assert.equal(masteryPolish?.first_shift_observation?.never_fabricate, true);
 	assert.equal(active.dispatch?.drag_feedback?.visible_carried_file, true);
 	assert.equal(active.dispatch?.drag_feedback?.mouse, true);
 	assert.equal(active.dispatch?.drag_feedback?.touch, true);
@@ -475,4 +493,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED intuitive-completion=33 professional-polish=25 experiential-polish=25 next-level-polish=25 fit=best+safe+risky spotlight=physical direct=3-step reactions=first cue=6-words pair-styles=2 rival-memory=persistent study=awaiting-humans professional-completion=23 hero-cases=8x3-authoritative callbacks=persistent automation-report=per-hen policies=3 pair-outcomes=4 rival-responses=3 mastery=6 consolidated=16 canonical=true cold-open=30s cases=12 build=3 cadence=3 intuitive-reward=20 station=3+3 cause=3 folders=shape-coded sounds=5 experiential=20 intervention=one-shot replay=presentation-only tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED intuitive-completion=33 professional-polish=25 experiential-polish=25 next-level-polish=25 core-mastery=20 forecasts=hover+focus files=7-personalities fit=flow+hold+gambit spotlight=physical direct=3-step reactions=first cue=6-words pair-styles=2 rival-memory=persistent study=awaiting-humans professional-completion=23 hero-cases=8x3-authoritative callbacks=persistent automation-report=per-hen policies=3 pair-outcomes=4 rival-responses=3 mastery=6 consolidated=16 canonical=true cold-open=30s cases=12 build=3 cadence=3 intuitive-reward=20 station=3+3 cause=3 folders=shape-coded sounds=5 experiential=20 intervention=one-shot replay=presentation-only tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
