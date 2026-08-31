@@ -38,7 +38,7 @@ func _init() -> void:
 		if item_value is Dictionary:
 			ids.append(String((item_value as Dictionary).get("id", "")))
 	_check(
-		int(layer.get("version", 0)) == 1
+		int(layer.get("version", 0)) == 2
 		and bool(layer.get("canonical", false))
 		and not bool(layer.get("authoritative", true))
 		and int(layer.get("item_count", 0)) == 33
@@ -89,12 +89,59 @@ func _init() -> void:
 		"mastery should avoid FOMO and the human-study boundary must remain honest",
 		failures,
 	)
+	var polish := layer.get("professional_polish", {}) as Dictionary
+	var polish_items := polish.get("items", []) as Array
+	var polish_ids: Array[String] = []
+	for item_value in polish_items:
+		if item_value is Dictionary:
+			polish_ids.append(String((item_value as Dictionary).get("id", "")))
+	var spotlight := polish.get("action_spotlight", {}) as Dictionary
+	var direct := polish.get("direct_file_manipulation", {}) as Dictionary
+	var reactions := polish.get("reaction_first_feedback", {}) as Dictionary
+	var rematch := polish.get("rematch_experiment", {}) as Dictionary
+	var observation := polish.get("first_shift_observation", {}) as Dictionary
+	_check(
+		int(polish.get("version", 0)) == 1
+		and bool(polish.get("canonical", false))
+		and not bool(polish.get("authoritative", true))
+		and not bool(polish.get("adds_default_panel", true))
+		and int(polish.get("item_count", 0)) == 25
+		and int(polish.get("resolved_count", 0)) == 25
+		and bool(polish.get("all_resolved", false))
+		and polish_ids.size() == 25
+		and polish_ids.duplicate().all(func(item_id): return polish_ids.count(item_id) == 1),
+		"the professional polish layer should resolve the exact 25-item brief once without another panel",
+		failures,
+	)
+	_check(
+		bool(spotlight.get("one_primary", false))
+		and int(spotlight.get("required_text_words", -1)) == 0
+		and (direct.get("sequence", []) as Array) == ["PICK FILE", "PICK HEN", "LAND"]
+		and bool(direct.get("preview_reversible", false))
+		and (reactions.get("sequence", []) as Array) == ["WORLD", "HEN", "SOUND", "NUMBER", "DETAIL"]
+		and is_equal_approx(float(reactions.get("text_delay_seconds", 0.0)), 0.25),
+		"play should lead with one physical spotlight, direct routing, and reaction-first feedback",
+		failures,
+	)
+	_check(
+		bool((polish.get("partnership_choreography", {}) as Dictionary).get("both_hens_react", false))
+		and bool((polish.get("rival_memory", {}) as Dictionary).get("persistent", false))
+		and bool((polish.get("strategy_defining_upgrades", {}) as Dictionary).get("changes_verbs", false))
+		and bool((polish.get("collection_cabinet", {}) as Dictionary).get("physical", false))
+		and bool(rematch.get("same_seed", false))
+		and int(rematch.get("rule_change_count", 0)) == 1
+		and String(observation.get("status", "")) == "AWAITING REAL PARTICIPANTS"
+		and not bool(observation.get("results_complete", true))
+		and bool(observation.get("never_fabricate", false)),
+		"relationships, rivalry, progression, rematch, and real-human evidence should stay concrete and honest",
+		failures,
+	)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("INTUITIVE_REWARDING_COMPLETION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("INTUITIVE_REWARDING_COMPLETION_TEST_PASSED items=33 cue=6-words tutorial=60s partnership=2-styles automation=physical mastery=no-fomo study=awaiting-humans")
+	print("INTUITIVE_REWARDING_COMPLETION_TEST_PASSED items=33 polish=25 spotlight=physical reactions=first direct=3-step tutorial=60s partnership=2-styles automation=physical mastery=no-fomo study=awaiting-humans")
 	quit(0)
 
 

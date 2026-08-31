@@ -1201,6 +1201,25 @@ func apply_professional_completion_state(state: Dictionary) -> void:
 			pass
 
 
+func apply_professional_polish_state(state: Dictionary) -> void:
+	set_meta("professional_polish", state.duplicate(true))
+	if state.is_empty() or _focus_panel == null or _queue_panel == null:
+		return
+	var spotlight := state.get("action_spotlight", {}) as Dictionary
+	var preview := state.get("before_after_preview", {}) as Dictionary
+	var direct := state.get("direct_file_manipulation", {}) as Dictionary
+	_focus_panel.set_meta("contextual_action_spotlight", spotlight.duplicate(true))
+	_focus_panel.set_meta("visual_before_after_preview", preview.duplicate(true))
+	_focus_panel.set_meta("reaction_first_feedback", (state.get("reaction_first_feedback", {}) as Dictionary).duplicate(true))
+	_queue_panel.set_meta("direct_file_manipulation", direct.duplicate(true))
+	_queue_panel.set_meta("strong_action_availability", (state.get("action_availability", {}) as Dictionary).duplicate(true))
+	_queue_panel.set_meta("tactical_dilemmas", (state.get("tactical_dilemmas", {}) as Dictionary).duplicate(true))
+	_queue_panel.set_meta("repetition_director", (state.get("repetition_director", {}) as Dictionary).duplicate(true))
+	if _assignment_section != null:
+		_assignment_section.set_meta("distinct_chicken_strengths", (state.get("chicken_strengths", {}) as Dictionary).duplicate(true))
+		_assignment_section.set_meta("personal_chicken_objectives", (state.get("personal_objectives", {}) as Dictionary).duplicate(true))
+
+
 func play_dispatch_reward(
 	reward_id: StringName,
 	chain: int,

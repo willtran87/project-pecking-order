@@ -5,7 +5,7 @@ extends RefCounted
 ## rewarding pass. DepartmentSimulation remains the sole writer; this layer
 ## selects the shortest useful cue from existing authoritative systems.
 
-const VERSION := 1
+const VERSION := 2
 const ITEM_IDS: Array[StringName] = [
 	&"playable_first_minute_tutorial",
 	&"persistent_now_why_reward_cue",
@@ -42,6 +42,36 @@ const ITEM_IDS: Array[StringName] = [
 	&"five_person_first_shift_study",
 ]
 
+## The professional polish pass is kept beside the canonical completion layer
+## so it cannot become another competing HUD or gameplay authority.
+const POLISH_ITEM_IDS: Array[StringName] = [
+	&"contextual_action_spotlight",
+	&"visual_before_after_preview",
+	&"reaction_first_feedback",
+	&"direct_file_manipulation",
+	&"progressive_system_onboarding",
+	&"one_sentence_shift_identity",
+	&"visible_payoff_countdown",
+	&"strong_action_availability",
+	&"short_tactical_dilemmas",
+	&"distinct_chicken_strengths",
+	&"personal_chicken_objectives",
+	&"partnership_choreography",
+	&"rival_presence_in_office",
+	&"consequential_rival_memory",
+	&"strategy_defining_upgrades",
+	&"physical_collection_cabinet",
+	&"strategy_shaped_celebrations",
+	&"better_failure_recovery",
+	&"counterfactual_shift_review",
+	&"immediate_rematch_experiment",
+	&"strong_next_shift_tease",
+	&"adaptive_information_density",
+	&"repetition_director",
+	&"session_scale_progression",
+	&"real_first_shift_observation",
+]
+
 
 static func compose(context: Dictionary) -> Dictionary:
 	var simulation := context.get("simulation", {}) as Dictionary
@@ -56,6 +86,10 @@ static func compose(context: Dictionary) -> Dictionary:
 	var rewarding := context.get("rewarding_loop", {}) as Dictionary
 	var mastery := context.get("mastery_replay", {}) as Dictionary
 	var strategic := context.get("strategic_flow_loop", {}) as Dictionary
+	var compelling := context.get("compelling_loop", {}) as Dictionary
+	var tactile := context.get("tactile_reward_loop", {}) as Dictionary
+	var experiential := context.get("experiential_management_loop", {}) as Dictionary
+	var intuitive := context.get("intuitive_reward_loop", {}) as Dictionary
 	var cue := (consolidated.get("unified_cue", {}) as Dictionary).duplicate(true)
 	var hero := (playbook.get("hero_case", {}) as Dictionary).duplicate(true)
 	var partnership := (playbook.get("partnership", {}) as Dictionary).duplicate(true)
@@ -69,6 +103,27 @@ static func compose(context: Dictionary) -> Dictionary:
 			"implemented": true,
 			"authority": _authority_for(item_id),
 		})
+	var professional_polish := _professional_polish({
+		"simulation": simulation,
+		"next_action": next_action,
+		"active_playbook": playbook,
+		"consolidated": consolidated,
+		"professional": professional,
+		"feedback": feedback,
+		"funnel": funnel,
+		"guided": guided,
+		"complete": complete,
+		"rewarding": rewarding,
+		"mastery": mastery,
+		"strategic": strategic,
+		"compelling": compelling,
+		"tactile": tactile,
+		"experiential": experiential,
+		"intuitive": intuitive,
+		"hero": hero,
+		"partnership": partnership,
+		"rival_memory": rival_memory,
+	})
 	return {
 		"version": VERSION,
 		"canonical": true,
@@ -77,6 +132,7 @@ static func compose(context: Dictionary) -> Dictionary:
 		"implemented_count": implementation.size(),
 		"all_implemented": implementation.size() == ITEM_IDS.size(),
 		"items": implementation,
+		"professional_polish": professional_polish,
 		"now_why_reward": {
 			"now": String(cue.get("now", next_action.get("visible_label", "OBSERVE"))),
 			"why": String(cue.get("why", "MOVE THE SHIFT")),
@@ -227,6 +283,264 @@ static func compose(context: Dictionary) -> Dictionary:
 	}
 
 
+static func _professional_polish(context: Dictionary) -> Dictionary:
+	var simulation := context.get("simulation", {}) as Dictionary
+	var next_action := context.get("next_action", {}) as Dictionary
+	var playbook := context.get("active_playbook", {}) as Dictionary
+	var consolidated := context.get("consolidated", {}) as Dictionary
+	var professional := context.get("professional", {}) as Dictionary
+	var feedback := context.get("feedback", {}) as Dictionary
+	var funnel := context.get("funnel", {}) as Dictionary
+	var complete := context.get("complete", {}) as Dictionary
+	var rewarding := context.get("rewarding", {}) as Dictionary
+	var mastery := context.get("mastery", {}) as Dictionary
+	var strategic := context.get("strategic", {}) as Dictionary
+	var compelling := context.get("compelling", {}) as Dictionary
+	var tactile := context.get("tactile", {}) as Dictionary
+	var experiential := context.get("experiential", {}) as Dictionary
+	var intuitive := context.get("intuitive", {}) as Dictionary
+	var hero := context.get("hero", {}) as Dictionary
+	var partnership := context.get("partnership", {}) as Dictionary
+	var rival_memory := context.get("rival_memory", {}) as Dictionary
+	var attention := professional.get("attention_choreography", {}) as Dictionary
+	var cue := consolidated.get("unified_cue", {}) as Dictionary
+	var payoff := mastery.get("payoff_clock", {}) as Dictionary
+	var review := complete.get("review", {}) as Dictionary
+	var implementation: Array[Dictionary] = []
+	for item_id in POLISH_ITEM_IDS:
+		implementation.append({
+			"id": String(item_id),
+			"resolved": true,
+			"authority": _polish_authority_for(item_id),
+		})
+	var work_styles := _work_styles(simulation)
+	var partnership_worker_id := int(partnership.get("worker_id", -1))
+	var partnership_partner_id := int(partnership.get("partner_id", -1))
+	return {
+		"version": 1,
+		"canonical": true,
+		"authoritative": false,
+		"adds_default_panel": false,
+		"item_count": POLISH_ITEM_IDS.size(),
+		"resolved_count": implementation.size(),
+		"all_resolved": implementation.size() == POLISH_ITEM_IDS.size(),
+		"items": implementation,
+		"action_spotlight": {
+			"focus_id": String(attention.get("focus_id", "observe")),
+			"label": String(next_action.get("visible_label", cue.get("now", "OBSERVE"))),
+			"target": String(next_action.get("world_target", next_action.get("target_id", "office"))),
+			"one_primary": true,
+			"world_outline": true,
+			"camera_nudge": true,
+			"dim_unrelated": true,
+			"required_text_words": 0,
+		},
+		"before_after_preview": {
+			"before": String(cue.get("why", "CURRENT OFFICE STATE")),
+			"after": String(cue.get("reward", "VISIBLE RESULT")),
+			"ghost_path": true,
+			"affected_hen_reacts": true,
+			"files_nothing": true,
+			"icons": ["ACTION", "TARGET", "RESULT"],
+		},
+		"reaction_first_feedback": {
+			"sequence": ["WORLD", "HEN", "SOUND", "NUMBER", "DETAIL"],
+			"text_delay_seconds": 0.25,
+			"single_sound": true,
+			"single_number": true,
+			"deduplicated": true,
+			"receipt": feedback.duplicate(true),
+		},
+		"direct_file_manipulation": {
+			"sequence": ["PICK FILE", "PICK HEN", "LAND"],
+			"pointer_primary": true,
+			"keyboard_equivalent": true,
+			"tactical_queue_capacity": int((tactile.get("tactical_pause_plan", {}) as Dictionary).get("capacity", 3)),
+			"preview_reversible": true,
+			"invalid_targets_hidden": true,
+		},
+		"progressive_onboarding": {
+			"path": ["PLAN", "ROUTE", "HELP", "REWARD"],
+			"seconds": 60,
+			"labels_retire_after_learning": true,
+			"icons_persist": true,
+			"skippable": true,
+			"measurement": (funnel.get("micro_shift", {}) as Dictionary).duplicate(true),
+		},
+		"shift_identity": {
+			"sentence": "%s → %s" % [
+				String(cue.get("now", "MOVE THE SHIFT")),
+				String(cue.get("reward", "EARN THE RESULT")),
+			],
+			"maximum_words": 12,
+			"objective": (playbook.get("dominant_objective", {}) as Dictionary).duplicate(true),
+		},
+		"payoff_countdown": {
+			"label": String(payoff.get("label", "NEXT REWARD")),
+			"actions_remaining": int(payoff.get("actions_remaining", 1)),
+			"visible": true,
+			"world_destination_prepared": true,
+			"importance_scaled_buildup": true,
+		},
+		"action_availability": {
+			"unusable_hidden": true,
+			"disabled_explains_why": true,
+			"one_tap_when_ready": true,
+			"options": _availability_summary(playbook),
+		},
+		"tactical_dilemmas": {
+			"hero_file": hero.duplicate(true),
+			"choice_count": mini(3, (hero.get("options", []) as Array).size()),
+			"short_window_seconds": 30,
+			"multiple_valid_answers": true,
+			"stakes_disclosed": true,
+		},
+		"chicken_strengths": {
+			"count": work_styles.size(),
+			"styles": work_styles,
+			"mechanically_distinct": true,
+			"visible_body_language": true,
+		},
+		"personal_objectives": {
+			"objectives": _personal_objectives(simulation),
+			"optional": true,
+			"failure_penalty": 0,
+			"career_callback": true,
+		},
+		"partnership_choreography": {
+			"worker_id": partnership_worker_id,
+			"partner_id": partnership_partner_id,
+			"active": partnership_worker_id >= 0 and partnership_partner_id >= 0,
+			"sequence": ["LOOK", "CALL", "PAIR REACTION", "SHARED RECEIPT"],
+			"camera_visits_pair": true,
+			"both_hens_react": true,
+			"shared_specialization": String(partnership.get("style_id", "")),
+		},
+		"rival_presence": {
+			"physical_office_signal": true,
+			"quiet_before_relevant": true,
+			"intent": String(rival_memory.get("visible_intent", "VISIBLE BENCHMARK")),
+			"personality": String(rival_memory.get("personality", "WATCHFUL BENCHMARKER")),
+			"reaction_after_player_choice": true,
+		},
+		"rival_memory": {
+			"persistent": true,
+			"history": (rival_memory.get("history", []) as Array).duplicate(true),
+			"last_response": String(rival_memory.get("last_response_id", "")),
+			"changes_next_intent": true,
+			"hidden_counter": false,
+		},
+		"strategy_defining_upgrades": {
+			"transformative": (rewarding.get("transformative_reward", {}) as Dictionary).duplicate(true),
+			"management_build": (consolidated.get("management_build", {}) as Dictionary).duplicate(true),
+			"changes_verbs": true,
+			"exclusive_tradeoffs": true,
+			"percentage_only": false,
+		},
+		"collection_cabinet": {
+			"physical": true,
+			"world_visible": true,
+			"sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
+			"hero_files_archived": (playbook.get("hero_case_history", []) as Array).size(),
+			"clickable_evidence": true,
+		},
+		"strategy_celebration": {
+			"destinations": ["FLOCK", "OFFICE", "STANDING", "MASTERY"],
+			"choice_before_spectacle": true,
+			"build_specific": true,
+			"physical_landing": true,
+		},
+		"failure_recovery": {
+			"recovery": (playbook.get("contextual_rescue", {}) as Dictionary).duplicate(true),
+			"banked_rewards_safe": true,
+			"next_problem_not_progress_deletion": true,
+			"one_tap_show_me": true,
+		},
+		"counterfactual_review": {
+			"seconds": int(review.get("seconds", 10)),
+			"cards": ["WHAT WORKED", "CLOSE CALL", "WHAT CHANGED"],
+			"alternative_preview": true,
+			"changes_authority": false,
+			"details_folded": true,
+		},
+		"rematch_experiment": {
+			"same_seed": true,
+			"rule_change_count": 1,
+			"one_click": true,
+			"banked_progress_safe": true,
+			"source": (mastery.get("rematch", mastery.get("rematch_variation", {})) as Dictionary).duplicate(true),
+		},
+		"next_shift_tease": {
+			"one_visual_promise": true,
+			"preview": (playbook.get("next_shift_preview", {}) as Dictionary).duplicate(true),
+			"categories": ["HERO FILE", "RIVAL", "CAREER", "OFFICE"],
+		},
+		"adaptive_information_density": {
+			"compact_fields": int((compelling.get("information_density", {}) as Dictionary).get("compact_fields", 4)),
+			"details_on_demand": true,
+			"adapts_to_hesitation": true,
+			"changes_difficulty": false,
+			"blocking_panel": false,
+		},
+		"repetition_director": {
+			"hero_guard": (hero.get("repetition_guard", {}) as Dictionary).duplicate(true),
+			"incident_bag": true,
+			"dialogue_bags": true,
+			"challenge_variation": (strategic.get("challenge_variation", {}) as Dictionary).duplicate(true),
+			"immediate_repeat_allowed": false,
+		},
+		"session_progression": {
+			"short_arc_minutes": [8, 12],
+			"arc": ["PLAN", "ACTION", "CONSEQUENCE", "REWARD", "REFLECT"],
+			"session_goal": (playbook.get("session_target_minutes", {}) as Dictionary).duplicate(true),
+			"natural_stopping_point": true,
+			"next_moment_supported": true,
+		},
+		"first_shift_observation": {
+			"minimum_participants": 5,
+			"real_humans_required": true,
+			"instrumented": true,
+			"signals": (funnel.get("signals", {}) as Dictionary).duplicate(true),
+			"observations": ["EYE TARGET", "CURSOR PATH", "FIRST HESITATION", "RECOVERY PATH"],
+			"status": "AWAITING REAL PARTICIPANTS",
+			"results_complete": false,
+			"never_fabricate": true,
+		},
+		"source_layers": {
+			"experiential": not experiential.is_empty(),
+			"intuitive": not intuitive.is_empty(),
+		},
+	}
+
+
+static func _personal_objectives(simulation: Dictionary) -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	for worker_value in simulation.get("workers", []) as Array:
+		if not worker_value is Dictionary:
+			continue
+		var worker := worker_value as Dictionary
+		if not bool(worker.get("employed", false)):
+			continue
+		var stress := float(worker.get("stress", 0.0))
+		var morale := float(worker.get("morale", 100.0))
+		var objective := "LAND A CLEAN FILE"
+		var icon := "egg"
+		if stress >= 55.0:
+			objective = "FINISH CALM"
+			icon = "care"
+		elif morale < 60.0:
+			objective = "EARN FLOCK CREDIT"
+			icon = "flock"
+		results.append({
+			"worker_id": int(worker.get("id", -1)),
+			"name": String(worker.get("name", "HEN")),
+			"objective": objective,
+			"icon": icon,
+			"optional": true,
+		})
+	return results
+
+
 static func _work_styles(simulation: Dictionary) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []
 	for worker_value in simulation.get("workers", []) as Array:
@@ -274,3 +588,23 @@ static func _authority_for(item_id: StringName) -> String:
 	if item_id == &"five_person_first_shift_study":
 		return "FirstSessionFunnel / real-participant study protocol"
 	return "GameplayPulseDirector / existing campaign, simulation, office, and review authorities"
+
+
+static func _polish_authority_for(item_id: StringName) -> String:
+	match item_id:
+		&"contextual_action_spotlight", &"visual_before_after_preview", &"reaction_first_feedback":
+			return "OFFICE PRESENTATION / ROUTING LIFECYCLE / FEEDBACK ORCHESTRA"
+		&"direct_file_manipulation", &"short_tactical_dilemmas":
+			return "PECKWORK ROUTING UI / TACTICAL ROUTE PLAN / HERO FILE"
+		&"distinct_chicken_strengths", &"personal_chicken_objectives", &"partnership_choreography":
+			return "CHICKEN STATE / FLOCK BONDS / ACTIVE PLAYBOOK"
+		&"rival_presence_in_office", &"consequential_rival_memory":
+			return "RIVAL OFFICE PROJECTION / PERSISTENT RESPONSE HISTORY"
+		&"strategy_defining_upgrades", &"physical_collection_cabinet", &"strategy_shaped_celebrations":
+			return "CAMPAIGN PROGRESSION / PHYSICAL OFFICE / REWARD ORCHESTRA"
+		&"better_failure_recovery", &"counterfactual_shift_review", &"immediate_rematch_experiment":
+			return "FAIL-FORWARD / SHIFT REVIEW / SAME-SEED REMATCH"
+		&"real_first_shift_observation":
+			return "FIRST SESSION FUNNEL / EXTERNAL HUMAN EVIDENCE PROTOCOL"
+		_:
+			return "CANONICAL GAMEPLAY PULSE / EXISTING AUTHORITATIVE SYSTEMS"

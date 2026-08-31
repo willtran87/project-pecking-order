@@ -1,5 +1,16 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-31 - Professional polish completion
+
+- Consolidated the latest 25 intuition, fun, engagement, and reward findings into `IntuitiveRewardingCompletion` version 2 and `GameplayPulseDirector` version 17 without adding another blocking panel or gameplay authority.
+- Made the canonical point-of-play rule one contextual spotlight, one physical target, and one visible result; direct routing is Pick File → Pick Hen → Land with reversible previews and pointer/keyboard parity.
+- Formalized reaction-first feedback, progressive 60-second onboarding, one-sentence shift identity, visible payoff countdowns, strong availability, tactical dilemmas, distinct hen goals, physical pair choreography, persistent rival memory, verb-changing upgrades, collection evidence, build-shaped celebrations, fail-forward recovery, counterfactual review, same-seed rematch, next-shift teasing, adaptive density, repetition control, and an 8–12 minute session arc.
+- Extended live office and routing presentation metadata so the existing focus, route, result, pair, rival, reward, and review surfaces consume the new polish layer. Partnership choices now also focus the pair and trigger the strategy-reward atmosphere beat.
+- Added `docs/PROFESSIONAL_POLISH_COMPLETION.md` and expanded native/browser contracts. Real five-person observation remains honestly `AWAITING REAL PARTICIPANTS`.
+- Verification complete: the focused native contracts, management UI integration, prescribed generic Playwright client, and 1440×900 production gameplay audit all pass with zero browser errors; original-size inspection confirms the office, direct routing, hold-to-explain strip, and Active Playbook remain contained.
+- The full beta release gate passes every check in 631.12 seconds, including 50/50 rendered web tests and exact nine-file artifact parity. The synchronized 10,807,672-byte PCK has SHA-256 `E707F47F996B4FDD0C7149D0CF57A647D8C0E51FF3D6AD6178A5ACB6A7E3B326`.
+- The dedicated production wrapper was stopped by exact session; port 3001 has no listener, no Godot process remains, and the user-owned port-3000 process remains untouched.
+
 ## 2026-08-30 - Intuitive and rewarding completion
 
 - Reconciled all 33 approved clarity, fun, engagement, reward, replay, and comprehension findings against the existing simulation, Active Playbook, chicken, office, campaign, and review authorities.

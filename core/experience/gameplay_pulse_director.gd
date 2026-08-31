@@ -299,9 +299,13 @@ func compose(context: Dictionary) -> Dictionary:
 		"rewarding_loop": rewarding_loop,
 		"mastery_replay": mastery_replay,
 		"strategic_flow_loop": strategic_flow_loop,
+		"compelling_loop": compelling_loop,
+		"tactile_reward_loop": tactile_reward_loop,
+		"experiential_management_loop": experiential_management_loop,
+		"intuitive_reward_loop": intuitive_reward_loop,
 	})
 	return {
-		"version": 16,
+		"version": 17,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,

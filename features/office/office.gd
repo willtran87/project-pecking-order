@@ -19997,6 +19997,12 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_intuitive_rewarding_completion_presentation(
 		_gameplay_pulse.get("intuitive_rewarding_completion", {}) as Dictionary,
 	)
+	_apply_professional_polish_presentation(
+		((_gameplay_pulse.get("intuitive_rewarding_completion", {}) as Dictionary).get(
+			"professional_polish",
+			{},
+		) as Dictionary),
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -20711,6 +20717,46 @@ func _apply_intuitive_rewarding_completion_presentation(layer: Dictionary) -> vo
 		_reward_loop_host.set_meta("strategy_celebration", (layer.get("celebration", {}) as Dictionary).duplicate(true))
 
 
+func _apply_professional_polish_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var spotlight := layer.get("action_spotlight", {}) as Dictionary
+	var payoff := layer.get("payoff_countdown", {}) as Dictionary
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("professional_polish", layer.duplicate(true))
+		_top_hud_panel.set_meta("reaction_first_feedback", (layer.get("reaction_first_feedback", {}) as Dictionary).duplicate(true))
+		_top_hud_panel.set_meta("adaptive_information_density", (layer.get("adaptive_information_density", {}) as Dictionary).duplicate(true))
+	if _guidance_action_button != null:
+		_guidance_action_button.set_meta("contextual_action_spotlight", spotlight.duplicate(true))
+		_guidance_action_button.set_meta("before_after_preview", (layer.get("before_after_preview", {}) as Dictionary).duplicate(true))
+		_guidance_action_button.set_meta("direct_file_manipulation", (layer.get("direct_file_manipulation", {}) as Dictionary).duplicate(true))
+	if _routing_ui != null:
+		if _routing_ui.has_method("apply_professional_polish_state"):
+			_routing_ui.apply_professional_polish_state(layer)
+		else:
+			_routing_ui.set_meta("professional_polish", layer.duplicate(true))
+	if _core_loop_host != null:
+		_core_loop_host.set_meta("progressive_onboarding", (layer.get("progressive_onboarding", {}) as Dictionary).duplicate(true))
+		_core_loop_host.set_meta("session_progression", (layer.get("session_progression", {}) as Dictionary).duplicate(true))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("personal_chicken_objectives", (layer.get("personal_objectives", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("partnership_choreography", (layer.get("partnership_choreography", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("failure_recovery", (layer.get("failure_recovery", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("tactical_dilemmas", (layer.get("tactical_dilemmas", {}) as Dictionary).duplicate(true))
+	if _shift_egg_goal_label != null:
+		_shift_egg_goal_label.set_meta("professional_payoff_countdown", payoff.duplicate(true))
+	if _directive_badge != null:
+		_directive_badge.set_meta("one_sentence_shift_identity", (layer.get("shift_identity", {}) as Dictionary).duplicate(true))
+		_directive_badge.set_meta("next_shift_tease", (layer.get("next_shift_tease", {}) as Dictionary).duplicate(true))
+	if _rival_pulse_label != null:
+		_rival_pulse_label.set_meta("professional_rival_presence", (layer.get("rival_presence", {}) as Dictionary).duplicate(true))
+		_rival_pulse_label.set_meta("consequential_rival_memory", (layer.get("rival_memory", {}) as Dictionary).duplicate(true))
+	if _reward_loop_host != null:
+		_reward_loop_host.set_meta("professional_collection_cabinet", (layer.get("collection_cabinet", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("professional_strategy_celebration", (layer.get("strategy_celebration", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("strategy_defining_upgrades", (layer.get("strategy_defining_upgrades", {}) as Dictionary).duplicate(true))
+
+
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
 	if _active_playbook_button == null:
 		return
@@ -20933,6 +20979,10 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 			var teammate := _worker_views.get(teammate_id) as ChickenView
 			if teammate != null:
 				teammate.play_short_bark("OUR MOVE!", &"team")
+		if _camera_controller != null and int(result.get("worker_id", -1)) >= 0:
+			_camera_controller.focus_worker(int(result.get("worker_id", -1)))
+		if _office_atmosphere != null:
+			_office_atmosphere.pulse_strategy_reward()
 	if String(result.get("playbook_kind", "")) in ["proposal", "toy", "rescue", "intervention"]:
 		var reaction_worker_id := int(result.get("worker_id", _active_playbook_focused_worker_id))
 		var reaction_worker := _worker_views.get(reaction_worker_id) as ChickenView
