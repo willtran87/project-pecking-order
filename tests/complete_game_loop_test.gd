@@ -93,7 +93,7 @@ func _run() -> void:
 	var explain := complete_loop.get("explain_mode", {}) as Dictionary
 	var story := complete_loop.get("emergent_story", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 18
+		int(pulse.get("version", 0)) == 19
 		and int(complete_loop.get("item_count", 0)) == 24
 		and bool(complete_loop.get("all_resolved", false))
 		and String(rhythm.get("stage", "")) == "final_push"

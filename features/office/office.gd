@@ -10671,6 +10671,7 @@ func _apply_dispatch_candidate_markers() -> void:
 			_dispatch_lane,
 			bool(candidate.get("specialty_match", false)),
 			bool(candidate.get("ready", false)),
+			candidate,
 		)
 
 
@@ -19650,8 +19651,18 @@ func _publish_web_diagnostic_state(snapshot: Dictionary) -> void:
 
 func _dispatch_diagnostic_state() -> Dictionary:
 	var candidate_ids: Array[int] = []
+	var candidate_previews: Array[Dictionary] = []
 	for candidate in _dispatch_candidates:
 		candidate_ids.append(int(candidate.get("worker_id", -1)))
+		candidate_previews.append({
+			"worker_id": int(candidate.get("worker_id", -1)),
+			"fit_tier": String(candidate.get("fit_tier", "risky")),
+			"fit_label": String(candidate.get("fit_label", "RISKY")),
+			"fit_shape": String(candidate.get("fit_shape", "triangle")),
+			"pace": String(candidate.get("pace_preview", "slow")),
+			"shell_risk": String(candidate.get("shell_risk_preview", "high")),
+			"reward": String(candidate.get("reward_preview", "recovery")),
+		})
 	var recommendation_handoff := {}
 	var recommended_view := _worker_views.get(_dispatch_recommended_worker_id) as ChickenView
 	if recommended_view != null:
@@ -19665,6 +19676,13 @@ func _dispatch_diagnostic_state() -> Dictionary:
 		"active": _dispatch_lane != &"",
 		"lane": String(_dispatch_lane),
 		"candidate_ids": candidate_ids,
+		"candidate_previews": candidate_previews,
+		"fit_legend": {
+			"best": {"shape": "star", "meaning": "FAST / LOW RISK / MOMENTUM"},
+			"safe": {"shape": "check", "meaning": "STEADY / GUARDED / STABLE"},
+			"risky": {"shape": "triangle", "meaning": "SLOW / HIGH RISK / RECOVERY"},
+			"color_only": false,
+		},
 		"recommended_worker_id": _dispatch_recommended_worker_id,
 		"recommendation_handoff": recommendation_handoff,
 		"drag_feedback": (
@@ -21234,7 +21252,7 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 	if _dispatch_lane != &"":
 		var recommended := _dispatch_candidate_for(_dispatch_recommended_worker_id)
 		return (
-			"%s intake tray selected. Choose a hen in the office. Gold star: %s, recommended best fit. Other marked hens remain valid choices. Cancel returns the tray."
+			"%s intake tray selected. Choose a hen in the office. Star: %s, best fit. Check marks are safe alternatives; warning triangles are risky alternatives. Other marked hens remain valid choices. Cancel returns the tray."
 			% [_dispatch_lane_label(_dispatch_lane), String(recommended.get("worker_name", "unknown"))]
 		)
 	if _workstation_feedback != null:

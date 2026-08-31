@@ -14125,3 +14125,15 @@ The next major systems milestone is persistent worker relationships and individu
 - Expanded the real five-person session card with a hero-file comprehension task. Evidence remains `AWAITING REAL PARTICIPANTS`; no human finding is fabricated.
 - The complete beta release gate passes 72/72 checks in 608.631 seconds. Production browser interaction audits pass at 2560×1600, 1440×900, and 844×390 with zero console/page errors; original-size captures show a contained Playbook, readable office, and unclipped compact touch controls.
 - Both release targets contain the byte-identical 10,772,700-byte PCK with SHA-256 `45A4EF76C3CD0E00C59FC19B30763E816FEDBF586281B957A5A027FC567486EF`. The owned wrapper and browser/test processes were closed, ports 3001 and 60092 are free, and the pre-existing port-3000 service remains untouched.
+
+# 2026-08-31 — Next-level clarity and reward polish
+
+- Resolved the latest exact 25-item brief through the existing simulation, Active Playbook, routing, chicken, flock, rival, progression, recovery, review, rematch, mastery, audiovisual, and onboarding authorities. The new read-only completion projection adds no competing HUD, economy, command path, or save authority.
+- Reworked armed-file targeting into a color-independent **BEST / SAFE / RISKY** grammar: gold star, teal check, and warning triangle. Every candidate now exposes the same compact pace, shell-risk, and reward forecast.
+- Kept the interaction direct and forgiving: one file is the sole focus, mouse/touch dragging carries a visible file, invalid drops return it, keyboard/click/undo equivalents remain intact, and every target marker and transient handoff cleans up after commit.
+- Strengthened the existing show-then-explain, first-reward, combo recipe, push-your-luck, shift identity, strategy pivot, chicken specialization, personal payoff, flock relationship, rival memory, transformative upgrade, exception-based automation, physical progression, recovery, counterfactual recap, rematch, and short mastery-docket contracts.
+- Added `docs/NEXT_LEVEL_GAME_LOOP_COMPLETION.md`, deterministic candidate-preview coverage, real 3D routing UI coverage, accessibility and browser diagnostics, and exact browser assertions for the nested 25-item contract.
+- The prescribed browser client and production gameplay-pulse audit pass with zero console/page errors. Original-size review is clean at 1280×720 and 2560×1600, including the title, live office, route planner, hold-to-explain strip, and Active Playbook.
+- The complete beta release gate passes 73/73 checks in 613.325 seconds. Both release targets contain the byte-identical 10,825,288-byte PCK with SHA-256 `DFED59169F634DC5AEBCF394E8302388326BFEA25D700C75B47ABCB6BAA9F877`.
+- The owned production wrapper, Godot, Chromium, and browser-test processes were closed after verification; port 3001 is free and the pre-existing port-3000 service at PID 25812 remains untouched.
+- The instrumented onboarding study still honestly reports `AWAITING REAL PARTICIPANTS`; automated checks do not fabricate five-person usability findings.

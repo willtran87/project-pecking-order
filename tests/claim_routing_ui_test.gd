@@ -322,8 +322,12 @@ func _run() -> void:
 	)
 	_check(
 		recommended_view != null
-		and bool(recommendation_handoff.get("recommended", false)),
-		"the ranked best-fit hen should receive the gold dispatch marker",
+		and bool(recommendation_handoff.get("recommended", false))
+		and String(recommendation_handoff.get("fit_tier", "")) == "best"
+		and String(recommendation_handoff.get("fit_shape", "")) == "star"
+		and String(recommendation_handoff.get("pace_preview", "")) == "fast"
+		and String(recommendation_handoff.get("shell_risk_preview", "")) == "low",
+		"the ranked best-fit hen should receive the star and its compact outcome preview",
 		failures,
 	)
 	_check(
@@ -365,10 +369,17 @@ func _run() -> void:
 	)
 	var dispatch_diagnostic := office.call("_dispatch_diagnostic_state") as Dictionary
 	var diagnostic_handoff := dispatch_diagnostic.get("recommendation_handoff", {}) as Dictionary
+	var diagnostic_previews := dispatch_diagnostic.get("candidate_previews", []) as Array
+	var fit_legend := dispatch_diagnostic.get("fit_legend", {}) as Dictionary
 	_check(
 		int(diagnostic_handoff.get("worker_id", -1)) == recommended_id
-		and bool(diagnostic_handoff.get("handoff_active", false)),
-		"browser diagnostics should expose the exact recommended hen handoff",
+		and bool(diagnostic_handoff.get("handoff_active", false))
+		and diagnostic_previews.size() == (office.get("_dispatch_candidates") as Array[Dictionary]).size()
+		and String((fit_legend.get("best", {}) as Dictionary).get("shape", "")) == "star"
+		and String((fit_legend.get("safe", {}) as Dictionary).get("shape", "")) == "check"
+		and String((fit_legend.get("risky", {}) as Dictionary).get("shape", "")) == "triangle"
+		and not bool(fit_legend.get("color_only", true)),
+		"browser diagnostics should expose the exact handoff and color-independent fit legend",
 		failures,
 	)
 	var dispatch_accessibility := String(office.call(
@@ -376,9 +387,11 @@ func _run() -> void:
 		simulation.snapshot(),
 	))
 	_check(
-		"Gold star" in dispatch_accessibility
+		"Star:" in dispatch_accessibility
+		and "Check marks are safe alternatives" in dispatch_accessibility
+		and "warning triangles are risky alternatives" in dispatch_accessibility
 		and "Other marked hens remain valid choices" in dispatch_accessibility,
-		"assistive copy should name both the recommendation marker and retained player agency",
+		"assistive copy should name all three fit shapes and retained player agency",
 		failures,
 	)
 	if recommended_view != null:

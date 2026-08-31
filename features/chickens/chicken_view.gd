@@ -1908,40 +1908,50 @@ func _build_hen_intent_marker() -> void:
 
 
 ## Highlights this hen while a physical intake tray is waiting for dispatch.
-## A gold star is the ranked recommendation; eligible alternatives use a teal
-## downward chevron so the action reads without another explanatory panel.
+## A star, check, or warning triangle communicates BEST / SAFE / RISKY without
+## relying on color or opening another explanatory panel.
 func set_dispatch_candidate(
 	active: bool,
 	recommended: bool = false,
 	lane: StringName = &"",
 	specialty_match: bool = true,
 	ready: bool = true,
+	fit_preview: Dictionary = {},
 ) -> void:
 	_reset_dispatch_recommendation_handoff()
+	var fit_tier := StringName(String(fit_preview.get(
+		"fit_tier",
+		"best" if recommended else "safe" if specialty_match and ready else "risky",
+	)))
 	_dispatch_candidate = {
 		"active": active,
 		"recommended": recommended,
 		"lane": lane,
 		"specialty_match": specialty_match,
 		"ready": ready,
+		"fit_tier": String(fit_tier),
+		"fit_label": String(fit_preview.get("fit_label", String(fit_tier).to_upper())),
+		"fit_shape": String(fit_preview.get("fit_shape", "star" if fit_tier == &"best" else "check" if fit_tier == &"safe" else "triangle")),
+		"pace_preview": String(fit_preview.get("pace_preview", "fast" if fit_tier == &"best" else "steady" if fit_tier == &"safe" else "slow")),
+		"shell_risk_preview": String(fit_preview.get("shell_risk_preview", "low" if fit_tier == &"best" else "guarded" if fit_tier == &"safe" else "high")),
+		"reward_preview": String(fit_preview.get("reward_preview", "momentum" if fit_tier == &"best" else "stable" if fit_tier == &"safe" else "recovery")),
 	}
 	if _dispatch_candidate_marker == null:
 		return
 	_dispatch_candidate_marker.visible = active
 	_dispatch_candidate_marker.set_meta("recommended", recommended)
 	_dispatch_candidate_marker.set_meta("lane", lane)
+	_dispatch_candidate_marker.set_meta("fit_tier", String(fit_tier))
+	_dispatch_candidate_marker.set_meta("fit_shape", _dispatch_candidate.get("fit_shape", ""))
+	_dispatch_candidate_marker.set_meta("pace_preview", _dispatch_candidate.get("pace_preview", ""))
+	_dispatch_candidate_marker.set_meta("shell_risk_preview", _dispatch_candidate.get("shell_risk_preview", ""))
+	_dispatch_candidate_marker.set_meta("reward_preview", _dispatch_candidate.get("reward_preview", ""))
 	_dispatch_candidate_marker.set_meta("handoff_active", false)
 	_dispatch_candidate_marker.set_meta("handoff_animated", false)
 	if not active:
 		_dispatch_candidate_marker.texture = null
 		return
-	var kind: StringName = (
-		&"recommended" if recommended else
-		&"fit" if specialty_match and ready else
-		&"busy" if specialty_match else
-		&"risky"
-	)
-	_dispatch_candidate_marker.texture = _dispatch_candidate_texture(kind)
+	_dispatch_candidate_marker.texture = _dispatch_candidate_texture(fit_tier)
 	_dispatch_candidate_marker.modulate = Color.WHITE
 
 
@@ -2041,24 +2051,22 @@ func _dispatch_candidate_texture(kind: StringName) -> Texture2D:
 	if _dispatch_candidate_texture_cache.has(kind):
 		return _dispatch_candidate_texture_cache[kind]
 	var fill := (
-		"d6ad4d" if kind == &"recommended" else
-		"58a99b" if kind == &"fit" else
-		"8c7e5d" if kind == &"busy" else
+		"d6ad4d" if kind == &"best" else
+		"58a99b" if kind == &"safe" else
 		"9b645f"
 	)
-	var symbol := (
-		HEN_INTENT_SYMBOLS[&"match"]
-		if kind == &"recommended" else
-		"M14 18 H50 V30 H42 L32 46 L22 30 H14 Z"
-		if kind in [&"fit", &"busy"] else
-		"M18 17 L47 46 M47 17 L18 46"
+	var symbol_svg := (
+		"<path d='%s' fill='#fff8dc' fill-rule='evenodd'/>" % HEN_INTENT_SYMBOLS[&"match"]
+		if kind == &"best" else
+		"<path d='M16 32 L27 43 L49 19' fill='none' stroke='#fff8dc' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/>"
+		if kind == &"safe" else
+		"<path d='M32 11 L54 50 H10 Z' fill='#fff8dc'/><path d='M32 23 V37 M32 44 V45' fill='none' stroke='#9b645f' stroke-width='6' stroke-linecap='round'/>"
 	)
-	var stroke := " stroke='#fff8dc' stroke-width='7' stroke-linecap='round'" if kind == &"risky" else ""
 	var svg := (
 		"<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'>"
 		+ "<circle cx='32' cy='32' r='29' fill='#101a21' fill-opacity='.94' stroke='#fff0b8' stroke-width='3'/>"
 		+ "<circle cx='32' cy='32' r='23' fill='#%s'/>" % fill
-		+ "<path d='%s' fill='#fff8dc' fill-rule='evenodd'%s/>" % [symbol, stroke]
+		+ symbol_svg
 		+ "</svg>"
 	)
 	var image := Image.new()

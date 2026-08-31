@@ -27,11 +27,30 @@ func _test_dispatch_candidate_ranking(failures: Array[String]) -> void:
 	_check(not candidates.is_empty() and bool(candidates[0].get("recommended", false)), "dispatch should mark exactly the first ranked hen as recommended", failures)
 	if not candidates.is_empty():
 		_check(bool(candidates[0].get("specialty_match", false)), "best-fit dispatch should prefer a lane specialist", failures)
+		_check(
+			String(candidates[0].get("fit_tier", "")) == "best"
+			and String(candidates[0].get("fit_shape", "")) == "star"
+			and String(candidates[0].get("pace_preview", "")) == "fast"
+			and String(candidates[0].get("shell_risk_preview", "")) == "low"
+			and String(candidates[0].get("reward_preview", "")) == "momentum",
+			"the ranked target should expose one compact, shape-coded outcome preview",
+			failures,
+		)
 		var recommended_count := 0
+		var safe_count := 0
+		var risky_count := 0
 		for candidate in candidates:
 			if bool(candidate.get("recommended", false)):
 				recommended_count += 1
+			match String(candidate.get("fit_tier", "")):
+				"safe":
+					safe_count += 1
+					_check(String(candidate.get("fit_shape", "")) == "check", "safe targets should use a check shape", failures)
+				"risky":
+					risky_count += 1
+					_check(String(candidate.get("fit_shape", "")) == "triangle", "risky targets should use a warning triangle", failures)
 		_check(recommended_count == 1, "dispatch should expose one unambiguous best fit", failures)
+		_check(safe_count > 0 and risky_count > 0, "dispatch should distinguish safe alternatives from risky experiments", failures)
 	_check(simulation.dispatch_candidates(&"executive_scratching").is_empty(), "unknown trays should not expose candidates", failures)
 
 

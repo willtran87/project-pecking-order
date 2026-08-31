@@ -1209,6 +1209,7 @@ func apply_professional_polish_state(state: Dictionary) -> void:
 	if state.is_empty() or _focus_panel == null or _queue_panel == null:
 		return
 	var experiential := state.get("experiential_polish", {}) as Dictionary
+	var next_level := experiential.get("next_level_polish", {}) as Dictionary
 	var spotlight := state.get("action_spotlight", {}) as Dictionary
 	var preview := state.get("before_after_preview", {}) as Dictionary
 	var direct := state.get("direct_file_manipulation", {}) as Dictionary
@@ -1220,6 +1221,9 @@ func apply_professional_polish_state(state: Dictionary) -> void:
 	_queue_panel.set_meta("tactical_dilemmas", (state.get("tactical_dilemmas", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("repetition_director", (state.get("repetition_director", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("experiential_polish", experiential.duplicate(true))
+	_queue_panel.set_meta("next_level_polish", next_level.duplicate(true))
+	_queue_panel.set_meta("drop_target_preview", (next_level.get("drop_target_preview", {}) as Dictionary).duplicate(true))
+	_queue_panel.set_meta("fit_language", (next_level.get("fit_language", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("direct_drag_routing", (experiential.get("direct_drag_routing", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("route_combo_gamefeel", (experiential.get("route_combo_gamefeel", {}) as Dictionary).duplicate(true))
 	_focus_panel.set_meta("silent_tutorial_file", (experiential.get("silent_tutorial_file", {}) as Dictionary).duplicate(true))
@@ -2572,7 +2576,7 @@ func _build_dispatch_drag_ghost() -> void:
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(icon)
-	_dispatch_drag_ghost_label = _make_label("FILE  →  HEN", 11, Color("fff0bd"))
+	_dispatch_drag_ghost_label = _make_label("FILE  →  ★  ✓  △", 11, Color("fff0bd"))
 	_dispatch_drag_ghost_label.name = "DispatchDragGhostLabel"
 	_dispatch_drag_ghost_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_dispatch_drag_ghost_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2585,7 +2589,7 @@ func _show_dispatch_drag_ghost(lane: StringName, viewport_position: Vector2) -> 
 	if _dispatch_drag_ghost == null:
 		return
 	_dispatch_drag_ghost.visible = true
-	_dispatch_drag_ghost_label.text = "%s  →  HEN" % _lane_name(lane).to_upper()
+	_dispatch_drag_ghost_label.text = "%s  →  ★  ✓  △" % _lane_name(lane).to_upper()
 	_dispatch_drag_ghost.set_meta("lane", String(lane))
 	_dispatch_drag_ghost.set_meta("state", &"carrying")
 	_update_dispatch_drag_ghost(viewport_position)

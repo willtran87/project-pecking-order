@@ -109,7 +109,7 @@ try {
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 18);
+	assert.equal(pulse.version, 19);
 	assert.equal(pulse.consolidated_game_loop?.item_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.implemented_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.all_implemented, true);
@@ -146,7 +146,7 @@ try {
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.status, "AWAITING REAL PARTICIPANTS");
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.results_complete, false);
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.never_fabricate, true);
-	assert.equal(pulse.intuitive_rewarding_completion?.version, 3);
+	assert.equal(pulse.intuitive_rewarding_completion?.version, 4);
 	assert.equal(pulse.intuitive_rewarding_completion?.item_count, 33);
 	assert.equal(pulse.intuitive_rewarding_completion?.implemented_count, 33);
 	assert.equal(pulse.intuitive_rewarding_completion?.all_implemented, true);
@@ -162,7 +162,7 @@ try {
 	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.results_complete, false);
 	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.never_fabricate, true);
 	const professionalPolish = pulse.intuitive_rewarding_completion?.professional_polish;
-	assert.equal(professionalPolish?.version, 2);
+	assert.equal(professionalPolish?.version, 3);
 	assert.equal(professionalPolish?.item_count, 25);
 	assert.equal(professionalPolish?.resolved_count, 25);
 	assert.equal(professionalPolish?.all_resolved, true);
@@ -183,7 +183,7 @@ try {
 	assert.equal(professionalPolish?.first_shift_observation?.results_complete, false);
 	assert.equal(professionalPolish?.first_shift_observation?.never_fabricate, true);
 	const experientialPolish = professionalPolish?.experiential_polish;
-	assert.equal(experientialPolish?.version, 1);
+	assert.equal(experientialPolish?.version, 2);
 	assert.equal(experientialPolish?.item_count, 25);
 	assert.equal(experientialPolish?.resolved_count, 25);
 	assert.equal(experientialPolish?.all_resolved, true);
@@ -202,6 +202,21 @@ try {
 	assert.equal(experientialPolish?.observed_first_shift?.status, "AWAITING REAL PARTICIPANTS");
 	assert.equal(experientialPolish?.observed_first_shift?.results_complete, false);
 	assert.equal(experientialPolish?.observed_first_shift?.never_fabricate, true);
+	const nextLevelPolish = experientialPolish?.next_level_polish;
+	assert.equal(nextLevelPolish?.version, 1);
+	assert.equal(nextLevelPolish?.item_count, 25);
+	assert.equal(nextLevelPolish?.resolved_count, 25);
+	assert.equal(nextLevelPolish?.all_resolved, true);
+	assert.equal(nextLevelPolish?.adds_default_panel, false);
+	assert.deepEqual(nextLevelPolish?.drop_target_preview?.tiers, ["BEST", "SAFE", "RISKY"]);
+	assert.deepEqual(nextLevelPolish?.drop_target_preview?.shapes, ["STAR", "CHECK", "TRIANGLE"]);
+	assert.equal(nextLevelPolish?.drop_target_preview?.color_only, false);
+	assert.equal(nextLevelPolish?.one_file_focus?.one_primary_action, true);
+	assert.equal(nextLevelPolish?.automation?.exceptions_manual, true);
+	assert.equal(nextLevelPolish?.recovery_arc?.banked_rewards_safe, true);
+	assert.equal(nextLevelPolish?.onboarding_evidence?.status, "AWAITING REAL PARTICIPANTS");
+	assert.equal(nextLevelPolish?.onboarding_evidence?.results_complete, false);
+	assert.equal(nextLevelPolish?.onboarding_evidence?.never_fabricate, true);
 	assert.equal(active.dispatch?.drag_feedback?.visible_carried_file, true);
 	assert.equal(active.dispatch?.drag_feedback?.mouse, true);
 	assert.equal(active.dispatch?.drag_feedback?.touch, true);
@@ -460,4 +475,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED intuitive-completion=33 professional-polish=25 spotlight=physical direct=3-step reactions=first cue=6-words pair-styles=2 rival-memory=persistent study=awaiting-humans professional-completion=23 hero-cases=8x3-authoritative callbacks=persistent automation-report=per-hen policies=3 pair-outcomes=4 rival-responses=3 mastery=6 consolidated=16 canonical=true cold-open=30s cases=12 build=3 cadence=3 intuitive-reward=20 station=3+3 cause=3 folders=shape-coded sounds=5 experiential=20 intervention=one-shot replay=presentation-only tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED intuitive-completion=33 professional-polish=25 experiential-polish=25 next-level-polish=25 fit=best+safe+risky spotlight=physical direct=3-step reactions=first cue=6-words pair-styles=2 rival-memory=persistent study=awaiting-humans professional-completion=23 hero-cases=8x3-authoritative callbacks=persistent automation-report=per-hen policies=3 pair-outcomes=4 rival-responses=3 mastery=6 consolidated=16 canonical=true cold-open=30s cases=12 build=3 cadence=3 intuitive-reward=20 station=3+3 cause=3 folders=shape-coded sounds=5 experiential=20 intervention=one-shot replay=presentation-only tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

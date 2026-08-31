@@ -16340,7 +16340,17 @@ func dispatch_candidates(lane: StringName) -> Array[Dictionary]:
 		return int(a.get("worker_id", -1)) < int(b.get("worker_id", -1))
 	)
 	for index in candidates.size():
-		candidates[index]["recommended"] = index == 0
+		var recommended := index == 0
+		var specialty_match := bool(candidates[index].get("specialty_match", false))
+		var ready := bool(candidates[index].get("ready", false))
+		var fit_tier := "best" if recommended else "safe" if specialty_match and ready else "risky"
+		candidates[index]["recommended"] = recommended
+		candidates[index]["fit_tier"] = fit_tier
+		candidates[index]["fit_label"] = fit_tier.to_upper()
+		candidates[index]["fit_shape"] = "star" if fit_tier == "best" else "check" if fit_tier == "safe" else "triangle"
+		candidates[index]["pace_preview"] = "fast" if fit_tier == "best" else "steady" if fit_tier == "safe" else "slow"
+		candidates[index]["shell_risk_preview"] = "low" if fit_tier == "best" else "guarded" if fit_tier == "safe" else "high"
+		candidates[index]["reward_preview"] = "momentum" if fit_tier == "best" else "stable" if fit_tier == "safe" else "recovery"
 	return candidates
 
 

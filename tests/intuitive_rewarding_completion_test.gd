@@ -38,7 +38,7 @@ func _init() -> void:
 		if item_value is Dictionary:
 			ids.append(String((item_value as Dictionary).get("id", "")))
 	_check(
-		int(layer.get("version", 0)) == 3
+		int(layer.get("version", 0)) == 4
 		and bool(layer.get("canonical", false))
 		and not bool(layer.get("authoritative", true))
 		and int(layer.get("item_count", 0)) == 33
@@ -101,7 +101,7 @@ func _init() -> void:
 	var rematch := polish.get("rematch_experiment", {}) as Dictionary
 	var observation := polish.get("first_shift_observation", {}) as Dictionary
 	_check(
-		int(polish.get("version", 0)) == 2
+		int(polish.get("version", 0)) == 3
 		and bool(polish.get("canonical", false))
 		and not bool(polish.get("authoritative", true))
 		and not bool(polish.get("adds_default_panel", true))
@@ -148,7 +148,7 @@ func _init() -> void:
 	var experimental_rematch := experiential.get("experimental_rematch", {}) as Dictionary
 	var observed := experiential.get("observed_first_shift", {}) as Dictionary
 	_check(
-		int(experiential.get("version", 0)) == 1
+		int(experiential.get("version", 0)) == 2
 		and bool(experiential.get("canonical", false))
 		and not bool(experiential.get("authoritative", true))
 		and not bool(experiential.get("adds_default_panel", true))
@@ -158,6 +158,39 @@ func _init() -> void:
 		and experiential_ids.size() == 25
 		and experiential_ids.duplicate().all(func(item_id): return experiential_ids.count(item_id) == 1),
 		"the interaction-first production layer should resolve the exact 25-item brief once",
+		failures,
+	)
+	var next_level := experiential.get("next_level_polish", {}) as Dictionary
+	var next_level_ids: Array[String] = []
+	for item_value in next_level.get("items", []) as Array:
+		if item_value is Dictionary:
+			next_level_ids.append(String((item_value as Dictionary).get("id", "")))
+	var target_preview := next_level.get("drop_target_preview", {}) as Dictionary
+	var onboarding_evidence := next_level.get("onboarding_evidence", {}) as Dictionary
+	_check(
+		int(next_level.get("version", 0)) == 1
+		and bool(next_level.get("canonical", false))
+		and not bool(next_level.get("authoritative", true))
+		and not bool(next_level.get("adds_default_panel", true))
+		and int(next_level.get("item_count", 0)) == 25
+		and int(next_level.get("resolved_count", 0)) == 25
+		and bool(next_level.get("all_resolved", false))
+		and next_level_ids.size() == 25
+		and next_level_ids.duplicate().all(func(item_id): return next_level_ids.count(item_id) == 1),
+		"the final point-of-play layer should resolve the exact 25-item brief once without new authority",
+		failures,
+	)
+	_check(
+		(target_preview.get("tiers", []) as Array) == ["BEST", "SAFE", "RISKY"]
+		and (target_preview.get("shapes", []) as Array) == ["STAR", "CHECK", "TRIANGLE"]
+		and not bool(target_preview.get("color_only", true))
+		and bool((next_level.get("one_file_focus", {}) as Dictionary).get("one_primary_action", false))
+		and bool((next_level.get("automation", {}) as Dictionary).get("exceptions_manual", false))
+		and bool((next_level.get("recovery_arc", {}) as Dictionary).get("banked_rewards_safe", false))
+		and String(onboarding_evidence.get("status", "")) == "AWAITING REAL PARTICIPANTS"
+		and not bool(onboarding_evidence.get("results_complete", true))
+		and bool(onboarding_evidence.get("never_fabricate", false)),
+		"fit previews, focus, automation, recovery, and onboarding evidence should be clear and honest",
 		failures,
 	)
 	_check(
@@ -191,7 +224,7 @@ func _init() -> void:
 			push_error("INTUITIVE_REWARDING_COMPLETION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("INTUITIVE_REWARDING_COMPLETION_TEST_PASSED items=33 polish=25 experiential=25 drag=mouse+touch ghost=visible tutorial=silent body-language=5-state partnership=physical rematch=safe study=awaiting-humans")
+	print("INTUITIVE_REWARDING_COMPLETION_TEST_PASSED items=33 polish=25 experiential=25 next-level=25 fit=best+safe+risky drag=mouse+touch study=awaiting-humans")
 	quit(0)
 
 

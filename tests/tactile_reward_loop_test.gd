@@ -47,7 +47,7 @@ func _run() -> void:
 	})
 	var layer := pulse.get("tactile_reward_loop", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 18
+		int(pulse.get("version", 0)) == 19
 		and int(layer.get("item_count", 0)) == 20
 		and int(layer.get("resolved_count", 0)) == 20
 		and bool(layer.get("all_resolved", false))
