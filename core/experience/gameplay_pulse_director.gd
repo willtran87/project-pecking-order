@@ -305,7 +305,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"intuitive_reward_loop": intuitive_reward_loop,
 	})
 	return {
-		"version": 17,
+		"version": 18,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,

@@ -38,7 +38,7 @@ func _init() -> void:
 		if item_value is Dictionary:
 			ids.append(String((item_value as Dictionary).get("id", "")))
 	_check(
-		int(layer.get("version", 0)) == 2
+		int(layer.get("version", 0)) == 3
 		and bool(layer.get("canonical", false))
 		and not bool(layer.get("authoritative", true))
 		and int(layer.get("item_count", 0)) == 33
@@ -101,7 +101,7 @@ func _init() -> void:
 	var rematch := polish.get("rematch_experiment", {}) as Dictionary
 	var observation := polish.get("first_shift_observation", {}) as Dictionary
 	_check(
-		int(polish.get("version", 0)) == 1
+		int(polish.get("version", 0)) == 2
 		and bool(polish.get("canonical", false))
 		and not bool(polish.get("authoritative", true))
 		and not bool(polish.get("adds_default_panel", true))
@@ -136,12 +136,62 @@ func _init() -> void:
 		"relationships, rivalry, progression, rematch, and real-human evidence should stay concrete and honest",
 		failures,
 	)
+	var experiential := polish.get("experiential_polish", {}) as Dictionary
+	var experiential_items := experiential.get("items", []) as Array
+	var experiential_ids: Array[String] = []
+	for item_value in experiential_items:
+		if item_value is Dictionary:
+			experiential_ids.append(String((item_value as Dictionary).get("id", "")))
+	var drag := experiential.get("direct_drag_routing", {}) as Dictionary
+	var tutorial := experiential.get("silent_tutorial_file", {}) as Dictionary
+	var body_language := experiential.get("readable_body_language", {}) as Dictionary
+	var experimental_rematch := experiential.get("experimental_rematch", {}) as Dictionary
+	var observed := experiential.get("observed_first_shift", {}) as Dictionary
+	_check(
+		int(experiential.get("version", 0)) == 1
+		and bool(experiential.get("canonical", false))
+		and not bool(experiential.get("authoritative", true))
+		and not bool(experiential.get("adds_default_panel", true))
+		and int(experiential.get("item_count", 0)) == 25
+		and int(experiential.get("resolved_count", 0)) == 25
+		and bool(experiential.get("all_resolved", false))
+		and experiential_ids.size() == 25
+		and experiential_ids.duplicate().all(func(item_id): return experiential_ids.count(item_id) == 1),
+		"the interaction-first production layer should resolve the exact 25-item brief once",
+		failures,
+	)
+	_check(
+		bool(drag.get("enabled", false))
+		and bool(drag.get("mouse", false))
+		and bool(drag.get("touch", false))
+		and bool(drag.get("visible_carried_file", false))
+		and bool(drag.get("invalid_drop_returns_file", false))
+		and int(tutorial.get("required_prose_words", -1)) == 0
+		and bool(tutorial.get("icons_first", false))
+		and bool(body_language.get("shape_and_motion_not_color_only", false))
+		and (body_language.get("states", []) as Array).size() == 5,
+		"routing, onboarding, and chicken state should be physical, icon-led, and readable",
+		failures,
+	)
+	_check(
+		bool((experiential.get("partnership_actions", {}) as Dictionary).get("both_hens_react", false))
+		and bool((experiential.get("rival_office", {}) as Dictionary).get("responds_to_player_strategy", false))
+		and bool((experiential.get("transformative_upgrades", {}) as Dictionary).get("changes_office", false))
+		and bool((experiential.get("setback_conversion", {}) as Dictionary).get("banked_rewards_safe", false))
+		and bool(experimental_rematch.get("same_seed", false))
+		and bool(experimental_rematch.get("one_rule_changed", false))
+		and String(observed.get("status", "")) == "AWAITING REAL PARTICIPANTS"
+		and not bool(observed.get("results_complete", true))
+		and bool(observed.get("never_fabricate", false)),
+		"relationships, rivalry, upgrades, recovery, rematch, and human evidence should remain concrete",
+		failures,
+	)
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("INTUITIVE_REWARDING_COMPLETION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("INTUITIVE_REWARDING_COMPLETION_TEST_PASSED items=33 polish=25 spotlight=physical reactions=first direct=3-step tutorial=60s partnership=2-styles automation=physical mastery=no-fomo study=awaiting-humans")
+	print("INTUITIVE_REWARDING_COMPLETION_TEST_PASSED items=33 polish=25 experiential=25 drag=mouse+touch ghost=visible tutorial=silent body-language=5-state partnership=physical rematch=safe study=awaiting-humans")
 	quit(0)
 
 

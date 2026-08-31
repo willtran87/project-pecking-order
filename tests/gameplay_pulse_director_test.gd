@@ -123,7 +123,7 @@ func _init() -> void:
 	_check(not bool(pulse.get("authoritative", true)), "the entire pulse must remain presentation-only", failures)
 	var completion := pulse.get("intuitive_rewarding_completion", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 17
+		int(pulse.get("version", 0)) == 18
 		and int(completion.get("item_count", 0)) == 33
 		and bool(completion.get("all_implemented", false))
 		and String((completion.get("human_study", {}) as Dictionary).get("status", "")) == "AWAITING REAL PARTICIPANTS",

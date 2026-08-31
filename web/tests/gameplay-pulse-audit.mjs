@@ -109,7 +109,7 @@ try {
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 17);
+	assert.equal(pulse.version, 18);
 	assert.equal(pulse.consolidated_game_loop?.item_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.implemented_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.all_implemented, true);
@@ -146,7 +146,7 @@ try {
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.status, "AWAITING REAL PARTICIPANTS");
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.results_complete, false);
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.never_fabricate, true);
-	assert.equal(pulse.intuitive_rewarding_completion?.version, 2);
+	assert.equal(pulse.intuitive_rewarding_completion?.version, 3);
 	assert.equal(pulse.intuitive_rewarding_completion?.item_count, 33);
 	assert.equal(pulse.intuitive_rewarding_completion?.implemented_count, 33);
 	assert.equal(pulse.intuitive_rewarding_completion?.all_implemented, true);
@@ -162,7 +162,7 @@ try {
 	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.results_complete, false);
 	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.never_fabricate, true);
 	const professionalPolish = pulse.intuitive_rewarding_completion?.professional_polish;
-	assert.equal(professionalPolish?.version, 1);
+	assert.equal(professionalPolish?.version, 2);
 	assert.equal(professionalPolish?.item_count, 25);
 	assert.equal(professionalPolish?.resolved_count, 25);
 	assert.equal(professionalPolish?.all_resolved, true);
@@ -182,6 +182,30 @@ try {
 	assert.equal(professionalPolish?.first_shift_observation?.status, "AWAITING REAL PARTICIPANTS");
 	assert.equal(professionalPolish?.first_shift_observation?.results_complete, false);
 	assert.equal(professionalPolish?.first_shift_observation?.never_fabricate, true);
+	const experientialPolish = professionalPolish?.experiential_polish;
+	assert.equal(experientialPolish?.version, 1);
+	assert.equal(experientialPolish?.item_count, 25);
+	assert.equal(experientialPolish?.resolved_count, 25);
+	assert.equal(experientialPolish?.all_resolved, true);
+	assert.equal(experientialPolish?.adds_default_panel, false);
+	assert.equal(experientialPolish?.direct_drag_routing?.enabled, true);
+	assert.equal(experientialPolish?.direct_drag_routing?.mouse, true);
+	assert.equal(experientialPolish?.direct_drag_routing?.touch, true);
+	assert.equal(experientialPolish?.direct_drag_routing?.visible_carried_file, true);
+	assert.equal(experientialPolish?.direct_drag_routing?.invalid_drop_returns_file, true);
+	assert.equal(experientialPolish?.silent_tutorial_file?.required_prose_words, 0);
+	assert.equal(experientialPolish?.readable_body_language?.states?.length, 5);
+	assert.equal(experientialPolish?.partnership_actions?.both_hens_react, true);
+	assert.equal(experientialPolish?.transformative_upgrades?.changes_office, true);
+	assert.equal(experientialPolish?.experimental_rematch?.same_seed, true);
+	assert.equal(experientialPolish?.experimental_rematch?.one_rule_changed, true);
+	assert.equal(experientialPolish?.observed_first_shift?.status, "AWAITING REAL PARTICIPANTS");
+	assert.equal(experientialPolish?.observed_first_shift?.results_complete, false);
+	assert.equal(experientialPolish?.observed_first_shift?.never_fabricate, true);
+	assert.equal(active.dispatch?.drag_feedback?.visible_carried_file, true);
+	assert.equal(active.dispatch?.drag_feedback?.mouse, true);
+	assert.equal(active.dispatch?.drag_feedback?.touch, true);
+	assert.equal(active.dispatch?.drag_feedback?.invalid_drop_returns_file, true);
 	assert.equal(pulse.intuitive_reward_loop?.item_count, 20);
 	assert.equal(pulse.intuitive_reward_loop?.resolved_count, 20);
 	assert.equal(pulse.intuitive_reward_loop?.all_resolved, true);

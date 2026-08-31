@@ -725,6 +725,8 @@ var _dispatch_drag_lane: StringName = &""
 var _dispatch_drag_origin := Vector2.ZERO
 var _dispatch_dragging := false
 var _dispatch_drag_release_consumed := false
+var _dispatch_drag_ghost: PanelContainer
+var _dispatch_drag_ghost_label: Label
 var _routing_best_chain := 0
 var _routing_next_milestone := 0
 var _routing_next_reward := ""
@@ -793,6 +795,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build_queue_strip()
+	_build_dispatch_drag_ghost()
 	_build_first_clutch_coach()
 	_build_focus_dossier()
 	_build_claim_resolution_confirmation()
@@ -1205,6 +1208,7 @@ func apply_professional_polish_state(state: Dictionary) -> void:
 	set_meta("professional_polish", state.duplicate(true))
 	if state.is_empty() or _focus_panel == null or _queue_panel == null:
 		return
+	var experiential := state.get("experiential_polish", {}) as Dictionary
 	var spotlight := state.get("action_spotlight", {}) as Dictionary
 	var preview := state.get("before_after_preview", {}) as Dictionary
 	var direct := state.get("direct_file_manipulation", {}) as Dictionary
@@ -1215,9 +1219,17 @@ func apply_professional_polish_state(state: Dictionary) -> void:
 	_queue_panel.set_meta("strong_action_availability", (state.get("action_availability", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("tactical_dilemmas", (state.get("tactical_dilemmas", {}) as Dictionary).duplicate(true))
 	_queue_panel.set_meta("repetition_director", (state.get("repetition_director", {}) as Dictionary).duplicate(true))
+	_queue_panel.set_meta("experiential_polish", experiential.duplicate(true))
+	_queue_panel.set_meta("direct_drag_routing", (experiential.get("direct_drag_routing", {}) as Dictionary).duplicate(true))
+	_queue_panel.set_meta("route_combo_gamefeel", (experiential.get("route_combo_gamefeel", {}) as Dictionary).duplicate(true))
+	_focus_panel.set_meta("silent_tutorial_file", (experiential.get("silent_tutorial_file", {}) as Dictionary).duplicate(true))
+	_focus_panel.set_meta("animated_consequence_preview", (experiential.get("animated_consequence_preview", {}) as Dictionary).duplicate(true))
+	_focus_panel.set_meta("safe_experimentation", (experiential.get("safe_experimentation", {}) as Dictionary).duplicate(true))
 	if _assignment_section != null:
 		_assignment_section.set_meta("distinct_chicken_strengths", (state.get("chicken_strengths", {}) as Dictionary).duplicate(true))
 		_assignment_section.set_meta("personal_chicken_objectives", (state.get("personal_objectives", {}) as Dictionary).duplicate(true))
+		_assignment_section.set_meta("readable_chicken_body_language", (experiential.get("readable_body_language", {}) as Dictionary).duplicate(true))
+		_assignment_section.set_meta("signature_chicken_abilities", (experiential.get("signature_abilities", {}) as Dictionary).duplicate(true))
 
 
 func play_dispatch_reward(
@@ -2524,6 +2536,91 @@ func _build_queue_strip() -> void:
 	_dispatch_momentum_break_glyph.offset_bottom = 9.0
 	_dispatch_momentum_break_glyph.visible = false
 	_dispatch_momentum_label.add_child(_dispatch_momentum_break_glyph)
+
+
+func _build_dispatch_drag_ghost() -> void:
+	## A small physical folder follows the pointer while the existing drag ray is
+	## armed. It is deliberately non-interactive so the world drop target keeps
+	## receiving the release, and it contains no simulation authority.
+	_dispatch_drag_ghost = PanelContainer.new()
+	_dispatch_drag_ghost.name = "DispatchDragGhost"
+	_dispatch_drag_ghost.custom_minimum_size = Vector2(126.0, 34.0)
+	_dispatch_drag_ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dispatch_drag_ghost.z_index = 90
+	_dispatch_drag_ghost.visible = false
+	_dispatch_drag_ghost.add_theme_stylebox_override(
+		"panel",
+		_panel_style(Color("192832"), 0.97, Color("f2ca68"), 7, 2),
+	)
+	add_child(_dispatch_drag_ghost)
+	var margin := MarginContainer.new()
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 9)
+	margin.add_theme_constant_override("margin_top", 5)
+	margin.add_theme_constant_override("margin_bottom", 5)
+	_dispatch_drag_ghost.add_child(margin)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 5)
+	margin.add_child(row)
+	var icon := TextureRect.new()
+	icon.name = "DispatchDragGhostIcon"
+	icon.custom_minimum_size = Vector2(18.0, 18.0)
+	icon.texture = ManagementUIThemeScript.action_icon(&"clipboard")
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(icon)
+	_dispatch_drag_ghost_label = _make_label("FILE  →  HEN", 11, Color("fff0bd"))
+	_dispatch_drag_ghost_label.name = "DispatchDragGhostLabel"
+	_dispatch_drag_ghost_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_dispatch_drag_ghost_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_dispatch_drag_ghost_label)
+	_dispatch_drag_ghost.set_meta("presentation_only", true)
+	_dispatch_drag_ghost.set_meta("valid_targets_marked", true)
+
+
+func _show_dispatch_drag_ghost(lane: StringName, viewport_position: Vector2) -> void:
+	if _dispatch_drag_ghost == null:
+		return
+	_dispatch_drag_ghost.visible = true
+	_dispatch_drag_ghost_label.text = "%s  →  HEN" % _lane_name(lane).to_upper()
+	_dispatch_drag_ghost.set_meta("lane", String(lane))
+	_dispatch_drag_ghost.set_meta("state", &"carrying")
+	_update_dispatch_drag_ghost(viewport_position)
+
+
+func _update_dispatch_drag_ghost(viewport_position: Vector2) -> void:
+	if _dispatch_drag_ghost == null or not _dispatch_drag_ghost.visible:
+		return
+	# The root Control fills the viewport, so this remains stable across the
+	# responsive layouts without relying on private tray geometry.
+	_dispatch_drag_ghost.global_position = viewport_position + Vector2(16.0, 14.0)
+
+
+func _hide_dispatch_drag_ghost(state: StringName = &"idle") -> void:
+	if _dispatch_drag_ghost == null:
+		return
+	_dispatch_drag_ghost.visible = false
+	_dispatch_drag_ghost.set_meta("state", state)
+
+
+func dispatch_drag_feedback_state() -> Dictionary:
+	return {
+		"active": _dispatch_drag_ghost != null and _dispatch_drag_ghost.visible,
+		"lane": String(_dispatch_drag_lane),
+		"dragging": _dispatch_dragging,
+		"state": String(
+			_dispatch_drag_ghost.get_meta("state", &"idle")
+			if _dispatch_drag_ghost != null else
+			&"idle"
+		),
+		"visible_carried_file": true,
+		"mouse": true,
+		"touch": true,
+		"invalid_drop_returns_file": true,
+	}
 
 
 func _build_first_clutch_coach() -> void:
@@ -5552,10 +5649,14 @@ func _on_dispatch_tray_gui_input(event: InputEvent, lane: StringName) -> void:
 			return
 		if _dispatch_dragging:
 			_dispatch_drag_release_consumed = true
+			_hide_dispatch_drag_ghost(&"dropped")
+			_dispatch_drag_lane = &""
+			_dispatch_dragging = false
 			dispatch_drag_released.emit(lane, pointer_position)
 			call_deferred("_clear_dispatch_drag_release_guard")
 		else:
 			dispatch_drag_canceled.emit(lane)
+			_hide_dispatch_drag_ghost(&"click")
 		_dispatch_drag_lane = &""
 		_dispatch_dragging = false
 		accept_event()
@@ -5568,7 +5669,10 @@ func _on_dispatch_tray_gui_input(event: InputEvent, lane: StringName) -> void:
 		if not _dispatch_dragging:
 			_dispatch_dragging = true
 			_finish_dispatch_tray_arrival()
+			_show_dispatch_drag_ghost(lane, pointer_position)
 			dispatch_drag_started.emit(lane)
+		else:
+			_update_dispatch_drag_ghost(pointer_position)
 		accept_event()
 
 

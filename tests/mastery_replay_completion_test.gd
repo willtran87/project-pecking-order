@@ -78,7 +78,7 @@ func _run() -> void:
 	var decision := layer.get("decision_stack", {}) as Dictionary
 	var study := layer.get("comprehension_protocol", {}) as Dictionary
 	_check(
-		int(pulse.get("version", 0)) == 17
+		int(pulse.get("version", 0)) == 18
 		and int(layer.get("item_count", 0)) == 30
 		and int(layer.get("resolved_count", 0)) == 30
 		and bool(layer.get("all_resolved", false)),

@@ -19667,6 +19667,11 @@ func _dispatch_diagnostic_state() -> Dictionary:
 		"candidate_ids": candidate_ids,
 		"recommended_worker_id": _dispatch_recommended_worker_id,
 		"recommendation_handoff": recommendation_handoff,
+		"drag_feedback": (
+			_routing_ui.dispatch_drag_feedback_state()
+			if _routing_ui != null and _routing_ui.has_method("dispatch_drag_feedback_state") else
+			{}
+		),
 		"momentum_chain": _dispatch_momentum_chain,
 		"momentum": _simulation.routing_momentum_snapshot(),
 		"reward_label": _dispatch_reward_label,
@@ -20720,16 +20725,22 @@ func _apply_intuitive_rewarding_completion_presentation(layer: Dictionary) -> vo
 func _apply_professional_polish_presentation(layer: Dictionary) -> void:
 	if layer.is_empty():
 		return
+	var experiential := layer.get("experiential_polish", {}) as Dictionary
 	var spotlight := layer.get("action_spotlight", {}) as Dictionary
 	var payoff := layer.get("payoff_countdown", {}) as Dictionary
 	if _top_hud_panel != null:
 		_top_hud_panel.set_meta("professional_polish", layer.duplicate(true))
+		_top_hud_panel.set_meta("experiential_polish", experiential.duplicate(true))
 		_top_hud_panel.set_meta("reaction_first_feedback", (layer.get("reaction_first_feedback", {}) as Dictionary).duplicate(true))
 		_top_hud_panel.set_meta("adaptive_information_density", (layer.get("adaptive_information_density", {}) as Dictionary).duplicate(true))
+		_top_hud_panel.set_meta("contextual_hud", (experiential.get("contextual_hud", {}) as Dictionary).duplicate(true))
+		_top_hud_panel.set_meta("audiovisual_grammar", (experiential.get("audiovisual_grammar", {}) as Dictionary).duplicate(true))
 	if _guidance_action_button != null:
 		_guidance_action_button.set_meta("contextual_action_spotlight", spotlight.duplicate(true))
 		_guidance_action_button.set_meta("before_after_preview", (layer.get("before_after_preview", {}) as Dictionary).duplicate(true))
 		_guidance_action_button.set_meta("direct_file_manipulation", (layer.get("direct_file_manipulation", {}) as Dictionary).duplicate(true))
+		_guidance_action_button.set_meta("animated_consequence_preview", (experiential.get("animated_consequence_preview", {}) as Dictionary).duplicate(true))
+		_guidance_action_button.set_meta("visible_reward_runway", (experiential.get("visible_reward_runway", {}) as Dictionary).duplicate(true))
 	if _routing_ui != null:
 		if _routing_ui.has_method("apply_professional_polish_state"):
 			_routing_ui.apply_professional_polish_state(layer)
@@ -20738,23 +20749,34 @@ func _apply_professional_polish_presentation(layer: Dictionary) -> void:
 	if _core_loop_host != null:
 		_core_loop_host.set_meta("progressive_onboarding", (layer.get("progressive_onboarding", {}) as Dictionary).duplicate(true))
 		_core_loop_host.set_meta("session_progression", (layer.get("session_progression", {}) as Dictionary).duplicate(true))
+		_core_loop_host.set_meta("silent_tutorial_file", (experiential.get("silent_tutorial_file", {}) as Dictionary).duplicate(true))
+		_core_loop_host.set_meta("dynamic_pacing_director", (experiential.get("dynamic_pacing", {}) as Dictionary).duplicate(true))
 	if _active_playbook_button != null:
 		_active_playbook_button.set_meta("personal_chicken_objectives", (layer.get("personal_objectives", {}) as Dictionary).duplicate(true))
 		_active_playbook_button.set_meta("partnership_choreography", (layer.get("partnership_choreography", {}) as Dictionary).duplicate(true))
 		_active_playbook_button.set_meta("failure_recovery", (layer.get("failure_recovery", {}) as Dictionary).duplicate(true))
 		_active_playbook_button.set_meta("tactical_dilemmas", (layer.get("tactical_dilemmas", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("signature_chicken_abilities", (experiential.get("signature_abilities", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("personal_hen_stories", (experiential.get("personal_hen_stories", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("short_challenge_dockets", (experiential.get("challenge_dockets", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("safe_experimentation", (experiential.get("safe_experimentation", {}) as Dictionary).duplicate(true))
 	if _shift_egg_goal_label != null:
 		_shift_egg_goal_label.set_meta("professional_payoff_countdown", payoff.duplicate(true))
 	if _directive_badge != null:
 		_directive_badge.set_meta("one_sentence_shift_identity", (layer.get("shift_identity", {}) as Dictionary).duplicate(true))
 		_directive_badge.set_meta("next_shift_tease", (layer.get("next_shift_tease", {}) as Dictionary).duplicate(true))
+		_directive_badge.set_meta("dramatic_hero_files", (experiential.get("dramatic_hero_files", {}) as Dictionary).duplicate(true))
 	if _rival_pulse_label != null:
 		_rival_pulse_label.set_meta("professional_rival_presence", (layer.get("rival_presence", {}) as Dictionary).duplicate(true))
 		_rival_pulse_label.set_meta("consequential_rival_memory", (layer.get("rival_memory", {}) as Dictionary).duplicate(true))
+		_rival_pulse_label.set_meta("rival_office_visualization", (experiential.get("rival_office", {}) as Dictionary).duplicate(true))
 	if _reward_loop_host != null:
 		_reward_loop_host.set_meta("professional_collection_cabinet", (layer.get("collection_cabinet", {}) as Dictionary).duplicate(true))
 		_reward_loop_host.set_meta("professional_strategy_celebration", (layer.get("strategy_celebration", {}) as Dictionary).duplicate(true))
 		_reward_loop_host.set_meta("strategy_defining_upgrades", (layer.get("strategy_defining_upgrades", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("transformative_office_upgrades", (experiential.get("transformative_upgrades", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("tactile_collection_display", (experiential.get("tactile_collection", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("strategy_shaped_celebrations", (experiential.get("strategy_celebrations", {}) as Dictionary).duplicate(true))
 
 
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:

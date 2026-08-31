@@ -1,5 +1,15 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-31 - Experiential interaction polish
+
+- Added the exact 25-item interaction-first `experiential_polish` contract beneath the existing professional completion layer, raising `IntuitiveRewardingCompletion` to version 3 and `GameplayPulseDirector` to version 18 without adding another gameplay authority or blocking panel.
+- Completed the physical routing affordance: mouse and touch drags now carry a visible folder ghost from the tray into the 3D hen ray picker, valid targets remain marked, invalid drops return the file, and every release clears transient drag state cleanly. Click, keyboard, and undo equivalents remain intact.
+- Wired contextual HUD focus, silent First Clutch teaching, animated consequence preview, body language, reward runway, route combos, signature actions, hen stories, physical partnerships, rival memory, verb-changing upgrades, collection evidence, fail-forward recovery, counterfactual review, same-seed rematch, pacing, permanent challenges, build-shaped celebrations, audiovisual grammar, safe practice, and hero staging into existing presentation surfaces.
+- Added `docs/EXPERIENTIAL_POLISH_COMPLETION.md` plus exact native/browser contracts. The five-person first-shift study remains honestly `AWAITING REAL PARTICIPANTS`.
+- Verification complete: focused native contracts, the prescribed generic Playwright client, and the 1440×900 production gameplay audit pass with zero browser errors; original-resolution inspection confirms First Clutch, the office, and the responsive HUD remain contained.
+- The full beta release gate passes 73/73 checks in 597.53 seconds. Export and Pages payloads are byte-identical at 10,817,560 bytes with SHA-256 `5AB4D7735509CC86955EB5AFE1763B004969B76963F24CF11F56D4BAAA3D9F07`.
+- The dedicated production wrapper was stopped by exact session; port 3001 has no listener, no Godot process remains, and the user-owned port-3000 process remains untouched.
+
 ## 2026-08-31 - Professional polish completion
 
 - Consolidated the latest 25 intuition, fun, engagement, and reward findings into `IntuitiveRewardingCompletion` version 2 and `GameplayPulseDirector` version 17 without adding another blocking panel or gameplay authority.
