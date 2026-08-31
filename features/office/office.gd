@@ -19994,6 +19994,9 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_professional_gameplay_completion_presentation(
 		_gameplay_pulse.get("professional_gameplay_completion", {}) as Dictionary,
 	)
+	_apply_intuitive_rewarding_completion_presentation(
+		_gameplay_pulse.get("intuitive_rewarding_completion", {}) as Dictionary,
+	)
 	var loop := _gameplay_pulse.get("shift_journey", {}) as Dictionary
 	var loop_steps := loop.get("steps", []) as Array
 	for index in _core_loop_icons.size():
@@ -20685,6 +20688,29 @@ func _apply_professional_gameplay_completion_presentation(layer: Dictionary) -> 
 		_directive_badge.set_meta("next_shift_hook", (layer.get("next_shift_hook", {}) as Dictionary).duplicate(true))
 
 
+func _apply_intuitive_rewarding_completion_presentation(layer: Dictionary) -> void:
+	if layer.is_empty():
+		return
+	var cue := layer.get("now_why_reward", {}) as Dictionary
+	if _top_hud_panel != null:
+		_top_hud_panel.set_meta("intuitive_rewarding_completion", layer.duplicate(true))
+		_top_hud_panel.set_meta("compact_hierarchy", (layer.get("compact_hierarchy", {}) as Dictionary).duplicate(true))
+	if _guidance_action_button != null:
+		_guidance_action_button.set_meta("concise_cue", cue.duplicate(true))
+		_guidance_action_button.set_meta("word_budget", int(cue.get("word_budget", 6)))
+	if _active_playbook_button != null:
+		_active_playbook_button.set_meta("partnership_growth", (layer.get("partnership_growth", {}) as Dictionary).duplicate(true))
+		_active_playbook_button.set_meta("availability_explanations", (layer.get("availability", {}) as Dictionary).duplicate(true))
+	if _rival_pulse_label != null:
+		_rival_pulse_label.set_meta("rival_memory", (layer.get("rival", {}) as Dictionary).duplicate(true))
+	if _routing_ui != null:
+		_routing_ui.set_meta("world_action_preview", (layer.get("world_action_preview", {}) as Dictionary).duplicate(true))
+		_routing_ui.set_meta("automation_world_behavior", (layer.get("automation", {}) as Dictionary).duplicate(true))
+	if _reward_loop_host != null:
+		_reward_loop_host.set_meta("collection_cabinet", (layer.get("collection_cabinet", {}) as Dictionary).duplicate(true))
+		_reward_loop_host.set_meta("strategy_celebration", (layer.get("celebration", {}) as Dictionary).duplicate(true))
+
+
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
 	if _active_playbook_button == null:
 		return
@@ -20703,7 +20729,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			continue
 		var option := option_value as Dictionary
 		if (
-			String(option.get("kind", "")) in ["signature", "teamwork", "rescue", "automation", "automation_policy", "intervention"]
+			String(option.get("kind", "")) in ["signature", "teamwork", "partnership", "rescue", "automation", "automation_policy", "intervention"]
 			and bool(option.get("available", false))
 		):
 			contextual_power_ready = true
@@ -20713,7 +20739,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	if not running:
 		return
 	var primary_kind := ""
-	for priority_kind in ["reward", "rescue", "hero_case", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "modifier", "rival", "side_goal", "automation", "automation_policy", "toy", "display", "challenge"]:
+	for priority_kind in ["reward", "rescue", "hero_case", "partnership", "episode", "push_luck", "proposal", "recovery", "preset", "customize", "contract", "loadout", "preparation", "modifier", "rival", "side_goal", "automation", "automation_policy", "toy", "display", "challenge"]:
 		for option_value in options:
 			if (
 				option_value is Dictionary
@@ -20733,7 +20759,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		if (
 			(kind == primary_kind and bool(option.get("available", false)))
 			or (kind == "practice" and bool(option.get("available", false)))
-			or (kind in ["signature", "teamwork", "intervention"] and bool(option.get("available", false)))
+			or (kind in ["signature", "teamwork", "partnership", "intervention"] and bool(option.get("available", false)))
 		):
 			display_options.append(option)
 	var fingerprint := "%d|%s" % [focused_worker_id, JSON.stringify(playbook)]
@@ -20902,6 +20928,11 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 			var teammate := _worker_views.get(teammate_id) as ChickenView
 			if teammate != null:
 				teammate.play_short_bark("TOGETHER!", &"team")
+	if String(result.get("playbook_kind", "")) == "partnership":
+		for teammate_id in [int(result.get("worker_id", -1)), int(result.get("partner_id", -1))]:
+			var teammate := _worker_views.get(teammate_id) as ChickenView
+			if teammate != null:
+				teammate.play_short_bark("OUR MOVE!", &"team")
 	if String(result.get("playbook_kind", "")) in ["proposal", "toy", "rescue", "intervention"]:
 		var reaction_worker_id := int(result.get("worker_id", _active_playbook_focused_worker_id))
 		var reaction_worker := _worker_views.get(reaction_worker_id) as ChickenView
@@ -20958,7 +20989,7 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 	if _audio_feedback != null:
 		if kind == &"intervention" and _audio_feedback.has_method("play_manager_intervention"):
 			_audio_feedback.call("play_manager_intervention", choice_id)
-		elif kind in [&"reward", &"teamwork"]:
+		elif kind in [&"reward", &"teamwork", &"partnership"]:
 			_audio_feedback.play_commendation()
 		else:
 			_audio_feedback.play_decision_resolved()

@@ -111,6 +111,10 @@ const AUTOMATION_POLICY_IDS: Array[StringName] = [
 	&"deadline_first",
 	&"protect_strain",
 ]
+const PARTNERSHIP_STYLE_IDS: Array[StringName] = [
+	&"precision_duet",
+	&"recovery_pact",
+]
 const CAREER_THRESHOLDS: Array[int] = [0, 18, 45, 80]
 const CAREER_TITLES: Array[String] = [
 	"JUNIOR PECKWORK HEN",
@@ -144,6 +148,8 @@ var cross_training_worked_this_shift: bool = false
 var assigned_lane: StringName = &"auto"
 var automation_policy_id: StringName = &"specialty_first"
 var automation_policy_unlocked: bool = false
+var partnership_partner_id: int = -1
+var partnership_style_id: StringName = &""
 var manually_routed: bool = false
 var current_claim: ClaimState
 var morale: float = 74.0
@@ -193,6 +199,10 @@ static func default_temperament(worker_id: int) -> StringName:
 
 static func is_valid_automation_policy(policy_id: StringName) -> bool:
 	return policy_id in AUTOMATION_POLICY_IDS
+
+
+static func is_valid_partnership_style(style_id: StringName) -> bool:
+	return style_id == &"" or style_id in PARTNERSHIP_STYLE_IDS
 
 
 static func temperament_definition(worker_id: int) -> Dictionary:
@@ -360,6 +370,8 @@ func snapshot(current_operational_minute: int = 0) -> Dictionary:
 		"cross_training_work_multiplier": cross_training_work_multiplier(),
 		"cross_training_wage_bonus_cents": cross_training_wage_bonus_cents(),
 		"assigned_lane": assigned_lane,
+		"partnership_partner_id": partnership_partner_id,
+		"partnership_style_id": partnership_style_id,
 		"manually_routed": manually_routed,
 		"current_claim": (
 			current_claim.snapshot(current_operational_minute)
@@ -417,6 +429,8 @@ func to_save_data() -> Dictionary:
 		"assigned_lane": String(assigned_lane),
 		"automation_policy_id": String(automation_policy_id),
 		"automation_policy_unlocked": automation_policy_unlocked,
+		"partnership_partner_id": partnership_partner_id,
+		"partnership_style_id": String(partnership_style_id),
 		"manually_routed": manually_routed,
 		"current_claim": current_claim.to_save_data() if current_claim != null else {},
 		"morale": morale,
@@ -460,6 +474,18 @@ func apply_save_data(data: Dictionary) -> bool:
 		&"specialty_first"
 	)
 	automation_policy_unlocked = bool(data.get("automation_policy_unlocked", false))
+	var saved_partnership_partner_id := int(data.get("partnership_partner_id", -1))
+	var saved_partnership_style_id := StringName(String(data.get("partnership_style_id", "")))
+	if (
+		saved_partnership_partner_id < -1
+		or saved_partnership_partner_id > 64
+		or saved_partnership_partner_id == id
+		or not is_valid_partnership_style(saved_partnership_style_id)
+		or (saved_partnership_style_id == &"") != (saved_partnership_partner_id == -1)
+	):
+		return false
+	partnership_partner_id = saved_partnership_partner_id
+	partnership_style_id = saved_partnership_style_id
 	manually_routed = (
 		bool(data.get("manually_routed", false))
 		and assigned_lane != &"auto"

@@ -102,14 +102,14 @@ try {
 	);
 	const pulse = active.gameplay_pulse;
 	const required = [
-		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow_loop", "tactile_reward_loop", "experiential_management_loop", "intuitive_reward_loop", "consolidated_game_loop", "professional_gameplay_completion", "immediate_outcome", "shift_win",
+		"focus_mode", "action_preview", "core_loop", "shift_journey", "guided_loop", "physical_loop", "complete_game_loop", "mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow_loop", "tactile_reward_loop", "experiential_management_loop", "intuitive_reward_loop", "consolidated_game_loop", "professional_gameplay_completion", "intuitive_rewarding_completion", "immediate_outcome", "shift_win",
 		"review_highlights", "comeback_guidance", "combo_readiness", "hen_intention",
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
 	];
 	for (const key of required) assert.ok(Object.hasOwn(pulse, key), `missing pulse item: ${key}`);
-	assert.equal(pulse.version, 15);
+	assert.equal(pulse.version, 16);
 	assert.equal(pulse.consolidated_game_loop?.item_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.implemented_count, 16);
 	assert.equal(pulse.consolidated_game_loop?.all_implemented, true);
@@ -146,6 +146,21 @@ try {
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.status, "AWAITING REAL PARTICIPANTS");
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.results_complete, false);
 	assert.equal(pulse.professional_gameplay_completion?.comprehension_validation?.never_fabricate, true);
+	assert.equal(pulse.intuitive_rewarding_completion?.version, 1);
+	assert.equal(pulse.intuitive_rewarding_completion?.item_count, 33);
+	assert.equal(pulse.intuitive_rewarding_completion?.implemented_count, 33);
+	assert.equal(pulse.intuitive_rewarding_completion?.all_implemented, true);
+	assert.equal(pulse.intuitive_rewarding_completion?.now_why_reward?.word_budget, 6);
+	assert.deepEqual(pulse.intuitive_rewarding_completion?.first_minute?.path, ["PLAN", "ROUTE", "HELP", "REWARD"]);
+	assert.equal(pulse.intuitive_rewarding_completion?.hero_file?.staging?.prepared_slot, true);
+	assert.equal(pulse.intuitive_rewarding_completion?.hero_file?.repetition_guard?.immediate_repeat_allowed, false);
+	assert.equal(pulse.intuitive_rewarding_completion?.partnership_growth?.choices?.length, 2);
+	assert.equal(pulse.intuitive_rewarding_completion?.automation?.exceptions_manual, true);
+	assert.equal(pulse.intuitive_rewarding_completion?.automation?.world_behavior?.length, 5);
+	assert.equal(pulse.intuitive_rewarding_completion?.mastery_challenges?.expires, false);
+	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.status, "AWAITING REAL PARTICIPANTS");
+	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.results_complete, false);
+	assert.equal(pulse.intuitive_rewarding_completion?.human_study?.never_fabricate, true);
 	assert.equal(pulse.intuitive_reward_loop?.item_count, 20);
 	assert.equal(pulse.intuitive_reward_loop?.resolved_count, 20);
 	assert.equal(pulse.intuitive_reward_loop?.all_resolved, true);
@@ -362,6 +377,7 @@ try {
 		experientialManagementLoop: pulse.experiential_management_loop,
 		intuitiveRewardLoop: pulse.intuitive_reward_loop,
 		professionalGameplayCompletion: pulse.professional_gameplay_completion,
+		intuitiveRewardingCompletion: pulse.intuitive_rewarding_completion,
 		activePlaybook: pulse.active_playbook,
 		privacy: pulse.comprehension_tuning.privacy,
 	};
@@ -398,4 +414,4 @@ try {
 
 fs.writeFileSync(path.join(outputDirectory, "audit.json"), JSON.stringify(evidence, null, 2));
 assert.deepEqual(errors, [], "clarity pulse audit must produce no browser errors");
-console.log("GAMEPLAY_PULSE_AUDIT_PASSED professional-completion=23 hero-cases=8x3-authoritative callbacks=persistent automation-report=per-hen policies=3 pair-outcomes=4 rival-responses=3 mastery=6 evidence=awaiting-humans consolidated=16 canonical=true cold-open=30s cases=12 build=3 cadence=3 intuitive-reward=20 station=3+3 cause=3 folders=shape-coded sounds=5 experiential=20 intervention=one-shot replay=presentation-only tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");
+console.log("GAMEPLAY_PULSE_AUDIT_PASSED intuitive-completion=33 cue=6-words pair-styles=2 rival-memory=persistent study=awaiting-humans professional-completion=23 hero-cases=8x3-authoritative callbacks=persistent automation-report=per-hen policies=3 pair-outcomes=4 rival-responses=3 mastery=6 consolidated=16 canonical=true cold-open=30s cases=12 build=3 cadence=3 intuitive-reward=20 station=3+3 cause=3 folders=shape-coded sounds=5 experiential=20 intervention=one-shot replay=presentation-only tactical-reward=20 tactical-plan=0/3 strategic-flow=30 compelling-loop=30 explain=4-chip story=3-beat report=3-card complete-loop=24 mastery-replay=30 power=Q reward-loop=15 guided-loop=24 physical-loop=24 next-level=20 presets=3 journey=6-stage playbook=authoritative rival=quiet-before-first-egg privacy=local");

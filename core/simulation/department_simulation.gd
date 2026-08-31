@@ -2027,6 +2027,22 @@ const PLAYBOOK_RIVAL_DEFINITIONS := {
 	&"counter": {"label": "COUNTER PUSH", "icon": &"rival", "gain": "PACE +4%", "cost": "SHELL RISK +1.2%", "risk": "QUALITY EXPOSURE"},
 	&"ignore": {"label": "BACK THE FLOCK", "icon": &"care", "gain": "SOLIDARITY +2", "cost": "NO RIVAL MODIFIER", "risk": "MARGIN UNCHANGED"},
 }
+const PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS := {
+	&"precision_duet": {
+		"label": "PRECISION DUET",
+		"icon": &"sync",
+		"gain": "PAIR XP +2 / ATTENTION +1",
+		"cost": "LESS RECOVERY",
+		"risk": "PERMANENT PAIR STYLE",
+	},
+	&"recovery_pact": {
+		"label": "RECOVERY PACT",
+		"icon": &"care",
+		"gain": "PAIR MORALE +2 / STRESS -3",
+		"cost": "NO EXTRA ATTENTION",
+		"risk": "PERMANENT PAIR STYLE",
+	},
+}
 const PLAYBOOK_DELEGATION_POLICY_DEFINITIONS := {
 	&"specialty_first": {
 		"label": "SPECIALTY FIRST",
@@ -2386,6 +2402,7 @@ var upgrade_levels: Dictionary = {
 var first_clutch_reinvestment: Dictionary = {}
 var active_playbook: Dictionary = {}
 var hero_case_history: Array[Dictionary] = []
+var rival_response_history: Array[Dictionary] = []
 var requisition_spend_today_cents: int = 0
 var requisition_spend_total_cents: int = 0
 var orientation_procurement_match_today_cents: int = 0
@@ -9413,6 +9430,7 @@ func export_save_state() -> Dictionary:
 		"first_clutch_reinvestment": first_clutch_reinvestment.duplicate(true),
 		"active_playbook": active_playbook.duplicate(true),
 		"hero_case_history": hero_case_history.duplicate(true),
+		"rival_response_history": rival_response_history.duplicate(true),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
 		"requisition_spend_total_cents": requisition_spend_total_cents,
 		"orientation_procurement_match_today_cents": orientation_procurement_match_today_cents,
@@ -9701,6 +9719,13 @@ func restore_save_state(data: Dictionary) -> bool:
 	if not bool(hero_history_validation.get("valid", false)):
 		return false
 	var restored_hero_case_history := hero_history_validation.get("history", []) as Array[Dictionary]
+	var rival_history_validation := _validated_rival_response_history(
+		data.get("rival_response_history", []),
+		saved_day,
+	)
+	if not bool(rival_history_validation.get("valid", false)):
+		return false
+	var restored_rival_response_history := rival_history_validation.get("history", []) as Array[Dictionary]
 	var reinvestment_match_used := int(
 		restored_first_clutch_reinvestment.get("procurement_match_used_cents", 0)
 	)
@@ -11235,6 +11260,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	first_clutch_reinvestment = restored_first_clutch_reinvestment
 	active_playbook = restored_active_playbook.duplicate(true)
 	hero_case_history = restored_hero_case_history.duplicate(true)
+	rival_response_history = restored_rival_response_history.duplicate(true)
 	requisition_spend_today_cents = restored_requisition_spend_today
 	requisition_spend_total_cents = restored_requisition_spend_total
 	orientation_procurement_match_today_cents = restored_orientation_match_today
@@ -13685,6 +13711,37 @@ func _validated_hero_case_history(value: Variant, saved_day: int, worker_count: 
 			"worker_id": worker_id,
 			"worker_name": String(row.get("worker_name", "")),
 			"echo": String(row.get("echo", "")),
+		})
+	return {"valid": true, "history": history}
+
+
+func _validated_rival_response_history(value: Variant, saved_day: int) -> Dictionary:
+	if not value is Array or (value as Array).size() > 32:
+		return {"valid": false, "history": []}
+	var history: Array[Dictionary] = []
+	for row_value in value as Array:
+		if not row_value is Dictionary:
+			return {"valid": false, "history": []}
+		var row := row_value as Dictionary
+		if not _is_integral_number(row.get("day", null)):
+			return {"valid": false, "history": []}
+		var row_day := int(row.get("day", 0))
+		var response_id := StringName(String(row.get("response_id", "")))
+		if row_day < 1 or row_day > saved_day or not PLAYBOOK_RIVAL_DEFINITIONS.has(response_id):
+			return {"valid": false, "history": []}
+		for integer_field in ["eggs_at_choice", "margin_at_choice"]:
+			if not _is_integral_number(row.get(integer_field, null)):
+				return {"valid": false, "history": []}
+		for text_field in ["response_label", "rival_name"]:
+			if typeof(row.get(text_field, null)) not in [TYPE_STRING, TYPE_STRING_NAME]:
+				return {"valid": false, "history": []}
+		history.append({
+			"day": row_day,
+			"response_id": String(response_id),
+			"response_label": String(row.get("response_label", "")),
+			"rival_name": String(row.get("rival_name", "")),
+			"eggs_at_choice": clampi(int(row.get("eggs_at_choice", 0)), 0, 2_000_000_000),
+			"margin_at_choice": clampi(int(row.get("margin_at_choice", 0)), -100, 100),
 		})
 	return {"valid": true, "history": history}
 
@@ -16953,6 +17010,10 @@ func _hero_case_snapshot(focused_worker_id: int) -> Dictionary:
 			&"hero_case", option_id, option_definition, choice_id == &"",
 			"Choose one disclosed answer; its callback is filed in the shift record.",
 		))
+	var callback := (active_playbook.get("hero_case_callback", {}) as Dictionary).duplicate(true)
+	var recent_case_ids: Array[String] = []
+	for index in range(maxi(0, hero_case_history.size() - 3), hero_case_history.size()):
+		recent_case_ids.append(String(hero_case_history[index].get("case_id", "")))
 	return {
 		"id": String(case_id),
 		"label": String(definition.get("label", "HERO FILE")),
@@ -16964,8 +17025,111 @@ func _hero_case_snapshot(focused_worker_id: int) -> Dictionary:
 		"resolved": choice_id != &"",
 		"choice_id": String(choice_id),
 		"options": options,
-		"callback": (active_playbook.get("hero_case_callback", {}) as Dictionary).duplicate(true),
+		"callback": callback,
 		"persistent_history_count": hero_case_history.size(),
+		"staging": {
+			"prepared_slot": true,
+			"warning_visible": eggs_today == 0,
+			"arrival_trigger": "FIRST EGG",
+			"world_target": "hero_file_slot",
+			"audio_cue": "hero_file_arrival",
+		},
+		"follow_through": {
+			"filed": not callback.is_empty(),
+			"returns_in_review": not callback.is_empty(),
+			"returns_in_future_docket": not callback.is_empty(),
+			"worker_echo": String(callback.get("worker_name", "")),
+			"choice_echo": String(callback.get("choice_label", "")),
+		},
+		"repetition_guard": {
+			"recent_case_ids": recent_case_ids,
+			"catalog_size": PLAYBOOK_HERO_CASE_ORDER.size(),
+			"immediate_repeat_allowed": false,
+		},
+	}
+
+
+func _partnership_progression_snapshot(focused_worker_id: int) -> Dictionary:
+	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
+		return {"available": false, "reason": "SELECT A HEN"}
+	var worker := workers[focused_worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	var partner_id := int(bond.get("partner_id", -1))
+	if partner_id < 0 or partner_id >= workers.size() or not workers[partner_id].employed:
+		return {"available": false, "reason": "NO ACTIVE PERCHMATE"}
+	var partner := workers[partner_id]
+	var score := int(bond.get("score", 0))
+	var style_id := &""
+	var specialization_locked := worker.partnership_style_id != &"" or partner.partnership_style_id != &""
+	if worker.partnership_partner_id == partner_id and partner.partnership_partner_id == worker.id:
+		if worker.partnership_style_id == partner.partnership_style_id:
+			style_id = worker.partnership_style_id
+	var tier := "FORMING"
+	var next_threshold := 60
+	if score >= 90:
+		tier = "SIGNATURE PAIR"
+		next_threshold = 100
+	elif score >= 75:
+		tier = "CLUTCHMATES"
+		next_threshold = 90
+	elif score >= 60:
+		tier = "GOOD PERCH"
+		next_threshold = 75
+	var choices: Array[Dictionary] = []
+	for choice_id: StringName in PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS:
+		choices.append(_playbook_option(
+			&"partnership",
+			choice_id,
+			PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS[choice_id],
+			score >= 75 and not specialization_locked,
+			"Choose once at Clutchmates 75; both hens permanently learn the pair style.",
+		))
+	return {
+		"available": score >= 60,
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"partner_id": partner.id,
+		"partner_name": partner.display_name,
+		"score": score,
+		"tier": tier,
+		"next_threshold": next_threshold,
+		"specialization_unlocked": score >= 75,
+		"specialization_locked": specialization_locked,
+		"specialization_id": String(style_id),
+		"specialization": (PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS.get(style_id, {}) as Dictionary).duplicate(true),
+		"choices": choices,
+		"development_sources": ["TEAM LIFT", "MORALE", "STRAIN", "SOLIDARITY"],
+	}
+
+
+func _rival_memory_snapshot() -> Dictionary:
+	var scenario := scenario_identity_snapshot()
+	var current_id := StringName(active_playbook.get("rival_response_id", &""))
+	var latest: Dictionary = rival_response_history.back().duplicate(true) if not rival_response_history.is_empty() else {}
+	var remembered_id := current_id if current_id != &"" else StringName(latest.get("response_id", &""))
+	var personality := "WATCHFUL BENCHMARKER"
+	var next_intent := "Tests whether your filed plan holds under visible pressure."
+	match remembered_id:
+		&"defend":
+			personality = "PATIENT PRESSURE"
+			next_intent = "Will challenge pace because you previously protected quality."
+		&"counter":
+			personality = "SHELL TESTER"
+			next_intent = "Will challenge quality because you previously raced the benchmark."
+		&"ignore":
+			personality = "FLOCK BAITER"
+			next_intent = "Will widen the visible margin because you previously backed the flock."
+	return {
+		"rival_name": String(scenario.get("rival_name", "Golden Comb Group")),
+		"personality": personality,
+		"visible_intent": next_intent,
+		"current_response_id": String(current_id),
+		"remembered_response_id": String(remembered_id),
+		"history": rival_response_history.duplicate(true),
+		"memory_count": rival_response_history.size(),
+		"persistent": true,
+		"response_window": "AFTER FIRST EGG",
+		"hidden_counter": false,
 	}
 
 
@@ -17260,6 +17424,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 	var teamwork_available := false
 	var teamwork_reason := "Select a bonded hen with a Good Perch or Clutchmates relationship."
 	var teamwork_ability: Dictionary = {}
+	var partnership := _partnership_progression_snapshot(focused_worker_id)
 	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
 		var bond := _worker_flock_bond_snapshot(workers[focused_worker_id])
 		teamwork_available = running and not bool(active_playbook.get("teamwork_used", false)) and int(bond.get("score", 0)) >= 60
@@ -17279,6 +17444,15 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		"cost": "ONCE / SHIFT",
 		"risk": "REQUIRES BOND 60",
 	}, teamwork_available, teamwork_reason))
+	if (
+		bool(partnership.get("specialization_unlocked", false))
+		and not bool(partnership.get("specialization_locked", false))
+	):
+		for partnership_choice_value in partnership.get("choices", []) as Array:
+			if partnership_choice_value is Dictionary:
+				var partnership_choice := (partnership_choice_value as Dictionary).duplicate(true)
+				partnership_choice["available"] = running
+				options.append(partnership_choice)
 	if contract_complete and String(active_playbook.get("contract_reward_id", "")).is_empty():
 		for choice_id: StringName in PLAYBOOK_REWARD_DEFINITIONS:
 			options.append(_playbook_option(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], running, "Claim one reward for the completed optional contract."))
@@ -17436,6 +17610,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"options": intervention_options,
 		},
 		"rival_response_id": String(active_playbook.get("rival_response_id", "")),
+		"rival_memory": _rival_memory_snapshot(),
 		"loadout_id": String(active_playbook.get("loadout_id", "")),
 		"recovery_id": String(active_playbook.get("recovery_id", "")),
 		"side_goal": side_goal_snapshot,
@@ -17451,6 +17626,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"available": teamwork_available,
 			"ability": teamwork_ability.duplicate(true),
 		},
+		"partnership": partnership,
 		"hero_case": hero_case,
 		"hero_case_history": hero_case_history.duplicate(true),
 		"automation_report": _automation_report_card(focused_worker_id),
@@ -17741,6 +17917,18 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		active_playbook["rival_response_id"] = String(choice_id)
 		if choice_id == &"ignore":
 			solidarity = minf(100.0, solidarity + 2.0)
+		var rival_definition := PLAYBOOK_RIVAL_DEFINITIONS[choice_id] as Dictionary
+		var scenario := scenario_identity_snapshot()
+		rival_response_history.append({
+			"day": day,
+			"response_id": String(choice_id),
+			"response_label": String(rival_definition.get("label", "RIVAL RESPONSE")),
+			"rival_name": String(scenario.get("rival_name", "Golden Comb Group")),
+			"eggs_at_choice": eggs_today,
+			"margin_at_choice": roundi(executive_confidence - 50.0),
+		})
+		while rival_response_history.size() > 32:
+			rival_response_history.pop_front()
 		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_RIVAL_DEFINITIONS[choice_id], "Rival response filed with no hidden catch-up rule."))
 	if kind == &"side_goal":
 		if not PLAYBOOK_SIDE_GOAL_DEFINITIONS.has(choice_id) or not String(active_playbook.get("side_goal_id", "")).is_empty():
@@ -17814,6 +18002,8 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		})
 	if kind == &"teamwork":
 		return _perform_playbook_teamwork(worker_id)
+	if kind == &"partnership":
+		return _perform_partnership_specialization(choice_id, worker_id)
 	if kind == &"recovery":
 		return _perform_playbook_recovery(choice_id)
 	if kind == &"practice":
@@ -18038,18 +18228,34 @@ func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
 	var partner_id := int(bond.get("partner_id", -1))
 	if int(bond.get("score", 0)) < 60 or partner_id < 0 or partner_id >= workers.size():
 		return {"accepted": false, "reason": "Team Lift requires a Good Perch bond at 60 or higher."}
-	var ability := _team_lift_ability(worker, workers[partner_id])
+	var partner := workers[partner_id]
+	var ability := _team_lift_ability(worker, partner)
 	var morale_delta := float(ability.get("morale", 4.0))
 	var stress_delta := float(ability.get("stress", -4.0))
 	var trust_delta := float(ability.get("trust", 2.0))
 	var career_xp_delta := int(ability.get("career_xp", 0))
+	var attention_charge := int(ability.get("attention_charge", 0))
+	var specialization_id := &""
+	if (
+		worker.partnership_partner_id == partner_id
+		and partner.partnership_partner_id == worker_id
+		and worker.partnership_style_id == partner.partnership_style_id
+	):
+		specialization_id = worker.partnership_style_id
+	match specialization_id:
+		&"precision_duet":
+			career_xp_delta += 2
+			attention_charge = maxi(attention_charge, 1)
+		&"recovery_pact":
+			morale_delta += 2.0
+			stress_delta -= 3.0
 	for teammate_id in [worker_id, partner_id]:
 		workers[teammate_id].morale = clampf(workers[teammate_id].morale + morale_delta, 0.0, 100.0)
 		workers[teammate_id].stress = clampf(workers[teammate_id].stress + stress_delta, 0.0, 100.0)
 		workers[teammate_id].manager_trust = clampf(workers[teammate_id].manager_trust + trust_delta, 0.0, 100.0)
 		if career_xp_delta > 0:
 			workers[teammate_id].add_career_xp(career_xp_delta)
-	if int(ability.get("attention_charge", 0)) > 0:
+	if attention_charge > 0:
 		routing_momentum_peck_recharge_bank = 1
 	active_playbook["teamwork_used"] = true
 	return _file_playbook_receipt({
@@ -18057,6 +18263,7 @@ func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
 		"playbook_kind": "teamwork",
 		"choice_id": "team_lift",
 		"ability_id": String(ability.get("id", "team_lift")),
+		"specialization_id": String(specialization_id),
 		"worker_id": worker_id,
 		"partner_id": partner_id,
 		"label": String(ability.get("label", "TEAM LIFT")),
@@ -18065,12 +18272,51 @@ func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
 			"stress": stress_delta,
 			"trust": trust_delta,
 			"career_xp": career_xp_delta,
-			"attention_charge": int(ability.get("attention_charge", 0)),
+			"attention_charge": attention_charge,
 		},
 		"outcome": "%s and %s filed %s." % [
 			worker.display_name,
 			String(bond.get("partner_name", "her perchmate")),
 			String(ability.get("label", "Team Lift")).capitalize(),
+		],
+		"day": day,
+	})
+
+
+func _perform_partnership_specialization(choice_id: StringName, worker_id: int) -> Dictionary:
+	if not PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS.has(choice_id):
+		return {"accepted": false, "reason": "That pair style is unavailable."}
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return {"accepted": false, "reason": "Select one hen in the pair first."}
+	var worker := workers[worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	var partner_id := int(bond.get("partner_id", -1))
+	if int(bond.get("score", 0)) < 75 or partner_id < 0 or partner_id >= workers.size() or not workers[partner_id].employed:
+		return {"accepted": false, "reason": "A Clutchmates bond at 75 or higher unlocks pair specialization."}
+	var partner := workers[partner_id]
+	if worker.partnership_style_id != &"" or partner.partnership_style_id != &"":
+		return {"accepted": false, "reason": "This pair already has a permanent specialization."}
+	worker.partnership_partner_id = partner_id
+	worker.partnership_style_id = choice_id
+	partner.partnership_partner_id = worker_id
+	partner.partnership_style_id = choice_id
+	var definition := PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS[choice_id] as Dictionary
+	return _file_playbook_receipt({
+		"accepted": true,
+		"playbook_kind": "partnership",
+		"choice_id": String(choice_id),
+		"worker_id": worker_id,
+		"partner_id": partner_id,
+		"label": String(definition.get("label", "PAIR STYLE")),
+		"effects": {
+			"gain": String(definition.get("gain", "PAIR SPECIALIZATION")),
+			"cost": String(definition.get("cost", "NONE")),
+			"risk": String(definition.get("risk", "PERMANENT PAIR STYLE")),
+		},
+		"outcome": "%s and %s permanently learned %s." % [
+			worker.display_name,
+			partner.display_name,
+			String(definition.get("label", "their pair style")).capitalize(),
 		],
 		"day": day,
 	})

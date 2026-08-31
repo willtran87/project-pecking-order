@@ -53,7 +53,7 @@ func _run() -> void:
 		"comprehension_driven_playtesting",
 	]
 	_check(
-		int(pulse.get("version", 0)) == 15
+		int(pulse.get("version", 0)) == 16
 		and int(layer.get("item_count", 0)) == 20
 		and int(layer.get("resolved_count", 0)) == 20
 		and bool(layer.get("all_resolved", false))

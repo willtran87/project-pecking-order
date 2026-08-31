@@ -108,14 +108,26 @@ func _init() -> void:
 			worker.morale = 100.0
 			worker.stress = 0.0
 			worker.fatigue = 0.0
+	var partnership_before := simulation.playbook_snapshot(0).get("partnership", {}) as Dictionary
+	var partnership := simulation.perform_playbook_action(&"partnership", &"precision_duet", 0)
+	_check(
+		String(partnership_before.get("tier", "")) in ["CLUTCHMATES", "SIGNATURE PAIR"]
+		and bool(partnership_before.get("specialization_unlocked", false))
+		and bool(partnership.get("accepted", false))
+		and simulation.workers[0].partnership_style_id == &"precision_duet"
+		and simulation.workers[1].partnership_style_id == &"precision_duet",
+		"a Clutchmates pair should choose one permanent, checkpointed specialization",
+		failures,
+	)
 	var teamwork_xp_before := simulation.workers[0].career_xp
 	var teamwork := simulation.perform_playbook_action(&"teamwork", &"team_lift", 0)
 	_check(
 		bool(teamwork.get("accepted", false))
 		and String(teamwork.get("ability_id", "")) == "mentor_handoff"
-		and simulation.workers[0].career_xp == teamwork_xp_before + 2
-		and simulation.routing_momentum_peck_recharge_bank == 0,
-		"a strong named bond should execute its pair-specific Mentor Handoff instead of a generic Team Lift",
+		and String(teamwork.get("specialization_id", "")) == "precision_duet"
+		and simulation.workers[0].career_xp == teamwork_xp_before + 4
+		and simulation.routing_momentum_peck_recharge_bank == 1,
+		"a specialized pair should layer Precision Duet onto its pair-specific Mentor Handoff",
 		failures,
 	)
 
@@ -139,7 +151,13 @@ func _init() -> void:
 		failures,
 	)
 	var rival := simulation.perform_playbook_action(&"rival", &"counter", 0)
-	_check(bool(rival.get("accepted", false)), "the rival response should open after the first delivery", failures)
+	_check(
+		bool(rival.get("accepted", false))
+		and simulation.rival_response_history.size() == 1
+		and String((simulation.playbook_snapshot(0).get("rival_memory", {}) as Dictionary).get("personality", "")) == "SHELL TESTER",
+		"the rival response should open after the first delivery and become persistent personality memory",
+		failures,
+	)
 	simulation.revenue_cents = 2000
 	var recovery := simulation.perform_playbook_action(&"recovery", &"steady_fund", 0)
 	_check(bool(recovery.get("accepted", false)), "a transparent recovery plan should open under cash pressure", failures)
@@ -208,8 +226,11 @@ func _init() -> void:
 			and bool(restored_playbook.get("teamwork_used", false))
 			and restored.workers[0].automation_policy_unlocked
 			and restored.workers[0].automation_policy_id == &"deadline_first"
+			and restored.workers[0].partnership_partner_id == 1
+			and restored.workers[0].partnership_style_id == &"precision_duet"
+			and restored.rival_response_history.size() == 1
 			and (restored_playbook.get("signature_worker_ids", []) as Array) == [0]
-			and int(restored_playbook.get("receipt_serial", 0)) == 13
+			and int(restored_playbook.get("receipt_serial", 0)) == 14
 			and restored.hero_case_history.size() == 1
 			and String((restored.playbook_snapshot(0).get("contract", {}) as Dictionary).get("id", "")) == "fit_three",
 			"restore should preserve all filed playbook choices and receipts",
@@ -249,7 +270,7 @@ func _init() -> void:
 			push_error("ACTIVE_PLAYBOOK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("ACTIVE_PLAYBOOK_TEST_PASSED choices=12 presets=3 journey=4 reward=choose-one push-luck=one-shot automation=3-policy pair-ability=mentor-handoff first-payoff=protected persistence=round-trip rollover=clean")
+	print("ACTIVE_PLAYBOOK_TEST_PASSED choices=14 presets=3 journey=4 reward=choose-one push-luck=one-shot automation=3-policy pair-ability=mentor-handoff partnership=precision-duet rival-memory=persistent first-payoff=protected persistence=round-trip rollover=clean")
 	quit(0)
 
 

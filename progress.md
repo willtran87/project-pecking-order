@@ -1,5 +1,18 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-08-30 - Intuitive and rewarding completion
+
+- Reconciled all 33 approved clarity, fun, engagement, reward, replay, and comprehension findings against the existing simulation, Active Playbook, chicken, office, campaign, and review authorities.
+- Added permanent pair specialization at Clutchmates 75: Precision Duet adds career growth and attention to Team Lift; Recovery Pact adds morale and strain relief. Both hens own the same validated, checkpointed choice.
+- Added bounded persistent rival-response history. The rival now remembers Defend, Counter, or Back the Flock, then exposes a corresponding personality and next intent without hidden catch-up rules.
+- Strengthened every hero file with a prepared world slot, first-egg arrival cue, review/future callback, archive evidence, and immediate-repeat protection.
+- Added the read-only version-1 `intuitive_rewarding_completion` contract and version-16 gameplay pulse, covering the exact 33 findings with a six-word `NOW → WHY → REWARD` default, progressive disclosure, physical automation, collection cabinet, no-FOMO mastery, and responsive hierarchy.
+- Added `docs/INTUITIVE_REWARDING_COMPLETION.md`, focused native and browser contracts, and release-gate registration. The five-person study is packaged and instrumented; real participant results remain `AWAITING REAL PARTICIPANTS` and are never fabricated.
+- The final-code beta release gate passes 73/73 checks in 627.996 seconds, including 50/50 rendered web tests and exact nine-file artifact parity.
+- The prescribed generic web-game client and production gameplay audit pass at 2560×1600, 1440×900, and 844×390 with zero browser errors. Original-size inspection confirms the HUD, four-chip explain strip, route dossier, Playbook menu, and compact touch rail remain contained.
+- The synchronized 10,794,040-byte PCK has SHA-256 `3A1DBFC848A628CBE8CAB97163E13438F5A28A7FBD7D6565201E8BE32C02DDAA` across Godot export, GitHub Pages payload, and production wrapper.
+- The dedicated production wrapper was stopped by exact session; ports 3001 and 58336 are clear, and the user-owned port-3000 service remains untouched.
+
 ## 2026-08-28 - Strategic-flow synthesis
 
 - Added the read-only `strategic_flow_loop` gameplay pulse contract (version 9), resolving all 30 approved routing, forecast, roster, loadout, handoff, incident, opportunity, celebration, mastery, challenge, next-shift, and legacy improvements through existing authorities.

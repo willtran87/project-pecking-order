@@ -3,6 +3,7 @@ extends RefCounted
 
 const ConsolidatedGameLoopScript := preload("res://core/experience/consolidated_game_loop.gd")
 const ProfessionalGameplayCompletionScript := preload("res://core/experience/professional_gameplay_completion.gd")
+const IntuitiveRewardingCompletionScript := preload("res://core/experience/intuitive_rewarding_completion.gd")
 
 ## Read-only coordinator for the game's clarity and delight layer. It can project
 ## the authoritative Active Playbook, but never awards currency, changes
@@ -285,8 +286,22 @@ func compose(context: Dictionary) -> Dictionary:
 		"focused_worker_id": focus_worker_id,
 		"consolidated_game_loop": consolidated_game_loop,
 	})
+	var intuitive_rewarding_completion := IntuitiveRewardingCompletionScript.compose({
+		"simulation": simulation,
+		"next_action": next_action,
+		"active_playbook": active_playbook,
+		"consolidated_game_loop": consolidated_game_loop,
+		"professional_gameplay_completion": professional_gameplay_completion,
+		"action_feedback": feedback,
+		"first_session_funnel": funnel,
+		"guided_loop": guided_loop,
+		"complete_loop": complete_loop,
+		"rewarding_loop": rewarding_loop,
+		"mastery_replay": mastery_replay,
+		"strategic_flow_loop": strategic_flow_loop,
+	})
 	return {
-		"version": 15,
+		"version": 16,
 		"authoritative": false,
 		"focus_mode": {
 			"single": true,
@@ -313,6 +328,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"intuitive_reward_loop": intuitive_reward_loop,
 		"consolidated_game_loop": consolidated_game_loop,
 		"professional_gameplay_completion": professional_gameplay_completion,
+		"intuitive_rewarding_completion": intuitive_rewarding_completion,
 		"immediate_outcome": _immediate_outcome(feedback),
 		"shift_win": _shift_win(simulation, chapter, order_pulse),
 		"review_highlights": _review_highlights(simulation, momentum, reward_choice),

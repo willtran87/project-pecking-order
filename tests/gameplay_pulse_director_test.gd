@@ -48,6 +48,7 @@ func _init() -> void:
 		"relationship_episode", "tangible_reward_choice", "rival_pulse", "golden_moment",
 		"quick_docket", "hen_mastery", "fail_forward", "voluntary_streak",
 		"adaptive_assistance", "celebration_hierarchy", "comprehension_tuning",
+		"intuitive_rewarding_completion",
 	]
 	for key in required:
 		_check(pulse.has(key), "the clarity coordinator should publish %s" % key, failures)
@@ -120,6 +121,15 @@ func _init() -> void:
 	_check(((reward_loop.get("three_beat_finale", {}) as Dictionary).get("beats", []) as Array).size() == 3, "the shift finale should retain win, lesson, and next beats", failures)
 	_check((pulse.get("comprehension_tuning", {}) as Dictionary).get("friction_flags", []) == ["repeated_route_miss"], "local friction signals should reach the diagnostic pulse without authority", failures)
 	_check(not bool(pulse.get("authoritative", true)), "the entire pulse must remain presentation-only", failures)
+	var completion := pulse.get("intuitive_rewarding_completion", {}) as Dictionary
+	_check(
+		int(pulse.get("version", 0)) == 16
+		and int(completion.get("item_count", 0)) == 33
+		and bool(completion.get("all_implemented", false))
+		and String((completion.get("human_study", {}) as Dictionary).get("status", "")) == "AWAITING REAL PARTICIPANTS",
+		"the director should publish the exact 33-item completion layer while keeping real human evidence pending",
+		failures,
+	)
 	var active_pulse := director.compose({
 		"simulation": {
 			"day": 2,
