@@ -16,6 +16,8 @@ func _run() -> void:
 	_press(office, "NewCampaignButton", failures)
 	await process_frame
 	await process_frame
+	# Existing career saves retain the original five-step induction contract.
+	(office.get("_first_clutch") as Dictionary)["route_first_lesson"] = false
 	_press(office, "FirstClutchReturnToHen", failures)
 	await process_frame
 	await process_frame

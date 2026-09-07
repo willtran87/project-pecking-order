@@ -1,5 +1,14 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-09-07 - Route-first reward polish
+
+- Implemented the latest ten-point review's product changes: sequential first-egg goal, route-and-start automatic lesson, stable primary footprint, explicit personnel costs, three attention families, strategy tradeoffs/reactions, bounded reward/ambient spacing, contextual recovery, and report-derived next-shift suggestions.
+- Preserved legacy onboarding saves and their check-in/Peck tests. Added a real-production route-first regression and deferred-dialogue coverage.
+- Visual review caught clipped automatic-work text and unsupported arrow glyphs; shortened the label and used font-safe separators. Skip now explicitly refreshes normal HUD visibility. Reward presentation retries after competing management surfaces close.
+- Browser verification passed: actual route-and-start through physical reward at 2560x1600 and 1280x720; regular Playbook/routing/hold-to-explain regression at 900x800; prescribed input client at 1280x720. Inspected rendered captures and recorded zero browser errors. Software WebGL needed a longer test deadline for physical animation, without changing game speed or injecting outcomes.
+- The complete release gate passed 78/78 checks in 706.027 seconds. Release PCK SHA-256: 60EE1C4BF69D8AE01A361D5AADB4CBED566C931B05B8D484D8085169E4AC9F46 (10,867,800 bytes).
+- The owned production wrapper was stopped; ports 3001 and 58264 are free, and no owned Godot process remains. Human study remains pending real participants; see docs/ROUTE_FIRST_REWARD_POLISH.md and docs/FIRST_SHIFT_PLAYTEST_CARD.md.
+
 ## 2026-09-07 - Readable opening loop (visible gameplay changes)
 
 - Added actionable coaching buttons for the real specialty route, check-in, normal-speed start, and available Priority Peck. Fixed the paused-induction routing dead end: the featured tutorial assignment no longer enters the advanced tactical pause-plan.

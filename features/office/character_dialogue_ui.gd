@@ -63,6 +63,15 @@ var _quote_label: Label
 var _action_rail: HFlowContainer
 var _exact_note: Label
 var _file_button: Button
+var _ambient_quiet_until_msec := 0
+
+
+func hold_ambient(seconds: float) -> void:
+	_ambient_quiet_until_msec = maxi(_ambient_quiet_until_msec, Time.get_ticks_msec() + roundi(clampf(seconds, 0.0, 3.0) * 1000.0))
+
+
+func _ambient_held(entry: Dictionary) -> bool:
+	return Time.get_ticks_msec() < _ambient_quiet_until_msec and String(entry.get("presentation_mode", "visual_novel")) == "ambient"
 
 
 func _ready() -> void:
@@ -86,7 +95,7 @@ func enqueue_dialogue(entry: Dictionary) -> bool:
 	if _seen_ids.has(entry_id):
 		return false
 	_seen_ids[entry_id] = true
-	if _active.is_empty() and not _suspended:
+	if _active.is_empty() and not _suspended and not _ambient_held(entry):
 		_present(entry)
 		return true
 	if _queue.size() >= MAX_QUEUE:
@@ -134,6 +143,7 @@ func set_reduced_motion(reduced_motion: bool) -> void:
 
 
 func clear_session() -> void:
+	_ambient_quiet_until_msec = 0
 	_queue.clear()
 	_seen_ids.clear()
 	_active.clear()
@@ -196,6 +206,8 @@ func diagnostic_state() -> Dictionary:
 
 
 func _process(delta: float) -> void:
+	if _active.is_empty():
+		_present_next_if_available()
 	if _suspended or _active.is_empty() or _panel == null or not _panel.visible:
 		return
 	_remaining_seconds -= delta
@@ -347,8 +359,13 @@ func _present(entry: Dictionary) -> void:
 func _present_next_if_available() -> void:
 	if _suspended or not _active.is_empty() or _queue.is_empty():
 		return
-	var next := _queue.pop_front() as Dictionary
-	_present(next)
+	# Urgent dialogue may pass a held ambient line; no message is discarded.
+	for index in _queue.size():
+		if not _ambient_held(_queue[index]):
+			var next := _queue[index] as Dictionary
+			_queue.remove_at(index)
+			_present(next)
+			return
 
 
 func _apply_responsive_layout() -> void:

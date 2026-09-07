@@ -3,6 +3,7 @@ extends Control
 ## Three physical slots cover the quota bar only during the opening harvest.
 ## Counts come from the simulation; this widget never awards or collects eggs.
 var filled := 0
+var goal_count := 3
 
 
 func _ready() -> void:
@@ -10,14 +11,19 @@ func _ready() -> void:
 
 
 func show_count(count: int) -> void:
-	filled = clampi(count, 0, 3)
+	filled = clampi(count, 0, goal_count)
 	queue_redraw()
+
+
+func show_goal(count: int, target: int) -> void:
+	goal_count = clampi(target, 1, 3)
+	show_count(count)
 
 
 func _draw() -> void:
 	draw_style_box(_background(), Rect2(Vector2.ZERO, size))
-	for index in 3:
-		var center := Vector2(size.x * (float(index) + 0.5) / 3.0, size.y * 0.5)
+	for index in goal_count:
+		var center := Vector2(size.x * (float(index) + 0.5) / float(goal_count), size.y * 0.5)
 		var points := PackedVector2Array()
 		for step in 33:
 			var angle := TAU * float(step) / 32.0

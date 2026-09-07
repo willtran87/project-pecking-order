@@ -1,6 +1,8 @@
 class_name ChickenView
 extends Node3D
 
+const LoopReadability := preload("res://core/experience/loop_readability.gd")
+
 signal feed_party_attendance_ready(worker_id: int)
 signal feed_party_attendance_completed(worker_id: int)
 signal workstation_presence_changed(worker_id: int, is_present: bool)
@@ -2209,7 +2211,7 @@ func _apply_hen_intent(intent: Dictionary, progress: float = -1.0) -> void:
 	)
 	_hen_intent_urgency = clampi(int(intent.get("urgency", 1)), 1, 3)
 	_hen_intent_marker.texture = hen_intent_icon_texture(
-		icon,
+		StringName(LoopReadability.attention(intent).get("icon", icon)),
 		progress_bucket,
 		_hen_intent_urgency,
 		semantic_shape,
@@ -2218,6 +2220,7 @@ func _apply_hen_intent(intent: Dictionary, progress: float = -1.0) -> void:
 	_hen_intent_marker.set_meta("urgency", _hen_intent_urgency)
 	_hen_intent_marker.set_meta("compact", _hen_intent_urgency == 1)
 	_hen_intent_marker.set_meta("intent_id", intent_id)
+	_hen_intent_marker.set_meta("attention_icon", LoopReadability.attention(intent).get("icon", icon))
 	_hen_intent_marker.set_meta("action_label", action_label)
 	_hen_intent_marker.set_meta("semantic_shape", semantic_shape)
 	_refresh_hen_intent_focus_presentation()

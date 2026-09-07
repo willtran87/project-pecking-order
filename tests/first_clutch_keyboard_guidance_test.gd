@@ -22,6 +22,8 @@ func _run() -> void:
 	_press(office.find_child("NewCampaignButton", true, false) as Button, "New Career", failures)
 	await process_frame
 	await process_frame
+	# Exercise a resumed legacy induction, not the new route-first career path.
+	(office.get("_first_clutch") as Dictionary)["route_first_lesson"] = false
 	_press(office.find_child("FirstClutchReturnToHen", true, false) as Button, "Open Mabel's File", failures)
 	await process_frame
 	await process_frame

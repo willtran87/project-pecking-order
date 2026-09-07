@@ -1,5 +1,7 @@
 # Readable opening-loop pass
 
+The subsequent [route-first reward polish](ROUTE_FIRST_REWARD_POLISH.md) shortens fresh-career induction to automatic first-egg production. The five-step route/check-in/Peck sequence below remains supported for existing saves.
+
 This pass changes visible controls and feedback rather than adding another feature-completion score. Automated checks establish behavior, not enjoyment.
 
 ## Shipped presentation changes

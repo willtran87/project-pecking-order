@@ -17,7 +17,11 @@ Use this card with **five new participants** who have not watched another person
 - Cursor path before the first plan and first route
 - First hesitation point and its duration
 - Seconds to identify the shift goal
-- Whether the participant distinguishes the opening three-egg goal from the full shift quota
+- Whether the participant can name the single current goal as it advances from first egg to clutch to shift quota
+- Whether they understand that routing starts automatic work without a mandatory check-in or timed Peck
+- Whether working, opportunity, and help-needed markers communicate which hen can be left alone
+- Whether Fast, Safe, and Flock tradeoffs are understood before selection
+- Whether the first reward has enough breathing room before the next choice
 - Seconds to take the first valid action
 - Seconds from plan choice to a completed route
 - Seconds to first visible reward
@@ -37,6 +41,7 @@ Use this card with **five new participants** who have not watched another person
 - At least 4/5 identify the goal and take a valid action without external instruction.
 - At least 4/5 choose a plan unaided and complete a route within 30 seconds.
 - At least 4/5 correctly predict a consequence after one route.
+- At least 4/5 understand that ordinary production continues without repeated clicks.
 - At least 4/5 resolve the hero file unaided and correctly describe one disclosed tradeoff.
 - At least 4/5 can name a recovery action.
 - At least 4/5 describe `PLAN/ROUTE → CHICKEN → EGG/REWARD` in their own words.

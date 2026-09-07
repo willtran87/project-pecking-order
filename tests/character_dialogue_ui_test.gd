@@ -149,6 +149,19 @@ func _run() -> void:
 		"ambient production color should remain explicitly non-blocking",
 		failures,
 	)
+	ambient_ui.clear_session()
+	ambient_ui.hold_ambient(0.4)
+	ambient_ui.enqueue_many(normal_first_egg_beats)
+	await process_frame
+	_check(not ambient_panel.visible, "reward breathing room must defer new ambient dialogue", failures)
+	ambient_ui.enqueue_dialogue(opening)
+	await process_frame
+	_check(ambient_ui.is_blocking(), "important character decisions must bypass held ambient chatter", failures)
+	ambient_ui.dismiss_current()
+	await create_timer(0.5).timeout
+	_check(ambient_panel.visible and not ambient_ui.is_blocking(), "held chatter must resume without being dropped", failures)
+	ambient_ui.clear_session()
+	_check(int(ambient_ui.get("_ambient_quiet_until_msec")) == 0, "new sessions must not inherit a reward hold", failures)
 	ambient_ui.queue_free()
 	var keycap_aftermath := DialogueCatalog.beat_for_decision_result({
 		"accepted": true,

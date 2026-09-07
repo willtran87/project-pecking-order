@@ -298,7 +298,7 @@ func _run() -> void:
 		and "separate from Flockwatch score goals" in shift_quota_progress.tooltip_text
 		and shift_quota_progress.accessibility_name == shift_quota_progress.tooltip_text
 		and shift_quota_readout.accessibility_name == shift_quota_progress.tooltip_text,
-		"the always-visible shift quota should name its role and distinguish itself from scored Flockwatch goals",
+		"the always-visible shift quota should name its role and distinguish itself from scored Flockwatch goals: label=%s visible=%s readout=%s tooltip=%s" % [shift_egg_goal_label.text, shift_egg_goal_label.visible, shift_quota_readout.text, shift_quota_progress.tooltip_text],
 		failures,
 	)
 	campaign_ui.show_active_campaign()

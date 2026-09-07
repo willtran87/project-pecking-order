@@ -22,6 +22,7 @@ const TacticalRoutePlannerScript := preload("res://core/experience/tactical_rout
 const SettingsUIScript := preload("res://features/office/settings_ui.gd")
 const PeckworkRoutingUIScript := preload("res://features/office/peckwork_routing_ui.gd")
 const OpeningEggSlotsScript := preload("res://features/office/opening_egg_slots.gd")
+const LoopReadability := preload("res://core/experience/loop_readability.gd")
 const RoostStaffingUIScript := preload("res://features/office/roost_staffing_ui.gd")
 const PeckingOrderUIScript := preload("res://features/office/pecking_order_ui.gd")
 const FlockwatchNavigationScript := preload("res://features/office/flockwatch_navigation.gd")
@@ -569,6 +570,7 @@ var _first_clutch: Dictionary = {
 	"reinvestment_grandfathered": false,
 }
 var _first_clutch_completion_hold_until_msec: int = 0
+var _first_reward_ready_msec: int = 0
 var _first_clutch_completion_generation: int = 0
 var _eggs_in_flight_by_worker: Dictionary[int, int] = {}
 # Physical eggs can overlap at high simulation speed. Preserve every completion
@@ -755,6 +757,7 @@ var _review_eggs_value: Label
 var _review_net_value: Label
 var _review_fund_value: Label
 var _review_next_value: Label
+var _review_next_hint: Label
 var _review_results: Label
 var _review_details_toggle: Button
 var _review_details_scroll: ScrollContainer
@@ -5191,6 +5194,9 @@ func _on_predator_victim_captured(worker_id: int, threat_origin: Vector3) -> voi
 
 
 func _process(delta: float) -> void:
+	if _first_reward_ready_msec > 0 and Time.get_ticks_msec() >= _first_reward_ready_msec:
+		if _first_clutch_reinvestment_resolved() or _present_first_clutch_reinvestment():
+			_first_reward_ready_msec = 0
 	# Browsers can occasionally swallow a key-up when focus moves outside the
 	# canvas. Never leave the explain hold or its temporary pause latched.
 	if _explain_mode_active and not Input.is_action_pressed(&"explain_mode"):
@@ -7075,6 +7081,8 @@ func _build_day_review_panel() -> void:
 	_review_story.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	content.add_child(_review_story)
 	var hint := _make_label("OPTIONAL: STAFF OR BUILD", 12, Color("d5bd78"))
+	_review_next_hint = hint
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(hint)
 	var buttons := HFlowContainer.new()
@@ -9583,6 +9591,10 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 
 
 func _apply_three_card_review(report: Dictionary) -> void:
+	var next_challenge := LoopReadability.next_shift(report)
+	_review_next_hint.text = String(next_challenge.get("copy", "NEXT SHIFT"))
+	_review_next_hint.tooltip_text = "Optional personal challenge based on this shift. Compare the suggested plan next shift; nothing is purchased or filed automatically."
+	_review_next_hint.accessibility_name = "%s. %s" % [_review_next_hint.text, _review_next_hint.tooltip_text]
 	var projection := _gameplay_pulse_director.compose_report(report)
 	var cards := projection.get("cards", []) as Array
 	var value_labels: Array[Label] = [
@@ -14749,10 +14761,12 @@ func _make_first_clutch_state(dismissed: bool = true) -> Dictionary:
 
 
 func _reset_first_clutch(enabled: bool) -> void:
+	_first_reward_ready_msec = 0
 	_upgrade_demonstration.clear()
 	_first_clutch_completion_generation += 1
 	_first_clutch_completion_hold_until_msec = 0
 	_first_clutch = _make_first_clutch_state(not enabled)
+	_first_clutch["route_first_lesson"] = enabled
 	if enabled:
 		_capacity_marker_context_revealed = false
 		_apply_office_capacity_visibility(
@@ -14774,6 +14788,7 @@ func _normalize_first_clutch_state(value: Dictionary, legacy_missing: bool = fal
 		return incompatible_state
 	var legacy_v1 := source_version == 1
 	var normalized := _make_first_clutch_state(bool(value.get("dismissed", false)))
+	normalized["route_first_lesson"] = bool(value.get("route_first_lesson", false))
 	normalized["completed"] = bool(value.get("completed", false))
 	normalized["target_worker_id"] = maxi(-1, int(value.get("target_worker_id", -1)))
 	for key in ["inspected", "specialty_routed", "checkin_filed", "delivery_laid", "delivery_seen"]:
@@ -14857,7 +14872,7 @@ func _first_clutch_state_has_all_steps(state: Dictionary) -> bool:
 		target_worker_id >= 0
 		and bool(state.get("inspected", false))
 		and bool(state.get("specialty_routed", false))
-		and bool(state.get("checkin_filed", false))
+		and (bool(state.get("checkin_filed", false)) or bool(state.get("route_first_lesson", false)))
 		and int(state.get("assisted_worker_id", -1)) == target_worker_id
 		and int(state.get("assisted_claim_id", -1)) >= 0
 		and bool(state.get("delivery_laid", false))
@@ -14970,6 +14985,8 @@ func _first_clutch_record_routing(worker_id: int, lane: StringName) -> void:
 	var worker := _first_clutch_worker_snapshot(snapshot, worker_id)
 	if not worker.is_empty() and lane == StringName(worker.get("specialty", &"")):
 		_first_clutch["specialty_routed"] = true
+		if bool(_first_clutch.get("route_first_lesson", false)):
+			_clock.set_speed(1)
 	_first_clutch_try_complete()
 	_refresh_first_clutch_ui(snapshot)
 	_update_guidance(snapshot)
@@ -15009,6 +15026,18 @@ func _first_clutch_record_laid_egg(
 	claim_id: int = -1,
 	priority_credit_cents: int = -1
 ) -> void:
+	# New careers teach the production loop before optional personnel/timing.
+	# Retain the receipt field names so old saves and collection guards stay valid.
+	if (
+		_first_clutch_tracking_active()
+		and bool(_first_clutch.get("route_first_lesson", false))
+		and bool(_first_clutch.get("specialty_routed", false))
+		and worker_id == int(_first_clutch.get("target_worker_id", -1))
+		and int(_first_clutch.get("assisted_claim_id", -1)) < 0
+		and claim_id >= 0 and value_cents > 0
+	):
+		_first_clutch["assisted_worker_id"] = worker_id
+		_first_clutch["assisted_claim_id"] = claim_id
 	if (
 		not _first_clutch_tracking_active()
 		or worker_id != int(_first_clutch.get("target_worker_id", -1))
@@ -15131,7 +15160,12 @@ func _first_clutch_try_complete() -> bool:
 	_refresh_flockwatch_navigation(snapshot)
 	_update_guidance(snapshot)
 	_save_campaign_checkpoint("first_clutch_completed")
-	_present_first_clutch_reinvestment(reinvestment_offer)
+	if bool(_first_clutch.get("route_first_lesson", false)):
+		_clock.set_speed(0)
+		_character_dialogue_ui.hold_ambient(3.0)
+		_first_reward_ready_msec = Time.get_ticks_msec() + 2000
+	else:
+		_present_first_clutch_reinvestment(reinvestment_offer)
 	_retire_first_clutch_after_hold(completion_generation)
 	return true
 
@@ -15246,7 +15280,7 @@ func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
 	return {
 		"kind": FIRST_CLUTCH_REINVESTMENT_KIND,
 		"category": FIRST_CLUTCH_REINVESTMENT_KIND,
-		"eyebrow": "FIRST CLUTCH  5 / 5  ·  $%.2f DELIVERED" % (float(created_value) / 100.0),
+		"eyebrow": "FIRST EGG DELIVERED  ·  $%.2f" % (float(created_value) / 100.0),
 		"title": "REWARD %s OR BANK THE FUND?" % String(status.get("trigger_worker_name", "Mabel")).to_upper(),
 		"body": "$%.2f SPENDABLE  ·  +$%.2f DESK MATCH  ·  $%.2f RESERVED" % [
 			float(spendable_at_collection) / 100.0,
@@ -15358,6 +15392,7 @@ func _on_first_clutch_skip_requested() -> void:
 	_refresh_flockwatch_navigation(snapshot)
 	_update_guidance(snapshot)
 	_save_campaign_checkpoint("first_clutch_skipped")
+	_refresh_gameplay_pulse(snapshot)
 
 
 func _on_first_clutch_focus_requested(worker_id: int) -> void:
@@ -15385,6 +15420,8 @@ func _first_clutch_stage() -> StringName:
 		return &"inspect"
 	if not bool(_first_clutch.get("specialty_routed", false)):
 		return &"specialty_route"
+	if bool(_first_clutch.get("route_first_lesson", false)):
+		return &"delivery"
 	if not bool(_first_clutch.get("checkin_filed", false)):
 		return &"check_in"
 	if int(_first_clutch.get("assisted_claim_id", -1)) < 0:
@@ -15393,6 +15430,8 @@ func _first_clutch_stage() -> StringName:
 
 
 func _first_clutch_progress() -> int:
+	if bool(_first_clutch.get("route_first_lesson", false)):
+		return 3 if bool(_first_clutch.get("delivery_seen", false)) else 2 if bool(_first_clutch.get("specialty_routed", false)) else 1 if bool(_first_clutch.get("inspected", false)) else 0
 	if not bool(_first_clutch.get("inspected", false)):
 		return 0
 	if not bool(_first_clutch.get("specialty_routed", false)):
@@ -15562,12 +15601,26 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 			]
 			guidance = "%s delivered a %s egg worth $%.2f. Press V to review today's orders." % [target_name, quality, float(value_cents) / 100.0]
 			tone = &"complete"
+	var route_first := bool(_first_clutch.get("route_first_lesson", false))
+	if route_first:
+		if stage == &"specialty_route":
+			primary_label = "ROUTE & START"
+			guidance = "Route %s to her specialty and start work. She will pull and finish files automatically." % target_name
+		elif stage == &"delivery" and not bool(_first_clutch.get("delivery_laid", false)):
+			title = "WATCH %s WORK" % target_name
+			visual_title = title
+			visual_body = "FILE → HEN → EGG → REWARD"
+			body = "No extra click is required. Check-ins and timed Pecks are optional improvements after this first delivery."
+			guidance = body
+			if _clock.speed_index == 0:
+				primary_label = "START WORK"
 	return {
 		"visible": visible,
 		"stage": stage,
 		"step": stage,
 		"progress": _first_clutch_progress(),
-		"total": 5,
+		"total": 3 if route_first else 5,
+		"route_first_lesson": route_first,
 		"eyebrow": (
 			"FIRST CLUTCH  //  ORIENTATION"
 			if pre_policy else
@@ -15588,7 +15641,7 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 		"preferred_action": String(worker.get("preferred_personnel_action", "")),
 		"primary_action_shortcut": primary_action_shortcut,
 		"primary_label": primary_label,
-		"resume_required": stage == &"priority_peck" and _clock.speed_index == 0,
+		"resume_required": (stage == &"priority_peck" or (route_first and stage == &"delivery")) and _clock.speed_index == 0,
 		"assisted_claim_id": int(_first_clutch.get("assisted_claim_id", -1)),
 		"delivery_laid": bool(_first_clutch.get("delivery_laid", false)),
 		"completion": bool(_first_clutch.get("completed", false)),
@@ -20280,20 +20333,25 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 
 func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> void:
 	var eggs := maxi(0, int(snapshot.get("eggs_today", 0)))
-	var opening := int(snapshot.get("day", 1)) == 1 and eggs <= 3
+	var guidance_enabled := not bool(_first_clutch.get("dismissed", true))
+	var opening := guidance_enabled and int(snapshot.get("day", 1)) == 1 and eggs <= 3
+	var first_egg := guidance_enabled and bool(_first_clutch.get("route_first_lesson", false)) and not _first_clutch_reinvestment_resolved()
+	var opening_target := 1 if first_egg else 3
+	var opening_count := int(bool(_first_clutch.get("delivery_laid", false))) if first_egg else mini(eggs, 3)
+	opening = opening or first_egg
 	var running := int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING
 	_opening_header_goal.visible = opening and running and not _shift_objective_row.visible
 	_live_title_label.visible = not _opening_header_goal.visible
 	if _opening_header_goal.visible:
-		_opening_header_slots.show_count(eggs)
-		_opening_header_label.text = "FIRST 3 EGGS" if eggs < 3 else "CLUTCH FILED"
-		_opening_header_goal.tooltip_text = "Opening goal: %d of 3 eggs laid. Full shift quota: %d." % [mini(eggs, 3), int(snapshot.get("quota_target", 0))]
+		_opening_header_slots.show_goal(opening_count, opening_target)
+		_opening_header_label.text = "FIRST EGG" if first_egg else "FIRST 3 EGGS" if eggs < 3 else "CLUTCH FILED"
+		_opening_header_goal.tooltip_text = "Opening goal: %d of %d eggs. Route, watch work, then collect. More goals appear after this reward." % [opening_count, opening_target]
 		_opening_header_goal.accessibility_name = _opening_header_goal.tooltip_text
 	_opening_egg_slots.visible = opening and running
 	if _opening_egg_slots.visible:
-		_opening_egg_slots.show_count(eggs)
-		_quota_progress_label.text = "FILE 3 EGGS · %d/3" % mini(eggs, 3) if eggs < 3 else "FIRST CLUTCH ✓"
-		var detail := "Opening goal: %d of 3 eggs laid. Each egg travels to grading and the basket. Full shift target: %d eggs." % [mini(eggs, 3), int(snapshot.get("quota_target", 0))]
+		_opening_egg_slots.show_goal(opening_count, opening_target)
+		_quota_progress_label.text = "FIRST EGG · %d/1" % opening_count if first_egg else "FILE 3 EGGS · %d/3" % mini(eggs, 3) if eggs < 3 else "FIRST CLUTCH ✓"
+		var detail := "Opening goal: %d of %d eggs laid. Each egg travels to grading and the basket. More goals appear after this reward." % [opening_count, opening_target]
 		_quota_progress.tooltip_text = detail
 		_quota_progress.accessibility_name = detail
 		_quota_progress_label.tooltip_text = detail
@@ -21048,6 +21106,9 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			kind.replace("_", " ").to_upper(),
 			String(option.get("label", "PLAY")),
 		]
+		if kind == "preset":
+			var preset := DepartmentSimulation.PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(StringName(option.get("id", "")), {}) as Dictionary
+			label = "%s%s · %s · %s" % [recommended_mark, String(preset.get("label", "PLAN")), String(preset.get("gain", "")), String(preset.get("cost", ""))]
 		popup.add_icon_item(
 			ManagementUIThemeScript.action_icon(
 				_playbook_menu_icon(StringName(option.get("icon", &"goal")))
@@ -21192,6 +21253,13 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 			var teammate := _worker_views.get(teammate_id) as ChickenView
 			if teammate != null:
 				teammate.play_short_bark("TOGETHER!", &"team")
+	if kind == &"preset":
+		var plan_hen := _worker_views.get(maxi(0, _active_playbook_focused_worker_id)) as ChickenView
+		_character_dialogue_ui.hold_ambient(3.0)
+		if plan_hen != null:
+			plan_hen.play_short_bark("QUICK FILES, CAREFUL SHELLS!" if choice_id == &"fast" else "SHELL SAFETY FIRST!" if choice_id == &"safe" else "BREAKS ARE PART OF THE PLAN!", &"team")
+		if _office_atmosphere != null:
+			_office_atmosphere.pulse_strategy_reward()
 	if String(result.get("playbook_kind", "")) == "partnership":
 		for teammate_id in [int(result.get("worker_id", -1)), int(result.get("partner_id", -1))]:
 			var teammate := _worker_views.get(teammate_id) as ChickenView
@@ -21202,6 +21270,7 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 		if _office_atmosphere != null:
 			_office_atmosphere.pulse_strategy_reward()
 	if String(result.get("playbook_kind", "")) in ["proposal", "toy", "rescue", "intervention"]:
+		_character_dialogue_ui.hold_ambient(3.0)
 		var reaction_worker_id := int(result.get("worker_id", _active_playbook_focused_worker_id))
 		var reaction_worker := _worker_views.get(reaction_worker_id) as ChickenView
 		if reaction_worker != null:
@@ -21229,6 +21298,8 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 	if String(result.get("playbook_kind", "")) == "reward" and _office_atmosphere != null:
 		_office_atmosphere.pulse_strategy_reward()
 	var receipt_label := String(result.get("label", option.get("label", "PLAY FILED"))).to_upper()
+	if kind == &"preset":
+		receipt_label = LoopReadability.strategy_copy(String(choice_id))
 	_latest_action_outcome_receipt = {
 		"visible": true,
 		"title": receipt_label,
@@ -22686,6 +22757,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"contract_board": contract_diagnostic,
 		"contract_planning": contract_planning,
 		"first_clutch": {
+			"route_first_lesson": bool(_first_clutch.get("route_first_lesson", false)),
 			"primary_button": _routing_ui.first_clutch_action_state() if _routing_ui != null else {},
 			"visible": bool(first_clutch.get("visible", false)),
 			"dismissed": bool(_first_clutch.get("dismissed", true)),
@@ -28045,6 +28117,7 @@ func _on_upgrade_pressed(upgrade_id: StringName) -> void:
 
 
 func _on_upgrade_purchased(upgrade_id: StringName, level: int, cost_cents: int) -> void:
+	_character_dialogue_ui.hold_ambient(3.0)
 	_upgrade_demonstration = {"id": String(upgrade_id), "level": level, "day": _simulation.day}
 	_play_fund_debit_feedback(
 		cost_cents,

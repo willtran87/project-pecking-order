@@ -2,6 +2,7 @@ class_name PeckworkRoutingUI
 extends Control
 
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
+const LoopReadability := preload("res://core/experience/loop_readability.gd")
 const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 const FlockwatchIconBadgeScript := preload("res://features/office/flockwatch_icon_badge.gd")
 
@@ -2706,7 +2707,7 @@ func _build_first_clutch_coach() -> void:
 
 	_first_clutch_action_button = Button.new()
 	_first_clutch_action_button.name = "FirstClutchDoAction"
-	_first_clutch_action_button.custom_minimum_size = Vector2(0, 30)
+	_first_clutch_action_button.custom_minimum_size = Vector2(210, 40)
 	_first_clutch_action_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_first_clutch_action_button.add_theme_font_size_override("font_size", 12)
 	_first_clutch_action_button.theme_type_variation = &"PrimaryButton"
@@ -4286,6 +4287,7 @@ func _refresh() -> void:
 		personnel_button.text = "%s%s" % [("SIG / " if preferred_action == action_id else ""), action_label]
 		var preview := String(definition.get("preview", definition.get("description", PERSONNEL_ACTION_TOOLTIPS[action_id])))
 		var action_cost := int(definition.get("cost_cents", 0))
+		personnel_button.text += " · FREE" if action_cost == 0 else " · $%.2f" % (float(action_cost) / 100.0)
 		var affordable := int(_snapshot.get("spendable_fund_cents", _snapshot.get("revenue_cents", 0))) >= action_cost
 		personnel_button.tooltip_text = "%s%s%s" % [
 			preview,
@@ -4578,12 +4580,17 @@ func _refresh_dossier_summary(
 				if assignment == &"auto" else
 				"PULL %s FILE" % _lane_name(assignment)
 			)
-		_dossier_summary_label.text = "NEED  ·  %s\nNEXT  ·  %s" % [need, next_action]
+		var attention := LoopReadability.attention(intent)
+		if String(intent.get("id", "")) in ["care", "deadline"]:
+			need = "NEEDS CARE" if String(intent.get("id", "")) == "care" else "FILE DUE"
+		_dossier_summary_label.text = "%s · %s\nNEXT · %s" % [String(attention.get("label", "WORKING")), need, next_action]
 		_dossier_summary_label.tooltip_text = (
 			"Current need: %s. Recommended action: %s. Open More for routing, claimant, care, and profile details."
 			% [need.capitalize(), next_action.capitalize()]
 		)
-		_dossier_summary_label.add_theme_color_override("font_color", Color("dce7e8"))
+		if String(intent.get("id", "")) in ["care", "deadline"]:
+			_dossier_summary_label.tooltip_text = "%s\nOpen %s to compare affordable responses. Already-filed rewards remain yours." % [String(intent.get("detail", "")), "Support" if String(intent.get("id", "")) == "care" else "the file"]
+		_dossier_summary_label.add_theme_color_override("font_color", attention.get("color", Color("dce7e8")))
 		_dossier_summary_label.set_meta("presentation_role", &"compact_hen_card")
 		return
 	match _active_dossier_tab:
@@ -4761,8 +4768,8 @@ func _refresh_first_clutch() -> void:
 	var character_led_orientation := (
 		bool(_first_clutch.get("pre_policy", false)) and not eyebrow.is_empty()
 	)
-	_first_clutch_progress_label.text = eyebrow if character_led_orientation else "FIRST CLUTCH"
-	_first_clutch_progress_rail.visible = not character_led_orientation
+	_first_clutch_progress_label.text = "YOUR FIRST EGG" if bool(_first_clutch.get("route_first_lesson", false)) else eyebrow if character_led_orientation else "FIRST CLUTCH"
+	_first_clutch_progress_rail.visible = not character_led_orientation and not bool(_first_clutch.get("route_first_lesson", false))
 	_first_clutch_progress_rail.set_progress(progress, total)
 	var accessible_title := String(_first_clutch.get(
 		"title",
@@ -5111,6 +5118,12 @@ func _apply_first_clutch_delivery_glance() -> void:
 		"body",
 		"Follow the assisted file through egg delivery.",
 	))
+	if bool(_first_clutch.get("route_first_lesson", false)):
+		_current_claim_label.text = "EGG IN GRADING" if egg_laid else "AUTO WORK"
+		_current_claim_label.accessibility_name = "%s's file finishes automatically, then travels as an egg to the farmer basket." % worker_name
+		_current_claim_label.tooltip_text = _current_claim_label.accessibility_name
+		_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
+		_routing_hint_label.text = "FILE > HEN > EGG > REWARD"
 	_routing_hint_label.tooltip_text = _routing_hint_label.accessibility_name
 	_routing_hint_label.set_meta("accessible_text", _routing_hint_label.accessibility_name)
 	_routing_hint_label.add_theme_color_override(

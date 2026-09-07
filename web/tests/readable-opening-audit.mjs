@@ -51,6 +51,13 @@ try {
     await page.waitForTimeout(350);
   }
   await page.screenshot({ path: path.join(output, "01-route.png"), fullPage: true });
+  const routeFirst = (await state()).first_clutch.route_first_lesson === true;
+  if (routeFirst) {
+    assert.equal((await state()).shift_objective.opening_slots_visible, true);
+    await clickPrimary("ROUTE & START");
+    await waitFor(s => s.first_clutch?.stage === "delivery", "automatic production without check-in or peck");
+    await page.screenshot({ path: path.join(output, "02-automatic-work.png"), fullPage: true });
+  } else {
   await clickPrimary("ROUTE TO APPEALS");
   await waitFor(s => s.first_clutch?.stage === "check_in", "route filed");
   await clickPrimary("FILE CHECK-IN");
@@ -60,9 +67,13 @@ try {
   await waitFor(s => s.first_clutch?.primary_button?.label === "PECK NOW", "gold window", 90000);
   await page.screenshot({ path: path.join(output, "03-peck.png"), fullPage: true });
   await clickPrimary("PECK NOW");
+  }
   await waitFor(s => s.first_clutch?.stage === "delivery", "peck accepted");
   await page.screenshot({ path: path.join(output, "04-delivery.png"), fullPage: true });
-  evidence.final = await waitFor(s => s.first_clutch?.stage === "reinvestment", "physical delivery and reward", 90000);
+  // Software-rendered high-resolution WebGL can service far fewer presentation
+  // frames per wall-clock second. Keep ordinary 1x controls; allow the physical
+  // delivery to finish instead of bypassing it with injected game state.
+  evidence.final = await waitFor(s => s.first_clutch?.stage === "reinvestment" && s.first_clutch?.reinvestment?.modal_visible, "physical delivery and reward", 300000);
   await page.screenshot({ path: path.join(output, "05-reward.png"), fullPage: true });
   assert.deepEqual(errors, []);
   evidence.passed = true;
@@ -75,4 +86,4 @@ try {
   fs.writeFileSync(path.join(output, "audit.json"), JSON.stringify(evidence, null, 2));
   await browser.close();
 }
-console.log("READABLE_OPENING_AUDIT_PASSED mouse=route+checkin+start+peck reward=physical-delivery");
+console.log("READABLE_OPENING_AUDIT_PASSED reward=physical-delivery actions=" + evidence.stages.map(stage => stage.action).join(","));
