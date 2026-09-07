@@ -477,6 +477,10 @@ func _run() -> void:
 	_check(root.gui_get_focus_owner() == null, "hiding a focused coach should release its invisible GUI focus back to floor controls", failures)
 	_check(priority_peck != null and not bool(priority_peck.get_meta("first_clutch_cue", false)), "hiding the coach should clear its final dossier cue", failures)
 	_check(queue != null and queue.is_visible_in_tree(), "normal play should restore the queue strip", failures)
+	_check(dossier_tabs != null and not dossier_tabs.is_visible_in_tree(), "normal play should start with the compact action card, not every advanced category", failures)
+	if details != null:
+		details.pressed.emit()
+	await process_frame
 	_check(dossier_tabs != null and dossier_tabs.is_visible_in_tree(), "normal play should restore the Route, Support, and Profile dossier tabs", failures)
 	_check(route_tab != null and route_tab.button_pressed, "normal play should reopen on the Route tab", failures)
 	_check(assignments != null and assignments.is_visible_in_tree(), "the normal Route tab should restore every routing action", failures)

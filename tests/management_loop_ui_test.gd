@@ -508,6 +508,8 @@ func _run() -> void:
 		failures,
 	)
 	var advanced_playbook := simulation.playbook_snapshot(0)
+	var opening_eggs := simulation.eggs_today
+	simulation.eggs_today = 3
 	office.call("_refresh_active_playbook_menu", advanced_playbook, 0)
 	var advanced_menu_map := office.get("_active_playbook_menu_map") as Dictionary
 	var intervention_ids: Array[String] = []
@@ -531,6 +533,7 @@ func _run() -> void:
 		"the compact playbook should project fixed display sockets, build identity, a hen story, and one actionable proposal without adding another HUD panel",
 		failures,
 	)
+	simulation.eggs_today = opening_eggs
 	office.call("_refresh_active_playbook_menu", simulation.playbook_snapshot(-1), -1)
 	pause_toggle.pressed.emit()
 	await process_frame
@@ -1548,12 +1551,13 @@ func _run() -> void:
 			or review_net.text.begins_with("-")
 		)
 		and review_fund != null
-		and review_fund.text.begins_with("$")
+		and review_fund.text == String((review_fund.get_meta("report_card", {}) as Dictionary).get("value", "missing"))
+		and not review_fund.text.begins_with("$")
 		and review_next != null
 		and review_next.text.is_valid_int()
 		and int(review_next.text) > 0,
 		(
-			"Farmer Review should lead with four glance-first result tiles and one quality line "
+			"Farmer Review should show worked, operating result, close call, and next shift values under their matching captions "
 			+ "[quality=%s eggs=%s net=%s fund=%s next=%s]"
 		) % [
 			review_summary.text if review_summary != null else "<missing>",

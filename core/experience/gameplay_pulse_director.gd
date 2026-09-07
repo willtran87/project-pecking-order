@@ -2406,6 +2406,7 @@ func compose_report(source: Dictionary) -> Dictionary:
 	var overdue := int(source.get("overdue_claims", 0))
 	var rework := int(source.get("rework_waiting", 0)) + int(source.get("rework_due_next_shift", 0))
 	var net_cents := int(source.get("credited_cents", source.get("credited_today_cents", 0))) - int(source.get("operating_cost_cents", 0))
+	net_cents -= int(source.get("market_contract_breach_cents", (source.get("market_contract", {}) as Dictionary).get("breach_cents", 0)))
 	var met_quota := bool(source.get("met_quota", quota > 0 and eggs >= quota))
 	var worked_value := "%d / %d EGGS" % [eggs, quota]
 	var worked_detail := "Target harvested." if met_quota else "Best progress: %d eggs filed." % eggs

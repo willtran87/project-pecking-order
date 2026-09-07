@@ -448,9 +448,11 @@ func _run() -> void:
 	var settled_queue_rect := queue_strip.get_global_rect() if queue_strip != null else Rect2()
 	_check(
 		dispatch_momentum != null
-		and not dispatch_momentum.is_visible_in_tree()
-		and settled_queue_rect.is_equal_approx(idle_queue_rect),
-		"filing the first route should retire the transient cue and restore the clean idle strip",
+		and dispatch_momentum.is_visible_in_tree()
+		and dispatch_momentum.text.begins_with("FLOW 1/2")
+		and "PACE +15%" in dispatch_momentum.text
+		and settled_queue_rect.position.is_equal_approx(idle_queue_rect.position),
+		"filing the first route should replace the transient cue with the next real Flow payoff while retaining the strip position",
 		failures,
 	)
 	_check(

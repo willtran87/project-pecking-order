@@ -17,16 +17,20 @@ Use this card with **five new participants** who have not watched another person
 - Cursor path before the first plan and first route
 - First hesitation point and its duration
 - Seconds to identify the shift goal
+- Whether the participant distinguishes the opening three-egg goal from the full shift quota
 - Seconds to take the first valid action
 - Seconds from plan choice to a completed route
 - Seconds to first visible reward
 - Route misses and external instructions
 - Whether any required shortcut had to be discovered
 - Whether the predicted result matched the observed result
+- Whether the player notices the new equipment at the desks and can explain its effect after the next egg (rate or odds, not a guaranteed perfect shell)
+- Whether Flow's next reward and the separate clean-shell bonus are distinguishable
 - Whether the hero-file answer was chosen without help and its tradeoff was understood
 - Whether the participant recovered without coaching
 - Their verbatim one-sentence loop explanation
 - A 1–5 clarity score and 1–5 desire-to-play-another-shift score
+- The moment they most enjoyed, the moment they most wanted to stop, and whether they voluntarily choose another shift; do not prompt them to continue
 
 ## Passing threshold
 

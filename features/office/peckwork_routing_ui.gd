@@ -565,6 +565,7 @@ signal claim_resolution_requested(worker_id: int, path_id: StringName)
 signal personnel_action_requested(worker_id: int, action_id: StringName)
 signal peck_assist_requested(worker_id: int)
 signal first_clutch_skip_requested
+signal first_clutch_action_requested
 signal first_clutch_focus_requested(worker_id: int)
 signal first_clutch_skip_rect_settled(rect: Rect2)
 signal interaction_safety_changed
@@ -653,6 +654,7 @@ var _first_clutch_title_label: Label
 var _first_clutch_body_label: Label
 var _first_clutch_return_button: Button
 var _first_clutch_skip_button: Button
+var _first_clutch_action_button: Button
 var _focus_panel: PanelContainer
 var _worker_name_label: Label
 var _worker_career_label: Label
@@ -2702,6 +2704,20 @@ func _build_first_clutch_coach() -> void:
 	_first_clutch_body_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	copy.add_child(_first_clutch_body_label)
 
+	_first_clutch_action_button = Button.new()
+	_first_clutch_action_button.name = "FirstClutchDoAction"
+	_first_clutch_action_button.custom_minimum_size = Vector2(0, 30)
+	_first_clutch_action_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_first_clutch_action_button.add_theme_font_size_override("font_size", 12)
+	_first_clutch_action_button.theme_type_variation = &"PrimaryButton"
+	_first_clutch_action_button.visible = false
+	_first_clutch_action_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_first_clutch_action_button.pressed.connect(func() -> void:
+		if _interaction_enabled and _first_clutch_action_button.is_visible_in_tree() and not _first_clutch_action_button.disabled:
+			first_clutch_action_requested.emit()
+	)
+	copy.add_child(_first_clutch_action_button)
+
 	_first_clutch_return_button = Button.new()
 	_first_clutch_return_button.name = "FirstClutchReturnToHen"
 	_first_clutch_return_button.text = "RETURN TO HEN"
@@ -3448,6 +3464,12 @@ func focus_intent_action(action_id: StringName) -> Control:
 	return target
 
 
+func first_clutch_action_state() -> Dictionary:
+	var rect := _first_clutch_action_button.get_global_rect() if _first_clutch_action_button.is_visible_in_tree() else Rect2()
+	return {"visible": _first_clutch_action_button.is_visible_in_tree(), "label": _first_clutch_action_button.text,
+		"rect": {"x": rect.position.x, "y": rect.position.y, "width": rect.size.x, "height": rect.size.y}}
+
+
 func context_action_state() -> Dictionary:
 	return {
 		"serial": _context_action_serial,
@@ -3664,6 +3686,11 @@ func _refresh() -> void:
 			_dispatch_momentum_label.text = ""
 			_dispatch_momentum_label.tooltip_text = ""
 			_dispatch_momentum_label.accessibility_name = ""
+		var momentum := _snapshot.get("routing_momentum", {}) as Dictionary
+		if _active_dispatch_lane == &"" and _dispatch_break_remaining <= 0.0 and _dispatch_recovery_remaining <= 0.0 and _dispatch_reward_label.is_empty() and _dispatch_momentum_chain > 0 and _dispatch_momentum_chain < 10:
+			_dispatch_momentum_label.text = "FLOW %d/%d → %s" % [_dispatch_momentum_chain, int(momentum.get("next_milestone", 2)), String(momentum.get("next_reward", "PACE +15%"))]
+			_dispatch_momentum_label.tooltip_text = "Choose the gold-star hen to advance. Safe routes hold your Flow; risky routes reset it. Earned money stays yours."
+			_dispatch_momentum_label.accessibility_name = "%s. %s" % [_dispatch_momentum_label.text, _dispatch_momentum_label.tooltip_text]
 	_refresh_queue_momentum_layout()
 	_queue_panel.tooltip_text = (
 		"PECKWORK ROUTING\nNest %d  /  Predator %d  /  Appeals %d  /  Overdue %d"
@@ -4533,6 +4560,14 @@ func _refresh_dossier_summary(
 		var claim := worker.get("current_claim", {}) as Dictionary
 		var intent := worker.get("hen_intent", {}) as Dictionary
 		var need := String(intent.get("label", "")).strip_edges().to_upper()
+		if not claim.is_empty():
+			need = "WORKING %d%%" % roundi(float(worker.get("progress", 0.0)))
+			if String(worker.get("state_label", "")) == "LAYING":
+				need = "EGG ON ITS WAY"
+			elif bool(claim.get("specialty_match", false)):
+				need += " · SPECIALTY FIT"
+		elif String(intent.get("id", "")) in ["care", "recovering"]:
+			need = "NEEDS CARE" if String(intent.get("id", "")) == "care" else "RECOVERING"
 		if need.is_empty():
 			need = String(claim.get("claimant_need", "READY FOR A FILE")).strip_edges().to_upper()
 		var next_action := String(intent.get("action_label", "")).strip_edges().to_upper()
@@ -4694,8 +4729,19 @@ func _refresh_first_clutch() -> void:
 		_first_clutch_compact = compact
 		_apply_first_clutch_layout()
 	_first_clutch_panel.visible = coach_active
-	_first_clutch_body_label.visible = not compact
 	_refresh_first_clutch_return_action(coach_active)
+	var primary_copy := String(_first_clutch.get("primary_label", ""))
+	var show_primary := coach_active and not primary_copy.is_empty() and not _first_clutch_return_button.visible
+	var primary_had_focus := _first_clutch_action_button.has_focus()
+	_first_clutch_action_button.visible = show_primary
+	_first_clutch_action_button.text = primary_copy
+	_first_clutch_action_button.disabled = not _interaction_enabled
+	_first_clutch_action_button.mouse_filter = Control.MOUSE_FILTER_STOP if show_primary else Control.MOUSE_FILTER_IGNORE
+	_first_clutch_action_button.tooltip_text = String(_first_clutch.get("guidance", primary_copy))
+	_first_clutch_action_button.accessibility_name = _first_clutch_action_button.tooltip_text
+	if primary_had_focus and not show_primary:
+		get_viewport().gui_release_focus()
+	_first_clutch_body_label.visible = not compact
 	_apply_dossier_disclosure()
 	if not coach_active:
 		# A mouse-activated Skip can remain the viewport's focus owner after its

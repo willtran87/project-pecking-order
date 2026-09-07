@@ -1,5 +1,17 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-09-07 - Readable opening loop (visible gameplay changes)
+
+- Added actionable coaching buttons for the real specialty route, check-in, normal-speed start, and available Priority Peck. Fixed the paused-induction routing dead end: the featured tutorial assignment no longer enters the advanced tactical pause-plan.
+- Added an authoritative three-egg opening goal, including a compact header version that remains visible while the tutorial hides the detailed HUD. Delayed optional Playbook priorities until that opening goal; preserved emergency and core planning access.
+- Made Flow's next milestone/reward explicit, separated clean-shell credit, clarified focused hen state, surfaced the quota bank/chase choice, and connected purchased equipment to its next newly laid/collected egg.
+- Corrected review captions/values and breach-adjusted operating net. Added a named hen contribution to the concise recap. Preserved existing simulation, personality, pacing, recovery, and replay systems rather than counting them as new features.
+- Added native action-chain/goal/accounting coverage and a browser audit that clicks the actual tutorial controls through physical delivery and reinvestment. Updated stale tests for compact More disclosure, postponed proposals, and persistent Flow payoff guidance.
+- Human comprehension/enjoyment validation is still outstanding: the five real participant sessions cannot be fabricated. The session card now also checks opening-goal understanding, upgrade causality, Flow vs clean-shell rewards, and voluntary continuation.
+- Verification: the real mouse-driven induction reaches physical delivery/reinvestment at 2560×1600 and 900×800 with no browser errors. The broader 1280×720 audit passes after fixing stale Playbook visibility on tutorial dismissal. Screenshots were inspected, including original-size desktop output. The final focused native tests pass for mouse/keyboard induction, reward-goal progression, exact upgrade-to-egg binding, management/review, and routing Flow.
+- Cleanup: the owned production wrapper (PID 42264) was stopped; ports 3001 and 52225 are free. No pre-existing port-3000 service was present or stopped this turn.
+- Release gate: 77/77 checks pass (67 native, 4 web/toolchain, 6 release), with final focused reruns covering the last tutorial-transition fixes. Exported PCK size is 10,861,736 bytes; both delivery targets have SHA-256 `1C9DC132081290FDE63BAD4ACE088DF0721CB2475E2CB8C7AE07E860059A2670`.
+
 ## 2026-08-31 - Cohesive game-loop advancement (implementation)
 
 - Reconciled the latest twenty-five approved recommendations against the already-authoritative routing, Active Playbook, staffing, scenario, campaign, hero-file, relationship, rival, upgrade, ending, audio, and first-session systems.
