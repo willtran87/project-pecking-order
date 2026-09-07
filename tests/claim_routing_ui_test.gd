@@ -1000,7 +1000,7 @@ func _run() -> void:
 		and bool(compact_dossier.get("details_on_demand", false))
 		and dossier_summary != null
 		and _contains_all(dossier_summary.text, ["next"])
-		and ("WORKING" in dossier_summary.text or "OPPORTUNITY" in dossier_summary.text or "HELP NEEDED" in dossier_summary.text)
+		and ("ALL GOOD" in dossier_summary.text or "OPPORTUNITY" in dossier_summary.text or "HELP NEEDED" in dossier_summary.text)
 		and details_toggle != null
 		and details_toggle.text == "MORE",
 		"a newly selected hen should open as a concise name, specialty, need, and next-action card",

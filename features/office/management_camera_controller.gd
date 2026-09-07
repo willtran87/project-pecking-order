@@ -71,6 +71,7 @@ var current_focus_label: String = ""
 var _camera: Camera3D
 var _worker_views: Dictionary[int, ChickenView] = {}
 var _worker_context_points: Dictionary[int, Dictionary] = {}
+var _worker_equipment_points: Dictionary[int, Node3D] = {}
 var _active_selection_context: StringName = &""
 var _hovered_context_worker_id := -1
 var _hovered_context_id: StringName = &""
@@ -129,6 +130,7 @@ func configure(
 	_camera = camera
 	_worker_views = worker_views
 	_worker_context_points.clear()
+	_worker_equipment_points.clear()
 	clear_context_hover()
 	_overview_target = overview_target
 	_overview_position = camera.global_position
@@ -260,6 +262,7 @@ func unregister_worker(id: int) -> void:
 		show_overview()
 	_worker_views.erase(id)
 	_worker_context_points.erase(id)
+	_worker_equipment_points.erase(id)
 
 
 ## Registers one physical, pooled management target for a worker. Hidden nodes
@@ -279,6 +282,12 @@ func register_worker_context_point(
 
 func clear_worker_context_points() -> void:
 	_worker_context_points.clear()
+	_worker_equipment_points.clear()
+
+
+func register_worker_equipment_point(worker_id: int, point: Node3D) -> void:
+	if worker_id >= 0 and is_instance_valid(point):
+		_worker_equipment_points[worker_id] = point
 
 
 ## Re-evaluates the last uncovered floor pointer after pooled desk targets are
@@ -1310,17 +1319,27 @@ func _nearest_projected_target(
 			continue
 		var projected_position := _camera.unproject_position(world_position)
 		var distance_squared := mouse_position.distance_squared_to(projected_position)
+		var hen_context: StringName = &""
 		var intent_position := worker.hen_intent_world_position()
 		if intent_position != worker.global_position and not _camera.is_position_behind(intent_position):
 			var projected_intent := _camera.unproject_position(intent_position)
-			distance_squared = minf(
-				distance_squared,
-				mouse_position.distance_squared_to(projected_intent),
-			)
+			var intent_distance := mouse_position.distance_squared_to(projected_intent)
+			if intent_distance < distance_squared:
+				distance_squared = intent_distance
+				hen_context = &"hen_intent"
 		if distance_squared < nearest_distance_squared:
 			nearest_distance_squared = distance_squared
 			nearest_id = worker_id
-			nearest_context = &""
+			nearest_context = hen_context
+	for worker_id: int in _worker_equipment_points:
+		var point := _worker_equipment_points[worker_id]
+		if _get_valid_worker(worker_id) == null or not is_instance_valid(point) or not point.is_visible_in_tree() or _camera.is_position_behind(point.global_position):
+			continue
+		var distance := mouse_position.distance_squared_to(_camera.unproject_position(point.global_position))
+		if distance < nearest_distance_squared:
+			nearest_distance_squared = distance
+			nearest_id = worker_id
+			nearest_context = &"equipment"
 	return {
 		"worker_id": nearest_id,
 		"context_id": nearest_context,

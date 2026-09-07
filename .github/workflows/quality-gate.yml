@@ -52,6 +52,7 @@ jobs:
         run: |
           $godot = (Resolve-Path ".ci/godot/4.7/Godot_v4.7-stable_win64_console.exe").Path
           $tests = @(
+            "personal_shift_goal_test.gd",
             "route_first_reward_test.gd",
             "readable_opening_loop_test.gd",
             "campaign_balance_playthrough_test.gd",

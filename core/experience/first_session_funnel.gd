@@ -6,7 +6,7 @@ extends RefCounted
 ## exists so browser diagnostics, moderated sessions, and deterministic audits
 ## can answer when the first meaningful actions and payoff actually happened.
 
-const VERSION := 3
+const VERSION := 4
 const MILESTONES: Array[Dictionary] = [
 	{"id": &"intake_ready", "label": "INTAKE READY", "target_seconds": 5},
 	{"id": &"file_started", "label": "FILE STARTED", "target_seconds": 60},
@@ -31,6 +31,8 @@ var _active := false
 var _mode: StringName = &"idle"
 var _reached_msec: Dictionary[StringName, int] = {}
 var _signals: Dictionary[StringName, int] = {}
+var _route_first := false
+var _first_laid_msec := -1
 
 
 func begin_intake(now_msec: int = -1) -> void:
@@ -39,6 +41,8 @@ func begin_intake(now_msec: int = -1) -> void:
 	_mode = &"fresh_intake"
 	_reached_msec.clear()
 	_signals.clear()
+	_route_first = false
+	_first_laid_msec = -1
 	mark(&"intake_ready", _started_msec)
 
 
@@ -54,6 +58,8 @@ func begin_resume() -> void:
 	_mode = &"resumed_file"
 	_reached_msec.clear()
 	_signals.clear()
+	_route_first = false
+	_first_laid_msec = -1
 
 
 func observe_signal(signal_id: StringName) -> bool:
@@ -78,15 +84,18 @@ func observe(
 ) -> void:
 	if not _active or _mode != &"fresh_file":
 		return
+	_route_first = _route_first or bool(first_clutch.get("route_first_lesson", false))
+	if _first_laid_msec < 0 and bool(first_clutch.get("delivery_laid", false)):
+		_first_laid_msec = _now(now_msec)
 	if bool(first_clutch.get("inspected", false)):
 		mark(&"hen_inspected", now_msec)
 	if bool(first_clutch.get("specialty_routed", false)):
 		mark(&"route_filed", now_msec)
 	if bool(first_clutch.get("checkin_filed", false)):
 		mark(&"checkin_filed", now_msec)
-	if int(first_clutch.get("assisted_claim_id", -1)) >= 0:
+	if not _route_first and int(first_clutch.get("assisted_claim_id", -1)) >= 0:
 		mark(&"priority_peck", now_msec)
-	if bool(first_clutch.get("delivery_seen", false)) or int(simulation_snapshot.get("eggs_today", 0)) > 0:
+	if bool(first_clutch.get("delivery_seen", false)) or (not _route_first and int(simulation_snapshot.get("eggs_today", 0)) > 0):
 		mark(&"first_egg", now_msec)
 	var reinvestment := simulation_snapshot.get("first_clutch_reinvestment", {}) as Dictionary
 	if StringName(String(reinvestment.get("status", &""))) in [&"purchased", &"banked"]:
@@ -100,9 +109,11 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 	var rows: Array[Dictionary] = []
 	var next_id: StringName = &""
 	var reached_count := 0
+	var required_remaining := 0
 	for definition in MILESTONES:
 		var milestone_id := StringName(definition["id"])
 		var reached := _reached_msec.has(milestone_id)
+		var optional := _route_first and milestone_id in [&"checkin_filed", &"priority_peck"]
 		var elapsed_seconds := (
 			maxi(0, int(_reached_msec[milestone_id]) - _started_msec) / 1_000.0
 			if reached else
@@ -110,12 +121,15 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 		)
 		if reached:
 			reached_count += 1
-		elif next_id == &"":
-			next_id = milestone_id
+		elif not optional:
+			required_remaining += 1
+			if next_id == &"":
+				next_id = milestone_id
 		rows.append({
 			"id": String(milestone_id),
 			"label": String(definition["label"]),
 			"reached": reached,
+			"optional": optional,
 			"elapsed_seconds": snappedf(elapsed_seconds, 0.001) if reached else -1.0,
 			"target_seconds": int(definition["target_seconds"]),
 			"inside_budget": reached and elapsed_seconds <= float(definition["target_seconds"]),
@@ -137,6 +151,9 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 		{"id": "reward", "label": "REWARD", "icon": "egg", "target_seconds": 30, "complete": bool(_reached_msec.has(&"first_egg"))},
 	]
 	var micro_completed := 0
+	if _route_first:
+		micro_definitions[2] = {"id": "work", "label": "AUTO WORK", "icon": "goal", "target_seconds": 35, "complete": _first_laid_msec >= 0}
+		micro_definitions[3]["target_seconds"] = 45
 	var micro_beats: Array[Dictionary] = []
 	for definition in micro_definitions:
 		var beat := definition.duplicate(true)
@@ -159,13 +176,14 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 		),
 		"reached_count": reached_count,
 		"total_count": MILESTONES.size(),
-		"complete": reached_count == MILESTONES.size(),
+		"complete": required_remaining == 0,
 		"next_id": String(next_id),
 		"milestones": rows,
 		"signals": signal_snapshot,
 		"friction_flags": friction_flags,
+		"opening_timing": _opening_timing(),
 		"micro_shift": {
-			"budget_seconds": 30,
+			"budget_seconds": 45 if _route_first else 30,
 			"beat_count": micro_beats.size(),
 			"completed_count": micro_completed,
 			"complete": micro_completed == micro_beats.size(),
@@ -173,6 +191,19 @@ func snapshot(now_msec: int = -1) -> Dictionary:
 			"retired_label_count": micro_completed,
 			"icons_remain_after_labels_retire": true,
 		},
+	}
+
+
+func _opening_timing() -> Dictionary:
+	var route_msec := int(_reached_msec.get(&"route_filed", -1))
+	var delivered_msec := int(_reached_msec.get(&"first_egg", -1))
+	return {
+		"route_first": _route_first,
+		"target_seconds": 45,
+		"production_seconds": (_first_laid_msec - route_msec) / 1000.0 if route_msec >= 0 and _first_laid_msec >= route_msec else -1.0,
+		"presentation_seconds": (delivered_msec - _first_laid_msec) / 1000.0 if _first_laid_msec >= 0 and delivered_msec >= _first_laid_msec else -1.0,
+		"route_to_delivery_seconds": (delivered_msec - route_msec) / 1000.0 if route_msec >= 0 and delivered_msec >= route_msec else -1.0,
+		"clock": "LOCAL WALL CLOCK; INCLUDES PLAYER PAUSES AND RENDER DELAYS",
 	}
 
 

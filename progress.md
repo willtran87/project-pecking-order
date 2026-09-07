@@ -1,5 +1,15 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-09-07 - Reward clarity and accepted personal goals
+
+- Followed the next ten-point review with actual product changes: unified route-first copy, one spendable reward balance, explicit expiring match, all-good vs selected activity states, optional replayable care lesson, direct warning/equipment inspection, specialty reactions, exact equipment before/after, and accepted/saveable next-shift goals.
+- Goal progress comes from simulation facts and replaces an existing HUD slot. Safety goals also require quota. Accept/cancel, versioned JSON normalization, actual checkpoint staging/activation, and non-purchasing equipment previews have native coverage. No new currency or reward is invented.
+- Corrected local opening telemetry so laid eggs are not counted as physically delivered, and route-first automation is not counted as a player Peck. Production and presentation timings are separate. The deterministic first-production budget passes; software WebGL exceeds the normal-device wall-clock target, which remains to be validated on player hardware.
+- Visual inspection caught a clipped shell-lamp price and unsupported review glyphs; shortened the risk abbreviation and added real vector icons. Actual mouse-driven first delivery/reinvestment passed at 2560x1600 and 1280x720. The authored review layout fixture passes real accept/cancel clicks at high resolution.
+- Real five-participant comprehension/enjoyment evidence remains pending, not substituted with automated success. Implementation details: docs/REWARD_AND_PERSONAL_GOAL_POLISH.md; updated study: docs/FIRST_SHIFT_PLAYTEST_CARD.md.
+- Final verification: 79/79 release checks passed in 838.974 seconds. Final route-first and projected-equipment regressions passed again after refinements; browser gameplay passed at 900x800, review accept/cancel at 2560x1600 and 900x800, and the prescribed client captured the corrected review icons. No browser errors were reported. Removed font-dependent attention glyphs after compact inspection.
+- Final PCK: 10,875,948 bytes, SHA-256 93FB24CDE172A44DB6EEFC249C9DE75675421323910D294091380C5AC8C0698E; docs, public, and production-wrapper copies agree. Owned test wrapper stopped; ports 3001 and 64989 are free, with no remaining Godot test processes.
+
 ## 2026-09-07 - Route-first reward polish
 
 - Implemented the latest ten-point review's product changes: sequential first-egg goal, route-and-start automatic lesson, stable primary footprint, explicit personnel costs, three attention families, strategy tradeoffs/reactions, bounded reward/ambient spacing, contextual recovery, and report-derived next-shift suggestions.

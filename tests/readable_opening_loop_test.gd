@@ -75,7 +75,7 @@ func _run() -> void:
 	office.call("_on_egg_reached_presentation", 0, &"sound", 125, 0)
 	_check((office.get("_upgrade_demonstration") as Dictionary).is_empty(), "collecting the bound egg must consume the one-shot demonstration", failures)
 	var receipt := office.get("_latest_action_outcome_receipt") as Dictionary
-	_check("KEYCAPS IN ACTION" in String(receipt.get("title", "")), "the exact equipment benefit must be visible when its egg arrives", failures)
+	_check("KEYCAPS · KIT SPEED +0% > +8%" in String(receipt.get("title", "")), "the exact before/after equipment benefit must be visible when its egg arrives", failures)
 	_check("does not guarantee a clean egg" in String(receipt.entries[0].detail), "equipment feedback must not confuse improved rates with guaranteed outcomes", failures)
 	office.queue_free()
 	await process_frame

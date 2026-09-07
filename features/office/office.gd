@@ -758,6 +758,10 @@ var _review_net_value: Label
 var _review_fund_value: Label
 var _review_next_value: Label
 var _review_next_hint: Label
+var _personal_goal_button: Button
+var _personal_goal: Dictionary = {}
+var _personal_goal_offer: Dictionary = {}
+const PersonalShiftGoal := preload("res://core/experience/personal_shift_goal.gd")
 var _review_results: Label
 var _review_details_toggle: Button
 var _review_details_scroll: ScrollContainer
@@ -7085,13 +7089,18 @@ func _build_day_review_panel() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(hint)
+	_personal_goal_button = Button.new()
+	_personal_goal_button.name = "AcceptPersonalGoal"
+	_personal_goal_button.custom_minimum_size.y = 36.0
+	_personal_goal_button.pressed.connect(_on_personal_goal_toggled)
+	content.add_child(_personal_goal_button)
 	var buttons := HFlowContainer.new()
 	buttons.alignment = FlowContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 8)
 	content.add_child(buttons)
 	_review_replay_button = Button.new()
 	_review_replay_button.name = "ReviewReplayHighlightButton"
-	_review_replay_button.text = "▶"
+	_review_replay_button.icon = ManagementUIThemeScript.action_icon(&"review_play")
 	_review_replay_button.custom_minimum_size = Vector2(44.0, 48.0)
 	_review_replay_button.tooltip_text = "Replay the shift's strongest physical hen highlight. No state changes."
 	_review_replay_button.accessibility_name = "Replay shift highlight. No state changes."
@@ -7099,7 +7108,7 @@ func _build_day_review_panel() -> void:
 	buttons.add_child(_review_replay_button)
 	_review_remix_button = Button.new()
 	_review_remix_button.name = "ReviewRemixNextButton"
-	_review_remix_button.text = "↻"
+	_review_remix_button.icon = ManagementUIThemeScript.action_icon(&"review_remix")
 	_review_remix_button.custom_minimum_size = Vector2(44.0, 48.0)
 	_review_remix_button.tooltip_text = "Cycle a different Fast, Safe, or Flock idea for the next shift. Preview only."
 	_review_remix_button.accessibility_name = "Remix the next shift idea. Preview only."
@@ -7157,6 +7166,15 @@ func _add_review_stat_tile(
 	caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	stack.add_child(caption_label)
 	return value_label
+
+
+func _on_personal_goal_toggled() -> void:
+	if _personal_goal_offer.is_empty() or not _day_review_scrim.visible:
+		return
+	_personal_goal = {} if _personal_goal == _personal_goal_offer else _personal_goal_offer.duplicate(true)
+	_personal_goal_button.text = "GOAL ACCEPTED · CANCEL" if not _personal_goal.is_empty() else "TRY NEXT SHIFT · " + PersonalShiftGoal.label(_personal_goal_offer)
+	_save_campaign_checkpoint("personal_goal_chosen")
+	_publish_web_diagnostic_state(_simulation.snapshot())
 
 
 func _on_review_details_toggled() -> void:
@@ -8830,6 +8848,7 @@ func _on_decision_resolved(result: Dictionary) -> void:
 		_refresh_first_clutch_ui(reinvestment_snapshot)
 		_refresh_flockwatch_navigation(reinvestment_snapshot)
 		_update_guidance(reinvestment_snapshot)
+		_publish_status_copy("REWARD FILED · OPTIONAL: PLAN MENU > LEARN A CHECK-IN", false, outcome + " Optional check-in lesson is available in the plan menu. Opening it spends nothing.")
 		_save_campaign_checkpoint("first_clutch_reinvestment_resolved")
 		_publish_web_diagnostic_state(reinvestment_snapshot)
 		return
@@ -8911,6 +8930,12 @@ func _on_decision_resolved(result: Dictionary) -> void:
 
 
 func _on_workday_completed(report: Dictionary) -> void:
+	var previous_goal_status := String(_personal_goal.get("status", ""))
+	_personal_goal = PersonalShiftGoal.finish(_personal_goal, report)
+	if previous_goal_status == "active" and String(_personal_goal.get("status", "")) == "complete":
+		_audio_feedback.play_decision_resolved()
+		_office_atmosphere.pulse_strategy_reward()
+		report["personal_goal_result"] = "PERSONAL BEST · " + PersonalShiftGoal.label(_personal_goal)
 	_finish_next_moment("NEXT MOMENT REACHED  ·  SHIFT REVIEW READY", true)
 	_clock.set_speed(0)
 	var filed_report := report.duplicate(true)
@@ -9543,7 +9568,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	_review_story.set_meta("filed_highlight", review_highlight)
 	_review_remix_index = -1
 	if _review_remix_button != null:
-		_review_remix_button.text = "↻"
+		_review_remix_button.text = ""
 	if not personnel_action.is_empty():
 		_review_results.text += "\nPersonnel outcome: %s" % String(
 			personnel_action.get("outcome", "Check-in filed.")
@@ -9591,8 +9616,11 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 
 
 func _apply_three_card_review(report: Dictionary) -> void:
+	_personal_goal_offer = PersonalShiftGoal.offer(report)
+	_personal_goal_button.text = "GOAL ACCEPTED · CANCEL" if _personal_goal == _personal_goal_offer else "TRY NEXT SHIFT · " + PersonalShiftGoal.label(_personal_goal_offer)
+	_personal_goal_button.tooltip_text = "Optional personal goal. Tracks real results next shift; no money is spent and no cash reward is promised. Click again to cancel."
 	var next_challenge := LoopReadability.next_shift(report)
-	_review_next_hint.text = String(next_challenge.get("copy", "NEXT SHIFT"))
+	_review_next_hint.text = String(report.get("personal_goal_result", next_challenge.get("copy", "NEXT SHIFT")))
 	_review_next_hint.tooltip_text = "Optional personal challenge based on this shift. Compare the suggested plan next shift; nothing is purchased or filed automatically."
 	_review_next_hint.accessibility_name = "%s. %s" % [_review_next_hint.text, _review_next_hint.tooltip_text]
 	var projection := _gameplay_pulse_director.compose_report(report)
@@ -9686,7 +9714,7 @@ func _on_review_remix_pressed() -> void:
 	_review_story.tooltip_text = "Preview only. Continue to the next shift, then file any available plan."
 	_review_story.set_meta("remix_strategy_id", String(idea.get("id", "")))
 	if _review_remix_button != null:
-		_review_remix_button.text = "↻"
+		_review_remix_button.text = ""
 		_review_remix_button.tooltip_text = "%s\nPreview only. Continue, then file any available plan." % String(idea.get("copy", "NEXT IDEA"))
 		_review_remix_button.set_meta("preview_only", true)
 		_review_remix_button.set_meta("strategy_id", String(idea.get("id", "")))
@@ -11140,6 +11168,11 @@ func _on_worker_assignment_requested(worker_id: int, lane: StringName) -> void:
 		_audio_feedback.play_ui_tick()
 	_record_adaptive_route_outcome(worker_before, lane, assignment_changed)
 	_first_clutch_record_routing(worker_id, lane)
+	if assignment_changed and lane == StringName(worker_before.get("specialty", &"")):
+		var hen := _worker_views.get(worker_id) as ChickenView
+		if hen != null:
+			hen.play_short_bark("MY SPECIALTY!", &"success")
+		_publish_status_copy("SPECIALTY MATCH · FASTER WORK ON MATCHING FILES", false)
 	_update_guidance(_simulation.snapshot())
 	_save_campaign_checkpoint("routing_assignment")
 
@@ -14761,6 +14794,8 @@ func _make_first_clutch_state(dismissed: bool = true) -> Dictionary:
 
 
 func _reset_first_clutch(enabled: bool) -> void:
+	_personal_goal.clear()
+	_personal_goal_offer.clear()
 	_first_reward_ready_msec = 0
 	_upgrade_demonstration.clear()
 	_first_clutch_completion_generation += 1
@@ -15197,7 +15232,7 @@ func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
 				benefit_glance = "+8% SPEED"
 			&"shell_lamp":
 				benefit_label = "SAFER SHELLS"
-				benefit_glance = "-2.5% CRACKS"
+				benefit_glance = "RISK -2.5pt"
 			&"nest_cushion":
 				benefit_label = "SOFTER NEST"
 				benefit_glance = "LESS STRAIN"
@@ -15222,7 +15257,7 @@ func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
 				benefit_glance,
 				float(net_cost) / 100.0,
 			],
-			"preview": "%s  ·  PAY $%.2f\n$%.2f SPENDABLE  →  $%.2f" % [
+			"preview": "%s  ·  PAY $%.2f\n$%.2f SPENDABLE  >  $%.2f" % [
 				benefit_glance,
 				float(net_cost) / 100.0,
 				float(int(offered.get("spendable_fund_cents", spendable_at_collection))) / 100.0,
@@ -15252,10 +15287,10 @@ func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
 	options.append({
 		"id": &"bank_fund",
 		"label": "BANK THE FUND",
-		"tagline": "KEEP $%.2f  ·  NO UPGRADE" % (
+		"tagline": "KEEP $%.2f  ·  MATCH EXPIRES" % (
 			float(int(status.get("current_spendable_fund_cents", spendable_at_collection))) / 100.0
 		),
-		"preview": "KEEP $%.2f SPENDABLE\nMABEL'S DESK STAYS THE SAME" % (
+		"preview": "KEEP $%.2f SPENDABLE\nNO UPGRADE · UNUSED DESK MATCH EXPIRES" % (
 			float(int(status.get("current_spendable_fund_cents", spendable_at_collection))) / 100.0
 		),
 		"accessible_preview": bank_exact_preview,
@@ -15282,11 +15317,7 @@ func _first_clutch_reinvestment_decision(status: Dictionary) -> Dictionary:
 		"category": FIRST_CLUTCH_REINVESTMENT_KIND,
 		"eyebrow": "FIRST EGG DELIVERED  ·  $%.2f" % (float(created_value) / 100.0),
 		"title": "REWARD %s OR BANK THE FUND?" % String(status.get("trigger_worker_name", "Mabel")).to_upper(),
-		"body": "$%.2f SPENDABLE  ·  +$%.2f DESK MATCH  ·  $%.2f RESERVED" % [
-			float(spendable_at_collection) / 100.0,
-			float(match_available) / 100.0,
-			float(protected_reserve) / 100.0,
-		],
+		"body": "YOU CAN SPEND $%.2f · PRICES INCLUDE YOUR MATCH" % (float(spendable_at_collection) / 100.0),
 		"accessible_body": exact_body,
 		"selection_prompt": "CHOOSE WHERE THE FIRST EGG GOES",
 		"confirm_label": "PICK AN OPTION",
@@ -15545,7 +15576,7 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 				tone = &"ready"
 			elif _clock.speed_index == 0:
 				primary_label = "START WORK"
-				visual_body = "FILE → HEN → EGG → REWARD"
+				visual_body = "FILE > HEN > EGG > REWARD"
 				primary_action_shortcut = "1"
 				visual_title = "RESUME AT 1x"
 				body = "Resume the clock, then watch %s's live file meter. The stamp glows gold in the clean-rhythm window." % target_name
@@ -15606,10 +15637,11 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 		if stage == &"specialty_route":
 			primary_label = "ROUTE & START"
 			guidance = "Route %s to her specialty and start work. She will pull and finish files automatically." % target_name
+			body = guidance
 		elif stage == &"delivery" and not bool(_first_clutch.get("delivery_laid", false)):
 			title = "WATCH %s WORK" % target_name
 			visual_title = title
-			visual_body = "FILE → HEN → EGG → REWARD"
+			visual_body = "FILE > HEN > EGG > REWARD"
 			body = "No extra click is required. Check-ins and timed Pecks are optional improvements after this first delivery."
 			guidance = body
 			if _clock.speed_index == 0:
@@ -15622,6 +15654,7 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 		"total": 3 if route_first else 5,
 		"route_first_lesson": route_first,
 		"eyebrow": (
+			"YOUR FIRST EGG" if route_first else
 			"FIRST CLUTCH  //  ORIENTATION"
 			if pre_policy else
 			"FIRST CLUTCH  %d / 5" % _first_clutch_progress()
@@ -15775,6 +15808,7 @@ func _write_campaign_checkpoint(reason: String) -> bool:
 			"last_workday_report": _last_workday_report.duplicate(true),
 			"senior_roost": _senior_roost_state.is_active(),
 			"first_clutch": _first_clutch.duplicate(true),
+			"personal_goal": _personal_goal.duplicate(true),
 			"interface_context": _campaign_interface_context(),
 			"run_archive": _career_run_archive.entries(),
 			"current_run_id": _current_campaign_run_id,
@@ -16262,6 +16296,7 @@ func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
 			first_clutch_data,
 			not session.has("first_clutch"),
 		),
+		"personal_goal": PersonalShiftGoal.normalize(session.get("personal_goal", {})),
 		"run_archive": staged_run_archive,
 		"current_run_id": current_run_id,
 		"career_profile": career_profile,
@@ -16280,6 +16315,7 @@ func _activate_staged_campaign_checkpoint(staged: Dictionary) -> bool:
 	).duplicate(true)
 	_campaign_senior_roost = bool(staged.get("senior_active", false))
 	_first_clutch = (staged.get("first_clutch", {}) as Dictionary).duplicate(true)
+	_personal_goal = PersonalShiftGoal.normalize(staged.get("personal_goal", {}))
 	_career_run_archive = staged.get("run_archive", CareerRunArchiveScript.new())
 	_current_campaign_run_id = String(staged.get("current_run_id", ""))
 	_career_profile = (
@@ -16348,6 +16384,7 @@ func _restore_campaign_view() -> void:
 
 
 func _reset_campaign_session_visuals() -> void:
+	_first_reward_ready_msec = 0
 	_clock.set_speed(0)
 	_clear_adaptive_route_recovery()
 	_routing_return_cue.clear()
@@ -20369,6 +20406,10 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 		_quality_streak_label.text = "CLEAN %d · +$%.2f" % [chain, float(ladder.get("current_bonus_cents", 0)) / 100.0]
 		_quality_streak_label.visible = chain > 0
 		_clutch_carton_host.visible = false
+		if _personal_goal.get("status", "") == "active" and int(_personal_goal.get("day", -1)) == int(snapshot.get("day", 0)):
+			_quality_streak_label.tooltip_text = "%s. %s" % [PersonalShiftGoal.label(_personal_goal), _quality_streak_label.text]
+			_quality_streak_label.text = PersonalShiftGoal.progress(_personal_goal, snapshot)
+			_quality_streak_label.visible = true
 	var push_luck := playbook.get("push_luck", {}) as Dictionary
 	if running and bool(push_luck.get("open", false)) and String(push_luck.get("id", "")).is_empty() and not _blocking_management_surface_open():
 		_set_guidance("QUOTA SAFE · BANK OR CHASE", &"egg", "Your quota is met. Bank for safer shells or chase higher clean-egg value. Open the Playbook to compare and choose.", &"playbook")
@@ -21052,7 +21093,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		):
 			contextual_power_ready = true
 			break
-	_active_playbook_button.visible = running and (plan_filed or contextual_power_ready)
+	_active_playbook_button.visible = running and (plan_filed or contextual_power_ready or _first_clutch_reinvestment_resolved())
 	_active_playbook_button.disabled = not running
 	if not running:
 		return
@@ -21084,7 +21125,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			or (kind in ["signature", "teamwork", "partnership", "intervention"] and bool(option.get("available", false)))
 		):
 			display_options.append(option)
-	var fingerprint := "%d|%s|%s" % [focused_worker_id, str(opening_lessons), JSON.stringify(playbook)]
+	var fingerprint := "%d|%s|%s|%s" % [focused_worker_id, str(opening_lessons), str(_first_clutch_reinvestment_resolved()), JSON.stringify(playbook)]
 	if fingerprint == _active_playbook_menu_fingerprint:
 		return
 	_active_playbook_menu_fingerprint = fingerprint
@@ -21125,6 +21166,11 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			ready_kind = kind
 		item_id += 1
 	var contract := playbook.get("contract", {}) as Dictionary
+	if _first_clutch_reinvestment_resolved():
+		popup.add_separator()
+		popup.add_item("LEARN A CHECK-IN · OPTIONAL", item_id)
+		popup.set_item_tooltip(popup.item_count - 1, "Compare a hen's care choices and prices. Opening this lesson spends nothing. Replay it anytime here.")
+		_active_playbook_menu_map[item_id] = {"kind": "learn_care", "id": "care"}
 	var combo := playbook.get("combo", {}) as Dictionary
 	var combo_recipe := playbook.get("combo_recipe", {}) as Dictionary
 	var prediction := playbook.get("prediction_score", {}) as Dictionary
@@ -21182,7 +21228,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	if not last_receipt.is_empty():
 		detail_lines.append("LAST  ·  %s" % String(last_receipt.get("outcome", "PLAY FILED")))
 	var strategy_preset := playbook.get("strategy_preset", {}) as Dictionary
-	_active_playbook_button.visible = running and (plan_filed or contextual_power_ready)
+	_active_playbook_button.visible = running and (plan_filed or contextual_power_ready or _first_clutch_reinvestment_resolved())
 	_active_playbook_button.text = (
 		"REWARD  ▾" if ready_kind == "reward" else
 		"HERO FILE  ▾" if ready_kind == "hero_case" else
@@ -21238,6 +21284,15 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 	var option := _active_playbook_menu_map[item_id] as Dictionary
 	var kind := StringName(option.get("kind", &""))
 	var choice_id := StringName(option.get("id", &""))
+	if kind == &"learn_care":
+		if _blocking_management_surface_open():
+			return
+		var lesson_worker_id := maxi(0, _active_playbook_focused_worker_id)
+		_camera_controller.focus_worker(lesson_worker_id)
+		_routing_ui.set_focus(lesson_worker_id)
+		_routing_ui.focus_intent_action(&"support")
+		_publish_status_copy("OPTIONAL CHECK-IN · Compare price and benefit, then choose one—or return to work.", false)
+		return
 	var before_playbook_snapshot := _simulation.snapshot()
 	var result := _simulation.perform_playbook_action(
 		kind,
@@ -22028,6 +22083,13 @@ func _web_accessibility_text(value: String, limit: int) -> String:
 	return compact
 
 
+func _web_control_rect(control: Control) -> Dictionary:
+	if control == null:
+		return {}
+	var rect := control.get_global_rect()
+	return {"x": rect.position.x, "y": rect.position.y, "width": rect.size.x, "height": rect.size.y}
+
+
 func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 	if not OS.has_feature("web"):
 		return
@@ -22666,6 +22728,12 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"commendations": _commendations_diagnostic_state(),
 		"checkpoint": _checkpoint_diagnostic_state(),
 		"first_session_funnel": _first_session_funnel.snapshot(),
+		"personal_shift_goal": _personal_goal.duplicate(true),
+		"personal_goal_control": {
+			"visible": _personal_goal_button != null and _personal_goal_button.is_visible_in_tree(),
+			"label": _personal_goal_button.text if _personal_goal_button != null else "",
+			"rect": _web_control_rect(_personal_goal_button),
+		},
 		"campaign_stage": "title" if title_open else String(_campaign_review_stage),
 		"campaign_intake_phase": campaign_intake_phase,
 		"campaign_day": int(_campaign_state.completed_shifts) + 1,
@@ -25334,6 +25402,7 @@ func _sync_work_progress_interactions() -> void:
 		return
 	var roots := _workstation_feedback.work_progress_interaction_roots()
 	for worker_id: int in roots:
+		_camera_controller.register_worker_equipment_point(worker_id, _workstation_feedback.equipment_interaction_root(worker_id))
 		_camera_controller.register_worker_context_point(
 			worker_id,
 			roots[worker_id] as Node3D,
@@ -25353,7 +25422,18 @@ func _on_management_context_hover_changed(
 
 
 func _on_work_progress_context_selected(worker_id: int, context_id: StringName) -> void:
-	if context_id != &"work_progress" or _routing_ui == null:
+	if context_id not in [&"work_progress", &"hen_intent", &"equipment"] or _routing_ui == null:
+		return
+	if context_id != &"work_progress" and (_blocking_management_surface_open() or _first_clutch_tracking_active()):
+		return
+	if context_id == &"equipment":
+		_open_flockwatch_page(FlockwatchNavigation.PAGE_CAPITAL)
+		_upgrade_disclosure_toggle.set_expanded(true, false)
+		var upgrade := _upgrade_buttons.get(&"peckwork_tools") as Button
+		if upgrade != null:
+			upgrade.call_deferred("grab_focus")
+			_pulse_action_target(upgrade)
+		_publish_status_copy("DESK UPGRADES · Compare price and benefit. Select a purchase only when ready.", false)
 		return
 	if worker_id == _work_progress_context_suppressed_worker_id:
 		_work_progress_context_suppressed_worker_id = -1
@@ -25362,7 +25442,7 @@ func _on_work_progress_context_selected(worker_id: int, context_id: StringName) 
 	var worker := _worker_record(snapshot, worker_id)
 	var claim := worker.get("current_claim", {}) as Dictionary
 	var intent := worker.get("hen_intent", {}) as Dictionary
-	if worker.is_empty() or claim.is_empty() or intent.is_empty():
+	if worker.is_empty() or (claim.is_empty() and context_id == &"work_progress") or intent.is_empty():
 		return
 	# Do not depend on focus_changed signal ordering: the physical rail owns an
 	# explicit worker-to-dossier handoff even when invoked by touch, restore, or a
@@ -25441,7 +25521,7 @@ func _on_camera_focus_changed(label: String, worker_id: int) -> void:
 		_office_storytelling.farmer_relations_gallery_visual.call(
 			"set_camera_detail", focused, focus_position,
 		)
-	if worker_id >= 0 and _dispatch_lane != &"":
+	if worker_id >= 0 and _dispatch_lane != &"" and (_camera_controller == null or _camera_controller.active_selection_context() in [&"", &"work_progress"]):
 		dispatch_committed = _commit_dispatch(worker_id)
 		if (
 			dispatch_committed
@@ -25622,7 +25702,9 @@ func _on_egg_reached_presentation(
 	if not _upgrade_demonstration.is_empty() and int(_upgrade_demonstration.get("claim_id", -2)) == delivered_claim_id:
 		var upgrade_id := StringName(_upgrade_demonstration.get("id", ""))
 		var upgrade := DepartmentSimulation.UPGRADE_DEFINITIONS.get(upgrade_id, {}) as Dictionary
-		var kit_copy := "%s IN ACTION · %s" % [String(upgrade.get("short_name", "NEW KIT")), String(upgrade.get("description", ""))]
+		var level := int(_upgrade_demonstration.get("level", 1))
+		var comparison := _upgrade_effect_comparison(upgrade_id, level)
+		var kit_copy := "%s · %s" % [String(upgrade.get("short_name", "NEW KIT")), comparison]
 		_publish_status_copy(kit_copy, false)
 		_latest_action_outcome_receipt = {
 			"visible": true, "title": kit_copy,
@@ -25630,6 +25712,15 @@ func _on_egg_reached_presentation(
 				"detail": "First delivery after purchase. %s. The upgrade changes the odds or rate; it does not guarantee a clean egg." % String(upgrade.get("description", ""))}],
 		}
 		_upgrade_demonstration.clear()
+
+
+func _upgrade_effect_comparison(upgrade_id: StringName, level: int) -> String:
+	var before := maxi(0, level - 1)
+	match upgrade_id:
+		&"peckwork_tools": return "KIT SPEED +%d%% > +%d%%" % [before * 8, level * 8]
+		&"shell_lamp": return "RISK REDUCTION %.1f > %.1f POINTS" % [before * 2.5, level * 2.5]
+		&"nest_cushion": return "STRAIN REDUCTION %d%% > %d%%" % [mini(before * 10, 50), mini(level * 10, 50)]
+	return "UPGRADE INSTALLED"
 
 
 func _queue_collection_claim(worker_id: int, claim_id: int) -> void:

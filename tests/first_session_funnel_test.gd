@@ -46,6 +46,16 @@ func _init() -> void:
 	funnel.begin_resume()
 	var resumed := funnel.snapshot(2_000_000)
 	_check(not bool(resumed["active"]) and String(resumed["mode"]) == "resumed_file", "resume should opt out of fresh-player timing", failures)
+	funnel.begin_intake(0)
+	funnel.begin_new_file(1000)
+	funnel.observe({}, {"route_first_lesson": true, "inspected": true, "specialty_routed": true, "assisted_claim_id": 7}, &"active", 5000)
+	var routed := funnel.snapshot(5000)
+	_check(routed.next_id == "first_egg" and not routed.milestones[5].reached, "the route-first lesson must skip optional steps without inventing a Peck", failures)
+	funnel.observe({"eggs_today": 1}, {"delivery_laid": true}, &"active", 35000)
+	_check(not funnel.snapshot(35000).milestones[6].reached, "laying must not masquerade as physical delivery", failures)
+	funnel.observe({}, {"delivery_seen": true}, &"active", 39000)
+	var timing: Dictionary = funnel.snapshot(39000).opening_timing
+	_check(timing.production_seconds == 30.0 and timing.presentation_seconds == 4.0 and timing.route_to_delivery_seconds == 34.0, "production and physical presentation must be timed independently from routing", failures)
 
 	if not failures.is_empty():
 		for failure in failures:

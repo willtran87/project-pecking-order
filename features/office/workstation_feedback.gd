@@ -757,6 +757,13 @@ func _egg_delivery_ack_accessible_text(station: StationVisual) -> String:
 
 ## Live Node3D targets for pointer/touch selection. They are never serialized;
 ## the camera projects the physical rail itself and ignores hidden/vacant desks.
+func equipment_interaction_root(worker_id: int) -> Node3D:
+	var station: StationVisual = _stations_by_worker.get(worker_id)
+	if station == null or station.screens.is_empty():
+		return null
+	return station.screens[0]
+
+
 func work_progress_interaction_roots() -> Dictionary[int, Node3D]:
 	var result: Dictionary[int, Node3D] = {}
 	for worker_id: int in _stations_by_worker:

@@ -4583,6 +4583,12 @@ func _refresh_dossier_summary(
 		var attention := LoopReadability.attention(intent)
 		if String(intent.get("id", "")) in ["care", "deadline"]:
 			need = "NEEDS CARE" if String(intent.get("id", "")) == "care" else "FILE DUE"
+		elif not _peck_assist_clock_running:
+			need = "PAUSED"
+		elif String(intent.get("id", "")) == "recovering" or String(worker.get("state_label", "")) == "BREAK":
+			need = "RESTING"
+		elif claim.is_empty():
+			need = "WAITING FOR WORK"
 		_dossier_summary_label.text = "%s · %s\nNEXT · %s" % [String(attention.get("label", "WORKING")), need, next_action]
 		_dossier_summary_label.tooltip_text = (
 			"Current need: %s. Recommended action: %s. Open More for routing, claimant, care, and profile details."

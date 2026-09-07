@@ -19,16 +19,21 @@ Use this card with **five new participants** who have not watched another person
 - Seconds to identify the shift goal
 - Whether the participant can name the single current goal as it advances from first egg to clutch to shift quota
 - Whether they understand that routing starts automatic work without a mandatory check-in or timed Peck
-- Whether working, opportunity, and help-needed markers communicate which hen can be left alone
+- Whether all-good, opportunity, and help-needed markers communicate which hen can be left alone
 - Whether Fast, Safe, and Flock tradeoffs are understood before selection
 - Whether the first reward has enough breathing room before the next choice
 - Seconds to take the first valid action
 - Seconds from plan choice to a completed route
 - Seconds to first visible reward
+- Separately record route-to-laying and laying-to-collection time; target a first payoff within 30–45 seconds of routing on a normal device, recording any pause or rendering delay
+- Whether they can identify spendable cash and final equipment prices without opening the ledger, and understand that banking forfeits the unused match
+- Whether the optional check-in lesson is discoverable and clearly optional; record any belief that opening it spends money
 - Route misses and external instructions
 - Whether any required shortcut had to be discovered
 - Whether the predicted result matched the observed result
 - Whether the player notices the new equipment at the desks and can explain its effect after the next egg (rate or odds, not a guaranteed perfect shell)
+- Whether clicking an equipment monitor or hen warning leads where they expect, without an unintended purchase or route
+- Whether they voluntarily accept or decline the next-shift personal goal, recognize its live progress, and understand that it has no cash reward or failure penalty
 - Whether Flow's next reward and the separate clean-shell bonus are distinguishable
 - Whether the hero-file answer was chosen without help and its tradeoff was understood
 - Whether the participant recovered without coaching

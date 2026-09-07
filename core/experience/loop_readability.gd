@@ -6,9 +6,9 @@ static func attention(intent: Dictionary) -> Dictionary:
 		"care", "deadline":
 			return {"label": "! HELP NEEDED", "icon": &"urgent", "color": Color("f2ab87")}
 		"sync", "choice":
-			return {"label": "★ OPPORTUNITY", "icon": &"choice", "color": Color("f4d27b")}
+			return {"label": "OPPORTUNITY", "icon": &"choice", "color": Color("f4d27b")}
 		_:
-			return {"label": "✓ WORKING", "icon": &"steady", "color": Color("9ccfc2")}
+			return {"label": "ALL GOOD", "icon": &"steady", "color": Color("9ccfc2")}
 
 
 static func next_shift(report: Dictionary) -> Dictionary:

@@ -172,7 +172,11 @@ static func action_icon(kind: StringName) -> Texture2D:
 	if _action_icon_cache.has(kind):
 		return _action_icon_cache[kind]
 	var symbol := ""
-	if kind == &"settings":
+	if kind == &"review_play":
+		symbol = "<path d='M7 3 L21 12 L7 21 Z' fill='#f3dfaa' stroke='#101a23' stroke-width='1.5' stroke-linejoin='round'/>"
+	elif kind == &"review_remix":
+		symbol = "<path d='M20 8 A8 8 0 1 0 20 16 M20 3 V9 H14' fill='none' stroke='#f3dfaa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/>"
+	elif kind == &"settings":
 		# A toothed cog keeps the comfort/control route recognizable after the
 		# secondary controller binding moves out of the permanent HUD.
 		symbol = (
