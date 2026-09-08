@@ -28,6 +28,8 @@ Use this card with **five new participants** who have not watched another person
 - Separately record route-to-laying and laying-to-collection time; target a first payoff within 30–45 seconds of routing on a normal device, recording any pause or rendering delay
 - Whether they can identify spendable cash and final equipment prices without opening the ledger, and understand that banking forfeits the unused match
 - Whether the optional check-in lesson is discoverable and clearly optional; record any belief that opening it spends money
+- Whether the highlighted affordable check-in, Later, and actual before/after result are understood without coaching
+- Whether the permanent PLAN label remains findable when rewards and other opportunities become available
 - Route misses and external instructions
 - Whether any required shortcut had to be discovered
 - Whether the predicted result matched the observed result
@@ -35,6 +37,8 @@ Use this card with **five new participants** who have not watched another person
 - Whether clicking an equipment monitor or hen warning leads where they expect, without an unintended purchase or route
 - Whether they voluntarily accept or decline the next-shift personal goal, recognize its live progress, and understand that it has no cash reward or failure penalty
 - Whether Flow's next reward and the separate clean-shell bonus are distinguishable
+- Whether the accepted goal, matching plan preview, and next-shift PLAN recommendation feel like one intention rather than three separate tasks
+- Whether a named hen's egg milestone on the office trophy shelf is noticed and feels personally meaningful
 - Whether the hero-file answer was chosen without help and its tradeoff was understood
 - Whether the participant recovered without coaching
 - Their verbatim one-sentence loop explanation
@@ -44,7 +48,7 @@ Use this card with **five new participants** who have not watched another person
 ## Passing threshold
 
 - At least 4/5 identify the goal and take a valid action without external instruction.
-- At least 4/5 choose a plan unaided and complete a route within 30 seconds.
+- At least 4/5 complete the opening route within 30 seconds and choose a plan unaided when it is subsequently offered.
 - At least 4/5 correctly predict a consequence after one route.
 - At least 4/5 understand that ordinary production continues without repeated clicks.
 - At least 4/5 resolve the hero file unaided and correctly describe one disclosed tradeoff.

@@ -35,6 +35,7 @@ try {
   await clickGoal(evidence.offered);
   evidence.accepted = await waitFor(s => s.personal_shift_goal?.status === "active");
   assert.match(evidence.accepted.personal_goal_control.label, /ACCEPTED/);
+  assert.ok(evidence.accepted.personal_shift_goal.quota > 1, "the real review report must not silently offer a quota of one");
   await page.screenshot({ path: path.join(output, "02-goal-accepted.png"), fullPage: true });
   await clickGoal(evidence.accepted);
   evidence.canceled = await waitFor(s => Object.keys(s.personal_shift_goal ?? {}).length === 0 && s.personal_goal_control?.label.startsWith("TRY NEXT SHIFT"));

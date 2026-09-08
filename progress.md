@@ -1,5 +1,15 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-09-07 - Coherent goals and polished optional care
+
+- Addressed the twelve-point review with actual goal/save corrections, a permanent PLAN label, quieter induction badges, actionable world hover cues, guided optional check-ins with Later and factual before/after results, visible clean bonuses, one goal-aligned plan recommendation, plan-specific desk rhythms, spaced optional barks, and named-hen egg milestones on the existing trophy shelf. Details: docs/GOAL_CLARITY_POLISH.md.
+- Real workday reports now offer quota 17 rather than 1 in the authored review fixture. Active legacy goals repair against restored simulation authority; output and safety goals cannot settle below the real quota. Previewing goals or plans never spends money.
+- Bounded monotonic Web clock accounting reduced the observed software-rendered route-to-first-delivery time from 183.488 to 47.562 seconds (36.354 production, 11.208 presentation). This is not a controlled benchmark or proof of normal-device timing. Suspended-tab gaps and reading holds do not accumulate offline work.
+- Native/UI testing passed 69 checks and web/toolchain testing passed four. The final export briefly left the shipped PCK copies out of sync; after synchronizing, all six packaging checks passed on rerun. The expanded personal-goal regression passed again after final edits.
+- High-resolution browser inspection caught unsupported PLAN/recommendation glyphs and replaced them with plain labels. The browser lesson audit uses actual open, Later, reopen, paid check-in, and return controls. Review tests use real accept/cancel clicks in an explicitly authored fixture, not a claimed human shift.
+- Final payload: 10,882,188 bytes, SHA-256 7A5D2C65D8B8FCD657BD0025145451365254747465744D98F4B67FEACBC8C9FC. Five unfamiliar participant sessions and normal-device timing remain pending; the study card records these honestly.
+- Browser checks passed at 2560x1600 and 900x800, plus the prescribed input client at 1280x720; screenshots were inspected. The compact real check-in changed Mabel's trust from 56 to 74 and stress from 12 to 7. Owned browser tests and the production wrapper are closed; ports 3001/60872 are free and no Godot test processes remain.
+
 ## 2026-09-07 - Reward clarity and accepted personal goals
 
 - Followed the next ten-point review with actual product changes: unified route-first copy, one spendable reward balance, explicit expiring match, all-good vs selected activity states, optional replayable care lesson, direct warning/equipment inspection, specialty reactions, exact equipment before/after, and accepted/saveable next-shift goals.

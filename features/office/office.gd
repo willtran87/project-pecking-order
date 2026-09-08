@@ -761,6 +761,9 @@ var _review_next_hint: Label
 var _personal_goal_button: Button
 var _personal_goal: Dictionary = {}
 var _personal_goal_offer: Dictionary = {}
+var _context_hover_copy := ""
+var _context_hover_previous := ""
+var _last_optional_floor_beat_msec := -8000
 const PersonalShiftGoal := preload("res://core/experience/personal_shift_goal.gd")
 var _review_results: Label
 var _review_details_toggle: Button
@@ -4970,9 +4973,10 @@ func _snapshot_with_active_workers(snapshot: Dictionary) -> Dictionary:
 
 
 func _workstation_visual_snapshot(active_snapshot: Dictionary) -> Dictionary:
-	# WorkstationFeedback reads only these two fields. Returning the complete
+	# WorkstationFeedback reads only this compact visual state. Returning the complete
 	# economy made its presentation call retain dozens of unrelated projections.
 	var visual_snapshot := {
+		"strategy_id": String((active_snapshot.get("active_playbook", {}) as Dictionary).get("strategy_preset_id", "")),
 		"upgrade_levels": (
 			active_snapshot.get("upgrade_levels", {}) as Dictionary
 		).duplicate(true),
@@ -5232,7 +5236,7 @@ func _process(delta: float) -> void:
 		var campaign_modal_open := _campaign_ui.is_modal_open()
 		_campaign_ui.set_badge_presentation(
 			FIRST_CLUTCH_ROUTING_TOP if first_clutch_compact else LIVE_ROUTING_TOP,
-			_flockwatch_open or (blocking_surface_open and not campaign_modal_open),
+			first_clutch_compact or _flockwatch_open or (blocking_surface_open and not campaign_modal_open),
 		)
 	if _top_hud_panel != null:
 		_top_hud_panel.visible = not blocking_surface_open
@@ -6173,7 +6177,7 @@ func _build_ui() -> void:
 		_reward_loop_icons[reward_id] = reward_icon
 	_active_playbook_button = MenuButton.new()
 	_active_playbook_button.name = "ActivePlaybookButton"
-	_active_playbook_button.text = "PLAN  ▾"
+	_active_playbook_button.text = "PLAN"
 	_active_playbook_button.icon = ManagementUIThemeScript.action_icon(&"ledger")
 	_active_playbook_button.theme_type_variation = &"SpeedButton"
 	_active_playbook_button.custom_minimum_size = Vector2(86.0, 30.0)
@@ -7110,8 +7114,8 @@ func _build_day_review_panel() -> void:
 	_review_remix_button.name = "ReviewRemixNextButton"
 	_review_remix_button.icon = ManagementUIThemeScript.action_icon(&"review_remix")
 	_review_remix_button.custom_minimum_size = Vector2(44.0, 48.0)
-	_review_remix_button.tooltip_text = "Cycle a different Fast, Safe, or Flock idea for the next shift. Preview only."
-	_review_remix_button.accessibility_name = "Remix the next shift idea. Preview only."
+	_review_remix_button.tooltip_text = "Preview a plan that supports your next-shift goal. No choice is filed."
+	_review_remix_button.accessibility_name = "Preview a matching next-shift plan. No choice is filed."
 	_review_remix_button.pressed.connect(_on_review_remix_pressed)
 	buttons.add_child(_review_remix_button)
 	var requisitions := Button.new()
@@ -7409,6 +7413,8 @@ func _build_decision_modal() -> void:
 func _on_decision_requested(decision: Dictionary) -> void:
 	if decision.is_empty() or _decision_host == null:
 		return
+	_last_optional_floor_beat_msec = Time.get_ticks_msec()
+	_character_dialogue_ui.hold_ambient(4.0)
 	# Restore the player's prior pace before the decision captures its resume
 	# speed; the temporary 10× seek is never allowed to leak past the moment.
 	_finish_next_moment("NEXT MOMENT REACHED  ·  DECISION READY", false)
@@ -9619,7 +9625,7 @@ func _apply_three_card_review(report: Dictionary) -> void:
 	_personal_goal_offer = PersonalShiftGoal.offer(report)
 	_personal_goal_button.text = "GOAL ACCEPTED · CANCEL" if _personal_goal == _personal_goal_offer else "TRY NEXT SHIFT · " + PersonalShiftGoal.label(_personal_goal_offer)
 	_personal_goal_button.tooltip_text = "Optional personal goal. Tracks real results next shift; no money is spent and no cash reward is promised. Click again to cancel."
-	var next_challenge := LoopReadability.next_shift(report)
+	var next_challenge := PersonalShiftGoal.strategy(_personal_goal_offer)
 	_review_next_hint.text = String(report.get("personal_goal_result", next_challenge.get("copy", "NEXT SHIFT")))
 	_review_next_hint.tooltip_text = "Optional personal challenge based on this shift. Compare the suggested plan next shift; nothing is purchased or filed automatically."
 	_review_next_hint.accessibility_name = "%s. %s" % [_review_next_hint.text, _review_next_hint.tooltip_text]
@@ -9703,13 +9709,7 @@ func _on_review_replay_highlight_pressed() -> void:
 func _on_review_remix_pressed() -> void:
 	if _review_story == null:
 		return
-	var ideas: Array[Dictionary] = [
-		{"id": "fast", "label": "FAST", "copy": "NEXT IDEA  ·  FAST  ·  chase pace; watch shell exposure."},
-		{"id": "safe", "label": "SAFE", "copy": "NEXT IDEA  ·  SAFE  ·  protect shells; accept a steadier tempo."},
-		{"id": "flock", "label": "FLOCK", "copy": "NEXT IDEA  ·  FLOCK  ·  build bonds; trade some raw pace."},
-	]
-	_review_remix_index = posmod(_review_remix_index + 1, ideas.size())
-	var idea := ideas[_review_remix_index] as Dictionary
+	var idea := PersonalShiftGoal.strategy(_personal_goal_offer)
 	_review_story.text = String(idea.get("copy", "NEXT IDEA"))
 	_review_story.tooltip_text = "Preview only. Continue to the next shift, then file any available plan."
 	_review_story.set_meta("remix_strategy_id", String(idea.get("id", "")))
@@ -11622,6 +11622,7 @@ func _on_personnel_action_requested(worker_id: int, action_id: StringName) -> vo
 	var before_snapshot := _simulation.snapshot()
 	var source_worker := _worker_record(before_snapshot, worker_id)
 	var result := _simulation.perform_personnel_action(worker_id, action_id)
+	_routing_ui.complete_care_lesson(worker_id, result, source_worker, _worker_record(_simulation.snapshot(), worker_id))
 	if not bool(result.get("accepted", false)):
 		_publish_economic_action_hold(
 			"CHECK-IN",
@@ -16296,7 +16297,7 @@ func _stage_campaign_checkpoint(envelope: Dictionary) -> Dictionary:
 			first_clutch_data,
 			not session.has("first_clutch"),
 		),
-		"personal_goal": PersonalShiftGoal.normalize(session.get("personal_goal", {})),
+		"personal_goal": PersonalShiftGoal.reconcile(session.get("personal_goal", {}), staged_simulation.day, staged_simulation.quota_target, last_report_value as Dictionary),
 		"run_archive": staged_run_archive,
 		"current_run_id": current_run_id,
 		"career_profile": career_profile,
@@ -20408,7 +20409,7 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 		_clutch_carton_host.visible = false
 		if _personal_goal.get("status", "") == "active" and int(_personal_goal.get("day", -1)) == int(snapshot.get("day", 0)):
 			_quality_streak_label.tooltip_text = "%s. %s" % [PersonalShiftGoal.label(_personal_goal), _quality_streak_label.text]
-			_quality_streak_label.text = PersonalShiftGoal.progress(_personal_goal, snapshot)
+			_quality_streak_label.text = "%s · CLEAN %d" % [PersonalShiftGoal.progress(_personal_goal, snapshot), chain]
 			_quality_streak_label.visible = true
 	var push_luck := playbook.get("push_luck", {}) as Dictionary
 	if running and bool(push_luck.get("open", false)) and String(push_luck.get("id", "")).is_empty() and not _blocking_management_surface_open():
@@ -20472,7 +20473,9 @@ func _apply_complete_game_loop_presentation(loop: Dictionary, snapshot: Dictiona
 				bark = "QUEUE'S RISING!"
 			elif stage == &"final_push":
 				bark = "FINAL PUSH!"
-			if not bark.is_empty():
+			if not bark.is_empty() and not _blocking_management_surface_open() and not _first_clutch_tracking_active() and Time.get_ticks_msec() - _last_optional_floor_beat_msec >= 8000:
+				_last_optional_floor_beat_msec = Time.get_ticks_msec()
+				_character_dialogue_ui.hold_ambient(3.0)
 				var story := loop.get("emergent_story", {}) as Dictionary
 				var worker_id := int(story.get("worker_id", -1))
 				var view := _worker_views.get(worker_id) as ChickenView
@@ -20513,18 +20516,11 @@ func _apply_mastery_replay_presentation(layer: Dictionary) -> void:
 		).duplicate(true))
 	if _active_playbook_button == null:
 		return
-	var base_text := String(_active_playbook_button.get_meta(
-		"base_mastery_text",
-		_active_playbook_button.text,
-	))
 	var base_tooltip := String(_active_playbook_button.get_meta(
 		"base_mastery_tooltip",
 		_active_playbook_button.tooltip_text,
 	))
-	if bool(power.get("ready", false)) and base_text.begins_with("PLAY"):
-		base_text = "POWER  ▾"
-	var compact_text := base_text.trim_suffix("  ▾")
-	_active_playbook_button.text = "%s  [Q]  ▾" % compact_text
+	_active_playbook_button.text = "PLAN  [Q]"
 	_active_playbook_button.tooltip_text = "%s\nQ  ·  OPEN ACTIVE PLAYBOOK\n%s" % [
 		payoff_line,
 		base_tooltip,
@@ -20597,7 +20593,7 @@ func _apply_professional_loop_presentation(layer: Dictionary) -> void:
 			action_label = action_label.get_slice("/", 1).strip_edges()
 		if action_label.length() > 18:
 			action_label = action_label.left(17).trim_suffix(" ") + "…"
-		_active_playbook_button.text = "%s  [Q]  ▾" % action_label
+		_active_playbook_button.text = "PLAN  [Q]"
 		_active_playbook_button.set_meta("contextual_power_label", action_label)
 		_active_playbook_button.set_meta("professional_loop", layer.duplicate(true))
 
@@ -20704,7 +20700,7 @@ func _apply_compelling_loop_presentation(layer: Dictionary) -> void:
 		and combo_progress < combo_target
 		and not bool(power.get("ready", false))
 	):
-		_active_playbook_button.text = "COMBO %d/%d  [Q]  ▾" % [combo_progress, combo_target]
+		_active_playbook_button.text = "PLAN  [Q]"
 		_active_playbook_button.set_meta("combo_discovery", combo.duplicate(true))
 		if not _active_playbook_button.tooltip_text.begins_with("COMBO "):
 			_active_playbook_button.tooltip_text = "%s\n%s" % [
@@ -21141,7 +21137,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 			popup.add_separator()
 		previous_kind = kind
 		var available := bool(option.get("available", false))
-		var recommended_mark := "★  " if bool(option.get("recommended", false)) else ""
+		var goal_active: bool = _personal_goal.get("status", "") == "active" and int(_personal_goal.get("day", -1)) == _simulation.day
+		var recommended_mark := "TRY · " if bool(option.get("recommended", false)) and not goal_active else ""
 		var label := "%s%s  ·  %s" % [
 			recommended_mark,
 			kind.replace("_", " ").to_upper(),
@@ -21150,6 +21147,8 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		if kind == "preset":
 			var preset := DepartmentSimulation.PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(StringName(option.get("id", "")), {}) as Dictionary
 			label = "%s%s · %s · %s" % [recommended_mark, String(preset.get("label", "PLAN")), String(preset.get("gain", "")), String(preset.get("cost", ""))]
+			if goal_active and String(option.get("id", "")) == String(PersonalShiftGoal.strategy(_personal_goal).get("id", "")):
+				label = "YOUR GOAL · " + label
 		popup.add_icon_item(
 			ManagementUIThemeScript.action_icon(
 				_playbook_menu_icon(StringName(option.get("icon", &"goal")))
@@ -21227,18 +21226,9 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	var last_receipt := playbook.get("last_receipt", {}) as Dictionary
 	if not last_receipt.is_empty():
 		detail_lines.append("LAST  ·  %s" % String(last_receipt.get("outcome", "PLAY FILED")))
-	var strategy_preset := playbook.get("strategy_preset", {}) as Dictionary
 	_active_playbook_button.visible = running and (plan_filed or contextual_power_ready or _first_clutch_reinvestment_resolved())
-	_active_playbook_button.text = (
-		"REWARD  ▾" if ready_kind == "reward" else
-		"HERO FILE  ▾" if ready_kind == "hero_case" else
-		"CALLED IT  ▾" if String(prediction.get("verdict", "")) == "CALLED IT" else
-		"COMBO READY  ▾" if bool(combo_recipe.get("complete", false)) else
-		"SIGNATURE  ▾" if ready_kind == "signature" else
-		"CHOOSE PLAN  ▾" if not plan_filed else
-		"%s  ▾" % String(strategy_preset.get("label", "PLAN")).trim_suffix(" PLAN") if strategy_preset_id != "custom" else
-		"PLAY  ▾"
-	)
+	_active_playbook_button.text = "PLAN  [Q]"
+	_active_playbook_button.set_meta("opportunity", ready_kind)
 	_active_playbook_button.icon = ManagementUIThemeScript.action_icon(
 		&"rank_crest" if ready_kind == "reward" else &"ledger"
 	)
@@ -21290,8 +21280,8 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 		var lesson_worker_id := maxi(0, _active_playbook_focused_worker_id)
 		_camera_controller.focus_worker(lesson_worker_id)
 		_routing_ui.set_focus(lesson_worker_id)
-		_routing_ui.focus_intent_action(&"support")
-		_publish_status_copy("OPTIONAL CHECK-IN · Compare price and benefit, then choose one—or return to work.", false)
+		_routing_ui.begin_care_lesson()
+		_publish_status_copy("OPTIONAL CHECK-IN · Try the highlighted choice, or Later.", false)
 		return
 	var before_playbook_snapshot := _simulation.snapshot()
 	var result := _simulation.perform_playbook_action(
@@ -22729,6 +22719,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"checkpoint": _checkpoint_diagnostic_state(),
 		"first_session_funnel": _first_session_funnel.snapshot(),
 		"personal_shift_goal": _personal_goal.duplicate(true),
+		"care_lesson": _routing_ui.care_lesson_state(),
 		"personal_goal_control": {
 			"visible": _personal_goal_button != null and _personal_goal_button.is_visible_in_tree(),
 			"label": _personal_goal_button.text if _personal_goal_button != null else "",
@@ -25293,6 +25284,8 @@ func _on_egg_laid(
 		_office_atmosphere.pulse_egg_laid(worker_view.egg_lay_origin_global(), quality)
 	if int(_upgrade_demonstration.get("claim_id", -2)) == claim_id:
 		worker_view.play_short_bark("NEW KIT, FIRST EGG!", &"team")
+	elif int(_worker_record(_simulation.snapshot(), worker_id).get("eggs_laid", 0)) in [10, 25, 50, 100]:
+		worker_view.play_short_bark("THAT'S MY %dTH EGG!" % int(_worker_record(_simulation.snapshot(), worker_id).get("eggs_laid", 0)), &"success")
 	else:
 		worker_view.play_short_bark(
 			"GOLDEN FILE!" if quality == &"golden" else "NEEDS REWORK." if quality == &"cracked" else "CLEAN SHELL!",
@@ -25416,9 +25409,18 @@ func _on_management_context_hover_changed(
 	context_id: StringName,
 	hovered: bool,
 ) -> void:
-	if context_id != &"work_progress" or _workstation_feedback == null:
+	if context_id not in [&"work_progress", &"equipment", &"hen_intent"] or _workstation_feedback == null:
+		return
+	if hovered and (_blocking_management_surface_open() or _first_clutch_tracking_active()):
 		return
 	_workstation_feedback.set_work_progress_hover(worker_id if hovered else -1)
+	if hovered:
+		_context_hover_previous = _ticker_label.text
+		var worker := _worker_record(_simulation.snapshot(), worker_id)
+		_context_hover_copy = "VIEW UPGRADES" if context_id == &"equipment" else "HELP %s" % String(worker.get("name", "HEN")).to_upper() if context_id == &"hen_intent" else "VIEW FILE"
+		_ticker_label.text = _context_hover_copy
+	elif _ticker_label.text == _context_hover_copy:
+		_ticker_label.text = _context_hover_previous
 
 
 func _on_work_progress_context_selected(worker_id: int, context_id: StringName) -> void:
@@ -25678,6 +25680,8 @@ func _on_egg_reached_presentation(
 			String(quality).to_upper(),
 			float(presentation_cash_cents) / 100.0,
 		]
+	if _streak_bonus_cents > 0:
+		_ticker_label.text += " · INCLUDES $%.2f CLEAN BONUS" % (float(_streak_bonus_cents) / 100.0)
 	if _workstation_feedback != null:
 		_workstation_feedback.play_egg_delivery_ack(
 			worker_id,

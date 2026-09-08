@@ -647,6 +647,8 @@ var _return_cue_focus_serial := 0
 var _last_return_cue_focus: Dictionary = {}
 var _assignment_buttons: Dictionary[StringName, Button] = {}
 var _personnel_buttons: Dictionary[StringName, Button] = {}
+var _care_lesson: Dictionary = {}
+var _care_lesson_later: Button
 var _queue_panel: PanelContainer
 var _first_clutch_panel: PanelContainer
 var _first_clutch_progress_label: Label
@@ -910,6 +912,7 @@ func _process(delta: float) -> void:
 
 func set_focus(worker_id: int) -> void:
 	if worker_id != _focused_worker_id:
+		_care_lesson.clear()
 		_finish_claim_file_arrival()
 		_finish_hen_dossier_arrival()
 		_cancel_peck_result_focus_handoff("worker_focus_changed")
@@ -931,6 +934,8 @@ func clear_focus() -> void:
 
 
 func apply_snapshot(snapshot: Dictionary) -> void:
+	if int(snapshot.get("day", 0)) != int(_snapshot.get("day", 0)):
+		_care_lesson.clear()
 	# Office creates this bounded routing projection solely for this component.
 	# The UI never mutates it, so retaining the owned value avoids a third copy of
 	# every live claim and worker dossier on each accelerated clock publication.
@@ -3174,6 +3179,66 @@ func _build_focus_dossier() -> void:
 		button.pressed.connect(_on_personnel_action_pressed.bind(action_id))
 		_personnel_actions_section.add_child(button)
 		_personnel_buttons[action_id] = button
+	_care_lesson_later = Button.new()
+	_care_lesson_later.name = "CareLessonLater"
+	_care_lesson_later.text = "LATER"
+	_care_lesson_later.custom_minimum_size.y = 26.0
+	_care_lesson_later.visible = false
+	_care_lesson_later.tooltip_text = "Leave the optional lesson. No action is filed and nothing is spent."
+	_care_lesson_later.pressed.connect(func() -> void:
+		_care_lesson.clear()
+		_active_dossier_tab = &"route"
+		_refresh()
+	)
+	_personnel_actions_section.add_child(_care_lesson_later)
+
+
+func begin_care_lesson() -> void:
+	focus_intent_action(&"support")
+	var preferred := StringName(_worker_snapshot(_focused_worker_id).get("preferred_personnel_action", &""))
+	var chosen := &""
+	for action_id in PERSONNEL_ACTION_ORDER:
+		var button := _personnel_buttons.get(action_id) as Button
+		if button != null and not button.disabled and (chosen == &"" or action_id == preferred):
+			chosen = action_id
+	_care_lesson = {"worker_id": _focused_worker_id, "action_id": chosen, "outcome": ""}
+	_refresh()
+	if chosen != &"":
+		(_personnel_buttons[chosen] as Button).grab_focus()
+	else:
+		_care_lesson_later.grab_focus()
+
+
+func care_lesson_state() -> Dictionary:
+	var result := _care_lesson.duplicate(true)
+	result["visible"] = not _care_lesson.is_empty() and _care_lesson_later.is_visible_in_tree()
+	result["summary"] = _dossier_summary_label.text
+	var controls := {}
+	var chosen := StringName(_care_lesson.get("action_id", &""))
+	for key in ["later", "choice"]:
+		var button := _care_lesson_later if key == "later" else _personnel_buttons.get(chosen) as Button
+		if button == null:
+			continue
+		var rect := button.get_global_rect()
+		controls[key] = {"label": button.text, "disabled": button.disabled, "visible": button.is_visible_in_tree(), "rect": {"x": rect.position.x, "y": rect.position.y, "width": rect.size.x, "height": rect.size.y}}
+	result["controls"] = controls
+	return result
+
+
+func complete_care_lesson(worker_id: int, result: Dictionary, before: Dictionary, after: Dictionary) -> void:
+	if _care_lesson.is_empty() or worker_id != int(_care_lesson.get("worker_id", -1)):
+		return
+	if not bool(result.get("accepted", false)):
+		_care_lesson["outcome"] = String(result.get("reason", "Unavailable. Choose Later or another check-in."))
+	else:
+		_care_lesson["outcome"] = "FILED · %s\nTRUST %d → %d · STRESS %d → %d" % [
+			String(before.get("name", "HEN")),
+			int(before.get("manager_trust", 0)), int(after.get("manager_trust", 0)),
+			int(before.get("stress", 0)), int(after.get("stress", 0)),
+		]
+		_care_lesson["complete"] = true
+		_care_lesson["receipt"] = String(result.get("outcome", "Check-in filed."))
+	_refresh()
 
 
 func _build_claim_resolution_confirmation() -> void:
@@ -4301,6 +4366,13 @@ func _refresh() -> void:
 			),
 		]
 		personnel_button.disabled = not can_manage or not affordable
+		var lesson_choice := not _care_lesson.is_empty() and action_id == StringName(_care_lesson.get("action_id", &"")) and not bool(_care_lesson.get("complete", false))
+		personnel_button.add_theme_color_override("font_color", Color("bce4d8") if lesson_choice else Color("dce7e8"))
+		if lesson_choice:
+			personnel_button.text = "TRY · " + personnel_button.text.trim_prefix("SIG / ")
+	if _care_lesson_later != null:
+		_care_lesson_later.visible = not _care_lesson.is_empty()
+		_care_lesson_later.text = "BACK TO WORK" if bool(_care_lesson.get("complete", false)) else "LATER"
 	_refresh_dossier_summary(
 		worker,
 		career_profile_name,
@@ -4558,6 +4630,13 @@ func _refresh_dossier_summary(
 	if _dossier_summary_label == null:
 		return
 	_dossier_summary_label.remove_theme_stylebox_override("normal")
+	if not _care_lesson.is_empty() and _active_dossier_tab == &"support":
+		var lesson_action := StringName(_care_lesson.get("action_id", &""))
+		var outcome := String(_care_lesson.get("outcome", ""))
+		_dossier_summary_label.text = outcome if not outcome.is_empty() else "OPTIONAL · " + _personnel_effect_glance(lesson_action) + "\nTry the highlighted check-in, or Later." if lesson_action != &"" else "NO CHECK-IN AVAILABLE\nChoose Later; the lesson can wait."
+		_dossier_summary_label.tooltip_text = String(_care_lesson.get("receipt", _personnel_definition(lesson_action).get("preview", _dossier_summary_label.text)))
+		_dossier_summary_label.add_theme_color_override("font_color", Color("bce4d8"))
+		return
 	if not bool(_first_clutch.get("visible", false)) and not _details_expanded:
 		var claim := worker.get("current_claim", {}) as Dictionary
 		var intent := worker.get("hen_intent", {}) as Dictionary

@@ -3,7 +3,7 @@ extends RefCounted
 ## Optional, non-economic ambition. All progress comes from simulation facts.
 static func offer(report: Dictionary) -> Dictionary:
 	var day := maxi(1, int(report.get("day", 1))) + 1
-	var quota := maxi(1, int(report.get("quota_target", 1)))
+	var quota := maxi(1, int(report.get("next_quota", report.get("quota", report.get("quota_target", 1)))))
 	var cracks := maxi(0, int(report.get("cracked", report.get("cracked_today", 0))))
 	var overdue := maxi(0, int(report.get("overdue_claims", 0)))
 	if cracks > 0:
@@ -29,6 +29,28 @@ static func normalize(value: Variant) -> Dictionary:
 	return {"version": 1, "day": int(value.day), "target": int(value.target), "quota": int(value.quota), "kind": String(value.kind), "status": String(value.status)}
 
 
+## Repair optional legacy goals against restored authority, without touching the
+## career or completed accomplishments. Older releases accidentally saved 1.
+static func reconcile(value: Variant, day: int, quota: int, report: Dictionary) -> Dictionary:
+	var goal := normalize(value)
+	if goal.is_empty() or goal.status != "active":
+		return goal
+	if int(goal.day) == day:
+		goal.quota = maxi(1, quota)
+	elif int(goal.day) == int(report.get("day", -2)) + 1:
+		goal.quota = maxi(1, int(report.get("next_quota", goal.quota)))
+	if goal.kind == "output":
+		goal.target = maxi(int(goal.target), int(goal.quota))
+	return goal
+
+
+static func strategy(goal: Dictionary) -> Dictionary:
+	match String(goal.get("kind", "")):
+		"shells": return {"id": "safe", "label": "SAFE", "copy": "SAFE · gentler work, fewer shell risks. Trade some speed."}
+		"files": return {"id": "fast", "label": "FAST", "copy": "FAST · clear files sooner. Watch fatigue and shells."}
+	return {"id": "fast", "label": "FAST", "copy": "FAST · build output. Check in before fatigue builds."}
+
+
 static func label(goal: Dictionary) -> String:
 	match String(goal.get("kind", "")):
 		"shells": return "MEET QUOTA · AT MOST %d %s" % [int(goal.target), "CRACK" if int(goal.target) == 1 else "CRACKS"]
@@ -51,11 +73,12 @@ static func finish(goal: Dictionary, report: Dictionary) -> Dictionary:
 		return goal.duplicate(true)
 	var result := goal.duplicate(true)
 	var eggs := int(report.get("eggs", report.get("eggs_today", 0)))
-	var quota_met := bool(report.get("met_quota", eggs >= int(report.get("quota_target", goal.quota))))
+	var quota := maxi(1, int(report.get("quota", report.get("quota_target", goal.quota))))
+	var quota_met := eggs >= quota and bool(report.get("met_quota", true))
 	var success := false
 	match String(goal.kind):
 		"shells": success = quota_met and int(report.get("cracked", report.get("cracked_today", 0))) <= int(goal.target)
 		"files": success = quota_met and int(report.get("overdue_claims", 0)) == 0
-		"output": success = eggs >= int(goal.target)
+		"output": success = quota_met and eggs >= int(goal.target)
 	result["status"] = "complete" if success else "missed"
 	return result

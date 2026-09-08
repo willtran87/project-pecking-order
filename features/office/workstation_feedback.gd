@@ -169,6 +169,7 @@ var _color_vision_mode: StringName = &"standard"
 var _animation_speed_multiplier := 1.0
 var _reduced_motion := false
 var _routing_pace_active := false
+var _strategy_id := ""
 var _routing_pace_multiplier := 1.0
 var _active_dispatch_deliveries: Array[Node3D] = []
 var _active_routing_reward_bursts: Array[Node3D] = []
@@ -225,6 +226,7 @@ func configure(workstations_root: Node3D) -> void:
 
 ## Apply the DepartmentSimulation snapshot to each worker's assigned desk.
 func apply_snapshot(snapshot: Dictionary) -> void:
+	_strategy_id = String(snapshot.get("strategy_id", ""))
 	var routing_momentum := snapshot.get("routing_momentum", {}) as Dictionary
 	_routing_pace_active = bool(routing_momentum.get("pace_active", false))
 	_routing_pace_multiplier = (
@@ -2383,7 +2385,13 @@ func _animate_station(station: StationVisual) -> void:
 			continue
 		var rest_y := float(paper.get_meta("rest_y", paper.position.y))
 		var route_lift := station.route_boost * (0.14 if paper_index == 0 else 0.025)
-		paper.position.y = rest_y + route_lift + sin(_phase * 1.35 + station.phase_offset + paper_index * 0.7) * 0.006
+		var rhythm := 1.8 if _strategy_id == "fast" else 0.75 if _strategy_id == "safe" else 1.1
+		var working := station.state == STATE_WORKING and station.chair_occupied
+		var paper_phase := _phase * rhythm + station.phase_offset + paper_index * 0.7
+		# Safe desks pause between inspection strokes; fast desks shuffle briskly.
+		# Resting flock desks are genuinely still. None of this changes authority.
+		var motion := maxf(0.0, sin(paper_phase)) if _strategy_id == "safe" else sin(paper_phase)
+		paper.position.y = rest_y + route_lift + (motion * 0.012 if working and not _reduced_motion else 0.0)
 		paper.scale = Vector3.ONE * (1.0 + station.route_boost * (0.10 if paper_index == 0 else 0.02))
 	if station.stress_notice != null and station.stress_notice.visible:
 		station.stress_notice.rotation.z = sin(_phase * 3.8 + station.phase_offset) * 0.025

@@ -379,6 +379,7 @@ var _scenario_prop_roots: Dictionary = {}
 var _coop_identity_prop_roots: Dictionary = {}
 var _scenario_identity_id: StringName = &"baseline_book"
 var _career_profile: Dictionary = {}
+var _named_hen_recognition := ""
 var _scenario_mastery_snapshot: Dictionary = {}
 
 
@@ -543,6 +544,8 @@ func set_commendations_snapshot(snapshot: Dictionary) -> void:
 			maxi(_career_trophy_slots.size(), int(snapshot.get("total_count", 12))),
 		]
 		_career_trophy_label.modulate = identity_color
+		if not _named_hen_recognition.is_empty():
+			_career_trophy_label.text += "\n" + _named_hen_recognition
 		_career_trophy_label.set_meta("management_identity", String(identity_id))
 
 
@@ -578,12 +581,24 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 	var previous_snapshot := _last_snapshot
 	_last_snapshot = snapshot
 	var workers: Array = snapshot.get("workers", []) as Array
+	var recognition := ""
+	var best_milestone := 0
 	for worker_variant in workers:
 		var worker := worker_variant as Dictionary
 		var worker_id := int(worker.get("id", -1))
 		bind_worker_to_desk(worker_id, int(worker.get("desk_index", -1)))
 		if worker_id >= 0:
 			_worker_names[worker_id] = String(worker.get("name", "HEN %d" % (worker_id + 1)))
+			var milestone := 0
+			for threshold in [10, 25, 50, 100]:
+				if int(worker.get("eggs_laid", 0)) >= threshold:
+					milestone = threshold
+			if milestone > best_milestone:
+				best_milestone = milestone
+				recognition = "%s · %d EGGS" % [_worker_names[worker_id].to_upper(), milestone]
+	if recognition != _named_hen_recognition:
+		_named_hen_recognition = recognition
+		set_commendations_snapshot(_commendations_visual_snapshot)
 	_reconcile_clutch_from_snapshot(snapshot)
 	var now_msec := Time.get_ticks_msec()
 	var facility_visual_fingerprint := _facility_visual_state_fingerprint_for(snapshot)

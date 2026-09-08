@@ -38,6 +38,14 @@ var _advancing_tick_batch := false
 var _precision_focus_active := false
 var _interaction_hold_active := false
 var _catch_up_publication_pending := false
+var _last_frame_usec: int = 0
+
+
+## Engine delta can be clamped at low Web frame rates. Account for bounded
+## active time, but discard suspended-tab gaps rather than granting offline work.
+static func active_frame_seconds(delta: float, elapsed: float) -> float:
+	var render_delta := clampf(delta, 0.0, 0.25)
+	return render_delta if elapsed > 1.0 or elapsed < 0.0 else maxf(render_delta, elapsed)
 
 
 func initialize(simulation: DepartmentSimulation) -> void:
@@ -45,6 +53,10 @@ func initialize(simulation: DepartmentSimulation) -> void:
 
 
 func _process(delta: float) -> void:
+	var now_usec := Time.get_ticks_usec()
+	if OS.has_feature("web") and _last_frame_usec > 0:
+		delta = active_frame_seconds(delta, float(now_usec - _last_frame_usec) / 1000000.0)
+	_last_frame_usec = now_usec
 	_ticks_advanced_last_frame = 0
 	if _simulation == null or speed_index == 0 or _interaction_hold_active:
 		return
@@ -131,6 +143,7 @@ func set_interaction_hold_active(active: bool) -> void:
 	if _interaction_hold_active == active:
 		return
 	_interaction_hold_active = active
+	_last_frame_usec = 0
 	_ticks_advanced_last_frame = 0
 	if active:
 		# Never carry an almost-complete tick through a potentially long reading
@@ -153,6 +166,7 @@ func is_advancing_tick_batch() -> bool:
 
 
 func set_speed(new_speed_index: int) -> void:
+	_last_frame_usec = 0
 	speed_index = clampi(new_speed_index, 0, SPEED_MULTIPLIERS.size() - 1)
 	if speed_index == 0:
 		_accumulator = 0.0

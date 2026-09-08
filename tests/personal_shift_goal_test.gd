@@ -16,6 +16,17 @@ func _init() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+	var actual_goal := Goal.offer({"day": 1, "quota": 16, "next_quota": 17, "eggs": 16, "cracked": 2})
+	_check(actual_goal.quota == 17, "real workday reports must use next_quota, not a missing quota_target", failures)
+	var legacy := actual_goal.duplicate(true)
+	legacy.quota = 1
+	_check(Goal.reconcile(legacy, 2, 17, {}).quota == 17, "legacy active goals must repair against restored authority", failures)
+	_check(Goal.finish(legacy, {"day": 2, "quota": 17, "eggs": 1, "cracked": 0}).status == "missed", "legacy quota=1 must never grant a false success", failures)
+	_check(Goal.offer({"day": 1, "quota": 16, "next_quota": 19, "eggs": 16}).target == 19, "output targets must not fall below the next quota", failures)
+	_check(Goal.strategy(actual_goal).id == "safe", "review previews must support the actual goal", failures)
+	_check(is_equal_approx(SimulationClock.active_frame_seconds(0.06, 0.3), 0.3), "low FPS must not stretch active work time", failures)
+	_check(is_equal_approx(SimulationClock.active_frame_seconds(0.06, 30.0), 0.06), "background gaps must not grant offline progress", failures)
+	_check(SimulationClock.active_frame_seconds(30.0, 30.0) <= 0.25, "an unclamped resume delta must also remain bounded", failures)
 	var report := {"day": 1, "eggs": 12, "quota_target": 10, "cracked": 2, "overdue_claims": 1}
 	var goal := Goal.offer(report)
 	_check(goal.kind == "shells" and goal.target == 1 and goal.day == 2, "offer must derive a next-shift improvement from actual results", failures)
@@ -81,6 +92,20 @@ func _run() -> void:
 	office.set("_dispatch_lane", &"appeals")
 	controller.call("_select_projected_target", target)
 	_check(office.get("_dispatch_lane") == &"appeals" and simulation.revenue_cents == before_cash, "equipment focus must leave a pending route and all money unchanged", failures)
+	office.call("_set_flockwatch_open", false)
+	var routing := office.get("_routing_ui") as PeckworkRoutingUI
+	routing.set_focus(0)
+	routing.begin_care_lesson()
+	var lesson := routing.get("_care_lesson") as Dictionary
+	var later := routing.find_child("CareLessonLater", true, false) as Button
+	_check(not lesson.is_empty() and later.visible, "optional care must provide an explicit Later exit", failures)
+	_check(simulation.revenue_cents == before_cash, "opening a lesson must not spend money", failures)
+	later.pressed.emit()
+	_check((routing.get("_care_lesson") as Dictionary).is_empty(), "Later must dismiss the lesson without filing", failures)
+	routing.begin_care_lesson()
+	routing.complete_care_lesson(0, {"accepted": true, "outcome": "Actual check-in"}, {"name": "Mabel", "manager_trust": 50, "stress": 30}, {"manager_trust": 58, "stress": 25})
+	_check(String((routing.get("_care_lesson") as Dictionary).outcome).contains("50 → 58"), "lesson results must use before/after authority", failures)
+	_check((office.get("_active_playbook_button") as Button).text.begins_with("PLAN"), "the plan menu must retain a stable name", failures)
 	office.queue_free()
 	await process_frame
 	if failures.is_empty():
