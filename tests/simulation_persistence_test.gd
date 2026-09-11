@@ -48,6 +48,7 @@ func _run() -> void:
 		"first_clutch_reinvestment", "requisition_spend_today_cents",
 		"requisition_spend_total_cents", "orientation_procurement_match_today_cents",
 		"orientation_procurement_match_total_cents",
+		"active_playbook",
 	]:
 		var equivalent: bool = after.get(field) == before.get(field)
 		if field in ["last_staffing_action", "staffing_catalog", "capacity_upgrade"]:

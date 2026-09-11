@@ -21,12 +21,12 @@ func _init() -> void:
 func _test_active_inventory_json_round_trip(failures: Array[String]) -> void:
 	var source := _active_reserve_fixture(18_101)
 	var exported := _json_round_trip(source.export_save_state())
-	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current feed state should export schema v23", failures)
+	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current feed state should export schema v24", failures)
 	var facilities := exported.get("owned_facilities", {}) as Dictionary
-	_check(facilities.size() == 13, "schema v23 should serialize exactly thirteen facility keys", failures)
-	_check(int(facilities.get(String(PROVISIONS), -1)) == 3, "schema v23 should preserve Provisions tier three", failures)
-	_check(exported.has("feed_procurement_state"), "schema v23 should carry the authoritative feed ledger", failures)
-	_check(exported.has("campus_expansion"), "schema v23 should carry the strict North Meadow ledger", failures)
+	_check(facilities.size() == 13, "schema v24 should serialize exactly thirteen facility keys", failures)
+	_check(int(facilities.get(String(PROVISIONS), -1)) == 3, "schema v24 should preserve Provisions tier three", failures)
+	_check(exported.has("feed_procurement_state"), "schema v24 should carry the authoritative feed ledger", failures)
+	_check(exported.has("campus_expansion"), "schema v24 should carry the strict North Meadow ledger", failures)
 
 	var restored := DepartmentSimulation.new(18_102, 6)
 	_check(restored.restore_save_state(exported), "valid active-inventory JSON should restore", failures)

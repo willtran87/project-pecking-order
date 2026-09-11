@@ -46,6 +46,24 @@ func _run() -> void:
 		_finish(office, failures)
 		return
 
+	_stage = "staging transient action feedback"
+	var feedback_before := simulation.snapshot()
+	var feedback_after := feedback_before.duplicate(true)
+	feedback_after["revenue_cents"] = int(feedback_before.get("revenue_cents", 0)) - 700
+	office.call(
+		"_spawn_decision_consequence_receipts",
+		feedback_before,
+		feedback_after,
+		{"option_id": &"campus_test_filing"},
+	)
+	await process_frame
+	_check(
+		bool((office.get("_latest_action_outcome_receipt") as Dictionary).get("visible", false))
+		and not office.find_children("ActionOutcomeReceipt_*", "PanelContainer", true, false).is_empty(),
+		"fixture should begin with a visible transient action receipt",
+		failures,
+	)
+
 	_stage = "filing Orchard Row deed"
 	office.call("_on_campus_portfolio_deed_requested", ORCHARD)
 	await process_frame
@@ -60,6 +78,46 @@ func _run() -> void:
 	_check(camera.current_focus_label == "ORCHARD ROW", "deed reveal should focus the named parcel instead of the generic campus", failures)
 	_check(unowned != null and not unowned.visible and owned != null and owned.visible, "the world behind the deed receipt should already show unowned-to-owned reconciliation", failures)
 	_check(_contains_all(reveal.accessible_text(), ["campus deed filed", "orchard row", "$125.00"]), "deed reveal should narrate the exact visible transition", failures)
+	var archived_feedback := office.get("_latest_action_outcome_receipt") as Dictionary
+	var notification_handoff := office.get("_latest_notification_handoff") as Dictionary
+	_check(
+		not bool(archived_feedback.get("visible", true))
+		and String(archived_feedback.get("dismissed_by", "")) == "campus_portfolio_reveal"
+		and office.find_children("ActionOutcomeReceipt_*", "PanelContainer", true, false).is_empty()
+		and String(notification_handoff.get("surface", "")) == "campus_portfolio_reveal"
+		and bool(notification_handoff.get("action_feedback_retired", false)),
+		"campus reveal should archive semantic action feedback and remove every stale card before exposing the world",
+		failures,
+	)
+	var deed_summary := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	var deed_announcement := office.call(
+		"_web_accessibility_announcement",
+		simulation.snapshot(),
+	) as Dictionary
+	var deed_next_action := office.call("_next_action_diagnostic_state") as Dictionary
+	_check(
+		_contains_all(deed_summary, [
+			"campus deed filed",
+			"orchard row",
+			"$125.00",
+			"Objective: Acknowledge the campus receipt and return to the prior office surface.",
+		])
+		and String(deed_announcement.get("kind", ""))
+		== "campus_portfolio_reveal"
+		and _contains_all(String(deed_announcement.get("text", "")), [
+			"Campus build reveal opened.",
+			"Objective: Acknowledge the campus receipt",
+			"CAMPUS DEED FILED",
+		])
+		and String(deed_next_action.get("action_id", ""))
+		== "campus_portfolio_reveal_continue"
+		and String(deed_next_action.get("copy", "")) == "CONTINUE",
+		"campus reveal should own deliberate inspection, live narration, and the exact visible continuation above its parent planner",
+		failures,
+	)
 	office.call("_on_campus_portfolio_reveal_return_requested")
 	await process_frame
 	_check(portfolio.is_open() and not reveal.is_reveal_visible() and visual.reveal_target_snapshot().is_empty(), "Return should restore the portfolio and clear only the temporary world marker", failures)

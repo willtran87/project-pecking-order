@@ -5,6 +5,7 @@ func _init() -> void:
 	var failures: Array[String] = []
 	_test_opening_catalog_and_specialties(failures)
 	_test_assignment_atomicity_and_seated_pickup(failures)
+	_test_dispatch_candidate_ranking(failures)
 	_test_auto_specialty_and_urgency(failures)
 	_test_specialty_causality(failures)
 	_test_deterministic_arrivals_cap_and_deadlines(failures)
@@ -17,6 +18,61 @@ func _init() -> void:
 		return
 	print("CLAIM_ROUTING_TEST_PASSED lanes=3 queue=bounded routing=causal rework=next-shift")
 	quit(0)
+
+
+func _test_dispatch_candidate_ranking(failures: Array[String]) -> void:
+	var simulation := DepartmentSimulation.new(800)
+	var file_preview := simulation.dispatch_file_preview(&"nest_damage")
+	_check(
+		int(file_preview.get("claim_id", -1)) > 0
+		and String(file_preview.get("personality_id", "")) in ["rush", "returned", "prize", "fragile", "sensitive", "repair", "steady"]
+		and not String(file_preview.get("label", "")).is_empty()
+		and not String(file_preview.get("symbol", "")).is_empty()
+		and not String(file_preview.get("behavior", "")).is_empty()
+		and String(file_preview.get("authoritative_source", "")) == "queued_claim",
+		"the next queued file should expose one deterministic personality from real file facts",
+		failures,
+	)
+	var candidates := simulation.dispatch_candidates(&"nest_damage")
+	_check(candidates.size() == 6, "dispatch should expose every employed hen", failures)
+	_check(not candidates.is_empty() and bool(candidates[0].get("recommended", false)), "dispatch should mark exactly the first ranked hen as recommended", failures)
+	if not candidates.is_empty():
+		_check(bool(candidates[0].get("specialty_match", false)), "best-fit dispatch should prefer a lane specialist", failures)
+		_check(
+			String(candidates[0].get("fit_tier", "")) == "best"
+			and String(candidates[0].get("fit_shape", "")) == "star"
+			and String(candidates[0].get("pace_preview", "")) == "fast"
+			and String(candidates[0].get("shell_risk_preview", "")) == "low"
+			and String(candidates[0].get("reward_preview", "")) == "momentum",
+			"the ranked target should expose one compact, shape-coded outcome preview",
+			failures,
+		)
+		_check(
+			String(candidates[0].get("strategy_id", "")) == "flow"
+			and String(candidates[0].get("consequence_preview", "")) == "FLOW +1"
+			and (candidates[0].get("file_personality", {}) as Dictionary) == file_preview,
+			"the obvious opening target should connect the carried file to a truthful flow consequence",
+			failures,
+		)
+		var recommended_count := 0
+		var safe_count := 0
+		var risky_count := 0
+		for candidate in candidates:
+			if bool(candidate.get("recommended", false)):
+				recommended_count += 1
+			match String(candidate.get("fit_tier", "")):
+				"safe":
+					safe_count += 1
+					_check(String(candidate.get("fit_shape", "")) == "check", "safe targets should use a check shape", failures)
+					_check(String(candidate.get("consequence_preview", "")) == "FLOW HOLDS", "safe targets should preserve earned flow", failures)
+				"risky":
+					risky_count += 1
+					_check(String(candidate.get("fit_shape", "")) == "triangle", "risky targets should use a warning triangle", failures)
+					_check(String(candidate.get("consequence_preview", "")) == "FLOW RESETS", "risky targets should preview the flow reset", failures)
+		_check(recommended_count == 1, "dispatch should expose one unambiguous best fit", failures)
+		_check(safe_count > 0 and risky_count > 0, "dispatch should distinguish safe alternatives from risky experiments", failures)
+	_check(simulation.dispatch_candidates(&"executive_scratching").is_empty(), "unknown trays should not expose candidates", failures)
+	_check(simulation.dispatch_file_preview(&"executive_scratching").is_empty(), "unknown trays should not expose a file personality", failures)
 
 
 func _test_opening_catalog_and_specialties(failures: Array[String]) -> void:

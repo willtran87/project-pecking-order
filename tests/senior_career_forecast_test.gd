@@ -14,14 +14,14 @@ func _init() -> void:
 			push_error("SENIOR_CAREER_FORECAST_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("SENIOR_CAREER_FORECAST_TEST_PASSED boundaries=45-60-80 breakdown=pure tie=deterministic projection=quarter-parity save=unchanged")
+	print("SENIOR_CAREER_FORECAST_TEST_PASSED boundaries=40-60-80 breakdown=pure tie=deterministic projection=quarter-parity save=unchanged")
 	quit(0)
 
 
 func _test_mark_boundaries(failures: Array[String]) -> void:
 	var expected := {
-		44: 0,
-		45: 1,
+		39: 0,
+		40: 1,
 		59: 1,
 		60: 2,
 		79: 2,
@@ -34,8 +34,8 @@ func _test_mark_boundaries(failures: Array[String]) -> void:
 			"score %d should project exactly %d Roost Marks" % [score, int(expected[score_value])],
 			failures,
 		)
-	_check(SeniorRoostStateScript.next_mark_threshold_for_score(44) == 45, "44 should point to the 45-point tier", failures)
-	_check(SeniorRoostStateScript.next_mark_threshold_for_score(45) == 60, "45 should point to the 60-point tier", failures)
+	_check(SeniorRoostStateScript.next_mark_threshold_for_score(39) == 40, "39 should point to the 40-point tier", failures)
+	_check(SeniorRoostStateScript.next_mark_threshold_for_score(40) == 60, "40 should point to the 60-point tier", failures)
 	_check(SeniorRoostStateScript.next_mark_threshold_for_score(60) == 80, "60 should point to the 80-point tier", failures)
 	_check(SeniorRoostStateScript.next_mark_threshold_for_score(80) == -1, "80 should report the top mark tier", failures)
 

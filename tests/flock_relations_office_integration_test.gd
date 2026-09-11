@@ -162,8 +162,12 @@ func _run() -> void:
 	var held_remedy := office.find_child("FlockRelationsAction_fund_remedy", true, false) as Button
 	_check(navigation.current_page_id() == FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS, "the live case should remain on Records", failures)
 	_check(case_heading != null and records_scroll.is_ancestor_of(case_heading), "the named case card should render inside the Records scroll", failures)
-	_check(case_heading != null and _contains_all(case_heading.text, [subject_name, "supervision", "surveillance"]), "embedded Flockwatch should render the canonical named case", failures)
+	_check(case_heading != null and _contains_all(case_heading.text, [subject_name, "surveillance"]) and _contains_all(case_heading.tooltip_text, ["supervision", "surveillance"]), "embedded Flockwatch should pair the canonical subject with a concise type and exact title tooltip", failures)
 	_check(case_evidence != null and _contains_all(case_evidence.text, ["risk 340", "grievance 70", "trust 10"]), "embedded Flockwatch should render canonical evidence rather than reconstructed values", failures)
+	var risk_glance := office.find_child("CaseEvidenceRisk", true, false) as Label
+	var grievance_glance := office.find_child("CaseEvidenceGriev", true, false) as Label
+	var stress_glance := office.find_child("CaseEvidenceStress", true, false) as Label
+	_check(risk_glance != null and risk_glance.text == "RISK\n340" and grievance_glance != null and grievance_glance.text == "GRIEV\n70" and stress_glance != null and stress_glance.text == "STRESS\n60", "embedded Flockwatch should expose canonical evidence through compact glance tiles", failures)
 	_check(held_remedy != null and held_remedy.disabled, "Fund Remedy should visibly hold outside Farmer Review", failures)
 	_check(int(visual.call("visible_case_folder_count")) == 1, "the physical case office should show exactly one canonical folder", failures)
 	_check(visual.call("open_case_ids") == [case_id], "the physical folder should retain the canonical case id", failures)
@@ -178,10 +182,8 @@ func _run() -> void:
 		# the authoritative handler must still reject it atomically.
 		held_remedy.pressed.emit()
 	await process_frame
-	_check(forwarded == [{"case_id": case_id, "action_id": &"fund_remedy"}], "the embedded case control should forward stable ids through RoostStaffingUI", failures)
+	_check(forwarded.is_empty(), "the embedded case control should fail closed before forwarding a stale disabled disposition", failures)
 	_check(JSON.stringify(simulation.export_save_state()) == before_rejected_click, "a mid-shift Fund Remedy signal should preserve every authoritative field", failures)
-	var ticker := office.get("_ticker_label") as Label
-	_check(ticker != null and _contains_all(ticker.text, ["only", "shift review"]), "the rejected Office handler should leave a truthful review-gate explanation", failures)
 
 	# Reopen the same canonical file in Review, then exercise the player-facing
 	# button -> case UI -> staffing UI -> Office handler -> simulation path.
@@ -199,7 +201,7 @@ func _run() -> void:
 	var remedy := office.find_child("FlockRelationsAction_fund_remedy", true, false) as Button
 	_check(bool(remedy_option.get("enabled", false)), "the authoritative review snapshot should enable Fund Remedy", failures)
 	_check(expected_cost == 2000, "severity-three Fund Remedy should author the exact $20.00 cost", failures)
-	_check(remedy != null and not remedy.disabled and "$20.00" in remedy.text, "the embedded review action should expose and enable the exact canonical cost", failures)
+	_check(remedy != null and not remedy.disabled and remedy.text == "REPAIR\n$20.00" and _contains_all(remedy.tooltip_text, ["fund remedy", "$20.00"]), "the embedded review action should expose and enable the exact canonical cost", failures)
 	var fund_before_remedy := simulation.revenue_cents
 	var untouched_worker_before := (
 		(simulation.export_save_state().get("workers", []) as Array)[1] as Dictionary
@@ -208,6 +210,20 @@ func _run() -> void:
 	if remedy != null:
 		remedy.pressed.emit()
 	await process_frame
+	var confirmation := office.find_child(
+		"FlockRelationsDispositionConfirmation",
+		true,
+		false,
+	) as ConfirmationDialog
+	_check(
+		confirmation != null
+		and confirmation.visible
+		and simulation.revenue_cents == fund_before_remedy,
+		"opening the permanent remedy disposition should not debit the Feed Fund",
+		failures,
+	)
+	if confirmation != null:
+		confirmation.confirmed.emit()
 	await process_frame
 
 	_check(forwarded == [{"case_id": case_id, "action_id": &"fund_remedy"}], "review authorization should traverse RoostStaffingUI exactly once", failures)
@@ -225,8 +241,22 @@ func _run() -> void:
 	_check((workers_after[1] as Dictionary) == untouched_worker_before, "resolving one case should not mutate an unrelated hen", failures)
 
 	var receipt_label := office.find_child("FlockRelationsLastResolution", true, false) as Label
+	var debit_state := office.call("fund_debit_feedback_snapshot") as Dictionary
+	var debit_receipt := debit_state.get("last_receipt", {}) as Dictionary
+	_check(
+		String(debit_receipt.get("transaction_kind", "")) == "flock_relations"
+		and String(debit_receipt.get("target_id", ""))
+		== "flock_relations_%d_fund_remedy" % case_id
+		and String(debit_receipt.get("target_name", "")) in [
+			"FlockRelationsLastResolution",
+			"FlockwatchToggle",
+		]
+		and int(debit_receipt.get("cost_cents", 0)) == expected_cost,
+		"the accepted remedy should route its exact debit to the filed resolution or clipped Records fallback",
+		failures,
+	)
 	var empty_label := _descendant_label_containing(records_scroll, "NO OPEN HEN FILES")
-	_check(receipt_label != null and receipt_label.visible and _contains_all(receipt_label.text, [subject_name, "fund remedy", "$20.00"]), "the existing Flockwatch surface should refresh to the permanent receipt", failures)
+	_check(receipt_label != null and receipt_label.visible and _contains_all(receipt_label.text, [subject_name, "repair", "-$20.00"]) and _contains_all(receipt_label.tooltip_text, ["fund remedy", "$20.00"]), "the existing Flockwatch surface should refresh to a compact receipt with exact filed terms on demand", failures)
 	_check(receipt_label != null and records_scroll.is_ancestor_of(receipt_label), "the permanent receipt should remain inside the Records scroll", failures)
 	_check(empty_label != null and records_scroll.is_ancestor_of(empty_label) and "no open hen files" in empty_label.text.to_lower(), "the refreshed Records page should retain an honest usable empty state", failures)
 	_check(flockwatch.visible and records_scroll.is_visible_in_tree() and relations_ui.is_visible_in_tree(), "resolving a case should keep the existing Records ledger open and usable", failures)

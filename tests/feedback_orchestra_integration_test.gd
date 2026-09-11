@@ -15,18 +15,22 @@ func _run() -> void:
 	var simulation := office.get("_simulation") as DepartmentSimulation
 	var clock := office.get("_clock") as SimulationClock
 	var audio := office.get("_audio_feedback") as OfficeAudioFeedback
+	var routing_ui := office.get("_routing_ui") as PeckworkRoutingUI
 	var storytelling := office.get("_office_storytelling") as OfficeStorytelling
 	var worker_views: Dictionary = office.get("_worker_views") as Dictionary
 	var worker_view := worker_views.get(0) as ChickenView
+	var ticker := office.get("_ticker_label") as Label
 	_check(simulation != null, "Office should expose its authoritative simulation", failures)
 	_check(clock != null, "Office should expose its simulation clock", failures)
 	_check(audio != null, "Office should install pooled audio feedback", failures)
+	_check(routing_ui != null, "Office should install the selected-hen dossier", failures)
 	_check(storytelling != null, "Office should install physical egg storytelling", failures)
 	_check(worker_view != null, "Office should spawn the first worker view", failures)
 	if (
 		simulation == null
 		or clock == null
 		or audio == null
+		or routing_ui == null
 		or storytelling == null
 		or worker_view == null
 	):
@@ -88,8 +92,81 @@ func _run() -> void:
 	await process_frame
 	clock.set_speed(0)
 	simulation.set_worker_at_workstation(0, true)
+	office.call("_on_camera_focus_changed", "MABEL", 0)
+	await process_frame
+	_check(
+		ticker != null
+		and "MABEL" in ticker.text
+		and "♥" in ticker.text
+		and "Zz" in ticker.text
+		and "!" in ticker.text
+		and "CRACK" in ticker.text
+		and not "MORALE" in ticker.text
+		and not "FATIGUE" in ticker.text
+		and not "STRESS" in ticker.text
+		and "Morale" in ticker.accessibility_name
+		and "Fatigue" in ticker.accessibility_name
+		and "Stress" in ticker.accessibility_name
+		and "Estimated shell crack risk" in ticker.accessibility_name
+		and ticker.tooltip_text == ticker.accessibility_name
+		and StringName(ticker.get_meta("presentation_role", &"")) == &"worker_vitals",
+		"selected-hen status should use a compact visual vitals strip with a complete semantic equivalent",
+		failures,
+	)
+	cue_events.clear()
+	var intent_marker := worker_view.find_child("HenIntentMarker", true, false) as Sprite3D
+	var background_worker_view := worker_views.get(1) as ChickenView
+	var background_marker := (
+		background_worker_view.find_child("HenIntentMarker", true, false) as Sprite3D
+		if background_worker_view != null else
+		null
+	)
+	_check(
+		intent_marker != null
+		and background_marker != null
+		and StringName(intent_marker.get_meta("focus_role", &"")) == &"selected"
+		and StringName(background_marker.get_meta("focus_role", &"")) == &"background"
+		and background_marker.pixel_size < intent_marker.pixel_size
+		and background_marker.modulate.a < intent_marker.modulate.a,
+		"inspecting one hen should keep her world pin prominent while routine flock pins recede",
+		failures,
+	)
+	var opportunity_visual_serial := int(
+		intent_marker.get_meta("priority_peck_ready_serial", 0)
+		if intent_marker != null else
+		0
+	)
 	var assist_available := _advance_until_assist_available(simulation, 0)
 	_check(assist_available, "test worker should enter an authoritative Priority Peck window", failures)
+	var opportunity_frames := _cue_frames(cue_events, &"priority_peck_ready")
+	_check(
+		opportunity_frames.size() == 1,
+		"the inspected claim should announce its first transition into the open window exactly once",
+		failures,
+	)
+	_check(
+		intent_marker != null
+		and int(intent_marker.get_meta("priority_peck_ready_serial", 0)) == opportunity_visual_serial + 1
+		and bool(intent_marker.get_meta("priority_peck_ready_animated", false)),
+		"the same inspected transition should pulse the selected hen's no-text world pin exactly once",
+		failures,
+	)
+	office.call("_refresh_priority_peck_precision_focus", simulation.snapshot())
+	office.call("_refresh_priority_peck_precision_focus", simulation.snapshot())
+	office.call("_on_camera_focus_changed", "PIP", 1)
+	office.call("_on_camera_focus_changed", "MABEL", 0)
+	await process_frame
+	_check(
+		_cue_frames(cue_events, &"priority_peck_ready").size() == 1,
+		"repeated snapshots and refocusing an already-open claim should remain quiet",
+		failures,
+	)
+	_check(
+		intent_marker != null
+		and int(intent_marker.get_meta("priority_peck_ready_serial", 0)) == opportunity_visual_serial + 1,
+		"repeated snapshots and refocus should not replay the selected-hen opportunity halo",
+		failures,
+	)
 
 	# The accepted request itself must stay silent. ChickenView's delayed contact
 	# markers should synchronously drive each accepted peck cue through Office.
@@ -107,6 +184,12 @@ func _run() -> void:
 	_check(
 		_cue_frames(cue_events, &"peck_contact").is_empty(),
 		"accepted button/request handling must not play contact audio immediately",
+		failures,
+	)
+	_check(
+		_cue_frames(cue_events, &"priority_peck_perfect").is_empty()
+		and _cue_frames(cue_events, &"priority_peck_steady").is_empty(),
+		"accepted input must not play the semantic result before physical follow-through",
 		failures,
 	)
 	await _wait_physics_frames(2)
@@ -129,7 +212,99 @@ func _run() -> void:
 		"first peck cue should occur after the accepted request frame",
 		failures,
 	)
+	var priority_peck_result_cue: StringName = (
+		&"priority_peck_perfect"
+		if StringName(simulation.last_peck_assist.get("rating", &"steady")) == &"perfect" else
+		&"priority_peck_steady"
+	)
+	var priority_peck_result_frames := _cue_frames(cue_events, priority_peck_result_cue)
+	var priority_peck_audio := audio.feedback_snapshot()
+	_check(
+		priority_peck_result_frames.size() == 1
+		and contact_frames.size() == 3
+		and priority_peck_result_frames[0] == contact_frames[2],
+		"one semantic result cadence should land exactly on the third visible peck contact",
+		failures,
+	)
+	_check(
+		String(priority_peck_audio.get("last_cue", "")) == String(priority_peck_result_cue)
+		and String(priority_peck_audio.get("last_haptic_cue", "")) == String(priority_peck_result_cue),
+		"completed Priority Peck feedback should expose matching audio and optional haptic semantics",
+		failures,
+	)
 	clock.set_speed(0)
+
+	# A second inspected hen now crosses the authoritative closing boundary. The
+	# event should retire both the world opportunity ring and dossier connector
+	# exactly once, then leave a stable next-file recovery state.
+	var missed_worker_view := worker_views.get(1) as ChickenView
+	_check(missed_worker_view != null, "Office should expose Pip for a real missed-window transition", failures)
+	if missed_worker_view != null:
+		simulation.set_worker_at_workstation(1, true)
+		office.call("_on_camera_focus_changed", "PIP", 1)
+		await process_frame
+		var missed_marker := missed_worker_view.find_child("HenIntentMarker", true, false) as Sprite3D
+		var missed_available := _advance_until_assist_available(simulation, 1)
+		_check(missed_available, "Pip should enter a second authoritative Priority Peck window", failures)
+		var missed_claim_id := int(simulation.peck_assist_status(1).get("claim_id", -1))
+		var world_missed_serial := int(
+			missed_marker.get_meta("priority_peck_missed_serial", 0)
+			if missed_marker != null else
+			0
+		)
+		var dossier_missed_serial := int(routing_ui.get_meta("peck_missed_link_serial", 0))
+		simulation.workers[1].work_progress = DepartmentSimulation.PECK_ASSIST_WINDOW_END
+		simulation.advance_tick()
+		await process_frame
+		_check(
+			StringName(simulation.peck_assist_status(1).get("window_state", &"")) == &"missed",
+			"the fixture should cross the real one-shot missed-window boundary",
+			failures,
+		)
+		_check(
+			missed_marker != null
+			and int(missed_marker.get_meta("priority_peck_missed_serial", 0)) == world_missed_serial + 1
+			and bool(missed_marker.get_meta("priority_peck_missed_animated", false))
+			and bool(missed_marker.get_meta("priority_peck_missed_active", false)),
+			"the inspected hen's pin should contract one broken missed ring",
+			failures,
+		)
+		_check(
+			int(routing_ui.get_meta("peck_missed_link_serial", 0)) == dossier_missed_serial + 1
+			and bool(routing_ui.get_meta("peck_missed_link_animated", false))
+			and StringName(office.get("_priority_peck_result_hold_kind")) == &"missed"
+			and int(office.get("_priority_peck_result_hold_until_msec")) > Time.get_ticks_msec(),
+			"the same closing event should reverse one broken dossier connector",
+			failures,
+		)
+		office.call("_on_peck_assist_missed", 1, missed_claim_id)
+		_check(
+			missed_marker != null
+			and int(missed_marker.get_meta("priority_peck_missed_serial", 0)) == world_missed_serial + 1
+			and int(routing_ui.get_meta("peck_missed_link_serial", 0)) == dossier_missed_serial + 1,
+			"duplicate callbacks for the same claim must not replay either missed-window retreat",
+			failures,
+		)
+		await create_timer(0.64).timeout
+		var missed_halo := missed_worker_view.find_child("PriorityPeckReadyHalo", true, false) as Sprite3D
+		var missed_link := routing_ui.find_child("PriorityPeckIntentLink", true, false) as Control
+		_check(
+			missed_halo != null
+			and not missed_halo.visible
+			and missed_link != null
+			and not missed_link.visible,
+			"both missed-window flourishes should settle without persistent floor or dossier clutter",
+			failures,
+		)
+		# The failed action holds the inspected file for the same readable result
+		# budget as a landed peck, then restores the player's selected speed.
+		await create_timer(2.00).timeout
+		office.call("_refresh_priority_peck_precision_focus", simulation.snapshot())
+		_check(
+			StringName(office.get("_priority_peck_result_hold_kind")) == &"",
+			"the readable missed result beat should retire and release precision focus automatically",
+			failures,
+		)
 
 	# Drive the worker view through LAYING and then end the state early, matching a
 	# fast simulation clock. Office should still play the lay cue at the authored
@@ -292,7 +467,7 @@ func _report_and_quit(failures: Array[String]) -> void:
 			push_error("FEEDBACK_ORCHESTRA_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FEEDBACK_ORCHESTRA_INTEGRATION_TEST_PASSED peck=contact lay=release grade=sorter presentation=basket payout=arrival+fallback")
+	print("FEEDBACK_ORCHESTRA_INTEGRATION_TEST_PASSED opportunity=single-fire peck=contact+semantic-result lay=release grade=sorter presentation=basket payout=arrival+fallback")
 	quit(0)
 
 

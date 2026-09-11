@@ -39,6 +39,7 @@ var _layout_mode := &"desktop"
 var _return_focus: WeakRef
 
 var _main_panel: PanelContainer
+var _header_grid: GridContainer
 var _header_status: Label
 var _body_scroll: ScrollContainer
 var _desktop_body: HBoxContainer
@@ -62,6 +63,7 @@ var _stage_host: HFlowContainer
 var _benefit_summary: Label
 
 var _selection_summary: Label
+var _action_grid: GridContainer
 var _close_button: Button
 var _place_button: Button
 var _relocate_button: Button
@@ -123,6 +125,51 @@ func is_open() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_open():
+		return {}
+	var pod := _model.routing_pod()
+	var target := _relocate_button if bool(pod.get("placed", false)) else _place_button
+	var action_id := (
+		"campus_expansion_relocate"
+		if bool(pod.get("placed", false)) else
+		"campus_expansion_place"
+	)
+	if target == null or target.disabled or not target.is_visible_in_tree():
+		target = _close_button
+		action_id = "campus_expansion_return"
+	if target == null or not target.is_visible_in_tree():
+		return {}
+	var copy := target.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": action_id,
+		"actionable": not target.disabled,
+		"semantic_icon": "safe_return" if target == _close_button else "capital",
+		"icon_visible": target.icon != null,
+		"accessible_text": (
+			target.tooltip_text.strip_edges()
+			if not target.tooltip_text.strip_edges().is_empty() else
+			copy
+		),
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	var action_id := String(state.get("action_id", ""))
+	var target := _place_button
+	if action_id == "campus_expansion_relocate":
+		target = _relocate_button
+	elif action_id == "campus_expansion_return":
+		target = _close_button
+	target.grab_focus()
+	return true
+
+
 func selected_socket_id() -> StringName:
 	return _selected_socket_id
 
@@ -165,7 +212,10 @@ func presentation_state() -> Dictionary:
 func accessible_text() -> String:
 	var parts: Array[String] = [
 		"CAMPUS EXPANSION",
-		_header_status.text,
+		String(_header_status.get_meta(
+			"accessible_text",
+			_header_status.tooltip_text if not _header_status.tooltip_text.is_empty() else _header_status.text,
+		)),
 		_parcel_title.text,
 		_parcel_status.text,
 		_parcel_costs.text,
@@ -189,6 +239,15 @@ func accessible_text() -> String:
 	parts.append(_benefit_summary.text)
 	parts.append(_selection_summary.text)
 	return "; ".join(parts).replace("\n", "; ")
+
+
+func present_action_hold(copy: String, detail: String) -> void:
+	if _header_status == null:
+		return
+	_header_status.text = copy
+	_header_status.tooltip_text = detail
+	_header_status.set_meta("accessible_text", detail)
+	_header_status.add_theme_color_override("font_color", COLOR_RUST)
 
 
 func _build_interface() -> void:
@@ -225,22 +284,24 @@ func _build_interface() -> void:
 	page.add_theme_constant_override("separation", 8)
 	margin.add_child(page)
 
-	var header := HBoxContainer.new()
-	header.name = "CampusExpansionHeader"
-	header.custom_minimum_size.y = 46.0
-	header.add_theme_constant_override("separation", 14)
-	page.add_child(header)
-	var title := _label("CAMPUS EXPANSION", 23, COLOR_BRASS)
+	_header_grid = GridContainer.new()
+	_header_grid.name = "CampusExpansionHeader"
+	_header_grid.columns = 2
+	_header_grid.custom_minimum_size.y = 46.0
+	_header_grid.add_theme_constant_override("h_separation", 14)
+	_header_grid.add_theme_constant_override("v_separation", 6)
+	page.add_child(_header_grid)
+	var title := _wrap_label("CAMPUS EXPANSION", 23, COLOR_BRASS)
 	title.name = "CampusExpansionTitle"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(title)
+	_header_grid.add_child(title)
 	_header_status = _label("NORTH MEADOW / PLAN NOT FILED", 12, COLOR_TEAL)
 	_header_status.name = "CampusExpansionHeaderStatus"
 	_header_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_header_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_header_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_header_status.custom_minimum_size.x = 340.0
-	header.add_child(_header_status)
+	_header_grid.add_child(_header_status)
 
 	_body_scroll = ScrollContainer.new()
 	_body_scroll.name = "CampusExpansionBodyScroll"
@@ -268,41 +329,46 @@ func _build_interface() -> void:
 	_active_body.add_child(_site_panel)
 	_active_body.add_child(_project_panel)
 
-	var action_rail := HBoxContainer.new()
-	action_rail.name = "CampusExpansionActionRail"
-	action_rail.custom_minimum_size.y = 48.0
-	action_rail.add_theme_constant_override("separation", 10)
-	page.add_child(action_rail)
+	_action_grid = GridContainer.new()
+	_action_grid.name = "CampusExpansionActionRail"
+	_action_grid.columns = 3
+	_action_grid.custom_minimum_size.y = 48.0
+	_action_grid.add_theme_constant_override("h_separation", 10)
+	_action_grid.add_theme_constant_override("v_separation", 7)
+	page.add_child(_action_grid)
 	_close_button = Button.new()
 	_close_button.name = "CampusExpansionCloseButton"
 	_close_button.text = "RETURN TO OFFICE"
 	_close_button.custom_minimum_size = Vector2(170.0, 44.0)
+	_close_button.clip_text = true
 	_close_button.focus_mode = Control.FOCUS_ALL
 	_close_button.pressed.connect(func() -> void: close_requested.emit())
-	action_rail.add_child(_close_button)
+	_action_grid.add_child(_close_button)
 	_selection_summary = _label("SELECT A POD SOCKET", 12, COLOR_MUTED)
 	_selection_summary.name = "CampusExpansionSelectionSummary"
 	_selection_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_selection_summary.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_selection_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_selection_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	action_rail.add_child(_selection_summary)
+	_action_grid.add_child(_selection_summary)
 	_place_button = Button.new()
 	_place_button.name = "CampusExpansionPlacePodButton"
 	_place_button.text = "PLACE EGG ROUTING POD"
 	_place_button.theme_type_variation = &"PrimaryButton"
 	_place_button.custom_minimum_size = Vector2(225.0, 44.0)
+	_place_button.clip_text = true
 	_place_button.focus_mode = Control.FOCUS_ALL
 	_place_button.pressed.connect(_on_place_pod_pressed)
-	action_rail.add_child(_place_button)
+	_action_grid.add_child(_place_button)
 	_relocate_button = Button.new()
 	_relocate_button.name = "CampusExpansionRelocatePodButton"
 	_relocate_button.text = "RELOCATE EGG ROUTING POD"
 	_relocate_button.theme_type_variation = &"PrimaryButton"
 	_relocate_button.custom_minimum_size = Vector2(245.0, 44.0)
+	_relocate_button.clip_text = true
 	_relocate_button.focus_mode = Control.FOCUS_ALL
 	_relocate_button.pressed.connect(_on_relocate_pod_pressed)
-	action_rail.add_child(_relocate_button)
+	_action_grid.add_child(_relocate_button)
 
 
 func _build_site_panel() -> void:
@@ -321,7 +387,7 @@ func _build_site_panel() -> void:
 	column.add_theme_constant_override("separation", 8)
 	margin.add_child(column)
 
-	var parcel_heading := _label("NORTH MEADOW PARCEL", 13, COLOR_BRASS)
+	var parcel_heading := _wrap_label("NORTH MEADOW PARCEL", 13, COLOR_BRASS)
 	parcel_heading.name = "CampusExpansionParcelHeading"
 	column.add_child(parcel_heading)
 	var parcel_card := PanelContainer.new()
@@ -332,10 +398,12 @@ func _build_site_panel() -> void:
 	var parcel_column := VBoxContainer.new()
 	parcel_column.add_theme_constant_override("separation", 4)
 	parcel_margin.add_child(parcel_column)
-	var parcel_top := HBoxContainer.new()
-	parcel_top.add_theme_constant_override("separation", 8)
+	var parcel_top := GridContainer.new()
+	parcel_top.columns = 2
+	parcel_top.add_theme_constant_override("h_separation", 8)
+	parcel_top.add_theme_constant_override("v_separation", 4)
 	parcel_column.add_child(parcel_top)
-	_parcel_title = _label("NORTH MEADOW", 18, COLOR_INK)
+	_parcel_title = _wrap_label("NORTH MEADOW", 18, COLOR_INK)
 	_parcel_title.name = "CampusExpansionParcelName"
 	_parcel_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	parcel_top.add_child(_parcel_title)
@@ -359,11 +427,12 @@ func _build_site_panel() -> void:
 	_parcel_button.text = "PURCHASE NORTH MEADOW"
 	_parcel_button.theme_type_variation = &"PrimaryButton"
 	_parcel_button.custom_minimum_size.y = 40.0
+	_parcel_button.clip_text = true
 	_parcel_button.focus_mode = Control.FOCUS_ALL
 	_parcel_button.pressed.connect(_on_purchase_parcel_pressed)
 	parcel_column.add_child(_parcel_button)
 
-	var map_heading := _label("EAST CAMPUS FOOTPRINT / ABOVE FARMGATE DEPOT", 13, COLOR_BRASS)
+	var map_heading := _wrap_label("EAST CAMPUS FOOTPRINT / ABOVE FARMGATE DEPOT", 13, COLOR_BRASS)
 	map_heading.name = "CampusExpansionMapHeading"
 	column.add_child(map_heading)
 	var map_card := PanelContainer.new()
@@ -380,16 +449,19 @@ func _build_site_panel() -> void:
 	footprint.name = "CampusExpansionFootprintLabel"
 	footprint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	map_column.add_child(footprint)
-	var sockets := HBoxContainer.new()
+	var sockets := GridContainer.new()
 	sockets.name = "CampusExpansionSockets"
+	sockets.columns = 3
 	sockets.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sockets.add_theme_constant_override("separation", 8)
+	sockets.add_theme_constant_override("h_separation", 8)
+	sockets.add_theme_constant_override("v_separation", 8)
 	map_column.add_child(sockets)
 	for socket_id: StringName in CampusExpansionModel.SOCKET_ORDER:
 		var button := Button.new()
 		button.name = "CampusExpansionSocket_%s" % String(socket_id)
 		button.text = String(socket_id).replace("_", " ").to_upper()
 		button.custom_minimum_size = Vector2(118.0, 76.0)
+		button.clip_text = true
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.focus_mode = Control.FOCUS_ALL
 		button.pressed.connect(_on_socket_pressed.bind(socket_id))
@@ -418,7 +490,7 @@ func _build_project_panel() -> void:
 	column.add_theme_constant_override("separation", 8)
 	margin.add_child(column)
 
-	var utility_heading := _label("MEADOW UTILITIES", 13, COLOR_BRASS)
+	var utility_heading := _wrap_label("MEADOW UTILITIES", 13, COLOR_BRASS)
 	utility_heading.name = "CampusExpansionUtilitiesHeading"
 	column.add_child(utility_heading)
 	var utility_flow := HFlowContainer.new()
@@ -431,7 +503,7 @@ func _build_project_panel() -> void:
 	for service_id: StringName in CampusExpansionModel.SERVICE_ORDER:
 		_build_service_card(utility_flow, service_id)
 
-	var stage_heading := _label("STAGED CONSTRUCTION", 13, COLOR_BRASS)
+	var stage_heading := _wrap_label("STAGED CONSTRUCTION", 13, COLOR_BRASS)
 	stage_heading.name = "CampusExpansionStagesHeading"
 	column.add_child(stage_heading)
 	_stage_host = HFlowContainer.new()
@@ -442,7 +514,7 @@ func _build_project_panel() -> void:
 	_stage_host.add_theme_constant_override("v_separation", 7)
 	column.add_child(_stage_host)
 
-	var benefit_heading := _label("OPERATIONAL BENEFIT", 13, COLOR_BRASS)
+	var benefit_heading := _wrap_label("OPERATIONAL BENEFIT", 13, COLOR_BRASS)
 	benefit_heading.name = "CampusExpansionBenefitsHeading"
 	column.add_child(benefit_heading)
 	_benefit_summary = _wrap_label("No staged construction or operating effect is filed.", 12, COLOR_MUTED)
@@ -510,6 +582,7 @@ func _refresh() -> void:
 
 
 func _refresh_header() -> void:
+	_header_status.add_theme_color_override("font_color", COLOR_TEAL)
 	var parcel := _model.parcel()
 	var pod := _model.routing_pod()
 	_header_status.text = "NORTH MEADOW / %s / POD %s" % [
@@ -518,6 +591,8 @@ func _refresh_header() -> void:
 		if bool(pod.get("placed", false)) else
 		"UNPLACED",
 	]
+	_header_status.tooltip_text = _header_status.text
+	_header_status.set_meta("accessible_text", _header_status.text)
 
 
 func _refresh_parcel() -> void:
@@ -725,8 +800,13 @@ func _refresh_pod_action() -> void:
 	var can_authorize := bool(quote.get("can_authorize", false))
 	var action_button := _relocate_button if placed else _place_button
 	action_button.disabled = not can_authorize
+	var action_label := (
+		("RELOCATE POD" if placed else "PLACE POD")
+		if _layout_mode == &"compact" else
+		("RELOCATE EGG ROUTING POD" if placed else "PLACE EGG ROUTING POD")
+	)
 	action_button.text = "%s / %s" % [
-		"RELOCATE EGG ROUTING POD" if placed else "PLACE EGG ROUTING POD",
+		action_label,
 		_money(int(quote.get("cost_cents", 0))) if bool(quote.get("has_cost", false)) else "QUOTE HELD",
 	]
 	var reason := String(quote.get("reason", "")).strip_edges()
@@ -748,6 +828,7 @@ func _apply_responsive_layout() -> void:
 	if _body_scroll == null:
 		return
 	var compact := size.x <= COMPACT_BREAKPOINT
+	var narrow := size.x <= 520.0
 	var target: Container = _compact_body if compact else _desktop_body
 	_layout_mode = &"compact" if compact else &"desktop"
 	if _active_body != target:
@@ -764,11 +845,26 @@ func _apply_responsive_layout() -> void:
 	if compact:
 		_site_panel.custom_minimum_size = Vector2(0.0, 470.0)
 		_project_panel.custom_minimum_size = Vector2(0.0, 470.0)
-		_header_status.custom_minimum_size.x = 230.0
+		_header_status.custom_minimum_size.x = 0.0 if narrow else 230.0
+		_close_button.custom_minimum_size.x = 104.0
+		_close_button.text = "RETURN"
+		_place_button.custom_minimum_size.x = 132.0
+		_relocate_button.custom_minimum_size.x = 148.0
+		for socket_button_value: Variant in _socket_buttons.values():
+			(socket_button_value as Button).custom_minimum_size.x = 88.0
 	else:
 		_site_panel.custom_minimum_size = Vector2(440.0, 470.0)
 		_project_panel.custom_minimum_size = Vector2(390.0, 470.0)
 		_header_status.custom_minimum_size.x = 340.0
+		_close_button.custom_minimum_size.x = 170.0
+		_close_button.text = "RETURN TO OFFICE"
+		_place_button.custom_minimum_size.x = 225.0
+		_relocate_button.custom_minimum_size.x = 245.0
+		for socket_button_value: Variant in _socket_buttons.values():
+			(socket_button_value as Button).custom_minimum_size.x = 118.0
+	_header_grid.columns = 1 if narrow else 2
+	_action_grid.columns = 1 if narrow else 3
+	_refresh_pod_action()
 
 
 func _on_purchase_parcel_pressed() -> void:

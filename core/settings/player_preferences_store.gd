@@ -10,8 +10,9 @@ extends RefCounted
 ## JSON-safe Dictionaries so desktop and Web builds share one contract.
 
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
+const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
 
-const CURRENT_SCHEMA_VERSION := 1
+const CURRENT_SCHEMA_VERSION := 10
 const PREFERENCES_FORMAT := "pecking_order_player_preferences"
 const DEFAULT_FILENAME := "player_preferences.json"
 const MAX_FILE_BYTES := 512 * 1024
@@ -20,12 +21,34 @@ const MOTION_MODES: Array[String] = ["system", "reduced", "full"]
 const UI_SCALES: Array[float] = [1.0, 1.25, 1.5]
 const VISUAL_QUALITIES: Array[String] = ["low", "balanced", "high"]
 const TIMING_ASSISTS: Array[String] = ["standard", "lenient", "extended"]
-const AUDIO_BUS_IDS: Array[String] = ["master", "sfx", "ui", "music"]
+const COLOR_VISION_MODES: Array[String] = ["standard", "color_blind_safe"]
+const NOTICE_LEVELS: Array[String] = ["all", "priority", "archive_only"]
+const NOTICE_DURATIONS: Array[String] = ["brief", "standard", "extended"]
+const EFFECT_LEVELS: Array[String] = ["full", "reduced", "off"]
+const PARTICLE_LEVELS: Array[String] = ["full", "reduced", "off"]
+const CAMERA_MOTION_LEVELS: Array[String] = ["full", "reduced", "off"]
+const CAMERA_SENSITIVITIES: Array[String] = ["low", "standard", "high"]
+const SETTINGS_CATEGORIES: Array[String] = ["audio", "comfort", "controls", "career"]
+const ANIMATION_SPEEDS: Array[String] = ["relaxed", "standard", "brisk"]
+const TOOLTIP_DELAYS: Array[String] = ["short", "standard", "long"]
+const GUIDANCE_MODES: Array[String] = ["full", "essential", "off"]
+const AUDIO_BUS_IDS: Array[String] = [
+	"master",
+	"sfx",
+	"ui",
+	"alerts",
+	"voice",
+	"music",
+	"ambient",
+]
 const AUDIO_BUS_NAMES := {
 	"master": &"Master",
 	"sfx": &"SFX",
 	"ui": &"UI",
+	"alerts": &"Alerts",
+	"voice": &"Voice",
 	"music": &"Music",
+	"ambient": &"Ambient",
 }
 
 var last_error: String = ""
@@ -49,13 +72,29 @@ static func defaults() -> Dictionary:
 			"master": {"volume": 1.0, "muted": false},
 			"sfx": {"volume": 0.82, "muted": false},
 			"ui": {"volume": 0.82, "muted": false},
+			"alerts": {"volume": 0.82, "muted": false},
+			"voice": {"volume": 0.72, "muted": false},
 			"music": {"volume": 0.65, "muted": false},
+			"ambient": {"volume": 0.65, "muted": false},
 		},
 		"motion_mode": "system",
 		"ui_scale": 1.0,
 		"high_contrast": false,
+		"color_vision_mode": "standard",
 		"visual_quality": "balanced",
 		"timing_assist": "standard",
+		"notice_level": "all",
+		"notice_duration": "standard",
+		"effect_level": "full",
+		"particle_level": "full",
+		"camera_motion": "full",
+		"camera_sensitivity": "standard",
+		"settings_category": "comfort",
+		"animation_speed": "standard",
+		"tooltip_delay": "standard",
+		"guidance_mode": "full",
+		"haptics_enabled": true,
+		"pause_when_unfocused": true,
 		# Empty means the catalog defaults. Only explicit overrides need to be
 		# persisted, which lets later versions add actions without a migration.
 		"input_bindings": {},
@@ -93,12 +132,49 @@ static func sanitize(source: Dictionary) -> Dictionary:
 		result["ui_scale"] = _nearest_ui_scale(float(ui_scale_value))
 	if typeof(source.get("high_contrast", null)) == TYPE_BOOL:
 		result["high_contrast"] = bool(source["high_contrast"])
+	var color_vision_mode := String(source.get("color_vision_mode", ""))
+	if color_vision_mode in COLOR_VISION_MODES:
+		result["color_vision_mode"] = String(SemanticColorPaletteScript.normalize_mode(color_vision_mode))
 	var visual_quality := String(source.get("visual_quality", ""))
 	if visual_quality in VISUAL_QUALITIES:
 		result["visual_quality"] = visual_quality
 	var timing_assist := String(source.get("timing_assist", ""))
 	if timing_assist in TIMING_ASSISTS:
 		result["timing_assist"] = timing_assist
+	var notice_level := String(source.get("notice_level", ""))
+	if notice_level in NOTICE_LEVELS:
+		result["notice_level"] = notice_level
+	var notice_duration := String(source.get("notice_duration", ""))
+	if notice_duration in NOTICE_DURATIONS:
+		result["notice_duration"] = notice_duration
+	var effect_level := String(source.get("effect_level", ""))
+	if effect_level in EFFECT_LEVELS:
+		result["effect_level"] = effect_level
+	var particle_level := String(source.get("particle_level", ""))
+	if particle_level in PARTICLE_LEVELS:
+		result["particle_level"] = particle_level
+	var camera_motion := String(source.get("camera_motion", ""))
+	if camera_motion in CAMERA_MOTION_LEVELS:
+		result["camera_motion"] = camera_motion
+	var camera_sensitivity := String(source.get("camera_sensitivity", ""))
+	if camera_sensitivity in CAMERA_SENSITIVITIES:
+		result["camera_sensitivity"] = camera_sensitivity
+	var settings_category := String(source.get("settings_category", ""))
+	if settings_category in SETTINGS_CATEGORIES:
+		result["settings_category"] = settings_category
+	var animation_speed := String(source.get("animation_speed", ""))
+	if animation_speed in ANIMATION_SPEEDS:
+		result["animation_speed"] = animation_speed
+	var tooltip_delay := String(source.get("tooltip_delay", ""))
+	if tooltip_delay in TOOLTIP_DELAYS:
+		result["tooltip_delay"] = tooltip_delay
+	var guidance_mode := String(source.get("guidance_mode", ""))
+	if guidance_mode in GUIDANCE_MODES:
+		result["guidance_mode"] = guidance_mode
+	if typeof(source.get("haptics_enabled", null)) == TYPE_BOOL:
+		result["haptics_enabled"] = bool(source["haptics_enabled"])
+	if typeof(source.get("pause_when_unfocused", null)) == TYPE_BOOL:
+		result["pause_when_unfocused"] = bool(source["pause_when_unfocused"])
 	var bindings_value: Variant = source.get("input_bindings", {})
 	if bindings_value is Dictionary:
 		var binding_result: Dictionary = OfficeActionCatalogScript.validate_bindings(bindings_value as Dictionary)
@@ -111,7 +187,12 @@ static func sanitize(source: Dictionary) -> Dictionary:
 static func validate(preferences: Dictionary) -> String:
 	var expected_keys: Array[String] = [
 		"audio", "motion_mode", "ui_scale", "high_contrast",
-		"visual_quality", "timing_assist", "input_bindings",
+		"color_vision_mode", "visual_quality", "timing_assist",
+		"notice_level", "notice_duration", "effect_level",
+		"particle_level", "camera_motion", "camera_sensitivity",
+		"settings_category",
+		"animation_speed", "tooltip_delay", "guidance_mode", "haptics_enabled",
+		"pause_when_unfocused", "input_bindings",
 	]
 	var key_error := _exact_string_keys_error(preferences, expected_keys, "preferences")
 	if not key_error.is_empty():
@@ -141,10 +222,36 @@ static func validate(preferences: Dictionary) -> String:
 		return "preferences.ui_scale must be 1.0, 1.25, or 1.5"
 	if typeof(preferences.get("high_contrast")) != TYPE_BOOL:
 		return "preferences.high_contrast must be a Boolean"
+	if typeof(preferences.get("color_vision_mode")) != TYPE_STRING or String(preferences.get("color_vision_mode")) not in COLOR_VISION_MODES:
+		return "preferences.color_vision_mode is invalid"
 	if typeof(preferences.get("visual_quality")) != TYPE_STRING or String(preferences.get("visual_quality")) not in VISUAL_QUALITIES:
 		return "preferences.visual_quality is invalid"
 	if typeof(preferences.get("timing_assist")) != TYPE_STRING or String(preferences.get("timing_assist")) not in TIMING_ASSISTS:
 		return "preferences.timing_assist is invalid"
+	if typeof(preferences.get("notice_level")) != TYPE_STRING or String(preferences.get("notice_level")) not in NOTICE_LEVELS:
+		return "preferences.notice_level is invalid"
+	if typeof(preferences.get("notice_duration")) != TYPE_STRING or String(preferences.get("notice_duration")) not in NOTICE_DURATIONS:
+		return "preferences.notice_duration is invalid"
+	if typeof(preferences.get("effect_level")) != TYPE_STRING or String(preferences.get("effect_level")) not in EFFECT_LEVELS:
+		return "preferences.effect_level is invalid"
+	if typeof(preferences.get("particle_level")) != TYPE_STRING or String(preferences.get("particle_level")) not in PARTICLE_LEVELS:
+		return "preferences.particle_level is invalid"
+	if typeof(preferences.get("camera_motion")) != TYPE_STRING or String(preferences.get("camera_motion")) not in CAMERA_MOTION_LEVELS:
+		return "preferences.camera_motion is invalid"
+	if typeof(preferences.get("camera_sensitivity")) != TYPE_STRING or String(preferences.get("camera_sensitivity")) not in CAMERA_SENSITIVITIES:
+		return "preferences.camera_sensitivity is invalid"
+	if typeof(preferences.get("settings_category")) != TYPE_STRING or String(preferences.get("settings_category")) not in SETTINGS_CATEGORIES:
+		return "preferences.settings_category is invalid"
+	if typeof(preferences.get("animation_speed")) != TYPE_STRING or String(preferences.get("animation_speed")) not in ANIMATION_SPEEDS:
+		return "preferences.animation_speed is invalid"
+	if typeof(preferences.get("tooltip_delay")) != TYPE_STRING or String(preferences.get("tooltip_delay")) not in TOOLTIP_DELAYS:
+		return "preferences.tooltip_delay is invalid"
+	if typeof(preferences.get("guidance_mode")) != TYPE_STRING or String(preferences.get("guidance_mode")) not in GUIDANCE_MODES:
+		return "preferences.guidance_mode is invalid"
+	if typeof(preferences.get("haptics_enabled")) != TYPE_BOOL:
+		return "preferences.haptics_enabled must be a Boolean"
+	if typeof(preferences.get("pause_when_unfocused")) != TYPE_BOOL:
+		return "preferences.pause_when_unfocused must be a Boolean"
 	if not preferences.get("input_bindings") is Dictionary:
 		return "preferences.input_bindings must be a Dictionary"
 	var binding_result: Dictionary = OfficeActionCatalogScript.validate_bindings(preferences.get("input_bindings") as Dictionary)
@@ -274,7 +381,7 @@ func delete_preferences() -> bool:
 
 
 ## Applies only the audio branch and returns the canonical values actually used.
-## Missing SFX/UI/Music buses are created once and routed through Master.
+## Missing mix buses are created once and routed through Master.
 static func apply_audio(preferences: Dictionary) -> Dictionary:
 	var safe := sanitize(preferences)
 	var audio := safe.get("audio", {}) as Dictionary
@@ -296,6 +403,30 @@ static func apply_audio(preferences: Dictionary) -> Dictionary:
 		AudioServer.set_bus_mute(bus_index, bool(bus.get("muted", false)))
 		applied.append(bus_id)
 	return {"accepted": true, "applied": applied, "audio": audio.duplicate(true)}
+
+
+## Presentation timing is intentionally independent from the simulation clock.
+## These bounded multipliers affect only nonessential transitions and feedback.
+static func animation_speed_multiplier(speed: String) -> float:
+	match speed:
+		"relaxed":
+			return 0.75
+		"brisk":
+			return 1.5
+		_:
+			return 1.0
+
+
+## Godot reads this project timer when a Control begins a new tooltip request.
+## Applying it at runtime changes future tooltips without touching saved careers.
+static func tooltip_delay_seconds(delay: String) -> float:
+	match delay:
+		"short":
+			return 0.15
+		"long":
+			return 1.0
+		_:
+			return 0.5
 
 
 func _configure(filename: String) -> void:
@@ -472,9 +603,131 @@ func _schema_version(envelope: Dictionary) -> Dictionary:
 	return {"ok": true, "version": int(value)}
 
 
-func _migrate_one_version(_envelope: Dictionary, _from_version: int) -> Dictionary:
-	# Schema one is the first public preferences contract. Future migrations must
-	# advance exactly one version and return a fully validated envelope.
+func _migrate_one_version(envelope: Dictionary, from_version: int) -> Dictionary:
+	if from_version == 1:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["color_vision_mode"] = "standard"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 2
+		return migrated
+	if from_version == 2:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		var audio_value: Variant = preferences.get("audio", {})
+		if not audio_value is Dictionary:
+			return {}
+		var audio := (audio_value as Dictionary).duplicate(true)
+		var music_value: Variant = audio.get("music", {})
+		audio["ambient"] = (
+			(music_value as Dictionary).duplicate(true)
+			if music_value is Dictionary else
+			{"volume": 0.65, "muted": false}
+		)
+		preferences["audio"] = audio
+		preferences["pause_when_unfocused"] = true
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 3
+		return migrated
+	if from_version == 3:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["notice_level"] = "all"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 4
+		return migrated
+	if from_version == 4:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["notice_duration"] = "standard"
+		preferences["effect_level"] = "full"
+		preferences["haptics_enabled"] = true
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 5
+		return migrated
+	if from_version == 5:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["animation_speed"] = "standard"
+		preferences["tooltip_delay"] = "standard"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 6
+		return migrated
+	if from_version == 6:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		var audio_value: Variant = preferences.get("audio", {})
+		if not audio_value is Dictionary:
+			return {}
+		var audio := (audio_value as Dictionary).duplicate(true)
+		var ui_value: Variant = audio.get("ui", {})
+		var inherited_ui := (
+			(ui_value as Dictionary).duplicate(true)
+			if ui_value is Dictionary else
+			{"volume": 0.82, "muted": false}
+		)
+		# Existing players keep the effective mix they had before these semantic
+		# layers were separated. They can adjust either new channel afterward.
+		audio["alerts"] = inherited_ui.duplicate(true)
+		audio["voice"] = inherited_ui.duplicate(true)
+		preferences["audio"] = audio
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 7
+		return migrated
+	if from_version == 7:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		# Particle density inherits the old combined effect setting so the visual
+		# result is unchanged until the player separates the two controls.
+		preferences["particle_level"] = String(
+			preferences.get("effect_level", "full")
+		)
+		preferences["camera_motion"] = "full"
+		preferences["camera_sensitivity"] = "standard"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 8
+		return migrated
+	if from_version == 8:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["settings_category"] = "comfort"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 9
+		return migrated
+	if from_version == 9:
+		var migrated := envelope.duplicate(true)
+		var preferences_value: Variant = migrated.get("preferences", {})
+		if not preferences_value is Dictionary:
+			return {}
+		var preferences := (preferences_value as Dictionary).duplicate(true)
+		preferences["guidance_mode"] = "full"
+		migrated["preferences"] = preferences
+		migrated["schema_version"] = 10
+		return migrated
 	return {}
 
 

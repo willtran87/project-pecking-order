@@ -8,11 +8,19 @@ extends Control
 ## and shift transitions remain authoritative intent signals for the caller.
 
 signal contract_selected(offer_id: StringName)
-signal contract_sign_requested(offer_id: StringName, clause_id: StringName)
+signal presentation_state_changed
+signal contract_sign_requested(
+	offer_id: StringName,
+	clause_id: StringName,
+	pricing_profile_id: StringName,
+)
 signal decline_requested
 signal continue_requested
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
+const FlockwatchDisclosureToggleScript := preload(
+	"res://features/office/flockwatch_disclosure_toggle.gd"
+)
 
 const INK := Color("e9edf0")
 const MUTED := Color("9eabb5")
@@ -28,6 +36,7 @@ const GRAPHITE := Color("253137")
 
 const MAX_VISIBLE_OFFERS := 3
 const STANDARD_CLAUSE_ID: StringName = &"standard_terms"
+const STANDARD_PRICING_ID: StringName = &"mutual_rate"
 const LANE_ORDER: Array[StringName] = [
 	&"nest_damage",
 	&"predator_loss",
@@ -42,6 +51,7 @@ const LANE_SHORT_NAMES := {
 var _contract_board: Dictionary = {}
 var _selected_offer_id: StringName = &""
 var _selected_clause_by_offer: Dictionary = {}
+var _selected_pricing_by_offer: Dictionary = {}
 var _negotiation_open := false
 var _signature_pending := false
 var _decline_pending := false
@@ -86,6 +96,12 @@ var _terms_breach: Label
 var _terms_reserve: Label
 var _terms_capacity: Label
 var _terms_reason: Label
+var _terms_detail_toggle: FlockwatchDisclosureToggle
+var _terms_detail_group: VBoxContainer
+var _pricing_heading: Label
+var _pricing_buttons_host: HFlowContainer
+var _pricing_buttons: Dictionary[StringName, Button] = {}
+var _pricing_effect_label: Label
 var _term_metric_cards: Array[PanelContainer] = []
 var _negotiation_toggle_button: Button
 var _negotiation_card: PanelContainer
@@ -167,6 +183,7 @@ func presentation_state() -> Dictionary:
 	return {
 		"selected_offer_id": String(_selected_offer_id),
 		"selected_clause_id": String(_selected_clause_id()),
+		"selected_pricing_profile_id": String(_selected_pricing_id()),
 		"negotiation_open": _negotiation_open,
 		"effective_terms": effective.duplicate(true),
 		"sign_enabled": _sign_button != null and not _sign_button.disabled,
@@ -175,6 +192,141 @@ func presentation_state() -> Dictionary:
 		"decline_pending": _decline_pending,
 		"continue_enabled": _continue_button != null and not _continue_button.disabled,
 		"signed_contract": _signed_contract_receipt(),
+	}
+
+
+## One authoritative read model keeps the fixed action rail, global guidance,
+## browser diagnostics, and assistive narration on the same reachable control.
+## A disabled Sign button is never advertised as the current action.
+func primary_action_state() -> Dictionary:
+	if _continue_button != null and _continue_button.visible and not _continue_button.disabled:
+		return _button_action_state(
+			_continue_button,
+			&"campaign_contract_continue",
+			&"advance_arrow",
+			"File the signed or declined receipt and open the next morning briefing.",
+		)
+	if _signature_pending:
+		return {
+			"copy": _sign_button.text if _sign_button != null else "SIGNATURE SENT  //  AWAITING RECEIPT",
+			"action_id": "",
+			"actionable": false,
+			"visible_label": _sign_button.text if _sign_button != null else "SIGNATURE SENT  //  AWAITING RECEIPT",
+			"semantic_icon": "files",
+			"icon_visible": true,
+			"accessible_text": "Signature sent. Await the authoritative Farm Mutual receipt; duplicate filing is locked.",
+		}
+	if _decline_pending:
+		return {
+			"copy": "STANDARD BOOK REQUEST SENT  //  AWAITING RECEIPT",
+			"action_id": "",
+			"actionable": false,
+			"visible_label": "STANDARD BOOK REQUEST SENT  //  AWAITING RECEIPT",
+			"semantic_icon": "files",
+			"icon_visible": true,
+			"accessible_text": "Standard-book request sent. Await the authoritative decline receipt; duplicate filing is locked.",
+		}
+	if _selected_offer_id == &"":
+		var offer_count := _offer_buttons.size()
+		return {
+			"copy": "NEXT: PICK A CLIENT",
+			"action_id": "campaign_contract_offer",
+			"actionable": _first_offer_button() != null,
+			"visible_label": "PICK A CLIENT",
+			"semantic_icon": "files",
+			"icon_visible": true,
+			"accessible_text": "Choose one of %d client binders, then compare its exact reward, loss, workload, and signing terms." % offer_count,
+		}
+	if _sign_button != null and _sign_button.visible and not _sign_button.disabled:
+		return _button_action_state(
+			_sign_button,
+			&"campaign_contract_sign",
+			&"cash",
+			"Sign the selected binder with its disclosed reward, loss, workload, and pricing terms.",
+		)
+	var alternate := _first_signable_offer_button()
+	if alternate != null:
+		var hold_reason := (
+			_terms_reason.text.strip_edges()
+			if _terms_reason != null and _terms_reason.is_visible_in_tree() else
+			"The selected client cannot be signed under the current terms."
+		)
+		return {
+			"copy": "NEXT: PICK ANOTHER CLIENT",
+			"action_id": "campaign_contract_offer",
+			"actionable": true,
+			"visible_label": alternate.text,
+			"semantic_icon": "files",
+			"icon_visible": true,
+			"accessible_text": "%s Choose another available client binder." % hold_reason,
+		}
+	if _decline_button != null and _decline_button.visible and not _decline_button.disabled:
+		return _button_action_state(
+			_decline_button,
+			&"campaign_contract_decline",
+			&"return_arrow",
+			"Keep the standard book and proceed without an outside Farm Mutual binder.",
+		)
+	return {
+		"copy": "CONTRACT BOARD HELD",
+		"action_id": "",
+		"actionable": false,
+		"visible_label": _sign_button.text if _sign_button != null else "CONTRACT BOARD HELD",
+		"semantic_icon": "files",
+		"icon_visible": true,
+		"accessible_text": (
+			_terms_reason.text.strip_edges()
+			if _terms_reason != null and _terms_reason.is_visible_in_tree() else
+			"No client binder can currently be filed. Review the visible hold requirements."
+		),
+	}
+
+
+func focus_primary_action() -> bool:
+	var action := primary_action_state()
+	if action.is_empty() or not bool(action.get("actionable", false)):
+		return false
+	match StringName(action.get("action_id", &"")):
+		&"campaign_contract_continue":
+			_continue_button.grab_focus()
+			return true
+		&"campaign_contract_sign":
+			_sign_button.grab_focus()
+			return true
+		&"campaign_contract_decline":
+			_decline_button.grab_focus()
+			return true
+		&"campaign_contract_offer":
+			var target := _first_signable_offer_button()
+			if target == null:
+				target = _first_offer_button()
+			if target != null:
+				target.grab_focus()
+				return true
+	return false
+
+
+func _button_action_state(
+	button: Button,
+	action_id: StringName,
+	semantic_icon: StringName,
+	fallback_accessible_text: String,
+) -> Dictionary:
+	var detail := String(button.get_meta(
+		"accessible_text",
+		button.tooltip_text if not button.tooltip_text.is_empty() else fallback_accessible_text,
+	)).strip_edges()
+	return {
+		"copy": button.text,
+		"action_id": String(action_id),
+		"actionable": button.is_visible_in_tree() and not button.disabled,
+		"visible_label": button.text,
+		"semantic_icon": String(semantic_icon),
+		"icon_visible": true,
+		"accessible_text": "Activate %s. %s" % [
+			button.text.replace("  ", " "),
+			detail,
+		],
 	}
 
 
@@ -218,6 +370,7 @@ func _build() -> void:
 	var kicker := _make_label("FARM MUTUAL  //  CONTRACT & INDEMNITY BOARD", 12, BRASS)
 	kicker.name = "ContractBoardKicker"
 	kicker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	kicker.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_content.add_child(kicker)
 
 	var heading_row := HFlowContainer.new()
@@ -232,13 +385,13 @@ func _build() -> void:
 	heading_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	heading_stack.add_theme_constant_override("separation", 2)
 	heading_row.add_child(heading_stack)
-	var title := _make_label("CHOOSE THE OUTSIDE PECKWORK", 27, CREAM)
+	var title := _make_label("PICK A CLIENT", 27, CREAM)
 	title.name = "ContractBoardTitle"
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	heading_stack.add_child(title)
 	var subtitle := _make_label(
-		"Three client folders disclose the work before management signs the flock's name.",
+		"Compare files, urgency, reward, and risk.",
 		13,
 		INK,
 	)
@@ -255,7 +408,7 @@ func _build() -> void:
 	)
 	heading_row.add_child(day_stamp)
 	var day_stack := _panel_content(day_stamp, 12, 7, 0)
-	var day_caption := _make_label("NEXT-SHIFT BINDER", 9, PAPER.darkened(0.14))
+	var day_caption := _make_label("FOR NEXT SHIFT", 9, PAPER.darkened(0.14))
 	day_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	day_stack.add_child(day_caption)
 	_day_stamp_label = _make_label("DAY --", 19, CREAM)
@@ -304,7 +457,7 @@ func _build() -> void:
 	_offer_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_offer_section.add_theme_constant_override("separation", 6)
 	_planning_columns.add_child(_offer_section)
-	var offer_section_title := _section_label("CLIENT FOLDERS  //  SELECT ONE WITH 1–3")
+	var offer_section_title := _section_label("PICK 1-3")
 	offer_section_title.name = "ContractFolderSectionTitle"
 	_offer_section.add_child(offer_section_title)
 	_offer_cards = HFlowContainer.new()
@@ -321,6 +474,7 @@ func _build() -> void:
 	_selection_hint.name = "ContractSelectionHint"
 	_selection_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_selection_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_selection_hint.visible = false
 	_offer_section.add_child(_selection_hint)
 
 	_detail_column = VBoxContainer.new()
@@ -374,10 +528,16 @@ func _build_accreditation_card(parent: Container) -> void:
 	content.add_child(heading)
 	var title := _make_label("FARM MUTUAL ACCREDITATION", 11, BRASS)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading.add_child(title)
 	_standing_rank_label = _make_label("UNLISTED", 13, MUTED)
 	_standing_rank_label.name = "ContractStandingRank"
+	# HFlowContainer may otherwise award all expandable width to the heading and
+	# collapse this wrapped status into a one-character column on the live
+	# 1280x720 Contract Board.
+	_standing_rank_label.custom_minimum_size.x = 176.0
 	_standing_rank_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_standing_rank_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	heading.add_child(_standing_rank_label)
 
 	var seals := HFlowContainer.new()
@@ -397,6 +557,7 @@ func _build_accreditation_card(parent: Container) -> void:
 		var seal_label := _make_label("OPEN SEAL", 10, MUTED)
 		seal_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		seal_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		seal_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		seal.add_child(seal_label)
 		_standing_seal_hosts.append(seal)
 		_standing_seal_labels.append(seal_label)
@@ -438,8 +599,9 @@ func _build_terms_card(parent: Container) -> void:
 	)
 	parent.add_child(_terms_card)
 	var terms := _panel_content(_terms_card, 18, 13, 7)
-	var terms_kicker := _make_label("OPEN BINDER  //  EXACT TERMS", 10, BRASS)
+	var terms_kicker := _make_label("BINDER AT A GLANCE", 10, BRASS)
 	terms_kicker.name = "ContractTermsKicker"
+	terms_kicker.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	terms.add_child(terms_kicker)
 	_terms_heading = _make_label("SELECT A CLIENT FOLDER", 19, CREAM)
 	_terms_heading.name = "ContractTermsTitle"
@@ -453,7 +615,6 @@ func _build_terms_card(parent: Container) -> void:
 	_terms_tagline = _make_label("Select one of the three disclosed binders above.", 12, INK)
 	_terms_tagline.name = "ContractTermsTagline"
 	_terms_tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	terms.add_child(_terms_tagline)
 
 	var metrics := HFlowContainer.new()
 	metrics.name = "ContractTermMetrics"
@@ -474,19 +635,59 @@ func _build_terms_card(parent: Container) -> void:
 	_terms_success.name = "ContractSuccessCondition"
 	_terms_success.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	terms.add_child(_terms_success)
+
+	_terms_detail_toggle = FlockwatchDisclosureToggleScript.new()
+	_terms_detail_toggle.name = "ContractTermsDetailToggle"
+	terms.add_child(_terms_detail_toggle)
+	_terms_detail_group = VBoxContainer.new()
+	_terms_detail_group.name = "ContractTermsDetailGroup"
+	_terms_detail_group.add_theme_constant_override("separation", 7)
+	terms.add_child(_terms_detail_group)
+	_terms_detail_group.add_child(_terms_tagline)
 	_terms_reserve = _make_label("INDEMNITY RESERVE  //  AWAITING FILE", 11, BRASS)
 	_terms_reserve.name = "ContractBreachReserve"
 	_terms_reserve.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	terms.add_child(_terms_reserve)
+	_terms_detail_group.add_child(_terms_reserve)
 	_terms_capacity = _make_label("ARCHIVE FIT  //  AWAITING FILE", 11, MUTED)
 	_terms_capacity.name = "ContractCapacityFit"
 	_terms_capacity.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	terms.add_child(_terms_capacity)
+	_terms_detail_group.add_child(_terms_capacity)
+	_terms_detail_toggle.configure(
+		"DETAILS",
+		"",
+		[_terms_detail_group],
+		false,
+	)
+	_terms_detail_toggle.set_summary(
+		"",
+		"Binder details include context, indemnity reserve, and archive and flock fit.",
+	)
 	_terms_reason = _make_label("No binder has been selected.", 11, MUTED)
 	_terms_reason.name = "ContractTermReason"
 	_terms_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	terms.add_child(_terms_reason)
+	_build_pricing_postures(terms)
 	_build_negotiation_drawer(terms)
+
+
+func _build_pricing_postures(parent: VBoxContainer) -> void:
+	_pricing_heading = _make_label("RATE POSTURE  //  PRICE SHAPES THE BOOK", 10, BRASS)
+	_pricing_heading.name = "ContractPricingHeading"
+	parent.add_child(_pricing_heading)
+	_pricing_buttons_host = HFlowContainer.new()
+	_pricing_buttons_host.name = "ContractPricingChoices"
+	_pricing_buttons_host.alignment = FlowContainer.ALIGNMENT_CENTER
+	_pricing_buttons_host.add_theme_constant_override("h_separation", 7)
+	_pricing_buttons_host.add_theme_constant_override("v_separation", 7)
+	parent.add_child(_pricing_buttons_host)
+	_pricing_effect_label = _make_label(
+		"Choose a binder before setting its rate posture.",
+		11,
+		MUTED,
+	)
+	_pricing_effect_label.name = "ContractPricingEffect"
+	_pricing_effect_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(_pricing_effect_label)
 
 
 func _build_negotiation_drawer(parent: VBoxContainer) -> void:
@@ -599,6 +800,7 @@ func _build_actions() -> void:
 		&"DangerButton",
 	)
 	_decline_button.custom_minimum_size = Vector2(238.0, 48.0)
+	_configure_fixed_action_button(_decline_button)
 	_decline_button.shortcut = _shortcut(KEY_D)
 	_decline_button.tooltip_text = "Proceed without an outside Farm Mutual binder. This action is available only when the caller explicitly permits it."
 	_decline_button.pressed.connect(_on_decline_pressed)
@@ -610,6 +812,7 @@ func _build_actions() -> void:
 		&"PrimaryButton",
 	)
 	_sign_button.custom_minimum_size = Vector2(262.0, 48.0)
+	_configure_fixed_action_button(_sign_button)
 	_sign_button.shortcut = _shortcut([KEY_ENTER, KEY_KP_ENTER])
 	_sign_button.pressed.connect(_on_sign_pressed)
 	_actions.add_child(_sign_button)
@@ -620,6 +823,7 @@ func _build_actions() -> void:
 		&"PrimaryButton",
 	)
 	_continue_button.custom_minimum_size = Vector2(274.0, 48.0)
+	_configure_fixed_action_button(_continue_button)
 	_continue_button.shortcut = _shortcut(KEY_C)
 	_continue_button.pressed.connect(_on_continue_pressed)
 	_actions.add_child(_continue_button)
@@ -637,6 +841,7 @@ func _refresh() -> void:
 
 	var signed := _signed_contract_receipt()
 	var declined := _decline_receipt()
+	_availability_label.tooltip_text = ""
 	if not unlocked:
 		_availability_label.text = "SEALED  //  %s" % String(_contract_board.get(
 			"unlock_requirement",
@@ -653,11 +858,22 @@ func _refresh() -> void:
 		_availability_label.text = "STANDARD BOOK FILED  //  NO OUTSIDE MUTUAL TERM"
 		_availability_label.add_theme_color_override("font_color", BRASS)
 	elif planning_open:
-		_availability_label.text = "PLANNING OPEN  //  A SIGNATURE RESERVES THE DISCLOSED BREACH CHARGE, NOT THE PREMIUM"
+		_availability_label.text = "OPEN  /  LOSS HELD  /  REWARD EARNED"
+		_availability_label.tooltip_text = (
+			"Signing reserves the exact disclosed breach charge. The premium is "
+			+ "earned only when the binder succeeds."
+		)
 		_availability_label.add_theme_color_override("font_color", TEAL)
 	else:
 		_availability_label.text = "BOARD HELD  //  CLOSE THE SHIFT AND FILE CREDIT BEFORE SIGNING OUTSIDE PECKWORK"
 		_availability_label.add_theme_color_override("font_color", RUST)
+	_availability_label.set_meta(
+		"accessible_text",
+		"%s. %s" % [
+			_availability_label.text,
+			_availability_label.tooltip_text,
+		],
+	)
 
 	_refresh_season()
 	_refresh_accreditation()
@@ -893,7 +1109,12 @@ func _rebuild_offer_cards(unlocked: bool) -> void:
 		button.shortcut = _shortcut([KEY_1, KEY_2, KEY_3][index])
 		button.tooltip_text = _offer_tooltip(offer)
 		button.set_meta("offer_id", offer_id)
+		button.set_meta("offer_index", index)
 		button.set_meta("can_sign", bool(offer.get("can_sign", false)))
+		button.set_meta(
+			"accessible_text",
+			_offer_accessible_text(button, offer),
+		)
 		button.pressed.connect(_on_offer_pressed.bind(offer_id))
 		_offer_cards.add_child(button)
 		_offer_buttons[offer_id] = button
@@ -906,22 +1127,33 @@ func _rebuild_offer_cards(unlocked: bool) -> void:
 func _refresh_selection() -> void:
 	for offer_id in _offer_buttons:
 		var button := _offer_buttons[offer_id] as Button
+		var offer_record := _find_offer(offer_id)
+		button.text = _offer_card_text(
+			offer_record,
+			int(button.get_meta("offer_index", 0)),
+			offer_id == _selected_offer_id,
+		)
 		button.theme_type_variation = (
 			&"SelectedChoiceButton"
 			if offer_id == _selected_offer_id else
 			&"DecisionChoiceButton"
+		)
+		button.set_meta(
+			"accessible_text",
+			_offer_accessible_text(button, offer_record),
 		)
 
 	var offer := _selected_offer()
 	var effective := _selected_effective_offer()
 	_terms_card.visible = not effective.is_empty()
 	if effective.is_empty():
-		_selection_hint.text = "SELECT A FOLDER TO OPEN ITS COMPLETE PREMIUM, RUSH, AND BREACH TERMS."
+		_selection_hint.visible = false
+		_refresh_pricing_postures({})
 		_refresh_negotiation_drawer({}, {})
 		return
 
 	var short_name := String(effective.get("short_name", effective.get("name", "MUTUAL TERM"))).to_upper()
-	_selection_hint.text = "SELECTED  //  %s  //  ENTER SIGNS ONLY AFTER THE EXACT TERMS BELOW ARE OPEN" % short_name
+	_selection_hint.visible = false
 	_terms_heading.text = String(effective.get("name", short_name)).to_upper()
 	_terms_client.text = "CLIENT  //  %s" % String(effective.get("client", "FARM MUTUAL")).to_upper()
 	_terms_tagline.text = String(effective.get("tagline", "Outside peckwork with disclosed terms."))
@@ -963,7 +1195,9 @@ func _refresh_selection() -> void:
 			"The authoritative preflight did not clear."
 		)
 	)
+	_terms_reason.visible = not can_sign
 	_terms_reason.add_theme_color_override("font_color", TEAL if can_sign else RUST)
+	_refresh_pricing_postures(effective)
 	_refresh_negotiation_drawer(offer, effective)
 	var tooltip := _offer_tooltip(effective)
 	_terms_card.tooltip_text = tooltip
@@ -979,8 +1213,132 @@ func _refresh_selection() -> void:
 		_terms_reserve,
 		_terms_capacity,
 		_terms_reason,
+		_pricing_effect_label,
 	]:
 		(label as Control).tooltip_text = tooltip
+
+
+func _refresh_pricing_postures(effective: Dictionary) -> void:
+	for child: Node in _pricing_buttons_host.get_children():
+		_pricing_buttons_host.remove_child(child)
+		child.queue_free()
+	_pricing_buttons.clear()
+	var clause_record := _selected_clause_record()
+	var options := _pricing_options(clause_record)
+	_pricing_heading.visible = not options.is_empty()
+	_pricing_buttons_host.visible = not options.is_empty()
+	_pricing_effect_label.visible = not options.is_empty()
+	if options.is_empty():
+		return
+	var pricing_status := _contract_board.get("pricing", {}) as Dictionary
+	_pricing_heading.text = (
+		"RATE  //  REACH %d  //  TRUST %d"
+		% [
+			int(pricing_status.get("reach_points", 0)),
+			int(pricing_status.get("claimant_satisfaction", 50)),
+		]
+	)
+	_pricing_heading.tooltip_text = (
+		"Reach unlocks new rate postures. Trust is claimant sentiment and can be "
+		+ "rebuilt by fulfilling Mutual or Community contracts."
+	)
+	var selected_id := _selected_pricing_id()
+	for option in options:
+		var pricing_id := StringName(option.get("pricing_profile_id", STANDARD_PRICING_ID))
+		var selected := pricing_id == selected_id
+		var available := bool(option.get("pricing_available", true))
+		var detail_line := (
+			"%s  /  %d FILES" % [
+				_money(_premium_total_cents(option)),
+				maxi(0, int(option.get("total_claims", 0))),
+			]
+			if available else
+			_pricing_requirement_label(option)
+		)
+		var glance_label := _pricing_glance_label(
+			pricing_id,
+			String(option.get("pricing_label", "MUTUAL RATE")),
+		)
+		var button := _make_button(
+			"ContractPricing_%s" % _safe_node_suffix(String(pricing_id)),
+			"%s%s\n%s" % [
+				glance_label,
+				"  /  PICKED" if selected else "  /  LOCKED" if not available else "",
+				detail_line,
+			],
+			&"SelectedChoiceButton" if selected else &"DecisionChoiceButton",
+		)
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.custom_minimum_size = Vector2(190.0, 58.0)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.disabled = not available
+		button.tooltip_text = _pricing_tooltip(option)
+		button.set_meta("accessible_text", button.tooltip_text)
+		button.set_meta("pricing_profile_id", pricing_id)
+		button.pressed.connect(_on_pricing_pressed.bind(pricing_id))
+		_pricing_buttons_host.add_child(button)
+		_pricing_buttons[pricing_id] = button
+	_pricing_effect_label.text = "%s  /  MARGIN %s  /  TRUST %s  /  REACH %s" % [
+		_pricing_glance_label(
+			StringName(String(effective.get("pricing_profile_id", STANDARD_PRICING_ID))),
+			String(effective.get("pricing_label", "MUTUAL RATE")),
+		),
+		_money(int(effective.get("estimated_margin_cents", 0))),
+		_signed_delta(int(effective.get("claimant_satisfaction_success_delta", 0))),
+		_signed_delta(int(effective.get("market_reach_success_delta", 0))),
+	]
+	_pricing_effect_label.tooltip_text = String(effective.get(
+		"pricing_summary",
+		"Standard rate posture.",
+	))
+
+
+func _pricing_glance_label(pricing_id: StringName, fallback: String) -> String:
+	match pricing_id:
+		&"mutual_rate":
+			return "MUTUAL"
+		&"community_access_rate":
+			return "ACCESS"
+		&"executive_select_rate":
+			return "EXECUTIVE"
+	var normalized := fallback.strip_edges().to_upper()
+	return normalized.trim_suffix(" RATE") if normalized.ends_with(" RATE") else normalized
+
+
+func _pricing_requirement_label(option: Dictionary) -> String:
+	var requirements: Array[String] = []
+	var required_reach := int(option.get("pricing_required_reach", 0))
+	var required_satisfaction := int(option.get("pricing_required_satisfaction", 0))
+	if int(option.get("pricing_current_reach", 0)) < required_reach:
+		requirements.append("%d REACH" % required_reach)
+	if int(option.get("pricing_current_satisfaction", 50)) < required_satisfaction:
+		requirements.append("%d SENTIMENT" % required_satisfaction)
+	return (
+		"NEEDS %s" % " + ".join(requirements)
+		if not requirements.is_empty() else
+		"RATE POSTURE HELD"
+	)
+
+
+func _pricing_tooltip(option: Dictionary) -> String:
+	var unavailable_reason := String(option.get("pricing_unavailable_reason", ""))
+	return "%s\n%s\nVolume: %s%d folder(s). Premium: %s. Estimated margin: %s.\nClaimant sentiment: %s fulfilled / %s breached. Market reach: %s fulfilled / %s breached.%s" % [
+		String(option.get("pricing_label", "MUTUAL RATE")).to_upper(),
+		String(option.get("pricing_summary", "")),
+		"+" if int(option.get("pricing_volume_delta", 0)) >= 0 else "",
+		int(option.get("pricing_volume_delta", 0)),
+		_money(_premium_total_cents(option)),
+		_money(int(option.get("estimated_margin_cents", 0))),
+		_signed_delta(int(option.get("claimant_satisfaction_success_delta", 0))),
+		_signed_delta(int(option.get("claimant_satisfaction_breach_delta", 0))),
+		_signed_delta(int(option.get("market_reach_success_delta", 0))),
+		_signed_delta(int(option.get("market_reach_breach_delta", 0))),
+		"" if unavailable_reason.is_empty() else "\nHELD // %s" % unavailable_reason,
+	]
+
+
+func _signed_delta(value: int) -> String:
+	return "%s%d" % ["+" if value >= 0 else "", value]
 
 
 func _refresh_negotiation_drawer(offer: Dictionary, effective: Dictionary) -> void:
@@ -1147,9 +1505,8 @@ func _refresh_actions(signed: Dictionary, declined: Dictionary) -> void:
 	_sign_button.text = (
 		"SIGNATURE SENT  //  AWAITING RECEIPT"
 		if _signature_pending else
-		"SIGN %s  //  %s  [ENTER]" % [
+		"SIGN %s  [ENTER]" % [
 			String(effective.get("short_name", effective.get("name", "SELECTED BINDER"))).to_upper(),
-			_selected_clause_label(effective).to_upper(),
 		]
 		if not effective.is_empty() else
 		"SELECT A BINDER TO SIGN  [ENTER]"
@@ -1187,10 +1544,13 @@ func _on_offer_pressed(offer_id: StringName) -> void:
 	_selected_offer_id = offer_id
 	if not _selected_clause_by_offer.has(offer_id):
 		_selected_clause_by_offer[offer_id] = STANDARD_CLAUSE_ID
+	if not _selected_pricing_by_offer.has(offer_id):
+		_selected_pricing_by_offer[offer_id] = STANDARD_PRICING_ID
 	_signature_pending = false
 	_refresh_selection()
 	_refresh_actions(_signed_contract_receipt(), _decline_receipt())
 	contract_selected.emit(offer_id)
+	presentation_state_changed.emit()
 	if _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
 
@@ -1204,7 +1564,12 @@ func _on_sign_pressed() -> void:
 		return
 	_signature_pending = true
 	_refresh_actions({}, {})
-	contract_sign_requested.emit(_selected_offer_id, _selected_clause_id())
+	presentation_state_changed.emit()
+	contract_sign_requested.emit(
+		_selected_offer_id,
+		_selected_clause_id(),
+		_selected_pricing_id(),
+	)
 
 
 func _on_negotiation_toggle_pressed() -> void:
@@ -1218,6 +1583,7 @@ func _on_negotiation_toggle_pressed() -> void:
 		_queue_focus(selected_button)
 	elif _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
+	presentation_state_changed.emit()
 
 
 func _on_clause_pressed(clause_id: StringName) -> void:
@@ -1227,9 +1593,13 @@ func _on_clause_pressed(clause_id: StringName) -> void:
 	if option.is_empty() or not _clause_is_available(option):
 		return
 	_selected_clause_by_offer[_selected_offer_id] = clause_id
+	var clause_record := _find_clause_option(_selected_offer(), clause_id)
+	if _find_pricing_option(clause_record, _selected_pricing_id()).is_empty():
+		_selected_pricing_by_offer[_selected_offer_id] = STANDARD_PRICING_ID
 	_signature_pending = false
 	_refresh_selection()
 	_refresh_actions(_signed_contract_receipt(), _decline_receipt())
+	presentation_state_changed.emit()
 	if _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
 
@@ -1241,6 +1611,22 @@ func _on_reset_clause_pressed() -> void:
 	_signature_pending = false
 	_refresh_selection()
 	_refresh_actions(_signed_contract_receipt(), _decline_receipt())
+	presentation_state_changed.emit()
+	if _sign_button != null and not _sign_button.disabled:
+		_queue_focus(_sign_button)
+
+
+func _on_pricing_pressed(pricing_id: StringName) -> void:
+	if _selected_offer_id == &"" or not _pricing_buttons.has(pricing_id):
+		return
+	var option := _find_pricing_option(_selected_clause_record(), pricing_id)
+	if option.is_empty() or not bool(option.get("pricing_available", true)):
+		return
+	_selected_pricing_by_offer[_selected_offer_id] = pricing_id
+	_signature_pending = false
+	_refresh_selection()
+	_refresh_actions(_signed_contract_receipt(), _decline_receipt())
+	presentation_state_changed.emit()
 	if _sign_button != null and not _sign_button.disabled:
 		_queue_focus(_sign_button)
 
@@ -1256,6 +1642,7 @@ func _on_decline_pressed() -> void:
 		return
 	_decline_pending = true
 	_refresh_actions({}, {})
+	presentation_state_changed.emit()
 	decline_requested.emit()
 
 
@@ -1273,10 +1660,15 @@ func _reconcile_selection() -> void:
 			"clause_id",
 			STANDARD_CLAUSE_ID,
 		))
+		_selected_pricing_by_offer[_selected_offer_id] = StringName(signed.get(
+			"pricing_profile_id",
+			STANDARD_PRICING_ID,
+		))
 		_negotiation_open = false
 		return
 	if _selected_offer_id != &"" and _find_offer(_selected_offer_id).is_empty():
 		_selected_clause_by_offer.erase(_selected_offer_id)
+		_selected_pricing_by_offer.erase(_selected_offer_id)
 		_selected_offer_id = &""
 		_negotiation_open = false
 
@@ -1291,9 +1683,18 @@ func _reconcile_clause_selection() -> void:
 		var selected := StringName(_selected_clause_by_offer.get(offer_id, STANDARD_CLAUSE_ID))
 		if _find_clause_option(offer, selected).is_empty():
 			_selected_clause_by_offer[offer_id] = STANDARD_CLAUSE_ID
+			selected = STANDARD_CLAUSE_ID
+		var clause_record := _find_clause_option(offer, selected)
+		var selected_pricing := StringName(_selected_pricing_by_offer.get(
+			offer_id,
+			STANDARD_PRICING_ID,
+		))
+		if _find_pricing_option(clause_record, selected_pricing).is_empty():
+			_selected_pricing_by_offer[offer_id] = STANDARD_PRICING_ID
 	for stored_offer: Variant in _selected_clause_by_offer.keys():
 		if not valid_offer_ids.has(stored_offer):
 			_selected_clause_by_offer.erase(stored_offer)
+			_selected_pricing_by_offer.erase(stored_offer)
 	if _selected_offer_id != &"" and _clause_options(_selected_offer()).is_empty():
 		_negotiation_open = false
 
@@ -1352,16 +1753,31 @@ func _selected_clause_id() -> StringName:
 	return StringName(_selected_clause_by_offer.get(_selected_offer_id, STANDARD_CLAUSE_ID))
 
 
+func _selected_pricing_id() -> StringName:
+	if _selected_offer_id == &"":
+		return STANDARD_PRICING_ID
+	return StringName(_selected_pricing_by_offer.get(
+		_selected_offer_id,
+		STANDARD_PRICING_ID,
+	))
+
+
+func _selected_clause_record() -> Dictionary:
+	var offer := _selected_offer()
+	if offer.is_empty():
+		return {}
+	var clause_record := _find_clause_option(offer, _selected_clause_id())
+	return clause_record if not clause_record.is_empty() else offer.duplicate(true)
+
+
 func _selected_effective_offer() -> Dictionary:
 	var offer := _selected_offer()
 	if offer.is_empty():
 		return {}
-	var effective := _find_clause_option(offer, _selected_clause_id())
+	var clause_record := _selected_clause_record()
+	var effective := _find_pricing_option(clause_record, _selected_pricing_id())
 	if effective.is_empty():
-		effective = offer.duplicate(true)
-		effective["clause_id"] = STANDARD_CLAUSE_ID
-		effective["clause_label"] = "STANDARD TERMS"
-		effective["clause_available"] = true
+		effective = clause_record.duplicate(true)
 	# Board-level offer preflights remain the authority for capacity, cooldown,
 	# planning-window, and already-signed holds even when an authored rider was
 	# priced earlier. A clause can narrow eligibility but can never widen it.
@@ -1386,6 +1802,23 @@ func _clause_options(offer: Dictionary) -> Array[Dictionary]:
 			if option_value is Dictionary:
 				result.append((option_value as Dictionary).duplicate(true))
 	return result
+
+
+func _pricing_options(record: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var value: Variant = record.get("pricing_options", [])
+	if value is Array:
+		for option_value: Variant in value as Array:
+			if option_value is Dictionary:
+				result.append((option_value as Dictionary).duplicate(true))
+	return result
+
+
+func _find_pricing_option(record: Dictionary, pricing_id: StringName) -> Dictionary:
+	for option in _pricing_options(record):
+		if StringName(option.get("pricing_profile_id", STANDARD_PRICING_ID)) == pricing_id:
+			return option
+	return {}
 
 
 func _find_clause_option(offer: Dictionary, clause_id: StringName) -> Dictionary:
@@ -1451,26 +1884,71 @@ func _first_offer_button() -> Button:
 	return null
 
 
-func _offer_card_text(offer: Dictionary, index: int) -> String:
-	var name := String(offer.get("short_name", offer.get("name", "MUTUAL TERM"))).to_upper()
-	var client := String(offer.get("client", "FARM MUTUAL")).to_upper()
-	var mix := _lane_mix_label(offer.get("lane_mix", {}) as Dictionary)
+func _first_signable_offer_button() -> Button:
+	for child: Node in _offer_cards.get_children():
+		if not child is Button:
+			continue
+		var button := child as Button
+		var offer_id := StringName(button.get_meta("offer_id", &""))
+		if offer_id == _selected_offer_id:
+			continue
+		if bool(button.get_meta("can_sign", false)):
+			return button
+	return null
+
+
+func _offer_card_text(
+	offer: Dictionary,
+	index: int,
+	selected: bool = false,
+) -> String:
+	var name := _offer_glance_name(offer)
+	var total_files := 0
+	for count: Variant in (offer.get("lane_mix", {}) as Dictionary).values():
+		total_files += maxi(0, int(count))
 	var rush_claims := maxi(0, int(offer.get("rush_claims", 0)))
-	var availability := ""
-	if bool(offer.get("on_cooldown", false)):
-		availability = "\nCLIENT COOLDOWN  //  THROUGH DAY %d" % int(offer.get(
+	var urgency := (
+		"COOLDOWN DAY %d" % int(offer.get(
 			"cooldown_until_day",
 			_contract_board.get("target_day", 1),
 		))
-	return "%d  //  %s\n%s\n%s\nRUSH %d  //  +%s TOTAL  //  -%s BREACH%s" % [
+		if bool(offer.get("on_cooldown", false)) else
+		"%d RUSH" % rush_claims
+	)
+	var state := (
+		"  /  PICKED"
+		if selected else
+		"  /  HELD"
+		if not bool(offer.get("can_sign", false)) else
+		""
+	)
+	return "%d  %s%s\n%d FILE%s  /  %s\nWIN +%s  /  MISS -%s" % [
 		index + 1,
 		name,
-		client,
-		mix,
-		rush_claims,
+		state,
+		total_files,
+		"" if total_files == 1 else "S",
+		urgency,
 		_money(_premium_total_cents(offer)),
 		_money(int(offer.get("breach_cents", 0))),
-		availability,
+	]
+
+
+func _offer_glance_name(offer: Dictionary) -> String:
+	match StringName(offer.get("id", offer.get("offer_id", &""))):
+		&"homestead_stability_binder":
+			return "NESTING"
+		&"predator_watch_pool":
+			return "PREDATOR"
+		&"exceptions_retention_covenant":
+			return "APPEALS"
+	return String(offer.get("short_name", offer.get("name", "MUTUAL TERM"))).to_upper()
+
+
+func _offer_accessible_text(button: Button, offer: Dictionary) -> String:
+	return "%s. %s" % [
+		button.text.replace("\n", ". "),
+		_offer_tooltip(offer).replace("\n", ". "),
 	]
 
 
@@ -1632,6 +2110,7 @@ func _build_term_metric(
 	_term_metric_cards.append(card)
 	var stack := _panel_content(card, 12, 7, 1)
 	var caption_label := _make_label(caption, 9, MUTED)
+	caption_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	stack.add_child(caption_label)
 	var value_label := _make_label(value, 16, accent)
 	value_label.name = node_name
@@ -1712,6 +2191,12 @@ func _make_button(node_name: String, text: String, variation: StringName) -> But
 	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	button.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	return button
+
+
+func _configure_fixed_action_button(button: Button) -> void:
+	button.autowrap_mode = TextServer.AUTOWRAP_OFF
+	button.clip_text = true
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 
 
 func _make_label(text: String, font_size: int, color: Color) -> Label:

@@ -103,8 +103,8 @@ func _run() -> void:
 
 	_check(blueprint.is_open(), "the Flockwatch action should open the player-held Blueprint", failures)
 
-	# A player-held capital surface must consume every live-office shortcut that
-	# reaches Office, while retaining its own semantic Return behavior.
+	# A player-held capital surface must consume live-office shortcuts while
+	# retaining the non-remappable F10 Settings safety route above it.
 	var settings := office.find_child("PlayerSettings", true, false) as PeckingOrderSettingsUI
 	var clock := office.get("_clock") as SimulationClock
 	var ticker := office.get("_ticker_label") as Label
@@ -121,7 +121,6 @@ func _run() -> void:
 		&"toggle_flockwatch",
 		&"speed_normal",
 		&"peck_assist",
-		&"open_settings",
 	]:
 		await _send_action(action)
 	_check(
@@ -130,11 +129,19 @@ func _run() -> void:
 		and not simulation.overtime_enabled
 		and not bool(office.get("_flockwatch_open"))
 		and (clock == null or clock.speed_index == 0)
-		and (settings == null or not settings.is_open())
 		and (ticker == null or ticker.text == "BLUEPRINT INPUT SENTINEL"),
-		"Blueprint should block Feed Party, overtime, Flockwatch, clock, Peck Assist, and settings shortcuts from dispatching behind it",
+		"Blueprint should block Feed Party, overtime, Flockwatch, clock, and Peck Assist shortcuts from dispatching behind it",
 		failures,
 	)
+	await _send_action(&"open_settings")
+	_check(
+		settings != null and settings.is_open() and blueprint.is_open(),
+		"F10 Settings should open above Blueprint without dismissing the held capital filing",
+		failures,
+	)
+	if settings != null:
+		settings.hide_settings()
+	await process_frame
 	blueprint.hide_blueprint(false)
 	for surface: Control in [portfolio, expansion, reveal, portfolio_reveal]:
 		if ticker != null:
@@ -257,6 +264,7 @@ func _run() -> void:
 	_check(dispatch_ui.select_mandate(&"farmer_pickup"), "the safe default route should be selectable", failures)
 	var authorize := office.find_child("FarmgateDispatchAuthorize", true, false) as Button
 	_check(authorize != null and not authorize.disabled, "the review-time farmer pickup should be actionable", failures)
+	var focus_before_filing := camera.current_focus_label
 	if authorize != null:
 		authorize.pressed.emit()
 	await process_frame
@@ -268,12 +276,25 @@ func _run() -> void:
 		"the embedded action should file one authoritative Day 6 pickup mandate",
 		failures,
 	)
+	var filed_receipt := office.find_child("FarmgateDispatchAuthorizationReceipt", true, false) as Label
 	_check(
-		camera.current_focus_label == "FARMGATE ROUTE FILED"
-		and camera.focus_world_position().is_equal_approx(DEPOT_FOCUS),
-		"an accepted mandate should focus the exact Depot route desk",
+		bool(office.get("_flockwatch_open"))
+		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_OPERATIONS
+		and camera.current_focus_label == focus_before_filing,
+		"an accepted ledger filing should preserve the open Operations page and camera context",
 		failures,
 	)
+	_check(
+		filed_receipt != null and filed_receipt.visible
+		and "FILED / PICKUP / DAY 6 / 100%" in filed_receipt.text,
+		"the embedded filing should replace transient feedback with one durable route receipt",
+		failures,
+	)
+	office.call("_set_flockwatch_open", false)
+	var character_dialogue = office.get("_character_dialogue_ui")
+	if character_dialogue != null:
+		character_dialogue.clear_session()
+	await process_frame
 
 	# Seed the same immutable lot the simulation creates before Office receives the
 	# egg presentation callback. Good stock must never masquerade as immediate fund
@@ -306,8 +327,7 @@ func _run() -> void:
 		"the visible delivery copy should name stock, not cash",
 		failures,
 	)
-	for chip in stock_chips:
-		(chip as Node).free()
+	office.call("_process_auxiliary_settlement_chip_pool", 1.0)
 	await process_frame
 
 	var base_fund := simulation.revenue_cents
@@ -325,7 +345,7 @@ func _run() -> void:
 		var label := (fund_chips[0] as Node).find_child("*", true, false) as Label
 		fund_copy = label.text if label != null else ""
 	_check(fund_chips.size() == 1 and stock_chips.is_empty(), "cracked work should animate as one immediate Feed Fund credit and no cold-store lot", failures)
-	_check("+$8.00 FEED FUND" in fund_copy, "the cracked credit chip should disclose its exact immediate value", failures)
+	_check("+$8.00" in fund_copy and ">  FUND" in fund_copy, "the cracked credit chip should disclose its exact immediate value and destination", failures)
 	_check(
 		int(office.get("_pending_collection_cents")) == 0
 		and int(office.get("_fund_visual_target_cents")) == base_fund + cracked_value,

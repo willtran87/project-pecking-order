@@ -18,11 +18,18 @@ const ACTION_IDS: Array[StringName] = [
 	&"speed_normal",
 	&"speed_fast",
 	&"speed_ultra",
+	&"next_moment",
 	PECK_ASSIST,
 	&"fund_feed_party",
 	&"toggle_overtime",
 	&"toggle_flockwatch",
 	&"cycle_hen",
+	&"camera_pan_left",
+	&"camera_pan_right",
+	&"camera_pan_up",
+	&"camera_pan_down",
+	&"camera_zoom_in",
+	&"camera_zoom_out",
 	&"office_overview",
 	&"open_settings",
 ]
@@ -63,6 +70,14 @@ const DEFINITIONS := {
 			{"type": "joypad_button", "button_index": JOY_BUTTON_DPAD_RIGHT},
 		],
 	},
+	&"next_moment": {
+		"display_name": "Advance to Next Moment",
+		"group": "floor",
+		"bindings": [
+			{"type": "key", "physical_keycode": KEY_4},
+			{"type": "joypad_button", "button_index": JOY_BUTTON_DPAD_UP},
+		],
+	},
 	PECK_ASSIST: {
 		"display_name": "Priority Peck",
 		"group": "floor",
@@ -101,6 +116,54 @@ const DEFINITIONS := {
 		"bindings": [
 			{"type": "key", "keycode": KEY_TAB},
 			{"type": "joypad_button", "button_index": JOY_BUTTON_RIGHT_SHOULDER},
+		],
+	},
+	&"camera_pan_left": {
+		"display_name": "Pan Camera Left",
+		"group": "camera",
+		"bindings": [
+			{"type": "key", "physical_keycode": KEY_A},
+			{"type": "key", "physical_keycode": KEY_LEFT},
+		],
+	},
+	&"camera_pan_right": {
+		"display_name": "Pan Camera Right",
+		"group": "camera",
+		"bindings": [
+			{"type": "key", "physical_keycode": KEY_D},
+			{"type": "key", "physical_keycode": KEY_RIGHT},
+		],
+	},
+	&"camera_pan_up": {
+		"display_name": "Pan Camera Up",
+		"group": "camera",
+		"bindings": [
+			{"type": "key", "physical_keycode": KEY_W},
+			{"type": "key", "physical_keycode": KEY_UP},
+		],
+	},
+	&"camera_pan_down": {
+		"display_name": "Pan Camera Down",
+		"group": "camera",
+		"bindings": [
+			{"type": "key", "physical_keycode": KEY_S},
+			{"type": "key", "physical_keycode": KEY_DOWN},
+		],
+	},
+	&"camera_zoom_in": {
+		"display_name": "Zoom Camera In",
+		"group": "camera",
+		"bindings": [
+			{"type": "key", "physical_keycode": KEY_EQUAL},
+			{"type": "key", "physical_keycode": KEY_KP_ADD},
+		],
+	},
+	&"camera_zoom_out": {
+		"display_name": "Zoom Camera Out",
+		"group": "camera",
+		"bindings": [
+			{"type": "key", "physical_keycode": KEY_MINUS},
+			{"type": "key", "physical_keycode": KEY_KP_SUBTRACT},
 		],
 	},
 	&"office_overview": {

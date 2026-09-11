@@ -46,6 +46,7 @@ func _run() -> void:
 	) as ScrollContainer
 	var camera := office.get("_camera_controller") as ManagementCameraController
 	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
+	var character_dialogue = office.get("_character_dialogue_ui")
 	var decision_host := office.get("_decision_host") as Control
 	var review_scrim := office.get("_day_review_scrim") as Control
 	_check(
@@ -141,6 +142,12 @@ func _run() -> void:
 	_check(int(procurement.get("procurement_spend_today_cents", -1)) == EXPECTED_ORDER_COST_CENTS, "the procurement ledger should record the exact debit once", failures)
 	_check(int(procurement.get("stock_scoops", -1)) == EXPECTED_ORDER_SCOOPS, "the authoritative snapshot should receive exactly seven scoops", failures)
 	_check((procurement.get("lots", []) as Array).size() == 1, "the accepted transaction should create exactly one authoritative lot", failures)
+	_check(
+		character_dialogue != null
+		and character_dialogue.has_seen(&"feed_order_4_local_whole_grain"),
+		"the real accepted grain order should file Henrietta's bounded consequence beat",
+		failures,
+	)
 
 	_check(procurement_visual.stock_scoops() == EXPECTED_ORDER_SCOOPS, "the physical provisions room should refresh to the same seven-scoop stock", failures)
 	_check(procurement_visual.visible_stock_sack_count() == 1 and procurement_visual.lot_ids() == [1], "the physical room should materialize exactly the canonical lot", failures)
@@ -231,7 +238,7 @@ func _finish(office: Node, failures: Array[String]) -> void:
 			push_error("FEED_PROCUREMENT_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FEED_PROCUREMENT_OFFICE_INTEGRATION_TEST_PASSED surface=flockwatch intent=authorize_feed_order debit=$17.50-once stock=snapshot+room camera=exact-focus modal=none hotkey=none")
+	print("FEED_PROCUREMENT_OFFICE_INTEGRATION_TEST_PASSED surface=flockwatch intent=authorize_feed_order debit=$17.50-once stock=snapshot+room reaction=henrietta camera=exact-focus modal=none hotkey=none")
 	quit(0)
 
 

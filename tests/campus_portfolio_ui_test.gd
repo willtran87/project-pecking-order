@@ -1,6 +1,7 @@
 extends SceneTree
 
 const PortfolioUIScript := preload("res://features/office/campus_portfolio_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -44,6 +45,18 @@ func _run() -> void:
 	var action_button := ui.find_child("CampusPortfolioActionButton", true, false) as Button
 	var return_button := ui.find_child("CampusPortfolioReturnButton", true, false) as Button
 	var north_button := ui.find_child("CampusPortfolioNorthMeadowDetailsButton", true, false) as Button
+	var glance_grid := ui.find_child("CampusPortfolioGlanceGrid", true, false) as GridContainer
+	var pad_glance := ui.find_child("CampusPortfolioPadGlance", true, false) as Label
+	var cost_glance := ui.find_child("CampusPortfolioCostGlance", true, false) as Label
+	var time_glance := ui.find_child("CampusPortfolioTimeGlance", true, false) as Label
+	var funds_glance := ui.find_child("CampusPortfolioFundsGlance", true, false) as Label
+	var capacity_glance := ui.find_child("CampusPortfolioCapacityGlance", true, false) as Label
+	var staff_glance := ui.find_child("CampusPortfolioStaffGlance", true, false) as Label
+	var primary_effect_glance := ui.find_child("CampusPortfolioEffectPrimaryGlance", true, false) as Label
+	var secondary_effect_glance := ui.find_child("CampusPortfolioEffectSecondaryGlance", true, false) as Label
+	var exact_economics := ui.find_child("CampusPortfolioInspectorEconomics", true, false) as Label
+	var exact_capacity := ui.find_child("CampusPortfolioInspectorCapacity", true, false) as Label
+	var exact_effect := ui.find_child("CampusPortfolioInspectorEffect", true, false) as Label
 
 	_check(ui.is_open(), "show_portfolio should reveal the planner", failures)
 	_check(ui.layout_mode_name() == &"desktop", "1280x720 should use the desktop planner", failures)
@@ -56,6 +69,19 @@ func _run() -> void:
 	_check(ui.find_children("CampusPortfolioModule_*", "Button", true, false).size() == 2, "the selected parcel should show only its two relevant module files", failures)
 	_check(ui.find_children("CampusPortfolioProject_*", "VBoxContainer", true, false).size() >= 1, "active project queue should expose authored project records", failures)
 	_check(ui.find_children("CampusPortfolioStage_job_grain_01_*", "Label", true, false).size() == 3, "every authored construction stage should be visible", failures)
+	_check(glance_grid != null and glance_grid.columns == 2 and glance_grid.get_child_count() == 8, "selected-project economics should resolve into eight two-line glance tiles", failures)
+	_check(pad_glance != null and _contains_all(pad_glance.text, ["pad", "west apron", "ready"]), "pad glance should lead with the selected location and state", failures)
+	_check(cost_glance != null and _contains_all(cost_glance.text, ["cost", "$140", "$6.50/day"]), "cost glance should combine capital and daily liability without redundant prose", failures)
+	_check(time_glance != null and _contains_all(time_glance.text, ["time", "2 shifts"]), "time glance should expose construction duration", failures)
+	_check(funds_glance != null and _contains_all(funds_glance.text, ["after", "not filed"]), "missing projections should say not filed instead of inventing zero-dollar balances", failures)
+	_check(capacity_glance != null and _contains_all(capacity_glance.text, ["build load", "1 crew", "pwr 2", "cold 0"]), "build-load glance should compress the three shared capacities", failures)
+	_check(staff_glance != null and _contains_all(staff_glance.text, ["staff", "1 hen"]), "staff glance should expose the dedicated-perch requirement", failures)
+	_check(primary_effect_glance != null and secondary_effect_glance != null and _contains_all(primary_effect_glance.tooltip_text, ["adds one collection rail branch", "relieves routing overflow"]), "benefit tiles should retain both exact authored effects on inspection", failures)
+	_check(cost_glance != null and _contains_all(String(cost_glance.get_meta("accessible_text", "")), ["capital", "$140.00", "daily liability", "$6.50", "west rail tie-in cleared"]), "cost glance accessibility should retain exact money and filing reason", failures)
+	_check(exact_economics != null and exact_capacity != null and exact_effect != null and not exact_economics.visible and not exact_capacity.visible and not exact_effect.visible, "exact semantic ledgers should remain populated but visually collapsed", failures)
+	_check(exact_economics != null and _contains_all(exact_economics.text, ["capital", "$140.00", "daily liability", "$6.50", "build time", "2 shifts"]), "collapsed economics should retain every authored term", failures)
+	_check(exact_capacity != null and _contains_all(exact_capacity.text, ["contractors", "power", "cold", "staff"]), "collapsed capacity should retain every authored resource term", failures)
+	_check(exact_effect != null and _contains_all(exact_effect.text, ["adds one collection rail branch", "relieves routing overflow"]), "collapsed effects should retain the exact authored benefit copy", failures)
 
 	_check(_label_contains(ui, "CampusPortfolioResource_feed_fund", ["feed fund", "$512.50"]), "resource rail should show exact Feed Fund", failures)
 	_check(_label_contains(ui, "CampusPortfolioResource_spendable", ["spendable", "$325.00"]), "resource rail should show exact spendable fund", failures)
@@ -66,6 +92,16 @@ func _run() -> void:
 
 	_check(ui.selected_parcel_id() == &"north_meadow" and ui.selected_pad_id() == &"meadow_west" and ui.selected_module_id() == &"collection_rail_hub", "projection-selected parcel, pad, and module should establish context", failures)
 	_check(action_button != null and not action_button.disabled and _contains_all(action_button.text, ["queue", "collection rail hub", "$140.00", "2 shifts"]), "ready module should expose one exact queue CTA", failures)
+	var portfolio_primary := ui.primary_action_state()
+	ui.focus_primary_action()
+	_check(
+		String(portfolio_primary.get("copy", "")) == action_button.text
+		and String(portfolio_primary.get("action_id", ""))
+		== "campus_portfolio_file"
+		and action_button.has_focus(),
+		"Campus Portfolio should publish and focus its exact enabled filing",
+		failures,
+	)
 	_check(_contains_all(ui.accessible_text(), ["campus portfolio", "3 parcels", "collection rail hub", "$140.00", "contractors", "power", "cold"]), "accessible copy should cover the visible portfolio decision", failures)
 	if action_button != null:
 		action_button.pressed.emit()
@@ -102,6 +138,9 @@ func _run() -> void:
 	ui.select_parcel(&"creekside_yard")
 	ui.select_module(&"creekside_chilling_exchange")
 	await process_frame
+	_check(_contains_all(primary_effect_glance.text, ["storage", "+12 eggs"]), "storage effect should resolve into one compact benefit tile", failures)
+	_check(_contains_all(secondary_effect_glance.text, ["pickup", "90% to 95% value"]), "pickup effect should use a Web-font-safe direction phrase", failures)
+	_check(_contains_all(secondary_effect_glance.tooltip_text, ["raises staffed overflow pickup from 90% to 95% of recorded value"]), "pickup tile should retain the exact authored effect on inspection", failures)
 	var selector := ui.find_child("CampusPortfolioWorkerSelector", true, false) as OptionButton
 	var assign_button := ui.find_child("CampusPortfolioAssignButton", true, false) as Button
 	_check(selector != null and selector.item_count == 2, "staffing selector should retain both named workers and explicit eligibility", failures)
@@ -142,6 +181,33 @@ func _run() -> void:
 	_check(_visible_children_fit(ui, viewport_bounds), "portrait planner should not require horizontal scrolling (%s)" % _first_horizontal_overflow(ui, viewport_bounds), failures)
 	_check(action_button.get_global_rect().end.x <= harness.size.x + 0.5, "portrait contextual CTA should remain inside the viewport (rect=%s)" % action_button.get_global_rect(), failures)
 
+	# Maximum supported interface scale and moderately expanded English copy
+	# must preserve the complete planning route, not merely the base typography.
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	await process_frame
+	await process_frame
+	_check(
+		_visible_children_fit(ui, viewport_bounds),
+		"150-percent expanded-copy portfolio should remain inside 390x844 (%s; largest=%s)"
+		% [
+			_first_horizontal_overflow(ui, viewport_bounds),
+			_largest_minimum_widths(ui),
+		],
+		failures,
+	)
+	_check(
+		body_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
+		"150-percent portfolio planning should remain vertical-scroll-only",
+		failures,
+	)
+	_check(
+		action_rail.get_global_rect().end.y <= harness.size.y + 0.5,
+		"150-percent portfolio action rail should remain physically reachable",
+		failures,
+	)
+
 	ui.free()
 	await process_frame
 	if not failures.is_empty():
@@ -149,7 +215,7 @@ func _run() -> void:
 			push_error("CAMPUS_PORTFOLIO_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CAMPUS_PORTFOLIO_UI_TEST_PASSED layout=65/35+compact parcels=3 resources=6 queue=staged staffing=named CTA=deed+project intents=only responsive=1280+844+390")
+	print("CAMPUS_PORTFOLIO_UI_TEST_PASSED layout=65/35+compact parcels=3 resources=6 glance=8x2line+exact-hidden queue=staged staffing=named CTA=deed+project intents=only responsive=1280+844+390 resilience=150-percent+expanded-copy")
 	quit(0)
 
 
@@ -179,7 +245,7 @@ func _snapshot() -> Dictionary:
 			"modules": [
 				{"id": &"collection_rail_hub", "name": "Collection Rail Hub", "parcel_id": &"north_meadow", "allowed_pad_ids": [&"meadow_west", &"meadow_east"], "capital_cost_cents": 14_000, "daily_cost_cents": 650, "duration_shifts": 2, "contractor_slots": 1, "power_units": 2, "cold_units": 0, "staff_required": 1, "benefits": ["Adds one collection rail branch.", "Relieves routing overflow."], "quote": {"can_authorize": true, "reason": "Contractor and power capacity are filed.", "cost_cents": 14_000, "added_daily_cost_cents": 650, "duration_shifts": 2}, "pad_quotes": {"meadow_west": {"can_authorize": true, "reason": "West rail tie-in cleared.", "cost_cents": 14_000, "added_daily_cost_cents": 650, "duration_shifts": 2}}},
 				{"id": &"grain_recovery_mill", "name": "Grain Recovery Mill", "parcel_id": &"north_meadow", "allowed_pad_ids": [&"meadow_west"], "capital_cost_cents": 11_500, "daily_cost_cents": 575, "duration_shifts": 2, "power_units": 2, "staff_required": 1, "can_authorize": false, "reason": "A mill project is already active."},
-				{"id": &"creekside_chilling_exchange", "name": "Creekside Chilling Exchange", "parcel_id": &"creekside_yard", "allowed_pad_ids": [&"creek_exchange"], "capital_cost_cents": 16_000, "daily_cost_cents": 800, "duration_shifts": 3, "contractor_slots": 1, "power_units": 2, "cold_units": 3, "staff_required": 1, "can_authorize": true, "reason": "Creekside service routes are clear."},
+				{"id": &"creekside_chilling_exchange", "name": "Creekside Chilling Exchange", "parcel_id": &"creekside_yard", "allowed_pad_ids": [&"creek_exchange"], "capital_cost_cents": 16_000, "daily_cost_cents": 800, "duration_shifts": 3, "contractor_slots": 1, "power_units": 2, "cold_units": 3, "staff_required": 1, "can_authorize": true, "reason": "Creekside service routes are clear.", "benefits": ["+12 finished-egg storage positions while staffed and powered", "Raises staffed overflow pickup from 90% to 95% of recorded value"]},
 				{"id": &"contractor_roost", "name": "Contractor Roost", "parcel_id": &"orchard_row", "allowed_pad_ids": [&"orchard_loading"], "capital_cost_cents": 12_500, "daily_cost_cents": 700, "duration_shifts": 2, "can_authorize": false, "reason": "Purchase Orchard Row first."},
 			],
 			"projects": [{"project_id": &"job_grain_01", "module_id": &"grain_recovery_mill", "module_name": "Grain Recovery Mill", "parcel_id": &"north_meadow", "pad_id": &"meadow_west", "status": &"building", "status_label": "FRAMING", "stage_id": &"frame", "progress_shifts": 1, "duration_shifts": 2, "remaining_shifts": 1, "stages": [
@@ -217,6 +283,72 @@ func _first_horizontal_overflow(root_control: Control, bounds: Rect2) -> String:
 		if rect.position.x < bounds.position.x - 1.0 or rect.end.x > bounds.end.x + 1.0:
 			return "%s=%s bounds=%s" % [control.name, rect, bounds]
 	return "none"
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	var rows: Array[Dictionary] = []
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		rows.append({
+			"name": String(control.name),
+			"minimum": control.get_combined_minimum_size().x,
+			"width": control.size.x,
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return float(left.get("minimum", 0.0)) > float(right.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(24, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override(
+			"font_size",
+			maxi(10, roundi(float(base_size) * scale)),
+		)
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is OptionButton:
+			var option := node_value as OptionButton
+			for item_index: int in range(option.item_count):
+				option.set_item_text(
+					item_index,
+					_expanded(option.get_item_text(item_index)),
+				)
+		elif node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _contains_all(text_value: String, needles: Array[String]) -> bool:

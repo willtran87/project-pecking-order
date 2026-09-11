@@ -58,6 +58,8 @@ var _project_host: VBoxContainer
 
 var _inspector_title: Label
 var _inspector_status: Label
+var _inspector_glance_grid: GridContainer
+var _inspector_glance_tiles: Dictionary = {}
 var _inspector_pad: Label
 var _inspector_economics: Label
 var _inspector_capacity: Label
@@ -157,6 +159,47 @@ func is_open() -> bool:
 	return visible
 
 
+func primary_action_state() -> Dictionary:
+	if not is_open():
+		return {}
+	var target := _action_button
+	var action_id := "campus_portfolio_file"
+	var detail := (
+		_action_summary.text.strip_edges()
+		if _action_summary != null else
+		"File the selected campus plan."
+	)
+	if target == null or target.disabled or not target.is_visible_in_tree():
+		target = _return_button
+		action_id = "campus_portfolio_return"
+		detail = "Return to Capital Blueprint with every campus filing preserved."
+	if target == null or not target.is_visible_in_tree():
+		return {}
+	var copy := target.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": action_id,
+		"actionable": not target.disabled,
+		"semantic_icon": "safe_return" if target == _return_button else "capital",
+		"icon_visible": target.icon != null,
+		"accessible_text": detail,
+	}
+
+
+func focus_primary_action() -> bool:
+	var state := primary_action_state()
+	if state.is_empty() or not bool(state.get("actionable", false)):
+		return false
+	var target := (
+		_return_button
+		if String(state.get("action_id", "")) == "campus_portfolio_return" else
+		_action_button
+	)
+	target.grab_focus()
+	return true
+
+
 func layout_mode_name() -> StringName:
 	return _layout_mode
 
@@ -223,7 +266,13 @@ func presentation_state() -> Dictionary:
 
 
 func accessible_text() -> String:
-	var pieces: Array[String] = [_model.accessible_summary()]
+	var pieces: Array[String] = [
+		String(_header_status.get_meta(
+			"accessible_text",
+			_header_status.tooltip_text if not _header_status.tooltip_text.is_empty() else _header_status.text,
+		)),
+		_model.accessible_summary(),
+	]
 	for parcel_record: Dictionary in _model.parcels():
 		pieces.append("%s, %s." % [String(parcel_record.get("name", "Parcel")), String(parcel_record.get("status_label", "HELD"))])
 	for project_record: Dictionary in _model.projects():
@@ -236,6 +285,15 @@ func accessible_text() -> String:
 		if label != null and not label.text.strip_edges().is_empty():
 			pieces.append(label.text.replace("\n", "; "))
 	return " ".join(pieces)
+
+
+func present_action_hold(copy: String, detail: String) -> void:
+	if _header_status == null:
+		return
+	_header_status.text = copy
+	_header_status.tooltip_text = detail
+	_header_status.set_meta("accessible_text", detail)
+	_header_status.add_theme_color_override("font_color", COLOR_RUST)
 
 
 func _build_interface() -> void:
@@ -270,7 +328,7 @@ func _build_interface() -> void:
 	header.custom_minimum_size.y = 38.0
 	header.add_theme_constant_override("separation", 10)
 	page.add_child(header)
-	var title := _label("CAMPUS PORTFOLIO", 22, COLOR_BRASS)
+	var title := _wrap_label("CAMPUS PORTFOLIO", 22, COLOR_BRASS)
 	title.name = "CampusPortfolioTitle"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
@@ -378,7 +436,7 @@ func _build_map_panel() -> void:
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 6)
 	margin.add_child(column)
-	var heading := _label("SURVEYED CAMPUS / SELECT PARCEL & PAD", 11, COLOR_MUTED)
+	var heading := _wrap_label("SURVEYED CAMPUS / SELECT PARCEL & PAD", 11, COLOR_MUTED)
 	heading.name = "CampusPortfolioMapHeading"
 	column.add_child(heading)
 
@@ -403,7 +461,7 @@ func _build_map_panel() -> void:
 	var queue_column := VBoxContainer.new()
 	queue_column.add_theme_constant_override("separation", 4)
 	queue_margin.add_child(queue_column)
-	var queue_heading := _label("ACTIVE BUILD QUEUE / SHIFT-BASED", 10, COLOR_BRASS)
+	var queue_heading := _wrap_label("ACTIVE BUILD QUEUE / SHIFT-BASED", 10, COLOR_BRASS)
 	queue_column.add_child(queue_heading)
 	_project_host = VBoxContainer.new()
 	_project_host.name = "CampusPortfolioProjectHost"
@@ -454,11 +512,32 @@ func _build_inspector_panel() -> void:
 	_module_host.add_theme_constant_override("separation", 4)
 	column.add_child(_module_host)
 
-	_inspector_pad = _inspector_section(column, "SELECTED PAD", "CampusPortfolioInspectorPad")
-	_inspector_economics = _inspector_section(column, "CAPITAL & LIABILITY", "CampusPortfolioInspectorEconomics")
-	_inspector_capacity = _inspector_section(column, "CAPACITY & STAFFING", "CampusPortfolioInspectorCapacity")
-	_inspector_effect = _inspector_section(column, "VISIBLE RESULT", "CampusPortfolioInspectorEffect")
-	_inspector_reason = _inspector_section(column, "PROJECT FILE", "CampusPortfolioInspectorReason")
+	var glance_heading := _label("PROJECT GLANCE", 10, COLOR_BRASS)
+	glance_heading.name = "CampusPortfolioGlanceHeading"
+	column.add_child(glance_heading)
+	_inspector_glance_grid = GridContainer.new()
+	_inspector_glance_grid.name = "CampusPortfolioGlanceGrid"
+	_inspector_glance_grid.columns = 2
+	_inspector_glance_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_inspector_glance_grid.add_theme_constant_override("h_separation", 5)
+	_inspector_glance_grid.add_theme_constant_override("v_separation", 5)
+	column.add_child(_inspector_glance_grid)
+	_add_inspector_glance("pad", "CampusPortfolioPadGlance", "PAD\nSELECT ONE")
+	_add_inspector_glance("cost", "CampusPortfolioCostGlance", "COST\nNOT FILED")
+	_add_inspector_glance("time", "CampusPortfolioTimeGlance", "TIME\nNOT FILED")
+	_add_inspector_glance("funds", "CampusPortfolioFundsGlance", "AFTER\nNOT FILED")
+	_add_inspector_glance("capacity", "CampusPortfolioCapacityGlance", "BUILD LOAD\nNOT FILED")
+	_add_inspector_glance("staff", "CampusPortfolioStaffGlance", "STAFF\nNOT FILED")
+	_add_inspector_glance("effect_primary", "CampusPortfolioEffectPrimaryGlance", "BENEFIT\nNOT FILED")
+	_add_inspector_glance("effect_secondary", "CampusPortfolioEffectSecondaryGlance", "BENEFIT\nNOT FILED")
+
+	# Preserve every authored term for narration and automation without making the
+	# first visual scan repeat the same ledger underneath the glance tiles.
+	_inspector_pad = _semantic_inspector_section(column, "CampusPortfolioInspectorPad")
+	_inspector_economics = _semantic_inspector_section(column, "CampusPortfolioInspectorEconomics")
+	_inspector_capacity = _semantic_inspector_section(column, "CampusPortfolioInspectorCapacity")
+	_inspector_effect = _semantic_inspector_section(column, "CampusPortfolioInspectorEffect")
+	_inspector_reason = _semantic_inspector_section(column, "CampusPortfolioInspectorReason")
 
 	var staff_heading := _label("NAMED MODULE STAFF", 10, COLOR_BRASS)
 	column.add_child(staff_heading)
@@ -467,6 +546,9 @@ func _build_inspector_panel() -> void:
 	column.add_child(_staff_status)
 	_worker_selector = OptionButton.new()
 	_worker_selector.name = "CampusPortfolioWorkerSelector"
+	_worker_selector.fit_to_longest_item = false
+	_worker_selector.clip_text = true
+	_worker_selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_worker_selector.focus_mode = Control.FOCUS_ALL
 	_worker_selector.item_selected.connect(_on_worker_selected)
 	column.add_child(_worker_selector)
@@ -489,13 +571,29 @@ func _build_inspector_panel() -> void:
 	staff_actions.add_child(_unassign_button)
 
 
-func _inspector_section(parent: VBoxContainer, heading_text: String, node_name: String) -> Label:
-	var heading := _label(heading_text, 10, COLOR_BRASS)
-	parent.add_child(heading)
+func _semantic_inspector_section(parent: VBoxContainer, node_name: String) -> Label:
 	var body := _wrap_label("-", 11, COLOR_MUTED)
 	body.name = node_name
+	body.visible = false
 	parent.add_child(body)
 	return body
+
+
+func _add_inspector_glance(glance_id: StringName, node_name: String, initial_copy: String) -> void:
+	var panel := PanelContainer.new()
+	panel.name = "%sPanel" % node_name
+	panel.custom_minimum_size = Vector2(120.0, 48.0)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.add_theme_stylebox_override("panel", _panel_style(Color("20313b"), Color("49616d"), 7, 1))
+	_inspector_glance_grid.add_child(panel)
+	var label := _wrap_label(initial_copy, 11, COLOR_INK)
+	label.name = node_name
+	label.custom_minimum_size.y = 48.0
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.add_child(label)
+	_inspector_glance_tiles[glance_id] = label
 
 
 func _refresh() -> void:
@@ -512,12 +610,15 @@ func _refresh() -> void:
 func _refresh_header() -> void:
 	if _header_status == null:
 		return
+	_header_status.add_theme_color_override("font_color", COLOR_TEAL)
 	var active := _model.projects().size()
 	_header_status.text = "%d PARCELS  /  %d ACTIVE PROJECT%s" % [
 		_model.parcels().size(),
 		active,
 		"" if active == 1 else "S",
 	]
+	_header_status.tooltip_text = _header_status.text
+	_header_status.set_meta("accessible_text", _header_status.text)
 
 
 func _refresh_resources() -> void:
@@ -698,6 +799,7 @@ func _refresh_inspector() -> void:
 		_inspector_capacity.text = "Parcel deed / no module capacity selected."
 		_inspector_effect.text = _bullet_copy(parcel_record.get("benefit_lines", []), "No parcel effect lines filed.")
 		_inspector_reason.text = _reason_or(deed, parcel_record, "No authoritative deed reason filed.")
+		_refresh_inspector_glances(parcel_record, pad_record, {}, deed)
 		return
 
 	var quote := _model.project_quote(_selected_module_id, _selected_pad_id)
@@ -715,11 +817,183 @@ func _refresh_inspector() -> void:
 	_inspector_effect.text = _bullet_copy(module_record.get("effect_lines", []), "No operational effect lines filed.")
 	_inspector_reason.text = _reason_or(quote, module_record, "No authoritative project reason filed.")
 	_inspector_reason.add_theme_color_override("font_color", COLOR_TEAL if bool(quote.get("can_authorize", false)) else COLOR_RUST)
+	_refresh_inspector_glances(parcel_record, pad_record, module_record, quote)
 
 
 func _set_inspector_empty() -> void:
 	for label: Label in [_inspector_pad, _inspector_economics, _inspector_capacity, _inspector_effect, _inspector_reason]:
 		label.text = "-"
+	if _inspector_glance_grid != null:
+		_inspector_glance_grid.visible = false
+
+
+func _refresh_inspector_glances(
+	parcel_record: Dictionary,
+	pad_record: Dictionary,
+	module_record: Dictionary,
+	quote: Dictionary
+) -> void:
+	_inspector_glance_grid.visible = true
+	var reason := _reason_or(quote, module_record if not module_record.is_empty() else parcel_record, "No authoritative filing reason available.")
+	_inspector_status.tooltip_text = reason
+	_inspector_status.set_meta("accessible_text", "%s. %s" % [_inspector_status.text, reason])
+
+	var pad_detail := _pad_copy(pad_record)
+	_set_inspector_glance(
+		&"pad",
+		"PAD\n%s" % _compact_pad_copy(pad_record),
+		pad_detail,
+		COLOR_TEAL if not pad_record.is_empty() and not bool(pad_record.get("blocked", false)) else COLOR_RUST
+	)
+
+	var economics_detail := _quote_cost_copy(quote)
+	if not reason.is_empty():
+		economics_detail += "\n\nFILE\n%s" % reason
+	var capital := (
+		_compact_money(int(quote.get("cost_cents", 0)))
+		if bool(quote.get("has_cost", false)) else "NOT FILED"
+	)
+	var daily := (
+		" + %s/DAY" % _compact_money(int(quote.get("daily_cost_cents", 0)))
+		if bool(quote.get("has_daily_cost", false)) else ""
+	)
+	_set_inspector_glance(&"cost", "COST\n%s%s" % [capital, daily], economics_detail, COLOR_BRASS)
+
+	var duration := int(quote.get("duration_shifts", module_record.get("duration_shifts", 0)))
+	_set_inspector_glance(
+		&"time",
+		"TIME\n%s" % ("%d SHIFT%s" % [duration, "" if duration == 1 else "S"] if duration > 0 else "DEED FILE"),
+		economics_detail,
+		COLOR_INK
+	)
+
+	var funds_copy := "NOT FILED"
+	if bool(quote.get("has_projected_spendable", false)) and bool(quote.get("has_projected_reserve", false)):
+		funds_copy = "%s FREE · %s SAFE" % [
+			_compact_money(int(quote.get("projected_spendable_fund_cents", 0))),
+			_compact_money(int(quote.get("projected_protected_reserve_cents", 0))),
+		]
+	_set_inspector_glance(&"funds", "AFTER\n%s" % funds_copy, economics_detail, COLOR_TEAL)
+
+	if module_record.is_empty():
+		_set_inspector_glance(&"capacity", "MODULE\nSELECT A FILE", _inspector_capacity.text, COLOR_MUTED)
+		_set_inspector_glance(&"staff", "STAFF\nAFTER MODULE", _inspector_capacity.text, COLOR_MUTED)
+	else:
+		var capacity_detail := "%s\n\nWHY\n%s" % [_inspector_capacity.text, reason]
+		_set_inspector_glance(
+			&"capacity",
+			"BUILD LOAD\n%d CREW · PWR %d · COLD %d" % [
+				int(module_record.get("contractor_slots", 0)),
+				int(module_record.get("power_required", 0)),
+				int(module_record.get("cold_required", 0)),
+			],
+			capacity_detail,
+			COLOR_INK
+		)
+		var staff_required := int(module_record.get("staff_required", 0))
+		_set_inspector_glance(
+			&"staff",
+			"STAFF\n%s" % ("%d HEN%s" % [staff_required, "" if staff_required == 1 else "S"] if staff_required > 0 else "NO PERCH"),
+			capacity_detail,
+			COLOR_TEAL if staff_required <= 1 else COLOR_BRASS
+		)
+
+	var effect_lines := _string_lines(
+		module_record.get("effect_lines", []) if not module_record.is_empty() else parcel_record.get("benefit_lines", [])
+	)
+	var effect_detail := _inspector_effect.text
+	var tradeoffs := _bullet_copy(module_record.get("tradeoff_lines", []), "") if not module_record.is_empty() else ""
+	if not tradeoffs.is_empty():
+		effect_detail += "\n\nTRADEOFFS\n%s" % tradeoffs
+	var effect_copies := _effect_glance_copies(effect_lines)
+	_set_inspector_glance(&"effect_primary", effect_copies[0], effect_detail, COLOR_TEAL)
+	_set_inspector_glance(&"effect_secondary", effect_copies[1], effect_detail, COLOR_TEAL)
+
+
+func _set_inspector_glance(
+	glance_id: StringName,
+	copy: String,
+	detail: String,
+	accent: Color
+) -> void:
+	var label := _inspector_glance_tiles.get(glance_id) as Label
+	if label == null:
+		return
+	label.text = copy
+	label.tooltip_text = detail
+	label.set_meta("accessible_text", "%s. %s" % [copy.replace("\n", ": "), detail.replace("\n", "; ")])
+	label.add_theme_color_override("font_color", accent)
+	var panel := label.get_parent() as PanelContainer
+	if panel != null:
+		panel.tooltip_text = detail
+
+
+func _compact_pad_copy(pad_record: Dictionary) -> String:
+	if pad_record.is_empty():
+		return "SELECT ONE"
+	var pad_name := String(pad_record.get("name", "PAD")).to_upper()
+	for removable: String in ["CREEKSIDE ", "ORCHARD ", "NORTH MEADOW ", " PAD"]:
+		pad_name = pad_name.replace(removable, "")
+	var status := String(pad_record.get("status_label", "HELD")).to_upper()
+	return "%s · %s" % [pad_name, status]
+
+
+func _effect_glance_copies(lines: Array[String]) -> Array[String]:
+	var result: Array[String] = []
+	for line: String in lines.slice(0, 2):
+		result.append(_compact_effect_copy(line))
+	while result.size() < 2:
+		result.append("BENEFIT\nNOT FILED")
+	return result
+
+
+func _compact_effect_copy(source: String) -> String:
+	var upper := source.to_upper()
+	var values := _number_tokens(upper)
+	if "CLAIM" in upper and not values.is_empty():
+		return "FILES\n+%s LIVE" % values[0].trim_suffix("%")
+	if "$" in upper and "EGG" in upper and not values.is_empty():
+		return "EGG VALUE\n+$%s" % values[0].trim_suffix("%")
+	if "STORAGE" in upper and "SCOOP" in upper and not values.is_empty():
+		return "GRAIN\n+%s SCOOPS" % values[0].trim_suffix("%")
+	if "FEED DEMAND" in upper and not values.is_empty():
+		return "FEED\n-%s SCOOP / DAY" % values[0].trim_suffix("%")
+	if "STORAGE" in upper and "EGG" in upper and not values.is_empty():
+		return "STORAGE\n+%s EGGS" % values[0].trim_suffix("%")
+	if "PICKUP" in upper and values.size() >= 2:
+		return "PICKUP\n%s TO %s VALUE" % [values[0], values[1]]
+	if "CONTRACTOR SLOT" in upper and not values.is_empty():
+		return "CREW\n+%s SLOT" % values[0].trim_suffix("%")
+	if "CHILLING" in upper:
+		return "UNLOCK\nCHILLING"
+	var compact := upper.trim_prefix("ADDS ").trim_prefix("RAISES ").trim_suffix(".")
+	if compact.length() > 27:
+		compact = "%s…" % compact.left(26).strip_edges()
+	return "BENEFIT\n%s" % compact
+
+
+func _number_tokens(source: String) -> Array[String]:
+	var expression := RegEx.new()
+	if expression.compile("[0-9]+(?:\\.[0-9]+)?%?") != OK:
+		return []
+	var values: Array[String] = []
+	for result: RegExMatch in expression.search_all(source):
+		values.append(result.get_string())
+	return values
+
+
+func _string_lines(value: Variant) -> Array[String]:
+	var lines: Array[String] = []
+	if value is Array:
+		for item: Variant in value as Array:
+			var line := str(item).strip_edges()
+			if not line.is_empty():
+				lines.append(line)
+	elif value is String or value is StringName:
+		var line := str(value).strip_edges()
+		if not line.is_empty():
+			lines.append(line)
+	return lines
 
 
 func _refresh_staffing() -> void:
@@ -963,9 +1237,9 @@ func _quote_cost_copy(quote: Dictionary) -> String:
 	var duration := int(quote.get("duration_shifts", 0))
 	if duration > 0:
 		lines.append("BUILD TIME  %d SHIFT%s" % [duration, "" if duration == 1 else "S"])
-	if quote.has("projected_spendable_fund_cents"):
+	if bool(quote.get("has_projected_spendable", false)):
 		lines.append("AFTER BUILD SPENDABLE  %s" % _money(int(quote.get("projected_spendable_fund_cents", 0))))
-	if quote.has("projected_protected_reserve_cents"):
+	if bool(quote.get("has_projected_reserve", false)):
 		lines.append("PROTECTED RESERVE  %s" % _money(int(quote.get("projected_protected_reserve_cents", 0))))
 	return "\n".join(lines)
 
@@ -1052,6 +1326,12 @@ func _clear_container(container: Container) -> void:
 
 func _money(cents: int) -> String:
 	return "$%.2f" % (float(cents) / 100.0)
+
+
+func _compact_money(cents: int) -> String:
+	if cents % 100 == 0:
+		return "$%d" % (cents / 100)
+	return _money(cents)
 
 
 func _title(value: StringName) -> String:

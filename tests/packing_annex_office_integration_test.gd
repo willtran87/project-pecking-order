@@ -22,6 +22,10 @@ func _run() -> void:
 		await _finish(office, failures)
 		return
 	_check(annex.visual_state() == &"locked", "fresh campaign should show only the unearned lease boundary", failures)
+	# Capital requisitions are intentionally revision-driven only while their
+	# filing is visible; exercise the same path a player uses before buying.
+	office.call("_open_flockwatch_page", &"capital")
+	await process_frame
 
 	simulation.day = 3
 	simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
@@ -42,6 +46,12 @@ func _run() -> void:
 			)
 			office.call("_on_snapshot_changed", simulation.snapshot())
 			await process_frame
+		# Each accepted commission deliberately returns to the floor to present the
+		# physical result. Reopen Capital before validating the next tier.
+		office.call("_open_flockwatch_page", &"capital")
+		await process_frame
+		office.call("_on_snapshot_changed", simulation.snapshot())
+		await process_frame
 		var purchase := office.find_child("PurchaseFacility_%s" % String(FACILITY_ID), true, false) as Button
 		_check(purchase != null, "tier %d should retain a stable requisition button" % level, failures)
 		_check(purchase != null and not purchase.disabled, "tier %d exact funding should enable its requisition" % level, failures)

@@ -573,7 +573,7 @@ func _derived_construction_stages() -> Array[Dictionary]:
 func _derived_operational_benefits() -> Array[String]:
 	var result: Array[String] = []
 	if _projection.has("claim_capacity_bonus"):
-		result.append("CLAIM CAPACITY BONUS  +%d FILES" % int(_projection.get("claim_capacity_bonus", 0)))
+		result.append("LIVE-FILE BONUS  +%d FILES" % int(_projection.get("claim_capacity_bonus", 0)))
 	if _projection.has("farmgate_capacity_bonus_eggs"):
 		result.append("FARMGATE CAPACITY BONUS  +%d EGGS" % int(_projection.get("farmgate_capacity_bonus_eggs", 0)))
 	if _projection.has("current_daily_cost_cents"):
@@ -663,7 +663,7 @@ func _benefit_lines_with_quote(source: Dictionary, quote: Dictionary) -> Array[S
 func _quote_effect_lines(quote: Dictionary) -> Array[String]:
 	var result: Array[String] = []
 	if quote.has("claim_capacity_before") and quote.has("claim_capacity_after"):
-		result.append("CLAIM CAPACITY  %d -> %d" % [
+		result.append("LIVE-FILE CAPACITY  %d -> %d" % [
 			int(quote.get("claim_capacity_before", 0)),
 			int(quote.get("claim_capacity_after", 0)),
 		])

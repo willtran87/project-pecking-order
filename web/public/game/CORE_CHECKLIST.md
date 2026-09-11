@@ -1,0 +1,413 @@
+# Pecking Order core production acceptance record
+
+This record maps the core production checklist to shipped behavior and repeatable
+evidence. The five-shift probation file is the authored campaign. Senior Roost
+is an optional post-campaign management file; it does not delay or replace the
+ending, and the game contains no prestige reset, offline accumulation, paid
+currency, or live-service pressure.
+
+## Creative north star
+
+- [x] The first view is a warm low-poly office, while policy copy, surveillance,
+      credit transfer, denial handling, and farmer reviews reveal its incentives.
+- [x] Chickens physically peck claims screens and lay claim-result eggs; the
+      grading rail, Farm Mutual folders, and farmer basket keep farm language,
+      insurance work, and output inseparable.
+- [x] Major choices disclose exact effects, the beneficiary, and the burden.
+      Claim paths, contracts, personnel actions, policies, facilities, and
+      incidents all use authoritative previews and receipts.
+- [x] Throughput, fast denial, pressure, surveillance, and credit-taking create
+      real short-term advantages with worker, audit, trust, or later-queue costs.
+- [x] Named hens retain careers, trust, grievance, temperament, nearest-perchmate
+      bonds, petitions, commendations, and visible care/recovery.
+- [x] The player is consistently a rooster managing the Egg Yield Bureau for
+      Farm Mutual. Eggs are completed claims, never a generic commodity market.
+
+Evidence: `department_simulation.gd`, `chicken_state.gd`,
+`peckwork_routing_ui.gd`, `probation_campaign_ui.gd`,
+`farmer_relations_gallery_visual.gd`, and the live browser career walkthrough.
+
+## Shift loop
+
+- [x] Every shift exposes the clutch target, clock, pause, 1x/3x/10x controls,
+      and a clear morning filing action.
+- [x] Incoming files route among Nest Damage, Predator Loss, and Appeals.
+- [x] Hens visibly travel, sit, peck, lay, grade, and hand eggs to collection.
+      Work and egg authorization are rejected unless the assigned hen is seated
+      at her real workstation.
+- [x] Conditions, skill, staffing, lane fit, temperament, claim path, policy,
+      overtime, support, and risk all reach peck pace or shell grading.
+- [x] Farmer review reports output, sound/golden/cracked quality, feed, payroll,
+      upkeep, contracts, settlement, pressure, and the next target.
+- [x] Filed Nest paths restore handler morale, Predator paths add trauma load,
+      and Appeals paths change audit order beyond their base deadlines and risk.
+- [x] Priority Peck, Feed Party, personnel check-ins, care/training, claim
+      resolution, and incident responses provide meaningful mid-shift actions.
+- [x] Rework, claimant appeals, complaints, audits, trust loss, petitions, and
+      work-to-rule return in later shifts.
+- [x] The office view, focused hen dossier, and collapsible Flockwatch keep every
+      important action visible or one interaction away.
+
+Evidence: `claimant_resolution_test.gd`, `claim_routing_ui_test.gd`,
+`egg_seating_regression_test.gd`, `chicken_seated_wing_pose_test.gd`,
+`campaign_balance_playthrough_test.gd`, and `probation_campaign_ui_test.gd`.
+
+## Claims, claimants, and insurance logic
+
+- [x] Claims, policies, risk, appeals, premiums, binders, protected breach
+      reserves, settlement, denial, and exceptions are core vocabulary and state.
+- [x] Farm Mutual offers disclose lane mix, release timing, capacity, premium,
+      rider, reserve impact, and breach charge before signature.
+- [x] Simulation state is authoritative; UI, browser narration, and office props
+      only render snapshots or emit intent.
+- [x] Consequential files show a stable claimant name, incident, requested
+      remedy, and human cost of delay.
+- [x] A clean fast denial returns the same named claimant in the next shift's
+      Appeals tray, preserving the source file and correspondence.
+- [x] Settlement protects the claimant at a cash cost; denial favors bureau
+      closure at higher shell/audit/worker cost; exception protects the claimant
+      with slower handling and a smaller cash cost.
+- [x] Farm Mutual is consistently the bureau's insurance client. Claimants are
+      the farmers/flocks seeking coverage; internal Egg Yield copy remains
+      distinct from customer-facing terms.
+- [x] The FILE tab keeps Standard, Settlement, Fast Denial, and Coverage
+      Exception readable without simulating legal paperwork.
+
+Evidence: `claim_state.gd`, `department_simulation.gd`,
+`claimant_resolution_test.gd`, `market_contract_*_test.gd`, and
+`simulation_persistence_test.gd`.
+
+## Egg yield, risk, and economy
+
+- [x] Eggs are authorized only from completed seated file work and remain
+      visibly distinct as sound, golden, or cracked through grading and review.
+- [x] Clean-clutch reward, estimated crack risk, exact dollars, protected
+      reserves, standing, welfare, and decision effects are disclosed.
+- [x] Recovery controls include reserve-safe spending, standard-book fallback,
+      Farm Treasury credit and repayment, arrears visibility, retriable probation,
+      and prior-year recovery guidance.
+- [x] Sound work earns trust and contract value; cracked work creates rework and
+      exposure; golden work increases value while inviting farmer credit theft.
+- [x] Feed Fund, protected reserves, Farm Mutual standing, welfare, compliance,
+      favor, and exposure have separate uses and gates.
+- [x] Deterministic balance profiles prove quality, welfare, capacity, contract,
+      and recovery strategies remain viable without raw throughput dominating.
+- [x] Capacity and queues are bounded, prices use integer cents, and expansion
+      adds decisions, obligations, and physical capability rather than idle wait.
+
+Evidence: `campaign_balance_playthrough_test.gd`, `farm_treasury_state_test.gd`,
+`farm_treasury_department_test.gd`, `market_contract_economy_test.gd`, and exact
+commissioning/settlement receipts.
+
+## Flock management
+
+- [x] Each hen has a name, role, live state, condition, desk, specialty, career,
+      temperament, accessory set, work history, and nearest-perchmate bond.
+- [x] Fatigue, stress, morale, grievance, trust, welfare, solidarity, and career
+      state alter pace, shell risk, recovery, petitions, or personnel outcomes.
+- [x] Wellness Nest, Training Roost, Feed Party, hiring, separation, perch
+      authorization, reassignment, promotion, and manager staffing have visible
+      and mechanical consequences with exact costs.
+- [x] The Day 2 Bright-Eyed Rotation adds four named intern candidates, one or
+      two supervised seats, three disclosed temporary assignments, explicit
+      term reviews, and character-specific dialogue. Internship filings can use
+      only unreserved Feed Fund; a paid fellowship adds a permanent junior post,
+      $2/day payroll, capacity, and work pace to the authoritative operating
+      ledger rather than becoming free permanent labor.
+- [x] Hens cannot process files or lay eggs while walking, attending wellness or
+      feed events, training, or otherwise away from the assigned chair.
+- [x] Manual routing engages each hen's disclosed work style; AUTO remains a
+      neutral opt-in baseline so identity matters without constant micromanagement.
+- [x] Promotion, secondary credentials, reassignment, and manager roles exchange
+      productive time or payroll for authority, access, pace, or risk control.
+- [x] Care-first play is strategically viable but consumes cash, capacity, time,
+      or farmer favor.
+- [x] Surveillance, understaffing, overtime, quota pressure, arrears, and denied
+      petitions produce persistent stress, grievance, solidarity, compacts, and
+      work-to-rule rather than decorative penalties.
+
+Evidence: `temperament_work_style_test.gd`, `personnel_career_test.gd`,
+`manager_roster_economy_test.gd`,
+`wellness_*_test.gd`, `training_*_test.gd`, `flock_petition_test.gd`, and
+`internship_program_*_test.gd`.
+
+## Facilities and progression
+
+- [x] Purchases physically construct rooms, equipment, perches, rails, archive
+      capacity, service rooms, and player-owned satellite parcels.
+- [x] Facilities serve records, shell grading/rework, flock care, training,
+      Farm Mutual service/negotiation, operations, relations, procurement,
+      packing, publicity, dispatch, and campus claim routing.
+- [x] Capital Blueprint and Campus Portfolio show prerequisites, exact costs,
+      upkeep/payroll, capacity, effects, placement, and blocked reasons.
+- [x] Capital Blueprint retains every filter, portfolio route, pin, return, and
+      authorization action in a 390x844, 150%, expanded-copy compact fixture.
+      Its action rail wraps, structural headings wrap, and compact labels shrink
+      without introducing horizontal scrolling.
+- [x] Campus Portfolio retains its compact vertical-only planner at 390x844
+      with 150% interface scale and moderately expanded English copy. Structural
+      headings wrap, the named-worker selector shrinks safely, and the fixed
+      economic action remains reachable.
+- [x] Campus Expansion retains its parcel, utility, construction, socket, and
+      placement/relocation decisions at 390x844 with 150% interface scale and
+      moderately expanded English copy. Responsive grids prevent provisional
+      text measurement from inflating the page, compact socket targets remain
+      contained, and the fixed authorization rail stays reachable.
+- [x] Each tier unlocks a handling choice, capacity, service, staffing,
+      negotiation, care, procurement, dispatch, or governance responsibility.
+- [x] The authored five shifts widen from onboarding to a reliable flock,
+      contract pressure, labor/institutional complexity, restructuring, and final
+      farmer review.
+- [x] Office growth becomes physically impressive while increasing surveillance,
+      credit appropriation, payroll, exposure, and moral compromise.
+- [x] There are no global subsidiaries or prestige resets. The optional Senior
+      file adds authored Board Book decisions after the campaign ending and is
+      explicitly presented as optional rather than the core completion target.
+
+Evidence: `EXPANSION_ECONOMY.md`, `opening_experience_progression_test.gd`,
+`facility_*_test.gd`, `campus_*_test.gd`, and physical purchase reveal tests.
+
+## Corporate satire and environmental storytelling
+
+- [x] Flockwatch, Peckwork Routing, Egg Yield Bureau, and Farm Mutual form one
+      coherent vocabulary across UI, narration, state, and environmental signs.
+- [x] Grading, collection, farmer review, closing credit, and the Harvest Credit
+      Gallery make credit theft physical and persistent.
+- [x] Mounted bulletin notices, room plaques, nameplates, desk props, stamps,
+      evidence packets, archive boxes, closure boards, and propaganda replace
+      floating exposition.
+- [x] Overview and detail cameras preserve the cheerful low-poly diorama and
+      suppress sub-pixel copy without erasing physical fixtures.
+- [x] The peckwork floor now repeats claimant correspondence, a denial stamp,
+      returned-appeal archives, redacted evidence, and an authoritative file
+      closure board alongside lane folders and the grading system.
+- [x] Gallery plaques convert a named hen's frozen contribution into a farmer or
+      management achievement.
+- [x] Wellness provides real recovery while utilization, attendance, resilience,
+      and management reporting expose its capture.
+- [x] Every joke that carries a mechanic has a plain-language preview, exact
+      effect, receipt, or accessible status.
+- [x] Five approved high-resolution character cutouts turn authoritative
+      management consequences into short fears, complaints, rationalizations,
+      and coworker observations. At 390x844 and 150% interface scale, the
+      portrait, identity, complete thought, filing note, and File Away action
+      remain connected and reachable even with expanded copy.
+- [x] Incidents escalate from efficiency theater and credit disputes to
+      surveillance, labor cases, claimant harm, restructuring, and systemic
+      incentives without treating cruelty as the punchline.
+
+Evidence: `office_storytelling.gd`, `environmental_signage.gd`,
+`office_storytelling_test.gd`, `office_signage_test.gd`,
+`farmer_relations_gallery_*`, and the live desktop browser pass.
+
+## Interface, input, and onboarding
+
+- [x] Shift state, target, clock, controls, and focused-hen actions remain visible
+      without covering the office.
+- [x] Flockwatch is collapsible and closes for focused inspection.
+- [x] Contracts, personnel actions, claimant paths, and purchases expose exact
+      terms before commitment.
+- [x] Routine tray changes remain immediate and expose one truthful, one-level
+      route Undo. Claimant paths and hen separation stage exact costs, benefits,
+      burdens, and an explicit cancel-safe confirmation; duplicate confirm input
+      cannot repeat the transaction.
+- [x] Pause, 1x/3x/10x speed, keyboard, mouse, controller, one-finger pan,
+      pinch/explicit zoom, portrait, landscape, and desktop layouts are supported.
+- [x] First Clutch teaches inspect, route, peckwork, risk, Priority Peck,
+      delivery, farmer collection, reinvestment, and handoff through play.
+- [x] Dense planning lives in dossiers, disclosures, Flockwatch pages, and
+      inspectors rather than permanent HUD panels.
+- [x] Settings reveals one shallow Audio Mix, Comfort & Display, Controls, or
+      Career Backup category at a time. The selected category saves
+      independently, restores on reopen/reload, resets safely, supports
+      Left/Right keyboard navigation, and limits narration to the active group.
+- [x] Alerts expose priority, reason, action, dismissal or acknowledgement, and a
+      bounded history. Transient floor notices persist an All, Priority Only, or
+      Shift Record Only preference without deleting the underlying record.
+- [x] Corporate copy remains playful while objectives, values, deadlines, blocked
+      reasons, and exact effects remain unambiguous.
+- [x] Remapping, reduced motion/sensory effects, independent sound controls,
+      text scale, color-vision modes, semantic narration, and non-rapid control
+      alternatives are available.
+- [x] Settings remains contained and operable at 150% interface scale with
+      moderately expanded English copy at 1280x720 desktop, 844x390 compact
+      landscape, and 390x844 portrait. Category navigation wraps, active pages
+      remain reachable through one bounded scroll region, and no horizontal
+      page scroll is required.
+- [x] Flockwatch Capital and its Economic Briefing remain readable at 150%
+      interface scale. Filing pages reserve the vertical-scrollbar gutter,
+      economic values use short semantic ledger rows, variable market prose
+      wraps at word boundaries, and all visible descendants remain inside the
+      effective reading viewport.
+- [x] Probation intake, between-shift reports, and final review remain
+      vertical-scroll-only and action-reachable at 390x844, 150% interface
+      scale, and moderately expanded English copy. Campaign buttons shrink
+      without losing their surrounding authored explanation, and the challenge
+      selector no longer sizes the intake to its longest option.
+- [x] Farm Mutual's Contract Board preserves binder selection, pricing posture,
+      accreditation, terms, negotiation, and fixed Sign/Decline actions at
+      390x844, 150% interface scale, and moderately expanded English copy.
+      Structural labels wrap, fixed actions trim safely, and the board remains
+      vertical-scroll-only with its selected binder and negotiation state intact.
+- [x] Facility commissioning receipts preserve identity, exact before/after
+      funds, reserve/upkeep obligations, operating effects, outcome, and both
+      held actions at 390x844, 150% interface scale, and moderately expanded
+      English copy. Receipt columns and actions flow responsively while the
+      economic document remains vertical-scroll-only.
+- [x] Campus authorization and construction receipts preserve parcel/module/pad
+      identity, capital and liability, build capacity, named staffing, visible
+      outcome, and both held actions under the same portrait stress. Expanded
+      headings wrap and fixed actions trim without widening the receipt.
+- [x] A held campus receipt owns the complete notification layer: opening it
+      archives any prior action-outcome semantics and removes every transient
+      consequence card before the live parcel is exposed, preventing stale
+      policy chips from floating above the new authoritative result.
+
+Browser evidence: 390x844 portrait, 844x390 landscape, and 1280x720 desktop
+showed contained 16:9 canvases and no horizontal overflow; visible mobile controls
+were 40px high. The max-scale Settings renderer audit separately exercised all
+four categories, reload persistence, and the compact landscape shell. The
+Capital audit separately exercised the real new-file, Flockwatch, all-filings,
+Capital, and 150% Settings route against the exported Web build.
+
+## Audio and presentation
+
+- [x] Sound, golden, and cracked grading; purchase/denial; Feed Party; peckwork;
+      collection; incidents; and farmer review use distinct semantic cues.
+- [x] Master, music, office ambience, mechanical pressure/farm SFX, UI,
+  warning/decision, and nonverbal character-cutout cue buses
+      preserve the diorama presentation with independent controls.
+- [x] Late quota pressure, stress, and overtime raise machinery/alert layers;
+      review and calmer conditions create space in the mix.
+- [x] Recurring farmer verdict cadences and optimistic announcements become more
+      ominous as incentives and consequences accumulate.
+- [x] High-value outcomes use bounded lights, particles, trails, receipts, and
+      audio pooling rather than unbounded effects.
+- [x] Players can select Full, Reduced, or Essential Only effect density without
+      losing authoritative text, symbols, warning history, receipts, or audio.
+- [x] Particle density is independently Full, Reduced, or Off; changing it does
+      not disable authored lighting, while effect density does not override the
+      filed particle choice.
+- [x] Camera motion is independently Full, Reduced, or Off. Off prevents passive
+      event reframing and makes player-requested framing immediate; no office
+      screen-shake effect is authored.
+- [x] Low, Standard, and High camera sensitivity scale the same bounded mouse,
+      keyboard, controller, trackpad, and touch pan/zoom authority.
+- [x] Players can select Brief, Standard, or Extended transient-notice duration;
+      the complete labeled Shift Record remains available in every mode.
+- [x] Players can select Relaxed, Standard, or Brisk presentation animation
+      speed without changing the simulation clock, shift deadlines, or economy.
+- [x] Players can select Short, Standard, or Long tooltip delay; the preference
+      applies live and remains independent from simulation timing.
+- [x] Supported devices can use restrained optional haptics for confirmations,
+      warnings, rare outcomes, and milestones. Routine production stays calm,
+      and disabling vibration preserves complete visual and audio feedback.
+
+Evidence: `office_audio_director.gd`, `office_audio_feedback.gd`,
+`office_atmosphere.gd`, `audio_feedback_test.gd`, and
+`office_audio_director_test.gd`, plus `player_preferences_store_test.gd`,
+`settings_ui_test.gd`, `settings_office_integration_test.gd`,
+`management_camera_navigation_test.gd`, and
+`workstation_reinvestment_visual_test.gd`.
+
+## Reliability, saves, and verification
+
+- [x] Finance, contracts, campaign, flock, claim paths, facilities, and campus
+      state are deterministic, strictly validated, persisted, and focused-tested.
+- [x] Desktop and mobile Web were exercised at the target resolutions above.
+- [x] Authored routes and declared facility footprints keep staging collision-free;
+      storytelling additions contain no `CollisionObject3D`.
+- [x] The deterministic campaign balance matrix passes after the economy and
+      claimant-path changes.
+- [x] Save/restore coverage spans shift checkpoints, binders, facilities,
+      campaign transitions, personnel, claimant paths, and irreversible choices.
+- [x] Causal tests connect decisions to work pace/strain, shell risk, grading,
+      ledgers/reviews, and later rework, petitions, or named claimant appeals.
+- [x] Highest-count staging, hot paths, bounded effect pools, input, readable
+      text, and runtime-soak contracts have automated coverage.
+- [x] The complete two-cycle Web soak keeps each live diagnostic below 64 KiB,
+      round-trips two verified portable backups, and reports zero browser,
+      native-memory, WASM-memory, or orphan-node growth failures.
+- [x] High-load diagnostics project current player-relevant contract and campus
+      authority rather than recursive hidden catalogs. Production captures stay
+      below 65,536 bytes at Campus Portfolio (62,236), Economic Briefing
+      (59,821), and during a complete active egg receipt (62,577).
+- [x] The release gate fails on broken progression, value mismatch, unreadable
+      required information, inaccessible input, stale exports, or payload parity.
+- [x] Automated critical-flow coverage includes route Undo plus cancel/confirm
+      and duplicate-input protection for irreversible claimant and staffing
+      transactions.
+- [x] Between-shift staffing is reachable from the foreground probation report
+      after closing credit unlocks planning. Opening Roost Requisitions suspends
+      that report, and closing Flockwatch restores the exact actionable report.
+- [x] The live Flock staffing filing remains vertical-scroll-only with both
+      applicant actions and release controls horizontally reachable at 150%
+      interface scale under expanded copy. The irreversible release
+      confirmation also remains contained and cancellable at 390x844.
+- [x] Senior Career Sponsorship remains horizontally contained and vertically
+      reachable at 390x844, 150% interface scale, and expanded copy. Filing
+      requires a distinct cancelable confirmation that repeats the hen, lane,
+      marks, Feed Fund, training penalty, permanent wage, and irreversible gate;
+      duplicate confirmation cannot charge twice.
+- [x] Rooster Operations remains vertical-scroll-only at 390x844 and 150%
+      interface scale under expanded copy. Each manager's assignment and posture
+      use full-width compact controls; successor cards disclose the signing fee,
+      displaced rooster, unchanged headcount, projected payroll, and zero egg
+      output. Appointments are cancelable, confirm-once, and mutation-free until
+      the explicit succession filing.
+- [x] Feed Procurement and Farmgate Dispatch remain horizontal-scroll-free in
+      the real 282-pixel Flockwatch filing at 150% interface scale under
+      expanded copy. Titles and live quotes use a readable stacked hierarchy;
+      disclosure toggles, route selectors, and actions cannot force the filing
+      wider. Routine reversible orders stay one-click while every exact term and
+      held reason remains adjacent to the action.
+- [x] Flock Relations remains vertical-scroll-only at the 282-pixel filing
+      width and 150% interface scale under expanded copy. Every permanent labor
+      disposition requires a bounded cancelable confirmation naming the hen,
+      case, action, Feed Fund cost, relationship/compliance effects, and
+      irreversible personnel record; stale disabled actions fail closed and
+      duplicate confirmation cannot file twice.
+- [x] Farmer Relations remains vertical-scroll-only at the same 282-pixel
+      filing width and 150% interface scale under expanded copy. Public
+      campaigns use a stacked title/standing hierarchy and clipped full-width
+      actions. Each permanent publication requires a bounded cancelable review
+      naming its subject, attribution, evidence, cost, payout, net Feed Fund
+      change, standing change, day record, and irreversibility; stale disabled
+      actions fail closed and duplicate confirmation cannot publish twice.
+
+Representative release evidence is written under `output/release/`; the current
+exhaustive isolated Godot result is
+`output/godot-full-suite-20260730-intern-economy-v2/full-suite-summary.json`
+(212/212 passed,
+zero failures and timeouts).
+
+## Deliberate non-goals
+
+- [x] No offline accumulation substitutes for the shift game.
+- [x] No paid currency, loot boxes, login streaks, manipulative timers, or
+      live-service pressure exists.
+- [x] No prestige reset erases campaign consequences.
+- [x] Feed procurement, Farmgate dispatch, and campus logistics remain bounded
+      claims-bureau responsibilities rather than generic global markets or
+      research trees.
+- [x] Every expansion adds a decision, obligation, handling capability,
+      physical change, or later consequence; a larger number is never its sole
+      reward.
+
+## External release activity
+
+Automated tests cover responsive dimensions, synthetic touch paths, software
+WebGL, persistence, semantic narration, and deterministic performance contracts.
+Representative physical iOS/Android touch feel, screen-reader listening, and
+integrated/discrete GPU throughput remain human hardware sign-off items. They are
+tracked as external release evidence in `BETA_READINESS.md` and executed through
+`PHYSICAL_RELEASE_ACCEPTANCE.md`, not silently claimed by the automated gate.
+`verify_physical_release_evidence.ps1` rejects missing sessions, placeholder
+evidence, stale release hashes, missed thresholds, and unsigned decisions.
+Human comprehension, friction, pacing, fun, strategic-depth, feedback-clarity,
+and long-session-fatigue sessions are separately defined by
+`USABILITY_PLAYTEST_ACCEPTANCE.md`. On 2026-07-28 the project owner attested that
+usability should be considered performed for continued release work. No task
+metrics or recordings are inferred from that decision; the stricter validator
+remains available and will fail closed until all seven evidence-backed sessions
+are actually conducted.

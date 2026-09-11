@@ -37,12 +37,12 @@ func _test_current_schema_round_trip(failures: Array[String]) -> void:
 	source.workers[0].stress = 44.75
 	source.workers[0].morale = 71.5
 	var exported := source.export_save_state()
-	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current flock-care state should export schema v23", failures)
+	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current flock-care state should export schema v24", failures)
 	var facilities := exported.get("owned_facilities", {}) as Dictionary
-	_check(facilities.size() == 13, "schema v23 should serialize exactly thirteen facility keys", failures)
-	_check(int(facilities.get(String(WELLNESS), -1)) == 3, "schema v23 should serialize Wellness tier 3", failures)
-	_check(int(facilities.get(String(TRAINING), -1)) == 3, "schema v23 should serialize Training tier 3", failures)
-	_check(exported.has("campus_expansion"), "schema v23 should serialize the strict North Meadow ledger", failures)
+	_check(facilities.size() == 13, "schema v24 should serialize exactly thirteen facility keys", failures)
+	_check(int(facilities.get(String(WELLNESS), -1)) == 3, "schema v24 should serialize Wellness tier 3", failures)
+	_check(int(facilities.get(String(TRAINING), -1)) == 3, "schema v24 should serialize Training tier 3", failures)
+	_check(exported.has("campus_expansion"), "schema v24 should serialize the strict North Meadow ledger", failures)
 
 	var parsed: Variant = JSON.parse_string(JSON.stringify(exported))
 	_check(parsed is Dictionary, "current state should remain primitive JSON", failures)

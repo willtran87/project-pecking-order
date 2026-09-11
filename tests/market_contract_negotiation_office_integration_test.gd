@@ -29,6 +29,7 @@ func _run() -> void:
 
 	var clock := office.get("_clock") as SimulationClock
 	var campaign_ui := office.get("_campaign_ui") as ProbationCampaignUI
+	var character_dialogue = office.get("_character_dialogue_ui")
 	var room := office.find_child("FarmMutualNegotiationRoomVisual", true, false) as FarmMutualNegotiationRoomVisual
 	_check(room != null, "production Office should compose the north-parcel Negotiation Room visual", failures)
 	_check(clock != null and clock.speed_index == 0, "Gold review should remain paused", failures)
@@ -50,6 +51,12 @@ func _run() -> void:
 	_check(simulation.revenue_cents == fund_before_purchase - 24_000, "room requisition should debit capital exactly once", failures)
 	_check(simulation.current_daily_operating_cost_cents() == operating_before + 1_200, "commissioned room should add exact recurring upkeep", failures)
 	_check(room != null and room.visual_state() == &"owned" and room.owned_room_visible(), "purchase should replace the prospect with the complete pavilion", failures)
+	_check(
+		character_dialogue != null
+		and character_dialogue.has_seen(&"facility_9_farm_mutual_negotiation_room_l1"),
+		"the real capital purchase should file Cornelius's management-room reaction",
+		failures,
+	)
 
 	_stage = "opening negotiated planning"
 	office.call("_open_contract_board_or_begin_next_shift")
@@ -99,6 +106,12 @@ func _run() -> void:
 	_check(simulation.revenue_cents == fund_before_signature, "signature should reserve liability without debiting the Feed Fund", failures)
 	_check(clock != null and clock.speed_index == 0, "negotiated signature should leave planning paused", failures)
 	_check(room != null and room.active_clause_id() == CLAUSE_ID and room.active_rider_visible(), "physical room should display the authoritative signed rider", failures)
+	_check(
+		character_dialogue != null
+		and character_dialogue.has_seen(&"binder_signed_9_predator_watch_pool_mutual_rate"),
+		"the real binder signature should file the cast's pricing reaction exactly once",
+		failures,
+	)
 
 	await create_timer(0.95).timeout
 	if clock != null:
@@ -110,7 +123,7 @@ func _run() -> void:
 			push_error("MARKET_CONTRACT_NEGOTIATION_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("MARKET_CONTRACT_NEGOTIATION_OFFICE_INTEGRATION_TEST_PASSED purchase=$240+$12 season=summer rider=expedited quote=$47.20/$12.80 draft=no-liability world=authoritative")
+	print("MARKET_CONTRACT_NEGOTIATION_OFFICE_INTEGRATION_TEST_PASSED purchase=$240+$12 season=summer rider=expedited quote=$47.20/$12.80 draft=no-liability reactions=capital+pricing world=authoritative")
 	quit(0)
 
 

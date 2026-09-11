@@ -12,6 +12,14 @@ func _init() -> void:
 		"standard timing should preserve the shipped Priority Peck window",
 		failures,
 	)
+	_check(
+		is_equal_approx(float(standard.get("gold_start", 0.0)), DepartmentSimulation.PECK_ASSIST_GOLD_START)
+		and is_equal_approx(float(standard.get("gold_end", 0.0)), DepartmentSimulation.PECK_ASSIST_GOLD_END)
+		and float(standard.get("gold_start", 0.0)) < float(standard.get("ideal_progress", 0.0))
+		and float(standard.get("gold_end", 0.0)) > float(standard.get("ideal_progress", 0.0)),
+		"Priority Peck status should disclose the strongest rating band around its ideal rhythm",
+		failures,
+	)
 
 	_check(simulation.set_peck_assist_timing_profile(&"lenient"), "lenient timing profile should be accepted", failures)
 	var lenient := simulation.peck_assist_status(0)
@@ -25,6 +33,12 @@ func _init() -> void:
 	_check(
 		is_equal_approx(float(lenient.get("ideal_progress", 0.0)), DepartmentSimulation.PECK_ASSIST_IDEAL_PROGRESS),
 		"timing assistance must not move the strongest reward target",
+		failures,
+	)
+	_check(
+		is_equal_approx(float(lenient.get("gold_start", 0.0)), float(standard.get("gold_start", -1.0)))
+		and is_equal_approx(float(lenient.get("gold_end", 0.0)), float(standard.get("gold_end", -1.0))),
+		"motor-access timing profiles should widen the action window without changing the gold rating band",
 		failures,
 	)
 
@@ -48,7 +62,7 @@ func _init() -> void:
 			push_error("PECK_ASSIST_ACCESSIBILITY_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("PECK_ASSIST_ACCESSIBILITY_TEST_PASSED standard=28-88 lenient=22-92 extended=15-96 rewards=unchanged")
+	print("PECK_ASSIST_ACCESSIBILITY_TEST_PASSED standard=28-88 lenient=22-92 extended=15-96 gold=58-66 rewards=unchanged")
 	quit(0)
 
 

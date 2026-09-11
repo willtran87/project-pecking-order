@@ -1,6 +1,7 @@
 extends SceneTree
 
 const ContractBoardUIScript := preload("res://features/office/farm_mutual_contract_board_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -24,8 +25,16 @@ func _run() -> void:
 		"continue_requests": 0,
 	}
 	ui.contract_selected.connect(func(offer_id: StringName) -> void: selected.append(offer_id))
-	ui.contract_sign_requested.connect(func(offer_id: StringName, clause_id: StringName) -> void:
-		sign_requests.append({"offer_id": offer_id, "clause_id": clause_id})
+	ui.contract_sign_requested.connect(func(
+		offer_id: StringName,
+		clause_id: StringName,
+		pricing_id: StringName,
+	) -> void:
+		sign_requests.append({
+			"offer_id": offer_id,
+			"clause_id": clause_id,
+			"pricing_id": pricing_id,
+		})
 	)
 	ui.decline_requested.connect(func() -> void: observed["decline_requests"] += 1)
 	ui.continue_requested.connect(func() -> void: observed["continue_requests"] += 1)
@@ -59,16 +68,61 @@ func _run() -> void:
 	var action_rail := ui.find_child("ContractBoardActionRail", true, false) as CenterContainer
 	var negotiation_toggle := ui.find_child("ContractNegotiationToggle", true, false) as Button
 	var negotiation_drawer := ui.find_child("ContractNegotiationDrawer", true, false) as PanelContainer
+	var title := ui.find_child("ContractBoardTitle", true, false) as Label
+	var subtitle := ui.find_child("ContractBoardSubtitle", true, false) as Label
+	var availability := ui.find_child("ContractBoardAvailability", true, false) as Label
+	var folder_heading := ui.find_child("ContractFolderSectionTitle", true, false) as Label
+	var selection_hint := ui.find_child("ContractSelectionHint", true, false) as Label
 
 	_check(panel != null and panel.is_visible_in_tree(), "planning snapshot should reveal the Farm Mutual panel", failures)
+	var initial_primary_action := ui.primary_action_state()
+	_check(
+		String(initial_primary_action.get("copy", "")) == "NEXT: PICK A CLIENT"
+		and String(initial_primary_action.get("action_id", "")) == "campaign_contract_offer"
+		and bool(initial_primary_action.get("actionable", false))
+		and "reward, loss, workload, and signing terms" in String(
+			initial_primary_action.get("accessible_text", "")
+		)
+		and ui.focus_primary_action()
+		and root.gui_get_focus_owner() == offer_buttons[0],
+		"global contract guidance should name and focus the first real client choice",
+		failures,
+	)
 	_check(scroll != null and scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "board should own an automatic vertical scroll path", failures)
 	_check(scroll != null and scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "responsive board should never depend on horizontal scrolling", failures)
 	_check(target_day != null and target_day.text == "DAY 3", "board should name the exact next shift", failures)
+	_check(
+		title != null and title.text == "PICK A CLIENT"
+		and subtitle != null and subtitle.text == "Compare files, urgency, reward, and risk."
+		and folder_heading != null and folder_heading.text == "PICK 1-3",
+		"the board should lead with one plain-language decision and one compact comparison cue",
+		failures,
+	)
+	_check(
+		availability != null
+		and availability.text == "OPEN  /  LOSS HELD  /  REWARD EARNED"
+		and _contains_all(availability.tooltip_text, [
+			"exact disclosed breach charge", "premium", "earned only",
+		])
+		and _contains_all(String(availability.get_meta("accessible_text", "")), [
+			"LOSS HELD", "REWARD EARNED", "breach charge", "premium",
+		]),
+		"the planning banner should state the rule at a glance while preserving the exact signature liability",
+		failures,
+	)
 	_check(season_strip != null and season_strip.is_visible_in_tree(), "seasonal planning should reveal one compact season strip", failures)
 	_check(season_label != null and _contains_all(season_label.text, ["season", "hawk migration"]), "season strip should name the canonical current season", failures)
 	_check(season_summary != null and _contains_all(season_summary.text, ["predator", "rush"]), "season strip should state its concise authored effect", failures)
 	_check(accreditation_card != null and accreditation_card.is_visible_in_tree(), "accreditation standing should remain visible before a folder is opened", failures)
 	_check(standing_rank != null and _contains_all(standing_rank.text, ["unlisted", "0 standing"]), "level 0 should print its exact unlisted rank and standing", failures)
+	_check(
+		standing_rank != null
+		and standing_rank.size.x >= 176.0
+		and accreditation_card != null
+		and accreditation_card.size.y < 180.0,
+		"desktop accreditation status should remain a readable line instead of a one-character column",
+		failures,
+	)
 	_check(standing_points != null and standing_points.text == "FARM MUTUAL STANDING  0", "standing should print its exact current points without a vague meter", failures)
 	_check(standing_next != null and _contains_all(standing_next.text, ["next seal at 2", "2 more standing"]), "unlisted standing should disclose the exact Bronze threshold and remaining points", failures)
 	_check(standing_streak != null and _contains_all(standing_streak.text, ["streak  0", "best 0"]), "accreditation should retain current and best clean binder streaks", failures)
@@ -92,8 +146,27 @@ func _run() -> void:
 		_check(button != null and button.custom_minimum_size.y >= 116.0, "folder %d should keep a generous selection target" % (index + 1), failures)
 		_check(button != null and _shortcut_has_key(button, [KEY_1, KEY_2, KEY_3][index]), "folder %d should retain its deterministic numeric shortcut" % (index + 1), failures)
 	_check(
-		_contains_all((offer_buttons[0] as Button).text, ["homestead binder", "nest 4", "rush 1", "+$10.00", "-$5.00"]),
-		"folder summary should expose lane mix, rush volume, premium, and breach without opening it",
+		_contains_all((offer_buttons[0] as Button).text, [
+			"nesting", "5 files", "1 rush", "win +$10.00", "miss -$5.00",
+		])
+		and (offer_buttons[0] as Button).text.split("\n").size() == 3,
+		"folder summary should compare workload, urgency, reward, and loss in three plain-language lines",
+		failures,
+	)
+	_check(
+		_contains_all(String((offer_buttons[0] as Button).get_meta("accessible_text", "")), [
+			"HOMESTEAD STABILITY BINDER", "NEST 4", "PREDATOR 1", "ARRIVALS",
+			"SUCCESS", "PREMIUM", "BREACH", "FLOCK FIT",
+		])
+		and _contains_all((offer_buttons[2] as Button).text, [
+			"appeals", "6 files", "3 rush", "held",
+		])
+		and _contains_all(String((offer_buttons[2] as Button).get_meta("accessible_text", "")), [
+			"APPEALS 4", "SIGNATURE HELD", "2 more empty file roosts",
+		])
+		and selection_hint != null
+		and not selection_hint.is_visible_in_tree(),
+		"compact cards should keep exact lane, schedule, success, liability, staffing, and held-reason detail off the glance layer",
 		failures,
 	)
 
@@ -111,11 +184,66 @@ func _run() -> void:
 	var reserve := ui.find_child("ContractBreachReserve", true, false) as Label
 	var capacity := ui.find_child("ContractCapacityFit", true, false) as Label
 	var reason := ui.find_child("ContractTermReason", true, false) as Label
+	var terms_detail_toggle := ui.find_child(
+		"ContractTermsDetailToggle",
+		true,
+		false,
+	) as Button
+	var terms_detail_group := ui.find_child(
+		"ContractTermsDetailGroup",
+		true,
+		false,
+	) as VBoxContainer
 	_check(selected == [&"predator_watch_pool"], "2 should select only the second stable offer ID", failures)
+	_check(
+		_contains_all((offer_buttons[1] as Button).text, ["predator", "picked"])
+		and selection_hint != null
+		and not selection_hint.is_visible_in_tree(),
+		"the selected card should carry its own non-color state without a redundant instruction line",
+		failures,
+	)
 	_check(sign_requests.is_empty(), "numeric folder selection must never authorize a liability", failures)
 	_check(terms_card != null and terms_card.visible, "selection should open one complete Terms card", failures)
 	_check(sign_button != null and not sign_button.disabled and _shortcut_has_key(sign_button, KEY_ENTER), "selected affordable folder should enable explicit Enter signing", failures)
+	var sign_primary_action := ui.primary_action_state()
+	_check(
+		String(sign_primary_action.get("copy", "")) == sign_button.text
+		and String(sign_primary_action.get("action_id", "")) == "campaign_contract_sign"
+		and bool(sign_primary_action.get("actionable", false))
+		and String(sign_primary_action.get("accessible_text", "")).begins_with(
+			"Activate SIGN PREDATOR POOL [ENTER]."
+		)
+		and ui.focus_primary_action()
+		and root.gui_get_focus_owner() == sign_button,
+		"selected binder guidance should advance to and focus the exact visible Sign action",
+		failures,
+	)
 	_check(negotiation_toggle != null and negotiation_toggle.visible, "an opened binder with authored clauses should reveal its N negotiation control", failures)
+	_check(
+		terms_detail_toggle != null
+		and terms_detail_group != null
+		and not terms_detail_group.is_visible_in_tree()
+		and terms_detail_toggle.text == "REVIEW DETAILS"
+		and _contains_all(
+			terms_detail_toggle.tooltip_text,
+			["context", "indemnity reserve", "archive", "flock fit"],
+		)
+		and reason != null
+		and not reason.is_visible_in_tree(),
+		"a signable binder should fold redundant reserve, fit, context, and clear-preflight prose",
+		failures,
+	)
+	if terms_detail_toggle != null:
+		terms_detail_toggle.call("set_expanded", true)
+	await process_frame
+	_check(
+		terms_detail_group != null and terms_detail_group.is_visible_in_tree(),
+		"one explicit fine-print disclosure should restore every exact binder detail",
+		failures,
+	)
+	if terms_detail_toggle != null:
+		terms_detail_toggle.call("set_expanded", false)
+	await process_frame
 	_check(root.gui_get_focus_owner() == sign_button, "selection should hand focus to Sign for the safe second step", failures)
 	_check(terms_title != null and terms_title.text == "PREDATOR WATCH POOL", "Terms card should retain the full binder name", failures)
 	_check(lane_mix != null and _contains_all(lane_mix.text, ["nest 1", "predator 5"]), "Terms card should disclose the exact lane mix", failures)
@@ -159,11 +287,23 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	_check(
-		sign_requests == [{"offer_id": &"predator_watch_pool", "clause_id": &"standard_terms"}],
+		sign_requests == [{
+			"offer_id": &"predator_watch_pool",
+			"clause_id": &"standard_terms",
+			"pricing_id": &"mutual_rate",
+		}],
 		"Enter should emit exactly one authoritative offer-and-clause sign intent",
 		failures,
 	)
 	_check(sign_button != null and sign_button.disabled and "AWAITING RECEIPT" in sign_button.text, "sign intent should lock against replay while awaiting authority", failures)
+	var pending_primary_action := ui.primary_action_state()
+	_check(
+		String(pending_primary_action.get("copy", "")) == sign_button.text
+		and not bool(pending_primary_action.get("actionable", true))
+		and String(pending_primary_action.get("action_id", "")).is_empty(),
+		"pending signature guidance should expose the visible receipt wait without a replay action",
+		failures,
+	)
 	_check(continue_button != null and continue_button.disabled, "sign intent alone must not unlock Continue", failures)
 	_press_key(KEY_ENTER)
 	await process_frame
@@ -185,6 +325,16 @@ func _run() -> void:
 	_check(receipt_body != null and _contains_all(receipt_body.text, ["fm-0003", "base $16.00", "service coop l0 $0.00", "total $16.00", "archive fit", "12 open of 24", "flock fit", "5 active hens", "need 5", "ready", "$8.00", "5 of 6"]), "receipt should preserve ID and itemize premium, archive fit, staffing fit, reserve, and target", failures)
 	_check(sign_button != null and not sign_button.visible, "signed receipt should retire the signature action", failures)
 	_check(continue_button != null and not continue_button.disabled and "OPEN DAY 3 BRIEFING" in continue_button.text, "only a signed receipt should enable explicit continuation", failures)
+	var continue_primary_action := ui.primary_action_state()
+	_check(
+		String(continue_primary_action.get("copy", "")) == continue_button.text
+		and String(continue_primary_action.get("action_id", "")) == "campaign_contract_continue"
+		and bool(continue_primary_action.get("actionable", false))
+		and ui.focus_primary_action()
+		and root.gui_get_focus_owner() == continue_button,
+		"signed receipt guidance should advance to the exact next-briefing action",
+		failures,
+	)
 	_check(root.gui_get_focus_owner() == continue_button, "signed receipt should focus the next safe action", failures)
 	_press_key(KEY_C)
 	await process_frame
@@ -234,8 +384,32 @@ func _run() -> void:
 	await process_frame
 	var cooldown_folder := ui.find_child("ContractFolder_predator_watch_pool", true, false) as Button
 	_check(sign_button != null and sign_button.disabled, "authoritative client cooldown should keep the signature action disabled", failures)
+	var held_primary_action := ui.primary_action_state()
+	var held_focus_reached := ui.focus_primary_action()
+	var held_focus := root.gui_get_focus_owner() as Control
+	_check(
+		String(held_primary_action.get("copy", "")) == "NEXT: PICK ANOTHER CLIENT"
+		and String(held_primary_action.get("action_id", "")) == "campaign_contract_offer"
+		and bool(held_primary_action.get("actionable", false))
+		and "cooldown" in String(held_primary_action.get("accessible_text", "")).to_lower()
+		and held_focus_reached
+		and held_focus != null
+		and StringName(held_focus.get_meta("offer_id", &"")) == &"homestead_stability_binder",
+		"a held client should route global guidance to another signable binder",
+		failures,
+	)
 	_check(reason != null and _contains_all(reason.text, ["client cooldown", "day 4", "red comb", "breached term"]), "selected cooldown should print its authoritative day and reason", failures)
-	_check(cooldown_folder != null and _contains_all(cooldown_folder.text, ["client cooldown", "through day 4"]), "closed client folder should advertise cooldown before selection", failures)
+	_check(
+		reason != null and reason.is_visible_in_tree(),
+		"a held binder should surface its blocking reason without opening fine print",
+		failures,
+	)
+	_check(
+		cooldown_folder != null
+		and _contains_all(cooldown_folder.text, ["cooldown", "day 4"]),
+		"closed client folder should advertise its compact cooldown status before selection",
+		failures,
+	)
 	_check(cooldown_folder != null and _contains_all(cooldown_folder.tooltip_text, ["client cooldown", "day 4", "red comb", "breached term"]), "keyboard focus should expose the same authoritative cooldown reason", failures)
 
 	# Unavailable folders remain inspectable: selection prints the hold reason but
@@ -341,6 +515,54 @@ func _run() -> void:
 			_check(panel != null and panel.custom_minimum_size.x <= viewport_size.x - 52.0 + 0.5, "portrait panel should preserve the scrollbar gutter", failures)
 			_check(scroll != null and scroll.get_v_scroll_bar().max_value > scroll.size.y, "portrait board should expose vertical scrolling for complete terms", failures)
 
+	ui.apply_snapshot(_planning_snapshot())
+	await process_frame
+	_press_key(KEY_2)
+	await process_frame
+	_press_key(KEY_N)
+	await process_frame
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	harness.size = Vector2(390.0, 844.0)
+	await process_frame
+	await process_frame
+	var portrait_bounds := Rect2(Vector2.ZERO, harness.size)
+	_check(
+		_visible_children_fit(ui, portrait_bounds),
+		"150-percent expanded-copy Contract Board should remain inside 390x844 (%s; largest=%s)"
+		% [
+			_first_horizontal_overflow(ui, portrait_bounds),
+			_largest_minimum_widths(ui),
+		],
+		failures,
+	)
+	_check(
+		scroll != null
+		and scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED
+		and scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO,
+		"150-percent Contract Board should remain vertical-scroll-only",
+		failures,
+	)
+	_check(
+		action_rail != null and action_rail.get_global_rect().end.y <= harness.size.y + 0.5,
+		"150-percent Contract Board fixed action rail should remain physically reachable (rect=%s)"
+		% (action_rail.get_global_rect() if action_rail != null else Rect2()),
+		failures,
+	)
+	_check(
+		sign_button != null and sign_button.is_visible_in_tree()
+		and sign_button.get_global_rect().position.x >= -0.5
+		and sign_button.get_global_rect().end.x <= harness.size.x + 0.5,
+		"150-percent Contract Board Sign action should remain inside the viewport",
+		failures,
+	)
+	_check(
+		negotiation_drawer != null and negotiation_drawer.is_visible_in_tree(),
+		"maximum-scale fixture should retain the open negotiation drawer",
+		failures,
+	)
+
 	ui.free()
 	await process_frame
 	if not failures.is_empty():
@@ -348,7 +570,7 @@ func _run() -> void:
 			push_error("FARM_MUTUAL_CONTRACT_BOARD_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("FARM_MUTUAL_CONTRACT_BOARD_UI_TEST_PASSED folders=3 season=compact clauses=N+Space+R terms=effective sign=offer+clause receipt=continue-gate legacy=standard responsive=2560+1440+390")
+	print("FARM_MUTUAL_CONTRACT_BOARD_UI_TEST_PASSED folders=3 season=compact clauses=N+Space+R terms=effective sign=offer+clause receipt=continue-gate legacy=standard responsive=2560+1440+390 resilience=390x844+150-percent+expanded-copy")
 	quit(0)
 
 
@@ -631,7 +853,7 @@ func _test_clause_options(offer: Dictionary) -> Array[Dictionary]:
 	specialist.merge({
 		"clause_id": &"specialist_roost_endorsement",
 		"clause_label": "SPECIALIST ROOST ENDORSEMENT",
-		"clause_summary": "Convert every folder to this binder's dominant claim lane.",
+		"clause_summary": "Convert every folder to this binder's dominant file tray.",
 		"clause_category": &"routing",
 		"clause_available": true,
 		"lane_mix": _dominant_lane_mix(standard.get("lane_mix", {}) as Dictionary),
@@ -742,6 +964,80 @@ func _signed_predator_contract(bronze: bool = false) -> Dictionary:
 		"target_day": 3,
 	}, true)
 	return contract
+
+
+func _visible_children_fit(root_control: Control, bounds: Rect2) -> bool:
+	return _first_horizontal_overflow(root_control, bounds) == "none"
+
+
+func _first_horizontal_overflow(root_control: Control, bounds: Rect2) -> String:
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var rect := control.get_global_rect()
+		if rect.position.x < bounds.position.x - 1.0 or rect.end.x > bounds.end.x + 1.0:
+			return "%s=%s bounds=%s" % [control.name, rect, bounds]
+	return "none"
+
+
+func _largest_minimum_widths(root_control: Control) -> String:
+	var rows: Array[Dictionary] = []
+	for node: Node in root_control.find_children("*", "Control", true, false):
+		var control := node as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		rows.append({
+			"name": String(control.name),
+			"minimum": control.get_combined_minimum_size().x,
+			"width": control.size.x,
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			return float(left.get("minimum", 0.0)) > float(right.get("minimum", 0.0))
+	)
+	var summaries: Array[String] = []
+	for index: int in mini(24, rows.size()):
+		var row := rows[index]
+		summaries.append("%s:min=%.1f/size=%.1f" % [
+			String(row.get("name", "")),
+			float(row.get("minimum", 0.0)),
+			float(row.get("width", 0.0)),
+		])
+	return ", ".join(summaries)
+
+
+func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override(
+			"font_size",
+			maxi(10, roundi(float(base_size) * scale)),
+		)
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(source: String) -> String:
+	var expanded := source
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _press_key(keycode: Key) -> void:

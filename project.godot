@@ -28,6 +28,10 @@ window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
+[internationalization]
+
+locale/translations=PackedStringArray("res://assets/i18n/game_copy.en.translation")
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

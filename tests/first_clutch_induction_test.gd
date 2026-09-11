@@ -2,8 +2,10 @@ extends SceneTree
 
 const CampaignSaveStoreScript := preload("res://core/persistence/campaign_save_store.gd")
 const OfficeActionCatalogScript := preload("res://core/settings/office_action_catalog.gd")
+const PlayerPreferencesStoreScript := preload("res://core/settings/player_preferences_store.gd")
 const MAIN_SAVE_FILENAME := "first_clutch_induction_test.json"
 const INFLIGHT_SAVE_FILENAME := "first_clutch_induction_inflight_test.json"
+const PREFERENCES_FILENAME := "first_clutch_induction_preferences_test.json"
 const TEST_TIME_SCALE := 6.0
 const PERSISTED_FIELDS: Array[String] = [
 	"version",
@@ -42,6 +44,7 @@ func _run() -> void:
 	var inflight_store = CampaignSaveStoreScript.new(INFLIGHT_SAVE_FILENAME)
 	store.delete()
 	inflight_store.delete()
+	PlayerPreferencesStoreScript.new(PREFERENCES_FILENAME).delete_preferences()
 
 	var office: Office = await _spawn_office(store)
 	var simulation := office.get("_simulation") as DepartmentSimulation
@@ -90,7 +93,7 @@ func _run() -> void:
 	_check(
 		prelude_button != null
 		and prelude_button.is_visible_in_tree()
-		and "OPEN MABEL'S FILE" in prelude_button.text,
+		and prelude_button.text == "OPEN FIRST FILE  [ENTER]",
 		"pre-policy orientation should expose one explicit Mabel file action",
 		failures,
 	)
@@ -175,7 +178,18 @@ func _run() -> void:
 	)
 	_check(decision_host != null and decision_host.visible, "Mabel's file action should reveal the mandatory three-card policy", failures)
 	var decision_title := office.get("_decision_title") as Label
-	_check(decision_title != null and "MABEL" in decision_title.text, "opening policy should explain that its rule applies to Mabel and the flock", failures)
+	var decision_eyebrow := office.get("_decision_eyebrow") as Label
+	var decision_order_glance := office.find_child("DecisionOrderGlance", true, false) as GridContainer
+	_check(
+		decision_title != null
+		and decision_title.text == "PICK TODAY'S FLOCK RULE"
+		and decision_eyebrow != null
+		and "MABEL" in decision_eyebrow.text
+		and decision_order_glance != null
+		and decision_order_glance.is_visible_in_tree(),
+		"opening policy should connect Mabel to one glance-first flock rule and three scored orders",
+		failures,
+	)
 	_check(_checkpoint_reason(store) == "first_hen_file_opened", "Mabel's file should checkpoint before policy authorization", failures)
 
 	var expected_open_file := state.duplicate(true)
@@ -200,13 +214,19 @@ func _run() -> void:
 	state = office.first_clutch_snapshot()
 	decision_host = office.find_child("ManagementDecisionHost", true, false) as Control
 	decision_title = office.get("_decision_title") as Label
+	decision_eyebrow = office.get("_decision_eyebrow") as Label
+	decision_order_glance = office.find_child("DecisionOrderGlance", true, false) as GridContainer
 	_check(_same_persisted_state(state, expected_open_file), "Continue should restore Mabel at exactly one of five", failures)
 	_check(
 		simulation.shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_DIRECTIVE
 		and decision_host != null
 		and decision_host.visible
 		and decision_title != null
-		and "MABEL" in decision_title.text
+		and decision_title.text == "PICK TODAY'S FLOCK RULE"
+		and decision_eyebrow != null
+		and "MABEL" in decision_eyebrow.text
+		and decision_order_glance != null
+		and decision_order_glance.is_visible_in_tree()
 		and coach != null
 		and not coach.visible,
 		"post-file Continue should reopen policy without replaying Mabel's prelude",
@@ -232,6 +252,31 @@ func _run() -> void:
 		failures,
 	)
 	_check(coach != null and coach.is_visible_in_tree(), "Mabel route coach should appear once management is unblocked", failures)
+	var character_dialogue = office.get("_character_dialogue_ui")
+	for _dialogue_index in 6:
+		if (
+			character_dialogue == null
+			or not bool((character_dialogue.call("diagnostic_state") as Dictionary).get(
+				"visible",
+				false,
+			))
+		):
+			break
+		character_dialogue.call("dismiss_current")
+		await process_frame
+	var route_accessibility := String(office.call(
+		"_web_accessibility_summary",
+		simulation.snapshot(),
+	))
+	_check(
+		"Route choices:" in route_accessibility
+		and "AUTO SORT" in route_accessibility
+		and "NEST DAMAGE" in route_accessibility
+		and "PREDATOR LOSS" in route_accessibility
+		and "APPEALS" in route_accessibility,
+		"First Clutch assistive narration should retain every full route behind the one-word actions",
+		failures,
+	)
 
 	# Later camera selection must never retarget the authored first file.
 	var target_worker_id := 0
@@ -252,7 +297,13 @@ func _run() -> void:
 	_check(bool(state.get("inspected", false)) and int(state.get("target_worker_id", -1)) == target_worker_id, "Mabel should remain the bound first hen", failures)
 	_check(StringName(state.get("stage", "")) == &"specialty_route" and int(state.get("progress", -1)) == 1, "camera refocus should not add tutorial progress", failures)
 	var specialty_button := office.find_child("Assign_%s" % String(specialty), true, false) as Button
-	_check(specialty_button != null and bool(specialty_button.get_meta("first_clutch_cue", false)), "coach should cue the target hen's exact specialty tray", failures)
+	_check(
+		specialty_button != null
+		and specialty_button.text == "APPEALS  [ENTER]"
+		and bool(specialty_button.get_meta("first_clutch_cue", false)),
+		"coach should cue Mabel's concise, unclipped specialty action and direct shortcut",
+		failures,
+	)
 
 	# A valid check-in filed early is remembered. Progress remains sequential until
 	# the missing route is corrected, preventing the one-check-in-per-day rule from
@@ -309,11 +360,13 @@ func _run() -> void:
 	_check(StringName(state.get("stage", "")) == &"priority_peck" and int(state.get("progress", -1)) == 3, "Continue should resume at the exact next action", failures)
 
 	# Restored camera framing is presentation-only, so focus the persisted target
-	# again, wait for her physical chair arrival, and build a real claim rhythm.
+	# again, resume the intentionally frozen 0x route, wait for her physical chair
+	# arrival, and then pause to build a deterministic real claim rhythm.
 	camera = office.get("_camera_controller") as ManagementCameraController
 	if camera != null:
 		camera.focus_worker(target_worker_id)
 	await process_frame
+	clock.set_speed(1)
 	var seated := await _wait_until_worker_seated(office, target_worker_id, 720)
 	_check(seated, "restored target hen should physically reach her workstation", failures)
 	clock.set_speed(0)
@@ -393,19 +446,40 @@ func _run() -> void:
 		and decision_host != null
 		and decision_host.visible
 		and decision_title != null
-		and "WHAT SHOULD MABEL" in decision_title.text
-		and "FIRST EGG BUILD" in decision_title.text
+		and "REWARD MABEL" in decision_title.text
+		and "BANK THE FUND" in decision_title.text
 		and decision_body != null
-		and "$" in decision_body.text
-		and "protected operating reserve" in decision_body.text,
-		"physical collection should open the exact First Clutch reinvestment docket",
+		and "SPENDABLE" in decision_body.text
+		and "DESK MATCH" in decision_body.text
+		and "RESERVED" in decision_body.text
+		and "protected reserve" in String(decision_body.get_meta("accessible_text", ""))
+		and "farmer kept the presentation credit" in String(
+			decision_body.get_meta("accessible_text", "")
+		).to_lower(),
+		"physical collection should open the concise, satirical First Clutch benefit choice",
+		failures,
+	)
+	var keycap_button := office.find_child("DecisionOption_peckwork_tools", true, false) as Button
+	var reinvestment_options := office.find_child("DecisionOptions", true, false) as GridContainer
+	_check(
+		keycap_button != null
+		and "BETTER KEYS" in keycap_button.text
+		and "SPEED" in keycap_button.text
+		and "PAY $" in keycap_button.text
+		and "SPENDABLE" in String(keycap_button.get_meta("preview", ""))
+		and "EXACT RECEIPT" in String(keycap_button.get_meta("accessible_text", ""))
+		and "LIST" in String(keycap_button.get_meta("accessible_text", ""))
+		and "MATCH" in String(keycap_button.get_meta("accessible_text", "")),
+		"benefit-first purchase cards should preserve the exact economic preflight in their selected preview",
 		failures,
 	)
 	_check(
 		confirm_button != null
 		and is_equal_approx(confirm_button.custom_minimum_size.y, 66.0)
+		and reinvestment_options != null
+		and reinvestment_options.columns == 3
 		and (office.get("_decision_option_buttons") as Array).size() == 3,
-		"reinvestment should expose at most two purchase cards plus Bank with a 66px confirm target",
+		"desktop reinvestment should expose two purchases plus Bank as three equal choices with a 66px confirm target",
 		failures,
 	)
 
@@ -441,11 +515,20 @@ func _run() -> void:
 	var fund_before_bank := simulation.revenue_cents
 	var bank_button := office.find_child("DecisionOption_bank_fund", true, false) as Button
 	confirm_button = office.find_child("ConfirmDecisionButton", true, false) as Button
+	_check(
+		bank_button != null
+		and "BANK THE FUND" in bank_button.text
+		and "KEEP $" in bank_button.text
+		and "NO UPGRADE" in bank_button.text,
+		"Bank should state plainly that Mabel's desk receives no benefit",
+		failures,
+	)
 	_check(_press(bank_button), "Bank should remain a deliberate third reinvestment choice", failures)
 	await process_frame
 	_check(
 		confirm_button != null
 		and not confirm_button.disabled
+		and "BANK $" in confirm_button.text
 		and office.get_viewport().gui_get_focus_owner() == confirm_button,
 		"selecting with a card should hand keyboard focus to the 66px Confirm target",
 		failures,
@@ -471,10 +554,13 @@ func _run() -> void:
 	var flockwatch_hint := OfficeActionCatalogScript.binding_label(&"toggle_flockwatch")
 	_check(
 		flockwatch_toggle != null
-		and flockwatch_toggle.text == "FLOCKWATCH  ·  3 ACTIONS  [%s]" % flockwatch_hint
+		and flockwatch_toggle.text == "3 ORDERS  [%s]" % flockwatch_hint.split(" / ", false)[0]
+		and String(flockwatch_toggle.get_meta("full_text", "")) == "TODAY'S 3 ORDERS  [%s]" % flockwatch_hint
+		and String(flockwatch_toggle.get_meta("accessible_text", "")).contains("TODAY'S 3 ORDERS")
 		and guidance != null
-		and "three probation orders" in guidance.text.to_lower(),
-		"resolved reinvestment should reveal the stable Flockwatch action count, current binding, and objectives guidance",
+		and guidance.text == "ORDERS READY  >  OPEN  [%s]" % flockwatch_hint
+		and "three probation orders" in String(guidance.get_meta("accessible_text", "")).to_lower(),
+		"resolved reinvestment should name today's three orders, current binding, and exact next action",
 		failures,
 	)
 	_check(_press(flockwatch_toggle), "player should be able to acknowledge the handoff by opening Flockwatch", failures)
@@ -496,11 +582,16 @@ func _run() -> void:
 		failures,
 	)
 	_check(
-		flockwatch_toggle.text == "FLOCKWATCH  ·  CLOSE  [%s]" % flockwatch_hint
+		flockwatch_toggle.text == "CLOSE  [%s]" % flockwatch_hint.split(" / ", false)[0]
+		and String(flockwatch_toggle.get_meta("full_text", "")) == "CLOSE  [%s]" % flockwatch_hint
+		and String(flockwatch_toggle.get_meta("accessible_text", "")).contains("Close Flockwatch")
 		and flockwatch_toggle.tooltip_text.begins_with("Close Flockwatch")
+		and flockwatch_toggle.get_parent() == (office.get("_flockwatch_navigation") as FlockwatchNavigation).header()
+		and flockwatch_toggle.size.x <= 136.0
+		and flockwatch_toggle.size.y <= 36.0
 		and guidance != null
 		and "FIRST CLUTCH 5/5" not in guidance.text,
-		"acknowledgment should retire the tutorial cue while leaving the ledger open",
+		"acknowledgment should retire the tutorial cue and dock a compact close action in the ledger header",
 		failures,
 	)
 
@@ -554,6 +645,72 @@ func _run() -> void:
 	_check(bool(state.get("dismissed", false)) and not bool(state.get("completed", true)), "Skip should dismiss without fabricating completion", failures)
 	_check(coach != null and not coach.visible, "dismissed coach should leave the full management surface unobstructed", failures)
 	_check(_checkpoint_reason(inflight_store) == "first_clutch_skipped" and bool(_saved_first_clutch(inflight_store).get("dismissed", false)), "Skip should persist immediately in the campaign session", failures)
+	var saved_stage := StringName(state.get("stage", &""))
+	office.call("_on_settings_requested")
+	await process_frame
+	var replay_button := office.find_child("FirstClutchReplayButton", true, false) as Button
+	_check(
+		replay_button != null and replay_button.is_visible_in_tree() and not replay_button.disabled,
+		"Settings should expose replay only for a hidden unfinished first-shift coach",
+		failures,
+	)
+	_check(_press(replay_button), "the production Settings action should reopen First Clutch", failures)
+	await process_frame
+	state = office.first_clutch_snapshot()
+	_check(
+		not bool(state.get("dismissed", true))
+		and StringName(state.get("stage", &"")) == saved_stage
+		and String((office.get("_player_preferences") as Dictionary).get("guidance_mode", "")) == "full",
+		"replay should restore the saved step in full mode without rewinding campaign work",
+		failures,
+	)
+	_check(
+		_checkpoint_reason(inflight_store) == "first_clutch_reopened"
+		and not bool(_saved_first_clutch(inflight_store).get("dismissed", true)),
+		"replay should persist immediately as a campaign checkpoint",
+		failures,
+	)
+	office.call("_on_settings_close_requested")
+	await process_frame
+	skip_button = office.find_child("FirstClutchSkip", true, false) as Button
+	_check(_press(skip_button), "the reopened coach should remain independently hideable", failures)
+	await process_frame
+	var guidance_preferences := (office.get("_player_preferences") as Dictionary).duplicate(true)
+	guidance_preferences["guidance_mode"] = "off"
+	office.call("_on_preferences_changed", guidance_preferences)
+	campaign_ui.show_title(false)
+	await process_frame
+	_check(_press(office.find_child("NewCampaignButton", true, false) as Button), "a no-coach preference should still allow a normal new campaign", failures)
+	await process_frame
+	state = office.first_clutch_snapshot()
+	_check(
+		bool(state.get("dismissed", false))
+		and int(state.get("target_worker_id", -1)) >= 0
+		and not (office.find_child("FirstClutchCoach", true, false) as PanelContainer).visible,
+		"guidance Off should suppress automatic coaching without removing the recoverable first-hen context",
+		failures,
+	)
+	guidance_preferences = (office.get("_player_preferences") as Dictionary).duplicate(true)
+	guidance_preferences["guidance_mode"] = "essential"
+	office.call("_on_preferences_changed", guidance_preferences)
+	campaign_ui.show_title(false)
+	await process_frame
+	_check(_press(office.find_child("NewCampaignButton", true, false) as Button), "essential guidance should still allow a normal new campaign", failures)
+	await process_frame
+	state = office.first_clutch_snapshot()
+	var essential_coach := office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
+	var coach_body := office.find_child("FirstClutchActionBody", true, false) as Label
+	_check(
+		not bool(state.get("dismissed", true))
+		and bool(essential_coach.get("essential_only", false))
+		and coach_body != null and not coach_body.visible,
+		"essential guidance should preserve the live coach step while collapsing its explanatory paragraph",
+		failures,
+	)
+	guidance_preferences = (office.get("_player_preferences") as Dictionary).duplicate(true)
+	guidance_preferences["guidance_mode"] = "full"
+	office.call("_on_preferences_changed", guidance_preferences)
+	await process_frame
 
 	# Focused lifecycle regressions use clean campaigns on the already-booted
 	# Office. This keeps their save and UI wiring real while avoiding repeated 3D
@@ -576,7 +733,8 @@ func _run() -> void:
 	await process_frame
 	var main_cleaned := store.delete()
 	var inflight_cleaned := inflight_store.delete()
-	_check(main_cleaned and inflight_cleaned and not store.has_save() and not inflight_store.has_save(), "isolated induction checkpoints should be cleaned up", failures)
+	var preferences_cleaned := PlayerPreferencesStoreScript.new(PREFERENCES_FILENAME).delete_preferences()
+	_check(main_cleaned and inflight_cleaned and preferences_cleaned and not store.has_save() and not inflight_store.has_save(), "isolated induction checkpoints and preferences should be cleaned up", failures)
 
 	if not failures.is_empty():
 		Engine.time_scale = original_time_scale
@@ -585,7 +743,7 @@ func _run() -> void:
 		quit(1)
 		return
 	Engine.time_scale = original_time_scale
-	print("FIRST_CLUTCH_INDUCTION_TEST_PASSED path=Mabel-prelude-policy-route-checkin-continue-assist-lay-present-reinvest restore=prelude+open-file+priority+offer coach=resume-required+gated-orders-handoff recovery=inflight+offer-persistence choices=bank+idempotent edges=speed-gate+retarget+global-checkin+ordered-completion+review-restore+rollover-claim skip=persisted json=round-trip")
+	print("FIRST_CLUTCH_INDUCTION_TEST_PASSED path=Mabel-prelude-policy-route-checkin-continue-assist-lay-present-reinvest restore=prelude+open-file+priority+offer coach=full+essential+off+reopen recovery=inflight+offer-persistence choices=bank+idempotent edges=speed-gate+retarget+global-checkin+ordered-completion+review-restore+rollover-claim skip=persisted json=round-trip")
 	quit(0)
 
 
@@ -928,7 +1086,26 @@ func _start_new_coached_campaign(office: Office, failures: Array[String]) -> voi
 	await process_frame
 	await process_frame
 	await _authorize_opening_policy(office, failures)
+	var character_dialogue = office.get("_character_dialogue_ui")
+	for _dialogue_index in 6:
+		if (
+			character_dialogue == null
+			or not bool((character_dialogue.call("diagnostic_state") as Dictionary).get(
+				"visible",
+				false,
+			))
+		):
+			break
+		character_dialogue.call("dismiss_current")
+		await process_frame
 	var clock := office.get("_clock") as SimulationClock
+	if clock != null:
+		clock.set_speed(1)
+	_check(
+		await _wait_until_worker_seated(office, 0, 720),
+		"regression fixture should resume the authored target into her real chair",
+		failures,
+	)
 	if clock != null:
 		clock.set_speed(0)
 	var state := office.first_clutch_snapshot()
@@ -947,6 +1124,18 @@ func _route_target_to_specialty(
 	simulation: DepartmentSimulation,
 	worker_id: int
 ) -> bool:
+	var character_dialogue = office.get("_character_dialogue_ui")
+	for _dialogue_index in 6:
+		if (
+			character_dialogue == null
+			or not bool((character_dialogue.call("diagnostic_state") as Dictionary).get(
+				"visible",
+				false,
+			))
+		):
+			break
+		character_dialogue.call("dismiss_current")
+		await process_frame
 	var camera := office.get("_camera_controller") as ManagementCameraController
 	if camera != null:
 		camera.focus_worker(worker_id)
@@ -1073,6 +1262,7 @@ func _wait_until_first_clutch_field(
 func _spawn_office(store: CampaignSaveStore) -> Office:
 	var office := Office.new()
 	office.set("_campaign_store", store)
+	office.set("_preferences_store", PlayerPreferencesStoreScript.new(PREFERENCES_FILENAME))
 	office.set("_allow_automated_campaign_saves", true)
 	root.add_child(office)
 	await process_frame

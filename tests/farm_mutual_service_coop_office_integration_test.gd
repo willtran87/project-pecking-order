@@ -48,6 +48,10 @@ func _run() -> void:
 	_check(coop.find_children("*", "NavigationObstacle3D", true, false).is_empty(), "visual-only Service Coop should add no navigation obstacles", failures)
 	_check(coop.find_children("*", "NavigationLink3D", true, false).is_empty(), "visual-only Service Coop should add no navigation links", failures)
 	_check(coop.visual_state() == &"locked", "fresh campaign should show only the unearned Service Coop lease", failures)
+	# Requisitions are intentionally refreshed only while their Capital filing is
+	# actionable. Keep that filing open through the three-tier UI transaction.
+	office.call("_open_flockwatch_page", &"capital")
+	await process_frame
 
 	# The first surveyed state must come from all three exact authoritative gates:
 	# one fulfilled binder, one Records Annex tier, and four active hens.
@@ -92,6 +96,10 @@ func _run() -> void:
 			+ LEVEL_COSTS[level - 1]
 			+ MAINTENANCE_DELTAS[level - 1]
 		)
+		# Each accepted commission presents the installed tier on the floor and
+		# closes the drawer. Reopen Capital before validating the next action.
+		office.call("_open_flockwatch_page", &"capital")
+		await process_frame
 		office.call("_on_snapshot_changed", simulation.snapshot())
 		await process_frame
 		var purchase := office.find_child("PurchaseFacility_%s" % String(FACILITY_ID), true, false) as Button

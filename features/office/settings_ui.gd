@@ -11,55 +11,157 @@ signal close_requested
 signal preferences_changed(preferences: Dictionary)
 signal reset_defaults_requested
 signal binding_capture_requested(action: StringName, event: InputEvent)
+signal career_backup_export_requested
+signal career_backup_import_requested(json_text: String)
+signal playtest_receipt_export_requested
+signal first_clutch_replay_requested
 
-const AUDIO_BUSES := [&"master", &"music", &"sfx", &"ui"]
+const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
+const AUDIO_BUSES := [
+	&"master",
+	&"music",
+	&"ambient",
+	&"sfx",
+	&"ui",
+	&"alerts",
+	&"voice",
+]
 const AUDIO_LABELS := {
 	&"master": "MASTER",
-	&"music": "MUZAK + OFFICE HUM",
+	&"music": "CORPORATE MUZAK",
+	&"ambient": "OFFICE HUM + FLOCK ROOM TONE",
 	&"sfx": "FLOCK + WORKSTATIONS",
 	&"ui": "BUREAU INTERFACE",
+	&"alerts": "WARNINGS + DECISION BELLS",
+	&"voice": "CHARACTER CUTOUT CUES",
 }
 const REBINDABLE_ACTIONS := [
 	&"pause_simulation",
 	&"speed_normal",
 	&"speed_fast",
 	&"speed_ultra",
+	&"next_moment",
 	&"peck_assist",
 	&"fund_feed_party",
 	&"toggle_overtime",
 	&"toggle_flockwatch",
 	&"cycle_hen",
+	&"camera_pan_left",
+	&"camera_pan_right",
+	&"camera_pan_up",
+	&"camera_pan_down",
+	&"camera_zoom_in",
+	&"camera_zoom_out",
 ]
 const ACTION_LABELS := {
 	&"pause_simulation": "PAUSE / RESUME",
 	&"speed_normal": "NORMAL CLOCK",
 	&"speed_fast": "FAST CLOCK",
 	&"speed_ultra": "ULTRA CLOCK",
+	&"next_moment": "ADVANCE TO NEXT MOMENT",
 	&"peck_assist": "PRIORITY PECK",
 	&"fund_feed_party": "FUND FEED PARTY",
 	&"toggle_overtime": "AFTER-HOURS PECKING",
 	&"toggle_flockwatch": "FLOCKWATCH LEDGER",
 	&"cycle_hen": "CYCLE HEN",
+	&"camera_pan_left": "PAN CAMERA LEFT",
+	&"camera_pan_right": "PAN CAMERA RIGHT",
+	&"camera_pan_up": "PAN CAMERA UP",
+	&"camera_pan_down": "PAN CAMERA DOWN",
+	&"camera_zoom_in": "ZOOM CAMERA IN",
+	&"camera_zoom_out": "ZOOM CAMERA OUT",
 }
+const MAX_PORTABLE_BACKUP_BYTES := 8 * 1024 * 1024
+const PORTABLE_BACKUP_FILENAME := "pecking-order-career-backup.json"
+const PLAYTEST_RECEIPT_FILENAME := "pecking-order-playtest-receipt.json"
+const CATEGORY_ORDER: Array[StringName] = [
+	&"audio",
+	&"comfort",
+	&"controls",
+	&"career",
+]
+const CATEGORY_LABELS := {
+	&"audio": "AUDIO MIX",
+	&"comfort": "COMFORT & DISPLAY",
+	&"controls": "CONTROLS",
+	&"career": "CAREER BACKUP",
+}
+const FIRST_CLUTCH_PLAYBOOK_STEPS := [
+	{
+		"verb": "INSPECT",
+		"icon": &"receipt_hen",
+		"detail": "Select a hen card to inspect strengths, current specialty fit, and stress.",
+	},
+	{
+		"verb": "ROUTE",
+		"icon": &"receipt_specialty",
+		"detail": "Choose a matching specialty lane or Auto to avoid wasted work.",
+	},
+	{
+		"verb": "CHECK-IN",
+		"icon": &"order_trays",
+		"detail": "File the highlighted check-in choice, then return the clock to normal speed.",
+	},
+	{
+		"verb": "PECK",
+		"icon": &"score_gain",
+		"detail": "Use Priority Peck when the moving marker crosses the green zone.",
+	},
+	{
+		"verb": "REINVEST",
+		"icon": &"receipt_cap",
+		"detail": "Read the egg receipt, reinvest or bank it, then open Today's orders.",
+	},
+]
 
 var _preferences: Dictionary = {}
 var _suppress_updates: bool = false
 var _capture_action: StringName = &""
 var _capture_pending: bool = false
 var _panel: PanelContainer
+var _margin: MarginContainer
 var _scroll: ScrollContainer
+var _category_buttons: Dictionary = {}
+var _category_pages: Dictionary = {}
+var _active_category: StringName = &"comfort"
 var _audio_controls: Dictionary = {}
 var _motion_selector: OptionButton
+var _camera_motion_selector: OptionButton
+var _camera_sensitivity_selector: OptionButton
 var _ui_scale_selector: OptionButton
 var _quality_selector: OptionButton
 var _timing_selector: OptionButton
+var _color_vision_selector: OptionButton
+var _notice_level_selector: OptionButton
+var _notice_duration_selector: OptionButton
+var _effect_level_selector: OptionButton
+var _particle_level_selector: OptionButton
+var _animation_speed_selector: OptionButton
+var _tooltip_delay_selector: OptionButton
+var _guidance_mode_selector: OptionButton
 var _contrast_toggle: CheckButton
+var _haptics_toggle: CheckButton
+var _focus_pause_toggle: CheckButton
+var _first_clutch_replay_button: Button
+var _first_clutch_replay_available := false
+var _first_clutch_playbook: VBoxContainer
+var _first_clutch_playbook_visible := false
 var _binding_buttons: Dictionary = {}
 var _controls_grid: GridContainer
 var _comfort_grid: GridContainer
 var _capture_banner: Label
 var _status_label: Label
 var _close_button: Button
+var _backup_export_button: Button
+var _backup_import_button: Button
+var _playtest_receipt_button: Button
+var _backup_available: bool = false
+var _backup_import_dialog: FileDialog
+var _backup_export_dialog: FileDialog
+var _backup_import_confirmation: ConfirmationDialog
+var _pending_backup_text: String = ""
+var _pending_backup_source: String = ""
+var _pending_export_text: String = ""
 
 
 func _ready() -> void:
@@ -106,12 +208,35 @@ func _input(event: InputEvent) -> void:
 	):
 		close_requested.emit()
 		get_viewport().set_input_as_handled()
+		return
+	if (
+		_is_defined_action_pressed(event, &"ui_left")
+		or _is_defined_action_pressed(event, &"ui_right")
+	):
+		var focused_category := _focused_category_id()
+		if focused_category != &"":
+			var direction := (
+				-1 if _is_defined_action_pressed(event, &"ui_left") else 1
+			)
+			_select_relative_category(focused_category, direction)
+			get_viewport().set_input_as_handled()
 
 
-func show_settings(preferences: Dictionary, binding_labels: Dictionary = {}) -> void:
+func show_settings(
+	preferences: Dictionary,
+	binding_labels: Dictionary = {},
+	backup_available: bool = false,
+	first_clutch_replay_available: bool = false,
+) -> void:
 	_preferences = preferences.duplicate(true)
+	set_career_backup_available(backup_available)
+	set_first_clutch_replay_available(first_clutch_replay_available)
 	_suppress_updates = true
 	_sync_controls_from_preferences()
+	_set_active_category(
+		StringName(String(_preferences.get("settings_category", "comfort"))),
+		false,
+	)
 	refresh_binding_labels(binding_labels)
 	_suppress_updates = false
 	_capture_action = &""
@@ -126,11 +251,69 @@ func show_settings(preferences: Dictionary, binding_labels: Dictionary = {}) -> 
 func hide_settings() -> void:
 	_capture_action = &""
 	_capture_pending = false
+	_set_first_clutch_playbook_visible(false)
+	_pending_backup_text = ""
+	_pending_backup_source = ""
+	_pending_export_text = ""
+	if _backup_import_confirmation != null:
+		_backup_import_confirmation.hide()
+	if _backup_import_dialog != null:
+		_backup_import_dialog.hide()
+	if _backup_export_dialog != null:
+		_backup_export_dialog.hide()
 	visible = false
 
 
 func is_open() -> bool:
 	return visible
+
+
+func active_category() -> StringName:
+	return _active_category
+
+
+## Opens one existing settings page without changing the player's remembered
+## default unless the caller explicitly asks to persist it. The deferred focus
+## handoff runs after the responsive container has completed its visibility sort.
+func reveal_category(
+	category_id: StringName,
+	persist: bool = false,
+	focus_category: bool = true,
+) -> void:
+	_set_active_category(category_id, persist)
+	if not focus_category:
+		return
+	var button := _category_buttons.get(_active_category) as Button
+	if button != null and button.is_visible_in_tree():
+		button.call_deferred("grab_focus")
+
+
+## Exposes the one safe, always-available exit as the authoritative action while
+## this full-screen sheet owns input. Office uses the same Button for browser
+## diagnostics and focus handoff instead of leaking a covered floor objective.
+func primary_action_state() -> Dictionary:
+	if not is_open() or _close_button == null or not _close_button.is_visible_in_tree():
+		return {}
+	var copy := _close_button.text.strip_edges()
+	return {
+		"copy": copy,
+		"visible_label": copy,
+		"action_id": "settings_return",
+		"actionable": not _close_button.disabled,
+		"semantic_icon": "safe_return",
+		"icon_visible": _close_button.icon != null,
+		"accessible_text": (
+			"Return to the floor. Preferences save immediately and no career state changes."
+		),
+	}
+
+
+func focus_primary_action() -> bool:
+	var action := primary_action_state()
+	if action.is_empty() or not bool(action.get("actionable", false)):
+		return false
+	_close_button.grab_focus()
+	return true
 
 
 func set_status(message: String) -> void:
@@ -139,11 +322,152 @@ func set_status(message: String) -> void:
 	tooltip_text = accessible_text()
 
 
+func set_career_backup_available(available: bool) -> void:
+	_backup_available = available
+	if _backup_export_button != null:
+		_backup_export_button.disabled = not available
+		_backup_export_button.tooltip_text = (
+			"Download a verified portable copy of the current career."
+			if available else
+			"Start or continue a campaign before exporting a career backup."
+		)
+
+
+func set_first_clutch_replay_available(available: bool) -> void:
+	_first_clutch_replay_available = available
+	if _first_clutch_replay_button == null:
+		return
+	if available:
+		_set_first_clutch_playbook_visible(false)
+	_first_clutch_replay_button.disabled = false
+	_first_clutch_replay_button.text = (
+		"RESUME CURRENT FIRST CLUTCH"
+		if available else
+		(
+			"CLOSE FIRST CLUTCH PLAYBOOK"
+			if _first_clutch_playbook_visible else
+			"REVIEW FIRST CLUTCH PLAYBOOK"
+		)
+	)
+	_first_clutch_replay_button.tooltip_text = (
+		"Restore the saved First Clutch step without rewinding any work or economy state."
+		if available else
+		"Open a compact five-step refresher. Reviewing it never changes the campaign or economy."
+	)
+	tooltip_text = accessible_text()
+
+
+func first_clutch_reference_state() -> Dictionary:
+	return {
+		"mode": "resume" if _first_clutch_replay_available else "review",
+		"playbook_visible": _first_clutch_playbook_visible,
+		"step_count": FIRST_CLUTCH_PLAYBOOK_STEPS.size(),
+		"mutates_campaign": false,
+	}
+
+
+func _on_first_clutch_reference_pressed() -> void:
+	if _first_clutch_replay_available:
+		first_clutch_replay_requested.emit()
+		return
+	_set_first_clutch_playbook_visible(not _first_clutch_playbook_visible)
+
+
+func _set_first_clutch_playbook_visible(visible_value: bool) -> void:
+	_first_clutch_playbook_visible = visible_value
+	if _first_clutch_playbook != null:
+		_first_clutch_playbook.visible = visible_value
+	if _first_clutch_replay_button != null and not _first_clutch_replay_available:
+		_first_clutch_replay_button.text = (
+			"CLOSE FIRST CLUTCH PLAYBOOK"
+			if visible_value else
+			"REVIEW FIRST CLUTCH PLAYBOOK"
+		)
+	tooltip_text = accessible_text()
+
+
+func present_career_backup(json_text: String) -> bool:
+	if json_text.is_empty() or json_text.to_utf8_buffer().size() > MAX_PORTABLE_BACKUP_BYTES:
+		set_status("Career backup held: the verified export was empty or oversized.")
+		return false
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(
+			json_text.to_utf8_buffer(),
+			PORTABLE_BACKUP_FILENAME,
+			"application/json",
+		)
+		set_status("Portable career backup downloaded. Keep it outside browser storage.")
+		return true
+	_pending_export_text = json_text
+	_backup_export_dialog.current_file = PORTABLE_BACKUP_FILENAME
+	_backup_export_dialog.popup_centered_ratio(0.72)
+	set_status("Choose where to save the verified portable career backup.")
+	return true
+
+
+func present_playtest_receipt(json_text: String) -> bool:
+	if json_text.is_empty() or json_text.to_utf8_buffer().size() > 64 * 1024:
+		set_status("Playtest receipt held: the local receipt was empty or oversized.")
+		return false
+	if OS.has_feature("web"):
+		JavaScriptBridge.download_buffer(
+			json_text.to_utf8_buffer(),
+			PLAYTEST_RECEIPT_FILENAME,
+			"application/json",
+		)
+		set_status("Local playtest receipt downloaded. It was not transmitted; share it only by choice.")
+		return true
+	DisplayServer.clipboard_set(json_text)
+	set_status("Local playtest receipt copied to the clipboard. It was not transmitted.")
+	return true
+
+
+## Stages untrusted text behind an explicit replacement confirmation. Office
+## still owns envelope and domain validation, so this method cannot mutate a
+## career even when called with malformed input.
+func stage_career_backup_import(json_text: String, source_label: String = "selected file") -> bool:
+	var byte_count := json_text.to_utf8_buffer().size()
+	if byte_count <= 0:
+		set_status("Career restore held: the selected backup is empty.")
+		return false
+	if byte_count > MAX_PORTABLE_BACKUP_BYTES:
+		set_status("Career restore held: the selected backup exceeds the 8 MiB safety limit.")
+		return false
+	_pending_backup_text = json_text
+	_pending_backup_source = source_label.strip_edges()
+	for whitespace in ["\r", "\n", "\t"]:
+		_pending_backup_source = _pending_backup_source.replace(whitespace, " ")
+	_pending_backup_source = _pending_backup_source.substr(0, 120)
+	_backup_import_confirmation.dialog_text = (
+		"This will replace the active local career with %s. The current verified "
+		+ "career remains as the automatic recovery copy. The imported file must pass "
+		+ "envelope, campaign, office, and Senior Roost validation before anything changes."
+	) % (_pending_backup_source if not _pending_backup_source.is_empty() else "the selected file")
+	_backup_import_confirmation.popup_centered(Vector2i(680, 280))
+	set_status("Career backup staged. Confirm replacement or cancel without changing anything.")
+	return true
+
+
+func complete_career_backup_import(accepted: bool, message: String) -> void:
+	_pending_backup_text = ""
+	_pending_backup_source = ""
+	if _backup_import_confirmation != null:
+		_backup_import_confirmation.hide()
+	set_status(message)
+	if not accepted and _backup_import_button != null:
+		_backup_import_button.call_deferred("grab_focus")
+
+
 func refresh_preferences(preferences: Dictionary) -> void:
 	_preferences = preferences.duplicate(true)
 	_suppress_updates = true
 	_sync_controls_from_preferences()
+	_set_active_category(
+		StringName(String(_preferences.get("settings_category", "comfort"))),
+		false,
+	)
 	_suppress_updates = false
+	tooltip_text = accessible_text()
 
 
 func refresh_binding_labels(binding_labels: Dictionary) -> void:
@@ -158,34 +482,89 @@ func refresh_binding_labels(binding_labels: Dictionary) -> void:
 
 func accessible_text() -> String:
 	if _preferences.is_empty():
-		return "Coop Comfort and Controls settings."
-	var audio := _preferences.get("audio", {}) as Dictionary
-	var audio_parts: Array[String] = []
-	for bus: StringName in AUDIO_BUSES:
-		var row := audio.get(String(bus), audio.get(bus, {})) as Dictionary
-		audio_parts.append(
-			"%s %d percent%s" % [
-				String(AUDIO_LABELS[bus]).capitalize(),
-				roundi(float(row.get("volume", 1.0)) * 100.0),
-				", muted" if bool(row.get("muted", false)) else "",
-			]
-		)
+		return "Coop Settings and Controls."
+	var category_index := CATEGORY_ORDER.find(_active_category)
 	var summary := (
-		"Coop Comfort and Controls. Audio: %s. Motion %s. Interface scale %d percent. "
-		+ "High contrast %s. Detail %s. Priority Peck timing %s. Select a control to rebind it. F10 always opens settings; Escape always returns."
+		"Coop Settings and Controls. %s category, %d of %d. "
+		+ "Categories are Audio Mix, Comfort and Display, Controls, and Career Backup. "
+		+ "Use Left and Right while a category has focus to change categories. "
 	) % [
-		", ".join(audio_parts),
-		String(_preferences.get("motion_mode", "system")),
-		roundi(float(_preferences.get("ui_scale", 1.0)) * 100.0),
-		"on" if bool(_preferences.get("high_contrast", false)) else "off",
-		String(_preferences.get("visual_quality", "balanced")),
-		String(_preferences.get("timing_assist", "standard")),
+		String(CATEGORY_LABELS.get(_active_category, "COMFORT & DISPLAY")).capitalize(),
+		category_index + 1 if category_index >= 0 else 2,
+		CATEGORY_ORDER.size(),
 	]
+	match _active_category:
+		&"audio":
+			var audio := _preferences.get("audio", {}) as Dictionary
+			var audio_parts: Array[String] = []
+			for bus: StringName in AUDIO_BUSES:
+				var row := audio.get(String(bus), audio.get(bus, {})) as Dictionary
+				audio_parts.append(
+					"%s %d percent%s" % [
+						String(AUDIO_LABELS[bus]).capitalize(),
+						roundi(float(row.get("volume", 1.0)) * 100.0),
+						", muted" if bool(row.get("muted", false)) else "",
+					]
+				)
+			summary += "Audio: %s." % ", ".join(audio_parts)
+		&"controls":
+			summary += (
+				"Select a floor or camera control to rebind it. "
+				+ "F10 always opens settings; Escape always returns."
+			)
+		&"career":
+			summary += (
+				"Career backup restore is available. "
+				+ (
+					"Verified career backup export is available."
+					if _backup_available else
+					"Export requires a verified campaign checkpoint."
+				)
+				+ " Restore requires explicit replacement confirmation. "
+				+ "A separate local playtest receipt can be exported by choice and is never transmitted by the game."
+			)
+		_:
+			summary += (
+				"Motion %s. Interface scale %d percent. Camera motion %s. "
+				+ "Camera input sensitivity %s. High contrast %s. Color vision %s. "
+				+ "Detail %s. Effect density %s. Particle density %s. "
+				+ "Animation speed %s. Tooltip delay %s. Priority Peck timing %s. "
+				+ "Transient notices %s for %s duration. Haptics %s where supported. "
+				+ "Guidance %s. Pause when unfocused %s."
+			) % [
+				String(_preferences.get("motion_mode", "system")),
+				roundi(float(_preferences.get("ui_scale", 1.0)) * 100.0),
+				String(_preferences.get("camera_motion", "full")),
+				String(_preferences.get("camera_sensitivity", "standard")),
+				"on" if bool(_preferences.get("high_contrast", false)) else "off",
+				String(_preferences.get("color_vision_mode", "standard")).replace("_", " "),
+				String(_preferences.get("visual_quality", "balanced")),
+				String(_preferences.get("effect_level", "full")),
+				String(_preferences.get("particle_level", "full")),
+				String(_preferences.get("animation_speed", "standard")),
+				String(_preferences.get("tooltip_delay", "standard")),
+				String(_preferences.get("timing_assist", "standard")),
+				String(_preferences.get("notice_level", "all")).replace("_", " "),
+				String(_preferences.get("notice_duration", "standard")),
+				"enabled" if bool(_preferences.get("haptics_enabled", true)) else "disabled",
+				String(_preferences.get("guidance_mode", "full")),
+				"on" if bool(_preferences.get("pause_when_unfocused", true)) else "off",
+			]
+			if _first_clutch_playbook_visible:
+				summary += " First Clutch playbook: "
+				var playbook_steps: Array[String] = []
+				for step: Dictionary in FIRST_CLUTCH_PLAYBOOK_STEPS:
+					playbook_steps.append(
+						"%s. %s" % [String(step.get("verb", "")), String(step.get("detail", ""))]
+					)
+				summary += " ".join(playbook_steps)
 	if _capture_action != &"":
 		summary += " Binding capture for %s is %s." % [
 			String(ACTION_LABELS.get(_capture_action, _capture_action)).capitalize(),
 			"awaiting validation" if _capture_pending else "waiting for another input",
 		]
+	if not _pending_backup_text.is_empty():
+		summary += " A portable career backup is awaiting replacement confirmation."
 	if _status_label != null and not _status_label.text.is_empty():
 		summary += " Status: %s" % _status_label.text
 	return summary
@@ -241,17 +620,17 @@ func _build_interface() -> void:
 	_panel.add_theme_stylebox_override("panel", _panel_style())
 	add_child(_panel)
 
-	var margin := MarginContainer.new()
-	margin.name = "SettingsMargin"
-	margin.add_theme_constant_override("margin_left", 24)
-	margin.add_theme_constant_override("margin_right", 24)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 18)
-	_panel.add_child(margin)
+	_margin = MarginContainer.new()
+	_margin.name = "SettingsMargin"
+	_margin.add_theme_constant_override("margin_left", 24)
+	_margin.add_theme_constant_override("margin_right", 24)
+	_margin.add_theme_constant_override("margin_top", 20)
+	_margin.add_theme_constant_override("margin_bottom", 18)
+	_panel.add_child(_margin)
 
 	var frame := VBoxContainer.new()
 	frame.add_theme_constant_override("separation", 12)
-	margin.add_child(frame)
+	_margin.add_child(frame)
 
 	var header := HFlowContainer.new()
 	header.name = "SettingsHeader"
@@ -265,7 +644,7 @@ func _build_interface() -> void:
 	eyebrow.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	eyebrow.custom_minimum_size.x = 220.0
 	title_stack.add_child(eyebrow)
-	var title := _label("COOP COMFORT & CONTROLS", 22, Color("f4d27b"))
+	var title := _label("COOP SETTINGS & CONTROLS", 22, Color("f4d27b"))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.custom_minimum_size.x = 220.0
 	title_stack.add_child(title)
@@ -273,6 +652,7 @@ func _build_interface() -> void:
 	_close_button.name = "SettingsCloseButton"
 	_close_button.text = "RETURN TO THE FLOOR  [F10 / ESC]"
 	_close_button.custom_minimum_size = Vector2(220.0, 42.0)
+	_close_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_close_button.focus_mode = Control.FOCUS_ALL
 	_close_button.pressed.connect(func() -> void: close_requested.emit())
 	header.add_child(_close_button)
@@ -286,6 +666,27 @@ func _build_interface() -> void:
 	_capture_banner.visible = false
 	frame.add_child(_capture_banner)
 
+	var category_nav := HFlowContainer.new()
+	category_nav.name = "SettingsCategoryNavigation"
+	category_nav.add_theme_constant_override("h_separation", 8)
+	category_nav.add_theme_constant_override("v_separation", 8)
+	frame.add_child(category_nav)
+	for category_id: StringName in CATEGORY_ORDER:
+		var category_button := Button.new()
+		category_button.name = "SettingsCategory_%s" % String(category_id).capitalize()
+		category_button.text = String(CATEGORY_LABELS[category_id])
+		category_button.toggle_mode = true
+		category_button.focus_mode = Control.FOCUS_ALL
+		category_button.custom_minimum_size = Vector2(142.0, 40.0)
+		category_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		category_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		category_button.tooltip_text = "Show %s without changing any gameplay setting." % String(
+			CATEGORY_LABELS[category_id]
+		).capitalize()
+		category_button.pressed.connect(_on_category_selected.bind(category_id))
+		category_nav.add_child(category_button)
+		_category_buttons[category_id] = category_button
+
 	_scroll = ScrollContainer.new()
 	_scroll.name = "SettingsScroll"
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -298,9 +699,15 @@ func _build_interface() -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 18)
 	_scroll.add_child(content)
-	_build_audio_section(content)
-	_build_accessibility_section(content)
-	_build_controls_section(content)
+	var audio_page := _category_page(content, &"audio")
+	_build_audio_section(audio_page)
+	var comfort_page := _category_page(content, &"comfort")
+	_build_accessibility_section(comfort_page)
+	var controls_page := _category_page(content, &"controls")
+	_build_controls_section(controls_page)
+	var career_page := _category_page(content, &"career")
+	_build_career_backup_section(career_page)
+	_set_active_category(&"comfort", false)
 
 	var footer := HFlowContainer.new()
 	footer.name = "SettingsFooter"
@@ -314,14 +721,82 @@ func _build_interface() -> void:
 	footer.add_child(_status_label)
 	var reset := Button.new()
 	reset.name = "SettingsResetButton"
-	reset.text = "RESTORE COMFORT DEFAULTS"
+	reset.text = "RESTORE SETTINGS DEFAULTS"
+	reset.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	reset.custom_minimum_size = Vector2(220.0, 42.0)
 	reset.focus_mode = Control.FOCUS_ALL
 	reset.pressed.connect(func() -> void: reset_defaults_requested.emit())
 	footer.add_child(reset)
 
+	_build_career_backup_dialogs()
+
+
+func _category_page(parent: VBoxContainer, category_id: StringName) -> VBoxContainer:
+	var page := VBoxContainer.new()
+	page.name = "SettingsPage_%s" % String(category_id).capitalize()
+	page.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	page.add_theme_constant_override("separation", 18)
+	parent.add_child(page)
+	_category_pages[category_id] = page
+	return page
+
+
+func _on_category_selected(category_id: StringName) -> void:
+	_set_active_category(category_id, true)
+
+
+func _set_active_category(category_id: StringName, persist: bool) -> void:
+	var next_id := category_id if category_id in CATEGORY_ORDER else &"comfort"
+	var changed := next_id != _active_category
+	_active_category = next_id
+	for id: StringName in CATEGORY_ORDER:
+		var page := _category_pages.get(id) as Control
+		if page != null:
+			page.visible = id == next_id
+		var button := _category_buttons.get(id) as Button
+		if button != null:
+			button.set_pressed_no_signal(id == next_id)
+			button.tooltip_text = "%s category%s. Use Left and Right to change categories." % [
+				String(CATEGORY_LABELS[id]).capitalize(),
+				", selected" if id == next_id else "",
+			]
+	if _scroll != null:
+		_scroll.scroll_vertical = 0
+	tooltip_text = accessible_text()
+	if persist and changed and not _suppress_updates:
+		_preferences["settings_category"] = String(next_id)
+		preferences_changed.emit(_preferences.duplicate(true))
+		set_status("%s category open. View choice saved." % String(
+			CATEGORY_LABELS[next_id]
+		).capitalize())
+
+
+func _focused_category_id() -> StringName:
+	var focused := get_viewport().gui_get_focus_owner()
+	for category_id: StringName in CATEGORY_ORDER:
+		if focused == _category_buttons.get(category_id):
+			return category_id
+	return &""
+
+
+func _select_relative_category(current_id: StringName, direction: int) -> void:
+	var current_index := CATEGORY_ORDER.find(current_id)
+	if current_index < 0:
+		return
+	var next_index := posmod(current_index + direction, CATEGORY_ORDER.size())
+	var next_id := CATEGORY_ORDER[next_index]
+	_set_active_category(next_id, true)
+	var button := _category_buttons.get(next_id) as Button
+	if button != null:
+		button.grab_focus()
+
 
 func _build_audio_section(parent: VBoxContainer) -> void:
-	var section := _section(parent, "AUDIO MIX", "Keep tactile flock feedback while turning down repetitive office layers.")
+	var section := _section(
+		parent,
+		"AUDIO MIX",
+		"Keep tactile flock feedback while independently calming alarms, cutout cues, and repetitive office layers.",
+	)
 	for bus: StringName in AUDIO_BUSES:
 		var row := VBoxContainer.new()
 		row.name = "Audio_%s" % String(bus).capitalize()
@@ -361,7 +836,7 @@ func _build_audio_section(parent: VBoxContainer) -> void:
 
 
 func _build_accessibility_section(parent: VBoxContainer) -> void:
-	var section := _section(parent, "COMFORT & DISPLAY", "Apply changes immediately; no restart and no career reset required.")
+	var section := _section(parent, "DISPLAY & ACCESSIBILITY", "Apply changes immediately; no restart and no career reset required.")
 	_comfort_grid = GridContainer.new()
 	_comfort_grid.name = "ComfortGrid"
 	_comfort_grid.columns = 2
@@ -372,6 +847,22 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_motion_selector = _choice_row(_comfort_grid, "MOTION", ["SYSTEM PREFERENCE", "REDUCED", "FULL"])
 	_motion_selector.name = "MotionModeSelector"
 	_motion_selector.item_selected.connect(_on_motion_selected)
+	_camera_motion_selector = _choice_row(
+		_comfort_grid,
+		"CAMERA MOTION",
+		["FULL", "REDUCED", "OFF / NO AUTO-FRAMING"],
+	)
+	_camera_motion_selector.name = "CameraMotionSelector"
+	_camera_motion_selector.tooltip_text = "Reduce camera travel time, or disable easing and passive event reframing while keeping manual pan, zoom, text, sound, and receipts."
+	_camera_motion_selector.item_selected.connect(_on_camera_motion_selected)
+	_camera_sensitivity_selector = _choice_row(
+		_comfort_grid,
+		"CAMERA INPUT",
+		["LOW", "STANDARD", "HIGH"],
+	)
+	_camera_sensitivity_selector.name = "CameraSensitivitySelector"
+	_camera_sensitivity_selector.tooltip_text = "Adjust the distance produced by keyboard, controller, mouse, trackpad, and touch camera input without changing simulation speed."
+	_camera_sensitivity_selector.item_selected.connect(_on_camera_sensitivity_selected)
 	_ui_scale_selector = _choice_row(_comfort_grid, "INTERFACE SCALE", ["100%", "125%", "150%"])
 	_ui_scale_selector.name = "UIScaleSelector"
 	_ui_scale_selector.item_selected.connect(_on_ui_scale_selected)
@@ -381,6 +872,66 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_timing_selector = _choice_row(_comfort_grid, "PRIORITY PECK WINDOW", ["STANDARD", "LENIENT", "EXTENDED"])
 	_timing_selector.name = "TimingAssistSelector"
 	_timing_selector.item_selected.connect(_on_timing_selected)
+	_color_vision_selector = _choice_row(_comfort_grid, "COLOR VISION", ["STANDARD PALETTE", "COLOR-BLIND SAFE + SYMBOLS"])
+	_color_vision_selector.name = "ColorVisionSelector"
+	_color_vision_selector.tooltip_text = "Use high-separation colors plus [N], [P], [A], [OK], [*], and [X] gameplay markers."
+	_color_vision_selector.item_selected.connect(_on_color_vision_selected)
+	_notice_level_selector = _choice_row(
+		_comfort_grid,
+		"TRANSIENT NOTICES",
+		["ALL NOTICES", "PRIORITY ONLY", "SHIFT RECORD ONLY"],
+	)
+	_notice_level_selector.name = "NoticeLevelSelector"
+	_notice_level_selector.tooltip_text = "Choose which notices interrupt the floor as temporary toasts. Every notice remains labeled and available in Today's Shift Record."
+	_notice_level_selector.item_selected.connect(_on_notice_level_selected)
+	_notice_duration_selector = _choice_row(
+		_comfort_grid,
+		"NOTICE DURATION",
+		["BRIEF", "STANDARD", "EXTENDED"],
+	)
+	_notice_duration_selector.name = "NoticeDurationSelector"
+	_notice_duration_selector.tooltip_text = "Choose how long transient notices remain visible. The complete labeled Shift Record is unchanged."
+	_notice_duration_selector.item_selected.connect(_on_notice_duration_selected)
+	_effect_level_selector = _choice_row(
+		_comfort_grid,
+		"EFFECT DENSITY",
+		["FULL", "REDUCED", "ESSENTIAL ONLY"],
+	)
+	_effect_level_selector.name = "EffectLevelSelector"
+	_effect_level_selector.tooltip_text = "Reduce or disable decorative lighting pulses and celebration emphasis without changing the separate particle setting or hiding authoritative text, symbols, receipts, or warnings."
+	_effect_level_selector.item_selected.connect(_on_effect_level_selected)
+	_particle_level_selector = _choice_row(
+		_comfort_grid,
+		"PARTICLE DENSITY",
+		["FULL", "REDUCED", "OFF"],
+	)
+	_particle_level_selector.name = "ParticleLevelSelector"
+	_particle_level_selector.tooltip_text = "Control ambient dust, drifting feathers, and bounded event bursts independently from lighting and other feedback. Text, icons, sound, and receipts remain complete."
+	_particle_level_selector.item_selected.connect(_on_particle_level_selected)
+	_animation_speed_selector = _choice_row(
+		_comfort_grid,
+		"ANIMATION SPEED",
+		["RELAXED", "STANDARD", "BRISK"],
+	)
+	_animation_speed_selector.name = "AnimationSpeedSelector"
+	_animation_speed_selector.tooltip_text = "Adjust nonessential camera easing, receipts, collection motion, office reveals, and feedback. The production clock and decision deadlines do not change."
+	_animation_speed_selector.item_selected.connect(_on_animation_speed_selected)
+	_tooltip_delay_selector = _choice_row(
+		_comfort_grid,
+		"TOOLTIP DELAY",
+		["SHORT", "STANDARD", "LONG"],
+	)
+	_tooltip_delay_selector.name = "TooltipDelaySelector"
+	_tooltip_delay_selector.tooltip_text = "Choose how long the pointer rests before a new explanatory tooltip opens. Focus-visible labels and accessible summaries remain immediate."
+	_tooltip_delay_selector.item_selected.connect(_on_tooltip_delay_selected)
+	_guidance_mode_selector = _choice_row(
+		_comfort_grid,
+		"FIRST-SHIFT GUIDANCE",
+		["FULL COACH", "ESSENTIAL CUES", "OFF FOR NEW FILES"],
+	)
+	_guidance_mode_selector.name = "GuidanceModeSelector"
+	_guidance_mode_selector.tooltip_text = "Choose the complete First Clutch coach, compact action-only cues, or no automatic coach on future files. Core controls and live objective guidance remain available in every mode."
+	_guidance_mode_selector.item_selected.connect(_on_guidance_mode_selected)
 
 	_contrast_toggle = CheckButton.new()
 	_contrast_toggle.name = "HighContrastToggle"
@@ -389,13 +940,77 @@ func _build_accessibility_section(parent: VBoxContainer) -> void:
 	_contrast_toggle.focus_mode = Control.FOCUS_ALL
 	_contrast_toggle.toggled.connect(_on_contrast_toggled)
 	section.add_child(_contrast_toggle)
+	_haptics_toggle = CheckButton.new()
+	_haptics_toggle.name = "HapticsToggle"
+	_haptics_toggle.text = "SUPPORTED-DEVICE HAPTICS"
+	_haptics_toggle.tooltip_text = "Use restrained vibration for confirmations, warnings, rare outcomes, and milestones when the browser or device supports it. Audio and visual feedback remain complete when disabled."
+	_haptics_toggle.focus_mode = Control.FOCUS_ALL
+	_haptics_toggle.toggled.connect(_on_haptics_toggled)
+	section.add_child(_haptics_toggle)
+	_focus_pause_toggle = CheckButton.new()
+	_focus_pause_toggle.name = "PauseWhenUnfocusedToggle"
+	_focus_pause_toggle.text = "PAUSE WHEN UNFOCUSED"
+	_focus_pause_toggle.tooltip_text = "Prevent deadlines and production from advancing while another window or browser tab has focus; safely resume the exact prior clock speed on return."
+	_focus_pause_toggle.focus_mode = Control.FOCUS_ALL
+	_focus_pause_toggle.toggled.connect(_on_focus_pause_toggled)
+	section.add_child(_focus_pause_toggle)
+	_first_clutch_replay_button = Button.new()
+	_first_clutch_replay_button.name = "FirstClutchReplayButton"
+	_first_clutch_replay_button.focus_mode = Control.FOCUS_ALL
+	_first_clutch_replay_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_first_clutch_replay_button.custom_minimum_size = Vector2(260.0, 42.0)
+	_first_clutch_replay_button.pressed.connect(_on_first_clutch_reference_pressed)
+	section.add_child(_first_clutch_replay_button)
+	_first_clutch_playbook = VBoxContainer.new()
+	_first_clutch_playbook.name = "FirstClutchPlaybook"
+	_first_clutch_playbook.add_theme_constant_override("separation", 8)
+	section.add_child(_first_clutch_playbook)
+	var playbook_route := HFlowContainer.new()
+	playbook_route.name = "FirstClutchPlaybookRoute"
+	playbook_route.add_theme_constant_override("h_separation", 8)
+	playbook_route.add_theme_constant_override("v_separation", 8)
+	_first_clutch_playbook.add_child(playbook_route)
+	for index: int in FIRST_CLUTCH_PLAYBOOK_STEPS.size():
+		var step: Dictionary = FIRST_CLUTCH_PLAYBOOK_STEPS[index]
+		var step_panel := PanelContainer.new()
+		step_panel.name = "FirstClutchPlaybookStep%d" % (index + 1)
+		step_panel.custom_minimum_size = Vector2(132.0, 44.0)
+		step_panel.tooltip_text = String(step.get("detail", ""))
+		step_panel.add_theme_stylebox_override("panel", _playbook_step_style())
+		playbook_route.add_child(step_panel)
+		var step_margin := MarginContainer.new()
+		step_margin.add_theme_constant_override("margin_left", 8)
+		step_margin.add_theme_constant_override("margin_right", 8)
+		step_margin.add_theme_constant_override("margin_top", 6)
+		step_margin.add_theme_constant_override("margin_bottom", 6)
+		step_panel.add_child(step_margin)
+		var step_row := HBoxContainer.new()
+		step_row.add_theme_constant_override("separation", 6)
+		step_margin.add_child(step_row)
+		var step_icon := TextureRect.new()
+		step_icon.custom_minimum_size = Vector2(24.0, 24.0)
+		step_icon.texture = ManagementTheme.action_icon(StringName(step.get("icon", &"order_trays")))
+		step_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		step_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		step_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		step_row.add_child(step_icon)
+		var step_label := _label("%d  %s" % [index + 1, String(step.get("verb", ""))], 11, Color("edf3f2"))
+		step_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		step_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		step_row.add_child(step_label)
+	var playbook_hint := _label("HEN  >  FIT  >  CHECK-IN  >  PECK  >  REINVEST", 11, Color("9bd9cc"))
+	playbook_hint.name = "FirstClutchPlaybookHint"
+	playbook_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	playbook_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_first_clutch_playbook.add_child(playbook_hint)
+	set_first_clutch_replay_available(_first_clutch_replay_available)
 	var safety := _label("F10 and the controller Guide button always open this panel. Escape and controller B always provide a safe return.", 12, Color("b9c8cc"))
 	safety.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	section.add_child(safety)
 
 
 func _build_controls_section(parent: VBoxContainer) -> void:
-	var section := _section(parent, "CONTROL BINDINGS", "Select a filing, then press one keyboard or gamepad button. Device bindings coexist.")
+	var section := _section(parent, "CONTROL BINDINGS", "Select a filing, then press one keyboard or gamepad button. Camera, clock, and floor bindings save independently; pointer and touch gestures remain available.")
 	_controls_grid = GridContainer.new()
 	_controls_grid.name = "ControlBindingGrid"
 	_controls_grid.columns = 2
@@ -414,6 +1029,162 @@ func _build_controls_section(parent: VBoxContainer) -> void:
 		button.pressed.connect(_begin_binding_capture.bind(action))
 		_controls_grid.add_child(button)
 		_binding_buttons[action] = button
+
+
+func _build_career_backup_section(parent: VBoxContainer) -> void:
+	var section := _section(
+		parent,
+		"CAREER BACKUP",
+		"Browser storage may be cleared. Keep a portable copy outside the browser, or restore one after explicit validation.",
+	)
+	var actions := HFlowContainer.new()
+	actions.name = "CareerBackupActions"
+	actions.add_theme_constant_override("h_separation", 10)
+	actions.add_theme_constant_override("v_separation", 10)
+	section.add_child(actions)
+	_backup_export_button = Button.new()
+	_backup_export_button.name = "CareerBackupExportButton"
+	_backup_export_button.text = "DOWNLOAD CAREER BACKUP"
+	_backup_export_button.focus_mode = Control.FOCUS_ALL
+	_backup_export_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_backup_export_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_backup_export_button.pressed.connect(func() -> void: career_backup_export_requested.emit())
+	actions.add_child(_backup_export_button)
+	_backup_import_button = Button.new()
+	_backup_import_button.name = "CareerBackupImportButton"
+	_backup_import_button.text = "RESTORE BACKUP FILE..."
+	_backup_import_button.focus_mode = Control.FOCUS_ALL
+	_backup_import_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_backup_import_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_backup_import_button.tooltip_text = "Choose a Pecking Order JSON backup. Nothing changes until confirmation and full validation."
+	_backup_import_button.pressed.connect(_open_career_backup_import)
+	actions.add_child(_backup_import_button)
+	_playtest_receipt_button = Button.new()
+	_playtest_receipt_button.name = "PlaytestReceiptExportButton"
+	_playtest_receipt_button.text = "EXPORT LOCAL PLAYTEST RECEIPT"
+	_playtest_receipt_button.focus_mode = Control.FOCUS_ALL
+	_playtest_receipt_button.custom_minimum_size = Vector2(250.0, 46.0)
+	_playtest_receipt_button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_playtest_receipt_button.tooltip_text = "Create a local first-session timing receipt. Nothing is uploaded or transmitted."
+	_playtest_receipt_button.pressed.connect(func() -> void: playtest_receipt_export_requested.emit())
+	actions.add_child(_playtest_receipt_button)
+	var safety := _label(
+		"Restore never executes objects or scripts from a file. The optional playtest receipt contains only local milestone timings and is never uploaded by the game.",
+		12,
+		Color("b9c8cc"),
+	)
+	safety.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	section.add_child(safety)
+	set_career_backup_available(_backup_available)
+
+
+func _build_career_backup_dialogs() -> void:
+	_backup_import_dialog = FileDialog.new()
+	_backup_import_dialog.name = "CareerBackupImportDialog"
+	_backup_import_dialog.title = "Restore Pecking Order Career Backup"
+	_backup_import_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	_backup_import_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_backup_import_dialog.filters = PackedStringArray(["*.json ; Pecking Order career backup"])
+	_backup_import_dialog.file_selected.connect(_on_career_backup_file_selected)
+	add_child(_backup_import_dialog)
+
+	_backup_export_dialog = FileDialog.new()
+	_backup_export_dialog.name = "CareerBackupExportDialog"
+	_backup_export_dialog.title = "Save Pecking Order Career Backup"
+	_backup_export_dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	_backup_export_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	_backup_export_dialog.filters = PackedStringArray(["*.json ; Pecking Order career backup"])
+	_backup_export_dialog.file_selected.connect(_on_career_backup_export_path_selected)
+	add_child(_backup_export_dialog)
+
+	_backup_import_confirmation = ConfirmationDialog.new()
+	_backup_import_confirmation.name = "CareerBackupImportConfirmation"
+	_backup_import_confirmation.title = "REPLACE THE LOCAL CAREER?"
+	_backup_import_confirmation.ok_button_text = "VALIDATE & REPLACE"
+	_backup_import_confirmation.cancel_button_text = "KEEP CURRENT CAREER"
+	ManagementTheme.style_held_confirmation(_backup_import_confirmation)
+	_backup_import_confirmation.min_size = Vector2i(680, 280)
+	var confirmation_copy := _backup_import_confirmation.get_label()
+	confirmation_copy.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	confirmation_copy.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	confirmation_copy.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	confirmation_copy.custom_minimum_size = Vector2(560.0, 104.0)
+	confirmation_copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_backup_import_confirmation.confirmed.connect(_confirm_career_backup_import)
+	_backup_import_confirmation.canceled.connect(_cancel_career_backup_import)
+	add_child(_backup_import_confirmation)
+
+
+func _open_career_backup_import() -> void:
+	if OS.has_feature("web"):
+		var window := JavaScriptBridge.get_interface("window")
+		if window == null:
+			set_status("Career restore held: the browser file bridge is unavailable.")
+			return
+		var chooser: Variant = window.get("__pecking_order_choose_backup_file")
+		if chooser == null:
+			set_status("Career restore held: the browser file picker is not ready yet.")
+			return
+		window.__pecking_order_choose_backup_file()
+		set_status("Choose a portable Pecking Order JSON backup from this device.")
+		return
+	_backup_import_dialog.popup_centered_ratio(0.72)
+	set_status("Choose a portable Pecking Order career backup. Selection does not replace the current save.")
+
+
+func _on_career_backup_file_selected(path: String) -> void:
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		set_status("Career restore held: the selected file could not be opened.")
+		return
+	var byte_count := file.get_length()
+	if byte_count <= 0 or byte_count > MAX_PORTABLE_BACKUP_BYTES:
+		file.close()
+		set_status(
+			"Career restore held: the selected file is empty or exceeds the 8 MiB safety limit."
+		)
+		return
+	var json_text := file.get_as_text()
+	var read_error := file.get_error()
+	file.close()
+	if read_error != OK:
+		set_status("Career restore held: the selected file could not be read completely.")
+		return
+	stage_career_backup_import(json_text, path.get_file())
+
+
+func _confirm_career_backup_import() -> void:
+	if _pending_backup_text.is_empty():
+		set_status("Career restore held: no backup is staged.")
+		return
+	career_backup_import_requested.emit(_pending_backup_text)
+
+
+func _cancel_career_backup_import() -> void:
+	_pending_backup_text = ""
+	_pending_backup_source = ""
+	set_status("Career restore cancelled. The current career was not changed.")
+	if _backup_import_button != null:
+		_backup_import_button.call_deferred("grab_focus")
+
+
+func _on_career_backup_export_path_selected(path: String) -> void:
+	if _pending_export_text.is_empty():
+		set_status("Career backup held: no verified export is ready.")
+		return
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		set_status("Career backup held: the selected destination could not be opened.")
+		return
+	file.store_string(_pending_export_text)
+	file.flush()
+	var write_error := file.get_error()
+	file.close()
+	if write_error != OK:
+		set_status("Career backup held: the destination did not accept the complete file.")
+		return
+	_pending_export_text = ""
+	set_status("Portable career backup saved. Keep it outside the game data folder.")
 
 
 func _section(parent: VBoxContainer, title_text: String, subtitle_text: String) -> VBoxContainer:
@@ -461,10 +1232,22 @@ func _sync_controls_from_preferences() -> void:
 		(controls.get("mute") as CheckButton).button_pressed = bool(row.get("muted", false))
 		(controls.get("value") as Label).text = "%d%%" % roundi(volume * 100.0)
 	_motion_selector.select(["system", "reduced", "full"].find(String(_preferences.get("motion_mode", "system"))))
+	_camera_motion_selector.select(["full", "reduced", "off"].find(String(_preferences.get("camera_motion", "full"))))
+	_camera_sensitivity_selector.select(["low", "standard", "high"].find(String(_preferences.get("camera_sensitivity", "standard"))))
 	_ui_scale_selector.select([1.0, 1.25, 1.5].find(float(_preferences.get("ui_scale", 1.0))))
 	_quality_selector.select(["low", "balanced", "high"].find(String(_preferences.get("visual_quality", "balanced"))))
 	_timing_selector.select(["standard", "lenient", "extended"].find(String(_preferences.get("timing_assist", "standard"))))
+	_color_vision_selector.select(["standard", "color_blind_safe"].find(String(_preferences.get("color_vision_mode", "standard"))))
+	_notice_level_selector.select(["all", "priority", "archive_only"].find(String(_preferences.get("notice_level", "all"))))
+	_notice_duration_selector.select(["brief", "standard", "extended"].find(String(_preferences.get("notice_duration", "standard"))))
+	_effect_level_selector.select(["full", "reduced", "off"].find(String(_preferences.get("effect_level", "full"))))
+	_particle_level_selector.select(["full", "reduced", "off"].find(String(_preferences.get("particle_level", "full"))))
+	_animation_speed_selector.select(["relaxed", "standard", "brisk"].find(String(_preferences.get("animation_speed", "standard"))))
+	_tooltip_delay_selector.select(["short", "standard", "long"].find(String(_preferences.get("tooltip_delay", "standard"))))
+	_guidance_mode_selector.select(["full", "essential", "off"].find(String(_preferences.get("guidance_mode", "full"))))
 	_contrast_toggle.button_pressed = bool(_preferences.get("high_contrast", false))
+	_haptics_toggle.button_pressed = bool(_preferences.get("haptics_enabled", true))
+	_focus_pause_toggle.button_pressed = bool(_preferences.get("pause_when_unfocused", true))
 
 
 func _on_audio_volume_changed(value: float, bus: StringName) -> void:
@@ -495,6 +1278,14 @@ func _on_motion_selected(index: int) -> void:
 	_set_preference("motion_mode", ["system", "reduced", "full"][clampi(index, 0, 2)])
 
 
+func _on_camera_motion_selected(index: int) -> void:
+	_set_preference("camera_motion", ["full", "reduced", "off"][clampi(index, 0, 2)])
+
+
+func _on_camera_sensitivity_selected(index: int) -> void:
+	_set_preference("camera_sensitivity", ["low", "standard", "high"][clampi(index, 0, 2)])
+
+
 func _on_ui_scale_selected(index: int) -> void:
 	_set_preference("ui_scale", [1.0, 1.25, 1.5][clampi(index, 0, 2)])
 
@@ -507,8 +1298,48 @@ func _on_timing_selected(index: int) -> void:
 	_set_preference("timing_assist", ["standard", "lenient", "extended"][clampi(index, 0, 2)])
 
 
+func _on_color_vision_selected(index: int) -> void:
+	_set_preference("color_vision_mode", ["standard", "color_blind_safe"][clampi(index, 0, 1)])
+
+
+func _on_notice_level_selected(index: int) -> void:
+	_set_preference("notice_level", ["all", "priority", "archive_only"][clampi(index, 0, 2)])
+
+
+func _on_notice_duration_selected(index: int) -> void:
+	_set_preference("notice_duration", ["brief", "standard", "extended"][clampi(index, 0, 2)])
+
+
+func _on_effect_level_selected(index: int) -> void:
+	_set_preference("effect_level", ["full", "reduced", "off"][clampi(index, 0, 2)])
+
+
+func _on_particle_level_selected(index: int) -> void:
+	_set_preference("particle_level", ["full", "reduced", "off"][clampi(index, 0, 2)])
+
+
+func _on_animation_speed_selected(index: int) -> void:
+	_set_preference("animation_speed", ["relaxed", "standard", "brisk"][clampi(index, 0, 2)])
+
+
+func _on_tooltip_delay_selected(index: int) -> void:
+	_set_preference("tooltip_delay", ["short", "standard", "long"][clampi(index, 0, 2)])
+
+
+func _on_guidance_mode_selected(index: int) -> void:
+	_set_preference("guidance_mode", ["full", "essential", "off"][clampi(index, 0, 2)])
+
+
 func _on_contrast_toggled(enabled: bool) -> void:
 	_set_preference("high_contrast", enabled)
+
+
+func _on_haptics_toggled(enabled: bool) -> void:
+	_set_preference("haptics_enabled", enabled)
+
+
+func _on_focus_pause_toggled(enabled: bool) -> void:
+	_set_preference("pause_when_unfocused", enabled)
 
 
 func _set_preference(key: String, value: Variant) -> void:
@@ -579,6 +1410,11 @@ func _apply_responsive_layout() -> void:
 		return
 	var viewport_size := size if size.x > 0.0 and size.y > 0.0 else get_viewport_rect().size
 	var compact := viewport_size.x < 700.0 or viewport_size.y < 560.0
+	if _margin != null:
+		_margin.add_theme_constant_override("margin_left", 16 if compact else 24)
+		_margin.add_theme_constant_override("margin_right", 16 if compact else 24)
+		_margin.add_theme_constant_override("margin_top", 10 if compact else 20)
+		_margin.add_theme_constant_override("margin_bottom", 10 if compact else 18)
 	if compact:
 		_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_panel.offset_left = 8.0
@@ -624,6 +1460,15 @@ func _section_style() -> StyleBoxFlat:
 	style.border_color = Color("405665")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(9)
+	return style
+
+
+func _playbook_step_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("223843", 0.98)
+	style.border_color = Color("4f8b82")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(7)
 	return style
 
 

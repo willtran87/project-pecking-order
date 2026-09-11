@@ -2,6 +2,7 @@ class_name OfficeAudioFeedback
 extends Node
 
 signal cue_played(cue: StringName)
+signal haptic_emitted(cue: StringName, duration_msec: int)
 
 ## Small pooled procedural sound palette. The prototype has no external audio
 ## dependencies, so these short cues are synthesized once and reused by eight
@@ -12,6 +13,8 @@ const SAMPLE_RATE := 22050
 const PECK_CONTACT_PITCHES: Array[float] = [0.96, 1.02, 1.08]
 const BUS_SFX: StringName = &"SFX"
 const BUS_UI: StringName = &"UI"
+const BUS_ALERTS: StringName = &"Alerts"
+const BUS_VOICE: StringName = &"Voice"
 const BUS_MUSIC: StringName = &"Music"
 const BUS_AMBIENT: StringName = &"Ambient"
 const PRIORITY_ROUTINE := 20
@@ -28,26 +31,49 @@ var _voice_started_msec: Array[int] = []
 var _voice_cues: Array[StringName] = []
 var _last_cue_msec: Dictionary[StringName, int] = {}
 var _focus_paused := false
+var _last_played_cue: StringName = &""
+var _last_played_bus: StringName = &""
+var _cue_serial := 0
+var _haptics_enabled := true
+var _last_haptic_cue: StringName = &""
+var _last_haptic_duration_msec := 0
+var _haptic_serial := 0
 var _sound_egg: AudioStreamWAV
 var _cracked_egg: AudioStreamWAV
 var _golden_egg: AudioStreamWAV
 var _upgrade_approved: AudioStreamWAV
 var _feed_party: AudioStreamWAV
+var _feed_nibble: AudioStreamWAV
 var _review_stamp: AudioStreamWAV
+var _report_filed: AudioStreamWAV
 var _ui_tick: AudioStreamWAV
 var _decision_alert: AudioStreamWAV
 var _policy_stamp: AudioStreamWAV
+var _scenario_fit: AudioStreamWAV
 var _decision_resolved: AudioStreamWAV
+var _precedent_filed: AudioStreamWAV
+var _case_pivot: AudioStreamWAV
 var _peck_assist: AudioStreamWAV
 var _peck_assist_perfect: AudioStreamWAV
+var _priority_peck_ready: AudioStreamWAV
 var _peck_contact: AudioStreamWAV
 var _lay_nest_thump: AudioStreamWAV
 var _sorter_receipt_clack: AudioStreamWAV
 var _basket_thunk: AudioStreamWAV
+var _dispatch_folder_thunk: AudioStreamWAV
+var _work_start_tap: AudioStreamWAV
 var _payout_confirmation: AudioStreamWAV
 var _attention_restored: AudioStreamWAV
+var _settlement_release: AudioStreamWAV
 var _denied: AudioStreamWAV
 var _shift_alert: AudioStreamWAV
+var _campaign_pass: AudioStreamWAV
+var _campaign_fail: AudioStreamWAV
+var _commendation_stamp: AudioStreamWAV
+var _dialogue_cutout: AudioStreamWAV
+var _manager_bell: AudioStreamWAV
+var _manager_coffee: AudioStreamWAV
+var _manager_review: AudioStreamWAV
 
 
 func _ready() -> void:
@@ -69,13 +95,51 @@ func _ready() -> void:
 	_golden_egg = _synth_sequence(PackedFloat32Array([660.0, 880.0, 1175.0]), 0.085, 0.46)
 	_upgrade_approved = _synth_sequence(PackedFloat32Array([392.0, 523.0, 784.0]), 0.075, 0.38)
 	_feed_party = _synth_sequence(PackedFloat32Array([330.0, 440.0, 494.0, 660.0]), 0.07, 0.34)
+	# A short seed-and-beak crunch gives each physical arrival feedback without
+	# becoming a second celebratory jingle or allocating a stream at runtime.
+	_feed_nibble = _synth_impact(610.0, 155.0, 0.095, 0.24, 0.72, 3201, 0.46)
 	_review_stamp = _synth_chirp(150.0, 92.0, 0.30, 0.58, 0.06)
+	# A dry two-contact filing stamp closes the report's visual evidence sweep.
+	# It is intentionally shorter and quieter than a policy or verdict cadence.
+	_report_filed = _synth_impact(510.0, 105.0, 0.105, 0.30, 0.50, 3107, 0.42)
 	_ui_tick = _synth_chirp(520.0, 565.0, 0.055, 0.24, 0.0)
 	_decision_alert = _synth_sequence(PackedFloat32Array([294.0, 294.0, 440.0]), 0.09, 0.42)
 	_policy_stamp = _synth_sequence(PackedFloat32Array([349.0, 523.0, 698.0]), 0.085, 0.40)
+	# One recognizable three-note docket motif confirms that the chosen policy
+	# matched the scenario. Scenario identity changes pitch, not voice count.
+	_scenario_fit = _synth_sequence(PackedFloat32Array([392.0, 587.33, 783.99]), 0.075, 0.38)
 	_decision_resolved = _synth_chirp(480.0, 720.0, 0.17, 0.38, 0.0)
+	# One restrained stamp-and-rise cadence confirms that a decision changed a
+	# future case. It remains a single pooled UI voice rather than layering the
+	# ordinary resolution chirp with the policy stamp in the same frame.
+	_precedent_filed = _synth_sequence(
+		PackedFloat32Array([392.0, 294.0, 523.0, 698.0]),
+		0.070,
+		0.38,
+	)
+	# The connected-case callback answers the precedent motif, dips once, then
+	# resolves above it. Players can hear that memory changed the live choice.
+	_case_pivot = _synth_sequence(
+		PackedFloat32Array([392.0, 523.0, 440.0, 659.25, 880.0]),
+		0.065,
+		0.42,
+	)
 	_peck_assist = _synth_sequence(PackedFloat32Array([360.0, 470.0, 590.0]), 0.055, 0.34)
-	_peck_assist_perfect = _synth_sequence(PackedFloat32Array([520.0, 690.0, 920.0]), 0.055, 0.40)
+	# Perfect adds a bright fourth note so it cannot be mistaken for the shorter
+	# renewable-attention motif used after a clean egg reaches the farmer.
+	_peck_assist_perfect = _synth_sequence(
+		PackedFloat32Array([520.0, 690.0, 920.0, 1175.0]),
+		0.055,
+		0.40,
+	)
+	# A restrained two-note fifth announces one inspected timing opportunity.
+	# It is shorter and quieter than either result cadence, preserving a clear
+	# opportunity -> physical action -> outcome hierarchy.
+	_priority_peck_ready = _synth_sequence(
+		PackedFloat32Array([440.0, 659.25]),
+		0.050,
+		0.28,
+	)
 	# Physical production-line cues use short noise-rich transients rather than
 	# melodic UI chirps. All streams are synthesized once and share the same
 	# eight fixed playback voices as the existing palette.
@@ -83,10 +147,52 @@ func _ready() -> void:
 	_lay_nest_thump = _synth_impact(175.0, 72.0, 0.160, 0.55, 0.40, 3102)
 	_sorter_receipt_clack = _synth_impact(920.0, 390.0, 0.110, 0.43, 0.32, 3103, 0.52)
 	_basket_thunk = _synth_impact(128.0, 58.0, 0.185, 0.62, 0.30, 3104)
+	# A dry paper-and-tray impact closes the visible intake-to-desk route. Best
+	# fit changes pitch and cue identity without becoming a reward jingle.
+	_dispatch_folder_thunk = _synth_impact(420.0, 118.0, 0.125, 0.44, 0.56, 3105, 0.48)
+	# One dry monitor/key contact closes the route-to-work handoff. It plays once
+	# per new file, not on the recurring ambient peck loop.
+	_work_start_tap = _synth_impact(860.0, 330.0, 0.060, 0.34, 0.42, 3106, 0.38)
 	_payout_confirmation = _synth_sequence(PackedFloat32Array([620.0, 930.0]), 0.050, 0.34)
 	_attention_restored = _synth_sequence(PackedFloat32Array([520.0, 690.0, 920.0]), 0.050, 0.36)
+	# One paper-to-ledger cadence owns a deferred multi-lane settlement release.
+	# It replaces the separate cash and attention sounds instead of layering over
+	# them, and is synthesized once for the existing fixed voice pool.
+	_settlement_release = _synth_sequence(
+		PackedFloat32Array([392.0, 523.25, 659.25]),
+		0.055,
+		0.34,
+	)
 	_denied = _synth_sequence(PackedFloat32Array([294.0, 247.0]), 0.075, 0.34)
 	_shift_alert = _synth_sequence(PackedFloat32Array([330.0, 440.0, 330.0]), 0.070, 0.38)
+	_campaign_pass = _synth_sequence(
+		PackedFloat32Array([392.0, 523.25, 659.25, 784.0, 1046.5]),
+		0.105,
+		0.44,
+	)
+	_campaign_fail = _synth_sequence(
+		PackedFloat32Array([349.25, 293.625, 246.875, 196.0]),
+		0.135,
+		0.40,
+	)
+	_commendation_stamp = _synth_sequence(
+		PackedFloat32Array([523.25, 659.25, 784.0, 1046.5]),
+		0.075,
+		0.40,
+	)
+	# A soft two-syllable desk-intercom cue gives the portrait cutouts an audio
+	# identity without pretending to be spoken dialogue or adding another player.
+	_dialogue_cutout = _synth_sequence(
+		PackedFloat32Array([440.0, 554.37]),
+		0.065,
+		0.24,
+	)
+	# Manager interventions use three deliberately different sound families:
+	# brass bell, warm breakroom cadence, and low paper stamp. Players can learn
+	# the choice from sound alone without adding more persistent text.
+	_manager_bell = _synth_sequence(PackedFloat32Array([880.0, 1320.0, 1760.0]), 0.055, 0.34)
+	_manager_coffee = _synth_sequence(PackedFloat32Array([293.66, 369.99, 440.0]), 0.075, 0.28)
+	_manager_review = _synth_impact(430.0, 92.0, 0.145, 0.42, 0.54, 3111, 0.46)
 
 
 func _exit_tree() -> void:
@@ -126,8 +232,40 @@ func play_feed_party() -> void:
 	_play(&"feed", _feed_party, 1.0, -7.0, 120, BUS_SFX, PRIORITY_CONFIRMATION)
 
 
+## Restrained feeding contact used once as each attendee reaches the trough.
+## Worker-based pitch and limiter keys preserve a natural flock texture while
+## still bounding duplicate signals from the same chicken.
+func play_feed_nibble(worker_id: int) -> bool:
+	var pitch_steps: Array[float] = [0.94, 1.0, 1.07]
+	return _play(
+		&"feed_nibble",
+		_feed_nibble,
+		pitch_steps[posmod(worker_id, pitch_steps.size())],
+		-12.0,
+		140,
+		BUS_SFX,
+		PRIORITY_PHYSICAL,
+		StringName("feed_nibble_%d" % maxi(0, worker_id)),
+	)
+
+
 func play_review() -> void:
 	_play(&"review", _review_stamp, 1.0, -6.0, 180, BUS_SFX, PRIORITY_CONFIRMATION)
+
+
+## One quiet semantic receipt after the score, attribution, and hen evidence
+## have all settled. UI routing inherits the player's independent interface mix;
+## focus pause discards it instead of replaying it late.
+func play_report_filed() -> bool:
+	return _play(
+		&"report_filed",
+		_report_filed,
+		1.0,
+		-10.0,
+		500,
+		BUS_UI,
+		PRIORITY_CONFIRMATION,
+	)
 
 
 func play_ui_tick() -> void:
@@ -137,12 +275,41 @@ func play_ui_tick() -> void:
 func play_decision_alert() -> void:
 	_play(
 		&"decision_alert", _decision_alert, 1.0, -6.5, 180,
-		BUS_UI, PRIORITY_ALERT,
+		BUS_ALERTS, PRIORITY_ALERT,
 	)
 
 
 func play_policy_stamp() -> void:
 	_play(&"policy", _policy_stamp, 1.0, -5.5, 160, BUS_UI, PRIORITY_IMPORTANT)
+
+
+func play_scenario_fit(scenario_id: StringName) -> bool:
+	var pitch := 1.0
+	match scenario_id:
+		&"harvest_surge":
+			pitch = 1.10
+		&"shell_audit":
+			pitch = 0.94
+		&"flock_walkout":
+			pitch = 1.02
+		&"thin_margin":
+			pitch = 0.82
+		&"fox_season":
+			pitch = 1.16
+		&"credit_scramble":
+			pitch = 1.28
+		_:
+			return false
+	return _play(
+		StringName("scenario_fit_%s" % String(scenario_id)),
+		_scenario_fit,
+		pitch,
+		-5.0,
+		220,
+		BUS_UI,
+		PRIORITY_IMPORTANT,
+		&"scenario_fit",
+	)
 
 
 func play_decision_resolved() -> void:
@@ -152,16 +319,63 @@ func play_decision_resolved() -> void:
 	)
 
 
+func play_manager_intervention(choice_id: StringName) -> bool:
+	match choice_id:
+		&"ring_bell":
+			return _play(&"manager_bell", _manager_bell, 1.0, -6.5, 180, BUS_UI, PRIORITY_IMPORTANT)
+		&"coffee_run":
+			return _play(&"manager_coffee", _manager_coffee, 1.0, -8.0, 180, BUS_UI, PRIORITY_IMPORTANT)
+		&"emergency_review":
+			return _play(&"manager_review", _manager_review, 1.0, -6.5, 180, BUS_UI, PRIORITY_IMPORTANT)
+	return false
+
+
+func play_precedent_filed() -> void:
+	_play(
+		&"precedent_filed", _precedent_filed, 1.0, -7.0, 180,
+		BUS_UI, PRIORITY_IMPORTANT,
+	)
+
+
+func play_case_pivot(mastered_count: int = 1) -> bool:
+	return _play(
+		&"case_pivot",
+		_case_pivot,
+		1.0 + minf(0.12, maxi(0, mastered_count - 1) * 0.02),
+		-5.5,
+		260,
+		BUS_UI,
+		PRIORITY_RARE,
+	)
+
+
 func play_peck_assist(rating: StringName, streak: int) -> void:
 	var perfect := rating == &"perfect"
+	var cue: StringName = &"priority_peck_perfect" if perfect else &"priority_peck_steady"
 	_play(
-		&"peck_assist",
+		cue,
 		_peck_assist_perfect if perfect else _peck_assist,
 		1.0 + minf(0.16, maxi(0, streak) * 0.025),
 		-5.0 if perfect else -7.0,
 		80,
 		BUS_UI,
 		PRIORITY_IMPORTANT if perfect else PRIORITY_CONFIRMATION,
+		&"priority_peck_result",
+	)
+
+
+## Announces an actionable window only after Office proves the same inspected
+## claim moved from a non-open state to open. Alerts routing lets players tune
+## time-sensitive opportunities independently from routine UI confirmations.
+func play_priority_peck_ready() -> bool:
+	return _play(
+		&"priority_peck_ready",
+		_priority_peck_ready,
+		1.0,
+		-9.0,
+		450,
+		BUS_ALERTS,
+		PRIORITY_IMPORTANT,
 	)
 
 
@@ -227,6 +441,38 @@ func play_basket_thunk(quality: StringName = &"sound") -> bool:
 	)
 
 
+## Paper-and-inbox contact, synchronized to the physical folder landing rather
+## than the earlier assignment click. The gold-star best fit receives one tiny
+## optional haptic receipt; ordinary routes remain audio-only.
+func play_dispatch_landing(recommended: bool) -> bool:
+	return _play(
+		&"best_fit_filed" if recommended else &"file_routed",
+		_dispatch_folder_thunk,
+		1.06 if recommended else 0.94,
+		-8.0 if recommended else -9.5,
+		90,
+		BUS_SFX,
+		PRIORITY_CONFIRMATION if recommended else PRIORITY_PHYSICAL,
+		&"dispatch_landing",
+	)
+
+
+## First accepted ambient work contact after a physical folder arrival. The
+## best-fit pitch is subtly brighter, while both routes remain quiet physical
+## feedback with no haptic or reward cadence.
+func play_dispatch_work_started(recommended: bool) -> bool:
+	return _play(
+		&"best_fit_work_started" if recommended else &"file_work_started",
+		_work_start_tap,
+		1.05 if recommended else 0.96,
+		-11.0 if recommended else -12.0,
+		120,
+		BUS_SFX,
+		PRIORITY_PHYSICAL,
+		&"dispatch_work_started",
+	)
+
+
 ## Feed Fund confirmation, intended for the end of the payout-chip tween rather
 ## than the earlier lay event. Value only adds a bounded deterministic lift.
 func play_payout_confirmation(
@@ -260,6 +506,29 @@ func play_attention_restored() -> bool:
 	)
 
 
+## A single confirmation for a group of routine receipts that was held behind
+## urgent player work. Counts only add a bounded pitch lift; they never allocate
+## another stream or layer the individual payout/refund confirmations.
+func play_settlement_release(
+	receipt_count: int = 1,
+	total_value_cents: int = 0,
+	pecks_restored: int = 0,
+) -> bool:
+	var scale_lift := minf(0.08, float(maxi(0, receipt_count - 1)) * 0.018)
+	var value_lift := minf(0.04, float(maxi(0, total_value_cents)) / 50000.0)
+	var attention_lift := 0.025 if pecks_restored > 0 else 0.0
+	return _play(
+		&"settlement_release",
+		_settlement_release,
+		0.96 + scale_lift + value_lift + attention_lift,
+		-7.0,
+		240,
+		BUS_UI,
+		PRIORITY_CONFIRMATION,
+		&"settlement_release",
+	)
+
+
 ## A restrained descending hold tone for rejected or unavailable actions. The
 ## optional reason is intentionally not folded into the limiter key: repeated
 ## invalid input remains calm rather than becoming an alarm loop.
@@ -280,9 +549,93 @@ func play_shift_alert(severity: float = 1.0) -> bool:
 		0.94 + normalized * 0.12,
 		lerpf(-10.5, -5.5, normalized),
 		180,
-		BUS_UI,
+		BUS_ALERTS,
 		PRIORITY_ALERT if normalized >= 0.65 else PRIORITY_IMPORTANT,
 	)
+
+
+## A final verdict deserves a semantic cadence rather than another generic
+## review stamp. Pass rises into the established warm score; failure descends
+## and settles without using a punitive alarm or manipulative celebration.
+func play_campaign_outcome(passed: bool) -> bool:
+	return _play(
+		&"campaign_pass" if passed else &"campaign_fail",
+		_campaign_pass if passed else _campaign_fail,
+		1.0,
+		-4.5 if passed else -6.0,
+		750,
+		BUS_UI,
+		PRIORITY_ALERT,
+	)
+
+
+## Permanent recognition is a short brass-like filing cadence. It is distinct
+## from payouts and campaign verdicts, uses the existing fixed voice pool, and
+## has a generous limiter so several source facts settling together stay calm.
+func play_commendation() -> bool:
+	return _play(
+		&"commendation",
+		_commendation_stamp,
+		1.0,
+		-5.5,
+		650,
+		BUS_UI,
+		PRIORITY_RARE,
+	)
+
+
+## A restrained, nonverbal cue for an authored character cutout. Speaker pitch
+## is deterministic and semantic; the text remains the complete dialogue.
+func play_dialogue_cutout(speaker_id: StringName) -> bool:
+	var pitch := 1.0
+	match speaker_id:
+		&"mabel":
+			pitch = 1.02
+		&"pip":
+			pitch = 1.08
+		&"henrietta":
+			pitch = 1.13
+		&"dot":
+			pitch = 0.95
+		&"cornelius":
+			pitch = 0.86
+	return _play(
+		&"dialogue_cutout",
+		_dialogue_cutout,
+		pitch,
+		-10.0,
+		450,
+		BUS_VOICE,
+		PRIORITY_ROUTINE,
+		&"dialogue_cutout",
+	)
+
+
+func feedback_snapshot() -> Dictionary:
+	var active_voice_count := 0
+	for voice in _voices:
+		if voice.playing:
+			active_voice_count += 1
+	return {
+		"voice_count": _voices.size(),
+		"active_voice_count": active_voice_count,
+		"last_cue": String(_last_played_cue),
+		"last_bus": String(_last_played_bus),
+		"cue_serial": _cue_serial,
+		"haptics_enabled": _haptics_enabled,
+		"last_haptic_cue": String(_last_haptic_cue),
+		"last_haptic_duration_msec": _last_haptic_duration_msec,
+		"haptic_serial": _haptic_serial,
+		"focus_paused": _focus_paused,
+	}
+
+
+func set_haptics_enabled(enabled: bool) -> void:
+	_haptics_enabled = enabled
+
+
+func haptics_enabled() -> bool:
+	return _haptics_enabled
 
 
 ## Transient cues should not resume late after a tab or window regains focus.
@@ -374,8 +727,46 @@ func _play(
 	player.pitch_scale = pitch
 	player.volume_db = volume_db
 	player.play()
+	_last_played_cue = cue
+	_last_played_bus = bus
+	_cue_serial += 1
 	cue_played.emit(cue)
+	_emit_haptic(cue, priority)
 	return true
+
+
+func _emit_haptic(cue: StringName, priority: int) -> void:
+	if not _haptics_enabled or _focus_paused:
+		return
+	if cue not in [
+		&"golden", &"cracked", &"upgrade", &"feed", &"review",
+		&"decision_alert", &"policy", &"decision_resolved", &"precedent_filed",
+		&"priority_peck_ready", &"priority_peck_perfect", &"priority_peck_steady",
+		&"payout_confirmation", &"attention_restored",
+		&"settlement_release",
+		&"best_fit_filed",
+		&"denied", &"shift_alert", &"campaign_pass", &"campaign_fail",
+		&"commendation", &"manager_bell", &"manager_coffee", &"manager_review",
+	]:
+		return
+	var duration_msec := 26
+	if priority >= PRIORITY_ALERT:
+		duration_msec = 78
+	elif priority >= PRIORITY_RARE:
+		duration_msec = 56
+	elif priority >= PRIORITY_IMPORTANT:
+		duration_msec = 42
+	_last_haptic_cue = cue
+	_last_haptic_duration_msec = duration_msec
+	_haptic_serial += 1
+	haptic_emitted.emit(cue, duration_msec)
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(
+			"if (navigator.vibrate) navigator.vibrate(%d);" % duration_msec,
+			true,
+		)
+	elif OS.has_feature("mobile"):
+		Input.vibrate_handheld(duration_msec)
 
 
 func _next_voice(requested_priority: int) -> AudioStreamPlayer:
@@ -429,6 +820,8 @@ func _reset_voice_state(voice_index: int) -> void:
 static func ensure_audio_buses() -> void:
 	_ensure_bus(BUS_SFX, -3.0)
 	_ensure_bus(BUS_UI, -4.0)
+	_ensure_bus(BUS_ALERTS, -4.0)
+	_ensure_bus(BUS_VOICE, -6.0)
 	_ensure_bus(BUS_MUSIC, -8.0)
 	_ensure_bus(BUS_AMBIENT, -7.0)
 	var master_index := AudioServer.get_bus_index(&"Master")

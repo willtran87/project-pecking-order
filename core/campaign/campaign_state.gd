@@ -15,7 +15,138 @@ const MIN_PASS_FARMER_FAVOR: int = 50
 const MAX_PASS_CRACK_RATE_BASIS_POINTS: int = 2500
 const DEFAULT_OPENING_FUND_CENTS: int = 5000
 const SCHEMA_ID: String = "pecking_order.probation_campaign"
-const SCHEMA_VERSION: int = 1
+const SCHEMA_VERSION: int = 2
+
+const CHALLENGE_SUPPORTED_FLOCK: StringName = &"supported_flock"
+const CHALLENGE_STANDARD_FILING: StringName = &"standard_filing"
+const CHALLENGE_EXECUTIVE_AUDIT: StringName = &"executive_audit"
+
+const CHALLENGE_CONTRACT_IDS: Array[StringName] = [
+	CHALLENGE_SUPPORTED_FLOCK,
+	CHALLENGE_STANDARD_FILING,
+	CHALLENGE_EXECUTIVE_AUDIT,
+]
+const SHIFT_CHAPTERS := {
+	1: {
+		"id": &"first_clutch",
+		"title": "FIRST CLUTCH",
+		"verb": "MEET THE FLOCK",
+		"promise": "Help Mabel carry one real file from tray to farmer without spending the flock to do it.",
+		"pressure": "LEARN THE FLOOR",
+		"farmer_memo": "ONE CLEAN BASKET. NAMES OPTIONAL.",
+		"farmer_short": "NAMES OPTIONAL",
+	},
+	2: {
+		"id": &"competing_orders",
+		"title": "COMPETING ORDERS",
+		"verb": "CHOOSE WHAT MATTERS",
+		"promise": "Balance quota, care, and credit before one permanent doctrine locks your management style.",
+		"pressure": "TRADEOFFS ARRIVE",
+		"farmer_memo": "PICK A MODEL. MAKE IT LOOK INEVITABLE.",
+		"farmer_short": "PICK A MODEL",
+	},
+	3: {
+		"id": &"chosen_roost",
+		"title": "THE CHOSEN ROOST",
+		"verb": "PROVE THE PLAN",
+		"promise": "Make your filed specialization survive a changing market and the obligations it does not cover.",
+		"pressure": "THE PLAN MEETS REALITY",
+		"farmer_memo": "YOUR PLAN OWNS EVERY EXCEPTION.",
+		"farmer_short": "OWN EXCEPTIONS",
+	},
+	4: {
+		"id": &"ranking_day",
+		"title": "RANKING DAY",
+		"verb": "ANSWER FOR THE SYSTEM",
+		"promise": "The Pecking Order becomes a people decision, and one hen will remember what you file.",
+		"pressure": "THE FLOCK IS WATCHING",
+		"farmer_memo": "RANK THEM. I ONLY READ THE TOP LINE.",
+		"farmer_short": "TOP LINE ONLY",
+	},
+	5: {
+		"id": &"permanent_record",
+		"title": "THE PERMANENT RECORD",
+		"verb": "LIVE WITH THE RESULT",
+		"promise": "Close the final clutch and discover what the farmer rewards, what the flock remembers, and who you became.",
+		"pressure": "EVERY CHOICE CLOSES",
+		"farmer_memo": "FILE THE RESULT. I WILL FILE THE CREDIT.",
+		"farmer_short": "CREDIT UPSTAIRS",
+	},
+}
+const CHALLENGE_CONTRACTS := {
+	CHALLENGE_SUPPORTED_FLOCK: {
+		"id": "supported_flock",
+		"label": "SUPPORTED FLOCK",
+		"short_label": "SUPPORTED",
+		"difficulty": "learning",
+		"difficulty_label": "LEARNING",
+		"difficulty_guidance": "Best for learning the complete management loop with more recovery room.",
+		"description": "More room for score, farmer favor, and shell loss while preserving the Standard welfare and compliance floors.",
+		"route_brief": "OPEN ROUTES  //  CARE, QUALITY & HARVEST",
+		"route_guidance": "Use this contract to learn any doctrine. It forgives score, favor, and shell-loss variance, but welfare and compliance still require active management.",
+		"opening_terms": {
+			"feed_fund_cents": 6500,
+			"quota_target": 14,
+			"additional_claim_lanes": [],
+			"pressure_label": "RECOVERY CUSHION",
+		},
+		"criteria": {
+			"minimum_score": 35,
+			"minimum_welfare": 45,
+			"minimum_compliance": 55,
+			"minimum_farmer_favor": 45,
+			"maximum_crack_rate_basis_points": 3000,
+		},
+	},
+	CHALLENGE_STANDARD_FILING: {
+		"id": "standard_filing",
+		"label": "STANDARD FILING",
+		"short_label": "STANDARD",
+		"difficulty": "standard",
+		"difficulty_label": "STANDARD",
+		"difficulty_guidance": "The recommended authored balance for a first complete probation file.",
+		"description": "The authored probation contract with the shipped balance of flock care, compliance, favor, and shell quality.",
+		"route_brief": "BALANCED ROUTES  //  CARE, QUALITY & HARVEST",
+		"route_guidance": "Every permanent doctrine has a tested route through these terms. Follow its playbook and cover the safeguard named in its watchout.",
+		"opening_terms": {
+			"feed_fund_cents": DEFAULT_OPENING_FUND_CENTS,
+			"quota_target": 16,
+			"additional_claim_lanes": [],
+			"pressure_label": "AUTHORED BASELINE",
+		},
+		"criteria": {
+			"minimum_score": MIN_PASS_SCORE,
+			"minimum_welfare": MIN_PASS_WELFARE,
+			"minimum_compliance": MIN_PASS_COMPLIANCE,
+			"minimum_farmer_favor": MIN_PASS_FARMER_FAVOR,
+			"maximum_crack_rate_basis_points": MAX_PASS_CRACK_RATE_BASIS_POINTS,
+		},
+	},
+	CHALLENGE_EXECUTIVE_AUDIT: {
+		"id": "executive_audit",
+		"label": "EXECUTIVE AUDIT",
+		"short_label": "EXECUTIVE",
+		"difficulty": "expert",
+		"difficulty_label": "EXPERT",
+		"difficulty_guidance": "A demanding replay contract for managers who already understand every safeguard.",
+		"description": "A tighter replay contract demanding stronger score, welfare, compliance, favor, and shell-loss results.",
+		"route_brief": "EXPERT REPLAY  //  HARVEST ROUTE PROVEN",
+		"route_guidance": "Harvest Partnership has a proven specialist route. Care-led files need extra score; quality-led files must deliberately recover welfare and farmer favor.",
+		"opening_terms": {
+			"feed_fund_cents": 4800,
+			"quota_target": 18,
+			"additional_claim_lanes": [&"appeals", &"predator_loss"],
+			"pressure_label": "AUDIT SURGE",
+		},
+		"criteria": {
+			"minimum_score": 65,
+			"minimum_welfare": 48,
+			"minimum_compliance": 65,
+			"minimum_farmer_favor": 52,
+			"maximum_crack_rate_basis_points": 2450,
+		},
+	},
+}
 
 const OUTCOME_IN_PROGRESS: StringName = &"in_progress"
 const OUTCOME_PASSED: StringName = &"passed"
@@ -42,16 +173,191 @@ var total_cracked_eggs: int = 0
 var total_overdue_files: int = 0
 var total_rework: int = 0
 
+var _challenge_contract_id: StringName = CHALLENGE_STANDARD_FILING
+## Read-only public view of the permanently filed challenge contract. Selection
+## and validated hydration write the private authority directly; external
+## assignment is intentionally ignored so callers cannot bypass the lifecycle
+## lock enforced by select_challenge_contract().
+var challenge_contract_id: StringName:
+	get:
+		return _challenge_contract_id
+	set(_value):
+		pass
 var chosen_milestone_id: StringName = &""
 var unlocked_feature_ids: Array[StringName] = []
 var shift_records: Array[CampaignShiftRecord] = []
 
 var _last_closing_fund_cents: int = DEFAULT_OPENING_FUND_CENTS
 var _last_source_rework_total: int = 0
+var _challenge_contract_selected: bool = false
 
 
 func _init() -> void:
 	probation_rank = rank_for_score(probation_score)
+
+
+## Stable presentation catalog. Returned dictionaries are deep copies so UI
+## code cannot mutate the authoritative thresholds shared by every campaign.
+static func challenge_contract_catalog() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for contract_id in CHALLENGE_CONTRACT_IDS:
+		result.append(challenge_contract(contract_id))
+	return result
+
+
+static func challenge_contract(contract_id: StringName) -> Dictionary:
+	var normalized := StringName(String(contract_id).to_lower())
+	if not CHALLENGE_CONTRACTS.has(normalized):
+		return {}
+	return (CHALLENGE_CONTRACTS[normalized] as Dictionary).duplicate(true)
+
+
+## Authored dramatic identity for each shift. This is presentation-only and
+## intentionally derived from the immutable five-shift structure, so existing
+## saves gain the complete arc without a schema migration.
+static func shift_chapter(shift_number: int) -> Dictionary:
+	var normalized := clampi(shift_number, 1, CAMPAIGN_LENGTH)
+	var chapter := (SHIFT_CHAPTERS.get(normalized, {}) as Dictionary).duplicate(true)
+	chapter["shift_number"] = normalized
+	chapter["total_shifts"] = CAMPAIGN_LENGTH
+	chapter["short_label"] = "SHIFT %d  //  %s" % [
+		normalized,
+		String(chapter.get("title", "PROBATION")),
+	]
+	chapter["accessible_text"] = "%s. %s. %s. Farmer memo: %s" % [
+		String(chapter.get("short_label", "SHIFT %d" % normalized)),
+		String(chapter.get("verb", "FILE THE SHIFT")),
+		String(chapter.get("promise", "Complete the filed probation orders.")),
+		String(chapter.get("farmer_memo", "FILE THE RESULT.")),
+	]
+	return chapter
+
+
+func current_chapter() -> Dictionary:
+	return shift_chapter(clampi(completed_shifts + 1, 1, CAMPAIGN_LENGTH))
+
+
+## Turns the latest immutable score/objective record into one actionable
+## between-shift beat. A setback points to the largest recoverable safeguard;
+## a solid result identifies momentum without manufacturing another reward.
+func momentum_brief() -> Dictionary:
+	if shift_records.is_empty():
+		return {
+			"status": &"opening",
+			"headline": "FIRST FILE",
+			"short_label": "MEET MABEL  //  ROUTE ONE FILE",
+			"detail": "Inspect Mabel, match her to Appeals, and watch the consequence reach the farmer.",
+		}
+	var record: CampaignShiftRecord = shift_records.back()
+	var missed_results: Array[Dictionary] = []
+	for result_value in record.objective_results:
+		if result_value is Dictionary and not bool((result_value as Dictionary).get("completed", false)):
+			missed_results.append((result_value as Dictionary).duplicate(true))
+	var safeguards := probation_safeguard_forecast()
+	var blocker := safeguards.get("largest_recoverable_blocker", {}) as Dictionary
+	if record.score_delta < 0 or missed_results.size() >= 2 or not blocker.is_empty():
+		var blocker_label := String(blocker.get("label", "PROBATION SCORE")).to_upper()
+		var recovery_detail := (
+			"Recover %s before the final filing; its current gap is %d%s."
+			% [
+				blocker_label.to_lower(),
+				int(blocker.get("distance_to_pass", 0)),
+				String(blocker.get("unit", "")),
+			]
+			if not blocker.is_empty() else
+			"Use the next shift's policy, routes, and care actions to recover the missed orders."
+		)
+		return {
+			"status": &"comeback",
+			"headline": "COMEBACK FILE",
+			"short_label": "%s NEEDS RECOVERY" % blocker_label,
+			"detail": recovery_detail,
+			"action_id": &"comeback_file",
+			"take_me_there": true,
+			"recovery_stamp": {
+				"id": "lesson_filed_%d" % shift_records.size(),
+				"label": "LESSON FILED",
+				"earned": true,
+				"detail": "The setback identified one recoverable priority; filed rewards and hen mastery remain safe.",
+			},
+			"missed_order_count": missed_results.size(),
+			"score_delta": record.score_delta,
+			"blocker": blocker.duplicate(true),
+		}
+	var next_chapter := shift_chapter(clampi(completed_shifts + 1, 1, CAMPAIGN_LENGTH))
+	return {
+		"status": &"momentum",
+		"headline": "MOMENTUM HELD",
+		"short_label": String(next_chapter.get("pressure", "NEXT SHIFT READY")),
+		"detail": "The last shift added %+d score. %s" % [
+			record.score_delta,
+			String(next_chapter.get("promise", "The next shift is ready.")),
+		],
+		"action_id": &"momentum_file",
+		"take_me_there": true,
+		"recovery_stamp": {},
+		"missed_order_count": missed_results.size(),
+		"score_delta": record.score_delta,
+	}
+
+
+## Suggests a run that changes the decision texture instead of merely asking
+## for a higher score. Challenge terms remain selectable only through the
+## existing protected new-campaign intake.
+func replay_recommendation() -> Dictionary:
+	var contract_id := challenge_contract_id
+	var recommended_id := contract_id
+	var action := "TRY A DIFFERENT DOCTRINE"
+	var rationale := "Keep the filed difficulty and choose a different permanent doctrine to expose another viable strategy."
+	if outcome == OUTCOME_FAILED and contract_id != CHALLENGE_SUPPORTED_FLOCK:
+		recommended_id = CHALLENGE_SUPPORTED_FLOCK
+		action = "RECOVER WITH MORE ROOM"
+		rationale = "Use the learning contract to practice a different plan with a larger opening cushion."
+	elif contract_id == CHALLENGE_SUPPORTED_FLOCK:
+		recommended_id = CHALLENGE_STANDARD_FILING
+		action = "STEP UP TO STANDARD"
+		rationale = "Carry the plan into the authored baseline, where every safeguard has less recovery room."
+	elif contract_id == CHALLENGE_STANDARD_FILING and outcome == OUTCOME_PASSED:
+		recommended_id = CHALLENGE_EXECUTIVE_AUDIT
+		action = "FACE THE EXECUTIVE AUDIT"
+		rationale = "Start with tighter cash, a higher quota, and extra live files; the same doctrine must adapt sooner."
+	var contract := challenge_contract(recommended_id)
+	return {
+		"contract_id": String(recommended_id),
+		"contract_label": String(contract.get("label", "STANDARD FILING")),
+		"contract_short_label": String(contract.get("short_label", "STANDARD")),
+		"action": action,
+		"rationale": rationale,
+		"changes_contract": recommended_id != contract_id,
+		"alternate_doctrine": chosen_milestone_id != &"",
+	}
+
+
+## A contract may be selected exactly once on a pristine in-memory campaign.
+## Restored files and campaigns with accepted work are already locked. The
+## Standard contract remains the safe default when callers make no selection.
+func select_challenge_contract(contract_id: StringName) -> bool:
+	if (
+		_challenge_contract_selected
+		or completed_shifts != 0
+		or not shift_records.is_empty()
+		or chosen_milestone_id != &""
+		or outcome != OUTCOME_IN_PROGRESS
+	):
+		return false
+	var contract := challenge_contract(contract_id)
+	if contract.is_empty():
+		return false
+	_challenge_contract_id = StringName(String(contract["id"]))
+	_challenge_contract_selected = true
+	return true
+
+
+func challenge_contract_snapshot() -> Dictionary:
+	var contract := challenge_contract(challenge_contract_id)
+	if contract.is_empty():
+		contract = challenge_contract(CHALLENGE_STANDARD_FILING)
+	return contract
 
 
 ## Applies exactly one chronological shift. The existing simulation report keys
@@ -64,6 +370,7 @@ func record_shift(report: Dictionary, closing_snapshot: Dictionary = {}) -> Dict
 	if not errors.is_empty():
 		return {"accepted": false, "errors": errors}
 
+	_challenge_contract_selected = true
 	var record := _normalize_shift(report, closing_snapshot)
 	_evaluate_objectives(record)
 	record.score_delta = _score_shift(record)
@@ -142,6 +449,25 @@ func active_unlock_effects() -> Dictionary:
 		return {}
 	var choice := _milestone_by_id(chosen_milestone_id)
 	return choice.effects.duplicate(true) if choice != null else {}
+
+
+## Presentation guidance for the permanent specialization already represented
+## by chosen_milestone_id. This is derived rather than persisted, so old saves
+## gain the same doctrine identity without a schema migration or duplicated
+## source of truth.
+func active_doctrine() -> Dictionary:
+	if chosen_milestone_id == &"":
+		return {}
+	var choice := _milestone_by_id(chosen_milestone_id)
+	if choice == null:
+		return {}
+	var result := choice.doctrine.duplicate(true)
+	result["milestone_id"] = String(choice.id)
+	result["milestone_title"] = choice.title
+	result["unlock_id"] = String(choice.unlock_id)
+	result["unlock_label"] = choice.unlock_label
+	result["effects"] = choice.effects.duplicate(true)
+	return result
 
 
 func objectives_for_shift(shift_number: int) -> Array[Dictionary]:
@@ -233,6 +559,11 @@ func score_receipt_for_shift(shift_number: int) -> Dictionary:
 				"tone": &"positive" if milestone_bonus > 0 else &"neutral",
 			})
 	var score_after_report := clampi(record.score_after + milestone_bonus, 0, 100)
+	var rank_before := rank_for_score(score_before)
+	var rank_after := rank_for_score(score_after_report)
+	var rank_change := "steady"
+	if rank_before != rank_after:
+		rank_change = "promotion" if score_after_report > score_before else "demotion"
 	return {
 		"shift_number": shift_number,
 		"score_before": score_before,
@@ -243,7 +574,11 @@ func score_receipt_for_shift(shift_number: int) -> Dictionary:
 		"clamped": cap_adjustment != 0,
 		"score_after_shift": record.score_after,
 		"score_after": score_after_report,
-		"rank_after": String(rank_for_score(score_after_report)),
+		"rank_before": String(rank_before),
+		"rank_before_label": rank_display_name(rank_before),
+		"rank_after": String(rank_after),
+		"rank_after_label": rank_display_name(rank_after),
+		"rank_change": rank_change,
 		"milestone_bonus": milestone_bonus,
 		"milestone_title": milestone_title,
 		"components": components,
@@ -353,6 +688,7 @@ func probation_safeguard_forecast(projected_metrics: Dictionary = {}) -> Diction
 	return {
 		"visible": true,
 		"is_final": outcome != OUTCOME_IN_PROGRESS,
+		"challenge_contract": challenge_contract_snapshot(),
 		"completed_shifts": completed_shifts,
 		"required_shifts": CAMPAIGN_LENGTH,
 		"criteria": criteria,
@@ -376,6 +712,7 @@ func final_evaluation() -> Dictionary:
 		"passed": outcome == OUTCOME_PASSED,
 		"is_final": outcome != OUTCOME_IN_PROGRESS,
 		"reason": final_reason,
+		"challenge_contract": challenge_contract_snapshot(),
 		"completed_shifts": completed_shifts,
 		"required_shifts": CAMPAIGN_LENGTH,
 		"probation_score": probation_score,
@@ -399,9 +736,14 @@ func final_evaluation() -> Dictionary:
 func snapshot() -> Dictionary:
 	var data := to_dictionary()
 	data["current_objectives"] = current_objectives()
+	data["current_chapter"] = current_chapter()
+	data["momentum_brief"] = momentum_brief()
+	data["replay_recommendation"] = replay_recommendation()
 	data["milestone_available"] = is_milestone_choice_available()
 	data["available_milestones"] = available_milestone_choices()
 	data["active_unlock_effects"] = active_unlock_effects()
+	data["active_doctrine"] = active_doctrine()
+	data["challenge_contract"] = challenge_contract_snapshot()
 	data["final_evaluation"] = final_evaluation()
 	data["probation_safeguard_forecast"] = probation_safeguard_forecast()
 	return data
@@ -415,6 +757,7 @@ func to_dictionary() -> Dictionary:
 	return {
 		"schema_id": SCHEMA_ID,
 		"schema_version": SCHEMA_VERSION,
+		"challenge_contract_id": String(challenge_contract_id),
 		"campaign_length": CAMPAIGN_LENGTH,
 		"completed_shifts": completed_shifts,
 		"probation_score": probation_score,
@@ -445,21 +788,41 @@ func to_dictionary() -> Dictionary:
 
 
 static func from_dictionary(data: Dictionary) -> CampaignState:
-	var errors := validate_dictionary(data)
+	var migrated := _migrate_dictionary(data)
+	var errors := _validate_current_dictionary(migrated)
 	if not errors.is_empty():
 		push_warning("Campaign save rejected: %s" % "; ".join(errors))
 		return null
 	var state := CampaignState.new()
-	state._hydrate_unchecked(data)
+	state._hydrate_unchecked(migrated)
 	return state
+
+
+## Schema v1 predates selectable probation contracts and therefore represents
+## the exact shipped Standard Filing thresholds. Migration never trusts a
+## challenge-like field smuggled into a legacy payload.
+static func _migrate_dictionary(data: Dictionary) -> Dictionary:
+	var migrated := data.duplicate(true)
+	if (
+		String(migrated.get("schema_id", "")) == SCHEMA_ID
+		and _integer_value(migrated.get("schema_version", -1), -1) == 1
+	):
+		migrated["schema_version"] = SCHEMA_VERSION
+		migrated["challenge_contract_id"] = String(CHALLENGE_STANDARD_FILING)
+	return migrated
 
 
 ## Returns every discovered error instead of failing at the first malformed
 ## field, allowing a save manager to show diagnostics or fall back to a backup.
 static func validate_dictionary(data: Dictionary) -> PackedStringArray:
+	return _validate_current_dictionary(_migrate_dictionary(data))
+
+
+static func _validate_current_dictionary(data: Dictionary) -> PackedStringArray:
 	var errors := PackedStringArray()
 	_require_string(data, "schema_id", errors)
-	_require_integer(data, "schema_version", 1, SCHEMA_VERSION, errors)
+	_require_integer(data, "schema_version", SCHEMA_VERSION, SCHEMA_VERSION, errors)
+	_require_string(data, "challenge_contract_id", errors)
 	_require_integer(data, "campaign_length", CAMPAIGN_LENGTH, CAMPAIGN_LENGTH, errors)
 	_require_integer(data, "completed_shifts", 0, CAMPAIGN_LENGTH, errors)
 	_require_integer(data, "probation_score", 0, 100, errors)
@@ -470,6 +833,12 @@ static func validate_dictionary(data: Dictionary) -> PackedStringArray:
 		errors.append("schema_id is not supported")
 	if _integer_value(data.get("schema_version", -1), -1) != SCHEMA_VERSION:
 		errors.append("schema_version is not supported")
+	var persisted_challenge_id := String(data.get("challenge_contract_id", ""))
+	var persisted_challenge := challenge_contract(StringName(persisted_challenge_id))
+	if persisted_challenge.is_empty():
+		errors.append("challenge_contract_id is not supported")
+	elif persisted_challenge_id != String(persisted_challenge.get("id", "")):
+		errors.append("challenge_contract_id must use its canonical stable ID")
 
 	var totals_value: Variant = data.get("totals")
 	if typeof(totals_value) != TYPE_DICTIONARY:
@@ -550,6 +919,80 @@ static func rank_display_name(rank_id: StringName) -> String:
 			return "Golden Management Track"
 		_:
 			return "Unknown Rank"
+
+
+static func rank_progress_for_score(score: int) -> Dictionary:
+	var current_score := clampi(score, 0, 100)
+	var current_rank := rank_for_score(current_score)
+	var band_floor := 0
+	var next_threshold := 20
+	var next_rank: StringName = RANK_CRITICAL_REVIEW
+	match current_rank:
+		RANK_CRITICAL_REVIEW:
+			band_floor = 20
+			next_threshold = 40
+			next_rank = RANK_PROBATIONARY
+		RANK_PROBATIONARY:
+			band_floor = 40
+			next_threshold = 60
+			next_rank = RANK_TRUSTED_LAYER
+		RANK_TRUSTED_LAYER:
+			band_floor = 60
+			next_threshold = 80
+			next_rank = RANK_GOLDEN_MANAGEMENT
+		RANK_GOLDEN_MANAGEMENT:
+			band_floor = 80
+			next_threshold = 100
+			next_rank = &""
+	var complete := next_rank == &""
+	var progress_basis_points := 10_000 if complete else clampi(
+		int(round(
+			float(current_score - band_floor)
+			/ float(maxi(1, next_threshold - band_floor))
+			* 10_000.0
+		)),
+		0,
+		10_000,
+	)
+	return {
+		"current_score": current_score,
+		"current_rank": String(current_rank),
+		"current_rank_label": rank_display_name(current_rank),
+		"band_floor": band_floor,
+		"next_threshold": next_threshold,
+		"next_rank": String(next_rank),
+		"next_rank_label": "TOP RANK" if complete else rank_display_name(next_rank),
+		"points_to_next": 0 if complete else maxi(0, next_threshold - current_score),
+		"progress_basis_points": progress_basis_points,
+		"complete": complete,
+	}
+
+
+## Projects a disclosed score reward against the same rank ladder used to file
+## the campaign. This never grants score; it only identifies a real next-rank
+## crossing that the presentation layer can communicate as an opportunity.
+static func promotion_opportunity_for_reward(score: int, reward_score: int) -> Dictionary:
+	var progress := rank_progress_for_score(score)
+	var current_score := int(progress.get("current_score", 0))
+	var positive_reward := maxi(0, reward_score)
+	var projected_score := clampi(current_score + positive_reward, 0, 100)
+	var next_threshold := int(progress.get("next_threshold", 100))
+	var complete := bool(progress.get("complete", false))
+	var available := (
+		positive_reward > 0
+		and not complete
+		and projected_score >= next_threshold
+	)
+	return {
+		"available": available,
+		"current_score": current_score,
+		"reward_score": reward_score,
+		"projected_score": projected_score,
+		"next_threshold": next_threshold,
+		"next_rank": String(progress.get("next_rank", "")),
+		"next_rank_label": String(progress.get("next_rank_label", "TOP RANK")),
+		"points_to_next": int(progress.get("points_to_next", 0)),
+	}
 
 
 func _validate_shift_input(report: Dictionary, closing_snapshot: Dictionary) -> PackedStringArray:
@@ -817,7 +1260,14 @@ func _milestone_choices() -> Array[CampaignMilestoneChoice]:
 			&"welfare_breaks",
 			"Welfare Break Protocol",
 			2,
-			{"stress_gain_percent": -12, "fatigue_gain_percent": -10}
+			{"stress_gain_percent": -12, "fatigue_gain_percent": -10},
+			{
+				"label": "FLOCK STEWARDSHIP",
+				"summary": "Build durable output through recovery, shared credit, and a flock that can still work tomorrow.",
+				"strengths": ["WELFARE", "COMPLIANCE", "RECOVERY"],
+				"watchouts": ["FARMER FAVOR", "SHELL SUPPORT"],
+				"playbook": "Favor Sustainable Flock and Share Credit, then rotate in Shell Assurance when the crack ledger tightens.",
+			}
 		),
 		CampaignMilestoneChoice.new(
 			&"shell_quality_lab",
@@ -826,7 +1276,14 @@ func _milestone_choices() -> Array[CampaignMilestoneChoice]:
 			&"shell_quality_checks",
 			"Shell Quality Checks",
 			2,
-			{"crack_risk_basis_points": -250}
+			{"crack_risk_basis_points": -250},
+			{
+				"label": "SHELL ASSURANCE",
+				"summary": "Win through clean output, controlled rework, and precise support at the desks.",
+				"strengths": ["SHELL QUALITY", "COMPLIANCE", "REWORK"],
+				"watchouts": ["FLOCK WELFARE", "RECOVERY DAYS"],
+				"playbook": "Pair Shell Assurance with recovery shifts and complementary nest support instead of stacking quality hardware twice.",
+			}
 		),
 		CampaignMilestoneChoice.new(
 			&"farmer_credit_line",
@@ -835,7 +1292,14 @@ func _milestone_choices() -> Array[CampaignMilestoneChoice]:
 			&"farmer_credit_bonus",
 			"Farmer Credit Bonus",
 			2,
-			{"egg_value_bonus_cents": 25}
+			{"egg_value_bonus_cents": 25},
+			{
+				"label": "HARVEST PARTNERSHIP",
+				"summary": "Turn output and farmer confidence into capital without spending the flock to get there.",
+				"strengths": ["FARMER FAVOR", "FEED FUND", "OUTPUT"],
+				"watchouts": ["FLOCK WELFARE", "QUOTA PRESSURE"],
+				"playbook": "Use Record Harvest selectively, share credit often, and reinvest the first clutch in comfort before applying more pressure.",
+			}
 		),
 	])
 	return choices
@@ -886,6 +1350,11 @@ func _extract_percentage(
 
 
 func _hydrate_unchecked(data: Dictionary) -> void:
+	# _validate_current_dictionary() has already required the exact canonical ID.
+	# Hydration is the only path besides pristine selection that may write the
+	# private authority, and restored files are locked immediately below.
+	_challenge_contract_id = StringName(String(data["challenge_contract_id"]))
+	_challenge_contract_selected = true
 	completed_shifts = int(data["completed_shifts"])
 	probation_score = int(data["probation_score"])
 	probation_rank = StringName(data["probation_rank"])
@@ -1034,14 +1503,15 @@ func _validate_cross_field_invariants(data: Dictionary, errors: PackedStringArra
 	if final_reason != expected_reason:
 		errors.append("final_reason is inconsistent with outcome")
 
-static func _probation_safeguard_specifications() -> Array[Dictionary]:
+func _probation_safeguard_specifications() -> Array[Dictionary]:
+	var contract_criteria := challenge_contract_snapshot().get("criteria", {}) as Dictionary
 	return [
 		{
 			"id": "score",
 			"label": "PROBATION SCORE",
 			"metric": "probation_score",
 			"comparison": "minimum",
-			"target": MIN_PASS_SCORE,
+			"target": int(contract_criteria.get("minimum_score", MIN_PASS_SCORE)),
 			"unit": "points",
 		},
 		{
@@ -1049,7 +1519,7 @@ static func _probation_safeguard_specifications() -> Array[Dictionary]:
 			"label": "FLOCK WELFARE",
 			"metric": "average_welfare",
 			"comparison": "minimum",
-			"target": MIN_PASS_WELFARE,
+			"target": int(contract_criteria.get("minimum_welfare", MIN_PASS_WELFARE)),
 			"unit": "points",
 		},
 		{
@@ -1057,7 +1527,7 @@ static func _probation_safeguard_specifications() -> Array[Dictionary]:
 			"label": "COOP COMPLIANCE",
 			"metric": "average_compliance",
 			"comparison": "minimum",
-			"target": MIN_PASS_COMPLIANCE,
+			"target": int(contract_criteria.get("minimum_compliance", MIN_PASS_COMPLIANCE)),
 			"unit": "points",
 		},
 		{
@@ -1065,7 +1535,7 @@ static func _probation_safeguard_specifications() -> Array[Dictionary]:
 			"label": "FARMER FAVOR",
 			"metric": "average_farmer_favor",
 			"comparison": "minimum",
-			"target": MIN_PASS_FARMER_FAVOR,
+			"target": int(contract_criteria.get("minimum_farmer_favor", MIN_PASS_FARMER_FAVOR)),
 			"unit": "points",
 		},
 		{
@@ -1073,7 +1543,10 @@ static func _probation_safeguard_specifications() -> Array[Dictionary]:
 			"label": "SHELL CRACK RATE",
 			"metric": "crack_rate_basis_points",
 			"comparison": "maximum",
-			"target": MAX_PASS_CRACK_RATE_BASIS_POINTS,
+			"target": int(contract_criteria.get(
+				"maximum_crack_rate_basis_points",
+				MAX_PASS_CRACK_RATE_BASIS_POINTS,
+			)),
 			"unit": "basis_points",
 		},
 	]

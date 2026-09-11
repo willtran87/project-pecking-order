@@ -11,7 +11,9 @@ func _run() -> void:
 	var failures: Array[String] = []
 	# Godot conventionally installs res://default_bus_layout.tres before the first
 	# scene. Verify that path directly before OfficeAudioFeedback's safe fallback.
-	for startup_bus_name in [&"Master", &"SFX", &"UI", &"Music", &"Ambient"]:
+	for startup_bus_name in [
+		&"Master", &"SFX", &"UI", &"Alerts", &"Voice", &"Music", &"Ambient",
+	]:
 		_check(
 			AudioServer.get_bus_index(startup_bus_name) >= 0,
 			"%s bus should auto-load before feedback instantiation" % startup_bus_name,
@@ -25,13 +27,19 @@ func _run() -> void:
 	for voice in voices:
 		original_voice_ids.append(voice.get_instance_id())
 	var cue_events: Array[StringName] = []
+	var haptic_events: Array[Dictionary] = []
 	audio.cue_played.connect(func(cue: StringName) -> void:
 		cue_events.append(cue)
+	)
+	audio.haptic_emitted.connect(func(cue: StringName, duration_msec: int) -> void:
+		haptic_events.append({"cue": cue, "duration_msec": duration_msec})
 	)
 	_check(voices.size() == 8, "audio feedback should use a fixed voice pool", failures)
 	var bus_layout := load("res://default_bus_layout.tres") as AudioBusLayout
 	_check(bus_layout != null, "the conventional production bus layout should load", failures)
-	for bus_name in [&"Master", &"SFX", &"UI", &"Music", &"Ambient"]:
+	for bus_name in [
+		&"Master", &"SFX", &"UI", &"Alerts", &"Voice", &"Music", &"Ambient",
+	]:
 		_check(AudioServer.get_bus_index(bus_name) >= 0, "%s audio bus should exist" % bus_name, failures)
 	var master_index := AudioServer.get_bus_index(&"Master")
 	var limiter_count := 0
@@ -68,11 +76,75 @@ func _run() -> void:
 	_check(assigned == 8, "core loop and management decisions should fill the reusable procedural voice pool", failures)
 	var ui_routed := 0
 	var sfx_routed := 0
+	var alerts_routed := 0
 	for voice in voices:
 		var player := voice as AudioStreamPlayer
 		ui_routed += 1 if player.bus == &"UI" else 0
 		sfx_routed += 1 if player.bus == &"SFX" else 0
-	_check(ui_routed == 4 and sfx_routed == 4, "UI and physical cues should route to separate buses", failures)
+		alerts_routed += 1 if player.bus == &"Alerts" else 0
+	_check(
+		ui_routed == 3 and sfx_routed == 4 and alerts_routed == 1,
+		"routine UI, physical work, and semantic warnings should route independently",
+		failures,
+	)
+	var initial_feedback := audio.feedback_snapshot()
+	_check(
+		audio.haptics_enabled()
+		and int(initial_feedback.get("haptic_serial", 0)) >= 6
+		and not haptic_events.is_empty()
+		and int(haptic_events.back().get("duration_msec", 0)) > 0,
+		"important confirmations, warnings, and rare outcomes should emit bounded optional haptic receipts",
+		failures,
+	)
+	for voice in voices:
+		(voice as AudioStreamPlayer).stop()
+		(voice as AudioStreamPlayer).stream = null
+	audio.set_haptics_enabled(false)
+	await create_timer(0.20).timeout
+	var disabled_haptic_serial := int(audio.feedback_snapshot().get("haptic_serial", -1))
+	audio.play_policy_stamp()
+	_check(
+		not audio.haptics_enabled()
+		and int(audio.feedback_snapshot().get("haptic_serial", -1)) == disabled_haptic_serial,
+		"disabling haptics should preserve complete audio feedback without emitting vibration",
+		failures,
+	)
+	audio.set_haptics_enabled(true)
+	for voice in voices:
+		(voice as AudioStreamPlayer).stop()
+		(voice as AudioStreamPlayer).stream = null
+
+	await create_timer(0.20).timeout
+	var haptic_serial_before_dialogue := int(
+		audio.feedback_snapshot().get("haptic_serial", -1)
+	)
+	_check(
+		audio.play_dialogue_cutout(&"cornelius"),
+		"a character cutout should receive one restrained nonverbal cue",
+		failures,
+	)
+	var dialogue_feedback := audio.feedback_snapshot()
+	_check(
+		String(dialogue_feedback.get("last_cue", "")) == "dialogue_cutout"
+		and String(dialogue_feedback.get("last_bus", "")) == "Voice"
+		and int(dialogue_feedback.get("haptic_serial", -1)) == haptic_serial_before_dialogue,
+		"character cutouts should route to Voice without inventing spoken audio or vibration",
+		failures,
+	)
+	for voice in voices:
+		(voice as AudioStreamPlayer).stop()
+		(voice as AudioStreamPlayer).stream = null
+	var report_haptic_before := int(audio.feedback_snapshot().get("haptic_serial", -1))
+	_check(audio.play_report_filed(), "a settled report should receive one quiet filing receipt", failures)
+	var report_feedback := audio.feedback_snapshot()
+	_check(
+		String(report_feedback.get("last_cue", "")) == "report_filed"
+		and String(report_feedback.get("last_bus", "")) == "UI"
+		and int(report_feedback.get("haptic_serial", -1)) == report_haptic_before,
+		"report filing should respect the independent UI mix without adding routine vibration",
+		failures,
+	)
+	_check(not audio.play_report_filed(), "duplicate report receipts should be limited", failures)
 	for voice in voices:
 		(voice as AudioStreamPlayer).stop()
 		(voice as AudioStreamPlayer).stream = null
@@ -86,20 +158,158 @@ func _run() -> void:
 	_check(audio.play_basket_thunk(&"sound"), "collection should play a basket thunk", failures)
 	_check(audio.play_payout_confirmation(455, &"golden"), "payout should play a Feed Fund confirmation", failures)
 	_check(audio.play_attention_restored(), "clean assisted delivery should play a renewable-attention confirmation", failures)
+	_check(audio.play_settlement_release(3, 3150, 2), "a deferred receipt group should play one settlement confirmation", failures)
 	_check(audio.play_denied(&"held"), "rejected actions should have a distinct restrained cue", failures)
 	_check(audio.play_shift_alert(1.0), "shift danger should have a protected alert cue", failures)
+	_check(audio.play_feed_nibble(0), "first Feed Party attendee should have a physical eating cue", failures)
+	_check(audio.play_feed_nibble(1), "different attendees should retain restrained pitch variation", failures)
+	_check(not audio.play_feed_nibble(0), "duplicate eating contact from one attendee should be limited", failures)
+	await create_timer(0.10).timeout
+	var landing_haptic_before := int(audio.feedback_snapshot().get("haptic_serial", -1))
+	_check(audio.play_dispatch_landing(true), "a best-fit folder should have one physical filing impact", failures)
+	var best_fit_landing_feedback := audio.feedback_snapshot()
+	_check(
+		String(best_fit_landing_feedback.get("last_cue", "")) == "best_fit_filed"
+		and String(best_fit_landing_feedback.get("last_bus", "")) == "SFX"
+		and int(best_fit_landing_feedback.get("haptic_serial", -1)) == landing_haptic_before + 1,
+		"best-fit contact should expose matching SFX and one optional bounded haptic receipt",
+		failures,
+	)
+	await create_timer(0.10).timeout
+	var ordinary_haptic_before := int(audio.feedback_snapshot().get("haptic_serial", -1))
+	_check(audio.play_dispatch_landing(false), "an ordinary route should retain physical desk contact", failures)
+	var ordinary_landing_feedback := audio.feedback_snapshot()
+	_check(
+		String(ordinary_landing_feedback.get("last_cue", "")) == "file_routed"
+		and int(ordinary_landing_feedback.get("haptic_serial", -1)) == ordinary_haptic_before,
+		"ordinary filing should use its own cue without vibrating like a best-fit success",
+		failures,
+	)
+	await create_timer(0.13).timeout
+	var work_haptic_before := int(audio.feedback_snapshot().get("haptic_serial", -1))
+	_check(
+		audio.play_dispatch_work_started(true),
+		"the first best-fit work contact should close the physical route sequence once",
+		failures,
+	)
+	var best_fit_work_feedback := audio.feedback_snapshot()
+	_check(
+		String(best_fit_work_feedback.get("last_cue", "")) == "best_fit_work_started"
+		and String(best_fit_work_feedback.get("last_bus", "")) == "SFX"
+		and int(best_fit_work_feedback.get("haptic_serial", -1)) == work_haptic_before,
+		"first work should be a quiet physical tap without duplicating the filing haptic",
+		failures,
+	)
+	await create_timer(0.13).timeout
+	_check(
+		audio.play_dispatch_work_started(false),
+		"an ordinary routed file should retain the same one-time work-start family",
+		failures,
+	)
+	_check(
+		String(audio.feedback_snapshot().get("last_cue", "")) == "file_work_started",
+		"ordinary work start should remain semantically distinct from a best fit",
+		failures,
+	)
 	for required_cue in [
 		&"peck_contact", &"lay_release", &"sorter_clack",
 		&"basket_thunk", &"payout_confirmation", &"attention_restored",
-		&"denied", &"shift_alert",
+		&"settlement_release",
+		&"report_filed",
+		&"denied", &"shift_alert", &"feed_nibble", &"best_fit_filed", &"file_routed",
+		&"best_fit_work_started", &"file_work_started",
 	]:
 		_check(required_cue in cue_events, "new feedback palette should emit %s" % required_cue, failures)
+
+	# Priority Peck outcomes use one shared limiter but two recognizable semantic
+	# cadences. Perfect carries a fourth note; steady stays a shorter three-note
+	# confirmation, and both remain routed through the independent UI mix.
+	await create_timer(0.20).timeout
+	audio.play_peck_assist(&"perfect", 3)
+	await create_timer(0.10).timeout
+	audio.play_peck_assist(&"steady", 0)
+	var priority_peck_feedback := audio.feedback_snapshot()
+	_check(
+		&"priority_peck_perfect" in cue_events
+		and &"priority_peck_steady" in cue_events,
+		"perfect and steady Priority Peck results should emit distinct semantic cue IDs",
+		failures,
+	)
+	_check(
+		String(priority_peck_feedback.get("last_cue", "")) == "priority_peck_steady"
+		and String(priority_peck_feedback.get("last_bus", "")) == "UI",
+		"Priority Peck result diagnostics should expose the accepted cadence and independent UI route",
+		failures,
+	)
+	await create_timer(0.20).timeout
+	_check(
+		audio.play_priority_peck_ready(),
+		"an inspected open window should have one restrained opportunity cue",
+		failures,
+	)
+	_check(
+		not audio.play_priority_peck_ready(),
+		"the opportunity cue should reject an immediate duplicate",
+		failures,
+	)
+	var priority_peck_ready_feedback := audio.feedback_snapshot()
+	_check(
+		String(priority_peck_ready_feedback.get("last_cue", "")) == "priority_peck_ready"
+		and String(priority_peck_ready_feedback.get("last_bus", "")) == "Alerts"
+		and String(priority_peck_ready_feedback.get("last_haptic_cue", "")) == "priority_peck_ready",
+		"window opportunity diagnostics should expose matching alert-audio and optional haptic semantics",
+		failures,
+	)
+
+	await create_timer(0.46).timeout
+	_check(audio.play_scenario_fit(&"shell_audit"), "a matched docket policy should play its scenario motif", failures)
+	_check(
+		&"scenario_fit_shell_audit" in cue_events
+		and String(audio.feedback_snapshot().get("last_bus", "")) == "UI",
+		"scenario fit should expose a distinct semantic cue on the UI mix",
+		failures,
+	)
+	_check(not audio.play_scenario_fit(&"baseline_book"), "the neutral baseline should not fabricate a scenario motif", failures)
+
+	# Final campaign outcomes use unmistakably different cadences and expose a
+	# compact diagnostic receipt without adding playback nodes.
+	await create_timer(0.20).timeout
+	var serial_before_outcomes := int(audio.feedback_snapshot().get("cue_serial", -1))
+	_check(audio.play_campaign_outcome(true), "passed probation should play its rising verdict cadence", failures)
+	_check(audio.play_campaign_outcome(false), "failed probation should play its restrained descending verdict cadence", failures)
+	_check(audio.play_commendation(), "permanent career recognition should play its brass filing cadence", failures)
+	_check(&"campaign_pass" in cue_events and &"campaign_fail" in cue_events and &"commendation" in cue_events, "campaign verdicts and career recognition should emit distinct semantic cue IDs", failures)
+	var verdict_snapshot := audio.feedback_snapshot()
+	_check(String(verdict_snapshot.get("last_cue", "")) == "commendation", "feedback diagnostics should expose the latest semantic career cue", failures)
+	_check(int(verdict_snapshot.get("cue_serial", -1)) == serial_before_outcomes + 3, "feedback diagnostics should advance once per accepted verdict or commendation", failures)
+	_check(int(verdict_snapshot.get("voice_count", 0)) == 8, "verdict feedback should retain the fixed eight-voice pool", failures)
 
 	await create_timer(0.07).timeout
 	var first_contact_played := audio.play_peck_contact(1, &"steady")
 	var duplicate_contact_played := audio.play_peck_contact(2, &"steady")
 	_check(first_contact_played, "peck limiter should reopen after its short clarity window", failures)
 	_check(not duplicate_contact_played, "peck limiter should reject a same-window duplicate", failures)
+
+	# A precedent uses one semantic pooled cue, not a same-frame decision/stamp
+	# stack. Diagnostics make that distinction testable without inspecting audio.
+	await create_timer(0.20).timeout
+	var serial_before_precedent := int(audio.feedback_snapshot().get("cue_serial", -1))
+	audio.play_precedent_filed()
+	var precedent_snapshot := audio.feedback_snapshot()
+	_check(&"precedent_filed" in cue_events, "filed precedents should emit a distinct semantic cue", failures)
+	_check(String(precedent_snapshot.get("last_cue", "")) == "precedent_filed", "precedent diagnostics should identify the single confirmation cadence", failures)
+	_check(int(precedent_snapshot.get("cue_serial", -1)) == serial_before_precedent + 1, "one filed precedent should advance audio diagnostics exactly once", failures)
+	await create_timer(0.20).timeout
+	var serial_before_pivot := int(audio.feedback_snapshot().get("cue_serial", -1))
+	_check(audio.play_case_pivot(4), "a connected-case counter-strategy should play its resolving callback cadence", failures)
+	var pivot_snapshot := audio.feedback_snapshot()
+	_check(&"case_pivot" in cue_events, "adaptive casework should emit a distinct semantic cue", failures)
+	_check(
+		String(pivot_snapshot.get("last_cue", "")) == "case_pivot"
+		and int(pivot_snapshot.get("cue_serial", -1)) == serial_before_pivot + 1,
+		"case-pivot diagnostics should expose exactly one accepted mastery cadence",
+		failures,
+	)
 
 	# A routine quality must never consume the limiter window for a rare result.
 	await create_timer(0.20).timeout
@@ -131,6 +341,8 @@ func _run() -> void:
 		audio.play_basket_thunk(&"sound")
 		audio.play_payout_confirmation(300 + event_index, &"sound")
 		audio.play_attention_restored()
+		audio.play_settlement_release(3, 3000 + event_index, 2)
+		audio.play_dispatch_work_started(event_index % 2 == 0)
 	var stressed_voices := audio.find_children("SFXVoice_*", "AudioStreamPlayer", true, false)
 	var stressed_voice_ids: Array[int] = []
 	for voice in stressed_voices:
@@ -140,7 +352,11 @@ func _run() -> void:
 
 	audio.set_focus_paused(true)
 	_check(audio.is_focus_paused(), "feedback pool should expose focus pause state", failures)
+	var serial_while_focused := int(audio.feedback_snapshot().get("cue_serial", -1))
 	_check(not audio.play_denied(&"background"), "focus pause should discard new one-shots", failures)
+	_check(not audio.play_report_filed(), "focus pause should discard report receipts", failures)
+	_check(not audio.play_campaign_outcome(true), "focus pause should discard verdict one-shots instead of resuming them late", failures)
+	_check(int(audio.feedback_snapshot().get("cue_serial", -1)) == serial_while_focused, "discarded focus-paused cues should not advance diagnostics", failures)
 	for voice in stressed_voices:
 		_check(not (voice as AudioStreamPlayer).playing, "focus pause should stop active transient voices", failures)
 	audio.set_focus_paused(false)
@@ -158,7 +374,7 @@ func _run() -> void:
 			push_error("AUDIO_FEEDBACK_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("AUDIO_FEEDBACK_TEST_PASSED voices=8 cues=procedural limiter=semantic priority=protected growth=none buses=SFX+UI")
+	print("AUDIO_FEEDBACK_TEST_PASSED voices=8 cues=procedural+cutout+priority-opportunity+priority-result+routing-landing verdicts=distinct diagnostics=stable limiter=semantic priority=protected growth=none buses=SFX+UI+Alerts+Voice haptics=optional+bounded")
 	quit(0)
 
 

@@ -1,0 +1,2 @@
+# Browser captures, test logs, and verification summaries are build evidence,
+# not runtime resources. Keep Godot from importing or exporting this directory.

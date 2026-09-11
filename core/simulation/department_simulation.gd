@@ -6,6 +6,7 @@ const HarvestCreditStateScript := preload("res://core/simulation/harvest_credit_
 const FarmgateDispatchStateScript := preload("res://core/simulation/farmgate_dispatch_state.gd")
 const CampusPortfolioStateScript := preload("res://core/simulation/campus_portfolio_state.gd")
 const FarmTreasuryStateScript := preload("res://core/simulation/farm_treasury_state.gd")
+const InternshipProgramStateScript := preload("res://core/simulation/internship_program_state.gd")
 
 signal snapshot_changed(snapshot: Dictionary)
 signal egg_laid(worker_id: int, quality: StringName, value_cents: int)
@@ -24,8 +25,12 @@ signal workday_completed(report: Dictionary)
 signal decision_requested(decision: Dictionary)
 signal decision_resolved(result: Dictionary)
 signal personnel_action_resolved(result: Dictionary)
+signal manager_action_resolved(result: Dictionary)
+signal internship_action_resolved(result: Dictionary)
 signal peck_assist_resolved(result: Dictionary)
 signal peck_assist_missed(worker_id: int, claim_id: int)
+signal routing_momentum_broken(receipt: Dictionary)
+signal routing_momentum_recovered(receipt: Dictionary)
 signal staffing_action_resolved(result: Dictionary)
 signal career_sponsorship_resolved(result: Dictionary)
 signal office_capacity_changed(capacity: int, cost_cents: int)
@@ -51,7 +56,16 @@ const BASE_CLAIM_CAPACITY := 18
 const CLAIM_CAPACITY_PER_RECORDS_LEVEL := 6
 const BASE_WORK_PROGRESS := 3.2
 const MAX_UPGRADE_LEVEL := 5
-const SAVE_STATE_VERSION := 23
+const SAVE_STATE_VERSION := 30
+const ECONOMIC_WATCH_ORDER: Array[StringName] = [
+	&"auto",
+	&"margin",
+	&"feed",
+	&"capacity",
+	&"welfare",
+	&"market",
+]
+const MANAGER_ROSTER_VERSION := 1
 const FIRST_CLUTCH_REINVESTMENT_VERSION := 1
 const FIRST_CLUTCH_WORKER_ID := 0
 const FIRST_CLUTCH_REINVESTMENT_OFFER_LIMIT := 2
@@ -66,6 +80,20 @@ const PECK_ASSIST_LIMIT := 3
 const PECK_ASSIST_WINDOW_START := 28.0
 const PECK_ASSIST_WINDOW_END := 88.0
 const PECK_ASSIST_IDEAL_PROGRESS := 62.0
+const PECK_ASSIST_GOLD_START := 58.0
+const PECK_ASSIST_GOLD_END := 66.0
+const ROUTING_MOMENTUM_PACE_MILESTONE := 2
+const ROUTING_MOMENTUM_PECK_MILESTONE := 3
+const ROUTING_MOMENTUM_GOLDEN_MILESTONE := 5
+const ROUTING_MOMENTUM_CELEBRATION_MILESTONE := 10
+const ROUTING_MOMENTUM_MASTERY_INTERVAL := 5
+const ROUTING_MOMENTUM_PACE_MULTIPLIER := 1.15
+## Clock-driven snapshots publish several large planning projections that do not
+## need to be rebuilt at the authoritative tick rate. Keep their visible age
+## below two seconds while direct actions and explicit snapshot() reads remain
+## exact. This removes repeated facility/campus quote construction from the
+## accelerated simulation hot path without changing saved or economic state.
+const RUNTIME_PROJECTION_REFRESH_MSEC := 2_000
 const PECK_ASSIST_TIMING_PROFILES := {
 	&"standard": {"window_start": 28.0, "window_end": 88.0},
 	&"lenient": {"window_start": 22.0, "window_end": 92.0},
@@ -219,6 +247,44 @@ const ROOSTER_SUPERVISOR_PAYROLL_CENTS: Array[int] = [0, 500, 800, 1200]
 const ROOSTER_SURVEILLANCE_GRIEVANCE_MILLIPOINTS: Array[int] = [0, 750, 1250, 2000]
 const ROOSTER_SURVEILLANCE_STRESS_MILLIPOINTS: Array[int] = [0, 500, 1000, 1500]
 const ROOSTER_SURVEILLANCE_SOLIDARITY_MILLIPOINTS: Array[int] = [0, 500, 1000, 1500]
+const MANAGER_SLOT_SALARIES_CENTS: Array[int] = [0, 500, 300, 400]
+const MANAGER_DEFAULT_HIRE_ORDER: Array[StringName] = [
+	&"cornelius_credit", &"bramwell_quota", &"prudence_compliance", &"clover_culture",
+]
+const MANAGER_ASSIGNMENT_ORDER: Array[StringName] = [
+	&"whole_flock", &"front_row", &"back_row", &"auto_desk", &"at_risk",
+]
+const MANAGER_ASSIGNMENT_DEFINITIONS := {
+	&"whole_flock": {"label": "WHOLE FLOCK", "summary": "Every employed hen receives the directive."},
+	&"front_row": {"label": "FRONT ROOST", "summary": "Desks 1-3 receive the directive."},
+	&"back_row": {"label": "BACK ROOST", "summary": "Desks 4-6 receive the directive."},
+	&"auto_desk": {"label": "AUTO DESK", "summary": "Only hens enrolled in AUTO receive the directive."},
+	&"at_risk": {"label": "AT-RISK FILE", "summary": "The most stressed employed hen receives the directive."},
+}
+const MANAGER_POSTURE_ORDER: Array[StringName] = [
+	&"coach", &"protect_quality", &"chase_quota", &"audit", &"visibility", &"meetings",
+]
+const MANAGER_POSTURE_DEFINITIONS := {
+	&"coach": {"label": "COACH THE FLOCK", "work_bp": 200, "crack_bp": -150, "stress": -1.0, "trust": 1.5, "grievance": -0.5, "meeting_minutes": 10},
+	&"protect_quality": {"label": "PROTECT SHELLS", "work_bp": -250, "crack_bp": -350, "stress": -0.5, "trust": 0.5, "grievance": 0.0, "meeting_minutes": 5},
+	&"chase_quota": {"label": "CHASE QUOTA", "work_bp": 700, "crack_bp": 250, "stress": 2.0, "trust": -1.0, "grievance": 1.5, "meeting_minutes": 5},
+	&"audit": {"label": "PREPARE AUDIT", "work_bp": -150, "crack_bp": -100, "stress": 1.0, "trust": -0.5, "grievance": 0.5, "meeting_minutes": 15},
+	&"visibility": {"label": "PROMOTE VISIBILITY", "work_bp": -100, "crack_bp": 0, "stress": 0.5, "trust": -0.5, "grievance": 0.5, "meeting_minutes": 15},
+	&"meetings": {"label": "ALIGNMENT MEETINGS", "work_bp": -500, "crack_bp": -50, "stress": 1.5, "trust": -0.5, "grievance": 1.0, "meeting_minutes": 30},
+}
+const MANAGER_CANDIDATE_DEFINITIONS := {
+	&"cornelius_credit": {"name": "Cornelius Claimwell", "archetype": "CREDIT", "doctrine": "The flock produces; management presents.", "default_posture": &"visibility", "color": "343941", "accessory": &"BowTie", "signing_cost_cents": 0},
+	&"bramwell_quota": {"name": "Bramwell Beakley", "archetype": "QUOTA", "doctrine": "Every clutch can become a stretch clutch.", "default_posture": &"chase_quota", "color": "5b3432", "accessory": &"AccessoryNeck_LongTie", "signing_cost_cents": 4000},
+	&"prudence_compliance": {"name": "Prudence Peckworth", "archetype": "COMPLIANCE", "doctrine": "If it is not filed, it did not happen.", "default_posture": &"audit", "color": "344c49", "accessory": &"AccessoryHead_SquareGlasses", "signing_cost_cents": 5200},
+	&"clover_culture": {"name": "Clover Crowsby", "archetype": "CULTURE", "doctrine": "Mandatory warmth is still warmth.", "default_posture": &"meetings", "color": "62513b", "accessory": &"AccessoryBody_SweaterVest", "signing_cost_cents": 6000},
+	&"pivot_reorg": {"name": "Pivot Strutters", "archetype": "REORG", "doctrine": "A new chart is evidence of motion.", "default_posture": &"coach", "color": "493c5d", "accessory": &"AccessoryNeck_Lanyard", "signing_cost_cents": 4800},
+	&"byte_automation": {"name": "Byte Bantam", "archetype": "AUTOMATION", "doctrine": "The spreadsheet is the coop.", "default_posture": &"audit", "color": "30465d", "accessory": &"AccessoryHead_Headset", "signing_cost_cents": 7000},
+}
+const MANAGER_RANK_TITLES: Array[String] = [
+	"ACTING LEAD", "ASSISTANT ROOST SUPERVISOR", "SENIOR CLUTCH MANAGER",
+	"EXECUTIVE VICE ROOSTER", "CHIEF EGG OFFICER",
+]
+const MANAGER_RANK_INFLUENCE: Array[int] = [0, 25, 60, 120, 220]
 const IT_COOP_LEVEL_COSTS_CENTS: Array[int] = [13000, 20000, 30000]
 const IT_COOP_MAINTENANCE_BY_LEVEL_CENTS: Array[int] = [0, 1000, 1700, 2600]
 const IT_COOP_UNLOCK_DAYS: Array[int] = [6, 9, 12]
@@ -333,7 +399,7 @@ const PACKING_CARTON_SIZE := 6
 const PACKING_VALUE_BONUS_PER_LEVEL := 0.04
 const PACKING_CARTON_BONUS_PER_LEVEL_CENTS := 300
 const CONTRACT_BOARD_UNLOCK_DAY := 3
-const MARKET_CONTRACT_MAX_CLAIMS := 6
+const MARKET_CONTRACT_MAX_CLAIMS := 7
 const MARKET_STANDING_SUCCESS_POINTS := 2
 const MARKET_STANDING_BREACH_POINTS := 1
 const SERVICE_COOP_PREMIUM_BASIS_POINTS_PER_LEVEL := 5000
@@ -347,6 +413,63 @@ const MARKET_SEASON_FIRST_DAY := 6
 const MARKET_SEASON_LENGTH_DAYS := 3
 const MARKET_SEASONS_PER_YEAR := 4
 const RESTED_FLOCK_WELFARE_MINIMUM := 72
+const MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT := 3
+const MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM := 50
+const MARKET_PRICING_ESTIMATED_HANDLING_COST_CENTS := 125
+const MARKET_PRICING_PROFILE_ORDER: Array[StringName] = [
+	&"mutual_rate",
+	&"community_access_rate",
+	&"executive_select_rate",
+]
+const MARKET_PRICING_OUTCOME_KEYS: Array[String] = [
+	"mutual_rate_success",
+	"mutual_rate_breach",
+	"community_access_rate_success",
+	"community_access_rate_breach",
+	"executive_select_rate_success",
+	"executive_select_rate_breach",
+]
+const MARKET_PRICING_PROFILE_DEFINITIONS := {
+	&"mutual_rate": {
+		"label": "MUTUAL RATE",
+		"summary": "Keep the quoted premium and standard folder volume.",
+		"premium_basis_points": 0,
+		"volume_delta": 0,
+		"required_delta": 0,
+		"satisfaction_success_delta": 1,
+		"satisfaction_breach_delta": -3,
+		"reach_success_delta": 1,
+		"reach_breach_delta": -1,
+		"required_reach": 0,
+		"required_satisfaction": 0,
+	},
+	&"community_access_rate": {
+		"label": "COMMUNITY ACCESS RATE",
+		"summary": "Quote 20% less, accept one referred folder, and earn stronger claimant goodwill when fulfilled.",
+		"premium_basis_points": -2000,
+		"volume_delta": 1,
+		"required_delta": 1,
+		"satisfaction_success_delta": 4,
+		"satisfaction_breach_delta": -5,
+		"reach_success_delta": 3,
+		"reach_breach_delta": -2,
+		"required_reach": 0,
+		"required_satisfaction": 0,
+	},
+	&"executive_select_rate": {
+		"label": "EXECUTIVE SELECT RATE",
+		"summary": "Quote 30% more and serve one fewer folder, but spend claimant goodwill that must be rebuilt.",
+		"premium_basis_points": 3000,
+		"volume_delta": -1,
+		"required_delta": -1,
+		"satisfaction_success_delta": -2,
+		"satisfaction_breach_delta": -6,
+		"reach_success_delta": 0,
+		"reach_breach_delta": -3,
+		"required_reach": MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
+		"required_satisfaction": MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM,
+	},
+}
 const MARKET_CONTRACT_CLAUSE_ORDER: Array[StringName] = [
 	&"standard_terms",
 	&"expedited_hatch_rider",
@@ -372,7 +495,7 @@ const MARKET_CONTRACT_CLAUSE_DEFINITIONS := {
 	},
 	&"specialist_roost_endorsement": {
 		"label": "SPECIALIST ROOST ENDORSEMENT",
-		"summary": "Convert every folder to this binder's authored dominant claim lane.",
+		"summary": "Convert every folder to this binder's authored dominant file tray.",
 		"category": &"routing",
 		"requires_negotiation_room": true,
 		"premium_basis_points": 3500,
@@ -615,7 +738,7 @@ const FACILITY_DEFINITIONS := {
 	&"candling_rework_bay": {
 		"name": "CANDLING & REWORK BAY",
 		"short_name": "CANDLING BAY",
-		"description": "A lit shell-inspection bench and dedicated return lane for cracked claims.",
+		"description": "A lit shell-inspection bench and dedicated return lane for cracked files.",
 		"cost_cents": 4000,
 		"daily_maintenance_cents": 300,
 		"max_level": 1,
@@ -625,7 +748,7 @@ const FACILITY_DEFINITIONS := {
 		"rework_speed_multiplier": 1.20,
 		"benefits": [
 			"-1.5% crack risk across the office",
-			"+20% processing speed for rework claims",
+			"+20% processing speed for rework files",
 		],
 		"tradeoffs": [
 			"Adds $3.00 in maintenance to every shift",
@@ -670,7 +793,7 @@ const FACILITY_DEFINITIONS := {
 		"claim_capacity_per_level": CLAIM_CAPACITY_PER_RECORDS_LEVEL,
 		"benefits": [
 			"+6 live file capacity per level",
-			"Retains claim demand that would otherwise leave the farm",
+			"Retains file demand that would otherwise leave the farm",
 		],
 		"tradeoffs": [
 			"Daily archive maintenance rises to $4 / $7 / $11",
@@ -832,7 +955,7 @@ const FACILITY_DEFINITIONS := {
 		"level_names": [
 			"CABLE & REPAIR BENCH",
 			"PREDICTIVE DISPATCH RACK",
-			"AUTOMATED CLAIMS SORTER",
+			"AUTOMATED FILE SORTER",
 		],
 	},
 	FLOCK_RELATIONS_OFFICE_ID: {
@@ -971,6 +1094,11 @@ const CLAIM_LANE_DEFINITIONS := {
 		"deadline_minutes": 180,
 		"arrival_weight": 0.50,
 		"accent_hex": "65b7a5",
+		"work_stress_basis_points": 10_000,
+		"sound_morale_millipoints": 600,
+		"sound_compliance_millipoints": 0,
+		"cracked_compliance_millipoints": 0,
+		"operational_tradeoff": "CLAIMANT-PATH REPAIR RELIEF: a sound or golden filed path restores +0.6 handler morale.",
 	},
 	&"predator_loss": {
 		"display_name": "PREDATOR LOSS",
@@ -982,6 +1110,11 @@ const CLAIM_LANE_DEFINITIONS := {
 		"deadline_minutes": 240,
 		"arrival_weight": 0.32,
 		"accent_hex": "d69a55",
+		"work_stress_basis_points": 12_500,
+		"sound_morale_millipoints": 0,
+		"sound_compliance_millipoints": 0,
+		"cracked_compliance_millipoints": 0,
+		"operational_tradeoff": "CLAIMANT-PATH TRAUMA LOAD: handler stress accumulates 25% faster after a path is filed.",
 	},
 	&"appeals": {
 		"display_name": "APPEALS & EXCEPTIONS",
@@ -993,6 +1126,59 @@ const CLAIM_LANE_DEFINITIONS := {
 		"deadline_minutes": 360,
 		"arrival_weight": 0.18,
 		"accent_hex": "a987bf",
+		"work_stress_basis_points": 10_000,
+		"sound_morale_millipoints": 0,
+		"sound_compliance_millipoints": 700,
+		"cracked_compliance_millipoints": -1_000,
+		"operational_tradeoff": "CLAIMANT-PATH AUDIT TRAIL: clean closure adds +0.7 audit order; cracked closure loses an extra 1.0.",
+	},
+}
+const CLAIM_RESOLUTION_CUTOFF_PROGRESS := 55.0
+const CLAIM_RESOLUTION_CHOICE_IDS: Array[StringName] = [
+	&"settle",
+	&"deny",
+	&"exception",
+]
+const CLAIM_RESOLUTION_DEFINITIONS := {
+	&"standard": {
+		"label": "STANDARD HANDLING",
+		"short_label": "STANDARD",
+		"cost_cents": 0,
+		"work_basis_points": 10_000,
+		"crack_basis_points": 0,
+		"beneficiary": "BUREAU",
+		"benefit": "No special filing cost or handling modifier.",
+		"burden": "Claimant waits on ordinary Farm Mutual terms.",
+	},
+	&"settle": {
+		"label": "HUMANE SETTLEMENT",
+		"short_label": "SETTLE",
+		"cost_cents": 120,
+		"work_basis_points": 10_000,
+		"crack_basis_points": -300,
+		"beneficiary": "CLAIMANT",
+		"benefit": "Fast approved support; shell risk -3%.",
+		"burden": "Feed Fund pays $1.20 now.",
+	},
+	&"deny": {
+		"label": "FAST DENIAL",
+		"short_label": "DENY",
+		"cost_cents": 0,
+		"work_basis_points": 11_200,
+		"crack_basis_points": 400,
+		"beneficiary": "BUREAU",
+		"benefit": "Peckwork +12% and no filing cost.",
+		"burden": "Shell risk +4%; a clean denial returns as an appeal tomorrow.",
+	},
+	&"exception": {
+		"label": "COVERAGE EXCEPTION",
+		"short_label": "EXCEPTION",
+		"cost_cents": 60,
+		"work_basis_points": 9_400,
+		"crack_basis_points": -500,
+		"beneficiary": "CLAIMANT",
+		"benefit": "Broader review and shell risk -5%.",
+		"burden": "Feed Fund pays $0.60 now; peckwork -6%.",
 	},
 }
 const INITIAL_CLAIM_LANES: Array[StringName] = [
@@ -1026,7 +1212,7 @@ const FLOCK_PETITION_DEFINITIONS := {
 	&"specialty_respect": {
 		"title": "A HEN REQUESTS HER OWN KIND OF PECKWORK",
 		"compact_name": "SPECIALTY NEST COMPACT",
-		"promise": "Assign the sponsor to her trained claim lane for the entire next shift.",
+		"promise": "Assign the sponsor to her trained file tray for the entire next shift.",
 		"condition": "Sponsor remains assigned to her specialty lane for the full shift.",
 		"sign_cost_cents": 800,
 		"priority": 3,
@@ -1099,12 +1285,231 @@ const DIRECTIVE_DEFINITIONS := {
 		"tone": &"care",
 	},
 }
-const INCIDENT_ORDER: Array[StringName] = [
+const LEGACY_INCIDENT_ORDER: Array[StringName] = [
 	&"ledger_molt",
 	&"wellness_request",
 	&"farmer_story",
 	&"feed_shortfall",
 ]
+const INCIDENT_ORDER: Array[StringName] = [
+	&"ledger_molt",
+	&"wellness_request",
+	&"farmer_story",
+	&"feed_shortfall",
+	&"calendar_overflow",
+	&"credit_town_hall",
+	&"nest_heatwave",
+	&"cold_storage_audit",
+	&"fox_drill",
+	&"badge_scan",
+	&"egg_showcase",
+	&"return_to_sender",
+]
+const INCIDENT_DOCKET_SEED_OFFSET := 32_452_843
+const AUTHORED_SCENARIO_SEEDS := [4703, 7919, 12011, 15013, 18041, 24029]
+const SCENARIO_SEED_IDS := {
+	4703: &"flock_walkout",
+	7919: &"shell_audit",
+	12011: &"harvest_surge",
+	15013: &"thin_margin",
+	18041: &"fox_season",
+	24029: &"credit_scramble",
+}
+const FINAL_HEARING_INCIDENT_ID: StringName = &"final_hearing"
+const SCENARIO_IDENTITIES := {
+	&"harvest_surge": {
+		"name": "HARVEST SURGE",
+		"short": "SURGE",
+		"icon": &"egg",
+		"favored_directive": &"record_harvest",
+		"favored_finale_option": &"back_farmer",
+		"opening_rule": "Two rush files and a higher opening quota arrive before the first bell.",
+		"victory_twist": "Prove that output can rise without making the flock disposable.",
+		"climax_title": "THE FARMER DEMANDS A RECORD BASKET",
+		"climax_body": "The trucks are waiting. The farmer offers permanent capacity if your final signature says output comes first.",
+		"promise": "Harvest policy converts the rush into pace and Farmer Favor, but keeps its shell-risk tradeoff.",
+	},
+	&"shell_audit": {
+		"name": "SHELL AUDIT",
+		"short": "AUDIT",
+		"icon": &"shield",
+		"favored_directive": &"shell_assurance",
+		"favored_finale_option": &"publish_ledger",
+		"opening_rule": "Two appeal files arrive under an active shell-control inspection.",
+		"victory_twist": "Finish with evidence the inspector can verify, not merely a clean headline.",
+		"climax_title": "THE INSPECTOR DEMANDS ONE SIGNATURE",
+		"climax_body": "Every basket is on the table. The inspector will accept a quiet assurance, a public ledger, or the farmer's personal guarantee.",
+		"promise": "Assurance policy turns inspection pressure into lower crack risk and stronger compliance.",
+	},
+	&"flock_walkout": {
+		"name": "FLOCK WALKOUT",
+		"short": "WALKOUT",
+		"icon": &"flock",
+		"favored_directive": &"sustainable_flock",
+		"favored_finale_option": &"sign_flock_charter",
+		"opening_rule": "Mabel begins near a breaking point and the flock enters with organized solidarity.",
+		"victory_twist": "Resolve whether worker voice becomes policy or remains another poster.",
+		"climax_title": "THE FLOCK ASKS WHO OWNS THE FLOOR",
+		"climax_body": "The hens will finish the clutch. Before they do, they want one promise that survives your probation badge.",
+		"promise": "Sustainable policy turns worker pressure into trust, recovery, and steadier shells.",
+		"rival_name": "Golden Comb Group",
+		"rival_rule": "They lead on raw output; beat them by holding welfare and score together.",
+	},
+	&"thin_margin": {
+		"name": "THIN MARGIN",
+		"short": "MARGIN",
+		"icon": &"fund",
+		"favored_directive": &"sustainable_flock",
+		"favored_finale_option": &"publish_ledger",
+		"opening_rule": "Eight dollars are already committed and the quota rises by one.",
+		"victory_twist": "Finish solvent without turning care into the first budget cut.",
+		"climax_title": "THE LEDGER HAS ROOM FOR ONE PRINCIPLE",
+		"climax_body": "The margin survived. The closing signature decides whether the savings belong to the farmer, the public record, or the flock.",
+		"promise": "Sustainable policy reduces the human cost of a cash-starved opening.",
+		"rival_name": "Pennyfeather Mutual",
+		"rival_rule": "They win on cash alone; beat them with a solvent file that still protects the flock.",
+	},
+	&"fox_season": {
+		"name": "FOX SEASON",
+		"short": "FOX WATCH",
+		"icon": &"warning",
+		"favored_directive": &"shell_assurance",
+		"favored_finale_option": &"sign_flock_charter",
+		"opening_rule": "Two predator files arrive and every hen begins the day watching the windows.",
+		"victory_twist": "Protect the basket without making surveillance the permanent workplace.",
+		"climax_title": "SECURITY ASKS WHO THE LOCKS ARE FOR",
+		"climax_body": "The fox is gone. The final filing decides whether protection becomes evidence, authority, or a flock guarantee.",
+		"promise": "Assurance policy stabilizes shells while the flock absorbs a visible stress shock.",
+		"rival_name": "Iron Roost Assurance",
+		"rival_rule": "They lead on compliance; beat them without leaving trust behind the locked door.",
+	},
+	&"credit_scramble": {
+		"name": "CREDIT SCRAMBLE",
+		"short": "CREDIT",
+		"icon": &"star",
+		"favored_directive": &"record_harvest",
+		"favored_finale_option": &"back_farmer",
+		"opening_rule": "The farmer claims the opening basket and two repair files need visible owners.",
+		"victory_twist": "Win public standing while keeping the flock visible in the record.",
+		"climax_title": "THE FARMER HAS ALREADY WRITTEN THE HEADLINE",
+		"climax_body": "The cameras are ready. Your signature decides whose work survives the announcement.",
+		"promise": "Harvest policy recovers favor quickly, but attribution choices decide the ending.",
+		"rival_name": "Sunrise Egg Office",
+		"rival_rule": "They lead the publicity table; beat them by pairing output with attributed work.",
+	},
+}
+const INCIDENT_RESPONSE_VERSION := 1
+const INCIDENT_RESPONSE_HISTORY_LIMIT := 24
+const INCIDENT_PIVOT_MASTERY_VERSION := 1
+const INCIDENT_PAIR_ORDER: Array[StringName] = [
+	&"ledger_story",
+	&"wellness_feed",
+	&"calendar_credit",
+	&"climate_quality",
+	&"security_surveillance",
+	&"publicity_claimants",
+]
+const INCIDENT_SHORT_TITLES := {
+	&"ledger_molt": "LEDGER MOLT",
+	&"wellness_request": "WELLNESS REQUEST",
+	&"farmer_story": "FARMER STORY",
+	&"feed_shortfall": "FEED SHORTFALL",
+	&"calendar_overflow": "MEETING OVERFLOW",
+	&"credit_town_hall": "CREDIT TOWN HALL",
+	&"nest_heatwave": "NEST HEATWAVE",
+	&"cold_storage_audit": "COLD ROOM AUDIT",
+	&"fox_drill": "FOX DRILL",
+	&"badge_scan": "BADGE SCAN",
+	&"egg_showcase": "EGG SHOWCASE",
+	&"return_to_sender": "RETURN TO SENDER",
+	FINAL_HEARING_INCIDENT_ID: "FINAL HEARING",
+}
+const INCIDENT_PAIR_SOURCE := {
+	&"ledger_molt": &"farmer_story",
+	&"farmer_story": &"ledger_molt",
+	&"wellness_request": &"feed_shortfall",
+	&"feed_shortfall": &"wellness_request",
+	&"calendar_overflow": &"credit_town_hall",
+	&"credit_town_hall": &"calendar_overflow",
+	&"nest_heatwave": &"cold_storage_audit",
+	&"cold_storage_audit": &"nest_heatwave",
+	&"fox_drill": &"badge_scan",
+	&"badge_scan": &"fox_drill",
+	&"egg_showcase": &"return_to_sender",
+	&"return_to_sender": &"egg_showcase",
+}
+const INCIDENT_PAIR_IDS := {
+	&"ledger_molt": &"ledger_story",
+	&"farmer_story": &"ledger_story",
+	&"wellness_request": &"wellness_feed",
+	&"feed_shortfall": &"wellness_feed",
+	&"calendar_overflow": &"calendar_credit",
+	&"credit_town_hall": &"calendar_credit",
+	&"nest_heatwave": &"climate_quality",
+	&"cold_storage_audit": &"climate_quality",
+	&"fox_drill": &"security_surveillance",
+	&"badge_scan": &"security_surveillance",
+	&"egg_showcase": &"publicity_claimants",
+	&"return_to_sender": &"publicity_claimants",
+}
+const INCIDENT_PAIR_LABELS := {
+	&"ledger_story": "LEDGER / STORY",
+	&"wellness_feed": "WELLNESS / FEED",
+	&"calendar_credit": "MEETINGS / CREDIT",
+	&"climate_quality": "CLIMATE / QUALITY",
+	&"security_surveillance": "SECURITY / SURVEILLANCE",
+	&"publicity_claimants": "PUBLICITY / CLAIMANTS",
+}
+const INCIDENT_FOLLOW_THROUGH_DEFINITIONS := {
+	&"ledger_molt": {
+		&"polish_story": {"id": &"story_surplus_to_patch", "label": "PRIOR STORY FILE / BASKET POLISHED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The presentation surplus takes $4 off the current emergency-patch quote.", "affected_option_id": &"patch"},
+		&"show_ledger": {"id": &"transparency_to_shadow_sheet", "label": "PRIOR STORY FILE / ACTUAL LEDGER SHOWN", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The disclosed fault makes the unofficial spreadsheet worth +2 more speed.", "affected_option_id": &"spreadsheet"},
+	},
+	&"farmer_story": {
+		&"patch": {"id": &"clean_audit_to_story", "label": "PRIOR LEDGER FILE / PATCH AUTHORIZED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The clean audit makes POLISH THE PRESENTATION BASKET worth +$4 more Feed Fund.", "affected_option_id": &"polish_story"},
+		&"spreadsheet": {"id": &"shadow_evidence_to_ledger", "label": "PRIOR LEDGER FILE / SHADOW SHEET ACTIVE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The shadow sheet reduces SHOW THE ACTUAL LEDGER's farmer-favor loss from -6 to -4.", "affected_option_id": &"show_ledger"},
+	},
+	&"wellness_request": {
+		&"buy_grain": {"id": &"fed_flock_to_denial", "label": "PRIOR FEED FILE / LOCAL GRAIN BOUGHT", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The visible meal gives management cover worth +2 more farmer favor when denying breaks.", "affected_option_id": &"deny_breaks"},
+		&"optimize_portions": {"id": &"savings_to_breaks", "label": "PRIOR FEED FILE / PORTIONS OPTIMIZED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The ration savings lower the rotating-break cost from $6 to $4.", "affected_option_id": &"grant_breaks"},
+	},
+	&"feed_shortfall": {
+		&"grant_breaks": {"id": &"rested_flock_to_portions", "label": "PRIOR WELLNESS FILE / BREAKS COVERED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The rested-flock study increases optimized-portion savings from $8 to $10 daily feed cost.", "affected_option_id": &"optimize_portions"},
+		&"deny_breaks": {"id": &"grievance_to_grain", "label": "PRIOR WELLNESS FILE / REQUEST DENIED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The grievance settlement lowers the local-grain cost from $16 to $12.", "affected_option_id": &"buy_grain"},
+	},
+	&"calendar_overflow": {
+		&"credit_layers": {"id": &"layer_results_to_syncs", "label": "PRIOR CREDIT FILE / LAYERS NAMED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The layer results make attending every sync worth +2 more farmer favor.", "affected_option_id": &"attend_status_sync"},
+		&"credit_roosters": {"id": &"manager_byline_to_cancel", "label": "PRIOR CREDIT FILE / ROOSTERS NAMED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The manager byline makes canceling this sync worth +2 more flock trust.", "affected_option_id": &"cancel_status_sync"},
+	},
+	&"credit_town_hall": {
+		&"cancel_status_sync": {"id": &"cancel_bargain_to_roosters", "label": "PRIOR MEETING FILE / SYNC CANCELED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The cancellation bargain makes crediting the roosters worth +2 more farmer favor.", "affected_option_id": &"credit_roosters"},
+		&"attend_status_sync": {"id": &"minutes_to_layers", "label": "PRIOR MEETING FILE / EVERY SYNC ATTENDED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The meeting minutes lower the cost of crediting the layers from $10 to $6.", "affected_option_id": &"credit_layers"},
+	},
+	&"nest_heatwave": {
+		&"open_cold_room": {"id": &"cold_room_to_cooling", "label": "PRIOR QUALITY FILE / COLD ROOM OPENED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The audit record makes filing seasonal variance faster.", "affected_option_id": &"seasonal_variance"},
+		&"stage_thermostat": {"id": &"staged_audit_to_variance", "label": "PRIOR QUALITY FILE / THERMOSTAT STAGED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The staged reading discounts emergency cooling by $4.", "affected_option_id": &"authorize_cooling"},
+	},
+	&"cold_storage_audit": {
+		&"authorize_cooling": {"id": &"cooling_to_open_audit", "label": "PRIOR CLIMATE FILE / COOLING AUTHORIZED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The cooling receipt makes staging the thermostat easier upstairs.", "affected_option_id": &"stage_thermostat"},
+		&"seasonal_variance": {"id": &"variance_to_staged_audit", "label": "PRIOR CLIMATE FILE / HEAT RECLASSIFIED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The variance memo makes opening the real cold room restore more trust.", "affected_option_id": &"open_cold_room"},
+	},
+	&"fox_drill": {
+		&"reject_tags": {"id": &"privacy_to_evacuate", "label": "PRIOR ACCESS FILE / TAGS REJECTED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The privacy filing makes a desktop drill faster to certify.", "affected_option_id": &"desktop_drill"},
+		&"accept_tags": {"id": &"tracking_to_desktop", "label": "PRIOR ACCESS FILE / TAGS ACCEPTED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The tracking rollout makes a real evacuation easier to trust.", "affected_option_id": &"run_evacuate"},
+	},
+	&"badge_scan": {
+		&"run_evacuate": {"id": &"evacuation_to_privacy", "label": "PRIOR SAFETY FILE / EVACUATION RUN", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The real drill makes accepting tracking tags faster upstairs.", "affected_option_id": &"accept_tags"},
+		&"desktop_drill": {"id": &"desktop_to_tracking", "label": "PRIOR SAFETY FILE / DESKTOP DRILL", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The paper drill supplies evidence for rejecting individual tracking.", "affected_option_id": &"reject_tags"},
+	},
+	&"egg_showcase": {
+		&"reimburse_claimant": {"id": &"claimant_to_flock", "label": "PRIOR CLAIM FILE / CLAIMANT REPAID", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The repayment record makes the management deck unusually profitable.", "affected_option_id": &"send_deck"},
+		&"classify_success": {"id": &"success_to_deck", "label": "PRIOR CLAIM FILE / RETURN RECLASSIFIED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The success memo makes sending the flock restore more trust.", "affected_option_id": &"send_flock"},
+	},
+	&"return_to_sender": {
+		&"send_flock": {"id": &"flock_to_claimant", "label": "PRIOR SHOWCASE FILE / FLOCK PRESENT", "strategy_label": "PIVOT OPPORTUNITY", "summary": "Public authorship makes reclassifying a return faster upstairs.", "affected_option_id": &"classify_success"},
+		&"send_deck": {"id": &"deck_to_success", "label": "PRIOR SHOWCASE FILE / DECK PRESENTED", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The showcase deck makes reimbursing the claimant restore more trust.", "affected_option_id": &"reimburse_claimant"},
+	},
+}
 const INCIDENT_DEFINITIONS := {
 	&"ledger_molt": {
 		"title": "THE EGG LEDGER IS MOLTING",
@@ -1113,18 +1518,36 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"patch",
 				"label": "AUTHORIZE EMERGENCY PATCH",
+				"short_label": "EMERGENCY PATCH",
+				"glance": "SAFETY +  /  ORDER +",
+				"tagline": "Spend Feed Fund to protect shells and obedience.",
 				"preview": "Cost $18  ·  +4 obedience  ·  -4% crack risk this shift",
 				"outcome": "The ledger was patched. Compliance has declared the smoke intentional.",
 				"cost_cents": 1800,
 				"tone": &"quality",
+				"precedent": {
+					"target_incident_id": &"farmer_story",
+					"target_label": "NEXT FARMER STORY",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The clean audit raises POLISH THE PRESENTATION BASKET from +$16 to +$20 Feed Fund.",
+				},
 			},
 			{
 				"id": &"spreadsheet",
 				"label": "USE THE UNOFFICIAL SPREADSHEET",
+				"short_label": "SHADOW SHEET",
+				"glance": "SPEED +  /  SAFETY -",
+				"tagline": "Keep the Fund; trade safety and obedience for speed.",
 				"preview": "No cost  ·  +5% speed  ·  +6% crack risk  ·  -6 obedience",
 				"outcome": "An unofficial spreadsheet is now mission-critical and completely unaudited.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"farmer_story",
+					"target_label": "NEXT FARMER STORY",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The shadow sheet reduces SHOW THE ACTUAL LEDGER's farmer-favor loss from -6 to -4.",
+				},
 			},
 		],
 	},
@@ -1135,18 +1558,36 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"grant_breaks",
 				"label": "COVER A ROTATING BREAK",
+				"short_label": "ROTATING BREAK",
+				"glance": "FLOCK +  /  STRAIN -",
+				"tagline": "Spend Feed Fund to restore the flock before more peckwork.",
 				"preview": "Cost $6  ·  -6 stress  ·  -5 fatigue  ·  +4 morale",
 				"outcome": "A rotating break was approved and immediately described as a productivity pilot.",
 				"cost_cents": 600,
 				"tone": &"care",
+				"precedent": {
+					"target_incident_id": &"feed_shortfall",
+					"target_label": "NEXT FEED SHORTFALL",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The rested-flock study raises OPTIMIZE THE PORTIONS from $8 to $10 lower daily feed cost.",
+				},
 			},
 			{
 				"id": &"deny_breaks",
 				"label": "DENY THE ATTITUDE VARIANCE",
+				"short_label": "DENY BREAK",
+				"glance": "FAVOR +  /  STRAIN +",
+				"tagline": "Protect favor now; push strain into morale and shells.",
 				"preview": "+3 farmer favor  ·  -6 morale  ·  +6 stress  ·  +2.5% crack risk",
 				"outcome": "The request was denied. The flock has been reminded that the wellness poster is the benefit.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"feed_shortfall",
+					"target_label": "NEXT FEED SHORTFALL",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The grievance settlement lowers BUY LOCAL GRAIN from $16 to $12.",
+				},
 			},
 		],
 	},
@@ -1157,18 +1598,36 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"polish_story",
 				"label": "POLISH THE PRESENTATION BASKET",
+				"short_label": "POLISH STORY",
+				"glance": "CASH +  /  NEXT QUOTA +",
+				"tagline": "Take cash and favor now; raise tomorrow's quota.",
 				"preview": "+$16 fund  ·  +8 farmer favor  ·  tomorrow's quota +1",
 				"outcome": "The presentation has been polished. Tomorrow's target already reflects today's optimism.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"ledger_molt",
+					"target_label": "NEXT LEDGER MOLT",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The presentation surplus takes $4 off the current AUTHORIZE EMERGENCY PATCH quote.",
+				},
 			},
 			{
 				"id": &"show_ledger",
 				"label": "SHOW THE ACTUAL LEDGER",
-				"preview": "+5 obedience  ·  +6 flock unity  ·  tomorrow's quota -1",
+				"short_label": "SHOW LEDGER",
+				"glance": "FLOCK +  /  FAVOR -",
+				"tagline": "Trade executive favor for obedience and a lower quota.",
+				"preview": "-6 farmer favor  ·  +5 obedience  ·  +6 flock unity  ·  tomorrow's quota -1",
 				"outcome": "The actual ledger was attached. The farmer has called this an avoidable transparency event.",
 				"cost_cents": 0,
 				"tone": &"quality",
+				"precedent": {
+					"target_incident_id": &"ledger_molt",
+					"target_label": "NEXT LEDGER MOLT",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The disclosed fault raises USE THE UNOFFICIAL SPREADSHEET from +5% to +7% speed.",
+				},
 			},
 		],
 	},
@@ -1179,18 +1638,282 @@ const INCIDENT_DEFINITIONS := {
 			{
 				"id": &"buy_grain",
 				"label": "BUY LOCAL GRAIN",
+				"short_label": "BUY LOCAL GRAIN",
+				"glance": "FLOCK +  /  STRAIN -",
+				"tagline": "Spend Feed Fund to reduce flock strain and shell pressure.",
 				"preview": "Cost $16  ·  +6 morale  ·  -4 stress  ·  -15% strain",
 				"outcome": "Local grain arrived. Procurement has opened a review into its suspicious edibility.",
 				"cost_cents": 1600,
 				"tone": &"care",
+				"precedent": {
+					"target_incident_id": &"wellness_request",
+					"target_label": "NEXT WELLNESS REQUEST",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The visible meal raises DENY THE ATTITUDE VARIANCE from +3 to +5 farmer favor.",
+				},
 			},
 			{
 				"id": &"optimize_portions",
 				"label": "OPTIMIZE THE PORTIONS",
+				"short_label": "CUT PORTIONS",
+				"glance": "FEED COST -  /  FLOCK -",
+				"tagline": "Cut feed today; accept morale, speed, and shell risk.",
 				"preview": "Daily feed -$8  ·  -7 morale  ·  +5 stress  ·  +3% crack risk",
 				"outcome": "Portions were optimized. The missing feed has been reclassified as efficiency.",
 				"cost_cents": 0,
 				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"wellness_request",
+					"target_label": "NEXT WELLNESS REQUEST",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The ration savings lower COVER A ROTATING BREAK from $6 to $4.",
+				},
+			},
+		],
+	},
+	&"calendar_overflow": {
+		"title": "THE ROOSTERS HAVE SCHEDULED A MEETING ABOUT MEETINGS",
+		"body": "Every manager has added a status sync to explain why the flock has too many status syncs.",
+		"choices": [
+			{
+				"id": &"cancel_status_sync",
+				"label": "CANCEL THE STATUS SYNC",
+				"short_label": "CANCEL SYNC",
+				"glance": "SPEED +  /  FAVOR -",
+				"tagline": "Recover production time; spend executive favor.",
+				"preview": "+6% speed this shift  ·  -2% crack risk  ·  +2 obedience  ·  -2 farmer favor  ·  flock trust +2",
+				"outcome": "The meeting was canceled. Management has requested a meeting to process the cancellation.",
+				"cost_cents": 0,
+				"tone": &"quality",
+				"precedent": {
+					"target_incident_id": &"credit_town_hall",
+					"target_label": "NEXT CREDIT TOWN HALL",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The cancellation bargain raises CREDIT THE ROOSTERS from +10 to +12 farmer favor.",
+				},
+			},
+			{
+				"id": &"attend_status_sync",
+				"label": "ATTEND EVERY STATUS SYNC",
+				"short_label": "ATTEND SYNCS",
+				"glance": "FAVOR +  /  SPEED -",
+				"tagline": "Gain executive favor; lose production time and flock patience.",
+				"preview": "-7% speed this shift  ·  +8 farmer favor  ·  +2 obedience  ·  flock stress +4",
+				"outcome": "Every status sync was attended. The roosters have reported record participation in reporting.",
+				"cost_cents": 0,
+				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"credit_town_hall",
+					"target_label": "NEXT CREDIT TOWN HALL",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The meeting minutes discount CREDIT THE LAYERS from $10 to $6.",
+				},
+			},
+		],
+	},
+	&"credit_town_hall": {
+		"title": "THE FARMER WANTS ONE NAME ON THE TOWN HALL SLIDE",
+		"body": "The flock produced the basket, the roosters produced a deck, and only one contribution fits the template.",
+		"choices": [
+			{
+				"id": &"credit_layers",
+				"label": "CREDIT THE LAYERS",
+				"short_label": "CREDIT LAYERS",
+				"glance": "FLOCK +  /  FAVOR -",
+				"tagline": "Spend Feed Fund and favor to strengthen the flock.",
+				"preview": "Cost $10  ·  -2 farmer favor  ·  +4 obedience  ·  morale +8  ·  stress -6  ·  tomorrow's quota -1  ·  -1% crack risk",
+				"outcome": "The layers were named. The farmer has asked whether collective nouns count as individual recognition.",
+				"cost_cents": 1000,
+				"tone": &"care",
+				"precedent": {
+					"target_incident_id": &"calendar_overflow",
+					"target_label": "NEXT MEETING OVERFLOW",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The layer results raise ATTEND EVERY STATUS SYNC from +8 to +10 farmer favor.",
+				},
+			},
+			{
+				"id": &"credit_roosters",
+				"label": "CREDIT THE ROOSTERS",
+				"short_label": "CREDIT ROOSTERS",
+				"glance": "FAVOR +  /  FLOCK -",
+				"tagline": "Take favor and speed now; deepen relationship debt.",
+				"preview": "No cost  ·  +10 farmer favor  ·  +5% speed  ·  flock morale -5  ·  grievance +6",
+				"outcome": "The roosters received the byline. The flock has been thanked for implementing management's eggs.",
+				"cost_cents": 0,
+				"tone": &"danger",
+				"precedent": {
+					"target_incident_id": &"calendar_overflow",
+					"target_label": "NEXT MEETING OVERFLOW",
+					"strategy_label": "PIVOT OPPORTUNITY",
+					"summary": "The manager byline raises CANCEL THE STATUS SYNC from +2 to +4 flock trust.",
+				},
+			},
+		],
+	},
+	&"nest_heatwave": {
+		"title": "THE NEST FLOOR IS OVERHEATING",
+		"body": "The cooling budget expired before the weather did. Shell losses are already climbing.",
+		"witness_prompt": "has been moving overheated files by wing",
+		"choices": [
+			{
+				"id": &"authorize_cooling", "label": "AUTHORIZE EMERGENCY COOLING", "short_label": "COOL THE FLOOR",
+				"glance": "FLOCK +  /  FUND -", "tagline": "Spend now to protect hens and shells.",
+				"preview": "Cost $12  /  strain -  /  shells +  /  trust +", "cost_cents": 1200, "tone": &"care",
+				"outcome": "Cooling reached the nest floor. Finance has classified breathable air as a pilot.",
+				"effects": {"morale_delta": 3.0, "stress_delta": -3.0, "fatigue_delta": -5.0, "crack_modifier": -0.03, "trust_delta": 2.0, "grievance_delta": -2.0},
+				"precedent": {"target_incident_id": &"cold_storage_audit", "target_label": "NEXT COLD ROOM AUDIT", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The cooling receipt makes a transparent audit safer."},
+			},
+			{
+				"id": &"seasonal_variance", "label": "FILE IT AS SEASONAL VARIANCE", "short_label": "FILE VARIANCE",
+				"glance": "SPEED +  /  SHELLS -", "tagline": "Keep output moving; leave the heat with the flock.",
+				"preview": "No cost  /  speed +  /  strain +  /  favor +", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The heat became a seasonal variance. The season has declined responsibility.",
+				"effects": {"work_multiplier": 1.05, "fatigue_delta": 5.0, "executive_delta": 4.0, "crack_modifier": 0.02, "trust_delta": -2.0, "grievance_delta": 3.0},
+				"precedent": {"target_incident_id": &"cold_storage_audit", "target_label": "NEXT COLD ROOM AUDIT", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The variance memo can support a staged thermostat reading."},
+			},
+		],
+	},
+	&"cold_storage_audit": {
+		"title": "THE COLD ROOM AUDIT ARRIVED WARM",
+		"body": "The inspector wants the real temperature log. The farmer wants a photogenic number.",
+		"witness_prompt": "signed the temperature ledger everyone is disputing",
+		"choices": [
+			{
+				"id": &"open_cold_room", "label": "OPEN THE REAL COLD ROOM", "short_label": "OPEN THE ROOM",
+				"glance": "ORDER +  /  SPEED -", "tagline": "Show the real floor and accept the slowdown.",
+				"preview": "speed -  /  obedience +  /  shells +  /  favor -", "cost_cents": 0, "tone": &"quality",
+				"outcome": "The real cold room was opened. The inspector found several unphotogenic facts.",
+				"effects": {"work_multiplier": 0.96, "compliance_delta": 5.0, "executive_delta": -2.0, "crack_modifier": -0.02, "trust_delta": 2.0, "grievance_delta": -2.0},
+				"precedent": {"target_incident_id": &"nest_heatwave", "target_label": "NEXT NEST HEATWAVE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The audit record discounts emergency cooling by $4."},
+			},
+			{
+				"id": &"stage_thermostat", "label": "STAGE THE THERMOSTAT PHOTO", "short_label": "STAGE PHOTO",
+				"glance": "FAVOR +  /  ORDER -", "tagline": "Protect the story; deepen compliance debt.",
+				"preview": "speed +  /  favor +  /  obedience -  /  shells -", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The thermostat photographed beautifully. The cold room did not attend.",
+				"effects": {"work_multiplier": 1.03, "compliance_delta": -6.0, "executive_delta": 6.0, "crack_modifier": 0.04, "trust_delta": -3.0, "grievance_delta": 4.0},
+				"precedent": {"target_incident_id": &"nest_heatwave", "target_label": "NEXT NEST HEATWAVE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The staged reading makes seasonal variance faster."},
+			},
+		],
+	},
+	&"fox_drill": {
+		"title": "THE FOX ALARM NEEDS A PASSING SCORE",
+		"body": "The alarm works. The exits work on paper. The flock would like to test the remaining parts.",
+		"witness_prompt": "found the blocked west exit first",
+		"choices": [
+			{
+				"id": &"run_evacuate", "label": "RUN THE REAL EVACUATION", "short_label": "EVACUATE",
+				"glance": "SAFETY +  /  SPEED -", "tagline": "Lose production time; prove the route works.",
+				"preview": "speed -  /  stress -  /  obedience +  /  unity +", "cost_cents": 0, "tone": &"quality",
+				"outcome": "The flock reached the yard. The west exit reached a maintenance ticket.",
+				"effects": {"work_multiplier": 0.93, "stress_delta": -4.0, "compliance_delta": 4.0, "solidarity_delta": 3.0, "trust_delta": 2.0, "grievance_delta": -2.0},
+				"precedent": {"target_incident_id": &"badge_scan", "target_label": "NEXT BADGE SCAN", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The drill supplies evidence against individual tracking."},
+			},
+			{
+				"id": &"desktop_drill", "label": "CERTIFY A DESKTOP DRILL", "short_label": "PAPER DRILL",
+				"glance": "SPEED +  /  TRUST -", "tagline": "Keep output moving; certify the paperwork.",
+				"preview": "speed +  /  favor +  /  stress +  /  trust -", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The desktop drill passed. The fox has not been informed of the paperwork.",
+				"effects": {"work_multiplier": 1.03, "stress_delta": 4.0, "executive_delta": 3.0, "trust_delta": -2.0, "grievance_delta": 3.0},
+				"precedent": {"target_incident_id": &"badge_scan", "target_label": "NEXT BADGE SCAN", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The paper drill makes tracking easier to certify."},
+			},
+		],
+	},
+	&"badge_scan": {
+		"title": "THE FARMER WANTS LOCATION TAGS ON EVERY HEN",
+		"body": "Management calls it flow telemetry. The flock calls it being followed to lunch.",
+		"witness_prompt": "was tracked through three authorized breaks",
+		"choices": [
+			{
+				"id": &"reject_tags", "label": "REJECT INDIVIDUAL TRACKING", "short_label": "REJECT TAGS",
+				"glance": "TRUST +  /  FAVOR -", "tagline": "Protect privacy; spend executive favor.",
+				"preview": "favor -  /  trust +  /  grievance -  /  unity +", "cost_cents": 0, "tone": &"care",
+				"outcome": "Individual tags were rejected. The farmer has requested aggregate suspicion instead.",
+				"effects": {"executive_delta": -4.0, "trust_delta": 4.0, "grievance_delta": -4.0, "solidarity_delta": 4.0},
+				"precedent": {"target_incident_id": &"fox_drill", "target_label": "NEXT FOX DRILL", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The privacy filing strengthens a real evacuation drill."},
+			},
+			{
+				"id": &"accept_tags", "label": "ACCEPT THE FLOW TAGS", "short_label": "ACCEPT TAGS",
+				"glance": "SPEED +  /  FLOCK -", "tagline": "Gain throughput; trade away privacy.",
+				"preview": "speed +  /  obedience +  /  stress +  /  grievance +", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The tags went live. Management can now locate every slowdown except management.",
+				"effects": {"work_multiplier": 1.04, "compliance_delta": 3.0, "stress_delta": 4.0, "trust_delta": -3.0, "grievance_delta": 5.0},
+				"precedent": {"target_incident_id": &"fox_drill", "target_label": "NEXT FOX DRILL", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The tracking rollout speeds a desktop certification."},
+			},
+		],
+	},
+	&"egg_showcase": {
+		"title": "THE COUNTY SHOWCASE WANTS THE FLOCK'S BEST EGG",
+		"body": "The invitation includes room for one egg, one manager, and no production staff.",
+		"witness_prompt": "laid the egg selected for the showcase",
+		"choices": [
+			{
+				"id": &"send_flock", "label": "SEND THE HEN WITH HER EGG", "short_label": "SEND THE HEN",
+				"glance": "FLOCK +  /  FUND -", "tagline": "Pay travel; make authorship visible.",
+				"preview": "Cost $8  /  morale +  /  favor +  /  trust +", "cost_cents": 800, "tone": &"care",
+				"outcome": "The hen and her egg attended together. The program required a wider credit line.",
+				"effects": {"morale_delta": 6.0, "stress_delta": -2.0, "executive_delta": 4.0, "solidarity_delta": 3.0, "trust_delta": 3.0, "grievance_delta": -2.0},
+				"precedent": {"target_incident_id": &"return_to_sender", "target_label": "NEXT RETURNED BASKET", "strategy_label": "PIVOT OPPORTUNITY", "summary": "Public authorship makes claimant repair more credible."},
+			},
+			{
+				"id": &"send_deck", "label": "SEND THE MANAGEMENT DECK", "short_label": "SEND THE DECK",
+				"glance": "FAVOR +  /  FLOCK -", "tagline": "Keep production staffed; keep credit upstairs.",
+				"preview": "speed +  /  favor ++  /  morale -  /  trust -", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The deck won Best Egg Narrative. The egg was listed under technical support.",
+				"effects": {"work_multiplier": 1.03, "executive_delta": 8.0, "morale_delta": -5.0, "trust_delta": -4.0, "grievance_delta": 5.0},
+				"precedent": {"target_incident_id": &"return_to_sender", "target_label": "NEXT RETURNED BASKET", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The showcase deck supports a success reclassification."},
+			},
+		],
+	},
+	&"return_to_sender": {
+		"title": "A CRACKED BASKET HAS BEEN RETURNED",
+		"body": "The claimant wants repayment. The farmer wants the return counted as engagement.",
+		"witness_prompt": "packed the returned basket under quota pressure",
+		"choices": [
+			{
+				"id": &"reimburse_claimant", "label": "REIMBURSE THE CLAIMANT", "short_label": "REPAY CLAIM",
+				"glance": "ORDER +  /  FUND -", "tagline": "Pay the loss; repair the relationship.",
+				"preview": "Cost $10  /  obedience +  /  trust +  /  favor -", "cost_cents": 1000, "tone": &"quality",
+				"outcome": "The claimant was repaid. Accounting has discovered the customer was real.",
+				"effects": {"compliance_delta": 4.0, "executive_delta": -2.0, "trust_delta": 4.0, "grievance_delta": -3.0, "solidarity_delta": 2.0},
+				"precedent": {"target_incident_id": &"egg_showcase", "target_label": "NEXT EGG SHOWCASE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The repair record makes visible flock authorship credible."},
+			},
+			{
+				"id": &"classify_success", "label": "CLASSIFY IT AS ENGAGEMENT", "short_label": "COUNT ENGAGEMENT",
+				"glance": "CASH +  /  TRUST -", "tagline": "Book the return as success; deepen the debt.",
+				"preview": "+$8 fund  /  favor +  /  morale -  /  grievance +", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The return became engagement. The claimant remains statistically enthusiastic.",
+				"effects": {"revenue_delta_cents": 800, "credited_delta_cents": 800, "executive_delta": 6.0, "morale_delta": -4.0, "trust_delta": -4.0, "grievance_delta": 5.0},
+				"precedent": {"target_incident_id": &"egg_showcase", "target_label": "NEXT EGG SHOWCASE", "strategy_label": "PIVOT OPPORTUNITY", "summary": "The success memo makes the management deck more valuable."},
+			},
+		],
+	},
+	FINAL_HEARING_INCIDENT_ID: {
+		"title": "THE PERMANENT RECORD NEEDS YOUR SIGNATURE",
+		"body": "The farmer, the flock, and the ledger are finally in the same room. Only one promise can become office policy.",
+		"witness_prompt": "carried the first file and now stands beside the final basket",
+		"choices": [
+			{
+				"id": &"back_farmer", "label": "BACK THE FARMER'S QUOTA", "short_label": "FARMER'S QUOTA",
+				"glance": "FAVOR ++  /  FLOCK --", "tagline": "Win executive backing; make output the permanent rule.",
+				"preview": "favor +8  /  speed +6%  /  trust -6  /  grievance +6", "cost_cents": 0, "tone": &"danger",
+				"outcome": "The farmer signed first. The new quota was posted before the applause ended.",
+				"effects": {"work_multiplier": 1.06, "executive_delta": 8.0, "morale_delta": -4.0, "trust_delta": -6.0, "grievance_delta": 6.0, "solidarity_delta": -3.0},
+			},
+			{
+				"id": &"sign_flock_charter", "label": "SIGN THE FLOCK CHARTER", "short_label": "FLOCK CHARTER",
+				"glance": "FLOCK ++  /  FAVOR -", "tagline": "Make worker voice permanent; spend the closing reserve.",
+				"preview": "Cost $8  /  morale +6  /  trust +5  /  obedience +4  /  favor -4", "cost_cents": 800, "tone": &"care",
+				"outcome": "The flock charter was signed. The farmer asked whether permanent ink was strictly necessary.",
+				"effects": {"compliance_delta": 4.0, "executive_delta": -4.0, "morale_delta": 6.0, "stress_delta": -4.0, "trust_delta": 5.0, "grievance_delta": -5.0, "solidarity_delta": 6.0},
+			},
+			{
+				"id": &"publish_ledger", "label": "PUBLISH THE COMPLETE LEDGER", "short_label": "OPEN LEDGER",
+				"glance": "ORDER ++  /  FAVOR -", "tagline": "Make every tradeoff inspectable; accept scrutiny from both sides.",
+				"preview": "obedience +8  /  shell risk -2%  /  unity +4  /  favor -2", "cost_cents": 0, "tone": &"quality",
+				"outcome": "The complete ledger was posted. Everyone found a number they wished had remained private.",
+				"effects": {"compliance_delta": 8.0, "executive_delta": -2.0, "crack_modifier": -0.02, "trust_delta": 3.0, "grievance_delta": -2.0, "solidarity_delta": 4.0},
 			},
 		],
 	},
@@ -1265,6 +1988,333 @@ const PERSONNEL_ACTION_DEFINITIONS := {
 		"cost_cents": 0,
 		"tone": &"danger",
 	},
+}
+const PLAYBOOK_CONTRACT_DEFINITIONS := {
+	&"clean_pair": {"label": "CLEAN PAIR", "icon": &"shield", "target": 2, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "CHAIN MAY RESET"},
+	&"fit_three": {"label": "FIT THREE", "icon": &"route", "target": 3, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "FIT CHAIN MAY BREAK"},
+	&"peck_pair": {"label": "PECK PAIR", "icon": &"sync", "target": 2, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "TIMING CHAIN MAY RESET"},
+}
+const PLAYBOOK_PREPARATION_DEFINITIONS := {
+	&"brace_shells": {"label": "BRACE SHELLS", "icon": &"shield", "gain": "SHELL RISK -2.5%", "cost": "PACE -3%", "risk": "LOWER OUTPUT"},
+	&"clear_trays": {"label": "CLEAR TRAYS", "icon": &"route", "gain": "PACE +5%", "cost": "SHELL RISK +1.2%", "risk": "QUALITY EXPOSURE"},
+	&"rest_flock": {"label": "REST FLOCK", "icon": &"care", "gain": "STRAIN -12%", "cost": "$2.00", "risk": "FEED FUND"},
+}
+const PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS := {
+	&"ring_bell": {
+		"label": "RING THE BELL",
+		"icon": &"sync",
+		"gain": "ATTENTION +1",
+		"cost": "ONE INTERVENTION",
+		"risk": "NO FLOCK RECOVERY",
+	},
+	&"coffee_run": {
+		"label": "COFFEE RUN",
+		"icon": &"care",
+		"gain": "FLOCK RECOVERY",
+		"cost": "$2.00 / ONE INTERVENTION",
+		"risk": "FEED FUND",
+	},
+	&"emergency_review": {
+		"label": "EMERGENCY REVIEW",
+		"icon": &"shield",
+		"gain": "SHELL RISK -1.5% / COMPLIANCE +3",
+		"cost": "PACE -2% / ONE INTERVENTION",
+		"risk": "LOWER OUTPUT",
+	},
+}
+const PLAYBOOK_RIVAL_DEFINITIONS := {
+	&"defend": {"label": "DEFEND LEAD", "icon": &"shield", "gain": "SHELL RISK -1.5%", "cost": "PACE -2%", "risk": "RIVAL KEEPS PACE"},
+	&"counter": {"label": "COUNTER PUSH", "icon": &"rival", "gain": "PACE +4%", "cost": "SHELL RISK +1.2%", "risk": "QUALITY EXPOSURE"},
+	&"ignore": {"label": "BACK THE FLOCK", "icon": &"care", "gain": "SOLIDARITY +2", "cost": "NO RIVAL MODIFIER", "risk": "MARGIN UNCHANGED"},
+}
+const PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS := {
+	&"precision_duet": {
+		"label": "PRECISION DUET",
+		"icon": &"sync",
+		"gain": "PAIR XP +2 / ATTENTION +1",
+		"cost": "LESS RECOVERY",
+		"risk": "PERMANENT PAIR STYLE",
+	},
+	&"recovery_pact": {
+		"label": "RECOVERY PACT",
+		"icon": &"care",
+		"gain": "PAIR MORALE +2 / STRESS -3",
+		"cost": "NO EXTRA ATTENTION",
+		"risk": "PERMANENT PAIR STYLE",
+	},
+}
+const PLAYBOOK_DELEGATION_POLICY_DEFINITIONS := {
+	&"specialty_first": {
+		"label": "SPECIALTY FIRST",
+		"icon": &"route",
+		"gain": "MATCHED FILES FIRST",
+		"cost": "180M DEADLINE GRACE",
+		"risk": "URGENT FILES CAN OVERRIDE",
+		"rule": "Prefer the hen's accredited lanes while the earliest file remains inside the disclosed grace window.",
+	},
+	&"deadline_first": {
+		"label": "DEADLINE FIRST",
+		"icon": &"clock",
+		"gain": "EARLIEST FILE FIRST",
+		"cost": "SPECIALTY MAY MISS",
+		"risk": "MORE STRAIN / SHELL RISK",
+		"rule": "Always take the earliest deadline across every tray, using file ID as the stable tie-break.",
+	},
+	&"protect_strain": {
+		"label": "PROTECT STRAIN",
+		"icon": &"care",
+		"gain": "MATCHED WORK WHEN STRAINED",
+		"cost": "SLOWER QUEUE CLEAR",
+		"risk": "DEADLINES OVERRIDE AT 30M",
+		"rule": "At 55+ stress, keep the hen in accredited lanes unless the earliest file leads by more than 30 minutes.",
+	},
+}
+const PLAYBOOK_LOADOUT_DEFINITIONS := {
+	&"pace_floor": {"label": "PACE FLOOR", "icon": &"route", "gain": "PACE +4%", "cost": "SHELL RISK +0.8%", "risk": "FAST / FRAGILE"},
+	&"quality_floor": {"label": "QUALITY FLOOR", "icon": &"shield", "gain": "SHELL RISK -1.8%", "cost": "PACE -2%", "risk": "SLOWER CLUTCH"},
+	&"care_floor": {"label": "CARE FLOOR", "icon": &"care", "gain": "STRAIN -10%", "cost": "PACE -1%", "risk": "MODEST OUTPUT"},
+}
+const PLAYBOOK_RECOVERY_DEFINITIONS := {
+	&"steady_fund": {"label": "STEADY FUND", "icon": &"cash", "gain": "QUOTA -2", "cost": "FARMER FAVOR -2", "risk": "LOWER CEILING"},
+	&"repair_flock": {"label": "REPAIR FLOCK", "icon": &"care", "gain": "STRAIN -8", "cost": "$3.00", "risk": "FEED FUND"},
+	&"salvage_order": {"label": "SALVAGE ORDER", "icon": &"route", "gain": "PACE +6%", "cost": "SHELL RISK +2%", "risk": "QUALITY EXPOSURE"},
+}
+const PLAYBOOK_SIDE_GOAL_DEFINITIONS := {
+	&"clean_carton": {"label": "CLEAN ×4", "icon": &"egg", "target": 4, "gain": "PERSONAL CLUTCH MARK"},
+	&"lane_mastery": {"label": "MASTER 4 FILES", "icon": &"route", "target": 4, "gain": "LANE MASTERY MARK"},
+	&"gold_file": {"label": "LAND GOLD", "icon": &"golden", "target": 1, "gain": "GOLD FILE MARK"},
+	&"team_lift": {"label": "TEAM LIFT", "icon": &"sync", "target": 1, "gain": "BOND MARK"},
+	&"fund_growth": {"label": "FUND +$10", "icon": &"cash", "target": 1000, "gain": "GROWTH MARK"},
+}
+const PLAYBOOK_REWARD_DEFINITIONS := {
+	&"fund": {"label": "+$3 FEED FUND", "icon": &"cash", "gain": "$3.00", "cost": "NONE", "risk": "NO HEN GROWTH"},
+	&"mastery": {"label": "+6 HEN XP", "icon": &"flock", "gain": "6 CAREER XP", "cost": "NONE", "risk": "NO CASH"},
+	&"recovery": {"label": "FLOCK -4 STRAIN", "icon": &"care", "gain": "STRESS -4", "cost": "NONE", "risk": "NO CASH OR XP"},
+}
+const PLAYBOOK_PUSH_LUCK_DEFINITIONS := {
+	&"bank_clutch": {
+		"label": "BANK THE CLUTCH",
+		"icon": &"shield",
+		"gain": "SHELL RISK -2.5%",
+		"cost": "PACE -5%",
+		"risk": "LESS BONUS OUTPUT",
+	},
+	&"chase_premium": {
+		"label": "CHASE PREMIUM",
+		"icon": &"golden",
+		"gain": "CLEAN VALUE +15%",
+		"cost": "SHELL RISK +4%",
+		"risk": "THE CLUTCH CAN BREAK",
+	},
+}
+const PLAYBOOK_HERO_CASE_ORDER: Array[StringName] = [
+	&"borrowed_nest",
+	&"cracked_precedent",
+	&"golden_rush",
+	&"perch_promise",
+	&"empty_feed_bin",
+	&"three_tray_jam",
+	&"quiet_appeal",
+	&"last_basket",
+]
+const PLAYBOOK_HERO_CASE_DEFINITIONS := {
+	&"borrowed_nest": {
+		"label": "THE BORROWED NEST", "icon": &"clock",
+		"complication": "A deadline file arrived under another hen's name.",
+		"choices": {
+			&"fast_handoff": {"label": "FAST HANDOFF", "icon": &"route", "gain": "FAVOR +2", "cost": "STRAIN +2", "risk": "CREDIT BLURS", "executive_confidence": 2.0, "stress": 2.0, "trust": 1.0},
+			&"safe_review": {"label": "SAFE REVIEW", "icon": &"shield", "gain": "COMPLIANCE +3", "cost": "NO SPEED BONUS", "risk": "DEADLINE TIGHTENS", "compliance": 3.0, "stress": -1.0},
+			&"flock_credit": {"label": "FLOCK CREDIT", "icon": &"flock", "gain": "TRUST +3 / SOLIDARITY +3", "cost": "FAVOR -1", "risk": "RIVAL KEEPS PACE", "executive_confidence": -1.0, "solidarity": 3.0, "trust": 3.0},
+		},
+	},
+	&"cracked_precedent": {
+		"label": "THE CRACKED PRECEDENT", "icon": &"shield",
+		"complication": "A clean rule now carries a rework exception.",
+		"choices": {
+			&"settle_exception": {"label": "SETTLE", "icon": &"cash", "gain": "COMPLIANCE +2", "cost": "$2.00", "risk": "FUND", "revenue_cents": -200, "compliance": 2.0},
+			&"deny_exception": {"label": "DENY", "icon": &"warning", "gain": "FAVOR +2", "cost": "SOLIDARITY -2", "risk": "TRUST -2", "executive_confidence": 2.0, "solidarity": -2.0, "trust": -2.0},
+			&"file_exception": {"label": "FILE EXCEPTION", "icon": &"files", "gain": "COMPLIANCE +4", "cost": "FAVOR -1", "risk": "SLOWER FILE", "executive_confidence": -1.0, "compliance": 4.0},
+		},
+	},
+	&"golden_rush": {
+		"label": "THE GOLDEN RUSH", "icon": &"golden",
+		"complication": "Premium value and the rival clock peaked together.",
+		"choices": {
+			&"defend_rush": {"label": "DEFEND", "icon": &"shield", "gain": "COMPLIANCE +2", "cost": "FAVOR -1", "risk": "LOWER CEILING", "executive_confidence": -1.0, "compliance": 2.0},
+			&"counter_rush": {"label": "COUNTER", "icon": &"rival", "gain": "$2.50 / FAVOR +2", "cost": "STRAIN +3", "risk": "QUALITY", "revenue_cents": 250, "executive_confidence": 2.0, "stress": 3.0},
+			&"back_flock_rush": {"label": "BACK FLOCK", "icon": &"care", "gain": "SOLIDARITY +4 / STRAIN -2", "cost": "NO PREMIUM", "risk": "MARGIN HOLDS", "solidarity": 4.0, "stress": -2.0},
+		},
+	},
+	&"perch_promise": {
+		"label": "THE PERCH PROMISE", "icon": &"sync",
+		"complication": "A bonded pair can save the file at a personal cost.",
+		"choices": {
+			&"promise_team_lift": {"label": "TEAM LIFT", "icon": &"sync", "gain": "TRUST +3 / STRAIN -3", "cost": "ATTENTION USED", "risk": "PAIR DEPENDENCY", "trust": 3.0, "stress": -3.0, "attention": 1},
+			&"promise_solo": {"label": "SOLO ROUTE", "icon": &"route", "gain": "FAVOR +2", "cost": "STRAIN +2", "risk": "NO BOND GROWTH", "executive_confidence": 2.0, "stress": 2.0},
+			&"promise_recover": {"label": "RECOVER", "icon": &"care", "gain": "STRAIN -5", "cost": "$1.00", "risk": "NO SPEED BONUS", "revenue_cents": -100, "stress": -5.0, "trust": 1.0},
+		},
+	},
+	&"empty_feed_bin": {
+		"label": "THE EMPTY FEED BIN", "icon": &"cash",
+		"complication": "Flock recovery competes with a thin Feed Fund.",
+		"choices": {
+			&"bin_coffee": {"label": "COFFEE RUN", "icon": &"care", "gain": "FLOCK STRAIN -4", "cost": "$2.00", "risk": "FUND", "revenue_cents": -200, "all_stress": -4.0},
+			&"bin_steady": {"label": "STEADY FUND", "icon": &"cash", "gain": "$2.00", "cost": "FAVOR -1", "risk": "NO RECOVERY", "revenue_cents": 200, "executive_confidence": -1.0},
+			&"bin_press": {"label": "PRESS ON", "icon": &"warning", "gain": "FAVOR +3", "cost": "FLOCK STRAIN +3", "risk": "QUALITY", "executive_confidence": 3.0, "all_stress": 3.0},
+		},
+	},
+	&"three_tray_jam": {
+		"label": "THE THREE-TRAY JAM", "icon": &"route",
+		"complication": "Specialty fit conflicts with the earliest deadline.",
+		"choices": {
+			&"jam_specialty": {"label": "SPECIALTY FIRST", "icon": &"route", "gain": "TRUST +2", "cost": "DEADLINE RISK", "risk": "QUEUE", "trust": 2.0, "stress": -1.0},
+			&"jam_deadline": {"label": "DEADLINE FIRST", "icon": &"clock", "gain": "FAVOR +2", "cost": "STRAIN +2", "risk": "FIT", "executive_confidence": 2.0, "stress": 2.0},
+			&"jam_protect": {"label": "PROTECT STRAIN", "icon": &"care", "gain": "STRAIN -4", "cost": "FAVOR -1", "risk": "QUEUE", "executive_confidence": -1.0, "stress": -4.0},
+		},
+	},
+	&"quiet_appeal": {
+		"label": "THE QUIET APPEAL", "icon": &"files",
+		"complication": "The technically correct file strains its named hen.",
+		"choices": {
+			&"appeal_signature": {"label": "SIGNATURE", "icon": &"flock", "gain": "TRUST +3", "cost": "FAVOR -1", "risk": "PERSONAL STAKE", "executive_confidence": -1.0, "trust": 3.0},
+			&"appeal_coach": {"label": "CAREER COACH", "icon": &"goal", "gain": "XP +4 / TRUST +2", "cost": "$1.00", "risk": "FUND", "revenue_cents": -100, "career_xp": 4, "trust": 2.0},
+			&"appeal_show": {"label": "SHOW ME", "icon": &"route", "gain": "ATTENTION +1 / STRAIN -2", "cost": "ONE RESCUE", "risk": "NO CASH", "attention": 1, "stress": -2.0},
+		},
+	},
+	&"last_basket": {
+		"label": "THE LAST BASKET", "icon": &"egg",
+		"complication": "Quota is safe; the final clutch can bank or reach.",
+		"choices": {
+			&"basket_bank": {"label": "BANK CLUTCH", "icon": &"shield", "gain": "COMPLIANCE +3", "cost": "NO PREMIUM", "risk": "LOWER CEILING", "compliance": 3.0},
+			&"basket_chase": {"label": "CHASE PREMIUM", "icon": &"golden", "gain": "$3.00 / FAVOR +2", "cost": "STRAIN +3", "risk": "QUALITY", "revenue_cents": 300, "executive_confidence": 2.0, "all_stress": 3.0},
+			&"basket_end": {"label": "END SHIFT", "icon": &"care", "gain": "FLOCK STRAIN -3", "cost": "NO EXTRA OUTPUT", "risk": "NONE", "all_stress": -3.0, "solidarity": 2.0},
+		},
+	},
+}
+const PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS := {
+	&"rush_hour": {
+		"label": "RUSH HOUR",
+		"icon": &"route",
+		"gain": "PACE +10%",
+		"cost": "QUOTA +2",
+		"risk": "SHELL RISK +1%",
+		"rule": "Two extra eggs join the order; every fitted file moves faster.",
+	},
+	&"glass_carton": {
+		"label": "GLASS CARTON",
+		"icon": &"golden",
+		"gain": "CLEAN VALUE +20%",
+		"cost": "SHELL RISK +3%",
+		"risk": "CRACKS PAY NOTHING",
+		"rule": "Every sound or golden egg is worth more, but the grading rail is unforgiving.",
+	},
+	&"one_bell": {
+		"label": "ONE BELL",
+		"icon": &"warning",
+		"gain": "PACE +8%",
+		"cost": "SHOW ME DISABLED",
+		"risk": "NO ROUTE RESCUE",
+		"rule": "The floor runs faster, but the one-shot route rescue is unavailable.",
+	},
+}
+const PLAYBOOK_COMBO_RECIPE_DEFINITIONS := {
+	&"fast": {
+		"id": &"file_flywheel",
+		"label": "FILE FLYWHEEL",
+		"icon": &"route",
+		"effect": "PACE +3%",
+		"steps": [
+			{"id": &"fit_routes", "label": "FIT ×3", "target": 3},
+			{"id": &"priority_peck", "label": "PECK ×1", "target": 1},
+		],
+	},
+	&"safe": {
+		"id": &"shell_seal",
+		"label": "SHELL SEAL",
+		"icon": &"shield",
+		"effect": "SHELL RISK -1.5%",
+		"steps": [
+			{"id": &"clean_eggs", "label": "CLEAN ×2", "target": 2},
+			{"id": &"bank_clutch", "label": "BANK CLUTCH", "target": 1},
+		],
+	},
+	&"flock": {
+		"id": &"perch_pact",
+		"label": "PERCH PACT",
+		"icon": &"care",
+		"effect": "STRAIN -12%",
+		"steps": [
+			{"id": &"team_lift", "label": "TEAM LIFT", "target": 1},
+			{"id": &"hen_signature", "label": "HEN SIGNATURE", "target": 1},
+		],
+	},
+}
+const PLAYBOOK_STRATEGY_PRESET_ORDER: Array[StringName] = [
+	&"fast",
+	&"safe",
+	&"flock",
+]
+const PLAYBOOK_STRATEGY_PRESET_DEFINITIONS := {
+	&"fast": {
+		"label": "FAST PLAN",
+		"icon": &"route",
+		"contract_id": &"fit_three",
+		"loadout_id": &"pace_floor",
+		"preparation_id": &"clear_trays",
+		"side_goal_id": &"lane_mastery",
+		"gain": "PACE +9.2% / FIT REWARD",
+		"cost": "SHELL RISK +2.0%",
+		"risk": "FAST / FRAGILE",
+		"promise": "Move fitted files quickly and turn a three-route chain into a reward draft.",
+		"cost_cents": 0,
+	},
+	&"safe": {
+		"label": "SAFE PLAN",
+		"icon": &"shield",
+		"contract_id": &"clean_pair",
+		"loadout_id": &"quality_floor",
+		"preparation_id": &"brace_shells",
+		"side_goal_id": &"clean_carton",
+		"gain": "SHELL RISK -4.3% / CLEAN REWARD",
+		"cost": "PACE -4.9%",
+		"risk": "LOWER OUTPUT",
+		"promise": "Protect shells, build a clean clutch, and draft a reward without gambling banked progress.",
+		"cost_cents": 0,
+	},
+	&"flock": {
+		"label": "FLOCK PLAN",
+		"icon": &"care",
+		"contract_id": &"peck_pair",
+		"loadout_id": &"care_floor",
+		"preparation_id": &"rest_flock",
+		"side_goal_id": &"team_lift",
+		"gain": "STRAIN -20.8% / TEAM PLAY",
+		"cost": "$2.00 / PACE -1%",
+		"risk": "FEED FUND",
+		"promise": "Protect the flock, coordinate a bonded pair, and turn two strong pecks into a reward draft.",
+		"cost_cents": 200,
+	},
+}
+const PLAYBOOK_HEN_PROPOSAL_DEFINITIONS := {
+	&"own_lane": {"label": "TRUST MY LANE", "icon": &"flock", "gain": "FIT + TRUST", "cost": "ONE PROPOSAL", "risk": "SPECIALTY FIRST"},
+	&"pair_perch": {"label": "PAIR MY PERCH", "icon": &"sync", "gain": "PAIR RECOVERY", "cost": "ONE PROPOSAL", "risk": "REQUIRES BOND"},
+	&"protect_clutch": {"label": "PROTECT MY CLUTCH", "icon": &"care", "gain": "STRAIN -4", "cost": "PACE -2%", "risk": "ONE SHIFT"},
+}
+const PLAYBOOK_OFFICE_TOY_DEFINITIONS := {
+	&"desk_bell": {"label": "RING DESK BELL", "icon": &"sync", "gain": "HEN REACTION", "cost": "NONE", "risk": "ONCE / SHIFT"},
+	&"copy_test": {"label": "TEST THE COPIER", "icon": &"files", "gain": "HEN REACTION", "cost": "NONE", "risk": "ONCE / SHIFT"},
+	&"cooler_break": {"label": "COOLER BREAK", "icon": &"care", "gain": "STRAIN -2", "cost": "NONE", "risk": "ONCE / SHIFT"},
+}
+const PLAYBOOK_DISPLAY_STYLE_ORDER: Array[StringName] = [&"brass", &"shell", &"flock"]
+const PLAYBOOK_DISPLAY_STYLE_DEFINITIONS := {
+	&"brass": {"label": "BRASS FILE", "icon": &"golden", "accent": "f0bd5f"},
+	&"shell": {"label": "SHELL LEDGER", "icon": &"shield", "accent": "7bc3c8"},
+	&"flock": {"label": "FLOCK PATCH", "icon": &"flock", "accent": "8ac47a"},
+}
+const PLAYBOOK_RARE_EPISODE_DEFINITIONS := {
+	&"printer_revolt": {"label": "PRINTER REVOLT", "icon": &"files", "gain": "ATTENTION +1", "cost": "$1.00", "risk": "CLEAR THE JAM"},
+	&"coffee_union": {"label": "COFFEE UNION", "icon": &"care", "gain": "FLOCK STRAIN -3", "cost": "PACE -1%", "risk": "ONE SHIFT"},
+	&"bell_audit": {"label": "BELL AUDIT", "icon": &"shield", "gain": "COMPLIANCE +2", "cost": "MORALE -1", "risk": "VISIBLE TRADE"},
 }
 const CAREER_PROFILE_DEFINITIONS := {
 	&"credit_conscious": {
@@ -1342,12 +2392,17 @@ var shift_phase: int = ShiftPhase.AWAITING_DIRECTIVE
 var active_directive_id: StringName = &""
 var pending_decision: Dictionary = {}
 var incidents_resolved_today: int = 0
+var incident_response_history: Array[Dictionary] = []
+var incident_pivot_mastery_receipts: Array[Dictionary] = []
 var upgrade_levels: Dictionary = {
 	&"peckwork_tools": 0,
 	&"shell_lamp": 0,
 	&"nest_cushion": 0,
 }
 var first_clutch_reinvestment: Dictionary = {}
+var active_playbook: Dictionary = {}
+var hero_case_history: Array[Dictionary] = []
+var rival_response_history: Array[Dictionary] = []
 var requisition_spend_today_cents: int = 0
 var requisition_spend_total_cents: int = 0
 var orientation_procurement_match_today_cents: int = 0
@@ -1383,6 +2438,7 @@ var owned_facilities: Dictionary = {
 	FARMGATE_DISPATCH_DEPOT_ID: 0,
 }
 var pinned_capital_plan_id: StringName = &""
+var pinned_economic_watch_id: StringName = &"auto"
 var last_facility_purchase_receipt: Dictionary = {}
 var facility_commissioning_history: Array[Dictionary] = []
 var campus_expansion_state: Dictionary = {
@@ -1423,6 +2479,14 @@ var market_contract_premium_today_cents: int = 0
 var market_contract_premium_total_cents: int = 0
 var market_contract_breach_today_cents: int = 0
 var market_contract_breach_total_cents: int = 0
+var market_pricing_outcomes: Dictionary = {
+	"mutual_rate_success": 0,
+	"mutual_rate_breach": 0,
+	"community_access_rate_success": 0,
+	"community_access_rate_breach": 0,
+	"executive_select_rate_success": 0,
+	"executive_select_rate_breach": 0,
+}
 var office_capacity: int = MAXIMUM_STAFF_CAPACITY
 var wage_arrears_cents: int = 0
 var last_staffing_action: Dictionary = {}
@@ -1465,10 +2529,48 @@ var last_peck_assist: Dictionary = {}
 var last_peck_assist_delivery: Dictionary = {}
 var priority_credit_today_cents: int = 0
 var priority_credit_total_cents: int = 0
+var routing_momentum_chain: int = 0
+var best_routing_momentum_chain: int = 0
+var routing_momentum_peck_recharge_bank: int = 0
+var routing_momentum_peck_recharges_used_today: int = 0
+var routing_momentum_golden_charges: int = 0
+var routing_momentum_golden_target_claim_id: int = -1
+var routing_momentum_golden_target_worker_id: int = -1
+var last_routing_dispatch: Dictionary = {}
+var routing_momentum_break_serial: int = 0
+var last_routing_momentum_break: Dictionary = {}
+var routing_momentum_recovery_serial: int = 0
+var last_routing_momentum_recovery: Dictionary = {}
+var manager_roster: Array[Dictionary] = []
+var last_manager_action: Dictionary = {}
+var management_reports_today: int = 0
+var management_reports_total: int = 0
+var management_visibility_today: int = 0
 
 var _tick_count: int = 0
+var _runtime_projection_cache: Dictionary = {}
+var _runtime_static_projection_cache: Dictionary = {}
+var _runtime_live_projection_cache: Dictionary = {}
+var _runtime_projection_cache_msec: int = -1
+var _runtime_projection_cache_day: int = -1
+var _runtime_projection_cache_phase: int = -1
+var _runtime_projection_cache_builds: int = 0
+var _runtime_projection_cache_hits: int = 0
+var _runtime_projection_cache_exact_builds: int = 0
+var _runtime_projection_cache_refresh_builds: int = 0
+var _runtime_projection_cache_read_only_hits: int = 0
+var _runtime_static_projection_cache_builds: int = 0
+var _runtime_live_projection_cache_builds: int = 0
+var _runtime_tick_snapshot_cache: Dictionary = {}
+var _runtime_tick_snapshot_cache_day: int = -1
+var _runtime_tick_snapshot_cache_phase: int = -1
+var _runtime_tick_snapshot_cache_hits: int = 0
 var _rng := RandomNumberGenerator.new()
 var _claim_rng := RandomNumberGenerator.new()
+var _incident_rng := RandomNumberGenerator.new()
+var _career_seed: int = 1701
+var _incident_bag: Array[StringName] = []
+var _last_standard_incident_id: StringName = &""
 var _claim_queues: Dictionary = {}
 var _pending_rework: Array[ClaimState] = []
 var _next_claim_id: int = 1
@@ -1495,16 +2597,29 @@ var _assist_quality_modifiers: Dictionary[int, float] = {}
 var _assist_chain_by_claim_id: Dictionary[int, int] = {}
 var _pending_peck_assist_deliveries: Dictionary[int, Dictionary] = {}
 var _settled_peck_assist_delivery_ids: Dictionary[int, bool] = {}
+var _routing_momentum_free_assist_claim_ids: Dictionary[int, bool] = {}
 var _feed_procurement = FeedProcurementStateScript.new()
 var _harvest_credit = HarvestCreditStateScript.new()
 var _farmgate_dispatch = FarmgateDispatchStateScript.new()
 var _campus_portfolio = CampusPortfolioStateScript.new()
 var _farm_treasury = FarmTreasuryStateScript.new(5000, 0)
+var _internship_program = InternshipProgramStateScript.new()
+var _opening_challenge_configured := false
 
 
-func _init(seed: int = 1701, initial_staff_count: int = MAXIMUM_STAFF_CAPACITY) -> void:
+func _init(
+	seed: int = 1701,
+	initial_staff_count: int = MAXIMUM_STAFF_CAPACITY,
+	incident_docket_seed: int = -1,
+) -> void:
+	_career_seed = clampi(
+		seed if incident_docket_seed < 1 else incident_docket_seed,
+		1,
+		2_000_000_000,
+	)
 	_rng.seed = seed
 	_claim_rng.seed = seed + 104729
+	_incident_rng.seed = _career_seed + INCIDENT_DOCKET_SEED_OFFSET
 	_initialize_claim_queues()
 	initial_staff_count = clampi(
 		initial_staff_count,
@@ -1527,6 +2642,7 @@ func _init(seed: int = 1701, initial_staff_count: int = MAXIMUM_STAFF_CAPACITY) 
 		workers.append(worker)
 		_worker_at_workstation[worker.id] = false
 	_initialize_worker_shift_stats()
+	_initialize_manager_roster()
 	_feed_procurement.begin_day(day)
 	_farmgate_dispatch.begin_day(day)
 	_campus_portfolio.begin_day(day, _campus_portfolio_context())
@@ -1535,6 +2651,126 @@ func _init(seed: int = 1701, initial_staff_count: int = MAXIMUM_STAFF_CAPACITY) 
 		_enqueue_new_claim(lane)
 	_sync_claims_waiting()
 	_prepare_morning_directive()
+
+
+## Applies the selected campaign's disclosed opening economy exactly once to a
+## pristine Day 1 simulation. Validation finishes before any authority changes,
+## so malformed contracts cannot partially alter a new file.
+func configure_opening_challenge(contract: Dictionary) -> Dictionary:
+	var rejected := {
+		"accepted": false,
+		"reason": "Opening challenge terms require a pristine Day 1 simulation.",
+	}
+	if _opening_challenge_configured or contract.is_empty():
+		return rejected
+	var opening_value: Variant = contract.get("opening_terms", null)
+	if not opening_value is Dictionary:
+		rejected["reason"] = "The selected challenge has no valid opening economy."
+		return rejected
+	var opening := opening_value as Dictionary
+	for required_key in [
+		"feed_fund_cents",
+		"quota_target",
+		"additional_claim_lanes",
+		"pressure_label",
+	]:
+		if not opening.has(required_key):
+			rejected["reason"] = "The selected challenge opening is incomplete."
+			return rejected
+	var fund_cents := int(opening.get("feed_fund_cents", -1))
+	var opening_quota := int(opening.get("quota_target", -1))
+	var lanes_value: Variant = opening.get("additional_claim_lanes", null)
+	var pressure_label := String(opening.get("pressure_label", "")).strip_edges().to_upper()
+	if (
+		fund_cents < 0
+		or fund_cents > 100_000
+		or opening_quota < 1
+		or opening_quota > 100
+		or not lanes_value is Array
+		or pressure_label.is_empty()
+	):
+		rejected["reason"] = "The selected challenge opening is outside supported limits."
+		return rejected
+	var additional_lanes: Array[StringName] = []
+	for lane_value: Variant in lanes_value as Array:
+		var lane := StringName(String(lane_value).strip_edges().to_lower())
+		if not CLAIM_LANE_DEFINITIONS.has(lane):
+			rejected["reason"] = "The selected challenge names an unknown opening file tray."
+			return rejected
+		additional_lanes.append(lane)
+	if additional_lanes.size() > 4:
+		rejected["reason"] = "The selected challenge opens too many additional files."
+		return rejected
+	var baseline_quota := active_worker_count() * 4
+	var baseline_live_files := INITIAL_CLAIM_LANES.size()
+	if (
+		day != 1
+		or minute_of_day != SHIFT_START_MINUTE
+		or shift_phase != ShiftPhase.AWAITING_DIRECTIVE
+		or eggs_today != 0
+		or eggs_total != 0
+		or claims_processed != 0
+		or credited_today_cents != 0
+		or revenue_cents != 5000
+		or quota_target != baseline_quota
+		or _outstanding_claim_count() != baseline_live_files
+		or _outstanding_claim_count() + additional_lanes.size() > current_claim_capacity()
+	):
+		return rejected
+	var before_fund_cents := revenue_cents
+	var before_quota := quota_target
+	var before_live_files := _outstanding_claim_count()
+	revenue_cents = fund_cents
+	_farm_treasury = FarmTreasuryStateScript.new(fund_cents, 0)
+	quota_target = opening_quota
+	for lane in additional_lanes:
+		_enqueue_new_claim(lane)
+	_apply_scenario_opening_structure()
+	_sync_claims_waiting()
+	_opening_challenge_configured = true
+	return {
+		"accepted": true,
+		"challenge_id": String(contract.get("id", "")),
+		"pressure_label": pressure_label,
+		"before_fund_cents": before_fund_cents,
+		"fund_cents": revenue_cents,
+		"before_quota": before_quota,
+		"quota_target": quota_target,
+		"before_live_files": before_live_files,
+		"live_files": _outstanding_claim_count(),
+	}
+
+
+func _initialize_manager_roster() -> void:
+	manager_roster.clear()
+	manager_roster.append(_new_manager_record(MANAGER_DEFAULT_HIRE_ORDER[0], 0, 1))
+
+
+func _new_manager_record(candidate_id: StringName, slot_index: int, hired_day: int) -> Dictionary:
+	var definition := MANAGER_CANDIDATE_DEFINITIONS.get(candidate_id, {}) as Dictionary
+	return {
+		"id": String(candidate_id),
+		"candidate_id": String(candidate_id),
+		"slot_index": slot_index,
+		"hired_day": hired_day,
+		"assignment_id": String(MANAGER_ASSIGNMENT_ORDER[slot_index % MANAGER_ASSIGNMENT_ORDER.size()]),
+		"posture_id": String(StringName(definition.get("default_posture", &"coach"))),
+		"posture_filed": false,
+		"influence": 0,
+		"rank": 0,
+		"credit_claims": 0,
+		"interventions": 0,
+		"last_pip_worker_id": -1,
+	}
+
+
+func _ensure_manager_posts_for_office_level() -> void:
+	var authorized_count := clampi(facility_level(ROOSTER_OPERATIONS_OFFICE_ID) + 1, 1, 4)
+	while manager_roster.size() < authorized_count:
+		var slot_index := manager_roster.size()
+		manager_roster.append(_new_manager_record(
+			MANAGER_DEFAULT_HIRE_ORDER[slot_index], slot_index, day
+		))
 
 
 func _initialize_worker_shift_stats() -> void:
@@ -1741,6 +2977,136 @@ func campaign_ending_snapshot(passed: bool) -> Dictionary:
 	return base
 
 
+## Three bounded, named outcomes for the final review. The epilogue reads the
+## same authoritative worker, relationship, career, and restructuring state
+## used by the simulation; it never persists or awards a second result.
+func campaign_flock_epilogue() -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	var used_worker_ids: Dictionary = {}
+	var restructured_name := String(flock_restructuring_record.get("worker_name", ""))
+	if not restructured_name.is_empty():
+		for worker: ChickenState in workers:
+			if worker.display_name != restructured_name:
+				continue
+			var option_id := StringName(String(flock_restructuring_record.get("option_id", "")))
+			var value := "REDEPLOYED"
+			var outcome := "%s kept her chair with a corrected specialty route." % worker.display_name
+			var tone: StringName = &"care"
+			if option_id == &"nominate_variance":
+				value = "RELEASED"
+				outcome = "%s was removed as the variance; the flock keeps the precedent." % worker.display_name
+				tone = &"danger"
+			elif option_id == &"contest_ranking":
+				value = "STOOD TOGETHER"
+				outcome = "%s kept her chair after the flock contested the ranking together." % worker.display_name
+				tone = &"solidarity"
+			entries.append(_campaign_epilogue_entry(
+				worker,
+				"RESTRUCTURING",
+				value,
+				outcome,
+				tone,
+			))
+			used_worker_ids[worker.id] = true
+			break
+
+	var trust_worker := _campaign_epilogue_worker(used_worker_ids, &"trust")
+	if trust_worker != null:
+		var relationship := trust_worker.relationship_label().to_upper()
+		var trust_outcome := (
+			"%s leaves the file trusting the manager enough to face another shift."
+			% trust_worker.display_name
+			if trust_worker.manager_trust >= 60.0 and trust_worker.grievance <= 35.0 else
+			"%s leaves the file wary, with every credit decision still remembered."
+			% trust_worker.display_name
+		)
+		entries.append(_campaign_epilogue_entry(
+			trust_worker,
+			"TRUST",
+			relationship,
+			trust_outcome,
+			&"care" if trust_worker.manager_trust >= 60.0 else &"warning",
+		))
+		used_worker_ids[trust_worker.id] = true
+
+	var career_worker := _campaign_epilogue_worker(used_worker_ids, &"career")
+	if career_worker != null:
+		entries.append(_campaign_epilogue_entry(
+			career_worker,
+			"CAREER",
+			career_worker.career_title(),
+			"%s closes probation with %d career XP and %d credited egg%s on her record."
+			% [
+				career_worker.display_name,
+				career_worker.career_xp,
+				career_worker.eggs_laid,
+				"" if career_worker.eggs_laid == 1 else "s",
+			],
+			&"quality",
+		))
+		used_worker_ids[career_worker.id] = true
+
+	var strain_worker := _campaign_epilogue_worker(used_worker_ids, &"strain")
+	if strain_worker != null and entries.size() < 3:
+		var burden := roundi((strain_worker.stress + strain_worker.fatigue) * 0.5)
+		entries.append(_campaign_epilogue_entry(
+			strain_worker,
+			"STRAIN",
+			"%d%% BURDEN" % burden,
+			(
+				"%s reaches the closing bell carrying visible strain into whatever comes next."
+				% strain_worker.display_name
+				if burden >= 45 else
+				"%s reaches the closing bell with enough recovery left to begin again."
+				% strain_worker.display_name
+			),
+			&"danger" if burden >= 45 else &"care",
+		))
+	while entries.size() > 3:
+		entries.pop_back()
+	return entries
+
+
+func _campaign_epilogue_worker(used_worker_ids: Dictionary, axis: StringName) -> ChickenState:
+	var selected: ChickenState = null
+	var selected_score := -INF
+	for worker: ChickenState in workers:
+		if used_worker_ids.has(worker.id):
+			continue
+		var score := 0.0
+		match axis:
+			&"trust":
+				score = worker.manager_trust - worker.grievance * 0.65
+			&"career":
+				score = float(worker.career_xp * 4 + worker.eggs_laid)
+			&"strain":
+				score = worker.stress + worker.fatigue + worker.grievance * 0.5
+		if selected == null or score > selected_score:
+			selected = worker
+			selected_score = score
+	return selected
+
+
+func _campaign_epilogue_entry(
+	worker: ChickenState,
+	caption: String,
+	value: String,
+	outcome: String,
+	tone: StringName,
+) -> Dictionary:
+	return {
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"caption": caption,
+		"value": value,
+		"outcome": outcome,
+		"tone": tone,
+		"employed": worker.employed,
+		"career_title": worker.career_title(),
+		"relationship_label": worker.relationship_label(),
+	}
+
+
 func apply_campaign_unlock(unlock_id: StringName) -> bool:
 	if unlock_id not in CAMPAIGN_UNLOCKS:
 		return false
@@ -1780,6 +3146,7 @@ func current_claim_capacity() -> int:
 		_claim_capacity_for_facilities(owned_facilities)
 		+ _campus_claim_capacity_bonus_for_state(campus_expansion_state)
 		+ _campus_portfolio.claim_capacity_bonus(_campus_portfolio_context())
+		+ _internship_program.claim_capacity_bonus()
 	)
 
 
@@ -1946,6 +3313,119 @@ func market_contract_clause_catalog() -> Array[Dictionary]:
 	return catalog
 
 
+func market_pricing_profile_catalog() -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	var reach := market_reach_points()
+	var satisfaction := claimant_satisfaction_score()
+	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
+		var definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
+		var required_reach := int(definition.get("required_reach", 0))
+		var required_satisfaction := int(definition.get("required_satisfaction", 0))
+		var availability_reason := _market_pricing_availability_reason(
+			required_reach,
+			required_satisfaction,
+			reach,
+			satisfaction,
+		)
+		catalog.append({
+			"pricing_profile_id": pricing_id,
+			"label": String(definition.get("label", "MUTUAL RATE")),
+			"summary": String(definition.get("summary", "")),
+			"premium_basis_points": int(definition.get("premium_basis_points", 0)),
+			"volume_delta": int(definition.get("volume_delta", 0)),
+			"required_delta": int(definition.get("required_delta", 0)),
+			"required_reach": required_reach,
+			"required_satisfaction": required_satisfaction,
+			"current_reach": reach,
+			"current_satisfaction": satisfaction,
+			"pricing_available": availability_reason.is_empty(),
+			"reason": availability_reason,
+		})
+	return catalog
+
+
+func _market_pricing_availability_reason(
+	required_reach: int,
+	required_satisfaction: int,
+	current_reach: int,
+	current_satisfaction: int,
+) -> String:
+	var reasons: Array[String] = []
+	if current_reach < required_reach:
+		reasons.append(
+			"Earn %d market-reach points through fulfilled binders; current reach is %d."
+			% [required_reach, current_reach]
+		)
+	if current_satisfaction < required_satisfaction:
+		reasons.append((
+			"Executive Select requires claimant sentiment of %d; current sentiment is %d. "
+			+ "Fulfill Mutual Rate or Community Access to rebuild claimant trust."
+		) % [required_satisfaction, current_satisfaction])
+	return " ".join(reasons)
+
+
+func _market_pricing_outcome_count(pricing_id: StringName, success: bool) -> int:
+	return maxi(0, int(market_pricing_outcomes.get(
+		"%s_%s" % [String(pricing_id), "success" if success else "breach"],
+		0,
+	)))
+
+
+func market_reach_points() -> int:
+	return _market_reach_for_outcomes(market_pricing_outcomes)
+
+
+func _market_reach_for_outcomes(outcomes: Dictionary) -> int:
+	var points := 0
+	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
+		var definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
+		points += (
+			maxi(0, int(outcomes.get("%s_success" % String(pricing_id), 0)))
+			* int(definition.get("reach_success_delta", 0))
+		)
+		points += (
+			maxi(0, int(outcomes.get("%s_breach" % String(pricing_id), 0)))
+			* int(definition.get("reach_breach_delta", 0))
+		)
+	return maxi(0, points)
+
+
+func claimant_satisfaction_score() -> int:
+	return _claimant_satisfaction_for_outcomes(market_pricing_outcomes)
+
+
+func _claimant_satisfaction_for_outcomes(outcomes: Dictionary) -> int:
+	var score := 50
+	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
+		var definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
+		score += (
+			maxi(0, int(outcomes.get("%s_success" % String(pricing_id), 0)))
+			* int(definition.get("satisfaction_success_delta", 0))
+		)
+		score += (
+			maxi(0, int(outcomes.get("%s_breach" % String(pricing_id), 0)))
+			* int(definition.get("satisfaction_breach_delta", 0))
+		)
+	return clampi(score, 0, 100)
+
+
+func mutual_market_share_basis_points() -> int:
+	return clampi(3500 + market_reach_points() * 250, 2500, 8500)
+
+
+func market_pricing_status() -> Dictionary:
+	return {
+		"reach_points": market_reach_points(),
+		"claimant_satisfaction": claimant_satisfaction_score(),
+		"market_share_basis_points": mutual_market_share_basis_points(),
+		"executive_select_reach_requirement": MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
+		"executive_select_satisfaction_minimum": (
+			MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM
+		),
+		"profiles": market_pricing_profile_catalog(),
+	}
+
+
 func _facility_level_schedule_value(schedule: Array, level: int, fallback: int) -> int:
 	if schedule.is_empty():
 		return fallback
@@ -2074,11 +3554,98 @@ func personnel_action_limit() -> int:
 
 
 func supervisor_payroll_cents() -> int:
-	return _facility_level_schedule_value(
+	var authorized_payroll := _facility_level_schedule_value(
 		ROOSTER_SUPERVISOR_PAYROLL_CENTS,
 		facility_level(ROOSTER_OPERATIONS_OFFICE_ID),
 		0,
 	)
+	var promotion_premium := 0
+	for manager in manager_roster:
+		promotion_premium += maxi(0, int(manager.get("rank", 0))) * 100
+	return authorized_payroll + promotion_premium
+
+
+func manager_capacity() -> int:
+	return clampi(facility_level(ROOSTER_OPERATIONS_OFFICE_ID) + 1, 1, 4)
+
+
+func set_manager_assignment(manager_id: StringName, assignment_id: StringName) -> Dictionary:
+	return _file_manager_instruction(manager_id, assignment_id, true)
+
+
+func set_manager_posture(manager_id: StringName, posture_id: StringName) -> Dictionary:
+	return _file_manager_instruction(manager_id, posture_id, false)
+
+
+func recruit_manager(candidate_id: StringName) -> Dictionary:
+	var definition := MANAGER_CANDIDATE_DEFINITIONS.get(candidate_id, {}) as Dictionary
+	if definition.is_empty():
+		return {"accepted": false, "reason": "That rooster is not in the screened management slate."}
+	if not staffing_planning_open():
+		return {"accepted": false, "reason": "Management appointments can only be filed during review."}
+	if manager_roster.size() < 2:
+		return {"accepted": false, "reason": "Commission Rooster Operations level 1 before appointing a successor."}
+	for manager in manager_roster:
+		if StringName(String(manager.get("candidate_id", ""))) == candidate_id:
+			return {"accepted": false, "reason": "%s is already drawing supervisor payroll." % String(definition.get("name", "That rooster"))}
+	var signing_cost := maxi(0, int(definition.get("signing_cost_cents", 0)))
+	if spendable_fund_cents() < signing_cost:
+		return {"accepted": false, "reason": "The succession filing needs $%.2f in spendable Feed Fund." % (float(signing_cost) / 100.0)}
+	var slot_index := manager_roster.size() - 1
+	var departing := manager_roster[slot_index]
+	var departing_name := _manager_display_name(departing)
+	var fund_before := revenue_cents
+	revenue_cents -= signing_cost
+	manager_roster[slot_index] = _new_manager_record(candidate_id, slot_index, day)
+	last_manager_action = {
+		"accepted": true,
+		"action_id": &"manager_recruited",
+		"manager_id": candidate_id,
+		"choice_id": candidate_id,
+		"day": day,
+		"cost_cents": signing_cost,
+		"fund_before_cents": fund_before,
+		"fund_after_cents": revenue_cents,
+		"replaced_manager_id": StringName(String(departing.get("candidate_id", ""))),
+		"outcome": "%s appointed to the newest management post; %s has been strategically exited." % [
+			String(definition.get("name", "A rooster")), departing_name,
+		],
+	}
+	manager_action_resolved.emit(last_manager_action.duplicate(true))
+	announcement_posted.emit(String(last_manager_action["outcome"]))
+	snapshot_changed.emit(snapshot())
+	return last_manager_action.duplicate(true)
+
+
+func _file_manager_instruction(manager_id: StringName, choice_id: StringName, assignment: bool) -> Dictionary:
+	var catalog := MANAGER_ASSIGNMENT_DEFINITIONS if assignment else MANAGER_POSTURE_DEFINITIONS
+	var field := "assignment_id" if assignment else "posture_id"
+	var action_id: StringName = &"manager_assignment" if assignment else &"manager_posture"
+	if not catalog.has(choice_id):
+		return {"accepted": false, "reason": "That management filing does not exist."}
+	if not staffing_planning_open():
+		return {"accepted": false, "reason": "Management instructions can only be filed during planning or review."}
+	for manager in manager_roster:
+		if StringName(String(manager.get("id", ""))) != manager_id:
+			continue
+		manager[field] = String(choice_id)
+		if not assignment:
+			manager["posture_filed"] = true
+		manager["interventions"] = maxi(0, int(manager.get("interventions", 0))) + 1
+		last_manager_action = {
+			"accepted": true,
+			"action_id": action_id,
+			"manager_id": manager_id,
+			"choice_id": choice_id,
+			"day": day,
+			"outcome": "%s filed %s." % [
+				_manager_display_name(manager), String((catalog[choice_id] as Dictionary).get("label", choice_id))
+			],
+		}
+		manager_action_resolved.emit(last_manager_action.duplicate(true))
+		snapshot_changed.emit(snapshot())
+		return last_manager_action.duplicate(true)
+	return {"accepted": false, "reason": "That manager is not on the active roster."}
 
 
 func rooster_surveillance_grievance_millipoints() -> int:
@@ -3785,7 +5352,7 @@ func campus_expansion_snapshot() -> Dictionary:
 		},
 	]
 	var operational_benefits: Array[String] = [
-		"LIVE CLAIM CAPACITY  +%d FILES%s" % [claim_bonus, " / ACTIVE" if claim_bonus > 0 else " / HELD"],
+		"LIVE FILE CAPACITY  +%d FILES%s" % [claim_bonus, " / ACTIVE" if claim_bonus > 0 else " / HELD"],
 		"FARMGATE FINISHED-EGG STORAGE  +%d EGGS%s" % [farmgate_bonus, " / ACTIVE" if farmgate_bonus > 0 else " / HELD"],
 	]
 	var routing_pod := {
@@ -4082,7 +5649,7 @@ func _campus_portfolio_unassignment_capacity_reason(module_id: StringName) -> St
 			_claim_capacity_for_facilities_and_campus(owned_facilities, campus_expansion_state)
 		)
 		if _outstanding_claim_count() + _pending_market_contract_claim_count() > capacity_without_rail:
-			return "Route or finish claims before releasing the Collection Rail hen; the live ledger exceeds capacity without her."
+			return "Route or finish files before releasing the Collection Rail hen; the live ledger exceeds capacity without her."
 	elif module_id == CampusPortfolioStateScript.GRAIN_RECOVERY_MILL:
 		var base_feed_capacity := _facility_level_schedule_value(
 			FEED_PROCUREMENT_CAPACITY_SCOOPS,
@@ -4247,6 +5814,25 @@ func capital_plan_snapshot() -> Dictionary:
 	}
 
 
+func pin_economic_watch(watch_id: StringName) -> Dictionary:
+	if watch_id not in ECONOMIC_WATCH_ORDER:
+		return {
+			"accepted": false,
+			"action_id": &"pin_economic_watch",
+			"watch_id": watch_id,
+			"reason": "That watch is not on the filed management schedule.",
+		}
+	pinned_economic_watch_id = watch_id
+	var receipt := {
+		"accepted": true,
+		"action_id": &"pin_economic_watch",
+		"watch_id": watch_id,
+		"reason": "",
+	}
+	snapshot_changed.emit(snapshot())
+	return receipt
+
+
 func pin_capital_plan(facility_id: StringName) -> Dictionary:
 	if not FACILITY_DEFINITIONS.has(facility_id):
 		return {
@@ -4331,6 +5917,8 @@ func purchase_facility(facility_id: StringName) -> Dictionary:
 	var next_level := facility_level(facility_id) + 1
 	revenue_cents -= cost_cents
 	owned_facilities[facility_id] = next_level
+	if facility_id == ROOSTER_OPERATIONS_OFFICE_ID:
+		_ensure_manager_posts_for_office_level()
 	if facility_id == WELLNESS_NEST_ID:
 		quota_target = clampi(quota_target + 1, 1, 10_000)
 	var definition := FACILITY_DEFINITIONS[facility_id] as Dictionary
@@ -4648,25 +6236,31 @@ func market_contract_offer_catalog() -> Array[Dictionary]:
 
 func market_contract_offer_preflight(
 	offer_id: StringName,
-	clause_id: StringName = &"standard_terms"
+	clause_id: StringName = &"standard_terms",
+	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
-	return _market_contract_offer_preflight(offer_id, clause_id, true)
+	return _market_contract_offer_preflight(offer_id, clause_id, pricing_id, true, true)
 
 
 func _market_contract_offer_preflight(
 	offer_id: StringName,
 	clause_id: StringName,
-	attach_clause_options: bool
+	pricing_id: StringName,
+	attach_clause_options: bool,
+	attach_pricing_options: bool,
 ) -> Dictionary:
 	var clause_known := MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id)
+	var pricing_known := MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id)
 	var offer := {}
-	if clause_known:
+	if clause_known and pricing_known:
 		offer = _market_contract_quote_for_day(
 			offer_id,
 			day,
 			maxi(0, facility_level(FARM_MUTUAL_SERVICE_COOP_ID)),
 			maxi(0, facility_level(FARM_MUTUAL_NEGOTIATION_ROOM_ID)),
 			clause_id,
+			false,
+			pricing_id,
 		)
 	if offer.is_empty():
 		var unknown := {
@@ -4675,16 +6269,23 @@ func _market_contract_offer_preflight(
 			"known": MARKET_CONTRACT_DEFINITIONS.has(offer_id),
 			"clause_known": clause_known,
 			"clause_id": clause_id,
+			"pricing_known": pricing_known,
+			"pricing_profile_id": pricing_id,
 			"clause_available": false,
+			"pricing_available": false,
 			"can_sign": false,
 			"reason": (
 				"Farm Mutual does not recognize that binder."
 				if not MARKET_CONTRACT_DEFINITIONS.has(offer_id) else
 				"Farm Mutual does not recognize that negotiated clause."
+				if not clause_known else
+				"Farm Mutual does not recognize that pricing posture."
 			),
 		}
 		if attach_clause_options and MARKET_CONTRACT_DEFINITIONS.has(offer_id):
 			unknown["clause_options"] = _market_contract_clause_options(offer_id)
+		if attach_pricing_options and MARKET_CONTRACT_DEFINITIONS.has(offer_id):
+			unknown["pricing_options"] = _market_contract_pricing_options(offer_id, clause_id)
 		return unknown
 	var available_slots := maxi(
 		0,
@@ -4698,7 +6299,12 @@ func _market_contract_offer_preflight(
 	var active_staff := active_worker_count()
 	var on_cooldown := _market_contract_offer_on_cooldown(offer_id)
 	var reason := ""
-	if not bool(offer.get("clause_available", false)):
+	if not bool(offer.get("pricing_available", false)):
+		reason = String(offer.get(
+			"pricing_unavailable_reason",
+			"This pricing posture is not available for the current market reach.",
+		))
+	elif not bool(offer.get("clause_available", false)):
 		reason = "Commission the Farm Mutual Negotiation Room before signing this clause."
 	elif day < CONTRACT_BOARD_UNLOCK_DAY:
 		reason = "Complete two shifts before Farm Mutual opens its contract folders."
@@ -4742,6 +6348,7 @@ func _market_contract_offer_preflight(
 		)
 	offer["known"] = true
 	offer["clause_known"] = true
+	offer["pricing_known"] = true
 	offer["planning_open"] = market_contract_planning_open()
 	offer["available_claim_slots"] = available_slots
 	offer["spendable_fund_cents"] = spendable
@@ -4756,13 +6363,38 @@ func _market_contract_offer_preflight(
 	offer["reason"] = reason
 	if attach_clause_options:
 		offer["clause_options"] = _market_contract_clause_options(offer_id)
+	if attach_pricing_options:
+		offer["pricing_options"] = _market_contract_pricing_options(offer_id, clause_id)
 	return offer
 
 
 func _market_contract_clause_options(offer_id: StringName) -> Array[Dictionary]:
 	var options: Array[Dictionary] = []
 	for clause_id in MARKET_CONTRACT_CLAUSE_ORDER:
-		options.append(_market_contract_offer_preflight(offer_id, clause_id, false))
+		var option := _market_contract_offer_preflight(
+			offer_id,
+			clause_id,
+			&"mutual_rate",
+			false,
+			true,
+		)
+		options.append(option)
+	return options
+
+
+func _market_contract_pricing_options(
+	offer_id: StringName,
+	clause_id: StringName,
+) -> Array[Dictionary]:
+	var options: Array[Dictionary] = []
+	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
+		options.append(_market_contract_offer_preflight(
+			offer_id,
+			clause_id,
+			pricing_id,
+			false,
+			false,
+		))
 	return options
 
 
@@ -4793,6 +6425,7 @@ func market_contract_board_status() -> Dictionary:
 		"standing": standing,
 		"accreditation": accreditation,
 		"negotiation_room": negotiation_room,
+		"pricing": market_pricing_status(),
 		"offers": market_contract_offer_catalog(),
 		"active": active,
 		"active_contract": active.duplicate(true),
@@ -4829,12 +6462,13 @@ func market_contract_board_status() -> Dictionary:
 
 func sign_market_contract(
 	offer_id: StringName,
-	clause_id: StringName = &"standard_terms"
+	clause_id: StringName = &"standard_terms",
+	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
 	## Signing is a reserve transaction, not income or expense. The exact folders
 	## and claim IDs are authored now, then released at their disclosed times
 	## without opening a modal or stopping the production clock.
-	var preflight := market_contract_offer_preflight(offer_id, clause_id)
+	var preflight := market_contract_offer_preflight(offer_id, clause_id, pricing_id)
 	if not bool(preflight.get("can_sign", false)):
 		var rejection := preflight.duplicate(true)
 		rejection["accepted"] = false
@@ -4857,7 +6491,7 @@ func sign_market_contract(
 		"known", "clause_known", "planning_open", "available_claim_slots",
 		"spendable_fund_cents", "breach_reserve_cents", "spendable_after_reserve_cents",
 		"active_staff_count", "active_staff_shortfall", "staffing_ready", "on_cooldown",
-		"cooldown_until_day", "can_sign", "reason", "clause_options",
+		"cooldown_until_day", "can_sign", "reason", "clause_options", "pricing_options",
 	]:
 		active_market_contract.erase(transient_field)
 	active_market_contract.merge({
@@ -4895,6 +6529,7 @@ func sign_market_contract(
 		"action_id": &"sign_market_contract",
 		"offer_id": offer_id,
 		"clause_id": clause_id,
+		"pricing_profile_id": pricing_id,
 		"contract_id": contract_id,
 		"required_active_staff": int(preflight.get("required_active_staff", 0)),
 		"base_premium_cents": int(preflight.get("base_premium_cents", 0)),
@@ -5089,14 +6724,18 @@ func _market_contract_quote_for_day(
 	service_coop_level: int,
 	negotiation_room_level: int,
 	clause_id: StringName,
-	force_neutral_terms: bool = false
+	force_neutral_terms: bool = false,
+	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
 	if not MARKET_CONTRACT_DEFINITIONS.has(offer_id):
 		return {}
 	if not MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id):
 		return {}
+	if not MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id):
+		return {}
 	var definition := MARKET_CONTRACT_DEFINITIONS[offer_id] as Dictionary
 	var clause := MARKET_CONTRACT_CLAUSE_DEFINITIONS[clause_id] as Dictionary
+	var pricing := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
 	var authored_lane_mix: Dictionary = {}
 	var scheduled_claims: Array[Dictionary] = []
 	var authored_service_window := int(definition.get("service_window_minutes", 1))
@@ -5155,6 +6794,21 @@ func _market_contract_quote_for_day(
 			var expedited_schedule := scheduled_claims[latest_standard_index]
 			expedited_schedule["rush"] = true
 			scheduled_claims[latest_standard_index] = expedited_schedule
+	var pricing_volume_delta := int(pricing.get("volume_delta", 0))
+	if pricing_volume_delta > 0 and not scheduled_claims.is_empty():
+		var referral_schedule := (scheduled_claims[0] as Dictionary).duplicate(true)
+		referral_schedule["batch_index"] = int(referral_schedule.get("batch_index", 0))
+		referral_schedule["pricing_referral"] = true
+		scheduled_claims.append(referral_schedule)
+	elif pricing_volume_delta < 0 and scheduled_claims.size() > 1:
+		var removable_index := -1
+		for schedule_index in range(scheduled_claims.size() - 1, -1, -1):
+			if not bool((scheduled_claims[schedule_index] as Dictionary).get("rush", false)):
+				removable_index = schedule_index
+				break
+		if removable_index < 0:
+			removable_index = scheduled_claims.size() - 1
+		scheduled_claims.remove_at(removable_index)
 
 	var lane_mix: Dictionary = {}
 	var rush_lane_mix: Dictionary = {}
@@ -5194,7 +6848,12 @@ func _market_contract_quote_for_day(
 		})
 
 	var total_claims := scheduled_claims.size()
-	var required_completed := int(definition.get("required_deliveries", total_claims))
+	var required_completed := clampi(
+		int(definition.get("required_deliveries", total_claims))
+		+ int(pricing.get("required_delta", 0)),
+		1,
+		total_claims,
+	)
 	var authored_base_premium_cents := int(definition.get("premium_cents", 0))
 	var authored_breach_cents := int(definition.get("breach_cents", 0))
 	var season := (
@@ -5236,10 +6895,16 @@ func _market_contract_quote_for_day(
 		authored_breach_cents,
 		clause_breach_basis_points,
 	)
+	var pricing_premium_basis_points := int(pricing.get("premium_basis_points", 0))
+	var pricing_premium_delta_cents := _basis_point_delta_cents(
+		authored_base_premium_cents,
+		pricing_premium_basis_points,
+	)
 	var market_premium_cents := (
 		authored_base_premium_cents
 		+ season_premium_delta_cents
 		+ clause_premium_delta_cents
+		+ pricing_premium_delta_cents
 	)
 	service_coop_level = clampi(service_coop_level, 0, 3)
 	negotiation_room_level = clampi(negotiation_room_level, 0, 1)
@@ -5266,6 +6931,21 @@ func _market_contract_quote_for_day(
 			"  ·  RUSH" if bool(batch.get("contains_rush", false)) else "",
 		])
 	var requires_room := bool(clause.get("requires_negotiation_room", false))
+	var required_reach := int(pricing.get("required_reach", 0))
+	var required_satisfaction := int(pricing.get("required_satisfaction", 0))
+	var current_reach := market_reach_points()
+	var current_satisfaction := claimant_satisfaction_score()
+	var pricing_unavailable_reason := _market_pricing_availability_reason(
+		required_reach,
+		required_satisfaction,
+		current_reach,
+		current_satisfaction,
+	)
+	var pricing_available := pricing_unavailable_reason.is_empty()
+	var estimated_handling_cost_cents := (
+		total_claims * MARKET_PRICING_ESTIMATED_HANDLING_COST_CENTS
+	)
+	var estimated_margin_cents := premium_cents - estimated_handling_cost_cents
 	var success_required := "%d sound or golden folders delivered inside their disclosed service windows." % required_completed
 	if welfare_gate_minimum > 0:
 		success_required += " Closing flock welfare must also remain at %d or above." % welfare_gate_minimum
@@ -5305,6 +6985,33 @@ func _market_contract_quote_for_day(
 		"summary": String(clause.get("summary", "")),
 		"requires_negotiation_room": requires_room,
 		"clause_available": not requires_room or negotiation_room_level > 0,
+		"pricing_profile_id": pricing_id,
+		"pricing_label": String(pricing.get("label", "MUTUAL RATE")),
+		"pricing_summary": String(pricing.get("summary", "")),
+		"pricing_premium_basis_points": pricing_premium_basis_points,
+		"pricing_premium_delta_cents": pricing_premium_delta_cents,
+		"pricing_volume_delta": pricing_volume_delta,
+		"pricing_required_delta": int(pricing.get("required_delta", 0)),
+		"pricing_required_reach": required_reach,
+		"pricing_required_satisfaction": required_satisfaction,
+		"pricing_current_reach": current_reach,
+		"pricing_current_satisfaction": current_satisfaction,
+		"pricing_available": pricing_available,
+		"pricing_unavailable_reason": pricing_unavailable_reason,
+		"claimant_satisfaction_success_delta": int(
+			pricing.get("satisfaction_success_delta", 0)
+		),
+		"claimant_satisfaction_breach_delta": int(
+			pricing.get("satisfaction_breach_delta", 0)
+		),
+		"market_reach_success_delta": int(pricing.get("reach_success_delta", 0)),
+		"market_reach_breach_delta": int(pricing.get("reach_breach_delta", 0)),
+		"estimated_handling_cost_cents": estimated_handling_cost_cents,
+		"estimated_margin_cents": estimated_margin_cents,
+		"estimated_margin_per_file_cents": _signed_half_up_ratio(
+			estimated_margin_cents,
+			maxi(1, total_claims),
+		),
 		"negotiation_room_level_at_signing": negotiation_room_level,
 		"authored_base_premium_cents": authored_base_premium_cents,
 		"base_premium_cents": authored_base_premium_cents,
@@ -5567,6 +7274,8 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 	var breach_cents := contracted_breach_cents if not success else 0
 	var fund_before := revenue_cents
 	var standing_before := farm_mutual_standing()
+	var reach_before := market_reach_points()
+	var satisfaction_before := claimant_satisfaction_score()
 	var clean_streak_before := market_clean_contract_streak
 	if success:
 		revenue_cents += premium_cents
@@ -5590,7 +7299,17 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		market_contract_breach_total_cents += breach_cents
 		market_contracts_breached_total += 1
 		market_clean_contract_streak = 0
+	var pricing_id := StringName(completed_contract.get("pricing_profile_id", &"mutual_rate"))
+	var pricing_outcome_key := "%s_%s" % [
+		String(pricing_id),
+		"success" if success else "breach",
+	]
+	market_pricing_outcomes[pricing_outcome_key] = (
+		int(market_pricing_outcomes.get(pricing_outcome_key, 0)) + 1
+	)
 	var standing_after := farm_mutual_standing()
+	var reach_after := market_reach_points()
+	var satisfaction_after := claimant_satisfaction_score()
 	var settlement_outcome := ""
 	if success:
 		settlement_outcome = "%s fulfilled: Farm Mutual credited a $%.2f premium after the flock delivered %d/%d clean folders on time." % [
@@ -5655,6 +7374,9 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		"clause_label": String(completed_contract.get("clause_label", "STANDARD TERMS")),
 		"clause_summary": String(completed_contract.get("clause_summary", "")),
 		"clause_category": completed_contract.get("clause_category", &"standard"),
+		"pricing_profile_id": pricing_id,
+		"pricing_label": String(completed_contract.get("pricing_label", "MUTUAL RATE")),
+		"pricing_summary": String(completed_contract.get("pricing_summary", "")),
 		"negotiation_room_level_at_signing": int(
 			completed_contract.get("negotiation_room_level_at_signing", 0)
 		),
@@ -5697,6 +7419,34 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		"clause_premium_delta_cents": int(
 			completed_contract.get("clause_premium_delta_cents", 0)
 		),
+		"pricing_premium_basis_points": int(
+			completed_contract.get("pricing_premium_basis_points", 0)
+		),
+		"pricing_premium_delta_cents": int(
+			completed_contract.get("pricing_premium_delta_cents", 0)
+		),
+		"pricing_volume_delta": int(completed_contract.get("pricing_volume_delta", 0)),
+		"pricing_required_delta": int(completed_contract.get("pricing_required_delta", 0)),
+		"pricing_required_reach": int(completed_contract.get("pricing_required_reach", 0)),
+		"claimant_satisfaction_success_delta": int(
+			completed_contract.get("claimant_satisfaction_success_delta", 0)
+		),
+		"claimant_satisfaction_breach_delta": int(
+			completed_contract.get("claimant_satisfaction_breach_delta", 0)
+		),
+		"market_reach_success_delta": int(
+			completed_contract.get("market_reach_success_delta", 0)
+		),
+		"market_reach_breach_delta": int(
+			completed_contract.get("market_reach_breach_delta", 0)
+		),
+		"estimated_handling_cost_cents": int(
+			completed_contract.get("estimated_handling_cost_cents", 0)
+		),
+		"estimated_margin_cents": int(completed_contract.get("estimated_margin_cents", 0)),
+		"estimated_margin_per_file_cents": int(
+			completed_contract.get("estimated_margin_per_file_cents", 0)
+		),
 		"market_premium_cents": int(
 			completed_contract.get("market_premium_cents", base_premium_cents)
 		),
@@ -5730,6 +7480,13 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		"market_standing_after": standing_after,
 		"market_standing_delta": standing_after - standing_before,
 		"market_standing_rank": farm_mutual_standing_rank(),
+		"market_reach_before": reach_before,
+		"market_reach_after": reach_after,
+		"market_reach_delta": reach_after - reach_before,
+		"market_share_basis_points": mutual_market_share_basis_points(),
+		"claimant_satisfaction_before": satisfaction_before,
+		"claimant_satisfaction_after": satisfaction_after,
+		"claimant_satisfaction_delta": satisfaction_after - satisfaction_before,
 		"clean_contract_streak_before": clean_streak_before,
 		"clean_contract_streak_after": market_clean_contract_streak,
 		"best_clean_contract_streak": best_market_clean_contract_streak,
@@ -5836,8 +7593,16 @@ func current_daily_supervisor_payroll_cents() -> int:
 	return supervisor_payroll_cents()
 
 
+func current_daily_fellow_payroll_cents() -> int:
+	return _internship_program.daily_fellow_payroll_cents()
+
+
 func current_daily_payroll_cents() -> int:
-	return current_daily_hen_payroll_cents() + current_daily_supervisor_payroll_cents()
+	return (
+		current_daily_hen_payroll_cents()
+		+ current_daily_supervisor_payroll_cents()
+		+ current_daily_fellow_payroll_cents()
+	)
 
 
 func daily_facility_expansion_cost_cents() -> int:
@@ -5932,6 +7697,641 @@ func spendable_fund_cents() -> int:
 		0,
 		revenue_cents - protected_reserve_cents()
 	)
+
+
+## One authoritative read model for the economic information that used to be
+## scattered across Today, staffing, procurement, contracts, and Capital. It is
+## derived entirely from owned simulation state: the UI may format these rows but
+## never recompute prices, reserves, margins, trends, or bottleneck severity.
+func economic_briefing_snapshot() -> Dictionary:
+	var treasury := farm_treasury_snapshot()
+	var procurement := feed_procurement_snapshot()
+	var contract_board := market_contract_board_status()
+	var operating_cost := current_daily_operating_cost_cents()
+	var secured_income := maxi(0, credited_today_cents)
+	var secured_margin := secured_income - operating_cost
+	var break_even_remaining := maxi(0, -secured_margin)
+	var current_season := market_season_for_day(day)
+	var next_market_day := maxi(
+		day + 1,
+		int(current_season.get("end_day", day)) + 1,
+	)
+	var next_season := market_season_for_day(next_market_day)
+	var current_demand := current_season.get("lane_demand_basis_points", {}) as Dictionary
+	var next_demand := next_season.get("lane_demand_basis_points", {}) as Dictionary
+	var opportunity_lane := _economic_highest_demand_lane(current_demand)
+	var next_opportunity_lane := _economic_highest_demand_lane(next_demand)
+	var history := _economic_history_rows(treasury.get("history", []) as Array)
+	var trend := _economic_trend_snapshot(history)
+	var bottlenecks := _economic_bottleneck_rows(
+		treasury,
+		procurement,
+		secured_margin,
+	)
+	var recovery_actions := _economic_recovery_rows(
+		treasury,
+		procurement,
+		contract_board,
+	)
+	var status_id: StringName = &"stable"
+	var status_label := "OPERATING ROOM"
+	if wage_arrears_cents > 0 or bool(treasury.get("capital_frozen", false)):
+		status_id = &"critical"
+		status_label = "RECOVERY REQUIRED"
+	elif spendable_fund_cents() <= 0 or secured_margin < 0:
+		status_id = &"tight"
+		status_label = "MARGIN TIGHT"
+	var economic_watches := _economic_watch_rows(
+		treasury,
+		procurement,
+		secured_margin,
+		bottlenecks,
+	)
+	var selected_watch: Dictionary = {}
+	for watch: Dictionary in economic_watches:
+		if StringName(watch.get("id", &"")) == pinned_economic_watch_id:
+			selected_watch = watch.duplicate(true)
+			break
+	if selected_watch.is_empty() and not economic_watches.is_empty():
+		selected_watch = economic_watches[0].duplicate(true)
+
+	return {
+		"version": 4,
+		"day": day,
+		"status_id": status_id,
+		"status_label": status_label,
+		"cash": {
+			"feed_fund_cents": revenue_cents,
+			"protected_reserve_cents": protected_reserve_cents(),
+			"spendable_fund_cents": spendable_fund_cents(),
+			"secured_income_today_cents": secured_income,
+			"daily_operating_cost_cents": operating_cost,
+			"secured_operating_margin_cents": secured_margin,
+			"break_even_remaining_cents": break_even_remaining,
+			"contract_breach_reserve_cents": current_market_contract_reserve_cents(),
+			"wage_arrears_cents": wage_arrears_cents,
+		},
+		"costs": {
+			"feed_cents": current_daily_feed_cost_cents(),
+			"hen_payroll_cents": current_daily_hen_payroll_cents(),
+			"supervisor_payroll_cents": current_daily_supervisor_payroll_cents(),
+			"fellow_payroll_cents": current_daily_fellow_payroll_cents(),
+			"expanded_perches_cents": daily_facility_expansion_cost_cents(),
+			"facility_maintenance_cents": current_daily_facility_maintenance_cents(),
+			"campus_services_cents": current_daily_campus_cost_cents(),
+			"portfolio_operations_cents": current_daily_portfolio_cost_cents(),
+		},
+		"market": {
+			"current": current_season.duplicate(true),
+			"next": next_season.duplicate(true),
+			"current_cause": String(current_season.get(
+				"summary",
+				"Farm Mutual's filed calendar sets the current book.",
+			)),
+			"current_days_remaining": maxi(
+				0,
+				int(current_season.get("days_remaining", 0)),
+			),
+			"forecast_certainty": "GUARANTEED CALENDAR",
+			"forecast_uncertainty": (
+				"The season and spot quote are filed; seeded file mix can still vary."
+			),
+			"next_market_day": next_market_day,
+			"opportunity_lane_id": opportunity_lane,
+			"opportunity_lane_label": _lane_display_name(opportunity_lane),
+			"opportunity_demand_basis_points": int(
+				current_demand.get(opportunity_lane, 0)
+			),
+			"next_opportunity_lane_id": next_opportunity_lane,
+			"next_opportunity_lane_label": _lane_display_name(next_opportunity_lane),
+			"next_opportunity_demand_basis_points": int(
+				next_demand.get(next_opportunity_lane, 0)
+			),
+			"feed_spot_unit_price_cents": _feed_spot_unit_price_cents(day),
+			"next_feed_spot_unit_price_cents": _feed_spot_unit_price_cents(
+				next_market_day
+			),
+		},
+		"capacity": {
+			"live_files": _outstanding_claim_count(),
+			"live_file_limit": current_claim_capacity(),
+			"files_waiting": claims_waiting,
+			"overdue_files": _overdue_claim_count(true),
+			"rework_files": _queued_rework_count() + _active_rework_count(),
+			"turned_away_today": intake_rejections_today,
+			"missed_value_today_cents": intake_missed_value_today_cents,
+			"active_staff": active_worker_count(),
+			"staff_capacity": office_capacity,
+		},
+		"resources": _economic_resource_rows(treasury, procurement),
+		"strategies": _economic_strategy_rows(),
+		"bottlenecks": bottlenecks,
+		"recovery_actions": recovery_actions,
+		"history": history,
+		"trend": trend,
+		"management_watch": {
+			"selected_id": pinned_economic_watch_id,
+			"selected": selected_watch,
+			"catalog": economic_watches,
+		},
+	}
+
+
+func _economic_highest_demand_lane(demand: Dictionary) -> StringName:
+	var selected: StringName = CLAIM_LANES[0]
+	var selected_basis_points := int(demand.get(selected, 10_000))
+	for lane: StringName in CLAIM_LANES:
+		var lane_basis_points := int(demand.get(lane, 10_000))
+		if lane_basis_points > selected_basis_points:
+			selected = lane
+			selected_basis_points = lane_basis_points
+	return selected
+
+
+func _economic_history_rows(source: Array) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var start_index := maxi(0, source.size() - 5)
+	for index: int in range(start_index, source.size()):
+		if not source[index] is Dictionary:
+			continue
+		var receipt := source[index] as Dictionary
+		var liabilities := (
+			int(receipt.get("closing_credit_principal_cents", 0))
+			+ int(receipt.get("closing_vendor_arrears_cents", 0))
+			+ int(receipt.get("closing_interest_arrears_cents", 0))
+		)
+		rows.append({
+			"day": int(receipt.get("day", 0)),
+			"inflow_cents": int(receipt.get("inflow_cents", 0)),
+			"vendor_due_cents": int(receipt.get("total_vendor_due_cents", 0)),
+			"labor_due_cents": int(receipt.get("labor_due_cents", 0)),
+			"interest_cents": int(receipt.get("interest_charged_cents", 0)),
+			"operating_margin_cents": int(receipt.get("operating_margin_cents", 0)),
+			"closing_cash_cents": int(receipt.get("closing_cash_cents", 0)),
+			"closing_liabilities_cents": liabilities,
+			"profitable": bool(receipt.get("profitable", false)),
+			"debt_free": bool(receipt.get("debt_free", false)),
+		})
+	return rows
+
+
+func _economic_trend_snapshot(history: Array[Dictionary]) -> Dictionary:
+	if history.is_empty():
+		return {
+			"status_id": &"awaiting_close",
+			"status_label": "AWAITING FIRST CLOSE",
+			"margin_change_cents": 0,
+			"average_margin_cents": 0,
+			"sample_count": 0,
+		}
+	var margin_total := 0
+	for row: Dictionary in history:
+		margin_total += int(row.get("operating_margin_cents", 0))
+	var margin_change := 0
+	if history.size() > 1:
+		margin_change = (
+			int(history[-1].get("operating_margin_cents", 0))
+			- int(history[-2].get("operating_margin_cents", 0))
+		)
+	var status_id: StringName = &"steady"
+	var status_label := "STEADY"
+	if margin_change >= 100:
+		status_id = &"improving"
+		status_label = "IMPROVING"
+	elif margin_change <= -100:
+		status_id = &"tightening"
+		status_label = "TIGHTENING"
+	return {
+		"status_id": status_id,
+		"status_label": status_label,
+		"margin_change_cents": margin_change,
+		"average_margin_cents": _signed_half_up_ratio(
+			margin_total,
+			history.size(),
+		),
+		"sample_count": history.size(),
+	}
+
+
+func _economic_watch_rows(
+	treasury: Dictionary,
+	procurement: Dictionary,
+	secured_margin: int,
+	bottlenecks: Array[Dictionary],
+) -> Array[Dictionary]:
+	var primary_bottleneck := (
+		bottlenecks[0]
+		if not bottlenecks.is_empty() else
+		{
+			"label": "NO CRITICAL BOTTLENECK",
+			"reason": "Current systems remain inside their filed limits.",
+			"action": "Compare the next disclosed tradeoff.",
+		}
+	)
+	var feed_stock := maxi(0, int(procurement.get("stock_scoops", 0)))
+	var feed_demand := maxi(0, int(procurement.get("demand_scoops", 0)))
+	var feed_shortage := maxi(0, int(procurement.get("spot_shortage_scoops", 0)))
+	var live_files := _outstanding_claim_count()
+	var live_capacity := current_claim_capacity()
+	var capacity_percent := _signed_half_up_ratio(10_000 * live_files, maxi(1, live_capacity))
+	var welfare := _flock_welfare_score()
+	var reach := market_reach_points()
+	var satisfaction := claimant_satisfaction_score()
+	var share_basis_points := mutual_market_share_basis_points()
+	var executive_select_open := (
+		reach >= MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT
+		and satisfaction >= MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM
+	)
+	var treasury_liabilities := maxi(0, int(treasury.get("total_liabilities_cents", 0)))
+	return [
+		{
+			"id": &"auto",
+			"label": "AUTO / PRIMARY CONSTRAINT",
+			"status_id": &"clear" if int(primary_bottleneck.get("severity", 0)) <= 0 else &"attention",
+			"status_label": String(primary_bottleneck.get("label", "CURRENT PRIORITY")),
+			"current_label": "HIGHEST FILED PRIORITY",
+			"target_label": "RESOLVE OR REASSESS",
+			"why": String(primary_bottleneck.get("reason", "")),
+			"action": String(primary_bottleneck.get("action", "")),
+			"page_id": _economic_watch_page_for_bottleneck(
+				StringName(primary_bottleneck.get("id", &"clear"))
+			),
+		},
+		{
+			"id": &"margin",
+			"label": "SECURED MARGIN",
+			"status_id": &"on_track" if secured_margin >= 0 else &"attention",
+			"status_label": "BREAK-EVEN FILED" if secured_margin >= 0 else "BELOW BREAK-EVEN",
+			"current_label": "%s$%.2f" % [
+				"+" if secured_margin >= 0 else "-",
+				absf(float(secured_margin)) / 100.0,
+			],
+			"target_label": "$0.00 OR BETTER",
+			"why": (
+				"Secured egg credit is compared with every filed operating cost; "
+				+ "unearned eggs and binder premiums remain excluded."
+			),
+			"action": (
+				"Finish sound work before optional spending. Review Treasury if "
+				+ "$%.2f in liabilities constrains recovery." % (
+					float(treasury_liabilities) / 100.0
+				)
+			),
+			"page_id": &"capital",
+		},
+		{
+			"id": &"feed",
+			"label": "FEED COVERAGE",
+			"status_id": &"on_track" if feed_shortage <= 0 else &"attention",
+			"status_label": "RATION COVERED" if feed_shortage <= 0 else "SPOT EXPOSURE",
+			"current_label": "%d STOCK / %d NEEDED" % [feed_stock, feed_demand],
+			"target_label": "%d+ SCOOPS" % feed_demand,
+			"why": (
+				"%d scoops are exposed to the current spot quote after stored lots."
+				% feed_shortage
+			),
+			"action": (
+				"Open Ops during review to compare lot price, shelf life, capacity, "
+				+ "and flock strain before authorizing Provisions."
+			),
+			"page_id": &"operations",
+		},
+		{
+			"id": &"capacity",
+			"label": "LIVE-FILE CAPACITY",
+			"status_id": (
+				&"attention"
+				if intake_rejections_today > 0 or capacity_percent >= 8_500 else
+				&"on_track"
+			),
+			"status_label": (
+				"DEMAND TURNED AWAY"
+				if intake_rejections_today > 0 else
+				("NEAR LIMIT" if capacity_percent >= 8_500 else "ROOM AVAILABLE")
+			),
+			"current_label": "%d / %d FILES" % [live_files, live_capacity],
+			"target_label": "BELOW 85%% / %d FILES" % _signed_half_up_ratio(
+				85 * live_capacity,
+				100,
+			),
+			"why": (
+				"%d%% occupied; %d files worth $%.2f were turned away today."
+				% [
+					_signed_half_up_ratio(100 * live_files, maxi(1, live_capacity)),
+					intake_rejections_today,
+					float(intake_missed_value_today_cents) / 100.0,
+				]
+			),
+			"action": (
+				"Open Capital to compare Records capacity against its daily upkeep, "
+				+ "or clear existing workflow before accepting outside folders."
+			),
+			"page_id": &"capital",
+		},
+		{
+			"id": &"welfare",
+			"label": "FLOCK WELFARE",
+			"status_id": &"on_track" if welfare >= 70 else &"attention",
+			"status_label": "CARE BUFFER" if welfare >= 70 else "CARE PRESSURE",
+			"current_label": "%d / 100" % welfare,
+			"target_label": "70+",
+			"why": (
+				"Morale, stress, fatigue, and grievance combine across employed hens; "
+				+ "care pressure changes productivity and labor consequences."
+			),
+			"action": (
+				"Open Flock to compare recovery, assignments, and care before adding "
+				+ "overtime or another demanding binder."
+			),
+			"page_id": &"flock",
+		},
+		{
+			"id": &"market",
+			"label": "MUTUAL REACH",
+			"status_id": &"on_track" if executive_select_open else &"building",
+			"status_label": (
+				"EXECUTIVE SELECT OPEN"
+				if executive_select_open else
+				"REACH BUILDING"
+				if reach < MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT else
+				"CLAIMANT TRUST LOW"
+			),
+			"current_label": "%d REACH / %d SENTIMENT / %.2f%% SHARE" % [
+				reach,
+				satisfaction,
+				float(share_basis_points) / 100.0,
+			],
+			"target_label": "%d REACH / %d SENTIMENT" % [
+				MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
+				MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM,
+			],
+			"why": (
+				"Executive Select requires both reach and claimant trust. Premium "
+				+ "filings spend sentiment; fulfilled Mutual and Community Access "
+				+ "binders rebuild it."
+			),
+			"action": (
+				"Open Records during review to compare binder volume, premium, "
+				+ "handling margin, claimant effect, and reach before signing."
+			),
+			"page_id": &"governance_records",
+		},
+	]
+
+
+func _economic_watch_page_for_bottleneck(bottleneck_id: StringName) -> StringName:
+	match bottleneck_id:
+		&"feed":
+			return &"operations"
+		&"workflow":
+			return &"flock"
+		&"archive", &"break_even", &"treasury":
+			return &"capital"
+		_:
+			return &"today"
+
+
+func _economic_resource_rows(
+	treasury: Dictionary,
+	procurement: Dictionary,
+) -> Array[Dictionary]:
+	return [
+		{
+			"id": &"feed_fund",
+			"label": "FEED FUND",
+			"value_cents": revenue_cents,
+			"source": "Sound and golden egg credit, fulfilled Mutual binders, and filed awards.",
+			"use": "Feed, payroll, facilities, resolutions, procurement, and capital.",
+			"limit": "Protected obligations are unavailable for discretionary spending.",
+			"strategic_value": "Liquidity for surviving this shift and choosing the next one.",
+		},
+		{
+			"id": &"protected_reserve",
+			"label": "PROTECTED RESERVE",
+			"value_cents": protected_reserve_cents(),
+			"source": "Derived from payroll, upkeep, feed, breach exposure, arrears, and debt.",
+			"use": "Prevents a purchase from silently consuming already-promised money.",
+			"limit": "Not spendable and released only as obligations settle.",
+			"strategic_value": "Turns solvency into a visible constraint instead of a surprise.",
+		},
+		{
+			"id": &"treasury_headroom",
+			"label": "TREASURY HEADROOM",
+			"value_cents": int(treasury.get("credit_headroom_cents", 0)),
+			"source": "Farm Mutual standing and a debt-free close record.",
+			"use": "Automatically bridges vendors and interest, never flock wages.",
+			"limit": "Interest accrues and an exhausted indebted line freezes capital.",
+			"strategic_value": "Recovery time after a weak close without making failure free.",
+		},
+		{
+			"id": &"feed_stock",
+			"label": "FEED STOCK",
+			"value": int(procurement.get("stock_scoops", 0)),
+			"capacity": int(procurement.get("capacity_scoops", 0)),
+			"unit": "scoops",
+			"source": "One disclosed provisions order during eligible closing review.",
+			"use": "Covers the flock's next ration before seasonal spot buying.",
+			"limit": "Finite bins and dated lots create capacity and spoilage risk.",
+			"strategic_value": "Hedge price pressure or buy fresher, kinder feed.",
+		},
+		{
+			"id": &"farm_mutual_standing",
+			"label": "FARM MUTUAL STANDING",
+			"value": farm_mutual_standing(),
+			"unit": "points",
+			"source": "Two points per fulfilled binder, minus one per breach.",
+			"use": "Gates Service Coop tiers, negotiation, and Treasury capacity.",
+			"limit": "Standard-book days are neutral; breaches also break clean streaks.",
+			"strategic_value": "Long-run client access earned by reliable file handling.",
+		},
+		{
+			"id": &"live_file_capacity",
+			"label": "LIVE-FILE CAPACITY",
+			"value": _outstanding_claim_count(),
+			"capacity": current_claim_capacity(),
+			"unit": "files",
+			"source": "Records facilities and commissioned routing infrastructure.",
+			"use": "Holds accepted files and creates room for disclosed binder arrivals.",
+			"limit": "Storage does not add workers; excess demand is turned away.",
+			"strategic_value": "Captures opportunity only when staffing and routing can clear it.",
+		},
+	]
+
+
+func _economic_bottleneck_rows(
+	treasury: Dictionary,
+	procurement: Dictionary,
+	secured_margin: int,
+) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	var liabilities := int(treasury.get("total_liabilities_cents", 0))
+	if wage_arrears_cents > 0 or liabilities > 0:
+		rows.append({
+			"id": &"treasury",
+			"severity": 4 if wage_arrears_cents > 0 else 3,
+			"label": "TREASURY PRESSURE",
+			"reason": "$%.2f liabilities and $%.2f unpaid wages reduce future choices."
+				% [float(liabilities) / 100.0, float(wage_arrears_cents) / 100.0],
+			"action": "File a profitable low-risk close; cash repays interest, vendors, labor, then principal in that order.",
+		})
+	var spot_shortage := int(procurement.get("spot_shortage_scoops", 0))
+	if spot_shortage > 0:
+		rows.append({
+			"id": &"feed",
+			"severity": 2,
+			"label": "FEED COVERAGE",
+			"reason": "%d ration scoops are uncovered at the current seasonal spot quote."
+				% spot_shortage,
+			"action": "Use Provisions during review to hedge price, capacity, shelf life, and flock strain.",
+		})
+	var outstanding := _outstanding_claim_count()
+	var capacity := current_claim_capacity()
+	if intake_rejections_today > 0 or outstanding * 100 >= capacity * 85:
+		rows.append({
+			"id": &"archive",
+			"severity": 4 if intake_rejections_today > 0 else 2,
+			"label": "ARCHIVE CAPACITY",
+			"reason": "%d of %d live-file slots are occupied; %d files were turned away today."
+				% [outstanding, capacity, intake_rejections_today],
+			"action": "Clear the oldest lane, decline extra binder work, or commission Records capacity.",
+		})
+	var overdue := _overdue_claim_count(true)
+	var rework := _queued_rework_count() + _active_rework_count()
+	if overdue + rework > 0:
+		rows.append({
+			"id": &"workflow",
+			"severity": 3 if overdue > 0 else 2,
+			"label": "WORKFLOW DEBT",
+			"reason": "%d overdue and %d rework files are consuming future production."
+				% [overdue, rework],
+			"action": "Route matching specialties, use Priority Peck deliberately, and avoid adding preventable rush work.",
+		})
+	if secured_margin < 0:
+		rows.append({
+			"id": &"break_even",
+			"severity": 1,
+			"label": "BREAK-EVEN GAP",
+			"reason": "$%.2f more secured egg credit is needed to cover today's filed operating cost."
+				% (float(-secured_margin) / 100.0),
+			"action": "Finish sound work before buying optional interventions; binder upside is not counted until earned.",
+		})
+	rows.sort_custom(
+		func(left: Dictionary, right: Dictionary) -> bool:
+			var left_severity := int(left.get("severity", 0))
+			var right_severity := int(right.get("severity", 0))
+			if left_severity != right_severity:
+				return left_severity > right_severity
+			return String(left.get("id", "")) < String(right.get("id", ""))
+	)
+	if rows.size() > 4:
+		rows.resize(4)
+	if rows.is_empty():
+		rows.append({
+			"id": &"clear",
+			"severity": 0,
+			"label": "NO CRITICAL BOTTLENECK",
+			"reason": "Current obligations, capacity, feed, and workflow remain inside their filed limits.",
+			"action": "Compare the next contract or capital tradeoff before committing spare Feed Fund.",
+		})
+	return rows
+
+
+func _economic_strategy_rows() -> Array[Dictionary]:
+	## These are explanations of already-authoritative mechanics, not bonuses.
+	## Keeping the counterweight beside each route makes it clear that the game
+	## supports several viable operating styles without promising one dominant
+	## upgrade path.
+	return [
+		{
+			"id": &"throughput",
+			"label": "THROUGHPUT ROOST",
+			"lever": "Route specialties, Priority Peck, overtime, and packing capacity.",
+			"upside": "Clear more sound files before deadlines and capture busy-book demand.",
+			"counterweight": "Strain, cracks, rework, payroll, and welfare scrutiny rise if pushed blindly.",
+		},
+		{
+			"id": &"quality",
+			"label": "SHELL ASSURANCE",
+			"lever": "Favor careful routing, shell checks, training, and deliberate rework.",
+			"upside": "Protect golden credit, clean streaks, standing, and binder settlement.",
+			"counterweight": "Slower handling can create overdue files and rejected demand.",
+		},
+		{
+			"id": &"welfare",
+			"label": "FLOCK STEWARDSHIP",
+			"lever": "Choose kinder feed, humane doctrine, recovery time, and care facilities.",
+			"upside": "Sustain morale, lower grievances, and preserve long-run productive capacity.",
+			"counterweight": "Immediate expense and gentler targets may slow capital accumulation.",
+		},
+		{
+			"id": &"contract",
+			"label": "MUTUAL SPECIALIST",
+			"lever": "Build standing, negotiate riders, and selectively bind seasonal file books.",
+			"upside": "Earn premiums, outside files, and better Service Coop access.",
+			"counterweight": "Breach reserves, clauses, and demand spikes make overcommitment expensive.",
+		},
+		{
+			"id": &"capacity",
+			"label": "CAPACITY BUILDER",
+			"lever": "Commission Records, desks, managers, facilities, campus, and portfolio services.",
+			"upside": "Raise file, staffing, and processing ceilings for later books.",
+			"counterweight": "Every idle perch and service adds recurring cost before it earns anything.",
+		},
+	]
+
+
+func _economic_recovery_rows(
+	treasury: Dictionary,
+	procurement: Dictionary,
+	contract_board: Dictionary,
+) -> Array[Dictionary]:
+	var planning_open := shift_phase == ShiftPhase.REVIEW and pending_decision.is_empty()
+	var has_idle_release_candidate := false
+	if planning_open and active_worker_count() > MINIMUM_STAFF_COUNT:
+		for worker: ChickenState in workers:
+			if (
+				worker.employed
+				and worker.work_state == ChickenState.WorkState.IDLE
+				and worker.current_claim == null
+			):
+				has_idle_release_candidate = true
+				break
+	var rows: Array[Dictionary] = [
+		{
+			"id": &"standard_book",
+			"label": "FILE THE STANDARD BOOK",
+			"available": bool(contract_board.get("planning_open", false)),
+			"effect": "Decline optional binder exposure without losing standing.",
+			"tradeoff": "Forfeit that binder's premium and outside file opportunity.",
+		},
+		{
+			"id": &"treasury_bridge",
+			"label": "USE TREASURY HEADROOM",
+			"available": int(treasury.get("credit_headroom_cents", 0)) > 0,
+			"effect": "Vendor and interest shortfalls draw automatically at close.",
+			"tradeoff": "Credit never pays wages and opening principal accrues next-shift interest.",
+		},
+		{
+			"id": &"downsize",
+			"label": "RELEASE AN IDLE PERCH",
+			"available": has_idle_release_candidate,
+			"effect": "Reduce the next shift's wage and feed obligation.",
+			"tradeoff": "Pay severance now and permanently surrender productive capacity.",
+		},
+		{
+			"id": &"feed_hedge",
+			"label": "AUTHORIZE PROVISIONS",
+			"available": (
+				planning_open
+				and int(procurement.get("level", 0)) > 0
+				and int(procurement.get("orders_used_today", 0))
+					< int(procurement.get("order_limit", 1))
+			),
+			"effect": "Replace future seasonal spot exposure with one disclosed lot.",
+			"tradeoff": "Cash is paid now; finite bins and expiry can turn excess stock into waste.",
+		},
+	]
+	return rows
 
 
 func _projected_spendable_after_obligation_change_cents(
@@ -6233,28 +8633,40 @@ func apply_senior_quarter_policy(policy_id: StringName) -> Dictionary:
 				if not worker.employed:
 					continue
 				var before_worker := _senior_worker_effect_snapshot(worker)
-				worker.morale = clampf(worker.morale + 6.0, 0.0, 100.0)
-				worker.stress = clampf(worker.stress - 6.0, 0.0, 100.0)
-				worker.fatigue = clampf(worker.fatigue - 6.0, 0.0, 100.0)
+				# One Dividend governs three full shifts. The original eighteen-point
+				# recovery could clear the generic Standard Book, but the dedicated
+				# Flock Accord remained mathematically unreachable once normal fatigue
+				# compounded across a full year. Thirty-four makes the expensive care policy
+				# a real recovery tool while quota relief and a farmer-favor penalty
+				# preserve its strategic cost.
+				worker.morale = clampf(worker.morale + 34.0, 0.0, 100.0)
+				worker.stress = clampf(worker.stress - 34.0, 0.0, 100.0)
+				worker.fatigue = clampf(worker.fatigue - 34.0, 0.0, 100.0)
 				worker.manager_trust = clampf(worker.manager_trust + 6.0, 0.0, 100.0)
 				worker.grievance = clampf(worker.grievance - 6.0, 0.0, 100.0)
 				worker_effects.append(_senior_worker_effect_receipt(worker, before_worker))
 			solidarity = clampf(solidarity + 10.0, 0.0, 100.0)
-			executive_confidence = clampf(executive_confidence - 6.0, 0.0, 100.0)
+			executive_confidence = clampf(executive_confidence - 4.0, 0.0, 100.0)
 			quota_target = clampi(quota_target - 1, 1, 10_000)
 			outcome = "The flock dividend was distributed. The farmer has requested a narrower definition of morale."
 		&"harvest_forecast":
-			revenue_cents += 2400
-			executive_confidence = clampf(executive_confidence + 8.0, 0.0, 100.0)
-			quota_target = clampi(quota_target + 3, 1, 10_000)
-			compliance = clampf(compliance - 5.0, 0.0, 100.0)
+			revenue_cents += 6000
+			# Two measured four-Forecast advanced years showed the compounding
+			# problem: the original +10 / +3 stress / -4 trust / +5 grievance route
+			# collapsed welfare to zero and reached only 74% of credited harvest;
+			# +20 with reduced harm recovered 23% more credit but still missed the
+			# frozen target by 3.6% and favor by six. Forecast remains an ugly labor
+			# trade through higher quota, lower compliance, trust, and grievance,
+			# but no longer adds direct strain that defeats its own production Book.
+			executive_confidence = clampf(executive_confidence + 24.0, 0.0, 100.0)
+			quota_target = clampi(quota_target + 2, 1, 10_000)
+			compliance = clampf(compliance - 4.0, 0.0, 100.0)
 			for worker in workers:
 				if not worker.employed:
 					continue
 				var before_worker := _senior_worker_effect_snapshot(worker)
-				worker.stress = clampf(worker.stress + 4.0, 0.0, 100.0)
-				worker.manager_trust = clampf(worker.manager_trust - 5.0, 0.0, 100.0)
-				worker.grievance = clampf(worker.grievance + 6.0, 0.0, 100.0)
+				worker.manager_trust = clampf(worker.manager_trust - 1.0, 0.0, 100.0)
+				worker.grievance = clampf(worker.grievance + 1.0, 0.0, 100.0)
 				worker_effects.append(_senior_worker_effect_receipt(worker, before_worker))
 			outcome = "Management filed next quarter's harvest before the hens produced it."
 
@@ -6458,6 +8870,87 @@ func staffing_catalog() -> Array[Dictionary]:
 	return catalog
 
 
+func internship_program_seat_limit() -> int:
+	return clampi(
+		InternshipProgramStateScript.BASE_SEAT_LIMIT
+			+ mini(1, maxi(0, facility_level(TRAINING_ROOST_ID))),
+		InternshipProgramStateScript.BASE_SEAT_LIMIT,
+		InternshipProgramStateScript.MAX_SEAT_LIMIT,
+	)
+
+
+func internship_program_snapshot() -> Dictionary:
+	return _internship_program.snapshot(
+		day,
+		spendable_fund_cents(),
+		staffing_planning_open(),
+		internship_program_seat_limit(),
+	)
+
+
+func onboard_intern(candidate_id: StringName) -> Dictionary:
+	var result := _internship_program.onboard(
+		candidate_id,
+		day,
+		spendable_fund_cents(),
+		staffing_planning_open(),
+		internship_program_seat_limit(),
+	)
+	return _apply_internship_action(result)
+
+
+func assign_intern(candidate_id: StringName, assignment_id: StringName) -> Dictionary:
+	var result := _internship_program.assign(
+		candidate_id,
+		assignment_id,
+		day,
+		staffing_planning_open(),
+	)
+	return _apply_internship_action(result)
+
+
+func resolve_intern_review(
+	candidate_id: StringName,
+	resolution_id: StringName,
+) -> Dictionary:
+	var result := _internship_program.resolve_review(
+		candidate_id,
+		resolution_id,
+		day,
+		spendable_fund_cents(),
+		staffing_planning_open(),
+	)
+	if bool(result.get("accepted", false)):
+		match resolution_id:
+			&"recommendation_letter":
+				compliance = minf(100.0, compliance + 1.0)
+			&"paid_fellowship":
+				compliance = minf(100.0, compliance + 2.0)
+				solidarity = minf(100.0, solidarity + 2.0)
+				executive_confidence = maxf(0.0, executive_confidence - 1.0)
+	return _apply_internship_action(result)
+
+
+func _apply_internship_action(result: Dictionary) -> Dictionary:
+	if not bool(result.get("accepted", false)):
+		return result
+	var cost_cents := maxi(0, int(result.get("cost_cents", 0)))
+	if cost_cents > revenue_cents:
+		return {
+			"accepted": false,
+			"action_id": result.get("action_id", &"internship"),
+			"candidate_id": result.get("candidate_id", &""),
+			"reason": "The Feed Fund changed before the internship filing completed.",
+		}
+	revenue_cents -= cost_cents
+	result["fund_after_cents"] = revenue_cents
+	result["program"] = internship_program_snapshot()
+	internship_action_resolved.emit(result.duplicate(true))
+	announcement_posted.emit(String(result.get("outcome", "Internship filing completed.")))
+	snapshot_changed.emit(snapshot())
+	return result
+
+
 func capacity_upgrade_status() -> Dictionary:
 	var planning_open := staffing_planning_open()
 	var cost := _capacity_upgrade_cost_cents()
@@ -6600,6 +9093,7 @@ func hire_worker(worker_id: int) -> Dictionary:
 	worker.hire_count += 1
 	worker.employment_start_day = day
 	worker.assigned_lane = AUTO_ASSIGNMENT
+	worker.manually_routed = false
 	worker.current_claim = null
 	worker.work_state = ChickenState.WorkState.IDLE
 	worker.work_progress = 0.0
@@ -6686,6 +9180,7 @@ func release_worker(worker_id: int) -> Dictionary:
 	worker.available_for_hire_day = mini(10000, day + 1)
 	worker.employment_start_day = 0
 	worker.assigned_lane = AUTO_ASSIGNMENT
+	worker.manually_routed = false
 	worker.current_claim = null
 	worker.work_state = ChickenState.WorkState.IDLE
 	worker.work_progress = 0.0
@@ -6797,7 +9292,14 @@ func _capacity_upgrade_cost_cents() -> int:
 
 
 func _peck_assist_charges_available() -> int:
-	return clampi(PECK_ASSIST_LIMIT - peck_assists_used_today, 0, PECK_ASSIST_LIMIT)
+	return (
+		clampi(PECK_ASSIST_LIMIT - peck_assists_used_today, 0, PECK_ASSIST_LIMIT)
+		+ routing_momentum_peck_recharge_bank
+	)
+
+
+func _peck_assist_charge_limit() -> int:
+	return PECK_ASSIST_LIMIT + routing_momentum_peck_recharge_bank
 
 
 func _pending_peck_assist_delivery_snapshot() -> Array[Dictionary]:
@@ -6819,6 +9321,14 @@ func _settled_peck_assist_delivery_snapshot() -> Array[int]:
 	return claim_ids
 
 
+func _manager_action_save_data() -> Dictionary:
+	var result := last_manager_action.duplicate(true)
+	for id_field in ["action_id", "manager_id", "choice_id", "replaced_manager_id"]:
+		if result.has(id_field):
+			result[id_field] = String(result[id_field])
+	return result
+
+
 func export_save_state() -> Dictionary:
 	## This is the authoritative simulation checkpoint. It intentionally contains
 	## only primitives so the campaign save remains portable to Web builds.
@@ -6828,6 +9338,9 @@ func export_save_state() -> Dictionary:
 	_feed_procurement.begin_day(day)
 	_farmgate_dispatch.begin_day(day)
 	_campus_portfolio.begin_day(day, _campus_portfolio_context())
+	# Administrative/test fixtures may set permanent facility ownership directly.
+	# Materialize every already-funded post before serializing that authority.
+	_ensure_manager_posts_for_office_level()
 	var saved_queues: Dictionary = {}
 	for lane in CLAIM_LANES:
 		var saved_lane: Array[Dictionary] = []
@@ -6877,6 +9390,13 @@ func export_save_state() -> Dictionary:
 	var saved_assist_chains: Dictionary = {}
 	for claim_id in _assist_chain_by_claim_id:
 		saved_assist_chains[str(claim_id)] = int(_assist_chain_by_claim_id[claim_id])
+	var saved_routing_free_assist_ids: Array[int] = []
+	for claim_id in _routing_momentum_free_assist_claim_ids:
+		saved_routing_free_assist_ids.append(int(claim_id))
+	saved_routing_free_assist_ids.sort()
+	var saved_incident_bag: Array[String] = []
+	for incident_id in _incident_bag:
+		saved_incident_bag.append(String(incident_id))
 	return {
 		"state_version": SAVE_STATE_VERSION,
 		"day": day,
@@ -6904,8 +9424,13 @@ func export_save_state() -> Dictionary:
 		"active_directive_id": String(active_directive_id),
 		"pending_decision": pending_decision.duplicate(true),
 		"incidents_resolved_today": incidents_resolved_today,
+		"incident_response_history": incident_response_history.duplicate(true),
+		"incident_pivot_mastery_receipts": incident_pivot_mastery_receipts.duplicate(true),
 		"upgrade_levels": saved_upgrades,
 		"first_clutch_reinvestment": first_clutch_reinvestment.duplicate(true),
+		"active_playbook": active_playbook.duplicate(true),
+		"hero_case_history": hero_case_history.duplicate(true),
+		"rival_response_history": rival_response_history.duplicate(true),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
 		"requisition_spend_total_cents": requisition_spend_total_cents,
 		"orientation_procurement_match_today_cents": orientation_procurement_match_today_cents,
@@ -6914,11 +9439,19 @@ func export_save_state() -> Dictionary:
 		"lane_processed_today": saved_lane_today,
 		"campaign_unlocks": saved_unlocks,
 		"owned_facilities": saved_facilities,
+		"manager_roster_version": MANAGER_ROSTER_VERSION,
+		"manager_roster": manager_roster.duplicate(true),
+		"last_manager_action": _manager_action_save_data(),
+		"management_reports_today": management_reports_today,
+		"management_reports_total": management_reports_total,
+		"management_visibility_today": management_visibility_today,
+		"internship_program_state": _internship_program.to_save_data(),
 		"feed_procurement_state": _feed_procurement.to_save_data(),
 		"harvest_credit_state": _harvest_credit.to_save_data(),
 		"farmgate_dispatch_state": _farmgate_dispatch.to_save_data(),
 		"farm_treasury_state": _farm_treasury.to_save_data(),
 		"pinned_capital_plan_id": String(pinned_capital_plan_id),
+		"pinned_economic_watch_id": String(pinned_economic_watch_id),
 		"last_facility_purchase_receipt": last_facility_purchase_receipt.duplicate(true),
 		"facility_commissioning_history": facility_commissioning_history.duplicate(true),
 		"campus_expansion": campus_expansion_state.duplicate(true),
@@ -6946,6 +9479,7 @@ func export_save_state() -> Dictionary:
 		"market_contract_premium_total_cents": market_contract_premium_total_cents,
 		"market_contract_breach_today_cents": market_contract_breach_today_cents,
 		"market_contract_breach_total_cents": market_contract_breach_total_cents,
+		"market_pricing_outcomes": market_pricing_outcomes.duplicate(true),
 		"office_capacity": office_capacity,
 		"wage_arrears_cents": wage_arrears_cents,
 		"last_staffing_action": last_staffing_action.duplicate(true),
@@ -6984,6 +9518,15 @@ func export_save_state() -> Dictionary:
 		"last_peck_assist_delivery": last_peck_assist_delivery.duplicate(true),
 		"priority_credit_today_cents": priority_credit_today_cents,
 		"priority_credit_total_cents": priority_credit_total_cents,
+		"routing_momentum_chain": routing_momentum_chain,
+		"best_routing_momentum_chain": best_routing_momentum_chain,
+		"routing_momentum_peck_recharge_bank": routing_momentum_peck_recharge_bank,
+		"routing_momentum_peck_recharges_used_today": routing_momentum_peck_recharges_used_today,
+		"routing_momentum_golden_charges": routing_momentum_golden_charges,
+		"routing_momentum_golden_target_claim_id": routing_momentum_golden_target_claim_id,
+		"routing_momentum_golden_target_worker_id": routing_momentum_golden_target_worker_id,
+		"last_routing_dispatch": last_routing_dispatch.duplicate(true),
+		"routing_momentum_free_assist_claim_ids": saved_routing_free_assist_ids,
 		"assisted_claim_ids": saved_assisted_claim_ids,
 		"missed_assist_claim_ids": saved_missed_claim_ids,
 		"assist_quality_modifiers": saved_assist_quality,
@@ -6995,6 +9538,10 @@ func export_save_state() -> Dictionary:
 		"rework_total_created": _rework_total_created,
 		"decision_serial": _decision_serial,
 		"incident_slot": _incident_slot,
+		"career_seed": _career_seed,
+		"incident_rng_state": str(_incident_rng.state),
+		"incident_bag": saved_incident_bag,
+		"last_standard_incident_id": String(_last_standard_incident_id),
 		"rng_state": str(_rng.state),
 		"claim_rng_state": str(_claim_rng.state),
 		"decision_modifiers": {
@@ -7037,6 +9584,73 @@ func restore_save_state(data: Dictionary) -> bool:
 	var saved_day := int(data.get("day", 1))
 	if saved_day < 1 or saved_day > 9999:
 		return false
+	var restored_internship_program = InternshipProgramStateScript.new()
+	if not restored_internship_program.restore_save_data(
+		data.get("internship_program_state", null),
+		saved_day,
+	):
+		return false
+	if not _is_integral_number(data.get("career_seed", null)):
+		return false
+	var restored_career_seed := int(data.get("career_seed", 0))
+	if restored_career_seed < 1 or restored_career_seed > 2_000_000_000:
+		return false
+	var incident_rng_value: Variant = data.get("incident_rng_state", null)
+	if typeof(incident_rng_value) != TYPE_STRING or not String(incident_rng_value).is_valid_int():
+		return false
+	var incident_bag_value: Variant = data.get("incident_bag", null)
+	if not incident_bag_value is Array or (incident_bag_value as Array).size() > INCIDENT_ORDER.size() - 1:
+		return false
+	var restored_incident_bag: Array[StringName] = []
+	var seen_incident_ids: Dictionary[StringName, bool] = {}
+	for incident_value in incident_bag_value as Array:
+		if typeof(incident_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+			return false
+		var incident_id := StringName(String(incident_value))
+		if incident_id not in INCIDENT_ORDER or seen_incident_ids.has(incident_id):
+			return false
+		seen_incident_ids[incident_id] = true
+		restored_incident_bag.append(incident_id)
+	var last_incident_value: Variant = data.get("last_standard_incident_id", null)
+	if typeof(last_incident_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+		return false
+	var restored_last_standard_incident_id := StringName(String(last_incident_value))
+	if (
+		restored_last_standard_incident_id != &""
+		and restored_last_standard_incident_id not in INCIDENT_ORDER
+	):
+		return false
+	if (
+		(restored_last_standard_incident_id == &"" and not restored_incident_bag.is_empty())
+		or seen_incident_ids.has(restored_last_standard_incident_id)
+	):
+		return false
+	var response_history_validation := _validated_incident_response_history(
+		data.get("incident_response_history", null),
+		saved_day,
+	)
+	if not bool(response_history_validation.get("valid", false)):
+		return false
+	var restored_incident_response_history: Array[Dictionary] = []
+	for response_value in response_history_validation.get("history", []):
+		restored_incident_response_history.append((response_value as Dictionary).duplicate(true))
+	var pivot_mastery_validation := _validated_incident_pivot_mastery_receipts(
+		data.get("incident_pivot_mastery_receipts", null),
+		saved_day,
+	)
+	if not bool(pivot_mastery_validation.get("valid", false)):
+		return false
+	var restored_pivot_mastery_receipts: Array[Dictionary] = []
+	var restored_pivot_pairs: Dictionary[StringName, bool] = {}
+	for receipt_value in pivot_mastery_validation.get("receipts", []):
+		var receipt := (receipt_value as Dictionary).duplicate(true)
+		restored_pivot_mastery_receipts.append(receipt)
+		restored_pivot_pairs[StringName(receipt.get("pair_id", &""))] = true
+	for derived_receipt: Dictionary in _incident_pivot_receipts_from_history(
+		restored_incident_response_history
+	):
+		if not restored_pivot_pairs.has(StringName(derived_receipt.get("pair_id", &""))):
+			return false
 	if not _is_integral_number(data.get("shift_phase", null)):
 		return false
 	var saved_shift_phase := int(data.get("shift_phase", -1))
@@ -7087,6 +9701,31 @@ func restore_save_state(data: Dictionary) -> bool:
 	var restored_first_clutch_reinvestment := (
 		validated_reinvestment.get("record", {}) as Dictionary
 	)
+	var active_playbook_validation := _validated_active_playbook(
+		data.get("active_playbook", null),
+		saved_day,
+		worker_data.size(),
+	)
+	if not bool(active_playbook_validation.get("valid", false)):
+		return false
+	var restored_active_playbook := (
+		active_playbook_validation.get("record", {}) as Dictionary
+	)
+	var hero_history_validation := _validated_hero_case_history(
+		data.get("hero_case_history", []),
+		saved_day,
+		worker_data.size(),
+	)
+	if not bool(hero_history_validation.get("valid", false)):
+		return false
+	var restored_hero_case_history := hero_history_validation.get("history", []) as Array[Dictionary]
+	var rival_history_validation := _validated_rival_response_history(
+		data.get("rival_response_history", []),
+		saved_day,
+	)
+	if not bool(rival_history_validation.get("valid", false)):
+		return false
+	var restored_rival_response_history := rival_history_validation.get("history", []) as Array[Dictionary]
 	var reinvestment_match_used := int(
 		restored_first_clutch_reinvestment.get("procurement_match_used_cents", 0)
 	)
@@ -7118,6 +9757,38 @@ func restore_save_state(data: Dictionary) -> bool:
 	)
 	if restored_owned_facilities.size() != FACILITY_ORDER.size():
 		return false
+	var restored_manager_roster := _validated_manager_roster(
+		data.get("manager_roster", null),
+		int(restored_owned_facilities.get(ROOSTER_OPERATIONS_OFFICE_ID, 0)),
+	)
+	if restored_manager_roster.is_empty():
+		return false
+	for management_field in [
+		"management_reports_today", "management_reports_total", "management_visibility_today",
+	]:
+		if not _is_integral_number(data.get(management_field, null)):
+			return false
+	var restored_reports_today := int(data.get("management_reports_today", -1))
+	var restored_reports_total := int(data.get("management_reports_total", -1))
+	var restored_visibility_today := int(data.get("management_visibility_today", -1))
+	if (
+		restored_reports_today < 0 or restored_reports_today > restored_manager_roster.size()
+		or restored_reports_total < restored_reports_today or restored_reports_total > 2_000_000_000
+		or restored_visibility_today < 0 or restored_visibility_today > restored_manager_roster.size()
+	):
+		return false
+	var restored_last_manager_action_value: Variant = data.get("last_manager_action", {})
+	if not restored_last_manager_action_value is Dictionary:
+		return false
+	var restored_last_manager_action := (restored_last_manager_action_value as Dictionary).duplicate(true)
+	if not restored_last_manager_action.is_empty():
+		for id_field in ["action_id", "manager_id", "choice_id", "replaced_manager_id"]:
+			if restored_last_manager_action.has(id_field):
+				restored_last_manager_action[id_field] = StringName(String(restored_last_manager_action[id_field]))
+		restored_last_manager_action["day"] = int(restored_last_manager_action.get("day", 0))
+		for money_field in ["cost_cents", "fund_before_cents", "fund_after_cents"]:
+			if restored_last_manager_action.has(money_field):
+				restored_last_manager_action[money_field] = int(restored_last_manager_action[money_field])
 	var saved_unlock_values: Variant = data.get("campaign_unlocks", {})
 	if not saved_unlock_values is Dictionary:
 		return false
@@ -7448,6 +10119,15 @@ func restore_save_state(data: Dictionary) -> bool:
 	)
 	if not bool(restored_capital_records.get("valid", false)):
 		return false
+	var restored_economic_watch_value: Variant = data.get(
+		"pinned_economic_watch_id",
+		"auto",
+	)
+	if typeof(restored_economic_watch_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+		return false
+	var restored_economic_watch_id := StringName(String(restored_economic_watch_value))
+	if restored_economic_watch_id not in ECONOMIC_WATCH_ORDER:
+		return false
 	var intake_fields := [
 		"intake_rejections_today",
 		"intake_rejections_total",
@@ -7498,6 +10178,24 @@ func restore_save_state(data: Dictionary) -> bool:
 	var restored_contract_premium_total := int(data.get("market_contract_premium_total_cents", -1))
 	var restored_contract_breach_today := int(data.get("market_contract_breach_today_cents", -1))
 	var restored_contract_breach_total := int(data.get("market_contract_breach_total_cents", -1))
+	var restored_pricing_outcomes: Dictionary = {}
+	var pricing_outcomes_value: Variant = data.get("market_pricing_outcomes", {})
+	if not pricing_outcomes_value is Dictionary:
+		return false
+	var pricing_success_total := 0
+	var pricing_breach_total := 0
+	for outcome_key in MARKET_PRICING_OUTCOME_KEYS:
+		var outcome_value: Variant = (pricing_outcomes_value as Dictionary).get(outcome_key, 0)
+		if not _is_integral_number(outcome_value):
+			return false
+		var outcome_count := int(outcome_value)
+		if outcome_count < 0 or outcome_count > 2_000_000_000:
+			return false
+		restored_pricing_outcomes[outcome_key] = outcome_count
+		if outcome_key.ends_with("_success"):
+			pricing_success_total += outcome_count
+		else:
+			pricing_breach_total += outcome_count
 	if (
 		restored_contracts_signed < 0 or restored_contracts_signed > 2_000_000_000
 		or restored_contracts_succeeded < 0
@@ -7513,6 +10211,8 @@ func restore_save_state(data: Dictionary) -> bool:
 		or restored_contract_breach_today < 0
 		or restored_contract_breach_today > restored_contract_breach_total
 		or restored_contract_breach_total > 2_000_000_000
+		or pricing_success_total > restored_contracts_succeeded
+		or pricing_breach_total > restored_contracts_breached
 	):
 		return false
 	if not restored_campus_history.is_empty():
@@ -7634,6 +10334,40 @@ func restore_save_state(data: Dictionary) -> bool:
 			)
 		):
 			return false
+		if pricing_success_total + pricing_breach_total == settled_contract_total:
+			var last_pricing_id := StringName(restored_last_contract.get(
+				"pricing_profile_id",
+				&"mutual_rate",
+			))
+			var last_pricing_key := "%s_%s" % [
+				String(last_pricing_id),
+				"success" if last_success else "breach",
+			]
+			if int(restored_pricing_outcomes.get(last_pricing_key, 0)) <= 0:
+				return false
+			var pricing_before_outcomes := restored_pricing_outcomes.duplicate(true)
+			pricing_before_outcomes[last_pricing_key] = (
+				int(pricing_before_outcomes[last_pricing_key]) - 1
+			)
+			var expected_reach_before := _market_reach_for_outcomes(pricing_before_outcomes)
+			var expected_reach_after := _market_reach_for_outcomes(restored_pricing_outcomes)
+			var expected_satisfaction_before := _claimant_satisfaction_for_outcomes(
+				pricing_before_outcomes
+			)
+			var expected_satisfaction_after := _claimant_satisfaction_for_outcomes(
+				restored_pricing_outcomes
+			)
+			if (
+				int(restored_last_contract.get("market_reach_before", -1))
+				!= expected_reach_before
+				or int(restored_last_contract.get("market_reach_after", -1))
+				!= expected_reach_after
+				or int(restored_last_contract.get("claimant_satisfaction_before", -1))
+				!= expected_satisfaction_before
+				or int(restored_last_contract.get("claimant_satisfaction_after", -1))
+				!= expected_satisfaction_after
+			):
+				return false
 	if restored_contract_premium_today > 0 and (
 		restored_last_contract.is_empty()
 		or int(restored_last_contract.get("day", 0)) != saved_day
@@ -7886,6 +10620,12 @@ func restore_save_state(data: Dictionary) -> bool:
 	for assist_integer_field in [
 		"peck_assists_used_today", "peck_assist_streak", "best_peck_assist_streak",
 		"priority_credit_today_cents", "priority_credit_total_cents",
+		"routing_momentum_chain", "best_routing_momentum_chain",
+		"routing_momentum_peck_recharge_bank",
+		"routing_momentum_peck_recharges_used_today",
+		"routing_momentum_golden_charges",
+		"routing_momentum_golden_target_claim_id",
+		"routing_momentum_golden_target_worker_id",
 	]:
 		if not _is_integral_number(data.get(assist_integer_field, null)):
 			return false
@@ -7894,6 +10634,13 @@ func restore_save_state(data: Dictionary) -> bool:
 	var restored_best_assist_streak := int(data.get("best_peck_assist_streak", -1))
 	var restored_priority_today := int(data.get("priority_credit_today_cents", -1))
 	var restored_priority_total := int(data.get("priority_credit_total_cents", -1))
+	var restored_routing_chain := int(data.get("routing_momentum_chain", -1))
+	var restored_best_routing_chain := int(data.get("best_routing_momentum_chain", -1))
+	var restored_routing_peck_bank := int(data.get("routing_momentum_peck_recharge_bank", -1))
+	var restored_routing_peck_uses := int(data.get("routing_momentum_peck_recharges_used_today", -1))
+	var restored_routing_golden_charges := int(data.get("routing_momentum_golden_charges", -1))
+	var restored_routing_golden_target_claim_id := int(data.get("routing_momentum_golden_target_claim_id", -2))
+	var restored_routing_golden_target_worker_id := int(data.get("routing_momentum_golden_target_worker_id", -2))
 	var restored_interventions_value: Variant = data.get(
 		"peck_assist_interventions_today",
 		restored_assist_uses,
@@ -7910,13 +10657,21 @@ func restore_save_state(data: Dictionary) -> bool:
 		restored_assist_uses < 0 or restored_assist_uses > PECK_ASSIST_LIMIT
 		or restored_interventions < 0 or restored_interventions > 9999
 		or restored_refunds < 0 or restored_refunds > restored_interventions
-		or restored_interventions - restored_refunds != restored_assist_uses
+		or restored_interventions - restored_refunds - restored_routing_peck_uses != restored_assist_uses
 		or restored_assist_streak < 0 or restored_assist_streak > 9999
 		or restored_best_assist_streak < restored_assist_streak
 		or restored_best_assist_streak > 9999
 		or restored_priority_today < 0
 		or restored_priority_total < restored_priority_today
 		or restored_priority_total > 2_000_000_000
+		or restored_routing_chain < 0 or restored_routing_chain > 9999
+		or restored_best_routing_chain < restored_routing_chain
+		or restored_best_routing_chain > 9999
+		or restored_routing_peck_bank not in [0, 1]
+		or restored_routing_peck_uses < 0 or restored_routing_peck_uses > restored_interventions
+		or restored_routing_golden_charges not in [0, 1]
+		or restored_routing_golden_target_claim_id < -1
+		or restored_routing_golden_target_worker_id < -1
 	):
 		return false
 	var restored_last_assist_value: Variant = data.get("last_peck_assist", {})
@@ -7933,6 +10688,11 @@ func restore_save_state(data: Dictionary) -> bool:
 		[],
 	)
 	var restored_last_delivery_value: Variant = data.get("last_peck_assist_delivery", {})
+	var restored_last_routing_dispatch_value: Variant = data.get("last_routing_dispatch", {})
+	var restored_routing_free_assist_ids_value: Variant = data.get(
+		"routing_momentum_free_assist_claim_ids",
+		[],
+	)
 	if (
 		not restored_last_assist_value is Dictionary
 		or not restored_assisted_ids_value is Array
@@ -7942,6 +10702,8 @@ func restore_save_state(data: Dictionary) -> bool:
 		or not restored_pending_deliveries_value is Array
 		or not restored_settled_delivery_ids_value is Array
 		or not restored_last_delivery_value is Dictionary
+		or not restored_last_routing_dispatch_value is Dictionary
+		or not restored_routing_free_assist_ids_value is Array
 	):
 		return false
 	var restored_last_assist := (restored_last_assist_value as Dictionary).duplicate(true)
@@ -7952,6 +10714,9 @@ func restore_save_state(data: Dictionary) -> bool:
 	if not _is_valid_peck_assist_delivery_receipt(restored_last_delivery, saved_day):
 		return false
 	restored_last_delivery = _normalized_peck_assist_delivery_receipt(restored_last_delivery)
+	var restored_last_routing_dispatch := (
+		(restored_last_routing_dispatch_value as Dictionary).duplicate(true)
+	)
 
 	var seen_claim_ids: Dictionary[int, bool] = {}
 	var personnel_actions_by_day: Dictionary[int, int] = {}
@@ -8115,6 +10880,27 @@ func restore_save_state(data: Dictionary) -> bool:
 		or restored_active_count > saved_office_capacity
 	):
 		return false
+	var restored_golden_target_valid := (
+		restored_routing_golden_charges == 1
+		and restored_routing_golden_target_worker_id >= 0
+		and restored_routing_golden_target_worker_id < restored_workers.size()
+		and restored_workers[restored_routing_golden_target_worker_id].current_claim != null
+		and restored_workers[restored_routing_golden_target_worker_id].current_claim.id
+		== restored_routing_golden_target_claim_id
+	)
+	if (
+		(restored_routing_golden_target_claim_id == -1)
+		!= (restored_routing_golden_target_worker_id == -1)
+		or (
+			restored_routing_golden_target_claim_id >= 0
+			and not restored_golden_target_valid
+		)
+		or (
+			restored_routing_golden_charges == 0
+			and restored_routing_golden_target_claim_id != -1
+		)
+	):
+		return false
 	for module_id: StringName in CampusPortfolioStateScript.MODULE_ORDER:
 		var restored_module_value: Variant = restored_campus_portfolio.modules.get(
 			String(module_id),
@@ -8183,6 +10969,12 @@ func restore_save_state(data: Dictionary) -> bool:
 	if not pending_value is Dictionary or not _is_valid_pending_flock_petition(pending_value, saved_day):
 		return false
 	var pending_source := pending_value as Dictionary
+	var pending_incident_id := StringName(String(pending_source.get("id", "")))
+	if (
+		pending_incident_id in INCIDENT_ORDER
+		and restored_last_standard_incident_id != pending_incident_id
+	):
+		return false
 	var active_directive_value: Variant = data.get("active_directive_id", "")
 	if typeof(active_directive_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
 		return false
@@ -8369,6 +11161,18 @@ func restore_save_state(data: Dictionary) -> bool:
 		):
 			return false
 		restored_missed_ids[missed_claim_id] = true
+	var restored_routing_free_assist_ids: Dictionary[int, bool] = {}
+	for claim_id_value in (restored_routing_free_assist_ids_value as Array):
+		if not _is_integral_number(claim_id_value):
+			return false
+		var free_claim_id := int(claim_id_value)
+		if (
+			free_claim_id < 1
+			or not restored_assisted_ids.has(free_claim_id)
+			or restored_routing_free_assist_ids.has(free_claim_id)
+		):
+			return false
+		restored_routing_free_assist_ids[free_claim_id] = true
 	var restored_assist_quality: Dictionary[int, float] = {}
 	for key_value in (restored_assist_quality_value as Dictionary):
 		var quality_key_text := String(key_value)
@@ -8434,7 +11238,8 @@ func restore_save_state(data: Dictionary) -> bool:
 	if (
 		restored_assist_quality.size() != restored_assisted_ids.size()
 		or restored_assist_chains.size() != restored_assisted_ids.size()
-		or restored_assisted_ids.size() > restored_assist_uses
+		or restored_assisted_ids.size() > restored_assist_uses + restored_routing_peck_uses
+		or restored_routing_free_assist_ids.size() > restored_routing_peck_uses
 		or restored_pending_deliveries.size() > restored_assist_uses
 		or restored_settled_delivery_ids.size() != restored_refunds
 		or (restored_refunds == 0 and not restored_last_delivery.is_empty())
@@ -8453,11 +11258,20 @@ func restore_save_state(data: Dictionary) -> bool:
 	_pending_rework = restored_rework
 	upgrade_levels = restored_upgrade_levels
 	first_clutch_reinvestment = restored_first_clutch_reinvestment
+	active_playbook = restored_active_playbook.duplicate(true)
+	hero_case_history = restored_hero_case_history.duplicate(true)
+	rival_response_history = restored_rival_response_history.duplicate(true)
 	requisition_spend_today_cents = restored_requisition_spend_today
 	requisition_spend_total_cents = restored_requisition_spend_total
 	orientation_procurement_match_today_cents = restored_orientation_match_today
 	orientation_procurement_match_total_cents = restored_orientation_match_total
 	owned_facilities = restored_owned_facilities
+	manager_roster = restored_manager_roster
+	last_manager_action = restored_last_manager_action
+	management_reports_today = restored_reports_today
+	management_reports_total = restored_reports_total
+	management_visibility_today = restored_visibility_today
+	_internship_program = restored_internship_program
 	_feed_procurement = restored_feed_procurement
 	_harvest_credit = restored_harvest_credit
 	_farmgate_dispatch = restored_farmgate_dispatch
@@ -8465,6 +11279,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	campus_expansion_state = restored_campus_expansion
 	_campus_portfolio = restored_campus_portfolio
 	pinned_capital_plan_id = StringName(restored_capital_records.get("pinned_id", &""))
+	pinned_economic_watch_id = restored_economic_watch_id
 	last_facility_purchase_receipt = (
 		restored_capital_records.get("last", {}) as Dictionary
 	).duplicate(true)
@@ -8494,6 +11309,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	market_contract_premium_total_cents = restored_contract_premium_total
 	market_contract_breach_today_cents = restored_contract_breach_today
 	market_contract_breach_total_cents = restored_contract_breach_total
+	market_pricing_outcomes = restored_pricing_outcomes
 	office_capacity = saved_office_capacity
 	wage_arrears_cents = saved_wage_arrears
 	last_staffing_action = restored_staffing_action
@@ -8532,12 +11348,21 @@ func restore_save_state(data: Dictionary) -> bool:
 	last_peck_assist_delivery = restored_last_delivery
 	priority_credit_today_cents = restored_priority_today
 	priority_credit_total_cents = restored_priority_total
+	routing_momentum_chain = restored_routing_chain
+	best_routing_momentum_chain = restored_best_routing_chain
+	routing_momentum_peck_recharge_bank = restored_routing_peck_bank
+	routing_momentum_peck_recharges_used_today = restored_routing_peck_uses
+	routing_momentum_golden_charges = restored_routing_golden_charges
+	routing_momentum_golden_target_claim_id = restored_routing_golden_target_claim_id
+	routing_momentum_golden_target_worker_id = restored_routing_golden_target_worker_id
+	last_routing_dispatch = restored_last_routing_dispatch
 	_assisted_claim_ids = restored_assisted_ids
 	_missed_assist_claim_ids = restored_missed_ids
 	_assist_quality_modifiers = restored_assist_quality
 	_assist_chain_by_claim_id = restored_assist_chains
 	_pending_peck_assist_deliveries = restored_pending_deliveries
 	_settled_peck_assist_delivery_ids = restored_settled_delivery_ids
+	_routing_momentum_free_assist_claim_ids = restored_routing_free_assist_ids
 	day = clampi(int(data.get("day", 1)), 1, 9999)
 	minute_of_day = clampi(int(data.get("minute_of_day", SHIFT_START_MINUTE)), SHIFT_START_MINUTE, SHIFT_END_MINUTE)
 	claims_processed = maxi(0, int(data.get("claims_processed", 0)))
@@ -8563,6 +11388,8 @@ func restore_save_state(data: Dictionary) -> bool:
 	active_directive_id = restored_active_directive
 	pending_decision = _decision_from_save_data(data.get("pending_decision", {}) as Dictionary)
 	incidents_resolved_today = clampi(int(data.get("incidents_resolved_today", 0)), 0, INCIDENT_MINUTES.size())
+	incident_response_history = restored_incident_response_history
+	incident_pivot_mastery_receipts = restored_pivot_mastery_receipts
 
 	var saved_lane_totals := data.get("lane_processed_totals", {}) as Dictionary
 	var saved_lane_today := data.get("lane_processed_today", {}) as Dictionary
@@ -8578,6 +11405,10 @@ func restore_save_state(data: Dictionary) -> bool:
 	_rework_total_created = maxi(0, int(data.get("rework_total_created", 0)))
 	_decision_serial = maxi(0, int(data.get("decision_serial", 0)))
 	_incident_slot = clampi(int(data.get("incident_slot", 0)), 0, INCIDENT_MINUTES.size())
+	_career_seed = restored_career_seed
+	_incident_rng.state = String(incident_rng_value).to_int()
+	_incident_bag.assign(restored_incident_bag)
+	_last_standard_incident_id = restored_last_standard_incident_id
 	_rng.state = String(data.get("rng_state", str(_rng.state))).to_int()
 	_claim_rng.state = String(data.get("claim_rng_state", str(_claim_rng.state))).to_int()
 	var modifiers := data.get("decision_modifiers", {}) as Dictionary
@@ -8593,6 +11424,7 @@ func restore_save_state(data: Dictionary) -> bool:
 	_incident_golden_modifier = clampf(float(modifiers.get("incident_golden_modifier", 0.0)), -0.25, 0.25)
 	_incident_feed_adjustment_cents = clampi(int(modifiers.get("incident_feed_adjustment_cents", 0)), -100000, 100000)
 	_pending_quota_adjustment = clampi(int(modifiers.get("pending_quota_adjustment", 0)), -100, 100)
+	_ensure_active_playbook()
 	_worker_at_workstation.clear()
 	for worker in workers:
 		_worker_at_workstation[worker.id] = false
@@ -9293,6 +12125,137 @@ func _migrate_save_state(source: Dictionary) -> Dictionary:
 				)
 				source_version = 23
 				migrated["state_version"] = source_version
+			23:
+				# v24 gives each career a persisted incident docket. A v23 career had
+				# the original fixed seed, so migration preserves that identity and
+				# derives a fresh independent incident stream without touching claims,
+				# workers, money, or the currently pending decision.
+				for docket_field in [
+					"career_seed",
+					"incident_rng_state",
+					"incident_bag",
+					"last_standard_incident_id",
+				]:
+					if migrated.has(docket_field):
+						if original_source_version == 23:
+							return {}
+						migrated.erase(docket_field)
+				var migrated_incident_rng := RandomNumberGenerator.new()
+				migrated_incident_rng.seed = 1701 + INCIDENT_DOCKET_SEED_OFFSET
+				var migrated_last_incident := &""
+				var migrated_pending_value: Variant = migrated.get("pending_decision", {})
+				if migrated_pending_value is Dictionary:
+					var migrated_pending_id := StringName(String(
+						(migrated_pending_value as Dictionary).get("id", "")
+					))
+					if migrated_pending_id in INCIDENT_ORDER:
+						migrated_last_incident = migrated_pending_id
+				migrated["career_seed"] = 1701
+				migrated["incident_rng_state"] = str(migrated_incident_rng.state)
+				migrated["incident_bag"] = []
+				migrated["last_standard_incident_id"] = String(migrated_last_incident)
+				source_version = 24
+				migrated["state_version"] = source_version
+			24:
+				# v25 makes the already-funded supervisor posts named and controllable.
+				# Legacy office levels receive the default post for each funded seat, so
+				# payroll, action capacity, cash, worker state, and chronology are unchanged.
+				var facilities_value: Variant = migrated.get("owned_facilities", null)
+				if not facilities_value is Dictionary:
+					return {}
+				var facilities := facilities_value as Dictionary
+				var rooster_level_value: Variant = facilities.get(
+					String(ROOSTER_OPERATIONS_OFFICE_ID), facilities.get(ROOSTER_OPERATIONS_OFFICE_ID, null)
+				)
+				if not _is_integral_number(rooster_level_value):
+					return {}
+				var roster_count := clampi(int(rooster_level_value) + 1, 1, 4)
+				var migrated_roster: Array[Dictionary] = []
+				for slot_index in roster_count:
+					migrated_roster.append(_new_manager_record(
+						MANAGER_DEFAULT_HIRE_ORDER[slot_index], slot_index, 1
+					))
+				migrated["manager_roster_version"] = MANAGER_ROSTER_VERSION
+				migrated["manager_roster"] = migrated_roster
+				migrated["last_manager_action"] = {}
+				migrated["management_reports_today"] = 0
+				migrated["management_reports_total"] = 0
+				migrated["management_visibility_today"] = 0
+				source_version = 25
+				migrated["state_version"] = source_version
+			25:
+				# v26 records only authored incident and response identifiers. A v25
+				# checkpoint has no trustworthy evidence of earlier choices, so migration
+				# starts with neutral case memory instead of inventing a history.
+				if migrated.has("incident_response_history"):
+					if original_source_version == 25:
+						return {}
+					migrated.erase("incident_response_history")
+				migrated["incident_response_history"] = []
+				source_version = 26
+				migrated["state_version"] = source_version
+			26:
+				# v27 files the first verified counterweight pivot in each connected
+				# incident pair. Authentic v26 response history can reconstruct those
+				# receipts exactly; a claimed v26 file may not smuggle future authority.
+				if migrated.has("incident_pivot_mastery_receipts"):
+					if original_source_version == 26:
+						return {}
+					migrated.erase("incident_pivot_mastery_receipts")
+				var migrated_history_value: Variant = migrated.get("incident_response_history", null)
+				if not migrated_history_value is Array:
+					return {}
+				migrated["incident_pivot_mastery_receipts"] = _incident_pivot_receipts_from_history(
+					migrated_history_value as Array
+				)
+				source_version = 27
+				migrated["state_version"] = source_version
+			27:
+				# v28 opens the Bright-Eyed Rotation with a neutral, empty cohort.
+				# Older careers gain no capacity, speed, fellow, or fabricated term
+				# history until the player explicitly files an internship.
+				if migrated.has("internship_program_state"):
+					if original_source_version == 27:
+						return {}
+					migrated.erase("internship_program_state")
+				migrated["internship_program_state"] = (
+					InternshipProgramStateScript.neutral_save_data()
+				)
+				source_version = 28
+				migrated["state_version"] = source_version
+			28:
+				# v29 makes the tray-dispatch skill chain authoritative. Earlier
+				# careers begin neutral; no routing judgment can be inferred safely.
+				for field in [
+					"routing_momentum_chain",
+					"best_routing_momentum_chain",
+					"routing_momentum_peck_recharge_bank",
+					"routing_momentum_peck_recharges_used_today",
+					"routing_momentum_golden_charges",
+				]:
+					if migrated.has(field):
+						if original_source_version == 28:
+							return {}
+						migrated.erase(field)
+					migrated[field] = 0
+				migrated["last_routing_dispatch"] = {}
+				migrated["routing_momentum_free_assist_claim_ids"] = []
+				source_version = 29
+				migrated["state_version"] = source_version
+			29:
+				# v30 binds the banked x5 reward to one active authoritative file.
+				# Existing careers keep the charge but wait for the next live claim.
+				for field in [
+					"routing_momentum_golden_target_claim_id",
+					"routing_momentum_golden_target_worker_id",
+				]:
+					if migrated.has(field):
+						if original_source_version == 29:
+							return {}
+						migrated.erase(field)
+					migrated[field] = -1
+				source_version = 30
+				migrated["state_version"] = source_version
 			_:
 				return {}
 	return migrated
@@ -9624,6 +12587,7 @@ func _active_market_contract_quote_matches(
 	expected: Dictionary,
 	legacy_terms_grandfathered: bool
 ) -> bool:
+	var has_pricing_terms := source.has("pricing_profile_id")
 	for field in [
 		"authored_service_window_minutes",
 		"service_window_minutes",
@@ -9655,6 +12619,38 @@ func _active_market_contract_quote_matches(
 			or int(source.get(field, -999999)) != int(expected.get(field, -999998))
 		):
 			return false
+	if has_pricing_terms:
+		for field in [
+			"pricing_premium_basis_points",
+			"pricing_premium_delta_cents",
+			"pricing_volume_delta",
+			"pricing_required_delta",
+			"pricing_required_reach",
+			"claimant_satisfaction_success_delta",
+			"claimant_satisfaction_breach_delta",
+			"market_reach_success_delta",
+			"market_reach_breach_delta",
+			"estimated_handling_cost_cents",
+			"estimated_margin_cents",
+			"estimated_margin_per_file_cents",
+		]:
+			if (
+				not _is_integral_number(source.get(field, null))
+				or int(source.get(field, -999999)) != int(expected.get(field, -999998))
+			):
+				return false
+		if (
+			source.has("pricing_required_satisfaction")
+			and (
+				not _is_integral_number(source.get("pricing_required_satisfaction", null))
+				or int(source.get("pricing_required_satisfaction", -1))
+				!= int(expected.get("pricing_required_satisfaction", -2))
+			)
+		):
+			return false
+		for field in ["pricing_profile_id", "pricing_label", "pricing_summary"]:
+			if String(source.get(field, "")) != String(expected.get(field, "")):
+				return false
 	for field in [
 		"quote_id", "season_id", "season_label", "clause_id", "clause_label",
 		"clause_summary", "clause_category", "category", "label", "summary",
@@ -9700,6 +12696,7 @@ func _market_contract_result_quote_matches(
 	expected: Dictionary,
 	legacy_terms_grandfathered: bool
 ) -> bool:
+	var has_pricing_terms := source.has("pricing_profile_id")
 	for field in [
 		"authored_service_window_minutes",
 		"service_window_minutes",
@@ -9728,6 +12725,38 @@ func _market_contract_result_quote_matches(
 			or int(source.get(field, -999999)) != int(expected.get(field, -999998))
 		):
 			return false
+	if has_pricing_terms:
+		for field in [
+			"pricing_premium_basis_points",
+			"pricing_premium_delta_cents",
+			"pricing_volume_delta",
+			"pricing_required_delta",
+			"pricing_required_reach",
+			"claimant_satisfaction_success_delta",
+			"claimant_satisfaction_breach_delta",
+			"market_reach_success_delta",
+			"market_reach_breach_delta",
+			"estimated_handling_cost_cents",
+			"estimated_margin_cents",
+			"estimated_margin_per_file_cents",
+		]:
+			if (
+				not _is_integral_number(source.get(field, null))
+				or int(source.get(field, -999999)) != int(expected.get(field, -999998))
+			):
+				return false
+		if (
+			source.has("pricing_required_satisfaction")
+			and (
+				not _is_integral_number(source.get("pricing_required_satisfaction", null))
+				or int(source.get("pricing_required_satisfaction", -1))
+				!= int(expected.get("pricing_required_satisfaction", -2))
+			)
+		):
+			return false
+		for field in ["pricing_profile_id", "pricing_label", "pricing_summary"]:
+			if String(source.get(field, "")) != String(expected.get(field, "")):
+				return false
 	for field in [
 		"season_id", "season_label", "clause_id", "clause_label", "clause_summary",
 		"clause_category", "authored_dominant_lane",
@@ -9859,6 +12888,9 @@ func _validated_active_market_contract(
 	var clause_id := StringName(String(source.get("clause_id", "")))
 	if clause_id not in MARKET_CONTRACT_CLAUSE_ORDER:
 		return invalid
+	var pricing_id := StringName(String(source.get("pricing_profile_id", "mutual_rate")))
+	if pricing_id not in MARKET_PRICING_PROFILE_ORDER:
+		return invalid
 	for frozen_level_field in [
 		"service_coop_level_at_signing",
 		"negotiation_room_level_at_signing",
@@ -9893,6 +12925,7 @@ func _validated_active_market_contract(
 		negotiation_room_level_at_signing,
 		clause_id,
 		legacy_terms_grandfathered,
+		pricing_id,
 	)
 	if authored.is_empty() or not _active_market_contract_quote_matches(
 		source,
@@ -10229,6 +13262,9 @@ func _validated_market_contract_result(
 	var clause_id := StringName(String(source.get("clause_id", "")))
 	if clause_id not in MARKET_CONTRACT_CLAUSE_ORDER:
 		return invalid
+	var pricing_id := StringName(String(source.get("pricing_profile_id", "mutual_rate")))
+	if pricing_id not in MARKET_PRICING_PROFILE_ORDER:
+		return invalid
 	for frozen_level_field in [
 		"service_coop_level_at_signing",
 		"negotiation_room_level_at_signing",
@@ -10263,6 +13299,7 @@ func _validated_market_contract_result(
 		negotiation_room_level_at_signing,
 		clause_id,
 		legacy_terms_grandfathered,
+		pricing_id,
 	)
 	if authored.is_empty() or not _market_contract_result_quote_matches(
 		source,
@@ -10320,6 +13357,17 @@ func _validated_market_contract_result(
 		"clean_contract_streak_after",
 		"best_clean_contract_streak",
 	]
+	var has_pricing_outcome := source.has("pricing_profile_id")
+	if has_pricing_outcome:
+		integer_fields.append_array([
+			"market_reach_before",
+			"market_reach_after",
+			"market_reach_delta",
+			"market_share_basis_points",
+			"claimant_satisfaction_before",
+			"claimant_satisfaction_after",
+			"claimant_satisfaction_delta",
+		])
 	for field in integer_fields:
 		if not _is_integral_number(source.get(field, null)):
 			return invalid
@@ -10416,6 +13464,23 @@ func _validated_market_contract_result(
 	var net := int(source.get("net_contract_cents", 0))
 	var fund_before := int(source.get("fund_before_cents", -1))
 	var fund_after := int(source.get("fund_after_cents", -1))
+	var pricing_definition := MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
+	var authored_reach_delta := int(pricing_definition.get(
+		"reach_success_delta" if success else "reach_breach_delta",
+		0,
+	))
+	var authored_satisfaction_delta := int(pricing_definition.get(
+		"satisfaction_success_delta" if success else "satisfaction_breach_delta",
+		0,
+	))
+	var pricing_reach_before := int(source.get("market_reach_before", 0))
+	var expected_reach_after := maxi(0, pricing_reach_before + authored_reach_delta)
+	var pricing_satisfaction_before := int(source.get("claimant_satisfaction_before", 50))
+	var expected_satisfaction_after := clampi(
+		pricing_satisfaction_before + authored_satisfaction_delta,
+		0,
+		100,
+	)
 	if (
 		int(source.get("base_premium_cents", -1)) != base_premium_cents
 		or int(source.get("service_coop_bonus_cents", -1)) != expected_service_bonus
@@ -10438,6 +13503,24 @@ func _validated_market_contract_result(
 			&"unlisted", &"bronze", &"silver", &"gold",
 		]
 		or String(source.get("outcome", "")).is_empty()
+		or (
+			has_pricing_outcome
+			and (
+				int(source.get("market_reach_delta", 0))
+				!= expected_reach_after - pricing_reach_before
+				or int(source.get("market_reach_after", 0))
+				!= expected_reach_after
+				or int(source.get("claimant_satisfaction_delta", 0))
+				!= (
+					int(source.get("claimant_satisfaction_after", 0))
+					- int(source.get("claimant_satisfaction_before", 0))
+				)
+				or int(source.get("claimant_satisfaction_after", 0))
+				!= expected_satisfaction_after
+				or int(source.get("market_share_basis_points", 0))
+				!= clampi(3500 + int(source.get("market_reach_after", 0)) * 250, 2500, 8500)
+			)
+		)
 	):
 		return invalid
 	var normalized := {
@@ -10491,6 +13574,13 @@ func _validated_market_contract_result(
 		"clean_contract_streak_before": int(source.get("clean_contract_streak_before", 0)),
 		"clean_contract_streak_after": int(source.get("clean_contract_streak_after", 0)),
 		"best_clean_contract_streak": int(source.get("best_clean_contract_streak", 0)),
+		"market_reach_before": int(source.get("market_reach_before", 0)),
+		"market_reach_after": int(source.get("market_reach_after", 0)),
+		"market_reach_delta": int(source.get("market_reach_delta", 0)),
+		"market_share_basis_points": int(source.get("market_share_basis_points", 3500)),
+		"claimant_satisfaction_before": int(source.get("claimant_satisfaction_before", 50)),
+		"claimant_satisfaction_after": int(source.get("claimant_satisfaction_after", 50)),
+		"claimant_satisfaction_delta": int(source.get("claimant_satisfaction_delta", 0)),
 		"outcome": String(source.get("outcome", "")),
 	}
 	var authoritative_normalized := authored.duplicate(true)
@@ -10585,6 +13675,183 @@ func _cumulative_upgrade_spend_cents(levels: Dictionary) -> int:
 		for level_before in level:
 			total += _upgrade_list_cost_for_level(upgrade_id, level_before)
 	return total
+
+
+func _validated_hero_case_history(value: Variant, saved_day: int, worker_count: int) -> Dictionary:
+	if not value is Array or (value as Array).size() > 32:
+		return {"valid": false, "history": []}
+	var history: Array[Dictionary] = []
+	for row_value in value as Array:
+		if not row_value is Dictionary:
+			return {"valid": false, "history": []}
+		var row := row_value as Dictionary
+		if not _is_integral_number(row.get("day", null)):
+			return {"valid": false, "history": []}
+		var row_day := int(row.get("day", 0))
+		var case_id := StringName(String(row.get("case_id", "")))
+		var choice_id := StringName(String(row.get("choice_id", "")))
+		var case_definition := PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary
+		var worker_id := int(row.get("worker_id", -1))
+		if (
+			row_day < 1 or row_day > saved_day
+			or case_definition.is_empty()
+			or not (case_definition.get("choices", {}) as Dictionary).has(choice_id)
+			or worker_id < -1 or worker_id >= worker_count
+		):
+			return {"valid": false, "history": []}
+		for text_field in ["case_label", "choice_label", "worker_name", "echo"]:
+			if typeof(row.get(text_field, null)) not in [TYPE_STRING, TYPE_STRING_NAME]:
+				return {"valid": false, "history": []}
+		history.append({
+			"day": row_day,
+			"case_id": String(case_id),
+			"case_label": String(row.get("case_label", "")),
+			"choice_id": String(choice_id),
+			"choice_label": String(row.get("choice_label", "")),
+			"worker_id": worker_id,
+			"worker_name": String(row.get("worker_name", "")),
+			"echo": String(row.get("echo", "")),
+		})
+	return {"valid": true, "history": history}
+
+
+func _validated_rival_response_history(value: Variant, saved_day: int) -> Dictionary:
+	if not value is Array or (value as Array).size() > 32:
+		return {"valid": false, "history": []}
+	var history: Array[Dictionary] = []
+	for row_value in value as Array:
+		if not row_value is Dictionary:
+			return {"valid": false, "history": []}
+		var row := row_value as Dictionary
+		if not _is_integral_number(row.get("day", null)):
+			return {"valid": false, "history": []}
+		var row_day := int(row.get("day", 0))
+		var response_id := StringName(String(row.get("response_id", "")))
+		if row_day < 1 or row_day > saved_day or not PLAYBOOK_RIVAL_DEFINITIONS.has(response_id):
+			return {"valid": false, "history": []}
+		for integer_field in ["eggs_at_choice", "margin_at_choice"]:
+			if not _is_integral_number(row.get(integer_field, null)):
+				return {"valid": false, "history": []}
+		for text_field in ["response_label", "rival_name"]:
+			if typeof(row.get(text_field, null)) not in [TYPE_STRING, TYPE_STRING_NAME]:
+				return {"valid": false, "history": []}
+		history.append({
+			"day": row_day,
+			"response_id": String(response_id),
+			"response_label": String(row.get("response_label", "")),
+			"rival_name": String(row.get("rival_name", "")),
+			"eggs_at_choice": clampi(int(row.get("eggs_at_choice", 0)), 0, 2_000_000_000),
+			"margin_at_choice": clampi(int(row.get("margin_at_choice", 0)), -100, 100),
+		})
+	return {"valid": true, "history": history}
+
+
+func _validated_active_playbook(
+	value: Variant,
+	saved_day: int,
+	worker_count: int,
+) -> Dictionary:
+	# Version 30 checkpoints predate this optional layer, so absence restores a
+	# fresh same-day playbook. Once present, every authoritative choice is checked.
+	if value == null:
+		return {"valid": true, "record": {}}
+	if not value is Dictionary:
+		return {"valid": false, "record": {}}
+	var source := value as Dictionary
+	if source.is_empty():
+		return {"valid": true, "record": {}}
+	if not _is_integral_number(source.get("day", null)) or int(source.get("day", 0)) != saved_day:
+		return {"valid": false, "record": {}}
+	var definition_fields := {
+		"strategy_preset_id": PLAYBOOK_STRATEGY_PRESET_DEFINITIONS,
+		"contract_id": PLAYBOOK_CONTRACT_DEFINITIONS,
+		"preparation_id": PLAYBOOK_PREPARATION_DEFINITIONS,
+		"manager_intervention_id": PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS,
+		"rival_response_id": PLAYBOOK_RIVAL_DEFINITIONS,
+		"loadout_id": PLAYBOOK_LOADOUT_DEFINITIONS,
+		"recovery_id": PLAYBOOK_RECOVERY_DEFINITIONS,
+		"side_goal_id": PLAYBOOK_SIDE_GOAL_DEFINITIONS,
+		"contract_reward_id": PLAYBOOK_REWARD_DEFINITIONS,
+		"push_luck_id": PLAYBOOK_PUSH_LUCK_DEFINITIONS,
+		"challenge_modifier_id": PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS,
+	}
+	var normalized := {"day": saved_day}
+	for field_name: String in definition_fields:
+		var field_value: Variant = source.get(field_name, "")
+		if typeof(field_value) not in [TYPE_STRING, TYPE_STRING_NAME]:
+			return {"valid": false, "record": {}}
+		var choice_id := StringName(String(field_value))
+		var custom_strategy := field_name == "strategy_preset_id" and choice_id == &"custom"
+		if choice_id != &"" and not custom_strategy and not (definition_fields[field_name] as Dictionary).has(choice_id):
+			return {"valid": false, "record": {}}
+		normalized[field_name] = String(choice_id)
+	for integer_field in ["side_goal_fund_baseline_cents", "receipt_serial"]:
+		if not _is_integral_number(source.get(integer_field, null)):
+			return {"valid": false, "record": {}}
+		var integer_value := int(source.get(integer_field, -1))
+		if integer_value < 0 or integer_value > 2_000_000_000:
+			return {"valid": false, "record": {}}
+		normalized[integer_field] = integer_value
+	var push_luck_start_eggs := int(source.get("push_luck_start_eggs", 0))
+	if push_luck_start_eggs < 0 or push_luck_start_eggs > 2_000_000_000:
+		return {"valid": false, "record": {}}
+	normalized["push_luck_start_eggs"] = push_luck_start_eggs
+	var signature_values: Variant = source.get("signature_worker_ids", null)
+	if not signature_values is Array:
+		return {"valid": false, "record": {}}
+	var normalized_signature_ids: Array[int] = []
+	for worker_id_value in signature_values as Array:
+		if not _is_integral_number(worker_id_value):
+			return {"valid": false, "record": {}}
+		var worker_id := int(worker_id_value)
+		if worker_id < 0 or worker_id >= worker_count or worker_id in normalized_signature_ids:
+			return {"valid": false, "record": {}}
+		normalized_signature_ids.append(worker_id)
+	normalized["signature_worker_ids"] = normalized_signature_ids
+	if typeof(source.get("teamwork_used", null)) != TYPE_BOOL:
+		return {"valid": false, "record": {}}
+	normalized["teamwork_used"] = bool(source.get("teamwork_used", false))
+	normalized["mastery_auto_used"] = bool(source.get("mastery_auto_used", false))
+	for optional_bool in ["rescue_used", "rare_episode_resolved"]:
+		var optional_value: Variant = source.get(optional_bool, false)
+		if typeof(optional_value) != TYPE_BOOL:
+			return {"valid": false, "record": {}}
+		normalized[optional_bool] = bool(optional_value)
+	var hero_case_id := StringName(String(source.get("hero_case_id", "")))
+	if hero_case_id != &"" and not PLAYBOOK_HERO_CASE_DEFINITIONS.has(hero_case_id):
+		return {"valid": false, "record": {}}
+	normalized["hero_case_id"] = String(hero_case_id)
+	var hero_case_choice_id := StringName(String(source.get("hero_case_choice_id", "")))
+	if hero_case_choice_id != &"":
+		var hero_definition := PLAYBOOK_HERO_CASE_DEFINITIONS.get(hero_case_id, {}) as Dictionary
+		if not (hero_definition.get("choices", {}) as Dictionary).has(hero_case_choice_id):
+			return {"valid": false, "record": {}}
+	normalized["hero_case_choice_id"] = String(hero_case_choice_id)
+	var hero_callback_value: Variant = source.get("hero_case_callback", {})
+	if not hero_callback_value is Dictionary:
+		return {"valid": false, "record": {}}
+	normalized["hero_case_callback"] = (hero_callback_value as Dictionary).duplicate(true)
+	var proposal_worker_id := int(source.get("proposal_worker_id", -1))
+	if proposal_worker_id < -1 or proposal_worker_id >= worker_count:
+		return {"valid": false, "record": {}}
+	normalized["proposal_worker_id"] = proposal_worker_id
+	var proposal_id := StringName(String(source.get("proposal_id", "")))
+	if proposal_id != &"" and not PLAYBOOK_HEN_PROPOSAL_DEFINITIONS.has(proposal_id):
+		return {"valid": false, "record": {}}
+	normalized["proposal_id"] = String(proposal_id)
+	var toy_id := StringName(String(source.get("toy_id", "")))
+	if toy_id != &"" and not PLAYBOOK_OFFICE_TOY_DEFINITIONS.has(toy_id):
+		return {"valid": false, "record": {}}
+	normalized["toy_id"] = String(toy_id)
+	var display_style_index := int(source.get("display_style_index", 0))
+	if display_style_index < 0 or display_style_index >= PLAYBOOK_DISPLAY_STYLE_ORDER.size():
+		return {"valid": false, "record": {}}
+	normalized["display_style_index"] = display_style_index
+	var receipt_value: Variant = source.get("last_receipt", null)
+	if not receipt_value is Dictionary:
+		return {"valid": false, "record": {}}
+	normalized["last_receipt"] = (receipt_value as Dictionary).duplicate(true)
+	return {"valid": true, "record": normalized}
 
 
 func _validated_first_clutch_reinvestment(
@@ -11420,6 +14687,58 @@ func _validated_capital_records(
 		"last": restored_last,
 		"history": restored_history,
 	}
+
+
+func _validated_manager_roster(value: Variant, rooster_office_level: int) -> Array[Dictionary]:
+	var invalid: Array[Dictionary] = []
+	if not value is Array:
+		return invalid
+	var source := value as Array
+	var expected_count := clampi(rooster_office_level + 1, 1, 4)
+	if source.size() != expected_count:
+		return invalid
+	var result: Array[Dictionary] = []
+	var seen_ids: Dictionary[StringName, bool] = {}
+	for slot_index in source.size():
+		var row_value: Variant = source[slot_index]
+		if not row_value is Dictionary:
+			return invalid
+		var row := (row_value as Dictionary).duplicate(true)
+		var candidate_id := StringName(String(row.get("candidate_id", row.get("id", ""))))
+		var assignment_id := StringName(String(row.get("assignment_id", "")))
+		var posture_id := StringName(String(row.get("posture_id", "")))
+		if (
+			not MANAGER_CANDIDATE_DEFINITIONS.has(candidate_id)
+			or seen_ids.has(candidate_id)
+			or assignment_id not in MANAGER_ASSIGNMENT_ORDER
+			or posture_id not in MANAGER_POSTURE_ORDER
+			or not _is_integral_number(row.get("slot_index", null))
+			or int(row.get("slot_index", -1)) != slot_index
+			or typeof(row.get("posture_filed", null)) != TYPE_BOOL
+		):
+			return invalid
+		for integer_field in ["hired_day", "influence", "rank", "credit_claims", "interventions", "last_pip_worker_id"]:
+			if not _is_integral_number(row.get(integer_field, null)):
+				return invalid
+		var influence := int(row.get("influence", -1))
+		var rank := int(row.get("rank", -1))
+		if (
+			int(row.get("hired_day", 0)) < 1
+			or influence < 0 or influence > 2_000_000_000
+			or rank != _manager_rank_for_influence(influence)
+			or int(row.get("credit_claims", -1)) < 0
+			or int(row.get("interventions", -1)) < 0
+			or int(row.get("last_pip_worker_id", -2)) < -1
+			or int(row.get("last_pip_worker_id", -2)) >= workers.size()
+		):
+			return invalid
+		seen_ids[candidate_id] = true
+		row["id"] = String(candidate_id)
+		row["candidate_id"] = String(candidate_id)
+		row["assignment_id"] = String(assignment_id)
+		row["posture_id"] = String(posture_id)
+		result.append(row)
+	return result
 
 
 func _validated_owned_facilities(value: Variant) -> Dictionary:
@@ -12440,8 +15759,141 @@ func routing_catalog() -> Array[Dictionary]:
 			"deadline_minutes": int(definition["deadline_minutes"]),
 			"arrival_weight": float(definition["arrival_weight"]),
 			"accent_hex": String(definition["accent_hex"]),
+			"work_stress_basis_points": int(definition.get(
+				"work_stress_basis_points",
+				10_000,
+			)),
+			"sound_morale_millipoints": int(definition.get(
+				"sound_morale_millipoints",
+				0,
+			)),
+			"sound_compliance_millipoints": int(definition.get(
+				"sound_compliance_millipoints",
+				0,
+			)),
+			"cracked_compliance_millipoints": int(definition.get(
+				"cracked_compliance_millipoints",
+				0,
+			)),
+			"operational_tradeoff": String(definition.get(
+				"operational_tradeoff",
+				"",
+			)),
 		})
 	return catalog
+
+
+func claim_resolution_catalog() -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	for path_id in [&"standard", &"settle", &"deny", &"exception"]:
+		var definition := CLAIM_RESOLUTION_DEFINITIONS[path_id] as Dictionary
+		var row := definition.duplicate(true)
+		row["id"] = path_id
+		row["work_multiplier"] = (
+			float(definition.get("work_basis_points", 10_000)) / 10_000.0
+		)
+		row["crack_modifier"] = (
+			float(definition.get("crack_basis_points", 0)) / 10_000.0
+		)
+		catalog.append(row)
+	return catalog
+
+
+func claim_resolution_status(worker_id: int) -> Dictionary:
+	if worker_id < 0 or worker_id >= workers.size():
+		return {
+			"available": false,
+			"reason": "No hen is selected.",
+			"catalog": claim_resolution_catalog(),
+		}
+	var worker := workers[worker_id]
+	var claim := worker.current_claim
+	if claim == null:
+		return {
+			"available": false,
+			"reason": "This hen has no active claimant file.",
+			"catalog": claim_resolution_catalog(),
+		}
+	var before_cutoff := worker.work_progress <= CLAIM_RESOLUTION_CUTOFF_PROGRESS
+	var available := (
+		shift_phase == ShiftPhase.RUNNING
+		and worker.work_state == ChickenState.WorkState.WORKING
+		and before_cutoff
+		and not claim.resolution_locked
+	)
+	var reason := ""
+	if claim.resolution_locked:
+		reason = "This claimant path is already filed and cannot be rewritten."
+	elif shift_phase != ShiftPhase.RUNNING:
+		reason = "Claimant paths can be filed only during a running shift."
+	elif worker.work_state != ChickenState.WorkState.WORKING:
+		reason = "The path must be filed while the hen is pecking the active file."
+	elif not before_cutoff:
+		reason = "The file is more than 55% complete; the outcome window has closed."
+	var selected := (
+		CLAIM_RESOLUTION_DEFINITIONS.get(claim.resolution_path, {}) as Dictionary
+	).duplicate(true)
+	selected["id"] = claim.resolution_path
+	return {
+		"available": available,
+		"reason": reason,
+		"worker_id": worker_id,
+		"claim_id": claim.id,
+		"progress": snappedf(worker.work_progress, 0.1),
+		"cutoff_progress": CLAIM_RESOLUTION_CUTOFF_PROGRESS,
+		"selected": selected,
+		"catalog": claim_resolution_catalog(),
+	}
+
+
+func set_claim_resolution(worker_id: int, path_id: StringName) -> Dictionary:
+	if path_id not in CLAIM_RESOLUTION_CHOICE_IDS:
+		return {
+			"accepted": false,
+			"reason": "Choose Settlement, Denial, or Coverage Exception.",
+		}
+	var status := claim_resolution_status(worker_id)
+	if not bool(status.get("available", false)):
+		return {
+			"accepted": false,
+			"reason": String(status.get("reason", "The claimant path is unavailable.")),
+		}
+	var definition := CLAIM_RESOLUTION_DEFINITIONS[path_id] as Dictionary
+	var cost_cents := int(definition.get("cost_cents", 0))
+	if spendable_fund_cents() < cost_cents:
+		return {
+			"accepted": false,
+			"reason": "%s requires $%.2f more spendable Feed Fund." % [
+				String(definition.get("label", "CLAIMANT PATH")),
+				float(cost_cents - spendable_fund_cents()) / 100.0,
+			],
+		}
+	var worker := workers[worker_id]
+	var claim := worker.current_claim
+	revenue_cents -= cost_cents
+	claim.resolution_path = path_id
+	claim.resolution_locked = true
+	claim.resolution_cost_cents = cost_cents
+	var claimant := claim.claimant_profile()
+	var outcome := "%s FILED FOR %s: %s  %s" % [
+		String(definition.get("label", "CLAIMANT PATH")),
+		String(claimant.get("name", "CLAIMANT")),
+		String(definition.get("benefit", "")),
+		String(definition.get("burden", "")),
+	]
+	announcement_posted.emit(outcome)
+	snapshot_changed.emit(snapshot())
+	return {
+		"accepted": true,
+		"worker_id": worker_id,
+		"claim_id": claim.id,
+		"path_id": path_id,
+		"cost_cents": cost_cents,
+		"beneficiary": String(definition.get("beneficiary", "")),
+		"benefit": String(definition.get("benefit", "")),
+		"burden": String(definition.get("burden", "")),
+		"outcome": outcome,
+	}
 
 
 func set_worker_assignment(worker_id: int, lane: StringName) -> bool:
@@ -12453,11 +15905,547 @@ func set_worker_assignment(worker_id: int, lane: StringName) -> bool:
 		return false
 	var worker := workers[worker_id]
 	if worker.assigned_lane == lane:
+		worker.manually_routed = lane != AUTO_ASSIGNMENT
+		snapshot_changed.emit(snapshot())
 		return true
 	worker.assigned_lane = lane
+	worker.manually_routed = lane != AUTO_ASSIGNMENT
 	_breach_specialty_compact_for_assignment(worker)
 	snapshot_changed.emit(snapshot())
 	return true
+
+
+func routing_momentum_snapshot() -> Dictionary:
+	var pace_active := routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+	var next_milestone := 0
+	var next_reward := ""
+	var mastery_target_kind: StringName = &""
+	if routing_momentum_chain < ROUTING_MOMENTUM_CELEBRATION_MILESTONE:
+		for milestone in [
+			ROUTING_MOMENTUM_PACE_MILESTONE,
+			ROUTING_MOMENTUM_PECK_MILESTONE,
+			ROUTING_MOMENTUM_GOLDEN_MILESTONE,
+			ROUTING_MOMENTUM_CELEBRATION_MILESTONE,
+		]:
+			if routing_momentum_chain < milestone:
+				next_milestone = milestone
+				break
+		match next_milestone:
+			ROUTING_MOMENTUM_PACE_MILESTONE:
+				next_reward = "PACE +15%"
+			ROUTING_MOMENTUM_PECK_MILESTONE:
+				next_reward = "PECK RECHARGE"
+			ROUTING_MOMENTUM_GOLDEN_MILESTONE:
+				next_reward = "GOLDEN FILE"
+			ROUTING_MOMENTUM_CELEBRATION_MILESTONE:
+				next_reward = "TEAM LIFT"
+	else:
+		# Once the authored reward ladder is mastered, the existing persistent
+		# best chain becomes the progression. Rebuild the exact prior record after
+		# a break, then aim at the next five-route crest; no new currency or farmable
+		# economic modifier is introduced.
+		if best_routing_momentum_chain > routing_momentum_chain:
+			next_milestone = best_routing_momentum_chain
+			next_reward = "REBUILD BEST"
+			mastery_target_kind = &"rebuild"
+		else:
+			next_milestone = maxi(
+				15,
+				(floori(float(routing_momentum_chain) / ROUTING_MOMENTUM_MASTERY_INTERVAL) + 1)
+				* ROUTING_MOMENTUM_MASTERY_INTERVAL,
+			)
+			next_reward = "MASTER RECORD"
+			mastery_target_kind = &"record"
+	return {
+		"chain": routing_momentum_chain,
+		"best_chain": best_routing_momentum_chain,
+		"pace_active": pace_active,
+		"pace_multiplier": ROUTING_MOMENTUM_PACE_MULTIPLIER if pace_active else 1.0,
+		"peck_recharge_bank": routing_momentum_peck_recharge_bank,
+		"golden_charges": routing_momentum_golden_charges,
+		"golden_target_claim_id": routing_momentum_golden_target_claim_id,
+		"golden_target_worker_id": routing_momentum_golden_target_worker_id,
+		"golden_target_bound": routing_momentum_golden_target_claim_id >= 0,
+		"next_milestone": next_milestone,
+		"next_reward": next_reward,
+		"mastery_active": routing_momentum_chain >= ROUTING_MOMENTUM_CELEBRATION_MILESTONE,
+		"mastery_target_kind": mastery_target_kind,
+		"mastery_interval": ROUTING_MOMENTUM_MASTERY_INTERVAL,
+		"last_dispatch": last_routing_dispatch.duplicate(true),
+		"break_serial": routing_momentum_break_serial,
+		"last_break": last_routing_momentum_break.duplicate(true),
+		"recovery_pending": (
+			routing_momentum_break_serial > 0
+			and int(last_routing_momentum_recovery.get("break_serial", 0))
+			< routing_momentum_break_serial
+		),
+		"recovery_serial": routing_momentum_recovery_serial,
+		"last_recovery": last_routing_momentum_recovery.duplicate(true),
+	}
+
+
+func _bind_routing_golden_target() -> Dictionary:
+	if (
+		routing_momentum_golden_charges <= 0
+		or routing_momentum_golden_target_claim_id >= 0
+	):
+		return {}
+	var selected_worker: ChickenState
+	for worker in workers:
+		if not worker.employed or worker.current_claim == null:
+			continue
+		if (
+			selected_worker == null
+			or worker.work_progress > selected_worker.work_progress
+			or (
+				is_equal_approx(worker.work_progress, selected_worker.work_progress)
+				and worker.current_claim.id < selected_worker.current_claim.id
+			)
+		):
+			selected_worker = worker
+	if selected_worker == null:
+		return {}
+	routing_momentum_golden_target_claim_id = selected_worker.current_claim.id
+	routing_momentum_golden_target_worker_id = selected_worker.id
+	return {
+		"claim_id": routing_momentum_golden_target_claim_id,
+		"worker_id": routing_momentum_golden_target_worker_id,
+		"worker_name": selected_worker.display_name,
+		"lane": selected_worker.current_claim.lane,
+	}
+
+
+func _release_routing_golden_target() -> void:
+	routing_momentum_golden_target_claim_id = -1
+	routing_momentum_golden_target_worker_id = -1
+
+
+func dispatch_worker_to_lane(worker_id: int, lane: StringName) -> Dictionary:
+	## Authoritative boundary for the physical tray gesture. Only a genuine
+	## assignment change can build momentum, preventing repeated clicks from
+	## farming milestones without routing another file stream.
+	if lane == AUTO_ASSIGNMENT or not CLAIM_LANE_DEFINITIONS.has(lane):
+		return {"accepted": false, "reason": "Choose a staffed intake tray."}
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return {"accepted": false, "reason": "Choose an employed hen."}
+	var worker := workers[worker_id]
+	if worker.assigned_lane == lane and worker.manually_routed:
+		return {
+			"accepted": false,
+			"reason": "%s is already routed to %s." % [
+				worker.display_name,
+				String(lane).replace("_", " ").capitalize(),
+			],
+		}
+	var candidates := dispatch_candidates(lane)
+	if candidates.is_empty():
+		return {"accepted": false, "reason": "No employed hen can take this tray."}
+	var selected: Dictionary = {}
+	for candidate in candidates:
+		if int(candidate.get("worker_id", -1)) == worker_id:
+			selected = candidate
+			break
+	if selected.is_empty():
+		return {"accepted": false, "reason": "That hen cannot take this tray."}
+
+	var previous_lane := worker.assigned_lane
+	worker.assigned_lane = lane
+	worker.manually_routed = true
+	_breach_specialty_compact_for_assignment(worker)
+	var recommended := bool(selected.get("recommended", false))
+	var fit_tier := StringName(String(selected.get("fit_tier", "risky")))
+	var route_strategy := StringName(String(selected.get("strategy_id", "gambit")))
+	var chain_before := routing_momentum_chain
+	var reward: Dictionary = {}
+	var break_receipt: Dictionary = {}
+	var recovery_receipt: Dictionary = {}
+	if recommended:
+		var previous_best_chain := best_routing_momentum_chain
+		routing_momentum_chain += 1
+		best_routing_momentum_chain = maxi(
+			best_routing_momentum_chain,
+			routing_momentum_chain,
+		)
+		if (
+			chain_before == 0
+			and routing_momentum_break_serial > 0
+			and int(last_routing_momentum_recovery.get("break_serial", 0))
+			< routing_momentum_break_serial
+		):
+			routing_momentum_recovery_serial += 1
+			recovery_receipt = {
+				"serial": routing_momentum_recovery_serial,
+				"day": day,
+				"minute": minute_of_day,
+				"break_serial": routing_momentum_break_serial,
+				"broken_chain": int(last_routing_momentum_break.get("broken_chain", 0)),
+				"worker_id": worker.id,
+				"worker_name": worker.display_name,
+				"lane": lane,
+				"recovered_chain": routing_momentum_chain,
+				"label": "FIT LINKED  x1",
+				"detail": "The best-fit route rebuilt routing flow at x1.",
+			}
+			last_routing_momentum_recovery = recovery_receipt.duplicate(true)
+		reward = _apply_routing_momentum_milestone(
+			routing_momentum_chain,
+			previous_best_chain,
+		)
+		if not reward.is_empty():
+			# A chain milestone occurs once within a break epoch. This stable receipt
+			# key lets presentation reject duplicate delivery callbacks without
+			# persisting a second authority counter.
+			reward["authority_key"] = "%d:%d:%d:%d" % [
+				day,
+				routing_momentum_break_serial,
+				routing_momentum_chain,
+				worker.id,
+			]
+			reward["worker_id"] = worker.id
+			reward["lane"] = lane
+	elif fit_tier == &"risky":
+		break_receipt = _break_routing_momentum(
+			"A poor-fit tray ended the live pace bonus.",
+			&"poor_fit",
+			worker.id,
+		)
+	var momentum_state := routing_momentum_snapshot()
+	momentum_state.erase("last_dispatch")
+	var receipt := {
+		"accepted": true,
+		"day": day,
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"lane": lane,
+		"previous_lane": previous_lane,
+		"recommended": recommended,
+		"fit_tier": fit_tier,
+		"route_strategy": route_strategy,
+		"consequence_preview": String(selected.get("consequence_preview", "FLOW RESETS")),
+		"specialty_match": bool(selected.get("specialty_match", false)),
+		"momentum_before": chain_before,
+		"momentum_chain": routing_momentum_chain,
+		"reward": reward.duplicate(true),
+		"break": break_receipt.duplicate(true),
+		"recovery": recovery_receipt.duplicate(true),
+		"momentum": momentum_state,
+	}
+	last_routing_dispatch = receipt.duplicate(true)
+	if not recovery_receipt.is_empty():
+		routing_momentum_recovered.emit(recovery_receipt.duplicate(true))
+	if recommended:
+		announcement_posted.emit("BEST-FIT FLOW x%d: %s took the %s tray.%s" % [
+			routing_momentum_chain,
+			worker.display_name,
+			String(lane).replace("_", " ").to_upper(),
+			("  %s" % String(reward.get("label", ""))) if not reward.is_empty() else "",
+		])
+	elif fit_tier == &"safe":
+		announcement_posted.emit("SAFE HOLD: %s took the %s tray without breaking flow." % [
+			worker.display_name,
+			String(lane).replace("_", " ").to_upper(),
+		])
+	snapshot_changed.emit(snapshot())
+	return receipt
+
+
+func _apply_routing_momentum_milestone(
+	chain: int,
+	previous_best_chain: int = -1,
+) -> Dictionary:
+	match chain:
+		ROUTING_MOMENTUM_PACE_MILESTONE:
+			return {
+				"id": &"pace",
+				"label": "PACE +15%",
+				"description": "Best-fit routed work now moves 15% faster while the flow holds.",
+			}
+		ROUTING_MOMENTUM_PECK_MILESTONE:
+			var charges_before := _peck_assist_charges_available()
+			var limit_before := _peck_assist_charge_limit()
+			if peck_assists_used_today > 0:
+				peck_assists_used_today -= 1
+				routing_momentum_peck_recharges_used_today += 1
+			elif routing_momentum_peck_recharge_bank <= 0:
+				routing_momentum_peck_recharge_bank = 1
+			var charges_after := _peck_assist_charges_available()
+			var limit_after := _peck_assist_charge_limit()
+			var refilled := charges_after > charges_before
+			return {
+				"id": &"peck_recharge",
+				"label": "PECK +1" if refilled else "PECK READY",
+				"description": (
+					"One Priority Peck was restored or banked."
+					if refilled else
+					"The Priority Peck reserve was already full."
+				),
+				"charges_before": charges_before,
+				"charges_after": charges_after,
+				"limit_before": limit_before,
+				"limit_after": limit_after,
+				"refilled": refilled,
+				"banked": routing_momentum_peck_recharge_bank > 0,
+			}
+		ROUTING_MOMENTUM_GOLDEN_MILESTONE:
+			routing_momentum_golden_charges = 1
+			var target := _bind_routing_golden_target()
+			return {
+				"id": &"golden_file",
+				"label": "GOLD SEALED" if not target.is_empty() else "GOLD READY",
+				"description": (
+					"File #%04d is sealed golden through grading." % int(target.get("claim_id", 0))
+					if not target.is_empty() else
+					"The next active file receives the golden seal."
+				),
+				"target": target.duplicate(true),
+			}
+		ROUTING_MOMENTUM_CELEBRATION_MILESTONE:
+			var affected_workers: Array[Dictionary] = []
+			for affected_worker in workers:
+				if not affected_worker.employed:
+					continue
+				affected_workers.append({
+					"worker_id": affected_worker.id,
+					"worker_name": affected_worker.display_name,
+					"morale_before": affected_worker.morale,
+					"stress_before": affected_worker.stress,
+					"fatigue_before": affected_worker.fatigue,
+				})
+			_adjust_workers(3.0, -2.0, -1.0)
+			for affected_index in affected_workers.size():
+				var affected := affected_workers[affected_index]
+				var affected_worker_id := int(affected.get("worker_id", -1))
+				if affected_worker_id < 0 or affected_worker_id >= workers.size():
+					continue
+				var affected_worker := workers[affected_worker_id]
+				affected["morale_after"] = affected_worker.morale
+				affected["stress_after"] = affected_worker.stress
+				affected["fatigue_after"] = affected_worker.fatigue
+				affected["morale_delta"] = affected_worker.morale - float(affected.get("morale_before", 0.0))
+				affected["stress_delta"] = affected_worker.stress - float(affected.get("stress_before", 0.0))
+				affected["fatigue_delta"] = affected_worker.fatigue - float(affected.get("fatigue_before", 0.0))
+				affected_workers[affected_index] = affected
+			var solidarity_before := solidarity
+			solidarity = minf(100.0, solidarity + 1.0)
+			var standard_deltas := true
+			var affected_summaries: Array[String] = []
+			for affected in affected_workers:
+				var morale_delta := float(affected.get("morale_delta", 0.0))
+				var stress_delta := float(affected.get("stress_delta", 0.0))
+				var fatigue_delta := float(affected.get("fatigue_delta", 0.0))
+				standard_deltas = (
+					standard_deltas
+					and is_equal_approx(morale_delta, 3.0)
+					and is_equal_approx(stress_delta, -2.0)
+					and is_equal_approx(fatigue_delta, -1.0)
+				)
+				affected_summaries.append("%s: morale %s%d, stress %s%d, fatigue %s%d" % [
+					String(affected.get("worker_name", "Hen")),
+					"+" if morale_delta >= 0.0 else "",
+					roundi(morale_delta),
+					"+" if stress_delta >= 0.0 else "",
+					roundi(stress_delta),
+					"+" if fatigue_delta >= 0.0 else "",
+					roundi(fatigue_delta),
+				])
+			var solidarity_delta := solidarity - solidarity_before
+			return {
+				"id": &"team_lift",
+				"label": "ALL +3 / -2 / -1" if standard_deltas else "ALL LIFTED",
+				"description": (
+					"Every employed hen: morale +3, stress -2, fatigue -1."
+					if standard_deltas else
+					"Every employed hen improved; exact capped deltas are retained per hen."
+				),
+				"accessible_text": "Team Lift. %s; solidarity %s%d." % [
+					"; ".join(affected_summaries),
+					"+" if solidarity_delta >= 0.0 else "",
+					roundi(solidarity_delta),
+				],
+				"affected_workers": affected_workers,
+				"affected_count": affected_workers.size(),
+				"solidarity_before": solidarity_before,
+				"solidarity_after": solidarity,
+				"solidarity_delta": solidarity_delta,
+			}
+	if (
+		chain > ROUTING_MOMENTUM_CELEBRATION_MILESTONE
+		and chain % ROUTING_MOMENTUM_MASTERY_INTERVAL == 0
+		and (previous_best_chain < 0 or chain > previous_best_chain)
+	):
+		return {
+			"id": &"mastery_record",
+			"label": "RECORD x%d" % chain,
+			"description": "A new best-fit mastery record was filed.",
+			"accessible_text": "New best-fit routing record: %d consecutive recommended tray assignments." % chain,
+			"record_before": maxi(0, previous_best_chain),
+			"record_after": chain,
+			"interval": ROUTING_MOMENTUM_MASTERY_INTERVAL,
+		}
+	return {}
+
+
+func _break_routing_momentum(
+	reason: String,
+	source: StringName = &"unknown",
+	worker_id: int = -1,
+	claim_id: int = -1,
+) -> Dictionary:
+	var broken_chain := routing_momentum_chain
+	routing_momentum_chain = 0
+	if broken_chain <= 0:
+		return {}
+	routing_momentum_break_serial += 1
+	var receipt := {
+		"serial": routing_momentum_break_serial,
+		"day": day,
+		"minute": minute_of_day,
+		"source": source,
+		"worker_id": worker_id,
+		"claim_id": claim_id,
+		"broken_chain": broken_chain,
+		"reason": reason,
+		"recovery_label": "BEST FIT  >  x1",
+	}
+	last_routing_momentum_break = receipt.duplicate(true)
+	routing_momentum_broken.emit(receipt.duplicate(true))
+	return receipt
+
+
+## Read-only identity for the next physical file in a tray. Personalities are
+## derived only from authoritative file facts, so the same queued file always
+## communicates the same behavior without adding hidden rules or random rolls.
+func dispatch_file_preview(lane: StringName) -> Dictionary:
+	if not CLAIM_LANE_DEFINITIONS.has(lane):
+		return {}
+	var claim_index := _earliest_claim_index(lane)
+	var claim := _claim_at(lane, claim_index)
+	if claim == null:
+		return {}
+	var file := claim.snapshot(_current_operational_minute())
+	_apply_market_contract_claim_snapshot(file)
+	var personality_id: StringName = &"steady"
+	var label := "STEADY"
+	var symbol := "="
+	var shape := "bar"
+	var behavior := "BALANCED"
+	var reason := "A standard file with room for a deliberate route."
+	var minutes_left := int(file.get("minutes_until_deadline", 0))
+	if bool(file.get("overdue", false)) or minutes_left <= 20:
+		personality_id = &"rush"
+		label = "RUSH"
+		symbol = "!"
+		shape = "diamond_exclamation"
+		behavior = "DEADLINE FIRST"
+		reason = "This file is overdue or within twenty minutes of its deadline."
+	elif bool(file.get("is_rework", false)) or bool(file.get("is_claimant_follow_up", false)):
+		personality_id = &"returned"
+		label = "RETURNED"
+		symbol = "↺"
+		shape = "loop_arrow"
+		behavior = "RECOVERY CHANCE"
+		reason = "This file returned from an earlier result and needs a clean recovery."
+	elif bool(file.get("market_contract_rush", false)) or int(file.get("value_cents", 0)) >= 1000:
+		personality_id = &"prize"
+		label = "PRIZE"
+		symbol = "$"
+		shape = "coin_diamond"
+		behavior = "HIGH VALUE"
+		reason = "This file carries an unusually valuable or contracted result."
+	elif lane == &"predator_loss":
+		personality_id = &"fragile"
+		label = "FRAGILE"
+		symbol = "◇"
+		shape = "hollow_diamond"
+		behavior = "PROTECT SHELL"
+		reason = "Predator-loss work carries the tray's highest shell pressure."
+	elif lane == &"appeals":
+		personality_id = &"sensitive"
+		label = "SENSITIVE"
+		symbol = "?"
+		shape = "split_stamp"
+		behavior = "HANDLE WITH CARE"
+		reason = "An appeal can redirect audit order and claimant follow-through."
+	elif lane == &"nest_damage":
+		personality_id = &"repair"
+		label = "REPAIR"
+		symbol = "+"
+		shape = "patch_cross"
+		behavior = "RESTORE MORALE"
+		reason = "Nest-repair relief can restore the handler's morale."
+	return {
+		"claim_id": int(file.get("id", -1)),
+		"lane": lane,
+		"personality_id": personality_id,
+		"label": label,
+		"symbol": symbol,
+		"shape": shape,
+		"behavior": behavior,
+		"reason": reason,
+		"minutes_until_deadline": minutes_left,
+		"overdue": bool(file.get("overdue", false)),
+		"rework": bool(file.get("is_rework", false)),
+		"value_cents": int(file.get("value_cents", 0)),
+		"claimant_name": String(file.get("claimant_name", "")),
+		"authoritative_source": "queued_claim",
+	}
+
+
+## Ranked, read-only candidates for the physical intake-tray dispatch gesture.
+## The score intentionally favors specialty fit first, then hens who are already
+## free for a new file, and finally a calm/energized tie-break. Routing remains
+## authoritative in dispatch_worker_to_lane(); this is only a player-facing hint.
+func dispatch_candidates(lane: StringName) -> Array[Dictionary]:
+	var candidates: Array[Dictionary] = []
+	if not CLAIM_LANE_DEFINITIONS.has(lane):
+		return candidates
+	var file_preview := dispatch_file_preview(lane)
+	for worker in workers:
+		if worker == null or not worker.employed:
+			continue
+		var specialty_match: bool = worker.has_specialty(lane)
+		var ready: bool = worker.current_claim == null
+		var score: float = (
+			(1000.0 if specialty_match else 0.0)
+			+ (120.0 if ready else 0.0)
+			+ worker.morale * 0.25
+			- worker.stress
+			- worker.fatigue * 0.50
+		)
+		candidates.append({
+			"worker_id": worker.id,
+			"worker_name": worker.display_name,
+			"lane": lane,
+			"specialty_match": specialty_match,
+			"ready": ready,
+			"score": score,
+			"stress": roundi(worker.stress),
+			"fatigue": roundi(worker.fatigue),
+		})
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var score_a := float(a.get("score", 0.0))
+		var score_b := float(b.get("score", 0.0))
+		if not is_equal_approx(score_a, score_b):
+			return score_a > score_b
+		return int(a.get("worker_id", -1)) < int(b.get("worker_id", -1))
+	)
+	for index in candidates.size():
+		var recommended := index == 0
+		var specialty_match := bool(candidates[index].get("specialty_match", false))
+		var ready := bool(candidates[index].get("ready", false))
+		var fit_tier := "best" if recommended else "safe" if specialty_match and ready else "risky"
+		candidates[index]["recommended"] = recommended
+		candidates[index]["fit_tier"] = fit_tier
+		candidates[index]["fit_label"] = fit_tier.to_upper()
+		candidates[index]["fit_shape"] = "star" if fit_tier == "best" else "check" if fit_tier == "safe" else "triangle"
+		candidates[index]["pace_preview"] = "fast" if fit_tier == "best" else "steady" if fit_tier == "safe" else "slow"
+		candidates[index]["shell_risk_preview"] = "low" if fit_tier == "best" else "guarded" if fit_tier == "safe" else "high"
+		candidates[index]["reward_preview"] = "momentum" if fit_tier == "best" else "stable" if fit_tier == "safe" else "recovery"
+		candidates[index]["strategy_id"] = "flow" if fit_tier == "best" else "hold" if fit_tier == "safe" else "gambit"
+		candidates[index]["strategy_label"] = "FLOW" if fit_tier == "best" else "HOLD" if fit_tier == "safe" else "GAMBIT"
+		candidates[index]["consequence_preview"] = "FLOW +1" if fit_tier == "best" else "FLOW HOLDS" if fit_tier == "safe" else "FLOW RESETS"
+		candidates[index]["file_personality"] = file_preview.duplicate(true)
+	return candidates
 
 
 func _career_level_for_xp(career_xp_value: int) -> int:
@@ -12729,6 +16717,1843 @@ func _rejected_personnel_action(reason: String) -> Dictionary:
 	return {"accepted": false, "reason": reason}
 
 
+func _reset_active_playbook() -> void:
+	active_playbook = {
+		"day": day,
+		"strategy_preset_id": "",
+		"contract_id": "",
+		"preparation_id": "",
+		"manager_intervention_id": "",
+		"rival_response_id": "",
+		"loadout_id": "",
+		"recovery_id": "",
+		"side_goal_id": "",
+		"side_goal_fund_baseline_cents": revenue_cents,
+		"signature_worker_ids": [],
+		"teamwork_used": false,
+		"contract_reward_id": "",
+		"push_luck_id": "",
+		"push_luck_start_eggs": 0,
+		"challenge_modifier_id": "",
+		"mastery_auto_used": false,
+		"proposal_worker_id": -1,
+		"proposal_id": "",
+		"rescue_used": false,
+		"toy_id": "",
+		"display_style_index": 0,
+		"rare_episode_resolved": false,
+		"hero_case_id": String(_hero_case_id_for_day(day)),
+		"hero_case_choice_id": "",
+		"hero_case_callback": {},
+		"last_receipt": {},
+		"receipt_serial": 0,
+	}
+
+
+func _ensure_active_playbook() -> void:
+	if active_playbook.is_empty() or int(active_playbook.get("day", 0)) != day:
+		_reset_active_playbook()
+
+
+func _playbook_contract_progress(contract_id: StringName) -> int:
+	match contract_id:
+		&"clean_pair":
+			return quality_streak
+		&"fit_three":
+			return routing_momentum_chain
+		&"peck_pair":
+			return peck_assist_streak
+	return 0
+
+
+func _playbook_side_goal_progress(goal_id: StringName) -> int:
+	match goal_id:
+		&"clean_carton":
+			return quality_streak
+		&"lane_mastery":
+			var best := 0
+			for lane in CLAIM_LANES:
+				best = maxi(best, int(lane_processed_today.get(lane, 0)))
+			return best
+		&"gold_file":
+			return golden_today
+		&"team_lift":
+			return 1 if bool(active_playbook.get("teamwork_used", false)) else 0
+		&"fund_growth":
+			return maxi(0, revenue_cents - int(active_playbook.get("side_goal_fund_baseline_cents", revenue_cents)))
+	return 0
+
+
+func _playbook_option(
+	kind: StringName,
+	choice_id: StringName,
+	definition: Dictionary,
+	available: bool = true,
+	reason: String = "",
+) -> Dictionary:
+	var detail := "%s  ·  %s  ·  %s" % [
+		String(definition.get("gain", "VISIBLE GAIN")),
+		String(definition.get("cost", "NO COST")),
+		String(definition.get("risk", "NO HIDDEN RISK")),
+	]
+	if not reason.is_empty():
+		detail += "\n%s" % reason
+	return {
+		"kind": String(kind),
+		"id": String(choice_id),
+		"key": "%s:%s" % [String(kind), String(choice_id)],
+		"label": String(definition.get("label", choice_id)).to_upper(),
+		"icon": String(definition.get("icon", "goal")),
+		"gain": String(definition.get("gain", "VISIBLE GAIN")),
+		"cost": String(definition.get("cost", "NO COST")),
+		"risk": String(definition.get("risk", "NO HIDDEN RISK")),
+		"available": available,
+		"reason": reason,
+		"detail": detail,
+		"recommended": bool(definition.get("recommended", false)),
+		"promise": String(definition.get("promise", "")),
+		"forecast": {
+			"gain": String(definition.get("gain", "VISIBLE GAIN")),
+			"cost": String(definition.get("cost", "NO COST")),
+			"risk": String(definition.get("risk", "NO HIDDEN RISK")),
+			"uncertainty": "DISCLOSED",
+		},
+	}
+
+
+func _recommended_playbook_strategy_id() -> StringName:
+	match active_directive_id:
+		&"record_harvest":
+			return &"fast"
+		&"sustainable_flock":
+			return &"flock"
+	return &"safe"
+
+
+func _playbook_shift_journey(contract_complete: bool) -> Array[Dictionary]:
+	var preset_id := String(active_playbook.get("strategy_preset_id", ""))
+	var stage := &"plan"
+	if not preset_id.is_empty():
+		stage = &"work"
+	if shift_phase == ShiftPhase.RUNNING and (
+		not pending_decision.is_empty() or (
+			eggs_today > 0 and String(active_playbook.get("rival_response_id", "")).is_empty()
+		)
+	):
+		stage = &"respond"
+	if contract_complete and String(active_playbook.get("contract_reward_id", "")).is_empty():
+		stage = &"reward"
+	if shift_phase == ShiftPhase.REVIEW:
+		stage = &"reward"
+	var definitions: Array[Dictionary] = [
+		{"id": &"plan", "label": "PLAN", "icon": "goal"},
+		{"id": &"work", "label": "WORK", "icon": "route"},
+		{"id": &"respond", "label": "RESPOND", "icon": "shield"},
+		{"id": &"reward", "label": "REWARD", "icon": "egg"},
+	]
+	var active_index := 0
+	for index in definitions.size():
+		if StringName(definitions[index].get("id", &"")) == stage:
+			active_index = index
+			break
+	var result: Array[Dictionary] = []
+	for index in definitions.size():
+		var step := definitions[index].duplicate(true)
+		step["state"] = "current" if index == active_index else ("complete" if index < active_index else "upcoming")
+		result.append(step)
+	return result
+
+
+func _playbook_proposal_id(worker_id: int) -> StringName:
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return &""
+	var worker := workers[worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	if int(bond.get("score", 0)) >= 60:
+		return &"pair_perch"
+	if worker.stress >= 55.0 or worker.fatigue >= 60.0:
+		return &"protect_clutch"
+	return &"own_lane"
+
+
+func _rare_office_episode_id() -> StringName:
+	var episode_day := 2 + posmod(_career_seed, 3)
+	if day != episode_day:
+		return &""
+	var episode_ids: Array[StringName] = [&"printer_revolt", &"coffee_union", &"bell_audit"]
+	return episode_ids[posmod(_career_seed, episode_ids.size())]
+
+
+func _build_identity_snapshot() -> Dictionary:
+	var preset_id := StringName(String(active_playbook.get("strategy_preset_id", "")))
+	var preset := PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(preset_id, {}) as Dictionary
+	# Default AUTO is a player routing choice, not proof that mastery was taught.
+	# Only the filed mastery receipt may claim a taught delegation rule.
+	var auto_count := 1 if bool(active_playbook.get("mastery_auto_used", false)) else 0
+	var identity_label := String(preset.get("label", "OPEN BOOK"))
+	if auto_count > 0:
+		identity_label += " / TAUGHT FLOCK"
+	return {
+		"label": identity_label,
+		"strategy": String(preset_id),
+		"automated_hens": auto_count,
+		"side_goal": String(active_playbook.get("side_goal_id", "")),
+		"summary": "%s · %d routing rule%s · %s" % [
+			identity_label,
+			auto_count,
+			"" if auto_count == 1 else "s",
+			String(active_directive_snapshot().get("short_name", "POLICY OPEN")),
+		],
+	}
+
+
+func _playbook_combo_step_progress(step_id: StringName) -> int:
+	match step_id:
+		&"fit_routes":
+			return routing_momentum_chain
+		&"priority_peck":
+			return peck_assist_streak
+		&"clean_eggs":
+			return quality_streak
+		&"bank_clutch":
+			return 1 if StringName(active_playbook.get("push_luck_id", &"")) == &"bank_clutch" else 0
+		&"team_lift":
+			return 1 if bool(active_playbook.get("teamwork_used", false)) else 0
+		&"hen_signature":
+			return (active_playbook.get("signature_worker_ids", []) as Array).size()
+	return 0
+
+
+func _playbook_combo_recipe_snapshot() -> Dictionary:
+	var preset_id := StringName(active_playbook.get("strategy_preset_id", &""))
+	if preset_id == &"custom" or not PLAYBOOK_COMBO_RECIPE_DEFINITIONS.has(preset_id):
+		match active_directive_id:
+			&"record_harvest": preset_id = &"fast"
+			&"sustainable_flock": preset_id = &"flock"
+			_: preset_id = &"safe"
+	var definition := PLAYBOOK_COMBO_RECIPE_DEFINITIONS[preset_id] as Dictionary
+	var steps: Array[Dictionary] = []
+	var completed := 0
+	for step_value in definition.get("steps", []) as Array:
+		var step := (step_value as Dictionary).duplicate(true)
+		var step_id := StringName(step.get("id", &""))
+		var target := maxi(1, int(step.get("target", 1)))
+		var progress := _playbook_combo_step_progress(step_id)
+		step["progress"] = mini(progress, target)
+		step["complete"] = progress >= target
+		if bool(step["complete"]):
+			completed += 1
+		steps.append(step)
+	return {
+		"id": String(definition.get("id", "combo_recipe")),
+		"label": String(definition.get("label", "COMBO RECIPE")),
+		"icon": String(definition.get("icon", "sync")),
+		"effect": String(definition.get("effect", "VISIBLE BONUS")),
+		"steps": steps,
+		"completed_steps": completed,
+		"total_steps": steps.size(),
+		"complete": completed == steps.size() and not steps.is_empty(),
+		"ordered": false,
+		"rule": "Complete both short actions in any order; progress is never consumed.",
+	}
+
+
+func _playbook_prediction_snapshot(contract: Dictionary) -> Dictionary:
+	var preset_id := StringName(active_playbook.get("strategy_preset_id", &""))
+	if String(contract.get("id", "")).is_empty():
+		return {
+			"plan_id": String(preset_id),
+			"plan_label": "PREDICTION OPEN",
+			"forecast": "CHOOSE A PLAN",
+			"progress": 0,
+			"target": 0,
+			"verdict": "AWAITING PLAN",
+			"score": 0,
+			"complete": false,
+			"closed": false,
+			"immediate": true,
+			"detail": "Choose Fast, Safe, or Flock to make one visible shift prediction.",
+		}
+	var target := maxi(1, int(contract.get("target", 1)))
+	var progress := maxi(0, int(contract.get("progress", 0)))
+	var complete := bool(contract.get("complete", false))
+	var closed := shift_phase == ShiftPhase.REVIEW or minute_of_day >= SHIFT_END_MINUTE
+	var verdict := "BUILDING"
+	var score := 0
+	if complete:
+		verdict = "CALLED IT"
+		score = 2
+	elif progress >= target - 1:
+		verdict = "CLOSE CALL"
+		score = 1
+	elif closed:
+		verdict = "SURPRISE FILED"
+	var plan_label := String((PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(preset_id, {}) as Dictionary).get("label", "CUSTOM PLAN"))
+	return {
+		"plan_id": String(preset_id),
+		"plan_label": plan_label,
+		"forecast": String(contract.get("label", "PICK A PLAN")),
+		"progress": mini(progress, target),
+		"target": target,
+		"verdict": verdict,
+		"score": score,
+		"complete": complete,
+		"closed": closed,
+		"immediate": true,
+		"detail": "%s predicted %s · %d/%d · %s" % [plan_label, String(contract.get("label", "shift result")), mini(progress, target), target, verdict],
+	}
+
+
+func _playbook_primary_objective_snapshot(options: Array[Dictionary]) -> Dictionary:
+	var priorities := [
+		"reward", "rescue", "hero_case", "push_luck", "proposal", "modifier", "rival",
+		"signature", "teamwork", "automation", "toy", "practice",
+	]
+	var selected: Dictionary = {}
+	for priority in priorities:
+		for option in options:
+			if String(option.get("kind", "")) == priority and bool(option.get("available", false)):
+				selected = option.duplicate(true)
+				break
+		if not selected.is_empty():
+			break
+	if selected.is_empty():
+		return {
+			"verb": "ROUTE",
+			"label": "ROUTE THE NEXT FILE",
+			"icon": "route",
+			"world_target": "intake_tray",
+			"ghost_path": ["INTAKE", "BEST-FIT HEN", "SORTER", "FARMER"],
+			"single": true,
+		}
+	var kind := String(selected.get("kind", "play"))
+	var target := "active_playbook"
+	if kind in ["signature", "proposal", "rescue", "teamwork", "practice", "automation"]:
+		target = "focused_hen"
+	elif kind == "hero_case":
+		target = "incident_desk"
+	elif kind == "toy":
+		target = "breakroom"
+	elif kind == "reward":
+		target = "reward_shelf"
+	return {
+		"kind": kind,
+		"id": String(selected.get("id", "")),
+		"verb": "CHOOSE" if kind in ["reward", "hero_case", "push_luck", "modifier", "rival"] else "ACT",
+		"label": String(selected.get("label", "NEXT PLAY")),
+		"icon": String(selected.get("icon", "goal")),
+		"world_target": target,
+		"ghost_path": ["CURRENT FILE", target.replace("_", " ").to_upper(), "VISIBLE RESULT"],
+		"single": true,
+		"gain": String(selected.get("gain", "VISIBLE RESULT")),
+		"cost": String(selected.get("cost", "NONE")),
+		"risk": String(selected.get("risk", "NONE")),
+	}
+
+
+func _playbook_relationship_echo_snapshot(focused_worker_id: int) -> Dictionary:
+	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
+		return {}
+	var worker := workers[focused_worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	return {
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"partner_id": int(bond.get("partner_id", -1)),
+		"partner_name": String(bond.get("partner_name", "PERCHMATE")),
+		"score": int(bond.get("score", 0)),
+		"standing": String(bond.get("label", bond.get("relationship_label", "FORMING"))),
+		"last_move": "TEAM LIFT" if bool(active_playbook.get("teamwork_used", false)) else ("HEN SIGNATURE" if focused_worker_id in (active_playbook.get("signature_worker_ids", []) as Array) else "NEXT CHOICE PENDING"),
+		"world_echo": true,
+	}
+
+
+func _playbook_strategy_mastery_snapshot(combo_recipe: Dictionary, contract: Dictionary, side_goal: Dictionary) -> Dictionary:
+	var marks := 0
+	marks += 1 if bool(contract.get("complete", false)) else 0
+	marks += 1 if bool(combo_recipe.get("complete", false)) else 0
+	marks += 1 if bool(side_goal.get("complete", false)) else 0
+	var tier := "LEARNING"
+	if marks >= 3:
+		tier = "SIGNATURE BUILD"
+	elif marks >= 2:
+		tier = "ONLINE"
+	elif marks >= 1:
+		tier = "TAKING SHAPE"
+	return {
+		"tier": tier,
+		"marks": marks,
+		"target": 3,
+		"identity": _build_identity_snapshot(),
+		"strength": String(combo_recipe.get("effect", "BALANCED FLOOR")),
+		"weakness": String((PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(StringName(active_playbook.get("strategy_preset_id", &"")), {}) as Dictionary).get("risk", "NO SPECIALIZATION")),
+		"transformative_at": 3,
+	}
+
+
+func _hero_case_id_for_day(target_day: int) -> StringName:
+	return PLAYBOOK_HERO_CASE_ORDER[posmod(maxi(1, target_day) - 1, PLAYBOOK_HERO_CASE_ORDER.size())]
+
+
+func _hero_case_snapshot(focused_worker_id: int) -> Dictionary:
+	_ensure_active_playbook()
+	var case_id := StringName(active_playbook.get("hero_case_id", _hero_case_id_for_day(day)))
+	var definition := (PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary).duplicate(true)
+	var choice_id := StringName(active_playbook.get("hero_case_choice_id", &""))
+	var worker_id := focused_worker_id
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		worker_id = -1
+		for worker in workers:
+			if worker.employed:
+				worker_id = worker.id
+				break
+	var options: Array[Dictionary] = []
+	for option_id: StringName in (definition.get("choices", {}) as Dictionary):
+		var option_definition := definition["choices"][option_id] as Dictionary
+		options.append(_playbook_option(
+			&"hero_case", option_id, option_definition, choice_id == &"",
+			"Choose one disclosed answer; its callback is filed in the shift record.",
+		))
+	var callback := (active_playbook.get("hero_case_callback", {}) as Dictionary).duplicate(true)
+	var recent_case_ids: Array[String] = []
+	for index in range(maxi(0, hero_case_history.size() - 3), hero_case_history.size()):
+		recent_case_ids.append(String(hero_case_history[index].get("case_id", "")))
+	return {
+		"id": String(case_id),
+		"label": String(definition.get("label", "HERO FILE")),
+		"icon": String(definition.get("icon", &"files")),
+		"complication": String(definition.get("complication", "A consequential file is ready.")),
+		"worker_id": worker_id,
+		"worker_name": workers[worker_id].display_name if worker_id >= 0 else "THE FLOCK",
+		"active": eggs_today > 0 and choice_id == &"",
+		"resolved": choice_id != &"",
+		"choice_id": String(choice_id),
+		"options": options,
+		"callback": callback,
+		"persistent_history_count": hero_case_history.size(),
+		"staging": {
+			"prepared_slot": true,
+			"warning_visible": eggs_today == 0,
+			"arrival_trigger": "FIRST EGG",
+			"world_target": "hero_file_slot",
+			"audio_cue": "hero_file_arrival",
+		},
+		"follow_through": {
+			"filed": not callback.is_empty(),
+			"returns_in_review": not callback.is_empty(),
+			"returns_in_future_docket": not callback.is_empty(),
+			"worker_echo": String(callback.get("worker_name", "")),
+			"choice_echo": String(callback.get("choice_label", "")),
+		},
+		"repetition_guard": {
+			"recent_case_ids": recent_case_ids,
+			"catalog_size": PLAYBOOK_HERO_CASE_ORDER.size(),
+			"immediate_repeat_allowed": false,
+		},
+	}
+
+
+func _partnership_progression_snapshot(focused_worker_id: int) -> Dictionary:
+	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
+		return {"available": false, "reason": "SELECT A HEN"}
+	var worker := workers[focused_worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	var partner_id := int(bond.get("partner_id", -1))
+	if partner_id < 0 or partner_id >= workers.size() or not workers[partner_id].employed:
+		return {"available": false, "reason": "NO ACTIVE PERCHMATE"}
+	var partner := workers[partner_id]
+	var score := int(bond.get("score", 0))
+	var style_id := &""
+	var specialization_locked := worker.partnership_style_id != &"" or partner.partnership_style_id != &""
+	if worker.partnership_partner_id == partner_id and partner.partnership_partner_id == worker.id:
+		if worker.partnership_style_id == partner.partnership_style_id:
+			style_id = worker.partnership_style_id
+	var tier := "FORMING"
+	var next_threshold := 60
+	if score >= 90:
+		tier = "SIGNATURE PAIR"
+		next_threshold = 100
+	elif score >= 75:
+		tier = "CLUTCHMATES"
+		next_threshold = 90
+	elif score >= 60:
+		tier = "GOOD PERCH"
+		next_threshold = 75
+	var choices: Array[Dictionary] = []
+	for choice_id: StringName in PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS:
+		choices.append(_playbook_option(
+			&"partnership",
+			choice_id,
+			PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS[choice_id],
+			score >= 75 and not specialization_locked,
+			"Choose once at Clutchmates 75; both hens permanently learn the pair style.",
+		))
+	return {
+		"available": score >= 60,
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"partner_id": partner.id,
+		"partner_name": partner.display_name,
+		"score": score,
+		"tier": tier,
+		"next_threshold": next_threshold,
+		"specialization_unlocked": score >= 75,
+		"specialization_locked": specialization_locked,
+		"specialization_id": String(style_id),
+		"specialization": (PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS.get(style_id, {}) as Dictionary).duplicate(true),
+		"choices": choices,
+		"development_sources": ["TEAM LIFT", "MORALE", "STRAIN", "SOLIDARITY"],
+	}
+
+
+func _rival_memory_snapshot() -> Dictionary:
+	var scenario := scenario_identity_snapshot()
+	var current_id := StringName(active_playbook.get("rival_response_id", &""))
+	var latest: Dictionary = rival_response_history.back().duplicate(true) if not rival_response_history.is_empty() else {}
+	var remembered_id := current_id if current_id != &"" else StringName(latest.get("response_id", &""))
+	var personality := "WATCHFUL BENCHMARKER"
+	var next_intent := "Tests whether your filed plan holds under visible pressure."
+	match remembered_id:
+		&"defend":
+			personality = "PATIENT PRESSURE"
+			next_intent = "Will challenge pace because you previously protected quality."
+		&"counter":
+			personality = "SHELL TESTER"
+			next_intent = "Will challenge quality because you previously raced the benchmark."
+		&"ignore":
+			personality = "FLOCK BAITER"
+			next_intent = "Will widen the visible margin because you previously backed the flock."
+	return {
+		"rival_name": String(scenario.get("rival_name", "Golden Comb Group")),
+		"personality": personality,
+		"visible_intent": next_intent,
+		"current_response_id": String(current_id),
+		"remembered_response_id": String(remembered_id),
+		"history": rival_response_history.duplicate(true),
+		"memory_count": rival_response_history.size(),
+		"persistent": true,
+		"response_window": "AFTER FIRST EGG",
+		"hidden_counter": false,
+	}
+
+
+func _automation_report_card(focused_worker_id: int) -> Dictionary:
+	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
+		return {"available": false, "worker_id": -1}
+	var worker := workers[focused_worker_id]
+	var stats := _worker_shift_stat(focused_worker_id)
+	var eggs := maxi(0, int(stats.get("eggs", 0)))
+	var cracked := maxi(0, int(stats.get("cracked", 0)))
+	var clean := maxi(0, eggs - cracked)
+	var policy_id := worker.automation_policy_id if worker.automation_policy_unlocked else &""
+	var recommendation := "KEEP MANUAL"
+	if worker.automation_policy_unlocked and worker.assigned_lane == AUTO_ASSIGNMENT:
+		recommendation = "KEEP %s" % String((PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.get(policy_id, {}) as Dictionary).get("label", "AUTO FIT"))
+		if eggs >= 2 and cracked * 3 > eggs:
+			recommendation = "REVIEW POLICY"
+	return {
+		"available": worker.automation_policy_unlocked,
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"assignment": String(worker.assigned_lane),
+		"policy_id": String(policy_id),
+		"policy": (PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.get(policy_id, {}) as Dictionary).duplicate(true),
+		"handled": eggs,
+		"clean": clean,
+		"cracked": cracked,
+		"golden": maxi(0, int(stats.get("golden", 0))),
+		"credit_cents": maxi(0, int(stats.get("credit_cents", 0))),
+		"clean_rate_percent": roundi(100.0 * float(clean) / float(maxi(1, eggs))),
+		"exceptions_manual": true,
+		"recommendation": recommendation,
+	}
+
+
+func _next_shift_tease_snapshot() -> Dictionary:
+	var next_day := day + 1
+	if day >= PROBATION_CAMPAIGN_SHIFTS:
+		return {
+			"day": day,
+			"label": "FINAL RECORD",
+			"icon": "star",
+			"detail": "Your plan, strongest hen, relationships, and final signature decide the permanent coop record.",
+			"climax": true,
+		}
+	var scenario := scenario_identity_snapshot()
+	return {
+		"day": next_day,
+		"label": "DAY %d · %s" % [next_day, String(scenario.get("short", "NEXT FILE"))],
+		"icon": String(scenario.get("icon", "files")),
+		"detail": "%s One new pressure beat and the next visible office reward arrive after this report." % String(scenario.get("victory_twist", "The probation file keeps evolving.")),
+		"one_more_shift": true,
+	}
+
+
+func _campaign_legacy_evidence_snapshot() -> Dictionary:
+	var strongest_worker: ChickenState
+	for candidate in workers:
+		if not candidate.employed:
+			continue
+		if strongest_worker == null or candidate.career_xp > strongest_worker.career_xp:
+			strongest_worker = candidate
+	var strongest_name := "THE FLOCK"
+	var strongest_title := "UNFILED"
+	var relationship := "FORMING"
+	if strongest_worker != null:
+		strongest_name = strongest_worker.display_name
+		strongest_title = strongest_worker.career_title()
+		relationship = strongest_worker.relationship_label()
+	var combo := _playbook_combo_recipe_snapshot()
+	return {
+		"build": _build_identity_snapshot(),
+		"strongest_hen": {"name": strongest_name, "title": strongest_title, "career_xp": strongest_worker.career_xp if strongest_worker != null else 0},
+		"relationship": relationship,
+		"combo": {"label": String(combo.get("label", "NO COMBO")), "complete": bool(combo.get("complete", false))},
+		"challenge_modifier": String(active_playbook.get("challenge_modifier_id", "")),
+		"summary": "%s built %s; %s stands as %s; the flock relationship is %s." % [strongest_name, String(_build_identity_snapshot().get("label", "OPEN BOOK")), strongest_name, strongest_title, relationship],
+	}
+
+
+func _career_story_snapshot(focused_worker_id: int) -> Dictionary:
+	if focused_worker_id < 0 or focused_worker_id >= workers.size() or not workers[focused_worker_id].employed:
+		return {}
+	var worker := workers[focused_worker_id]
+	var chapter := "NEW PERCH"
+	if worker.career_xp >= 40:
+		chapter = "FLOCK VETERAN"
+	elif worker.manager_trust >= 65.0:
+		chapter = "TRUSTED HAND"
+	elif worker.grievance >= 45.0:
+		chapter = "RELATIONSHIP AT RISK"
+	return {
+		"worker_id": worker.id,
+		"worker_name": worker.display_name,
+		"chapter": chapter,
+		"beat": "Day %d · %s · trust %d" % [day, worker.career_title(), roundi(worker.manager_trust)],
+		"persistent_sources": ["career_xp", "manager_trust", "grievance", "flock_bond"],
+	}
+
+
+func _playbook_display_sockets() -> Array[Dictionary]:
+	var style_index := int(active_playbook.get("display_style_index", 0))
+	var style_id := PLAYBOOK_DISPLAY_STYLE_ORDER[style_index]
+	var style := PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[style_id] as Dictionary
+	return [
+		{"id": "plan", "label": "PLAN", "earned": not String(active_playbook.get("strategy_preset_id", "")).is_empty(), "style_id": String(style_id), "style": style.duplicate(true)},
+		{"id": "contract", "label": "CONTRACT", "earned": not String(active_playbook.get("contract_id", "")).is_empty(), "style_id": String(style_id), "style": style.duplicate(true)},
+		{"id": "reward", "label": "REWARD", "earned": not String(active_playbook.get("contract_reward_id", "")).is_empty(), "style_id": String(style_id), "style": style.duplicate(true)},
+	]
+
+
+func challenge_code() -> String:
+	return "PO-%04d-D%d" % [posmod(_career_seed, 10_000), clampi(day, 1, 99)]
+
+
+static func challenge_seed_from_code(code: String) -> int:
+	return int(challenge_state_from_code(code).get("seed", -1))
+
+
+static func challenge_state_from_code(code: String) -> Dictionary:
+	var normalized := code.strip_edges().to_upper()
+	if not normalized.begins_with("PO-"):
+		return {}
+	var parts := normalized.split("-")
+	if parts.size() != 3 or not parts[1].is_valid_int() or not parts[2].begins_with("D"):
+		return {}
+	var day_text := parts[2].trim_prefix("D")
+	if not day_text.is_valid_int():
+		return {}
+	var seed := int(parts[1])
+	var coded_day := int(day_text)
+	if seed < 0 or seed > 9999 or coded_day < 1 or coded_day > 99:
+		return {}
+	return {"seed": seed, "day": coded_day, "code": "PO-%04d-D%d" % [seed, coded_day]}
+
+
+static func first_session_comprehension_protocol() -> Dictionary:
+	return {
+		"participants_required": 5,
+		"unaided": true,
+		"tasks": ["Choose a plan", "Route one file", "Resolve one hero file", "Recover one mistake", "Explain one result"],
+		"pass_rule": "At least 4 of 5 participants complete all five tasks without outside instruction.",
+		"thresholds": {
+			"choose_plan_unaided": "4/5",
+			"route_within_seconds": 30,
+			"explain_result_correctly": "4/5",
+			"required_shortcut_discovery": 0,
+		},
+		"observations": ["eye_target", "cursor_path", "first_hesitation", "recovery_path"],
+		"instrumented_events": [
+			"plan_filed",
+			"route_completed",
+			"hero_case_resolved",
+			"rescue_used",
+			"result_explained",
+			"shortcut_required",
+			"attention_target_changed",
+		],
+		"real_humans_required": true,
+		"results_complete": false,
+		"never_fabricate": true,
+		"status": "AWAITING REAL PARTICIPANTS",
+	}
+
+
+func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
+	_ensure_active_playbook()
+	var contract_id := StringName(active_playbook.get("contract_id", &""))
+	var contract_definition := PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
+	var contract_progress := _playbook_contract_progress(contract_id)
+	var contract_target := int(contract_definition.get("target", 0))
+	var contract_complete := not contract_definition.is_empty() and contract_progress >= contract_target
+	var side_goal_id := StringName(active_playbook.get("side_goal_id", &""))
+	var side_goal_definition := PLAYBOOK_SIDE_GOAL_DEFINITIONS.get(side_goal_id, {}) as Dictionary
+	var side_goal_progress := _playbook_side_goal_progress(side_goal_id)
+	var side_goal_target := int(side_goal_definition.get("target", 0))
+	var options: Array[Dictionary] = []
+	var running := shift_phase == ShiftPhase.RUNNING and pending_decision.is_empty()
+	var strategy_preset_id := StringName(active_playbook.get("strategy_preset_id", &""))
+	var recommended_preset_id := _recommended_playbook_strategy_id()
+	var bundled_plan_unfiled := (
+		contract_id == &""
+		and String(active_playbook.get("loadout_id", "")).is_empty()
+		and String(active_playbook.get("preparation_id", "")).is_empty()
+		and side_goal_id == &""
+	)
+	if strategy_preset_id == &"" and bundled_plan_unfiled:
+		for choice_id in PLAYBOOK_STRATEGY_PRESET_ORDER:
+			var preset_definition := (PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[choice_id] as Dictionary).duplicate(true)
+			preset_definition["recommended"] = choice_id == recommended_preset_id
+			var affordable := spendable_fund_cents() >= int(preset_definition.get("cost_cents", 0))
+			var planning_open := eggs_today == 0 and incidents_resolved_today == 0
+			var preset_reason := (
+				"Recommended for today's policy. Files plan, challenge, preparation, and personal goal in one action."
+				if choice_id == recommended_preset_id else
+				"Files plan, challenge, preparation, and personal goal in one action."
+			)
+			if not affordable:
+				preset_reason = "Feed Fund needs $2.00 spendable for the flock plan."
+			elif not planning_open:
+				preset_reason = "Guided plans lock after the first delivery or resolved incident."
+			options.append(_playbook_option(&"preset", choice_id, preset_definition, running and affordable and planning_open, preset_reason))
+		if day >= 2:
+			options.append(_playbook_option(&"customize", &"advanced", {
+				"label": "CUSTOM PLAN",
+				"icon": &"facility",
+				"gain": "CHOOSE EACH PART",
+				"cost": "MORE DECISIONS",
+				"risk": "ADVANCED",
+				"promise": "Open the individual contract, loadout, preparation, and side-goal choices.",
+			}, running, "Advanced planning unlocks after the first shift."))
+	if strategy_preset_id == &"custom" and contract_id == &"":
+		for choice_id: StringName in PLAYBOOK_CONTRACT_DEFINITIONS:
+			options.append(_playbook_option(&"contract", choice_id, PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], running, "Accept one optional shift challenge; declining has no penalty."))
+	if strategy_preset_id == &"custom" and String(active_playbook.get("loadout_id", "")).is_empty() and eggs_today == 0:
+		for choice_id: StringName in PLAYBOOK_LOADOUT_DEFINITIONS:
+			options.append(_playbook_option(&"loadout", choice_id, PLAYBOOK_LOADOUT_DEFINITIONS[choice_id], running, "Locks when the first egg is delivered."))
+	if strategy_preset_id == &"custom" and String(active_playbook.get("preparation_id", "")).is_empty() and incidents_resolved_today == 0:
+		for choice_id: StringName in PLAYBOOK_PREPARATION_DEFINITIONS:
+			var affordable := choice_id != &"rest_flock" or spendable_fund_cents() >= 200
+			options.append(_playbook_option(&"preparation", choice_id, PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], running and affordable, "Prepare once before the first incident." if affordable else "Feed Fund needs $2.00 spendable."))
+	var intervention_id := StringName(active_playbook.get("manager_intervention_id", &""))
+	var intervention_options: Array[Dictionary] = []
+	if not strategy_preset_id.is_empty() and intervention_id == &"":
+		for choice_id: StringName in PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS:
+			var affordable := choice_id != &"coffee_run" or spendable_fund_cents() >= 200
+			var option := _playbook_option(
+				&"intervention",
+				choice_id,
+				PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS[choice_id],
+				running and affordable,
+				"Spend the one manager intervention for this shift." if affordable else "Feed Fund needs $2.00 spendable.",
+			)
+			intervention_options.append(option)
+			options.append(option)
+	if (
+		day >= 2
+		and not strategy_preset_id.is_empty()
+		and String(active_playbook.get("challenge_modifier_id", "")).is_empty()
+		and eggs_today == 0
+		and incidents_resolved_today == 0
+	):
+		for choice_id: StringName in PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS:
+			options.append(_playbook_option(
+				&"modifier",
+				choice_id,
+				PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS[choice_id],
+				running,
+				"Optional shift spice. Skip it freely; filing one changes today's rules and locks the other two.",
+			))
+	if String(active_playbook.get("rival_response_id", "")).is_empty() and eggs_today > 0:
+		for choice_id: StringName in PLAYBOOK_RIVAL_DEFINITIONS:
+			options.append(_playbook_option(&"rival", choice_id, PLAYBOOK_RIVAL_DEFINITIONS[choice_id], running, "One transparent response for this shift."))
+	var hero_case := _hero_case_snapshot(focused_worker_id)
+	if bool(hero_case.get("active", false)):
+		for hero_option_value in hero_case.get("options", []) as Array:
+			if hero_option_value is Dictionary:
+				var hero_option := (hero_option_value as Dictionary).duplicate(true)
+				hero_option["available"] = running
+				options.append(hero_option)
+	if strategy_preset_id == &"custom" and side_goal_id == &"":
+		for choice_id: StringName in PLAYBOOK_SIDE_GOAL_DEFINITIONS:
+			options.append(_playbook_option(&"side_goal", choice_id, PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], running, "Pin one personal ambition; no failure penalty."))
+	var signature_ids := active_playbook.get("signature_worker_ids", []) as Array
+	var signature_reason := "Select an active hen."
+	var signature_available := false
+	var signature_label := "HEN SIGNATURE"
+	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
+		var focused_worker := workers[focused_worker_id]
+		var preferred_action := _preferred_personnel_action(focused_worker)
+		var preferred_definition := PERSONNEL_ACTION_DEFINITIONS.get(preferred_action, {}) as Dictionary
+		signature_label = "%s / %s" % [focused_worker.display_name.to_upper(), String(preferred_definition.get("short_name", "SIGNATURE"))]
+		signature_available = running and focused_worker_id not in signature_ids and bool(personnel_action_status().get("available", false))
+		signature_reason = "Uses the normal flock check-in allowance." if signature_available else "This hen's signature or today's flock allowance is already used."
+	options.append(_playbook_option(&"signature", &"activate", {"label": signature_label, "icon": &"flock", "gain": "PROFILE-SPECIFIC EFFECT", "cost": "NORMAL CHECK-IN", "risk": "ONE PER HEN / SHIFT"}, signature_available, signature_reason))
+	var proposal_id := _playbook_proposal_id(focused_worker_id)
+	var proposal_open := (
+		running
+		and proposal_id != &""
+		and int(active_playbook.get("proposal_worker_id", -1)) < 0
+		and not strategy_preset_id.is_empty()
+	)
+	if proposal_id != &"":
+		var proposal_definition := PLAYBOOK_HEN_PROPOSAL_DEFINITIONS[proposal_id] as Dictionary
+		options.append(_playbook_option(
+			&"proposal",
+			proposal_id,
+			proposal_definition,
+			proposal_open,
+			"%s is proposing this herself; accept or ignore it with no failure penalty." % workers[focused_worker_id].display_name,
+		))
+	var teamwork_available := false
+	var teamwork_reason := "Select a bonded hen with a Good Perch or Clutchmates relationship."
+	var teamwork_ability: Dictionary = {}
+	var partnership := _partnership_progression_snapshot(focused_worker_id)
+	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
+		var bond := _worker_flock_bond_snapshot(workers[focused_worker_id])
+		teamwork_available = running and not bool(active_playbook.get("teamwork_used", false)) and int(bond.get("score", 0)) >= 60
+		var partner_id := int(bond.get("partner_id", -1))
+		if partner_id >= 0 and partner_id < workers.size():
+			teamwork_ability = _team_lift_ability(workers[focused_worker_id], workers[partner_id])
+		teamwork_reason = "%s + %s at %d/100; %s." % [
+			workers[focused_worker_id].display_name,
+			String(bond.get("partner_name", "PERCHMATE")),
+			int(bond.get("score", 0)),
+			String(teamwork_ability.get("summary", "restore morale and one attention charge")),
+		]
+	options.append(_playbook_option(&"teamwork", &"team_lift", {
+		"label": String(teamwork_ability.get("label", "TEAM LIFT")),
+		"icon": teamwork_ability.get("icon", &"sync"),
+		"gain": String(teamwork_ability.get("gain", "PAIR MORALE + ATTENTION")),
+		"cost": "ONCE / SHIFT",
+		"risk": "REQUIRES BOND 60",
+	}, teamwork_available, teamwork_reason))
+	if (
+		bool(partnership.get("specialization_unlocked", false))
+		and not bool(partnership.get("specialization_locked", false))
+	):
+		for partnership_choice_value in partnership.get("choices", []) as Array:
+			if partnership_choice_value is Dictionary:
+				var partnership_choice := (partnership_choice_value as Dictionary).duplicate(true)
+				partnership_choice["available"] = running
+				options.append(partnership_choice)
+	if contract_complete and String(active_playbook.get("contract_reward_id", "")).is_empty():
+		for choice_id: StringName in PLAYBOOK_REWARD_DEFINITIONS:
+			options.append(_playbook_option(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], running, "Claim one reward for the completed optional contract."))
+	if eggs_today >= quota_target and String(active_playbook.get("push_luck_id", "")).is_empty():
+		for choice_id: StringName in PLAYBOOK_PUSH_LUCK_DEFINITIONS:
+			options.append(_playbook_option(
+				&"push_luck",
+				choice_id,
+				PLAYBOOK_PUSH_LUCK_DEFINITIONS[choice_id],
+				running,
+				"Quota is safe. Choose whether the rest of this shift protects the clutch or presses for premium value.",
+			))
+	var mastery_auto_available := (
+		running
+		and routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+		and not bool(active_playbook.get("mastery_auto_used", false))
+		and focused_worker_id >= 0
+		and focused_worker_id < workers.size()
+		and workers[focused_worker_id].employed
+	)
+	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE:
+		options.append(_playbook_option(&"automation", &"auto_fit", {
+			"label": "TEACH AUTO FIT",
+			"icon": &"route",
+			"gain": "SELECTED HEN ROUTES BY FIT",
+			"cost": "USES MASTERY MARK",
+			"risk": "EXCEPTIONS STAY MANUAL",
+		}, mastery_auto_available, "Select the hen whose solved route should now run automatically."))
+	var delegation_policy_id: StringName = &""
+	var delegation_policy_unlocked := false
+	if focused_worker_id >= 0 and focused_worker_id < workers.size() and workers[focused_worker_id].employed:
+		var focused_automation_worker := workers[focused_worker_id]
+		delegation_policy_id = focused_automation_worker.automation_policy_id
+		delegation_policy_unlocked = (
+			focused_automation_worker.automation_policy_unlocked
+			and focused_automation_worker.assigned_lane == AUTO_ASSIGNMENT
+		)
+		if delegation_policy_unlocked:
+			for policy_id: StringName in PLAYBOOK_DELEGATION_POLICY_DEFINITIONS:
+				if policy_id == delegation_policy_id:
+					continue
+				options.append(_playbook_option(
+					&"automation_policy",
+					policy_id,
+					PLAYBOOK_DELEGATION_POLICY_DEFINITIONS[policy_id],
+					running,
+					"Reversible management rule for this hen's future routine files.",
+				))
+	var recovery_open := (
+		running
+		and String(active_playbook.get("recovery_id", "")).is_empty()
+		and (revenue_cents < 2500 or executive_confidence < 45.0 or _average_worker_stress() >= 55.0)
+	)
+	if recovery_open:
+		for choice_id: StringName in PLAYBOOK_RECOVERY_DEFINITIONS:
+			var affordable := choice_id != &"repair_flock" or spendable_fund_cents() >= 300
+			options.append(_playbook_option(&"recovery", choice_id, PLAYBOOK_RECOVERY_DEFINITIONS[choice_id], affordable, "Choose one comeback plan." if affordable else "Feed Fund needs $3.00 spendable."))
+	var rescue_open := (
+		running
+		and not bool(active_playbook.get("rescue_used", false))
+		and StringName(active_playbook.get("challenge_modifier_id", &"")) != &"one_bell"
+		and focused_worker_id >= 0
+		and (cracked_today > 0 or (eggs_today > 0 and routing_momentum_chain == 0) or _overdue_claim_count(false) > 0)
+	)
+	if rescue_open:
+		options.append(_playbook_option(&"rescue", &"show_me", {
+			"label": "SHOW ME",
+			"icon": &"route",
+			"gain": "SPECIALTY ROUTE + ATTENTION",
+			"cost": "ONE RESCUE / SHIFT",
+			"risk": "NO BONUS REWARD",
+		}, true, "A contextual recovery: fit the selected hen to her specialty and restore one help charge."))
+	if String(active_playbook.get("toy_id", "")).is_empty() and eggs_today > 0:
+		for toy_id: StringName in PLAYBOOK_OFFICE_TOY_DEFINITIONS:
+			options.append(_playbook_option(&"toy", toy_id, PLAYBOOK_OFFICE_TOY_DEFINITIONS[toy_id], running, "A tiny physical office beat; once per shift and never required."))
+	var episode_id := _rare_office_episode_id()
+	if episode_id != &"" and not bool(active_playbook.get("rare_episode_resolved", false)):
+		var episode_definition := PLAYBOOK_RARE_EPISODE_DEFINITIONS[episode_id] as Dictionary
+		var episode_affordable := episode_id != &"printer_revolt" or spendable_fund_cents() >= 100
+		options.append(_playbook_option(&"episode", episode_id, episode_definition, running and episode_affordable, "One authored office episode in this five-shift docket." if episode_affordable else "The printer repair needs $1.00 spendable."))
+	if not strategy_preset_id.is_empty():
+		var next_style_index := (int(active_playbook.get("display_style_index", 0)) + 1) % PLAYBOOK_DISPLAY_STYLE_ORDER.size()
+		var next_style_id := PLAYBOOK_DISPLAY_STYLE_ORDER[next_style_index]
+		var next_style := PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[next_style_id] as Dictionary
+		options.append(_playbook_option(&"display", next_style_id, {
+			"label": "DISPLAY: %s" % String(next_style.get("label", "STYLE")),
+			"icon": next_style.get("icon", &"facility"),
+			"gain": "RESTYLE 3 FIXED SOCKETS",
+			"cost": "NONE",
+			"risk": "COSMETIC ONLY",
+		}, running, "Cycles the earned plan, contract, and reward display—never free placement."))
+	options.append(_playbook_option(&"challenge", &"copy_code", {
+		"label": "COPY %s" % challenge_code(),
+		"icon": &"files",
+		"gain": "SHARE THIS DOCKET",
+		"cost": "NONE",
+		"risk": "SAME SEED / DAY",
+	}, running, "Copy a compact deterministic challenge code."))
+	options.append(_playbook_option(&"practice", &"peck", {"label": "PRACTICE PECK", "icon": &"sync", "gain": "TIMING FEEDBACK", "cost": "NONE", "risk": "NO REWARD"}, running and focused_worker_id >= 0, "Reads the current timing cursor without spending attention or changing the file."))
+	var directive_combo := {
+		&"record_harvest": {"id": "harvest_hustle", "label": "HARVEST HUSTLE", "icon": "egg", "effect": "PACE +5%"},
+		&"shell_assurance": {"id": "shell_lock", "label": "SHELL LOCK", "icon": "shield", "effect": "SHELL RISK -2%"},
+		&"sustainable_flock": {"id": "perch_partners", "label": "PERCH PARTNERS", "icon": "care", "effect": "STRAIN -10%"},
+	}.get(active_directive_id, {"id": "unfiled", "label": "COMBO LOCKED", "icon": "sync", "effect": "FILE A POLICY"}) as Dictionary
+	var combo_active := routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+	var combo_recipe := _playbook_combo_recipe_snapshot()
+	var contract_snapshot := {"id": String(contract_id), "label": String(contract_definition.get("label", "PICK CONTRACT")), "icon": String(contract_definition.get("icon", "goal")), "progress": contract_progress, "target": contract_target, "complete": contract_complete, "reward_claimed": not String(active_playbook.get("contract_reward_id", "")).is_empty(), "reward_id": String(active_playbook.get("contract_reward_id", "")), "optional": true, "failure_penalty": 0}
+	var side_goal_snapshot := {"id": String(side_goal_id), "label": String(side_goal_definition.get("label", "PIN A GOAL")), "icon": String(side_goal_definition.get("icon", "goal")), "progress": side_goal_progress, "target": side_goal_target, "complete": not side_goal_definition.is_empty() and side_goal_progress >= side_goal_target, "failure_penalty": 0}
+	var prediction_score := _playbook_prediction_snapshot(contract_snapshot)
+	return {
+		"day": day,
+		"authoritative": true,
+		"options": options,
+		"strategy_preset_id": String(strategy_preset_id),
+		"strategy_preset": (PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(strategy_preset_id, {}) as Dictionary).duplicate(true),
+		"recommended_preset_id": String(recommended_preset_id),
+		"smart_default": {
+			"id": String(recommended_preset_id),
+			"label": String((PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[recommended_preset_id] as Dictionary).get("label", "SAFE PLAN")),
+			"automatic": false,
+			"one_click": true,
+		},
+		"strategy_comparison": {
+			"current_id": String(strategy_preset_id),
+			"recommended_id": String(recommended_preset_id),
+			"reversible_preview": true,
+			"changes_authority": false,
+			"plans": _strategy_comparison_catalog(strategy_preset_id, recommended_preset_id),
+		},
+		"contract": contract_snapshot,
+		"combo": {"id": String(directive_combo.get("id", "")), "label": String(directive_combo.get("label", "COMBO")), "icon": String(directive_combo.get("icon", "sync")), "active": combo_active, "progress": routing_momentum_chain, "target": ROUTING_MOMENTUM_PACE_MILESTONE, "effect": String(directive_combo.get("effect", ""))},
+		"combo_recipe": combo_recipe,
+		"prediction_score": prediction_score,
+		"dominant_objective": _playbook_primary_objective_snapshot(options),
+		"shift_plan": _playbook_shift_plan(contract_definition, directive_combo),
+		"shift_journey": _playbook_shift_journey(contract_complete),
+		"opening_spotlight": {
+			"active": day == 1 and eggs_today == 0,
+			"path": [
+				{"icon": "goal", "label": "PICK PLAN", "world_target": "plan_button"},
+				{"icon": "route", "label": "ROUTE FILE", "world_target": "intake_tray"},
+				{"icon": "egg", "label": "SEE RESULT", "world_target": "farmer_basket"},
+			],
+			"skippable": true,
+		},
+		"core_verbs": ["INSPECT", "ROUTE", "HELP", "PECK", "INVEST"],
+		"choice_budget": {"major": 1, "optional": 1, "surprise": 1, "detail": "One major plan, one optional goal, and one visible surprise at a time."},
+		"session_target_minutes": {"minimum": 8, "maximum": 12},
+		"preparation_id": String(active_playbook.get("preparation_id", "")),
+		"manager_intervention": {
+			"id": String(intervention_id),
+			"definition": (PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS.get(intervention_id, {}) as Dictionary).duplicate(true),
+			"used": intervention_id != &"",
+			"one_per_shift": true,
+			"options": intervention_options,
+		},
+		"rival_response_id": String(active_playbook.get("rival_response_id", "")),
+		"rival_memory": _rival_memory_snapshot(),
+		"loadout_id": String(active_playbook.get("loadout_id", "")),
+		"recovery_id": String(active_playbook.get("recovery_id", "")),
+		"side_goal": side_goal_snapshot,
+		"challenge_modifier": {
+			"id": String(active_playbook.get("challenge_modifier_id", "")),
+			"definition": (PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS.get(StringName(active_playbook.get("challenge_modifier_id", &"")), {}) as Dictionary).duplicate(true),
+			"optional": true,
+			"skippable": true,
+		},
+		"teamwork_used": bool(active_playbook.get("teamwork_used", false)),
+		"teamwork": {
+			"used": bool(active_playbook.get("teamwork_used", false)),
+			"available": teamwork_available,
+			"ability": teamwork_ability.duplicate(true),
+		},
+		"partnership": partnership,
+		"hero_case": hero_case,
+		"hero_case_history": hero_case_history.duplicate(true),
+		"automation_report": _automation_report_card(focused_worker_id),
+		"push_luck": {
+			"id": String(active_playbook.get("push_luck_id", "")),
+			"start_eggs": int(active_playbook.get("push_luck_start_eggs", 0)),
+			"open": eggs_today >= quota_target,
+		},
+		"mastery_automation": {
+			"ready": mastery_auto_available,
+			"used": bool(active_playbook.get("mastery_auto_used", false)),
+			"chain": routing_momentum_chain,
+			"target": ROUTING_MOMENTUM_PACE_MILESTONE,
+			"policy_id": String(delegation_policy_id),
+			"policy_unlocked": delegation_policy_unlocked,
+			"policy": (PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.get(delegation_policy_id, {}) as Dictionary).duplicate(true),
+			"rules": _delegation_policy_catalog(),
+		},
+		"hen_proposal": {
+			"worker_id": int(active_playbook.get("proposal_worker_id", focused_worker_id)),
+			"id": String(active_playbook.get("proposal_id", proposal_id)),
+			"accepted": int(active_playbook.get("proposal_worker_id", -1)) >= 0,
+			"optional": true,
+		},
+		"contextual_rescue": {"used": bool(active_playbook.get("rescue_used", false)), "available": rescue_open, "label": "SHOW ME"},
+		"office_toy": {"id": String(active_playbook.get("toy_id", "")), "used": not String(active_playbook.get("toy_id", "")).is_empty(), "optional": true},
+		"rare_episode": {"id": String(episode_id), "active": episode_id != &"", "resolved": bool(active_playbook.get("rare_episode_resolved", false)), "authored": true},
+		"display_sockets": _playbook_display_sockets(),
+		"build_identity": _build_identity_snapshot(),
+		"strategy_mastery": _playbook_strategy_mastery_snapshot(combo_recipe, contract_snapshot, side_goal_snapshot),
+		"career_story": _career_story_snapshot(focused_worker_id),
+		"relationship_echo": _playbook_relationship_echo_snapshot(focused_worker_id),
+		"personal_best": {
+			"routing": {"current": routing_momentum_chain, "best": best_routing_momentum_chain, "delta": routing_momentum_chain - best_routing_momentum_chain},
+			"quality": {"current": quality_streak, "best": best_quality_streak, "delta": quality_streak - best_quality_streak},
+		},
+		"challenge": {"code": challenge_code(), "seed": _career_seed, "day": day, "shareable": true},
+		"comprehension_study": first_session_comprehension_protocol(),
+		"boss_file": {"active": day == PROBATION_CAMPAIGN_SHIFTS, "label": String(scenario_identity_snapshot().get("climax_title", "FINAL HEARING")), "mechanics": ["POLICY", "INCIDENT", "CREDIT"]},
+		"next_shift_preview": _next_shift_tease_snapshot(),
+		"campaign_legacy_evidence": _campaign_legacy_evidence_snapshot() if day == PROBATION_CAMPAIGN_SHIFTS else {},
+		"opportunity_shapes": [
+			{"id": "golden", "icon": "golden", "shape": "star", "active": routing_momentum_golden_target_worker_id >= 0},
+			{"id": "urgent", "icon": "status_need", "shape": "diamond", "active": _overdue_claim_count(false) > 0},
+			{"id": "teamwork", "icon": "sync", "shape": "linked", "active": teamwork_available},
+			{"id": "contract", "icon": "goal", "shape": "stamp", "active": contract_complete},
+		],
+		"last_receipt": (active_playbook.get("last_receipt", {}) as Dictionary).duplicate(true),
+		"receipt_serial": int(active_playbook.get("receipt_serial", 0)),
+	}
+
+
+func _playbook_shift_plan(contract_definition: Dictionary, combo: Dictionary) -> Array[Dictionary]:
+	return [
+		{"id": "observe", "icon": "goal", "label": String(active_directive_snapshot().get("short_name", "PICK POLICY"))},
+		{"id": "act", "icon": String(combo.get("icon", "sync")), "label": String(combo.get("label", "BUILD COMBO"))},
+		{"id": "reward", "icon": String(contract_definition.get("icon", "egg")), "label": String(contract_definition.get("label", "PICK CONTRACT"))},
+	]
+
+
+func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id: int = -1) -> Dictionary:
+	_ensure_active_playbook()
+	if shift_phase != ShiftPhase.RUNNING or not pending_decision.is_empty():
+		return {"accepted": false, "reason": "Resolve the current management file first."}
+	if kind == &"hero_case":
+		return _perform_playbook_hero_case(choice_id, worker_id)
+	if kind == &"intervention":
+		if not PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS.has(choice_id):
+			return {"accepted": false, "reason": "That manager intervention is unavailable."}
+		if String(active_playbook.get("strategy_preset_id", "")).is_empty():
+			return {"accepted": false, "reason": "File a shift plan before intervening."}
+		if not String(active_playbook.get("manager_intervention_id", "")).is_empty():
+			return {"accepted": false, "reason": "The one manager intervention for this shift is already used."}
+		var outcome := ""
+		match choice_id:
+			&"ring_bell":
+				routing_momentum_peck_recharge_bank = maxi(1, routing_momentum_peck_recharge_bank)
+				outcome = "The bell restores one attention charge for a visible recovery or precision play."
+			&"coffee_run":
+				if spendable_fund_cents() < 200:
+					return {"accepted": false, "reason": "The coffee run needs $2.00 spendable Feed Fund."}
+				revenue_cents -= 200
+				_adjust_workers(2.0, -4.0, -2.0)
+				outcome = "The flock takes a real breather: morale rises while strain and fatigue fall."
+			&"emergency_review":
+				compliance = minf(100.0, compliance + 3.0)
+				outcome = "The emergency review trades 2% pace for 1.5% lower shell risk and 3 compliance."
+		active_playbook["manager_intervention_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(
+			kind,
+			choice_id,
+			PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS[choice_id],
+			outcome,
+		))
+	if kind == &"proposal":
+		if not PLAYBOOK_HEN_PROPOSAL_DEFINITIONS.has(choice_id) or int(active_playbook.get("proposal_worker_id", -1)) >= 0:
+			return {"accepted": false, "reason": "This shift's hen proposal is already answered or unavailable."}
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed or _playbook_proposal_id(worker_id) != choice_id:
+			return {"accepted": false, "reason": "Select the hen who made this proposal."}
+		var proposal_worker := workers[worker_id]
+		match choice_id:
+			&"own_lane":
+				set_worker_assignment(worker_id, proposal_worker.specialty)
+				proposal_worker.manager_trust = minf(100.0, proposal_worker.manager_trust + 3.0)
+			&"pair_perch":
+				var proposal_bond := _worker_flock_bond_snapshot(proposal_worker)
+				var proposal_partner_id := int(proposal_bond.get("partner_id", -1))
+				if proposal_partner_id < 0 or proposal_partner_id >= workers.size():
+					return {"accepted": false, "reason": "That perch bond is no longer available."}
+				for teammate_id in [worker_id, proposal_partner_id]:
+					workers[teammate_id].morale = minf(100.0, workers[teammate_id].morale + 3.0)
+					workers[teammate_id].stress = maxf(0.0, workers[teammate_id].stress - 2.0)
+			&"protect_clutch":
+				proposal_worker.stress = maxf(0.0, proposal_worker.stress - 4.0)
+				proposal_worker.fatigue = maxf(0.0, proposal_worker.fatigue - 3.0)
+		active_playbook["proposal_worker_id"] = worker_id
+		active_playbook["proposal_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(
+			kind,
+			choice_id,
+			PLAYBOOK_HEN_PROPOSAL_DEFINITIONS[choice_id],
+			"%s's %s proposal is now visible in the floor plan." % [proposal_worker.display_name, String(PLAYBOOK_HEN_PROPOSAL_DEFINITIONS[choice_id].get("label", "hen"))],
+		))
+	if kind == &"rescue":
+		if choice_id != &"show_me" or bool(active_playbook.get("rescue_used", false)):
+			return {"accepted": false, "reason": "Show Me is already used or unavailable."}
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+			return {"accepted": false, "reason": "Select an active hen for the rescue route."}
+		set_worker_assignment(worker_id, workers[worker_id].specialty)
+		routing_momentum_peck_recharge_bank = maxi(1, routing_momentum_peck_recharge_bank)
+		active_playbook["rescue_used"] = true
+		return _file_playbook_receipt({
+			"accepted": true, "playbook_kind": "rescue", "choice_id": "show_me", "worker_id": worker_id,
+			"label": "SHOW ME", "effects": {"gain": "SPECIALTY ROUTE + ATTENTION", "cost": "ONE RESCUE / SHIFT", "risk": "NO BONUS REWARD"},
+			"outcome": "%s is back on her specialty lane; one help charge is ready. No reward was granted." % workers[worker_id].display_name, "day": day,
+		})
+	if kind == &"toy":
+		if not PLAYBOOK_OFFICE_TOY_DEFINITIONS.has(choice_id) or not String(active_playbook.get("toy_id", "")).is_empty():
+			return {"accepted": false, "reason": "The office already had its playful beat this shift."}
+		var toy_worker_id := worker_id
+		if toy_worker_id < 0 or toy_worker_id >= workers.size() or not workers[toy_worker_id].employed:
+			for candidate in workers:
+				if candidate.employed:
+					toy_worker_id = candidate.id
+					break
+		if toy_worker_id >= 0:
+			workers[toy_worker_id].morale = minf(100.0, workers[toy_worker_id].morale + 1.0)
+			if choice_id == &"cooler_break":
+				workers[toy_worker_id].stress = maxf(0.0, workers[toy_worker_id].stress - 2.0)
+		active_playbook["toy_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_OFFICE_TOY_DEFINITIONS[choice_id], "%s reacted to the %s. Small, optional, and done for this shift." % [workers[toy_worker_id].display_name, String(PLAYBOOK_OFFICE_TOY_DEFINITIONS[choice_id].get("label", "office toy")).to_lower()]))
+	if kind == &"episode":
+		if choice_id != _rare_office_episode_id() or bool(active_playbook.get("rare_episode_resolved", false)):
+			return {"accepted": false, "reason": "That office episode is not active."}
+		match choice_id:
+			&"printer_revolt":
+				if spendable_fund_cents() < 100:
+					return {"accepted": false, "reason": "The printer repair needs $1.00 spendable."}
+				revenue_cents -= 100
+				routing_momentum_peck_recharge_bank = maxi(1, routing_momentum_peck_recharge_bank)
+			&"coffee_union":
+				_adjust_workers(0.0, -3.0, -2.0)
+			&"bell_audit":
+				compliance = minf(100.0, compliance + 2.0)
+				_adjust_workers(-1.0, 0.0, 0.0)
+		active_playbook["rare_episode_resolved"] = true
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_RARE_EPISODE_DEFINITIONS[choice_id], "%s resolved. Its disclosed trade is now part of this docket's story." % String(PLAYBOOK_RARE_EPISODE_DEFINITIONS[choice_id].get("label", "Office episode"))))
+	if kind == &"display":
+		if choice_id not in PLAYBOOK_DISPLAY_STYLE_ORDER:
+			return {"accepted": false, "reason": "That fixed display style is unavailable."}
+		active_playbook["display_style_index"] = PLAYBOOK_DISPLAY_STYLE_ORDER.find(choice_id)
+		return _file_playbook_receipt({"accepted": true, "playbook_kind": "display", "choice_id": String(choice_id), "label": "DISPLAY RESTYLED", "effects": {"gain": "3 FIXED SOCKETS", "cost": "NONE", "risk": "COSMETIC ONLY"}, "outcome": "The plan, contract, and reward sockets now use %s. Nothing can overlap the office floor." % String(PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[choice_id].get("label", "this style")), "day": day})
+	if kind == &"challenge":
+		if choice_id != &"copy_code":
+			return {"accepted": false, "reason": "That challenge code action is unavailable."}
+		return {"accepted": true, "playbook_kind": "challenge", "choice_id": "copy_code", "label": "CHALLENGE CODE", "code": challenge_code(), "changes_authority": false, "outcome": "%s is ready to share." % challenge_code(), "day": day}
+	if kind == &"modifier":
+		if day < 2 or not PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS.has(choice_id):
+			return {"accepted": false, "reason": "Optional shift modifiers unlock after the first shift."}
+		if (
+			not String(active_playbook.get("challenge_modifier_id", "")).is_empty()
+			or String(active_playbook.get("strategy_preset_id", "")).is_empty()
+			or eggs_today > 0
+			or incidents_resolved_today > 0
+		):
+			return {"accepted": false, "reason": "Choose one optional modifier after the plan and before production begins."}
+		active_playbook["challenge_modifier_id"] = String(choice_id)
+		if choice_id == &"rush_hour":
+			quota_target += 2
+		var modifier_definition := PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS[choice_id] as Dictionary
+		return _file_playbook_receipt(_playbook_choice_result(
+			kind,
+			choice_id,
+			modifier_definition,
+			"%s filed. %s" % [String(modifier_definition.get("label", "Shift modifier")), String(modifier_definition.get("rule", "Today's rules changed visibly."))],
+		))
+	if kind == &"preset":
+		if not PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.has(choice_id):
+			return {"accepted": false, "reason": "That guided plan is unavailable."}
+		if (
+			not String(active_playbook.get("strategy_preset_id", "")).is_empty()
+			or not String(active_playbook.get("contract_id", "")).is_empty()
+			or not String(active_playbook.get("loadout_id", "")).is_empty()
+			or not String(active_playbook.get("preparation_id", "")).is_empty()
+			or not String(active_playbook.get("side_goal_id", "")).is_empty()
+			or eggs_today > 0
+			or incidents_resolved_today > 0
+		):
+			return {"accepted": false, "reason": "Today's guided plan is already filed or production has begun."}
+		var preset := PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[choice_id] as Dictionary
+		var preset_cost := int(preset.get("cost_cents", 0))
+		if spendable_fund_cents() < preset_cost:
+			return {"accepted": false, "reason": "The %s needs $%.2f spendable Feed Fund." % [String(preset.get("label", "plan")).to_lower(), float(preset_cost) / 100.0]}
+		if preset_cost > 0:
+			revenue_cents -= preset_cost
+		active_playbook["strategy_preset_id"] = String(choice_id)
+		active_playbook["contract_id"] = String(preset.get("contract_id", ""))
+		active_playbook["loadout_id"] = String(preset.get("loadout_id", ""))
+		active_playbook["preparation_id"] = String(preset.get("preparation_id", ""))
+		active_playbook["side_goal_id"] = String(preset.get("side_goal_id", ""))
+		active_playbook["side_goal_fund_baseline_cents"] = revenue_cents
+		var preset_result := _playbook_choice_result(
+			kind,
+			choice_id,
+			preset,
+			"%s filed in one move. Follow the highlighted world target, then draft the completed contract reward." % String(preset.get("label", "Guided plan")),
+		)
+		preset_result["bundled_choices"] = {
+			"contract_id": String(active_playbook["contract_id"]),
+			"loadout_id": String(active_playbook["loadout_id"]),
+			"preparation_id": String(active_playbook["preparation_id"]),
+			"side_goal_id": String(active_playbook["side_goal_id"]),
+		}
+		preset_result["cost_cents"] = preset_cost
+		return _file_playbook_receipt(preset_result)
+	if kind == &"customize":
+		if choice_id != &"advanced" or day < 2:
+			return {"accepted": false, "reason": "Advanced planning unlocks after the first shift."}
+		if not String(active_playbook.get("strategy_preset_id", "")).is_empty() or eggs_today > 0:
+			return {"accepted": false, "reason": "Today's plan is already filed or production has begun."}
+		active_playbook["strategy_preset_id"] = "custom"
+		return _file_playbook_receipt({
+			"accepted": true,
+			"playbook_kind": "customize",
+			"choice_id": "advanced",
+			"label": "CUSTOM PLAN",
+			"effects": {"gain": "CHOOSE EACH PART", "cost": "MORE DECISIONS", "risk": "ADVANCED"},
+			"outcome": "Custom planning opened. Choose one challenge, floor focus, preparation, and personal goal.",
+			"day": day,
+		})
+	if kind == &"signature":
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+			return {"accepted": false, "reason": "Select an active hen first."}
+		var used_ids := active_playbook.get("signature_worker_ids", []) as Array
+		if worker_id in used_ids:
+			return {"accepted": false, "reason": "%s already used her signature this shift." % workers[worker_id].display_name}
+		var action_id := _preferred_personnel_action(workers[worker_id])
+		var signature_result := perform_personnel_action(worker_id, action_id)
+		if not bool(signature_result.get("accepted", false)):
+			return signature_result
+		used_ids.append(worker_id)
+		active_playbook["signature_worker_ids"] = used_ids
+		signature_result["playbook_kind"] = "signature"
+		signature_result["signature"] = true
+		return _file_playbook_receipt(signature_result)
+	if kind == &"contract":
+		if not PLAYBOOK_CONTRACT_DEFINITIONS.has(choice_id) or not String(active_playbook.get("contract_id", "")).is_empty():
+			return {"accepted": false, "reason": "This shift's optional contract is already filed."}
+		active_playbook["contract_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], "Optional contract accepted. Missing it carries no penalty."))
+	if kind == &"loadout":
+		if not PLAYBOOK_LOADOUT_DEFINITIONS.has(choice_id) or not String(active_playbook.get("loadout_id", "")).is_empty() or eggs_today > 0:
+			return {"accepted": false, "reason": "The floor loadout locks after selection or first delivery."}
+		active_playbook["loadout_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_LOADOUT_DEFINITIONS[choice_id], "Office loadout filed for this shift."))
+	if kind == &"preparation":
+		if not PLAYBOOK_PREPARATION_DEFINITIONS.has(choice_id) or not String(active_playbook.get("preparation_id", "")).is_empty() or incidents_resolved_today > 0:
+			return {"accepted": false, "reason": "Incident preparation is already locked."}
+		if choice_id == &"rest_flock":
+			if spendable_fund_cents() < 200:
+				return {"accepted": false, "reason": "Rest preparation needs $2.00 spendable Feed Fund."}
+			revenue_cents -= 200
+		active_playbook["preparation_id"] = String(choice_id)
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], "Preparation will alter the first pressure response."))
+	if kind == &"rival":
+		if not PLAYBOOK_RIVAL_DEFINITIONS.has(choice_id) or not String(active_playbook.get("rival_response_id", "")).is_empty() or eggs_today <= 0:
+			return {"accepted": false, "reason": "The rival response opens after the first delivery and files once."}
+		active_playbook["rival_response_id"] = String(choice_id)
+		if choice_id == &"ignore":
+			solidarity = minf(100.0, solidarity + 2.0)
+		var rival_definition := PLAYBOOK_RIVAL_DEFINITIONS[choice_id] as Dictionary
+		var scenario := scenario_identity_snapshot()
+		rival_response_history.append({
+			"day": day,
+			"response_id": String(choice_id),
+			"response_label": String(rival_definition.get("label", "RIVAL RESPONSE")),
+			"rival_name": String(scenario.get("rival_name", "Golden Comb Group")),
+			"eggs_at_choice": eggs_today,
+			"margin_at_choice": roundi(executive_confidence - 50.0),
+		})
+		while rival_response_history.size() > 32:
+			rival_response_history.pop_front()
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_RIVAL_DEFINITIONS[choice_id], "Rival response filed with no hidden catch-up rule."))
+	if kind == &"side_goal":
+		if not PLAYBOOK_SIDE_GOAL_DEFINITIONS.has(choice_id) or not String(active_playbook.get("side_goal_id", "")).is_empty():
+			return {"accepted": false, "reason": "One personal ambition is already pinned."}
+		active_playbook["side_goal_id"] = String(choice_id)
+		active_playbook["side_goal_fund_baseline_cents"] = revenue_cents
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], "Personal ambition pinned; missing it has no penalty."))
+	if kind == &"reward":
+		return _claim_playbook_contract_reward(choice_id, worker_id)
+	if kind == &"push_luck":
+		if not PLAYBOOK_PUSH_LUCK_DEFINITIONS.has(choice_id) or not String(active_playbook.get("push_luck_id", "")).is_empty() or eggs_today < quota_target:
+			return {"accepted": false, "reason": "Secure today's quota before choosing a clutch finish."}
+		active_playbook["push_luck_id"] = String(choice_id)
+		active_playbook["push_luck_start_eggs"] = eggs_today
+		return _file_playbook_receipt(_playbook_choice_result(
+			kind,
+			choice_id,
+			PLAYBOOK_PUSH_LUCK_DEFINITIONS[choice_id],
+			"Quota banked. %s now shapes every remaining file this shift." % String(PLAYBOOK_PUSH_LUCK_DEFINITIONS[choice_id].get("label", "Clutch finish")),
+		))
+	if kind == &"automation":
+		if choice_id != &"auto_fit" or bool(active_playbook.get("mastery_auto_used", false)):
+			return {"accepted": false, "reason": "That mastery automation is already filed."}
+		if routing_momentum_chain < ROUTING_MOMENTUM_PACE_MILESTONE:
+			return {"accepted": false, "reason": "Build a fitted routing chain before teaching Auto Fit."}
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+			return {"accepted": false, "reason": "Select the hen whose routing rule should be automated."}
+		if not set_worker_assignment(worker_id, &"auto"):
+			return {"accepted": false, "reason": "Auto Fit could not be filed for that hen."}
+		workers[worker_id].automation_policy_unlocked = true
+		workers[worker_id].automation_policy_id = &"specialty_first"
+		active_playbook["mastery_auto_used"] = true
+		return _file_playbook_receipt({
+			"accepted": true,
+			"playbook_kind": "automation",
+			"choice_id": "auto_fit",
+			"worker_id": worker_id,
+			"label": "AUTO FIT TAUGHT",
+			"effects": {"gain": "ROUTING AUTOMATED", "cost": "MASTERY MARK", "risk": "DEADLINES MAY OVERRIDE FIT"},
+			"outcome": "%s learned Auto Fit with Specialty First. Her delegation rule is now persistent and can be revised from the Playbook." % workers[worker_id].display_name,
+			"day": day,
+		})
+	if kind == &"automation_policy":
+		if not PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.has(choice_id):
+			return {"accepted": false, "reason": "That delegation policy is not available."}
+		if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+			return {"accepted": false, "reason": "Select the hen whose delegation rule should change."}
+		var automation_worker := workers[worker_id]
+		if not automation_worker.automation_policy_unlocked or automation_worker.assigned_lane != AUTO_ASSIGNMENT:
+			return {"accepted": false, "reason": "Teach this hen Auto Fit before revising her delegation rule."}
+		if automation_worker.automation_policy_id == choice_id:
+			return {"accepted": false, "reason": "That delegation rule is already active."}
+		automation_worker.automation_policy_id = choice_id
+		var policy_definition := PLAYBOOK_DELEGATION_POLICY_DEFINITIONS[choice_id] as Dictionary
+		return _file_playbook_receipt({
+			"accepted": true,
+			"playbook_kind": "automation_policy",
+			"choice_id": String(choice_id),
+			"worker_id": worker_id,
+			"label": String(policy_definition.get("label", "AUTO POLICY")),
+			"effects": {
+				"gain": String(policy_definition.get("gain", "ROUTINE DELEGATION")),
+				"cost": String(policy_definition.get("cost", "NONE")),
+				"risk": String(policy_definition.get("risk", "EXCEPTIONS REMAIN MANUAL")),
+			},
+			"outcome": "%s now delegates routine files by %s. Exceptions remain visible and manual." % [
+				automation_worker.display_name,
+				String(policy_definition.get("label", "AUTO POLICY")).capitalize(),
+			],
+			"day": day,
+		})
+	if kind == &"teamwork":
+		return _perform_playbook_teamwork(worker_id)
+	if kind == &"partnership":
+		return _perform_partnership_specialization(choice_id, worker_id)
+	if kind == &"recovery":
+		return _perform_playbook_recovery(choice_id)
+	if kind == &"practice":
+		return _practice_playbook_peck(worker_id)
+	return {"accepted": false, "reason": "That playbook action is not available."}
+
+
+func _perform_playbook_hero_case(choice_id: StringName, worker_id: int) -> Dictionary:
+	var case_id := StringName(active_playbook.get("hero_case_id", _hero_case_id_for_day(day)))
+	var definition := PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary
+	var choices := definition.get("choices", {}) as Dictionary
+	if not String(active_playbook.get("hero_case_choice_id", "")).is_empty():
+		return {"accepted": false, "reason": "Today's hero file already has a filed answer."}
+	if eggs_today <= 0:
+		return {"accepted": false, "reason": "Land the first egg before the hero file opens."}
+	if not choices.has(choice_id):
+		return {"accepted": false, "reason": "That answer does not belong to today's hero file."}
+	var effects := choices[choice_id] as Dictionary
+	var fund_delta := int(effects.get("revenue_cents", 0))
+	if fund_delta < 0 and spendable_fund_cents() < -fund_delta:
+		return {"accepted": false, "reason": "That answer needs $%.2f spendable Feed Fund." % (float(-fund_delta) / 100.0)}
+	var target_worker_id := worker_id
+	if target_worker_id < 0 or target_worker_id >= workers.size() or not workers[target_worker_id].employed:
+		target_worker_id = int(_hero_case_snapshot(-1).get("worker_id", -1))
+	var target_worker: ChickenState = workers[target_worker_id] if target_worker_id >= 0 else null
+	revenue_cents = maxi(0, revenue_cents + fund_delta)
+	executive_confidence = clampf(executive_confidence + float(effects.get("executive_confidence", 0.0)), 0.0, 100.0)
+	compliance = clampf(compliance + float(effects.get("compliance", 0.0)), 0.0, 100.0)
+	solidarity = clampf(solidarity + float(effects.get("solidarity", 0.0)), 0.0, 100.0)
+	if effects.has("all_stress"):
+		_adjust_workers(0.0, float(effects.get("all_stress", 0.0)), 0.0)
+	if target_worker != null:
+		target_worker.stress = clampf(target_worker.stress + float(effects.get("stress", 0.0)), 0.0, 100.0)
+		target_worker.manager_trust = clampf(target_worker.manager_trust + float(effects.get("trust", 0.0)), 0.0, 100.0)
+		var career_xp := int(effects.get("career_xp", 0))
+		if career_xp > 0:
+			target_worker.add_career_xp(career_xp)
+	if int(effects.get("attention", 0)) > 0:
+		routing_momentum_peck_recharge_bank = maxi(routing_momentum_peck_recharge_bank, 1)
+	var callback := {
+		"day": day,
+		"case_id": String(case_id),
+		"case_label": String(definition.get("label", "HERO FILE")),
+		"choice_id": String(choice_id),
+		"choice_label": String(effects.get("label", "ANSWER")),
+		"worker_id": target_worker_id,
+		"worker_name": target_worker.display_name if target_worker != null else "THE FLOCK",
+		"echo": "%s will return in the shift review and future docket history." % String(effects.get("label", "This answer")).capitalize(),
+	}
+	active_playbook["hero_case_choice_id"] = String(choice_id)
+	active_playbook["hero_case_callback"] = callback.duplicate(true)
+	hero_case_history.append(callback.duplicate(true))
+	if hero_case_history.size() > 32:
+		hero_case_history.pop_front()
+	return _file_playbook_receipt({
+		"accepted": true,
+		"playbook_kind": "hero_case",
+		"choice_id": String(choice_id),
+		"case_id": String(case_id),
+		"worker_id": target_worker_id,
+		"label": String(effects.get("label", "HERO FILE")),
+		"effects": {
+			"gain": String(effects.get("gain", "VISIBLE CHANGE")),
+			"cost": String(effects.get("cost", "NONE")),
+			"risk": String(effects.get("risk", "NONE")),
+		},
+		"outcome": "%s filed %s for %s. The callback is now part of this campaign." % [
+			String(definition.get("label", "Hero file")).capitalize(),
+			String(effects.get("label", "the answer")).capitalize(),
+			callback["worker_name"],
+		],
+		"callback": callback.duplicate(true),
+		"day": day,
+	})
+
+
+func _playbook_choice_result(kind: StringName, choice_id: StringName, definition: Dictionary, outcome: String) -> Dictionary:
+	return {"accepted": true, "playbook_kind": String(kind), "choice_id": String(choice_id), "label": String(definition.get("label", choice_id)), "effects": {"gain": String(definition.get("gain", "")), "cost": String(definition.get("cost", "")), "risk": String(definition.get("risk", ""))}, "outcome": outcome, "day": day}
+
+
+func _file_playbook_receipt(result: Dictionary) -> Dictionary:
+	var effects := result.get("effects", {}) as Dictionary
+	result["decision_arc"] = {
+		"forecast": {
+			"gain": String(effects.get("gain", "SEE OUTCOME")),
+			"cost": String(effects.get("cost", "NONE")),
+			"risk": String(effects.get("risk", "NONE")),
+		},
+		"action": String(result.get("label", "PLAY FILED")),
+		"result": String(result.get("outcome", "Playbook action filed.")),
+		"reconciled": true,
+	}
+	active_playbook["receipt_serial"] = int(active_playbook.get("receipt_serial", 0)) + 1
+	result["receipt_serial"] = int(active_playbook["receipt_serial"])
+	active_playbook["last_receipt"] = result.duplicate(true)
+	announcement_posted.emit(String(result.get("outcome", "Playbook action filed.")))
+	snapshot_changed.emit(snapshot())
+	return result
+
+
+func _claim_playbook_contract_reward(choice_id: StringName, worker_id: int) -> Dictionary:
+	var contract_id := StringName(active_playbook.get("contract_id", &""))
+	var contract_definition := PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
+	if contract_definition.is_empty() or _playbook_contract_progress(contract_id) < int(contract_definition.get("target", 0)):
+		return {"accepted": false, "reason": "Complete the accepted optional contract first."}
+	if not String(active_playbook.get("contract_reward_id", "")).is_empty() or not PLAYBOOK_REWARD_DEFINITIONS.has(choice_id):
+		return {"accepted": false, "reason": "This contract reward is already filed or unavailable."}
+	var reward_worker: ChickenState
+	if worker_id >= 0 and worker_id < workers.size() and workers[worker_id].employed:
+		reward_worker = workers[worker_id]
+	else:
+		for candidate in workers:
+			if candidate.employed:
+				reward_worker = candidate
+				break
+	match choice_id:
+		&"fund":
+			revenue_cents += 300
+			credited_today_cents += 300
+		&"mastery":
+			if reward_worker != null:
+				reward_worker.add_career_xp(6)
+		&"recovery":
+			_adjust_workers(0.0, -4.0, -4.0)
+	active_playbook["contract_reward_id"] = String(choice_id)
+	return _file_playbook_receipt(_playbook_choice_result(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], "%s claimed for %s." % [String(PLAYBOOK_REWARD_DEFINITIONS[choice_id].get("label", "Reward")), String(contract_definition.get("label", "the contract"))]))
+
+
+func _delegation_policy_catalog() -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	for policy_id: StringName in PLAYBOOK_DELEGATION_POLICY_DEFINITIONS:
+		var row := (PLAYBOOK_DELEGATION_POLICY_DEFINITIONS[policy_id] as Dictionary).duplicate(true)
+		row["id"] = String(policy_id)
+		row["persistent"] = true
+		row["exceptions_manual"] = true
+		catalog.append(row)
+	return catalog
+
+
+func _strategy_comparison_catalog(current_id: StringName, recommended_id: StringName) -> Array[Dictionary]:
+	var catalog: Array[Dictionary] = []
+	for plan_id in PLAYBOOK_STRATEGY_PRESET_ORDER:
+		var definition := PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[plan_id] as Dictionary
+		catalog.append({
+			"id": String(plan_id),
+			"label": String(definition.get("label", "PLAN")),
+			"icon": String(definition.get("icon", &"goal")),
+			"gain": String(definition.get("gain", "")),
+			"cost": String(definition.get("cost", "")),
+			"risk": String(definition.get("risk", "")),
+			"promise": String(definition.get("promise", "")),
+			"current": plan_id == current_id,
+			"recommended": plan_id == recommended_id,
+		})
+	return catalog
+
+
+func _team_lift_ability(worker: ChickenState, partner: ChickenState) -> Dictionary:
+	if worker == null or partner == null:
+		return {}
+	var specialties: Array[StringName] = [worker.specialty, partner.specialty]
+	if worker.specialty == partner.specialty:
+		return {
+			"id": "specialist_duet",
+			"label": "SPECIALIST DUET",
+			"icon": &"sync",
+			"gain": "XP +3 / MORALE +4",
+			"summary": "file a shared specialty lesson and restore morale",
+			"morale": 4.0,
+			"stress": -3.0,
+			"trust": 2.0,
+			"career_xp": 3,
+			"attention_charge": 0,
+		}
+	if &"appeals" in specialties and &"nest_damage" in specialties:
+		return {
+			"id": "mentor_handoff",
+			"label": "MENTOR HANDOFF",
+			"icon": &"flock",
+			"gain": "XP +2 / STRESS -5",
+			"summary": "turn the handoff into career growth and calmer work",
+			"morale": 4.0,
+			"stress": -5.0,
+			"trust": 3.0,
+			"career_xp": 2,
+			"attention_charge": 0,
+		}
+	if &"appeals" in specialties and &"predator_loss" in specialties:
+		return {
+			"id": "deadline_cover",
+			"label": "DEADLINE COVER",
+			"icon": &"clock",
+			"gain": "ATTENTION +1 / STRESS -4",
+			"summary": "cover the deadline and restore one attention charge",
+			"morale": 3.0,
+			"stress": -4.0,
+			"trust": 2.0,
+			"career_xp": 0,
+			"attention_charge": 1,
+		}
+	return {
+		"id": "shell_guard",
+		"label": "SHELL GUARD",
+		"icon": &"shield",
+		"gain": "TRUST +4 / STRESS -4",
+		"summary": "steady the risky file with a trusted shell check",
+		"morale": 4.0,
+		"stress": -4.0,
+		"trust": 4.0,
+		"career_xp": 0,
+		"attention_charge": 0,
+	}
+
+
+func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
+	if bool(active_playbook.get("teamwork_used", false)):
+		return {"accepted": false, "reason": "Team Lift is already filed this shift."}
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return {"accepted": false, "reason": "Select a bonded hen first."}
+	var worker := workers[worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	var partner_id := int(bond.get("partner_id", -1))
+	if int(bond.get("score", 0)) < 60 or partner_id < 0 or partner_id >= workers.size():
+		return {"accepted": false, "reason": "Team Lift requires a Good Perch bond at 60 or higher."}
+	var partner := workers[partner_id]
+	var ability := _team_lift_ability(worker, partner)
+	var morale_delta := float(ability.get("morale", 4.0))
+	var stress_delta := float(ability.get("stress", -4.0))
+	var trust_delta := float(ability.get("trust", 2.0))
+	var career_xp_delta := int(ability.get("career_xp", 0))
+	var attention_charge := int(ability.get("attention_charge", 0))
+	var specialization_id := &""
+	if (
+		worker.partnership_partner_id == partner_id
+		and partner.partnership_partner_id == worker_id
+		and worker.partnership_style_id == partner.partnership_style_id
+	):
+		specialization_id = worker.partnership_style_id
+	match specialization_id:
+		&"precision_duet":
+			career_xp_delta += 2
+			attention_charge = maxi(attention_charge, 1)
+		&"recovery_pact":
+			morale_delta += 2.0
+			stress_delta -= 3.0
+	for teammate_id in [worker_id, partner_id]:
+		workers[teammate_id].morale = clampf(workers[teammate_id].morale + morale_delta, 0.0, 100.0)
+		workers[teammate_id].stress = clampf(workers[teammate_id].stress + stress_delta, 0.0, 100.0)
+		workers[teammate_id].manager_trust = clampf(workers[teammate_id].manager_trust + trust_delta, 0.0, 100.0)
+		if career_xp_delta > 0:
+			workers[teammate_id].add_career_xp(career_xp_delta)
+	if attention_charge > 0:
+		routing_momentum_peck_recharge_bank = 1
+	active_playbook["teamwork_used"] = true
+	return _file_playbook_receipt({
+		"accepted": true,
+		"playbook_kind": "teamwork",
+		"choice_id": "team_lift",
+		"ability_id": String(ability.get("id", "team_lift")),
+		"specialization_id": String(specialization_id),
+		"worker_id": worker_id,
+		"partner_id": partner_id,
+		"label": String(ability.get("label", "TEAM LIFT")),
+		"effects": {
+			"morale": morale_delta,
+			"stress": stress_delta,
+			"trust": trust_delta,
+			"career_xp": career_xp_delta,
+			"attention_charge": attention_charge,
+		},
+		"outcome": "%s and %s filed %s." % [
+			worker.display_name,
+			String(bond.get("partner_name", "her perchmate")),
+			String(ability.get("label", "Team Lift")).capitalize(),
+		],
+		"day": day,
+	})
+
+
+func _perform_partnership_specialization(choice_id: StringName, worker_id: int) -> Dictionary:
+	if not PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS.has(choice_id):
+		return {"accepted": false, "reason": "That pair style is unavailable."}
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return {"accepted": false, "reason": "Select one hen in the pair first."}
+	var worker := workers[worker_id]
+	var bond := _worker_flock_bond_snapshot(worker)
+	var partner_id := int(bond.get("partner_id", -1))
+	if int(bond.get("score", 0)) < 75 or partner_id < 0 or partner_id >= workers.size() or not workers[partner_id].employed:
+		return {"accepted": false, "reason": "A Clutchmates bond at 75 or higher unlocks pair specialization."}
+	var partner := workers[partner_id]
+	if worker.partnership_style_id != &"" or partner.partnership_style_id != &"":
+		return {"accepted": false, "reason": "This pair already has a permanent specialization."}
+	worker.partnership_partner_id = partner_id
+	worker.partnership_style_id = choice_id
+	partner.partnership_partner_id = worker_id
+	partner.partnership_style_id = choice_id
+	var definition := PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS[choice_id] as Dictionary
+	return _file_playbook_receipt({
+		"accepted": true,
+		"playbook_kind": "partnership",
+		"choice_id": String(choice_id),
+		"worker_id": worker_id,
+		"partner_id": partner_id,
+		"label": String(definition.get("label", "PAIR STYLE")),
+		"effects": {
+			"gain": String(definition.get("gain", "PAIR SPECIALIZATION")),
+			"cost": String(definition.get("cost", "NONE")),
+			"risk": String(definition.get("risk", "PERMANENT PAIR STYLE")),
+		},
+		"outcome": "%s and %s permanently learned %s." % [
+			worker.display_name,
+			partner.display_name,
+			String(definition.get("label", "their pair style")).capitalize(),
+		],
+		"day": day,
+	})
+
+
+func _perform_playbook_recovery(choice_id: StringName) -> Dictionary:
+	if not PLAYBOOK_RECOVERY_DEFINITIONS.has(choice_id) or not String(active_playbook.get("recovery_id", "")).is_empty():
+		return {"accepted": false, "reason": "A recovery plan is already filed or unavailable."}
+	if revenue_cents >= 2500 and executive_confidence >= 45.0 and _average_worker_stress() < 55.0:
+		return {"accepted": false, "reason": "Recovery plans open when cash, favor, or flock strain needs repair."}
+	match choice_id:
+		&"steady_fund":
+			quota_target = maxi(1, quota_target - 2)
+			executive_confidence = maxf(0.0, executive_confidence - 2.0)
+		&"repair_flock":
+			if spendable_fund_cents() < 300:
+				return {"accepted": false, "reason": "Flock repair needs $3.00 spendable Feed Fund."}
+			revenue_cents -= 300
+			_adjust_workers(3.0, -8.0, -8.0)
+		&"salvage_order":
+			pass
+	active_playbook["recovery_id"] = String(choice_id)
+	return _file_playbook_receipt(_playbook_choice_result(&"recovery", choice_id, PLAYBOOK_RECOVERY_DEFINITIONS[choice_id], "Comeback plan filed; banked rewards remain safe."))
+
+
+func _practice_playbook_peck(worker_id: int) -> Dictionary:
+	if worker_id < 0 or worker_id >= workers.size() or not workers[worker_id].employed:
+		return {"accepted": false, "reason": "Select an active hen for practice."}
+	var worker := workers[worker_id]
+	var status := peck_assist_status(worker_id)
+	var progress := worker.work_progress
+	var ideal := float(status.get("ideal_progress", PECK_ASSIST_IDEAL_PROGRESS))
+	var delta := absf(progress - ideal)
+	return {"accepted": true, "playbook_kind": "practice", "choice_id": "peck", "worker_id": worker_id, "label": "PRACTICE PECK", "effects": {}, "practice": true, "changes_authority": false, "outcome": "Practice: %s is %.0f points from the ideal peck mark. No charge or reward changed." % [worker.display_name, delta], "day": day}
+
+
+func _average_worker_stress() -> float:
+	var total := 0.0
+	var count := 0
+	for worker in workers:
+		if worker.employed:
+			total += worker.stress
+			count += 1
+	return total / maxf(1.0, float(count))
+
+
+func _playbook_work_multiplier() -> float:
+	_ensure_active_playbook()
+	var multiplier := 1.0
+	match StringName(active_playbook.get("loadout_id", &"")):
+		&"pace_floor": multiplier *= 1.04
+		&"quality_floor": multiplier *= 0.98
+		&"care_floor": multiplier *= 0.99
+	if incidents_resolved_today == 0:
+		match StringName(active_playbook.get("preparation_id", &"")):
+			&"brace_shells": multiplier *= 0.97
+			&"clear_trays": multiplier *= 1.05
+	match StringName(active_playbook.get("rival_response_id", &"")):
+		&"defend": multiplier *= 0.98
+		&"counter": multiplier *= 1.04
+	match StringName(active_playbook.get("recovery_id", &"")):
+		&"salvage_order": multiplier *= 1.06
+	match StringName(active_playbook.get("push_luck_id", &"")):
+		&"bank_clutch": multiplier *= 0.95
+		&"chase_premium": multiplier *= 1.10
+	match StringName(active_playbook.get("challenge_modifier_id", &"")):
+		&"rush_hour": multiplier *= 1.10
+		&"one_bell": multiplier *= 1.08
+	if StringName(active_playbook.get("manager_intervention_id", &"")) == &"emergency_review":
+		multiplier *= 0.98
+	if (
+		StringName(active_playbook.get("strategy_preset_id", &"")) == &"fast"
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
+	):
+		multiplier *= 1.03
+	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"record_harvest":
+		multiplier *= 1.05
+	return clampf(multiplier, 0.80, 1.30)
+
+
+func _playbook_crack_modifier() -> float:
+	_ensure_active_playbook()
+	var modifier := 0.0
+	match StringName(active_playbook.get("loadout_id", &"")):
+		&"pace_floor": modifier += 0.008
+		&"quality_floor": modifier -= 0.018
+	if incidents_resolved_today == 0:
+		match StringName(active_playbook.get("preparation_id", &"")):
+			&"brace_shells": modifier -= 0.025
+			&"clear_trays": modifier += 0.012
+	match StringName(active_playbook.get("rival_response_id", &"")):
+		&"defend": modifier -= 0.015
+		&"counter": modifier += 0.012
+	if StringName(active_playbook.get("recovery_id", &"")) == &"salvage_order":
+		modifier += 0.02
+	match StringName(active_playbook.get("push_luck_id", &"")):
+		&"bank_clutch": modifier -= 0.025
+		&"chase_premium": modifier += 0.04
+	match StringName(active_playbook.get("challenge_modifier_id", &"")):
+		&"rush_hour": modifier += 0.01
+		&"glass_carton": modifier += 0.03
+	if StringName(active_playbook.get("manager_intervention_id", &"")) == &"emergency_review":
+		modifier -= 0.015
+	if (
+		StringName(active_playbook.get("strategy_preset_id", &"")) == &"safe"
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
+	):
+		modifier -= 0.015
+	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"shell_assurance":
+		modifier -= 0.02
+	return clampf(modifier, -0.12, 0.12)
+
+
+func _playbook_strain_multiplier() -> float:
+	_ensure_active_playbook()
+	var multiplier := 1.0
+	if StringName(active_playbook.get("loadout_id", &"")) == &"care_floor":
+		multiplier *= 0.90
+	if (
+		incidents_resolved_today == 0
+		and StringName(active_playbook.get("preparation_id", &"")) == &"rest_flock"
+	):
+		multiplier *= 0.88
+	if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE and active_directive_id == &"sustainable_flock":
+		multiplier *= 0.90
+	if (
+		StringName(active_playbook.get("strategy_preset_id", &"")) == &"flock"
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
+	):
+		multiplier *= 0.88
+	return clampf(multiplier, 0.65, 1.0)
+
+
 func peck_assist_delivery_status() -> Dictionary:
 	var pending_deliveries := _pending_peck_assist_delivery_snapshot()
 	var pending_delivery: Dictionary = (
@@ -12739,13 +18564,13 @@ func peck_assist_delivery_status() -> Dictionary:
 	var charges := _peck_assist_charges_available()
 	var reason := "%d/%d attention charges ready; each clean assisted delivery restores one." % [
 		charges,
-		PECK_ASSIST_LIMIT,
+		_peck_assist_charge_limit(),
 	]
 	if not pending_deliveries.is_empty():
 		var charge_prefix := (
 			"Management attention is fully allocated; "
 			if charges <= 0 else
-			"%d/%d attention charges are ready; " % [charges, PECK_ASSIST_LIMIT]
+			"%d/%d attention charges are ready; " % [charges, _peck_assist_charge_limit()]
 		)
 		reason = "%s%d clean assisted %s awaiting farmer delivery, and each presentation restores one charge." % [
 			charge_prefix,
@@ -12754,11 +18579,12 @@ func peck_assist_delivery_status() -> Dictionary:
 		]
 	elif charges <= 0:
 		reason = "Management attention is fully allocated this shift; only a pending clean assisted delivery can restore a charge."
-	elif charges == PECK_ASSIST_LIMIT:
-		reason = "All %d management-attention charges are ready." % PECK_ASSIST_LIMIT
+	elif charges == _peck_assist_charge_limit():
+		reason = "All %d management-attention charges are ready." % _peck_assist_charge_limit()
 	return {
 		"charges": charges,
-		"limit": PECK_ASSIST_LIMIT,
+		"limit": _peck_assist_charge_limit(),
+		"routing_recharge_banked": routing_momentum_peck_recharge_bank > 0,
 		"gross_interventions": peck_assist_interventions_today,
 		"refunds": peck_assist_refunds_today,
 		"pending_delivery": pending_delivery,
@@ -12781,7 +18607,8 @@ func peck_assist_status(worker_id: int) -> Dictionary:
 		"available": false,
 		"remaining": remaining,
 		"charges": remaining,
-		"limit": PECK_ASSIST_LIMIT,
+		"limit": _peck_assist_charge_limit(),
+		"routing_recharge_banked": routing_momentum_peck_recharge_bank > 0,
 		"gross_interventions": peck_assist_interventions_today,
 		"refunds": peck_assist_refunds_today,
 		"pending_delivery": (delivery_status.get("pending_delivery", {}) as Dictionary).duplicate(true),
@@ -12793,6 +18620,8 @@ func peck_assist_status(worker_id: int) -> Dictionary:
 		"window_start": window_start,
 		"window_end": window_end,
 		"ideal_progress": PECK_ASSIST_IDEAL_PROGRESS,
+		"gold_start": PECK_ASSIST_GOLD_START,
+		"gold_end": PECK_ASSIST_GOLD_END,
 		"window_state": &"locked",
 		"timing_score": 0.0,
 		"timing_label": "LOCKED",
@@ -12820,17 +18649,17 @@ func peck_assist_status(worker_id: int) -> Dictionary:
 		return status
 	if worker.work_state != ChickenState.WorkState.WORKING or worker.current_claim == null:
 		status["window_state"] = &"waiting"
-		status["reason"] = "Wait until %s is actively pecking a claim." % worker.display_name
+		status["reason"] = "Wait until %s is actively pecking a file." % worker.display_name
 		return status
 	var claim_id := worker.current_claim.id
 	status["claim_id"] = claim_id
 	if _assisted_claim_ids.has(claim_id):
 		status["window_state"] = &"used"
-		status["reason"] = "This claim already carries a Priority Peck stamp."
+		status["reason"] = "This file already carries a Priority Peck stamp."
 		return status
 	if _missed_assist_claim_ids.has(claim_id):
 		status["window_state"] = &"missed"
-		status["reason"] = "The synchronization window closed; the next claim can restart the chain."
+		status["reason"] = "The synchronization window closed; the next file can restart the chain."
 		return status
 	var progress := worker.work_progress
 	var score := _peck_assist_timing_score(progress)
@@ -12838,11 +18667,11 @@ func peck_assist_status(worker_id: int) -> Dictionary:
 	status["timing_label"] = _peck_assist_timing_label(score)
 	if progress < window_start:
 		status["window_state"] = &"not_ready"
-		status["reason"] = "Build the claim rhythm to %d%% before stamping." % int(window_start)
+		status["reason"] = "Build the file rhythm to %d%% before stamping." % int(window_start)
 		return status
 	if progress > window_end:
 		status["window_state"] = &"passed"
-		status["reason"] = "The safe synchronization window has passed for this claim."
+		status["reason"] = "The safe synchronization window has passed for this file."
 		return status
 	status["available"] = true
 	status["window_state"] = &"open"
@@ -12892,7 +18721,7 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 	var worker := workers[worker_id]
 	var claim_id := int(status.get("claim_id", -1))
 	if worker.current_claim == null or worker.current_claim.id != claim_id:
-		return {"accepted": false, "reason": "The active claim changed before the stamp landed."}
+		return {"accepted": false, "reason": "The active file changed before the stamp landed."}
 
 	var progress_before := worker.work_progress
 	var stress_before := worker.stress
@@ -12926,6 +18755,12 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 		peck_assist_streak += 1
 	else:
 		peck_assist_streak = 0
+		_break_routing_momentum(
+			"Priority Peck precision fell below STRONG.",
+			&"peck_precision",
+			worker.id,
+			worker.current_claim.id if worker.current_claim != null else -1,
+		)
 	best_peck_assist_streak = maxi(best_peck_assist_streak, peck_assist_streak)
 	var chain_bonus_progress := mini(peck_assist_streak, 5) * 2.0
 	progress_gain += chain_bonus_progress
@@ -12933,7 +18768,13 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 	# The normal seated worker tick must still cross the finish line.
 	worker.work_progress = minf(99.0, worker.work_progress + progress_gain)
 
-	peck_assists_used_today += 1
+	var used_routing_recharge := routing_momentum_peck_recharge_bank > 0
+	if used_routing_recharge:
+		routing_momentum_peck_recharge_bank = 0
+		routing_momentum_peck_recharges_used_today += 1
+		_routing_momentum_free_assist_claim_ids[claim_id] = true
+	else:
+		peck_assists_used_today += 1
 	peck_assist_interventions_today += 1
 	_assisted_claim_ids[claim_id] = true
 	_assist_quality_modifiers[claim_id] = quality_modifier
@@ -12960,12 +18801,13 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 		"charges": _peck_assist_charges_available(),
 		"gross_interventions": peck_assist_interventions_today,
 		"refunds": peck_assist_refunds_today,
+		"routing_recharge_used": used_routing_recharge,
 		"potential_priority_credit_cents": 20 * mini(peck_assist_streak, 5),
 	}
 	result = _normalized_peck_assist_record(result)
 	last_peck_assist = result.duplicate(true)
 	announcement_posted.emit(
-		"PRIORITY PECK %s: %s synchronized claim #%04d. Chain x%d." % [
+		"PRIORITY PECK %s: %s synchronized file #%04d. Chain x%d." % [
 			String(rating).to_upper(), worker.display_name, claim_id, peck_assist_streak,
 		]
 	)
@@ -12983,7 +18825,7 @@ func settle_peck_assist_delivery(claim_id: int, quality: StringName) -> Dictiona
 		return _rejected_peck_assist_delivery(
 			claim_id,
 			normalized_quality,
-			"A valid completed claim is required before attention can be restored.",
+			"A valid completed file is required before attention can be restored.",
 		)
 	if _settled_peck_assist_delivery_ids.has(claim_id):
 		return _rejected_peck_assist_delivery(
@@ -12996,7 +18838,7 @@ func settle_peck_assist_delivery(claim_id: int, quality: StringName) -> Dictiona
 		var missing_reason := (
 			"Cracked assisted work breaks the chain and cannot restore attention."
 			if normalized_quality == &"cracked" else
-			"No clean assisted delivery is pending for claim #%04d." % claim_id
+			"No clean assisted delivery is pending for file #%04d." % claim_id
 		)
 		return _rejected_peck_assist_delivery(claim_id, normalized_quality, missing_reason)
 	var token := token_value as Dictionary
@@ -13005,7 +18847,7 @@ func settle_peck_assist_delivery(claim_id: int, quality: StringName) -> Dictiona
 		return _rejected_peck_assist_delivery(
 			claim_id,
 			normalized_quality,
-			"Claim #%04d was graded %s, not %s; the delivery token remains pending." % [
+			"File #%04d was graded %s, not %s; the delivery token remains pending." % [
 				claim_id,
 				String(expected_quality).to_upper(),
 				String(normalized_quality).to_upper(),
@@ -13043,7 +18885,7 @@ func settle_peck_assist_delivery(claim_id: int, quality: StringName) -> Dictiona
 		"gross_interventions": peck_assist_interventions_today,
 		"refunds": peck_assist_refunds_today,
 		"pending_delivery_count": _pending_peck_assist_deliveries.size(),
-		"reason": "%s claim #%04d reached the farmer; one attention charge was restored." % [
+		"reason": "%s file #%04d reached the farmer; one attention charge was restored." % [
 			String(normalized_quality).capitalize(),
 			claim_id,
 		],
@@ -13141,9 +18983,63 @@ func directive_catalog() -> Array[Dictionary]:
 			"short_name": String(definition["short_name"]),
 			"tagline": String(definition["tagline"]),
 			"preview": String(definition["preview"]),
+			"effect_chips": _directive_effect_chips(directive_id),
 			"tone": StringName(definition.get("tone", &"quality")),
 		})
 	return catalog
+
+
+func _directive_effect_chips(directive_id: StringName) -> Array[Dictionary]:
+	var chips: Array[Dictionary] = []
+	if not DIRECTIVE_DEFINITIONS.has(directive_id):
+		return chips
+	var definition := DIRECTIVE_DEFINITIONS[directive_id] as Dictionary
+	var pace_delta := roundi((float(definition.get("work_multiplier", 1.0)) - 1.0) * 100.0)
+	if pace_delta != 0:
+		chips.append({
+			"id": &"pace",
+			"icon": &"egg",
+			"copy": "PACE %s%d%%" % ["+" if pace_delta > 0 else "", pace_delta],
+			"detail": "Production pace changes by %s%d percent for this shift." % ["+" if pace_delta > 0 else "", pace_delta],
+			"beneficial": pace_delta > 0,
+		})
+	var strain_delta := roundi((float(definition.get("stress_multiplier", 1.0)) - 1.0) * 100.0)
+	if strain_delta != 0:
+		chips.append({
+			"id": &"strain",
+			"icon": &"flock",
+			"copy": "STRAIN %s%d%%" % ["+" if strain_delta > 0 else "", strain_delta],
+			"detail": "Flock stress and fatigue growth change by %s%d percent for this shift." % ["+" if strain_delta > 0 else "", strain_delta],
+			"beneficial": strain_delta < 0,
+		})
+	var risk_delta := roundi(float(definition.get("crack_modifier", 0.0)) * 100.0)
+	if risk_delta != 0:
+		chips.append({
+			"id": &"risk",
+			"icon": &"shield",
+			"copy": "RISK %s%d%%" % ["+" if risk_delta > 0 else "", risk_delta],
+			"detail": "Shell-crack risk changes by %s%d percentage points for this shift." % ["+" if risk_delta > 0 else "", risk_delta],
+			"beneficial": risk_delta < 0,
+		})
+	var compliance_delta := roundi(float(definition.get("compliance_delta", 0.0)))
+	if compliance_delta != 0:
+		chips.append({
+			"id": &"compliance",
+			"icon": &"files",
+			"copy": "RULES %s%d" % ["+" if compliance_delta > 0 else "", compliance_delta],
+			"detail": "Coop compliance changes immediately by %s%d." % ["+" if compliance_delta > 0 else "", compliance_delta],
+			"beneficial": compliance_delta > 0,
+		})
+	var feed_delta_cents := int(definition.get("feed_delta_cents", 0))
+	if feed_delta_cents != 0:
+		chips.append({
+			"id": &"feed",
+			"icon": &"cash",
+			"copy": "FEED %s$%.0f" % ["+" if feed_delta_cents > 0 else "-", absf(float(feed_delta_cents)) / 100.0],
+			"detail": "Daily feed cost changes by %s$%.2f for this shift." % ["+" if feed_delta_cents > 0 else "-", absf(float(feed_delta_cents)) / 100.0],
+			"beneficial": feed_delta_cents < 0,
+		})
+	return chips
 
 
 func active_directive_snapshot() -> Dictionary:
@@ -13337,7 +19233,7 @@ func _flock_restructuring_body(
 		elif worker.last_personnel_action_day == completed_day and worker.last_personnel_action == &"career_coaching":
 			context_lines.append("Her approved coaching time was counted against visible output.")
 	if context_lines.size() <= 2:
-		context_lines.append("The ranking excludes claim difficulty, breaks covered, and work reassigned by management.")
+		context_lines.append("The ranking excludes file difficulty, breaks covered, and work reassigned by management.")
 	return "%s\n\n%s\n\n%s\n%s" % [
 		"The farmer wants one efficiency variance removed before the final presentation. The frozen ranking nominates %s because the ledger measures credited output, not how the work was produced." % subject_name,
 		"\n".join(ranking_lines),
@@ -13577,6 +19473,7 @@ func _resolve_flock_restructuring(option_id: StringName) -> bool:
 			quota_target = mini(10_000, quota_target + 2)
 		&"fund_redeployment":
 			candidate.assigned_lane = candidate.specialty
+			candidate.manually_routed = false
 			candidate.morale = minf(100.0, candidate.morale + 8.0)
 			candidate.manager_trust = minf(100.0, candidate.manager_trust + 14.0)
 			candidate.grievance = maxf(0.0, candidate.grievance - 12.0)
@@ -13669,6 +19566,7 @@ func _release_restructuring_candidate(candidate: ChickenState) -> int:
 	candidate.available_for_hire_day = mini(10_000, day + 2)
 	candidate.employment_start_day = 0
 	candidate.assigned_lane = AUTO_ASSIGNMENT
+	candidate.manually_routed = false
 	candidate.current_claim = null
 	candidate.work_state = ChickenState.WorkState.IDLE
 	candidate.work_progress = 0.0
@@ -13698,6 +19596,7 @@ func _release_restructuring_candidate(candidate: ChickenState) -> int:
 	replacement.hire_count += 1
 	replacement.employment_start_day = day
 	replacement.assigned_lane = AUTO_ASSIGNMENT
+	replacement.manually_routed = false
 	replacement.current_claim = null
 	replacement.work_state = ChickenState.WorkState.IDLE
 	replacement.work_progress = 0.0
@@ -14650,27 +20549,52 @@ func phase_label() -> String:
 
 
 func _prepare_morning_directive() -> void:
+	_ensure_active_playbook()
 	_decision_serial += 1
 	shift_phase = ShiftPhase.AWAITING_DIRECTIVE
+	var scenario := scenario_identity_snapshot()
+	var favored_directive := StringName(scenario.get("favored_directive", &""))
 	var options: Array[Dictionary] = []
 	for directive in directive_catalog():
 		options.append({
 			"id": directive["id"],
 			"label": directive["name"],
-			"tagline": directive["tagline"],
+			"short_label": directive["short_name"],
+			"tagline": (
+				"SCENARIO FIT  /  %s" % String(directive["tagline"])
+				if StringName(directive["id"]) == favored_directive else
+				String(directive["tagline"])
+			),
 			"preview": directive["preview"],
+			"effect_chips": (directive.get("effect_chips", []) as Array).duplicate(true),
 			"cost_cents": 0,
 			"tone": directive["tone"],
+			"scenario_fit": StringName(directive["id"]) == favored_directive,
 		})
+	var docket_id := String(case_docket_snapshot().get("id", "PO-1701"))
+	var scenario_short := String(scenario.get("short", "BASELINE"))
 	pending_decision = {
 		"serial": _decision_serial,
 		"kind": &"directive",
 		"id": &"morning_directive",
 		"day": day,
-		"eyebrow": "MORNING DIRECTIVE  ·  DAY %d" % day,
+		"eyebrow": "MORNING DIRECTIVE  /  DAY %d  /  %s%s" % [
+			day,
+			docket_id,
+			("  /  %s" % scenario_short) if favored_directive != &"" else "",
+		],
 		"title": "CHOOSE TODAY'S MANAGEMENT POLICY",
-		"body": "One policy governs the entire shift. Its benefits and liabilities are both real, even if only one appears in the farmer's presentation.",
+		"body": (
+			String(scenario.get("opening_rule", "Match the highlighted scenario fit or choose a different tradeoff."))
+			if favored_directive != &"" and day == 1 else
+			String(scenario.get("victory_twist", "Choose the policy that prepares the permanent record."))
+			if favored_directive != &"" and day == PROBATION_CAMPAIGN_SHIFTS else
+			"Match the highlighted scenario fit or choose a different tradeoff."
+			if favored_directive != &"" else
+			"Choose the tradeoff that fits today's orders."
+		),
 		"options": options,
+		"scenario": scenario.duplicate(true),
 	}
 
 
@@ -14696,12 +20620,95 @@ func _apply_operations_shift_pressure() -> void:
 		0.0,
 		100.0,
 	)
+	_apply_manager_posture_relationships()
+
+
+func _manager_targets_worker(manager: Dictionary, worker: ChickenState) -> bool:
+	if not worker.employed:
+		return false
+	match StringName(String(manager.get("assignment_id", "whole_flock"))):
+		&"front_row":
+			return worker.desk_index >= 0 and worker.desk_index <= 2
+		&"back_row":
+			return worker.desk_index >= 3
+		&"auto_desk":
+			return worker.assigned_lane == AUTO_ASSIGNMENT
+		&"at_risk":
+			var at_risk := _most_stressed_worker_id()
+			return worker.id == at_risk
+	return true
+
+
+func _most_stressed_worker_id() -> int:
+	var selected_id := -1
+	var selected_risk := -INF
+	for worker in workers:
+		if not worker.employed:
+			continue
+		var risk := worker.stress + worker.grievance - worker.manager_trust * 0.25
+		if risk > selected_risk:
+			selected_risk = risk
+			selected_id = worker.id
+	return selected_id
+
+
+func _manager_effect_for_worker(worker: ChickenState) -> Dictionary:
+	var work_bp := 10_000
+	var crack_bp := 0
+	var directive_ids: Dictionary[StringName, bool] = {}
+	for manager in manager_roster:
+		if not _manager_targets_worker(manager, worker):
+			continue
+		if not bool(manager.get("posture_filed", false)):
+			continue
+		var posture_id := StringName(String(manager.get("posture_id", "coach")))
+		var definition := MANAGER_POSTURE_DEFINITIONS.get(posture_id, {}) as Dictionary
+		work_bp += int(definition.get("work_bp", 0))
+		crack_bp += int(definition.get("crack_bp", 0))
+		directive_ids[posture_id] = true
+	var conflicts := 0
+	if directive_ids.has(&"chase_quota") and directive_ids.has(&"protect_quality"):
+		conflicts += 1
+	if directive_ids.has(&"coach") and directive_ids.has(&"audit"):
+		conflicts += 1
+	var excess_managers := maxi(0, manager_roster.size() * 2 - active_worker_count())
+	work_bp -= excess_managers * 200 + conflicts * 300
+	return {
+		"work_multiplier": clampf(float(work_bp) / 10_000.0, 0.65, 1.35),
+		"crack_modifier": clampf(float(crack_bp) / 10_000.0, -0.20, 0.20),
+		"conflicts": conflicts,
+		"excess_managers": excess_managers,
+	}
+
+
+func _apply_manager_posture_relationships() -> void:
+	management_reports_today = manager_roster.size()
+	management_reports_total += management_reports_today
+	management_visibility_today = 0
+	for manager in manager_roster:
+		var posture_id := StringName(String(manager.get("posture_id", "coach")))
+		var definition := MANAGER_POSTURE_DEFINITIONS.get(posture_id, {}) as Dictionary
+		if not bool(manager.get("posture_filed", false)):
+			continue
+		if posture_id == &"visibility":
+			management_visibility_today += 1
+			executive_confidence = minf(100.0, executive_confidence + 0.5)
+		elif posture_id == &"audit":
+			compliance = minf(100.0, compliance + 0.75)
+		for worker in workers:
+			if not _manager_targets_worker(manager, worker):
+				continue
+			worker.stress = clampf(worker.stress + float(definition.get("stress", 0.0)), 0.0, 100.0)
+			worker.manager_trust = clampf(worker.manager_trust + float(definition.get("trust", 0.0)), 0.0, 100.0)
+			worker.grievance = clampf(worker.grievance + float(definition.get("grievance", 0.0)), 0.0, 100.0)
 
 
 func _resolve_directive(directive_id: StringName) -> bool:
 	if shift_phase != ShiftPhase.AWAITING_DIRECTIVE or not DIRECTIVE_DEFINITIONS.has(directive_id):
 		return false
 	var definition: Dictionary = DIRECTIVE_DEFINITIONS[directive_id]
+	var scenario := scenario_identity_snapshot()
+	var scenario_fit := StringName(scenario.get("favored_directive", &"")) == directive_id
 	active_directive_id = directive_id
 	_directive_work_multiplier = float(definition.get("work_multiplier", 1.0))
 	_directive_fatigue_multiplier = float(definition.get("fatigue_multiplier", 1.0))
@@ -14720,6 +20727,7 @@ func _resolve_directive(directive_id: StringName) -> bool:
 			_adjust_worker_relationships(1.0, -1.0)
 		&"sustainable_flock":
 			_adjust_worker_relationships(3.0, -3.0)
+	_apply_scenario_directive_modifier(directive_id)
 	_apply_operations_shift_pressure()
 	_consume_feed_for_shift()
 	var decision_id := StringName(pending_decision.get("id", &"morning_directive"))
@@ -14736,15 +20744,405 @@ func _resolve_directive(directive_id: StringName) -> bool:
 		"option_id": directive_id,
 		"outcome": outcome,
 		"day": day,
+		"scenario": scenario.duplicate(true),
+		"scenario_fit": scenario_fit,
 	})
 	snapshot_changed.emit(snapshot())
 	return true
+
+
+func _incident_choice_definition(incident_id: StringName, option_id: StringName) -> Dictionary:
+	if not INCIDENT_DEFINITIONS.has(incident_id):
+		return {}
+	var definition := INCIDENT_DEFINITIONS[incident_id] as Dictionary
+	for choice_value in definition.get("choices", []):
+		if not choice_value is Dictionary:
+			continue
+		var choice := choice_value as Dictionary
+		if StringName(choice.get("id", &"")) == option_id:
+			return choice.duplicate(true)
+	return {}
+
+
+func _validated_incident_response_history(value: Variant, saved_day: int) -> Dictionary:
+	if not value is Array or (value as Array).size() > INCIDENT_RESPONSE_HISTORY_LIMIT:
+		return {"valid": false, "history": []}
+	var restored: Array[Dictionary] = []
+	var previous_day := 0
+	var previous_serial := 0
+	for record_value in value as Array:
+		if not record_value is Dictionary:
+			return {"valid": false, "history": []}
+		var record := record_value as Dictionary
+		for integral_field in ["version", "day", "serial"]:
+			if not _is_integral_number(record.get(integral_field, null)):
+				return {"valid": false, "history": []}
+		var record_version := int(record.get("version", 0))
+		var record_day := int(record.get("day", 0))
+		var record_serial := int(record.get("serial", 0))
+		var incident_value: Variant = record.get("incident_id", null)
+		var option_value: Variant = record.get("option_id", null)
+		if (
+			record_version != INCIDENT_RESPONSE_VERSION
+			or record_day < 1
+			or record_day > saved_day
+			or record_day < previous_day
+			or record_serial < 1
+			or record_serial <= previous_serial
+			or typeof(incident_value) not in [TYPE_STRING, TYPE_STRING_NAME]
+			or typeof(option_value) not in [TYPE_STRING, TYPE_STRING_NAME]
+		):
+			return {"valid": false, "history": []}
+		var incident_id := StringName(String(incident_value))
+		var option_id := StringName(String(option_value))
+		if _incident_choice_definition(incident_id, option_id).is_empty():
+			return {"valid": false, "history": []}
+		restored.append({
+			"version": INCIDENT_RESPONSE_VERSION,
+			"day": record_day,
+			"serial": record_serial,
+			"incident_id": incident_id,
+			"option_id": option_id,
+		})
+		previous_day = record_day
+		previous_serial = record_serial
+	return {"valid": true, "history": restored}
+
+
+func _incident_response_snapshot(record: Dictionary) -> Dictionary:
+	var incident_id := StringName(record.get("incident_id", &""))
+	var option_id := StringName(record.get("option_id", &""))
+	var choice := _incident_choice_definition(incident_id, option_id)
+	if choice.is_empty():
+		return {}
+	var short_title := String(INCIDENT_SHORT_TITLES.get(incident_id, "OFFICE INCIDENT"))
+	var option_label := String(choice.get("label", "RESPONSE"))
+	var response := {
+		"version": INCIDENT_RESPONSE_VERSION,
+		"day": int(record.get("day", 0)),
+		"serial": int(record.get("serial", 0)),
+		"incident_id": incident_id,
+		"incident_title": short_title,
+		"option_id": option_id,
+		"option_label": option_label,
+		"tone": StringName(choice.get("tone", &"")),
+		"outcome": String(choice.get("outcome", "Incident response recorded.")),
+		"summary": "%s / %s" % [short_title, option_label],
+	}
+	var precedent := choice.get("precedent", {}) as Dictionary
+	if not precedent.is_empty():
+		response["precedent"] = precedent.duplicate(true)
+	return response
+
+
+func _record_standard_incident_response(
+	incident_id: StringName,
+	option_id: StringName,
+	response_day: int = -1,
+	serial: int = -1,
+) -> Dictionary:
+	if _incident_choice_definition(incident_id, option_id).is_empty():
+		return {}
+	if response_day < 1:
+		response_day = day
+	if serial < 1:
+		serial = _decision_serial
+	var case_memory := incident_follow_through_snapshot(incident_id)
+	var case_pivot := _record_incident_pivot_mastery(
+		incident_id, option_id, response_day, serial, case_memory
+	)
+	var record := {
+		"version": INCIDENT_RESPONSE_VERSION,
+		"day": response_day,
+		"serial": serial,
+		"incident_id": incident_id,
+		"option_id": option_id,
+	}
+	incident_response_history.append(record)
+	while incident_response_history.size() > INCIDENT_RESPONSE_HISTORY_LIMIT:
+		incident_response_history.pop_front()
+	var response := _incident_response_snapshot(record)
+	if not case_pivot.is_empty():
+		response["case_pivot"] = case_pivot.duplicate(true)
+	return response
+
+
+func incident_responses_for_day(target_day: int) -> Array[Dictionary]:
+	var responses: Array[Dictionary] = []
+	for record in incident_response_history:
+		if int(record.get("day", 0)) != target_day:
+			continue
+		var response := _incident_response_snapshot(record)
+		if not response.is_empty():
+			responses.append(response)
+	return responses
+
+
+func _latest_incident_response(
+	incident_id: StringName,
+	response_history: Array,
+) -> Dictionary:
+	for index in range(response_history.size() - 1, -1, -1):
+		var record_value: Variant = response_history[index]
+		if (
+			record_value is Dictionary
+			and StringName((record_value as Dictionary).get("incident_id", &"")) == incident_id
+		):
+			return (record_value as Dictionary).duplicate(true)
+	return {}
+
+
+func incident_follow_through_snapshot(
+	incident_id: StringName,
+	response_history_value: Variant = null,
+) -> Dictionary:
+	var response_history: Array = incident_response_history
+	if response_history_value is Array:
+		response_history = response_history_value as Array
+	var source_incident_id := StringName(INCIDENT_PAIR_SOURCE.get(incident_id, &""))
+	if source_incident_id == &"":
+		return {}
+	var source := _latest_incident_response(source_incident_id, response_history)
+	if source.is_empty():
+		return {}
+	var source_option := StringName(source.get("option_id", &""))
+	var target_definitions := INCIDENT_FOLLOW_THROUGH_DEFINITIONS.get(incident_id, {}) as Dictionary
+	var definition := target_definitions.get(source_option, {}) as Dictionary
+	if definition.is_empty():
+		return {}
+	var follow_through := {
+		"version": INCIDENT_RESPONSE_VERSION,
+		"source_day": int(source.get("day", 0)),
+		"source_serial": int(source.get("serial", 0)),
+		"source_incident_id": StringName(source.get("incident_id", &"")),
+		"source_option_id": source_option,
+	}
+	follow_through.merge(definition.duplicate(true), true)
+	return follow_through
+
+
+func _incident_pivot_receipt(
+	incident_id: StringName,
+	option_id: StringName,
+	pivot_day: int,
+	pivot_serial: int,
+	case_memory: Dictionary,
+) -> Dictionary:
+	var affected_option_id := StringName(case_memory.get("affected_option_id", &""))
+	if affected_option_id == &"" or option_id != affected_option_id:
+		return {}
+	var pair_id := StringName(INCIDENT_PAIR_IDS.get(incident_id, &""))
+	var source_incident_id := StringName(case_memory.get("source_incident_id", &""))
+	var source_option_id := StringName(case_memory.get("source_option_id", &""))
+	var source_day := int(case_memory.get("source_day", 0))
+	var source_serial := int(case_memory.get("source_serial", 0))
+	if (
+		pair_id == &""
+		or pair_id != StringName(INCIDENT_PAIR_IDS.get(source_incident_id, &""))
+		or StringName(INCIDENT_PAIR_SOURCE.get(incident_id, &"")) != source_incident_id
+		or _incident_choice_definition(source_incident_id, source_option_id).is_empty()
+		or _incident_choice_definition(incident_id, option_id).is_empty()
+		or source_day < 1
+		or source_day > pivot_day
+		or source_serial < 1
+		or source_serial >= pivot_serial
+	):
+		return {}
+	return {
+		"version": INCIDENT_PIVOT_MASTERY_VERSION,
+		"pair_id": pair_id,
+		"source_day": source_day,
+		"source_serial": source_serial,
+		"source_incident_id": source_incident_id,
+		"source_option_id": source_option_id,
+		"pivot_day": pivot_day,
+		"pivot_serial": pivot_serial,
+		"pivot_incident_id": incident_id,
+		"pivot_option_id": option_id,
+	}
+
+
+func _record_incident_pivot_mastery(
+	incident_id: StringName,
+	option_id: StringName,
+	pivot_day: int,
+	pivot_serial: int,
+	case_memory: Dictionary,
+) -> Dictionary:
+	var receipt := _incident_pivot_receipt(
+		incident_id, option_id, pivot_day, pivot_serial, case_memory
+	)
+	if receipt.is_empty():
+		return {}
+	var pair_id := StringName(receipt.get("pair_id", &""))
+	for existing: Dictionary in incident_pivot_mastery_receipts:
+		if StringName(existing.get("pair_id", &"")) == pair_id:
+			return {}
+	incident_pivot_mastery_receipts.append(receipt.duplicate(true))
+	return receipt
+
+
+func incident_pivot_mastery_snapshot() -> Dictionary:
+	var pair_ids: Array[String] = []
+	var rows: Array[Dictionary] = []
+	var mastered: Dictionary[StringName, bool] = {}
+	for receipt: Dictionary in incident_pivot_mastery_receipts:
+		var pair_id := StringName(receipt.get("pair_id", &""))
+		if pair_id in INCIDENT_PAIR_ORDER and not mastered.has(pair_id):
+			mastered[pair_id] = true
+			pair_ids.append(String(pair_id))
+	for pair_id: StringName in INCIDENT_PAIR_ORDER:
+		rows.append({
+			"pair_id": pair_id,
+			"label": String(INCIDENT_PAIR_LABELS.get(pair_id, "CONNECTED CASE")),
+			"mastered": mastered.has(pair_id),
+		})
+	var mastered_count := pair_ids.size()
+	return {
+		"version": INCIDENT_PIVOT_MASTERY_VERSION,
+		"mastered_count": mastered_count,
+		"total_count": INCIDENT_PAIR_ORDER.size(),
+		"mastered_pair_ids": pair_ids,
+		"rows": rows,
+		"last_receipt": (
+			incident_pivot_mastery_receipts.back().duplicate(true)
+			if not incident_pivot_mastery_receipts.is_empty() else
+			{}
+		),
+		"complete": mastered_count == INCIDENT_PAIR_ORDER.size(),
+	}
+
+
+func _incident_pivot_receipts_from_history(history: Array) -> Array[Dictionary]:
+	var receipts: Array[Dictionary] = []
+	var prior_history: Array[Dictionary] = []
+	var mastered_pairs: Dictionary[StringName, bool] = {}
+	for record_value: Variant in history:
+		if not record_value is Dictionary:
+			continue
+		var record := record_value as Dictionary
+		var incident_id := StringName(record.get("incident_id", &""))
+		var pair_id := StringName(INCIDENT_PAIR_IDS.get(incident_id, &""))
+		var memory := incident_follow_through_snapshot(incident_id, prior_history)
+		if pair_id != &"" and not mastered_pairs.has(pair_id):
+			var receipt := _incident_pivot_receipt(
+				incident_id,
+				StringName(record.get("option_id", &"")),
+				int(record.get("day", 0)),
+				int(record.get("serial", 0)),
+				memory,
+			)
+			if not receipt.is_empty():
+				receipts.append(receipt)
+				mastered_pairs[pair_id] = true
+		prior_history.append(record.duplicate(true))
+	return receipts
+
+
+func _validated_incident_pivot_mastery_receipts(value: Variant, saved_day: int) -> Dictionary:
+	if not value is Array or (value as Array).size() > INCIDENT_PAIR_ORDER.size():
+		return {"valid": false, "receipts": []}
+	var receipts: Array[Dictionary] = []
+	var seen_pairs: Dictionary[StringName, bool] = {}
+	var previous_pivot_serial := 0
+	for receipt_value: Variant in value as Array:
+		if not receipt_value is Dictionary:
+			return {"valid": false, "receipts": []}
+		var receipt := receipt_value as Dictionary
+		for integer_field in ["version", "source_day", "source_serial", "pivot_day", "pivot_serial"]:
+			if not _is_integral_number(receipt.get(integer_field, null)):
+				return {"valid": false, "receipts": []}
+		for id_field in ["pair_id", "source_incident_id", "source_option_id", "pivot_incident_id", "pivot_option_id"]:
+			if typeof(receipt.get(id_field, null)) not in [TYPE_STRING, TYPE_STRING_NAME]:
+				return {"valid": false, "receipts": []}
+		var pair_id := StringName(String(receipt.get("pair_id", "")))
+		var source_incident_id := StringName(String(receipt.get("source_incident_id", "")))
+		var source_option_id := StringName(String(receipt.get("source_option_id", "")))
+		var pivot_incident_id := StringName(String(receipt.get("pivot_incident_id", "")))
+		var pivot_option_id := StringName(String(receipt.get("pivot_option_id", "")))
+		var source_day := int(receipt.get("source_day", 0))
+		var source_serial := int(receipt.get("source_serial", 0))
+		var pivot_day := int(receipt.get("pivot_day", 0))
+		var pivot_serial := int(receipt.get("pivot_serial", 0))
+		var target_definitions := INCIDENT_FOLLOW_THROUGH_DEFINITIONS.get(
+			pivot_incident_id, {}
+		) as Dictionary
+		var follow_through := target_definitions.get(source_option_id, {}) as Dictionary
+		if (
+			int(receipt.get("version", 0)) != INCIDENT_PIVOT_MASTERY_VERSION
+			or pair_id not in INCIDENT_PAIR_ORDER
+			or seen_pairs.has(pair_id)
+			or StringName(INCIDENT_PAIR_IDS.get(source_incident_id, &"")) != pair_id
+			or StringName(INCIDENT_PAIR_IDS.get(pivot_incident_id, &"")) != pair_id
+			or StringName(INCIDENT_PAIR_SOURCE.get(pivot_incident_id, &"")) != source_incident_id
+			or _incident_choice_definition(source_incident_id, source_option_id).is_empty()
+			or _incident_choice_definition(pivot_incident_id, pivot_option_id).is_empty()
+			or StringName(follow_through.get("affected_option_id", &"")) != pivot_option_id
+			or source_day < 1
+			or source_day > pivot_day
+			or pivot_day > saved_day
+			or source_serial < 1
+			or source_serial >= pivot_serial
+			or pivot_serial <= previous_pivot_serial
+		):
+			return {"valid": false, "receipts": []}
+		seen_pairs[pair_id] = true
+		previous_pivot_serial = pivot_serial
+		receipts.append({
+			"version": INCIDENT_PIVOT_MASTERY_VERSION,
+			"pair_id": pair_id,
+			"source_day": source_day,
+			"source_serial": source_serial,
+			"source_incident_id": source_incident_id,
+			"source_option_id": source_option_id,
+			"pivot_day": pivot_day,
+			"pivot_serial": pivot_serial,
+			"pivot_incident_id": pivot_incident_id,
+			"pivot_option_id": pivot_option_id,
+		})
+	return {"valid": true, "receipts": receipts}
+
+
+func active_incident_precedent_snapshots() -> Array[Dictionary]:
+	var precedents: Array[Dictionary] = []
+	var represented_pairs: Dictionary[StringName, bool] = {}
+	for index in range(incident_response_history.size() - 1, -1, -1):
+		var record := incident_response_history[index]
+		var response := _incident_response_snapshot(record)
+		var source_incident_id := StringName(response.get("incident_id", &""))
+		var pair_id := StringName(INCIDENT_PAIR_IDS.get(source_incident_id, &""))
+		if pair_id == &"" or represented_pairs.has(pair_id):
+			continue
+		var precedent := response.get("precedent", {}) as Dictionary
+		if precedent.is_empty():
+			continue
+		represented_pairs[pair_id] = true
+		precedents.append({
+			"version": INCIDENT_RESPONSE_VERSION,
+			"pair_id": pair_id,
+			"source_day": int(response.get("day", 0)),
+			"source_incident_id": source_incident_id,
+			"source_option_id": StringName(response.get("option_id", &"")),
+			"source_summary": String(response.get("summary", "INCIDENT RESPONSE")),
+			"target_incident_id": StringName(precedent.get("target_incident_id", &"")),
+			"target_label": String(precedent.get("target_label", "NEXT RELATED CASE")),
+			"strategy_label": String(precedent.get("strategy_label", "PIVOT OPPORTUNITY")),
+			"summary": String(precedent.get("summary", "A prior response changes the next related case.")),
+		})
+	return precedents
+
+
+func active_incident_precedent_snapshot() -> Dictionary:
+	var precedents := active_incident_precedent_snapshots()
+	return precedents[0].duplicate(true) if not precedents.is_empty() else {}
 
 
 func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []
 	if not INCIDENT_DEFINITIONS.has(incident_id):
 		return choices
+	var follow_through := incident_follow_through_snapshot(incident_id)
+	var follow_through_id := StringName(follow_through.get("id", &""))
 	var definition := INCIDENT_DEFINITIONS[incident_id] as Dictionary
 	for choice_value in definition.get("choices", []):
 		var choice := (choice_value as Dictionary).duplicate(true)
@@ -14760,6 +21158,93 @@ func _incident_choices(incident_id: StringName) -> Array[Dictionary]:
 				float(ledger_molt_spreadsheet_crack_basis_points()) / 100.0,
 				float(ledger_molt_spreadsheet_compliance_loss_millipoints()) / 1000.0,
 			]
+		elif incident_id == FINAL_HEARING_INCIDENT_ID:
+			var scenario := scenario_identity_snapshot()
+			var favored_option := StringName(scenario.get("favored_finale_option", &""))
+			choice["scenario_fit"] = option_id == favored_option
+			if option_id == favored_option:
+				choice["tagline"] = "SCENARIO FIT  /  " + String(choice.get("tagline", "File the permanent rule."))
+				choice["preview"] = String(choice.get("preview", "")) + "  /  scenario leverage +"
+		match follow_through_id:
+			&"transparency_to_shadow_sheet":
+				if option_id == &"spreadsheet":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+5% speed", "+7% speed"
+					)
+			&"story_surplus_to_patch":
+				if option_id == &"patch":
+					var discounted_patch_cents := maxi(0, int(choice.get("cost_cents", 0)) - 400)
+					choice["cost_cents"] = discounted_patch_cents
+					choice["preview"] = "Cost $%.2f  ·  +4 obedience  ·  -4%% crack risk this shift" % (
+						float(discounted_patch_cents) / 100.0
+					)
+			&"shadow_evidence_to_ledger":
+				if option_id == &"show_ledger":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"-6 farmer favor", "-4 farmer favor"
+					)
+			&"clean_audit_to_story":
+				if option_id == &"polish_story":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+$16 fund", "+$20 fund"
+					)
+			&"savings_to_breaks":
+				if option_id == &"grant_breaks":
+					choice["cost_cents"] = 400
+					choice["preview"] = String(choice.get("preview", "")).replace("Cost $6", "Cost $4")
+			&"fed_flock_to_denial":
+				if option_id == &"deny_breaks":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+3 farmer favor", "+5 farmer favor"
+					)
+			&"grievance_to_grain":
+				if option_id == &"buy_grain":
+					choice["cost_cents"] = 1200
+					choice["preview"] = String(choice.get("preview", "")).replace("Cost $16", "Cost $12")
+			&"rested_flock_to_portions":
+				if option_id == &"optimize_portions":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"Daily feed -$8", "Daily feed -$10"
+					)
+			&"manager_byline_to_cancel":
+				if option_id == &"cancel_status_sync":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"flock trust +2", "flock trust +4"
+					)
+			&"layer_results_to_syncs":
+				if option_id == &"attend_status_sync":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+8 farmer favor", "+10 farmer favor"
+					)
+			&"minutes_to_layers":
+				if option_id == &"credit_layers":
+					choice["cost_cents"] = 600
+					choice["preview"] = String(choice.get("preview", "")).replace("Cost $10", "Cost $6")
+			&"cancel_bargain_to_roosters":
+				if option_id == &"credit_roosters":
+					choice["preview"] = String(choice.get("preview", "")).replace(
+						"+10 farmer favor", "+12 farmer favor"
+					)
+			&"staged_audit_to_variance":
+				if option_id == &"authorize_cooling":
+					choice["cost_cents"] = 800
+					choice["preview"] = String(choice.get("preview", "")).replace("Cost $12", "Cost $8")
+		var affected_option_id := StringName(follow_through.get("affected_option_id", &""))
+		if affected_option_id != &"" and option_id == affected_option_id:
+			choice["case_memory_active"] = true
+			choice["case_memory_label"] = String(follow_through.get(
+				"strategy_label", "PIVOT OPPORTUNITY"
+			))
+			if follow_through_id in [
+				&"staged_audit_to_variance", &"variance_to_staged_audit", &"tracking_to_desktop",
+				&"desktop_to_tracking", &"success_to_deck", &"deck_to_success",
+			]:
+				choice["preview"] = String(choice.get("preview", "")) + "  /  callback trust +"
+			elif follow_through_id in [
+				&"cold_room_to_cooling", &"cooling_to_open_audit", &"privacy_to_evacuate",
+				&"evacuation_to_privacy", &"claimant_to_flock", &"flock_to_claimant",
+			]:
+				choice["preview"] = String(choice.get("preview", "")) + "  /  callback speed +"
 		choices.append(choice)
 	return choices
 
@@ -14774,6 +21259,349 @@ func _incident_option_cost_cents(incident_id: StringName, option_id: StringName)
 	return 0
 
 
+func _refill_incident_bag() -> void:
+	_incident_bag.assign(INCIDENT_ORDER)
+	if _last_standard_incident_id == &"":
+		# Keep the two taught day-one cases stable, then let the career seed author
+		# the rest of the very first probation docket. The bag is consumed from the
+		# back, so the onboarding cases are appended in reverse draw order after the
+		# remaining ten cases have been shuffled. Previously all twelve cases were
+		# merely reversed here, which meant a five-shift run never reached a seeded
+		# shuffle and every replay docket produced the same strategic environment.
+		_incident_bag.erase(&"ledger_molt")
+		_incident_bag.erase(&"wellness_request")
+		for index in range(_incident_bag.size() - 1, 0, -1):
+			var swap_index := _incident_rng.randi_range(0, index)
+			var held := _incident_bag[index]
+			_incident_bag[index] = _incident_bag[swap_index]
+			_incident_bag[swap_index] = held
+		_incident_bag.append(&"wellness_request")
+		_incident_bag.append(&"ledger_molt")
+	else:
+		for index in range(_incident_bag.size() - 1, 0, -1):
+			var swap_index := _incident_rng.randi_range(0, index)
+			var held := _incident_bag[index]
+			_incident_bag[index] = _incident_bag[swap_index]
+			_incident_bag[swap_index] = held
+	# The bag is consumed from the back. Keep the rotation boundary readable:
+	# a player never receives the same standard incident twice in a row.
+	if (
+		_incident_bag.size() > 1
+		and _last_standard_incident_id != &""
+		and _incident_bag.back() == _last_standard_incident_id
+	):
+		var held := _incident_bag[_incident_bag.size() - 1]
+		_incident_bag[_incident_bag.size() - 1] = _incident_bag[0]
+		_incident_bag[0] = held
+
+
+func _next_standard_incident_id() -> StringName:
+	if _incident_bag.is_empty():
+		_refill_incident_bag()
+	var incident_id: StringName = _incident_bag.pop_back()
+	_last_standard_incident_id = incident_id
+	return incident_id
+
+
+func case_docket_snapshot() -> Dictionary:
+	var last_response: Dictionary = {}
+	if not incident_response_history.is_empty():
+		last_response = _incident_response_snapshot(incident_response_history.back())
+	var active_precedents := active_incident_precedent_snapshots()
+	return {
+		"id": "PO-%04d" % posmod(_career_seed, 10_000),
+		"career_seed": _career_seed,
+		"remaining_in_rotation": _incident_bag.size(),
+		"rotation_size": INCIDENT_ORDER.size(),
+		"last_incident_id": _last_standard_incident_id,
+		"last_response": last_response,
+		"active_precedent": active_precedents[0].duplicate(true) if not active_precedents.is_empty() else {},
+		"active_precedents": active_precedents,
+		"pivot_mastery": incident_pivot_mastery_snapshot(),
+		"scenario": scenario_identity_snapshot(),
+		"final_hearing": final_hearing_snapshot(),
+	}
+
+
+func scenario_identity_snapshot() -> Dictionary:
+	# PO-1701 and internal economy fixtures remain neutral. Each selectable replay
+	# docket receives one deterministic pressure identity that makes the best
+	# morning policy depend on the current file instead of a global build.
+	if _career_seed not in AUTHORED_SCENARIO_SEEDS:
+		return {
+			"id": &"baseline_book",
+			"name": "BASELINE BOOK",
+			"short": "BASELINE",
+			"icon": &"files",
+			"favored_directive": &"",
+			"promise": "No docket policy receives a scenario advantage.",
+		}
+	var scenario_id: StringName = SCENARIO_SEED_IDS.get(_career_seed, &"harvest_surge")
+	var result := (SCENARIO_IDENTITIES[scenario_id] as Dictionary).duplicate(true)
+	result["id"] = scenario_id
+	result["seed"] = _career_seed
+	return result
+
+
+static func replay_scenario_catalog() -> Array[Dictionary]:
+	var result: Array[Dictionary] = [{
+		"id": "baseline_book",
+		"name": "BASELINE BOOK",
+		"short": "BASELINE",
+		"seed": 1701,
+		"opening_rule": "The proven five-shift filing with no scenario advantage.",
+	}]
+	for seed_value in AUTHORED_SCENARIO_SEEDS:
+		var scenario_id: StringName = SCENARIO_SEED_IDS[seed_value]
+		var scenario := (SCENARIO_IDENTITIES[scenario_id] as Dictionary).duplicate(true)
+		scenario["id"] = String(scenario_id)
+		scenario["seed"] = seed_value
+		result.append(scenario)
+	return result
+
+
+static func replay_scenario_seed(scenario_id: StringName) -> int:
+	if scenario_id == &"baseline_book":
+		return 1701
+	for seed_value in AUTHORED_SCENARIO_SEEDS:
+		if SCENARIO_SEED_IDS[seed_value] == scenario_id:
+			return seed_value
+	return 1701
+
+
+func rival_coop_snapshot(probation_score: int, completed_shifts: int) -> Dictionary:
+	var scenario := scenario_identity_snapshot()
+	var rival_name := String(scenario.get("rival_name", "Golden Comb Group"))
+	var benchmark := clampi(47 + completed_shifts * 6 + posmod(_career_seed, 4), 47, 82)
+	var difference := probation_score - benchmark
+	return {
+		"name": rival_name,
+		"benchmark": benchmark,
+		"player_score": probation_score,
+		"difference": difference,
+		"standing": &"ahead" if difference >= 0 else &"behind",
+		"short_label": "%+d VS %s" % [difference, rival_name.to_upper()],
+		"rule": String(scenario.get("rival_rule", "Beat the outside benchmark without abandoning the filed plan.")),
+	}
+
+
+func _apply_scenario_opening_structure() -> void:
+	# These are visible starting conditions, not hidden difficulty multipliers.
+	# Baseline/legacy dockets remain byte-for-byte neutral.
+	match StringName(scenario_identity_snapshot().get("id", &"baseline_book")):
+		&"harvest_surge":
+			_enqueue_new_claim(&"nest_damage")
+			_enqueue_new_claim(&"predator_loss")
+			quota_target += 1
+		&"shell_audit":
+			_enqueue_new_claim(&"appeals")
+			_enqueue_new_claim(&"appeals")
+			# The inspector explicitly trades one egg of volume for verified service;
+			# the extra appeals remain real work without silently invalidating the
+			# long-career assurance route.
+			quota_target = maxi(1, quota_target - 1)
+			compliance = minf(100.0, compliance + 4.0)
+			_incident_crack_modifier += 0.01
+		&"flock_walkout":
+			if not workers.is_empty():
+				workers[0].morale = maxf(0.0, workers[0].morale - 8.0)
+				workers[0].manager_trust = maxf(0.0, workers[0].manager_trust - 10.0)
+				workers[0].grievance = minf(100.0, workers[0].grievance + 18.0)
+			solidarity = minf(100.0, solidarity + 12.0)
+			# Organized hens cross-check one another's baskets even while the manager
+			# relationship is strained. This keeps the scenario's pressure on trust
+			# rather than turning it into an unrelated shell-quality trap.
+			_incident_crack_modifier -= 0.024
+		&"thin_margin":
+			revenue_cents = maxi(0, revenue_cents - 800)
+			quota_target += 1
+			_adjust_workers(-2.0, 2.0, 1.0)
+		&"fox_season":
+			_enqueue_new_claim(&"predator_loss")
+			_enqueue_new_claim(&"predator_loss")
+			_adjust_workers(-4.0, 5.0, 3.0)
+			_incident_crack_modifier += 0.008
+		&"credit_scramble":
+			_enqueue_new_claim(&"nest_damage")
+			_enqueue_new_claim(&"nest_damage")
+			executive_confidence = maxf(0.0, executive_confidence - 6.0)
+
+
+func final_hearing_snapshot() -> Dictionary:
+	var record := _latest_incident_response(FINAL_HEARING_INCIDENT_ID, incident_response_history)
+	if record.is_empty():
+		var scenario_id := StringName(scenario_identity_snapshot().get("id", &"baseline_book"))
+		return {
+			"resolved": false,
+			"required": day == PROBATION_CAMPAIGN_SHIFTS and scenario_id != &"baseline_book",
+			"scenario": scenario_identity_snapshot(),
+			"legacy_evidence": _campaign_legacy_evidence_snapshot(),
+		}
+	var response := _incident_response_snapshot(record)
+	response["resolved"] = true
+	response["required"] = false
+	response["scenario"] = scenario_identity_snapshot()
+	response["legacy_evidence"] = _campaign_legacy_evidence_snapshot()
+	response["charter_label"] = String(response.get("option_label", "PERMANENT RECORD"))
+	return response
+
+
+func _final_hearing_definition() -> Dictionary:
+	var definition := (INCIDENT_DEFINITIONS[FINAL_HEARING_INCIDENT_ID] as Dictionary).duplicate(true)
+	var scenario := scenario_identity_snapshot()
+	var legacy := _campaign_legacy_evidence_snapshot()
+	definition["title"] = String(scenario.get("climax_title", definition.get("title", "FINAL HEARING")))
+	definition["body"] = "%s\n\nPERMANENT EVIDENCE  ·  %s" % [
+		String(scenario.get("climax_body", definition.get("body", "The permanent record needs a signature."))),
+		String(legacy.get("summary", "The flock arrives with a visible record.")),
+	]
+	definition["legacy_evidence"] = legacy
+	return definition
+
+
+func _apply_scenario_directive_modifier(directive_id: StringName) -> void:
+	if _career_seed not in AUTHORED_SCENARIO_SEEDS:
+		return
+	if day > PROBATION_CAMPAIGN_SHIFTS:
+		# The operating lesson learned during a replay scenario becomes its Senior
+		# aftereffect. It is materially smaller than the opening fit bonus, but strong
+		# enough that a shuffled incident order cannot erase one required service day.
+		# Replay scenarios carry two additional opening obligations into the long
+		# career. The learned operating cadence must cover one service day without
+		# erasing the Board Book's shell, welfare, or compliance tests.
+		_directive_work_multiplier *= 1.12
+		var senior_scenario := StringName(scenario_identity_snapshot().get("id", &""))
+		match senior_scenario:
+			&"shell_audit":
+				_directive_crack_modifier -= 0.012
+				compliance = minf(100.0, compliance + 1.0)
+				_adjust_workers(0.75, -0.75, -0.75)
+			&"flock_walkout":
+				_directive_crack_modifier -= 0.008
+				_adjust_workers(1.0, -1.0, -1.0)
+			&"harvest_surge":
+				_directive_crack_modifier -= 0.006
+				_adjust_workers(0.75, -0.50, -0.75)
+			&"thin_margin":
+				# A cash-starved docket should test solvency, not randomly erase the
+				# assurance route's earned Senior shell-control identity.
+				_directive_crack_modifier -= 0.012
+				_adjust_workers(1.0, -1.0, -1.0)
+			&"fox_season":
+				_directive_crack_modifier -= 0.010
+				_adjust_workers(0.75, -1.25, -1.0)
+			&"credit_scramble":
+				executive_confidence = minf(100.0, executive_confidence + 1.0)
+		return
+	# Authored scenario runs begin prepared rather than arbitrarily punished.
+	# Reading the docket grants a small shell-control credit; matching its named
+	# policy earns a larger, visible specialization with a retained tradeoff.
+	_directive_crack_modifier -= 0.012
+	var scenario := scenario_identity_snapshot()
+	if StringName(scenario.get("id", &"")) == &"harvest_surge":
+		_directive_work_multiplier *= 1.04
+	if StringName(scenario.get("favored_directive", &"")) != directive_id:
+		return
+	match StringName(scenario.get("id", &"")):
+		&"harvest_surge":
+			_directive_work_multiplier *= 1.12
+			executive_confidence = minf(100.0, executive_confidence + 12.0)
+			_pending_quota_adjustment += 1
+		&"shell_audit":
+			_directive_crack_modifier -= 0.035
+			compliance = minf(100.0, compliance + 4.0)
+		&"flock_walkout":
+			_directive_crack_modifier -= 0.018
+			_adjust_workers(3.0, -3.0, -2.0)
+			_adjust_worker_relationships(3.0, -3.0)
+			executive_confidence = minf(100.0, executive_confidence + 3.0)
+		&"thin_margin":
+			_directive_work_multiplier *= 1.05
+			_adjust_workers(4.0, -4.0, -3.0)
+		&"fox_season":
+			_directive_crack_modifier -= 0.030
+			compliance = minf(100.0, compliance + 3.0)
+			_adjust_workers(2.0, -4.0, -3.0)
+		&"credit_scramble":
+			_directive_work_multiplier *= 1.10
+			executive_confidence = minf(100.0, executive_confidence + 8.0)
+
+
+func _relationship_arc_stage(trust: float, grievance: float, prior_beats: int) -> Dictionary:
+	if grievance >= 70.0 or trust <= 25.0:
+		return {
+			"standing": &"breaking",
+			"standing_label": "BREAKING POINT",
+			"request": "A protective response may keep this hen in the flock.",
+		}
+	if trust >= 70.0 and grievance <= 30.0:
+		return {
+			"standing": &"ally",
+			"standing_label": "TRUSTED ALLY",
+			"request": "This hen trusts you to remember who carried the file.",
+		}
+	if prior_beats > 0:
+		return {
+			"standing": &"remembering",
+			"standing_label": "REMEMBERS",
+			"request": "This response will confirm or reverse your earlier pattern.",
+		}
+	return {
+		"standing": &"forming",
+		"standing_label": "FORMING AN OPINION",
+		"request": "This is the hen's first direct impression of your management.",
+	}
+
+
+func incident_character_arc_snapshot(incident_id: StringName) -> Dictionary:
+	var pair_id := StringName(INCIDENT_PAIR_IDS.get(incident_id, &""))
+	var final_hearing := incident_id == FINAL_HEARING_INCIDENT_ID
+	if (pair_id == &"" and not final_hearing) or workers.is_empty():
+		return {}
+	var employed_workers: Array[ChickenState] = []
+	for worker in workers:
+		if worker.employed:
+			employed_workers.append(worker)
+	if employed_workers.is_empty():
+		return {}
+	# A connected pair always belongs to the same witness. The assignment is
+	# deterministic, survives save/load without another schema field, and turns
+	# the follow-through case into a relationship callback instead of trivia.
+	var pair_index := maxi(0, INCIDENT_PAIR_ORDER.find(pair_id))
+	if final_hearing:
+		var scenario_ids: Array[StringName] = [
+			&"harvest_surge", &"shell_audit", &"flock_walkout",
+			&"thin_margin", &"fox_season", &"credit_scramble",
+		]
+		pair_index = maxi(0, scenario_ids.find(StringName(scenario_identity_snapshot().get("id", &""))))
+	var witness := employed_workers[pair_index % employed_workers.size()]
+	var prior_beats := 0
+	for record in incident_response_history:
+		var prior_incident := StringName(record.get("incident_id", &""))
+		if (
+			(final_hearing and prior_incident == FINAL_HEARING_INCIDENT_ID)
+			or (not final_hearing and StringName(INCIDENT_PAIR_IDS.get(prior_incident, &"")) == pair_id)
+		):
+			prior_beats += 1
+	var definition := INCIDENT_DEFINITIONS.get(incident_id, {}) as Dictionary
+	var speaker_id := StringName(witness.display_name.to_lower().replace(" ", "_"))
+	var stage := _relationship_arc_stage(witness.manager_trust, witness.grievance, prior_beats)
+	return {
+		"pair_id": &"permanent_record" if final_hearing else pair_id,
+		"worker_id": witness.id,
+		"worker_name": witness.display_name,
+		"speaker_id": speaker_id,
+		"beat": prior_beats + 1,
+		"beat_label": "CALLBACK %d" % prior_beats if prior_beats > 0 else "FIRST IMPRESSION",
+		"witness_prompt": String(definition.get("witness_prompt", "is named in this file")),
+		"trust_before": witness.manager_trust,
+		"grievance_before": witness.grievance,
+		"standing": stage["standing"],
+		"standing_label": stage["standing_label"],
+		"request": stage["request"],
+	}
+
+
 func _maybe_open_incident() -> bool:
 	if _incident_slot >= INCIDENT_MINUTES.size():
 		return false
@@ -14781,19 +21609,46 @@ func _maybe_open_incident() -> bool:
 		return false
 	_decision_serial += 1
 	var petition_decision: Dictionary = {}
-	if day in FLOCK_PETITION_DAYS and _incident_slot == FLOCK_PETITION_INCIDENT_SLOT:
+	var is_petition_slot := (
+		day in FLOCK_PETITION_DAYS and _incident_slot == FLOCK_PETITION_INCIDENT_SLOT
+	)
+	if is_petition_slot:
 		petition_decision = _build_flock_petition_decision()
 	if not petition_decision.is_empty():
 		petition_decision["serial"] = _decision_serial
 		pending_decision = petition_decision
 	else:
-		# Preserve the original structural incident as a deterministic fallback.
-		var rotation_index := ((day - 1) * INCIDENT_MINUTES.size() + _incident_slot) % INCIDENT_ORDER.size()
-		var incident_id := INCIDENT_ORDER[rotation_index]
-		var definition: Dictionary = INCIDENT_DEFINITIONS[incident_id]
+		var incident_id: StringName
+		var scenario_id := StringName(scenario_identity_snapshot().get("id", &"baseline_book"))
+		var is_final_hearing: bool = (
+			day == PROBATION_CAMPAIGN_SHIFTS
+			and _incident_slot == INCIDENT_MINUTES.size() - 1
+			and scenario_id != &"baseline_book"
+			and not bool(final_hearing_snapshot().get("resolved", false))
+		)
+		if is_final_hearing:
+			incident_id = FINAL_HEARING_INCIDENT_ID
+		elif _career_seed == 1701 or is_petition_slot:
+			# PO-1701 is the shipped balance baseline and the destination for legacy
+			# saves. A petition slot with no eligible sponsor also retains its authored
+			# structural fallback. New ordinary docket slots use the shuffled bag.
+			var rotation_index := (
+				(day - 1) * INCIDENT_MINUTES.size() + _incident_slot
+			) % LEGACY_INCIDENT_ORDER.size()
+			incident_id = LEGACY_INCIDENT_ORDER[rotation_index]
+			_last_standard_incident_id = incident_id
+		else:
+			incident_id = _next_standard_incident_id()
+		var definition: Dictionary = (
+			_final_hearing_definition()
+			if incident_id == FINAL_HEARING_INCIDENT_ID else
+			INCIDENT_DEFINITIONS[incident_id]
+		)
 		var options: Array[Dictionary] = []
 		for choice in _incident_choices(incident_id):
 			options.append(choice.duplicate(true))
+		var case_memory := incident_follow_through_snapshot(incident_id)
+		var character_arc := incident_character_arc_snapshot(incident_id)
 		pending_decision = {
 			"serial": _decision_serial,
 			"kind": &"incident",
@@ -14804,6 +21659,25 @@ func _maybe_open_incident() -> bool:
 			"body": String(definition.get("body", "A measurable variance requires management attention.")),
 			"options": options,
 		}
+		if incident_id == FINAL_HEARING_INCIDENT_ID:
+			pending_decision["eyebrow"] = "FINAL HEARING  /  PERMANENT CHOICE  /  AUTO-PAUSED  /  %s" % _format_time(minute_of_day)
+			pending_decision["scenario"] = scenario_identity_snapshot()
+			pending_decision["legacy_evidence"] = _campaign_legacy_evidence_snapshot()
+		if not case_memory.is_empty():
+			pending_decision["case_memory"] = case_memory.duplicate(true)
+		if not character_arc.is_empty():
+			pending_decision["character_arc"] = character_arc.duplicate(true)
+			pending_decision["eyebrow"] = (
+				"FINAL HEARING  /  %s WITNESSES  /  PERMANENT CHOICE  /  %s" % [
+					String(character_arc.get("worker_name", "FLOCK")).to_upper(),
+					_format_time(minute_of_day),
+				]
+				if incident_id == FINAL_HEARING_INCIDENT_ID else
+				"INCIDENT  /  %s'S FILE  /  AUTO-PAUSED  /  %s" % [
+					String(character_arc.get("worker_name", "FLOCK")).to_upper(),
+					_format_time(minute_of_day),
+				]
+			)
 	_incident_slot += 1
 	shift_phase = ShiftPhase.AWAITING_INCIDENT
 	shift_phase_changed.emit(shift_phase)
@@ -14833,6 +21707,8 @@ func _resolve_incident(option_id: StringName) -> bool:
 		if is_flock_petition else
 		_incident_option_cost_cents(incident_id, option_id)
 	)
+	var case_memory := pending_decision.get("case_memory", {}) as Dictionary
+	var character_arc := pending_decision.get("character_arc", {}) as Dictionary
 	var spendable := spendable_fund_cents()
 	if spendable < cost_cents:
 		announcement_posted.emit(
@@ -14843,23 +21719,54 @@ func _resolve_incident(option_id: StringName) -> bool:
 		return false
 	revenue_cents -= cost_cents
 	var petition_record: Dictionary = {}
+	var case_pivot: Dictionary = {}
 	if is_flock_petition:
 		petition_record = _apply_flock_petition_response(option_id, chosen)
 	else:
-		_apply_incident_effects(incident_id, option_id)
+		_apply_incident_effects(incident_id, option_id, case_memory)
+		# PO-1701 is the frozen economic/balance baseline used by historical saves
+		# and the complete Senior-career proof. Its choices already carry authored
+		# flock-wide relationship effects, so adding a second witness modifier would
+		# silently retune every downstream ledger. Authored replay dockets retain the
+		# extra personal consequence and therefore still make the named callback a
+		# mechanically meaningful relationship beat.
+		if _career_seed != 1701:
+			_apply_incident_character_consequence(character_arc, StringName(chosen.get("tone", &"")))
 	incidents_resolved_today += 1
 	var outcome := String(chosen.get("outcome", "Incident response recorded."))
 	var serial := int(pending_decision.get("serial", -1))
+	var incident_response: Dictionary = {}
+	if not is_flock_petition:
+		incident_response = _record_standard_incident_response(incident_id, option_id, day, serial)
+		case_pivot = incident_response.get("case_pivot", {}) as Dictionary
+	var filed_precedent: Dictionary = {}
+	if not is_flock_petition:
+		filed_precedent = active_incident_precedent_snapshot()
+	var resolution_summary := outcome
+	if not filed_precedent.is_empty():
+		resolution_summary = "%s PRECEDENT FILED / %s / %s" % [
+			outcome,
+			String(filed_precedent.get("target_label", "NEXT RELATED CASE")),
+			String(filed_precedent.get("summary", "A prior response changes the next related case.")),
+		]
+	if not case_pivot.is_empty():
+		var pivot_mastery := incident_pivot_mastery_snapshot()
+		resolution_summary += " ADAPTIVE CASEWORK / %d OF %d PAIRS%s" % [
+			int(pivot_mastery.get("mastered_count", 0)),
+			int(pivot_mastery.get("total_count", INCIDENT_PAIR_ORDER.size())),
+			" / COMMENDATION READY" if bool(pivot_mastery.get("complete", false)) else "",
+		]
 	pending_decision.clear()
 	shift_phase = ShiftPhase.RUNNING
 	shift_phase_changed.emit(shift_phase)
-	announcement_posted.emit(outcome)
+	announcement_posted.emit(resolution_summary)
 	var result := {
 		"serial": serial,
 		"kind": &"incident",
 		"decision_id": incident_id,
 		"option_id": option_id,
 		"outcome": outcome,
+		"resolution_summary": resolution_summary,
 		"day": day,
 	}
 	if is_flock_petition:
@@ -14867,6 +21774,31 @@ func _resolve_incident(option_id: StringName) -> bool:
 		result["flock_petition"] = petition_record.duplicate(true)
 		result["flock_compact"] = active_flock_compact.duplicate(true)
 		result["work_to_rule"] = work_to_rule_snapshot()
+	else:
+		result["incident_response"] = incident_response.duplicate(true)
+		result["case_memory"] = case_memory.duplicate(true)
+		if not character_arc.is_empty():
+			character_arc["option_label"] = String(chosen.get("short_label", chosen.get("label", "RESPONSE")))
+			character_arc["tone"] = StringName(chosen.get("tone", &""))
+			var worker_id := int(character_arc.get("worker_id", -1))
+			for witness in workers:
+				if witness.id == worker_id:
+					character_arc["trust_after"] = witness.manager_trust
+					character_arc["grievance_after"] = witness.grievance
+					var stage_after := _relationship_arc_stage(
+						witness.manager_trust,
+						witness.grievance,
+						int(character_arc.get("beat", 1)),
+					)
+					character_arc["standing_after"] = stage_after["standing"]
+					character_arc["standing_label_after"] = stage_after["standing_label"]
+					break
+			result["character_arc"] = character_arc.duplicate(true)
+		if not case_pivot.is_empty():
+			result["case_pivot"] = case_pivot.duplicate(true)
+			result["case_pivot_mastery"] = incident_pivot_mastery_snapshot()
+		if not filed_precedent.is_empty():
+			result["filed_precedent"] = filed_precedent.duplicate(true)
 	decision_resolved.emit(result)
 	snapshot_changed.emit(snapshot())
 	return true
@@ -14993,7 +21925,9 @@ func _build_flock_petition_decision() -> Dictionary:
 				"id": &"sign_compact",
 				"response_tier": &"binding",
 				"label": "SIGN THE COMPACT",
+				"short_label": "SIGN COMPACT",
 				"tagline": "Put tomorrow's promise in writing.",
+				"glance": "BINDS NEXT SHIFT",
 				"preview": "$%.2f  /  binding next shift  /  breach has consequences" % (float(definition.get("sign_cost_cents", 0)) / 100.0),
 				"cost_cents": int(definition.get("sign_cost_cents", 0)),
 				"tone": &"care",
@@ -15003,7 +21937,9 @@ func _build_flock_petition_decision() -> Dictionary:
 				"id": &"offer_concession",
 				"response_tier": &"concession",
 				"label": "OFFER A SCOOP OF FEED",
+				"short_label": "OFFER FEED",
 				"tagline": "Address today's strain without signing tomorrow away.",
+				"glance": "RELIEF\nNO COMPACT",
 				"preview": "$4.00  /  immediate relief  /  no binding compact",
 				"cost_cents": 400,
 				"tone": &"quality",
@@ -15013,7 +21949,9 @@ func _build_flock_petition_decision() -> Dictionary:
 				"id": &"deny_and_monitor",
 				"response_tier": &"denial",
 				"label": "DENY AND MONITOR",
+				"short_label": "DENY & MONITOR",
 				"tagline": "Call the pattern anecdotal and measure the reaction.",
+				"glance": "TRUST DOWN\nWORK-RULE RISK",
 				"preview": "FREE  /  trust falls  /  solidarity may trigger work-to-rule",
 				"cost_cents": 0,
 				"tone": &"danger",
@@ -15199,6 +22137,7 @@ func _activate_next_shift_flock_state() -> void:
 			var sponsor_id := int(active_flock_compact.get("sponsor_worker_id", -1))
 			if sponsor_id >= 0 and sponsor_id < workers.size() and workers[sponsor_id].employed:
 				workers[sponsor_id].assigned_lane = workers[sponsor_id].specialty
+				workers[sponsor_id].manually_routed = false
 	if work_to_rule_day == day and not last_work_to_rule_record.is_empty():
 		last_work_to_rule_record["status"] = "active"
 	if work_to_rule_day == 0 and queued_work_to_rule_day == day:
@@ -15361,7 +22300,39 @@ func _resolve_due_flock_compact(completed_day: int) -> Dictionary:
 	return last_flock_compact_receipt.duplicate(true)
 
 
-func _apply_incident_effects(incident_id: StringName, option_id: StringName) -> void:
+func _apply_incident_effects(
+	incident_id: StringName,
+	option_id: StringName,
+	follow_through: Dictionary = {},
+) -> void:
+	var follow_through_id := StringName(follow_through.get("id", &""))
+	var choice := _incident_choice_definition(incident_id, option_id)
+	var effect_bundle := choice.get("effects", {}) as Dictionary
+	if not effect_bundle.is_empty():
+		_apply_incident_effect_bundle(effect_bundle)
+		if incident_id == FINAL_HEARING_INCIDENT_ID:
+			var favored_option := StringName(scenario_identity_snapshot().get("favored_finale_option", &""))
+			if option_id == favored_option:
+				# A scenario-fit signature rewards reading the whole run without
+				# turning any one charter into a universal best answer.
+				match option_id:
+					&"back_farmer":
+						executive_confidence = minf(100.0, executive_confidence + 2.0)
+						_incident_work_multiplier *= 1.02
+					&"sign_flock_charter":
+						_adjust_worker_relationships(2.0, -2.0)
+						solidarity = minf(100.0, solidarity + 2.0)
+					&"publish_ledger":
+						compliance = minf(100.0, compliance + 2.0)
+						_incident_crack_modifier -= 0.01
+		# Connected-case pivots are small but tangible: they alter the option the
+		# filed precedent named without introducing a second hidden ruleset.
+		match follow_through_id:
+			&"staged_audit_to_variance", &"variance_to_staged_audit", &"tracking_to_desktop", &"desktop_to_tracking", &"success_to_deck", &"deck_to_success":
+				_adjust_worker_relationships(1.0, -1.0)
+			&"cold_room_to_cooling", &"cooling_to_open_audit", &"privacy_to_evacuate", &"evacuation_to_privacy", &"claimant_to_flock", &"flock_to_claimant":
+				_incident_work_multiplier *= 1.02
+		return
 	match incident_id:
 		&"ledger_molt":
 			if option_id == &"patch":
@@ -15369,7 +22340,9 @@ func _apply_incident_effects(incident_id: StringName, option_id: StringName) -> 
 				_incident_crack_modifier -= 0.04
 				_adjust_worker_relationships(1.0, -1.0)
 			else:
-				_incident_work_multiplier *= 1.05
+				_incident_work_multiplier *= (
+					1.07 if follow_through_id == &"transparency_to_shadow_sheet" else 1.05
+				)
 				_incident_crack_modifier += (
 					float(ledger_molt_spreadsheet_crack_basis_points()) / 10_000.0
 				)
@@ -15388,20 +22361,31 @@ func _apply_incident_effects(incident_id: StringName, option_id: StringName) -> 
 			else:
 				_adjust_workers(-6.0, 6.0, 0.0)
 				_adjust_worker_relationships(-5.0, 6.0)
-				executive_confidence = minf(100.0, executive_confidence + 3.0)
+				executive_confidence = minf(
+					100.0,
+					executive_confidence
+					+ (5.0 if follow_through_id == &"fed_flock_to_denial" else 3.0),
+				)
 				solidarity = minf(100.0, solidarity + 5.0)
 				_incident_crack_modifier += 0.025
 		&"farmer_story":
 			if option_id == &"polish_story":
 				_adjust_worker_relationships(-4.0, 5.0)
-				revenue_cents += 1600
-				credited_today_cents += 1600
+				var story_credit_cents := (
+					2000 if follow_through_id == &"clean_audit_to_story" else 1600
+				)
+				revenue_cents += story_credit_cents
+				credited_today_cents += story_credit_cents
 				executive_confidence = minf(100.0, executive_confidence + 8.0)
 				solidarity = maxf(0.0, solidarity - 5.0)
 				_pending_quota_adjustment += 1
 			else:
 				_adjust_worker_relationships(4.0, -3.0)
-				executive_confidence = maxf(0.0, executive_confidence - 6.0)
+				executive_confidence = maxf(
+					0.0,
+					executive_confidence
+					- (4.0 if follow_through_id == &"shadow_evidence_to_ledger" else 6.0),
+				)
 				compliance = minf(100.0, compliance + 5.0)
 				solidarity = minf(100.0, solidarity + 6.0)
 				_pending_quota_adjustment -= 1
@@ -15413,12 +22397,88 @@ func _apply_incident_effects(incident_id: StringName, option_id: StringName) -> 
 				solidarity = minf(100.0, solidarity + 3.0)
 				_incident_strain_multiplier *= 0.85
 			else:
-				_incident_feed_adjustment_cents -= 800
+				_incident_feed_adjustment_cents -= (
+					1000 if follow_through_id == &"rested_flock_to_portions" else 800
+				)
 				_consume_feed_for_shift()
 				_adjust_workers(-7.0, 5.0, 0.0)
 				_adjust_worker_relationships(-3.0, 4.0)
 				_incident_work_multiplier *= 0.96
 				_incident_crack_modifier += 0.03
+		&"calendar_overflow":
+			if option_id == &"cancel_status_sync":
+				_incident_work_multiplier *= 1.06
+				_incident_crack_modifier -= 0.02
+				compliance = minf(100.0, compliance + 2.0)
+				executive_confidence = maxf(0.0, executive_confidence - 2.0)
+				_adjust_worker_relationships(2.0, -2.0)
+			else:
+				_incident_work_multiplier *= 0.93
+				executive_confidence = minf(100.0, executive_confidence + 8.0)
+				compliance = minf(100.0, compliance + 2.0)
+				_adjust_workers(0.0, 4.0, 0.0)
+				_adjust_worker_relationships(-2.0, 3.0)
+		&"credit_town_hall":
+			if option_id == &"credit_layers":
+				executive_confidence = maxf(0.0, executive_confidence - 2.0)
+				compliance = minf(100.0, compliance + 4.0)
+				_adjust_workers(8.0, -6.0, -4.0)
+				_adjust_worker_relationships(6.0, -5.0)
+				solidarity = minf(100.0, solidarity + 5.0)
+				_pending_quota_adjustment -= 1
+				_incident_crack_modifier -= 0.01
+				_incident_golden_modifier += 0.02
+			else:
+				executive_confidence = minf(100.0, executive_confidence + 10.0)
+				_incident_work_multiplier *= 1.05
+				_adjust_workers(-5.0, 4.0, 0.0)
+				_adjust_worker_relationships(-5.0, 6.0)
+				solidarity = maxf(0.0, solidarity - 4.0)
+	match follow_through_id:
+		&"manager_byline_to_cancel":
+			if incident_id == &"calendar_overflow" and option_id == &"cancel_status_sync":
+				_adjust_worker_relationships(2.0, 0.0)
+		&"layer_results_to_syncs":
+			if incident_id == &"calendar_overflow" and option_id == &"attend_status_sync":
+				executive_confidence = minf(100.0, executive_confidence + 2.0)
+		&"cancel_bargain_to_roosters":
+			if incident_id == &"credit_town_hall" and option_id == &"credit_roosters":
+				executive_confidence = minf(100.0, executive_confidence + 2.0)
+
+
+func _apply_incident_effect_bundle(effects: Dictionary) -> void:
+	_incident_work_multiplier *= maxf(0.1, float(effects.get("work_multiplier", 1.0)))
+	_incident_strain_multiplier *= maxf(0.1, float(effects.get("strain_multiplier", 1.0)))
+	_incident_crack_modifier += float(effects.get("crack_modifier", 0.0))
+	_incident_golden_modifier += float(effects.get("golden_modifier", 0.0))
+	revenue_cents += int(effects.get("revenue_delta_cents", 0))
+	credited_today_cents += int(effects.get("credited_delta_cents", 0))
+	compliance = clampf(compliance + float(effects.get("compliance_delta", 0.0)), 0.0, 100.0)
+	executive_confidence = clampf(
+		executive_confidence + float(effects.get("executive_delta", 0.0)), 0.0, 100.0
+	)
+	solidarity = clampf(solidarity + float(effects.get("solidarity_delta", 0.0)), 0.0, 100.0)
+	_pending_quota_adjustment += int(effects.get("quota_delta", 0))
+	_adjust_workers(
+		float(effects.get("morale_delta", 0.0)),
+		float(effects.get("stress_delta", 0.0)),
+		float(effects.get("fatigue_delta", 0.0)),
+	)
+	_adjust_worker_relationships(
+		float(effects.get("trust_delta", 0.0)),
+		float(effects.get("grievance_delta", 0.0)),
+	)
+
+
+func _apply_incident_character_consequence(character_arc: Dictionary, tone: StringName) -> void:
+	var worker_id := int(character_arc.get("worker_id", -1))
+	for worker in workers:
+		if worker.id != worker_id or not worker.employed:
+			continue
+		var supportive := tone in [&"care", &"quality"]
+		worker.manager_trust = clampf(worker.manager_trust + (3.0 if supportive else -3.0), 0.0, 100.0)
+		worker.grievance = clampf(worker.grievance + (-2.0 if supportive else 3.0), 0.0, 100.0)
+		return
 
 
 func _adjust_workers(morale_delta: float, stress_delta: float, fatigue_delta: float) -> void:
@@ -15445,6 +22505,7 @@ func _reset_daily_decision_state() -> void:
 	peck_assists_used_today = 0
 	peck_assist_interventions_today = 0
 	peck_assist_refunds_today = 0
+	routing_momentum_peck_recharges_used_today = 0
 	peck_assist_streak = 0
 	last_peck_assist.clear()
 	last_peck_assist_delivery.clear()
@@ -15456,6 +22517,7 @@ func _reset_daily_decision_state() -> void:
 	_assist_chain_by_claim_id.clear()
 	_pending_peck_assist_deliveries.clear()
 	_settled_peck_assist_delivery_ids.clear()
+	_routing_momentum_free_assist_claim_ids.clear()
 	_incident_slot = 0
 	_directive_work_multiplier = 1.0
 	_directive_fatigue_multiplier = 1.0
@@ -15469,6 +22531,7 @@ func _reset_daily_decision_state() -> void:
 	_incident_golden_modifier = 0.0
 	_incident_feed_adjustment_cents = 0
 	_pending_quota_adjustment = 0
+	_reset_active_playbook()
 
 
 func _initialize_claim_queues() -> void:
@@ -15666,6 +22729,13 @@ func _take_claim_for_worker(worker: ChickenState) -> ClaimState:
 
 	if urgent_claim == null:
 		return null
+	var automation_policy := (
+		worker.automation_policy_id
+		if worker.automation_policy_unlocked else
+		&"specialty_first"
+	)
+	if automation_policy == &"deadline_first":
+		return _remove_claim_at(urgent_lane, urgent_index)
 	var trained_lanes: Array[StringName] = [worker.specialty]
 	if (
 		automation_recognizes_secondary_specialties()
@@ -15692,10 +22762,13 @@ func _take_claim_for_worker(worker: ChickenState) -> ClaimState:
 			trained_lane = lane
 			trained_index = candidate_index
 			trained_claim = candidate
+	var specialty_grace_minutes := automation_specialty_grace_minutes()
+	if automation_policy == &"protect_strain" and worker.stress >= 55.0:
+		specialty_grace_minutes = 30
 	if (
 		trained_claim != null
 		and trained_claim.deadline_operational_minute
-			<= urgent_claim.deadline_operational_minute + automation_specialty_grace_minutes()
+			<= urgent_claim.deadline_operational_minute + specialty_grace_minutes
 	):
 		return _remove_claim_at(trained_lane, trained_index)
 	return _remove_claim_at(urgent_lane, urgent_index)
@@ -15710,6 +22783,31 @@ func _claim_speed_factor(worker: ChickenState) -> float:
 		MISMATCH_SPEED_MULTIPLIER
 	)
 	return affinity / maxf(0.1, worker.current_claim.difficulty)
+
+
+func _claim_resolution_work_multiplier(claim: ClaimState) -> float:
+	if claim == null:
+		return 1.0
+	var definition := (
+		CLAIM_RESOLUTION_DEFINITIONS.get(claim.resolution_path, {}) as Dictionary
+	)
+	return float(definition.get("work_basis_points", 10_000)) / 10_000.0
+
+
+func _claim_resolution_crack_modifier(claim: ClaimState) -> float:
+	if claim == null:
+		return 0.0
+	var definition := (
+		CLAIM_RESOLUTION_DEFINITIONS.get(claim.resolution_path, {}) as Dictionary
+	)
+	return float(definition.get("crack_basis_points", 0)) / 10_000.0
+
+
+func _claim_lane_stress_multiplier(claim: ClaimState) -> float:
+	if claim == null or not claim.resolution_locked:
+		return 1.0
+	var definition := CLAIM_LANE_DEFINITIONS.get(claim.lane, {}) as Dictionary
+	return float(definition.get("work_stress_basis_points", 10_000)) / 10_000.0
 
 
 func _claim_affinity_crack_modifier(worker: ChickenState) -> float:
@@ -15748,10 +22846,50 @@ func _schedule_rework(source_claim: ClaimState) -> void:
 		true,
 		source_claim.id,
 		available_on_day,
-		source_claim.rework_depth + 1
+		source_claim.rework_depth + 1,
+		source_claim.claimant_profile_id,
+		&"standard",
+		false,
+		0,
+		source_claim.is_claimant_follow_up,
 	)
 	_next_claim_id += 1
 	_pending_rework.append(rework)
+	_rework_total_created += 1
+
+
+func _schedule_claimant_appeal(source_claim: ClaimState) -> void:
+	if source_claim == null:
+		return
+	var definition := CLAIM_LANE_DEFINITIONS[&"appeals"] as Dictionary
+	var claimant := source_claim.claimant_profile()
+	var available_on_day := day + 1
+	var arrival_minute := _operational_minute_for_shift_start(available_on_day)
+	var service_window := int(definition.get("deadline_minutes", 360))
+	var appeal := ClaimState.new(
+		_next_claim_id,
+		&"appeals",
+		"CLAIMANT APPEAL  /  %s" % String(
+			claimant.get("name", "UNFILED CLAIMANT"),
+		),
+		float(definition.get("base_difficulty", 1.3)) * 1.08,
+		int(definition.get("base_value_cents", 820)),
+		float(definition.get("crack_modifier", 0.055)) + 0.015,
+		arrival_minute,
+		arrival_minute + service_window,
+		service_window,
+		false,
+		source_claim.id,
+		available_on_day,
+		source_claim.rework_depth + 1,
+		source_claim.claimant_profile_id,
+		&"standard",
+		false,
+		0,
+		true,
+	)
+	_next_claim_id += 1
+	_pending_rework.append(appeal)
 	_rework_total_created += 1
 
 
@@ -15855,7 +22993,7 @@ func checkpoint_revision() -> int:
 	return _tick_count
 
 
-func advance_tick() -> void:
+func advance_tick(publish_snapshot: bool = true) -> void:
 	if shift_phase != ShiftPhase.RUNNING:
 		return
 	_tick_count += 1
@@ -15872,13 +23010,26 @@ func advance_tick() -> void:
 		_update_worker(worker)
 
 	if _maybe_open_incident():
-		snapshot_changed.emit(snapshot())
+		if publish_snapshot:
+			snapshot_changed.emit(snapshot())
 		return
 
 	if minute_of_day >= SHIFT_END_MINUTE:
 		_complete_workday()
 
-	snapshot_changed.emit(snapshot())
+	if publish_snapshot:
+		snapshot_changed.emit(snapshot())
+
+
+## Publishes one complete read model after a SimulationClock batch. Direct
+## management transactions and direct advance_tick() calls retain their
+## immediate snapshot contract; only clock-serviced accelerated ticks coalesce.
+func publish_current_snapshot() -> void:
+	# The clock's sole consumer treats the emitted read model as immutable and
+	# immediately derives its own bounded presentation subsets. Reuse the frozen
+	# nested projection bundle here instead of deep-copying the entire campus,
+	# facility, staffing, and contract graph on every accelerated tick.
+	snapshot_changed.emit(snapshot(true, true))
 
 
 func fund_feed_party() -> bool:
@@ -15945,7 +23096,7 @@ func begin_first_clutch_reinvestment(
 		)
 	if claim_id < 1:
 		return _rejected_first_clutch_reinvestment(
-			"A valid collected claim is required before reinvestment can open.",
+			"A valid collected egg receipt is required before reinvestment can open.",
 		)
 	if normalized_quality not in [&"sound", &"golden", &"cracked"]:
 		return _rejected_first_clutch_reinvestment(
@@ -16856,7 +24007,7 @@ func _flock_relations_case_title(case_type: StringName) -> String:
 		&"burnout_case":
 			return "OCCUPATIONAL NEST STRAIN CASE"
 		&"credit_claim":
-			return "WORK PRODUCT CREDIT CLAIM"
+			return "WORK PRODUCT CREDIT FILE"
 	return "WORKPLACE GRIEVANCE"
 
 
@@ -16967,6 +24118,154 @@ func _apply_flock_relations_carry_penalties(completed_day: int) -> Array[Diction
 	return effects
 
 
+func _manager_display_name(manager: Dictionary) -> String:
+	var candidate_id := StringName(String(manager.get("candidate_id", manager.get("id", ""))))
+	return String((MANAGER_CANDIDATE_DEFINITIONS.get(candidate_id, {}) as Dictionary).get("name", "Rooster Manager"))
+
+
+func _manager_rank_for_influence(influence: int) -> int:
+	var rank := 0
+	for index in MANAGER_RANK_INFLUENCE.size():
+		if influence >= MANAGER_RANK_INFLUENCE[index]:
+			rank = index
+	return rank
+
+
+func _manager_public_record(manager: Dictionary) -> Dictionary:
+	var candidate_id := StringName(String(manager.get("candidate_id", manager.get("id", ""))))
+	var definition := MANAGER_CANDIDATE_DEFINITIONS.get(candidate_id, {}) as Dictionary
+	var assignment_id := StringName(String(manager.get("assignment_id", "whole_flock")))
+	var posture_id := StringName(String(manager.get("posture_id", "coach")))
+	var slot_index := clampi(int(manager.get("slot_index", 0)), 0, MANAGER_SLOT_SALARIES_CENTS.size() - 1)
+	var rank := clampi(int(manager.get("rank", 0)), 0, MANAGER_RANK_TITLES.size() - 1)
+	return {
+		"id": candidate_id,
+		"name": String(definition.get("name", "Rooster Manager")),
+		"archetype": String(definition.get("archetype", "MANAGEMENT")),
+		"doctrine": String(definition.get("doctrine", "Alignment is progress.")),
+		"color": String(definition.get("color", "343941")),
+		"accessory": StringName(definition.get("accessory", &"BowTie")),
+		"slot_index": slot_index,
+		"hired_day": int(manager.get("hired_day", 1)),
+		"assignment_id": assignment_id,
+		"assignment_label": String((MANAGER_ASSIGNMENT_DEFINITIONS.get(assignment_id, {}) as Dictionary).get("label", "WHOLE FLOCK")),
+		"posture_id": posture_id,
+		"posture_label": String((MANAGER_POSTURE_DEFINITIONS.get(posture_id, {}) as Dictionary).get("label", "COACH THE FLOCK")),
+		"posture_filed": bool(manager.get("posture_filed", false)),
+		"influence": maxi(0, int(manager.get("influence", 0))),
+		"rank": rank,
+		"title": MANAGER_RANK_TITLES[rank],
+		"salary_cents": MANAGER_SLOT_SALARIES_CENTS[slot_index] + rank * 100,
+		"credit_claims": maxi(0, int(manager.get("credit_claims", 0))),
+		"interventions": maxi(0, int(manager.get("interventions", 0))),
+		"last_pip_worker_id": int(manager.get("last_pip_worker_id", -1)),
+	}
+
+
+func _manager_roster_snapshot() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for manager in manager_roster:
+		result.append(_manager_public_record(manager))
+	return result
+
+
+func _manager_candidate_snapshot() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var hired_ids: Dictionary[StringName, bool] = {}
+	for manager in manager_roster:
+		hired_ids[StringName(String(manager.get("candidate_id", "")))] = true
+	var replacement_record := (
+		manager_roster[manager_roster.size() - 1]
+		if manager_roster.size() > 1 else
+		{}
+	) as Dictionary
+	var replaced_name := _manager_display_name(replacement_record) if not replacement_record.is_empty() else ""
+	var replaced_manager_id := StringName(String(replacement_record.get("candidate_id", "")))
+	var replacement_slot_index := manager_roster.size() - 1
+	var replaced_salary_cents := (
+		MANAGER_SLOT_SALARIES_CENTS[replacement_slot_index]
+		+ maxi(0, int(replacement_record.get("rank", 0))) * 100
+		if replacement_slot_index >= 0 and replacement_slot_index < MANAGER_SLOT_SALARIES_CENTS.size() else
+		0
+	)
+	var appointment_salary_cents := (
+		MANAGER_SLOT_SALARIES_CENTS[replacement_slot_index]
+		if replacement_slot_index >= 0 and replacement_slot_index < MANAGER_SLOT_SALARIES_CENTS.size() else
+		0
+	)
+	var payroll_before_cents := supervisor_payroll_cents()
+	var payroll_after_cents := maxi(
+		0,
+		payroll_before_cents - replaced_salary_cents + appointment_salary_cents,
+	)
+	for candidate_id in MANAGER_CANDIDATE_DEFINITIONS:
+		var definition := MANAGER_CANDIDATE_DEFINITIONS[candidate_id] as Dictionary
+		var hired := hired_ids.has(candidate_id)
+		var cost := maxi(0, int(definition.get("signing_cost_cents", 0)))
+		var can_recruit := not hired and manager_roster.size() > 1 and staffing_planning_open() and spendable_fund_cents() >= cost
+		result.append({
+			"id": candidate_id,
+			"name": String(definition.get("name", "Rooster Candidate")),
+			"archetype": String(definition.get("archetype", "MANAGEMENT")),
+			"doctrine": String(definition.get("doctrine", "Alignment is progress.")),
+			"default_posture": StringName(definition.get("default_posture", &"coach")),
+			"signing_cost_cents": cost,
+			"hired": hired,
+			"can_recruit": can_recruit,
+			"replaces_name": replaced_name,
+			"replaces_manager_id": replaced_manager_id,
+			"replaces_salary_cents": replaced_salary_cents,
+			"appointment_salary_cents": appointment_salary_cents,
+			"manager_count": manager_roster.size(),
+			"supervisor_payroll_before_cents": payroll_before_cents,
+			"supervisor_payroll_after_cents": payroll_after_cents,
+			"supervisor_payroll_delta_cents": payroll_after_cents - payroll_before_cents,
+			"reason": (
+				"Already on payroll." if hired else
+				"Commission Rooster Operations level 1 first." if manager_roster.size() < 2 else
+				"Appointments are filed during review." if not staffing_planning_open() else
+				"Needs $%.2f spendable Feed Fund." % (float(cost) / 100.0) if spendable_fund_cents() < cost else
+				"Appoints to the newest post and strategically exits %s." % replaced_name
+			),
+		})
+	result.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
+		return String(left.get("name", "")) < String(right.get("name", ""))
+	)
+	return result
+
+
+func _manager_catalog_snapshot(source: Dictionary, order: Array[StringName]) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for item_id in order:
+		var definition := source[item_id] as Dictionary
+		var row := definition.duplicate(true)
+		row["id"] = item_id
+		result.append(row)
+	return result
+
+
+func management_density_snapshot() -> Dictionary:
+	var active_staff := active_worker_count()
+	var manager_count := manager_roster.size()
+	var density := float(manager_count) / maxf(1.0, float(active_staff))
+	var excess := maxi(0, manager_count * 2 - active_staff)
+	var conflicts := 0
+	for worker in workers:
+		if worker.employed:
+			conflicts += int(_manager_effect_for_worker(worker).get("conflicts", 0))
+	return {
+		"manager_count": manager_count,
+		"authorized_seats": manager_capacity(),
+		"active_hens": active_staff,
+		"ratio": snappedf(density, 0.001),
+		"label": "1 : %.1f" % (float(active_staff) / maxf(1.0, float(manager_count))),
+		"excess_managers": excess,
+		"meeting_minutes": manager_count * 10 + excess * 20,
+		"conflicting_directives": conflicts,
+		"risk_label": "OVERMANAGED" if excess > 0 else ("DENSE" if density >= 0.5 else "WORKABLE"),
+	}
+
+
 func operations_snapshot() -> Dictionary:
 	var rooster_status := facility_status(ROOSTER_OPERATIONS_OFFICE_ID)
 	var it_status := facility_status(IT_COOP_ID)
@@ -16996,7 +24295,7 @@ func operations_snapshot() -> Dictionary:
 		and shift_phase in [ShiftPhase.RUNNING, ShiftPhase.AWAITING_INCIDENT]
 	)
 	return {
-		"version": 1,
+		"version": 2,
 		"rooster_office_level": facility_level(ROOSTER_OPERATIONS_OFFICE_ID),
 		"it_coop_level": facility_level(IT_COOP_ID),
 		"flock_relations_office_level": facility_level(FLOCK_RELATIONS_OFFICE_ID),
@@ -17012,6 +24311,19 @@ func operations_snapshot() -> Dictionary:
 			"quota_pressure_actions_today": quota_pressure_actions,
 			"shift_pressure_applied": pressure_applied,
 		},
+		"manager_roster": _manager_roster_snapshot(),
+		"manager_candidates": _manager_candidate_snapshot(),
+		"manager_capacity": manager_capacity(),
+		"manager_assignments": _manager_catalog_snapshot(MANAGER_ASSIGNMENT_DEFINITIONS, MANAGER_ASSIGNMENT_ORDER),
+		"manager_postures": _manager_catalog_snapshot(MANAGER_POSTURE_DEFINITIONS, MANAGER_POSTURE_ORDER),
+		"management_density": management_density_snapshot(),
+		"management_reports": {
+			"today": management_reports_today,
+			"total": management_reports_total,
+			"visibility_today": management_visibility_today,
+			"produces_eggs": false,
+		},
+		"last_manager_action": last_manager_action.duplicate(true),
 		"automation": {
 			"enabled": facility_level(IT_COOP_ID) > 0,
 			"work_basis_points": automation_work_basis_points(),
@@ -17039,7 +24351,478 @@ func operations_snapshot() -> Dictionary:
 	}
 
 
-func snapshot() -> Dictionary:
+func _worker_flock_bond_snapshot(worker: ChickenState) -> Dictionary:
+	## Character-scale relationship projection. The underlying morale, grievance,
+	## stress, and flock solidarity are already authoritative and persistent; this
+	## bounded view names the nearest active perchmate and explains their current
+	## social temperature without creating a second relationship economy.
+	if not worker.employed:
+		return {
+			"partner_id": -1,
+			"partner_name": "",
+			"score": 0,
+			"label": "OFF THE FLOOR",
+			"summary": "Applicant relationships resume after a perch is authorized.",
+		}
+	var partner: ChickenState
+	var nearest_distance := 1_000_000
+	for candidate in workers:
+		if not candidate.employed or candidate.id == worker.id:
+			continue
+		var desk_distance := absi(candidate.desk_index - worker.desk_index)
+		if (
+			partner == null
+			or desk_distance < nearest_distance
+			or (desk_distance == nearest_distance and candidate.id < partner.id)
+		):
+			partner = candidate
+			nearest_distance = desk_distance
+	if partner == null:
+		return {
+			"partner_id": -1,
+			"partner_name": "",
+			"score": 50,
+			"label": "SOLO PERCH",
+			"summary": "No active perchmate is close enough to file a flock bond.",
+		}
+	var shared_strain := (worker.stress + partner.stress + worker.fatigue + partner.fatigue) * 0.0625
+	var shared_grievance := (worker.grievance + partner.grievance) * 0.10
+	var shared_morale := (worker.morale + partner.morale - 100.0) * 0.16
+	var bond_score := clampi(roundi(
+		50.0
+		+ (solidarity - 50.0) * 0.34
+		+ shared_morale
+		+ shared_grievance
+		- shared_strain
+	), 0, 100)
+	var bond_label := "WITHDRAWN"
+	if bond_score >= 75:
+		bond_label = "CLUTCHMATES"
+	elif bond_score >= 60:
+		bond_label = "GOOD PERCH"
+	elif bond_score >= 45:
+		bond_label = "PROFESSIONAL"
+	elif bond_score >= 30:
+		bond_label = "GUARDED"
+	var summary := "%s with %s (%d/100)." % [bond_label, partner.display_name, bond_score]
+	if shared_strain >= 10.0:
+		summary += " Shared strain is crowding out perch-side trust."
+	elif solidarity >= 60.0:
+		summary += " Flock solidarity is strengthening the relationship."
+	elif shared_grievance >= 8.0:
+		summary += " Shared management memory is pulling the pair together."
+	else:
+		summary += " The relationship is steady but still mostly professional."
+	return {
+		"partner_id": partner.id,
+		"partner_name": partner.display_name,
+		"score": bond_score,
+		"label": bond_label,
+		"summary": summary,
+	}
+
+
+func _signed_temperament_percent(basis_points: int, metric: String) -> String:
+	if basis_points == 0:
+		return ""
+	var magnitude := absf(float(basis_points) / 100.0)
+	var amount := (
+		"%d" % roundi(magnitude)
+		if basis_points % 100 == 0 else
+		"%.1f" % magnitude
+	)
+	return "%s%s%% %s" % ["+" if basis_points > 0 else "-", amount, metric]
+
+
+func _worker_temperament_effect(
+	worker: ChickenState,
+	flock_bond: Dictionary = {},
+) -> Dictionary:
+	## A small, fully disclosed identity modifier. Static values live with the
+	## temperament definition; the two social work styles react only to already
+	## authoritative flock state, so this adds strategy without save authority.
+	var temperament_id := ChickenState.default_temperament(worker.id)
+	var definition := ChickenState.temperament_definition(worker.id)
+	var pace_basis_points := int(definition.get("pace_basis_points", 0))
+	var crack_basis_points := int(definition.get("crack_basis_points", 0))
+	var strain_basis_points := int(definition.get("strain_basis_points", 10_000))
+	var break_recovery_basis_points := int(
+		definition.get("break_recovery_basis_points", 10_000)
+	)
+	var condition := ""
+	match StringName(definition.get("dynamic_axis", &"")):
+		&"flock_bond":
+			var effective_bond := (
+				flock_bond
+				if not flock_bond.is_empty() else
+				_worker_flock_bond_snapshot(worker)
+			)
+			var bond_score := int(effective_bond.get("score", 0))
+			if bond_score >= 60:
+				pace_basis_points += 400
+				strain_basis_points -= 300
+				condition = "bond score 60+"
+			elif bond_score < 30:
+				pace_basis_points -= 400
+				condition = "bond score below 30"
+			else:
+				condition = "bond score 30-59"
+		&"solidarity":
+			if solidarity >= 60.0:
+				pace_basis_points += 400
+				strain_basis_points -= 500
+				condition = "flock solidarity 60+"
+			elif solidarity < 35.0:
+				pace_basis_points -= 400
+				condition = "flock solidarity below 35"
+			else:
+				condition = "flock solidarity 35-59"
+	pace_basis_points = clampi(pace_basis_points, -800, 800)
+	crack_basis_points = clampi(crack_basis_points, -400, 400)
+	strain_basis_points = clampi(strain_basis_points, 8_500, 11_500)
+	break_recovery_basis_points = clampi(
+		break_recovery_basis_points,
+		9_000,
+		12_500,
+	)
+	var terms: Array[String] = []
+	var pace_term := _signed_temperament_percent(pace_basis_points, "pace")
+	var crack_term := _signed_temperament_percent(crack_basis_points, "shell risk")
+	var strain_term := _signed_temperament_percent(
+		strain_basis_points - 10_000,
+		"strain",
+	)
+	var recovery_term := _signed_temperament_percent(
+		break_recovery_basis_points - 10_000,
+		"break recovery",
+	)
+	for term in [pace_term, crack_term, strain_term, recovery_term]:
+		if not term.is_empty():
+			terms.append(term)
+	if terms.is_empty():
+		terms.append("steady baseline")
+	if not condition.is_empty():
+		terms.append(condition)
+	var potential_summary := " / ".join(terms)
+	var engaged := (
+		worker.employed
+		and worker.manually_routed
+		and worker.assigned_lane != AUTO_ASSIGNMENT
+	)
+	var summary := (
+		"MANUAL / %s" % potential_summary
+		if engaged else
+		"%s / MANUAL PREVIEW: %s" % [
+			"AUTO BASELINE" if worker.employed else "APPLICANT PREVIEW",
+			potential_summary,
+		]
+	)
+	var effective_pace_basis_points := pace_basis_points if engaged else 0
+	var effective_crack_basis_points := crack_basis_points if engaged else 0
+	var effective_strain_basis_points := strain_basis_points if engaged else 10_000
+	var effective_break_recovery_basis_points := (
+		break_recovery_basis_points if engaged else 10_000
+	)
+	return {
+		"temperament_id": temperament_id,
+		"label": String(definition.get("work_style_label", "STEADY RHYTHM")),
+		"engaged": engaged,
+		"pace_basis_points": effective_pace_basis_points,
+		"work_multiplier": 1.0 + float(effective_pace_basis_points) / 10_000.0,
+		"crack_basis_points": effective_crack_basis_points,
+		"crack_modifier": float(effective_crack_basis_points) / 10_000.0,
+		"strain_basis_points": effective_strain_basis_points,
+		"strain_multiplier": float(effective_strain_basis_points) / 10_000.0,
+		"break_recovery_basis_points": effective_break_recovery_basis_points,
+		"break_recovery_multiplier": float(effective_break_recovery_basis_points) / 10_000.0,
+		"potential_pace_basis_points": pace_basis_points,
+		"potential_crack_basis_points": crack_basis_points,
+		"potential_strain_basis_points": strain_basis_points,
+		"potential_break_recovery_basis_points": break_recovery_basis_points,
+		"potential_summary": potential_summary,
+		"condition": condition,
+		"summary": summary,
+	}
+
+
+func worker_temperament_effect(worker_id: int) -> Dictionary:
+	if worker_id < 0 or worker_id >= workers.size():
+		return {}
+	return _worker_temperament_effect(workers[worker_id]).duplicate(true)
+
+
+func _build_runtime_static_projection_bundle() -> Dictionary:
+	var campus_expansion_projection := campus_expansion_snapshot()
+	return {
+		"campus_expansion": campus_expansion_projection,
+		"campus_portfolio": campus_portfolio_snapshot(campus_expansion_projection),
+		"staffing_catalog": staffing_catalog(),
+		"facility_catalog": facility_catalog(),
+	}
+
+
+func _build_runtime_live_projection_bundle() -> Dictionary:
+	return {
+		"contract_board": market_contract_board_status(),
+		"farm_mutual_service_coop": farm_mutual_service_coop_status(),
+		"farm_mutual_negotiation_room": farm_mutual_negotiation_room_status(),
+		"economic_briefing": economic_briefing_snapshot(),
+		"feed_procurement": feed_procurement_snapshot(),
+		"flock_care": flock_care_snapshot(),
+		"operations": operations_snapshot(),
+	}
+
+
+func _snapshot_projection_bundle(
+	use_runtime_cache: bool,
+	trusted_read_only: bool = false,
+) -> Dictionary:
+	var now_msec := Time.get_ticks_msec()
+	var static_cache_current := (
+		not _runtime_static_projection_cache.is_empty()
+		and _runtime_projection_cache_day == day
+		and _runtime_projection_cache_phase == shift_phase
+	)
+	var live_cache_current := (
+		not _runtime_live_projection_cache.is_empty()
+		and static_cache_current
+		and _runtime_projection_cache_msec >= 0
+		and now_msec - _runtime_projection_cache_msec < RUNTIME_PROJECTION_REFRESH_MSEC
+	)
+	var rebuilt := false
+	if not use_runtime_cache or not static_cache_current:
+		_runtime_static_projection_cache = _build_runtime_static_projection_bundle()
+		_runtime_static_projection_cache_builds += 1
+		rebuilt = true
+	if not use_runtime_cache or not live_cache_current:
+		_runtime_live_projection_cache = _build_runtime_live_projection_bundle()
+		_runtime_live_projection_cache_builds += 1
+		_runtime_projection_cache_msec = now_msec
+		rebuilt = true
+	if rebuilt:
+		_runtime_projection_cache = _runtime_static_projection_cache.duplicate()
+		_runtime_projection_cache.merge(_runtime_live_projection_cache, true)
+		_runtime_projection_cache_day = day
+		_runtime_projection_cache_phase = shift_phase
+		_runtime_projection_cache_builds += 1
+		if use_runtime_cache:
+			_runtime_projection_cache_refresh_builds += 1
+		else:
+			_runtime_projection_cache_exact_builds += 1
+	else:
+		_runtime_projection_cache_hits += 1
+	if trusted_read_only:
+		_runtime_projection_cache_read_only_hits += 1
+		return _runtime_projection_cache
+	# Consumers have historically been allowed to enrich presentation snapshots.
+	# Preserve that defensive-copy contract so no UI mutation can poison the
+	# cached authoritative projection used by a later clock frame.
+	return _runtime_projection_cache.duplicate(true)
+
+
+func runtime_projection_cache_diagnostics() -> Dictionary:
+	return {
+		"refresh_msec": RUNTIME_PROJECTION_REFRESH_MSEC,
+		"builds": _runtime_projection_cache_builds,
+		"hits": _runtime_projection_cache_hits,
+		"exact_builds": _runtime_projection_cache_exact_builds,
+		"runtime_refresh_builds": _runtime_projection_cache_refresh_builds,
+		"read_only_hits": _runtime_projection_cache_read_only_hits,
+		"static_builds": _runtime_static_projection_cache_builds,
+		"live_builds": _runtime_live_projection_cache_builds,
+		"tick_snapshot_hits": _runtime_tick_snapshot_cache_hits,
+		"cached": not _runtime_projection_cache.is_empty(),
+		"cached_day": _runtime_projection_cache_day,
+		"cached_phase": _runtime_projection_cache_phase,
+		"age_msec": (
+			maxi(0, Time.get_ticks_msec() - _runtime_projection_cache_msec)
+			if _runtime_projection_cache_msec >= 0 else
+			-1
+		),
+	}
+
+
+## Compact three-beat personal arc derived from the career authority that
+## already changes wage, pace, shell risk, credentials, and world presentation.
+## No separate mastery currency or save field is introduced.
+func _worker_personal_mastery_snapshot(worker_snapshot: Dictionary) -> Dictionary:
+	var level := int(worker_snapshot.get("career_level", 0))
+	var secondary_ready := bool(worker_snapshot.get("has_secondary_specialty", false))
+	var rows: Array[Dictionary] = [
+		{
+			"id": "trusted_layer",
+			"label": "TRUSTED LAYER",
+			"complete": level >= 1,
+			"reward": "CAREER TITLE + DESK CREDENTIAL",
+		},
+		{
+			"id": "second_lane",
+			"label": "SECOND LANE",
+			"complete": secondary_ready,
+			"reward": "SECONDARY SPECIALTY + TORSO BADGE",
+		},
+		{
+			"id": "lead_hen",
+			"label": "LEAD HEN",
+			"complete": level >= 3,
+			"reward": "MASTER LAYER TITLE + OFFICE CREST",
+		},
+	]
+	var completed := 0
+	var next_id := ""
+	var next_label := "MASTERED"
+	var next_reward := String(worker_snapshot.get("career_title", "MASTER LAYER"))
+	for row in rows:
+		if bool(row.get("complete", false)):
+			completed += 1
+		elif next_id.is_empty():
+			next_id = String(row.get("id", ""))
+			next_label = String(row.get("label", "NEXT MASTERY"))
+			next_reward = String(row.get("reward", "VISIBLE CAREER REWARD"))
+	return {
+		"worker_id": int(worker_snapshot.get("id", -1)),
+		"worker_name": String(worker_snapshot.get("name", "HEN")),
+		"completed": completed,
+		"total": rows.size(),
+		"complete": completed == rows.size(),
+		"next_id": next_id,
+		"next_label": next_label,
+		"next_reward": next_reward,
+		"rows": rows,
+		"career_xp": int(worker_snapshot.get("career_xp", 0)),
+		"career_next_threshold": int(worker_snapshot.get("career_next_threshold", -1)),
+	}
+
+
+## Projects the single most useful next read for a hen. This remains a
+## presentation-only summary: actions still flow through their existing
+## authoritative APIs, while every surface shares one stable priority order.
+func _worker_hen_intent_snapshot(worker_snapshot: Dictionary) -> Dictionary:
+	if not bool(worker_snapshot.get("employed", true)):
+		return {}
+	var worker_name := String(worker_snapshot.get("name", "This hen"))
+	var state_label := String(worker_snapshot.get("state_label", "")).to_upper()
+	var stress := roundi(float(worker_snapshot.get("stress", 0.0)))
+	var fatigue := roundi(float(worker_snapshot.get("fatigue", 0.0)))
+	var morale := roundi(float(worker_snapshot.get("morale", 100.0)))
+	if state_label == "WELLNESS":
+		return {
+			"id": &"recovering",
+			"icon": &"care",
+			"action_id": &"support",
+			"action_label": "CHECK IN",
+			"detail": "%s is recovering at the Wellness Nest. Open Support to review care options." % worker_name,
+			"urgency": 2,
+			"actionable": true,
+		}
+	var assist := worker_snapshot.get("peck_assist", {}) as Dictionary
+	if bool(assist.get("available", false)):
+		return {
+			"id": &"sync",
+			"icon": &"sync",
+			"action_id": &"peck",
+			"action_label": "SYNC PECK",
+			"detail": "%s's Priority Peck window is open. Activate it to stamp the live rhythm." % worker_name,
+			"urgency": 3,
+			"actionable": true,
+		}
+	var claim := worker_snapshot.get("current_claim", {}) as Dictionary
+	# Claimant paths and deadline intervention retire once work has crossed into
+	# laying. The claim remains attached to the hen until the egg is released, so
+	# this phase guard must precede every generic live-claim intent below.
+	if state_label == "LAYING" and not claim.is_empty():
+		return {
+			"id": &"delivery",
+			"icon": &"delivery",
+			"action_id": &"route",
+			"action_label": "TRACK EGG",
+			"detail": "%s's file is locked and the egg is laying. Track it through grading to farmer delivery; a clean assisted egg returns 1 Priority Peck charge." % worker_name,
+			"urgency": 1,
+			"actionable": true,
+		}
+	if not claim.is_empty():
+		var minutes_left := int(claim.get("minutes_until_deadline", 9999))
+		var overdue := bool(claim.get("overdue", false)) or minutes_left < 0
+		if overdue or minutes_left <= 60:
+			return {
+				"id": &"deadline",
+				"icon": &"urgent",
+				"action_id": &"claim",
+				"action_label": "OPEN FILE",
+				"detail": (
+					"%s's current file is overdue by %dm. Open the live file." % [worker_name, absi(minutes_left)]
+					if overdue else
+					"%s's current file is due in %dm. Open the live file." % [worker_name, maxi(0, minutes_left)]
+				),
+				"urgency": 3,
+				"actionable": true,
+			}
+	if stress >= 60 or fatigue >= 65 or morale <= 40:
+		return {
+			"id": &"care",
+			"icon": &"care",
+			"action_id": &"support",
+			"action_label": "CHECK IN",
+			"detail": "%s needs attention: stress %d, fatigue %d, morale %d. Open Support to choose a check-in." % [worker_name, stress, fatigue, morale],
+			"urgency": 2,
+			"actionable": true,
+		}
+	if not claim.is_empty():
+		var resolution := worker_snapshot.get("claim_resolution_status", {}) as Dictionary
+		var progress := roundi(float(worker_snapshot.get("progress", 0.0)))
+		var resolution_cutoff := roundi(float(resolution.get(
+			"cutoff_progress",
+			CLAIM_RESOLUTION_CUTOFF_PROGRESS,
+		)))
+		if (
+			bool(resolution.get("available", false))
+			and not bool(claim.get("resolution_locked", false))
+			and progress < resolution_cutoff
+		):
+			return {
+				"id": &"choice",
+				"icon": &"choice",
+				"action_id": &"claim",
+				"action_label": "CHOOSE OUTCOME",
+				"cutoff_progress": resolution_cutoff,
+				"detail": "%s's claimant outcome is open before %d%% progress. Compare care, pace, risk, and cost." % [worker_name, resolution_cutoff],
+				"urgency": 2,
+				"actionable": true,
+			}
+		if bool(claim.get("specialty_match", false)):
+			return {
+				"id": &"match",
+				"icon": &"match",
+				"action_id": &"claim",
+				"action_label": "GOOD MATCH",
+				"detail": "%s is on specialty work: 18%% faster with 4%% less shell risk. Open the live file." % worker_name,
+				"urgency": 1,
+				"actionable": true,
+			}
+		return {
+			"id": &"steady",
+			"icon": &"steady",
+			"action_id": &"claim",
+			"action_label": "TRACK FILE",
+			"detail": "%s is working steadily at %d%%. Track the live file or prepare Priority Peck." % [worker_name, progress],
+			"urgency": 1,
+			"actionable": true,
+		}
+	return {
+		"id": &"ready",
+		"icon": &"ready",
+		"action_id": &"route",
+		"action_label": "SET ROUTE",
+		"detail": "%s is waiting for the next file. Review or change her tray route." % worker_name,
+		"urgency": 1,
+		"actionable": true,
+	}
+
+
+func snapshot(
+	use_runtime_projection_cache: bool = false,
+	trusted_runtime_projection_read_only: bool = false,
+) -> Dictionary:
 	_sync_claims_waiting()
 	var now := _current_operational_minute()
 	var worker_snapshots: Array[Dictionary] = []
@@ -17051,6 +24834,12 @@ func snapshot() -> Dictionary:
 	var assist_delivery_status := peck_assist_delivery_status()
 	for worker in workers:
 		var worker_snapshot := worker.snapshot(now)
+		var flock_bond := _worker_flock_bond_snapshot(worker)
+		worker_snapshot["flock_bond"] = flock_bond
+		worker_snapshot["temperament_effect"] = _worker_temperament_effect(
+			worker,
+			flock_bond,
+		)
 		var shift_stats := _worker_shift_stat(worker.id)
 		worker_snapshot["shift_eggs"] = int(shift_stats.get("eggs", 0))
 		worker_snapshot["shift_sound"] = int(shift_stats.get("sound", 0))
@@ -17116,6 +24905,13 @@ func snapshot() -> Dictionary:
 			_lane_display_name(worker.assigned_lane)
 			)
 		)
+		worker_snapshot["automation_policy_id"] = String(worker.automation_policy_id)
+		worker_snapshot["automation_policy_unlocked"] = worker.automation_policy_unlocked
+		worker_snapshot["automation_policy"] = (
+			(PLAYBOOK_DELEGATION_POLICY_DEFINITIONS.get(worker.automation_policy_id, {}) as Dictionary).duplicate(true)
+			if worker.automation_policy_unlocked else
+			{}
+		)
 		var hire_added_daily_operating_cents := (
 			_hire_feed_obligation_delta_cents() + worker.daily_wage_cents()
 		)
@@ -17152,33 +24948,76 @@ func snapshot() -> Dictionary:
 		var current_claim_snapshot := worker_snapshot.get("current_claim", {}) as Dictionary
 		if not current_claim_snapshot.is_empty():
 			_apply_market_contract_claim_snapshot(current_claim_snapshot)
+			current_claim_snapshot["routing_golden_target"] = (
+				worker.current_claim.id == routing_momentum_golden_target_claim_id
+				and worker.id == routing_momentum_golden_target_worker_id
+			)
 			current_claim_snapshot["specialty_match"] = worker.has_specialty(worker.current_claim.lane)
 			current_claim_snapshot["affinity_speed_multiplier"] = _claim_speed_factor(worker)
 			current_claim_snapshot["affinity_crack_modifier"] = _claim_affinity_crack_modifier(worker)
 			current_claim_snapshot["facility_speed_multiplier"] = _facility_claim_speed_multiplier(worker)
 			current_claim_snapshot["automation_work_multiplier"] = automation_work_multiplier(worker)
 			current_claim_snapshot["automation_enrolled"] = worker.assigned_lane == AUTO_ASSIGNMENT
+		var resolution_status := claim_resolution_status(worker.id)
+		resolution_status.erase("catalog")
+		worker_snapshot["claim_resolution_status"] = resolution_status
+		worker_snapshot["personal_mastery"] = _worker_personal_mastery_snapshot(
+			worker_snapshot
+		)
+		worker_snapshot["hen_intent"] = _worker_hen_intent_snapshot(worker_snapshot)
 		worker_snapshots.append(worker_snapshot)
 	var queue_snapshot := _queue_snapshot()
 	var pending_rework_items: Array[Dictionary] = []
 	for claim in _pending_rework:
 		pending_rework_items.append(claim.snapshot(now))
 
+	var runtime_projections := _snapshot_projection_bundle(
+		use_runtime_projection_cache,
+		trusted_runtime_projection_read_only,
+	)
+	if (
+		trusted_runtime_projection_read_only
+		and not _runtime_tick_snapshot_cache.is_empty()
+		and _runtime_tick_snapshot_cache_day == day
+		and _runtime_tick_snapshot_cache_phase == shift_phase
+	):
+		_runtime_tick_snapshot_cache_hits += 1
+		return _refresh_runtime_tick_snapshot(
+			_runtime_tick_snapshot_cache,
+			worker_snapshots,
+			queue_snapshot,
+			pending_rework_items,
+			runtime_projections,
+		)
 	var personnel_status := personnel_action_status()
-	var campus_expansion_projection := campus_expansion_snapshot()
-	var campus_portfolio_projection := campus_portfolio_snapshot(campus_expansion_projection)
-	return {
+	var campus_expansion_projection := (
+		runtime_projections.get("campus_expansion", {}) as Dictionary
+	)
+	var campus_portfolio_projection := (
+		runtime_projections.get("campus_portfolio", {}) as Dictionary
+	)
+	var result := {
+		# Consumers can use this monotonic tick revision to recognize accelerated
+		# simulation updates without parsing the full presentation payload. It is
+		# deliberately distinct from action/event revisions, which may change
+		# authoritative state between ticks.
+		"authoritative_tick_revision": _tick_count,
+		"case_docket": case_docket_snapshot(),
+		"incident_pivot_mastery": incident_pivot_mastery_snapshot(),
 		"day": day,
 		"minute_of_day": minute_of_day,
 		"time_label": _format_time(minute_of_day),
 		"claims_waiting": claims_waiting,
 		"claims_outstanding": _outstanding_claim_count(),
 		"claim_capacity": current_claim_capacity(),
+		"claim_resolution_catalog": claim_resolution_catalog(),
 		"intake_rejections_today": intake_rejections_today,
 		"intake_rejections_total": intake_rejections_total,
 		"intake_missed_value_today_cents": intake_missed_value_today_cents,
 		"intake_missed_value_total_cents": intake_missed_value_total_cents,
-		"contract_board": market_contract_board_status(),
+		"contract_board": (
+			runtime_projections.get("contract_board", {}) as Dictionary
+		),
 		"market_contract_breach_reserve_cents": current_market_contract_reserve_cents(),
 		"market_contract_premium_today_cents": market_contract_premium_today_cents,
 		"market_contract_premium_total_cents": market_contract_premium_total_cents,
@@ -17192,8 +25031,12 @@ func snapshot() -> Dictionary:
 		"market_clean_contract_streak": market_clean_contract_streak,
 		"best_market_clean_contract_streak": best_market_clean_contract_streak,
 		"farm_mutual_standing": farm_mutual_standing_status(),
-		"farm_mutual_service_coop": farm_mutual_service_coop_status(),
-		"farm_mutual_negotiation_room": farm_mutual_negotiation_room_status(),
+		"farm_mutual_service_coop": (
+			runtime_projections.get("farm_mutual_service_coop", {}) as Dictionary
+		),
+		"farm_mutual_negotiation_room": (
+			runtime_projections.get("farm_mutual_negotiation_room", {}) as Dictionary
+		),
 		"claims_processed": claims_processed,
 		"eggs_today": eggs_today,
 		"eggs_total": eggs_total,
@@ -17204,8 +25047,13 @@ func snapshot() -> Dictionary:
 		"revenue_cents": revenue_cents,
 		"credited_today_cents": credited_today_cents,
 		"farm_treasury": farm_treasury_snapshot(),
+		"economic_briefing": (
+			runtime_projections.get("economic_briefing", {}) as Dictionary
+		),
 		"daily_feed_cost_cents": current_daily_feed_cost_cents(),
-		"feed_procurement": feed_procurement_snapshot(),
+		"feed_procurement": (
+			runtime_projections.get("feed_procurement", {}) as Dictionary
+		),
 		"farmer_relations_gallery": farmer_relations_gallery_snapshot(),
 		"farmgate_dispatch": farmgate_dispatch_snapshot(),
 		"campus_expansion": campus_expansion_projection,
@@ -17215,6 +25063,7 @@ func snapshot() -> Dictionary:
 		"maximum_staff_capacity": MAXIMUM_STAFF_CAPACITY,
 		"daily_hen_payroll_cents": current_daily_hen_payroll_cents(),
 		"daily_supervisor_payroll_cents": current_daily_supervisor_payroll_cents(),
+		"daily_fellow_payroll_cents": current_daily_fellow_payroll_cents(),
 		"daily_payroll_cents": current_daily_payroll_cents(),
 		"daily_facility_expansion_cost_cents": daily_facility_expansion_cost_cents(),
 		"daily_facility_maintenance_cents": current_daily_facility_maintenance_cents(),
@@ -17227,16 +25076,21 @@ func snapshot() -> Dictionary:
 		"career_sponsorship_planning_open": shift_phase == ShiftPhase.REVIEW,
 		"staffing_planning_open": staffing_planning_open(),
 		"capacity_upgrade": capacity_upgrade_status(),
-		"staffing_catalog": staffing_catalog(),
+		"staffing_catalog": runtime_projections.get("staffing_catalog", []),
+		"internship_program": internship_program_snapshot(),
 		"owned_facilities": owned_facilities.duplicate(),
-		"facility_catalog": facility_catalog(),
+		"facility_catalog": runtime_projections.get("facility_catalog", []),
 		"facility_effects": facility_effects(),
 		"pinned_capital_plan_id": pinned_capital_plan_id,
 		"capital_plan": capital_plan_snapshot(),
 		"last_facility_purchase_receipt": last_facility_purchase_receipt.duplicate(true),
 		"facility_commissioning_history": facility_commissioning_history.duplicate(true),
-		"flock_care": flock_care_snapshot(),
-		"operations": operations_snapshot(),
+		"flock_care": (
+			runtime_projections.get("flock_care", {}) as Dictionary
+		),
+		"operations": (
+			runtime_projections.get("operations", {}) as Dictionary
+		),
 		"flock_relations": flock_relations_snapshot(),
 		"packing_contract": packing_contract_status(),
 		"packing_carton_progress": packing_carton_progress,
@@ -17270,7 +25124,7 @@ func snapshot() -> Dictionary:
 		"peck_assists_used_today": peck_assists_used_today,
 		"peck_assists_remaining": _peck_assist_charges_available(),
 		"peck_assist_charges": _peck_assist_charges_available(),
-		"peck_assist_limit": PECK_ASSIST_LIMIT,
+		"peck_assist_limit": _peck_assist_charge_limit(),
 		"peck_assist_interventions_today": peck_assist_interventions_today,
 		"peck_assist_gross_interventions": peck_assist_interventions_today,
 		"peck_assist_refunds_today": peck_assist_refunds_today,
@@ -17288,6 +25142,7 @@ func snapshot() -> Dictionary:
 		"last_peck_assist_delivery": last_peck_assist_delivery.duplicate(true),
 		"priority_credit_today_cents": priority_credit_today_cents,
 		"priority_credit_total_cents": priority_credit_total_cents,
+		"routing_momentum": routing_momentum_snapshot(),
 		"quota_target": quota_target,
 		"executive_confidence": executive_confidence,
 		"compliance": compliance,
@@ -17302,10 +25157,11 @@ func snapshot() -> Dictionary:
 		"active_directive": active_directive_snapshot(),
 		"pending_decision": pending_decision_snapshot(),
 		"incidents_resolved_today": incidents_resolved_today,
+		"incident_responses_today": incident_responses_for_day(day),
 		"decision_modifiers": {
-			"work_multiplier": _directive_work_multiplier * _incident_work_multiplier * _work_to_rule_work_multiplier(),
-			"fatigue_multiplier": _directive_fatigue_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0,
-			"stress_multiplier": _directive_stress_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0,
+			"work_multiplier": _directive_work_multiplier * _incident_work_multiplier * _work_to_rule_work_multiplier() * _playbook_work_multiplier(),
+			"fatigue_multiplier": _directive_fatigue_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0 * _playbook_strain_multiplier(),
+			"stress_multiplier": _directive_stress_multiplier * _incident_strain_multiplier * float(_feed_procurement.active_strain_basis_points) / 10_000.0 * _playbook_strain_multiplier(),
 			"feed_strain_basis_points": _feed_procurement.active_strain_basis_points,
 			"morale_drain_multiplier": _directive_morale_drain_multiplier,
 			"crack_modifier": (
@@ -17313,17 +25169,23 @@ func snapshot() -> Dictionary:
 				+ _incident_crack_modifier
 				+ _work_to_rule_crack_modifier()
 				+ float(facility_effects().get("crack_modifier", 0.0))
+				+ _playbook_crack_modifier()
 			),
+			"playbook_work_multiplier": _playbook_work_multiplier(),
+			"playbook_crack_modifier": _playbook_crack_modifier(),
+			"playbook_strain_multiplier": _playbook_strain_multiplier(),
 			"facility_crack_modifier": float(facility_effects().get("crack_modifier", 0.0)),
 			"facility_rework_speed_multiplier": float(facility_effects().get("rework_speed_multiplier", 1.0)),
 			"work_to_rule_work_multiplier": _work_to_rule_work_multiplier(),
 			"work_to_rule_crack_modifier": _work_to_rule_crack_modifier(),
 			"golden_modifier": _incident_golden_modifier,
+			"daily_feed_adjustment_cents": _daily_feed_adjustment_cents,
 			"quota_adjustment": _pending_quota_adjustment,
 		},
 		"upgrade_levels": upgrade_levels.duplicate(),
 		"upgrade_catalog": upgrade_catalog(),
 		"first_clutch_reinvestment": first_clutch_reinvestment_status(),
+		"active_playbook": playbook_snapshot(),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
 		"requisition_spend_total_cents": requisition_spend_total_cents,
 		"orientation_procurement_match_today_cents": orientation_procurement_match_today_cents,
@@ -17350,6 +25212,211 @@ func snapshot() -> Dictionary:
 		"personnel_catalog": personnel_action_catalog(),
 		"workers": worker_snapshots,
 	}
+	if trusted_runtime_projection_read_only:
+		# The clock's Office consumer treats this read model as immutable, so it
+		# may become the next tick base without another whole-graph allocation.
+		_runtime_tick_snapshot_cache = result
+		_runtime_tick_snapshot_cache_day = day
+		_runtime_tick_snapshot_cache_phase = shift_phase
+	else:
+		# Public/direct snapshot callers retain the historical right to enrich
+		# their returned dictionaries. Never let their object graph alias the
+		# trusted clock cache; rebuild that cache once on the next clock publish.
+		_runtime_tick_snapshot_cache.clear()
+		_runtime_tick_snapshot_cache_day = -1
+		_runtime_tick_snapshot_cache_phase = -1
+	return result
+
+
+func _refresh_runtime_tick_snapshot(
+	base_snapshot: Dictionary,
+	worker_snapshots: Array[Dictionary],
+	queue_snapshot: Dictionary,
+	pending_rework_items: Array[Dictionary],
+	runtime_projections: Dictionary,
+) -> Dictionary:
+	# Ordinary clock ticks cannot buy facilities, hire staff, change policy, or
+	# rewrite historical ledgers. Start from the last complete read model and
+	# refresh every field that can change through production, arrivals, incidents,
+	# contracts, or the clock itself. The shallow copy keeps cached nested
+	# projections immutable while avoiding a second full economic graph build.
+	var result := base_snapshot.duplicate()
+	var active_staff := active_worker_count()
+	var spendable := spendable_fund_cents()
+	var assist_delivery_status := peck_assist_delivery_status()
+	result["authoritative_tick_revision"] = _tick_count
+	result["case_docket"] = case_docket_snapshot()
+	result["day"] = day
+	result["minute_of_day"] = minute_of_day
+	result["time_label"] = _format_time(minute_of_day)
+	result["claims_waiting"] = claims_waiting
+	result["claims_outstanding"] = _outstanding_claim_count()
+	result["claim_capacity"] = current_claim_capacity()
+	result["intake_rejections_today"] = intake_rejections_today
+	result["intake_rejections_total"] = intake_rejections_total
+	result["intake_missed_value_today_cents"] = intake_missed_value_today_cents
+	result["intake_missed_value_total_cents"] = intake_missed_value_total_cents
+	result["contract_board"] = runtime_projections.get("contract_board", {})
+	result["market_contract_breach_reserve_cents"] = current_market_contract_reserve_cents()
+	result["market_contract_premium_today_cents"] = market_contract_premium_today_cents
+	result["market_contract_premium_total_cents"] = market_contract_premium_total_cents
+	result["market_contract_breach_today_cents"] = market_contract_breach_today_cents
+	result["market_contract_breach_total_cents"] = market_contract_breach_total_cents
+	result["market_contracts_signed_total"] = market_contracts_signed_total
+	result["market_contracts_succeeded_total"] = market_contracts_succeeded_total
+	result["market_contracts_breached_total"] = market_contracts_breached_total
+	result["market_contract_standing"] = farm_mutual_standing()
+	result["market_contract_standing_rank"] = farm_mutual_standing_rank()
+	result["market_clean_contract_streak"] = market_clean_contract_streak
+	result["best_market_clean_contract_streak"] = best_market_clean_contract_streak
+	result["farm_mutual_standing"] = farm_mutual_standing_status()
+	result["farm_mutual_service_coop"] = runtime_projections.get("farm_mutual_service_coop", {})
+	result["farm_mutual_negotiation_room"] = runtime_projections.get("farm_mutual_negotiation_room", {})
+	result["claims_processed"] = claims_processed
+	result["eggs_today"] = eggs_today
+	result["eggs_total"] = eggs_total
+	result["cracked_eggs"] = cracked_eggs
+	result["cracked_today"] = cracked_today
+	result["golden_eggs"] = golden_eggs
+	result["golden_today"] = golden_today
+	result["revenue_cents"] = revenue_cents
+	result["credited_today_cents"] = credited_today_cents
+	result["farm_treasury"] = farm_treasury_snapshot()
+	result["economic_briefing"] = runtime_projections.get("economic_briefing", {})
+	result["daily_feed_cost_cents"] = current_daily_feed_cost_cents()
+	result["feed_procurement"] = runtime_projections.get("feed_procurement", {})
+	result["flock_care"] = runtime_projections.get("flock_care", {})
+	result["operations"] = runtime_projections.get("operations", {})
+	result["flock_relations"] = flock_relations_snapshot()
+	result["active_staff_count"] = active_staff
+	result["daily_hen_payroll_cents"] = current_daily_hen_payroll_cents()
+	result["daily_supervisor_payroll_cents"] = current_daily_supervisor_payroll_cents()
+	result["daily_fellow_payroll_cents"] = current_daily_fellow_payroll_cents()
+	result["daily_payroll_cents"] = current_daily_payroll_cents()
+	result["daily_facility_expansion_cost_cents"] = daily_facility_expansion_cost_cents()
+	result["daily_facility_maintenance_cents"] = current_daily_facility_maintenance_cents()
+	result["daily_facility_cost_cents"] = current_daily_facility_cost_cents()
+	result["daily_operating_cost_cents"] = current_daily_operating_cost_cents()
+	result["wage_arrears_cents"] = wage_arrears_cents
+	result["protected_reserve_cents"] = protected_reserve_cents()
+	result["spendable_fund_cents"] = spendable
+	result["packing_contract"] = packing_contract_status()
+	result["packing_carton_progress"] = packing_carton_progress
+	result["packing_cartons_today"] = packing_cartons_today
+	result["packing_cartons_total"] = packing_cartons_total
+	result["packing_value_bonus_today_cents"] = packing_value_bonus_today_cents
+	result["packing_carton_bonus_today_cents"] = packing_carton_bonus_today_cents
+	result["pecking_order"] = current_pecking_order()
+	result["peck_assists_used_today"] = peck_assists_used_today
+	result["peck_assists_remaining"] = _peck_assist_charges_available()
+	result["peck_assist_charges"] = _peck_assist_charges_available()
+	result["peck_assist_interventions_today"] = peck_assist_interventions_today
+	result["peck_assist_gross_interventions"] = peck_assist_interventions_today
+	result["peck_assist_refunds_today"] = peck_assist_refunds_today
+	result["peck_assist_pending_delivery"] = (
+		assist_delivery_status.get("pending_delivery", {}) as Dictionary
+	).duplicate(true)
+	result["peck_assist_pending_delivery_count"] = int(
+		assist_delivery_status.get("pending_delivery_count", 0)
+	)
+	result["peck_assist_pending_deliveries"] = (
+		assist_delivery_status.get("pending_deliveries", []) as Array
+	).duplicate(true)
+	result["peck_assist_delivery_reason"] = String(assist_delivery_status.get("reason", ""))
+	result["peck_assist_streak"] = peck_assist_streak
+	result["best_peck_assist_streak"] = best_peck_assist_streak
+	result["last_peck_assist"] = last_peck_assist.duplicate(true)
+	result["last_peck_assist_delivery"] = last_peck_assist_delivery.duplicate(true)
+	result["priority_credit_today_cents"] = priority_credit_today_cents
+	result["priority_credit_total_cents"] = priority_credit_total_cents
+	result["routing_momentum"] = routing_momentum_snapshot()
+	result["quota_target"] = quota_target
+	result["executive_confidence"] = executive_confidence
+	result["compliance"] = compliance
+	result["solidarity"] = solidarity
+	result["overtime_enabled"] = overtime_enabled
+	result["feed_party_used_today"] = feed_party_used_today
+	result["quality_streak"] = quality_streak
+	result["best_quality_streak"] = best_quality_streak
+	result["last_streak_bonus_cents"] = last_streak_bonus_cents
+	result["shift_phase"] = shift_phase
+	result["shift_phase_label"] = phase_label()
+	result["pending_decision"] = pending_decision_snapshot()
+	result["credit_memo_pending"] = (
+		StringName(pending_decision.get("kind", &""))
+		in [&"credit_allocation", &"major_event"]
+	)
+	result["credit_memo_id"] = StringName(pending_decision.get("id", &""))
+	result["incidents_resolved_today"] = incidents_resolved_today
+	result["incident_responses_today"] = incident_responses_for_day(day)
+	result["decision_modifiers"] = {
+		"work_multiplier": (
+			_directive_work_multiplier
+			* _incident_work_multiplier
+			* _work_to_rule_work_multiplier()
+			* _playbook_work_multiplier()
+		),
+		"fatigue_multiplier": (
+			_directive_fatigue_multiplier
+			* _incident_strain_multiplier
+			* float(_feed_procurement.active_strain_basis_points)
+			/ 10_000.0
+			* _playbook_strain_multiplier()
+		),
+		"stress_multiplier": (
+			_directive_stress_multiplier
+			* _incident_strain_multiplier
+			* float(_feed_procurement.active_strain_basis_points)
+			/ 10_000.0
+			* _playbook_strain_multiplier()
+		),
+		"feed_strain_basis_points": _feed_procurement.active_strain_basis_points,
+		"morale_drain_multiplier": _directive_morale_drain_multiplier,
+		"crack_modifier": (
+			_directive_crack_modifier
+			+ _incident_crack_modifier
+			+ _work_to_rule_crack_modifier()
+			+ float(facility_effects().get("crack_modifier", 0.0))
+			+ _playbook_crack_modifier()
+		),
+		"playbook_work_multiplier": _playbook_work_multiplier(),
+		"playbook_crack_modifier": _playbook_crack_modifier(),
+		"playbook_strain_multiplier": _playbook_strain_multiplier(),
+		"facility_crack_modifier": float(
+			facility_effects().get("crack_modifier", 0.0)
+		),
+		"facility_rework_speed_multiplier": float(
+			facility_effects().get("rework_speed_multiplier", 1.0)
+		),
+		"work_to_rule_work_multiplier": _work_to_rule_work_multiplier(),
+		"work_to_rule_crack_modifier": _work_to_rule_crack_modifier(),
+		"golden_modifier": _incident_golden_modifier,
+		"daily_feed_adjustment_cents": _daily_feed_adjustment_cents,
+		"quota_adjustment": _pending_quota_adjustment,
+	}
+	result["first_clutch_reinvestment"] = first_clutch_reinvestment_status()
+	result["active_playbook"] = playbook_snapshot()
+	result["requisition_spend_today_cents"] = requisition_spend_today_cents
+	result["requisition_spend_total_cents"] = requisition_spend_total_cents
+	result["orientation_procurement_match_today_cents"] = orientation_procurement_match_today_cents
+	result["orientation_procurement_match_total_cents"] = orientation_procurement_match_total_cents
+	result["claim_queue_counts"] = (queue_snapshot["counts"] as Dictionary).duplicate()
+	result["claim_queue_items"] = (queue_snapshot["items"] as Dictionary).duplicate(true)
+	result["claim_queue_overdue_counts"] = (
+		queue_snapshot["overdue_counts"] as Dictionary
+	).duplicate()
+	result["queued_overdue_claims"] = _overdue_claim_count(false)
+	result["overdue_claims"] = _overdue_claim_count(true)
+	result["rework_waiting"] = _queued_rework_count()
+	result["rework_in_progress"] = _active_rework_count()
+	result["rework_due_next_shift"] = _pending_rework.size()
+	result["rework_pending_items"] = pending_rework_items
+	result["rework_total_created"] = _rework_total_created
+	result["lane_processed_today"] = lane_processed_today.duplicate()
+	result["lane_processed_totals"] = lane_processed_totals.duplicate()
+	result["workers"] = worker_snapshots
+	_runtime_tick_snapshot_cache = result
+	return result
 
 
 func _personnel_actions_for_day(target_day: int) -> Array[Dictionary]:
@@ -17465,9 +25532,11 @@ func _update_worker(worker: ChickenState) -> void:
 				if next_claim != null:
 					worker.current_claim = next_claim
 					worker.work_state = ChickenState.WorkState.WORKING
+					_bind_routing_golden_target()
 		ChickenState.WorkState.WORKING:
 			if not is_worker_at_workstation(worker.id):
 				return
+			var temperament_effect := _worker_temperament_effect(worker)
 			var morale_factor := remap(clampf(worker.morale, 20.0, 100.0), 20.0, 100.0, 0.62, 1.1)
 			var overtime_factor := 1.22 if overtime_enabled else 1.0
 			var tool_factor := 1.0 + 0.08 * upgrade_level(&"peckwork_tools")
@@ -17476,12 +25545,27 @@ func _update_worker(worker: ChickenState) -> void:
 				_directive_work_multiplier
 				* _incident_work_multiplier
 				* _work_to_rule_work_multiplier()
+				* _playbook_work_multiplier()
 			)
 			var total_work_factor := clampf(overtime_factor * tool_factor * decision_work_factor, 0.55, 1.70)
-			var decision_strain_factor := _incident_strain_multiplier
+			var decision_strain_factor := (
+				_incident_strain_multiplier * _playbook_strain_multiplier()
+			)
 			var campaign_fatigue_factor := 0.90 if has_campaign_unlock(&"welfare_breaks") else 1.0
 			var campaign_stress_factor := 0.88 if has_campaign_unlock(&"welfare_breaks") else 1.0
 			var career_work_factor := _career_relationship_work_multiplier(worker)
+			var routing_pace_factor := (
+				ROUTING_MOMENTUM_PACE_MULTIPLIER
+				if routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
+				and worker.manually_routed
+				and worker.current_claim != null
+				and worker.has_specialty(worker.current_claim.lane) else
+				1.0
+			)
+			# The opening file is a comprehension beat: it reaches a visible payoff
+			# quickly enough for a first-session player to connect route -> work -> egg.
+			# This disappears permanently after the first career delivery.
+			var first_payoff_factor := 1.35 if _guided_first_payoff_active() else 1.0
 			var career_strain_factor := _career_strain_multiplier(worker)
 			var wellness_strain_factor := wellness_strain_gain_multiplier()
 			var feed_strain_factor := (
@@ -17494,9 +25578,15 @@ func _update_worker(worker: ChickenState) -> void:
 				* morale_factor
 				* total_work_factor
 				* _claim_speed_factor(worker)
+				* _claim_resolution_work_multiplier(worker.current_claim)
 				* _facility_claim_speed_multiplier(worker)
 				* automation_work_multiplier(worker)
 				* career_work_factor
+				* routing_pace_factor
+				* first_payoff_factor
+				* float(temperament_effect.get("work_multiplier", 1.0))
+				* float(_manager_effect_for_worker(worker).get("work_multiplier", 1.0))
+				* _internship_program.work_multiplier()
 			)
 			if worker.cross_training_pending() and worker.work_progress > progress_before_tick:
 				worker.cross_training_worked_this_shift = true
@@ -17510,10 +25600,28 @@ func _update_worker(worker: ChickenState) -> void:
 				var missed_claim_id := worker.current_claim.id
 				_missed_assist_claim_ids[missed_claim_id] = true
 				peck_assist_streak = 0
+				_break_routing_momentum(
+					"The Priority Peck window was missed.",
+					&"peck_missed",
+					worker.id,
+					missed_claim_id,
+				)
 				peck_assist_missed.emit(worker.id, missed_claim_id)
-			worker.fatigue = minf(100.0, worker.fatigue + (0.65 if overtime_enabled else 0.36) * comfort_factor * _directive_fatigue_multiplier * decision_strain_factor * campaign_fatigue_factor * wellness_strain_factor * feed_strain_factor)
-			worker.stress = minf(100.0, worker.stress + (0.40 if overtime_enabled else 0.2) * comfort_factor * _directive_stress_multiplier * decision_strain_factor * campaign_stress_factor * career_strain_factor * wellness_strain_factor * feed_strain_factor)
-			worker.morale = maxf(0.0, worker.morale - (0.18 if overtime_enabled else 0.07) * _directive_morale_drain_multiplier)
+			var temperament_strain_factor := float(
+				temperament_effect.get("strain_multiplier", 1.0)
+			)
+			var claim_lane_stress_factor := _claim_lane_stress_multiplier(
+				worker.current_claim,
+			)
+			worker.fatigue = minf(100.0, worker.fatigue + (0.65 if overtime_enabled else 0.36) * comfort_factor * _directive_fatigue_multiplier * decision_strain_factor * campaign_fatigue_factor * wellness_strain_factor * feed_strain_factor * temperament_strain_factor)
+			worker.stress = minf(100.0, worker.stress + (0.40 if overtime_enabled else 0.2) * comfort_factor * _directive_stress_multiplier * decision_strain_factor * campaign_stress_factor * career_strain_factor * wellness_strain_factor * feed_strain_factor * temperament_strain_factor * claim_lane_stress_factor)
+			worker.morale = maxf(
+				0.0,
+				worker.morale
+					- (0.18 if overtime_enabled else 0.07)
+					* _directive_morale_drain_multiplier
+					* _internship_program.morale_drain_multiplier(),
+			)
 			if overtime_enabled:
 				worker.manager_trust = maxf(0.0, worker.manager_trust - 0.025)
 				worker.grievance = minf(100.0, worker.grievance + 0.04)
@@ -17529,7 +25637,13 @@ func _update_worker(worker: ChickenState) -> void:
 				_complete_egg(worker)
 		ChickenState.WorkState.BREAK:
 			worker.state_ticks_remaining -= 1
-			var break_recovery_factor := wellness_break_recovery_multiplier()
+			var break_recovery_factor := (
+				wellness_break_recovery_multiplier()
+				* float(_worker_temperament_effect(worker).get(
+					"break_recovery_multiplier",
+					1.0,
+				))
+			)
 			worker.fatigue = maxf(0.0, worker.fatigue - 2.0 * break_recovery_factor)
 			worker.stress = maxf(0.0, worker.stress - 1.4 * break_recovery_factor)
 			worker.morale = minf(
@@ -17557,24 +25671,119 @@ func _error_risk_for(worker: ChickenState) -> float:
 		error_risk -= 0.025
 	error_risk += float(facility_effects().get("crack_modifier", 0.0))
 	error_risk += _directive_crack_modifier + _incident_crack_modifier + _work_to_rule_crack_modifier()
+	error_risk += _playbook_crack_modifier()
 	error_risk += _career_relationship_crack_modifier(worker)
 	error_risk += _personnel_shift_crack_modifier(worker)
+	error_risk += float(_worker_temperament_effect(worker).get("crack_modifier", 0.0))
+	error_risk += float(_manager_effect_for_worker(worker).get("crack_modifier", 0.0))
+	error_risk += _internship_program.crack_modifier()
 	if worker.current_claim != null:
 		error_risk += worker.current_claim.base_crack_risk
 		error_risk += _claim_affinity_crack_modifier(worker)
+		error_risk += _claim_resolution_crack_modifier(worker.current_claim)
 		error_risk += float(_assist_quality_modifiers.get(worker.current_claim.id, 0.0))
 	return clampf(error_risk, 0.02, 0.92)
+
+
+func _guided_first_payoff_active() -> bool:
+	## The assist belongs to the explicit first-session plan, not every new
+	## simulation. Keeping unplanned/headless campaigns on the authored economy
+	## preserves seeded balance outcomes and makes filing a plan meaningful.
+	return (
+		eggs_total == 0
+		and (
+			not String(active_playbook.get("strategy_preset_id", "")).is_empty()
+			or not String(active_playbook.get("loadout_id", "")).is_empty()
+		)
+	)
+
+
+func _apply_claim_lane_outcome(
+	claim: ClaimState,
+	worker: ChickenState,
+	quality: StringName,
+) -> void:
+	if claim == null or not claim.resolution_locked:
+		return
+	var definition := CLAIM_LANE_DEFINITIONS.get(claim.lane, {}) as Dictionary
+	if quality == &"cracked":
+		compliance = clampf(
+			compliance + float(definition.get(
+				"cracked_compliance_millipoints",
+				0,
+			)) / 1000.0,
+			0.0,
+			100.0,
+		)
+		return
+	worker.morale = clampf(
+		worker.morale + float(definition.get(
+			"sound_morale_millipoints",
+			0,
+		)) / 1000.0,
+		0.0,
+		100.0,
+	)
+	compliance = clampf(
+		compliance + float(definition.get(
+			"sound_compliance_millipoints",
+			0,
+		)) / 1000.0,
+		0.0,
+		100.0,
+	)
+
+
+func _apply_claim_resolution_outcome(
+	claim: ClaimState,
+	worker: ChickenState,
+	quality: StringName,
+) -> void:
+	if claim == null or not claim.resolution_locked:
+		return
+	match claim.resolution_path:
+		&"settle":
+			if quality != &"cracked":
+				compliance = minf(100.0, compliance + 0.6)
+				worker.manager_trust = minf(100.0, worker.manager_trust + 0.6)
+				worker.morale = minf(100.0, worker.morale + 0.4)
+		&"exception":
+			if quality != &"cracked":
+				compliance = minf(100.0, compliance + 1.0)
+				worker.manager_trust = minf(100.0, worker.manager_trust + 0.4)
+		&"deny":
+			compliance = maxf(0.0, compliance - 1.0)
+			executive_confidence = minf(100.0, executive_confidence + 0.5)
+			worker.stress = minf(100.0, worker.stress + 0.7)
+			worker.grievance = minf(100.0, worker.grievance + 0.6)
+			if quality != &"cracked":
+				_schedule_claimant_appeal(claim)
+				announcement_posted.emit(
+					"DENIAL CONSEQUENCE: %s returns tomorrow as an appeal; the hen carries the pressure while the bureau counts today's closure." % String(
+						claim.claimant_profile().get("name", "THE CLAIMANT"),
+					)
+				)
 
 
 func _complete_egg(worker: ChickenState) -> void:
 	var completed_claim := worker.current_claim
 	var error_risk := _error_risk_for(worker)
+	# Never turn the first career payoff into a punishment. Later files use the
+	# full authored economy, including visible quality risk and rework.
+	if _guided_first_payoff_active():
+		error_risk = 0.0
 	var assisted_claim_id := completed_claim.id if completed_claim != null else -1
 	var was_assisted := assisted_claim_id > 0 and _assisted_claim_ids.has(assisted_claim_id)
 	var assist_chain := int(_assist_chain_by_claim_id.get(assisted_claim_id, 0))
+	var routing_golden_targeted := (
+		assisted_claim_id >= 0
+		and assisted_claim_id == routing_momentum_golden_target_claim_id
+		and worker.id == routing_momentum_golden_target_worker_id
+	)
 
 	var roll := _rng.randf()
 	var quality: StringName = &"sound"
+	var routing_golden_applied := false
 	var base_value_cents := completed_claim.value_cents if completed_claim != null else 420
 	var value_cents := base_value_cents
 	if roll < error_risk:
@@ -17585,15 +25794,37 @@ func _complete_egg(worker: ChickenState) -> void:
 		compliance = maxf(0.0, compliance - 0.8)
 		if completed_claim != null:
 			_schedule_rework(completed_claim)
+		if routing_golden_targeted:
+			# A crack is not an eligible clean delivery. Keep the earned charge and
+			# release the seal so another live file can receive it authoritatively.
+			_release_routing_golden_target()
 	else:
-		var golden_chance := clampf(0.025 + maxf(0.0, worker.morale - 70.0) * 0.0005 + _incident_golden_modifier, 0.025, 0.08)
-		if _rng.randf() < golden_chance:
+		if routing_golden_targeted and routing_momentum_golden_charges > 0:
+			routing_momentum_golden_charges -= 1
+			routing_golden_applied = true
 			quality = &"golden"
 			value_cents = base_value_cents * 4
 			golden_eggs += 1
 			golden_today += 1
 			executive_confidence = minf(100.0, executive_confidence + 1.5)
+			announcement_posted.emit(
+				"GOLDEN FILE: sealed file #%04d reached grading clean for %s." % [
+					assisted_claim_id,
+					worker.display_name,
+				]
+			)
+			_release_routing_golden_target()
+		else:
+			var golden_chance := clampf(0.025 + maxf(0.0, worker.morale - 70.0) * 0.0005 + _incident_golden_modifier, 0.025, 0.08)
+			if _rng.randf() < golden_chance:
+				quality = &"golden"
+				value_cents = base_value_cents * 4
+				golden_eggs += 1
+				golden_today += 1
+				executive_confidence = minf(100.0, executive_confidence + 1.5)
 	if completed_claim != null:
+		_apply_claim_lane_outcome(completed_claim, worker, quality)
+		_apply_claim_resolution_outcome(completed_claim, worker, quality)
 		_record_market_contract_completion(completed_claim, quality)
 	var packing_receipt := _apply_packing_contract_value(quality, value_cents)
 	value_cents = int(packing_receipt.get("value_cents", value_cents))
@@ -17601,6 +25832,17 @@ func _complete_egg(worker: ChickenState) -> void:
 		value_cents += 25
 	if quality in [&"sound", &"golden"]:
 		value_cents += _campus_portfolio.good_egg_bonus_cents(_campus_portfolio_context())
+	if (
+		quality in [&"sound", &"golden"]
+		and StringName(active_playbook.get("push_luck_id", &"")) == &"chase_premium"
+		and eggs_today >= int(active_playbook.get("push_luck_start_eggs", eggs_today + 1))
+	):
+		value_cents = roundi(float(value_cents) * 1.15)
+	if (
+		quality in [&"sound", &"golden"]
+		and StringName(active_playbook.get("challenge_modifier_id", &"")) == &"glass_carton"
+	):
+		value_cents = roundi(float(value_cents) * 1.20)
 	var priority_credit_cents := 0
 	if quality != &"cracked" and assist_chain > 0:
 		priority_credit_cents = 20 * mini(assist_chain, 5)
@@ -17608,7 +25850,7 @@ func _complete_egg(worker: ChickenState) -> void:
 		priority_credit_today_cents += priority_credit_cents
 		priority_credit_total_cents += priority_credit_cents
 		announcement_posted.emit(
-			"PRIORITY CREDIT: management added $%.2f to %s's finished claim." % [
+			"PRIORITY CREDIT: management added $%.2f to %s's finished file." % [
 				float(priority_credit_cents) / 100.0, worker.display_name,
 			]
 		)
@@ -17618,10 +25860,19 @@ func _complete_egg(worker: ChickenState) -> void:
 			# a delivery token, and it breaks the live chain even when other claims
 			# are still moving through the office.
 			peck_assist_streak = 0
-			announcement_posted.emit(
-				"PRIORITY PECK CHAIN BROKEN: claim #%04d cracked and cannot restore attention." % assisted_claim_id
+			_break_routing_momentum(
+				"An assisted file cracked at grading.",
+				&"assisted_crack",
+				worker.id,
+				assisted_claim_id,
 			)
-		elif quality in [&"sound", &"golden"]:
+			announcement_posted.emit(
+				"PRIORITY PECK CHAIN BROKEN: file #%04d cracked and cannot restore attention." % assisted_claim_id
+			)
+		elif (
+			quality in [&"sound", &"golden"]
+			and not _routing_momentum_free_assist_claim_ids.has(assisted_claim_id)
+		):
 			# Claim ids are monotonic, so this token is both the presentation handoff
 			# and the durable exact-once idempotency key.
 			_pending_peck_assist_deliveries[assisted_claim_id] = {
@@ -17653,9 +25904,11 @@ func _complete_egg(worker: ChickenState) -> void:
 		_missed_assist_claim_ids.erase(completed_claim.id)
 		_assist_quality_modifiers.erase(completed_claim.id)
 		_assist_chain_by_claim_id.erase(completed_claim.id)
+		_routing_momentum_free_assist_claim_ids.erase(completed_claim.id)
 	worker.current_claim = null
 	worker.work_progress = 0.0
 	worker.work_state = ChickenState.WorkState.IDLE
+	_bind_routing_golden_target()
 	claims_processed += 1
 	eggs_today += 1
 	eggs_total += 1
@@ -17695,6 +25948,8 @@ func _complete_egg(worker: ChickenState) -> void:
 		priority_credit_cents,
 	)
 	egg_laid.emit(worker.id, quality, value_cents)
+	if routing_golden_applied:
+		last_routing_dispatch["golden_claim_id"] = assisted_claim_id
 
 
 func _store_farmgate_lot_with_campus_capacity(
@@ -17812,6 +26067,61 @@ func _complete_career_sponsorships(completed_day: int) -> Array[Dictionary]:
 	return completions
 
 
+func _settle_manager_careers(completed_day: int, met_quota: bool) -> Array[Dictionary]:
+	var receipts: Array[Dictionary] = []
+	if facility_level(ROOSTER_OPERATIONS_OFFICE_ID) <= 0:
+		return receipts
+	for manager in manager_roster:
+		var influence_before := maxi(0, int(manager.get("influence", 0)))
+		var rank_before := clampi(int(manager.get("rank", 0)), 0, MANAGER_RANK_TITLES.size() - 1)
+		var assigned_sound := 0
+		var assigned_eggs := 0
+		var lowest_worker_id := -1
+		var lowest_eggs := 1_000_000
+		for worker in workers:
+			if not _manager_targets_worker(manager, worker):
+				continue
+			var stats := _worker_shift_stat(worker.id)
+			var worker_eggs := int(stats.get("eggs", 0))
+			assigned_eggs += worker_eggs
+			assigned_sound += int(stats.get("sound", 0)) + int(stats.get("golden", 0))
+			if worker_eggs < lowest_eggs:
+				lowest_eggs = worker_eggs
+				lowest_worker_id = worker.id
+		var posture_id := StringName(String(manager.get("posture_id", "coach")))
+		var claimed_credit := assigned_sound + (2 if posture_id == &"visibility" else 0)
+		var influence_gain := maxi(1, assigned_sound / 2) + (2 if met_quota else 0)
+		manager["credit_claims"] = maxi(0, int(manager.get("credit_claims", 0))) + claimed_credit
+		manager["influence"] = influence_before + influence_gain
+		manager["rank"] = _manager_rank_for_influence(int(manager["influence"]))
+		var pip_worker_id := -1
+		if (
+			not met_quota
+			and lowest_worker_id >= 0
+			and bool(manager.get("posture_filed", false))
+			and posture_id in [&"chase_quota", &"audit", &"visibility"]
+		):
+			pip_worker_id = lowest_worker_id
+			manager["last_pip_worker_id"] = pip_worker_id
+			var scapegoat := workers[pip_worker_id]
+			scapegoat.manager_trust = maxf(0.0, scapegoat.manager_trust - 2.0)
+			scapegoat.grievance = minf(100.0, scapegoat.grievance + 3.0)
+		receipts.append({
+			"day": completed_day,
+			"manager_id": StringName(String(manager.get("id", ""))),
+			"manager_name": _manager_display_name(manager),
+			"assigned_eggs": assigned_eggs,
+			"credit_claimed": claimed_credit,
+			"influence_before": influence_before,
+			"influence_after": int(manager["influence"]),
+			"rank_before": rank_before,
+			"rank_after": int(manager["rank"]),
+			"promoted": int(manager["rank"]) > rank_before,
+			"pip_worker_id": pip_worker_id,
+		})
+	return receipts
+
+
 func _complete_workday() -> void:
 	# Normal play consumes at directive resolution. This idempotent close call also
 	# protects test/admin fast-forwards and reconciles any late demand adjustment.
@@ -17824,6 +26134,7 @@ func _complete_workday() -> void:
 	var completed_priority_credit_cents := priority_credit_today_cents
 	var completed_directive := active_directive_snapshot()
 	var completed_incidents := incidents_resolved_today
+	var completed_incident_responses := incident_responses_for_day(completed_day)
 	var completed_feed_cost := current_daily_feed_cost_cents()
 	var completed_feed_procurement := feed_procurement_snapshot()
 	var completed_feed_procurement_spend: int = int(
@@ -17846,6 +26157,7 @@ func _complete_workday() -> void:
 	var completed_intake_missed_value_cents := intake_missed_value_today_cents
 	var completed_intake_missed_value_total_cents := intake_missed_value_total_cents
 	var completed_first_clutch_reinvestment := first_clutch_reinvestment_status()
+	var completed_active_playbook := playbook_snapshot()
 	var completed_requisition_spend_cents := requisition_spend_today_cents
 	var completed_orientation_match_cents := orientation_procurement_match_today_cents
 	var completed_new_facility_unlocks: Array[Dictionary] = []
@@ -17871,7 +26183,12 @@ func _complete_workday() -> void:
 			})
 	var completed_hen_payroll := current_daily_hen_payroll_cents()
 	var completed_supervisor_payroll := current_daily_supervisor_payroll_cents()
-	var completed_payroll := completed_hen_payroll + completed_supervisor_payroll
+	var completed_fellow_payroll := current_daily_fellow_payroll_cents()
+	var completed_payroll := (
+		completed_hen_payroll
+		+ completed_supervisor_payroll
+		+ completed_fellow_payroll
+	)
 	var completed_operations := operations_snapshot()
 	var completed_career_sponsorships := _complete_career_sponsorships(completed_day)
 	var opening_wage_arrears := wage_arrears_cents
@@ -17918,6 +26235,9 @@ func _complete_workday() -> void:
 		credited_today_cents += quality_bonus_cents
 
 	var completed_market_contract := _settle_market_contract(completed_day)
+	var completed_manager_careers := _settle_manager_careers(completed_day, met_quota)
+	var completed_internship_transitions := _internship_program.complete_shift(completed_day)
+	var completed_internship_program := internship_program_snapshot()
 	var completed_farm_mutual_standing := farm_mutual_standing_status()
 	var completed_farmgate_settlement: Dictionary = {}
 	var completed_farmgate_shortfall_cents := 0
@@ -18028,6 +26348,8 @@ func _complete_workday() -> void:
 			_append_claim_to_queue(worker.current_claim)
 			worker.current_claim = null
 			returned_claims += 1
+	if routing_momentum_golden_target_claim_id >= 0:
+		_release_routing_golden_target()
 	day += 1
 	_feed_procurement.begin_day(day)
 	_farmgate_dispatch.begin_day(day)
@@ -18152,6 +26474,9 @@ func _complete_workday() -> void:
 		"facility_effects": completed_facility_effects,
 		"flock_care": completed_flock_care,
 		"operations": completed_operations,
+		"manager_careers": completed_manager_careers,
+		"internship_program": completed_internship_program,
+		"internship_transitions": completed_internship_transitions,
 		"flock_relations": completed_flock_relations,
 		"farmer_relations_gallery": farmer_relations_gallery_snapshot(),
 		"farmgate_dispatch": completed_farmgate_dispatch,
@@ -18269,6 +26594,7 @@ func _complete_workday() -> void:
 		"best_market_clean_contract_streak": best_market_clean_contract_streak,
 		"farm_mutual_standing": completed_farm_mutual_standing,
 		"first_clutch_reinvestment": completed_first_clutch_reinvestment,
+		"active_playbook": completed_active_playbook,
 		"requisition_spend_cents": completed_requisition_spend_cents,
 		"requisition_spend_total_cents": requisition_spend_total_cents,
 		"orientation_procurement_match_cents": completed_orientation_match_cents,
@@ -18276,6 +26602,7 @@ func _complete_workday() -> void:
 		"new_facility_unlocks": completed_new_facility_unlocks.duplicate(true),
 		"hen_payroll_cents": completed_hen_payroll,
 		"supervisor_payroll_cents": completed_supervisor_payroll,
+		"fellow_payroll_cents": completed_fellow_payroll,
 		"payroll_cents": completed_payroll,
 		"opening_wage_arrears_cents": opening_wage_arrears,
 		"payroll_due_cents": payroll_due_cents,
@@ -18293,8 +26620,14 @@ func _complete_workday() -> void:
 		"welfare": completed_welfare,
 		"compliance": completed_compliance,
 		"farmer_favor": completed_farmer_favor,
+		# The live chain and persistent best are closing evidence, just like shell
+		# quality and welfare. Filing the same bounded snapshot in the workday report
+		# lets review and resume surfaces describe routing mastery without rebuilding
+		# it from presentation state.
+		"routing_momentum": routing_momentum_snapshot(),
 		"directive": completed_directive,
 		"incidents_resolved": completed_incidents,
+		"incident_responses": completed_incident_responses,
 		"quota_adjustment": completed_quota_adjustment,
 		"returned_claims": returned_claims,
 		"new_intake_claims": new_intake_claims,
@@ -18541,6 +26874,20 @@ func _format_shift_hen_highlight(
 		"body": body,
 		"metric": metric,
 		"tone": String(tone),
+		"career_arc": {
+			"chapter": "FLOCK VETERAN" if worker.career_xp >= 40 else ("TRUSTED HAND" if worker.manager_trust >= 65.0 else "NEW PERCH"),
+			"beat": "Day %d · %s · trust %d" % [completed_day, worker.career_title(), roundi(worker.manager_trust)],
+			"continues_next_shift": true,
+		},
+		"highlight_replay": {
+			"duration_seconds": 3.0,
+			"skippable": true,
+			"beats": [
+				{"at": 0.0, "icon": "flock", "label": worker.display_name.to_upper()},
+				{"at": 1.0, "icon": "egg", "label": "%d EGGS" % eggs},
+				{"at": 2.0, "icon": "cash", "label": "$%.2f CREDIT" % (float(credit_cents) / 100.0)},
+			],
+		},
 	}
 
 

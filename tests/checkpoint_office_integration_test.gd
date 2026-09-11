@@ -27,6 +27,23 @@ class CountingCampaignStore:
 		return true
 
 
+class FailingNewCampaignStore:
+	extends RefCounted
+
+	var last_error := "simulated verified-write failure"
+	var save_calls := 0
+
+
+	func has_save() -> bool:
+		return false
+
+
+	func save(_payload: Dictionary, _metadata: Dictionary) -> bool:
+		save_calls += 1
+		last_error = "simulated verified-write failure"
+		return false
+
+
 func _init() -> void:
 	_run.call_deferred()
 
@@ -52,6 +69,14 @@ func _run() -> void:
 	_check(
 		String(store.last_metadata.get("reason", "")) == "new_campaign",
 		"the baseline checkpoint should retain its exact transaction reason",
+		failures,
+	)
+	var current_run_id := String(office.get("_current_campaign_run_id"))
+	var opening_session := store.last_payload.get("session", {}) as Dictionary
+	_check(
+		not current_run_id.is_empty()
+		and String(opening_session.get("current_run_id", "")) == current_run_id,
+		"a new campaign should persist one stable archive identity before play begins",
 		failures,
 	)
 
@@ -164,12 +189,65 @@ func _run() -> void:
 
 	root.remove_child(office)
 	office.free()
+
+	# A failed first verified write must stay on intake, expose one compact
+	# recovery action on the owning campaign surface, and retain the exact reason
+	# in narration. The unverified in-memory replacement is never presented as a
+	# playable or resumable campaign.
+	var failing_store := FailingNewCampaignStore.new()
+	var failing_office := Office.new()
+	failing_office.set("_campaign_store", failing_store)
+	failing_office.set("_allow_automated_campaign_saves", true)
+	root.add_child(failing_office)
+	await process_frame
+	await process_frame
+	failing_office.call("_show_campaign_title", false)
+	await process_frame
+	failing_office.call("_on_campaign_new_requested")
+	await process_frame
+	await process_frame
+	var failing_ui := failing_office.get("_campaign_ui") as ProbationCampaignUI
+	var failing_status := failing_office.find_child(
+		"ProbationStatusLabel",
+		true,
+		false,
+	) as Label
+	var failing_ticker := failing_office.get("_ticker_label") as Label
+	var failing_checkpoint := failing_office.call("_checkpoint_diagnostic_state") as Dictionary
+	var failing_announcement := failing_office.call(
+		"_web_accessibility_announcement",
+		(failing_office.get("_simulation") as DepartmentSimulation).snapshot(),
+	) as Dictionary
+	_check(
+		failing_store.save_calls == 1
+		and failing_ui != null
+		and failing_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE
+		and failing_ticker != null
+		and failing_ticker.text == "NEW FILE HELD  ·  RETRY SAVE"
+		and failing_status != null
+		and failing_status.text == "NEW FILE HELD  ·  RETRY SAVE"
+		and "no unverified campaign was opened" in String(
+			failing_status.get_meta("accessible_text", "")
+		).to_lower()
+		and String(failing_announcement.get("kind", "")) == "career_intake"
+		and "New campaign held" in String(failing_announcement.get("text", ""))
+		and "simulated verified-write failure" in String(
+			failing_announcement.get("text", "")
+		)
+		and String(failing_checkpoint.get("status", "")) == "error"
+		and not bool(failing_checkpoint.get("has_checkpoint", true))
+		and not bool(failing_office.get("_campaign_session_checkpoint_enabled")),
+		"failed new-file verification should stay on intake with one visible, narrated retry hold and no resumable authority",
+		failures,
+	)
+	root.remove_child(failing_office)
+	failing_office.free()
 	if not failures.is_empty():
 		for failure: String in failures:
 			push_error("CHECKPOINT_OFFICE_INTEGRATION_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("CHECKPOINT_OFFICE_INTEGRATION_TEST_PASSED burst=5x1 lifecycle=subsumes+revision+retry tutorial=immediate intake=no-fabrication diagnostics=truthful")
+	print("CHECKPOINT_OFFICE_INTEGRATION_TEST_PASSED burst=5x1 lifecycle=subsumes+revision+retry tutorial=immediate intake=no-fabrication+visible-save-hold run_id=stable diagnostics=truthful")
 	quit(0)
 
 

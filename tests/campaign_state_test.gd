@@ -4,6 +4,7 @@ extends SceneTree
 func _init() -> void:
 	var failures: Array[String] = []
 	_test_catalog_and_shift_gate(failures)
+	_test_experience_arc_and_replay(failures)
 	_test_live_objective_projection(failures)
 	_test_current_workday_report_fallbacks(failures)
 	_test_five_shift_pass_and_cumulative_ledgers(failures)
@@ -19,11 +20,148 @@ func _init() -> void:
 	quit(0)
 
 
+func _test_experience_arc_and_replay(failures: Array[String]) -> void:
+	var chapter_ids: Dictionary = {}
+	for shift_number in range(1, CampaignState.CAMPAIGN_LENGTH + 1):
+		var chapter := CampaignState.shift_chapter(shift_number)
+		var chapter_id := String(chapter.get("id", ""))
+		chapter_ids[chapter_id] = true
+		_check(
+			int(chapter.get("shift_number", 0)) == shift_number
+			and not String(chapter.get("title", "")).is_empty()
+			and not String(chapter.get("verb", "")).is_empty()
+			and not String(chapter.get("promise", "")).is_empty()
+			and not String(chapter.get("farmer_memo", "")).is_empty()
+			and "Farmer memo" in String(chapter.get("accessible_text", "")),
+			"shift %d should expose one complete authored dramatic chapter" % shift_number,
+			failures,
+		)
+	_check(chapter_ids.size() == 5, "the five-shift run should have five distinct chapter identities", failures)
+	_check(
+		String(CampaignState.shift_chapter(1).get("title", "")) == "FIRST CLUTCH"
+		and String(CampaignState.shift_chapter(4).get("title", "")) == "RANKING DAY"
+		and String(CampaignState.shift_chapter(5).get("title", "")) == "THE PERMANENT RECORD",
+		"the authored arc should escalate from first flock contact through people consequences to closure",
+		failures,
+	)
+
+	var campaign := CampaignState.new()
+	var opening := campaign.momentum_brief()
+	_check(
+		StringName(String(opening.get("status", ""))) == &"opening"
+		and "MABEL" in String(opening.get("short_label", "")),
+		"a fresh file should lead with one named hen and one concrete action",
+		failures,
+	)
+	var poor := campaign.record_shift(_poor_report(1, 0), _poor_snapshot())
+	_check(bool(poor.get("accepted", false)), "experience fixture should accept one valid poor shift", failures)
+	var comeback := campaign.momentum_brief()
+	_check(
+		StringName(String(comeback.get("status", ""))) == &"comeback"
+		and "RECOVERY" in String(comeback.get("short_label", ""))
+		and not (comeback.get("blocker", {}) as Dictionary).is_empty()
+		and StringName(comeback.get("action_id", &"")) == &"comeback_file"
+		and bool(comeback.get("take_me_there", false))
+		and String((comeback.get("recovery_stamp", {}) as Dictionary).get("label", "")) == "LESSON FILED"
+		and bool((comeback.get("recovery_stamp", {}) as Dictionary).get("earned", false)),
+		"a bad shift should become one specific recoverable comeback brief",
+		failures,
+	)
+	var failed_replay := campaign.replay_recommendation()
+	_check(
+		String(failed_replay.get("contract_id", "")) == "standard_filing"
+		and not bool(failed_replay.get("changes_contract", true)),
+		"an in-progress Standard file should recommend a different doctrine without inventing a contract change",
+		failures,
+	)
+	var supported := CampaignState.new()
+	_check(
+		supported.select_challenge_contract(CampaignState.CHALLENGE_SUPPORTED_FLOCK),
+		"replay fixture should file the Supported contract",
+		failures,
+	)
+	supported.outcome = CampaignState.OUTCOME_PASSED
+	_check(
+		String(supported.replay_recommendation().get("contract_id", "")) == "standard_filing",
+		"a completed Supported file should invite the authored Standard contract",
+		failures,
+	)
+	var passed_standard := CampaignState.new()
+	passed_standard.outcome = CampaignState.OUTCOME_PASSED
+	_check(
+		String(passed_standard.replay_recommendation().get("contract_id", "")) == "executive_audit",
+		"a passed Standard file should invite the Executive Audit",
+		failures,
+	)
+	var failed_executive := CampaignState.new()
+	_check(
+		failed_executive.select_challenge_contract(CampaignState.CHALLENGE_EXECUTIVE_AUDIT),
+		"replay fixture should file the Executive contract",
+		failures,
+	)
+	failed_executive.outcome = CampaignState.OUTCOME_FAILED
+	_check(
+		String(failed_executive.replay_recommendation().get("contract_id", "")) == "supported_flock",
+		"a failed Executive file should offer a real fail-forward recovery contract",
+		failures,
+	)
+	var snapshot := campaign.snapshot()
+	_check(
+		(snapshot.get("current_chapter", {}) as Dictionary) == campaign.current_chapter()
+		and (snapshot.get("momentum_brief", {}) as Dictionary) == comeback,
+		"campaign snapshots should publish the derived chapter and comeback without persisting duplicate authority",
+		failures,
+	)
+
+
 func _test_catalog_and_shift_gate(failures: Array[String]) -> void:
 	var campaign := CampaignState.new()
 	_check(campaign.completed_shifts == 0, "new campaign should start before shift one", failures)
 	_check(campaign.probation_score == CampaignState.STARTING_SCORE, "new campaign should expose its probation score", failures)
 	_check(campaign.probation_rank == CampaignState.RANK_PROBATIONARY, "starting score should derive the probationary rank", failures)
+	var starting_rank_progress := CampaignState.rank_progress_for_score(campaign.probation_score)
+	_check(
+		int(starting_rank_progress.get("band_floor", -1)) == 40
+		and int(starting_rank_progress.get("next_threshold", -1)) == 60
+		and int(starting_rank_progress.get("progress_basis_points", -1)) == 5000
+		and int(starting_rank_progress.get("points_to_next", -1)) == 10
+		and String(starting_rank_progress.get("next_rank", "")) == "trusted_layer",
+		"rank progress should derive exactly from the authoritative 20-point ladder",
+		failures,
+	)
+	var trusted_progress := CampaignState.rank_progress_for_score(73)
+	_check(
+		int(trusted_progress.get("progress_basis_points", -1)) == 6500
+		and int(trusted_progress.get("points_to_next", -1)) == 7
+		and String(trusted_progress.get("next_rank_label", "")) == "Golden Management Track",
+		"trusted rank progress should expose the exact remaining promotion gap",
+		failures,
+	)
+	var top_progress := CampaignState.rank_progress_for_score(91)
+	_check(
+		bool(top_progress.get("complete", false))
+		and int(top_progress.get("progress_basis_points", -1)) == 10_000
+		and int(top_progress.get("points_to_next", -1)) == 0,
+		"the top rank should render a complete rail instead of restarting an empty band",
+		failures,
+	)
+	var promotion_ready := CampaignState.promotion_opportunity_for_reward(77, 3)
+	var promotion_short := CampaignState.promotion_opportunity_for_reward(76, 3)
+	var top_reward := CampaignState.promotion_opportunity_for_reward(91, 3)
+	_check(
+		bool(promotion_ready.get("available", false))
+		and int(promotion_ready.get("projected_score", -1)) == 80
+		and int(promotion_ready.get("next_threshold", -1)) == 80
+		and String(promotion_ready.get("next_rank", "")) == "golden_management",
+		"a disclosed reward should identify an exact next-rank crossing",
+		failures,
+	)
+	_check(
+		not bool(promotion_short.get("available", true))
+		and not bool(top_reward.get("available", true)),
+		"a reward below the threshold or beyond the top rank should not advertise a promotion",
+		failures,
+	)
 	_check(campaign.outcome == CampaignState.OUTCOME_IN_PROGRESS, "new campaign should be in progress", failures)
 	for shift_number in range(1, CampaignState.CAMPAIGN_LENGTH + 1):
 		var objectives := campaign.objectives_for_shift(shift_number)
@@ -35,10 +173,11 @@ func _test_catalog_and_shift_gate(failures: Array[String]) -> void:
 	var choices := campaign.milestone_catalog()
 	_check(choices.size() == 3, "probation should offer exactly three milestone choices", failures)
 	var expected_choices := {
-		"padded_perches": {"unlock": "welfare_breaks", "effect": "stress_gain_percent", "value": -12},
-		"shell_quality_lab": {"unlock": "shell_quality_checks", "effect": "crack_risk_basis_points", "value": -250},
-		"farmer_credit_line": {"unlock": "farmer_credit_bonus", "effect": "egg_value_bonus_cents", "value": 25},
+		"padded_perches": {"unlock": "welfare_breaks", "effect": "stress_gain_percent", "value": -12, "doctrine": "FLOCK STEWARDSHIP"},
+		"shell_quality_lab": {"unlock": "shell_quality_checks", "effect": "crack_risk_basis_points", "value": -250, "doctrine": "SHELL ASSURANCE"},
+		"farmer_credit_line": {"unlock": "farmer_credit_bonus", "effect": "egg_value_bonus_cents", "value": 25, "doctrine": "HARVEST PARTNERSHIP"},
 	}
+	var doctrine_ids := {}
 	for choice in choices:
 		var id := String(choice.get("id", ""))
 		_check(expected_choices.has(id), "milestone choice ID should be stable", failures)
@@ -47,6 +186,16 @@ func _test_catalog_and_shift_gate(failures: Array[String]) -> void:
 			_check(String(choice.get("unlock_id", "")) == String(expected["unlock"]), "%s should grant its documented unlock" % id, failures)
 			var effects := choice.get("effects", {}) as Dictionary
 			_check(int(effects.get(expected["effect"], 999_999)) == int(expected["value"]), "%s should expose an integer gameplay modifier" % id, failures)
+			var doctrine := choice.get("doctrine", {}) as Dictionary
+			var doctrine_label := String(doctrine.get("label", ""))
+			doctrine_ids[doctrine_label] = true
+			_check(doctrine_label == String(expected["doctrine"]), "%s should expose its distinct doctrine label" % id, failures)
+			_check(not String(doctrine.get("label", "")).is_empty(), "%s doctrine should have a player-facing label" % id, failures)
+			_check((doctrine.get("strengths", []) as Array).size() >= 2, "%s doctrine should disclose multiple strengths" % id, failures)
+			_check((doctrine.get("watchouts", []) as Array).size() >= 1, "%s doctrine should disclose a real obligation" % id, failures)
+			_check(not String(doctrine.get("playbook", "")).is_empty(), "%s doctrine should offer actionable guidance" % id, failures)
+	_check(doctrine_ids.size() == 3 and not doctrine_ids.has(""), "each milestone should define one distinct doctrine", failures)
+	_check(campaign.active_doctrine().is_empty(), "a new campaign should not invent an active doctrine", failures)
 	_check(not campaign.is_milestone_choice_available(), "milestone should remain locked before shift two", failures)
 	_check(not campaign.choose_milestone(&"shell_quality_lab"), "choice should not apply before its gate", failures)
 
@@ -94,6 +243,20 @@ func _test_current_workday_report_fallbacks(failures: Array[String]) -> void:
 	_check(int(record.get("welfare", -1)) == 80, "worker morale, stress, and fatigue should derive a deterministic closing welfare index", failures)
 	_check(int(record.get("compliance", -1)) == 76, "simulation compliance float should normalize to an integer", failures)
 	_check(int(record.get("farmer_favor", -1)) == 64, "executive_confidence should map to farmer favor", failures)
+	var score_receipt := campaign.latest_score_receipt()
+	var receipt_rank_before := CampaignState.rank_for_score(int(score_receipt.get("score_before", 0)))
+	var receipt_rank_after := CampaignState.rank_for_score(int(score_receipt.get("score_after", 0)))
+	_check(
+		String(score_receipt.get("rank_before", "")) == String(receipt_rank_before)
+		and String(score_receipt.get("rank_before_label", "")) == CampaignState.rank_display_name(receipt_rank_before)
+		and String(score_receipt.get("rank_after", "")) == String(receipt_rank_after)
+		and String(score_receipt.get("rank_after_label", "")) == CampaignState.rank_display_name(receipt_rank_after)
+		and String(score_receipt.get("rank_change", "")) == (
+			"promotion" if receipt_rank_before != receipt_rank_after else "steady"
+		),
+		"score receipts should authoritatively classify real rank crossings",
+		failures,
+	)
 
 
 func _test_five_shift_pass_and_cumulative_ledgers(failures: Array[String]) -> void:
@@ -116,6 +279,9 @@ func _test_five_shift_pass_and_cumulative_ledgers(failures: Array[String]) -> vo
 			_check(campaign.probation_score == mini(100, score_before_choice + 2), "milestone should apply its disclosed score bonus once", failures)
 			_check(campaign.has_unlock(&"shell_quality_checks"), "chosen milestone should persist its unlock", failures)
 			_check(int(campaign.active_unlock_effects().get("crack_risk_basis_points", 0)) == -250, "selected quality lab should expose its exact modifier", failures)
+			var active_doctrine := campaign.active_doctrine()
+			_check(String(active_doctrine.get("label", "")) == "SHELL ASSURANCE", "selected quality lab should derive the Shell Assurance doctrine", failures)
+			_check(String(active_doctrine.get("milestone_id", "")) == "shell_quality_lab", "active doctrine should retain its authoritative milestone source", failures)
 			_check(not campaign.choose_milestone(&"padded_perches"), "milestone selection should be mutually exclusive", failures)
 
 		var credited := 8000 + shift_number * 500
@@ -186,6 +352,8 @@ func _test_determinism_and_json_round_trip(failures: Array[String]) -> void:
 	_check(first.to_dictionary() == second.to_dictionary(), "same reports and choices should produce byte-for-byte deterministic state", failures)
 
 	var json_text := JSON.stringify(first.to_dictionary())
+	_check(not first.to_dictionary().has("active_doctrine"), "doctrine guidance should remain derived instead of duplicating save identity", failures)
+	_check(String(first.snapshot().get("active_doctrine", {}).get("milestone_id", "")) == "padded_perches", "runtime snapshot should derive doctrine from the chosen milestone", failures)
 	var parsed_value: Variant = JSON.parse_string(json_text)
 	_check(typeof(parsed_value) == TYPE_DICTIONARY, "campaign dictionary should be valid JSON", failures)
 	if typeof(parsed_value) != TYPE_DICTIONARY:
@@ -197,6 +365,8 @@ func _test_determinism_and_json_round_trip(failures: Array[String]) -> void:
 	if restored != null:
 		_check(restored.to_dictionary() == first.to_dictionary(), "restored campaign should reproduce the exact primitive state", failures)
 		_check(restored.has_unlock(&"welfare_breaks"), "restored milestone unlock should retain its typed identity", failures)
+		_check(restored.active_doctrine() == first.active_doctrine(), "restored milestone should derive the identical doctrine without new save data", failures)
+		_check(String(restored.active_doctrine().get("label", "")) == "FLOCK STEWARDSHIP", "padded-perches save should restore Flock Stewardship", failures)
 		_check(typeof(restored.total_credited_cents) == TYPE_INT, "restored currency should be an integer", failures)
 
 

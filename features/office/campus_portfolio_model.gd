@@ -560,6 +560,8 @@ func _normalize_quote(source: Dictionary, fallback: Dictionary, default_action: 
 		can_authorize = bool(fallback.get("can_build", false))
 	var cost_keys: Array[String] = ["cost_cents", "capital_cost_cents", "purchase_cost_cents", "project_cost_cents", "deed_cost_cents"]
 	var daily_keys: Array[String] = ["daily_cost_cents", "recurring_cost_cents", "daily_maintenance_cents", "added_daily_cost_cents"]
+	var spendable_keys: Array[String] = ["projected_spendable_fund_cents", "projected_spendable_cents"]
+	var reserve_keys: Array[String] = ["projected_protected_reserve_cents", "projected_reserve_cents"]
 	return {
 		"known": known,
 		"action_id": StringName(String(source.get("action_id", fallback.get("action_id", default_action)))),
@@ -570,8 +572,10 @@ func _normalize_quote(source: Dictionary, fallback: Dictionary, default_action: 
 		"daily_cost_cents": _first_int_pair(source, fallback, daily_keys),
 		"has_daily_cost": _has_any(source, daily_keys) or _has_any(fallback, daily_keys),
 		"duration_shifts": _first_int_pair(source, fallback, ["duration_shifts", "build_duration_shifts", "construction_shifts"]),
-		"projected_spendable_fund_cents": _first_int_pair(source, fallback, ["projected_spendable_fund_cents", "projected_spendable_cents"]),
-		"projected_protected_reserve_cents": _first_int_pair(source, fallback, ["projected_protected_reserve_cents", "projected_reserve_cents"]),
+		"projected_spendable_fund_cents": _first_int_pair(source, fallback, spendable_keys),
+		"has_projected_spendable": _has_any(source, spendable_keys) or _has_any(fallback, spendable_keys),
+		"projected_protected_reserve_cents": _first_int_pair(source, fallback, reserve_keys),
+		"has_projected_reserve": _has_any(source, reserve_keys) or _has_any(fallback, reserve_keys),
 		"effect_lines": _effect_lines(source.get("effect_lines", source.get("effects", fallback.get("effect_lines", fallback.get("effect", []))))),
 	}
 

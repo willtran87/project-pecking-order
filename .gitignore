@@ -5,6 +5,12 @@
 # Builds and local captures
 builds/
 captures/
+/dist/
+/output/
+
+# Local tooling caches
+__pycache__/
+*.pyc
 
 # Blender recovery files
 *.blend1
@@ -15,4 +21,3 @@ captures/
 Thumbs.db
 .idea/
 .vscode/
-

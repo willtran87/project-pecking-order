@@ -16,6 +16,8 @@ func _run() -> void:
 
 	staging.apply_snapshot(_live_snapshot(1, 0, 0, 0))
 	_check(staging.visible_clutch_count() == 0, "the physical clutch should begin empty", failures)
+	_check(_clutch_cup_capacity(staging) == 36, "the two bounded cup batches should preserve all 36 physical destinations", failures)
+	_check(_visible_clutch_cups(staging) == 36, "an empty living clutch should expose all 36 destination cups", failures)
 
 	var egg := MeshInstance3D.new()
 	egg.name = "AuthorizedTestEgg"
@@ -52,6 +54,8 @@ func _run() -> void:
 	_check(bool(arrival["seen"]), "the routed egg should reach the presentation gate", failures)
 	_check(int(arrival["value"]) == 1680 and StringName(arrival["quality"]) == &"golden", "arrival should preserve the authoritative quality and value", failures)
 	_check(staging.visible_clutch_count() == 1, "the arrived real egg should remain in the living clutch", failures)
+	var cups_after_arrival := _visible_clutch_cups(staging)
+	_check(cups_after_arrival == 35, "the real egg should replace exactly one visible empty cup (found %d)" % cups_after_arrival, failures)
 	_check(staging.visible_clutch_quality_count(&"golden") == 1, "the retained egg should preserve its golden quality", failures)
 	_check(is_instance_valid(egg) and egg.name.begins_with("SettledClutchEgg_"), "the exact routed node should be retained rather than replaced", failures)
 
@@ -71,6 +75,8 @@ func _run() -> void:
 		"workers": [],
 	})
 	_check(staging.visible_clutch_count() == 4, "review reload should reconstruct the completed clutch", failures)
+	var cups_at_review := _visible_clutch_cups(staging)
+	_check(cups_at_review == 32, "review reconstruction should hide exactly the four occupied cup instances (found %d)" % cups_at_review, failures)
 	_check(staging.visible_clutch_quality_count(&"cracked") == 1, "review reconstruction should preserve cracked count", failures)
 	_check(staging.visible_clutch_quality_count(&"golden") == 1, "review reconstruction should preserve golden count", failures)
 
@@ -105,6 +111,7 @@ func _run() -> void:
 	)
 	staging.apply_snapshot(_live_snapshot(3, 0, 0, 0))
 	_check(staging.visible_clutch_count() == 0, "a new shift should clear the previous physical clutch", failures)
+	_check(_visible_clutch_cups(staging) == 36, "clearing a shift should restore every empty destination cup", failures)
 	await _wait_for_flag(stale_arrival, "seen", 300)
 	_check(bool(stale_arrival["seen"]) and int(stale_arrival["value"]) == 512, "a stale cross-shift arrival should preserve its gameplay callback", failures)
 	await process_frame
@@ -113,6 +120,8 @@ func _run() -> void:
 
 	staging.apply_snapshot(_live_snapshot(3, 40, 2, 3))
 	_check(staging.visible_clutch_count() == 36, "the retained mesh budget should cap at 36 eggs", failures)
+	var cups_at_capacity := _visible_clutch_cups(staging)
+	_check(cups_at_capacity == 0, "a full retained clutch should hide every occupied destination cup (found %d)" % cups_at_capacity, failures)
 	_check(staging.clutch_surplus_count() == 4, "eggs beyond the mesh budget should become surplus", failures)
 	var surplus := staging.find_child("ClutchSurplusMarker", true, false) as Node3D
 	var surplus_label := staging.find_child("ClutchSurplusLabel", true, false) as Label3D
@@ -152,6 +161,29 @@ func _wait_for_flag(state: Dictionary, key: String, frame_limit: int) -> void:
 		if bool(state.get(key, false)):
 			return
 		await process_frame
+
+
+func _clutch_cup_capacity(staging: Node) -> int:
+	var total := 0
+	for candidate in staging.find_children("EmptyClutchCupBatch*", "MultiMeshInstance3D", true, false):
+		var batch := candidate as MultiMeshInstance3D
+		if batch != null and batch.multimesh != null:
+			total += batch.multimesh.instance_count
+	return total
+
+
+func _visible_clutch_cups(staging: Node) -> int:
+	var visible := 0
+	for candidate in staging.find_children("EmptyClutchCupBatch*", "MultiMeshInstance3D", true, false):
+		var batch := candidate as MultiMeshInstance3D
+		if batch == null or batch.multimesh == null:
+			continue
+		visible += (
+			batch.multimesh.instance_count
+			if batch.multimesh.visible_instance_count < 0
+			else batch.multimesh.visible_instance_count
+		)
+	return visible
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

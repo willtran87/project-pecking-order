@@ -22,12 +22,12 @@ func _init() -> void:
 func _test_open_and_filed_round_trip(failures: Array[String]) -> void:
 	var source := _completed_shift_fixture(19_301)
 	var exported := _json_round_trip(source.export_save_state())
-	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current Gallery state should export schema v23", failures)
+	_check(int(exported.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "current Gallery state should export schema v24", failures)
 	var facilities := exported.get("owned_facilities", {}) as Dictionary
-	_check(facilities.size() == 13, "schema v23 should serialize exactly thirteen facility keys", failures)
-	_check(int(facilities.get(String(GALLERY), -1)) == 1, "schema v23 should preserve Gallery tier one", failures)
-	_check(exported.has("harvest_credit_state"), "schema v23 should include the strict Harvest Credit ledger", failures)
-	_check(exported.has("campus_expansion"), "schema v23 should include the North Meadow ledger", failures)
+	_check(facilities.size() == 13, "schema v24 should serialize exactly thirteen facility keys", failures)
+	_check(int(facilities.get(String(GALLERY), -1)) == 1, "schema v24 should preserve Gallery tier one", failures)
+	_check(exported.has("harvest_credit_state"), "schema v24 should include the strict Harvest Credit ledger", failures)
+	_check(exported.has("campus_expansion"), "schema v24 should include the North Meadow ledger", failures)
 
 	var restored := DepartmentSimulation.new(19_302, 6)
 	_check(restored.restore_save_state(exported), "valid open Gallery JSON should restore", failures)
@@ -58,7 +58,7 @@ func _test_neutral_v18_migration(failures: Array[String]) -> void:
 	var restored := DepartmentSimulation.new(19_312, 4)
 	_check(restored.restore_save_state(_json_round_trip(legacy)), "strict valid v18 checkpoint should migrate", failures)
 	var migrated := restored.export_save_state()
-	_check(int(migrated.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v18 should re-export as schema v23", failures)
+	_check(int(migrated.get("state_version", -1)) == DepartmentSimulation.SAVE_STATE_VERSION, "v18 should re-export as schema v24", failures)
 	_check((migrated.get("owned_facilities", {}) as Dictionary).size() == 13, "migration should append the Gallery and Depot facilities", failures)
 	_check(restored.facility_level(GALLERY) == 0, "migration should append the Gallery unowned", failures)
 	var gallery := restored.farmer_relations_gallery_snapshot()

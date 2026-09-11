@@ -26,6 +26,16 @@ const PAGE_ORDER: Array[StringName] = [
 	PAGE_GOVERNANCE_RECORDS,
 ]
 const BASE_PAGES: Array[StringName] = [PAGE_TODAY, PAGE_FLOCK]
+const SECONDARY_PAGES: Array[StringName] = [
+	PAGE_OPERATIONS,
+	PAGE_CAPITAL,
+	PAGE_GOVERNANCE_RECORDS,
+]
+const MORE_FILES_SHOW_ALL_ID := 100
+## ScrollContainer lays its vertical bar over the right edge of its child
+## viewport. Filing pages reserve this reading gutter so wrapped ledger copy
+## never renders beneath the bar at larger interface scales.
+const FILING_SCROLLBAR_GUTTER := 18
 
 const PAGE_LABELS := {
 	PAGE_TODAY: "TODAY",
@@ -35,10 +45,10 @@ const PAGE_LABELS := {
 	PAGE_GOVERNANCE_RECORDS: "RECORDS",
 }
 const PAGE_TITLES := {
-	PAGE_TODAY: "Today's orders, alerts, queue, labor, and shift record",
+	PAGE_TODAY: "Today's orders, compact shift snapshot, exceptions, and optional notice history",
 	PAGE_FLOCK: "Pecking Order, roster, applicants, care, training, and careers",
 	PAGE_OPERATIONS: "Feed Party, after-hours pecking, Rooster Operations, Procurement, and Farmgate",
-	PAGE_CAPITAL: "Treasury, requisitions, capacity, facilities, Blueprint, and Portfolio",
+	PAGE_CAPITAL: "Economic briefing, Treasury, requisitions, capacity, facilities, Blueprint, and Portfolio",
 	PAGE_GOVERNANCE_RECORDS: "Flock Relations, Farm Mutual, contracts, Gallery credit, and bureau records",
 }
 
@@ -76,6 +86,52 @@ const GOVERNANCE_RECEIPT_KEYS: Array[StringName] = [
 	&"flock_compact_receipt",
 	&"pending_governance_receipts",
 ]
+const SNAPSHOT_PROJECTION_KEYS: Array[StringName] = [
+	&"first_clutch_active",
+	&"first_clutch",
+	&"pause_context",
+	&"case_docket",
+	&"economic_briefing",
+	&"relevant_flockwatch_pages",
+	&"flockwatch_relevance",
+	&"flockwatch_pending_receipts",
+	&"pending_receipts",
+	&"last_operations_receipt",
+	&"last_feed_order_receipt",
+	&"last_feed_procurement_receipt",
+	&"last_farmgate_dispatch_receipt",
+	&"pending_operations_receipts",
+	&"last_facility_purchase_receipt",
+	&"last_capacity_purchase_receipt",
+	&"last_campus_expansion_receipt",
+	&"last_campus_portfolio_receipt",
+	&"pending_capital_receipts",
+	&"last_flock_relations_receipt",
+	&"last_contract_receipt",
+	&"last_gallery_receipt",
+	&"flock_compact_receipt",
+	&"pending_governance_receipts",
+	&"owned_facilities",
+	&"feed_party_available",
+	&"feed_party_used_today",
+	&"overtime_enabled",
+	&"operations",
+	&"feed_procurement",
+	&"farmgate_dispatch",
+	&"facility_catalog",
+	&"capital_plan",
+	&"capacity_upgrade",
+	&"farm_treasury",
+	&"campus_expansion",
+	&"campus_portfolio",
+	&"flock_relations",
+	&"contract_board",
+	&"farmer_relations_gallery",
+	&"flock_petition",
+	&"flock_petition_history",
+	&"flock_compact",
+	&"work_to_rule",
+]
 
 var _snapshot: Dictionary = {}
 var _interface_built := false
@@ -93,7 +149,9 @@ var _sections: Dictionary = {}
 var _original_parent_orders: Dictionary = {}
 
 var _page_button_group: ButtonGroup
+var _heading: HBoxContainer
 var _all_filings_toggle: Button
+var _more_files_button: MenuButton
 var _feedback_panel: PanelContainer
 var _feedback_label: Label
 var _context_actions: VBoxContainer
@@ -109,7 +167,18 @@ func _ready() -> void:
 ## Reads immutable presentation evidence from an authoritative snapshot. It does
 ## not retain a reference to the caller's Dictionary and never calls simulation.
 func apply_snapshot(snapshot: Dictionary) -> void:
-	_snapshot = snapshot.duplicate(true)
+	# Page discovery and narration consume a bounded projection. Retaining and
+	# recursively copying every worker, workstation, market, history, and save
+	# field made a simple ledger toggle scale with the complete economy.
+	_snapshot = {}
+	for key: StringName in SNAPSHOT_PROJECTION_KEYS:
+		var value: Variant = snapshot.get(key, snapshot.get(String(key), null))
+		if value is Dictionary:
+			_snapshot[key] = (value as Dictionary).duplicate(true)
+		elif value is Array:
+			_snapshot[key] = (value as Array).duplicate(true)
+		elif value != null:
+			_snapshot[key] = value
 	if snapshot.has("first_clutch_active"):
 		_first_clutch_active = bool(snapshot.get("first_clutch_active", false))
 	elif snapshot.has("first_clutch"):
@@ -119,6 +188,20 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			var stage := StringName(String(first_clutch.get("stage", &"")))
 			_first_clutch_active = bool(first_clutch.get("visible", false)) and stage != &"complete"
 	_recompute_availability()
+	_refresh_feedback_presentation()
+
+
+## Keeps critical spoken evidence current while the visual drawer is closed.
+## The two copied projections are the only snapshot fields read by
+## accessible_text(); page layout and discovery remain on the bounded visible
+## refresh path.
+func apply_accessibility_snapshot(snapshot: Dictionary) -> void:
+	for key: StringName in [&"case_docket", &"economic_briefing"]:
+		var value: Variant = snapshot.get(key, snapshot.get(String(key), null))
+		if value is Dictionary:
+			_snapshot[key] = (value as Dictionary).duplicate(true)
+		elif value == null:
+			_snapshot.erase(key)
 
 
 ## Hosts can use this when First Clutch presentation state is stored outside the
@@ -139,11 +222,9 @@ func is_first_clutch_active() -> bool:
 func set_show_all_filings(enabled: bool) -> void:
 	_ensure_interface()
 	if _show_all_filings == enabled:
-		if _all_filings_toggle != null:
-			_all_filings_toggle.set_pressed_no_signal(enabled)
+		_update_more_files_presentation()
 		return
 	_show_all_filings = enabled
-	_all_filings_toggle.set_pressed_no_signal(enabled)
 	_recompute_availability()
 	show_all_filings_changed.emit(enabled)
 
@@ -332,12 +413,14 @@ func available_page_ids() -> Array[StringName]:
 
 func page_button(page_id: StringName) -> Button:
 	_ensure_interface()
+	if page_id in SECONDARY_PAGES:
+		return _more_files_button
 	return _page_buttons.get(page_id) as Button
 
 
 func focus_current_tab() -> bool:
 	_ensure_interface()
-	var target := _page_buttons.get(_current_page_id) as Button
+	var target := _focus_control_for_page(_current_page_id)
 	if target == null or not target.is_visible_in_tree() or target.focus_mode == Control.FOCUS_NONE:
 		return false
 	target.grab_focus()
@@ -358,14 +441,27 @@ func available_page_labels() -> Array[String]:
 func set_last_feedback(copy: String) -> void:
 	_ensure_interface()
 	_last_feedback = copy.strip_edges()
+	_refresh_feedback_presentation()
+
+
+func _refresh_feedback_presentation() -> void:
 	if _feedback_panel == null or _feedback_label == null:
 		return
 	_feedback_panel.visible = not _last_feedback.is_empty()
+	var visible_copy := _display_feedback(_last_feedback)
+	var semantic_copy := _last_feedback
+	var pause_context := _snapshot.get("pause_context", {}) as Dictionary
+	if (
+		bool(pause_context.get("active", false))
+		and _last_feedback.to_upper().begins_with("SHIFT PAUSED.")
+	):
+		visible_copy = String(pause_context.get("compact_copy", visible_copy)).strip_edges()
+		semantic_copy = String(pause_context.get("accessible_text", semantic_copy)).strip_edges()
 	_feedback_label.text = (
-		"LATEST NOTICE  /  %s" % _display_feedback(_last_feedback)
+		"LATEST  ·  %s" % visible_copy
 		if not _last_feedback.is_empty() else ""
 	)
-	_feedback_label.tooltip_text = _last_feedback
+	_feedback_label.tooltip_text = semantic_copy
 
 
 func last_feedback() -> String:
@@ -397,6 +493,110 @@ func adopt_context_action(control: Control) -> bool:
 func context_actions() -> VBoxContainer:
 	_ensure_interface()
 	return _context_actions
+
+
+## Names any globally docked progression action that is currently reachable.
+## Office uses this same semantic source for native inspection and the Web live
+## announcement, so a required Continue action cannot be visible yet omitted or
+## contradicted for nonvisual players.
+func context_action_accessible_text() -> String:
+	_ensure_interface()
+	var actions: Array[String] = []
+	for child: Node in _context_actions.get_children():
+		var control := child as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var base_button := control as BaseButton
+		if base_button != null and base_button.disabled:
+			continue
+		var label := ""
+		if control is Button:
+			label = (control as Button).text.strip_edges()
+		var detail := control.accessibility_name.strip_edges()
+		if detail.is_empty():
+			detail = String(control.get_meta("accessible_text", "")).strip_edges()
+		if detail.is_empty():
+			detail = control.tooltip_text.strip_edges()
+		if detail.is_empty():
+			detail = label
+		elif not label.is_empty() and label.to_lower() not in detail.to_lower():
+			detail = "%s. %s" % [label, detail]
+		if not detail.is_empty():
+			actions.append(detail)
+	return " ".join(actions)
+
+
+## Returns the one docked progression control that is actually reachable above
+## every filing page. Global guidance consumes this instead of advertising an
+## underlying page or shift action while Continue is visibly waiting here.
+func context_primary_action_state() -> Dictionary:
+	_ensure_interface()
+	var control := _first_reachable_context_action()
+	if control == null:
+		return {}
+	var label := control.name
+	if control is Button:
+		label = (control as Button).text.strip_edges()
+	var detail := control.accessibility_name.strip_edges()
+	if detail.is_empty():
+		detail = String(control.get_meta("accessible_text", "")).strip_edges()
+	if detail.is_empty():
+		detail = control.tooltip_text.strip_edges()
+	if detail.is_empty():
+		detail = label
+	elif not label.is_empty() and label.to_lower() not in detail.to_lower():
+		detail = "%s. %s" % [label, detail]
+	return {
+		"copy": label,
+		"action_id": "flockwatch_context_action",
+		"actionable": true,
+		"visible_label": label,
+		"semantic_icon": "advance_arrow",
+		"icon_visible": control is Button and (control as Button).icon != null,
+		"accessible_text": detail,
+	}
+
+
+func focus_context_primary_action() -> bool:
+	var control := _first_reachable_context_action()
+	if control == null or control.focus_mode == Control.FOCUS_NONE:
+		return false
+	control.grab_focus()
+	return true
+
+
+func _first_reachable_context_action() -> Control:
+	_ensure_interface()
+	for child: Node in _context_actions.get_children():
+		var control := child as Control
+		if control == null or not control.is_visible_in_tree():
+			continue
+		var base_button := control as BaseButton
+		if base_button != null and base_button.disabled:
+			continue
+		return control
+	return null
+
+
+## Docks an existing host-owned action beside the Flockwatch title without
+## replacing its identity, signals, focus mode, or binding semantics.
+func adopt_header_action(control: Control) -> bool:
+	_ensure_interface()
+	if control == null or not is_instance_valid(control) or control == self:
+		return false
+	if control.get_parent() != _heading:
+		control.reparent(_heading, false)
+	control.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	control.offset_left = 0.0
+	control.offset_top = 0.0
+	control.offset_right = 0.0
+	control.offset_bottom = 0.0
+	return true
+
+
+func header() -> HBoxContainer:
+	_ensure_interface()
+	return _heading
 
 
 ## Reuses an already-built Flockwatch ScrollContainer as one page, preserving
@@ -463,16 +663,108 @@ func all_filings_button() -> Button:
 	return _all_filings_toggle
 
 
+## The compact secondary-page switcher. `all_filings_button()` remains as a
+## compatibility alias because Office and older integration tests discover that
+## control by role rather than by its user-facing copy.
+func more_files_button() -> MenuButton:
+	_ensure_interface()
+	return _more_files_button
+
+
 func accessible_text() -> String:
-	var summary := "Flockwatch filing pages. %s is current. Available: %s. %d sections filed. All filings %s." % [
+	var summary := "Flockwatch filing pages. %s is current. Available: %s. %d sections filed. More files %s. All filings %s." % [
 		String(PAGE_LABELS.get(_current_page_id, String(_current_page_id))).capitalize(),
 		", ".join(available_page_labels()),
 		_sections.size(),
+		"shows every page" if _show_all_filings else "is filtered by relevance",
 		"shown" if _show_all_filings else "filtered by relevance",
 	]
 	if not _last_feedback.is_empty():
 		summary += " Latest notice: %s" % _last_feedback
+	var pause_context := _snapshot.get("pause_context", {}) as Dictionary
+	if bool(pause_context.get("active", false)):
+		summary += " Pause status: %s" % String(pause_context.get(
+			"accessible_text",
+			"The shift is paused and simulation time is safe.",
+		))
+	var context_action := context_action_accessible_text()
+	if not context_action.is_empty():
+		summary += " Required action: %s" % context_action
+	var visible_page_copy := _current_page_visible_accessible_copy()
+	if not visible_page_copy.is_empty():
+		summary += " Visible filing: %s" % visible_page_copy
+	if _current_page_id == PAGE_TODAY:
+		var case_docket := _snapshot.get("case_docket", {}) as Dictionary
+		var active_precedents: Array[Dictionary] = []
+		for precedent_value: Variant in case_docket.get("active_precedents", []):
+			if precedent_value is Dictionary:
+				active_precedents.append(precedent_value as Dictionary)
+		if active_precedents.is_empty():
+			var legacy_precedent := case_docket.get("active_precedent", {}) as Dictionary
+			if not legacy_precedent.is_empty():
+				active_precedents.append(legacy_precedent)
+		for precedent: Dictionary in active_precedents:
+			summary += " Open %s for %s: %s" % [
+				String(precedent.get("strategy_label", "pivot opportunity")).to_lower(),
+				String(precedent.get("target_label", "the next related case")),
+				String(precedent.get("summary", "A prior response changes its terms.")),
+			]
+		var pivot_mastery := case_docket.get("pivot_mastery", {}) as Dictionary
+		var mastered_pivots := int(pivot_mastery.get("mastered_count", 0))
+		if mastered_pivots > 0:
+			summary += " Adaptive casework: %d of %d case pairs mastered%s." % [
+				mastered_pivots,
+				int(pivot_mastery.get("total_count", 6)),
+				"; WINGS BOTH WAYS commendation filed" if bool(pivot_mastery.get("complete", false)) else "",
+			]
+	elif _current_page_id == PAGE_CAPITAL:
+		var briefing := _snapshot.get("economic_briefing", {}) as Dictionary
+		var cash := briefing.get("cash", {}) as Dictionary
+		var bottlenecks := briefing.get("bottlenecks", []) as Array
+		summary += (
+			" Economic briefing: %s. Feed Fund $%.2f, protected reserve $%.2f, "
+			+ "spendable $%.2f. Secured operating margin %s$%.2f; $%.2f remains "
+			+ "to break even."
+		) % [
+			String(briefing.get("status_label", "awaiting ledger")).to_lower(),
+			float(int(cash.get("feed_fund_cents", 0))) / 100.0,
+			float(int(cash.get("protected_reserve_cents", 0))) / 100.0,
+			float(int(cash.get("spendable_fund_cents", 0))) / 100.0,
+			"+" if int(cash.get("secured_operating_margin_cents", 0)) >= 0 else "-",
+			absf(float(int(cash.get("secured_operating_margin_cents", 0)))) / 100.0,
+			float(int(cash.get("break_even_remaining_cents", 0))) / 100.0,
+		]
+		if not bottlenecks.is_empty() and bottlenecks[0] is Dictionary:
+			var bottleneck := bottlenecks[0] as Dictionary
+			summary += " Primary bottleneck: %s. %s Action: %s" % [
+				String(bottleneck.get("label", "none")).to_lower(),
+				String(bottleneck.get("reason", "")),
+				String(bottleneck.get("action", "")),
+			]
 	return summary
+
+
+func _current_page_visible_accessible_copy() -> String:
+	var content := _page_contents.get(_current_page_id) as VBoxContainer
+	if content == null or not is_instance_valid(content):
+		return ""
+	var entries: Array[String] = []
+	var character_count := 0
+	for node: Node in content.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label == null or not label.is_visible_in_tree():
+			continue
+		var copy := String(label.get_meta("accessible_text", "")).strip_edges()
+		if copy.is_empty() or copy in entries:
+			continue
+		copy = copy.replace("\n", "; ")
+		if character_count + copy.length() > 2400:
+			break
+		entries.append(copy)
+		character_count += copy.length()
+		if entries.size() >= 12:
+			break
+	return " | ".join(entries)
 
 
 func _ensure_interface() -> void:
@@ -485,12 +777,11 @@ func _ensure_interface() -> void:
 	mouse_filter = Control.MOUSE_FILTER_PASS
 	add_theme_constant_override("separation", 7)
 
-	var heading := HFlowContainer.new()
-	heading.name = "FlockwatchNavigationHeading"
-	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	heading.add_theme_constant_override("h_separation", 8)
-	heading.add_theme_constant_override("v_separation", 4)
-	add_child(heading)
+	_heading = HBoxContainer.new()
+	_heading.name = "FlockwatchNavigationHeading"
+	_heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_heading.add_theme_constant_override("separation", 8)
+	add_child(_heading)
 	var title := Label.new()
 	title.name = "FlockwatchNavigationTitle"
 	title.text = "FLOCKWATCH"
@@ -498,38 +789,50 @@ func _ensure_interface() -> void:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 17)
-	heading.add_child(title)
-	_all_filings_toggle = Button.new()
-	_all_filings_toggle.name = "FlockwatchAllFilingsToggle"
-	_all_filings_toggle.text = "ALL FILINGS"
-	_all_filings_toggle.toggle_mode = true
-	_all_filings_toggle.focus_mode = Control.FOCUS_ALL
-	_all_filings_toggle.custom_minimum_size = Vector2(104.0, 30.0)
-	_all_filings_toggle.tooltip_text = "Show every filing page without changing campaign progress or the economy."
-	_all_filings_toggle.toggled.connect(_on_all_filings_toggled)
-	heading.add_child(_all_filings_toggle)
-
+	_heading.add_child(title)
 	_page_button_group = ButtonGroup.new()
 	_page_button_group.allow_unpress = false
-	var navigation := HFlowContainer.new()
+	var navigation := HBoxContainer.new()
 	navigation.name = "FlockwatchPageNavigation"
 	navigation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	navigation.add_theme_constant_override("h_separation", 5)
-	navigation.add_theme_constant_override("v_separation", 5)
+	navigation.add_theme_constant_override("separation", 4)
+	navigation.clip_contents = true
 	add_child(navigation)
-	for page_id: StringName in PAGE_ORDER:
+	for page_id: StringName in BASE_PAGES:
 		var button := Button.new()
 		button.name = "FlockwatchPage_%s" % _pascal_case(page_id)
 		button.text = String(PAGE_LABELS.get(page_id, String(page_id)))
 		button.toggle_mode = true
 		button.button_group = _page_button_group
 		button.focus_mode = Control.FOCUS_ALL
-		button.custom_minimum_size = Vector2(76.0 if page_id != PAGE_CAPITAL else 84.0, 34.0)
+		button.custom_minimum_size = Vector2(66.0, 34.0)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.tooltip_text = String(PAGE_TITLES.get(page_id, button.text))
 		button.pressed.connect(_on_page_pressed.bind(page_id))
 		button.gui_input.connect(_on_page_button_gui_input.bind(page_id))
 		navigation.add_child(button)
 		_page_buttons[page_id] = button
+
+	_more_files_button = MenuButton.new()
+	_more_files_button.name = "FlockwatchMoreFiles"
+	_more_files_button.text = "MORE FILES"
+	_more_files_button.custom_minimum_size = Vector2(94.0, 34.0)
+	_more_files_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_more_files_button.focus_mode = Control.FOCUS_ALL
+	_more_files_button.clip_text = true
+	_more_files_button.toggle_mode = true
+	_more_files_button.tooltip_text = "Open Operations, Capital, or Records without widening the filing rail."
+	_more_files_button.gui_input.connect(_on_more_files_gui_input)
+	navigation.add_child(_more_files_button)
+	_all_filings_toggle = _more_files_button
+	var more_popup := _more_files_button.get_popup()
+	for page_index: int in SECONDARY_PAGES.size():
+		var page_id := SECONDARY_PAGES[page_index]
+		more_popup.add_item(String(PAGE_LABELS.get(page_id, String(page_id))), page_index)
+		more_popup.set_item_metadata(more_popup.item_count - 1, page_id)
+	more_popup.add_separator()
+	more_popup.add_check_item("SHOW EVERY FILE", MORE_FILES_SHOW_ALL_ID)
+	more_popup.id_pressed.connect(_on_more_files_item_pressed)
 
 	_feedback_panel = PanelContainer.new()
 	_feedback_panel.name = "FlockwatchLatestFeedback"
@@ -548,7 +851,10 @@ func _ensure_interface() -> void:
 	add_child(_feedback_panel)
 	_feedback_label = Label.new()
 	_feedback_label.name = "FlockwatchLatestFeedbackCopy"
-	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_feedback_label.clip_text = true
+	_feedback_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_feedback_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_feedback_label.add_theme_color_override("font_color", Color("d8e8e2"))
 	_feedback_label.add_theme_font_size_override("font_size", 12)
 	_feedback_panel.add_child(_feedback_label)
@@ -582,12 +888,20 @@ func _ensure_interface() -> void:
 		scroll.mouse_filter = Control.MOUSE_FILTER_STOP
 		scroll.visible = false
 		_page_deck.add_child(scroll)
+		var viewport_margin := MarginContainer.new()
+		viewport_margin.name = "Flockwatch%sViewportMargin" % _pascal_case(page_id)
+		viewport_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		viewport_margin.add_theme_constant_override(
+			"margin_right",
+			FILING_SCROLLBAR_GUTTER,
+		)
+		scroll.add_child(viewport_margin)
 		var content := VBoxContainer.new()
 		content.name = "Flockwatch%sPage" % _pascal_case(page_id)
 		content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		content.add_theme_constant_override("separation", 8)
 		content.mouse_filter = Control.MOUSE_FILTER_PASS
-		scroll.add_child(content)
+		viewport_margin.add_child(content)
 		_page_scrolls[page_id] = scroll
 		_page_contents[page_id] = content
 
@@ -641,6 +955,7 @@ func _set_page_presentations() -> void:
 			button.focus_mode = Control.FOCUS_ALL if available else Control.FOCUS_NONE
 		if scroll != null:
 			scroll.visible = available and page_id == _current_page_id
+	_update_more_files_presentation()
 
 
 func _activate_page(page_id: StringName, grab_tab_focus: bool) -> void:
@@ -653,15 +968,17 @@ func _activate_page(page_id: StringName, grab_tab_focus: bool) -> void:
 	if focus_was_in_old_page:
 		focus_owner.release_focus()
 	_current_page_id = page_id
-	for candidate_id: StringName in PAGE_ORDER:
+	for candidate_id: StringName in BASE_PAGES:
 		var button := _page_buttons.get(candidate_id) as Button
-		var scroll := _page_scrolls.get(candidate_id) as ScrollContainer
 		if button != null:
 			button.set_pressed_no_signal(candidate_id == page_id)
+	for candidate_id: StringName in PAGE_ORDER:
+		var scroll := _page_scrolls.get(candidate_id) as ScrollContainer
 		if scroll != null:
 			scroll.visible = is_page_available(candidate_id) and candidate_id == page_id
+	_update_more_files_presentation()
 	if grab_tab_focus or focus_was_in_old_page:
-		var target := _page_buttons.get(page_id) as Button
+		var target := _focus_control_for_page(page_id)
 		if target != null and target.is_visible_in_tree():
 			target.grab_focus()
 	if changed:
@@ -682,11 +999,96 @@ func _on_page_button_gui_input(event: InputEvent, _page_id: StringName) -> void:
 		accept_event()
 
 
+func _on_more_files_gui_input(event: InputEvent) -> void:
+	_on_page_button_gui_input(event, _current_page_id)
+
+
+func _on_more_files_item_pressed(item_id: int) -> void:
+	if item_id == MORE_FILES_SHOW_ALL_ID:
+		set_show_all_filings(not _show_all_filings)
+		_more_files_button.grab_focus()
+		return
+	var popup := _more_files_button.get_popup()
+	var item_index := popup.get_item_index(item_id)
+	if item_index < 0:
+		return
+	var metadata: Variant = popup.get_item_metadata(item_index)
+	if metadata == null:
+		return
+	var page_id := StringName(String(metadata))
+	if open_page(page_id, true):
+		_more_files_button.grab_focus()
+
+
+func _update_more_files_presentation() -> void:
+	if _more_files_button == null:
+		return
+	var popup := _more_files_button.get_popup()
+	# PopupMenu has no per-item visibility API in the project's Godot runtime.
+	# Rebuilding this five-entry presentation-only menu keeps undiscovered files
+	# genuinely undisclosed without replacing any page or registered control.
+	popup.clear()
+	for page_index: int in SECONDARY_PAGES.size():
+		var page_id := SECONDARY_PAGES[page_index]
+		if not is_page_available(page_id):
+			continue
+		popup.add_item(String(PAGE_LABELS.get(page_id, String(page_id))), page_index)
+		popup.set_item_metadata(popup.item_count - 1, page_id)
+	if popup.item_count > 0:
+		popup.add_separator()
+	popup.add_check_item("SHOW EVERY FILE", MORE_FILES_SHOW_ALL_ID)
+	popup.set_item_checked(popup.item_count - 1, _show_all_filings)
+	_more_files_button.text = (
+		"%s  ▾" % String(PAGE_LABELS.get(_current_page_id, "MORE"))
+		if _current_page_id in SECONDARY_PAGES else
+		"MORE FILES  ▾"
+	)
+	_more_files_button.set_pressed_no_signal(_current_page_id in SECONDARY_PAGES)
+	_more_files_button.tooltip_text = (
+		"Current secondary file: %s. Open the menu to switch filing pages."
+		% String(PAGE_TITLES.get(_current_page_id, String(_current_page_id)))
+		if _current_page_id in SECONDARY_PAGES else
+		"Open Operations, Capital, or Records. Show Every File changes presentation only."
+	)
+
+
+func _focus_control_for_page(page_id: StringName) -> Button:
+	if page_id in SECONDARY_PAGES:
+		return _more_files_button
+	return _page_buttons.get(page_id) as Button
+
+
 func _display_feedback(copy: String) -> String:
-	const MAX_VISIBLE_CHARACTERS := 180
+	const MAX_VISIBLE_CHARACTERS := 72
+	var normalized := copy.strip_edges().to_upper()
+	if normalized.begins_with("SHIFT PAUSED."):
+		return "PAUSED  ·  TIME SAFE"
+	if normalized.begins_with("SHIFT RUNNING AT "):
+		var speed_label := copy.substr("SHIFT RUNNING AT ".length()).get_slice(".", 0).strip_edges()
+		return "LIVE %s  ·  HENS ACTIVE" % speed_label.replace("x", "×")
+	if normalized.begins_with("FARMER INSPECTION COMPLETE"):
+		return "INSPECTION COMPLETE  ·  CREDIT FILED"
+	if normalized.begins_with("REQUISITION DENIED"):
+		var shortfall := _requisition_shortfall(copy)
+		return (
+			"REQUISITION BLOCKED  ·  NEED %s MORE" % shortfall
+			if not shortfall.is_empty() else
+			"REQUISITION BLOCKED  ·  MORE CASH NEEDED"
+		)
 	if copy.length() <= MAX_VISIBLE_CHARACTERS:
 		return copy
 	return copy.left(MAX_VISIBLE_CHARACTERS - 1).rstrip(" ,.;:") + "…"
+
+
+func _requisition_shortfall(copy: String) -> String:
+	var separator_index := copy.find(":")
+	if separator_index < 0:
+		return ""
+	var detail := copy.substr(separator_index + 1).strip_edges()
+	for token: String in detail.split(" ", false):
+		if token.begins_with("$"):
+			return token.rstrip(" ,.;:")
+	return ""
 
 
 func _snapshot_relevant_to_page(page_id: StringName) -> bool:
@@ -897,7 +1299,7 @@ func _ensure_focus_not_hidden() -> void:
 		return
 	if page_id != _current_page_id or not is_page_available(page_id):
 		focus_owner.release_focus()
-		var fallback := _page_buttons.get(_current_page_id) as Button
+		var fallback := _focus_control_for_page(_current_page_id)
 		if fallback != null and fallback.is_visible_in_tree():
 			fallback.grab_focus()
 
@@ -918,10 +1320,6 @@ func _page_for_descendant(control: Control) -> StringName:
 
 func _on_page_pressed(page_id: StringName) -> void:
 	_activate_page(page_id, false)
-
-
-func _on_all_filings_toggled(enabled: bool) -> void:
-	set_show_all_filings(enabled)
 
 
 func _owns_any(owned: Dictionary, facility_ids: Array[StringName]) -> bool:

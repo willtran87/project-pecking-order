@@ -57,6 +57,11 @@ func _run() -> void:
 
 	var sponsorship_ui := office.find_child("CareerSponsorshipUI", true, false) as CareerSponsorshipUI
 	var authorize_button := office.find_child("CareerSponsorshipAuthorizeButton", true, false) as Button
+	var confirmation := office.find_child(
+		"CareerSponsorshipConfirmation",
+		true,
+		false,
+	) as ConfirmationDialog
 	var open_presentation := office.call("_career_sponsorship_presentation_snapshot") as Dictionary
 	_check(
 		campaign_ui.modal_state() == ProbationCampaignUI.VIEW_REPORT,
@@ -93,8 +98,21 @@ func _run() -> void:
 		failures,
 	)
 
-	# Exercise the player-facing signal path rather than either authoritative API.
+	# Exercise the player-facing confirmation path rather than either
+	# authoritative API. Opening the dialog must remain presentation-only.
 	authorize_button.pressed.emit()
+	await process_frame
+	_check(
+		confirmation != null
+		and confirmation.visible
+		and senior.roost_marks_spent == 0
+		and simulation.revenue_cents == fund_before
+		and selected_worker.cross_training_target == &"",
+		"opening sponsorship confirmation should disclose the filing without mutating marks, fund, or training",
+		failures,
+	)
+	if confirmation != null:
+		confirmation.confirmed.emit()
 	await process_frame
 	await process_frame
 

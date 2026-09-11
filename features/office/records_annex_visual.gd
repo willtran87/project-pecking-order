@@ -952,11 +952,9 @@ func _add_box(
 	roughness: float = 0.82,
 	metallic: float = 0.0
 ) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
 	parent.add_child(instance)
@@ -973,14 +971,9 @@ func _add_cylinder(
 	roughness: float = 0.82,
 	metallic: float = 0.0
 ) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius * 0.94
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 12
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.cylinder(radius * 0.94, radius, height, 12)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
 	parent.add_child(instance)
@@ -995,14 +988,9 @@ func _add_sphere(
 	color: Color,
 	roughness: float = 0.82
 ) -> MeshInstance3D:
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.5
-	mesh.height = 1.0
-	mesh.radial_segments = 12
-	mesh.rings = 6
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.sphere(0.5, 1.0, 12, 6)
 	instance.position = part_position
 	instance.scale = part_scale
 	instance.material_override = _material(color, roughness)

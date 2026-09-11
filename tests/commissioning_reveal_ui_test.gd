@@ -1,6 +1,7 @@
 extends SceneTree
 
 const CommissioningRevealUIScript := preload("res://features/office/commissioning_reveal_ui.gd")
+const ManagementUIThemeScript := preload("res://features/office/management_ui_theme.gd")
 
 
 func _init() -> void:
@@ -24,12 +25,13 @@ func _run() -> void:
 	await process_frame
 
 	var receipt := _receipt()
+	ui.set_animation_speed_multiplier(1.5)
 	ui.show_reveal(receipt, false)
 	await process_frame
 	await process_frame
 	var panel := ui.find_child("CommissioningReceiptPanel", true, false) as PanelContainer
 	var scroll := ui.find_child("CommissioningReceiptScroll", true, false) as ScrollContainer
-	var action_rail := ui.find_child("CommissioningActionRail", true, false) as HBoxContainer
+	var action_rail := ui.find_child("CommissioningActionRail", true, false) as HFlowContainer
 	var title := ui.find_child("CommissioningRevealTitle", true, false) as Label
 	var facility := ui.find_child("CommissioningFacilityName", true, false) as Label
 	var level := ui.find_child("CommissioningLevelName", true, false) as Label
@@ -54,9 +56,19 @@ func _run() -> void:
 		failures,
 	)
 	_check(ui.entrance_animated() and not ui.used_reduced_motion(), "ordinary presentation may use the short receipt fade", failures)
+	_check(is_equal_approx(ui.animation_speed_multiplier(), 1.5), "receipt entrance should honor the independent brisk animation speed", failures)
 	_check(scroll != null and action_rail != null and not scroll.is_ancestor_of(action_rail), "held actions should remain outside the receipt scroll surface", failures)
 	_check(return_button != null and continue_button != null and return_button.focus_mode == Control.FOCUS_ALL and continue_button.focus_mode == Control.FOCUS_ALL, "both player-held actions should be keyboard focusable", failures)
 	_check(continue_button != null and root.gui_get_focus_owner() == continue_button, "the safe Continue action should receive initial focus", failures)
+	var reveal_primary := ui.primary_action_state()
+	_check(
+		String(reveal_primary.get("copy", "")) == "CONTINUE"
+		and String(reveal_primary.get("action_id", ""))
+		== "commissioning_reveal_continue"
+		and bool(reveal_primary.get("actionable", false)),
+		"commissioning receipts should publish their exact held Continue action",
+		failures,
+	)
 
 	var copied := ui.receipt_snapshot()
 	copied["cost_cents"] = 1
@@ -94,6 +106,20 @@ func _run() -> void:
 		_check(return_button.is_visible_in_tree() and continue_button.is_visible_in_tree(), "both compact actions should remain visible at 844x390", failures)
 		_check(return_button.get_global_rect().end.y <= harness.size.y + 0.5 and continue_button.get_global_rect().end.y <= harness.size.y + 0.5, "compact actions should remain physically reachable", failures)
 
+	ui.theme = ManagementUIThemeScript.create_theme(false, 1.5)
+	_apply_explicit_font_scale(ui, 1.5)
+	_expand_interface_copy(ui)
+	harness.size = Vector2(390.0, 844.0)
+	await process_frame
+	await process_frame
+	var portrait_bounds := Rect2(Vector2.ZERO, harness.size)
+	_check(_visible_children_fit(ui, portrait_bounds), "390x844 at 150%% with expanded copy should keep every visible receipt control inside the viewport (first=%s)" % _first_horizontal_overflow(ui, portrait_bounds), failures)
+	_check(scroll != null and scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED and scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "max-scale portrait receipt should remain vertical-scroll-only", failures)
+	_check(action_rail != null and not scroll.is_ancestor_of(action_rail), "max-scale portrait actions should remain fixed outside the receipt scroll surface", failures)
+	if return_button != null and continue_button != null:
+		_check(return_button.is_visible_in_tree() and continue_button.is_visible_in_tree(), "max-scale portrait should retain both held actions", failures)
+		_check(portrait_bounds.encloses(return_button.get_global_rect()) and portrait_bounds.encloses(continue_button.get_global_rect()), "max-scale portrait should keep both held actions physically reachable", failures)
+
 	ui.free()
 	await process_frame
 	if not failures.is_empty():
@@ -101,7 +127,7 @@ func _run() -> void:
 			push_error("COMMISSIONING_REVEAL_UI_TEST_FAILED: %s" % failure)
 		quit(1)
 		return
-	print("COMMISSIONING_REVEAL_UI_TEST_PASSED receipt=exact held=player compact=844x390 motion=reduced actions=2")
+	print("COMMISSIONING_REVEAL_UI_TEST_PASSED receipt=exact held=player compact=844x390 resilience=390x844+150-percent+expanded-copy motion=reduced+speed actions=2")
 	quit(0)
 
 
@@ -145,6 +171,52 @@ func _contains_all(text_value: String, needles: Array[String]) -> bool:
 		if needle.to_lower() not in lowered:
 			return false
 	return true
+
+
+func _visible_children_fit(root_control: Control, viewport_bounds: Rect2) -> bool:
+	return _first_horizontal_overflow(root_control, viewport_bounds) == "none"
+
+
+func _first_horizontal_overflow(root_control: Control, viewport_bounds: Rect2) -> String:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control != null and control.is_visible_in_tree():
+			var rect := control.get_global_rect()
+			if rect.position.x < viewport_bounds.position.x - 0.5 or rect.end.x > viewport_bounds.end.x + 0.5:
+				return "%s rect=%s min=%s" % [control.name, rect, control.get_combined_minimum_size()]
+	return "none"
+
+
+func _apply_explicit_font_scale(root_control: Control, multiplier: float) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		var control := node_value as Control
+		if control == null or not control.has_theme_font_size_override("font_size"):
+			continue
+		var base_size := control.get_theme_font_size("font_size")
+		control.add_theme_font_size_override("font_size", maxi(10, roundi(float(base_size) * multiplier)))
+
+
+func _expand_interface_copy(root_control: Control) -> void:
+	var controls: Array[Node] = [root_control]
+	controls.append_array(root_control.find_children("*", "Control", true, false))
+	for node_value: Node in controls:
+		if node_value is Button:
+			var button := node_value as Button
+			button.text = _expanded(button.text)
+		elif node_value is Label:
+			var label := node_value as Label
+			label.text = _expanded(label.text)
+
+
+func _expanded(text_value: String) -> String:
+	var expanded := text_value
+	for vowel: String in ["a", "e", "i", "o", "u", "A", "E", "I", "O", "U"]:
+		expanded = expanded.replace(vowel, vowel + vowel)
+	return expanded
 
 
 func _check(condition: bool, message: String, failures: Array[String]) -> void:

@@ -761,11 +761,9 @@ func _dictionary(value: Variant) -> Dictionary:
 
 
 func _add_box(parent: Node3D, part_name: String, size: Vector3, part_position: Vector3, color: Color, roughness: float = 0.82, metallic: float = 0.0) -> MeshInstance3D:
-	var mesh := BoxMesh.new()
-	mesh.size = size
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.box(size)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
 	parent.add_child(instance)
@@ -773,14 +771,9 @@ func _add_box(parent: Node3D, part_name: String, size: Vector3, part_position: V
 
 
 func _add_cylinder(parent: Node3D, part_name: String, part_position: Vector3, radius: float, height: float, color: Color, roughness: float = 0.82, metallic: float = 0.0) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 16
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
-	instance.mesh = mesh
+	instance.mesh = ProceduralPrimitiveCache.cylinder(radius, radius, height, 16)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
 	parent.add_child(instance)

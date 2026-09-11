@@ -151,23 +151,23 @@ func _test_flock_dividend(failures: Array[String]) -> void:
 	_check(int(result.get("workers_affected", -1)) == 4, "flock dividend should affect employed hens only", failures)
 	for worker_id in 4:
 		var worker := simulation.workers[worker_id]
-		_check(_approximately(worker.morale, 56.0), "dividend should add six morale to worker %d" % worker_id, failures)
-		_check(_approximately(worker.stress, 24.0), "dividend should remove six stress from worker %d" % worker_id, failures)
-		_check(_approximately(worker.fatigue, 24.0), "dividend should remove six fatigue from worker %d" % worker_id, failures)
+		_check(_approximately(worker.morale, 84.0), "dividend should add thirty-four morale to worker %d" % worker_id, failures)
+		_check(_approximately(worker.stress, 0.0), "dividend should remove thirty stress from worker %d" % worker_id, failures)
+		_check(_approximately(worker.fatigue, 0.0), "dividend should remove thirty fatigue from worker %d" % worker_id, failures)
 		_check(_approximately(worker.manager_trust, 56.0), "dividend should add six trust to worker %d" % worker_id, failures)
 		_check(_approximately(worker.grievance, 24.0), "dividend should remove six grievance from worker %d" % worker_id, failures)
 		_check_worker_effect(_effect_for_worker(result, worker_id), {
 			"career_xp": 0,
-			"morale": 6.0,
-			"stress": -6.0,
-			"fatigue": -6.0,
+			"morale": 34.0,
+			"stress": -30.0,
+			"fatigue": -30.0,
 			"manager_trust": 6.0,
 			"grievance": -6.0,
 		}, "dividend worker %d" % worker_id, failures)
 	_check(simulation.workers[4].to_save_data() == applicant_states[4], "dividend should not mutate applicant four", failures)
 	_check(simulation.workers[5].to_save_data() == applicant_states[5], "dividend should not mutate applicant five", failures)
 	_check(_approximately(simulation.solidarity, 30.0), "dividend should add ten solidarity", failures)
-	_check(_approximately(simulation.executive_confidence, 44.0), "dividend should cost six farmer favor", failures)
+	_check(_approximately(simulation.executive_confidence, 46.0), "dividend should cost four farmer favor", failures)
 	_check(_approximately(simulation.compliance, 70.0), "dividend should leave compliance unchanged", failures)
 	_check(simulation.quota_target == 19, "dividend should lower quota by one", failures)
 	_check(int(simulation.credit_choice_counts.get(&"shared_scoop", -1)) == 1, "dividend should advance shared leadership history", failures)
@@ -183,28 +183,28 @@ func _test_harvest_forecast(failures: Array[String]) -> void:
 	var result := simulation.apply_senior_quarter_policy(&"harvest_forecast")
 	_check(bool(result.get("accepted", false)), "harvest forecast should be accepted without discretionary fund", failures)
 	_check(int(result.get("cost_cents", -1)) == 0, "harvest forecast should have no cost", failures)
-	_check(int(result.get("fund_delta_cents", 0)) == 2400, "forecast receipt should disclose $24 booked revenue", failures)
-	_check(simulation.revenue_cents == revenue_before + 2400, "forecast should book exactly $24 revenue", failures)
+	_check(int(result.get("fund_delta_cents", 0)) == 6000, "forecast receipt should disclose $60 booked revenue", failures)
+	_check(simulation.revenue_cents == revenue_before + 6000, "forecast should book exactly $60 revenue", failures)
 	_check(int(result.get("workers_affected", -1)) == 4, "forecast should affect employed hens only", failures)
 	for worker_id in 4:
 		var worker := simulation.workers[worker_id]
-		_check(_approximately(worker.stress, 34.0), "forecast should add four stress to worker %d" % worker_id, failures)
-		_check(_approximately(worker.manager_trust, 45.0), "forecast should remove five trust from worker %d" % worker_id, failures)
-		_check(_approximately(worker.grievance, 36.0), "forecast should add six grievance to worker %d" % worker_id, failures)
+		_check(_approximately(worker.stress, 30.0), "forecast should not add direct stress to worker %d" % worker_id, failures)
+		_check(_approximately(worker.manager_trust, 49.0), "forecast should remove one trust from worker %d" % worker_id, failures)
+		_check(_approximately(worker.grievance, 31.0), "forecast should add one grievance to worker %d" % worker_id, failures)
 		_check_worker_effect(_effect_for_worker(result, worker_id), {
 			"career_xp": 0,
 			"morale": 0.0,
-			"stress": 4.0,
+			"stress": 0.0,
 			"fatigue": 0.0,
-			"manager_trust": -5.0,
-			"grievance": 6.0,
+			"manager_trust": -1.0,
+			"grievance": 1.0,
 		}, "forecast worker %d" % worker_id, failures)
 	_check(simulation.workers[4].to_save_data() == applicant_states[4], "forecast should not mutate applicant four", failures)
 	_check(simulation.workers[5].to_save_data() == applicant_states[5], "forecast should not mutate applicant five", failures)
-	_check(_approximately(simulation.executive_confidence, 58.0), "forecast should add eight farmer favor", failures)
-	_check(_approximately(simulation.compliance, 65.0), "forecast should remove five compliance", failures)
+	_check(_approximately(simulation.executive_confidence, 74.0), "forecast should add twenty-four farmer favor", failures)
+	_check(_approximately(simulation.compliance, 66.0), "forecast should remove four compliance", failures)
 	_check(_approximately(simulation.solidarity, 20.0), "forecast should leave solidarity unchanged", failures)
-	_check(simulation.quota_target == 23, "forecast should raise quota by three", failures)
+	_check(simulation.quota_target == 22, "forecast should raise quota by two", failures)
 	_check(int(simulation.credit_choice_counts.get(&"management_innovation", -1)) == 1, "forecast should advance management leadership history", failures)
 
 

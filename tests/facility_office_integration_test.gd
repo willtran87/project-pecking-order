@@ -25,6 +25,10 @@ func _run() -> void:
 	_check(simulation.apply_campaign_unlock(&"shell_quality_checks"), "quality milestone should unlock the capital file", failures)
 	await process_frame
 	_check(lab.visual_state() == &"construction_pad", "milestone should reveal the reserved physical construction pad", failures)
+	# Requisitions are intentionally refreshed only while their Capital filing is
+	# actionable. Enter the filing before validating or pressing its controls.
+	office.call("_open_flockwatch_page", &"capital")
+	await process_frame
 
 	simulation.shift_phase = DepartmentSimulation.ShiftPhase.REVIEW
 	simulation.pending_decision.clear()

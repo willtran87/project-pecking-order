@@ -23,7 +23,7 @@ extends RefCounted
 ## To add a schema, increment CURRENT_SCHEMA_VERSION and override or extend
 ## _migrate_one_version(). Each migration must advance exactly one version.
 
-const CURRENT_SCHEMA_VERSION := 2
+const CURRENT_SCHEMA_VERSION := 3
 const SAVE_FORMAT := "pecking_order_campaign"
 const DEFAULT_FILENAME := "campaign.json"
 
@@ -39,6 +39,9 @@ var _temporary_path: String = ""
 var _backup_path: String = ""
 var _backup_temporary_path: String = ""
 var _configuration_error: String = ""
+var _cached_highest_revision := -1
+var _verified_primary_size := -1
+var _verified_primary_modified_unix := -1
 
 
 func _init(filename: String = DEFAULT_FILENAME) -> void:
@@ -54,6 +57,8 @@ func has_save() -> bool:
 		if not FileAccess.file_exists(path):
 			continue
 		if bool(_read_envelope(path).get("ok", false)):
+			if path == _primary_path:
+				_remember_verified_primary()
 			return true
 	return false
 
@@ -74,29 +79,37 @@ func save(campaign: Dictionary, metadata: Dictionary = {}) -> bool:
 
 	var stored_metadata: Dictionary = metadata.duplicate(true)
 	stored_metadata["saved_at_unix"] = int(Time.get_unix_time_from_system())
-	stored_metadata["save_revision"] = _highest_known_revision() + 1
+	var next_revision := _highest_known_revision() + 1
+	stored_metadata["save_revision"] = next_revision
 	var envelope := {
 		"format": SAVE_FORMAT,
 		"schema_version": CURRENT_SCHEMA_VERSION,
 		"campaign": campaign.duplicate(true),
 		"metadata": stored_metadata,
 	}
-	envelope["integer_paths"] = _collect_integer_paths(envelope)
-	var json_text := JSON.stringify(envelope, "\t")
+	envelope["integer_offsets"] = _collect_integer_offsets(envelope)
+	# Production checkpoints are machine envelopes, not hand-authored documents.
+	# Compact JSON materially reduces serialization, UTF-8 allocation, Web
+	# filesystem copy, and verification cost while preserving identical data.
+	var json_text := JSON.stringify(envelope)
 	if json_text.to_utf8_buffer().size() > MAX_FILE_BYTES:
 		return _fail("Save exceeds the %d-byte limit." % MAX_FILE_BYTES)
 
 	if not _write_text(_temporary_path, json_text):
 		return false
-	var temporary_result := _read_envelope(_temporary_path)
-	if not bool(temporary_result.get("ok", false)):
-		return _fail("Temporary save verification failed: %s" % String(temporary_result.get("error", "unknown error")))
+	if not _file_matches_text(_temporary_path, json_text):
+		return _fail("Temporary save verification failed: bytes differ from the validated envelope.")
 
 	# Preserve only a known-good primary. A corrupt primary must never overwrite a
 	# usable backup from the previous successful transaction.
 	if FileAccess.file_exists(_primary_path):
-		var primary_result := _read_envelope(_primary_path)
-		if bool(primary_result.get("ok", false)) and not _refresh_backup():
+		var primary_verified := _verified_primary_signature_is_current()
+		if not primary_verified:
+			var primary_result := _read_envelope(_primary_path)
+			primary_verified = bool(primary_result.get("ok", false))
+			if primary_verified:
+				_remember_verified_primary()
+		if primary_verified and not _refresh_backup():
 			return false
 
 	if FileAccess.file_exists(_primary_path):
@@ -113,9 +126,10 @@ func save(campaign: Dictionary, metadata: Dictionary = {}) -> bool:
 			return _fail("Could not commit the temporary save: %s" % error_string(copy_error))
 		_remove_if_present(_temporary_path)
 
-	var committed_result := _read_envelope(_primary_path)
-	if not bool(committed_result.get("ok", false)):
-		return _fail("Committed save verification failed: %s" % String(committed_result.get("error", "unknown error")))
+	if not _file_matches_text(_primary_path, json_text):
+		return _fail("Committed save verification failed: bytes differ from the validated envelope.")
+	_cached_highest_revision = next_revision
+	_remember_verified_primary()
 	_remove_if_present(_backup_temporary_path)
 	last_error = ""
 	return true
@@ -135,6 +149,57 @@ func load() -> Dictionary:
 	)
 
 
+## Returns one self-contained, current-schema JSON envelope suitable for a
+## player-controlled backup file. Recovery-only presentation fields are omitted;
+## importing the result creates a new verified local revision through save().
+func export_portable_backup() -> String:
+	last_error = ""
+	var envelope: Dictionary = self.load()
+	if envelope.is_empty():
+		return ""
+	var portable := {
+		"format": SAVE_FORMAT,
+		"schema_version": CURRENT_SCHEMA_VERSION,
+		"campaign": (envelope.get("campaign", {}) as Dictionary).duplicate(true),
+		"metadata": (envelope.get("metadata", {}) as Dictionary).duplicate(true),
+	}
+	portable["integer_offsets"] = _collect_integer_offsets(portable)
+	var json_text := JSON.stringify(portable)
+	if json_text.to_utf8_buffer().size() > MAX_FILE_BYTES:
+		_fail("Portable backup exceeds the %d-byte limit." % MAX_FILE_BYTES)
+		return ""
+	return json_text
+
+
+## Parses, migrates, bounds-checks, and envelope-validates a player-supplied
+## backup without touching disk or replacing the current campaign. Office uses
+## the returned isolated envelope for full domain-level staging before commit.
+func inspect_portable_backup(json_text: String) -> Dictionary:
+	last_error = ""
+	var result := _parse_envelope_text(json_text)
+	if not bool(result.get("ok", false)):
+		last_error = String(result.get("error", "Portable backup is invalid."))
+		return {}
+	return _public_envelope(
+		result.get("envelope", {}) as Dictionary,
+		false,
+		"portable"
+	)
+
+
+## Commits an already inspectable portable backup through the ordinary verified
+## temporary-write and backup-rotation transaction. Invalid input cannot modify
+## the previous primary or recovery copy.
+func import_portable_backup(json_text: String) -> bool:
+	var envelope := inspect_portable_backup(json_text)
+	if envelope.is_empty():
+		return false
+	return save(
+		envelope.get("campaign", {}) as Dictionary,
+		envelope.get("metadata", {}) as Dictionary,
+	)
+
+
 ## Returns every envelope-valid snapshot for caller-owned semantic validation.
 ##
 ## Ordering deliberately preserves load() selection behavior: a valid primary is
@@ -151,6 +216,7 @@ func load_recovery_candidates() -> Array[Dictionary]:
 	last_error = ""
 	if not _ensure_configured():
 		return []
+	_forget_verified_primary()
 
 	var errors: Array[String] = []
 	var primary_candidate: Dictionary = {}
@@ -170,6 +236,7 @@ func load_recovery_candidates() -> Array[Dictionary]:
 		)
 		if source == "primary":
 			primary_candidate = candidate
+			_remember_verified_primary()
 		else:
 			recovery_candidates.append(candidate)
 
@@ -179,6 +246,13 @@ func load_recovery_candidates() -> Array[Dictionary]:
 		ordered.append(primary_candidate)
 	ordered.append_array(recovery_candidates)
 	if not ordered.is_empty():
+		var highest_revision := 0
+		for candidate in ordered:
+			highest_revision = maxi(
+				highest_revision,
+				int((candidate as Dictionary).get("save_revision", 0)),
+			)
+		_cached_highest_revision = highest_revision
 		last_error = ""
 		return ordered
 
@@ -203,6 +277,8 @@ func delete() -> bool:
 			failures.append("%s: %s" % [_source_name(path), error_string(remove_error)])
 	if not failures.is_empty():
 		return _fail("Could not delete every campaign save file (%s)." % "; ".join(failures))
+	_cached_highest_revision = -1
+	_forget_verified_primary()
 	return true
 
 
@@ -231,6 +307,14 @@ func _migrate_one_version(envelope: Dictionary, from_version: int) -> Dictionary
 			_coerce_integral_numbers(migrated.get("campaign"))
 			_coerce_integral_numbers(migrated.get("metadata"))
 			migrated["integer_paths"] = _collect_integer_paths(migrated)
+			return migrated
+		2:
+			# Schema two stored one full JSON pointer per integer. Keep that
+			# legacy map intact while the common decoder upgrades the envelope in
+			# memory; new schema-three writes use compact deterministic leaf
+			# offsets instead.
+			var migrated: Dictionary = envelope.duplicate(true)
+			migrated["schema_version"] = 3
 			return migrated
 		_:
 			return {}
@@ -303,9 +387,8 @@ func _refresh_backup() -> bool:
 	var copy_error := DirAccess.copy_absolute(_primary_path, _backup_temporary_path)
 	if copy_error != OK:
 		return _fail("Could not stage the campaign backup: %s" % error_string(copy_error))
-	var staged_result := _read_envelope(_backup_temporary_path)
-	if not bool(staged_result.get("ok", false)):
-		return _fail("Staged backup verification failed: %s" % String(staged_result.get("error", "unknown error")))
+	if not _files_match(_primary_path, _backup_temporary_path):
+		return _fail("Staged backup verification failed: copied bytes differ from the verified primary.")
 	if FileAccess.file_exists(_backup_path):
 		var remove_error := DirAccess.remove_absolute(_backup_path)
 		if remove_error != OK:
@@ -315,11 +398,70 @@ func _refresh_backup() -> bool:
 		var fallback_copy_error := DirAccess.copy_absolute(_backup_temporary_path, _backup_path)
 		if fallback_copy_error != OK:
 			return _fail("Could not commit the campaign backup: %s" % error_string(fallback_copy_error))
-		var copied_result := _read_envelope(_backup_path)
-		if not bool(copied_result.get("ok", false)):
-			return _fail("Copied backup verification failed: %s" % String(copied_result.get("error", "unknown error")))
+		if not _files_match(_backup_temporary_path, _backup_path):
+			return _fail("Copied backup verification failed: committed bytes differ from the staged backup.")
 		_remove_if_present(_backup_temporary_path)
 	return true
+
+
+func _file_matches_text(path: String, expected: String) -> bool:
+	if not FileAccess.file_exists(path):
+		return false
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return false
+	var actual := file.get_as_text()
+	var read_error := file.get_error()
+	file.close()
+	return read_error == OK and actual == expected
+
+
+func _files_match(first_path: String, second_path: String) -> bool:
+	if not FileAccess.file_exists(first_path) or not FileAccess.file_exists(second_path):
+		return false
+	var first := FileAccess.open(first_path, FileAccess.READ)
+	var second := FileAccess.open(second_path, FileAccess.READ)
+	if first == null or second == null:
+		if first != null:
+			first.close()
+		if second != null:
+			second.close()
+		return false
+	var first_length := first.get_length()
+	var second_length := second.get_length()
+	if first_length != second_length or first_length < 0:
+		first.close()
+		second.close()
+		return false
+	var first_bytes := first.get_buffer(first_length)
+	var second_bytes := second.get_buffer(second_length)
+	var first_error := first.get_error()
+	var second_error := second.get_error()
+	first.close()
+	second.close()
+	return first_error == OK and second_error == OK and first_bytes == second_bytes
+
+
+func _remember_verified_primary() -> void:
+	if not FileAccess.file_exists(_primary_path):
+		_forget_verified_primary()
+		return
+	_verified_primary_size = FileAccess.get_size(_primary_path)
+	_verified_primary_modified_unix = FileAccess.get_modified_time(_primary_path)
+
+
+func _forget_verified_primary() -> void:
+	_verified_primary_size = -1
+	_verified_primary_modified_unix = -1
+
+
+func _verified_primary_signature_is_current() -> bool:
+	return (
+		_verified_primary_size >= 0
+		and FileAccess.file_exists(_primary_path)
+		and FileAccess.get_size(_primary_path) == _verified_primary_size
+		and FileAccess.get_modified_time(_primary_path) == _verified_primary_modified_unix
+	)
 
 
 func _remove_if_present(path: String) -> bool:
@@ -346,6 +488,15 @@ func _read_envelope(path: String) -> Dictionary:
 	file.close()
 	if read_error != OK:
 		return {"ok": false, "error": "read failed: %s" % error_string(read_error)}
+	return _parse_envelope_text(json_text)
+
+
+func _parse_envelope_text(json_text: String) -> Dictionary:
+	var byte_count := json_text.to_utf8_buffer().size()
+	if byte_count <= 0:
+		return {"ok": false, "error": "file is empty"}
+	if byte_count > MAX_FILE_BYTES:
+		return {"ok": false, "error": "file exceeds the size limit"}
 
 	var parser := JSON.new()
 	var parse_error := parser.parse(json_text)
@@ -382,7 +533,7 @@ func _read_envelope(path: String) -> Dictionary:
 		envelope = (migrated as Dictionary).duplicate(true)
 		version = next_version
 
-	var integer_restore_error := _restore_integer_paths(envelope)
+	var integer_restore_error := _restore_integer_encoding(envelope)
 	if not integer_restore_error.is_empty():
 		return {"ok": false, "error": integer_restore_error}
 	var envelope_error := _validate_current_envelope(envelope)
@@ -418,8 +569,11 @@ func _validate_current_envelope(envelope: Dictionary) -> String:
 		return "campaign payload must be a Dictionary"
 	if typeof(envelope.get("metadata")) != TYPE_DICTIONARY:
 		return "metadata must be a Dictionary"
-	if typeof(envelope.get("integer_paths")) != TYPE_ARRAY:
-		return "integer_paths must be an Array"
+	if (
+		typeof(envelope.get("integer_offsets")) != TYPE_ARRAY
+		and typeof(envelope.get("integer_paths")) != TYPE_ARRAY
+	):
+		return "integer encoding must provide integer_offsets or legacy integer_paths"
 	var campaign_error := _validate_json_root(envelope.get("campaign") as Dictionary, "campaign")
 	if not campaign_error.is_empty():
 		return campaign_error
@@ -435,6 +589,8 @@ func _validate_current_envelope(envelope: Dictionary) -> String:
 
 
 func _highest_known_revision() -> int:
+	if _cached_highest_revision >= 0:
+		return _cached_highest_revision
 	var highest := 0
 	for path in _all_paths():
 		if not FileAccess.file_exists(path):
@@ -442,6 +598,7 @@ func _highest_known_revision() -> int:
 		var result := _read_envelope(path)
 		if bool(result.get("ok", false)):
 			highest = maxi(highest, int(result.get("revision", 0)))
+	_cached_highest_revision = highest
 	return highest
 
 
@@ -483,6 +640,164 @@ func _recovery_source_priority(source: String) -> int:
 			return 2
 		_:
 			return 3
+
+
+func _collect_integer_offsets(envelope: Dictionary) -> Array[int]:
+	# JSON preserves container structure but parses every number without the
+	# authored int/float distinction. Schema three records only the deterministic
+	# primitive-leaf ordinals that were integers. Sorting Dictionary keys makes
+	# the traversal stable across construction order and turns hundreds of long
+	# JSON pointers into a small monotonic integer array.
+	var offsets: Array[int] = []
+	var cursor := {"leaf_index": 0}
+	_collect_integer_offsets_from_value(envelope.get("campaign"), cursor, offsets)
+	_collect_integer_offsets_from_value(envelope.get("metadata"), cursor, offsets)
+	return offsets
+
+
+func _collect_integer_offsets_from_value(
+	value: Variant,
+	cursor: Dictionary,
+	offsets: Array[int],
+) -> void:
+	match typeof(value):
+		TYPE_ARRAY:
+			var array_value: Array = value
+			for index in array_value.size():
+				_collect_integer_offsets_from_value(array_value[index], cursor, offsets)
+		TYPE_DICTIONARY:
+			var dictionary_value: Dictionary = value
+			var keys: Array = dictionary_value.keys()
+			keys.sort()
+			for key in keys:
+				_collect_integer_offsets_from_value(dictionary_value[key], cursor, offsets)
+		_:
+			var leaf_index := int(cursor.get("leaf_index", 0))
+			if typeof(value) == TYPE_INT:
+				offsets.append(leaf_index)
+			cursor["leaf_index"] = leaf_index + 1
+
+
+func _restore_integer_encoding(envelope: Dictionary) -> String:
+	if typeof(envelope.get("integer_offsets")) == TYPE_ARRAY:
+		return _restore_integer_offsets(envelope)
+	if typeof(envelope.get("integer_paths")) == TYPE_ARRAY:
+		return _restore_integer_paths(envelope)
+	return "integer encoding is missing or invalid"
+
+
+func _restore_integer_offsets(envelope: Dictionary) -> String:
+	var offsets_value: Variant = envelope.get("integer_offsets")
+	if typeof(offsets_value) != TYPE_ARRAY:
+		return "integer_offsets is missing or invalid"
+	var offsets: Array = offsets_value
+	if offsets.size() > MAX_VALUE_COUNT:
+		return "integer_offsets exceeds the maximum value count"
+	var prior_offset := -1
+	for offset_value in offsets:
+		if not _is_nonnegative_integer(offset_value):
+			return "integer_offsets must contain only non-negative integers"
+		var offset := int(offset_value)
+		if offset <= prior_offset:
+			return "integer_offsets must be strictly increasing"
+		prior_offset = offset
+	var state := {
+		"leaf_index": 0,
+		"offset_index": 0,
+		"offsets": offsets,
+	}
+	var campaign_error := _restore_integer_offsets_in_value(
+		envelope.get("campaign"),
+		state,
+		"/campaign",
+	)
+	if not campaign_error.is_empty():
+		return campaign_error
+	var metadata_error := _restore_integer_offsets_in_value(
+		envelope.get("metadata"),
+		state,
+		"/metadata",
+	)
+	if not metadata_error.is_empty():
+		return metadata_error
+	if int(state.get("offset_index", 0)) != offsets.size():
+		return "integer_offsets contains an out-of-range leaf offset"
+	return ""
+
+
+func _restore_integer_offsets_in_value(
+	value: Variant,
+	state: Dictionary,
+	path: String,
+) -> String:
+	if typeof(value) == TYPE_DICTIONARY:
+		var dictionary_value: Dictionary = value
+		var keys: Array = dictionary_value.keys()
+		keys.sort()
+		for key in keys:
+			var child: Variant = dictionary_value[key]
+			var child_path := "%s/%s" % [path, _escape_pointer_segment(String(key))]
+			if typeof(child) in [TYPE_ARRAY, TYPE_DICTIONARY]:
+				var child_error := _restore_integer_offsets_in_value(child, state, child_path)
+				if not child_error.is_empty():
+					return child_error
+				continue
+			var leaf_error := _restore_integer_offset_leaf(
+				child,
+				state,
+				child_path,
+			)
+			if not leaf_error.is_empty():
+				return leaf_error
+			if bool(state.get("converted", false)):
+				dictionary_value[key] = int(child)
+		return ""
+	if typeof(value) == TYPE_ARRAY:
+		var array_value: Array = value
+		for index in array_value.size():
+			var child: Variant = array_value[index]
+			var child_path := "%s/%d" % [path, index]
+			if typeof(child) in [TYPE_ARRAY, TYPE_DICTIONARY]:
+				var child_error := _restore_integer_offsets_in_value(child, state, child_path)
+				if not child_error.is_empty():
+					return child_error
+				continue
+			var leaf_error := _restore_integer_offset_leaf(
+				child,
+				state,
+				child_path,
+			)
+			if not leaf_error.is_empty():
+				return leaf_error
+			if bool(state.get("converted", false)):
+				array_value[index] = int(child)
+		return ""
+	return "%s is not a JSON container" % path
+
+
+func _restore_integer_offset_leaf(
+	value: Variant,
+	state: Dictionary,
+	path: String,
+) -> String:
+	var leaf_index := int(state.get("leaf_index", 0))
+	var offset_index := int(state.get("offset_index", 0))
+	var offsets := state.get("offsets", []) as Array
+	var convert := (
+		offset_index < offsets.size()
+		and int(offsets[offset_index]) == leaf_index
+	)
+	state["converted"] = convert
+	state["leaf_index"] = leaf_index + 1
+	if not convert:
+		return ""
+	if not _is_integral_number(value):
+		return "integer offset %d does not point to an integer-compatible number at %s" % [
+			leaf_index,
+			path,
+		]
+	state["offset_index"] = offset_index + 1
+	return ""
 
 
 func _collect_integer_paths(envelope: Dictionary) -> Array[String]:
