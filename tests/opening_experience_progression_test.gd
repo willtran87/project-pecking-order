@@ -278,7 +278,7 @@ func _run() -> void:
 	)
 	_check(
 		shift_egg_goal_label != null
-		and shift_egg_goal_label.visible
+		and not shift_egg_goal_label.visible
 		and (shift_egg_goal_label.text.ends_with("LEFT") or shift_egg_goal_label.text == "READY")
 		and "NEXT PAYOFF" in shift_egg_goal_label.tooltip_text
 		and shift_egg_goal_label.has_meta("payoff_countdown")
@@ -290,6 +290,7 @@ func _run() -> void:
 		and shift_egg_goal_icon.icon_kind() == &"egg"
 		and shift_quota_progress != null
 		and shift_quota_readout != null
+		and shift_quota_readout.is_visible_in_tree()
 		and shift_quota_readout.text == "QUOTA  ·  %d / %d" % [
 			roundi(shift_quota_progress.value),
 			roundi(shift_quota_progress.max_value),
@@ -298,7 +299,7 @@ func _run() -> void:
 		and "separate from Flockwatch score goals" in shift_quota_progress.tooltip_text
 		and shift_quota_progress.accessibility_name == shift_quota_progress.tooltip_text
 		and shift_quota_readout.accessibility_name == shift_quota_progress.tooltip_text,
-		"the always-visible shift quota should name its role and distinguish itself from scored Flockwatch goals: label=%s visible=%s readout=%s tooltip=%s" % [shift_egg_goal_label.text, shift_egg_goal_label.visible, shift_quota_readout.text, shift_quota_progress.tooltip_text],
+		"the primary quota should remain visible and distinct from score goals while the secondary payoff counter stays behind inspection: label=%s visible=%s readout=%s tooltip=%s" % [shift_egg_goal_label.text, shift_egg_goal_label.visible, shift_quota_readout.text, shift_quota_progress.tooltip_text],
 		failures,
 	)
 	campaign_ui.show_active_campaign()

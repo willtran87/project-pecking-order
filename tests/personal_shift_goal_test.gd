@@ -29,6 +29,16 @@ func _run() -> void:
 	_check(SimulationClock.active_frame_seconds(30.0, 30.0) <= 0.25, "an unclamped resume delta must also remain bounded", failures)
 	var report := {"day": 1, "eggs": 12, "quota_target": 10, "cracked": 2, "overdue_claims": 1}
 	var goal := Goal.offer(report)
+	var alternatives := Goal.choices(report)
+	_check(alternatives.size() == 3 and alternatives[2].kind == "welfare", "review must offer output, safety and welfare without a purchase", failures)
+	var welfare: Dictionary = alternatives[2]
+	_check(Goal.normalize(JSON.parse_string(JSON.stringify(welfare))) == welfare, "welfare goals must round-trip through the validated save format", failures)
+	_check(Goal.finish(welfare, {"day": 2, "eggs": 10, "quota": 10, "flock_care": {"welfare_score": welfare.target}}).status == "complete", "welfare goals must use authoritative closing welfare", failures)
+	_check(Goal.finish(welfare, {"day": 2, "eggs": 10, "quota": 10}).status == "missed", "missing welfare evidence must never grant a goal", failures)
+	_check(Goal.progress(goal, {"day": 2, "cracked_today": 2}).contains("GOAL MISSED"), "an irreversible cracked-shell failure must be disclosed immediately", failures)
+	_check(not Goal.is_unreachable(goal, {"day": 1, "cracked_today": 20}), "another shift must not fail the accepted goal", failures)
+	_check(not Goal.is_unreachable(welfare, {"day": 2, "flock_care": {"welfare_score": 0}}), "welfare remains recoverable before closing", failures)
+	_check(not Goal.is_unreachable({"day": 2, "kind": "files", "target": 0}, {"day": 2, "overdue_claims": 3}), "late queues can be cleared before closing; never mark them irreversibly missed", failures)
 	_check(goal.kind == "shells" and goal.target == 1 and goal.day == 2, "offer must derive a next-shift improvement from actual results", failures)
 	_check(Goal.normalize(JSON.parse_string(JSON.stringify(goal))) == goal, "JSON numeric conversion must preserve the goal", failures)
 	for malformed in [{}, {"version": 99}, {"version": 1, "day": 2, "target": -1, "quota": 10, "kind": "shells", "status": "active"}, {"version": 1, "day": 2.5, "target": 1, "quota": 10, "kind": "shells", "status": "active"}]:
@@ -97,6 +107,13 @@ func _run() -> void:
 	routing.set_focus(0)
 	routing.begin_care_lesson()
 	var lesson := routing.get("_care_lesson") as Dictionary
+	_check(lesson.get("action_id") != &"quota_pressure", "a care lesson must never recommend pressure", failures)
+	var personnel_buttons: Dictionary = routing.get("_personnel_buttons")
+	(personnel_buttons[&"share_credit"] as Button).disabled = true
+	(personnel_buttons[&"career_coaching"] as Button).disabled = true
+	(personnel_buttons[&"quota_pressure"] as Button).disabled = false
+	routing.begin_care_lesson()
+	_check((routing.get("_care_lesson") as Dictionary).get("action_id") == &"", "unaffordable care must offer Later, not free pressure", failures)
 	var later := routing.find_child("CareLessonLater", true, false) as Button
 	_check(not lesson.is_empty() and later.visible, "optional care must provide an explicit Later exit", failures)
 	_check(simulation.revenue_cents == before_cash, "opening a lesson must not spend money", failures)
@@ -104,8 +121,35 @@ func _run() -> void:
 	_check((routing.get("_care_lesson") as Dictionary).is_empty(), "Later must dismiss the lesson without filing", failures)
 	routing.begin_care_lesson()
 	routing.complete_care_lesson(0, {"accepted": true, "outcome": "Actual check-in"}, {"name": "Mabel", "manager_trust": 50, "stress": 30}, {"manager_trust": 58, "stress": 25})
-	_check(String((routing.get("_care_lesson") as Dictionary).outcome).contains("50 → 58"), "lesson results must use before/after authority", failures)
+	_check(String((routing.get("_care_lesson") as Dictionary).outcome).contains("50 > 58"), "lesson results must use before/after authority", failures)
 	_check((office.get("_active_playbook_button") as Button).text.begins_with("PLAN"), "the plan menu must retain a stable name", failures)
+	office.call("_begin_payoff_breath")
+	office.call("_set_guidance", "OPTIONAL PLAN", &"goal", "Optional", &"playbook")
+	_check((office.get("_guidance_label") as Label).text in ["WATCH THE FLOCK", "FILED · RESUME WHEN READY"], "optional prompts must leave a payoff breathing window without claiming paused work continues", failures)
+	office.call("_set_guidance", "RESCUE NOW", &"goal", "Required", &"resume_shift")
+	_check((office.get("_guidance_label") as Label).text == "RESCUE NOW", "required guidance must bypass optional pacing", failures)
+	(office.get("_active_playbook_button") as Button).set_meta("opportunity", "rescue")
+	office.call("_set_guidance", "RESCUE NOW", &"care", "Urgent care", &"playbook")
+	_check((office.get("_guidance_label") as Label).text == "RESCUE NOW", "urgent playbook rescue must bypass optional pacing", failures)
+	office.set("_last_workday_report", report)
+	office.set("_personal_goal_offer", goal)
+	var accepted_before: Dictionary = (office.get("_personal_goal") as Dictionary).duplicate(true)
+	office.call("_on_review_remix_pressed")
+	_check(office.get("_personal_goal") == accepted_before and office.get("_personal_goal_offer") != goal, "browsing another goal must not replace the accepted intention", failures)
+	var quiet_snapshot := simulation.snapshot()
+	quiet_snapshot["shift_phase"] = DepartmentSimulation.ShiftPhase.RUNNING
+	office.call("_apply_readable_loop_hud", quiet_snapshot, {})
+	_check(not (office.get("_core_loop_host") as Control).visible and not (office.get("_reward_loop_host") as Control).visible, "normal play must hide secondary counter clusters", failures)
+	(office.get("_explain_strip") as Control).visible = true
+	office.call("_apply_readable_loop_hud", quiet_snapshot, {})
+	_check((office.get("_core_loop_host") as Control).visible and (office.get("_reward_loop_host") as Control).visible, "inspection must retain the detailed counters", failures)
+	office.call("_set_review_details_expanded", false)
+	_check(not (office.find_child("ReviewCapitalBlueprintButton", true, false) as Button).visible, "review administration must stay behind Details", failures)
+	office.call("_set_review_details_expanded", true)
+	_check((office.find_child("ReviewCapitalBlueprintButton", true, false) as Button).visible, "Details must restore access to Build", failures)
+	office.set("_personal_goal", welfare)
+	office.call("_apply_three_card_review", report)
+	_check(office.get("_personal_goal_offer") == welfare and (office.get("_personal_goal_button") as Button).text.contains("ACCEPTED"), "reopening a review must show its accepted alternative, not silently reset to the default offer", failures)
 	office.queue_free()
 	await process_frame
 	if failures.is_empty():

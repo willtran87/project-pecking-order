@@ -456,13 +456,21 @@ func optional_visual_build_snapshot() -> Dictionary:
 	}
 
 
+var _last_collection_frame_usec: int = 0
+
+
 func _process(delta: float) -> void:
+	var collection_delta := delta
+	var now_usec := Time.get_ticks_usec()
+	if OS.has_feature("web") and _last_collection_frame_usec > 0:
+		collection_delta = SimulationClock.active_frame_seconds(delta, float(now_usec - _last_collection_frame_usec) / 1000000.0)
+	_last_collection_frame_usec = now_usec
 	_phase += delta
 	_process_grading_receipt(delta)
 	_process_sorter_stamp_animations(delta)
 	_process_settled_egg_animations(delta)
 	_process_clutch_recoil_animations(delta)
-	_process_routed_egg_animations(delta)
+	_process_routed_egg_animations(collection_delta)
 	if _perch_screen_material != null:
 		var energy := (1.18 if _overtime_active else 0.78) + sin(_phase * 2.1) * 0.08
 		_perch_screen_material.emission_energy_multiplier = energy

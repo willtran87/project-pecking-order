@@ -712,6 +712,7 @@ var _opening_header_slots: Control
 var _opening_header_label: Label
 var _live_title_label: Label
 var _upgrade_demonstration: Dictionary = {}
+var _payoff_quiet_until_msec: int = 0
 var _quality_streak_label: Label
 var _clutch_carton_host: HBoxContainer
 var _clutch_carton_icons: Array[FlockwatchIconBadge] = []
@@ -1551,8 +1552,9 @@ func _update_shift_clock_copy(day: int, time_copy: String) -> void:
 	var day_copy := "DAY %d" % day
 	_day_label.set_meta("full_text", day_copy)
 	_day_label.set_meta("compact_text", day_copy)
-	_time_label.set_meta("full_text", time_copy)
-	_time_label.set_meta("compact_text", time_copy)
+	_time_label.set_meta("full_text", _visible_clock_state(time_copy))
+	_time_label.set_meta("compact_text", _visible_clock_state(time_copy))
+	_time_label.set_meta("clock_text", time_copy)
 	var clock_accessible := "Shift clock: Day %d at %s." % [day, time_copy]
 	_day_label.tooltip_text = clock_accessible
 	_day_label.accessibility_name = clock_accessible
@@ -5236,7 +5238,7 @@ func _process(delta: float) -> void:
 		var campaign_modal_open := _campaign_ui.is_modal_open()
 		_campaign_ui.set_badge_presentation(
 			FIRST_CLUTCH_ROUTING_TOP if first_clutch_compact else LIVE_ROUTING_TOP,
-			first_clutch_compact or _flockwatch_open or (blocking_surface_open and not campaign_modal_open),
+			first_clutch_compact or _flockwatch_open or (_simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING and not _explain_strip.visible) or (blocking_surface_open and not campaign_modal_open),
 		)
 	if _top_hud_panel != null:
 		_top_hud_panel.visible = not blocking_surface_open
@@ -7112,24 +7114,24 @@ func _build_day_review_panel() -> void:
 	buttons.add_child(_review_replay_button)
 	_review_remix_button = Button.new()
 	_review_remix_button.name = "ReviewRemixNextButton"
+	_review_remix_button.text = "OTHER GOAL"
 	_review_remix_button.icon = ManagementUIThemeScript.action_icon(&"review_remix")
-	_review_remix_button.custom_minimum_size = Vector2(44.0, 48.0)
-	_review_remix_button.tooltip_text = "Preview a plan that supports your next-shift goal. No choice is filed."
-	_review_remix_button.accessibility_name = "Preview a matching next-shift plan. No choice is filed."
+	_review_remix_button.custom_minimum_size = Vector2(140.0, 48.0)
+	_review_remix_button.tooltip_text = "Browse another goal: more eggs, safer shells, or happier hens. Accept separately; browsing changes nothing."
+	_review_remix_button.accessibility_name = "Browse another next-shift goal. Accept separately; browsing changes nothing."
 	_review_remix_button.pressed.connect(_on_review_remix_pressed)
 	buttons.add_child(_review_remix_button)
 	var requisitions := Button.new()
 	requisitions.name = "ReviewRequisitionsButton"
 	requisitions.text = "STAFF / CASES"
-	requisitions.custom_minimum_size = Vector2(180.0, 48.0)
+	requisitions.custom_minimum_size = Vector2(136.0, 48.0)
 	requisitions.tooltip_text = "Review staffing, training, and named-hen workplace cases."
 	requisitions.pressed.connect(_on_review_requisitions_pressed)
 	buttons.add_child(requisitions)
 	var blueprint := Button.new()
 	blueprint.name = "ReviewCapitalBlueprintButton"
 	blueprint.text = "BUILD"
-	blueprint.theme_type_variation = &"PrimaryButton"
-	blueprint.custom_minimum_size = Vector2(190.0, 48.0)
+	blueprint.custom_minimum_size = Vector2(100.0, 48.0)
 	blueprint.tooltip_text = "Compare every permanent office project on one spatial capital plan."
 	blueprint.pressed.connect(_on_review_capital_blueprint_pressed)
 	buttons.add_child(blueprint)
@@ -7187,6 +7189,10 @@ func _on_review_details_toggled() -> void:
 
 func _set_review_details_expanded(expanded: bool) -> void:
 	_review_details_expanded = expanded
+	for node_name in ["ReviewRequisitionsButton", "ReviewCapitalBlueprintButton"]:
+		var secondary := find_child(node_name, true, false) as Button
+		if secondary != null:
+			secondary.visible = expanded
 	if _review_details_scroll != null:
 		_review_details_scroll.visible = _review_details_expanded
 	if _review_details_toggle != null:
@@ -9227,7 +9233,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			String(personnel_action.get("worker_name", "HEN")).to_upper(),
 			String(personnel_action.get("action_name", "CHECK-IN")).to_upper(),
 		]
-	_review_title.text = "DAY %d  ·  SHIFT RESULT" % int(report.get("day", 1))
+	_review_title.text = "%s · DAY %d" % ["QUOTA MET" if met_quota else "SHIFT FILED", int(report.get("day", 1))]
 	_set_review_details_expanded(false)
 	if _review_eggs_value != null:
 		_review_eggs_value.text = "%s  %d / %d" % [
@@ -9571,10 +9577,16 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			float(int(closing_leader.get("credit_cents", 0))) / 100.0,
 		]
 	_review_story.text = review_highlight
+	# The accounting above remains available in Details. End on the hen's work.
+	var named_contribution := report.get("hen_highlight", {}) as Dictionary
+	if not named_contribution.is_empty():
+		_review_story.text = "%s · %d EGGS" % [String(named_contribution.get("worker_name", "THE FLOCK")).to_upper(), int(named_contribution.get("eggs", 0))]
+		_review_story.tooltip_text = String(named_contribution.get("body", review_highlight))
+		_review_story.accessibility_name = "%s. %s" % [_review_story.text, _review_story.tooltip_text]
 	_review_story.set_meta("filed_highlight", review_highlight)
 	_review_remix_index = -1
 	if _review_remix_button != null:
-		_review_remix_button.text = ""
+		_review_remix_button.text = "OTHER GOAL"
 	if not personnel_action.is_empty():
 		_review_results.text += "\nPersonnel outcome: %s" % String(
 			personnel_action.get("outcome", "Check-in filed.")
@@ -9622,7 +9634,8 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 
 
 func _apply_three_card_review(report: Dictionary) -> void:
-	_personal_goal_offer = PersonalShiftGoal.offer(report)
+	var accepted_next_shift: bool = _personal_goal.get("status", "") == "active" and int(_personal_goal.get("day", -1)) == int(report.get("day", -2)) + 1
+	_personal_goal_offer = _personal_goal.duplicate(true) if accepted_next_shift else PersonalShiftGoal.offer(report)
 	_personal_goal_button.text = "GOAL ACCEPTED · CANCEL" if _personal_goal == _personal_goal_offer else "TRY NEXT SHIFT · " + PersonalShiftGoal.label(_personal_goal_offer)
 	_personal_goal_button.tooltip_text = "Optional personal goal. Tracks real results next shift; no money is spent and no cash reward is promised. Click again to cancel."
 	var next_challenge := PersonalShiftGoal.strategy(_personal_goal_offer)
@@ -9709,15 +9722,20 @@ func _on_review_replay_highlight_pressed() -> void:
 func _on_review_remix_pressed() -> void:
 	if _review_story == null:
 		return
+	var alternatives := PersonalShiftGoal.choices(_last_workday_report)
+	var current_index := alternatives.find(_personal_goal_offer)
+	_personal_goal_offer = alternatives[(current_index + 1) % alternatives.size()]
+	_personal_goal_button.text = "GOAL ACCEPTED · CANCEL" if _personal_goal == _personal_goal_offer else "TRY NEXT SHIFT · " + PersonalShiftGoal.label(_personal_goal_offer)
 	var idea := PersonalShiftGoal.strategy(_personal_goal_offer)
-	_review_story.text = String(idea.get("copy", "NEXT IDEA"))
-	_review_story.tooltip_text = "Preview only. Continue to the next shift, then file any available plan."
+	_review_next_hint.text = String(idea.get("copy", "NEXT IDEA"))
+	_review_next_hint.accessibility_name = _review_next_hint.text + ". Preview only. Accept the goal separately."
 	_review_story.set_meta("remix_strategy_id", String(idea.get("id", "")))
 	if _review_remix_button != null:
-		_review_remix_button.text = ""
-		_review_remix_button.tooltip_text = "%s\nPreview only. Continue, then file any available plan." % String(idea.get("copy", "NEXT IDEA"))
+		_review_remix_button.text = "OTHER GOAL"
+		_review_remix_button.tooltip_text = "Browse another goal. %s\nPreview only; accept separately." % String(idea.get("copy", "NEXT IDEA"))
 		_review_remix_button.set_meta("preview_only", true)
 		_review_remix_button.set_meta("strategy_id", String(idea.get("id", "")))
+	_publish_web_diagnostic_state(_simulation.snapshot())
 	if _audio_feedback != null:
 		_audio_feedback.play_decision_resolved()
 
@@ -11005,6 +11023,7 @@ func _on_routing_reward_presented(
 	chain: int,
 ) -> void:
 	var reward_id := StringName(String(reward.get("id", "")))
+	_begin_payoff_breath()
 	match reward_id:
 		&"peck_recharge":
 			var presented := (
@@ -11634,6 +11653,7 @@ func _on_personnel_action_requested(worker_id: int, action_id: StringName) -> vo
 			_audio_feedback.play_denied(&"personnel")
 		return
 	var preferred_note := "  /  PROFILE MATCH" if bool(result.get("preferred", false)) else ""
+	_begin_payoff_breath()
 	_ticker_label.text = "%s%s" % [String(result.get("outcome", "Personnel action filed.")), preferred_note]
 	if _audio_feedback != null:
 		_audio_feedback.play_decision_resolved()
@@ -11930,6 +11950,11 @@ func _pause_context_state() -> Dictionary:
 				resume_behavior = "automatic" if _feed_party_previous_speed > 0 else "manual"
 				speed_button_actionable = false
 
+	if owner_id == &"player" and _first_clutch_tracking_active() and not bool(_first_clutch.get("specialty_routed", false)):
+		owner_id = &"opening_route"
+		owner_label = "READY TO ROUTE"
+		reason = "The first route has not started. Route and Start begins automatic work."
+		next_action = "ROUTE & START"
 	if next_action.is_empty():
 		next_action = "CONTINUE"
 	var compact_action := next_action.to_upper().replace("  ", " ")
@@ -11955,6 +11980,18 @@ func _pause_context_state() -> Dictionary:
 	}
 
 
+func _visible_clock_state(time_copy: String) -> String:
+	var context := _pause_context_state()
+	if not bool(context.get("active", false)):
+		return time_copy
+	match String(context.get("owner_id", "")):
+		"player": return "YOU PAUSED"
+		"opening_route": return "READY"
+		"window_focus": return "AWAY"
+		"feed_party": return "BREAK"
+	return "DECISION"
+
+
 func _refresh_speed_button_copy() -> void:
 	if _speed_buttons.is_empty():
 		return
@@ -11970,6 +12007,13 @@ func _refresh_speed_button_copy() -> void:
 		and not _focus_pause_active
 	)
 	var pause_label := "RESUME" if resume_available else "PAUSED"
+	if _time_label != null:
+		var state_copy := _visible_clock_state(String(_time_label.get_meta("clock_text", "RUNNING")))
+		_time_label.set_meta("full_text", state_copy)
+		_time_label.set_meta("compact_text", state_copy)
+		_time_label.text = state_copy
+		_time_label.tooltip_text = String(pause_context.get("accessible_text", "Production is running at the selected speed."))
+		_time_label.accessibility_name = _time_label.tooltip_text
 	var labels := [pause_label if paused else "PAUSE", "1×", "3×", "10×"]
 	var pause_tooltip := String(pause_context.get(
 		"accessible_text",
@@ -20395,8 +20439,11 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 		_quota_progress_label.tooltip_text = detail
 		_quota_progress_label.accessibility_name = detail
 		_shift_goal_status_host.set_meta("accessible_text", detail)
-	_core_loop_host.visible = not opening
-	_shift_egg_goal_label.visible = not opening
+	# The floor carries the loop; detailed counters are available while inspecting.
+	var inspecting := _explain_strip != null and _explain_strip.visible
+	_core_loop_host.visible = not opening and inspecting
+	_shift_egg_goal_label.visible = not opening and inspecting
+	_reward_loop_host.visible = not opening and inspecting
 	if opening:
 		_reward_loop_host.visible = false
 		_clutch_carton_host.visible = false
@@ -20409,7 +20456,7 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 		_clutch_carton_host.visible = false
 		if _personal_goal.get("status", "") == "active" and int(_personal_goal.get("day", -1)) == int(snapshot.get("day", 0)):
 			_quality_streak_label.tooltip_text = "%s. %s" % [PersonalShiftGoal.label(_personal_goal), _quality_streak_label.text]
-			_quality_streak_label.text = "%s · CLEAN %d" % [PersonalShiftGoal.progress(_personal_goal, snapshot), chain]
+			_quality_streak_label.text = PersonalShiftGoal.progress(_personal_goal, snapshot)
 			_quality_streak_label.visible = true
 	var push_luck := playbook.get("push_luck", {}) as Dictionary
 	if running and bool(push_luck.get("open", false)) and String(push_luck.get("id", "")).is_empty() and not _blocking_management_surface_open():
@@ -20473,7 +20520,7 @@ func _apply_complete_game_loop_presentation(loop: Dictionary, snapshot: Dictiona
 				bark = "QUEUE'S RISING!"
 			elif stage == &"final_push":
 				bark = "FINAL PUSH!"
-			if not bark.is_empty() and not _blocking_management_surface_open() and not _first_clutch_tracking_active() and Time.get_ticks_msec() - _last_optional_floor_beat_msec >= 8000:
+			if not bark.is_empty() and not _blocking_management_surface_open() and not _first_clutch_tracking_active() and Time.get_ticks_msec() >= _payoff_quiet_until_msec and Time.get_ticks_msec() - _last_optional_floor_beat_msec >= 8000:
 				_last_optional_floor_beat_msec = Time.get_ticks_msec()
 				_character_dialogue_ui.hold_ambient(3.0)
 				var story := loop.get("emergent_story", {}) as Dictionary
@@ -21146,8 +21193,9 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		]
 		if kind == "preset":
 			var preset := DepartmentSimulation.PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(StringName(option.get("id", "")), {}) as Dictionary
-			label = "%s%s · %s · %s" % [recommended_mark, String(preset.get("label", "PLAN")), String(preset.get("gain", "")), String(preset.get("cost", ""))]
-			if goal_active and String(option.get("id", "")) == String(PersonalShiftGoal.strategy(_personal_goal).get("id", "")):
+			var plain_plans := {"fast": "FASTER EGGS · more fragile", "safe": "SAFER SHELLS · slower work", "flock": "HAPPIER HENS · $2, slightly slower"}
+			label = recommended_mark + String(plain_plans.get(String(option.get("id", "")), preset.get("label", "PLAN")))
+			if goal_active and not PersonalShiftGoal.is_unreachable(_personal_goal, {"day": _simulation.day, "cracked_today": _simulation.cracked_today}) and String(option.get("id", "")) == String(PersonalShiftGoal.strategy(_personal_goal).get("id", "")):
 				label = "YOUR GOAL · " + label
 		popup.add_icon_item(
 			ManagementUIThemeScript.action_icon(
@@ -21159,6 +21207,9 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		var item_index := popup.get_item_index(item_id)
 		popup.set_item_disabled(item_index, not available)
 		popup.set_item_tooltip(item_index, String(option.get("detail", option.get("reason", ""))))
+		if kind == "preset":
+			var exact_plan := DepartmentSimulation.PLAYBOOK_STRATEGY_PRESET_DEFINITIONS.get(StringName(option.get("id", "")), {}) as Dictionary
+			popup.set_item_tooltip(item_index, "%s\n%s · %s\n%s" % [String(exact_plan.get("label", "PLAN")), String(exact_plan.get("gain", "")), String(exact_plan.get("cost", "")), String(option.get("detail", option.get("reason", "")))])
 		popup.set_item_metadata(item_index, option.duplicate(true))
 		_active_playbook_menu_map[item_id] = option.duplicate(true)
 		if available and ready_kind.is_empty():
@@ -21294,11 +21345,13 @@ func _on_active_playbook_item_pressed(item_id: int) -> void:
 	if not bool(result.get("accepted", false)):
 		return
 	if String(result.get("playbook_kind", "")) == "teamwork":
+		_begin_payoff_breath()
 		for teammate_id in [int(result.get("worker_id", -1)), int(result.get("partner_id", -1))]:
 			var teammate := _worker_views.get(teammate_id) as ChickenView
 			if teammate != null:
 				teammate.play_short_bark("TOGETHER!", &"team")
 	if kind == &"preset":
+		_begin_payoff_breath()
 		var plan_hen := _worker_views.get(maxi(0, _active_playbook_focused_worker_id)) as ChickenView
 		_character_dialogue_ui.hold_ambient(3.0)
 		if plan_hen != null:
@@ -22719,6 +22772,10 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"checkpoint": _checkpoint_diagnostic_state(),
 		"first_session_funnel": _first_session_funnel.snapshot(),
 		"personal_shift_goal": _personal_goal.duplicate(true),
+		"personal_goal_offer": _personal_goal_offer.duplicate(true),
+		"goal_browse_control": {"visible": _review_remix_button != null and _review_remix_button.is_visible_in_tree(), "rect": _web_control_rect(_review_remix_button)},
+		"review_contribution": _review_story.text if _review_story != null else "",
+		"quiet_hud": {"details_visible": _explain_strip != null and _explain_strip.visible, "loop_counters_visible": _core_loop_host != null and _core_loop_host.is_visible_in_tree(), "reward_counters_visible": _reward_loop_host != null and _reward_loop_host.is_visible_in_tree(), "clock": _time_label.text if _time_label != null else "", "goal": _quality_streak_label.text if _quality_streak_label != null else ""},
 		"care_lesson": _routing_ui.care_lesson_state(),
 		"personal_goal_control": {
 			"visible": _personal_goal_button != null and _personal_goal_button.is_visible_in_tree(),
@@ -23561,6 +23618,16 @@ func _set_guidance(
 ) -> void:
 	if _guidance_label == null:
 		return
+	# Only optional playbook prompts wait. Decisions, rescue and pause cues bypass
+	# this filter, and the player can still open PLAN at any time.
+	if action_id == &"playbook" and Time.get_ticks_msec() < _payoff_quiet_until_msec and _active_playbook_button != null and String(_active_playbook_button.get_meta("opportunity", "")) not in ["rescue", "reward"]:
+		copy = "WATCH THE FLOCK"
+		exact_detail = "Your action is filed. PLAN remains available whenever you want it."
+		action_id = &""
+		if _clock != null and _clock.speed_index == 0 and not _blocking_management_surface_open():
+			copy = "FILED · RESUME WHEN READY"
+			exact_detail = "Your action is filed, but time is still paused. Resume when ready; nothing else must be purchased."
+			action_id = &"resume_shift"
 	var detail := exact_detail if not exact_detail.is_empty() else copy
 	_guidance_action_id = action_id
 	_guidance_label.text = copy
@@ -25053,14 +25120,16 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		var max_level := int(upgrade.get("max_level", 5))
 		var cost := int(upgrade.get("cost_cents", 0))
 		var maxed := bool(upgrade.get("maxed", false))
-		button.text = "%s  ·  Lv %d/%d\n%s" % [
-			String(upgrade.get("short_name", "UPGRADE")), level, max_level,
-			("FULLY APPROVED" if maxed else "$%.2f  ·  %s" % [cost / 100.0, String(upgrade.get("description", ""))]),
+		var benefit_names := {&"peckwork_tools": "TOOLS · FASTER WORK", &"shell_lamp": "LAMP · SAFER SHELLS", &"nest_cushion": "CUSHION · LESS STRAIN"}
+		button.text = "%s · %d/%d\n%s" % [
+			String(benefit_names.get(upgrade_id, upgrade.get("short_name", "UPGRADE"))), level, max_level,
+			("FULLY APPROVED" if maxed else "$%.2f · $%.2f %s" % [cost / 100.0, absf(float(spendable_fund_cents - cost)) / 100.0, "LEFT" if spendable_fund_cents >= cost else "SHORT"]),
 		]
 		button.disabled = maxed or spendable_fund_cents < cost
-		button.tooltip_text = "%s\n%s" % [
+		button.tooltip_text = "%s\n%s\n%s\nSpends the fund now; changes future work rates or odds, not a guaranteed result." % [
 			String(upgrade.get("name", "")),
 			String(upgrade.get("description", "")),
+			_upgrade_effect_comparison(upgrade_id, level + 1) if not maxed else "MAXIMUM LEVEL",
 		]
 	_refresh_upgrade_disclosure(snapshot)
 	_update_flockwatch_toggle(snapshot)
@@ -28211,7 +28280,16 @@ func _on_upgrade_pressed(upgrade_id: StringName) -> void:
 	_simulation.purchase_upgrade(upgrade_id)
 
 
+func _begin_payoff_breath() -> void:
+	_payoff_quiet_until_msec = Time.get_ticks_msec() + 6000
+	if _guidance_action_id == &"playbook" and _guidance_label != null:
+		_set_guidance(_guidance_label.text, &"goal", _guidance_label.tooltip_text, &"playbook")
+	if _character_dialogue_ui != null:
+		_character_dialogue_ui.hold_ambient(6.0)
+
+
 func _on_upgrade_purchased(upgrade_id: StringName, level: int, cost_cents: int) -> void:
+	_begin_payoff_breath()
 	_character_dialogue_ui.hold_ambient(3.0)
 	_upgrade_demonstration = {"id": String(upgrade_id), "level": level, "day": _simulation.day}
 	_play_fund_debit_feedback(

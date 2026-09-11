@@ -22,7 +22,9 @@ static func normalize(value: Variant) -> Dictionary:
 			return {}
 	if int(value.version) != 1 or int(value.day) < 1 or int(value.quota) < 1:
 		return {}
-	if value.get("kind") not in ["shells", "files", "output"] or value.get("status") not in ["active", "complete", "missed"]:
+	if value.get("kind") not in ["shells", "files", "output", "welfare"] or value.get("status") not in ["active", "complete", "missed"]:
+		return {}
+	if value.kind == "welfare" and int(value.target) > 100:
 		return {}
 	if (value.kind == "output" and int(value.target) < 1) or (value.kind == "files" and int(value.target) != 0):
 		return {}
@@ -46,6 +48,7 @@ static func reconcile(value: Variant, day: int, quota: int, report: Dictionary) 
 
 static func strategy(goal: Dictionary) -> Dictionary:
 	match String(goal.get("kind", "")):
+		"welfare": return {"id": "flock", "label": "FLOCK", "copy": "HAPPIER HENS · less strain. Costs $2 and a little speed."}
 		"shells": return {"id": "safe", "label": "SAFE", "copy": "SAFE · gentler work, fewer shell risks. Trade some speed."}
 		"files": return {"id": "fast", "label": "FAST", "copy": "FAST · clear files sooner. Watch fatigue and shells."}
 	return {"id": "fast", "label": "FAST", "copy": "FAST · build output. Check in before fatigue builds."}
@@ -53,6 +56,7 @@ static func strategy(goal: Dictionary) -> Dictionary:
 
 static func label(goal: Dictionary) -> String:
 	match String(goal.get("kind", "")):
+		"welfare": return "MEET QUOTA · FLOCK WELLBEING %d+" % int(goal.target)
 		"shells": return "MEET QUOTA · AT MOST %d %s" % [int(goal.target), "CRACK" if int(goal.target) == 1 else "CRACKS"]
 		"files": return "MEET QUOTA · NO OVERDUE FILES"
 		"output": return "FILE %d EGGS" % int(goal.target)
@@ -60,8 +64,11 @@ static func label(goal: Dictionary) -> String:
 
 
 static func progress(goal: Dictionary, snapshot: Dictionary) -> String:
+	if is_unreachable(goal, snapshot):
+		return "GOAL MISSED · QUOTA STILL COUNTS"
 	var eggs := int(snapshot.get("eggs_today", snapshot.get("eggs", 0)))
 	match String(goal.get("kind", "")):
+		"welfare": return "GOAL · WELLBEING %d/%d" % [int((snapshot.get("flock_care", {}) as Dictionary).get("welfare_score", 0)), int(goal.target)]
 		"shells": return "GOAL %d/%d · CRACKS %d/%d" % [eggs, int(snapshot.get("quota_target", goal.quota)), int(snapshot.get("cracked_today", snapshot.get("cracked", 0))), int(goal.target)]
 		"files": return "GOAL %d/%d · LATE %d" % [eggs, int(snapshot.get("quota_target", goal.quota)), int(snapshot.get("overdue_claims", 0))]
 		"output": return "GOAL · %d/%d EGGS" % [eggs, int(goal.target)]
@@ -77,8 +84,36 @@ static func finish(goal: Dictionary, report: Dictionary) -> Dictionary:
 	var quota_met := eggs >= quota and bool(report.get("met_quota", true))
 	var success := false
 	match String(goal.kind):
+		"welfare": success = quota_met and float((report.get("flock_care", {}) as Dictionary).get("welfare_score", -1)) >= int(goal.target)
 		"shells": success = quota_met and int(report.get("cracked", report.get("cracked_today", 0))) <= int(goal.target)
 		"files": success = quota_met and int(report.get("overdue_claims", 0)) == 0
 		"output": success = quota_met and eggs >= int(goal.target)
 	result["status"] = "complete" if success else "missed"
 	return result
+
+
+## Preview alternatives only. Accepting an option remains a separate action.
+static func choices(report: Dictionary) -> Array[Dictionary]:
+	var recommended := offer(report)
+	var result: Array[Dictionary] = [recommended]
+	for kind in ["output", "shells", "welfare"]:
+		if kind == recommended.kind:
+			continue
+		var goal := recommended.duplicate(true)
+		goal.kind = kind
+		match kind:
+			"output": goal.target = maxi(int(goal.quota), int(report.get("eggs", 0)) + 1)
+			"shells": goal.target = maxi(0, int(report.get("cracked", 0)) - 1)
+			"welfare": goal.target = mini(100, maxi(60, int((report.get("flock_care", {}) as Dictionary).get("welfare_score", 60)) + 5))
+		result.append(goal)
+	return result
+
+
+## Only cumulative failures are irreversible. Welfare and overdue queues can recover.
+## This read model never settles a save or changes the shift's quota/rewards.
+static func is_unreachable(goal: Dictionary, snapshot: Dictionary) -> bool:
+	if int(snapshot.get("day", goal.get("day", -1))) != int(goal.get("day", -1)):
+		return false
+	match String(goal.get("kind", "")):
+		"shells": return int(snapshot.get("cracked_today", snapshot.get("cracked", 0))) > int(goal.target)
+	return false

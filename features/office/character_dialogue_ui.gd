@@ -67,7 +67,7 @@ var _ambient_quiet_until_msec := 0
 
 
 func hold_ambient(seconds: float) -> void:
-	_ambient_quiet_until_msec = maxi(_ambient_quiet_until_msec, Time.get_ticks_msec() + roundi(clampf(seconds, 0.0, 3.0) * 1000.0))
+	_ambient_quiet_until_msec = maxi(_ambient_quiet_until_msec, Time.get_ticks_msec() + roundi(clampf(seconds, 0.0, 6.0) * 1000.0))
 
 
 func _ambient_held(entry: Dictionary) -> bool:

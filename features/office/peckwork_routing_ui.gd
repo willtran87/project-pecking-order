@@ -3195,9 +3195,13 @@ func _build_focus_dossier() -> void:
 
 func begin_care_lesson() -> void:
 	focus_intent_action(&"support")
-	var preferred := StringName(_worker_snapshot(_focused_worker_id).get("preferred_personnel_action", &""))
+	var worker := _worker_snapshot(_focused_worker_id)
+	var preferred := StringName(worker.get("preferred_personnel_action", &""))
+	if float(worker.get("stress", 0)) >= 25.0 or float(worker.get("manager_trust", 100)) < 50.0 or float(worker.get("grievance", 0)) >= 20.0:
+		preferred = &"share_credit"
 	var chosen := &""
-	for action_id in PERSONNEL_ACTION_ORDER:
+	# Pressure is a deliberate risk, never the fallback for a helpful care lesson.
+	for action_id in [&"career_coaching", &"share_credit"]:
 		var button := _personnel_buttons.get(action_id) as Button
 		if button != null and not button.disabled and (chosen == &"" or action_id == preferred):
 			chosen = action_id
@@ -3231,7 +3235,7 @@ func complete_care_lesson(worker_id: int, result: Dictionary, before: Dictionary
 	if not bool(result.get("accepted", false)):
 		_care_lesson["outcome"] = String(result.get("reason", "Unavailable. Choose Later or another check-in."))
 	else:
-		_care_lesson["outcome"] = "FILED · %s\nTRUST %d → %d · STRESS %d → %d" % [
+		_care_lesson["outcome"] = "FILED · %s\nTRUST %d > %d · STRESS %d > %d" % [
 			String(before.get("name", "HEN")),
 			int(before.get("manager_trust", 0)), int(after.get("manager_trust", 0)),
 			int(before.get("stress", 0)), int(after.get("stress", 0)),

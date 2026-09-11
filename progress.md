@@ -1,5 +1,17 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-09-11 - Clear choices and quieter payoffs
+
+- Implemented the latest twelve-item product refinement: normal-play counter disclosure, plain-language plans with exact inspect detail, need-aware affordable care without a quota-pressure fallback, explicit pause ownership, faster physical Web delivery, shared optional-feedback breathing room, clearer equipment prices/remaining cash, honest missed shell goals, selectable output/safety/welfare intentions, and a hen-centered review with secondary administration behind Details. Scope and boundaries: docs/CLARITY_AND_PAYOFF_POLISH.md.
+- Welfare goals use existing authoritative flock-care reports and validated primitive save data. Browsing does not replace the accepted goal or spend money. Irreversible cracks are distinguished from recoverable late queues and wellbeing; normal quota and earnings remain intact.
+- Real-input opening audit measured 31.537 seconds route to delivery (29.398 production, 2.139 physical presentation) in this software-rendered run. This is not a controlled benchmark or proof of ordinary-device timing. Background gaps remain bounded, and delivery authority is unchanged.
+- Browser goal browsing/accept/cancel and paid care/Later/reopen/return passed at 2560x1600 and 900x800; the prescribed input client passed at 1280x720. Inspected original-size captures. Fixed unsupported care-result arrow glyphs and made paused-care receipts explicitly invite resuming, without pretending work continues while paused.
+- The initial gate exposed an outdated expectation that the redundant payoff counter always be visible. Updated the regression to require the primary quota to remain visible while the secondary counter is inspect-only. Added native coverage for this disclosure, optional/urgent prompt precedence, goal alternatives, welfare persistence, irreversible/recoverable failures, and no-affordable-care behavior.
+- Final personal-goal, readable-opening and route-first regressions passed after refinements. The complete release gate passed 79/79 checks with zero failures in 800.09 seconds; the final accepted-alternative and paused-feedback regressions also passed after the last edits.
+- Five unfamiliar-player sessions and ordinary-device timing remain pending. Updated the session card; no automated fixture is represented as human evidence.
+- Final care-result captures verify supported separators and a truthful RESUME WHEN READY prompt while paused. Reopening the review preserves the accepted alternative; its dedicated regression passes. Final PCK is 10,885,820 bytes, SHA-256 CEA0CED0993BF1550992078D255BECF7BAB796F1A1F72362013C2E45358F7EE4.
+- Pages, public and production-wrapper exports match byte for byte. Owned browsers and the temporary wrapper are closed; ports 3001/56630 are free. No pre-existing service was stopped.
+
 ## 2026-09-07 - Coherent goals and polished optional care
 
 - Addressed the twelve-point review with actual goal/save corrections, a permanent PLAN label, quieter induction badges, actionable world hover cues, guided optional check-ins with Later and factual before/after results, visible clean bonuses, one goal-aligned plan recommendation, plan-specific desk rhythms, spaced optional barks, and named-hen egg milestones on the existing trophy shelf. Details: docs/GOAL_CLARITY_POLISH.md.
