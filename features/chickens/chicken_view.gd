@@ -124,19 +124,19 @@ const HEN_INTENT_COLORS := {
 	&"delivery": "d7b85b",
 	&"steady": "729b70",
 }
-const HEN_INTENT_BASE_HEIGHT := 1.80
+const HEN_INTENT_BASE_HEIGHT := 2.02
 const HEN_INTENT_HEIGHT_OFFSETS := [0.0, 0.11, 0.22, 0.11]
-const HEN_INTENT_COMPACT_PIXEL_SIZE := 0.0075
-const HEN_INTENT_READY_PIXEL_SIZE := 0.0082
-const HEN_INTENT_DELIVERY_PIXEL_SIZE := 0.0084
-const HEN_INTENT_STANDARD_PIXEL_SIZE := 0.009
-const HEN_INTENT_URGENT_PIXEL_SIZE := 0.0096
+const HEN_INTENT_COMPACT_PIXEL_SIZE := 0.0056
+const HEN_INTENT_READY_PIXEL_SIZE := 0.0061
+const HEN_INTENT_DELIVERY_PIXEL_SIZE := 0.0063
+const HEN_INTENT_STANDARD_PIXEL_SIZE := 0.0067
+const HEN_INTENT_URGENT_PIXEL_SIZE := 0.0076
 const HEN_INTENT_BACKGROUND_SCALE := 0.62
 const HEN_INTENT_BACKGROUND_URGENT_SCALE := 0.80
 const HEN_INTENT_BACKGROUND_ALPHA := 0.54
 const HEN_INTENT_BACKGROUND_URGENT_ALPHA := 0.78
 const HEN_INTENT_SELECTED_HEIGHT_LIFT := 0.34
-const HEN_INTENT_SELECTED_HALO_SCALE := 1.42
+const HEN_INTENT_SELECTED_HALO_SCALE := 1.16
 const HEN_INTENT_HANDOFF_SCALE := Vector3(0.90, 0.90, 0.90)
 const HEN_INTENT_HANDOFF_SCALE_SECONDS := 0.20
 const HEN_INTENT_HANDOFF_COLOR_SECONDS := 0.30
@@ -187,6 +187,7 @@ var desk_index: int = -1
 var _work_state: int = ChickenState.WorkState.IDLE
 var _phase: float = 0.0
 var _stress: float = 0.0
+var _fatigue: float = 0.0
 var _temperament_id: StringName = &"bright_eyed"
 var _temperament_idle_style: int = 0
 var _temperament_motion_scale: float = 1.0
@@ -482,6 +483,7 @@ func apply_snapshot(worker_snapshot: Dictionary) -> void:
 		elif previous_state == ChickenState.WorkState.LAYING and _lay_release_emitted:
 			_lay_feedback_active = false
 	_stress = float(worker_snapshot["stress"])
+	_fatigue = clampf(float(worker_snapshot.get("fatigue", 0.0)), 0.0, 100.0)
 	if (
 		previous_state == _work_state
 		or _home_position == Vector3.ZERO
@@ -1228,6 +1230,14 @@ func _apply_seated_pose() -> void:
 			# wattles, or accessories to lag behind the body during contact.
 			_head_pivot.rotation.x -= peck * (0.10 + assist_emphasis * 0.30)
 			_head_pivot.position.z += peck * (0.030 + assist_emphasis * 0.12)
+			# Read the actual need from posture, without adding another floating
+			# meter. A static slouch survives reduced motion; frustration gets a
+			# small head tilt. Contact timing, feet and the connected face stay intact.
+			var tired := smoothstep(40.0, 85.0, _fatigue)
+			var strained := smoothstep(45.0, 85.0, _stress)
+			_body_pivot.position.y -= tired * 0.055 * seat
+			_body_pivot.rotation.x -= tired * 0.055 * seat
+			_head_pivot.rotation.z += strained * (0.09 if _reduced_motion else 0.09 + sin(_phase * 1.15 + worker_id) * 0.035)
 		ChickenState.WorkState.LAYING:
 			_apply_laying_pose()
 		_:
@@ -1727,7 +1737,16 @@ func _is_break_interaction_active() -> bool:
 		and not _is_walking
 		and _route_index >= _route.size()
 		and global_position.distance_to(_break_position) <= ARRIVAL_DISTANCE * 2.0
+		and _is_facing_break_fixture()
 	)
+
+
+func _is_facing_break_fixture() -> bool:
+	var facing := _break_interaction_face_point - global_position
+	facing.y = 0.0
+	if facing.length_squared() < 0.001:
+		return true
+	return absf(angle_difference(rotation.y, atan2(facing.x, facing.z))) < 0.20
 
 
 func _update_break_interaction_timeline(delta: float) -> void:

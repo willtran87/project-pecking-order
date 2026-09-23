@@ -48,10 +48,10 @@ static func reconcile(value: Variant, day: int, quota: int, report: Dictionary) 
 
 static func strategy(goal: Dictionary) -> Dictionary:
 	match String(goal.get("kind", "")):
-		"welfare": return {"id": "flock", "label": "FLOCK", "copy": "HAPPIER HENS · less strain. Costs $2 and a little speed."}
-		"shells": return {"id": "safe", "label": "SAFE", "copy": "SAFE · gentler work, fewer shell risks. Trade some speed."}
-		"files": return {"id": "fast", "label": "FAST", "copy": "FAST · clear files sooner. Watch fatigue and shells."}
-	return {"id": "fast", "label": "FAST", "copy": "FAST · build output. Check in before fatigue builds."}
+		"welfare": return {"id": "flock", "label": "HAPPIER HENS", "copy": "HAPPIER HENS · less strain. Costs $2 and a little speed."}
+		"shells": return {"id": "safe", "label": "SAFER SHELLS", "copy": "SAFER SHELLS · fewer cracks, slightly slower work. Free to choose."}
+		"files": return {"id": "fast", "label": "FASTER EGGS", "copy": "FASTER EGGS · clear files sooner, with more shell risk. Free to choose."}
+	return {"id": "fast", "label": "FASTER EGGS", "copy": "FASTER EGGS · more output, with more shell risk. Free to choose."}
 
 
 static func label(goal: Dictionary) -> String:

@@ -22,7 +22,7 @@ Current candidate status: **five unfamiliar-player sessions pending**. Automated
 - Whether the participant can name the single current goal as it advances from first egg to clutch to shift quota
 - Whether they understand that routing starts automatic work without a mandatory check-in or timed Peck
 - Whether all-good, opportunity, and help-needed markers communicate which hen can be left alone
-- Whether Fast, Safe, and Flock tradeoffs are understood before selection
+- Whether the three plan tradeoffs are understood before selection
 - Whether “Faster eggs”, “Safer shells”, and “Happier hens” are understandable without opening their exact-math tooltips
 - Whether the normal-play HUD identifies quota, spendable money, and one useful next action after induction has ended
 - Whether “YOU PAUSED”, a decision-held clock, and running production are distinguishable after closing a panel
@@ -53,6 +53,14 @@ Current candidate status: **five unfamiliar-player sessions pending**. Automated
 - Their verbatim one-sentence loop explanation
 - A 1–5 clarity score and 1–5 desire-to-play-another-shift score
 - The moment they most enjoyed, the moment they most wanted to stop, and whether they voluntarily choose another shift; do not prompt them to continue
+
+## Visual/design follow-up for this candidate
+
+- Without opening a label or tooltip, ask which area is the breakroom and which hen needs help; record their first answer, not just the eventual correct answer.
+- At 900×800 and the participant's usual size, check whether hen names, Route/Care actions, cost previews and the clock can be read comfortably. Record any zoom/fullscreen workaround. The care target audit does not establish that every HUD label is readable.
+- Ask the participant to explain the review's output, shift net and bottleneck. Record whether they incorrectly treat shift net as the change in their entire cash balance.
+- During a second voluntarily chosen shift, record whether they notice different desk habits and understand the plan tradeoff without numerical coaching.
+- With audio muted and reduced motion enabled, check whether routing, a payoff, a strained hen and a recovering hen remain distinguishable. Record inaccessible steps verbatim.
 
 ## Passing threshold
 

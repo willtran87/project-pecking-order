@@ -2391,7 +2391,14 @@ func _animate_station(station: StationVisual) -> void:
 		# Safe desks pause between inspection strokes; fast desks shuffle briskly.
 		# Resting flock desks are genuinely still. None of this changes authority.
 		var motion := maxf(0.0, sin(paper_phase)) if _strategy_id == "safe" else sin(paper_phase)
-		paper.position.y = rest_y + route_lift + (motion * 0.012 if working and not _reduced_motion else 0.0)
+		# Plans read as different working habits even with motion disabled: fast
+		# desks fan their incoming files, safe desks align the inspection stack,
+		# and comfortable desks keep a relaxed, slightly staggered pile.
+		var rest_x := float(paper.get_meta("rest_x", paper.position.x))
+		paper.position.x = rest_x + (paper_index * 0.065 if _strategy_id == "fast" else 0.0)
+		paper.rotation_degrees.y = (0.0 if _strategy_id == "safe" else -10.0 + paper_index * 4.0 if _strategy_id == "fast" else -2.5 + paper_index * 1.1)
+		var inspection_lift := 0.055 if _strategy_id == "safe" and paper_index == 0 and working else 0.0
+		paper.position.y = rest_y + route_lift + inspection_lift + (motion * 0.022 if working and not _reduced_motion else 0.0)
 		paper.scale = Vector3.ONE * (1.0 + station.route_boost * (0.10 if paper_index == 0 else 0.02))
 	if station.stress_notice != null and station.stress_notice.visible:
 		station.stress_notice.rotation.z = sin(_phase * 3.8 + station.phase_offset) * 0.025
@@ -2420,6 +2427,7 @@ func _build_activity_props(station: StationVisual) -> void:
 		paper.position = tray_position + Vector3((paper_index % 2) * 0.018, paper_index * 0.023, (paper_index % 3) * 0.010)
 		paper.rotation_degrees.y = -2.5 + paper_index * 1.1
 		paper.set_meta("rest_y", paper.position.y)
+		paper.set_meta("rest_x", paper.position.x)
 		var paper_material := StandardMaterial3D.new()
 		paper_material.albedo_color = Color("dedbc8") if paper_index % 2 == 0 else Color("c5d2ce")
 		paper_material.roughness = 0.92

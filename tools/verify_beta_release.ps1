@@ -67,6 +67,7 @@ try {
             throw "Godot console executable not found: $Godot"
         }
         $nativeTests = @(
+            "visual_design_refinement_test.gd",
             "personal_shift_goal_test.gd",
             "route_first_reward_test.gd",
             "readable_opening_loop_test.gd",

@@ -50,7 +50,7 @@ button:focus-visible, a:focus-visible, iframe:focus-visible, summary:focus-visib
 }
 
 .site-shell.is-focused-play {
-  width: min(100% - 16px, 1920px);
+  width: min(100% - 16px, 2560px);
 }
 
 .masthead {
@@ -289,6 +289,45 @@ h1 {
 }
 
 .game-canvas.is-loaded { opacity: 1; }
+
+.portrait-guidance { display: none; }
+
+@media (max-width: 720px) and (orientation: portrait) and (pointer: coarse) {
+  .portrait-guidance {
+    position: absolute;
+    z-index: 4;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 18px;
+    background: rgba(17, 23, 32, 0.96);
+    color: var(--paper);
+    text-align: center;
+  }
+
+  .portrait-guidance-icon {
+    color: var(--yellow);
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  .portrait-guidance strong { font-size: 17px; }
+  .portrait-guidance p { max-width: 340px; margin: 0; font-size: 11px; line-height: 1.25; }
+  .portrait-guidance button {
+    min-height: 44px;
+    width: min(250px, 100%);
+    margin-top: 2px;
+    padding: 8px 12px;
+    border: 1px solid var(--yellow);
+    border-radius: 6px;
+    background: #283540;
+    color: var(--paper);
+    cursor: pointer;
+  }
+}
 
 .game-canvas:focus-visible {
   outline: 4px solid var(--yellow);
@@ -756,14 +795,17 @@ kbd {
 }
 
 @media (max-width: 900px) {
+  .is-focused-play .terminal-title,
+  .is-focused-play .terminal-action-secondary {
+    display: none;
+  }
+
+  .is-focused-play .terminal-bar {
+    justify-content: flex-end;
+  }
+
   .is-focused-play .mobile-touch-controls {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 5px;
-    min-height: 50px;
-    padding: 5px;
-    border-top: 1px solid var(--line);
-    background: #161e29;
+    display: none;
   }
 
   .mobile-touch-controls button {
@@ -784,6 +826,18 @@ kbd {
     border-color: var(--yellow);
     background: #2b3949;
     color: var(--yellow);
+  }
+}
+
+@media (max-width: 900px) and (pointer: coarse) {
+  .is-focused-play .mobile-touch-controls {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
+    min-height: 50px;
+    padding: 5px;
+    border-top: 1px solid var(--line);
+    background: #161e29;
   }
 }
 

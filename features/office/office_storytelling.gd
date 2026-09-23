@@ -389,6 +389,45 @@ func _ready() -> void:
 		_build_all()
 
 
+func set_inspection_collection_cutaway(desk_index: int) -> void:
+	# The overhead egg conveyor sits above the flock in world space, but its
+	# isometric projection crosses a selected hen's face. A per-instance
+	# transparency change does not survive GL Compatibility consistently, so
+	# omit only that row and lift during inspection; restore both in overview.
+	var row_zs: Array[float] = []
+	for desk: Vector3 in _desk_positions:
+		var pickup_z := desk.z + 0.70
+		if not row_zs.has(pickup_z):
+			row_zs.append(pickup_z)
+	row_zs.sort()
+	var focused_row := -1
+	if desk_index >= 0 and desk_index < _desk_positions.size():
+		focused_row = row_zs.find(_desk_positions[desk_index].z + 0.70)
+	for row_index in row_zs.size():
+		_set_inspection_collection_mesh(
+			"OverheadRowRail_%02d" % row_index,
+			row_index == focused_row,
+		)
+	for pickup_index in _desk_positions.size():
+		_set_inspection_collection_mesh(
+			"EggLiftTube_%02d" % pickup_index,
+			pickup_index == desk_index,
+		)
+
+
+func _set_inspection_collection_mesh(mesh_name: String, cutaway: bool) -> void:
+	var mesh := find_child(mesh_name, true, false) as MeshInstance3D
+	if mesh == null:
+		return
+	if not mesh.has_meta(&"inspection_original_shadow"):
+		mesh.set_meta(&"inspection_original_shadow", mesh.cast_shadow)
+	mesh.visible = not cutaway
+	mesh.cast_shadow = (
+		GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if cutaway else
+		int(mesh.get_meta(&"inspection_original_shadow"))
+	)
+
+
 func set_color_vision_mode(mode: StringName) -> void:
 	var normalized := SemanticColorPaletteScript.normalize_mode(mode)
 	if normalized == _color_vision_mode:

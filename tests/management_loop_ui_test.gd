@@ -287,10 +287,10 @@ func _run() -> void:
 	_check(
 		live_policy_label.text == "ASSURANCE"
 		and live_policy_icon.icon_kind() == &"shield"
-		and live_policy_icon.is_visible_in_tree()
+		and not live_policy_icon.is_visible_in_tree()
 		and "POLICY" in String(live_policy_label.get_meta("full_text", ""))
 		and "SHELL ASSURANCE" in String(live_policy_label.get_meta("accessible_text", "")),
-		"the filed policy should read as a shield plus short name while retaining its complete terms",
+		"the inspect-only policy should retain its shield, short name and complete terms without adding a duplicate HUD badge",
 		failures,
 	)
 	var pause_toggle := office.find_child("SpeedButton_0", true, false) as Button
@@ -400,7 +400,7 @@ func _run() -> void:
 		and clock_status_icon != null and clock_status_icon.is_visible_in_tree()
 		and fund_status_icon != null and fund_status_icon.is_visible_in_tree()
 		and shift_goal_icon != null and shift_goal_icon.is_visible_in_tree()
-		and live_policy_icon != null and live_policy_icon.is_visible_in_tree()
+		and live_policy_icon != null and not live_policy_icon.is_visible_in_tree()
 		and live_policy_label.text == "ASSURANCE",
 		"returning to 100 percent should preserve icon-led utility and shift-status semantics",
 		failures,
@@ -1541,7 +1541,9 @@ func _run() -> void:
 	_check(
 		review_summary != null
 		and review_summary.is_visible_in_tree()
-		and "CLEAN SHELLS" in review_summary.text
+		and "CREDIT $" in review_summary.text
+		and "COSTS $" in review_summary.text
+		and "NET" in review_summary.text
 		and review_eggs != null
 		and "16 / 16" in review_eggs.text
 		and review_net != null
@@ -1583,7 +1585,7 @@ func _run() -> void:
 	_check(
 		"Eggs versus target:" in review_accessibility
 		and "Net:" in review_accessibility
-		and "Feed Fund:" in review_accessibility
+		and String(office.call("_review_bottleneck_readout")) in review_accessibility
 		and "Next target:" in review_accessibility
 		and "Accounting details:" in review_accessibility
 		and "Payroll" in review_accessibility

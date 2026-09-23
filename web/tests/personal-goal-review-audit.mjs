@@ -9,6 +9,9 @@ const output = path.resolve(process.argv[3] ?? "../output/web-game/personal-goal
 fs.mkdirSync(output, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: ["--use-gl=angle", "--use-angle=swiftshader"] });
 const page = await browser.newPage({ viewport: { width: Number(process.env.PECK_AUDIT_WIDTH ?? 2560), height: Number(process.env.PECK_AUDIT_HEIGHT ?? 1600) } });
+// Software-rendered high-resolution captures can take longer than ordinary UI
+// actions while native release checks share the machine. Keep a bounded limit.
+page.setDefaultTimeout(60000);
 const errors = [];
 const evidence = { fixture: "authored shift-result preview", errors };
 page.on("pageerror", error => errors.push(String(error)));
@@ -26,11 +29,16 @@ async function clickGoal(current, key = "personal_goal_control") {
   const rect = current[key].rect;
   assert.ok(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= 1280 && rect.y + rect.height <= 720, "goal button must remain inside the authored canvas");
   const box = await page.locator("canvas").boundingBox();
+  if (box.width < 1100) {
+    assert.ok(rect.height * box.height / 720 >= 44, `${key} must retain a 44 CSS-pixel target on a compact canvas`);
+  }
   await page.mouse.click(box.x + (rect.x + rect.width / 2) * box.width / 1280, box.y + (rect.y + rect.height / 2) * box.height / 720);
 }
 try {
   await page.goto(url, { waitUntil: "domcontentloaded" });
   evidence.offered = await waitFor(s => s.personal_goal_control?.visible);
+  assert.doesNotMatch(evidence.offered.accessibility_announcement?.text ?? "", /Feed Fund:\s*\d+\s+CRACKED/, "assistive review must not narrate cracked eggs as money");
+  assert.match(evidence.offered.accessibility_announcement?.text ?? "", /Shell Quality: 2 CRACKED/, "review narration must match the visible bottleneck category");
   await page.screenshot({ path: path.join(output, "01-review-offer.png"), fullPage: true });
   await clickGoal(evidence.offered);
   evidence.accepted = await waitFor(s => s.personal_shift_goal?.status === "active");

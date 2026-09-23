@@ -16,6 +16,7 @@ func _init() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+	root.size = Vector2i(1280, 720)
 	var actual_goal := Goal.offer({"day": 1, "quota": 16, "next_quota": 17, "eggs": 16, "cracked": 2})
 	_check(actual_goal.quota == 17, "real workday reports must use next_quota, not a missing quota_target", failures)
 	var legacy := actual_goal.duplicate(true)

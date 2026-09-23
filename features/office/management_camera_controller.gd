@@ -19,7 +19,7 @@ signal context_hover_changed(worker_id: int, context_id: StringName, hovered: bo
 @export_range(1.0, 24.0, 0.1) var manual_pan_damping_speed: float = 14.0
 @export_range(1.0, 24.0, 0.1) var zoom_damping_speed: float = 10.0
 @export_range(1.0, 24.0, 0.1) var safe_frame_damping_speed: float = 9.0
-@export_range(0.1, 1.0, 0.01) var focused_size_ratio: float = 0.36
+@export_range(0.1, 1.0, 0.01) var focused_size_ratio: float = 0.31
 @export_range(2.0, 8.0, 0.1) var minimum_focused_size: float = 4.0
 @export_range(6.0, 16.0, 0.1) var maximum_focused_size: float = 14.5
 @export_range(0.05, 0.4, 0.01) var wheel_zoom_ratio: float = 0.12
@@ -30,7 +30,7 @@ signal context_hover_changed(worker_id: int, context_id: StringName, hovered: bo
 @export_range(0.05, 0.6, 0.01) var controller_deadzone: float = 0.22
 @export_range(4.0, 32.0, 1.0) var touch_drag_threshold_pixels: float = 12.0
 
-const WORKER_FOCUS_HEIGHT := 0.82
+const WORKER_FOCUS_HEIGHT := 1.10
 const RING_FLOOR_HEIGHT := 0.035
 const EXPONENTIAL_SETTLE_PERCENT := 0.01
 const CYCLE_HEN_ACTION: StringName = &"cycle_hen"

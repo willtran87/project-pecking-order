@@ -123,11 +123,11 @@ func _run() -> void:
 	_check(
 		int(report.get("card_count", 0)) == 3
 		and (report.get("cards", []) as Array).size() == 3
-		and String(((report.get("cards", []) as Array)[0] as Dictionary).get("label", "")) == "WHAT WORKED"
-		and String(((report.get("cards", []) as Array)[1] as Dictionary).get("label", "")) == "CLOSE CALL"
-		and String(((report.get("cards", []) as Array)[2] as Dictionary).get("label", "")) == "WHAT CHANGED"
+		and String(((report.get("cards", []) as Array)[0] as Dictionary).get("label", "")) == "EGGS / QUOTA"
+		and String(((report.get("cards", []) as Array)[1] as Dictionary).get("label", "")) == "SHELL QUALITY"
+		and String(((report.get("cards", []) as Array)[2] as Dictionary).get("label", "")) == "SHIFT NET"
 		and int(report.get("next_target", 0)) == 10,
-		"the folded shift report should communicate worked, close call, changed, and next without duplicating the accounting ledger",
+		"the folded shift report should name output, shell quality and net without duplicating the accounting ledger",
 		failures,
 	)
 
@@ -141,6 +141,47 @@ func _run() -> void:
 	var remix_button := office.find_child("ReviewRemixNextButton", true, false) as Button
 	var office_simulation := office.get("_simulation") as DepartmentSimulation
 	var workstation_feedback := office.get("_workstation_feedback") as WorkstationFeedback
+	var live_hud := office.find_child("LiveShiftHUD", true, false) as PanelContainer
+	var compact_pace := office.find_child("CompactSpeedMenu", true, false) as MenuButton
+	var compact_quota := office.find_child("ShiftQuotaReadout", true, false) as Label
+	var compact_speed_extra := office.find_child("SpeedButton_2", true, false) as Button
+	var desk_partition := office.find_child("CubicleBack", true, false) as MeshInstance3D
+	var desk_top_trim := office.find_child("PanelTopTrim", true, false) as MeshInstance3D
+	var breakroom_sign := office.find_child("BreakroomOverviewSign", true, false) as Label3D
+	_check(
+		breakroom_sign != null
+		and breakroom_sign.text == "BREAK ROOM"
+		and bool(breakroom_sign.get_parent().get_meta(&"overview_anchor", false)),
+		"the baseline rest area should have a visible overview landmark rather than detail-only copy",
+		failures,
+	)
+	var workstation_map := office.get("_workstations_by_index") as Dictionary
+	var focused_monitor := (workstation_map.get(0) as Node3D).find_child("Monitor", true, false) as MeshInstance3D
+	var focused_screen := (workstation_map.get(0) as Node3D).find_child("Screen", true, false) as MeshInstance3D
+	var side_monitor := (workstation_map.get(1) as Node3D).find_child("Monitor", true, false) as MeshInstance3D
+	var foreground_partition := (workstation_map.get(3) as Node3D).find_child("CubicleBack", true, false) as MeshInstance3D
+	var side_partition := (workstation_map.get(1) as Node3D).find_child("CubicleBack", true, false) as MeshInstance3D
+	var row_rail := office.find_child("OverheadRowRail_00", true, false) as MeshInstance3D
+	var focused_lift_tube := office.find_child("EggLiftTube_00", true, false) as MeshInstance3D
+	office.set("_compact_physical_hud", true)
+	office.call("_apply_physical_hud_layout")
+	_check(
+		live_hud != null and live_hud.offset_bottom == 128.0
+		and compact_pace != null and compact_pace.visible
+		and compact_speed_extra != null and not compact_speed_extra.visible
+		and compact_quota != null and compact_quota.get_theme_font_size("font_size") >= 20
+		and review_panel != null and review_panel.offset_left == -500.0
+		and replay_button != null and replay_button.custom_minimum_size.y >= 72.0
+		and remix_button != null and remix_button.get_theme_font_size("font_size") >= 20,
+		"compact canvas should reserve a legible goal row, report, and grouped pace controls",
+		failures,
+	)
+	office.set("_compact_physical_hud", false)
+	office.call("_apply_physical_hud_layout")
+	office.call("_set_inspected_cubicle_cutaway", 0)
+	_check(desk_partition != null and not desk_partition.visible and desk_top_trim != null and not desk_top_trim.visible and focused_monitor != null and not focused_monitor.visible and focused_screen != null and not focused_screen.visible and side_monitor != null and side_monitor.visible and foreground_partition != null and foreground_partition.visible and side_partition != null and side_partition.visible and row_rail != null and not row_rail.visible and focused_lift_tube != null and not focused_lift_tube.visible, "inspection should reveal the hen while preserving nearby desks and their equipment", failures)
+	office.call("_set_inspected_cubicle_cutaway", -1)
+	_check(desk_partition != null and desk_partition.visible and desk_partition.transparency == 0.0 and desk_top_trim != null and desk_top_trim.visible and focused_monitor != null and focused_monitor.visible and focused_screen != null and focused_screen.visible and row_rail != null and row_rail.visible and focused_lift_tube != null and focused_lift_tube.visible, "leaving inspection should restore the cubicle, monitor, and egg-collection structure", failures)
 	var replay_authority_before := office_simulation.export_save_state()
 	office.set("_dispatch_last_receipt", {
 		"worker_id": 0,
@@ -177,6 +218,32 @@ func _run() -> void:
 	var worked_caption := office.find_child("FarmerReviewEggsCaption", true, false) as Label
 	var changed_caption := office.find_child("FarmerReviewNetCaption", true, false) as Label
 	var call_caption := office.find_child("FarmerReviewFundCaption", true, false) as Label
+	var next_caption := office.find_child("FarmerReviewNextCaption", true, false) as Label
+	var next_value := office.find_child("FarmerReviewNextValue", true, false) as Label
+	var review_equation := office.find_child("FarmerReviewSummary", true, false) as Label
+	_check(String(office.call("_review_bottleneck_readout")) == "Shell Quality: 1 CRACKED", "assistive review labels must describe shell quality, not pretend cracks are money", failures)
+	_check(
+		next_caption != null and next_caption.text == "NEXT QUOTA"
+		and next_value != null and next_value.text == "10 EGGS"
+		and review_equation != null and "CREDIT $12.00 - COSTS $7.60 = +$4.40 NET" in review_equation.text,
+		"the review should explain shift net and label the next quota without opening accounting",
+		failures,
+	)
+	office.call("_show_farmer_review", {
+		"day": 1, "eggs": 9, "quota": 8, "met_quota": true,
+		"credited_cents": 2000, "feed_cost_cents": 300,
+		"payroll_cents": 1800, "facility_cost_cents": 900,
+		"operating_cost_cents": 3000, "closing_fund_cents": 4100,
+		"next_quota": 10, "pecking_order": [],
+	}, false)
+	_check(
+		review_equation != null
+		and "CREDIT $20.00 - COSTS $30.00 = -$10.00 NET" in review_equation.text
+		and "BIGGEST COST: PAYROLL $18.00" in review_equation.text
+		and "USE CURRENT DESKS FULLY" in review_equation.text,
+		"a negative net with quota met should name the largest real cost and an actionable next step",
+		failures,
+	)
 	_check(
 		explain_strip != null
 		and bool(explain_strip.get_meta("hold_to_explain", false))
@@ -188,9 +255,9 @@ func _run() -> void:
 	_check(
 		review_panel != null
 		and int((review_panel.get_meta("three_card_report", {}) as Dictionary).get("card_count", 0)) == 3
-		and worked_caption != null and worked_caption.text == "WHAT WORKED"
-		and changed_caption != null and changed_caption.text == "WHAT CHANGED"
-		and call_caption != null and call_caption.text == "CLOSE CALL"
+		and worked_caption != null and worked_caption.text == "EGGS / QUOTA"
+		and changed_caption != null and changed_caption.text == "SHIFT NET"
+		and call_caption != null and call_caption.text == "SHELL QUALITY"
 		and replay_button != null and remix_button != null,
 		"the actual farmer review should expose the three-card hierarchy and immediate replay/remix actions",
 		failures,

@@ -203,9 +203,12 @@ const FUND_DEBIT_FADE_SECONDS := 0.18
 const FIRST_CLUTCH_REINVESTMENT_KIND: StringName = &"first_clutch_reinvestment"
 const SHIFT_END_FALLBACK_MINUTE := 24 * 60
 const CORE_OVERVIEW_TARGET := Vector3(2.00, 0.65, -0.65)
-const CORE_OVERVIEW_POSITION := Vector3(19.30, 17.50, 20.85)
+# A slightly steeper management view exposes desk surfaces and seated bodies
+# behind the fixed partitions. Home and inspection share this one orientation.
+const CORE_OVERVIEW_POSITION := Vector3(19.30, 23.50, 20.85)
 const CORE_OVERVIEW_SIZE := 19.0
 const FIRST_HEN_FOCUS_SIZE := 6.3
+const INSPECTED_CUBICLE_TRANSPARENCY := 0.58
 const OFFICE_FILL_LIGHT_ENERGY := 0.24
 # Camera bounds are presentation-only. The shell and every mature desk socket
 # still exist, while capacity progressively reveals the west wing and its room.
@@ -697,6 +700,9 @@ var _character_dialogue_previous_snapshot: Dictionary = {}
 var _top_hud_panel: PanelContainer
 var _shift_objective_row: HBoxContainer
 var _compact_live_hud_applied := false
+var _compact_physical_hud := false
+var _hud_measure_elapsed := 0.5
+var _compact_speed_menu: MenuButton
 var _shift_clock_status_host: HBoxContainer
 var _shift_clock_status_icon: FlockwatchIconBadge
 var _fund_status_host: HBoxContainer
@@ -3702,7 +3708,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Vector3(-9.80, 0.041, 0.0),
 		1.91,
 		0.030,
-		Color("526b63"),
+		Color("79765f"),
 	)
 	wellness_rug.scale.z = 1.06
 	var rug_medallion := _add_cylinder(
@@ -3711,9 +3717,18 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Vector3(-9.80, 0.062, 0.0),
 		1.16,
 		0.014,
-		Color("769084"),
+		Color("a0a88a"),
 	)
 	rug_medallion.scale.z = 0.72
+	# The overhead room name stays legible in the management overview. It is
+	# mounted to the perimeter wall, so the six wellness destinations and lane
+	# below remain exactly where their routes expect them.
+	EnvironmentalSignageScript.add_panel(
+		breakroom, "BreakroomOverviewSign", "BREAK ROOM",
+		Vector3(-11.50, 2.92, 0.02), Vector2(2.35, 0.32),
+		Color("475e55"), Color("f0dfac"), Vector3(0.0, 90.0, 0.0),
+		24, 0.0080, &"primary", &"room"
+	)
 	for stripe_index in 5:
 		var stripe_z := -0.54 + stripe_index * 0.27
 		var stripe := _add_box(
@@ -4413,6 +4428,12 @@ func _build_workstation(parent: Node3D, index: int, origin: Vector3) -> void:
 	workstation.position = origin
 	parent.add_child(workstation)
 	_workstations_by_index[index] = workstation
+	# Shared matte textile softens the largest imported cream planes without
+	# changing their geometry, mounting points, navigation, or shift persistence.
+	for partition_name in ["CubicleBack", "CubicleWing_L"]:
+		var partition := workstation.find_child(partition_name, true, false) as MeshInstance3D
+		if partition != null:
+			partition.material_override = _material(Color("76867c"), 0.94, 0.0)
 	_decorate_workstation(workstation, index)
 	_apply_workstation_shadow_budget(workstation)
 
@@ -5204,6 +5225,10 @@ func _on_predator_victim_captured(worker_id: int, threat_origin: Vector3) -> voi
 
 
 func _process(delta: float) -> void:
+	_hud_measure_elapsed += delta
+	if _hud_measure_elapsed >= 0.5:
+		_hud_measure_elapsed = 0.0
+		_measure_live_hud_canvas()
 	if _first_reward_ready_msec > 0 and Time.get_ticks_msec() >= _first_reward_ready_msec:
 		if _first_clutch_reinvestment_resolved() or _present_first_clutch_reinvestment():
 			_first_reward_ready_msec = 0
@@ -5237,7 +5262,7 @@ func _process(delta: float) -> void:
 	if _campaign_ui != null:
 		var campaign_modal_open := _campaign_ui.is_modal_open()
 		_campaign_ui.set_badge_presentation(
-			FIRST_CLUTCH_ROUTING_TOP if first_clutch_compact else LIVE_ROUTING_TOP,
+			(88.0 if first_clutch_compact else 136.0) if _compact_physical_hud else (FIRST_CLUTCH_ROUTING_TOP if first_clutch_compact else LIVE_ROUTING_TOP),
 			first_clutch_compact or _flockwatch_open or (_simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING and not _explain_strip.visible) or (blocking_surface_open and not campaign_modal_open),
 		)
 	if _top_hud_panel != null:
@@ -5933,7 +5958,144 @@ func _apply_live_hud_presentation(compact: bool) -> void:
 		_routing_ui.set_top_inset(routing_top)
 	if _flockwatch_panel != null:
 		_flockwatch_panel.offset_top = routing_top + 52.0
+	if _camera_controller != null and _intent_focus_worker_id >= 0:
+		_camera_controller.set_safe_viewport_insets(
+			0.0,
+			FLOCKWATCH_DRAWER_SAFE_RIGHT if _flockwatch_open else 0.0,
+			136.0 if compact else 104.0,
+			300.0 if compact else 250.0,
+		)
 	_refresh_flockwatch_toggle_layout()
+	_apply_physical_hud_layout()
+
+
+func _measure_live_hud_canvas() -> void:
+	if _top_hud_panel == null:
+		return
+	var viewport_size := Vector2(get_viewport().size)
+	var physical_size := Vector2(DisplayServer.window_get_size())
+	if DisplayServer.get_name() == "headless":
+		physical_size = viewport_size
+	if OS.has_feature("web"):
+		var css_size: Variant = JavaScriptBridge.eval("(() => { const c = document.querySelector('canvas'); if (!c) return ''; const r = c.getBoundingClientRect(); return JSON.stringify([r.width, r.height]); })()", true)
+		if css_size is String and not css_size.is_empty():
+			var dimensions: Variant = JSON.parse_string(css_size)
+			if dimensions is Array and dimensions.size() == 2:
+				physical_size = Vector2(float(dimensions[0]), float(dimensions[1]))
+	var is_compact := physical_size.x < 1100.0 or physical_size.x / maxf(1.0, viewport_size.x) < 0.82
+	if is_compact == _compact_physical_hud:
+		if is_compact:
+			_apply_physical_hud_layout()
+		return
+	_compact_physical_hud = is_compact
+	_apply_physical_hud_layout()
+
+
+func _apply_physical_hud_layout() -> void:
+	if _top_hud_panel == null or _shift_objective_row == null:
+		return
+	var compact := _compact_physical_hud
+	var first_clutch := _compact_live_hud_applied
+	_top_hud_panel.offset_bottom = (
+		(80.0 if first_clutch else 128.0) if compact else
+		(FIRST_CLUTCH_HUD_HEIGHT if first_clutch else LIVE_HUD_HEIGHT)
+	)
+	_shift_objective_row.visible = not first_clutch
+	if _opening_header_goal != null:
+		_opening_header_goal.visible = first_clutch and _opening_egg_slots.visible
+	if _live_title_label != null:
+		_live_title_label.visible = not compact and not (first_clutch and _opening_egg_slots.visible)
+	for control: Control in [
+		_day_label, _time_label, _revenue_label, _quota_progress_label,
+		_quality_streak_label, _guidance_label, _opening_header_label, _active_playbook_button,
+	]:
+		if control == null:
+			continue
+		if not control.has_meta("hud_base_font"):
+			control.set_meta("hud_base_font", control.get_theme_font_size("font_size"))
+		control.add_theme_font_size_override(
+			"font_size",
+			roundi(int(control.get_meta("hud_base_font")) * (1.45 if compact else 1.0)),
+		)
+	if _settings_button != null:
+		_settings_button.text = "" if compact else String(_settings_button.get_meta("compact_text", "SETTINGS  [F10]"))
+		_settings_button.custom_minimum_size.x = 42.0 if compact else 148.0
+	for index in range(1, _speed_buttons.size()):
+		_speed_buttons[index].visible = not compact
+	if not _speed_buttons.is_empty():
+		_speed_buttons[0].custom_minimum_size = Vector2(86.0 if compact else 50.0, 44.0 if compact else 32.0)
+	if _compact_speed_menu != null:
+		_compact_speed_menu.visible = compact
+	if _next_moment_button != null:
+		_next_moment_button.custom_minimum_size = Vector2(86.0 if compact else 82.0, 44.0 if compact else 32.0)
+	for secondary: Control in [
+		_clutch_carton_host, _directive_badge_host,
+		_core_loop_host, _reward_loop_host, _rival_pulse_label,
+		_consequence_icon_host, _guidance_action_chevron,
+	]:
+		if secondary == null:
+			continue
+		if compact:
+			if not secondary.has_meta("hud_precompact_visible"):
+				secondary.set_meta("hud_precompact_visible", secondary.visible)
+			secondary.visible = false
+		elif secondary.has_meta("hud_precompact_visible"):
+			secondary.visible = bool(secondary.get_meta("hud_precompact_visible"))
+			secondary.remove_meta("hud_precompact_visible")
+	if _quota_progress != null:
+		_quota_progress.custom_minimum_size.x = 158.0 if compact else 190.0
+	if _guidance_action_button != null:
+		_guidance_action_button.custom_minimum_size.y = 46.0 if compact else 30.0
+	var routing_top := (
+		(88.0 if first_clutch else 136.0) if compact else
+		(FIRST_CLUTCH_ROUTING_TOP if first_clutch else LIVE_ROUTING_TOP)
+	)
+	if _routing_ui != null:
+		_routing_ui.set_top_inset(routing_top)
+	if _flockwatch_panel != null:
+		_flockwatch_panel.offset_top = routing_top + 52.0
+	_refresh_flockwatch_toggle_layout()
+	_apply_physical_review_layout()
+
+
+func _apply_physical_review_layout() -> void:
+	if _day_review_panel == null:
+		return
+	var compact := _compact_physical_hud
+	_day_review_panel.offset_left = -500.0 if compact else -370.0
+	_day_review_panel.offset_right = 500.0 if compact else 370.0
+	var interface_scale := float(_player_preferences.get("ui_scale", 1.0))
+	for node_value: Node in _day_review_panel.find_children("*", "Control", true, false):
+		var control := node_value as Control
+		if control == null:
+			continue
+		var button := control as Button
+		if control.has_theme_font_size_override("font_size") or button != null:
+			if not control.has_meta(&"review_had_explicit_font"):
+				control.set_meta(&"review_had_explicit_font", control.has_theme_font_size_override("font_size"))
+			if not control.has_meta(&"preference_base_font_size"):
+				control.set_meta(
+					&"preference_base_font_size",
+					roundi(control.get_theme_font_size("font_size") / maxf(1.0, interface_scale)),
+				)
+			var base_font := int(control.get_meta(&"preference_base_font_size", 14))
+			if not compact and not bool(control.get_meta(&"review_had_explicit_font")):
+				control.remove_theme_font_size_override("font_size")
+			else:
+				control.add_theme_font_size_override(
+					"font_size", roundi(base_font * interface_scale * (1.5 if compact else 1.0)),
+				)
+			control.update_minimum_size()
+		if button != null:
+			if not button.has_meta(&"review_base_minimum"):
+				button.set_meta(&"review_base_minimum", button.custom_minimum_size)
+			var base_minimum: Vector2 = button.get_meta(&"review_base_minimum")
+			button.custom_minimum_size = Vector2(
+				base_minimum.x, maxf(72.0, base_minimum.y) if compact else base_minimum.y,
+			)
+	if _review_details_scroll != null:
+		_review_details_scroll.custom_minimum_size.y = 112.0 if compact else 184.0
+	_set_review_details_expanded(_review_details_expanded)
 
 
 func _build_ui() -> void:
@@ -6046,6 +6208,17 @@ func _build_ui() -> void:
 			button.pressed.connect(_on_speed_button_pressed.bind(index))
 		_speed_control.add_child(button)
 		_speed_buttons.append(button)
+	_compact_speed_menu = MenuButton.new()
+	_compact_speed_menu.name = "CompactSpeedMenu"
+	_compact_speed_menu.text = "PACE"
+	_compact_speed_menu.custom_minimum_size = Vector2(78.0, 44.0)
+	_compact_speed_menu.tooltip_text = "Choose normal, fast, or ultra speed."
+	_compact_speed_menu.accessibility_name = _compact_speed_menu.tooltip_text
+	_compact_speed_menu.visible = false
+	for speed_index in range(1, 4):
+		_compact_speed_menu.get_popup().add_item(["1× NORMAL", "3× FAST", "10× ULTRA"][speed_index - 1], speed_index)
+	_compact_speed_menu.get_popup().id_pressed.connect(_on_compact_speed_selected)
+	_speed_control.add_child(_compact_speed_menu)
 	_next_moment_button = Button.new()
 	_next_moment_button.name = "NextMomentButton"
 	_next_moment_button.text = "»  [4]"
@@ -6186,6 +6359,7 @@ func _build_ui() -> void:
 	_active_playbook_button.focus_mode = Control.FOCUS_ALL
 	_active_playbook_button.tooltip_text = "Open the active shift playbook. Every choice shows gain, cost, and risk before filing."
 	_active_playbook_button.accessibility_name = _active_playbook_button.tooltip_text
+	_active_playbook_button.about_to_popup.connect(_on_active_playbook_about_to_popup)
 	_active_playbook_button.get_popup().id_pressed.connect(_on_active_playbook_item_pressed)
 	_active_playbook_button.get_popup().popup_hide.connect(_on_active_playbook_popup_hide)
 	_shift_objective_row.add_child(_active_playbook_button)
@@ -7205,9 +7379,9 @@ func _set_review_details_expanded(expanded: bool) -> void:
 		var interface_scale := float(_player_preferences.get("ui_scale", 1.0))
 		var scale_height_allowance := roundi(maxf(0.0, interface_scale - 1.0) * 50.0)
 		var half_height := (
-			310 + scale_height_allowance
-			if _review_details_expanded else
-			215 + scale_height_allowance
+			(350 if _review_details_expanded else 305) + scale_height_allowance
+			if _compact_physical_hud else
+			(310 if _review_details_expanded else 215) + scale_height_allowance
 		)
 		_day_review_panel.offset_top = -float(half_height)
 		_day_review_panel.offset_bottom = float(half_height)
@@ -8801,6 +8975,7 @@ func _snapshot_worker_average(snapshot: Dictionary, field: StringName) -> float:
 
 
 func _on_decision_resolved(result: Dictionary) -> void:
+	_begin_payoff_breath()
 	var resolved_snapshot := _simulation.snapshot()
 	_spawn_decision_consequence_receipts(
 		_decision_before_snapshot,
@@ -9254,7 +9429,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	if _review_fund_value != null:
 		_review_fund_value.text = "$%.2f" % (float(closing_fund) / 100.0)
 	if _review_next_value != null:
-		_review_next_value.text = str(int(report.get("next_quota", quota)))
+		_review_next_value.text = "%d EGGS" % int(report.get("next_quota", quota))
 	_apply_three_card_review(report)
 	if _review_summary != null:
 		var shell_summary := (
@@ -9262,17 +9437,45 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			if cracked == 0 else
 			"! %d CRACKED   /   * %d GOLDEN" % [cracked, golden]
 		)
+		var net_equation := "CREDIT $%.2f - COSTS $%.2f" % [
+			float(gross_credit) / 100.0,
+			float(operating_cost) / 100.0,
+		]
+		if market_contract_breach > 0:
+			net_equation += " - CONTRACT $%.2f" % (float(market_contract_breach) / 100.0)
+		net_equation += " = %s NET" % operating_net_text
 		var routing_review := report.get("routing_review", {}) as Dictionary
 		var routing_short := String(routing_review.get("short_label", "")).strip_edges()
+		var loss_cause := ""
+		if operating_net < 0:
+			var largest_cost := 0
+			var largest_name := ""
+			var next_action := ""
+			for cost_entry in [
+				{"present": report.has("feed_cost_cents"), "cents": feed_cost, "name": "FEED", "next": "ROUTE MORE EGGS"},
+				{"present": report.has("payroll_cents"), "cents": payroll_cost, "name": "PAYROLL", "next": "USE CURRENT DESKS FULLY"},
+				{"present": report.has("facility_cost_cents"), "cents": facility_cost, "name": "FACILITIES", "next": "USE INSTALLED CAPACITY"},
+				{"present": market_contract_breach > 0, "cents": market_contract_breach, "name": "CONTRACT PENALTY", "next": "REVIEW CONTRACT TERMS"},
+			]:
+				if bool(cost_entry["present"]) and int(cost_entry["cents"]) > largest_cost:
+					largest_cost = int(cost_entry["cents"])
+					largest_name = String(cost_entry["name"])
+					next_action = String(cost_entry["next"])
+			if largest_cost > 0:
+				loss_cause = "BIGGEST COST: %s $%.2f · NEXT: %s" % [
+					largest_name, float(largest_cost) / 100.0, next_action,
+				]
 		_review_summary.text = (
-			"%s\n%s" % [shell_summary, routing_short]
-			if not routing_short.is_empty() else
-			shell_summary
+			"%s\n%s" % [net_equation, loss_cause if not loss_cause.is_empty() else routing_short]
+			if not loss_cause.is_empty() or not routing_short.is_empty() else
+			net_equation
 		)
 		var routing_accessible := String(
 			routing_review.get("accessible_text", "")
 		).strip_edges()
-		var summary_accessible := shell_summary
+		var summary_accessible := "%s. %s" % [net_equation, shell_summary]
+		if not loss_cause.is_empty():
+			summary_accessible += ". " + loss_cause
 		if not routing_accessible.is_empty():
 			summary_accessible += ". " + routing_accessible
 		_review_summary.set_meta("accessible_text", summary_accessible)
@@ -9580,7 +9783,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 	# The accounting above remains available in Details. End on the hen's work.
 	var named_contribution := report.get("hen_highlight", {}) as Dictionary
 	if not named_contribution.is_empty():
-		_review_story.text = "%s · %d EGGS" % [String(named_contribution.get("worker_name", "THE FLOCK")).to_upper(), int(named_contribution.get("eggs", 0))]
+		_review_story.text = _review_hen_caption(named_contribution)
 		_review_story.tooltip_text = String(named_contribution.get("body", review_highlight))
 		_review_story.accessibility_name = "%s. %s" % [_review_story.text, _review_story.tooltip_text]
 	_review_story.set_meta("filed_highlight", review_highlight)
@@ -9649,7 +9852,7 @@ func _apply_three_card_review(report: Dictionary) -> void:
 		_review_net_value,
 		_review_fund_value,
 	]
-	var captions := ["WHAT WORKED", "WHAT CHANGED", "CLOSE CALL"]
+	var captions := ["EGGS / QUOTA", "SHIFT NET", "SHELL QUALITY"]
 	var card_indexes := [0, 2, 1]
 	for index in value_labels.size():
 		var value_label := value_labels[index]
@@ -9667,9 +9870,11 @@ func _apply_three_card_review(report: Dictionary) -> void:
 			if card_indexes[index] < cards.size() else
 			{}
 		)
+		if caption != null:
+			caption.text = String(card.get("label", captions[index]))
 		value_label.text = String(card.get("value", value_label.text))
 		value_label.tooltip_text = "%s  ·  %s\n%s" % [
-			captions[index],
+			String(card.get("label", captions[index])),
 			String(card.get("value", value_label.text)),
 			String(card.get("detail", "Filed shift result.")),
 		]
@@ -9682,14 +9887,10 @@ func _apply_three_card_review(report: Dictionary) -> void:
 			false,
 		) as Label
 		if next_caption != null:
-			next_caption.text = "NEXT SHIFT"
+			next_caption.text = "NEXT QUOTA"
 	var hen_highlight := report.get("hen_highlight", {}) as Dictionary
 	if _review_story != null and not hen_highlight.is_empty():
-		_review_story.text = "%s · %d EGGS · %s" % [
-			String(hen_highlight.get("worker_name", "THE FLOCK")).to_upper(),
-			int(hen_highlight.get("eggs", 0)),
-			String(hen_highlight.get("headline", "SHIFT FILED")),
-		]
+		_review_story.text = _review_hen_caption(hen_highlight)
 		_review_story.tooltip_text = String(hen_highlight.get("body", ""))
 		_review_story.accessibility_name = "%s. %s" % [_review_story.text, _review_story.tooltip_text]
 	if _day_review_panel != null:
@@ -9698,6 +9899,23 @@ func _apply_three_card_review(report: Dictionary) -> void:
 			"fast_replay_flow",
 			{"actions": ["replay_highlight", "remix_idea", "continue"], "one_click": true},
 		)
+
+
+func _review_hen_caption(highlight: Dictionary) -> String:
+	var hen_name := String(highlight.get("worker_name", "THE FLOCK")).to_upper()
+	var eggs := int(highlight.get("eggs", 0))
+	if String(highlight.get("type", "")) == "strain_notice":
+		return "%s · NEEDS SOME CARE" % hen_name
+	if eggs <= 0:
+		return "%s · SHIFT FILED" % hen_name
+	return "%s · %d %s" % [hen_name, eggs, "EGG" if eggs == 1 else "EGGS"]
+
+
+func _review_bottleneck_readout() -> String:
+	if _review_fund_value == null:
+		return "Work quality unavailable"
+	var card := _review_fund_value.get_meta("report_card", {}) as Dictionary
+	return "%s: %s" % [String(card.get("label", "Work quality")).capitalize(), _review_fund_value.text]
 
 
 func _on_review_replay_highlight_pressed() -> void:
@@ -11654,6 +11872,18 @@ func _on_personnel_action_requested(worker_id: int, action_id: StringName) -> vo
 		return
 	var preferred_note := "  /  PROFILE MATCH" if bool(result.get("preferred", false)) else ""
 	_begin_payoff_breath()
+	var cared_hen := _worker_views.get(worker_id) as ChickenView
+	if cared_hen != null and is_instance_valid(cared_hen):
+		var reaction := "I'LL TRY THAT."
+		if action_id == &"quota_pressure":
+			reaction = "THAT'S A LOT TO ASK."
+		elif float(source_worker.get("stress", 0.0)) >= 25.0:
+			reaction = "THANKS FOR NOTICING."
+		elif bool(result.get("preferred", false)):
+			reaction = "THAT MEANS A LOT."
+		elif action_id == &"share_credit":
+			reaction = "WE DID THAT TOGETHER."
+		cared_hen.play_short_bark(reaction, &"neutral" if action_id == &"quota_pressure" else &"team")
 	_ticker_label.text = "%s%s" % [String(result.get("outcome", "Personnel action filed.")), preferred_note]
 	if _audio_feedback != null:
 		_audio_feedback.play_decision_resolved()
@@ -12046,6 +12276,12 @@ func _refresh_speed_button_copy() -> void:
 				"%s remains selected. Inspecting this approaching Priority Peck "
 				+ "temporarily holds the effective clock at 1×; the selected speed resumes automatically."
 			) % labels[index]
+	if _compact_speed_menu != null:
+		_compact_speed_menu.disabled = not controls_available
+		_compact_speed_menu.text = (
+			"PACE" if _clock == null or paused else
+			["PACE", "1× PACE", "3× PACE", "10× PACE"][_clock.speed_index]
+		)
 	if _next_moment_button != null:
 		var next_hint := _action_hint(NEXT_MOMENT_ACTION)
 		var primary_hint := next_hint.split(" / ", false)[0]
@@ -20317,6 +20553,8 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 				reward_ready = true
 				break
 		_reward_loop_host.visible = (
+			not _compact_physical_hud
+			and
 			int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING
 			and not String(active_playbook.get("strategy_preset_id", "")).is_empty()
 			and (int(snapshot.get("eggs_today", 0)) > 0 or reward_ready)
@@ -20338,14 +20576,16 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		clutch_icon.accessibility_name = clutch_icon.tooltip_text
 		clutch_icon.set_meta("filled", filled)
 	if _clutch_carton_host != null:
-		_clutch_carton_host.visible = clutch_filled > 0
+		_clutch_carton_host.visible = clutch_filled > 0 and not _compact_physical_hud
 		_clutch_carton_host.tooltip_text = String(clutch.get("detail", "Clean-clutch reward track: 2 / 4 / 8."))
 		_clutch_carton_host.set_meta("projection", clutch.duplicate(true))
 	if _quality_streak_label != null:
-		_quality_streak_label.visible = int(snapshot.get("quality_streak", 0)) > 0
+		_quality_streak_label.visible = int(snapshot.get("quality_streak", 0)) > 0 and not _compact_physical_hud
 	var rival := _gameplay_pulse.get("rival_pulse", {}) as Dictionary
 	if _rival_pulse_label != null:
 		_rival_pulse_label.visible = (
+			not _compact_physical_hud
+			and
 			bool(rival.get("visible", false))
 			and int(snapshot.get("eggs_today", 0)) > 0
 			and int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING
@@ -20441,9 +20681,10 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 		_shift_goal_status_host.set_meta("accessible_text", detail)
 	# The floor carries the loop; detailed counters are available while inspecting.
 	var inspecting := _explain_strip != null and _explain_strip.visible
-	_core_loop_host.visible = not opening and inspecting
+	_directive_badge_host.visible = inspecting and not _compact_physical_hud
+	_core_loop_host.visible = not opening and inspecting and not _compact_physical_hud
 	_shift_egg_goal_label.visible = not opening and inspecting
-	_reward_loop_host.visible = not opening and inspecting
+	_reward_loop_host.visible = not opening and inspecting and not _compact_physical_hud
 	if opening:
 		_reward_loop_host.visible = false
 		_clutch_carton_host.visible = false
@@ -20452,7 +20693,7 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 		var chain := maxi(0, int(snapshot.get("quality_streak", 0)))
 		var ladder := _clutch_reward_ladder_snapshot(chain)
 		_quality_streak_label.text = "CLEAN %d · +$%.2f" % [chain, float(ladder.get("current_bonus_cents", 0)) / 100.0]
-		_quality_streak_label.visible = chain > 0
+		_quality_streak_label.visible = chain > 0 and not _compact_physical_hud
 		_clutch_carton_host.visible = false
 		if _personal_goal.get("status", "") == "active" and int(_personal_goal.get("day", -1)) == int(snapshot.get("day", 0)):
 			_quality_streak_label.tooltip_text = "%s. %s" % [PersonalShiftGoal.label(_personal_goal), _quality_streak_label.text]
@@ -21473,6 +21714,23 @@ func _on_active_playbook_popup_hide() -> void:
 	)
 
 
+func _on_active_playbook_about_to_popup() -> void:
+	# MenuButton computes a position below PLAN, which covers the hen this menu
+	# is meant to help manage. Re-anchor its own PopupMenu after that placement.
+	call_deferred("_place_active_playbook_popup")
+
+
+func _place_active_playbook_popup() -> void:
+	if _active_playbook_button == null:
+		return
+	var popup := _active_playbook_button.get_popup()
+	if not popup.visible:
+		return
+	var hud_bottom := _top_hud_panel.offset_bottom if _top_hud_panel != null else LIVE_HUD_HEIGHT
+	popup.position = Vector2i(16, roundi(hud_bottom + 10.0))
+	popup.set_meta("scene_safe_anchor", true)
+
+
 func _next_action_diagnostic_state() -> Dictionary:
 	var held_confirmation_action := _active_held_confirmation_primary_action_state()
 	if not held_confirmation_action.is_empty():
@@ -21731,7 +21989,7 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 	if _day_review_scrim != null and _day_review_scrim.visible:
 		return _web_accessibility_text(
 			(
-				"%s. Eggs versus target: %s. Net: %s. Feed Fund: %s. "
+				"%s. Eggs versus target: %s. Net: %s. %s. "
 				+ "Next target: %s. %s. %s. Accounting details: %s "
 				+ "Objective: review the close-of-shift result, then continue."
 			)
@@ -21739,7 +21997,7 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 				_review_title.text if _review_title != null else "Farmer review",
 				_review_eggs_value.text if _review_eggs_value != null else "",
 				_review_net_value.text if _review_net_value != null else "",
-				_review_fund_value.text if _review_fund_value != null else "",
+				_review_bottleneck_readout(),
 				_review_next_value.text if _review_next_value != null else "",
 				String(_review_summary.get_meta(
 					"accessible_text",
@@ -21974,11 +22232,11 @@ func _web_accessibility_announcement(snapshot: Dictionary, summary := "") -> Dic
 		text = "Facility commissioning receipt opened. Objective: review the filed effects, then acknowledge the receipt."
 	elif _day_review_scrim != null and _day_review_scrim.visible:
 		kind = &"shift_review"
-		text = "%s. Eggs versus target: %s. Net: %s. Feed Fund: %s. Objective: review the close-of-shift result, then continue." % [
+		text = "%s. Eggs versus target: %s. Net: %s. %s. Objective: review the close-of-shift result, then continue." % [
 			_review_title.text if _review_title != null else "Farmer review",
 			_review_eggs_value.text if _review_eggs_value != null else "unavailable",
 			_review_net_value.text if _review_net_value != null else "unavailable",
-			_review_fund_value.text if _review_fund_value != null else "unavailable",
+			_review_bottleneck_readout(),
 		]
 	elif (
 		_campaign_ui != null
@@ -23266,8 +23524,8 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 		_camera_controller.set_safe_viewport_insets(
 			0.0,
 			FLOCKWATCH_DRAWER_SAFE_RIGHT if is_open else 0.0,
-			0.0,
-			0.0,
+			(136.0 if _compact_physical_hud else 104.0) if _intent_focus_worker_id >= 0 else 0.0,
+			(300.0 if _compact_physical_hud else 250.0) if _intent_focus_worker_id >= 0 else 0.0,
 		)
 	_flockwatch_open = is_open
 	_refresh_flockwatch_toggle_layout()
@@ -23492,9 +23750,9 @@ func _refresh_flockwatch_toggle_layout() -> void:
 	if _flockwatch_toggle == null:
 		return
 	var routing_top := (
-		FIRST_CLUTCH_ROUTING_TOP
-		if _compact_live_hud_applied else
-		LIVE_ROUTING_TOP
+		(88.0 if _compact_live_hud_applied else 136.0)
+		if _compact_physical_hud else
+		(FIRST_CLUTCH_ROUTING_TOP if _compact_live_hud_applied else LIVE_ROUTING_TOP)
 	)
 	if _flockwatch_open and _flockwatch_navigation != null:
 		_flockwatch_navigation.adopt_header_action(_flockwatch_toggle)
@@ -23634,7 +23892,7 @@ func _set_guidance(
 	var guidance_font := _guidance_label.get_theme_font("font")
 	var guidance_font_size := _guidance_label.get_theme_font_size("font_size")
 	_guidance_label.custom_minimum_size.x = minf(
-		430.0,
+		300.0 if _compact_physical_hud else 430.0,
 		ceilf(guidance_font.get_string_size(
 			copy,
 			HORIZONTAL_ALIGNMENT_LEFT,
@@ -23648,7 +23906,7 @@ func _set_guidance(
 	# consequence receipt. Retire the three-icon outcome strip so its chevron
 	# stays visually attached to the action label.
 	if _consequence_icon_host != null:
-		if action_id in [&"today", &"resume_shift"]:
+		if _compact_physical_hud or action_id in [&"today", &"resume_shift"]:
 			_consequence_icon_host.visible = false
 		else:
 			_consequence_icon_host.visible = int(
@@ -23687,7 +23945,7 @@ func _set_guidance(
 			],
 		)
 		if _guidance_action_chevron != null:
-			_guidance_action_chevron.visible = actionable
+			_guidance_action_chevron.visible = actionable and not _compact_physical_hud
 
 
 ## Global guidance sometimes performs the named action and sometimes only moves
@@ -24023,18 +24281,6 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			&"resume_shift",
 		)
 		return
-	if shift_phase == DepartmentSimulation.ShiftPhase.RUNNING:
-		var playbook := _simulation.playbook_snapshot(
-			_routing_ui.focused_worker_id() if _routing_ui != null else -1
-		)
-		if String(playbook.get("strategy_preset_id", "")).is_empty():
-			_set_guidance(
-				"CHOOSE: FAST / SAFE / FLOCK",
-				&"goal",
-				"Pick one readable shift identity. Each plan shows its gain, cost, and risk before filing.",
-				&"playbook",
-			)
-			return
 	if shift_phase == DepartmentSimulation.ShiftPhase.RUNNING and not _routing_return_cue.is_empty():
 		_set_guidance(
 			String(_routing_return_cue.get("copy", "ROUTING RECORD")),
@@ -24043,6 +24289,18 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			&"routing_chase",
 		)
 		return
+	if shift_phase == DepartmentSimulation.ShiftPhase.RUNNING:
+		var playbook := _simulation.playbook_snapshot(
+			_routing_ui.focused_worker_id() if _routing_ui != null else -1
+		)
+		if String(playbook.get("strategy_preset_id", "")).is_empty():
+			_set_guidance(
+				"CHOOSE A SHIFT PLAN",
+				&"goal",
+				"Compare Faster eggs, Safer shells, or Happier hens. Each shows its benefit, cost, and tradeoff before you choose.",
+				&"playbook",
+			)
+			return
 	if not _campaign_order_return_cue.is_empty():
 		if (
 			StringName(_campaign_order_return_cue.get("driver_action_id", &"")) == &"hen_routes"
@@ -25553,9 +25811,38 @@ func _on_work_progress_context_selected(worker_id: int, context_id: StringName) 
 	_publish_web_diagnostic_state(snapshot)
 
 
+func _set_inspected_cubicle_cutaway(worker_id: int) -> void:
+	var focused_view := _worker_views.get(worker_id) as ChickenView
+	var focused_desk := focused_view.desk_index if focused_view != null and is_instance_valid(focused_view) else -1
+	if _office_storytelling != null:
+		_office_storytelling.set_inspection_collection_cutaway(focused_desk)
+	for desk_index in _workstations_by_index:
+		var workstation := _workstations_by_index[desk_index] as Node3D
+		if workstation == null or not is_instance_valid(workstation):
+			continue
+		var cutaway := int(desk_index) == focused_desk
+		for partition_name in ["CubicleBack", "CubicleWing_L", "PanelTopTrim", "Monitor", "Screen", "ScreenHeader", "ScreenAlert"]:
+			var partition := workstation.find_child(partition_name, true, false) as MeshInstance3D
+			if partition == null:
+				continue
+			# A true cutaway survives GL Compatibility's opaque imported material.
+			# The monitor occupies the hen's body in this camera angle. It joins
+			# the inspection-only cutaway; authored desk, collision and navigation
+			# remain in place and all furniture returns in overview.
+			partition.visible = not cutaway
+			partition.transparency = INSPECTED_CUBICLE_TRANSPARENCY if cutaway else 0.0
+			partition.cast_shadow = (
+				GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if cutaway else
+				GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			)
+		for line in workstation.find_children("ScreenLine_*", "MeshInstance3D", true, false):
+			(line as MeshInstance3D).visible = not cutaway
+
+
 func _on_camera_focus_changed(label: String, worker_id: int) -> void:
 	var dispatch_committed := false
 	_intent_focus_worker_id = worker_id
+	_set_inspected_cubicle_cutaway(worker_id)
 	for view_worker_id in _worker_views:
 		var intent_view := _worker_views.get(view_worker_id) as ChickenView
 		if intent_view != null and is_instance_valid(intent_view):
@@ -28171,6 +28458,11 @@ func _reset_feed_party_wheels() -> void:
 			wheel.rotation.x = float(
 				wheel.get_meta("feed_party_base_rotation_x", wheel.rotation.x)
 			)
+
+
+func _on_compact_speed_selected(index: int) -> void:
+	if index >= 1 and index <= 3:
+		_on_speed_button_pressed(index)
 
 
 func _on_speed_button_pressed(index: int) -> void:

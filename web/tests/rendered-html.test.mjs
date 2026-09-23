@@ -464,7 +464,7 @@ test("focuses the wrapper after a campaign begins while retaining a manual page-
 	assert.match(css, /\.is-focused-play \.intro,[\s\S]*display:\s*none/);
 	assert.match(css, /\.is-focused-play \.handbook[\s\S]*display:\s*none/);
 	assert.match(css, /\.is-focused-play \.game-stage\s*\{[\s\S]*100dvh - 122px/);
-	assert.match(css, /\.site-shell\.is-focused-play\s*\{[\s\S]*1920px/);
+	assert.match(css, /\.site-shell\.is-focused-play\s*\{[\s\S]*2560px/);
 	assert.match(css, /@media \(max-width:\s*720px\)[\s\S]*grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)/);
 	assert.match(page, /className="mobile-touch-controls" aria-label="Touch game controls"/);
 	assert.match(page, /__pecking_order_mobile_action/);

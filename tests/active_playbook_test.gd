@@ -44,6 +44,25 @@ func _init() -> void:
 		"one safe-plan action should atomically file its challenge, floor focus, preparation, goal, and exact modifiers",
 		failures,
 	)
+	var fast_simulation := DepartmentSimulation.new(260822, 4)
+	var flock_simulation := DepartmentSimulation.new(260822, 4)
+	for comparison in [fast_simulation, flock_simulation]:
+		for worker_id in comparison.workers.size():
+			comparison.set_worker_at_workstation(worker_id, true)
+		_check(comparison.select_directive(&"shell_assurance"), "comparison shift should start", failures)
+		comparison.revenue_cents = 10000
+	_check(bool(fast_simulation.perform_playbook_action(&"preset", &"fast", 0).get("accepted", false)), "fast plan should file", failures)
+	_check(bool(flock_simulation.perform_playbook_action(&"preset", &"flock", 0).get("accepted", false)), "flock plan should file", failures)
+	var fast_modifiers := fast_simulation.snapshot().get("decision_modifiers", {}) as Dictionary
+	var flock_modifiers := flock_simulation.snapshot().get("decision_modifiers", {}) as Dictionary
+	_check(
+		float(fast_modifiers.get("playbook_work_multiplier", 1.0)) > float(guided_modifiers.get("playbook_work_multiplier", 1.0))
+		and float(fast_modifiers.get("playbook_crack_modifier", 0.0)) > float(guided_modifiers.get("playbook_crack_modifier", 0.0))
+		and float(flock_modifiers.get("playbook_strain_multiplier", 1.0)) < float(fast_modifiers.get("playbook_strain_multiplier", 1.0))
+		and flock_simulation.revenue_cents == fast_simulation.revenue_cents - 200,
+		"fast, safe, and flock plans should have distinct pace, shell, strain, and cash consequences",
+		failures,
+	)
 	_check(
 		not bool(preset_simulation.perform_playbook_action(&"preset", &"fast", 0).get("accepted", false)),
 		"a guided plan should file exactly once",

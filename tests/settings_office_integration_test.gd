@@ -19,6 +19,7 @@ func _init() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+	root.size = Vector2i(1280, 720)
 	var preferences_store = PlayerPreferencesStoreScript.new(TEST_PREFERENCES_FILENAME)
 	preferences_store.delete_preferences()
 	var office := Office.new()

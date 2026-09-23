@@ -718,7 +718,7 @@ var _pending_claim_resolution_path: StringName = &""
 var _pending_claim_resolution_worker_id := -1
 var _pending_claim_resolution_claim_id := -1
 var _claim_resolution_origin: Control
-var _personnel_actions_section: VBoxContainer
+var _personnel_actions_section: GridContainer
 var _focused_worker_id := -1
 var _snapshot: Dictionary = {}
 var _interaction_enabled := true
@@ -789,6 +789,9 @@ var _last_first_clutch_skip_rect := Rect2()
 var _details_expanded := false
 var _top_inset := 120.0
 var _interface_scale := 1.0
+var _dossier_physical_scale := -1.0
+var _dossier_canvas_scale := 1.0
+var _dossier_measure_elapsed := 0.5
 var _icon_led_queue_marks := true
 
 
@@ -821,6 +824,12 @@ func _process(delta: float) -> void:
 	var viewport_width := get_viewport_rect().size.x
 	if not is_equal_approx(viewport_width, _first_clutch_layout_width):
 		_apply_first_clutch_layout()
+	_dossier_measure_elapsed += delta
+	if _dossier_measure_elapsed >= 0.5:
+		_dossier_measure_elapsed = 0.0
+		_measure_dossier_canvas()
+		if not is_equal_approx(_dossier_readable_scale(), _dossier_physical_scale):
+			_apply_dossier_disclosure()
 	var skip_rect := first_clutch_skip_button_rect()
 	if not skip_rect.is_equal_approx(_last_first_clutch_skip_rect):
 		_last_first_clutch_skip_rect = skip_rect
@@ -2817,7 +2826,7 @@ func _build_focus_dossier() -> void:
 	_focus_panel.offset_right = -18.0
 	_focus_panel.offset_bottom = -62.0
 	_focus_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	_focus_panel.add_theme_stylebox_override("panel", _panel_style(Color("172832"), 0.985, Color("bf9851"), 9, 2))
+	_focus_panel.add_theme_stylebox_override("panel", _panel_style(Color("172832"), 0.985, Color("526b70"), 9, 1))
 	add_child(_focus_panel)
 
 	var margin := MarginContainer.new()
@@ -2831,6 +2840,7 @@ func _build_focus_dossier() -> void:
 	margin.add_child(row)
 
 	var identity := VBoxContainer.new()
+	identity.name = "DossierIdentity"
 	identity.custom_minimum_size.x = 281.0
 	identity.add_theme_constant_override("separation", 2)
 	row.add_child(identity)
@@ -2939,11 +2949,11 @@ func _build_focus_dossier() -> void:
 	_details_button.name = "RoutingDetailsToggle"
 	_details_button.text = "DETAILS"
 	_details_button.tooltip_text = "Show career, trust, grievance, and care details for this hen."
-	_details_button.custom_minimum_size = Vector2(98.0, 24.0)
+	_details_button.custom_minimum_size = Vector2(66.0, 24.0)
 	_details_button.add_theme_font_size_override("font_size", 10)
 	_details_button.mouse_filter = Control.MOUSE_FILTER_STOP
 	_details_button.pressed.connect(_on_details_pressed)
-	identity.add_child(_details_button)
+	selected_row.add_child(_details_button)
 
 	var active_file := VBoxContainer.new()
 	active_file.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2982,8 +2992,14 @@ func _build_focus_dossier() -> void:
 	_golden_file_badge.visible = false
 	_golden_file_badge.mouse_filter = Control.MOUSE_FILTER_STOP
 	_claim_header.add_child(_golden_file_badge)
+	var contract_slot := Control.new()
+	contract_slot.name = "RoutingContractBadgeSlot"
+	contract_slot.custom_minimum_size = Vector2(154.0, 22.0)
+	contract_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_claim_header.add_child(contract_slot)
 	_current_contract_badge = _make_contract_badge("RoutingCurrentContractBadge", 154.0)
-	_claim_header.add_child(_current_contract_badge)
+	contract_slot.add_child(_current_contract_badge)
+	_current_contract_badge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_claim_context_row = HBoxContainer.new()
 	_claim_context_row.name = "RoutingClaimContextRow"
 	_claim_context_row.custom_minimum_size.y = 25.0
@@ -3162,10 +3178,12 @@ func _build_focus_dossier() -> void:
 		_claim_resolution_section.add_child(button)
 		_claim_resolution_buttons[path_id] = button
 
-	_personnel_actions_section = VBoxContainer.new()
+	_personnel_actions_section = GridContainer.new()
 	_personnel_actions_section.name = "PersonnelActions"
+	_personnel_actions_section.columns = 2
 	_personnel_actions_section.custom_minimum_size.x = 142.0
-	_personnel_actions_section.add_theme_constant_override("separation", 4)
+	_personnel_actions_section.add_theme_constant_override("h_separation", 8)
+	_personnel_actions_section.add_theme_constant_override("v_separation", 8)
 	row.add_child(_personnel_actions_section)
 	for action_id in PERSONNEL_ACTION_ORDER:
 		var button := Button.new()
@@ -3924,7 +3942,7 @@ func _refresh() -> void:
 	if claim.is_empty():
 		_clear_claim_phase_header()
 		if assignment == &"auto":
-			_current_claim_label.text = "1  CHOOSE A ROUTE"
+			_current_claim_label.text = "1  PICK ROUTE"
 			_current_claim_label.accessibility_name = (
 				"Step 1, choose a route for %s. No file is active. "
 				+ "Auto sorting remains available and will favor specialty and deadline."
@@ -4325,15 +4343,13 @@ func _refresh() -> void:
 			"Today's flock check-in allowance is fully filed.",
 		))
 	elif can_assign and action_available:
-		_check_in_status_label.text = "CHECK-IN READY / %d OF %d / %d LEFT" % [
-			actions_used,
-			action_limit,
-			actions_remaining,
-		]
-		_check_in_status_label.tooltip_text = "Choose one personnel action for this hen; %d flock check-in%s remain%s." % [
+		_check_in_status_label.text = "READY · %d LEFT" % actions_remaining
+		_check_in_status_label.tooltip_text = "Choose one personnel action for this hen; %d flock check-in%s remain%s. %d of %d filed." % [
 			actions_remaining,
 			"" if actions_remaining == 1 else "s",
 			"s" if actions_remaining == 1 else "",
+			actions_used,
+			action_limit,
 		]
 	else:
 		_check_in_status_label.text = "CHECK-IN LOCKED / %d OF %d" % [actions_used, action_limit]
@@ -5272,10 +5288,26 @@ func _apply_dossier_disclosure() -> void:
 	var support_tab := normal_play and _details_expanded and _active_dossier_tab == &"support"
 	var profile_tab := normal_play and _details_expanded and _active_dossier_tab == &"profile"
 	var compact_recovery := compact_play and _assignment_undo_button.visible
-	_focus_panel.offset_top = (-210.0 if compact_recovery else -174.0) if compact_play else -222.0
+	_dossier_physical_scale = _dossier_readable_scale()
+	var small_canvas := _dossier_physical_scale > 1.15
+	if compact_play:
+		_focus_panel.offset_top = (-284.0 if compact_recovery else -240.0) if small_canvas else (-228.0 if compact_recovery else -186.0)
+	elif coach_active and stage == &"specialty_route" and not small_canvas:
+		_focus_panel.offset_top = -194.0
+	else:
+		_focus_panel.offset_top = -302.0 if small_canvas else -240.0
 	# Keep the four-field action card visually attached to the selected hen
 	# instead of spanning across unrelated desks at wide desktop resolutions.
-	_focus_panel.offset_right = -760.0 if compact_play else -18.0
+	var available_width := get_viewport_rect().size.x
+	# Expanded dossiers reserve the available row for variable contract/file
+	# evidence. The ordinary four-field card stays capped and compact.
+	var panel_width := minf(
+		available_width - 36.0,
+		(690.0 if small_canvas else 620.0) if compact_play else
+		available_width - 36.0 if small_canvas else 980.0,
+	)
+	_focus_panel.offset_right = -(available_width - 18.0 - panel_width)
+	_apply_dossier_readability()
 	_focus_panel.set_meta("compact_action_card", compact_play)
 	_focus_panel.set_meta("essential_field_count", 4)
 	_dossier_summary_label.custom_minimum_size.y = 42.0 if compact_play else 54.0
@@ -5297,7 +5329,9 @@ func _apply_dossier_disclosure() -> void:
 	# The queue is useful while teaching routes, but it is visual noise during
 	# inspection, personnel, timing, and delivery steps.
 	_queue_panel.visible = normal_play or (target_matches and stage == &"specialty_route")
-	_claim_header.visible = show_claim
+	# The coach already names the first route above the scene. Keep its
+	# candidate buttons here, but avoid a second competing instruction.
+	_claim_header.visible = show_claim and not (coach_active and stage == &"specialty_route")
 	_dossier_summary_label.visible = (
 		compact_play
 		or (
@@ -5369,6 +5403,52 @@ func _apply_dossier_disclosure() -> void:
 			% _lane_name(specialty)
 		)
 	_ensure_contextual_focus_remains_visible(stage, previous_focus_owner)
+
+
+## The Web canvas retains its design resolution inside a smaller iframe. Reflow
+## the action grid and compensate its controls, rather than shrinking the only
+## buttons the player needs. Containers continue to own all child placement.
+func _dossier_readable_scale() -> float:
+	return clampf(maxf(_interface_scale, _dossier_canvas_scale), 1.0, 1.5)
+
+
+func _measure_dossier_canvas() -> void:
+	var viewport_size := get_viewport_rect().size
+	var physical_size := Vector2(DisplayServer.window_get_size())
+	if OS.has_feature("web"):
+		# The wrapper can CSS-scale the canvas without changing Godot's backing
+		# resolution. Measure at 2 Hz, not every render or simulation snapshot.
+		var css_size: Variant = JavaScriptBridge.eval("(() => { const c = document.querySelector('canvas'); if (!c) return ''; const r = c.getBoundingClientRect(); return JSON.stringify([r.width, r.height]); })()", true)
+		if css_size is String and not css_size.is_empty():
+			var dimensions: Variant = JSON.parse_string(css_size)
+			if dimensions is Array and dimensions.size() == 2:
+				physical_size = Vector2(float(dimensions[0]), float(dimensions[1]))
+	var physical_ratio := minf(physical_size.x / maxf(1.0, viewport_size.x), physical_size.y / maxf(1.0, viewport_size.y))
+	_dossier_canvas_scale = clampf(1.0 / maxf(0.5, physical_ratio), 1.0, 1.5)
+
+
+func _apply_dossier_readability() -> void:
+	var readable_scale := _dossier_physical_scale
+	for candidate in _focus_panel.find_children("*", "Control", true, false):
+		var control := candidate as Control
+		if control is Label or control is Button:
+			if not control.has_meta("dossier_base_font"):
+				control.set_meta("dossier_base_font", control.get_theme_font_size("font_size"))
+			var base_font := maxi(12, int(control.get_meta("dossier_base_font")))
+			control.add_theme_font_size_override("font_size", roundi(base_font * readable_scale))
+		if control is Button:
+			control.custom_minimum_size.y = 44.0 * readable_scale
+	var identity := _focus_panel.find_child("DossierIdentity", true, false) as Control
+	if identity != null:
+		identity.custom_minimum_size.x = 384.0 if readable_scale > 1.15 else 281.0
+	_hen_intent_button.custom_minimum_size.x = 190.0 if readable_scale > 1.15 else 142.0
+	_worker_name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	# Reserve the badge's line before a contracted claim arrives, so revealing
+	# its padded label never changes the dossier footprint or pointer targets.
+	_claim_header.custom_minimum_size.y = 40.0 * readable_scale
+	for button: Button in _personnel_buttons.values():
+		button.custom_minimum_size.x = 174.0 * (1.10 if readable_scale > 1.15 else 1.0)
+	_focus_panel.set_meta("readable_scale", readable_scale)
 
 
 func _ensure_contextual_focus_remains_visible(

@@ -1382,7 +1382,7 @@ func _run() -> void:
 	_check(current_contract_badge != null and "CONTRACT RUSH" in current_contract_badge.text, "active rush claim should identify CONTRACT RUSH work", failures)
 	_check(current_contract_badge != null and "10:20 AM" in current_contract_badge.text, "active rush claim should disclose its authored deadline", failures)
 	_check(queue_strip != null and queue_strip.get_global_rect().is_equal_approx(queue_rect_before), "contract queue badge should not resize or move the routing strip", failures)
-	_check(dossier != null and dossier.get_global_rect().is_equal_approx(dossier_rect_before), "contract current-file badge should not resize or move the dossier", failures)
+	_check(dossier != null and dossier.get_global_rect().is_equal_approx(dossier_rect_before), "contract current-file badge should not resize or move the dossier: before=%s after=%s" % [dossier_rect_before, dossier.get_global_rect() if dossier != null else Rect2()], failures)
 
 	var binder_snapshot := simulation.snapshot().duplicate(true)
 	_apply_contract_fixture(binder_snapshot, false, "4:15 PM")
@@ -1446,7 +1446,7 @@ func _run() -> void:
 		routing_ui.set_focus(1)
 	_check(_press(support_tab), "changing hens should still leave Support one selection away", failures)
 	await process_frame
-	_check(check_in_status != null and _contains_all(check_in_status.text, ["check-in ready", "1 of 2", "1 left"]), "another hen should see the exact remaining Rooster Office allowance", failures)
+	_check(check_in_status != null and _contains_all(check_in_status.text, ["ready", "1 left"]) and "1 of 2 filed" in check_in_status.tooltip_text, "another hen should see the remaining allowance with exact filed/limit detail available on inspection", failures)
 	_check(share_credit != null and not share_credit.disabled, "the first filed action must not globally lock a larger Rooster Office allowance", failures)
 	if routing_ui != null:
 		routing_ui.apply_snapshot(simulation.snapshot())

@@ -359,8 +359,10 @@ func _run() -> void:
 	_check(
 		bool(focus_after_drawer.get("focused", false))
 		and int(focus_after_drawer.get("focused_worker_id", -1)) == 0
-		and (focus_after_drawer.get("world_offset", Vector3(INF, INF, INF)) as Vector3).is_zero_approx(),
-		"closing Flockwatch should remove only the safe inset and retain hen focus",
+		and (focus_after_drawer.get("world_offset", Vector3(INF, INF, INF)) as Vector3).is_equal_approx(focus_before_drawer.get("world_offset", Vector3.ZERO) as Vector3)
+		and float(focus_after_drawer.get("right", -1.0)) == 0.0
+		and float(focus_after_drawer.get("bottom", 0.0)) > float(focus_after_drawer.get("top", 0.0)),
+		"closing Flockwatch should remove its right inset while retaining hen focus and the HUD/dossier safe frame",
 		failures,
 	)
 

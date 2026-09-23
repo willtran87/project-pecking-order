@@ -2413,21 +2413,24 @@ func compose_report(source: Dictionary) -> Dictionary:
 	if cracked == 0 and eggs > 0:
 		worked_detail = "Clean shells carried the shift."
 	var call_value := "%d CRACKED" % cracked
+	var call_label := "SHELL QUALITY"
 	var call_detail := "Shell quality stayed clean."
 	if cracked == 0 and overdue > 0:
+		call_label = "LATE FILES"
 		call_value = "%d OVERDUE" % overdue
-		call_detail = "The archive nearly owned the shift."
+		call_detail = "Route a matching specialist to the oldest waiting file next shift."
 	elif cracked == 0 and rework > 0:
+		call_label = "REWORK"
 		call_value = "%d REWORK" % rework
 		call_detail = "A recovery route remains open."
 	elif cracked > 0:
-		call_detail = "Shell risk became the closest call."
+		call_detail = "Try Safer shells or inspect a strained hen before the next delivery."
 	var changed_value := "%s$%.2f" % ["+" if net_cents >= 0 else "-", absf(float(net_cents)) / 100.0]
-	var changed_detail := "Operating result filed to the Feed Fund."
+	var changed_detail := "$%.2f credited - $%.2f operating costs - $%.2f contract penalties. Purchases and optional care are separate spending." % [float(source.get("credited_cents", source.get("credited_today_cents", 0))) / 100.0, float(source.get("operating_cost_cents", 0)) / 100.0, float(source.get("market_contract_breach_cents", (source.get("market_contract", {}) as Dictionary).get("breach_cents", 0))) / 100.0]
 	var cards: Array[Dictionary] = [
-		{"id": "worked", "icon": "egg", "label": "WHAT WORKED", "value": worked_value, "detail": worked_detail, "positive": met_quota or cracked == 0},
-		{"id": "call", "icon": "shield", "label": "CLOSE CALL", "value": call_value, "detail": call_detail, "positive": cracked == 0 and overdue == 0},
-		{"id": "changed", "icon": "cash", "label": "WHAT CHANGED", "value": changed_value, "detail": changed_detail, "positive": net_cents >= 0},
+		{"id": "worked", "icon": "egg", "label": "EGGS / QUOTA", "value": worked_value, "detail": worked_detail, "positive": met_quota or cracked == 0},
+		{"id": "call", "icon": "shield", "label": call_label, "value": call_value, "detail": call_detail, "positive": cracked == 0 and overdue == 0},
+		{"id": "changed", "icon": "cash", "label": "SHIFT NET", "value": changed_value, "detail": changed_detail, "positive": net_cents >= 0},
 	]
 	return {
 		"card_count": cards.size(),

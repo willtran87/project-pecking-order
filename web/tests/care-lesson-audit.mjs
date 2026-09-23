@@ -55,6 +55,14 @@ try {
     await page.waitForTimeout(350);
   }
   evidence.offered = (await openLesson()).care_lesson;
+  const careCanvas = await page.locator("canvas").boundingBox();
+  evidence.physicalTargets = Object.fromEntries(Object.entries(evidence.offered.controls).map(([key, control]) => [key, {
+    width: control.rect.width * careCanvas.width / 1280,
+    height: control.rect.height * careCanvas.height / 720,
+  }]));
+  for (const target of Object.values(evidence.physicalTargets)) {
+    assert.ok(target.height >= 40 && target.width >= 80, "care must have readable physical targets, including CSS-scaled compact canvases");
+  }
   await page.screenshot({ path: path.join(output, "01-choice.png"), fullPage: true });
   await click(evidence.offered.controls.later.rect);
   await waitFor(s => !s.care_lesson?.visible, "Later must leave");

@@ -38,6 +38,7 @@ var _haptics_enabled := true
 var _last_haptic_cue: StringName = &""
 var _last_haptic_duration_msec := 0
 var _haptic_serial := 0
+var _result_mix_until_msec := 0
 var _sound_egg: AudioStreamWAV
 var _cracked_egg: AudioStreamWAV
 var _golden_egg: AudioStreamWAV
@@ -722,10 +723,20 @@ func _play(
 	_voice_priorities[voice_index] = priority
 	_voice_started_msec[voice_index] = now
 	_voice_cues[voice_index] = cue
+	# Keep the physical file/egg sequence audible without stacking it at the
+	# same loudness as its payoff. This is voice-local, never a saved bus change;
+	# alerts and confirmations are not suppressed and still own their haptics.
+	if priority >= PRIORITY_CONFIRMATION:
+		_result_mix_until_msec = maxi(_result_mix_until_msec, now + 450)
+		for index in _voices.size():
+			var other := _voices[index]
+			if index != voice_index and other.playing and _voice_priorities[index] < PRIORITY_CONFIRMATION:
+				other.volume_db = minf(other.volume_db, float(other.get_meta("unmixed_volume_db", other.volume_db)) - 8.0)
 	player.stream = stream
 	player.bus = bus
 	player.pitch_scale = pitch
-	player.volume_db = volume_db
+	player.set_meta("unmixed_volume_db", volume_db)
+	player.volume_db = volume_db - (8.0 if priority < PRIORITY_CONFIRMATION and now < _result_mix_until_msec else 0.0)
 	player.play()
 	_last_played_cue = cue
 	_last_played_bus = bus

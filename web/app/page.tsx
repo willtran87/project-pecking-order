@@ -70,6 +70,7 @@ const EMPTY_CHECKPOINT_DIAGNOSTIC: CheckpointDiagnostic = {
 export default function Home() {
   const gameCanvas = useRef<HTMLCanvasElement>(null);
   const gameStage = useRef<HTMLDivElement>(null);
+	const exitGameButton = useRef<HTMLButtonElement>(null);
 	const careerBackupInput = useRef<HTMLInputElement>(null);
 	const handbookDetails = useRef<HTMLDetailsElement>(null);
 	const saveDetails = useRef<HTMLDetailsElement>(null);
@@ -77,6 +78,7 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadError, setLoadError] = useState("");
+	const [portraitGuidanceDismissed, setPortraitGuidanceDismissed] = useState(false);
 	const [campaignActive, setCampaignActive] = useState(false);
 	const [playModePreference, setPlayModePreference] = useState<PlayModePreference>("auto");
 	const [browserStorageCapability, setBrowserStorageCapability] = useState<BrowserStorageCapability>(
@@ -509,6 +511,12 @@ export default function Home() {
 		// before Godot can observe it, making hen cycling appear intermittent.
 		event.preventDefault();
 		event.stopPropagation();
+		if (event.shiftKey) {
+			// Godot also consumes browser Tab navigation. A real focus transfer is
+			// required so keyboard and assistive-tech users can leave the canvas.
+			exitGameButton.current?.focus();
+			return;
+		}
 		invokeMobileAction("cycle_hen");
 	}
 
@@ -523,6 +531,17 @@ export default function Home() {
       gameCanvas.current?.focus();
     }
   }
+
+	async function enterLandscapePlay() {
+		try {
+			await gameStage.current?.requestFullscreen?.();
+			await screen.orientation?.lock?.("landscape");
+		} catch {
+			// Some browsers deny orientation lock. The prompt remains visible
+			// until the player rotates, and the manual option still works.
+		}
+		gameCanvas.current?.focus({ preventScroll: true });
+	}
 
 	async function handleCareerBackupFileSelected(event: ChangeEvent<HTMLInputElement>) {
 		const input = event.currentTarget;
@@ -611,6 +630,7 @@ export default function Home() {
 							Handbook
 						</button>
 						<button
+						ref={exitGameButton}
 							type="button"
 							onClick={toggleFocusedPlay}
 							aria-pressed={focusedPlay}
@@ -629,7 +649,8 @@ export default function Home() {
           the standard book, C to continue after filing, E for Priority Peck,
           P to fund a Feed Party, O for after-hours pecking, Space to select a
           focused rider or pause, V for Flockwatch, F10 for Coop Settings and
-          Controls, and Escape for overview. Controller defaults are A Priority
+          Controls, and Escape for overview. Shift+Tab leaves the game for page
+          controls. Controller defaults are A Priority
           Peck, Y Feed Party, X after-hours, Back Flockwatch, Start pause, right
           shoulder cycle hen, B overview, and Guide settings. Controls can be
           rebound from the settings panel.
@@ -690,6 +711,19 @@ export default function Home() {
           >
             Your browser does not support the canvas required to run Pecking Order.
           </canvas>
+		  {!portraitGuidanceDismissed && (
+			<div className="portrait-guidance" role="note" aria-label="Landscape play recommendation">
+				<span className="portrait-guidance-icon" aria-hidden="true">↻</span>
+				<strong>Turn your phone sideways</strong>
+				<p>The office needs a wider view. Full screen can request landscape; rotate manually if your browser cannot.</p>
+				<button type="button" onClick={enterLandscapePlay}>
+					Full screen &amp; rotate
+				</button>
+				<button type="button" onClick={() => setPortraitGuidanceDismissed(true)}>
+					Continue at small size
+				</button>
+			</div>
+		  )}
         </div>
 
 		<div className="mobile-touch-controls" aria-label="Touch game controls">

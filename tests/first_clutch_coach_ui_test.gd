@@ -30,7 +30,11 @@ func _run() -> void:
 	var assign_auto := routing_ui.find_child("Assign_auto", true, false) as Button
 	var assign_appeals := routing_ui.find_child("Assign_appeals", true, false) as Button
 	var assignments := routing_ui.find_child("RoutingAssignments", true, false) as GridContainer
-	var personnel_actions := routing_ui.find_child("PersonnelActions", true, false) as VBoxContainer
+	var personnel_actions := routing_ui.find_child("PersonnelActions", true, false) as GridContainer
+	_check(personnel_actions.columns == 2, "care actions should reflow into two columns", failures)
+	for candidate in personnel_actions.get_children():
+		if candidate is Button:
+			_check(candidate.custom_minimum_size.y >= 44.0, "care controls should retain readable target heights", failures)
 	var personnel_status := routing_ui.find_child("RoutingPersonnelStatus", true, false) as HBoxContainer
 	var check_in_status := routing_ui.find_child("RoutingCheckInStatus", true, false) as Label
 	var dossier_summary := routing_ui.find_child("RoutingDossierSummary", true, false) as Label
@@ -142,7 +146,7 @@ func _run() -> void:
 	_check(body != null and not body.visible, "an open coached dossier should collapse duplicate coach body copy", failures)
 	_check(assignments != null and assignments.is_visible_in_tree(), "route stage should expose routing controls", failures)
 	_check(queue != null and queue.is_visible_in_tree(), "route stage should expose its supporting queue counts", failures)
-	_check(current_claim != null and current_claim.text == "1  CHOOSE A ROUTE", "an idle auto-sorted dossier should lead with one direct route action", failures)
+	_check(current_claim != null and current_claim.text == "1  PICK ROUTE", "an idle auto-sorted dossier should lead with one direct route action", failures)
 	_check(current_claim != null and "No file is active" in current_claim.accessibility_name and "Auto sorting remains available" in current_claim.accessibility_name and current_claim.tooltip_text == current_claim.accessibility_name, "the compact route action should retain exact idle and automation context", failures)
 	_check(lifecycle_rail != null and lifecycle_rail.is_visible_in_tree() and StringName(lifecycle_rail.get_meta("active_stage", &"")) == &"route", "an idle coached dossier should replace lifecycle prose with the active route-stage rail", failures)
 	_check(lifecycle_rail != null and "route a file" in lifecycle_rail.accessibility_name and "completed egg" in lifecycle_rail.accessibility_name, "the lifecycle rail should retain the complete accessible work-loop explanation", failures)
@@ -160,7 +164,7 @@ func _run() -> void:
 		"lifecycle metadata should expose an icon-only route, monitor, and egg sequence with non-color current state",
 		failures,
 	)
-	_check(String(lifecycle_state.get("header_copy", "")) == "1  CHOOSE A ROUTE" and StringName(lifecycle_state.get("header_role", &"")) == &"route_action" and "Auto sorting remains available" in String(lifecycle_state.get("header_accessible_text", "")), "lifecycle metadata should expose the concise action and its complete operational meaning", failures)
+	_check(String(lifecycle_state.get("header_copy", "")) == "1  PICK ROUTE" and StringName(lifecycle_state.get("header_role", &"")) == &"route_action" and "Auto sorting remains available" in String(lifecycle_state.get("header_accessible_text", "")), "lifecycle metadata should expose the concise action and its complete operational meaning", failures)
 	_check(String(lifecycle_state.get("identity_copy", "")) == "APPEALS SPECIALIST" and StringName(lifecycle_state.get("identity_role", &"")) == &"specialist_identity" and "shell safety" in String(lifecycle_state.get("identity_accessible_text", "")), "lifecycle metadata should expose the specialist identity and its full matching rationale", failures)
 	_check(String(lifecycle_state.get("route_hint_copy", "")) == "FIT = FASTER + SAFER" and StringName(lifecycle_state.get("route_hint_role", &"")) == &"match_payoff" and "shell crack risk decreases" in String(lifecycle_state.get("route_hint_accessible_text", "")), "lifecycle metadata should expose the concise match payoff and its exact consequence", failures)
 	_check(personnel_actions != null and not personnel_actions.visible, "route stage should hide untaught personnel actions", failures)
