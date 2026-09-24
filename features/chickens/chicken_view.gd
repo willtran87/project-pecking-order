@@ -217,6 +217,7 @@ var _presentation_update_count := 0
 var _route: Array[Vector3] = []
 var _route_index: int = 0
 var _route_progress_held: bool = false
+var _route_time_scale: float = 1.0
 var _home_position := Vector3.ZERO
 var _break_position := Vector3.ZERO
 var _arrival_route: Array[Vector3] = []
@@ -712,16 +713,23 @@ func set_route_progress_held(held: bool) -> void:
 	_route_progress_held = held
 
 
+## Ordinary desk and breakroom travel consumes the same accelerated shift time
+## as the worker's authoritative claim progress. Event routes (Feed Party,
+## campus, departure and panic) deliberately retain their real-time staging.
+func set_route_time_scale(multiplier: float) -> void:
+	_route_time_scale = clampf(multiplier, 1.0, 10.0)
+
+
+func route_time_scale() -> float:
+	return _route_time_scale
+
+
 func is_route_progress_held() -> bool:
 	return _route_progress_held
 
 
-func _ordinary_route_progress_blocked() -> bool:
-	if not _route_progress_held:
-		return false
-	# These are authored event/lifecycle sequences rather than passive simulation
-	# routing. They must finish even while the production clock is stopped.
-	return _destination_kind not in [
+func _route_uses_realtime_staging() -> bool:
+	return _destination_kind in [
 		&"feed_outbound",
 		&"feed_party",
 		&"feed_return",
@@ -731,6 +739,11 @@ func _ordinary_route_progress_blocked() -> bool:
 		&"departure",
 		&"panic",
 	]
+
+
+func _ordinary_route_progress_blocked() -> bool:
+	# Authored event/lifecycle routes must finish even while production is held.
+	return _route_progress_held and not _route_uses_realtime_staging()
 
 
 func presentation_update_rate_hz() -> float:
@@ -812,7 +825,8 @@ func _calculate_lay_release_delay_seconds() -> float:
 func _physics_process(delta: float) -> void:
 	if _predator_captured:
 		return
-	_phase += delta
+	var route_delta := delta * (1.0 if _route_uses_realtime_staging() else _route_time_scale)
+	_phase += route_delta if _is_walking and not _ordinary_route_progress_blocked() else delta
 	_state_elapsed += delta
 	if not _ordinary_route_progress_blocked():
 		if _panic_active:
@@ -821,10 +835,10 @@ func _physics_process(delta: float) -> void:
 				_panic_active = false
 				_destination_kind = &"home"
 				_set_route([_home_position])
-		_advance_route(delta)
-		_update_break_interaction_timeline(delta)
+		_advance_route(route_delta)
+		_update_break_interaction_timeline(route_delta)
 	_advance_feedback_timelines(delta)
-	_update_pose_blends(delta)
+	_update_pose_blends(route_delta if _is_walking and not _ordinary_route_progress_blocked() else delta)
 	# Hidden workers must continue routes and gameplay-facing contact timelines,
 	# but their model transforms do not need to be rewritten until visible again.
 	# The next visible physics frame derives the complete pose from current state.
@@ -849,7 +863,13 @@ func _physics_process(delta: float) -> void:
 	# deformation. In automatic mode AnimationPlayer evaluated later in the
 	# frame and silently replaced the final behavioral wing pose.
 	if _animation_player != null:
-		_animation_player.advance(presentation_delta)
+		_animation_player.advance(
+			presentation_delta * (
+				_route_time_scale
+				if _is_walking and not _route_uses_realtime_staging()
+				and not _ordinary_route_progress_blocked() else 1.0
+			)
+		)
 	_animate_secondary_motion()
 	_apply_wing_actuation()
 

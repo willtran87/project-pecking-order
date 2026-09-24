@@ -1558,10 +1558,101 @@ func _update_shift_clock_copy(day: int, time_copy: String) -> void:
 	var day_copy := "DAY %d" % day
 	_day_label.set_meta("full_text", day_copy)
 	_day_label.set_meta("compact_text", day_copy)
-	_time_label.set_meta("full_text", _visible_clock_state(time_copy))
-	_time_label.set_meta("compact_text", _visible_clock_state(time_copy))
+	_time_label.set_meta("full_text", time_copy)
+	_time_label.set_meta("compact_text", time_copy)
 	_time_label.set_meta("clock_text", time_copy)
-	var clock_accessible := "Shift clock: Day %d at %s." % [day, time_copy]
+	_time_label.set_meta("clock_day", day)
+	_refresh_clock_accessibility()
+	_apply_shift_status_scale(float(_player_preferences.get("ui_scale", 1.0)))
+
+
+func _sync_authoritative_clock_display() -> void:
+	if _simulation == null:
+		return
+	var display_clock := _clock_stamp_for_snapshot({
+		"day": _simulation.day,
+		"time_label": _office_clock_label(_simulation.minute_of_day),
+		"shift_phase": _simulation.shift_phase,
+	})
+	_update_shift_clock_copy(
+		int(display_clock.get("day", _simulation.day)),
+		String(display_clock.get("time_label", "8:00 AM")),
+	)
+
+
+func _sync_authoritative_shift_objective_display() -> void:
+	if _simulation == null or _quota_progress == null or _quota_progress_label == null:
+		return
+	var eggs := maxi(0, _simulation.eggs_today)
+	var quota := maxi(1, _simulation.quota_target)
+	var guided := (
+		not bool(_first_clutch.get("dismissed", true))
+		and _simulation.day == 1
+		and _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING
+		and eggs <= 3
+	)
+	var first_egg := (
+		guided
+		and bool(_first_clutch.get("route_first_lesson", false))
+		and not _first_clutch_reinvestment_resolved()
+	)
+	var opening_clutch_complete := guided and not first_egg and eggs >= 3
+	var count := eggs
+	var target := quota
+	var label := "QUOTA  ·  %d / %d" % [eggs, quota]
+	var accessible := (
+		"Shift quota met: %d of %d eggs laid. Flockwatch score goals are tracked separately."
+		% [eggs, quota]
+		if eggs >= quota else
+		"Shift quota: %d of %d eggs laid; %d remaining. This operating target is separate from Flockwatch score goals, which may be higher."
+		% [eggs, quota, quota - eggs]
+	)
+	if first_egg:
+		count = int(bool(_first_clutch.get("delivery_laid", false)))
+		target = 1
+		label = "FIRST EGG · %d/1" % count
+	elif guided:
+		if not opening_clutch_complete:
+			count = eggs
+			target = 3
+			label = "FILE 3 EGGS · %d/3" % count
+	if first_egg or (guided and not opening_clutch_complete):
+		accessible = "Opening goal: %d of %d eggs laid. Each egg travels to grading and the basket. More goals appear after this reward." % [count, target]
+	elif opening_clutch_complete:
+		accessible = "First clutch complete. Shift quota: %d of %d eggs laid; %d remaining before 5:00 PM." % [eggs, quota, maxi(0, quota - eggs)]
+	_quota_progress.max_value = target
+	_quota_progress.value = mini(count, target)
+	_quota_progress_label.text = label
+	_quota_progress.tooltip_text = accessible
+	_quota_progress.accessibility_name = accessible
+	_quota_progress_label.tooltip_text = accessible
+	_quota_progress_label.accessibility_name = accessible
+	if _shift_egg_goal_label != null:
+		_shift_egg_goal_label.text = "%d LEFT" % maxi(0, target - count) if count < target else "READY"
+		_shift_egg_goal_label.tooltip_text = accessible
+		_shift_egg_goal_label.accessibility_name = accessible
+	if _shift_goal_status_icon != null:
+		_shift_goal_status_icon.tooltip_text = accessible
+		_shift_goal_status_icon.set_meta("accessible_text", accessible)
+	if _shift_goal_status_host != null:
+		_shift_goal_status_host.set_meta("accessible_text", accessible)
+		_shift_goal_status_host.set_meta("laid", count)
+		_shift_goal_status_host.set_meta("target", target)
+		_shift_goal_status_host.set_meta("remaining", maxi(0, target - count))
+
+
+func _refresh_clock_accessibility() -> void:
+	if _day_label == null or _time_label == null:
+		return
+	var day := int(_time_label.get_meta("clock_day", 1))
+	var time_copy := String(_time_label.get_meta("clock_text", "8:00 AM"))
+	var clock_accessible := "Shift clock: Day %d at %s. Closing bell: 5:00 PM." % [day, time_copy]
+	var pause_context := _pause_context_state()
+	if bool(pause_context.get("active", false)):
+		clock_accessible += " " + String(pause_context.get("accessible_text", "Time is paused."))
+	else:
+		var pace := _clock.effective_multiplier() if _clock != null else 1.0
+		clock_accessible += " Work and ordinary hen routes advance together at %d×. One work beat is two game minutes." % int(pace)
 	_day_label.tooltip_text = clock_accessible
 	_day_label.accessibility_name = clock_accessible
 	_time_label.tooltip_text = clock_accessible
@@ -1571,7 +1662,6 @@ func _update_shift_clock_copy(day: int, time_copy: String) -> void:
 	if _shift_clock_status_icon != null:
 		_shift_clock_status_icon.tooltip_text = clock_accessible
 		_shift_clock_status_icon.set_meta("accessible_text", clock_accessible)
-	_apply_shift_status_scale(float(_player_preferences.get("ui_scale", 1.0)))
 
 
 func _update_fund_status_copy(fund_cents: int) -> void:
@@ -5746,14 +5836,23 @@ func _worker_routes_should_hold() -> bool:
 
 func _sync_worker_route_progress_hold() -> void:
 	var held := _worker_routes_should_hold()
+	var shift_pace := (
+		maxf(1.0, _clock.effective_multiplier())
+		if _clock != null and not _is_capture_launch() and not _feed_party_active
+		else 1.0
+	)
+	if _office_storytelling != null:
+		_office_storytelling.set_collection_time_scale(shift_pace)
 	for view_value: Variant in _worker_views.values():
 		var worker_view := view_value as ChickenView
 		if worker_view != null and is_instance_valid(worker_view):
 			worker_view.set_route_progress_held(held)
+			worker_view.set_route_time_scale(shift_pace)
 	for view_value: Variant in _departing_worker_views.values():
 		var departing_view := view_value as ChickenView
 		if departing_view != null and is_instance_valid(departing_view):
 			departing_view.set_route_progress_held(held)
+			departing_view.set_route_time_scale(shift_pace)
 
 
 func _nonconfirmation_management_surface_open() -> bool:
@@ -12210,18 +12309,6 @@ func _pause_context_state() -> Dictionary:
 	}
 
 
-func _visible_clock_state(time_copy: String) -> String:
-	var context := _pause_context_state()
-	if not bool(context.get("active", false)):
-		return time_copy
-	match String(context.get("owner_id", "")):
-		"player": return "YOU PAUSED"
-		"opening_route": return "READY"
-		"window_focus": return "AWAY"
-		"feed_party": return "BREAK"
-	return "DECISION"
-
-
 func _refresh_speed_button_copy() -> void:
 	if _speed_buttons.is_empty():
 		return
@@ -12238,12 +12325,11 @@ func _refresh_speed_button_copy() -> void:
 	)
 	var pause_label := "RESUME" if resume_available else "PAUSED"
 	if _time_label != null:
-		var state_copy := _visible_clock_state(String(_time_label.get_meta("clock_text", "RUNNING")))
-		_time_label.set_meta("full_text", state_copy)
-		_time_label.set_meta("compact_text", state_copy)
-		_time_label.text = state_copy
-		_time_label.tooltip_text = String(pause_context.get("accessible_text", "Production is running at the selected speed."))
-		_time_label.accessibility_name = _time_label.tooltip_text
+		var clock_copy := String(_time_label.get_meta("clock_text", "8:00 AM"))
+		_time_label.set_meta("full_text", clock_copy)
+		_time_label.set_meta("compact_text", clock_copy)
+		_time_label.text = clock_copy
+		_refresh_clock_accessibility()
 	var labels := [pause_label if paused else "PAUSE", "1×", "3×", "10×"]
 	var pause_tooltip := String(pause_context.get(
 		"accessible_text",
@@ -15856,7 +15942,7 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 				guidance = "%s is in the gold window—press %s or the dossier stamp now." % [target_name, _action_hint(PECK_ASSIST_ACTION)]
 				tone = &"ready"
 			elif _clock.speed_index == 0:
-				primary_label = "START WORK"
+				primary_label = "RESUME SHIFT" if _simulation.minute_of_day > DepartmentSimulation.SHIFT_START_MINUTE else "START WORK"
 				visual_body = "FILE > HEN > EGG > REWARD"
 				primary_action_shortcut = "1"
 				visual_title = "RESUME AT 1x"
@@ -15926,7 +16012,7 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 			body = "No extra click is required. Check-ins and timed Pecks are optional improvements after this first delivery."
 			guidance = body
 			if _clock.speed_index == 0:
-				primary_label = "START WORK"
+				primary_label = "RESUME SHIFT" if _simulation.minute_of_day > DepartmentSimulation.SHIFT_START_MINUTE else "START WORK"
 	return {
 		"visible": visible,
 		"stage": stage,
@@ -20672,8 +20758,19 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 	_opening_egg_slots.visible = opening and running
 	if _opening_egg_slots.visible:
 		_opening_egg_slots.show_goal(opening_count, opening_target)
-		_quota_progress_label.text = "FIRST EGG · %d/1" % opening_count if first_egg else "FILE 3 EGGS · %d/3" % mini(eggs, 3) if eggs < 3 else "FIRST CLUTCH ✓"
+		var opening_complete := not first_egg and eggs >= 3
+		if first_egg:
+			_quota_progress_label.text = "FIRST EGG · %d/1" % opening_count
+		elif opening_complete:
+			_quota_progress_label.text = "QUOTA  ·  %d / %d" % [eggs, maxi(1, int(snapshot.get("quota_target", 1)))]
+		else:
+			_quota_progress_label.text = "FILE 3 EGGS · %d/3" % eggs
 		var detail := "Opening goal: %d of %d eggs laid. Each egg travels to grading and the basket. More goals appear after this reward." % [opening_count, opening_target]
+		if opening_complete:
+			var quota := maxi(1, int(snapshot.get("quota_target", 1)))
+			detail = "First clutch complete. Shift quota: %d of %d eggs laid; %d remaining before 5:00 PM." % [eggs, quota, maxi(0, quota - eggs)]
+			_quota_progress.max_value = quota
+			_quota_progress.value = mini(eggs, quota)
 		_quota_progress.tooltip_text = detail
 		_quota_progress.accessibility_name = detail
 		_quota_progress_label.tooltip_text = detail
@@ -23335,6 +23432,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		},
 		"eggs_today": int(snapshot.get("eggs_today", 0)),
 		"quota_target": int(snapshot.get("quota_target", 0)),
+		"minute_of_day": int(snapshot.get("minute_of_day", DepartmentSimulation.SHIFT_START_MINUTE)),
 		"time_label": String(snapshot.get("time_label", "")),
 	}
 	var window := JavaScriptBridge.get_interface("window")
@@ -24277,7 +24375,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 				int(tactical_plan.get("capacity", TacticalRoutePlannerScript.CAPACITY)),
 			],
 			&"route",
-			"Queued routes are previews only. Resume at 1×, 2×, or 3× to file the batch; use a queued hen's Undo action to remove her preview.",
+			"Queued routes are previews only. Resume at 1×, 3×, or 10× to file the batch; use a queued hen's Undo action to remove her preview.",
 			&"resume_shift",
 		)
 		return
@@ -24651,6 +24749,23 @@ func _office_clock_label(minute_of_day: int) -> String:
 	return "%d:%02d %s" % [hour_12, minute, suffix]
 
 
+func _clock_stamp_for_snapshot(snapshot: Dictionary) -> Dictionary:
+	var presented_day := int(snapshot.get("day", 1))
+	var presented_time := String(snapshot.get("time_label", "8:00 AM"))
+	var completed_day := int(_last_workday_report.get("day", 0))
+	if (
+		int(snapshot.get("shift_phase", DepartmentSimulation.ShiftPhase.RUNNING))
+		== DepartmentSimulation.ShiftPhase.REVIEW
+		and completed_day > 0
+		and completed_day == presented_day - 1
+	):
+		# Authority prepares tomorrow's 8:00 AM state before the closing review.
+		# Keep the visible clock on the day the player is actually reviewing.
+		presented_day = completed_day
+		presented_time = _office_clock_label(DepartmentSimulation.SHIFT_END_MINUTE)
+	return {"day": presented_day, "time_label": presented_time}
+
+
 func _update_campus_world_bounds(snapshot: Dictionary) -> void:
 	var campus := snapshot.get("campus_expansion", {}) as Dictionary
 	var parcel := campus.get("parcel", {}) as Dictionary
@@ -24898,11 +25013,14 @@ func _on_snapshot_changed(snapshot: Dictionary) -> void:
 
 
 func _on_clock_tick_batch_completed(_tick_count: int) -> void:
-	if _pending_simulation_presentation_snapshot.is_empty():
-		return
-	var latest := _pending_simulation_presentation_snapshot
-	_pending_simulation_presentation_snapshot = {}
-	_apply_snapshot_presentation(latest)
+	if not _pending_simulation_presentation_snapshot.is_empty():
+		var latest := _pending_simulation_presentation_snapshot
+		_pending_simulation_presentation_snapshot = {}
+		_apply_snapshot_presentation(latest)
+	# The heavy presentation read model may be throttled or delayed on Web, but
+	# the visible clock must always describe the authoritative ticks just filed.
+	_sync_authoritative_clock_display()
+	_sync_authoritative_shift_objective_display()
 
 
 func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
@@ -25025,7 +25143,11 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 		_management_presence.play_review()
 		if _camera_controller != null:
 			_camera_controller.focus_point(_management_presence.review_focus_point(), "FARMER INSPECTION", 0.85)
-	_update_shift_clock_copy(snapshot_day, String(snapshot.get("time_label", "")))
+	var display_clock := _clock_stamp_for_snapshot(snapshot)
+	_update_shift_clock_copy(
+		int(display_clock.get("day", snapshot_day)),
+		String(display_clock.get("time_label", "")),
+	)
 	_authoritative_revenue_cents = int(snapshot.get("revenue_cents", 0))
 	var available_to_display := maxi(0, _authoritative_revenue_cents - _pending_collection_cents)
 	if _displayed_revenue_cents < 0:
@@ -28518,6 +28640,8 @@ func _on_speed_changed(speed_index: int, multiplier: float) -> void:
 	for index in _speed_buttons.size():
 		_speed_buttons[index].disabled = not controls_available
 		_speed_buttons[index].theme_type_variation = &"ActiveSpeedButton" if index == speed_index else &"SpeedButton"
+	_sync_authoritative_clock_display()
+	_sync_authoritative_shift_objective_display()
 	_refresh_speed_button_copy()
 	if _routing_ui != null:
 		_routing_ui.set_peck_assist_clock_running(speed_index > 0)

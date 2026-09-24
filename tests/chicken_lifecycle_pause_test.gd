@@ -41,6 +41,31 @@ func _run() -> void:
 	view.call("_physics_process", 0.75)
 	view.call("_physics_process", 0.75)
 	_check(not view.global_position.is_equal_approx(held_position), "route should continue from the held position after resume", failures)
+	view.set("_route", [Vector3(100.0, 0.0, 0.0)])
+	view.set("_route_index", 0)
+	view.set("_entry_delay", 0.0)
+	view.set("_seat_blend", 0.0)
+	view.set("_destination_kind", &"home")
+	view.global_position = Vector3.ZERO
+	view.set_route_time_scale(1.0)
+	view.call("_physics_process", 0.1)
+	var normal_distance := view.global_position.x
+	view.global_position = Vector3.ZERO
+	view.set_route_time_scale(10.0)
+	view.call("_physics_process", 0.1)
+	_check(
+		is_equal_approx(view.global_position.x, normal_distance * 10.0),
+		"ordinary hen travel should use the same 10x pace as the work clock",
+		failures,
+	)
+	view.global_position = Vector3.ZERO
+	view.set("_destination_kind", &"feed_outbound")
+	view.call("_physics_process", 0.1)
+	_check(
+		is_equal_approx(view.global_position.x, normal_distance),
+		"Feed Party's clock-held attendance route should retain real-time staging",
+		failures,
+	)
 	view.free()
 	await process_frame
 
@@ -61,6 +86,20 @@ func _run() -> void:
 	for worker_view_value: Variant in active_views.values():
 		var worker_view := worker_view_value as ChickenView
 		_check(worker_view != null and not worker_view.is_route_progress_held(), "every active worker route should resume above 0x", failures)
+	clock.set_speed(3)
+	office.call("_sync_worker_route_progress_hold")
+	for worker_view_value: Variant in active_views.values():
+		var worker_view := worker_view_value as ChickenView
+		_check(worker_view != null and is_equal_approx(worker_view.route_time_scale(), 10.0), "10x should accelerate every ordinary hen route", failures)
+	var storytelling := office.get("_office_storytelling") as OfficeStorytelling
+	_check(storytelling != null and is_equal_approx(storytelling.collection_time_scale(), 10.0), "10x should accelerate the visible egg handoff", failures)
+	clock.set_precision_focus_active(true)
+	office.call("_sync_worker_route_progress_hold")
+	for worker_view_value: Variant in active_views.values():
+		var worker_view := worker_view_value as ChickenView
+		_check(worker_view != null and is_equal_approx(worker_view.route_time_scale(), 1.0), "Priority Peck precision focus should slow ordinary travel with the clock", failures)
+	_check(storytelling != null and is_equal_approx(storytelling.collection_time_scale(), 1.0), "Priority Peck precision focus should also slow the egg handoff", failures)
+	clock.set_precision_focus_active(false)
 	office.set("_feed_party_active", true)
 	clock.set_speed(0)
 	office.call("_sync_worker_route_progress_hold")

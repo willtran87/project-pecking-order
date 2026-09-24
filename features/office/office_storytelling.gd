@@ -496,6 +496,18 @@ func optional_visual_build_snapshot() -> Dictionary:
 
 
 var _last_collection_frame_usec: int = 0
+var _collection_time_scale: float = 1.0
+
+
+## The egg is already laid in the authoritative simulation; this only keeps
+## its visible trip to grading and the basket in step with accelerated work.
+## A paused clock still lets an egg already in flight finish its handoff.
+func set_collection_time_scale(multiplier: float) -> void:
+	_collection_time_scale = clampf(multiplier, 1.0, 10.0)
+
+
+func collection_time_scale() -> float:
+	return _collection_time_scale
 
 
 func _process(delta: float) -> void:
@@ -509,7 +521,7 @@ func _process(delta: float) -> void:
 	_process_sorter_stamp_animations(delta)
 	_process_settled_egg_animations(delta)
 	_process_clutch_recoil_animations(delta)
-	_process_routed_egg_animations(collection_delta)
+	_process_routed_egg_animations(collection_delta * _collection_time_scale)
 	if _perch_screen_material != null:
 		var energy := (1.18 if _overtime_active else 0.78) + sin(_phase * 2.1) * 0.08
 		_perch_screen_material.emission_energy_multiplier = energy

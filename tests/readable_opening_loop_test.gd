@@ -56,7 +56,10 @@ func _run() -> void:
 		_check((office.get("_opening_header_slots") as Control).is_visible_in_tree() == (eggs <= 3), "compact tutorial must retain the opening goal in the header instead of hiding it with the detailed HUD", failures)
 		if eggs <= 3:
 			_check(int(slots.get("filled")) == eggs, "egg slots must match laid eggs, not a decorative counter", failures)
-			_check(("%d/3" % eggs) in goal.text if eggs < 3 else "FIRST CLUTCH" in goal.text, "visible goal must agree with the filled slots", failures)
+			if eggs < 3:
+				_check(("%d/3" % eggs) in goal.text, "visible short goal must agree with the filled slots", failures)
+			else:
+				_check(goal.text == "QUOTA  ·  3 / %d" % simulation.quota_target, "the third egg should hand off from the filled opening slots to the full shift quota", failures)
 	var director = preload("res://core/experience/gameplay_pulse_director.gd").new()
 	var report: Dictionary = director.compose_report({"eggs": 16, "quota": 16, "credited_cents": 12000, "operating_cost_cents": 3000, "market_contract_breach_cents": 2500})
 	_check(report.cards[2].value == "+$65.00", "concise review operating result must include the contract breach debit", failures)

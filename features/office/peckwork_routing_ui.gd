@@ -3003,13 +3003,13 @@ func _build_focus_dossier() -> void:
 	_claim_context_row = HBoxContainer.new()
 	_claim_context_row.name = "RoutingClaimContextRow"
 	_claim_context_row.custom_minimum_size.y = 25.0
-	_claim_context_row.add_theme_constant_override("separation", 18)
+	_claim_context_row.add_theme_constant_override("separation", 8)
 	_claim_context_row.mouse_filter = Control.MOUSE_FILTER_PASS
 	active_file.add_child(_claim_context_row)
 	_claim_detail_strip = HBoxContainer.new()
 	_claim_detail_strip.name = "RoutingClaimDetail"
 	_claim_detail_strip.custom_minimum_size.y = 20.0
-	_claim_detail_strip.add_theme_constant_override("separation", 10)
+	_claim_detail_strip.add_theme_constant_override("separation", 5)
 	_claim_detail_strip.mouse_filter = Control.MOUSE_FILTER_STOP
 	_claim_detail_strip.focus_mode = Control.FOCUS_NONE
 	_claim_detail_strip.set_meta("shape_language", "clock=deadline; cash=payout; cracked egg=shell risk; egg or magnifier=next destination")
@@ -3599,6 +3599,15 @@ func _set_claim_detail_facts(facts: Array[Dictionary], accessible_text: String) 
 	_claim_detail_strip.set_meta("fact_count", presented.size())
 
 
+func _deadline_clock_label(minutes_until_deadline: int, overdue: bool) -> String:
+	var minutes := absi(minutes_until_deadline)
+	if overdue or minutes_until_deadline < 0:
+		return "LATE %dH%02dM" % [minutes / 60, minutes % 60] if minutes >= 60 else "LATE %dM" % minutes
+	if minutes == 0:
+		return "DUE NOW"
+	return "DUE %dH%02dM" % [minutes / 60, minutes % 60] if minutes >= 60 else "DUE %dM" % minutes
+
+
 func _clear_claim_phase_header() -> void:
 	_claim_phase_icon.visible = false
 	_claim_phase_icon.texture = null
@@ -4000,16 +4009,11 @@ func _refresh() -> void:
 		)
 		var value_cents := int(claim.get("value_cents", 0))
 		var remaining_minutes := int(claim.get("minutes_until_deadline", 0))
-		var claim_overdue := bool(claim.get("overdue", false))
-		var urgency := (
-			"%dM OVERDUE" % absi(remaining_minutes)
-			if claim_overdue else
-			"%dM LEFT" % maxi(0, remaining_minutes)
-		)
+		var claim_overdue := bool(claim.get("overdue", false)) or remaining_minutes < 0
 		var urgency_accessible := (
-			"Overdue by %d minutes" % absi(remaining_minutes)
+			"Overdue by %d shift-clock minutes" % absi(remaining_minutes)
 			if claim_overdue else
-			"Due in %d minutes" % maxi(0, remaining_minutes)
+			"Due in %d shift-clock minutes" % maxi(0, remaining_minutes)
 		)
 		var crack_risk := int(float(worker.get("estimated_crack_risk", 0.0)) * 100.0)
 		var shell_risk_color := SemanticColorPaletteScript.quality_color(
@@ -4033,7 +4037,7 @@ func _refresh() -> void:
 				{
 					"role": &"deadline",
 					"icon": &"clock",
-					"value": "%dM OVER" % absi(remaining_minutes) if claim_overdue else "%dM" % maxi(0, remaining_minutes),
+					"value": _deadline_clock_label(remaining_minutes, claim_overdue),
 					"accent": Color("df826f") if claim_overdue else Color("d7c17d"),
 				},
 				{"role": &"payout", "icon": &"cash", "value": "$%.2f" % (value_cents / 100.0), "accent": Color("73b5a7")},
@@ -4041,7 +4045,7 @@ func _refresh() -> void:
 				{"role": &"next_destination", "icon": &"egg", "value": "EGG", "accent": Color("d8b967")},
 			]
 			var working_facts_accessible := (
-				"%s. File value $%.2f. Estimated shell crack risk %d percent. Next, finish the work and lay the egg."
+				"%s. Pausing the shift holds this deadline. File value $%.2f. Estimated shell crack risk %d percent. Next, finish the work and lay the egg."
 				% [urgency_accessible, value_cents / 100.0, crack_risk]
 			)
 			_set_claim_detail_facts(claim_facts, working_facts_accessible)

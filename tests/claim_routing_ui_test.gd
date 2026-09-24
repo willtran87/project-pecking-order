@@ -76,6 +76,15 @@ func _run() -> void:
 	await process_frame
 
 	_check(routing_ui != null, "Office should install the routing interface", failures)
+	if routing_ui != null:
+		_check(
+			String(routing_ui.call("_deadline_clock_label", 344, false)) == "DUE 5H44M"
+			and String(routing_ui.call("_deadline_clock_label", 35, false)) == "DUE 35M"
+			and String(routing_ui.call("_deadline_clock_label", 0, false)) == "DUE NOW"
+			and String(routing_ui.call("_deadline_clock_label", -8, true)) == "LATE 8M",
+			"claim deadline copy should distinguish shift-clock time from an egg ETA at long, near, due, and overdue intervals",
+			failures,
+		)
 	_check(
 		campaign_ui != null and campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE,
 		"the fixture should begin on the blocking campaign title",
@@ -1549,11 +1558,13 @@ func _run() -> void:
 		and claim_detail.is_visible_in_tree()
 		and active_claim_facts.size() == 4
 		and String((active_claim_facts[0] as Dictionary).get("role", "")) == "deadline"
-		and "M" in String((active_claim_facts[0] as Dictionary).get("value", ""))
+		and String((active_claim_facts[0] as Dictionary).get("value", "")).begins_with("DUE ")
 		and String((active_claim_facts[1] as Dictionary).get("icon", "")) == "cash"
 		and String((active_claim_facts[2] as Dictionary).get("icon", "")) == "shell_risk"
 		and String((active_claim_facts[3] as Dictionary).get("value", "")) == "EGG"
 		and ("Due in" in claim_detail.accessibility_name or "Overdue by" in claim_detail.accessibility_name)
+		and "shift-clock minutes" in claim_detail.accessibility_name
+		and "Pausing the shift holds this deadline" in claim_detail.accessibility_name
 		and "Estimated shell crack risk" in claim_detail.accessibility_name
 		and "lay the egg" in claim_detail.accessibility_name
 		and claim_detail.tooltip_text == claim_detail.accessibility_name,
