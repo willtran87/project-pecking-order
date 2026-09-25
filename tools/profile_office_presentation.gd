@@ -25,6 +25,8 @@ func _profile() -> void:
 	var routing_ui := office.get("_routing_ui") as Node
 	var flockwatch_navigation := office.get("_flockwatch_navigation") as Node
 	var routing_snapshot := office.call("_routing_visual_snapshot", active_snapshot) as Dictionary
+	var campaign_state = office.get("_campaign_state")
+	var playbook := simulation.playbook_snapshot(-1)
 	var components := {
 		"active_worker_copy": func() -> void:
 			office.call("_snapshot_with_active_workers", snapshot),
@@ -64,6 +66,24 @@ func _profile() -> void:
 			office.call("_refresh_first_clutch_ui", snapshot),
 		"flockwatch_accessibility": func() -> void:
 			flockwatch_navigation.call("apply_accessibility_snapshot", snapshot),
+		"campaign_objectives": func() -> void:
+			office.call("_update_campaign_objectives_label", snapshot),
+		"guidance": func() -> void:
+			office.call("_update_guidance", snapshot),
+		"gameplay_pulse": func() -> void:
+			office.call("_refresh_gameplay_pulse", snapshot),
+		"playbook_snapshot": func() -> void:
+			simulation.playbook_snapshot(-1),
+		"playbook_menu": func() -> void:
+			office.call("_refresh_active_playbook_menu", playbook, -1),
+		"next_action_diagnostic": func() -> void:
+			office.call("_next_action_diagnostic_state"),
+		"rival_snapshot": func() -> void:
+			simulation.rival_coop_snapshot(campaign_state.get("probation_score"), campaign_state.get("completed_shifts")),
+		"campaign_snapshot": func() -> void:
+			campaign_state.call("snapshot"),
+		"commendations": func() -> void:
+			office.call("_update_commendations", snapshot),
 	}
 	var component_profiles := {}
 	for component_name in components:

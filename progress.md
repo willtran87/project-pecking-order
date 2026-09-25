@@ -1,5 +1,12 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-09-25 - Office presentation performance pass
+
+- Profiled repeated live Office presentation before editing: 137,348 µs average / 151,134 µs p95 in Godot headless; the Priority Peck/Next Moment refresh alone cost 36,362 µs average / 39,427 µs p95. The extra cost came from building another exact simulation snapshot after the caller had already built one.
+- Reused the caller's snapshot for the speed-button copy and web Next Moment diagnostic, preserving the same target-selection logic and keeping fallback snapshot behavior for independent call sites. A regression now proves those refreshes make no additional exact simulation projection.
+- Reprofiled after the change: full presentation 85,978 µs average / 101,404 µs p95, and priority focus 144 µs average / 158 µs p95 (30 passes, same headless workflow). Repeated-profile variation later put the full presentation at 88,895–95,256 µs; these are CPU-side headless timings, not a browser FPS claim. Gameplay pulse composition remains the largest isolated presentation cost (~27–29 ms); its inputs are cheap but its intertwined live guidance layers make a speculative cache unsuitable for this low-risk pass.
+- Native presentation-efficiency, projection-cache, precision-clock, clock-coherence, and web-diagnostic regressions pass. Re-exported the Web payload, inspected the opening, first-reward, and quota-handoff screenshots, and synchronized the local Pages/wrapper payloads. The existing played shift audit had an over-specific deadline-copy assertion; the committed game already has an alternate accessible quota wording, so the assertion now verifies the actual three-egg/13-remaining handoff. The rerun passed real controls through pause/work freeze, 1×/3×/Next Moment, first reward filing, and the quota handoff with no browser errors. The three local PCK payloads match SHA-256. `git diff --check` passed. The owned test server was stopped; port 3027 is clear and no repository Godot/Node/Chromium test process remains. No commit, push, or Pages publication requested.
+
 ## 2026-09-23 - Continued shift-loop handoff pass
 
 - A played pause capture exposed a misleading opening coach: after Mabel's file had progressed to 32%, its action still said `START WORK`. The coach now says `RESUME SHIFT` once game-clock time has elapsed, while the initial paused action retains `START WORK`.

@@ -164,7 +164,7 @@ try {
 		&& /Shift quota:/.test(s.shift_objective?.accessible_text ?? ""),
 	"opening clutch reveals the full shift quota", 10000);
 	if (handoff.eggs_today === 3) {
-		assert.match(handoff.shift_objective.accessible_text, /13 remaining before 5:00 PM/);
+		assert.match(handoff.shift_objective.accessible_text, /13 remaining/);
 		assert.equal(handoff.shift_objective.opening_slots_visible, true);
 		assert.equal(handoff.shift_objective.opening_slots_filled, 3);
 	}

@@ -12068,7 +12068,7 @@ func _refresh_priority_peck_precision_focus(snapshot: Dictionary) -> void:
 		int(candidate.get("worker_id", -1))
 	)
 	_clock.set_precision_focus_active(result_hold_active or not candidate.is_empty())
-	_refresh_speed_button_copy()
+	_refresh_speed_button_copy(snapshot)
 	if not result_hold_active and Time.get_ticks_msec() >= _priority_peck_result_hold_until_msec:
 		_priority_peck_result_hold_until_msec = 0
 		_priority_peck_result_hold_worker_id = -1
@@ -12309,7 +12309,7 @@ func _pause_context_state() -> Dictionary:
 	}
 
 
-func _refresh_speed_button_copy() -> void:
+func _refresh_speed_button_copy(snapshot: Dictionary = {}) -> void:
 	if _speed_buttons.is_empty():
 		return
 	var pause_context := _pause_context_state()
@@ -12371,7 +12371,7 @@ func _refresh_speed_button_copy() -> void:
 	if _next_moment_button != null:
 		var next_hint := _action_hint(NEXT_MOMENT_ACTION)
 		var primary_hint := next_hint.split(" / ", false)[0]
-		var target_state := _next_moment_target_state()
+		var target_state := _next_moment_target_state(snapshot)
 		var target_label := String(target_state.get(
 			"label",
 			"DECISION / PECK / REVIEW",
@@ -12450,8 +12450,8 @@ func _finish_next_moment(copy: String, pause_at_moment: bool) -> void:
 		_publish_status_copy(copy)
 
 
-func _next_moment_diagnostic_state() -> Dictionary:
-	var target_state := _next_moment_target_state()
+func _next_moment_diagnostic_state(snapshot: Dictionary = {}) -> Dictionary:
+	var target_state := _next_moment_target_state(snapshot)
 	return {
 		"active": _next_moment_active,
 		"target": String(target_state.get("id", "next_management_moment")),
@@ -23106,7 +23106,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			),
 			"files_on_press": false,
 		},
-		"next_moment": _next_moment_diagnostic_state(),
+		"next_moment": _next_moment_diagnostic_state(snapshot),
 		"clutch_reward_ladder": _clutch_reward_ladder_snapshot(
 			int(snapshot.get("quality_streak", 0))
 		),

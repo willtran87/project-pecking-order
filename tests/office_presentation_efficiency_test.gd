@@ -145,6 +145,15 @@ func _run() -> void:
 	office.set("_pecking_order_ui", pecking_order)
 	office.set("_flockwatch_open", false)
 	var current_snapshot := simulation.snapshot()
+	var exact_builds_before := int(simulation.runtime_projection_cache_diagnostics().get("exact_builds", -1))
+	office.call("_refresh_priority_peck_precision_focus", current_snapshot)
+	var moment_state := office.call("_next_moment_diagnostic_state", current_snapshot) as Dictionary
+	_check(
+		int(simulation.runtime_projection_cache_diagnostics().get("exact_builds", -1)) == exact_builds_before
+		and String(moment_state.get("target", "")).length() > 0,
+		"priority focus and Next Moment diagnostics should reuse the presented snapshot without rebuilding simulation authority",
+		failures,
+	)
 	office.call("_refresh_visible_management_surfaces", current_snapshot, false)
 	_check(
 		staffing.apply_count == 0
