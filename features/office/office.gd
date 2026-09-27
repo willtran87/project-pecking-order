@@ -683,6 +683,7 @@ var _speed_buttons: Array[Button] = []
 var _next_moment_button: Button
 var _next_moment_active := false
 var _next_moment_previous_speed := 1
+var _next_moment_stop_reason := ""
 var _priority_peck_focus_worker_id := -1
 var _priority_peck_result_hold_until_msec := 0
 var _priority_peck_result_hold_worker_id := -1
@@ -702,6 +703,10 @@ var _shift_objective_row: HBoxContainer
 var _compact_live_hud_applied := false
 var _compact_physical_hud := false
 var _hud_measure_elapsed := 0.5
+var _hud_canvas_ratio := 1.0
+var _hud_layout_key := ""
+var _hud_top_bar: HBoxContainer
+var _hud_controls_row: HBoxContainer
 var _compact_speed_menu: MenuButton
 var _shift_clock_status_host: HBoxContainer
 var _shift_clock_status_icon: FlockwatchIconBadge
@@ -1415,6 +1420,8 @@ func _apply_management_ui_preferences() -> void:
 	if _environment != null:
 		_environment.adjustment_contrast = 1.16 if high_contrast else 1.08
 		_environment.adjustment_saturation = 1.0 if high_contrast else 0.94
+	_hud_layout_key = ""
+	_measure_live_hud_canvas()
 
 
 func _apply_explicit_font_scale(root_control: Control, scale: float) -> void:
@@ -2242,7 +2249,16 @@ func _on_web_checkpoint_flush_requested(arguments: Array) -> void:
 	_request_lifecycle_checkpoint(reason)
 
 
-func _on_web_diagnostic_requested(_arguments: Array) -> void:
+func _on_web_diagnostic_requested(arguments: Array) -> void:
+	# The comprehensive design/audit projection is useful to developer tools,
+	# but must not travel through every live status poll or assistive update.
+	if not arguments.is_empty() and String(arguments[0]) == "full_gameplay_pulse":
+		if OS.has_feature("web"):
+			var window := JavaScriptBridge.get_interface("window")
+			if window != null:
+				window.set("__pecking_order_full_gameplay_pulse", JSON.stringify(_json_safe_variant(_gameplay_pulse)))
+				window.set("__pecking_order_full_first_session_funnel", JSON.stringify(_first_session_funnel.snapshot()))
+		return
 	var snapshot := _pending_web_diagnostic_snapshot
 	if snapshot.is_empty() and _simulation != null:
 		snapshot = _simulation.snapshot(true)
@@ -5352,7 +5368,7 @@ func _process(delta: float) -> void:
 	if _campaign_ui != null:
 		var campaign_modal_open := _campaign_ui.is_modal_open()
 		_campaign_ui.set_badge_presentation(
-			(88.0 if first_clutch_compact else 136.0) if _compact_physical_hud else (FIRST_CLUTCH_ROUTING_TOP if first_clutch_compact else LIVE_ROUTING_TOP),
+			_live_hud_routing_top(),
 			first_clutch_compact or _flockwatch_open or (_simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING and not _explain_strip.visible) or (blocking_surface_open and not campaign_modal_open),
 		)
 	if _top_hud_panel != null:
@@ -6061,7 +6077,7 @@ func _apply_live_hud_presentation(compact: bool) -> void:
 		_camera_controller.set_safe_viewport_insets(
 			0.0,
 			FLOCKWATCH_DRAWER_SAFE_RIGHT if _flockwatch_open else 0.0,
-			136.0 if compact else 104.0,
+			maxf(104.0, _live_hud_routing_top() + 8.0),
 			300.0 if compact else 250.0,
 		)
 	_refresh_flockwatch_toggle_layout()
@@ -6071,7 +6087,9 @@ func _apply_live_hud_presentation(compact: bool) -> void:
 func _measure_live_hud_canvas() -> void:
 	if _top_hud_panel == null:
 		return
-	var viewport_size := Vector2(get_viewport().size)
+	# Canvas-items stretch can letterbox the physical window. UI geometry uses
+	# the logical visible rect, not the root viewport's render-target pixels.
+	var viewport_size := get_viewport().get_visible_rect().size
 	var physical_size := Vector2(DisplayServer.window_get_size())
 	if DisplayServer.get_name() == "headless":
 		physical_size = viewport_size
@@ -6081,13 +6099,19 @@ func _measure_live_hud_canvas() -> void:
 			var dimensions: Variant = JSON.parse_string(css_size)
 			if dimensions is Array and dimensions.size() == 2:
 				physical_size = Vector2(float(dimensions[0]), float(dimensions[1]))
-	var is_compact := physical_size.x < 1100.0 or physical_size.x / maxf(1.0, viewport_size.x) < 0.82
-	if is_compact == _compact_physical_hud:
-		if is_compact:
-			_apply_physical_hud_layout()
+	var ratio := minf(physical_size.x / maxf(1.0, viewport_size.x), physical_size.y / maxf(1.0, viewport_size.y))
+	var is_compact := physical_size.x < 1100.0 or ratio < 0.82
+	var layout_key := "%d|%d|%d|%d|%.2f|%s" % [roundi(physical_size.x), roundi(physical_size.y), roundi(viewport_size.x), roundi(viewport_size.y), float(_player_preferences.get("ui_scale", 1.0)), str(_compact_live_hud_applied)]
+	if layout_key == _hud_layout_key:
 		return
+	_hud_layout_key = layout_key
+	_hud_canvas_ratio = clampf(ratio, 0.4, 2.0)
 	_compact_physical_hud = is_compact
 	_apply_physical_hud_layout()
+
+
+func _live_hud_routing_top() -> float:
+	return _top_hud_panel.offset_bottom + 8.0 if _compact_physical_hud and _top_hud_panel != null else (FIRST_CLUTCH_ROUTING_TOP if _compact_live_hud_applied else LIVE_ROUTING_TOP)
 
 
 func _apply_physical_hud_layout() -> void:
@@ -6095,8 +6119,20 @@ func _apply_physical_hud_layout() -> void:
 		return
 	var compact := _compact_physical_hud
 	var first_clutch := _compact_live_hud_applied
+	var interface_scale := float(_player_preferences.get("ui_scale", 1.0))
+	var readable_scale := interface_scale / _hud_canvas_ratio if compact else interface_scale
+	var target_height := ceilf(44.0 / _hud_canvas_ratio) if compact else 32.0
+	if _hud_controls_row != null and _hud_top_bar != null:
+		_hud_controls_row.visible = compact
+		var controls_parent := _hud_controls_row if compact else _hud_top_bar
+		if _speed_control.get_parent() != controls_parent:
+			_settings_button.reparent(controls_parent, false)
+			_speed_control.reparent(controls_parent, false)
+			if compact:
+				controls_parent.move_child(_speed_control, 0)
+		_speed_control.size_flags_horizontal = Control.SIZE_EXPAND_FILL if compact else Control.SIZE_SHRINK_BEGIN
 	_top_hud_panel.offset_bottom = (
-		(80.0 if first_clutch else 128.0) if compact else
+		((84.0 if first_clutch else 128.0) + 36.0 * (interface_scale - 1.0)) / _hud_canvas_ratio if compact else
 		(FIRST_CLUTCH_HUD_HEIGHT if first_clutch else LIVE_HUD_HEIGHT)
 	)
 	_shift_objective_row.visible = not first_clutch
@@ -6111,22 +6147,26 @@ func _apply_physical_hud_layout() -> void:
 		if control == null:
 			continue
 		if not control.has_meta("hud_base_font"):
-			control.set_meta("hud_base_font", control.get_theme_font_size("font_size"))
+			control.set_meta("hud_base_font", control.get_meta("preference_base_font_size", control.get_theme_font_size("font_size")))
+		var base_font := int(control.get_meta("hud_base_font"))
 		control.add_theme_font_size_override(
 			"font_size",
-			roundi(int(control.get_meta("hud_base_font")) * (1.45 if compact else 1.0)),
+			roundi((maxi(16, base_font) if compact else base_font) * readable_scale),
 		)
 	if _settings_button != null:
 		_settings_button.text = "" if compact else String(_settings_button.get_meta("compact_text", "SETTINGS  [F10]"))
-		_settings_button.custom_minimum_size.x = 42.0 if compact else 148.0
+		_settings_button.custom_minimum_size = Vector2(target_height if compact else 148.0, target_height)
 	for index in range(1, _speed_buttons.size()):
 		_speed_buttons[index].visible = not compact
 	if not _speed_buttons.is_empty():
-		_speed_buttons[0].custom_minimum_size = Vector2(86.0 if compact else 50.0, 44.0 if compact else 32.0)
+		_speed_buttons[0].custom_minimum_size = Vector2(90.0 / _hud_canvas_ratio if compact else 50.0, target_height)
 	if _compact_speed_menu != null:
 		_compact_speed_menu.visible = compact
+		_compact_speed_menu.custom_minimum_size = Vector2(100.0 / _hud_canvas_ratio, target_height)
 	if _next_moment_button != null:
-		_next_moment_button.custom_minimum_size = Vector2(86.0 if compact else 82.0, 44.0 if compact else 32.0)
+		_next_moment_button.custom_minimum_size = Vector2(130.0 / _hud_canvas_ratio if compact else 130.0, target_height)
+	for button: Button in [_speed_buttons[0], _compact_speed_menu, _next_moment_button]:
+		button.add_theme_font_size_override("font_size", roundi(14.0 * readable_scale))
 	for secondary: Control in [
 		_clutch_carton_host, _directive_badge_host,
 		_core_loop_host, _reward_loop_host, _rival_pulse_label,
@@ -6143,12 +6183,12 @@ func _apply_physical_hud_layout() -> void:
 			secondary.remove_meta("hud_precompact_visible")
 	if _quota_progress != null:
 		_quota_progress.custom_minimum_size.x = 158.0 if compact else 190.0
+		_quota_progress.visible = not compact
+	if _active_playbook_button != null:
+		_active_playbook_button.custom_minimum_size.y = target_height
 	if _guidance_action_button != null:
-		_guidance_action_button.custom_minimum_size.y = 46.0 if compact else 30.0
-	var routing_top := (
-		(88.0 if first_clutch else 136.0) if compact else
-		(FIRST_CLUTCH_ROUTING_TOP if first_clutch else LIVE_ROUTING_TOP)
-	)
+		_guidance_action_button.custom_minimum_size.y = target_height if compact else 30.0
+	var routing_top := _live_hud_routing_top()
 	if _routing_ui != null:
 		_routing_ui.set_top_inset(routing_top)
 	if _flockwatch_panel != null:
@@ -6227,6 +6267,7 @@ func _build_ui() -> void:
 	top_stack.add_theme_constant_override("separation", 4)
 	top_margin.add_child(top_stack)
 	var top_bar := HBoxContainer.new()
+	_hud_top_bar = top_bar
 	top_bar.add_theme_constant_override("separation", 12)
 	top_stack.add_child(top_bar)
 	var title := _make_label("PECKING ORDER", 18, Color("f4d27b"))
@@ -6320,9 +6361,9 @@ func _build_ui() -> void:
 	_speed_control.add_child(_compact_speed_menu)
 	_next_moment_button = Button.new()
 	_next_moment_button.name = "NextMomentButton"
-	_next_moment_button.text = "»  [4]"
+	_next_moment_button.text = "NEXT  [4]"
 	_next_moment_button.theme_type_variation = &"SpeedButton"
-	_next_moment_button.custom_minimum_size = Vector2(82.0, 32.0)
+	_next_moment_button.custom_minimum_size = Vector2(130.0, 32.0)
 	_next_moment_button.tooltip_text = "Advance safely at 10× until the next decision, shift review, or open Priority Peck window."
 	_next_moment_button.accessibility_name = "%s Binding: %s." % [
 		_next_moment_button.tooltip_text,
@@ -6330,6 +6371,11 @@ func _build_ui() -> void:
 	]
 	_next_moment_button.pressed.connect(_on_next_moment_pressed)
 	_speed_control.add_child(_next_moment_button)
+	_hud_controls_row = HBoxContainer.new()
+	_hud_controls_row.name = "CompactClockControls"
+	_hud_controls_row.add_theme_constant_override("separation", 12)
+	_hud_controls_row.visible = false
+	top_stack.add_child(_hud_controls_row)
 
 	_shift_objective_row = HBoxContainer.new()
 	_shift_objective_row.name = "ShiftObjectiveRow"
@@ -7286,9 +7332,21 @@ func _build_day_review_panel() -> void:
 	margin.add_theme_constant_override("margin_top", 18)
 	margin.add_theme_constant_override("margin_bottom", 18)
 	_day_review_panel.add_child(margin)
+	var review_stack := VBoxContainer.new()
+	review_stack.add_theme_constant_override("separation", 9)
+	margin.add_child(review_stack)
+	var review_body_scroll := ScrollContainer.new()
+	review_body_scroll.name = "FarmerReviewBodyScroll"
+	review_body_scroll.custom_minimum_size.y = 80.0
+	review_body_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	review_body_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	review_body_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	review_body_scroll.follow_focus = true
+	review_stack.add_child(review_body_scroll)
 	var content := VBoxContainer.new()
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 9)
-	margin.add_child(content)
+	review_body_scroll.add_child(content)
 	_review_title = _make_label("FARMER REVIEW", 26, Color("f4d27b"))
 	_review_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	content.add_child(_review_title)
@@ -7372,11 +7430,12 @@ func _build_day_review_panel() -> void:
 	_personal_goal_button.name = "AcceptPersonalGoal"
 	_personal_goal_button.custom_minimum_size.y = 36.0
 	_personal_goal_button.pressed.connect(_on_personal_goal_toggled)
-	content.add_child(_personal_goal_button)
+	review_stack.add_child(_personal_goal_button)
 	var buttons := HFlowContainer.new()
+	buttons.name = "FarmerReviewActions"
 	buttons.alignment = FlowContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 8)
-	content.add_child(buttons)
+	review_stack.add_child(buttons)
 	_review_replay_button = Button.new()
 	_review_replay_button.name = "ReviewReplayHighlightButton"
 	_review_replay_button.icon = ManagementUIThemeScript.action_icon(&"review_play")
@@ -7480,10 +7539,11 @@ func _set_review_details_expanded(expanded: bool) -> void:
 		var half_height := (
 			(350 if _review_details_expanded else 305) + scale_height_allowance
 			if _compact_physical_hud else
-			(310 if _review_details_expanded else 215) + scale_height_allowance
+			(310 if _review_details_expanded else 255) + scale_height_allowance
 		)
-		_day_review_panel.offset_top = -float(half_height)
-		_day_review_panel.offset_bottom = float(half_height)
+		var bounded_half_height := minf(float(half_height), get_viewport().get_visible_rect().size.y * 0.5 - 16.0)
+		_day_review_panel.offset_top = -bounded_half_height
+		_day_review_panel.offset_bottom = bounded_half_height
 
 
 func _build_capital_planning_surfaces() -> void:
@@ -7852,7 +7912,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 				active_pivot_label,
 				accessible_preview,
 			]
-			visible_incident_preview = "ACTIVE PIVOT\n%s" % visible_incident_preview
+			visible_incident_preview = "ACTIVE BONUS · %s" % visible_incident_preview
 		var precedent := option.get("precedent", {}) as Dictionary
 		var precedent_preview := ""
 		if not precedent.is_empty():
@@ -7861,7 +7921,7 @@ func _on_decision_requested(decision: Dictionary) -> void:
 				String(precedent.get("target_label", "NEXT RELATED CASE")),
 				String(precedent.get("summary", "This response changes the next related case.")),
 			]
-			visible_incident_preview += precedent_preview
+			visible_incident_preview += "\nNEXT CLAIM · %s" % String(precedent.get("summary", "This response changes the next related claim."))
 		var cost_cents := int(option.get("cost_cents", 0))
 		var option_available := bool(option.get("can_select", true))
 		var order_fit := _directive_order_fit(option_id) if kind == &"directive" else {}
@@ -8635,10 +8695,7 @@ func _on_decision_option_pressed(option_id: StringName) -> void:
 				# The exact authored prose remains attached as accessible text below.
 				if _decision_panel.custom_minimum_size.x < 500.0:
 					_decision_body.visible = false
-				_decision_preview.text = "SELECTED  ·  %s\n%s" % [
-					String(button.get_meta("card_label", "RESPONSE")),
-					String(button.get_meta("visible_incident_preview", full_preview)),
-				]
+				_decision_preview.text = "NOW · %s" % String(button.get_meta("visible_incident_preview", full_preview))
 			else:
 				_decision_preview.text = "SELECTED  ·  %s" % full_preview
 				if StringName(_active_decision.get("kind", &"")) == FIRST_CLUTCH_REINVESTMENT_KIND:
@@ -9117,10 +9174,15 @@ func _on_decision_resolved(result: Dictionary) -> void:
 					int(result.get("selected_level", 0)),
 				)
 				if installed and _camera_controller != null:
-					_camera_controller.focus_point(
+					# The installation is a brief payoff, not a permanent camera mode.
+					# Event focus returns to overview unless the player pans, zooms,
+					# or selects another subject during the reveal.
+					_camera_controller.show_overview()
+					_camera_controller.show_event_focus(
 						_workstation_feedback.install_focus_point_global(desk_index),
 						"FIRST CLUTCH REINVESTMENT",
-						0.42,
+						1.5,
+						true,
 					)
 		elif _audio_feedback != null:
 			_audio_feedback.play_policy_stamp()
@@ -12279,6 +12341,11 @@ func _pause_context_state() -> Dictionary:
 				resume_behavior = "automatic" if _feed_party_previous_speed > 0 else "manual"
 				speed_button_actionable = false
 
+	if owner_id == &"player" and not _next_moment_stop_reason.is_empty():
+		owner_id = &"next_moment"
+		owner_label = "NEXT MOMENT"
+		reason = _next_moment_stop_reason
+		next_action = "PECK OR RESUME" if "PECK" in reason else "CONTINUE"
 	if owner_id == &"player" and _first_clutch_tracking_active() and not bool(_first_clutch.get("specialty_routed", false)):
 		owner_id = &"opening_route"
 		owner_label = "READY TO ROUTE"
@@ -12379,7 +12446,7 @@ func _refresh_speed_button_copy(snapshot: Dictionary = {}) -> void:
 		_next_moment_button.text = (
 			"STOP  [%s]" % primary_hint
 			if _next_moment_active else
-		"»  [%s]" % primary_hint
+		"NEXT  [%s]" % primary_hint
 		)
 		_next_moment_button.disabled = not controls_available and not _next_moment_active
 		_next_moment_button.theme_type_variation = (
@@ -12420,6 +12487,7 @@ func _on_next_moment_pressed() -> void:
 		return
 	_first_session_funnel.observe_signal(&"next_moment_used")
 	_next_moment_previous_speed = _clock.speed_index if _clock.speed_index > 0 else 1
+	_next_moment_stop_reason = ""
 	_next_moment_active = true
 	_clock.set_speed(3)
 	_refresh_speed_button_copy()
@@ -12443,6 +12511,7 @@ func _finish_next_moment(copy: String, pause_at_moment: bool) -> void:
 	var restore_speed := clampi(_next_moment_previous_speed, 1, 3)
 	_next_moment_active = false
 	_next_moment_previous_speed = 1
+	_next_moment_stop_reason = copy if pause_at_moment else ""
 	if _clock != null:
 		_clock.set_speed(0 if pause_at_moment else restore_speed)
 	_refresh_speed_button_copy()
@@ -12459,6 +12528,7 @@ func _next_moment_diagnostic_state(snapshot: Dictionary = {}) -> Dictionary:
 		"target_worker_id": int(target_state.get("worker_id", -1)),
 		"camera_focus_on_stop": true,
 		"previous_speed_index": _next_moment_previous_speed,
+		"stop_reason": _next_moment_stop_reason,
 		"binding": _action_hint(NEXT_MOMENT_ACTION),
 		"button_text": _next_moment_button.text if _next_moment_button != null else "",
 	}
@@ -16008,7 +16078,7 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 		elif stage == &"delivery" and not bool(_first_clutch.get("delivery_laid", false)):
 			title = "WATCH %s WORK" % target_name
 			visual_title = title
-			visual_body = "FILE > HEN > EGG > REWARD"
+			visual_body = "NO EXTRA CLICKS  ·  NEXT: EGG"
 			body = "No extra click is required. Check-ins and timed Pecks are optional improvements after this first delivery."
 			guidance = body
 			if _clock.speed_index == 0:
@@ -20749,7 +20819,7 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 	opening = opening or first_egg
 	var running := int(snapshot.get("shift_phase", 0)) == DepartmentSimulation.ShiftPhase.RUNNING
 	_opening_header_goal.visible = opening and running and not _shift_objective_row.visible
-	_live_title_label.visible = not _opening_header_goal.visible
+	_live_title_label.visible = not _compact_physical_hud and not _opening_header_goal.visible
 	if _opening_header_goal.visible:
 		_opening_header_slots.show_goal(opening_count, opening_target)
 		_opening_header_label.text = "FIRST EGG" if first_egg else "FIRST 3 EGGS" if eggs < 3 else "CLUTCH FILED"
@@ -20778,6 +20848,8 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 		_shift_goal_status_host.set_meta("accessible_text", detail)
 	# The floor carries the loop; detailed counters are available while inspecting.
 	var inspecting := _explain_strip != null and _explain_strip.visible
+	_consequence_icon_host.visible = inspecting and not _compact_physical_hud
+	_rival_pulse_label.visible = inspecting and not _compact_physical_hud
 	_directive_badge_host.visible = inspecting and not _compact_physical_hud
 	_core_loop_host.visible = not opening and inspecting and not _compact_physical_hud
 	_shift_egg_goal_label.visible = not opening and inspecting
@@ -20790,12 +20862,12 @@ func _apply_readable_loop_hud(snapshot: Dictionary, playbook: Dictionary) -> voi
 		var chain := maxi(0, int(snapshot.get("quality_streak", 0)))
 		var ladder := _clutch_reward_ladder_snapshot(chain)
 		_quality_streak_label.text = "CLEAN %d · +$%.2f" % [chain, float(ladder.get("current_bonus_cents", 0)) / 100.0]
-		_quality_streak_label.visible = chain > 0 and not _compact_physical_hud
+		_quality_streak_label.visible = inspecting and chain > 0 and not _compact_physical_hud
 		_clutch_carton_host.visible = false
 		if _personal_goal.get("status", "") == "active" and int(_personal_goal.get("day", -1)) == int(snapshot.get("day", 0)):
 			_quality_streak_label.tooltip_text = "%s. %s" % [PersonalShiftGoal.label(_personal_goal), _quality_streak_label.text]
 			_quality_streak_label.text = PersonalShiftGoal.progress(_personal_goal, snapshot)
-			_quality_streak_label.visible = true
+			_quality_streak_label.visible = not _compact_physical_hud
 	var push_luck := playbook.get("push_luck", {}) as Dictionary
 	if running and bool(push_luck.get("open", false)) and String(push_luck.get("id", "")).is_empty() and not _blocking_management_surface_open():
 		_set_guidance("QUOTA SAFE · BANK OR CHASE", &"egg", "Your quota is met. Bank for safer shells or chase higher clean-egg value. Open the Playbook to compare and choose.", &"playbook")
@@ -22488,6 +22560,44 @@ func _web_control_rect(control: Control) -> Dictionary:
 	return {"x": rect.position.x, "y": rect.position.y, "width": rect.size.x, "height": rect.size.y}
 
 
+func _compact_gameplay_pulse_diagnostic(source: Dictionary) -> Dictionary:
+	# Keep the current playable loop. The omitted nested catalogs describe
+	# implementation history and repeat other read models; authority and the
+	# presentation tree retain the complete projection unchanged.
+	var result := _diagnostic_subset(source, [
+		"version", "authoritative", "core_loop", "shift_journey",
+		"immediate_outcome", "action_preview", "hen_intention", "combo_readiness",
+		"rival_pulse", "fail_forward", "shift_win",
+	])
+	result["active_playbook"] = _diagnostic_subset(source.get("active_playbook", {}) as Dictionary, [
+		"day", "strategy_preset_id", "preparation_id", "recovery_id", "loadout_id",
+		"dominant_objective", "shift_plan", "last_receipt",
+	])
+	result["full_debug_request"] = "__pecking_order_request_diagnostic('full_gameplay_pulse')"
+	return result
+
+
+func _compact_first_session_funnel_diagnostic(source: Dictionary) -> Dictionary:
+	# Session milestone history and teaching-script definitions remain in the
+	# consent-based export and explicit debug request, not every live status poll.
+	return _diagnostic_subset(source, [
+		"version", "active", "authoritative", "complete", "mode", "next_id",
+		"elapsed_seconds", "reached_count", "total_count", "friction_flags",
+		"signals", "privacy", "opening_timing",
+	])
+
+
+func _live_hud_diagnostic_state() -> Dictionary:
+	var controls := {}
+	for control: Control in [_day_label, _time_label, _revenue_label, _quota_progress_label, _active_playbook_button, _guidance_action_button, _speed_buttons[0], _compact_speed_menu, _next_moment_button, _settings_button]:
+		controls[String(control.name)] = {
+			"rect": _web_control_rect(control),
+			"visible": control.is_visible_in_tree(),
+			"font_size": control.get_theme_font_size("font_size"),
+		}
+	return {"compact": _compact_physical_hud, "canvas_ratio": _hud_canvas_ratio, "rect": _web_control_rect(_top_hud_panel), "controls": controls}
+
+
 func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 	if not OS.has_feature("web"):
 		return
@@ -23081,7 +23191,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			{"visible": false}
 		),
 		"next_action": _next_action_diagnostic_state(),
-		"gameplay_pulse": _gameplay_pulse.duplicate(true),
+		"gameplay_pulse": _compact_gameplay_pulse_diagnostic(_gameplay_pulse),
 		"cause_replay": _last_cause_replay.duplicate(true),
 		"explain_mode": {
 			"active": _explain_mode_active,
@@ -23125,7 +23235,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"flockwatch": _flockwatch_diagnostic_state(),
 		"commendations": _commendations_diagnostic_state(),
 		"checkpoint": _checkpoint_diagnostic_state(),
-		"first_session_funnel": _first_session_funnel.snapshot(),
+		"first_session_funnel": _compact_first_session_funnel_diagnostic(_first_session_funnel.snapshot()),
 		"personal_shift_goal": _personal_goal.duplicate(true),
 		"personal_goal_offer": _personal_goal_offer.duplicate(true),
 		"goal_browse_control": {"visible": _review_remix_button != null and _review_remix_button.is_visible_in_tree(), "rect": _web_control_rect(_review_remix_button)},
@@ -23396,6 +23506,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			},
 		},
 		"shift_status": {
+			"layout": _live_hud_diagnostic_state(),
 			"day_text": _day_label.text if _day_label != null else "",
 			"time_text": _time_label.text if _time_label != null else "",
 			"fund_text": _revenue_label.text if _revenue_label != null else "",
@@ -23622,7 +23733,7 @@ func _set_flockwatch_open(is_open: bool, restore_focus: bool = false) -> void:
 		_camera_controller.set_safe_viewport_insets(
 			0.0,
 			FLOCKWATCH_DRAWER_SAFE_RIGHT if is_open else 0.0,
-			(136.0 if _compact_physical_hud else 104.0) if _intent_focus_worker_id >= 0 else 0.0,
+			maxf(104.0, _live_hud_routing_top() + 8.0) if _intent_focus_worker_id >= 0 else 0.0,
 			(300.0 if _compact_physical_hud else 250.0) if _intent_focus_worker_id >= 0 else 0.0,
 		)
 	_flockwatch_open = is_open
@@ -23847,11 +23958,7 @@ func _update_flockwatch_toggle(snapshot: Dictionary = {}) -> void:
 func _refresh_flockwatch_toggle_layout() -> void:
 	if _flockwatch_toggle == null:
 		return
-	var routing_top := (
-		(88.0 if _compact_live_hud_applied else 136.0)
-		if _compact_physical_hud else
-		(FIRST_CLUTCH_ROUTING_TOP if _compact_live_hud_applied else LIVE_ROUTING_TOP)
-	)
+	var routing_top := _live_hud_routing_top()
 	if _flockwatch_open and _flockwatch_navigation != null:
 		_flockwatch_navigation.adopt_header_action(_flockwatch_toggle)
 		# The visible mark is intentionally terse inside the ledger header. The
@@ -23990,7 +24097,7 @@ func _set_guidance(
 	var guidance_font := _guidance_label.get_theme_font("font")
 	var guidance_font_size := _guidance_label.get_theme_font_size("font_size")
 	_guidance_label.custom_minimum_size.x = minf(
-		300.0 if _compact_physical_hud else 430.0,
+		510.0 if _compact_physical_hud else 430.0,
 		ceilf(guidance_font.get_string_size(
 			copy,
 			HORIZONTAL_ALIGNMENT_LEFT,
@@ -24004,7 +24111,7 @@ func _set_guidance(
 	# consequence receipt. Retire the three-icon outcome strip so its chevron
 	# stays visually attached to the action label.
 	if _consequence_icon_host != null:
-		if _compact_physical_hud or action_id in [&"today", &"resume_shift"]:
+		if _compact_physical_hud or _explain_strip == null or not _explain_strip.visible or action_id in [&"today", &"resume_shift"]:
 			_consequence_icon_host.visible = false
 		else:
 			_consequence_icon_host.visible = int(
@@ -24391,7 +24498,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		var playbook := _simulation.playbook_snapshot(
 			_routing_ui.focused_worker_id() if _routing_ui != null else -1
 		)
-		if String(playbook.get("strategy_preset_id", "")).is_empty():
+		if String(playbook.get("strategy_preset_id", "")).is_empty() and not _clock.precision_focus_limiting():
 			_set_guidance(
 				"CHOOSE A SHIFT PLAN",
 				&"goal",
@@ -24635,14 +24742,6 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			recharge_detail,
 		)
 		return
-	if bool(snapshot.get("personnel_action_available", false)):
-		_set_guidance(
-			"CHECK-IN: SELECT A HEN",
-			&"flock",
-			"Select a hen, then choose credit, coaching, or pressure.",
-			&"select_hen",
-		)
-		return
 	if eggs >= quota:
 		_set_guidance(
 			"TARGET MET: PROTECT SHELLS OR BANK FUND",
@@ -24653,6 +24752,21 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		return
 	var remaining := quota - eggs
 	var minutes_left := maxi(0, DepartmentSimulation.SHIFT_END_MINUTE - int(snapshot.get("minute_of_day", 0)))
+	if bool(snapshot.get("personnel_action_available", false)):
+		if int(snapshot.get("day", 1)) <= 2:
+			_set_guidance(
+				"%d EGGS TO GO  ·  HENS AUTO-WORK" % remaining,
+				&"egg",
+				"Routed hens finish files and lay eggs on their own. A check-in is optional help, not a step required for delivery.",
+			)
+		else:
+			_set_guidance(
+				"CHECK-IN: SELECT A HEN",
+				&"flock",
+				"Select a hen, then choose credit, coaching, or pressure.",
+				&"select_hen",
+			)
+		return
 	var worker_data: Array = []
 	for worker_value in snapshot.get("workers", []):
 		var worker := worker_value as Dictionary
@@ -28624,6 +28738,8 @@ func _on_pause_requested() -> void:
 
 
 func _on_speed_changed(speed_index: int, multiplier: float) -> void:
+	if speed_index > 0:
+		_next_moment_stop_reason = ""
 	_sync_worker_route_progress_hold()
 	# Speed controls own their active styling. Restore any tutorial overlay first,
 	# then re-apply the currently relevant coach cue after the speed state settles.

@@ -164,9 +164,10 @@ func _run() -> void:
 	var row_rail := office.find_child("OverheadRowRail_00", true, false) as MeshInstance3D
 	var focused_lift_tube := office.find_child("EggLiftTube_00", true, false) as MeshInstance3D
 	office.set("_compact_physical_hud", true)
+	office.set("_hud_canvas_ratio", 900.0 / 1280.0)
 	office.call("_apply_physical_hud_layout")
 	_check(
-		live_hud != null and live_hud.offset_bottom == 128.0
+		live_hud != null and is_equal_approx(live_hud.offset_bottom * 900.0 / 1280.0, 128.0)
 		and compact_pace != null and compact_pace.visible
 		and compact_speed_extra != null and not compact_speed_extra.visible
 		and compact_quota != null and compact_quota.get_theme_font_size("font_size") >= 20
@@ -177,6 +178,7 @@ func _run() -> void:
 		failures,
 	)
 	office.set("_compact_physical_hud", false)
+	office.set("_hud_canvas_ratio", 1.0)
 	office.call("_apply_physical_hud_layout")
 	office.call("_set_inspected_cubicle_cutaway", 0)
 	_check(desk_partition != null and not desk_partition.visible and desk_top_trim != null and not desk_top_trim.visible and focused_monitor != null and not focused_monitor.visible and focused_screen != null and not focused_screen.visible and side_monitor != null and side_monitor.visible and foreground_partition != null and foreground_partition.visible and side_partition != null and side_partition.visible and row_rail != null and not row_rail.visible and focused_lift_tube != null and not focused_lift_tube.visible, "inspection should reveal the hen while preserving nearby desks and their equipment", failures)

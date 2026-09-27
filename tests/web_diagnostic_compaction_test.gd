@@ -14,6 +14,16 @@ func _run() -> void:
 	var simulation := _heavy_projection_fixture(failures)
 	var office := Office.new()
 	var snapshot := simulation.snapshot()
+	var full_pulse := GameplayPulseDirector.new().compose({"simulation": snapshot})
+	full_pulse["active_playbook"] = simulation.playbook_snapshot(-1)
+	var pulse_before := JSON.stringify(full_pulse)
+	var compact_pulse := office.call("_compact_gameplay_pulse_diagnostic", full_pulse) as Dictionary
+	_check(_json_bytes(full_pulse) > 100_000 and _json_bytes(compact_pulse) < 6_000, "live gameplay diagnostics must omit nested design catalogs rather than repeatedly serializing hundreds of kilobytes", failures)
+	_check(compact_pulse.get("shift_journey") == full_pulse.get("shift_journey") and compact_pulse.get("action_preview") == full_pulse.get("action_preview"), "compaction must preserve the current loop and actionable preview", failures)
+	_check(JSON.stringify(full_pulse) == pulse_before and compact_pulse.has("full_debug_request"), "compaction must leave gameplay authority intact and advertise the explicit full debug request", failures)
+	var funnel_source := {"next_id": "first_egg", "signals": {"route_miss": 2}, "opening_timing": {"route_to_delivery_seconds": 32.0}, "milestones": [{"id": "route", "reached": true}], "micro_shift": {"beats": ["plan", "route", "work", "reward"]}}
+	var funnel := office.call("_compact_first_session_funnel_diagnostic", funnel_source) as Dictionary
+	_check(funnel.get("signals") == funnel_source.signals and funnel.get("opening_timing") == funnel_source.opening_timing and funnel.get("next_id") == "first_egg" and not funnel.has("milestones") and funnel_source.has("milestones"), "live funnel should preserve next action and measurements without copying or mutating historical teaching records", failures)
 
 	var contract_source := snapshot.get("contract_board", {}) as Dictionary
 	var contract_hidden := office.call(

@@ -49,7 +49,8 @@ async function clickAuthored(x, y) {
 	const canvas = page.locator("canvas");
 	const box = await canvas.boundingBox();
 	assert.ok(box, "the Godot canvas must have visible bounds");
-	await page.mouse.click(box.x + box.width * (x / 1280), box.y + box.height * (y / 720));
+	const scale = Math.min(box.width / 1280, box.height / 720);
+	await page.mouse.click(box.x + (box.width - 1280 * scale) / 2 + x * scale, box.y + (box.height - 720 * scale) / 2 + y * scale);
 }
 
 async function dismissCharacterDialogue(label, timeoutMsec = 30_000) {
@@ -80,40 +81,26 @@ try {
 		60_000,
 	);
 
-	// Use the shipped keyboard-only first-run route so wrapper scaling cannot
-	// distort the audit. Enter retires the briefing; 1 + Enter files the opening
-	// directive and releases the live management clock.
+	// Use the shipped route-first opening. Waiting for an unassigned hen to
+	// acquire a file used to run into the incident before testing Next Moment.
 	await page.keyboard.press("KeyN");
 	await waitForState((snapshot) => snapshot.campaign_stage === "active", "new career activation");
+	for (let index = 0; index < 4; index++) await page.keyboard.press("Tab");
 	await page.keyboard.press("Enter");
 	await page.waitForTimeout(500);
-	await page.keyboard.press("Digit1");
+	await page.keyboard.press("Digit3");
 	await page.keyboard.press("Enter");
 	let active = await waitForState(
-		(snapshot) => snapshot.pending_decision_kind === "" && snapshot.shift_phase === 1,
-		"live first shift",
+		(snapshot) => snapshot.first_clutch?.stage === "specialty_route",
+		"first route lesson",
 	);
-	if (active.first_clutch?.visible === true) {
-		active = await waitForState(
-			(snapshot) => snapshot.first_clutch?.visible === true
-				&& snapshot.first_clutch?.can_skip === true
-				&& snapshot.first_clutch?.skip_button_rect?.width > 0,
-			"optional coach Skip action",
-		);
-		const skipRect = active.first_clutch.skip_button_rect;
-		await clickAuthored(skipRect.x + skipRect.width / 2, skipRect.y + skipRect.height / 2);
-		active = await waitForState(
-			(snapshot) => snapshot.first_clutch?.visible !== true && snapshot.shift_phase === 1,
-			"optional coach dismissal",
-		);
-	}
-	// The opening policy can immediately queue one character aside after the
-	// coach retires. File it away before auditing the live clock control.
-	await page.waitForTimeout(1_500);
-	active = await state();
 	if (active.character_dialogue?.visible === true) {
 		active = await dismissCharacterDialogue("opening character aside dismissal");
 	}
+	const route = active.first_clutch.primary_button;
+	assert.equal(route.label, "ROUTE & START");
+	await clickAuthored(route.rect.x + route.rect.width / 2, route.rect.y + route.rect.height / 2);
+	active = await waitForState(s => s.first_clutch?.stage === "delivery" && s.minute_of_day >= 482, "routed autonomous work");
 	assert.equal(active.next_moment?.button_text, "NEXT  [4]");
 	assert.equal(active.next_moment?.binding, "4 / D-pad Up");
 	assert.ok(active.next_moment?.target_label?.length > 0);
@@ -128,7 +115,6 @@ try {
 		nextMoment: active.next_moment,
 		clutchRewardLadder: active.clutch_reward_ladder,
 	};
-	await page.screenshot({ path: path.join(outputDirectory, "live-shift.png"), fullPage: true });
 
 	const priorSpeed = active.clock_speed_index > 0 ? active.clock_speed_index : 1;
 	await page.keyboard.press("Digit4");
@@ -155,33 +141,7 @@ try {
 		nextMoment: restored.next_moment,
 	};
 
-	// Exercise the worker-specific smart handoff before the authored 11:00
-	// incident can legitimately become the next management stop. This uses the
-	// same deterministic first-arrival subject as the dedicated timing audit.
-	await page.keyboard.press("Escape");
-	await page.keyboard.press("Tab");
-	await waitForState(
-		(snapshot) => snapshot.focused_worker_id >= 0,
-		"live hen focus",
-	);
-	for (let cycle = 0; cycle < 12; cycle += 1) {
-		const focused = await state();
-		if (focused.focused_worker_id === 0) break;
-		await page.evaluate(() => window.__pecking_order_mobile_action?.("cycle_hen"));
-		await waitForState(
-			(snapshot) => snapshot.focused_worker_id !== focused.focused_worker_id,
-			"next hen focus",
-			5_000,
-		);
-	}
-	assert.equal((await state()).focused_worker_id, 0);
-	await page.keyboard.press("Digit1");
-	await waitForState(
-		(snapshot) => snapshot.production?.focused_claim?.id > 0
-			&& snapshot.production?.focused_peck_assist?.window_state === "not_ready",
-		"focused hen real file",
-		90_000,
-	);
+	// The route lesson already focuses a hen with an authoritative active file.
 	await page.keyboard.press("Digit4");
 	const automaticStop = await waitForState(
 		(snapshot) => snapshot.next_moment?.active === false
@@ -190,9 +150,11 @@ try {
 			&& snapshot.priority_peck_focus?.worker_id >= 0
 			&& snapshot.camera?.focused_worker_id === snapshot.priority_peck_focus?.worker_id,
 		"automatic Priority Peck camera handoff",
-		30_000,
+		90_000,
 	);
 	assert.equal(automaticStop.next_moment?.target, "priority_peck");
+	assert.equal(automaticStop.pause_context?.owner_id, "next_moment");
+	assert.match(automaticStop.next_moment?.stop_reason ?? "", /PECK/);
 	assert.equal(automaticStop.camera?.focused_worker_id, automaticStop.priority_peck_focus?.worker_id);
 	evidence.automaticStop = {
 		clockSpeedIndex: automaticStop.clock_speed_index,
@@ -201,6 +163,10 @@ try {
 		priorityPeckWorkerId: automaticStop.priority_peck_focus.worker_id,
 	};
 	await page.screenshot({ path: path.join(outputDirectory, "next-moment-arrived.png"), fullPage: true });
+	await page.waitForTimeout(1200);
+	assert.equal((await state()).next_moment.stop_reason, automaticStop.next_moment.stop_reason, "stop reason persists after transient feedback");
+	await page.keyboard.press("Digit1");
+	await waitForState(s => s.clock_speed_index === 1 && s.next_moment.stop_reason === "", "explicit resume clears automatic stop");
 } finally {
 	await browser.close();
 }

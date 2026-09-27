@@ -163,11 +163,6 @@ func _run() -> void:
 		false,
 	)
 	await process_frame
-	var save_before_claim_confirmation := simulation.export_save_state()
-	var requested_speed_before_claim_confirmation := clock.speed_index if clock != null else -1
-	var cue_serial_before_claim_confirmation := int(
-		audio_feedback.feedback_snapshot().get("cue_serial", -1)
-	)
 	_check(
 		claim_before != null
 		and settle_button != null
@@ -181,6 +176,13 @@ func _run() -> void:
 	)
 	root.size = Vector2i(390, 844)
 	await process_frame
+	# Resizing yields a live frame before the dialog is opened. Take the
+	# comparison immediately before the action, not before that unheld tick.
+	var save_before_claim_confirmation := simulation.export_save_state()
+	var requested_speed_before_claim_confirmation := clock.speed_index if clock != null else -1
+	var cue_serial_before_claim_confirmation := int(
+		audio_feedback.feedback_snapshot().get("cue_serial", -1)
+	)
 	if settle_button != null:
 		settle_button.pressed.emit()
 	await process_frame

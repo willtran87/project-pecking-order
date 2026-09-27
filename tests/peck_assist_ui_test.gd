@@ -6,6 +6,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	root.size = Vector2i(1280, 720)
 	var failures: Array[String] = []
 	var office := Office.new()
 	root.add_child(office)
@@ -75,6 +76,9 @@ func _run() -> void:
 	_check(assist_button != null and assist_button.disabled, "the hidden Priority Peck action should remain locked before policy", failures)
 
 	await _start_normal_running_campaign(office, failures)
+	# This suite advances authority explicitly; real clock ticks would race its
+	# authored timing-window fixtures and teardown.
+	clock.set_process(false)
 	if dialogue_ui != null:
 		dialogue_ui.clear_session()
 	await process_frame
@@ -88,7 +92,10 @@ func _run() -> void:
 		routing_ui.set_focus(0)
 	await process_frame
 	_check(dossier != null and dossier.is_visible_in_tree(), "selecting a hen should reveal the dossier", failures)
-	_check(assist_button != null and assist_button.is_visible_in_tree(), "selecting a hen should reveal Priority Peck inside the dossier", failures)
+	_check(_press(office.find_child("RoutingDetailsToggle", true, false) as Button), "MORE should disclose optional route and peck controls", failures)
+	await process_frame
+	await process_frame
+	_check(assist_button != null and assist_button.is_visible_in_tree(), "expanded route details should reveal Priority Peck inside the dossier", failures)
 	_check(assist_button != null and assist_button.disabled, "Priority Peck should remain locked without an active file", failures)
 	_check(assist_button != null and "NO ACTIVE FILE" in assist_button.text, "idle hens should explain that no claim can be assisted", failures)
 	_check(timing_label != null and not timing_label.is_visible_in_tree(), "idle hens should not show a timing target", failures)
@@ -149,7 +156,7 @@ func _run() -> void:
 	var stale_route_notifications := office.call("_notification_diagnostic_state") as Dictionary
 	_check(
 		String(stale_route_notifications.get("toast_copy", ""))
-		== "ROUTE HELD  ·  PICK ACTIVE HEN"
+		== "PLAN HELD  ·  PICK ACTIVE HEN"
 		and "current employed hen" in String(
 			(office.get("_ticker_label") as Label).get_meta("accessible_text", ""),
 		),
@@ -176,6 +183,7 @@ func _run() -> void:
 	priority_preferences["notice_level"] = "all"
 	office.set("_player_preferences", priority_preferences)
 	if simulation != null:
+		((office.get("_worker_views") as Dictionary)[0] as ChickenView).stage_at_workstation_for_introduction()
 		simulation.set_worker_at_workstation(0, true)
 		# One authoritative tick assigns the first file and exposes the pre-gold
 		# timing state without depending on a restored campaign's incidental frame.
@@ -508,6 +516,7 @@ func _run() -> void:
 		clock.set_speed(0)
 	if simulation != null:
 		simulation.set_worker_at_workstation(0, false)
+		((office.get("_worker_views") as Dictionary)[1] as ChickenView).stage_at_workstation_for_introduction()
 		simulation.set_worker_at_workstation(1, true)
 	office.call("_on_camera_focus_changed", "PIP", 1)
 	var second_window_open := _advance_until_assist_available(simulation, 1)
@@ -606,6 +615,9 @@ func _run() -> void:
 		failures,
 	)
 	await create_timer(3.2).timeout
+	# This fixture advances simulation explicitly; publish the result-expiry
+	# refresh that a running clock normally supplies without racing desk staging.
+	office.call("_refresh_priority_peck_precision_focus", simulation.snapshot())
 	_check(
 		clock != null and not clock.precision_focus_limiting() and is_equal_approx(clock.effective_multiplier(), 10.0),
 		"the requested 10× pace should restore automatically after the result beat",

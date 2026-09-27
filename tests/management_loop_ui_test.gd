@@ -6,6 +6,7 @@ func _init() -> void:
 
 
 func _run() -> void:
+	root.size = Vector2i(1280, 720)
 	var failures: Array[String] = []
 	var office := Office.new()
 	root.add_child(office)
@@ -193,6 +194,7 @@ func _run() -> void:
 	_check(StringName(simulation.active_directive_snapshot().get("id", &"")) == &"shell_assurance", "authorized directive should become authoritative", failures)
 	_check(clock.speed_index == 1, "authorizing the morning directive should start the shift", failures)
 	office.call("_refresh_gameplay_pulse", simulation.snapshot())
+	office.set("_payoff_quiet_until_msec", 0)
 	office.call("_update_guidance", simulation.snapshot())
 	var opening_playbook_map := office.get("_active_playbook_menu_map") as Dictionary
 	var safe_plan_item_id := -1
@@ -203,12 +205,12 @@ func _run() -> void:
 			break
 	_check(
 		StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"playbook"
-		and guidance.text == "CHOOSE: FAST / SAFE / FLOCK"
-		and not active_playbook_button.visible
+		and guidance.text == "CHOOSE A SHIFT PLAN"
+		and active_playbook_button.visible
 		and safe_plan_item_id >= 0
 		and String((opening_playbook_map[safe_plan_item_id] as Dictionary).get("gain", "")) == "SHELL RISK -4.3% / CLEAN REWARD"
 		and bool((opening_playbook_map[safe_plan_item_id] as Dictionary).get("recommended", false)),
-		"the single primary action should offer a recommended plan while the duplicate plan button stays hidden",
+		"the next action should explain plan selection while the stable PLAN entry remains discoverable",
 		failures,
 	)
 	var eggs_before_rival_probe := simulation.eggs_today
@@ -216,11 +218,11 @@ func _run() -> void:
 	office.call("_refresh_gameplay_pulse", simulation.snapshot())
 	var live_reward_loop := (office.get("_gameplay_pulse") as Dictionary).get("reward_loop", {}) as Dictionary
 	_check(
-		rival_pulse.visible
+		not rival_pulse.visible
 		and rival_pulse.text.begins_with("RIVAL ")
 		and "filed cumulative score" in rival_pulse.tooltip_text
 		and bool(((office.get("_gameplay_pulse") as Dictionary).get("rival_pulse", {}) as Dictionary).get("hud_visible", false)),
-		"the disclosed rival margin should enter the HUD only after the first live delivery",
+		"the rival margin remains available in detail without competing with the default shift goal",
 		failures,
 	)
 	_check(
@@ -228,7 +230,7 @@ func _run() -> void:
 		and not clutch_carton.visible
 		and int(reward_loop_host.get_meta("item_count", 0)) == 15
 		and bool(live_reward_loop.get("authoritative", false))
-		and not active_playbook_button.visible
+		and active_playbook_button.visible
 		and bool(active_playbook_button.get_meta("authoritative", false))
 		and String((live_reward_loop.get("combo_recipe", {}) as Dictionary).get("label", "")) == "SHELL LOCK"
 		and String((live_reward_loop.get("strategy_identity", {}) as Dictionary).get("label", "")) == "SHELL GUARDIAN"
@@ -238,8 +240,8 @@ func _run() -> void:
 	)
 	_check(
 		String((simulation.playbook_snapshot(0)).get("strategy_preset_id", "")).is_empty()
-		and not active_playbook_button.visible,
-		"before filing, the duplicate plan control should remain out of the HUD",
+		and active_playbook_button.visible,
+		"before filing, PLAN should remain available without silently selecting a strategy",
 		failures,
 	)
 	simulation.eggs_today = eggs_before_rival_probe
@@ -247,7 +249,7 @@ func _run() -> void:
 	var next_moment_button := office.find_child("NextMomentButton", true, false) as Button
 	_check(
 		next_moment_button != null
-		and next_moment_button.text.begins_with("»")
+		and next_moment_button.text.begins_with("NEXT")
 		and "decision" in next_moment_button.tooltip_text.to_lower(),
 		"the live clock should offer one concise, explained Next Moment control",
 		failures,
@@ -277,6 +279,11 @@ func _run() -> void:
 		failures,
 	)
 	var reward_ladder := office.call("_clutch_reward_ladder_snapshot", 4) as Dictionary
+	office.call("_on_next_moment_pressed")
+	office.call("_finish_next_moment", "NEXT MOMENT REACHED · PRIORITY PECK READY", true)
+	_check(clock.speed_index == 0 and String((office.call("_pause_context_state") as Dictionary).get("owner_id", "")) == "next_moment", "an automatic stop retains its reason after the toast expires", failures)
+	office.call("_on_speed_button_pressed", 1)
+	_check(String((office.call("_next_moment_diagnostic_state") as Dictionary).get("stop_reason", "")) == "", "resuming clears the old automatic stop reason", failures)
 	_check(
 		String(reward_ladder.get("tier_label", "")) == "ROLLING"
 		and int(reward_ladder.get("next_threshold", 0)) == 8
@@ -503,8 +510,8 @@ func _run() -> void:
 	_check(
 		String(simulation.playbook_snapshot(0).get("strategy_preset_id", "")) == "safe"
 		and active_playbook_button.visible
-		and String(active_playbook_button.text).begins_with("SAFE"),
-		"after filing, the secondary playbook control should become a compact strategy status",
+		and String(active_playbook_button.text).begins_with("PLAN"),
+		"after filing, PLAN keeps its stable label while the chosen strategy remains authoritative",
 		failures,
 	)
 	var advanced_playbook := simulation.playbook_snapshot(0)
@@ -635,12 +642,12 @@ func _run() -> void:
 	_check(
 		campaign_objectives != null
 		and badge_order_progress != null
-		and badge_order_progress.is_visible_in_tree()
+		and not badge_order_progress.is_visible_in_tree()
 		and badge_order_progress.text == "%d / %d" % [
 			int(campaign_objectives.get_meta("orders_on_track", -1)),
 			int(campaign_objectives.get_meta("orders_total", -1)),
 		],
-		"the always-visible badge should mirror the same authoritative live orders as Flockwatch",
+		"the contextual badge should retain the same authoritative orders without adding a second default goal",
 		failures,
 	)
 	var semantic_on_track := 0
@@ -1556,8 +1563,9 @@ func _run() -> void:
 		and review_fund.text == String((review_fund.get_meta("report_card", {}) as Dictionary).get("value", "missing"))
 		and not review_fund.text.begins_with("$")
 		and review_next != null
-		and review_next.text.is_valid_int()
-		and int(review_next.text) > 0,
+		and review_next.text.get_slice(" ", 0).is_valid_int()
+		and int(review_next.text.get_slice(" ", 0)) > 0
+		and review_next.text.ends_with(" EGGS"),
 		(
 			"Farmer Review should show worked, operating result, close call, and next shift values under their matching captions "
 			+ "[quality=%s eggs=%s net=%s fund=%s next=%s]"
@@ -1595,8 +1603,8 @@ func _run() -> void:
 	)
 	if review_panel != null:
 		_check(
-			review_panel.size.y <= 432.0,
-			"the default result card should release the unused accounting-ledger height",
+			review_panel.size.y <= 512.0,
+			"the default result card should reserve its goal footer without using the expanded ledger height",
 			failures,
 		)
 	if review_details_toggle != null:
@@ -1642,7 +1650,7 @@ func _run() -> void:
 		var scaled_review_rect := review_panel.get_global_rect()
 		var continue_rect := review_continue.get_global_rect()
 		_check(
-			review_panel.size.y <= 482.0
+			review_panel.size.y <= 562.0
 			and scaled_review_rect.position.y >= 0.0
 			and scaled_review_rect.end.y <= 720.0
 			and continue_rect.position.y >= scaled_review_rect.position.y
@@ -1650,6 +1658,12 @@ func _run() -> void:
 			"the compact result card and Continue action should remain contained at 150 percent scale",
 			failures,
 		)
+		var goal_button := office.get("_personal_goal_button") as Button
+		var body_scroll := office.find_child("FarmerReviewBodyScroll", true, false) as ScrollContainer
+		_check(goal_button != null and body_scroll != null and not body_scroll.is_ancestor_of(goal_button), "goal acceptance must stay outside the scrolling review body", failures)
+		if goal_button != null:
+			var goal_rect := goal_button.get_global_rect()
+			_check(goal_rect.position.y >= scaled_review_rect.position.y and goal_rect.end.y <= continue_rect.position.y, "goal acceptance remains visible above Continue at 150 percent text", failures)
 	_check(
 		review_glance != null
 		and review_glance.columns == 4

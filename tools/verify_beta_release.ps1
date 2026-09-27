@@ -69,6 +69,11 @@ try {
         $nativeTests = @(
             "visual_design_refinement_test.gd",
             "shift_clock_coherence_test.gd",
+            "live_hud_readability_test.gd",
+            "management_loop_ui_test.gd",
+            "peck_assist_ui_test.gd",
+            "office_presentation_efficiency_test.gd",
+            "web_diagnostic_compaction_test.gd",
             "chicken_lifecycle_pause_test.gd",
             "personal_shift_goal_test.gd",
             "route_first_reward_test.gd",

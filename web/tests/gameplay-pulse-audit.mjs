@@ -25,7 +25,12 @@ page.on("pageerror", (error) => errors.push(`page: ${String(error)}`));
 
 const state = () => page.evaluate(() => {
 	if (typeof window.render_game_to_text !== "function") return {};
-	return JSON.parse(window.render_game_to_text());
+	const snapshot = JSON.parse(window.render_game_to_text());
+	window.__pecking_order_request_diagnostic?.("full_gameplay_pulse");
+	if (window.__pecking_order_full_gameplay_pulse) {
+		snapshot.gameplay_pulse = JSON.parse(window.__pecking_order_full_gameplay_pulse);
+	}
+	return snapshot;
 });
 
 async function waitForState(predicate, label, timeoutMsec = 60_000) {

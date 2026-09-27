@@ -2966,6 +2966,7 @@ func _build_focus_dossier() -> void:
 	_current_claim_label = _make_label("WAITING FOR PECKWORK", 16, Color("eef2e9"))
 	_current_claim_label.name = "RoutingCurrentClaim"
 	_current_claim_label.custom_minimum_size.x = 210.0
+	_current_claim_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_current_claim_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_claim_header.add_child(_current_claim_label)
 	_claim_phase_icon = TextureRect.new()
@@ -2984,7 +2985,7 @@ func _build_focus_dossier() -> void:
 	_claim_header.add_child(_claim_phase_progress_label)
 	var claim_header_spacer := Control.new()
 	claim_header_spacer.name = "RoutingClaimHeaderSpacer"
-	claim_header_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	claim_header_spacer.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	claim_header_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_claim_header.add_child(claim_header_spacer)
 	_golden_file_badge = _make_label("* GOLD", 12, Color("ffd75e"))
@@ -5228,11 +5229,11 @@ func _apply_first_clutch_delivery_glance() -> void:
 		"Follow the assisted file through egg delivery.",
 	))
 	if bool(_first_clutch.get("route_first_lesson", false)):
-		_current_claim_label.text = "EGG IN GRADING" if egg_laid else "AUTO WORK"
+		_current_claim_label.text = "EGG IN GRADING" if egg_laid else "WORKS ON HER OWN"
 		_current_claim_label.accessibility_name = "%s's file finishes automatically, then travels as an egg to the farmer basket." % worker_name
 		_current_claim_label.tooltip_text = _current_claim_label.accessibility_name
 		_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
-		_routing_hint_label.text = "FILE > HEN > EGG > REWARD"
+		_routing_hint_label.text = "BASKET > FEED FUND" if egg_laid else "NO EXTRA CLICKS  ·  NEXT: EGG"
 	_routing_hint_label.tooltip_text = _routing_hint_label.accessibility_name
 	_routing_hint_label.set_meta("accessible_text", _routing_hint_label.accessibility_name)
 	_routing_hint_label.add_theme_color_override(

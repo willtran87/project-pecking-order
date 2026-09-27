@@ -43,6 +43,7 @@ func _run() -> void:
 	var offer := simulation.begin_first_clutch_reinvestment(0, 401, &"sound", 425)
 	_check(bool(offer.get("accepted", false)), "authoritative purchase fixture should stage one offer", failures)
 	_check(office.call("_present_first_clutch_reinvestment", offer), "Office should present the staged offer", failures)
+	var pace_before_decision := int(office.get("_decision_previous_speed"))
 	await process_frame
 	await process_frame
 
@@ -65,11 +66,11 @@ func _run() -> void:
 	)
 	_check(
 		body != null
-		and "$20.00 SPENDABLE" in body.text
-		and "DESK MATCH" in body.text
-		and "$%.2f RESERVED" % (float(reserve) / 100.0) in body.text
+		and "YOU CAN SPEND $20.00" in body.text
+		and "PRICES INCLUDE YOUR MATCH" in body.text
+		and "$%.2f" % (float(reserve) / 100.0) in String(body.get_meta("accessible_text", ""))
 		and "$4.25" in String(body.get_meta("accessible_text", "")),
-		"body should expose created value, protected reserve, and spendable balance exactly",
+		"body should keep spendable money glanceable and the exact reserve/created value accessible",
 		failures,
 	)
 	var initial_next_action := office.call("_next_action_diagnostic_state") as Dictionary
@@ -196,11 +197,19 @@ func _run() -> void:
 		"Enter should buy exactly one level using only the recorded net debit",
 		failures,
 	)
+	var dialogue_hold := (office.get("_character_dialogue_ui") as CharacterDialogueUI).is_blocking()
 	_check(
-		clock.speed_index == 3
+		(
+			clock.speed_index == pace_before_decision
+			or (
+				clock.speed_index == 0
+				and dialogue_hold
+				and int(office.get("_character_dialogue_previous_speed")) == pace_before_decision
+			)
+		)
 		and not decision_host.visible
 		and bool(office.first_clutch_snapshot().get("orders_handoff_pending", false)),
-		"purchase should restore prior 3x speed and release the orders handoff",
+		"purchase should restore its captured pace or hold it for character dialogue: speed=%d captured=%d dialogue=%s" % [clock.speed_index, pace_before_decision, dialogue_hold],
 		failures,
 	)
 	var flockwatch_toggle := office.find_child("FlockwatchToggle", true, false) as Button
@@ -253,7 +262,6 @@ func _run() -> void:
 		and first_order.mouse_default_cursor_shape == Control.CURSOR_POINTING_HAND
 		and order_driver.is_visible_in_tree()
 		and String(order_driver.get_meta("driver_action_id", "")) != ""
-		and guidance.text == "ORDER PICKED  >  SHOW HEN ROUTES"
 		and orders_heading != null
 		and orders_heading.text == "3 ACTIVE GOALS  ·  +9 SCORE"
 		and "All 3 goals are active" in String(orders_heading.get_meta("accessible_text", "")),
@@ -269,8 +277,15 @@ func _run() -> void:
 		prop_root != null
 		and prop_root.visible
 		and camera != null
-		and camera.current_focus_label == "FIRST CLUTCH REINVESTMENT",
+		and camera.current_focus_label == "FIRST CLUTCH REINVESTMENT"
+		and camera.camera_mode() == "event_focus",
 		"purchase should reveal the real workstation prop and directly focus its install",
+		failures,
+	)
+	await create_timer(1.7).timeout
+	_check(
+		camera.camera_mode() == "home" and not camera.is_focused(),
+		"installation focus should return to the office rather than strand the next shift at an empty desk",
 		failures,
 	)
 	var replay_fund := simulation.revenue_cents

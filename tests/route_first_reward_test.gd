@@ -32,6 +32,15 @@ func _run() -> void:
 	action.pressed.emit()
 	await process_frame
 	_check(office.first_clutch_snapshot().stage == "delivery" and clock.speed_index == 1, "the route must immediately start automatic work", failures)
+	var first_work_cue := office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary
+	var first_work_dossier := (office.get("_routing_ui") as PeckworkRoutingUI).routing_lifecycle_state()
+	_check(
+		String(first_work_cue.get("visual_body", "")) == "NO EXTRA CLICKS  ·  NEXT: EGG"
+		and String(first_work_dossier.get("header_copy", "")) == "WORKS ON HER OWN"
+		and String(first_work_dossier.get("route_hint_copy", "")) == "NO EXTRA CLICKS  ·  NEXT: EGG",
+		"first work should visibly explain automatic production instead of implying another required click",
+		failures,
+	)
 	_check(not bool(office.first_clutch_snapshot().checkin_filed), "shortening the lesson must not fabricate a paid check-in", failures)
 	var restored: Dictionary = office.call("_normalize_first_clutch_state", office.first_clutch_snapshot())
 	_check(bool(restored.get("route_first_lesson", false)) and not bool(restored.checkin_filed), "save normalization must preserve the short lesson without inventing actions", failures)
@@ -72,6 +81,28 @@ func _run() -> void:
 		office.call("_on_decision_confirm_pressed")
 		await process_frame
 		dialogue.clear_session()
+		(office.get("_first_clutch") as Dictionary)["dismissed"] = true
+		(simulation.active_playbook as Dictionary)["strategy_preset_id"] = "fast"
+		for worker in simulation.workers:
+			worker.current_claim = null
+		clock.set_speed(1)
+		office.set("_campaign_order_return_cue", {})
+		office.set("_routing_return_cue", {})
+		var routine_snapshot := simulation.snapshot()
+		routine_snapshot["personnel_action_available"] = true
+		office.call("_update_guidance", routine_snapshot)
+		var guidance := office.get("_guidance_label") as Label
+		_check(
+			guidance.text.contains("EGGS TO GO")
+			and guidance.text.contains("HENS AUTO-WORK")
+			and String(office.get("_guidance_action_id")) == "",
+			"early-shift guidance should prioritize autonomous quota work over optional care: %s action=%s" % [guidance.text, String(office.get("_guidance_action_id"))],
+			failures,
+		)
+		office.call("_update_guidance", routine_snapshot.merged({"day": 2}, true))
+		_check(guidance.text.contains("HENS AUTO-WORK"), "second-shift guidance should keep optional check-in subordinate to the goal: %s" % guidance.text, failures)
+		office.call("_update_guidance", routine_snapshot.merged({"eggs_today": simulation.quota_target}, true))
+		_check(guidance.text.begins_with("TARGET MET"), "a met quota should outrank an unused optional check-in", failures)
 		office.call("_refresh_gameplay_pulse", simulation.snapshot())
 		var lesson_id := -1
 		var menu_map: Dictionary = office.get("_active_playbook_menu_map")

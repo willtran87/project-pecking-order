@@ -122,6 +122,16 @@ async function engineHealth(label) {
   const metrics = await chromiumMetrics();
   const diagnosticBytes = Buffer.byteLength(await page.evaluate(() => window.render_game_to_text()), "utf8");
   const performance = snapshot.performance ?? {};
+	if (label === "baseline") {
+		const debug = await page.evaluate(() => {
+			window.__pecking_order_request_diagnostic?.("full_gameplay_pulse");
+			const full = JSON.parse(window.__pecking_order_full_gameplay_pulse ?? "{}");
+			return { version: full.version, complete: Boolean(full.intuitive_rewarding_completion?.professional_polish), bytes: new TextEncoder().encode(window.__pecking_order_full_gameplay_pulse ?? "").length };
+		});
+		assert.equal(debug.version, snapshot.gameplay_pulse?.version, "explicit full diagnostics retain the live projection version");
+		assert.ok(debug.complete && debug.bytes > 100_000, "full developer projection remains available on demand");
+		assert.equal(snapshot.gameplay_pulse?.intuitive_rewarding_completion, undefined, "routine state omits nested developer catalogs");
+	}
 	const webAssembly = await page.evaluate(() => (
 		window.__pecking_order_runtime_metrics?.() ?? { wasmMemoryBytes: 0 }
 	));
@@ -387,6 +397,7 @@ try {
 
   // Complete the authored morning directive so the soak measures the live
   // management floor rather than a correctly input-locked onboarding filing.
+  for (let index = 0; index < 4; index++) await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await page.waitForTimeout(500);
   await page.keyboard.press("Digit1");
@@ -399,10 +410,12 @@ try {
   if (opening.first_clutch?.visible === true) {
     const canvas = page.locator("#canvas");
     const bounds = await canvas.boundingBox();
+    const skip = opening.first_clutch.skip_button_rect;
     assert.ok(bounds, "the First Clutch coach requires the live canvas");
+    assert.ok(skip?.width > 0 && skip?.height > 0, "the optional coach exposes its real Skip target");
     await page.mouse.click(
-      bounds.x + bounds.width * 0.435,
-      bounds.y + bounds.height * (168 / 720),
+      bounds.x + bounds.width * ((skip.x + skip.width / 2) / 1280),
+      bounds.y + bounds.height * ((skip.y + skip.height / 2) / 720),
     );
     await waitForState("snapshot => snapshot.first_clutch?.visible === false");
   }

@@ -89,8 +89,10 @@ Run this complete route on both `touch-ios` and `touch-android`.
 ### Route
 
 1. Load the public URL from cleared site data and start **New Campaign**.
-2. Complete the First Clutch inspect, route, check-in, Priority Peck, delivery,
-   collection, reinvestment, and handoff sequence using touch.
+2. Complete the First Clutch route, autonomous work, physical egg delivery,
+   collection, reinvestment, and quota handoff using touch. Verify that neither
+   a check-in nor a timed Priority Peck is required to produce the first egg.
+   After the handoff, separately open optional care and try a Priority Peck.
 3. Exercise each of the eight visible touch controls: Pause, Next hen, Priority,
    Zoom +, Zoom -, Flockwatch, Overview, and Settings.
 4. Make 20 deliberate control taps distributed across all eight controls.
