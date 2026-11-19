@@ -5038,6 +5038,22 @@ func _refresh_final() -> void:
 			String(legacy.get("title", "UNFILED ROOST")),
 			String(legacy.get("detail", "The file records no single management identity.")),
 		]
+	var ledger_value: Variant = ending.get("ledger", {})
+	var ledger := ledger_value as Dictionary if ledger_value is Dictionary else {}
+	if int(ledger.get("total", 0)) > 0:
+		_final_message_label.text += "\n\nWHOSE SIDE  //  %s\n%s\n%s" % [
+			String(ledger.get("title", "BOTH LEDGERS")),
+			String(ledger.get("verdict", "")),
+			String(ledger.get("summary", "")),
+		]
+		var sided: Array[String] = []
+		for receipt_value: Variant in ledger.get("receipts", []):
+			var receipt := receipt_value as Dictionary if receipt_value is Dictionary else {}
+			if StringName(receipt.get("side", &"neutral")) == &"neutral":
+				continue
+			sided.append("%s  //  %s" % [String(receipt.get("label", "")), String(receipt.get("side_label", ""))])
+		for line in sided.slice(maxi(0, sided.size() - 4)):
+			_final_message_label.text += "\n%s" % line
 	for entry_value: Variant in epilogue:
 		if entry_value is Dictionary:
 			var entry := entry_value as Dictionary

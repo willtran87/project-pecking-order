@@ -136,6 +136,8 @@ const SNAPSHOT_PROJECTION_KEYS: Array[StringName] = [
 var _snapshot: Dictionary = {}
 var _interface_built := false
 var _first_clutch_active := false
+## Pages the probation feature schedule has not introduced yet.
+var _scheduled_hidden_pages: Array[StringName] = []
 var _show_all_filings := false
 var _current_page_id: StringName = PAGE_TODAY
 var _registration_serial := 0
@@ -206,6 +208,13 @@ func apply_accessibility_snapshot(snapshot: Dictionary) -> void:
 
 ## Hosts can use this when First Clutch presentation state is stored outside the
 ## simulation snapshot passed to apply_snapshot().
+func set_scheduled_hidden_pages(pages: Array[StringName]) -> void:
+	if pages == _scheduled_hidden_pages:
+		return
+	_scheduled_hidden_pages = pages.duplicate()
+	_recompute_availability()
+
+
 func set_first_clutch_active(active: bool) -> void:
 	if _first_clutch_active == active:
 		return
@@ -929,7 +938,11 @@ func _recompute_availability() -> void:
 		var available := (
 			page_id in BASE_PAGES
 			or _show_all_filings
-			or (not _first_clutch_active and bool(_discovered_pages.get(page_id, false)))
+			or (
+				not _first_clutch_active
+				and page_id not in _scheduled_hidden_pages
+				and bool(_discovered_pages.get(page_id, false))
+			)
 		)
 		var changed := available != bool(_page_available.get(page_id, false))
 		_page_available[page_id] = available

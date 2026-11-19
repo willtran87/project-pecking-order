@@ -1029,6 +1029,30 @@ func _apply_professional_polish_presentation(layer: Dictionary) -> void:
 		office._reward_loop_host.set_meta("strategy_shaped_celebrations", (experiential.get("strategy_celebrations", {}) as Dictionary))
 
 
+## Shift 2 introduces PLAN with only the guided strategies, the manager
+## intervention and their immediate follow-ups; the wider playbook (contracts,
+## loadouts, rivals, side goals, Team Lifts...) joins on shift 3.
+const INTRODUCTORY_PLAYBOOK_KINDS := ["preset", "intervention", "practice", "rescue", "reward"]
+
+
+func _scheduled_playbook_options(options: Array) -> Array:
+	if office._feature_introduced(&"playbook_extras"):
+		return options
+	var scheduled: Array = []
+	for option_value in options:
+		if not option_value is Dictionary:
+			continue
+		var kind := String((option_value as Dictionary).get("kind", ""))
+		if kind not in INTRODUCTORY_PLAYBOOK_KINDS:
+			continue
+		if kind == "intervention" and not office._feature_introduced(&"manager_intervention"):
+			continue
+		if kind == "preset" and not office._feature_introduced(&"guided_strategies"):
+			continue
+		scheduled.append(option_value)
+	return scheduled
+
+
 func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int) -> void:
 	if office._active_playbook_button == null:
 		return
@@ -1040,7 +1064,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	var strategy_preset_id := String(playbook.get("strategy_preset_id", ""))
 	var playbook_contract := playbook.get("contract", {}) as Dictionary
 	var plan_filed := not strategy_preset_id.is_empty() or not String(playbook_contract.get("id", "")).is_empty()
-	var options := playbook.get("options", []) as Array
+	var options := _scheduled_playbook_options(playbook.get("options", []) as Array)
 	var contextual_power_ready := false
 	for option_value in options:
 		if not option_value is Dictionary:
@@ -1052,7 +1076,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 		):
 			contextual_power_ready = true
 			break
-	office._active_playbook_button.visible = running and (plan_filed or contextual_power_ready or office._first_clutch_reinvestment_resolved())
+	office._active_playbook_button.visible = running and office._feature_introduced(&"plan_menu") and (plan_filed or contextual_power_ready or office._first_clutch_reinvestment_resolved())
 	office._active_playbook_button.disabled = not running
 	if not running:
 		return
@@ -1200,7 +1224,7 @@ func _refresh_active_playbook_menu(playbook: Dictionary, focused_worker_id: int)
 	var last_receipt := playbook.get("last_receipt", {}) as Dictionary
 	if not last_receipt.is_empty():
 		detail_lines.append("LAST  ·  %s" % String(last_receipt.get("outcome", "PLAY FILED")))
-	office._active_playbook_button.visible = running and (plan_filed or contextual_power_ready or office._first_clutch_reinvestment_resolved())
+	office._active_playbook_button.visible = running and office._feature_introduced(&"plan_menu") and (plan_filed or contextual_power_ready or office._first_clutch_reinvestment_resolved())
 	office._active_playbook_button.text = "PLAN  [Q]"
 	office._active_playbook_button.set_meta("opportunity", ready_kind)
 	office._active_playbook_button.icon = Office.ManagementUIThemeScript.action_icon(

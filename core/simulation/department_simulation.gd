@@ -9,6 +9,7 @@ const FarmgateDispatchStateScript := preload("res://core/simulation/farmgate_dis
 const CampusPortfolioStateScript := preload("res://core/simulation/campus_portfolio_state.gd")
 const FarmTreasuryStateScript := preload("res://core/simulation/farm_treasury_state.gd")
 const InternshipProgramStateScript := preload("res://core/simulation/internship_program_state.gd")
+const ComplicityLedgerScript := preload("res://core/experience/complicity_ledger.gd")
 
 signal snapshot_changed(snapshot: Dictionary)
 signal egg_laid(worker_id: int, quality: StringName, value_cents: int)
@@ -3169,6 +3170,58 @@ func leadership_record_snapshot() -> Dictionary:
 			}
 
 
+## Whose side the file has taken, derived from records the simulation already
+## persists: incident responses (by authored tone), closing credit memos,
+## flock petitions, and the restructuring dossier (weighted double). Nothing
+## here is saved, so every existing file gets a complete ledger.
+func complicity_ledger_snapshot() -> Dictionary:
+	var acts: Array[Dictionary] = []
+	for record: Dictionary in incident_response_history:
+		var incident_id := StringName(String(record.get("incident_id", "")))
+		var option_id := StringName(String(record.get("option_id", "")))
+		var choice := _incident_choice_definition(incident_id, option_id)
+		if choice.is_empty():
+			continue
+		acts.append({
+			"day": int(record.get("day", 0)),
+			"source": "incident",
+			"label": "%s / %s" % [
+				String(INCIDENT_SHORT_TITLES.get(incident_id, "OFFICE INCIDENT")),
+				String(choice.get("short_label", choice.get("label", "RESPONSE"))),
+			],
+			"side": ComplicityLedgerScript.incident_side(StringName(choice.get("tone", &""))),
+		})
+	for style_id: StringName in CREDIT_STYLE_IDS:
+		for _index in maxi(0, int(credit_choice_counts.get(style_id, 0))):
+			acts.append({
+				"source": "credit_memo",
+				"label": "CREDIT MEMO",
+				"side": ComplicityLedgerScript.credit_style_side(style_id),
+			})
+	for record: Dictionary in flock_petition_history:
+		acts.append({
+			"day": int(record.get("day", 0)),
+			"source": "petition",
+			"label": "%s / %s" % [
+				String(record.get("petition_title", "FLOCK PETITION")),
+				String(record.get("response_id", "")).replace("_", " ").to_upper(),
+			],
+			"side": ComplicityLedgerScript.petition_side(StringName(String(record.get("response_id", "")))),
+		})
+	if flock_restructuring_resolved:
+		# The restructuring already counts once as a credit memo style; its
+		# extra weight marks it as the file's heaviest single choice.
+		acts.append({
+			"day": int(flock_restructuring_record.get("day", FLOCK_RESTRUCTURING_SHIFT)),
+			"source": "restructuring",
+			"label": "FLOCK RESTRUCTURING / %s" % String(flock_restructuring_record.get("worker_name", "THE LOWEST-RANKED HEN")).to_upper(),
+			"side": ComplicityLedgerScript.restructuring_side(
+				StringName(String(flock_restructuring_record.get("option_id", "")))
+			),
+		})
+	return ComplicityLedgerScript.compose(acts)
+
+
 func campaign_ending_snapshot(passed: bool) -> Dictionary:
 	var record := flock_restructuring_record.duplicate(true)
 	var worker_name := String(record.get("worker_name", "the lowest-ranked hen"))
@@ -3179,6 +3232,7 @@ func campaign_ending_snapshot(passed: bool) -> Dictionary:
 		"affected_worker_name": worker_name,
 		"restructuring_resolved": flock_restructuring_resolved,
 		"record": record,
+		"ledger": complicity_ledger_snapshot(),
 	}
 	if not passed:
 		base.merge({
@@ -10059,9 +10113,23 @@ func _apply_incident_character_consequence(character_arc: Dictionary, tone: Stri
 	for worker in workers:
 		if worker.id != worker_id or not worker.employed:
 			continue
-		var supportive := tone in [&"care", &"quality"]
-		worker.manager_trust = clampf(worker.manager_trust + (3.0 if supportive else -3.0), 0.0, 100.0)
-		worker.grievance = clampf(worker.grievance + (-2.0 if supportive else 3.0), 0.0, 100.0)
+		# The named witness carries the personal cost or protection of the
+		# response: a company-side answer is paid for by this hen, a flock-side
+		# answer is covered for her. The choice card names her before filing.
+		match ComplicityLedgerScript.incident_side(tone):
+			ComplicityLedgerScript.SIDE_COMPANY:
+				worker.manager_trust = clampf(worker.manager_trust - 6.0, 0.0, 100.0)
+				worker.grievance = clampf(worker.grievance + 6.0, 0.0, 100.0)
+				worker.stress = clampf(worker.stress + 6.0, 0.0, 100.0)
+				worker.morale = clampf(worker.morale - 4.0, 0.0, 100.0)
+			ComplicityLedgerScript.SIDE_FLOCK:
+				worker.manager_trust = clampf(worker.manager_trust + 5.0, 0.0, 100.0)
+				worker.grievance = clampf(worker.grievance - 4.0, 0.0, 100.0)
+				worker.stress = clampf(worker.stress - 5.0, 0.0, 100.0)
+				worker.morale = clampf(worker.morale + 3.0, 0.0, 100.0)
+			_:
+				worker.manager_trust = clampf(worker.manager_trust + 3.0, 0.0, 100.0)
+				worker.grievance = clampf(worker.grievance - 2.0, 0.0, 100.0)
 		return
 
 

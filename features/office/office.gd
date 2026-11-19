@@ -558,6 +558,9 @@ var _campaign_ui: ProbationCampaignUI
 var _campaign_review_stage: StringName = &"active"
 var _last_workday_report: Dictionary = {}
 var _campaign_senior_roost: bool = false
+## Progressive disclosure for probation (see FeatureIntroduction). Tests and
+## tools that exercise a later-shift layer on shift 1 may switch it off.
+var progressive_feature_introduction := true
 var _allow_automated_campaign_saves: bool = false
 var _first_clutch: Dictionary = {
 	"version": FIRST_CLUTCH_VERSION,
@@ -2807,6 +2810,27 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _is_action_press(event: InputEvent, action: StringName) -> bool:
 	return event.is_action_pressed(action) and not (event is InputEventKey and event.echo)
+
+
+func _feature_schedule_gated() -> bool:
+	return progressive_feature_introduction and not _campaign_senior_roost
+
+
+func _scheduled_flockwatch_hidden_pages() -> Array[StringName]:
+	var hidden: Array[StringName] = []
+	for pair: Array in [
+		[&"flockwatch_operations", FlockwatchNavigation.PAGE_OPERATIONS],
+		[&"flockwatch_capital", FlockwatchNavigation.PAGE_CAPITAL],
+		[&"flockwatch_records", FlockwatchNavigation.PAGE_GOVERNANCE_RECORDS],
+	]:
+		if not _feature_introduced(pair[0]):
+			hidden.append(pair[1])
+	return hidden
+
+
+func _feature_introduced(feature: StringName) -> bool:
+	var shift := _simulation.day if _simulation != null else 1
+	return FeatureIntroduction.introduced(feature, shift, _feature_schedule_gated())
 
 
 func _open_manager_power_playbook() -> void:
@@ -5820,6 +5844,15 @@ func _on_decision_requested(decision: Dictionary) -> void:
 			String(case_memory.get("label", "PRIOR CASE FILE")),
 			String(case_memory.get("summary", "A prior response changes this case.")),
 		]
+	if kind in [&"credit_allocation", &"major_event"] and not _campaign_senior_roost:
+		var ledger := _simulation.complicity_ledger_snapshot()
+		if int(ledger.get("total", 0)) > 0:
+			var ledger_line := "WHOSE SIDE SO FAR  //  %s" % String(ledger.get("summary", ""))
+			_decision_body.text += "\n\n%s" % ledger_line
+			_decision_body.set_meta(
+				"accessible_text",
+				"%s %s." % [String(_decision_body.get_meta("accessible_text", "")), ledger_line.capitalize()],
+			)
 	var opening_policy := (
 		kind == &"directive"
 		and not _campaign_senior_roost
@@ -5850,6 +5883,10 @@ func _on_decision_requested(decision: Dictionary) -> void:
 		_shift_continuity = _compose_shift_continuity(_simulation.day)
 		_decision_title.text = "PLAN SHIFT %d" % _simulation.day
 		_decision_body.text = String(_shift_continuity.get("briefing", ""))
+		if _feature_schedule_gated():
+			var introductions := FeatureIntroduction.briefing_line(_simulation.day)
+			if not introductions.is_empty():
+				_decision_body.text += "\n\n%s" % introductions
 		_decision_body.set_meta("accessible_text", _decision_body.text)
 		_configure_decision_order_glance()
 	if decision_category == &"flock_petition":
@@ -5875,8 +5912,12 @@ func _on_decision_requested(decision: Dictionary) -> void:
 	_decision_option_buttons.clear()
 	var option_index := 0
 	var fund_cents := _simulation.spendable_fund_cents()
+	var witness_name := ""
+	if kind == &"incident" and decision_category != &"flock_petition":
+		witness_name = String((decision.get("character_arc", {}) as Dictionary).get("worker_name", ""))
 	for option_value in decision.get("options", []):
 		var option := option_value as Dictionary
+		var witness_stake := ComplicityLedger.witness_stake(StringName(option.get("tone", &"")), witness_name)
 		var option_id := StringName(option.get("id", &""))
 		var label := String(option.get("label", "RESPONSE"))
 		var card_label := String(option.get("short_label", label))
@@ -5952,6 +5993,15 @@ func _on_decision_requested(decision: Dictionary) -> void:
 				"$%.2f COST" % (float(cost_cents) / 100.0)
 			)
 			option_glance = "%s  /  %s" % [cost_glance, authored_glance]
+		if not witness_stake.is_empty():
+			option_glance = (
+				"%s  /  %s" % [option_glance, witness_stake]
+				if not option_glance.is_empty() else
+				witness_stake
+			)
+			visible_incident_preview += "\n%s" % witness_stake
+			full_preview += "\n\n%s" % witness_stake
+			accessible_preview += " %s." % witness_stake.capitalize()
 		button.text = ("%d  %s\n%s" if opening_policy else "%d  //  %s\n%s") % [
 			option_index + 1,
 			card_label,
@@ -14482,6 +14532,10 @@ func _open_shift_challenge_choices(requested_mode: String = "") -> bool:
 		mode = "workshop"
 	if requested_mode == "workshop":
 		mode = "workshop"
+	# The Career Workshop is a later-shift layer; before it is introduced an
+	# empty plan simply falls back to the ordinary PLAN menu.
+	if mode == "workshop" and not _feature_introduced(&"career_workshop"):
+		return false
 	if mode == "workshop":
 		choices = _simulation.career_workshop.catalog(_simulation.day, _simulation.shift_phase == DepartmentSimulation.ShiftPhase.RUNNING and _simulation.pending_decision.is_empty())
 	if _shift_challenge_ui == null:
@@ -14528,6 +14582,8 @@ func _open_other_playbook_actions() -> void:
 
 func _open_flock_ties() -> void:
 	if _first_hen_prelude_pending() or (_character_dialogue_ui != null and _character_dialogue_ui.is_blocking()):
+		return
+	if not _feature_introduced(&"flock_ties"):
 		return
 	if _flock_ties_ui == null:
 		_flock_ties_ui = FlockTiesUI.new()
@@ -15155,7 +15211,7 @@ func _on_guidance_action_pressed() -> void:
 		return
 	match _guidance_action_id:
 		&"playbook":
-			if _active_playbook_button != null:
+			if _active_playbook_button != null and _feature_introduced(&"plan_menu"):
 				_active_playbook_button.visible = true
 				_active_playbook_button.disabled = false
 				_active_playbook_button.grab_focus()
@@ -15646,6 +15702,8 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 			not bool(_first_clutch.get("dismissed", true))
 			and not bool(_first_clutch.get("completed", false))
 		)
+	if _flockwatch_navigation != null:
+		_flockwatch_navigation.set_scheduled_hidden_pages(_scheduled_flockwatch_hidden_pages())
 	var snapshot_day := int(snapshot.get("day", presented_day))
 	if snapshot_day > _last_reviewed_day and _management_presence != null:
 		_last_reviewed_day = snapshot_day
@@ -15981,6 +16039,8 @@ func _apply_snapshot_presentation(snapshot: Dictionary) -> void:
 	_refresh_floor_input_context(snapshot)
 	var campaign_modal_open := _campaign_ui != null and _campaign_ui.is_modal_open()
 	_overtime_button.disabled = not shift_running or _feed_party_active or campaign_modal_open
+	_overtime_button.visible = _feature_introduced(&"overtime")
+	_feed_button.visible = _feature_introduced(&"feed_party")
 	_continue_shift_button.visible = shift_phase == DepartmentSimulation.ShiftPhase.REVIEW
 	if _continue_shift_button.visible:
 		_apply_review_progression_action(snapshot)
@@ -18797,6 +18857,8 @@ func _on_speed_changed(speed_index: int, multiplier: float) -> void:
 func _on_feed_pressed() -> void:
 	if _campaign_ui != null and _campaign_ui.is_modal_open():
 		return
+	if not _feature_introduced(&"feed_party"):
+		return
 	if _feed_party_active:
 		_publish_status_copy(
 			"FEED PARTY ALREADY IN PROGRESS. No second morale debit was charged."
@@ -18807,6 +18869,8 @@ func _on_feed_pressed() -> void:
 
 func _on_overtime_pressed() -> void:
 	if _campaign_ui != null and _campaign_ui.is_modal_open():
+		return
+	if not _feature_introduced(&"overtime"):
 		return
 	if _simulation.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING or _feed_party_active:
 		_publish_status_copy(

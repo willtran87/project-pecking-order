@@ -25,6 +25,13 @@ func _set_guidance(
 ) -> void:
 	if office._guidance_label == null:
 		return
+	# Before PLAN is introduced, playbook prompts become a plain progress cue so
+	# the opening shift never points at a control the player cannot see.
+	if action_id == &"playbook" and not office._feature_introduced(&"plan_menu"):
+		var to_go := maxi(0, office._simulation.quota_target - office._simulation.eggs_today)
+		copy = "TARGET MET · HENS AUTO-WORK" if to_go == 0 else "%d EGGS TO GO · HENS AUTO-WORK" % to_go
+		exact_detail = "Keep routing files and Priority Pecking. More management tools arrive on later shifts."
+		action_id = &""
 	# Only optional playbook prompts wait. Decisions, rescue and pause cues bypass
 	# this filter, and the player can still open PLAN at any time.
 	if action_id == &"playbook" and Time.get_ticks_msec() < office._payoff_quiet_until_msec and office._active_playbook_button != null and String(office._active_playbook_button.get_meta("opportunity", "")) not in ["rescue", "reward"]:
