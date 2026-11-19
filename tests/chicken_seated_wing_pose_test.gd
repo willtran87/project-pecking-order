@@ -112,7 +112,9 @@ func _run() -> void:
 	)
 
 	chicken.depart_office([Vector3(0.0, 0.0, 4.0)])
-	for _frame in 12:
+	# Let the separate stand-up and clip crossfade finish before comparing
+	# established walking against the raw authored walk clip.
+	for _frame in 30:
 		await physics_frame
 	var maximum_walking_error := 0.0
 	var walking_distance := 0.0

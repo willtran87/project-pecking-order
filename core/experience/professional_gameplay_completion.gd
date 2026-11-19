@@ -1,6 +1,8 @@
 class_name ProfessionalGameplayCompletion
 extends RefCounted
 
+const PresentationCatalogScript := preload("res://core/experience/presentation_catalog.gd")
+
 ## Canonical read-only projection for the professional 23-item completion pass.
 ## DepartmentSimulation remains the sole writer. This layer sequences existing
 ## authorities so one useful decision is visible at a time.
@@ -100,7 +102,7 @@ const HERO_CASES: Array[Dictionary] = [
 ]
 
 
-static func compose(context: Dictionary) -> Dictionary:
+static func compose(context: Dictionary, share_static_catalogs: bool = false) -> Dictionary:
 	var simulation := context.get("simulation", {}) as Dictionary
 	var next_action := context.get("next_action", {}) as Dictionary
 	var playbook := context.get("active_playbook", {}) as Dictionary
@@ -127,13 +129,9 @@ static func compose(context: Dictionary) -> Dictionary:
 		hero_case = _hero_case(simulation, focused_worker)
 	var rival_race := _rival_race(rival, playbook, simulation)
 	var reward_readiness := _reward_readiness(playbook, simulation, chapter, consolidated)
-	var implementation: Array[Dictionary] = []
-	for item_id in ITEM_IDS:
-		implementation.append({
-			"id": String(item_id),
-			"implemented": true,
-			"authority": _authority_for(item_id),
-		})
+	var implementation := PresentationCatalogScript.project(
+		&"professional_gameplay_completion/ITEM_IDS", ITEM_IDS, "implemented", _authority_for, share_static_catalogs,
+	)
 	return {
 		"version": VERSION,
 		"canonical": true,

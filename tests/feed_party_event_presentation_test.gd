@@ -19,10 +19,9 @@ func _run() -> void:
 	var station := office.get("_feed_party_station") as Node3D
 	var wheels := office.get("_feed_party_wheels") as Array[Node3D]
 	var audio := office.get("_audio_feedback") as OfficeAudioFeedback
-	_check(station != null, "Office should build the physical Feed Party station", failures)
-	_check(wheels.size() == 4, "Office should cache all four independently rolling casters", failures)
+	_check(station == null and wheels.is_empty(), "The unused Feed Party cart should not delay office startup", failures)
 	_check(audio != null, "Office should own Feed Party audio feedback", failures)
-	if station == null or wheels.size() != 4 or audio == null:
+	if audio == null:
 		_finish(office, failures)
 		return
 
@@ -34,6 +33,12 @@ func _run() -> void:
 	preferences["motion_mode"] = "full"
 	office.set("_player_preferences", preferences)
 	office.call("_on_feed_party_funded")
+	station = office.get("_feed_party_station") as Node3D
+	wheels = office.get("_feed_party_wheels") as Array[Node3D]
+	_check(station != null and wheels.size() == 4, "Funding should construct the complete cart on demand", failures)
+	if station == null:
+		_finish(office, failures)
+		return
 	_check(station.visible, "funding should reveal the physical cart", failures)
 	var camera_controller := office.get("_camera_controller") as ManagementCameraController
 	_check(
@@ -84,6 +89,7 @@ func _run() -> void:
 		"reduced-motion presentation should reveal the same event directly at rest",
 		failures,
 	)
+	_check(office.get("_feed_party_station") == station, "Repeat parties should reuse the cart", failures)
 	office.call("_complete_feed_party_visual")
 	_check(not station.visible, "reduced-motion departure should resolve without travel", failures)
 

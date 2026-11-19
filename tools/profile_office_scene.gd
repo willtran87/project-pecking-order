@@ -24,6 +24,7 @@ func _profile() -> void:
 	rows.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
 		return int(left.get("visible_surfaces", 0)) > int(right.get("visible_surfaces", 0))
 	)
+	print("OFFICE_STATIC_BATCH %s" % JSON.stringify(office.get_meta("static_office_batch", {})))
 	print("OFFICE_SCENE_PROFILE_BEGIN")
 	for row in rows:
 		print(JSON.stringify(row))
@@ -76,7 +77,7 @@ func _measure_subtree(node: Node) -> Dictionary:
 			surfaces += surface_count
 			if mesh_instance.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 				shadow_casters += 1
-			if mesh_instance.is_visible_in_tree():
+			if mesh_instance.is_visible_in_tree() and mesh_instance.layers != 0:
 				visible_meshes += 1
 				visible_surfaces += surface_count
 				if mesh_instance.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:

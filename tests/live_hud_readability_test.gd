@@ -57,6 +57,22 @@ func _run() -> void:
 			var fund_rect := (office.get("_fund_status_host") as Control).get_global_rect()
 			_check(clock_rect.end.x <= fund_rect.position.x, "clock and spendable money never overlap at ratio %.2f / text %.1f: clock=%s fund=%s" % [ratio, interface_scale, clock_rect, fund_rect], failures)
 			_check(not (office.get("_consequence_icon_host") as Control).visible, "secondary consequence icons stay in inspect mode", failures)
+			var goal_rect := (office.get("_quota_progress") as Control).get_global_rect()
+			office.call("_set_guidance", "NEXT", &"goal", "Short instruction", &"today")
+			await process_frame
+			office.call("_set_guidance", "A MUCH LONGER INSTRUCTION THAT MUST NOT MOVE THE QUOTA OR CONTROLS", &"goal", "Long instruction", &"today")
+			await process_frame
+			_check((office.get("_quota_progress") as Control).get_global_rect().is_equal_approx(goal_rect), "changing guidance must not shift the quota", failures)
+	# Reward receipts get a bounded reading beat, not a queue of stale popups.
+	office.call("_publish_status_copy", "MABEL DELIVERED · +$2.00 FEED FUND")
+	office.call("_publish_status_copy", "PIP DELIVERED · +$3.00 FEED FUND")
+	_check(String(office.get("_ticker_visible_copy")).begins_with("MABEL"), "simultaneous rewards must not replace a receipt before it can be read", failures)
+	_check((office.get("_status_history") as Array).has("PIP DELIVERED · +$3.00 FEED FUND"), "overlapping rewards must remain in Shift Record", failures)
+	office.set("_ticker_shown_at_msec", Time.get_ticks_msec() - 1900)
+	office.call("_publish_status_copy", "DOT DELIVERED · +$4.00 FEED FUND")
+	_check(String(office.get("_ticker_visible_copy")).begins_with("DOT"), "reward reading beat must expire", failures)
+	office.call("_publish_status_copy", "WARNING · A FILE NEEDS HELP")
+	_check(String(office.get("_ticker_visible_copy")).begins_with("WARNING"), "urgent warnings must interrupt reward receipts immediately", failures)
 	office.free()
 	store.delete()
 	if failures.is_empty():

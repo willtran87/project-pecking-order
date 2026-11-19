@@ -313,6 +313,15 @@ func close_shift(
 	return receipt.duplicate(true)
 
 
+## Live affordability checks need current balances, not copies of the receipt archive.
+func total_liabilities_cents() -> int:
+	return credit_principal_cents + vendor_arrears_cents + interest_arrears_cents
+
+
+func credit_headroom_cents(standing_points: int) -> int:
+	return maxi(0, credit_limit_cents(standing_points) - credit_principal_cents)
+
+
 func snapshot(standing_points: int = 0) -> Dictionary:
 	return {
 		"version": SAVE_VERSION,
@@ -321,16 +330,11 @@ func snapshot(standing_points: int = 0) -> Dictionary:
 		"credit_principal_cents": credit_principal_cents,
 		"vendor_arrears_cents": vendor_arrears_cents,
 		"interest_arrears_cents": interest_arrears_cents,
-		"total_liabilities_cents": (
-			credit_principal_cents + vendor_arrears_cents + interest_arrears_cents
-		),
+		"total_liabilities_cents": total_liabilities_cents(),
 		"solvency_streak": solvency_streak,
 		"credit_rating": credit_rating,
 		"credit_limit_cents": credit_limit_cents(standing_points),
-		"credit_headroom_cents": maxi(
-			0,
-			credit_limit_cents(standing_points) - credit_principal_cents,
-		),
+		"credit_headroom_cents": credit_headroom_cents(standing_points),
 		"interest_basis_points": interest_basis_points(),
 		"next_receipt_id": next_receipt_id,
 		"last_receipt": _last_receipt.duplicate(true),

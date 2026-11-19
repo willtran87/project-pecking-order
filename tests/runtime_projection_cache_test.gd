@@ -32,6 +32,16 @@ func _init() -> void:
 		failures,
 	)
 
+	# UI callbacks may request an exact snapshot while the clock's emitted
+	# dictionary is still being consumed by other presentation components.
+	var retained_tick := simulation.snapshot(true, true)
+	var retained_copy := retained_tick.duplicate(true)
+	simulation.snapshot()
+	_check(retained_tick == retained_copy, "Direct reads must not erase an already published clock snapshot", failures)
+	var next_tick := simulation.snapshot(true, true)
+	simulation.snapshot(true)
+	_check(int(next_tick.get("quota_target", -1)) == simulation.quota_target, "Cached public reads must retain the live quota in published snapshots", failures)
+
 	var fund_before := simulation.revenue_cents
 	simulation.revenue_cents += 123
 	var cached := simulation.snapshot(true)

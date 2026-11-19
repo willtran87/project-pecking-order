@@ -13,6 +13,7 @@ head, folded wings, rump, and tail are one watertight connected mesh.
 from __future__ import annotations
 
 import math
+import sys
 from pathlib import Path
 
 import bpy
@@ -352,38 +353,40 @@ def consolidate_accessory_group(objects: list[bpy.types.Object]) -> list[bpy.typ
     return [group, joined]
 
 
-def create_wedge_beak(material: bpy.types.Material) -> bpy.types.Object:
-    # The broad base is intentionally sunk into the head.  The shallow lower
-    # point keeps the beak birdlike without turning it into a large muzzle.
-    vertices = [
-        (-0.105, -0.370, 1.405),
-        (0.105, -0.370, 1.405),
-        (-0.090, -0.375, 1.300),
-        (0.090, -0.375, 1.300),
-        (0.000, -0.575, 1.350),
-    ]
-    faces = [
-        (0, 1, 3, 2),
-        (0, 4, 1),
-        (2, 3, 4),
-        (0, 2, 4),
-        (1, 4, 3),
-    ]
-    mesh = bpy.data.meshes.new("BeakMesh")
-    mesh.from_pydata(vertices, [], faces)
-    mesh.materials.append(material)
-    obj = bpy.data.objects.new("Beak", mesh)
-    bpy.context.collection.objects.link(obj)
-    bevel = obj.modifiers.new(name="SoftBeakEdges", type="BEVEL")
-    bevel.width = 0.012
-    bevel.segments = 2
-    bpy.context.view_layer.objects.active = obj
-    obj.select_set(True)
-    bpy.ops.object.modifier_apply(modifier=bevel.name)
-    obj.select_set(False)
-    for polygon in mesh.polygons:
-        polygon.use_smooth = True
-    return obj
+def create_wedge_beak(material: bpy.types.Material, detail: bpy.types.Material) -> bpy.types.Object:
+    # Rounded upper/lower mandibles leave a fine mouth line. The tip still
+    # meets the existing BeakTarget, keeping the authored peck contact exact.
+    parts = []
+    for name, stations in [
+        ("UpperBeak", [(-0.355, .103, 1.354, .056, .008), (-0.455, .073, 1.350, .035, .006), (-0.575, .003, 1.350, .003, .002)]),
+        ("LowerBeak", [(-0.360, .086, 1.334, .005, .032), (-0.450, .055, 1.334, .005, .020), (-0.552, .004, 1.342, .002, .002)]),
+    ]:
+        vertices = []
+        segments = 12
+        for y, width, z, upper, lower in stations:
+            for index in range(segments):
+                angle = math.tau * index / segments
+                sine = math.sin(angle)
+                vertices.append((width * math.cos(angle), y, z + sine * (upper if sine >= 0 else lower)))
+        faces = [tuple(reversed(range(segments)))]
+        for row in range(len(stations) - 1):
+            for index in range(segments):
+                a, b = row * segments + index, row * segments + (index + 1) % segments
+                faces.append((a, b, b + segments, a + segments))
+        faces.append(tuple(range((len(stations) - 1) * segments, len(stations) * segments)))
+        mesh = bpy.data.meshes.new(name + "Mesh")
+        mesh.from_pydata(vertices, [], faces)
+        mesh.materials.append(material)
+        obj = bpy.data.objects.new(name, mesh)
+        bpy.context.collection.objects.link(obj)
+        for polygon in mesh.polygons:
+            polygon.use_smooth = True
+        parts.append(obj)
+    for side in (-1, 1):
+        nostril = ellipsoid(f"Nostril_{side}", (side * .061, -.426, 1.382), (.014, .017, .005), segments=12, rings=8)
+        nostril.data.materials.append(detail)
+        parts.append(nostril)
+    return join_parts(parts, "Beak")
 
 
 def create_body(materials: list[bpy.types.Material]) -> bpy.types.Object:
@@ -409,7 +412,30 @@ def create_body(materials: list[bpy.types.Material]) -> bpy.types.Object:
         ellipsoid("RuffC", (0.0, -0.225, 1.130), (0.175, 0.165, 0.185)),
         ellipsoid("RuffR", (0.155, -0.190, 1.165), (0.155, 0.155, 0.170), (0.06, 0.0, -0.14)),
     ]
-    body = join_and_remesh(parts, "Feather_Torso", voxel_size=0.016, target_triangles=7600)
+    # Small overlapping cheek/neck tufts add a feathered outline while remaining
+    # part of the single watertight shell and its existing deformation rig.
+    for side in (-1, 1):
+        for row in range(3):
+            parts.append(ellipsoid(
+                f"RuffTuft_{side}_{row}",
+                (side * (0.232 + row * 0.018), -0.156 + row * 0.028, 1.205 - row * 0.075),
+                (0.082, 0.130, 0.095), (0.08, side * 0.25, side * 0.16), 20, 12,
+            ))
+    body = join_and_remesh(parts, "Feather_Torso", voxel_size=0.014, target_triangles=8200)
+    # Shallow overlapping feather scallops sculpt the breast rather than adding
+    # floating pieces. Soft baked shading survives the web renderer and overview.
+    plumage = body.data.color_attributes.new(name="Plumage", type="FLOAT_COLOR", domain="POINT")
+    for vertex in body.data.vertices:
+        p = vertex.co.copy()
+        front = smoothstep(0.22, 0.39, -p.y)
+        breast = front * smoothstep(0.47, 0.62, p.z) * (1.0 - smoothstep(1.03, 1.20, p.z))
+        angle = math.atan2(p.x, -p.y + 0.05)
+        scallop = math.sin(p.z * 49.0 + 1.4 * math.cos(angle * 13.0))
+        vertex.co += vertex.normal * (breast * 0.009 * scallop)
+        underside = 0.84 + 0.16 * smoothstep(0.36, 1.42, p.z)
+        shade = underside * (1.0 - breast * (0.045 + 0.045 * scallop))
+        plumage.data[vertex.index].color = (shade, shade, shade, 1.0)
+    body.data.update()
     for material in materials:
         body.data.materials.append(material)
 
@@ -426,13 +452,13 @@ def create_body(materials: list[bpy.types.Material]) -> bpy.types.Object:
     return body
 
 
-def create_leg(name: str, material: bpy.types.Material, mirrored: bool) -> bpy.types.Object:
+def create_leg(name: str, material: bpy.types.Material, claw_material: bpy.types.Material, mirrored: bool) -> bpy.types.Object:
     toe_splay = -1.0 if mirrored else 1.0
     parts = [
         cylinder(f"{name}_Shin", radius=0.060, depth=0.345, location=(0.0, 0.0, 0.050), vertices=16),
         ellipsoid(f"{name}_Knee", (0.0, 0.0, 0.205), (0.085, 0.085, 0.105), segments=20, rings=12),
         ellipsoid(f"{name}_Ankle", (0.0, -0.005, -0.125), (0.070, 0.075, 0.088), segments=20, rings=12),
-        ellipsoid(f"{name}_Pad", (0.0, -0.050, -0.225), (0.105, 0.155, 0.062), segments=24, rings=14),
+        ellipsoid(f"{name}_Pad", (0.0, -0.050, -0.225), (0.095, 0.125, 0.062), segments=24, rings=14),
         ellipsoid(f"{name}_ToeC", (0.0, -0.180, -0.246), (0.036, 0.140, 0.032), segments=16, rings=10),
         ellipsoid(
             f"{name}_ToeOuter",
@@ -452,8 +478,17 @@ def create_leg(name: str, material: bpy.types.Material, mirrored: bool) -> bpy.t
         ),
         ellipsoid(f"{name}_BackToe", (0.0, 0.050, -0.232), (0.030, 0.075, 0.027), segments=16, rings=10),
     ]
-    leg = join_and_remesh(parts, name, voxel_size=0.012, target_triangles=520)
+    # The small keratin tips are fused into the foot, so each animated leg
+    # remains one watertight mesh rather than carrying loose accessory nodes.
+    for index, (x, y, length) in enumerate([(0.0, -.317, .044), (.080, -.279, .039), (-.078, -.274, .037)]):
+        parts.append(ellipsoid(f"{name}_Claw{index}", (x, y, -.250), (.021, length, .018), segments=12, rings=8))
+    leg = join_and_remesh(parts, name, voxel_size=0.008, target_triangles=900)
     leg.data.materials.append(material)
+    leg.data.materials.append(claw_material)
+    for polygon in leg.data.polygons:
+        p = polygon.center
+        if p.y < (-.312 if abs(p.x) < .043 else -.281):
+            polygon.material_index = 1
     return leg
 
 
@@ -937,6 +972,28 @@ def skin_body(body: bpy.types.Object, armature: bpy.types.Object) -> None:
     modifier.use_deform_preserve_volume = True
 
 
+def wing_plume(name, location, scale, rotation, segments, rings):
+    """A tapered, gently keeled feather using the original wing envelope."""
+    obj = ellipsoid(name, location, scale, segments=segments, rings=rings)
+    side = -1 if location[0] < 0 else 1
+    colors = obj.data.color_attributes.new(name="Plumage", type="FLOAT_COLOR", domain="POINT")
+    for vertex in obj.data.vertices:
+        p = vertex.co
+        height = p.z / scale[2]
+        across = p.y / scale[1]
+        taper = .56 + .44 * smoothstep(-.95, .12, height)
+        p.y *= taper
+        # A shallow central keel catches the light without separate quill meshes.
+        keel = max(0.0, 1.0 - abs(across) * 2.7) * max(0.0, 1.0 - height * height)
+        p.x += side * .007 * keel
+        shade = .86 + .09 * smoothstep(-1.0, .6, height) + .05 * keel
+        colors.data[vertex.index].color = (shade, shade, shade, 1.0)
+    obj.data.update()
+    obj.rotation_euler = rotation
+    apply_object_transform(obj)
+    return obj
+
+
 def create_articulated_wing(
     side: int,
     covert_material: bpy.types.Material,
@@ -950,13 +1007,13 @@ def create_articulated_wing(
     coverts = [
         # Rounded covert anchors the wing visually at the hinge, then three
         # increasingly narrow flight feathers form the familiar chicken fan.
-        ellipsoid(f"Wing{suffix}_Covert", (x * 0.418, 0.030, 0.842), (0.052, 0.135, 0.200), (0.08, 0.0, -x * 0.08), 20, 12),
-        ellipsoid(f"Wing{suffix}_Secondary", (x * 0.452, 0.068, 0.755), (0.044, 0.125, 0.190), (0.13, 0.0, -x * 0.10), 18, 10),
+        wing_plume(f"Wing{suffix}_Covert", (x * 0.418, 0.030, 0.842), (0.052, 0.135, 0.200), (0.08, 0.0, -x * 0.08), 20, 12),
+        wing_plume(f"Wing{suffix}_Secondary", (x * 0.452, 0.068, 0.755), (0.044, 0.125, 0.190), (0.13, 0.0, -x * 0.10), 18, 10),
     ]
     primaries = [
-        ellipsoid(f"Wing{suffix}_PrimaryA", (x * 0.478, 0.115, 0.685), (0.034, 0.098, 0.205), (0.20, 0.0, -x * 0.13), 18, 10),
-        ellipsoid(f"Wing{suffix}_PrimaryB", (x * 0.495, 0.168, 0.620), (0.030, 0.083, 0.175), (0.28, 0.0, -x * 0.16), 18, 10),
-        ellipsoid(f"Wing{suffix}_PrimaryC", (x * 0.500, 0.210, 0.568), (0.026, 0.068, 0.140), (0.36, 0.0, -x * 0.18), 16, 8),
+        wing_plume(f"Wing{suffix}_PrimaryA", (x * 0.478, 0.115, 0.685), (0.034, 0.098, 0.205), (0.20, 0.0, -x * 0.13), 18, 10),
+        wing_plume(f"Wing{suffix}_PrimaryB", (x * 0.495, 0.168, 0.620), (0.030, 0.083, 0.175), (0.28, 0.0, -x * 0.16), 18, 10),
+        wing_plume(f"Wing{suffix}_PrimaryC", (x * 0.500, 0.210, 0.568), (0.026, 0.068, 0.140), (0.36, 0.0, -x * 0.18), 16, 8),
     ]
     for feather in coverts:
         feather.data.materials.append(covert_material)
@@ -1340,7 +1397,10 @@ def main() -> None:
         "wing_covert": make_material("Feathers_Wing_Covert", (0.46, 0.215, 0.075, 1.0), 0.78),
         "face": make_material("Feathers_Face", (0.70, 0.415, 0.175, 1.0), 0.80),
         "eye": make_material("Eyes_Glossy", (0.012, 0.010, 0.009, 1.0), 0.17),
+        "eye_glint": make_material("Eyes_Catchlight", (1.0, 0.96, 0.82, 1.0), 0.20),
         "beak": make_material("Beak_and_Feet", (0.95, 0.440, 0.055, 1.0), 0.52),
+        "beak_detail": make_material("Beak_Nostrils", (0.23, 0.095, 0.030, 1.0), 0.78),
+        "claw": make_material("Claws_Keratin", (0.51, 0.32, 0.14, 1.0), 0.62),
         "comb": make_material("Comb_Barn_Red", (0.62, 0.055, 0.035, 1.0), 0.60),
         "tie": make_material("Corporate_Navy", (0.035, 0.180, 0.300, 1.0), 0.48),
         "tie_oxblood": make_material("Accessory_Cloth_Oxblood", (0.430, 0.075, 0.110, 1.0), 0.50),
@@ -1376,8 +1436,8 @@ def main() -> None:
         create_tail_fan(tail_feather_pivot, materials["wing"]),
         "TailFeatherFan",
     )]
-    left_leg = create_leg("LegLeftMesh", materials["beak"], mirrored=False)
-    right_leg = create_leg("LegRightMesh", materials["beak"], mirrored=True)
+    left_leg = create_leg("LegLeftMesh", materials["beak"], materials["claw"], mirrored=False)
+    right_leg = create_leg("LegRightMesh", materials["beak"], materials["claw"], mirrored=True)
     left_leg.parent = leg_left_pivot
     right_leg.parent = leg_right_pivot
     left_leg.location = (0.0, 0.0, 0.0)
@@ -1393,10 +1453,20 @@ def main() -> None:
             rings=12,
         )
         eye.data.materials.append(materials["eye"])
+        for polygon in eye.data.polygons:
+            polygon.use_smooth = True
+        glint = ellipsoid(f"EyeGlint_{side}", (0.112 * side - 0.009, -0.413, 1.492), (0.012, 0.006, 0.014), segments=12, rings=8)
+        glint.data.materials.append(materials["eye_glint"])
+        # One mesh per eye preserves the existing blink and head-bone contract.
+        eye = join_parts([eye, glint], f"Eye_{side}")
+        eye_center = Vector((0.112 * side, -0.388, 1.475))
+        for vertex in eye.data.vertices:
+            vertex.co -= eye_center
+        eye.location = eye_center
         eye.parent = body_pivot
         eyes.append(eye)
 
-    beak = create_wedge_beak(materials["beak"])
+    beak = create_wedge_beak(materials["beak"], materials["beak_detail"])
     comb = create_comb(materials["comb"])
     bow_tie = create_bow_tie(materials["tie"])
     for accent in (beak, comb, bow_tie):
@@ -1560,6 +1630,12 @@ def main() -> None:
     for obj in character_objects:
         obj.select_set(True)
     bpy.context.view_layer.objects.active = root
+    color_options = {}
+    export_properties = bpy.ops.export_scene.gltf.get_rna_type().properties
+    if "export_vertex_color" in export_properties:
+        color_options["export_vertex_color"] = "ACTIVE"
+    if "export_all_vertex_colors" in export_properties:
+        color_options["export_all_vertex_colors"] = True
     bpy.ops.export_scene.gltf(
         filepath=str(MODEL_PATH),
         export_format="GLB",
@@ -1571,7 +1647,12 @@ def main() -> None:
         export_force_sampling=True,
         export_skins=True,
         export_morph=False,
+        **color_options,
     )
+
+    if "--export-only" in sys.argv:
+        print(f"CHICKEN_BUILD_COMPLETE body={body_validation} maximum_visible_triangles={maximum_visible_triangles} actions={list(actions)}")
+        return
 
     # The runtime exposes no more than one head and one lower-body accessory.
     # Preview a representative actuary look without hiding anything from glTF.

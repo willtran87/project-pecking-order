@@ -1,6 +1,8 @@
 class_name FlockRelationsOfficeVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Snapshot-driven, visual-only personnel and compliance facility. Furniture and
@@ -10,7 +12,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 const FACILITY_ID: StringName = &"flock_relations_office"
 const FACILITY_CENTER := Vector3(7.30, 0.0, 36.00)
 const FOCUS_POINT := Vector3(7.30, 1.05, 36.00)
-const FOOTPRINT := Rect2(Vector2(4.10, 33.10), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.FLOCK_RELATIONS_OFFICE
 const ENTRANCE_BRIDGE_FOOTPRINT := Rect2(Vector2(10.50, 35.40), Vector2(0.25, 1.20))
 const CLEAR_AISLE_FOOTPRINT := Rect2(Vector2(8.20, 35.45), Vector2(2.55, 1.10))
 const MAX_LEVEL := 3

@@ -4,9 +4,49 @@ extends Node
 signal cue_played(cue: StringName)
 signal haptic_emitted(cue: StringName, duration_msec: int)
 
-## Small pooled procedural sound palette. The prototype has no external audio
-## dependencies, so these short cues are synthesized once and reused by eight
-## voices instead of allocating a player for every egg or button press.
+## Procedural cues are baked with tools/bake_office_feedback.gd, then reused by
+## eight pooled voices. Synthesis remains available for rebuilding the bank and
+## as a fallback when the asset is missing; startup normally loads exact PCM.
+
+const SOUND_BANK_PATH := "res://assets/audio/office_feedback_bank.res"
+const SOUND_FIELDS: Array[String] = [
+	"_sound_egg",
+	"_cracked_egg",
+	"_golden_egg",
+	"_upgrade_approved",
+	"_feed_party",
+	"_feed_nibble",
+	"_review_stamp",
+	"_report_filed",
+	"_ui_tick",
+	"_decision_alert",
+	"_policy_stamp",
+	"_scenario_fit",
+	"_decision_resolved",
+	"_precedent_filed",
+	"_case_pivot",
+	"_peck_assist",
+	"_peck_assist_perfect",
+	"_priority_peck_ready",
+	"_peck_contact",
+	"_lay_nest_thump",
+	"_sorter_receipt_clack",
+	"_basket_thunk",
+	"_dispatch_folder_thunk",
+	"_work_start_tap",
+	"_payout_confirmation",
+	"_attention_restored",
+	"_settlement_release",
+	"_denied",
+	"_shift_alert",
+	"_campaign_pass",
+	"_campaign_fail",
+	"_commendation_stamp",
+	"_dialogue_cutout",
+	"_manager_bell",
+	"_manager_coffee",
+	"_manager_review",
+]
 
 const VOICE_COUNT := 8
 const SAMPLE_RATE := 22050
@@ -91,6 +131,23 @@ func _ready() -> void:
 		_voice_started_msec.append(0)
 		_voice_cues.append(&"")
 		player.finished.connect(_on_voice_finished.bind(voice_index))
+	_initialize_sound_bank()
+
+
+func _initialize_sound_bank(force_synthesis: bool = false) -> void:
+	if not force_synthesis and ResourceLoader.exists(SOUND_BANK_PATH):
+		var bank := load(SOUND_BANK_PATH) as Resource
+		var streams: Dictionary = bank.get_meta("streams", {}) if bank != null else {}
+		var complete := true
+		for field in SOUND_FIELDS:
+			if not streams.get(field) is AudioStreamWAV:
+				complete = false
+		if complete:
+			for field in SOUND_FIELDS:
+				set(field, streams[field])
+			set_meta("baked_sound_bank", true)
+			return
+	# Also used by the offline baker, and as a safe fallback for source checkouts.
 	_sound_egg = _synth_chirp(420.0, 610.0, 0.13, 0.55, 0.0)
 	_cracked_egg = _synth_chirp(260.0, 95.0, 0.22, 0.62, 0.24)
 	_golden_egg = _synth_sequence(PackedFloat32Array([660.0, 880.0, 1175.0]), 0.085, 0.46)

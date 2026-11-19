@@ -124,6 +124,22 @@ func _run() -> void:
 	]
 	for workstation_value in office.find_children("Workstation_*", "Node3D", true, false):
 		var workstation := workstation_value as Node3D
+		var desktop := workstation.find_child("DeskSurface", true, false) as MeshInstance3D
+		var desktop_bounds: AABB = desktop.global_transform * desktop.mesh.get_aabb()
+		var mug := workstation.find_child("CoffeeMug", true, false) as MeshInstance3D
+		var ceramic := mug.get_active_material(0) as StandardMaterial3D
+		_check(ceramic != null and ceramic.vertex_color_use_as_albedo, "mug must retain ceramic and coffee colors", failures)
+		for pair in [["CoffeeMug", "ClaimTray"], ["PencilCup", "DeskPhone"]]:
+			var prop := workstation.find_child(pair[0], true, false) as MeshInstance3D
+			var neighbor := workstation.find_child(pair[1], true, false) as MeshInstance3D
+			var prop_bounds: AABB = prop.global_transform * prop.mesh.get_aabb()
+			var neighbor_bounds: AABB = neighbor.global_transform * neighbor.mesh.get_aabb()
+			_check(not prop_bounds.intersects(neighbor_bounds), "%s must not overlap %s" % pair, failures)
+			var support_height := desktop_bounds.end.y + (0.009 if pair[0] == "CoffeeMug" else 0.0)
+			_check(absf(prop_bounds.position.y - support_height) < 0.002, "%s must rest on its desktop support (coaster for mug)" % pair[0], failures)
+		var foot := workstation.find_child("PhotoEaselFoot", true, false) as MeshInstance3D
+		var foot_bounds: AABB = foot.global_transform * foot.mesh.get_aabb()
+		_check(absf(foot_bounds.position.y - desktop_bounds.end.y) < 0.002, "photo stand must rest on the desktop", failures)
 		for shadow_name in structural_shadow_names:
 			var structural := workstation.find_child(shadow_name, true, false) as GeometryInstance3D
 			_check(

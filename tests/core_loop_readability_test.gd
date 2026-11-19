@@ -135,6 +135,26 @@ func _run() -> void:
 	feedback.set_work_progress_hover(7)
 	var hovered_progress := feedback.work_progress_snapshot()
 	var hovered_desk := (hovered_progress.get("desks", []) as Array)[0] as Dictionary
+	var continuous_fill := workstation.find_child("ProgressContinuousFill", true, false) as MeshInstance3D
+	var progress_caption := workstation.find_child("ProgressCaption", true, false) as Label3D
+	_check(
+		continuous_fill != null and is_equal_approx(continuous_fill.scale.x, 0.42)
+		and is_equal_approx(continuous_fill.position.x, 0.295 * 0.58)
+		and progress_caption != null and progress_caption.visible and progress_caption.text == "42%",
+		"the physical display must reveal exact progress on hover and fill continuously from the left",
+		failures,
+	)
+	var ready_snapshot := _worker_snapshot(ChickenState.WorkState.WORKING, true)
+	ready_snapshot["peck_assist"] = {"available": true}
+	feedback.apply_snapshot({"workers": [ready_snapshot], "upgrade_levels": {}})
+	feedback.set_work_progress_hover(-1)
+	_check(progress_caption.visible and progress_caption.text == "PECK", "an authoritative open window remains discoverable without hover", failures)
+	feedback.apply_snapshot({
+		"workers": [working_snapshot], "upgrade_levels": {},
+		"routing_momentum": {"pace_active": true, "pace_multiplier": 1.15},
+	})
+	_check(not progress_caption.visible, "closing the peck window retires the unselected caption immediately", failures)
+	feedback.set_work_progress_hover(7)
 	_check(
 		progress_affordance != null and progress_affordance.visible
 		and bool(hovered_desk.get("hovered", false))
@@ -355,6 +375,11 @@ func _run() -> void:
 		"removing a worker should retire the rail hit target and visible state without a ghost desk",
 		failures,
 	)
+	# Camera selection can precede arrival of the next claim. That selection
+	# must survive a temporarily empty rail and reappear when work starts.
+	feedback.set_work_progress_selected(7)
+	feedback.apply_snapshot({"workers": [working_snapshot], "upgrade_levels": {}})
+	_check(progress_caption.visible and progress_caption.text == "42%", "a preselected hen regains her progress caption when the next file arrives", failures)
 
 	fixture.free()
 	await process_frame

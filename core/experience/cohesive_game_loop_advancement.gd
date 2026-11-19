@@ -1,6 +1,8 @@
 class_name CohesiveGameLoopAdvancement
 extends RefCounted
 
+const PresentationCatalogScript := preload("res://core/experience/presentation_catalog.gd")
+
 ## Canonical, read-only resolution of the latest twenty-five clarity, depth,
 ## character, reward, and completion findings. Existing simulation, campaign,
 ## office, and audio systems remain authoritative; this contract makes their
@@ -36,7 +38,7 @@ const ITEM_IDS: Array[StringName] = [
 ]
 
 
-static func compose(context: Dictionary) -> Dictionary:
+static func compose(context: Dictionary, share_static_catalogs: bool = false) -> Dictionary:
 	var simulation := context.get("simulation", {}) as Dictionary
 	var playbook := context.get("active_playbook", {}) as Dictionary
 	var consolidated := context.get("consolidated_game_loop", {}) as Dictionary
@@ -59,13 +61,9 @@ static func compose(context: Dictionary) -> Dictionary:
 			"core_loop_mastery_polish", {},
 		) as Dictionary
 	)
-	var implementation: Array[Dictionary] = []
-	for item_id in ITEM_IDS:
-		implementation.append({
-			"id": String(item_id),
-			"product_work_complete": true,
-			"authority": _authority_for(item_id),
-		})
+	var implementation := PresentationCatalogScript.project(
+		&"cohesive_game_loop_advancement/ITEM_IDS", ITEM_IDS, "product_work_complete", _authority_for, share_static_catalogs,
+	)
 	var human_status := "AWAITING REAL PARTICIPANTS"
 	return {
 		"version": VERSION,

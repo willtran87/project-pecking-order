@@ -1,0 +1,91 @@
+diff --git a/drivers/gles3/rasterizer_scene_gles3.cpp b/drivers/gles3/rasterizer_scene_gles3.cpp
+index 9a8cfa7..29e9229 100644
+--- a/drivers/gles3/rasterizer_scene_gles3.cpp
++++ b/drivers/gles3/rasterizer_scene_gles3.cpp
+@@ -4615,7 +4615,9 @@ RasterizerSceneGLES3::RasterizerSceneGLES3() {
+ 		}
+ 		material_storage->shaders.scene_shader.initialize(global_defines);
+ 		scene_globals.shader_default_version = material_storage->shaders.scene_shader.version_create();
++#ifndef WEB_ENABLED
+ 		material_storage->shaders.scene_shader.version_bind_shader(scene_globals.shader_default_version, SceneShaderGLES3::MODE_COLOR);
++#endif // The Web renderer never draws with this initialization-only version.
+ 	}
+ 
+ 	{
+diff --git a/drivers/gles3/shader_gles3.cpp b/drivers/gles3/shader_gles3.cpp
+index 4fe333e..c9a3ccd 100644
+--- a/drivers/gles3/shader_gles3.cpp
++++ b/drivers/gles3/shader_gles3.cpp
+@@ -322,6 +322,7 @@ void ShaderGLES3::_compile_specialization(Version::Specialization &spec, uint32_
+ 		glShaderSource(spec.vert_id, 1, &cstr, &cstr_len);
+ 		glCompileShader(spec.vert_id);
+ 
++#ifndef WEB_ENABLED
+ 		glGetShaderiv(spec.vert_id, GL_COMPILE_STATUS, &status);
+ 		if (status == GL_FALSE) {
+ 			GLsizei iloglen;
+@@ -355,6 +356,7 @@ void ShaderGLES3::_compile_specialization(Version::Specialization &spec, uint32_
+ 
+ 			ERR_FAIL();
+ 		}
++#endif
+ 	}
+ 
+ 	//fragment stage
+@@ -370,6 +372,7 @@ void ShaderGLES3::_compile_specialization(Version::Specialization &spec, uint32_
+ 		glShaderSource(spec.frag_id, 1, &cstr, &cstr_len);
+ 		glCompileShader(spec.frag_id);
+ 
++#ifndef WEB_ENABLED
+ 		glGetShaderiv(spec.frag_id, GL_COMPILE_STATUS, &status);
+ 		if (status == GL_FALSE) {
+ 			GLsizei iloglen;
+@@ -403,6 +406,7 @@ void ShaderGLES3::_compile_specialization(Version::Specialization &spec, uint32_
+ 
+ 			ERR_FAIL();
+ 		}
++#endif
+ 	}
+ 
+ 	glAttachShader(spec.id, spec.frag_id);
+@@ -428,6 +432,28 @@ void ShaderGLES3::_compile_specialization(Version::Specialization &spec, uint32_
+ 
+ 	glGetProgramiv(spec.id, GL_LINK_STATUS, &status);
+ 	if (status == GL_FALSE) {
++#ifdef WEB_ENABLED
++		// Link status validates both stages without serial compile-status stalls.
++		// Preserve stage diagnostics on failure before deleting the shader objects.
++		for (GLuint shader_id : { spec.vert_id, spec.frag_id }) {
++			GLint shader_status;
++			glGetShaderiv(shader_id, GL_COMPILE_STATUS, &shader_status);
++			if (shader_status == GL_FALSE) {
++				GLint log_length = 0;
++				glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &log_length);
++				if (log_length > 0) {
++					Vector<char> log;
++					log.resize(log_length + 1);
++					log.write[log_length] = '\0';
++					glGetShaderInfoLog(shader_id, log_length, nullptr, log.ptrw());
++					StringBuilder builder;
++					_build_variant_code(builder, p_variant, p_version,
++							shader_id == spec.vert_id ? STAGE_TYPE_VERTEX : STAGE_TYPE_FRAGMENT, p_specialization);
++					_display_error_with_code(name + ": Shader compilation failed:\n" + String::utf8(log.ptr()), builder.as_string());
++				}
++			}
++		}
++#endif
+ 		GLsizei iloglen;
+ 		glGetProgramiv(spec.id, GL_INFO_LOG_LENGTH, &iloglen);
+ 
+@@ -709,9 +735,11 @@ void ShaderGLES3::_initialize_version(Version *p_version) {
+ 	p_version->variants.reserve(variant_count);
+ 	for (int i = 0; i < variant_count; i++) {
+ 		p_version->variants.push_back(AHashMap<uint64_t, Version::Specialization>());
++#ifndef WEB_ENABLED
+ 		Version::Specialization spec;
+ 		_compile_specialization(spec, i, p_version, specialization_default_mask);
+ 		p_version->variants[i].insert(specialization_default_mask, spec);
++#endif
+ 	}
+ 	if (use_cache) {
+ 		_save_to_cache(p_version);

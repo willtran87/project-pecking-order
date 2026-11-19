@@ -20,6 +20,7 @@ func _run() -> void:
 	var initial_claim_capacity := simulation.current_claim_capacity()
 	var initial_fund := simulation.revenue_cents
 	var office := Office.new()
+	office.set("_defer_capital_planning", true)
 	office.set("_simulation", simulation)
 	root.add_child(office)
 	await process_frame

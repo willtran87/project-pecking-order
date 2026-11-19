@@ -1,6 +1,8 @@
 class_name DepartmentSimulation
 extends RefCounted
 
+var cost_probe := preload("res://core/simulation/runtime_cost_probe.gd").new()
+
 const FeedProcurementStateScript := preload("res://core/simulation/feed_procurement_state.gd")
 const HarvestCreditStateScript := preload("res://core/simulation/harvest_credit_state.gd")
 const FarmgateDispatchStateScript := preload("res://core/simulation/farmgate_dispatch_state.gd")
@@ -18,6 +20,7 @@ signal egg_laid_detailed(
 	priority_credit_cents: int
 )
 signal announcement_posted(message: String)
+signal pair_reward_earned(receipt: Dictionary)
 signal feed_party_funded()
 signal upgrade_purchased(upgrade_id: StringName, level: int, cost_cents: int)
 signal quality_streak_changed(streak: int, best_streak: int)
@@ -1967,7 +1970,7 @@ const PERSONNEL_ACTION_DEFINITIONS := {
 	&"share_credit": {
 		"name": "SHARE BASKET CREDIT",
 		"short_name": "SHARE CREDIT",
-		"description": "Put the selected hen's name on the farmer's presentation basket.",
+		"description": "Credit her work on the farmer's basket. Builds +6 lasting warmth with her nearest perchmate.",
 		"preview": "-$7.00  /  trust +14  /  grievance -10  /  farmer favor -2",
 		"cost_cents": 700,
 		"tone": &"care",
@@ -1983,13 +1986,21 @@ const PERSONNEL_ACTION_DEFINITIONS := {
 	&"quota_pressure": {
 		"name": "AUTHORIZE A STRETCH CLUTCH",
 		"short_name": "APPLY PRESSURE",
-		"description": "Push the selected hen faster this shift and leave the relationship debt for later.",
+		"description": "Push her faster, but lose 10 warmth with her nearest perchmate. Repeated pressure can create rivals.",
 		"preview": "FREE  /  +14% speed  /  +2.5% crack risk  /  trust -12",
 		"cost_cents": 0,
 		"tone": &"danger",
 	},
 }
 const PLAYBOOK_CONTRACT_DEFINITIONS := {
+	&"relay_finish": {"label": "RELAY FINISH", "icon": &"route", "target": 3, "unlock_day": 4, "gain": "REWARD + WORKSHOP STAMP", "cost": "3 HENS FINISH ASSISTED CLEAN EGGS", "risk": "REPEATED HENS DO NOT COUNT"},
+	&"care_circle": {"label": "CARE CIRCLE", "icon": &"flock", "target": 3, "unlock_day": 5, "gain": "REWARD + WORKSHOP STAMP", "cost": "KETTLE RELAYS WITH 3 HENS", "risk": "REQUIRES EQUIPPED TEAM KETTLE"},
+	&"mixed_basket": {"label": "MIXED BASKET", "icon": &"route", "target": 3, "unlock_day": 5, "gain": "REWARD + WORKSHOP STAMP", "cost": "CLEAN EGGS FROM 3 FILE TYPES", "risk": "REPEATED TYPES DO NOT COUNT"},
+	&"deadline_rescue": {"label": "DEADLINE RESCUE", "icon": &"shield", "target": 2, "unlock_day": 5, "gain": "REWARD + WORKSHOP STAMP", "cost": "2 LAST-HOUR PECKS + CLEAN FINISHES", "risk": "MUST FINISH ON TIME"},
+	&"team_coaching": {"label": "TEAM COACHING", "icon": &"flock", "target": 3, "unlock_day": 5, "gain": "REWARD + WORKSHOP STAMP", "cost": "STRONG PECKS FOR 3 HENS", "risk": "REPEATED HENS DO NOT COUNT"},
+	&"route_circuit": {"label": "ROUTE CIRCUIT", "icon": &"route", "target": 3, "unlock_day": 2, "gain": "REWARD + WORKSHOP STAMP", "cost": "3 DIFFERENT TRAYS", "risk": "NO FAILURE PENALTY"},
+	&"precision_pair": {"label": "PRECISION PAIR", "icon": &"shield", "target": 2, "unlock_day": 3, "gain": "REWARD + WORKSHOP STAMP", "cost": "2 ASSISTED CLEAN EGGS", "risk": "CRACKS DO NOT COUNT"},
+	&"flock_relay": {"label": "FLOCK RELAY", "icon": &"flock", "target": 3, "unlock_day": 4, "gain": "REWARD + WORKSHOP STAMP", "cost": "3 DIFFERENT HENS", "risk": "CRACKS DO NOT COUNT"},
 	&"clean_pair": {"label": "CLEAN PAIR", "icon": &"shield", "target": 2, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "CHAIN MAY RESET"},
 	&"fit_three": {"label": "FIT THREE", "icon": &"route", "target": 3, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "FIT CHAIN MAY BREAK"},
 	&"peck_pair": {"label": "PECK PAIR", "icon": &"sync", "target": 2, "reward": "CHOOSE ONE CLUTCH REWARD", "gain": "REWARD CHOICE", "cost": "NONE", "risk": "TIMING CHAIN MAY RESET"},
@@ -2401,6 +2412,8 @@ var upgrade_levels: Dictionary = {
 }
 var first_clutch_reinvestment: Dictionary = {}
 var active_playbook: Dictionary = {}
+var career_workshop := CareerWorkshop.new()
+var flock_relationships := FlockRelationships.new()
 var hero_case_history: Array[Dictionary] = []
 var rival_response_history: Array[Dictionary] = []
 var requisition_spend_today_cents: int = 0
@@ -2565,6 +2578,11 @@ var _runtime_tick_snapshot_cache: Dictionary = {}
 var _runtime_tick_snapshot_cache_day: int = -1
 var _runtime_tick_snapshot_cache_phase: int = -1
 var _runtime_tick_snapshot_cache_hits: int = 0
+
+# One bounded quote bank for the current terms. Live preflight gates are never
+# cached: funds, staffing, reserved capacity and signing authority remain exact.
+var _market_quote_context: Array = []
+var _market_quote_cache: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
 var _claim_rng := RandomNumberGenerator.new()
 var _incident_rng := RandomNumberGenerator.new()
@@ -6229,9 +6247,23 @@ func market_contract_offer_catalog() -> Array[Dictionary]:
 	var offers: Array[Dictionary] = []
 	if day < CONTRACT_BOARD_UNLOCK_DAY:
 		return offers
+	var basis := _market_contract_preflight_basis()
 	for offer_id in MARKET_CONTRACT_OFFER_ORDER:
-		offers.append(market_contract_offer_preflight(offer_id))
+		offers.append(_market_contract_offer_preflight(offer_id, &"standard_terms", &"mutual_rate", true, true, basis))
 	return offers
+
+
+func _market_contract_preflight_basis() -> Dictionary:
+	# One synchronous publication has one exact set of eligibility inputs. Share
+	# it only within that call, never across ticks or public signing requests.
+	var capacity := current_claim_capacity()
+	return {
+		"capacity": capacity,
+		"available_slots": maxi(0, capacity - _outstanding_claim_count() - _pending_market_contract_claim_count()),
+		"spendable": spendable_fund_cents(),
+		"active_staff": active_worker_count(),
+		"planning_open": market_contract_planning_open(),
+	}
 
 
 func market_contract_offer_preflight(
@@ -6248,7 +6280,9 @@ func _market_contract_offer_preflight(
 	pricing_id: StringName,
 	attach_clause_options: bool,
 	attach_pricing_options: bool,
+	basis: Dictionary = {},
 ) -> Dictionary:
+	var live_basis := basis if not basis.is_empty() else _market_contract_preflight_basis()
 	var clause_known := MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id)
 	var pricing_known := MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id)
 	var offer := {}
@@ -6283,20 +6317,16 @@ func _market_contract_offer_preflight(
 			),
 		}
 		if attach_clause_options and MARKET_CONTRACT_DEFINITIONS.has(offer_id):
-			unknown["clause_options"] = _market_contract_clause_options(offer_id)
+			unknown["clause_options"] = _market_contract_clause_options(offer_id, live_basis)
 		if attach_pricing_options and MARKET_CONTRACT_DEFINITIONS.has(offer_id):
-			unknown["pricing_options"] = _market_contract_pricing_options(offer_id, clause_id)
+			unknown["pricing_options"] = _market_contract_pricing_options(offer_id, clause_id, live_basis)
 		return unknown
-	var available_slots := maxi(
-		0,
-		current_claim_capacity()
-		- _outstanding_claim_count()
-		- _pending_market_contract_claim_count(),
-	)
+	var capacity := int(live_basis["capacity"])
+	var available_slots := int(live_basis["available_slots"])
 	var breach_cents := int(offer.get("breach_cents", 0))
-	var spendable := spendable_fund_cents()
+	var spendable := int(live_basis["spendable"])
 	var required_active_staff := int(offer.get("required_active_staff", 0))
-	var active_staff := active_worker_count()
+	var active_staff := int(live_basis["active_staff"])
 	var on_cooldown := _market_contract_offer_on_cooldown(offer_id)
 	var reason := ""
 	if not bool(offer.get("pricing_available", false)):
@@ -6325,11 +6355,11 @@ func _market_contract_offer_preflight(
 		reason = "%s is cooling in Farm Mutual review for one planning day after yesterday's breach." % String(
 			offer.get("short_name", "This binder")
 		)
-	elif current_claim_capacity() < int(offer.get("required_claim_capacity", 0)):
+	elif capacity < int(offer.get("required_claim_capacity", 0)):
 		reason = "%s requires %d live-file roosts; the bureau currently has %d." % [
 			String(offer.get("short_name", "This binder")),
 			int(offer.get("required_claim_capacity", 0)),
-			current_claim_capacity(),
+			capacity,
 		]
 	elif active_staff < required_active_staff:
 		reason = "%s requires %d active hens; the bureau currently staffs %d." % [
@@ -6349,7 +6379,7 @@ func _market_contract_offer_preflight(
 	offer["known"] = true
 	offer["clause_known"] = true
 	offer["pricing_known"] = true
-	offer["planning_open"] = market_contract_planning_open()
+	offer["planning_open"] = bool(live_basis["planning_open"])
 	offer["available_claim_slots"] = available_slots
 	offer["spendable_fund_cents"] = spendable
 	offer["breach_reserve_cents"] = breach_cents
@@ -6362,13 +6392,13 @@ func _market_contract_offer_preflight(
 	offer["can_sign"] = reason.is_empty()
 	offer["reason"] = reason
 	if attach_clause_options:
-		offer["clause_options"] = _market_contract_clause_options(offer_id)
+		offer["clause_options"] = _market_contract_clause_options(offer_id, live_basis)
 	if attach_pricing_options:
-		offer["pricing_options"] = _market_contract_pricing_options(offer_id, clause_id)
+		offer["pricing_options"] = _market_contract_pricing_options(offer_id, clause_id, live_basis)
 	return offer
 
 
-func _market_contract_clause_options(offer_id: StringName) -> Array[Dictionary]:
+func _market_contract_clause_options(offer_id: StringName, basis: Dictionary = {}) -> Array[Dictionary]:
 	var options: Array[Dictionary] = []
 	for clause_id in MARKET_CONTRACT_CLAUSE_ORDER:
 		var option := _market_contract_offer_preflight(
@@ -6377,6 +6407,7 @@ func _market_contract_clause_options(offer_id: StringName) -> Array[Dictionary]:
 			&"mutual_rate",
 			false,
 			true,
+			basis,
 		)
 		options.append(option)
 	return options
@@ -6385,6 +6416,7 @@ func _market_contract_clause_options(offer_id: StringName) -> Array[Dictionary]:
 func _market_contract_pricing_options(
 	offer_id: StringName,
 	clause_id: StringName,
+	basis: Dictionary = {},
 ) -> Array[Dictionary]:
 	var options: Array[Dictionary] = []
 	for pricing_id in MARKET_PRICING_PROFILE_ORDER:
@@ -6394,6 +6426,7 @@ func _market_contract_pricing_options(
 			pricing_id,
 			false,
 			false,
+			basis,
 		))
 	return options
 
@@ -6719,6 +6752,34 @@ func _market_contract_offer_for_day(offer_id: StringName, target_day: int) -> Di
 
 
 func _market_contract_quote_for_day(
+	offer_id: StringName,
+	target_day: int,
+	service_coop_level: int,
+	negotiation_room_level: int,
+	clause_id: StringName,
+	force_neutral_terms: bool = false,
+	pricing_id: StringName = &"mutual_rate",
+) -> Dictionary:
+	if not MARKET_CONTRACT_DEFINITIONS.has(offer_id) or not MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id) or not MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id):
+		return {}
+	var context := [target_day, clampi(service_coop_level, 0, 3), clampi(negotiation_room_level, 0, 1), force_neutral_terms, market_reach_points(), claimant_satisfaction_score()]
+	if context != _market_quote_context:
+		_market_quote_context = context
+		_market_quote_cache.clear()
+	var key := "%s|%s|%s" % [offer_id, clause_id, pricing_id]
+	if not _market_quote_cache.has(key):
+		var started := cost_probe.begin()
+		_market_quote_cache[key] = _build_market_contract_quote_for_day(
+			offer_id, target_day, service_coop_level, negotiation_room_level,
+			clause_id, force_neutral_terms, pricing_id,
+		)
+		cost_probe.finish(&"market_quote_build", started)
+	# Callers annotate preflights and retain signed schedules. Never expose the
+	# bank, or share nested arrays between two returned offers or saved contracts.
+	return (_market_quote_cache[key] as Dictionary).duplicate(true)
+
+
+func _build_market_contract_quote_for_day(
 	offer_id: StringName,
 	target_day: int,
 	service_coop_level: int,
@@ -7669,13 +7730,14 @@ func farm_treasury_snapshot() -> Dictionary:
 
 
 func farm_treasury_liabilities_cents() -> int:
-	var treasury := farm_treasury_snapshot()
-	return maxi(0, int(treasury.get("total_liabilities_cents", 0)))
+	return maxi(0, _farm_treasury.total_liabilities_cents())
 
 
 func farm_treasury_capital_frozen() -> bool:
-	var treasury := farm_treasury_snapshot()
-	return bool(treasury.get("capital_frozen", false))
+	return (
+		_farm_treasury.total_liabilities_cents() > 0
+		and _farm_treasury.credit_headroom_cents(maxi(0, farm_mutual_standing())) <= 0
+	)
 
 
 func protected_reserve_cents() -> int:
@@ -7703,10 +7765,12 @@ func spendable_fund_cents() -> int:
 ## scattered across Today, staffing, procurement, contracts, and Capital. It is
 ## derived entirely from owned simulation state: the UI may format these rows but
 ## never recompute prices, reserves, margins, trends, or bottleneck severity.
-func economic_briefing_snapshot() -> Dictionary:
+func economic_briefing_snapshot(contract_board_basis: Dictionary = {}) -> Dictionary:
 	var treasury := farm_treasury_snapshot()
 	var procurement := feed_procurement_snapshot()
-	var contract_board := market_contract_board_status()
+	# A bundle already owns this exact read. Reuse it within this publication;
+	# public standalone callers still build their own independent result.
+	var contract_board := contract_board_basis if not contract_board_basis.is_empty() else market_contract_board_status()
 	var operating_cost := current_daily_operating_cost_cents()
 	var secured_income := maxi(0, credited_today_cents)
 	var secured_margin := secured_income - operating_cost
@@ -9429,6 +9493,8 @@ func export_save_state() -> Dictionary:
 		"upgrade_levels": saved_upgrades,
 		"first_clutch_reinvestment": first_clutch_reinvestment.duplicate(true),
 		"active_playbook": active_playbook.duplicate(true),
+		"career_workshop": career_workshop.to_save_data(),
+		"flock_relationships": flock_relationships.to_save_data(),
 		"hero_case_history": hero_case_history.duplicate(true),
 		"rival_response_history": rival_response_history.duplicate(true),
 		"requisition_spend_today_cents": requisition_spend_today_cents,
@@ -11253,6 +11319,14 @@ func restore_save_state(data: Dictionary) -> bool:
 	):
 		return false
 
+	var restored_workshop := CareerWorkshop.from_save_data(data.get("career_workshop"), saved_day, restored_workers.size())
+	if restored_workshop == null:
+		return false
+	var restored_relationships := FlockRelationships.from_save_data(data.get("flock_relationships"), saved_day, restored_workers.size())
+	if restored_relationships == null:
+		return false
+	flock_relationships = restored_relationships
+	career_workshop = restored_workshop
 	workers = restored_workers
 	_claim_queues = restored_queues
 	_pending_rework = restored_rework
@@ -13812,11 +13886,13 @@ func _validated_active_playbook(
 		return {"valid": false, "record": {}}
 	normalized["teamwork_used"] = bool(source.get("teamwork_used", false))
 	normalized["mastery_auto_used"] = bool(source.get("mastery_auto_used", false))
-	for optional_bool in ["rescue_used", "rare_episode_resolved"]:
+	for optional_bool in ["rescue_used", "rare_episode_resolved", "contract_completed"]:
 		var optional_value: Variant = source.get(optional_bool, false)
 		if typeof(optional_value) != TYPE_BOOL:
 			return {"valid": false, "record": {}}
 		normalized[optional_bool] = bool(optional_value)
+	if bool(normalized["contract_completed"]) and String(normalized["contract_id"]).is_empty():
+		return {"valid": false, "record": {}}
 	var hero_case_id := StringName(String(source.get("hero_case_id", "")))
 	if hero_case_id != &"" and not PLAYBOOK_HERO_CASE_DEFINITIONS.has(hero_case_id):
 		return {"valid": false, "record": {}}
@@ -15800,11 +15876,17 @@ func claim_resolution_catalog() -> Array[Dictionary]:
 
 
 func claim_resolution_status(worker_id: int) -> Dictionary:
+	var status := _claim_resolution_status(worker_id)
+	status["catalog"] = claim_resolution_catalog()
+	return status
+
+
+## Live worker rows and command guards need eligibility, not a copied choice menu.
+func _claim_resolution_status(worker_id: int) -> Dictionary:
 	if worker_id < 0 or worker_id >= workers.size():
 		return {
 			"available": false,
 			"reason": "No hen is selected.",
-			"catalog": claim_resolution_catalog(),
 		}
 	var worker := workers[worker_id]
 	var claim := worker.current_claim
@@ -15812,7 +15894,6 @@ func claim_resolution_status(worker_id: int) -> Dictionary:
 		return {
 			"available": false,
 			"reason": "This hen has no active claimant file.",
-			"catalog": claim_resolution_catalog(),
 		}
 	var before_cutoff := worker.work_progress <= CLAIM_RESOLUTION_CUTOFF_PROGRESS
 	var available := (
@@ -15842,7 +15923,6 @@ func claim_resolution_status(worker_id: int) -> Dictionary:
 		"progress": snappedf(worker.work_progress, 0.1),
 		"cutoff_progress": CLAIM_RESOLUTION_CUTOFF_PROGRESS,
 		"selected": selected,
-		"catalog": claim_resolution_catalog(),
 	}
 
 
@@ -15852,7 +15932,7 @@ func set_claim_resolution(worker_id: int, path_id: StringName) -> Dictionary:
 			"accepted": false,
 			"reason": "Choose Settlement, Denial, or Coverage Exception.",
 		}
-	var status := claim_resolution_status(worker_id)
+	var status := _claim_resolution_status(worker_id)
 	if not bool(status.get("available", false)):
 		return {
 			"accepted": false,
@@ -16059,9 +16139,16 @@ func dispatch_worker_to_lane(worker_id: int, lane: StringName) -> Dictionary:
 	var reward: Dictionary = {}
 	var break_receipt: Dictionary = {}
 	var recovery_receipt: Dictionary = {}
+	career_workshop.record_route(day, String(lane), recommended)
+	var bell_earned := false
+	if recommended and career_workshop.equipped == "relay_bell" and career_workshop.tuning == "standard" and String(lane) not in career_workshop.bell_lanes and routing_momentum_peck_recharge_bank == 0:
+		career_workshop.bell_lanes.append(String(lane))
+		routing_momentum_peck_recharge_bank = 1
+		bell_earned = true
 	if recommended:
 		var previous_best_chain := best_routing_momentum_chain
 		routing_momentum_chain += 1
+		_record_playbook_contract_completion()
 		best_routing_momentum_chain = maxi(
 			best_routing_momentum_chain,
 			routing_momentum_chain,
@@ -16145,6 +16232,8 @@ func dispatch_worker_to_lane(worker_id: int, lane: StringName) -> Dictionary:
 			worker.display_name,
 			String(lane).replace("_", " ").to_upper(),
 		])
+	if bell_earned:
+		announcement_posted.emit("ROUTING BELL: +1 PECK RESERVE · %d other trays can still pay this shift." % (3 - career_workshop.bell_lanes.size()))
 	snapshot_changed.emit(snapshot())
 	return receipt
 
@@ -16663,6 +16752,10 @@ func perform_personnel_action(worker_id: int, action_id: StringName) -> Dictiona
 	worker.last_personnel_action = action_id
 	worker.last_personnel_action_day = day
 	worker.last_personnel_action_serial = _next_personnel_action_serial()
+	var social_partner := int(_worker_flock_bond_snapshot(worker).get("partner_id", -1))
+	if social_partner >= 0 and action_id in [&"share_credit", &"quota_pressure"]:
+		flock_relationships.record(worker.id, social_partner, "shared_credit" if action_id == &"share_credit" else "quota_comparison", day)
+		_award_clean_pair(worker, workers[social_partner])
 	if action_id == &"quota_pressure":
 		_breach_safe_pace_compact(&"quota_pressure")
 
@@ -16718,6 +16811,7 @@ func _rejected_personnel_action(reason: String) -> Dictionary:
 
 
 func _reset_active_playbook() -> void:
+	career_workshop.begin_day(day)
 	active_playbook = {
 		"day": day,
 		"strategy_preset_id": "",
@@ -16732,6 +16826,7 @@ func _reset_active_playbook() -> void:
 		"signature_worker_ids": [],
 		"teamwork_used": false,
 		"contract_reward_id": "",
+		"contract_completed": false,
 		"push_luck_id": "",
 		"push_luck_start_eggs": 0,
 		"challenge_modifier_id": "",
@@ -16756,6 +16851,10 @@ func _ensure_active_playbook() -> void:
 
 
 func _playbook_contract_progress(contract_id: StringName) -> int:
+	if contract_id == StringName(active_playbook.get("contract_id", "")) and bool(active_playbook.get("contract_completed", false)):
+		return int((PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary).get("target", 0))
+	if CareerWorkshop.CHALLENGES.has(String(contract_id)):
+		return career_workshop.progress(String(contract_id), day)
 	match contract_id:
 		&"clean_pair":
 			return quality_streak
@@ -16764,6 +16863,19 @@ func _playbook_contract_progress(contract_id: StringName) -> int:
 		&"peck_pair":
 			return peck_assist_streak
 	return 0
+
+
+func _record_playbook_contract_completion() -> void:
+	_ensure_active_playbook()
+	var contract_id := StringName(active_playbook.get("contract_id", ""))
+	var definition := PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
+	if not definition.is_empty() and _playbook_contract_progress(contract_id) >= int(definition["target"]):
+		active_playbook["contract_completed"] = true
+
+
+func guided_plan_planning_open() -> bool:
+	# Let new managers finish the opening lesson before choosing their first plan.
+	return incidents_resolved_today == 0 and (eggs_today == 0 or (day == 1 and eggs_today <= 3))
 
 
 func _playbook_side_goal_progress(goal_id: StringName) -> int:
@@ -17425,7 +17537,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			var preset_definition := (PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[choice_id] as Dictionary).duplicate(true)
 			preset_definition["recommended"] = choice_id == recommended_preset_id
 			var affordable := spendable_fund_cents() >= int(preset_definition.get("cost_cents", 0))
-			var planning_open := eggs_today == 0 and incidents_resolved_today == 0
+			var planning_open := guided_plan_planning_open()
 			var preset_reason := (
 				"Recommended for today's policy. Files plan, challenge, preparation, and personal goal in one action."
 				if choice_id == recommended_preset_id else
@@ -17434,8 +17546,13 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			if not affordable:
 				preset_reason = "Feed Fund needs $2.00 spendable for the flock plan."
 			elif not planning_open:
-				preset_reason = "Guided plans lock after the first delivery or resolved incident."
-			options.append(_playbook_option(&"preset", choice_id, preset_definition, running and affordable and planning_open, preset_reason))
+				preset_reason = "Choose before production begins (first shift: through egg three), and before resolving an incident."
+			var preset_option := _playbook_option(&"preset", choice_id, preset_definition, running and affordable and planning_open, preset_reason)
+			var challenge_id := CareerWorkshop.contract_for(day, String(choice_id), career_workshop.equipped, career_workshop.tuning)
+			preset_option["contract_id"] = challenge_id
+			preset_option["goal"] = String((CareerWorkshop.CHALLENGES.get(challenge_id, {}) as Dictionary).get("goal", ""))
+			preset_option["tip"] = String((CareerWorkshop.CHALLENGES.get(challenge_id, {}) as Dictionary).get("tip", ""))
+			options.append(preset_option)
 		if day >= 2:
 			options.append(_playbook_option(&"customize", &"advanced", {
 				"label": "CUSTOM PLAN",
@@ -17447,7 +17564,10 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			}, running, "Advanced planning unlocks after the first shift."))
 	if strategy_preset_id == &"custom" and contract_id == &"":
 		for choice_id: StringName in PLAYBOOK_CONTRACT_DEFINITIONS:
-			options.append(_playbook_option(&"contract", choice_id, PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], running, "Accept one optional shift challenge; declining has no penalty."))
+			var unlocked := day >= int(PLAYBOOK_CONTRACT_DEFINITIONS[choice_id].get("unlock_day", 1))
+			if choice_id == &"care_circle" and career_workshop.equipped != "team_kettle":
+				continue
+			options.append(_playbook_option(&"contract", choice_id, PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], running and unlocked, "Accept one optional shift challenge; declining has no penalty." if unlocked else "Unlocks on a later shift."))
 	if strategy_preset_id == &"custom" and String(active_playbook.get("loadout_id", "")).is_empty() and eggs_today == 0:
 		for choice_id: StringName in PLAYBOOK_LOADOUT_DEFINITIONS:
 			options.append(_playbook_option(&"loadout", choice_id, PLAYBOOK_LOADOUT_DEFINITIONS[choice_id], running, "Locks when the first egg is delivered."))
@@ -17664,6 +17784,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 	var combo_active := routing_momentum_chain >= ROUTING_MOMENTUM_PACE_MILESTONE
 	var combo_recipe := _playbook_combo_recipe_snapshot()
 	var contract_snapshot := {"id": String(contract_id), "label": String(contract_definition.get("label", "PICK CONTRACT")), "icon": String(contract_definition.get("icon", "goal")), "progress": contract_progress, "target": contract_target, "complete": contract_complete, "reward_claimed": not String(active_playbook.get("contract_reward_id", "")).is_empty(), "reward_id": String(active_playbook.get("contract_reward_id", "")), "optional": true, "failure_penalty": 0}
+	contract_snapshot.merge(CareerWorkshop.CHALLENGES.get(String(contract_id), {}) as Dictionary, true)
 	var side_goal_snapshot := {"id": String(side_goal_id), "label": String(side_goal_definition.get("label", "PIN A GOAL")), "icon": String(side_goal_definition.get("icon", "goal")), "progress": side_goal_progress, "target": side_goal_target, "complete": not side_goal_definition.is_empty() and side_goal_progress >= side_goal_target, "failure_penalty": 0}
 	var prediction_score := _playbook_prediction_snapshot(contract_snapshot)
 	return {
@@ -17687,6 +17808,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"plans": _strategy_comparison_catalog(strategy_preset_id, recommended_preset_id),
 		},
 		"contract": contract_snapshot,
+		"workshop": career_workshop.snapshot(day, String(contract_id)),
 		"combo": {"id": String(directive_combo.get("id", "")), "label": String(directive_combo.get("label", "COMBO")), "icon": String(directive_combo.get("icon", "sync")), "active": combo_active, "progress": routing_momentum_chain, "target": ROUTING_MOMENTUM_PACE_MILESTONE, "effect": String(directive_combo.get("effect", ""))},
 		"combo_recipe": combo_recipe,
 		"prediction_score": prediction_score,
@@ -17795,6 +17917,11 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 	_ensure_active_playbook()
 	if shift_phase != ShiftPhase.RUNNING or not pending_decision.is_empty():
 		return {"accepted": false, "reason": "Resolve the current management file first."}
+	if kind == &"workshop":
+		if String(active_playbook.get("contract_id", "")) == "care_circle" and String(choice_id).get_slice("/", 0) != "team_kettle" and not (career_workshop.daily_day == day and career_workshop.loadout_locked):
+			return {"accepted": false, "reason": "Care Circle needs the kettle. Keep it equipped for this challenge."}
+		var workshop_result := career_workshop.choose(String(choice_id), day, true)
+		return _file_playbook_receipt(workshop_result) if bool(workshop_result.get("accepted", false)) else workshop_result
 	if kind == &"hero_case":
 		return _perform_playbook_hero_case(choice_id, worker_id)
 	if kind == &"intervention":
@@ -17936,8 +18063,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			or not String(active_playbook.get("loadout_id", "")).is_empty()
 			or not String(active_playbook.get("preparation_id", "")).is_empty()
 			or not String(active_playbook.get("side_goal_id", "")).is_empty()
-			or eggs_today > 0
-			or incidents_resolved_today > 0
+			or not guided_plan_planning_open()
 		):
 			return {"accepted": false, "reason": "Today's guided plan is already filed or production has begun."}
 		var preset := PLAYBOOK_STRATEGY_PRESET_DEFINITIONS[choice_id] as Dictionary
@@ -17947,7 +18073,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		if preset_cost > 0:
 			revenue_cents -= preset_cost
 		active_playbook["strategy_preset_id"] = String(choice_id)
-		active_playbook["contract_id"] = String(preset.get("contract_id", ""))
+		active_playbook["contract_id"] = CareerWorkshop.contract_for(day, String(choice_id), career_workshop.equipped, career_workshop.tuning)
 		active_playbook["loadout_id"] = String(preset.get("loadout_id", ""))
 		active_playbook["preparation_id"] = String(preset.get("preparation_id", ""))
 		active_playbook["side_goal_id"] = String(preset.get("side_goal_id", ""))
@@ -17999,6 +18125,10 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 	if kind == &"contract":
 		if not PLAYBOOK_CONTRACT_DEFINITIONS.has(choice_id) or not String(active_playbook.get("contract_id", "")).is_empty():
 			return {"accepted": false, "reason": "This shift's optional contract is already filed."}
+		if day < int(PLAYBOOK_CONTRACT_DEFINITIONS[choice_id].get("unlock_day", 1)):
+			return {"accepted": false, "reason": "That challenge unlocks on a later shift."}
+		if choice_id == &"care_circle" and career_workshop.equipped != "team_kettle":
+			return {"accepted": false, "reason": "Equip the Team Kettle before choosing Care Circle."}
 		active_playbook["contract_id"] = String(choice_id)
 		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], "Optional contract accepted. Missing it carries no penalty."))
 	if kind == &"loadout":
@@ -18189,6 +18319,7 @@ func _playbook_choice_result(kind: StringName, choice_id: StringName, definition
 
 
 func _file_playbook_receipt(result: Dictionary) -> Dictionary:
+	_record_playbook_contract_completion()
 	var effects := result.get("effects", {}) as Dictionary
 	result["decision_arc"] = {
 		"forecast": {
@@ -18233,7 +18364,21 @@ func _claim_playbook_contract_reward(choice_id: StringName, worker_id: int) -> D
 		&"recovery":
 			_adjust_workers(0.0, -4.0, -4.0)
 	active_playbook["contract_reward_id"] = String(choice_id)
-	return _file_playbook_receipt(_playbook_choice_result(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], "%s claimed for %s." % [String(PLAYBOOK_REWARD_DEFINITIONS[choice_id].get("label", "Reward")), String(contract_definition.get("label", "the contract"))]))
+	var reward_outcome := "$3.00 added to your Feed Fund. Put it toward your next upgrade."
+	if choice_id == &"mastery" and reward_worker != null:
+		reward_outcome = "%s earned 6 career XP toward her next promotion." % reward_worker.display_name
+	elif choice_id == &"recovery":
+		reward_outcome = "The whole flock recovered: each employed hen lost up to 4 stress and 4 fatigue."
+	var mastery_offer := career_workshop.mastery_offer(String(contract_id))
+	if career_workshop.award(day, String(contract_id)):
+		reward_outcome += " +1 workshop stamp: unlock a permanent tool."
+	else:
+		revenue_cents += 100
+		credited_today_cents += 100
+		reward_outcome += " +$1.00 workshop mastery bonus."
+	if not mastery_offer.is_empty():
+		reward_outcome += " NEW MODE: %s earned. Equip free before work from shift %d." % [String(mastery_offer.label), int(mastery_offer.day)]
+	return _file_playbook_receipt(_playbook_choice_result(&"reward", choice_id, PLAYBOOK_REWARD_DEFINITIONS[choice_id], reward_outcome))
 
 
 func _delegation_policy_catalog() -> Array[Dictionary]:
@@ -18266,6 +18411,16 @@ func _strategy_comparison_catalog(current_id: StringName, recommended_id: String
 
 
 func _team_lift_ability(worker: ChickenState, partner: ChickenState) -> Dictionary:
+	var ability := _base_team_lift_ability(worker, partner)
+	if not ability.is_empty() and flock_relationships.affinity(worker.id, partner.id) >= 18:
+		ability["morale"] = float(ability.get("morale", 0.0)) + 2.0
+		ability["stress"] = float(ability.get("stress", 0.0)) - 2.0
+		ability["gain"] = String(ability.gain) + " + FRIEND CARE"
+		ability["summary"] = String(ability.summary) + "; friendship adds +2 morale / -2 stress for both"
+	return ability
+
+
+func _base_team_lift_ability(worker: ChickenState, partner: ChickenState) -> Dictionary:
 	if worker == null or partner == null:
 		return {}
 	var specialties: Array[StringName] = [worker.specialty, partner.specialty]
@@ -18362,6 +18517,8 @@ func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
 	if attention_charge > 0:
 		routing_momentum_peck_recharge_bank = 1
 	active_playbook["teamwork_used"] = true
+	flock_relationships.record(worker_id, partner_id, "team_lift", day)
+	_award_clean_pair(worker, partner)
 	return _file_playbook_receipt({
 		"accepted": true,
 		"playbook_kind": "teamwork",
@@ -18722,6 +18879,8 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 	var claim_id := int(status.get("claim_id", -1))
 	if worker.current_claim == null or worker.current_claim.id != claim_id:
 		return {"accepted": false, "reason": "The active file changed before the stamp landed."}
+	career_workshop.begin_day(day)
+	career_workshop.loadout_locked = true
 
 	var progress_before := worker.work_progress
 	var stress_before := worker.stress
@@ -18751,8 +18910,12 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 			worker.fatigue = minf(100.0, worker.fatigue + 2.0)
 			worker.morale = maxf(0.0, worker.morale - 1.0)
 
+	var workshop_effect := ""
 	if rating in [&"perfect", &"strong"]:
+		career_workshop.record_strong_peck(day, worker_id, claim_id, worker.current_claim.deadline_operational_minute - _current_operational_minute())
+		workshop_effect = _apply_workshop_peck(worker, claim_id, rating)
 		peck_assist_streak += 1
+		_record_playbook_contract_completion()
 	else:
 		peck_assist_streak = 0
 		_break_routing_momentum(
@@ -18803,6 +18966,7 @@ func perform_peck_assist(worker_id: int) -> Dictionary:
 		"refunds": peck_assist_refunds_today,
 		"routing_recharge_used": used_routing_recharge,
 		"potential_priority_credit_cents": 20 * mini(peck_assist_streak, 5),
+		"workshop_effect": workshop_effect,
 	}
 	result = _normalized_peck_assist_record(result)
 	last_peck_assist = result.duplicate(true)
@@ -22499,6 +22663,7 @@ func _adjust_worker_relationships(trust_delta: float, grievance_delta: float) ->
 
 
 func _reset_daily_decision_state() -> void:
+	flock_relationships.begin_day(day)
 	active_directive_id = &""
 	pending_decision.clear()
 	incidents_resolved_today = 0
@@ -22996,6 +23161,7 @@ func checkpoint_revision() -> int:
 func advance_tick(publish_snapshot: bool = true) -> void:
 	if shift_phase != ShiftPhase.RUNNING:
 		return
+	var probe_started := cost_probe.begin()
 	_tick_count += 1
 	minute_of_day += MINUTES_PER_TICK
 
@@ -23004,12 +23170,17 @@ func advance_tick(publish_snapshot: bool = true) -> void:
 	if _tick_count % 3 == 0:
 		_offer_new_claim(_choose_arrival_lane())
 
+	cost_probe.finish(&"tick_arrivals", probe_started)
+	probe_started = cost_probe.begin()
 	for worker in workers:
 		if not worker.employed:
 			continue
 		_update_worker(worker)
 
+	cost_probe.finish(&"tick_workers", probe_started)
+	probe_started = cost_probe.begin()
 	if _maybe_open_incident():
+		cost_probe.finish(&"tick_close", probe_started)
 		if publish_snapshot:
 			snapshot_changed.emit(snapshot())
 		return
@@ -23019,6 +23190,8 @@ func advance_tick(publish_snapshot: bool = true) -> void:
 
 	if publish_snapshot:
 		snapshot_changed.emit(snapshot())
+
+	cost_probe.finish(&"tick_close", probe_started)
 
 
 ## Publishes one complete read model after a SimulationClock batch. Direct
@@ -24351,11 +24524,76 @@ func operations_snapshot() -> Dictionary:
 	}
 
 
+func relationship_rows(worker_id: int) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for partner in workers:
+		if partner.id == worker_id:
+			continue
+		var row := flock_relationships.snapshot(worker_id, partner.id)
+		row["partner_name"] = partner.display_name
+		row["employed"] = partner.employed
+		rows.append(row)
+	return rows
+
+
+func relationship_panel_snapshot(worker_id: int, partner_id: int) -> Dictionary:
+	_ensure_active_playbook()
+	var roster: Array[Dictionary] = []
+	for worker in workers:
+		roster.append({"id": worker.id, "name": worker.display_name, "employed": worker.employed})
+	var valid := worker_id >= 0 and partner_id >= 0 and worker_id < workers.size() and partner_id < workers.size() and worker_id != partner_id
+	var pair := flock_relationships.snapshot(worker_id, partner_id) if valid else {}
+	var ready := valid and workers[worker_id].employed and workers[partner_id].employed and shift_phase == ShiftPhase.RUNNING and pending_decision.is_empty() and not bool(active_playbook.get("teamwork_used", false))
+	var reason := "One shared moment per shift; uses today's Team Lift opportunity."
+	if bool(active_playbook.get("teamwork_used", false)):
+		reason = "Today's shared moment is used. Their story continues next shift."
+	elif not ready:
+		reason = "Choose two employed hens during a running shift."
+	var contest_ready := ready and int(pair.get("affinity", 0)) < 0 and worker_id not in flock_relationships.clean_workers and partner_id not in flock_relationships.clean_workers
+	if ready and int(pair.get("affinity", 0)) < 0 and not contest_ready:
+		reason += " Contests must start before either hen delivers a clean egg."
+	return {"roster": roster, "worker_id": worker_id, "partner_id": partner_id, "pair": pair, "rows": relationship_rows(worker_id) if worker_id >= 0 else [], "reason": reason, "break_available": ready and spendable_fund_cents() >= 100, "repair_available": ready and int(pair.get("affinity", 0)) < 0, "contest_available": contest_ready, "day": day}
+
+
+func perform_relationship_action(worker_id: int, partner_id: int, action: String) -> Dictionary:
+	if action not in ["shared_break", "clear_air", "friendly_contest"]:
+		return {"accepted": false, "reason": "Choose a shared break, clear the air, or a friendly contest."}
+	var panel := relationship_panel_snapshot(worker_id, partner_id)
+	if not bool(panel.contest_available if action == "friendly_contest" else panel.break_available if action == "shared_break" else panel.repair_available):
+		return {"accepted": false, "reason": "That shared moment is unavailable. " + String(panel.reason)}
+	var before := flock_relationships.affinity(worker_id, partner_id)
+	if not flock_relationships.record(worker_id, partner_id, action, day):
+		return {"accepted": false, "reason": "This pair already remembers that moment today."}
+	var cost := 100 if action == "shared_break" else 0
+	revenue_cents -= cost
+	active_playbook["teamwork_used"] = true
+	for id in [worker_id, partner_id]:
+		workers[id].stress = clampf(workers[id].stress + (3.0 if action == "friendly_contest" else -4.0 if action == "shared_break" else -2.0), 0.0, 100.0)
+		if action != "friendly_contest":
+			workers[id].morale = minf(100.0, workers[id].morale + 2.0)
+	var after := flock_relationships.snapshot(worker_id, partner_id)
+	_award_clean_pair(workers[worker_id], workers[partner_id])
+	var feedback := "+3 stress each now. Deliver one clean egg each for +6 XP each and +6 warmth." if action == "friendly_contest" else "-%d stress / +2 morale each. %s" % [4 if action == "shared_break" else 2, "They are finding common ground again." if after.reconciled else "They will remember this next shift."]
+	return _file_playbook_receipt({"accepted": true, "playbook_kind": "relationship", "choice_id": action, "worker_id": worker_id, "partner_id": partner_id, "label": "FRIENDLY CONTEST" if action == "friendly_contest" else "SHARED MOMENT", "day": day, "cost_cents": cost, "affinity_before": before, "affinity_after": after.affinity, "outcome": "%s + %s: %s (%+d warmth). %s" % [workers[worker_id].display_name, workers[partner_id].display_name, after.label, int(after.affinity) - before, feedback]})
+
+
+func _award_clean_pair(worker: ChickenState, partner: ChickenState) -> void:
+	var reward := flock_relationships.pair_reward(worker.id, partner.id)
+	if not reward.eligible or reward.earned or int(reward.progress) != 2:
+		return
+	if not flock_relationships.record(worker.id, partner.id, "contest_reward" if reward.contest else "inseparable_reward" if int(reward.xp) == 4 else "friend_reward", day):
+		return
+	for hen in [worker, partner]:
+		hen.add_career_xp(int(reward.xp))
+		hen.stress = maxf(0.0, hen.stress - float(reward.relief))
+	var label := "CONTEST COMPLETE" if reward.contest else "CLEAN PAIR"
+	var outcome := "%s · %s + %s: +%d XP each%s." % [label, worker.display_name, partner.display_name, reward.xp, " / +6 warmth" if reward.contest else " / -%d stress each" % reward.relief]
+	announcement_posted.emit(outcome)
+	pair_reward_earned.emit({"worker_id": worker.id, "partner_id": partner.id, "day": day, "label": label, "xp": reward.xp, "relief": reward.relief, "contest": reward.contest, "outcome": outcome})
+
+
 func _worker_flock_bond_snapshot(worker: ChickenState) -> Dictionary:
-	## Character-scale relationship projection. The underlying morale, grievance,
-	## stress, and flock solidarity are already authoritative and persistent; this
-	## bounded view names the nearest active perchmate and explains their current
-	## social temperature without creating a second relationship economy.
+	## Current social temperature plus the pair's persistent shared history.
 	if not worker.employed:
 		return {
 			"partner_id": -1,
@@ -24386,6 +24624,7 @@ func _worker_flock_bond_snapshot(worker: ChickenState) -> Dictionary:
 			"summary": "No active perchmate is close enough to file a flock bond.",
 		}
 	var shared_strain := (worker.stress + partner.stress + worker.fatigue + partner.fatigue) * 0.0625
+	var shared_history := flock_relationships.snapshot(worker.id, partner.id)
 	var shared_grievance := (worker.grievance + partner.grievance) * 0.10
 	var shared_morale := (worker.morale + partner.morale - 100.0) * 0.16
 	var bond_score := clampi(roundi(
@@ -24394,6 +24633,7 @@ func _worker_flock_bond_snapshot(worker: ChickenState) -> Dictionary:
 		+ shared_morale
 		+ shared_grievance
 		- shared_strain
+		+ float(shared_history.affinity) * 0.6
 	), 0, 100)
 	var bond_label := "WITHDRAWN"
 	if bond_score >= 75:
@@ -24413,12 +24653,15 @@ func _worker_flock_bond_snapshot(worker: ChickenState) -> Dictionary:
 		summary += " Shared management memory is pulling the pair together."
 	else:
 		summary += " The relationship is steady but still mostly professional."
+	if int(shared_history.affinity) != 0 or bool(shared_history.reconciled):
+		summary += " %s: %+d warmth. %s" % [shared_history.label, int(shared_history.affinity), shared_history.benefit]
 	return {
 		"partner_id": partner.id,
 		"partner_name": partner.display_name,
 		"score": bond_score,
 		"label": bond_label,
 		"summary": summary,
+		"history": shared_history,
 	}
 
 
@@ -24562,15 +24805,29 @@ func _build_runtime_static_projection_bundle() -> Dictionary:
 
 
 func _build_runtime_live_projection_bundle() -> Dictionary:
-	return {
-		"contract_board": market_contract_board_status(),
-		"farm_mutual_service_coop": farm_mutual_service_coop_status(),
-		"farm_mutual_negotiation_room": farm_mutual_negotiation_room_status(),
-		"economic_briefing": economic_briefing_snapshot(),
-		"feed_procurement": feed_procurement_snapshot(),
-		"flock_care": flock_care_snapshot(),
-		"operations": operations_snapshot(),
-	}
+	var result := {}
+	var started := cost_probe.begin()
+	result["contract_board"] = market_contract_board_status()
+	cost_probe.finish(&"bundle_contract", started)
+	started = cost_probe.begin()
+	result["farm_mutual_service_coop"] = farm_mutual_service_coop_status()
+	cost_probe.finish(&"bundle_service", started)
+	started = cost_probe.begin()
+	result["farm_mutual_negotiation_room"] = farm_mutual_negotiation_room_status()
+	cost_probe.finish(&"bundle_negotiation", started)
+	started = cost_probe.begin()
+	result["economic_briefing"] = economic_briefing_snapshot(result["contract_board"])
+	cost_probe.finish(&"bundle_economy", started)
+	started = cost_probe.begin()
+	result["feed_procurement"] = feed_procurement_snapshot()
+	cost_probe.finish(&"bundle_feed", started)
+	started = cost_probe.begin()
+	result["flock_care"] = flock_care_snapshot()
+	cost_probe.finish(&"bundle_care", started)
+	started = cost_probe.begin()
+	result["operations"] = operations_snapshot()
+	cost_probe.finish(&"bundle_operations", started)
+	return result
 
 
 func _snapshot_projection_bundle(
@@ -24819,10 +25076,34 @@ func _worker_hen_intent_snapshot(worker_snapshot: Dictionary) -> Dictionary:
 	}
 
 
+## Exact, small read model for a completed egg's bark and campaign cause receipt.
+## These consumers need current counters and hen vitals, not purchase catalogs
+## or the campus economy. No cache or authority is changed by this read.
+func production_reaction_snapshot() -> Dictionary:
+	var worker_rows: Array[Dictionary] = []
+	var now := _current_operational_minute()
+	for worker in workers:
+		worker_rows.append(worker.snapshot(now))
+	return {
+		"workers": worker_rows,
+		"eggs_today": eggs_today,
+		"quota_target": quota_target,
+		"cracked_today": cracked_today,
+		"compliance": compliance,
+		"executive_confidence": executive_confidence,
+		"overdue_claims": _overdue_claim_count(true),
+		"rework_total_created": _rework_total_created,
+		"credited_today_cents": credited_today_cents,
+		"wage_arrears_cents": wage_arrears_cents,
+		"revenue_cents": revenue_cents,
+	}
+
+
 func snapshot(
 	use_runtime_projection_cache: bool = false,
 	trusted_runtime_projection_read_only: bool = false,
 ) -> Dictionary:
+	var probe_started := cost_probe.begin()
 	_sync_claims_waiting()
 	var now := _current_operational_minute()
 	var worker_snapshots: Array[Dictionary] = []
@@ -24836,6 +25117,7 @@ func snapshot(
 		var worker_snapshot := worker.snapshot(now)
 		var flock_bond := _worker_flock_bond_snapshot(worker)
 		worker_snapshot["flock_bond"] = flock_bond
+		worker_snapshot["relationships"] = relationship_rows(worker.id)
 		worker_snapshot["temperament_effect"] = _worker_temperament_effect(
 			worker,
 			flock_bond,
@@ -24958,8 +25240,7 @@ func snapshot(
 			current_claim_snapshot["facility_speed_multiplier"] = _facility_claim_speed_multiplier(worker)
 			current_claim_snapshot["automation_work_multiplier"] = automation_work_multiplier(worker)
 			current_claim_snapshot["automation_enrolled"] = worker.assigned_lane == AUTO_ASSIGNMENT
-		var resolution_status := claim_resolution_status(worker.id)
-		resolution_status.erase("catalog")
+		var resolution_status := _claim_resolution_status(worker.id)
 		worker_snapshot["claim_resolution_status"] = resolution_status
 		worker_snapshot["personal_mastery"] = _worker_personal_mastery_snapshot(
 			worker_snapshot
@@ -24982,13 +25263,15 @@ func snapshot(
 		and _runtime_tick_snapshot_cache_phase == shift_phase
 	):
 		_runtime_tick_snapshot_cache_hits += 1
-		return _refresh_runtime_tick_snapshot(
+		var refreshed := _refresh_runtime_tick_snapshot(
 			_runtime_tick_snapshot_cache,
 			worker_snapshots,
 			queue_snapshot,
 			pending_rework_items,
 			runtime_projections,
 		)
+		cost_probe.finish(&"snapshot_cached", probe_started)
+		return refreshed
 	var personnel_status := personnel_action_status()
 	var campus_expansion_projection := (
 		runtime_projections.get("campus_expansion", {}) as Dictionary
@@ -25222,9 +25505,12 @@ func snapshot(
 		# Public/direct snapshot callers retain the historical right to enrich
 		# their returned dictionaries. Never let their object graph alias the
 		# trusted clock cache; rebuild that cache once on the next clock publish.
-		_runtime_tick_snapshot_cache.clear()
+		# Release our cache reference without erasing a read model that signal
+		# listeners may still be presenting during this nested snapshot request.
+		_runtime_tick_snapshot_cache = {}
 		_runtime_tick_snapshot_cache_day = -1
 		_runtime_tick_snapshot_cache_phase = -1
+	cost_probe.finish(&"snapshot_runtime" if use_runtime_projection_cache else &"snapshot_exact", probe_started)
 	return result
 
 
@@ -25659,6 +25945,8 @@ func _update_worker(worker: ChickenState) -> void:
 
 
 func _error_risk_for(worker: ChickenState) -> float:
+	if career_workshop.daily_day == day and worker.current_claim != null and worker.current_claim.id in career_workshop.protected_claims:
+		return 0.0
 	var error_risk := 1.0 - worker.accuracy
 	error_risk += worker.stress / 500.0
 	error_risk += worker.fatigue / 600.0
@@ -25765,9 +26053,70 @@ func _apply_claim_resolution_outcome(
 				)
 
 
+func _apply_workshop_peck(worker: ChickenState, claim_id: int, rating: StringName = &"strong") -> String:
+	var effect := ""
+	var precision := career_workshop.tuning == "precision"
+	var protection_limit := 3 if precision else 2
+	if career_workshop.equipped == "relay_bell" and career_workshop.tuning == "sprint" and career_workshop.uses < 3:
+		worker.work_progress = minf(99.0, worker.work_progress + 10.0)
+		worker.stress = minf(100.0, worker.stress + 3.0)
+		career_workshop.uses += 1
+		effect = "SPRINT: +10 WORK / +3 STRESS · %d LEFT" % (3 - career_workshop.uses)
+	elif career_workshop.equipped == "relay_bell" and career_workshop.tuning == "handoff":
+		var previous_id := career_workshop.previous_peck_worker
+		if previous_id >= 0 and previous_id != worker.id and career_workshop.uses < 3:
+			var previous := workers[previous_id]
+			if previous.employed and previous.current_claim != null and previous.work_state == ChickenState.WorkState.WORKING:
+				previous.work_progress = minf(99.0, previous.work_progress + 18.0)
+				career_workshop.uses += 1
+				effect = "HANDOFF: %s +18 WORK · %d LEFT" % [previous.display_name.to_upper(), 3 - career_workshop.uses]
+		career_workshop.previous_peck_worker = worker.id
+	elif career_workshop.equipped == "shell_guard" and career_workshop.tuning == "triage":
+		var minutes_left := worker.current_claim.deadline_operational_minute - _current_operational_minute()
+		if career_workshop.uses < 2 and minutes_left >= 0 and minutes_left <= 60:
+			career_workshop.protected_claims.append(claim_id)
+			career_workshop.uses += 1
+			worker.work_progress = minf(99.0, worker.work_progress + 15.0)
+			effect = "TRIAGE: +15 WORK / EGG PROTECTED · %d LEFT" % (2 - career_workshop.uses)
+		elif career_workshop.uses < 2:
+			effect = "TRIAGE: FINAL-HOUR FILE NEEDED · CHARGE KEPT"
+	elif career_workshop.equipped == "shell_guard" and career_workshop.uses < protection_limit and (not precision or rating == &"perfect"):
+		career_workshop.protected_claims.append(claim_id)
+		career_workshop.uses += 1
+		effect = "LENS: EGG PROTECTED · %d LEFT" % (protection_limit - career_workshop.uses)
+	elif career_workshop.equipped == "shell_guard" and precision and rating != &"perfect" and career_workshop.uses < protection_limit:
+		effect = "PRECISION LENS: PERFECT NEEDED · CHARGE KEPT"
+	elif career_workshop.equipped == "team_kettle":
+		var previous_id := career_workshop.previous_peck_worker
+		if previous_id >= 0 and previous_id != worker.id and career_workshop.uses < 3 and workers[previous_id].employed:
+			var previous := workers[previous_id]
+			if career_workshop.tuning == "mentor":
+				previous.add_career_xp(6)
+			else:
+				for teammate in [previous, worker]:
+					teammate.stress = maxf(0.0, teammate.stress - (8.0 if career_workshop.tuning == "encourage" else 4.0))
+					teammate.fatigue = maxf(0.0, teammate.fatigue - (8.0 if career_workshop.tuning == "encourage" else 4.0))
+				if career_workshop.tuning != "encourage" and previous.current_claim != null and previous.work_state == ChickenState.WorkState.WORKING:
+					previous.work_progress = minf(99.0, previous.work_progress + 10.0)
+			career_workshop.uses += 1
+			for teammate_id in [previous_id, worker.id]:
+				if teammate_id not in career_workshop.relief_workers:
+					career_workshop.relief_workers.append(teammate_id)
+			flock_relationships.record(previous_id, worker.id, "relay_care", day)
+			_award_clean_pair(worker, previous)
+			effect = "MENTOR: %s +6 XP · RELAY %d/3" % [previous.display_name.to_upper(), career_workshop.uses] if career_workshop.tuning == "mentor" else "KETTLE: TEAM RECOVERY · RELAY %d/3" % career_workshop.uses
+			if career_workshop.tuning == "encourage":
+				effect = "ENCOURAGE: BOTH HENS -8 STRESS / FATIGUE · RELAY %d/3" % career_workshop.uses
+		career_workshop.previous_peck_worker = worker.id
+	return effect
+
+
 func _complete_egg(worker: ChickenState) -> void:
 	var completed_claim := worker.current_claim
 	var error_risk := _error_risk_for(worker)
+	if completed_claim != null and completed_claim.id in career_workshop.protected_claims:
+		error_risk = 0.0
+		career_workshop.protected_claims.erase(completed_claim.id)
 	# Never turn the first career payoff into a punishment. Later files use the
 	# full authored economy, including visible quality risk and rework.
 	if _guided_first_payoff_active():
@@ -25883,10 +26232,22 @@ func _complete_egg(worker: ChickenState) -> void:
 			}
 
 	last_streak_bonus_cents = 0
+	career_workshop.record_egg(day, worker.id, quality != &"cracked", was_assisted, String(completed_claim.lane) if completed_claim != null else "", completed_claim.id if completed_claim != null else -1, completed_claim != null and not completed_claim.is_overdue(_current_operational_minute()))
+	if quality != &"cracked":
+		# Symmetric neighbours: either hen may finish first, including the
+		# middle perch with a coworker on each side. Each pair earns once/day.
+		flock_relationships.record_clean(worker.id, -1, day)
+		for coworker in workers:
+			if coworker.employed and coworker.id != worker.id:
+				if absi(coworker.desk_index - worker.desk_index) == 1:
+					flock_relationships.record_clean(worker.id, coworker.id, day)
+				_award_clean_pair(worker, coworker)
+	_record_playbook_contract_completion()
 	if quality == &"cracked":
 		quality_streak = 0
 	else:
 		quality_streak += 1
+		_record_playbook_contract_completion()
 		best_quality_streak = maxi(best_quality_streak, quality_streak)
 		last_streak_bonus_cents = mini(quality_streak, 8) * 35
 		value_cents += last_streak_bonus_cents

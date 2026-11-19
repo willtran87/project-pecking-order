@@ -1,6 +1,8 @@
 class_name FarmgateDispatchDepotVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Snapshot-driven, visual-only output yard. The module deliberately avoids the
@@ -12,7 +14,7 @@ const FACILITY_ID: StringName = &"farmgate_dispatch_depot"
 const DISPLAY_NAME := "FARMGATE DISPATCH DEPOT"
 const FACILITY_CENTER := Vector3(23.05, 0.0, -3.00)
 const FOCUS_POINT := Vector3(23.05, 1.25, -3.00)
-const FOOTPRINT := Rect2(Vector2(18.65, -8.90), Vector2(8.80, 11.80))
+const FOOTPRINT := FacilityFootprints.FARMGATE_DISPATCH_DEPOT
 const ENTRANCE_BRIDGE_FOOTPRINT := Rect2(Vector2(18.40, -6.60), Vector2(0.25, 1.20))
 const CLEAR_AISLE_FOOTPRINT := Rect2(Vector2(18.40, -6.55), Vector2(3.10, 1.10))
 const VEHICLE_LANE_FOOTPRINT := Rect2(Vector2(23.70, -8.55), Vector2(3.35, 10.90))

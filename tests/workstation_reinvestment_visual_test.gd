@@ -67,7 +67,10 @@ func _run() -> void:
 	_check(not _branch_has_text_or_collision(landing_root), "the desk landing receipt must remain non-text and collision-free", failures)
 	var progress_root := desk_zero.find_child("WorkProgressRail", true, false) as Node3D
 	_check(progress_root != null and not progress_root.visible, "the pooled progress rail should remain hidden without a live file", failures)
-	_check(not _branch_has_text_or_collision(progress_root), "the progress rail must remain non-text and collision-free", failures)
+	_check(progress_root.find_children("*", "Label3D", true, false).size() == 1, "reconfiguration must retain exactly one contextual progress caption", failures)
+	for child in progress_root.get_children():
+		if child.name != "ProgressCaption":
+			_check(not _branch_has_text_or_collision(child), "the physical pips and supports must remain non-text and collision-free", failures)
 
 	var upgraded_snapshot := {
 		"upgrade_levels": {

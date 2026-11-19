@@ -63,6 +63,7 @@ func _process(delta: float) -> void:
 
 	_accumulator += delta * effective_multiplier()
 	_presentation_elapsed_seconds += maxf(0.0, delta)
+	var probe_started := _simulation.cost_probe.begin()
 	_advancing_tick_batch = true
 	while (
 		speed_index > 0
@@ -72,6 +73,8 @@ func _process(delta: float) -> void:
 		_accumulator -= BASE_TICK_SECONDS
 		_simulation.advance_tick(false)
 		_ticks_advanced_last_frame += 1
+	_simulation.cost_probe.finish(&"clock_ticks", probe_started)
+	probe_started = _simulation.cost_probe.begin()
 	if _ticks_advanced_last_frame > 1 or pending_tick_count() > 0:
 		_catch_up_publication_pending = true
 	var accelerated_publication_due := (
@@ -91,9 +94,12 @@ func _process(delta: float) -> void:
 		_presentation_elapsed_seconds = 0.0
 		if pending_tick_count() == 0:
 			_catch_up_publication_pending = false
+	_simulation.cost_probe.finish(&"clock_publish", probe_started)
+	probe_started = _simulation.cost_probe.begin()
 	_advancing_tick_batch = false
 	if _ticks_advanced_last_frame > 0:
 		tick_batch_completed.emit(_ticks_advanced_last_frame)
+	_simulation.cost_probe.finish(&"clock_batch_callbacks", probe_started)
 
 
 ## Number of authoritative ticks serviced by the most recent rendered frame.

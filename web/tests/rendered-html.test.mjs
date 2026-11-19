@@ -259,7 +259,7 @@ test("server-renders the playable Pecking Order shell", async () => {
 	assert.match(html, /O for after-hours pecking/i);
 	assert.match(html, /F10 for Coop Settings and Controls/i);
 	assert.match(html, /Controls can be rebound from the settings panel/i);
-  assert.match(html, /aria-keyshortcuts="1 2 3 Enter N R D C E P O Space V F10 Tab Escape"/i);
+  assert.match(html, /aria-keyshortcuts="1 2 3 Enter N R D C E P O Space V B F10 Tab Escape"/i);
   assert.match(html, /id="game-status"[^>]+aria-live="off"[^>]+aria-atomic="true"/i);
 	assert.doesNotMatch(html, /id="game-status"[^>]+role="status"/i);
 	assert.match(html, /id="game-announcement"[^>]+role="status"[^>]+aria-live="polite"[^>]+aria-atomic="true"/i);
@@ -439,9 +439,8 @@ test("keeps the Godot backing canvas sharp after resize, rotation, and fullscree
 	assert.match(page, /addEventListener\("resize", fitCanvasToStage/);
 	assert.match(page, /addEventListener\("orientationchange", fitCanvasToStage/);
 	assert.match(page, /addEventListener\("fullscreenchange", fitCanvasToStage/);
-	assert.match(page, /Math\.max\(1280/);
-	assert.match(page, /Math\.min\(\s*2560/);
-	assert.match(page, /renderHeight = Math\.round\(renderWidth \* 9 \/ 16\)/);
+	assert.match(page, /gameRenderSize\(stageWidth, window\.devicePixelRatio, quality\)/);
+	assert.match(page, /addEventListener\("pecking-order-preferences-changed", fitCanvasToStage/);
 });
 
 test("focuses the wrapper after a campaign begins while retaining a manual page-mode override", async () => {

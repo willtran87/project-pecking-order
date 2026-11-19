@@ -1,6 +1,8 @@
 class_name FarmMutualNegotiationRoomVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Snapshot-driven, visual-only negotiation pavilion for Farm Mutual. The room
@@ -10,7 +12,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 const FACILITY_ID: StringName = &"farm_mutual_negotiation_room"
 const FACILITY_CENTER := Vector3(15.20, 0.0, 12.00)
 const FOCUS_POINT := Vector3(15.20, 1.18, 12.00)
-const FOOTPRINT := Rect2(Vector2(12.00, 9.10), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.FARM_MUTUAL_NEGOTIATION_ROOM
 const MAX_LEVEL := 1
 const MAX_OPAQUE_HEIGHT := 4.05
 const CLAUSE_FOLIO_COUNT := 4
@@ -73,6 +75,8 @@ var _seats_filled := 0
 var _seats_required := 0
 var _premium_cents := 0
 var _breach_cents := 0
+var _last_render_state: Array = []
+var _render_refresh_count := 0
 
 
 func _ready() -> void:
@@ -210,6 +214,16 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		_last_result.get("breach_cost_cents", _last_result.get("penalty_cents", 0)),
 	)))
 
+	var render_state: Array = [
+		_facility_level, _unlocked, _season_key, _has_season,
+		_active_clause_id, _active_clause_label, _active_clause_category, _last_result,
+		_result_state, _delivery_completed, _delivery_required, _seats_filled,
+		_seats_required, _premium_cents, _breach_cents,
+	]
+	if render_state == _last_render_state:
+		return
+	_last_render_state = render_state.duplicate(true)
+	_render_refresh_count += 1
 	_apply_visibility()
 	_apply_dynamic_state()
 	if _has_applied_snapshot and _facility_level > previous_level and is_inside_tree():

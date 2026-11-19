@@ -20,6 +20,8 @@ func _init() -> void:
 
 
 func configure(kind: StringName, accent: Color = Color("dce7e8")) -> void:
+	if _kind == kind and _accent == accent:
+		return
 	_kind = kind
 	_accent = accent
 	queue_redraw()
@@ -30,7 +32,10 @@ func icon_kind() -> StringName:
 
 
 func set_badge_size(size: float) -> void:
-	_badge_size = maxf(12.0, size)
+	var next_size := maxf(12.0, size)
+	if _badge_size == next_size:
+		return
+	_badge_size = next_size
 	custom_minimum_size = Vector2(_badge_size, _badge_size)
 	queue_redraw()
 

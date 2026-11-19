@@ -1,6 +1,8 @@
 class_name ITCoopVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Visual-only systems facility. Purchased hardware is cumulative; live lamps,
@@ -9,7 +11,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 const FACILITY_ID: StringName = &"it_coop"
 const FACILITY_CENTER := Vector3(15.20, 0.0, 36.00)
 const FOCUS_POINT := Vector3(15.20, 1.05, 36.00)
-const FOOTPRINT := Rect2(Vector2(12.00, 33.10), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.IT_COOP
 const MAX_LEVEL := 3
 const MAX_OPAQUE_HEIGHT := 3.55
 const MAX_AUTO_JACKS := 6

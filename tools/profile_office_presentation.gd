@@ -62,6 +62,17 @@ func _profile() -> void:
 			routing_ui.call("apply_snapshot", routing_snapshot),
 		"priority_focus": func() -> void:
 			office.call("_refresh_priority_peck_precision_focus", snapshot),
+		"input_context": func() -> void:
+			office.call("_refresh_floor_input_context", snapshot),
+		"break_even_milestone": func() -> void:
+			office.call("_update_break_even_milestone", snapshot),
+		"hen_snapshots": func() -> void:
+			var views: Dictionary = office.get("_worker_views")
+			for worker: Dictionary in active_snapshot.get("workers", []):
+				if views.has(int(worker.get("id", -1))):
+					views[int(worker["id"])].apply_snapshot(worker),
+		"policy_fit": func() -> void:
+			office.call("_directive_order_fit", &"shell_assurance"),
 		"first_clutch": func() -> void:
 			office.call("_refresh_first_clutch_ui", snapshot),
 		"flockwatch_accessibility": func() -> void:
@@ -85,6 +96,15 @@ func _profile() -> void:
 		"commendations": func() -> void:
 			office.call("_update_commendations", snapshot),
 	}
+	var pulse := office.get("_gameplay_pulse") as Dictionary
+	components["professional_polish"] = Callable(office, "_apply_professional_polish_presentation").bind(
+		(pulse.get("intuitive_rewarding_completion", {}) as Dictionary).get("professional_polish", {}),
+	)
+	for layer in ["mastery_replay", "professional_loop", "rewarding_loop", "compelling_loop", "strategic_flow", "tactile_reward_loop", "experiential_management", "intuitive_reward", "consolidated_game_loop", "professional_gameplay_completion", "intuitive_rewarding_completion", "cohesive_game_loop_advancement"]:
+		var key: String = layer
+		if layer in ["strategic_flow", "experiential_management", "intuitive_reward"]:
+			key += "_loop"
+		components["apply_" + layer] = Callable(office, "_apply_" + layer + "_presentation").bind(pulse.get(key, {}))
 	var component_profiles := {}
 	for component_name in components:
 		component_profiles[component_name] = _summary(
@@ -96,6 +116,7 @@ func _profile() -> void:
 		"repeated_snapshot": _summary(samples),
 		"components": component_profiles,
 		"presentation_updates": office.get("_presentation_update_count"),
+		"pulse_stages": office.get("_gameplay_pulse_timing"),
 	}))
 	office.free()
 	await process_frame

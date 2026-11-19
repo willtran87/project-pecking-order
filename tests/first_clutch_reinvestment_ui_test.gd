@@ -220,8 +220,8 @@ func _run() -> void:
 		and String(flockwatch_toggle.get_meta("full_text", "")) == "TODAY'S 3 ORDERS  [%s]" % flockwatch_hint
 		and String(flockwatch_toggle.get_meta("accessible_text", "")).contains("TODAY'S 3 ORDERS")
 		and guidance != null
-		and guidance.text == "ORDERS READY  >  OPEN  [%s]" % flockwatch_hint,
-		"closing the reward card should expose a compact orders action with full assistive meaning and matching guidance",
+		and guidance.text == "OPEN TODAY'S ORDERS  [%s]" % flockwatch_hint.to_upper(),
+		"closing the reward card should expose a compact orders action with full assistive meaning and matching guidance: toggle=%s full=%s detail=%s guidance=%s" % [flockwatch_toggle.text, flockwatch_toggle.get_meta("full_text", ""), flockwatch_toggle.get_meta("accessible_text", ""), guidance.text],
 		failures,
 	)
 	var handoff_coach := office.call("_first_clutch_coach_snapshot", simulation.snapshot()) as Dictionary

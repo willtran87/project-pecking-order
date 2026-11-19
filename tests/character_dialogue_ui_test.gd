@@ -20,6 +20,7 @@ func _run() -> void:
 	viewport_host.add_child(ui)
 	await process_frame
 
+	_check((ui.get("_portrait_textures") as Dictionary).is_empty(), "constructing dialogue must not load the entire cast before it is shown", failures)
 	var opening := DialogueCatalog.opening_beat(1)
 	_check(ui.enqueue_dialogue(opening), "opening Mabel beat should be accepted", failures)
 	await process_frame
@@ -37,6 +38,7 @@ func _run() -> void:
 		failures,
 	)
 	_check(portrait != null and portrait.texture != null, "dialogue should resolve the approved transparent portrait", failures)
+	_check((ui.get("_portrait_textures") as Dictionary).size() == 1, "showing Mabel must load only her portrait", failures)
 	_check(speaker != null and speaker.text == "MABEL", "opening beat should name its established speaker", failures)
 	_check(
 		quote != null and "entry-level perch" in quote.text and quote.text.count("\n") <= 2,
@@ -132,6 +134,8 @@ func _run() -> void:
 	var ambient_portrait := ambient_ui.find_child(
 		"CharacterDialoguePortraitFrame", true, false,
 	) as PanelContainer
+	_check((ambient_ui.get("_portrait_textures") as Dictionary).is_empty(), "portrait-free ambient reactions must not load hidden textures", failures)
+	_check(ambient_panel.get_global_rect().end.y < 500.0, "desktop chatter must leave the bottom hen controls unobscured", failures)
 	_check(
 		ambient_panel != null
 		and ambient_panel.visible

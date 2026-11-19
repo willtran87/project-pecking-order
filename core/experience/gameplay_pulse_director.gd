@@ -57,7 +57,18 @@ const PERSONNEL_ACTION_NAMES := {
 }
 
 
-func compose(context: Dictionary) -> Dictionary:
+var last_compose_timing: Dictionary = {}
+
+
+# Only the private HUD opts into sharing locally composed branches.
+# It consumes them read-only and replaces the graph on every publication.
+# Public calls and authoritative input boundaries retain their copies.
+func compose(
+	context: Dictionary,
+	share_static_catalogs: bool = false,
+	share_composed_projections: bool = false,
+) -> Dictionary:
+	var compose_started := Time.get_ticks_usec()
 	var simulation := context.get("simulation", {}) as Dictionary
 	var next_action := context.get("next_action", {}) as Dictionary
 	var lifecycle := context.get("routing_lifecycle", {}) as Dictionary
@@ -119,14 +130,17 @@ func compose(context: Dictionary) -> Dictionary:
 		rival_pulse,
 		order_pulse,
 		momentum,
+		share_composed_projections,
 	)
 	var physical_loop := _physical_loop_resolution(
 		guided_loop,
 		reward_loop,
 		shift_journey,
 		active_playbook,
+		share_composed_projections,
 	)
-	var next_level := _engagement_next_level(active_playbook, guided_loop, reward_loop, physical_loop)
+	var next_level := _engagement_next_level(active_playbook, guided_loop, reward_loop, physical_loop, share_composed_projections)
+	var complete_loop_started := Time.get_ticks_usec()
 	var complete_loop := _complete_game_loop(
 		simulation,
 		next_action,
@@ -140,7 +154,9 @@ func compose(context: Dictionary) -> Dictionary:
 		shift_journey,
 		relationship,
 		cause_replay,
+		share_composed_projections,
 	)
+	var mastery_replay_started := Time.get_ticks_usec()
 	var mastery_replay := _mastery_replay_layer(
 		simulation,
 		next_action,
@@ -154,7 +170,9 @@ func compose(context: Dictionary) -> Dictionary:
 		relationship,
 		rival_pulse,
 		momentum,
+		share_composed_projections,
 	)
+	var professional_loop_started := Time.get_ticks_usec()
 	var professional_loop := _professional_intuitive_loop(
 		simulation,
 		next_action,
@@ -167,7 +185,9 @@ func compose(context: Dictionary) -> Dictionary:
 		relationship,
 		feedback,
 		momentum,
+		share_composed_projections,
 	)
+	var rewarding_loop_started := Time.get_ticks_usec()
 	var rewarding_loop := _rewarding_game_loop(
 		simulation,
 		next_action,
@@ -182,7 +202,9 @@ func compose(context: Dictionary) -> Dictionary:
 		relationship,
 		feedback,
 		momentum,
+		share_composed_projections,
 	)
+	var compelling_loop_started := Time.get_ticks_usec()
 	var compelling_loop := _compelling_game_loop(
 		simulation,
 		next_action,
@@ -198,7 +220,9 @@ func compose(context: Dictionary) -> Dictionary:
 		relationship,
 		feedback,
 		momentum,
+		share_composed_projections,
 	)
+	var strategic_flow_loop_started := Time.get_ticks_usec()
 	var strategic_flow_loop := _strategic_flow_loop(
 		simulation,
 		next_action,
@@ -215,7 +239,9 @@ func compose(context: Dictionary) -> Dictionary:
 		relationship,
 		feedback,
 		momentum,
+		share_composed_projections,
 	)
+	var tactile_reward_loop_started := Time.get_ticks_usec()
 	var tactile_reward_loop := _tactile_reward_loop(
 		simulation,
 		active_playbook,
@@ -231,7 +257,9 @@ func compose(context: Dictionary) -> Dictionary:
 		strategic_flow_loop,
 		reward_loop,
 		relationship,
+		share_composed_projections,
 	)
+	var experiential_management_loop_started := Time.get_ticks_usec()
 	var experiential_management_loop := _experiential_management_loop(
 		simulation,
 		next_action,
@@ -243,7 +271,9 @@ func compose(context: Dictionary) -> Dictionary:
 		complete_loop,
 		strategic_flow_loop,
 		tactile_reward_loop,
+		share_composed_projections,
 	)
+	var intuitive_reward_loop_started := Time.get_ticks_usec()
 	var intuitive_reward_loop := _intuitive_reward_loop(
 		simulation,
 		next_action,
@@ -262,7 +292,9 @@ func compose(context: Dictionary) -> Dictionary:
 		tactile_reward_loop,
 		experiential_management_loop,
 		reward_loop,
+		share_composed_projections,
 	)
+	var consolidated_game_loop_started := Time.get_ticks_usec()
 	var consolidated_game_loop := ConsolidatedGameLoopScript.compose({
 		"simulation": simulation,
 		"next_action": next_action,
@@ -278,6 +310,7 @@ func compose(context: Dictionary) -> Dictionary:
 		"intuitive_loop": intuitive_reward_loop,
 		"reward_loop": reward_loop,
 	})
+	var professional_gameplay_completion_started := Time.get_ticks_usec()
 	var professional_gameplay_completion := ProfessionalGameplayCompletionScript.compose({
 		"simulation": simulation,
 		"next_action": next_action,
@@ -289,7 +322,8 @@ func compose(context: Dictionary) -> Dictionary:
 		"action_feedback": feedback,
 		"focused_worker_id": focus_worker_id,
 		"consolidated_game_loop": consolidated_game_loop,
-	})
+	}, share_static_catalogs)
+	var intuitive_rewarding_completion_started := Time.get_ticks_usec()
 	var intuitive_rewarding_completion := IntuitiveRewardingCompletionScript.compose({
 		"simulation": simulation,
 		"next_action": next_action,
@@ -307,7 +341,8 @@ func compose(context: Dictionary) -> Dictionary:
 		"tactile_reward_loop": tactile_reward_loop,
 		"experiential_management_loop": experiential_management_loop,
 		"intuitive_reward_loop": intuitive_reward_loop,
-	})
+	}, share_static_catalogs)
+	var cohesive_game_loop_advancement_started := Time.get_ticks_usec()
 	var cohesive_game_loop_advancement := CohesiveGameLoopAdvancementScript.compose({
 		"simulation": simulation,
 		"active_playbook": active_playbook,
@@ -324,7 +359,23 @@ func compose(context: Dictionary) -> Dictionary:
 		"challenge_contract_catalog": challenge_contract_catalog,
 		"scenario_catalog": scenario_catalog,
 		"cause_replay": cause_replay,
-	})
+	}, share_static_catalogs)
+	last_compose_timing = {
+		"core_usec": complete_loop_started - compose_started,
+		"complete_loop_usec": mastery_replay_started - complete_loop_started,
+		"mastery_replay_usec": professional_loop_started - mastery_replay_started,
+		"professional_loop_usec": rewarding_loop_started - professional_loop_started,
+		"rewarding_loop_usec": compelling_loop_started - rewarding_loop_started,
+		"compelling_loop_usec": strategic_flow_loop_started - compelling_loop_started,
+		"strategic_flow_loop_usec": tactile_reward_loop_started - strategic_flow_loop_started,
+		"tactile_reward_loop_usec": experiential_management_loop_started - tactile_reward_loop_started,
+		"experiential_management_loop_usec": intuitive_reward_loop_started - experiential_management_loop_started,
+		"intuitive_reward_loop_usec": consolidated_game_loop_started - intuitive_reward_loop_started,
+		"consolidated_game_loop_usec": professional_gameplay_completion_started - consolidated_game_loop_started,
+		"professional_gameplay_completion_usec": intuitive_rewarding_completion_started - professional_gameplay_completion_started,
+		"intuitive_rewarding_completion_usec": cohesive_game_loop_advancement_started - intuitive_rewarding_completion_started,
+		"cohesive_game_loop_advancement_usec": Time.get_ticks_usec() - cohesive_game_loop_advancement_started,
+	}
 	return {
 		"version": 21,
 		"authoritative": false,
@@ -409,6 +460,7 @@ func _rewarding_game_loop(
 	relationship: Dictionary,
 	feedback: Dictionary,
 	momentum: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var worker := _focused_worker(workers, focused_worker_id)
 	var intent := worker.get("hen_intent", {}) as Dictionary
@@ -513,7 +565,7 @@ func _rewarding_game_loop(
 			"details_on_hover_focus": true,
 		},
 		"world_beacon": {
-			"target": target.duplicate(true),
+			"target": (target if share_composed_projections else target.duplicate(true)),
 			"action_id": String(next_action.get("action_id", "")),
 			"copy": String(next_action.get("visible_label", next_action.get("copy", "OBSERVE"))),
 			"take_me_there": bool(next_action.get("actionable", false)),
@@ -540,7 +592,7 @@ func _rewarding_game_loop(
 			"effect": why_effect,
 			"compact": "WHY  ·  %s → %s" % [why_title, why_effect],
 		},
-		"goal_countdown": payoff.duplicate(true),
+		"goal_countdown": (payoff if share_composed_projections else payoff.duplicate(true)),
 		"decision_cadence": {
 			"minimum_seconds": 20,
 			"maximum_seconds": 30,
@@ -561,37 +613,37 @@ func _rewarding_game_loop(
 			"proposal": (playbook.get("hen_proposal", {}) as Dictionary).duplicate(true),
 			"optional": true,
 		},
-		"distinct_ability": (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true),
+		"distinct_ability": ((mastery_replay.get("manager_power", {}) as Dictionary) if share_composed_projections else (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true)),
 		"relationship_combo": {
-			"episode": relationship.duplicate(true),
-			"teamwork": teamwork.duplicate(true),
+			"episode": (relationship if share_composed_projections else relationship.duplicate(true)),
+			"teamwork": (teamwork if share_composed_projections else teamwork.duplicate(true)),
 			"mechanical_payoff": true,
 		},
-		"incident_staging": incident.duplicate(true),
-		"transformative_rewards": reward_draft.duplicate(true),
+		"incident_staging": (incident if share_composed_projections else incident.duplicate(true)),
+		"transformative_rewards": (reward_draft if share_composed_projections else reward_draft.duplicate(true)),
 		"strategy_identity": {
-			"strategy": strategy.duplicate(true),
-			"furnishing": furnishing.duplicate(true),
+			"strategy": (strategy if share_composed_projections else strategy.duplicate(true)),
+			"furnishing": (furnishing if share_composed_projections else furnishing.duplicate(true)),
 			"visible_in_world": true,
 		},
 		"milestone_spectacle": {
-			"celebration": (reward_loop.get("compound_success", {}) as Dictionary).duplicate(true),
-			"golden_moment": (reward_loop.get("golden_moment", {}) as Dictionary).duplicate(true),
+			"celebration": ((reward_loop.get("compound_success", {}) as Dictionary) if share_composed_projections else (reward_loop.get("compound_success", {}) as Dictionary).duplicate(true)),
+			"golden_moment": ((reward_loop.get("golden_moment", {}) as Dictionary) if share_composed_projections else (reward_loop.get("golden_moment", {}) as Dictionary).duplicate(true)),
 			"camera_audio_world_beats": true,
 		},
-		"shift_recap": (professional_loop.get("highlight_replay", {}) as Dictionary).duplicate(true),
+		"shift_recap": ((professional_loop.get("highlight_replay", {}) as Dictionary) if share_composed_projections else (professional_loop.get("highlight_replay", {}) as Dictionary).duplicate(true)),
 		"recovery_options": {
 			"choices": ["PECK", "BEST FIT", "CARE"],
 			"momentum": momentum.duplicate(true),
 			"banked_rewards_safe": true,
 		},
-		"varied_rematch": (professional_loop.get("rematch_variation", {}) as Dictionary).duplicate(true),
+		"varied_rematch": ((professional_loop.get("rematch_variation", {}) as Dictionary) if share_composed_projections else (professional_loop.get("rematch_variation", {}) as Dictionary).duplicate(true)),
 		"adaptive_guidance": {
 			"contextual": true,
 			"retires_after_success": true,
 			"changes_difficulty": false,
 		},
-		"staged_unlocks": (mastery_replay.get("unlock_ladder", {}) as Dictionary).duplicate(true),
+		"staged_unlocks": ((mastery_replay.get("unlock_ladder", {}) as Dictionary) if share_composed_projections else (mastery_replay.get("unlock_ladder", {}) as Dictionary).duplicate(true)),
 		"collections": {
 			"office_sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
 			"personal_mastery": (worker.get("personal_mastery", {}) as Dictionary).duplicate(true),
@@ -601,7 +653,7 @@ func _rewarding_game_loop(
 			"personal_best": (playbook.get("personal_best", {}) as Dictionary).duplicate(true),
 			"challenge": (playbook.get("challenge", {}) as Dictionary).duplicate(true),
 		},
-		"comprehension": comprehension.duplicate(true),
+		"comprehension": (comprehension if share_composed_projections else comprehension.duplicate(true)),
 	}
 
 
@@ -623,6 +675,7 @@ func _compelling_game_loop(
 	relationship: Dictionary,
 	feedback: Dictionary,
 	momentum: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var worker := _focused_worker(workers, focused_worker_id)
 	var intent := worker.get("hen_intent", {}) as Dictionary
@@ -702,7 +755,7 @@ func _compelling_game_loop(
 		"coverage_count": specialties.size(),
 		"specialties": specialties.duplicate(),
 		"focused_specialty": String(worker.get("specialty", "auto")).replace("_", " ").to_upper(),
-		"relationship": relationship.duplicate(true),
+		"relationship": (relationship if share_composed_projections else relationship.duplicate(true)),
 		"compact": "%d HENS  ·  %d LANES" % [active_worker_count, specialties.size()],
 		"tradeoffs_visible": true,
 	}
@@ -719,8 +772,8 @@ func _compelling_game_loop(
 	var impact_channels := {
 		"channel_count": 3,
 		"world": {
-			"target": target.duplicate(true),
-			"trail": (complete_loop.get("cause_effect_trail", {}) as Dictionary).duplicate(true),
+			"target": (target if share_composed_projections else target.duplicate(true)),
+			"trail": ((complete_loop.get("cause_effect_trail", {}) as Dictionary) if share_composed_projections else (complete_loop.get("cause_effect_trail", {}) as Dictionary).duplicate(true)),
 		},
 		"character": {
 			"worker_id": int(worker.get("id", -1)),
@@ -778,7 +831,7 @@ func _compelling_game_loop(
 		"first_minute_win": {
 			"budget_seconds": 30,
 			"sequence": ["ROUTE", "HELP", "EGG", "REWARD"],
-			"first_clutch": micro_shift.duplicate(true),
+			"first_clutch": (micro_shift if share_composed_projections else micro_shift.duplicate(true)),
 			"skippable": true,
 		},
 		"before_after_preview": before_after,
@@ -788,7 +841,7 @@ func _compelling_game_loop(
 			"stage": current_stage,
 			"rule": String((playbook.get("challenge_modifier", {}) as Dictionary).get("detail", "ADAPT THE FLOCK")),
 			"reward": String(payoff.get("label", "NEXT PAYOFF")),
-			"world_loadout": furnishing.duplicate(true),
+			"world_loadout": (furnishing if share_composed_projections else furnishing.duplicate(true)),
 		},
 		"pacing_director": {
 			"stage": current_stage,
@@ -803,8 +856,8 @@ func _compelling_game_loop(
 			"name": String(worker.get("name", "HEN")).to_upper(),
 			"temperament": String(worker.get("temperament", worker.get("work_style", "ADAPTABLE"))).replace("_", " ").to_upper(),
 			"intent": intent.duplicate(true),
-			"signature": (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true),
-			"relationship": relationship.duplicate(true),
+			"signature": ((mastery_replay.get("manager_power", {}) as Dictionary) if share_composed_projections else (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true)),
+			"relationship": (relationship if share_composed_projections else relationship.duplicate(true)),
 		},
 		"combo_discovery": combo_discovery,
 		"production_shortcuts": {
@@ -817,7 +870,7 @@ func _compelling_game_loop(
 		"push_your_luck": push_luck.duplicate(true),
 		"hen_story": career_story.duplicate(true),
 		"incident_chain": {
-			"staging": (professional_loop.get("interactive_incident", {}) as Dictionary).duplicate(true),
+			"staging": ((professional_loop.get("interactive_incident", {}) as Dictionary) if share_composed_projections else (professional_loop.get("interactive_incident", {}) as Dictionary).duplicate(true)),
 			"choice_memory": true,
 			"later_callback": true,
 			"post_incident_summary": true,
@@ -830,18 +883,18 @@ func _compelling_game_loop(
 			"failure_penalty": 0,
 		},
 		"relationship_payoff": {
-			"relationship": relationship.duplicate(true),
-			"teamwork": (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true),
+			"relationship": (relationship if share_composed_projections else relationship.duplicate(true)),
+			"teamwork": ((reward_loop.get("relationship_teamwork", {}) as Dictionary) if share_composed_projections else (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true)),
 			"changes_productivity_recovery_or_combo": true,
 		},
 		"transformative_reward": {
-			"draft": reward_draft.duplicate(true),
+			"draft": (reward_draft if share_composed_projections else reward_draft.duplicate(true)),
 			"changes_rules_or_actions": true,
 			"percentage_only_rewards_rejected": true,
 		},
 		"office_evolution": {
-			"strategy": strategy.duplicate(true),
-			"furnishing": furnishing.duplicate(true),
+			"strategy": (strategy if share_composed_projections else strategy.duplicate(true)),
+			"furnishing": (furnishing if share_composed_projections else furnishing.duplicate(true)),
 			"display_sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
 			"persists_between_shifts": true,
 		},
@@ -851,7 +904,7 @@ func _compelling_game_loop(
 			"anticipation_impact_follow_through_settle": true,
 			"reduced_motion_fallback": "stamp_glow_and_sound",
 		},
-		"near_miss": near_miss.duplicate(true),
+		"near_miss": (near_miss if share_composed_projections else near_miss.duplicate(true)),
 		"one_action_recovery": {
 			"choices": (recovery.get("choices", ["PECK", "BEST FIT", "CARE"]) as Array).duplicate(),
 			"recommended": String(momentum.get("short_label", "BEST FIT")),
@@ -873,7 +926,7 @@ func _compelling_game_loop(
 			"hen": (worker.get("personal_mastery", {}) as Dictionary).duplicate(true),
 			"strategy": mastery.duplicate(true),
 			"personal_best": (playbook.get("personal_best", {}) as Dictionary).duplicate(true),
-			"next_payoff": payoff.duplicate(true),
+			"next_payoff": (payoff if share_composed_projections else payoff.duplicate(true)),
 		},
 		"strategy_builds": {
 			"paths": ["FAST", "SAFE", "FLOCK", "QUALITY", "AUTOMATION"],
@@ -881,7 +934,7 @@ func _compelling_game_loop(
 			"single_dominant_strategy_rejected": true,
 		},
 		"collection_completion": {
-			"collection": collections.duplicate(true),
+			"collection": (collections if share_composed_projections else collections.duplicate(true)),
 			"rewards": ["FURNISHING", "MODIFIER", "ABILITY", "SCENARIO"],
 			"checklist_only_rewards_rejected": true,
 		},
@@ -913,7 +966,7 @@ func _compelling_game_loop(
 			"subtle_variation_without_semantic_drift": true,
 		},
 		"comprehension": {
-			"protocol": comprehension.duplicate(true),
+			"protocol": (comprehension if share_composed_projections else comprehension.duplicate(true)),
 			"questions": ["FIND GOAL", "TAKE FIRST ACTION", "PREDICT RESULT", "RECOVER", "EXPLAIN LOOP"],
 			"real_participants_required": true,
 			"results_never_fabricated": true,
@@ -935,6 +988,7 @@ func _experiential_management_loop(
 	complete_loop: Dictionary,
 	strategic_loop: Dictionary,
 	tactile_loop: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var objective := playbook.get("dominant_objective", {}) as Dictionary
 	var consequence := guided_loop.get("animated_consequence_preview", {}) as Dictionary
@@ -1017,7 +1071,7 @@ func _experiential_management_loop(
 			],
 		},
 		"direct_physical_triage": {"gesture": "DRAG FILE TO HEN", "valid_targets_visible": true, "cancel_safe": true},
-		"queue_pressure": (tactile_loop.get("queue_pressure", {}) as Dictionary).duplicate(true),
+		"queue_pressure": ((tactile_loop.get("queue_pressure", {}) as Dictionary) if share_composed_projections else (tactile_loop.get("queue_pressure", {}) as Dictionary).duplicate(true)),
 		"chicken_states": chicken_states,
 		"cause_replay": cause,
 		"docket_draft": {"choices": plan_choices, "choice_count": plan_choices.size(), "one_click": true, "mutually_exclusive": true},
@@ -1028,7 +1082,7 @@ func _experiential_management_loop(
 		"combo": (playbook.get("combo_recipe", {}) as Dictionary).duplicate(true),
 		"mechanic_upgrades": {"auto_fit": (playbook.get("mastery_automation", {}) as Dictionary).duplicate(true), "changes_rules": true},
 		"specializations": {"choices": ["FAST", "SAFE", "FLOCK"], "count": 3, "mutually_exclusive_per_shift": true},
-		"rival": (strategic_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true),
+		"rival": ((strategic_loop.get("rival_counterplay", {}) as Dictionary) if share_composed_projections else (strategic_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true)),
 		"boss_shift": (playbook.get("boss_file", {}) as Dictionary).duplicate(true),
 		"automation": {"exception_only": true, "player_taught": true, "routine_routes_only": true, "incidents_remain_manual": true},
 		"reward_display": {"physical": true, "sockets": (playbook.get("display_sockets", []) as Array).duplicate(true)},
@@ -1064,6 +1118,7 @@ func _intuitive_reward_loop(
 	tactile_loop: Dictionary,
 	experiential_loop: Dictionary,
 	reward_loop: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var worker := _focused_worker(workers, focused_worker_id)
 	var manager_intervention := playbook.get("manager_intervention", {}) as Dictionary
@@ -1194,7 +1249,7 @@ func _intuitive_reward_loop(
 		"cause_effect": cause_effect,
 		"case_folders": {
 			"color_only": false,
-			"personalities": (experiential_loop.get("case_personas", []) as Array).duplicate(true),
+			"personalities": ((experiential_loop.get("case_personas", []) as Array) if share_composed_projections else (experiential_loop.get("case_personas", []) as Array).duplicate(true)),
 			"world_shapes": {"nest_damage": "shield", "predator_loss": "diamond", "appeals": "split_stamp"},
 		},
 		"morning_plan": {"physical_cards": true, "selected_plan_id": selected_plan_id, "cards": plan_cards.duplicate(true), "one_click": true},
@@ -1205,20 +1260,20 @@ func _intuitive_reward_loop(
 			"risk": String(consequence.get("risk", "NO HIDDEN RISK")),
 			"before_commit": true,
 		},
-		"tension_rhythm": (complete_loop.get("shift_rhythm", {}) as Dictionary).duplicate(true),
+		"tension_rhythm": ((complete_loop.get("shift_rhythm", {}) as Dictionary) if share_composed_projections else (complete_loop.get("shift_rhythm", {}) as Dictionary).duplicate(true)),
 		"chicken_reactions": {
-			"states": (experiential_loop.get("chicken_states", []) as Array).duplicate(true),
-			"chain_reaction": (tactile_loop.get("chicken_chain_reaction", {}) as Dictionary).duplicate(true),
+			"states": ((experiential_loop.get("chicken_states", []) as Array) if share_composed_projections else (experiential_loop.get("chicken_states", []) as Array).duplicate(true)),
+			"chain_reaction": ((tactile_loop.get("chicken_chain_reaction", {}) as Dictionary) if share_composed_projections else (tactile_loop.get("chicken_chain_reaction", {}) as Dictionary).duplicate(true)),
 			"world_first": true,
 		},
 		"personal_goals": {"count": personal_goals.size(), "goals": personal_goals, "optional": true},
 		"hero_file": hero_file,
 		"combo_anticipation": {
 			"recipe": (playbook.get("combo_recipe", {}) as Dictionary).duplicate(true),
-			"discovery": (compelling_loop.get("combo_discovery", {}) as Dictionary).duplicate(true),
+			"discovery": ((compelling_loop.get("combo_discovery", {}) as Dictionary) if share_composed_projections else (compelling_loop.get("combo_discovery", {}) as Dictionary).duplicate(true)),
 			"world_choreography": true,
 		},
-		"transformative_upgrades": (tactile_loop.get("transformative_upgrades", {}) as Dictionary).duplicate(true),
+		"transformative_upgrades": ((tactile_loop.get("transformative_upgrades", {}) as Dictionary) if share_composed_projections else (tactile_loop.get("transformative_upgrades", {}) as Dictionary).duplicate(true)),
 		"reward_destination": {
 			"physical": true,
 			"label": "FLOCK TROPHY SHELF",
@@ -1227,13 +1282,13 @@ func _intuitive_reward_loop(
 		},
 		"next_shift_tease": (playbook.get("next_shift_preview", {}) as Dictionary).duplicate(true),
 		"setback_recovery": {
-			"sequence": (tactile_loop.get("comeback_sequence", {}) as Dictionary).duplicate(true),
-			"options": (rewarding_loop.get("recovery_options", {}) as Dictionary).duplicate(true),
+			"sequence": ((tactile_loop.get("comeback_sequence", {}) as Dictionary) if share_composed_projections else (tactile_loop.get("comeback_sequence", {}) as Dictionary).duplicate(true)),
+			"options": ((rewarding_loop.get("recovery_options", {}) as Dictionary) if share_composed_projections else (rewarding_loop.get("recovery_options", {}) as Dictionary).duplicate(true)),
 			"banked_rewards_safe": true,
 		},
 		"mastery_feedback": {
 			"mastery": (playbook.get("strategy_mastery", {}) as Dictionary).duplicate(true),
-			"manager_power": (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true),
+			"manager_power": ((mastery_replay.get("manager_power", {}) as Dictionary) if share_composed_projections else (mastery_replay.get("manager_power", {}) as Dictionary).duplicate(true)),
 			"personal_best": (playbook.get("personal_best", {}) as Dictionary).duplicate(true),
 			"celebrates_skill_not_time": true,
 		},
@@ -1242,10 +1297,10 @@ func _intuitive_reward_loop(
 			"routine_routes_only": true,
 			"incidents_remain_manual": true,
 			"visible_when_it_acts": true,
-			"source": (experiential_loop.get("automation", {}) as Dictionary).duplicate(true),
+			"source": ((experiential_loop.get("automation", {}) as Dictionary) if share_composed_projections else (experiential_loop.get("automation", {}) as Dictionary).duplicate(true)),
 		},
 		"rival_presence": {
-			"rival": (strategic_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true),
+			"rival": ((strategic_loop.get("rival_counterplay", {}) as Dictionary) if share_composed_projections else (strategic_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true)),
 			"world_signal": true,
 			"quiet_before_relevant": true,
 		},
@@ -1257,7 +1312,7 @@ func _intuitive_reward_loop(
 		},
 		"sound_families": {"count": sound_families.size(), "families": sound_families, "semantic_drift": false},
 		"comprehension": {
-			"protocol": (experiential_loop.get("comprehension", {}) as Dictionary).duplicate(true),
+			"protocol": ((experiential_loop.get("comprehension", {}) as Dictionary) if share_composed_projections else (experiential_loop.get("comprehension", {}) as Dictionary).duplicate(true)),
 			"questions": ["FIND GOAL", "TAKE ACTION", "PREDICT RESULT", "RECOVER", "EXPLAIN LOOP"],
 			"real_participants_required": true,
 			"results_never_fabricated": true,
@@ -1265,8 +1320,8 @@ func _intuitive_reward_loop(
 		"adds_default_panel": false,
 		"focused_worker_id": focused_worker_id,
 		"simulation_day": int(simulation.get("day", 1)),
-		"reward_identity": (reward_loop.get("strategy_identity", {}) as Dictionary).duplicate(true),
-		"milestone_spectacle": (professional_loop.get("highlight_replay", {}) as Dictionary).duplicate(true),
+		"reward_identity": ((reward_loop.get("strategy_identity", {}) as Dictionary) if share_composed_projections else (reward_loop.get("strategy_identity", {}) as Dictionary).duplicate(true)),
+		"milestone_spectacle": ((professional_loop.get("highlight_replay", {}) as Dictionary) if share_composed_projections else (professional_loop.get("highlight_replay", {}) as Dictionary).duplicate(true)),
 	}
 
 
@@ -1289,6 +1344,7 @@ func _tactile_reward_loop(
 	strategic_loop: Dictionary,
 	reward_loop: Dictionary,
 	relationship: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var worker := _focused_worker(workers, focused_worker_id)
 	var payoff := mastery_replay.get("payoff_clock", {}) as Dictionary
@@ -1361,8 +1417,8 @@ func _tactile_reward_loop(
 			"skippable_coach": true,
 		},
 		"cause_effect_trail": {
-			"trail": (complete_loop.get("cause_effect_trail", {}) as Dictionary).duplicate(true),
-			"physical_path": (strategic_loop.get("resource_flow", {}) as Dictionary).duplicate(true),
+			"trail": ((complete_loop.get("cause_effect_trail", {}) as Dictionary) if share_composed_projections else (complete_loop.get("cause_effect_trail", {}) as Dictionary).duplicate(true)),
+			"physical_path": ((strategic_loop.get("resource_flow", {}) as Dictionary) if share_composed_projections else (strategic_loop.get("resource_flow", {}) as Dictionary).duplicate(true)),
 			"sequence": ["ACTION", "HEN", "FILE", "EGG", "REWARD"],
 			"animated": true,
 		},
@@ -1378,7 +1434,7 @@ func _tactile_reward_loop(
 			"can_cancel": true,
 		},
 		"queue_pressure": {
-			"bottleneck": (strategic_loop.get("bottleneck", {}) as Dictionary).duplicate(true),
+			"bottleneck": ((strategic_loop.get("bottleneck", {}) as Dictionary) if share_composed_projections else (strategic_loop.get("bottleneck", {}) as Dictionary).duplicate(true)),
 			"physical_cues": ["FOLDER HEIGHT", "MACHINE PULSE", "HEN REACTION"],
 			"color_only": false,
 		},
@@ -1397,14 +1453,14 @@ func _tactile_reward_loop(
 		},
 		"chicken_chain_reaction": {
 			"combo": combo.duplicate(true),
-			"relationship": relationship.duplicate(true),
-			"teamwork": (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true),
+			"relationship": (relationship if share_composed_projections else relationship.duplicate(true)),
+			"teamwork": ((reward_loop.get("relationship_teamwork", {}) as Dictionary) if share_composed_projections else (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true)),
 			"world_choreography": true,
 			"character_barks": true,
 		},
 		"payoff_anticipation": {
-			"clock": payoff.duplicate(true),
-			"celebration": celebration.duplicate(true),
+			"clock": (payoff if share_composed_projections else payoff.duplicate(true)),
+			"celebration": (celebration if share_composed_projections else celebration.duplicate(true)),
 			"world_build_up": true,
 			"importance_scaled": true,
 		},
@@ -1415,20 +1471,20 @@ func _tactile_reward_loop(
 			"core_progress_safe": true,
 		},
 		"decisive_shift_choice": {
-			"incident": (rewarding_loop.get("incident_choice", {}) as Dictionary).duplicate(true),
-			"reward_draft": (professional_loop.get("transformative_draft", {}) as Dictionary).duplicate(true),
+			"incident": ((rewarding_loop.get("incident_choice", {}) as Dictionary) if share_composed_projections else (rewarding_loop.get("incident_choice", {}) as Dictionary).duplicate(true)),
+			"reward_draft": ((professional_loop.get("transformative_draft", {}) as Dictionary) if share_composed_projections else (professional_loop.get("transformative_draft", {}) as Dictionary).duplicate(true)),
 			"one_major_decision": true,
 			"consequences_previewed": true,
 		},
 		"comeback_sequence": {
-			"near_miss": (reward_loop.get("near_miss_rescue", {}) as Dictionary).duplicate(true),
-			"recovery": (rewarding_loop.get("recovery_options", {}) as Dictionary).duplicate(true),
+			"near_miss": ((reward_loop.get("near_miss_rescue", {}) as Dictionary) if share_composed_projections else (reward_loop.get("near_miss_rescue", {}) as Dictionary).duplicate(true)),
+			"recovery": ((rewarding_loop.get("recovery_options", {}) as Dictionary) if share_composed_projections else (rewarding_loop.get("recovery_options", {}) as Dictionary).duplicate(true)),
 			"banked_rewards_safe": true,
 			"sequence": ["WARN", "CHOOSE", "RECOVER", "CELEBRATE"],
 		},
 		"transformative_upgrades": {
-			"draft": (professional_loop.get("transformative_draft", {}) as Dictionary).duplicate(true),
-			"strategy": strategy.duplicate(true),
+			"draft": ((professional_loop.get("transformative_draft", {}) as Dictionary) if share_composed_projections else (professional_loop.get("transformative_draft", {}) as Dictionary).duplicate(true)),
+			"strategy": (strategy if share_composed_projections else strategy.duplicate(true)),
 			"changes_future_verbs": true,
 			"world_visible": true,
 		},
@@ -1446,21 +1502,21 @@ func _tactile_reward_loop(
 			"penalty_free": true,
 		},
 		"relationship_map": {
-			"episode": relationship.duplicate(true),
+			"episode": (relationship if share_composed_projections else relationship.duplicate(true)),
 			"echo": (playbook.get("relationship_echo", {}) as Dictionary).duplicate(true),
-			"teamwork": (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true),
+			"teamwork": ((reward_loop.get("relationship_teamwork", {}) as Dictionary) if share_composed_projections else (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true)),
 			"world_first": true,
 			"dense_panel_required": false,
 		},
 		"highlight_replay": {
 			"duration_seconds": 10,
-			"highlight": highlight.duplicate(true),
+			"highlight": (highlight if share_composed_projections else highlight.duplicate(true)),
 			"beats": ["SMARTEST MOVE", "CLOSE CALL", "WHAT CHANGED"],
 			"skippable": true,
 		},
 		"strategy_office": {
-			"strategy": strategy.duplicate(true),
-			"furnishing": furnishing.duplicate(true),
+			"strategy": (strategy if share_composed_projections else strategy.duplicate(true)),
+			"furnishing": (furnishing if share_composed_projections else furnishing.duplicate(true)),
 			"persistent": true,
 			"world_visible": true,
 		},
@@ -1479,7 +1535,7 @@ func _tactile_reward_loop(
 			"changes_terms_not_rules": true,
 		},
 		"comprehension": {
-			"protocol": (compelling_loop.get("comprehension", {}) as Dictionary).duplicate(true),
+			"protocol": ((compelling_loop.get("comprehension", {}) as Dictionary) if share_composed_projections else (compelling_loop.get("comprehension", {}) as Dictionary).duplicate(true)),
 			"questions": ["FIND GOAL", "TAKE ACTION", "PREDICT RESULT", "RECOVER", "EXPLAIN LOOP"],
 			"real_participants_required": true,
 			"results_never_fabricated": true,
@@ -1508,6 +1564,7 @@ func _strategic_flow_loop(
 	relationship: Dictionary,
 	feedback: Dictionary,
 	momentum: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var worker := _focused_worker(workers, focused_worker_id)
 	var target := guided_loop.get("one_action_one_target", {}) as Dictionary
@@ -1567,7 +1624,7 @@ func _strategic_flow_loop(
 	}
 	var route_preview := {
 		"action": action_label,
-		"target": target.duplicate(true),
+		"target": (target if share_composed_projections else target.duplicate(true)),
 		"gain": gain_label,
 		"cost": String(after.get("cost", "NO COST")).to_upper(),
 		"risk": risk_label,
@@ -1579,7 +1636,7 @@ func _strategic_flow_loop(
 		"verdict": String(prediction.get("verdict", "AWAITING PLAN")).to_upper(),
 		"gain": gain_label,
 		"risk": risk_label,
-		"next_payoff": (mastery_replay.get("payoff_clock", {}) as Dictionary).duplicate(true),
+		"next_payoff": ((mastery_replay.get("payoff_clock", {}) as Dictionary) if share_composed_projections else (mastery_replay.get("payoff_clock", {}) as Dictionary).duplicate(true)),
 		"observed_not_guaranteed": true,
 		"compact": "%s · %s" % [preset_label, String(prediction.get("verdict", "AWAITING PLAN")).to_upper()],
 	}
@@ -1654,7 +1711,7 @@ func _strategic_flow_loop(
 		},
 		"opening_vignette": {
 			"sequence": ["MEET THE SHIFT", "SPOT THE PRESSURE", "PICK A PLAN", "ROUTE"],
-			"shift_identity": (compelling_loop.get("shift_identity", {}) as Dictionary).duplicate(true),
+			"shift_identity": ((compelling_loop.get("shift_identity", {}) as Dictionary) if share_composed_projections else (compelling_loop.get("shift_identity", {}) as Dictionary).duplicate(true)),
 			"skippable": true,
 			"blocks_input": false,
 		},
@@ -1662,7 +1719,7 @@ func _strategic_flow_loop(
 			"stage": String(rhythm.get("stage", "calm")),
 			"intensity": float(rhythm.get("intensity", 0.0)),
 			"cadence_seconds": [20, 30],
-			"countdown": (mastery_replay.get("payoff_clock", {}) as Dictionary).duplicate(true),
+			"countdown": ((mastery_replay.get("payoff_clock", {}) as Dictionary) if share_composed_projections else (mastery_replay.get("payoff_clock", {}) as Dictionary).duplicate(true)),
 		},
 		"strategy_forecast": strategy_forecast,
 		"roster_warning": roster_warning,
@@ -1689,32 +1746,32 @@ func _strategic_flow_loop(
 			"preparation_matters": true,
 		},
 		"comeback": {
-			"near_miss": near_miss.duplicate(true),
+			"near_miss": (near_miss if share_composed_projections else near_miss.duplicate(true)),
 			"momentum": momentum.duplicate(true),
 			"choices": (rewarding_loop.get("recovery_options", {}) as Dictionary).get("choices", ["PECK", "BEST FIT", "CARE"]),
 			"banked_rewards_safe": true,
 		},
 		"purchase_ceremony": {
-			"reward": reward_draft.duplicate(true),
-			"celebration": celebration.duplicate(true),
-			"office_transformation": furnishing.duplicate(true),
+			"reward": (reward_draft if share_composed_projections else reward_draft.duplicate(true)),
+			"celebration": (celebration if share_composed_projections else celebration.duplicate(true)),
+			"office_transformation": (furnishing if share_composed_projections else furnishing.duplicate(true)),
 			"importance_scaled": true,
 		},
 		"hen_celebration": {
 			"worker_id": int(worker.get("id", -1)),
 			"name": String(worker.get("name", "HEN")).to_upper(),
 			"temperament": String(worker.get("temperament", worker.get("work_style", "ADAPTABLE"))).replace("_", " ").to_upper(),
-			"relationship": relationship.duplicate(true),
+			"relationship": (relationship if share_composed_projections else relationship.duplicate(true)),
 			"personal_reaction": true,
 		},
 		"strategy_audio": {
 			"strategy": preset_label,
 			"layers": ["FLOOR", preset_label, String(rhythm.get("stage", "calm")).to_upper()],
-			"semantic_families": (compelling_loop.get("audio_grammar", {}) as Dictionary).duplicate(true),
+			"semantic_families": ((compelling_loop.get("audio_grammar", {}) as Dictionary) if share_composed_projections else (compelling_loop.get("audio_grammar", {}) as Dictionary).duplicate(true)),
 			"evolves_without_replacing_cues": true,
 		},
 		"branching_rewards": {
-			"draft": reward_draft.duplicate(true),
+			"draft": (reward_draft if share_composed_projections else reward_draft.duplicate(true)),
 			"choose_one": true,
 			"changes_future_play": true,
 		},
@@ -1729,8 +1786,8 @@ func _strategic_flow_loop(
 			"isolated_mechanics_rejected": true,
 		},
 		"collection_sets": {
-			"collection": collections.duplicate(true),
-			"strategy": strategy.duplicate(true),
+			"collection": (collections if share_composed_projections else collections.duplicate(true)),
+			"strategy": (strategy if share_composed_projections else strategy.duplicate(true)),
 			"world_visible": true,
 		},
 		"hen_finale": {
@@ -1739,7 +1796,7 @@ func _strategic_flow_loop(
 			"three_beats": true,
 		},
 		"rival_adaptation": {
-			"counterplay": (reward_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true),
+			"counterplay": ((reward_loop.get("rival_counterplay", {}) as Dictionary) if share_composed_projections else (reward_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true)),
 			"responds_to_strategy": true,
 			"telegraphed": true,
 		},
@@ -1763,7 +1820,7 @@ func _strategic_flow_loop(
 		},
 		"career_legacy": {
 			"display_sockets": (playbook.get("display_sockets", []) as Array).duplicate(true),
-			"collections": collections.duplicate(true),
+			"collections": (collections if share_composed_projections else collections.duplicate(true)),
 			"career_story": career_story.duplicate(true),
 			"world_visible": true,
 		},
@@ -1787,6 +1844,7 @@ func _mastery_replay_layer(
 	relationship: Dictionary,
 	rival_pulse: Dictionary,
 	momentum: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var day := maxi(1, int(simulation.get("day", playbook.get("day", 1))))
 	var worker := _focused_worker(workers, focused_worker_id)
@@ -1921,12 +1979,12 @@ func _mastery_replay_layer(
 		},
 		"story_arc": {
 			"career": (playbook.get("career_story", {}) as Dictionary).duplicate(true),
-			"relationship": relationship.duplicate(true),
+			"relationship": (relationship if share_composed_projections else relationship.duplicate(true)),
 			"rare_episode": (playbook.get("rare_episode", {}) as Dictionary).duplicate(true),
 		},
 		"rival_action": {
 			"pulse": rival_pulse.duplicate(true),
-			"counterplay": (reward_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true),
+			"counterplay": ((reward_loop.get("rival_counterplay", {}) as Dictionary) if share_composed_projections else (reward_loop.get("rival_counterplay", {}) as Dictionary).duplicate(true)),
 			"hidden_scaling": false,
 		},
 		"challenge_file": {
@@ -1950,7 +2008,7 @@ func _mastery_replay_layer(
 			"real_participants_required": true,
 			"fabricated_results": false,
 		},
-		"supporting_complete_loop": complete_loop.duplicate(true),
+		"supporting_complete_loop": (complete_loop if share_composed_projections else complete_loop.duplicate(true)),
 	}
 
 
@@ -1969,6 +2027,7 @@ func _professional_intuitive_loop(
 	relationship: Dictionary,
 	feedback: Dictionary,
 	momentum: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var target := guided_loop.get("one_action_one_target", {}) as Dictionary
 	var consequence := guided_loop.get("animated_consequence_preview", {}) as Dictionary
@@ -2036,7 +2095,7 @@ func _professional_intuitive_loop(
 			"details_on_demand": true,
 		},
 		"world_route": {
-			"target": target.duplicate(true),
+			"target": (target if share_composed_projections else target.duplicate(true)),
 			"arm_tray_then_select_hen": true,
 			"mouse_direct": true,
 			"touch_direct": true,
@@ -2061,15 +2120,15 @@ func _professional_intuitive_loop(
 			"flies_to_world_target": true,
 			"channels": ["motion", "icon", "sound", "accessible_text"],
 		},
-		"payoff_meter": payoff.duplicate(true),
+		"payoff_meter": (payoff if share_composed_projections else payoff.duplicate(true)),
 		"strategy_preview": {
 			"selected": String(playbook.get("strategy_preset_id", "")),
 			"recommended": String(playbook.get("recommended_preset_id", "safe")),
 			"choices": ["fast", "safe", "flock"],
 			"previews_gain_cost_risk": true,
-			"world_effect": strategy.duplicate(true),
+			"world_effect": (strategy if share_composed_projections else strategy.duplicate(true)),
 		},
-		"contextual_power": power.duplicate(true),
+		"contextual_power": (power if share_composed_projections else power.duplicate(true)),
 		"signature_spectacle": {
 			"worker_id": int(signature.get("worker_id", -1)),
 			"action_id": String(signature.get("action_id", "")),
@@ -2078,12 +2137,12 @@ func _professional_intuitive_loop(
 			"audio_family": "signature",
 		},
 		"combo_choreography": {
-			"recipe": combo.duplicate(true),
+			"recipe": (combo if share_composed_projections else combo.duplicate(true)),
 			"step_count": int(combo.get("total_steps", 2)),
 			"next_step": int(combo.get("completed_steps", 0)) + 1,
 			"world_markers": true,
 		},
-		"shift_pacing": rhythm.duplicate(true),
+		"shift_pacing": (rhythm if share_composed_projections else rhythm.duplicate(true)),
 		"interactive_incident": {
 			"active": not pending_decision.is_empty(),
 			"warning": true,
@@ -2099,18 +2158,18 @@ func _professional_intuitive_loop(
 			"changes_rule_or_world": true,
 		},
 		"office_strategy_identity": {
-			"strategy": strategy.duplicate(true),
-			"furnishing": furnishing.duplicate(true),
+			"strategy": (strategy if share_composed_projections else strategy.duplicate(true)),
+			"furnishing": (furnishing if share_composed_projections else furnishing.duplicate(true)),
 			"persistent_between_shifts": true,
 		},
 		"hen_opportunity": {
-			"opportunity": opportunity.duplicate(true),
+			"opportunity": (opportunity if share_composed_projections else opportunity.duplicate(true)),
 			"worker_proposed": true,
 			"optional": true,
 		},
 		"relationship_payoff": {
-			"episode": relationship.duplicate(true),
-			"teamwork": (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true),
+			"episode": (relationship if share_composed_projections else relationship.duplicate(true)),
+			"teamwork": ((reward_loop.get("relationship_teamwork", {}) as Dictionary) if share_composed_projections else (reward_loop.get("relationship_teamwork", {}) as Dictionary).duplicate(true)),
 			"mechanical_and_visual": true,
 		},
 		"expressive_recovery": {
@@ -2138,7 +2197,7 @@ func _professional_intuitive_loop(
 			"tasks": ["name the goal", "route one file", "explain the outcome", "recover one mistake"],
 			"measures": ["time_to_first_action", "misclicks", "outcome_comprehension", "next_goal_recall"],
 		},
-		"supporting_physical_loop": physical_loop.duplicate(true),
+		"supporting_physical_loop": (physical_loop if share_composed_projections else physical_loop.duplicate(true)),
 	}
 
 
@@ -2159,6 +2218,7 @@ func _complete_game_loop(
 	shift_journey: Dictionary,
 	relationship: Dictionary,
 	cause_replay: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var micro_shift := _micro_shift(funnel, simulation, playbook)
 	var rhythm := _shift_rhythm(simulation)
@@ -2236,7 +2296,7 @@ func _complete_game_loop(
 			"one_click": true,
 			"rewrites_authority": false,
 		},
-		"shift_journey": shift_journey.duplicate(true),
+		"shift_journey": (shift_journey if share_composed_projections else shift_journey.duplicate(true)),
 	}
 
 
@@ -2445,6 +2505,7 @@ func _engagement_next_level(
 	guided_loop: Dictionary,
 	reward_loop: Dictionary,
 	physical_loop: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var objective := playbook.get("dominant_objective", {}) as Dictionary
 	var prediction := playbook.get("prediction_score", {}) as Dictionary
@@ -2487,7 +2548,7 @@ func _engagement_next_level(
 		"dominant_objective": objective.duplicate(true),
 		"prediction_score": prediction.duplicate(true),
 		"combo_recipe": recipe.duplicate(true),
-		"physical_loop": physical_loop.duplicate(true),
+		"physical_loop": (physical_loop if share_composed_projections else physical_loop.duplicate(true)),
 	}
 
 
@@ -2499,6 +2560,7 @@ func _physical_loop_resolution(
 	reward_loop: Dictionary,
 	shift_journey: Dictionary,
 	active_playbook: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var resolved := {
 		"quick_start": {"surface": "campaign_intake", "authority": "campaign", "interaction": "quick_start_or_customize"},
@@ -2534,7 +2596,7 @@ func _physical_loop_resolution(
 		"items": resolved,
 		"live_state": {
 			"journey_stage": String(shift_journey.get("active_stage", "plan")),
-			"world_target": (guided_loop.get("one_action_one_target", {}) as Dictionary).duplicate(true),
+			"world_target": ((guided_loop.get("one_action_one_target", {}) as Dictionary) if share_composed_projections else (guided_loop.get("one_action_one_target", {}) as Dictionary).duplicate(true)),
 			"reward_ready": bool((reward_loop.get("future_reward_ghost", {}) as Dictionary).get("ready", false)),
 			"playbook_authoritative": bool(active_playbook.get("authoritative", false)),
 		},
@@ -2820,6 +2882,7 @@ func _guided_loop(
 	rival_pulse: Dictionary,
 	order_pulse: Dictionary,
 	momentum: Dictionary,
+	share_composed_projections: bool = false,
 ) -> Dictionary:
 	var preset_id := String(playbook.get("strategy_preset_id", ""))
 	var recommended_id := String(playbook.get("recommended_preset_id", "safe"))
@@ -2883,7 +2946,7 @@ func _guided_loop(
 		"prediction_score": (playbook.get("prediction_score", {}) as Dictionary).duplicate(true),
 		"combo_recipe": (playbook.get("combo_recipe", {}) as Dictionary).duplicate(true),
 		"strategy_mastery": (playbook.get("strategy_mastery", {}) as Dictionary).duplicate(true),
-		"visible_shift_journey": shift_journey.duplicate(true),
+		"visible_shift_journey": (shift_journey if share_composed_projections else shift_journey.duplicate(true)),
 		"physical_signature_move": {
 			"worker_id": int(signature.get("worker_id", worker.get("id", -1))),
 			"worker_name": String(worker.get("name", "HEN")),

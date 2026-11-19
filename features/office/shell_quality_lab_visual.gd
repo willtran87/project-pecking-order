@@ -1,6 +1,8 @@
 class_name ShellQualityLabVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## A visual-only facility module for the east service alcove. The rectangle is
@@ -40,7 +42,7 @@ func _ready() -> void:
 
 ## Rect2.position is minimum X/Z and Rect2.size is footprint width/depth.
 static func declared_footprint() -> Rect2:
-	return Rect2(FOOTPRINT_MIN, FOOTPRINT_MAX - FOOTPRINT_MIN)
+	return FacilityFootprints.SHELL_QUALITY_LAB
 
 
 func build() -> void:

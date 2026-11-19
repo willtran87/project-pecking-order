@@ -112,8 +112,11 @@ func _run() -> void:
 	chicken.visible = true
 	await physics_frame
 	var body := chicken.find_child("BodyPivot", true, false) as Node3D
+	var resumed_pose := chicken.contact_snapshot()
 	_check(
-		body != null and body.position.y > 0.45,
+		body != null and float(resumed_pose.seat) >= 0.99
+		and absf((resumed_pose.left_foot as Vector3).y - chicken.global_position.y - 0.60) < 0.005
+		and absf((resumed_pose.right_foot as Vector3).y - chicken.global_position.y - 0.60) < 0.005,
 		"a culled chicken should derive its complete current pose when shown again",
 		failures,
 	)

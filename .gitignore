@@ -21,3 +21,6 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+
+# Windows atomic-save temp files (Godot export / Office)
+*~RF*.TMP

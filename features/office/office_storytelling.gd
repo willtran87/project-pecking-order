@@ -1,22 +1,24 @@
 class_name OfficeStorytelling
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 const SemanticColorPaletteScript := preload("res://core/settings/semantic_color_palette.gd")
-const ShellQualityLabVisualScript := preload("res://features/office/shell_quality_lab_visual.gd")
-const PackingAnnexVisualScript := preload("res://features/office/packing_annex_visual.gd")
-const RecordsAnnexVisualScript := preload("res://features/office/records_annex_visual.gd")
-const FarmMutualServiceCoopVisualScript := preload("res://features/office/farm_mutual_service_coop_visual.gd")
-const FarmMutualNegotiationRoomVisualScript := preload("res://features/office/farm_mutual_negotiation_room_visual.gd")
-const FarmMutualContractBoardVisualScript := preload("res://features/office/farm_mutual_contract_board_visual.gd")
-const WellnessNestVisualScript := preload("res://features/office/wellness_nest_visual.gd")
-const TrainingRoostVisualScript := preload("res://features/office/training_roost_visual.gd")
-const FarmerRelationsGalleryVisualScript := preload("res://features/office/farmer_relations_gallery_visual.gd")
-const RoosterOperationsOfficeVisualScript := preload("res://features/office/rooster_operations_office_visual.gd")
-const ITCoopVisualScript := preload("res://features/office/it_coop_visual.gd")
-const FlockRelationsOfficeVisualScript := preload("res://features/office/flock_relations_office_visual.gd")
-const FeedProcurementCoopVisualScript := preload("res://features/office/feed_procurement_coop_visual.gd")
-const FarmgateDispatchDepotVisualScript := preload("res://features/office/farmgate_dispatch_depot_visual.gd")
+const ShellQualityLabVisualScript := "res://features/office/shell_quality_lab_visual.gd"
+const PackingAnnexVisualScript := "res://features/office/packing_annex_visual.gd"
+const RecordsAnnexVisualScript := "res://features/office/records_annex_visual.gd"
+const FarmMutualServiceCoopVisualScript := "res://features/office/farm_mutual_service_coop_visual.gd"
+const FarmMutualNegotiationRoomVisualScript := "res://features/office/farm_mutual_negotiation_room_visual.gd"
+const FarmMutualContractBoardVisualScript := "res://features/office/farm_mutual_contract_board_visual.gd"
+const WellnessNestVisualScript := "res://features/office/wellness_nest_visual.gd"
+const TrainingRoostVisualScript := "res://features/office/training_roost_visual.gd"
+const FarmerRelationsGalleryVisualScript := "res://features/office/farmer_relations_gallery_visual.gd"
+const RoosterOperationsOfficeVisualScript := "res://features/office/rooster_operations_office_visual.gd"
+const ITCoopVisualScript := "res://features/office/it_coop_visual.gd"
+const FlockRelationsOfficeVisualScript := "res://features/office/flock_relations_office_visual.gd"
+const FeedProcurementCoopVisualScript := "res://features/office/feed_procurement_coop_visual.gd"
+const FarmgateDispatchDepotVisualScript := "res://features/office/farmgate_dispatch_depot_visual.gd"
 const CampusExpansionVisualScript := preload("res://features/office/campus_expansion_visual.gd")
 const CampusPortfolioVisualScript := preload("res://features/office/campus_portfolio_visual.gd")
 
@@ -263,7 +265,7 @@ var egg_collection_root: Node3D
 var zone_markers_root: Node3D
 var bureau_satire_root: Node3D
 var records_archive_root: Node3D
-var shell_quality_lab_visual: ShellQualityLabVisual
+var shell_quality_lab_visual: Node3D
 var packing_annex_visual: Node3D
 var records_annex_visual: Node3D
 var farm_mutual_service_coop_visual: Node3D
@@ -326,7 +328,7 @@ var _collection_cart_basket: MeshInstance3D
 var _surplus_marker_root: Node3D
 var _surplus_label: Label3D
 var _clutch_egg_mesh: Mesh
-var _clutch_cup_mesh: CylinderMesh
+var _clutch_cup_mesh: Mesh
 var _egg_handoff_trails: Dictionary[int, EggHandoffTrail] = {}
 var _egg_handoff_echo_pool: Array[MeshInstance3D] = []
 var _displayed_clutch_day := -1
@@ -408,9 +410,17 @@ func set_inspection_collection_cutaway(desk_index: int) -> void:
 			"OverheadRowRail_%02d" % row_index,
 			row_index == focused_row,
 		)
+		_set_inspection_collection_mesh(
+			"OverheadRowRail_%02dGlow" % row_index,
+			row_index == focused_row,
+		)
 	for pickup_index in _desk_positions.size():
 		_set_inspection_collection_mesh(
 			"EggLiftTube_%02d" % pickup_index,
+			pickup_index == desk_index,
+		)
+		_set_inspection_collection_mesh(
+			"CollectionStatusLamp_%02d" % pickup_index,
 			pickup_index == desk_index,
 		)
 
@@ -634,9 +644,11 @@ func bind_worker_to_desk(worker_id: int, desk_index: int) -> void:
 ## Updates the live clutch/KPI staging on every simulation snapshot. Strategic
 ## facility rooms are coalesced to four refreshes per second because they rebuild
 ## signs and physical evidence from projections that change far less frequently.
-func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = true) -> void:
+func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = true, cost_probe = null) -> void:
 	if snapshot.is_empty():
 		return
+	var profiling: bool = cost_probe != null and cost_probe.enabled
+	var started := Time.get_ticks_usec() if profiling else 0
 	var previous_snapshot := _last_snapshot
 	_last_snapshot = snapshot
 	var workers: Array = snapshot.get("workers", []) as Array
@@ -658,7 +670,13 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 	if recognition != _named_hen_recognition:
 		_named_hen_recognition = recognition
 		set_commendations_snapshot(_commendations_visual_snapshot)
+	if profiling:
+		cost_probe.finish(&"story_workers", started)
+		started = Time.get_ticks_usec()
 	_reconcile_clutch_from_snapshot(snapshot)
+	if profiling:
+		cost_probe.finish(&"story_clutch", started)
+		started = Time.get_ticks_usec()
 	var now_msec := Time.get_ticks_msec()
 	var facility_visual_fingerprint := _facility_visual_state_fingerprint_for(snapshot)
 	var facility_visuals_due: bool = (
@@ -674,7 +692,7 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 		_facility_visual_refresh_count += 1
 		_facility_visual_state_fingerprint = facility_visual_fingerprint
 		if shell_quality_lab_visual != null:
-			shell_quality_lab_visual.apply_snapshot(snapshot)
+			shell_quality_lab_visual.call("apply_snapshot", snapshot)
 		if packing_annex_visual != null:
 			packing_annex_visual.call("apply_snapshot", snapshot)
 		if records_annex_visual != null:
@@ -705,6 +723,9 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 			campus_expansion_visual.call("apply_snapshot", snapshot)
 		if campus_portfolio_visual != null:
 			campus_portfolio_visual.call("apply_snapshot", snapshot)
+	if profiling:
+		cost_probe.finish(&"story_facilities", started)
+		started = Time.get_ticks_usec()
 	# Child visuals retain their complete locked/survey/owned projections. The
 	# presentation layer gates only their parent roots after those projections
 	# update, so revealing a site later never requires rebuilding or save data.
@@ -763,6 +784,8 @@ func apply_snapshot(snapshot: Dictionary, refresh_campus_presentation: bool = tr
 		]
 		EnvironmentalSignageScript.refit_label(_claim_closure_label)
 	set_overtime(bool(snapshot.get("overtime_enabled", false)))
+	if profiling:
+		cost_probe.finish(&"story_signage", started)
 
 
 ## Static rooms may skip repeated clock-only snapshots, but authoritative
@@ -818,19 +841,32 @@ func apply_campus_presentation(
 		snapshot: Dictionary,
 		presentation_state: Dictionary = {},
 ) -> Dictionary:
-	_last_campus_presentation_options = presentation_state.duplicate(true)
-	_refresh_campus_presentation_source(snapshot)
+	update_campus_presentation(snapshot, presentation_state)
+	return campus_presentation_snapshot()
+
+
+## The live scene needs the update, not a copied graph for a discarded return.
+## Public readers above retain their isolated snapshot ownership.
+func update_campus_presentation(snapshot: Dictionary, presentation_state: Dictionary = {}) -> void:
+	var options_changed := presentation_state != _last_campus_presentation_options
+	if options_changed:
+		_last_campus_presentation_options = presentation_state.duplicate(true)
+	_refresh_campus_presentation_source(snapshot, options_changed)
 	if _lazy_hidden_optional_visuals and _ensure_required_optional_visuals(snapshot):
 		# Re-run the presentation pass after the required roots exist so the same
 		# transaction that reveals an opportunity also mounts its finished art.
 		_rebuild_campus_presentation()
-	return campus_presentation_snapshot()
 
 
-func _refresh_campus_presentation_source(snapshot: Dictionary) -> Dictionary:
-	_last_campus_presentation_source = _campus_presentation_source(snapshot)
+func _refresh_campus_presentation_source(snapshot: Dictionary, options_changed: bool = false) -> void:
+	# The Office's periodic refresh is a freshness check, not a reason to rebuild
+	# unchanged reveal states and room roots. Compare every consumed input rather
+	# than a hash or a timer so purchases, pins, and new offers remain immediate.
+	var source := _campus_presentation_source(snapshot)
+	if not options_changed and not _campus_presentation.is_empty() and source == _last_campus_presentation_source:
+		return
+	_last_campus_presentation_source = source.duplicate(true)
 	_rebuild_campus_presentation()
-	return campus_presentation_snapshot()
 
 
 ## Stable read model for UI, camera, and tests. `entries_by_id` includes hidden
@@ -2216,27 +2252,61 @@ func _desk_index_for_worker(worker_id: int) -> int:
 
 
 func _campus_presentation_source(snapshot: Dictionary) -> Dictionary:
-	var source: Dictionary = {}
-	for key: String in [
-		"day",
-		"owned_facilities",
-		"facility_catalog",
-		"pinned_capital_plan_id",
-		"capital_plan",
-		"contract_board",
-		"campus_expansion",
-		"campus_portfolio",
-	]:
-		if not snapshot.has(key):
-			continue
-		var value: Variant = snapshot.get(key)
-		if value is Dictionary:
-			source[key] = (value as Dictionary).duplicate(true)
-		elif value is Array:
-			source[key] = (value as Array).duplicate(true)
-		else:
-			source[key] = value
-	return source
+	# Operational counters in quotes must not invalidate an unchanged reveal.
+	# Normalize exactly the fields consumed by _rebuild_campus_presentation.
+	var facilities := _presentation_records_by_id(snapshot.get("facility_catalog", []), "id", false)
+	var owned_value: Variant = snapshot.get("owned_facilities", {})
+	var owned := owned_value as Dictionary if owned_value is Dictionary else {}
+	var facility_states: Dictionary = {}
+	var owned_levels: Dictionary = {}
+	for facility_id: StringName in CAMPUS_PRESENTATION_FACILITY_ORDER:
+		var facility := facilities.get(facility_id, {}) as Dictionary
+		owned_levels[facility_id] = _presentation_level(owned.get(facility_id, owned.get(String(facility_id), 0)))
+		facility_states[facility_id] = {
+			"level": _presentation_level(facility.get("level", facility.get("owned_level", 1 if bool(facility.get("installed", false)) else 0))),
+			"owned": bool(facility.get("owned", facility.get("installed", false))),
+			"unlocked": bool(facility.get("unlocked", facility.get("available", facility.get("can_purchase", false)))),
+			"unlock_day": int(facility.get("unlock_day", facility.get("next_unlock_day", 0))),
+		}
+	var board_value: Variant = snapshot.get("contract_board", {})
+	var board := board_value as Dictionary if board_value is Dictionary else {}
+	var active_value: Variant = board.get("active_contract", board.get("active", {}))
+	var contract_active := active_value is Dictionary and not (active_value as Dictionary).is_empty()
+	var expansion_value: Variant = snapshot.get("campus_expansion", {})
+	var expansion := expansion_value as Dictionary if expansion_value is Dictionary else {}
+	var north_value: Variant = expansion.get("parcel", {})
+	var north := north_value as Dictionary if north_value is Dictionary else {}
+	var portfolio_value: Variant = snapshot.get("campus_portfolio", {})
+	var portfolio := portfolio_value as Dictionary if portfolio_value is Dictionary else {}
+	var parcels := _presentation_records_by_id(portfolio.get("parcels", []), "id", false)
+	var parcel_states: Dictionary = {}
+	for parcel_id: StringName in [ORCHARD_ROW_PRESENTATION_ID, CREEKSIDE_YARD_PRESENTATION_ID]:
+		var parcel := parcels.get(parcel_id, {}) as Dictionary
+		if not parcel.is_empty():
+			parcel_states[parcel_id] = {
+				"owned": _presentation_parcel_owned(parcel),
+				"can_purchase": bool(parcel.get("can_purchase", false)),
+				"unlock_day": int(parcel.get("unlock_day", 0)),
+			}
+	return {
+		"day": int(snapshot.get("day", portfolio.get("current_day", 1))),
+		"owned_facilities": owned_levels,
+		"facility_catalog": facility_states,
+		"pinned_capital_plan_id": _presentation_pinned_facility_id(snapshot),
+		"contract_board": {
+			"unlocked": bool(board.get("unlocked", false)) or contract_active or int(board.get("contracts_signed_total", 0)) > 0,
+			"unlock_day": int(board.get("unlock_day", 0)),
+		},
+		"campus_expansion": {
+			"parcel_owned": bool(expansion.get("parcel_owned", north.get("owned", false))),
+			"access_gate_met": bool(expansion.get("access_gate_met", false)) or bool(north.get("can_purchase", false)),
+			"unlock_day": int(expansion.get("unlock_day", 0)),
+		},
+		"campus_portfolio": {
+			"parcels": parcel_states,
+			"projects": [true] if _portfolio_has_development(portfolio) else [],
+		},
+	}
 
 
 func _rebuild_campus_presentation() -> void:
@@ -2303,7 +2373,7 @@ func _rebuild_campus_presentation() -> void:
 		FARM_MUTUAL_CONTRACT_BOARD_PRESENTATION_ID,
 		CAMPUS_PRESENTATION_OFFERED if contract_offered else CAMPUS_PRESENTATION_HIDDEN,
 		"FarmMutualContractBoardVisual",
-		FarmMutualContractBoardVisualScript.declared_footprint(),
+		FacilityFootprints.FARM_MUTUAL_CONTRACT_BOARD,
 		&"governance",
 		int(contract_board.get("unlock_day", 0)),
 	)
@@ -2681,7 +2751,7 @@ func _portfolio_has_development(portfolio: Dictionary) -> bool:
 	return false
 
 
-func _presentation_records_by_id(value: Variant, id_key: String) -> Dictionary:
+func _presentation_records_by_id(value: Variant, id_key: String, copy_records: bool = true) -> Dictionary:
 	var records: Dictionary = {}
 	if value is Array:
 		for record_value: Variant in value as Array:
@@ -2690,13 +2760,17 @@ func _presentation_records_by_id(value: Variant, id_key: String) -> Dictionary:
 			var record := record_value as Dictionary
 			var record_id := StringName(String(record.get(id_key, "")))
 			if record_id != &"":
-				records[record_id] = record.duplicate(true)
+				records[record_id] = record.duplicate(true) if copy_records else record
 	elif value is Dictionary:
 		for key: Variant in (value as Dictionary).keys():
 			var record_value: Variant = (value as Dictionary).get(key)
 			if record_value is not Dictionary:
 				continue
-			var record := (record_value as Dictionary).duplicate(true)
+			var record := record_value as Dictionary
+			if copy_records:
+				record = record.duplicate(true)
+			elif not record.has(id_key):
+				record = record.duplicate()
 			if not record.has(id_key):
 				record[id_key] = String(key)
 			var record_id := StringName(String(record.get(id_key, "")))
@@ -2777,31 +2851,31 @@ func _facility_root_name(facility_id: StringName) -> String:
 func _facility_footprint(facility_id: StringName) -> Rect2:
 	match facility_id:
 		CANDLING_REWORK_BAY_ID:
-			return ShellQualityLabVisualScript.declared_footprint()
+			return FacilityFootprints.SHELL_QUALITY_LAB
 		PACKING_ANNEX_ID:
-			return PackingAnnexVisualScript.declared_footprint()
+			return FacilityFootprints.PACKING_ANNEX
 		RECORDS_ANNEX_ID:
-			return RecordsAnnexVisualScript.declared_footprint()
+			return FacilityFootprints.RECORDS_ANNEX
 		FARM_MUTUAL_SERVICE_COOP_ID:
-			return FarmMutualServiceCoopVisualScript.declared_footprint()
+			return FacilityFootprints.FARM_MUTUAL_SERVICE_COOP
 		FARM_MUTUAL_NEGOTIATION_ROOM_ID:
-			return FarmMutualNegotiationRoomVisualScript.declared_footprint()
+			return FacilityFootprints.FARM_MUTUAL_NEGOTIATION_ROOM
 		WELLNESS_NEST_ID:
-			return WellnessNestVisualScript.declared_footprint()
+			return FacilityFootprints.WELLNESS_NEST
 		TRAINING_ROOST_ID:
-			return TrainingRoostVisualScript.declared_footprint()
+			return FacilityFootprints.TRAINING_ROOST
 		ROOSTER_OPERATIONS_OFFICE_ID:
-			return RoosterOperationsOfficeVisualScript.declared_footprint()
+			return FacilityFootprints.ROOSTER_OPERATIONS_OFFICE
 		IT_COOP_ID:
-			return ITCoopVisualScript.declared_footprint()
+			return FacilityFootprints.IT_COOP
 		FLOCK_RELATIONS_OFFICE_ID:
-			return FlockRelationsOfficeVisualScript.declared_footprint()
+			return FacilityFootprints.FLOCK_RELATIONS_OFFICE
 		FEED_PROCUREMENT_COOP_ID:
-			return FeedProcurementCoopVisualScript.declared_footprint()
+			return FacilityFootprints.FEED_PROCUREMENT_COOP
 		FARMER_RELATIONS_GALLERY_ID:
-			return FarmerRelationsGalleryVisualScript.declared_footprint()
+			return FacilityFootprints.FARMER_RELATIONS_GALLERY
 		FARMGATE_DISPATCH_DEPOT_ID:
-			return FarmgateDispatchDepotVisualScript.declared_footprint()
+			return FacilityFootprints.FARMGATE_DISPATCH_DEPOT
 	return Rect2()
 
 
@@ -3268,7 +3342,7 @@ func _clear_built_roots() -> void:
 	_settled_egg_animations.clear()
 	_clutch_recoil_animations.clear()
 	if shell_quality_lab_visual != null and is_instance_valid(shell_quality_lab_visual):
-		shell_quality_lab_visual.clear()
+		shell_quality_lab_visual.call("clear")
 	if packing_annex_visual != null and is_instance_valid(packing_annex_visual):
 		packing_annex_visual.call("clear")
 	if records_annex_visual != null and is_instance_valid(records_annex_visual):
@@ -3380,42 +3454,42 @@ func _clear_built_roots() -> void:
 
 
 func _build_shell_quality_lab_visual() -> void:
-	shell_quality_lab_visual = ShellQualityLabVisualScript.new() as ShellQualityLabVisual
+	shell_quality_lab_visual = (load(ShellQualityLabVisualScript) as Script).new() as Node3D
 	shell_quality_lab_visual.name = "ShellQualityLabVisual"
 	add_child(shell_quality_lab_visual)
-	shell_quality_lab_visual.build()
+	shell_quality_lab_visual.call("build")
 
 
 func _build_packing_annex_visual() -> void:
-	packing_annex_visual = PackingAnnexVisualScript.new() as Node3D
+	packing_annex_visual = (load(PackingAnnexVisualScript) as Script).new() as Node3D
 	packing_annex_visual.name = "PackingAnnexVisual"
 	add_child(packing_annex_visual)
 	packing_annex_visual.call("build")
 
 
 func _build_records_annex_visual() -> void:
-	records_annex_visual = RecordsAnnexVisualScript.new() as Node3D
+	records_annex_visual = (load(RecordsAnnexVisualScript) as Script).new() as Node3D
 	records_annex_visual.name = "RecordsAnnexVisual"
 	add_child(records_annex_visual)
 	records_annex_visual.call("build")
 
 
 func _build_farm_mutual_service_coop_visual() -> void:
-	farm_mutual_service_coop_visual = FarmMutualServiceCoopVisualScript.new() as Node3D
+	farm_mutual_service_coop_visual = (load(FarmMutualServiceCoopVisualScript) as Script).new() as Node3D
 	farm_mutual_service_coop_visual.name = "FarmMutualServiceCoopVisual"
 	add_child(farm_mutual_service_coop_visual)
 	farm_mutual_service_coop_visual.call("build")
 
 
 func _build_farm_mutual_negotiation_room_visual() -> void:
-	farm_mutual_negotiation_room_visual = FarmMutualNegotiationRoomVisualScript.new() as Node3D
+	farm_mutual_negotiation_room_visual = (load(FarmMutualNegotiationRoomVisualScript) as Script).new() as Node3D
 	farm_mutual_negotiation_room_visual.name = "FarmMutualNegotiationRoomVisual"
 	add_child(farm_mutual_negotiation_room_visual)
 	farm_mutual_negotiation_room_visual.call("build")
 
 
 func _build_farm_mutual_contract_board_visual() -> void:
-	farm_mutual_contract_board_visual = FarmMutualContractBoardVisualScript.new() as Node3D
+	farm_mutual_contract_board_visual = (load(FarmMutualContractBoardVisualScript) as Script).new() as Node3D
 	farm_mutual_contract_board_visual.name = "FarmMutualContractBoardVisual"
 	add_child(farm_mutual_contract_board_visual)
 	farm_mutual_contract_board_visual.call("build")
@@ -3510,21 +3584,21 @@ func _build_care_campus_spine() -> void:
 
 
 func _build_wellness_nest_visual() -> void:
-	wellness_nest_visual = WellnessNestVisualScript.new() as Node3D
+	wellness_nest_visual = (load(WellnessNestVisualScript) as Script).new() as Node3D
 	wellness_nest_visual.name = "WellnessNestVisual"
 	add_child(wellness_nest_visual)
 	wellness_nest_visual.call("build")
 
 
 func _build_training_roost_visual() -> void:
-	training_roost_visual = TrainingRoostVisualScript.new() as Node3D
+	training_roost_visual = (load(TrainingRoostVisualScript) as Script).new() as Node3D
 	training_roost_visual.name = "TrainingRoostVisual"
 	add_child(training_roost_visual)
 	training_roost_visual.call("build")
 
 
 func _build_farmer_relations_gallery_visual() -> void:
-	farmer_relations_gallery_visual = FarmerRelationsGalleryVisualScript.new() as Node3D
+	farmer_relations_gallery_visual = (load(FarmerRelationsGalleryVisualScript) as Script).new() as Node3D
 	farmer_relations_gallery_visual.name = "FarmerRelationsGalleryVisual"
 	add_child(farmer_relations_gallery_visual)
 	farmer_relations_gallery_visual.call("build")
@@ -3596,35 +3670,35 @@ func _build_operations_campus_spine() -> void:
 
 
 func _build_rooster_operations_office_visual() -> void:
-	rooster_operations_office_visual = RoosterOperationsOfficeVisualScript.new() as Node3D
+	rooster_operations_office_visual = (load(RoosterOperationsOfficeVisualScript) as Script).new() as Node3D
 	rooster_operations_office_visual.name = "RoosterOperationsOfficeVisual"
 	add_child(rooster_operations_office_visual)
 	rooster_operations_office_visual.call("build")
 
 
 func _build_it_coop_visual() -> void:
-	it_coop_visual = ITCoopVisualScript.new() as Node3D
+	it_coop_visual = (load(ITCoopVisualScript) as Script).new() as Node3D
 	it_coop_visual.name = "ITCoopVisual"
 	add_child(it_coop_visual)
 	it_coop_visual.call("build")
 
 
 func _build_flock_relations_office_visual() -> void:
-	flock_relations_office_visual = FlockRelationsOfficeVisualScript.new() as Node3D
+	flock_relations_office_visual = (load(FlockRelationsOfficeVisualScript) as Script).new() as Node3D
 	flock_relations_office_visual.name = "FlockRelationsOfficeVisual"
 	add_child(flock_relations_office_visual)
 	flock_relations_office_visual.call("build")
 
 
 func _build_feed_procurement_coop_visual() -> void:
-	feed_procurement_coop_visual = FeedProcurementCoopVisualScript.new() as Node3D
+	feed_procurement_coop_visual = (load(FeedProcurementCoopVisualScript) as Script).new() as Node3D
 	feed_procurement_coop_visual.name = "FeedProcurementCoopVisual"
 	add_child(feed_procurement_coop_visual)
 	feed_procurement_coop_visual.call("build")
 
 
 func _build_farmgate_dispatch_depot_visual() -> void:
-	farmgate_dispatch_depot_visual = FarmgateDispatchDepotVisualScript.new() as Node3D
+	farmgate_dispatch_depot_visual = (load(FarmgateDispatchDepotVisualScript) as Script).new() as Node3D
 	farmgate_dispatch_depot_visual.name = "FarmgateDispatchDepotVisual"
 	add_child(farmgate_dispatch_depot_visual)
 	farmgate_dispatch_depot_visual.call("build")
@@ -3935,6 +4009,15 @@ func _build_sorting_gate() -> void:
 		lamp.material_override = lamp_material
 		_quality_lamps[quality] = lamp
 		_quality_lamp_materials[quality] = lamp_material
+		var bezel := MeshInstance3D.new()
+		bezel.name = "QualityLampBezel_%d" % lamp_index
+		bezel.mesh = OfficePropGeometry.pot_rim()
+		bezel.scale = Vector3.ONE * 0.071
+		bezel.rotation_degrees.x = 90.0
+		bezel.position = lamp.position + Vector3(0.0, 0.0, -0.025)
+		bezel.material_override = _material(Color("b4b9a8"), 0.36, 1.0)
+		bezel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		egg_collection_root.add_child(bezel)
 	_add_mounted_label(
 		gate, "ShellIntegrityLabel", "GRADE  /  CREDIT",
 		Vector3(0.0, 0.17, 0.087), Vector2(0.52, 0.18),
@@ -3946,6 +4029,26 @@ func _build_sorting_gate() -> void:
 func _build_collection_cart() -> void:
 	var cart_center := COLLECTION_CART_CENTER
 	_collection_cart_basket = _add_box(egg_collection_root, "EggCollectionCartBasket", Vector3(0.85, 0.55, 1.05), cart_center + Vector3(0.0, 0.66, 0.0), Color("a07449"), 0.72)
+	# One opaque mesh: open slatted crate with a real interior, rather than a
+	# solid cube. Keep the basket's origin/bounds for its surplus sign and eggs.
+	var crate := SurfaceTool.new()
+	crate.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pieces: Array[Dictionary] = [{"size": Vector3(0.85, 0.06, 1.05), "at": Vector3(0, -0.245, 0)}]
+	for side in [-1.0, 1.0]:
+		for row in 3:
+			pieces.append({"size": Vector3(0.85, 0.12, 0.04), "at": Vector3(0, -0.19 + row * 0.18, side * 0.505)})
+			pieces.append({"size": Vector3(0.04, 0.12, 0.97), "at": Vector3(side * 0.405, -0.19 + row * 0.18, 0)})
+		for end in [-1.0, 1.0]:
+			pieces.append({"size": Vector3(0.075, 0.55, 0.075), "at": Vector3(side * 0.3875, 0, end * 0.4875)})
+		pieces.append({"size": Vector3(0.85, 0.045, 0.065), "at": Vector3(0, 0.2525, side * 0.4925)})
+		pieces.append({"size": Vector3(0.065, 0.045, 0.92), "at": Vector3(side * 0.3925, 0.2525, 0)})
+	for piece in pieces:
+		crate.append_from(ProceduralPrimitiveCache.box(piece.size), 0, Transform3D(Basis.IDENTITY, piece.at))
+	_collection_cart_basket.mesh = crate.commit()
+	_collection_cart_basket.material_override = OfficeSurfaceFinish.material(&"wood", Color("947149"), 1.5)
+	_add_box(egg_collection_root, "EggCartChassis", Vector3(0.88, 0.075, 1.08), cart_center + Vector3(0, 0.355, 0), Color("34494d"), 0.62)
+	for side in [-1.0, 1.0]:
+		_add_box(egg_collection_root, "EggCartHandlePost", Vector3(0.055, 0.52, 0.055), cart_center + Vector3(side * 0.33, 0.94, -0.56), Color("555f60"), 0.52)
 	_add_box(egg_collection_root, "EggCollectionCartHandle", Vector3(0.72, 0.08, 0.08), cart_center + Vector3(0.0, 1.22, -0.56), Color("555f60"), 0.42, 0.38)
 	var wheel_transforms: Array[Transform3D] = []
 	for wheel_z in [-0.39, 0.39]:
@@ -3970,11 +4073,7 @@ func _build_living_clutch() -> void:
 	_desired_clutch_counts = {&"sound": 0, &"golden": 0, &"cracked": 0}
 
 	_clutch_egg_mesh = _build_tapered_egg_mesh()
-	_clutch_cup_mesh = CylinderMesh.new()
-	_clutch_cup_mesh.top_radius = 0.15
-	_clutch_cup_mesh.bottom_radius = 0.17
-	_clutch_cup_mesh.height = 0.025
-	_clutch_cup_mesh.radial_segments = 10
+	_clutch_cup_mesh = OfficePropGeometry.egg_cup()
 
 	_presentation_clutch_root = Node3D.new()
 	_presentation_clutch_root.name = "PresentationLivingClutch"
@@ -4150,7 +4249,8 @@ func _add_clutch_cup_batch(parent: Node3D, batch_name: String, instance_count: i
 	var batch := MultiMeshInstance3D.new()
 	batch.name = batch_name
 	batch.multimesh = multimesh
-	batch.material_override = _material(Color("493b31"), 0.98)
+	batch.material_override = _material(Color("b59a70"), 0.98)
+	(batch.material_override as StandardMaterial3D).vertex_color_use_as_albedo = true
 	batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(batch)
 	_clutch_cup_batches.append(batch)
@@ -4172,9 +4272,13 @@ func _add_clutch_slot(
 
 	assert(cup_batch != null and cup_batch.multimesh != null)
 	assert(cup_batch_index >= 0 and cup_batch_index < cup_batch.multimesh.instance_count)
+	# Seat the empty cups on their insert, rather than burying early rows beneath
+	# it. The closer cart spacing uses the same mesh at a smaller footprint.
+	var on_presentation := parent == _presentation_clutch_root
+	var cup_position := Vector3(egg_center.x, 0.615 if on_presentation else 0.925, egg_center.z)
 	var cup_transform := Transform3D(
-		Basis.from_scale(Vector3(1.0, 1.0, 0.88)),
-		egg_center + Vector3(0.0, -0.19, 0.0)
+		Basis.from_scale(Vector3(1.0, 1.0, 0.88) if on_presentation else Vector3(0.74, 1.0, 0.68)),
+		cup_position
 	)
 	cup_batch.multimesh.set_instance_transform(cup_batch_index, cup_transform)
 	_clutch_slot_markers.append({
@@ -4450,6 +4554,7 @@ func _add_rail_segment(parent: Node3D, part_name: String, start: Vector3, finish
 	var offset := finish - start
 	var length := offset.length()
 	var rail := _add_box(parent, part_name, Vector3(0.095, 0.095, length), start.lerp(finish, 0.5), Color("687674"), 0.58, 0.28)
+	rail.mesh = OfficePropGeometry.rounded_box(Vector3(0.095, 0.095, length), 0.022)
 	rail.set_meta(&"segment_start", start)
 	rail.set_meta(&"segment_finish", finish)
 	if length > 0.001:
@@ -4473,6 +4578,8 @@ func _add_box(
 	var instance := MeshInstance3D.new()
 	instance.name = part_name
 	instance.mesh = ProceduralPrimitiveCache.box(size)
+	if part_name in ["ShellIntegrityGate", "GradingReceiptPrinterBody", "GradingReceiptPrinterFace", "GradingReceiptPrinterLip", "PresentationNestInsert", "CartNestInsert"]:
+		instance.mesh = OfficePropGeometry.rounded_box(size, 0.018)
 	instance.position = part_position
 	instance.material_override = _material(color, roughness, metallic)
 	parent.add_child(instance)

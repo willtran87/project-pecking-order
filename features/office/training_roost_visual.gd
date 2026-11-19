@@ -1,6 +1,8 @@
 class_name TrainingRoostVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Visual-only career and cross-lane training facility. Its credential gallery
@@ -9,7 +11,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 const FACILITY_ID: StringName = &"training_roost"
 const FACILITY_CENTER := Vector3(15.20, 0.0, 24.00)
 const FOCUS_POINT := Vector3(15.20, 1.05, 24.00)
-const FOOTPRINT := Rect2(Vector2(12.00, 21.10), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.TRAINING_ROOST
 const MAX_LEVEL := 3
 const MAX_OPAQUE_HEIGHT := 3.55
 

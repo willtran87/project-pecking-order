@@ -1,6 +1,8 @@
 class_name FarmMutualServiceCoopVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Snapshot-driven, visual-only Farm Mutual accreditation campus. The coop
@@ -11,7 +13,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 const FACILITY_ID: StringName = &"farm_mutual_service_coop"
 const FACILITY_CENTER := Vector3(15.20, 0.0, 6.00)
 const FOCUS_POINT := Vector3(15.20, 1.05, 6.00)
-const FOOTPRINT := Rect2(Vector2(12.00, 3.10), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.FARM_MUTUAL_SERVICE_COOP
 const MAX_LEVEL := 3
 const MAX_OPAQUE_HEIGHT := 4.25
 const MAX_DISPATCH_PACKETS := 6
@@ -78,6 +80,8 @@ var _timely_completed := 0
 var _required_completed := 0
 var _rush_active := false
 var _service_coop_bonus_cents := 0
+var _last_render_state: Array = []
+var _render_refresh_count := 0
 
 
 func _ready() -> void:
@@ -197,6 +201,17 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		_active_contract.get("required_deliveries", 0),
 	)))
 	_rush_active = _snapshot_rush_active(_active_contract)
+	# Only changed room evidence should resend materials, signs and transforms.
+	# Keep normalization above exact; purchase/reveal transitions remain below.
+	var render_state: Array = [
+		_facility_level, _unlocked, _standing_score, _standing_rank, _next_standing_score,
+		_active_contract, _last_result, _result_state, _timely_completed,
+		_required_completed, _rush_active, _service_coop_bonus_cents,
+	]
+	if render_state == _last_render_state:
+		return
+	_last_render_state = render_state.duplicate(true)
+	_render_refresh_count += 1
 	_apply_visibility()
 	_apply_dynamic_state()
 	if _has_applied_snapshot and _facility_level > previous_level and is_inside_tree():

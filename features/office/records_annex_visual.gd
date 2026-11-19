@@ -1,6 +1,8 @@
 class_name RecordsAnnexVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Snapshot-driven, visual-only intake-capacity expansion. The annex deliberately
@@ -10,7 +12,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 const FACILITY_ID := &"records_annex"
 const FACILITY_CENTER := Vector3(15.20, 0.0, 0.0)
 const FOCUS_POINT := Vector3(15.20, 0.90, 0.0)
-const FOOTPRINT := Rect2(Vector2(12.00, -2.90), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.RECORDS_ANNEX
 const MAX_LEVEL := 3
 const MAX_OPAQUE_HEIGHT := 3.55
 const BASE_CLAIM_CAPACITY := 18
@@ -73,6 +75,8 @@ var _queue_counts: Dictionary = {}
 var _overdue_count := 0
 var _intake_rejections_today := 0
 var _has_applied_snapshot := false
+var _last_render_state: Array = []
+var _render_refresh_count := 0
 
 
 func _ready() -> void:
@@ -162,6 +166,14 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		snapshot.get("queued_overdue_claims", 0),
 	)))
 	_intake_rejections_today = maxi(0, int(snapshot.get("intake_rejections_today", 0)))
+	var render_state: Array = [
+		_facility_level, _unlocked, _claim_capacity, _claims_outstanding,
+		_queue_counts, _overdue_count, _intake_rejections_today,
+	]
+	if render_state == _last_render_state:
+		return
+	_last_render_state = render_state.duplicate(true)
+	_render_refresh_count += 1
 	_apply_visibility()
 	_apply_dynamic_state()
 	if _has_applied_snapshot and _facility_level > previous_level and is_inside_tree():

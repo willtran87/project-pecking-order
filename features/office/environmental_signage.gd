@@ -548,11 +548,31 @@ static func refit_label(label: Label3D) -> void:
 	var area := label.get_meta(&"text_area_size", Vector2.ONE) as Vector2
 	var requested := float(label.get_meta(&"requested_pixel_size", label.pixel_size))
 	var screen_copy := bool(label.get_meta(&"screen_copy", false))
+	# Retain only the last fit for this label. Resource changes invalidate the
+	# measurement too; the connection targets the label and dies with it.
+	var previous_font: Font = label.get_meta(&"signage_fit_font") as Font if label.has_meta(&"signage_fit_font") else null
+	var invalidate := label.remove_meta.bind(&"signage_fit_key")
+	if previous_font != label.font:
+		if previous_font != null and previous_font.changed.is_connected(invalidate):
+			previous_font.changed.disconnect(invalidate)
+		if label.font != null:
+			label.font.changed.connect(invalidate)
+		label.set_meta(&"signage_fit_font", label.font)
+	var fit_key: Array = [label.text, area, label.font, label.font_size, requested, screen_copy]
+	if (
+		label.get_meta(&"signage_fit_key", []) == fit_key
+		and label.pixel_size == float(label.get_meta(&"fitted_pixel_size", -1.0))
+		and label.width == int(label.get_meta(&"signage_fit_width", -1))
+	):
+		return
 	label.pixel_size = _fitted_pixel_size(
 		label.text, area, label.font, label.font_size, requested, screen_copy
 	)
 	label.width = maxi(1, floori(area.x * 0.90 / label.pixel_size))
 	label.set_meta(&"fitted_pixel_size", label.pixel_size)
+	label.set_meta(&"signage_fit_width", label.width)
+	label.set_meta(&"signage_fit_key", fit_key)
+	label.set_meta(&"signage_fit_count", int(label.get_meta(&"signage_fit_count", 0)) + 1)
 
 
 static func set_copy(label: Label3D, copy: String) -> void:

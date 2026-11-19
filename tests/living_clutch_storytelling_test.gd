@@ -18,6 +18,22 @@ func _run() -> void:
 	_check(staging.visible_clutch_count() == 0, "the physical clutch should begin empty", failures)
 	_check(_clutch_cup_capacity(staging) == 36, "the two bounded cup batches should preserve all 36 physical destinations", failures)
 	_check(_visible_clutch_cups(staging) == 36, "an empty living clutch should expose all 36 destination cups", failures)
+	for candidate in staging.find_children("EmptyClutchCupBatch*", "MultiMeshInstance3D", true, false):
+		var batch := candidate as MultiMeshInstance3D
+		var insert_name := "PresentationNestInsert" if "Presentation" in batch.name else "CartNestInsert"
+		var insert := batch.get_parent().get_node(insert_name) as MeshInstance3D
+		var insert_top := insert.position.y + insert.mesh.get_aabb().end.y
+		var previous_bounds: Array[AABB] = []
+		# The headless dummy renderer returns identity for GPU instance reads;
+		# check the retained transforms used to populate and restore that batch.
+		for marker: Dictionary in staging._clutch_slot_markers:
+			if marker.batch != batch:
+				continue
+			var bounds: AABB = marker.rest_transform * batch.multimesh.mesh.get_aabb()
+			_check(absf(bounds.position.y - insert_top) < 0.002, "cup bottoms must sit on the insert without being buried or floating", failures)
+			for other in previous_bounds:
+				_check(not bounds.grow(-0.001).intersects(other.grow(-0.001)), "adjacent cup rims must not overlap", failures)
+			previous_bounds.append(bounds)
 
 	var egg := MeshInstance3D.new()
 	egg.name = "AuthorizedTestEgg"

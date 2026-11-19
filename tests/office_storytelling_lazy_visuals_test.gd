@@ -9,6 +9,10 @@ func _init() -> void:
 
 func _run() -> void:
 	var failures: Array[String] = []
+	var packing_script := "res://features/office/packing_annex_visual.gd"
+	var records_script := "res://features/office/records_annex_visual.gd"
+	_check(not ResourceLoader.has_cached(packing_script), "hidden packing builder should not compile during startup", failures)
+	_check(not ResourceLoader.has_cached(records_script), "hidden records builder should not compile during startup", failures)
 	var staging := OfficeStorytellingScript.new() as OfficeStorytelling
 	staging.set_defer_optional_visuals(true)
 	staging.set_lazy_hidden_optional_visuals(true)
@@ -34,6 +38,7 @@ func _run() -> void:
 	_check(bool(initial.get("lazy_hidden", false)), "lazy boot should disclose its residency policy", failures)
 	_check(int(initial.get("built_count", -1)) == 0, "undiscovered campus art should not enter the scene tree", failures)
 	_check(staging.find_child("PackingAnnexVisual", true, false) == null, "hidden packing art should remain uninstantiated", failures)
+	_check(not ResourceLoader.has_cached(packing_script), "layout footprint queries must not load hidden builders", failures)
 
 	var teased := day_one.duplicate(true)
 	teased["day"] = 2
@@ -70,6 +75,8 @@ func _run() -> void:
 	staging.apply_campus_presentation(owned)
 	var packing := staging.find_child("PackingAnnexVisual", true, false) as Node3D
 	_check(packing != null and packing.visible, "an owned facility should instantiate and reveal in the same transaction", failures)
+	_check(ResourceLoader.has_cached(packing_script), "owned facility should load its builder on demand", failures)
+	_check(not ResourceLoader.has_cached(records_script), "buying one facility must not load unrelated builders", failures)
 	_check(int(staging.optional_visual_build_snapshot().get("built_count", -1)) == 1, "only the required optional root should be resident", failures)
 	staging.apply_campus_presentation(owned)
 	_check(staging.find_children("PackingAnnexVisual", "Node3D", true, false).size() == 1, "repeated snapshots must not duplicate lazy art", failures)

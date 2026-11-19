@@ -209,6 +209,25 @@ func _run() -> void:
 		failures,
 	)
 	var open_assist := simulation.peck_assist_status(0) if simulation != null else {}
+	# A keyboard/gamepad peck must keep the selected hen, even when a different
+	# hen has an open window. Previously this silently spent attention elsewhere.
+	var other_worker := simulation.workers[1]
+	var other_progress := other_worker.work_progress
+	other_worker.work_progress = 0.0
+	routing_ui.set_focus(1)
+	var uses_before_focused_hold := simulation.peck_assists_used_today
+	office.call("_request_peck_assist_from_input")
+	_check(
+		simulation.peck_assists_used_today == uses_before_focused_hold
+		and routing_ui.focused_worker_id() == 1
+		and bool(simulation.peck_assist_status(0).get("available", false)),
+		"an early focused peck must neither retarget a ready hen nor spend a charge",
+		failures,
+	)
+	other_worker.work_progress = other_progress
+	routing_ui.set_focus(0)
+	_check(_press(office.find_child("RoutingDetailsToggle", true, false) as Button), "returning to the original hen can reopen her timing details", failures)
+	await process_frame
 	_check(
 		 timing_label != null
 		and timing_label.is_visible_in_tree()

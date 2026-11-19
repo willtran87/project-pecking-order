@@ -2,6 +2,7 @@ class_name ChickenView
 extends Node3D
 
 const LoopReadability := preload("res://core/experience/loop_readability.gd")
+const HenExpressionScript := preload("res://features/chickens/hen_expression.gd")
 
 signal feed_party_attendance_ready(worker_id: int)
 signal feed_party_attendance_completed(worker_id: int)
@@ -51,13 +52,14 @@ const PRIORITY_PECK_RECOVERY_SECONDS := 0.090
 const LAY_RELEASE_NORMALIZED_TIME := (22.0 - 1.0) / (36.0 - 1.0)
 const LAY_RELEASE_FALLBACK_SECONDS := 0.73
 const CHICKEN_PALETTES: Array[Dictionary] = [
-	{"feather": "ad7747", "cloth": "173e59"}, # oat + navy
-	{"feather": "ddd3b8", "cloth": "6e2935"}, # cream + oxblood
-	{"feather": "81523b", "cloth": "667154"}, # chestnut + sage
-	{"feather": "c49b5d", "cloth": "493c68"}, # buff + plum
-	{"feather": "77736f", "cloth": "173e59"}, # silver + navy
-	{"feather": "a96549", "cloth": "667154"}, # russet + sage
+	{"feather": "ad7747", "bib": "efcf90", "wing": "67432d", "cloth": "173e59"},
+	{"feather": "ddd3b8", "bib": "f5eedb", "wing": "69645f", "cloth": "6e2935"},
+	{"feather": "81523b", "bib": "cfaa77", "wing": "493b33", "cloth": "667154"},
+	{"feather": "c49b5d", "bib": "f1dcb3", "wing": "796852", "cloth": "493c68"},
+	{"feather": "77736f", "bib": "d7d8cc", "wing": "414d56", "cloth": "173e59"},
+	{"feather": "a96549", "bib": "e1b88d", "wing": "603c35", "cloth": "667154"},
 ]
+static var _identity_materials: Dictionary = {}
 const ACCESSORY_NAMES: Array[StringName] = [
 	&"AccessoryHead_RoundGlasses",
 	&"AccessoryHead_SquareGlasses",
@@ -189,6 +191,9 @@ var _phase: float = 0.0
 var _stress: float = 0.0
 var _fatigue: float = 0.0
 var _temperament_id: StringName = &"bright_eyed"
+var _social_attention := 0.0
+var _social_target := Vector3.ZERO
+var _social_speaking := false
 var _temperament_idle_style: int = 0
 var _temperament_motion_scale: float = 1.0
 var _temperament_focus_scale: float = 1.0
@@ -201,6 +206,19 @@ var _wing_left_bone := -1
 var _wing_right_bone := -1
 var _wing_left_tip_bone := -1
 var _wing_right_tip_bone := -1
+var _head_bone := -1
+var _root_bone := -1
+var _head_base := Quaternion.IDENTITY
+var _head_offset_applied := false
+var _foot_left_contact: Node3D
+var _foot_right_contact: Node3D
+var _beak_contact: Node3D
+var _leg_left_rest := Vector3.ZERO
+var _leg_right_rest := Vector3.ZERO
+var _desk_peck_strength := 0.0
+var _display_stress := -1.0
+var _display_fatigue := -1.0
+var _reaction_work_blend := 1.0
 var _use_authored_wing_pose := true
 var _leg_left: Node3D
 var _leg_right: Node3D
@@ -332,6 +350,14 @@ var _short_bark_copy := ""
 var _management_pick_area: Area3D
 var _consequence_preview_active := false
 var _consequence_preview_kind: StringName = &""
+var _expression := HenExpressionScript.new()
+var _expression_marks: Array[Sprite3D] = []
+var _was_strained := false
+var _known_career_level := -1
+static var _expression_textures: Dictionary = {}
+var _expression_wings_applied := false
+var _expression_left_base := Quaternion.IDENTITY
+var _expression_right_base := Quaternion.IDENTITY
 
 
 func configure(worker_snapshot: Dictionary) -> void:
@@ -485,6 +511,15 @@ func apply_snapshot(worker_snapshot: Dictionary) -> void:
 			_lay_feedback_active = false
 	_stress = float(worker_snapshot["stress"])
 	_fatigue = clampf(float(worker_snapshot.get("fatigue", 0.0)), 0.0, 100.0)
+	if _stress >= 65.0:
+		_was_strained = true
+	elif _was_strained and _stress <= 45.0:
+		_was_strained = false
+		play_emotion(&"relief")
+	var career_level := int(worker_snapshot.get("career_level", _known_career_level))
+	if _known_career_level >= 0 and career_level > _known_career_level:
+		play_emotion(&"promotion", "career:%d" % career_level)
+	_known_career_level = career_level
 	if (
 		previous_state == _work_state
 		or _home_position == Vector3.ZERO
@@ -828,6 +863,9 @@ func _physics_process(delta: float) -> void:
 	var route_delta := delta * (1.0 if _route_uses_realtime_staging() else _route_time_scale)
 	_phase += route_delta if _is_walking and not _ordinary_route_progress_blocked() else delta
 	_state_elapsed += delta
+	var mood_blend := 1.0 - exp(-16.0 * delta)
+	_display_stress = _stress if _display_stress < 0.0 else lerpf(_display_stress, _stress, mood_blend)
+	_display_fatigue = _fatigue if _display_fatigue < 0.0 else lerpf(_display_fatigue, _fatigue, mood_blend)
 	if not _ordinary_route_progress_blocked():
 		if _panic_active:
 			_panic_remaining = maxf(0.0, _panic_remaining - delta)
@@ -838,6 +876,8 @@ func _physics_process(delta: float) -> void:
 		_advance_route(route_delta)
 		_update_break_interaction_timeline(route_delta)
 	_advance_feedback_timelines(delta)
+	_expression.advance(delta, _expression_available())
+	_reaction_work_blend = move_toward(_reaction_work_blend, 0.0 if not _expression.reaction.is_empty() and _expression_available() else 1.0, delta * 8.0)
 	_update_pose_blends(route_delta if _is_walking and not _ordinary_route_progress_blocked() else delta)
 	# Hidden workers must continue routes and gameplay-facing contact timelines,
 	# but their model transforms do not need to be rewritten until visible again.
@@ -858,6 +898,8 @@ func _physics_process(delta: float) -> void:
 	)
 	_presentation_update_accumulator = 0.0
 	_presentation_update_count += 1
+	_restore_expression_wings()
+	_restore_head_offset()
 	_animate_pose()
 	# Sample the imported body/head/leg clip before applying behavioral wing
 	# deformation. In automatic mode AnimationPlayer evaluated later in the
@@ -869,9 +911,18 @@ func _physics_process(delta: float) -> void:
 				if _is_walking and not _route_uses_realtime_staging()
 				and not _ordinary_route_progress_blocked() else 1.0
 			)
+			* _expressive_work_playback_scale()
 		)
+		# The authored beak and the desk's contact signal share one phase.
+		# Sampling this existing clip adds no tracks, players or timers.
+		if _active_model_animation == ANIMATION_PECK and _destination_kind == &"home" and not _is_walking:
+			var contact := _priority_peck_contact_strength() if _priority_peck_timeline_active else _ambient_peck_wave()
+			_animation_player.seek(_animation_player.current_animation_length * (11.0 / 27.0) * contact * contact * _work_blend, true)
 	_animate_secondary_motion()
 	_apply_wing_actuation()
+	_apply_expression_pose()
+	_apply_support_contact()
+	_apply_head_offset()
 
 
 ## Freezes normal office behavior so a predator encounter can reparent this
@@ -975,6 +1026,8 @@ func _advance_feedback_timelines(delta: float) -> void:
 			_priority_peck_next_contact += 1
 		if _priority_peck_elapsed >= PRIORITY_PECK_FEEDBACK_DURATION:
 			_priority_peck_timeline_active = false
+			if _peck_assist_rating in [&"strong", &"perfect"]:
+				play_emotion(&"proud")
 
 	_advance_ambient_work_contact()
 
@@ -1126,7 +1179,7 @@ func _animate_pose() -> void:
 		_apply_walk_pose()
 		_apply_panic_pose()
 	elif _is_walking:
-		_play_model_animation(ANIMATION_WALK)
+		_play_model_animation(ANIMATION_IDLE if _seat_blend > 0.08 else ANIMATION_WALK)
 		_apply_walk_pose()
 	elif _destination_kind == &"feed_party":
 		_play_model_animation(ANIMATION_PECK)
@@ -1153,9 +1206,10 @@ func _update_pose_blends(delta: float) -> void:
 		_destination_kind == &"home"
 		and not _is_walking
 		and _route_index >= _route.size()
+		and absf(wrapf(rotation.y, -PI, PI)) < 0.12
 	) else 0.0
 	_seat_blend = move_toward(_seat_blend, seat_target, delta * (2.8 if seat_target > _seat_blend else 3.8))
-	_walk_blend = move_toward(_walk_blend, 1.0 if _is_walking else 0.0, delta * 5.5)
+	_walk_blend = move_toward(_walk_blend, 1.0 if _is_walking and _seat_blend <= 0.08 and not _ordinary_route_progress_blocked() else 0.0, delta * 5.5)
 	_work_blend = move_toward(
 		_work_blend,
 		1.0 if _work_state == ChickenState.WorkState.WORKING and seat_target > 0.0 else 0.0,
@@ -1173,9 +1227,10 @@ func _update_pose_blends(delta: float) -> void:
 
 
 func _reset_pose() -> void:
+	_desk_peck_strength = 0.0
 	_body_pivot.position = Vector3.ZERO
 	_body_pivot.rotation = Vector3.ZERO
-	_body_pivot.scale = Vector3(1.0, lerpf(1.0, 0.92, clampf(_stress / 100.0, 0.0, 1.0)), 1.0)
+	_body_pivot.scale = Vector3(1.0, lerpf(1.0, 0.92, clampf(_display_stress / 100.0, 0.0, 1.0)), 1.0)
 	_head_pivot.rotation = Vector3.ZERO
 	_head_pivot.position = _head_rest_position
 	_wing_left.rotation = Vector3.ZERO
@@ -1183,19 +1238,21 @@ func _reset_pose() -> void:
 	_use_authored_wing_pose = true
 	_leg_left.rotation = Vector3.ZERO
 	_leg_right.rotation = Vector3.ZERO
+	_leg_left.position = _leg_left_rest
+	_leg_right.position = _leg_right_rest
 
 
 func _apply_walk_pose() -> void:
-	var stride := sin(_phase * 9.5)
-	var footfall := absf(sin(_phase * 9.5))
+	var stride := sin(_phase * 9.5) * _walk_blend
+	var footfall := absf(stride)
 	var stand_ease := _seat_blend * _seat_blend * (3.0 - 2.0 * _seat_blend)
 	_body_pivot.position.y = lerpf(0.045 + footfall * 0.065, 0.55, stand_ease)
 	_body_pivot.position.z = lerpf(0.0, 0.025, stand_ease)
 	_body_pivot.rotation.x = lerpf(0.025, -0.07, stand_ease)
 	_body_pivot.rotation.z = stride * 0.052 * (1.0 - stand_ease)
 	_head_pivot.rotation.x = -0.08 + absf(stride) * 0.08
-	_leg_left.rotation.x = lerpf(stride * 0.68, -1.16, stand_ease)
-	_leg_right.rotation.x = lerpf(-stride * 0.68, -1.16, stand_ease)
+	_leg_left.rotation.x = lerpf(stride * 0.68, -0.82, stand_ease)
+	_leg_right.rotation.x = lerpf(-stride * 0.68, -0.82, stand_ease)
 
 
 func _apply_panic_pose() -> void:
@@ -1220,14 +1277,14 @@ func _apply_seated_pose() -> void:
 	_body_pivot.position.y = 0.55 * seat - sit_crouch
 	_body_pivot.position.z = 0.035 * seat
 	_body_pivot.rotation.x = lerpf(0.0, -0.075, seat)
-	_leg_left.rotation.x = lerpf(0.0, -1.16, seat)
-	_leg_right.rotation.x = lerpf(0.0, -1.16, seat)
+	_leg_left.rotation.x = lerpf(0.0, -0.82, seat)
+	_leg_right.rotation.x = lerpf(0.0, -0.82, seat)
 
 	if _lay_feedback_active:
 		_apply_laying_pose()
 		return
 
-	match _work_state:
+	match ChickenState.WorkState.WORKING if _work_blend > 0.001 else _work_state:
 		ChickenState.WorkState.WORKING:
 			# A sharp contact beat framed by slower anticipation and recoil makes
 			# pecking readable without separating the face from the feather shell.
@@ -1238,23 +1295,21 @@ func _apply_seated_pose() -> void:
 				else _ambient_peck_wave()
 			)
 			var peck := peck_cycle * peck_cycle * _work_blend
+			_desk_peck_strength = peck
 			var assist_emphasis := (
 				(0.075 if _peck_assist_rating == &"perfect" else 0.045)
 				* priority_contact
 			)
-			_body_pivot.rotation.x += -0.045 - peck * (0.19 + assist_emphasis)
-			_body_pivot.position.z += peck * (0.075 + assist_emphasis * 0.30)
+			_body_pivot.rotation.x += (0.12 + peck * 0.155) * _work_blend
+			_body_pivot.position.z -= peck * 0.040
 			_body_pivot.position.y -= peck * (0.018 + assist_emphasis * 0.10)
-			# HeadPivot owns the complete connected face rig. A small extra reach
-			# therefore brings the beak toward the display without allowing eyes,
-			# wattles, or accessories to lag behind the body during contact.
-			_head_pivot.rotation.x -= peck * (0.10 + assist_emphasis * 0.30)
-			_head_pivot.position.z += peck * (0.030 + assist_emphasis * 0.12)
+			# Apply this input to the real head bone after the imported clip.
+			_head_pivot.rotation.x += peck * 0.30
 			# Read the actual need from posture, without adding another floating
 			# meter. A static slouch survives reduced motion; frustration gets a
 			# small head tilt. Contact timing, feet and the connected face stay intact.
-			var tired := smoothstep(40.0, 85.0, _fatigue)
-			var strained := smoothstep(45.0, 85.0, _stress)
+			var tired := smoothstep(40.0, 85.0, _display_fatigue)
+			var strained := smoothstep(45.0, 85.0, _display_stress)
 			_body_pivot.position.y -= tired * 0.055 * seat
 			_body_pivot.rotation.x -= tired * 0.055 * seat
 			_head_pivot.rotation.z += strained * (0.09 if _reduced_motion else 0.09 + sin(_phase * 1.15 + worker_id) * 0.035)
@@ -1268,7 +1323,13 @@ func _ambient_peck_wave() -> float:
 	return maxf(
 		0.0,
 		sin(_phase * 10.6 * _temperament_focus_scale + worker_id * 0.31),
-	)
+	) * (1.0 - HenExpressionScript.work_check(_phase, worker_id)) * (1.0 - _social_attention * 0.85) * _reaction_work_blend
+
+
+func _expressive_work_playback_scale() -> float:
+	if not _expression_available() or _work_state != ChickenState.WorkState.WORKING:
+		return 1.0
+	return 0.15 if not _expression.reaction.is_empty() else (1.0 - 0.78 * HenExpressionScript.work_check(_phase, worker_id)) * (1.0 - _social_attention * 0.7)
 
 func _priority_peck_contact_strength() -> float:
 	if not _priority_peck_timeline_active:
@@ -1536,11 +1597,18 @@ func _build_character(worker_name: String, color_index: int) -> void:
 		_wing_right_bone = _skeleton.find_bone("wing_R")
 		_wing_left_tip_bone = _skeleton.find_bone("wing_L_tip")
 		_wing_right_tip_bone = _skeleton.find_bone("wing_R_tip")
+		_head_bone = _skeleton.find_bone("head")
+		_root_bone = _skeleton.find_bone("root")
 	_leg_left = _find_joint(&"LegLeftPivot")
 	_leg_right = _find_joint(&"LegRightPivot")
+	_leg_left_rest = _leg_left.position
+	_leg_right_rest = _leg_right.position
 	_egg_socket = _find_joint(&"EggSocket")
 	_neck_grip_socket = _find_joint(&"NeckGripSocket")
 	_head_rest_position = _head_pivot.position
+	_foot_left_contact = _visual_root.find_child("FootGround_L", true, false) as Node3D
+	_foot_right_contact = _visual_root.find_child("FootGround_R", true, false) as Node3D
+	_beak_contact = _visual_root.find_child("BeakTarget", true, false) as Node3D
 	_apply_feather_variant(color_index)
 	_apply_accessory_variant(worker_name, color_index)
 	_apply_character_shadow_budget()
@@ -1552,6 +1620,188 @@ func _build_character(worker_name: String, color_index: int) -> void:
 	_build_management_pick_area()
 	_build_hen_intent_marker()
 	_build_break_interaction_prop()
+	_build_expression_marks()
+
+
+func play_emotion(kind: StringName, event_key: String = "") -> bool:
+	if _predator_captured or _destination_kind in [&"departure", &"departed"]:
+		return false
+	return _expression.play(kind, event_key)
+
+
+func expression_snapshot() -> Dictionary:
+	var result := _expression.snapshot()
+	result["available"] = _expression_available()
+	result["reduced_motion"] = _reduced_motion
+	result["personality"] = HenPersonality.title(worker_id)
+	result["social_attention"] = _social_attention > 0.01
+	result["social_speaking"] = _social_speaking and _social_attention > 0.01
+	var contact := contact_snapshot()
+	result["pose"] = {"seat": contact.seat, "walking": contact.walking, "clip": contact.animation, "beak_height": snappedf((contact.beak as Vector3).y - global_position.y, 0.001), "left_foot_height": snappedf((contact.left_foot as Vector3).y - global_position.y, 0.001), "right_foot_height": snappedf((contact.right_foot as Vector3).y - global_position.y, 0.001), "peck_contact": snappedf(_desk_peck_strength, 0.001)}
+	return result
+
+
+func contact_snapshot() -> Dictionary:
+	var beak := Vector3.ZERO
+	if _skeleton != null and _head_bone >= 0 and _beak_contact != null:
+		beak = _skeleton.global_transform * _skeleton.get_bone_global_pose(_head_bone) * _beak_contact.position
+	return {"seat": snappedf(_seat_blend, 0.001), "walking": _is_walking, "animation": String(_active_model_animation), "head_offset": _head_offset_applied, "beak": beak, "left_foot": _foot_left_contact.global_position if _foot_left_contact != null else Vector3.ZERO, "right_foot": _foot_right_contact.global_position if _foot_right_contact != null else Vector3.ZERO}
+
+
+func _restore_head_offset() -> void:
+	if _head_offset_applied and _skeleton != null and _head_bone >= 0:
+		_skeleton.set_bone_pose_rotation(_head_bone, _head_base)
+	_head_offset_applied = false
+
+
+func _apply_head_offset() -> void:
+	if _skeleton == null or _head_bone < 0:
+		return
+	# Rigid eyes/beak/accessories and skinned feathers all follow this bone.
+	# The legacy HeadPivot remains a pose input, not a second visual rig.
+	_head_base = _skeleton.get_bone_pose_rotation(_head_bone)
+	_skeleton.set_bone_pose_rotation(_head_bone, _head_base * Quaternion.from_euler(_head_pivot.rotation))
+	if _desk_peck_strength > 0.5 and _beak_contact != null:
+		# Closed-form pitch correction at contact, evaluated only near a peck.
+		# This keeps the tip above the keys even as fatigue changes the posture.
+		var head_world := _skeleton.global_transform * _skeleton.get_bone_global_pose(_head_bone)
+		var tip := _beak_contact.position
+		var a := head_world.basis.y.y * tip.y + head_world.basis.z.y * tip.z
+		var b := -head_world.basis.y.y * tip.z + head_world.basis.z.y * tip.y
+		var radius := sqrt(a * a + b * b)
+		if radius > 0.01:
+			var height := (global_position.y + 0.98 - head_world.origin.y - head_world.basis.x.y * tip.x) / radius
+			var angle := acos(clampf(height, -1.0, 1.0))
+			var phase := atan2(b, a)
+			var first := wrapf(phase + angle, -PI, PI)
+			var second := wrapf(phase - angle, -PI, PI)
+			var correction := clampf(first if absf(first) < absf(second) else second, -0.60, 0.60)
+			correction *= smoothstep(0.5, 1.0, _desk_peck_strength)
+			_skeleton.set_bone_pose_rotation(_head_bone, _skeleton.get_bone_pose_rotation(_head_bone) * Quaternion(Vector3.RIGHT, correction))
+	_head_offset_applied = true
+
+
+func _apply_support_contact() -> void:
+	if _predator_captured or _body_pivot == null:
+		return
+	var seat := smoothstep(0.0, 1.0, _seat_blend)
+	if seat > 0.0 and _skeleton != null and _root_bone >= 0:
+		# Sit's root lowers by 0.11; the working clip does not. Compensate
+		# that difference so changing files cannot lift the hen off the cushion.
+		var root_delta := _skeleton.get_bone_pose_position(_root_bone).y - _skeleton.get_bone_rest(_root_bone).origin.y
+		_body_pivot.position.y -= (root_delta + 0.11) * seat
+	if _destination_kind != &"feed_party" and _foot_left_contact != null and _foot_right_contact != null:
+		# Two cached toe markers keep the planted foot on the local floor.
+		# No raycasts, iterative IK or scene searches in the presentation loop.
+		var lowest := minf(_foot_left_contact.global_position.y, _foot_right_contact.global_position.y)
+		_body_pivot.position.y += (global_position.y + 0.008 - lowest) / MODEL_SCALE * (1.0 - smoothstep(0.0, 0.20, seat))
+		var perch_weight := smoothstep(0.55, 0.95, seat)
+		if perch_weight > 0.0:
+			var vertical_scale := maxf(0.1, _body_pivot.global_basis.y.y)
+			_leg_left.position.y += (global_position.y + 0.60 - _foot_left_contact.global_position.y) / vertical_scale * perch_weight
+			_leg_right.position.y += (global_position.y + 0.60 - _foot_right_contact.global_position.y) / vertical_scale * perch_weight
+
+
+func social_available() -> bool:
+	return visible and _expression_available() and _expression.reaction.is_empty()
+
+
+func social_present() -> bool:
+	return visible and not (_predator_captured or _panic_active or _is_walking) and _destination_kind == &"home" and _seat_blend >= 0.92
+
+
+func set_social_attention(target: Vector3, amount: float, speaking: bool) -> void:
+	_social_target = target
+	_social_attention = clampf(amount, 0.0, 1.0)
+	_social_speaking = speaking
+
+
+func _expression_available() -> bool:
+	return not (_predator_captured or _panic_active or _is_walking or _priority_peck_timeline_active or _lay_feedback_active) and _destination_kind == &"home" and _seat_blend >= 0.92
+
+
+func _build_expression_marks() -> void:
+	for kind in [&"sweat", &"sparkle"]:
+		if not _expression_textures.has(kind):
+			var shape := '<path d="M32 6C25 20 13 31 13 42a19 19 0 0 0 38 0C51 31 39 20 32 6Z" fill="#86d9e5" stroke="#284d62" stroke-width="3"/><path d="M23 37q-5 12 5 15" fill="none" stroke="#e5ffff" stroke-width="4" stroke-linecap="round"/>' if kind == &"sweat" else '<path d="m32 4 7 20 21 8-21 7-7 21-8-21-20-7 20-8Z" fill="#ffe09a" stroke="#9b7037" stroke-width="2"/>'
+			var image := Image.new()
+			image.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">%s</svg>' % shape)
+			image.generate_mipmaps()
+			_expression_textures[kind] = ImageTexture.create_from_image(image)
+	for index in 5:
+		var mark := Sprite3D.new()
+		mark.name = "ExpressionSweat_%d" % index if index < 2 else "ExpressionSparkle_%d" % index
+		mark.texture = _expression_textures[&"sweat" if index < 2 else &"sparkle"]
+		mark.pixel_size = 0.0034
+		mark.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		mark.shaded = false
+		mark.no_depth_test = false
+		mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mark.visible = false
+		add_child(mark)
+		_expression_marks.append(mark)
+
+
+func _apply_expression_pose() -> void:
+	var available := _expression_available()
+	for mark in _expression_marks:
+		mark.visible = false
+	if not available:
+		return
+	_expression.sample(_phase, worker_id, _display_stress, _display_fatigue, _work_state == ChickenState.WorkState.WORKING, _reduced_motion)
+	if _social_attention > 0.0 and _expression.reaction.is_empty():
+		# Turn only the head toward the coworker; never rotate the seated root.
+		var direction := _visual_root.global_basis.inverse() * (_social_target - global_position)
+		var turn := clampf(atan2(direction.x, absf(direction.z) + 0.1), -0.55, 0.55)
+		_expression.head.y = lerpf(_expression.head.y, turn, _social_attention)
+		_expression.head.z += _social_attention * (0.08 if _social_speaking else -0.06)
+		if not _reduced_motion:
+			_expression.head.x += sin(_phase * (5.0 if _social_speaking else 2.5)) * _social_attention * 0.055
+			if _social_speaking:
+				_expression.wings += _social_attention * (0.11 if worker_id % 6 in [0, 3] else 0.055) * (0.65 + sin(_phase * 4.0) * 0.35)
+	_body_pivot.rotation += _expression.body
+	_body_pivot.position.y += _expression.lift
+	_body_pivot.scale.x *= _expression.breath
+	_body_pivot.scale.z *= _expression.breath
+	_head_pivot.rotation += _expression.head
+	for eye in _eyes:
+		eye.scale.y *= _expression.eyes
+	# Add a small flourish to the current imported basis, never replace it with
+	# identity rotations (which detach the feathered wings from their silhouette).
+	if _skeleton != null and _expression.wings > 0.001:
+		_expression_left_base = _skeleton.get_bone_pose_rotation(_wing_left_bone) if _wing_left_bone >= 0 else Quaternion.IDENTITY
+		_expression_right_base = _skeleton.get_bone_pose_rotation(_wing_right_bone) if _wing_right_bone >= 0 else Quaternion.IDENTITY
+		_expression_wings_applied = true
+		for bone in [_wing_left_bone, _wing_right_bone]:
+			if bone >= 0:
+				var side := 1.0 if bone == _wing_left_bone else -1.0
+				_skeleton.set_bone_pose_rotation(bone, _skeleton.get_bone_pose_rotation(bone) * Quaternion(Vector3.FORWARD, side * _expression.wings))
+	var face := to_local(_head_pivot.global_position) + Vector3(0.0, 0.24, 0.0)
+	for index in _expression_marks.size():
+		var mark := _expression_marks[index]
+		if index < 2:
+			var drop := fposmod(_phase * 0.72 + index * 0.5 + worker_id * 0.21, 1.0) if not _reduced_motion else 0.4
+			mark.visible = _expression.strain > 0.45 and _expression.sparkle < 0.05
+			mark.position = face + Vector3(0.30 + index * 0.10, 0.17 - drop * 0.30, 0.0)
+			mark.modulate.a = (1.0 - smoothstep(0.70, 1.0, drop)) * _expression.strain
+			mark.scale = Vector3.ONE * (0.70 + index * 0.14)
+		else:
+			var star := index - 2
+			var rise := 0.0 if _reduced_motion else sin(_expression.elapsed * 4.5 + star) * 0.05
+			mark.visible = _expression.sparkle > 0.05
+			mark.position = face + Vector3([-0.38, 0.37, -0.24][star], [0.12, 0.22, 0.42][star] + rise, 0.0)
+			mark.modulate.a = _expression.sparkle
+			mark.scale = Vector3.ONE * ([0.85, 0.65, 0.55][star])
+
+
+func _restore_expression_wings() -> void:
+	if not _expression_wings_applied or _skeleton == null:
+		return
+	if _wing_left_bone >= 0:
+		_skeleton.set_bone_pose_rotation(_wing_left_bone, _expression_left_base)
+	if _wing_right_bone >= 0:
+		_skeleton.set_bone_pose_rotation(_wing_right_bone, _expression_right_base)
+	_expression_wings_applied = false
 
 
 func _build_management_pick_area() -> void:
@@ -2656,6 +2906,7 @@ func _reset_signature_feedback() -> void:
 ## The shared icon is deliberately compact: the routing strip carries the
 ## numbers while matching world markers answer "who received it?" at a glance.
 func play_team_lift_feedback(receipt: Dictionary) -> bool:
+	play_emotion(&"relief", String(receipt.get("authority_key", "")))
 	_reset_team_lift_feedback()
 	if _team_lift_marker == null:
 		return false
@@ -3119,9 +3370,9 @@ func _apply_feather_variant(color_index: int) -> void:
 	var palette: Dictionary = CHICKEN_PALETTES[posmod(color_index, CHICKEN_PALETTES.size())]
 	var base_color := Color(String(palette["feather"]))
 	var base_material := _feather_material(base_color)
-	var light_material := _feather_material(base_color.lightened(0.16))
-	var covert_material := _feather_material(base_color.darkened(0.08))
-	var dark_material := _feather_material(base_color.darkened(0.20))
+	var light_material := _feather_material(Color(String(palette["bib"])))
+	var covert_material := _feather_material(base_color.lerp(Color(String(palette["wing"])), 0.38))
+	var dark_material := _feather_material(Color(String(palette["wing"])))
 	for child in _all_children(_visual_root):
 		if child is not MeshInstance3D:
 			continue
@@ -3181,9 +3432,7 @@ func _apply_accessory_variant(_worker_name: String, color_index: int) -> void:
 
 
 func _apply_accessory_accent(color: Color) -> void:
-	var accent_material := StandardMaterial3D.new()
-	accent_material.albedo_color = color
-	accent_material.roughness = 0.50
+	var accent_material := OfficeSurfaceFinish.material(&"cloth", color, 8.0)
 	for accessory in _visible_accessory_nodes:
 		var candidates: Array[Node] = [accessory]
 		candidates.append_array(_all_children(accessory))
@@ -3194,8 +3443,15 @@ func _apply_accessory_accent(color: Color) -> void:
 			for surface_index in mesh_instance.mesh.get_surface_count():
 				var source_material := mesh_instance.mesh.surface_get_material(surface_index)
 				var material_name := source_material.resource_name if source_material != null else ""
-				if "Corporate_Navy" in material_name or "Accessory_Cloth" in material_name:
+				if "Leather" in material_name:
+					# A satchel is smooth hide, not the woven cloth used by a scarf.
+					mesh_instance.set_surface_override_material(surface_index, _identity_finish(&"leather", Color("76523b"), 0.60, 0.28))
+				elif "Corporate_Navy" in material_name or "Accessory_Cloth" in material_name:
 					mesh_instance.set_surface_override_material(surface_index, accent_material)
+				elif material_name == "Accessory_Frame_Graphite":
+					mesh_instance.set_surface_override_material(surface_index, _identity_finish(&"frame", Color("273b40"), 0.30, 0.48))
+				elif material_name == "Accessory_Ceramic_Cream":
+					mesh_instance.set_surface_override_material(surface_index, _identity_finish(&"ceramic", Color("eee0bb"), 0.26, 0.50))
 
 
 func _cache_secondary_motion_parts() -> void:
@@ -3270,11 +3526,20 @@ func _all_children(parent: Node) -> Array[Node]:
 
 
 func _feather_material(color: Color) -> StandardMaterial3D:
+	return _identity_finish(&"feather", color, 0.88, 0.24)
+
+
+static func _identity_finish(kind: StringName, color: Color, roughness: float, specular: float) -> StandardMaterial3D:
+	var key := "%s:%s" % [kind, color.to_html()]
+	if _identity_materials.has(key):
+		return _identity_materials[key]
 	var material := StandardMaterial3D.new()
 	material.albedo_color = color
 	material.metallic = 0.0
-	material.roughness = 0.78
-	material.metallic_specular = 0.30
+	material.vertex_color_use_as_albedo = true
+	material.roughness = roughness
+	material.metallic_specular = specular
 	material.diffuse_mode = BaseMaterial3D.DIFFUSE_BURLEY
 	material.specular_mode = BaseMaterial3D.SPECULAR_SCHLICK_GGX
+	_identity_materials[key] = material
 	return material

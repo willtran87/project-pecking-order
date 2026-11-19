@@ -1,6 +1,8 @@
 class_name IntuitiveRewardingCompletion
 extends RefCounted
 
+const PresentationCatalogScript := preload("res://core/experience/presentation_catalog.gd")
+
 ## Read-only completion contract for the 33-item intuitive, fun, engaging, and
 ## rewarding pass. DepartmentSimulation remains the sole writer; this layer
 ## selects the shortest useful cue from existing authoritative systems.
@@ -132,7 +134,7 @@ const CORE_LOOP_MASTERY_ITEM_IDS: Array[StringName] = [
 ]
 
 
-static func compose(context: Dictionary) -> Dictionary:
+static func compose(context: Dictionary, share_static_catalogs: bool = false) -> Dictionary:
 	var simulation := context.get("simulation", {}) as Dictionary
 	var next_action := context.get("next_action", {}) as Dictionary
 	var playbook := context.get("active_playbook", {}) as Dictionary
@@ -155,14 +157,11 @@ static func compose(context: Dictionary) -> Dictionary:
 	var rival_memory := (playbook.get("rival_memory", {}) as Dictionary).duplicate(true)
 	var automation := (playbook.get("mastery_automation", {}) as Dictionary).duplicate(true)
 	var automation_report := (playbook.get("automation_report", {}) as Dictionary).duplicate(true)
-	var implementation: Array[Dictionary] = []
-	for item_id in ITEM_IDS:
-		implementation.append({
-			"id": String(item_id),
-			"implemented": true,
-			"authority": _authority_for(item_id),
-		})
+	var implementation := PresentationCatalogScript.project(
+		&"intuitive_rewarding_completion/ITEM_IDS", ITEM_IDS, "implemented", _authority_for, share_static_catalogs,
+	)
 	var professional_polish := _professional_polish({
+		"share_static_catalogs": share_static_catalogs,
 		"simulation": simulation,
 		"next_action": next_action,
 		"active_playbook": playbook,
@@ -365,13 +364,9 @@ static func _professional_polish(context: Dictionary) -> Dictionary:
 	var cue := consolidated.get("unified_cue", {}) as Dictionary
 	var payoff := mastery.get("payoff_clock", {}) as Dictionary
 	var review := complete.get("review", {}) as Dictionary
-	var implementation: Array[Dictionary] = []
-	for item_id in POLISH_ITEM_IDS:
-		implementation.append({
-			"id": String(item_id),
-			"resolved": true,
-			"authority": _polish_authority_for(item_id),
-		})
+	var implementation := PresentationCatalogScript.project(
+		&"intuitive_rewarding_completion/POLISH_ITEM_IDS", POLISH_ITEM_IDS, "resolved", _polish_authority_for, bool(context.get("share_static_catalogs", false)),
+	)
 	var work_styles := _work_styles(simulation)
 	var partnership_worker_id := int(partnership.get("worker_id", -1))
 	var partnership_partner_id := int(partnership.get("partner_id", -1))
@@ -594,13 +589,9 @@ static func _experiential_polish(context: Dictionary) -> Dictionary:
 	var cue := consolidated.get("unified_cue", {}) as Dictionary
 	var payoff := mastery.get("payoff_clock", {}) as Dictionary
 	var review := complete.get("review", {}) as Dictionary
-	var implementation: Array[Dictionary] = []
-	for item_id in EXPERIENTIAL_ITEM_IDS:
-		implementation.append({
-			"id": String(item_id),
-			"resolved": true,
-			"authority": _experiential_authority_for(item_id),
-		})
+	var implementation := PresentationCatalogScript.project(
+		&"intuitive_rewarding_completion/EXPERIENTIAL_ITEM_IDS", EXPERIENTIAL_ITEM_IDS, "resolved", _experiential_authority_for, bool(context.get("share_static_catalogs", false)),
+	)
 	var styles := _work_styles(simulation)
 	var next_level_polish := _next_level_polish(context)
 	var personal_objectives := _personal_objectives(simulation)
@@ -824,9 +815,9 @@ static func _next_level_polish(context: Dictionary) -> Dictionary:
 	var cue := consolidated.get("unified_cue", {}) as Dictionary
 	var payoff := mastery.get("payoff_clock", {}) as Dictionary
 	var review := complete.get("review", {}) as Dictionary
-	var implementation: Array[Dictionary] = []
-	for item_id in NEXT_LEVEL_ITEM_IDS:
-		implementation.append({"id": String(item_id), "resolved": true, "authority": _next_level_authority_for(item_id)})
+	var implementation := PresentationCatalogScript.project(
+		&"intuitive_rewarding_completion/NEXT_LEVEL_ITEM_IDS", NEXT_LEVEL_ITEM_IDS, "resolved", _next_level_authority_for, bool(context.get("share_static_catalogs", false)),
+	)
 	var core_loop_mastery_polish := _core_loop_mastery_polish(context)
 	return {
 		"version": 2,
@@ -968,13 +959,9 @@ static func _core_loop_mastery_polish(context: Dictionary) -> Dictionary:
 	var rival_memory := context.get("rival_memory", {}) as Dictionary
 	var cue := consolidated.get("unified_cue", {}) as Dictionary
 	var review := complete.get("review", {}) as Dictionary
-	var implementation: Array[Dictionary] = []
-	for item_id in CORE_LOOP_MASTERY_ITEM_IDS:
-		implementation.append({
-			"id": String(item_id),
-			"resolved": true,
-			"authority": _core_loop_mastery_authority_for(item_id),
-		})
+	var implementation := PresentationCatalogScript.project(
+		&"intuitive_rewarding_completion/CORE_LOOP_MASTERY_ITEM_IDS", CORE_LOOP_MASTERY_ITEM_IDS, "resolved", _core_loop_mastery_authority_for, bool(context.get("share_static_catalogs", false)),
+	)
 	return {
 		"version": 1,
 		"canonical": true,

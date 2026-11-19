@@ -43,6 +43,9 @@ const DISPATCH_WORK_HANDOFF_DURATION := 0.34
 const WORK_PROGRESS_PIP_COUNT := 5
 const WORK_DEADLINE_RISK_MINUTES := 60
 
+var _snapshot_surface_writes := 0
+var _snapshot_material_bindings := 0
+
 const UPGRADE_PECKWORK_TOOLS := &"peckwork_tools"
 const UPGRADE_SHELL_LAMP := &"shell_lamp"
 const UPGRADE_NEST_CUSHION := &"nest_cushion"
@@ -54,6 +57,10 @@ const SUPPORTED_UPGRADES: Array[StringName] = [
 
 
 class StationVisual extends RefCounted:
+	var identity_display: MeshInstance3D
+	var identity_key := -1
+	var identity_copy := ""
+	var hardware_badges: Dictionary = {}
 	var index: int = -1
 	var root: Node3D
 	var screens: Array[MeshInstance3D] = []
@@ -74,6 +81,9 @@ class StationVisual extends RefCounted:
 	var pace_flow_material: StandardMaterial3D
 	var pace_active: bool = false
 	var work_progress_root: Node3D
+	var work_progress_caption: Label3D
+	var work_progress_fill: MeshInstance3D
+	var work_progress_ready_material: StandardMaterial3D
 	var work_progress_pips: Array[MeshInstance3D] = []
 	var work_progress_active_material: StandardMaterial3D
 	var work_progress_inactive_material: StandardMaterial3D
@@ -163,6 +173,7 @@ class StationVisual extends RefCounted:
 var _stations_by_index: Dictionary[int, StationVisual] = {}
 var _stations_by_worker: Dictionary[int, StationVisual] = {}
 var _station_list: Array[StationVisual] = []
+var _selected_progress_worker_id := -1
 var _phase: float = 0.0
 var _update_accumulator: float = 0.0
 var _color_vision_mode: StringName = &"standard"
@@ -252,6 +263,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		_stations_by_worker[worker_id] = station
 		assigned_desk_indices[desk_index] = true
 		station.worker_id = worker_id
+		_apply_hen_identity(station, worker_snapshot)
 		var claim: Dictionary = worker_snapshot.get("current_claim", {}) as Dictionary
 		var claim_id := int(claim.get("id", -1))
 		if claim_id >= 0 and claim_id != station.current_claim_id:
@@ -277,6 +289,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		if assigned_desk_indices.has(station.index) or station.worker_id < 0:
 			continue
 		station.worker_id = -1
+		_apply_hen_identity(station, {})
 		station.worker_name = ""
 		station.current_claim_id = -1
 		station.minutes_until_deadline = 9999
@@ -399,6 +412,12 @@ func animation_speed_multiplier() -> float:
 func set_reduced_motion(enabled: bool) -> void:
 	if enabled and not _reduced_motion:
 		for station in _station_list:
+			if station.completion_tween != null and station.completion_tween.is_valid():
+				station.completion_tween.kill()
+				station.completion_boost = 0.65
+				station.completion_tween = create_tween().bind_node(self)
+				station.completion_tween.tween_interval(0.65)
+				station.completion_tween.tween_property(station, "completion_boost", 0.0, 0.0)
 			if station.egg_delivery_ack_active:
 				_hold_egg_delivery_ack_static(station, station.egg_delivery_ack_serial)
 			if station.dispatch_work_handoff_active:
@@ -471,6 +490,8 @@ func work_progress_snapshot() -> Dictionary:
 			"worker_id": station.worker_id,
 			"desk_index": station.index,
 			"worker_name": station.worker_name,
+			"desk_identity": station.identity_copy,
+			"career_seals": station.identity_key % 4 if station.identity_key >= 0 else 0,
 			"claim_id": station.current_claim_id,
 			"lane": String(station.current_lane),
 			"progress": snappedf(station.progress, 0.1),
@@ -481,6 +502,9 @@ func work_progress_snapshot() -> Dictionary:
 			"minutes_until_deadline": station.minutes_until_deadline,
 			"overdue": station.claim_overdue,
 			"rework": station.claim_is_rework,
+			"peck_ready": station.peck_assist_ready,
+			"caption": station.work_progress_caption.text if station.work_progress_caption != null else "",
+			"caption_visible": station.work_progress_caption != null and station.work_progress_caption.is_visible_in_tree(),
 			"visible": visible,
 			"animated": visible and not _reduced_motion,
 			"interactive": visible and station.worker_id >= 0,
@@ -786,6 +810,7 @@ func set_work_progress_hover(worker_id: int) -> void:
 
 
 func set_work_progress_selected(worker_id: int) -> void:
+	_selected_progress_worker_id = worker_id
 	for station in _station_list:
 		station.work_progress_selected = (
 			station.worker_id == worker_id
@@ -816,11 +841,16 @@ func pulse_completion(worker_id: int, quality: StringName) -> void:
 
 	if station.completion_tween != null and station.completion_tween.is_valid():
 		station.completion_tween.kill()
-	station.completion_boost = 0.0
+	station.completion_boost = 0.65 if _reduced_motion else 0.0
 	station.completion_tween = create_tween().bind_node(self)
 	station.completion_tween.set_speed_scale(_animation_speed_multiplier)
+	if _reduced_motion:
+		station.completion_tween.tween_interval(0.65)
+		station.completion_tween.tween_property(station, "completion_boost", 0.0, 0.0)
+		return
 	station.completion_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	station.completion_tween.tween_property(station, "completion_boost", 1.0, 0.10)
+	station.completion_tween.tween_interval(0.12)
 	station.completion_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
 	station.completion_tween.tween_property(station, "completion_boost", 0.0, 0.72)
 
@@ -868,11 +898,14 @@ func dispatch_landing_point_global(worker_id: int) -> Vector3:
 	return landing_parent.to_global(station.dispatch_landing_rest_position)
 
 
-func pulse_peck_assist(worker_id: int, rating: StringName) -> void:
+func pulse_peck_assist(worker_id: int, rating: StringName, completed: bool = true) -> void:
 	var station: StationVisual = _stations_by_worker.get(worker_id)
 	if station == null:
 		station = _stations_by_index.get(worker_id)
 	if station == null:
+		return
+	station.contact_boost = 1.0
+	if not completed:
 		return
 	station.completion_color = (
 		SemanticColorPaletteScript.quality_color(&"golden", _color_vision_mode)
@@ -881,15 +914,20 @@ func pulse_peck_assist(worker_id: int, rating: StringName) -> void:
 	)
 	if station.completion_tween != null and station.completion_tween.is_valid():
 		station.completion_tween.kill()
-	station.completion_boost = 0.0
+	station.completion_boost = 0.65 if _reduced_motion else 0.0
 	station.completion_tween = create_tween().bind_node(self)
 	station.completion_tween.set_speed_scale(_animation_speed_multiplier)
+	if _reduced_motion:
+		station.completion_tween.tween_interval(0.65)
+		station.completion_tween.tween_property(station, "completion_boost", 0.0, 0.0)
+		return
+	# One resolve-and-settle envelope. The actual three beak contacts already
+	# have their own small desk response; a second triple flash obscured them.
 	station.completion_tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	for _peck in 3:
-		station.completion_tween.tween_property(station, "completion_boost", 1.0, 0.07)
-		station.completion_tween.tween_property(station, "completion_boost", 0.22, 0.10)
+	station.completion_tween.tween_property(station, "completion_boost", 1.0, 0.12)
+	station.completion_tween.tween_interval(0.10)
 	station.completion_tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-	station.completion_tween.tween_property(station, "completion_boost", 0.0, 0.36)
+	station.completion_tween.tween_property(station, "completion_boost", 0.0, 0.58)
 
 
 ## Sends a real 3D claim folder from the intake counter to the selected desk.
@@ -1808,17 +1846,12 @@ func _build_core_loop_props(station: StationVisual) -> void:
 		return
 	var screen := station.screens[0]
 	station.peck_contact_root = _new_runtime_root("ScreenPeckContact", screen)
-	# The flattened emissive sphere reads as a soft point of impact from both
-	# sides of the monitor and inherits the exact authored Screen transform.
+	# A small hollow response keeps the work visible through its center. The
+	# shared ring inherits the authored screen transform and uses no particles.
 	station.peck_contact_root.position = Vector3(0.0, 0.0, 0.022)
 	station.peck_contact_disc = MeshInstance3D.new()
 	station.peck_contact_disc.name = "ScreenPeckContactDisc"
-	var disc_mesh := SphereMesh.new()
-	disc_mesh.radius = 0.50
-	disc_mesh.height = 1.0
-	disc_mesh.radial_segments = 12
-	disc_mesh.rings = 6
-	station.peck_contact_disc.mesh = disc_mesh
+	station.peck_contact_disc.mesh = OfficeDeskDetails.contact_ring()
 	station.peck_contact_disc.scale = Vector3(0.16, 0.16, 0.025)
 	station.peck_contact_disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	station.peck_contact_material = _make_emissive_material(Color("f7d878"), 0.0, 0.26)
@@ -1873,12 +1906,20 @@ func _build_work_progress_rail(station: StationVisual) -> void:
 	if station.root == null:
 		return
 	station.work_progress_root = _new_runtime_root("WorkProgressRail", station.root)
-	station.work_progress_root.position = Vector3(-0.22, 1.29, 0.795)
+	station.work_progress_root.position = Vector3(-0.22, 1.60, 0.795)
 	station.work_progress_root.rotation.y = PI
+	station.work_progress_root.scale = Vector3.ONE * 1.42
 	station.work_progress_root.set_meta("feedback_shape", &"segmented_rail")
 	station.work_progress_root.set_meta("pip_count", WORK_PROGRESS_PIP_COUNT)
 	station.work_progress_root.set_meta("view_side", &"management")
 	var backplate_material := _make_standard_material(COLOR_HARDWARE_DARK.darkened(0.18), 0.72, 0.08)
+	for side in [-1.0, 1.0]:
+		var support := _add_box_mesh(
+			station.work_progress_root, "ProgressDisplaySupport",
+			Vector3(0.022, 0.42, 0.025), Vector3(side * 0.28, -0.30, 0.016),
+			backplate_material,
+		)
+		support.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_add_box_mesh(
 		station.work_progress_root,
 		"ProgressRailBackplate",
@@ -1886,15 +1927,37 @@ func _build_work_progress_rail(station: StationVisual) -> void:
 		Vector3.ZERO,
 		backplate_material,
 	)
-	station.work_progress_active_material = _make_emissive_material(COLOR_WORKING, 0.92, 0.28)
-	station.work_progress_inactive_material = _make_emissive_material(COLOR_LINE_OFF, 0.16, 0.54)
-	station.work_progress_warning_material = _make_emissive_material(COLOR_ALERT, 1.18, 0.30)
+	# Readable instrument ink, independent of the room's sun and exposure.
+	# Emissive pips clipped to white in the compatibility renderer.
+	station.work_progress_active_material = _make_display_material(COLOR_WORKING)
+	station.work_progress_inactive_material = _make_display_material(COLOR_LINE_OFF)
+	station.work_progress_warning_material = _make_display_material(COLOR_ALERT)
+	station.work_progress_ready_material = _make_display_material(COLOR_GOLDEN)
+	# Continuous travel beneath the five coarse pips makes every bit of real
+	# progress visible, including the long opening file. The caption is only
+	# shown for selection/hover or a currently actionable Priority Peck.
+	station.work_progress_fill = _add_box_mesh(
+		station.work_progress_root, "ProgressContinuousFill",
+		Vector3(0.59, 0.018, 0.028), Vector3(0.0, -0.065, -0.028),
+		station.work_progress_active_material,
+	)
+	station.work_progress_fill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	station.work_progress_caption = Label3D.new()
+	station.work_progress_caption.name = "ProgressCaption"
+	station.work_progress_caption.position = Vector3(0.0, 0.20, 0.0)
+	station.work_progress_caption.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	station.work_progress_caption.font_size = 36
+	station.work_progress_caption.pixel_size = 0.005
+	station.work_progress_caption.outline_size = 10
+	station.work_progress_caption.outline_modulate = Color("172b35")
+	station.work_progress_caption.no_depth_test = false
+	station.work_progress_root.add_child(station.work_progress_caption)
 	for pip_index in WORK_PROGRESS_PIP_COUNT:
 		var pip := _add_box_mesh(
 			station.work_progress_root,
 			"ProgressPip_%d" % pip_index,
 			Vector3(0.095, 0.075, 0.026),
-			Vector3(-0.245 + pip_index * 0.122, 0.0, -0.026),
+			Vector3(0.245 - pip_index * 0.122, 0.0, -0.026),
 			station.work_progress_inactive_material,
 		)
 		pip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2059,38 +2122,61 @@ func _apply_single_upgrade_level(station: StationVisual, upgrade_id: StringName,
 	var token := station.upgrade_tokens.get(upgrade_id) as Node3D
 	if token != null:
 		token.visible = level > 0
+		var badge := station.hardware_badges.get(upgrade_id) as MeshInstance3D
+		if badge != null and int(badge.get_meta("level", -1)) != level:
+			badge.set_meta("level", level)
+			badge.mesh = HenDeskIdentity.hardware(SUPPORTED_UPGRADES.find(upgrade_id), level)
 
 
 func _build_issued_hardware_tokens(station: StationVisual, cubicle_back: Node3D) -> void:
 	if cubicle_back == null:
 		return
-	var plaque_material := _make_standard_material(Color("526160"), 0.52, 0.26)
-	var token_colors: Dictionary = {
-		UPGRADE_PECKWORK_TOOLS: Color("74b9a7"),
-		UPGRADE_SHELL_LAMP: Color("f0c968"),
-		UPGRADE_NEST_CUSHION: Color("a38aaa"),
-	}
+	var identity_host := _new_runtime_root("PerchCareerDisplay", cubicle_back)
+	# Below the memo strip and work rail, beside the existing nameplate.
+	identity_host.position = Vector3(-0.22, -0.22, 0.075) if cubicle_back != station.root else Vector3(-0.22, 1.06, 0.755)
+	station.identity_display = MeshInstance3D.new()
+	station.identity_display.name = "HenKeepsakeAndCareerSeals"
+	station.identity_display.material_override = HenDeskIdentity.finish()
+	station.identity_display.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	station.identity_display.visible = false
+	identity_host.add_child(station.identity_display)
 	for token_index in SUPPORTED_UPGRADES.size():
 		var upgrade_id := SUPPORTED_UPGRADES[token_index]
 		var token := _new_runtime_root("IssuedHardwareToken_%s" % String(upgrade_id), cubicle_back)
-		token.position = (
-			Vector3(0.50 + token_index * 0.28, 0.28, 0.075)
-			if cubicle_back != station.root
-			else Vector3(0.50 + token_index * 0.28, 1.56, 0.755)
-		)
-		_add_cylinder_mesh(token, "IssuedTokenMount", 0.096, 0.096, 0.035, Vector3.ZERO, Vector3(PI * 0.5, 0.0, 0.0), plaque_material)
-		var icon_material := _make_emissive_material(token_colors[upgrade_id], 0.38, 0.42)
-		match upgrade_id:
-			UPGRADE_PECKWORK_TOOLS:
-				for key_index in 3:
-					_add_box_mesh(token, "TokenKey_%d" % key_index, Vector3(0.042, 0.035, 0.025), Vector3(-0.048 + key_index * 0.048, 0.0, 0.040), icon_material)
-			UPGRADE_SHELL_LAMP:
-				_add_box_mesh(token, "TokenLampArm", Vector3(0.024, 0.086, 0.022), Vector3(-0.025, 0.0, 0.038), icon_material)
-				_add_sphere_mesh(token, "TokenLampLens", Vector3(0.028, 0.028, 0.044), Vector3(0.095, 0.095, 0.040), icon_material)
-			UPGRADE_NEST_CUSHION:
-				_add_sphere_mesh(token, "TokenNestPad", Vector3(0.0, 0.0, 0.042), Vector3(0.145, 0.115, 0.045), icon_material)
+		token.position = Vector3(0.50 + token_index * 0.28, 0.28, 0.075) if cubicle_back != station.root else Vector3(0.50 + token_index * 0.28, 1.56, 0.755)
+		# Combine the mount, icon and five level marks into one opaque draw.
+		var badge := MeshInstance3D.new()
+		badge.name = "HardwareLevelBadge"
+		badge.material_override = HenDeskIdentity.finish()
+		badge.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		token.add_child(badge)
 		token.visible = false
 		station.upgrade_tokens[upgrade_id] = token
+		station.hardware_badges[upgrade_id] = badge
+
+
+func _apply_hen_identity(station: StationVisual, worker: Dictionary) -> void:
+	if station.identity_display == null:
+		return
+	var id := int(worker.get("id", -1))
+	var occupied := id >= 0 and bool(worker.get("employed", true))
+	station.identity_display.visible = occupied
+	if not occupied:
+		station.identity_key = -1
+		station.identity_copy = ""
+		return
+	var level := clampi(int(worker.get("career_level", 0)), 0, 3)
+	var key := id * 4 + level
+	if station.identity_key == key and station.worker_name == String(worker.get("name", "Hen")):
+		return
+	# State changes swap a cached mesh; identical live ticks do no geometry work.
+	if station.identity_key != key:
+		station.identity_key = key
+		station.identity_display.mesh = HenDeskIdentity.record(id, level)
+	station.identity_copy = "%s · %s keepsake · %s · %d/3 career seals" % [
+		String(worker.get("name", "Hen")), HenDeskIdentity.MOTIFS[posmod(id, 6)].capitalize(),
+		String(worker.get("career_title", "New hire")), level,
+	]
 
 
 func _kill_install_tween(station: StationVisual, upgrade_id: StringName) -> void:
@@ -2167,12 +2253,12 @@ func _apply_station_snapshot(
 	var lane_mix := 0.62 if state in [STATE_WORKING, STATE_LAYING] else 0.24
 	station.base_color = state_color.lerp(lane_color, lane_mix) if lane != &"auto" else state_color
 
-	station.screen_material.albedo_color = station.base_color.darkened(0.68)
-	station.header_material.albedo_color = station.base_color.darkened(0.48)
-	station.phone_material.albedo_color = station.base_color.darkened(0.72)
-	station.tray_material.albedo_color = station.base_color.darkened(0.66)
-	station.phone_material.emission = station.base_color.darkened(0.16)
-	station.tray_material.emission = station.base_color.darkened(0.26)
+	_set_station_albedo(station.screen_material, station.base_color.darkened(0.68))
+	_set_station_albedo(station.header_material, station.base_color.darkened(0.48))
+	_set_station_albedo(station.phone_material, station.base_color.darkened(0.72))
+	_set_station_albedo(station.tray_material, station.base_color.darkened(0.66))
+	_set_station_emission(station.phone_material, station.base_color.darkened(0.16))
+	_set_station_emission(station.tray_material, station.base_color.darkened(0.26))
 	var visible_papers := 0
 	if state == STATE_WORKING:
 		visible_papers = clampi(1 + floori(progress / 24.0), 1, station.activity_papers.size())
@@ -2192,11 +2278,36 @@ func _apply_station_snapshot(
 		active_line_count = station.lines.size()
 	for line_index in station.lines.size():
 		var line := station.lines[line_index]
-		line.material_override = (
+		_set_station_material(line,
 			station.line_active_material if line_index < active_line_count
 			else station.line_inactive_material
 		)
 	_apply_work_progress_visual(station)
+
+
+func presentation_write_counts() -> Dictionary:
+	return {"surface_parameters": _snapshot_surface_writes, "material_bindings": _snapshot_material_bindings}
+
+
+# These are snapshot-driven surfaces. The continuous animation/lighting pass
+# still owns its live emission energy, pulses and transforms at the normal rate.
+# Compare the actual resource so palette changes and external edits stay valid.
+func _set_station_albedo(material: StandardMaterial3D, color: Color) -> void:
+	if material.albedo_color != color:
+		material.albedo_color = color
+		_snapshot_surface_writes += 1
+
+
+func _set_station_emission(material: StandardMaterial3D, color: Color) -> void:
+	if material.emission != color:
+		material.emission = color
+		_snapshot_surface_writes += 1
+
+
+func _set_station_material(mesh: MeshInstance3D, material: Material) -> void:
+	if mesh.material_override != material:
+		mesh.material_override = material
+		_snapshot_material_bindings += 1
 
 
 func _apply_work_progress_visual(station: StationVisual) -> void:
@@ -2211,6 +2322,7 @@ func _apply_work_progress_visual(station: StationVisual) -> void:
 	else:
 		station.work_progress_status = &"working"
 	var visible := station.work_progress_status != &"hidden"
+	station.work_progress_selected = visible and station.worker_id >= 0 and station.worker_id == _selected_progress_worker_id
 	if not visible:
 		station.work_progress_hovered = false
 		station.work_progress_selected = false
@@ -2222,11 +2334,21 @@ func _apply_work_progress_visual(station: StationVisual) -> void:
 	station.work_progress_root.set_meta("minutes_until_deadline", station.minutes_until_deadline)
 	station.work_progress_root.set_meta("overdue", station.claim_overdue)
 	station.work_progress_root.set_meta("rework", station.claim_is_rework)
-	station.work_progress_active_material.albedo_color = station.base_color.lightened(0.08)
-	station.work_progress_active_material.emission = station.base_color.lightened(0.30)
+	station.work_progress_root.set_meta("peck_ready", station.peck_assist_ready)
+	var fraction := clampf(station.progress / 100.0, 0.0, 1.0)
+	station.work_progress_fill.scale.x = maxf(0.001, fraction)
+	# The display faces management with a PI rotation, so positive local X is
+	# the player's left edge. Keep both the continuous fill and pips aligned.
+	station.work_progress_fill.position.x = 0.295 * (1.0 - fraction)
+	_set_station_material(station.work_progress_fill,
+		station.work_progress_warning_material if station.work_progress_status == &"deadline_risk" else
+		station.work_progress_ready_material if station.peck_assist_ready else
+		station.work_progress_active_material
+	)
+	_set_station_albedo(station.work_progress_active_material, station.base_color.lightened(0.08))
 	var warning_color := SemanticColorPaletteScript.quality_color(&"cracked", _color_vision_mode)
-	station.work_progress_warning_material.albedo_color = warning_color.darkened(0.34)
-	station.work_progress_warning_material.emission = warning_color.lightened(0.08)
+	_set_station_albedo(station.work_progress_warning_material, warning_color)
+	_set_station_albedo(station.work_progress_ready_material, SemanticColorPaletteScript.quality_color(&"golden", _color_vision_mode))
 	var filled_pips := clampi(
 		ceili(station.progress * float(WORK_PROGRESS_PIP_COUNT) / 100.0),
 		0,
@@ -2235,11 +2357,13 @@ func _apply_work_progress_visual(station: StationVisual) -> void:
 	station.work_progress_root.set_meta("filled_pips", filled_pips)
 	for pip_index in station.work_progress_pips.size():
 		if pip_index >= filled_pips:
-			station.work_progress_pips[pip_index].material_override = station.work_progress_inactive_material
+			_set_station_material(station.work_progress_pips[pip_index], station.work_progress_inactive_material)
 		elif station.work_progress_status == &"deadline_risk":
-			station.work_progress_pips[pip_index].material_override = station.work_progress_warning_material
+			_set_station_material(station.work_progress_pips[pip_index], station.work_progress_warning_material)
+		elif station.peck_assist_ready:
+			_set_station_material(station.work_progress_pips[pip_index], station.work_progress_ready_material)
 		else:
-			station.work_progress_pips[pip_index].material_override = station.work_progress_active_material
+			_set_station_material(station.work_progress_pips[pip_index], station.work_progress_active_material)
 	if station.work_progress_pause_root != null:
 		station.work_progress_pause_root.visible = station.work_progress_status == &"paused"
 	if station.work_progress_risk_root != null:
@@ -2250,6 +2374,24 @@ func _apply_work_progress_visual(station: StationVisual) -> void:
 func _apply_work_progress_affordance(station: StationVisual) -> void:
 	if station.work_progress_affordance_root == null:
 		return
+	if station.work_progress_caption != null:
+		station.work_progress_caption.visible = (
+			station.work_progress_root.visible
+			and (station.work_progress_hovered or station.work_progress_selected or station.peck_assist_ready)
+		)
+		var caption := (
+			"LATE FILE" if station.claim_overdue else
+			"PECK" if station.peck_assist_ready else
+			"EGG READY" if station.state == STATE_LAYING else
+			"PAUSED" if station.work_progress_status == &"paused" else
+			"%d%%" % roundi(station.progress)
+		)
+		if station.work_progress_caption.text != caption:
+			station.work_progress_caption.text = caption
+		station.work_progress_caption.modulate = (
+			COLOR_ALERT if station.claim_overdue else
+			COLOR_GOLDEN if station.peck_assist_ready else Color("e7f5ed")
+		)
 	var visible := (
 		station.work_progress_root != null
 		and station.work_progress_root.visible
@@ -2284,9 +2426,7 @@ func _animate_station(station: StationVisual) -> void:
 	if station.screen_material == null:
 		return
 
-	var slow_pulse := sin(_phase * 2.2 + station.phase_offset) * 0.07
-	var fine_flicker := sin(_phase * 13.0 + station.phase_offset * 1.7) * 0.018
-	var stress_flicker := fine_flicker * remap(station.stress, 0.0, 100.0, 0.35, 1.35)
+	var slow_pulse := 0.0 if _reduced_motion else sin(_phase * 1.8 + station.phase_offset) * 0.025
 	var completion_mix := clampf(station.completion_boost, 0.0, 1.0)
 	var display_color := station.base_color.lerp(station.completion_color, completion_mix)
 	if station.specialty_match and station.state == STATE_WORKING:
@@ -2295,27 +2435,27 @@ func _animate_station(station: StationVisual) -> void:
 			0.24,
 		)
 	if station.peck_assist_ready:
-		var ready_mix := 0.34 + maxf(0.0, sin(_phase * 5.6 + station.phase_offset)) * 0.24
+		var ready_mix := 0.36 if _reduced_motion else 0.30 + maxf(0.0, sin(_phase * 2.8 + station.phase_offset)) * 0.12
 		display_color = display_color.lerp(
 			SemanticColorPaletteScript.quality_color(&"golden", _color_vision_mode),
 			ready_mix,
 		)
-	var work_energy := 1.00 if station.state == STATE_WORKING else 0.72
+	var work_energy := 0.60 if station.state == STATE_WORKING else 0.36
 	if station.state == STATE_LAYING:
-		work_energy = 1.22
+		work_energy = 0.70
 	elif station.state == STATE_BREAK:
-		work_energy = 0.52
+		work_energy = 0.28
 
 	station.screen_material.emission = display_color
 	station.header_material.emission = display_color.lightened(0.17)
 	station.line_active_material.emission = display_color.lightened(0.25)
-	station.screen_material.emission_energy_multiplier = maxf(0.18, work_energy + slow_pulse + stress_flicker + completion_mix * 1.25)
+	station.screen_material.emission_energy_multiplier = maxf(0.18, work_energy + slow_pulse + completion_mix * 0.42)
 	station.header_material.emission_energy_multiplier = maxf(
 		0.18,
-		work_energy + slow_pulse * 0.55 + completion_mix * 1.55
-		+ (0.34 if station.specialty_match and station.state == STATE_WORKING else 0.0),
+		work_energy + slow_pulse * 0.55 + completion_mix * 0.65
+		+ (0.16 if station.specialty_match and station.state == STATE_WORKING else 0.0),
 	)
-	station.line_active_material.emission_energy_multiplier = 1.10 + slow_pulse * 0.45 + completion_mix * 1.20
+	station.line_active_material.emission_energy_multiplier = 0.78 + slow_pulse * 0.45 + completion_mix * 0.45
 	if station.work_progress_active_material != null:
 		station.work_progress_active_material.emission_energy_multiplier = (
 			1.18 if _reduced_motion else 1.18 + maxf(0.0, slow_pulse) * 2.2
@@ -2347,9 +2487,9 @@ func _animate_station(station: StationVisual) -> void:
 			and station.state == STATE_WORKING
 			and station.chair_occupied
 		)
-		station.peck_contact_root.scale = Vector3.ONE * lerpf(0.52, 1.18, contact_mix)
+		station.peck_contact_root.scale = Vector3.ONE * (0.75 if _reduced_motion else lerpf(1.12, 0.48, contact_mix))
 		station.peck_contact_material.emission = display_color.lightened(0.34)
-		station.peck_contact_material.emission_energy_multiplier = 0.25 + contact_mix * 3.35
+		station.peck_contact_material.emission_energy_multiplier = 0.20 + contact_mix * 1.10
 	if station.pace_flow_root != null and station.pace_flow_material != null:
 		station.pace_flow_root.visible = station.pace_active
 		station.pace_flow_root.set_meta("active", station.pace_active)
@@ -2369,13 +2509,13 @@ func _animate_station(station: StationVisual) -> void:
 	var alert_strength := 0.18
 	var alert_color := station.base_color.darkened(0.30)
 	if station.state == STATE_LAYING:
-		alert_strength = 0.70 + maxf(0.0, sin(_phase * 7.0 + station.phase_offset)) * 0.95
+		alert_strength = 0.70 if _reduced_motion else 0.60 + maxf(0.0, sin(_phase * 3.0 + station.phase_offset)) * 0.40
 		alert_color = COLOR_LAYING
 	elif station.stress >= 72.0:
-		alert_strength = 0.48 + maxf(0.0, sin(_phase * 5.4 + station.phase_offset)) * 0.72
+		alert_strength = 0.65 if _reduced_motion else 0.48 + maxf(0.0, sin(_phase * 3.0 + station.phase_offset)) * 0.40
 		alert_color = COLOR_ALERT
 	if completion_mix > 0.0:
-		alert_strength += completion_mix * 1.8
+		alert_strength += completion_mix * 0.75
 		alert_color = alert_color.lerp(station.completion_color, completion_mix)
 	station.alert_material.emission = alert_color
 	station.alert_material.emission_energy_multiplier = alert_strength
@@ -2398,10 +2538,13 @@ func _animate_station(station: StationVisual) -> void:
 		paper.position.x = rest_x + (paper_index * 0.065 if _strategy_id == "fast" else 0.0)
 		paper.rotation_degrees.y = (0.0 if _strategy_id == "safe" else -10.0 + paper_index * 4.0 if _strategy_id == "fast" else -2.5 + paper_index * 1.1)
 		var inspection_lift := 0.055 if _strategy_id == "safe" and paper_index == 0 and working else 0.0
-		paper.position.y = rest_y + route_lift + inspection_lift + (motion * 0.022 if working and not _reduced_motion else 0.0)
+		# A tiny contact-driven kick makes real work tactile; the stack settles
+		# between beats rather than waving continuously like loose confetti.
+		var contact_lift := station.contact_boost * 0.018 / float(paper_index + 1)
+		paper.position.y = rest_y + route_lift + inspection_lift + (motion * 0.006 + contact_lift if working and not _reduced_motion else 0.0)
 		paper.scale = Vector3.ONE * (1.0 + station.route_boost * (0.10 if paper_index == 0 else 0.02))
 	if station.stress_notice != null and station.stress_notice.visible:
-		station.stress_notice.rotation.z = sin(_phase * 3.8 + station.phase_offset) * 0.025
+		station.stress_notice.rotation.z = 0.0 if _reduced_motion else sin(_phase * 3.8 + station.phase_offset) * 0.025
 	if station.golden_file_seal != null and station.golden_file_seal.visible:
 		var seal_pulse := 1.0 if _reduced_motion else 1.0 + maxf(0.0, sin(_phase * 3.2 + station.phase_offset)) * 0.10
 		station.golden_file_seal.scale = Vector3.ONE * seal_pulse
@@ -2423,15 +2566,12 @@ func _build_activity_props(station: StationVisual) -> void:
 	for paper_index in 5:
 		var paper := MeshInstance3D.new()
 		paper.name = "LivePeckworkPaper_%d" % paper_index
-		paper.mesh = ProceduralPrimitiveCache.box(Vector3(0.48, 0.018, 0.34))
+		paper.mesh = OfficeDeskDetails.work_file(paper_index)
 		paper.position = tray_position + Vector3((paper_index % 2) * 0.018, paper_index * 0.023, (paper_index % 3) * 0.010)
 		paper.rotation_degrees.y = -2.5 + paper_index * 1.1
 		paper.set_meta("rest_y", paper.position.y)
 		paper.set_meta("rest_x", paper.position.x)
-		var paper_material := StandardMaterial3D.new()
-		paper_material.albedo_color = Color("dedbc8") if paper_index % 2 == 0 else Color("c5d2ce")
-		paper_material.roughness = 0.92
-		paper.material_override = paper_material
+		paper.material_override = OfficeDeskDetails.portrait_material()
 		paper.visible = false
 		station.root.add_child(paper)
 		station.activity_papers.append(paper)
@@ -2640,6 +2780,12 @@ func _make_standard_material(color: Color, roughness: float, metallic: float = 0
 	material.albedo_color = color
 	material.roughness = roughness
 	material.metallic = metallic
+	return material
+
+
+func _make_display_material(color: Color) -> StandardMaterial3D:
+	var material := _make_standard_material(color, 1.0)
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	return material
 
 

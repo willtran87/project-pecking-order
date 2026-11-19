@@ -721,6 +721,13 @@ var _claim_resolution_origin: Control
 var _personnel_actions_section: GridContainer
 var _focused_worker_id := -1
 var _snapshot: Dictionary = {}
+var _refresh_timing: Dictionary = {}
+var _refresh_count := 0
+var _dossier_readability_controls: Array[Control] = []
+var _dossier_identity_control: Control
+var _dossier_font_writes := 0
+var _panel_style_cache: Dictionary = {}
+var _compact_style_cache: Dictionary = {}
 var _interaction_enabled := true
 var _active_dispatch_lane: StringName = &""
 var _dispatch_momentum_chain := 0
@@ -790,6 +797,8 @@ var _details_expanded := false
 var _top_inset := 120.0
 var _interface_scale := 1.0
 var _dossier_physical_scale := -1.0
+var _coach_readability_scale := -1.0
+var _first_clutch_row: BoxContainer
 var _dossier_canvas_scale := 1.0
 var _dossier_measure_elapsed := 0.5
 var _icon_led_queue_marks := true
@@ -1122,6 +1131,8 @@ func golden_file_state() -> Dictionary:
 ## intent, while `resume_required` suppresses the disabled Priority Peck cue.
 ## This component never advances coach state or changes camera focus directly.
 func apply_first_clutch(coach: Dictionary) -> void:
+	if _first_clutch == coach:
+		return
 	var previous_stage := _first_clutch_disclosure_stage()
 	var was_active := bool(_first_clutch.get("visible", false))
 	_first_clutch = coach.duplicate(true)
@@ -1149,6 +1160,8 @@ func set_first_clutch_stage(stage: StringName, state: Dictionary = {}) -> void:
 
 
 func set_interaction_enabled(enabled: bool) -> void:
+	if _interaction_enabled == enabled:
+		return
 	_interaction_enabled = enabled
 	if not enabled:
 		_cancel_peck_result_focus_handoff("interaction_blocked")
@@ -1164,7 +1177,19 @@ func set_dispatch_state(
 	reward_label: String = "",
 	file_preview: Dictionary = {},
 ) -> void:
-	_active_dispatch_lane = lane if lane in LANE_ORDER else &""
+	var next_lane := lane if lane in LANE_ORDER else &""
+	var next_chain := maxi(0, momentum_chain)
+	if (
+		_active_dispatch_lane == next_lane
+		and _dispatch_momentum_chain == next_chain
+		and _dispatch_recommended_name == recommended_name
+		and _dispatch_reward_label == reward_label
+		and _dispatch_file_preview == file_preview
+		and not (next_chain > 0 and _dispatch_break_remaining > 0.0)
+		and not (next_chain > 1 and _dispatch_recovery_remaining > 0.0)
+	):
+		return
+	_active_dispatch_lane = next_lane
 	_dispatch_momentum_chain = maxi(0, momentum_chain)
 	if _dispatch_momentum_chain > 0 and _dispatch_break_remaining > 0.0:
 		_finish_dispatch_break()
@@ -1179,8 +1204,12 @@ func set_dispatch_state(
 ## Applies the canonical phase-focus projection after the ordinary dossier has
 ## refreshed. This is presentation-only: it never arms a tray, assigns a hen,
 ## advances time, or files a simulation command.
-func apply_professional_completion_state(state: Dictionary) -> void:
-	set_meta("professional_gameplay_completion", state.duplicate(true))
+func apply_professional_completion_state(state: Dictionary, owned_read_only: bool = false) -> void:
+	# External callers retain the defensive-copy contract; Office lends its
+	# freshly composed, read-only HUD projection for this presentation pass.
+	if not owned_read_only:
+		state = state.duplicate(true)
+	set_meta("professional_gameplay_completion", state)
 	if state.is_empty() or _focus_panel == null or _queue_panel == null:
 		return
 	var attention := state.get("attention_choreography", {}) as Dictionary
@@ -1188,7 +1217,7 @@ func apply_professional_completion_state(state: Dictionary) -> void:
 	_focus_panel.set_meta("attention_focus_id", String(focus_id))
 	_focus_panel.set_meta("one_primary_action", bool(attention.get("one_primary", true)))
 	_focus_panel.set_meta("invalid_choices_hidden", bool(attention.get("invalid_choices_hidden", true)))
-	_focus_panel.set_meta("visible_groups", (attention.get("visible_groups", []) as Array).duplicate(true))
+	_focus_panel.set_meta("visible_groups", (attention.get("visible_groups", []) as Array))
 	_queue_panel.set_meta("attention_primary", String(attention.get("primary", "OBSERVE")))
 	if bool(_first_clutch.get("visible", false)):
 		return
@@ -1224,8 +1253,12 @@ func apply_professional_completion_state(state: Dictionary) -> void:
 			pass
 
 
-func apply_professional_polish_state(state: Dictionary) -> void:
-	set_meta("professional_polish", state.duplicate(true))
+func apply_professional_polish_state(state: Dictionary, owned_read_only: bool = false) -> void:
+	# External callers retain the defensive-copy contract; Office lends its
+	# freshly composed, read-only HUD projection for this presentation pass.
+	if not owned_read_only:
+		state = state.duplicate(true)
+	set_meta("professional_polish", state)
 	if state.is_empty() or _focus_panel == null or _queue_panel == null:
 		return
 	var experiential := state.get("experiential_polish", {}) as Dictionary
@@ -1234,31 +1267,31 @@ func apply_professional_polish_state(state: Dictionary) -> void:
 	var spotlight := state.get("action_spotlight", {}) as Dictionary
 	var preview := state.get("before_after_preview", {}) as Dictionary
 	var direct := state.get("direct_file_manipulation", {}) as Dictionary
-	_focus_panel.set_meta("contextual_action_spotlight", spotlight.duplicate(true))
-	_focus_panel.set_meta("visual_before_after_preview", preview.duplicate(true))
-	_focus_panel.set_meta("reaction_first_feedback", (state.get("reaction_first_feedback", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("direct_file_manipulation", direct.duplicate(true))
-	_queue_panel.set_meta("strong_action_availability", (state.get("action_availability", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("tactical_dilemmas", (state.get("tactical_dilemmas", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("repetition_director", (state.get("repetition_director", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("experiential_polish", experiential.duplicate(true))
-	_queue_panel.set_meta("next_level_polish", next_level.duplicate(true))
-	_queue_panel.set_meta("core_loop_mastery_polish", mastery_polish.duplicate(true))
-	_queue_panel.set_meta("file_personalities", (mastery_polish.get("file_personalities", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("target_forecasts", (mastery_polish.get("target_forecasts", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("routing_combinations", (mastery_polish.get("routing_combinations", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("drop_target_preview", (next_level.get("drop_target_preview", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("fit_language", (next_level.get("fit_language", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("direct_drag_routing", (experiential.get("direct_drag_routing", {}) as Dictionary).duplicate(true))
-	_queue_panel.set_meta("route_combo_gamefeel", (experiential.get("route_combo_gamefeel", {}) as Dictionary).duplicate(true))
-	_focus_panel.set_meta("silent_tutorial_file", (experiential.get("silent_tutorial_file", {}) as Dictionary).duplicate(true))
-	_focus_panel.set_meta("animated_consequence_preview", (experiential.get("animated_consequence_preview", {}) as Dictionary).duplicate(true))
-	_focus_panel.set_meta("safe_experimentation", (experiential.get("safe_experimentation", {}) as Dictionary).duplicate(true))
+	_focus_panel.set_meta("contextual_action_spotlight", spotlight)
+	_focus_panel.set_meta("visual_before_after_preview", preview)
+	_focus_panel.set_meta("reaction_first_feedback", (state.get("reaction_first_feedback", {}) as Dictionary))
+	_queue_panel.set_meta("direct_file_manipulation", direct)
+	_queue_panel.set_meta("strong_action_availability", (state.get("action_availability", {}) as Dictionary))
+	_queue_panel.set_meta("tactical_dilemmas", (state.get("tactical_dilemmas", {}) as Dictionary))
+	_queue_panel.set_meta("repetition_director", (state.get("repetition_director", {}) as Dictionary))
+	_queue_panel.set_meta("experiential_polish", experiential)
+	_queue_panel.set_meta("next_level_polish", next_level)
+	_queue_panel.set_meta("core_loop_mastery_polish", mastery_polish)
+	_queue_panel.set_meta("file_personalities", (mastery_polish.get("file_personalities", {}) as Dictionary))
+	_queue_panel.set_meta("target_forecasts", (mastery_polish.get("target_forecasts", {}) as Dictionary))
+	_queue_panel.set_meta("routing_combinations", (mastery_polish.get("routing_combinations", {}) as Dictionary))
+	_queue_panel.set_meta("drop_target_preview", (next_level.get("drop_target_preview", {}) as Dictionary))
+	_queue_panel.set_meta("fit_language", (next_level.get("fit_language", {}) as Dictionary))
+	_queue_panel.set_meta("direct_drag_routing", (experiential.get("direct_drag_routing", {}) as Dictionary))
+	_queue_panel.set_meta("route_combo_gamefeel", (experiential.get("route_combo_gamefeel", {}) as Dictionary))
+	_focus_panel.set_meta("silent_tutorial_file", (experiential.get("silent_tutorial_file", {}) as Dictionary))
+	_focus_panel.set_meta("animated_consequence_preview", (experiential.get("animated_consequence_preview", {}) as Dictionary))
+	_focus_panel.set_meta("safe_experimentation", (experiential.get("safe_experimentation", {}) as Dictionary))
 	if _assignment_section != null:
-		_assignment_section.set_meta("distinct_chicken_strengths", (state.get("chicken_strengths", {}) as Dictionary).duplicate(true))
-		_assignment_section.set_meta("personal_chicken_objectives", (state.get("personal_objectives", {}) as Dictionary).duplicate(true))
-		_assignment_section.set_meta("readable_chicken_body_language", (experiential.get("readable_body_language", {}) as Dictionary).duplicate(true))
-		_assignment_section.set_meta("signature_chicken_abilities", (experiential.get("signature_abilities", {}) as Dictionary).duplicate(true))
+		_assignment_section.set_meta("distinct_chicken_strengths", (state.get("chicken_strengths", {}) as Dictionary))
+		_assignment_section.set_meta("personal_chicken_objectives", (state.get("personal_objectives", {}) as Dictionary))
+		_assignment_section.set_meta("readable_chicken_body_language", (experiential.get("readable_body_language", {}) as Dictionary))
+		_assignment_section.set_meta("signature_chicken_abilities", (experiential.get("signature_abilities", {}) as Dictionary))
 
 
 func play_dispatch_reward(
@@ -1658,6 +1691,10 @@ func _finish_dispatch_recovery() -> void:
 
 
 func set_peck_assist_clock_running(running: bool) -> void:
+	# Snapshot application already refreshes live progress and availability.
+	# Repeating the current clock state must not rebuild the entire dossier.
+	if _peck_assist_clock_running == running:
+		return
 	_peck_assist_clock_running = running
 	_refresh()
 
@@ -2359,6 +2396,7 @@ func set_top_inset(inset: float) -> void:
 ## tooltip and accessibility label rather than being repeated across the HUD.
 func set_interface_scale(scale: float) -> void:
 	_interface_scale = clampf(scale, 1.0, 1.5)
+	_coach_readability_scale = -1.0
 	_icon_led_queue_marks = true
 	if _queue_title_label != null:
 		_queue_title_label.text = "ROUTING"
@@ -2676,7 +2714,8 @@ func _build_first_clutch_coach() -> void:
 	margin.add_theme_constant_override("margin_bottom", 8)
 	_first_clutch_panel.add_child(margin)
 
-	var row := HBoxContainer.new()
+	var row := BoxContainer.new()
+	_first_clutch_row = row
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 9)
 	margin.add_child(row)
@@ -2763,6 +2802,7 @@ func _apply_first_clutch_layout() -> void:
 	_first_clutch_layout_width = viewport_width
 	var available_width := minf(size.x, viewport_width) if size.x > 0.0 else viewport_width
 	var narrow := available_width > 0.0 and available_width < 720.0
+	_first_clutch_row.vertical = narrow
 	if _queue_panel != null:
 		_queue_panel.offset_left = 12.0 if narrow else 18.0
 		_queue_panel.offset_top = _top_inset
@@ -3659,9 +3699,15 @@ func _set_claim_phase_header(
 	)
 
 
+func runtime_refresh_diagnostic() -> Dictionary:
+	return {"count": _refresh_count, "stages": _refresh_timing.duplicate(), "font_writes": _dossier_font_writes, "panel_styles": _panel_style_cache.size(), "compact_styles": _compact_style_cache.size()}
+
+
 func _refresh() -> void:
 	if _queue_panel == null or _focus_panel == null:
 		return
+	var refresh_started := Time.get_ticks_usec()
+	_refresh_count += 1
 	var routing: Dictionary = _snapshot.get("routing", {}) as Dictionary
 	var queue_counts: Dictionary = routing.get("queue_counts", _snapshot.get("claim_queue_counts", {})) as Dictionary
 	var overdue_counts: Dictionary = routing.get("overdue_by_lane", _snapshot.get("claim_queue_overdue_counts", {})) as Dictionary
@@ -3811,10 +3857,12 @@ func _refresh() -> void:
 		]
 	_refresh_queue_contract_badge(routing)
 
+	var identity_started := Time.get_ticks_usec()
 	var worker := _worker_snapshot(_focused_worker_id)
 	_focus_panel.visible = _focused_worker_id >= 0 and not worker.is_empty()
 	if not _focus_panel.visible:
 		_refresh_first_clutch()
+		_refresh_timing = {"queue_usec": identity_started - refresh_started, "total_usec": Time.get_ticks_usec() - refresh_started}
 		return
 
 	var worker_name := String(worker.get("name", "HEN %d" % (_focused_worker_id + 1)))
@@ -3934,6 +3982,7 @@ func _refresh() -> void:
 	]
 	_worker_trait_label.set_meta("accessible_text", _worker_trait_label.accessibility_name)
 	_worker_trait_label.set_meta("presentation_role", &"worker_identity")
+	var claim_started := Time.get_ticks_usec()
 	var claim: Dictionary = worker.get("current_claim", {}) as Dictionary
 	var golden_file_target := bool(claim.get("routing_golden_target", false))
 	_golden_file_badge.visible = golden_file_target
@@ -4051,6 +4100,7 @@ func _refresh() -> void:
 			)
 			_set_claim_detail_facts(claim_facts, working_facts_accessible)
 	_refresh_claim_resolution_controls(worker, claim)
+	var peck_started := Time.get_ticks_usec()
 	var assist := worker.get("peck_assist", {}) as Dictionary
 	var assist_available := bool(assist.get("available", false)) and _interaction_enabled
 	var resume_required := assist_available and not _peck_assist_clock_running
@@ -4238,6 +4288,7 @@ func _refresh() -> void:
 	_routing_hint_label.accessibility_name = _routing_hint_label.tooltip_text
 	_routing_hint_label.set_meta("accessible_text", _routing_hint_label.accessibility_name)
 	_refresh_egg_journey_receipt(_focused_worker_id, assist_receipt_active)
+	var care_started := Time.get_ticks_usec()
 	var manager_trust := clampf(float(worker.get("manager_trust", worker.get("trust", 50.0))), 0.0, 100.0)
 	var grievance := clampf(float(worker.get("grievance", 0.0)), 0.0, 100.0)
 	_trust_label.text = "TRUST  %d" % int(roundf(manager_trust))
@@ -4254,7 +4305,8 @@ func _refresh() -> void:
 	var can_assign := _interaction_enabled and phase == 1 and employed
 	for lane in ASSIGNMENT_ORDER:
 		var button := _assignment_buttons[lane]
-		button.remove_theme_font_size_override("font_size")
+		if not button.has_meta("dossier_base_font"):
+			button.remove_theme_font_size_override("font_size")
 		var specialty_match := (
 			lane != &"auto"
 			and (lane == specialty or (secondary_specialty != &"" and lane == secondary_specialty))
@@ -4368,7 +4420,7 @@ func _refresh() -> void:
 	)
 	for action_id in PERSONNEL_ACTION_ORDER:
 		var personnel_button := _personnel_buttons[action_id]
-		personnel_button.add_theme_font_size_override("font_size", 11)
+		_set_dossier_font_size(personnel_button, roundi(maxi(12, int(personnel_button.get_meta("dossier_base_font", 11))) * _dossier_physical_scale))
 		var definition := _personnel_definition(action_id)
 		var action_label := String(definition.get(
 			"short_name",
@@ -4398,6 +4450,7 @@ func _refresh() -> void:
 	if _care_lesson_later != null:
 		_care_lesson_later.visible = not _care_lesson.is_empty()
 		_care_lesson_later.text = "BACK TO WORK" if bool(_care_lesson.get("complete", false)) else "LATER"
+	var summary_started := Time.get_ticks_usec()
 	_refresh_dossier_summary(
 		worker,
 		career_profile_name,
@@ -4405,6 +4458,7 @@ func _refresh() -> void:
 		preferred_action,
 		worker_action,
 	)
+	var layout_started := Time.get_ticks_usec()
 	_dossier_summary_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_dossier_summary_label.accessibility_name = _dossier_summary_label.tooltip_text
 	_dossier_summary_label.set_meta("accessible_text", _dossier_summary_label.accessibility_name)
@@ -4415,6 +4469,17 @@ func _refresh() -> void:
 		&"dossier_detail",
 	)
 	_refresh_first_clutch()
+
+	_refresh_timing = {
+		"refresh_usec": identity_started - refresh_started,
+		"identity_usec": claim_started - identity_started,
+		"claim_usec": peck_started - claim_started,
+		"peck_usec": care_started - peck_started,
+		"care_usec": summary_started - care_started,
+		"summary_usec": layout_started - summary_started,
+		"layout_usec": Time.get_ticks_usec() - layout_started,
+		"total_usec": Time.get_ticks_usec() - refresh_started,
+	}
 
 
 func _refresh_egg_journey_receipt(worker_id: int, current_file_receipt_visible: bool) -> void:
@@ -4838,7 +4903,7 @@ func _refresh_first_clutch() -> void:
 			not coach_active
 			and not (worker.get("hen_intent", {}) as Dictionary).is_empty()
 		)
-	var compact := coach_active and (
+	var compact := coach_active and not bool(_first_clutch.get("route_first_lesson", false)) and (
 		_first_clutch_has_contextual_dossier()
 		or bool(_first_clutch.get("essential_only", false))
 	)
@@ -4878,8 +4943,8 @@ func _refresh_first_clutch() -> void:
 	var character_led_orientation := (
 		bool(_first_clutch.get("pre_policy", false)) and not eyebrow.is_empty()
 	)
-	_first_clutch_progress_label.text = "YOUR FIRST EGG" if bool(_first_clutch.get("route_first_lesson", false)) else eyebrow if character_led_orientation else "FIRST CLUTCH"
-	_first_clutch_progress_rail.visible = not character_led_orientation and not bool(_first_clutch.get("route_first_lesson", false))
+	_first_clutch_progress_label.text = ("FIRST SHIFT · %d / %d" % [mini(progress + 1, total), total]) if bool(_first_clutch.get("route_first_lesson", false)) else eyebrow if character_led_orientation else "FIRST CLUTCH"
+	_first_clutch_progress_rail.visible = not character_led_orientation or bool(_first_clutch.get("route_first_lesson", false))
 	_first_clutch_progress_rail.set_progress(progress, total)
 	var accessible_title := String(_first_clutch.get(
 		"title",
@@ -5229,7 +5294,10 @@ func _apply_first_clutch_delivery_glance() -> void:
 		"Follow the assisted file through egg delivery.",
 	))
 	if bool(_first_clutch.get("route_first_lesson", false)):
-		_current_claim_label.text = "EGG IN GRADING" if egg_laid else "WORKS ON HER OWN"
+		_current_claim_label.text = (
+			"EGG IN GRADING" if egg_laid else
+			"EGG IN PROGRESS  ·  %d%%" % clampi(roundi(float(worker.get("progress", 0.0))), 0, 100)
+		)
 		_current_claim_label.accessibility_name = "%s's file finishes automatically, then travels as an egg to the farmer basket." % worker_name
 		_current_claim_label.tooltip_text = _current_claim_label.accessibility_name
 		_current_claim_label.set_meta("accessible_text", _current_claim_label.accessibility_name)
@@ -5288,15 +5356,21 @@ func _apply_dossier_disclosure() -> void:
 	var stage := _first_clutch_disclosure_stage()
 	if stage == &"":
 		stage = &"inspect"
+	var payoff_summary := coach_active and stage in [&"reinvestment", &"complete"] and not _details_expanded
+	compact_play = compact_play or payoff_summary
 	var route_tab := normal_play and _details_expanded and _active_dossier_tab == &"route"
 	var claim_tab := normal_play and _details_expanded and _active_dossier_tab == &"claim"
 	var support_tab := normal_play and _details_expanded and _active_dossier_tab == &"support"
 	var profile_tab := normal_play and _details_expanded and _active_dossier_tab == &"profile"
-	var compact_recovery := compact_play and _assignment_undo_button.visible
+	var compact_recovery := compact_play and not payoff_summary and _assignment_undo_button.visible
 	_dossier_physical_scale = _dossier_readable_scale()
 	var small_canvas := _dossier_physical_scale > 1.15
 	if compact_play:
 		_focus_panel.offset_top = (-284.0 if compact_recovery else -240.0) if small_canvas else (-228.0 if compact_recovery else -186.0)
+	elif coach_active and stage == &"delivery":
+		# This is a watch-and-reward beat. Fit the visible progress and undo row
+		# without reserving space for the hidden routing/personnel choices.
+		_focus_panel.offset_top = -268.0 if small_canvas else -214.0
 	elif coach_active and stage == &"specialty_route" and not small_canvas:
 		_focus_panel.offset_top = -194.0
 	else:
@@ -5318,14 +5392,14 @@ func _apply_dossier_disclosure() -> void:
 	_dossier_summary_label.custom_minimum_size.y = 42.0 if compact_play else 54.0
 	_dossier_summary_label.max_lines_visible = 2 if compact_play else 4
 
-	var show_claim := route_tab or claim_tab or (coach_active and stage in [
+	var show_claim := not payoff_summary and (route_tab or claim_tab or (coach_active and stage in [
 		&"inspect",
 		&"specialty_route",
 		&"priority_peck",
 		&"delivery",
 		&"reinvestment",
 		&"complete",
-	])
+	]))
 	var show_routing := route_tab or (coach_active and target_matches and stage == &"specialty_route")
 	var show_check_in := support_tab or (coach_active and target_matches and stage == &"check_in")
 	var show_priority := route_tab or (coach_active and target_matches and stage == &"priority_peck")
@@ -5432,18 +5506,41 @@ func _measure_dossier_canvas() -> void:
 	_dossier_canvas_scale = clampf(1.0 / maxf(0.5, physical_ratio), 1.0, 1.5)
 
 
+func _set_dossier_font_size(control: Control, size: int) -> void:
+	if control.has_theme_font_size_override("font_size") and control.get_theme_font_size("font_size") == size:
+		return
+	control.add_theme_font_size_override("font_size", size)
+	_dossier_font_writes += 1
+
+
 func _apply_dossier_readability() -> void:
 	var readable_scale := _dossier_physical_scale
-	for candidate in _focus_panel.find_children("*", "Control", true, false):
-		var control := candidate as Control
+	if not is_equal_approx(_coach_readability_scale, readable_scale):
+		_coach_readability_scale = readable_scale
+		# The first required actions need the same CSS-pixel compensation as
+		# the regular dossier. Reuse its cached measurement, never poll again.
+		_first_clutch_title_label.add_theme_font_size_override("font_size", roundi(14 * readable_scale))
+		_first_clutch_body_label.add_theme_font_size_override("font_size", roundi(12 * readable_scale))
+		_first_clutch_progress_label.add_theme_font_size_override("font_size", roundi(10 * readable_scale))
+		_first_clutch_body_label.max_lines_visible = 3
+		for button in [_first_clutch_action_button, _first_clutch_return_button, _first_clutch_skip_button]:
+			button.custom_minimum_size.y = 44.0 * readable_scale
+			button.add_theme_font_size_override("font_size", roundi(12 * readable_scale))
+	# The dossier builds its control tree once. Cache those bindings instead of
+	# searching it and invalidating every font on each worker-progress update.
+	if _dossier_readability_controls.is_empty():
+		for candidate in _focus_panel.find_children("*", "Control", true, false):
+			_dossier_readability_controls.append(candidate as Control)
+		_dossier_identity_control = _focus_panel.find_child("DossierIdentity", true, false) as Control
+	for control in _dossier_readability_controls:
 		if control is Label or control is Button:
 			if not control.has_meta("dossier_base_font"):
 				control.set_meta("dossier_base_font", control.get_theme_font_size("font_size"))
 			var base_font := maxi(12, int(control.get_meta("dossier_base_font")))
-			control.add_theme_font_size_override("font_size", roundi(base_font * readable_scale))
+			_set_dossier_font_size(control, roundi(base_font * readable_scale))
 		if control is Button:
 			control.custom_minimum_size.y = 44.0 * readable_scale
-	var identity := _focus_panel.find_child("DossierIdentity", true, false) as Control
+	var identity := _dossier_identity_control
 	if identity != null:
 		identity.custom_minimum_size.x = 384.0 if readable_scale > 1.15 else 281.0
 	_hen_intent_button.custom_minimum_size.x = 190.0 if readable_scale > 1.15 else 142.0
@@ -6298,16 +6395,17 @@ func _refresh_hen_intent(worker: Dictionary) -> void:
 		if choice_intent else
 		"%s  ›" % visual_action_label
 	)
-	_hen_intent_button.add_theme_font_size_override("font_size", 9 if choice_intent else 10)
+	# Dossier readability owns the final (at least 12px) scaled font. Resetting
+	# it to 9/10 here made every refresh invalidate it twice with no visible gain.
 	_hen_intent_button.tooltip_text = detail
 	_hen_intent_button.set_meta("action_id", action_id)
 	_hen_intent_button.set_meta("intent_icon", icon)
 	_hen_intent_button.set_meta("outcome_cutoff_progress", outcome_cutoff if choice_intent else -1)
 	_hen_intent_button.set_meta("accessible_text", "%s. %s" % [action_label, detail])
 	_hen_intent_button.disabled = not action_available
-	_hen_intent_button.theme_type_variation = (
-		&"PrimaryButton" if urgency >= 3 else &"DecisionChoiceButton"
-	)
+	var intent_theme := &"PrimaryButton" if urgency >= 3 else &"DecisionChoiceButton"
+	if _hen_intent_button.theme_type_variation != intent_theme:
+		_hen_intent_button.theme_type_variation = intent_theme
 	# A committed Priority Peck can leave keyboard focus on this same compact
 	# action while the authoritative file advances from working to laying. Keep
 	# the diagnostic handoff receipt aligned with the action now under focus; this
@@ -6562,18 +6660,29 @@ func _apply_peck_assist_style(button: Button) -> void:
 
 
 func _compact_button_style(color: Color, border: Color, border_width: int) -> StyleBoxFlat:
-	var style := _panel_style(color, color.a, border, 6, border_width)
+	var key := [color, border, border_width]
+	if _compact_style_cache.has(key):
+		return _compact_style_cache[key] as StyleBoxFlat
+	# Margins belong only to the compact variant; never mutate a shared panel.
+	var style := _panel_style(color, color.a, border, 6, border_width).duplicate() as StyleBoxFlat
 	style.content_margin_left = 6.0
 	style.content_margin_right = 6.0
 	style.content_margin_top = 2.0
 	style.content_margin_bottom = 2.0
+	_compact_style_cache[key] = style
 	return style
 
 
 func _panel_style(color: Color, opacity: float, border: Color, radius: int, border_width: int) -> StyleBoxFlat:
+	# All callers treat these authored style variants as read-only. Their finite
+	# palette is shared for the lifetime of this routing UI, including peck states.
+	var key := [color, opacity, border, radius, border_width]
+	if _panel_style_cache.has(key):
+		return _panel_style_cache[key] as StyleBoxFlat
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(color.r, color.g, color.b, opacity)
 	style.border_color = border
 	style.set_border_width_all(border_width)
 	style.set_corner_radius_all(radius)
+	_panel_style_cache[key] = style
 	return style

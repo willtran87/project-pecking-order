@@ -81,12 +81,38 @@ test("production wrapper serves the rendered shell and complete Godot payload", 
     assert.equal(payloadResponse.status, 200);
     assert.equal(payloadResponse.headers.get("content-type"), "application/octet-stream");
     assert.equal(payloadResponse.headers.get("x-content-type-options"), "nosniff");
+    assert.equal(payloadResponse.headers.get("content-encoding"), "gzip");
+    assert.equal(payloadResponse.headers.get("vary"), "Accept-Encoding");
+    assert.ok(Number(payloadResponse.headers.get("content-length")) < expectedPayload.length);
     const servedPayload = Buffer.from(await payloadResponse.arrayBuffer());
     assert.equal(servedPayload.length, expectedPayload.length);
     assert.equal(
       createHash("sha256").update(servedPayload).digest("hex"),
       createHash("sha256").update(expectedPayload).digest("hex"),
     );
+    const etag = payloadResponse.headers.get("etag");
+    assert.ok(etag, "game payload needs a validator for safe reload caching");
+    const cached = await fetch(`http://127.0.0.1:${port}/game/index.pck`, {
+      headers: { "If-None-Match": etag },
+    });
+    assert.equal(cached.status, 304);
+    assert.equal((await cached.arrayBuffer()).byteLength, 0);
+    const changed = await fetch(`http://127.0.0.1:${port}/game/index.pck`, {
+      method: "HEAD", headers: { "If-None-Match": 'W/"old-export"', "Accept-Encoding": "gzip;q=0, identity" },
+    });
+    assert.equal(changed.status, 200, "a changed export must not reuse stale bytes");
+    assert.equal(Number(changed.headers.get("content-length")), expectedPayload.length);
+    const engine = await fetch(`http://127.0.0.1:${port}/game/index.wasm`, { method: "HEAD" });
+    assert.equal(engine.headers.get("content-type"), "application/wasm");
+    assert.equal(engine.headers.get("content-encoding"), "gzip");
+    const rawEngine = await fetch(`http://127.0.0.1:${port}/game/index.wasm`, {
+      method: "HEAD", headers: { "Accept-Encoding": "identity" },
+    });
+    assert.ok(Number(engine.headers.get("content-length")) < Number(rawEngine.headers.get("content-length")) / 2);
+    const cachedEngine = await fetch(`http://127.0.0.1:${port}/game/index.wasm`, {
+      headers: { "If-None-Match": engine.headers.get("etag") },
+    });
+    assert.equal(cachedEngine.status, 304);
   } finally {
     child.kill("SIGTERM");
     await new Promise((resolveExit) => {

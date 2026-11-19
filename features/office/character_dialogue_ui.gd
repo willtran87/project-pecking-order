@@ -9,23 +9,23 @@ signal dialogue_presented(entry: Dictionary)
 signal dialogue_dismissed(entry_id: StringName)
 
 const ManagementTheme := preload("res://features/office/management_ui_theme.gd")
-const PORTRAITS := {
-	&"mabel": preload("res://assets/npcs/mabel/portraits/mabel_portrait_anxious.png"),
-	&"pip": preload("res://assets/npcs/pip/portraits/pip_portrait_skeptical.png"),
-	&"henrietta": preload("res://assets/npcs/henrietta/portraits/henrietta_portrait_anxious.png"),
-	&"dot": preload("res://assets/npcs/dot/portraits/dot_portrait_knowing.png"),
-	&"agnes": preload("res://assets/npcs/agnes/portraits/agnes_portrait_methodical.png"),
-	&"beatrice": preload("res://assets/npcs/beatrice/portraits/beatrice_portrait_gentle-rebel.png"),
-	&"cornelius": preload("res://assets/npcs/cornelius-claimwell/portraits/cornelius-claimwell_portrait_weary.png"),
-	&"bramwell": preload("res://assets/npcs/bramwell-beakley/portraits/bramwell-beakley_portrait_quota.png"),
-	&"prudence": preload("res://assets/npcs/prudence-peckworth/portraits/prudence-peckworth_portrait_compliance.png"),
-	&"clover": preload("res://assets/npcs/clover-crowsby/portraits/clover-crowsby_portrait_culture.png"),
-	&"pivot": preload("res://assets/npcs/pivot-strutters/portraits/pivot-strutters_portrait_reorg.png"),
-	&"byte": preload("res://assets/npcs/byte-bantam/portraits/byte-bantam_portrait_automation.png"),
-	&"intern_lottie": preload("res://assets/npcs/intern-lottie-ledger/portraits/lottie-ledger_portrait_eager.png"),
-	&"intern_chip": preload("res://assets/npcs/intern-chip-chirper/portraits/chip-chirper_portrait_optimistic.png"),
-	&"intern_marigold": preload("res://assets/npcs/intern-marigold-memo/portraits/marigold-memo_portrait_helpful.png"),
-	&"intern_tilly": preload("res://assets/npcs/intern-tilly-tabs/portraits/tilly-tabs_portrait_tech-hopeful.png"),
+const PORTRAIT_PATHS := {
+	&"mabel": "res://assets/npcs/mabel/portraits/mabel_portrait_anxious.png",
+	&"pip": "res://assets/npcs/pip/portraits/pip_portrait_skeptical.png",
+	&"henrietta": "res://assets/npcs/henrietta/portraits/henrietta_portrait_anxious.png",
+	&"dot": "res://assets/npcs/dot/portraits/dot_portrait_knowing.png",
+	&"agnes": "res://assets/npcs/agnes/portraits/agnes_portrait_methodical.png",
+	&"beatrice": "res://assets/npcs/beatrice/portraits/beatrice_portrait_gentle-rebel.png",
+	&"cornelius": "res://assets/npcs/cornelius-claimwell/portraits/cornelius-claimwell_portrait_weary.png",
+	&"bramwell": "res://assets/npcs/bramwell-beakley/portraits/bramwell-beakley_portrait_quota.png",
+	&"prudence": "res://assets/npcs/prudence-peckworth/portraits/prudence-peckworth_portrait_compliance.png",
+	&"clover": "res://assets/npcs/clover-crowsby/portraits/clover-crowsby_portrait_culture.png",
+	&"pivot": "res://assets/npcs/pivot-strutters/portraits/pivot-strutters_portrait_reorg.png",
+	&"byte": "res://assets/npcs/byte-bantam/portraits/byte-bantam_portrait_automation.png",
+	&"intern_lottie": "res://assets/npcs/intern-lottie-ledger/portraits/lottie-ledger_portrait_eager.png",
+	&"intern_chip": "res://assets/npcs/intern-chip-chirper/portraits/chip-chirper_portrait_optimistic.png",
+	&"intern_marigold": "res://assets/npcs/intern-marigold-memo/portraits/marigold-memo_portrait_helpful.png",
+	&"intern_tilly": "res://assets/npcs/intern-tilly-tabs/portraits/tilly-tabs_portrait_tech-hopeful.png",
 }
 
 const MAX_QUEUE := 6
@@ -41,6 +41,7 @@ const COLOR_MUTED := Color("aeb8c4")
 const COLOR_BRASS := Color("e7c56e")
 const COLOR_TEAL := Color("79b9ab")
 
+var _portrait_textures: Dictionary = {}
 var _queue: Array[Dictionary] = []
 var _seen_ids: Dictionary[StringName, bool] = {}
 var _active: Dictionary = {}
@@ -327,11 +328,20 @@ func _build_interface() -> void:
 	_action_rail.add_child(_file_button)
 
 
+func _portrait_texture(portrait_id: StringName) -> Texture2D:
+	if not _portrait_textures.has(portrait_id):
+		var path := String(PORTRAIT_PATHS.get(portrait_id, ""))
+		if path.is_empty():
+			return null
+		_portrait_textures[portrait_id] = load(path) as Texture2D
+	return _portrait_textures[portrait_id] as Texture2D
+
+
 func _present(entry: Dictionary) -> void:
 	_active = entry.duplicate(true)
 	_remaining_seconds = clampf(float(_active.get("hold_seconds", 9.0)), 5.0, 15.0)
 	var portrait_id := StringName(String(_active.get("portrait_id", "")))
-	_portrait.texture = PORTRAITS.get(portrait_id) as Texture2D
+	_portrait.texture = null if _is_ambient_active() else _portrait_texture(portrait_id)
 	_channel_label.text = String(_active.get("channel", "FLOOR CHAT")).to_upper()
 	_name_label.text = String(_active.get("speaker_name", "Office Hen")).to_upper()
 	_role_label.text = String(_active.get("speaker_role", "EGG YIELD BUREAU")).to_upper()
@@ -387,6 +397,13 @@ func _apply_responsive_layout() -> void:
 		_panel.offset_right = -ambient_margin
 		_panel.offset_top = -ambient_margin - ambient_height
 		_panel.offset_bottom = -ambient_margin
+		# The bottom of the office contains the selected hen's live controls.
+		# Keep desktop chatter beside the guide, below the top management rail.
+		if viewport_size.x >= 1000.0 and viewport_size.y >= 600.0:
+			_panel.anchor_top = 0.0
+			_panel.anchor_bottom = 0.0
+			_panel.offset_top = 248.0
+			_panel.offset_bottom = 248.0 + ambient_height
 		_row.columns = 1
 		_content_margin.add_theme_constant_override("margin_left", 14)
 		_content_margin.add_theme_constant_override("margin_right", 14)
@@ -496,7 +513,7 @@ func _valid_entry(entry: Dictionary) -> bool:
 	var portrait_id := StringName(String(entry.get("portrait_id", "")))
 	return (
 		not entry_id.is_empty()
-		and PORTRAITS.has(portrait_id)
+		and PORTRAIT_PATHS.has(portrait_id)
 		and not String(entry.get("speaker_name", "")).strip_edges().is_empty()
 		and not String(entry.get("text", "")).strip_edges().is_empty()
 	)

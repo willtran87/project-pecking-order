@@ -163,6 +163,8 @@ func _run() -> void:
 	var side_partition := (workstation_map.get(1) as Node3D).find_child("CubicleBack", true, false) as MeshInstance3D
 	var row_rail := office.find_child("OverheadRowRail_00", true, false) as MeshInstance3D
 	var focused_lift_tube := office.find_child("EggLiftTube_00", true, false) as MeshInstance3D
+	var row_glow := office.find_child("OverheadRowRail_00Glow", true, false) as MeshInstance3D
+	var pickup_lamp := office.find_child("CollectionStatusLamp_00", true, false) as MeshInstance3D
 	office.set("_compact_physical_hud", true)
 	office.set("_hud_canvas_ratio", 900.0 / 1280.0)
 	office.call("_apply_physical_hud_layout")
@@ -181,8 +183,10 @@ func _run() -> void:
 	office.set("_hud_canvas_ratio", 1.0)
 	office.call("_apply_physical_hud_layout")
 	office.call("_set_inspected_cubicle_cutaway", 0)
+	_check(row_glow != null and not row_glow.visible and pickup_lamp != null and not pickup_lamp.visible, "inspection should also remove the rail accent and lamp crossing the hen's face", failures)
 	_check(desk_partition != null and not desk_partition.visible and desk_top_trim != null and not desk_top_trim.visible and focused_monitor != null and not focused_monitor.visible and focused_screen != null and not focused_screen.visible and side_monitor != null and side_monitor.visible and foreground_partition != null and foreground_partition.visible and side_partition != null and side_partition.visible and row_rail != null and not row_rail.visible and focused_lift_tube != null and not focused_lift_tube.visible, "inspection should reveal the hen while preserving nearby desks and their equipment", failures)
 	office.call("_set_inspected_cubicle_cutaway", -1)
+	_check(row_glow != null and row_glow.visible and pickup_lamp != null and pickup_lamp.visible, "overview should restore the entire collection fixture", failures)
 	_check(desk_partition != null and desk_partition.visible and desk_partition.transparency == 0.0 and desk_top_trim != null and desk_top_trim.visible and focused_monitor != null and focused_monitor.visible and focused_screen != null and focused_screen.visible and row_rail != null and row_rail.visible and focused_lift_tube != null and focused_lift_tube.visible, "leaving inspection should restore the cubicle, monitor, and egg-collection structure", failures)
 	var replay_authority_before := office_simulation.export_save_state()
 	office.set("_dispatch_last_receipt", {

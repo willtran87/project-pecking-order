@@ -204,13 +204,13 @@ func _run() -> void:
 			safe_plan_item_id = int(menu_id_value)
 			break
 	_check(
-		StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"playbook"
-		and guidance.text == "CHOOSE A SHIFT PLAN"
+		StringName(guidance_action.get_meta("guidance_action_id", &"")) == &""
+		and guidance.text.contains("EGGS TO GO")
 		and active_playbook_button.visible
 		and safe_plan_item_id >= 0
 		and String((opening_playbook_map[safe_plan_item_id] as Dictionary).get("gain", "")) == "SHELL RISK -4.3% / CLEAN REWARD"
 		and bool((opening_playbook_map[safe_plan_item_id] as Dictionary).get("recommended", false)),
-		"the next action should explain plan selection while the stable PLAN entry remains discoverable",
+		"the quota should remain primary while the optional PLAN entry remains discoverable",
 		failures,
 	)
 	var eggs_before_rival_probe := simulation.eggs_today
@@ -504,6 +504,12 @@ func _run() -> void:
 		"a funded choice should map its exact Feed Fund delta to the money receipt family",
 		failures,
 	)
+	# Menus change as rewards unlock; select the current entry, not a stale index.
+	safe_plan_item_id = -1
+	for menu_id in (office.get("_active_playbook_menu_map") as Dictionary):
+		var current_option: Dictionary = office.get("_active_playbook_menu_map")[menu_id]
+		if current_option.get("kind", "") == "preset" and current_option.get("id", "") == "safe":
+			safe_plan_item_id = int(menu_id)
 	if safe_plan_item_id >= 0:
 		office.call("_on_active_playbook_item_pressed", safe_plan_item_id)
 	await process_frame
@@ -511,7 +517,7 @@ func _run() -> void:
 		String(simulation.playbook_snapshot(0).get("strategy_preset_id", "")) == "safe"
 		and active_playbook_button.visible
 		and String(active_playbook_button.text).begins_with("PLAN"),
-		"after filing, PLAN keeps its stable label while the chosen strategy remains authoritative",
+		"after filing, PLAN keeps its stable label while the chosen strategy remains authoritative: id=%d strategy=%s visible=%s text=%s" % [safe_plan_item_id, simulation.playbook_snapshot(0).get("strategy_preset_id", ""), active_playbook_button.visible, active_playbook_button.text],
 		failures,
 	)
 	var advanced_playbook := simulation.playbook_snapshot(0)
@@ -549,17 +555,17 @@ func _run() -> void:
 	_check(
 		guidance != null
 		and guidance_action != null
-		and guidance.text == "GOALS"
+		and guidance.text.begins_with("RESUME SHIFT")
 		and "NEXT:" not in guidance.text
 		and guidance.text.length() <= 40
 		and guidance_icon != null
-		and guidance_icon.icon_kind() == &"clipboard"
-		and String(guidance_icon.get_meta("semantic_icon", "")) == "clipboard"
+		and guidance_icon.icon_kind() == &"pause"
+		and String(guidance_icon.get_meta("semantic_icon", "")) == "pause"
 		and guidance_chevron != null
 		and guidance.get_global_rect().size.x >= 40.0
 		and guidance_chevron.get_global_rect().position.x - guidance.get_global_rect().end.x <= 12.0
-		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"today"
-		and "open today's goals" in String(guidance.get_meta("accessible_text", "")).to_lower(),
+		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"resume_shift"
+		and "resume to let hens" in String(guidance.get_meta("accessible_text", "")).to_lower(),
 		"pausing should group the icon, destination, and chevron without narrating or visually disconnecting its affordance [copy=%s icon=%s meta=%s action=%s width=%.1f gap=%.1f accessible=%s]" % [
 			guidance.text if guidance != null else "missing",
 			String(guidance_icon.icon_kind()) if guidance_icon != null else "missing",
@@ -582,12 +588,16 @@ func _run() -> void:
 		office.call("_web_accessibility_summary", simulation.snapshot())
 	)
 	_check(
-		"While paused, open today's goals to choose the most useful intervention." in paused_accessibility,
+		"Resume to let hens finish files and collect eggs automatically." in paused_accessibility,
 		"assistive narration should retain the exact next-move explanation hidden from the compact HUD",
 		failures,
 	)
 	if guidance_action != null:
 		guidance_action.pressed.emit()
+	await process_frame
+	_check(clock.speed_index == 1 and not bool(office.get("_flockwatch_open")), "The paused next action should resume work directly", failures)
+	clock.set_speed(0)
+	office.call("_on_flockwatch_pressed")
 	await process_frame
 	var flockwatch_panel := office.find_child("FlockwatchLedger", true, false) as PanelContainer
 	var flockwatch_navigation := office.get("_flockwatch_navigation") as FlockwatchNavigation
@@ -597,7 +607,7 @@ func _run() -> void:
 		and flockwatch_panel.is_visible_in_tree()
 		and flockwatch_navigation != null
 		and flockwatch_navigation.current_page_id() == FlockwatchNavigation.PAGE_TODAY,
-		"activating the paused next-move cue should open Today's Goals directly",
+		"the dedicated Goals control should open Today's Goals directly",
 		failures,
 	)
 	var flockwatch_accessibility := String(
@@ -892,8 +902,8 @@ func _run() -> void:
 		and guidance_action != null
 		and not guidance_action.disabled
 		and StringName(guidance_action.get_meta("guidance_action_id", &"")) == &"resume_shift"
-		and String(guidance_action.get_meta("activation_behavior", "")) == "focus_target"
-		and "focus Resume; activate Resume to start 1×" in String(
+		and String(guidance_action.get_meta("activation_behavior", "")) == "execute"
+		and "resume at 1× and file any queued routes" in String(
 			guidance_action.get_meta("accessible_text", "")
 		)
 		and "Queued routes are previews only" in guidance.tooltip_text
@@ -905,12 +915,10 @@ func _run() -> void:
 		guidance_action.pressed.emit()
 	await process_frame
 	_check(
-		resume_button != null and root.gui_get_focus_owner() == resume_button,
-		"activating planned-route guidance should focus the visible Resume control without filing implicitly",
+		clock.speed_index == 1,
+		"activating Resume guidance should start production directly",
 		failures,
 	)
-	if resume_button != null:
-		resume_button.pressed.emit()
 	await process_frame
 	await process_frame
 	routed_worker = office.call("_worker_record", simulation.snapshot(), 0) as Dictionary

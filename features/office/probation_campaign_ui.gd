@@ -18,6 +18,7 @@ signal replay_scenario_changed(scenario_id: StringName)
 signal legacy_card_requested
 signal title_intake_phase_changed(phase: StringName)
 signal milestone_choice(choice_id: StringName)
+signal review_surface_built(surface: Control)
 signal presentation_state_changed
 signal report_filing_settled(reveal_key: String, instant: bool)
 signal live_order_mark_requested(objective_id: StringName, order_index: int)
@@ -283,6 +284,8 @@ var _replacement_confirmation_body: Label
 var _replacement_confirmation_confirm: Button
 var _replacement_confirmation_cancel: Button
 var _replacement_confirmation_origin: Control
+# Reports and final review are not part of the opening intake.
+var _defer_review_surfaces := OS.has_feature("web")
 
 
 func _ready() -> void:
@@ -1713,9 +1716,9 @@ func _build_modal_host() -> void:
 	_modal_scroll.add_child(_modal_center)
 
 	_build_title_panel(_modal_center)
-	_build_report_panel(_modal_center)
-	_build_final_panel(_modal_center)
-	_build_final_sticky_action_bar()
+	if not _defer_review_surfaces:
+		_ensure_review_surface(VIEW_REPORT)
+		_ensure_review_surface(VIEW_FINAL)
 	_contract_board_ui = FarmMutualContractBoardUIScript.new() as FarmMutualContractBoardUI
 	_contract_board_ui.name = "FarmMutualContractBoardUI"
 	_contract_board_ui.visible = false
@@ -1727,6 +1730,20 @@ func _build_modal_host() -> void:
 	)
 	_modal_host.add_child(_contract_board_ui)
 	_build_replacement_confirmation()
+
+
+func _ensure_review_surface(view: StringName) -> void:
+	if view == VIEW_REPORT and _report_panel == null:
+		_build_report_panel(_modal_center)
+		_report_panel.visible = false
+		review_surface_built.emit(_report_panel)
+	elif view == VIEW_FINAL and _final_panel == null:
+		_build_final_panel(_modal_center)
+		_build_final_sticky_action_bar()
+		_final_panel.visible = false
+		_final_sticky_action_bar.visible = false
+		review_surface_built.emit(_final_panel)
+		review_surface_built.emit(_final_sticky_action_bar)
 
 
 func _build_title_panel(parent: Control) -> void:
@@ -2826,13 +2843,17 @@ func _refresh() -> void:
 	_refresh_day_badge_visibility()
 	_refresh_live_order_badge()
 
+	_ensure_review_surface(_view)
 	var modal_open := _view != VIEW_ACTIVE
 	_modal_host.visible = modal_open
 	_modal_scroll.visible = _view != VIEW_CONTRACT_BOARD
 	_title_panel.visible = _view == VIEW_TITLE
-	_report_panel.visible = _view == VIEW_REPORT
-	_final_panel.visible = _view == VIEW_FINAL
-	_final_sticky_action_bar.visible = _view == VIEW_FINAL and size.x >= 720.0
+	if _report_panel != null:
+		_report_panel.visible = _view == VIEW_REPORT
+	if _final_panel != null:
+		_final_panel.visible = _view == VIEW_FINAL
+	if _final_sticky_action_bar != null:
+		_final_sticky_action_bar.visible = _view == VIEW_FINAL and size.x >= 720.0
 	_contract_board_ui.visible = _view == VIEW_CONTRACT_BOARD
 	_apply_responsive_layout()
 	if not modal_open:
@@ -2894,7 +2915,7 @@ func _apply_title_hierarchy(can_continue: bool) -> void:
 		var chapter_value: Variant = _snapshot.get("chapter", {})
 		var chapter := chapter_value as Dictionary if chapter_value is Dictionary else {}
 		_title_description.text = (
-			"Protect the flock. Survive five shifts."
+			"Route files. Collect eggs. Upgrade your coop.\nMeet each shift's goals while keeping your hens well."
 			if not can_continue or setup_visible else
 			"Continue where you left off, or review a fresh file."
 		)
@@ -3622,22 +3643,10 @@ func _refresh_report(day: int, total_days: int) -> void:
 		"SENIOR ROOST QUARTERLY FILING" if senior else "FARMER'S SHIFT ASSESSMENT",
 	)).to_upper()
 	var compact_result_heading := "SHIFT %d RESULTS" % day
-	if not senior and not chapter.is_empty():
-		compact_result_heading += "  //  %s" % String(chapter.get("title", "PROBATION")).to_upper()
 	var momentum_value: Variant = _snapshot.get("momentum_brief", {})
 	var momentum := momentum_value as Dictionary if momentum_value is Dictionary else {}
-	if (
-		not senior
-		and StringName(String(momentum.get("status", ""))) == &"comeback"
-	):
-		var watch_label := String(
-			(momentum.get("blocker", {}) as Dictionary).get("label", "FILE")
-		).to_upper().trim_prefix("FARMER ")
-		compact_result_heading += "\nLESSON FILED  //  %s RECOVERABLE" % watch_label
-	elif not senior and not chapter.is_empty():
-		compact_result_heading += "\nFARMER  //  %s" % String(
-			chapter.get("farmer_short", "FILE THE RESULT")
-		).to_upper()
+	# Chapter and comeback context remains in the accessible detail below. A
+	# single heading leaves room for the actual results at enlarged text sizes.
 	_report_day_label.text = full_report_kicker if senior else compact_result_heading
 	_report_day_label.visible = senior
 	_report_day_label.tooltip_text = full_report_kicker
@@ -5232,7 +5241,9 @@ func _update_objective() -> void:
 		"description",
 		objective.get("detail", "The farmer has not filed the next clutch target."),
 	))
-	_objective_body_label.text = description
+	var continuity := String(objective.get("continuity", ""))
+	_objective_body_label.text = continuity if not continuity.is_empty() else description
+	_objective_body_label.accessibility_name = _objective_body_label.text
 	var orders_value: Variant = objective.get("orders", [])
 	var probation_orders := (
 		orders_value as Array
@@ -5321,7 +5332,7 @@ func _update_objective() -> void:
 	var quarter_drivers := driver_value as Array if driver_value is Array else []
 	var driver_detail := _quarter_driver_detail(quarter_drivers)
 	_objective_body_label.visible = (
-		quarter_drivers.is_empty() and not _objective_order_strip.visible
+		not continuity.is_empty() or (quarter_drivers.is_empty() and not _objective_order_strip.visible)
 	)
 	_rebuild_objective_driver_strip(quarter_drivers, driver_detail)
 	var mandate_value: Variant = _snapshot.get("annual_mandate_progress", {})
@@ -6485,26 +6496,34 @@ func _apply_responsive_layout() -> void:
 
 	_modal_center.custom_minimum_size = Vector2(panel_width, modal_height)
 	_title_panel.custom_minimum_size = Vector2(minf(760.0, panel_width), 0.0)
-	_report_panel.custom_minimum_size = Vector2(minf(REPORT_DESKTOP_WIDTH, panel_width), 0.0)
-	_final_panel.custom_minimum_size = Vector2(minf(860.0, panel_width), 0.0)
+	if _report_panel != null:
+		_report_panel.custom_minimum_size = Vector2(minf(REPORT_DESKTOP_WIDTH, panel_width), 0.0)
+	if _final_panel != null:
+		_final_panel.custom_minimum_size = Vector2(minf(860.0, panel_width), 0.0)
 	if _replacement_confirmation_panel != null:
 		_replacement_confirmation_panel.custom_minimum_size = Vector2(minf(560.0, panel_width), 0.0)
 	if _title_challenge_selector != null:
 		_title_challenge_selector.custom_minimum_size.x = 220.0 if narrow else 250.0
-	_report_heading_stack.custom_minimum_size.x = (
-		0.0 if compact else REPORT_HEADING_DESKTOP_WIDTH
-	)
+	if _report_heading_stack != null:
+		_report_heading_stack.custom_minimum_size.x = (
+			0.0 if compact else REPORT_HEADING_DESKTOP_WIDTH
+		)
 
 	var report_score_panel := _metric_panel(_report_score_label)
 	var report_shift_panel := _metric_panel(_report_shift_delta_label)
 	var report_rank_panel := _metric_panel(_report_rank_label)
 	var final_score_panel := _metric_panel(_final_score_label)
 	var final_rank_panel := _metric_panel(_final_rank_label)
-	report_score_panel.custom_minimum_size.x = 132.0
-	report_shift_panel.custom_minimum_size.x = 126.0
-	report_rank_panel.custom_minimum_size.x = 260.0 if narrow else 236.0
-	final_score_panel.custom_minimum_size.x = 190.0
-	final_rank_panel.custom_minimum_size.x = 260.0 if narrow else 276.0
+	if report_score_panel != null:
+		report_score_panel.custom_minimum_size.x = 132.0
+	if report_shift_panel != null:
+		report_shift_panel.custom_minimum_size.x = 126.0
+	if report_rank_panel != null:
+		report_rank_panel.custom_minimum_size.x = 260.0 if narrow else 236.0
+	if final_score_panel != null:
+		final_score_panel.custom_minimum_size.x = 190.0
+	if final_rank_panel != null:
+		final_rank_panel.custom_minimum_size.x = 260.0 if narrow else 276.0
 
 	var ledger_width := 260.0 if narrow else 220.0
 	for row in [_report_ledger_row, _final_ledger_row]:
@@ -6589,6 +6608,15 @@ func _position_badge(modal_open: bool) -> void:
 		_day_badge.offset_bottom = _active_badge_top + badge_height
 		_day_badge.set_meta("layout_mode", "desktop")
 	_day_badge.set_meta("badge_height", badge_height)
+	if _modal_scroll != null:
+		# Reviews can appear for the first time after text has been enlarged.
+		# Reserve the badge's real height so it cannot cover report headings.
+		var review_with_badge := _view in [VIEW_REPORT, VIEW_FINAL] and _day_badge.visible
+		_modal_scroll.offset_top = maxf(
+			66.0,
+			26.0 + maxf(badge_height, _day_badge.get_combined_minimum_size().y),
+		) if review_with_badge else 66.0
+
 
 
 func _on_final_sticky_primary_pressed() -> void:

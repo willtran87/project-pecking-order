@@ -77,12 +77,13 @@ func _run() -> void:
 		first_clutch["reinvestment_grandfathered"] = true
 		office.set("_first_clutch", first_clutch)
 		office.call("_sync_authoritative_shift_objective_display")
-		_check(quota_label != null and "FILE 3 EGGS · 1/3" == quota_label.text, "filing the first reward should carry its credited egg into the next short goal", failures)
+		office.call("_apply_readable_loop_hud", office_simulation.snapshot(), {})
+		_check(quota_label != null and "QUOTA  ·  1 / 16" == quota_label.text, "filing the first reward must reveal the real shift quota without inserting a competing three-egg target", failures)
 		office_simulation.eggs_today = 3
 		office.call("_sync_authoritative_shift_objective_display")
 		_check(
 			quota_label != null and "QUOTA  ·  3 / 16" == quota_label.text
-			and "13 remaining before 5:00 PM" in quota_label.accessibility_name,
+			and "13 remaining" in quota_label.accessibility_name,
 			"the third egg should reveal the remaining shift quota without waiting for a fourth egg",
 			failures,
 		)

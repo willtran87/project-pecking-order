@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { gameRenderSize } from "../lib/game-render-budget";
+import { fetchStartupShaders, prepareStartupShaders } from "../lib/startup-shaders.mjs";
 import type { ChangeEvent, KeyboardEvent as ReactKeyboardEvent, TouchEvent as ReactTouchEvent } from "react";
 
 type GameDiagnostic = Record<string, unknown>;
@@ -78,6 +80,7 @@ export default function Home() {
   const [loaded, setLoaded] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadError, setLoadError] = useState("");
+  const [loadSlow, setLoadSlow] = useState(false);
 	const [portraitGuidanceDismissed, setPortraitGuidanceDismissed] = useState(false);
 	const [campaignActive, setCampaignActive] = useState(false);
 	const [playModePreference, setPlayModePreference] = useState<PlayModePreference>("auto");
@@ -90,6 +93,11 @@ export default function Home() {
   const [gameStatus, setGameStatus] = useState(
     "Game loading. Objective: wait for the career file to open.",
   );
+  useEffect(() => {
+    if (loaded || loadError) return;
+    const timer = window.setTimeout(() => setLoadSlow(true), 45000);
+    return () => window.clearTimeout(timer);
+  }, [loaded, loadError]);
 	const [gameAnnouncement, setGameAnnouncement] = useState<LiveGameAnnouncement>({
 		key: "loading:0",
 		text: "Game loading. Objective: wait for the career file to open.",
@@ -174,6 +182,24 @@ export default function Home() {
     if (started.current) return;
     started.current = true;
 
+    const startupAbort = new AbortController();
+    let startupShaders: ReturnType<typeof prepareStartupShaders> = null;
+    let startupFinished = false;
+    const shaderRuntime = window as typeof window & {
+      __pecking_order_shader_runtime_key?: string;
+      __pecking_order_shader_startup?: NonNullable<ReturnType<typeof prepareStartupShaders>>;
+      __pecking_order_shader_metrics?: Record<string, unknown>;
+    };
+    const finishShaderStartup = (retainGameplay = false) => {
+      startupFinished = true;
+      startupAbort.abort();
+      if (retainGameplay) startupShaders?.finishStartup();
+      else startupShaders?.close();
+      if (startupShaders?.metrics.closed && shaderRuntime.__pecking_order_shader_startup === startupShaders) {
+        delete shaderRuntime.__pecking_order_shader_startup;
+      }
+    };
+
 		let resizeFrame = 0;
 		const fitCanvasToStage = () => {
 			window.cancelAnimationFrame(resizeFrame);
@@ -182,11 +208,11 @@ export default function Home() {
 				const stage = gameStage.current;
 				if (!canvas || !stage) return;
 				const stageWidth = Math.max(1, stage.getBoundingClientRect().width);
-				const renderWidth = Math.min(
-					2560,
-					Math.max(1280, Math.round(stageWidth * Math.max(1, window.devicePixelRatio))),
-				);
-				const renderHeight = Math.round(renderWidth * 9 / 16);
+				let quality = "balanced";
+				try {
+					quality = JSON.parse(window.localStorage.getItem(PLAYER_PREFERENCES_STORAGE_KEY) ?? "{}").preferences?.visual_quality ?? "balanced";
+				} catch { /* Storage unavailable: keep the bounded default. */ }
+				const { width: renderWidth, height: renderHeight } = gameRenderSize(stageWidth, window.devicePixelRatio, quality);
 				if (canvas.width !== renderWidth) canvas.width = renderWidth;
 				if (canvas.height !== renderHeight) canvas.height = renderHeight;
 			});
@@ -197,6 +223,8 @@ export default function Home() {
 		if (gameStage.current) resizeObserver?.observe(gameStage.current);
 		window.addEventListener("resize", fitCanvasToStage, { passive: true });
 		window.addEventListener("orientationchange", fitCanvasToStage, { passive: true });
+		window.addEventListener("pecking-order-preferences-changed", fitCanvasToStage);
+		window.addEventListener("storage", fitCanvasToStage);
 		document.addEventListener("fullscreenchange", fitCanvasToStage);
 		fitCanvasToStage();
 
@@ -229,11 +257,27 @@ export default function Home() {
 
     async function startGodot() {
       try {
+			const startupManifest = fetchStartupShaders(startupAbort.signal);
 			installPlayerPreferencesBridge();
         const [, exportedConfig] = await Promise.all([
           loadGodotScript(),
           loadGodotConfig(),
         ]);
+        // Preparation never gates downloads or engine startup. Missing/stale
+        // manifests simply retain Godot's normal checked compilation path.
+        void startupManifest.then(manifest => {
+          if (startupFinished || !gameCanvas.current) return;
+          let quality = 'balanced';
+          try {
+            quality = JSON.parse(window.localStorage.getItem(PLAYER_PREFERENCES_STORAGE_KEY) ?? '{}').preferences?.visual_quality ?? 'balanced';
+          } catch { /* Normal initialization handles unavailable storage. */ }
+          startupShaders = prepareStartupShaders(gameCanvas.current, manifest,
+            shaderRuntime.__pecking_order_shader_runtime_key, quality);
+          if (startupShaders) {
+            shaderRuntime.__pecking_order_shader_startup = startupShaders;
+            shaderRuntime.__pecking_order_shader_metrics = startupShaders.metrics;
+          }
+        });
 		const previewName = new URLSearchParams(window.location.search).get("preview");
 		const localPreviewHost = ["localhost", "127.0.0.1", "::1"].includes(
 			window.location.hostname,
@@ -283,6 +327,14 @@ export default function Home() {
 			"routing-landing": "--capture-routing-landing",
 			"routing-work-start": "--capture-routing-work-start",
 			"work-progress": "--capture-work-progress",
+			"office-props": "--capture-office-props",
+			"collection-detail": "--capture-collection-detail",
+			"hen-expression": "--capture-hen-expression",
+			"hen-social": "--capture-hen-social",
+			"flock-ties": "--capture-flock-ties",
+			"pair-rewards": "--capture-pair-rewards",
+			"career-workshop": "--capture-career-workshop",
+			"workshop-tactics": "--capture-workshop-tactics",
 			"routing-pace": "--capture-routing-pace",
 			"dispatch": "--capture-dispatch",
 			"dispatch-break": "--capture-dispatch-break",
@@ -368,12 +420,17 @@ export default function Home() {
           ...exportedConfig,
           canvasResizePolicy: 0,
           focusCanvas: true,
+          onExit: () => {
+            setLoaded(false);
+            setLoadError("The game stopped before it could continue. Reload to try again; saved careers are kept.");
+          },
         });
         await engine.startGame({
           onProgress(current, total) {
             if (current > 0 && total > 0) setLoadProgress(Math.round((current / total) * 100));
           },
         });
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => finishShaderStartup(true)));
 			runtime.__pecking_order_runtime_metrics = () => ({
 				wasmMemoryBytes: engine.rtenv?.HEAP8?.buffer.byteLength ?? 0,
 			});
@@ -400,15 +457,27 @@ export default function Home() {
         };
         setLoaded(true);
       } catch (error) {
+        finishShaderStartup();
         setLoadError(error instanceof Error ? error.message : "The department failed to initialize.");
       }
     }
 
     void startGodot();
+		const canvas = gameCanvas.current;
+		const handleContextLost = (event: Event) => {
+			event.preventDefault();
+			setLoaded(false);
+			setLoadError("The browser lost its graphics connection. Reload the game to reconnect; saved careers are kept.");
+		};
+		canvas?.addEventListener("webglcontextlost", handleContextLost);
 		return () => {
+			finishShaderStartup();
+			canvas?.removeEventListener("webglcontextlost", handleContextLost);
 			resizeObserver?.disconnect();
 			window.removeEventListener("resize", fitCanvasToStage);
 			window.removeEventListener("orientationchange", fitCanvasToStage);
+			window.removeEventListener("pecking-order-preferences-changed", fitCanvasToStage);
+			window.removeEventListener("storage", fitCanvasToStage);
 			document.removeEventListener("fullscreenchange", fitCanvasToStage);
 			window.cancelAnimationFrame(resizeFrame);
 		};
@@ -648,7 +717,7 @@ export default function Home() {
           N to inspect negotiated riders, R to restore standard terms, D to keep
           the standard book, C to continue after filing, E for Priority Peck,
           P to fund a Feed Party, O for after-hours pecking, Space to select a
-          focused rider or pause, V for Flockwatch, F10 for Coop Settings and
+          focused rider or pause, V for Flockwatch, B for Flock Ties, F10 for Coop Settings and
           Controls, and Escape for overview. Shift+Tab leaves the game for page
           controls. Controller defaults are A Priority
           Peck, Y Feed Party, X after-hours, Back Flockwatch, Start pause, right
@@ -686,15 +755,17 @@ export default function Home() {
           {!loaded && (
             <div className="loading-state">
               <span className="loading-egg" aria-hidden="true" />
-              <strong>{loadError ? "Initialization exception" : "Opening career file"}</strong>
+              <strong>{loadError ? "Unable to open the game" : "Opening career file"}</strong>
               <span>{loadError || loadingStageText(loadProgress)}</span>
+              {!loadError && loadSlow && <span>Loading is taking longer than expected. You can wait or retry without clearing your saved careers.</span>}
+              {(loadError || loadSlow) && <button className="save-settings-button" type="button" onClick={() => window.location.reload()}>Retry loading</button>}
               {!loadError && (
                 <progress
                   aria-label="Game loading progress"
                   max={100}
-                  value={Math.min(loadProgress, 99)}
+                  value={Math.min(loadProgress, 100)}
                 >
-                  {Math.min(loadProgress, 99)}%
+                  {Math.min(loadProgress, 100)}%
                 </progress>
               )}
             </div>
@@ -705,7 +776,7 @@ export default function Home() {
             className={loaded ? "game-canvas is-loaded" : "game-canvas"}
             tabIndex={0}
 						onKeyDown={handleCanvasKeyDown}
-						aria-keyshortcuts="1 2 3 Enter N R D C E P O Space V F10 Tab Escape"
+						aria-keyshortcuts="1 2 3 Enter N R D C E P O Space V B F10 Tab Escape"
             aria-label="Pecking Order playable game"
             aria-describedby="game-controls game-status"
           >
@@ -776,6 +847,7 @@ export default function Home() {
 		        <span><kbd>Esc</kbd> Overview / back</span>
 		        <span><kbd>Space</kbd> Pause / resume or select rider</span>
 		        <span><kbd>V</kbd> Flockwatch + roster</span>
+		        <span><kbd>B</kbd> Flock ties + shared memories</span>
 		        <span><kbd>F10</kbd> Settings + controls</span>
 		        <span><kbd>1</kbd>-<kbd>3</kbd> Select binder / card / speed</span>
 		        <span><kbd>Enter</kbd> Sign binder / authorize</span>
@@ -902,7 +974,9 @@ function installPlayerPreferencesBridge() {
 				const parsed: unknown = JSON.parse(payload);
 				if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return false;
 				window.localStorage.setItem(PLAYER_PREFERENCES_STORAGE_KEY, payload);
-				return window.localStorage.getItem(PLAYER_PREFERENCES_STORAGE_KEY) === payload;
+				const saved = window.localStorage.getItem(PLAYER_PREFERENCES_STORAGE_KEY) === payload;
+				if (saved) window.dispatchEvent(new Event("pecking-order-preferences-changed"));
+				return saved;
 			} catch {
 				return false;
 			}

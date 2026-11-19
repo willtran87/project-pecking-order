@@ -1,6 +1,8 @@
 class_name RoosterOperationsOfficeVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Snapshot-driven, visual-only management facility on the east campus. The
@@ -9,7 +11,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 const FACILITY_ID: StringName = &"rooster_operations_office"
 const FACILITY_CENTER := Vector3(15.20, 0.0, 30.00)
 const FOCUS_POINT := Vector3(15.20, 1.05, 30.00)
-const FOOTPRINT := Rect2(Vector2(12.00, 27.10), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.ROOSTER_OPERATIONS_OFFICE
 const MAX_LEVEL := 3
 const MAX_OPAQUE_HEIGHT := 3.55
 const MAX_ASSIGNMENT_TOKENS := 6

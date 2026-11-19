@@ -350,6 +350,8 @@ h1 {
   color: var(--muted);
   font-size: 14px;
   letter-spacing: 0.03em;
+  padding: 24px;
+  text-align: center;
 }
 
 .loading-state strong {

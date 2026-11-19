@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { gzipSync } from "node:zlib";
 
 const bundledPlaywright = path.join(
   os.homedir(),
@@ -22,11 +23,17 @@ const readyBudgetMsec = Number(process.env.BOOT_READY_BUDGET_MSEC || 0);
 const warmReadyBudgetMsec = Number(process.env.BOOT_WARM_READY_BUDGET_MSEC || 0);
 fs.mkdirSync(outputDir, { recursive: true });
 
+const backend = process.env.WEBGL_BACKEND === "d3d11" ? "d3d11" : "swiftshader";
 const browser = await chromium.launch({
   headless: true,
-  args: ["--use-gl=angle", "--use-angle=swiftshader"],
+  args: ["--use-gl=angle", `--use-angle=${backend}`],
 });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+if (process.env.STARTUP_DISABLE_SHADER_WARMUP === "1") {
+  await context.route('**/game/index.startup-shaders.json.gz', route => route.fulfill({
+    body: gzipSync('{"schema":0}'), contentType: 'application/octet-stream',
+  }));
+}
 const errors = [];
 
 async function measure(label, page, navigate) {
@@ -40,7 +47,10 @@ async function measure(label, page, navigate) {
   const domContentLoadedMsec = Date.now() - wallStart;
   await page.waitForFunction(() => {
     if (typeof window.render_game_to_text !== "function") return false;
-    try { return JSON.parse(window.render_game_to_text()).loaded === true; } catch { return false; }
+    try {
+      const state = JSON.parse(window.render_game_to_text());
+      return state.loaded === true && state.boot?.ready > 0;
+    } catch { return false; }
   }, null, { timeout: 90_000 });
   const diagnosticReadyMsec = Date.now() - wallStart;
   const result = await page.evaluate(({ name, domMsec, readyMsec }) => {
@@ -71,6 +81,11 @@ async function measure(label, page, navigate) {
       label: name,
       domContentLoadedMsec: domMsec,
       diagnosticReadyMsec: readyMsec,
+      renderer: (() => {
+        const gl = document.querySelector("canvas")?.getContext("webgl2");
+        const debug = gl?.getExtension("WEBGL_debug_renderer_info");
+        return debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : null;
+      })(),
       navigation: navigation ? {
         responseStartMsec: Math.round(navigation.responseStart),
         responseEndMsec: Math.round(navigation.responseEnd),
@@ -80,6 +95,7 @@ async function measure(label, page, navigate) {
       } : null,
       gameResources,
       bootTiming,
+      shaderStartup: window.__pecking_order_shader_metrics ?? null,
       loadingVisible: Boolean(document.querySelector(".loading-state")),
       canvasVisible: document.querySelector("canvas")?.classList.contains("is-loaded") ?? false,
     };
@@ -109,11 +125,18 @@ async function measure(label, page, navigate) {
 }
 
 const coldPage = await context.newPage();
+async function capturePresentedFrame(page, file) {
+  // Diagnostic readiness can precede the compositor presenting the WebGL frame,
+  // especially immediately after reload. Keep this wait out of the boot metric.
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.waitForTimeout(1000);
+  await page.screenshot({ path: path.join(outputDir, file) });
+}
 const cold = await measure("cold", coldPage, () => coldPage.goto(url, { waitUntil: "domcontentloaded" }));
-await coldPage.screenshot({ path: path.join(outputDir, "cold-ready.png") });
+await capturePresentedFrame(coldPage, "cold-ready.png");
 
 const warm = await measure("warm-reload", coldPage, () => coldPage.reload({ waitUntil: "domcontentloaded" }));
-await coldPage.screenshot({ path: path.join(outputDir, "warm-ready.png") });
+await capturePresentedFrame(coldPage, "warm-ready.png");
 
 const report = { url, readyBudgetMsec, warmReadyBudgetMsec, errors, runs: [cold, warm] };
 fs.writeFileSync(path.join(outputDir, "audit.json"), JSON.stringify(report, null, 2));

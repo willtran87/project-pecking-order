@@ -31,6 +31,7 @@ func _run() -> void:
 	harness.size = Vector2(1280.0, 720.0)
 	root.add_child(harness)
 	var ui = ProbationCampaignUIScript.new()
+	ui.set("_defer_review_surfaces", "--eager-review" not in OS.get_cmdline_user_args())
 	harness.add_child(ui)
 	ui.continue_campaign.connect(func() -> void: observed["continue"] += 1)
 	ui.new_campaign.connect(func() -> void: observed["new"] += 1)
@@ -56,6 +57,8 @@ func _run() -> void:
 	)
 	await process_frame
 
+	_check("--eager-review" in OS.get_cmdline_user_args() or ui.find_child("ProbationReportPanel", true, false) == null, "intake must not construct the unopened shift report", failures)
+	_check("--eager-review" in OS.get_cmdline_user_args() or ui.find_child("FinalProbationReviewPanel", true, false) == null, "intake must not construct the final review", failures)
 	var badge := ui.find_child("ProbationDayBadge", true, false) as PanelContainer
 	var status_label := ui.find_child("ProbationStatusLabel", true, false) as Label
 	var status_icon := ui.find_child("ProbationScoreIcon", true, false) as FlockwatchIconBadge
@@ -474,7 +477,7 @@ func _run() -> void:
 	)
 	_check(
 		 title_description != null
-		and title_description.text == "Protect the flock. Survive five shifts."
+		and title_description.text == "Route files. Collect eggs. Upgrade your coop.\nMeet each shift's goals while keeping your hens well."
 		and "recommended Standard" in title_description.tooltip_text
 		and "Customize is optional" in title_description.tooltip_text
 		and title_description.tooltip_text == String(title_description.get_meta("accessible_text", "")),
@@ -1155,6 +1158,10 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var report_panel := ui.find_child("ProbationReportPanel", true, false) as PanelContainer
+	var report_scroll := ui.get("_modal_scroll") as ScrollContainer
+	_check(report_scroll.get_global_rect().position.y >= badge.get_global_rect().end.y,
+		"review scroll content must start below the day badge", failures)
+
 	var report_day := ui.find_child("ProbationReportDay", true, false) as Label
 	var report_heading := ui.find_child("ProbationReportTitle", true, false) as Label
 	var score := ui.find_child("ReportScore", true, false) as Label

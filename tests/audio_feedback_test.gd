@@ -22,6 +22,14 @@ func _run() -> void:
 	var audio := AudioFeedbackScript.new()
 	root.add_child(audio)
 	await process_frame
+	_check(bool(audio.get_meta("baked_sound_bank", false)), "Production should load the prebuilt sound bank", failures)
+	var reference := AudioFeedbackScript.new()
+	reference._initialize_sound_bank(true)
+	for field in AudioFeedbackScript.SOUND_FIELDS:
+		var baked := audio.get(field) as AudioStreamWAV
+		var synthesized := reference.get(field) as AudioStreamWAV
+		_check(baked.data == synthesized.data and baked.mix_rate == synthesized.mix_rate and baked.format == synthesized.format, "Baked %s must retain every authored PCM sample" % field, failures)
+	reference.free()
 	var voices := audio.find_children("SFXVoice_*", "AudioStreamPlayer", true, false)
 	var original_voice_ids: Array[int] = []
 	for voice in voices:

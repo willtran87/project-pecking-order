@@ -7,7 +7,7 @@ import { chromium } from "playwright";
 const url = process.argv[2] ?? "http://localhost:3001/?preview=shift-result";
 const output = path.resolve(process.argv[3] ?? "../output/web-game/personal-goal-review");
 fs.mkdirSync(output, { recursive: true });
-const browser = await chromium.launch({ headless: true, args: ["--use-gl=angle", "--use-angle=swiftshader"] });
+const browser = await chromium.launch({ headless: true, args: ["--use-gl=angle", `--use-angle=${process.env.WEBGL_BACKEND === "d3d11" ? "d3d11" : "swiftshader"}`] });
 const page = await browser.newPage({ viewport: { width: Number(process.env.PECK_AUDIT_WIDTH ?? 2560), height: Number(process.env.PECK_AUDIT_HEIGHT ?? 1600) } });
 // Software-rendered high-resolution captures can take longer than ordinary UI
 // actions while native release checks share the machine. Keep a bounded limit.
@@ -26,7 +26,8 @@ async function waitFor(predicate) {
   throw new Error("Review goal control did not settle");
 }
 async function clickGoal(current, key = "personal_goal_control") {
-  const rect = current[key].rect;
+  // Screenshots and text wrapping can settle layout after the earlier state read.
+  const rect = (await state())[key].rect;
   assert.ok(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= 1280 && rect.y + rect.height <= 720, "goal button must remain inside the authored canvas");
   const box = await page.locator("canvas").boundingBox();
   if (box.width < 1100) {

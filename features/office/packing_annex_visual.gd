@@ -1,6 +1,8 @@
 class_name PackingAnnexVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Snapshot-driven, visual-only capital expansion outside the office's east wall.
@@ -8,7 +10,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 ## modules can reserve the site without reverse-engineering individual meshes.
 const FACILITY_ID := &"farmer_brand_packing_annex"
 const FACILITY_CENTER := Vector3(15.20, 0.0, -6.00)
-const FOOTPRINT := Rect2(Vector2(12.00, -8.90), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.PACKING_ANNEX
 const MAX_LEVEL := 3
 const CARTON_SLOT_COUNT := 6
 const MAX_OPAQUE_HEIGHT := 3.60

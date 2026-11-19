@@ -1,6 +1,8 @@
 class_name WellnessNestVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## A visual-only, snapshot-driven recovery facility on the east campus. Every
@@ -9,7 +11,7 @@ const EnvironmentalSignageScript := preload("res://features/office/environmental
 const FACILITY_ID: StringName = &"wellness_nest_room"
 const FACILITY_CENTER := Vector3(15.20, 0.0, 18.00)
 const FOCUS_POINT := Vector3(15.20, 1.05, 18.00)
-const FOOTPRINT := Rect2(Vector2(12.00, 15.10), Vector2(6.40, 5.80))
+const FOOTPRINT := FacilityFootprints.WELLNESS_NEST
 const MAX_LEVEL := 3
 const MAX_OPAQUE_HEIGHT := 3.55
 

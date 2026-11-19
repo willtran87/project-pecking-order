@@ -1,6 +1,8 @@
 class_name FarmMutualContractBoardVisual
 extends Node3D
 
+const FacilityFootprints := preload("res://features/office/office_facility_footprints.gd")
+
 const EnvironmentalSignageScript := preload("res://features/office/environmental_signage.gd")
 
 ## Snapshot-driven, visual-only contract fixture. The board occupies the unused
@@ -12,7 +14,7 @@ const BOARD_ROTATION := Vector3(0.0, 90.0, 0.0)
 const FOCUS_POINT := Vector3(-11.46, 2.08, 0.0)
 # Tight physical bounds preserve 3.6 cm beyond the imported standing chicken's
 # audited 32.9 cm lateral radius at the nearest feed-party attendance socket.
-const FOOTPRINT := Rect2(Vector2(-11.82, -1.66), Vector2(0.46, 3.32))
+const FOOTPRINT := FacilityFootprints.FARM_MUTUAL_CONTRACT_BOARD
 const MAX_OPAQUE_HEIGHT := 3.30
 const OFFER_SLOT_COUNT := 3
 # Host-attached print sits just proud of its physical face so it reads as ink
@@ -84,6 +86,8 @@ var _active_clause_label := ""
 var _active_clause_category: StringName = &""
 var _last_result: Variant = null
 var _result_state: StringName = &"none"
+var _last_render_state: Array = []
+var _render_refresh_count := 0
 
 
 func _ready() -> void:
@@ -191,6 +195,15 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	)))
 	_last_result = board.get("last_result", null)
 	_result_state = _classify_result(_last_result)
+	var render_state: Array = [
+		_unlocked, _offers, _active, _season_key, _has_season,
+		_active_clause_id, _active_clause_label, _active_clause_category,
+		_last_result, _result_state,
+	]
+	if render_state == _last_render_state:
+		return
+	_last_render_state = render_state.duplicate(true)
+	_render_refresh_count += 1
 	_apply_visual_state()
 
 
