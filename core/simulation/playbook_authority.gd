@@ -5,11 +5,16 @@ extends RefCounted
 ## Holds no state of its own: every read and write goes through the owning
 ## DepartmentSimulation so behaviour is identical to the original in-class methods.
 
-var sim: DepartmentSimulation
+## Weak back-reference: the simulation owns this component, so a strong
+## reference here would form a RefCounted cycle and leak both objects.
+var _sim_ref: WeakRef
+var sim: DepartmentSimulation:
+	get:
+		return _sim_ref.get_ref() as DepartmentSimulation
 
 
 func _init(owner_node: DepartmentSimulation) -> void:
-	sim = owner_node
+	_sim_ref = weakref(owner_node)
 
 func set_worker_assignment(worker_id: int, lane: StringName) -> bool:
 	if worker_id < 0 or worker_id >= sim.workers.size():
