@@ -686,8 +686,8 @@ func flock_relations_snapshot() -> Dictionary:
 		published_cases.append(_flock_relations_public_case(case_record))
 	return {
 		"level": sim.facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID),
-		"capacity": sim.flock_relations_case_capacity(),
-		"resolution_limit": sim.flock_relations_resolution_limit(),
+		"capacity": flock_relations_case_capacity(),
+		"resolution_limit": flock_relations_resolution_limit(),
 		"resolutions_used_today": sim.flock_relations_resolutions_used_today,
 		"open_case_count": sim.flock_relations_open_cases.size(),
 		"open_cases": published_cases,
@@ -791,7 +791,7 @@ func flock_relations_resolution_preflight(case_id: int, action_id: StringName) -
 	)
 	var severity := int(case_record.get("severity", 1))
 	var cost_cents := (
-		sim._flock_relations_action_cost_cents(action_id, severity)
+		_flock_relations_action_cost_cents(action_id, severity)
 		if known_action and case_found else
 		0
 	)
@@ -800,7 +800,7 @@ func flock_relations_resolution_preflight(case_id: int, action_id: StringName) -
 	var installed := level > 0
 	var review_open := sim.shift_phase == DepartmentSimulation.ShiftPhase.REVIEW
 	var within_limit := (
-		sim.flock_relations_resolutions_used_today < sim.flock_relations_resolution_limit()
+		sim.flock_relations_resolutions_used_today < flock_relations_resolution_limit()
 	)
 	var tier_available := known_action and installed and level >= required_level
 	var affordable := known_action and case_found and sim.spendable_fund_cents() >= cost_cents
@@ -849,7 +849,7 @@ func flock_relations_resolution_preflight(case_id: int, action_id: StringName) -
 		"level": level,
 		"installed": installed,
 		"review_open": review_open,
-		"resolution_limit": sim.flock_relations_resolution_limit(),
+		"resolution_limit": flock_relations_resolution_limit(),
 		"resolutions_used_today": sim.flock_relations_resolutions_used_today,
 		"within_limit": within_limit,
 		"affordable": affordable,
@@ -1058,7 +1058,7 @@ func _file_flock_relations_case_after_shift(completed_day: int) -> Array[Diction
 	var filings: Array[Dictionary] = []
 	if (
 		sim.facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID) <= 0
-		or sim.flock_relations_open_cases.size() >= sim.flock_relations_case_capacity()
+		or sim.flock_relations_open_cases.size() >= flock_relations_case_capacity()
 	):
 		return filings
 	var selected_worker: ChickenState
@@ -1080,8 +1080,8 @@ func _file_flock_relations_case_after_shift(completed_day: int) -> Array[Diction
 		"worker_id": selected_worker.id,
 		"worker_name": selected_worker.display_name,
 		"type": case_type,
-		"title": sim._flock_relations_case_title(case_type),
-		"severity": sim._flock_relations_case_severity(selected_risk),
+		"title": _flock_relations_case_title(case_type),
+		"severity": _flock_relations_case_severity(selected_risk),
 		"filed_day": completed_day,
 		"status": &"open",
 		"evidence": {

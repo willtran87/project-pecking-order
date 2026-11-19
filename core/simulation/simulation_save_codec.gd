@@ -349,7 +349,7 @@ func restore_save_state(data: Dictionary) -> bool:
 		or seen_incident_ids.has(restored_last_standard_incident_id)
 	):
 		return false
-	var response_history_validation := sim._validated_incident_response_history(
+	var response_history_validation := _validated_incident_response_history(
 		data.get("incident_response_history", null),
 		saved_day,
 	)

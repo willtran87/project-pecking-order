@@ -609,9 +609,9 @@ func _build_office() -> void:
 	for parent_value in window_batches:
 		var batch_parent := parent_value as Node3D
 		var batches := window_batches[batch_parent] as Dictionary
-		office._add_box_multimesh(batch_parent, "WindowFrameBatch", batches["frames"] as Array[Transform3D], Color("34464e"))
-		office._add_box_multimesh(batch_parent, "WindowBlindSlatBatch", batches["blinds"] as Array[Transform3D], Color("b7b5aa"))
-		office._add_box_multimesh(batch_parent, "WindowRadiatorFinBatch", batches["radiator_fins"] as Array[Transform3D], Color("aab2ae"))
+		_add_box_multimesh(batch_parent, "WindowFrameBatch", batches["frames"] as Array[Transform3D], Color("34464e"))
+		_add_box_multimesh(batch_parent, "WindowBlindSlatBatch", batches["blinds"] as Array[Transform3D], Color("b7b5aa"))
+		_add_box_multimesh(batch_parent, "WindowRadiatorFinBatch", batches["radiator_fins"] as Array[Transform3D], Color("aab2ae"))
 
 	_build_architecture_detail(shell)
 	_build_office_decor(shell)
@@ -698,7 +698,7 @@ func _build_office() -> void:
 	office._camera_controller.focus_changed.connect(office._on_camera_focus_changed)
 	office._camera_controller.context_action_selected.connect(office._on_work_progress_context_selected)
 	office._camera_controller.context_hover_changed.connect(office._on_management_context_hover_changed)
-	office._sync_work_progress_interactions()
+	_sync_work_progress_interactions()
 
 
 func _build_architecture_detail(parent: Node3D) -> void:
@@ -712,7 +712,7 @@ func _build_architecture_detail(parent: Node3D) -> void:
 		battens.append(_box_batch_transform(Vector3(0.035, 0.78, 0.025), Vector3(-11.4 + panel_index * 1.5, 0.76, -8.73)))
 	for panel_index in 12:
 		battens.append(_box_batch_transform(Vector3(0.025, 0.78, 0.035), Vector3(-11.73, 0.76, -8.4 + panel_index * 1.5)))
-	office._add_box_multimesh(parent, "WainscotBattenBatch", battens, Color("60746a"), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	_add_box_multimesh(parent, "WainscotBattenBatch", battens, Color("60746a"), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	office._add_box(parent, "CrownMoldingBack", Vector3(23.55, 0.13, 0.16), Vector3(0.0, 3.48, -8.72), Color("e4deca"))
 	office._add_box(parent, "CrownMoldingLeft", Vector3(0.16, 0.13, 17.55), Vector3(-11.72, 3.48, 0.0), Color("ddd6c3"))
 	office._add_box(parent, "CableChannelBack", Vector3(23.1, 0.16, 0.13), Vector3(0.0, 0.36, -8.69), Color("657176"))
@@ -745,10 +745,10 @@ func _build_architecture_detail(parent: Node3D) -> void:
 		Vector2(6.40, 0.74)
 	)
 
-	var clock_rim := office._add_cylinder(parent, "OfficeClockRim", Vector3(9.95, 3.03, -8.57), 0.43, 0.08, Color("39474d"))
+	var clock_rim := _add_cylinder(parent, "OfficeClockRim", Vector3(9.95, 3.03, -8.57), 0.43, 0.08, Color("39474d"))
 	clock_rim.rotation_degrees.x = 90.0
 	clock_rim.material_override = office._material(Color("39474d"), 0.34, 0.48)
-	var clock_face := office._add_cylinder(parent, "OfficeClockFace", Vector3(9.95, 3.03, -8.50), 0.36, 0.055, Color("e7e0cd"))
+	var clock_face := _add_cylinder(parent, "OfficeClockFace", Vector3(9.95, 3.03, -8.50), 0.36, 0.055, Color("e7e0cd"))
 	clock_face.rotation_degrees.x = 90.0
 	office._add_box(parent, "OfficeClockHourHand", Vector3(0.19, 0.045, 0.035), Vector3(10.02, 3.03, -8.45), Color("343d40"))
 	var minute_hand := office._add_box(parent, "OfficeClockMinuteHand", Vector3(0.04, 0.25, 0.035), Vector3(9.95, 3.12, -8.44), Color("343d40"))
@@ -791,27 +791,27 @@ func _build_intake_detail(parent: Node3D) -> void:
 		)
 	office._add_box(parent, "IntakeBundleBand", Vector3(0.16, 0.24, 1.02), Vector3(9.55, 1.25, 5.35), Color("a3473b"))
 
-	var bell_base := office._add_cylinder(parent, "IntakeBellBase", Vector3(10.35, 1.17, 4.77), 0.18, 0.06, Color("735f4d"))
+	var bell_base := _add_cylinder(parent, "IntakeBellBase", Vector3(10.35, 1.17, 4.77), 0.18, 0.06, Color("735f4d"))
 	bell_base.material_override = office._material(Color("735f4d"), 0.34, 0.52)
-	var bell := office._add_sphere(parent, "IntakeServiceBell", Vector3(10.35, 1.25, 4.77), Vector3(0.28, 0.18, 0.28), Color("c49a4b"))
+	var bell := _add_sphere(parent, "IntakeServiceBell", Vector3(10.35, 1.25, 4.77), Vector3(0.28, 0.18, 0.28), Color("c49a4b"))
 	bell.material_override = office._material(Color("c49a4b"), 0.26, 0.72)
-	office._add_cylinder(parent, "IntakeStampHandle", Vector3(8.76, 1.30, 4.92), 0.08, 0.28, Color("6f3d30"))
+	_add_cylinder(parent, "IntakeStampHandle", Vector3(8.76, 1.30, 4.92), 0.08, 0.28, Color("6f3d30"))
 	office._add_box(parent, "IntakeStampPad", Vector3(0.34, 0.06, 0.30), Vector3(8.76, 1.17, 4.92), Color("2d373b"))
 
 	# A tiny weighing/candling station makes the farmer's review area read as egg
 	# logistics rather than a generic reception desk.
 	office._add_box(parent, "EggScaleBase", Vector3(0.58, 0.12, 0.48), Vector3(10.10, 1.17, 5.73), Color("506269"))
-	office._add_cylinder(parent, "EggScaleDial", Vector3(10.10, 1.42, 5.79), 0.20, 0.10, Color("e5dfca")).rotation_degrees.x = 90.0
+	_add_cylinder(parent, "EggScaleDial", Vector3(10.10, 1.42, 5.79), 0.20, 0.10, Color("e5dfca")).rotation_degrees.x = 90.0
 	office._add_box(parent, "EggScaleNeedle", Vector3(0.025, 0.15, 0.025), Vector3(10.10, 1.46, 5.73), Color("a4493e")).rotation_degrees.z = -24.0
-	office._add_cylinder(parent, "EggScalePan", Vector3(10.10, 1.34, 5.46), 0.26, 0.06, Color("b6beb9"))
-	office._add_cylinder(parent, "CandlingLampStem", Vector3(9.02, 1.42, 5.80), 0.045, 0.48, Color("4d5557"))
-	var candling_lamp := office._add_sphere(parent, "CandlingLamp", Vector3(9.02, 1.70, 5.80), Vector3(0.25, 0.17, 0.25), Color("e3bd66"))
+	_add_cylinder(parent, "EggScalePan", Vector3(10.10, 1.34, 5.46), 0.26, 0.06, Color("b6beb9"))
+	_add_cylinder(parent, "CandlingLampStem", Vector3(9.02, 1.42, 5.80), 0.045, 0.48, Color("4d5557"))
+	var candling_lamp := _add_sphere(parent, "CandlingLamp", Vector3(9.02, 1.70, 5.80), Vector3(0.25, 0.17, 0.25), Color("e3bd66"))
 	candling_lamp.material_override = office._emissive_material(Color("e3bd66"), 0.75)
 
 	for carton_index in 2:
 		office._add_box(parent, "IntakeEggCarton", Vector3(0.72, 0.10, 0.38), Vector3(8.95, 1.16 + carton_index * 0.10, 5.55), Color("aab49f"))
 		for cup_index in 3:
-			office._add_sphere(parent, "CartonCup", Vector3(8.72 + cup_index * 0.23, 1.23 + carton_index * 0.10, 5.55), Vector3(0.09, 0.055, 0.10), Color("859283"))
+			_add_sphere(parent, "CartonCup", Vector3(8.72 + cup_index * 0.23, 1.23 + carton_index * 0.10, 5.55), Vector3(0.09, 0.055, 0.10), Color("859283"))
 
 
 func _build_presentation_detail(parent: Node3D) -> MeshInstance3D:
@@ -832,7 +832,7 @@ func _build_presentation_detail(parent: Node3D) -> MeshInstance3D:
 		for end in [-1.0, 1.0]:
 			corner_fittings.append(_box_batch_transform(Vector3(0.13, 0.52, 0.025), Vector3(9.4 + side * 1.095, 0.42, -6.85 + end * 0.925)))
 			corner_fittings.append(_box_batch_transform(Vector3(0.025, 0.52, 0.13), Vector3(9.4 + side * 1.15, 0.42, -6.85 + end * 0.86)))
-	var fittings := office._add_box_multimesh(parent, "BasketCornerFittings", corner_fittings, Color("5e6965"), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	var fittings := _add_box_multimesh(parent, "BasketCornerFittings", corner_fittings, Color("5e6965"), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	fittings.material_override = office._material(Color("5e6965"), 0.58, 0.0)
 	# The basket begins physically empty. OfficeStorytelling now owns every visible
 	# clutch egg and only fills these cups after a real seated-hen delivery lands.
@@ -861,7 +861,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 	)
 	for sconce_index in 2:
 		var sconce_z := -2.72 + sconce_index * 4.48
-		office._add_cylinder(
+		_add_cylinder(
 			breakroom,
 			"BreakroomSconceMount_%02d" % sconce_index,
 			Vector3(-11.64, 2.92, sconce_z),
@@ -876,7 +876,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 			Vector3(-11.49, 2.92, sconce_z),
 			Color("775e42"),
 		)
-		var sconce_glow := office._add_sphere(
+		var sconce_glow := _add_sphere(
 			breakroom,
 			"BreakroomSconceGlow_%02d" % sconce_index,
 			Vector3(-11.32, 2.86, sconce_z),
@@ -888,7 +888,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 
 	# Layered low-poly ovals give the rug a bound edge and woven center instead
 	# of reading as a highlighted gameplay square.
-	var rug_binding := office._add_cylinder(
+	var rug_binding := _add_cylinder(
 		breakroom,
 		"BreakroomRugBinding",
 		Vector3(-9.80, 0.018, 0.0),
@@ -897,7 +897,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Color("c1a15b"),
 	)
 	rug_binding.scale.z = 1.06
-	var wellness_rug := office._add_cylinder(
+	var wellness_rug := _add_cylinder(
 		breakroom,
 		"WellnessRug",
 		Vector3(-9.80, 0.041, 0.0),
@@ -906,7 +906,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Color("79765f"),
 	)
 	wellness_rug.scale.z = 1.06
-	var rug_medallion := office._add_cylinder(
+	var rug_medallion := _add_cylinder(
 		breakroom,
 		"BreakroomRugMedallion",
 		Vector3(-9.80, 0.062, 0.0),
@@ -1011,7 +1011,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 			Vector3(-11.52, 1.57, bracket_z),
 			Color("5b4a37"),
 		)
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomCoffeeUrn",
 		Vector3(-10.99, 1.30, -2.35),
@@ -1019,7 +1019,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		0.60,
 		Color("52646a"),
 	).material_override = office._material(Color("52646a"), 0.36, 0.55)
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomCoffeeUrnLid",
 		Vector3(-10.99, 1.63, -2.35),
@@ -1034,7 +1034,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Vector3(-10.77, 1.34, -2.18),
 		Color("9c633d"),
 	)
-	office._add_sphere(
+	_add_sphere(
 		breakroom,
 		"BreakroomCoffeeReadyLight",
 		Vector3(-10.75, 1.43, -2.48),
@@ -1042,7 +1042,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Color("82c192"),
 	).material_override = office._emissive_material(Color("82c192"), 1.5)
 	for steam_index in 3:
-		var steam := office._add_sphere(
+		var steam := _add_sphere(
 			breakroom,
 			"BreakroomCoffeeSteam_%02d" % steam_index,
 			Vector3(-10.98, 1.72 + steam_index * 0.13, -2.35),
@@ -1081,21 +1081,21 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Color("29383c"),
 	)
 	for microwave_button_y in [1.18, 1.31]:
-		office._add_sphere(
+		_add_sphere(
 			breakroom,
 			"BreakroomMicrowaveButton",
 			Vector3(-10.90, microwave_button_y, -1.26),
 			Vector3(0.050, 0.050, 0.050),
 			Color("c8a45b"),
 		)
-	office._add_sphere(
+	_add_sphere(
 		breakroom,
 		"BreakroomSnackTin",
 		Vector3(-10.95, 1.09, -1.94),
 		Vector3(0.30, 0.16, 0.30),
 		Color("bb7a4f"),
 	)
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomSugarJar",
 		Vector3(-10.98, 1.14, -1.10),
@@ -1103,7 +1103,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		0.24,
 		Color("d9d2bd"),
 	)
-	office._add_sphere(
+	_add_sphere(
 		breakroom,
 		"BreakroomSugarJarLid",
 		Vector3(-10.98, 1.28, -1.10),
@@ -1112,7 +1112,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 	)
 	for mug_index in 3:
 		var mug_color: Color = [Color("d9d0b8"), Color("bd8062"), Color("6f9285")][mug_index]
-		office._add_cylinder(
+		_add_cylinder(
 			breakroom,
 			"BreakroomMug_%02d" % mug_index,
 			Vector3(-11.28, 1.88, -2.35 + mug_index * 0.40),
@@ -1152,7 +1152,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Color("3f5751"),
 	)
 	for leg_z in [0.46, 1.90]:
-		office._add_cylinder(
+		_add_cylinder(
 			breakroom,
 			"BreakroomSofaLeg",
 			Vector3(-11.25, 0.12, leg_z),
@@ -1169,7 +1169,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 			Color("4c635d"),
 		)
 	for cushion_index in 2:
-		office._add_sphere(
+		_add_sphere(
 			breakroom,
 			"BreakroomSofaCushion",
 			Vector3(-11.16, 0.78, 0.80 + cushion_index * 0.76),
@@ -1192,14 +1192,14 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 			Color("e2c47b"),
 		).rotation_degrees.z = -12.0
 	for tuft_z in [0.62, 1.18, 1.74]:
-		office._add_sphere(
+		_add_sphere(
 			breakroom,
 			"BreakroomSofaTuft",
 			Vector3(-11.50, 1.02, tuft_z),
 			Vector3(0.045, 0.045, 0.045),
 			Color("304944"),
 		)
-	office._breakroom_lounge_pouf = office._add_cylinder(
+	office._breakroom_lounge_pouf = _add_cylinder(
 		breakroom,
 		"BreakroomLoungePouf",
 		Vector3(-10.68, 0.14, 1.18),
@@ -1208,7 +1208,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Color("b98158"),
 	)
 	office._breakroom_lounge_pouf_rest_y = office._breakroom_lounge_pouf.position.y
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomLoungePoufPiping",
 		Vector3(-10.68, 0.285, 1.18),
@@ -1216,7 +1216,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		0.025,
 		Color("6e543d"),
 	)
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomSideTablePedestal",
 		Vector3(-8.82, 0.29, 1.55),
@@ -1224,7 +1224,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		0.56,
 		Color("625342"),
 	)
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomSideTable",
 		Vector3(-8.82, 0.60, 1.55),
@@ -1232,7 +1232,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		0.10,
 		Color("b7915e"),
 	)
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomSideTableRim",
 		Vector3(-8.82, 0.655, 1.55),
@@ -1256,7 +1256,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Color("c8684c"),
 	)
 	office._breakroom_magazine.rotation_degrees.y = 14.0
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomTableCoaster",
 		Vector3(-8.54, 0.690, 1.78),
@@ -1264,7 +1264,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		0.018,
 		Color("6b8b7d"),
 	)
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomTableCup",
 		Vector3(-8.54, 0.785, 1.78),
@@ -1323,7 +1323,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 			note_color,
 		)
 		office._breakroom_pinned_notes.append(pinned_note)
-		office._add_sphere(
+		_add_sphere(
 			breakroom,
 			"BreakroomPushPin_%02d" % note_index,
 			Vector3(-11.59, float(note[0]) + float(note[2]) * 0.32, float(note[1])),
@@ -1332,7 +1332,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		)
 
 	# A slatted recycling bin and a small counter plant finish the lived-in edge.
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomRecycleBin",
 		Vector3(-11.18, 0.34, -0.72),
@@ -1347,7 +1347,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Vector3(-11.18, 0.70, -0.72),
 		Color("17282b"),
 	)
-	office._add_cylinder(
+	_add_cylinder(
 		breakroom,
 		"BreakroomPlantPot",
 		Vector3(-11.34, 1.13, -1.08),
@@ -1356,7 +1356,7 @@ func _build_baseline_breakroom(parent: Node3D) -> void:
 		Color("b8704d"),
 	)
 	for leaf_index in 5:
-		var leaf := office._add_sphere(
+		var leaf := _add_sphere(
 			breakroom,
 			"BreakroomPlantLeaf_%02d" % leaf_index,
 			Vector3(-11.34, 1.36 + leaf_index * 0.035, -1.08),
@@ -1373,9 +1373,9 @@ func _build_office_decor(parent: Node3D) -> void:
 	# Decor is kept in perimeter alcoves, leaving every circulation lane unobstructed.
 	_build_baseline_breakroom(parent)
 	office._add_box(parent, "WaterCoolerBase", Vector3(0.68, 0.95, 0.62), Vector3(-11.05, 0.48, -3.15), Color("c7d0cd"))
-	office._add_cylinder(parent, "WaterJug", Vector3(-11.05, 1.25, -3.15), 0.26, 0.62, Color("73959e"))
+	_add_cylinder(parent, "WaterJug", Vector3(-11.05, 1.25, -3.15), 0.26, 0.62, Color("73959e"))
 	for bubble_index in 4:
-		var bubble := office._add_sphere(
+		var bubble := _add_sphere(
 			parent,
 			"BreakroomCoolerBubble_%02d" % bubble_index,
 			Vector3(-11.05, 1.06 + bubble_index * 0.11, -3.15),
@@ -1390,7 +1390,7 @@ func _build_office_decor(parent: Node3D) -> void:
 	office._add_box(parent, "CoolerTapWarm", Vector3(0.12, 0.10, 0.13), Vector3(-10.92, 0.71, -2.75), Color("a45d48"))
 	office._add_box(parent, "CoolerDripTray", Vector3(0.43, 0.06, 0.20), Vector3(-11.05, 0.49, -2.79), Color("536168"))
 	for cup_index in 3:
-		office._add_cylinder(parent, "PaperCup", Vector3(-10.62, 0.96 + cup_index * 0.10, -3.13), 0.075, 0.12, Color("e2ddce"))
+		_add_cylinder(parent, "PaperCup", Vector3(-10.62, 0.96 + cup_index * 0.10, -3.13), 0.075, 0.12, Color("e2ddce"))
 	Office.EnvironmentalSignageScript.add_panel(
 		parent, "WellnessZoneLabel", "WELLNESS ROOST\nBREAKS · 7 MIN",
 		Vector3(-11.798, 1.72, -3.10), Vector2(1.18, 0.40),
@@ -1448,10 +1448,10 @@ func _build_office_decor(parent: Node3D) -> void:
 	var vents: Array[Transform3D] = []
 	for index in 7:
 		vents.append(_box_batch_transform(Vector3(0.014, 0.022, 0.38), Vector3(10.98, 0.44 + index * 0.048, -0.08)))
-	office._add_box_multimesh(parent, "CopierVentBatch", vents, Color("465b5e"), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	_add_box_multimesh(parent, "CopierVentBatch", vents, Color("465b5e"), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	for drawer_y in [0.28, 0.48]:
 		office._add_box(parent, "CopierRecessedPull", Vector3(0.34, 0.035, 0.045), Vector3(10.25, drawer_y, 0.49), Color("d6d7c9"))
-	office._add_cylinder(parent, "ShredBin", Vector3(11.10, 0.39, 0.58), 0.30, 0.78, Color("3b474b"))
+	_add_cylinder(parent, "ShredBin", Vector3(11.10, 0.39, 0.58), 0.30, 0.78, Color("3b474b"))
 	office._add_box(parent, "ShredBinSlot", Vector3(0.38, 0.035, 0.10), Vector3(11.10, 0.80, 0.58), Color("151d20"))
 	for cabinet_x in [-9.9, 8.2]:
 		var cabinet_parent := office._archive_presentation if cabinet_x < 0.0 else parent
@@ -1466,12 +1466,12 @@ func _build_office_decor(parent: Node3D) -> void:
 		var plant_parent := office._archive_presentation if plant_x < 0.0 else parent
 		# Keep the east planter behind the collection drop tube and its moving eggs.
 		var plant_z := -7.8 if plant_x > 0.0 else -7.05
-		var pot := office._add_cylinder(plant_parent, "PlantPot", Vector3(plant_x, 0.30, plant_z), 0.32, 0.6, Color("80513e"))
+		var pot := _add_cylinder(plant_parent, "PlantPot", Vector3(plant_x, 0.30, plant_z), 0.32, 0.6, Color("80513e"))
 		var pot_mesh := ProceduralPrimitiveCache.cylinder(0.32, 0.24, 0.6, 24).duplicate() as CylinderMesh
 		pot_mesh.cap_top = false
 		pot.mesh = pot_mesh
 		_add_planter_finish(plant_parent, Vector3(plant_x, 0.60, plant_z), 0.32)
-		office._add_cylinder(plant_parent, "PlantStem", Vector3(plant_x, 0.88, plant_z), 0.065, 0.92, Color("355b45"))
+		_add_cylinder(plant_parent, "PlantStem", Vector3(plant_x, 0.88, plant_z), 0.065, 0.92, Color("355b45"))
 		for leaf_index in 5:
 			var angle := TAU * leaf_index / 5.0
 			var leaf_color := Color("466b51") if leaf_index % 2 == 0 else Color("58785b")
@@ -1485,7 +1485,7 @@ func _build_office_decor(parent: Node3D) -> void:
 			plant_parent.add_child(leaf)
 
 	office._add_box(parent, "ExtinguisherBracket", Vector3(0.52, 0.14, 0.09), Vector3(6.95, 1.08, -8.55), Color("454c4e"))
-	office._add_cylinder(parent, "SafetyExtinguisher", Vector3(6.95, 1.15, -8.43), 0.20, 0.72, Color("a3473b"))
+	_add_cylinder(parent, "SafetyExtinguisher", Vector3(6.95, 1.15, -8.43), 0.20, 0.72, Color("a3473b"))
 	office._add_box(parent, "ExtinguisherNozzle", Vector3(0.30, 0.11, 0.12), Vector3(7.15, 1.46, -8.42), Color("282f31"))
 
 
@@ -1502,7 +1502,7 @@ func _build_window_farm_view(parent: Node3D) -> void:
 		var fence_transforms := fence_batches[window_parent] as Array[Transform3D]
 		var pasture := office._add_box(window_parent, "WindowPasture_%d" % window_index, Vector3(2.52, 0.43, 0.022), Vector3(window_x, 1.34, -8.665), Color("668268"))
 		pasture.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var hill := office._add_sphere(window_parent, "WindowHill_%d" % window_index, Vector3(window_x - 0.48 + (window_index % 2) * 0.75, 1.63, -8.67), Vector3(1.60, 0.48, 0.04), Color("58745e"))
+		var hill := _add_sphere(window_parent, "WindowHill_%d" % window_index, Vector3(window_x - 0.48 + (window_index % 2) * 0.75, 1.63, -8.67), Vector3(1.60, 0.48, 0.04), Color("58745e"))
 		hill.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		for fence_post in 3:
 			var post_x := window_x - 0.78 + fence_post * 0.78
@@ -1511,7 +1511,7 @@ func _build_window_farm_view(parent: Node3D) -> void:
 		fence_transforms.append(_box_batch_transform(Vector3(2.18, 0.045, 0.028), Vector3(window_x, 1.52, -8.63)))
 	for parent_value in fence_batches:
 		var batch_parent := parent_value as Node3D
-		office._add_box_multimesh(
+		_add_box_multimesh(
 			batch_parent,
 			"PastureFenceBatch",
 			fence_batches[batch_parent] as Array[Transform3D],
@@ -1524,7 +1524,7 @@ func _build_window_farm_view(parent: Node3D) -> void:
 	var barn_roof := office._add_box(office._west_perch_04_presentation, "DistantBarnRoof", Vector3(1.16, 0.16, 0.04), Vector3(-5.45, 1.89, -8.60), Color("493e38"))
 	barn_roof.rotation_degrees.z = 8.0
 	barn_roof.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	office._add_cylinder(parent, "DistantSilo", Vector3(5.18, 1.62, -8.61), 0.23, 0.82, Color("9ca4a0")).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_add_cylinder(parent, "DistantSilo", Vector3(5.18, 1.62, -8.61), 0.23, 0.82, Color("9ca4a0")).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func _build_floor_story(parent: Node3D) -> void:
@@ -1550,7 +1550,7 @@ func _build_floor_story(parent: Node3D) -> void:
 			chevron.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for parent_value in scuff_batches:
 		var batch_parent := parent_value as Node3D
-		office._add_box_multimesh(
+		_add_box_multimesh(
 			batch_parent,
 			"PeckLaneScuffBatch",
 			scuff_batches[batch_parent] as Array[Transform3D],
@@ -1561,7 +1561,7 @@ func _build_floor_story(parent: Node3D) -> void:
 	for kernel_index in 12:
 		var kernel_x := -11.05 + (kernel_index % 4) * 0.22
 		var kernel_z := -1.02 + int(kernel_index / 4) * 0.24
-		var kernel := office._add_sphere(office._west_perch_05_presentation, "StrayFeedKernel_%d" % kernel_index, Vector3(kernel_x, 0.045, kernel_z), Vector3(0.055, 0.025, 0.085), Color("d0a84f"))
+		var kernel := _add_sphere(office._west_perch_05_presentation, "StrayFeedKernel_%d" % kernel_index, Vector3(kernel_x, 0.045, kernel_z), Vector3(0.055, 0.025, 0.085), Color("d0a84f"))
 		kernel.rotation_degrees.y = kernel_index * 31.0
 		kernel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
@@ -1577,7 +1577,7 @@ func _build_wall_story(archive_parent: Node3D, safety_parent: Node3D) -> void:
 		Vector3(-11.63, 2.05, -5.55),
 		Color("e4dcc4"),
 	)
-	var portrait := office._add_sphere(archive_parent, "HenOfMonthPortrait", Vector3(-11.59, 2.08, -5.55), Vector3(0.04, 0.43, 0.43), Color("d79b63"))
+	var portrait := _add_sphere(archive_parent, "HenOfMonthPortrait", Vector3(-11.59, 2.08, -5.55), Vector3(0.04, 0.43, 0.43), Color("d79b63"))
 	portrait.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	Office.EnvironmentalSignageScript.add_panel(
 		hen_of_month_card, "HenOfMonthLabel", "HEN OF THE MONTH",
@@ -1723,7 +1723,7 @@ func _decorate_workstation(workstation: Node3D, index: int) -> void:
 		rug_inlays.append(_box_batch_transform(Vector3(2.92, 0.006, 0.018), Vector3(0.0, 0.029, 0.30 + side * 1.44)))
 		for end in [-1.0, 1.0]:
 			rug_inlays.append(_box_batch_transform(Vector3(0.13, 0.006, 0.13), Vector3(side * 1.45, 0.030, 0.30 + end * 1.38), Vector3(0.0, 45.0, 0.0)))
-	office._add_box_multimesh(workstation, "RugWovenInlay", rug_inlays, accent.lightened(0.12), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	_add_box_multimesh(workstation, "RugWovenInlay", rug_inlays, accent.lightened(0.12), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 	var cubicle_back := workstation.find_child("CubicleBack", true, false) as MeshInstance3D
 	var nameplate_parent: Node3D = cubicle_back if cubicle_back != null else workstation
 	var nameplate_position := (
@@ -1761,9 +1761,9 @@ func _decorate_workstation(workstation: Node3D, index: int) -> void:
 	for side in [-1.0, 1.0]:
 		frame_inlay.append(_box_batch_transform(Vector3(0.012, 0.37, 0.006), Vector3(0.87 + side * 0.202, 1.22, 0.463)))
 		frame_inlay.append(_box_batch_transform(Vector3(0.414, 0.012, 0.006), Vector3(0.87, 1.22 + side * 0.181, 0.463)))
-	office._add_box_multimesh(workstation, "PhotoFrameInlay", frame_inlay, Color("d7c295"), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
+	_add_box_multimesh(workstation, "PhotoFrameInlay", frame_inlay, Color("d7c295"), GeometryInstance3D.SHADOW_CASTING_SETTING_OFF)
 
-	var pencil_cup := office._add_cylinder(workstation, "PencilCup", Vector3(-1.10, 1.00, 0.47), 0.11, 0.24, accent)
+	var pencil_cup := _add_cylinder(workstation, "PencilCup", Vector3(-1.10, 1.00, 0.47), 0.11, 0.24, accent)
 	pencil_cup.material_override = office._material(accent, 0.50)
 	var pencil_mesh := (pencil_cup.mesh as CylinderMesh).duplicate() as CylinderMesh
 	pencil_mesh.cap_top = false
@@ -1775,15 +1775,15 @@ func _decorate_workstation(workstation: Node3D, index: int) -> void:
 	pencil_rim.position = Vector3(-1.10, 1.12, 0.47)
 	pencil_rim.material_override = office._material(accent.lightened(0.18), 0.46)
 	workstation.add_child(pencil_rim)
-	office._add_cylinder(workstation, "PencilCupInterior", Vector3(-1.10, 1.095, 0.47), 0.099, 0.012, accent.darkened(0.7))
+	_add_cylinder(workstation, "PencilCupInterior", Vector3(-1.10, 1.095, 0.47), 0.099, 0.012, accent.darkened(0.7))
 	for pencil_index in 3:
-		var pencil := office._add_cylinder(workstation, "Pencil", Vector3(-1.16 + pencil_index * 0.06, 1.20 + (pencil_index % 2) * 0.04, 0.47), 0.015, 0.38, Color("d6ad52"))
+		var pencil := _add_cylinder(workstation, "Pencil", Vector3(-1.16 + pencil_index * 0.06, 1.20 + (pencil_index % 2) * 0.04, 0.47), 0.015, 0.38, Color("d6ad52"))
 		pencil.rotation_degrees.z = -6.0 + pencil_index * 6.0
 		pencil.mesh = OfficeDeskDetails.pencil()
 		pencil.material_override = OfficeDeskDetails.portrait_material()
 
 	if index % 2 == 0:
-		var pot := office._add_cylinder(workstation, "DeskPlantPot", Vector3(1.00, 1.08, -0.20), 0.13, 0.22, Color("835d48"))
+		var pot := _add_cylinder(workstation, "DeskPlantPot", Vector3(1.00, 1.08, -0.20), 0.13, 0.22, Color("835d48"))
 		var pot_mesh := ProceduralPrimitiveCache.cylinder(0.13, 0.095, 0.22, 20).duplicate() as CylinderMesh
 		pot_mesh.cap_top = false
 		pot.mesh = pot_mesh
@@ -1809,7 +1809,7 @@ func _add_planter_finish(parent: Node3D, top: Vector3, radius: float) -> void:
 	rim.position = top - Vector3.UP * radius * 0.06
 	rim.material_override = office._material(Color("ac7859"), 0.76)
 	parent.add_child(rim)
-	office._add_cylinder(parent, "PlanterSoil", top - Vector3.UP * radius * 0.15, radius * 0.88, radius * 0.08, Color("3d3830"))
+	_add_cylinder(parent, "PlanterSoil", top - Vector3.UP * radius * 0.15, radius * 0.88, radius * 0.08, Color("3d3830"))
 
 
 func _build_capacity_authorization_marker(parent: Node3D, index: int, origin: Vector3) -> void:

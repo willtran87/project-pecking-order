@@ -61,10 +61,10 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		if office._routing_ui != null and office._routing_ui.has_method("focused_worker_id") else
 		-1
 	)
-	var active_playbook := office._playbook_for_presentation(snapshot, focused_worker_id)
+	var active_playbook := _playbook_for_presentation(snapshot, focused_worker_id)
 	var pulse_context := {
 		"simulation": snapshot,
-		"next_action": office._next_action_diagnostic_state(),
+		"next_action": _next_action_diagnostic_state(),
 		"routing_lifecycle": routing_lifecycle,
 		"action_feedback": office._latest_action_outcome_receipt,
 		"momentum_brief": (
@@ -86,7 +86,7 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		"tactical_route_plan": office._tactical_route_plan_snapshot(),
 		"challenge_contract_catalog": Office.CampaignStateScript.challenge_contract_catalog(),
 		"scenario_catalog": DepartmentSimulation.replay_scenario_catalog(),
-		"campaign": office._campaign_pulse_projection(),
+		"campaign": _campaign_pulse_projection(),
 		"scenario": (office._simulation.scenario_identity_snapshot() if office._simulation != null else {}),
 		"cause_replay": office._last_cause_replay.duplicate(true),
 	}
@@ -94,7 +94,7 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	office._gameplay_pulse = office._gameplay_pulse_director.compose(pulse_context, true, true)
 	var pulse_composed := Time.get_ticks_usec()
 	office._gameplay_pulse["active_playbook"] = active_playbook.duplicate(true)
-	office._refresh_active_playbook_menu(active_playbook, focused_worker_id)
+	_refresh_active_playbook_menu(active_playbook, focused_worker_id)
 	_apply_complete_game_loop_presentation(
 		office._gameplay_pulse.get("complete_game_loop", {}) as Dictionary,
 		snapshot,
@@ -135,7 +135,7 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 	_apply_cohesive_game_loop_advancement_presentation(
 		office._gameplay_pulse.get("cohesive_game_loop_advancement", {}) as Dictionary,
 	)
-	office._apply_professional_polish_presentation(
+	_apply_professional_polish_presentation(
 		((office._gameplay_pulse.get("intuitive_rewarding_completion", {}) as Dictionary).get(
 			"professional_polish",
 			{},
@@ -299,7 +299,7 @@ func _refresh_gameplay_pulse(snapshot: Dictionary) -> void:
 		if office._guidance_icon != null:
 			office._guidance_icon.tooltip_text = office._guidance_label.tooltip_text
 			office._guidance_icon.accessibility_name = office._guidance_label.tooltip_text
-	office._apply_readable_loop_hud(snapshot, active_playbook)
+	_apply_readable_loop_hud(snapshot, active_playbook)
 	_refresh_shift_challenge_goal(active_playbook)
 
 	office._gameplay_pulse_timing = {"context_usec": context_ready - pulse_started, "director_usec": pulse_composed - context_ready, "compose_usec": pulse_composed - pulse_started, "apply_usec": Time.get_ticks_usec() - pulse_composed}

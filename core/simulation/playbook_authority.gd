@@ -48,7 +48,7 @@ func personnel_action_count_today() -> int:
 
 func personnel_action_used_today() -> bool:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	return sim.personnel_action_count_today() >= sim.personnel_action_limit()
+	return personnel_action_count_today() >= sim.personnel_action_limit()
 
 
 func perform_personnel_action(worker_id: int, action_id: StringName) -> Dictionary:
@@ -75,7 +75,7 @@ func perform_personnel_action(worker_id: int, action_id: StringName) -> Dictiona
 		return _rejected_personnel_action(
 			"%s already has a filed flock check-in today." % sim.workers[worker_id].display_name
 		)
-	if sim.personnel_action_used_today():
+	if personnel_action_used_today():
 		return _rejected_personnel_action(
 			"Today's %d flock %s already filed." % [
 				sim.personnel_action_limit(),
@@ -176,10 +176,10 @@ func perform_personnel_action(worker_id: int, action_id: StringName) -> Dictiona
 		"promoted": String(before["career_title"]) != worker.career_title(),
 		"career_title": worker.career_title(),
 		"outcome": outcome,
-		"personnel_actions_used": sim.personnel_action_count_today(),
+		"personnel_actions_used": personnel_action_count_today(),
 		"personnel_action_limit": sim.personnel_action_limit(),
 		"personnel_actions_remaining": clampi(
-			sim.personnel_action_limit() - sim.personnel_action_count_today(),
+			sim.personnel_action_limit() - personnel_action_count_today(),
 			0,
 			sim.personnel_action_limit(),
 		),
@@ -235,7 +235,7 @@ func _reset_active_playbook() -> void:
 func _ensure_active_playbook() -> void:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_playbook.is_empty() or int(sim.active_playbook.get("day", 0)) != sim.day:
-		sim._reset_active_playbook()
+		_reset_active_playbook()
 
 
 func _playbook_contract_progress(contract_id: StringName) -> int:
@@ -256,7 +256,7 @@ func _playbook_contract_progress(contract_id: StringName) -> int:
 
 func _record_playbook_contract_completion() -> void:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	sim._ensure_active_playbook()
+	_ensure_active_playbook()
 	var contract_id := StringName(sim.active_playbook.get("contract_id", ""))
 	var definition := DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
 	if not definition.is_empty() and _playbook_contract_progress(contract_id) >= int(definition["target"]):
@@ -587,7 +587,7 @@ func _hero_case_id_for_day(target_day: int) -> StringName:
 
 func _hero_case_snapshot(focused_worker_id: int) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	sim._ensure_active_playbook()
+	_ensure_active_playbook()
 	var case_id := StringName(sim.active_playbook.get("hero_case_id", _hero_case_id_for_day(sim.day)))
 	var definition := (DepartmentSimulation.PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary).duplicate(true)
 	var choice_id := StringName(sim.active_playbook.get("hero_case_choice_id", &""))
@@ -853,7 +853,7 @@ static func first_session_comprehension_protocol() -> Dictionary:
 
 func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	sim._ensure_active_playbook()
+	_ensure_active_playbook()
 	var contract_id := StringName(sim.active_playbook.get("contract_id", &""))
 	var contract_definition := DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
 	var contract_progress := _playbook_contract_progress(contract_id)
@@ -970,7 +970,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		signature_available = running and focused_worker_id not in signature_ids and bool(sim.personnel_action_status().get("available", false))
 		signature_reason = "Uses the normal flock check-in allowance." if signature_available else "This hen's signature or today's flock allowance is already used."
 	options.append(_playbook_option(&"signature", &"activate", {"label": signature_label, "icon": &"flock", "gain": "PROFILE-SPECIFIC EFFECT", "cost": "NORMAL CHECK-IN", "risk": "ONE PER HEN / SHIFT"}, signature_available, signature_reason))
-	var proposal_id := sim._playbook_proposal_id(focused_worker_id)
+	var proposal_id := _playbook_proposal_id(focused_worker_id)
 	var proposal_open := (
 		running
 		and proposal_id != &""
@@ -1069,7 +1069,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 	var recovery_open := (
 		running
 		and String(sim.active_playbook.get("recovery_id", "")).is_empty()
-		and (sim.revenue_cents < 2500 or sim.executive_confidence < 45.0 or sim._average_worker_stress() >= 55.0)
+		and (sim.revenue_cents < 2500 or sim.executive_confidence < 45.0 or _average_worker_stress() >= 55.0)
 	)
 	if recovery_open:
 		for choice_id: StringName in DepartmentSimulation.PLAYBOOK_RECOVERY_DEFINITIONS:
@@ -1110,7 +1110,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"risk": "COSMETIC ONLY",
 		}, running, "Cycles the earned plan, contract, and reward display—never free placement."))
 	options.append(_playbook_option(&"challenge", &"copy_code", {
-		"label": "COPY %s" % sim.challenge_code(),
+		"label": "COPY %s" % challenge_code(),
 		"icon": &"files",
 		"gain": "SHARE THIS DOCKET",
 		"cost": "NONE",
@@ -1123,7 +1123,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 		&"sustainable_flock": {"id": "perch_partners", "label": "PERCH PARTNERS", "icon": "care", "effect": "STRAIN -10%"},
 	}.get(sim.active_directive_id, {"id": "unfiled", "label": "COMBO LOCKED", "icon": "sync", "effect": "FILE A POLICY"}) as Dictionary
 	var combo_active := sim.routing_momentum_chain >= DepartmentSimulation.ROUTING_MOMENTUM_PACE_MILESTONE
-	var combo_recipe := sim._playbook_combo_recipe_snapshot()
+	var combo_recipe := _playbook_combo_recipe_snapshot()
 	var contract_snapshot := {"id": String(contract_id), "label": String(contract_definition.get("label", "PICK CONTRACT")), "icon": String(contract_definition.get("icon", "goal")), "progress": contract_progress, "target": contract_target, "complete": contract_complete, "reward_claimed": not String(sim.active_playbook.get("contract_reward_id", "")).is_empty(), "reward_id": String(sim.active_playbook.get("contract_reward_id", "")), "optional": true, "failure_penalty": 0}
 	contract_snapshot.merge(CareerWorkshop.CHALLENGES.get(String(contract_id), {}) as Dictionary, true)
 	var side_goal_snapshot := {"id": String(side_goal_id), "label": String(side_goal_definition.get("label", "PIN A GOAL")), "icon": String(side_goal_definition.get("icon", "goal")), "progress": side_goal_progress, "target": side_goal_target, "complete": not side_goal_definition.is_empty() and side_goal_progress >= side_goal_target, "failure_penalty": 0}
@@ -1230,7 +1230,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 			"routing": {"current": sim.routing_momentum_chain, "best": sim.best_routing_momentum_chain, "delta": sim.routing_momentum_chain - sim.best_routing_momentum_chain},
 			"quality": {"current": sim.quality_streak, "best": sim.best_quality_streak, "delta": sim.quality_streak - sim.best_quality_streak},
 		},
-		"challenge": {"code": sim.challenge_code(), "seed": sim._career_seed, "day": sim.day, "shareable": true},
+		"challenge": {"code": challenge_code(), "seed": sim._career_seed, "day": sim.day, "shareable": true},
 		"comprehension_study": first_session_comprehension_protocol(),
 		"boss_file": {"active": sim.day == DepartmentSimulation.PROBATION_CAMPAIGN_SHIFTS, "label": String(sim.scenario_identity_snapshot().get("climax_title", "FINAL HEARING")), "mechanics": ["POLICY", "INCIDENT", "CREDIT"]},
 		"next_shift_preview": _next_shift_tease_snapshot(),
@@ -1257,14 +1257,14 @@ func _playbook_shift_plan(contract_definition: Dictionary, combo: Dictionary) ->
 
 func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id: int = -1) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	sim._ensure_active_playbook()
+	_ensure_active_playbook()
 	if sim.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING or not sim.pending_decision.is_empty():
 		return {"accepted": false, "reason": "Resolve the current management file first."}
 	if kind == &"workshop":
 		if String(sim.active_playbook.get("contract_id", "")) == "care_circle" and String(choice_id).get_slice("/", 0) != "team_kettle" and not (sim.career_workshop.daily_day == sim.day and sim.career_workshop.loadout_locked):
 			return {"accepted": false, "reason": "Care Circle needs the kettle. Keep it equipped for this challenge."}
 		var workshop_result := sim.career_workshop.choose(String(choice_id), sim.day, true)
-		return sim._file_playbook_receipt(workshop_result) if bool(workshop_result.get("accepted", false)) else workshop_result
+		return _file_playbook_receipt(workshop_result) if bool(workshop_result.get("accepted", false)) else workshop_result
 	if kind == &"hero_case":
 		return _perform_playbook_hero_case(choice_id, worker_id)
 	if kind == &"intervention":
@@ -1289,7 +1289,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 				sim.compliance = minf(100.0, sim.compliance + 3.0)
 				outcome = "The emergency review trades 2% pace for 1.5% lower shell risk and 3 compliance."
 		sim.active_playbook["manager_intervention_id"] = String(choice_id)
-		return sim._file_playbook_receipt(_playbook_choice_result(
+		return _file_playbook_receipt(_playbook_choice_result(
 			kind,
 			choice_id,
 			DepartmentSimulation.PLAYBOOK_MANAGER_INTERVENTION_DEFINITIONS[choice_id],
@@ -1298,12 +1298,12 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 	if kind == &"proposal":
 		if not DepartmentSimulation.PLAYBOOK_HEN_PROPOSAL_DEFINITIONS.has(choice_id) or int(sim.active_playbook.get("proposal_worker_id", -1)) >= 0:
 			return {"accepted": false, "reason": "This shift's hen proposal is already answered or unavailable."}
-		if worker_id < 0 or worker_id >= sim.workers.size() or not sim.workers[worker_id].employed or sim._playbook_proposal_id(worker_id) != choice_id:
+		if worker_id < 0 or worker_id >= sim.workers.size() or not sim.workers[worker_id].employed or _playbook_proposal_id(worker_id) != choice_id:
 			return {"accepted": false, "reason": "Select the hen who made this proposal."}
 		var proposal_worker := sim.workers[worker_id]
 		match choice_id:
 			&"own_lane":
-				sim.set_worker_assignment(worker_id, proposal_worker.specialty)
+				set_worker_assignment(worker_id, proposal_worker.specialty)
 				proposal_worker.manager_trust = minf(100.0, proposal_worker.manager_trust + 3.0)
 			&"pair_perch":
 				var proposal_bond := sim._worker_flock_bond_snapshot(proposal_worker)
@@ -1318,7 +1318,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 				proposal_worker.fatigue = maxf(0.0, proposal_worker.fatigue - 3.0)
 		sim.active_playbook["proposal_worker_id"] = worker_id
 		sim.active_playbook["proposal_id"] = String(choice_id)
-		return sim._file_playbook_receipt(_playbook_choice_result(
+		return _file_playbook_receipt(_playbook_choice_result(
 			kind,
 			choice_id,
 			DepartmentSimulation.PLAYBOOK_HEN_PROPOSAL_DEFINITIONS[choice_id],
@@ -1329,10 +1329,10 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			return {"accepted": false, "reason": "Show Me is already used or unavailable."}
 		if worker_id < 0 or worker_id >= sim.workers.size() or not sim.workers[worker_id].employed:
 			return {"accepted": false, "reason": "Select an active hen for the rescue route."}
-		sim.set_worker_assignment(worker_id, sim.workers[worker_id].specialty)
+		set_worker_assignment(worker_id, sim.workers[worker_id].specialty)
 		sim.routing_momentum_peck_recharge_bank = maxi(1, sim.routing_momentum_peck_recharge_bank)
 		sim.active_playbook["rescue_used"] = true
-		return sim._file_playbook_receipt({
+		return _file_playbook_receipt({
 			"accepted": true, "playbook_kind": "rescue", "choice_id": "show_me", "worker_id": worker_id,
 			"label": "SHOW ME", "effects": {"gain": "SPECIALTY ROUTE + ATTENTION", "cost": "ONE RESCUE / SHIFT", "risk": "NO BONUS REWARD"},
 			"outcome": "%s is back on her specialty lane; one help charge is ready. No reward was granted." % sim.workers[worker_id].display_name, "day": sim.day,
@@ -1351,7 +1351,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			if choice_id == &"cooler_break":
 				sim.workers[toy_worker_id].stress = maxf(0.0, sim.workers[toy_worker_id].stress - 2.0)
 		sim.active_playbook["toy_id"] = String(choice_id)
-		return sim._file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_OFFICE_TOY_DEFINITIONS[choice_id], "%s reacted to the %s. Small, optional, and done for this shift." % [sim.workers[toy_worker_id].display_name, String(DepartmentSimulation.PLAYBOOK_OFFICE_TOY_DEFINITIONS[choice_id].get("label", "office toy")).to_lower()]))
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_OFFICE_TOY_DEFINITIONS[choice_id], "%s reacted to the %s. Small, optional, and done for this shift." % [sim.workers[toy_worker_id].display_name, String(DepartmentSimulation.PLAYBOOK_OFFICE_TOY_DEFINITIONS[choice_id].get("label", "office toy")).to_lower()]))
 	if kind == &"episode":
 		if choice_id != _rare_office_episode_id() or bool(sim.active_playbook.get("rare_episode_resolved", false)):
 			return {"accepted": false, "reason": "That office episode is not active."}
@@ -1367,16 +1367,16 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 				sim.compliance = minf(100.0, sim.compliance + 2.0)
 				sim._adjust_workers(-1.0, 0.0, 0.0)
 		sim.active_playbook["rare_episode_resolved"] = true
-		return sim._file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_RARE_EPISODE_DEFINITIONS[choice_id], "%s resolved. Its disclosed trade is now part of this docket's story." % String(DepartmentSimulation.PLAYBOOK_RARE_EPISODE_DEFINITIONS[choice_id].get("label", "Office episode"))))
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_RARE_EPISODE_DEFINITIONS[choice_id], "%s resolved. Its disclosed trade is now part of this docket's story." % String(DepartmentSimulation.PLAYBOOK_RARE_EPISODE_DEFINITIONS[choice_id].get("label", "Office episode"))))
 	if kind == &"display":
 		if choice_id not in DepartmentSimulation.PLAYBOOK_DISPLAY_STYLE_ORDER:
 			return {"accepted": false, "reason": "That fixed display style is unavailable."}
 		sim.active_playbook["display_style_index"] = DepartmentSimulation.PLAYBOOK_DISPLAY_STYLE_ORDER.find(choice_id)
-		return sim._file_playbook_receipt({"accepted": true, "playbook_kind": "display", "choice_id": String(choice_id), "label": "DISPLAY RESTYLED", "effects": {"gain": "3 FIXED SOCKETS", "cost": "NONE", "risk": "COSMETIC ONLY"}, "outcome": "The plan, contract, and reward sockets now use %s. Nothing can overlap the office floor." % String(DepartmentSimulation.PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[choice_id].get("label", "this style")), "day": sim.day})
+		return _file_playbook_receipt({"accepted": true, "playbook_kind": "display", "choice_id": String(choice_id), "label": "DISPLAY RESTYLED", "effects": {"gain": "3 FIXED SOCKETS", "cost": "NONE", "risk": "COSMETIC ONLY"}, "outcome": "The plan, contract, and reward sockets now use %s. Nothing can overlap the office floor." % String(DepartmentSimulation.PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[choice_id].get("label", "this style")), "day": sim.day})
 	if kind == &"challenge":
 		if choice_id != &"copy_code":
 			return {"accepted": false, "reason": "That challenge code action is unavailable."}
-		return {"accepted": true, "playbook_kind": "challenge", "choice_id": "copy_code", "label": "CHALLENGE CODE", "code": sim.challenge_code(), "changes_authority": false, "outcome": "%s is ready to share." % sim.challenge_code(), "day": sim.day}
+		return {"accepted": true, "playbook_kind": "challenge", "choice_id": "copy_code", "label": "CHALLENGE CODE", "code": challenge_code(), "changes_authority": false, "outcome": "%s is ready to share." % challenge_code(), "day": sim.day}
 	if kind == &"modifier":
 		if sim.day < 2 or not DepartmentSimulation.PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS.has(choice_id):
 			return {"accepted": false, "reason": "Optional shift modifiers unlock after the first shift."}
@@ -1391,7 +1391,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		if choice_id == &"rush_hour":
 			sim.quota_target += 2
 		var modifier_definition := DepartmentSimulation.PLAYBOOK_CHALLENGE_MODIFIER_DEFINITIONS[choice_id] as Dictionary
-		return sim._file_playbook_receipt(_playbook_choice_result(
+		return _file_playbook_receipt(_playbook_choice_result(
 			kind,
 			choice_id,
 			modifier_definition,
@@ -1434,14 +1434,14 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			"side_goal_id": String(sim.active_playbook["side_goal_id"]),
 		}
 		preset_result["cost_cents"] = preset_cost
-		return sim._file_playbook_receipt(preset_result)
+		return _file_playbook_receipt(preset_result)
 	if kind == &"customize":
 		if choice_id != &"advanced" or sim.day < 2:
 			return {"accepted": false, "reason": "Advanced planning unlocks after the first shift."}
 		if not String(sim.active_playbook.get("strategy_preset_id", "")).is_empty() or sim.eggs_today > 0:
 			return {"accepted": false, "reason": "Today's plan is already filed or production has begun."}
 		sim.active_playbook["strategy_preset_id"] = "custom"
-		return sim._file_playbook_receipt({
+		return _file_playbook_receipt({
 			"accepted": true,
 			"playbook_kind": "customize",
 			"choice_id": "advanced",
@@ -1457,14 +1457,14 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		if worker_id in used_ids:
 			return {"accepted": false, "reason": "%s already used her signature this shift." % sim.workers[worker_id].display_name}
 		var action_id := sim._preferred_personnel_action(sim.workers[worker_id])
-		var signature_result := sim.perform_personnel_action(worker_id, action_id)
+		var signature_result := perform_personnel_action(worker_id, action_id)
 		if not bool(signature_result.get("accepted", false)):
 			return signature_result
 		used_ids.append(worker_id)
 		sim.active_playbook["signature_worker_ids"] = used_ids
 		signature_result["playbook_kind"] = "signature"
 		signature_result["signature"] = true
-		return sim._file_playbook_receipt(signature_result)
+		return _file_playbook_receipt(signature_result)
 	if kind == &"contract":
 		if not DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS.has(choice_id) or not String(sim.active_playbook.get("contract_id", "")).is_empty():
 			return {"accepted": false, "reason": "This shift's optional contract is already filed."}
@@ -1473,12 +1473,12 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		if choice_id == &"care_circle" and sim.career_workshop.equipped != "team_kettle":
 			return {"accepted": false, "reason": "Equip the Team Kettle before choosing Care Circle."}
 		sim.active_playbook["contract_id"] = String(choice_id)
-		return sim._file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], "Optional contract accepted. Missing it carries no penalty."))
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS[choice_id], "Optional contract accepted. Missing it carries no penalty."))
 	if kind == &"loadout":
 		if not DepartmentSimulation.PLAYBOOK_LOADOUT_DEFINITIONS.has(choice_id) or not String(sim.active_playbook.get("loadout_id", "")).is_empty() or sim.eggs_today > 0:
 			return {"accepted": false, "reason": "The floor loadout locks after selection or first delivery."}
 		sim.active_playbook["loadout_id"] = String(choice_id)
-		return sim._file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_LOADOUT_DEFINITIONS[choice_id], "Office loadout filed for this shift."))
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_LOADOUT_DEFINITIONS[choice_id], "Office loadout filed for this shift."))
 	if kind == &"preparation":
 		if not DepartmentSimulation.PLAYBOOK_PREPARATION_DEFINITIONS.has(choice_id) or not String(sim.active_playbook.get("preparation_id", "")).is_empty() or sim.incidents_resolved_today > 0:
 			return {"accepted": false, "reason": "Incident preparation is already locked."}
@@ -1487,7 +1487,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 				return {"accepted": false, "reason": "Rest preparation needs $2.00 spendable Feed Fund."}
 			sim.revenue_cents -= 200
 		sim.active_playbook["preparation_id"] = String(choice_id)
-		return sim._file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], "Preparation will alter the first pressure response."))
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_PREPARATION_DEFINITIONS[choice_id], "Preparation will alter the first pressure response."))
 	if kind == &"rival":
 		if not DepartmentSimulation.PLAYBOOK_RIVAL_DEFINITIONS.has(choice_id) or not String(sim.active_playbook.get("rival_response_id", "")).is_empty() or sim.eggs_today <= 0:
 			return {"accepted": false, "reason": "The rival response opens after the first delivery and files once."}
@@ -1506,13 +1506,13 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 		})
 		while sim.rival_response_history.size() > 32:
 			sim.rival_response_history.pop_front()
-		return sim._file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_RIVAL_DEFINITIONS[choice_id], "Rival response filed with no hidden catch-up rule."))
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_RIVAL_DEFINITIONS[choice_id], "Rival response filed with no hidden catch-up rule."))
 	if kind == &"side_goal":
 		if not DepartmentSimulation.PLAYBOOK_SIDE_GOAL_DEFINITIONS.has(choice_id) or not String(sim.active_playbook.get("side_goal_id", "")).is_empty():
 			return {"accepted": false, "reason": "One personal ambition is already pinned."}
 		sim.active_playbook["side_goal_id"] = String(choice_id)
 		sim.active_playbook["side_goal_fund_baseline_cents"] = sim.revenue_cents
-		return sim._file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], "Personal ambition pinned; missing it has no penalty."))
+		return _file_playbook_receipt(_playbook_choice_result(kind, choice_id, DepartmentSimulation.PLAYBOOK_SIDE_GOAL_DEFINITIONS[choice_id], "Personal ambition pinned; missing it has no penalty."))
 	if kind == &"reward":
 		return _claim_playbook_contract_reward(choice_id, worker_id)
 	if kind == &"push_luck":
@@ -1520,7 +1520,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			return {"accepted": false, "reason": "Secure today's quota before choosing a clutch finish."}
 		sim.active_playbook["push_luck_id"] = String(choice_id)
 		sim.active_playbook["push_luck_start_eggs"] = sim.eggs_today
-		return sim._file_playbook_receipt(_playbook_choice_result(
+		return _file_playbook_receipt(_playbook_choice_result(
 			kind,
 			choice_id,
 			DepartmentSimulation.PLAYBOOK_PUSH_LUCK_DEFINITIONS[choice_id],
@@ -1533,12 +1533,12 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			return {"accepted": false, "reason": "Build a fitted routing chain before teaching Auto Fit."}
 		if worker_id < 0 or worker_id >= sim.workers.size() or not sim.workers[worker_id].employed:
 			return {"accepted": false, "reason": "Select the hen whose routing rule should be automated."}
-		if not sim.set_worker_assignment(worker_id, &"auto"):
+		if not set_worker_assignment(worker_id, &"auto"):
 			return {"accepted": false, "reason": "Auto Fit could not be filed for that hen."}
 		sim.workers[worker_id].automation_policy_unlocked = true
 		sim.workers[worker_id].automation_policy_id = &"specialty_first"
 		sim.active_playbook["mastery_auto_used"] = true
-		return sim._file_playbook_receipt({
+		return _file_playbook_receipt({
 			"accepted": true,
 			"playbook_kind": "automation",
 			"choice_id": "auto_fit",
@@ -1560,7 +1560,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 			return {"accepted": false, "reason": "That delegation rule is already active."}
 		automation_worker.automation_policy_id = choice_id
 		var policy_definition := DepartmentSimulation.PLAYBOOK_DELEGATION_POLICY_DEFINITIONS[choice_id] as Dictionary
-		return sim._file_playbook_receipt({
+		return _file_playbook_receipt({
 			"accepted": true,
 			"playbook_kind": "automation_policy",
 			"choice_id": String(choice_id),
@@ -1636,7 +1636,7 @@ func _perform_playbook_hero_case(choice_id: StringName, worker_id: int) -> Dicti
 	sim.hero_case_history.append(callback.duplicate(true))
 	if sim.hero_case_history.size() > 32:
 		sim.hero_case_history.pop_front()
-	return sim._file_playbook_receipt({
+	return _file_playbook_receipt({
 		"accepted": true,
 		"playbook_kind": "hero_case",
 		"choice_id": String(choice_id),
@@ -1665,7 +1665,7 @@ func _playbook_choice_result(kind: StringName, choice_id: StringName, definition
 
 func _file_playbook_receipt(result: Dictionary) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	sim._record_playbook_contract_completion()
+	_record_playbook_contract_completion()
 	var effects := result.get("effects", {}) as Dictionary
 	result["decision_arc"] = {
 		"forecast": {
@@ -1725,7 +1725,7 @@ func _claim_playbook_contract_reward(choice_id: StringName, worker_id: int) -> D
 		reward_outcome += " +$1.00 workshop mastery bonus."
 	if not mastery_offer.is_empty():
 		reward_outcome += " NEW MODE: %s earned. Equip free before work from shift %d." % [String(mastery_offer.label), int(mastery_offer.day)]
-	return sim._file_playbook_receipt(_playbook_choice_result(&"reward", choice_id, DepartmentSimulation.PLAYBOOK_REWARD_DEFINITIONS[choice_id], reward_outcome))
+	return _file_playbook_receipt(_playbook_choice_result(&"reward", choice_id, DepartmentSimulation.PLAYBOOK_REWARD_DEFINITIONS[choice_id], reward_outcome))
 
 
 func _delegation_policy_catalog() -> Array[Dictionary]:
@@ -1759,7 +1759,7 @@ func _strategy_comparison_catalog(current_id: StringName, recommended_id: String
 
 func _team_lift_ability(worker: ChickenState, partner: ChickenState) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var ability := sim._base_team_lift_ability(worker, partner)
+	var ability := _base_team_lift_ability(worker, partner)
 	if not ability.is_empty() and sim.flock_relationships.affinity(worker.id, partner.id) >= 18:
 		ability["morale"] = float(ability.get("morale", 0.0)) + 2.0
 		ability["stress"] = float(ability.get("stress", 0.0)) - 2.0
@@ -1868,7 +1868,7 @@ func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
 	sim.active_playbook["teamwork_used"] = true
 	sim.flock_relationships.record(worker_id, partner_id, "team_lift", sim.day)
 	sim._award_clean_pair(worker, partner)
-	return sim._file_playbook_receipt({
+	return _file_playbook_receipt({
 		"accepted": true,
 		"playbook_kind": "teamwork",
 		"choice_id": "team_lift",
@@ -1912,7 +1912,7 @@ func _perform_partnership_specialization(choice_id: StringName, worker_id: int) 
 	partner.partnership_partner_id = worker_id
 	partner.partnership_style_id = choice_id
 	var definition := DepartmentSimulation.PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS[choice_id] as Dictionary
-	return sim._file_playbook_receipt({
+	return _file_playbook_receipt({
 		"accepted": true,
 		"playbook_kind": "partnership",
 		"choice_id": String(choice_id),
@@ -1937,7 +1937,7 @@ func _perform_playbook_recovery(choice_id: StringName) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.PLAYBOOK_RECOVERY_DEFINITIONS.has(choice_id) or not String(sim.active_playbook.get("recovery_id", "")).is_empty():
 		return {"accepted": false, "reason": "A recovery plan is already filed or unavailable."}
-	if sim.revenue_cents >= 2500 and sim.executive_confidence >= 45.0 and sim._average_worker_stress() < 55.0:
+	if sim.revenue_cents >= 2500 and sim.executive_confidence >= 45.0 and _average_worker_stress() < 55.0:
 		return {"accepted": false, "reason": "Recovery plans open when cash, favor, or flock strain needs repair."}
 	match choice_id:
 		&"steady_fund":
@@ -1951,7 +1951,7 @@ func _perform_playbook_recovery(choice_id: StringName) -> Dictionary:
 		&"salvage_order":
 			pass
 	sim.active_playbook["recovery_id"] = String(choice_id)
-	return sim._file_playbook_receipt(_playbook_choice_result(&"recovery", choice_id, DepartmentSimulation.PLAYBOOK_RECOVERY_DEFINITIONS[choice_id], "Comeback plan filed; banked rewards remain safe."))
+	return _file_playbook_receipt(_playbook_choice_result(&"recovery", choice_id, DepartmentSimulation.PLAYBOOK_RECOVERY_DEFINITIONS[choice_id], "Comeback plan filed; banked rewards remain safe."))
 
 
 func _practice_playbook_peck(worker_id: int) -> Dictionary:
@@ -1979,7 +1979,7 @@ func _average_worker_stress() -> float:
 
 func _playbook_work_multiplier() -> float:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	sim._ensure_active_playbook()
+	_ensure_active_playbook()
 	var multiplier := 1.0
 	match StringName(sim.active_playbook.get("loadout_id", &"")):
 		&"pace_floor": multiplier *= 1.04
@@ -2004,7 +2004,7 @@ func _playbook_work_multiplier() -> float:
 		multiplier *= 0.98
 	if (
 		StringName(sim.active_playbook.get("strategy_preset_id", &"")) == &"fast"
-		and bool(sim._playbook_combo_recipe_snapshot().get("complete", false))
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
 	):
 		multiplier *= 1.03
 	if sim.routing_momentum_chain >= DepartmentSimulation.ROUTING_MOMENTUM_PACE_MILESTONE and sim.active_directive_id == &"record_harvest":
@@ -2014,7 +2014,7 @@ func _playbook_work_multiplier() -> float:
 
 func _playbook_crack_modifier() -> float:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	sim._ensure_active_playbook()
+	_ensure_active_playbook()
 	var modifier := 0.0
 	match StringName(sim.active_playbook.get("loadout_id", &"")):
 		&"pace_floor": modifier += 0.008
@@ -2038,7 +2038,7 @@ func _playbook_crack_modifier() -> float:
 		modifier -= 0.015
 	if (
 		StringName(sim.active_playbook.get("strategy_preset_id", &"")) == &"safe"
-		and bool(sim._playbook_combo_recipe_snapshot().get("complete", false))
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
 	):
 		modifier -= 0.015
 	if sim.routing_momentum_chain >= DepartmentSimulation.ROUTING_MOMENTUM_PACE_MILESTONE and sim.active_directive_id == &"shell_assurance":
@@ -2048,7 +2048,7 @@ func _playbook_crack_modifier() -> float:
 
 func _playbook_strain_multiplier() -> float:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	sim._ensure_active_playbook()
+	_ensure_active_playbook()
 	var multiplier := 1.0
 	if StringName(sim.active_playbook.get("loadout_id", &"")) == &"care_floor":
 		multiplier *= 0.90
@@ -2061,7 +2061,7 @@ func _playbook_strain_multiplier() -> float:
 		multiplier *= 0.90
 	if (
 		StringName(sim.active_playbook.get("strategy_preset_id", &"")) == &"flock"
-		and bool(sim._playbook_combo_recipe_snapshot().get("complete", false))
+		and bool(_playbook_combo_recipe_snapshot().get("complete", false))
 	):
 		multiplier *= 0.88
 	return clampf(multiplier, 0.65, 1.0)

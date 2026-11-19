@@ -219,7 +219,7 @@ func _on_web_mobile_action_requested(arguments: Array) -> void:
 		&"settings":
 			office._on_settings_requested()
 		&"career_backup":
-			office._on_career_backup_settings_requested()
+			_on_career_backup_settings_requested()
 		&"overview":
 			if office._settings_ui != null and office._settings_ui.is_open():
 				office._on_settings_close_requested()
@@ -1091,10 +1091,10 @@ func _compact_contract_board_diagnostic(
 		"service_coop_level", "service_coop_premium_bonus_basis_points",
 		"negotiation_room_level", "decline_available",
 	])
-	result["active"] = office._compact_contract_offer_diagnostic(
+	result["active"] = _compact_contract_offer_diagnostic(
 		source.get("active", {}) as Dictionary,
 	)
-	result["active_contract"] = office._compact_contract_offer_diagnostic(
+	result["active_contract"] = _compact_contract_offer_diagnostic(
 		source.get("active_contract", {}) as Dictionary,
 	)
 	result["standing"] = (source.get("standing", {}) as Dictionary).duplicate(true)
@@ -1120,7 +1120,7 @@ func _compact_contract_board_diagnostic(
 	if include_offer_index:
 		for offer_value: Variant in source.get("offers", []) as Array:
 			if offer_value is Dictionary:
-				compact_offers.append(office._compact_contract_offer_diagnostic(
+				compact_offers.append(_compact_contract_offer_diagnostic(
 					offer_value as Dictionary,
 					false,
 				))
@@ -1134,10 +1134,10 @@ func _compact_contract_planning_diagnostic(source: Dictionary) -> Dictionary:
 		"negotiation_open", "sign_enabled", "signature_pending", "decline_visible",
 		"decline_pending", "continue_enabled", "can_sign", "hold_reason",
 	])
-	result["effective_terms"] = office._compact_contract_offer_diagnostic(
+	result["effective_terms"] = _compact_contract_offer_diagnostic(
 		source.get("effective_terms", {}) as Dictionary,
 	)
-	result["signed_contract"] = office._compact_contract_offer_diagnostic(
+	result["signed_contract"] = _compact_contract_offer_diagnostic(
 		source.get("signed_contract", {}) as Dictionary,
 	)
 	return result
@@ -1349,7 +1349,7 @@ func _dispatch_diagnostic_state() -> Dictionary:
 			if office._workstation_feedback != null else
 			{}
 		),
-		"work_progress": office._compact_work_progress_diagnostic(work_progress_source),
+		"work_progress": _compact_work_progress_diagnostic(work_progress_source),
 		"work_progress_action": office._last_work_progress_action.duplicate(true),
 		"work_progress_dossier": (
 			office._routing_ui.context_action_state()
@@ -1362,8 +1362,8 @@ func _dispatch_diagnostic_state() -> Dictionary:
 func _serialize_web_accessibility_state(snapshot: Dictionary) -> void:
 	if not OS.has_feature("web"):
 		return
-	var summary := office._web_accessibility_summary(snapshot)
-	var announcement := office._web_accessibility_announcement(snapshot, summary)
+	var summary := _web_accessibility_summary(snapshot)
+	var announcement := _web_accessibility_announcement(snapshot, summary)
 	var title_open := (
 		office._campaign_ui != null
 		and office._campaign_ui.modal_state() == ProbationCampaignUI.VIEW_TITLE
@@ -1377,7 +1377,7 @@ func _serialize_web_accessibility_state(snapshot: Dictionary) -> void:
 		"authoritative_tick_revision": int(snapshot.get("authoritative_tick_revision", 0)),
 		"accessibility_summary": summary,
 		"accessibility_announcement": announcement,
-		"checkpoint": office._checkpoint_diagnostic_state(),
+		"checkpoint": _checkpoint_diagnostic_state(),
 	}
 	var window := JavaScriptBridge.get_interface("window")
 	if window != null:
@@ -1579,7 +1579,7 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 				office._review_title.text if office._review_title != null else "Farmer review",
 				office._review_eggs_value.text if office._review_eggs_value != null else "",
 				office._review_net_value.text if office._review_net_value != null else "",
-				office._review_bottleneck_readout(),
+				_review_bottleneck_readout(),
 				office._review_next_value.text if office._review_next_value != null else "",
 				String(office._review_summary.get_meta(
 					"accessible_text",
@@ -1598,8 +1598,8 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 		var intake_phase := String(office._campaign_ui.title_intake_phase()).replace("_", " ")
 		var title_snapshot := office._campaign_ui.campaign_snapshot()
 		var resume_summary := office._resume_dictionary(title_snapshot.get("resume_summary"))
-		var return_recap := office._web_return_recap_summary(resume_summary)
-		var offline_recap := office._web_offline_recap_summary(resume_summary)
+		var return_recap := _web_return_recap_summary(resume_summary)
+		var offline_recap := _web_offline_recap_summary(resume_summary)
 		var intake_objective := _campaign_intake_accessibility_objective()
 		return _web_accessibility_text(
 			"Pecking Order career intake is open, %s.%s%s Objective: %s"
@@ -1696,7 +1696,7 @@ func _web_accessibility_summary(snapshot: Dictionary) -> String:
 ## churn merely because the 1.5-second shell poll observed a new tick.
 func _web_accessibility_announcement(snapshot: Dictionary, summary := "") -> Dictionary:
 	var kind: StringName = &""
-	var text := summary if not summary.is_empty() else office._web_accessibility_summary(snapshot)
+	var text := summary if not summary.is_empty() else _web_accessibility_summary(snapshot)
 	var action_status_detail := _active_status_accessible_detail()
 	var action_status_suffix := (
 		" Latest action: %s" % action_status_detail
@@ -1818,7 +1818,7 @@ func _web_accessibility_announcement(snapshot: Dictionary, summary := "") -> Dic
 			office._review_title.text if office._review_title != null else "Farmer review",
 			office._review_eggs_value.text if office._review_eggs_value != null else "unavailable",
 			office._review_net_value.text if office._review_net_value != null else "unavailable",
-			office._review_bottleneck_readout(),
+			_review_bottleneck_readout(),
 		]
 	elif (
 		office._campaign_ui != null
@@ -2259,7 +2259,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 	var operations_filing_open := active_filing_id == FlockwatchNavigation.PAGE_OPERATIONS
 
 	var capital_source := snapshot.get("capital_plan", {}) as Dictionary
-	var compact_capital_plan := office._compact_capital_plan_diagnostic(capital_source)
+	var compact_capital_plan := _compact_capital_plan_diagnostic(capital_source)
 	var capital_diagnostic := {
 		"upgrade_levels": snapshot.get("upgrade_levels", {}),
 		"owned_facilities": snapshot.get("owned_facilities", {}),
@@ -2279,31 +2279,31 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			],
 		),
 		"facility_catalog": (
-			office._compact_facility_catalog_diagnostic(snapshot.get("facility_catalog", []))
+			_compact_facility_catalog_diagnostic(snapshot.get("facility_catalog", []))
 			if capital_filing_open or bool(capital_blueprint_state.get("visible", false)) else
 			[]
 		),
 	}
 	var portfolio_source := snapshot.get("campus_portfolio", {}) as Dictionary
-	var portfolio_diagnostic := office._compact_campus_portfolio_diagnostic(portfolio_source)
+	var portfolio_diagnostic := _compact_campus_portfolio_diagnostic(portfolio_source)
 	var expansion_source := snapshot.get("campus_expansion", {}) as Dictionary
-	var expansion_diagnostic := office._compact_campus_expansion_diagnostic(expansion_source)
+	var expansion_diagnostic := _compact_campus_expansion_diagnostic(expansion_source)
 	var contract_source := snapshot.get("contract_board", {}) as Dictionary
-	var contract_diagnostic := office._compact_contract_board_diagnostic(
+	var contract_diagnostic := _compact_contract_board_diagnostic(
 		contract_source,
 		office._campaign_review_stage == &"contract_board",
 	)
 	var care_source := snapshot.get("flock_care", {}) as Dictionary
-	var care_diagnostic := office._compact_flock_care_diagnostic(care_source)
+	var care_diagnostic := _compact_flock_care_diagnostic(care_source)
 	var operations_source := snapshot.get("operations", {}) as Dictionary
-	var operations_diagnostic := office._compact_operations_diagnostic(
+	var operations_diagnostic := _compact_operations_diagnostic(
 		operations_source,
-		office._operations_staffing_details_visible(
+		_operations_staffing_details_visible(
 			operations_filing_open,
 			_active_held_confirmation_surface(),
 		),
 	)
-	var runtime_performance := office._runtime_performance_diagnostic()
+	var runtime_performance := _runtime_performance_diagnostic()
 	runtime_performance.merge({
 		"authoritative_tick_revision": int(snapshot.get("authoritative_tick_revision", 0)),
 		"last_presented_tick_revision": office._last_presented_tick_revision,
@@ -2360,7 +2360,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 	if office._staffing_ui != null and office._staffing_ui.has_method("interaction_safety_state"):
 		staffing_interaction_safety = office._staffing_ui.interaction_safety_state()
 	var held_confirmation_surface := _active_held_confirmation_surface()
-	var interaction_safety_diagnostic := office._compact_interaction_safety_diagnostic({
+	var interaction_safety_diagnostic := _compact_interaction_safety_diagnostic({
 		"routing": routing_interaction_safety,
 		"staffing": staffing_interaction_safety,
 		"confirmation_backdrop": {
@@ -2397,14 +2397,14 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			if office._workstation_feedback != null and office._workstation_feedback.has_method("egg_delivery_ack_snapshot") else
 			{"pooled_marker_count": 0, "active_count": 0, "acknowledgments": []}
 		),
-		"fund_credit_batches": office.fund_credit_batch_snapshot(),
-		"auxiliary_settlements": office.auxiliary_settlement_snapshot(),
-		"settlement_placement": office.settlement_feedback_placement_snapshot(),
-		"settlement_arbitration": office.settlement_feedback_arbitration_snapshot(),
-		"settlement_destinations": office.settlement_destination_ack_snapshot(),
-		"fund_debits": office.fund_debit_feedback_snapshot(),
+		"fund_credit_batches": fund_credit_batch_snapshot(),
+		"auxiliary_settlements": auxiliary_settlement_snapshot(),
+		"settlement_placement": settlement_feedback_placement_snapshot(),
+		"settlement_arbitration": settlement_feedback_arbitration_snapshot(),
+		"settlement_destinations": settlement_destination_ack_snapshot(),
+		"fund_debits": fund_debit_feedback_snapshot(),
 	}
-	var egg_journey_diagnostic := office._compact_egg_journey_diagnostic(egg_journey_source)
+	var egg_journey_diagnostic := _compact_egg_journey_diagnostic(egg_journey_source)
 	var hen_intents: Array[Dictionary] = []
 	var flock_bonds: Array[Dictionary] = []
 	for worker_value in snapshot.get("workers", []):
@@ -2557,14 +2557,14 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"%s settings and controls" % office._action_hint(&"open_settings"),
 		],
 		"loaded": true,
-		"accessibility_announcement": office._web_accessibility_announcement(snapshot),
+		"accessibility_announcement": _web_accessibility_announcement(snapshot),
 		"boot": boot_timing_snapshot(),
 		"camera": (
 			office._camera_controller.navigation_state()
 			if office._camera_controller != null and office._camera_controller.has_method("navigation_state") else
 			{}
 		),
-		"office_presentation": office.office_physical_presentation_snapshot(),
+		"office_presentation": office_physical_presentation_snapshot(),
 		"breakroom": {
 			"station_count": 6,
 			"interactions": breakroom_interactions,
@@ -2574,7 +2574,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			if office._management_presence != null else
 			{"physical": false}
 		),
-		"capacity_commissioning": office.capacity_commissioning_snapshot(),
+		"capacity_commissioning": capacity_commissioning_snapshot(),
 		"audio": {
 			"director": (
 				office._audio_director.call("mix_snapshot")
@@ -2589,8 +2589,8 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		},
 		"settings": settings_state,
 		"interaction_safety": interaction_safety_diagnostic,
-		"notifications": office._notification_diagnostic_state(),
-		"routing_return_cue": office._routing_return_cue_diagnostic_state(),
+		"notifications": _notification_diagnostic_state(),
+		"routing_return_cue": _routing_return_cue_diagnostic_state(),
 		"adaptive_routing_recovery": office._adaptive_route_recovery_diagnostic_state(),
 		"routing_lifecycle": (
 			office._routing_ui.routing_lifecycle_state()
@@ -2618,7 +2618,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			{"visible": false}
 		),
 		"next_action": office._next_action_diagnostic_state(),
-		"gameplay_pulse": office._compact_gameplay_pulse_diagnostic(office._gameplay_pulse),
+		"gameplay_pulse": _compact_gameplay_pulse_diagnostic(office._gameplay_pulse),
 		"shift_challenge": office._shift_challenge_ui.snapshot() if office._shift_challenge_ui != null else {"visible": false},
 		"cause_replay": office._last_cause_replay.duplicate(true),
 		"explain_mode": {
@@ -2644,7 +2644,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			),
 			"files_on_press": false,
 		},
-		"next_moment": office._next_moment_diagnostic_state(snapshot),
+		"next_moment": _next_moment_diagnostic_state(snapshot),
 		"clutch_reward_ladder": office._clutch_reward_ladder_snapshot(
 			int(snapshot.get("quality_streak", 0))
 		),
@@ -2660,10 +2660,10 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			if office._staffing_ui != null else
 			{"visible": false, "candidate_count": 0}
 		),
-		"flockwatch": office._flockwatch_diagnostic_state(),
+		"flockwatch": _flockwatch_diagnostic_state(),
 		"commendations": _commendations_diagnostic_state(),
-		"checkpoint": office._checkpoint_diagnostic_state(),
-		"first_session_funnel": office._compact_first_session_funnel_diagnostic(office._first_session_funnel.snapshot()),
+		"checkpoint": _checkpoint_diagnostic_state(),
+		"first_session_funnel": _compact_first_session_funnel_diagnostic(office._first_session_funnel.snapshot()),
 		"personal_shift_goal": office._personal_goal.duplicate(true),
 		"personal_goal_offer": office._personal_goal_offer.duplicate(true),
 		"goal_browse_control": {"visible": office._review_remix_button != null and office._review_remix_button.is_visible_in_tree(), "rect": _web_control_rect(office._review_remix_button)},
@@ -2695,10 +2695,10 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		"routing_review": office._resume_dictionary(office._last_workday_report.get("routing_review")),
 		"resume_available": resume_available,
 		"resume_senior_roost": resume_senior_roost,
-		"probation_safeguards": office._compact_probation_safeguards_diagnostic(
+		"probation_safeguards": _compact_probation_safeguards_diagnostic(
 			office._campaign_state.probation_safeguard_forecast(),
 		),
-		"probation_doctrine": office._probation_doctrine_snapshot(),
+		"probation_doctrine": _probation_doctrine_snapshot(),
 		"senior_roost": senior_diagnostic,
 		"career_forecast": career_forecast.duplicate(true),
 		"career_sponsorship": (
@@ -2763,7 +2763,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 		},
 		"performance": runtime_performance,
 		"pending_decision_kind": String(office._active_decision.get("kind", "")),
-		"pending_decision": office._pending_decision_diagnostic_state(),
+		"pending_decision": _pending_decision_diagnostic_state(),
 		"contract_board": contract_diagnostic,
 		"contract_planning": contract_planning,
 		"first_clutch": {
@@ -2870,7 +2870,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			"feed_party_arrivals": office._feed_party_arrivals.size(),
 			"feed_party_returns": office._feed_party_returns.size(),
 		},
-		"dispatch": office._dispatch_diagnostic_state(),
+		"dispatch": _dispatch_diagnostic_state(),
 		"capital": capital_diagnostic,
 		"orders": {
 			"on_track": int(office._campaign_objectives_label.get_meta("orders_on_track", 0)),
@@ -2938,7 +2938,7 @@ func _serialize_web_diagnostic_state(snapshot: Dictionary) -> void:
 			},
 		},
 		"shift_status": {
-			"layout": office._live_hud_diagnostic_state(),
+			"layout": _live_hud_diagnostic_state(),
 			"day_text": office._day_label.text if office._day_label != null else "",
 			"time_text": office._time_label.text if office._time_label != null else "",
 			"fund_text": office._revenue_label.text if office._revenue_label != null else "",
@@ -3075,7 +3075,7 @@ func fund_credit_batch_snapshot() -> Dictionary:
 		"merge_window_seconds": Office.FUND_CREDIT_CHIP_MERGE_SECONDS,
 		"reduced_motion": office._prefers_reduced_motion(),
 		"placement": office._last_settlement_feedback_placement.duplicate(true),
-		"arbitration": office.settlement_feedback_arbitration_snapshot(),
+		"arbitration": settlement_feedback_arbitration_snapshot(),
 		"batches": batches,
 	}
 
@@ -3128,7 +3128,7 @@ func auxiliary_settlement_snapshot() -> Dictionary:
 		"merge_window_seconds": Office.AUXILIARY_SETTLEMENT_CHIP_MERGE_SECONDS,
 		"reduced_motion": office._prefers_reduced_motion(),
 		"placement": office._last_settlement_feedback_placement.duplicate(true),
-		"arbitration": office.settlement_feedback_arbitration_snapshot(),
+		"arbitration": settlement_feedback_arbitration_snapshot(),
 		"batches": batches,
 	}
 
@@ -3273,5 +3273,5 @@ func settlement_feedback_placement_snapshot() -> Dictionary:
 		"clamped_count": clamped_count,
 		"cards": cards,
 		"placement": placement,
-		"arbitration": office.settlement_feedback_arbitration_snapshot(),
+		"arbitration": settlement_feedback_arbitration_snapshot(),
 	}

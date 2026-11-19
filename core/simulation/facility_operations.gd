@@ -15,7 +15,7 @@ func _init(owner_node: DepartmentSimulation) -> void:
 
 func _ensure_manager_posts_for_office_level() -> void:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var authorized_count := clampi(sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID) + 1, 1, 4)
+	var authorized_count := clampi(facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID) + 1, 1, 4)
 	while sim.manager_roster.size() < authorized_count:
 		var slot_index := sim.manager_roster.size()
 		sim.manager_roster.append(sim._new_manager_record(
@@ -43,7 +43,7 @@ func _claim_capacity_for_facilities_and_campus(
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
 		sim._claim_capacity_for_facilities(facilities)
-		+ sim._campus_claim_capacity_bonus_for_state(campus_state)
+		+ _campus_claim_capacity_bonus_for_state(campus_state)
 		+ maxi(0, portfolio_bonus)
 	)
 
@@ -93,7 +93,7 @@ func _farmgate_storage_capacity_for_level_and_campus(
 	portfolio_bonus_eggs: int = 0,
 ) -> int:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var base_capacity := sim._facility_level_schedule_value(
+	var base_capacity := _facility_level_schedule_value(
 		DepartmentSimulation.FARMGATE_DISPATCH_STORAGE_CAPACITY_EGGS,
 		farmgate_level,
 		0,
@@ -113,7 +113,7 @@ func facility_effects() -> Dictionary:
 	var crack_modifier := 0.0
 	var rework_speed_multiplier := 1.0
 	for facility_id in DepartmentSimulation.FACILITY_ORDER:
-		var level := sim.facility_level(facility_id)
+		var level := facility_level(facility_id)
 		if level <= 0:
 			continue
 		var definition := DepartmentSimulation.FACILITY_DEFINITIONS[facility_id] as Dictionary
@@ -122,22 +122,22 @@ func facility_effects() -> Dictionary:
 			float(definition.get("rework_speed_multiplier", 1.0)),
 			level,
 		)
-	var packing_level := maxi(0, sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID))
+	var packing_level := maxi(0, facility_level(DepartmentSimulation.PACKING_ANNEX_ID))
 	var packing_value_bonus := DepartmentSimulation.PACKING_VALUE_BONUS_PER_LEVEL * packing_level
-	var records_level := maxi(0, sim.facility_level(DepartmentSimulation.RECORDS_ANNEX_ID))
+	var records_level := maxi(0, facility_level(DepartmentSimulation.RECORDS_ANNEX_ID))
 	var records_claim_capacity_bonus := DepartmentSimulation.CLAIM_CAPACITY_PER_RECORDS_LEVEL * records_level
-	var campus_claim_capacity_bonus := sim._campus_claim_capacity_bonus_for_state(sim.campus_expansion_state)
+	var campus_claim_capacity_bonus := _campus_claim_capacity_bonus_for_state(sim.campus_expansion_state)
 	var claim_capacity_bonus := records_claim_capacity_bonus + campus_claim_capacity_bonus
-	var service_coop_level := maxi(0, sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID))
-	var negotiation_room_level := maxi(0, sim.facility_level(DepartmentSimulation.FARM_MUTUAL_NEGOTIATION_ROOM_ID))
-	var wellness_level := maxi(0, sim.facility_level(DepartmentSimulation.WELLNESS_NEST_ID))
-	var training_level := maxi(0, sim.facility_level(DepartmentSimulation.TRAINING_ROOST_ID))
-	var rooster_operations_level := maxi(0, sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID))
-	var it_coop_level := maxi(0, sim.facility_level(DepartmentSimulation.IT_COOP_ID))
-	var flock_relations_level := maxi(0, sim.facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID))
-	var feed_procurement_level := maxi(0, sim.facility_level(DepartmentSimulation.FEED_PROCUREMENT_COOP_ID))
-	var farmer_relations_gallery_level := maxi(0, sim.facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID))
-	var farmgate_dispatch_level := maxi(0, sim.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID))
+	var service_coop_level := maxi(0, facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID))
+	var negotiation_room_level := maxi(0, facility_level(DepartmentSimulation.FARM_MUTUAL_NEGOTIATION_ROOM_ID))
+	var wellness_level := maxi(0, facility_level(DepartmentSimulation.WELLNESS_NEST_ID))
+	var training_level := maxi(0, facility_level(DepartmentSimulation.TRAINING_ROOST_ID))
+	var rooster_operations_level := maxi(0, facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID))
+	var it_coop_level := maxi(0, facility_level(DepartmentSimulation.IT_COOP_ID))
+	var flock_relations_level := maxi(0, facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID))
+	var feed_procurement_level := maxi(0, facility_level(DepartmentSimulation.FEED_PROCUREMENT_COOP_ID))
+	var farmer_relations_gallery_level := maxi(0, facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID))
+	var farmgate_dispatch_level := maxi(0, facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID))
 	var strain_basis_points := sim.wellness_strain_gain_basis_points()
 	var break_recovery_basis_points := sim.wellness_break_recovery_basis_points()
 	var overnight_fatigue_millipoints := sim.wellness_overnight_fatigue_recovery_millipoints()
@@ -221,7 +221,7 @@ func facility_catalog() -> Array[Dictionary]:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var catalog: Array[Dictionary] = []
 	for facility_id in DepartmentSimulation.FACILITY_ORDER:
-		catalog.append(sim.facility_status(facility_id))
+		catalog.append(facility_status(facility_id))
 	return catalog
 
 
@@ -258,13 +258,13 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		}
 
 	var definition := DepartmentSimulation.FACILITY_DEFINITIONS[facility_id] as Dictionary
-	var level := sim.facility_level(facility_id)
+	var level := facility_level(facility_id)
 	var max_level := int(definition.get("max_level", 1))
 	var installed := level > 0
 	var maxed := level >= max_level
 	var next_level := mini(max_level, level + 1)
 	var unlock_id := StringName(definition.get("unlock_id", &""))
-	var unlock_day := sim._facility_unlock_day_for_level(definition, next_level)
+	var unlock_day := _facility_unlock_day_for_level(definition, next_level)
 	var base_unlocked := (
 		(unlock_id == &"" or sim.has_campaign_unlock(unlock_id))
 		and sim.day >= unlock_day
@@ -285,15 +285,15 @@ func facility_status(facility_id: StringName) -> Dictionary:
 	var qualified_staff_count := 0
 	var harvest_credit_standing := int(sim._harvest_credit.public_standing)
 	if facility_id == DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID:
-		required_market_standing = sim._service_coop_requirement(
+		required_market_standing = _service_coop_requirement(
 			DepartmentSimulation.SERVICE_COOP_LEVEL_STANDING_REQUIREMENTS,
 			next_level,
 		)
-		required_claim_capacity = sim._service_coop_requirement(
+		required_claim_capacity = _service_coop_requirement(
 			DepartmentSimulation.SERVICE_COOP_LEVEL_CLAIM_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._service_coop_requirement(
+		required_active_staff = _service_coop_requirement(
 			DepartmentSimulation.SERVICE_COOP_LEVEL_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
@@ -301,97 +301,97 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		required_market_standing = DepartmentSimulation.NEGOTIATION_ROOM_REQUIRED_STANDING
 		required_service_coop_level = DepartmentSimulation.NEGOTIATION_ROOM_REQUIRED_SERVICE_COOP_LEVEL
 	elif facility_id == DepartmentSimulation.WELLNESS_NEST_ID:
-		required_office_capacity = sim._facility_tier_requirement(
+		required_office_capacity = _facility_tier_requirement(
 			DepartmentSimulation.WELLNESS_NEST_OFFICE_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._facility_tier_requirement(
+		required_active_staff = _facility_tier_requirement(
 			DepartmentSimulation.WELLNESS_NEST_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
 	elif facility_id == DepartmentSimulation.TRAINING_ROOST_ID:
-		required_office_capacity = sim._facility_tier_requirement(
+		required_office_capacity = _facility_tier_requirement(
 			DepartmentSimulation.TRAINING_ROOST_OFFICE_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._facility_tier_requirement(
+		required_active_staff = _facility_tier_requirement(
 			DepartmentSimulation.TRAINING_ROOST_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
 		required_wellness_nest_level = next_level
-		required_career_level = sim._facility_tier_requirement(
+		required_career_level = _facility_tier_requirement(
 			DepartmentSimulation.TRAINING_ROOST_CAREER_LEVEL_REQUIREMENTS,
 			next_level,
 		)
-		qualified_staff_count = sim._qualified_active_worker_count(required_career_level)
+		qualified_staff_count = _qualified_active_worker_count(required_career_level)
 	elif facility_id == DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID:
-		required_office_capacity = sim._facility_tier_requirement(
+		required_office_capacity = _facility_tier_requirement(
 			DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._facility_tier_requirement(
+		required_active_staff = _facility_tier_requirement(
 			DepartmentSimulation.ROOSTER_OPERATIONS_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
 	elif facility_id == DepartmentSimulation.IT_COOP_ID:
-		required_office_capacity = sim._facility_tier_requirement(
+		required_office_capacity = _facility_tier_requirement(
 			DepartmentSimulation.IT_COOP_OFFICE_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._facility_tier_requirement(
+		required_active_staff = _facility_tier_requirement(
 			DepartmentSimulation.IT_COOP_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
 		required_records_annex_level = next_level
 		required_rooster_operations_level = next_level
 	elif facility_id == DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID:
-		required_office_capacity = sim._facility_tier_requirement(
+		required_office_capacity = _facility_tier_requirement(
 			DepartmentSimulation.FLOCK_RELATIONS_OFFICE_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._facility_tier_requirement(
+		required_active_staff = _facility_tier_requirement(
 			DepartmentSimulation.FLOCK_RELATIONS_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
 		required_rooster_operations_level = next_level
 		required_wellness_nest_level = next_level
 	elif facility_id == DepartmentSimulation.FEED_PROCUREMENT_COOP_ID:
-		required_office_capacity = sim._facility_tier_requirement(
+		required_office_capacity = _facility_tier_requirement(
 			DepartmentSimulation.FEED_PROCUREMENT_OFFICE_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._facility_tier_requirement(
+		required_active_staff = _facility_tier_requirement(
 			DepartmentSimulation.FEED_PROCUREMENT_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
 	elif facility_id == DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID:
-		required_office_capacity = sim._facility_tier_requirement(
+		required_office_capacity = _facility_tier_requirement(
 			DepartmentSimulation.FARMER_RELATIONS_GALLERY_OFFICE_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._facility_tier_requirement(
+		required_active_staff = _facility_tier_requirement(
 			DepartmentSimulation.FARMER_RELATIONS_GALLERY_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
 		required_packing_annex_level = next_level
 	elif facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID:
-		required_office_capacity = sim._facility_tier_requirement(
+		required_office_capacity = _facility_tier_requirement(
 			DepartmentSimulation.FARMGATE_DISPATCH_OFFICE_CAPACITY_REQUIREMENTS,
 			next_level,
 		)
-		required_active_staff = sim._facility_tier_requirement(
+		required_active_staff = _facility_tier_requirement(
 			DepartmentSimulation.FARMGATE_DISPATCH_ACTIVE_STAFF_REQUIREMENTS,
 			next_level,
 		)
-		required_packing_annex_level = sim._facility_tier_requirement(
+		required_packing_annex_level = _facility_tier_requirement(
 			DepartmentSimulation.FARMGATE_DISPATCH_PACKING_LEVEL_REQUIREMENTS,
 			next_level,
 		)
-		required_farmer_relations_gallery_level = sim._facility_tier_requirement(
+		required_farmer_relations_gallery_level = _facility_tier_requirement(
 			DepartmentSimulation.FARMGATE_DISPATCH_GALLERY_LEVEL_REQUIREMENTS,
 			next_level,
 		)
-		required_harvest_credit_standing = sim._facility_tier_requirement(
+		required_harvest_credit_standing = _facility_tier_requirement(
 			DepartmentSimulation.FARMGATE_DISPATCH_STANDING_REQUIREMENTS,
 			next_level,
 		)
@@ -405,7 +405,7 @@ func facility_status(facility_id: StringName) -> Dictionary:
 	elif not maxed and facility_id == DepartmentSimulation.FARM_MUTUAL_NEGOTIATION_ROOM_ID:
 		authored_gate_met = (
 			market_standing >= required_market_standing
-			and sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID) >= required_service_coop_level
+			and facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID) >= required_service_coop_level
 		)
 	elif not maxed and facility_id == DepartmentSimulation.WELLNESS_NEST_ID:
 		authored_gate_met = (
@@ -416,7 +416,7 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		authored_gate_met = (
 			sim.office_capacity >= required_office_capacity
 			and sim.active_worker_count() >= required_active_staff
-			and sim.facility_level(DepartmentSimulation.WELLNESS_NEST_ID) >= required_wellness_nest_level
+			and facility_level(DepartmentSimulation.WELLNESS_NEST_ID) >= required_wellness_nest_level
 			and qualified_staff_count > 0
 		)
 	elif not maxed and facility_id == DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID:
@@ -428,17 +428,17 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		authored_gate_met = (
 			sim.office_capacity >= required_office_capacity
 			and sim.active_worker_count() >= required_active_staff
-			and sim.facility_level(DepartmentSimulation.RECORDS_ANNEX_ID) >= required_records_annex_level
-			and sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
+			and facility_level(DepartmentSimulation.RECORDS_ANNEX_ID) >= required_records_annex_level
+			and facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
 			>= required_rooster_operations_level
 		)
 	elif not maxed and facility_id == DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID:
 		authored_gate_met = (
 			sim.office_capacity >= required_office_capacity
 			and sim.active_worker_count() >= required_active_staff
-			and sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
+			and facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
 			>= required_rooster_operations_level
-			and sim.facility_level(DepartmentSimulation.WELLNESS_NEST_ID) >= required_wellness_nest_level
+			and facility_level(DepartmentSimulation.WELLNESS_NEST_ID) >= required_wellness_nest_level
 		)
 	elif not maxed and facility_id == DepartmentSimulation.FEED_PROCUREMENT_COOP_ID:
 		authored_gate_met = (
@@ -449,42 +449,42 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		authored_gate_met = (
 			sim.office_capacity >= required_office_capacity
 			and sim.active_worker_count() >= required_active_staff
-			and sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID) >= required_packing_annex_level
+			and facility_level(DepartmentSimulation.PACKING_ANNEX_ID) >= required_packing_annex_level
 		)
 	elif not maxed and facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID:
 		authored_gate_met = (
 			sim.office_capacity >= required_office_capacity
 			and sim.active_worker_count() >= required_active_staff
-			and sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID) >= required_packing_annex_level
-			and sim.facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID)
+			and facility_level(DepartmentSimulation.PACKING_ANNEX_ID) >= required_packing_annex_level
+			and facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID)
 			>= required_farmer_relations_gallery_level
 			and harvest_credit_standing >= required_harvest_credit_standing
 		)
 	var unlocked := base_unlocked and authored_gate_met
 	var planning_open := sim.staffing_planning_open()
-	var cost_cents := 0 if maxed else sim._facility_cost_for_level(definition, next_level)
-	var current_maintenance_cents := sim._facility_maintenance_for_level(definition, level)
+	var cost_cents := 0 if maxed else _facility_cost_for_level(definition, next_level)
+	var current_maintenance_cents := _facility_maintenance_for_level(definition, level)
 	var next_maintenance_cents := (
 		current_maintenance_cents
 		if maxed else
-		sim._facility_maintenance_for_level(definition, next_level)
+		_facility_maintenance_for_level(definition, next_level)
 	)
 	var maintenance_delta_cents := maxi(
 		0,
 		next_maintenance_cents - current_maintenance_cents,
 	)
-	var current_rooster_operations_level := sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
+	var current_rooster_operations_level := facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
 	var preview_rooster_operations_level := (
 		next_level
 		if facility_id == DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID and not maxed else
 		current_rooster_operations_level
 	)
-	var current_supervisor_payroll_cents := sim._facility_level_schedule_value(
+	var current_supervisor_payroll_cents := _facility_level_schedule_value(
 		DepartmentSimulation.ROOSTER_SUPERVISOR_PAYROLL_CENTS,
 		current_rooster_operations_level,
 		0,
 	)
-	var next_supervisor_payroll_cents := sim._facility_level_schedule_value(
+	var next_supervisor_payroll_cents := _facility_level_schedule_value(
 		DepartmentSimulation.ROOSTER_SUPERVISOR_PAYROLL_CENTS,
 		preview_rooster_operations_level,
 		0,
@@ -560,11 +560,11 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		]
 	elif (
 		facility_id == DepartmentSimulation.FARM_MUTUAL_NEGOTIATION_ROOM_ID
-		and sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID) < required_service_coop_level
+		and facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID) < required_service_coop_level
 	):
 		reason = "The Negotiation Room requires Service Coop level %d; the bureau has level %d." % [
 			required_service_coop_level,
-			maxi(0, sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID)),
+			maxi(0, facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID)),
 		]
 	elif (
 		facility_id in [
@@ -606,12 +606,12 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		]
 	elif (
 		facility_id == DepartmentSimulation.TRAINING_ROOST_ID
-		and sim.facility_level(DepartmentSimulation.WELLNESS_NEST_ID) < required_wellness_nest_level
+		and facility_level(DepartmentSimulation.WELLNESS_NEST_ID) < required_wellness_nest_level
 	):
 		reason = "Training Roost level %d requires Wellness Nest level %d; the Nest is level %d." % [
 			next_level,
 			required_wellness_nest_level,
-			sim.facility_level(DepartmentSimulation.WELLNESS_NEST_ID),
+			facility_level(DepartmentSimulation.WELLNESS_NEST_ID),
 		]
 	elif facility_id == DepartmentSimulation.TRAINING_ROOST_ID and qualified_staff_count <= 0:
 		reason = "Training Roost level %d requires an employed career-level %d hen." % [
@@ -620,69 +620,69 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		]
 	elif (
 		facility_id == DepartmentSimulation.IT_COOP_ID
-		and sim.facility_level(DepartmentSimulation.RECORDS_ANNEX_ID) < required_records_annex_level
+		and facility_level(DepartmentSimulation.RECORDS_ANNEX_ID) < required_records_annex_level
 	):
 		reason = "IT Coop level %d requires Records Annex level %d; the Annex is level %d." % [
 			next_level,
 			required_records_annex_level,
-			sim.facility_level(DepartmentSimulation.RECORDS_ANNEX_ID),
+			facility_level(DepartmentSimulation.RECORDS_ANNEX_ID),
 		]
 	elif (
 		facility_id == DepartmentSimulation.IT_COOP_ID
-		and sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
+		and facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
 		< required_rooster_operations_level
 	):
 		reason = "IT Coop level %d requires Rooster Office level %d; the Office is level %d." % [
 			next_level,
 			required_rooster_operations_level,
-			sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID),
+			facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID),
 		]
 	elif (
 		facility_id == DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID
-		and sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
+		and facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID)
 		< required_rooster_operations_level
 	):
 		reason = "Flock Relations level %d requires Rooster Office level %d; the Office is level %d." % [
 			next_level,
 			required_rooster_operations_level,
-			sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID),
+			facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID),
 		]
 	elif (
 		facility_id == DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID
-		and sim.facility_level(DepartmentSimulation.WELLNESS_NEST_ID) < required_wellness_nest_level
+		and facility_level(DepartmentSimulation.WELLNESS_NEST_ID) < required_wellness_nest_level
 	):
 		reason = "Flock Relations level %d requires Wellness Nest level %d; the Nest is level %d." % [
 			next_level,
 			required_wellness_nest_level,
-			sim.facility_level(DepartmentSimulation.WELLNESS_NEST_ID),
+			facility_level(DepartmentSimulation.WELLNESS_NEST_ID),
 		]
 	elif (
 		facility_id == DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID
-		and sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID) < required_packing_annex_level
+		and facility_level(DepartmentSimulation.PACKING_ANNEX_ID) < required_packing_annex_level
 	):
 		reason = "Credit Gallery level %d requires Packing Annex level %d; the Annex is level %d." % [
 			next_level,
 			required_packing_annex_level,
-			sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID),
+			facility_level(DepartmentSimulation.PACKING_ANNEX_ID),
 		]
 	elif (
 		facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID
-		and sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID) < required_packing_annex_level
+		and facility_level(DepartmentSimulation.PACKING_ANNEX_ID) < required_packing_annex_level
 	):
 		reason = "Farmgate Depot level %d requires Packing Annex level %d; the Annex is level %d." % [
 			next_level,
 			required_packing_annex_level,
-			sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID),
+			facility_level(DepartmentSimulation.PACKING_ANNEX_ID),
 		]
 	elif (
 		facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID
-		and sim.facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID)
+		and facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID)
 		< required_farmer_relations_gallery_level
 	):
 		reason = "Farmgate Depot level %d requires Harvest Credit Gallery level %d; the Gallery is level %d." % [
 			next_level,
 			required_farmer_relations_gallery_level,
-			sim.facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID),
+			facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID),
 		]
 	elif (
 		facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID
@@ -701,8 +701,8 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		reason = "Facility denied: $%.2f more spendable Feed Fund required." % (
 			float(-projected_spendable) / 100.0
 		)
-	var level_name := sim._facility_level_name(definition, level)
-	var next_level_name := sim._facility_level_name(definition, next_level)
+	var level_name := _facility_level_name(definition, level)
+	var next_level_name := _facility_level_name(definition, next_level)
 	var current_capacity := sim.current_claim_capacity()
 	var next_claim_capacity := current_capacity
 	if facility_id == DepartmentSimulation.RECORDS_ANNEX_ID and not maxed:
@@ -714,82 +714,82 @@ func facility_status(facility_id: StringName) -> Dictionary:
 			next_level,
 			float(cost_cents) / 100.0,
 		]
-	var current_wellness_level := sim.facility_level(DepartmentSimulation.WELLNESS_NEST_ID)
-	var current_training_level := sim.facility_level(DepartmentSimulation.TRAINING_ROOST_ID)
+	var current_wellness_level := facility_level(DepartmentSimulation.WELLNESS_NEST_ID)
+	var current_training_level := facility_level(DepartmentSimulation.TRAINING_ROOST_ID)
 	var preview_wellness_level := (
 		next_level if facility_id == DepartmentSimulation.WELLNESS_NEST_ID else current_wellness_level
 	)
 	var preview_training_level := (
 		next_level if facility_id == DepartmentSimulation.TRAINING_ROOST_ID else current_training_level
 	)
-	var current_it_coop_level := sim.facility_level(DepartmentSimulation.IT_COOP_ID)
+	var current_it_coop_level := facility_level(DepartmentSimulation.IT_COOP_ID)
 	var preview_it_coop_level := (
 		next_level if facility_id == DepartmentSimulation.IT_COOP_ID else current_it_coop_level
 	)
-	var current_flock_relations_level := sim.facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID)
+	var current_flock_relations_level := facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID)
 	var preview_flock_relations_level := (
 		next_level
 		if facility_id == DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID and not maxed else
 		current_flock_relations_level
 	)
-	var current_flock_relations_case_capacity := sim._facility_level_schedule_value(
+	var current_flock_relations_case_capacity := _facility_level_schedule_value(
 		DepartmentSimulation.FLOCK_RELATIONS_CASE_CAPACITY,
 		current_flock_relations_level,
 		0,
 	)
-	var next_flock_relations_case_capacity := sim._facility_level_schedule_value(
+	var next_flock_relations_case_capacity := _facility_level_schedule_value(
 		DepartmentSimulation.FLOCK_RELATIONS_CASE_CAPACITY,
 		preview_flock_relations_level,
 		0,
 	)
-	var current_flock_relations_resolution_limit := sim._facility_level_schedule_value(
+	var current_flock_relations_resolution_limit := _facility_level_schedule_value(
 		DepartmentSimulation.FLOCK_RELATIONS_RESOLUTION_LIMITS,
 		current_flock_relations_level,
 		0,
 	)
-	var next_flock_relations_resolution_limit := sim._facility_level_schedule_value(
+	var next_flock_relations_resolution_limit := _facility_level_schedule_value(
 		DepartmentSimulation.FLOCK_RELATIONS_RESOLUTION_LIMITS,
 		preview_flock_relations_level,
 		0,
 	)
-	var current_feed_procurement_level := sim.facility_level(DepartmentSimulation.FEED_PROCUREMENT_COOP_ID)
+	var current_feed_procurement_level := facility_level(DepartmentSimulation.FEED_PROCUREMENT_COOP_ID)
 	var preview_feed_procurement_level := (
 		next_level
 		if facility_id == DepartmentSimulation.FEED_PROCUREMENT_COOP_ID and not maxed else
 		current_feed_procurement_level
 	)
-	var current_feed_capacity_scoops := sim._facility_level_schedule_value(
+	var current_feed_capacity_scoops := _facility_level_schedule_value(
 		DepartmentSimulation.FEED_PROCUREMENT_CAPACITY_SCOOPS,
 		current_feed_procurement_level,
 		0,
 	)
-	var next_feed_capacity_scoops := sim._facility_level_schedule_value(
+	var next_feed_capacity_scoops := _facility_level_schedule_value(
 		DepartmentSimulation.FEED_PROCUREMENT_CAPACITY_SCOOPS,
 		preview_feed_procurement_level,
 		0,
 	)
-	var current_farmgate_level := sim.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID)
+	var current_farmgate_level := facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID)
 	var preview_farmgate_level := (
 		next_level
 		if facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID and not maxed else
 		current_farmgate_level
 	)
-	var current_farmgate_storage := sim._facility_level_schedule_value(
+	var current_farmgate_storage := _facility_level_schedule_value(
 		DepartmentSimulation.FARMGATE_DISPATCH_STORAGE_CAPACITY_EGGS,
 		current_farmgate_level,
 		0,
 	)
-	var next_farmgate_storage := sim._facility_level_schedule_value(
+	var next_farmgate_storage := _facility_level_schedule_value(
 		DepartmentSimulation.FARMGATE_DISPATCH_STORAGE_CAPACITY_EGGS,
 		preview_farmgate_level,
 		0,
 	)
-	var current_farmgate_dispatch := sim._facility_level_schedule_value(
+	var current_farmgate_dispatch := _facility_level_schedule_value(
 		DepartmentSimulation.FARMGATE_DISPATCH_DAILY_DISPATCH_EGGS,
 		current_farmgate_level,
 		0,
 	)
-	var next_farmgate_dispatch := sim._facility_level_schedule_value(
+	var next_farmgate_dispatch := _facility_level_schedule_value(
 		DepartmentSimulation.FARMGATE_DISPATCH_DAILY_DISPATCH_EGGS,
 		preview_farmgate_level,
 		0,
@@ -860,23 +860,23 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		"office_capacity": sim.office_capacity,
 		"office_capacity_shortfall": maxi(0, required_office_capacity - sim.office_capacity),
 		"required_service_coop_level": required_service_coop_level,
-		"service_coop_level": maxi(0, sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID)),
+		"service_coop_level": maxi(0, facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID)),
 		"service_coop_level_shortfall": maxi(
 			0,
-			required_service_coop_level - maxi(0, sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID)),
+			required_service_coop_level - maxi(0, facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID)),
 		),
 		"required_packing_annex_level": required_packing_annex_level,
-		"packing_annex_level": maxi(0, sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID)),
+		"packing_annex_level": maxi(0, facility_level(DepartmentSimulation.PACKING_ANNEX_ID)),
 		"packing_annex_level_shortfall": maxi(
 			0,
-			required_packing_annex_level - maxi(0, sim.facility_level(DepartmentSimulation.PACKING_ANNEX_ID)),
+			required_packing_annex_level - maxi(0, facility_level(DepartmentSimulation.PACKING_ANNEX_ID)),
 		),
 		"required_farmer_relations_gallery_level": required_farmer_relations_gallery_level,
-		"farmer_relations_gallery_level": maxi(0, sim.facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID)),
+		"farmer_relations_gallery_level": maxi(0, facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID)),
 		"farmer_relations_gallery_level_shortfall": maxi(
 			0,
 			required_farmer_relations_gallery_level
-			- maxi(0, sim.facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID)),
+			- maxi(0, facility_level(DepartmentSimulation.FARMER_RELATIONS_GALLERY_ID)),
 		),
 		"required_harvest_credit_standing": required_harvest_credit_standing,
 		"harvest_credit_standing": harvest_credit_standing,
@@ -885,10 +885,10 @@ func facility_status(facility_id: StringName) -> Dictionary:
 			required_harvest_credit_standing - harvest_credit_standing,
 		),
 		"required_records_annex_level": required_records_annex_level,
-		"records_annex_level": maxi(0, sim.facility_level(DepartmentSimulation.RECORDS_ANNEX_ID)),
+		"records_annex_level": maxi(0, facility_level(DepartmentSimulation.RECORDS_ANNEX_ID)),
 		"records_annex_level_shortfall": maxi(
 			0,
-			required_records_annex_level - maxi(0, sim.facility_level(DepartmentSimulation.RECORDS_ANNEX_ID)),
+			required_records_annex_level - maxi(0, facility_level(DepartmentSimulation.RECORDS_ANNEX_ID)),
 		),
 		"required_rooster_operations_office_level": required_rooster_operations_level,
 		"rooster_operations_office_level": maxi(
@@ -918,132 +918,132 @@ func facility_status(facility_id: StringName) -> Dictionary:
 		"qualification_shortfall": (
 			1 if required_career_level > 0 and qualified_staff_count <= 0 else 0
 		),
-		"current_strain_gain_basis_points": sim._facility_level_schedule_value(
+		"current_strain_gain_basis_points": _facility_level_schedule_value(
 			DepartmentSimulation.WELLNESS_STRAIN_GAIN_BASIS_POINTS,
 			current_wellness_level,
 			10_000,
 		),
-		"next_strain_gain_basis_points": sim._facility_level_schedule_value(
+		"next_strain_gain_basis_points": _facility_level_schedule_value(
 			DepartmentSimulation.WELLNESS_STRAIN_GAIN_BASIS_POINTS,
 			preview_wellness_level,
 			10_000,
 		),
-		"current_break_recovery_basis_points": sim._facility_level_schedule_value(
+		"current_break_recovery_basis_points": _facility_level_schedule_value(
 			DepartmentSimulation.WELLNESS_BREAK_RECOVERY_BASIS_POINTS,
 			current_wellness_level,
 			10_000,
 		),
-		"next_break_recovery_basis_points": sim._facility_level_schedule_value(
+		"next_break_recovery_basis_points": _facility_level_schedule_value(
 			DepartmentSimulation.WELLNESS_BREAK_RECOVERY_BASIS_POINTS,
 			preview_wellness_level,
 			10_000,
 		),
-		"current_career_sponsorship_cost_cents": sim._facility_level_schedule_value(
+		"current_career_sponsorship_cost_cents": _facility_level_schedule_value(
 			DepartmentSimulation.TRAINING_SPONSORSHIP_COSTS_CENTS,
 			current_training_level,
 			DepartmentSimulation.CAREER_SPONSORSHIP_COST_CENTS,
 		),
-		"next_career_sponsorship_cost_cents": sim._facility_level_schedule_value(
+		"next_career_sponsorship_cost_cents": _facility_level_schedule_value(
 			DepartmentSimulation.TRAINING_SPONSORSHIP_COSTS_CENTS,
 			preview_training_level,
 			DepartmentSimulation.CAREER_SPONSORSHIP_COST_CENTS,
 		),
-		"current_training_work_basis_points": sim._facility_level_schedule_value(
+		"current_training_work_basis_points": _facility_level_schedule_value(
 			DepartmentSimulation.TRAINING_WORK_BASIS_POINTS,
 			current_training_level,
 			8500,
 		),
-		"next_training_work_basis_points": sim._facility_level_schedule_value(
+		"next_training_work_basis_points": _facility_level_schedule_value(
 			DepartmentSimulation.TRAINING_WORK_BASIS_POINTS,
 			preview_training_level,
 			8500,
 		),
-		"current_career_coaching_xp_bonus": sim._facility_level_schedule_value(
+		"current_career_coaching_xp_bonus": _facility_level_schedule_value(
 			DepartmentSimulation.TRAINING_COACHING_XP_BONUS,
 			current_training_level,
 			0,
 		),
-		"next_career_coaching_xp_bonus": sim._facility_level_schedule_value(
+		"next_career_coaching_xp_bonus": _facility_level_schedule_value(
 			DepartmentSimulation.TRAINING_COACHING_XP_BONUS,
 			preview_training_level,
 			0,
 		),
-		"current_personnel_action_limit": sim._facility_level_schedule_value(
+		"current_personnel_action_limit": _facility_level_schedule_value(
 			DepartmentSimulation.ROOSTER_PERSONNEL_ACTION_LIMITS,
 			current_rooster_operations_level,
 			1,
 		),
-		"next_personnel_action_limit": sim._facility_level_schedule_value(
+		"next_personnel_action_limit": _facility_level_schedule_value(
 			DepartmentSimulation.ROOSTER_PERSONNEL_ACTION_LIMITS,
 			preview_rooster_operations_level,
 			1,
 		),
-		"current_surveillance_grievance_millipoints": sim._facility_level_schedule_value(
+		"current_surveillance_grievance_millipoints": _facility_level_schedule_value(
 			DepartmentSimulation.ROOSTER_SURVEILLANCE_GRIEVANCE_MILLIPOINTS,
 			current_rooster_operations_level,
 			0,
 		),
-		"next_surveillance_grievance_millipoints": sim._facility_level_schedule_value(
+		"next_surveillance_grievance_millipoints": _facility_level_schedule_value(
 			DepartmentSimulation.ROOSTER_SURVEILLANCE_GRIEVANCE_MILLIPOINTS,
 			preview_rooster_operations_level,
 			0,
 		),
-		"current_surveillance_stress_millipoints": sim._facility_level_schedule_value(
+		"current_surveillance_stress_millipoints": _facility_level_schedule_value(
 			DepartmentSimulation.ROOSTER_SURVEILLANCE_STRESS_MILLIPOINTS,
 			current_rooster_operations_level,
 			0,
 		),
-		"next_surveillance_stress_millipoints": sim._facility_level_schedule_value(
+		"next_surveillance_stress_millipoints": _facility_level_schedule_value(
 			DepartmentSimulation.ROOSTER_SURVEILLANCE_STRESS_MILLIPOINTS,
 			preview_rooster_operations_level,
 			0,
 		),
-		"current_surveillance_solidarity_millipoints": sim._facility_level_schedule_value(
+		"current_surveillance_solidarity_millipoints": _facility_level_schedule_value(
 			DepartmentSimulation.ROOSTER_SURVEILLANCE_SOLIDARITY_MILLIPOINTS,
 			current_rooster_operations_level,
 			0,
 		),
-		"next_surveillance_solidarity_millipoints": sim._facility_level_schedule_value(
+		"next_surveillance_solidarity_millipoints": _facility_level_schedule_value(
 			DepartmentSimulation.ROOSTER_SURVEILLANCE_SOLIDARITY_MILLIPOINTS,
 			preview_rooster_operations_level,
 			0,
 		),
-		"current_automation_work_basis_points": sim._facility_level_schedule_value(
+		"current_automation_work_basis_points": _facility_level_schedule_value(
 			DepartmentSimulation.IT_AUTO_WORK_BASIS_POINTS,
 			current_it_coop_level,
 			10_000,
 		),
-		"next_automation_work_basis_points": sim._facility_level_schedule_value(
+		"next_automation_work_basis_points": _facility_level_schedule_value(
 			DepartmentSimulation.IT_AUTO_WORK_BASIS_POINTS,
 			preview_it_coop_level,
 			10_000,
 		),
-		"current_automation_specialty_grace_minutes": sim._facility_level_schedule_value(
+		"current_automation_specialty_grace_minutes": _facility_level_schedule_value(
 			DepartmentSimulation.IT_AUTO_SPECIALTY_GRACE_MINUTES,
 			current_it_coop_level,
 			DepartmentSimulation.AUTO_SPECIALTY_GRACE_MINUTES,
 		),
-		"next_automation_specialty_grace_minutes": sim._facility_level_schedule_value(
+		"next_automation_specialty_grace_minutes": _facility_level_schedule_value(
 			DepartmentSimulation.IT_AUTO_SPECIALTY_GRACE_MINUTES,
 			preview_it_coop_level,
 			DepartmentSimulation.AUTO_SPECIALTY_GRACE_MINUTES,
 		),
-		"current_automation_compliance_exposure_millipoints": sim._facility_level_schedule_value(
+		"current_automation_compliance_exposure_millipoints": _facility_level_schedule_value(
 			DepartmentSimulation.IT_COMPLIANCE_EXPOSURE_MILLIPOINTS,
 			current_it_coop_level,
 			0,
 		),
-		"next_automation_compliance_exposure_millipoints": sim._facility_level_schedule_value(
+		"next_automation_compliance_exposure_millipoints": _facility_level_schedule_value(
 			DepartmentSimulation.IT_COMPLIANCE_EXPOSURE_MILLIPOINTS,
 			preview_it_coop_level,
 			0,
 		),
-		"current_ledger_molt_patch_cost_cents": sim._facility_level_schedule_value(
+		"current_ledger_molt_patch_cost_cents": _facility_level_schedule_value(
 			DepartmentSimulation.IT_LEDGER_PATCH_COSTS_CENTS,
 			current_it_coop_level,
 			1800,
 		),
-		"next_ledger_molt_patch_cost_cents": sim._facility_level_schedule_value(
+		"next_ledger_molt_patch_cost_cents": _facility_level_schedule_value(
 			DepartmentSimulation.IT_LEDGER_PATCH_COSTS_CENTS,
 			preview_it_coop_level,
 			1800,
@@ -1115,7 +1115,7 @@ func _campus_services_for_state(state: Dictionary) -> Dictionary:
 
 func _campus_service_owned_for_state(state: Dictionary, service_id: StringName) -> bool:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var services := sim._campus_services_for_state(state)
+	var services := _campus_services_for_state(state)
 	return bool(services.get(String(service_id), services.get(service_id, false)))
 
 
@@ -1155,7 +1155,7 @@ func _campus_farmgate_capacity_bonus_for_state(
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
 		DepartmentSimulation.CAMPUS_FARMGATE_STORAGE_BONUS_EGGS
-		if farmgate_level > 0 and sim._campus_cold_chain_active_for_state(state) else
+		if farmgate_level > 0 and _campus_cold_chain_active_for_state(state) else
 		0
 	)
 
@@ -1174,13 +1174,13 @@ func _campus_daily_cost_for_state(state: Dictionary) -> int:
 
 func current_daily_campus_cost_cents() -> int:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	return sim._campus_daily_cost_for_state(sim.campus_expansion_state)
+	return _campus_daily_cost_for_state(sim.campus_expansion_state)
 
 
 func _campus_access_gate_met() -> bool:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
-		sim.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID) >= 1
+		facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID) >= 1
 		or sim.farm_mutual_standing() >= DepartmentSimulation.CAMPUS_EXPANSION_STANDING_REQUIREMENT
 	)
 
@@ -1242,7 +1242,7 @@ func _campus_state_action_reason(
 	socket_id: StringName,
 ) -> String:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	if sim._campus_action_terms(action_id, item_id).is_empty():
+	if _campus_action_terms(action_id, item_id).is_empty():
 		return "This campus action is not on the authorized North Meadow schedule."
 	match action_id:
 		&"purchase_parcel":
@@ -1289,7 +1289,7 @@ func _apply_campus_action_to_state(
 		&"purchase_parcel":
 			state["parcel_owned"] = true
 		&"commission_service":
-			var services := sim._campus_services_for_state(state).duplicate(true)
+			var services := _campus_services_for_state(state).duplicate(true)
 			services[String(item_id)] = true
 			state["services"] = services
 		&"place_module":
@@ -1330,8 +1330,8 @@ func campus_expansion_action_quote(
 	socket_id: StringName = &"",
 ) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var terms := sim._campus_action_terms(action_id, item_id)
-	var state_reason := sim._campus_state_action_reason(
+	var terms := _campus_action_terms(action_id, item_id)
+	var state_reason := _campus_state_action_reason(
 		sim.campus_expansion_state,
 		action_id,
 		item_id,
@@ -1339,7 +1339,7 @@ func campus_expansion_action_quote(
 	)
 	var preview_state := sim.campus_expansion_state.duplicate(true)
 	if state_reason.is_empty():
-		sim._apply_campus_action_to_state(preview_state, action_id, item_id, socket_id)
+		_apply_campus_action_to_state(preview_state, action_id, item_id, socket_id)
 	var cost_cents := int(terms.get("cost_cents", 0))
 	var added_daily_cost_cents := int(terms.get("added_daily_cost_cents", 0))
 	var projected_spendable := sim._projected_spendable_after_obligation_change_cents(
@@ -1357,7 +1357,7 @@ func campus_expansion_action_quote(
 		reason = "The North Meadow receipt archive is full."
 	if reason.is_empty() and (sim.revenue_cents < cost_cents or projected_spendable < 0):
 		reason = "The Feed Fund cannot cover this filing and its next recurring obligation."
-	var current_farmgate_level := sim.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID)
+	var current_farmgate_level := facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID)
 	return {
 		"accepted": false,
 		"known": not terms.is_empty(),
@@ -1370,8 +1370,8 @@ func campus_expansion_action_quote(
 		"reason": reason,
 		"cost_cents": cost_cents,
 		"added_daily_cost_cents": added_daily_cost_cents,
-		"current_daily_cost_cents": sim._campus_daily_cost_for_state(sim.campus_expansion_state),
-		"projected_daily_cost_cents": sim._campus_daily_cost_for_state(preview_state),
+		"current_daily_cost_cents": _campus_daily_cost_for_state(sim.campus_expansion_state),
+		"projected_daily_cost_cents": _campus_daily_cost_for_state(preview_state),
 		"fund_before_cents": sim.revenue_cents,
 		"spendable_before_cents": sim.spendable_fund_cents(),
 		"required_spendable_cents": sim._required_spendable_for_obligation_change_cents(
@@ -1382,10 +1382,10 @@ func campus_expansion_action_quote(
 		"claim_capacity_before": sim.current_claim_capacity(),
 		"claim_capacity_after": (
 			sim._claim_capacity_for_facilities(sim.owned_facilities)
-			+ sim._campus_claim_capacity_bonus_for_state(preview_state)
+			+ _campus_claim_capacity_bonus_for_state(preview_state)
 		),
 		"farmgate_capacity_before": sim._farmgate_storage_capacity_eggs(),
-		"farmgate_capacity_after": sim._farmgate_storage_capacity_for_level_and_campus(
+		"farmgate_capacity_after": _farmgate_storage_capacity_for_level_and_campus(
 			current_farmgate_level,
 			preview_state,
 		),
@@ -1398,27 +1398,27 @@ func _authorize_campus_expansion_action(
 	socket_id: StringName = &"",
 ) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var quote := sim.campus_expansion_action_quote(action_id, item_id, socket_id)
+	var quote := campus_expansion_action_quote(action_id, item_id, socket_id)
 	if not bool(quote.get("can_authorize", false)):
 		return quote
 	var from_socket_id := StringName(String(sim.campus_expansion_state.get("pod_socket_id", "")))
 	var cost_cents := int(quote["cost_cents"])
 	var fund_before := sim.revenue_cents
-	var daily_before := sim._campus_daily_cost_for_state(sim.campus_expansion_state)
-	var claim_bonus_before := sim._campus_claim_capacity_bonus_for_state(sim.campus_expansion_state)
+	var daily_before := _campus_daily_cost_for_state(sim.campus_expansion_state)
+	var claim_bonus_before := _campus_claim_capacity_bonus_for_state(sim.campus_expansion_state)
 	var farmgate_bonus_before := (
 		DepartmentSimulation.CAMPUS_FARMGATE_STORAGE_BONUS_EGGS
-		if sim._campus_cold_chain_active_for_state(sim.campus_expansion_state) else
+		if _campus_cold_chain_active_for_state(sim.campus_expansion_state) else
 		0
 	)
 	sim.revenue_cents -= cost_cents
-	sim._apply_campus_action_to_state(sim.campus_expansion_state, action_id, item_id, socket_id)
-	var outcome := sim._campus_action_outcome(action_id, item_id, from_socket_id, socket_id)
+	_apply_campus_action_to_state(sim.campus_expansion_state, action_id, item_id, socket_id)
+	var outcome := _campus_action_outcome(action_id, item_id, from_socket_id, socket_id)
 	var access_gate_id: StringName = &""
 	var access_standing_points := 0
 	var access_farmgate_level := 0
 	if action_id == &"purchase_parcel":
-		access_farmgate_level = maxi(0, sim.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID))
+		access_farmgate_level = maxi(0, facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID))
 		access_standing_points = maxi(0, sim.farm_mutual_standing())
 		access_gate_id = &"farmgate_dispatch" if access_farmgate_level >= 1 else &"farm_mutual_standing"
 	var receipt := {
@@ -1434,13 +1434,13 @@ func _authorize_campus_expansion_action(
 		"fund_before_cents": fund_before,
 		"fund_after_cents": sim.revenue_cents,
 		"daily_cost_before_cents": daily_before,
-		"daily_cost_after_cents": sim._campus_daily_cost_for_state(sim.campus_expansion_state),
+		"daily_cost_after_cents": _campus_daily_cost_for_state(sim.campus_expansion_state),
 		"claim_capacity_bonus_before": claim_bonus_before,
-		"claim_capacity_bonus_after": sim._campus_claim_capacity_bonus_for_state(sim.campus_expansion_state),
+		"claim_capacity_bonus_after": _campus_claim_capacity_bonus_for_state(sim.campus_expansion_state),
 		"farmgate_capacity_bonus_before": farmgate_bonus_before,
 		"farmgate_capacity_bonus_after": (
 			DepartmentSimulation.CAMPUS_FARMGATE_STORAGE_BONUS_EGGS
-			if sim._campus_cold_chain_active_for_state(sim.campus_expansion_state) else
+			if _campus_cold_chain_active_for_state(sim.campus_expansion_state) else
 			0
 		),
 		"access_gate_id": access_gate_id,
@@ -1460,7 +1460,7 @@ func _authorize_campus_expansion_action(
 	sim.announcement_posted.emit(outcome)
 	sim.snapshot_changed.emit(sim.snapshot())
 	var result := receipt.duplicate(true)
-	result["campus_expansion"] = sim.campus_expansion_snapshot()
+	result["campus_expansion"] = campus_expansion_snapshot()
 	return result
 
 
@@ -1490,12 +1490,12 @@ func campus_expansion_snapshot() -> Dictionary:
 	var relocation_reason := "Place the Egg Routing Pod before filing a relocation."
 	for socket_id in DepartmentSimulation.CAMPUS_SOCKET_ORDER:
 		var definition := DepartmentSimulation.CAMPUS_SOCKET_DEFINITIONS[socket_id] as Dictionary
-		var placement_quote := sim.campus_expansion_action_quote(
+		var placement_quote := campus_expansion_action_quote(
 			&"place_module",
 			DepartmentSimulation.CAMPUS_MODULE_ID,
 			socket_id,
 		)
-		var relocation_quote := sim.campus_expansion_action_quote(
+		var relocation_quote := campus_expansion_action_quote(
 			&"relocate_module",
 			DepartmentSimulation.CAMPUS_MODULE_ID,
 			socket_id,
@@ -1540,7 +1540,7 @@ func campus_expansion_snapshot() -> Dictionary:
 	var services: Array[Dictionary] = []
 	for service_id in DepartmentSimulation.CAMPUS_SERVICE_ORDER:
 		var definition := DepartmentSimulation.CAMPUS_SERVICE_DEFINITIONS[service_id] as Dictionary
-		var service_quote := sim.campus_expansion_action_quote(&"commission_service", service_id)
+		var service_quote := campus_expansion_action_quote(&"commission_service", service_id)
 		var connected := _campus_service_owned_for_state(sim.campus_expansion_state, service_id)
 		services.append({
 			"id": service_id,
@@ -1555,7 +1555,7 @@ func campus_expansion_snapshot() -> Dictionary:
 			"quote": service_quote,
 		})
 	var parcel_definition := DepartmentSimulation.CAMPUS_PARCEL_DEFINITIONS[DepartmentSimulation.CAMPUS_PARCEL_ID] as Dictionary
-	var parcel_quote := sim.campus_expansion_action_quote(&"purchase_parcel", DepartmentSimulation.CAMPUS_PARCEL_ID)
+	var parcel_quote := campus_expansion_action_quote(&"purchase_parcel", DepartmentSimulation.CAMPUS_PARCEL_ID)
 	var parcel_owned := bool(sim.campus_expansion_state.get("parcel_owned", false))
 	var pod_owned := bool(sim.campus_expansion_state.get("pod_owned", false))
 	var pod_definition := DepartmentSimulation.CAMPUS_MODULE_DEFINITIONS[DepartmentSimulation.CAMPUS_MODULE_ID] as Dictionary
@@ -1569,11 +1569,11 @@ func campus_expansion_snapshot() -> Dictionary:
 		&"cold_chain",
 	)
 	var pod_operational := _campus_pod_operational_for_state(sim.campus_expansion_state)
-	var cold_chain_active := sim._campus_cold_chain_active_for_state(sim.campus_expansion_state)
-	var claim_bonus := sim._campus_claim_capacity_bonus_for_state(sim.campus_expansion_state)
+	var cold_chain_active := _campus_cold_chain_active_for_state(sim.campus_expansion_state)
+	var claim_bonus := _campus_claim_capacity_bonus_for_state(sim.campus_expansion_state)
 	var farmgate_bonus := _campus_farmgate_capacity_bonus_for_state(
 		sim.campus_expansion_state,
-		sim.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID),
+		facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID),
 	)
 	var construction_stage: StringName = &"access"
 	if parcel_owned:
@@ -1712,7 +1712,7 @@ func campus_expansion_snapshot() -> Dictionary:
 			String(construction_stage).replace("_", " ").to_upper(),
 			"OPERATIONAL" if pod_operational else "HELD",
 		],
-		"current_daily_cost_cents": sim.current_daily_campus_cost_cents(),
+		"current_daily_cost_cents": current_daily_campus_cost_cents(),
 		"capital_spend_total_cents": int(sim.campus_expansion_state.get("capital_spend_total_cents", 0)),
 		"next_receipt_id": int(sim.campus_expansion_state.get("next_receipt_id", 1)),
 		"last_receipt": (sim.campus_expansion_state.get("last_receipt", {}) as Dictionary).duplicate(true),
@@ -1745,7 +1745,7 @@ func _campus_portfolio_context(
 			worker_names[worker.id] = worker.display_name
 	else:
 		for raw_worker_id: Variant in worker_id_override:
-			if sim._is_integral_number(raw_worker_id):
+			if _is_integral_number(raw_worker_id):
 				valid_worker_ids.append(int(raw_worker_id))
 		worker_names = worker_name_override.duplicate(true)
 	return {
@@ -1768,7 +1768,7 @@ func _campus_portfolio_context(
 
 func campus_portfolio_deed_quote(parcel_id: StringName) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var context := sim._campus_portfolio_context()
+	var context := _campus_portfolio_context()
 	var quote: Dictionary = sim._campus_portfolio.quote_deed(parcel_id, context)
 	return _enriched_campus_portfolio_quote(
 		quote,
@@ -1779,14 +1779,14 @@ func campus_portfolio_deed_quote(parcel_id: StringName) -> Dictionary:
 
 func purchase_campus_portfolio_deed(parcel_id: StringName) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var quote := sim.campus_portfolio_deed_quote(parcel_id)
+	var quote := campus_portfolio_deed_quote(parcel_id)
 	if not bool(quote.get("can_authorize", false)):
 		return quote
 	var fund_before := sim.revenue_cents
 	var result: Dictionary = sim._campus_portfolio.authorize_deed(
 		parcel_id,
 		sim.day,
-		sim._campus_portfolio_context(),
+		_campus_portfolio_context(),
 	)
 	if not bool(result.get("accepted", false)):
 		return result
@@ -1795,14 +1795,14 @@ func purchase_campus_portfolio_deed(parcel_id: StringName) -> Dictionary:
 	result["fund_before_cents"] = fund_before
 	result["fund_after_cents"] = sim.revenue_cents
 	result["projected_spendable_fund_cents"] = int(quote.get("projected_spendable_fund_cents", 0))
-	result["campus_portfolio"] = sim.campus_portfolio_snapshot()
+	result["campus_portfolio"] = campus_portfolio_snapshot()
 	sim.snapshot_changed.emit(sim.snapshot())
 	return result
 
 
 func campus_portfolio_project_quote(module_id: StringName, pad_id: StringName) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var context := sim._campus_portfolio_context()
+	var context := _campus_portfolio_context()
 	var quote: Dictionary = sim._campus_portfolio.quote_project(module_id, pad_id, context)
 	return _enriched_campus_portfolio_quote(
 		quote,
@@ -1859,7 +1859,7 @@ func authorize_campus_portfolio_project(
 	pad_id: StringName,
 ) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var quote := sim.campus_portfolio_project_quote(module_id, pad_id)
+	var quote := campus_portfolio_project_quote(module_id, pad_id)
 	if not bool(quote.get("can_authorize", false)):
 		return quote
 	var fund_before := sim.revenue_cents
@@ -1867,7 +1867,7 @@ func authorize_campus_portfolio_project(
 		module_id,
 		pad_id,
 		sim.day,
-		sim._campus_portfolio_context(),
+		_campus_portfolio_context(),
 	)
 	if not bool(result.get("accepted", false)):
 		return result
@@ -1876,7 +1876,7 @@ func authorize_campus_portfolio_project(
 	result["fund_before_cents"] = fund_before
 	result["fund_after_cents"] = sim.revenue_cents
 	result["projected_spendable_fund_cents"] = int(quote.get("projected_spendable_fund_cents", 0))
-	result["campus_portfolio"] = sim.campus_portfolio_snapshot()
+	result["campus_portfolio"] = campus_portfolio_snapshot()
 	sim.snapshot_changed.emit(sim.snapshot())
 	return result
 
@@ -1905,7 +1905,7 @@ func assign_campus_portfolio_worker(module_id: StringName, worker_id: int) -> Di
 			"reason": "The Feed Fund cannot protect the $1.00 daily campus-duty premium.",
 			"projected_spendable_fund_cents": projected_spendable,
 		}
-	var context := sim._campus_portfolio_context()
+	var context := _campus_portfolio_context()
 	var result: Dictionary = sim._campus_portfolio.assign_worker(
 		module_id,
 		worker_id,
@@ -1914,7 +1914,7 @@ func assign_campus_portfolio_worker(module_id: StringName, worker_id: int) -> Di
 	)
 	if bool(result.get("accepted", false)):
 		result["projected_spendable_fund_cents"] = projected_spendable
-		result["campus_portfolio"] = sim.campus_portfolio_snapshot()
+		result["campus_portfolio"] = campus_portfolio_snapshot()
 		sim.snapshot_changed.emit(sim.snapshot())
 	return result
 
@@ -1936,14 +1936,14 @@ func unassign_campus_portfolio_worker(module_id: StringName) -> Dictionary:
 			"module_id": module_id,
 			"reason": capacity_reason,
 		}
-	var context := sim._campus_portfolio_context()
+	var context := _campus_portfolio_context()
 	var result: Dictionary = sim._campus_portfolio.unassign_worker(
 		module_id,
 		context.get("valid_worker_ids", []) as Array,
 		context,
 	)
 	if bool(result.get("accepted", false)):
-		result["campus_portfolio"] = sim.campus_portfolio_snapshot()
+		result["campus_portfolio"] = campus_portfolio_snapshot()
 		sim.snapshot_changed.emit(sim.snapshot())
 	return result
 
@@ -1961,21 +1961,21 @@ func _campus_portfolio_unassignment_capacity_reason(module_id: StringName) -> St
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if module_id == DepartmentSimulation.CampusPortfolioStateScript.COLLECTION_RAIL_HUB:
 		var capacity_without_rail := (
-			sim._claim_capacity_for_facilities_and_campus(sim.owned_facilities, sim.campus_expansion_state)
+			_claim_capacity_for_facilities_and_campus(sim.owned_facilities, sim.campus_expansion_state)
 		)
 		if sim._outstanding_claim_count() + sim._pending_market_contract_claim_count() > capacity_without_rail:
 			return "Route or finish files before releasing the Collection Rail hen; the live ledger exceeds capacity without her."
 	elif module_id == DepartmentSimulation.CampusPortfolioStateScript.GRAIN_RECOVERY_MILL:
-		var base_feed_capacity := sim._facility_level_schedule_value(
+		var base_feed_capacity := _facility_level_schedule_value(
 			DepartmentSimulation.FEED_PROCUREMENT_CAPACITY_SCOOPS,
-			sim.facility_level(DepartmentSimulation.FEED_PROCUREMENT_COOP_ID),
+			facility_level(DepartmentSimulation.FEED_PROCUREMENT_COOP_ID),
 			0,
 		)
 		if sim._feed_procurement.stock_scoops() > base_feed_capacity:
 			return "Use the Grain Recovery overflow stock before releasing its named hen."
 	elif module_id == DepartmentSimulation.CampusPortfolioStateScript.CREEKSIDE_CHILLING_EXCHANGE:
-		var base_farmgate_capacity := sim._farmgate_storage_capacity_for_level_and_campus(
-			sim.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID),
+		var base_farmgate_capacity := _farmgate_storage_capacity_for_level_and_campus(
+			facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID),
 			sim.campus_expansion_state,
 		)
 		if sim._farmgate_dispatch.stock_count() > base_farmgate_capacity:
@@ -1985,7 +1985,7 @@ func _campus_portfolio_unassignment_capacity_reason(module_id: StringName) -> St
 
 func campus_portfolio_snapshot(north_projection: Dictionary = {}) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var context := sim._campus_portfolio_context()
+	var context := _campus_portfolio_context()
 	var projection: Dictionary = sim._campus_portfolio.snapshot(context)
 	var finance_basis := _campus_portfolio_finance_basis()
 	var assignments := (projection.get("workers", []) as Array).duplicate(true)
@@ -2008,7 +2008,7 @@ func campus_portfolio_snapshot(north_projection: Dictionary = {}) -> Dictionary:
 			"Every completed module adds a real operating benefit and recurring obligation.",
 		]
 		parcel_rows[index] = row
-	var north := north_projection if not north_projection.is_empty() else sim.campus_expansion_snapshot()
+	var north := north_projection if not north_projection.is_empty() else campus_expansion_snapshot()
 	var north_parcel := (north.get("parcel", {}) as Dictionary).duplicate(true)
 	north_parcel["id"] = &"north_meadow"
 	north_parcel["name"] = "NORTH MEADOW"
@@ -2120,15 +2120,15 @@ func _facility_purchase_effect_copy(facility_id: StringName, level: int) -> Dict
 		"benefits": (definition.get("benefits", []) as Array).duplicate(true),
 		"tradeoffs": (definition.get("tradeoffs", []) as Array).duplicate(true),
 		"storage_capacity_eggs": (
-			sim._facility_level_schedule_value(DepartmentSimulation.FARMGATE_DISPATCH_STORAGE_CAPACITY_EGGS, level, 0)
+			_facility_level_schedule_value(DepartmentSimulation.FARMGATE_DISPATCH_STORAGE_CAPACITY_EGGS, level, 0)
 			if facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID else 0
 		),
 		"dispatch_capacity_eggs": (
-			sim._facility_level_schedule_value(DepartmentSimulation.FARMGATE_DISPATCH_DAILY_DISPATCH_EGGS, level, 0)
+			_facility_level_schedule_value(DepartmentSimulation.FARMGATE_DISPATCH_DAILY_DISPATCH_EGGS, level, 0)
 			if facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID else 0
 		),
 		"shelf_life_shifts": (
-			sim._facility_level_schedule_value(DepartmentSimulation.FARMGATE_DISPATCH_SHELF_LIFE_SHIFTS, level, 0)
+			_facility_level_schedule_value(DepartmentSimulation.FARMGATE_DISPATCH_SHELF_LIFE_SHIFTS, level, 0)
 			if facility_id == DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID else 0
 		),
 	}
@@ -2138,12 +2138,12 @@ func facility_purchase_preflight(facility_id: StringName) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## A read-only receipt shared by the UI and the authoritative mutation. This
 	## keeps duplicate, gate, phase, and fund rejections completely atomic.
-	return sim.facility_status(facility_id)
+	return facility_status(facility_id)
 
 
 func purchase_facility(facility_id: StringName) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	var preflight := sim.facility_purchase_preflight(facility_id)
+	var preflight := facility_purchase_preflight(facility_id)
 	if not bool(preflight.get("can_purchase", false)):
 		var rejection := preflight.duplicate(true)
 		rejection["accepted"] = false
@@ -2153,18 +2153,18 @@ func purchase_facility(facility_id: StringName) -> Dictionary:
 	var fund_before := sim.revenue_cents
 	var spendable_before := sim.spendable_fund_cents()
 	var protected_reserve_before := sim.protected_reserve_cents()
-	var upkeep_before := sim.current_daily_facility_maintenance_cents()
+	var upkeep_before := current_daily_facility_maintenance_cents()
 	var next_shift_quota_before := sim.quota_target
-	var next_level := sim.facility_level(facility_id) + 1
+	var next_level := facility_level(facility_id) + 1
 	sim.revenue_cents -= cost_cents
 	sim.owned_facilities[facility_id] = next_level
 	if facility_id == DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID:
-		sim._ensure_manager_posts_for_office_level()
+		_ensure_manager_posts_for_office_level()
 	if facility_id == DepartmentSimulation.WELLNESS_NEST_ID:
 		sim.quota_target = clampi(sim.quota_target + 1, 1, 10_000)
 	var definition := DepartmentSimulation.FACILITY_DEFINITIONS[facility_id] as Dictionary
 	var outcome := _facility_purchase_outcome(facility_id, next_level, definition)
-	var result := sim.facility_status(facility_id)
+	var result := facility_status(facility_id)
 	result.merge({
 		"accepted": true,
 		"action_id": &"purchase_facility",
@@ -2211,7 +2211,7 @@ func purchase_facility(facility_id: StringName) -> Dictionary:
 		"action_id": &"purchase_facility",
 		"facility_id": facility_id,
 		"facility_name": String(definition.get("name", "CAPITAL FACILITY")),
-		"level_name": sim._facility_level_name(definition, next_level),
+		"level_name": _facility_level_name(definition, next_level),
 		"day": sim.day,
 		"purchased_level": next_level,
 		"max_level": int(definition.get("max_level", 1)),
@@ -2223,11 +2223,11 @@ func purchase_facility(facility_id: StringName) -> Dictionary:
 		"protected_reserve_before_cents": protected_reserve_before,
 		"protected_reserve_after_cents": sim.protected_reserve_cents(),
 		"upkeep_before_cents": upkeep_before,
-		"upkeep_after_cents": sim.current_daily_facility_maintenance_cents(),
+		"upkeep_after_cents": current_daily_facility_maintenance_cents(),
 		"upkeep_delta_cents": (
-			sim.current_daily_facility_maintenance_cents() - upkeep_before
+			current_daily_facility_maintenance_cents() - upkeep_before
 		),
-		"effect": sim._facility_purchase_effect_copy(facility_id, next_level),
+		"effect": _facility_purchase_effect_copy(facility_id, next_level),
 	}
 	sim.last_facility_purchase_receipt = commissioning_receipt.duplicate(true)
 	sim.facility_commissioning_history.append(commissioning_receipt.duplicate(true))
@@ -2356,9 +2356,9 @@ func current_daily_facility_maintenance_cents() -> int:
 	var maintenance_cents := 0
 	for facility_id in DepartmentSimulation.FACILITY_ORDER:
 		var definition := DepartmentSimulation.FACILITY_DEFINITIONS[facility_id] as Dictionary
-		maintenance_cents += sim._facility_maintenance_for_level(
+		maintenance_cents += _facility_maintenance_for_level(
 			definition,
-			sim.facility_level(facility_id),
+			facility_level(facility_id),
 		)
 	return maintenance_cents
 
@@ -2366,9 +2366,9 @@ func current_daily_facility_maintenance_cents() -> int:
 func current_daily_facility_cost_cents() -> int:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
-		sim.daily_facility_expansion_cost_cents()
-		+ sim.current_daily_facility_maintenance_cents()
-		+ sim.current_daily_campus_cost_cents()
+		daily_facility_expansion_cost_cents()
+		+ current_daily_facility_maintenance_cents()
+		+ current_daily_campus_cost_cents()
 		+ sim.current_daily_portfolio_cost_cents()
 	)
 
@@ -2386,7 +2386,7 @@ func _facility_claim_speed_multiplier(worker: ChickenState) -> float:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if worker.current_claim == null or not worker.current_claim.is_rework:
 		return 1.0
-	return float(sim.facility_effects().get("rework_speed_multiplier", 1.0))
+	return float(facility_effects().get("rework_speed_multiplier", 1.0))
 
 
 func _store_farmgate_lot_with_campus_capacity(
@@ -2411,5 +2411,5 @@ func _store_farmgate_lot_with_campus_capacity(
 		farmgate_level,
 		shelf_shifts,
 		effective_capacity,
-		sim._campus_portfolio.farmgate_overflow_basis_points(sim._campus_portfolio_context()),
+		sim._campus_portfolio.farmgate_overflow_basis_points(_campus_portfolio_context()),
 	)

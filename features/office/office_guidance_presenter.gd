@@ -183,7 +183,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 	if office._campaign_ui != null and office._campaign_ui.is_modal_open():
 		var campaign_action := office._campaign_modal_primary_action_state()
 		if not campaign_action.is_empty():
-			office._set_guidance(
+			_set_guidance(
 				String(campaign_action.get("copy", "NEXT: CHOOSE DIFFICULTY")),
 				StringName(String(campaign_action.get("semantic_icon", "goal"))),
 				String(campaign_action.get(
@@ -196,11 +196,11 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		var open_file := "%s FILE OPEN: complete the highlighted management action." % (
 			"SENIOR ROOST" if office._campaign_senior_roost else "PROBATION"
 		)
-		office._set_guidance("DECIDE: FINISH THE HIGHLIGHTED ACTION", &"goal", open_file)
+		_set_guidance("DECIDE: FINISH THE HIGHLIGHTED ACTION", &"goal", open_file)
 		return
-	var flockwatch_action := office._flockwatch_context_primary_action_state()
+	var flockwatch_action := _flockwatch_context_primary_action_state()
 	if not flockwatch_action.is_empty():
-		office._set_guidance(
+		_set_guidance(
 			String(flockwatch_action.get("copy", "CONTINUE")),
 			StringName(String(flockwatch_action.get("semantic_icon", "advance_arrow"))),
 			String(flockwatch_action.get(
@@ -212,7 +212,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		return
 	if office._decision_host != null and office._decision_host.visible:
 		var decision_action := office._decision_primary_action_state()
-		office._set_guidance(
+		_set_guidance(
 			String(decision_action.get("copy", "CHOOSE A RESPONSE")),
 			StringName(String(decision_action.get("semantic_icon", "shield"))),
 			String(decision_action.get(
@@ -223,7 +223,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		)
 		return
 	if office._day_review_scrim != null and office._day_review_scrim.visible:
-		office._set_guidance(
+		_set_guidance(
 			"REVIEW: RESULTS, THEN REINVEST",
 			&"files",
 			"Shift complete: review the exact results and choose how to invest.",
@@ -231,7 +231,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		)
 		return
 	if office._farmer_relations_gallery_offer_open(snapshot):
-		office._set_guidance(
+		_set_guidance(
 			"CREDIT: PUBLISH A CAMPAIGN / OR SKIP",
 			&"cash",
 			"Closing credit filed: publish one Gallery campaign or continue to skip.",
@@ -241,7 +241,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 	var shift_phase := int(snapshot.get("shift_phase", DepartmentSimulation.ShiftPhase.RUNNING))
 	if shift_phase == DepartmentSimulation.ShiftPhase.REVIEW:
 		var review_action := office._apply_review_progression_action(snapshot)
-		office._set_guidance(
+		_set_guidance(
 			String(review_action.get("guidance_copy", "NEXT: REQUISITION OR SHIFT RESULTS")),
 			&"flock" if bool(snapshot.get("credit_memo_pending", false)) else &"goal",
 			String(review_action.get(
@@ -258,14 +258,14 @@ func _update_guidance(snapshot: Dictionary) -> void:
 				int(office._first_clutch.get("target_worker_id", Office.FIRST_HEN_WORKER_ID)),
 			)
 			var first_hen_name := String(first_hen.get("name", "Mabel")).to_upper()
-			office._set_guidance(
+			_set_guidance(
 				"OPEN %s'S FILE" % first_hen_name,
 				&"files",
 				"First Clutch: open %s's file before choosing the flock policy." % first_hen_name,
 				&"first_hen",
 			)
 			return
-		office._set_guidance(
+		_set_guidance(
 			"DECIDE: CHOOSE ONE MORNING POLICY",
 			&"goal",
 			"Authorize one morning policy before the shift clock can run.",
@@ -273,7 +273,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		)
 		return
 	if shift_phase == DepartmentSimulation.ShiftPhase.AWAITING_INCIDENT:
-		office._set_guidance(
+		_set_guidance(
 			"INCIDENT: CHOOSE A RESPONSE",
 			&"shield",
 			"Incident response required: the shift clock is safely locked.",
@@ -281,7 +281,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		)
 		return
 	if office._feed_party_active:
-		office._set_guidance(
+		_set_guidance(
 			"FEED PARTY IN PROGRESS",
 			&"flock",
 			"Production is paused while Feed Party attendance is documented.",
@@ -291,7 +291,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 	if bool(first_clutch_coach.get("visible", false)):
 		var coach_title := String(first_clutch_coach.get("title", "FOLLOW THE ACTIVE HEN"))
 		var coach_detail := String(first_clutch_coach.get("guidance", coach_title))
-		office._set_guidance(
+		_set_guidance(
 			String(first_clutch_coach.get("visual_title", coach_title)).to_upper(),
 			&"egg",
 			coach_detail,
@@ -304,7 +304,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			if office._flockwatch_open else
 			"First Clutch complete: press %s to open today's three probation orders." % office._action_hint(&"toggle_flockwatch")
 		)
-		office._set_guidance(
+		_set_guidance(
 			(
 				"ORDERS READY  >  REVIEW TODAY"
 				if office._flockwatch_open else
@@ -322,7 +322,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		and office._clock.speed_index == 0
 		and int(tactical_plan.get("count", 0)) > 0
 	):
-		office._set_guidance(
+		_set_guidance(
 			"PLAN %d/%d  >  RESUME TO FILE" % [
 				int(tactical_plan.get("count", 0)),
 				int(tactical_plan.get("capacity", Office.TacticalRoutePlannerScript.CAPACITY)),
@@ -333,7 +333,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		)
 		return
 	if shift_phase == DepartmentSimulation.ShiftPhase.RUNNING and not office._routing_return_cue.is_empty():
-		office._set_guidance(
+		_set_guidance(
 			String(office._routing_return_cue.get("copy", "ROUTING RECORD")),
 			&"files",
 			String(office._routing_return_cue.get("accessible_text", "Choose an intake tray to resume routing.")),
@@ -374,7 +374,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 					current_route,
 					office._action_hint(&"toggle_flockwatch"),
 				]
-				office._set_guidance(
+				_set_guidance(
 					(
 						"%s SET  >  RESUME 1×" % current_route
 						if office._clock != null and office._clock.speed_index == 0 else
@@ -385,7 +385,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 					&"resume_shift" if office._clock != null and office._clock.speed_index == 0 else &"",
 				)
 				return
-			office._set_guidance(
+			_set_guidance(
 				"ROUTE %s  >  %s FIT / AUTO" % [route_worker_name, route_fit],
 				&"files",
 				(
@@ -394,7 +394,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 				) % [route_worker_name, route_fit, office._action_hint(&"toggle_flockwatch")],
 			)
 			return
-		office._set_guidance(
+		_set_guidance(
 			String(office._campaign_order_return_cue.get("copy", "RETURN: TODAY'S GOAL")),
 			StringName(office._campaign_order_return_cue.get("icon_kind", &"goal")),
 			String(office._campaign_order_return_cue.get(
@@ -416,7 +416,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			"label",
 			"SHOW DRIVER",
 		)).to_upper()
-		office._set_guidance(
+		_set_guidance(
 			"ORDER PICKED  >  %s" % driver_label,
 			StringName(office._campaign_order_driver_action.get("icon_kind", &"goal")),
 			String(office._campaign_order_driver_button.get_meta(
@@ -431,7 +431,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 	# Optional contracts and route advice cannot conceal the action needed to
 	# restart production. Explicit goal-return and tactical-plan cues stay above.
 	if office._clock.speed_index == 0:
-		office._set_guidance(
+		_set_guidance(
 			"SELECT A HEN" if office._flockwatch_open else "RESUME SHIFT  ·  %s" % office._action_hint(&"pause_simulation"),
 			&"pause",
 			"While paused, close Flockwatch and inspect a hen before resuming." if office._flockwatch_open else "Resume to let hens finish files and collect eggs automatically. You can adjust routes while paused.",
@@ -440,7 +440,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		return
 	var contract_guidance := _active_market_contract_guidance(snapshot)
 	if not contract_guidance.is_empty():
-		office._set_guidance(contract_guidance, &"goal", contract_guidance, &"records")
+		_set_guidance(contract_guidance, &"goal", contract_guidance, &"records")
 		return
 	var adaptive_route := office._adaptive_route_recovery_diagnostic_state()
 	if bool(adaptive_route.get("active", false)):
@@ -450,7 +450,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			"Two consecutive manual routes were outside filed specialties. "
 			+ "Open %s's route and choose %s or Auto if that was unintended; deliberate routes remain valid."
 		) % [recovery_worker, recovery_specialty]
-		office._set_guidance(
+		_set_guidance(
 			(
 				"RESTORE %s'S FIT  >  %s" % [recovery_worker, recovery_specialty]
 				if String(adaptive_route.get("guidance_mode", "full")) == "essential" else
@@ -470,7 +470,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 			office._priority_peck_result_hold_kind == &"missed"
 			and Time.get_ticks_msec() < office._priority_peck_result_hold_until_msec
 		):
-			office._set_guidance(
+			_set_guidance(
 				"MISSED  ·  NEXT FILE",
 				&"urgent",
 				"Priority Peck closed on this file. The next file restarts the chain; %d× resumes after this brief result beat." % int(SimulationClock.SPEED_MULTIPLIERS[office._clock.speed_index]),
@@ -486,7 +486,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 				int(last_assist.get("streak", 0)),
 				int(SimulationClock.SPEED_MULTIPLIERS[office._clock.speed_index]),
 			]
-			office._set_guidance(
+			_set_guidance(
 				"PECK LANDED: +%d%%  CHAIN ×%d" % [
 					int(roundf(float(last_assist.get("progress_gain", 0.0)))),
 					int(last_assist.get("streak", 0)),
@@ -505,7 +505,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 					office._action_hint(Office.PECK_ASSIST_ACTION),
 					requested_multiplier,
 				]
-				office._set_guidance(
+				_set_guidance(
 					"PRIORITY FOCUS 1×: %s  ·  PRESS %s" % [
 						String(focus.get("worker_name", "HEN")).to_upper(),
 						office._action_hint(Office.PECK_ASSIST_ACTION),
@@ -521,7 +521,7 @@ func _update_guidance(snapshot: Dictionary) -> void:
 					int(focus.get("window_start", DepartmentSimulation.PECK_ASSIST_WINDOW_START)),
 					requested_multiplier,
 				]
-				office._set_guidance(
+				_set_guidance(
 					"PRIORITY FOCUS 1×: %s %d%%  ·  GOLD %d%%" % [
 						String(focus.get("worker_name", "HEN")).to_upper(),
 						int(focus.get("progress", 0)),
@@ -534,9 +534,9 @@ func _update_guidance(snapshot: Dictionary) -> void:
 	# Optional Peck windows stay in the hen dossier; they must not replace the shift goal.
 	if eggs >= quota:
 		if String(office._simulation.active_playbook.get("push_luck_id", "")).is_empty():
-			office._set_guidance("TARGET MET · BANK OR CHASE", &"egg", "Your quota is met. Bank for safer shells or chase higher clean-egg value. Open Plan to compare and choose; this choice is optional.", &"playbook")
+			_set_guidance("TARGET MET · BANK OR CHASE", &"egg", "Your quota is met. Bank for safer shells or chase higher clean-egg value. Open Plan to compare and choose; this choice is optional.", &"playbook")
 			return
-		office._set_guidance(
+		_set_guidance(
 			"TARGET MET: PROTECT SHELLS OR BANK FUND",
 			&"shield",
 			"The clutch target is met. Protect shell quality or bank extra Feed Fund.",
@@ -555,14 +555,14 @@ func _update_guidance(snapshot: Dictionary) -> void:
 		average_stress += float((worker_value as Dictionary).get("stress", 0.0))
 	average_stress /= maxf(1.0, float(worker_data.size()))
 	if average_stress >= 65.0 and not bool(snapshot.get("feed_party_used_today", false)):
-		office._set_guidance(
+		_set_guidance(
 			"FLOCK TIRED: CONSIDER A FEED PARTY",
 			&"flock",
 			"Flock strain is high. Consider one Feed Party before cracks climb.",
 			&"feed",
 		)
 	else:
-		office._set_guidance(
+		_set_guidance(
 			"%d EGGS TO GO  ·  HENS AUTO-WORK" % remaining,
 			&"egg",
 			"Hens finish routed files and collect eggs automatically. %d eggs needed; %dh %02dm left. Optional: use Plan to trade speed, shell quality, or welfare." % [remaining, minutes_left / 60, minutes_left % 60],

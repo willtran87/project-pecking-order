@@ -20,7 +20,7 @@ func _should_hold_first_clutch_orientation() -> bool:
 		and office._campaign_review_stage == &"active"
 		and not bool(office._first_clutch.get("dismissed", true))
 		and not bool(office._first_clutch.get("completed", false))
-		and office._first_clutch_stage() in [&"inspect", &"specialty_route"]
+		and _first_clutch_stage() in [&"inspect", &"specialty_route"]
 	)
 
 
@@ -30,15 +30,15 @@ func _handle_first_clutch_primary_action() -> bool:
 	# controller-mapped, and browser-assisted players do not have to hunt a dense
 	# dossier for the glowing control. Normal play retains every routing choice.
 	if not bool(office._first_clutch.get("dismissed", true)) and not office._peck_assist_input_blocked():
-		if office._first_clutch_stage() == &"reinvestment":
-			return office._present_first_clutch_reinvestment()
-		if office._first_clutch_orders_handoff_pending():
+		if _first_clutch_stage() == &"reinvestment":
+			return _present_first_clutch_reinvestment()
+		if _first_clutch_orders_handoff_pending():
 			if bool(office._first_clutch.get("route_first_lesson", false)):
 				# The inline coach explains the live quota. Keep the legacy save
 				# flag as acknowledgement of that summary; the ledger stays optional.
 				office._first_clutch["orders_handoff_acknowledged"] = true
 				office._first_clutch_completion_hold_until_msec = 0
-				office._refresh_first_clutch_ui(office._simulation.snapshot())
+				_refresh_first_clutch_ui(office._simulation.snapshot())
 				office._on_speed_button_pressed(1)
 				office._save_campaign_checkpoint("first_clutch_shift_continued")
 				return true
@@ -46,11 +46,11 @@ func _handle_first_clutch_primary_action() -> bool:
 			return true
 	if not office._first_clutch_tracking_active():
 		return false
-	var stage := office._first_clutch_stage()
+	var stage := _first_clutch_stage()
 	if stage not in [&"specialty_route", &"check_in"]:
 		return false
 	var worker_id := int(office._first_clutch.get("target_worker_id", -1))
-	var worker := office._first_clutch_worker_snapshot(office._simulation.snapshot(), worker_id)
+	var worker := _first_clutch_worker_snapshot(office._simulation.snapshot(), worker_id)
 	if worker.is_empty():
 		return false
 	if office._camera_controller != null:
@@ -100,7 +100,7 @@ func _reset_first_clutch(enabled: bool) -> void:
 	office._upgrade_demonstration.clear()
 	office._first_clutch_completion_generation += 1
 	office._first_clutch_completion_hold_until_msec = 0
-	office._first_clutch = office._make_first_clutch_state(not enabled)
+	office._first_clutch = _make_first_clutch_state(not enabled)
 	office._first_clutch["route_first_lesson"] = enabled
 	if enabled:
 		office._capacity_marker_context_revealed = false
@@ -108,21 +108,21 @@ func _reset_first_clutch(enabled: bool) -> void:
 			office._office_capacity_from_snapshot(office._simulation.snapshot()),
 			false,
 		)
-	office._refresh_first_clutch_ui(office._simulation.snapshot())
+	_refresh_first_clutch_ui(office._simulation.snapshot())
 
 
 func _normalize_first_clutch_state(value: Dictionary, legacy_missing: bool = false) -> Dictionary:
 	if legacy_missing or value.is_empty():
-		var missing_state := office._make_first_clutch_state(true)
+		var missing_state := _make_first_clutch_state(true)
 		missing_state["reinvestment_grandfathered"] = true
 		return missing_state
 	var source_version := int(value.get("version", -1))
 	if source_version not in [1, Office.FIRST_CLUTCH_VERSION]:
-		var incompatible_state := office._make_first_clutch_state(true)
+		var incompatible_state := _make_first_clutch_state(true)
 		incompatible_state["reinvestment_grandfathered"] = true
 		return incompatible_state
 	var legacy_v1 := source_version == 1
-	var normalized := office._make_first_clutch_state(bool(value.get("dismissed", false)))
+	var normalized := _make_first_clutch_state(bool(value.get("dismissed", false)))
 	normalized["route_first_lesson"] = bool(value.get("route_first_lesson", false))
 	normalized["completed"] = bool(value.get("completed", false))
 	normalized["target_worker_id"] = maxi(-1, int(value.get("target_worker_id", -1)))
@@ -217,10 +217,10 @@ func _first_clutch_state_has_all_steps(state: Dictionary) -> bool:
 
 func first_clutch_snapshot() -> Dictionary:
 	var result := office._first_clutch.duplicate(true)
-	result["stage"] = String(office._first_clutch_stage())
+	result["stage"] = String(_first_clutch_stage())
 	result["progress"] = _first_clutch_progress()
 	result["reinvestment"] = office._simulation.first_clutch_reinvestment_status().duplicate(true)
-	result["orders_handoff_pending"] = office._first_clutch_orders_handoff_pending()
+	result["orders_handoff_pending"] = _first_clutch_orders_handoff_pending()
 	return result
 
 
@@ -244,7 +244,7 @@ func _first_clutch_can_reopen() -> bool:
 		and office._campaign_review_stage == &"active"
 		and office._simulation != null
 		and office._simulation.day == 1
-		and not office._first_clutch_worker_snapshot(
+		and not _first_clutch_worker_snapshot(
 			office._simulation.snapshot(),
 			int(office._first_clutch.get("target_worker_id", -1)),
 		).is_empty()
@@ -255,7 +255,7 @@ func _first_clutch_orders_handoff_pending() -> bool:
 	return (
 		not bool(office._first_clutch.get("dismissed", true))
 		and bool(office._first_clutch.get("completed", false))
-		and office._first_clutch_reinvestment_resolved()
+		and _first_clutch_reinvestment_resolved()
 		and not bool(office._first_clutch.get("orders_handoff_acknowledged", false))
 	)
 
@@ -294,7 +294,7 @@ func _first_clutch_record_inspection(worker_id: int) -> void:
 	if bound_worker_id >= 0 and worker_id != bound_worker_id:
 		return
 	var snapshot := office._simulation.snapshot()
-	var worker := office._first_clutch_worker_snapshot(snapshot, worker_id)
+	var worker := _first_clutch_worker_snapshot(snapshot, worker_id)
 	if worker.is_empty():
 		return
 	if bound_worker_id < 0:
@@ -308,7 +308,7 @@ func _first_clutch_record_inspection(worker_id: int) -> void:
 	):
 		office._first_clutch["checkin_filed"] = true
 		office._first_clutch["checkin_worker_id"] = worker_id
-	office._refresh_first_clutch_ui(snapshot)
+	_refresh_first_clutch_ui(snapshot)
 	office._update_guidance(snapshot)
 	office._save_campaign_checkpoint("first_clutch_inspected")
 
@@ -317,13 +317,13 @@ func _first_clutch_record_routing(worker_id: int, lane: StringName) -> void:
 	if not office._first_clutch_tracking_active() or worker_id != int(office._first_clutch.get("target_worker_id", -1)):
 		return
 	var snapshot := office._simulation.snapshot()
-	var worker := office._first_clutch_worker_snapshot(snapshot, worker_id)
+	var worker := _first_clutch_worker_snapshot(snapshot, worker_id)
 	if not worker.is_empty() and lane == StringName(worker.get("specialty", &"")):
 		office._first_clutch["specialty_routed"] = true
 		if bool(office._first_clutch.get("route_first_lesson", false)):
 			office._clock.set_speed(1)
 	_first_clutch_try_complete()
-	office._refresh_first_clutch_ui(snapshot)
+	_refresh_first_clutch_ui(snapshot)
 	office._update_guidance(snapshot)
 
 
@@ -334,7 +334,7 @@ func _first_clutch_record_checkin(worker_id: int) -> void:
 	office._first_clutch["checkin_worker_id"] = worker_id
 	_first_clutch_try_complete()
 	var snapshot := office._simulation.snapshot()
-	office._refresh_first_clutch_ui(snapshot)
+	_refresh_first_clutch_ui(snapshot)
 	office._update_guidance(snapshot)
 
 
@@ -350,7 +350,7 @@ func _first_clutch_record_assist(result: Dictionary) -> void:
 		0, int(result.get("potential_priority_credit_cents", 0))
 	)
 	var snapshot := office._simulation.snapshot()
-	office._refresh_first_clutch_ui(snapshot)
+	_refresh_first_clutch_ui(snapshot)
 	office._update_guidance(snapshot)
 
 
@@ -417,7 +417,7 @@ func _first_clutch_record_laid_egg(
 			1.8,
 		)
 	var snapshot := office._simulation.snapshot()
-	office._refresh_first_clutch_ui(snapshot)
+	_refresh_first_clutch_ui(snapshot)
 	office._update_guidance(snapshot)
 
 
@@ -453,7 +453,7 @@ func _first_clutch_record_presentation(
 	office._first_clutch["delivered_value_cents"] = maxi(0, value_cents)
 	if not _first_clutch_try_complete():
 		var snapshot := office._simulation.snapshot()
-		office._refresh_first_clutch_ui(snapshot)
+		_refresh_first_clutch_ui(snapshot)
 		office._update_guidance(snapshot)
 		office._save_campaign_checkpoint("first_clutch_delivery_seen")
 
@@ -492,7 +492,7 @@ func _first_clutch_try_complete() -> bool:
 	if office._audio_feedback != null:
 		office._audio_feedback.play_decision_resolved()
 	var snapshot := office._simulation.snapshot()
-	office._refresh_first_clutch_ui(snapshot)
+	_refresh_first_clutch_ui(snapshot)
 	office._refresh_flockwatch_navigation(snapshot)
 	office._update_guidance(snapshot)
 	office._save_campaign_checkpoint("first_clutch_completed")
@@ -502,7 +502,7 @@ func _first_clutch_try_complete() -> bool:
 		# Hold the earned result until the player chooses to open the upgrade.
 		office._first_reward_ready_msec = 0
 	else:
-		office._present_first_clutch_reinvestment(reinvestment_offer)
+		_present_first_clutch_reinvestment(reinvestment_offer)
 	_retire_first_clutch_after_hold(completion_generation)
 	return true
 
@@ -694,13 +694,13 @@ func _retire_first_clutch_after_hold(completion_generation: int) -> void:
 		return
 	office._first_clutch_completion_hold_until_msec = 0
 	var snapshot := office._simulation.snapshot()
-	office._refresh_first_clutch_ui(snapshot)
+	_refresh_first_clutch_ui(snapshot)
 	office._update_guidance(snapshot)
 
 
 func _first_clutch_stage() -> StringName:
 	if bool(office._first_clutch.get("completed", false)):
-		if not office._first_clutch_reinvestment_resolved():
+		if not _first_clutch_reinvestment_resolved():
 			return &"reinvestment"
 		return &"complete"
 	if not bool(office._first_clutch.get("inspected", false)):
@@ -733,13 +733,13 @@ func _first_clutch_progress() -> int:
 
 
 func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
-	var stage := office._first_clutch_stage()
+	var stage := _first_clutch_stage()
 	var pre_policy := office._first_hen_prelude_pending()
-	var orders_handoff_pending := office._first_clutch_orders_handoff_pending()
+	var orders_handoff_pending := _first_clutch_orders_handoff_pending()
 	var completion_holding := (
 		bool(office._first_clutch.get("completed", false))
 		and (
-			not office._first_clutch_reinvestment_resolved()
+			not _first_clutch_reinvestment_resolved()
 			or orders_handoff_pending
 			or Time.get_ticks_msec() < office._first_clutch_completion_hold_until_msec
 		)
@@ -766,7 +766,7 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 	)
 	var guidance_mode := String(office._player_preferences.get("guidance_mode", "full"))
 	var target_worker_id := int(office._first_clutch.get("target_worker_id", -1))
-	var worker := office._first_clutch_worker_snapshot(snapshot, target_worker_id)
+	var worker := _first_clutch_worker_snapshot(snapshot, target_worker_id)
 	var target_name := String(worker.get("name", "YOUR HEN")).to_upper()
 	var specialty_name := String(worker.get("specialty_name", String(worker.get("specialty", "SPECIALTY")).replace("_", " "))).to_upper()
 	var specialty_short := String(worker.get("specialty", "SPECIALTY")).replace("_", " ").to_upper()
@@ -967,14 +967,14 @@ func _first_clutch_coach_snapshot(snapshot: Dictionary) -> Dictionary:
 
 func _refresh_first_clutch_ui(snapshot: Dictionary = {}) -> void:
 	if office._routing_ui == null:
-		office._clear_first_clutch_global_cue()
+		_clear_first_clutch_global_cue()
 		return
 	var active_snapshot := snapshot if not snapshot.is_empty() else office._simulation.snapshot()
 	if office._first_clutch_tracking_active() and int(office._first_clutch.get("target_worker_id", -1)) >= 0:
-		var target := office._first_clutch_worker_snapshot(active_snapshot, int(office._first_clutch["target_worker_id"]))
+		var target := _first_clutch_worker_snapshot(active_snapshot, int(office._first_clutch["target_worker_id"]))
 		if target.is_empty():
-			office._first_clutch = office._make_first_clutch_state(false)
-	var coach := office._first_clutch_coach_snapshot(active_snapshot)
+			office._first_clutch = _make_first_clutch_state(false)
+	var coach := _first_clutch_coach_snapshot(active_snapshot)
 	office._routing_ui.call("apply_first_clutch", coach)
 	office._update_flockwatch_toggle(active_snapshot)
 	_apply_first_clutch_global_cue(coach)
@@ -994,7 +994,7 @@ func _apply_first_clutch_global_cue(coach: Dictionary) -> void:
 				cue_tooltip = "FIRST CLUTCH: resume at normal speed to reach the live Priority Peck window."
 	if desired == office._first_clutch_global_cued_control:
 		return
-	office._clear_first_clutch_global_cue()
+	_clear_first_clutch_global_cue()
 	if desired == null or not is_instance_valid(desired):
 		return
 	office._first_clutch_global_cued_control = desired
@@ -1032,12 +1032,12 @@ func _clear_first_clutch_global_cue() -> void:
 
 
 func _acknowledge_first_clutch_orders_handoff() -> void:
-	if not office._flockwatch_open or not office._first_clutch_orders_handoff_pending():
+	if not office._flockwatch_open or not _first_clutch_orders_handoff_pending():
 		return
 	office._first_clutch["orders_handoff_acknowledged"] = true
 	var snapshot := office._simulation.snapshot()
 	office._update_flockwatch_toggle()
-	office._refresh_first_clutch_ui(snapshot)
+	_refresh_first_clutch_ui(snapshot)
 	office._update_guidance(snapshot)
 	office._save_campaign_checkpoint("first_clutch_orders_opened")
 

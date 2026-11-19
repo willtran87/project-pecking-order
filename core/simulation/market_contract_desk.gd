@@ -61,7 +61,7 @@ func _neutral_market_season_for_day(target_day: int) -> Dictionary:
 func market_season_for_day(target_day: int) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if target_day < DepartmentSimulation.MARKET_SEASON_FIRST_DAY:
-		return sim._neutral_market_season_for_day(target_day)
+		return _neutral_market_season_for_day(target_day)
 	var day_offset := target_day - DepartmentSimulation.MARKET_SEASON_FIRST_DAY
 	@warning_ignore("integer_division")
 	var season_serial: int = day_offset / DepartmentSimulation.MARKET_SEASON_LENGTH_DAYS
@@ -93,7 +93,7 @@ func market_season_for_day(target_day: int) -> Dictionary:
 func market_contract_clause_catalog() -> Array[Dictionary]:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var catalog: Array[Dictionary] = []
-	var room_owned := sim.has_facility(DepartmentSimulation.FARM_MUTUAL_NEGOTIATION_ROOM_ID)
+	var room_owned := has_facility(DepartmentSimulation.FARM_MUTUAL_NEGOTIATION_ROOM_ID)
 	for clause_id in DepartmentSimulation.MARKET_CONTRACT_CLAUSE_ORDER:
 		var definition := DepartmentSimulation.MARKET_CONTRACT_CLAUSE_DEFINITIONS[clause_id] as Dictionary
 		var requires_room := bool(definition.get("requires_negotiation_room", false))
@@ -113,7 +113,7 @@ func market_contract_clause_catalog() -> Array[Dictionary]:
 func market_pricing_profile_catalog() -> Array[Dictionary]:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var catalog: Array[Dictionary] = []
-	var reach := sim.market_reach_points()
+	var reach := market_reach_points()
 	var satisfaction := sim.claimant_satisfaction_score()
 	for pricing_id in DepartmentSimulation.MARKET_PRICING_PROFILE_ORDER:
 		var definition := DepartmentSimulation.MARKET_PRICING_PROFILE_DEFINITIONS[pricing_id] as Dictionary
@@ -172,7 +172,7 @@ func _market_pricing_outcome_count(pricing_id: StringName, success: bool) -> int
 
 func market_reach_points() -> int:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	return sim._market_reach_for_outcomes(sim.market_pricing_outcomes)
+	return _market_reach_for_outcomes(sim.market_pricing_outcomes)
 
 
 func _market_reach_for_outcomes(outcomes: Dictionary) -> int:
@@ -192,15 +192,15 @@ func _market_reach_for_outcomes(outcomes: Dictionary) -> int:
 
 func mutual_market_share_basis_points() -> int:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	return clampi(3500 + sim.market_reach_points() * 250, 2500, 8500)
+	return clampi(3500 + market_reach_points() * 250, 2500, 8500)
 
 
 func market_pricing_status() -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return {
-		"reach_points": sim.market_reach_points(),
+		"reach_points": market_reach_points(),
 		"claimant_satisfaction": sim.claimant_satisfaction_score(),
-		"market_share_basis_points": sim.mutual_market_share_basis_points(),
+		"market_share_basis_points": mutual_market_share_basis_points(),
 		"executive_select_reach_requirement": DepartmentSimulation.MARKET_PRICING_EXECUTIVE_REACH_REQUIREMENT,
 		"executive_select_satisfaction_minimum": (
 			DepartmentSimulation.MARKET_PRICING_EXECUTIVE_SATISFACTION_MINIMUM
@@ -241,7 +241,7 @@ func _market_contract_preflight_basis() -> Dictionary:
 	var capacity := sim.current_claim_capacity()
 	return {
 		"capacity": capacity,
-		"available_slots": maxi(0, capacity - sim._outstanding_claim_count() - sim._pending_market_contract_claim_count()),
+		"available_slots": maxi(0, capacity - sim._outstanding_claim_count() - _pending_market_contract_claim_count()),
 		"spendable": sim.spendable_fund_cents(),
 		"active_staff": sim.active_worker_count(),
 		"planning_open": market_contract_planning_open(),
@@ -270,7 +270,7 @@ func _market_contract_offer_preflight(
 	var pricing_known := DepartmentSimulation.MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id)
 	var offer := {}
 	if clause_known and pricing_known:
-		offer = sim._market_contract_quote_for_day(
+		offer = _market_contract_quote_for_day(
 			offer_id,
 			sim.day,
 			maxi(0, sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID)),
@@ -420,7 +420,7 @@ func market_contract_board_status() -> Dictionary:
 	var standing := sim.farm_mutual_standing_status()
 	var accreditation := sim.farm_mutual_service_coop_status()
 	var negotiation_room := sim.farm_mutual_negotiation_room_status()
-	var season := sim.market_season_for_day(sim.day)
+	var season := market_season_for_day(sim.day)
 	var active := sim.active_market_contract.duplicate(true)
 	if not active.is_empty():
 		active["remaining_required"] = maxi(
@@ -428,8 +428,8 @@ func market_contract_board_status() -> Dictionary:
 			int(active.get("required_completed", 0))
 			- int(active.get("timely_sound_completed", 0)),
 		)
-		active["pending_arrivals"] = sim._pending_market_contract_claim_count()
-		active["breach_reserve_cents"] = sim.current_market_contract_reserve_cents()
+		active["pending_arrivals"] = _pending_market_contract_claim_count()
+		active["breach_reserve_cents"] = current_market_contract_reserve_cents()
 	return {
 		"unlocked": unlocked,
 		"unlock_day": DepartmentSimulation.CONTRACT_BOARD_UNLOCK_DAY,
@@ -442,8 +442,8 @@ func market_contract_board_status() -> Dictionary:
 		"standing": standing,
 		"accreditation": accreditation,
 		"negotiation_room": negotiation_room,
-		"pricing": sim.market_pricing_status(),
-		"offers": sim.market_contract_offer_catalog(),
+		"pricing": market_pricing_status(),
+		"offers": market_contract_offer_catalog(),
 		"active": active,
 		"active_contract": active.duplicate(true),
 		"decline_available": (
@@ -456,8 +456,8 @@ func market_contract_board_status() -> Dictionary:
 		"last_result": sim.last_market_contract_result.duplicate(true),
 		"claim_capacity": sim.current_claim_capacity(),
 		"claims_outstanding": sim._outstanding_claim_count(),
-		"reserved_claim_slots": sim._pending_market_contract_claim_count(),
-		"breach_reserve_cents": sim.current_market_contract_reserve_cents(),
+		"reserved_claim_slots": _pending_market_contract_claim_count(),
+		"breach_reserve_cents": current_market_contract_reserve_cents(),
 		"contracts_signed_total": sim.market_contracts_signed_total,
 		"contracts_succeeded_total": sim.market_contracts_succeeded_total,
 		"contracts_breached_total": sim.market_contracts_breached_total,
@@ -486,7 +486,7 @@ func sign_market_contract(
 	## Signing is a reserve transaction, not income or expense. The exact folders
 	## and claim IDs are authored now, then released at their disclosed times
 	## without opening a modal or stopping the production clock.
-	var preflight := sim.market_contract_offer_preflight(offer_id, clause_id, pricing_id)
+	var preflight := market_contract_offer_preflight(offer_id, clause_id, pricing_id)
 	if not bool(preflight.get("can_sign", false)):
 		var rejection := preflight.duplicate(true)
 		rejection["accepted"] = false
@@ -541,7 +541,7 @@ func sign_market_contract(
 		"late_count": 0,
 	}, true)
 	sim.market_contracts_signed_total += 1
-	var result := sim.market_contract_board_status()
+	var result := market_contract_board_status()
 	result.merge({
 		"accepted": true,
 		"action_id": &"sign_market_contract",
@@ -606,7 +606,7 @@ func decline_market_contract() -> Dictionary:
 		"target_day": sim.day,
 		"outcome": "STANDARD BOOK FILED: no outside Farm Mutual binder will arrive on Day %d." % sim.day,
 	}
-	var result := sim.market_contract_board_status()
+	var result := market_contract_board_status()
 	result.merge(sim.market_contract_decline_receipt.duplicate(true), true)
 	sim.announcement_posted.emit(String(sim.market_contract_decline_receipt["outcome"]))
 	sim.market_contract_declined.emit(result.duplicate(true))
@@ -672,7 +672,7 @@ func _legacy_market_contract_offer_for_day(offer_id: StringName, target_day: int
 	var required_completed := int(definition.get("required_deliveries", total_claims))
 	var base_premium_cents := int(definition.get("premium_cents", 0))
 	var service_coop_level := maxi(0, sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID))
-	var service_coop_bonus_cents := sim._service_coop_premium_bonus_cents(
+	var service_coop_bonus_cents := _service_coop_premium_bonus_cents(
 		base_premium_cents,
 		service_coop_level,
 	)
@@ -730,7 +730,7 @@ func _legacy_market_contract_offer_for_day(offer_id: StringName, target_day: int
 
 func _market_contract_offer_for_day(offer_id: StringName, target_day: int) -> Dictionary:
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
-	return sim._market_contract_quote_for_day(
+	return _market_contract_quote_for_day(
 		offer_id,
 		target_day,
 		maxi(0, sim.facility_level(DepartmentSimulation.FARM_MUTUAL_SERVICE_COOP_ID)),
@@ -751,14 +751,14 @@ func _market_contract_quote_for_day(
 	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.MARKET_CONTRACT_DEFINITIONS.has(offer_id) or not DepartmentSimulation.MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id) or not DepartmentSimulation.MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id):
 		return {}
-	var context := [target_day, clampi(service_coop_level, 0, 3), clampi(negotiation_room_level, 0, 1), force_neutral_terms, sim.market_reach_points(), sim.claimant_satisfaction_score()]
+	var context := [target_day, clampi(service_coop_level, 0, 3), clampi(negotiation_room_level, 0, 1), force_neutral_terms, market_reach_points(), sim.claimant_satisfaction_score()]
 	if context != sim._market_quote_context:
 		sim._market_quote_context = context
 		sim._market_quote_cache.clear()
 	var key := "%s|%s|%s" % [offer_id, clause_id, pricing_id]
 	if not sim._market_quote_cache.has(key):
 		var started := sim.cost_probe.begin()
-		sim._market_quote_cache[key] = sim._build_market_contract_quote_for_day(
+		sim._market_quote_cache[key] = _build_market_contract_quote_for_day(
 			offer_id, target_day, service_coop_level, negotiation_room_level,
 			clause_id, force_neutral_terms, pricing_id,
 		)
@@ -908,9 +908,9 @@ func _build_market_contract_quote_for_day(
 	var authored_base_premium_cents := int(definition.get("premium_cents", 0))
 	var authored_breach_cents := int(definition.get("breach_cents", 0))
 	var season := (
-		sim._neutral_market_season_for_day(target_day)
+		_neutral_market_season_for_day(target_day)
 		if force_neutral_terms else
-		sim.market_season_for_day(target_day)
+		market_season_for_day(target_day)
 	)
 	var season_lane_demand := season.get("lane_demand_basis_points", {}) as Dictionary
 	var demand_numerator := 0
@@ -959,7 +959,7 @@ func _build_market_contract_quote_for_day(
 	)
 	service_coop_level = clampi(service_coop_level, 0, 3)
 	negotiation_room_level = clampi(negotiation_room_level, 0, 1)
-	var service_coop_bonus_cents := sim._service_coop_premium_bonus_cents(
+	var service_coop_bonus_cents := _service_coop_premium_bonus_cents(
 		authored_base_premium_cents,
 		service_coop_level,
 	)
@@ -984,7 +984,7 @@ func _build_market_contract_quote_for_day(
 	var requires_room := bool(clause.get("requires_negotiation_room", false))
 	var required_reach := int(pricing.get("required_reach", 0))
 	var required_satisfaction := int(pricing.get("required_satisfaction", 0))
-	var current_reach := sim.market_reach_points()
+	var current_reach := market_reach_points()
 	var current_satisfaction := sim.claimant_satisfaction_score()
 	var pricing_unavailable_reason := _market_pricing_availability_reason(
 		required_reach,
@@ -1329,7 +1329,7 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 	var breach_cents := contracted_breach_cents if not success else 0
 	var fund_before := sim.revenue_cents
 	var standing_before := sim.farm_mutual_standing()
-	var reach_before := sim.market_reach_points()
+	var reach_before := market_reach_points()
 	var satisfaction_before := sim.claimant_satisfaction_score()
 	var clean_streak_before := sim.market_clean_contract_streak
 	if success:
@@ -1363,7 +1363,7 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		int(sim.market_pricing_outcomes.get(pricing_outcome_key, 0)) + 1
 	)
 	var standing_after := sim.farm_mutual_standing()
-	var reach_after := sim.market_reach_points()
+	var reach_after := market_reach_points()
 	var satisfaction_after := sim.claimant_satisfaction_score()
 	var settlement_outcome := ""
 	if success:
@@ -1538,7 +1538,7 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 		"market_reach_before": reach_before,
 		"market_reach_after": reach_after,
 		"market_reach_delta": reach_after - reach_before,
-		"market_share_basis_points": sim.mutual_market_share_basis_points(),
+		"market_share_basis_points": mutual_market_share_basis_points(),
 		"claimant_satisfaction_before": satisfaction_before,
 		"claimant_satisfaction_after": satisfaction_after,
 		"claimant_satisfaction_delta": satisfaction_after - satisfaction_before,

@@ -56,7 +56,7 @@ func _apply_physical_review_layout() -> void:
 			)
 	if office._review_details_scroll != null:
 		office._review_details_scroll.custom_minimum_size.y = 112.0 if compact else 184.0
-	office._set_review_details_expanded(office._review_details_expanded)
+	_set_review_details_expanded(office._review_details_expanded)
 
 
 func _set_review_details_expanded(expanded: bool) -> void:
@@ -311,7 +311,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			String(personnel_action.get("action_name", "CHECK-IN")).to_upper(),
 		]
 	office._review_title.text = "%s · DAY %d" % ["QUOTA MET" if met_quota else "SHIFT FILED", int(report.get("day", 1))]
-	office._set_review_details_expanded(false)
+	_set_review_details_expanded(false)
 	if office._review_eggs_value != null:
 		office._review_eggs_value.text = "%s  %d / %d" % [
 			"OK" if met_quota else "!",
@@ -332,7 +332,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 		office._review_fund_value.text = "$%.2f" % (float(closing_fund) / 100.0)
 	if office._review_next_value != null:
 		office._review_next_value.text = "%d EGGS" % int(report.get("next_quota", quota))
-	office._apply_three_card_review(report)
+	_apply_three_card_review(report)
 	if office._review_summary != null:
 		var shell_summary := (
 			"OK  CLEAN SHELLS   /   * %d GOLDEN" % golden
@@ -714,7 +714,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 		var memo_kind := StringName(report.get("credit_memo_kind", &""))
 		var memo_id := StringName(report.get("credit_memo_id", &""))
 		office._begin_next_shift_button.text = (
-			"REVIEW CREDIT  >" if office._review_has_pending_credit() else
+			"REVIEW CREDIT  >" if _review_has_pending_credit() else
 			"CAREER REVIEW  >" if office._campaign_senior_roost else
 			"FINAL REVIEW  >" if office._campaign_state != null and office._campaign_state.outcome != Office.CampaignStateScript.OUTCOME_IN_PROGRESS else
 			"PLAN NEXT SHIFT  >"
@@ -725,7 +725,7 @@ func _show_farmer_review(report: Dictionary, animate: bool = true) -> void:
 			("Next: golden egg credit dossier."
 			if memo_id == &"golden_egg_dossier" else
 			("Next: allocate closing credit."
-			if office._review_has_pending_credit() else
+			if _review_has_pending_credit() else
 			"Next: file the shift report and plan the following shift."))
 		)
 	office._day_review_scrim.visible = true
@@ -749,7 +749,7 @@ func _review_has_pending_credit() -> bool:
 
 func _review_handoff_hint(optional_copy: String) -> String:
 	var next_step := "Review campaign progress, then plan the next shift."
-	if office._review_has_pending_credit():
+	if _review_has_pending_credit():
 		next_step = "Resolve closing credit, then review what comes next."
 	elif office._campaign_senior_roost:
 		next_step = "Review your career before planning the next shift."
@@ -764,7 +764,7 @@ func _apply_three_card_review(report: Dictionary) -> void:
 	office._personal_goal_button.text = "GOAL ACCEPTED · CANCEL" if office._personal_goal == office._personal_goal_offer else "TRY NEXT SHIFT · " + Office.PersonalShiftGoal.label(office._personal_goal_offer)
 	office._personal_goal_button.tooltip_text = "Optional personal goal. Tracks real results next shift; no money is spent and no cash reward is promised. Click again to cancel."
 	var next_challenge := Office.PersonalShiftGoal.strategy(office._personal_goal_offer)
-	office._review_next_hint.text = office._review_handoff_hint(String(report.get("personal_goal_result", next_challenge.get("copy", "NEXT SHIFT"))))
+	office._review_next_hint.text = _review_handoff_hint(String(report.get("personal_goal_result", next_challenge.get("copy", "NEXT SHIFT"))))
 	office._review_next_hint.tooltip_text = "Next names the required review step. The personal goal is optional; nothing is purchased or filed automatically."
 	office._review_next_hint.accessibility_name = "%s. %s" % [office._review_next_hint.text, office._review_next_hint.tooltip_text]
 	var projection := office._gameplay_pulse_director.compose_report(report)
@@ -899,7 +899,7 @@ func _review_progression_action(snapshot: Dictionary = {}) -> Dictionary:
 
 
 func _apply_review_progression_action(snapshot: Dictionary = {}) -> Dictionary:
-	var action := office._review_progression_action(snapshot)
+	var action := _review_progression_action(snapshot)
 	if office._continue_shift_button != null:
 		office._continue_shift_button.text = String(action.get("button_text", "CONTINUE: FILE SHIFT RESULTS"))
 		var exact_detail := String(action.get(
@@ -1493,7 +1493,7 @@ func _senior_presentation_snapshot(view: StringName) -> Dictionary:
 			{}
 		),
 		"mandate_tier": mandate_tier,
-		"career_sponsorship": office._career_sponsorship_presentation_snapshot(),
+		"career_sponsorship": _career_sponsorship_presentation_snapshot(),
 		"staffing_planning_open": bool(
 			office._simulation.snapshot().get("staffing_planning_open", false)
 		),

@@ -43,7 +43,7 @@ func _decision_option_column_count(
 	# targets and readable labels instead of squeezing the same information into
 	# narrow side-by-side columns.
 	if decision_category == &"flock_petition":
-		return office._decision_petition_option_column_count(panel_width)
+		return _decision_petition_option_column_count(panel_width)
 	if panel_width < 500.0:
 		return 1
 	if kind == Office.FIRST_CLUTCH_REINVESTMENT_KIND:
@@ -121,7 +121,7 @@ func _configure_decision_petition_glance(decision: Dictionary) -> void:
 	if office._decision_petition_semantics != null:
 		office._decision_petition_semantics.text = semantic_detail
 		office._decision_petition_semantics.set_meta("accessible_text", semantic_detail)
-	office._set_decision_petition_glance_visible(true)
+	_set_decision_petition_glance_visible(true)
 
 
 func _petition_evidence_caption(raw_caption: String) -> String:
@@ -189,7 +189,7 @@ func _configure_decision_order_glance() -> void:
 		))
 		caption.tooltip_text = value.tooltip_text
 	_reset_decision_order_fit_visuals()
-	office._set_decision_order_glance_visible(not objectives.is_empty())
+	_set_decision_order_glance_visible(not objectives.is_empty())
 
 
 func _reset_decision_order_fit_visuals() -> void:
@@ -374,7 +374,7 @@ func _spawn_decision_consequence_receipts(
 	result: Dictionary,
 ) -> void:
 	office._retire_action_outcome_receipts(&"replaced", false)
-	var entries := office._decision_consequence_entries(before, after)
+	var entries := _decision_consequence_entries(before, after)
 	var visible_entries: Array = entries.slice(0, mini(3, entries.size()))
 	var option_label := String(result.get("option_id", "DECISION")).replace("_", " ").to_upper()
 	for option_value in office._active_decision.get("options", []):
@@ -777,7 +777,7 @@ func _decision_primary_action_state() -> Dictionary:
 
 
 func _focus_decision_primary_action() -> bool:
-	var action := office._decision_primary_action_state()
+	var action := _decision_primary_action_state()
 	if action.is_empty() or not bool(action.get("actionable", false)):
 		return false
 	if String(action.get("stage", "select")) == "confirm":
