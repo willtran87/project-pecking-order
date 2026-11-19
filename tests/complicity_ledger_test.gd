@@ -84,6 +84,50 @@ func _run() -> void:
 		failures,
 	)
 
+	# The default campaign docket (PO-1701) must apply the named witness's
+	# personal cost, because the choice card names her on every docket.
+	var baseline := DepartmentSimulation.new(1701, 4)
+	var company_incident: StringName = &""
+	var company_option: StringName = &""
+	for incident_id: StringName in SimulationScript.INCIDENT_ORDER:
+		if baseline.incident_character_arc_snapshot(incident_id).is_empty():
+			continue
+		for choice: Dictionary in baseline._incident_choices(incident_id):
+			if LedgerScript.incident_side(StringName(choice.get("tone", &""))) == LedgerScript.SIDE_COMPANY:
+				company_incident = incident_id
+				company_option = StringName(choice.get("id", &""))
+				break
+		if company_incident != &"":
+			break
+	var arc := baseline.incident_character_arc_snapshot(company_incident)
+	var witness: ChickenState
+	for worker in baseline.workers:
+		if worker.id == int(arc.get("worker_id", -1)):
+			witness = worker
+	var stress_before := witness.stress if witness != null else -1.0
+	var trust_before := witness.manager_trust if witness != null else -1.0
+	baseline._decision_serial = 1
+	baseline.shift_phase = DepartmentSimulation.ShiftPhase.AWAITING_INCIDENT
+	baseline.pending_decision = {
+		"serial": 1,
+		"kind": &"incident",
+		"id": company_incident,
+		"day": 1,
+		"character_arc": arc,
+		"options": baseline._incident_choices(company_incident),
+	}
+	baseline.revenue_cents = 100000
+	_check(
+		company_incident != &"" and witness != null and baseline._resolve_incident(company_option),
+		"the PO-1701 docket should resolve a witnessed company-side incident",
+		failures,
+	)
+	_check(
+		witness != null and witness.stress > stress_before and witness.manager_trust < trust_before,
+		"on the default PO-1701 docket the named witness must pay for a company-side response",
+		failures,
+	)
+
 	if not failures.is_empty():
 		for failure in failures:
 			push_error("COMPLICITY_LEDGER_TEST_FAILED: %s" % failure)

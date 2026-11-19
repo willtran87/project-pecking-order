@@ -9798,14 +9798,10 @@ func _resolve_incident(option_id: StringName) -> bool:
 		petition_record = _apply_flock_petition_response(option_id, chosen)
 	else:
 		_apply_incident_effects(incident_id, option_id, case_memory)
-		# PO-1701 is the frozen economic/balance baseline used by historical saves
-		# and the complete Senior-career proof. Its choices already carry authored
-		# flock-wide relationship effects, so adding a second witness modifier would
-		# silently retune every downstream ledger. Authored replay dockets retain the
-		# extra personal consequence and therefore still make the named callback a
-		# mechanically meaningful relationship beat.
-		if _career_seed != 1701:
-			_apply_incident_character_consequence(character_arc, StringName(chosen.get("tone", &"")))
+		# The named witness carries a personal cost or protection on every docket,
+		# including the PO-1701 baseline: the choice card names her before filing,
+		# so the consequence must be real wherever the card makes that claim.
+		_apply_incident_character_consequence(character_arc, StringName(chosen.get("tone", &"")))
 	incidents_resolved_today += 1
 	var outcome := String(chosen.get("outcome", "Incident response recorded."))
 	var serial := int(pending_decision.get("serial", -1))
