@@ -8,9 +8,6 @@ extends RefCounted
 ## Weak back-reference: the simulation owns this component, so a strong
 ## reference here would form a RefCounted cycle and leak both objects.
 var _sim_ref: WeakRef
-var sim: DepartmentSimulation:
-	get:
-		return _sim_ref.get_ref() as DepartmentSimulation
 
 
 func _init(owner_node: DepartmentSimulation) -> void:
@@ -35,6 +32,7 @@ func _neutral_campus_expansion_state() -> Dictionary:
 
 
 func _settled_peck_assist_delivery_snapshot() -> Array[int]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var claim_ids: Array[int] = []
 	for claim_id in sim._settled_peck_assist_delivery_ids:
 		claim_ids.append(int(claim_id))
@@ -43,6 +41,7 @@ func _settled_peck_assist_delivery_snapshot() -> Array[int]:
 
 
 func _manager_action_save_data() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var result := sim.last_manager_action.duplicate(true)
 	for id_field in ["action_id", "manager_id", "choice_id", "replaced_manager_id"]:
 		if result.has(id_field):
@@ -51,6 +50,7 @@ func _manager_action_save_data() -> Dictionary:
 
 
 func export_save_state() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## This is the authoritative simulation checkpoint. It intentionally contains
 	## only primitives so the campaign save remains portable to Web builds.
 	# Tests and administrative tools may advance `day` directly. Normalize the
@@ -288,6 +288,7 @@ func export_save_state() -> Dictionary:
 
 
 func restore_save_state(data: Dictionary) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## Rebuild reference data before mutating this simulation. A damaged checkpoint
 	## therefore fails closed and leaves the current session playable.
 	var migrated_data := _migrate_save_state(data)
@@ -2165,6 +2166,7 @@ func restore_save_state(data: Dictionary) -> bool:
 
 
 func _migrate_save_state(source: Dictionary) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## Simulation checkpoints are nested inside the campaign save. Keep migration
 	## local and pure so a rejected checkpoint cannot partially mutate the office.
 	if not sim._is_integral_number(source.get("state_version", null)):
@@ -2993,6 +2995,7 @@ func _migrate_save_state(source: Dictionary) -> Dictionary:
 
 
 func _migrated_v14_active_market_contract(source: Dictionary) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if source.is_empty():
 		return {}
 	var offer_id := StringName(String(source.get("offer_id", "")))
@@ -3066,6 +3069,7 @@ func _migrated_v14_active_market_contract(source: Dictionary) -> Dictionary:
 
 
 func _migrated_v14_market_contract_result(source: Dictionary) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if source.is_empty():
 		return {}
 	var offer_id := StringName(String(source.get("offer_id", "")))
@@ -3187,6 +3191,7 @@ func _migrated_v14_market_contract_schedules(
 
 
 func _validated_market_contract_id_array(value: Variant) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Array:
 		return {"valid": false, "ids": []}
 	var source := value as Array
@@ -3215,6 +3220,7 @@ func _market_contract_same_id_order(left: Array, right: Array) -> bool:
 
 
 func _market_contract_lane_mix_matches(value: Variant, authored: Dictionary) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return false
 	var source := value as Dictionary
@@ -3234,6 +3240,7 @@ func _market_contract_lane_mix_matches(value: Variant, authored: Dictionary) -> 
 
 
 func _market_contract_arrival_batches_match(value: Variant, authored_value: Variant) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Array or not authored_value is Array:
 		return false
 	var source := value as Array
@@ -3280,6 +3287,7 @@ func _market_contract_arrival_batches_match(value: Variant, authored_value: Vari
 
 
 func _market_contract_season_matches(value: Variant, expected: Dictionary) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return false
 	var source := value as Dictionary
@@ -3318,6 +3326,7 @@ func _active_market_contract_quote_matches(
 	expected: Dictionary,
 	legacy_terms_grandfathered: bool
 ) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var has_pricing_terms := source.has("pricing_profile_id")
 	for field in [
 		"authored_service_window_minutes",
@@ -3427,6 +3436,7 @@ func _market_contract_result_quote_matches(
 	expected: Dictionary,
 	legacy_terms_grandfathered: bool
 ) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var has_pricing_terms := source.has("pricing_profile_id")
 	for field in [
 		"authored_service_window_minutes",
@@ -3532,6 +3542,7 @@ func _market_contract_result_quote_matches(
 
 
 func _market_contract_result_schedules_match(value: Variant, expected_value: Variant) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Array or not expected_value is Array:
 		return false
 	var source := value as Array
@@ -3590,6 +3601,7 @@ func _validated_active_market_contract(
 	restored_service_coop_level: int,
 	restored_negotiation_room_level: int
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var invalid := {"valid": false, "record": {}}
 	if not value is Dictionary:
 		return invalid
@@ -3966,6 +3978,7 @@ func _validated_market_contract_result(
 	restored_service_coop_level: int,
 	restored_negotiation_room_level: int
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var invalid := {"valid": false, "record": {}}
 	if not value is Dictionary:
 		return invalid
@@ -4324,6 +4337,7 @@ func _validated_market_contract_decline_receipt(
 	saved_day: int,
 	saved_phase: int
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var invalid := {"valid": false, "record": {}}
 	if not value is Dictionary:
 		return invalid
@@ -4367,6 +4381,7 @@ func _validated_market_contract_decline_receipt(
 
 
 func _validated_upgrade_levels(value: Variant) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {}
 	var source := value as Dictionary
@@ -4388,6 +4403,7 @@ func _validated_upgrade_levels(value: Variant) -> Dictionary:
 
 
 func _cumulative_upgrade_spend_cents(levels: Dictionary) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var total := 0
 	for upgrade_id in DepartmentSimulation.UPGRADE_ORDER:
 		var level := clampi(int(levels.get(upgrade_id, 0)), 0, DepartmentSimulation.MAX_UPGRADE_LEVEL)
@@ -4397,6 +4413,7 @@ func _cumulative_upgrade_spend_cents(levels: Dictionary) -> int:
 
 
 func _validated_hero_case_history(value: Variant, saved_day: int, worker_count: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Array or (value as Array).size() > 32:
 		return {"valid": false, "history": []}
 	var history: Array[Dictionary] = []
@@ -4435,6 +4452,7 @@ func _validated_hero_case_history(value: Variant, saved_day: int, worker_count: 
 
 
 func _validated_rival_response_history(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Array or (value as Array).size() > 32:
 		return {"valid": false, "history": []}
 	var history: Array[Dictionary] = []
@@ -4470,6 +4488,7 @@ func _validated_active_playbook(
 	saved_day: int,
 	worker_count: int,
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	# Version 30 checkpoints predate this optional layer, so absence restores a
 	# fresh same-day playbook. Once present, every authoritative choice is checked.
 	if value == null:
@@ -4580,6 +4599,7 @@ func _validated_first_clutch_reinvestment(
 	saved_day: int,
 	restored_upgrade_levels: Dictionary
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false, "record": {}}
 	var source := value as Dictionary
@@ -4812,6 +4832,7 @@ func _is_valid_shift_decision_tuple(
 
 
 func _is_valid_peck_assist_record(value: Dictionary, saved_day: int) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if value.is_empty():
 		return true
 	if typeof(value.get("accepted", null)) != TYPE_BOOL or not bool(value.get("accepted", false)):
@@ -4851,6 +4872,7 @@ func _is_valid_peck_assist_record(value: Dictionary, saved_day: int) -> bool:
 
 
 func _is_valid_peck_assist_delivery_token(value: Dictionary, saved_day: int) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	for field in ["day", "claim_id", "worker_id"]:
 		if not sim._is_integral_number(value.get(field, null)):
 			return false
@@ -4874,6 +4896,7 @@ func _normalized_peck_assist_delivery_token(value: Dictionary) -> Dictionary:
 
 
 func _is_valid_peck_assist_delivery_receipt(value: Dictionary, saved_day: int) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if value.is_empty():
 		return true
 	if (
@@ -4916,6 +4939,7 @@ func _is_valid_peck_assist_delivery_receipt(value: Dictionary, saved_day: int) -
 
 
 func _is_valid_staffing_action_data(value: Dictionary, saved_day: int) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if value.is_empty():
 		return true
 	if typeof(value.get("accepted", null)) != TYPE_BOOL or not bool(value.get("accepted", false)):
@@ -4977,6 +5001,7 @@ func _validated_campus_expansion_receipt(
 	expected_receipt_id: int,
 	replay_state: Dictionary,
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {}
 	var receipt := value as Dictionary
@@ -5099,6 +5124,7 @@ func _validated_campus_expansion_receipt(
 
 
 func _validated_campus_expansion_state(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false}
 	var source := value as Dictionary
@@ -5196,6 +5222,7 @@ func _validated_campus_expansion_state(value: Variant, saved_day: int) -> Dictio
 
 
 func _campus_replay_state_before_last(history: Array[Dictionary]) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var state := _neutral_campus_expansion_state()
 	for index in maxi(0, history.size() - 1):
 		var receipt := history[index] as Dictionary
@@ -5213,6 +5240,7 @@ func _validated_facility_purchase_receipt(
 	saved_day: int,
 	restored_owned_facilities: Dictionary,
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {}
 	var receipt := value as Dictionary
@@ -5362,6 +5390,7 @@ func _validated_capital_records(
 
 
 func _validated_manager_roster(value: Variant, rooster_office_level: int) -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var invalid: Array[Dictionary] = []
 	if not value is Array:
 		return invalid
@@ -5414,6 +5443,7 @@ func _validated_manager_roster(value: Variant, rooster_office_level: int) -> Arr
 
 
 func _validated_owned_facilities(value: Variant) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## The current schema requires exactly one integral level for every known facility.
 	## Rejecting unknown, missing, duplicate-normalized, and out-of-range entries
 	## keeps authored effects deterministic after a JSON round trip.
@@ -5455,6 +5485,7 @@ func _validated_flock_relations_resolution(
 	facility_level_value: int,
 	restored_workers: Array[ChickenState],
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false, "record": {}}
 	var source := value as Dictionary
@@ -5532,6 +5563,7 @@ func _validated_flock_relations_state(
 	facility_level_value: int,
 	restored_workers: Array[ChickenState],
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	for field in [
 		"flock_relations_resolutions_used_today",
 		"flock_relations_resolved_total",
@@ -5791,6 +5823,7 @@ func _normalized_staffing_action_data(value: Dictionary) -> Dictionary:
 
 
 func _restore_worker_shift_stats(value: Variant) -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var restored: Array[Dictionary] = []
 	if not value is Array or (value as Array).size() != sim.workers.size():
 		return restored
@@ -5828,6 +5861,7 @@ func _restore_worker_shift_stats(value: Variant) -> Array[Dictionary]:
 
 
 func _validated_pecking_order_data(value: Variant) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Array:
 		return {"valid": false, "rows": []}
 	var source := value as Array
@@ -5885,6 +5919,7 @@ func _validated_pecking_order_data(value: Variant) -> Dictionary:
 
 
 func _validated_credit_counts(value: Variant) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {}
 	var restored: Dictionary = {}
@@ -5900,6 +5935,7 @@ func _validated_credit_counts(value: Variant) -> Dictionary:
 
 
 func _validated_credit_allocation(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false, "record": {}}
 	var source := value as Dictionary
@@ -5946,6 +5982,7 @@ func _validated_credit_allocation(value: Variant, saved_day: int) -> Dictionary:
 
 
 func _validated_restructuring_record(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false, "record": {}}
 	var source := value as Dictionary
@@ -6033,6 +6070,7 @@ func _validated_restructuring_record(value: Variant, saved_day: int) -> Dictiona
 
 
 func _validated_flock_petition_record(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false, "record": {}}
 	var source := value as Dictionary
@@ -6144,6 +6182,7 @@ func _validated_flock_petition_history(value: Variant, saved_day: int) -> Dictio
 
 
 func _validated_flock_compact(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false, "record": {}}
 	var source := value as Dictionary
@@ -6200,6 +6239,7 @@ func _validated_flock_compact(value: Variant, saved_day: int) -> Dictionary:
 
 
 func _validated_flock_compact_receipt(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false, "record": {}}
 	var source := value as Dictionary
@@ -6261,6 +6301,7 @@ func _validated_flock_compact_receipt(value: Variant, saved_day: int) -> Diction
 
 
 func _validated_work_to_rule_record(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return {"valid": false, "record": {}}
 	var source := value as Dictionary
@@ -6316,6 +6357,7 @@ func _validated_work_to_rule_record(value: Variant, saved_day: int) -> Dictionar
 
 
 func _is_valid_pending_flock_petition(value: Variant, saved_day: int) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Dictionary:
 		return false
 	var source := value as Dictionary
@@ -6379,6 +6421,7 @@ func _is_valid_pending_flock_petition(value: Variant, saved_day: int) -> bool:
 
 
 func _highest_claim_id() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var highest := 0
 	for lane in DepartmentSimulation.CLAIM_LANES:
 		for claim_value in (sim._claim_queues.get(lane, []) as Array):
@@ -6401,6 +6444,7 @@ func _highest_claim_id() -> int:
 
 
 func _is_valid_feed_procurement_quote_state(state: FeedProcurementState) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	for lot in state.lots:
 		var offer_id := StringName(String(lot.get("offer_id", "")))
 		if int(lot.get("unit_cost_cents", -1)) != sim._feed_offer_unit_price_cents(
@@ -6441,6 +6485,7 @@ func _is_valid_feed_procurement_quote_state(state: FeedProcurementState) -> bool
 
 
 func _validated_incident_response_history(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Array or (value as Array).size() > DepartmentSimulation.INCIDENT_RESPONSE_HISTORY_LIMIT:
 		return {"valid": false, "history": []}
 	var restored: Array[Dictionary] = []
@@ -6486,6 +6531,7 @@ func _validated_incident_response_history(value: Variant, saved_day: int) -> Dic
 
 
 func _incident_pivot_receipts_from_history(history: Array) -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var receipts: Array[Dictionary] = []
 	var prior_history: Array[Dictionary] = []
 	var mastered_pairs: Dictionary[StringName, bool] = {}
@@ -6512,6 +6558,7 @@ func _incident_pivot_receipts_from_history(history: Array) -> Array[Dictionary]:
 
 
 func _validated_incident_pivot_mastery_receipts(value: Variant, saved_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not value is Array or (value as Array).size() > DepartmentSimulation.INCIDENT_PAIR_ORDER.size():
 		return {"valid": false, "receipts": []}
 	var receipts: Array[Dictionary] = []

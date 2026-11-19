@@ -8,15 +8,13 @@ extends RefCounted
 ## Weak back-reference: the simulation owns this component, so a strong
 ## reference here would form a RefCounted cycle and leak both objects.
 var _sim_ref: WeakRef
-var sim: DepartmentSimulation:
-	get:
-		return _sim_ref.get_ref() as DepartmentSimulation
 
 
 func _init(owner_node: DepartmentSimulation) -> void:
 	_sim_ref = weakref(owner_node)
 
 func set_worker_assignment(worker_id: int, lane: StringName) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if worker_id < 0 or worker_id >= sim.workers.size():
 		return false
 	if not sim.workers[worker_id].employed:
@@ -36,6 +34,7 @@ func set_worker_assignment(worker_id: int, lane: StringName) -> bool:
 
 
 func _next_personnel_action_serial() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var highest := 0
 	for worker in sim.workers:
 		highest = maxi(highest, worker.last_personnel_action_serial)
@@ -43,14 +42,17 @@ func _next_personnel_action_serial() -> int:
 
 
 func personnel_action_count_today() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim._personnel_actions_for_day(sim.day).size()
 
 
 func personnel_action_used_today() -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim.personnel_action_count_today() >= sim.personnel_action_limit()
 
 
 func perform_personnel_action(worker_id: int, action_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## One consequential check-in is available across the entire flock each shift.
 	## Every guard runs before the first mutation so denied actions are atomic.
 	if worker_id < 0 or worker_id >= sim.workers.size():
@@ -195,6 +197,7 @@ func _rejected_personnel_action(reason: String) -> Dictionary:
 
 
 func _reset_active_playbook() -> void:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim.career_workshop.begin_day(sim.day)
 	sim.active_playbook = {
 		"day": sim.day,
@@ -230,11 +233,13 @@ func _reset_active_playbook() -> void:
 
 
 func _ensure_active_playbook() -> void:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_playbook.is_empty() or int(sim.active_playbook.get("day", 0)) != sim.day:
 		sim._reset_active_playbook()
 
 
 func _playbook_contract_progress(contract_id: StringName) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if contract_id == StringName(sim.active_playbook.get("contract_id", "")) and bool(sim.active_playbook.get("contract_completed", false)):
 		return int((DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary).get("target", 0))
 	if CareerWorkshop.CHALLENGES.has(String(contract_id)):
@@ -250,6 +255,7 @@ func _playbook_contract_progress(contract_id: StringName) -> int:
 
 
 func _record_playbook_contract_completion() -> void:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim._ensure_active_playbook()
 	var contract_id := StringName(sim.active_playbook.get("contract_id", ""))
 	var definition := DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
@@ -258,11 +264,13 @@ func _record_playbook_contract_completion() -> void:
 
 
 func guided_plan_planning_open() -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	# Let new managers finish the opening lesson before choosing their first plan.
 	return sim.incidents_resolved_today == 0 and (sim.eggs_today == 0 or (sim.day == 1 and sim.eggs_today <= 3))
 
 
 func _playbook_side_goal_progress(goal_id: StringName) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	match goal_id:
 		&"clean_carton":
 			return sim.quality_streak
@@ -318,6 +326,7 @@ func _playbook_option(
 
 
 func _recommended_playbook_strategy_id() -> StringName:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	match sim.active_directive_id:
 		&"record_harvest":
 			return &"fast"
@@ -327,6 +336,7 @@ func _recommended_playbook_strategy_id() -> StringName:
 
 
 func _playbook_shift_journey(contract_complete: bool) -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var preset_id := String(sim.active_playbook.get("strategy_preset_id", ""))
 	var stage := &"plan"
 	if not preset_id.is_empty():
@@ -361,6 +371,7 @@ func _playbook_shift_journey(contract_complete: bool) -> Array[Dictionary]:
 
 
 func _playbook_proposal_id(worker_id: int) -> StringName:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if worker_id < 0 or worker_id >= sim.workers.size() or not sim.workers[worker_id].employed:
 		return &""
 	var worker := sim.workers[worker_id]
@@ -373,6 +384,7 @@ func _playbook_proposal_id(worker_id: int) -> StringName:
 
 
 func _rare_office_episode_id() -> StringName:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var episode_day := 2 + posmod(sim._career_seed, 3)
 	if sim.day != episode_day:
 		return &""
@@ -381,6 +393,7 @@ func _rare_office_episode_id() -> StringName:
 
 
 func _playbook_combo_step_progress(step_id: StringName) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	match step_id:
 		&"fit_routes":
 			return sim.routing_momentum_chain
@@ -398,6 +411,7 @@ func _playbook_combo_step_progress(step_id: StringName) -> int:
 
 
 func _playbook_combo_recipe_snapshot() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var preset_id := StringName(sim.active_playbook.get("strategy_preset_id", &""))
 	if preset_id == &"custom" or not DepartmentSimulation.PLAYBOOK_COMBO_RECIPE_DEFINITIONS.has(preset_id):
 		match sim.active_directive_id:
@@ -432,6 +446,7 @@ func _playbook_combo_recipe_snapshot() -> Dictionary:
 
 
 func _playbook_prediction_snapshot(contract: Dictionary) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var preset_id := StringName(sim.active_playbook.get("strategy_preset_id", &""))
 	if String(contract.get("id", "")).is_empty():
 		return {
@@ -525,6 +540,7 @@ func _playbook_primary_objective_snapshot(options: Array[Dictionary]) -> Diction
 
 
 func _playbook_relationship_echo_snapshot(focused_worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if focused_worker_id < 0 or focused_worker_id >= sim.workers.size() or not sim.workers[focused_worker_id].employed:
 		return {}
 	var worker := sim.workers[focused_worker_id]
@@ -542,6 +558,7 @@ func _playbook_relationship_echo_snapshot(focused_worker_id: int) -> Dictionary:
 
 
 func _playbook_strategy_mastery_snapshot(combo_recipe: Dictionary, contract: Dictionary, side_goal: Dictionary) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var marks := 0
 	marks += 1 if bool(contract.get("complete", false)) else 0
 	marks += 1 if bool(combo_recipe.get("complete", false)) else 0
@@ -569,6 +586,7 @@ func _hero_case_id_for_day(target_day: int) -> StringName:
 
 
 func _hero_case_snapshot(focused_worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim._ensure_active_playbook()
 	var case_id := StringName(sim.active_playbook.get("hero_case_id", _hero_case_id_for_day(sim.day)))
 	var definition := (DepartmentSimulation.PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary).duplicate(true)
@@ -627,6 +645,7 @@ func _hero_case_snapshot(focused_worker_id: int) -> Dictionary:
 
 
 func _partnership_progression_snapshot(focused_worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if focused_worker_id < 0 or focused_worker_id >= sim.workers.size() or not sim.workers[focused_worker_id].employed:
 		return {"available": false, "reason": "SELECT A HEN"}
 	var worker := sim.workers[focused_worker_id]
@@ -680,6 +699,7 @@ func _partnership_progression_snapshot(focused_worker_id: int) -> Dictionary:
 
 
 func _rival_memory_snapshot() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var scenario := sim.scenario_identity_snapshot()
 	var current_id := StringName(sim.active_playbook.get("rival_response_id", &""))
 	var latest: Dictionary = sim.rival_response_history.back().duplicate(true) if not sim.rival_response_history.is_empty() else {}
@@ -711,6 +731,7 @@ func _rival_memory_snapshot() -> Dictionary:
 
 
 func _automation_report_card(focused_worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if focused_worker_id < 0 or focused_worker_id >= sim.workers.size() or not sim.workers[focused_worker_id].employed:
 		return {"available": false, "worker_id": -1}
 	var worker := sim.workers[focused_worker_id]
@@ -743,6 +764,7 @@ func _automation_report_card(focused_worker_id: int) -> Dictionary:
 
 
 func _next_shift_tease_snapshot() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var next_day := sim.day + 1
 	if sim.day >= DepartmentSimulation.PROBATION_CAMPAIGN_SHIFTS:
 		return {
@@ -763,6 +785,7 @@ func _next_shift_tease_snapshot() -> Dictionary:
 
 
 func _career_story_snapshot(focused_worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if focused_worker_id < 0 or focused_worker_id >= sim.workers.size() or not sim.workers[focused_worker_id].employed:
 		return {}
 	var worker := sim.workers[focused_worker_id]
@@ -783,6 +806,7 @@ func _career_story_snapshot(focused_worker_id: int) -> Dictionary:
 
 
 func _playbook_display_sockets() -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var style_index := int(sim.active_playbook.get("display_style_index", 0))
 	var style_id := DepartmentSimulation.PLAYBOOK_DISPLAY_STYLE_ORDER[style_index]
 	var style := DepartmentSimulation.PLAYBOOK_DISPLAY_STYLE_DEFINITIONS[style_id] as Dictionary
@@ -794,6 +818,7 @@ func _playbook_display_sockets() -> Array[Dictionary]:
 
 
 func challenge_code() -> String:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return "PO-%04d-D%d" % [posmod(sim._career_seed, 10_000), clampi(sim.day, 1, 99)]
 
 
@@ -827,6 +852,7 @@ static func first_session_comprehension_protocol() -> Dictionary:
 
 
 func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim._ensure_active_playbook()
 	var contract_id := StringName(sim.active_playbook.get("contract_id", &""))
 	var contract_definition := DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
@@ -1221,6 +1247,7 @@ func playbook_snapshot(focused_worker_id: int = -1) -> Dictionary:
 
 
 func _playbook_shift_plan(contract_definition: Dictionary, combo: Dictionary) -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return [
 		{"id": "observe", "icon": "goal", "label": String(sim.active_directive_snapshot().get("short_name", "PICK POLICY"))},
 		{"id": "act", "icon": String(combo.get("icon", "sync")), "label": String(combo.get("label", "BUILD COMBO"))},
@@ -1229,6 +1256,7 @@ func _playbook_shift_plan(contract_definition: Dictionary, combo: Dictionary) ->
 
 
 func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id: int = -1) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim._ensure_active_playbook()
 	if sim.shift_phase != DepartmentSimulation.ShiftPhase.RUNNING or not sim.pending_decision.is_empty():
 		return {"accepted": false, "reason": "Resolve the current management file first."}
@@ -1561,6 +1589,7 @@ func perform_playbook_action(kind: StringName, choice_id: StringName, worker_id:
 
 
 func _perform_playbook_hero_case(choice_id: StringName, worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var case_id := StringName(sim.active_playbook.get("hero_case_id", _hero_case_id_for_day(sim.day)))
 	var definition := DepartmentSimulation.PLAYBOOK_HERO_CASE_DEFINITIONS.get(case_id, {}) as Dictionary
 	var choices := definition.get("choices", {}) as Dictionary
@@ -1630,10 +1659,12 @@ func _perform_playbook_hero_case(choice_id: StringName, worker_id: int) -> Dicti
 
 
 func _playbook_choice_result(kind: StringName, choice_id: StringName, definition: Dictionary, outcome: String) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return {"accepted": true, "playbook_kind": String(kind), "choice_id": String(choice_id), "label": String(definition.get("label", choice_id)), "effects": {"gain": String(definition.get("gain", "")), "cost": String(definition.get("cost", "")), "risk": String(definition.get("risk", ""))}, "outcome": outcome, "day": sim.day}
 
 
 func _file_playbook_receipt(result: Dictionary) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim._record_playbook_contract_completion()
 	var effects := result.get("effects", {}) as Dictionary
 	result["decision_arc"] = {
@@ -1655,6 +1686,7 @@ func _file_playbook_receipt(result: Dictionary) -> Dictionary:
 
 
 func _claim_playbook_contract_reward(choice_id: StringName, worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var contract_id := StringName(sim.active_playbook.get("contract_id", &""))
 	var contract_definition := DepartmentSimulation.PLAYBOOK_CONTRACT_DEFINITIONS.get(contract_id, {}) as Dictionary
 	if contract_definition.is_empty() or _playbook_contract_progress(contract_id) < int(contract_definition.get("target", 0)):
@@ -1726,6 +1758,7 @@ func _strategy_comparison_catalog(current_id: StringName, recommended_id: String
 
 
 func _team_lift_ability(worker: ChickenState, partner: ChickenState) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var ability := sim._base_team_lift_ability(worker, partner)
 	if not ability.is_empty() and sim.flock_relationships.affinity(worker.id, partner.id) >= 18:
 		ability["morale"] = float(ability.get("morale", 0.0)) + 2.0
@@ -1793,6 +1826,7 @@ func _base_team_lift_ability(worker: ChickenState, partner: ChickenState) -> Dic
 
 
 func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if bool(sim.active_playbook.get("teamwork_used", false)):
 		return {"accepted": false, "reason": "Team Lift is already filed this shift."}
 	if worker_id < 0 or worker_id >= sim.workers.size() or not sim.workers[worker_id].employed:
@@ -1860,6 +1894,7 @@ func _perform_playbook_teamwork(worker_id: int) -> Dictionary:
 
 
 func _perform_partnership_specialization(choice_id: StringName, worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.PLAYBOOK_PARTNERSHIP_STYLE_DEFINITIONS.has(choice_id):
 		return {"accepted": false, "reason": "That pair style is unavailable."}
 	if worker_id < 0 or worker_id >= sim.workers.size() or not sim.workers[worker_id].employed:
@@ -1899,6 +1934,7 @@ func _perform_partnership_specialization(choice_id: StringName, worker_id: int) 
 
 
 func _perform_playbook_recovery(choice_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.PLAYBOOK_RECOVERY_DEFINITIONS.has(choice_id) or not String(sim.active_playbook.get("recovery_id", "")).is_empty():
 		return {"accepted": false, "reason": "A recovery plan is already filed or unavailable."}
 	if sim.revenue_cents >= 2500 and sim.executive_confidence >= 45.0 and sim._average_worker_stress() < 55.0:
@@ -1919,6 +1955,7 @@ func _perform_playbook_recovery(choice_id: StringName) -> Dictionary:
 
 
 func _practice_playbook_peck(worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if worker_id < 0 or worker_id >= sim.workers.size() or not sim.workers[worker_id].employed:
 		return {"accepted": false, "reason": "Select an active hen for practice."}
 	var worker := sim.workers[worker_id]
@@ -1930,6 +1967,7 @@ func _practice_playbook_peck(worker_id: int) -> Dictionary:
 
 
 func _average_worker_stress() -> float:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var total := 0.0
 	var count := 0
 	for worker in sim.workers:
@@ -1940,6 +1978,7 @@ func _average_worker_stress() -> float:
 
 
 func _playbook_work_multiplier() -> float:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim._ensure_active_playbook()
 	var multiplier := 1.0
 	match StringName(sim.active_playbook.get("loadout_id", &"")):
@@ -1974,6 +2013,7 @@ func _playbook_work_multiplier() -> float:
 
 
 func _playbook_crack_modifier() -> float:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim._ensure_active_playbook()
 	var modifier := 0.0
 	match StringName(sim.active_playbook.get("loadout_id", &"")):
@@ -2007,6 +2047,7 @@ func _playbook_crack_modifier() -> float:
 
 
 func _playbook_strain_multiplier() -> float:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	sim._ensure_active_playbook()
 	var multiplier := 1.0
 	if StringName(sim.active_playbook.get("loadout_id", &"")) == &"care_floor":

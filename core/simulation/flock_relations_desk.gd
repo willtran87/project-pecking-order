@@ -8,15 +8,13 @@ extends RefCounted
 ## Weak back-reference: the simulation owns this component, so a strong
 ## reference here would form a RefCounted cycle and leak both objects.
 var _sim_ref: WeakRef
-var sim: DepartmentSimulation:
-	get:
-		return _sim_ref.get_ref() as DepartmentSimulation
 
 
 func _init(owner_node: DepartmentSimulation) -> void:
 	_sim_ref = weakref(owner_node)
 
 func flock_relations_case_capacity() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim._facility_level_schedule_value(
 		DepartmentSimulation.FLOCK_RELATIONS_CASE_CAPACITY,
 		sim.facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID),
@@ -25,6 +23,7 @@ func flock_relations_case_capacity() -> int:
 
 
 func flock_relations_resolution_limit() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim._facility_level_schedule_value(
 		DepartmentSimulation.FLOCK_RELATIONS_RESOLUTION_LIMITS,
 		sim.facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID),
@@ -33,6 +32,7 @@ func flock_relations_resolution_limit() -> int:
 
 
 func _resolve_flock_restructuring(option_id: StringName) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if (
 		sim.shift_phase != DepartmentSimulation.ShiftPhase.REVIEW
 		or sim.flock_restructuring_resolved
@@ -173,6 +173,7 @@ func _ranked_worker_row(ranking: Array, worker_id: int) -> Dictionary:
 
 
 func _release_restructuring_candidate(candidate: ChickenState) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var released_desk := candidate.desk_index
 	candidate.employed = false
 	candidate.desk_index = -1
@@ -220,6 +221,7 @@ func _release_restructuring_candidate(candidate: ChickenState) -> int:
 
 
 func _restructuring_replacement_candidate(excluded_worker_id: int) -> ChickenState:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var fallback: ChickenState = null
 	for worker in sim.workers:
 		if worker.employed or worker.id == excluded_worker_id:
@@ -232,6 +234,7 @@ func _restructuring_replacement_candidate(excluded_worker_id: int) -> ChickenSta
 
 
 func _build_flock_petition_decision() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not sim.active_flock_compact.is_empty():
 		return {}
 	var candidates: Array[Dictionary] = []
@@ -389,6 +392,7 @@ func _build_flock_petition_decision() -> Dictionary:
 
 
 func _can_apply_flock_petition_response(option_id: StringName, chosen: Dictionary) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if option_id not in DepartmentSimulation.FLOCK_PETITION_RESPONSE_IDS or int(sim.pending_decision.get("day", 0)) != sim.day:
 		return false
 	var petition_type := StringName(sim.pending_decision.get("petition_type", &""))
@@ -413,6 +417,7 @@ func _can_apply_flock_petition_response(option_id: StringName, chosen: Dictionar
 
 
 func _apply_flock_petition_response(option_id: StringName, chosen: Dictionary) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var petition_type := StringName(sim.pending_decision.get("petition_type", &""))
 	var sponsor_id := int(sim.pending_decision.get("sponsor_worker_id", -1))
 	var sponsor := sim.workers[sponsor_id]
@@ -475,6 +480,7 @@ func _apply_flock_petition_response(option_id: StringName, chosen: Dictionary) -
 
 
 func _new_flock_compact(petition_type: StringName, sponsor: ChickenState) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var definition := DepartmentSimulation.FLOCK_PETITION_DEFINITIONS[petition_type] as Dictionary
 	return {
 		"version": 1,
@@ -498,6 +504,7 @@ func _schedule_work_to_rule(
 	petition_day: int,
 	effective_day: int,
 ) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if effective_day < sim.day or effective_day > 9999:
 		return false
 	var record := {
@@ -528,6 +535,7 @@ func _schedule_work_to_rule(
 
 
 func _breach_compact_for_sponsor_release(worker_id: int) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_flock_compact.is_empty():
 		return false
 	if int(sim.active_flock_compact.get("sponsor_worker_id", -1)) != worker_id:
@@ -536,6 +544,7 @@ func _breach_compact_for_sponsor_release(worker_id: int) -> bool:
 
 
 func _breach_specialty_compact_for_assignment(worker: ChickenState) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_flock_compact.is_empty():
 		return false
 	if StringName(sim.active_flock_compact.get("status", &"")) != &"active":
@@ -550,6 +559,7 @@ func _breach_specialty_compact_for_assignment(worker: ChickenState) -> bool:
 
 
 func _breach_safe_pace_compact(reason: StringName) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_flock_compact.is_empty():
 		return false
 	if StringName(sim.active_flock_compact.get("status", &"")) != &"active":
@@ -560,6 +570,7 @@ func _breach_safe_pace_compact(reason: StringName) -> bool:
 
 
 func _breach_flock_compact(reason: StringName) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_flock_compact.is_empty():
 		return false
 	if StringName(sim.active_flock_compact.get("status", &"")) not in [&"scheduled", &"active"]:
@@ -608,6 +619,7 @@ func _breach_flock_compact(reason: StringName) -> bool:
 
 
 func _resolve_due_flock_compact(completed_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_flock_compact.is_empty():
 		return {}
 	if (
@@ -668,6 +680,7 @@ func _resolve_due_flock_compact(completed_day: int) -> Dictionary:
 
 
 func flock_relations_snapshot() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var published_cases: Array[Dictionary] = []
 	for case_record in sim.flock_relations_open_cases:
 		published_cases.append(_flock_relations_public_case(case_record))
@@ -740,6 +753,7 @@ func _flock_relations_evidence_summary(evidence: Dictionary) -> String:
 
 
 func _flock_relations_case_index(case_id: int) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	for index in sim.flock_relations_open_cases.size():
 		if int(sim.flock_relations_open_cases[index].get("case_id", -1)) == case_id:
 			return index
@@ -761,6 +775,7 @@ func _flock_relations_action_cost_cents(action_id: StringName, severity: int) ->
 
 
 func flock_relations_resolution_preflight(case_id: int, action_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var known_action := DepartmentSimulation.FLOCK_RELATIONS_ACTION_DEFINITIONS.has(action_id)
 	var definition := (
 		DepartmentSimulation.FLOCK_RELATIONS_ACTION_DEFINITIONS[action_id] as Dictionary
@@ -844,6 +859,7 @@ func flock_relations_resolution_preflight(case_id: int, action_id: StringName) -
 
 
 func resolve_flock_relations_case(case_id: int, action_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var preflight := flock_relations_resolution_preflight(case_id, action_id)
 	if not bool(preflight.get("can_resolve", false)):
 		var rejection := preflight.duplicate(true)
@@ -965,6 +981,7 @@ func resolve_flock_relations_case(case_id: int, action_id: StringName) -> Dictio
 
 
 func _flock_relations_case_risk(worker: ChickenState) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var risk := roundi(
 		worker.grievance * 2.0
 		+ worker.stress
@@ -979,6 +996,7 @@ func _flock_relations_case_risk(worker: ChickenState) -> int:
 
 
 func _recent_management_innovation_allocation(completed_day: int) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.last_credit_allocation.is_empty():
 		return false
 	var allocation_day := int(sim.last_credit_allocation.get("day", 0))
@@ -990,6 +1008,7 @@ func _recent_management_innovation_allocation(completed_day: int) -> bool:
 
 
 func _flock_relations_case_type(worker: ChickenState, completed_day: int) -> StringName:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.wage_arrears_cents > 0:
 		return &"pay_dispute"
 	if sim.facility_level(DepartmentSimulation.IT_COOP_ID) > 0 and sim.compliance < 60.0:
@@ -1027,6 +1046,7 @@ func _flock_relations_case_severity(risk_score: int) -> int:
 
 
 func _worker_has_open_flock_relations_case(worker_id: int) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	for case_record in sim.flock_relations_open_cases:
 		if int(case_record.get("worker_id", -1)) == worker_id:
 			return true
@@ -1034,6 +1054,7 @@ func _worker_has_open_flock_relations_case(worker_id: int) -> bool:
 
 
 func _file_flock_relations_case_after_shift(completed_day: int) -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var filings: Array[Dictionary] = []
 	if (
 		sim.facility_level(DepartmentSimulation.FLOCK_RELATIONS_OFFICE_ID) <= 0
@@ -1092,6 +1113,7 @@ func _file_flock_relations_case_after_shift(completed_day: int) -> Array[Diction
 
 
 func _apply_flock_relations_carry_penalties(completed_day: int) -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var effects: Array[Dictionary] = []
 	for case_record in sim.flock_relations_open_cases:
 		if (

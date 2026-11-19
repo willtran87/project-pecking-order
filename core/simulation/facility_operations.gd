@@ -8,15 +8,13 @@ extends RefCounted
 ## Weak back-reference: the simulation owns this component, so a strong
 ## reference here would form a RefCounted cycle and leak both objects.
 var _sim_ref: WeakRef
-var sim: DepartmentSimulation:
-	get:
-		return _sim_ref.get_ref() as DepartmentSimulation
 
 
 func _init(owner_node: DepartmentSimulation) -> void:
 	_sim_ref = weakref(owner_node)
 
 func _ensure_manager_posts_for_office_level() -> void:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var authorized_count := clampi(sim.facility_level(DepartmentSimulation.ROOSTER_OPERATIONS_OFFICE_ID) + 1, 1, 4)
 	while sim.manager_roster.size() < authorized_count:
 		var slot_index := sim.manager_roster.size()
@@ -26,12 +24,14 @@ func _ensure_manager_posts_for_office_level() -> void:
 
 
 func facility_level(facility_id: StringName) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.FACILITY_DEFINITIONS.has(facility_id):
 		return -1
 	return int(sim.owned_facilities.get(facility_id, 0))
 
 
 func has_facility(facility_id: StringName) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim._market_desk.has_facility(facility_id)
 
 
@@ -40,6 +40,7 @@ func _claim_capacity_for_facilities_and_campus(
 	campus_state: Dictionary,
 	portfolio_bonus: int = 0,
 ) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
 		sim._claim_capacity_for_facilities(facilities)
 		+ sim._campus_claim_capacity_bonus_for_state(campus_state)
@@ -78,6 +79,7 @@ func _facility_unlock_day_for_level(definition: Dictionary, target_level: int) -
 
 
 func _qualified_active_worker_count(minimum_career_level: int) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var count := 0
 	for worker in sim.workers:
 		if worker.employed and worker.career_level() >= minimum_career_level:
@@ -90,6 +92,7 @@ func _farmgate_storage_capacity_for_level_and_campus(
 	campus_state: Dictionary,
 	portfolio_bonus_eggs: int = 0,
 ) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var base_capacity := sim._facility_level_schedule_value(
 		DepartmentSimulation.FARMGATE_DISPATCH_STORAGE_CAPACITY_EGGS,
 		farmgate_level,
@@ -106,6 +109,7 @@ func _farmgate_storage_capacity_for_level_and_campus(
 
 
 func facility_effects() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var crack_modifier := 0.0
 	var rework_speed_multiplier := 1.0
 	for facility_id in DepartmentSimulation.FACILITY_ORDER:
@@ -214,6 +218,7 @@ func facility_effects() -> Dictionary:
 
 
 func facility_catalog() -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var catalog: Array[Dictionary] = []
 	for facility_id in DepartmentSimulation.FACILITY_ORDER:
 		catalog.append(sim.facility_status(facility_id))
@@ -221,6 +226,7 @@ func facility_catalog() -> Array[Dictionary]:
 
 
 func facility_status(facility_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.FACILITY_DEFINITIONS.has(facility_id):
 		return {
 			"known": false,
@@ -1108,6 +1114,7 @@ func _campus_services_for_state(state: Dictionary) -> Dictionary:
 
 
 func _campus_service_owned_for_state(state: Dictionary, service_id: StringName) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var services := sim._campus_services_for_state(state)
 	return bool(services.get(String(service_id), services.get(service_id, false)))
 
@@ -1145,6 +1152,7 @@ func _campus_farmgate_capacity_bonus_for_state(
 	state: Dictionary,
 	farmgate_level: int,
 ) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
 		DepartmentSimulation.CAMPUS_FARMGATE_STORAGE_BONUS_EGGS
 		if farmgate_level > 0 and sim._campus_cold_chain_active_for_state(state) else
@@ -1165,10 +1173,12 @@ func _campus_daily_cost_for_state(state: Dictionary) -> int:
 
 
 func current_daily_campus_cost_cents() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim._campus_daily_cost_for_state(sim.campus_expansion_state)
 
 
 func _campus_access_gate_met() -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
 		sim.facility_level(DepartmentSimulation.FARMGATE_DISPATCH_DEPOT_ID) >= 1
 		or sim.farm_mutual_standing() >= DepartmentSimulation.CAMPUS_EXPANSION_STANDING_REQUIREMENT
@@ -1231,6 +1241,7 @@ func _campus_state_action_reason(
 	item_id: StringName,
 	socket_id: StringName,
 ) -> String:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim._campus_action_terms(action_id, item_id).is_empty():
 		return "This campus action is not on the authorized North Meadow schedule."
 	match action_id:
@@ -1273,6 +1284,7 @@ func _apply_campus_action_to_state(
 	item_id: StringName,
 	socket_id: StringName,
 ) -> void:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	match action_id:
 		&"purchase_parcel":
 			state["parcel_owned"] = true
@@ -1317,6 +1329,7 @@ func campus_expansion_action_quote(
 	item_id: StringName,
 	socket_id: StringName = &"",
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var terms := sim._campus_action_terms(action_id, item_id)
 	var state_reason := sim._campus_state_action_reason(
 		sim.campus_expansion_state,
@@ -1384,6 +1397,7 @@ func _authorize_campus_expansion_action(
 	item_id: StringName,
 	socket_id: StringName = &"",
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var quote := sim.campus_expansion_action_quote(action_id, item_id, socket_id)
 	if not bool(quote.get("can_authorize", false)):
 		return quote
@@ -1467,6 +1481,7 @@ func relocate_campus_module(module_id: StringName, socket_id: StringName) -> Dic
 
 
 func campus_expansion_snapshot() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var sockets: Array[Dictionary] = []
 	var placed_socket := StringName(String(sim.campus_expansion_state.get("pod_socket_id", "")))
 	var any_socket_can_place := false
@@ -1712,6 +1727,7 @@ func _campus_portfolio_context(
 	campus_state_override: Dictionary = {},
 	target_day: int = -1,
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var source_campus := sim.campus_expansion_state if campus_state_override.is_empty() else campus_state_override
 	var grid_active := (
 		bool(source_campus.get("parcel_owned", false))
@@ -1751,6 +1767,7 @@ func _campus_portfolio_context(
 
 
 func campus_portfolio_deed_quote(parcel_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var context := sim._campus_portfolio_context()
 	var quote: Dictionary = sim._campus_portfolio.quote_deed(parcel_id, context)
 	return _enriched_campus_portfolio_quote(
@@ -1761,6 +1778,7 @@ func campus_portfolio_deed_quote(parcel_id: StringName) -> Dictionary:
 
 
 func purchase_campus_portfolio_deed(parcel_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var quote := sim.campus_portfolio_deed_quote(parcel_id)
 	if not bool(quote.get("can_authorize", false)):
 		return quote
@@ -1783,6 +1801,7 @@ func purchase_campus_portfolio_deed(parcel_id: StringName) -> Dictionary:
 
 
 func campus_portfolio_project_quote(module_id: StringName, pad_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var context := sim._campus_portfolio_context()
 	var quote: Dictionary = sim._campus_portfolio.quote_project(module_id, pad_id, context)
 	return _enriched_campus_portfolio_quote(
@@ -1793,6 +1812,7 @@ func campus_portfolio_project_quote(module_id: StringName, pad_id: StringName) -
 
 
 func _campus_portfolio_finance_basis() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var protected := sim.protected_reserve_cents()
 	return {
 		"revenue_cents": sim.revenue_cents,
@@ -1806,6 +1826,7 @@ func _enriched_campus_portfolio_quote(
 	finance_basis: Dictionary,
 	kind: StringName,
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var quote := raw_quote.duplicate(true)
 	var cost := maxi(0, int(quote.get("cost_cents", 0)))
 	var added_daily := maxi(0, int(quote.get("added_daily_cost_cents", 0)))
@@ -1837,6 +1858,7 @@ func authorize_campus_portfolio_project(
 	module_id: StringName,
 	pad_id: StringName,
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var quote := sim.campus_portfolio_project_quote(module_id, pad_id)
 	if not bool(quote.get("can_authorize", false)):
 		return quote
@@ -1860,6 +1882,7 @@ func authorize_campus_portfolio_project(
 
 
 func assign_campus_portfolio_worker(module_id: StringName, worker_id: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not sim.staffing_planning_open():
 		return {
 			"accepted": false,
@@ -1897,6 +1920,7 @@ func assign_campus_portfolio_worker(module_id: StringName, worker_id: int) -> Di
 
 
 func unassign_campus_portfolio_worker(module_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not sim.staffing_planning_open():
 		return {
 			"accepted": false,
@@ -1925,6 +1949,7 @@ func unassign_campus_portfolio_worker(module_id: StringName) -> Dictionary:
 
 
 func _campus_portfolio_assignment_for_worker(worker_id: int) -> StringName:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	for module_id: StringName in DepartmentSimulation.CampusPortfolioStateScript.MODULE_ORDER:
 		var state_value: Variant = sim._campus_portfolio.modules.get(String(module_id), {})
 		if state_value is Dictionary and int((state_value as Dictionary).get("worker_id", -1)) == worker_id:
@@ -1933,6 +1958,7 @@ func _campus_portfolio_assignment_for_worker(worker_id: int) -> StringName:
 
 
 func _campus_portfolio_unassignment_capacity_reason(module_id: StringName) -> String:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if module_id == DepartmentSimulation.CampusPortfolioStateScript.COLLECTION_RAIL_HUB:
 		var capacity_without_rail := (
 			sim._claim_capacity_for_facilities_and_campus(sim.owned_facilities, sim.campus_expansion_state)
@@ -1958,6 +1984,7 @@ func _campus_portfolio_unassignment_capacity_reason(module_id: StringName) -> St
 
 
 func campus_portfolio_snapshot(north_projection: Dictionary = {}) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var context := sim._campus_portfolio_context()
 	var projection: Dictionary = sim._campus_portfolio.snapshot(context)
 	var finance_basis := _campus_portfolio_finance_basis()
@@ -2087,6 +2114,7 @@ func campus_portfolio_snapshot(north_projection: Dictionary = {}) -> Dictionary:
 
 
 func _facility_purchase_effect_copy(facility_id: StringName, level: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var definition := DepartmentSimulation.FACILITY_DEFINITIONS[facility_id] as Dictionary
 	return {
 		"benefits": (definition.get("benefits", []) as Array).duplicate(true),
@@ -2107,12 +2135,14 @@ func _facility_purchase_effect_copy(facility_id: StringName, level: int) -> Dict
 
 
 func facility_purchase_preflight(facility_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## A read-only receipt shared by the UI and the authoritative mutation. This
 	## keeps duplicate, gate, phase, and fund rejections completely atomic.
 	return sim.facility_status(facility_id)
 
 
 func purchase_facility(facility_id: StringName) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var preflight := sim.facility_purchase_preflight(facility_id)
 	if not bool(preflight.get("can_purchase", false)):
 		var rejection := preflight.duplicate(true)
@@ -2317,10 +2347,12 @@ func _facility_purchase_outcome(
 
 
 func daily_facility_expansion_cost_cents() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return maxi(0, sim.office_capacity - 4) * DepartmentSimulation.FACILITY_COST_PER_EXPANDED_SEAT_CENTS
 
 
 func current_daily_facility_maintenance_cents() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var maintenance_cents := 0
 	for facility_id in DepartmentSimulation.FACILITY_ORDER:
 		var definition := DepartmentSimulation.FACILITY_DEFINITIONS[facility_id] as Dictionary
@@ -2332,6 +2364,7 @@ func current_daily_facility_maintenance_cents() -> int:
 
 
 func current_daily_facility_cost_cents() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
 		sim.daily_facility_expansion_cost_cents()
 		+ sim.current_daily_facility_maintenance_cents()
@@ -2350,6 +2383,7 @@ func _is_integral_number(value: Variant) -> bool:
 
 
 func _facility_claim_speed_multiplier(worker: ChickenState) -> float:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if worker.current_claim == null or not worker.current_claim.is_rework:
 		return 1.0
 	return float(sim.facility_effects().get("rework_speed_multiplier", 1.0))
@@ -2365,6 +2399,7 @@ func _store_farmgate_lot_with_campus_capacity(
 	farmgate_level: int,
 	shelf_shifts: int,
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var effective_capacity := sim._farmgate_storage_capacity_eggs()
 	return sim._farmgate_dispatch.store_lot(
 		claim_id,

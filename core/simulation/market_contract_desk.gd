@@ -8,15 +8,13 @@ extends RefCounted
 ## Weak back-reference: the simulation owns this component, so a strong
 ## reference here would form a RefCounted cycle and leak both objects.
 var _sim_ref: WeakRef
-var sim: DepartmentSimulation:
-	get:
-		return _sim_ref.get_ref() as DepartmentSimulation
 
 
 func _init(owner_node: DepartmentSimulation) -> void:
 	_sim_ref = weakref(owner_node)
 
 func has_facility(facility_id: StringName) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim.facility_level(facility_id) > 0
 
 
@@ -35,6 +33,7 @@ func _service_coop_premium_bonus_cents(base_premium_cents: int, level: int) -> i
 
 
 func _basis_point_delta_cents(authored_cents: int, basis_points: int) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim._signed_half_up_ratio(maxi(0, authored_cents) * basis_points, 10_000)
 
 
@@ -60,6 +59,7 @@ func _neutral_market_season_for_day(target_day: int) -> Dictionary:
 
 
 func market_season_for_day(target_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if target_day < DepartmentSimulation.MARKET_SEASON_FIRST_DAY:
 		return sim._neutral_market_season_for_day(target_day)
 	var day_offset := target_day - DepartmentSimulation.MARKET_SEASON_FIRST_DAY
@@ -91,6 +91,7 @@ func market_season_for_day(target_day: int) -> Dictionary:
 
 
 func market_contract_clause_catalog() -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var catalog: Array[Dictionary] = []
 	var room_owned := sim.has_facility(DepartmentSimulation.FARM_MUTUAL_NEGOTIATION_ROOM_ID)
 	for clause_id in DepartmentSimulation.MARKET_CONTRACT_CLAUSE_ORDER:
@@ -110,6 +111,7 @@ func market_contract_clause_catalog() -> Array[Dictionary]:
 
 
 func market_pricing_profile_catalog() -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var catalog: Array[Dictionary] = []
 	var reach := sim.market_reach_points()
 	var satisfaction := sim.claimant_satisfaction_score()
@@ -161,6 +163,7 @@ func _market_pricing_availability_reason(
 
 
 func _market_pricing_outcome_count(pricing_id: StringName, success: bool) -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return maxi(0, int(sim.market_pricing_outcomes.get(
 		"%s_%s" % [String(pricing_id), "success" if success else "breach"],
 		0,
@@ -168,6 +171,7 @@ func _market_pricing_outcome_count(pricing_id: StringName, success: bool) -> int
 
 
 func market_reach_points() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim._market_reach_for_outcomes(sim.market_pricing_outcomes)
 
 
@@ -187,10 +191,12 @@ func _market_reach_for_outcomes(outcomes: Dictionary) -> int:
 
 
 func mutual_market_share_basis_points() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return clampi(3500 + sim.market_reach_points() * 250, 2500, 8500)
 
 
 func market_pricing_status() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return {
 		"reach_points": sim.market_reach_points(),
 		"claimant_satisfaction": sim.claimant_satisfaction_score(),
@@ -204,10 +210,12 @@ func market_pricing_status() -> Dictionary:
 
 
 func market_contract_planning_open() -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim.day >= DepartmentSimulation.CONTRACT_BOARD_UNLOCK_DAY and sim.staffing_planning_open()
 
 
 func _market_contract_offer_on_cooldown(offer_id: StringName) -> bool:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return (
 		StringName(sim.last_market_contract_result.get("status", &"")) == &"breached"
 		and StringName(sim.last_market_contract_result.get("offer_id", &"")) == offer_id
@@ -216,6 +224,7 @@ func _market_contract_offer_on_cooldown(offer_id: StringName) -> bool:
 
 
 func market_contract_offer_catalog() -> Array[Dictionary]:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var offers: Array[Dictionary] = []
 	if sim.day < DepartmentSimulation.CONTRACT_BOARD_UNLOCK_DAY:
 		return offers
@@ -226,6 +235,7 @@ func market_contract_offer_catalog() -> Array[Dictionary]:
 
 
 func _market_contract_preflight_basis() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	# One synchronous publication has one exact set of eligibility inputs. Share
 	# it only within that call, never across ticks or public signing requests.
 	var capacity := sim.current_claim_capacity()
@@ -254,6 +264,7 @@ func _market_contract_offer_preflight(
 	attach_pricing_options: bool,
 	basis: Dictionary = {},
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var live_basis := basis if not basis.is_empty() else _market_contract_preflight_basis()
 	var clause_known := DepartmentSimulation.MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id)
 	var pricing_known := DepartmentSimulation.MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id)
@@ -404,6 +415,7 @@ func _market_contract_pricing_options(
 
 
 func market_contract_board_status() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	var unlocked := sim.day >= DepartmentSimulation.CONTRACT_BOARD_UNLOCK_DAY
 	var standing := sim.farm_mutual_standing_status()
 	var accreditation := sim.farm_mutual_service_coop_status()
@@ -470,6 +482,7 @@ func sign_market_contract(
 	clause_id: StringName = &"standard_terms",
 	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## Signing is a reserve transaction, not income or expense. The exact folders
 	## and claim IDs are authored now, then released at their disclosed times
 	## without opening a modal or stopping the production clock.
@@ -561,6 +574,7 @@ func sign_market_contract(
 
 
 func decline_market_contract() -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## Outside work is optional, but skipping it must be a visible authored choice
 	## rather than an accidental close button or a silent failure to sign.
 	var reason := ""
@@ -601,6 +615,7 @@ func decline_market_contract() -> Dictionary:
 
 
 func _legacy_market_contract_offer_for_day(offer_id: StringName, target_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.MARKET_CONTRACT_DEFINITIONS.has(offer_id):
 		return {}
 	var definition := DepartmentSimulation.MARKET_CONTRACT_DEFINITIONS[offer_id] as Dictionary
@@ -714,6 +729,7 @@ func _legacy_market_contract_offer_for_day(offer_id: StringName, target_day: int
 
 
 func _market_contract_offer_for_day(offer_id: StringName, target_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	return sim._market_contract_quote_for_day(
 		offer_id,
 		target_day,
@@ -732,6 +748,7 @@ func _market_contract_quote_for_day(
 	force_neutral_terms: bool = false,
 	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.MARKET_CONTRACT_DEFINITIONS.has(offer_id) or not DepartmentSimulation.MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id) or not DepartmentSimulation.MARKET_PRICING_PROFILE_DEFINITIONS.has(pricing_id):
 		return {}
 	var context := [target_day, clampi(service_coop_level, 0, 3), clampi(negotiation_room_level, 0, 1), force_neutral_terms, sim.market_reach_points(), sim.claimant_satisfaction_score()]
@@ -760,6 +777,7 @@ func _build_market_contract_quote_for_day(
 	force_neutral_terms: bool = false,
 	pricing_id: StringName = &"mutual_rate",
 ) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if not DepartmentSimulation.MARKET_CONTRACT_DEFINITIONS.has(offer_id):
 		return {}
 	if not DepartmentSimulation.MARKET_CONTRACT_CLAUSE_DEFINITIONS.has(clause_id):
@@ -1126,6 +1144,7 @@ func _contract_lane_mix_label(mix: Dictionary) -> String:
 
 
 func _pending_market_contract_claim_count() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_market_contract.is_empty() or int(sim.active_market_contract.get("target_day", 0)) != sim.day:
 		return 0
 	var count := 0
@@ -1137,6 +1156,7 @@ func _pending_market_contract_claim_count() -> int:
 
 
 func _release_due_market_contract_claims() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if sim.active_market_contract.is_empty() or int(sim.active_market_contract.get("target_day", 0)) != sim.day:
 		return 0
 	var scheduled_claims := sim.active_market_contract.get("scheduled_claims", []) as Array
@@ -1222,6 +1242,7 @@ func _release_due_market_contract_claims() -> int:
 
 
 func _record_market_contract_completion(claim: ClaimState, quality: StringName) -> void:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if claim == null or sim.active_market_contract.is_empty():
 		return
 	if int(sim.active_market_contract.get("target_day", 0)) != sim.day:
@@ -1284,6 +1305,7 @@ func _record_market_contract_completion(claim: ClaimState, quality: StringName) 
 
 
 func _settle_market_contract(completed_day: int) -> Dictionary:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if (
 		sim.active_market_contract.is_empty()
 		or int(sim.active_market_contract.get("target_day", 0)) != completed_day
@@ -1533,6 +1555,7 @@ func _settle_market_contract(completed_day: int) -> Dictionary:
 
 
 func _finalize_market_contract_schedule_evidence() -> void:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## Settlement is terminal. Any authored folder that never entered intake becomes
 	## an explicit rejection instead of leaving an ambiguous third schedule state.
 	var schedules := sim.active_market_contract.get("scheduled_claims", []) as Array
@@ -1550,6 +1573,7 @@ func _finalize_market_contract_schedule_evidence() -> void:
 
 
 func current_market_contract_reserve_cents() -> int:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	## A signed binder never charges its breach clause up front. The possible
 	## charge is nevertheless protected from discretionary spending until the
 	## target shift settles, so failure cannot create money or erase payroll.
@@ -1561,6 +1585,7 @@ func current_market_contract_reserve_cents() -> int:
 
 
 func _apply_market_contract_claim_snapshot(claim_snapshot: Dictionary) -> void:
+	var sim: DepartmentSimulation = _sim_ref.get_ref()
 	if claim_snapshot.is_empty() or sim.active_market_contract.is_empty():
 		return
 	var claim_id := int(claim_snapshot.get("id", -1))
