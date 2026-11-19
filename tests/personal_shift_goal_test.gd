@@ -52,6 +52,8 @@ func _run() -> void:
 	_check(Goal.offer({"day": 2, "quota_target": 10, "eggs": 14}).target == 15, "clean successful shifts must offer one more egg", failures)
 	_check(Goal.progress(goal, {"eggs_today": 4, "quota_target": 10, "cracked_today": 1}) == "GOAL 4/10 · CRACKS 1/1", "live progress must use simulation facts", failures)
 	var office := Office.new()
+	# Exercises later-shift layers (PLAN / Flock Ties) on a fresh shift-1 file.
+	office.progressive_feature_introduction = false
 	var store := MemoryStore.new()
 	office.set("_campaign_store", store)
 	office.set("_allow_automated_campaign_saves", true)

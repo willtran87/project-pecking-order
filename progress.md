@@ -1,5 +1,18 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-11-19 - Review follow-up: scope, satire, architecture, hygiene
+
+- **Progressive feature introduction** (`core/experience/feature_introduction.gd`). Probation shift 1 is the core loop only: route, Priority Peck, eggs, incidents and the closing credit memo. Shift 2 adds PLAN with Fast/Safe/Flock and the manager intervention. Shift 3 adds the remaining playbook kinds, Career Workshop, Flock Ties, Feed Party, overtime and the Ops/Capital/Records Flockwatch pages. This is presentation only (simulation rules are unchanged), Senior Roost is ungated, and `Office.progressive_feature_introduction = false` opts out. The shift-planning briefing names what is new.
+- **Complicity ledger** (`core/experience/complicity_ledger.gd`, `DepartmentSimulation.complicity_ledger_snapshot()`). Derived without a save field from incident tones (danger/pressure = company, care = flock), credit memo styles, petition responses and the restructuring dossier (weighted double). Incident cards name the witness hen who pays for or is covered by each response, and the personal consequence is now meaningful (company: trust -6, grievance +6, stress +6, morale -4; flock: trust +5, grievance -4, stress -5, morale +3). Closing credit memos show the running tally, and the final review shows the verdict (COMPANY BIRD / FLOCK FIRST / BOTH LEDGERS) plus the recent choices that took a side.
+- **Architecture.** `office.gd` went from 30.5k to about 19.7k lines and `department_simulation.gd` from 27.3k to about 14.2k, via RefCounted components:
+  - office: `office_web_bridge`, `office_environment_builder`, `office_review_presenter`, `office_first_clutch_coach`, `office_pulse_presenter`, `office_decision_presenter`, `office_guidance_presenter`
+  - simulation: `simulation_save_codec`, `market_contract_desk`, `facility_operations`, `playbook_authority`, `flock_relations_desk`
+  - Externally used methods keep signature-identical delegators. Calls to delegated methods route through the owner so subclass overrides still dispatch.
+  - Simulation components hold a WeakRef to avoid RefCounted cycles.
+  - Members read across components carry explicit types; cross-class `:=` inference needs them.
+- **Hygiene.** 35 superseded pass write-ups and pre-2026-09-13 progress entries moved to `docs/archive/`. `*~RF*.TMP` is ignored.
+- **Baseline before this work:** 29 of 296 tests were already failing on the checkpointed in-progress tree (listed in the session report). Several of them fail with nondeterministic messages between runs.
+
 ## 2026-09-26 - Eight-area quality implementation
 
 - Working through the approved A-grade action list. Existing room identity, work/need silhouettes, physical upgrade reveals, first-route delivery, strategy tradeoffs, recovery and campaign persistence are retained and will be checked with their existing acceptance suites. Human comprehension/fun, real assistive-technology use and representative physical device acceptance require participants/devices; their gates remain open.

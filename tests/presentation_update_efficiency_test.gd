@@ -43,6 +43,8 @@ func _run() -> void:
 
 	root.size = Vector2i(1280, 720)
 	var office := Office.new()
+	# Exercises later-shift layers (PLAN / Flock Ties) on a fresh shift-1 file.
+	office.progressive_feature_introduction = false
 	root.add_child(office)
 	for _frame in 24:
 		await process_frame

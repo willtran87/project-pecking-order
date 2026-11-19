@@ -8,6 +8,8 @@ func _init() -> void:
 func _run() -> void:
 	var failures: Array[String] = []
 	var office := Office.new()
+	# Exercises later-shift layers (PLAN / Flock Ties) on a fresh shift-1 file.
+	office.progressive_feature_introduction = false
 	root.add_child(office)
 	await process_frame
 	await process_frame

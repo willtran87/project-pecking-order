@@ -251,17 +251,19 @@ func _run() -> void:
 	)
 
 	_stage = "checking post-orientation relevance"
-	# Emit the same semantic intent as the optional coach's Skip action. Normal
-	# mode should immediately expose the two everyday management filing domains.
+	# Emit the same semantic intent as the optional coach's Skip action. Skipping
+	# the coach retires orientation but does not jump the probation feature
+	# schedule: Operations and Capital are shift-3 layers, still reachable by a
+	# deliberate deep link.
 	routing_ui.first_clutch_skip_requested.emit()
 	await process_frame
 	await process_frame
 	clutch = office.first_clutch_snapshot()
 	_check(bool(clutch.get("dismissed", false)), "Skip should retire First Clutch without changing campaign features", failures)
 	_check(
-		navigation.is_page_available(FlockwatchNavigation.PAGE_OPERATIONS)
-		and navigation.is_page_available(FlockwatchNavigation.PAGE_CAPITAL),
-		"post-orientation Flockwatch should reveal Operations and Capital immediately",
+		not navigation.is_page_available(FlockwatchNavigation.PAGE_OPERATIONS)
+		and not navigation.is_page_available(FlockwatchNavigation.PAGE_CAPITAL),
+		"skipping orientation on shift 1 should keep Operations and Capital scheduled for later shifts",
 		failures,
 	)
 	_check(

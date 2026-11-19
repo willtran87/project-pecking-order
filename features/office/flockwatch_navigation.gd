@@ -138,6 +138,8 @@ var _interface_built := false
 var _first_clutch_active := false
 ## Pages the probation feature schedule has not introduced yet.
 var _scheduled_hidden_pages: Array[StringName] = []
+## Scheduled pages a direct deep link (equipment, Gallery offer...) has opened early.
+var _requested_pages: Dictionary = {}
 var _show_all_filings := false
 var _current_page_id: StringName = PAGE_TODAY
 var _registration_serial := 0
@@ -246,6 +248,7 @@ func is_showing_all_filings() -> bool:
 ## remain available, and the current snapshot is evaluated again immediately.
 func reset_discovered_pages() -> void:
 	_discovered_pages.clear()
+	_requested_pages.clear()
 	for page_id: StringName in BASE_PAGES:
 		_discovered_pages[page_id] = true
 	_recompute_availability()
@@ -386,6 +389,11 @@ func page_for_section(section_id: StringName) -> StringName:
 
 func open_page(page_id: StringName, grab_tab_focus: bool = false) -> bool:
 	_ensure_interface()
+	if not is_page_available(page_id) and page_id in _scheduled_hidden_pages:
+		# A deliberate deep link outranks the introduction schedule.
+		_requested_pages[page_id] = true
+		_discovered_pages[page_id] = true
+		_recompute_availability()
 	if not is_page_available(page_id):
 		return false
 	_activate_page(page_id, grab_tab_focus)
@@ -940,7 +948,7 @@ func _recompute_availability() -> void:
 			or _show_all_filings
 			or (
 				not _first_clutch_active
-				and page_id not in _scheduled_hidden_pages
+				and (page_id not in _scheduled_hidden_pages or _requested_pages.has(page_id))
 				and bool(_discovered_pages.get(page_id, false))
 			)
 		)
