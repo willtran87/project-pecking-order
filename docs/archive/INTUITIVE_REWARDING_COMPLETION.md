@@ -50,4 +50,4 @@ Rivals now remember the player's prior responses across shifts. Defending, count
 
 ## Evidence boundary
 
-Automated tests prove state ownership, persistence, exact tradeoffs, projection shape, responsive presentation, and browser delivery. They cannot prove that five unaided people understand or enjoy the game. The production diagnostic therefore remains `AWAITING REAL PARTICIPANTS`, `results_complete: false`, and `never_fabricate: true` until five consented sessions satisfy [FIRST_SHIFT_PLAYTEST_CARD.md](FIRST_SHIFT_PLAYTEST_CARD.md).
+Automated tests prove state ownership, persistence, exact tradeoffs, projection shape, responsive presentation, and browser delivery. They cannot prove that five unaided people understand or enjoy the game. The production diagnostic therefore remains `AWAITING REAL PARTICIPANTS`, `results_complete: false`, and `never_fabricate: true` until five consented sessions satisfy [FIRST_SHIFT_PLAYTEST_CARD.md](../FIRST_SHIFT_PLAYTEST_CARD.md).
