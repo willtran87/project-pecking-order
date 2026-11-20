@@ -4998,22 +4998,48 @@ func _projected_spendable_after_obligation_change_cents(
 	one_time_cost_cents: int,
 	added_daily_operating_cents: int
 ) -> int:
-	## Keep this value raw rather than clamping it to zero: a negative projection
-	## is the exact reserve deficit that must block the transaction atomically.
-	if (
-		farm_treasury_capital_frozen()
-		and (one_time_cost_cents > 0 or added_daily_operating_cents > 0)
-	):
-		return -maxi(1, one_time_cost_cents + added_daily_operating_cents)
+	return _projected_spendable_from_base_cents(
+		_projected_spendable_base_cents(),
+		one_time_cost_cents,
+		added_daily_operating_cents,
+	)
+
+
+## Change-independent part of the projection. A capital freeze is encoded as
+## null so batched readers (one base, many candidate changes) stay exact.
+func _projected_spendable_base_cents() -> Variant:
+	if farm_treasury_capital_frozen():
+		return null
 	return (
 		revenue_cents
-		- maxi(0, one_time_cost_cents)
 		- wage_arrears_cents
 		- current_daily_operating_cost_cents()
 		- current_market_contract_reserve_cents()
 		- farm_treasury_liabilities_cents()
-		- added_daily_operating_cents
 	)
+
+
+func _projected_spendable_from_base_cents(
+	base_cents: Variant,
+	one_time_cost_cents: int,
+	added_daily_operating_cents: int
+) -> int:
+	## Keep this value raw rather than clamping it to zero: a negative projection
+	## is the exact reserve deficit that must block the transaction atomically.
+	if base_cents == null:
+		if one_time_cost_cents > 0 or added_daily_operating_cents > 0:
+			return -maxi(1, one_time_cost_cents + added_daily_operating_cents)
+		# Frozen capital with no new obligation: the unfrozen formula applies.
+		return (
+			revenue_cents
+			- maxi(0, one_time_cost_cents)
+			- wage_arrears_cents
+			- current_daily_operating_cost_cents()
+			- current_market_contract_reserve_cents()
+			- farm_treasury_liabilities_cents()
+			- added_daily_operating_cents
+		)
+	return int(base_cents) - maxi(0, one_time_cost_cents) - added_daily_operating_cents
 
 
 func _required_spendable_for_obligation_change_cents(
@@ -12113,6 +12139,10 @@ func snapshot(
 	var vacant_desk := _lowest_vacant_desk()
 	var spendable := spendable_fund_cents()
 	var assist_delivery_status := peck_assist_delivery_status()
+	# Hire projections share one feed delta and one obligation base per read.
+	var hire_feed_delta_cents := _hire_feed_obligation_delta_cents()
+	var obligation_base_cents: Variant = _projected_spendable_base_cents()
+	var stage_started := cost_probe.begin()
 	for worker in workers:
 		var worker_snapshot := worker.snapshot(now)
 		var flock_bond := _worker_flock_bond_snapshot(worker)
@@ -12195,9 +12225,10 @@ func snapshot(
 			{}
 		)
 		var hire_added_daily_operating_cents := (
-			_hire_feed_obligation_delta_cents() + worker.daily_wage_cents()
+			hire_feed_delta_cents + worker.daily_wage_cents()
 		)
-		var hire_projected_spendable_cents := _projected_spendable_after_obligation_change_cents(
+		var hire_projected_spendable_cents := _projected_spendable_from_base_cents(
+			obligation_base_cents,
 			worker.hire_cost_cents(),
 			hire_added_daily_operating_cents,
 		)
@@ -12247,11 +12278,15 @@ func snapshot(
 		)
 		worker_snapshot["hen_intent"] = _worker_hen_intent_snapshot(worker_snapshot)
 		worker_snapshots.append(worker_snapshot)
+	cost_probe.finish(&"snapshot_workers", stage_started)
+	stage_started = cost_probe.begin()
 	var queue_snapshot := _queue_snapshot()
 	var pending_rework_items: Array[Dictionary] = []
 	for claim in _pending_rework:
 		pending_rework_items.append(claim.snapshot(now))
 
+	cost_probe.finish(&"snapshot_queue", stage_started)
+	stage_started = cost_probe.begin()
 	var runtime_projections := _snapshot_projection_bundle(
 		use_runtime_projection_cache,
 		trusted_runtime_projection_read_only,
@@ -12262,6 +12297,7 @@ func snapshot(
 		and _runtime_tick_snapshot_cache_day == day
 		and _runtime_tick_snapshot_cache_phase == shift_phase
 	):
+		cost_probe.finish(&"snapshot_projections", stage_started)
 		_runtime_tick_snapshot_cache_hits += 1
 		var refreshed := _refresh_runtime_tick_snapshot(
 			_runtime_tick_snapshot_cache,
@@ -12279,6 +12315,7 @@ func snapshot(
 	var campus_portfolio_projection := (
 		runtime_projections.get("campus_portfolio", {}) as Dictionary
 	)
+	var current_facility_effects := facility_effects()
 	var result := {
 		# Consumers can use this monotonic tick revision to recognize accelerated
 		# simulation updates without parsing the full presentation payload. It is
@@ -12363,7 +12400,7 @@ func snapshot(
 		"internship_program": internship_program_snapshot(),
 		"owned_facilities": owned_facilities.duplicate(),
 		"facility_catalog": runtime_projections.get("facility_catalog", []),
-		"facility_effects": facility_effects(),
+		"facility_effects": current_facility_effects,
 		"pinned_capital_plan_id": pinned_capital_plan_id,
 		"capital_plan": capital_plan_snapshot(),
 		"last_facility_purchase_receipt": last_facility_purchase_receipt.duplicate(true),
@@ -12451,14 +12488,14 @@ func snapshot(
 				_directive_crack_modifier
 				+ _incident_crack_modifier
 				+ _work_to_rule_crack_modifier()
-				+ float(facility_effects().get("crack_modifier", 0.0))
+				+ float(current_facility_effects.get("crack_modifier", 0.0))
 				+ _playbook_crack_modifier()
 			),
 			"playbook_work_multiplier": _playbook_work_multiplier(),
 			"playbook_crack_modifier": _playbook_crack_modifier(),
 			"playbook_strain_multiplier": _playbook_strain_multiplier(),
-			"facility_crack_modifier": float(facility_effects().get("crack_modifier", 0.0)),
-			"facility_rework_speed_multiplier": float(facility_effects().get("rework_speed_multiplier", 1.0)),
+			"facility_crack_modifier": float(current_facility_effects.get("crack_modifier", 0.0)),
+			"facility_rework_speed_multiplier": float(current_facility_effects.get("rework_speed_multiplier", 1.0)),
 			"work_to_rule_work_multiplier": _work_to_rule_work_multiplier(),
 			"work_to_rule_crack_modifier": _work_to_rule_crack_modifier(),
 			"golden_modifier": _incident_golden_modifier,
@@ -12527,6 +12564,7 @@ func _refresh_runtime_tick_snapshot(
 	# contracts, or the clock itself. The shallow copy keeps cached nested
 	# projections immutable while avoiding a second full economic graph build.
 	var result := base_snapshot.duplicate()
+	var current_facility_effects := facility_effects()
 	var active_staff := active_worker_count()
 	var spendable := spendable_fund_cents()
 	var assist_delivery_status := peck_assist_delivery_status()
@@ -12662,17 +12700,17 @@ func _refresh_runtime_tick_snapshot(
 			_directive_crack_modifier
 			+ _incident_crack_modifier
 			+ _work_to_rule_crack_modifier()
-			+ float(facility_effects().get("crack_modifier", 0.0))
+			+ float(current_facility_effects.get("crack_modifier", 0.0))
 			+ _playbook_crack_modifier()
 		),
 		"playbook_work_multiplier": _playbook_work_multiplier(),
 		"playbook_crack_modifier": _playbook_crack_modifier(),
 		"playbook_strain_multiplier": _playbook_strain_multiplier(),
 		"facility_crack_modifier": float(
-			facility_effects().get("crack_modifier", 0.0)
+			current_facility_effects.get("crack_modifier", 0.0)
 		),
 		"facility_rework_speed_multiplier": float(
-			facility_effects().get("rework_speed_multiplier", 1.0)
+			current_facility_effects.get("rework_speed_multiplier", 1.0)
 		),
 		"work_to_rule_work_multiplier": _work_to_rule_work_multiplier(),
 		"work_to_rule_crack_modifier": _work_to_rule_crack_modifier(),

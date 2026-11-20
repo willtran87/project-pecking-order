@@ -775,8 +775,14 @@ func _material(color: Color, roughness: float = 0.82, metallic: float = 0.0) -> 
 
 
 func _emissive_material(color: Color, energy: float) -> StandardMaterial3D:
+	# Cached like the other facility visuals: dynamic pips re-request these
+	# on every snapshot, and a fresh duplicate per pip churned materials.
+	var key := "emissive|%s|%.3f" % [color.to_html(true), energy]
+	if _material_cache.has(key):
+		return _material_cache[key]
 	var material := _material(color.darkened(0.16), 0.50).duplicate() as StandardMaterial3D
 	material.emission_enabled = true
 	material.emission = color
 	material.emission_energy_multiplier = energy
+	_material_cache[key] = material
 	return material

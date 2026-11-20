@@ -38,11 +38,17 @@ if (-not (Test-Path -LiteralPath $sdkRoot)) {
 }
 if ((git -C $sdkRoot rev-parse HEAD) -ne $sdkCommit) { throw 'Unexpected Emsdk revision' }
 
-git -C $godotRoot apply --reverse --check $patch 2>$null
-if ($LASTEXITCODE -ne 0) {
-    git -C $godotRoot apply --check $patch
+# --ignore-whitespace tolerates CRLF checkouts of the patch (core.autocrlf).
+# Windows PowerShell turns native stderr into a terminating error under
+# 'Stop', so the probe runs with 'Continue' and is judged by its exit code.
+$ErrorActionPreference = 'Continue'
+git -C $godotRoot apply --ignore-whitespace --reverse --check $patch 2>&1 | Out-Null
+$patchAlreadyApplied = $LASTEXITCODE -eq 0
+$ErrorActionPreference = 'Stop'
+if (-not $patchAlreadyApplied) {
+    git -C $godotRoot apply --ignore-whitespace --check $patch
     Check-NativeExit 'Patch validation'
-    git -C $godotRoot apply $patch
+    git -C $godotRoot apply --ignore-whitespace $patch
     Check-NativeExit 'Web shader patch'
 }
 uv pip install --target $pythonLib scons==4.10.1
@@ -56,7 +62,30 @@ Check-NativeExit 'Emscripten environment'
 $env:PYTHONPATH = $pythonLib
 Push-Location $godotRoot
 try {
-    python -m SCons platform=web target=template_release threads=no lto=thin "optimize=$Optimize" "-j$Jobs"
+    # Strip engine features the game never touches. Every flag below removes
+    # code only: 2D physics/navigation, 3D navigation, XR, networking, video,
+    # MP3, runtime glTF/FBX import, unused image codecs and the Jolt backend
+    # (the project uses the default GodotPhysics3D for hen picking rays).
+    # Rendering, text shaping (HarfBuzz/ICU), SVG, RegEx, Ogg/Vorbis and WebP
+    # stay. Remove a flag here before using that feature in game code.
+    $featureFlags = @(
+        'disable_physics_2d=yes', 'disable_navigation_2d=yes',
+        'disable_navigation_3d=yes', 'disable_xr=yes', 'graphite=no',
+        'module_basis_universal_enabled=no', 'module_bmp_enabled=no',
+        'module_camera_enabled=no', 'module_csg_enabled=no', 'module_dds_enabled=no',
+        'module_enet_enabled=no', 'module_fbx_enabled=no', 'module_gltf_enabled=no',
+        'module_gridmap_enabled=no', 'module_hdr_enabled=no',
+        'module_interactive_music_enabled=no', 'module_jolt_physics_enabled=no',
+        'module_jpg_enabled=no', 'module_jsonrpc_enabled=no', 'module_ktx_enabled=no',
+        'module_mbedtls_enabled=no', 'module_mobile_vr_enabled=no',
+        'module_mp3_enabled=no', 'module_msdfgen_enabled=no',
+        'module_multiplayer_enabled=no', 'module_noise_enabled=no',
+        'module_text_server_fb_enabled=no', 'module_tga_enabled=no',
+        'module_theora_enabled=no', 'module_upnp_enabled=no',
+        'module_visual_shader_enabled=no', 'module_webrtc_enabled=no',
+        'module_websocket_enabled=no', 'module_webxr_enabled=no'
+    )
+    python -m SCons platform=web target=template_release threads=no lto=thin "optimize=$Optimize" "-j$Jobs" @featureFlags
     Check-NativeExit 'Web runtime compilation'
     $template = Get-ChildItem -LiteralPath (Join-Path $godotRoot 'bin') -Filter 'godot.web.template_release*.zip'
     if (@($template).Count -ne 1) { throw 'Expected exactly one Web release template' }

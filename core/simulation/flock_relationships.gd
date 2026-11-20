@@ -19,6 +19,10 @@ var pairs: Dictionary = {}
 var daily_day := 0
 var daily_counts: Dictionary = {}
 var clean_workers: Array[int] = []
+## Pair snapshots are pure functions of pairs/daily_counts/clean_workers. Every
+## mutation path below clears this memo; callers receive deep copies so their
+## presentation enrichment can never leak into a later read.
+var _snapshot_memo: Dictionary = {}
 
 static func key(a: int, b: int) -> String:
 	return "%d:%d" % [mini(a, b), maxi(a, b)]
@@ -28,6 +32,7 @@ func begin_day(day: int) -> void:
 		daily_day = day
 		daily_counts.clear()
 		clean_workers.clear()
+		_snapshot_memo.clear()
 
 func record(a: int, b: int, kind: String, day: int) -> bool:
 	if a < 0 or b < 0 or a == b or not EVENTS.has(kind):
@@ -38,6 +43,7 @@ func record(a: int, b: int, kind: String, day: int) -> bool:
 	if daily_counts.has(event_key):
 		return false
 	daily_counts[event_key] = 1
+	_snapshot_memo.clear()
 	var row := pairs.get(pair_key, {"affinity": 0, "was_rivals": false, "friend_day": 0, "memories": []}) as Dictionary
 	row.affinity = clampi(int(row.affinity) + int(EVENTS[kind].delta), -50, 50)
 	row.was_rivals = bool(row.was_rivals) or int(row.affinity) <= -14
@@ -53,6 +59,7 @@ func record_clean(a: int, b: int, day: int) -> void:
 	begin_day(day)
 	if a not in clean_workers:
 		clean_workers.append(a)
+		_snapshot_memo.clear()
 	if b in clean_workers:
 		record(a, b, "shared_shift", day)
 
@@ -78,6 +85,15 @@ func pair_reward(a: int, b: int) -> Dictionary:
 	return {"eligible": xp > 0, "earned": earned, "progress": progress, "xp": xp, "relief": relief, "contest": contest}
 
 func snapshot(a: int, b: int) -> Dictionary:
+	var memo_key := Vector2i(a, b)
+	var cached: Variant = _snapshot_memo.get(memo_key)
+	if cached != null:
+		return (cached as Dictionary).duplicate(true)
+	var built := _build_snapshot(a, b)
+	_snapshot_memo[memo_key] = built
+	return built.duplicate(true)
+
+func _build_snapshot(a: int, b: int) -> Dictionary:
 	var row := pairs.get(key(a, b), {}) as Dictionary
 	var score := affinity(a, b)
 	var reconciled := bool(row.get("was_rivals", false)) and score >= 0
