@@ -1,5 +1,26 @@
 Original prompt: The performance visibility menu is blocking some of the screen, make the Claims Division language more farm-like, and add more office detail.
 
+## 2026-11-20 - Performance pass (download size and per-tick cost)
+
+- **Web runtime.** `tools/build_web_runtime.ps1` now disables the following engine parts. The game never uses any of them:
+  - 2D physics and 2D/3D navigation, XR, and networking (ENet, multiplayer, WebSocket, WebRTC, UPnP).
+  - Theora video, MP3, and runtime glTF/FBX loading.
+  - The BMP, DDS, HDR, JPG, KTX, TGA and Basis Universal image codecs.
+  - Camera, CSG, GridMap, noise, interactive music, JSON-RPC, mbedTLS, msdfgen, visual shaders, the fallback text server, Graphite, and the Jolt physics backend. The project uses the default GodotPhysics3D for hen picking rays.
+
+  Kept: rendering, HarfBuzz/ICU text shaping, SVG, RegEx, Ogg/Vorbis and WebP. Remove a flag before using its feature. `index.wasm` dropped from 39.5 MB to 30.0 MB (gzip 10.1 MB to 7.5 MB). The patch check now tolerates CRLF checkouts.
+- **Portraits.** The 16 NPC portraits now import as lossy WebP at quality 0.9, still capped at 512 px. In the pack they dropped from 2.73 MB to 0.80 MB, and `index.pck` from 12.2 MB to 10.3 MB. Compared with the previous lossless imports on visible pixels: 34–37 dB PSNR, with 99th-percentile channel error of at most 20/255. They are indistinguishable at display size; under a 2× zoom the feather texture is slightly softer. To revert, set `compress/mode=0` in their `.import` files.
+- **Per-tick snapshot.** Measured with `tools/profile_office_live_frames.gd`:
+  - `FlockRelationships` memoizes pair snapshots and clears the memo on every mutation. `relationship_rows` dropped from 2.4 ms to 0.24 ms.
+  - The hire-projection base and the feed delta are computed once per read instead of once per hen, and `facility_effects()` once per snapshot.
+  - The IT Coop and Rooster Operations visuals now cache emissive materials. They had been duplicating one material per pip on every refresh.
+  - Cached tick snapshot: 9.5 ms to 5.9 ms. Facility storytelling refresh: 5.7 ms to 4.3 ms.
+- **Not changed.** The Office `_process` loop measured about 0.1 ms per frame, and all idle per-frame nodes combined under 0.1 ms, so gating them was not worth the risk.
+- **Verification.**
+  - Full suite: 271 pass, the same set as before, with no new failures. `campaign_balance_playthrough` keeps the same 22 pre-existing failures.
+  - A/B on the same machine: 204 s on this branch vs 224 s on master.
+  - Startup shader manifest: 63/63/62 programs plus 7 gameplay programs (unchanged). The shader browser audit and the 15 frame-state/startup-shader unit tests pass, and a live browser check showed no console errors.
+
 ## 2026-11-19 - Review follow-up: scope, satire, architecture, hygiene
 
 - **Progressive feature introduction** (`core/experience/feature_introduction.gd`). Probation shift 1 is the core loop only: route, Priority Peck, eggs, incidents and the closing credit memo. Shift 2 adds PLAN with Fast/Safe/Flock and the manager intervention. Shift 3 adds the remaining playbook kinds, Career Workshop, Flock Ties, Feed Party, overtime and the Ops/Capital/Records Flockwatch pages. This is presentation only (simulation rules are unchanged), Senior Roost is ungated, and `Office.progressive_feature_introduction = false` opts out. The shift-planning briefing names what is new.
